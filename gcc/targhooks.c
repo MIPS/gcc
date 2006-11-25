@@ -148,6 +148,23 @@ default_shift_truncation_mask (enum machine_mode mode)
   return SHIFT_COUNT_TRUNCATED ? GET_MODE_BITSIZE (mode) - 1 : 0;
 }
 
+/* The default implementation of TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.  */
+
+unsigned int
+default_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return have_insn_for (DIV, mode) ? 3 : 2;
+}
+
+/* The default implementation of TARGET_MODE_REP_EXTENDED.  */
+
+int
+default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
+			   enum machine_mode mode_rep ATTRIBUTE_UNUSED)
+{
+  return UNKNOWN;
+}
+
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
@@ -262,9 +279,20 @@ default_scalar_mode_supported_p (enum machine_mode mode)
 	return true;
       return false;
 
+    case MODE_DECIMAL_FLOAT:
+      return false;
+
     default:
       gcc_unreachable ();
     }
+}
+
+/* True if the target supports decimal floating point.  */
+
+bool
+default_decimal_float_supported_p (void)
+{
+  return ENABLE_DECIMAL_FLOAT;
 }
 
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
@@ -316,6 +344,11 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+void 
+hook_void_bitmap (bitmap regs ATTRIBUTE_UNUSED)
+{
 }
 
 const char *
@@ -374,6 +407,8 @@ default_external_stack_protect_fail (void)
       TREE_NOTHROW (t) = 1;
       DECL_ARTIFICIAL (t) = 1;
       DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
 
       stack_chk_fail_decl = t;
     }
@@ -544,6 +579,20 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 	sri->t_icode = icode;
     }
   return class;
+}
+
+
+/* If STRICT_ALIGNMENT is true we use the container type for accessing
+   volatile bitfields.  This is generally the preferred behavior for memory
+   mapped peripherals on RISC architectures.
+   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
+   is typically used to avoid spurious page faults and extra memory accesses
+   due to unaligned accesses on CISC architectures.  */
+
+bool
+default_narrow_bitfield (void)
+{
+  return !STRICT_ALIGNMENT;
 }
 
 #include "gt-targhooks.h"

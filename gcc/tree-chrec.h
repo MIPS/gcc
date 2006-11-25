@@ -1,6 +1,6 @@
 /* Chains of recurrences.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
-   Contributed by Sebastian Pop <s.pop@laposte.net>
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
 
@@ -69,7 +69,6 @@ extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree, tree);
 extern tree chrec_convert_aggressive (tree, tree);
-extern tree chrec_type (tree);
 
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);
@@ -82,6 +81,7 @@ extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_merge (tree, tree);
 
 /* Observers.  */
+extern bool eq_evolutions_p (tree, tree);
 extern bool is_multivariate_chrec (tree);
 extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
@@ -104,6 +104,8 @@ build_polynomial_chrec (unsigned loop_num,
   if (left == chrec_dont_know
       || right == chrec_dont_know)
     return chrec_dont_know;
+
+  gcc_assert (TREE_TYPE (left) == TREE_TYPE (right));
 
   return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left), 
 		 build_int_cst (NULL_TREE, loop_num), left, right);
@@ -206,5 +208,17 @@ no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
   *res = !tree_is_chrec (scev);
   return true;
 }
+
+/* Returns the type of the chrec.  */
+
+static inline tree
+chrec_type (tree chrec)
+{
+  if (automatically_generated_chrec_p (chrec))
+    return NULL_TREE;
+
+  return TREE_TYPE (chrec);
+}
+
 
 #endif  /* GCC_TREE_CHREC_H  */

@@ -1,5 +1,5 @@
 /* URLClassLoader.java --  ClassLoader that loads classes from one or more URLs
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -305,9 +305,10 @@ public class URLClassLoader extends SecureClassLoader
 
     Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
 
-    public JarURLLoader(URLClassLoader classloader, URL baseURL)
+    public JarURLLoader(URLClassLoader classloader, URL baseURL,
+			URL absoluteUrl)
     {
-      super(classloader, baseURL);
+      super(classloader, baseURL, absoluteUrl);
 
       // Cache url prefix for all resources in this jar url.
       String external = baseURL.toExternalForm();
@@ -601,10 +602,10 @@ public class URLClassLoader extends SecureClassLoader
   {
     File dir; //the file for this file url
 
-    FileURLLoader(URLClassLoader classloader, URL url)
+    FileURLLoader(URLClassLoader classloader, URL url, URL absoluteUrl)
     {
-      super(classloader, url);
-      dir = new File(baseURL.getFile());
+      super(classloader, url, absoluteUrl);
+      dir = new File(absoluteUrl.getFile());
     }
 
     /** get resource with the name "name" in the file url */
@@ -885,13 +886,44 @@ public class URLClassLoader extends SecureClassLoader
             String file = newUrl.getFile();
             String protocol = newUrl.getProtocol();
 
+	    // If we have a file: URL, we want to make it absolute
+	    // here, before we decide whether it is really a jar.
+	    URL absoluteURL;
+	    if ("file".equals (protocol))
+	      {
+		File dir = new File(file);
+		URL absUrl;
+		try
+		  {
+		    absoluteURL = dir.getCanonicalFile().toURL();
+		  }
+		catch (IOException ignore)
+		  {
+		    try
+		      {
+			absoluteURL = dir.getAbsoluteFile().toURL();
+		      }
+		    catch (MalformedURLException _)
+		      {
+			// This really should not happen.
+			absoluteURL = newUrl;
+		      }
+		  }
+	      }
+	    else
+	      {
+		// This doesn't hurt, and it simplifies the logic a
+		// little.
+		absoluteURL = newUrl;
+	      }
+
             // Check that it is not a directory
 	    if ("gcjlib".equals(protocol))
 	      loader = new SoURLLoader(this, newUrl);
 	    else if (! (file.endsWith("/") || file.endsWith(File.separator)))
-              loader = new JarURLLoader(this, newUrl);
+              loader = new JarURLLoader(this, newUrl, absoluteURL);
             else if ("file".equals(protocol))
-              loader = new FileURLLoader(this, newUrl);
+	      loader = new FileURLLoader(this, newUrl, absoluteURL);
 	    else if ("core".equals(protocol))
 	      loader = new CoreURLLoader(this, newUrl);
             else
@@ -1046,7 +1078,12 @@ public class URLClassLoader extends SecureClassLoader
 	resource = loader.getResource(resourceName);
       }
     if (resource == null)
-      throw new ClassNotFoundException(className + " not found in " + this);
+      {
+	String message = className + " not found";
+	if (runtimeInitialized())
+	  message += " in " + this;
+	throw new ClassNotFoundException(message);
+      }
 
     // Try to read the class data, create the CodeSource, Package and
     // construct the class (and watch out for those nasty IOExceptions)
@@ -1405,4 +1442,11 @@ public class URLClassLoader extends SecureClassLoader
         return loader;
       }
   }
+
+  /**
+   * Tell whether runtime initialization is complete.
+   *
+   * @return whether runtime initialization is complete.
+   */
+  private static native boolean runtimeInitialized();  
 }

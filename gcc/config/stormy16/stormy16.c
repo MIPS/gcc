@@ -2334,9 +2334,9 @@ xstormy16_init_builtins (void)
 	  else
 	    args = tree_cons (NULL_TREE, arg, args);
 	}
-      lang_hooks.builtin_function (s16builtins[i].name,
-				   build_function_type (ret_type, args),
-				   i, BUILT_IN_MD, NULL, NULL);
+      add_builtin_function (s16builtins[i].name,
+			    build_function_type (ret_type, args),
+			    i, BUILT_IN_MD, NULL, NULL);
     }
 }
 
@@ -2652,6 +2652,10 @@ xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
+
+/* select_section doesn't handle .bss_below100.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK xstormy16_asm_output_mi_thunk

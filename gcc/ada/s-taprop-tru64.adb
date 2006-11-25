@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,12 +61,19 @@ with Interfaces.C;
 --  used for int
 --           size_t
 
-with System.Parameters;
---  used for Size_Type
+with System.Soft_Links;
+--  used for Abort_Defer/Undefer
+
+--  We use System.Soft_Links instead of System.Tasking.Initialization
+--  because the later is a higher level package that we shouldn't depend on.
+--  For example when using the restricted run time, it is replaced by
+--  System.Tasking.Restricted.Stages.
 
 with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
+
+   package SSL renames System.Soft_Links;
 
    use System.Tasking.Debug;
    use System.Tasking;
@@ -153,6 +160,10 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Handler (Sig : Signal);
    --  Signal handler used to implement asynchronous abort
+
+   function Get_Policy (Prio : System.Any_Priority) return Character;
+   pragma Import (C, Get_Policy, "__gnat_get_specific_dispatching");
+   --  Get priority specific dispatching policy
 
    -------------------
    -- Abort_Handler --
@@ -628,15 +639,25 @@ package body System.Task_Primitives.Operations is
       Result : Interfaces.C.int;
       Param  : aliased struct_sched_param;
 
+      Priority_Specific_Policy : constant Character := Get_Policy (Prio);
+      --  Upper case first character of the policy name corresponding to the
+      --  task as set by a Priority_Specific_Dispatching pragma.
+
    begin
       T.Common.Current_Priority := Prio;
       Param.sched_priority  := Interfaces.C.int (Underlying_Priorities (Prio));
 
-      if Time_Slice_Val > 0 then
+      if Dispatching_Policy = 'R'
+        or else Priority_Specific_Policy = 'R'
+        or else Time_Slice_Val > 0
+      then
          Result := pthread_setschedparam
                      (T.Common.LL.Thread, SCHED_RR, Param'Access);
 
-      elsif Dispatching_Policy = 'F' or else Time_Slice_Val = 0 then
+      elsif Dispatching_Policy = 'F'
+        or else Priority_Specific_Policy = 'F'
+        or else Time_Slice_Val = 0
+      then
          Result := pthread_setschedparam
                      (T.Common.LL.Thread, SCHED_FIFO, Param'Access);
 
@@ -777,23 +798,18 @@ package body System.Task_Primitives.Operations is
       Result              : Interfaces.C.int;
       Param               : aliased System.OS_Interface.struct_sched_param;
 
+      Priority_Specific_Policy : constant Character := Get_Policy (Priority);
+      --  Upper case first character of the policy name corresponding to the
+      --  task as set by a Priority_Specific_Dispatching pragma.
+
       use System.Task_Info;
 
    begin
-      if Stack_Size = Unspecified_Size then
-         Adjusted_Stack_Size := Interfaces.C.size_t (Default_Stack_Size);
-
-      elsif Stack_Size < Minimum_Stack_Size then
-         Adjusted_Stack_Size := Interfaces.C.size_t (Minimum_Stack_Size);
-
-      else
-         Adjusted_Stack_Size := Interfaces.C.size_t (Stack_Size);
-      end if;
-
       --  Account for the Yellow Zone (2 pages) and the guard page
       --  right above. See Hide_Yellow_Zone for the rationale.
 
-      Adjusted_Stack_Size := Adjusted_Stack_Size + 3 * Get_Page_Size;
+      Adjusted_Stack_Size :=
+        Interfaces.C.size_t (Stack_Size) + 3 * Get_Page_Size;
 
       Result := pthread_attr_init (Attributes'Access);
       pragma Assert (Result = 0 or else Result = ENOMEM);
@@ -817,11 +833,17 @@ package body System.Task_Primitives.Operations is
                   (Attributes'Access, Param'Access);
       pragma Assert (Result = 0);
 
-      if Time_Slice_Val > 0 then
+      if Dispatching_Policy = 'R'
+        or else Priority_Specific_Policy = 'R'
+        or else Time_Slice_Val > 0
+      then
          Result := pthread_attr_setschedpolicy
                      (Attributes'Access, System.OS_Interface.SCHED_RR);
 
-      elsif Dispatching_Policy = 'F' or else Time_Slice_Val = 0 then
+      elsif Dispatching_Policy = 'F'
+        or else Priority_Specific_Policy = 'F'
+        or else Time_Slice_Val = 0
+      then
          Result := pthread_attr_setschedpolicy
                      (Attributes'Access, System.OS_Interface.SCHED_FIFO);
 
@@ -1038,6 +1060,8 @@ package body System.Task_Primitives.Operations is
    procedure Set_False (S : in out Suspension_Object) is
       Result  : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := pthread_mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1045,6 +1069,8 @@ package body System.Task_Primitives.Operations is
 
       Result := pthread_mutex_unlock (S.L'Access);
       pragma Assert (Result = 0);
+
+      SSL.Abort_Undefer.all;
    end Set_False;
 
    --------------
@@ -1054,6 +1080,8 @@ package body System.Task_Primitives.Operations is
    procedure Set_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := pthread_mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1074,6 +1102,8 @@ package body System.Task_Primitives.Operations is
 
       Result := pthread_mutex_unlock (S.L'Access);
       pragma Assert (Result = 0);
+
+      SSL.Abort_Undefer.all;
    end Set_True;
 
    ------------------------
@@ -1083,6 +1113,8 @@ package body System.Task_Primitives.Operations is
    procedure Suspend_Until_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := pthread_mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1093,6 +1125,8 @@ package body System.Task_Primitives.Operations is
 
          Result := pthread_mutex_unlock (S.L'Access);
          pragma Assert (Result = 0);
+
+         SSL.Abort_Undefer.all;
 
          raise Program_Error;
       else
@@ -1106,10 +1140,12 @@ package body System.Task_Primitives.Operations is
             S.Waiting := True;
             Result := pthread_cond_wait (S.CV'Access, S.L'Access);
          end if;
-      end if;
 
-      Result := pthread_mutex_unlock (S.L'Access);
-      pragma Assert (Result = 0);
+         Result := pthread_mutex_unlock (S.L'Access);
+         pragma Assert (Result = 0);
+
+         SSL.Abort_Undefer.all;
+      end if;
    end Suspend_Until_True;
 
    ----------------

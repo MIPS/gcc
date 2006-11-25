@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -201,10 +201,8 @@ package Exp_Pakd is
 
    --       1-2-...-7-8  9-10-...15-16  17-18-19-20-x-x-x-x  x-x-x-x-x-x-x-x
 
-   --   and now, we do indeed have the same representation. The special flag
-   --   Is_Left_Justified_Modular is set in the modular type used as the
-   --   packed array type in the big-endian case to ensure that this required
-   --   left justification occurs.
+   --   and now, we do indeed have the same representation for the memory
+   --   version in the constrained and unconstrained cases.
 
    -----------------
    -- Subprograms --
@@ -237,8 +235,8 @@ package Exp_Pakd is
    procedure Expand_Packed_Element_Reference (N : Node_Id);
    --  N is an N_Indexed_Component node whose prefix is a packed array. In
    --  the bit packed case, this routine can only be used for the expression
-   --  evaluation case not the assignment case, since the result is not a
-   --  variable. See Expand_Bit_Packed_Element_Set for how he assignment case
+   --  evaluation case, not the assignment case, since the result is not a
+   --  variable. See Expand_Bit_Packed_Element_Set for how the assignment case
    --  is handled in the bit packed case. For the enumeration case, the result
    --  of this call is always a variable, so the call can be used for both the
    --  expression evaluation and assignment cases.

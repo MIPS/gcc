@@ -80,18 +80,20 @@ struct lang_flags
 
 static const struct lang_flags lang_defaults[] =
 { /*              c99 c++ xnum xid std  //   digr  */
-  /* GNUC89 */  { 0,  0,  1,   0,  0,   1,   1     },
-  /* GNUC99 */  { 1,  0,  1,   0,  0,   1,   1     },
-  /* STDC89 */  { 0,  0,  0,   0,  1,   0,   0     },
-  /* STDC94 */  { 0,  0,  0,   0,  1,   0,   1     },
-  /* STDC99 */  { 1,  0,  1,   0,  1,   1,   1     },
-  /* GNUCXX */  { 0,  1,  1,   0,  0,   1,   1     },
-  /* CXX98  */  { 0,  1,  1,   0,  1,   1,   1     },
-  /* ASM    */  { 0,  0,  1,   0,  0,   1,   0     }
-  /* xid should be 1 for GNUC99, STDC99, GNUCXX and CXX98 when no
-     longer experimental (when all uses of identifiers in the compiler
-     have been audited for correct handling of extended
-     identifiers).  */
+  /* GNUC89   */  { 0,  0,  1,   0,  0,   1,   1     },
+  /* GNUC99   */  { 1,  0,  1,   0,  0,   1,   1     },
+  /* STDC89   */  { 0,  0,  0,   0,  1,   0,   0     },
+  /* STDC94   */  { 0,  0,  0,   0,  1,   0,   1     },
+  /* STDC99   */  { 1,  0,  1,   0,  1,   1,   1     },
+  /* GNUCXX   */  { 0,  1,  1,   0,  0,   1,   1     },
+  /* CXX98    */  { 0,  1,  1,   0,  1,   1,   1     },
+  /* GNUCXX0X */  { 1,  1,  1,   0,  0,   1,   1     },
+  /* CXX0X    */  { 1,  1,  1,   0,  1,   1,   1     },
+  /* ASM      */  { 0,  0,  1,   0,  0,   1,   0     }
+  /* xid should be 1 for GNUC99, STDC99, GNUCXX, CXX98, GNUCXX0X, and
+     CXX0X when no longer experimental (when all uses of identifiers
+     in the compiler have been audited for correct handling of
+     extended identifiers).  */
 };
 
 /* Sets internal flags correctly for a given language.  */
@@ -301,6 +303,7 @@ struct builtin
 #define B(n, t)    { DSC(n), t }
 static const struct builtin builtin_array[] =
 {
+  B("__TIMESTAMP__",	 BT_TIMESTAMP),
   B("__TIME__",		 BT_TIME),
   B("__DATE__",		 BT_DATE),
   B("__FILE__",		 BT_FILE),
@@ -357,8 +360,14 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
 
   if (CPP_OPTION (pfile, traditional))
     n -= 2;
+  else if (! CPP_OPTION (pfile, stdc_0_in_system_headers)
+	   || CPP_OPTION (pfile, std))
+    {
+      n--;
+      _cpp_define_builtin (pfile, "__STDC__ 1");
+    }
 
-  for(b = builtin_array; b < builtin_array + n; b++)
+  for (b = builtin_array; b < builtin_array + n; b++)
     {
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;

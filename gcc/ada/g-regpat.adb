@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                                                                          --
 --               Copyright (C) 1986 by University of Toronto.               --
---                      Copyright (C) 1999-2005, AdaCore                    --
+--                      Copyright (C) 1999-2006, AdaCore                    --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -684,9 +684,12 @@ package body GNAT.Regpat is
          Operand : Pointer;
          Greedy  : Boolean := True)
       is
-         Dest   : constant Pointer := Emit_Ptr;
-         Old    : Pointer;
-         Size   : Pointer := 3;
+         Dest : constant Pointer := Emit_Ptr;
+         Old  : Pointer;
+         Size : Pointer := 3;
+
+         Discard : Pointer;
+         pragma Warnings (Off, Discard);
 
       begin
          --  If not greedy, we have to emit another opcode first
@@ -713,7 +716,7 @@ package body GNAT.Regpat is
             Link_Tail (Old, Old + 3);
          end if;
 
-         Old := Emit_Node (Op);
+         Discard := Emit_Node (Op);
          Emit_Ptr := Dest + Size;
       end Insert_Operator;
 
@@ -2364,21 +2367,23 @@ package body GNAT.Regpat is
    -----------
 
    procedure Match
-     (Self    : Pattern_Matcher;
-      Data    : String;
-      Matches : out Match_Array;
+     (Self       : Pattern_Matcher;
+      Data       : String;
+      Matches    : out Match_Array;
       Data_First : Integer := -1;
       Data_Last  : Positive := Positive'Last)
    is
-      Program   : Program_Data renames Self.Program; -- Shorter notation
+      pragma Assert (Matches'First = 0);
+
+      Program : Program_Data renames Self.Program; -- Shorter notation
 
       First_In_Data : constant Integer := Integer'Max (Data_First, Data'First);
       Last_In_Data  : constant Integer := Integer'Min (Data_Last, Data'Last);
 
       --  Global work variables
 
-      Input_Pos : Natural;          -- String-input pointer
-      BOL_Pos   : Natural;          -- Beginning of input, for ^ check
+      Input_Pos : Natural;           -- String-input pointer
+      BOL_Pos   : Natural;           -- Beginning of input, for ^ check
       Matched   : Boolean := False;  -- Until proven True
 
       Matches_Full : Match_Array (0 .. Natural'Max (Self.Paren_Count,
@@ -2878,12 +2883,14 @@ package body GNAT.Regpat is
             if Next_Char_Known then
                --  Last position to check
 
-               Last_Pos := Input_Pos + Max;
-
-               if Last_Pos > Last_In_Data
-                 or else Max = Natural'Last
-               then
+               if Max = Natural'Last then
                   Last_Pos := Last_In_Data;
+               else
+                  Last_Pos := Input_Pos + Max;
+
+                  if Last_Pos > Last_In_Data then
+                     Last_Pos := Last_In_Data;
+                  end if;
                end if;
 
                --  Look for the first possible opportunity

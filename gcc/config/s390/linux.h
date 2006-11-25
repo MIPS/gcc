@@ -1,5 +1,6 @@
 /* Definitions for Linux for S/390.
-   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -72,6 +73,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define MULTILIB_DEFAULTS { "m31" }
 #endif
 
+#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER64 "/lib/ld64.so.1"
+
 #undef  LINK_SPEC
 #define LINK_SPEC \
   "%{m31:-m elf_s390}%{m64:-m elf64_s390} \
@@ -81,8 +85,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
       %{!static: \
 	%{rdynamic:-export-dynamic} \
 	%{!dynamic-linker: \
-          %{m31:-dynamic-linker /lib/ld.so.1} \
-          %{m64:-dynamic-linker /lib/ld64.so.1}}}}"
+          %{m31:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "} \
+          %{m64:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}}}"
 
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
@@ -94,5 +98,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    s390x glibc provides it at 0x28(tp).  */
 #define TARGET_THREAD_SSP_OFFSET        (TARGET_64BIT ? 0x28 : 0x14)
 #endif
+
+/* Define if long doubles should be mangled as 'g'.  */
+#define TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
 
 #endif

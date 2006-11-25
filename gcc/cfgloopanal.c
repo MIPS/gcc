@@ -1,5 +1,5 @@
 /* Natural loop analysis code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -83,7 +83,9 @@ struct graph
 /* Dumps graph G into F.  */
 
 extern void dump_graph (FILE *, struct graph *);
-void dump_graph (FILE *f, struct graph *g)
+
+void
+dump_graph (FILE *f, struct graph *g)
 {
   int i;
   struct edge *e;
@@ -111,10 +113,10 @@ void dump_graph (FILE *f, struct graph *g)
 static struct graph *
 new_graph (int n_vertices)
 {
-  struct graph *g = xmalloc (sizeof (struct graph));
+  struct graph *g = XNEW (struct graph);
 
   g->n_vertices = n_vertices;
-  g->vertices = xcalloc (n_vertices, sizeof (struct vertex));
+  g->vertices = XCNEWVEC (struct vertex, n_vertices);
 
   return g;
 }
@@ -178,7 +180,7 @@ dfs (struct graph *g, int *qs, int nq, int *qt, bool forward)
 	    {
 	      if (qt)
 		qt[tick] = v;
- 	      g->vertices[v].post = tick++;
+	      g->vertices[v].post = tick++;
 
 	      if (!top)
 		break;
@@ -257,7 +259,7 @@ free_graph (struct graph *g)
    for parts of cycles that only "pass" through some loop -- i.e. for
    each cycle, we want to mark blocks that belong directly to innermost
    loop containing the whole cycle.
-   
+
    LOOPS is the loop tree.  */
 
 #define LOOP_REPR(LOOP) ((LOOP)->num + last_basic_block)
@@ -271,8 +273,9 @@ mark_irreducible_loops (struct loops *loops)
   edge_iterator ei;
   int i, src, dest;
   struct graph *g;
-  int *queue1 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
-  int *queue2 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  int num = loops ? loops->num : 1;
+  int *queue1 = XNEWVEC (int, last_basic_block + num);
+  int *queue2 = XNEWVEC (int, last_basic_block + num);
   int nq, depth;
   struct loop *cloop;
 
@@ -285,44 +288,47 @@ mark_irreducible_loops (struct loops *loops)
     }
 
   /* Create the edge lists.  */
-  g = new_graph (last_basic_block + loops->num);
+  g = new_graph (last_basic_block + num);
 
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     FOR_EACH_EDGE (e, ei, act->succs)
       {
-        /* Ignore edges to exit.  */
-        if (e->dest == EXIT_BLOCK_PTR)
+	/* Ignore edges to exit.  */
+	if (e->dest == EXIT_BLOCK_PTR)
 	  continue;
-
-	/* And latch edges.  */
-	if (e->dest->loop_father->header == e->dest
-	    && e->dest->loop_father->latch == act)
-	  continue;
-
-	/* Edges inside a single loop should be left where they are.  Edges
-	   to subloop headers should lead to representative of the subloop,
-	   but from the same place.
-
-	   Edges exiting loops should lead from representative
-	   of the son of nearest common ancestor of the loops in that
-	   act lays.  */
 
 	src = BB_REPR (act);
 	dest = BB_REPR (e->dest);
 
-	if (e->dest->loop_father->header == e->dest)
-	  dest = LOOP_REPR (e->dest->loop_father);
-
-	if (!flow_bb_inside_loop_p (act->loop_father, e->dest))
+	if (loops)
 	  {
-	    depth = find_common_loop (act->loop_father,
-				      e->dest->loop_father)->depth + 1;
-	    if (depth == act->loop_father->depth)
-	      cloop = act->loop_father;
-	    else
-	      cloop = act->loop_father->pred[depth];
+	    /* Ignore latch edges.  */
+	    if (e->dest->loop_father->header == e->dest
+		&& e->dest->loop_father->latch == act)
+	      continue;
 
-	    src = LOOP_REPR (cloop);
+	    /* Edges inside a single loop should be left where they are.  Edges
+	       to subloop headers should lead to representative of the subloop,
+	       but from the same place.
+
+	       Edges exiting loops should lead from representative
+	       of the son of nearest common ancestor of the loops in that
+	       act lays.  */
+
+	    if (e->dest->loop_father->header == e->dest)
+	      dest = LOOP_REPR (e->dest->loop_father);
+
+	    if (!flow_bb_inside_loop_p (act->loop_father, e->dest))
+	      {
+		depth = find_common_loop (act->loop_father,
+					  e->dest->loop_father)->depth + 1;
+		if (depth == act->loop_father->depth)
+		  cloop = act->loop_father;
+		else
+		  cloop = act->loop_father->pred[depth];
+
+		src = LOOP_REPR (cloop);
+	      }
 	  }
 
 	add_edge (g, src, dest, e);
@@ -337,7 +343,7 @@ mark_irreducible_loops (struct loops *loops)
     {
       queue1[nq++] = BB_REPR (act);
     }
-  for (i = 1; i < (int) loops->num; i++)
+  for (i = 1; i < num; i++)
     if (loops->parray[i])
       queue1[nq++] = LOOP_REPR (loops->parray[i]);
   dfs (g, queue1, nq, queue2, false);
@@ -352,7 +358,8 @@ mark_irreducible_loops (struct loops *loops)
   free (queue1);
   free (queue2);
 
-  loops->state |= LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
+  if (loops)
+    loops->state |= LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
 }
 
 /* Counts number of insns inside LOOP.  */
@@ -433,9 +440,9 @@ expected_loop_iterations (const struct loop *loop)
 	  count_in += e->count;
 
       if (count_in == 0)
-        expected = count_latch * 2;
+	expected = count_latch * 2;
       else
-        expected = (count_latch + count_in - 1) / count_in;
+	expected = (count_latch + count_in - 1) / count_in;
 
       /* Avoid overflows.  */
       return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
@@ -526,7 +533,7 @@ init_set_costs (void)
   target_res_regs = 3;
 
   /* These are really just heuristic values.  */
-  
+
   start_sequence ();
   emit_move_insn (reg1, reg2);
   seq = get_insns ();
@@ -572,7 +579,7 @@ mark_loop_exit_edges (struct loops *loops)
 {
   basic_block bb;
   edge e;
- 
+
   if (loops->num <= 1)
     return;
 

@@ -62,11 +62,6 @@ product_c10 (gfc_array_c10 * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  /* TODO:  It should be a front end job to correctly set the strides.  */
-
-  if (array->dim[0].stride == 0)
-    array->dim[0].stride = 1;
-
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   delta = array->dim[dim].stride;
 
@@ -103,9 +98,6 @@ product_c10 (gfc_array_c10 * const restrict retarray,
     }
   else
     {
-      if (retarray->dim[0].stride == 0)
-	retarray->dim[0].stride = 1;
-
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
 	runtime_error ("rank of return array incorrect");
     }
@@ -152,7 +144,7 @@ product_c10 (gfc_array_c10 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
           n++;
@@ -202,14 +194,6 @@ mproduct_c10 (gfc_array_c10 * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  /* TODO:  It should be a front end job to correctly set the strides.  */
-
-  if (array->dim[0].stride == 0)
-    array->dim[0].stride = 1;
-
-  if (mask->dim[0].stride == 0)
-    mask->dim[0].stride = 1;
-
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   if (len <= 0)
     return;
@@ -251,9 +235,6 @@ mproduct_c10 (gfc_array_c10 * const restrict retarray,
     }
   else
     {
-      if (retarray->dim[0].stride == 0)
-	retarray->dim[0].stride = 1;
-
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
 	runtime_error ("rank of return array incorrect");
     }
@@ -315,7 +296,7 @@ mproduct_c10 (gfc_array_c10 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           mbase -= mstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
@@ -335,6 +316,57 @@ mproduct_c10 (gfc_array_c10 * const restrict retarray,
             }
         }
     }
+}
+
+
+extern void sproduct_c10 (gfc_array_c10 * const restrict, 
+	gfc_array_c10 * const restrict, const index_type * const restrict,
+	GFC_LOGICAL_4 *);
+export_proto(sproduct_c10);
+
+void
+sproduct_c10 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict array, 
+	const index_type * const restrict pdim, 
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type n;
+  index_type dstride;
+  GFC_COMPLEX_10 *dest;
+
+  if (*mask)
+    {
+      product_c10 (retarray, array, pdim);
+      return;
+    }
+    rank = GFC_DESCRIPTOR_RANK (array);
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_COMPLEX_10) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+    }
+
+    dstride = retarray->dim[0].stride;
+    dest = retarray->data;
+
+    for (n = 0; n < rank; n++)
+      dest[n * dstride] = 1 ;
 }
 
 #endif

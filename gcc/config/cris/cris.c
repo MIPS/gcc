@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -468,7 +468,7 @@ cris_op_str (rtx x)
       break;
 
     case UMIN:
-      /* Used to control the sign/zero-extend character for the 'e' modifier.
+      /* Used to control the sign/zero-extend character for the 'E' modifier.
 	 BOUND has none.  */
       cris_output_insn_is_bound = 1;
       return "bound";
@@ -872,6 +872,13 @@ cris_print_operand (FILE *file, rtx x, int code)
       break;
 
     case 'e':
+      /* Like 'E', but ignore state set by 'x'.  FIXME: Use code
+	 iterators ("code macros") and attributes in cris.md to avoid
+	 the need for %x and %E (and %e) and state passed between
+	 those modifiers.  */
+      cris_output_insn_is_bound = 0;
+      /* FALL THROUGH.  */
+    case 'E':
       /* Print 's' if operand is SIGN_EXTEND or 'u' if ZERO_EXTEND unless
 	 cris_output_insn_is_bound is nonzero.  */
       if (GET_CODE (operand) != SIGN_EXTEND
@@ -2353,12 +2360,31 @@ cris_split_movdx (rtx *operands)
 
           if (GET_CODE (addr) == POST_INC)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode,
-				      operand_subword (dest, 0, TRUE, mode),
-				      change_address (src, SImode, addr)));
-	      emit_insn (gen_rtx_SET (VOIDmode,
-				      operand_subword (dest, 1, TRUE, mode),
-				      change_address (src, SImode, addr)));
+	      rtx mem;
+	      rtx insn;
+
+	      /* Whenever we emit insns with post-incremented
+		 addresses ourselves, we must add a post-inc note
+		 manually.  */
+	      mem = change_address (src, SImode, addr);
+	      insn
+		= gen_rtx_SET (VOIDmode,
+			       operand_subword (dest, 0, TRUE, mode), mem);
+	      insn = emit_insn (insn);
+	      if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+		REG_NOTES (insn)
+		  = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				     REG_NOTES (insn));
+
+	      mem = change_address (src, SImode, addr);
+	      insn
+		= gen_rtx_SET (VOIDmode,
+			       operand_subword (dest, 1, TRUE, mode), mem);
+	      insn = emit_insn (insn);
+	      if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+		REG_NOTES (insn)
+		  = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				     REG_NOTES (insn));
 	    }
 	  else
 	    {
@@ -2399,12 +2425,31 @@ cris_split_movdx (rtx *operands)
 
       if (GET_CODE (addr) == POST_INC)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  change_address (dest, SImode, addr),
-				  operand_subword (src, 0, TRUE, mode)));
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  change_address (dest, SImode, addr),
-				  operand_subword (src, 1, TRUE, mode)));
+	  rtx mem;
+	  rtx insn;
+	  
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  mem = change_address (dest, SImode, addr);
+	  insn
+	    = gen_rtx_SET (VOIDmode,
+			   mem, operand_subword (src, 0, TRUE, mode));
+	  insn = emit_insn (insn);
+	  if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+	    REG_NOTES (insn)
+	      = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				 REG_NOTES (insn));
+
+	  mem = change_address (dest, SImode, addr);
+	  insn
+	    = gen_rtx_SET (VOIDmode,
+			   mem,
+			   operand_subword (src, 1, TRUE, mode));
+	  insn = emit_insn (insn);
+	  if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+	    REG_NOTES (insn)
+	      = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				 REG_NOTES (insn));
 	}
       else
 	{
@@ -2780,6 +2825,8 @@ cris_expand_epilogue (void)
        regno--)
     if (cris_reg_saved_in_regsave_area (regno, got_really_used))
       {
+	rtx insn;
+
 	if (argspace_offset)
 	  {
 	    /* There is an area for outgoing parameters located before
@@ -2795,12 +2842,19 @@ cris_expand_epilogue (void)
 	mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode,
 						     stack_pointer_rtx));
 	set_mem_alias_set (mem, get_frame_alias_set ());
-	emit_move_insn (gen_rtx_raw_REG (SImode, regno), mem);
+	insn = emit_move_insn (gen_rtx_raw_REG (SImode, regno), mem);
+
+	/* Whenever we emit insns with post-incremented addresses
+	   ourselves, we must add a post-inc note manually.  */
+	REG_NOTES (insn)
+	  = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
       }
 
   /* If we have any movem-restore, do it now.  */
   if (last_movem_reg != -1)
     {
+      rtx insn;
+
       if (argspace_offset)
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode,
@@ -2813,7 +2867,14 @@ cris_expand_epilogue (void)
       mem = gen_rtx_MEM (SImode,
 			 gen_rtx_POST_INC (SImode, stack_pointer_rtx));
       set_mem_alias_set (mem, get_frame_alias_set ());
-      emit_insn (cris_gen_movem_load (mem, GEN_INT (last_movem_reg + 1), 0));
+      insn
+	= emit_insn (cris_gen_movem_load (mem,
+					  GEN_INT (last_movem_reg + 1), 0));
+      /* Whenever we emit insns with post-incremented addresses
+	 ourselves, we must add a post-inc note manually.  */
+      if (side_effects_p (PATTERN (insn)))
+	REG_NOTES (insn)
+	  = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
     }
 
   /* If we don't clobber all of the allocated stack area (we've already
@@ -2829,13 +2890,20 @@ cris_expand_epilogue (void)
   /* Restore frame pointer if necessary.  */
   if (frame_pointer_needed)
     {
+      rtx insn;
+
       emit_insn (gen_cris_frame_deallocated_barrier ());
 
       emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
       mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode,
 						   stack_pointer_rtx));
       set_mem_alias_set (mem, get_frame_alias_set ());
-      emit_move_insn (frame_pointer_rtx, mem);
+      insn = emit_move_insn (frame_pointer_rtx, mem);
+
+      /* Whenever we emit insns with post-incremented addresses
+	 ourselves, we must add a post-inc note manually.  */
+      REG_NOTES (insn)
+	= alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
     }
   else if ((size + argspace_offset) != 0)
     {
@@ -2861,12 +2929,18 @@ cris_expand_epilogue (void)
       if (current_function_calls_eh_return)
 	{
 	  rtx mem;
+	  rtx insn;
 	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
 	  mem = gen_rtx_MEM (SImode,
 			     gen_rtx_POST_INC (SImode,
 					       stack_pointer_rtx));
 	  set_mem_alias_set (mem, get_frame_alias_set ());
-	  emit_move_insn (srpreg, mem);
+	  insn = emit_move_insn (srpreg, mem);
+
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  REG_NOTES (insn)
+	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 
 	  emit_insn (gen_addsi3 (stack_pointer_rtx,
 				 stack_pointer_rtx,
@@ -2889,11 +2963,18 @@ cris_expand_epilogue (void)
 	{
 	  rtx mem;
 	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
+	  rtx insn;
+
 	  mem = gen_rtx_MEM (SImode,
 			     gen_rtx_POST_INC (SImode,
 					       stack_pointer_rtx));
 	  set_mem_alias_set (mem, get_frame_alias_set ());
-	  emit_move_insn (srpreg, mem);
+	  insn = emit_move_insn (srpreg, mem);
+
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  REG_NOTES (insn)
+	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 	}
 
       emit_insn (gen_rtx_SET (VOIDmode,
@@ -3176,6 +3257,22 @@ cris_expand_pic_call_address (rtx *opp)
     }
 }
 
+/* Make sure operands are in the right order for an addsi3 insn as
+   generated by a define_split.  A MEM as the first operand isn't
+   recognized by addsi3 after reload.  OPERANDS contains the operands,
+   with the first at OPERANDS[N] and the second at OPERANDS[N+1].  */
+
+void
+cris_order_for_addsi3 (rtx *operands, int n)
+{
+  if (MEM_P (operands[n]))
+    {
+      rtx tem = operands[n];
+      operands[n] = operands[n + 1];
+      operands[n + 1] = tem;
+    }
+}
+
 /* Use from within code, from e.g. PRINT_OPERAND and
    PRINT_OPERAND_ADDRESS.  Macros used in output_addr_const need to emit
    different things depending on whether code operand or constant is
@@ -3365,7 +3462,7 @@ cris_md_asm_clobbers (tree outputs, tree inputs, tree in_clobbers)
 	 impossible constraints.  */
       if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
 		  'h') != NULL
-	  || decl_overlaps_hard_reg_set_p (val, mof_set))
+	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
 	return clobbers;
     }
 
@@ -3375,7 +3472,7 @@ cris_md_asm_clobbers (tree outputs, tree inputs, tree in_clobbers)
 
       if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
 		  'h') != NULL
-	  || decl_overlaps_hard_reg_set_p (val, mof_set))
+	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
 	return clobbers;
     }
 

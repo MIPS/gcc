@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Itypes;   use Itypes;
 with Lib;      use Lib;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
+with Opt;      use Opt;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
@@ -113,7 +114,7 @@ package body Exp_Aggr is
    --      aggregate
 
    procedure Convert_To_Assignments (N : Node_Id; Typ : Entity_Id);
-   --  N is an N_Aggregate of a N_Extension_Aggregate. Typ is the type of
+   --  N is an N_Aggregate or an N_Extension_Aggregate. Typ is the type of
    --  the aggregate. Transform the given aggregate into a sequence of
    --  assignments component per component.
 
@@ -124,7 +125,7 @@ package body Exp_Aggr is
       Flist                         : Node_Id   := Empty;
       Obj                           : Entity_Id := Empty;
       Is_Limited_Ancestor_Expansion : Boolean   := False) return List_Id;
-   --  N is an N_Aggregate or a N_Extension_Aggregate. Typ is the type of the
+   --  N is an N_Aggregate or an N_Extension_Aggregate. Typ is the type of the
    --  aggregate. Target is an expression containing the location on which the
    --  component by component assignments will take place. Returns the list of
    --  assignments plus all other adjustments needed for tagged and controlled
@@ -256,11 +257,17 @@ package body Exp_Aggr is
    function Make_OK_Assignment_Statement
      (Sloc       : Source_Ptr;
       Name       : Node_Id;
-      Expression : Node_Id) return Node_Id;
+      Expression : Node_Id;
+      Self_Ref   : Boolean := False) return Node_Id;
    --  This is like Make_Assignment_Statement, except that Assignment_OK
    --  is set in the left operand. All assignments built by this unit
    --  use this routine. This is needed to deal with assignments to
    --  initialized constants that are done in place.
+   --  If Self_Ref is true, the aggregate contains an access reference to the
+   --  enclosing type, obtained from a default initialization. The reference
+   --  as to be expanded into a reference to  the enclosing object, which is
+   --  obtained from the Name in the assignment. The value of Self_Ref is
+   --  inherited from the aggregate itself.
 
    function Packed_Array_Aggregate_Handled (N : Node_Id) return Boolean;
    --  Given an array aggregate, this function handles the case of a packed
@@ -850,7 +857,7 @@ package body Exp_Aggr is
             --  Ada 2005 (AI-287): Do nothing else in case of default
             --  initialized component.
 
-            if not Present (Expr) then
+            if No (Expr) then
                return Lis;
 
             elsif Nkind (Parent (Expr)) = N_Component_Association
@@ -918,7 +925,7 @@ package body Exp_Aggr is
          --  Ada 2005 (AI-287): In case of default initialized component, Expr
          --  is not present (and therefore we also initialize Expr_Q to empty).
 
-         if not Present (Expr) then
+         if No (Expr) then
             Expr_Q := Empty;
          elsif Nkind (Expr) = N_Qualified_Expression then
             Expr_Q := Expression (Expr);
@@ -1018,8 +1025,7 @@ package body Exp_Aggr is
          --  Ada 2005 (AI-287): In case of default initialized component, call
          --  the initialization subprogram associated with the component type.
 
-         if not Present (Expr) then
-
+         if No (Expr) then
             if Present (Base_Init_Proc (Etype (Ctype)))
               or else Has_Task (Base_Type (Ctype))
             then
@@ -1143,7 +1149,7 @@ package body Exp_Aggr is
             --  Ada 2005 (AI-287): Nothing else need to be done in case of
             --  default initialized component.
 
-            if not Present (Expr) then
+            if No (Expr) then
                null;
 
             else
@@ -1376,8 +1382,8 @@ package body Exp_Aggr is
       Expr   : Node_Id;
       Typ    : Entity_Id;
 
-      Others_Expr         : Node_Id := Empty;
-      Others_Mbox_Present : Boolean := False;
+      Others_Expr        : Node_Id := Empty;
+      Others_Box_Present : Boolean := False;
 
       Aggr_L : constant Node_Id := Low_Bound (Aggregate_Bounds (N));
       Aggr_H : constant Node_Id := High_Bound (Aggregate_Bounds (N));
@@ -1439,7 +1445,7 @@ package body Exp_Aggr is
                   Set_Loop_Actions (Assoc, New_List);
 
                   if Box_Present (Assoc) then
-                     Others_Mbox_Present := True;
+                     Others_Box_Present := True;
                   else
                      Others_Expr := Expression (Assoc);
                   end if;
@@ -1489,7 +1495,7 @@ package body Exp_Aggr is
          --  We don't need to generate loops over empty gaps, but if there is
          --  a single empty range we must analyze the expression for semantics
 
-         if Present (Others_Expr) or else Others_Mbox_Present then
+         if Present (Others_Expr) or else Others_Box_Present then
             declare
                First : Boolean := True;
 
@@ -1621,10 +1627,6 @@ package body Exp_Aggr is
       Attach   : Node_Id;
       Ctrl_Stuff_Done : Boolean := False;
 
-      function Get_Constraint_Association (T : Entity_Id) return Node_Id;
-      --  Returns the first discriminant association in the constraint
-      --  associated with T, if any, otherwise returns Empty.
-
       function Ancestor_Discriminant_Value (Disc : Entity_Id) return Node_Id;
       --  Returns the value that the given discriminant of an ancestor
       --  type should receive (in the absence of a conflict with the
@@ -1635,6 +1637,20 @@ package body Exp_Aggr is
       --  ancestor part of an extension aggregate match the corresponding
       --  values provided by either an association of the aggregate or
       --  by the constraint imposed by a parent type (RM95-4.3.2(8)).
+
+      function Compatible_Int_Bounds
+        (Agg_Bounds : Node_Id;
+         Typ_Bounds : Node_Id) return Boolean;
+      --  Return true if Agg_Bounds are equal or within Typ_Bounds. It is
+      --  assumed that both bounds are integer ranges.
+
+      procedure Gen_Ctrl_Actions_For_Aggr;
+      --  Deal with the various controlled type data structure
+      --  initializations.
+
+      function Get_Constraint_Association (T : Entity_Id) return Node_Id;
+      --  Returns the first discriminant association in the constraint
+      --  associated with T, if any, otherwise returns Empty.
 
       function Init_Controller
         (Target  : Node_Id;
@@ -1647,9 +1663,9 @@ package body Exp_Aggr is
       --  it to finalization list F. Init_Pr conditions the call to the
       --  init proc since it may already be done due to ancestor initialization
 
-      procedure Gen_Ctrl_Actions_For_Aggr;
-      --  Deal with the various controlled type data structure
-      --  initializations
+      function Is_Int_Range_Bounds (Bounds : Node_Id) return Boolean;
+      --  Check whether Bounds is a range node and its lower and higher bounds
+      --  are integers literals.
 
       ---------------------------------
       -- Ancestor_Discriminant_Value --
@@ -1811,6 +1827,22 @@ package body Exp_Aggr is
          end loop;
       end Check_Ancestor_Discriminants;
 
+      ---------------------------
+      -- Compatible_Int_Bounds --
+      ---------------------------
+
+      function Compatible_Int_Bounds
+        (Agg_Bounds : Node_Id;
+         Typ_Bounds : Node_Id) return Boolean
+      is
+         Agg_Lo : constant Uint := Intval (Low_Bound  (Agg_Bounds));
+         Agg_Hi : constant Uint := Intval (High_Bound (Agg_Bounds));
+         Typ_Lo : constant Uint := Intval (Low_Bound  (Typ_Bounds));
+         Typ_Hi : constant Uint := Intval (High_Bound (Typ_Bounds));
+      begin
+         return Typ_Lo <= Agg_Lo and then Agg_Hi <= Typ_Hi;
+      end Compatible_Int_Bounds;
+
       --------------------------------
       -- Get_Constraint_Association --
       --------------------------------
@@ -1908,6 +1940,17 @@ package body Exp_Aggr is
 
          return L;
       end Init_Controller;
+
+      -------------------------
+      -- Is_Int_Range_Bounds --
+      -------------------------
+
+      function Is_Int_Range_Bounds (Bounds : Node_Id) return Boolean is
+      begin
+         return Nkind (Bounds) = N_Range
+           and then Nkind (Low_Bound  (Bounds)) = N_Integer_Literal
+           and then Nkind (High_Bound (Bounds)) = N_Integer_Literal;
+      end Is_Int_Range_Bounds;
 
       -------------------------------
       -- Gen_Ctrl_Actions_For_Aggr --
@@ -2203,16 +2246,21 @@ package body Exp_Aggr is
                   Check_Ancestor_Discriminants (Entity (A));
                end if;
 
-            --  Ada 2005 (AI-287): If the ancestor part is a limited type,
-            --  a recursive call expands the ancestor.
+            --  Ada 2005 (AI-287): If the ancestor part is an aggregate of
+            --  limited type, a recursive call expands the ancestor. Note that
+            --  in the limited case, the ancestor part must be either a
+            --  function call (possibly qualified) or aggregate (definitely
+            --  qualified).
 
-            elsif Is_Limited_Type (Etype (A)) then
+            elsif Is_Limited_Type (Etype (A))
+              and then Nkind (Unqualify (A)) /= N_Function_Call --  aggregate?
+            then
                Ancestor_Is_Expression := True;
 
                Append_List_To (L,
                   Build_Record_Aggr_Code (
-                    N                             => Expression (A),
-                    Typ                           => Etype (Expression (A)),
+                    N                             => Unqualify (A),
+                    Typ                           => Etype (Unqualify (A)),
                     Target                        => Target,
                     Flist                         => Flist,
                     Obj                           => Obj,
@@ -2220,6 +2268,10 @@ package body Exp_Aggr is
 
             --  If the ancestor part is an expression "E", we generate
             --     T(tmp) := E;
+            --  In Ada 2005, this includes the case of a (possibly qualified)
+            --  limited function call. The assignment will turn into a
+            --  build-in-place function call (see
+            --  Make_Build_In_Place_Call_In_Assignment).
 
             else
                Ancestor_Is_Expression := True;
@@ -2228,10 +2280,8 @@ package body Exp_Aggr is
                --  If the ancestor part is an aggregate, force its full
                --  expansion, which was delayed.
 
-               if Nkind (A) = N_Qualified_Expression
-                 and then (Nkind (Expression (A)) = N_Aggregate
-                             or else
-                           Nkind (Expression (A)) = N_Extension_Aggregate)
+               if Nkind (Unqualify (A)) = N_Aggregate
+                 or else Nkind (Unqualify (A)) = N_Extension_Aggregate
                then
                   Set_Analyzed (A, False);
                   Set_Analyzed (Expression (A), False);
@@ -2247,7 +2297,8 @@ package body Exp_Aggr is
                Assign := New_List (
                  Make_OK_Assignment_Statement (Loc,
                    Name       => Ref,
-                   Expression => A));
+                   Expression => A,
+                   Self_Ref   => Has_Self_Reference (N)));
                Set_No_Ctrl_Actions (First (Assign));
 
                --  Assign the tag now to make sure that the dispatching call in
@@ -2307,12 +2358,62 @@ package body Exp_Aggr is
          if Has_Discriminants (Typ)
            and then not Is_Unchecked_Union (Base_Type (Typ))
          then
-            --  ??? The discriminants of the object not inherited in the type
-            --  of the object should be initialized here
+            --  If the type is derived, and constrains discriminants of the
+            --  parent type, these discriminants are not components of the
+            --  aggregate, and must be initialized explicitly. They are not
+            --  visible components of the object, but can become visible with
+            --  a view conversion to the ancestor.
 
-            null;
+            declare
+               Btype      : Entity_Id;
+               Parent_Type : Entity_Id;
+               Disc        : Entity_Id;
+               Discr_Val   : Elmt_Id;
 
-            --  Generate discriminant init values
+            begin
+               Btype := Base_Type (Typ);
+
+               while Is_Derived_Type (Btype)
+                  and then Present (Stored_Constraint (Btype))
+               loop
+                  Parent_Type := Etype (Btype);
+
+                  Disc := First_Discriminant (Parent_Type);
+                  Discr_Val :=
+                    First_Elmt (Stored_Constraint (Base_Type (Typ)));
+                  while Present (Discr_Val) loop
+
+                     --  Only those discriminants of the parent that are not
+                     --  renamed by discriminants of the derived type need to
+                     --  be added explicitly.
+
+                     if not Is_Entity_Name (Node (Discr_Val))
+                       or else
+                         Ekind (Entity (Node (Discr_Val))) /= E_Discriminant
+                     then
+                        Comp_Expr :=
+                          Make_Selected_Component (Loc,
+                            Prefix        => New_Copy_Tree (Target),
+                            Selector_Name => New_Occurrence_Of (Disc, Loc));
+
+                        Instr :=
+                          Make_OK_Assignment_Statement (Loc,
+                            Name       => Comp_Expr,
+                            Expression => New_Copy_Tree (Node (Discr_Val)));
+
+                        Set_No_Ctrl_Actions (Instr);
+                        Append_To (L, Instr);
+                     end if;
+
+                     Next_Discriminant (Disc);
+                     Next_Elmt (Discr_Val);
+                  end loop;
+
+                  Btype := Base_Type (Parent_Type);
+               end loop;
+            end;
+
+            --  Generate discriminant init values for the visible discriminants
 
             declare
                Discriminant : Entity_Id;
@@ -2358,10 +2459,11 @@ package body Exp_Aggr is
       while Present (Comp) loop
          Selector := Entity (First (Choices (Comp)));
 
-         --  Ada 2005 (AI-287): Default initialization of a limited component
+         --  Ada 2005 (AI-287): For each default-initialized component genarate
+         --  a call to the corresponding IP subprogram if available.
 
          if Box_Present (Comp)
-            and then Is_Limited_Type (Etype (Selector))
+           and then Has_Non_Null_Base_Init_Proc (Etype (Selector))
          then
             --  Ada 2005 (AI-287): If the component type has tasks then
             --  generate the activation chain and master entities (except
@@ -2460,15 +2562,118 @@ package body Exp_Aggr is
             --  inner aggregate top-down.
 
             if Is_Delayed_Aggregate (Expr_Q) then
-               Append_List_To (L,
-                 Late_Expansion (Expr_Q, Comp_Type, Comp_Expr,
-                   Internal_Final_List));
+
+               --  We have the following case of aggregate nesting inside
+               --  an object declaration:
+
+               --    type Arr_Typ is array (Integer range <>) of ...;
+               --
+               --    type Rec_Typ (...) is record
+               --       Obj_Arr_Typ : Arr_Typ (A .. B);
+               --    end record;
+               --
+               --    Obj_Rec_Typ : Rec_Typ := (...,
+               --      Obj_Arr_Typ => (X => (...), Y => (...)));
+
+               --  The length of the ranges of the aggregate and Obj_Add_Typ
+               --  are equal (B - A = Y - X), but they do not coincide (X /=
+               --  A and B /= Y). This case requires array sliding which is
+               --  performed in the following manner:
+
+               --    subtype Arr_Sub is Arr_Typ (X .. Y);
+               --    Temp : Arr_Sub;
+               --    Temp (X) := (...);
+               --    ...
+               --    Temp (Y) := (...);
+               --    Obj_Rec_Typ.Obj_Arr_Typ := Temp;
+
+               if Present (Obj)
+                 and then Ekind (Comp_Type) = E_Array_Subtype
+                 and then Is_Int_Range_Bounds (Aggregate_Bounds (Expr_Q))
+                 and then Is_Int_Range_Bounds (First_Index (Comp_Type))
+                 and then not
+                   Compatible_Int_Bounds (
+                     Agg_Bounds => Aggregate_Bounds (Expr_Q),
+                     Typ_Bounds => First_Index (Comp_Type))
+               then
+                  declare
+                     --  Create the array subtype with bounds equal to those
+                     --  of the corresponding aggregate.
+
+                     SubE : constant Entity_Id :=
+                              Make_Defining_Identifier (Loc,
+                                New_Internal_Name ('T'));
+
+                     SubD : constant Node_Id :=
+                              Make_Subtype_Declaration (Loc,
+                                Defining_Identifier =>
+                                  SubE,
+                                Subtype_Indication  =>
+                                  Make_Subtype_Indication (Loc,
+                                    Subtype_Mark => New_Reference_To (
+                                      Etype (Comp_Type), Loc),
+                                    Constraint =>
+                                      Make_Index_Or_Discriminant_Constraint (
+                                        Loc, Constraints => New_List (
+                                          New_Copy_Tree (Aggregate_Bounds (
+                                            Expr_Q))))));
+
+                     --  Create a temporary array of the above subtype which
+                     --  will be used to capture the aggregate assignments.
+
+                     TmpE : constant Entity_Id :=
+                              Make_Defining_Identifier (Loc,
+                                New_Internal_Name ('A'));
+
+                     TmpD : constant Node_Id :=
+                              Make_Object_Declaration (Loc,
+                                Defining_Identifier =>
+                                  TmpE,
+                                Object_Definition   =>
+                                  New_Reference_To (SubE, Loc));
+
+                  begin
+                     Set_No_Initialization (TmpD);
+                     Append_To (L, SubD);
+                     Append_To (L, TmpD);
+
+                     --  Expand the aggregate into assignments to the temporary
+                     --  array.
+
+                     Append_List_To (L,
+                       Late_Expansion (Expr_Q, Comp_Type,
+                         New_Reference_To (TmpE, Loc), Internal_Final_List));
+
+                     --  Slide
+
+                     Append_To (L,
+                       Make_Assignment_Statement (Loc,
+                         Name       => New_Copy_Tree (Comp_Expr),
+                         Expression => New_Reference_To (TmpE, Loc)));
+
+                     --  Do not pass the original aggregate to Gigi as is
+                     --  since it will potentially clobber the front or the
+                     --  end of the array. Setting the expression to empty
+                     --  is safe since all aggregates will be expanded into
+                     --  assignments.
+
+                     Set_Expression (Parent (Obj), Empty);
+                  end;
+
+               --  Normal case (sliding not required)
+
+               else
+                  Append_List_To (L,
+                    Late_Expansion (Expr_Q, Comp_Type, Comp_Expr,
+                      Internal_Final_List));
+               end if;
 
             else
                Instr :=
                  Make_OK_Assignment_Statement (Loc,
                    Name       => Comp_Expr,
-                   Expression => Expression (Comp));
+                   Expression => Expression (Comp),
+                   Self_Ref   => Has_Self_Reference (N));
 
                Set_No_Ctrl_Actions (Instr);
                Append_To (L, Instr);
@@ -2568,7 +2773,7 @@ package body Exp_Aggr is
            Make_OK_Assignment_Statement (Loc,
              Name =>
                Make_Selected_Component (Loc,
-                  Prefix => New_Copy_Tree (Target),
+                 Prefix => New_Copy_Tree (Target),
                  Selector_Name =>
                    New_Reference_To
                      (First_Tag_Component (Base_Type (Typ)), Loc)),
@@ -2580,6 +2785,20 @@ package body Exp_Aggr is
                     Loc)));
 
          Append_To (L, Instr);
+
+         --  Ada 2005 (AI-251): If the tagged type has been derived from
+         --  abstract interfaces we must also initialize the tags of the
+         --  secondary dispatch tables.
+
+         if Present (Abstract_Interfaces (Base_Type (Typ)))
+           and then not
+             Is_Empty_Elmt_List (Abstract_Interfaces (Base_Type (Typ)))
+         then
+            Init_Secondary_Tags
+              (Typ        => Base_Type (Typ),
+               Target     => Target,
+               Stmts_List => L);
+         end if;
       end if;
 
       --  If the controllers have not been initialized yet (by lack of non-
@@ -4576,10 +4795,19 @@ package body Exp_Aggr is
          return;
       end if;
 
+      --  Ada 2005 (AI-318-2): We need to convert to assignments if components
+      --  are build-in-place function calls. This test could be more specific,
+      --  but doing it for all inherently limited aggregates seems harmless.
+      --  The assignments will turn into build-in-place function calls (see
+      --  Make_Build_In_Place_Call_In_Assignment).
+
+      if Ada_Version >= Ada_05 and then Is_Inherently_Limited_Type (Typ) then
+         Convert_To_Assignments (N, Typ);
+
       --  Gigi doesn't handle properly temporaries of variable size
       --  so we generate it in the front-end
 
-      if not Size_Known_At_Compile_Time (Typ) then
+      elsif not Size_Known_At_Compile_Time (Typ) then
          Convert_To_Assignments (N, Typ);
 
       --  Temporaries for controlled aggregates need to be attached to a
@@ -4942,6 +5170,10 @@ package body Exp_Aggr is
          return False;
       end if;
 
+      if Has_Self_Reference (N) then
+         return True;
+      end if;
+
       --  Check if any direct component has default initialized components
 
       C := First (Comps);
@@ -5029,10 +5261,50 @@ package body Exp_Aggr is
    function Make_OK_Assignment_Statement
      (Sloc       : Source_Ptr;
       Name       : Node_Id;
-      Expression : Node_Id) return Node_Id
+      Expression : Node_Id;
+      Self_Ref   : Boolean := False) return Node_Id
    is
+      function Replace_Type (Expr : Node_Id) return Traverse_Result;
+      --  If the aggregate contains a self-reference, traverse each
+      --  expression to replace a possible self-reference with a reference
+      --  to the proper component of the target of the assignment.
+
+      ------------------
+      -- Replace_Type --
+      ------------------
+
+      function Replace_Type (Expr : Node_Id) return Traverse_Result is
+      begin
+         if Nkind (Expr) = N_Attribute_Reference
+           and  then Is_Entity_Name (Prefix (Expr))
+           and then Is_Type (Entity (Prefix (Expr)))
+         then
+            if Is_Entity_Name (Prefix (Name)) then
+               Rewrite (Prefix (Expr),
+                 New_Occurrence_Of (Entity (Prefix (Name)), Sloc));
+            else
+               Rewrite (Expr,
+                 Make_Attribute_Reference (Sloc,
+                   Attribute_Name => Name_Unrestricted_Access,
+                   Prefix         => New_Copy_Tree (Prefix (Name))));
+               Set_Analyzed (Parent (Expr), False);
+            end if;
+         end if;
+         return OK;
+      end Replace_Type;
+
+      procedure Replace_Self_Reference is
+        new Traverse_Proc (Replace_Type);
+
+   --  Start of processing for Make_OK_Assignment_Statement
+
    begin
       Set_Assignment_OK (Name);
+
+      if Self_Ref then
+         Replace_Self_Reference (Expression);
+      end if;
+
       return Make_Assignment_Statement (Sloc, Name, Expression);
    end Make_OK_Assignment_Statement;
 

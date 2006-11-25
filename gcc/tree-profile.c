@@ -234,13 +234,7 @@ do_tree_profiling (void)
   return false;
 }
 
-/* Return the file on which profile dump output goes, if any.  */
-
-static FILE *tree_profile_dump_file (void) {
-  return dump_file;
-}
-
-static void
+static unsigned int
 tree_profiling (void)
 {
   branch_prob ();
@@ -253,6 +247,7 @@ tree_profiling (void)
      easy to adjust it, if and when there is some.  */
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 struct tree_opt_pass pass_tree_profile = 
@@ -306,8 +301,7 @@ struct profile_hooks tree_profile_hooks =
   tree_gen_interval_profiler,   /* gen_interval_profiler */
   tree_gen_pow2_profiler,       /* gen_pow2_profiler */
   tree_gen_one_value_profiler,  /* gen_one_value_profiler */
-  tree_gen_const_delta_profiler,/* gen_const_delta_profiler */
-  tree_profile_dump_file	/* profile_dump_file */
+  tree_gen_const_delta_profiler /* gen_const_delta_profiler */
 };
 
 #include "gt-tree-profile.h"

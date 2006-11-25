@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2005, AdaCore                     --
+--                     Copyright (C) 2000-2006, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -972,9 +972,9 @@ package body GNAT.Expect is
 
          for J in Args'Range loop
             Arg                     := new String (1 .. Args (J)'Length + 1);
-            Arg (1 .. Args (J)'Length)  := Args (J).all;
-            Arg (Arg'Last)              := ASCII.NUL;
-            Arg_List (J + 2 - Args'First)   := Arg.all'Access;
+            Arg (1 .. Args (J)'Length)    := Args (J).all;
+            Arg (Arg'Last)                := ASCII.NUL;
+            Arg_List (J + 2 - Args'First) := Arg.all'Access;
          end loop;
 
          Arg_List (Arg_List'Last) := null;
@@ -1110,8 +1110,8 @@ package body GNAT.Expect is
       Result      : Expect_Match;
       Descriptors : Array_Of_Pd := (1 => Descriptor'Unrestricted_Access);
 
-      Dummy : Natural;
-      pragma Unreferenced (Dummy);
+      Discard : Natural;
+      pragma Warnings (Off, Discard);
 
    begin
       if Empty_Buffer then
@@ -1135,7 +1135,7 @@ package body GNAT.Expect is
 
       Call_Filters (Descriptor, Full_Str (Full_Str'First .. Last), Input);
 
-      Dummy :=
+      Discard :=
         Write (Descriptor.Input_Fd,
                Full_Str'Address,
                Last - Full_Str'First + 1);
@@ -1163,8 +1163,8 @@ package body GNAT.Expect is
       Pipe1 : in out Pipe_Type;
       Pipe2 : in out Pipe_Type;
       Pipe3 : in out Pipe_Type;
-      Cmd   : in String;
-      Args  : in System.Address)
+      Cmd   : String;
+      Args  : System.Address)
    is
       pragma Warnings (Off, Pid);
 
@@ -1275,7 +1275,6 @@ package body GNAT.Expect is
       Pipe3 : in out Pipe_Type)
    is
       pragma Warnings (Off, Pid);
-
    begin
       Close (Pipe1.Input);
       Close (Pipe2.Output);

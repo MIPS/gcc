@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,17 +27,17 @@
 with Err_Vars; use Err_Vars;
 with Fmap;     use Fmap;
 with Hostparm;
-with MLib.Tgt;
+with MLib.Tgt; use MLib.Tgt;
 with Namet;    use Namet;
 with Osint;    use Osint;
 with Output;   use Output;
-with MLib.Tgt; use MLib.Tgt;
 with Prj.Env;  use Prj.Env;
 with Prj.Err;
 with Prj.Util; use Prj.Util;
 with Sinput.P;
 with Snames;   use Snames;
 with Table;    use Table;
+with Targparm; use Targparm;
 
 with Ada.Characters.Handling;    use Ada.Characters.Handling;
 with Ada.Strings;                use Ada.Strings;
@@ -53,10 +53,14 @@ package body Prj.Nmsc is
    Error_Report : Put_Line_Access := null;
    --  Set to point to error reporting procedure
 
+   When_No_Sources : Error_Warning := Error;
+   --  Indicates what should be done when there is no Ada sources in a non
+   --  extending Ada project.
+
    ALI_Suffix   : constant String := ".ali";
    --  File suffix for ali files
 
-   Object_Suffix : constant String := Get_Object_Suffix.all;
+   Object_Suffix : constant String := Get_Target_Object_Suffix.all;
    --  File suffix for object files
 
    type Name_Location is record
@@ -351,6 +355,12 @@ package body Prj.Nmsc is
    --  When Naming_Exceptions is True, mark the found sources as such, to
    --  later remove those that are not named in a list of sources.
 
+   procedure Report_No_Ada_Sources
+     (Project  : Project_Id;
+      In_Tree  : Project_Tree_Ref;
+      Location : Source_Ptr);
+   --  Report an error or a warning depending on the value of When_No_Sources
+
    procedure Show_Source_Dirs
      (Project : Project_Id; In_Tree : Project_Tree_Ref);
    --  List all the source directories of a project
@@ -397,15 +407,17 @@ package body Prj.Nmsc is
    -----------
 
    procedure Check
-     (Project      : Project_Id;
-      In_Tree      : Project_Tree_Ref;
-      Report_Error : Put_Line_Access;
-      Follow_Links : Boolean)
+     (Project         : Project_Id;
+      In_Tree         : Project_Tree_Ref;
+      Report_Error    : Put_Line_Access;
+      Follow_Links    : Boolean;
+      When_No_Sources : Error_Warning)
    is
       Data      : Project_Data := In_Tree.Projects.Table (Project);
       Extending : Boolean := False;
 
    begin
+      Nmsc.When_No_Sources := When_No_Sources;
       Error_Report := Report_Error;
 
       Recursive_Dirs.Reset;
@@ -493,6 +505,20 @@ package body Prj.Nmsc is
 
       Name_Len := The_Name'Length;
       Name_Buffer (1 .. Name_Len) := The_Name;
+
+      --  Special cases of children of packages A, G, I and S on VMS
+
+      if OpenVMS_On_Target and then
+        Name_Len > 3 and then
+        Name_Buffer (2 .. 3) = "__" and then
+        ((Name_Buffer (1) = 'a') or else (Name_Buffer (1) = 'g') or else
+         (Name_Buffer (1) = 'i') or else (Name_Buffer (1) = 's'))
+      then
+         Name_Buffer (2) := '.';
+         Name_Buffer (3 .. Name_Len - 1) := Name_Buffer (4 .. Name_Len);
+         Name_Len := Name_Len - 1;
+      end if;
+
       Real_Name := Name_Find;
 
       --  Check first that the given name is not an Ada reserved word
@@ -2792,6 +2818,7 @@ package body Prj.Nmsc is
       Msg           : String;
       Flag_Location : Source_Ptr)
    is
+      Real_Location : Source_Ptr := Flag_Location;
       Error_Buffer : String (1 .. 5_000);
       Error_Last   : Natural := 0;
       Msg_Name     : Natural := 0;
@@ -2831,8 +2858,14 @@ package body Prj.Nmsc is
    --  Start of processing for Error_Msg
 
    begin
+      --  If location of error is unknown, use the location of the project
+
+      if Real_Location = No_Location then
+         Real_Location := In_Tree.Projects.Table (Project).Location;
+      end if;
+
       if Error_Report = null then
-         Prj.Err.Error_Msg (Msg, Flag_Location);
+         Prj.Err.Error_Msg (Msg, Real_Location);
          return;
       end if;
 
@@ -3023,10 +3056,7 @@ package body Prj.Nmsc is
             Data.Ada_Sources_Present := True;
 
          elsif Data.Extends = No_Project then
-            Error_Msg
-              (Project, In_Tree,
-               "there are no Ada sources in this project",
-               Data.Location);
+            Report_No_Ada_Sources (Project, In_Tree, Data.Location);
          end if;
       end if;
    end Find_Sources;
@@ -3862,7 +3892,8 @@ package body Prj.Nmsc is
          --  Check if the casing is right
 
          declare
-            Src : String := File (First .. Last);
+            Src      : String := File (First .. Last);
+            Src_Last : Positive := Last;
 
          begin
             case Naming.Casing is
@@ -3902,17 +3933,32 @@ package body Prj.Nmsc is
                declare
                   S1 : constant Character := Src (Src'First);
                   S2 : constant Character := Src (Src'First + 1);
+                  S3 : constant Character := Src (Src'First + 2);
 
                begin
-                  if S1 = 'a' or else S1 = 'g'
-                    or else S1 = 'i' or else S1 = 's'
+                  if S1 = 'a' or else
+                     S1 = 'g' or else
+                     S1 = 'i' or else
+                     S1 = 's'
                   then
-                     --  Children or separates of packages A, G, I or S
+                     --  Children or separates of packages A, G, I or S. On
+                     --  VMS these names are x__ ... and on other systems the
+                     --  names are x~... (where x is a, g, i, or s).
 
-                     if (Hostparm.OpenVMS and then S2 = '$')
-                       or else (not Hostparm.OpenVMS and then S2 = '~')
+                     if (OpenVMS_On_Target
+                          and then S2 = '_'
+                          and then S3 = '_')
+                       or else
+                         (not OpenVMS_On_Target
+                           and then S2 = '~')
                      then
                         Src (Src'First + 1) := '.';
+
+                        if OpenVMS_On_Target then
+                           Src_Last := Src_Last - 1;
+                           Src (Src'First + 2 .. Src_Last) :=
+                             Src (Src'First + 3 .. Src_Last + 1);
+                        end if;
 
                      --  If it is potentially a run time source, disable
                      --  filling of the mapping file to avoid warnings.
@@ -3920,19 +3966,19 @@ package body Prj.Nmsc is
                      elsif S2 = '.' then
                         Set_Mapping_File_Initial_State_To_Empty;
                      end if;
-
                   end if;
                end;
             end if;
 
             if Current_Verbosity = High then
                Write_Str  ("      ");
-               Write_Line (Src);
+               Write_Line (Src (Src'First .. Src_Last));
             end if;
 
             --  Now, we check if this name is a valid unit name
 
-            Check_Ada_Name (Name => Src, Unit => Unit_Name);
+            Check_Ada_Name
+              (Name => Src (Src'First .. Src_Last), Unit => Unit_Name);
          end;
 
       end;
@@ -4238,12 +4284,10 @@ package body Prj.Nmsc is
          Get_Path_Names_And_Record_Sources (Follow_Links);
 
          --  We should have found at least one source.
-         --  If not, report an error.
+         --  If not, report an error/warning.
 
          if Data.Sources = Nil_String then
-            Error_Msg (Project, In_Tree,
-                       "there are no Ada sources in this project",
-                       Location);
+            Report_No_Ada_Sources (Project, In_Tree, Location);
          end if;
       end Get_Sources_From_File;
 
@@ -4940,19 +4984,17 @@ package body Prj.Nmsc is
 
             --  Put the file name in the list of sources of the project
 
-            if not File_Name_Recorded then
-               String_Element_Table.Increment_Last
-                 (In_Tree.String_Elements);
-               In_Tree.String_Elements.Table
-                 (String_Element_Table.Last
-                   (In_Tree.String_Elements)) :=
-                 (Value         => Canonical_File_Name,
-                  Display_Value => File_Name,
-                  Location      => No_Location,
-                  Flag          => False,
-                  Next          => Nil_String,
-                  Index         => Unit_Index);
-            end if;
+            String_Element_Table.Increment_Last
+              (In_Tree.String_Elements);
+            In_Tree.String_Elements.Table
+              (String_Element_Table.Last
+                 (In_Tree.String_Elements)) :=
+              (Value         => Canonical_File_Name,
+               Display_Value => File_Name,
+               Location      => No_Location,
+               Flag          => False,
+               Next          => Nil_String,
+               Index         => Unit_Index);
 
             if Current_Source = Nil_String then
                Data.Sources := String_Element_Table.Last
@@ -5299,6 +5341,30 @@ package body Prj.Nmsc is
       end if;
    end Record_Other_Sources;
 
+   ---------------------------
+   -- Report_No_Ada_Sources --
+   ---------------------------
+
+   procedure Report_No_Ada_Sources
+     (Project  : Project_Id;
+      In_Tree  : Project_Tree_Ref;
+      Location : Source_Ptr)
+   is
+   begin
+      case When_No_Sources is
+         when Silent =>
+            null;
+
+         when Warning | Error =>
+            Error_Msg_Warn := When_No_Sources = Warning;
+
+            Error_Msg
+              (Project, In_Tree,
+               "<there are no Ada sources in this project",
+               Location);
+      end case;
+   end Report_No_Ada_Sources;
+
    ----------------------
    -- Show_Source_Dirs --
    ----------------------
@@ -5408,6 +5474,8 @@ package body Prj.Nmsc is
 
          else
             The_Unit_Data := In_Tree.Units.Table (The_Unit_Id);
+            Error_Msg_Name_2 :=
+              In_Tree.Array_Elements.Table (Conv).Value.Value;
 
             if Specs then
                if not Check_Project
@@ -5416,7 +5484,8 @@ package body Prj.Nmsc is
                then
                   Error_Msg
                     (Project, In_Tree,
-                     "?unit{ has no spec in this project",
+                     "?source of spec of unit { ({)" &
+                     " cannot be found in this project",
                      Location);
                end if;
 
@@ -5427,7 +5496,8 @@ package body Prj.Nmsc is
                then
                   Error_Msg
                     (Project, In_Tree,
-                     "?unit{ has no body in this project",
+                     "?source of body of unit { ({)" &
+                     " cannot be found in this project",
                      Location);
                end if;
             end if;

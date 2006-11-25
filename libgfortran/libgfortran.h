@@ -1,5 +1,5 @@
-/* Common declarations for all of libgfor.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Common declarations for all of libgfortran.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -33,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 
 #include <math.h>
 #include <stddef.h>
+#include <float.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327
@@ -51,39 +52,7 @@ Boston, MA 02110-1301, USA.  */
 #include <ieeefp.h>
 #endif
 
-#if HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#if HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-#if !defined(HAVE_STDINT_H) && !defined(HAVE_INTTYPES_H) && defined(TARGET_ILP32)
-typedef char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long long int64_t;
-typedef unsigned char uint8_t;
-#if defined(__sun) && defined(__svr4__)
-/* Prevent <pthread.h> from redefining uint8_t on Solaris 2.5.1
-   FIXME when the header inclusion scheme is revisited.  */
-#define _UINT8_T
-#endif
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-#if defined(__sun) && defined(__svr4__)
-/* Prevent <pthread.h> from redefining uint32_t on Solaris 2.5.1
-   FIXME when the header inclusion scheme is revisited.  */
-#define _UINT32_T
-#endif
-typedef unsigned long long uint64_t;
-#if defined(__sun) && defined(__svr4__)
-/* Prevent <pthread.h> from redefining uint64_t on Solaris 2.5.1
-   FIXME when the header inclusion scheme is revisited.  */
-#define _UINT64_T
-#endif
-#endif
+#include "gstdint.h"
 
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -228,6 +197,18 @@ typedef off_t gfc_offset;
 
 #include "kinds.h"
 
+/* Define the type used for the current record number for large file I/O.
+   The size must be consistent with the size defined on the compiler side.  */
+#ifdef HAVE_GFC_INTEGER_8
+typedef GFC_INTEGER_8 GFC_IO_INT;
+#else
+#ifdef HAVE_GFC_INTEGER_4
+typedef GFC_INTEGER_4 GFC_IO_INT;
+#else
+#error "GFC_INTEGER_4 should be available for the library to compile".
+#endif
+#endif
+
 /* The following two definitions must be consistent with the types used
    by the compiler.  */
 /* The type used of array indices, amongst other things.  */
@@ -258,6 +239,24 @@ internal_proto(l8_to_l4_offset);
 #endif
 #ifdef HAVE_GFC_REAL_16
 #define GFC_REAL_16_HUGE LDBL_MAX
+#endif
+
+#define GFC_REAL_4_DIGITS FLT_MANT_DIG
+#define GFC_REAL_8_DIGITS DBL_MANT_DIG
+#ifdef HAVE_GFC_REAL_10
+#define GFC_REAL_10_DIGITS LDBL_MANT_DIG
+#endif
+#ifdef HAVE_GFC_REAL_16
+#define GFC_REAL_16_DIGITS LDBL_MANT_DIG
+#endif
+
+#define GFC_REAL_4_RADIX FLT_RADIX
+#define GFC_REAL_8_RADIX FLT_RADIX
+#ifdef HAVE_GFC_REAL_10
+#define GFC_REAL_10_RADIX FLT_RADIX
+#endif
+#ifdef HAVE_GFC_REAL_16
+#define GFC_REAL_16_RADIX FLT_RADIX
 #endif
 
 #ifndef GFC_MAX_DIMENSIONS
@@ -368,6 +367,9 @@ typedef struct
 {
   int warn_std;
   int allow_std;
+  int pedantic;
+  int convert;
+  size_t record_marker;
 }
 compile_options_t;
 
@@ -395,7 +397,7 @@ typedef enum
   ERROR_EOR = -2,
   ERROR_END = -1,
   ERROR_OK = 0,			/* Indicates success, must be zero.  */
-  ERROR_OS,			/* Operating system error, more info in errno.  */
+  ERROR_OS = 5000,		/* Operating system error, more info in errno.  */
   ERROR_OPTION_CONFLICT,
   ERROR_BAD_OPTION,
   ERROR_MISSING_OPTION,
@@ -407,6 +409,11 @@ typedef enum
   ERROR_BAD_US,
   ERROR_READ_VALUE,
   ERROR_READ_OVERFLOW,
+  ERROR_INTERNAL,
+  ERROR_INTERNAL_UNIT,
+  ERROR_ALLOCATION,
+  ERROR_DIRECT_EOR,
+  ERROR_SHORT_RECORD,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -431,6 +438,18 @@ error_codes;
 #define GFC_FPE_OVERFLOW   (1<<3)
 #define GFC_FPE_UNDERFLOW  (1<<4)
 #define GFC_FPE_PRECISION  (1<<5)
+
+/* This is returned by notification_std to know if, given the flags
+   that were given (-std=, -pedantic) we should issue an error, a warning
+   or nothing.  */
+typedef enum
+{ SILENT, WARNING, ERROR }
+notification;
+
+/* This is returned by notify_std and several io functions.  */
+typedef enum
+{ SUCCESS = 1, FAILURE }
+try;
 
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
@@ -510,6 +529,9 @@ internal_proto(translate_error);
 extern void generate_error (struct st_parameter_common *, int, const char *);
 internal_proto(generate_error);
 
+extern try notify_std (struct st_parameter_common *, int, const char *);
+internal_proto(notify_std);
+
 /* fpu.c */
 
 extern void set_fpu (void);
@@ -562,6 +584,9 @@ internal_proto(init_units);
 
 extern void close_units (void);
 internal_proto(close_units);
+
+extern int unit_to_fd (int);
+internal_proto(unit_to_fd);
 
 /* stop.c */
 
@@ -622,6 +647,11 @@ extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
 internal_proto(internal_unpack_c10);
 #endif
 
+#if defined HAVE_GFC_COMPLEX_16
+extern void internal_unpack_c16 (gfc_array_c16 *, const GFC_COMPLEX_16 *);
+internal_proto(internal_unpack_c16);
+#endif
+
 /* string_intrinsics.c */
 
 extern GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
@@ -633,14 +663,6 @@ iexport_proto(compare_string);
 extern void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
 			 gfc_array_i4 * get);
 iexport_proto(random_seed);
-
-/* normalize.c */
-
-extern GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
-internal_proto(normalize_r4_i4);
-
-extern GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
-internal_proto(normalize_r8_i8);
 
 /* size.c */
 

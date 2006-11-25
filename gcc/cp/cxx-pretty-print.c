@@ -292,6 +292,29 @@ pp_cxx_qualified_id (cxx_pretty_printer *pp, tree t)
     }
 }
 
+
+static void
+pp_cxx_constant (cxx_pretty_printer *pp, tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case STRING_CST:
+      {
+	const bool in_parens = PAREN_STRING_LITERAL_P (t);
+	if (in_parens)
+	  pp_cxx_left_paren (pp);
+	pp_c_constant (pp_c_base (pp), t);
+	if (in_parens)
+	  pp_cxx_right_paren (pp);
+      }
+      break;
+
+    default:
+      pp_c_constant (pp_c_base (pp), t);
+      break;
+    }
+}
+
 /* id-expression:
       unqualified-id
       qualified-id   */
@@ -321,10 +344,10 @@ pp_cxx_primary_expression (cxx_pretty_printer *pp, tree t)
 {
   switch (TREE_CODE (t))
     {
-    case STRING_CST:
     case INTEGER_CST:
     case REAL_CST:
-      pp_c_constant (pp_c_base (pp), t);
+    case STRING_CST:
+      pp_cxx_constant (pp, t);
       break;
 
     case BASELINK:
@@ -848,7 +871,7 @@ pp_cxx_expression (cxx_pretty_printer *pp, tree t)
     case STRING_CST:
     case INTEGER_CST:
     case REAL_CST:
-      pp_c_constant (pp_c_base (pp), t);
+      pp_cxx_constant (pp, t);
       break;
 
     case RESULT_DECL:
@@ -1688,6 +1711,10 @@ pp_cxx_statement (cxx_pretty_printer *pp, tree t)
       pp_newline_and_indent (pp, -2);
       break;
 
+    case STATIC_ASSERT:
+      pp_cxx_declaration (pp, t);
+      break;
+
     default:
       pp_c_statement (pp_c_base (pp), t);
       break;
@@ -1734,7 +1761,7 @@ pp_cxx_namespace_alias_definition (cxx_pretty_printer *pp, tree t)
   pp_equal (pp);
   pp_cxx_whitespace (pp);
   if (DECL_CONTEXT (DECL_NAMESPACE_ALIAS (t)))
-    pp_cxx_nested_name_specifier (pp, 
+    pp_cxx_nested_name_specifier (pp,
 				  DECL_CONTEXT (DECL_NAMESPACE_ALIAS (t)));
   pp_cxx_qualified_id (pp, DECL_NAMESPACE_ALIAS (t));
   pp_cxx_semicolon (pp);
@@ -1780,8 +1807,7 @@ pp_cxx_template_parameter_list (cxx_pretty_printer *pp, tree t)
      typename identifier(opt)
      typename identifier(opt) = type-id
      template < template-parameter-list > class identifier(opt)
-     template < template-parameter-list > class identifier(opt) = template-name
-*/
+     template < template-parameter-list > class identifier(opt) = template-name  */
 
 static void
 pp_cxx_template_parameter (cxx_pretty_printer *pp, tree t)
@@ -1884,11 +1910,21 @@ pp_cxx_explicit_instantiation (cxx_pretty_printer *pp, tree t)
        asm-definition
        namespace-alias-definition
        using-declaration
-       using-directive  */
+       using-directive
+       static_assert-declaration */
 void
 pp_cxx_declaration (cxx_pretty_printer *pp, tree t)
 {
-  if (!DECL_LANG_SPECIFIC (t))
+  if (TREE_CODE (t) == STATIC_ASSERT)
+    {
+      pp_cxx_identifier (pp, "static_assert");
+      pp_cxx_left_paren (pp);
+      pp_cxx_expression (pp, STATIC_ASSERT_CONDITION (t));
+      pp_cxx_separate_with (pp, ',');
+      pp_cxx_expression (pp, STATIC_ASSERT_MESSAGE (t));
+      pp_cxx_right_paren (pp);
+    }
+  else if (!DECL_LANG_SPECIFIC (t))
     pp_cxx_simple_declaration (pp, t);
   else if (DECL_USE_TEMPLATE (t))
     switch (DECL_USE_TEMPLATE (t))
@@ -1961,6 +1997,7 @@ pp_cxx_pretty_printer_init (cxx_pretty_printer *pp)
 
   /* pp->c_base.statement = (pp_fun) pp_cxx_statement;  */
 
+  pp->c_base.constant = (pp_fun) pp_cxx_constant;
   pp->c_base.id_expression = (pp_fun) pp_cxx_id_expression;
   pp->c_base.primary_expression = (pp_fun) pp_cxx_primary_expression;
   pp->c_base.postfix_expression = (pp_fun) pp_cxx_postfix_expression;

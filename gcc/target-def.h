@@ -1,5 +1,6 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -30,8 +31,13 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    definition in a #ifndef, since files include tm.h before this one.  */
 
 /* Assembler output.  */
+#ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
+#endif
+#ifndef TARGET_ASM_CLOSE_PAREN
 #define TARGET_ASM_CLOSE_PAREN ")"
+#endif
+
 #define TARGET_ASM_BYTE_OP "\t.byte\t"
 
 #define TARGET_ASM_ALIGNED_HI_OP "\t.short\t"
@@ -60,6 +66,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_ASM_EMIT_UNWIND_LABEL
 #define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
+#endif
+
+#ifndef TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL default_emit_except_table_label
 #endif
 
 #ifndef TARGET_UNWIND_EMIT
@@ -136,6 +146,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # endif
 #endif
 
+#ifndef TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
+#endif
+
 #ifndef TARGET_ASM_INIT_SECTIONS
 #define TARGET_ASM_INIT_SECTIONS hook_void_void
 #endif
@@ -181,6 +195,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ASM_FILE_END hook_void_void
 #endif
 
+#ifndef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY hook_void_bitmap
+#endif
+
 #ifndef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF false
 #endif
@@ -195,6 +213,14 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_ASM_MARK_DECL_PRESERVED
 #define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
+#endif
+
+#ifndef TARGET_ASM_OUTPUT_ANCHOR
+#ifdef ASM_OUTPUT_DEF
+#define TARGET_ASM_OUTPUT_ANCHOR default_asm_output_anchor
+#else
+#define TARGET_ASM_OUTPUT_ANCHOR NULL
+#endif
 #endif
 
 #ifndef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -221,6 +247,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
+			TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL,	\
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
@@ -243,6 +270,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
                         TARGET_ASM_FILE_END,			\
 			TARGET_ASM_EXTERNAL_LIBCALL,            \
                         TARGET_ASM_MARK_DECL_PRESERVED,		\
+			TARGET_ASM_OUTPUT_ANCHOR,		\
 			TARGET_ASM_OUTPUT_DWARF_DTPREL}
 
 /* Scheduler hooks.  All of these default to null pointers, which
@@ -266,6 +294,14 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD 0
 #define TARGET_SCHED_DFA_NEW_CYCLE 0
 #define TARGET_SCHED_IS_COSTLY_DEPENDENCE 0
+#define TARGET_SCHED_ADJUST_COST_2 0
+#define TARGET_SCHED_H_I_D_EXTENDED 0
+#define TARGET_SCHED_SPECULATE_INSN 0
+#define TARGET_SCHED_NEEDS_BLOCK_P 0
+#define TARGET_SCHED_GEN_CHECK 0
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC 0
+#define TARGET_SCHED_SET_SCHED_FLAGS 0
+
 
 #define TARGET_SCHED						\
   {TARGET_SCHED_ADJUST_COST,					\
@@ -286,12 +322,23 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,		\
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,	\
    TARGET_SCHED_DFA_NEW_CYCLE,					\
-   TARGET_SCHED_IS_COSTLY_DEPENDENCE}
+   TARGET_SCHED_IS_COSTLY_DEPENDENCE,                           \
+   TARGET_SCHED_ADJUST_COST_2,                                  \
+   TARGET_SCHED_H_I_D_EXTENDED,					\
+   TARGET_SCHED_SPECULATE_INSN,                                 \
+   TARGET_SCHED_NEEDS_BLOCK_P,                                  \
+   TARGET_SCHED_GEN_CHECK,                                      \
+   TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC, \
+   TARGET_SCHED_SET_SCHED_FLAGS}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
 
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
+   TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN,                             \
+   TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD}
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
 
@@ -331,12 +378,24 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SHIFT_TRUNCATION_MASK default_shift_truncation_mask
 #endif
 
+#ifndef TARGET_MIN_DIVISIONS_FOR_RECIP_MUL
+#define TARGET_MIN_DIVISIONS_FOR_RECIP_MUL default_min_divisions_for_recip_mul
+#endif
+
+#ifndef TARGET_MODE_REP_EXTENDED
+#define TARGET_MODE_REP_EXTENDED default_mode_rep_extended
+#endif
+
 #ifndef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
 
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P default_decimal_float_supported_p
 #endif
 
 #ifndef TARGET_VECTOR_MODE_SUPPORTED_P
@@ -355,13 +414,20 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CANNOT_COPY_INSN_P NULL
 #define TARGET_COMMUTATIVE_P hook_bool_rtx_commutative_p
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_rtx_false
+#define TARGET_MIN_ANCHOR_OFFSET 0
+#define TARGET_MAX_ANCHOR_OFFSET 0
+#define TARGET_USE_ANCHORS_FOR_SYMBOL_P default_use_anchors_for_symbol_p
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
+#ifndef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
+#endif
 #define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
+#define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
 #define TARGET_ALLOCATE_INITIAL_VALUE NULL
@@ -521,6 +587,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
+#ifndef TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT
+#define TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT hook_bool_void_false
+#endif
+
 #ifndef TARGET_CXX_ADJUST_CLASS_AT_DEFINITION
 #define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION hook_void_tree
 #endif
@@ -537,6 +607,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
     TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
     TARGET_CXX_USE_AEABI_ATEXIT,		\
+    TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT,	\
     TARGET_CXX_ADJUST_CLASS_AT_DEFINITION	\
   }
 
@@ -557,7 +628,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
+  TARGET_DECIMAL_FLOAT_SUPPORTED_P,		\
   TARGET_ALIGN_ANON_BITFIELD,			\
+  TARGET_NARROW_VOLATILE_BITFIELD,		\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
   TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
@@ -572,12 +645,18 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_CANNOT_COPY_INSN_P,			\
   TARGET_COMMUTATIVE_P,				\
   TARGET_DELEGITIMIZE_ADDRESS,			\
+  TARGET_USE_BLOCKS_FOR_CONSTANT_P,		\
+  TARGET_MIN_ANCHOR_OFFSET,			\
+  TARGET_MAX_ANCHOR_OFFSET,			\
+  TARGET_USE_ANCHORS_FOR_SYMBOL_P,		\
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
   TARGET_BINDS_LOCAL_P,				\
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
+  TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
+  TARGET_MODE_REP_EXTENDED,			\
   TARGET_VALID_POINTER_MODE,                    \
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
@@ -610,8 +689,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_BINARY_OP,			\
   TARGET_SECONDARY_RELOAD,			\
   TARGET_CXX,					\
+  TARGET_EXTRA_LIVE_ON_ENTRY,                    \
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
+  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS,		\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
   TARGET_HAVE_SRODATA_SECTION,			\

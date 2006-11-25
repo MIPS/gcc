@@ -174,7 +174,6 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case BIT_FIELD_REF:
 	case VIEW_CONVERT_EXPR:
-	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
@@ -192,6 +191,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  break;
 
 	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  if (!cbck (*addr_p, &TREE_OPERAND (*addr_p, 1), data))
 	    return false;
@@ -401,7 +401,7 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
       && def_bb->loop_father == loop)
     data->cost += LIM_DATA (def_stmt)->cost;
 
-  dep = xmalloc (sizeof (struct depend));
+  dep = XNEW (struct depend);
   dep->stmt = def_stmt;
   dep->next = data->depends;
   data->depends = dep;
@@ -624,7 +624,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 
 	  /* stmt must be MODIFY_EXPR.  */
 	  var = create_tmp_var (TREE_TYPE (rhs), "reciptmp");
-	  add_referenced_tmp_var (var);
+	  add_referenced_var (var);
 
 	  stmt1 = build2 (MODIFY_EXPR, void_type_node, var,
 			  build2 (RDIV_EXPR, TREE_TYPE (rhs),
@@ -690,25 +690,6 @@ determine_invariantness (void)
   fini_walk_dominator_tree (&walk_data);
 }
 
-/* Commits edge insertions and updates loop structures.  */
-
-void
-loop_commit_inserts (void)
-{
-  unsigned old_last_basic_block, i;
-  basic_block bb;
-
-  old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts ();
-  for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
-    {
-      bb = BASIC_BLOCK (i);
-      add_bb_to_loop (bb,
-		      find_common_loop (single_pred (bb)->loop_father,
-					single_succ (bb)->loop_father));
-    }
-}
-
 /* Hoist the statements in basic block BB out of the loops prescribed by
    data stored in LIM_DATA structures associated with each statement.  Callback
    for walk_dominator_tree.  */
@@ -759,7 +740,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 		   cost, level->num);
 	}
       bsi_insert_on_edge (loop_preheader_edge (level), stmt);
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, false);
     }
 }
 
@@ -778,7 +759,7 @@ move_computations (void)
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
-  loop_commit_inserts ();
+  bsi_commit_edge_inserts ();
   if (need_ssa_update_p ())
     rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
@@ -887,7 +868,7 @@ force_move_till (tree ref, tree *index, void *data)
 static void
 record_mem_ref_loc (struct mem_ref_loc **mem_refs, tree stmt, tree *ref)
 {
-  struct mem_ref_loc *aref = xmalloc (sizeof (struct mem_ref_loc));
+  struct mem_ref_loc *aref = XNEW (struct mem_ref_loc);
 
   aref->stmt = stmt;
   aref->ref = ref;
@@ -1035,13 +1016,12 @@ get_lsm_tmp_name (tree ref)
 /* Records request for store motion of memory reference REF from LOOP.
    MEM_REFS is the list of occurrences of the reference REF inside LOOP;
    these references are rewritten by a new temporary variable.
-   Exits from the LOOP are stored in EXITS, there are N_EXITS of them.
-   The initialization of the temporary variable is put to the preheader
-   of the loop, and assignments to the reference from the temporary variable
-   are emitted to exits.  */
+   Exits from the LOOP are stored in EXITS.  The initialization of the
+   temporary variable is put to the preheader of the loop, and assignments
+   to the reference from the temporary variable are emitted to exits.  */
 
 static void
-schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
+schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
 	     struct mem_ref_loc *mem_refs)
 {
   struct mem_ref_loc *aref;
@@ -1049,6 +1029,7 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
   unsigned i;
   tree load, store;
   struct fmt_data fmt_data;
+  edge ex;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1079,11 +1060,11 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
      all dependencies.  */
   bsi_insert_on_edge (loop_latch_edge (loop), load);
 
-  for (i = 0; i < n_exits; i++)
+  for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
     {
       store = build2 (MODIFY_EXPR, void_type_node,
 		      unshare_expr (ref), tmp_var);
-      bsi_insert_on_edge (exits[i], store);
+      bsi_insert_on_edge (ex, store);
     }
 }
 
@@ -1091,12 +1072,12 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
    is true, prepare the statements that load the value of the memory reference
    to a temporary variable in the loop preheader, store it back on the loop
    exits, and replace all the references inside LOOP by this temporary variable.
-   LOOP has N_EXITS stored in EXITS.  CLOBBERED_VOPS is the bitmap of virtual
+   EXITS is the list of exits of LOOP.  CLOBBERED_VOPS is the bitmap of virtual
    operands that are clobbered by a call or accessed through multiple references
    in loop.  */
 
 static void
-determine_lsm_ref (struct loop *loop, edge *exits, unsigned n_exits,
+determine_lsm_ref (struct loop *loop, VEC (edge, heap) *exits,
 		   bitmap clobbered_vops, struct mem_ref *ref)
 {
   struct mem_ref_loc *aref;
@@ -1142,35 +1123,36 @@ determine_lsm_ref (struct loop *loop, edge *exits, unsigned n_exits,
 	return;
     }
 
-  schedule_sm (loop, exits, n_exits, ref->mem, ref->locs);
+  schedule_sm (loop, exits, ref->mem, ref->locs);
 }
 
 /* Hoists memory references MEM_REFS out of LOOP.  CLOBBERED_VOPS is the list
    of vops clobbered by call in loop or accessed by multiple memory references.
-   EXITS is the list of N_EXITS exit edges of the LOOP.  */
+   EXITS is the list of exit edges of the LOOP.  */
 
 static void
 hoist_memory_references (struct loop *loop, struct mem_ref *mem_refs,
-			 bitmap clobbered_vops, edge *exits, unsigned n_exits)
+			 bitmap clobbered_vops, VEC (edge, heap) *exits)
 {
   struct mem_ref *ref;
 
   for (ref = mem_refs; ref; ref = ref->next)
-    determine_lsm_ref (loop, exits, n_exits, clobbered_vops, ref);
+    determine_lsm_ref (loop, exits, clobbered_vops, ref);
 }
 
-/* Checks whether LOOP (with N_EXITS exits stored in EXITS array) is suitable
+/* Checks whether LOOP (with exits stored in EXITS array) is suitable
    for a store motion optimization (i.e. whether we can insert statement
    on its exits).  */
 
 static bool
-loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED, edge *exits,
-		      unsigned n_exits)
+loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED,
+		      VEC (edge, heap) *exits)
 {
   unsigned i;
+  edge ex;
 
-  for (i = 0; i < n_exits; i++)
-    if (exits[i]->flags & EDGE_ABNORMAL)
+  for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
+    if (ex->flags & EDGE_ABNORMAL)
       return false;
 
   return true;
@@ -1258,7 +1240,7 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     ref = *slot;
   else
     {
-      ref = xmalloc (sizeof (struct mem_ref));
+      ref = XNEW (struct mem_ref);
       ref->mem = *mem;
       ref->hash = hash;
       ref->locs = NULL;
@@ -1364,14 +1346,13 @@ free_mem_refs (struct mem_ref *refs)
 static void
 determine_lsm_loop (struct loop *loop)
 {
-  unsigned n_exits;
-  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
   bitmap clobbered_vops;
   struct mem_ref *mem_refs;
 
-  if (!loop_suitable_for_sm (loop, exits, n_exits))
+  if (!loop_suitable_for_sm (loop, exits))
     {
-      free (exits);
+      VEC_free (edge, heap, exits);
       return;
     }
 
@@ -1383,10 +1364,10 @@ determine_lsm_loop (struct loop *loop)
   find_more_ref_vops (mem_refs, clobbered_vops);
 
   /* Hoist all suitable memory references.  */
-  hoist_memory_references (loop, mem_refs, clobbered_vops, exits, n_exits);
+  hoist_memory_references (loop, mem_refs, clobbered_vops, exits);
 
   free_mem_refs (mem_refs);
-  free (exits);
+  VEC_free (edge, heap, exits);
   BITMAP_FREE (clobbered_vops);
 }
 
@@ -1419,7 +1400,7 @@ determine_lsm (struct loops *loops)
 	  loop = loop->outer;
 	  if (loop == loops->tree_root)
 	    {
-	      loop_commit_inserts ();
+	      bsi_commit_edge_inserts ();
 	      return;
 	    }
 	}

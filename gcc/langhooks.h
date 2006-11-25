@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,8 @@ Boston, MA 02110-1301, USA.  */
 /* This file should be #include-d after tree.h.  */
 
 struct diagnostic_context;
+
+struct gimplify_omp_ctx;
 
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
@@ -142,6 +144,10 @@ struct lang_hooks_for_types
      for a type.  */
   tree (*max_size) (tree);
 
+  /* Register language specific type size variables as potentially OpenMP
+     firstprivate variables.  */
+  void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
+
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
      user-specified type, such as Ada, this should be set to TRUE.  */
@@ -192,6 +198,38 @@ struct lang_hooks_for_decls
      value will be the string already stored in an
      IDENTIFIER_NODE.)  */
   const char * (*comdat_group) (tree);
+
+  /* True if OpenMP should privatize what this DECL points to rather
+     than the DECL itself.  */
+  bool (*omp_privatize_by_reference) (tree);
+
+  /* Return sharing kind if OpenMP sharing attribute of DECL is
+     predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+  enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
+
+  /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+     disregarded in OpenMP construct, because it is going to be
+     remapped during OpenMP lowering.  SHARED is true if DECL
+     is going to be shared, false if it is going to be privatized.  */
+  bool (*omp_disregard_value_expr) (tree, bool);
+
+  /* Return true if DECL that is shared iff SHARED is true should
+     be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
+  bool (*omp_private_debug_clause) (tree, bool);
+
+  /* Build and return code for a default constructor for DECL in
+     response to CLAUSE.  Return NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree clause, tree decl);
+
+  /* Build and return code for a copy constructor from SRC to DST.  */
+  tree (*omp_clause_copy_ctor) (tree clause, tree dst, tree src);
+
+  /* Similarly, except use an assignment operator instead.  */
+  tree (*omp_clause_assign_op) (tree clause, tree dst, tree src);
+
+  /* Build and return code destructing DECL.  Return NULL if nothing
+     to be done.  */
+  tree (*omp_clause_dtor) (tree clause, tree decl);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -344,6 +382,11 @@ struct lang_hooks
      types in C++.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
 
+  /* Computes the dwarf-2/3 name for a tree.  VERBOSITY determines what
+     information will be printed: 0: DECL_NAME, demangled as
+     necessary.  1: and scope information.  */
+  const char *(*dwarf_name) (tree, int verbosity);
+
   /* This compares two types for equivalence ("compatible" in C-based languages).
      This routine should only return 1 if it is sure.  It should not be used
      in contexts where erroneously returning 0 causes problems.  */
@@ -400,22 +443,13 @@ struct lang_hooks
      KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
   tree (*fold_obj_type_ref) (tree, tree);
 
-  /* Return a definition for a builtin function named NAME and whose data type
-     is TYPE.  TYPE should be a function type with argument types.
-     FUNCTION_CODE tells later passes how to compile calls to this function.
-     See tree.h for its possible values.
-
-     If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-     the name to be called if we can't opencode the function.  If
-     ATTRS is nonzero, use that for the function's attribute list.  */
-  tree (*builtin_function) (const char *name, tree type, int function_code,
-			    enum built_in_class bt_class,
-			    const char *library_name, tree attrs);
+  /* Do language specific processing in the builtin function DECL  */
+  tree (*builtin_function) (tree decl);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
 
-  /* Called by recompute_tree_invarant_for_addr_expr to go from EXPR
+  /* Called by recompute_tree_invariant_for_addr_expr to go from EXPR
      to a contained expression or DECL, possibly updating *TC, *TI or
      *SE if in the process TREE_CONSTANT, TREE_INVARIANT or
      TREE_SIDE_EFFECTS need updating.  */
@@ -427,5 +461,9 @@ struct lang_hooks
 
 /* Each front end provides its own.  */
 extern const struct lang_hooks lang_hooks;
+extern tree add_builtin_function (const char *name, tree type,
+				  int function_code, enum built_in_class cl,
+				  const char *library_name,
+				  tree attrs);
 
 #endif /* GCC_LANG_HOOKS_H */

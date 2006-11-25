@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,7 +34,6 @@
 with Ada.Exceptions;
 with Ada.Tags;
 
-with System.Storage_Elements;
 with System.Soft_Links;
 
 with Unchecked_Conversion;
@@ -47,7 +46,6 @@ package body System.Finalization_Implementation is
 
    package SSL renames System.Soft_Links;
 
-   package SSE renames System.Storage_Elements;
    use type SSE.Storage_Offset;
 
    -----------------------
@@ -60,8 +58,8 @@ package body System.Finalization_Implementation is
      new Unchecked_Conversion (Address, RC_Ptr);
 
    procedure Raise_Exception_No_Defer
-     (E       : in Exception_Id;
-      Message : in String := "");
+     (E       : Exception_Id;
+      Message : String := "");
    pragma Import (Ada, Raise_Exception_No_Defer,
      "ada__exceptions__raise_exception_no_defer");
    pragma No_Return (Raise_Exception_No_Defer);
@@ -183,6 +181,14 @@ package body System.Finalization_Implementation is
 
       elsif Nb_Link = 2 then
 
+         --  Raise Program_Error if we're trying to allocate an object in a
+         --  collection whose finalization has already started.
+
+         if L = Collection_Finalization_Started then
+            raise Program_Error with
+              "allocation after collection finalization started";
+         end if;
+
          Locked_Processing : begin
             SSL.Lock_Task.all;
             Obj.Next    := L.Next;
@@ -214,6 +220,13 @@ package body System.Finalization_Implementation is
             P.Next := L;
             L := Obj'Unchecked_Access;
          end;
+
+      --  Make the object completely unattached (case of a library-level,
+      --  Finalize_Storage_Only object).
+
+      elsif Nb_Link = 4 then
+         Obj.Prev := null;
+         Obj.Next := null;
       end if;
    end Attach_To_Final_List;
 
@@ -594,6 +607,6 @@ package body System.Finalization_Implementation is
 --  Initialization of package, set Adafinal soft link
 
 begin
-   SSL.Adafinal := Finalize_Global_List'Access;
+   SSL.Finalize_Global_List := Finalize_Global_List'Access;
 
 end System.Finalization_Implementation;

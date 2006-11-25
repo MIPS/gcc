@@ -49,6 +49,9 @@ typedef struct param_info
   /* The associated value.  */
   int value;
 
+  /* True if the parameter was explicitly set.  */
+  bool set;
+
   /* Minimum acceptable value.  */
   int min_value;
   
@@ -88,9 +91,15 @@ typedef enum compiler_param
 #define PARAM_VALUE(ENUM) \
   (compiler_params[(int) ENUM].value)
 
+/* True if the value of the parameter was explicitly changed.  */
+#define PARAM_SET_P(ENUM) \
+  (compiler_params[(int) ENUM].set)
+
 /* Macros for the various parameters.  */
 #define SALIAS_MAX_IMPLICIT_FIELDS \
   PARAM_VALUE (PARAM_SALIAS_MAX_IMPLICIT_FIELDS)
+#define SALIAS_MAX_ARRAY_ELEMENTS \
+  PARAM_VALUE (PARAM_SALIAS_MAX_ARRAY_ELEMENTS)
 #define SRA_MAX_STRUCTURE_SIZE \
   PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
 #define SRA_MAX_STRUCTURE_COUNT \
@@ -145,4 +154,16 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MIN_VIRTUAL_MAPPINGS)
 #define VIRTUAL_MAPPINGS_TO_SYMS_RATIO \
   PARAM_VALUE (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO)
+#define MAX_FIELDS_FOR_FIELD_SENSITIVE \
+  ((size_t) PARAM_VALUE (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE))
+#define MAX_SCHED_READY_INSNS \
+  PARAM_VALUE (PARAM_MAX_SCHED_READY_INSNS)
+#define PREFETCH_LATENCY \
+  PARAM_VALUE (PARAM_PREFETCH_LATENCY)
+#define SIMULTANEOUS_PREFETCHES \
+  PARAM_VALUE (PARAM_SIMULTANEOUS_PREFETCHES)
+#define L1_CACHE_SIZE \
+  PARAM_VALUE (PARAM_L1_CACHE_SIZE)
+#define L1_CACHE_LINE_SIZE \
+  PARAM_VALUE (PARAM_L1_CACHE_LINE_SIZE)
 #endif /* ! GCC_PARAMS_H */

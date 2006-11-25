@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -85,7 +85,7 @@ procedure Gnatbind is
    procedure Scan_Bind_Arg (Argv : String);
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
-   --  routine handles -aO -aI and -I-.
+   --  routine handles -aO -aI and -I-. The lower bound of Argv must be 1.
 
    function Is_Cross_Compiler return Boolean;
    --  Returns True iff this is a cross-compiler
@@ -206,6 +206,8 @@ procedure Gnatbind is
    -------------------
 
    procedure Scan_Bind_Arg (Argv : String) is
+      pragma Assert (Argv'First = 1);
+
    begin
       --  Now scan arguments that are specific to the binder and are not
       --  handled by the common circuitry in Switch.
@@ -364,12 +366,13 @@ procedure Gnatbind is
          --  -Mname
 
          elsif Argv'Length >= 3 and then Argv (2) = 'M' then
-            if Is_Cross_Compiler then
-               Opt.Bind_Alternate_Main_Name := True;
-               Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
-            else
-               Fail ("-M option only valid for a cross-compiler");
+            if not Is_Cross_Compiler then
+               Write_Line
+                 ("gnatbind: -M not expected to be used on native platforms");
             end if;
+
+            Opt.Bind_Alternate_Main_Name := True;
+            Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
 
          --  All other options are single character and are handled by
          --  Scan_Binder_Switches.
@@ -419,11 +422,11 @@ begin
    Scan_Args : while Next_Arg < Arg_Count loop
       declare
          Next_Argv : String (1 .. Len_Arg (Next_Arg));
-
       begin
          Fill_Arg (Next_Argv'Address, Next_Arg);
          Scan_Bind_Arg (Next_Argv);
       end;
+
       Next_Arg := Next_Arg + 1;
    end loop Scan_Args;
 
@@ -448,7 +451,7 @@ begin
    --  Output usage if requested
 
    if Usage_Requested then
-      Bindusg;
+      Bindusg.Display;
    end if;
 
    --  Check that the Ada binder file specified has extension .adb and that
@@ -525,14 +528,16 @@ begin
       Write_Str ("GNATBIND ");
       Write_Str (Gnat_Version_String);
       Write_Eol;
-      Write_Str ("Copyright 1995-2005 Free Software Foundation, Inc.");
+      Write_Str ("Copyright 1995-" &
+                 Current_Year &
+                 ", Free Software Foundation, Inc.");
       Write_Eol;
    end if;
 
    --  Output usage information if no files
 
    if not More_Lib_Files then
-      Bindusg;
+      Bindusg.Display;
       Exit_Program (E_Fatal);
    end if;
 
@@ -597,8 +602,8 @@ begin
 
          --  Set standard configuration parameters
 
-         Suppress_Standard_Library_On_Target            := True;
-         Configurable_Run_Time_Mode                     := True;
+         Suppress_Standard_Library_On_Target := True;
+         Configurable_Run_Time_Mode          := True;
       end if;
 
       --  For main ALI files, even if they are interfaces, we get their
@@ -720,10 +725,15 @@ begin
 
    if Total_Errors > 0 then
       Exit_Program (E_Errors);
+
    elsif Total_Warnings > 0 then
       Exit_Program (E_Warnings);
+
    else
-      Exit_Program (E_Success);
+      --  Do not call Exit_Program (E_Success), so that finalization occurs
+      --  normally.
+
+      null;
    end if;
 
 end Gnatbind;

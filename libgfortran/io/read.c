@@ -92,7 +92,9 @@ GFC_UINTEGER_LARGEST
 max_value (int length, int signed_flag)
 {
   GFC_UINTEGER_LARGEST value;
+#if defined HAVE_GFC_REAL_16 || defined HAVE_GFC_REAL_10
   int n;
+#endif
 
   switch (length)
     {
@@ -244,7 +246,9 @@ read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
   if (w == -1) /* '(A)' edit descriptor  */
     w = length;
 
+  dtp->u.p.sf_read_comma = 0;
   source = read_block (dtp, &w);
+  dtp->u.p.sf_read_comma = 1;
   if (source == NULL)
     return;
   if (w > length)
@@ -839,10 +843,17 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 void
 read_x (st_parameter_dt *dtp, int n)
 {
-  if ((dtp->u.p.current_unit->flags.pad == PAD_NO || is_internal_unit (dtp))
-      && dtp->u.p.current_unit->bytes_left < n)
-    n = dtp->u.p.current_unit->bytes_left;
+  if (!is_stream_io (dtp))
+    {
+      if ((dtp->u.p.current_unit->flags.pad == PAD_NO || is_internal_unit (dtp))
+	  && dtp->u.p.current_unit->bytes_left < n)
+	n = dtp->u.p.current_unit->bytes_left;
 
-  if (n > 0)
-    read_block (dtp, &n);
+      dtp->u.p.sf_read_comma = 0;
+      if (n > 0)
+	read_sf (dtp, &n, 1);
+      dtp->u.p.sf_read_comma = 1;
+    }
+  else
+    dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
 }

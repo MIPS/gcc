@@ -1,3 +1,19 @@
+2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (decimal_float): New.  Build decimal float support.
+	(lib2funcs): Add _bswapsi2 and _bswapdi2.
+	(swfloatfuncs, dwfloatfuncs): New.  Handle LIB2_SIDITI_CONV_FUNCS.
+	(lib2funcs, LIB2_DIVMOD_FUNCS): Handle LIB2FUNCS_EXCLUDE.
+	(FPBIT_FUNCS, DPBIT_FUNCS): Exclude tf conversions if not available.
+	(install-libunwind, install-shared, install): Chmod 644 before
+	calling ranlib.
+	* config/rs6000/t-linux64: Remove.
+	* config/rs6000/t-ldbl128: New.
+	* config.gcc: Update.
+	* configure.ac: Check for decimal float.
+	* configure: Regenerate.
+	* siditi-object.mk: New.
+
 2006-02-22  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.in: Allow fpbit to be placed in the libgcc object directory.

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2006 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -54,7 +54,6 @@ with System.Task_Primitives.Operations.DEC;
 --  removed, because of problem with controlled attribute ???
 
 with Ada.Task_Attributes;
-with Ada.Task_Identification;
 
 with Ada.Exceptions; use Ada.Exceptions;
 
@@ -518,7 +517,7 @@ package body System.AST_Handling is
    ----------------------------
 
    procedure Expand_AST_Packet_Pool
-     (Requested_Packets : in Natural;
+     (Requested_Packets : Natural;
       Actual_Number     : out Natural;
       Total_Number      : out Natural)
    is

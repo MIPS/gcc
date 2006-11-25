@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,6 +38,7 @@ with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
+with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
@@ -701,6 +702,16 @@ package body Sem_Eval is
       --  Cases where at least one operand is not known at compile time
 
       else
+         --  Remaining checks apply only for non-generic discrete types
+
+         if not Is_Discrete_Type (Ltyp)
+           or else not Is_Discrete_Type (Rtyp)
+           or else Is_Generic_Type (Ltyp)
+           or else Is_Generic_Type (Rtyp)
+         then
+            return Unknown;
+         end if;
+
          --  Here is where we check for comparisons against maximum bounds of
          --  types, where we know that no value can be outside the bounds of
          --  the subtype. Note that this routine is allowed to assume that all
@@ -711,16 +722,12 @@ package body Sem_Eval is
          --  attempt this optimization with generic types, since the type
          --  bounds may not be meaningful in this case.
 
-         --  We are in danger of an infinite recursion here. It does not seem
+         --  We are in danger of an  infinite recursion here. It does not seem
          --  useful to go more than one level deep, so the parameter Rec is
          --  used to protect ourselves against this infinite recursion.
 
-         if not Rec
-           and then Is_Discrete_Type (Ltyp)
-           and then Is_Discrete_Type (Rtyp)
-           and then not Is_Generic_Type (Ltyp)
-           and then not Is_Generic_Type (Rtyp)
-         then
+         if not Rec then
+
             --  See if we can get a decisive check against one operand and
             --  a bound of the other operand (four possible tests here).
 
@@ -784,13 +791,134 @@ package body Sem_Eval is
                else
                   return GT;
                end if;
+            end if;
+         end;
 
-            --  If the expressions are different, we cannot say at compile
-            --  time how they compare, so we return the Unknown indication.
+         --  Next attempt is to see if we have an entity compared with a
+         --  compile time known value, where there is a current value
+         --  conditional for the entity which can tell us the result.
+
+         declare
+            Var : Node_Id;
+            --  Entity variable (left operand)
+
+            Val : Uint;
+            --  Value (right operand)
+
+            Inv : Boolean;
+            --  If False, we have reversed the operands
+
+            Op : Node_Kind;
+            --  Comparison operator kind from Get_Current_Value_Condition call
+
+            Opn : Node_Id;
+            --  Value from Get_Current_Value_Condition call
+
+            Opv : Uint;
+            --  Value of Opn
+
+            Result : Compare_Result;
+            --  Known result before inversion
+
+         begin
+            if Is_Entity_Name (L)
+              and then Compile_Time_Known_Value (R)
+            then
+               Var := L;
+               Val := Expr_Value (R);
+               Inv := False;
+
+            elsif Is_Entity_Name (R)
+              and then Compile_Time_Known_Value (L)
+            then
+               Var := R;
+               Val := Expr_Value (L);
+               Inv := True;
+
+               --  That was the last chance at finding a compile time result
 
             else
                return Unknown;
             end if;
+
+            Get_Current_Value_Condition (Var, Op, Opn);
+
+            --  That was the last chance, so if we got nothing return
+
+            if No (Opn) then
+               return Unknown;
+            end if;
+
+            Opv := Expr_Value (Opn);
+
+            --  We got a comparison, so we might have something interesting
+
+            --  Convert LE to LT and GE to GT, just so we have fewer cases
+
+            if Op = N_Op_Le then
+               Op := N_Op_Lt;
+               Opv := Opv + 1;
+            elsif Op = N_Op_Ge then
+               Op := N_Op_Gt;
+               Opv := Opv - 1;
+            end if;
+
+            --  Deal with equality case
+
+            if Op = N_Op_Eq then
+               if Val = Opv then
+                  Result := EQ;
+               elsif Opv < Val then
+                  Result := LT;
+               else
+                  Result := GT;
+               end if;
+
+            --  Deal with inequality case
+
+            elsif Op = N_Op_Ne then
+               if Val = Opv then
+                  Result := NE;
+               else
+                  return Unknown;
+               end if;
+
+            --  Deal with greater than case
+
+            elsif Op = N_Op_Gt then
+               if Opv >= Val then
+                  Result := GT;
+               elsif Opv = Val - 1 then
+                  Result := GE;
+               else
+                  return Unknown;
+               end if;
+
+            --  Deal with less than case
+
+            else pragma Assert (Op = N_Op_Lt);
+               if Opv <= Val then
+                  Result := LT;
+               elsif Opv = Val + 1 then
+                  Result := LE;
+               else
+                  return Unknown;
+               end if;
+            end if;
+
+            --  Deal with inverting result
+
+            if Inv then
+               case Result is
+                  when GT     => return LT;
+                  when GE     => return LE;
+                  when LT     => return GT;
+                  when LE     => return GE;
+                  when others => return Result;
+               end case;
+            end if;
+
+            return Result;
          end;
       end if;
    end Compile_Time_Compare;
@@ -1234,6 +1362,7 @@ package body Sem_Eval is
    --  with static arguments, or calls to functions that rename a literal.
    --  Only the latter case is handled here, predefined operators are
    --  constant-folded elsewhere.
+
    --  If the function is itself inherited (see 7423-001) the literal of
    --  the parent type must be explicitly converted to the return type
    --  of the function.
@@ -1251,7 +1380,6 @@ package body Sem_Eval is
         and then Is_Enumeration_Type (Base_Type (Typ))
       then
          Lit := Alias (Entity (Name (N)));
-
          while Present (Alias (Lit)) loop
             Lit := Alias (Lit);
          end loop;
@@ -2201,25 +2329,29 @@ package body Sem_Eval is
             end if;
          end;
 
-      --  Another special case: comparisons against null for pointers that
-      --  are known to be non-null. This is useful when migrating from Ada95
-      --  code when non-null restrictions are added to type declarations and
-      --  parameter specifications.
+      --  Another special case: comparisons of access types, where one or both
+      --  operands are known to be null, so the result can be determined.
 
-      elsif Is_Access_Type (Typ)
-        and then Comes_From_Source (N)
-        and then
-          ((Is_Entity_Name (Left)
-             and then Is_Known_Non_Null (Entity (Left))
-             and then Nkind (Right) = N_Null)
-          or else
-            (Is_Entity_Name (Right)
-              and then Is_Known_Non_Null (Entity (Right))
-              and then Nkind (Left) = N_Null))
-      then
-         Fold_Uint (N, Test (Nkind (N) = N_Op_Ne), False);
-         Warn_On_Known_Condition (N);
-         return;
+      elsif Is_Access_Type (Typ) then
+         if Known_Null (Left) then
+            if Known_Null (Right) then
+               Fold_Uint (N, Test (Nkind (N) = N_Op_Eq), False);
+               Warn_On_Known_Condition (N);
+               return;
+
+            elsif Known_Non_Null (Right) then
+               Fold_Uint (N, Test (Nkind (N) = N_Op_Ne), False);
+               Warn_On_Known_Condition (N);
+               return;
+            end if;
+
+         elsif Known_Non_Null (Left) then
+            if Known_Null (Right) then
+               Fold_Uint (N, Test (Nkind (N) = N_Op_Ne), False);
+               Warn_On_Known_Condition (N);
+               return;
+            end if;
+         end if;
       end if;
 
       --  Can only fold if type is scalar (don't fold string ops)
@@ -2416,7 +2548,6 @@ package body Sem_Eval is
 
    procedure Eval_Slice (N : Node_Id) is
       Drange : constant Node_Id := Discrete_Range (N);
-
    begin
       if Nkind (Drange) = N_Range then
          Check_Non_Static_Context (Low_Bound (Drange));
@@ -4013,13 +4144,8 @@ package body Sem_Eval is
       elsif
          Has_Unknown_Discriminants (T1) /= Has_Unknown_Discriminants (T2)
       then
-         if Is_Generic_Actual_Type (T1)
-           and then Etype (T1) = T2
-         then
-            return True;
-         else
-            return False;
-         end if;
+         return
+           Is_Generic_Actual_Type (T1) or else Is_Generic_Actual_Type (T2);
 
       --  Array type
 
@@ -4056,9 +4182,23 @@ package body Sem_Eval is
          end;
 
       elsif Is_Access_Type (T1) then
-         return Subtypes_Statically_Match
-                  (Designated_Type (T1),
-                   Designated_Type (T2));
+         if Can_Never_Be_Null (T1) /= Can_Never_Be_Null (T2) then
+            return False;
+
+         elsif Ekind (T1) = E_Access_Subprogram_Type
+           or else Ekind (T1) = E_Anonymous_Access_Subprogram_Type
+         then
+            return
+              Subtype_Conformant
+                (Designated_Type (T1),
+                 Designated_Type (T2));
+         else
+            return
+              Subtypes_Statically_Match
+                (Designated_Type (T1),
+                 Designated_Type (T2))
+              and then Is_Access_Constant (T1) = Is_Access_Constant (T2);
+         end if;
 
       --  All other types definitely match
 
@@ -4344,7 +4484,7 @@ package body Sem_Eval is
                   "('R'M 4.9(5))!", N, E);
             end if;
 
-         when N_Binary_Op | N_And_Then | N_Or_Else | N_In | N_Not_In =>
+         when N_Binary_Op | N_And_Then | N_Or_Else | N_Membership_Test =>
             if Nkind (N) in N_Op_Shift then
                Error_Msg_N
                 ("shift functions are never static ('R'M 4.9(6,18))!", N);

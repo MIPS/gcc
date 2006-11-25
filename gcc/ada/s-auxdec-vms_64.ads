@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2006 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,15 +37,21 @@
 --  These definitions can be used directly by withing this package, or merged
 --  with System using pragma Extend_System (Aux_DEC)
 
---  This is the IPF VMS 64 bit version.
+--  This is the VMS 64 bit version.
 
 with Unchecked_Conversion;
 
 package System.Aux_DEC is
    pragma Preelaborate;
 
-   subtype Short_Address is Address
+   type Short_Integer_Address is
      range -2 ** (32 - 1) .. +2 ** (32 - 1) - 1;
+   --  Integer literals cannot appear naked in an address context, as a
+   --  result the bounds of Short_Address cannot be given simply as 2^32 etc.
+
+   subtype Short_Address is Address
+     range Address (Short_Integer_Address'First) ..
+           Address (Short_Integer_Address'Last);
    for Short_Address'Object_Size use 32;
    --  This subtype allows addresses to be converted from 64 bits to 32 bits
    --  with an appropriate range check. Note that since this is a subtype of
@@ -70,7 +76,7 @@ package System.Aux_DEC is
 
    type Largest_Integer is range Min_Int .. Max_Int;
 
-   type AST_Handler is limited private;
+   type AST_Handler is private;
 
    No_AST_Handler : constant AST_Handler;
 
@@ -292,17 +298,17 @@ package System.Aux_DEC is
    procedure Clear_Interlocked
      (Bit          : in out Boolean;
       Old_Value    : out Boolean;
-      Retry_Count  : in Natural;
+      Retry_Count  : Natural;
       Success_Flag : out Boolean);
 
    procedure Set_Interlocked
      (Bit          : in out Boolean;
       Old_Value    : out Boolean;
-      Retry_Count  : in Natural;
+      Retry_Count  : Natural;
       Success_Flag : out Boolean);
 
    procedure Add_Interlocked
-     (Addend       : in Short_Integer;
+     (Addend       : Short_Integer;
       Augend       : in out Aligned_Word;
       Sign         : out Integer);
 
@@ -326,67 +332,67 @@ package System.Aux_DEC is
 
    procedure Add_Atomic
      (To           : in out Aligned_Integer;
-      Amount       : in Integer);
+      Amount       : Integer);
 
    procedure Add_Atomic
      (To           : in out Aligned_Integer;
-      Amount       : in Integer;
-      Retry_Count  : in Natural;
+      Amount       : Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Integer;
       Success_Flag : out Boolean);
 
    procedure Add_Atomic
      (To           : in out Aligned_Long_Integer;
-      Amount       : in Long_Integer);
+      Amount       : Long_Integer);
 
    procedure Add_Atomic
      (To           : in out Aligned_Long_Integer;
-      Amount       : in Long_Integer;
-      Retry_Count  : in Natural;
+      Amount       : Long_Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean);
 
    procedure And_Atomic
      (To           : in out Aligned_Integer;
-      From         : in Integer);
+      From         : Integer);
 
    procedure And_Atomic
      (To           : in out Aligned_Integer;
-      From         : in Integer;
-      Retry_Count  : in Natural;
+      From         : Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Integer;
       Success_Flag : out Boolean);
 
    procedure And_Atomic
      (To           : in out Aligned_Long_Integer;
-      From         : in Long_Integer);
+      From         : Long_Integer);
 
    procedure And_Atomic
      (To           : in out Aligned_Long_Integer;
-      From         : in Long_Integer;
-      Retry_Count  : in Natural;
+      From         : Long_Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean);
 
    procedure Or_Atomic
      (To           : in out Aligned_Integer;
-      From         : in Integer);
+      From         : Integer);
 
    procedure Or_Atomic
      (To           : in out Aligned_Integer;
-      From         : in Integer;
-      Retry_Count  : in Natural;
+      From         : Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Integer;
       Success_Flag : out Boolean);
 
    procedure Or_Atomic
      (To           : in out Aligned_Long_Integer;
-      From         : in Long_Integer);
+      From         : Long_Integer);
 
    procedure Or_Atomic
      (To           : in out Aligned_Long_Integer;
-      From         : in Long_Integer;
-      Retry_Count  : in Natural;
+      From         : Long_Integer;
+      Retry_Count  : Natural;
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean);
 
@@ -411,22 +417,22 @@ package System.Aux_DEC is
       OK_Empty       => +2);
 
    procedure Insqhi
-     (Item   : in  Address;
-      Header : in  Address;
+     (Item   : Address;
+      Header : Address;
       Status : out Insq_Status);
 
    procedure Remqhi
-     (Header : in  Address;
+     (Header : Address;
       Item   : out Address;
       Status : out Remq_Status);
 
    procedure Insqti
-     (Item   : in  Address;
-      Header : in  Address;
+     (Item   : Address;
+      Header : Address;
       Status : out Insq_Status);
 
    procedure Remqti
-     (Header : in  Address;
+     (Header : Address;
       Item   : out Address;
       Status : out Remq_Status);
 

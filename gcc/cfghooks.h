@@ -122,16 +122,16 @@ struct cfg_hooks
   /* Add condition to new basic block and update CFG used in loop
      versioning.  */
   void (*lv_add_condition_to_bb) (basic_block, basic_block, basic_block,
-  				  void *);
+				  void *);
   /* Update the PHI nodes in case of loop versioning.  */
   void (*lv_adjust_loop_header_phi) (basic_block, basic_block,
 				     basic_block, edge);
-				    
+
   /* Given a condition BB extract the true/false taken/not taken edges
      (depending if we are on tree's or RTL). */
   void (*extract_cond_bb_edges) (basic_block, edge *, edge *);
 
-  
+
   /* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
      E->dest (only in tree-ssa loop versioning.  */
   void (*flush_pending_stmts) (edge);
@@ -184,7 +184,7 @@ extern struct cfg_hooks rtl_cfg_hooks;
 extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
 /* Declarations.  */
-extern int ir_type (void);
+extern enum ir_type current_ir_type (void);
 extern void rtl_register_cfg_hooks (void);
 extern void cfg_layout_rtl_register_cfg_hooks (void);
 extern void tree_register_cfg_hooks (void);

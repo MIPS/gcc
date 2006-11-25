@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -46,8 +46,10 @@ package Ada.Containers.Doubly_Linked_Lists is
    pragma Preelaborate;
 
    type List is tagged private;
+   pragma Preelaborable_Initialization (List);
 
    type Cursor is private;
+   pragma Preelaborable_Initialization (Cursor);
 
    Empty_List : constant List;
 
@@ -145,9 +147,9 @@ package Ada.Containers.Doubly_Linked_Lists is
       Position : in out Cursor);
 
    procedure Splice
-     (Target   : in out List;
-      Before   : Cursor;
-      Position : Cursor);
+     (Container : in out List;
+      Before    : Cursor;
+      Position  : Cursor);
 
    function First (Container : List) return Cursor;
 
@@ -230,13 +232,13 @@ private
    use Ada.Streams;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out List);
 
    for List'Read use Read;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : List);
 
    for List'Write use Write;
@@ -253,13 +255,13 @@ private
       end record;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor);
 
    for Cursor'Read use Read;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor);
 
    for Cursor'Write use Write;

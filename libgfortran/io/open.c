@@ -40,6 +40,7 @@ static const st_option access_opt[] = {
   {"sequential", ACCESS_SEQUENTIAL},
   {"direct", ACCESS_DIRECT},
   {"append", ACCESS_APPEND},
+  {"stream", ACCESS_STREAM},
   {NULL, 0}
 };
 
@@ -98,6 +99,14 @@ static const st_option pad_opt[] =
   { NULL, 0}
 };
 
+static const st_option convert_opt[] =
+{
+  { "native", CONVERT_NATIVE},
+  { "swap", CONVERT_SWAP},
+  { "big_endian", CONVERT_BIG},
+  { "little_endian", CONVERT_LITTLE},
+  { NULL, 0}
+};
 
 /* Given a unit, test to see if the file is positioned at the terminal
    point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
@@ -120,7 +129,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 {
   /* Complain about attempts to change the unchangeable.  */
 
-  if (flags->status != STATUS_UNSPECIFIED &&
+  if (flags->status != STATUS_UNSPECIFIED && flags->status != STATUS_OLD && 
       u->flags.status != flags->status)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Cannot change STATUS parameter in OPEN statement");
@@ -138,7 +147,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
-  if (flags->action != ACTION_UNSPECIFIED && u->flags.access != flags->access)
+  if (flags->action != ACTION_UNSPECIFIED && u->flags.action != flags->action)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Cannot change ACTION parameter in OPEN statement");
 
@@ -146,8 +155,14 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
   if (flags->status != STATUS_UNSPECIFIED && flags->status != STATUS_OLD &&
       flags->status != STATUS_UNKNOWN)
-    generate_error (&opp->common, ERROR_BAD_OPTION,
+    {
+      if (flags->status == STATUS_SCRATCH)
+	notify_std (&opp->common, GFC_STD_GNU,
 		    "OPEN statement must have a STATUS of OLD or UNKNOWN");
+      else
+	generate_error (&opp->common, ERROR_BAD_OPTION,
+		    "OPEN statement must have a STATUS of OLD or UNKNOWN");
+    }
 
   if (u->flags.form == FORM_UNFORMATTED)
     {
@@ -163,7 +178,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
       if (flags->pad != PAD_UNSPECIFIED)
 	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			"PAD paramter conflicts with UNFORMATTED form in "
+			"PAD parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
     }
 
@@ -200,7 +215,9 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       if (sseek (u->s, file_length (u->s)) == FAILURE)
 	goto seek_error;
 
-      u->current_record = 0;
+      if (flags->access != ACCESS_STREAM)
+	u->current_record = 0;
+
       u->endfile = AT_ENDFILE;	/* We are at the end.  */
       break;
 
@@ -267,7 +284,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       if (flags->form == FORM_UNFORMATTED)
 	{
 	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			  "PAD paramter conflicts with UNFORMATTED form in "
+			  "PAD parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
 	}
@@ -326,7 +343,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	break;
 
       opp->file = tmpname;
-      opp->file_len = sprintf(opp->file, "fort.%d", opp->common.unit);
+      opp->file_len = sprintf(opp->file, "fort.%d", (int) opp->common.unit);
       break;
 
     default:
@@ -389,9 +406,32 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   /* Unspecified recl ends up with a processor dependent value.  */
 
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
-    u->recl = opp->recl_in;
+    {
+      u->flags.has_recl = 1;
+      u->recl = opp->recl_in;
+    }
   else
-    u->recl = max_offset;
+    {
+      u->flags.has_recl = 0;
+      switch (compile_options.record_marker)
+	{
+	case 0:
+	  u->recl = max_offset;
+	  break;
+
+	case sizeof (GFC_INTEGER_4):
+	  u->recl = GFC_INTEGER_4_HUGE;
+	  break;
+
+	case sizeof (GFC_INTEGER_8):
+	  u->recl = max_offset;
+	  break;
+
+	default:
+	  runtime_error ("Illegal value for record marker");
+	  break;
+	}
+    }
 
   /* If the file is direct access, calculate the maximum record number
      via a division now instead of letting the multiplication overflow
@@ -399,6 +439,13 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->access == ACCESS_DIRECT)
     u->maxrec = max_offset / u->recl;
+  
+  if (flags->access == ACCESS_STREAM)
+    {
+      u->maxrec = max_offset;
+      u->recl = 1;
+      u->strm_pos = 1;
+    }
 
   memmove (u->file, opp->file, opp->file_len);
   u->file_len = opp->file_len;
@@ -494,6 +541,7 @@ st_open (st_parameter_open *opp)
   unit_flags flags;
   gfc_unit *u = NULL;
   GFC_INTEGER_4 cf = opp->common.flags;
+  unit_convert conv;
  
   library_start (&opp->common);
 
@@ -531,6 +579,45 @@ st_open (st_parameter_open *opp)
     find_option (&opp->common, opp->status, opp->status_len,
 		 status_opt, "Bad STATUS parameter in OPEN statement");
 
+  /* First, we check wether the convert flag has been set via environment
+     variable.  This overrides the convert tag in the open statement.  */
+
+  conv = get_unformatted_convert (opp->common.unit);
+
+  if (conv == CONVERT_NONE)
+    {
+      /* Nothing has been set by environment variable, check the convert tag.  */
+      if (cf & IOPARM_OPEN_HAS_CONVERT)
+	conv = find_option (&opp->common, opp->convert, opp->convert_len,
+			    convert_opt,
+			    "Bad CONVERT parameter in OPEN statement");
+      else
+	conv = compile_options.convert;
+    }
+  
+  /* We use l8_to_l4_offset, which is 0 on little-endian machines
+     and 1 on big-endian machines.  */
+  switch (conv)
+    {
+    case CONVERT_NATIVE:
+    case CONVERT_SWAP:
+      break;
+      
+    case CONVERT_BIG:
+      conv = l8_to_l4_offset ? CONVERT_NATIVE : CONVERT_SWAP;
+      break;
+      
+    case CONVERT_LITTLE:
+      conv = l8_to_l4_offset ? CONVERT_SWAP : CONVERT_NATIVE;
+      break;
+      
+    default:
+      internal_error (&opp->common, "Illegal value for CONVERT");
+      break;
+    }
+
+  flags.convert = conv;
+
   if (opp->common.unit < 0)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Bad unit number in OPEN statement");
@@ -548,7 +635,7 @@ st_open (st_parameter_open *opp)
 			"Conflicting ACCESS and POSITION flags in"
 			" OPEN statement");
 
-      notify_std (GFC_STD_GNU,
+      notify_std (&opp->common, GFC_STD_GNU,
 		  "Extension: APPEND as a value for ACCESS in OPEN statement");
       flags.access = ACCESS_SEQUENTIAL;
       flags.position = POSITION_APPEND;

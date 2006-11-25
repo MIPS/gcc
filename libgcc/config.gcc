@@ -1,5 +1,5 @@
 # libgcc host-specific configuration file.
-# Copyright 2005
+# Copyright 2005, 2006
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -42,13 +42,15 @@ hmake_file=$cpu_type/t-$cpu_type
 
 case ${host} in
 powerpc64-*-linux*)
-	hmake_file="${hmake_file} rs6000/t-linux64"
+	hmake_file="${hmake_file} rs6000/t-ldbl128"
 	;;
 powerpc64-*-gnu*)
-	hmake_file="${hmake_file} rs6000/t-linux64"
+	hmake_file="${hmake_file} rs6000/t-ldbl128"
 	;;
 powerpc-*-linux*)
-	# This will do no harm if we aren't building a 64-bit multilib.
-	hmake_file="${hmake_file} rs6000/t-linux64"
+	hmake_file="${hmake_file} rs6000/t-ldbl128"
+	;;
+powerpc-*-gnu*)
+	hmake_file="${hmake_file} rs6000/t-ldbl128"
 	;;
 esac

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -799,7 +799,7 @@ package body Rtsfind is
             --  specially permitted units, raise the exception.
 
             if No_Run_Time_Mode
-                 and then not OK_No_Run_Time_Unit (U_Id)
+              and then not OK_No_Run_Time_Unit (U_Id)
             then
                Entity_Not_Defined (E);
                raise RE_Not_Available;
@@ -826,8 +826,7 @@ package body Rtsfind is
          --  Otherwise we need the check if we are going after one of
          --  the critical entities in System.RPC in stubs mode.
 
-         --  ??? Should we do this for other s-parint/s-polint entities
-         --  too?
+         --  ??? Should we do this for other s-parint entities too?
 
          if (Distribution_Stub_Mode = Generate_Receiver_Stub_Body
                       or else
@@ -1062,7 +1061,7 @@ package body Rtsfind is
          --  Bump count of violations if we are in configurable run-time
          --  mode and this is not a continuation message.
 
-         if Configurable_Run_Time_Mode and then Msg (1) /= '\' then
+         if Configurable_Run_Time_Mode and then Msg (Msg'First) /= '\' then
             Configurable_Run_Time_Violations :=
               Configurable_Run_Time_Violations + 1;
          end if;
@@ -1105,7 +1104,7 @@ package body Rtsfind is
             begin
                --  If entry is not set, set it now
 
-               if not Present (U.Entity) then
+               if No (U.Entity) then
                   U.Entity := E;
                   U.Uname  := Get_Unit_Name (U_Id);
                   U.Unum   := Unum;

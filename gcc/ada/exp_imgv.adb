@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,6 +32,7 @@ with Exp_Util; use Exp_Util;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
+with Opt;      use Opt;
 with Rtsfind;  use Rtsfind;
 with Sem_Res;  use Sem_Res;
 with Sinfo;    use Sinfo;
@@ -148,7 +149,6 @@ package body Exp_Imgv is
               Make_Aggregate (Loc,
                 Expressions => Ind))),
         Suppress => All_Checks);
-
    end Build_Enumeration_Image_Tables;
 
    ----------------------------
@@ -191,6 +191,7 @@ package body Exp_Imgv is
    --    For types whose root type is Wide_Character
    --      xx = Wide_Character
    --      tv = Wide_Character (Expr)
+   --      pm = Boolean, true if Ada 2005 mode, False otherwise
 
    --    For types whose root type is Wide_Wide_Character
    --      xx = Wide_Wide_haracter
@@ -398,6 +399,12 @@ package body Exp_Imgv is
 
          Set_Conversion_OK (First (Arglist));
          Set_Etype (First (Arglist), Tent);
+
+         --  For Wide_Character, append Ada 2005 indication
+
+      elsif Rtyp = Standard_Wide_Character then
+         Append_To (Arglist,
+           New_Reference_To (Boolean_Literals (Ada_Version >= Ada_05), Loc));
       end if;
 
       Rewrite (N,
@@ -417,7 +424,7 @@ package body Exp_Imgv is
 
    --    btyp (Value_xx (X))
 
-   --  where btyp is he base type of the prefix, and
+   --  where btyp is he base type of the prefix
 
    --    For types whose root type is Character
    --      xx = Character
@@ -445,6 +452,12 @@ package body Exp_Imgv is
 
    --    For floating-point types and ordinary fixed-point types
    --      xx = Real
+
+   --  For Wide_[Wide_]Character types, typ'Value (X) expands into:
+
+   --    btyp (Value_xx (X, EM))
+
+   --  where btyp is the base type of the prefix, and EM is the encoding method
 
    --  For decimal types with size <= Integer'Size, typ'Value (X)
    --  expands into
@@ -491,8 +504,16 @@ package body Exp_Imgv is
       elsif Rtyp = Standard_Wide_Character then
          Vid := RE_Value_Wide_Character;
 
+         Append_To (Args,
+           Make_Integer_Literal (Loc,
+             Intval => Int (Wide_Character_Encoding_Method)));
+
       elsif Rtyp = Standard_Wide_Wide_Character then
          Vid := RE_Value_Wide_Wide_Character;
+
+         Append_To (Args,
+           Make_Integer_Literal (Loc,
+             Intval => Int (Wide_Character_Encoding_Method)));
 
       elsif     Rtyp = Base_Type (Standard_Short_Short_Integer)
         or else Rtyp = Base_Type (Standard_Short_Integer)

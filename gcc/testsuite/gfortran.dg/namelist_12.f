@@ -1,15 +1,15 @@
 c{ dg-do run }
 c This program repeats many of the same tests as test_nml_1 but for integer
 c instead of real. It also tests repeat nulls, comma delimited character read,
-c a triplet qualifier, a range with and assumed start, a quote delimited string,
+c a triplet qualifier, a range with an assumed start, a quote delimited string,
 c a qualifier with an assumed end and a fully explicit range.  It also tests
 c that integers and characters are successfully read back by namelist.
 c Provided by Paul Thomas - pault@gcc.gnu.org
 
       program namelist_12
 
-      integer*4 x(10)
-      integer*8 xx
+      integer x(10)
+      integer(kind=8) xx
       integer ier
       character*10 ch , check
       namelist /mynml/ x, xx, ch

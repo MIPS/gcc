@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -46,10 +46,6 @@ typedef enum
 bt;
 
 
-typedef enum
-{ SUCCESS = 1, FAILURE }
-try;
-
 struct st_parameter_dt;
 
 typedef struct stream
@@ -62,6 +58,7 @@ typedef struct stream
   try (*truncate) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
+  try (*set) (struct stream *, int, size_t);
 }
 stream;
 
@@ -81,6 +78,8 @@ stream;
 #define struncate(s) ((s)->truncate)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
+
+#define sset(s, c, n) ((s)->set)(s, c, n)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -109,7 +108,7 @@ array_loop_spec;
      or
       &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]]...&END
 
-   The object can be a fully qualified, compound name for an instrinsic
+   The object can be a fully qualified, compound name for an intrinsic
    type, derived types or derived type components.  So, a substring
    a(:)%b(4)%ch(2:4)(1:7) has to be treated correctly in namelist
    read. Hence full information about the structure of the object has
@@ -157,7 +156,7 @@ namelist_info;
 /* Options for the OPEN statement.  */
 
 typedef enum
-{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND,
+{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND, ACCESS_STREAM,
   ACCESS_UNSPECIFIED
 }
 unit_access;
@@ -206,6 +205,10 @@ typedef enum
 {READING, WRITING}
 unit_mode;
 
+typedef enum
+{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+unit_convert;
+
 #define CHARACTER1(name) \
 	      char * name; \
 	      gfc_charlen_type name ## _len
@@ -247,6 +250,7 @@ st_parameter_common;
 #define IOPARM_OPEN_HAS_ACTION		(1 << 14)
 #define IOPARM_OPEN_HAS_DELIM		(1 << 15)
 #define IOPARM_OPEN_HAS_PAD		(1 << 16)
+#define IOPARM_OPEN_HAS_CONVERT		(1 << 17)
 
 typedef struct
 {
@@ -261,6 +265,7 @@ typedef struct
   CHARACTER2 (action);
   CHARACTER1 (delim);
   CHARACTER2 (pad);
+  CHARACTER1 (convert);
 }
 st_parameter_open;
 
@@ -285,28 +290,31 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_NAMED	(1 << 10)
 #define IOPARM_INQUIRE_HAS_NEXTREC	(1 << 11)
 #define IOPARM_INQUIRE_HAS_RECL_OUT	(1 << 12)
-#define IOPARM_INQUIRE_HAS_FILE		(1 << 13)
-#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 14)
-#define IOPARM_INQUIRE_HAS_FORM		(1 << 15)
-#define IOPARM_INQUIRE_HAS_BLANK	(1 << 16)
-#define IOPARM_INQUIRE_HAS_POSITION	(1 << 17)
-#define IOPARM_INQUIRE_HAS_ACTION	(1 << 18)
-#define IOPARM_INQUIRE_HAS_DELIM	(1 << 19)
-#define IOPARM_INQUIRE_HAS_PAD		(1 << 20)
-#define IOPARM_INQUIRE_HAS_NAME		(1 << 21)
-#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 22)
-#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 23)
-#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 24)
-#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 25)
-#define IOPARM_INQUIRE_HAS_READ		(1 << 26)
-#define IOPARM_INQUIRE_HAS_WRITE	(1 << 27)
-#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 28)
+#define IOPARM_INQUIRE_HAS_STRM_POS_OUT (1 << 13)
+#define IOPARM_INQUIRE_HAS_FILE		(1 << 14)
+#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 15)
+#define IOPARM_INQUIRE_HAS_FORM		(1 << 16)
+#define IOPARM_INQUIRE_HAS_BLANK	(1 << 17)
+#define IOPARM_INQUIRE_HAS_POSITION	(1 << 18)
+#define IOPARM_INQUIRE_HAS_ACTION	(1 << 19)
+#define IOPARM_INQUIRE_HAS_DELIM	(1 << 20)
+#define IOPARM_INQUIRE_HAS_PAD		(1 << 21)
+#define IOPARM_INQUIRE_HAS_NAME		(1 << 22)
+#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 23)
+#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 24)
+#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 25)
+#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 26)
+#define IOPARM_INQUIRE_HAS_READ		(1 << 27)
+#define IOPARM_INQUIRE_HAS_WRITE	(1 << 28)
+#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 29)
+#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 30)
 
 typedef struct
 {
   st_parameter_common common;
   GFC_INTEGER_4 *exist, *opened, *number, *named;
   GFC_INTEGER_4 *nextrec, *recl_out;
+  GFC_IO_INT *strm_pos_out;
   CHARACTER1 (file);
   CHARACTER2 (access);
   CHARACTER1 (form);
@@ -323,6 +331,7 @@ typedef struct
   CHARACTER2 (read);
   CHARACTER1 (write);
   CHARACTER2 (readwrite);
+  CHARACTER1 (convert);
 }
 st_parameter_inquire;
 
@@ -344,7 +353,7 @@ struct format_data;
 typedef struct st_parameter_dt
 {
   st_parameter_common common;
-  GFC_INTEGER_4 rec;
+  GFC_IO_INT rec;
   GFC_INTEGER_4 *size, *iolength;
   gfc_array_char *internal_unit_desc;
   CHARACTER1 (format);
@@ -360,7 +369,9 @@ typedef struct st_parameter_dt
 	  void (*transfer) (struct st_parameter_dt *, bt, void *, int,
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
-	  int item_count; /* Item number in a formatted data transfer.  */
+	  /* Item number in a formatted data transfer.  Also used in namelist
+	       read_logical as an index into line_buffer.  */
+	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
 	  enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
@@ -394,7 +405,20 @@ typedef struct st_parameter_dt
 	     to flag read errors and return, so that an attempt can be
 	     made to read a new object name.  */
 	  unsigned nml_read_error : 1;
-	  /* 20 unused bits.  */
+	  /* A sequential formatted read specific flag used to signal that a
+	     character string is being read so don't use commas to shorten a
+	     formatted field width.  */
+	  unsigned sf_read_comma : 1;
+          /* A namelist specific flag used to enable reading input from 
+	     line_buffer for logical reads.  */
+	  unsigned line_buffer_enabled : 1;
+	  /* An internal unit specific flag used to identify that the associated
+	     unit is internal.  */
+	  unsigned unit_is_internal : 1;
+	  /* An internal unit specific flag to signify an EOF condition for list
+	     directed read.  */
+	  unsigned at_eof : 1;
+	  /* 16 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -409,16 +433,27 @@ typedef struct st_parameter_dt
 	  struct format_data *fmt;
 	  jmp_buf *eof_jump;
 	  namelist_info *ionml;
-
+	  /* A flag used to identify when a non-standard expanded namelist read
+	     has occurred.  */
+	  int expanded_read;
 	  /* Storage area for values except for strings.  Must be large
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+	  gfc_offset size_used;
 	} p;
+      /* This pad size must be equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
+	 must be smaller or equal to this array.  */
       char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
+
+/* Ensure st_parameter_dt's u.pad is bigger or equal to u.p.  */
+extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
+				  >= sizeof (((st_parameter_dt *) 0)->u.p)
+				  ? 1 : -1];
 
 #undef CHARACTER1
 #undef CHARACTER2
@@ -434,6 +469,8 @@ typedef struct
   unit_position position;
   unit_status status;
   unit_pad pad;
+  unit_convert convert;
+  int has_recl;
 }
 unit_flags;
 
@@ -465,8 +502,9 @@ typedef struct gfc_unit
   /* recl           -- Record length of the file.
      last_record    -- Last record number read or written
      maxrec         -- Maximum record number in a direct access file
-     bytes_left     -- Bytes left in current record.  */
-  gfc_offset recl, last_record, maxrec, bytes_left;
+     bytes_left     -- Bytes left in current record.
+     strm_pos       -- Current position in file for STREAM I/O.  */
+  gfc_offset recl, last_record, maxrec, bytes_left, strm_pos;
 
   __gthread_mutex_t lock;
   /* Number of threads waiting to acquire this unit's lock.
@@ -647,9 +685,6 @@ internal_proto(stream_ttyname);
 extern gfc_offset stream_offset (stream *s);
 internal_proto(stream_offset);
 
-extern int unit_to_fd (int);
-internal_proto(unit_to_fd);
-
 extern int unpack_filename (char *, const char *, int);
 internal_proto(unpack_filename);
 
@@ -669,17 +704,26 @@ internal_proto(unit_lock);
 extern int close_unit (gfc_unit *);
 internal_proto(close_unit);
 
+extern gfc_unit *get_internal_unit (st_parameter_dt *);
+internal_proto(get_internal_unit);
+
+extern void free_internal_unit (st_parameter_dt *);
+internal_proto(free_internal_unit);
+
 extern int is_internal_unit (st_parameter_dt *);
 internal_proto(is_internal_unit);
 
 extern int is_array_io (st_parameter_dt *);
 internal_proto(is_array_io);
 
+extern int is_stream_io (st_parameter_dt *);
+internal_proto(is_stream_io);
+
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
 extern gfc_unit *find_or_create_unit (int);
-internal_proto(find_unit);
+internal_proto(find_or_create_unit);
 
 extern gfc_unit *get_unit (st_parameter_dt *, int);
 internal_proto(get_unit);
@@ -722,6 +766,9 @@ internal_proto(type_name);
 extern void *read_block (st_parameter_dt *, int *);
 internal_proto(read_block);
 
+extern char *read_sf (st_parameter_dt *, int *, int);
+internal_proto(read_sf);
+
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
 
@@ -733,6 +780,9 @@ internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);
 internal_proto(next_record);
+
+extern void reverse_memcpy (void *, const void *, size_t);
+internal_proto (reverse_memcpy);
 
 /* read.c */
 
@@ -821,8 +871,8 @@ extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
 internal_proto(list_formatted_write);
 
 /* error.c */
-extern try notify_std (int, const char *);
-internal_proto(notify_std);
+extern notification notification_std(int);
+internal_proto(notification_std);
 
 /* size_from_kind.c */
 extern size_t size_from_real_kind (int);
@@ -868,3 +918,8 @@ dec_waiting_unlocked (gfc_unit *u)
 }
 
 #endif
+
+/* ../runtime/environ.c  This is here because we return unit_convert.  */
+
+unit_convert get_unformatted_convert (int);
+internal_proto(get_unformatted_convert);

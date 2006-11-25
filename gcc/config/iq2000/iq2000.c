@@ -186,6 +186,11 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION	iq2000_select_section
 
+/* The assembler supports switchable .bss sections, but
+   iq2000_select_section doesn't yet make use of them.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
+
 #undef  TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_tree_true
 #undef  TARGET_PROMOTE_FUNCTION_RETURN
@@ -2431,8 +2436,8 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
 }
 
 #define def_builtin(NAME, TYPE, CODE)					\
-  lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-			       NULL, NULL_TREE)
+  add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		       NULL, NULL_TREE)
 
 static void
 iq2000_init_builtins (void)

@@ -33,7 +33,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
-#include "varray.h"                        
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -84,9 +83,6 @@ struct iv_to_split
 			   N_LOC is 2, the expression is located at
 			   XEXP (XEXP (single_set, loc[0]), loc[1]).  */ 
 };
-
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
 
 /* Information about accumulators to expand.  */
 
@@ -237,22 +233,15 @@ loop_exit_at_end_p (struct loop *loop)
 static void
 peel_loops_completely (struct loops *loops, int flags)
 {
-  struct loop *loop, *next;
+  struct loop *loop;
+  unsigned i;
 
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
+  /* Scan the loops, the inner ones first.  */
+  for (i = loops->num - 1; i > 0; i--)
     {
-      if (loop->next)
-	{
-	  next = loop->next;
-	  while (next->inner)
-	    next = next->inner;
-	}
-      else
-	next = loop->outer;
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
 
       loop->lpt_decision.decision = LPT_NONE;
 
@@ -275,7 +264,6 @@ peel_loops_completely (struct loops *loops, int flags)
 	  verify_loop_structure (loops);
 #endif
 	}
-      loop = next;
     }
 }
 
@@ -508,7 +496,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
       if (desc->noloop_assumptions)
 	RESET_BIT (wont_exit, 1);
 
-      remove_edges = xcalloc (npeel, sizeof (edge));
+      remove_edges = XCNEWVEC (edge, npeel);
       n_remove_edges = 0;
 
       if (flag_split_ivs_in_unroller)
@@ -693,7 +681,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
 
-  remove_edges = xcalloc (max_unroll + exit_mod + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + exit_mod + 1);
   n_remove_edges = 0;
   if (flag_split_ivs_in_unroller 
       || flag_variable_expansion_in_unroller)
@@ -911,6 +899,23 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     loop->lpt_decision.times);
 }
 
+/* Splits edge E and inserts the sequence of instructions INSNS on it, and
+   returns the newly created block.  If INSNS is NULL_RTX, nothing is changed
+   and NULL is returned instead.  */
+
+basic_block
+split_edge_and_insert (edge e, rtx insns)
+{
+  basic_block bb;
+
+  if (!insns)
+    return NULL;
+  bb = split_edge (e); 
+  emit_insn_after (insns, BB_END (bb));
+  bb->flags |= BB_SUPERBLOCK;
+  return bb;
+}
+
 /* Unroll LOOP for that we are able to count number of iterations in runtime
    LOOP->LPT_DECISION.TIMES + 1 times.  The transformation does this (with some
    extra care for case n < 0):
@@ -965,7 +970,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
   
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
   n_dom_bbs = 0;
 
   body = get_loop_body (loop);
@@ -1021,9 +1026,9 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   end_sequence ();
 
   /* Precondition the loop.  */
-  loop_split_edge_with (loop_preheader_edge (loop), init_code);
+  split_edge_and_insert (loop_preheader_edge (loop), init_code);
 
-  remove_edges = xcalloc (max_unroll + n_peel + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + n_peel + 1);
   n_remove_edges = 0;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
@@ -1045,8 +1050,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   gcc_assert (ok);
 
   /* Record the place where switch will be built for preconditioning.  */
-  swtch = loop_split_edge_with (loop_preheader_edge (loop),
-				NULL_RTX);
+  swtch = split_edge (loop_preheader_edge (loop));
 
   for (i = 0; i < n_peel; i++)
     {
@@ -1065,12 +1069,16 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       j = n_peel - i - (extra_zero_check ? 0 : 1);
       p = REG_BR_PROB_BASE / (i + 2);
 
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      preheader = split_edge (loop_preheader_edge (loop));
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL_RTX);
 
-      swtch = loop_split_edge_with (single_pred_edge (swtch), branch_code);
+      /* We rely on the fact that the compare and jump cannot be optimized out,
+	 and hence the cfg we create is correct.  */
+      gcc_assert (branch_code != NULL_RTX);
+
+      swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
@@ -1083,12 +1091,13 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       /* Add branch for zero iterations.  */
       p = REG_BR_PROB_BASE / (max_unroll + 1);
       swtch = ezc_swtch;
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      preheader = split_edge (loop_preheader_edge (loop));
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p,
 					  NULL_RTX);
+      gcc_assert (branch_code != NULL_RTX);
 
-      swtch = loop_split_edge_with (single_succ_edge (swtch), branch_code);
+      swtch = split_edge_and_insert (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
@@ -1168,6 +1177,9 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 	     ";; Unrolled loop %d times, counting # of iterations "
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
+
+  if (dom_bbs)
+    free (dom_bbs);
 }
 
 /* Decide whether to simply peel LOOP and how much.  */
@@ -1475,7 +1487,7 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
 static hashval_t
 si_info_hash (const void *ivts)
 {
-  return htab_hash_pointer (((struct iv_to_split *) ivts)->insn);
+  return (hashval_t) INSN_UID (((struct iv_to_split *) ivts)->insn);
 }
 
 /* An equality functions for information about insns to split.  */
@@ -1494,7 +1506,7 @@ si_info_eq (const void *ivts1, const void *ivts2)
 static hashval_t
 ve_info_hash (const void *ves)
 {
-  return htab_hash_pointer (((struct var_to_expand *) ves)->insn);
+  return (hashval_t) INSN_UID (((struct var_to_expand *) ves)->insn);
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 
@@ -1614,7 +1626,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
     return NULL;
   
   /* Record the accumulator to expand.  */
-  ves = xmalloc (sizeof (struct var_to_expand));
+  ves = XNEW (struct var_to_expand);
   ves->insn = insn;
   ves->var_expansions = VEC_alloc (rtx, heap, 1);
   ves->reg = copy_rtx (dest);
@@ -1670,15 +1682,25 @@ analyze_iv_to_split_insn (rtx insn)
   if (!biv_p (insn, dest))
     return NULL;
 
-  ok = iv_analyze (insn, dest, &iv);
-  gcc_assert (ok);
+  ok = iv_analyze_result (insn, dest, &iv);
+
+  /* This used to be an assert under the assumption that if biv_p returns
+     true that iv_analyze_result must also return true.  However, that
+     assumption is not strictly correct as evidenced by pr25569.
+
+     Returning NULL when iv_analyze_result returns false is safe and
+     avoids the problems in pr25569 until the iv_analyze_* routines
+     can be fixed, which is apparently hard and time consuming
+     according to their author.  */
+  if (! ok)
+    return NULL;
 
   if (iv.step == const0_rtx
       || iv.mode != iv.extend_mode)
     return NULL;
 
   /* Record the insn to split.  */
-  ivts = xmalloc (sizeof (struct iv_to_split));
+  ivts = XNEW (struct iv_to_split);
   ivts->insn = insn;
   ivts->base_var = NULL_RTX;
   ivts->step = iv.step;
@@ -1697,14 +1719,15 @@ static struct opt_info *
 analyze_insns_in_loop (struct loop *loop)
 {
   basic_block *body, bb;
-  unsigned i, num_edges = 0;
-  struct opt_info *opt_info = xcalloc (1, sizeof (struct opt_info));
+  unsigned i;
+  struct opt_info *opt_info = XCNEW (struct opt_info);
   rtx insn;
   struct iv_to_split *ivts = NULL;
   struct var_to_expand *ves = NULL;
   PTR *slot1;
   PTR *slot2;
-  edge *edges = get_loop_exit_edges (loop, &num_edges);
+  VEC (edge, heap) *edges = get_loop_exit_edges (loop);
+  edge exit;
   bool can_apply = false;
   
   iv_analysis_loop_init (loop);
@@ -1716,19 +1739,16 @@ analyze_insns_in_loop (struct loop *loop)
                                             si_info_hash, si_info_eq, free);
   
   /* Record the loop exit bb and loop preheader before the unrolling.  */
-  if (!loop_preheader_edge (loop)->src)
-    {
-      loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-      opt_info->loop_preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-    }
-  else
-    opt_info->loop_preheader = loop_preheader_edge (loop)->src;
+  opt_info->loop_preheader = loop_preheader_edge (loop)->src;
   
-  if (num_edges == 1
-      && !(edges[0]->flags & EDGE_COMPLEX))
+  if (VEC_length (edge, edges) == 1)
     {
-      opt_info->loop_exit = loop_split_edge_with (edges[0], NULL_RTX);
-      can_apply = true;
+      exit = VEC_index (edge, edges, 0);
+      if (!(exit->flags & EDGE_COMPLEX))
+	{
+	  opt_info->loop_exit = split_edge (exit);
+	  can_apply = true;
+	}
     }
   
   if (flag_variable_expansion_in_unroller
@@ -1768,7 +1788,7 @@ analyze_insns_in_loop (struct loop *loop)
       }
     }
   
-  free (edges);
+  VEC_free (edge, heap, edges);
   free (body);
   return opt_info;
 }

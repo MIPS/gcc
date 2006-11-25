@@ -341,7 +341,7 @@ gen_insn (rtx insn, int lineno)
       if (i != XVECLEN (insn, 1) - 1)
 	{
 	  struct clobber_pat *p;
-	  struct clobber_ent *link = xmalloc (sizeof (struct clobber_ent));
+	  struct clobber_ent *link = XNEW (struct clobber_ent);
 	  int j;
 
 	  link->code_number = insn_code_number;
@@ -377,7 +377,7 @@ gen_insn (rtx insn, int lineno)
 
 	  if (p == 0)
 	    {
-	      p = xmalloc (sizeof (struct clobber_pat));
+	      p = XNEW (struct clobber_pat);
 
 	      p->insns = 0;
 	      p->pattern = insn;
@@ -428,15 +428,18 @@ gen_insn (rtx insn, int lineno)
     }
   else
     {
+      char *used = XCNEWVEC (char, operands);
+
       printf ("  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (%d",
 	      XVECLEN (insn, 1));
 
       for (i = 0; i < XVECLEN (insn, 1); i++)
 	{
 	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, NULL);
+	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, used);
 	}
       printf ("));\n}\n\n");
+      XDELETEVEC (used);
     }
 }
 
@@ -447,6 +450,7 @@ gen_expand (rtx expand)
 {
   int operands;
   int i;
+  char *used;
 
   if (strlen (XSTR (expand, 0)) == 0)
     fatal ("define_expand lacks a name");
@@ -530,6 +534,9 @@ gen_expand (rtx expand)
      Use emit_insn to add them to the sequence being accumulated.
      But don't do this if the user's code has set `no_more' nonzero.  */
 
+  used = XCNEWVEC (char,
+		   MAX (operands, MAX (max_scratch_opno, max_dup_opno) + 1));
+
   for (i = 0; i < XVECLEN (expand, 1); i++)
     {
       rtx next = XVECEXP (expand, 1, i);
@@ -560,12 +567,14 @@ gen_expand (rtx expand)
 	printf ("  emit (");
       else
 	printf ("  emit_insn (");
-      gen_exp (next, DEFINE_EXPAND, NULL);
+      gen_exp (next, DEFINE_EXPAND, used);
       printf (");\n");
       if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
 	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
 	printf ("  emit_barrier ();");
     }
+
+  XDELETEVEC (used);
 
   /* Call `get_insns' to extract the list of all the
      insns emitted within this gen_... function.  */
@@ -599,7 +608,7 @@ gen_split (rtx split)
   max_operand_vec (split, 2);
   operands = MAX (max_opno, MAX (max_dup_opno, max_scratch_opno)) + 1;
   unused = (operands == 0 ? " ATTRIBUTE_UNUSED" : "");
-  used = xcalloc (1, operands);
+  used = XCNEWVEC (char, operands);
 
   /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
@@ -844,6 +853,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"resource.h\"\n");
   printf ("#include \"reload.h\"\n");
   printf ("#include \"toplev.h\"\n");
+  printf ("#include \"tm-constrs.h\"\n");
   printf ("#include \"ggc.h\"\n\n");
   printf ("#include \"basic-block.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
@@ -893,11 +903,4 @@ from the machine description file `md'.  */\n\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
-{
-  return NULL;
 }

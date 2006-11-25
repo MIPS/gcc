@@ -53,6 +53,7 @@ do {							\
 	    builtin_define("_HPUX_SOURCE");		\
 	    builtin_define("__STDC_EXT__");		\
 	    builtin_define("__STDCPP__");		\
+	    builtin_define("_INCLUDE__STDC_A1_SOURCE");	\
 	  }						\
 	if (TARGET_ILP32)				\
 	  builtin_define("_ILP32");			\
@@ -71,7 +72,9 @@ do {							\
 #undef ENDFILE_SPEC
 
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "%{!shared:%{static:crt0%O%s}}"
+#define STARTFILE_SPEC "%{!shared:%{static:crt0%O%s} \
+			  %{mlp64:/usr/lib/hpux64/unix98%O%s} \
+			  %{!mlp64:/usr/lib/hpux32/unix98%O%s}}"
 
 #undef LINK_SPEC
 #define LINK_SPEC \
@@ -195,10 +198,12 @@ do {								\
 /* Put all *xf routines in libgcc, regardless of long double size.  */
 #undef LIBGCC2_HAS_XF_MODE
 #define LIBGCC2_HAS_XF_MODE 1
+#define XF_SIZE 64
 
 /* Put all *tf routines in libgcc, regardless of long double size.  */
 #undef LIBGCC2_HAS_TF_MODE
 #define LIBGCC2_HAS_TF_MODE 1
+#define TF_SIZE 113
 
 /* HP-UX headers are C++-compatible.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -217,3 +222,6 @@ do {								\
 
 #undef NO_PROFILE_COUNTERS
 #define NO_PROFILE_COUNTERS 0
+
+#undef HANDLE_PRAGMA_PACK_PUSH_POP
+#define HANDLE_PRAGMA_PACK_PUSH_POP

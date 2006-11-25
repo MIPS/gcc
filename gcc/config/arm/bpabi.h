@@ -46,7 +46,7 @@
 
 /* Tell the assembler to build BPABI binaries.  */
 #undef SUBTARGET_EXTRA_ASM_SPEC
-#define SUBTARGET_EXTRA_ASM_SPEC "-meabi=4"
+#define SUBTARGET_EXTRA_ASM_SPEC "%{mabi=apcs-gnu|mabi=atpcs:-meabi=gnu;:-meabi=4}"
 
 /* The generic link spec in elf.h does not support shared libraries.  */
 #undef LINK_SPEC
@@ -102,7 +102,7 @@
 #define TARGET_BPABI_CPP_BUILTINS()			\
   do							\
     {							\
-      builtin_define ("__GXX_MERGED_TYPEINFO_NAMES=0");	\
+      builtin_define ("__GXX_TYPEINFO_EQUALITY_INLINE=0");	\
     }							\
   while (false)
 

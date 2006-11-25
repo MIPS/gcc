@@ -79,8 +79,50 @@ extern short int __get_eh_table_version (struct exception_descriptor *);
   (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #endif
 
-#ifndef MIN_UNITS_PER_WORD
-#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#ifndef SF_SIZE
+#if LIBGCC2_HAS_SF_MODE
+#define SF_SIZE FLT_MANT_DIG
+#else
+#define SF_SIZE 0
+#endif
+#endif
+
+#ifndef DF_SIZE
+#if LIBGCC2_HAS_DF_MODE
+#if LIBGCC2_DOUBLE_TYPE_SIZE == 64
+#define DF_SIZE DBL_MANT_DIG
+#elif LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64
+#define DF_SIZE LDBL_MANT_DIG
+#else
+#define DF_SIZE 0
+#endif
+#else
+#define DF_SIZE 0
+#endif
+#endif
+
+#ifndef XF_SIZE
+#if LIBGCC2_HAS_XF_MODE
+#define XF_SIZE LDBL_MANT_DIG
+#else
+#define XF_SIZE 0
+#endif
+#endif
+
+#ifndef TF_SIZE
+#if LIBGCC2_HAS_TF_MODE
+#define TF_SIZE LDBL_MANT_DIG
+#else
+#define TF_SIZE 0
+#endif
+#endif
+
+/* FIXME: This #ifdef probably should be removed, ie. enable the test
+   for mips too.  */
+#ifdef __powerpc__
+#define IS_IBM_EXTENDED(SIZE) (SIZE == 106)
+#else
+#define IS_IBM_EXTENDED(SIZE) 0
 #endif
 
 /* In the first part of this file, we are interfacing to calls generated
@@ -155,7 +197,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
    turns out that no platform would define COMPAT_DIMODE_TRAPPING_ARITHMETIC
    if it existed.  */
 
-#if MIN_UNITS_PER_WORD > 4
+#if LIBGCC2_UNITS_PER_WORD == 8
 #define W_TYPE_SIZE (8 * BITS_PER_UNIT)
 #define Wtype	DItype
 #define UWtype	UDItype
@@ -166,8 +208,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __NW(a,b)	__ ## a ## di ## b
 #define __NDW(a,b)	__ ## a ## ti ## b
 #define COMPAT_SIMODE_TRAPPING_ARITHMETIC
-#elif MIN_UNITS_PER_WORD > 2 \
-      || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32)
+#elif LIBGCC2_UNITS_PER_WORD == 4
 #define W_TYPE_SIZE (4 * BITS_PER_UNIT)
 #define Wtype	SItype
 #define UWtype	USItype
@@ -177,7 +218,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define UDWtype	UDItype
 #define __NW(a,b)	__ ## a ## si ## b
 #define __NDW(a,b)	__ ## a ## di ## b
-#elif MIN_UNITS_PER_WORD > 1
+#elif LIBGCC2_UNITS_PER_WORD == 2
 #define W_TYPE_SIZE (2 * BITS_PER_UNIT)
 #define Wtype	HItype
 #define UWtype	UHItype
@@ -304,11 +345,13 @@ extern Wtype __addvSI3 (Wtype, Wtype);
 extern Wtype __subvSI3 (Wtype, Wtype);
 extern Wtype __mulvSI3 (Wtype, Wtype);
 extern Wtype __negvSI2 (Wtype);
+extern UWtype __bswapsi2 (UWtype);
 extern DWtype __absvDI2 (DWtype);
 extern DWtype __addvDI3 (DWtype, DWtype);
 extern DWtype __subvDI3 (DWtype, DWtype);
 extern DWtype __mulvDI3 (DWtype, DWtype);
 extern DWtype __negvDI2 (DWtype);
+extern UDWtype __bswapdi2 (UDWtype);
 
 #ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
 extern SItype __absvsi2 (SItype);
@@ -388,7 +431,7 @@ extern const UQItype __popcount_tab[256];
 /* Defined for L_clz.  Exported here because some targets may want to use
    it for their own versions of the __clz builtins.  It contains the bit
    position of the first set bit for the numbers 0 - 255.  This avoids the
-   need for a seperate table for the __ctz builtins.  */
+   need for a separate table for the __ctz builtins.  */
 extern const UQItype __clz_tab[256];
 
 #include "longlong.h"

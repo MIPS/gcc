@@ -176,6 +176,7 @@ struct resword
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
 #define D_OBJC		0x04	/* Objective C++ only */
+#define D_CPP0X         0x08    /* C++0x only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -259,6 +260,7 @@ static const struct resword reswords[] =
   { "signed",		RID_SIGNED,	0 },
   { "sizeof",		RID_SIZEOF,	0 },
   { "static",		RID_STATIC,	0 },
+  { "static_assert",    RID_STATIC_ASSERT, D_CPP0X },
   { "static_cast",	RID_STATCAST,	0 },
   { "struct",		RID_STRUCT,	0 },
   { "switch",		RID_SWITCH,	0 },
@@ -314,9 +316,10 @@ init_reswords (void)
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
 	      | D_OBJC
-	      | (flag_no_gnu_keywords ? D_EXT : 0));
+	      | (flag_no_gnu_keywords ? D_EXT : 0)
+              | (flag_cpp0x ? 0 : D_CPP0X));
 
-  ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
+  ridpointers = GGC_CNEWVEC (tree, (int) RID_MAX);
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
@@ -460,20 +463,19 @@ parse_strconst_pragma (const char* name, int opt)
   tree result, x;
   enum cpp_ttype t;
 
-  t = pragma_lex (&x);
+  t = pragma_lex (&result);
   if (t == CPP_STRING)
     {
-      result = x;
       if (pragma_lex (&x) != CPP_EOF)
 	warning (0, "junk at end of #pragma %s", name);
       return result;
     }
 
   if (t == CPP_EOF && opt)
-    return 0;
+    return NULL_TREE;
 
   error ("invalid #pragma %s", name);
-  return (tree)-1;
+  return error_mark_node;
 }
 
 static void
@@ -497,14 +499,14 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
   struct c_fileinfo *finfo;
   const char *filename;
 
-  if (fname == (tree)-1)
+  if (fname == error_mark_node)
     return;
   else if (fname == 0)
     filename = lbasename (input_filename);
   else
     filename = ggc_strdup (TREE_STRING_POINTER (fname));
 
-  finfo = get_fileinfo (filename);
+  finfo = get_fileinfo (input_filename);
 
   if (impl_file_chain == 0)
     {
@@ -537,7 +539,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   const char *filename;
   struct impl_files *ifiles = impl_file_chain;
 
-  if (fname == (tree)-1)
+  if (fname == error_mark_node)
     return;
 
   if (fname == 0)
@@ -580,7 +582,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 
 /* Indicate that this file uses Java-personality exception handling.  */
 static void
-handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
+handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED)
 {
   tree x;
   if (pragma_lex (&x) != CPP_EOF)
@@ -810,7 +812,7 @@ cxx_make_type (enum tree_code code)
   /* Set up some flags that give proper default behavior.  */
   if (IS_AGGR_TYPE_CODE (code))
     {
-      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, finfo->interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
     }

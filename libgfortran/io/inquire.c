@@ -75,6 +75,9 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit * u)
 	  case ACCESS_DIRECT:
 	    p = "DIRECT";
 	    break;
+	  case ACCESS_STREAM:
+	    p = "STREAM";
+	    break;
 	  default:
 	    internal_error (&iqp->common, "inquire_via_unit(): Bad access");
 	  }
@@ -144,6 +147,9 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit * u)
 
   if ((cf & IOPARM_INQUIRE_HAS_RECL_OUT) != 0)
     *iqp->recl_out = (u != NULL) ? u->recl : 0;
+
+  if ((cf & IOPARM_INQUIRE_HAS_STRM_POS_OUT) != 0)
+    *iqp->strm_pos_out = (u != NULL) ? u->strm_pos : 0;
 
   if ((cf & IOPARM_INQUIRE_HAS_NEXTREC) != 0)
     *iqp->nextrec = (u != NULL) ? u->last_record + 1 : 0;
@@ -282,6 +288,29 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit * u)
 	  }
 
       cf_strcpy (iqp->pad, iqp->pad_len, p);
+    }
+ 
+  if ((cf & IOPARM_INQUIRE_HAS_CONVERT) != 0)
+    {
+      if (u == NULL)
+	p = undefined;
+      else
+	switch (u->flags.convert)
+	  {
+	    /*  l8_to_l4_offset is 0 for little-endian, 1 for big-endian.  */
+	  case CONVERT_NATIVE:
+	    p = l8_to_l4_offset ? "BIG_ENDIAN" : "LITTLE_ENDIAN";
+	    break;
+
+	  case CONVERT_SWAP:
+	    p = l8_to_l4_offset ? "LITTLE_ENDIAN" : "BIG_ENDIAN";
+	    break;
+
+	  default:
+	    internal_error (&iqp->common, "inquire_via_unit(): Bad convert");
+	  }
+
+      cf_strcpy (iqp->convert, iqp->convert_len, p);
     }
 }
 

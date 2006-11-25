@@ -36,7 +36,7 @@ cgraph_postorder (struct cgraph_node **order)
   struct cgraph_edge *edge, last;
 
   struct cgraph_node **stack =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
 
   /* We have to deal with cycles nicely, so use a depth first traversal
      output algorithm.  Ignore the fact that some functions won't need
@@ -94,18 +94,18 @@ cgraph_postorder (struct cgraph_node **order)
    removes unneeded bodies of extern inline functions.  */
 
 bool
-cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
+cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 {
   struct cgraph_node *first = (void *) 1;
-  struct cgraph_node *node;
+  struct cgraph_node *node, *next;
   bool changed = false;
   int insns = 0;
 
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
-  if (dump_file)
-    fprintf (dump_file, "\nReclaiming functions:");
+  if (file)
+    fprintf (file, "\nReclaiming functions:");
 #ifdef ENABLE_CHECKING
   for (node = cgraph_nodes; node; node = node->next)
     gcc_assert (!node->aux);
@@ -151,8 +151,9 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
      unanalyzed nodes so they look like for true extern functions to the rest
      of code.  Body of such functions is released via remove_node once the
      inline clones are eliminated.  */
-  for (node = cgraph_nodes; node; node = node->next)
+  for (node = cgraph_nodes; node; node = next)
     {
+      next = node->next;
       if (!node->aux)
 	{
 	  int local_insns;
@@ -163,8 +164,8 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
 	    local_insns = node->local.self_insns;
 	  else
 	    local_insns = 0;
-	  if (dump_file)
-	    fprintf (dump_file, " %s", cgraph_node_name (node));
+	  if (file)
+	    fprintf (file, " %s", cgraph_node_name (node));
 	  if (!node->analyzed || !DECL_EXTERNAL (node->decl)
 	      || before_inlining_p)
 	    cgraph_remove_node (node);
@@ -203,7 +204,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
     }
   for (node = cgraph_nodes; node; node = node->next)
     node->aux = NULL;
-  if (dump_file)
-    fprintf (dump_file, "\nReclaimed %i insns", insns);
+  if (file)
+    fprintf (file, "\nReclaimed %i insns", insns);
   return changed;
 }

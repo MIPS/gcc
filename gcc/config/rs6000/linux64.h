@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -58,9 +58,9 @@ extern int dot_symbols;
 #endif
 
 #undef  PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT PROCESSOR_POWER6
 #undef  PROCESSOR_DEFAULT64
-#define PROCESSOR_DEFAULT64 PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT64 PROCESSOR_POWER6
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -236,6 +236,12 @@ extern int dot_symbols;
    ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
+/* Use the default for compiling target libs.  */
+#ifdef IN_TARGET_LIBS
+#undef TARGET_ALIGN_NATURAL
+#define TARGET_ALIGN_NATURAL 1
+#endif
+
 /* Indicate that jump tables go in the text section.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_64BIT
@@ -277,7 +283,7 @@ extern int dot_symbols;
 
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
-#define TARGET_C99_FUNCTIONS 1
+#define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -330,13 +336,28 @@ extern int dot_symbols;
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
+#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER64 "/lib64/ld64.so.1"
+#define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
+#define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
+#if UCLIBC_DEFAULT
+#define CHOOSE_DYNAMIC_LINKER(G, U) "%{mglibc:%{muclibc:%e-mglibc and -muclibc used together}" G ";:" U "}"
+#else
+#define CHOOSE_DYNAMIC_LINKER(G, U) "%{muclibc:%{mglibc:%e-mglibc and -muclibc used together}" U ";:" G "}"
+#endif
+#define LINUX_DYNAMIC_LINKER32 \
+  CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER32)
+#define LINUX_DYNAMIC_LINKER64 \
+  CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER64)
+
+
 #define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER32 "}}}"
 
 #define LINK_OS_LINUX_SPEC64 "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}}}"
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \
@@ -465,68 +486,6 @@ extern int dot_symbols;
 		   && SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 		   && BITS_PER_WORD == HOST_BITS_PER_INT)))))
 
-/* This ABI cannot use DBX_LINES_FUNCTION_RELATIVE, nor can it use
-   dbxout_stab_value_internal_label_diff, because we must
-   use the function code label, not the function descriptor label.  */
-#define	DBX_OUTPUT_SOURCE_LINE(FILE, LINE, COUNTER)			\
-do									\
-  {									\
-    char temp[256];							\
-    const char *s;							\
-    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", COUNTER);			\
-    dbxout_begin_stabn_sline (LINE);					\
-    assemble_name (FILE, temp);						\
-    putc ('-', FILE);							\
-    s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-    rs6000_output_function_entry (FILE, s);				\
-    putc ('\n', FILE);							\
-    targetm.asm_out.internal_label (FILE, "LM", COUNTER);		\
-    COUNTER += 1;							\
-  }									\
-while (0)
-
-/* Similarly, we want the function code label here.  Cannot use
-   dbxout_stab_value_label_diff, as we have to use
-   rs6000_output_function_entry.  FIXME.  */
-#define DBX_OUTPUT_BRAC(FILE, NAME, BRAC)				\
-  do									\
-    {									\
-      const char *s;							\
-      dbxout_begin_stabn (BRAC);					\
-      s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-      /* dbxout_block passes this macro the function name as NAME,	\
-	 assuming that it is the function code start label.  In our	\
-	 case, the function name is the OPD entry.  dbxout_block is	\
-	 broken, hack around it here.  */				\
-      if (NAME == s)							\
-	putc ('0', FILE);						\
-      else								\
-	{								\
-	  assemble_name (FILE, NAME);					\
-	  putc ('-', FILE);						\
-	  rs6000_output_function_entry (FILE, s);			\
-	}								\
-      putc ('\n', FILE);						\
-    }									\
-  while (0)
-
-#define DBX_OUTPUT_LBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_LBRAC)
-#define DBX_OUTPUT_RBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_RBRAC)
-
-/* Another case where we want the dot name.  */
-#define	DBX_OUTPUT_NFUN(FILE, LSCOPE, DECL)				\
-  do									\
-    {									\
-      const char *s;							\
-      dbxout_begin_empty_stabs (N_FUN);					\
-      assemble_name (FILE, LSCOPE);					\
-      putc ('-', FILE);							\
-      s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-      rs6000_output_function_entry (FILE, s);				\
-      putc ('\n', FILE);						\
-    }									\
-  while (0)
-
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
    true if the symbol may be affected by dynamic relocations.  */
@@ -560,4 +519,11 @@ while (0)
 /* ppc32 glibc provides __stack_chk_guard in -0x7008(2),
    ppc64 glibc provides it at -0x7010(13).  */
 #define TARGET_THREAD_SSP_OFFSET	(TARGET_64BIT ? -0x7010 : -0x7008)
+#endif
+
+#define POWERPC_LINUX
+
+/* ppc{32,64} linux has 128-bit long double support in glibc 2.4 and later.  */
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
 #endif

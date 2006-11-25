@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,7 +36,6 @@
 --  other GNAT tools. The comments indicate which options are used by which
 --  programs (GNAT, GNATBIND, GNATLINK, GNATMAKE, GPRMAKE, etc).
 
-with Gnatvsn;  use Gnatvsn;
 with Hostparm; use Hostparm;
 with Types;    use Types;
 
@@ -51,7 +50,7 @@ package Opt is
 
    --  The following mode values represent the current state of processing.
    --  The values set here are the default values. Unless otherwise noted,
-   --  the value may be reset in Switch with an appropropiate switch. In
+   --  the value may be reset in Switch-? with an appropropiate switch. In
    --  some cases, the values can also be modified by pragmas, and in the
    --  case of some binder variables, Gnatbind.Scan_Bind_Arg may modify
    --  the default values.
@@ -68,7 +67,7 @@ package Opt is
    --  which we want to allow, so that things work OK when Ada_15 is added!
    --  This warning is now removed, so this pragma can be removed some time???
 
-   Ada_Version_Default : Ada_Version_Type := Ada_95;
+   Ada_Version_Default : Ada_Version_Type := Ada_05;
    --  GNAT
    --  Default Ada version if no switch given
 
@@ -93,13 +92,13 @@ package Opt is
    --  not Ada_Version_Explicit) when compiling predefined or internal units.
 
    Ada_Final_Suffix : constant String := "final";
-   Ada_Final_Name : String_Ptr := new String'("ada" & Ada_Final_Suffix);
+   Ada_Final_Name   : String_Ptr := new String'("ada" & Ada_Final_Suffix);
    --  GNATBIND
    --  The name of the procedure that performs the finalization at the end of
    --  execution. This variable may be modified by Gnatbind.Scan_Bind_Arg.
 
    Ada_Init_Suffix : constant String := "init";
-   Ada_Init_Name : String_Ptr := new String'("ada" & Ada_Init_Suffix);
+   Ada_Init_Name   : String_Ptr := new String'("ada" & Ada_Init_Suffix);
    --  GNATBIND
    --  The name of the procedure that performs initialization at the start
    --  of execution. This variable may be modified by Gnatbind.Scan_Bind_Arg.
@@ -128,7 +127,7 @@ package Opt is
    --  GNAT
    --  Flag set to force display of multiple errors on a single line and
    --  also repeated error messages for references to undefined identifiers
-   --  and certain other repeated error messages.
+   --  and certain other repeated error messages. Set by use of -gnatf.
 
    All_Sources : Boolean := False;
    --  GNATBIND
@@ -240,6 +239,10 @@ package Opt is
    --  Set to True to enable checking for unused withs, and also the case
    --  of withing a package and using none of the entities in the package.
 
+   Commands_To_Stdout : Boolean := False;
+   --  GNATMAKE
+   --  True if echoed commands to be written to stdout instead of stderr
+
    Comment_Deleted_Lines : Boolean := False;
    --  GNATPREP
    --  True if source lines removed by the preprocessor should be commented
@@ -300,9 +303,15 @@ package Opt is
    --  Set the default exit status value. Set by the -Xnnn switch for the
    --  binder.
 
+   Default_Stack_Size : Int := -1;
+   --  GNATBIND
+   --  Set to default primary stack size in units of bytes. Set by
+   --  the -dnnn switch for the binder. A value of -1 indicates that no
+   --  default was set by the binder.
+
    Default_Sec_Stack_Size : Int := -1;
    --  GNATBIND
-   --  Set to default secondary stack size in units of kilobytes. Set by
+   --  Set to default secondary stack size in units of bytes. Set by
    --  the -Dnnn switch for the binder. A value of -1 indicates that no
    --  default was set by the binder, and that the default should be the
    --  initial value of System.Secondary_Stack.Default_Secondary_Stack_Size.
@@ -339,10 +348,26 @@ package Opt is
    --  GNATMAKE
    --  Set to True if no actual compilations should be undertaken.
 
+   Dump_Source_Text : Boolean := False;
+   --  GNAT
+   --  Set to True (by -gnatL) to dump source text intermingled with generated
+   --  code. Effective only if either of Debug/Print_Generated_Code is true.
+
    Dynamic_Elaboration_Checks : Boolean := False;
    --  GNAT
    --  Set True for dynamic elaboration checking mode, as set by the -gnatE
    --  switch or by the use of pragma Elaboration_Checks (Dynamic).
+
+   Dynamic_Stack_Measurement : Boolean := False;
+   --  GNATBIND
+   --  Set True to enable dynamic stack measurement (-u flag for gnatbind)
+
+   Dynamic_Stack_Measurement_Array_Size : Nat := 100;
+   --  GNATBIND
+   --  Number of measurements we want to store during dynamic stack analysis.
+   --  When the buffer is full, non-storable results will be output on the fly.
+   --  The value is relevant only if Dynamic_Stack_Measurement is set. Set
+   --  by processing of -u flag for gnatbind.
 
    Elab_Dependency_Output : Boolean := False;
    --  GNATBIND
@@ -360,6 +385,15 @@ package Opt is
    --  GNAT
    --  Set to True if -gnato (enable overflow checks) switch is set,
    --  but not -gnatp.
+
+   Error_Msg_Line_Length : Nat := 0;
+   --  GNAT
+   --  Records the error message line length limit. If this is set to zero,
+   --  then we get the old style behavior, in which each call to the error
+   --  message routines generates one line of output as a separate message.
+   --  If it is set to a non-zero value, then continuation lines are folded
+   --  to make a single long message, and then this message is split up into
+   --  multiple lines not exceeding the specified length. Set by -gnatLnnn.
 
    Exception_Locations_Suppressed : Boolean := False;
    --  GNAT
@@ -468,6 +502,12 @@ package Opt is
    Full_List : Boolean := False;
    --  GNAT
    --  Set True to generate full source listing with embedded errors
+
+   Full_List_File_Name : String_Ptr := null;
+   --  GNAT
+   --  Set to file name to generate full source listing to named file (or if
+   --  the name is of the form .xxx, then to name.xxx where name is the source
+   --  file name with extension stripped.
 
    function get_gcc_version return Int;
    pragma Import (C, get_gcc_version, "get_gcc_version");
@@ -627,21 +667,37 @@ package Opt is
    --  before preprocessing occurs. Set to True by switch -s of gnatprep
    --  or -s in preprocessing data file for the compiler.
 
-   type Creat_Repinfo_File_Proc is access procedure (Src : File_Name_Type);
-   type Write_Repinfo_Line_Proc is access procedure (Info : String);
-   type Close_Repinfo_File_Proc is access procedure;
+   type Create_Repinfo_File_Proc is access procedure (Src : File_Name_Type);
+   type Write_Repinfo_Line_Proc  is access procedure (Info : String);
+   type Close_Repinfo_File_Proc  is access procedure;
    --  Types used for procedure addresses below
 
-   Creat_Repinfo_File_Access : Creat_Repinfo_File_Proc := null;
-   Write_Repinfo_Line_Access : Write_Repinfo_Line_Proc := null;
-   Close_Repinfo_File_Access : Close_Repinfo_File_Proc := null;
+   Create_Repinfo_File_Access : Create_Repinfo_File_Proc := null;
+   Write_Repinfo_Line_Access  : Write_Repinfo_Line_Proc  := null;
+   Close_Repinfo_File_Access  : Close_Repinfo_File_Proc  := null;
    --  GNAT
    --  These three locations are left null when operating in non-compiler
    --  (e.g. ASIS mode), but when operating in compiler mode, they are
-   --  set to point to the three corresponding procedures in Osint. The
+   --  set to point to the three corresponding procedures in Osint-C. The
    --  reason for this slightly strange interface is to prevent Repinfo
    --  from dragging in Osint in ASIS mode, which would include a lot of
    --  unwanted units in the ASIS build.
+
+   type Create_List_File_Proc is access procedure (S : String);
+   type Write_List_Info_Proc  is access procedure (S : String);
+   type Close_List_File_Proc  is access procedure;
+   --  Types used for procedure addresses below
+
+   Create_List_File_Access : Create_List_File_Proc := null;
+   Write_List_Info_Access  : Write_List_Info_Proc  := null;
+   Close_List_File_Access  : Close_List_File_Proc  := null;
+   --  GNAT
+   --  These three locations are left null when operating in non-compiler
+   --  (e.g. from the binder), but when operating in compiler mode, they are
+   --  set to point to the three corresponding procedures in Osint-C. The
+   --  reason for this slightly strange interface is to prevent Repinfo
+   --  from dragging in Osint-C in the binder, which would include unwanted
+   --  units in the  binder.
 
    Locking_Policy : Character := ' ';
    --  GNAT, GNATBIND
@@ -686,15 +742,6 @@ package Opt is
    --  Maximum number of characters allowed in a file name, not counting the
    --  extension, as set by the appropriate switch. If no switch is given,
    --  then this value is initialized by Osint to the appropriate value.
-
-   Max_Line_Length : Int := Hostparm.Max_Line_Length;
-   --  This is a copy of Max_Line_Length used by the scanner. It is usually
-   --  set to be a copy of Hostparm.Max_Line_Length, and is used to check
-   --  the maximum line length in the scanner when style checking is inactive.
-   --  The only time it is set to a different value is during the scanning of
-   --  configuration pragma files, where we want to turn off all checking and
-   --  in particular we want to allow long lines. So we reset this value to
-   --  Column_Number'Last during scanning of configuration pragma files.
 
    Maximum_Processes : Positive := 1;
    --  GNATMAKE, GPRMAKE
@@ -854,6 +901,15 @@ package Opt is
    Run_Path_Option : Boolean := True;
    --  GNATMAKE, GNATLINK
    --  Set to False when no run_path_option should be issued to the linker
+
+   Search_Directory_Present : Boolean := False;
+   --  GNAT
+   --  Set to True when argument is -I. Reset to False when next argument,
+   --  a search directory path is taken into account. Note that this is
+   --  quite different from other switches in this section in that it is
+   --  only set in a transitory manner as a result of scanning a -I switch
+   --  with no file name, and if set, is an indication that the next argument
+   --  is to be treated as a file name.
 
    Sec_Stack_Used : Boolean := False;
    --  GNAT, GBATBIND
@@ -1054,9 +1110,15 @@ package Opt is
 
    Warn_On_Ada_2005_Compatibility : Boolean := True;
    --  GNAT
-   --  Set to True to active all warnings on Ada 2005 compatibility issues,
+   --  Set to True to generate all warnings on Ada 2005 compatibility issues,
    --  including warnings on Ada 2005 obsolescent features used in Ada 2005
    --  mode. Set False by -gnatwY.
+
+   Warn_On_Assumed_Low_Bound : Boolean := True;
+   --  GNAT
+   --  Set to True to activate warnings for string parameters that are indexed
+   --  with literals or S'Length, presumably assuming a lower bound of one. Set
+   --  False by -gnatwW.
 
    Warn_On_Bad_Fixed_Value : Boolean := False;
    --  GNAT
@@ -1067,6 +1129,12 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings for variables that could be declared
    --  as constants. Modified by use of -gnatwk/K.
+
+   Warn_On_Deleted_Code : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for code deleted by the front end
+   --  for conditional statements whose outcome is known at compile time.
+   --  Modified by use of -gnatwt/T.
 
    Warn_On_Dereference : Boolean := False;
    --  GNAT
@@ -1086,7 +1154,8 @@ package Opt is
    Warn_On_Modified_Unread : Boolean := False;
    --  GNAT
    --  Set to True to generate warnings if a variable is assigned but is never
-   --  read. The default is that this warning is suppressed.
+   --  read. The default is that this warning is suppressed. Also controls
+   --  warnings about assignments whose value is never read.
 
    Warn_On_No_Value_Assigned : Boolean := True;
    --  GNAT
@@ -1098,6 +1167,11 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings on use of any feature in Annex or if a
    --  subprogram is called for which a pragma Obsolescent applies.
+
+   Warn_On_Questionable_Missing_Parens : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for cases where parenthese are missing
+   --  and the usage is questionable, because the intent is unclear.
 
    Warn_On_Redundant_Constructs : Boolean := False;
    --  GNAT
@@ -1159,8 +1233,10 @@ package Opt is
 
    Ada_Version_Explicit_Config : Ada_Version_Type;
    --  GNAT
-   --  Same as above but used to initialize Ada_Version_Explicit. Currently
-   --  this will always have the same value as Ada_Version_Config.
+   --  This is set in the same manner as Ada_Version_Config. The difference is
+   --  that the setting of this flag is not ignored for internal and predefined
+   --  units, which for some purposes do indeed access this value, regardless
+   --  of the fact that they are compiled the the most up to date ada version).
 
    Assertions_Enabled_Config : Boolean;
    --  GNAT
@@ -1304,19 +1380,27 @@ package Opt is
    --  tree, and they are supposed to be compared with the corresponding values
    --  from the Gnatvsn package which is a part of ASIS implementation.
 
-   Tree_Version_String : String (Gnat_Version_String'Range);
+   Tree_Version_String : String_Access;
    --  Used to store the compiler version string read from a tree file to check
-   --  if it is the same as stored in the version string in Gnatvsn. Therefore
-   --  its length is taken directly from the version string in Gnatvsn. If the
-   --  length of the version string stored in the tree is different, then
-   --  versions are for sure different, and a string containing '?' characters
-   --  is assigned to this variable as a result of tree read.
+   --  if it is from the same date as stored in the version string in Gnatvsn.
+   --  We require that ASIS Pro can be used only with GNAT Pro, but we allow
+   --  non-Pro ASIS and ASIS-based tools to be used with any version of the
+   --  GNAT compiler. Therefore, we need the possibility to compare the dates
+   --  of the corresponding source sets, using version strings that may be
+   --  of different lengths.
 
    Tree_ASIS_Version_Number : Int;
    --  Used to store the ASIS version number read from a tree file to check if
    --  it is the same as stored in the ASIS version number in Gnatvsn.
 
 private
+
+   --  The following type is used to save and restore settings of switches in
+   --  Opt that represent the configuration (i.e. result of config pragmas).
+
+   --  Note that Ada_Version_Explicit is not included, since this is a sticky
+   --  flag that once set does not get reset, since the whole idea of this flag
+   --  is to record the setting for the main unit.
 
    type Config_Switches_Type is record
       Ada_Version                    : Ada_Version_Type;

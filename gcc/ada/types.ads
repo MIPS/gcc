@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -106,10 +106,11 @@ package Types is
 
    subtype Line_Terminator is Character range ASCII.LF .. ASCII.CR;
    --  Line terminator characters (LF, VT, FF, CR)
+   --
    --  This definition is dubious now that we have two more wide character
    --  sequences that constitute a line terminator. Every reference to
    --  this subtype needs checking to make sure the wide character case
-   --  is handled appropriately.
+   --  is handled appropriately. ???
 
    subtype Upper_Half_Character is
      Character range Character'Val (16#80#) .. Character'Val (16#FF#);
@@ -172,8 +173,9 @@ package Types is
 
    type Column_Number is range 0 .. 32767;
    for Column_Number'Size use 16;
-   --  Column number (assume that 2**15 is large enough, see declaration of
-   --  Hostparm.Max_Line_Length, and also processing for -gnatyM in Stylesw)
+   --  Column number (assume that 2**15 - 1 is large enough). The range for
+   --  this type is used to compute Hostparm.Max_Line_Length. See also the
+   --  processing for -gnatyM in Stylesw).
 
    No_Column_Number : constant Column_Number := 0;
    --  Special value used to indicate no column number
@@ -205,7 +207,7 @@ package Types is
 
    No_Location : constant Source_Ptr := -1;
    --  Value used to indicate no source position set in a node. A test for
-   --  a Source_Ptr value being >= No_Location is the apporoved way to test
+   --  a Source_Ptr value being > No_Location is the approved way to test
    --  for a standard value that does not include No_Location or any of the
    --  following special definitions.
 
@@ -682,9 +684,10 @@ package Types is
    -- Types used for Pragma Suppress Management --
    -----------------------------------------------
 
-   type Check_Id is (
-      Access_Check,
+   type Check_Id is
+     (Access_Check,
       Accessibility_Check,
+      Alignment_Check,
       Discriminant_Check,
       Division_Check,
       Elaboration_Check,
@@ -694,6 +697,7 @@ package Types is
       Range_Check,
       Storage_Check,
       Tag_Check,
+      Validity_Check,
       All_Checks);
 
    --  The following array contains an entry for each recognized check name
@@ -724,7 +728,7 @@ package Types is
    -----------------------------------
 
    --  This section contains declarations of exceptions that are used
-   --  throughout the compiler.
+   --  throughout the compiler or in other GNAT tools.
 
    Unrecoverable_Error : exception;
    --  This exception is raised to immediately terminate the compilation
@@ -732,6 +736,14 @@ package Types is
    --  bad enough that it doesn't seem worth continuing (e.g. max errors
    --  reached, or a required file is not found). Also raised when the
    --  compiler finds itself in trouble after an error (see Comperr).
+
+   Terminate_Program : exception;
+   --  This exception is raised to immediately terminate the tool being
+   --  executed. Each tool where this exception may be raised must have
+   --  a single exception handler that contains only a null statement and
+   --  that is the last statement of the program. If needed, procedure
+   --  Set_Exit_Status is called with the appropriate exit status before
+   --  raising Terminate_Program.
 
    ---------------------------------
    -- Parameter Mechanism Control --
@@ -773,42 +785,45 @@ package Types is
    --       the definition of last_reason_code.
 
    --    3. Add a new routine in Ada.Exceptions with the appropriate call
-   --       and static string constant
+   --       and static string constant. Note that there is more than one
+   --       version of a-except.adb which must be modified.
 
-   type RT_Exception_Code is (
-     CE_Access_Check_Failed,
-     CE_Access_Parameter_Is_Null,
-     CE_Discriminant_Check_Failed,
-     CE_Divide_By_Zero,
-     CE_Explicit_Raise,
-     CE_Index_Check_Failed,
-     CE_Invalid_Data,
-     CE_Length_Check_Failed,
-     CE_Null_Not_Allowed,
-     CE_Overflow_Check_Failed,
-     CE_Partition_Check_Failed,
-     CE_Range_Check_Failed,
-     CE_Tag_Check_Failed,
+   type RT_Exception_Code is
+     (CE_Access_Check_Failed,            -- 00
+      CE_Access_Parameter_Is_Null,       -- 01
+      CE_Discriminant_Check_Failed,      -- 02
+      CE_Divide_By_Zero,                 -- 03
+      CE_Explicit_Raise,                 -- 04
+      CE_Index_Check_Failed,             -- 05
+      CE_Invalid_Data,                   -- 06
+      CE_Length_Check_Failed,            -- 07
+      CE_Null_Exception_Id,              -- 08
+      CE_Null_Not_Allowed,               -- 09
+      CE_Overflow_Check_Failed,          -- 10
+      CE_Partition_Check_Failed,         -- 11
+      CE_Range_Check_Failed,             -- 12
+      CE_Tag_Check_Failed,               -- 13
 
-     PE_Access_Before_Elaboration,
-     PE_Accessibility_Check_Failed,
-     PE_All_Guards_Closed,
-     PE_Duplicated_Entry_Address,
-     PE_Explicit_Raise,
-     PE_Finalize_Raised_Exception,
-     PE_Misaligned_Address_Value,
-     PE_Missing_Return,
-     PE_Overlaid_Controlled_Object,
-     PE_Potentially_Blocking_Operation,
-     PE_Stubbed_Subprogram_Called,
-     PE_Unchecked_Union_Restriction,
-     PE_Illegal_RACW_E_4_18,
+      PE_Access_Before_Elaboration,      -- 14
+      PE_Accessibility_Check_Failed,     -- 15
+      PE_All_Guards_Closed,              -- 16
+      PE_Current_Task_In_Entry_Body,     -- 17
+      PE_Duplicated_Entry_Address,       -- 18
+      PE_Explicit_Raise,                 -- 19
+      PE_Finalize_Raised_Exception,      -- 20
+      PE_Implicit_Return,                -- 21
+      PE_Misaligned_Address_Value,       -- 22
+      PE_Missing_Return,                 -- 23
+      PE_Overlaid_Controlled_Object,     -- 24
+      PE_Potentially_Blocking_Operation, -- 25
+      PE_Stubbed_Subprogram_Called,      -- 26
+      PE_Unchecked_Union_Restriction,    -- 27
+      PE_Illegal_RACW_E_4_18,            -- 28
 
-     SE_Empty_Storage_Pool,
-     SE_Explicit_Raise,
-     SE_Infinite_Recursion,
-     SE_Object_Too_Large,
-     SE_Restriction_Violation);
+      SE_Empty_Storage_Pool,             -- 29
+      SE_Explicit_Raise,                 -- 30
+      SE_Infinite_Recursion,             -- 31
+      SE_Object_Too_Large);              -- 32
 
    subtype RT_CE_Exceptions is RT_Exception_Code range
      CE_Access_Check_Failed ..
@@ -820,6 +835,6 @@ package Types is
 
    subtype RT_SE_Exceptions is RT_Exception_Code range
      SE_Empty_Storage_Pool ..
-     SE_Restriction_Violation;
+     SE_Object_Too_Large;
 
 end Types;

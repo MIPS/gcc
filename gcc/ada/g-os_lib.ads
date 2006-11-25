@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1995-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1995-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,14 +62,14 @@ package GNAT.OS_Lib is
 
    subtype String_Access is Strings.String_Access;
 
-   function "=" (Left, Right : in String_Access) return Boolean
+   function "=" (Left, Right : String_Access) return Boolean
      renames Strings."=";
 
    procedure Free (X : in out String_Access) renames Strings.Free;
 
    subtype String_List is Strings.String_List;
 
-   function "=" (Left, Right : in String_List) return Boolean
+   function "=" (Left, Right : String_List) return Boolean
      renames Strings."=";
 
    function "&" (Left : String_Access; Right : String_Access)
@@ -83,7 +83,7 @@ package GNAT.OS_Lib is
 
    subtype String_List_Access is Strings.String_List_Access;
 
-   function "=" (Left, Right : in String_List_Access) return Boolean
+   function "=" (Left, Right : String_List_Access) return Boolean
      renames Strings."=";
 
    procedure Free (Arg : in out String_List_Access)
@@ -198,7 +198,7 @@ package GNAT.OS_Lib is
    --  for subsequent use in Write calls. File descriptor returned is
    --  Invalid_FD if file cannot be successfully created.
 
-   function Create_Output_Text_File (Name  : String) return File_Descriptor;
+   function Create_Output_Text_File (Name : String) return File_Descriptor;
    --  Creates new text file with given name suitable to redirect standard
    --  output, returning file descriptor. File descriptor returned is
    --  Invalid_FD if file cannot be successfully created.
@@ -520,17 +520,29 @@ package GNAT.OS_Lib is
    function Get_Debuggable_Suffix return String_Access;
    --  Return the debuggable suffix convention. Usually this is the same as
    --  the convention for Get_Executable_Suffix. The result is allocated on
-   --  the heap and should be freed when no longer needed to avoid storage
+   --  the heap and should be freed after use to avoid storage leaks.
+
+   function Get_Target_Debuggable_Suffix return String_Access;
+   --  Return the target debuggable suffix convention. Usually this is the
+   --  same as the convention for Get_Executable_Suffix. The result is
+   --  allocated on the heap and should be freed after use to avoid storage
    --  leaks.
 
    function Get_Executable_Suffix return String_Access;
-   --  Return the executable suffix convention. The result is allocated on
-   --  the heap and should be freed when no longer needed to avoid storage
-   --  leaks.
+   --  Return the executable suffix convention. The result is allocated on the
+   --  heap and should be freed after use to avoid storage leaks.
 
    function Get_Object_Suffix return String_Access;
-   --  Return the object suffix convention. The result is allocated on the
-   --  heap and should be freed when no longer needed to avoid storage leaks.
+   --  Return the object suffix convention. The result is allocated on the heap
+   --  and should be freed after use to avoid storage leaks.
+
+   function Get_Target_Executable_Suffix return String_Access;
+   --  Return the target executable suffix convention. The result is allocated
+   --  on the heap and should be freed after use to avoid storage leaks.
+
+   function Get_Target_Object_Suffix return String_Access;
+   --  Return the target object suffix convention. The result is allocated on
+   --  the heap and should be freed after use to avoid storage leaks.
 
    --  The following section contains low-level routines using addresses to
    --  pass file name and executable name. In each routine the name must be
@@ -588,8 +600,7 @@ package GNAT.OS_Lib is
 
    function Locate_Regular_File
      (File_Name : C_File_Name;
-      Path      : C_File_Name)
-      return      String_Access;
+      Path      : C_File_Name) return String_Access;
 
    ------------------
    -- Subprocesses --
@@ -655,8 +666,7 @@ package GNAT.OS_Lib is
 
    function Spawn
      (Program_Name : String;
-      Args         : Argument_List)
-      return         Integer;
+      Args         : Argument_List) return Integer;
    --  Similar to the above procedure, but returns the actual status returned
    --  by the operating system, or -1 under VxWorks and any other similar
    --  operating systems which have no notion of separately spawnable programs.
@@ -695,23 +705,26 @@ package GNAT.OS_Lib is
 
    type Process_Id is private;
    --  A private type used to identify a process activated by the following
-   --  non-blocking call. The only meaningful operation on this type is a
+   --  non-blocking calls. The only meaningful operation on this type is a
    --  comparison for equality.
 
    Invalid_Pid : constant Process_Id;
    --  A special value used to indicate errors, as described below
 
+   function Pid_To_Integer (Pid : Process_Id) return Integer;
+   --  Convert a process id to an Integer. Useful for writing hash functions
+   --  for type Process_Id or to compare two Process_Id (e.g. for sorting).
+
    function Non_Blocking_Spawn
      (Program_Name : String;
-      Args         : Argument_List)
-      return         Process_Id;
+      Args         : Argument_List) return Process_Id;
    --  This is a non blocking call. The Process_Id of the spawned process is
-   --  returned. Parameters are to be used as in Spawn. If Invalid_Id is
+   --  returned. Parameters are to be used as in Spawn. If Invalid_Pid is
    --  returned the program could not be spawned.
    --
    --  "Non_Blocking_Spawn" should not be used in tasking applications.
    --
-   --  This function will always return Invalid_Id under VxWorks, since there
+   --  This function will always return Invalid_Pid under VxWorks, since there
    --  is no notion of executables under this OS.
 
    function Non_Blocking_Spawn
@@ -721,31 +734,30 @@ package GNAT.OS_Lib is
       Err_To_Out             : Boolean := True) return Process_Id;
    --  Similar to the procedure above, but redirects the output to the file
    --  designated by Output_File_Descriptor. If Err_To_Out is True, then the
-   --  Standard Error output is also redirected. Invalid_Id is returned
+   --  Standard Error output is also redirected. Invalid_Pid is returned
    --  if the program could not be spawned successfully.
    --
    --  "Non_Blocking_Spawn" should not be used in tasking applications.
    --
-   --  This function will always return Invalid_Id under VxWorks, since there
+   --  This function will always return Invalid_Pid under VxWorks, since there
    --  is no notion of executables under this OS.
 
    function Non_Blocking_Spawn
      (Program_Name : String;
       Args         : Argument_List;
       Output_File  : String;
-      Err_To_Out   : Boolean := True)
-      return         Process_Id;
+      Err_To_Out   : Boolean := True) return Process_Id;
    --  Similar to the procedure above, but saves the output of the command to
    --  a file with the name Output_File.
    --
    --  Success is set to True if the command is executed and its output
-   --  successfully written to the file. Invalid_Id is returned if the output
+   --  successfully written to the file. Invalid_Pid is returned if the output
    --  file could not be created or if the program could not be spawned
    --  successfully.
    --
    --  "Non_Blocking_Spawn" should not be used in tasking applications.
    --
-   --  This function will always return Invalid_Id under VxWorks, since there
+   --  This function will always return Invalid_Pid under VxWorks, since there
    --  is no notion of executables under this OS.
 
    procedure Wait_Process (Pid : out Process_Id; Success : out Boolean);
@@ -757,7 +769,7 @@ package GNAT.OS_Lib is
    --  Wait_Process is immediate. Pid identifies the process that has
    --  terminated (matching the value returned from Non_Blocking_Spawn).
    --  Success is set to True if this sub-process terminated successfully. If
-   --  Pid = Invalid_Id, there were no subprocesses left to wait on.
+   --  Pid = Invalid_Pid, there were no subprocesses left to wait on.
    --
    --  This function will always set success to False under VxWorks, since
    --  there is no notion of executables under this OS.
@@ -796,7 +808,9 @@ package GNAT.OS_Lib is
    procedure OS_Exit (Status : Integer);
    pragma Import (C, OS_Exit, "__gnat_os_exit");
    pragma No_Return (OS_Exit);
-   --  Exit to OS with given status code (program is terminated)
+   --  Exit to OS with given status code (program is terminated). Note that
+   --  this is abrupt termination. All tasks are immediately terminated. There
+   --  is no finalization or other cleanup actions performed.
 
    procedure OS_Abort;
    pragma Import (C, OS_Abort, "abort");

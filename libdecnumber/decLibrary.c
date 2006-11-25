@@ -1,5 +1,5 @@
 /* Temporary library support for decimal floating point.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -31,8 +31,7 @@ void __host_to_ieee_128 (_Decimal128, decimal128 *);
 extern int isinfd32 (_Decimal32);
 extern int isinfd64 (_Decimal64);
 extern int isinfd128 (_Decimal128);
-extern void __dfp_enable_traps (void);
-extern void __dfp_raise (int exception __attribute__ ((unused)));
+uint32_t __dec_byte_swap (uint32_t);
 
 int
 isinfd32 (_Decimal32 arg)
@@ -67,27 +66,13 @@ isinfd128 (_Decimal128 arg)
   return (decNumberIsInfinite (&dn));
 }
 
-int __dfp_traps;
-
-void
-__dfp_enable_traps (void)
+uint32_t
+__dec_byte_swap (uint32_t in)
 {
-  __dfp_traps = 1;
-}
-
-void
-__dfp_raise (int exception __attribute__ ((unused)))
-{
-  raise (SIGFPE);
-}
-
-unsigned long
-__dec_byte_swap (unsigned long in)
-{
-  unsigned long out;
+  uint32_t out = 0;
   unsigned char *p = (unsigned char *) &out;
   union {
-    unsigned long i;
+    uint32_t i;
     unsigned char b[4];
   } u;
 

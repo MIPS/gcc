@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -67,12 +68,15 @@
   %{mno-power: %{!mpowerpc*: -mcom}} \
   %{!mno-power: %{!mpower*: %(asm_default)}}} \
 %{mcpu=common: -mcom} \
+%{mcpu=cell: -mcell} \
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
 %{mcpu=power5: -mpower4} \
 %{mcpu=power5+: -mpower4} \
+%{mcpu=power6: -mpower4 -maltivec} \
+%{mcpu=power6x: -mpower4 -maltivec} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -160,6 +164,14 @@
 #define TARGET_FPRND 0
 #endif
 
+/* Define TARGET_MFPGPR if the target assembler does not support the
+   mffpr and mftgpr instructions. */
+
+#ifndef HAVE_AS_MFPGPR
+#undef  TARGET_MFPGPR
+#define TARGET_MFPGPR 0
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -176,7 +188,7 @@
 
 #ifdef IN_LIBGCC2
 /* For libgcc2 we make sure this is a compile time constant */
-#if defined (__64BIT__) || defined (__powerpc64__)
+#if defined (__64BIT__) || defined (__powerpc64__) || defined (__ppc64__)
 #undef TARGET_POWERPC64
 #define TARGET_POWERPC64	1
 #else
@@ -210,7 +222,9 @@ enum processor_type
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
    PROCESSOR_POWER4,
-   PROCESSOR_POWER5
+   PROCESSOR_POWER5,
+   PROCESSOR_POWER6,
+   PROCESSOR_CELL
 };
 
 extern enum processor_type rs6000_cpu;
@@ -291,6 +305,7 @@ extern const char *rs6000_traceback_name; /* Type of traceback table.  */
 /* These are separate from target_flags because we've run out of bits
    there.  */
 extern int rs6000_long_double_type_size;
+extern int rs6000_ieeequad;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
 extern int rs6000_float_gprs;
@@ -316,6 +331,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #endif
 
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
+#define TARGET_IEEEQUAD rs6000_ieeequad
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 
 #define TARGET_SPE_ABI 0
@@ -325,6 +341,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
+
+/* E500 processors only support plain "sync", not lwsync.  */
+#define TARGET_NO_LWSYNC TARGET_E500
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -499,7 +518,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
     (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 : \
-    (TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE) ? 64 : ALIGN)
+    (TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
+     && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) ? 64 : ALIGN)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -607,8 +627,23 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define DWARF_REG_TO_UNWIND_COLUMN(r) \
   ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER - 1) : (r))
 
+/* Use standard DWARF numbering for DWARF debugging information.  */
+#define DBX_REGISTER_NUMBER(REGNO) rs6000_dbx_register_number (REGNO)
+
 /* Use gcc hard register numbering for eh_frame.  */
 #define DWARF_FRAME_REGNUM(REGNO) (REGNO)
+
+/* Map register numbers held in the call frame info that gcc has
+   collected using DWARF_FRAME_REGNUM to those that should be output in
+   .debug_frame and .eh_frame.  We continue to use gcc hard reg numbers
+   for .eh_frame, but use the numbers mandated by the various ABIs for
+   .debug_frame.  rs6000_emit_prologue has translated any combination of
+   CR2, CR3, CR4 saves to a save of CR2.  The actual code emitted saves
+   the whole of CR, so we map CR2_REGNO to the DWARF reg for CR.  */
+#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH)	\
+  ((FOR_EH) ? (REGNO)				\
+   : (REGNO) == CR2_REGNO ? 64			\
+   : DBX_REGISTER_NUMBER (REGNO))
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -1021,7 +1056,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x0000000f, 0x00022000 }, /* SPEC_OR_GEN_REGS */ \
   { 0x00000000, 0x00000000, 0x00000010, 0x00000000 }, /* CR0_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
-  { 0xffffffff, 0x00000000, 0x0000efff, 0x00000000 }, /* NON_FLOAT_REGS */   \
+  { 0xffffffff, 0x00000000, 0x0000efff, 0x00020000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* XER_REGS */	     \
   { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
 }
@@ -1053,107 +1088,6 @@ enum reg_class
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
-
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_LETTER(C) \
-  ((C) == 'f' ? ((TARGET_HARD_FLOAT && TARGET_FPRS) ? FLOAT_REGS : NO_REGS) \
-   : (C) == 'b' ? BASE_REGS	\
-   : (C) == 'h' ? SPECIAL_REGS	\
-   : (C) == 'q' ? MQ_REGS	\
-   : (C) == 'c' ? CTR_REGS	\
-   : (C) == 'l' ? LINK_REGS	\
-   : (C) == 'v' ? ALTIVEC_REGS	\
-   : (C) == 'x' ? CR0_REGS	\
-   : (C) == 'y' ? CR_REGS	\
-   : (C) == 'z' ? XER_REGS	\
-   : NO_REGS)
-
-/* The letters I, J, K, L, M, N, and P in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C.
-
-   `I' is a signed 16-bit constant
-   `J' is a constant with only the high-order 16 bits nonzero
-   `K' is a constant with only the low-order 16 bits nonzero
-   `L' is a signed 16-bit constant shifted left 16 bits
-   `M' is a constant that is greater than 31
-   `N' is a positive constant that is an exact power of two
-   `O' is the constant zero
-   `P' is a constant whose negation is a signed 16-bit constant */
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-   ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & (~ (unsigned HOST_WIDE_INT) 0xffff0000)) == 0 \
-   : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
-   : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
-		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
-   : (C) == 'M' ? (VALUE) > 31						\
-   : (C) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
-   : (C) == 'O' ? (VALUE) == 0						\
-   : (C) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
-   : 0)
-
-/* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself.
-
-   We flag for special constants when we can copy the constant into
-   a general register in two insns for DF/DI and one insn for SF.
-
-   'H' is used for DI/DF constants that take 3 insns.  */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)				\
-  (  (C) == 'G' ? (num_insns_constant (VALUE, GET_MODE (VALUE))		\
-		   == ((GET_MODE (VALUE) == SFmode) ? 1 : 2))		\
-   : (C) == 'H' ? (num_insns_constant (VALUE, GET_MODE (VALUE)) == 3)	\
-   : 0)
-
-/* Optional extra constraints for this machine.
-
-   'Q' means that is a memory operand that is just an offset from a reg.
-   'R' is for AIX TOC entries.
-   'S' is a constant that can be placed into a 64-bit mask operand.
-   'T' is a constant that can be placed into a 32-bit mask operand.
-   'U' is for V.4 small data references.
-   'W' is a vector constant that can be easily generated (no mem refs).
-   'Y' is an indexed or word-aligned displacement memory operand.
-   'Z' is an indexed or indirect memory operand.
-   'a'  is an indexed or indirect address operand.
-   't' is for AND masks that can be performed by two rldic{l,r} insns
-       (but excluding those that could match other constraints of anddi3.)  */
-
-#define EXTRA_CONSTRAINT(OP, C)						\
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
-   : (C) == 'R' ? legitimate_constant_pool_address_p (OP)		\
-   : (C) == 'S' ? mask64_operand (OP, DImode)				\
-   : (C) == 'T' ? mask_operand (OP, GET_MODE (OP))			\
-   : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
-		   && small_data_operand (OP, GET_MODE (OP)))		\
-   : (C) == 't' ? (mask64_2_operand (OP, DImode)			\
-		   && (fixed_regs[CR0_REGNO]				\
-		       || !logical_operand (OP, DImode))		\
-		   && !mask_operand (OP, DImode)			\
-		   && !mask64_operand (OP, DImode))			\
-   : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
-   : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
-   : (C) == 'Z' ? (indexed_or_indirect_operand (OP, GET_MODE (OP)))	\
-   : (C) == 'a' ? (indexed_or_indirect_address (OP, GET_MODE (OP)))	\
-   : 0)
-
-/* Define which constraints are memory constraints.  Tell reload
-   that any memory address can be reloaded by copying the
-   memory address into a base register if required.  */
-
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'Y' || (C) == 'Z')
-
-/* Define which constraints should be treated like address constraints
-   by the reload pass.  */
-
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
-  ((C) == 'a')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1190,12 +1124,18 @@ enum reg_class
   rs6000_secondary_reload_class (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
-   else, we need a memory location.  */
+   else, we need a memory location.  The exception is when we are
+   targeting ppc64 and the move to/from fpr to gpr instructions
+   are available.*/
 
-#define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE) 		\
- ((CLASS1) != (CLASS2) && ((CLASS1) == FLOAT_REGS		\
-			   || (CLASS2) == FLOAT_REGS		\
-			   || (CLASS1) == ALTIVEC_REGS		\
+#define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
+ ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
+                            && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
+				|| ((MODE != DFmode) && (MODE != DImode)))) \
+			   || ((CLASS2) == FLOAT_REGS			\
+                               && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
+				|| ((MODE != DFmode) && (MODE != DImode)))) \
+			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
 /* Return the maximum number of consecutive registers
@@ -1210,22 +1150,19 @@ enum reg_class
   ? 1                                                                   \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
+/* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
-/* Return a class of registers that cannot change FROM mode to TO mode.  */
-
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			  \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)		  \
-    && GET_MODE_SIZE (FROM) >= 8 && GET_MODE_SIZE (TO) >= 8)		  \
-   ? 0									  \
-   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				  \
-   ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			  \
-   : (TARGET_E500_DOUBLE && (((TO) == DFmode) + ((FROM) == DFmode)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : (TARGET_E500_DOUBLE && (((TO) == DImode) + ((FROM) == DImode)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : (TARGET_SPE && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : 0)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
+   ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
+       || TARGET_IEEEQUAD)						\
+      && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
+   : (((TARGET_E500_DOUBLE						\
+	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
+	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
+       || (TARGET_SPE							\
+	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
+      && reg_classes_intersect_p (GENERAL_REGS, CLASS)))
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1699,7 +1636,8 @@ typedef struct rs6000_args
 
 #define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
 #define EASY_VECTOR_15_ADD_SELF(n) (!EASY_VECTOR_15((n))	\
-				    && EASY_VECTOR_15((n) >> 1))
+				    && EASY_VECTOR_15((n) >> 1) \
+				    && ((n) & 1) == 0)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -1740,7 +1678,7 @@ typedef struct rs6000_args
    The MODE argument is the machine mode for the MEM expression
    that wants to use this address.
 
-   On the RS/6000, there are four valid address: a SYMBOL_REF that
+   On the RS/6000, there are four valid addresses: a SYMBOL_REF that
    refers to a constant pool entry of an address (or the sum of it
    plus a constant), a short (16-bit signed) constant plus a register,
    the sum of two registers, or a register indirect, possibly with an

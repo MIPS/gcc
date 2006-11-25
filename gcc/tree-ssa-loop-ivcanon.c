@@ -100,7 +100,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
 		       build_int_cst (type, 1));
   incr_at = bsi_last (in->src);
   create_iv (niter,
-	     fold_convert (type, integer_minus_one_node),
+	     build_int_cst (type, -1),
 	     NULL_TREE, loop,
 	     &incr_at, false, NULL, &var);
 
@@ -224,7 +224,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
   if (n_unroll)
     {
       sbitmap wont_exit;
-      edge *edges_to_remove = xmalloc (sizeof (edge *) * n_unroll);
+      edge *edges_to_remove = XNEWVEC (edge, n_unroll);
       unsigned int n_to_remove = 0;
 
       old_cond = COND_EXPR_COND (cond);
@@ -283,7 +283,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   niter = number_of_iterations_in_loop (loop);
   if (TREE_CODE (niter) == INTEGER_CST)
     {
-      exit = loop->single_exit;
+      exit = single_exit (loop);
       if (!just_once_each_iteration_p (loop, exit->src))
 	return false;
 
@@ -297,7 +297,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
     {
       /* If the loop has more than one exit, try checking all of them
 	 for # of iterations determinable through scev.  */
-      if (!loop->single_exit)
+      if (!single_exit (loop))
 	niter = find_loop_niter (loop, &exit);
 
       /* Finally if everything else fails, try brute force evaluation.  */
@@ -330,7 +330,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 /* The main entry point of the pass.  Adds canonical induction variables
    to the suitable LOOPS.  */
 
-void
+unsigned int
 canonicalize_induction_variables (struct loops *loops)
 {
   unsigned i;
@@ -352,14 +352,15 @@ canonicalize_induction_variables (struct loops *loops)
   scev_reset ();
 
   if (changed)
-    cleanup_tree_cfg_loop ();
+    return TODO_cleanup_cfg;
+  return 0;
 }
 
 /* Unroll LOOPS completely if they iterate just few times.  Unless
    MAY_INCREASE_SIZE is true, perform the unrolling only if the
    size of the code does not increase.  */
 
-void
+unsigned int
 tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
 {
   unsigned i;
@@ -388,7 +389,8 @@ tree_unroll_loops_completely (struct loops *loops, bool may_increase_size)
   scev_reset ();
 
   if (changed)
-    cleanup_tree_cfg_loop ();
+    return TODO_cleanup_cfg;
+  return 0;
 }
 
 /* Checks whether LOOP is empty.  */
@@ -562,7 +564,7 @@ try_remove_empty_loop (struct loop *loop, bool *changed)
 
 /* Remove the empty LOOPS.  */
 
-void
+unsigned int
 remove_empty_loops (struct loops *loops)
 {
   bool changed = false;
@@ -574,6 +576,7 @@ remove_empty_loops (struct loops *loops)
   if (changed)
     {
       scev_reset ();
-      cleanup_tree_cfg_loop ();
+      return TODO_cleanup_cfg;
     }
+  return 0;
 }

@@ -1,9 +1,12 @@
 // { dg-do run }
 // { dg-require-weak "" }
+// On darwin, we use attr-weakref-1-darwin.c.
+// This test requires support for undefined weak symbols.  This support
+// is not available on hppa*-*-hpux*.  The test is skipped rather than
+// xfailed to suppress the warning that would otherwise arise.
+// { dg-skip-if "" { "*-*-darwin*" "hppa*-*-hpux*" } "*" { "" } }
 // { dg-options "-O2" }
-// { dg-options "-O2 -mmacosx-version-min=10.2" { target { powerpc-*-darwin* } } }
 // { dg-additional-sources "attr-weakref-1a.c" }
-// { dg-additional-sources "attr-weakref-1a.c attr-weakref-1b.c" { target { *-*-darwin* } } }
 
 // Copyright 2005 Free Software Foundation, Inc.
 // Contributed by Alexandre Oliva <aoliva@redhat.com>

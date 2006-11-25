@@ -27,6 +27,7 @@
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
+#include "addresses.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "reload.h"
@@ -184,7 +185,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
 
 /* Perform register renaming on the current function.  */
 
-void
+static void
 regrename_optimize (void)
 {
   int tick[FIRST_PSEUDO_REGISTER];
@@ -528,7 +529,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
-	rtx *locB_reg = NULL;
+	enum rtx_code index_code = SCRATCH;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -547,59 +548,70 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  {
 	    locI = &XEXP (x, 0);
 	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code1 == MULT || code1 == SIGN_EXTEND || code1 == TRUNCATE
 		 || code1 == ZERO_EXTEND || code0 == MEM)
 	  {
 	    locI = &XEXP (x, 1);
 	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code0 == CONST_INT || code0 == CONST
 		 || code0 == SYMBOL_REF || code0 == LABEL_REF)
-	  locB = &XEXP (x, 1);
+	  {
+	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (XEXP (x, 0));
+	  }
 	else if (code1 == CONST_INT || code1 == CONST
 		 || code1 == SYMBOL_REF || code1 == LABEL_REF)
-	  locB = &XEXP (x, 0);
+	  {
+	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (XEXP (x, 1));
+	  }
 	else if (code0 == REG && code1 == REG)
 	  {
 	    int index_op;
+	    unsigned regno0 = REGNO (op0), regno1 = REGNO (op1);
 
-	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    if (REGNO_OK_FOR_INDEX_P (regno0)
+		&& regno_ok_for_base_p (regno1, mode, PLUS, REG))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (REGNO_OK_FOR_INDEX_P (regno1)
+		     && regno_ok_for_base_p (regno0, mode, PLUS, REG))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    else if (regno_ok_for_base_p (regno1, mode, PLUS, REG))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (regno_ok_for_base_p (regno0, mode, PLUS, REG))
 	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
+	    else if (REGNO_OK_FOR_INDEX_P (regno1))
 	      index_op = 1;
 	    else
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB_reg = &XEXP (x, !index_op);
+	    locB = &XEXP (x, !index_op);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code0 == REG)
 	  {
 	    locI = &XEXP (x, 0);
 	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code1 == REG)
 	  {
 	    locI = &XEXP (x, 1);
 	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (*locI);
 	  }
 
 	if (locI)
 	  scan_rtx_address (insn, locI, INDEX_REG_CLASS, action, mode);
 	if (locB)
-	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode), action, mode);
-	if (locB_reg)
-	  scan_rtx_address (insn, locB_reg, MODE_BASE_REG_REG_CLASS (mode),
+	  scan_rtx_address (insn, locB, base_reg_class (mode, PLUS, index_code),
 			    action, mode);
+
 	return;
       }
 
@@ -618,7 +630,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 
     case MEM:
       scan_rtx_address (insn, &XEXP (x, 0),
-			MODE_BASE_REG_CLASS (GET_MODE (x)), action,
+			base_reg_class (GET_MODE (x), MEM, SCRATCH), action,
 			GET_MODE (x));
       return;
 
@@ -669,7 +681,7 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
 
     case MEM:
       scan_rtx_address (insn, &XEXP (x, 0),
-			MODE_BASE_REG_CLASS (GET_MODE (x)), action,
+			base_reg_class (GET_MODE (x), MEM, SCRATCH), action,
 			GET_MODE (x));
       return;
 
@@ -1408,7 +1420,7 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 	fprintf (dump_file, "insn %u: replaced reg %u with %u\n",
 		 INSN_UID (insn), REGNO (*loc), REGNO (new));
 
-      *loc = new;
+      validate_change (insn, loc, new, 1);
       return true;
     }
   return false;
@@ -1441,7 +1453,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
-	rtx *locB_reg = NULL;
+	enum rtx_code index_code = SCRATCH;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -1460,50 +1472,62 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	  {
 	    locI = &XEXP (x, 0);
 	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code1 == MULT || code1 == SIGN_EXTEND || code1 == TRUNCATE
 		 || code1 == ZERO_EXTEND || code0 == MEM)
 	  {
 	    locI = &XEXP (x, 1);
 	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code0 == CONST_INT || code0 == CONST
 		 || code0 == SYMBOL_REF || code0 == LABEL_REF)
-	  locB = &XEXP (x, 1);
+	  {
+	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (XEXP (x, 0));
+	  }
 	else if (code1 == CONST_INT || code1 == CONST
 		 || code1 == SYMBOL_REF || code1 == LABEL_REF)
-	  locB = &XEXP (x, 0);
+	  {
+	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (XEXP (x, 1));
+	  }
 	else if (code0 == REG && code1 == REG)
 	  {
 	    int index_op;
+	    unsigned regno0 = REGNO (op0), regno1 = REGNO (op1);
 
-	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    if (REGNO_OK_FOR_INDEX_P (regno0)
+		&& regno_ok_for_base_p (regno1, mode, PLUS, REG))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (REGNO_OK_FOR_INDEX_P (regno1)
+		     && regno_ok_for_base_p (regno0, mode, PLUS, REG))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    else if (regno_ok_for_base_p (regno1, mode, PLUS, REG))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (regno_ok_for_base_p (regno0, mode, PLUS, REG))
 	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
+	    else if (REGNO_OK_FOR_INDEX_P (regno1))
 	      index_op = 1;
 	    else
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB_reg = &XEXP (x, !index_op);
+	    locB = &XEXP (x, !index_op);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code0 == REG)
 	  {
 	    locI = &XEXP (x, 0);
 	    locB = &XEXP (x, 1);
+	    index_code = GET_CODE (*locI);
 	  }
 	else if (code1 == REG)
 	  {
 	    locI = &XEXP (x, 1);
 	    locB = &XEXP (x, 0);
+	    index_code = GET_CODE (*locI);
 	  }
 
 	if (locI)
@@ -1511,11 +1535,8 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 						insn, vd);
 	if (locB)
 	  changed |= replace_oldest_value_addr (locB,
-						MODE_BASE_REG_CLASS (mode),
-						mode, insn, vd);
-	if (locB_reg)
-	  changed |= replace_oldest_value_addr (locB_reg,
-						MODE_BASE_REG_REG_CLASS (mode),
+						base_reg_class (mode, PLUS,
+								index_code),
 						mode, insn, vd);
 	return changed;
       }
@@ -1559,7 +1580,8 @@ static bool
 replace_oldest_value_mem (rtx x, rtx insn, struct value_data *vd)
 {
   return replace_oldest_value_addr (&XEXP (x, 0),
-				    MODE_BASE_REG_CLASS (GET_MODE (x)),
+				    base_reg_class (GET_MODE (x), MEM,
+						    SCRATCH),
 				    GET_MODE (x), insn, vd);
 }
 
@@ -1574,8 +1596,9 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
   for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       int n_ops, i, alt, predicated;
-      bool is_asm;
+      bool is_asm, any_replacements;
       rtx set;
+      bool replaced[MAX_RECOG_OPERANDS];
 
       if (! INSN_P (insn))
 	{
@@ -1687,11 +1710,13 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	}
       no_move_special_case:
 
+      any_replacements = false;
+
       /* For each input operand, replace a hard register with the
 	 eldest live copy that's in an appropriate register class.  */
       for (i = 0; i < n_ops; i++)
 	{
-	  bool replaced = false;
+	  replaced[i] = false;
 
 	  /* Don't scan match_operand here, since we've no reg class
 	     information to pass down.  Any operands that we could
@@ -1708,37 +1733,57 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	  if (recog_data.operand_type[i] == OP_IN)
 	    {
 	      if (recog_op_alt[i][alt].is_address)
-		replaced
+		replaced[i]
 		  = replace_oldest_value_addr (recog_data.operand_loc[i],
 					       recog_op_alt[i][alt].cl,
 					       VOIDmode, insn, vd);
 	      else if (REG_P (recog_data.operand[i]))
-		replaced
+		replaced[i]
 		  = replace_oldest_value_reg (recog_data.operand_loc[i],
 					      recog_op_alt[i][alt].cl,
 					      insn, vd);
 	      else if (MEM_P (recog_data.operand[i]))
-		replaced = replace_oldest_value_mem (recog_data.operand[i],
-						     insn, vd);
+		replaced[i] = replace_oldest_value_mem (recog_data.operand[i],
+							insn, vd);
 	    }
 	  else if (MEM_P (recog_data.operand[i]))
-	    replaced = replace_oldest_value_mem (recog_data.operand[i],
-						 insn, vd);
+	    replaced[i] = replace_oldest_value_mem (recog_data.operand[i],
+						    insn, vd);
 
 	  /* If we performed any replacement, update match_dups.  */
-	  if (replaced)
+	  if (replaced[i])
 	    {
 	      int j;
 	      rtx new;
-
-	      changed = true;
 
 	      new = *recog_data.operand_loc[i];
 	      recog_data.operand[i] = new;
 	      for (j = 0; j < recog_data.n_dups; j++)
 		if (recog_data.dup_num[j] == i)
-		  *recog_data.dup_loc[j] = new;
+		  validate_change (insn, recog_data.dup_loc[j], new, 1);
+
+	      any_replacements = true;
 	    }
+	}
+
+      if (any_replacements)
+	{
+	  if (! apply_change_group ())
+	    {
+	      for (i = 0; i < n_ops; i++)
+		if (replaced[i])
+		  {
+		    rtx old = *recog_data.operand_loc[i];
+		    recog_data.operand[i] = old;
+		  }
+
+	      if (dump_file)
+		fprintf (dump_file,
+			 "insn %u: reg replacements not verified\n",
+			 INSN_UID (insn));
+	    }
+	  else
+	    changed = true;
 	}
 
     did_replacement:
@@ -1764,7 +1809,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 
 /* Main entry point for the forward copy propagation optimization.  */
 
-void
+static void
 copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
@@ -1774,22 +1819,21 @@ copyprop_hardreg_forward (void)
 
   need_refresh = false;
 
-  all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
+  all_vd = XNEWVEC (struct value_data, last_basic_block);
 
-  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited);
 
   FOR_EACH_BB (bb)
     {
-      SET_BIT (visited, bb->index - (INVALID_BLOCK + 1));
+      SET_BIT (visited, bb->index);
 
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (single_pred_p (bb)
-	  && TEST_BIT (visited,
-		       single_pred (bb)->index - (INVALID_BLOCK + 1))
+      if (single_pred_p (bb) 
+	  && TEST_BIT (visited, single_pred (bb)->index)
 	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	all_vd[bb->index] = all_vd[single_pred (bb)->index];
       else
@@ -1931,13 +1975,14 @@ gate_handle_regrename (void)
 
 
 /* Run the regrename and cprop passes.  */
-static void
+static unsigned int
 rest_of_handle_regrename (void)
 {
   if (flag_rename_registers)
     regrename_optimize ();
   if (flag_cprop_registers)
     copyprop_hardreg_forward ();
+  return 0;
 }
 
 struct tree_opt_pass pass_regrename =

@@ -235,6 +235,21 @@ alpha_handle_option (size_t code, const char *arg, int value)
   return true;
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+alpha_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* Parse target option strings.  */
 
 void
@@ -501,6 +516,11 @@ override_options (void)
       REAL_MODE_FORMAT (DFmode) = &vax_g_format;
       REAL_MODE_FORMAT (TFmode) = NULL;
     }
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -2104,9 +2124,12 @@ alpha_legitimate_constant_p (rtx x)
     {
     case CONST:
     case LABEL_REF:
-    case SYMBOL_REF:
     case HIGH:
       return true;
+
+    case SYMBOL_REF:
+      /* TLS symbols are never valid.  */
+      return SYMBOL_REF_TLS_MODEL (x) == 0;
 
     case CONST_DOUBLE:
       if (x == CONST0_RTX (mode))
@@ -3198,12 +3221,17 @@ alpha_emit_xfloating_cvt (enum rtx_code orig_code, rtx operands[])
 					       operands[1]));
 }
 
-/* Split a TFmode OP[1] into DImode OP[2,3] and likewise for
-   OP[0] into OP[0,1].  Naturally, output operand ordering is
-   little-endian.  */
-
+/* Split a TImode or TFmode move from OP[1] to OP[0] into a pair of
+   DImode moves from OP[2,3] to OP[0,1].  If FIXUP_OVERLAP is true,
+   guarantee that the sequence
+     set (OP[0] OP[2])
+     set (OP[1] OP[3])
+   is valid.  Naturally, output operand ordering is little-endian.
+   This is used by *movtf_internal and *movti_internal.  */
+  
 void
-alpha_split_tfmode_pair (rtx operands[4])
+alpha_split_tmode_pair (rtx operands[4], enum machine_mode mode,
+			bool fixup_overlap)
 {
   switch (GET_CODE (operands[1]))
     {
@@ -3217,8 +3245,9 @@ alpha_split_tfmode_pair (rtx operands[4])
       operands[2] = adjust_address (operands[1], DImode, 0);
       break;
 
+    case CONST_INT:
     case CONST_DOUBLE:
-      gcc_assert (operands[1] == CONST0_RTX (TFmode));
+      gcc_assert (operands[1] == CONST0_RTX (mode));
       operands[2] = operands[3] = const0_rtx;
       break;
 
@@ -3241,6 +3270,13 @@ alpha_split_tfmode_pair (rtx operands[4])
     default:
       gcc_unreachable ();
     }
+
+  if (fixup_overlap && reg_overlap_mentioned_p (operands[0], operands[3]))
+    {
+      rtx tmp;
+      tmp = operands[0], operands[0] = operands[1], operands[1] = tmp;
+      tmp = operands[2], operands[2] = operands[3], operands[3] = tmp;
+    }
 }
 
 /* Implement negtf2 or abstf2.  Op0 is destination, op1 is source,
@@ -3254,7 +3290,7 @@ alpha_split_tfmode_frobsign (rtx operands[3], rtx (*operation) (rtx, rtx, rtx))
   rtx scratch;
   int move;
 
-  alpha_split_tfmode_pair (operands);
+  alpha_split_tmode_pair (operands, TFmode, false);
 
   /* Detect three flavors of operand overlap.  */
   move = 1;
@@ -6487,8 +6523,8 @@ alpha_init_builtins (void)
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, attrs[p->is_const]);
+      add_builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			    NULL, attrs[p->is_const]);
 
   ftype = build_function_type_list (dimode_integer_type_node,
 				    dimode_integer_type_node, NULL_TREE);
@@ -6496,8 +6532,8 @@ alpha_init_builtins (void)
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, attrs[p->is_const]);
+      add_builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			    NULL, attrs[p->is_const]);
 
   ftype = build_function_type_list (dimode_integer_type_node,
 				    dimode_integer_type_node,
@@ -6506,18 +6542,18 @@ alpha_init_builtins (void)
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
-      lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, attrs[p->is_const]);
+      add_builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
+			    NULL, attrs[p->is_const]);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, attrs[0]);
+  add_builtin_function ("__builtin_thread_pointer", ftype,
+			ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			NULL, attrs[0]);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
-  lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
-			       ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, attrs[0]);
+  add_builtin_function ("__builtin_set_thread_pointer", ftype,
+			ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
+			NULL, attrs[0]);
 
   alpha_v8qi_u = build_vector_type (unsigned_intQI_type_node, 8);
   alpha_v8qi_s = build_vector_type (intQI_type_node, 8);
@@ -7374,6 +7410,7 @@ alpha_does_function_need_gp (void)
 
   for (; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
+	&& ! JUMP_TABLE_DATA_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
 	&& GET_CODE (PATTERN (insn)) != CLOBBER
 	&& get_attr_usegp (insn))
@@ -7799,6 +7836,10 @@ alpha_start_function (FILE *file, const char *fnname,
   HOST_WIDE_INT sa_size;
   /* Complete stack size needed.  */
   unsigned HOST_WIDE_INT frame_size;
+  /* The maximum debuggable frame size (512 Kbytes using Tru64 as).  */
+  unsigned HOST_WIDE_INT max_frame_size = TARGET_ABI_OSF && !TARGET_GAS
+					  ? 524288
+					  : 1UL << 31;
   /* Offset from base reg to register save area.  */
   HOST_WIDE_INT reg_offset;
   char *entry_label = (char *) alloca (strlen (fnname) + 6);
@@ -7923,7 +7964,7 @@ alpha_start_function (FILE *file, const char *fnname,
     fprintf (file, "\t.frame $%d," HOST_WIDE_INT_PRINT_DEC ",$26,%d\n",
 	     (frame_pointer_needed
 	      ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM),
-	     frame_size >= (1UL << 31) ? 0 : frame_size,
+	     frame_size >= max_frame_size ? 0 : frame_size,
 	     current_function_pretend_args_size);
 
   /* Describe which registers were spilled.  */
@@ -7945,7 +7986,7 @@ alpha_start_function (FILE *file, const char *fnname,
       if (imask)
 	{
 	  fprintf (file, "\t.mask 0x%lx," HOST_WIDE_INT_PRINT_DEC "\n", imask,
-		   frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
+		   frame_size >= max_frame_size ? 0 : reg_offset - frame_size);
 
 	  for (i = 0; i < 32; ++i)
 	    if (imask & (1UL << i))
@@ -7954,7 +7995,7 @@ alpha_start_function (FILE *file, const char *fnname,
 
       if (fmask)
 	fprintf (file, "\t.fmask 0x%lx," HOST_WIDE_INT_PRINT_DEC "\n", fmask,
-		 frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
+		 frame_size >= max_frame_size ? 0 : reg_offset - frame_size);
     }
 
 #if TARGET_ABI_OPEN_VMS
@@ -10708,6 +10749,11 @@ alpha_init_libfuncs (void)
   (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION alpha_handle_option
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE alpha_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

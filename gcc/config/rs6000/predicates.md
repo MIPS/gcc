@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -63,12 +63,12 @@
 ;; Return 1 if op is a constant integer that can fit in a D field.
 (define_predicate "short_cint_operand"
   (and (match_code "const_int")
-       (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')")))
+       (match_test "satisfies_constraint_I (op)")))
 
 ;; Return 1 if op is a constant integer that can fit in an unsigned D field.
 (define_predicate "u_short_cint_operand"
   (and (match_code "const_int")
-       (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'K')")))
+       (match_test "satisfies_constraint_K (op)")))
 
 ;; Return 1 if op is a constant integer that cannot fit in a signed D field.
 (define_predicate "non_short_cint_operand"
@@ -117,7 +117,7 @@
 ;; or equal to const, which does not work for zero.
 (define_predicate "reg_or_neg_short_operand"
   (if_then_else (match_code "const_int")
-    (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'P')
+    (match_test "satisfies_constraint_P (op)
 		 && INTVAL (op) != 0")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -194,6 +194,9 @@
   if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE)
       && mode != DImode)
     return 1;
+
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
   if (flag_pic && DEFAULT_ABI == ABI_V4)
@@ -275,9 +278,6 @@
     {
       if (zero_constant (op, mode))
         return true;
-      if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
-        return false;
-
       return easy_altivec_constant (op, mode);
     }
 
@@ -397,15 +397,15 @@
 ;; as the operand of a `mode' add insn.
 (define_predicate "add_operand"
   (if_then_else (match_code "const_int")
-    (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
-		 || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')")
+    (match_test "satisfies_constraint_I (op)
+		 || satisfies_constraint_L (op)")
     (match_operand 0 "gpc_reg_operand")))
 
 ;; Return 1 if OP is a constant but not a valid add_operand.
 (define_predicate "non_add_cint_operand"
   (and (match_code "const_int")
-       (match_test "!CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
-		    && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')")))
+       (match_test "!satisfies_constraint_I (op)
+		    && !satisfies_constraint_L (op)")))
 
 ;; Return 1 if the operand is a constant that can be used as the operand
 ;; of an OR or XOR.
@@ -617,11 +617,11 @@
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
-  (if_then_else (match_code "mem")
      (ior (match_operand 0 "memory_operand")
-	  (ior (match_test "macho_lo_sum_memory_operand (op, mode)")
-	       (match_operand 0 "volatile_mem_operand")))
-     (match_operand 0 "gpc_reg_operand")))
+	  (ior (and (match_code "mem")
+		    (match_test "macho_lo_sum_memory_operand (op, mode)"))
+	       (ior (match_operand 0 "volatile_mem_operand")
+		    (match_operand 0 "gpc_reg_operand")))))
 
 ;; Return 1 if the operand is either an easy FP constant or memory or reg.
 (define_predicate "reg_or_none500mem_operand"
@@ -722,6 +722,12 @@
       && easy_vector_constant (op, mode))
     return 1;
 
+  /* Do not allow invalid E500 subregs.  */
+  if ((TARGET_E500_DOUBLE || TARGET_SPE)
+      && GET_CODE (op) == SUBREG
+      && invalid_e500_subreg (op, mode))
+    return 0;
+
   /* For floating-point or multi-word mode, the only remaining valid type
      is a register.  */
   if (SCALAR_FLOAT_MODE_P (mode)
@@ -756,7 +762,7 @@
 (define_predicate "rs6000_nonimmediate_operand"
   (match_code "reg,subreg,mem")
 {
-  if (TARGET_E500_DOUBLE
+  if ((TARGET_E500_DOUBLE || TARGET_SPE)
       && GET_CODE (op) == SUBREG
       && invalid_e500_subreg (op, mode))
     return 0;

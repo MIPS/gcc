@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -18,6 +18,13 @@
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
 -- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
 -- Boston, MA 02110-1301, USA.                                              --
+--                                                                          --
+-- As a special exception,  if other files  instantiate  generics from this --
+-- unit, or you link  this unit with other files  to produce an executable, --
+-- this  unit  does not  by itself cause  the resulting  executable  to  be --
+-- covered  by the  GNU  General  Public  License.  This exception does not --
+-- however invalidate  any other reasons why  the executable file  might be --
+-- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -122,7 +129,7 @@ package Targparm is
    --  then the flag Opt.Address_Is_Private is set True, otherwise this flag
    --  is set False.
 
-   Restrictions_On_Target : Restrictions_Info;
+   Restrictions_On_Target : Restrictions_Info := No_Restrictions;
    --  Records restrictions specified by system.ads. Only the Set and Value
    --  members are modified. The Violated and Count fields are never modified.
    --  Note that entries can be set either by a pragma Restrictions or by
@@ -153,6 +160,17 @@ package Targparm is
    --  messages that complain about non-supported run-time features.
    --  The name should contain only letters A-Z, digits 1-9, spaces,
    --  and underscores.
+
+   --------------------------
+   -- Executable Extension --
+   --------------------------
+
+   Executable_Extension_On_Target : Name_Id := No_Name;
+   --  Executable extension on the target.
+   --  This name is useful for setting the executable extension in a
+   --  dynamic way, e.g. depending on the run-time used, rather than
+   --  using a configure-time macro as done by Get_Target_Executable_Suffix.
+   --  If not set (No_Name), use GNAT.OS_Lib.Get_Target_Executable_Suffix.
 
    -----------------------
    -- Target Parameters --

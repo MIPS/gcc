@@ -1,4 +1,4 @@
-# Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
+# Copyright (c) 1999, 2000, 2001, 2002, 2003, 2006 by Red Hat, Inc. All rights reserved.
 # Copyright 2004 Nathanael Nerode
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
@@ -36,7 +36,7 @@ ACX_NONCANONICAL_TARGET
 mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
 AC_SUBST(mkinstalldirs)
 
-AM_INIT_AUTOMAKE(gc, 6.3, no-define)
+AM_INIT_AUTOMAKE(gc, 6.6, no-define)
 
 # The autoconf 2.5x version of the no-executables hack.
 GCC_NO_EXECUTABLES
@@ -140,8 +140,8 @@ case "$THREADS" in
 	AC_DEFINE(GC_AIX_THREADS,1,[support AIX threads])
 	AC_DEFINE(_REENTRANT,1)
 	;;
-     *-*-hpux*)
-	AC_MSG_WARN("Only HP/UX 11 threads are supported.")
+     *-*-hpux11*)
+	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
 	AC_DEFINE(GC_HPUX_THREADS,1,[enables support for HP/UX 11 pthreads])
 	AC_DEFINE(_POSIX_C_SOURCE,199506L,[POSIX version of C Source])
 	if test "${enable_parallel_mark}" = yes; then
@@ -149,7 +149,23 @@ case "$THREADS" in
 	fi
 	AC_DEFINE(THREAD_LOCAL_ALLOC,1)
 	THREADLIBS="-lpthread -lrt"
+	# HPUX needs REENTRANT for the _r calls.
+	AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads])
 	;;
+     *-*-hpux10*)
+	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
+	;;
+      *-*-kfreebsd*-gnu)
+       AC_DEFINE(GC_FREEBSD_THREADS)
+       INCLUDES="$INCLUDES -pthread"
+       THREADDLLIBS=-pthread
+       AC_DEFINE(_REENTRANT)
+         if test "${enable_parallel_mark}" = yes; then
+         AC_DEFINE(PARALLEL_MARK)
+       fi
+       AC_DEFINE(THREAD_LOCAL_ALLOC)
+       AC_DEFINE(USE_COMPILER_TLS, 1,[use tls for boehm])
+               ;;
      *-*-freebsd*)
 	AC_MSG_WARN("FreeBSD does not yet fully support threads with Boehm GC.")
 	AC_DEFINE(GC_FREEBSD_THREADS,1,[support FreeBSD threads])
@@ -227,6 +243,39 @@ case "$host" in
 esac
 AM_CONDITIONAL(POWERPC_DARWIN,test x$powerpc_darwin = xtrue)
 
+# Darwin needs a few extra special tests to deal with variation in the
+# system headers.
+case "$host" in
+  powerpc*-*-darwin*)
+    AC_CHECK_MEMBER(ppc_thread_state_t.r0,
+      AC_DEFINE(HAS_PPC_THREAD_STATE_R0,,[ppc_thread_state_t has field r0]),,
+      [#include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(ppc_thread_state_t.__r0,
+      AC_DEFINE(HAS_PPC_THREAD_STATE___R0,,dnl
+        [ppc_thread_state_t has field __r0]),,
+      [#include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(ppc_thread_state64_t.r0,
+      AC_DEFINE(HAS_PPC_THREAD_STATE64_R0,,dnl
+        [ppc_thread_state64_t has field r0]),,
+      [#include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(ppc_thread_state64_t.__r0,
+      AC_DEFINE(HAS_PPC_THREAD_STATE64___R0,,dnl
+        [ppc_thread_state64_t has field __r0]),,
+      [#include <mach/thread_status.h>])
+    ;;
+  i?86*-*-darwin*)
+    AC_CHECK_MEMBER(i386_thread_state_t.eax,
+      AC_DEFINE(HAS_I386_THREAD_STATE_EAX,,dnl
+        [i386_thread_state_t has field eax]),,
+      [#include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(i386_thread_state_t.__eax,
+      AC_DEFINE(HAS_I386_THREAD_STATE___EAX,,dnl
+        [i386_thread_state_t has field __eax]),,
+      [#include <mach/thread_status.h>])
+    ;;
+  *) ;;
+esac
+
 # We never want libdl on darwin. It is a fake libdl that just ends up making
 # dyld calls anyway
 case "$host" in
@@ -290,6 +339,13 @@ case "$host" in
      AC_MSG_RESULT(yes)
      ;;
 esac
+
+# Checks for pthreads functions
+#
+oldLIBS="$LIBS"
+LIBS="$LIBS $THREADLIBS"
+AC_CHECK_FUNCS([pthread_getattr_np])
+LIBS="$oldLIBS"
 
 # Configuration of machine-dependent code
 #

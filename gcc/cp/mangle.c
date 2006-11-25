@@ -1,7 +1,7 @@
 /* Name mangling for the 3.0 C++ ABI.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
-   Written by Alex Samuel <sameul@codesourcery.com>
+   Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
 
@@ -44,9 +44,7 @@
      mangle_vtbl_for_type:		virtual table data
      mangle_vtt_for_type:		VTT data
      mangle_ctor_vtbl_for_type:		`C-in-B' constructor virtual table data
-     mangle_thunk:			thunk function or entry
-
-*/
+     mangle_thunk:			thunk function or entry  */
 
 #include "config.h"
 #include "system.h"
@@ -1734,10 +1732,6 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* If this is size_t, get the underlying int type.  */
-      if (TYPE_IS_SIZETYPE (type))
-	type = TYPE_DOMAIN (type);
-
       /* TYPE may still be wchar_t, since that isn't in
 	 integer_type_nodes.  */
       if (type == wchar_type_node)
@@ -1858,16 +1852,38 @@ write_function_type (const tree type)
    is mangled before the parameter types.  If non-NULL, DECL is
    FUNCTION_DECL for the function whose type is being emitted.
 
-     <bare-function-type> ::= </signature/ type>+  */
+   If DECL is a member of a Java type, then a literal 'J'
+   is output and the return type is mangled as if INCLUDE_RETURN_TYPE
+   were nonzero.
+
+     <bare-function-type> ::= [J]</signature/ type>+  */
 
 static void
 write_bare_function_type (const tree type, const int include_return_type_p,
 			  const tree decl)
 {
+  int java_method_p;
+
   MANGLE_TRACE_TREE ("bare-function-type", type);
 
+  /* Detect Java methods and emit special encoding.  */
+  if (decl != NULL
+      && DECL_FUNCTION_MEMBER_P (decl)
+      && TYPE_FOR_JAVA (DECL_CONTEXT (decl))
+      && !DECL_CONSTRUCTOR_P (decl)
+      && !DECL_DESTRUCTOR_P (decl)
+      && !DECL_CONV_FN_P (decl))
+    {
+      java_method_p = 1;
+      write_char ('J');
+    }
+  else
+    {
+      java_method_p = 0;
+    }
+
   /* Mangle the return type, if requested.  */
-  if (include_return_type_p)
+  if (include_return_type_p || java_method_p)
     write_type (TREE_TYPE (type));
 
   /* Now mangle the types of the arguments.  */
@@ -2000,6 +2016,12 @@ write_expression (tree expr)
 	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
     {
       expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+    }
+
+  if (code == BASELINK)
+    {
+      expr = BASELINK_FUNCTIONS (expr);
       code = TREE_CODE (expr);
     }
 
@@ -2504,7 +2526,7 @@ static inline const char *
 finish_mangling (const bool warn)
 {
   if (warn_abi && warn && G.need_abi_warning)
-    warning (0, "the mangled name of %qD will change in a future "
+    warning (OPT_Wabi, "the mangled name of %qD will change in a future "
 	     "version of GCC",
 	     G.entity);
 
@@ -2719,8 +2741,7 @@ mangle_call_offset (const tree fixed_offset, const tree virtual_offset)
 
    <special-name> ::= T <call-offset> <base encoding>
 		  ::= Tc <this_adjust call-offset> <result_adjust call-offset>
-					<base encoding>
-*/
+					<base encoding>  */
 
 tree
 mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
@@ -2796,6 +2817,9 @@ mangle_conv_op_name_for_type (const tree type)
 {
   void **slot;
   tree identifier;
+
+  if (type == error_mark_node)
+    return error_mark_node;
 
   if (conv_type_names == NULL)
     conv_type_names = htab_create_ggc (31, &hash_type, &compare_type, NULL);

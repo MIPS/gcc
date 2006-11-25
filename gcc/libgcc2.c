@@ -40,6 +40,28 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define ATTRIBUTE_HIDDEN
 #endif
 
+#ifndef MIN_UNITS_PER_WORD
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#endif
+
+/* Work out the largest "word" size that we can deal with on this target.  */
+#if MIN_UNITS_PER_WORD > 4
+# define LIBGCC2_MAX_UNITS_PER_WORD 8
+#elif (MIN_UNITS_PER_WORD > 2 \
+       || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32))
+# define LIBGCC2_MAX_UNITS_PER_WORD 4
+#else
+# define LIBGCC2_MAX_UNITS_PER_WORD MIN_UNITS_PER_WORD
+#endif
+
+/* Work out what word size we are using for this compilation.
+   The value can be set on the command line.  */
+#ifndef LIBGCC2_UNITS_PER_WORD
+#define LIBGCC2_UNITS_PER_WORD LIBGCC2_MAX_UNITS_PER_WORD
+#endif
+
+#if LIBGCC2_UNITS_PER_WORD <= LIBGCC2_MAX_UNITS_PER_WORD
+
 #include "libgcc2.h"
 
 #ifdef DECLARE_LIBRARY_RENAMES
@@ -470,6 +492,30 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_bswapsi2
+UWtype
+__bswapsi2 (UWtype u)
+{
+  return ((((u) & 0xff000000) >> 24)
+	  | (((u) & 0x00ff0000) >>  8)
+	  | (((u) & 0x0000ff00) <<  8)
+	  | (((u) & 0x000000ff) << 24));
+}
+#endif
+#ifdef L_bswapdi2
+UDWtype
+__bswapdi2 (UDWtype u)
+{
+  return ((((u) & 0xff00000000000000ull) >> 56)
+	  | (((u) & 0x00ff000000000000ull) >> 40)
+	  | (((u) & 0x0000ff0000000000ull) >> 24)
+	  | (((u) & 0x000000ff00000000ull) >>  8)
+	  | (((u) & 0x00000000ff000000ull) <<  8)
+	  | (((u) & 0x0000000000ff0000ull) << 24)
+	  | (((u) & 0x000000000000ff00ull) << 40)
+	  | (((u) & 0x00000000000000ffull) << 56));
+}
+#endif
 #ifdef L_ffssi2
 #undef int
 int
@@ -1316,6 +1362,9 @@ __fixsfdi (SFtype a)
 XFtype
 __floatdixf (DWtype u)
 {
+#if W_TYPE_SIZE > XF_SIZE
+# error
+#endif
   XFtype d = (Wtype) (u >> W_TYPE_SIZE);
   d *= Wtype_MAXp1_F;
   d += (UWtype)u;
@@ -1327,6 +1376,9 @@ __floatdixf (DWtype u)
 XFtype
 __floatundixf (UDWtype u)
 {
+#if W_TYPE_SIZE > XF_SIZE
+# error
+#endif
   XFtype d = (UWtype) (u >> W_TYPE_SIZE);
   d *= Wtype_MAXp1_F;
   d += (UWtype)u;
@@ -1338,6 +1390,9 @@ __floatundixf (UDWtype u)
 TFtype
 __floatditf (DWtype u)
 {
+#if W_TYPE_SIZE > TF_SIZE
+# error
+#endif
   TFtype d = (Wtype) (u >> W_TYPE_SIZE);
   d *= Wtype_MAXp1_F;
   d += (UWtype)u;
@@ -1349,6 +1404,9 @@ __floatditf (DWtype u)
 TFtype
 __floatunditf (UDWtype u)
 {
+#if W_TYPE_SIZE > TF_SIZE
+# error
+#endif
   TFtype d = (UWtype) (u >> W_TYPE_SIZE);
   d *= Wtype_MAXp1_F;
   d += (UWtype)u;
@@ -1356,86 +1414,88 @@ __floatunditf (UDWtype u)
 }
 #endif
 
-#if defined(L_floatdidf) && LIBGCC2_HAS_DF_MODE
-DFtype
-__floatdidf (DWtype u)
-{
-  DFtype d = (Wtype) (u >> W_TYPE_SIZE);
-  d *= Wtype_MAXp1_F;
-  d += (UWtype)u;
-  return d;
-}
-#endif
-
-#if defined(L_floatundidf) && LIBGCC2_HAS_DF_MODE
-DFtype
-__floatundidf (UDWtype u)
-{
-  DFtype d = (UWtype) (u >> W_TYPE_SIZE);
-  d *= Wtype_MAXp1_F;
-  d += (UWtype)u;
-  return d;
-}
-#endif
-
-#if defined(L_floatdisf) && LIBGCC2_HAS_SF_MODE
+#if (defined(L_floatdisf) && LIBGCC2_HAS_SF_MODE)	\
+     || (defined(L_floatdidf) && LIBGCC2_HAS_DF_MODE)
 #define DI_SIZE (W_TYPE_SIZE * 2)
-#define SF_SIZE FLT_MANT_DIG
+#define F_MODE_OK(SIZE) \
+  (SIZE < DI_SIZE							\
+   && SIZE > (DI_SIZE - SIZE + FSSIZE)					\
+   /* Don't use IBM Extended Double TFmode for TI->SF calculations.	\
+      The conversion from long double to float suffers from double	\
+      rounding, because we convert via double.  In any case, the	\
+      fallback code is faster.  */					\
+   && !IS_IBM_EXTENDED (SIZE))
+#if defined(L_floatdisf)
+#define FUNC __floatdisf
+#define FSTYPE SFtype
+#define FSSIZE SF_SIZE
+#else
+#define FUNC __floatdidf
+#define FSTYPE DFtype
+#define FSSIZE DF_SIZE
+#endif
 
-SFtype
-__floatdisf (DWtype u)
+FSTYPE
+FUNC (DWtype u)
 {
-#if SF_SIZE >= W_TYPE_SIZE
+#if FSSIZE >= W_TYPE_SIZE
   /* When the word size is small, we never get any rounding error.  */
-  SFtype f = (Wtype) (u >> W_TYPE_SIZE);
+  FSTYPE f = (Wtype) (u >> W_TYPE_SIZE);
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif LIBGCC2_HAS_DF_MODE
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
 
-#if LIBGCC2_DOUBLE_TYPE_SIZE == 64
-#define DF_SIZE DBL_MANT_DIG
-#elif LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64
-#define DF_SIZE LDBL_MANT_DIG
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
+# define FSIZE DF_SIZE
+# define FTYPE DFtype
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
+# define FSIZE XF_SIZE
+# define FTYPE XFtype
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+# define FSIZE TF_SIZE
+# define FTYPE TFtype
 #else
 # error
 #endif
 
-#define REP_BIT ((UDWtype) 1 << (DI_SIZE - DF_SIZE))
+#define REP_BIT ((UDWtype) 1 << (DI_SIZE - FSIZE))
 
   /* Protect against double-rounding error.
      Represent any low-order bits, that might be truncated by a bit that
      won't be lost.  The bit can go in anywhere below the rounding position
-     of the SFmode.  A fixed mask and bit position handles all usual
-     configurations.  It doesn't handle the case of 128-bit DImode, however.  */
-  if (DF_SIZE < DI_SIZE
-      && DF_SIZE > (DI_SIZE - DF_SIZE + SF_SIZE))
+     of the FSTYPE.  A fixed mask and bit position handles all usual
+     configurations.  */
+  if (! (- ((DWtype) 1 << FSIZE) < u
+	 && u < ((DWtype) 1 << FSIZE)))
     {
-      if (! (- ((DWtype) 1 << DF_SIZE) < u
-	     && u < ((DWtype) 1 << DF_SIZE)))
+      if ((UDWtype) u & (REP_BIT - 1))
 	{
-	  if ((UDWtype) u & (REP_BIT - 1))
-	    {
-	      u &= ~ (REP_BIT - 1);
-	      u |= REP_BIT;
-	    }
+	  u &= ~ (REP_BIT - 1);
+	  u |= REP_BIT;
 	}
     }
 
-  /* Do the calculation in DFmode so that we don't lose any of the
-     precision of the high word while multiplying it.  */
-  DFtype f = (Wtype) (u >> W_TYPE_SIZE);
+  /* Do the calculation in a wider type so that we don't lose any of
+     the precision of the high word while multiplying it.  */
+  FTYPE f = (Wtype) (u >> W_TYPE_SIZE);
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
-  return (SFtype) f;
+  return (FSTYPE) f;
 #else
-  /* Finally, the word size is larger than the number of bits in SFmode,
-     and we've got no DFmode.  The only way to avoid double rounding is
-     to special case the extraction.  */
+#if FSSIZE >= W_TYPE_SIZE - 2
+# error
+#endif
+  /* Finally, the word size is larger than the number of bits in the
+     required FSTYPE, and we've got no suitable wider type.  The only
+     way to avoid double rounding is to special case the
+     extraction.  */
 
   /* If there are no high bits set, fall back to one conversion.  */
   if ((Wtype)u == u)
-    return (SFtype)(Wtype)u;
+    return (FSTYPE)(Wtype)u;
 
   /* Otherwise, find the power of two.  */
   Wtype hi = u >> W_TYPE_SIZE;
@@ -1447,82 +1507,106 @@ __floatdisf (DWtype u)
 
   /* No leading bits means u == minimum.  */
   if (count == 0)
-    return -(Wtype_MAXp1_F * Wtype_MAXp1_F / 2);
+    return -(Wtype_MAXp1_F * (Wtype_MAXp1_F / 2));
 
-  shift = W_TYPE_SIZE - count;
+  shift = 1 + W_TYPE_SIZE - count;
 
   /* Shift down the most significant bits.  */
   hi = u >> shift;
 
   /* If we lost any nonzero bits, set the lsb to ensure correct rounding.  */
-  if (u & ((1 << shift) - 1))
+  if (u & (((DWtype)1 << shift) - 1))
     hi |= 1;
 
   /* Convert the one word of data, and rescale.  */
-  SFtype f = hi;
-  f *= (UWtype)1 << shift;
+  FSTYPE f = hi;
+  f *= (UDWtype)1 << shift;
   return f;
 #endif
 }
 #endif
 
-#if defined(L_floatundisf) && LIBGCC2_HAS_SF_MODE
+#if (defined(L_floatundisf) && LIBGCC2_HAS_SF_MODE)	\
+     || (defined(L_floatundidf) && LIBGCC2_HAS_DF_MODE)
 #define DI_SIZE (W_TYPE_SIZE * 2)
-#define SF_SIZE FLT_MANT_DIG
+#define F_MODE_OK(SIZE) \
+  (SIZE < DI_SIZE							\
+   && SIZE > (DI_SIZE - SIZE + FSSIZE)					\
+   /* Don't use IBM Extended Double TFmode for TI->SF calculations.	\
+      The conversion from long double to float suffers from double	\
+      rounding, because we convert via double.  In any case, the	\
+      fallback code is faster.  */					\
+   && !IS_IBM_EXTENDED (SIZE))
+#if defined(L_floatundisf)
+#define FUNC __floatundisf
+#define FSTYPE SFtype
+#define FSSIZE SF_SIZE
+#else
+#define FUNC __floatundidf
+#define FSTYPE DFtype
+#define FSSIZE DF_SIZE
+#endif
 
-SFtype
-__floatundisf (UDWtype u)
+FSTYPE
+FUNC (UDWtype u)
 {
-#if SF_SIZE >= W_TYPE_SIZE
+#if FSSIZE >= W_TYPE_SIZE
   /* When the word size is small, we never get any rounding error.  */
-  SFtype f = (UWtype) (u >> W_TYPE_SIZE);
+  FSTYPE f = (UWtype) (u >> W_TYPE_SIZE);
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif LIBGCC2_HAS_DF_MODE
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
 
-#if LIBGCC2_DOUBLE_TYPE_SIZE == 64
-#define DF_SIZE DBL_MANT_DIG
-#elif LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64
-#define DF_SIZE LDBL_MANT_DIG
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
+# define FSIZE DF_SIZE
+# define FTYPE DFtype
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
+# define FSIZE XF_SIZE
+# define FTYPE XFtype
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+# define FSIZE TF_SIZE
+# define FTYPE TFtype
 #else
 # error
 #endif
 
-#define REP_BIT ((UDWtype) 1 << (DI_SIZE - DF_SIZE))
+#define REP_BIT ((UDWtype) 1 << (DI_SIZE - FSIZE))
 
   /* Protect against double-rounding error.
      Represent any low-order bits, that might be truncated by a bit that
      won't be lost.  The bit can go in anywhere below the rounding position
-     of the SFmode.  A fixed mask and bit position handles all usual
-     configurations.  It doesn't handle the case of 128-bit DImode, however.  */
-  if (DF_SIZE < DI_SIZE
-      && DF_SIZE > (DI_SIZE - DF_SIZE + SF_SIZE))
+     of the FSTYPE.  A fixed mask and bit position handles all usual
+     configurations.  */
+  if (u >= ((UDWtype) 1 << FSIZE))
     {
-      if (u >= ((UDWtype) 1 << DF_SIZE))
+      if ((UDWtype) u & (REP_BIT - 1))
 	{
-	  if ((UDWtype) u & (REP_BIT - 1))
-	    {
-	      u &= ~ (REP_BIT - 1);
-	      u |= REP_BIT;
-	    }
+	  u &= ~ (REP_BIT - 1);
+	  u |= REP_BIT;
 	}
     }
 
-  /* Do the calculation in DFmode so that we don't lose any of the
-     precision of the high word while multiplying it.  */
-  DFtype f = (UWtype) (u >> W_TYPE_SIZE);
+  /* Do the calculation in a wider type so that we don't lose any of
+     the precision of the high word while multiplying it.  */
+  FTYPE f = (UWtype) (u >> W_TYPE_SIZE);
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
-  return (SFtype) f;
+  return (FSTYPE) f;
 #else
-  /* Finally, the word size is larger than the number of bits in SFmode,
-     and we've got no DFmode.  The only way to avoid double rounding is
-     to special case the extraction.  */
+#if FSSIZE == W_TYPE_SIZE - 1
+# error
+#endif
+  /* Finally, the word size is larger than the number of bits in the
+     required FSTYPE, and we've got no suitable wider type.  The only
+     way to avoid double rounding is to special case the
+     extraction.  */
 
   /* If there are no high bits set, fall back to one conversion.  */
   if ((UWtype)u == u)
-    return (SFtype)(UWtype)u;
+    return (FSTYPE)(UWtype)u;
 
   /* Otherwise, find the power of two.  */
   UWtype hi = u >> W_TYPE_SIZE;
@@ -1536,12 +1620,12 @@ __floatundisf (UDWtype u)
   hi = u >> shift;
 
   /* If we lost any nonzero bits, set the lsb to ensure correct rounding.  */
-  if (u & ((1 << shift) - 1))
+  if (u & (((UDWtype)1 << shift) - 1))
     hi |= 1;
 
   /* Convert the one word of data, and rescale.  */
-  SFtype f = hi;
-  f *= (UWtype)1 << shift;
+  FSTYPE f = hi;
+  f *= (UDWtype)1 << shift;
   return f;
 #endif
 }
@@ -1802,7 +1886,7 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE denom, ratio, x, y;
 
-  /* ??? We can get better behavior from logarithmic scaling instead of 
+  /* ??? We can get better behavior from logarithmic scaling instead of
      the division.  But that would mean starting to link libgcc against
      libm.  We could implement something akin to ldexp/frexp as gcc builtins
      fairly easily...  */
@@ -2124,3 +2208,4 @@ func_ptr __DTOR_LIST__[2];
 #endif
 #endif /* no INIT_SECTION_ASM_OP and not CTOR_LISTS_DEFINED_EXTERNALLY */
 #endif /* L_ctors */
+#endif /* LIBGCC2_UNITS_PER_WORD <= MIN_UNITS_PER_WORD */

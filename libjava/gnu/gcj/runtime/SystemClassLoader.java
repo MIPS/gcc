@@ -1,4 +1,4 @@
-/* Copyright (C) 2005  Free Software Foundation
+/* Copyright (C) 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,8 +9,9 @@ details.  */
 package gnu.gcj.runtime;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.util.StringTokenizer;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.net.URL;
 import java.net.URLClassLoader;
 
@@ -20,6 +21,33 @@ public final class SystemClassLoader extends URLClassLoader
   {
     super(new URL[0], parent);
   }
+
+  // This holds all the "native" classes linked into the executable
+  // and registered with this loader.
+  private HashMap nativeClasses = new HashMap();
+
+  // This is called to register a native class which was linked into
+  // the application but which is registered with the system class
+  // loader after the VM is initialized.
+  void addClass(Class klass)
+  {
+    String packageName = null;
+    String className = klass.getName();
+    int lastDot = className.lastIndexOf('.');
+    if (lastDot != -1)
+      packageName = className.substring(0, lastDot);
+    if (packageName != null && getPackage(packageName) == null)
+      {
+	// Should have some way to store this information in a
+	// precompiled manifest.
+	definePackage(packageName, null, null, null, null, null, null, null);
+      }
+      
+    // Use reflection to access the package-private "loadedClasses" field.
+    nativeClasses.put(className, klass);
+  }
+
+  protected native Class findClass(String name);
 
   // We add the URLs to the system class loader late.  The reason for
   // this is that during bootstrap we don't want to parse URLs or

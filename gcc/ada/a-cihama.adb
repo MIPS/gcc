@@ -7,11 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -186,7 +182,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Key_Ops.Delete_Key_Sans_Free (Container.HT, Key, X);
 
       if X = null then
-         raise Constraint_Error;
+         raise Constraint_Error with "attempt to delete key not in map";
       end if;
 
       Free (X);
@@ -194,19 +190,22 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Delete (Container : in out Map; Position : in out Cursor) is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Delete");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of Delete equals No_Element";
       end if;
 
       if Position.Container /= Container'Unrestricted_Access then
-         raise Program_Error;
+         raise Program_Error with
+           "Position cursor of Delete designates wrong map";
       end if;
 
       if Container.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "Delete attempted to tamper with elements (map is busy)";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Delete");
 
       HT_Ops.Delete_Node_Sans_Free (Container.HT, Position.Node);
 
@@ -223,7 +222,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    begin
       if Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "no element available because key not in map";
       end if;
 
       return Node.Element.all;
@@ -231,11 +231,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Element (Position : Cursor) return Element_Type is
    begin
-      pragma Assert (Vet (Position), "bad cursor in function Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of function Element equals No_Element";
       end if;
+
+      if Position.Node.Element = null then
+         raise Program_Error with
+           "Position cursor of function Element is bad";
+      end if;
+
+      pragma Assert (Vet (Position), "bad cursor in function Element");
 
       return Position.Node.Element.all;
    end Element;
@@ -258,14 +264,28 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Equivalent_Keys (Left, Right : Cursor) return Boolean is
    begin
+      if Left.Node = null then
+         raise Constraint_Error with
+           "Left cursor of Equivalent_Keys equals No_Element";
+      end if;
+
+      if Right.Node = null then
+         raise Constraint_Error with
+           "Right cursor of Equivalent_Keys equals No_Element";
+      end if;
+
+      if Left.Node.Key = null then
+         raise Program_Error with
+           "Left cursor of Equivalent_Keys is bad";
+      end if;
+
+      if Right.Node.Key = null then
+         raise Program_Error with
+           "Right cursor of Equivalent_Keys is bad";
+      end if;
+
       pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
       pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
-
-      if Left.Node = null
-        or else Right.Node = null
-      then
-         raise Constraint_Error;
-      end if;
 
       return Equivalent_Keys (Left.Node.Key.all, Right.Node.Key.all);
    end Equivalent_Keys;
@@ -275,11 +295,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Right : Key_Type) return Boolean
    is
    begin
-      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
-
       if Left.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Left cursor of Equivalent_Keys equals No_Element";
       end if;
+
+      if Left.Node.Key = null then
+         raise Program_Error with
+           "Left cursor of Equivalent_Keys is bad";
+      end if;
+
+      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
 
       return Equivalent_Keys (Left.Node.Key.all, Right);
    end Equivalent_Keys;
@@ -289,11 +315,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Right : Cursor) return Boolean
    is
    begin
-      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
-
       if Right.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Right cursor of Equivalent_Keys equals No_Element";
       end if;
+
+      if Right.Node.Key = null then
+         raise Program_Error with
+           "Right cursor of Equivalent_Keys is bad";
+      end if;
+
+      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
 
       return Equivalent_Keys (Left, Right.Node.Key.all);
    end Equivalent_Keys;
@@ -454,7 +486,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       if not Inserted then
          if Container.HT.Lock > 0 then
-            raise Program_Error;
+            raise Program_Error with
+              "Include attempted to tamper with cursors (map is locked)";
          end if;
 
          K := Position.Node.Key;
@@ -541,7 +574,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Insert (Container, Key, New_Item, Position, Inserted);
 
       if not Inserted then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "attempt to insert key already in map";
       end if;
    end Insert;
 
@@ -565,7 +599,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       procedure Process_Node (Node : Node_Access);
       pragma Inline (Process_Node);
 
-      procedure Iterate is
+      procedure Local_Iterate is
          new HT_Ops.Generic_Iteration (Process_Node);
 
       ------------------
@@ -577,10 +611,22 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          Process (Cursor'(Container'Unchecked_Access, Node));
       end Process_Node;
 
+      B : Natural renames Container'Unrestricted_Access.HT.Busy;
+
    --  Start of processing Iterate
 
    begin
-      Iterate (Container.HT);
+      B := B + 1;
+
+      begin
+         Local_Iterate (Container.HT);
+      exception
+         when others =>
+            B := B - 1;
+            raise;
+      end;
+
+      B := B - 1;
    end Iterate;
 
    ---------
@@ -589,11 +635,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Key (Position : Cursor) return Key_Type is
    begin
-      pragma Assert (Vet (Position), "bad cursor in function Key");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of function Key equals No_Element";
       end if;
+
+      if Position.Node.Key = null then
+         raise Program_Error with
+           "Position cursor of function Key is bad";
+      end if;
+
+      pragma Assert (Vet (Position), "bad cursor in function Key");
 
       return Position.Node.Key.all;
    end Key;
@@ -635,11 +687,17 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    function Next (Position : Cursor) return Cursor is
    begin
-      pragma Assert (Vet (Position), "bad cursor in function Next");
-
       if Position.Node = null then
          return No_Element;
       end if;
+
+      if Position.Node.Key = null
+        or else Position.Node.Element = null
+      then
+         raise Program_Error with "Position cursor of Next is bad";
+      end if;
+
+      pragma Assert (Vet (Position), "Position cursor of Next is bad");
 
       declare
          HT   : Hash_Table_Type renames Position.Container.HT;
@@ -664,11 +722,19 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
                                             Element : Element_Type))
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Query_Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of Query_Element equals No_Element";
       end if;
+
+      if Position.Node.Key = null
+        or else Position.Node.Element = null
+      then
+         raise Program_Error with
+           "Position cursor of Query_Element is bad";
+      end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Query_Element");
 
       declare
          M  : Map renames Position.Container.all;
@@ -718,7 +784,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Item   : out Cursor)
    is
    begin
-      raise Program_Error;
+      raise Program_Error with "attempt to stream map cursor";
    end Read;
 
    ---------------
@@ -767,11 +833,13 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    begin
       if Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "attempt to replace key not in map";
       end if;
 
       if Container.HT.Lock > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "Replace attempted to tamper with cursors (map is locked)";
       end if;
 
       K := Node.Key;
@@ -801,19 +869,29 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       New_Item  : Element_Type)
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Replace_Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of Replace_Element equals No_Element";
+      end if;
+
+      if Position.Node.Key = null
+        or else Position.Node.Element = null
+      then
+         raise Program_Error with
+           "Position cursor of Replace_Element is bad";
       end if;
 
       if Position.Container /= Container'Unrestricted_Access then
-         raise Program_Error;
+         raise Program_Error with
+           "Position cursor of Replace_Element designates wrong map";
       end if;
 
       if Position.Container.HT.Lock > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "Replace_Element attempted to tamper with cursors (map is locked)";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Replace_Element");
 
       declare
          X : Element_Access := Position.Node.Element;
@@ -856,15 +934,24 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
                                              Element : in out Element_Type))
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Update_Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of Update_Element equals No_Element";
+      end if;
+
+      if Position.Node.Key = null
+        or else Position.Node.Element = null
+      then
+         raise Program_Error with
+           "Position cursor of Update_Element is bad";
       end if;
 
       if Position.Container /= Container'Unrestricted_Access then
-         raise Program_Error;
+         raise Program_Error with
+           "Position cursor of Update_Element designates wrong map";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Update_Element");
 
       declare
          HT : Hash_Table_Type renames Container.HT;
@@ -975,7 +1062,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       Item   : Cursor)
    is
    begin
-      raise Program_Error;
+      raise Program_Error with "attempt to stream map cursor";
    end Write;
 
    ----------------

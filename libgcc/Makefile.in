@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005 Free Software Foundation
+# Copyright (C) 2005, 2006 Free Software Foundation
 #
 # This file is part of GCC.
 #
@@ -34,6 +34,7 @@ libdir = @libdir@
 SHELL = @SHELL@
 
 enable_shared = @enable_shared@
+decimal_float = @decimal_float@
 
 host_noncanonical = @host_noncanonical@
 
@@ -275,16 +276,28 @@ endif
 
 # Library members defined in libgcc2.c.
 lib2funcs = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _cmpdi2 _ucmpdi2	   \
-	    _floatdidf _floatdisf _fixunsdfsi _fixunssfsi		   \
-	    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi _fixxfdi _fixunsxfdi \
-	    _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf	   \
 	    _clear_cache _enable_execute_stack _trampoline __main _absvsi2 \
 	    _absvdi2 _addvsi3 _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 \
 	    _negvsi2 _negvdi2 _ctors _ffssi2 _ffsdi2 _clz _clzsi2 _clzdi2  \
 	    _ctzsi2 _ctzdi2 _popcount_tab _popcountsi2 _popcountdi2	   \
 	    _paritysi2 _paritydi2 _powisf2 _powidf2 _powixf2 _powitf2	   \
 	    _mulsc3 _muldc3 _mulxc3 _multc3 _divsc3 _divdc3 _divxc3	   \
-	    _divtc3 __floatundidf _floatundisf _floatundixf _floatunditf
+	    _divtc3 _bswapsi2 _bswapdi2
+
+# The floating-point conversion routines that involve a single-word integer.
+# XX stands for the integer mode.
+swfloatfuncs = $(patsubst %,_fixuns%XX,sf df xf)
+
+# Likewise double-word routines.
+dwfloatfuncs = $(patsubst %,_fix%XX,sf df xf tf) \
+	       $(patsubst %,_fixuns%XX,sf df xf tf) \
+	       $(patsubst %,_floatXX%,sf df xf tf) \
+	       $(patsubst %,_floatunXX%,sf df xf tf)
+
+ifeq ($(LIB2_SIDITI_CONV_FUNCS),)
+  lib2funcs += $(subst XX,si,$(swfloatfuncs))
+  lib2funcs += $(subst XX,di,$(dwfloatfuncs))
+endif
 
 # These might cause a divide overflow trap and so are compiled with
 # unwinder info.
@@ -295,9 +308,11 @@ all: $(HOST_EXTRA)
 install: $(HOST_EXTRA_INSTALL)
 
 # Remove any objects from lib2funcs and LIB2_DIVMOD_FUNCS that are
-# defined as optimized assembly code in LIB1ASMFUNCS.
-lib2funcs := $(filter-out $(LIB1ASMFUNCS),$(lib2funcs))
-LIB2_DIVMOD_FUNCS := $(filter-out $(LIB1ASMFUNCS),$(LIB2_DIVMOD_FUNCS))
+# defined as optimized assembly code in LIB1ASMFUNCS or as C code
+# in LIB2FUNCS_EXCLUDE.
+lib2funcs := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS),$(lib2funcs))
+LIB2_DIVMOD_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS),
+		       $(LIB2_DIVMOD_FUNCS))
 
 # Build "libgcc1" (assembly) components.
 ifeq ($(enable_shared),yes)
@@ -340,6 +355,27 @@ $(lib2funcs-s-o): %_s$(objext): $(gcc_srcdir)/libgcc2.c
 libgcc-s-objects += $(lib2funcs-s-o)
 endif
 
+ifeq ($(LIB2_SIDITI_CONV_FUNCS),)
+# Build libgcc2.c for each conversion function, with a specific
+# L<func> definition and LIBGCC2_UNITS_PER_WORD setting.  The DImode
+# functions are built with a wordsize of 4; the TImode functions are
+# built with the same labels, but a wordsize of 8.
+
+sifuncs = $(subst XX,si,$(swfloatfuncs))
+difuncs = $(subst XX,di,$(dwfloatfuncs))
+tifuncs = $(subst XX,ti,$(dwfloatfuncs))
+
+iter-items := $(sifuncs) $(difuncs) $(tifuncs)
+iter-labels := $(sifuncs) $(difuncs) $(difuncs)
+iter-sizes := $(patsubst %,4,$(sifuncs) $(difuncs)) $(patsubst %,8,$(tifuncs))
+
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/siditi-object.mk,$(iter-items))
+
+libgcc-objects += $(patsubst %,%$(objext),$(sifuncs) $(difuncs) $(tifuncs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(sifuncs) $(difuncs) $(tifuncs))
+endif
+endif
 
 # Build LIB2_DIVMOD_FUNCS.
 lib2-divmod-o = $(patsubst %,%$(objext),$(LIB2_DIVMOD_FUNCS))
@@ -365,6 +401,12 @@ ifneq ($(fpbit-in-libgcc),yes)
 FPBIT:=$(if $(FPBIT),$(gcc_objdir)/$(FPBIT),)
 DPBIT:=$(if $(DPBIT),$(gcc_objdir)/$(DPBIT),)
 TPBIT:=$(if $(TPBIT),$(gcc_objdir)/$(TPBIT),)
+endif
+
+ifeq ($(TPBIT),)
+# _sf_to_tf and _df_to_tf require tp-bit.c being compiled in.
+FPBIT_FUNCS := $(filter-out _sf_to_tf,$(FPBIT_FUNCS))
+DPBIT_FUNCS := $(filter-out _df_to_tf,$(DPBIT_FUNCS))
 endif
 
 # Build FPBIT.
@@ -410,6 +452,62 @@ $(tpbit-s-o): %_s$(objext): $(TPBIT)
 	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(TPBIT)
 libgcc-s-objects += $(tpbit-s-o)
 endif
+endif
+
+# Build decimal floating point support.
+ifeq ($(decimal_float),yes)
+
+# If $DFP_ENABLE is set, then we want all data type sizes.
+ifneq ($(DFP_ENABLE),)
+D32PBIT = 1
+D64PBIT = 1
+D128PBIT = 1
+endif
+
+dec-filenames =
+ifneq ($(D32PBIT)$(D64PBIT)$(D128PBIT),)
+dec-filenames += decContext decNumber decRound decLibrary decUtility
+endif
+
+ifneq ($(D32PBIT),)
+dec-filenames += decimal32
+endif
+
+ifneq ($(D64PBIT),)
+dec-filenames += decimal64
+endif
+
+ifneq ($(D128PBIT),)
+dec-filenames += decimal128
+endif
+
+dec-objects = $(patsubst %,%$(objext),$(dec-filenames))
+$(dec-objects): %$(objext): $(srcdir)/../libdecnumber/%.c
+	$(gcc_compile) -c $<
+libgcc-objects += $(dec-objects)
+
+# Next build individual support functions.
+ifneq ($(D32PBIT),)
+d32pbit-o = $(patsubst %,%$(objext),$(D32PBIT_FUNCS))
+$(d32pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=32 -c $<
+libgcc-objects += $(d32pbit-o)
+endif
+
+ifneq ($(D64PBIT),)
+d64pbit-o = $(patsubst %,%$(objext),$(D64PBIT_FUNCS))
+$(d64pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=64 -c $<
+libgcc-objects += $(d64pbit-o)
+endif
+
+ifneq ($(D128PBIT),)
+d128pbit-o = $(patsubst %,%$(objext),$(D128PBIT_FUNCS))
+$(d128pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=128 -c $<
+libgcc-objects += $(d128pbit-o)
+endif
+
 endif
 
 # Build LIB2ADD and LIB2ADD_ST.
@@ -588,6 +686,7 @@ install-libunwind:
 	# NOTE: Maybe this should go into $(inst_libdir), but this
 	# is where the old mklibgcc.in put it.
 	$(INSTALL_DATA) libunwind.a $(DESTDIR)$(inst_slibdir)/
+	chmod 644 $(DESTDIR)$(inst_slibdir)/libunwind.a
 	$(RANLIB) $(DESTDIR)$(inst_slibdir)/libunwind.a
 
 	$(subst @multilib_dir@,$(MULTIDIR),$(subst \
@@ -598,6 +697,7 @@ install-shared:
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)
 
 	$(INSTALL_DATA) libgcc_eh.a $(DESTDIR)$(inst_libdir)/
+	chmod 644 $(DESTDIR)$(inst_libdir)/libgcc_eh.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcc_eh.a
 
 	$(subst @multilib_dir@,$(MULTIDIR),$(subst \
@@ -608,8 +708,10 @@ install: $(install-shared) $(install-libunwind)
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)
 
 	$(INSTALL_DATA) libgcc.a $(DESTDIR)$(inst_libdir)/
+	chmod 644 $(DESTDIR)$(inst_libdir)/libgcc.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcc.a
 	$(INSTALL_DATA) libgcov.a $(DESTDIR)$(inst_libdir)/
+	chmod 644 $(DESTDIR)$(inst_libdir)/libgcov.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcov.a
 
 	for file in dummy $(EXTRA_MULTILIB_PARTS); do		\

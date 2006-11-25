@@ -1,5 +1,5 @@
 /* File.java -- Class representing a file on disk
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -44,7 +44,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import gnu.classpath.Configuration;
-import gnu.gcj.runtime.FileDeleter;
 
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
  * "The Java Language Specification", ISBN 0-201-63451-1
@@ -260,6 +259,15 @@ public class File implements Serializable, Comparable
       return path.equalsIgnoreCase(other.path);
   }
 
+  /*
+   * This method tests whether or not the file represented by the
+   * object actually exists on the filesystem.
+   */
+  private boolean internalExists()
+  {
+    return _access (EXISTS);
+  }
+  
   /**
    * This method tests whether or not the file represented by the object
    * actually exists on the filesystem.
@@ -271,7 +279,7 @@ public class File implements Serializable, Comparable
   public boolean exists()
   {
     checkRead();
-    return _access (EXISTS);
+    return internalExists();
   }
 
   /**
@@ -434,7 +442,11 @@ public class File implements Serializable, Comparable
     if (!uri.getScheme().equals("file"))
 	throw new IllegalArgumentException("invalid uri protocol");
 
-    path = normalizePath(uri.getPath());
+    String name = uri.getPath();
+    if (name == null)
+      throw new IllegalArgumentException("URI \"" + uri
+                     + "\" is not hierarchical");
+    path = normalizePath(name);
   }
 
   /**
@@ -505,9 +517,9 @@ public class File implements Serializable, Comparable
   /**
    * This method returns a canonical representation of the pathname of
    * this file.  The actual form of the canonical representation is
-   * different.  On the GNU system, the canonical form differs from the
-   * absolute form in that all relative file references to "." and ".."
-   * are resolved and removed.
+   * system-dependent.  On the GNU system, conversion to canonical
+   * form involves the removal of redundant separators, references to
+   * "." and "..", and symbolic links.
    * <p>
    * Note that this method, unlike the other methods which return path
    * names, can throw an IOException.  This is because native method 
@@ -682,6 +694,15 @@ public class File implements Serializable, Comparable
    */
   public native boolean isAbsolute();
 
+  /*
+   * This method tests whether or not the file represented by this
+   * object is a directory.
+   */
+  private boolean internalIsDirectory()
+  {
+    return _stat (DIRECTORY);
+  }
+  
   /**
    * This method tests whether or not the file represented by this object
    * is a directory.  In order for this method to return <code>true</code>,
@@ -695,7 +716,7 @@ public class File implements Serializable, Comparable
   public boolean isDirectory()
   {
     checkRead();
-    return _stat (DIRECTORY);
+    return internalIsDirectory();
   }
 
   /**
@@ -1066,10 +1087,10 @@ public class File implements Serializable, Comparable
           throw new IOException("Cannot determine system temporary directory"); 
 	
         directory = new File(dirname);
-        if (!directory.exists())
+        if (!directory.internalExists())
           throw new IOException("System temporary directory "
                                 + directory.getName() + " does not exist.");
-        if (!directory.isDirectory())
+        if (!directory.internalIsDirectory())
           throw new IOException("System temporary directory "
                                 + directory.getName()
                                 + " is not really a directory.");
@@ -1295,12 +1316,10 @@ public class File implements Serializable, Comparable
   public synchronized boolean renameTo(File dest)
   {
     SecurityManager s = System.getSecurityManager();
-    String sname = getName();
-    String dname = dest.getName();
     if (s != null)
       {
-	s.checkWrite (sname);
-	s.checkWrite (dname);
+	s.checkWrite (getPath());
+	s.checkWrite (dest.getPath());
       }
     return performRenameTo (dest);
   }
@@ -1369,9 +1388,9 @@ public class File implements Serializable, Comparable
     // Check the SecurityManager
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
-      sm.checkDelete (getName());
+      sm.checkDelete (getPath());
 
-    FileDeleter.add (this);
+    DeleteFileHelper.add(this);
   }
 
   private void writeObject(ObjectOutputStream oos) throws IOException

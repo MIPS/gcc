@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -43,10 +43,11 @@ enum vect_var_kind {
   vect_scalar_var
 };
 
-/* Defines type of operation: unary or binary.  */
+/* Defines type of operation.  */
 enum operation_type {
   unary_op = 1,
-  binary_op
+  binary_op,
+  ternary_op
 };
 
 /* Define type of available alignment support.  */
@@ -121,10 +122,10 @@ typedef struct _loop_vec_info {
   int ptr_mask;
 
   /* All data references in the loop.  */
-  varray_type datarefs;
+  VEC (data_reference_p, heap) *datarefs;
 
   /* All data dependences in the loop.  */
-  varray_type ddrs;
+  VEC (ddr_p, heap) *ddrs;
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
@@ -164,7 +165,16 @@ enum stmt_vec_info_type {
   op_vec_info_type,
   assignment_vec_info_type,
   condition_vec_info_type,
-  reduc_vec_info_type
+  reduc_vec_info_type,
+  type_promotion_vec_info_type,
+  type_demotion_vec_info_type
+};
+
+/* Indicates whether/how a variable is used in the loop.  */
+enum vect_relevant {
+  vect_unused_in_loop = 0,
+  vect_used_by_reduction,
+  vect_used_in_loop  
 };
 
 typedef struct data_reference *dr_p;
@@ -181,10 +191,10 @@ typedef struct _stmt_vec_info {
   /* The loop_vec_info with respect to which STMT is vectorized.  */
   loop_vec_info loop_vinfo;
 
-  /* Not all stmts in the loop need to be vectorized. e.g, the incrementation
+  /* Not all stmts in the loop need to be vectorized. e.g, the increment
      of the loop induction variable and computation of array indexes. relevant
      indicates whether the stmt needs to be vectorized.  */
-  bool relevant;
+  enum vect_relevant relevant;
 
   /* Indicates whether this stmts is part of a computation whose result is
      used outside the loop.  */
@@ -204,6 +214,20 @@ typedef struct _stmt_vec_info {
   /* Information about the data-ref (access function, etc).  */
   struct data_reference *data_ref_info;
 
+  /* Stmt is part of some pattern (computation idiom)  */
+  bool in_pattern_p;
+
+  /* Used for various bookkeeping purposes, generally holding a pointer to 
+     some other stmt S that is in some way "related" to this stmt. 
+     Current use of this field is:
+        If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 
+        true): S is the "pattern stmt" that represents (and replaces) the 
+        sequence of stmts that constitutes the pattern.  Similarly, the 
+        related_stmt of the "pattern stmt" points back to this stmt (which is 
+        the last stmt in the original sequence of stmts that constitutes the 
+        pattern).  */
+  tree related_stmt;
+
   /* List of datarefs that are known to have the same alignment as the dataref
      of this stmt.  */
   VEC(dr_p,heap) *same_align_refs;
@@ -211,25 +235,58 @@ typedef struct _stmt_vec_info {
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
 
+  /* Interleaving info.  */
+  /* First data-ref in the interleaving group.  */
+  tree first_dr;
+  /* Pointer to the next data-ref in the group.  */
+  tree next_dr;
+  /* The size of the interleaving group.  */
+  unsigned int size;
+  /* For stores, number of stores from this group seen. We vectorize the last
+     one.  */
+  unsigned int store_count;
+  /* For loads only, the gap from the previous load. For consecutive loads, GAP
+     is 1.  */
+  unsigned int gap;
+  /* In case that two or more stmts share data-ref, this is the pointer to the
+     previously detected stmt with the same dr.  */
+  tree same_dr_stmt;
 } *stmt_vec_info;
 
 /* Access Functions.  */
-#define STMT_VINFO_TYPE(S)                (S)->type
-#define STMT_VINFO_STMT(S)                (S)->stmt
-#define STMT_VINFO_LOOP_VINFO(S)          (S)->loop_vinfo
-#define STMT_VINFO_RELEVANT_P(S)          (S)->relevant
-#define STMT_VINFO_LIVE_P(S)              (S)->live
-#define STMT_VINFO_VECTYPE(S)             (S)->vectype
-#define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
-#define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
-#define STMT_VINFO_SAME_ALIGN_REFS(S)     (S)->same_align_refs
-#define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
+#define STMT_VINFO_TYPE(S)                 (S)->type
+#define STMT_VINFO_STMT(S)                 (S)->stmt
+#define STMT_VINFO_LOOP_VINFO(S)           (S)->loop_vinfo
+#define STMT_VINFO_RELEVANT(S)             (S)->relevant
+#define STMT_VINFO_LIVE_P(S)               (S)->live
+#define STMT_VINFO_VECTYPE(S)              (S)->vectype
+#define STMT_VINFO_VEC_STMT(S)             (S)->vectorized_stmt
+#define STMT_VINFO_DATA_REF(S)             (S)->data_ref_info
+#define STMT_VINFO_IN_PATTERN_P(S)         (S)->in_pattern_p
+#define STMT_VINFO_RELATED_STMT(S)         (S)->related_stmt
+#define STMT_VINFO_SAME_ALIGN_REFS(S)      (S)->same_align_refs
+#define STMT_VINFO_DEF_TYPE(S)             (S)->def_type
+#define STMT_VINFO_DR_GROUP_FIRST_DR(S)    (S)->first_dr
+#define STMT_VINFO_DR_GROUP_NEXT_DR(S)     (S)->next_dr
+#define STMT_VINFO_DR_GROUP_SIZE(S)        (S)->size
+#define STMT_VINFO_DR_GROUP_STORE_COUNT(S) (S)->store_count
+#define STMT_VINFO_DR_GROUP_GAP(S)         (S)->gap
+#define STMT_VINFO_DR_GROUP_SAME_DR_STMT(S)(S)->same_dr_stmt
 
-static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
+#define DR_GROUP_FIRST_DR(S)               (S)->first_dr
+#define DR_GROUP_NEXT_DR(S)                (S)->next_dr
+#define DR_GROUP_SIZE(S)                   (S)->size
+#define DR_GROUP_STORE_COUNT(S)            (S)->store_count
+#define DR_GROUP_GAP(S)                    (S)->gap
+#define DR_GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
+
+#define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
+
+static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
 
 static inline void
-set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info)
+set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info)
 {
   if (ann)
     ann->common.aux = (char *) stmt_info;
@@ -238,7 +295,7 @@ set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info)
 static inline stmt_vec_info
 vinfo_for_stmt (tree stmt)
 {
-  tree_ann_t ann = tree_ann (stmt);
+  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (stmt_vec_info) ann->common.aux : NULL;
 }
 
@@ -302,7 +359,6 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
   General Vectorization Utilities
  *************************************************************************/
 /** In tree-vectorizer.c **/
-extern tree vect_strip_conversion (tree);
 extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
 				enum vect_def_type *);
@@ -312,22 +368,34 @@ extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
-
+extern bool supportable_widening_operation (enum tree_code, tree, tree,
+  tree *, tree *, enum tree_code *, enum tree_code *);
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
-/* Main driver.  */
-extern void vectorize_loops (struct loops *);
+
 
 /** In tree-vect-analyze.c  **/
 /* Driver for analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *);
 
+
+/** In tree-vect-patterns.c  **/
+/* Pattern recognition functions.
+   Additional pattern recognition functions can (and will) be added
+   in the future.  */
+typedef tree (* vect_recog_func_ptr) (tree, tree *, tree *);
+#define NUM_PATTERNS 4
+void vect_pattern_recog (loop_vec_info);
+
+
 /** In tree-vect-transform.c  **/
 extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);

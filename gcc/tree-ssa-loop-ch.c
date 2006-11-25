@@ -120,10 +120,9 @@ do_while_loop_p (struct loop *loop)
    of the loop.  This is beneficial since it increases efficiency of
    code motion optimizations.  It also saves one jump on entry to the loop.  */
 
-static void
+static unsigned int
 copy_loop_headers (void)
 {
-  struct loops *loops;
   unsigned i;
   struct loop *loop;
   basic_block header;
@@ -132,28 +131,25 @@ copy_loop_headers (void)
   unsigned n_bbs;
   unsigned bbs_size;
 
-  loops = loop_optimizer_init (dump_file);
-  if (!loops)
-    return;
-  
-  /* We do not try to keep the information about irreducible regions
-     up-to-date.  */
-  loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+		       | LOOPS_HAVE_SIMPLE_LATCHES);
+  if (!current_loops)
+    return 0;
 
 #ifdef ENABLE_CHECKING
-  verify_loop_structure (loops);
+  verify_loop_structure (current_loops);
 #endif
 
-  bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  copied_bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  bbs = XNEWVEC (basic_block, n_basic_blocks);
+  copied_bbs = XNEWVEC (basic_block, n_basic_blocks);
   bbs_size = n_basic_blocks;
 
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
       /* Copy at most 20 insns.  */
       int limit = 20;
 
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (!loop)
 	continue;
       header = loop->header;
@@ -197,7 +193,7 @@ copy_loop_headers (void)
       /* Ensure that the header will have just the latch as a predecessor
 	 inside the loop.  */
       if (!single_pred_p (exit->dest))
-	exit = single_pred_edge (loop_split_edge_with (exit, NULL));
+	exit = single_pred_edge (split_edge (exit));
 
       entry = loop_preheader_edge (loop);
 
@@ -209,14 +205,15 @@ copy_loop_headers (void)
 
       /* Ensure that the latch and the preheader is simple (we know that they
 	 are not now, since there was the loop exit condition.  */
-      loop_split_edge_with (loop_preheader_edge (loop), NULL);
-      loop_split_edge_with (loop_latch_edge (loop), NULL);
+      split_edge (loop_preheader_edge (loop));
+      split_edge (loop_latch_edge (loop));
     }
 
   free (bbs);
   free (copied_bbs);
 
-  loop_optimizer_finalize (loops, NULL);
+  loop_optimizer_finalize ();
+  return 0;
 }
 
 static bool

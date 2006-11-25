@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2006 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -43,10 +43,20 @@ struct default_include
 				   C++.  */
   const char add_sysroot;	/* FNAME should be prefixed by
 				   cpp_SYSROOT.  */
+  const char multilib;		/* FNAME should have the multilib path
+				   specified with -imultilib
+				   appended.  */
 };
 
 extern const struct default_include cpp_include_defaults[];
 extern const char cpp_GCC_INCLUDE_DIR[];
 extern const size_t cpp_GCC_INCLUDE_DIR_len;
+
+extern const char cpp_PREFIX[];
+extern const size_t cpp_PREFIX_len;
+extern const char *gcc_exec_prefix;
+
+/* Return true if the toolchain is relocated.  */
+bool cpp_relocated (void);
 
 #endif /* ! GCC_CPPDEFAULT_H */

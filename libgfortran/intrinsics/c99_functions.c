@@ -35,6 +35,46 @@ Boston, MA 02110-1301, USA.  */
 #define C99_PROTOS_H WE_DONT_WANT_PROTOS_NOW
 #include "libgfortran.h"
 
+/* IRIX's <math.h> declares a non-C99 compliant implementation of cabs,
+   which takes two floating point arguments instead of a single complex.
+   If <complex.h> is missing this prevents building of c99_functions.c.
+   To work around this we redirect cabs{,f,l} calls to __gfc_cabs{,f,l}.  */
+
+#if defined(__sgi__) && !defined(HAVE_COMPLEX_H)
+#undef HAVE_CABS
+#undef HAVE_CABSF
+#undef HAVE_CABSL
+#define cabs __gfc_cabs
+#define cabsf __gfc_cabsf
+#define cabsl __gfc_cabsl
+#endif
+        
+/* Tru64's <math.h> declares a non-C99 compliant implementation of cabs,
+   which takes two floating point arguments instead of a single complex.
+   To work around this we redirect cabs{,f,l} calls to __gfc_cabs{,f,l}.  */
+
+#ifdef __osf__
+#undef HAVE_CABS
+#undef HAVE_CABSF
+#undef HAVE_CABSL
+#define cabs __gfc_cabs
+#define cabsf __gfc_cabsf
+#define cabsl __gfc_cabsl
+#endif
+
+/* Prototypes to silence -Wstrict-prototypes -Wmissing-prototypes.  */
+
+float cabsf(float complex);
+double cabs(double complex);
+long double cabsl(long double complex);
+
+float cargf(float complex);
+double carg(double complex);
+long double cargl(long double complex);
+
+float complex clog10f(float complex);
+double complex clog10(double complex);
+long double complex clog10l(long double complex);
 
 #ifndef HAVE_ACOSF
 #define HAVE_ACOSF 1
@@ -45,12 +85,28 @@ acosf(float x)
 }
 #endif
 
+#if HAVE_ACOSH && !HAVE_ACOSHF
+float
+acoshf (float x)
+{
+  return (float) acosh ((double) x);
+}
+#endif
+
 #ifndef HAVE_ASINF
 #define HAVE_ASINF 1
 float
 asinf(float x)
 {
   return (float) asin(x);
+}
+#endif
+
+#if HAVE_ASINH && !HAVE_ASINHF
+float
+asinhf (float x)
+{
+  return (float) asinh ((double) x);
 }
 #endif
 
@@ -69,6 +125,14 @@ float
 atanf(float x)
 {
   return (float) atan(x);
+}
+#endif
+
+#if HAVE_ATANH && !HAVE_ATANHF
+float
+atanhf (float x)
+{
+  return (float) atanh ((double) x);
 }
 #endif
 

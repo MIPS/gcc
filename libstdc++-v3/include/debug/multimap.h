@@ -35,7 +35,9 @@
 #include <debug/safe_iterator.h>
 #include <utility>
 
-namespace __gnu_debug_def
+namespace std
+{
+namespace __debug
 {
   template<typename _Key, typename _Tp, typename _Compare = std::less<_Key>,
 	   typename _Allocator = std::allocator<std::pair<const _Key, _Tp> > >
@@ -309,6 +311,7 @@ namespace __gnu_debug_def
     swap(multimap<_Key,_Tp,_Compare,_Allocator>& __lhs,
 	 multimap<_Key,_Tp,_Compare,_Allocator>& __rhs)
     { __lhs.swap(__rhs); }
-} // namespace __gnu_debug_def
+} // namespace __debug
+} // namespace std
 
 #endif

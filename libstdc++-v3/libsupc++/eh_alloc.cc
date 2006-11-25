@@ -1,5 +1,6 @@
 // -*- C++ -*- Allocate exception objects.
-// Copyright (C) 2001, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -38,18 +39,18 @@
 #include <climits>
 #include <exception>
 #include "unwind-cxx.h"
-#include "bits/gthr.h"
+#include <ext/concurrence.h>
 
 #if _GLIBCXX_HOSTED
 using std::free;
 using std::malloc;
-using std::memcpy;
+using std::memset;
 #else
-// In a freestanding environment, these functions may not be
-// available -- but for now, we assume that they are.
+// In a freestanding environment, these functions may not be available
+// -- but for now, we assume that they are.
 extern "C" void *malloc (std::size_t);
 extern "C" void free(void *);
-extern "C" int memset (void *, int, std::size_t);
+extern "C" void *memset (void *, int, std::size_t);
 #endif
 
 using namespace __cxxabiv1;
@@ -88,23 +89,11 @@ typedef char one_buffer[EMERGENCY_OBJ_SIZE] __attribute__((aligned));
 static one_buffer emergency_buffer[EMERGENCY_OBJ_COUNT];
 static bitmask_type emergency_used;
 
-
-#ifdef __GTHREADS
-#ifdef __GTHREAD_MUTEX_INIT
-static __gthread_mutex_t emergency_mutex =__GTHREAD_MUTEX_INIT;
-#else 
-static __gthread_mutex_t emergency_mutex;
-#endif
-
-#ifdef __GTHREAD_MUTEX_INIT_FUNCTION
-static void
-emergency_mutex_init ()
+namespace
 {
-  __GTHREAD_MUTEX_INIT_FUNCTION (&emergency_mutex);
+  // A single mutex controlling emergency allocations.
+  __gnu_cxx::__mutex emergency_mutex;
 }
-#endif
-#endif
-
 
 extern "C" void *
 __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
@@ -116,13 +105,7 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
 
   if (! ret)
     {
-#ifdef __GTHREADS
-#ifdef __GTHREAD_MUTEX_INIT_FUNCTION
-      static __gthread_once_t once = __GTHREAD_ONCE_INIT;
-      __gthread_once (&once, emergency_mutex_init);
-#endif
-      __gthread_mutex_lock (&emergency_mutex);
-#endif
+      __gnu_cxx::__scoped_lock sentry(emergency_mutex);
 
       bitmask_type used = emergency_used;
       unsigned int which = 0;
@@ -140,9 +123,7 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
       ret = &emergency_buffer[which][0];
 
     failed:;
-#ifdef __GTHREADS
-      __gthread_mutex_unlock (&emergency_mutex);
-#endif
+
       if (!ret)
 	std::terminate ();
     }
@@ -166,16 +147,11 @@ __cxxabiv1::__cxa_free_exception(void *vptr) throw()
   if (ptr >= &emergency_buffer[0][0]
       && ptr < &emergency_buffer[0][0] + sizeof (emergency_buffer))
     {
-      unsigned int which
+      const unsigned int which
 	= (unsigned)(ptr - &emergency_buffer[0][0]) / EMERGENCY_OBJ_SIZE;
 
-#ifdef __GTHREADS
-      __gthread_mutex_lock (&emergency_mutex);
+      __gnu_cxx::__scoped_lock sentry(emergency_mutex);
       emergency_used &= ~((bitmask_type)1 << which);
-      __gthread_mutex_unlock (&emergency_mutex);
-#else
-      emergency_used &= ~((bitmask_type)1 << which);
-#endif
     }
   else
     free (ptr - sizeof (__cxa_exception));

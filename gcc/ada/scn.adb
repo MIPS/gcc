@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 
 with Atree;    use Atree;
 with Csets;    use Csets;
+with Hostparm; use Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Restrict; use Restrict;
@@ -56,45 +57,6 @@ package body Scn is
    procedure Error_Long_Line;
    --  Signal error of excessively long line
 
-   ---------------
-   -- Post_Scan --
-   ---------------
-
-   procedure Post_Scan is
-   begin
-      case Token is
-         when Tok_Char_Literal =>
-            Token_Node := New_Node (N_Character_Literal, Token_Ptr);
-            Set_Char_Literal_Value (Token_Node, UI_From_CC (Character_Code));
-            Set_Chars (Token_Node, Token_Name);
-
-         when Tok_Identifier =>
-            Token_Node := New_Node (N_Identifier, Token_Ptr);
-            Set_Chars (Token_Node, Token_Name);
-
-         when Tok_Real_Literal =>
-            Token_Node := New_Node (N_Real_Literal, Token_Ptr);
-            Set_Realval (Token_Node, Real_Literal_Value);
-
-         when Tok_Integer_Literal =>
-            Token_Node := New_Node (N_Integer_Literal, Token_Ptr);
-            Set_Intval (Token_Node, Int_Literal_Value);
-
-         when Tok_String_Literal =>
-            Token_Node := New_Node (N_String_Literal, Token_Ptr);
-            Set_Has_Wide_Character (Token_Node, Wide_Character_Found);
-            Set_Strval (Token_Node, String_Literal_Id);
-
-         when Tok_Operator_Symbol =>
-            Token_Node := New_Node (N_Operator_Symbol, Token_Ptr);
-            Set_Chars (Token_Node, Token_Name);
-            Set_Strval (Token_Node, String_Literal_Id);
-
-         when others =>
-            null;
-      end case;
-   end Post_Scan;
-
    -----------------------
    -- Check_End_Of_Line --
    -----------------------
@@ -104,7 +66,7 @@ package body Scn is
    begin
       if Style_Check then
          Style.Check_Line_Terminator (Len);
-      elsif Len > Opt.Max_Line_Length then
+      elsif Len > Max_Line_Length then
          Error_Long_Line;
       end if;
    end Check_End_Of_Line;
@@ -266,7 +228,7 @@ package body Scn is
    begin
       Error_Msg
         ("this line is too long",
-         Current_Line_Start + Source_Ptr (Opt.Max_Line_Length));
+         Current_Line_Start + Source_Ptr (Max_Line_Length));
    end Error_Long_Line;
 
    ------------------------
@@ -280,7 +242,13 @@ package body Scn is
       GNAT_Hedr : constant Text_Buffer (1 .. 78) := (others => '-');
 
    begin
-      Scanner.Initialize_Scanner (Unit, Index);
+      Scanner.Initialize_Scanner (Index);
+
+      if Index /= Internal_Source_File then
+         Set_Unit (Index, Unit);
+      end if;
+
+      Current_Source_Unit := Unit;
 
       --  Set default for Comes_From_Source (except if we are going to process
       --  an artificial string internally created within the compiler and
@@ -337,6 +305,45 @@ package body Scn is
 
       Check_Restriction (No_Obsolescent_Features, New_Node (N_Empty, S));
    end Obsolescent_Check;
+
+   ---------------
+   -- Post_Scan --
+   ---------------
+
+   procedure Post_Scan is
+   begin
+      case Token is
+         when Tok_Char_Literal =>
+            Token_Node := New_Node (N_Character_Literal, Token_Ptr);
+            Set_Char_Literal_Value (Token_Node, UI_From_CC (Character_Code));
+            Set_Chars (Token_Node, Token_Name);
+
+         when Tok_Identifier =>
+            Token_Node := New_Node (N_Identifier, Token_Ptr);
+            Set_Chars (Token_Node, Token_Name);
+
+         when Tok_Real_Literal =>
+            Token_Node := New_Node (N_Real_Literal, Token_Ptr);
+            Set_Realval (Token_Node, Real_Literal_Value);
+
+         when Tok_Integer_Literal =>
+            Token_Node := New_Node (N_Integer_Literal, Token_Ptr);
+            Set_Intval (Token_Node, Int_Literal_Value);
+
+         when Tok_String_Literal =>
+            Token_Node := New_Node (N_String_Literal, Token_Ptr);
+            Set_Has_Wide_Character (Token_Node, Wide_Character_Found);
+            Set_Strval (Token_Node, String_Literal_Id);
+
+         when Tok_Operator_Symbol =>
+            Token_Node := New_Node (N_Operator_Symbol, Token_Ptr);
+            Set_Chars (Token_Node, Token_Name);
+            Set_Strval (Token_Node, String_Literal_Id);
+
+         when others =>
+            null;
+      end case;
+   end Post_Scan;
 
    ------------------------------
    -- Scan_Reserved_Identifier --

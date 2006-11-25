@@ -42,8 +42,6 @@ extern bool invalid_e500_subreg (rtx, enum machine_mode);
 extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
-extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
-extern bool rs6000_legitimate_small_data_p (enum machine_mode, rtx);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
@@ -86,6 +84,8 @@ extern void rs6000_emit_sync (enum rtx_code, enum machine_mode,
 			      rtx, rtx, rtx, rtx, bool);
 extern void rs6000_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_compare_and_swap (rtx, rtx, rtx, rtx, rtx);
+extern void rs6000_expand_compare_and_swapqhi (rtx, rtx, rtx, rtx);
+extern void rs6000_split_compare_and_swapqhi (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_split_lock_test_and_set (rtx, rtx, rtx, rtx);
 extern void rs6000_emit_swdivsf (rtx, rtx, rtx);
 extern void rs6000_emit_swdivdf (rtx, rtx, rtx);
@@ -100,19 +100,22 @@ extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_reload_address (rtx, enum machine_mode,
 					     int, int, int, int *);
 extern int rs6000_legitimate_address (enum machine_mode, rtx, int);
+extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
 extern bool rs6000_mode_dependent_address (rtx);
+extern bool rs6000_offsettable_memref_p (rtx);
 extern rtx rs6000_return_addr (int, rtx);
 extern void rs6000_output_symbol_ref (FILE*, rtx);
 extern HOST_WIDE_INT rs6000_initial_elimination_offset (int, int);
 
-extern rtx rs6000_machopic_legitimize_pic_address (rtx orig,
-						   enum machine_mode mode,
-						   rtx reg);
-
+extern rtx rs6000_machopic_legitimize_pic_address (rtx, enum machine_mode,
+						   rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
-extern unsigned int rs6000_special_round_type_align (tree, int, int);
+extern unsigned int rs6000_special_round_type_align (tree, unsigned int,
+						     unsigned int);
+extern unsigned int darwin_rs6000_special_round_type_align (tree, unsigned int,
+							    unsigned int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int, int);
 extern int function_arg_boundary (enum machine_mode, tree);

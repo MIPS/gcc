@@ -1,5 +1,5 @@
 ;; GCC machine description for CRIS cpu cores.
-;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 ;; Free Software Foundation, Inc.
 ;; Contributed by Axis Communications.
 
@@ -1686,8 +1686,8 @@
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
     return "#";
   if (which_alternative == 4)
-    return "%x5%e6.%m6 [%4=%3%S2],%0";
-  return "%x5%e6.%m6 [%4=%2%S3],%0";
+    return "%x5%E6.%m6 [%4=%3%S2],%0";
+  return "%x5%E6.%m6 [%4=%2%S3],%0";
 })
 
 (define_insn "*extop<mode>si_side"
@@ -1715,8 +1715,8 @@
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
     return "#";
   if (which_alternative == 4)
-    return "%x5%e6<m> [%4=%3%S2],%0";
-  return "%x5%e6<m> [%4=%2%S3],%0";
+    return "%x5%E6<m> [%4=%3%S2],%0";
+  return "%x5%E6<m> [%4=%2%S3],%0";
 })
 
 
@@ -1766,7 +1766,7 @@
    && cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
   "@
    #
-   %x7%e6<m> [%5=%4+%2%T3],%0")
+   %x7%E6<m> [%5=%4+%2%T3],%0")
 
 ;; [rx=ry+i]
 ;; FIXME: GCC should widen.
@@ -1823,8 +1823,8 @@
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
     return "#";
   if (which_alternative == 4)
-    return \"%x6%e5.%m5 [%4=%3%S2],%0\";
-  return "%x6%e5<m> [%4=%2%S3],%0";
+    return \"%x6%E5.%m5 [%4=%3%S2],%0\";
+  return "%x6%E5<m> [%4=%2%S3],%0";
 })
 
 ;; Extend versions (zero/sign) of normal add/sub (no side-effects).
@@ -1843,10 +1843,10 @@
   "GET_MODE_SIZE (GET_MODE (operands[0])) <= UNITS_PER_WORD
    && (operands[1] != frame_pointer_rtx || GET_CODE (operands[3]) != PLUS)"
   "@
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%1,%0"
+   %x3%E4.%m4 %2,%0
+   %x3%E4.%m4 %2,%0
+   %x3%E4.%m4 %2,%0
+   %x3%E4.%m4 %2,%1,%0"
   [(set_attr "slottable" "yes,yes,no,no")
    (set_attr "cc" "clobber")])
 
@@ -1864,10 +1864,10 @@
    && GET_MODE_SIZE (GET_MODE (operands[0])) <= UNITS_PER_WORD
    && (operands[1] != frame_pointer_rtx || GET_CODE (operands[3]) != PLUS)"
   "@
-   %x3%e4<m> %2,%0
-   %x3%e4<m> %2,%0
-   %x3%e4<m> %2,%0
-   %x3%e4<m> %2,%1,%0"
+   %x3%E4<m> %2,%0
+   %x3%E4<m> %2,%0
+   %x3%E4<m> %2,%0
+   %x3%E4<m> %2,%1,%0"
   [(set_attr "slottable" "yes,yes,no,no")])
 
 
@@ -1903,10 +1903,10 @@
   "(GET_CODE (operands[4]) != UMIN || GET_CODE (operands[3]) == ZERO_EXTEND)
    && operands[1] != frame_pointer_rtx"
   "@
-   %x4%e3<m> %2,%0
-   %x4%e3<m> %2,%0
-   %x4%e3<m> %2,%0
-   %x4%e3<m> %2,%1,%0"
+   %x4%E3<m> %2,%0
+   %x4%E3<m> %2,%0
+   %x4%E3<m> %2,%0
+   %x4%E3<m> %2,%1,%0"
   [(set_attr "slottable" "yes,yes,no,no")])
 
 ;; This is the special case when we use what corresponds to the
@@ -2679,11 +2679,16 @@
 {
   if (GET_CODE (operands[2]) == CONST_INT)
     {
-      if (INTVAL (operands[2]) < 256)
-	return "bound.b %2,%0";
+      /* Constant operands are zero-extended, so only 32-bit operands
+	 may be negative.  */
+      if (INTVAL (operands[2]) >= 0)
+	{
+	  if (INTVAL (operands[2]) < 256)
+	    return "bound.b %2,%0";
 
-      if (INTVAL (operands[2]) < 65536)
-	return "bound.w %2,%0";
+	  if (INTVAL (operands[2]) < 65536)
+	    return "bound.w %2,%0";
+	}
     }
   else if (which_alternative == 3)
     return "bound.d %2,%1,%0";
@@ -3280,7 +3285,10 @@
     || rtx_equal_p (operands[3], operands[2]))"
   [(set (match_dup 3) (plus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (match_dup 4))]
-  "operands[4] = replace_equiv_address (operands[5], operands[3]);")
+{
+  operands[4] = replace_equiv_address (operands[5], operands[3]);
+  cris_order_for_addsi3 (operands, 1);
+})
 
 ;; move.S1 ry,[rx=rx+rz.S2]
 
@@ -3320,7 +3328,10 @@
     || rtx_equal_p (operands[3], operands[1]))"
   [(set (match_dup 3) (plus:SI (match_dup 0) (match_dup 1)))
    (set (match_dup 5) (match_dup 2))]
-  "operands[5] = replace_equiv_address (operands[6], operands[3]);")
+{
+  operands[5] = replace_equiv_address (operands[6], operands[3]);
+  cris_order_for_addsi3 (operands, 0);
+})
 
 ;; clear.[bwd] [rx=rx+rz.S2]
 
@@ -3357,7 +3368,7 @@
     || rtx_equal_p (operands[2], operands[1]))"
   [(set (match_dup 2) (plus:SI (match_dup 0) (match_dup 1)))
    (set (mem:BWD (match_dup 2)) (const_int 0))]
-  "")
+  "cris_order_for_addsi3 (operands, 0);")
 
 ;; mov(s|u).S1 [rx=rx+rz.S2],ry
 
@@ -3399,7 +3410,10 @@
     || rtx_equal_p (operands[2], operands[3]))"
   [(set (match_dup 3) (plus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (match_op_dup 4 [(match_dup 5)]))]
-  "operands[5] = replace_equiv_address (XEXP (operands[4], 0), operands[3]);")
+{
+  operands[5] = replace_equiv_address (XEXP (operands[4], 0), operands[3]);
+  cris_order_for_addsi3 (operands, 1);
+})
 
 ;; op.S1 [rx=rx+i],ry
 
@@ -3419,7 +3433,10 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 6)]))]
-  "operands[6] = replace_equiv_address (XEXP (operands[5], 1), operands[4]);")
+{
+  operands[6] = replace_equiv_address (XEXP (operands[5], 1), operands[4]);
+  cris_order_for_addsi3 (operands, 2);
+})
 
 ;; op.S1 [rx=rx+rz.S2],ry
 
@@ -3487,7 +3504,10 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 6) (match_dup 1)]))]
-  "operands[6] = replace_equiv_address (XEXP (operands[5], 0), operands[4]);")
+{
+  operands[6] = replace_equiv_address (XEXP (operands[5], 0), operands[4]);
+  cris_order_for_addsi3 (operands, 2);
+})
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry
 
@@ -3538,9 +3558,12 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 7)]))]
-  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
-				replace_equiv_address (XEXP (operands[6], 0),
-						       operands[4]));")
+{
+  operands[7] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
+			       replace_equiv_address (XEXP (operands[6], 0),
+						      operands[4]));
+  cris_order_for_addsi3 (operands, 2);
+})
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry (swapped, plus or bound)
 
@@ -3589,9 +3612,12 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 7) (match_dup 1)]))]
-  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[5]), GET_MODE (operands[5]),
-				replace_equiv_address (XEXP (operands[5], 0),
-						       operands[4]));")
+{
+  operands[7] = gen_rtx_fmt_e (GET_CODE (operands[5]), GET_MODE (operands[5]),
+			       replace_equiv_address (XEXP (operands[5], 0),
+						      operands[4]));
+  cris_order_for_addsi3 (operands, 2);
+})
 
 ;; Splits for addressing prefixes that have no side-effects, so we can
 ;; fill a delay slot.  Never split if we lose something, though.

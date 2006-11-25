@@ -1,6 +1,6 @@
 /* Data references and dependences detectors. 
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
-   Contributed by Sebastian Pop <s.pop@laposte.net>
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
 
@@ -24,25 +24,27 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "lambda.h"
 
-/** {base_address + offset + init} is the first location accessed by data-ref 
-      in the loop, and step is the stride of data-ref in the loop in bytes;
-      e.g.:
-    
+/*
+  The first location accessed by data-ref in the loop is the address of data-ref's 
+  base (BASE_ADDRESS) plus the initial offset from the base. We divide the initial offset 
+  into two parts: loop invariant offset (OFFSET) and constant offset (INIT). 
+  STEP is the stride of data-ref in the loop in bytes.
+
                        Example 1                      Example 2
       data-ref         a[j].b[i][j]                   a + x + 16B (a is int*)
       
-First location info:
+  First location info:
       base_address     &a                             a
-      offset           j_0*D_j + i_0*D_i + C_a        x
-      init             C_b                            16
+      offset           j_0*D_j + i_0*D_i              x
+      init             C_b + C_a                      16
       step             D_j                            4
       access_fn        NULL                           {16, +, 1}
 
-Base object info:
+  Base object info:
       base_object      a                              NULL
       access_fn        <access_fns of indexes of b>   NULL
 
-  **/
+  */
 struct first_location_in_loop
 {
   tree base_address;
@@ -51,7 +53,6 @@ struct first_location_in_loop
   tree step;
   /* Access function related to first location in the loop.  */
   VEC(tree,heap) *access_fns;
-
 };
 
 struct base_object_info
@@ -97,15 +98,48 @@ struct data_reference
   struct ptr_info_def *ptr_info;
   subvar_t subvars;
 
-  /* Alignment information.  */ 
-  /* The offset of the data-reference from its base in bytes.  */
+  /* Alignment information.  
+     MISALIGNMENT is the offset of the data-reference from its base in bytes.
+     ALIGNED_TO is the maximum data-ref's alignment.  
+
+     Example 1, 
+       for i
+          for (j = 3; j < N; j++)
+            a[j].b[i][j] = 0;
+	 
+     For a[j].b[i][j], the offset from base (calculated in get_inner_reference() 
+     will be 'i * C_i + j * C_j + C'. 
+     We try to substitute the variables of the offset expression
+     with initial_condition of the corresponding access_fn in the loop.
+     'i' cannot be substituted, since its access_fn in the inner loop is i. 'j' 
+     will be substituted with 3. 
+
+     Example 2
+        for (j = 3; j < N; j++)
+          a[j].b[5][j] = 0; 
+
+     Here the offset expression (j * C_j + C) will not contain variables after
+     subsitution of j=3 (3*C_j + C).
+
+     Misalignment can be calculated only if all the variables can be 
+     substituted with constants, otherwise, we record maximum possible alignment
+     in ALIGNED_TO. In Example 1, since 'i' cannot be substituted, 
+     MISALIGNMENT will be NULL_TREE, and the biggest divider of C_i (a power of 
+     2) will be recorded in ALIGNED_TO.
+
+     In Example 2, MISALIGNMENT will be the value of 3*C_j + C in bytes, and 
+     ALIGNED_TO will be NULL_TREE.
+  */
   tree misalignment;
-  /* The maximum data-ref's alignment.  */
   tree aligned_to;
 
   /* The type of the data-ref.  */
   enum data_ref_type type;
 };
+
+typedef struct data_reference *data_reference_p;
+DEF_VEC_P(data_reference_p);
+DEF_VEC_ALLOC_P (data_reference_p, heap);
 
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
@@ -181,10 +215,18 @@ struct subscript
   tree distance;
 };
 
+typedef struct subscript *subscript_p;
+DEF_VEC_P(subscript_p);
+DEF_VEC_ALLOC_P (subscript_p, heap);
+
 #define SUB_CONFLICTS_IN_A(SUB) SUB->conflicting_iterations_in_a
 #define SUB_CONFLICTS_IN_B(SUB) SUB->conflicting_iterations_in_b
 #define SUB_LAST_CONFLICT(SUB) SUB->last_conflict
 #define SUB_DISTANCE(SUB) SUB->distance
+
+typedef struct loop *loop_p;
+DEF_VEC_P(loop_p);
+DEF_VEC_ALLOC_P (loop_p, heap);
 
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */
@@ -215,29 +257,34 @@ struct data_dependence_relation
   /* For each subscript in the dependence test, there is an element in
      this array.  This is the attribute that labels the edge A->B of
      the data_dependence_relation.  */
-  varray_type subscripts;
+  VEC (subscript_p, heap) *subscripts;
 
-  /* The size of the direction/distance vectors: the depth of the
-     analyzed loop nest.  */
-  int size_vect;
+  /* The analyzed loop nest.  */
+  VEC (loop_p, heap) *loop_nest;
 
   /* The classic direction vector.  */
-  VEC(lambda_vector,heap) *dir_vects;
+  VEC (lambda_vector, heap) *dir_vects;
 
   /* The classic distance vector.  */
-  VEC(lambda_vector,heap) *dist_vects;
+  VEC (lambda_vector, heap) *dist_vects;
 };
+
+typedef struct data_dependence_relation *ddr_p;
+DEF_VEC_P(ddr_p);
+DEF_VEC_ALLOC_P(ddr_p,heap);
 
 #define DDR_A(DDR) DDR->a
 #define DDR_B(DDR) DDR->b
 #define DDR_AFFINE_P(DDR) DDR->affine_p
 #define DDR_ARE_DEPENDENT(DDR) DDR->are_dependent
 #define DDR_SUBSCRIPTS(DDR) DDR->subscripts
-#define DDR_SUBSCRIPTS_VECTOR_INIT(DDR, N) \
-  VARRAY_GENERIC_PTR_INIT (DDR_SUBSCRIPTS (DDR), N, "subscripts_vector");
-#define DDR_SUBSCRIPT(DDR, I) VARRAY_GENERIC_PTR (DDR_SUBSCRIPTS (DDR), I)
-#define DDR_NUM_SUBSCRIPTS(DDR) VARRAY_ACTIVE_SIZE (DDR_SUBSCRIPTS (DDR))
-#define DDR_SIZE_VECT(DDR) DDR->size_vect
+#define DDR_SUBSCRIPT(DDR, I) VEC_index (subscript_p, DDR_SUBSCRIPTS (DDR), I)
+#define DDR_NUM_SUBSCRIPTS(DDR) VEC_length (subscript_p, DDR_SUBSCRIPTS (DDR))
+
+#define DDR_LOOP_NEST(DDR) DDR->loop_nest
+/* The size of the direction/distance vectors: the number of loops in
+   the loop nest.  */
+#define DDR_NB_LOOPS(DDR) (VEC_length (loop_p, DDR_LOOP_NEST (DDR)))
 
 #define DDR_DIST_VECTS(DDR) ((DDR)->dist_vects)
 #define DDR_DIR_VECTS(DDR) ((DDR)->dir_vects)
@@ -252,32 +299,63 @@ struct data_dependence_relation
 
 
 
-extern tree find_data_references_in_loop (struct loop *, varray_type *);
-extern struct data_dependence_relation *initialize_data_dependence_relation 
-(struct data_reference *, struct data_reference *);
-extern void compute_affine_dependence (struct data_dependence_relation *);
-extern void analyze_all_data_dependences (struct loops *);
-extern void compute_data_dependences_for_loop (struct loop *, bool,
-					       varray_type *, varray_type *);
+/* Describes a location of a memory reference.  */
 
+typedef struct data_ref_loc_d
+{
+  /* Position of the memory reference.  */
+  tree *pos;
+
+  /* True if the memory reference is read.  */
+  bool is_read;
+} data_ref_loc;
+
+DEF_VEC_O (data_ref_loc);
+DEF_VEC_ALLOC_O (data_ref_loc, heap);
+
+bool get_references_in_stmt (tree, VEC (data_ref_loc, heap) **);
+extern tree find_data_references_in_loop (struct loop *,
+					  VEC (data_reference_p, heap) **);
+extern void compute_data_dependences_for_loop (struct loop *, bool,
+					       VEC (data_reference_p, heap) **,
+					       VEC (ddr_p, heap) **);
+extern void print_direction_vector (FILE *, lambda_vector, int);
+extern void print_dir_vectors (FILE *, VEC (lambda_vector, heap) *, int);
+extern void print_dist_vectors (FILE *, VEC (lambda_vector, heap) *, int);
 extern void dump_subscript (FILE *, struct subscript *);
-extern void dump_ddrs (FILE *, varray_type);
-extern void dump_dist_dir_vectors (FILE *, varray_type);
+extern void dump_ddrs (FILE *, VEC (ddr_p, heap) *);
+extern void dump_dist_dir_vectors (FILE *, VEC (ddr_p, heap) *);
 extern void dump_data_reference (FILE *, struct data_reference *);
-extern void dump_data_references (FILE *, varray_type);
+extern void dump_data_references (FILE *, VEC (data_reference_p, heap) *);
+extern void debug_data_dependence_relation (struct data_dependence_relation *);
 extern void dump_data_dependence_relation (FILE *, 
 					   struct data_dependence_relation *);
-extern void dump_data_dependence_relations (FILE *, varray_type);
+extern void dump_data_dependence_relations (FILE *, VEC (ddr_p, heap) *);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
 extern void free_dependence_relation (struct data_dependence_relation *);
-extern void free_dependence_relations (varray_type);
-extern void free_data_refs (varray_type);
-extern void compute_subscript_distance (struct data_dependence_relation *);
+extern void free_dependence_relations (VEC (ddr_p, heap) *);
+extern void free_data_refs (VEC (data_reference_p, heap) *);
 extern struct data_reference *analyze_array (tree, tree, bool);
-extern void estimate_iters_using_array (tree, tree);
 
 
-
+/* Return the index of the variable VAR in the LOOP_NEST array.  */
+
+static inline int
+index_in_loop_nest (int var, VEC (loop_p, heap) *loop_nest)
+{
+  struct loop *loopi;
+  int var_index;
+
+  for (var_index = 0; VEC_iterate (loop_p, loop_nest, var_index, loopi);
+       var_index++)
+    if (loopi->num == var)
+      break;
+
+  return var_index;
+}
+
+/* In lambda-code.c  */
+bool lambda_transform_legal_p (lambda_trans_matrix, int, VEC (ddr_p, heap) *);
 
 #endif  /* GCC_TREE_DATA_REF_H  */

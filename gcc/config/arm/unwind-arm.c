@@ -337,6 +337,8 @@ selfrel_offset31 (const _uw *p)
   /* Sign extend to 32 bits.  */
   if (offset & (1 << 30))
     offset |= 1u << 31;
+  else
+    offset &= ~(1u << 31);
 
   return offset + (_uw) p;
 }
@@ -998,17 +1000,4 @@ __aeabi_unwind_cpp_pr2 (_Unwind_State state,
 			_Unwind_Context *context)
 {
   return __gnu_unwind_pr_common (state, ucbp, context, 2);
-}
-
-/* These two should never be used.  */
-_Unwind_Ptr
-_Unwind_GetDataRelBase (_Unwind_Context *context __attribute__ ((unused)))
-{
-  abort ();
-}
-
-_Unwind_Ptr
-_Unwind_GetTextRelBase (_Unwind_Context *context __attribute__ ((unused)))
-{
-  abort ();
 }

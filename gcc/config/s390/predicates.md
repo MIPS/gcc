@@ -62,7 +62,8 @@
 ;; Allow SYMBOL_REFs and @PLT stubs.
 
 (define_special_predicate "bras_sym_operand"
-  (ior (match_code "symbol_ref")
+  (ior (and (match_code "symbol_ref")
+	    (match_test "!flag_pic || SYMBOL_REF_LOCAL_P (op)"))
        (and (match_code "const")
 	    (and (match_test "GET_CODE (XEXP (op, 0)) == UNSPEC")
 		 (match_test "XINT (XEXP (op, 0), 1) == UNSPEC_PLT")))))
@@ -75,42 +76,16 @@
        (and (match_test "mode == Pmode")
 	    (match_test "!legitimate_la_operand_p (op)"))))
 
-;; Return true if OP is a valid operand for setmem.
+;; Return true if OP is a valid operand as shift count or setmem.
 
-(define_predicate "setmem_operand"
+(define_predicate "shift_count_or_setmem_operand"
   (match_code "reg, subreg, plus, const_int")
 {
   HOST_WIDE_INT offset;
   rtx base;
 
-  /* Extract base register and offset.  Use 8 significant bits.  */
-  if (!s390_decompose_shift_count (op, &base, &offset, 8))
-    return false;
-
-  /* Don't allow any non-base hard registers.  Doing so without
-     confusing reload and/or regrename would be tricky, and doesn't
-     buy us much anyway.  */
-  if (base && REGNO (base) < FIRST_PSEUDO_REGISTER && !ADDR_REG_P (base))
-    return false;
-
-  /* Unfortunately we have to reject constants that are invalid
-     for an address, or else reload will get confused.  */
-  if (!DISP_IN_RANGE (offset))
-    return false;
-
-  return true;
-})
-
-;; Return true if OP is a valid shift count operand.
-
-(define_predicate "shift_count_operand"
-  (match_code "reg, subreg, plus, const_int, and")
-{
-  HOST_WIDE_INT offset;
-  rtx base;
-
-  /* Extract base register and offset.  Use 6 significant bits.  */
-  if (!s390_decompose_shift_count (op, &base, &offset, 6))
+  /* Extract base register and offset.  */
+  if (!s390_decompose_shift_count (op, &base, &offset))
     return false;
 
   /* Don't allow any non-base hard registers.  Doing so without

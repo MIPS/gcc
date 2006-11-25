@@ -72,6 +72,7 @@ enum rid
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,
+  RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -81,19 +82,22 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
-  RID_THIS,     RID_THROW,    RID_TRUE,     
-  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
+  RID_THIS,     RID_THROW,    RID_TRUE,
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,
   RID_USING,
 
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
+  /* C++0x */
+  RID_STATIC_ASSERT,
+
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
-  RID_AT_PROTOCOL, RID_AT_SELECTOR,  
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,
   RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
   RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
   RID_AT_INTERFACE,
@@ -155,7 +159,7 @@ enum c_tree_index
     CTI_PRETTY_FUNCTION_NAME_DECL,
     CTI_C99_FUNCTION_NAME_DECL,
     CTI_SAVED_FUNCTION_NAME_DECLS,
-    
+
     CTI_VOID_ZERO,
 
     CTI_NULL,
@@ -289,18 +293,21 @@ extern void (*lang_post_pch_load) (void);
 
 extern void push_file_scope (void);
 extern void pop_file_scope (void);
-extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
+extern tree pushdecl_top_level (tree);
+extern tree pushdecl (tree);
+extern tree build_modify_expr (tree, enum tree_code, tree);
+extern tree build_indirect_ref (tree, const char *);
 
 extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
-extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
-                                  void *);
+extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
+				  void *);
 extern bool has_c_linkage (tree decl);
 
 /* Switches common to the C front ends.  */
@@ -401,14 +408,9 @@ extern int flag_const_strings;
 
 extern int flag_signed_bitfields;
 
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
+/* Warn about #pragma directives that are not recognized.  */
 
-extern int warn_write_strings;
-
-/* Warn about #pragma directives that are not recognized.  */      
-
-extern int warn_unknown_pragmas; /* Tri state variable.  */  
+extern int warn_unknown_pragmas; /* Tri state variable.  */
 
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
@@ -522,6 +524,11 @@ extern int flag_access_control;
 
 extern int flag_check_new;
 
+/* Nonzero if we want to allow the use of experimental features that
+   are likely to become part of C++0x. */
+
+extern int flag_cpp0x;
+
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
    0: Old rules, set by -fno-for-scope.
@@ -548,6 +555,11 @@ extern int flag_working_directory;
    destructors for local statics and global objects.  */
 
 extern int flag_use_cxa_atexit;
+
+/* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
+   logic.  */
+
+extern int flag_use_cxa_get_exception_ptr;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -639,6 +651,7 @@ extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
+extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
 extern tree c_sizeof_or_alignof_type (tree, bool, int);
@@ -649,10 +662,11 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
-extern void strict_aliasing_warning(tree, tree, tree);
+extern void strict_aliasing_warning (tree, tree, tree);
+extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void unsigned_conversion_warning (tree, tree);
+extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
 
@@ -677,6 +691,8 @@ extern void c_common_nodes_and_builtins (void);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
+
+extern void set_compound_literal_name (tree decl);
 
 extern tree build_va_arg (tree, tree);
 
@@ -752,6 +768,11 @@ extern tree build_unary_op (enum tree_code, tree, int);
 extern tree build_binary_op (enum tree_code, tree, tree, int);
 extern tree perform_integral_promotions (tree);
 
+/* These functions must be defined by each front-end which implements
+   a variant of the C language.  They are used by port files.  */
+
+extern tree default_conversion (tree);
+
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
 
@@ -818,7 +839,7 @@ extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
 
-extern tree fold_offsetof (tree);
+extern tree fold_offsetof (tree, tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
    Used to select diagnostic messages in lvalue_error and
@@ -851,7 +872,7 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
-extern void c_common_pch_pragma (cpp_reader *pfile);
+extern void c_common_pch_pragma (cpp_reader *pfile, const char *);
 extern void c_common_print_pch_checksum (FILE *f);
 
 /* In *-checksum.c */
@@ -930,6 +951,21 @@ extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
+
+/* In c-omp.c  */
+extern tree c_finish_omp_master (tree);
+extern tree c_finish_omp_critical (tree, tree);
+extern tree c_finish_omp_ordered (tree);
+extern void c_finish_omp_barrier (void);
+extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
+extern void c_finish_omp_flush (void);
+extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
+extern void c_split_parallel_clauses (tree, tree *, tree *);
+extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
+
+/* Not in c-omp.c; provided by the front end.  */
+extern bool c_omp_sharing_predetermined (tree);
+extern tree c_omp_remap_decl (tree, bool);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

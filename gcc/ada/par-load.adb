@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -237,9 +237,9 @@ begin
       else
          Error_Msg ("file { does not contain expected unit!", Loc);
          Error_Msg_Unit_1 := Expected_Unit (Cur_Unum);
-         Error_Msg ("expected unit $!", Loc);
+         Error_Msg ("\\expected unit $!", Loc);
          Error_Msg_Unit_1 := Unit_Name (Cur_Unum);
-         Error_Msg ("found unit $!", Loc);
+         Error_Msg ("\\found unit $!", Loc);
       end if;
 
       --  In both cases, remove the unit if it is the last unit (which it
@@ -299,7 +299,7 @@ begin
    --  If current unit is a child unit spec, load its parent. If the child unit
    --  is loaded through a limited with, the parent must be as well.
 
-   elsif     Nkind (Unit (Curunit)) = N_Package_Declaration
+   elsif     Nkind (Unit (Curunit)) =  N_Package_Declaration
      or else Nkind (Unit (Curunit)) =  N_Subprogram_Declaration
      or else Nkind (Unit (Curunit)) in N_Generic_Declaration
      or else Nkind (Unit (Curunit)) in N_Generic_Instantiation

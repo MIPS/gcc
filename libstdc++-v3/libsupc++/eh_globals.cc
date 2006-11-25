@@ -1,5 +1,6 @@
 // -*- C++ -*- Manage the thread-local exception globals.
-// Copyright (C) 2001, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -34,30 +35,37 @@
 #include "unwind-cxx.h"
 #include "bits/gthr.h"
 
+#if _GLIBCXX_HOSTED
+using std::free;
+using std::malloc;
+#else
+// In a freestanding environment, these functions may not be
+// available -- but for now, we assume that they are.
+extern "C" void *malloc (std::size_t);
+extern "C" void free(void *);
+#endif
+
 using namespace __cxxabiv1;
 
 #if _GLIBCXX_HAVE_TLS
 
-namespace __gnu_internal
+namespace
 {
-  using namespace abi;
-  using namespace std;
-
-  __cxa_eh_globals*
+  abi::__cxa_eh_globals*
   get_global() throw()
   {
-    static __thread __cxa_eh_globals global;
+    static __thread abi::__cxa_eh_globals global;
     return &global;
   }
-}
+} // anonymous namespace
 
 extern "C" __cxa_eh_globals*
 __cxxabiv1::__cxa_get_globals_fast() throw()
-{ return __gnu_internal::get_global(); }
+{ return get_global(); }
 
 extern "C" __cxa_eh_globals*
 __cxxabiv1::__cxa_get_globals() throw()
-{ return __gnu_internal::get_global(); }
+{ return get_global(); }
 
 
 #else
@@ -81,7 +89,7 @@ eh_globals_dtor(void* ptr)
 	  _Unwind_DeleteException(&exn->unwindHeader);
 	  exn = next;
 	}
-      std::free(ptr);
+      free(ptr);
     }
 }
 
@@ -100,6 +108,7 @@ struct __eh_globals_init
   {
     if (_M_init)
       __gthread_key_delete(_M_key);
+    _M_init = false;
   }
 };
 
@@ -125,12 +134,15 @@ __cxxabiv1::__cxa_get_globals() throw()
       g = static_cast<__cxa_eh_globals*>(__gthread_getspecific(init._M_key));
       if (!g)
 	{
-	  void* v = std::malloc(sizeof(__cxa_eh_globals));
+	  void* v = malloc(sizeof(__cxa_eh_globals));
 	  if (v == 0 || __gthread_setspecific(init._M_key, v) != 0)
 	    std::terminate();
 	  g = static_cast<__cxa_eh_globals*>(v);
 	  g->caughtExceptions = 0;
 	  g->uncaughtExceptions = 0;
+#ifdef __ARM_EABI_UNWINDER__
+	  g->propagatingExceptions = 0;
+#endif
 	}
     }
   else
