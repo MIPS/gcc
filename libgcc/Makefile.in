@@ -311,7 +311,7 @@ install: $(HOST_EXTRA_INSTALL)
 # defined as optimized assembly code in LIB1ASMFUNCS or as C code
 # in LIB2FUNCS_EXCLUDE.
 lib2funcs := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS),$(lib2funcs))
-LIB2_DIVMOD_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS),
+LIB2_DIVMOD_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS), \
 		       $(LIB2_DIVMOD_FUNCS))
 
 # Build "libgcc1" (assembly) components.
@@ -355,7 +355,7 @@ $(lib2funcs-s-o): %_s$(objext): $(gcc_srcdir)/libgcc2.c
 libgcc-s-objects += $(lib2funcs-s-o)
 endif
 
-ifeq ($(LIB2_SIDITI_CONV_FUNCS),)
+ifneq ($(LIB2_SIDITI_CONV_FUNCS),)
 # Build libgcc2.c for each conversion function, with a specific
 # L<func> definition and LIBGCC2_UNITS_PER_WORD setting.  The DImode
 # functions are built with a wordsize of 4; the TImode functions are

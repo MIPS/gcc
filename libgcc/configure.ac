@@ -87,9 +87,9 @@ AC_PROG_CC
 AC_PROG_CPP_WERROR
 
 # Check for decimal float support.
-AC_CACHE_CHECK([whether decimal floating point is supported], libgcc_cv_dfp,
-	       [AC_COMPILE_IFELSE ([_Decimal32 x;], [libgcc_cv_dfp=yes],
-				   [libgcc_cv_dfp=no])])
+AC_CACHE_CHECK([whether decimal floating point is supported], [libgcc_cv_dfp],
+	       [AC_COMPILE_IFELSE([_Decimal32 x;], [libgcc_cv_dfp=yes],
+				  [libgcc_cv_dfp=no])])
 decimal_float=$libgcc_cv_dfp
 AC_SUBST(decimal_float)
 

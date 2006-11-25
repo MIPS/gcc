@@ -44073,6 +44073,7 @@ configure-target-libstdc++-v3: maybe-all-gcc
 configure-target-libmudflap: maybe-all-gcc
 configure-target-libssp: maybe-all-gcc
 configure-target-newlib: maybe-all-gcc
+configure-target-libgcc: maybe-all-gcc
 configure-target-libgfortran: maybe-all-gcc
 configure-target-libobjc: maybe-all-gcc
 configure-target-libtermcap: maybe-all-gcc
@@ -44090,93 +44091,6 @@ configure-target-rda: maybe-all-gcc
 configure-target-libada: maybe-all-gcc
 configure-target-libgomp: maybe-all-gcc
 @endif gcc-no-bootstrap
-
-
-
-configure-target-boehm-gc: maybe-all-target-libgcc
-
-configure-target-boehm-gc: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-gperf: maybe-all-target-libgcc
-
-configure-target-gperf: maybe-all-target-newlib maybe-all-target-libgloss
-
-configure-target-gperf: maybe-all-target-libstdc++-v3
-
-configure-target-libada: maybe-all-target-libgcc
-
-configure-target-libada: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libgfortran: maybe-all-target-libgcc
-
-configure-target-libgfortran: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libffi: maybe-all-target-libgcc
-
-configure-target-libffi: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libjava: maybe-all-target-libgcc
-
-configure-target-libjava: maybe-all-target-newlib maybe-all-target-libgloss
-
-configure-target-libjava: maybe-all-target-libstdc++-v3
-
-configure-target-libmudflap: maybe-all-target-libgcc
-
-configure-target-libmudflap: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libobjc: maybe-all-target-libgcc
-
-configure-target-libobjc: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libssp: maybe-all-target-libgcc
-
-configure-target-libssp: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libstdc++-v3: maybe-all-target-libgcc
-
-configure-target-libstdc++-v3: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-zlib: maybe-all-target-libgcc
-
-configure-target-zlib: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libiberty: maybe-all-target-libgcc
-
-
-configure-target-examples: maybe-all-target-libgcc
-
-configure-target-examples: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-libtermcap: maybe-all-target-libgcc
-
-configure-target-libtermcap: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-rda: maybe-all-target-libgcc
-
-configure-target-rda: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-winsup: maybe-all-target-libgcc
-
-configure-target-winsup: maybe-all-target-newlib maybe-all-target-libgloss
-
-
-configure-target-qthreads: maybe-all-target-libgcc
-
-configure-target-qthreads: maybe-all-target-newlib maybe-all-target-libgloss
-
 
 
 # There are two types of dependencies here: 'hard' dependencies, where one
@@ -44719,6 +44633,80 @@ all-target-libstdc++-v3: maybe-all-target-libiberty
 all-target-libgloss: maybe-configure-target-newlib
 all-target-winsup: maybe-all-target-libiberty
 all-target-winsup: maybe-all-target-libtermcap
+
+
+
+# Dependencies for target modules on other target modules are
+# described by lang_env_dependencies; the defaults apply to anything
+# not mentioned there.
+
+
+@if gcc-bootstrap
+@endif gcc-bootstrap
+
+@if gcc-no-bootstrap
+configure-target-libstdc++-v3: maybe-all-target-libgcc
+configure-target-libmudflap: maybe-all-target-libgcc
+configure-target-libssp: maybe-all-target-libgcc
+configure-target-newlib: maybe-all-target-libgcc
+configure-target-libgfortran: maybe-all-target-libgcc
+configure-target-libobjc: maybe-all-target-libgcc
+configure-target-libtermcap: maybe-all-target-libgcc
+configure-target-winsup: maybe-all-target-libgcc
+configure-target-libgloss: maybe-all-target-libgcc
+configure-target-libiberty: maybe-all-target-libgcc
+configure-target-gperf: maybe-all-target-libgcc
+configure-target-examples: maybe-all-target-libgcc
+configure-target-libffi: maybe-all-target-libgcc
+configure-target-libjava: maybe-all-target-libgcc
+configure-target-zlib: maybe-all-target-libgcc
+configure-target-boehm-gc: maybe-all-target-libgcc
+configure-target-qthreads: maybe-all-target-libgcc
+configure-target-rda: maybe-all-target-libgcc
+configure-target-libada: maybe-all-target-libgcc
+configure-target-libgomp: maybe-all-target-libgcc
+@endif gcc-no-bootstrap
+
+
+configure-target-libstdc++-v3: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libmudflap: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libssp: maybe-all-target-newlib maybe-all-target-libgloss
+
+
+
+configure-target-libgfortran: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libobjc: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libtermcap: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-winsup: maybe-all-target-newlib maybe-all-target-libgloss
+
+
+
+configure-target-gperf: maybe-all-target-newlib maybe-all-target-libgloss
+configure-target-gperf: maybe-all-target-libstdc++-v3
+
+configure-target-examples: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libffi: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libjava: maybe-all-target-newlib maybe-all-target-libgloss
+configure-target-libjava: maybe-all-target-libstdc++-v3
+
+configure-target-zlib: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-boehm-gc: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-qthreads: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-rda: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libada: maybe-all-target-newlib maybe-all-target-libgloss
+
+configure-target-libgomp: maybe-all-target-newlib maybe-all-target-libgloss
 
 
 # Non-toplevel bootstrap rules must depend on several packages, to be built

@@ -1,5 +1,13 @@
 2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
 
+	* Makefile.in (LIB2_DIVMOD_FUNCS): Add missing backslash.
+	(LIB2_SIDITI_CONV_FUNCS): Correct conditional.
+	* libgcc/configure.ac: Correct decimal floating point check.
+	* siditi-object.mk: Add missing -c.
+	* configure: Regenerated.
+
+2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
+
 	* Makefile.in (decimal_float): New.  Build decimal float support.
 	(lib2funcs): Add _bswapsi2 and _bswapdi2.
 	(swfloatfuncs, dwfloatfuncs): New.  Handle LIB2_SIDITI_CONV_FUNCS.

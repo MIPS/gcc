@@ -1,0 +1,8 @@
+2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.def (lang_env_dependencies): Remove default items.
+	Use no_c and no_gcc.
+	* Makefile.tpl: Emit --disable-bootstrap dependencies on libgcc
+	even for bootstrapped modules.  Rewrite handling of
+	lang_env_dependencies to loop over target_modules.
+	* Makefile.in: Regenerated.

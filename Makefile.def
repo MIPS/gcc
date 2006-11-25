@@ -439,26 +439,17 @@ dependencies = { module=all-tar; on=all-build-texinfo; };
 dependencies = { module=all-uudecode; on=all-build-texinfo; };
 
 // Target modules.  These can also have dependencies on the language
-// environment (e.g. on libstdc++).
-lang_env_dependencies = { module=boehm-gc; };
+// environment (e.g. on libstdc++).  By default target modules depend
+// on libgcc and newlib/libgloss.
 lang_env_dependencies = { module=gperf; cxx=true; };
-lang_env_dependencies = { module=libada; };
-lang_env_dependencies = { module=libgfortran; };
-lang_env_dependencies = { module=libffi; };
 lang_env_dependencies = { module=libjava; cxx=true; };
-lang_env_dependencies = { module=libmudflap; };
-lang_env_dependencies = { module=libobjc; };
-lang_env_dependencies = { module=libssp; };
-lang_env_dependencies = { module=libstdc++-v3; };
-lang_env_dependencies = { module=zlib; };
-
-// libiberty does not depend on newlib or libgloss because it must be built
-// before newlib on some targets (e.g. Cygwin), but it still needs a
-// dependency on libgcc for native targets.  This is only for the
-// non-bootstrap case, because only libgcc is bootstrapped - for a bootstrap
-// build, all non-boostrapped libraries are serialized after all
-// bootstrapped libraries.
-lang_env_dependencies = { module=libiberty; no_newlib=true; };
+lang_env_dependencies = { module=newlib; no_c=true; };
+lang_env_dependencies = { module=libgloss; no_c=true; };
+lang_env_dependencies = { module=libgcc; no_gcc=true; no_c=true; };
+// libiberty does not depend on newlib or libgloss because it must be
+// built newlib on some targets (e.g. Cygwin).  It still needs
+// a dependency on libgcc for native targets to configure.
+lang_env_dependencies = { module=libiberty; no_c=true; };
 
 dependencies = { module=configure-target-boehm-gc; on=configure-target-qthreads; };
 dependencies = { module=configure-target-fastjar; on=configure-target-zlib; };
