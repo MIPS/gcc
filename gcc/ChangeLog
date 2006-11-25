@@ -1,3 +1,173 @@
+2006-11-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	config/i386/i386.md (fpremxf4): Rename to fpremxf4_i387.
+	(fprem1xf4): Rename to fprem1xf4_i387.
+
+	(fmodsf3, fmoddf3): Macroize patterns using X87MODEF12 mode macro.
+	Rename patterns to fmod<mode>3.  Use general_operand operand
+	constraint for operands 1 and 2.  Use SSE_FLOAT_MODE_P to disable
+	patterns for SSE math.
+	(remaindersf3, remainderdf3): Ditto.
+
+2006-11-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* function.c (instantiate_virtual_regs_in_insn): Call force_reg
+	inside start_sequence / end_sequence pair.
+
+2006-11-25  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* jump.c (mark_all_labels): Work in cfglayout mode.
+	* cfgcleanup.c (cleanup_cfg): Do not call delete_dead_jumptables
+	when in cfglayout mode, because there are no dead jumptables
+	visible.
+	* cfgrtl.c (commit_one_edge_insertion): Don't set bb->aux when
+	in cfglayout mode.
+	(commit_edge_insertions): Do not allow insertion of instructions
+	with control flow insns when in cfglayout mode.
+
+2006-11-25  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-vrp.c (execute_vrp): Do not pass loops structure through
+	arguments.
+	* loop-unswitch.c (unswitch_loops, unswitch_single_loop,
+	unswitch_loop): Ditto.
+	* tree-loop-linear.c (linear_transform_loops): Ditto.
+	* tree-ssa-loop-im.c (determine_lsm, tree_ssa_lim_initialize,
+	tree_ssa_lim): Ditto.
+	* tree-ssa-loop-niter.c (estimate_numbers_of_iterations,
+	free_numbers_of_iterations_estimates): Ditto.
+	* tree-ssa-loop-unswitch.c (tree_ssa_unswitch_loops,
+	tree_unswitch_single_loop, tree_unswitch_loop): Ditto.
+	* cfgloopmanip.c (fix_bb_placement, fix_bb_placements,
+	remove_path, add_loop, loopify, unloop, fix_loop_placements,
+	place_new_loop, duplicate_loop, duplicate_subloops,
+	update_single_exit_for_duplicated_loops, copy_loops_to,
+	duplicate_loop_to_header_edge, create_preheaders,
+	force_single_succ_latches, loop_version, fix_loop_structure):
+	Ditto.
+	* tree-ssa-loop-manip.c (tree_duplicate_loop_to_header_edge,
+	tree_unroll_loop): Ditto.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Ditto.
+	* tree-scalar-evolution.c (select_loops_exit_conditions,
+	scev_initialize, scev_analysis): Ditto.
+	* tree-scalar-evolution.h (scev_initialize): Ditto.
+	* cfghooks.c (cfg_hook_duplicate_loop_to_header_edge): Ditto.
+	* cfgloopanal.c (mark_irreducible_loops, mark_loop_exit_edges): Ditto.
+	* tree-ssa-loop-ivopts.c (tree_ssa_iv_optimize): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Ditto.
+	* loop-init.c (loop_optimizer_init, rtl_move_loop_invariants,
+	rtl_unswitch, rtl_unroll_and_peel_loops, rtl_doloop): Ditto.
+	* ifcvt.c (if_convert): Ditto.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely,
+	canonicalize_loop_induction_variables,
+	canonicalize_induction_variables,
+	tree_unroll_loops_completely, remove_empty_loops): Ditto.
+	* tree-ssa-loop.c (tree_ssa_loop_init, tree_ssa_loop_im,
+	tree_ssa_loop_unswitch, tree_vectorize, tree_linear_transform,
+	tree_ssa_loop_ivcanon, tree_ssa_empty_loop, tree_ssa_loop_bounds,
+	tree_complete_unroll, tree_ssa_loop_prefetch, tree_ssa_loop_ivopts,
+	tree_ssa_loop_done): Ditto.
+	* predict.c (predict_loops, tree_estimate_probability, estimate_loops,
+	estimate_bb_frequencies): Ditto.
+	* tree-vectorizer.c (slpeel_tree_duplicate_loop_to_edge_cfg,
+	slpeel_tree_peel_loop_to_edge, vectorize_loops): Ditto.
+	* loop-unroll.c (unroll_and_peel_loops, peel_loops_completely,
+	decide_unrolling_and_peeling, peel_loop_completely,
+	unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+	peel_loop_simple, unroll_loop_stupid): Ditto.
+	* loop-doloop.c (doloop_optimize_loops): Ditto.
+	* tree-cfgcleanup.c (cleanup_tree_cfg_loop): Ditto.
+	* loop-invariant.c (move_loop_invariants): Ditto.
+	* tree-ssa-dce.c (tree_ssa_dce_loop): Ditto.
+	* tree-ssa-loop-prefetch.c (loop_prefetch_arrays,
+	tree_ssa_prefetch_arrays): Ditto.
+	* lambda-code.c (gcc_loopnest_to_lambda_loopnest, perfect_nestify):
+	Ditto.
+	* tree-vect-transform.c (vect_do_peeling_for_loop_bound,
+	vect_do_peeling_for_alignment, vect_transform_loop): Ditto.
+	* cfgloop.c (flow_loops_cfg_dump, flow_loops_dump,
+	mark_single_exit_loops, cancel_loop, cancel_loop_tree,
+	verify_loop_structure): Ditto.
+	* tree-flow.h (vectorize_loops, tree_ssa_lim, tree_ssa_unswitch_loops,
+	canonicalize_induction_variables, tree_unroll_loops_completely,
+	tree_ssa_prefetch_arrays, remove_empty_loops, tree_ssa_iv_optimize,
+	estimate_numbers_of_iterations, free_numbers_of_iterations_estimates,
+	tree_duplicate_loop_to_header_edge, tree_ssa_loop_version,
+	tree_unroll_loop, linear_transform_loops): Declaration changed.
+	* basic-block.h: Remove declaration of struct loops.
+	* cfghooks.h (struct cfg_hooks): Change type of
+	cfg_hook_duplicate_loop_to_header_edge.
+	(cfg_hook_duplicate_loop_to_header_edge): Declaration changed.
+	* tree-vectorizer.h (slpeel_tree_peel_loop_to_edge,
+	vect_transform_loop): Declaration changed.
+	* lambda.h (gcc_loopnest_to_lambda_loopnest): Declaration changed.
+	* cfgloop.h (flow_loops_dump, fix_loop_structure,
+	mark_irreducible_loops, mark_single_exit_loops, mark_loop_exit_edges,
+	cancel_loop_tree, create_preheaders, force_single_succ_latches,
+	verify_loop_structure, duplicate_loop, duplicate_loop_to_header_edge,
+	loopify, loop_version, remove_path, unswitch_loops,
+	unroll_and_peel_loops, doloop_optimize_loops, move_loop_invariants):
+	Declaration changed.
+
+2006-11-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (UNSPEC_TRUNC_NOOP): New unspec definition.
+	(X87MODEF): New mode macro.
+	(ssemodefsuffix): New mode attribute.
+	(truncxf<mode>2_i387_noop_unspec): New insn pattern.
+	(sqrt_extend<mode>xf2_i387): New insn pattern.
+	(sqrt<mode>2): For non-SSE sqrt, emit sqrt_extend<mode>xf2_i387
+	insn and truncate result back to original mode using
+	UNSPEC_TRUNC_NOOP truncation.
+	(*sqrt<mode>2_sse): Implement using SSEMODEF mode macro and
+	ssemodefsuffix mode attribute.
+	(*sqrtsf2_mixed, *sqrtsf2_i387, *sqrtdf2_mixed, *sqrtdf2_i387)
+	(*sqrtextendsfdf2_i387, *sqrtextendsfxf2_i387)
+	(*sqrtextenddfxf2_i387): Remove insn patterns.
+
+	(fmodsf3, fmoddf3, remaindersf3, remainderdf3): Use noop
+	truncation patterns.
+
+	* reg-stack.c (get_true_reg): Handle UNSPEC_TRUNC_NOOP. 
+	
+2006-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/29955
+	* c-tree.h (c_maybe_initialize_eh): New prototype.
+	* c-decl.c (finish_decl): Move EH initialization...
+	(c_maybe_initialize_eh): ... here.  New function.
+	* c-parser.c (c_parser_omp_construct): Call c_maybe_initialize_eh
+	if not #pragma omp atomic.
+
+	PR c/29736
+	* c-common.c (handle_vector_size_attribute): Disallow VECTOR_TYPE
+	or UNION_TYPE inner types.
+
+2006-11-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29964
+	* ipa-pure-const.c (check_tree): If the original tree
+	is volatile return early and say the function is not pure
+	nor const.  Remove the volatile check for writes.  
+	(analyze_function): Print out the result of the local
+	analysis pass.
+
+2006-11-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/eabispe.h (TARGET_DEFAULT): Include
+	MASK_STRICT_ALIGN.
+	* config/rs6000/linuxspe.h (TARGET_DEFAULT): Likewise.
+	* config/rs6000/rs6000.c (rs6000_override_options): Use
+	MASK_STRICT_ALIGN for 8540 and 8548.  Add MASK_STRICT_ALIGN to
+	POWERPC_MASKS.
+
+2006-11-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390.c (s390_emit_compare_and_swap): New function.
+	(s390_expand_cs_hqi, s390_expand_atomic): Call 
+	s390_emit_compare_and_swap.
+
 2006-11-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* pa.c (return_addr_rtx): Change 0xe0400002 to -532676606.
@@ -93,7 +263,7 @@
 	(erase_self_graph_edge): Ditto.
 	(add_graph_edge): Removed.
 	(get_graph_weights): Ditto.
-	(allocate_graph_weights): Ditto.	(
+	(allocate_graph_weights): Ditto.
 	(valid_weighted_graph_edge): Ditto
 	(bitmap_other_than_zero_bit_set): Ditto.
 	(int_add_graph_edge): Renamed to add_graph_edge.
@@ -1324,7 +1494,7 @@
 
 2006-11-11  Jan Hubicka  <jh@suse.cz>
 
-	* extended.texi (__builtin_expect): We no longer require second argument
+	* extend.texi (__builtin_expect): We no longer require second argument
 	to be constant.
 	* gengtype.c (adjust_field_rtx_def): Drop NOTE_INSN_EXPECTED_VALUE.
 	* builtins.c (expand_builtin_expect): Simplify.
