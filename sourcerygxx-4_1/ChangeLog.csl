@@ -1,3 +1,9 @@
+2006-11-25  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* function.c (instantiate_virtual_regs_in_insn): Call force_reg
+	inside start_sequence / end_sequence pair.
+
 2006-11-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
