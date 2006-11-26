@@ -1,3 +1,9 @@
+2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (DECNUMINC): Define.
+	(INCLUDES): Use it.
+	* config/rs6000/t-ldbl128 (SHLIB_MAPFILES): Correct source path.
+
 2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.in (LIB2_DIVMOD_FUNCS): Add missing backslash.

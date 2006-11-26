@@ -1,4 +1,4 @@
-SHLIB_MAPFILES += $(srcdir)/config/rs6000/libgcc-ppc-glibc.ver
+SHLIB_MAPFILES += $(gcc_srcdir)/config/rs6000/libgcc-ppc-glibc.ver
 
 # Use -mlong-double-128 only when not compiling nof libgcc.
 predefined-macros := $(shell true | $(CC) $(CFLAGS) -x c -dD -E -)

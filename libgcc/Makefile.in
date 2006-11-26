@@ -177,6 +177,8 @@ export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
 
+DECNUMINC = -I$(srcdir)/../libdecnumber -I$(MULTIBUILDTOP)../../libdecnumber
+
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
 # so that *config.h will be found in the compilation
@@ -185,7 +187,7 @@ export slibdir
 # currently being compiled, in both source trees, to be examined as well.
 INCLUDES = -I. -I$(@D) -I$(gcc_objdir) \
 	   -I$(srcdir) -I$(srcdir)/$(@D) -I$(srcdir)/../gcc \
-	   -I$(srcdir)/../include
+	   -I$(srcdir)/../include $(DECNUMINC)
 
 # CFLAGS first is not perfect; normally setting CFLAGS should override any
 # options in LIBGCC2_CFLAGS.  But LIBGCC2_CFLAGS may contain -g0, and CFLAGS
