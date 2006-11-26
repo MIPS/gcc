@@ -40,6 +40,13 @@
 
 hmake_file=$cpu_type/t-$cpu_type
 
+# Common parts for widely ported systems.
+case ${host} in
+*-*-darwin*)
+	hmake_file="${hmake_file} t-slibgcc-darwin"
+	;;
+esac
+
 case ${host} in
 powerpc64-*-linux*)
 	hmake_file="${hmake_file} rs6000/t-ldbl128"

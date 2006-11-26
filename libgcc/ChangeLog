@@ -1,4 +1,10 @@
 2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/t-slibgcc-darwin: New file.
+	* config.gcc: Handle Darwin.
+
+2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* siditi-object.mk: Use separate variables per iteration.
 
