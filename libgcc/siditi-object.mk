@@ -5,18 +5,18 @@
 o := $(firstword $(iter-items))
 iter-items := $(filter-out $o,$(iter-items))
 
-label := $(firstword $(iter-labels))
+$o-label := $(firstword $(iter-labels))
 iter-labels := $(wordlist 2,$(words $(iter-labels)),$(iter-labels))
 
-size := $(firstword $(iter-sizes))
+$o-size := $(firstword $(iter-sizes))
 iter-sizes := $(wordlist 2,$(words $(iter-sizes)),$(iter-sizes))
 
-$o$(objext): $(gcc_srcdir)/libgcc2.c
-	$(gcc_compile) -DL$(label) -c $(gcc_srcdir)/libgcc2.c $(vis_hide) \
-		-DLIBGCC2_UNITS_PER_WORD=$(size)
+$o$(objext): %$(objext): $(gcc_srcdir)/libgcc2.c
+	$(gcc_compile) -DL$($*-label) -c $(gcc_srcdir)/libgcc2.c $(vis_hide) \
+		-DLIBGCC2_UNITS_PER_WORD=$($*-size)
 
 ifeq ($(enable_shared),yes)
-$(o)_s$(objext): $(gcc_srcdir)/libgcc2.c
-	$(gcc_s_compile) -DL$(label) -c $(gcc_srcdir)/libgcc2.c \
-		-DLIBGCC2_UNITS_PER_WORD=$(size)
+$(o)_s$(objext): %_s$(objext): $(gcc_srcdir)/libgcc2.c
+	$(gcc_s_compile) -DL$($*-label) -c $(gcc_srcdir)/libgcc2.c \
+		-DLIBGCC2_UNITS_PER_WORD=$($*-size)
 endif

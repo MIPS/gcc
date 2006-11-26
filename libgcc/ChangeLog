@@ -1,5 +1,9 @@
 2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
 
+	* siditi-object.mk: Use separate variables per iteration.
+
+2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
+
 	* Makefile.in (DECNUMINC): Define.
 	(INCLUDES): Use it.
 	* config/rs6000/t-ldbl128 (SHLIB_MAPFILES): Correct source path.
