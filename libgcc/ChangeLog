@@ -1,4 +1,18 @@
 2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/t-slibgcc-darwin (SHLIB_LINK): Doc fix.
+	(SHLIB_INSTALL): Only define for the top multilib.
+	(INSTALL_FILES): Always set.
+	(libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)): Remove redundant rule.
+	(libgcc_s.%.dylib): Correct path.
+	(libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)): Likewise.
+	(install-darwin-libgcc-links): New.
+	* config/rs6000/t-darwin: New file.
+	* config/i386/t-darwin, config/i386/t-darwin64: New files.
+	* config.gcc: Initialize cpu_type.  Handle Darwin.
+	* Makefile.in: Update comments.
+
+2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
 	    Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/t-slibgcc-darwin: New file.

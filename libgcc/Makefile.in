@@ -733,7 +733,8 @@ include $(srcdir)/empty.mk $(wildcard *.dep)
 
 # FIXME QUEUE:
 #  Darwin and i386-netware (t-nwld) have additional rules needed to build
-#  bits of shared libgcc.
+#  bits of shared libgcc.  Darwin's are handled and need to be garbage
+#  collected from gcc/.  Netware's need handling.
 
 # TODO QUEUE:
 #   Garbage collect in gcc/:

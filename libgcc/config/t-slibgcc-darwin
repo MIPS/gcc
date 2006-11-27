@@ -14,18 +14,13 @@ SHLIB_LC = -lc
 # Darwin only searches in /usr/lib for shared libraries, not in subdirectories,
 # so the libgcc variants have different names not different locations.
 # Note that this version is used for the loader, not the linker; the linker
-# uses the stub versions named by $(LIBGCC).
+# uses the stub versions named by the versioned members of $(INSTALL_FILES).
 SHLIB_LINK = $(CC) $(LIBGCC2_CFLAGS) -dynamiclib -nodefaultlibs \
 	-Wl,-install_name,$(slibdir)/$(SHLIB_INSTALL_NAME) \
 	-single_module -o $(SHLIB_DIR)/$(SHLIB_SONAME).tmp \
 	-Wl,-exported_symbols_list,$(SHLIB_MAP) \
 	$(SHLIB_VERSTRING) \
 	@multilib_flags@ $(SHLIB_OBJS) $(SHLIB_LC)
-
-SHLIB_INSTALL = \
-	$(mkinstalldirs) $(DESTDIR)$(slibdir); \
-	$(INSTALL_DATA) $(SHLIB_SONAME) \
-	  $(DESTDIR)$(slibdir)/$(SHLIB_SONAME)
 
 SHLIB_MKMAP = $(gcc_srcdir)/mkmap-flat.awk
 SHLIB_MKMAP_OPTS = -v leading_underscore=1
@@ -34,15 +29,20 @@ SHLIB_MAPFILES += $(gcc_srcdir)/libgcc-std.ver
 # Must use a different directive for hidden visibility in assembly sources.
 ASM_HIDDEN_OP = .private_extern
 
+INSTALL_FILES=libgcc_s.10.4.dylib libgcc_s.10.5.dylib libgcc_s.1.dylib
+
 # For the toplevel multilib, build a fat archive including all the multilibs.
 ifeq ($(MULTIBUILDTOP),)
+
+SHLIB_INSTALL = \
+	$(mkinstalldirs) $(DESTDIR)$(slibdir); \
+	$(INSTALL_DATA) $(SHLIB_SONAME) \
+	  $(DESTDIR)$(slibdir)/$(SHLIB_SONAME)
 
 ifeq ($(enable_shared),yes)
 HOST_EXTRA = $(INSTALL_FILES)
 HOST_EXTRA_INSTALL = install-darwin-libgcc-stubs
 endif
-
-libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT) : libgcc_s$(SHLIB_EXT)
 
 # In order to support -mmacosx-version-min, you need to have multiple
 # different libgcc_s libraries that actually get linked against, one for
@@ -60,7 +60,7 @@ libgcc_s.%.dylib : $(SHLIB_VERPFX).%.ver libgcc_s$(SHLIB_EXT) all-multi
 	for mlib in $$MLIBS ; do \
 	  $(STRIP) -o $(@)_T$${mlib} \
 	    -s $(SHLIB_VERPFX).$(*).ver -c -u \
-	    ../$${mlib}/libgcc/libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT).tmp || exit 1 ; \
+	    ../$${mlib}/libgcc/$${mlib}/libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT).tmp || exit 1 ; \
 	done
 	$(LIPO) -output $@ -create $(@)_T*
 	rm $(@)_T*
@@ -72,14 +72,12 @@ libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT): all-multi libgcc_s$(SHLIB_EXT) \
 	MLIBS=`$(CC) --print-multi-lib \
 		| sed -e 's/;.*$$//' -e '/^\.$$/d'` ; \
 	for mlib in $$MLIBS ; do \
-	  cp ../$${mlib}/libgcc/libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT).tmp \
+	  cp ../$${mlib}/libgcc/$${mlib}/libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT).tmp \
 	    ./libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)_T_$${mlib} || exit 1 ; \
 	done
 	$(LIPO) -output libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT) \
 	  -create libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)_T*
 	rm libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)_T*
-
-INSTALL_FILES=libgcc_s.10.4.dylib libgcc_s.10.5.dylib libgcc_s.1.dylib
 
 install-darwin-libgcc-stubs : $(INSTALL_FILES)
 	$(mkinstalldirs) $(DESTDIR)$(slibdir)
@@ -96,5 +94,32 @@ install-darwin-libgcc-stubs : $(INSTALL_FILES)
 	else true; fi
 	$(LN_S) libgcc_s.1.dylib \
 		$(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib
+
+else
+
+# Do not install shared libraries for any other multilibs.  Unless
+# we're putting them in the gcc directory during a build, for
+# compatibility with the pre-top-level layout.  In that case we
+# need symlinks.
+SHLIB_INSTALL =
+
+ifeq ($(enable_shared),yes)
+all: install-darwin-libgcc-links
+endif
+
+install-darwin-libgcc-links:
+	$(mkinstalldirs) $(gcc_objdir)$(MULTISUBDIR)
+	for file in $(INSTALL_FILES); do			\
+	  rm -f $(gcc_objdir)$(MULTISUBDIR)/$$file;		\
+	  $(LN_S) ../$$file $(gcc_objdir)$(MULTISUBDIR)/;	\
+	done
+
+	rm -f $(gcc_objdir)$(MULTISUBDIR)/libgcc_s_x86_64.1.dylib
+	$(LN_S) libgcc_s.1.dylib \
+		$(gcc_objdir)$(MULTISUBDIR)/libgcc_s_x86_64.1.dylib
+
+	rm -f $(gcc_objdir)$(MULTISUBDIR)/libgcc_s_ppc64.1.dylib
+	$(LN_S) libgcc_s.1.dylib \
+		$(gcc_objdir)$(MULTISUBDIR)/libgcc_s_ppc64.1.dylib
 
 endif

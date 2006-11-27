@@ -40,14 +40,94 @@
 
 hmake_file=$cpu_type/t-$cpu_type
 
+# Set default cpu_type.
+cpu_type=`echo ${host} | sed 's/-.*$//'`
+case ${host} in
+m32c*-*-*)
+        cpu_type=m32c
+        ;;
+alpha*-*-*)
+	cpu_type=alpha
+	;;
+am33_2.0-*-linux*)
+	cpu_type=mn10300
+	;;
+strongarm*-*-*)
+	cpu_type=arm
+	;;
+arm*-*-*)
+	cpu_type=arm
+	;;
+bfin*-*)
+	cpu_type=bfin
+	;;
+ep9312*-*-*)
+	cpu_type=arm
+	;;
+frv*)	cpu_type=frv
+	;;
+xscale-*-*)
+	cpu_type=arm
+	;;
+i[34567]86-*-*)
+	cpu_type=i386
+	;;
+x86_64-*-*)
+	cpu_type=i386
+	;;
+ia64-*-*)
+	extra_headers=ia64intrin.h
+	;;
+hppa*-*-* | parisc*-*-*)
+	cpu_type=pa
+	;;
+m32r*-*-*)
+        cpu_type=m32r
+        ;;
+m680[012]0-*-*)
+	cpu_type=m68k
+	;;
+mips*-*-*)
+	cpu_type=mips
+	;;
+powerpc*-*-*)
+	cpu_type=rs6000
+	;;
+score*-*-*)
+	cpu_type=score
+	;;
+sparc64*-*-*)
+	cpu_type=sparc
+	;;
+sparc*-*-*)
+	cpu_type=sparc
+	;;
+spu*-*-*)
+	cpu_type=spu
+	;;
+s390*-*-*)
+	cpu_type=s390
+	;;
+# Note the 'l'; we need to be able to match e.g. "shle" or "shl".
+sh[123456789lbe]*-*-*)
+	cpu_type=sh
+	;;
+tic4x-*-*)
+        cpu_type=c4x
+        ;;
+esac
+
 # Common parts for widely ported systems.
 case ${host} in
 *-*-darwin*)
-	hmake_file="${hmake_file} t-slibgcc-darwin"
+	hmake_file="t-darwin ${cpu_type}/t-darwin t-slibgcc-darwin"
 	;;
 esac
 
 case ${host} in
+x86_64-*-darwin*)
+	hmake_file="t-darwin ${cpu_type}/t-darwin64 t-slibgcc-darwin"
+	;;
 powerpc64-*-linux*)
 	hmake_file="${hmake_file} rs6000/t-ldbl128"
 	;;
