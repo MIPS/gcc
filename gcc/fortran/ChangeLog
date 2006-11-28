@@ -1,3 +1,178 @@
+2006-11-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29892
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Use a locus in
+	the call to gfc_trans_runtime_check.
+	* trans-array.c (gfc_trans_array_bound_check): Try harder to find
+	the variable or function name for the runtime error message.
+	(gfc_trans_dummy_array_bias): Use a locus in the call to
+	gfc_trans_runtime_check
+
+2006-11-26  Andrew Pinski  <pinskia@gmail.com>
+
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Mark the
+	pow functions as constant functions.
+
+2006-11-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29982
+	* trans-expr.c (gfc_conv_expr_reference): Strip off NOP_EXPRs.
+
+2006-11-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29951
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Change to
+	call memcpy instead of creating a VIEW_CONVERT_EXRP.
+
+2006-11-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29711
+	* error.c (error_print): Handle printf-style position specifiers,
+	of the form "%3$d".
+
+2006-11-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20880
+	* parse.c (parse_interface): Error if procedure name is that of
+	encompassing scope.
+	* resolve.c (resolve_fl_procedure): Error if procedure is
+	ambiguous.
+
+	PR fortran/29387
+	* interface.c (compare_actual_formal): Add missing condition
+	that 'where' be present for error that asserts that actual
+	arguments be definable.
+
+2006-11-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* resolve.c (resolve_actual_arglist): Remove the special case for
+	CHAR.
+	* intrinsic.c (add_functions): Remove the special case for CHAR.
+
+2006-11-22  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/29441
+	* intrinsic.c (gfc_intrinsic_func_interface): Always check if
+	intrinsic is allowed in initialization expression.
+
+2006-11-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25087
+	* resolve.c (resolve_fl_procedure): Add an error if an external
+	automatic character length function does not have an explicit
+	interface.
+
+2006-11-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29652
+	* interface.c (check_interface1): Use a local value, instead of
+	the dummy, as the inner iterator over interface symbols.
+
+2006-11-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29820
+	* trans-array.c (gfc_get_derived_type): Once done, spread the
+	backend_decl to all identical derived types in all sibling
+	namespaces.
+
+2006-11-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27546
+	* primary.c (gfc_match_rvalue): Added IMPORT support.
+
+2006-11-20  Tobias Burnus  <burnus@net-b.de>
+
+	* symbol.c (check_conflict): Add conflict between VOLATILE
+	  attribute and program name.
+
+2006-11-20  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR fortran/24783
+	* resolve.c (resolve_variable): Get the implicit type from the
+	symbols namespace rather than the default namespace. Fix whitespace.
+	(resolve_formal_arglist, resolve_equivalence): Fix typo.
+
+2006-11-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* resolve.c (resolve_ref): Check for ALLOCATABLEs to the right of
+	  nonzero rank part references too.
+
+2006-11-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* module.c (gfc_use_module): Uncomment the ISO_FORTRAN_ENV code.
+	Check that intrinsic and non-intrinsic modules don't conflict.
+	(use_iso_fortran_env_module): New function.
+	(create_int_parameter): New function.
+	* trans-types.c (gfc_init_kinds): Choose values for
+	gfc_numeric_storage_size and gfc_character_storage_size.
+	(gfc_numeric_storage_size, gfc_character_storage_size): New variables.
+	* resolve.c (resolve_symbol): Do no check intrinsic modules
+	against the list of intrinsic symbols.
+	* iso-fortran-env.def: New file.
+	* gfortran.h (gfc_numeric_storage_size,
+	gfc_character_storage_size): Add prototypes.
+
+2006-11-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24285
+	* io.c (check_format): Allow dollars everywhere in format, and
+	issue a warning.
+
+2006-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h (gfc_add_intrinsic_modules_path,
+	gfc_open_intrinsic_module): New prototypes.
+	(gfc_add_include_path, gfc_open_included_file): Update prototypes.
+	* lang.opt: Add -fintrinsic-modules-path option.
+	* module.c (gfc_match_use): Match the Fortran 2003 form of
+	USE statement.
+	(gfc_use_module): Also handle intrinsic modules. 
+	* scanner.c (gfc_directorylist): Add use_for_modules for field.
+	(intrinsic_modules_dirs): New static variable.
+	(add_path_to_list, gfc_add_intrinsic_modules_path): New functions.
+	(gfc_add_include_path): Use the new add_path_to_list helper
+	function.
+	(gfc_release_include_path): Free memory for intrinsic_modules_dirs.
+	(open_included_file, gfc_open_intrinsic_module): New functions.
+	(gfc_open_included_file): Use the new open_included_file
+	helper function.
+	* lang-specs.h: Use the new -fintrinsic-modules-path option.
+	* parse.c (decode_statement): Do not match the required space
+	after USE here.
+	* options.c (gfc_handle_option): Handle the new option. Use new
+	prototype for gfc_add_include_path.
+	(gfc_post_options): Use new prototype for gfc_add_include_path.
+
+2006-11-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29391
+	PR fortran/29489
+	* simplify.c (simplify_bound): Fix the simplification of
+	LBOUND/UBOUND intrinsics.
+	* trans-intrinsic.c (simplify_bound): Fix the logic, and
+	remove an erroneous assert.
+
+2006-11-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu,org>
+
+	* trans-decl.c (gfc_get_symbol_decl): Fix formatting.
+
+2006-11-15  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* data.c: Remove trailing periods from error messages.
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* io.c: Likewise.
+	* match.c: Likewise.
+	* module.c: Likewise.
+	* options.c: Likewise.
+	* resolve.c: Likewise.
+	* symbol.c: Likewise.
+	* trans-io.c: Likewise.
+
+2006-11-15  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Rearrange entries back into ASCII order.
+
 2006-11-15  Tobias Burnus  <burnus@net-b.de>
 
 	* parse.c (parse_contained): Fix indention

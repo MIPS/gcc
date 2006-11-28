@@ -82,6 +82,8 @@ sparc port		Richard Henderson	rth@redhat.com
 sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
 sparc port		Eric Botcazou		ebotcazou@libertysurf.fr
+spu port		Trevor Smigiel		trevor_smigiel@playstation.sony.com
+spu port		Andrew Pinski		andrew_pinski@playstation.sony.com
 v850 port		Nick Clifton		nickc@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
 vax port		Matt Thomas		matt@3am-software.com
@@ -151,7 +153,7 @@ libiberty		DJ Delorie		dj@redhat.com
 libiberty		Ian Lance Taylor	ian@airs.com
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 libobjc			Nicola Pero		n.pero@mi.flashnet.it
-libobjc			Andrew Pinski		pinskia@physics.uc.edu
+libobjc			Andrew Pinski		pinskia@gmail.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 soft-fp			Joseph Myers		jsm@polyomino.org.uk
 scheduler (+ haifa)	Jim Wilson		wilson@specifixinc.com
@@ -179,7 +181,7 @@ web pages		Gerald Pfeifer		gerald@pfeifer.com
 build status lists	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
-i18n			Philipp Thomas		pthomas@suse.de
+i18n			Philipp Thomas		pth@suse.de
 i18n			Joseph Myers		jsm@polyomino.org.uk
 diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
 build machinery (*.in)	DJ Delorie		dj@redhat.com
@@ -211,6 +213,8 @@ alias analysis		Diego Novillo		dnovillo@redhat.com
 reload			Ulrich Weigand		uweigand@de.ibm.com
 dfp.c, related		Ben Elliston		bje@au.ibm.com
 RTL optimizers		Eric Botcazou		ebotcazou@libertysurf.fr
+loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
+loop optimizer		Daniel Berlin		dberlin@dberlin.org
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -234,6 +238,7 @@ Jim Blandy					jimb@codesourcery.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Segher Boessenkool				segher@kernel.crashing.org
+Andrea Bona					andrea.bona@st.com
 Paolo Bonzini					bonzini@gnu.org
 Neil Booth					neil@daikokuya.co.uk
 Steven Bosscher					stevenb.gcc@gmail.com
@@ -254,7 +259,6 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 Roberto Costa					roberto.costa@st.com
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
-Zdenek Dvorak					dvorakz@suse.cz
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
@@ -307,6 +311,7 @@ Chen Liqin					liqin@sunnorth.com.cn
 Ralph Loader					rcl@ihug.co.nz
 Gabor Loki					loki@inf.u-szeged.hu
 Sandra Loosemore				sandra@codesourcery.com
+Manuel López-Ibáñez                             manu@gcc.gnu.org
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
@@ -319,7 +324,7 @@ Robert Millan					rmh@gcc.gnu.org
 Lee Millward					lee.millward@gmail.com
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
-Brooks Moses					bmoses@stanford.edu
+Brooks Moses					brooks.moses@codesourcery.com
 Dirk Mueller					dmueller@suse.de
 Adam Nemet					anemet@caviumnetworks.com
 Dan Nicolaescu					dann@ics.uci.edu
@@ -328,6 +333,7 @@ David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com
 Carlos O'Donell					carlos@codesourcery.com
 Jeffrey D. Oldham				oldham@codesourcery.com
+Andrea Ornstein					andrea.ornstein@st.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
 Alexandre Petit-Bianco				apbianco@redhat.com

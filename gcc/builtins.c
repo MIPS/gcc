@@ -2601,8 +2601,13 @@ expand_powi (rtx x, enum machine_mode mode, HOST_WIDE_INT n)
 static rtx
 expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 {
+  tree arg0, arg1, fn, narg0, narglist;
   tree arglist = TREE_OPERAND (exp, 1);
-  tree arg0, arg1;
+  tree type = TREE_TYPE (exp);
+  REAL_VALUE_TYPE cint, c, c2;
+  HOST_WIDE_INT n;
+  rtx op, op2;
+  enum machine_mode mode = TYPE_MODE (type);
 
   if (! validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return 0;
@@ -2610,36 +2615,108 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
 
-  if (TREE_CODE (arg1) == REAL_CST
-      && ! TREE_CONSTANT_OVERFLOW (arg1))
-    {
-      REAL_VALUE_TYPE cint;
-      REAL_VALUE_TYPE c;
-      HOST_WIDE_INT n;
+  if (TREE_CODE (arg1) != REAL_CST
+      || TREE_CONSTANT_OVERFLOW (arg1))
+    return expand_builtin_mathfn_2 (exp, target, subtarget);
 
-      c = TREE_REAL_CST (arg1);
-      n = real_to_integer (&c);
-      real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
-      if (real_identical (&c, &cint))
+  /* Handle constant exponents.  */
+
+  /* For integer valued exponents we can expand to an optimal multiplication
+     sequence using expand_powi.  */
+  c = TREE_REAL_CST (arg1);
+  n = real_to_integer (&c);
+  real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
+  if (real_identical (&c, &cint)
+      && ((n >= -1 && n <= 2)
+	  || (flag_unsafe_math_optimizations
+	      && !optimize_size
+	      && powi_cost (n) <= POWI_MAX_MULTS)))
+    {
+      op = expand_expr (arg0, subtarget, VOIDmode, 0);
+      if (n != 1)
 	{
-	  /* If the exponent is -1, 0, 1 or 2, then expand_powi is exact.
-	     Otherwise, check the number of multiplications required.
-	     Note that pow never sets errno for an integer exponent.  */
-	  if ((n >= -1 && n <= 2)
-	      || (flag_unsafe_math_optimizations
-		  && ! optimize_size
-		  && powi_cost (n) <= POWI_MAX_MULTS))
+	  op = force_reg (mode, op);
+	  op = expand_powi (op, mode, n);
+	}
+      return op;
+    }
+
+  narg0 = builtin_save_expr (arg0);
+  narglist = build_tree_list (NULL_TREE, narg0);
+
+  /* If the exponent is not integer valued, check if it is half of an integer.
+     In this case we can expand to sqrt (x) * x**(n/2).  */
+  fn = mathfn_built_in (type, BUILT_IN_SQRT);
+  if (fn != NULL_TREE)
+    {
+      real_arithmetic (&c2, MULT_EXPR, &c, &dconst2);
+      n = real_to_integer (&c2);
+      real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
+      if (real_identical (&c2, &cint)
+	  && ((flag_unsafe_math_optimizations
+	       && !optimize_size
+	       && powi_cost (n/2) <= POWI_MAX_MULTS)
+	      || n == 1))
+	{
+	  tree call_expr = build_function_call_expr (fn, narglist);
+	  op = expand_builtin (call_expr, NULL_RTX, subtarget, mode, 0);
+	  if (n != 1)
 	    {
-	      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-	      rtx op = expand_expr (arg0, subtarget, VOIDmode, 0);
-	      op = force_reg (mode, op);
-	      return expand_powi (op, mode, n);
+	      op2 = expand_expr (narg0, subtarget, VOIDmode, 0);
+	      op2 = force_reg (mode, op2);
+	      op2 = expand_powi (op2, mode, abs (n / 2));
+	      op = expand_simple_binop (mode, MULT, op, op2, NULL_RTX,
+					0, OPTAB_LIB_WIDEN);
+	      /* If the original exponent was negative, reciprocate the
+		 result.  */
+	      if (n < 0)
+		op = expand_binop (mode, sdiv_optab, CONST1_RTX (mode),
+				   op, NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	    }
+	  return op;
 	}
     }
 
-  if (! flag_unsafe_math_optimizations)
-    return NULL_RTX;
+  /* Try if the exponent is a third of an integer.  In this case
+     we can expand to x**(n/3) * cbrt(x)**(n%3).  */
+  fn = mathfn_built_in (type, BUILT_IN_CBRT);
+  if (fn != NULL_TREE)
+    {
+      real_arithmetic (&c2, MULT_EXPR, &c, &dconst3);
+      real_round (&c2, mode, &c2);
+      n = real_to_integer (&c2);
+      real_from_integer (&cint, VOIDmode, n, n < 0 ? -1 : 0, 0);
+      real_arithmetic (&c2, RDIV_EXPR, &cint, &dconst3);
+      real_convert (&c2, mode, &c2);
+      if (real_identical (&c2, &c)
+	  && ((!optimize_size
+	       && flag_unsafe_math_optimizations
+	       && powi_cost (n/3) <= POWI_MAX_MULTS)
+	      || n == 1))
+	{
+	  tree call_expr = build_function_call_expr (fn, narglist);
+	  op = expand_builtin (call_expr, NULL_RTX, subtarget, mode, 0);
+	  if (abs (n) % 3 == 2)
+	    op = expand_simple_binop (mode, MULT, op, op, op,
+				      0, OPTAB_LIB_WIDEN);
+	  if (n != 1)
+	    {
+	      op2 = expand_expr (narg0, subtarget, VOIDmode, 0);
+	      op2 = force_reg (mode, op2);
+	      op2 = expand_powi (op2, mode, abs (n / 3));
+	      op = expand_simple_binop (mode, MULT, op, op2, NULL_RTX,
+					0, OPTAB_LIB_WIDEN);
+	      /* If the original exponent was negative, reciprocate the
+		 result.  */
+	      if (n < 0)
+		op = expand_binop (mode, sdiv_optab, CONST1_RTX (mode),
+				   op, NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	    }
+	  return op;
+	}
+    }
+
+  /* Fall back to optab expansion.  */
   return expand_builtin_mathfn_2 (exp, target, subtarget);
 }
 
@@ -6677,15 +6754,7 @@ integer_valued_real_p (tree t)
 	     && integer_valued_real_p (TREE_OPERAND (t, 2));
 
     case REAL_CST:
-      if (! TREE_CONSTANT_OVERFLOW (t))
-      {
-	REAL_VALUE_TYPE c, cint;
-
-	c = TREE_REAL_CST (t);
-	real_trunc (&cint, TYPE_MODE (TREE_TYPE (t)), &c);
-	return real_identical (&c, &cint);
-      }
-      break;
+      return real_isinteger (TREE_REAL_CST_PTR (t), TYPE_MODE (TREE_TYPE (t)));
 
     case NOP_EXPR:
       {
@@ -6707,6 +6776,11 @@ integer_valued_real_p (tree t)
 	CASE_FLT_FN (BUILT_IN_ROUND):
 	CASE_FLT_FN (BUILT_IN_TRUNC):
 	  return true;
+
+	CASE_FLT_FN (BUILT_IN_FMIN):
+	CASE_FLT_FN (BUILT_IN_FMAX):
+	  return integer_valued_real_p (TREE_VALUE (TREE_OPERAND (t, 1)))
+	    && integer_valued_real_p (TREE_VALUE (TREE_CHAIN (TREE_OPERAND (t, 1))));
 
 	default:
 	  break;
@@ -8722,6 +8796,52 @@ fold_builtin_abs (tree arglist, tree type)
   return fold_build1 (ABS_EXPR, type, arg);
 }
 
+/* Fold a call to builtin fmin or fmax.  */
+
+static tree
+fold_builtin_fmin_fmax (tree arglist, tree type, bool max)
+{
+  if (validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
+    {
+      tree arg0 = TREE_VALUE (arglist);
+      tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      /* Calculate the result when the argument is a constant.  */
+      tree res = do_mpfr_arg2 (arg0, arg1, type, (max ? mpfr_max : mpfr_min));
+
+      if (res)
+	return res;
+
+      /* If either argument is NaN, return the other one.  Avoid the
+	 transformation if we get (and honor) a signalling NaN.  Using
+	 omit_one_operand() ensures we create a non-lvalue.  */
+      if (TREE_CODE (arg0) == REAL_CST
+	  && real_isnan (&TREE_REAL_CST (arg0))
+	  && (! HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	      || ! TREE_REAL_CST (arg0).signalling))
+	return omit_one_operand (type, arg1, arg0);
+      if (TREE_CODE (arg1) == REAL_CST
+	  && real_isnan (&TREE_REAL_CST (arg1))
+	  && (! HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg1)))
+	      || ! TREE_REAL_CST (arg1).signalling))
+	return omit_one_operand (type, arg0, arg1);
+
+      /* Transform fmin/fmax(x,x) -> x.  */
+      if (operand_equal_p (arg0, arg1, OEP_PURE_SAME))
+	return omit_one_operand (type, arg0, arg1);
+      
+      /* Convert fmin/fmax to MIN_EXPR/MAX_EXPR.  C99 requires these
+	 functions to return the numeric arg if the other one is NaN.
+	 These tree codes don't honor that, so only transform if
+	 -ffinite-math-only is set.  C99 doesn't require -0.0 to be
+	 handled, so we don't have to worry about it either.  */
+      if (flag_finite_math_only)
+	return fold_build2 ((max ? MAX_EXPR : MIN_EXPR), type,
+			    fold_convert (type, arg0),
+			    fold_convert (type, arg1));
+    }
+  return NULL_TREE;
+}
+
 /* Fold a call to __builtin_isnan(), __builtin_isinf, __builtin_finite.
    EXP is the CALL_EXPR for the call.  */
 
@@ -9143,18 +9263,10 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     break;
 
     CASE_FLT_FN (BUILT_IN_FMIN):
-      if (validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
-	return do_mpfr_arg2 (TREE_VALUE (arglist),
-			     TREE_VALUE (TREE_CHAIN (arglist)),
-			     type, mpfr_min);
-    break;
+      return fold_builtin_fmin_fmax (arglist, type, /*max=*/false);
 
     CASE_FLT_FN (BUILT_IN_FMAX):
-      if (validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
-	return do_mpfr_arg2 (TREE_VALUE (arglist),
-			     TREE_VALUE (TREE_CHAIN (arglist)),
-			     type, mpfr_max);
-    break;
+      return fold_builtin_fmin_fmax (arglist, type, /*max=*/true);
 
     CASE_FLT_FN (BUILT_IN_HYPOT):
       return fold_builtin_hypot (fndecl, arglist, type);

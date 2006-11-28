@@ -255,7 +255,7 @@ Objective-C and Objective-C++ Dialects}.
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
--Wstrict-prototypes  -Wtraditional @gol
+-Wstrict-prototypes  -Wtraditional  -Wtraditional-conversion @gol
 -Wdeclaration-after-statement -Wpointer-sign}
 
 @item Debugging Options
@@ -429,9 +429,10 @@ Objective-C and Objective-C++ Dialects}.
 @emph{Blackfin Options}
 @gccoptlist{-momit-leaf-frame-pointer -mno-omit-leaf-frame-pointer @gol
 -mspecld-anomaly -mno-specld-anomaly -mcsync-anomaly -mno-csync-anomaly @gol
--mlow-64k -mno-low64k -mid-shared-library @gol
+-mlow-64k  -mno-low64k  -mstack-check-l1  -mid-shared-library @gol
 -mno-id-shared-library -mshared-library-id=@var{n} @gol
--mlong-calls  -mno-long-calls}
+-mleaf-id-shared-library  -mno-leaf-id-shared-library @gol
+-msep-data  -mno-sep-data  -mlong-calls  -mno-long-calls}
 
 @emph{CRIS Options}
 @gccoptlist{-mcpu=@var{cpu}  -march=@var{cpu}  -mtune=@var{cpu} @gol
@@ -727,6 +728,12 @@ See RS/6000 and PowerPC Options.
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis
 -threads -pthreads -pthread}
+
+@emph{SPU Options}
+@gccoptlist{-mwarn-reloc -merror-reloc @gol
+-msafe-dma -munsafe-dma @gol
+-mbranch-hints @gol
+-msmall-mem -mlarge-mem}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -3051,7 +3058,7 @@ traditional C case.
 Conversions by prototypes between fixed/floating point values and vice
 versa.  The absence of these prototypes when compiling with traditional
 C would cause serious problems.  This is a subset of the possible
-conversion warnings, for the full set use @option{-Wconversion}.
+conversion warnings, for the full set use @option{-Wtraditional-conversion}.
 
 @item
 Use of ISO C style function definitions.  This warning intentionally is
@@ -3062,6 +3069,14 @@ libiberty's traditional C compatibility macros, @code{PARAMS} and
 because that feature is already a GCC extension and thus not relevant to
 traditional C compatibility.
 @end itemize
+
+@item -Wtraditional-conversion @r{(C only)}
+@opindex Wtraditional-conversion
+Warn if a prototype causes a type conversion that is different from what
+would happen to the same argument in the absence of a prototype.  This
+includes conversions of fixed point to floating and vice versa, and
+conversions changing the width or signedness of a fixed point argument
+except when the same as the default promotion.
 
 @item -Wdeclaration-after-statement @r{(C only)}
 @opindex Wdeclaration-after-statement
@@ -3141,16 +3156,13 @@ this is why we did not make @option{-Wall} request these warnings.
 
 @item -Wconversion
 @opindex Wconversion
-Warn if a prototype causes a type conversion that is different from what
-would happen to the same argument in the absence of a prototype.  This
-includes conversions of fixed point to floating and vice versa, and
-conversions changing the width or signedness of a fixed point argument
-except when the same as the default promotion.
-
-Also, warn if a negative integer constant expression is implicitly
-converted to an unsigned type.  For example, warn about the assignment
-@code{x = -1} if @code{x} is unsigned.  But do not warn about explicit
-casts like @code{(unsigned) -1}.
+Warn for implicit conversions that may alter a value. This includes
+conversions between real and integer, like @code{abs (x)} when
+@code{x} is @code{double}; conversions between signed and unsigned,
+like @code{unsigned ui = -1}; and conversions to smaller types, like
+@code{sqrtf (M_PI)}. Do not warn for explicit casts like @code{abs
+((int) x)} and @code{ui = (unsigned) -1}, or if the value is not
+changed by the conversion like in @code{abs (2.0)}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -7358,6 +7370,7 @@ platform.
 * Score Options::
 * SH Options::
 * SPARC Options::
+* SPU Options::
 * System V Options::
 * TMS320C3x/C4x Options::
 * V850 Options::
@@ -7838,6 +7851,11 @@ the entire program fits into the low 64k of memory.
 @opindex mno-low-64k
 Assume that the program is arbitrarily large.  This is the default.
 
+@item -mstack-check-l1
+@opindex mstack-check-l1
+Do stack checking using information placed into L1 scratchpad memory by the
+uClinux kernel.
+
 @item -mid-shared-library
 @opindex mid-shared-library
 Generate code that supports shared libraries via the library ID method.
@@ -7849,12 +7867,36 @@ without virtual memory management.  This option implies @option{-fPIC}.
 Generate code that doesn't assume ID based shared libraries are being used.
 This is the default.
 
+@item -mleaf-id-shared-library
+@opindex mleaf-id-shared-library
+Generate code that supports shared libraries via the library ID method,
+but assumes that this library or executable won't link against any other
+ID shared libraries.  That allows the compiler to use faster code for jumps
+and calls.
+
+@item -mno-leaf-id-shared-library
+@opindex mno-leaf-id-shared-library
+Do not assume that the code being compiled won't link against any ID shared
+libraries.  Slower code will be generated for jump and call insns.
+
 @item -mshared-library-id=n
 @opindex mshared-library-id
 Specified the identification number of the ID based shared library being
 compiled.  Specifying a value of 0 will generate more compact code, specifying
 other values will force the allocation of that number to the current
 library but is no more space or time efficient than omitting this option.
+
+@item -msep-data
+@opindex msep-data
+Generate code that allows the data segment to be located in a different
+area of memory from the text segment.  This allows for execute in place in
+an environment without virtual memory management by eliminating relocations
+against the text section.
+
+@item -mno-sep-data
+@opindex mno-sep-data
+Generate code that assumes that the data segment follows the text segment.
+This is the default.
 
 @item -mlong-calls
 @itemx -mno-long-calls
@@ -9296,6 +9338,9 @@ set support.
 @item nocona
 Improved version of Intel Pentium4 CPU with 64-bit extensions, MMX, SSE,
 SSE2 and SSE3 instruction set support.
+@item core2
+Intel Core2 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
+instruction set support.
 @item k6
 AMD K6 CPU with MMX instruction set support.
 @item k6-2, k6-3
@@ -9675,6 +9720,19 @@ By default GCC inlines string operations only when destination is known to be
 aligned at least to 4 byte boundary.  This enables more inlining, increase code
 size, but may improve performance of code that depends on fast memcpy, strlen
 and memset for short lengths.
+
+@item -minline-stringops-dynamically
+@opindex minline-stringops-dynamically
+For string operation of unknown size, inline runtime checks so for small
+blocks inline code is used, while for large blocks librarly call is used.
+
+@item -mstringop-strategy=@var{alg}
+@opindex mstringop-strategy=@var{alg}
+Overwrite internal decision heuristic about particular algorithm to inline
+string opteration with.  The allowed values are @code{rep_byte},
+@code{rep_4byte}, @code{rep_8byte} for expanding using i386 @code{rep} prefix
+of specified size, @code{loop}, @code{unrolled_loop} for expanding inline loop,
+@code{libcall} for always expanding library call.
 
 @item -momit-leaf-frame-pointer
 @opindex momit-leaf-frame-pointer
@@ -10617,6 +10675,19 @@ can use @option{-mgp32} to get 32-bit code instead.
 For information about the O64 ABI, see
 @w{@uref{http://gcc.gnu.org/projects/mipso64-abi.html}}.
 
+GCC supports a variant of the o32 ABI in which floating-point registers
+are 64 rather than 32 bits wide.  You can select this combination with
+@option{-mabi=32} @option{-mfp64}.  This ABI relies on the @samp{mthc1}
+and @samp{mfhc1} instructions and is therefore only supported for
+MIPS32R2 processors.
+
+The register assignments for arguments and return values remain the
+same, but each scalar value is passed in a single 64-bit register
+rather than a pair of 32-bit registers.  For example, scalar
+floating-point values are returned in @samp{$f0} only, not a
+@samp{$f0}/@samp{$f1} pair.  The set of call-saved registers also
+remains the same, but all 64 bits are saved.
+
 @item -mabicalls
 @itemx -mno-abicalls
 @opindex mabicalls
@@ -11497,7 +11568,7 @@ This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
 
 @item -mspe
-@itemx -mno-isel
+@itemx -mno-spe
 @opindex mspe
 @opindex mno-spe
 This switch enables or disables the generation of SPE simd
@@ -12776,6 +12847,57 @@ that of libraries supplied with it.
 @item -pthread
 @opindex pthread
 This is a synonym for @option{-pthreads}.
+@end table
+
+@node SPU Options
+@subsection SPU Options
+@cindex SPU options
+
+These @samp{-m} options are supported on the SPU:
+
+@table @gcctabopt
+@item -mwarn-reloc
+@itemx -merror-reloc
+@opindex mwarn-reloc
+@opindex merror-reloc
+
+The loader for SPU does not handle dynamic relocations.  By default, GCC
+will give an error when it generates code that requires a dynamic
+relocation.  @option{-mno-error-reloc} disables the error,
+@option{-mwarn-reloc} will generate a warning instead.
+
+@item -msafe-dma
+@itemx -munsafe-dma
+@opindex msafe-dma
+@opindex munsafe-dma
+
+Instructions which initiate or test completion of DMA must not be
+reordered with respect to loads and stores of the memory which is being
+accessed.  Users typically address this problem using the volatile
+keyword, but that can lead to inefficient code in places where the
+memory is known to not change.  Rather than mark the memory as volatile
+we treat the DMA instructions as potentially effecting all memory.  With
+@option{-munsafe-dma} users must use the volatile keyword to protect
+memory accesses.
+
+@item -mbranch-hints
+@opindex mbranch-hints
+
+By default, GCC will generate a branch hint instruction to avoid
+pipeline stalls for always taken or probably taken branches.  A hint
+will not be generated closer than 8 instructions away from its branch.
+There is little reason to disable them, except for debugging purposes,
+or to make an object a little bit smaller.
+
+@item -msmall-mem
+@itemx -mlarge-mem
+@opindex msmall-mem
+@opindex mlarge-mem
+
+By default, GCC generates code assuming that addresses are never larger
+than 18 bits.  With @option{-mlarge-mem} code is generated that assumes
+a full 32 bit address.
+
 @end table
 
 @node System V Options

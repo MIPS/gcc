@@ -432,6 +432,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (dimension);
       conf2 (dummy);
       conf2 (save);
+      conf2 (volatile_);
       conf2 (pointer);
       conf2 (target);
       conf2 (external);
@@ -754,7 +755,7 @@ gfc_add_cray_pointee (symbol_attribute * attr, locus * where)
   if (attr->cray_pointee)
     {
       gfc_error ("Cray Pointee at %L appears in multiple pointer()"
-		 " statements.", where);
+		 " statements", where);
       return FAILURE;
     }
 

@@ -712,14 +712,13 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   tree type;
   tree bound;
   tree tmp;
-  tree cond, cond1, cond2, cond3, size;
+  tree cond, cond1, cond2, cond3, cond4, size;
   tree ubound;
   tree lbound;
   gfc_se argse;
   gfc_ss *ss;
   gfc_array_spec * as;
   gfc_ref *ref;
-  int i;
 
   arg = expr->value.function.actual;
   arg2 = arg->next;
@@ -761,9 +760,14 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 
   if (INTEGER_CST_P (bound))
     {
-      gcc_assert (TREE_INT_CST_HIGH (bound) == 0);
-      i = TREE_INT_CST_LOW (bound);
-      gcc_assert (i >= 0 && i < GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)));
+      int hi, low;
+
+      hi = TREE_INT_CST_HIGH (bound);
+      low = TREE_INT_CST_LOW (bound);
+      if (hi || low < 0 || low >= GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)))
+	gfc_error ("'dim' argument of %s intrinsic at %L is not a valid "
+		   "dimension index", upper ? "UBOUND" : "LBOUND",
+		   &expr->where);
     }
   else
     {
@@ -775,7 +779,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
           tmp = gfc_rank_cst[GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc))];
           tmp = fold_build2 (GE_EXPR, boolean_type_node, bound, tmp);
           cond = fold_build2 (TRUTH_ORIF_EXPR, boolean_type_node, cond, tmp);
-          gfc_trans_runtime_check (cond, gfc_msg_fault, &se->pre, NULL);
+          gfc_trans_runtime_check (cond, gfc_msg_fault, &se->pre, &expr->where);
         }
     }
 
@@ -842,15 +846,21 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   if (as)
     {
       tree stride = gfc_conv_descriptor_stride (desc, bound);
+
       cond1 = fold_build2 (GE_EXPR, boolean_type_node, ubound, lbound);
       cond2 = fold_build2 (LE_EXPR, boolean_type_node, ubound, lbound);
-      cond3 = fold_build2 (GT_EXPR, boolean_type_node, stride,
+
+      cond3 = fold_build2 (GE_EXPR, boolean_type_node, stride,
 			   gfc_index_zero_node);
+      cond3 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
+
+      cond4 = fold_build2 (LT_EXPR, boolean_type_node, stride,
+			   gfc_index_zero_node);
+      cond4 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond4, cond2);
 
       if (upper)
 	{
-	  cond = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
-	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond, cond2);
+	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond3, cond4);
 
 	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
 				  ubound, gfc_index_zero_node);
@@ -860,13 +870,11 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 	  if (as->type == AS_ASSUMED_SIZE)
 	    cond = fold_build2 (EQ_EXPR, boolean_type_node, bound,
 				build_int_cst (TREE_TYPE (bound),
-					       arg->expr->rank));
+					       arg->expr->rank - 1));
 	  else
 	    cond = boolean_false_node;
 
-	  cond1 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
-	  cond1 = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond1, cond2);
-
+	  cond1 = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond3, cond4);
 	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond, cond1);
 
 	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
@@ -2981,7 +2989,7 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
 
 
 /* Scalar transfer statement.
-   TRANSFER (source, mold) = VIEW_CONVERT_EXPR<typeof<mold> >source.  */
+   TRANSFER (source, mold) = memcpy(&tmpdecl, &source, size), tmpdecl.  */
 
 static void
 gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
@@ -2991,6 +2999,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   tree type;
   tree ptr;
   gfc_ss *ss;
+  tree tmpdecl, tmp, args;
 
   /* Get a pointer to the source.  */
   arg = expr->value.function.actual;
@@ -3006,6 +3015,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 
   arg = arg->next;
   type = gfc_typenode_for_spec (&expr->ts);
+
   if (expr->ts.type == BT_CHARACTER)
     {
       ptr = convert (build_pointer_type (type), ptr);
@@ -3018,8 +3028,22 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
     }
   else
     {
-      tree tmp = build_fold_indirect_ref (ptr);
-      se->expr = fold_build1 (VIEW_CONVERT_EXPR, type, tmp);
+      tree moldsize;
+      tmpdecl = gfc_create_var (type, "transfer");
+      moldsize = size_in_bytes (type);
+
+      /* Use memcpy to do the transfer.  */
+      tmp = build1 (ADDR_EXPR, build_pointer_type (type), tmpdecl);
+      tmp = fold_convert (pvoid_type_node, tmp);
+      args = gfc_chainon_list (NULL_TREE, tmp);
+      tmp = fold_convert (pvoid_type_node, ptr);
+      args = gfc_chainon_list (args, tmp);
+      args = gfc_chainon_list (args, moldsize);
+      tmp = built_in_decls[BUILT_IN_MEMCPY];
+      tmp = build_function_call_expr (tmp, args);
+      gfc_add_expr_to_block (&se->pre, tmp);
+
+      se->expr = tmpdecl;
     }
 }
 

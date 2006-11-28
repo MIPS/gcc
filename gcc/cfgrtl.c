@@ -361,7 +361,7 @@ cfg_layout_create_basic_block (void *head, void *end, basic_block after)
 static void
 rtl_delete_block (basic_block b)
 {
-  rtx insn, end, tmp;
+  rtx insn, end;
 
   /* If the head of this block is a CODE_LABEL, then it might be the
      label for an exception handler which can't be reached.  We need
@@ -370,18 +370,7 @@ rtl_delete_block (basic_block b)
   if (LABEL_P (insn))
     maybe_remove_eh_handler (insn);
 
-  /* Include any jump table following the basic block.  */
-  end = BB_END (b);
-  if (tablejump_p (end, NULL, &tmp))
-    end = tmp;
-
-  /* Include any barriers that may follow the basic block.  */
-  tmp = next_nonnote_insn (end);
-  while (tmp && BARRIER_P (tmp))
-    {
-      end = tmp;
-      tmp = next_nonnote_insn (end);
-    }
+  end = get_last_bb_insn (b);
 
   /* Selectively delete the entire chain.  */
   BB_HEAD (b) = NULL;
@@ -1488,7 +1477,8 @@ commit_one_edge_insertion (edge e, int watch_calls)
     gcc_assert (!JUMP_P (last));
 
   /* Mark the basic block for find_many_sub_basic_blocks.  */
-  bb->aux = &bb->aux;
+  if (current_ir_type () != IR_RTL_CFGLAYOUT)
+    bb->aux = &bb->aux;
 }
 
 /* Update the CFG for all queued instructions.  */
@@ -1518,6 +1508,13 @@ commit_edge_insertions (void)
     }
 
   if (!changed)
+    return;
+
+  /* In the old rtl CFG API, it was OK to insert control flow on an
+     edge, apparently?  In cfglayout mode, this will *not* work, and
+     the caller is responsible for making sure that control flow is
+     valid at all times.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
     return;
 
   blocks = sbitmap_alloc (last_basic_block);
@@ -1703,6 +1700,29 @@ update_br_prob_note (basic_block bb)
   if (!note || INTVAL (XEXP (note, 0)) == BRANCH_EDGE (bb)->probability)
     return;
   XEXP (note, 0) = GEN_INT (BRANCH_EDGE (bb)->probability);
+}
+
+/* Get the last insn associated with block BB (that includes barriers and
+   tablejumps after BB).  */
+rtx
+get_last_bb_insn (basic_block bb)
+{
+  rtx tmp;
+  rtx end = BB_END (bb);
+
+  /* Include any jump table following the basic block.  */
+  if (tablejump_p (end, NULL, &tmp))
+    end = tmp;
+
+  /* Include any barriers that may follow the basic block.  */
+  tmp = next_nonnote_insn (end);
+  while (tmp && BARRIER_P (tmp))
+    {
+      end = tmp;
+      tmp = next_nonnote_insn (end);
+    }
+
+  return end;
 }
 
 /* Verify the CFG and RTL consistency common for both underlying RTL and
