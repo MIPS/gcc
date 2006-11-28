@@ -32,6 +32,7 @@ enum debug_counter {
 
 #undef DEBUG_COUNTER
 
+extern bool dbg_cnt_is_enabled (enum debug_counter index);
 extern bool dbg_cnt (enum debug_counter index);
 extern void dbg_cnt_process_opt (const char *arg);
 

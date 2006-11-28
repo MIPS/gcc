@@ -1,3 +1,57 @@
+2006-11-28  Seongbae Park <seongbae.park@gmail.com>
+
+	* dbgcnt.def: Updated comments. Added new counters.
+	* auto-inc-dec.c (try_merge): Debug counter.
+	* global.c (global_conflicts): Use DF_RA_LIVE_TOP() instead of
+	df_urec_get_live_at_top().
+	* dbgcnt.c (count, limit): Use dbgcnt.def.
+	(dbg_cnt_is_enabled): New function.
+	(dbg_cnt): Use dbg_cnt_is_enabled().
+	* local-alloc.c (block_alloc): Use DF_RA_LIVE_TOP instead of LIVE_IN.
+	Add a debug counter.
+	* df.h (DF_RA_LIVE_TOP): New Macro. Remove df_urec_get_live_at_top.
+	(struct df_rd_bb_info): Added new fields ADEF, AUSE and TOP.
+	(struct df_urec_bb_info): Added new field TOP.
+	* loop-iv.c (iv_analyze_def): Added REG_P check.
+	* df-problems.c (df_lr_free_bb_info): Free new fields AUSE, ADEF and
+	TOP.
+	(df_lr_alloc): Allocate new fields TOP, ADEF, AUSE.
+	(df_lr_bb_local_compute): Compute ADEF and AUSE.
+	(df_lr_transfer_function): Compute TOP, and then IN based on TOP, ADEF
+	and AUSE.
+	(df_lr_free): Free new fields AUSE, ADEF and TOP.
+	(df_ur_bb_local_compute): Partial/conditional defs don't hide
+	earlier defs.
+	(df_urec_alloc): Allocate new field TOP.
+	(df_urec_local_finalize): Calculate TOP as well as IN.
+	(df_urec_free): Free new field TOP.
+	(df_urec_get_live_at_top): Removed.
+	* Makefile.in (auto-inc-dec.o, local-alloc.o, sched-rgn.o,
+	sched-ebb.o, recog.o): Added dependency on DBGCNT_H.
+	* sched-rgn.c (schedule_insns, gate_handle_sched, gate_handle_sched2): 
+	Added debug counter.
+	* config/ia64/ia64.c (enum ia64_frame_regs): New enum.
+	(struct ia64_frame_info): Changed register fields to use an array
+	index by enum.
+	(emitted_frame_related_regs): New static variable.
+	(reg_emitted, get_reg, is_emitted): New function.
+	(ia64_reload_gp): Use new enum.
+	(find_gr_spill): Added a new param. Use emitted_frame_related_regs.
+	(ia64_computea_frame_size, ia64_hard_regno_rename_ok,
+	ia64_epilogue_uses):
+	Use emitted_frame_related_regs.
+	(ia64_expand_prologue): Extra deubg output. Use new enum.
+	(ia64_expand_epilogue, ia64_direct_return, ia64_split_return_addr_rtx,
+	ia64_output_function_prologue, ia64_output_function_epilogue,
+	process_set):
+	Use new enum.
+	(ia64_init_expanders): New function.
+	(ia64_reorg): New debug counter.
+	* config/ia64/ia64.h (INIT_EXPANDERS): New call to
+	ia64_init_expanders.
+
+
+
 2006-11-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (print_current_pass, debug_pass): New functions.

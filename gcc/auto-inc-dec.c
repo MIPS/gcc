@@ -40,7 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
-
+#include "dbgcnt.h"
 
 enum form
   {
@@ -705,6 +705,9 @@ try_merge (void)
   /* Now get the form that we are generating.  */
   gen_form = decision_table 
     [inc_insn.reg1_state][mem_insn.reg1_state][inc_insn.form];
+
+  if (dbg_cnt (auto_inc_dec) == false)
+    return false;
 
   switch (gen_form)
     {
@@ -1462,7 +1465,6 @@ merge_in_block (int max_reg, basic_block bb)
 	  
 	  for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
 	    {
-	      reg_next_use[DF_REF_REGNO (use)] = insn;
 	      reg_next_use[DF_REF_REGNO (use)] = insn;
 	      if (insn_is_add_or_inc)
 		reg_next_inc_use[DF_REF_REGNO (use)] = insn;

@@ -682,14 +682,11 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = ALLOC_REG_SET (&reg_obstack);
 	int ax = 0;
 	reg_set_iterator rsi;
 
-        df_urec_get_live_at_top (ra_df, b, old);
-
-	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
-	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i, rsi)
+	REG_SET_TO_HARD_REG_SET (hard_regs_live, DF_RA_LIVE_TOP (ra_df, b));
+	EXECUTE_IF_SET_IN_REG_SET (DF_RA_LIVE_TOP (ra_df, b), FIRST_PSEUDO_REGISTER, i, rsi)
 	  {
 	    int a = reg_allocno[i];
 	    if (a >= 0)
@@ -700,8 +697,6 @@ global_conflicts (void)
 	    else if ((a = reg_renumber[i]) >= 0)
 	      mark_reg_live_nc (a, PSEUDO_REGNO_MODE (i));
 	  }
-
-        FREE_REG_SET (old);
 
 	/* Record that each allocno now live conflicts with each hard reg
 	   now live.
@@ -1840,7 +1835,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_IN (ra_df, b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_TOP (ra_df, b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)

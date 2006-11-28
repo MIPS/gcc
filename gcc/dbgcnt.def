@@ -37,7 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    the counter is incremented for the named-counter.
    And the incremented value is compared against the threshold (limit)
    specified by the option.
-   dbg_cnt () returns true if it is below threshold, and false otherwise.
+   dbg_cnt () returns true if it is at or below threshold, and false if above.
 
    How to add a new one ?
 
@@ -55,13 +55,22 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    How to use it ?
 
-   By default, all limits are 0, and if the limit is zero,
-   dbg_cnt() returns true always regardless of the counter value
+   By default, all limits are UINT_MAX.
+   Since debug count is unsigned int, <= UINT_MAX returns true always.
+   i.e.  dbg_cnt() returns true always regardless of the counter value
    (although it still counts the event).
    Use -fdbg-cnt=counter1:N,counter2:M,...
    which sets the limit for counter1 to N, and the limit for counter2 to M, etc.
+   e.g. setting a limit to zero will make dbg_cnt () return false *always*.
 */
 
 /* Debug counter definitions.  */
 DEBUG_COUNTER (new_dce)
 DEBUG_COUNTER (tail_call)
+DEBUG_COUNTER (auto_inc_dec)
+DEBUG_COUNTER (sched_region)
+DEBUG_COUNTER (sched_func)
+DEBUG_COUNTER (sched2_func)
+DEBUG_COUNTER (local_alloc_for_sched)
+DEBUG_COUNTER (split_for_sched2)
+DEBUG_COUNTER (ia64_sched2)

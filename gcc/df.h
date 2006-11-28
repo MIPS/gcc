@@ -450,6 +450,7 @@ struct df
 /* Live in for register allocation also takes into account several other factors.  */
 #define DF_RA_LIVE_IN(DF, BB) (DF_UREC_BB_INFO(DF, BB)->in) 
 #define DF_RA_LIVE_OUT(DF, BB) (DF_UREC_BB_INFO(DF, BB)->out) 
+#define DF_RA_LIVE_TOP(DF, BB) (DF_UREC_BB_INFO(DF, BB)->top) 
 
 /* These macros are currently used by only reg-stack since it is not
    tolerant of uninitialized variables.  This intolerance should be
@@ -617,17 +618,39 @@ struct df_rd_bb_info
 };
 
 
-/* Live registers.  All bitmaps are referenced by the register number.  */
+/* Live registers.  All bitmaps are referenced by the register number.  
+
+   df_lr_bb_info:IN is the "in" set of the traditional dataflow sense
+   which is the confluence of out sets of all predecessor blocks.
+   The difference between IN and TOP is 
+   due to the artificial defs and uses at the top (DF_REF_TOP)
+   (e.g. exception handling dispatch block, which can have
+   a few registers defined by the runtime) - which is NOT included
+   in the "in" set before this function but is included after.  
+   For the initial live set of forward scanning, TOP should be used
+   instead of IN - otherwise, artificial defs won't be in IN set
+   causing the bad transformation. TOP set can not simply be
+   the union of IN set and artificial defs at the top, 
+   because artificial defs might not be used at all,
+   in which case those defs are not live at any point
+   (except as a dangling def) - hence TOP has to be calculated
+   during the LR problem computation and stored in df_lr_bb_info.  */
+
 struct df_lr_bb_info 
 {
   /* Local sets to describe the basic blocks.  */
-  bitmap def;   /* The set of registers set in this block.  */
+  bitmap def;   /* The set of registers set in this block 
+                   - except artificial defs at the top.  */
   bitmap use;   /* The set of registers used in this block.  */
+  bitmap adef;  /* The artificial defs at top. */
+  bitmap ause;  /* The artificial uses at top. */
 
   /* The results of the dataflow problem.  */
-  bitmap in;    /* At the top of the block.  */
+  bitmap in;    /* Just before the block itself. */
+  bitmap top;   /* Just before the first insn in the block. */
   bitmap out;   /* At the bottom of the block.  */
 };
+
 
 
 /* Uninitialized registers.  All bitmaps are referenced by the register number.  */
@@ -663,8 +686,8 @@ struct df_urec_bb_info
   bitmap gen;
 
   /* The results of the dataflow problem.  */
-  bitmap in;    /* At the top of the block. 
-                   See df_urec_local_finalize for caveat.  */
+  bitmap in;    /* Just before the block.  */
+  bitmap top;   /* Just before the first insn in the block. */
   bitmap out;   /* At the bottom of the block.  */
 };
 
@@ -758,7 +781,6 @@ extern struct dataflow *df_chain_add_problem (struct df *);
 extern struct dataflow *df_ri_add_problem (struct df *);
 extern bitmap df_ri_get_setjmp_crosses (struct df *);
 
-extern void df_urec_get_live_at_top (struct df *, basic_block, bitmap);
 
 /* Functions defined in df-scan.c.  */
 

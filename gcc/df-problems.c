@@ -1385,6 +1385,12 @@ df_lr_free_bb_info (struct dataflow *dflow,
       BITMAP_FREE (bb_info->def);
       BITMAP_FREE (bb_info->in);
       BITMAP_FREE (bb_info->out);
+      BITMAP_FREE (bb_info->top);
+      if (bb_info->ause)
+        BITMAP_FREE (bb_info->ause);
+      if (bb_info->adef)
+        BITMAP_FREE (bb_info->adef);
+
       pool_free (dflow->block_pool, bb_info);
     }
 }
@@ -1422,6 +1428,9 @@ df_lr_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
 	  bb_info->def = BITMAP_ALLOC (NULL);
 	  bb_info->in = BITMAP_ALLOC (NULL);
 	  bb_info->out = BITMAP_ALLOC (NULL);
+          bb_info->top = BITMAP_ALLOC (NULL);
+          bb_info->adef = NULL;
+          bb_info->ause = NULL;
 	}
     }
 }
@@ -1525,15 +1534,17 @@ df_lr_bb_local_compute (struct dataflow *dflow,
 	/* Add use to set of uses in this BB.  */
 	bitmap_set_bit (bb_info->use, DF_REF_REGNO (use));
     }
-
   /* Process the registers set in an exception handler.  */
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
     if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
 	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       {
 	unsigned int dregno = DF_REF_REGNO (def);
-	bitmap_set_bit (bb_info->def, dregno);
-	bitmap_clear_bit (bb_info->use, dregno);
+        if (bb_info->adef == NULL)
+          bb_info->adef = BITMAP_ALLOC (NULL);
+        if (bb_info->ause == NULL)
+          bb_info->ause = BITMAP_ALLOC (NULL);
+	bitmap_set_bit (bb_info->adef, dregno);
       }
   
 #ifdef EH_USES
@@ -1541,7 +1552,13 @@ df_lr_bb_local_compute (struct dataflow *dflow,
   for (use = df_get_artificial_uses (df, bb_index); use; use = use->next_ref)
     /* Add use to set of uses in this BB.  */
     if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
-      bitmap_set_bit (bb_info->use, DF_REF_REGNO (use));
+      {
+        if (bb_info->adef == NULL)
+          bb_info->adef = BITMAP_ALLOC (NULL);
+        if (bb_info->ause == NULL)
+          bb_info->ause = BITMAP_ALLOC (NULL);
+        bitmap_set_bit (bb_info->ause, DF_REF_REGNO (use));
+      }
 #endif
 }
 
@@ -1666,8 +1683,18 @@ df_lr_transfer_function (struct dataflow *dflow, int bb_index)
   bitmap out = bb_info->out;
   bitmap use = bb_info->use;
   bitmap def = bb_info->def;
+  bitmap top = bb_info->top;
+  bitmap ause = bb_info->ause;
+  bitmap adef = bb_info->adef;
 
-  return bitmap_ior_and_compl (in, use, out, def);
+  bitmap_ior_and_compl (top, use, out, def);
+  if (ause && adef)
+    return bitmap_ior_and_compl (in, ause, top, adef);
+
+  if (bitmap_equal_p (in, top))
+    return 0;
+  bitmap_copy (in, top);
+  return 1;
 }
 
 
@@ -1699,6 +1726,11 @@ df_lr_free (struct dataflow *dflow)
 	      BITMAP_FREE (bb_info->def);
 	      BITMAP_FREE (bb_info->in);
 	      BITMAP_FREE (bb_info->out);
+	      BITMAP_FREE (bb_info->top);
+              if (bb_info->ause)
+                BITMAP_FREE (bb_info->ause);
+              if (bb_info->adef)
+                BITMAP_FREE (bb_info->adef);
 	    }
 	}
       free_alloc_pool (dflow->block_pool);
@@ -1999,19 +2031,26 @@ df_ur_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
 	  /* Only the last def counts.  */
 	  if (!bitmap_bit_p (seen_in_block, regno))
 	    {
-	      bitmap_set_bit (seen_in_insn, regno);
-	      
-	      if (DF_REF_FLAGS (def) 
-		  & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
-		{
+              if (DF_REF_FLAGS_IS_SET (def,
+                                       DF_REF_PARTIAL
+                                       | DF_REF_CONDITIONAL))
+                {
+                  /* All partial or conditional def
+                     seen are included in the gen set. */
+                  bitmap_set_bit (bb_info->gen, regno);
+                }
+              else if (DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER))
+                {
 		  /* Only must clobbers for the entire reg destroy the
 		     value.  */
-		  if ((DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
-		      && (!DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_set_bit (bb_info->kill, regno);
+                  bitmap_set_bit (seen_in_insn, regno);
+                  bitmap_set_bit (bb_info->kill, regno);
 		}
-	      else
-		bitmap_set_bit (bb_info->gen, regno);
+              else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
+		{
+                  bitmap_set_bit (seen_in_insn, regno);
+		  bitmap_set_bit (bb_info->gen, regno);
+                }
 	    }
 	}
       bitmap_ior_into (seen_in_block, seen_in_insn);
@@ -2507,6 +2546,7 @@ df_urec_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
 	  bb_info->gen = BITMAP_ALLOC (NULL);
 	  bb_info->in = BITMAP_ALLOC (NULL);
 	  bb_info->out = BITMAP_ALLOC (NULL);
+          bb_info->top = BITMAP_ALLOC (NULL);
 	  bb_info->earlyclobber = BITMAP_ALLOC (NULL);
 	}
     }
@@ -2857,6 +2897,10 @@ df_urec_local_finalize (struct dataflow *dflow, bitmap all_blocks)
 	 we trim the rr result to the places where it is used.  */
       bitmap_and_into (bb_info->in, bb_lr_info->in);
       bitmap_and_into (bb_info->out, bb_lr_info->out);
+      bitmap_copy (bb_info->top, bb_info->in);
+      if (bb_lr_info->adef)
+        bitmap_ior_into (bb_info->top, bb_lr_info->adef);
+      bitmap_and_into (bb_info->top, bb_lr_info->top);
 #if 0
       /* Hard registers may still stick in the ur_out set, but not
 	 be in the ur_in set, if their only mention was in a call
@@ -2907,29 +2951,6 @@ df_urec_transfer_function (struct dataflow *dflow, int bb_index)
 }
 
 
-/* Get the live regset at the point just before
-   the first insn in the basic block B. 
-
-   df_urec_bb_info:in is the "in" set of the traditional dataflow sense
-   which is the confluence of out sets of all predecessor blocks.
-   The difference from "in" set is from the artificial defs at the top
-   (e.g. exception handling dispatch block, which can have
-   a few registers defined by the runtime) - which is NOT included
-   in the "in" set before this function but is included after.  */
-
-void
-df_urec_get_live_at_top (struct df *df, basic_block b, bitmap top)
-{
-  struct df_ref *ref;
-
-  bitmap_ior_into (top, DF_RA_LIVE_IN (df, b));
-
-  /* artificial_defs at TOP has to be included in "in" set.  */
-  for (ref = df_get_artificial_defs (df, b->index);
-       ref; ref = DF_REF_NEXT_REF (ref))
-    if (DF_REF_FLAGS_IS_SET (ref, DF_REF_AT_TOP))
-      bitmap_set_bit (top, DF_REF_REGNO (ref));
-}
 
 /* Free all storage associated with the problem.  */
 
@@ -2950,6 +2971,7 @@ df_urec_free (struct dataflow *dflow)
 	      BITMAP_FREE (bb_info->in);
 	      BITMAP_FREE (bb_info->out);
 	      BITMAP_FREE (bb_info->earlyclobber);
+              BITMAP_FREE (bb_info->top);
 	    }
 	}
       

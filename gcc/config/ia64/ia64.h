@@ -1048,10 +1048,12 @@ enum reg_class
    in it.  */
 #define ARG_POINTER_REGNUM R_GR(0)
 
+extern void ia64_init_expanders (void);
 /* Due to the way varargs and argument spilling happens, the argument
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\
   do {							\
+    ia64_init_expanders ();                             \
     if (cfun && cfun->emit->regno_pointer_align)	\
       REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = 64;	\
   } while (0)

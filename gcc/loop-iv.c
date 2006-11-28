@@ -1078,6 +1078,9 @@ iv_analyze_def (struct df_ref *def, struct rtx_iv *iv)
   if (!set)
     return false;
 
+  if (!REG_P (SET_DEST (set)))
+    return false;
+
   gcc_assert (SET_DEST (set) == reg);
   rhs = find_reg_equal_equiv_note (insn);
   if (rhs)

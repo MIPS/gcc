@@ -67,6 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
@@ -2919,7 +2920,8 @@ schedule_insns (void)
   
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (rgn);
+    if (dbg_cnt (sched_region))
+      schedule_region (rgn);
   
   free(ebb_head);
   /* Reposition the prologue and epilogue notes in case we moved the
@@ -3105,7 +3107,7 @@ static bool
 gate_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  return flag_schedule_insns;
+  return flag_schedule_insns && dbg_cnt (sched_func);
 #else
   return 0;
 #endif
@@ -3125,7 +3127,8 @@ static bool
 gate_handle_sched2 (void)
 {
 #ifdef INSN_SCHEDULING
-  return optimize > 0 && flag_schedule_insns_after_reload;
+  return optimize > 0 && flag_schedule_insns_after_reload 
+    && dbg_cnt (sched2_func);
 #else
   return 0;
 #endif

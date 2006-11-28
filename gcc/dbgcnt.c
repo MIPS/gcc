@@ -37,16 +37,30 @@ static struct string2counter_map map[debug_counter_number_of_counters] =
 {
 #include "dbgcnt.def"
 };
+#undef DEBUG_COUNTER
 
-static int count[debug_counter_number_of_counters];
-static int limit[debug_counter_number_of_counters];
+#define DEBUG_COUNTER(a) UINT_MAX,
+static unsigned int limit[debug_counter_number_of_counters] =
+{
+#include "dbgcnt.def"
+};
+#undef DEBUG_COUNTER
+
+static unsigned int count[debug_counter_number_of_counters];
+
+bool
+dbg_cnt_is_enabled (enum debug_counter index)
+{
+  return count[index] <= limit[index];
+}
 
 bool
 dbg_cnt (enum debug_counter index)
 {
   count[index]++;
-  return limit[index] == 0 || (count[index] < limit[index]);
+  return dbg_cnt_is_enabled (index);
 }
+
 
 static void
 dbg_cnt_set_limit_by_index (enum debug_counter index, int value)

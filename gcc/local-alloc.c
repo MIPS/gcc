@@ -82,6 +82,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "dbgcnt.h"
+
 
 /* Next quantity number available for allocation.  */
 
@@ -1272,7 +1274,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_IN (ra_df, BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_TOP (ra_df, BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -1646,7 +1648,7 @@ block_alloc (int b)
 		 This optimization is only appropriate when we will run
 		 a scheduling pass after reload and we are not optimizing
 		 for code size.  */
-	      if (flag_schedule_insns_after_reload
+	      if (flag_schedule_insns_after_reload && dbg_cnt (local_alloc_for_sched)
 		  && !optimize_size
 		  && !SMALL_REGISTER_CLASSES)
 		{
@@ -1666,7 +1668,7 @@ block_alloc (int b)
 
 #ifdef INSN_SCHEDULING
 	  /* Similarly, avoid false dependencies.  */
-	  if (flag_schedule_insns_after_reload
+	  if (flag_schedule_insns_after_reload && dbg_cnt (local_alloc_for_sched)
 	      && !optimize_size
 	      && !SMALL_REGISTER_CLASSES
 	      && qty[q].alternate_class != NO_REGS)
