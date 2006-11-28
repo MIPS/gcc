@@ -1,3 +1,8 @@
+2006-11-27  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/misc/ReflectUtil.java (checkPackageAccess):
+	Implement.
+
 2006-11-23  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_RegisterClasses): Abort if we
