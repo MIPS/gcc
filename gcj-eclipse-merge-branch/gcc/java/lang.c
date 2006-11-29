@@ -999,7 +999,8 @@ java_dump_tree (void *dump_info, tree t)
 static bool
 java_decl_ok_for_sibcall (tree decl)
 {
-  return decl != NULL && DECL_CONTEXT (decl) == output_class;
+  return (decl != NULL && DECL_CONTEXT (decl) == output_class
+	  && DECL_INLINE (decl));
 }
 
 /* Given a call_expr, try to figure out what its target might be.  In

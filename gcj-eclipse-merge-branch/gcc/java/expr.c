@@ -2054,6 +2054,8 @@ typedef struct
 static tree 
 rewrite_arglist_getcaller (tree arglist)
 {
+  DECL_INLINE (current_function_decl) = 0;
+
   tree retaddr 
     = (build_function_call_expr 
        (built_in_decls[BUILT_IN_RETURN_ADDRESS],

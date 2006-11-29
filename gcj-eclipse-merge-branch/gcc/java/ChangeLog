@@ -1,3 +1,8 @@
+2006-11-29  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (rewrite_arglist_getcaller): Remove DECL_INLINE.
+	* lang.c (java_decl_ok_for_sibcall): Check for DECL_INLINE.
+
 2006-11-23  Andrew Haley  <aph@redhat.com>
 
 	* expr.c (rewrite_arglist_getcaller): New.
