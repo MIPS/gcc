@@ -1,5 +1,5 @@
 /* VMStackWalker.java -- Reference implementation of VM hooks for stack access
-   Copyright (C) 2005 Free Software Foundation
+   Copyright (C) 2005, 2006 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -50,6 +50,7 @@ import gnu.gcj.RawData;
  * @author John Keiser
  * @author Eric Blake <ebb9@email.byu.edu>
  * @author Archie Cobbs
+ * @author Andrew Haley <aph@redhat.com>
  */
 public final class VMStackWalker
 {
@@ -81,8 +82,11 @@ public final class VMStackWalker
    * and should return the same result.
    *
    * <p>
-   * VM implementers are encouraged to provide a more efficient
-   * version of this method.
+   * When compiling to native code gcj translates calls to this
+   * method into calls to <code>getCallingClass(addr)</code>, with
+   * <code>addr</code> being the address of the method calling this
+   * method. <code>getCallingClass(addr)</code> does not unwind the
+   * stack, so is therefore more efficient.
    */
   public static Class getCallingClass()
     throws NotImplementedException
@@ -93,9 +97,14 @@ public final class VMStackWalker
     return ctx[2];
   }
 
-  private static native Class getCallingClass(RawData p);
-
-  private static native ClassLoader getCallingClassLoader(RawData p);
+  /**
+   * Get the class associated with the method invoking the method
+   * invoking this method, or <code>null</code> if the stack is not
+   * that deep (e.g., invoked via JNI invocation API).
+   *
+   * @param addr The address of the method invoking this method.
+   */
+  private static native Class getCallingClass(RawData addr);
 
   /**
    * Get the class loader associated with the Class returned by
@@ -105,8 +114,11 @@ public final class VMStackWalker
    * and should return the same result.
    *
    * <p>
-   * VM implementers are encouraged to provide a more efficient
-   * version of this method.
+   * When compiling to native code gcj translates calls to this
+   * method into calls to <code>getCallingClassLoader(addr)</code>,
+   * with <code>addr</code> being the address of the method calling
+   * this method. <code>getCallingClassLoader(addr)</code> does not
+   * unwind the stack, so is therefore more efficient.
    */
   public static ClassLoader getCallingClassLoader()
     throws NotImplementedException
@@ -116,6 +128,15 @@ public final class VMStackWalker
       return null;
     return getClassLoader(ctx[2]);
   }
+
+  /**
+   * Get the class loader associated with the Class returned by
+   * <code>getCallingClass()</code>, or <code>null</code> if no
+   * such class exists or it is the boot loader.
+   * 
+   * @param addr The address of the method invoking this method.
+   */
+  private static native ClassLoader getCallingClassLoader(RawData addr);
 
   /**
    * Retrieve the class's ClassLoader, or <code>null</code> if loaded

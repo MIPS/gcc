@@ -1,3 +1,7 @@
+2006-11-29  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/classpath/VMStackWalker.java: Added javadoc.
+
 2006-11-27  Andrew Haley  <aph@redhat.com>
 
 	* sun/reflect/misc/ReflectUtil.java (checkPackageAccess):
