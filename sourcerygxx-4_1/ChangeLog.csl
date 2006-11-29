@@ -1,3 +1,10 @@
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): If
+	STRICT_ALIGNMENT and the type is more aligned than the saved
+	registers, copy via a temporary.
+
 2006-11-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
