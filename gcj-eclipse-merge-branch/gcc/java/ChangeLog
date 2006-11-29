@@ -1,3 +1,7 @@
+2006-11-29  Gary Benson  <gbenson@redhat.com>
+
+	* expr.c (rewrite_arglist_getcaller): Reorder.
+
 2006-11-29  Andrew Haley  <aph@redhat.com>
 
 	* expr.c (rewrite_arglist_getcaller): Remove DECL_INLINE.
