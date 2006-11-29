@@ -109,6 +109,9 @@ REAL_VALUE_TYPE dconstthird;
 REAL_VALUE_TYPE dconstpi;
 REAL_VALUE_TYPE dconste;
 
+/* Record fixed-point constant 0.  */
+FIXED_VALUE_TYPE fconst0[(int) MAX_MACHINE_MODE];
+
 /* All references to the following fixed hard registers go through
    these unique rtl objects.  On machines where the frame-pointer and
    arg-pointer are the same register, they use the same unique object.
@@ -5318,6 +5321,50 @@ init_emit_once (int line_numbers)
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      fconst0[mode].data.high = 0;
+      fconst0[mode].data.low = 0;
+      fconst0[mode].mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst0[mode], mode);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      fconst0[mode].data.high = 0;
+      fconst0[mode].data.low = 0;
+      fconst0[mode].mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst0[mode], mode);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      fconst0[mode].data.high = 0;
+      fconst0[mode].data.low = 0;
+      fconst0[mode].mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst0[mode], mode);
+    }
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_UACCUM);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      fconst0[mode].data.high = 0;
+      fconst0[mode].data.low = 0;
+      fconst0[mode].mode = mode;
+      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst0[mode], mode);
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)

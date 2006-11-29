@@ -1077,6 +1077,10 @@ fold_negate_expr (tree t)
 	return tem;
       break;
 
+    case FIXED_CST:
+      tem = fold_negate_const (t, type);
+      return tem;
+
     case COMPLEX_CST:
       {
 	tree rpart = negate_expr (TREE_REALPART (t));
@@ -1653,6 +1657,41 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 	= TREE_OVERFLOW (t)
 	  | TREE_CONSTANT_OVERFLOW (arg1)
 	  | TREE_CONSTANT_OVERFLOW (arg2);
+      return t;
+    }
+
+  if (TREE_CODE (arg1) == FIXED_CST)
+    {
+      FIXED_VALUE_TYPE f1;
+      FIXED_VALUE_TYPE f2;
+      FIXED_VALUE_TYPE result;
+      tree t, type;
+
+      /* The following codes are handled by fixed_arithmetic.  */
+      switch (code)
+        {
+	case PLUS_EXPR:
+	case MINUS_EXPR:
+	case MULT_EXPR:
+	case TRUNC_DIV_EXPR:
+	  f2 = TREE_FIXED_CST (arg2);
+	  break;
+
+	case LSHIFT_EXPR:
+	case RSHIFT_EXPR:
+	  f2.data.high = TREE_INT_CST_HIGH (arg2);
+	  f2.data.low = TREE_INT_CST_LOW (arg2);
+	  f2.mode = SImode;
+	  break;
+
+        default:
+	  return NULL_TREE;
+        }
+
+      f1 = TREE_FIXED_CST (arg1);
+      type = TREE_TYPE (arg1);
+      fixed_arithmetic (&result, code, &f1, &f2);
+      t = build_fixed (type, result);
       return t;
     }
 
@@ -8461,6 +8500,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
      constant but we can't do arithmetic on them.  */
   if ((TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
       || (TREE_CODE (arg0) == REAL_CST && TREE_CODE (arg1) == REAL_CST)
+      || (TREE_CODE (arg0) == FIXED_CST && TREE_CODE (arg1) == FIXED_CST)
+      || (TREE_CODE (arg0) == FIXED_CST && TREE_CODE (arg1) == INTEGER_CST)
       || (TREE_CODE (arg0) == COMPLEX_CST && TREE_CODE (arg1) == COMPLEX_CST)
       || (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST))
     {
@@ -12608,6 +12649,10 @@ fold_negate_const (tree arg0, tree type)
       t = build_real (type, REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
       break;
 
+    case FIXED_CST:
+      t = build_fixed (type, FIXED_VALUE_NEGATE (TREE_FIXED_CST (arg0)));
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -12739,6 +12784,13 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	}
 
       return constant_boolean_node (real_compare (code, c0, c1), type);
+    }
+
+  if (TREE_CODE (op0) == FIXED_CST && TREE_CODE (op1) == FIXED_CST)
+    {
+      const FIXED_VALUE_TYPE *c0 = TREE_FIXED_CST_PTR (op0);
+      const FIXED_VALUE_TYPE *c1 = TREE_FIXED_CST_PTR (op1);
+      return constant_boolean_node (fixed_compare (code, c0, c1), type);
     }
 
   /* From here on we only handle LT, LE, GT, GE, EQ and NE.

@@ -1,3 +1,33 @@
+2006-11-29  Chao-ying Fu  <fu@mips.com>
+
+	* tree.h (fixed_zerop): Declare.
+	* tree.c (fixed_zerop): New function.
+	* final.c (output_addr_const): Output the lower data for CONST_FIXED.
+	* fold-const.c (fold_negate_expr): Support FIXED_CST.
+	(const_binop): Likewise.
+	(fold_binary): Likewise.
+	(fold_negate_const): Likewise.
+	(fold_relational_const): Likewise.
+	* c-decl.c (declspecs_add_type): Give errors when complex is used with
+	_Fract or _Accum.
+	* c-typeck.c (build_unary_op): Support FIXED_POINT_TYPE for
+	CONVERT_EXPR, NEGATE_EXPR, and TRUTH_NOT_EXPR.
+	(build_binary_op): Check fixed_zerop for *_DIV_EXPR.
+	Support FIXED_POINT_TYPE in *_DIV_EXPR, RSHIFT_EXPR, LSHIFT_EXPR,
+	EQ_EXPR, NE_EXPR, LE_EXPR, GE_EXPR, LT_EXPR, GT_EXPR.
+	* emit-rtl.c (fconst0): New array for fixed-point zero. 
+	(init_emit_once): Init fconst0.
+	* fixed_value.h (fconst0): Declare.
+	(fixed_arithmetic, fixed_compare, fixed_arithmetic2): Declare.
+	(FIXED_VALUE_NEGATE): Define.
+	* fixed_value.c (do_fixed_add, do_fixed_multiply, do_fixed_divide,
+	do_fixed_shift): Declare.
+	(fixed_from_string): Sign or zero extend the value.
+	(do_fixed_add, do_fixed_multiply, do_fixed_divide, do_fixed_shift,
+	fixed_arithmetic, fixed_arithmetic2, fixed_compare): New functions.
+	* c-common.c (shorten_compare): Test fixed_zerop.
+	(c_common_truthvalue_conversion): Support FIXED_CST.
+
 2006-11-20  Chao-ying Fu  <fu@mips.com>
 
 	* Makefile.in (tree-pretty-print.o): Add dependence from fixed_value.h.

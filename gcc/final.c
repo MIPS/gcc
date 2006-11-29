@@ -3252,13 +3252,7 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case CONST_FIXED:
-      if (CONST_FIXED_VALUE_HIGH (x))
-	fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		 CONST_FIXED_VALUE_HIGH (x), CONST_FIXED_VALUE_LOW (x));
-      else if (CONST_FIXED_VALUE_LOW (x) < 0)
-	fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
-      else
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_FIXED_VALUE_LOW (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
       break;
 
     case PLUS:

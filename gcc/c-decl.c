@@ -7507,21 +7507,22 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      {
 		const char *str;
 		if (i == RID_FRACT)
-		  {
-		    str = "_Fract";
-		    specs->typespec_word = cts_fract;
-		  }
+		  str = "_Fract";
 		else
-		  {
-		    str = "_Accum";
+		  str = "_Accum";
+                if (specs->complex_p)
+                  error ("both %<complex%> and %<%s%> in "
+                         "declaration specifiers", str);
+		else if (i == RID_FRACT)
+		    specs->typespec_word = cts_fract;
+		else
 		    specs->typespec_word = cts_accum;
-		  }
-		if (!targetm.fixed_point_supported_p ())
-		  error ("fixed-point types not supported for this target");
-		if (pedantic)
-		  pedwarn ("ISO C does not support fixed-point types");
-		return specs;
 	      }
+	      if (!targetm.fixed_point_supported_p ())
+		error ("fixed-point types not supported for this target");
+	      if (pedantic)
+		pedwarn ("ISO C does not support fixed-point types");
+	      return specs;
 	    default:
 	      /* ObjC reserved word "id", handled below.  */
 	      break;

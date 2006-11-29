@@ -2194,7 +2194,8 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
      the second arg is 0.  */
 
   if (TREE_CONSTANT (primop0)
-      && !integer_zerop (primop1) && !real_zerop (primop1))
+      && !integer_zerop (primop1) && !real_zerop (primop1)
+      && !fixed_zerop (primop1))
     {
       tree tem = primop0;
       int temi = unsignedp0;
@@ -2632,6 +2633,12 @@ c_common_truthvalue_conversion (tree expr)
 
     case REAL_CST:
       return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
+
+    case FIXED_CST:
+      return fixed_compare (NE_EXPR, &TREE_FIXED_CST (expr),
+			    &fconst0[TYPE_MODE (TREE_TYPE (expr))])
 	     ? truthvalue_true_node
 	     : truthvalue_false_node;
 

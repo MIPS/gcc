@@ -1413,6 +1413,15 @@ integer_nonzerop (tree expr)
 		  || integer_nonzerop (TREE_IMAGPART (expr)))));
 }
 
+/* Return 1 if EXPR is the fixed-point constant zero.  */
+
+int
+fixed_zerop (tree expr)
+{
+  return TREE_CODE (expr) == FIXED_CST
+	 && double_int_zero_p (TREE_FIXED_CST (expr).data);
+}
+
 /* Return the power of two represented by a tree node known to be a
    power of two.  */
 

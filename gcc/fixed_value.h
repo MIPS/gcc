@@ -31,6 +31,9 @@ struct fixed_value GTY(())
 
 #define FIXED_VALUE_TYPE struct fixed_value
 
+/* Constant fixed-point values 0.  */
+extern FIXED_VALUE_TYPE fconst0[];
+
 /* Return a CONST_FIXED with value R and mode M.  */
 #define CONST_FIXED_FROM_FIXED_VALUE(r, m) \
   const_fixed_from_fixed_value (r, m)
@@ -52,5 +55,19 @@ extern unsigned int fixed_hash (const FIXED_VALUE_TYPE *);
 
 /* Render F as a decimal floating point constant.  */
 extern void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *, size_t);
+
+/* Binary or unary arithmetic on tree_code.  */
+extern void fixed_arithmetic (FIXED_VALUE_TYPE *, int, const FIXED_VALUE_TYPE *,
+			      const FIXED_VALUE_TYPE *);
+
+/* Compare fixed-point values by tree_code.  */
+extern bool fixed_compare (int, const FIXED_VALUE_TYPE *,
+			   const FIXED_VALUE_TYPE *);
+
+extern FIXED_VALUE_TYPE fixed_arithmetic2 (int, const FIXED_VALUE_TYPE *,
+					   const FIXED_VALUE_TYPE *);
+
+#define FIXED_VALUE_NEGATE(X) \
+  fixed_arithmetic2 (NEGATE_EXPR, &(X), NULL)
 
 #endif /* GCC_FIXED_VALUE_H */

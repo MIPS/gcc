@@ -2826,7 +2826,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	 is enough to prevent anybody from looking inside for
 	 associativity, but won't generate any code.  */
       if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE
+	    || typecode == FIXED_POINT_TYPE || typecode == COMPLEX_TYPE
 	    || typecode == VECTOR_TYPE))
 	{
 	  error ("wrong type argument to unary plus");
@@ -2839,7 +2839,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
     case NEGATE_EXPR:
       if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE
+	    || typecode == FIXED_POINT_TYPE || typecode == COMPLEX_TYPE
 	    || typecode == VECTOR_TYPE))
 	{
 	  error ("wrong type argument to unary minus");
@@ -2893,7 +2893,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case TRUTH_NOT_EXPR:
-      if (typecode != INTEGER_TYPE
+      if (typecode != INTEGER_TYPE && typecode != FIXED_POINT_TYPE
 	  && typecode != REAL_TYPE && typecode != POINTER_TYPE
 	  && typecode != COMPLEX_TYPE)
 	{
@@ -7887,12 +7887,14 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case EXACT_DIV_EXPR:
       /* Floating point division by zero is a legitimate way to obtain
 	 infinities and NaNs.  */
-      if (skip_evaluation == 0 && integer_zerop (op1))
+      if (skip_evaluation == 0 && (integer_zerop (op1) || fixed_zerop (op1)))
 	warning (OPT_Wdiv_by_zero, "division by zero");
 
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
+	   || code0 == FIXED_POINT_TYPE
 	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
+	      || code1 == FIXED_POINT_TYPE
 	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  enum tree_code tcode0 = code0, tcode1 = code1;
@@ -7902,7 +7904,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  if (code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE)
 	    tcode1 = TREE_CODE (TREE_TYPE (TREE_TYPE (op1)));
 
-	  if (!(tcode0 == INTEGER_TYPE && tcode1 == INTEGER_TYPE))
+	  if (!((tcode0 == INTEGER_TYPE && tcode1 == INTEGER_TYPE)
+	      || (tcode0 == FIXED_POINT_TYPE && tcode1 == FIXED_POINT_TYPE)))
 	    resultcode = RDIV_EXPR;
 	  else
 	    /* Although it would be tempting to shorten always here, that
@@ -7969,7 +7972,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	 Also set SHORT_SHIFT if shifting rightward.  */
 
     case RSHIFT_EXPR:
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
+      if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+	  && code1 == INTEGER_TYPE)
 	{
 	  if (TREE_CODE (op1) == INTEGER_CST && skip_evaluation == 0)
 	    {
@@ -7997,7 +8001,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       break;
 
     case LSHIFT_EXPR:
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
+      if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+	  && code1 == INTEGER_TYPE)
 	{
 	  if (TREE_CODE (op1) == INTEGER_CST && skip_evaluation == 0)
 	    {
@@ -8028,9 +8033,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == FIXED_POINT_TYPE || code0 == COMPLEX_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == FIXED_POINT_TYPE || code1 == COMPLEX_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
@@ -8104,8 +8109,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case LT_EXPR:
     case GT_EXPR:
       build_type = integer_type_node;
-      if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
-	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
+      if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
+	   || code0 == FIXED_POINT_TYPE)
+	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
+	      || code1 == FIXED_POINT_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
@@ -8166,10 +8173,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     }
 
   if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
-       || code0 == VECTOR_TYPE)
+       || code0 == FIXED_POINT_TYPE || code0 == VECTOR_TYPE)
       &&
       (code1 == INTEGER_TYPE || code1 == REAL_TYPE || code1 == COMPLEX_TYPE
-       || code1 == VECTOR_TYPE))
+       || code0 == FIXED_POINT_TYPE || code1 == VECTOR_TYPE))
     {
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
 
