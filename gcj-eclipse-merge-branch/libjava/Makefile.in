@@ -318,8 +318,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/nio/natDirectByteBufferImpl.cc \
 	java/security/natVMAccessController.cc \
 	java/security/natVMAccessControlState.cc \
-	java/text/natCollator.cc java/util/natResourceBundle.cc \
-	java/util/natVMTimeZone.cc \
+	java/text/natCollator.cc java/util/natVMTimeZone.cc \
 	java/util/concurrent/atomic/natAtomicLong.cc \
 	java/util/logging/natLogger.cc java/util/zip/natDeflater.cc \
 	java/util/zip/natInflater.cc sun/misc/natUnsafe.cc \
@@ -383,8 +382,7 @@ am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	java/nio/natDirectByteBufferImpl.lo \
 	java/security/natVMAccessController.lo \
 	java/security/natVMAccessControlState.lo \
-	java/text/natCollator.lo java/util/natResourceBundle.lo \
-	java/util/natVMTimeZone.lo \
+	java/text/natCollator.lo java/util/natVMTimeZone.lo \
 	java/util/concurrent/atomic/natAtomicLong.lo \
 	java/util/logging/natLogger.lo java/util/zip/natDeflater.lo \
 	java/util/zip/natInflater.lo sun/misc/natUnsafe.lo \
@@ -4076,7 +4074,7 @@ classpath/java/lang/NumberFormatException.java \
 java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
 classpath/java/lang/Override.java \
-java/lang/Package.java \
+classpath/java/lang/Package.java \
 java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
 java/lang/ProcessBuilder.java \
@@ -4494,7 +4492,7 @@ classpath/java/security/PublicKey.java \
 classpath/java/security/SecureClassLoader.java \
 classpath/java/security/SecureRandom.java \
 classpath/java/security/SecureRandomSpi.java \
-java/security/Security.java \
+classpath/java/security/Security.java \
 classpath/java/security/SecurityPermission.java \
 classpath/java/security/Signature.java \
 classpath/java/security/SignatureException.java \
@@ -4727,7 +4725,7 @@ classpath/java/util/PropertyResourceBundle.java \
 classpath/external/jsr166/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
-java/util/ResourceBundle.java \
+classpath/java/util/ResourceBundle.java \
 classpath/java/util/Set.java \
 classpath/java/util/SimpleTimeZone.java \
 classpath/java/util/SortedMap.java \
@@ -7655,7 +7653,6 @@ java/nio/natDirectByteBufferImpl.cc \
 java/security/natVMAccessController.cc \
 java/security/natVMAccessControlState.cc \
 java/text/natCollator.cc \
-java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \
 java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \
@@ -8228,8 +8225,6 @@ java/util/$(am__dirstamp):
 java/util/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) java/util/$(DEPDIR)
 	@: > java/util/$(DEPDIR)/$(am__dirstamp)
-java/util/natResourceBundle.lo: java/util/$(am__dirstamp) \
-	java/util/$(DEPDIR)/$(am__dirstamp)
 java/util/natVMTimeZone.lo: java/util/$(am__dirstamp) \
 	java/util/$(DEPDIR)/$(am__dirstamp)
 java/util/concurrent/atomic/$(am__dirstamp):
@@ -8604,8 +8599,6 @@ mostlyclean-compile:
 	-rm -f java/util/concurrent/atomic/natAtomicLong.lo
 	-rm -f java/util/logging/natLogger.$(OBJEXT)
 	-rm -f java/util/logging/natLogger.lo
-	-rm -f java/util/natResourceBundle.$(OBJEXT)
-	-rm -f java/util/natResourceBundle.lo
 	-rm -f java/util/natVMTimeZone.$(OBJEXT)
 	-rm -f java/util/natVMTimeZone.lo
 	-rm -f java/util/zip/natDeflater.$(OBJEXT)
@@ -8740,7 +8733,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/security/$(DEPDIR)/natVMAccessControlState.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/security/$(DEPDIR)/natVMAccessController.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/text/$(DEPDIR)/natCollator.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@java/util/$(DEPDIR)/natResourceBundle.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/util/$(DEPDIR)/natVMTimeZone.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/util/concurrent/atomic/$(DEPDIR)/natAtomicLong.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/util/logging/$(DEPDIR)/natLogger.Plo@am__quote@

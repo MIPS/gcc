@@ -1,5 +1,14 @@
 2006-11-29  Gary Benson  <gbenson@redhat.com>
 
+	* java/lang/Package.java: Removed.
+	* java/security/Security.java: Likewise.
+	* java/util/ResourceBundle.java: Likewise.
+	* java/util/natResourceBundle.cc: Likewise.
+	* Makefile.am (nat_source_files): Removed natResourceBundle.cc.
+	* sources.am, Makefile.in: Rebuilt.
+
+2006-11-29  Gary Benson  <gbenson@redhat.com>
+
 	* gnu/classpath/VMStackWalker.java: Added javadoc.
 
 2006-11-27  Andrew Haley  <aph@redhat.com>

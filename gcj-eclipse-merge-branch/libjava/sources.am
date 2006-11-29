@@ -4458,7 +4458,7 @@ classpath/java/lang/NumberFormatException.java \
 java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
 classpath/java/lang/Override.java \
-java/lang/Package.java \
+classpath/java/lang/Package.java \
 java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
 java/lang/ProcessBuilder.java \
@@ -5020,7 +5020,7 @@ classpath/java/security/PublicKey.java \
 classpath/java/security/SecureClassLoader.java \
 classpath/java/security/SecureRandom.java \
 classpath/java/security/SecureRandomSpi.java \
-java/security/Security.java \
+classpath/java/security/Security.java \
 classpath/java/security/SecurityPermission.java \
 classpath/java/security/Signature.java \
 classpath/java/security/SignatureException.java \
@@ -5309,7 +5309,7 @@ classpath/java/util/PropertyResourceBundle.java \
 classpath/external/jsr166/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
-java/util/ResourceBundle.java \
+classpath/java/util/ResourceBundle.java \
 classpath/java/util/Set.java \
 classpath/java/util/SimpleTimeZone.java \
 classpath/java/util/SortedMap.java \

@@ -790,7 +790,6 @@ java/nio/natDirectByteBufferImpl.cc \
 java/security/natVMAccessController.cc \
 java/security/natVMAccessControlState.cc \
 java/text/natCollator.cc \
-java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \
 java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \

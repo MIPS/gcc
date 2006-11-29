@@ -13,7 +13,6 @@
 class java::util::ResourceBundle : public ::java::lang::Object
 {
 
-  static ::java::lang::ClassLoader * getCallingClassLoader();
 public:
   ResourceBundle();
   virtual ::java::lang::String * getString(::java::lang::String *);

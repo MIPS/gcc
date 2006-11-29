@@ -25,6 +25,7 @@ class java::lang::Package : public ::java::lang::Object
 
 public: // actually package-private
   Package(::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::net::URL *);
+  Package(::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::net::URL *, ::java::lang::ClassLoader *);
 public:
   virtual ::java::lang::String * getName();
   virtual ::java::lang::String * getSpecificationTitle();
@@ -40,6 +41,10 @@ public:
   static JArray< ::java::lang::Package * > * getPackages();
   virtual jint hashCode();
   virtual ::java::lang::String * toString();
+  virtual ::java::lang::annotation::Annotation * getAnnotation(::java::lang::Class *);
+  virtual JArray< ::java::lang::annotation::Annotation * > * getAnnotations();
+  virtual JArray< ::java::lang::annotation::Annotation * > * getDeclaredAnnotations();
+  virtual jboolean isAnnotationPresent(::java::lang::Class *);
 private:
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) name;
   ::java::lang::String * implTitle;
@@ -49,6 +54,7 @@ private:
   ::java::lang::String * specVendor;
   ::java::lang::String * specVersion;
   ::java::net::URL * sealed;
+  ::java::lang::ClassLoader * loader;
 public:
   static ::java::lang::Class class$;
 };
