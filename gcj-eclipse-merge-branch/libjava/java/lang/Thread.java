@@ -36,9 +36,9 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package java.lang;
 
+import gnu.classpath.VMStackWalker;
 import gnu.gcj.RawData;
 import gnu.gcj.RawDataManaged;
 import gnu.java.util.WeakIdentityHashMap;
@@ -89,6 +89,7 @@ import java.util.Map;
  * @author Tom Tromey
  * @author John Keiser
  * @author Eric Blake (ebb9@email.byu.edu)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  * @see Runnable
  * @see Runtime#exit(int)
  * @see #run()
@@ -470,7 +471,10 @@ public class Thread implements Runnable
   public native int countStackFrames();
 
   /**
-   * Get the currently executing Thread.
+   * Get the currently executing Thread. In the situation that the
+   * currently running thread was created by native code and doesn't
+   * have an associated Thread object yet, a new Thread object is
+   * constructed and associated with the native thread.
    *
    * @return the currently executing Thread
    */
@@ -479,6 +483,19 @@ public class Thread implements Runnable
   /**
    * Originally intended to destroy this thread, this method was never
    * implemented by Sun, and is hence a no-op.
+   *
+   * @deprecated This method was originally intended to simply destroy
+   *             the thread without performing any form of cleanup operation.
+   *             However, it was never implemented.  It is now deprecated
+   *             for the same reason as <code>suspend()</code>,
+   *             <code>stop()</code> and <code>resume()</code>; namely,
+   *             it is prone to deadlocks.  If a thread is destroyed while
+   *             it still maintains a lock on a resource, then this resource
+   *             will remain locked and any attempts by other threads to
+   *             access the resource will result in a deadlock.  Thus, even
+   *             an implemented version of this method would be still be
+   *             deprecated, due to its unsafe nature.
+   * @throws NoSuchMethodError as this method was never implemented.
    */
   public void destroy()
   {
@@ -667,7 +684,9 @@ public class Thread implements Runnable
     throws InterruptedException;
 
   /**
-   * Resume a suspended thread.
+   * Resume this Thread.  If the thread is not suspended, this method does
+   * nothing. To mirror suspend(), there may be a security check:
+   * <code>checkAccess</code>.
    *
    * @throws SecurityException if you cannot resume the Thread
    * @see #checkAccess()
@@ -742,7 +761,7 @@ public class Thread implements Runnable
    *
    * @return the context class loader
    * @throws SecurityException when permission is denied
-   * @see setContextClassLoader(ClassLoader)
+   * @see #setContextClassLoader(ClassLoader)
    * @since 1.2
    */
   public synchronized ClassLoader getContextClassLoader()
@@ -750,24 +769,15 @@ public class Thread implements Runnable
     if (contextClassLoader == null)
       contextClassLoader = ClassLoader.getSystemClassLoader();
 
+    // Check if we may get the classloader
     SecurityManager sm = System.getSecurityManager();
-    // FIXME: we can't currently find the caller's class loader.
-    ClassLoader callers = null;
-    if (sm != null && callers != null)
+    if (contextClassLoader != null && sm != null)
       {
-	// See if the caller's class loader is the same as or an
-	// ancestor of this thread's class loader.
-	while (callers != null && callers != contextClassLoader)
-	  {
-	    // FIXME: should use some internal version of getParent
-	    // that avoids security checks.
-	    callers = callers.getParent();
-	  }
-
-	if (callers != contextClassLoader)
-	  sm.checkPermission(new RuntimePermission("getClassLoader"));
+        // Get the calling classloader
+	ClassLoader cl = VMStackWalker.getCallingClassLoader();
+        if (cl != null && !cl.isAncestorOf(contextClassLoader))
+          sm.checkPermission(new RuntimePermission("getClassLoader"));
       }
-
     return contextClassLoader;
   }
 
@@ -780,7 +790,7 @@ public class Thread implements Runnable
    *
    * @param classloader the new context class loader
    * @throws SecurityException when permission is denied
-   * @see getContextClassLoader()
+   * @see #getContextClassLoader()
    * @since 1.2
    */
   public synchronized void setContextClassLoader(ClassLoader classloader)
@@ -810,8 +820,10 @@ public class Thread implements Runnable
   }
 
   /**
-   * Causes the currently executing thread object to temporarily pause
-   * and allow other threads to execute.
+   * Yield to another thread. The Thread will not lose any locks it holds
+   * during this time. There are no guarantees which thread will be
+   * next to run, and it could even be this one, but most VMs will choose
+   * the highest priority thread that has been waiting longest.
    */
   public static native void yield();
 
@@ -822,8 +834,10 @@ public class Thread implements Runnable
    * choose the highest priority thread that has been waiting longest.
    *
    * @param ms the number of milliseconds to sleep, or 0 for forever
-   * @throws InterruptedException if the Thread is interrupted; it's
-   *         <i>interrupted status</i> will be cleared
+   * @throws InterruptedException if the Thread is (or was) interrupted;
+   *         it's <i>interrupted status</i> will be cleared
+   * @throws IllegalArgumentException if ms is negative
+   * @see #interrupt()
    * @see #notify()
    * @see #wait(long)
    */
@@ -837,18 +851,21 @@ public class Thread implements Runnable
    * time. The Thread will not lose any locks it has during this time. There
    * are no guarantees which thread will be next to run, but most VMs will
    * choose the highest priority thread that has been waiting longest.
-   *
-   * <p>Note that 1,000,000 nanoseconds == 1 millisecond, but most VMs do
-   * not offer that fine a grain of timing resolution. Besides, there is
-   * no guarantee that this thread can start up immediately when time expires,
-   * because some other thread may be active.  So don't expect real-time
-   * performance.
+   * <p>
+   * Note that 1,000,000 nanoseconds == 1 millisecond, but most VMs
+   * do not offer that fine a grain of timing resolution. When ms is
+   * zero and ns is non-zero the Thread will sleep for at least one
+   * milli second. There is no guarantee that this thread can start up
+   * immediately when time expires, because some other thread may be
+   * active.  So don't expect real-time performance.
    *
    * @param ms the number of milliseconds to sleep, or 0 for forever
    * @param ns the number of extra nanoseconds to sleep (0-999999)
-   * @throws InterruptedException if the Thread is interrupted; it's
-   *         <i>interrupted status</i> will be cleared
-   * @throws IllegalArgumentException if ns is invalid
+   * @throws InterruptedException if the Thread is (or was) interrupted;
+   *         it's <i>interrupted status</i> will be cleared
+   * @throws IllegalArgumentException if ms or ns is negative
+   *         or ns is larger than 999999.
+   * @see #interrupt()
    * @see #notify()
    * @see #wait(long, int)
    */
@@ -899,10 +916,11 @@ public class Thread implements Runnable
 
   /**
    * Cause this Thread to stop abnormally and throw the specified exception.
-   * If you stop a Thread that has not yet started, it will stop immediately
-   * when it is actually started. <b>WARNING</b>This bypasses Java security,
-   * and can throw a checked exception which the call stack is unprepared to
-   * handle. Do not abuse this power.
+   * If you stop a Thread that has not yet started, the stop is ignored
+   * (contrary to what the JDK documentation says).
+   * <b>WARNING</b>This bypasses Java security, and can throw a checked
+   * exception which the call stack is unprepared to handle. Do not abuse
+   * this power.
    *
    * <p>This is inherently unsafe, as it can interrupt synchronized blocks and
    * leave data in bad states.  Hence, there is a security check:
@@ -1124,7 +1142,7 @@ public class Thread implements Runnable
    * @author Andrew John Hughes <gnu_andrew@member.fsf.org>
    * @since 1.5
    * @see Thread#getUncaughtExceptionHandler()
-   * @see Thread#setUncaughtExceptionHander(java.lang.Thread.UncaughtExceptionHandler)
+   * @see Thread#setUncaughtExceptionHandler(UncaughtExceptionHandler)
    * @see Thread#getDefaultUncaughtExceptionHandler()
    * @see
    * Thread#setDefaultUncaughtExceptionHandler(java.lang.Thread.UncaughtExceptionHandler)
@@ -1274,4 +1292,5 @@ public class Thread implements Runnable
     ThreadInfo info = bean.getThreadInfo(getId(), Integer.MAX_VALUE);
     return info.getStackTrace();
   }
+
 }
