@@ -1,5 +1,10 @@
 2006-11-30  Gary Benson  <gbenson@redhat.com>
 
+	* java/lang/ClassLoader.java: Merged javadoc.
+	(getParent, getSystemClassLoader): Use VMStackWalker.
+
+2006-11-30  Gary Benson  <gbenson@redhat.com>
+
 	* java/lang/Thread.java: Merged javadoc.
 	(getContextClassLoader): Use VMStackWalker.
 

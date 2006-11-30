@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.lang;
 
 import gnu.classpath.SystemProperties;
+import gnu.classpath.VMStackWalker;
 import gnu.java.util.DoubleEnumeration;
 import gnu.java.util.EmptyEnumeration;
 
@@ -530,8 +531,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-        Class c = VMSecurityManager.getClassContext(ClassLoader.class)[0];
-        ClassLoader cl = c.getClassLoader();
+	ClassLoader cl = VMStackWalker.getCallingClassLoader();
 	if (cl != null && ! cl.isAncestorOf(this))
           sm.checkPermission(new RuntimePermission("getClassLoader"));
       }
@@ -744,14 +744,15 @@ public abstract class ClassLoader
 
   /**
    * Returns the system classloader. The system classloader (also called
-   * the application classloader) is the classloader that was used to
+   * the application classloader) is the classloader that is used to
    * load the application classes on the classpath (given by the system
    * property <code>java.class.path</code>. This is set as the context
    * class loader for a thread. The system property
    * <code>java.system.class.loader</code>, if defined, is taken to be the
    * name of the class to use as the system class loader, which must have
-   * a public constructor which takes a ClassLoader as a parent; otherwise this
-   * uses gnu.java.lang.SystemClassLoader.
+   * a public constructor which takes a ClassLoader as a parent. The parent
+   * class loader passed in the constructor is the default system class
+   * loader.
    *
    * <p>Note that this is different from the bootstrap classloader that
    * actually loads all the real "system" classes (the bootstrap classloader
@@ -773,8 +774,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-	Class c = VMSecurityManager.getClassContext(ClassLoader.class)[0];
-	ClassLoader cl = c.getClassLoader();
+	ClassLoader cl = VMStackWalker.getCallingClassLoader();
 	if (cl != null && cl != systemClassLoader)
 	  sm.checkPermission(new RuntimePermission("getClassLoader"));
       }
@@ -898,7 +898,7 @@ public abstract class ClassLoader
    *
    * @param name the (system specific) name of the requested library
    * @return the full pathname to the requested library, or null
-   * @see Runtime#loadLibrary()
+   * @see Runtime#loadLibrary(String)
    * @since 1.2
    */
   protected String findLibrary(String name)
@@ -928,7 +928,7 @@ public abstract class ClassLoader
    *
    * @param name the package (and subpackages) to affect
    * @param enabled true to set the default to enabled
-   * @see #setDefaultAssertionStatus(String, boolean)
+   * @see #setDefaultAssertionStatus(boolean)
    * @see #setClassAssertionStatus(String, boolean)
    * @see #clearAssertionStatus()
    * @since 1.4
@@ -949,7 +949,7 @@ public abstract class ClassLoader
    * @param name the class to affect
    * @param enabled true to set the default to enabled
    * @throws NullPointerException if name is null
-   * @see #setDefaultAssertionStatus(String, boolean)
+   * @see #setDefaultAssertionStatus(boolean)
    * @see #setPackageAssertionStatus(String, boolean)
    * @see #clearAssertionStatus()
    * @since 1.4
