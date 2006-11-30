@@ -1,3 +1,7 @@
+2006-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getAnnotations): Don't recurse.
+
 2006-11-30  Gary Benson  <gbenson@redhat.com>
 
 	* include/java-stack.h (GetStackWalkerStack): Declare.

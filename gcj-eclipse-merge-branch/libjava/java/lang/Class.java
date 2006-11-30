@@ -1278,7 +1278,7 @@ public final class Class<T>
 	 s != null;
 	 s = s.getSuperclass())
       {
-	for (Annotation a : s.getAnnotations())
+	for (Annotation a : s.getDeclaredAnnotations())
 	  {
 	    Class k = (Class) a.annotationType();
 	    if (! map.containsKey(k) && k.isAnnotationPresent(Inherited.class))
