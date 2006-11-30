@@ -1,5 +1,15 @@
 2006-11-30  Gary Benson  <gbenson@redhat.com>
 
+	* include/java-stack.h (GetStackWalkerStack): Declare.
+	* stacktrace.cc (GetStackWalkerStack): New method.
+	* gnu/classpath/natVMStackWalker.cc (getClassContext): Likewise.
+	* gnu/classpath/VMStackWalker.java
+	(getClassContext): Replace stub with native method declaration.
+	(getCallingClass): Remove "throws NotImplementedException".
+	(getCallingClassLoader): Likewise.
+
+2006-11-30  Gary Benson  <gbenson@redhat.com>
+
 	* java/lang/ClassLoader.java: Merged javadoc.
 	(getParent, getSystemClassLoader): Use VMStackWalker.
 

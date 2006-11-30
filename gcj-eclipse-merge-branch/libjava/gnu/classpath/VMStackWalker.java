@@ -51,6 +51,7 @@ import gnu.gcj.RawData;
  * @author Eric Blake <ebb9@email.byu.edu>
  * @author Archie Cobbs
  * @author Andrew Haley <aph@redhat.com>
+ * @author Gary Benson <gbenson@redhat.com>
  */
 public final class VMStackWalker
 {
@@ -68,11 +69,7 @@ public final class VMStackWalker
    *
    * @return an array of the declaring classes of each stack frame
    */
-  public static Class[] getClassContext()
-    throws NotImplementedException
-  {
-    return null;
-  }
+  public static native Class[] getClassContext();
 
   /**
    * Get the class associated with the method invoking the method
@@ -89,7 +86,6 @@ public final class VMStackWalker
    * stack, so is therefore more efficient.
    */
   public static Class getCallingClass()
-    throws NotImplementedException
   {
     Class[] ctx = getClassContext();
     if (ctx.length < 3)
@@ -121,7 +117,6 @@ public final class VMStackWalker
    * unwind the stack, so is therefore more efficient.
    */
   public static ClassLoader getCallingClassLoader()
-    throws NotImplementedException
   {
     Class[] ctx = getClassContext();
     if (ctx.length < 3)

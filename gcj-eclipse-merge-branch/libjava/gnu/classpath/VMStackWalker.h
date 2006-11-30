@@ -33,9 +33,11 @@ public:
   static ::java::lang::Class * getCallingClass();
 private:
   static ::java::lang::Class * getCallingClass(::gnu::gcj::RawData *);
-  static ::java::lang::ClassLoader * getCallingClassLoader(::gnu::gcj::RawData *);
 public:
   static ::java::lang::ClassLoader * getCallingClassLoader();
+private:
+  static ::java::lang::ClassLoader * getCallingClassLoader(::gnu::gcj::RawData *);
+public:
   static ::java::lang::ClassLoader * getClassLoader(::java::lang::Class *);
   static ::java::lang::Class class$;
 };

@@ -18,6 +18,13 @@ details.  */
 #include <gnu/gcj/RawData.h>
 #include <java/lang/ClassLoader.h>
 
+JArray<jclass> *
+gnu::classpath::VMStackWalker::getClassContext(void)
+{
+  // FIXME: Security check here?
+  return _Jv_StackTrace::GetStackWalkerStack ();
+}
+
 jclass
 gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
 {

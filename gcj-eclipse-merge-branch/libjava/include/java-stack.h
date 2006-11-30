@@ -139,6 +139,7 @@ public:
   static JArray<jclass> *GetClassContext (jclass checkClass);
   static ClassLoader *GetFirstNonSystemClassLoader (void);
   static jobjectArray GetAccessControlStack ();
+  static JArray<jclass> *GetStackWalkerStack ();
 
   friend jclass _Jv_GetMethodDeclaringClass (jmethodID);
   friend class gnu::classpath::VMStackWalker;

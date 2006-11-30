@@ -21,10 +21,12 @@ details.  */
 #include <java/lang/Boolean.h>
 #include <java/lang/Class.h>
 #include <java/lang/Long.h>
+#include <java/lang/reflect/Method.h>
 #include <java/security/AccessController.h>
 #include <java/util/ArrayList.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/classpath/jdwp/Jdwp.h>
+#include <gnu/classpath/VMStackWalker.h>
 #include <gnu/java/lang/MainThread.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 #include <gnu/gcj/runtime/StringBuffer.h>
@@ -629,5 +631,78 @@ _Jv_StackTrace::GetAccessControlStack (void)
   r[0] = (jobject) classes;
   r[1] = (jobject) new Boolean (trace_data.privileged);
   
+  return result;
+}
+
+JArray<jclass> *
+_Jv_StackTrace::GetStackWalkerStack ()
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  UpdateNCodeMap ();
+  _Unwind_Backtrace (UnwindTraceFn, &state);
+
+  int num_frames = 0, start_frame = -1;
+  enum
+    {
+      VMSW_GETCLASSCONTEXT,
+      JLRM_INVOKE_OR_USER_FN,
+      USER_FN
+    }
+  expect = VMSW_GETCLASSCONTEXT;
+  for (int i = 0; i < state.pos; i++)
+    {
+      _Jv_StackFrame *frame = &state.frames[i];
+      FillInFrameInfo (frame);
+      if (!frame->klass || !frame->meth)
+	continue;
+
+      switch (expect)
+	{
+	case VMSW_GETCLASSCONTEXT:
+	  JvAssert (
+	    frame->klass == &::gnu::classpath::VMStackWalker::class$
+	    && strcmp (frame->meth->name->chars(), "getClassContext") == 0);
+	  expect = JLRM_INVOKE_OR_USER_FN;
+	  break;
+
+	case JLRM_INVOKE_OR_USER_FN:
+	  if (frame->klass != &::java::lang::reflect::Method::class$
+	      || strcmp (frame->meth->name->chars(), "invoke") != 0)
+	    start_frame = i;
+	  expect = USER_FN;
+	  break;
+
+	case USER_FN:
+	  if (start_frame == -1)
+	    start_frame = i;
+	  break;
+	}
+
+      if (start_frame != -1)
+	{
+	  if (frame->klass == &::gnu::java::lang::MainThread::class$)
+	    break;
+	  num_frames++;
+	}
+    }
+  JvAssert (num_frames > 0 && start_frame > 0);
+
+  JArray<jclass> *result = (JArray<jclass> *)
+    _Jv_NewObjectArray (num_frames, &::java::lang::Class::class$, NULL);
+  jclass *c = elements (result);
+
+  for (int i = start_frame, j = 0; i < state.pos && j < num_frames; i++)
+    {
+      _Jv_StackFrame *frame = &state.frames[i];
+      if (!frame->klass || !frame->meth)
+	continue;
+      c[j] = frame->klass;
+      j++;
+    }
+ 
   return result;
 }
