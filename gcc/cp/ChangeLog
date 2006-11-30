@@ -1,3 +1,27 @@
+2006-11-01  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* decl.c (get_atexit_node): Reference atexit, not __cxa_exit.
+	if targetm.cxx.use_atexit_for cxa_atexit.
+	(start_cleanup_fn): Likewise.
+	(register_dtor_fn): Likewise.
+
+2006-09-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl2.c (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-lang.c (finish_file): Don't call cp_finish_file.
+	* cp-tree.h (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-objcp-common.h (LANG_HOOKS_WRITE_GLOBALS): Define to
+	cp_write_global_declarations.
+
+2006-10-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* name-lookup.c (get_anonymous_namespace_name): New.
+	(push_namespace_with_attribs): Use get_anonymous_namespace_name.
+	* decl2.c (start_objects): Update for rename of
+	get_file_function_name_long.
+
 2006-10-30  Dirk Mueller  <dmueller@suse.de>
 
 	PR c++/28704
