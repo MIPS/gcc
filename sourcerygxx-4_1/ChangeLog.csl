@@ -1,3 +1,9 @@
+2006-11-30  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/vect/vect.exp: Skip PowerPC targets not supporting
+	-maltivec.
+
 2006-11-29  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
