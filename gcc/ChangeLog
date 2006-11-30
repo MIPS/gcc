@@ -366,6 +366,11 @@
 	btruncxf2, btruncdf2, btruncsf2): Conditionalize expansion on
 	!optimize_size.
 
+2006-11-30  Chao-ying Fu  <fu@mips.com>
+
+	* varasm.c (assemble_integer): Test CONST_FIXED to set mclass,
+	instead of testing CONST_INT.
+
 2006-11-29  Chao-ying Fu  <fu@mips.com>
 
 	* tree-pretty-print.c (fixed-value.h): Change the included file from

@@ -2280,10 +2280,10 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
 
       subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
       subalign = MIN (align, subsize * BITS_PER_UNIT);
-      if (GET_CODE (x) == CONST_INT)
-	mclass = MODE_INT;
-      else
+      if (GET_CODE (x) == CONST_FIXED)
 	mclass = GET_MODE_CLASS (GET_MODE (x));
+      else
+	mclass = MODE_INT;
 
       omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0);
       imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0);
