@@ -24,7 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "tree.h"
 #include "toplev.h"
-#include "fixed_value.h"
+#include "fixed-value.h"
 #include "real.h"
 
 static void do_fixed_add (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,

@@ -51,7 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "params.h"
 #include "pointer-set.h"
-#include "fixed_value.h"
+#include "fixed-value.h"
 
 /* Each tree code class has an associated string representation.
    These must correspond to the tree_code_class entries.  */

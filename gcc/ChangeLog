@@ -1,5 +1,18 @@
 2006-11-29  Chao-ying Fu  <fu@mips.com>
 
+	* tree-pretty-print.c (fixed-value.h): Change the included file from
+	fixed_value.h to fixed-value.h.
+	* tree.c (fixed-value.h): Likewise.
+	* emit-rtl.c (fixed-value.h): Likewise.
+	* rtl.h (fixed-value.h): Likewise.
+	* Makefile.in: Change filenames from fixed_value.* to fixed-value.*.
+	* fixed_value.h: Delete file.
+	* fixed_value.c: Delete file.
+	* fixed-value.h: New file.
+	* fixed-value.c: New file.
+
+2006-11-29  Chao-ying Fu  <fu@mips.com>
+
 	* tree.h (fixed_zerop): Declare.
 	* tree.c (fixed_zerop): New function.
 	* final.c (output_addr_const): Output the lower data for CONST_FIXED.

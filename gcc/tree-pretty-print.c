@@ -33,7 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-iterator.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
-#include "fixed_value.h"
+#include "fixed-value.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
