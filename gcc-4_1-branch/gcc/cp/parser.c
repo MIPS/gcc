@@ -1345,6 +1345,10 @@ typedef struct cp_parser GTY(())
      character set.  */
   bool translate_strings_p;
 
+  /* TRUE if we are presently parsing the body of a function, but not
+     a local class.  */
+  bool in_function_body;
+
   /* If non-NULL, then we are parsing a construct where new type
      definitions are not permitted.  The string stored here will be
      issued as an error message if a type is defined.  */
@@ -1591,7 +1595,7 @@ static tree cp_parser_class_name
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
-  (cp_parser *, bool *, tree *);
+  (cp_parser *, bool *, tree *, tree *);
 static enum tag_types cp_parser_class_key
   (cp_parser *);
 static void cp_parser_member_specification_opt
@@ -2595,6 +2599,9 @@ cp_parser_new (void)
   /* String literals should be translated to the execution character set.  */
   parser->translate_strings_p = true;
 
+  /* We are not parsing a function body.  */
+  parser->in_function_body = false;
+
   /* The unparsed function queue is empty.  */
   parser->unparsed_functions_queues = build_tree_list (NULL_TREE, NULL_TREE);
 
@@ -2950,7 +2957,7 @@ cp_parser_primary_expression (cp_parser *parser,
 		 int i = ({ int j = 3; j + 1; });
 
 	       at class or namespace scope.  */
-	    if (!at_function_scope_p ())
+	    if (!parser->in_function_body)
 	      error ("statement-expressions are allowed only inside functions");
 	    /* Start the statement-expression.  */
 	    expr = begin_stmt_expr ();
@@ -10827,7 +10834,7 @@ cp_parser_asm_definition (cp_parser* parser)
      too.  Doing that means that we have to treat the `::' operator as
      two `:' tokens.  */
   if (cp_parser_allow_gnu_extensions_p (parser)
-      && at_function_scope_p ()
+      && parser->in_function_body
       && (cp_lexer_next_token_is (parser->lexer, CPP_COLON)
 	  || cp_lexer_next_token_is (parser->lexer, CPP_SCOPE)))
     {
@@ -10893,7 +10900,7 @@ cp_parser_asm_definition (cp_parser* parser)
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   /* Create the ASM_EXPR.  */
-  if (at_function_scope_p ())
+  if (parser->in_function_body)
     {
       asm_stmt = finish_asm_stmt (volatile_p, string, outputs,
 				  inputs, clobbers);
@@ -11573,7 +11580,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      /* Normally, the array bound must be an integral constant
 		 expression.  However, as an extension, we allow VLAs
 		 in function scopes.  */
-	      else if (!at_function_scope_p ())
+	      else if (!parser->in_function_body)
 		{
 		  error ("array bound is not an integer constant");
 		  bounds = error_mark_node;
@@ -12944,15 +12951,18 @@ cp_parser_class_specifier (cp_parser* parser)
   int has_trailing_semicolon;
   bool nested_name_specifier_p;
   unsigned saved_num_template_parameter_lists;
+  bool saved_in_function_body;
   tree old_scope = NULL_TREE;
   tree scope = NULL_TREE;
+  tree bases = NULL_TREE;
 
   push_deferring_access_checks (dk_no_deferred);
 
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
 			       &nested_name_specifier_p,
-			       &attributes);
+			       &attributes,
+                               &bases);
   /* If the class-head was a semantic disaster, skip the entire body
      of the class.  */
   if (!type)
@@ -12969,6 +12979,9 @@ cp_parser_class_specifier (cp_parser* parser)
       return error_mark_node;
     }
 
+  /* Process the base classes.  */
+  xref_basetypes (type, bases);
+
   /* Issue an error message if type-definitions are forbidden here.  */
   cp_parser_check_type_definition (parser);
   /* Remember that we are defining one more class.  */
@@ -12978,6 +12991,9 @@ cp_parser_class_specifier (cp_parser* parser)
   saved_num_template_parameter_lists
     = parser->num_template_parameter_lists;
   parser->num_template_parameter_lists = 0;
+  /* We are not in a function body.  */
+  saved_in_function_body = parser->in_function_body;
+  parser->in_function_body = false;
 
   /* Start the class.  */
   if (nested_name_specifier_p)
@@ -13086,7 +13102,8 @@ cp_parser_class_specifier (cp_parser* parser)
   /* Put back any saved access checks.  */
   pop_deferring_access_checks ();
 
-  /* Restore the count of active template-parameter-lists.  */
+  /* Restore saved state.  */
+  parser->in_function_body = saved_in_function_body;
   parser->num_template_parameter_lists
     = saved_num_template_parameter_lists;
 
@@ -13120,7 +13137,8 @@ cp_parser_class_specifier (cp_parser* parser)
 static tree
 cp_parser_class_head (cp_parser* parser,
 		      bool* nested_name_specifier_p,
-		      tree *attributes_p)
+		      tree *attributes_p,
+                      tree *bases)
 {
   tree nested_name_specifier;
   enum tag_types class_key;
@@ -13133,7 +13151,6 @@ cp_parser_class_head (cp_parser* parser,
   bool invalid_explicit_specialization_p = false;
   tree pushed_scope = NULL_TREE;
   unsigned num_templates;
-  tree bases;
 
   /* Assume no nested-name-specifier will be present.  */
   *nested_name_specifier_p = false;
@@ -13429,14 +13446,11 @@ cp_parser_class_head (cp_parser* parser,
        struct A::C : B {};
 
      is valid.  */
-  bases = NULL_TREE;
+  *bases = NULL_TREE;
 
   /* Get the list of base-classes, if there is one.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
-    bases = cp_parser_base_clause (parser);
-
-  /* Process the base classes.  */
-  xref_basetypes (type, bases);
+    *bases = cp_parser_base_clause (parser);
 
  done:
   /* Leave the scope given by the nested-name-specifier.  We will
@@ -15243,7 +15257,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
   /* The common case is that this is not a constructor declarator, so
      try to avoid doing lots of work if at all possible.  It's not
      valid declare a constructor at function scope.  */
-  if (at_function_scope_p ())
+  if (parser->in_function_body)
     return false;
   /* And only certain tokens can begin a constructor declarator.  */
   next_token = cp_lexer_peek_token (parser->lexer);
@@ -15435,8 +15449,11 @@ cp_parser_function_definition_after_declarator (cp_parser* parser,
   tree fn;
   bool ctor_initializer_p = false;
   bool saved_in_unbraced_linkage_specification_p;
+  bool saved_in_function_body;
   unsigned saved_num_template_parameter_lists;
 
+  saved_in_function_body = parser->in_function_body;
+  parser->in_function_body = true;
   /* If the next token is `return', then the code may be trying to
      make use of the "named return value" extension that G++ used to
      support.  */
@@ -15490,6 +15507,7 @@ cp_parser_function_definition_after_declarator (cp_parser* parser,
     = saved_in_unbraced_linkage_specification_p;
   parser->num_template_parameter_lists
     = saved_num_template_parameter_lists;
+  parser->in_function_body = saved_in_function_body;
 
   return fn;
 }

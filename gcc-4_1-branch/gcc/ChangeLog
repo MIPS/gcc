@@ -1,3 +1,46 @@
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/predicates.md (gpc_reg_operand): Check
+	invalid_e500_subreg.
+	* config/rs6000/rs6000.c (invalid_e500_subreg): Don't allow any
+	SImode subregs of SPE vectors.
+	* config/rs6000/rs6000.md (insv): Fail for invalid E500 subregs.
+	* jump.c (true_regnum): Require subregs to satisfy
+	subreg_offset_representable_p.
+
+2006-11-29  Jie Zhang  <jie.zhang@analog.com>
+
+	* doc/tm.texi (NO_PROFILE_COUNTERS): Document more accurately.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): If
+	STRICT_ALIGNMENT and the type is more aligned than the saved
+	registers, copy via a temporary.
+
+2006-11-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* function.c (instantiate_virtual_regs_in_insn): Call force_reg
+	inside start_sequence / end_sequence pair.
+
+2006-11-27  Michael Matz  <matz@suse.de>
+            Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/29319
+	* config/s390/predicates.md (larl_operand): Check addend of larl
+	operand to be in range of -/+2GB.
+	* config/s390/s390.c (legitimize_pic_address): Likewise.  
+	Changed type of variable even to HOST_WIDE_INT.
+
+2006-11-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29964
+	* ipa-pure-const.c (check_tree): If the original tree
+	is volatile return early and say the function is not pure
+	nor const.  Remove the volatile check for writes.  
+	(analyze_function): Print out the result of the local
+	analysis pass.
+
 2006-11-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/29955
