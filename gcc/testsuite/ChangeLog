@@ -1,3 +1,30 @@
+2006-11-02  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lib/gfortran-dg.exp (gfortran-dg-test): Remove expected "In file"
+	from error messages.
+
+2006-11-02  Mike Stump  <mrs@apple.com>
+
+	* obj-c++.dg/const-str-9.mm: Don't run on 64-bit.
+
+	* g++.old-deja/g++.abi/align.C: Enable for darwin.
+
+2006-11-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/eh/gcsec1.C: New test.
+
+2006-11-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-3.c: Fix semicolons.
+	(TESTIT_2P, TESTIT_2P_R): New macros.  Test sincos.
+
+2006-11-01  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.dg/fold-mod-1.c: Match the leading 0x for the
+	hexadecimal value.
+	* gcc.dg/tree-prof/val-prof-2.c: Likewise.
+	* gcc.dg/pr14796-2.c: Likewise.
+
 2006-11-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.c-torture/execute/20061101-1.c: New test.

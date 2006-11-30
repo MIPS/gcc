@@ -1,3 +1,188 @@
+2006-11-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* doc/md.texi (RS6000 constraints): Document H, Z, a, t, and W
+	constraints.
+
+2006-11-02  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* doc/invoke.texi: Fix mfp-trap-mode typo.
+
+2006-11-02  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* config/arm/linux-elf.h (NEED_INDICATE_EXEC_STACK): Define as 1.
+	* arm.c (arm_file_end): If NEED_INDICATE_EXEC_STACK call 
+	file_end_indicate_exec_stack. 
+	* arm.h [!NEED_INDICATE_EXEC_STACK] (NEED_INIDCATE_EXEC_STACK): 
+	Define as 0.
+	* lib1funcs.asm [__ELF__ && __linux__]: Emit .note.GNU-stack section
+	for a non-executable stack.
+	* crti.asm: Likewise.
+	* crtn.asm: Likewise.
+	* libunwind.S: Likewise. 
+
+2006-11-02  Ben Elliston  <bje@au.ibm.com>
+
+	* tree-ssa.c (warn_uninit): Use expand_location variables for
+	locus and declaration locus.
+
+2006-11-02  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/27405
+	* config/sh/sh.md (cmp{eq,gt,gtu}{si,di}_media): Remove.
+	(cmpsi{eq,gt,gtu}{si,di}_media): Rename to
+	cmp{eq,gt,gtu}{si,di}_media.
+	(*cmpne0si_media): Remove.
+	(*movsicc_umin): Adjust gen_cmp*_media call.
+	(unordered): Change the mode of unordered and operands[1] to
+	SImode.
+	(seq): Adjust gen_cmp*_media calls.  Make the mode of
+	a temporary result of compare SImode if needed.  If the mode
+	of operands[0] is DImode, extend the temporary result to DImode.
+	(slt, sle, sgt, sge, sgtu, sltu, sleu, sgue, sne): Likewise.
+	(sunorderd): Change the mode of match_operand and unorderd to
+	SImode.
+	(cmpeq{sf,df}_media): Remove.
+	(cmpsieq{sf,df}_media): Rename to cmpeq{sf,df}_media.
+	(cmp{gt,ge,un}{sf,df}_media): Change the mode of match_operand
+	and compare operation to SImode.
+
+2006-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (sparc-sun-solaris2*): Update GMP/MPFR build
+	instructions.
+	(sparc64-sun-solaris2*): Likewise.
+
+2006-11-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
+	from priority argument.  Use different section for non-default
+	priority.
+	* config/arm/elf.h: Remove definition of SUPPORTS_INIT_PRIORITY.
+
+2006-11-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR other/29639
+	* except.c (switch_to_exception_section): Do not cache the section
+	if named sections are supported and HAVE_LD_EH_GC_SECTIONS is defined
+	and flag_function_sections is set.
+
+2006-11-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/29335
+	* builtins.c (do_mpfr_sincos): New.
+	(fold_builtin_1): Use it to fold builtin sincos.
+
+2006-11-01  Roger Sayle  <roger@eyesopen.com>
+
+	* config/darwin.h (CPP_SPEC): Handle -pthread, transforming
+	it into -D_REENTRANT.
+
+2006-11-01  Roger Sayle  <roger@eyesopen.com>
+
+	* configure.ac (HAVE_AS_IX86_DIFF_SECT_DELTA): New test to determine
+	whether the assembler supports taking the difference of symbols in
+	different sections.  On x86/Solaris, GAS does but Solaris as doesn't.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/sol2-10.h (JUMP_TABLES_IN_TEXT_SECTION): Define if
+	the assembler doesn't support taking the difference of symbols in
+	different sections, i.e. we're using the native solaris assembler.
+
+2006-11-01  Pete Steinmetz  <steinmtz@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type power6x
+	(RS/6000 and PowerPC Options): Add -mmfpgpr.
+	* config.gcc: Add cpu_type power6x.
+	* configure.ac: Add test for mf{t,f}gpr instructions.
+	(HAVE_AS_MFPGPR): New.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6x.
+	* config/rs6000/rs6000.md (define_attr "type"): Add insert_dword,
+	shift,trap,var_shift_rotate,cntlz,exts, var_delayed_compare, mffgpr
+	and mftgpr attributes.
+	(define_attr "cpu"): Add power6.
+	Change instruction sequences to use new attributes.
+	(floatsidf2,fix_truncdfsi2): use TARGET_MFPGPR.
+	(fix_truncdfsi2_mfpgpr): New.
+	(floatsidf_ppc64_mfpgpr): New.
+	(floatsidf_ppc64): Added !TARGET_MFPGPR condition.
+	(movdf_hardfloat64_mfpgpr,movdi_mfpgpr): New.
+	(movdf_hardfloat64): Added !TARGET_MFPGPR condition.
+	(movdi_internal64): Added !TARGET_MFPGPR and related conditions.
+	(fix_truncdfsi2): Use gpc_reg_operand constraint.
+	* config/rs6000/{6xx.md,power4.md,8540.md,603.md,mpc.md,
+	7xx.md,rios2.md,7450.md,440.md,rios1.md,rs64.md,power5.md,40x.md}:
+	Add descriptions for insert_dword, shift,trap,var_shift_rotate,
+	cntlz,exts and var_delayed_compare.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR6X, if features enabled.
+	* config/rs6000/rs6000.opt (mmfpgpr): New.
+	* config/rs6000/rs6000.c (rs6000_align_branch_targets): New variable.
+	(cached_can_issue_more): New variable.
+	(processor_costs): Add power6_cost.
+	(rs6000_sched_init): New function.
+	(is_dispatch_slot_restricted): Deleted.
+	(set_to_load_agen): New function.
+	(is_load_insn,is_store_insn): New functions.
+	(adjacent_mem_locations): New function.
+	(insn_must_be_first_in_group): New function.
+	(insn_must_be_last_in_group): New function.
+	(rs6000_sched_reorder): New function.
+	(rs6000_sched_reorder2): New function.
+	(TARGET_SCHED_INIT,TARGET_SCHED_REORDER,
+	TARGET_SCHED_REORDER2): Define.
+	(processor_target_table): Use PROCESSOR_POWER6 for power6.
+	Add power6x. Add MASK_MFPGPR for power6x.
+	(POWERPC_MASKS): Add MASK_MFPGPR.
+	(rs6000_override_options): Set rs6000_always_hint to false
+	for power6.  Set rs6000_align_branch_targets. Replace
+	rs6000_sched_groups check with rs6000_align_branch_targets.
+	Use PROCESSOR_POWER6.
+	(last_scheduled_insn): New variable.
+	(load_store_pendulum): New variable.
+	(rs6000_variable_issue): Set last_scheduled_insn and
+	cached_can_issue_more.
+	(rs6000_adjust_cost): Add power6 cost adjustments.
+	(rs6000_adjust_priority): Replace is_dispatch_slot_restricted
+	with insn_must_be_first_in_group. Add power6 priority adjustments.
+	(rs6000_issue_rate): Add CPU_POWER6.
+	(insn_terminates_group_p): Use insn_must_be_{first,last}_in_group.
+	* config/rs6000/rs6000.h (processor_type): Add PROCESSOR_POWER6.
+	(TARGET_MFPGPR): New.
+	(SECONDARY_MEMORY_NEEDED): Use TARGET_MFPGPR.
+	(ASM_CPU_SPEC): Add power6x.
+	(SECONDARY_MEMORY_NEEDED): Added mode!=DFmode and mode!=DImode
+	conditions.
+	* config/rs6000/power6.md: New file.
+
+2006-11-01  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* tree-pretty-print.c (dump_generic_node) <INTEGER_CST>: Use
+	HOST_WIDE_INT_PRINT to print high and low parts.  Use
+	HOST_BITS_PER_WIDE_INT for the width of HOST_WIDE_INT.  When
+	printing a hexadecimal number prefix it with 0x.
+
+2006-11-01  Chris Johns <chris@contemporary.net.au>
+
+	PR bootstrap/28400
+	* Makefile.in (install-driver): Use exeext when installing
+	$target-gcc-$version.
+
+2006-11-01	Douglas Gregor <doug.gregor@gmail.com>
+
+	* c-common.c (flag_cpp0x): New.
+	* c-common.h (flag_cpp0x): New.
+	* c-cppbuiltin.c (c_cpp_builtins): If C++0x extensions are
+	supported, define __GXX_EXPERIMENTAL_CPP0X__.
+	* c-opts.c (set_std_cxx0x): New.
+	(c_common_handle_option): Handle -std=c++0x, -std=gnu++0x.
+	* c.opt (std=c++0x): Document.
+	(std=gnu++0x): Ditto.
+	* doc/cpp.texi: Document __GXX_EXPERIMENTAL_CPP0X__.
+	* doc/invoke.texi: Document -std=c++0x, -std=gnu++0x.
+
 2006-11-01  Richard Guenther  <rguenther@suse.de>
 
 	* config/i386/i386.c (ix86_expand_rint): Fix issues with
