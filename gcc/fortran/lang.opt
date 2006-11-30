@@ -129,29 +129,9 @@ ffixed-form
 Fortran RejectNegative
 Assume that the source file is fixed form
 
-ffree-form
-Fortran RejectNegative
-Assume that the source file is free form
-
-fopenmp
-Fortran
-Enable OpenMP
-
-funderscoring
-Fortran
-Append underscores to externally visible names
-
-fcray-pointer
-Fortran
-Use the Cray Pointer extension
-
-fsecond-underscore
-Fortran
-Append a second underscore if the name already contains an underscore
-
-fimplicit-none
-Fortran
-Specify that no implicit typing is allowed, unless overridden by explicit IMPLICIT statements
+fintrinsic-modules-path
+Fortran RejectNegative Joined Separate
+Specify where to find the compiled intrinsic modules
 
 ffixed-line-length-none
 Fortran RejectNegative

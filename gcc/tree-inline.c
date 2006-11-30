@@ -2096,6 +2096,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
     case WIDEN_MULT_EXPR:
 
+    case VEC_EXTRACT_EVEN_EXPR:
+    case VEC_EXTRACT_ODD_EXPR:
+    case VEC_INTERLEAVE_HIGH_EXPR:
+    case VEC_INTERLEAVE_LOW_EXPR:
+
     case RESX_EXPR:
       *count += 1;
       break;
@@ -3163,7 +3168,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   /* Generate a new name for the new version. */
   if (!update_clones)
     {
-      DECL_NAME (new_decl) = create_tmp_var_name (NULL);
+      DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
       SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
       SET_DECL_RTL (new_decl, NULL_RTX);
     }

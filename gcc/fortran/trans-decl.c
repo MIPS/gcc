@@ -2114,6 +2114,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[jkind][ikind].integer =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    jtype, 2, jtype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[jkind][ikind].integer) = 1;
 	      }
 	  }
 
@@ -2127,6 +2128,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[rkind][ikind].real =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    rtype, 2, rtype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].real) = 1;
 	      }
 
 	    ctype = gfc_get_complex_type (rkinds[rkind]);
@@ -2137,6 +2139,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[rkind][ikind].cmplx =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    ctype, 2,ctype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].cmplx) = 1;
 	      }
 	  }
       }

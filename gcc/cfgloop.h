@@ -104,10 +104,6 @@ struct loop
   /* Superloops of the loop.  */
   struct loop **pred;
 
-  /* The height of the loop (enclosed loop levels) within the loop
-     hierarchy tree.  */
-  int level;
-
   /* The outer (parent) loop or NULL if outermost loop.  */
   struct loop *outer;
 
@@ -147,8 +143,9 @@ struct loop
   struct nb_iter_bound *bounds;
 
   /* If not NULL, loop has just single exit edge stored here (edges to the
-     EXIT_BLOCK_PTR do not count.  */
-  edge single_exit;
+     EXIT_BLOCK_PTR do not count.  Do not use direcly, this field should
+     only be accessed via single_exit/set_single_exit functions.  */
+  edge single_exit_;
 
   /* True when the loop does not carry data dependences, and
      consequently the iterations can be executed in any order.  False
@@ -187,37 +184,22 @@ struct loops
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
 
-  /* Information derived from the CFG.  */
-  struct cfg
-  {
-    /* The ordering of the basic blocks in a depth first search.  */
-    int *dfs_order;
-
-    /* The reverse completion ordering of the basic blocks found in a
-       depth first search.  */
-    int *rc_order;
-  } cfg;
-
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
 };
 
-/* The loop tree currently optimized.  */
-
-extern struct loops *current_loops;
-
 /* Loop recognition.  */
 extern int flow_loops_find (struct loops *);
 extern void flow_loops_free (struct loops *);
-extern void flow_loops_dump (const struct loops *, FILE *,
+extern void flow_loops_dump (FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
-void fix_loop_structure (struct loops *, bitmap changed_bbs);
-void mark_irreducible_loops (struct loops *);
-void mark_single_exit_loops (struct loops *);
+void fix_loop_structure (bitmap changed_bbs);
+void mark_irreducible_loops (void);
+void mark_single_exit_loops (void);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
@@ -231,13 +213,15 @@ extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
 extern bool loop_exit_edge_p (const struct loop *, edge);
-extern void mark_loop_exit_edges (struct loops *);
+extern void mark_loop_exit_edges (void);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
-extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
+extern VEC (edge, heap) *get_loop_exit_edges (const struct loop *);
+edge single_exit (const struct loop *);
+void set_single_exit (struct loop *, edge);
 extern unsigned num_loop_branches (const struct loop *);
 
 extern edge loop_preheader_edge (const struct loop *);
@@ -246,9 +230,8 @@ extern edge loop_latch_edge (const struct loop *);
 extern void add_bb_to_loop (basic_block, struct loop *);
 extern void remove_bb_from_loops (basic_block);
 
-extern void cancel_loop_tree (struct loops *, struct loop *);
+extern void cancel_loop_tree (struct loop *);
 
-extern basic_block loop_split_edge_with (edge, rtx);
 extern int fix_loop_placement (struct loop *);
 
 enum
@@ -256,10 +239,10 @@ enum
   CP_SIMPLE_PREHEADERS = 1
 };
 
-extern void create_preheaders (struct loops *, int);
-extern void force_single_succ_latches (struct loops *);
+extern void create_preheaders (int);
+extern void force_single_succ_latches (void);
 
-extern void verify_loop_structure (struct loops *);
+extern void verify_loop_structure (void);
 
 /* Loop analysis.  */
 extern bool just_once_each_iteration_p (const struct loop *, basic_block);
@@ -276,16 +259,15 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 #define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
 					   a complete peeling.  */
 
-extern struct loop * duplicate_loop (struct loops *, struct loop *,
-				     struct loop *);
-extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+extern struct loop * duplicate_loop (struct loop *, struct loop *);
+extern bool duplicate_loop_to_header_edge (struct loop *, edge, 
 					   unsigned, sbitmap, edge, edge *,
 					   unsigned *, int);
-extern struct loop *loopify (struct loops *, edge, edge,
+extern struct loop *loopify (edge, edge,
 			     basic_block, edge, edge, bool);
-struct loop * loop_version (struct loops *, struct loop *, void *,
+struct loop * loop_version (struct loop *, void *,
 			    basic_block *, bool);
-extern bool remove_path (struct loops *, edge);
+extern bool remove_path (edge);
 
 /* Induction variable analysis.  */
 
@@ -410,21 +392,21 @@ extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
 extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
-extern struct loops *loop_optimizer_init (unsigned);
-extern void loop_optimizer_finalize (struct loops *);
+extern void loop_optimizer_init (unsigned);
+extern void loop_optimizer_finalize (void);
 
 /* Optimization passes.  */
-extern void unswitch_loops (struct loops *);
+extern void unswitch_loops (void);
 
 enum
 {
   UAP_PEEL = 1,		/* Enables loop peeling.  */
-  UAP_UNROLL = 2,	/* Enables peeling of loops if it seems profitable.  */
-  UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
+  UAP_UNROLL = 2,	/* Enables unrolling of loops if it seems profitable.  */
+  UAP_UNROLL_ALL = 4	/* Enables unrolling of all loops.  */
 };
 
-extern void unroll_and_peel_loops (struct loops *, int);
-extern void doloop_optimize_loops (struct loops *);
-extern void move_loop_invariants (struct loops *);
+extern void unroll_and_peel_loops (int);
+extern void doloop_optimize_loops (void);
+extern void move_loop_invariants (void);
 
 #endif /* GCC_CFGLOOP_H */

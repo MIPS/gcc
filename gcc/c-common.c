@@ -499,7 +499,6 @@ const struct fname_var_t fname_vars[] =
   {NULL, 0, 0},
 };
 
-static int constant_fits_type_p (tree, tree);
 static tree check_case_value (tree);
 static bool check_case_bounds (tree, tree, tree *, tree *);
 
@@ -957,32 +956,6 @@ overflow_warning (tree value)
     }
 }
 
-/* Print a warning if a large constant is truncated to unsigned,
-   or if -Wconversion is used and a constant < 0 is converted to unsigned.
-   Invoke this function on every expression that might be implicitly
-   converted to an unsigned type.  */
-
-static void
-unsigned_conversion_warning (tree result, tree operand)
-{
-  tree type = TREE_TYPE (result);
-
-  if (TREE_CODE (operand) == INTEGER_CST
-      && TREE_CODE (type) == INTEGER_TYPE
-      && TYPE_UNSIGNED (type)
-      && skip_evaluation == 0
-      && !int_fits_type_p (operand, type))
-    {
-      if (!int_fits_type_p (operand, c_common_signed_type (type)))
-	/* This detects cases like converting -129 or 256 to unsigned char.  */
-	warning (OPT_Woverflow,
-		 "large integer implicitly truncated to unsigned type");
-      else
-	warning (OPT_Wconversion,
-		 "negative integer implicitly converted to unsigned type");
-    }
-}
-
 /* Print a warning about casts that might indicate violation
    of strict aliasing rules if -Wstrict-aliasing is used and
    strict aliasing mode is in effect. OTYPE is the original
@@ -1100,19 +1073,6 @@ check_main_parameter_types (tree decl)
 }
 
  
-/* Nonzero if constant C has a value that is permissible
-   for type TYPE (an INTEGER_TYPE).  */
-
-static int
-constant_fits_type_p (tree c, tree type)
-{
-  if (TREE_CODE (c) == INTEGER_CST)
-    return int_fits_type_p (c, type);
-
-  c = convert (type, c);
-  return !TREE_OVERFLOW (c);
-}
-
 /* Nonzero if vector types T1 and T2 can be converted to each other
    without an explicit cast.  */
 int
@@ -1127,6 +1087,115 @@ vector_types_convertible_p (tree t1, tree t2)
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
 }
 
+/* Warns if the conversion of EXPR to TYPE may alter a value.
+   This function is called from convert_and_check.  */
+
+static void
+conversion_warning (tree type, tree expr)
+{
+  bool give_warning = false;
+
+  unsigned int formal_prec = TYPE_PRECISION (type);
+
+  if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
+    {
+      /* Warn for real constant that is not an exact integer converted
+         to integer type.  */
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+          && TREE_CODE (type) == INTEGER_TYPE)
+        {
+          if (!real_isinteger (TREE_REAL_CST_PTR (expr), TYPE_MODE (TREE_TYPE (expr))))
+            give_warning = true;
+        }
+      /* Warn for an integer constant that does not fit into integer type.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == INTEGER_TYPE
+               && !int_fits_type_p (expr, type))
+        {
+          if (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr)))
+            warning (OPT_Wconversion,
+                     "negative integer implicitly converted to unsigned type");
+          else
+            give_warning = true;
+        }
+      else if (TREE_CODE (type) == REAL_TYPE)
+        {
+          /* Warn for an integer constant that does not fit into real type.  */
+          if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE)
+            {
+              REAL_VALUE_TYPE a = real_value_from_int_cst (0, expr);
+              if (!exact_real_truncate (TYPE_MODE (type), &a))
+                give_warning = true;
+            }
+          /* Warn for a real constant that does not fit into a smaller
+             real type.  */
+          else if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+                   && formal_prec < TYPE_PRECISION (TREE_TYPE (expr)))
+            {
+              REAL_VALUE_TYPE a = TREE_REAL_CST (expr);
+              if (!exact_real_truncate (TYPE_MODE (type), &a))
+                give_warning = true;
+            }
+        }
+
+      if (give_warning)
+        warning (OPT_Wconversion,
+                 "conversion to %qT alters %qT constant value",
+                 type, TREE_TYPE (expr));
+    }
+  else /* 'expr' is not a constant.  */
+    {
+      /* Warn for real types converted to integer types.  */
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+          && TREE_CODE (type) == INTEGER_TYPE)
+        give_warning = true;
+
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == INTEGER_TYPE)
+        {
+          /* Warn for integer types converted to smaller integer types.  */
+          if (formal_prec < TYPE_PRECISION (TREE_TYPE (expr))
+              /* When they are the same width but different signedness,
+                 then the value may change.  */
+              || (formal_prec == TYPE_PRECISION (TREE_TYPE (expr))
+                  && TYPE_UNSIGNED (TREE_TYPE (expr)) != TYPE_UNSIGNED (type))
+              /* Even when converted to a bigger type, if the type is
+                 unsigned but expr is signed, then negative values
+                 will be changed.  */
+              || (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr))))
+            give_warning = true;
+        }
+
+      /* Warn for integer types converted to real types if and only if
+         all the range of values of the integer type cannot be
+         represented by the real type.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == REAL_TYPE)
+        {
+          tree type_low_bound = TYPE_MIN_VALUE (TREE_TYPE (expr));
+          tree type_high_bound = TYPE_MAX_VALUE (TREE_TYPE (expr));
+          REAL_VALUE_TYPE real_low_bound = real_value_from_int_cst (0, type_low_bound);
+          REAL_VALUE_TYPE real_high_bound = real_value_from_int_cst (0, type_high_bound);
+
+          if (!exact_real_truncate (TYPE_MODE (type), &real_low_bound)
+              || !exact_real_truncate (TYPE_MODE (type), &real_high_bound))
+            give_warning = true;
+        }
+
+      /* Warn for real types converted to smaller real types.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+               && TREE_CODE (type) == REAL_TYPE
+               && formal_prec < TYPE_PRECISION (TREE_TYPE (expr)))
+        give_warning = true;
+
+
+      if (give_warning)
+        warning (OPT_Wconversion,
+                 "conversion to %qT from %qT may alter its value",
+                 type, TREE_TYPE (expr));
+    }
+}
+
 /* Convert EXPR to TYPE, warning about conversion problems with constants.
    Invoke this function on every expression that is converted implicitly,
    i.e. because of language rules and not because of an explicit cast.  */
@@ -1134,36 +1203,63 @@ vector_types_convertible_p (tree t1, tree t2)
 tree
 convert_and_check (tree type, tree expr)
 {
-  tree t = convert (type, expr);
-  if (TREE_CODE (t) == INTEGER_CST)
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
+  
+  result = convert (type, expr);
+
+  if (skip_evaluation)
+    return result;
+
+
+  if (TREE_CODE (expr) == INTEGER_CST
+      && (TREE_CODE (type) == INTEGER_TYPE
+          || TREE_CODE (type) == ENUMERAL_TYPE)
+      && !int_fits_type_p (expr, type))
     {
-      if (TREE_OVERFLOW (t))
-	{
-	  TREE_OVERFLOW (t) = 0;
-
-	  /* Do not diagnose overflow in a constant expression merely
-	     because a conversion overflowed.  */
-	  TREE_CONSTANT_OVERFLOW (t) = CONSTANT_CLASS_P (expr)
-                                       && TREE_CONSTANT_OVERFLOW (expr);
-
-	  /* No warning for converting 0x80000000 to int.  */
-	  if (!(TYPE_UNSIGNED (type) < TYPE_UNSIGNED (TREE_TYPE (expr))
-		&& TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
-		&& TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (expr))))
-	    /* If EXPR fits in the unsigned version of TYPE,
-	       don't warn unless pedantic.  */
-	    if ((pedantic
-		 || TYPE_UNSIGNED (type)
-		 || !constant_fits_type_p (expr,
-					   c_common_unsigned_type (type)))
-		&& skip_evaluation == 0)
-	      warning (OPT_Woverflow,
-                       "overflow in implicit constant conversion");
-	}
+      /* Do not diagnose overflow in a constant expression merely
+         because a conversion overflowed.  */
+      if (TREE_OVERFLOW (result))
+        {
+          TREE_CONSTANT_OVERFLOW (result) = TREE_CONSTANT_OVERFLOW (expr);
+          TREE_OVERFLOW (result) = TREE_OVERFLOW (expr);
+        }
+      
+      if (TYPE_UNSIGNED (type))
+        {
+          /* This detects cases like converting -129 or 256 to
+             unsigned char.  */
+          if (!int_fits_type_p (expr, c_common_signed_type (type)))
+            warning (OPT_Woverflow,
+                     "large integer implicitly truncated to unsigned type");
+          else if (warn_conversion)
+            conversion_warning (type, expr);
+        }
       else
-	unsigned_conversion_warning (t, expr);
+        {
+          if (!int_fits_type_p (expr, c_common_unsigned_type (type)))
+            warning (OPT_Woverflow,
+                     "overflow in implicit constant conversion");
+          /* No warning for converting 0x80000000 to int.  */
+          else if (pedantic
+                   && (TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE
+                       || TYPE_PRECISION (TREE_TYPE (expr))
+                       != TYPE_PRECISION (type)))
+            warning (OPT_Woverflow,
+                     "overflow in implicit constant conversion");
+          else if (warn_conversion)
+            conversion_warning (type, expr);
+        }
     }
-  return t;
+  else if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result)) 
+    warning (OPT_Woverflow,
+             "overflow in implicit constant conversion");
+  else if (warn_conversion)
+    conversion_warning (type, expr);
+  
+  return result;
 }
 
 /* A node in a list that describes references to variables (EXPR), which are
@@ -5337,6 +5433,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   orig_mode = TYPE_MODE (type);
 
   if (TREE_CODE (type) == RECORD_TYPE
+      || TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))

@@ -2858,7 +2858,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
     }
   
   if (complain & tf_error)
-    perform_or_defer_access_check (TYPE_BINFO (context), t);
+    perform_or_defer_access_check (TYPE_BINFO (context), t, t);
 
   if (want_template)
     return lookup_template_class (t, TREE_OPERAND (fullname, 1),
@@ -2921,7 +2921,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 	}
 
       if (complain & tf_error)
-	perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
+	perform_or_defer_access_check (TYPE_BINFO (context), tmpl, tmpl);
 
       return tmpl;
     }
@@ -5058,7 +5058,14 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  || !DECL_CLASS_SCOPE_P (decl)
 	  || !DECL_INTEGRAL_CONSTANT_VAR_P (decl)
 	  || type_dependent_p
-	  || value_dependent_expression_p (init))
+	  || value_dependent_expression_p (init)
+	     /* Check also if initializer is a value dependent
+		{ integral_constant_expression }.  */
+	  || (TREE_CODE (init) == CONSTRUCTOR
+	      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) == 1
+	      && value_dependent_expression_p
+		   (VEC_index (constructor_elt,
+			       CONSTRUCTOR_ELTS (init), 0)->value)))
 	{
 	  if (init)
 	    DECL_INITIAL (decl) = init;
@@ -6019,17 +6026,6 @@ grokfndecl (tree ctype,
 	error ("cannot declare %<::main%> to be inline");
       if (!publicp)
 	error ("cannot declare %<::main%> to be static");
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
-			integer_type_node))
-	{
-	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	  tree newtype;
-	  error ("%<::main%> must return %<int%>");
-	  newtype =  build_function_type (integer_type_node,
-					  oldtypeargs);
-	  TREE_TYPE (decl) = newtype;
-	}
-      check_main_parameter_types (decl);
       inlinep = 0;
       publicp = 1;
     }
@@ -6134,6 +6130,21 @@ grokfndecl (tree ctype,
     {
       cplus_decl_attributes (&decl, *attrlist, 0);
       *attrlist = NULL_TREE;
+    }
+
+  /* Check main's type after attributes have been applied.  */
+  if (ctype == NULL_TREE && DECL_MAIN_P (decl))
+    {
+      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
+			integer_type_node))
+	{
+	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  tree newtype;
+	  error ("%<::main%> must return %<int%>");
+	  newtype = build_function_type (integer_type_node, oldtypeargs);
+	  TREE_TYPE (decl) = newtype;
+	}
+      check_main_parameter_types (decl);
     }
 
   if (ctype != NULL_TREE

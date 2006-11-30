@@ -150,8 +150,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /*************************************************************************
   Simple Loop Peeling Utilities
  *************************************************************************/
-static struct loop *slpeel_tree_duplicate_loop_to_edge_cfg 
-  (struct loop *, struct loops *, edge);
 static void slpeel_update_phis_for_duplicate_loop 
   (struct loop *, struct loop *, bool after);
 static void slpeel_update_phi_nodes_for_guard1 
@@ -279,7 +277,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
   tree def;
   edge orig_loop_latch = loop_latch_edge (orig_loop);
   edge orig_entry_e = loop_preheader_edge (orig_loop);
-  edge new_loop_exit_e = new_loop->single_exit;
+  edge new_loop_exit_e = single_exit (new_loop);
   edge new_loop_entry_e = loop_preheader_edge (new_loop);
   edge entry_arg_e = (after ? orig_loop_latch : orig_entry_e);
 
@@ -519,8 +517,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
   tree name;
 
   /* Create new bb between loop and new_merge_bb.  */
-  *new_exit_bb = split_edge (loop->single_exit);
-  add_bb_to_loop (*new_exit_bb, loop->outer);
+  *new_exit_bb = split_edge (single_exit (loop));
 
   new_exit_e = EDGE_SUCC (*new_exit_bb, 0);
 
@@ -565,7 +562,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
                                  *new_exit_bb);
 
       /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
-      add_phi_arg (new_phi, loop_arg, loop->single_exit);
+      add_phi_arg (new_phi, loop_arg, single_exit (loop));
 
       /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
@@ -645,8 +642,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
   tree arg;
 
   /* Create new bb between loop and new_merge_bb.  */
-  *new_exit_bb = split_edge (loop->single_exit);
-  add_bb_to_loop (*new_exit_bb, loop->outer);
+  *new_exit_bb = split_edge (single_exit (loop));
 
   new_exit_e = EDGE_SUCC (*new_exit_bb, 0);
 
@@ -711,7 +707,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
                                  *new_exit_bb);
 
       /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
-      add_phi_arg (new_phi, loop_arg, loop->single_exit);
+      add_phi_arg (new_phi, loop_arg, single_exit (loop));
 
       /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
@@ -768,12 +764,12 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
 {
   tree indx_before_incr, indx_after_incr, cond_stmt, cond;
   tree orig_cond;
-  edge exit_edge = loop->single_exit;
+  edge exit_edge = single_exit (loop);
   block_stmt_iterator loop_cond_bsi;
   block_stmt_iterator incr_bsi;
   bool insert_after;
   tree begin_label = tree_block_label (loop->latch);
-  tree exit_label = tree_block_label (loop->single_exit->dest);
+  tree exit_label = tree_block_label (single_exit (loop)->dest);
   tree init = build_int_cst (TREE_TYPE (niters), 0);
   tree step = build_int_cst (TREE_TYPE (niters), 1);
   tree then_label;
@@ -825,8 +821,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
    on E which is either the entry or exit of LOOP.  */
 
 static struct loop *
-slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops, 
-					edge e)
+slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
 {
   struct loop *new_loop;
   basic_block *new_bbs, *bbs;
@@ -834,8 +829,9 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
   bool was_imm_dom;
   basic_block exit_dest; 
   tree phi, phi_arg;
+  edge exit, new_exit;
 
-  at_exit = (e == loop->single_exit); 
+  at_exit = (e == single_exit (loop)); 
   if (!at_exit && e != loop_preheader_edge (loop))
     return NULL;
 
@@ -849,29 +845,31 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, struct loops *loops,
     }
 
   /* Generate new loop structure.  */
-  new_loop = duplicate_loop (loops, loop, loop->outer);
+  new_loop = duplicate_loop (loop, loop->outer);
   if (!new_loop)
     {
       free (bbs);
       return NULL;
     }
 
-  exit_dest = loop->single_exit->dest;
+  exit_dest = single_exit (loop)->dest;
   was_imm_dom = (get_immediate_dominator (CDI_DOMINATORS, 
 					  exit_dest) == loop->header ? 
 		 true : false);
 
   new_bbs = XNEWVEC (basic_block, loop->num_nodes);
 
+  exit = single_exit (loop);
   copy_bbs (bbs, loop->num_nodes, new_bbs,
-	    &loop->single_exit, 1, &new_loop->single_exit, NULL,
+	    &exit, 1, &new_exit, NULL,
 	    e->src);
+  set_single_exit (new_loop, new_exit);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
   for (phi = phi_nodes (exit_dest); phi; phi = PHI_CHAIN (phi))
     {
-      phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, loop->single_exit);
+      phi_arg = PHI_ARG_DEF_FROM_EDGE (phi, single_exit (loop));
       if (phi_arg)
 	{
 	  edge new_loop_exit_edge;
@@ -971,7 +969,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
 bool
 slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
 {
-  edge exit_e = loop->single_exit;
+  edge exit_e = single_exit (loop);
   edge entry_e = loop_preheader_edge (loop);
   tree orig_cond = get_loop_exit_condition (loop);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_e->src);
@@ -985,7 +983,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
       || !loop->outer
       || loop->num_nodes != 2
       || !empty_block_p (loop->latch)
-      || !loop->single_exit
+      || !single_exit (loop)
       /* Verify that new loop exit condition can be trivially modified.  */
       || (!orig_cond || orig_cond != bsi_stmt (loop_exit_bsi))
       || (e != exit_e && e != entry_e))
@@ -999,7 +997,7 @@ void
 slpeel_verify_cfg_after_peeling (struct loop *first_loop,
                                  struct loop *second_loop)
 {
-  basic_block loop1_exit_bb = first_loop->single_exit->dest;
+  basic_block loop1_exit_bb = single_exit (first_loop)->dest;
   basic_block loop2_entry_bb = loop_preheader_edge (second_loop)->src;
   basic_block loop1_entry_bb = loop_preheader_edge (first_loop)->src;
 
@@ -1066,7 +1064,7 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
 */
 
 struct loop*
-slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops, 
+slpeel_tree_peel_loop_to_edge (struct loop *loop, 
 			       edge e, tree first_niters, 
 			       tree niters, bool update_first_loop_count)
 {
@@ -1078,7 +1076,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
   basic_block bb_before_first_loop;
   basic_block bb_between_loops;
   basic_block new_exit_bb;
-  edge exit_e = loop->single_exit;
+  edge exit_e = single_exit (loop);
   LOC loop_loc;
   
   if (!slpeel_can_duplicate_loop_p (loop, e))
@@ -1105,7 +1103,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
         orig_exit_bb:
    */
   
-  if (!(new_loop = slpeel_tree_duplicate_loop_to_edge_cfg (loop, loops, e)))
+  if (!(new_loop = slpeel_tree_duplicate_loop_to_edge_cfg (loop, e)))
     {
       loop_loc = find_loop_location (loop);
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1157,9 +1155,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
    */
 
   bb_before_first_loop = split_edge (loop_preheader_edge (first_loop));
-  add_bb_to_loop (bb_before_first_loop, first_loop->outer);
-  bb_before_second_loop = split_edge (first_loop->single_exit);
-  add_bb_to_loop (bb_before_second_loop, first_loop->outer);
+  bb_before_second_loop = split_edge (single_exit (first_loop));
 
   pre_condition =
     fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
@@ -1198,8 +1194,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loops *loops,
    */
 
   bb_between_loops = new_exit_bb;
-  bb_after_second_loop = split_edge (second_loop->single_exit);
-  add_bb_to_loop (bb_after_second_loop, second_loop->outer);
+  bb_after_second_loop = split_edge (single_exit (second_loop));
 
   pre_condition = 
 	fold_build2 (EQ_EXPR, boolean_type_node, first_niters, niters);
@@ -1372,6 +1367,12 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
+  DR_GROUP_FIRST_DR (res) = NULL_TREE;
+  DR_GROUP_NEXT_DR (res) = NULL_TREE;
+  DR_GROUP_SIZE (res) = 0;
+  DR_GROUP_STORE_COUNT (res) = 0;
+  DR_GROUP_GAP (res) = 0;
+  DR_GROUP_SAME_DR_STMT (res) = NULL_TREE;
 
   return res;
 }
@@ -2152,7 +2153,7 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init,
    Entry Point to loop vectorization phase.  */
 
 unsigned
-vectorize_loops (struct loops *loops)
+vectorize_loops (void)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
@@ -2169,11 +2170,11 @@ vectorize_loops (struct loops *loops)
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
-  vect_loops_num = loops->num;
+  vect_loops_num = current_loops->num;
   for (i = 1; i < vect_loops_num; i++)
     {
       loop_vec_info loop_vinfo;
-      struct loop *loop = loops->parray[i];
+      struct loop *loop = current_loops->parray[i];
 
       if (!loop)
         continue;
@@ -2185,7 +2186,7 @@ vectorize_loops (struct loops *loops)
       if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	continue;
 
-      vect_transform_loop (loop_vinfo, loops);
+      vect_transform_loop (loop_vinfo);
       num_vectorized_loops++;
     }
   vect_loop_location = UNKNOWN_LOC;
@@ -2200,7 +2201,7 @@ vectorize_loops (struct loops *loops)
 
   for (i = 1; i < vect_loops_num; i++)
     {
-      struct loop *loop = loops->parray[i];
+      struct loop *loop = current_loops->parray[i];
       loop_vec_info loop_vinfo;
 
       if (!loop)

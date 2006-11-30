@@ -1,3 +1,75 @@
+2006-11-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (--with-mpfr-dir, --with-gmp-dir): Remove flags.
+	(--with-mpfr-include, --with-mpfr-lib, --with-gmp-include,
+	--with-gmp-lib): New flags.
+
+	* configure: Regenerate.
+
+2006-11-25  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Change my email address.
+
+2006-11-23  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-11-22  Philipp Thomas <pth@suse.de>
+
+	* MAINTAINERS (i18n): Update e-mail address.
+
+2006-11-21  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+
+	* MAINTAINERS (spu port): Add myself as maintainer.
+	(Write After Approval): Remove myself.
+
+2006-11-22  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.in (skipdirs): Don't build libssp for SPU.
+	* configure: Regenerate.
+
+2006-11-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* MAINTAINERS (spu port): Add myself as maintainer.
+	(libobjc): Update my email address.
+
+2006-11-21  Andrea Bona  <andrea.bona@st.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-11-20  Trevor Smigiel <trevor_smigiel@playstation.sony.com>
+
+	* configure.in (skipdirs) : Don't build target-libiberty for SPU.
+	* configure : Rebuilt.
+
+2006-11-20  Trevor Smigiel <trevor_smigiel@playstation.sony.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-11-20  Andrea Ornstein  <andrea.ornstein@st.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-11-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (--with-mpfr-dir): Also look in .libs and _libs for
+	libmpfr.a.
+	* configure: Regenerate.
+
+2006-11-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (clean-target-libgcc): Test for gcc Makefile presence.
+	(unstage): Test for stage_last presence.
+
+	PR bootstrap/29802
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Add HOST_SUBDIR in STAGE_PREFIX.
+	* Makefile.in: Regenerate.
+
+2003-11-16  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* MAINTAINERS: Add myself and Daniel Berlin as loop optimizer
+	maintainers.
+
 2006-11-14  Erven Rohou  <erven.rohou@st.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.

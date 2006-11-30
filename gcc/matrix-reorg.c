@@ -1604,15 +1604,15 @@ find_escaping_matrices_and_flatten (void)
   sbitmap_free (visited_stmts_1);
   if (!transform_accesses && analyze_transpose_p)
     {
-      current_loops = loop_optimizer_init (LOOPS_NORMAL
-					   | LOOPS_HAVE_MARKED_SINGLE_EXITS);
+      loop_optimizer_init (LOOPS_NORMAL
+			   | LOOPS_HAVE_MARKED_SINGLE_EXITS);
       if (current_loops)
-	scev_initialize (current_loops);
+	scev_initialize ();
       htab_traverse (matrices_to_reorg, analyze_transpose, NULL);
       if (current_loops)
 	{
 	  scev_finalize ();
-	  loop_optimizer_finalize (current_loops);
+	  loop_optimizer_finalize ();
 	  current_loops = NULL;
 	}
     }

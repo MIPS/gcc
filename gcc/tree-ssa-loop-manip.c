@@ -98,7 +98,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
      loop (i.e. the step should be loop invariant).  */
   step = force_gimple_operand (step, &stmts, true, var);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (pe, stmts);
+    bsi_insert_on_edge_immediate (pe, stmts);
 
   stmt = build2 (MODIFY_EXPR, void_type_node, va,
 		 build2 (incr_op, TREE_TYPE (base),
@@ -111,7 +111,7 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 
   initial = force_gimple_operand (base, &stmts, true, var);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (pe, stmts);
+    bsi_insert_on_edge_immediate (pe, stmts);
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
@@ -445,7 +445,7 @@ void
 split_loop_exit_edge (edge exit)
 {
   basic_block dest = exit->dest;
-  basic_block bb = loop_split_edge_with (exit, NULL);
+  basic_block bb = split_edge (exit);
   tree phi, new_phi, new_name, name;
   use_operand_p op_p;
 
@@ -468,32 +468,6 @@ split_loop_exit_edge (edge exit)
       add_phi_arg (new_phi, name, exit);
       SET_USE (op_p, new_name);
     }
-}
-
-/* Insert statement STMT to the edge E and update the loop structures.
-   Returns the newly created block (if any).  */
-
-basic_block
-bsi_insert_on_edge_immediate_loop (edge e, tree stmt)
-{
-  basic_block src, dest, new_bb;
-  struct loop *loop_c;
-
-  src = e->src;
-  dest = e->dest;
-
-  loop_c = find_common_loop (src->loop_father, dest->loop_father);
-
-  new_bb = bsi_insert_on_edge_immediate (e, stmt);
-
-  if (!new_bb)
-    return NULL;
-
-  add_bb_to_loop (new_bb, loop_c);
-  if (dest->loop_father->latch == src)
-    dest->loop_father->latch = new_bb;
-
-  return new_bb;
 }
 
 /* Returns the basic block in that statements should be emitted for induction
@@ -588,16 +562,15 @@ copy_phi_node_args (unsigned first_new_block)
 
 bool
 tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
-				    struct loops *loops,
 				    unsigned int ndupl, sbitmap wont_exit,
 				    edge orig, edge *to_remove,
 				    unsigned int *n_to_remove, int flags)
 {
   unsigned first_new_block;
 
-  if (!(loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
+  if (!(current_loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
     return false;
-  if (!(loops->state & LOOPS_HAVE_PREHEADERS))
+  if (!(current_loops->state & LOOPS_HAVE_PREHEADERS))
     return false;
 
 #ifdef ENABLE_CHECKING
@@ -605,7 +578,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 #endif
 
   first_new_block = last_basic_block;
-  if (!duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit,
+  if (!duplicate_loop_to_header_edge (loop, e, ndupl, wont_exit,
 				      orig, to_remove, n_to_remove, flags))
     return false;
 
@@ -651,7 +624,16 @@ can_unroll_loop_p (struct loop *loop, unsigned factor,
     return false;
 
   if (!number_of_iterations_exit (loop, exit, niter, false)
-      || niter->cmp == ERROR_MARK)
+      || niter->cmp == ERROR_MARK
+      /* Scalar evolutions analysis might have copy propagated
+	 the abnormal ssa names into these expressions, hence
+	 emiting the computations based on them during loop
+	 unrolling might create overlapping life ranges for
+	 them, and failures in out-of-ssa.  */
+      || contains_abnormal_ssa_name_p (niter->may_be_zero)
+      || contains_abnormal_ssa_name_p (niter->control.base)
+      || contains_abnormal_ssa_name_p (niter->control.step)
+      || contains_abnormal_ssa_name_p (niter->bound))
     return false;
 
   /* And of course, we must be able to duplicate the loop.  */
@@ -749,7 +731,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
 
   cond = force_gimple_operand (unshare_expr (cond), &stmts, false, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
   /* cond now may be a gimple comparison, which would be OK, but also any
      other gimple rhs (say a && b).  In this case we need to force it to
      operand.  */
@@ -757,16 +739,16 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
     {
       cond = force_gimple_operand (cond, &stmts, true, NULL_TREE);
       if (stmts)
-	bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+	bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
     }
   *enter_cond = cond;
 
   base = force_gimple_operand (unshare_expr (base), &stmts, true, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
   bound = force_gimple_operand (unshare_expr (bound), &stmts, true, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
 
   *exit_base = base;
   *exit_step = bigstep;
@@ -774,10 +756,9 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
   *exit_bound = bound;
 }
 
-/* Unroll LOOP FACTOR times.  LOOPS is the loops tree.  DESC describes
-   number of iterations of LOOP.  EXIT is the exit of the loop to that
-   DESC corresponds.
-   
+/* Unroll LOOP FACTOR times.  DESC describes number of iterations of LOOP.
+   EXIT is the exit of the loop to that DESC corresponds.
+
    If N is number of iterations of the loop and MAY_BE_ZERO is the condition
    under that loop exits in the first iteration even if N != 0,
    
@@ -826,7 +807,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
      } */
 
 void
-tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
+tree_unroll_loop (struct loop *loop, unsigned factor,
 		  edge exit, struct tree_niter_desc *desc)
 {
   tree dont_exit, exit_if, ctr_before, ctr_after;
@@ -849,7 +830,7 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
 			     &enter_main_cond, &exit_base, &exit_step,
 			     &exit_cmp, &exit_bound);
 
-  new_loop = loop_version (loops, loop, enter_main_cond, NULL, true);
+  new_loop = loop_version (loop, enter_main_cond, NULL, true);
   gcc_assert (new_loop != NULL);
   update_ssa (TODO_update_ssa);
 
@@ -872,7 +853,7 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
   wont_exit = sbitmap_alloc (factor);
   sbitmap_ones (wont_exit);
   ok = tree_duplicate_loop_to_header_edge
-	  (loop, loop_latch_edge (loop), loops, factor - 1,
+	  (loop, loop_latch_edge (loop), factor - 1,
 	   wont_exit, NULL, NULL, NULL, DLTHE_FLAG_UPDATE_FREQ);
   free (wont_exit);
   gcc_assert (ok);
@@ -881,7 +862,7 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
   /* Prepare the cfg and update the phi nodes.  */
   rest = loop_preheader_edge (new_loop)->src;
   precond_edge = single_pred_edge (rest);
-  loop_split_edge_with (loop_latch_edge (loop), NULL);
+  split_edge (loop_latch_edge (loop));
   exit_bb = single_pred (loop->latch);
 
   new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
@@ -943,7 +924,7 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
   verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (loops);
+  verify_loop_structure ();
   verify_loop_closed_ssa ();
 #endif
 }

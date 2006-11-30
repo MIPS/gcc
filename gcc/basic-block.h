@@ -146,6 +146,7 @@ struct edge_def GTY(())
 typedef struct edge_def *edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
+DEF_VEC_ALLOC_P(edge,heap);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -179,7 +180,6 @@ extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
 struct loop;
-struct loops;
 
 /* Declared in tree-flow.h.  */
 struct edge_prediction;
@@ -486,6 +486,7 @@ extern void update_bb_for_insn (basic_block);
 extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
+basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);

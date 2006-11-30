@@ -371,11 +371,6 @@ static int max_uid;
 
 #define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
 
-/* Nonzero if this pass has made changes, and therefore it's
-   worthwhile to run the garbage collector.  */
-
-static int cse_altered;
-
 /* Nonzero if cse has altered conditional jump insns
    in such a way that jump optimization should be redone.  */
 
@@ -560,10 +555,8 @@ struct cse_basic_block_data
     {
       /* The branch insn.  */
       rtx branch;
-      /* Whether it should be taken or not.  AROUND is the same as taken
-	 except that it is used when the destination label is not preceded
-       by a BARRIER.  */
-      enum taken {PATH_TAKEN, PATH_NOT_TAKEN, PATH_AROUND} status;
+      /* Whether it should be taken or not.  */
+      enum taken {PATH_TAKEN, PATH_NOT_TAKEN} status;
     } *path;
 };
 
@@ -605,17 +598,14 @@ static enum rtx_code find_comparison_args (enum rtx_code, rtx *, rtx *,
 					   enum machine_mode *);
 static rtx fold_rtx (rtx, rtx);
 static rtx equiv_constant (rtx);
-static void record_jump_equiv (rtx, int);
+static void record_jump_equiv (rtx, bool);
 static void record_jump_cond (enum rtx_code, enum machine_mode, rtx, rtx,
 			      int);
 static void cse_insn (rtx, rtx);
 static void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
-				    int, int);
-static int addr_affects_sp_p (rtx);
+				    int);
 static void invalidate_from_clobbers (rtx);
 static rtx cse_process_notes (rtx, rtx);
-static void invalidate_skipped_set (rtx, rtx, void *);
-static void invalidate_skipped_block (rtx);
 static rtx cse_basic_block (rtx, rtx, struct branch_path *);
 static void count_reg_usage (rtx, int *, rtx, int);
 static int check_for_label_ref (rtx *, void *);
@@ -3699,8 +3689,8 @@ equiv_constant (rtx x)
   return 0;
 }
 
-/* Given INSN, a jump insn, PATH_TAKEN indicates if we are following the "taken"
-   branch.  It will be zero if not.
+/* Given INSN, a jump insn, TAKEN indicates if we are following the
+   "taken" branch.
 
    In certain cases, this can cause us to add an equivalence.  For example,
    if we are following the taken case of
@@ -3711,7 +3701,7 @@ equiv_constant (rtx x)
    comparison is seen later, we will know its value.  */
 
 static void
-record_jump_equiv (rtx insn, int taken)
+record_jump_equiv (rtx insn, bool taken)
 {
   int cond_known_true;
   rtx op0, op1;
@@ -3721,8 +3711,8 @@ record_jump_equiv (rtx insn, int taken)
   enum rtx_code code;
 
   /* Ensure this is the right kind of insn.  */
-  if (! any_condjump_p (insn))
-    return;
+  gcc_assert (any_condjump_p (insn));
+
   set = pc_set (insn);
 
   /* See if this jump condition is known true or false.  */
@@ -4947,7 +4937,6 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* If we made a change, recompute SRC values.  */
       if (src != sets[i].src)
 	{
-	  cse_altered = 1;
 	  do_not_record = 0;
 	  hash_arg_in_memory = 0;
 	  sets[i].src = src;
@@ -5049,7 +5038,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       else if (n_sets == 1 && dest == pc_rtx && src == pc_rtx)
 	{
 	  /* One less use of the label this insn used to jump to.  */
-	  delete_insn (insn);
+	  delete_insn_and_edges (insn);
 	  cse_jumps_altered = 1;
 	  /* No more processing for this set.  */
 	  sets[i].rtl = 0;
@@ -5076,7 +5065,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    {
 	      rtx new, note;
 
-	      new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
+	      new = emit_jump_insn_before (gen_jump (XEXP (src, 0)), insn);
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
 
@@ -5088,7 +5077,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		  REG_NOTES (new) = note;
 		}
 
-	      delete_insn (insn);
+	      delete_insn_and_edges (insn);
 	      insn = new;
 
 	      /* Now emit a BARRIER after the unconditional jump.  */
@@ -5641,10 +5630,8 @@ cse_insn (rtx insn, rtx libcall_insn)
   /* If this is a conditional jump insn, record any known equivalences due to
      the condition being tested.  */
 
-  if (JUMP_P (insn)
-      && n_sets == 1 && GET_CODE (x) == SET
-      && GET_CODE (SET_SRC (x)) == IF_THEN_ELSE)
-    record_jump_equiv (insn, 0);
+  if (n_sets == 1 && any_condjump_p (insn))
+    record_jump_equiv (insn, false);
 
 #ifdef HAVE_cc0
   /* If the previous insn set CC0 and this insn no longer references CC0,
@@ -5654,7 +5641,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       && (tem = single_set (prev_insn)) != 0
       && SET_DEST (tem) == cc0_rtx
       && ! reg_mentioned_p (cc0_rtx, x))
-    delete_insn (prev_insn);
+    delete_insn_and_edges (prev_insn);
 
   prev_insn_cc0 = this_insn_cc0;
   prev_insn_cc0_mode = this_insn_cc0_mode;
@@ -5677,33 +5664,6 @@ invalidate_memory (void)
 	if (p->in_memory)
 	  remove_from_table (p, i);
       }
-}
-
-/* If ADDR is an address that implicitly affects the stack pointer, return
-   1 and update the register tables to show the effect.  Else, return 0.  */
-
-static int
-addr_affects_sp_p (rtx addr)
-{
-  if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC
-      && REG_P (XEXP (addr, 0))
-      && REGNO (XEXP (addr, 0)) == STACK_POINTER_REGNUM)
-    {
-      if (REG_TICK (STACK_POINTER_REGNUM) >= 0)
-	{
-	  REG_TICK (STACK_POINTER_REGNUM)++;
-	  /* Is it possible to use a subreg of SP?  */
-	  SUBREG_TICKED (STACK_POINTER_REGNUM) = -1;
-	}
-
-      /* This should be *very* rare.  */
-      if (TEST_HARD_REG_BIT (hard_regs_in_table, STACK_POINTER_REGNUM))
-	invalidate (stack_pointer_rtx, VOIDmode);
-
-      return 1;
-    }
-
-  return 0;
 }
 
 /* Perform invalidation on the basis of everything about an insn
@@ -5836,66 +5796,6 @@ cse_process_notes (rtx x, rtx object)
   return x;
 }
 
-/* Process one SET of an insn that was skipped.  We ignore CLOBBERs
-   since they are done elsewhere.  This function is called via note_stores.  */
-
-static void
-invalidate_skipped_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (dest);
-
-  if (code == MEM
-      && ! addr_affects_sp_p (dest)	/* If this is not a stack push ...  */
-      /* There are times when an address can appear varying and be a PLUS
-	 during this scan when it would be a fixed address were we to know
-	 the proper equivalences.  So invalidate all memory if there is
-	 a BLKmode or nonscalar memory reference or a reference to a
-	 variable address.  */
-      && (MEM_IN_STRUCT_P (dest) || GET_MODE (dest) == BLKmode
-	  || cse_rtx_varies_p (XEXP (dest, 0), 0)))
-    {
-      invalidate_memory ();
-      return;
-    }
-
-  if (GET_CODE (set) == CLOBBER
-      || CC0_P (dest)
-      || dest == pc_rtx)
-    return;
-
-  if (code == STRICT_LOW_PART || code == ZERO_EXTRACT)
-    invalidate (XEXP (dest, 0), GET_MODE (dest));
-  else if (code == REG || code == SUBREG || code == MEM)
-    invalidate (dest, VOIDmode);
-}
-
-/* Invalidate all insns from START up to the end of the function or the
-   next label.  This called when we wish to CSE around a block that is
-   conditionally executed.  */
-
-static void
-invalidate_skipped_block (rtx start)
-{
-  rtx insn;
-
-  for (insn = start; insn && !LABEL_P (insn);
-       insn = NEXT_INSN (insn))
-    {
-      if (! INSN_P (insn))
-	continue;
-
-      if (CALL_P (insn))
-	{
-	  if (! CONST_OR_PURE_CALL_P (insn))
-	    invalidate_memory ();
-	  invalidate_for_call ();
-	}
-
-      invalidate_from_clobbers (PATTERN (insn));
-      note_stores (PATTERN (insn), invalidate_skipped_set, NULL);
-    }
-}
-
 /* Find the end of INSN's basic block and return its range,
    the total number of SETs in all the insns of the block, the last insn of the
    block, and the branch path.
@@ -5903,7 +5803,7 @@ invalidate_skipped_block (rtx start)
    The branch path indicates which branches should be followed.  If a nonzero
    path size is specified, the block should be rescanned and a different set
    of branches will be taken.  The branch path is only used if
-   FLAG_CSE_FOLLOW_JUMPS or FLAG_CSE_SKIP_BLOCKS is nonzero.
+   FLAG_CSE_FOLLOW_JUMPS is nonzero.
 
    DATA is a pointer to a struct cse_basic_block_data, defined below, that is
    used to describe the block.  It is filled in with the information about
@@ -5912,7 +5812,7 @@ invalidate_skipped_block (rtx start)
 
 static void
 cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
-			int follow_jumps, int skip_blocks)
+			int follow_jumps)
 {
   rtx p = insn, q;
   int nsets = 0;
@@ -5943,9 +5843,9 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
      to figure out where to go next.  We want to return the next block
      in the instruction stream, not some branched-to block somewhere
      else.  We accomplish this by pretending our called forbid us to
-     follow jumps, or skip blocks.  */
+     follow jumps.  */
   if (GET_MODE (insn) == QImode)
-    follow_jumps = skip_blocks = 0;
+    follow_jumps = 0;
 
   /* Scan to end of this basic block.  */
   while (p && !LABEL_P (p))
@@ -5986,14 +5886,9 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
       /* If this is a conditional jump, we can follow it if -fcse-follow-jumps
 	 was specified, we haven't reached our maximum path length, there are
 	 insns following the target of the jump, this is the only use of the
-	 jump label, and the target label is preceded by a BARRIER.
-
-	 Alternatively, we can follow the jump if it branches around a
-	 block of code and there are no other branches into the block.
-	 In this case invalidate_skipped_block will be called to invalidate any
-	 registers set in the block when following the jump.  */
-
-      else if ((follow_jumps || skip_blocks) && path_size < PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH) - 1
+	 jump label, and the target label is preceded by a BARRIER.  */
+      else if (follow_jumps
+	       && path_size < PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH) - 1
 	       && JUMP_P (p)
 	       && GET_CODE (PATTERN (p)) == SET
 	       && GET_CODE (SET_SRC (PATTERN (p))) == IF_THEN_ELSE
@@ -6040,42 +5935,6 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
 	      p = JUMP_LABEL (p);
 	      /* Mark block so we won't scan it again later.  */
 	      PUT_MODE (NEXT_INSN (p), QImode);
-	    }
-	  /* Detect a branch around a block of code.  */
-	  else if (skip_blocks && q != 0 && !LABEL_P (q))
-	    {
-	      rtx tmp;
-
-	      if (next_real_insn (q) == next)
-		{
-		  p = NEXT_INSN (p);
-		  continue;
-		}
-
-	      for (i = 0; i < path_entry; i++)
-		if (data->path[i].branch == p)
-		  break;
-
-	      if (i != path_entry)
-		break;
-
-	      /* This is no_labels_between_p (p, q) with an added check for
-		 reaching the end of a function (in case Q precedes P).  */
-	      for (tmp = NEXT_INSN (p); tmp && tmp != q; tmp = NEXT_INSN (tmp))
-		if (LABEL_P (tmp))
-		  break;
-
-	      if (tmp == q)
-		{
-		  data->path[path_entry].branch = p;
-		  data->path[path_entry++].status = PATH_AROUND;
-
-		  path_size = path_entry;
-
-		  p = JUMP_LABEL (p);
-		  /* Mark block so we won't scan it again later.  */
-		  PUT_MODE (NEXT_INSN (p), QImode);
-		}
 	    }
 	}
       p = NEXT_INSN (p);
@@ -6149,9 +6008,7 @@ cse_main (rtx f, int nregs)
   insn = f;
   while (insn)
     {
-      cse_altered = 0;
-      cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps,
-			      flag_cse_skip_blocks);
+      cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps);
 
       /* If this basic block was already processed or has no sets, skip it.  */
       if (val.nsets == 0 || GET_MODE (insn) == QImode)
@@ -6191,19 +6048,11 @@ cse_main (rtx f, int nregs)
 	     us a new branch path to investigate.  */
 	  cse_jumps_altered = 0;
 	  temp = cse_basic_block (insn, val.last, val.path);
-	  if (cse_jumps_altered == 0
-	      || (flag_cse_follow_jumps == 0 && flag_cse_skip_blocks == 0))
+	  if (cse_jumps_altered == 0 || flag_cse_follow_jumps)
 	    insn = temp;
 
 	  cse_jumps_altered |= old_cse_jumps_altered;
 	}
-
-      if (cse_altered)
-	ggc_collect ();
-
-#ifdef USE_C_ALLOCA
-      alloca (0);
-#endif
     }
 
   /* Clean up.  */
@@ -6264,10 +6113,9 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	  enum taken status = next_branch++->status;
 	  if (status != PATH_NOT_TAKEN)
 	    {
-	      if (status == PATH_TAKEN)
-		record_jump_equiv (insn, 1);
-	      else
-		invalidate_skipped_block (NEXT_INSN (insn));
+	      gcc_assert (status == PATH_TAKEN);
+	      if (any_condjump_p (insn))
+		record_jump_equiv (insn, true);
 
 	      /* Set the last insn as the jump insn; it doesn't affect cc0.
 		 Then follow this branch.  */
@@ -6357,63 +6205,6 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	    break;
 
 	  insn = PREV_INSN (to);
-	}
-
-      /* See if it is ok to keep on going past the label
-	 which used to end our basic block.  Remember that we incremented
-	 the count of that label, so we decrement it here.  If we made
-	 a jump unconditional, TO_USAGE will be one; in that case, we don't
-	 want to count the use in that jump.  */
-
-      if (to != 0 && NEXT_INSN (insn) == to
-	  && LABEL_P (to) && --LABEL_NUSES (to) == to_usage)
-	{
-	  struct cse_basic_block_data val;
-	  rtx prev;
-
-	  insn = NEXT_INSN (to);
-
-	  /* If TO was the last insn in the function, we are done.  */
-	  if (insn == 0)
-	    {
-	      free (qty_table);
-	      return 0;
-	    }
-
-	  /* If TO was preceded by a BARRIER we are done with this block
-	     because it has no continuation.  */
-	  prev = prev_nonnote_insn (to);
-	  if (prev && BARRIER_P (prev))
-	    {
-	      free (qty_table);
-	      return insn;
-	    }
-
-	  /* Find the end of the following block.  Note that we won't be
-	     following branches in this case.  */
-	  to_usage = 0;
-	  val.path_size = 0;
-	  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
-	  cse_end_of_basic_block (insn, &val, 0, 0);
-	  free (val.path);
-
-	  /* If the tables we allocated have enough space left
-	     to handle all the SETs in the next basic block,
-	     continue through it.  Otherwise, return,
-	     and that block will be scanned individually.  */
-	  if (val.nsets * 2 + next_qty > max_qty)
-	    break;
-
-	  cse_basic_block_start = val.low_cuid;
-	  cse_basic_block_end = val.high_cuid;
-	  to = val.last;
-
-	  /* Prevent TO from being deleted if it is a label.  */
-	  if (to != 0 && LABEL_P (to))
-	    ++LABEL_NUSES (to);
-
-	  /* Back up so we process the first insn in the extension.  */
-	  insn = PREV_INSN (insn);
 	}
     }
 

@@ -202,6 +202,9 @@ struct function GTY(())
   /* Whether the dominators and the postdominators are available.  */
   enum dom_state dom_computed[2];
 
+  /* The loops in this function.  */
+  struct loops * GTY((skip)) x_current_loops;
+
   /* For function.c.  */
 
   /* Points to the FUNCTION_DECL of this function.  */
@@ -533,6 +536,7 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define current_loops (cfun->x_current_loops)
 
 #define n_bbs_in_dom_tree (cfun->n_bbs_in_dom_tree)
 #define dom_computed (cfun->dom_computed)

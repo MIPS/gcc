@@ -3773,7 +3773,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
+      redirect_jump_2 (jump, old_dest, new_label, 0, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3854,11 +3854,12 @@ if_convert (int x_life_data_ok)
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
     {
-      struct loops loops;
-
-      flow_loops_find (&loops);
-      mark_loop_exit_edges (&loops);
-      flow_loops_free (&loops);
+      loop_optimizer_init (0);
+      if (current_loops)
+	{
+	  mark_loop_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
       free_dominance_info (CDI_DOMINATORS);
     }
 

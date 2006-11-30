@@ -393,11 +393,6 @@ end program test_abs
 @findex @code{ACCESS} 
 @cindex file system functions
 
-<<<<<<< .working
-Not yet implemented in gfortran.
-
-=======
->>>>>>> .merge-right.r118863
 @table @asis
 @item @emph{Description}:
 @code{ACCESS(NAME, MODE)} checks whether the file @var{NAME} 
@@ -1911,11 +1906,6 @@ END PROGRAM
 @findex @code{CHMOD} 
 @cindex file system functions
 
-<<<<<<< .working
-Not yet implemented in gfortran.
-
-=======
->>>>>>> .merge-right.r118863
 @table @asis
 @item @emph{Description}:
 @code{CHMOD} changes the permissions of a file. This function invokes

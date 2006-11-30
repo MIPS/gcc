@@ -104,8 +104,8 @@ flag is not set for blocks and edges that belong to natural loops that
 are in such an irreducible region (but it is set for the entry and exit
 edges of such a loop, if they lead to/from this region).
 @item @code{LOOPS_HAVE_MARKED_SINGLE_EXITS}: If a loop has exactly one
-exit edge, this edge is stored in @code{single_exit} field of the loop
-structure.  @code{NULL} is stored there otherwise.
+exit edge, this edge is recorded in the loop structure.  @code{single_exit}
+function can be used to retrieve this edge.
 @end itemize
 
 These properties may also be computed/enforced later, using functions
@@ -140,9 +140,6 @@ the basic blocks of the sub-loops).
 number of super-loops of the loop.
 @item @code{outer}, @code{inner}, @code{next}: The super-loop, the first
 sub-loop, and the sibling of the loop in the loops tree.
-@item @code{single_exit}: The exit edge of the loop, if the loop has
-exactly one exit and the loops were analyzed with
-LOOPS_HAVE_MARKED_SINGLE_EXITS.
 @end itemize
 
 There are other fields in the loop structures, many of them used only by
@@ -176,6 +173,9 @@ with @code{EDGE_LOOP_EXIT} flag.
 @code{get_loop_body_in_bfs_order}: Enumerates the basic blocks in the
 loop in depth-first search order in reversed CFG, ordered by dominance
 relation, and breath-first search order, respectively.
+@item @code{single_exit}: Returns the single exit edge of the loop, or
+@code{NULL} if the loop has more than one exit.  You can only use this
+function if LOOPS_HAVE_MARKED_SINGLE_EXITS property is used.
 @item @code{get_loop_exit_edges}: Enumerates the exit edges of a loop.
 @item @code{just_once_each_iteration_p}: Returns true if the basic block
 is executed exactly once during each iteration of a loop (that is, it
@@ -195,19 +195,11 @@ The loops tree can be manipulated using the following functions:
 @item @code{remove_bb_from_loops}: Removes a basic block from loops.
 @end itemize
 
-The specialized versions of several low-level CFG functions that also
-update loop structures are provided:
+Most low-level CFG functions update loops automatically.  The following
+functions handle some more complicated cases of CFG manipulations:
 
 @itemize
-@item @code{loop_split_edge_with}: Splits an edge, and places a
-specified RTL code on it.  On GIMPLE, the function can still be used,
-but the code must be NULL.
-@item @code{bsi_insert_on_edge_immediate_loop}: Inserts code on edge,
-splitting it if necessary.  Only works on GIMPLE.
 @item @code{remove_path}: Removes an edge and all blocks it dominates.
-@item @code{loop_commit_inserts}: Commits insertions scheduled on edges,
-and sets loops for the new blocks.  This function can only be used on
-GIMPLE.
 @item @code{split_loop_exit_edge}: Splits exit edge of the loop,
 ensuring that PHI node arguments remain in the loop (this ensures that
 loop-closed SSA form is preserved).  Only useful on GIMPLE.
