@@ -1142,7 +1142,7 @@ gimplify_return_expr (tree stmt, tree *pre_p)
     result_decl = NULL_TREE;
   else
     {
-      result_decl = PROTECTED_TREE_OPERAND (ret_expr, 0);
+      result_decl = GENERIC_TREE_OPERAND (ret_expr, 0);
       if (TREE_CODE (result_decl) == INDIRECT_REF)
 	/* See through a return by reference.  */
 	result_decl = TREE_OPERAND (result_decl, 0);
@@ -1182,7 +1182,7 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   /* Smash the lhs of the GIMPLE_MODIFY_STMT to the temporary we plan to use.
      Then gimplify the whole thing.  */
   if (result != result_decl)
-    PROTECTED_TREE_OPERAND (ret_expr, 0) = result;
+    GENERIC_TREE_OPERAND (ret_expr, 0) = result;
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 
@@ -2556,8 +2556,8 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value)
 {
   tree args, t, to, to_ptr, from;
 
-  to = PROTECTED_TREE_OPERAND (*expr_p, 0);
-  from = PROTECTED_TREE_OPERAND (*expr_p, 1);
+  to = GENERIC_TREE_OPERAND (*expr_p, 0);
+  from = GENERIC_TREE_OPERAND (*expr_p, 1);
 
   args = tree_cons (NULL, size, NULL);
 
@@ -2588,7 +2588,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value)
 {
   tree args, t, to, to_ptr;
 
-  to = PROTECTED_TREE_OPERAND (*expr_p, 0);
+  to = GENERIC_TREE_OPERAND (*expr_p, 0);
 
   args = tree_cons (NULL, size, NULL);
 
@@ -2924,7 +2924,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 			   tree *post_p, bool want_value)
 {
   tree object;
-  tree ctor = PROTECTED_TREE_OPERAND (*expr_p, 1);
+  tree ctor = GENERIC_TREE_OPERAND (*expr_p, 1);
   tree type = TREE_TYPE (ctor);
   enum gimplify_status ret;
   VEC(constructor_elt,gc) *elts;
@@ -2932,11 +2932,11 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
   if (TREE_CODE (ctor) != CONSTRUCTOR)
     return GS_UNHANDLED;
 
-  ret = gimplify_expr (&PROTECTED_TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+  ret = gimplify_expr (&GENERIC_TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 		       is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
     return ret;
-  object = PROTECTED_TREE_OPERAND (*expr_p, 0);
+  object = GENERIC_TREE_OPERAND (*expr_p, 0);
 
   elts = CONSTRUCTOR_ELTS (ctor);
 
@@ -3062,7 +3062,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 		  }
 	        walk_tree (&DECL_INITIAL (new), force_labels_r, NULL, NULL);
 
-		PROTECTED_TREE_OPERAND (*expr_p, 1) = new;
+		GENERIC_TREE_OPERAND (*expr_p, 1) = new;
 
 		/* This is no longer an assignment of a CONSTRUCTOR, but
 		   we still may have processing to do on the LHS.  So
@@ -3081,7 +3081,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	      preeval_data.lhs_base_decl = NULL;
 	    preeval_data.lhs_alias_set = get_alias_set (object);
 
-	    gimplify_init_ctor_preeval (&PROTECTED_TREE_OPERAND (*expr_p, 1),
+	    gimplify_init_ctor_preeval (&GENERIC_TREE_OPERAND (*expr_p, 1),
 					pre_p, post_p, &preeval_data);
 	  }
 
@@ -3463,8 +3463,8 @@ gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
   enum tree_code code, ocode;
   tree lhs, rhs, new_rhs, other, realpart, imagpart;
 
-  lhs = PROTECTED_TREE_OPERAND (*expr_p, 0);
-  rhs = PROTECTED_TREE_OPERAND (*expr_p, 1);
+  lhs = GENERIC_TREE_OPERAND (*expr_p, 0);
+  rhs = GENERIC_TREE_OPERAND (*expr_p, 1);
   code = TREE_CODE (lhs);
   lhs = TREE_OPERAND (lhs, 0);
 
@@ -3480,8 +3480,8 @@ gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
   else
     new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
 
-  PROTECTED_TREE_OPERAND (*expr_p, 0) = lhs;
-  PROTECTED_TREE_OPERAND (*expr_p, 1) = new_rhs;
+  GENERIC_TREE_OPERAND (*expr_p, 0) = lhs;
+  GENERIC_TREE_OPERAND (*expr_p, 1) = new_rhs;
 
   if (want_value)
     {
@@ -3559,8 +3559,8 @@ tree_to_gimple_tuple (tree *tp)
 static enum gimplify_status
 gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 {
-  tree *from_p = &PROTECTED_TREE_OPERAND (*expr_p, 1);
-  tree *to_p = &PROTECTED_TREE_OPERAND (*expr_p, 0);
+  tree *from_p = &GENERIC_TREE_OPERAND (*expr_p, 1);
+  tree *to_p = &GENERIC_TREE_OPERAND (*expr_p, 0);
   enum gimplify_status ret = GS_UNHANDLED;
 
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
@@ -4942,7 +4942,7 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   t = OMP_FOR_INIT (for_stmt);
   gcc_assert (TREE_CODE (t) == MODIFY_EXPR
 	      || TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  decl = PROTECTED_TREE_OPERAND (t, 0);
+  decl = GENERIC_TREE_OPERAND (t, 0);
   gcc_assert (DECL_P (decl));
   gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
 
@@ -4952,7 +4952,7 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-  ret |= gimplify_expr (&PROTECTED_TREE_OPERAND (t, 1),
+  ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
 			&OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
@@ -4960,9 +4960,9 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
-  gcc_assert (PROTECTED_TREE_OPERAND (t, 0) == decl);
+  gcc_assert (GENERIC_TREE_OPERAND (t, 0) == decl);
 
-  ret |= gimplify_expr (&PROTECTED_TREE_OPERAND (t, 1),
+  ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
 			&OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 

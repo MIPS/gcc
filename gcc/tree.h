@@ -950,12 +950,12 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
    If you know the NODE is a GIMPLE statement, use GIMPLE_STMT_OPERAND.  If the
    NODE code is unknown at compile time, use this macro.  */
-#define PROTECTED_TREE_OPERAND(NODE, I) *(protected_tree_operand ((NODE), (I)))
+#define GENERIC_TREE_OPERAND(NODE, I) *(generic_tree_operand ((NODE), (I)))
 
 /* Like TREE_TYPE but returns void_type_node for gimple tuples that have
    no type.  */
 
-#define PROTECTED_TREE_TYPE(NODE) *(protected_tree_type ((NODE)))
+#define GENERIC_TREE_TYPE(NODE) *(generic_tree_type ((NODE)))
 
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
@@ -974,7 +974,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)		\
 	 && TREE_OPERAND (EXP, 0) != error_mark_node		\
 	 && (TYPE_MODE (TREE_TYPE (EXP))			\
-	     == TYPE_MODE (PROTECTED_TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
+	     == TYPE_MODE (GENERIC_TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
 /* Like STRIP_NOPS, but don't let the signedness change either.  */
@@ -4433,8 +4433,8 @@ extern void set_expr_locus (tree,
 extern const char **expr_filename (tree);
 extern int *expr_lineno (tree);
 extern tree *tree_block (tree);
-extern tree *protected_tree_operand (tree, int);
-extern tree *protected_tree_type (tree);
+extern tree *generic_tree_operand (tree, int);
+extern tree *generic_tree_type (tree);
 
 /* In function.c */
 extern void expand_main_function (void);

@@ -1678,12 +1678,12 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case INIT_EXPR:
     case GIMPLE_MODIFY_STMT:
       /* Is the right and side a TARGET_EXPR?  */
-      if (TREE_CODE (PROTECTED_TREE_OPERAND (x, 1)) == TARGET_EXPR)
+      if (TREE_CODE (GENERIC_TREE_OPERAND (x, 1)) == TARGET_EXPR)
 	break;
       /* ... fall through ...  */
 
     case TARGET_EXPR:
-      x = PROTECTED_TREE_OPERAND (x, 0);
+      x = GENERIC_TREE_OPERAND (x, 0);
       /* Is this an assignments to a register?  */
       if (is_gimple_reg (x))
 	break;

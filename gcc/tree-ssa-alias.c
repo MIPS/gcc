@@ -431,7 +431,7 @@ compute_call_clobbered (struct alias_info *ai)
 static bool
 lhs_may_store_to (tree stmt, tree sym ATTRIBUTE_UNUSED)
 {
-  tree lhs = PROTECTED_TREE_OPERAND (stmt, 0);
+  tree lhs = GENERIC_TREE_OPERAND (stmt, 0);
   
   lhs = get_base_address (lhs);
   

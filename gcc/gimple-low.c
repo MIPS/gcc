@@ -665,7 +665,7 @@ lower_builtin_setjmp (tree_stmt_iterator *tsi)
   /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
   t = build_addr (next_label, current_function_decl);
   arg = tree_cons (NULL, t, NULL);
-  t = TREE_VALUE (PROTECTED_TREE_OPERAND (stmt, 1));
+  t = TREE_VALUE (GENERIC_TREE_OPERAND (stmt, 1));
   arg = tree_cons (NULL, t, arg);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
   t = build_function_call_expr (t, arg);

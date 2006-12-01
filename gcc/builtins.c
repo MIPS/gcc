@@ -6764,7 +6764,7 @@ integer_valued_real_p (tree t)
     case COMPOUND_EXPR:
     case GIMPLE_MODIFY_STMT:
     case BIND_EXPR:
-      return integer_valued_real_p (PROTECTED_TREE_OPERAND (t, 1));
+      return integer_valued_real_p (GENERIC_TREE_OPERAND (t, 1));
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -9355,7 +9355,7 @@ fold_builtin (tree fndecl, tree arglist, bool ignore)
   tree exp = fold_builtin_1 (fndecl, arglist, ignore);
   if (exp && !ignore)
     {
-      exp = build1 (NOP_EXPR, PROTECTED_TREE_TYPE (exp), exp);
+      exp = build1 (NOP_EXPR, GENERIC_TREE_TYPE (exp), exp);
       TREE_NO_WARNING (exp) = 1;
     }
 

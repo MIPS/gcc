@@ -1584,8 +1584,8 @@ expand_return (tree retval)
     }
   else if ((TREE_CODE (retval) == GIMPLE_MODIFY_STMT
 	    || TREE_CODE (retval) == INIT_EXPR)
-	   && TREE_CODE (PROTECTED_TREE_OPERAND (retval, 0)) == RESULT_DECL)
-    retval_rhs = PROTECTED_TREE_OPERAND (retval, 1);
+	   && TREE_CODE (GENERIC_TREE_OPERAND (retval, 0)) == RESULT_DECL)
+    retval_rhs = GENERIC_TREE_OPERAND (retval, 1);
   else
     retval_rhs = retval;
 
@@ -1604,7 +1604,7 @@ expand_return (tree retval)
      (and in expand_call).  */
 
   else if (retval_rhs != 0
-	   && TYPE_MODE (PROTECTED_TREE_TYPE (retval_rhs)) == BLKmode
+	   && TYPE_MODE (GENERIC_TREE_TYPE (retval_rhs)) == BLKmode
 	   && REG_P (result_rtl))
     {
       int i;

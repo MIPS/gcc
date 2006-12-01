@@ -1,3 +1,27 @@
+2006-12-01  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-ssa-loop-im.c: Rename all PROTECTED_TREE_OPERAND to
+        GENERIC_TREE_OPERAND, and all PROTECTED_TREE_TYPE to
+        GENERIC_TREE_TYPE.
+        * tree-complex.c: Same.
+        * tree-pretty-print.c: Same.
+        * tree.c: Same.
+        * tree.h: Same.
+        * builtins.c: Same.
+        * fold-const.c: Same.
+        * tree-ssa-dom.c: Same.
+        * tree-ssa-propagate.c: Same.
+        * tree-ssa-alias.c: Same.
+        * gimple-low.c: Same.
+        * dwarf2out.c: Same.
+        * c-pretty-print.c: Same.
+        * gimplify.c: Same.
+        * tree-inline.c: Same.
+        * tree-outof-ssa.c: Same.
+        * tree-ssa-structalias.c: Same.
+        * tree-ssa-reassoc.c: Same.
+        * stmt.c: Same.
+
 2006-11-16  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree.c (build2_stat): Fix comment.

@@ -497,7 +497,7 @@ initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
   else
     {
       element->stmt = expr;
-      element->rhs = PROTECTED_TREE_OPERAND (expr, 1);
+      element->rhs = GENERIC_TREE_OPERAND (expr, 1);
     }
 
   element->lhs = lhs;
@@ -1502,7 +1502,7 @@ eliminate_redundant_computations (tree stmt)
     }
   else
     {
-      expr_p = &PROTECTED_TREE_OPERAND (stmt, 1);
+      expr_p = &GENERIC_TREE_OPERAND (stmt, 1);
       modify_expr_p = true;
     }
 

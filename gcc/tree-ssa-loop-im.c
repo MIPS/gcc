@@ -423,7 +423,7 @@ stmt_cost (tree stmt)
   if (TREE_CODE (stmt) == COND_EXPR)
     return LIM_EXPENSIVE;
 
-  rhs = PROTECTED_TREE_OPERAND (stmt, 1);
+  rhs = GENERIC_TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
   if (stmt_references_memory_p (stmt))
@@ -609,7 +609,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       /* If divisor is invariant, convert a/b to a*(1/b), allowing reciprocal
 	 to be hoisted out of loop, saving expensive divide.  */
       if (pos == MOVE_POSSIBLE
-	  && (rhs = PROTECTED_TREE_OPERAND (stmt, 1)) != NULL
+	  && (rhs = GENERIC_TREE_OPERAND (stmt, 1)) != NULL
 	  && TREE_CODE (rhs) == RDIV_EXPR
 	  && flag_unsafe_math_optimizations
 	  && !flag_trapping_math
@@ -620,7 +620,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	{
 	  tree lhs, stmt1, stmt2, var, name;
 
-	  lhs = PROTECTED_TREE_OPERAND (stmt, 0);
+	  lhs = GENERIC_TREE_OPERAND (stmt, 0);
 
 	  /* stmt must be GIMPLE_MODIFY_STMT.  */
 	  var = create_tmp_var (TREE_TYPE (rhs), "reciptmp");

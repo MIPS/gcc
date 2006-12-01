@@ -1383,8 +1383,8 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     default:
       {
-	tree lhs = PROTECTED_TREE_OPERAND (stmt, 0);
-	tree rhs = PROTECTED_TREE_OPERAND (stmt, 1);
+	tree lhs = GENERIC_TREE_OPERAND (stmt, 0);
+	tree rhs = GENERIC_TREE_OPERAND (stmt, 1);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (bsi, stmt, type, lhs, rhs);
@@ -1392,7 +1392,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 		  || TREE_CODE (rhs) == IMAGPART_EXPR)
 		 && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
 	  {
-	    PROTECTED_TREE_OPERAND (stmt, 1)
+	    GENERIC_TREE_OPERAND (stmt, 1)
 	      = extract_component (bsi, TREE_OPERAND (rhs, 0),
 				   TREE_CODE (rhs) == IMAGPART_EXPR, false);
 	    update_stmt (stmt);

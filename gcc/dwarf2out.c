@@ -9233,7 +9233,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
     case GIMPLE_MODIFY_STMT:
-      return loc_descriptor_from_tree_1 (PROTECTED_TREE_OPERAND (loc, 0),
+      return loc_descriptor_from_tree_1 (GENERIC_TREE_OPERAND (loc, 0),
 					 want_address);
 
     case COMPONENT_REF:

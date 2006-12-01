@@ -7908,8 +7908,8 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  if (len)
 	    {
 	      for (i = 0; i < len - 1; ++i)
-		WALK_SUBTREE (PROTECTED_TREE_OPERAND (*tp, i));
-	      WALK_SUBTREE_TAIL (PROTECTED_TREE_OPERAND (*tp, len - 1));
+		WALK_SUBTREE (GENERIC_TREE_OPERAND (*tp, i));
+	      WALK_SUBTREE_TAIL (GENERIC_TREE_OPERAND (*tp, len - 1));
 	    }
 	}
       /* If this is a type, walk the needed fields in the type.  */
@@ -7979,7 +7979,7 @@ tree_block (tree t)
 }
 
 tree *
-protected_tree_operand (tree node, int i)
+generic_tree_operand (tree node, int i)
 {
   if (GIMPLE_STMT_P (node))
     return &GIMPLE_STMT_OPERAND (node, i);
@@ -7987,7 +7987,7 @@ protected_tree_operand (tree node, int i)
 }
 
 tree *
-protected_tree_type (tree node)
+generic_tree_type (tree node)
 {
   if (GIMPLE_STMT_P (node))
     return &void_type_node;

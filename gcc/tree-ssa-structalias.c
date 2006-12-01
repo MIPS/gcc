@@ -4752,7 +4752,7 @@ find_escape_constraints (tree stmt)
   gcc_assert (stmt_escape_type == ESCAPE_BAD_CAST
 	      || stmt_escape_type == ESCAPE_STORED_IN_GLOBAL
 	      || stmt_escape_type == ESCAPE_UNKNOWN);
-  rhs = PROTECTED_TREE_OPERAND (stmt, 1);
+  rhs = GENERIC_TREE_OPERAND (stmt, 1);
   
   /* Look through casts for the real escaping variable.
      Constants don't really escape, so ignore them.

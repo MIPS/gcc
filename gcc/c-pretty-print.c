@@ -1799,11 +1799,11 @@ pp_c_assignment_expression (c_pretty_printer *pp, tree e)
       || TREE_CODE (e) == GIMPLE_MODIFY_STMT
       || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, PROTECTED_TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, PROTECTED_TREE_OPERAND (e, 1));
+      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);

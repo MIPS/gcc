@@ -536,7 +536,7 @@ get_rhs (tree stmt)
       /* FALLTHRU */
 
     case GIMPLE_MODIFY_STMT:
-      stmt = PROTECTED_TREE_OPERAND (stmt, 1);
+      stmt = GENERIC_TREE_OPERAND (stmt, 1);
       if (TREE_CODE (stmt) == WITH_SIZE_EXPR)
 	return TREE_OPERAND (stmt, 0);
       else

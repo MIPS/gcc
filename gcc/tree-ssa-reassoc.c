@@ -1115,7 +1115,7 @@ static void
 linearize_expr_tree (VEC(operand_entry_t, heap) **ops, tree stmt)
 {
   block_stmt_iterator bsinow, bsilhs;
-  tree rhs = PROTECTED_TREE_OPERAND (stmt, 1);
+  tree rhs = GENERIC_TREE_OPERAND (stmt, 1);
   tree binrhs = TREE_OPERAND (rhs, 1);
   tree binlhs = TREE_OPERAND (rhs, 0);
   tree binlhsdef, binrhsdef;
