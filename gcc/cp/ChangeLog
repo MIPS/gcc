@@ -1,3 +1,19 @@
+2006-11-13  Roger Sayle  <roger@eyesopen.com>
+
+	* rtti.c (get_pseudo_ti_init): Ensure that the offset field of the
+	base type info initializer has the correct type.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29518
+	* pt.c (coerce_template_parms): Do not skip_evaluation while
+	substituting template arguments.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* typeck.c (build_unary_op): Remove handling of FIX_CEIL_EXPR,
+	FIX_FLOOR_EXPR and FIX_ROUND_EXPR.
+
 2006-11-03  Roger Sayle  <roger@eyesopen.com>
 
 	* call.c (build_op_delete_call): Test user-visible type against

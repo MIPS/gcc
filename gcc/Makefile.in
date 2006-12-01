@@ -2080,7 +2080,7 @@ tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \
 tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
-   $(TREE_DATA_REF_H) $(SCEV_H) tree-pass.h tree-chrec.h
+   $(TREE_DATA_REF_H) $(SCEV_H) tree-pass.h tree-chrec.h langhooks.h
 tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(GGC_H) $(OPTABS_H) $(TREE_H) $(BASIC_BLOCK_H) \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
@@ -3989,6 +3989,7 @@ site.exp: ./config.status Makefile
 	@echo "set HOSTCFLAGS \"$(CFLAGS)\"" >> ./tmp0
 	@echo "set TESTING_IN_BUILD_TREE 1" >> ./tmp0
 	@echo "set HAVE_LIBSTDCXX_V3 1" >> ./tmp0
+	@echo "set GCC_EXEC_PREFIX \"$(libdir)/gcc/\"" >> ./tmp0
 # If newlib has been configured, we need to pass -B to gcc so it can find
 # newlib's crt0.o if it exists.  This will cause a "path prefix not used"
 # message if it doesn't, but the testsuite is supposed to ignore the message -

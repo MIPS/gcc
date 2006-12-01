@@ -1,7 +1,86 @@
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/29759
+	* gfortran.dg/gomp/pr29759.f90: New test.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29518
+	* g++.dg/template/static28.C: New test.
+
+2006-11-13  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* lib/c-torture.exp: Use target-libpath.exp.
+	* lib/target-libpath.exp (set_ld_library_path_env_vars): If present,
+	set GCC_EXEC_PREFIX env var from global variable of same name.
+
+2006-11-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR fortran/26994
+	* gfortran.fortran-torture/compile/transfer-1.f90:
+	New testcase.
+
+2006-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+	    Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29680
+	* gcc.dg/alias-11.c: New test.
+
+2006-11-12  Jason Merrill  <jason@redhat.com>
+	    Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR middle-end/28915
+	* gcc.target/i386/vectorize1.c: New.
+
+2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/29797
+	* gcc.c-torture/execute/pr29797-1.c: New test case.
+
+2006-11-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-symmetric-1.c: Add more cases.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/prefetch-3.c: New test.
+
+2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/13827
+	* gcc.dg/fold-eqand-1.c: New test case.
+
+2006-11-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR rtl-opt/28812
+	* gcc.c-torture/execute/mayalias-3.c: New test.
+
+2006-11-11  Richard Sandiford  <richard@codesourcery.com>
+
+	PR middle-end/27528
+	* gcc.c-torture/compile/pr27528.c: New test.
+	* gcc.dg/pr27528.c: Likewise.
+
+2006-11-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases for stripping sign ops.
+
+	* gcc.dg/torture/builtin-symmetric-1.c: New test.
+
+2006-11-10 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29758
+	* gfortran.dg/reshape_source_size_1.f90: New test.
+
+2006-11-10 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29315
+	* gfortran.dg/aliasing_dummy_4.f90: New test.
+
 2006-11-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/29777
-        * lib/target-supports.exp (vect_widen_mult_hi_to_si): Add i?86-*-*
+	* lib/target-supports.exp (vect_widen_mult_hi_to_si): Add i?86-*-*
 	and x86_64-*-* targets.
 
 2006-11-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
@@ -35,7 +114,7 @@
 	PR fortran/29699
 	* gfortran.dg/alloc_comp_auto_array_1.f90: New test.
 
-	PR fortran/21730
+	PR fortran/21370
 	* gfortran.dg/change_symbol_attributes_1.f90: New test.
 
 2006-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
@@ -727,7 +806,7 @@
 	PR fortran/29392
 	* gfortran.dg/data_char_3.f90: New test.
 
-	PR fortran/20541
+	PR fortran/29451
 	* gfortran.dg/negative_automatic_size.f90: New test.
 
 2006-10-16  David Daney  <ddaney@avtrex.com>

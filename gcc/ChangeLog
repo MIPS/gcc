@@ -1,3 +1,453 @@
+2006-11-13  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (expand_cbranchdi4): Initialize skip_label.
+	(sh_optimize_target_register_callee_saved): #if 0 the code
+	using NOTE_INSN_LOOP_{BEG,END}.
+
+2006-11-13  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (optimize_bit_field_compare): Recursively call
+	fold when simplifying non-constant comparisons between bit-fields.
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac: Add changequote around __LONG_DOUBLE_MATH_OPTIONAL
+	test.
+	* configure: Rebuilt.
+
+2006-11-13  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/cell.md: New file.
+	* config/rs6000/rs6000.c (rs6000_cell_dont_microcode): New 
+	variable.
+	(ppccell_cost): New cost matrix.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD): Define.
+	(rs6000_override_options): Set rs6000_always_hint to false
+	for cell. Also align functions/lables/loops to 8byte
+	for the Cell. Use PROCESSOR_CELL.
+	(rs6000_emit_epilogue): Rename using_mfcr_multiple to
+	using_mtcr_multiple.
+	(rs6000_variable_issue): If the insn is a nonpipelined instruction
+	on the Cell, return 0.
+	(rs6000_adjust_cost): Add Cell cost adjustments.
+	(is_microcoded_insn): Return true for Cell microcoded
+	instructions.
+	(is_nonpipeline_insn): New function.
+	(rs6000_issue_rate): Add PROCESSOR_CELL.
+	(rs6000_use_sched_lookahead): If Cell, then we should look ahead 8
+	instructions.
+	(rs6000_use_sched_lookahead_guard): New function.
+	(rs6000_sched_reorder):  Reorder the ready list, if the second
+	to last ready insn is a nonepipeline insn on the Cell.
+	* config/rs6000/rs6000.h (processor_type): Add PROCESSOR_CELL.
+	(ASM_CPU_SPEC): Add Cell.
+	* config/rs6000/rs6000.md (cpu): Add Cell.
+	(cell_micro): New Attr.
+	Include cell.md
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (ld_vers): Parse GNU ld version 2.17.50.0.3-6 20060715
+	style versions.
+	* configure: Rebuilt.
+
+2006-11-13  Richard Guenther  <rguenther@suse.de>
+
+	* config/i386/i386.c (ix86_expand_lround): Handle expand_simple_binop
+	return value.
+	(ix86_expand_lfloorceil): Likewise.
+	(ix86_expand_rint): Likewise.
+	(ix86_expand_floorceildf_32): Likewise.
+	(ix86_expand_floorceil): Likewise.
+	(ix86_expand_rounddf_32): Likewise.
+	(ix86_expand_truncdf_32): Likewise.
+	(ix86_expand_round): Likewise.
+
+2006-11-13  Carlos O'Donell  <carlos@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.c: Organize search path variables into $prefix relative,
+	and well-known native. Add comments.
+	(add_sysrooted_prefix): Add comment.
+	(process_command): If !gcc_exec_prefix add $prefix based paths.
+	If *cross_compile == '0', add native well-known paths.
+	Assert tooldir_base_prefix is always relative.
+	(main): If print_search_dirs, and if gcc_exec_prefix is set,
+	use this value for 'install:' path.
+	* Makefile.in: Add GCC_EXEC_PREFIX to generated site.exp.
+
+2006-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c: Fix a typo in comment.
+
+2006-11-13  Michael Matz  <matz@suse.de>
+
+	* genemit.c (gen_expand): Allocate enough memory.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/bpapi.h (TARGET_BPABI_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE but not
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/arm/symbian.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE.
+
+2006-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+	    Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29680
+	* tree-ssa-operands.c (access_can_touch_variable): Revert fix for
+	PR 14784.
+
+2006-11-12  Jason Merrill  <jason@redhat.com>
+	    Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR middle-end/28915
+	* gimplify.c (gimplify_init_constructor): Don't reduce TREE_CONSTANT
+	vector ctors.
+	* tree-cfg.c (verify_expr): Don't look into TREE_CONSTANT
+	vector ctors.
+	* expmed.c (make_tree): Handle CONST, SYMBOL_REF.
+	* tree.c (build_vector): Handle non-_CST elements.
+
+2006-11-12  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* genemit.c (gen_insn): Call gen_exp with a non-null used
+	when handling multiple insns.
+	(gen_expand): Likewise.
+	* reorg.c (emit_delay_sequence): Copy the delay slot insn.
+	* config/sh/sh.md (ashrsi2_31+1): Copy operands[0].
+	(movsi_const_16bit+1): Copy operands[1].
+	(call_pcrel): Copy the call_site pattern.
+	(call_value_pcrel, sibcall_pcrel, GOTaddr2picreg): Likewise.
+
+2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (negate_expr_p) <PLUS_EXPR, MINUS_EXPR>: Correct/refine
+	condition for transformations.  Use !HONOR_SIGN_DEPENDENT_ROUNDING
+	&& !HONOR_SIGNED_ZEROS instead of flag_unsafe_math_optimizations.
+	(fold_negate_expr) <PLUS_EXPR, MINUS_EXPR>: Likewise.
+
+2006-11-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/29587
+	* tree-ssa-structalias.c (process_constraint): Don't
+	mark address taken due only to escaped vars constraint.
+
+2006-11-12  Michael Matz  <matz@suse.de>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/29797
+	* ifcvt.c (noce_try_bitop): Correct calculation of bitnum on
+	BITS_BIG_ENDIAN targets.
+
+2006-11-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_cosh): New.
+	(fold_builtin_1): Use it.
+	* fold-const.c (negate_mathfn_p): Add llround, lround, round,
+	trunc to the list of "odd" functions.  Also add llrint, lrint,
+	rint and nearbyint when flag_rounding_math is false.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-flow.h (name_mappings_registered_p): Declare.
+	* tree-into-ssa.c (name_mappings_registered_p): New function.
+	* tree-cfg.c (tree_can_merge_blocks_p): Check
+	name_mappings_registered_p instead of need_ssa_update_p.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop.c (tree_vectorize): Return the result of
+	vectorize_loops.
+	* tree-vectorizer.c (vectorize_loops): Return TODO_cleanup_cfg
+	if anything changed.
+	* tree-vectorizer.h (vectorize_loops): Declaration removed.
+	* tree-flow.h (vectorize_loops): Declaration changed.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-prefetch.c (schedule_prefetches): Cleanup and improve
+	comments.
+	(issue_prefetch_ref): Move assignment to write_p out of loop.
+	(determine_unroll_factor): Do not take PARAM_MAX_UNROLL_TIMES and
+	SIMULTANEOUS_PREFETCHES into account.
+	(loop_prefetch_arrays): Do not pass ahead to determine_unroll_factor.
+	* lambda-code.c (lcm): Renamed to ...
+	(least_common_multiple): ... and exported.
+	* tree-flow.h (least_common_multiple): Declare.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* Makefile.in (tree-data-ref.o): Add langhooks.h dependency.
+	* tree-ssa-loop-niter.c (derive_constant_upper_bound):  Follow
+	ud-chains.  Handle AND_EXPR.
+	(record_estimate): Record whether the estimate is realistic
+	and whether it is derived from a loop exit.
+	(record_nonwrapping_iv, idx_infer_loop_bounds, infer_loop_bounds_from_ref,
+	infer_loop_bounds_from_array, infer_loop_bounds_from_signedness): New
+	functions.
+	(compute_estimated_nb_iterations): Take only realistic bounds into
+	account.  Set estimate_state.  Use double_ints.
+	(infer_loop_bounds_from_undefined): Call infer_loop_bounds_from_array
+	and infer_loop_bounds_from_signedness.  Do not consider basic blocks
+	that do not have to be always executed.
+	(estimate_numbers_of_iterations_loop): Set estimate_state, and use it
+	to determine whether to call infer_loop_bounds_from_undefined
+	and compute_estimated_nb_iterations.
+	(n_of_executions_at_most): Use double_ints.
+	(free_numbers_of_iterations_estimates_loop): Set estimate_state.
+	(substitute_in_loop_info): Do not replace in estimated_nb_iterations.
+	* double-int.c (double_int_to_tree): Improve comment.
+	(double_int_fits_to_tree_p): New function.
+	* double-int.h (double_int_fits_to_tree_p): Declare.
+	* tree-data-ref.c: Include langhooks.h.
+	(estimate_niter_from_size_of_data, estimate_iters_using_array): Removed.
+	(analyze_array_indexes): Do not call estimate_niter_from_size_of_data.
+	(analyze_array): Do not pass estimate_only argument to
+	analyze_array_indexes.
+	(get_number_of_iters_for_loop): Build tree from the stored double_int
+	value.
+	(get_references_in_stmt, find_data_references_in_stmt): New functions.
+	(find_data_references_in_loop): Use find_data_references_in_stmt.
+	* tree-data-ref.h (struct data_ref_loc_d): New.
+	(get_references_in_stmt): Declare.
+	(estimate_iters_using_array): Declaration removed.
+	* cfgloop.h (struct nb_iter_bound): Change type of bound to
+	double_int.  Improve comments.  Add is_exit and realistic
+	fields.
+	(struct loop): Changed type of estimated_nb_iterations to double_int.
+	Added estimate_state field.
+	(record_estimate): Declaration removed.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* params.c (set_param_value): Initialize the "set" field.
+	* params.h (struct param_info): Add "set" field.
+	(PARAM_SET_P): New macro.
+	(PREFETCH_LATENCY, SIMULTANEOUS_PREFETCHES, L1_CACHE_SIZE,
+	L1_CACHE_LINE_SIZE): New macros.
+	* toplev.c (DEFPARAM): Initialize the "set" field.
+	* tree-ssa-loop-prefetch.c (PREFETCH_LATENCY,
+	SIMULTANEOUS_PREFETCHES): Removed.
+	(PREFETCH_BLOCK): Use L1_CACHE_LINE_SIZE.
+	(tree_ssa_prefetch_arrays): Dump the values of the parameters.
+	* config/sparc/sparc.c: Include params.h.
+	(sparc_override_options): Set SIMULTANEOUS_PREFETCHES and
+	L1_CACHE_LINE_SIZE parameters.
+	* config/sparc/sparc.h (PREFETCH_BLOCK, SIMULTANEOUS_PREFETCHES):
+	Removed.
+	* config/i386/i386.h (PREFETCH_BLOCK, SIMULTANEOUS_PREFETCHES):
+	Removed.
+	* config/i386/i386.c: Include params.h.
+	(k8_cost): Change default value for SIMULTANEOUS_PREFETCHES.
+	(override_options): Set SIMULTANEOUS_PREFETCHES and
+	L1_CACHE_LINE_SIZE parameters.
+	* config/sh/sh.h (SIMULTANEOUS_PREFETCHES): Removed.
+	(OPTIMIZATION_OPTIONS): Set SIMULTANEOUS_PREFETCHES and
+	L1_CACHE_LINE_SIZE parameters.
+	* config/ia64/ia64.c (ia64_optimization_options): Set
+	SIMULTANEOUS_PREFETCHES and L1_CACHE_LINE_SIZE parameters.
+	* config/ia64/ia64.h (SIMULTANEOUS_PREFETCHES, PREFETCH_BLOCK):
+	Removed.
+	* params.def (PARAM_PREFETCH_LATENCY, PARAM_SIMULTANEOUS_PREFETCHES,
+	PARAM_L1_CACHE_SIZE, PARAM_L1_CACHE_LINE_SIZE): New params.
+	* doc/invoke.texi: Document new params.
+
+2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/13827
+	* fold-const.c (fold_binary) <EQ_EXPR, NE_EXPR>: Fold (X&C) op (Y&C)
+	as ((X^Y)&C) op 0.
+
+2006-11-12  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* cfgloopmanip.c (update_single_exit_for_duplicated_loop,
+	update_single_exit_for_duplicated_loops): New functions.
+	(duplicate_loop_to_header_edge): Use
+	update_single_exit_for_duplicated_loops.
+	* tree-ssa-loop-manip.c (tree_unroll_loop): Call verification
+	functions only with ENABLE_CHECKING.
+
+2006-11-12  Andreas Schwab  <schwab@suse.de>
+
+	* except.c (sjlj_emit_function_enter): Remove unused variable.
+
+2006-11-11  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (int_binop_types_match_p): New function.
+	(size_binop): Relax constraint that both arguments must both have
+	exactly the same sizetype type.  Instead use int_binop_types_match_p.
+	(size_diffop): Likewise.
+
+	(make_range): Use build_int_cst instead of fold_convert.
+	(fold_cond_expr_with_comparison): Use build_int_cst to construct
+	integer constants of the correct type.
+	(fold_div_compare): Likewise.
+	(fold_single_bit_test): Likewise.
+	(fold_binary): Likewise.
+	* stor-layout.c (layout_type) <VECTOR_TYPE>: Ensure that TYPE_SIZE
+	has type bitsizetype and TYPE_SIZE_UNIT has type sizetype.
+
+2006-11-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR rtl-opt/28812
+	* alias.c (fixed_scalar_and_varying_struct_p): Don't return a
+	non null value if the struct memory access is in the 0th
+	aliasing set.
+
+2006-11-12  Jie Zhang  <jie.zhang@analog.com>
+
+	Revert
+	2006-11-11  Jie Zhang  <jie.zhang@analog.com>
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): Define __bfin__
+	and __BFIN__.
+
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): Use builtin_define_std
+	instead of builtin_define for bfin and BFIN.
+
+2006-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): Define __bfin__
+	and __BFIN__.
+
+2006-11-11  Jan Hubicka  <jh@suse.cz>
+
+	* extended.texi (__builtin_expect): We no longer require second argument
+	to be constant.
+	* gengtype.c (adjust_field_rtx_def): Drop NOTE_INSN_EXPECTED_VALUE.
+	* builtins.c (expand_builtin_expect): Simplify.
+	(expand_builtin_expect_jump): Kill.
+	* final.c (final_scan_insn): Do not skip the removed notes.
+	* insn-notes.def (LOOP_BEG, LOOP_END, REPEATED_LINE_NUMBER,
+	EXPECTED_VALUE): Remove.
+	* dojump.c (do_jump): Do not care about __builtin_expect.
+	* predict.c (expected_value_to_br_prob): Kill.
+	* function.c (expand_function_end): Do not expand
+	NOTE_INSN_REPEATED_LINE_NUMBER.
+	* print-rtl.c (print_rtx): Do not pretty print the removed notes.
+	* expect.c (sjlj_emit_function_enter): Emit directly branch probability.
+	* cfgexpand.c (add_reg_br_prob_note): Export.
+	* cfgcleanup.c (rest_of_handle_jump2): Do not call
+	expected_value_to_br_prob.
+	* cfglayout.c (duplicate_insn_chain): Do not deal with removed notes.
+	* rtl.h (add_reg_br_prob_note): Declare.
+
+2006-11-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree-pretty-print.c (dump_generic_node): Print sign of Inf.
+
+2006-11-11  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (predict_loops): Kill RTL variant.
+
+2006-11-11  Jan Hubicka  <jh@suse.cz>
+
+	* tree-pass.h (pass_purge_lineno_notes): Remove declaration.
+	* modulo-sched.c (find_line_note): Remove.
+	(loop_canon_p): Do not worry about line number notes.
+	(sms_schedule): Likewise.
+	* cse.c (cse_main): Likewise.
+	* regmove.c (fixup_match_1): Likewise
+	* function.c (emit_return_info_block): Likewise.
+	(expand_function_end): Likewise.
+	(thread_prologue_an_epilogue_insns): Likewise.
+	* cfgrtl.c (try_redirect_by_replacing_jump, rtl_tidy_fallthru_edge):
+	Likewise.
+	* emit-rtl.c (find_line_note, emit_insn_after_with_line_notes,
+	emit_note_copy_after): Kill.
+	(emit_note_copy): Do not worry about line numbers.
+	* jump.c (purge_line_number_notes): Kill.
+	(pass_purge_lineno_notes): Kill.
+	* cfgcleanup.c (rest_of_handle_jump2): Kill purge_line_number_notes
+	call.
+	* rtl.h (emit_note_copy_after, emit_insn_after_with_line_notes): Kill.
+	* passes.c (init_optimization_passes): Don't purge_lineno_notes.
+	* sched-ebb.c (schedule_ebbs): Don't do rm_redundant_line_notes.
+	* tree-pass.h (pass_purge_lineno_notes): Kill.
+	* sched-ebb.c (schedule_ebb): Don't rm_line_notes,
+	rm_redundant_line_notes.
+	* sched-rgb.c (schedule_region): Don't rm_line_notes,
+	rm_redundant_line_notes.
+	* sched-int.h (rm_line_notes, rm_redundant_line_notes): Kill.
+	* haifa-sched.c: Update comment about handling notes.
+ 	(unlink_line_notes): Kill.
+	(rm_line_notes): Kill.
+	(save_line_notes): Simplify.
+	(rm_redundant_line_notes): Kill.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* tree.def (FIX_CEIL_EXPR, FIX_FLOOR_EXPR, FIX_ROUND_EXPR):
+	Remove unused tree codes.
+	* tree-vrp.c (extract_range_from_unary_expr): Remove handling
+	of FIX_CEIL_EXPR, FIX_FLOOR_EXPR and FIX_ROUND_EXPR.
+	* tree-pretty-print.c (dump_generic_node, op_prio): Likewise.
+	* tree.c (stabilize_reference): Likewise.
+	* fold-const.c (fold_convert_const_int_from_real, operand_equal_p,
+	fold_unary): Likewise.
+	* tree-gimple.c (is_gimple_cast): Likewise.
+	* dwarf2out.c (loc_descriptor_from_tree_1): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+	* tree-eh.c (tree_could_trap_p): Likewise.
+	* gimplify.c (gimplify_expr): Likewise.
+	* tree-inline.c (estimate_num_insns_1): Likewise.
+	* tree-cfg.c (verify_expr): Likewise.
+
+2006-11-11  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop.c (pass_loop_prefetch): Change name to aprefetch.
+	* tree-ssa-loop-prefetch.c (dump_mem_ref): Fix target file.
+	(tree_ssa_prefetch_arrays): Do not dump for removed loops.
+
+2006-11-11  Richard Sandiford  <richard@codesourcery.com>
+
+	PR middle-end/27528
+	* stmt.c (expand_asm_operands): Use EXPAND_INITIALIZER if the
+	constraints accept neither registers or memories.
+
+2006-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (FUNCTION_PROFILER): Don't use LABELNO.
+	(NO_PROFILE_COUNTERS): Define as 1.
+
+2006-11-10  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (operand_equal_p) <INTEGER_CST, REAL_CST, VECTOR_CST>:
+	Don't check for TREE_CONSTANT_OVERFLOW when comparing constants.
+
+2006-11-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* rtl.h (MEM_COPY_ATTRIBUTES): Copy MEM_POINTER.
+
+2006-11-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_cos): Use fold_strip_sign_ops().
+	(fold_builtin_hypot): Likewise.
+	* fold-const.c (fold_strip_sign_ops): Handle "odd" builtins.
+
+	* fold-const.c (negate_mathfn_p): Add BUILT_IN_ERF.
+
+2006-11-10  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.c (build_int_cst_wide): Add an assertion (gcc_unreachable)
+	when attempting to build INTEGER_CSTs of non-integral types.
+	* expmed.c (make_tree): Use the correct type, i.e. the inner
+	type, when constructing the individual elements of a CONST_VECTOR.
+
+2006-11-10  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (cse_process_notes): Copy the propagated value.
+	* local-alloc.c (update_equiv_regs): Copy the memory RTX to be used
+	in REG_EQUIV notes.
+	* gcse.c (try_replace_reg): Copy the replacement.
+	* i386.c (emit_i387_cw_initialization): Copy stored_mode.
+	(assign_386_stack_local): Always return copied memory expression
+	* function.c (instantiate_virtual_regs_in_insn): Copy the operand
+	duplicates.
+
 2006-11-10  Jan Hubicka  <jh@suse.cz>
 
 	* final.c (final): Walk from first instruction.
@@ -14,6 +464,7 @@
 
 2006-11-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
+	PR middle-end/29335
 	* builtins.c (do_mpfr_arg3): New.
 	(fold_builtin_1): Handle builtins fma, fmin and fmax.
 

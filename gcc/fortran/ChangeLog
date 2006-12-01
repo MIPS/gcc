@@ -1,3 +1,52 @@
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/29759
+	* fortran/scanner.c (skip_free_comments): Clear openmp_flag
+	before returning true.
+
+2006-11-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR fortran/26994
+	* trans-expr.c (gfc_conv_expr_reference): Set TREE_STATIC on the
+	new CONST_DECL.
+
+2006-11-11  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* array.c: Add 2006 to copyright years.
+	* data.c: Same.
+	* interface.c: Same.
+	* misc.c: Same.
+	* trans-io.c: Same.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* trans-intrinsic.c (enum rounding_mode): New enum.
+	(build_fix_expr, gfc_conv_intrinsic_aint, gfc_conv_intrinsic_mod,
+	gfc_conv_intrinsic_function): Use it instead of FIX_CEIL_EXPR,
+	FIX_FLOOR_EXPR, FIX_ROUND_EXPR and FIX_TRUNC_EXPR.
+
+2006-11-10  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt (-fmodule-private): Remove option.
+	* gfortran.h (gfc_option_t): Remove module_access_private flag.
+	* options.c (gfc_init_options): Remove initialization for it.
+	(gfc_handle_option): Remove handling for -fmodule-private.
+	* module.c (gfc_check_access): Add comments, remove check for
+	gfc_option.flag_module_access_private.
+
+2006-11-10 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29758
+	* check.c (gfc_check_reshape): Check that there are enough
+	elements in the source array as to be able to fill an array
+	defined by shape, when pad is absent.
+
+2006-11-10 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29315
+	* trans-expr.c (is_aliased_array): Treat correctly the case where the
+	component is itself and array or array reference.
+
 2006-11-09  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* check.c (same_type_check): Typo fix in comment.
@@ -27,7 +76,7 @@
 	* trans-decl.c (gfc_trans_deferred_vars): Call gfc_trans_
 	deferred_array before gfc_trans_auto_array_allocation.
 
-	PR fortran/21730
+	PR fortran/21370
 	* symbol.c (check_done): Remove.
 	(gfc_add_attribute): Remove reference to check_done and remove
 	the argument attr_intent.
@@ -340,7 +389,7 @@
 
 2006-10-17  Paul Thomas <pault@gcc.gnu.org>
 
-	PR fortran/20541
+	PR fortran/29451
 	* trans-array.c (gfc_trans_array_bounds): Test for and set
 	negative stride of a non-constant bound array to zero.
 

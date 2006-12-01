@@ -4976,17 +4976,17 @@ make_tree (tree type, rtx x)
 
     case CONST_VECTOR:
       {
-	int i, units;
-	rtx elt;
+	int units = CONST_VECTOR_NUNITS (x);
+	tree itype = TREE_TYPE (type);
 	tree t = NULL_TREE;
+	int i;
 
-	units = CONST_VECTOR_NUNITS (x);
 
 	/* Build a tree with vector elements.  */
 	for (i = units - 1; i >= 0; --i)
 	  {
-	    elt = CONST_VECTOR_ELT (x, i);
-	    t = tree_cons (NULL_TREE, make_tree (type, elt), t);
+	    rtx elt = CONST_VECTOR_ELT (x, i);
+	    t = tree_cons (NULL_TREE, make_tree (itype, elt), t);
 	  }
 
 	return build_vector (type, t);
@@ -5043,6 +5043,15 @@ make_tree (tree type, rtx x)
       t = lang_hooks.types.type_for_mode (GET_MODE (XEXP (x, 0)),
 					  GET_CODE (x) == ZERO_EXTEND);
       return fold_convert (type, make_tree (t, XEXP (x, 0)));
+
+    case CONST:
+      return make_tree (type, XEXP (x, 0));
+
+    case SYMBOL_REF:
+      t = SYMBOL_REF_DECL (x);
+      if (t)
+	return fold_convert (type, build_fold_addr_expr (t));
+      /* else fall through.  */
 
     default:
       t = build_decl (VAR_DECL, NULL_TREE, type);

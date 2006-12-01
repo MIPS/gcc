@@ -716,6 +716,7 @@ void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, tree, def_operand_p);
 bool need_ssa_update_p (void);
+bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);
 void release_ssa_name_after_update_ssa (tree name);
@@ -801,7 +802,7 @@ struct tree_niter_desc
 };
 
 /* In tree-vectorizer.c */
-void vectorize_loops (struct loops *);
+unsigned vectorize_loops (struct loops *);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
@@ -1036,4 +1037,7 @@ void swap_tree_operands (tree, tree *, tree *);
 
 extern void recalculate_used_alone (void);
 extern bool updating_used_alone;
+
+int least_common_multiple (int, int);
+
 #endif /* _TREE_FLOW_H  */

@@ -189,8 +189,7 @@ struct tree_opt_pass pass_tree_unswitch =
 static unsigned int
 tree_vectorize (void)
 {
-  vectorize_loops (current_loops);
-  return 0;
+  return vectorize_loops (current_loops);
 }
 
 static bool
@@ -426,7 +425,7 @@ gate_tree_ssa_loop_prefetch (void)
 
 struct tree_opt_pass pass_loop_prefetch =
 {
-  "prefetch",				/* name */
+  "aprefetch",				/* name */
   gate_tree_ssa_loop_prefetch,		/* gate */
   tree_ssa_loop_prefetch,	       	/* execute */
   NULL,					/* sub */

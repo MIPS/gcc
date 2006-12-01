@@ -846,8 +846,12 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 	    ix = 0;
 	}
       break;
-    default:
+
+    case ENUMERAL_TYPE:
       break;
+
+    default:
+      gcc_unreachable ();
     }
 
   if (ix >= 0)
@@ -970,6 +974,10 @@ build_vector (tree type, tree vals)
   for (link = vals; link; link = TREE_CHAIN (link))
     {
       tree value = TREE_VALUE (link);
+
+      /* Don't crash if we get an address constant.  */
+      if (!CONSTANT_CLASS_P (value))
+	continue;
 
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
@@ -2623,9 +2631,6 @@ stabilize_reference (tree ref)
     case CONVERT_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FIX_CEIL_EXPR:
       result = build_nt (code, stabilize_reference (TREE_OPERAND (ref, 0)));
       break;
 

@@ -1213,6 +1213,7 @@ do {						\
    MEM_NOTRAP_P (LHS) = MEM_NOTRAP_P (RHS),			\
    MEM_READONLY_P (LHS) = MEM_READONLY_P (RHS),			\
    MEM_KEEP_ALIAS_SET_P (LHS) = MEM_KEEP_ALIAS_SET_P (RHS),	\
+   MEM_POINTER (LHS) = MEM_POINTER (RHS),			\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* 1 if RTX is a label_ref for a nonlocal label.  */
@@ -1569,7 +1570,6 @@ extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
 extern rtx emit_note_after (int, rtx);
-extern rtx emit_note_copy_after (rtx, rtx);
 extern rtx emit_insn (rtx);
 extern rtx emit_jump_insn (rtx);
 extern rtx emit_call_insn (rtx);
@@ -2081,7 +2081,6 @@ extern void add_insn (rtx);
 extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
-extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern rtx emit (rtx);
 extern void renumber_insns (void);
 extern rtx delete_insn (rtx);
@@ -2268,6 +2267,8 @@ extern GTY(()) rtx stack_limit_rtx;
 /* In predict.c */
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
+/* In cfgexpand.c */
+extern void add_reg_br_prob_note (rtx last, int probability);
 /* In tracer.c */
 extern void tracer (unsigned int);
 
