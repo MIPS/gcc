@@ -1,3 +1,164 @@
+2006-11-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/29777
+        * lib/target-supports.exp (vect_widen_mult_hi_to_si): Add i?86-*-*
+	and x86_64-*-* targets.
+
+2006-11-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-2.c: Test builtin fma.
+	* gcc.dg/torture/builtin-math-3.c (CKSGN_F, CKSGN, CKSGN_L):
+	New macros. Use them in exact tests.
+	(TESTIT3): New macro.
+	Add tests for fmin, fmax and fma.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29431
+	* gfortran.dg/array_constructor_13.f90: New test.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29744
+	* gfortran.dg/used_types_12.f90: New test.
+
+2006-11-09  Serge Belyshev  <belyshev@depni.sinp.msu.ru>
+
+	PR middle-end/29726
+	* gcc.dg/fold-eqandshift-1.c (test5): Uncomment function.
+	(test6): Ditto.
+	(dg-final): Add scan-tree-dump-times patterns for test5 and test6.
+	* gcc.dg/fold-eqandshift-3.c: New test case.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29699
+	* gfortran.dg/alloc_comp_auto_array_1.f90: New test.
+
+	PR fortran/21730
+	* gfortran.dg/change_symbol_attributes_1.f90: New test.
+
+2006-11-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20061109-1.c: New testcase.
+
+2006-11-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Use fabs, not __builtin_fabs.
+
+2006-11-09  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/io_constraints_3.f90: Fixed by using -fmax-errors.
+	* gfortran.dg/gomp/reduction1.f90: Fixed by using -fmax-errors.
+
+2006-11-08  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/ssa-ccp-14.c: New test.
+	* gcc.dg/tree-ssa/ssa-ccp-15.c: New test.
+
+2006-11-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-3.c: Add more sincos tests.
+
+2006-11-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-1.c: Loop with multiple types removed (appears in
+	vect-9.c).
+	* gcc.dg/vect/vect-106.c: Removed (duplicate of vect-9.c).
+	* gcc.dg/vect/vect-9.c: Now vectorizable.
+	* gcc.dg/vect/vect-reduc-dot-s16a.c: Now vectorizable also on targets
+	that support vect_widen_mult. 
+	* gcc.dg/vect/vect-reduc-dot-u16.c: Removed (split into two new tests).
+	* gcc.dg/vect/vect-reduc-dot-u16a.c: New test (split from 
+	vect-reduc-dot-u16.c).
+	* gcc.dg/vect/vect-reduc-dot-u16b.c: New test (split from 
+	vect-reduc-dot-u16.c).
+	* gcc.dg/vect/vect-reduc-dot-s8.c: Removed (split into three new tests).
+	* gcc.dg/vect/vect-reduc-dot-s8a.c: New test (split from
+	vect-reduc-dot-s8.c).
+	* gcc.dg/vect/vect-reduc-dot-s8b.c: New test (split from
+	vect-reduc-dot-s8.c).
+	* gcc.dg/vect/vect-reduc-dot-s8c.c: New test (split from
+	vect-reduc-dot-s8.c).
+	* gcc.dg/vect/vect-reduc-dot-u8.c: Removed (split into two new tests).
+	* gcc.dg/vect/vect-reduc-dot-u8a.c: New test (split from
+	vect-reduc-dot-u8.c).
+	* gcc.dg/vect/vect-reduc-dot-u8b.c: New test (split from
+	vect-reduc-dot-u8.c).
+	* gcc.dg/vect/vect-widen-mult-sum.c: New test.
+	* gcc.dg/vect/vect-multitypes-9.c: New test.
+	* gcc.dg/vect/vect-multitypes-10.c: New test.
+	* gcc.dg/vect/vect-widen-mult-s16.c: New test.
+	* gcc.dg/vect/vect-widen-mult-u16.c: New test.
+	* gcc.dg/vect/vect-widen-mult-u8.c: New test.
+	* gcc.dg/vect/vect-widen-mult-s8.c: New test.
+	* gcc.dg/vect/wrapv-vect-reduc-dot-s8.c: Removed.
+	* gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c: New reduced version of
+	wrapv-vect-reduc-dot-s8.c.
+	* lib/target-support.exp (check_effective_target_vect_unpack): New.
+	(check_effective_target_vect_widen_sum_hi_to_si): Now also includes
+	targets that support vec_unpack. 
+	(check_effective_target_vect_widen_sum_qi_to_hi): Likewise.
+	(check_effective_target_vect_widen_mult_qi_to_hi): New.
+	(check_effective_target_vect_widen_mult_hi_to_si): New.
+	(check_effective_target_vect_widen_sum): Removed.
+
+	2006-11-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-multitypes-8.c: New test.
+	* lib/target-supports.exp (check_effective_target_vect_pack_mod): New.
+
+	2006-11-08 Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-multitypes-7.c: New test.
+
+	2006-11-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-multitypes-4.c: New test.
+	* gcc.dg/vect/vect-multitypes-5.c: New test.
+	* gcc.dg/vect/vect-multitypes-6.c: New test.
+
+	2006-11-08  Dorit Nuzman  <dorit@il.ibm.com>
+	
+	* gcc.dg/vect/vect-multitypes-1.c: New test.
+	* gcc.dg/vect/vect-multitypes-2.c: New test.
+	* gcc.dg/vect/vect-multitypes-3.c: New test.
+
+2006-11-07  Eric Christopher  <echristo@apple.com>
+
+	* gcc.target/i386/builtin-bswap-1.c: Rewrite for 64-bit.
+	Test using scan-assembler-not.
+
+2006-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/inline-17.c: New test.
+
+2006-11-07  Steve Ellcey  <sje@cup.hp.com>
+
+	PR other/25028
+	* gcc.dg/torture/fp-int-convert-float128-timode.c:  Do not XFAIL
+	on HP-UX.
+
+2006-11-07 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29539
+	* gfortran.dg/gfortran.dg/blockdata_3.f90: New test.
+
+	PR fortran/29634
+	* gfortran.dg/gfortran.dg/derived_function_interface_1.f90: New
+	test.
+
+2006-11-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29601
+	* gfortran.dg/volatile.f90: Add.
+	* gfortran.dg/volatile2.f90: Add.
+	* gfortran.dg/volatile3.f90: Add.
+	* gfortran.dg/volatile4.f90: Add.
+	* gfortran.dg/volatile5.f90: Add.
+	* gfortran.dg/volatile6.f90: Add.
+	* gfortran.dg/volatile7.f90: Add.
+
 2006-11-06  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/io_constraints_2.f90: Adjust pattern
@@ -186,7 +347,7 @@
 
 	PR fortran/29641
 	* gfortran.dg/used_types_11.f90: New test.
-	
+
 2006-10-30  Dirk Mueller  <dmueller@suse.de>
 
 	* g++.old-deja/g++.pt/eichin01a.C (main): Fix prototype.
@@ -275,7 +436,7 @@
 2006-10-28  Tobias Burnus  <burnus@net-b.de>
 
 	PR libgfortran/24313
-	* gfortran.dg/csqrt_2.f: Remove xfail *-*-linux-gnu. 
+	* gfortran.dg/csqrt_2.f: Remove xfail *-*-linux-gnu.
 
 2006-10-29  Kazu Hirata  <kazu@codesourcery.com>
 
@@ -302,9 +463,9 @@
 
 2006-10-28  Tobias Burnus  <burnus@net-b.de>
 
-	PR fortran/28224 
+	PR fortran/28224
 	* gfortran.dg/io_constraints_2.f90: Use -std=f95.
-	* gfortran.dg/namelist_internal.f90: New test. 
+	* gfortran.dg/namelist_internal.f90: New test.
 
 2006-10-28  Tobias Burnus  <burnus@net-b.de>
 
@@ -328,7 +489,7 @@
 	* gcc.dg/builtins-44.c: Likewise.
 	* gcc.dg/builtins-45.c: Likewise.
 	* gcc.dg/pr28796-2.c: Likewise.
-	* gcc.dg/unordered-3.c: Likewise.	
+	* gcc.dg/unordered-3.c: Likewise.
 
 2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
@@ -386,7 +547,7 @@
 
 	* gcc.dg/torture/builtin-math-2.c: Add checks for asin, acos,
 	acosh and atanh.
-	
+
 	* gcc.dg/torture/builtin-math-3.c (TESTIT): Append 'F' and 'L'
 	floating point modifiers to arguments passed to float and long
 	double functions respectively.  Update all callers to use floating
@@ -487,11 +648,11 @@
 	* gcc.dg/torture/pr26898-2.c: Likewise.
 
 2006-10-20  Lee Millward  <lee.millward@codesourcery.com>
-        
+
         PR c++/28053
         * g++.dg/parse/bitfield1.C: Adjust error markers.
-        * g++.dg/parse/bitfield2.C: New test. 
-	
+        * g++.dg/parse/bitfield2.C: New test.
+
 2006-10-20  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* gcc.dg/tree-ssa/ivopts-2.c: Match final candidates line only.
@@ -533,7 +694,7 @@
 
 	PR c++/27952
 	* g++.dg/inherit/virtual1.C: New test.
-	
+
 2006-10-17  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/28261
@@ -543,7 +704,7 @@
 
 	PR c++/29039
 	* g++.dg/init/ctor8.C: New test.
-	
+
 2006-10-17  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/27270

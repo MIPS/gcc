@@ -1,3 +1,103 @@
+2006-11-09  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* check.c (same_type_check): Typo fix in comment.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29431
+	* trans-array.c    (get_array_ctor_strlen): If we fall through to
+	default, use a constant character length if it is available.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29744
+	* trans-types.c (gfc_get_derived_type): Ensure that the
+	proc_name namespace is not the same as the owner namespace and
+	that identical derived types in the same namespace share the
+	same backend_decl.
+
+2006-11-09 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29699
+	* trans-array.c (structure_alloc_comps): Detect pointers to
+	arrays and use indirect reference to declaration.
+	* resolve.c (resolve_fl_variable): Tidy up condition.
+	(resolve_symbol): The same and only add initialization code if
+	the symbol is referenced.
+	* trans-decl.c (gfc_trans_deferred_vars): Call gfc_trans_
+	deferred_array before gfc_trans_auto_array_allocation.
+
+	PR fortran/21730
+	* symbol.c (check_done): Remove.
+	(gfc_add_attribute): Remove reference to check_done and remove
+	the argument attr_intent.
+	(gfc_add_allocatable, gfc_add_dimension, gfc_add_external,
+	gfc_add_intrinsic, gfc_add_optional, gfc_add_pointer,
+	gfc_add_cray_pointer, gfc_add_cray_pointee, gfc_add_result,
+	gfc_add_target, gfc_add_in_common, gfc_add_elemental,
+	gfc_add_pure, gfc_add_recursive, gfc_add_procedure,
+	gfc_add_type): Remove references to check_done.
+	* decl.c (attr_decl1): Eliminate third argument in call to
+	gfc_add_attribute.
+	* gfortran.h : Change prototype for gfc_add_attribute.
+
+2006-11-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* invoke.texi: Added documentation for -fmax-errors option.
+
+2006-11-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Add -fmax-errors= option.
+	* gfortran.h (gfc_option_t): Add max_errors element.
+	* options.c (gfc_init_options): Set max_errors default value
+	to 25.
+	(gfc_handle_options): Assign -fmax_errors value to
+	gfc_option.max_errors.
+	* error.c (gfc_increment_error_count): New function, which
+	also checks whether the error count exceeds max_errors.
+	(gfc_warning): Use it.
+	(gfc_warning_now): Use it.
+	(gfc_notify_std): Use it.
+	(gfc_error): Use it.
+	(gfc_error_now): Use it.
+	(gfc_error_check): Use it.
+
+2006-11-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Remove non-working -qkind= option.
+	* gfortran.h (gfc_option_t): Remove q_kind member.
+	* options.c (gfc_init_options): Remove q_kind initialization.
+	(gfc_handle_option): Remove -qkind= option handling.
+	* primary.c: (match_real_constant): Remove 'Q' exponent.
+
+2006-11-08  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi: Add volatile and internal-file
+	  namelist to Fortran 2003 status.
+	* intrinsic.texi: Correct CHMOD entry.
+
+2006-11-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29539
+	PR fortran/29634
+	* decl.c (variable_decl): Add test for presence of proc_name.
+	* error.c (gfc_error_flag_test): New function.
+	* gfortran.h : Prototype for gfc_error_flag_test.
+
+2006-11-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29601
+	* symbol.c (check_conflict, gfc_add_volatile): Add volatile support.
+	* decl.c (match_attr_spec, gfc_match_volatile): Add volatile support.
+	* gfortran.h (symbol_attribute): Add volatile_ to struct.
+	* resolve.c (was_declared): Add volatile support.
+	* trans-decl.c (gfc_finish_var_decl): Add volatile support.
+	* match.h: Declare gfc_match_volatile.
+	* parse.c (decode_statement): Recognize volatile.
+	* modules.c (ab_attribute, attr_bits, mio_symbol_attribute):
+	  Add volatile support.
+	* dump-parse-tree.c (gfc_show_attr): Add volatile support.
+
 2006-11-06  Tobias Burnus  <burnus@net-b.de>
 
 	* decl.c (match_attr_spec, gfc_match_enum): Unify gfc_notify_std

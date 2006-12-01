@@ -265,14 +265,15 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 {
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
-    *intrinsic = "INTRINSIC", *allocatable = "ALLOCATABLE",
-    *elemental = "ELEMENTAL", *private = "PRIVATE", *recursive = "RECURSIVE",
+    *intent_in = "INTENT(IN)", *intrinsic = "INTRINSIC",
+    *allocatable = "ALLOCATABLE", *elemental = "ELEMENTAL",
+    *private = "PRIVATE", *recursive = "RECURSIVE",
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
     *public = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
     *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
     *use_assoc = "USE ASSOCIATED", *cray_pointer = "CRAY POINTER",
-    *cray_pointee = "CRAY POINTEE", *data = "DATA";
+    *cray_pointee = "CRAY POINTEE", *data = "DATA", *volatile_ = "VOLATILE";
   static const char *threadprivate = "THREADPRIVATE";
 
   const char *a1, *a2;
@@ -399,6 +400,16 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (data, allocatable);
   conf (data, use_assoc);
 
+  conf (volatile_, intrinsic)
+  conf (volatile_, external)
+
+  if (attr->volatile_ && attr->intent == INTENT_IN)
+    {
+      a1 = volatile_;
+      a2 = intent_in;
+      goto conflict;
+    }
+
   a1 = gfc_code2string (flavors, attr->flavor);
 
   if (attr->in_namelist
@@ -508,6 +519,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (dummy);
       conf2 (in_common);
       conf2 (save);
+      conf2 (volatile_);
       conf2 (threadprivate);
       break;
 
@@ -589,28 +601,6 @@ check_used (symbol_attribute * attr, const char * name, locus * where)
 }
 
 
-/* Used to prevent changing the attributes of a symbol after it has been
-   used.  This check is only done for dummy variables as only these can be
-   used in specification expressions.  Applying this to all symbols causes
-   an error when we reach the body of a contained function.  */
-
-static int
-check_done (symbol_attribute * attr, locus * where)
-{
-
-  if (!(attr->dummy && attr->referenced))
-    return 0;
-
-  if (where == NULL)
-    where = &gfc_current_locus;
-
-  gfc_error ("Cannot change attributes of symbol at %L"
-             " after it has been used", where);
-
-  return 1;
-}
-
-
 /* Generate an error because of a duplicate attribute.  */
 
 static void
@@ -626,12 +616,9 @@ duplicate_attr (const char *attr, locus * where)
 /* Called from decl.c (attr_decl1) to check attributes, when declared separately.  */
 
 try
-gfc_add_attribute (symbol_attribute * attr, locus * where,
-		   unsigned int attr_intent)
+gfc_add_attribute (symbol_attribute * attr, locus * where)
 {
-
-  if (check_used (attr, NULL, where)
-	|| (attr_intent == 0 && check_done (attr, where)))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   return check_conflict (attr, NULL, where);
@@ -641,7 +628,7 @@ try
 gfc_add_allocatable (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->allocatable)
@@ -659,7 +646,7 @@ try
 gfc_add_dimension (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, name, where) || check_done (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   if (attr->dimension)
@@ -677,7 +664,7 @@ try
 gfc_add_external (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->external)
@@ -696,7 +683,7 @@ try
 gfc_add_intrinsic (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->intrinsic)
@@ -715,7 +702,7 @@ try
 gfc_add_optional (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->optional)
@@ -733,7 +720,7 @@ try
 gfc_add_pointer (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   attr->pointer = 1;
@@ -745,7 +732,7 @@ try
 gfc_add_cray_pointer (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   attr->cray_pointer = 1;
@@ -757,7 +744,7 @@ try
 gfc_add_cray_pointee (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->cray_pointee)
@@ -776,7 +763,7 @@ try
 gfc_add_result (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, name, where) || check_done (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   attr->result = 1;
@@ -812,6 +799,26 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
   return check_conflict (attr, name, where);
 }
 
+try
+gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
+{
+
+  if (check_used (attr, name, where))
+    return FAILURE;
+
+  if (attr->volatile_)
+    {
+	if (gfc_notify_std (GFC_STD_LEGACY, 
+			    "Duplicate VOLATILE attribute specified at %L",
+			    where) 
+	    == FAILURE)
+	  return FAILURE;
+    }
+
+  attr->volatile_ = 1;
+  return check_conflict (attr, name, where);
+}
+
 
 try
 gfc_add_threadprivate (symbol_attribute * attr, const char *name, locus * where)
@@ -834,7 +841,7 @@ try
 gfc_add_target (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->target)
@@ -865,7 +872,7 @@ try
 gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, name, where) || check_done (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   /* Duplicate attribute already checked for.  */
@@ -933,7 +940,7 @@ try
 gfc_add_elemental (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   attr->elemental = 1;
@@ -945,7 +952,7 @@ try
 gfc_add_pure (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   attr->pure = 1;
@@ -957,7 +964,7 @@ try
 gfc_add_recursive (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, NULL, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   attr->recursive = 1;
@@ -1061,7 +1068,7 @@ gfc_add_procedure (symbol_attribute * attr, procedure_type t,
 		   const char *name, locus * where)
 {
 
-  if (check_used (attr, name, where) || check_done (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   if (attr->flavor != FL_PROCEDURE
@@ -1170,10 +1177,6 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 {
   sym_flavor flavor;
 
-/* TODO: This is legal if it is reaffirming an implicit type.
-  if (check_done (&sym->attr, where))
-    return FAILURE;*/
-
   if (where == NULL)
     where = &gfc_current_locus;
 
@@ -1248,6 +1251,8 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
   if (src->pointer && gfc_add_pointer (dest, where) == FAILURE)
     goto fail;
   if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
+    goto fail;
+  if (src->volatile_ && gfc_add_volatile (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->threadprivate && gfc_add_threadprivate (dest, NULL, where) == FAILURE)
     goto fail;

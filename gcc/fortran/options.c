@@ -61,6 +61,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_surprising = 0;
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
+  gfc_option.max_errors = 25;
 
   gfc_option.flag_all_intrinsics = 0;
   gfc_option.flag_default_double = 0;
@@ -85,8 +86,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
   gfc_option.flag_openmp = 0;
-
-  gfc_option.q_kind = gfc_default_double_kind;
 
   gfc_option.fpe = 0;
 
@@ -514,6 +513,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_implicit_none = value;
       break;
 
+    case OPT_fmax_errors_:
+      gfc_option.max_errors = value;
+      break;
+
     case OPT_fmax_stack_var_size_:
       gfc_option.flag_max_stack_var_size = value;
       break;
@@ -547,12 +550,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 	gfc_fatal_error ("Maximum supported identifier length is %d",
 			 GFC_MAX_SYMBOL_LEN);
       gfc_option.max_identifier_length = value;
-      break;
-
-    case OPT_qkind_:
-      if (gfc_validate_kind (BT_REAL, value, true) < 0)
-	gfc_fatal_error ("Argument to -fqkind isn't a valid real kind");
-      gfc_option.q_kind = value;
       break;
 
     case OPT_fdefault_integer_8:

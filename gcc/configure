@@ -8862,7 +8862,7 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
-powerpc-*-darwin*)
+powerpc*-*-darwin*)
   # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
   # sources; use -no-cpp-precomp to get to GNU cpp.
   # Apple's GCC has bugs in designated initializer handling, so disable
@@ -12350,7 +12350,7 @@ if test "$host_xm_file" != "$build_xm_file"; then
 fi
 
 case ${host} in
-  powerpc-*-darwin*)
+  powerpc*-*-darwin*)
     echo "$as_me:$LINENO: checking whether mcontext_t fields have underscores" >&5
 echo $ECHO_N "checking whether mcontext_t fields have underscores... $ECHO_C" >&6
 if test "${gcc_cv_mcontext_underscores+set}" = set; then
@@ -16201,7 +16201,8 @@ _ACEOF
 fi
 
 if test x$with_sysroot = x && test x$host = x$target \
-   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
+   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" \
+   && test "$prefix" != "NONE"; then
 
 cat >>confdefs.h <<_ACEOF
 #define PREFIX_INCLUDE_DIR "$prefix/include"
