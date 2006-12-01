@@ -65,8 +65,6 @@ public:
   virtual JArray< ::java::net::URL * > * getURLs();
   static ::java::net::URLClassLoader * newInstance(JArray< ::java::net::URL * > *);
   static ::java::net::URLClassLoader * newInstance(JArray< ::java::net::URL * > *, ::java::lang::ClassLoader *);
-private:
-  static jboolean runtimeInitialized();
 public: // actually package-private
   static ::java::lang::Class * access$0(::java::net::URLClassLoader *, ::java::lang::String *, JArray< jbyte > *, jint, jint, ::java::security::CodeSource *);
 private:

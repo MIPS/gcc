@@ -782,7 +782,6 @@ java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/net/natVMInetAddress.cc \
-java/net/natURLClassLoader.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natVMURLConnection.cc \
 java/nio/channels/natVMChannels.cc \

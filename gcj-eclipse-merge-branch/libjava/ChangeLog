@@ -1,3 +1,13 @@
+2006-12-01  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/URLClassLoader.java
+	(findClass): Inhibit calling this.toString() further into VM
+	initialization.
+	(runtimeInitialized): Removed.
+	* java/net/natURLClassLoader.cc: Removed.
+	* Makefile.am: Reflect the above.
+	* Makefile.in: Rebuilt.	
+
 2006-11-30  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/Class.java (getAnnotations): Don't recurse.
