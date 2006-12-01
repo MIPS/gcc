@@ -134,7 +134,7 @@ show_locus (int offset, locus * loc)
 
   lb = loc->lb;
   f = lb->file;
-  error_printf ("%s:%d\n", f->filename,
+  error_printf ("%s:%d:\n", f->filename,
 #ifdef USE_MAPPED_LOCATION
 		LOCATION_LINE (lb->location)
 #else
@@ -380,7 +380,8 @@ error_print (const char *type, const char *format0, va_list argp)
   if (have_l1)
     show_loci (l1, l2);
   error_string (type);
-  error_char (' ');
+  if (*type)
+    error_char (' ');
 
   have_l1 = 0;
   format = format0;
@@ -475,7 +476,12 @@ gfc_warning (const char *nocmsgid, ...)
 
   va_start (argp, nocmsgid);
   if (buffer_flag == 0)
+  {
     warnings++;
+    if (warnings_are_errors)
+      errors++;
+  }
+
   error_print (_("Warning:"), _(nocmsgid), argp);
   va_end (argp);
 
@@ -518,14 +524,15 @@ gfc_notify_std (int std, const char *nocmsgid, ...)
 
   if (gfc_suppress_error)
     return warning ? SUCCESS : FAILURE;
-  
-  cur_error_buffer = warning ? &warning_buffer : &error_buffer;
+
+  cur_error_buffer = (warning && !warnings_are_errors)
+    ? &warning_buffer : &error_buffer;
   cur_error_buffer->flag = 1;
   cur_error_buffer->index = 0;
 
   if (buffer_flag == 0)
     {
-      if (warning)
+      if (warning && !warnings_are_errors)
 	warnings++;
       else
 	errors++;
@@ -538,7 +545,7 @@ gfc_notify_std (int std, const char *nocmsgid, ...)
   va_end (argp);
 
   error_char ('\0');
-  return warning ? SUCCESS : FAILURE;
+  return (warning && !warnings_are_errors) ? SUCCESS : FAILURE;
 }
 
 
@@ -556,6 +563,8 @@ gfc_warning_now (const char *nocmsgid, ...)
   i = buffer_flag;
   buffer_flag = 0;
   warnings++;
+  if (warnings_are_errors)
+    errors++;
 
   va_start (argp, nocmsgid);
   error_print (_("Warning:"), _(nocmsgid), argp);

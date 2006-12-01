@@ -1,3 +1,252 @@
+2006-11-06  Eric Christopher  <echristo@apple.com>
+
+	* config.gcc: Add x86_64-darwin host support.
+	* config.host: Ditto.
+	* config/i386/darwin64.h: New file.
+	* config/i386/t-darwin64: Ditto.
+
+2006-11-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc/doc/sourcebuild.texi (Test Directives): Add output-exists
+	and output-exists-not.
+
+2006-11-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29439
+	* tree-vrp.c (vrp_int_const_binop): Use the correct tree when
+	checking for overflow.
+
+2006-11-06  Jan van Dijk  <jan@etpmod.phys.tue.nl>
+
+	* configure.ac: Fixed typo in case statement: :: changed to ;;
+
+2006-11-06  Bob Wilson  <bob.wilson@acm.org>
+
+	* longlong.h (__xtensa__): Add definitions for umul_ppmm, __umulsidi3,
+	count_leading_zeros, and count_trailing_zeros.
+	* config/xtensa/xtensa.c (TARGET_INIT_BUILTINS): Define.
+	(TARGET_FOLD_BUILTIN): Define.
+	(TARGET_EXPAND_BUILTIN): Define.
+	(xtensa_init_builtins): New.
+	(xtensa_fold_builtin): New.
+	(xtensa_expand_builtin): New.
+	(xtensa_rtx_costs): Add CTZ and CLZ.  Adjust costs for MULT.
+	* config/xtensa/xtensa.h (TARGET_MUL32_HIGH): Define.
+	(CLZ_DEFINED_VALUE_AT_ZERO): Define.
+	(CTZ_DEFINED_VALUE_AT_ZERO): Define.
+	* config/xtensa/xtensa.md (UNSPEC_NSAU): Remove.
+	(any_extend): New code macro.
+	(u, su): New code attributes.
+	(<u>mulsidi3, <u>mulsi3_highpart, clzsi2, ctzsi2): New.
+	(nsau): Remove; replaced by clzsi2.
+	(ffssi2): Use clzsi2.
+	* config/xtensa/t-xtensa (LIB1ASMFUNCS): Add _umulsidi3,
+	_clzsi2, _ctzsi2, and _ffssi2.  Rename _nsau to _clz.
+	* config/xtensa/lib1funcs.asm (__mulsi3): Support Mul32 option.
+	(__umulsidi3, __clzsi2, __ctzsi2, __ffssi2): New.
+	(__nsau_data): Guard with ifdef L_clz instead of L_nsau.
+
+2006-11-06  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* config/arm/t-strongarm-pe: (TARGET_LIBGCC2_CFLAGS): Do no
+	set inhibit_libc.
+	* config/arm/t-strongarm-elf: Likewise.
+	* config/arm/t-pe: Likewise.
+	* config/arm/t-arm-elf: Likewise.
+	* config/arm/t-xscale-elf: Likewise.
+	* config/arm/t-arm-coff: Likewise.
+	* config/arm/t-xscale-coff: Likewise.
+	* config/arm/t-wince-pe: Likewise.
+
+2006-11-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/lib1funcs-4-300.asm: Guard entire file with
+        #if !__SHMEDIA__ .
+
+2006-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/29695
+	* fold-const.c (fold_ternary): Fix A < 0 ? <sign bit of A> : 0
+	simplification.
+
+2006-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/26915
+	* config/i386/i386.c (standard_80387_constant_p): Treat -0.0 and -1.0
+	as a valid 80387 constant.
+	(standard_80387_constant_opcode): Return "#" for -0.0 and -1.0.
+	* config/i386/i386.md (unnamed splitter): Split the load of
+	constant -0.0 or -1.0  into the load of 0.0 or 1.0, followed
+	by negation.
+
+2006-11-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (thumb_legitimate_addres_p): Allow any constant offset
+	from the soft-frame, argument and virtual registers.
+
+2006-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movxf_nointeger, *movxf_integer): Enable
+	patterns for standard 80387 constants.
+
+2006-11-03  Paolo Bonzini  <bonzini@gnu.org>
+	    Steven Bosscher  <steven@gcc.gnu.org>
+
+	* fwprop.c: New file.
+	* Makefile.in: Add fwprop.o.
+	* tree-pass.h (pass_rtl_fwprop, pass_rtl_fwprop_with_addr): New.
+	* passes.c (init_optimization_passes): Schedule forward propagation.
+	* rtlanal.c (loc_mentioned_in_p): Support NULL value of the second
+	parameter.
+	* timevar.def (TV_FWPROP): New.
+	* common.opt (-fforward-propagate): New.
+	* opts.c (decode_options): Enable forward propagation at -O2.
+	* gcse.c (one_cprop_pass): Do not run local cprop unless touching jumps.
+	* cse.c (fold_rtx_subreg, fold_rtx_mem, fold_rtx_mem_1, find_best_addr,
+	canon_for_address, table_size): Remove.
+	(new_basic_block, insert, remove_from_table): Remove references to
+	table_size.
+	(fold_rtx): Process SUBREGs and MEMs with equiv_constant, make
+	simplification loop more straightforward by not calling fold_rtx
+	recursively.
+	(equiv_constant): Move here a small part of fold_rtx_subreg,
+	do not call fold_rtx.  Call avoid_constant_pool_reference
+	to process MEMs.
+	* recog.h (canonicalize_change_group): New.
+
+	* doc/invoke.texi (Optimization Options): Document fwprop.
+	* doc/passes.texi (RTL passes): Document fwprop.
+
+2006-11-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-decl.c (WANT_C99_INLINE_SEMANTICS): New, set to 1.
+	(merge_decls): Implement WANT_C99_INLINE_SEMANTICS.
+	(grokdeclarator): Likewise.
+
+2006-11-03  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-dump.c (dump_enable_all): Rename local variable
+	ir_type to avoid name conflicts.
+	* cfgloopmanip.c (lv_adjust_loop_entry_edge): Check for IR_GIMPLE
+	instead of using ir_type().
+	* profile.c (tree_register_profile_hooks): Likewise.
+	* value-prof.c (tree_register_value_prof_hooks): Likewise.
+	* basic-block.h (struct edge_def): Likewise.
+	* config/arm/arm.c (legitimize_pic_address): Likewise.
+	* coretypes.h (ir_type): New enum of all intermediate languages
+	used in GCC.
+	* cfghooks.c (ir_type): Rename to...
+	(current_ir_type): ...this.  Distinguish between cfgrtl and
+	cfglayout mode when the current IR is RTL.  Return enum ir_type.
+	* cfghooks.h (ir_type): Replace with current_ir_type prototype.
+
+2006-11-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_file_start): New function.
+	(TARGET_ASM_FILE_START): Define.
+	(arm_default_cpu): New variable.
+	(arm_override_options): Set arm_default_cpu.
+
+2006-11-03  David Ung  <davidu@mips.com>
+
+	* config/mips/mips.h (processor_type): Removed PROCESSOR_24K, add
+	PROCESSOR_24KC and PROCESSOR_24KF.
+	* config/mips/mips.c (mips_cpu_info_table): Add processor names
+	and aliases for 4kec/4kem/4kep/24kec/24kef/24kex/34kc/34kf/34kx.
+	(mips_rtx_cost_data): Add costs for the 24kc.
+	* config/mips/mips.md ("cpu"): Remove 24k, add 24kc and 24kf.
+	* config/mips/24k.md: Remove references to 24k and replace with
+	uses of 24kc/24kf in the appropriate reservations.
+	* doc/invoke.texi (MIPS Options): Updated.
+
+2006-11-03  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* config/sh/crt1.asm: Fix #ifdef indent.
+
+2006-11-03  J"orn Rennecke  <joern.rennecke@st.com>
+	Merged from STMicroelectronics sources:
+	2006-10-06  Andrew Stubbs  <andrew.stubbs@st.com>
+	  * config/sh/crt1.asm (vbr_600): Add missing #if.
+	2006-08-03  J"orn Rennecke  <joern.rennecke@st.com>
+	  * sh.opt (mfused-madd): New option.
+	  * sh.md (mac_media, macsf3): Make conditional on TARGET_FMAC.
+	2006-07-04  Andrew Stubbs  <andrew.stubbs@st.com>
+	  * config/sh/crt1.asm (vbr_start): Move to new section .test.vbr.
+	  Remove pointless handler at VBR+0.
+	  (vbr_200, vbr_300, vbr_500): Remove pointless handler.
+	  (vbr_600): Save and restore mach and macl, fpul and fpscr and fr0 to
+	  fr7. Make sure the timer handler is called with the correct FPU
+	  precision setting, according to the ABI.
+	2006-06-14  J"orn Rennecke <joern.rennecke@st.com>
+	  * config/sh/sh.opt (m2a-single, m2a-single-only): Fix Condition.
+	  * config/sh/sh.h (SUPPORT_SH2A_NOFPU): Fix condition.
+	  (SUPPORT_SH2A_SINGLE_ONLY, SUPPORT_SH2A_SINGLE_ONLY): Likewise.
+	2006-06-09  J"orn Rennecke <joern.rennecke@st.com>
+	  * sh.md (cmpgeusi_t): Change into define_insn_and_split.  Accept
+	  zero as second operand.
+	2006-04-28  J"orn Rennecke <joern.rennecke@st.com>
+	  * config/sh/divtab-sh4-300.c, config/sh/lib1funcs-4-300.asm:
+	  Fixed some bugs related to negative values, in particular -0
+	  and overflow at -0x80000000.
+	  * config/sh/divcost-analysis: Added sh4-300 figures.
+	2006-04-27  J"orn Rennecke <joern.rennecke@st.com>
+	  * config/sh/t-sh (MULTILIB_MATCHES): Add -m4-300* / -m4-340 options.
+	2006-04-26  J"orn Rennecke <joern.rennecke@st.com>
+	  * config/sh/t-sh (OPT_EXTRA_PARTS): Add libgcc-4-300.a.
+	  ($(T)div_table-4-300.o, $(T)libgcc-4-300.a): New rules.
+	  * config/sh/divtab-sh4-300.c, config/sh/lib1funcs-4-300.asm:
+	New files.
+	  * config/sh/embed-elf.h (LIBGCC_SPEC): Use -lgcc-4-300 for -m4-300* /
+	  -m4-340.
+	2006-04-24  J"orn Rennecke <joern.rennecke@st.com>
+	  SH4-300 scheduling description & fixes to SH4-[12]00 description:
+	  * sh.md: New instruction types: fstore, movi8, fpscr_toggle, gp_mac,
+	  mac_mem, mem_mac, dfp_mul, fp_cmp.
+	  (insn_class, dfp_comp, any_fp_comp): Update.
+	  (push_fpul, movsf_ie, fpu_switch, toggle_sz, toggle_pr): Update type.
+	  (cmpgtsf_t, "cmpeqsf_t, cmpgtsf_t_i4, cmpeqsf_t_i4): Likewise.
+	  (muldf3_i): Likewise.
+	  (movsi_i): Split rI08 alternative into two separate alternatives.
+	  Update type.
+	  (movsi_ie, movsi_i_lowpart): Likewise.
+	  (movqi_i): Split ri alternative into two separate alternatives.
+	  Update type.
+	  * sh1.md (sh1_load_store, sh1_fp): Update.
+	  * sh4.md (sh4_store, sh4_mac_gp, fp_arith, fp_double_arith): Update.
+	  (mac_mem, sh4_fpscr_toggle): New insn_reservations.
+	  * sh4a.md (sh4a_mov, sh4a_load, sh4a_store, sh4a_fp_arith): Update.
+	  (sh4a_fp_double_arith): Likewise.
+	  * sh4-300.md: New file.
+	  * sh.c (sh_handle_option): Handle m4-300* options.
+	  (sh_adjust_cost): Fix latency of auto-increments.
+	  Handle SH4-300 differently than other SH4s.  Check for new insn types.
+	  * sh.h (OVERRIDE_OPTIONS): Initilize sh_branch_cost if it has not
+	  been set by an option.
+	  * sh.opt (m4-300, m4-100-nofpu, m4-200-nofpu): New options.
+	  (m4-300-nofpu, -m4-340, m4-300-single, m4-300-single-only): Likewise.
+	  (mbranch-cost=): Likewise.
+	  * superh.h (STARTFILE_SPEC): Take -m4-340 into account.
+
+	  * sh.md (mulsf3): Remove special expansion code.
+	  (mulsf3_ie): Now a define_insn_and_split.
+	  (macsf3): Allow for TARGET_SH4.
+
+	  * sh.md (cbranchsi4, cbranchdi4, cbranchdi4_i): New patterns.
+	  * sh.c (prepare_cbranch_operands, expand_cbranchsi4): New functions.
+	  (expand_cbranchdi4): Likewise.
+	  (sh_rtx_costs): Give lower cost for certain CONST_INT values and for
+	  CONST_DOUBLE if the outer code is COMPARE.
+	  * sh.h (OPTIMIZATION_OPTIONS): If not optimizing for size, set
+	  TARGET_CBRANCHDI4 and TARGET_EXPAND_CBRANCHDI4.
+	  (OVERRIDE_OPTIONS): For TARGET_SHMEDIA, clear TARGET_CBRANCHDI4.
+	  (LEGITIMATE_CONSTANT_P): Also allow DImode and VOIDmode CONST_DOUBLEs.
+	  Remove redundant fp_{zero,one}_operand checks.
+	  * sh.opt (mcbranchdi, mexpand-cbranchdi, mcmpeqdi): New options.
+	  * sh-protos.h (prepare_cbranch_operands, expand_cbranchsi4): Declare.
+	  (expand_cbranchdi4): Likewise.
+	2006-04-20  J"orn Rennecke <joern.rennecke@st.com>
+	  * sh.h (LOCAL_ALIGNMENT): Use DATA_ALIGNMENT.
+
 2006-11-02  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* doc/md.texi (RS6000 constraints): Document H, Z, a, t, and W
@@ -10,15 +259,15 @@
 2006-11-02  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* config/arm/linux-elf.h (NEED_INDICATE_EXEC_STACK): Define as 1.
-	* arm.c (arm_file_end): If NEED_INDICATE_EXEC_STACK call 
-	file_end_indicate_exec_stack. 
-	* arm.h [!NEED_INDICATE_EXEC_STACK] (NEED_INIDCATE_EXEC_STACK): 
+	* arm.c (arm_file_end): If NEED_INDICATE_EXEC_STACK call
+	file_end_indicate_exec_stack.
+	* arm.h [!NEED_INDICATE_EXEC_STACK] (NEED_INIDCATE_EXEC_STACK):
 	Define as 0.
 	* lib1funcs.asm [__ELF__ && __linux__]: Emit .note.GNU-stack section
 	for a non-executable stack.
 	* crti.asm: Likewise.
 	* crtn.asm: Likewise.
-	* libunwind.S: Likewise. 
+	* libunwind.S: Likewise.
 
 2006-11-02  Ben Elliston  <bje@au.ibm.com>
 
@@ -231,7 +480,7 @@
 
 	* toplev.c (compile_file): Call final_write_globals
 	even if there have been errors.
-	
+
 2006-10-31  Eric Christopher  <echristo@apple.com>
 	    Falk Hueffner  <falk@debian.org>
 
@@ -294,7 +543,7 @@
 	handling for 'F'.
 	(get_file_function_name): Remove.
 	* tree.h (get_file_function_name): Rename from
-        get_file_function_name_long.
+	get_file_function_name_long.
 	(get_file_function_name): Remove prototype.
 
 2006-10-31  Geoffrey Keating  <geoffk@apple.com>
@@ -728,7 +977,7 @@
 	* c-decl (start_function): Move code for main decl warning ..
 	* c-common.c (check_main_parameter_types): .. here.
 	* c-common.h (check_main_parameter_types): Declare.
- 
+
 2006-10-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	PR middle-end/29335
@@ -782,7 +1031,7 @@
 
 2006-10-29  Daniel Berlin  <dberlin@dberlin.org>
 
-	* tree.h (tree_value_handle): Remove struct value_set declaration.	
+	* tree.h (tree_value_handle): Remove struct value_set declaration.
 	Change value_set to bitmap_set.
 	* tree-pretty-print.c (dump_generic_node): Use has_stmt_ann.
 	* tree-vn.c (get_value_handle): Made inline and moved to
@@ -851,7 +1100,7 @@
 	(compute_avail): Handle RETURN_EXPR.
 	(init_pre): Modify for bitmapped sets.
 	* tree-flow.h (has_stmt_ann): New function.
-	
+
 2006-10-29  Roger Sayle  <roger@eyesopen.com>
 
 	* builtins.c (fold_builtin_floor): Check for the availability of
@@ -1104,7 +1353,7 @@
 
 	* config/i386/i386.c (output_387_ffreep): Create output from a
 	template string for !HAVE_AS_IX86_FFREEP.
-	
+
 2006-10-27  Eric Christopher  <echristo@apple.com>
 
 	* config/darwin.c: Fix formatting and grammar.
@@ -1157,7 +1406,7 @@
 	* config/darwin.h (CPP_SPEC): ... here.
 
 2006-10-26  Nathan Froyd  <froydnj@codesourcery.com>
-            Nathan Sidwell  <nathan@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
 
 	* ggc-common.c (ggc_min_heapsize_heuristic): Be more conservative
 	when choosing the minimum heapsize.
@@ -1205,10 +1454,10 @@
 
 2006-10-24  Nathan Froyd  <froydnj@codesourcery.com>
 
-        * dwarf2out.c (gen_compile_unit_die): Use IS_ABSOLUTE_PATH.
-        (file_table_relative_p): Likewise.
-        (dwarf2out_finish): Likewise.
-        (file_name_acquire): Use DIR_SEPARATOR and DIR_SEPARATOR_2.
+	* dwarf2out.c (gen_compile_unit_die): Use IS_ABSOLUTE_PATH.
+	(file_table_relative_p): Likewise.
+	(dwarf2out_finish): Likewise.
+	(file_name_acquire): Use DIR_SEPARATOR and DIR_SEPARATOR_2.
 
 2006-10-25  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -1585,9 +1834,9 @@
 
 2006-10-22  Ira Rosen  <irar@il.ibm.com>
 
-        * tree-vect-transform.c (vectorizable_load): Use the type of the
-        return value of the mask_for_load builtin to create realign_load
-        stmt.
+	* tree-vect-transform.c (vectorizable_load): Use the type of the
+	return value of the mask_for_load builtin to create realign_load
+	stmt.
 
 2006-10-22  Richard Sandiford  <richard@codesourcery.com>
 
@@ -1782,28 +2031,28 @@
 
 2006-10-19  Chen Liqin  <liqin@sunnorth.com.cn>
 
-        * config/score/crti.asm: New file.
-        * config/score/crtn.asm: New file.
-        * config/score/elf.h: New file.
-        * config/score/mac.md: New file.
-        * config/score/misc.md: New file.
-        * config/score/mul-div.S: New file.
-        * config/score/predicates.md: New file.
-        * config/score/score7.md: New file.
-        * config/score/score.c: New file.
-        * config/score/score-conv.h: New file.
-        * config/score/score.h: New file.
-        * config/score/score.md: New file.
-        * config/score/score-mdaux.c: New file.
-        * config/score/score-mdaux.h: New file.
-        * config/score/score-modes.def: New file.
-        * config/score/score.opt: New file.
-        * config/score/score-protos.h: New file.
-        * config/score/score-version.h: New file.
-        * config/score/t-score-elf: New file.
-        * config.gcc: Add score*-*-* configurations(Update before).
-        * doc/invoke.texi (Score Options): New section.
-        * doc/md.texi (Score family): New section to document constraints.
+	* config/score/crti.asm: New file.
+	* config/score/crtn.asm: New file.
+	* config/score/elf.h: New file.
+	* config/score/mac.md: New file.
+	* config/score/misc.md: New file.
+	* config/score/mul-div.S: New file.
+	* config/score/predicates.md: New file.
+	* config/score/score7.md: New file.
+	* config/score/score.c: New file.
+	* config/score/score-conv.h: New file.
+	* config/score/score.h: New file.
+	* config/score/score.md: New file.
+	* config/score/score-mdaux.c: New file.
+	* config/score/score-mdaux.h: New file.
+	* config/score/score-modes.def: New file.
+	* config/score/score.opt: New file.
+	* config/score/score-protos.h: New file.
+	* config/score/score-version.h: New file.
+	* config/score/t-score-elf: New file.
+	* config.gcc: Add score*-*-* configurations(Update before).
+	* doc/invoke.texi (Score Options): New section.
+	* doc/md.texi (Score family): New section to document constraints.
 
 2006-10-19  Nick Clifton  <nickc@redhat.com>
 
@@ -1827,13 +2076,13 @@
 2006-10-17  Wolfgang Gellerich  <gellerich@de.ibm.com>
 
 	* config/s390/contraints.md: New file.
-        * config/s390/s390-protos.h (s390_mem_constraint,
+	* config/s390/s390-protos.h (s390_mem_constraint,
 	s390_O_constraint_str, s390_N_constraint_str,
 	s390_float_const_zero_p): Function prototypes added.
 	* config/s390/s390.c (s390_extra_constraint_str,
 	s390_const_double_ok_for_constraint_p,
 	s390_const_ok_for_constraint_p): Functions removed.
-        (s390_mem_constraint, s390_O_constraint_str, s390_N_constraint_str,
+	(s390_mem_constraint, s390_O_constraint_str, s390_N_constraint_str,
 	s390_float_const_zero_p): New functions.
 	* config/s390/s390.h (REG_CLASS_FROM_LETTER, CONST_OK_FOR_CONSTRAINT_P,
 	CONST_DOUBLE_OK_FOR_CONSTRAINT_P, EXTRA_CONSTRAINT_STR,
@@ -1938,14 +2187,14 @@
 	declared always_inline even when not inlining.
 
 2006-10-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
-            Andrew Pinski  <pinskia@gmail.com>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+	    Andrew Pinski  <pinskia@gmail.com>
 
 	PR middle-end/29111
 	* builtins.c (get_pointer_alignment): Return 0 if TER is not run.
 
 2006-10-15  Jan Hubicka  <jh@suse.cz>
-            Richard Guenther  <rguenther@suse.de>
+	    Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/29299
 	* cgraphunit.c (cgraph_finalize_compilation_unit): Call

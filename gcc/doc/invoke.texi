@@ -310,7 +310,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks -fearly-inlining @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
--fforce-addr  -ffunction-sections @gol
+-fforce-addr  -fforward-propagate  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
@@ -4620,6 +4620,16 @@ register-load. This option is now a nop and will be removed in 4.2.
 @opindex fforce-addr
 Force memory address constants to be copied into registers before
 doing arithmetic on them.
+
+@item -fforward-propagate
+@opindex fforward-propagate
+Perform a forward propagation pass on RTL.  The pass tries to combine two
+instructions and checks if the result can be simplified.  If loop unrolling
+is active, two passes are performed and the second is scheduled after
+loop unrolling.
+
+This option is enabled by default at optimization levels @option{-O2},
+@option{-O3}, @option{-Os}.
 
 @item -fomit-frame-pointer
 @opindex fomit-frame-pointer
@@ -10480,9 +10490,12 @@ The ISA names are:
 @samp{mips32}, @samp{mips32r2}, and @samp{mips64}.
 The processor names are:
 @samp{4kc}, @samp{4km}, @samp{4kp},
+@samp{4kec}, @samp{4kem}, @samp{4kep},
 @samp{5kc}, @samp{5kf},
 @samp{20kc},
-@samp{24k}, @samp{24kc}, @samp{24kf}, @samp{24kx},
+@samp{24kc}, @samp{24kf}, @samp{24kx},
+@samp{24kec}, @samp{24kef}, @samp{24kex},
+@samp{34kc}, @samp{34kf}, @samp{34kx},
 @samp{m4k},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},

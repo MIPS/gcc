@@ -1,3 +1,71 @@
+2006-11-06  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/io_constraints_2.f90: Adjust pattern
+	  for matching error messages.
+	* gfortran.dg/specifics_3.f90: Adjust pattern
+	  for matching error messages.
+
+2006-11-06  Janis Johnson  <janis187@us.ibm.com
+	    Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* lib/gcc-dg.exp (output-exists): New proc.
+	(output-exists-not): New proc.
+	* gcc.test-framework/test-framework.awk: Support new directives.
+	* gcc.test-framework/dg-outexistsnot-exp-F.c: New test.
+	* gcc.test-framework/dg-outexistsnot-exp-P.c: New test.
+	* gcc.test-framework/dg-outexists-exp-F.c: New test.
+	* gcc.test-framework/dg-outexists-exp-XP.c: New test.
+	* gcc.test-framework/dg-outexistsnot-exp-XF.c: New test.
+	* gcc.test-framework/dg-outexists-exp-P.c: New test.
+
+2006-11-06  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/29630
+	PR fortran/29679
+	* gfortran.dg/initialization_2.f90: Test PRs 29630 and 29679 too.
+	* gfortran.dg/initialization_3.f90: New.
+
+2006-11-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25545
+	* gfortran.dg/dollar_edit_descriptor-2.f: New test.
+
+2006-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/29695
+	* gcc.c-torture/execute/pr29695-1.c: New test.
+	* gcc.c-torture/execute/pr29695-2.c: New test.
+
+2006-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29565
+	* gfortran.dg/gfortran.dg/aliasing_dummy_3.f90: New test.
+
+2006-11-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lib/gfortran-dg.exp (gfortran-dg-test): Adjust pattern
+	for matching error messages.
+
+2006-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/26915
+	* gcc.target/i386/387-12.c: New test.
+
+2006-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/29713
+	* gfortran.dg/pr29713.f90: New test.
+
+2006-11-03  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* testsuite/gcc.c-torture/execute/arith-rand-ll.c:
+	Also test for bogus rest sign.
+
+2006-11-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/27895
+	* gfortran.dg/zero_sized_1.f90: Uncomment checks for RESHAPE.
+
 2006-11-02  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* lib/gfortran-dg.exp (gfortran-dg-test): Remove expected "In file"

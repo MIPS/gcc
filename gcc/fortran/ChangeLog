@@ -1,3 +1,56 @@
+2006-11-06  Tobias Burnus  <burnus@net-b.de>
+
+	* decl.c (match_attr_spec, gfc_match_enum): Unify gfc_notify_std
+	  message for GFC_STD_F2003.
+	* array.c (gfc_match_array_constructor): Unify gfc_notify_std
+	  message for GFC_STD_F2003.
+	* io.c (check_io_constraints): Unify gfc_notify_std message for
+	  GFC_STD_F2003.
+	* resolve.c (resolve_actual_arglist): Unify gfc_notify_std message
+	  for GFC_STD_F2003.
+
+2006-11-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Added documentation for FTELL, GETLOG, and
+	HOSTNM intrinsics.
+
+2006-11-06  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/29630
+	PR fortran/29679
+	* expr.c (find_array_section): Support vector subscripts.  Don't
+	  add sizes for dimen_type == DIMEN_ELEMENT to the shape array.
+
+2006-11-05  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR fortran/21061
+	* error.c (gfc_warning): If warnings_are_errors then treat
+	warnings as errors with respect to the exit code.
+	(gfc_notify_std): Ditto.
+	(gfc_warning_now): Ditto.
+
+2006-11-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu,org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24518
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): Use built_in fmod
+	for both MOD and MODULO, if it is available.
+
+	PR fortran/29565
+	* trans-expr.c (gfc_conv_aliased_arg): For an INTENT(OUT), save
+	the declarations from the unused loops by merging the block
+	scope for each; this ensures that the temporary is declared.
+
+2006-11-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* error.c (show_locus): Add trailing colon in error messages.
+	(error_print): Avoid leading space in error lines.
+
+2006-11-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29713
+	* expr.c (gfc_simplify_expr): Correct memory allocation.
+
 2006-11-02  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* error.c (show_locus): Remove "In file" from error messages.
