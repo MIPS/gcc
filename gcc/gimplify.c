@@ -3567,10 +3567,6 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	      || TREE_CODE (*expr_p) == GIMPLE_MODIFY_STMT
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
 
-  /* FIXME tuples: We need to gimplify into GIMPLE_MODIFY_STMT right
-     away, so the helper functions below can be made to only handle
-     GIMPLE_MODIFY_STMT's, not MODIFY_EXPR as well.  */
-
   /* For zero sized types only gimplify the left hand side and right hand side
      as statements and throw away the assignment.  */
   if (zero_sized_type (TREE_TYPE (*from_p)))
