@@ -1178,9 +1178,11 @@ rs6000_override_options (const char *default_cpu)
 	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"8540", PROCESSOR_PPC8540,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
 	 /* 8548 has a dummy entry for now.  */
-	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"8548", PROCESSOR_PPC8540,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -1232,7 +1234,7 @@ rs6000_override_options (const char *default_cpu)
 
   enum {
     POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
-    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT
+    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MFPGPR)
   };
@@ -2586,18 +2588,28 @@ build_mask64_2_operands (rtx in, rtx *out)
 bool
 invalid_e500_subreg (rtx op, enum machine_mode mode)
 {
-  /* Reject (subreg:SI (reg:DF)).  */
-  if (GET_CODE (op) == SUBREG
+  if (TARGET_E500_DOUBLE)
+    {
+      /* Reject (subreg:SI (reg:DF)).  */
+      if (GET_CODE (op) == SUBREG
+	  && mode == SImode
+	  && REG_P (SUBREG_REG (op))
+	  && GET_MODE (SUBREG_REG (op)) == DFmode)
+	return true;
+
+      /* Reject (subreg:DF (reg:DI)).  */
+      if (GET_CODE (op) == SUBREG
+	  && mode == DFmode
+	  && REG_P (SUBREG_REG (op))
+	  && GET_MODE (SUBREG_REG (op)) == DImode)
+	return true;
+    }
+
+  if (TARGET_SPE
+      && GET_CODE (op) == SUBREG
       && mode == SImode
       && REG_P (SUBREG_REG (op))
-      && GET_MODE (SUBREG_REG (op)) == DFmode)
-    return true;
-
-  /* Reject (subreg:DF (reg:DI)).  */
-  if (GET_CODE (op) == SUBREG
-      && mode == DFmode
-      && REG_P (SUBREG_REG (op))
-      && GET_MODE (SUBREG_REG (op)) == DImode)
+      && SPE_VECTOR_MODE (GET_MODE (SUBREG_REG (op))))
     return true;
 
   return false;
@@ -6051,6 +6063,27 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       t = build1 (LABEL_EXPR, void_type_node, lab_over);
       append_to_statement_list (t, pre_p);
+    }
+
+  if (STRICT_ALIGNMENT
+      && (TYPE_ALIGN (type)
+	  > (unsigned) BITS_PER_UNIT * (align < 4 ? 4 : align)))
+    {
+      /* The value (of type complex double, for example) may not be
+	 aligned in memory in the saved registers, so copy via a
+	 temporary.  (This is the same code as used for SPARC.)  */
+      tree tmp = create_tmp_var (type, "va_arg_tmp");
+      tree dest_addr = build_fold_addr_expr (tmp);
+
+      tree copy = build_function_call_expr
+	(implicit_built_in_decls[BUILT_IN_MEMCPY],
+	 tree_cons (NULL_TREE, dest_addr,
+		    tree_cons (NULL_TREE, addr,
+			       tree_cons (NULL_TREE, size_int (rsize * 4),
+					  NULL_TREE))));
+
+      gimplify_and_add (copy, pre_p);
+      addr = dest_addr;
     }
 
   addr = fold_convert (ptrtype, addr);

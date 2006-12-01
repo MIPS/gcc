@@ -409,23 +409,33 @@ resolve_entries (gfc_namespace * ns)
     {
       gfc_symbol *sym;
       gfc_typespec *ts, *fts;
-
+      gfc_array_spec *as, *fas;
       gfc_add_function (&proc->attr, proc->name, NULL);
       proc->result = proc;
+      fas = ns->entries->sym->as;
+      fas = fas ? fas : ns->entries->sym->result->as;
       fts = &ns->entries->sym->result->ts;
       if (fts->type == BT_UNKNOWN)
 	fts = gfc_get_default_type (ns->entries->sym->result, NULL);
       for (el = ns->entries->next; el; el = el->next)
 	{
 	  ts = &el->sym->result->ts;
+	  as = el->sym->as;
+	  as = as ? as : el->sym->result->as;
 	  if (ts->type == BT_UNKNOWN)
 	    ts = gfc_get_default_type (el->sym->result, NULL);
+
 	  if (! gfc_compare_types (ts, fts)
 	      || (el->sym->result->attr.dimension
 		  != ns->entries->sym->result->attr.dimension)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
+
+	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
+	    gfc_error ("Procedure %s at %L has entries with mismatched "
+		       "array specifications", ns->entries->sym->name,
+		       &ns->entries->sym->declared_at);
 	}
 
       if (el == NULL)
@@ -573,6 +583,7 @@ resolve_structure_cons (gfc_expr * expr)
   gfc_constructor *cons;
   gfc_component *comp;
   try t;
+  symbol_attribute a;
 
   t = SUCCESS;
   cons = expr->value.constructor;
@@ -587,10 +598,7 @@ resolve_structure_cons (gfc_expr * expr)
   for (; comp; comp = comp->next, cons = cons->next)
     {
       if (! cons->expr)
-	{
-	  t = FAILURE;
-	  continue;
-	}
+	continue;
 
       if (gfc_resolve_expr (cons->expr) == FAILURE)
 	{
@@ -611,6 +619,19 @@ resolve_structure_cons (gfc_expr * expr)
 		       gfc_basic_typename (comp->ts.type));
 	  else
 	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
+	}
+
+      if (!comp->pointer || cons->expr->expr_type == EXPR_NULL)
+      continue;
+
+      a = gfc_expr_attr (cons->expr);
+
+      if (!a.pointer && !a.target)
+	{
+	  t = FAILURE;
+	  gfc_error ("The element in the derived type constructor at %L, "
+		     "for pointer component '%s' should be a POINTER or "
+		     "a TARGET", &cons->expr->where, comp->name);
 	}
     }
 
@@ -1502,12 +1523,12 @@ resolve_function (gfc_expr * expr)
 
       if (esym->attr.entry && esym->ns->entries && proc->ns->entries
           && esym->ns->entries->sym == proc->ns->entries->sym)
-      {
-        gfc_error ("Call to ENTRY '%s' at %L is recursive, but function "
-                   "'%s' is not declared as RECURSIVE",
-                   esym->name, &expr->where, esym->ns->entries->sym->name);
-        t = FAILURE;
-      }
+	{
+	  gfc_error ("Call to ENTRY '%s' at %L is recursive, but function "
+		     "'%s' is not declared as RECURSIVE",
+		     esym->name, &expr->where, esym->ns->entries->sym->name);
+	  t = FAILURE;
+	}
     }
 
   /* Character lengths of use associated functions may contains references to
@@ -3363,7 +3384,7 @@ resolve_allocate_expr (gfc_expr * e, gfc_code * code)
     {
         init_st = gfc_get_code ();
         init_st->loc = code->loc;
-        init_st->op = EXEC_ASSIGN;
+        init_st->op = EXEC_INIT_ASSIGN;
         init_st->expr = expr_to_initialize (e);
         init_st->expr2 = init_e;
 
@@ -4642,6 +4663,9 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 		       "INTEGER return specifier", &code->expr->where);
 	  break;
 
+	case EXEC_INIT_ASSIGN:
+	  break;
+
 	case EXEC_ASSIGN:
 	  if (t == FAILURE)
 	    break;
@@ -4930,6 +4954,75 @@ is_non_constant_shape_array (gfc_symbol *sym)
   return not_constant;
 }
 
+
+/* Assign the default initializer to a derived type variable or result.  */
+
+static void
+apply_default_init (gfc_symbol *sym)
+{
+  gfc_expr *lval;
+  gfc_expr *init = NULL;
+  gfc_code *init_st;
+  gfc_namespace *ns = sym->ns;
+
+  if (sym->attr.flavor != FL_VARIABLE && !sym->attr.function)
+    return;
+
+  if (sym->ts.type == BT_DERIVED && sym->ts.derived)
+    init = gfc_default_initializer (&sym->ts);
+
+  if (init == NULL)
+    return;
+
+  /* Search for the function namespace if this is a contained
+     function without an explicit result.  */
+  if (sym->attr.function && sym == sym->result
+	&& sym->name != sym->ns->proc_name->name)
+    {
+      ns = ns->contained;
+      for (;ns; ns = ns->sibling)
+	if (strcmp (ns->proc_name->name, sym->name) == 0)
+	  break;
+    }
+
+  if (ns == NULL)
+    {
+      gfc_free_expr (init);
+      return;
+    }
+
+  /* Build an l-value expression for the result.  */
+  lval = gfc_get_expr ();
+  lval->expr_type = EXPR_VARIABLE;
+  lval->where = sym->declared_at;
+  lval->ts = sym->ts;
+  lval->symtree = gfc_find_symtree (sym->ns->sym_root, sym->name);
+
+  /* It will always be a full array.  */
+  lval->rank = sym->as ? sym->as->rank : 0;
+  if (lval->rank)
+    {
+      lval->ref = gfc_get_ref ();
+      lval->ref->type = REF_ARRAY;
+      lval->ref->u.ar.type = AR_FULL;
+      lval->ref->u.ar.dimen = lval->rank;
+      lval->ref->u.ar.where = sym->declared_at;
+      lval->ref->u.ar.as = sym->as;
+    }
+
+  /* Add the code at scope entry.  */
+  init_st = gfc_get_code ();
+  init_st->next = ns->code;
+  ns->code = init_st;
+
+  /* Assign the default initializer to the l-value.  */
+  init_st->loc = sym->declared_at;
+  init_st->op = EXEC_INIT_ASSIGN;
+  init_st->expr = lval;
+  init_st->expr2 = init;
+}
+
+
 /* Resolution of common features of flavors variable and procedure. */
 
 static try
@@ -5091,6 +5184,24 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	gfc_error ("Automatic array '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
       return FAILURE;
+    }
+
+  /* Check to see if a derived type is blocked from being host associated
+     by the presence of another class I symbol in the same namespace.
+     14.6.1.3 of the standard and the discussion on comp.lang.fortran.  */
+  if (sym->ts.type == BT_DERIVED && sym->ns != sym->ts.derived->ns)
+    {
+      gfc_symbol *s;
+      gfc_find_symbol (sym->ts.derived->name, sym->ns, 0, &s);
+      if (s && (s->attr.flavor != FL_DERIVED
+		  || !gfc_compare_derived_types (s, sym->ts.derived)))
+	{
+	  gfc_error ("The type %s cannot be host associated at %L because "
+		     "it is blocked by an incompatible object of the same "
+		     "name at %L", sym->ts.derived->name, &sym->declared_at,
+		     &s->declared_at);
+	  return FAILURE;
+	}
     }
 
   /* 4th constraint in section 11.3:  "If an object of a type for which
@@ -5286,6 +5397,15 @@ resolve_fl_derived (gfc_symbol *sym)
 	    }
 	}
 
+      if (c->ts.type == BT_DERIVED && c->pointer
+	    && c->ts.derived->components == NULL)
+	{
+	  gfc_error ("The pointer component '%s' of '%s' at %L is a type "
+		     "that has not been declared", c->name, sym->name,
+		     &c->loc);
+	  return FAILURE;
+	}
+
       if (c->pointer || c->as == NULL)
 	continue;
 
@@ -5365,16 +5485,18 @@ resolve_fl_namelist (gfc_symbol *sym)
      same message has been used.  */
   for (nl = sym->namelist; nl; nl = nl->next)
     {
+      if (nl->sym->ts.kind != 0 && nl->sym->attr.flavor == FL_VARIABLE)
+	continue;
       nlsym = NULL;
-	if (sym->ns->parent && nl->sym && nl->sym->name)
-	  gfc_find_symbol (nl->sym->name, sym->ns->parent, 0, &nlsym);
-	if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
-	  {
-	    gfc_error ("PROCEDURE attribute conflicts with NAMELIST "
-		       "attribute in '%s' at %L", nlsym->name,
-		       &sym->declared_at);
-	    return FAILURE;
-	  }
+      if (sym->ns->parent && nl->sym && nl->sym->name)
+	gfc_find_symbol (nl->sym->name, sym->ns->parent, 0, &nlsym);
+      if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
+	{
+	  gfc_error ("PROCEDURE attribute conflicts with NAMELIST "
+		     "attribute in '%s' at %L", nlsym->name,
+		     &sym->declared_at);
+	  return FAILURE;
+	}
     }
 
   return SUCCESS;
@@ -5617,6 +5739,25 @@ resolve_symbol (gfc_symbol * sym)
       formal_ns_flag = 0;
       gfc_resolve (sym->formal_ns);
       formal_ns_flag = formal_ns_save;
+    }
+
+  /* If we have come this far we can apply default-initializers, as
+     described in 14.7.5, to those variables that have not already
+     been assigned one.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->attr.referenced
+	&& sym->ns == gfc_current_ns
+	&& !sym->value
+	&& !sym->attr.allocatable)
+    {
+      symbol_attribute *a = &sym->attr;
+
+      if ((!a->save && !a->dummy && !a->pointer
+		&& !a->in_common && !a->use_assoc
+		&& !(a->function && sym != sym->result))
+	     ||
+	  (a->dummy && a->intent == INTENT_OUT))
+	apply_default_init (sym);
     }
 }
 

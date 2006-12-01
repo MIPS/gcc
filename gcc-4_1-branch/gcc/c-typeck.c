@@ -4280,16 +4280,18 @@ store_init_value (tree decl, tree init)
 
       if (TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
-	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
+	  tree cldecl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 
-	  if (TYPE_DOMAIN (TREE_TYPE (decl)))
+	  if (TYPE_DOMAIN (TREE_TYPE (cldecl)))
 	    {
 	      /* For int foo[] = (int [3]){1}; we need to set array size
 		 now since later on array initializer will be just the
 		 brace enclosed list of the compound literal.  */
-	      TYPE_DOMAIN (type) = TYPE_DOMAIN (TREE_TYPE (decl));
+	      type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+	      TREE_TYPE (decl) = type;
+	      TYPE_DOMAIN (type) = TYPE_DOMAIN (TREE_TYPE (cldecl));
 	      layout_type (type);
-	      layout_decl (decl, 0);
+	      layout_decl (cldecl, 0);
 	    }
 	}
     }
@@ -4636,12 +4638,14 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	   conversion.  */
 	inside_init = convert (type, inside_init);
 
-      if (require_constant && !flag_isoc99
+      if (require_constant
+	  && (code == VECTOR_TYPE || !flag_isoc99)
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
 	  /* As an extension, allow initializing objects with static storage
 	     duration with compound literals (which are then treated just as
-	     the brace enclosed list they contain).  */
+	     the brace enclosed list they contain).  Also allow this for
+	     vectors, as we can only assign them with compound literals.  */
 	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 	  inside_init = DECL_INITIAL (decl);
 	}

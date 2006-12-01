@@ -1609,8 +1609,11 @@ constant_value_1 (tree decl, bool integral_p)
 	  mark_used (decl);
 	  init = DECL_INITIAL (decl);
 	}
+      /* If INIT is ERROR_MARK_NODE, that may mean that we are
+	 presently processing the initializer, so we conservatively
+	 treat this situation as meaning that DECL is uninitialized.  */
       if (init == error_mark_node)
-	return error_mark_node;
+	break;
       if (!init
 	  || !TREE_TYPE (init)
 	  || (integral_p
@@ -1855,10 +1858,14 @@ build_new_1 (tree exp)
 	 function context.  Methinks that's not it's purvey.  So we'll do
 	 our own VLA layout later.  */
       vla_p = true;
-      full_type = build_cplus_array_type (type, NULL_TREE);
       index = convert (sizetype, nelts);
       index = size_binop (MINUS_EXPR, index, size_one_node);
-      TYPE_DOMAIN (full_type) = build_index_type (index);
+      index = build_index_type (index);
+      full_type = build_cplus_array_type (type, NULL_TREE);
+      /* We need a copy of the type as build_array_type will return a shared copy
+         of the incomplete array type.  */
+      full_type = build_distinct_type_copy (full_type);
+      TYPE_DOMAIN (full_type) = index;
     }
   else
     {

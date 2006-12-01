@@ -1,3 +1,174 @@
+2006-11-26  Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29982
+	* trans-expr.c (gfc_conv_expr_reference): Strip off NOP_EXPRs.
+
+2006-11-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29391
+	PR fortran/29489
+	* simplify.c (simplify_bound): Fix the simplification of
+	LBOUND/UBOUND intrinsics.
+	* trans-intrinsic.c (simplify_bound): Fix the logic, and
+	remove an erroneous assert.
+
+2006-11-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29391
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Generate correct
+	code for LBOUND and UBOUND intrinsics.
+
+2006-11-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29713
+	* expr.c (gfc_simplify_expr): Correct memory allocation.
+
+2006-11-10 Paul Thomas <pault@gcc.gnu.org>
+
+	Backport from mainline.
+
+	PR fortran/29371
+	* trans-expr.c (gfc_trans_pointer_assignment): Add the expression
+	for the assignment of null to the data field to se->pre, rather
+	than block.
+
+	PR fortran/29392
+	* data.c (create_character_intializer): Copy and simplify
+	the expressions for the start and end of a sub-string
+	reference.
+
+	PR fortran/29216
+	PR fortran/29314
+	* gfortran.h : Add EXEC_INIT_ASSIGN.
+	* dump-parse-tree.c (gfc_show_code_node): The same.
+	* trans-expr.c (gfc_trans_init_assign): New function.
+	* trans-stmt.h : Add prototype for gfc_trans_init_assign.
+	* trans.c (gfc_trans_code): Implement EXEC_INIT_ASSIGN.
+	* resolve.c (resolve_allocate_exp): Replace EXEC_ASSIGN by
+	EXEC_INIT_ASSIGN.
+	(resolve_code): EXEC_INIT_ASSIGN does not need resolution.
+	(apply_default_init): New function.
+	(resolve_symbol): Call it for derived types that become
+	defined but which do not already have an initialization
+	expression..
+	* st.c (gfc_free_statement): Include EXEC_INIT_ASSIGN.
+	
+	PR fortran/29387
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Rearrange to have
+	a specific case for EXPR_VARIABLE and, in default, build an ss
+	to call gfc_conv_expr_descriptor for array expressions..
+
+	PR fortran/29490
+	* trans-expr.c (gfc_set_interface_mapping_bounds): In the case
+	that GFC_TYPE_ARRAY_LBOUND is not available, use descriptor
+	values for it and GFC_TYPE_ARRAY_UBOUND.
+
+	PR fortran/29641
+	* trans-types.c (gfc_get_derived_type): If the derived type
+	namespace has neither a parent nor a proc_name, set NULL for
+	the search namespace.
+
+	PR fortran/24518
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): Use built_in fmod
+	for both MOD and MODULO, if it is available.
+
+	PR fortran/29565
+	* trans-expr.c (gfc_conv_aliased_arg): For an INTENT(OUT), save
+	the declarations from the unused loops by merging the block
+	scope for each; this ensures that the temporary is declared.
+
+2006-11-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/29630
+	PR fortran/29679
+	* expr.c (find_array_section): Support vector subscripts.  Don't
+	add sizes for dimen_type == DIMEN_ELEMENT to the shape array.
+
+2006-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline.
+
+	PR fortran/29373
+	* decl.c (get_proc_name, gfc_match_function_decl): Add
+	attr.implicit_type to conditions that throw error for
+	existing explicit interface and that allow new type-
+	spec to be applied.
+
+	PR fortran/29407
+	* resolve.c (resolve_fl_namelist): Do not check for
+	namelist/procedure conflict, if the symbol corresponds
+	to a good local variable declaration.
+
+	PR fortran/27701
+	* decl.c (get_proc_name): Replace the detection of a declared
+	procedure by the presence of a formal argument list by the
+	attributes of the symbol and the presence of an explicit
+	interface.
+
+	PR fortran/29232
+	* resolve.c (resolve_fl_variable): See if the host association
+	of a derived type is blocked by the presence of another type I
+	object in the current namespace.
+
+	PR fortran/29364
+	* resolve.c (resolve_fl_derived): Check for the presence of
+	the derived type for a derived type component.
+
+	PR fortran/24398
+	* module.c (gfc_use_module): Check that the first words in a
+	module file are 'GFORTRAN module'.
+
+	PR fortran/29115
+	* resolve.c (resolve_structure_cons): It is an error if the
+	pointer component elements of a derived type constructor are
+	not pointer or target.
+
+	PR fortran/29211
+	* trans-stmt.c (generate_loop_for_temp_to_lhs,
+	generate_loop_for_rhs_to_temp): Provide a string length for
+	the temporary by copying that of the other side of the scalar
+	assignment.
+
+	PR fortran/29098
+	* resolve.c (resolve_structure_cons): Do not return FAILURE if
+	component expression is NULL.
+
+2006-11-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29067
+	* decl.c (gfc_set_constant_character_len): NULL-terminate the
+	character constant string.
+	* data.c (create_character_intializer): Likewise.
+	* expr.c (gfc_simplify_expr): NULL-terminate the substring
+	character constant.
+	* primary.c (match_hollerith_constant): NULL-terminate the
+	character constant string.
+
+2006-10-24  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/29393
+	* expr.c (simplify_parameter_variable): Keep rank of original
+	expression.
+
+2006-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29284
+	PR fortran/29321
+	PR fortran/29322
+	* trans-expr.c (gfc_conv_function_call): Check the expression
+	and the formal symbol are present when testing the actual
+	argument.
+
+	PR fortran/25091
+	PR fortran/25092
+	* resolve.c (resolve_entries): It is an error if the entries
+	of an array-valued function do not have the same shape.
+
+2006-10-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/29403
+	* io.c (match_io):  Check for a default-char-expr for PRINT format.
+
 2006-10-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/28415

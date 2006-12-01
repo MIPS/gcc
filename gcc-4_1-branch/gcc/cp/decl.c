@@ -2646,6 +2646,8 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 		    tsubst_flags_t complain)
 {
   tree fullname;
+  tree t;
+  bool want_template;
 
   if (name == error_mark_node
       || context == NULL_TREE
@@ -2683,73 +2685,60 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
   gcc_assert (TYPE_P (context));
 
-  if (!dependent_type_p (context)
-      || currently_open_class (context))
-    {
-      if (TREE_CODE (fullname) == TEMPLATE_ID_EXPR)
-	{
-	  tree tmpl = NULL_TREE;
-	  if (IS_AGGR_TYPE (context))
-	    tmpl = lookup_field (context, name, 0, false);
-	  if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
-	    {
-	      if (complain & tf_error)
-		error ("no class template named %q#T in %q#T",
-		       name, context);
-	      return error_mark_node;
-	    }
+  /* When the CONTEXT is a dependent type,  NAME could refer to a
+     dependent base class of CONTEXT.  So we cannot peek inside it,
+     even if CONTEXT is a currently open scope.  */
+  if (dependent_type_p (context))
+    return build_typename_type (context, name, fullname, tag_type);
 
-	  if (complain & tf_error)
-	    perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
-
-	  return lookup_template_class (tmpl,
-					TREE_OPERAND (fullname, 1),
-					NULL_TREE, context,
-					/*entering_scope=*/0,
-					tf_error | tf_warning | tf_user);
-	}
-      else
-	{
-	  tree t;
-
-	  if (!IS_AGGR_TYPE (context))
-	    {
-	      if (complain & tf_error)
-		error ("no type named %q#T in %q#T", name, context);
-	      return error_mark_node;
-	    }
-
-	  t = lookup_field (context, name, 0, true);
-	  if (t)
-	    {
-	      if (TREE_CODE (t) != TYPE_DECL)
-		{
-		  if (complain & tf_error)
-		    error ("no type named %q#T in %q#T", name, context);
-		  return error_mark_node;
-		}
-
-	      if (complain & tf_error)
-		perform_or_defer_access_check (TYPE_BINFO (context), t);
-
-	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
-		t = TREE_TYPE (t);
-
-	      return t;
-	    }
-	}
-    }
-
-  /* If the CONTEXT is not a template type, then either the field is
-     there now or its never going to be.  */
-  if (!dependent_type_p (context))
+  if (!IS_AGGR_TYPE (context))
     {
       if (complain & tf_error)
-	error ("no type named %q#T in %q#T", name, context);
+	error ("%q#T is not a class", context);
       return error_mark_node;
     }
+  
+  want_template = TREE_CODE (fullname) == TEMPLATE_ID_EXPR;
+  
+  /* We should only set WANT_TYPE when we're a nested typename type.
+     Then we can give better diagnostics if we find a non-type.  */
+  t = lookup_field (context, name, 0, /*want_type=*/true);
+  if (!t)
+    {
+      if (complain & tf_error)
+	error (want_template ? "no class template named %q#T in %q#T"
+	       : "no type named %q#T in %q#T", name, context);
+      return error_mark_node;
+    }
+  
+  if (want_template && !DECL_CLASS_TEMPLATE_P (t))
+    {
+      if (complain & tf_error)
+	error ("%<typename %T::%D%> names %q#T, which is not a class template",
+	       context, name, t);
+      return error_mark_node;
+    }
+  if (!want_template && TREE_CODE (t) != TYPE_DECL)
+    {
+      if (complain & tf_error)
+	error ("%<typename %T::%D%> names %q#T, which is not a type",
+	       context, name, t);
+      return error_mark_node;
+    }
+  
+  if (complain & tf_error)
+    perform_or_defer_access_check (TYPE_BINFO (context), t);
 
-  return build_typename_type (context, name, fullname, tag_type);
+  if (want_template)
+    return lookup_template_class (t, TREE_OPERAND (fullname, 1),
+				  NULL_TREE, context,
+				  /*entering_scope=*/0,
+				  tf_error | tf_warning | tf_user);
+  
+  if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
+    t = TREE_TYPE (t);
+  
+  return t;
 }
 
 /* Resolve `CONTEXT::template NAME'.  Returns a TEMPLATE_DECL if the name
@@ -4592,28 +4581,42 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
   if (type == error_mark_node)
     /* We will have already complained.  */
     init = NULL_TREE;
-  else if (init && COMPLETE_TYPE_P (type)
-	   && !TREE_CONSTANT (TYPE_SIZE (type)))
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      error ("variable-sized object %qD may not be initialized", decl);
-      init = NULL_TREE;
+      tree element_type = TREE_TYPE (type);
+
+      /* The array type itself need not be complete, because the
+	 initializer may tell us how many elements are in the array.
+	 But, the elements of the array must be complete.  */
+      if (!COMPLETE_TYPE_P (complete_type (element_type)))
+	{
+	  error ("elements of array %q#D have incomplete type", decl);
+	  return NULL_TREE;
+	}
+      /* It is not valid to initialize an a VLA.  */
+      if (init
+	  && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
+	      || !TREE_CONSTANT (TYPE_SIZE (element_type))))
+	{
+	  error ("variable-sized object %qD may not be initialized", decl);
+	  return NULL_TREE;
+	}
     }
-  else if (TREE_CODE (type) == ARRAY_TYPE
-	   && !COMPLETE_TYPE_P (complete_type (TREE_TYPE (type))))
-    {
-      error ("elements of array %q#D have incomplete type", decl);
-      init = NULL_TREE;
-    }
-  else if (TREE_CODE (type) != ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+  else if (!COMPLETE_TYPE_P (type))
     {
       error ("%qD has incomplete type", decl);
       TREE_TYPE (decl) = error_mark_node;
-      init = NULL_TREE;
+      return NULL_TREE;
     }
-  else if (!CP_AGGREGATE_TYPE_P (type)
-	   && init && TREE_CODE (init) == CONSTRUCTOR
-	   && BRACE_ENCLOSED_INITIALIZER_P (init)
-	   && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) != 1)
+  else
+    /* There is no way to make a variable-sized class type in GNU C++.  */
+    gcc_assert (TREE_CONSTANT (TYPE_SIZE (type)));
+
+  if (!CP_AGGREGATE_TYPE_P (type)
+      && init && TREE_CODE (init) == CONSTRUCTOR
+      && BRACE_ENCLOSED_INITIALIZER_P (init)
+      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) != 1)
     {
       error ("scalar object %qD requires one element in initializer", decl);
       TREE_TYPE (decl) = error_mark_node;
@@ -4974,7 +4977,14 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  || !DECL_CLASS_SCOPE_P (decl)
 	  || !DECL_INTEGRAL_CONSTANT_VAR_P (decl)
 	  || type_dependent_p
-	  || value_dependent_expression_p (init))
+	  || value_dependent_expression_p (init)
+	     /* Check also if initializer is a value dependent
+		{ integral_constant_expression }.  */
+	  || (TREE_CODE (init) == CONSTRUCTOR
+	      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) == 1
+	      && value_dependent_expression_p
+		   (VEC_index (constructor_elt,
+			       CONSTRUCTOR_ELTS (init), 0)->value)))
 	{
 	  if (init && DECL_INITIAL (decl))
 	    DECL_INITIAL (decl) = init;
@@ -5902,16 +5912,6 @@ grokfndecl (tree ctype,
 	error ("cannot declare %<::main%> to be inline");
       if (!publicp)
 	error ("cannot declare %<::main%> to be static");
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
-			integer_type_node))
-	{
-	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	  tree newtype;
-	  error ("%<::main%> must return %<int%>");
-	  newtype =  build_function_type (integer_type_node,
-			  		  oldtypeargs);
-	  TREE_TYPE (decl) = newtype;
-	}
       inlinep = 0;
       publicp = 1;
     }
@@ -6013,6 +6013,18 @@ grokfndecl (tree ctype,
     {
       cplus_decl_attributes (&decl, *attrlist, 0);
       *attrlist = NULL_TREE;
+    }
+
+  /* Check main's type after attributes have been applied.  */
+  if (ctype == NULL_TREE && DECL_MAIN_P (decl)
+      && !same_type_p (TREE_TYPE (TREE_TYPE (decl)),
+		       integer_type_node))
+    {
+      tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+      tree newtype;
+      error ("%<::main%> must return %<int%>");
+      newtype = build_function_type (integer_type_node, oldtypeargs);
+      TREE_TYPE (decl) = newtype;
     }
 
   if (ctype != NULL_TREE
@@ -10961,7 +10973,8 @@ finish_function (int flags)
   /* If this function can't throw any exceptions, remember that.  */
   if (!processing_template_decl
       && !cp_function_chain->can_throw
-      && !flag_non_call_exceptions)
+      && !flag_non_call_exceptions
+      && targetm.binds_local_p (fndecl))
     TREE_NOTHROW (fndecl) = 1;
 
   /* This must come after expand_function_end because cleanups might

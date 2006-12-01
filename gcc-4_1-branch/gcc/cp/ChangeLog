@@ -1,3 +1,127 @@
+2006-11-29  Lee Millward  <lee.millward@codesourcery.com> 
+
+	PR c++/29022
+	* parser.c (cp_parser_class_head): Move processing
+	of any base classes to...
+	(cp_parser_class_specifier) ...here. Take an extra
+	tree* parameter for any base classes. Only process
+	them if the opening brace was found.
+	
+2006-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/29735
+	* decl.c (grokfndecl): Check main's type after applying
+	attributes, not before.
+
+2006-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29886
+	* parser.c (cp_parser): Add in_function_body.
+	(cp_parser_new): Initialize it.
+	(cp_parser_primary_expression): Use parser->in_function_body
+	instead of at_function_scope_p.
+	(cp_parser_asm_definition): Likewise.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_class_specifier): Clear parser->in_function_body.
+	(cp_parser_constructor_declarator_p): Use parser->in_function_body
+	instead of at_function_scope_p.
+	(cp_parser_function_body_after_declarator): Set
+	parser->in_function_body.
+
+2006-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/29570
+	* decl.c (cp_finish_decl): Check for value dependent brace enclosed
+	scalar initializer.
+
+	PR c++/29734
+	* cp-tree.h (WANT_VECTOR): Define.
+	(WANT_ARITH): Add WANT_VECTOR.
+	* cvt.c (build_expr_type_conversion): Handle vector types.
+	* typeck.c (build_unary_op): Add WANT_VECTOR to
+	build_expr_type_conversion flags.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29106
+	* init.c (constant_value_1): Treat a DECL_INITIAL of
+	error_mark_node as meaning that the variable is uninitialized,
+	rather than erroneously initialized.
+
+	PR c++/29518
+	* pt.c (coerce_template_parms): Do not skip_evaluation while
+	substituting template arguments.
+
+2006-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20647
+	* rtti.c (tinfo_base_init): The type info string is always global.
+
+2006-10-18  Mark Shinwell  <shinwell@codesourcery.com>
+
+	PR c++/26884
+	* typeck2.c (digest_init): Raise error upon attempts to
+	initialize arrays with variables.
+
+2006-10-18  Richard Guenther  <rguenther@suse.de>
+
+	PR C++/25878
+	Backport from mainline:
+	2006-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/27787
+	* decl.c (make_typename_type): Only try and resolve it when
+	context is not dependent.  Refactor.
+	* decl2.c (check_classfn): Push to class scope before looking for
+	the function.
+
+2006-10-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-09-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/28906
+	* init.c (build_new_1): Build a distinct type copy
+	for the array type that was returned from
+	build_cplus_array_type.
+
+2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29435
+	* typeck.c (cxx_sizeof_or_alignof_type): Complete non-dependent
+	types when their sizes are required.  Refine test for VLAs.
+
+2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29408
+	* parser.c (cp_parser_using_declaration): Stop parsing when
+	something goes wrong with an access declaration.
+
+2006-10-14  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/29323
+	* decl.c (finish_function): Set TREE_NOTHROW only for
+	functions that bind local.
+
+2006-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28506
+	* parser.c (function_declarator_p): New function.
+	(cp_parser_init_declarator): Use it.
+	(cp_parser_member_declaration): Likewise.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29318
+	* rtti.c (get_tinfo_decl): Refuse to create type info objects for
+	variably modified types.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29175
+	* decl.c (check_initializer): Issue errors about trying to
+	initialize arrays whose elements have variable size.
+
 2006-10-07 Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR C++/29002
@@ -76,7 +200,7 @@
 
 2006-09-06  Zak Kipling  <zak@transversal.com>
 
-        PR c++/26195
+	PR c++/26195
 	* decl.c (make_rtl_for_nonlocal_decl),
 	(start_preparsed_function): Don't use lbasename on
 	input_filename when calling get_fileinfo.

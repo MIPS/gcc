@@ -1,3 +1,47 @@
+2006-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_WRITE_MEM_BARRIER):
+	Use plain sync if __NO_LWSYNC__.
+
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/complex/13450.cc: Do not test long double
+	in IBM long double case.
+
+2006-11-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/debug.cc (_Safe_sequence_base::_M_revalidate_singular): Fix
+	pasto, advance __iter only once per iteration.
+
+2006-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Prefer
+	strtold_l over __strtold_l if available.
+
+2006-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/array/capacity/max_size.cc: Actually
+	do test max_size().
+
+2006-10-28  Paolo Carlini  <pcarlini@suse.de>
+	
+	* include/tr1/array (array<>::_M_at): New.
+	(array<>::at): Fix off-by-one bug, use the above.
+	* testsuite/tr1/6_containers/array/element_access/
+	at_out_of_range.cc: Adjust.
+
+	* include/tr1/array (class array<>): Remove non-conforming default
+	for the second parameter.
+	* include/ext/array_allocator.h: Adjust.
+
+	* include/tr1/array (array<>::front, array<>::back): Do not return
+	a reference to memory not belonging to the array when _Nm == 0.
+
+2006-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create): Call
+	_M_set_sharable() for backwards compatibility.
+
 2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
 
         PR libstdc++/29095
