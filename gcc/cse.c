@@ -371,6 +371,11 @@ static int max_uid;
 
 #define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
 
+/* Nonzero if this pass has made changes, and therefore it's
+   worthwhile to run the garbage collector.  */
+
+static int cse_altered;
+
 /* Nonzero if cse has altered conditional jump insns
    in such a way that jump optimization should be redone.  */
 
@@ -598,7 +603,7 @@ static enum rtx_code find_comparison_args (enum rtx_code, rtx *, rtx *,
 					   enum machine_mode *);
 static rtx fold_rtx (rtx, rtx);
 static rtx equiv_constant (rtx);
-static void record_jump_equiv (rtx, bool);
+static void record_jump_equiv (rtx, int);
 static void record_jump_cond (enum rtx_code, enum machine_mode, rtx, rtx,
 			      int);
 static void cse_insn (rtx, rtx);
@@ -3698,8 +3703,8 @@ equiv_constant (rtx x)
   return 0;
 }
 
-/* Given INSN, a jump insn, TAKEN indicates if we are following the
-   "taken" branch.
+/* Given INSN, a jump insn, PATH_TAKEN indicates if we are following the "taken"
+   branch.  It will be zero if not.
 
    In certain cases, this can cause us to add an equivalence.  For example,
    if we are following the taken case of
@@ -3710,7 +3715,7 @@ equiv_constant (rtx x)
    comparison is seen later, we will know its value.  */
 
 static void
-record_jump_equiv (rtx insn, bool taken)
+record_jump_equiv (rtx insn, int taken)
 {
   int cond_known_true;
   rtx op0, op1;
@@ -3720,8 +3725,8 @@ record_jump_equiv (rtx insn, bool taken)
   enum rtx_code code;
 
   /* Ensure this is the right kind of insn.  */
-  gcc_assert (any_condjump_p (insn));
-
+  if (! any_condjump_p (insn))
+    return;
   set = pc_set (insn);
 
   /* See if this jump condition is known true or false.  */
@@ -4946,6 +4951,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* If we made a change, recompute SRC values.  */
       if (src != sets[i].src)
 	{
+	  cse_altered = 1;
 	  do_not_record = 0;
 	  hash_arg_in_memory = 0;
 	  sets[i].src = src;
@@ -5047,7 +5053,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       else if (n_sets == 1 && dest == pc_rtx && src == pc_rtx)
 	{
 	  /* One less use of the label this insn used to jump to.  */
-	  delete_insn_and_edges (insn);
+	  delete_insn (insn);
 	  cse_jumps_altered = 1;
 	  /* No more processing for this set.  */
 	  sets[i].rtl = 0;
@@ -5074,7 +5080,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    {
 	      rtx new, note;
 
-	      new = emit_jump_insn_before (gen_jump (XEXP (src, 0)), insn);
+	      new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
 
@@ -5086,7 +5092,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		  REG_NOTES (new) = note;
 		}
 
-	      delete_insn_and_edges (insn);
+	      delete_insn (insn);
 	      insn = new;
 
 	      /* Now emit a BARRIER after the unconditional jump.  */
@@ -5639,8 +5645,10 @@ cse_insn (rtx insn, rtx libcall_insn)
   /* If this is a conditional jump insn, record any known equivalences due to
      the condition being tested.  */
 
-  if (n_sets == 1 && any_condjump_p (insn))
-    record_jump_equiv (insn, false);
+  if (JUMP_P (insn)
+      && n_sets == 1 && GET_CODE (x) == SET
+      && GET_CODE (SET_SRC (x)) == IF_THEN_ELSE)
+    record_jump_equiv (insn, 0);
 
 #ifdef HAVE_cc0
   /* If the previous insn set CC0 and this insn no longer references CC0,
@@ -5650,7 +5658,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       && (tem = single_set (prev_insn)) != 0
       && SET_DEST (tem) == cc0_rtx
       && ! reg_mentioned_p (cc0_rtx, x))
-    delete_insn_and_edges (prev_insn);
+    delete_insn (prev_insn);
 
   prev_insn_cc0 = this_insn_cc0;
   prev_insn_cc0_mode = this_insn_cc0_mode;
@@ -6018,6 +6026,7 @@ cse_main (rtx f, int nregs)
   insn = f;
   while (insn)
     {
+      cse_altered = 0;
       cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps);
 
       /* If this basic block was already processed or has no sets, skip it.  */
@@ -6063,6 +6072,13 @@ cse_main (rtx f, int nregs)
 
 	  cse_jumps_altered |= old_cse_jumps_altered;
 	}
+
+      if (cse_altered)
+	ggc_collect ();
+
+#ifdef USE_C_ALLOCA
+      alloca (0);
+#endif
     }
 
   /* Clean up.  */
@@ -6124,8 +6140,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	  if (status != PATH_NOT_TAKEN)
 	    {
 	      gcc_assert (status == PATH_TAKEN);
-	      if (any_condjump_p (insn))
-		record_jump_equiv (insn, true);
+	      record_jump_equiv (insn, 1);
 
 	      /* Set the last insn as the jump insn; it doesn't affect cc0.
 		 Then follow this branch.  */

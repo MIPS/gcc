@@ -1,3 +1,75 @@
+2006-11-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29385 (partial)
+	* include/bits/stl_tree.h (_Rb_tree<>::destroy_node): Uglify.
+	(_M_erase, erase(iterator), erase(const_iterator)): Adjust
+
+2006-11-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29385 (partial)
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_lower_bound(_Const_Link_type,
+	_Const_Link_type, const _Key&), _M_upper_bound(_Const_Link_type,
+	_Const_Link_type, const _Key&)): Add.
+	(lower_bound(const key_type&), upper_bound(const key_type&),
+	find(const key_type&)): Call the latter.
+
+2006-11-25  Gawain Bolton  <gp.bolton@computer.org>
+
+	PR libstdc++/29385 (partial)
+	* include/bits/stl_tree.h (_Rb_tree_rotate_left,
+	_Rb_tree_rotate_right): Do not declare.
+	(_Rb_tree<>::_M_insert(_Base_ptr, _Base_ptr, const value_type&),
+	_M_insert(_Const_Base_ptr, _Const_Base_ptr, const value_type&),
+	_M_insert_unique(iterator, const value_type&),
+	_M_insert_unique(const_iterator, const value_type&),
+	_M_insert_equal(iterator, const value_type&),
+	_M_insert_equal(const_iterator, const value_type&)):
+	Remove.
+	(_Rb_tree<>::_M_insert_(_Const_Base_ptr, _Const_Base_ptr,
+	const value_type&), _M_insert_unique_(const_iterator,
+	const value_type&), _M_insert_equal_(const_iterator,
+	const value_type&)): Add, adjust all callers.
+	* include/bits/stl_map.h (map<>::insert(iterator, const value_type&)):
+	Adjust.
+	* include/bits/stl_set.h (set<>::insert(iterator, const value_type&)):
+	Likewise.
+	* include/bits/stl_multimap.h (multimap<>::insert(iterator,
+	const value_type&)): Likewise.
+	* include/bits/stl_multiset.h (multiset<>::insert(iterator,
+	const value_type&)): Likewise.
+
+2006-11-22  Antony King <anthony.king@st.com>
+            J"orn Rennecke <joern.rennecke@st.com>
+
+	PR libstdc++/29920
+	* include/Makefile.am (stamp-host): Remove CCODECVT_H line.
+	* include/Makefile.in: Regenerate.
+
+2006-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/ext/hashtable.h: -Wshadow fixes.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/erase_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/resize_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/pat_trie_/internal_node.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/binary_heap_/split_join_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/ov_tree_map_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* src/mt_allocator.cc: Same.
+	* src/debug.cc: Same.
+	* config/locale/gnu/codecvt_members.cc: Same.
+
+2006-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* src/iostream-inst.cc: Remove iostream include.
+
+2006-11-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional (hash(long long), hash(unsigned long long)):
+	Add specializations.
+
 2006-11-18  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_WRITE_MEM_BARRIER):

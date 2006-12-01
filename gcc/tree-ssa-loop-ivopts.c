@@ -349,7 +349,7 @@ iv_cand (struct ivopts_data *data, unsigned i)
 edge
 single_dom_exit (struct loop *loop)
 {
-  edge exit = loop->single_exit;
+  edge exit = single_exit (loop);
 
   if (!exit)
     return NULL;
@@ -3561,10 +3561,7 @@ get_address_cost (bool symbol_present, bool var_present,
     cost += multiply_by_cost (ratio, Pmode);
 
   if (s_offset && !offset_p && !symbol_present)
-    {
-      cost += add_cost (Pmode);
-      var_present = true;
-    }
+    cost += add_cost (Pmode);
 
   acost = costs[mem_mode][symbol_present][var_present][offset_p][ratio_p];
   return cost + acost;
@@ -5881,10 +5878,10 @@ finish:
   return changed;
 }
 
-/* Main entry point.  Optimizes induction variables in LOOPS.  */
+/* Main entry point.  Optimizes induction variables in loops.  */
 
 void
-tree_ssa_iv_optimize (struct loops *loops)
+tree_ssa_iv_optimize (void)
 {
   struct loop *loop;
   struct ivopts_data data;
@@ -5892,12 +5889,12 @@ tree_ssa_iv_optimize (struct loops *loops)
   tree_ssa_iv_optimize_init (&data);
 
   /* Optimize the loops starting with the innermost ones.  */
-  loop = loops->tree_root;
+  loop = current_loops->tree_root;
   while (loop->inner)
     loop = loop->inner;
 
   /* Scan the loops, inner ones first.  */
-  while (loop != loops->tree_root)
+  while (loop != current_loops->tree_root)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	flow_loop_dump (loop, dump_file, NULL, 1);
