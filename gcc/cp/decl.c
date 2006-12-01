@@ -6026,17 +6026,6 @@ grokfndecl (tree ctype,
 	error ("cannot declare %<::main%> to be inline");
       if (!publicp)
 	error ("cannot declare %<::main%> to be static");
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
-			integer_type_node))
-	{
-	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	  tree newtype;
-	  error ("%<::main%> must return %<int%>");
-	  newtype =  build_function_type (integer_type_node,
-					  oldtypeargs);
-	  TREE_TYPE (decl) = newtype;
-	}
-      check_main_parameter_types (decl);
       inlinep = 0;
       publicp = 1;
     }
@@ -6141,6 +6130,21 @@ grokfndecl (tree ctype,
     {
       cplus_decl_attributes (&decl, *attrlist, 0);
       *attrlist = NULL_TREE;
+    }
+
+  /* Check main's type after attributes have been applied.  */
+  if (ctype == NULL_TREE && DECL_MAIN_P (decl))
+    {
+      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
+			integer_type_node))
+	{
+	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  tree newtype;
+	  error ("%<::main%> must return %<int%>");
+	  newtype = build_function_type (integer_type_node, oldtypeargs);
+	  TREE_TYPE (decl) = newtype;
+	}
+      check_main_parameter_types (decl);
     }
 
   if (ctype != NULL_TREE
@@ -6891,6 +6895,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
+  bool set_no_warning = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
   unsigned_p = declspecs->specs[(int)ds_unsigned];
@@ -7537,9 +7542,16 @@ grokdeclarator (const cp_declarator *declarator,
 	    /* Declaring a function type.
 	       Make sure we have a valid type for the function to return.  */
 
-	    /* We now know that the TYPE_QUALS don't apply to the
-	       decl, but to its return type.  */
-	    type_quals = TYPE_UNQUALIFIED;
+	    if (type_quals != TYPE_UNQUALIFIED)
+	      {
+		if (SCALAR_TYPE_P (type) || VOID_TYPE_P (type))
+		  warning (OPT_Wreturn_type,
+			   "type qualifiers ignored on function return type");
+		/* We now know that the TYPE_QUALS don't apply to the
+		   decl, but to its return type.  */
+		type_quals = TYPE_UNQUALIFIED;
+		set_no_warning = true;
+	      }
 
 	    /* Warn about some types functions can't return.  */
 
@@ -8618,6 +8630,9 @@ grokdeclarator (const cp_declarator *declarator,
        declaration based on the type of DECL.  */
     if (!processing_template_decl)
       cp_apply_type_quals_to_decl (type_quals, decl);
+
+    if (set_no_warning)
+        TREE_NO_WARNING (decl) = 1;
 
     return decl;
   }

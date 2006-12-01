@@ -1,3 +1,64 @@
+2006-12-01  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/29568
+	* gfortran.h (gfc_option_t):  Add max_subrecord_length.
+	(top level): Define MAX_SUBRECORD_LENGTH.
+	* lang.opt:  Add option -fmax-subrecord-length=.
+	* trans-decl.c:  Add new function set_max_subrecord_length.
+	(gfc_generate_function_code): If we are within the main
+	program and max_subrecord_length has been set, call
+	set_max_subrecord_length.
+	* options.c (gfc_init_options):  Add defaults for
+	max_subrecord_lenght, convert and record_marker.
+	(gfc_handle_option):  Add handling for
+	-fmax_subrecord_length.
+	* invoke.texi:  Document the new default for
+	-frecord-marker=<n>.
+
+2006-11-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29976
+	* trans-expr.c (gfc_conv_missing_dummy): Remove build_int_const
+	and replace with cast to type of se->expr of integer_zero_node.
+
+2006-11-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20880
+	* resolve.c (resolve_fl_procedure): Error if procedure is
+	ambiguous modified to require attr.referenced.
+
+2006-11-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29892
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Use a locus in
+	the call to gfc_trans_runtime_check.
+	* trans-array.c (gfc_trans_array_bound_check): Try harder to find
+	the variable or function name for the runtime error message.
+	(gfc_trans_dummy_array_bias): Use a locus in the call to
+	gfc_trans_runtime_check
+
+2006-11-26  Andrew Pinski  <pinskia@gmail.com>
+
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Mark the
+	pow functions as constant functions.
+
+2006-11-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29982
+	* trans-expr.c (gfc_conv_expr_reference): Strip off NOP_EXPRs.
+
+2006-11-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29951
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Change to
+	call memcpy instead of creating a VIEW_CONVERT_EXRP.
+
+2006-11-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29711
+	* error.c (error_print): Handle printf-style position specifiers,
+	of the form "%3$d".
+
 2006-11-24  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/20880

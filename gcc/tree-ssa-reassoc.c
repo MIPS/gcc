@@ -264,7 +264,7 @@ get_rank (tree e)
       int i;
 
       if (TREE_CODE (SSA_NAME_VAR (e)) == PARM_DECL
-	  && e == default_def (SSA_NAME_VAR (e)))
+	  && e == gimple_default_def (cfun, SSA_NAME_VAR (e)))
 	return find_operand_rank (e)->rank;
 
       stmt = SSA_NAME_DEF_STMT (e);
@@ -417,8 +417,8 @@ eliminate_duplicate_pair (enum tree_code opcode,
 			  operand_entry_t last)
 {
 
-  /* If we have two of the same op, and the opcode is & or |, we can
-     eliminate one of them.
+  /* If we have two of the same op, and the opcode is & |, min, or max,
+     we can eliminate one of them.
      If we have two of the same op, and the opcode is ^, we can
      eliminate both of them.  */
 
@@ -426,13 +426,15 @@ eliminate_duplicate_pair (enum tree_code opcode,
     {
       switch (opcode)
 	{
+	case MAX_EXPR:
+	case MIN_EXPR:
 	case BIT_IOR_EXPR:
 	case BIT_AND_EXPR:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Equivalence: ");
 	      print_generic_expr (dump_file, curr->op, 0);
-	      fprintf (dump_file, " [&|] ");
+	      fprintf (dump_file, " [&|minmax] ");
 	      print_generic_expr (dump_file, last->op, 0);
 	      fprintf (dump_file, " -> ");
 	      print_generic_stmt (dump_file, last->op, 0);
@@ -1435,9 +1437,9 @@ init_reassoc (void)
        param;
        param = TREE_CHAIN (param))
     {
-      if (default_def (param) != NULL)
+      if (gimple_default_def (cfun, param) != NULL)
 	{
-	  tree def = default_def (param);
+	  tree def = gimple_default_def (cfun, param);
 	  insert_operand_rank (def, ++rank);
 	}
     }
@@ -1445,7 +1447,7 @@ init_reassoc (void)
   /* Give the chain decl a distinct rank. */
   if (cfun->static_chain_decl != NULL)
     {
-      tree def = default_def (cfun->static_chain_decl);
+      tree def = gimple_default_def (cfun, cfun->static_chain_decl);
       if (def != NULL)
 	insert_operand_rank (def, ++rank);
     }

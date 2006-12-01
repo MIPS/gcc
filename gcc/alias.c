@@ -2151,7 +2151,7 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
     return 1;
 
   /* (mem:BLK (scratch)) is a special mechanism to conflict with everything.
-     This is used in epilogue deallocation functions.  */
+     This is used in epilogue deallocation functions, and in cselib.  */
   if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
@@ -2585,38 +2585,6 @@ init_alias_analysis (void)
   for (i = 0; i < (int)reg_known_value_size; i++)
     if (reg_known_value[i] == 0)
       reg_known_value[i] = regno_reg_rtx[i + FIRST_PSEUDO_REGISTER];
-
-  /* Simplify the reg_base_value array so that no register refers to
-     another register, except to special registers indirectly through
-     ADDRESS expressions.
-
-     In theory this loop can take as long as O(registers^2), but unless
-     there are very long dependency chains it will run in close to linear
-     time.
-
-     This loop may not be needed any longer now that the main loop does
-     a better job at propagating alias information.  */
-  pass = 0;
-  do
-    {
-      changed = 0;
-      pass++;
-      for (ui = 0; ui < maxreg; ui++)
-	{
-	  rtx base = VEC_index (rtx, reg_base_value, ui);
-	  if (base && REG_P (base))
-	    {
-	      unsigned int base_regno = REGNO (base);
-	      if (base_regno == ui)		/* register set from itself */
-		VEC_replace (rtx, reg_base_value, ui, 0);
-	      else
-		VEC_replace (rtx, reg_base_value, ui,
-			     VEC_index (rtx, reg_base_value, base_regno));
-	      changed = 1;
-	    }
-	}
-    }
-  while (changed && pass < MAX_ALIAS_LOOP_PASSES);
 
   /* Clean up.  */
   free (new_reg_base_value);
