@@ -221,7 +221,7 @@ var_element (gfc_data_variable * new)
   if (!sym->attr.function && gfc_current_ns->parent && gfc_current_ns->parent == sym->ns)
     {
       gfc_error ("Host associated variable '%s' may not be in the DATA "
-		 "statement at %C.", sym->name);
+		 "statement at %C", sym->name);
       return MATCH_ERROR;
     }
 
@@ -1170,7 +1170,7 @@ variable_decl (int elem)
 	    {
 	      if (sym->as != NULL)
 		{
-		  gfc_error ("Duplicate array spec for Cray pointee at %C.");
+		  gfc_error ("Duplicate array spec for Cray pointee at %C");
 		  gfc_free_array_spec (cp_as);
 		  m = MATCH_ERROR;
 		  goto cleanup;
@@ -1220,7 +1220,8 @@ variable_decl (int elem)
   if (current_ts.type == BT_DERIVED
 	&& gfc_current_ns->proc_name
 	&& gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
-	&& current_ts.derived->ns != gfc_current_ns)
+	&& current_ts.derived->ns != gfc_current_ns
+	&& !gfc_current_ns->has_import_set)
     {
       gfc_error ("the type of '%s' at %C has not been declared within the "
 		 "interface", name);
@@ -1483,7 +1484,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
 
   if (gfc_match_char (')') != MATCH_YES)
     {
-      gfc_error ("Missing right paren at %C");
+      gfc_error ("Missing right parenthesis at %C");
       goto no_match;
     }
 
@@ -2005,6 +2006,96 @@ error:
   return MATCH_ERROR;
 }
 
+match
+gfc_match_import (void)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  match m;
+  gfc_symbol *sym;
+  gfc_symtree *st;
+
+  if (gfc_current_ns->proc_name == NULL ||
+      gfc_current_ns->proc_name->attr.if_source != IFSRC_IFBODY)
+    {
+      gfc_error ("IMPORT statement at %C only permitted in "
+		 "an INTERFACE body");
+      return MATCH_ERROR;
+    }
+
+  if (gfc_notify_std (GFC_STD_F2003, 
+		      "Fortran 2003: IMPORT statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      /* All host variables should be imported.  */
+      gfc_current_ns->has_import_set = 1;
+      return MATCH_YES;
+    }
+
+  if (gfc_match (" ::") == MATCH_YES)
+    {
+      if (gfc_match_eos () == MATCH_YES)
+        {
+           gfc_error ("Expecting list of named entities at %C");
+           return MATCH_ERROR;
+        }
+    }
+
+  for(;;)
+    {
+      m = gfc_match (" %n", name);
+      switch (m)
+	{
+	case MATCH_YES:
+          if (gfc_find_symbol (name, gfc_current_ns->parent, 1, &sym))
+            {
+               gfc_error ("Type name '%s' at %C is ambiguous", name);
+               return MATCH_ERROR;
+            }
+
+          if (sym == NULL)
+            {
+              gfc_error ("Cannot IMPORT '%s' from host scoping unit "
+                         "at %C - does not exist.", name);
+              return MATCH_ERROR;
+            }
+
+          if (gfc_find_symtree (gfc_current_ns->sym_root,name)) 
+            {
+              gfc_warning ("'%s' is already IMPORTed from host scoping unit "
+                           "at %C.", name);
+              goto next_item;
+            }
+
+          st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
+          st->n.sym = sym;
+          sym->refs++;
+          sym->ns = gfc_current_ns;
+
+	  goto next_item;
+
+	case MATCH_NO:
+	  break;
+
+	case MATCH_ERROR:
+	  return MATCH_ERROR;
+	}
+
+    next_item:
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in IMPORT statement at %C");
+  return MATCH_ERROR;
+}
 
 /* Matches an attribute specification including array specs.  If
    successful, leaves the variables current_attr and current_as
@@ -2369,7 +2460,7 @@ gfc_match_data_decl (void)
       /* Now we have an error, which we signal, and then fix up
 	 because the knock-on is plain and simple confusing.  */
       gfc_error_now ("Derived type at %C has not been previously defined "
-		 "and so cannot appear in a derived type definition.");
+		 "and so cannot appear in a derived type definition");
       current_attr.pointer = 1;
       goto ok;
     }
@@ -3445,12 +3536,12 @@ cray_pointer_decl (void)
 	}
       else if (cptr->ts.type != BT_INTEGER)
 	{
-	  gfc_error ("Cray pointer at %C must be an integer.");
+	  gfc_error ("Cray pointer at %C must be an integer");
 	  return MATCH_ERROR;
 	}
       else if (cptr->ts.kind < gfc_index_integer_kind)
 	gfc_warning ("Cray pointer at %C has %d bytes of precision;"
-		     " memory addresses require %d bytes.",
+		     " memory addresses require %d bytes",
 		     cptr->ts.kind,
 		     gfc_index_integer_kind);
 
@@ -3499,7 +3590,7 @@ cray_pointer_decl (void)
 	}
       else if (as != NULL)
 	{
-	  gfc_error ("Duplicate array spec for Cray pointee at %C.");
+	  gfc_error ("Duplicate array spec for Cray pointee at %C");
 	  gfc_free_array_spec (as);
 	  return MATCH_ERROR;
 	}
@@ -3597,7 +3688,7 @@ gfc_match_pointer (void)
       if (!gfc_option.flag_cray_pointer)
 	{
 	  gfc_error ("Cray pointer declaration at %C requires -fcray-pointer"
-		     " flag.");
+		     " flag");
 	  return MATCH_ERROR;
 	}
       return cray_pointer_decl ();

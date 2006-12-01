@@ -1,3 +1,149 @@
+2006-11-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24285
+	* io.c (check_format): Allow dollars everywhere in format, and
+	issue a warning.
+
+2006-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h (gfc_add_intrinsic_modules_path,
+	gfc_open_intrinsic_module): New prototypes.
+	(gfc_add_include_path, gfc_open_included_file): Update prototypes.
+	* lang.opt: Add -fintrinsic-modules-path option.
+	* module.c (gfc_match_use): Match the Fortran 2003 form of
+	USE statement.
+	(gfc_use_module): Also handle intrinsic modules. 
+	* scanner.c (gfc_directorylist): Add use_for_modules for field.
+	(intrinsic_modules_dirs): New static variable.
+	(add_path_to_list, gfc_add_intrinsic_modules_path): New functions.
+	(gfc_add_include_path): Use the new add_path_to_list helper
+	function.
+	(gfc_release_include_path): Free memory for intrinsic_modules_dirs.
+	(open_included_file, gfc_open_intrinsic_module): New functions.
+	(gfc_open_included_file): Use the new open_included_file
+	helper function.
+	* lang-specs.h: Use the new -fintrinsic-modules-path option.
+	* parse.c (decode_statement): Do not match the required space
+	after USE here.
+	* options.c (gfc_handle_option): Handle the new option. Use new
+	prototype for gfc_add_include_path.
+	(gfc_post_options): Use new prototype for gfc_add_include_path.
+
+2006-11-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29391
+	PR fortran/29489
+	* simplify.c (simplify_bound): Fix the simplification of
+	LBOUND/UBOUND intrinsics.
+	* trans-intrinsic.c (simplify_bound): Fix the logic, and
+	remove an erroneous assert.
+
+2006-11-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu,org>
+
+	* trans-decl.c (gfc_get_symbol_decl): Fix formatting.
+
+2006-11-15  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* data.c: Remove trailing periods from error messages.
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* io.c: Likewise.
+	* match.c: Likewise.
+	* module.c: Likewise.
+	* options.c: Likewise.
+	* resolve.c: Likewise.
+	* symbol.c: Likewise.
+	* trans-io.c: Likewise.
+
+2006-11-15  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Rearrange entries back into ASCII order.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	* parse.c (parse_contained): Fix indention
+	  of one line.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27546
+	* decl.c (gfc_match_import,variable_decl):
+	  Add IMPORT support.
+	  (gfc_match_kind_spec): Fix typo in gfc_error.
+	* gfortran.h (gfc_namespace, gfc_statement):
+	  Add IMPORT support.
+	* parse.c (decode_statement,gfc_ascii_statement,
+	  verify_st_order): Add IMPORT support.
+	* match.h: Add gfc_match_import.
+	* gfortran.texi: Add IMPORT to the supported
+	  Fortran 2003 features.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/27588
+	* trans-expr.c (gfc_conv_substring): Add bounds checking.
+	  (gfc_conv_variable, gfc_conv_substring_expr): Pass more
+	  arguments to gfc_conv_substring.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29806
+	* parse.c (parse_contained): Check for empty contains statement.
+
+2006-11-15  Bud Davis <bdavis9659@sbcglobal.net>
+
+	PR fortran/28974
+	* gfortran.h (gfc_expr): Add element which holds a splay-tree
+	for the exclusive purpose of quick access to a constructor by
+	offset.
+	* data.c (find_con_by_offset): Use the splay tree for the search.
+	(gfc_assign_data_value): Use the splay tree.
+	(gfc_assign_data_value_range): ditto.
+	* expr.c (gfc_get_expr): Initialize new element to null.
+	(gfc_free_expr): Delete splay tree when deleting gfc_expr.
+
+2006-11-14  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/29702
+	* error.c (show_loci): Move column-offset calculation to
+	show_locus.
+	(show_locus): Remove blank lines before "Included in"
+	lines, clean up code, calculate column-offsets, print
+	column number is error-header lines as appropriate.
+	(error_integer): (new function) Print integer to error
+	buffer.
+	(error_print): Use error_integer, avoid possible buffer
+	overflows from buggy error formats.
+
+2006-11-14  Brooks Moses  <brooks.moses@codesourcery.com>
+ 
+ 	* gfortran.h (GFC_MAX_LINE): Remove constant definition.
+ 	(gfc_option_t): Clarify comments.
+ 	* options.c: Set default line length limits to actual default
+ 	values, rather than flag values.
+ 	* scanner.c: Eliminate checking and handling of the
+ 	fixed/free_line_length flag values.
+
+2006-11-14  Brooks Moses  <brooks.moses@codesourcery.com>
+ 
+ 	* lang.opt: Remove -fno-backend option.
+ 	* gfortran.h (gfc_option_t): Remove flag_no_backend.
+ 	* options.c (gfc_init_options): Remove flag_no_backend.
+ 	(gfc_handle_option): Remove -fno-backend option handler.
+ 	* parse.c (gfc_parse_file): Remove references to
+ 	gfc_option.flag_no_backend.
+
+2006-11-14  Tobias Burnus  <burnus@net-b.de>
+
+	* match.c (gfc_match_namelist): Add missing space to
+	  error message.
+
+2006-11-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29657
+	* symbol.c (check_conflict): Add further conflicts.
+
 2006-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/29759

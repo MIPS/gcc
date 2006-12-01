@@ -13090,6 +13090,9 @@ fold_indirect_ref_1 (tree type, tree op0)
     {
       tree op = TREE_OPERAND (sub, 0);
       tree optype = TREE_TYPE (op);
+      /* *&CONST_DECL -> to the value of the const decl.  */
+      if (TREE_CODE (op) == CONST_DECL)
+	return DECL_INITIAL (op);
       /* *&p => p;  make sure to handle *&"str"[cst] here.  */
       if (type == optype)
 	{
@@ -13420,15 +13423,46 @@ fold_strip_sign_ops (tree exp)
 			    arg1 ? arg1 : TREE_OPERAND (exp, 1));
       break;
 
+    case COMPOUND_EXPR:
+      arg0 = TREE_OPERAND (exp, 0);
+      arg1 = fold_strip_sign_ops (TREE_OPERAND (exp, 1));
+      if (arg1)
+	return fold_build2 (COMPOUND_EXPR, TREE_TYPE (exp), arg0, arg1);
+      break;
+      
+    case COND_EXPR:
+      arg0 = fold_strip_sign_ops (TREE_OPERAND (exp, 1));
+      arg1 = fold_strip_sign_ops (TREE_OPERAND (exp, 2));
+      if (arg0 || arg1)
+	return fold_build3 (COND_EXPR, TREE_TYPE (exp), TREE_OPERAND (exp, 0),
+			    arg0 ? arg0 : TREE_OPERAND (exp, 1),
+			    arg1 ? arg1 : TREE_OPERAND (exp, 2));
+      break;
+      
     case CALL_EXPR:
-      /* Strip sign ops from the argument of "odd" math functions.  */
-      if (negate_mathfn_p (builtin_mathfn_code (exp)))
-        {
-	  arg0 = fold_strip_sign_ops (TREE_VALUE (TREE_OPERAND (exp, 1)));
-	  if (arg0)
-	    return build_function_call_expr (get_callee_fndecl (exp),
-					     build_tree_list (NULL_TREE, arg0));
+      {
+	const enum built_in_function fcode = builtin_mathfn_code (exp);
+	switch (fcode)
+	{
+	CASE_FLT_FN (BUILT_IN_COPYSIGN):
+	  /* Strip copysign function call, return the 1st argument. */
+	  arg0 = TREE_VALUE (TREE_OPERAND (exp, 1));
+	  arg1 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (exp, 1)));
+	  return omit_one_operand (TREE_TYPE (exp), arg0, arg1);
+
+	default:
+	  /* Strip sign ops from the argument of "odd" math functions.  */
+	  if (negate_mathfn_p (fcode))
+            {
+	      arg0 = fold_strip_sign_ops (TREE_VALUE (TREE_OPERAND (exp, 1)));
+	      if (arg0)
+		return build_function_call_expr (get_callee_fndecl (exp),
+						 build_tree_list (NULL_TREE,
+								  arg0));
+	    }
+	  break;
 	}
+      }
       break;
 
     default:

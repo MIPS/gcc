@@ -1,3 +1,143 @@
+2006-11-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-27.c: Fix initialization.
+
+2006-11-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add fmin/fmax cases.
+	* gcc.dg/torture/builtin-minmax-1.c: New.
+
+	* gcc.dg/builtins-20.c: Add cases for copysign.
+
+2006-11-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24285
+	* gfortran.dg/dollar_edit_descriptor-3.f: New test.
+
+2006-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	* gfortran.dg/use_1.f90: New test.
+	* gfortran.dg/use_1.f90: New test.
+	* gfortran.dg/use_1.f90: New test.
+
+2006-11-17  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29801
+	* gcc.dg/pr29801.c: New test.
+
+2006-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/29584
+	* gcc.dg/torture/pr29584.c: New test.
+
+2006-11-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/tree-ssa/stdarg-2.c, gcc.dg/tree-ssa/stdarg-4.c:
+	Condition PowerPC tests for saving FPRs on powerpc_fprs.
+	* gcc.target/powerpc/compress-float-ppc.c,
+	gcc.target/powerpc/compress-float-ppc-pic.c: Only test if
+	powerpc_fprs.
+	* gcc.target/powerpc/rs6000-power2-2.c: Only test if powerpc_fprs;
+	do not pass -mhard-float.
+
+2006-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/volatile_aggregate.adb: New test.
+
+2006-11-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29391
+	PR fortran/29489
+	* gcc/testsuite/gfortran.dg/bound_2.f90: Add more checks.
+	* gcc/testsuite/gfortran.dg/bound_3.f90: New test.
+
+2006-11-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR target/29201
+	* gcc.c-torture/compile/pr29201.c: New test for ia64 target.
+
+2006-11-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/import3.f90: Fix error message.
+
+2006-11-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29788
+	* gfortran.fortran-torture/compile/inline_1.f90:
+	New testcase.
+
+2006-11-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/x87regparm-1.c: New test.
+	* gcc.target/i386/x87regparm-2.c: New test.
+	* gcc.target/i386/x87regparm-3.c: New test.
+	* gcc.target/i386/x87regparm-4.c: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27546
+	* gfortran.dg/import.f90: New test.
+	* gfortran.dg/import2.f90: New test.
+	* gfortran.dg/import3.f90: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27588
+	* gfortran.dg/char_bounds_check_fail_1.f90: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29806
+	* gfortran.dg/contains.f90: New test.
+	* gfortran.dg/derived_function_interface_1.f90: Add a dg-warning.
+
+2006-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29581
+	* gcc.dg/pr29581-1.c: New test.
+	* gcc.dg/pr29581-2.c: New test.
+	* gcc.dg/pr29581-3.c: New test.
+	* gcc.dg/pr29581-4.c: New test.
+	* gfortran.dg/pr29581.f90: New test.
+
+2006-11-14  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/29702
+	* lib/gfortran-dg.exp (gfortran-dg-test): Ignore column
+	numbers in error message headers.
+
+2006-11-14  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/math-torture/math-torture.exp: Restrict
+	to i?86 and x86_64 targets.
+
+2006-11-14  Caroline Tice  <ctice@apple.com>
+
+	* gcc.dg/pubtypes-1.c: New file/testcase.
+	* gcc.dg/pubtypes-2.c: New file/testcase.
+	* gcc.dg/pubtypes-3.c: New file/testcase.
+	* gcc.dg/pubtypes-4.c: New file/testcase.
+	* g++.dg/pubtypes.C: New file/testcase.
+
+2006-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29106
+	* g++.dg/init/self1.C: New test.
+
+2006-11-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29657
+	* gfortran.dg/conflicts.f90: Add.
+
+2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/29798
+
+	* gcc.c-torture/execute/pr29798.c: New.
+
+2006-11-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases.
+
 2006-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/29759

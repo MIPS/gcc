@@ -2223,6 +2223,11 @@
     case 0:
       return \"evmergehi %0,%1,%1\;mr %L0,%1\";
     case 1:
+      /* If the address is not offsettable we need to load the whole
+	 doubleword into a 64-bit register and then copy the high word
+	 to form the correct output layout.  */
+      if (!offsettable_nonstrict_memref_p (operands[1]))
+	return \"evldd%X1 %L0,%y1\;evmergehi %0,%L0,%L0\";
       /* If the low-address word is used in the address, we must load
 	it last.  Otherwise, load it first.  Note that we cannot have
 	auto-increment in that case since the address register is
@@ -2387,15 +2392,16 @@
   "{ rs6000_emit_move (operands[0], operands[1], V4HImode); DONE; }")
 
 (define_insn "*movv4hi_internal"
-  [(set (match_operand:V4HI 0 "nonimmediate_operand" "=m,r,r")
-	(match_operand:V4HI 1 "input_operand" "r,m,r"))]
+  [(set (match_operand:V4HI 0 "nonimmediate_operand" "=m,r,r,r")
+	(match_operand:V4HI 1 "input_operand" "r,m,r,W"))]
   "TARGET_SPE
    && (gpc_reg_operand (operands[0], V4HImode)
        || gpc_reg_operand (operands[1], V4HImode))"
   "@
    evstdd%X0 %1,%y0
    evldd%X1 %0,%y1
-   evor %0,%1,%1"
+   evor %0,%1,%1
+   evxor %0,%0,%0"
   [(set_attr "type" "vecload")])
 
 (define_expand "movv2sf"

@@ -137,6 +137,7 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+#define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
 #define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
 #define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
 #define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
@@ -403,6 +404,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__tune_pentium4__");			\
       else if (TARGET_NOCONA)					\
 	builtin_define ("__tune_nocona__");			\
+      else if (TARGET_CORE2)					\
+	builtin_define ("__tune_core2__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -483,6 +486,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define ("__nocona");				\
 	  builtin_define ("__nocona__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_CORE2)			\
+	{							\
+	  builtin_define ("__core2");				\
+	  builtin_define ("__core2__");				\
+	}							\
     }								\
   while (0)
 
@@ -504,14 +512,15 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_CPU_DEFAULT_pentium_m 15
 #define TARGET_CPU_DEFAULT_prescott 16
 #define TARGET_CPU_DEFAULT_nocona 17
-#define TARGET_CPU_DEFAULT_generic 18
+#define TARGET_CPU_DEFAULT_core2 18
+#define TARGET_CPU_DEFAULT_generic 19
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
                                   "pentium4", "geode", "k6", "k6-2", "k6-3", \
 				  "athlon", "athlon-4", "k8", \
 				  "pentium-m", "prescott", "nocona", \
-				  "generic"}
+				  "core2", "generic"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -1428,19 +1437,21 @@ enum reg_class
    such as FUNCTION_ARG to determine where the next arg should go.  */
 
 typedef struct ix86_args {
-  int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int words;			/* # words passed so far */
   int fastcall;			/* fastcall calling convention is used */
-  int sse_words;		/* # sse words passed so far */
+  int x87_nregs;		/* # x87 registers available for passing */
+  int x87_regno;		/* # next available x87 register number */
   int sse_nregs;		/* # sse registers available for passing */
-  int warn_sse;			/* True when we want to warn about SSE ABI.  */
-  int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int sse_regno;		/* next available sse register number */
-  int mmx_words;		/* # mmx words passed so far */
+  int warn_sse;			/* True when we want to warn about SSE ABI.  */
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
+  int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
+  int float_in_x87;		/* 1 if floating point arguments should
+				   be passed in 80387 registere.  */
   int float_in_sse;		/* 1 if in 32-bit mode SFmode (2 for DFmode) should
 				   be passed in SSE registers.  Otherwise 0.  */
 } CUMULATIVE_ARGS;
@@ -1726,6 +1737,8 @@ do {							\
    3 registers to be passed in registers.  */
 
 #define REGPARM_MAX (TARGET_64BIT ? 6 : 3)
+
+#define X87_REGPARM_MAX 3
 
 #define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_SSE ? 3 : 0))
 
@@ -2069,6 +2082,7 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+  PROCESSOR_CORE2,
   PROCESSOR_GENERIC32,
   PROCESSOR_GENERIC64,
   PROCESSOR_max

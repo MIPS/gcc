@@ -46,8 +46,8 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
-  gfc_option.fixed_line_length = -1;
-  gfc_option.free_line_length = -1;
+  gfc_option.fixed_line_length = 72;
+  gfc_option.free_line_length = 132;
   gfc_option.max_continue_fixed = 19;
   gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
@@ -73,7 +73,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
-  gfc_option.flag_no_backend = 0;
   gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
@@ -218,10 +217,10 @@ gfc_post_options (const char **pfilename)
       source_path = alloca (i + 1);
       memcpy (source_path, canon_source_file, i);
       source_path[i] = 0;
-      gfc_add_include_path (source_path);
+      gfc_add_include_path (source_path, true);
     }
   else
-    gfc_add_include_path (".");
+    gfc_add_include_path (".", true);
 
   if (canon_source_file != gfc_source_file)
     gfc_free ((void *) canon_source_file);
@@ -237,7 +236,7 @@ gfc_post_options (const char **pfilename)
       if (gfc_current_form == FORM_UNKNOWN)
 	{
 	  gfc_current_form = FORM_FREE;
-	  gfc_warning_now ("Reading file '%s' as free form.", 
+	  gfc_warning_now ("Reading file '%s' as free form", 
 			   (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
@@ -248,10 +247,10 @@ gfc_post_options (const char **pfilename)
     {
       if (gfc_option.flag_d_lines == 0)
 	gfc_warning_now ("'-fd-lines-as-comments' has no effect "
-			 "in free form.");
+			 "in free form");
       else if (gfc_option.flag_d_lines == 1)
 	gfc_warning_now ("'-fd-lines-as-code' has no effect "
-			 "in free form.");
+			 "in free form");
     }
 
   flag_inline_trees = 1;
@@ -512,16 +511,17 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_implicit_none = value;
       break;
 
+    case OPT_fintrinsic_modules_path:
+      gfc_add_include_path (arg, false);
+      gfc_add_intrinsic_modules_path (arg);
+      break;
+
     case OPT_fmax_errors_:
       gfc_option.max_errors = value;
       break;
 
     case OPT_fmax_stack_var_size_:
       gfc_option.flag_max_stack_var_size = value;
-      break;
-
-    case OPT_fno_backend:
-      gfc_option.flag_no_backend = value;
       break;
 
     case OPT_frange_check:
@@ -560,7 +560,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_I:
-      gfc_add_include_path (arg);
+      gfc_add_include_path (arg, true);
       break;
 
     case OPT_J:

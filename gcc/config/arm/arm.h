@@ -479,6 +479,7 @@ extern int arm_cpp_interwork;
 
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
    ((TREE_CODE (EXP) == STRING_CST				\
+     && !optimize_size						\
      && (ALIGN) < BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR)	\
     ? BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR : (ALIGN))
 
@@ -1480,8 +1481,9 @@ typedef struct
    (TYPE is null for libcalls where that information may not be available.)  */
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (CUM).nargs += 1;					\
-  if (arm_vector_mode_supported_p (MODE)	       	\
-      && (CUM).named_count > (CUM).nargs)		\
+  if (arm_vector_mode_supported_p (MODE)		\
+      && (CUM).named_count > (CUM).nargs		\
+      && TARGET_IWMMXT_ABI)				\
     (CUM).iwmmxt_nregs += 1;				\
   else							\
     (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)
@@ -2090,7 +2092,7 @@ do {							\
 /* Try to generate sequences that don't involve branches, we can then use
    conditional instructions */
 #define BRANCH_COST \
-  (TARGET_ARM ? 4 : (optimize > 1 ? 1 : 0))
+  (TARGET_ARM ? 4 : (optimize > 0 ? 2 : 0))
 
 /* Position Independent Code.  */
 /* We decide which register to use based on the compilation options and

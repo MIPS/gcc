@@ -33,7 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "intl.h"
 #include "coretypes.h"
 #include "input.h"
-
+#include "splay-tree.h"
 /* The following ifdefs are recommended by the autoconf documentation
    for any code using alloca.  */
 
@@ -55,8 +55,7 @@ char *alloca ();
 
 /* Major control parameters.  */
 
-#define GFC_MAX_SYMBOL_LEN 63
-#define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
+#define GFC_MAX_SYMBOL_LEN 63   /* Must be at least 63 for F2003.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
 
@@ -222,7 +221,7 @@ typedef enum
   ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
   ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
   ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION, ST_GOTO,
-  ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_INQUIRE, ST_INTERFACE,
+  ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_IMPORT, ST_INQUIRE, ST_INTERFACE,
   ST_PARAMETER, ST_MODULE, ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN,
   ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND,
   ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE,
@@ -1008,6 +1007,9 @@ typedef struct gfc_namespace
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
+
+  /* Set to 1 if namespace is an interface body with "IMPORT" used.  */
+  int has_import_set;
 }
 gfc_namespace;
 
@@ -1246,6 +1248,8 @@ typedef struct gfc_expr
   /* True if the expression is a call to a function that returns an array,
      and if we have decided not to allocate temporary data for that array.  */
   unsigned int inline_noncopying_intrinsic : 1;
+  /* Used to quickly find a given constructor by it's offset.  */
+  splay_tree con_by_offset;
 
   union
   {
@@ -1602,20 +1606,16 @@ typedef struct
 {
   char *module_dir;
   gfc_source_form source_form;
-  /* When fixed_line_length or free_line_length are 0, the whole line is used.
-
-     Default is -1, the maximum line length mandated by the respective source
-     form is used:
-     for FORM_FREE GFC_MAX_LINE (132)
-     else 72.
-
-     If fixed_line_length or free_line_length is not 0 nor -1 then the user has
-     requested a specific line-length.
+  /* Maximum line lengths in fixed- and free-form source, respectively.
+     When fixed_line_length or free_line_length are 0, the whole line is used,
+     regardless of length.
 
      If the user requests a fixed_line_length <7 then gfc_init_options()
      emits a fatal error.  */
-  int fixed_line_length; /* maximum line length in fixed-form.  */
-  int free_line_length; /* maximum line length in free-form.  */
+  int fixed_line_length;
+  int free_line_length;
+  /* Maximum number of continuation lines in fixed- and free-form source,
+     respectively.  */
   int max_continue_fixed;
   int max_continue_free;
   int max_identifier_length;
@@ -1640,7 +1640,6 @@ typedef struct
   int flag_second_underscore;
   int flag_implicit_none;
   int flag_max_stack_var_size;
-  int flag_no_backend;
   int flag_range_check;
   int flag_pack_derived;
   int flag_repack_arrays;
@@ -1710,9 +1709,11 @@ void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 void gfc_scanner_done_1 (void);
 void gfc_scanner_init_1 (void);
 
-void gfc_add_include_path (const char *);
+void gfc_add_include_path (const char *, bool);
+void gfc_add_intrinsic_modules_path (const char *);
 void gfc_release_include_path (void);
-FILE *gfc_open_included_file (const char *, bool);
+FILE *gfc_open_included_file (const char *, bool, bool);
+FILE *gfc_open_intrinsic_module (const char *);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);

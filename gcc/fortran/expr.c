@@ -39,7 +39,7 @@ gfc_get_expr (void)
   e->shape = NULL;
   e->ref = NULL;
   e->symtree = NULL;
-
+  e->con_by_offset = NULL;
   return e;
 }
 
@@ -226,7 +226,8 @@ gfc_free_expr (gfc_expr * e)
 
   if (e == NULL)
     return;
-
+  if (e->con_by_offset)
+    splay_tree_delete (e->con_by_offset); 
   free_expr0 (e);
   gfc_free (e);
 }
@@ -2264,7 +2265,7 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
        && lvalue->ref->u.ar.as->cp_was_assumed)
      {
        gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
-		  " is illegal.", &lvalue->where);
+		  " is illegal", &lvalue->where);
        return FAILURE;
      }
 

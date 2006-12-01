@@ -51,12 +51,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 typedef struct gfc_directorylist
 {
   char *path;
+  bool use_for_modules;
   struct gfc_directorylist *next;
 }
 gfc_directorylist;
 
 /* List of include file search directories.  */
-static gfc_directorylist *include_dirs;
+static gfc_directorylist *include_dirs, *intrinsic_modules_dirs;
 
 static gfc_file *file_head, *current_file;
 
@@ -118,22 +119,21 @@ gfc_scanner_done_1 (void)
 
 /* Adds path to the list pointed to by list.  */
 
-void
-gfc_add_include_path (const char *path)
+static void
+add_path_to_list (gfc_directorylist **list, const char *path,
+		  bool use_for_modules)
 {
   gfc_directorylist *dir;
   const char *p;
 
   p = path;
-  while (*p == ' ' || *p == '\t')  /* someone might do 'gfortran "-I include"' */
+  while (*p == ' ' || *p == '\t')  /* someone might do "-I include" */
     if (*p++ == '\0')
       return;
 
-  dir = include_dirs;
+  dir = *list;
   if (!dir)
-    {
-      dir = include_dirs = gfc_getmem (sizeof (gfc_directorylist));
-    }
+    dir = *list = gfc_getmem (sizeof (gfc_directorylist));
   else
     {
       while (dir->next)
@@ -144,9 +144,24 @@ gfc_add_include_path (const char *path)
     }
 
   dir->next = NULL;
+  dir->use_for_modules = use_for_modules;
   dir->path = gfc_getmem (strlen (p) + 2);
   strcpy (dir->path, p);
   strcat (dir->path, "/");	/* make '/' last character */
+}
+
+
+void
+gfc_add_include_path (const char *path, bool use_for_modules)
+{
+  add_path_to_list (&include_dirs, path, use_for_modules);
+}
+
+
+void
+gfc_add_intrinsic_modules_path (const char *path)
+{
+  add_path_to_list (&intrinsic_modules_dirs, path, true);
 }
 
 
@@ -165,28 +180,30 @@ gfc_release_include_path (void)
       gfc_free (p->path);
       gfc_free (p);
     }
+
+  gfc_free (gfc_option.module_dir);
+  while (intrinsic_modules_dirs != NULL)
+    {
+      p = intrinsic_modules_dirs;
+      intrinsic_modules_dirs = intrinsic_modules_dirs->next;
+      gfc_free (p->path);
+      gfc_free (p);
+    }
 }
 
-/* Opens file for reading, searching through the include directories
-   given if necessary.  If the include_cwd argument is true, we try
-   to open the file in the current directory first.  */
 
-FILE *
-gfc_open_included_file (const char *name, const bool include_cwd)
+static FILE *
+open_included_file (const char *name, gfc_directorylist *list, bool module)
 {
   char *fullname;
   gfc_directorylist *p;
   FILE *f;
 
-  if (include_cwd)
+  for (p = list; p; p = p->next)
     {
-      f = gfc_open_file (name);
-      if (f != NULL)
-	return f;
-    }
+      if (module && !p->use_for_modules)
+	continue;
 
-  for (p = include_dirs; p; p = p->next)
-    {
       fullname = (char *) alloca(strlen (p->path) + strlen (name) + 1);
       strcpy (fullname, p->path);
       strcat (fullname, name);
@@ -197,6 +214,32 @@ gfc_open_included_file (const char *name, const bool include_cwd)
     }
 
   return NULL;
+}
+
+
+/* Opens file for reading, searching through the include directories
+   given if necessary.  If the include_cwd argument is true, we try
+   to open the file in the current directory first.  */
+
+FILE *
+gfc_open_included_file (const char *name, bool include_cwd, bool module)
+{
+  FILE *f;
+
+  if (include_cwd)
+    {
+      f = gfc_open_file (name);
+      if (f != NULL)
+	return f;
+    }
+
+  return open_included_file (name, include_dirs, module);
+}
+
+FILE *
+gfc_open_intrinsic_module (const char *name)
+{
+  return open_included_file (name, intrinsic_modules_dirs, true);
 }
 
 /* Test to see if we're at the end of the main source file.  */
@@ -956,33 +999,25 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
   int seen_printable = 0, seen_ampersand = 0;
   char *buffer;
 
-  /* Determine the maximum allowed line length.
-     The default for free-form is GFC_MAX_LINE, for fixed-form or for
-     unknown form it is 72. Refer to the documentation in gfc_option_t.  */
+  /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
-    {
-      if (gfc_option.free_line_length == -1)
-	maxlen = GFC_MAX_LINE;
-      else
-	maxlen = gfc_option.free_line_length;
-    }
+    maxlen = gfc_option.free_line_length;
   else if (gfc_current_form == FORM_FIXED)
-    {
-      if (gfc_option.fixed_line_length == -1)
-	maxlen = 72;
-      else
-	maxlen = gfc_option.fixed_line_length;
-    }
+    maxlen = gfc_option.fixed_line_length;
   else
     maxlen = 72;
 
   if (*pbuf == NULL)
     {
-      /* Allocate the line buffer, storing its length into buflen.  */
+      /* Allocate the line buffer, storing its length into buflen.
+	 Note that if maxlen==0, indicating that arbitrary-length lines
+	 are allowed, the buffer will be reallocated if this length is
+	 insufficient; since 132 characters is the length of a standard
+	 free-form line, we use that as a starting guess.  */
       if (maxlen > 0)
 	buflen = maxlen;
       else
-	buflen = GFC_MAX_LINE;
+	buflen = 132;
 
       *pbuf = gfc_getmem (buflen + 1);
     }
@@ -1401,7 +1436,7 @@ load_file (const char *filename, bool initial)
     }
   else
     {
-      input = gfc_open_included_file (filename, false);
+      input = gfc_open_included_file (filename, false, false);
       if (input == NULL)
 	{
 	  gfc_error_now ("Can't open included file '%s'", filename);
