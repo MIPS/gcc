@@ -1,3 +1,15 @@
+2006-12-01  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	* gcc.dg/dfp/convert-int-max.c: New test.
+	* gcc.dg/dfp/convert-int-max-fold.c: New test.
+
+	* gcc.dg/dfp/convert-int.c: Remove dg-do compile, fix comment.
+
+	* gcc.dg/dfp/convert-bfp.c: Skip long double conversions.
+
+	* gcc.dg/dfp/snan.c: Delete.
+
 2006-11-29  Lee Millward  <lee.millward@codesourcery.com>
 
 	PR c++/29022

@@ -1,5 +1,15 @@
-2006-09-26  Janis Johnson  <janis187@us.ibm.com>
+2006-12-01  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline:
+	* decRound.c: Move declarations to new file, update comments.
+	* decRound.h: New file.
+
+	* decLibrary.c (__dec_type_swap): Add prototype.
+	(__dfp_enable_traps, dfp_raise): Delete.
+
+	* Makefile.in: Don't include decRound in library used by compiler.
+
+2006-09-26  Janis Johnson  <janis187@us.ibm.com>
 	Backport from mainline:
 
 	2006-09-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
