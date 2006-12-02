@@ -1071,7 +1071,7 @@ find_def_blocks_for (tree var)
 static inline tree
 get_default_def_for (tree sym)
 {
-  tree ddef = default_def (sym);
+  tree ddef = gimple_default_def (cfun, sym);
 
   if (ddef == NULL_TREE)
     {
@@ -2119,7 +2119,7 @@ rewrite_into_ssa (void)
   sbitmap_free (interesting_blocks);
 
   timevar_pop (TV_TREE_SSA_OTHER);
-  cfun->ssa->x_in_ssa_p = true;
+  cfun->gimple_df->in_ssa_p = true;
   return 0;
 }
 

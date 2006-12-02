@@ -1,3 +1,321 @@
+2006-11-30  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/30028
+	* builtins.c (fold_builtin_memory_op): Fix typo in the check for
+	memmove/bcopy->memcpy conversion.
+
+2006-11-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* doc/tm.texi (MAX_OFILE_ALIGNMENT): Document default.
+	* config/elfos.h [!MAX_OFILE_ALIGNMENT] (MAX_OFILE_ALIGNMENT): 
+	Default is the largest alignment supported for 32-bit ELF and 
+	representable on a 32-bit host.
+
+2006-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/dfp-bit.c (DFP_TO_INT): Use wider precision.
+
+2006-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-operands.h (struct ssa_operands): New.
+	* tree-flow-inline.h (gimple_ssa_operands): New function.
+	* tree-flow.h: (struct gimple_df): Add ssa_operands.
+	* Makefile.in: Remove gt-tree-ssa-operands.h
+	* tree-ssa-operands.c: Do not include gt-tree-ssa-operands.h
+	(free_defs, free_uses, free_vuses, free_maydefs, free_mustdefs,
+	operand_memory, operand_memory_index, ops_active): Remove statics.
+	(ALLOC_OPTYPE): Update.
+	(operand_build_sort_virtual): Update.
+	(ssa_operands_active): Update.
+	(init_ssa_operands): Update.
+	(fini_ssa_operands): Update.
+	(ssa_operand_alloc): Update.
+	(INITIALIZE_USE): Update.
+	(finalize_ssa_use_ops): Update.
+	(finalize_ssa_v_may_def_ops): Update.
+	(finalize_ssa_vuse_ops): Update.
+	(finalize_ssa_v_must_def_ops): Update.
+
+2006-11-30  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vectorizer.h (vectorizable_function): Export.
+	* tree-vect-transform.c (vectorizable_function): Likewise.
+        * tree-vect-patterns.c (vect_recog_pow_pattern): Set
+        type_in to scalar type in recognition of squaring.
+	Make sure the target can vectorize sqrt in recognition
+	of sqrt, set type_in to vector type in this case.
+
+2006-11-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (R10_REG): New constant.
+	* config/i386/i386.c (pro_epilogue_adjust_stack): Use R11_REG.
+	(ix86_emit_restore_regs_using_mov): Ditto.
+	(ix86_expand_call): Ditto.
+	(x86_output_mi_thunk): Ditto. Also use R10_REG.
+
+2006-11-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cselib.c (cselib_init): Use special MEM rtx form for callmem.
+	* alias.c (canon_true_dependence): Update comment.
+
+2006-11-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Add a newline
+	at the end of a diagnostics message.
+
+	* alloc-pool.c (pool_free): Postpone clearing the pool entry
+	until after asserting that it was allocated in the right pool.
+
+	* cfgrtl.c (print_rtl_with_bb): Print predecessor and
+	successor edge information as well.  Make output of live regs
+	on exit consistent with live regs on entry.
+
+2006-11-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/29852
+	* config/i386/i386.md (*truncxfsf2_mixed, *truncxfdf2_mixed): Enable
+	insn patterns for TARGET_80387.
+	(*truncxfsf2_i387, *truncxfdf2_i387): Remove.
+	(*truncxfsf2_i387_1): Rename to *truncxfsf2_i387.
+	(*truncxfdf2_i387_1): Rename to *truncxfdf2_i387.
+	(fmod<mode>3, remainder<mode>3): Enable expaders for SSE math.
+	Generate truncxf<mode>2 insn patterns for strict SSE math.
+
+2006-11-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (movsf_1): Enable pattern for standard
+	80387 constants before reload when optimizing for size.
+	(*movdf_nointeger, *movdf_integer): Ditto.
+	(*movxf_nointeger, *movxf_integer): Disable patterns for standard
+	80387 constants before reload when not optimizing for size.
+
+	(*fop_xf_4_i387, *fop_xf_5_i387, *fop_xf_6_i387): Avoid float
+	extension of XFmode input operands.
+
+2006-11-29  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/crt0.c (__dso_handle): Define.
+
+2006-11-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* emit-rtl.c (verify_rtl_sharing): Handle SEQUENCE specially
+	when clearing the used flags.
+
+2006-11-29  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.md (extend_compare): Fix whitespace formatting.
+
+2006-11-29  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/29945
+	* config/spu/spu.md  (extend_compare<mode>): New pattern.
+	(extend_compare): Change to expand and use the above pattern.
+	
+2006-11-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/dfp-bit.c (DFP_TO_INT): Fix rounding mode.
+
+	* config/dfp-bit.h (CONTEXT_ROUND): Delete.
+	(DFP_INIT_ROUNDMODE): Define.
+	* config/dfp-bit.c: Replace CONTEXT_ROUND with DFP_INIT_ROUNDMODE.
+	* mklibgcc.in: Fix dependencies for dfp-bit.c.
+
+2006-11-29  Tehila Meyzels  <tehila@il.ibm.com>
+
+	* haifa-sched.c: Remove define LINE_NOTE(INSN).  Remove line_note_head.
+	Update documentation.
+	(associate_line_notes_with_blocks): Kill.
+	(extend_bb): Remove basic block argument, put void instead. 
+	Remove line number handling for each bb. 
+	(save_line_notes): Kill.
+	(restore_line_notes): Kill.
+	(sched_init): Remove line_note_head initialization.
+	Change extend_bb call.
+	(sched_finish): Remove free of line_note_head.
+	(add_block): Change extend_bb call.
+	* sched-ebb.c (schedule_ebb): Remove save_line_notes,
+	rm_line_notes and restore_line_notes calls.
+	(schedule_ebbs): Remove rm_redundant_line_notes.
+	* sched-int.h (struct haifa_insn_data): Remove line_note.
+	(save_line_notes): Remove declaration.
+	(restore_line_notes): Remove declaration.
+	* modulo-sched.c (loop_canon_p): Update debug info printing 
+	by using insn locators instead of line note.
+	(sms_schedule): Update debug info printing, by using insn 
+	locators instead of line note.
+	* sched-rgn.c (debug_dependencies): Remove handling of case 
+	n>0 (line number), since it's a dead code.
+	(schedule_region): Remove save_line_notes and 
+	restore_line_notes calls.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/predicates.md (gpc_reg_operand): Check
+	invalid_e500_subreg.
+	* config/rs6000/rs6000.c (invalid_e500_subreg): Don't allow any
+	SImode subregs of SPE vectors.
+	* config/rs6000/rs6000.md (insv): Fail for invalid E500 subregs.
+	* jump.c (true_regnum): Require subregs to satisfy
+	subreg_offset_representable_p.
+
+2006-11-29  Daniel Berlin  <dberlin@dberlin.org>
+	    Steven Bosscher <stevenb.gcc@gmail.com>
+
+	* Makefile.in (tree-ssanames.o): Remove gt-tree-ssanames.h,
+	since it no longer exists.
+	    
+2006-11-29  Duncan Sands  <baldrick@free.fr>
+
+	PR tree-optimization/23744
+	* tree-vrp.c (vrp_meet): do not require ranges to intersect.
+
+2006-11-29  Duncan Sands  <baldrick@free.fr>
+
+	PR tree-optimization/23744
+	* testsuite/gcc.dg/tree-ssa/pr23744.c: new test.
+
+2006-11-29  Duncan Sands  <baldrick@free.fr>
+
+	PR tree-optimization/23744
+	* testsuite/gcc.dg/tree-ssa/update-threading.c: xfail.
+
+2006-11-29  Jie Zhang  <jie.zhang@analog.com>
+
+	* doc/tm.texi (NO_PROFILE_COUNTERS): Document more accurately.
+
+2006-11-29  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* sh.opt (minline-ic_invalidate): New option.
+	(musermode): Adjust comment.
+	* sh.c (sh_initialize_trampoline): Emit library call unless
+	is set; if it is set, don't emit library call if we can use icbi
+	instead.
+	* sh.md (ic_invalidate_line, ic_invalidate_line_sh4a): Also use
+	icbi for TARGET_SH4_300.
+	* t-sh (LIB1ASMFUNCS_CACHE): Set.
+	* doc/invoke.texi: Document -minline-ic_invalidate; Update
+	-musermode documentation.
+
+2006-11-29  Jim Tison  <jtison@us.ibm.com>
+
+	* gthr-tpf.h (__GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION,
+	__gthread_recursive_mutex_init): Define.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): If
+	STRICT_ALIGNMENT and the type is more aligned than the saved
+	registers, copy via a temporary.
+
+2006-11-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR tree-opt/29984
+	* tree-ssa-reassoc.c (eliminate_duplicate_pair): Handle MAX_EXPR
+	and MIN_EXRP.
+
+2006-11-28  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/lib1funcs.asm (__umulsidi3): Restore a12-a15 on exit.
+
+2006-11-28  Jan Hubicka  <jh@suse.cz>
+
+	Privatize SSA variables into gimple_df.
+	* tree-flow-inline.h
+	(gimple_in_ssa_p, gimple_aliases_computed_p, gimple_addressable_vars,
+	gimple_call_clobbered_vars, gimple_referenced_vars, gimple_global_var,
+	gimple_nonlocal_all): New accessors.
+	(first_referenced_var): Update.
+	(mark_stmt_modified): Update.
+	(is_call_clobbered): Update.
+	(mark_call_clobbered): Update.
+	(clear_call_clobbered): Update.
+	(mark_non_addressable): Update.
+	* tree-vrp.c (get_value_range): Update.
+	* tree-into-ssa.c (in_ssa_p): Kill.
+	(get_default_def_for): Update.
+	(rewrite_into_ssa): Update.
+	* tree-complex.c (init_parameter_lattice_values): Update.
+	(update_complex_assignment): Update.
+	(update_parameter_components): Update.
+	(expand_complex_libcall): Update.
+	(expand_complex_operations_1): Update.
+	* tree-tailcall.c (arg_needs_copy_p): Update.
+	(add_virtual_phis): Update.
+	(tree_optimize_tail_calls_1): Update.
+	* tree-ssa-dse.c (memory_ssa_name_same): Update.
+	* tree-ssa-copyrename.c
+	(copy_rename_partition_coalesce): Update.
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Update.
+	* tree-ssa-propagate.c (set_rhs): Update.
+	* tree-ssa-alias.c (aliases_computed_p, call_clobbered_vars,
+	addressable_vars, global_var):Kill.
+	(set_initial_properties): Update.
+	(init_alias_info): Update.
+	(finalize_ref_all_pointers): Update.
+	(setup_pointers_and_addressables): Update.
+	(maybe_create_global_var): Update.
+	(create_global_var): Update.
+	(dump_points_to_info): Update.
+	* function.h (struct gimple_df): Forward declare.
+	(struct function): Add GIMPLE_DF field.
+	* gimplify.c (force_gimple_operand): Update.
+	* tree-dfa.c (referenced_vars, default_defs): KIll.
+	(make_rename_temp): Update.
+	(dump_variable): Update.
+	(referenced_var_lookup): Update.
+	(referenced_var_check_and_insert): Update.
+	(default_def): Rename to ...
+	(gimple_default_def): ... this one; accept cfun argument.
+	(set_default_def): Update.
+	* tree-cfgcleanup.c (modified_noreturn_calls): Kill.
+	(cleanup_control_flow): Update.
+	* tree-ssa-pre.c (compute_avail): Update
+	* tree-ssa-live.c (calculate_live_on_entry): Update.
+	* tree-ssa.c (verify_use): Update.
+	(verify_call_clobbering): Update.
+	(verify_call_clobbering): Update.
+	(init_tree_ssa): Update.
+	(delete_tree_ssa): Update.
+	* tree-outof-ssa.c (coalesce_ssa_name): Update.
+	(rewrite_out_of_ssa): Update.
+	* tree-flow.h (gimple_df): New structure collecting dataflow variables.
+	(FREE_SSANAMES, SSANAMES, MODIFIED_NORETURN_CALLS, DEFAULT_DEFS): New
+	private accessors.
+	(in_ssa_p, modified_noreturn_calls, referenced_vars, default_defs,
+	ssa_names, global_var, nonlocal_all, call_clobbered_vars,
+	addressable_vars, aliases_computed_p): Kill.
+	(default_def): Rename to...
+	(gimple_default_def): ... this one.
+	(defaule_def_fn): Kill.
+	(num_referenced_vars, ssa_names, num_ssa_names): Update.
+	* tree-ssa-structalias.c (nonlocal_all): Kill.
+	(get_constraint_exp_from_ssa_var): Update.
+	(create_nonlocal_var): Update.
+	(get_constraint_for): Update.
+	(update_alias_info): Update.
+	(find_global_initializers): Update.
+	(intra_create_variable_infos): Update.
+	(intra_create_variable_infos):
+	(find_what_p_points_to): Update.
+	(init_alias_heapvars): Update.
+	* tree-cfg.c (remove_bb): Update.
+	(gimplify_val): Update.
+	* tree-ssa-reassoc.c (get_rank): Update.
+	(init_reassoc): Update.
+	* tree-ssanames.c: Do not include gt-tree-ssanames.h
+	(ssa_names, free_ssanames): Kill.
+	(init_ssanames): Update.
+	(make_ssa_name): Update.
+	(release_ssa_name): Update.
+	(release_defs): Update.
+	(replace_ssa_name_symbol): Update.
+	* tree-ssa-operands.c (access_can_touch_variable): Update.
+	(add_virtual_operand): Update.
+	(add_call_clobber_ops): Update.
+	(add_call_read_ops): Update.
+	(get_call_expr_operands): Update.
+	(get_asm_expr_operands): Update.
+
 2006-11-28  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.c: Include tree-flow.h.
@@ -47,7 +365,7 @@
 
 2006-11-27  Roger Sayle  <roger@eyesopen.com>
 	    Manuel Lopez-Ibanez <manu@gcc.gnu.org>
-	    
+
 	* c-common.c (constant_fits_type_p): Delete.
 	(unsigned_conversion_warning): Delete.
 	(conversion_warning): Integrate Wconversion warning from
@@ -62,7 +380,7 @@
 	* doc/invoke.texi: Fixed typo.
 
 2006-11-27  Michael Matz  <matz@suse.de>
-            Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	PR target/29319
 	* config/s390/predicates.md (larl_operand): Check addend of larl
@@ -136,7 +454,7 @@
 	NOTE_FUNCTION_END.
 
 2006-11-27  Richard Guenther  <rguenther@suse.de>
-	Zdenek Dvorak <dvorakz@suse.cz>
+	    Zdenek Dvorak <dvorakz@suse.cz>
 
 	* target.h (struct gcc_target): Add builtin_vectorized_function
 	target hook.

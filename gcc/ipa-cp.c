@@ -461,14 +461,15 @@ constant_val_insert (tree fn, tree parm1, tree val)
   cfun = func;
   current_function_decl = fn;
 
-  if (in_ssa_p && !TREE_ADDRESSABLE (parm1))
+  if (gimple_in_ssa_p (cfun) && !TREE_ADDRESSABLE (parm1))
     {
-      if (!default_def (parm1))
+      if (!gimple_default_def (cfun, parm1))
 	return;
       new_ssa = make_ssa_name (parm1, NULL);
       init_stmt = build2 (MODIFY_EXPR, void_type_node, new_ssa, val);
 
-      FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, default_def (parm1))
+      FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter,
+			     gimple_default_def (cfun, parm1))
 	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter) 
 	  SET_USE (use_p, new_ssa);
       set_default_def (parm1, NULL);
@@ -481,7 +482,7 @@ constant_val_insert (tree fn, tree parm1, tree val)
   if (init_stmt)
     FOR_EACH_EDGE (e_step, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
       bsi_insert_on_edge_immediate (e_step, init_stmt);
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       update_ssa (TODO_update_ssa);
 #ifdef ENABLE_CHECKING

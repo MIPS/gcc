@@ -305,10 +305,10 @@ set_initial_properties (struct alias_info *ai)
 	    mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
 	}
       else if (TREE_CODE (var) == PARM_DECL
-	       && default_def (var)
+	       && gimple_default_def (cfun, var)
 	       && POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree def = default_def (var);
+	  tree def = gimple_default_def (cfun, var);
 	  get_ptr_info (def)->value_escapes_p = 1;
 	  get_ptr_info (def)->escape_mask |= ESCAPE_IS_PARM;	  
 	}
@@ -861,14 +861,14 @@ init_alias_info (void)
   ai->dereferenced_ptrs_load = BITMAP_ALLOC (&alias_obstack);
 
   /* If aliases have been computed before, clear existing information.  */
-  if (aliases_computed_p)
+  if (gimple_aliases_computed_p (cfun))
     {
       unsigned i;
   
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
-      bitmap_clear (cfun->ssa->addressable_vars);
+      bitmap_clear (gimple_addressable_vars (cfun));
 
       /* Clear flow-insensitive alias information from each symbol.  */
       FOR_EACH_REFERENCED_VAR (var, rvi)
@@ -923,7 +923,7 @@ init_alias_info (void)
     }
 
   /* Next time, we will need to reset alias information.  */
-  aliases_computed_p = true;
+  cfun->gimple_df->aliases_computed_p = true;
 
   return ai;
 }
@@ -1319,8 +1319,8 @@ finalize_ref_all_pointers (struct alias_info *ai)
 {
   size_t i;
 
-  if (global_var)
-    add_may_alias (ai->ref_all_symbol_mem_tag, global_var);
+  if (gimple_global_var (cfun))
+    add_may_alias (ai->ref_all_symbol_mem_tag, gimple_global_var (cfun));
   else
     {
       /* First add the real call-clobbered variables.  */
@@ -1739,7 +1739,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
          cleanup passes.  */
       if (TREE_ADDRESSABLE (var))
 	{
-	  if (!bitmap_bit_p (cfun->ssa->addressable_vars, DECL_UID (var))
+	  if (!bitmap_bit_p (gimple_addressable_vars (cfun), DECL_UID (var))
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
@@ -1759,7 +1759,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
 		  for (sv = svars; sv; sv = sv->next)
 		    {	      
-		      if (bitmap_bit_p (cfun->ssa->addressable_vars, DECL_UID (sv->var)))
+		      if (bitmap_bit_p (gimple_addressable_vars (cfun),
+					DECL_UID (sv->var)))
 			okay_to_mark = false;
 		      mark_sym_for_renaming (sv->var);
 		    }
@@ -1880,11 +1881,11 @@ maybe_create_global_var (struct alias_info *ai)
   bitmap_iterator bi;
   
   /* No need to create it, if we have one already.  */
-  if (global_var == NULL_TREE)
+  if (gimple_global_var (cfun) == NULL_TREE)
     {
       /* Count all the call-clobbered variables.  */
       n_clobbered = 0;
-      EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	{
 	  n_clobbered++;
 	}
@@ -1927,16 +1928,16 @@ maybe_create_global_var (struct alias_info *ai)
   /* Mark all call-clobbered symbols for renaming.  Since the initial
      rewrite into SSA ignored all call sites, we may need to rename
      .GLOBAL_VAR and the call-clobbered variables.   */
-  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       tree var = referenced_var (i);
 
       /* If the function has calls to clobbering functions and
 	 .GLOBAL_VAR has been created, make it an alias for all
 	 call-clobbered variables.  */
-      if (global_var && var != global_var)
+      if (gimple_global_var (cfun) && var != gimple_global_var (cfun))
 	{
-	  add_may_alias (var, global_var);
+	  add_may_alias (var, gimple_global_var (cfun));
 	  gcc_assert (!get_subvars_for_var (var));
 	}
       
@@ -2389,8 +2390,8 @@ get_tmt_for (tree ptr, struct alias_info *ai)
 static void
 create_global_var (void)
 {
-  global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
-                           void_type_node);
+  tree global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
+                                void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
   DECL_EXTERNAL (global_var) = 1;
@@ -2404,6 +2405,7 @@ create_global_var (void)
   mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
   add_referenced_var (global_var);
   mark_sym_for_renaming (global_var);
+  cfun->gimple_df->global_var = global_var;
 }
 
 
@@ -2614,7 +2616,7 @@ dump_points_to_info (FILE *file)
     {
       if (POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree def = default_def (var);
+	  tree def = gimple_default_def (cfun, var);
 	  if (def)
 	    dump_points_to_info_for (file, def);
 	}

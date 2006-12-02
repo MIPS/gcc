@@ -172,7 +172,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  && (TREE_CODE (new) == PARM_DECL || TREE_CODE (name) != PARM_DECL))
 	{
 	  SSA_NAME_DEF_STMT (new) = build_empty_stmt ();
-	  if (default_def_fn (id->src_cfun, SSA_NAME_VAR (name)) == name)
+	  if (gimple_default_def (id->src_cfun, SSA_NAME_VAR (name)) == name)
 	    set_default_def (SSA_NAME_VAR (new), new);
 	}
       SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new)
@@ -233,7 +233,7 @@ remap_decl (tree decl, copy_body_data *id)
 	}
 
 
-      if (cfun && in_ssa_p
+      if (cfun && gimple_in_ssa_p (cfun)
 	  && (TREE_CODE (t) == VAR_DECL
 	      || TREE_CODE (t) == RESULT_DECL || TREE_CODE (t) == PARM_DECL))
 	{
@@ -241,7 +241,7 @@ remap_decl (tree decl, copy_body_data *id)
 
 	  get_var_ann (t);
 	  if (TREE_CODE (decl) != PARM_DECL
-	      && (def = default_def_fn (id->src_cfun, decl)))
+	      && (def = gimple_default_def (id->src_cfun, decl)))
 	    {
 	      tree map = remap_ssa_name (def, id);
 	      /* Watch out RESULT_DECLs whose SSA names map directly to them.
@@ -694,7 +694,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
       /* Global variables we didn't seen yet needs to go into referenced vars.
 	 */
-      if (in_ssa_p && TREE_CODE (*tp) == VAR_DECL)
+      if (gimple_in_ssa_p (cfun) && TREE_CODE (*tp) == VAR_DECL)
 	add_referenced_var (*tp);
        
       /* If EXPR has block defined, map it to newly constructed block.
@@ -855,7 +855,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 		  && tree_could_throw_p (stmt))
 		add_stmt_to_eh_region (stmt, id->eh_region);
 	    }
-	  if (in_ssa_p)
+	  if (gimple_in_ssa_p (cfun))
 	    {
 	       ssa_op_iter i;
 	       tree def;
@@ -916,7 +916,7 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block exit_block_map)
 
       copy_stmt = bsi_stmt (bsi);
       update_stmt (copy_stmt);
-      if (in_ssa_p)
+      if (gimple_in_ssa_p (cfun))
         mark_new_vars_to_rename (copy_stmt);
       /* Do this before the possible split_block.  */
       bsi_next (&bsi);
@@ -953,7 +953,7 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block exit_block_map)
 	      inline into.
 	      This can be done by clonning PHI arguments from EH edges originally
 	      attached to call statement we are replacing.  */
-	   if (in_ssa_p)
+	   if (gimple_in_ssa_p (cfun))
 	     {
 	       edge e;
 
@@ -1095,10 +1095,10 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count, int frequ
   if (src_cfun->eh)
     init_eh_for_function ();
 
-  if (src_cfun->ssa)
+  if (src_cfun->gimple_df)
     {
       init_tree_ssa ();
-      cfun->ssa->x_in_ssa_p = true;
+      cfun->gimple_df->in_ssa_p = true;
       init_ssa_operands ();
     }
   pop_cfun ();
@@ -1172,7 +1172,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     copy_edges_for_bb (bb, count_scale, exit_block_map);
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
   FOR_ALL_BB_FN (bb, cfun_to_copy)
@@ -1243,7 +1243,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
   tree var;
   tree var_sub;
   tree rhs = value ? fold_convert (TREE_TYPE (p), value) : NULL;
-  tree def = in_ssa_p ? default_def_fn (id->src_cfun, p) : NULL;
+  tree def = (gimple_in_ssa_p (cfun)
+	      ? gimple_default_def (id->src_cfun, p) : NULL);
 
   /* If the parameter is never assigned to, has no SSA_NAMEs created,
      we may not need to create a new variable here at all.  Instead, we may
@@ -1275,7 +1276,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      here since the type of this decl must be visible to the calling
      function.  */
   var = copy_decl_to_var (p, id);
-  if (in_ssa_p && TREE_CODE (var) == VAR_DECL)
+  if (gimple_in_ssa_p (cfun) && TREE_CODE (var) == VAR_DECL)
     {
       get_var_ann (var);
       add_referenced_var (var);
@@ -1325,7 +1326,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      function parameter and the actual value in debug info.  Can we do
      better here?  If we just inserted the statement, copy propagation
      would kill it anyway as it always did in older versions of GCC... */
-  if (in_ssa_p && rhs && def && is_gimple_reg (p)
+  if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
       && (TREE_CODE (rhs) == SSA_NAME
 	  /* Replacing &""[0] has interesting side effects.  Exclude ADDR_EXPRs
 	     now.  */
@@ -1356,7 +1357,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	  def = remap_ssa_name (def, id);
           init_stmt = build2 (MODIFY_EXPR, TREE_TYPE (var), def, rhs);
 	  SSA_NAME_DEF_STMT (def) = init_stmt;
-	  /*gcc_assert (IS_EMPTY_STMT (default_def (var)));*/
 	  set_default_def (var, NULL);
 	}
       else
@@ -1375,7 +1375,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 
 	  push_gimplify_context ();
 	  gimplify_stmt (&init_stmt);
-	  if (in_ssa_p && init_stmt && TREE_CODE (init_stmt) == STATEMENT_LIST)
+	  if (gimple_in_ssa_p (cfun)
+              && init_stmt && TREE_CODE (init_stmt) == STATEMENT_LIST)
 	    {
 	      /* The replacement can expose previously unreferenced variables.  */
 	      for (i = tsi_start (init_stmt); !tsi_end_p (i); tsi_next (&i))
@@ -1388,7 +1389,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	 assignment statment may result in no gimple statements.  */
       if (init_stmt)
         bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
-      if (in_ssa_p)
+      if (gimple_in_ssa_p (cfun))
 	for (;!bsi_end_p (bsi); bsi_next (&bsi))
 	  mark_new_vars_to_rename (bsi_stmt (bsi));
     }
@@ -1490,7 +1491,7 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 		 to cause missoptimizations once we start optimizing.  */
 	      if (TREE_CODE (base_var) == SSA_NAME)
 		base_var = SSA_NAME_VAR (base_var);
-	      if (in_ssa_p)
+	      if (gimple_in_ssa_p (cfun))
 		{
 		  HOST_WIDE_INT bitsize;
 		  HOST_WIDE_INT bitpos;
@@ -1499,7 +1500,8 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 		  int unsignedp;
 		  int volatilep;
 		  tree base;
-		  base = get_inner_reference (base_var, &bitsize, &bitpos, &offset,
+		  base = get_inner_reference (base_var, &bitsize, &bitpos,
+					      &offset,
 					      &mode, &unsignedp, &volatilep,
 					      false);
 		  if (TREE_CODE (base) == INDIRECT_REF)
@@ -1513,7 +1515,7 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	}
       else
 	{
-	  if (in_ssa_p)
+	  if (gimple_in_ssa_p (cfun))
 	    mark_sym_for_renaming (TREE_OPERAND (return_slot_addr, 0));
 	  var = build_fold_indirect_ref (return_slot_addr);
 	}
@@ -1581,7 +1583,7 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
   gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
   var = copy_result_decl_to_var (result, id);
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       /* TODO: We probably can go directly into SSA name here without much
          trouble.  */
@@ -2482,7 +2484,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
     {
       *tp = use_retvar;
       update_stmt (stmt);
-      if (in_ssa_p)
+      if (gimple_in_ssa_p (cfun))
         mark_new_vars_to_rename (stmt);
       maybe_clean_or_replace_eh_stmt (stmt, stmt);
     }
@@ -2497,7 +2499,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	{
 	  tree name = TREE_OPERAND (stmt, 0);
 	  tree var = SSA_NAME_VAR (TREE_OPERAND (stmt, 0));
-	  tree def = default_def (var);
+	  tree def = gimple_default_def (cfun, var);
 
 	  /* If the variable is used undefined, make this name undefined via
 	     move.  */
@@ -2645,7 +2647,7 @@ optimize_inline_calls (tree fn, bool early)
   verify_stmts ();
   verify_flow_info ();
 #endif
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       update_ssa (TODO_update_ssa);
 #ifdef ENABLE_CHECKING
@@ -3265,7 +3267,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   /* Clean up.  */
   splay_tree_delete (id.decl_map);
   fold_cond_expr_cond ();
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       update_ssa (TODO_update_ssa);
 #ifdef ENABLE_CHECKING

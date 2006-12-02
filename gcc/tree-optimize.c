@@ -59,7 +59,7 @@ gate_all_optimizations (void)
   return (optimize >= 1
 	  /* Don't bother doing anything if the program has errors. 
 	     We have to pass down the queue if we already went into SSA */
-	  && (!(errorcount || sorrycount) || in_ssa_p));
+	  && (!(errorcount || sorrycount) || gimple_in_ssa_p (cfun)));
 }
 
 struct tree_opt_pass pass_all_optimizations =
@@ -212,7 +212,7 @@ execute_free_datastructures (void)
 
   /* Remove the ssa structures.  Do it here since this includes statement
      annotations that need to be intact during disband_implicit_edges.  */
-  if (cfun->ssa)
+  if (cfun->gimple_df)
     delete_tree_ssa ();
   return 0;
 }

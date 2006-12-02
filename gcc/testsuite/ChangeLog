@@ -1,3 +1,48 @@
+2006-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/convert-int-max.c: New test.
+	* gcc.dg/dfp/convert-int-max-fold.c: New test.
+
+2006-11-30  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/vect/vect-pow-1.c: Rename ...
+	* gcc.dg/vect/fast-math-vect-pow-1.c: ... to this.  Use
+	floats instead of doubles, check successful vectorization.
+
+2006-11-29  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+        PR target/29945
+	* gcc.c-torture/compile/pr29945.c: New testcase.
+			
+2006-11-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/vect/vect.exp: Skip PowerPC targets not supporting
+	-maltivec.
+
+2006-11-29  Eric Christopher  <echristo@apple.com>
+
+	* gcc.dg/tree-ssa/prefetch-3.c: Allow x86_64, but require ilp32.
+
+2006-11-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/convert-int.c: Remove dg-do compile, fix comment.
+
+	* gcc.dg/dfp/convert-bfp.c: Skip long double conversions.
+
+2006-11-29  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/29022
+	* g++.dg/inherit/virtual2.C: New test.
+	* g++.dg/inherit/virtual3.C: Likewise.
+	* g++.old-deja/g++.bugs/900121_05.C: Adjust error markers.
+	* g++.dg/inherit/error2.C: Likewise.
+	* g++.dg/template/instantiate1.C: Likewise.
+
+2006-11-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR tree-opt/29984
+	* gcc.dg/tree-ssa/reassoc-12.c: New test.
+
 2006-11-28  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/memcpy-1.c: New test.

@@ -40,24 +40,27 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
-struct ssa GTY(()) {
+/* Gimple dataflow datastructure. All publically available fields shall have
+   gimple_ accessor defined in tree-flow-inline.h, all publically modifiable
+   fields should have gimple_set accessor.  */
+struct gimple_df GTY(()) {
   /* Array of all variables referenced in the function.  */
-  htab_t GTY((param_is (struct int_tree_map))) x_referenced_vars;
+  htab_t GTY((param_is (struct int_tree_map))) referenced_vars;
   /* A list of all the noreturn calls passed to modify_stmt.
      cleanup_control_flow uses it to detect cases where a mid-block
      indirect call has been turned into a noreturn call.  When this
      happens, all the instructions after the call are no longer
      reachable and must be deleted as dead.  */
-  VEC(tree,gc) *x_modified_noreturn_calls;
+  VEC(tree,gc) *modified_noreturn_calls;
   /* Array of all SSA_NAMEs used in the function.  */
-  VEC(tree,gc) *x_ssa_names;
+  VEC(tree,gc) *ssa_names;
 
   /* Artificial variable used to model the effects of function calls.  */
-  tree x_global_var;
+  tree global_var;
 
   /* Artificial variable used to model the effects of nonlocal
      variables.  */
-  tree x_nonlocal_all;
+  tree nonlocal_all;
 
   /* Call clobbered variables in the function.  If bit I is set, then
      REFERENCED_VARS (I) is call-clobbered.  */
@@ -72,67 +75,30 @@ struct ssa GTY(()) {
      variable).  */
   bitmap addressable_vars;
 
-  /* 'true' after aliases have been computed (see compute_may_aliases).  */
-  bool x_aliases_computed_p;
-
-  bool x_in_ssa_p;
-
   /* Free list of SSA_NAMEs.  */
-  tree x_free_ssanames;
-
-  /* Array for building all the def operands.  */
-  VEC(tree,heap) * GTY((skip)) x_build_defs;
-
-  /* Array for building all the use operands.  */
-  VEC(tree,heap) * GTY((skip)) x_build_uses;
-
-  /* Array for building all the v_may_def operands.  */
-  VEC(tree,heap) * GTY((skip)) x_build_v_may_defs;
-
-  /* Array for building all the vuse operands.  */
-  VEC(tree,heap) * GTY((skip)) x_build_vuses;
-
-  /* Array for building all the v_must_def operands.  */
-  VEC(tree,heap) * GTY((skip)) x_build_v_must_defs;
-
-  struct ssa_operand_memory_d *x_operand_memory;
-  unsigned x_operand_memory_index;
-
-  bool ops_active;
-
-  struct def_optype_d * GTY((skip)) x_free_defs;
-  struct use_optype_d * GTY((skip)) x_free_uses;
-  struct vuse_optype_d * GTY((skip)) x_free_vuses;
-  struct maydef_optype_d * GTY((skip)) x_free_maydefs;
-  struct mustdef_optype_d * GTY((skip)) x_free_mustdefs;
+  tree free_ssanames;
 
   /* Hashtable holding definition for symbol.  If this field is not NULL, it
      means that the first reference to this variable in the function is a
      USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
      for this variable with an empty defining statement.  */
   htab_t GTY((param_is (struct int_tree_map))) default_defs;
-};
-#define referenced_vars cfun->ssa->x_referenced_vars
-#define ssa_names cfun->ssa->x_ssa_names
-#define modified_noreturn_calls cfun->ssa->x_modified_noreturn_calls
-#define global_var cfun->ssa->x_global_var
-#define nonlocal_all cfun->ssa->x_nonlocal_all
-#define aliases_computed_p cfun->ssa->x_aliases_computed_p
-#define in_ssa_p (cfun->ssa && cfun->ssa->x_in_ssa_p)
-#define free_ssanames (cfun->ssa->x_free_ssanames)
 
-#define build_defs (cfun->ssa->x_build_defs)
-#define build_uses (cfun->ssa->x_build_uses)
-#define build_v_may_defs (cfun->ssa->x_build_v_may_defs)
-#define build_vuses (cfun->ssa->x_build_vuses)
-#define build_v_must_defs (cfun->ssa->x_build_v_must_defs)
-#define operand_memory (cfun->ssa->x_operand_memory)
-#define operand_memory_index (cfun->ssa->x_operand_memory_index)
-#define free_defs (cfun->ssa->x_free_defs)
-#define free_uses (cfun->ssa->x_free_uses)
-#define free_vuses (cfun->ssa->x_free_vuses)
-#define free_maydefs (cfun->ssa->x_free_maydefs)
-#define free_mustdefs (cfun->ssa->x_free_mustdefs)
+  /* 'true' after aliases have been computed (see compute_may_aliases).  */
+  unsigned int aliases_computed_p : 1;
+
+  /* True if the code is in ssa form.  */
+  unsigned int in_ssa_p : 1;
+
+  struct ssa_operands ssa_operands;
+};
+
+/* Accessors for internal use only.  Generic code should use abstraction
+   provided by tree-flow-inline.h or specific modules.  */
+#define FREE_SSANAMES(fun) (fun)->gimple_df->free_ssanames
+#define SSANAMES(fun) (fun)->gimple_df->ssa_names
+#define MODIFIED_NORETURN_CALLS(fun) (fun)->gimple_df->modified_noreturn_calls
+#define DEFAULT_DEFS(fun) (fun)->gimple_df->default_defs
 
 typedef struct
 {
@@ -298,7 +264,7 @@ struct var_ann_d GTY(())
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
   tree current_def;
-  
+
   /* Relevant only for FUNCTION_DECL. Pointer to array of enums 
      that for each pair of function's formal parameters contains 
      their aliasing as culculated by ipaa.  */
@@ -519,11 +485,11 @@ typedef struct
 
 extern tree referenced_var_lookup (unsigned int);
 extern bool referenced_var_check_and_insert (tree);
-#define num_referenced_vars htab_elements (referenced_vars)
+#define num_referenced_vars htab_elements (gimple_referenced_vars (cfun))
 #define referenced_var(i) referenced_var_lookup (i)
 
-#define num_ssa_names (VEC_length (tree, ssa_names))
-#define ssa_name(i) (VEC_index (tree, ssa_names, (i)))
+#define num_ssa_names (VEC_length (tree, cfun->gimple_df->ssa_names))
+#define ssa_name(i) (VEC_index (tree, cfun->gimple_df->ssa_names, (i)))
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
@@ -720,8 +686,7 @@ extern void find_new_referenced_vars (tree *);
 
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
-extern tree default_def (tree);
-extern tree default_def_fn (struct function *, tree);
+extern tree gimple_default_def (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);

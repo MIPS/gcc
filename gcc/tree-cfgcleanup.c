@@ -138,10 +138,10 @@ cleanup_control_flow (void)
   tree stmt;
 
   /* Detect cases where a mid-block call is now known not to return.  */
-  if (cfun->ssa)
-    while (VEC_length (tree, modified_noreturn_calls))
+  if (cfun->gimple_df)
+    while (VEC_length (tree, MODIFIED_NORETURN_CALLS (cfun)))
       {
-	stmt = VEC_pop (tree, modified_noreturn_calls);
+	stmt = VEC_pop (tree, MODIFIED_NORETURN_CALLS (cfun));
 	bb = bb_for_stmt (stmt);
 	if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
 	  split_block (bb, stmt);

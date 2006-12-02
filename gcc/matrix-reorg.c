@@ -1541,7 +1541,7 @@ find_escaping_matrices_and_flatten (void)
 {
   unsigned i;
   sbitmap visited_stmts_1;
-  if (!in_ssa_p)
+  if (!gimple_in_ssa_p (cfun))
     return;
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

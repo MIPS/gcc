@@ -159,7 +159,7 @@ struct expr_status GTY(())
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
-struct ssa;
+struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
 
@@ -196,7 +196,8 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
-  struct ssa *ssa;
+  /* SSA and dataflow information.  */
+  struct gimple_df *gimple_df;
 
   unsigned n_bbs_in_dom_tree[2];
   /* Whether the dominators and the postdominators are available.  */

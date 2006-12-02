@@ -231,7 +231,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
+      && gimple_default_def (cfun, SSA_NAME_VAR (ssa_name)) == ssa_name)
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -627,7 +627,7 @@ verify_call_clobbering (void)
      that everything in call_clobbered_vars is marked
      DECL_CALL_CLOBBERED, and that everything marked
      DECL_CALL_CLOBBERED is in call_clobbered_vars.  */
-  EXECUTE_IF_SET_IN_BITMAP (cfun->ssa->call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       var = referenced_var (i);
       if (!MTAG_P (var) && !DECL_CALL_CLOBBERED (var))
@@ -640,7 +640,7 @@ verify_call_clobbering (void)
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
       if (!MTAG_P (var) && DECL_CALL_CLOBBERED (var)
-	  && !bitmap_bit_p (cfun->ssa->call_clobbered_vars, DECL_UID (var)))
+	  && !bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)))
 	{
 	  error ("variable marked DECL_CALL_CLOBBERED but not in call_clobbered_vars bitmap.");
 	  debug_variable (var);
@@ -787,7 +787,7 @@ verify_ssa (bool check_modified_stmt)
     }
 
   /* Finally, verify alias information.  */
-  if (aliases_computed_p)
+  if (gimple_aliases_computed_p (cfun))
     verify_alias_info ();
 
   free (definition_block);
@@ -831,18 +831,16 @@ int_tree_map_hash (const void *item)
 void
 init_tree_ssa (void)
 {
-  cfun->ssa = ggc_alloc_cleared (sizeof (struct ssa));
-  referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
-				     int_tree_map_eq, NULL);
-  cfun->ssa->default_defs = htab_create_ggc (20, int_tree_map_hash, 
-				             int_tree_map_eq, NULL);
-  cfun->ssa->call_clobbered_vars = BITMAP_GGC_ALLOC ();
-  cfun->ssa->addressable_vars = BITMAP_GGC_ALLOC ();
+  cfun->gimple_df = ggc_alloc_cleared (sizeof (struct gimple_df));
+  cfun->gimple_df->referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
+				     		      int_tree_map_eq, NULL);
+  cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
+				                   int_tree_map_eq, NULL);
+  cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
-  global_var = NULL_TREE;
-  aliases_computed_p = false;
 }
 
 
@@ -904,24 +902,23 @@ delete_tree_ssa (void)
 	  ann->common.type = VAR_ANN;
 	}
     }
-  htab_delete (referenced_vars);
-  referenced_vars = NULL;
+  htab_delete (gimple_referenced_vars (cfun));
+  cfun->gimple_df->referenced_vars = NULL;
 
-  htab_delete (cfun->ssa->default_defs);
-  cfun->ssa->default_defs = NULL;
   fini_ssanames ();
   fini_phinodes ();
 
-  global_var = NULL_TREE;
+  cfun->gimple_df->global_var = NULL_TREE;
   
-  cfun->ssa->call_clobbered_vars = NULL;
-  
-  cfun->ssa->addressable_vars = NULL;
-  modified_noreturn_calls = NULL;
-  aliases_computed_p = false;
+  htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs = NULL;
+  cfun->gimple_df->call_clobbered_vars = NULL;
+  cfun->gimple_df->addressable_vars = NULL;
+  cfun->gimple_df->modified_noreturn_calls = NULL;
+  cfun->gimple_df->aliases_computed_p = false;
   delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
-  cfun->ssa = NULL;
+  cfun->gimple_df = NULL;
 }
 
 
