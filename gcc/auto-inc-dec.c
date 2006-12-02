@@ -452,39 +452,34 @@ static rtx * reg_next_def = NULL;
 static struct df *df = NULL;
 
 
-/* Move notes that match PATTERN to TO_INSN from FROM_INSN.  If
-   PATTERN is NULL, move all notes.  */
+/* Move dead note that match PATTERN to TO_INSN from FROM_INSN.  We do
+   not really care about moving any other notes from the inc or add
+   insn.  Moving the REG_EQUAL and REG_EQUIV is clearly wrong and it
+   does not appear that there are any other kinds of relavant notes.  */
 
 static void 
-move_notes (rtx to_insn, rtx from_insn, rtx pattern)
+move_dead_notes (rtx to_insn, rtx from_insn, rtx pattern)
 {
   rtx note; 
   rtx next_note;
   rtx prev_note = NULL;
 
-  if (pattern)
-    for (note = REG_NOTES (from_insn); note; note = next_note)
-      {
-	next_note = XEXP (note, 1);
-	
-	if (pattern == XEXP (note, 0))
-	  {
-	    XEXP (note, 1) = REG_NOTES (to_insn);
-	    REG_NOTES (to_insn) = note;
-	    if (prev_note)
-	      XEXP (prev_note, 1) = next_note;
-	    else
-	      REG_NOTES (from_insn) = next_note;
-	  }
-	else prev_note = note;
-      }
-  else
-    for (note = REG_NOTES (from_insn); note; note = next_note)
-      {
-	next_note = XEXP (note, 1);
-	XEXP (note, 1) = REG_NOTES (to_insn);
-	REG_NOTES (to_insn) = note;
-      }
+  for (note = REG_NOTES (from_insn); note; note = next_note)
+    {
+      next_note = XEXP (note, 1);
+      
+      if ((REG_NOTE_KIND(note) == REG_DEAD)
+	  && pattern == XEXP (note, 0))
+	{
+	  XEXP (note, 1) = REG_NOTES (to_insn);
+	  REG_NOTES (to_insn) = note;
+	  if (prev_note)
+	    XEXP (prev_note, 1) = next_note;
+	  else
+	    REG_NOTES (from_insn) = next_note;
+	}
+      else prev_note = note;
+    }
 }
 
 
@@ -565,9 +560,9 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
   switch (inc_insn.form)
     {
     case FORM_PRE_ADD:
-      move_notes (mem_insn.insn, inc_insn.insn, NULL);
       mov_insn = insert_move_insn_before (mem_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
+      move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       regno = REGNO (inc_insn.reg_res);
       reg_next_def [regno] = mov_insn;
@@ -583,7 +578,6 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 
       /* Fallthru.  */
     case FORM_PRE_INC:
-      move_notes (mem_insn.insn, inc_insn.insn, NULL);
       regno = REGNO (inc_insn.reg_res);
       reg_next_def [regno] = mem_insn.insn;
       reg_next_use [regno] = NULL;
@@ -593,9 +587,7 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     case FORM_POST_ADD:
       mov_insn = insert_move_insn_before (mem_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
-      move_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
-      move_notes (mem_insn.insn, inc_insn.insn, inc_insn.reg1);
-      move_notes (mem_insn.insn, inc_insn.insn, inc_insn.reg_res);
+      move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       /* Do not move anything to the mov insn because the instruction
 	 pointer for the main iteration has not yet hit that.  It is
@@ -1096,7 +1088,20 @@ find_inc (bool first_try)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, 
-		     "result of inc is assigned to between mem and inc insns.\n");
+		     "result of add is assigned to between mem and inc insns.\n");
+	  return false;
+	}
+
+      other_insn = get_next_ref (REGNO (inc_insn.reg_res), 
+				 BASIC_BLOCK (BLOCK_NUM (mem_insn.insn)), 
+				 reg_next_use);
+      if (other_insn 
+	  && (other_insn != inc_insn.insn)
+	  && (DF_INSN_LUID (df, inc_insn.insn) > DF_INSN_LUID (df, other_insn)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, 
+		     "result of add is used between mem and inc insns.\n");
 	  return false;
 	}
 

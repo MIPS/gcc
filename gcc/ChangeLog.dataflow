@@ -1,3 +1,22 @@
+2006-12-01  Seongbae Park <seongbae.park@gmail.com>
+
+  	* dbgcnt.def: New counters
+	* postreload-gcse.c (delete_redundant_insns_1): New
+	debug counter point.
+	* postreload.c (reload_cse_move2add, gate_handle_postreload):
+	New debug counter point.
+	* auto-inc-dec.c (move_notes): Removed.
+	(move_dead_notes): New function.
+	(attempt_change): Call move_dead_notes(). Add missing dependency check.
+	* haifa-sched.c (schedule_block): New debug counter point.
+	* cse.c (delete_trivially_dead_insns): New debug counter point.
+	* gcse.c (pre_delete): New debug counter point.
+	* Makefile.in: Adding dependency on DBGCNT_H.
+	* sched-rgn.c (schedule_region): New debug counter point.
+	* dce.c (delete_corresponding_reg_equal_notes): New function
+	(delete_unmarked_insns): Call delete_corresponding_reg_equal_notes.
+
+
 2006-11-28  Seongbae Park <seongbae.park@gmail.com>
 
 	* dbgcnt.def: Updated comments. Added new counters.

@@ -47,6 +47,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "dbgcnt.h"
 
 static int reload_cse_noop_set_p (rtx);
 static void reload_cse_simplify (rtx, rtx);
@@ -1227,7 +1228,8 @@ reload_cse_move2add (rtx first)
 	  /* Check if we have valid information on the contents of this
 	     register in the mode of REG.  */
 	  if (reg_set_luid[regno] > move2add_last_label_luid
-	      && MODES_OK_FOR_MOVE2ADD (GET_MODE (reg), reg_mode[regno]))
+	      && MODES_OK_FOR_MOVE2ADD (GET_MODE (reg), reg_mode[regno])
+              && dbg_cnt (cse2_move2add))
 	    {
 	      /* Try to transform (set (REGX) (CONST_INT A))
 				  ...
@@ -1574,6 +1576,9 @@ gate_handle_postreload (void)
 static unsigned int
 rest_of_handle_postreload (void)
 {
+  if (!dbg_cnt (postreload_cse))
+    return 0;
+
   /* Do a very simple CSE pass over just the hard registers.  */
   reload_cse_regs (get_insns ());
   /* Reload_cse_regs can eliminate potentially-trapping MEMs.

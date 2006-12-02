@@ -144,6 +144,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "output.h"
 #include "params.h"
+#include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -2294,8 +2295,6 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 		 there's nothing better to do (ready list is empty) but
 		 there are still vacant dispatch slots in the current cycle.  */
 	      if (sched_verbose >= 6)
-		fprintf(sched_dump,";;\t\tSecond chance\n");
-	      memcpy (temp_state, curr_state, dfa_state_size);
 	      if (early_queue_to_ready (temp_state, &ready))
 		ready_sort (&ready);
 	    }
@@ -2304,6 +2303,23 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	      || state_dead_lock_p (curr_state)
 	      || !(*current_sched_info->schedule_more_p) ())
 	    break;
+
+          if (dbg_cnt (sched_insn) == false)
+            {
+              insn = NEXT_INSN (last_scheduled_insn); 
+              while ((*current_sched_info->schedule_more_p) ())
+                {
+                  (*current_sched_info->begin_schedule_ready) (insn,
+                                                               last_scheduled_insn);
+                  if (QUEUE_INDEX (insn) >= 0)
+                    queue_remove (insn);
+                  last_scheduled_insn = insn;
+                  insn = NEXT_INSN (insn);
+                }
+              while (ready.n_ready)
+                ready_remove_first (&ready);
+              goto bail_out;
+            }
 
 	  /* Select and remove the insn from the ready list.  */
 	  if (sort_p)
@@ -2462,6 +2478,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	}
     }
 
+bail_out:
   /* Debug info.  */
   if (sched_verbose)
     {

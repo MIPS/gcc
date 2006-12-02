@@ -171,6 +171,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "hashtab.h"
+#include "dbgcnt.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -4437,7 +4438,8 @@ pre_delete (void)
 
 	    /* We only delete insns that have a single_set.  */
 	    if (TEST_BIT (pre_delete_map[bb->index], indx)
-		&& (set = single_set (insn)) != 0)
+		&& (set = single_set (insn)) != 0
+                && dbg_cnt (pre_insn))
 	      {
 		/* Create a pseudo-reg to store the result of reaching
 		   expressions into.  Get the mode for the new pseudo from

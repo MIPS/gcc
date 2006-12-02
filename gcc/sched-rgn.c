@@ -2800,9 +2800,16 @@ schedule_region (int rgn)
       current_sched_info->queue_must_finish_empty = current_nr_blocks == 1;
 
       curr_bb = first_bb;
-      schedule_block (&curr_bb, rgn_n_insns);
-      gcc_assert (EBB_FIRST_BB (bb) == first_bb);
-      sched_rgn_n_insns += sched_n_insns;
+      if (dbg_cnt (sched_block))
+        {
+          schedule_block (&curr_bb, rgn_n_insns);
+          gcc_assert (EBB_FIRST_BB (bb) == first_bb);
+          sched_rgn_n_insns += sched_n_insns;
+        }
+      else
+        {
+          sched_rgn_n_insns += rgn_n_insns;
+        }
 
       /* Clean up.  */
       if (current_nr_blocks > 1)

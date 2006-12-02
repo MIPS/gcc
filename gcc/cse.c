@@ -44,6 +44,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "rtlhooks-def.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -6541,7 +6542,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
       /* If this is a dead insn, delete it and show registers in it aren't
 	 being used.  */
 
-      if (! live_insn)
+      if (! live_insn && dbg_cnt (delete_trivial_dead))
 	{
 	  count_reg_usage (insn, counts, NULL_RTX, -1);
 	  delete_insn_and_edges (insn);

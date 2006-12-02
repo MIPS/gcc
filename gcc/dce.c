@@ -213,6 +213,46 @@ init_dce (bool fast)
 }
 
 
+/* Delete all REG_EQUAL notes of the registers INSN writes,
+   to prevent bad dangling REG_EQUAL notes. */
+
+static void
+delete_corresponding_reg_equal_notes (rtx insn)
+{
+  struct df_ref *def;
+  for (def = DF_INSN_DEFS (dce_df, insn); def; def = DF_REF_NEXT_REF (def))
+    {
+      struct df_ref *eq_use = DF_REG_EQ_USE_CHAIN (dce_df, DF_REF_REGNO (def));
+
+      if (eq_use)
+        {
+          rtx *insns = alloca (sizeof(rtx) 
+                               * DF_REG_EQ_USE_COUNT (dce_df, DF_REF_REGNO (def)));
+          rtx *p_insn = insns;
+          do
+            {
+              rtx note;
+              if (DF_REF_INSN (eq_use) != insn
+                  && (note = find_reg_note (DF_REF_INSN (eq_use), 
+                                            REG_EQUAL, NULL_RTX)) != NULL)
+                {
+                  remove_note (DF_REF_INSN (eq_use), note);
+                  /* We can't rescan while iterating over EQ_USE chain,
+                     because rescanning invalidates EQ_USE chain. 
+                     Instead, we just keep the record of the insns. */
+                  *p_insn++ = DF_REF_INSN (eq_use);
+                }
+            }
+          while ((eq_use = DF_REF_NEXT_REG (eq_use)) != NULL);
+
+          /* Now rescan insns that have REG_EQUAL note removed.  */
+          while (--p_insn >= insns)
+            df_insn_rescan (*p_insn);
+        }
+    }
+}
+
+
 /* Delete every instruction that hasn't been marked.  Clear the insn from DCE_DF if
    DF_DELETE is true.  */
 
@@ -232,6 +272,11 @@ delete_unmarked_insns (void)
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
 	  /* XXX: This may need to be changed to delete_insn_and_edges */
+
+          /* Before we delete the insn, we have to delete
+             REG_EQUAL of the destination regs of the deleted insn
+             to prevent dangling REG_EQUAL. */
+          delete_corresponding_reg_equal_notes (insn);
 	  delete_insn (insn);
 	  something_changed = true;
 	}

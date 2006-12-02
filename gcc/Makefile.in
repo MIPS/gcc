@@ -2342,7 +2342,8 @@ cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h $(FUNCTION_H) $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \
-   except.h $(TARGET_H) $(PARAMS_H) rtlhooks-def.h tree-pass.h $(REAL_H)
+   except.h $(TARGET_H) $(PARAMS_H) rtlhooks-def.h tree-pass.h $(REAL_H) \
+   $(DBGCNT_H)
 dce.o : dce.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) $(DF_H) cselib.h \
    $(DBGCNT_H) dce.h timevar.h tree-pass.h
@@ -2359,7 +2360,7 @@ gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(REAL_H) insn-config.h $(GGC_H) \
    $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
    $(TM_P_H) $(PARAMS_H) except.h gt-gcse.h $(TREE_H) cselib.h $(TIMEVAR_H) \
-   intl.h $(OBSTACK_H) tree-pass.h
+   intl.h $(OBSTACK_H) tree-pass.h $(DBGCNT_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
    coretypes.h $(TM_H) $(REGS_H) $(FLAGS_H) output.h $(RESOURCE_H) $(DF_H) \
    $(FUNCTION_H) toplev.h $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H)
@@ -2536,7 +2537,7 @@ postreload-gcse.o : postreload-gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
    $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
    $(TM_P_H) except.h $(TREE_H) $(TARGET_H) $(HASHTAB_H) intl.h $(OBSTACK_H) \
-   $(PARAMS_H) $(TIMEVAR_H) tree-pass.h $(REAL_H)
+   $(PARAMS_H) $(TIMEVAR_H) tree-pass.h $(REAL_H) $(DBGCNT_H)
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) $(FUNCTION_H) \
    addresses.h $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
@@ -2577,7 +2578,7 @@ modulo-sched.o : modulo-sched.c $(DDG_H) $(CONFIG_H) $(CONFIG_H) $(SYSTEM_H) \
 haifa-sched.o : haifa-sched.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(SCHED_INT_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h $(FUNCTION_H) \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H) $(TARGET_H) output.h \
-   $(PARAMS_H)
+   $(PARAMS_H) $(DBGCNT_H)
 sched-deps.o : sched-deps.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(SCHED_INT_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
    $(FUNCTION_H) $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h cselib.h \
