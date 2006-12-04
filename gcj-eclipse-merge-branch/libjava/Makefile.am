@@ -774,7 +774,6 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
-java/lang/natVMSecurityManager.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -794,8 +793,7 @@ java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc \
-sun/misc/natUnsafe.cc \
-sun/reflect/natReflection.cc
+sun/misc/natUnsafe.cc
 
 xlib_nat_source_files = \
 gnu/gcj/xlib/natClip.cc \

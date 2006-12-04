@@ -307,8 +307,8 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/lang/natStringBuffer.cc java/lang/natStringBuilder.cc \
 	java/lang/natSystem.cc java/lang/natThread.cc \
 	java/lang/natThreadLocal.cc java/lang/natVMClassLoader.cc \
-	java/lang/natVMSecurityManager.cc java/lang/natVMThrowable.cc \
-	java/lang/ref/natReference.cc java/lang/reflect/natArray.cc \
+	java/lang/natVMThrowable.cc java/lang/ref/natReference.cc \
+	java/lang/reflect/natArray.cc \
 	java/lang/reflect/natConstructor.cc \
 	java/lang/reflect/natField.cc java/lang/reflect/natMethod.cc \
 	java/net/natVMInetAddress.cc java/net/natVMNetworkInterface.cc \
@@ -320,10 +320,9 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/text/natCollator.cc java/util/natVMTimeZone.cc \
 	java/util/concurrent/atomic/natAtomicLong.cc \
 	java/util/logging/natLogger.cc java/util/zip/natDeflater.cc \
-	java/util/zip/natInflater.cc sun/misc/natUnsafe.cc \
-	sun/reflect/natReflection.cc boehm.cc nogc.cc posix.cc \
-	win32.cc darwin.cc posix-threads.cc win32-threads.cc \
-	no-threads.cc
+	java/util/zip/natInflater.cc sun/misc/natUnsafe.cc boehm.cc \
+	nogc.cc posix.cc win32.cc darwin.cc posix-threads.cc \
+	win32-threads.cc no-threads.cc
 am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	gnu/classpath/jdwp/natVMMethod.lo \
 	gnu/classpath/jdwp/natVMVirtualMachine.lo \
@@ -370,8 +369,8 @@ am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	java/lang/natStringBuffer.lo java/lang/natStringBuilder.lo \
 	java/lang/natSystem.lo java/lang/natThread.lo \
 	java/lang/natThreadLocal.lo java/lang/natVMClassLoader.lo \
-	java/lang/natVMSecurityManager.lo java/lang/natVMThrowable.lo \
-	java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
+	java/lang/natVMThrowable.lo java/lang/ref/natReference.lo \
+	java/lang/reflect/natArray.lo \
 	java/lang/reflect/natConstructor.lo \
 	java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
 	java/net/natVMInetAddress.lo java/net/natVMNetworkInterface.lo \
@@ -383,8 +382,7 @@ am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	java/text/natCollator.lo java/util/natVMTimeZone.lo \
 	java/util/concurrent/atomic/natAtomicLong.lo \
 	java/util/logging/natLogger.lo java/util/zip/natDeflater.lo \
-	java/util/zip/natInflater.lo sun/misc/natUnsafe.lo \
-	sun/reflect/natReflection.lo
+	java/util/zip/natInflater.lo sun/misc/natUnsafe.lo
 @USING_BOEHMGC_TRUE@am__objects_3 = boehm.lo
 @USING_NOGC_TRUE@am__objects_4 = nogc.lo
 @USING_POSIX_PLATFORM_TRUE@am__objects_5 = posix.lo
@@ -980,7 +978,7 @@ classpath/gnu/CORBA/NamingService/NameValidator.java \
 classpath/gnu/CORBA/NamingService/NamingMap.java \
 classpath/gnu/CORBA/NamingService/NamingServiceTransient.java \
 classpath/gnu/CORBA/NamingService/TransientContext.java \
-gnu/CORBA/ObjectCreator.java \
+classpath/gnu/CORBA/ObjectCreator.java \
 classpath/gnu/CORBA/OctetHolder.java \
 classpath/gnu/CORBA/OrbFocused.java \
 classpath/gnu/CORBA/OrbFunctional.java \
@@ -4082,7 +4080,7 @@ java/lang/Runtime.java \
 classpath/java/lang/RuntimeException.java \
 classpath/java/lang/RuntimePermission.java \
 classpath/java/lang/SecurityException.java \
-java/lang/SecurityManager.java \
+classpath/java/lang/SecurityManager.java \
 classpath/java/lang/Short.java \
 classpath/java/lang/StackOverflowError.java \
 classpath/java/lang/StackTraceElement.java \
@@ -4107,7 +4105,6 @@ java/lang/VMClassLoader.java \
 java/lang/VMCompiler.java \
 java/lang/VMDouble.java \
 java/lang/VMFloat.java \
-java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
@@ -5157,7 +5154,7 @@ classpath/javax/naming/spi/DirStateFactory.java \
 classpath/javax/naming/spi/DirectoryManager.java \
 classpath/javax/naming/spi/InitialContextFactory.java \
 classpath/javax/naming/spi/InitialContextFactoryBuilder.java \
-javax/naming/spi/NamingManager.java \
+classpath/javax/naming/spi/NamingManager.java \
 classpath/javax/naming/spi/ObjectFactory.java \
 classpath/javax/naming/spi/ObjectFactoryBuilder.java \
 classpath/javax/naming/spi/ResolveResult.java \
@@ -7635,7 +7632,6 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
-java/lang/natVMSecurityManager.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -7655,8 +7651,7 @@ java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc \
-sun/misc/natUnsafe.cc \
-sun/reflect/natReflection.cc
+sun/misc/natUnsafe.cc
 
 xlib_nat_source_files = \
 gnu/gcj/xlib/natClip.cc \
@@ -8140,8 +8135,6 @@ java/lang/natThreadLocal.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMClassLoader.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
-java/lang/natVMSecurityManager.lo: java/lang/$(am__dirstamp) \
-	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMThrowable.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/ref/$(am__dirstamp):
@@ -8257,14 +8250,6 @@ sun/misc/$(DEPDIR)/$(am__dirstamp):
 	@: > sun/misc/$(DEPDIR)/$(am__dirstamp)
 sun/misc/natUnsafe.lo: sun/misc/$(am__dirstamp) \
 	sun/misc/$(DEPDIR)/$(am__dirstamp)
-sun/reflect/$(am__dirstamp):
-	@$(mkdir_p) sun/reflect
-	@: > sun/reflect/$(am__dirstamp)
-sun/reflect/$(DEPDIR)/$(am__dirstamp):
-	@$(mkdir_p) sun/reflect/$(DEPDIR)
-	@: > sun/reflect/$(DEPDIR)/$(am__dirstamp)
-sun/reflect/natReflection.lo: sun/reflect/$(am__dirstamp) \
-	sun/reflect/$(DEPDIR)/$(am__dirstamp)
 java/lang/Object.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES) 
@@ -8558,8 +8543,6 @@ mostlyclean-compile:
 	-rm -f java/lang/natThreadLocal.lo
 	-rm -f java/lang/natVMClassLoader.$(OBJEXT)
 	-rm -f java/lang/natVMClassLoader.lo
-	-rm -f java/lang/natVMSecurityManager.$(OBJEXT)
-	-rm -f java/lang/natVMSecurityManager.lo
 	-rm -f java/lang/natVMThrowable.$(OBJEXT)
 	-rm -f java/lang/natVMThrowable.lo
 	-rm -f java/lang/ref/natReference.$(OBJEXT)
@@ -8600,8 +8583,6 @@ mostlyclean-compile:
 	-rm -f java/util/zip/natInflater.lo
 	-rm -f sun/misc/natUnsafe.$(OBJEXT)
 	-rm -f sun/misc/natUnsafe.lo
-	-rm -f sun/reflect/natReflection.$(OBJEXT)
-	-rm -f sun/reflect/natReflection.lo
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -8709,7 +8690,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThread.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThreadLocal.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMClassLoader.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMSecurityManager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMThrowable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/management/$(DEPDIR)/natVMManagementFactory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/ref/$(DEPDIR)/natReference.Plo@am__quote@
@@ -8731,7 +8711,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/util/zip/$(DEPDIR)/natDeflater.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/util/zip/$(DEPDIR)/natInflater.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sun/misc/$(DEPDIR)/natUnsafe.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@sun/reflect/$(DEPDIR)/natReflection.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
@@ -8980,7 +8959,6 @@ clean-libtool:
 	-rm -rf java/util/logging/.libs java/util/logging/_libs
 	-rm -rf java/util/zip/.libs java/util/zip/_libs
 	-rm -rf sun/misc/.libs sun/misc/_libs
-	-rm -rf sun/reflect/.libs sun/reflect/_libs
 
 distclean-libtool:
 	-rm -f libtool
@@ -9402,8 +9380,6 @@ distclean-generic:
 	-rm -f java/util/zip/$(am__dirstamp)
 	-rm -f sun/misc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f sun/misc/$(am__dirstamp)
-	-rm -f sun/reflect/$(DEPDIR)/$(am__dirstamp)
-	-rm -f sun/reflect/$(am__dirstamp)
 	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
@@ -9417,7 +9393,7 @@ clean-am: clean-binPROGRAMS clean-dbexecLTLIBRARIES clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/classpath/jdwp/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/jvmti/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/management/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/management/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/security/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/concurrent/atomic/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR) sun/misc/$(DEPDIR) sun/reflect/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/classpath/jdwp/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/jvmti/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/management/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/management/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/security/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/concurrent/atomic/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR) sun/misc/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-local distclean-tags
@@ -9450,7 +9426,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/classpath/jdwp/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/jvmti/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/management/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/management/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/security/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/concurrent/atomic/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR) sun/misc/$(DEPDIR) sun/reflect/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/classpath/jdwp/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/jvmti/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/lang/management/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/management/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/security/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/concurrent/atomic/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR) sun/misc/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

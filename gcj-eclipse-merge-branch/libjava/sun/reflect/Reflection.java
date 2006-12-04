@@ -37,14 +37,15 @@ exception statement from your version. */
 
 package sun.reflect;
 
-// GCJ LOCAL - We don't have this yet.
-// import gnu.classpath.VMStackWalker;
+import gnu.classpath.VMStackWalker;
 
 public class Reflection
 {
   /**
    * A stack-walking wrapper method used by the JSR 166 RI. 
    */
-  public static native Class getCallerClass(int depth);
+  public static Class getCallerClass(int depth)
+  {
+    return VMStackWalker.getClassContext()[depth];
+  }
 }
-

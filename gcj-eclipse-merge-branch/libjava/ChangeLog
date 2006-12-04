@@ -1,3 +1,17 @@
+2006-12-04  Gary Benson  <gbenson@redhat.com>
+
+	* java/lang/SecurityManager.java: Removed.
+	* java/lang/VMSecurityManager.java: Likewise.
+	* java/lang/natVMSecurityManager.cc: Likewise.
+	* javax/naming/spi/NamingManager.java: Likewise.
+	* gnu/CORBA/ObjectCreator.java: Likewise.
+	* sun/reflect/Reflection.java: Replaced with reference.
+	* sun/reflect/natReflection.cc: Removed.
+	* gcj/javaprims.h: Removed reference to VMSecurityManager.
+	* Makefile.am (nat_source_files): Removed natReflection.cc
+	and natVMSecurityManager.cc.
+	* sources.am, Makefile.in: Rebuilt.	
+	
 2006-12-01  Gary Benson  <gbenson@redhat.com>
 
 	* java/net/URLClassLoader.java

@@ -246,7 +246,6 @@ extern "Java"
       class VMCompiler;
       class VMDouble;
       class VMFloat;
-      class VMSecurityManager;
       class VMThrowable;
       class VerifyError;
       class VirtualMachineError;

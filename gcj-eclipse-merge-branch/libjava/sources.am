@@ -95,7 +95,7 @@ classpath/gnu/CORBA/NamingService/NameValidator.java \
 classpath/gnu/CORBA/NamingService/NamingMap.java \
 classpath/gnu/CORBA/NamingService/NamingServiceTransient.java \
 classpath/gnu/CORBA/NamingService/TransientContext.java \
-gnu/CORBA/ObjectCreator.java \
+classpath/gnu/CORBA/ObjectCreator.java \
 classpath/gnu/CORBA/OctetHolder.java \
 classpath/gnu/CORBA/OrbFocused.java \
 classpath/gnu/CORBA/OrbFunctional.java \
@@ -4468,7 +4468,7 @@ java/lang/Runtime.java \
 classpath/java/lang/RuntimeException.java \
 classpath/java/lang/RuntimePermission.java \
 classpath/java/lang/SecurityException.java \
-java/lang/SecurityManager.java \
+classpath/java/lang/SecurityManager.java \
 classpath/java/lang/Short.java \
 classpath/java/lang/StackOverflowError.java \
 classpath/java/lang/StackTraceElement.java \
@@ -4493,7 +4493,6 @@ java/lang/VMClassLoader.java \
 java/lang/VMCompiler.java \
 java/lang/VMDouble.java \
 java/lang/VMFloat.java \
-java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
@@ -5900,7 +5899,7 @@ classpath/javax/naming/spi/DirStateFactory.java \
 classpath/javax/naming/spi/DirectoryManager.java \
 classpath/javax/naming/spi/InitialContextFactory.java \
 classpath/javax/naming/spi/InitialContextFactoryBuilder.java \
-javax/naming/spi/NamingManager.java \
+classpath/javax/naming/spi/NamingManager.java \
 classpath/javax/naming/spi/ObjectFactory.java \
 classpath/javax/naming/spi/ObjectFactoryBuilder.java \
 classpath/javax/naming/spi/ResolveResult.java \
