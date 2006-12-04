@@ -1,5 +1,20 @@
 2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
 
+        * config/s390/s390.c (s390_va_start): Replace MODIFY_EXPR with
+        GIMPLE_MODIFY_STMT.
+        (s390_gimplify_va_arg): Same.
+        * config/sparc/sparc.c (sparc_gimplify_va_arg): Same.
+        * config/sh/sh.c (sh_va_start): Same.
+        (sh_gimplify_va_arg_expr): Same.
+        * config/xtensa/xtensa.c (xtensa_va_start): Same.
+        (xtensa_gimplify_va_arg_expr): Same.
+        * config/ia64/ia64.c (ia64_gimplify_va_arg): Same.
+        * config/pa/pa.c (hppa_gimplify_va_arg_expr): Same.
+        * config/mips/mips.c (mips_va_start): Same.
+        (mips_gimplify_va_arg_expr): Same.
+
+2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
+
         * Merge from mainline at revision 119445.
 
 2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
