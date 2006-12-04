@@ -569,6 +569,7 @@ fd_seek (unix_stream * s, gfc_offset offset)
     }
 
   s->physical_offset = s->logical_offset = offset;
+  s->active = 0;
 
   return (lseek (s->fd, offset, SEEK_SET) < 0) ? FAILURE : SUCCESS;
 }
@@ -928,7 +929,8 @@ mem_truncate (unix_stream * s __attribute__ ((unused)))
 static try
 mem_close (unix_stream * s)
 {
-  free_mem (s);
+  if (s != NULL)
+    free_mem (s);
 
   return SUCCESS;
 }
@@ -1287,6 +1289,9 @@ input_stream (void)
 stream *
 output_stream (void)
 {
+#if defined(HAVE_CRLF) && defined(HAVE_SETMODE)
+  setmode (STDOUT_FILENO, O_BINARY);
+#endif
   return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
 }
 
@@ -1297,6 +1302,9 @@ output_stream (void)
 stream *
 error_stream (void)
 {
+#if defined(HAVE_CRLF) && defined(HAVE_SETMODE)
+  setmode (STDERR_FILENO, O_BINARY);
+#endif
   return fd_to_stream (STDERR_FILENO, PROT_WRITE);
 }
 

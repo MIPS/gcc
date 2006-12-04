@@ -636,6 +636,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_instantiate_virtual_regs);
   NEXT_PASS (pass_jump2);
   NEXT_PASS (pass_cse);
+  NEXT_PASS (pass_rtl_fwprop);
   NEXT_PASS (pass_gcse);
   NEXT_PASS (pass_jump_bypass);
   NEXT_PASS (pass_rtl_ifcvt);
@@ -645,6 +646,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_loop2);
   NEXT_PASS (pass_web);
   NEXT_PASS (pass_cse2);
+  NEXT_PASS (pass_rtl_fwprop_addr);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_combine);
   NEXT_PASS (pass_if_after_combine);
@@ -652,6 +654,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
+  NEXT_PASS (pass_see);
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
@@ -680,7 +683,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_variable_tracking);
   NEXT_PASS (pass_free_cfg);
   NEXT_PASS (pass_machine_reorg);
-  NEXT_PASS (pass_purge_lineno_notes);
   NEXT_PASS (pass_cleanup_barriers);
   NEXT_PASS (pass_delay_slots);
   NEXT_PASS (pass_split_for_shorten_branches);
@@ -726,10 +728,16 @@ execute_todo (unsigned int flags)
   /* Always cleanup the CFG before trying to update SSA .  */
   if (flags & TODO_cleanup_cfg)
     {
+      /* CFG Cleanup can cause a constant to prop into an ARRAY_REF.  */
+      updating_used_alone = true;
+
       if (current_loops)
 	cleanup_tree_cfg_loop ();
       else
 	cleanup_tree_cfg ();
+
+      /* Update the used alone after cleanup cfg.  */
+      recalculate_used_alone ();
 
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single

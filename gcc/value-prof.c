@@ -46,12 +46,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static struct value_prof_hooks *value_prof_hooks;
 
-/* This is the vector of histograms.  Created in find_values_to_profile.
-   During profile generation, freed by instrument_values.
-   During profile use, freed by value_profile_transformations.  */
-
-static histogram_values static_values = NULL;
-
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions
    see comments at value_profile_transformations):
@@ -147,7 +141,11 @@ tree_value_profile_transformations (void)
 	    {
 	      changed = true;
 	      /* Original statement may no longer be in the same block. */
-	      bb = bb_for_stmt (stmt);
+	      if (bb != bb_for_stmt (stmt))
+		{
+	          bb = bb_for_stmt (stmt);
+		  bsi = bsi_for_stmt (stmt);
+		}
 	    }
 
 	  /* Free extra storage from compute_value_histograms.  */
@@ -342,7 +340,7 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
 	       gcov_type count, gcov_type all)
 {
   tree stmt1, stmt2, stmt3, stmt4;
-  tree tmp1, tmp2, tmp3;
+  tree tmp2, tmp3;
   tree label_decl1 = create_artificial_label ();
   tree label_decl2 = create_artificial_label ();
   tree label_decl3 = create_artificial_label ();
@@ -357,19 +355,17 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
   bb = bb_for_stmt (stmt);
   bsi = bsi_for_stmt (stmt);
 
-  tmp1 = create_tmp_var (optype, "PROF");
   tmp2 = create_tmp_var (optype, "PROF");
   tmp3 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (MODIFY_EXPR, optype, tmp1, fold_convert (optype, op2));
   stmt2 = build2 (MODIFY_EXPR, optype, tmp2, 
-		    build2 (PLUS_EXPR, optype, op2, integer_minus_one_node));
+		  build2 (PLUS_EXPR, optype, op2, build_int_cst (optype, -1)));
   stmt3 = build2 (MODIFY_EXPR, optype, tmp3,
-		    build2 (BIT_AND_EXPR, optype, tmp2, tmp1));
+		  build2 (BIT_AND_EXPR, optype, tmp2, op2));
   stmt4 = build3 (COND_EXPR, void_type_node,
-	    build2 (NE_EXPR, boolean_type_node, tmp3, integer_zero_node),
-	    build1 (GOTO_EXPR, void_type_node, label_decl2),
-	    build1 (GOTO_EXPR, void_type_node, label_decl1));
-  bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
+		  build2 (NE_EXPR, boolean_type_node,
+			  tmp3, build_int_cst (optype, 0)),
+		  build1 (GOTO_EXPR, void_type_node, label_decl2),
+	 	  build1 (GOTO_EXPR, void_type_node, label_decl1));
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt4, BSI_SAME_STMT);
@@ -795,7 +791,6 @@ tree_find_values_to_profile (histogram_values *values)
   FOR_EACH_BB (bb)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
       tree_values_to_profile (bsi_stmt (bsi), values);
-  static_values = *values;
   
   for (i = 0; VEC_iterate (histogram_value, *values, i, hist); i++)
     {
@@ -859,8 +854,8 @@ static struct value_prof_hooks tree_value_prof_hooks = {
 void
 tree_register_value_prof_hooks (void)
 {
+  gcc_assert (current_ir_type () == IR_GIMPLE);
   value_prof_hooks = &tree_value_prof_hooks;
-  gcc_assert (ir_type ());
 }
 
 /* IR-independent entry points.  */
@@ -873,9 +868,7 @@ find_values_to_profile (histogram_values *values)
 bool
 value_profile_transformations (void)
 {
-  bool retval = (value_prof_hooks->value_profile_transformations) ();
-  VEC_free (histogram_value, heap, static_values);
-  return retval;
+  return (value_prof_hooks->value_profile_transformations) ();
 }
 
 

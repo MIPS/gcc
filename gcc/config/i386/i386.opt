@@ -24,7 +24,7 @@ Target RejectNegative Report Mask(128BIT_LONG_DOUBLE)
 sizeof(long double) is 16
 
 m32
-Target RejectNegative Report InverseMask(64BIT)
+Target RejectNegative Negative(m64) Report InverseMask(64BIT)
 Generate 32bit i386 code
 
 m386
@@ -40,7 +40,7 @@ Target RejectNegative Undocumented
 ;; Deprecated
 
 m64
-Target RejectNegative Report Mask(64BIT)
+Target RejectNegative Negative(m32) Report Mask(64BIT)
 Generate 64bit x86-64 code
 
 m80387
@@ -125,6 +125,10 @@ minline-all-stringops
 Target Report Mask(INLINE_ALL_STRINGOPS)
 Inline all known string operations
 
+minline-stringops-dynamically
+Target Report Mask(INLINE_STRINGOPS_DYNAMICALLY)
+Inline memset/memcpy string operations, but perform inline version only for small blocks
+
 mintel-syntax
 Target Undocumented
 ;; Deprecated
@@ -197,13 +201,21 @@ msse3
 Target Report Mask(SSE3)
 Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation
 
+mssse3
+Target Report Mask(SSSE3)
+Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
+
+mx87regparm
+Target RejectNegative Mask(X87REGPARM)
+Use x87 register passing conventions to pass floating point arguments
+
 msseregparm
 Target RejectNegative Mask(SSEREGPARM)
 Use SSE register passing conventions for SF and DF mode
 
-msselibm
-Target Mask(SSELIBM)
-Use SSE2 ABI libgcc-math routines if using SSE math
+mstackrealign
+Target Report Var(ix86_force_align_arg_pointer)
+Realign stack in prologue
 
 msvr3-shlib
 Target Report Mask(SVR3_SHLIB)
@@ -212,6 +224,10 @@ Uninitialized locals in .bss
 mstack-arg-probe
 Target Report Mask(STACK_PROBE)
 Enable stack probing
+
+mstringop-strategy=
+Target RejectNegative Joined Var(ix86_stringop_string)
+Chose strategy to generate stringop using
 
 mtls-dialect=
 Target RejectNegative Joined Var(ix86_tls_dialect_string)

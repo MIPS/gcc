@@ -94,6 +94,29 @@ gfc_omp_predetermined_sharing (tree decl)
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }
 
+
+/* Return code to initialize DECL with its default constructor, or
+   NULL if there's nothing to do.  */
+
+tree
+gfc_omp_clause_default_ctor (tree clause ATTRIBUTE_UNUSED, tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  stmtblock_t block;
+
+  if (! GFC_DESCRIPTOR_TYPE_P (type))
+    return NULL;
+
+  /* Allocatable arrays in PRIVATE clauses need to be set to
+     "not currently allocated" allocation status.  */
+  gfc_init_block (&block);
+
+  gfc_conv_descriptor_data_set (&block, decl, null_pointer_node);
+
+  return gfc_finish_block (&block);
+}
+
+
 /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
    disregarded in OpenMP construct, because it is going to be
    remapped during OpenMP lowering.  SHARED is true if DECL
@@ -262,7 +285,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   gfc_symbol init_val_sym, outer_sym, intrinsic_sym;
   gfc_expr *e1, *e2, *e3, *e4;
   gfc_ref *ref;
-  tree decl, backend_decl;
+  tree decl, backend_decl, stmt;
   locus old_loc = gfc_current_locus;
   const char *iname;
   try t;
@@ -277,6 +300,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   init_val_sym.ts = sym->ts;
   init_val_sym.attr.referenced = 1;
   init_val_sym.declared_at = where;
+  init_val_sym.attr.flavor = FL_VARIABLE;
   backend_decl = omp_reduction_init (c, gfc_sym_type (&init_val_sym));
   init_val_sym.backend_decl = backend_decl;
 
@@ -285,6 +309,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   outer_sym.as = gfc_copy_array_spec (sym->as);
   outer_sym.attr.dummy = 0;
   outer_sym.attr.result = 0;
+  outer_sym.attr.flavor = FL_VARIABLE;
   outer_sym.backend_decl = create_tmp_var_raw (TREE_TYPE (decl), NULL);
 
   /* Create fake symtrees for it.  */
@@ -400,10 +425,22 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   gcc_assert (t == SUCCESS);
 
   /* Create the init statement list.  */
-  OMP_CLAUSE_REDUCTION_INIT (c) = gfc_trans_assignment (e1, e2);
+  pushlevel (0);
+  stmt = gfc_trans_assignment (e1, e2, false);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
+  else
+    poplevel (0, 0, 0);
+  OMP_CLAUSE_REDUCTION_INIT (c) = stmt;
 
   /* Create the merge statement list.  */
-  OMP_CLAUSE_REDUCTION_MERGE (c) = gfc_trans_assignment (e3, e4);
+  pushlevel (0);
+  stmt = gfc_trans_assignment (e3, e4, false);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
+  else
+    poplevel (0, 0, 0);
+  OMP_CLAUSE_REDUCTION_MERGE (c) = stmt;
 
   /* And stick the placeholder VAR_DECL into the clause as well.  */
   OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = outer_sym.backend_decl;
@@ -853,7 +890,7 @@ gfc_trans_omp_critical (gfc_code *code)
 
 static tree
 gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
-		  gfc_omp_clauses *clauses)
+		  gfc_omp_clauses *do_clauses)
 {
   gfc_se se;
   tree dovar, stmt, from, to, step, type, init, cond, incr;
@@ -862,6 +899,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
   stmtblock_t body;
   int simple = 0;
   bool dovar_found = false;
+  gfc_omp_clauses *clauses = code->ext.omp_clauses;
 
   code = code->block->next;
   gcc_assert (code->op == EXEC_DO);
@@ -872,7 +910,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
       pblock = &block;
     }
 
-  omp_clauses = gfc_trans_omp_clauses (pblock, clauses, code->loc);
+  omp_clauses = gfc_trans_omp_clauses (pblock, do_clauses, code->loc);
   if (clauses)
     {
       gfc_namelist *n;
@@ -1083,6 +1121,7 @@ gfc_trans_omp_parallel_do (gfc_code *code)
   else
     poplevel (0, 0, 0);
   stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
+  OMP_PARALLEL_COMBINED (stmt) = 1;
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1107,6 +1146,7 @@ gfc_trans_omp_parallel_sections (gfc_code *code)
   else
     poplevel (0, 0, 0);
   stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
+  OMP_PARALLEL_COMBINED (stmt) = 1;
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1131,6 +1171,7 @@ gfc_trans_omp_parallel_workshare (gfc_code *code)
   else
     poplevel (0, 0, 0);
   stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
+  OMP_PARALLEL_COMBINED (stmt) = 1;
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1161,7 +1202,7 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
     }
   stmt = gfc_finish_block (&body);
 
-  stmt = build3_v (OMP_SECTIONS, stmt, omp_clauses, NULL);
+  stmt = build2_v (OMP_SECTIONS, stmt, omp_clauses);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);

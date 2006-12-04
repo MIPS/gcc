@@ -62,11 +62,6 @@ any_l16 (gfc_array_l16 * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  /* TODO:  It should be a front end job to correctly set the strides.  */
-
-  if (array->dim[0].stride == 0)
-    array->dim[0].stride = 1;
-
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   delta = array->dim[dim].stride;
 
@@ -103,9 +98,6 @@ any_l16 (gfc_array_l16 * const restrict retarray,
     }
   else
     {
-      if (retarray->dim[0].stride == 0)
-	retarray->dim[0].stride = 1;
-
       if (rank != GFC_DESCRIPTOR_RANK (retarray))
 	runtime_error ("rank of return array incorrect");
     }
@@ -157,7 +149,7 @@ any_l16 (gfc_array_l16 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
           n++;

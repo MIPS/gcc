@@ -39,7 +39,7 @@ gfc_get_expr (void)
   e->shape = NULL;
   e->ref = NULL;
   e->symtree = NULL;
-
+  e->con_by_offset = NULL;
   return e;
 }
 
@@ -226,7 +226,8 @@ gfc_free_expr (gfc_expr * e)
 
   if (e == NULL)
     return;
-
+  if (e->con_by_offset)
+    splay_tree_delete (e->con_by_offset); 
   free_expr0 (e);
   gfc_free (e);
 }
@@ -869,6 +870,8 @@ simplify_intrinsic_op (gfc_expr * p, int type)
       return FAILURE;
     }
 
+  result->rank = p->rank;
+  result->where = p->where;
   gfc_replace_expr (p, result);
 
   return SUCCESS;
@@ -900,50 +903,70 @@ simplify_constructor (gfc_constructor * c, int type)
 
 /* Pull a single array element out of an array constructor.  */
 
-static gfc_constructor *
-find_array_element (gfc_constructor * cons, gfc_array_ref * ar)
+static try
+find_array_element (gfc_constructor * cons, gfc_array_ref * ar,
+		    gfc_constructor ** rval)
 {
   unsigned long nelemen;
   int i;
   mpz_t delta;
   mpz_t offset;
+  gfc_expr *e;
+  try t;
+
+  t = SUCCESS;
+  e = NULL;
 
   mpz_init_set_ui (offset, 0);
   mpz_init (delta);
   for (i = 0; i < ar->dimen; i++)
     {
-      if (ar->start[i]->expr_type != EXPR_CONSTANT)
+      e = gfc_copy_expr (ar->start[i]);
+      if (e->expr_type != EXPR_CONSTANT)
 	{
 	  cons = NULL;
-	  break;
+	  goto depart;
 	}
-      mpz_sub (delta, ar->start[i]->value.integer,
+
+      /* Check the bounds.  */
+      if (ar->as->upper[i]
+	    && (mpz_cmp (e->value.integer,
+			ar->as->upper[i]->value.integer) > 0
+	    || mpz_cmp (e->value.integer,
+			ar->as->lower[i]->value.integer) < 0))
+	{
+	  gfc_error ("index in dimension %d is out of bounds "
+		     "at %L", i + 1, &ar->c_where[i]);
+	  cons = NULL;
+	  t = FAILURE;
+	  goto depart;
+	}
+
+      mpz_sub (delta, e->value.integer,
 	       ar->as->lower[i]->value.integer);
       mpz_add (offset, offset, delta);
     }
 
   if (cons)
     {
-      if (mpz_fits_ulong_p (offset))
+      for (nelemen = mpz_get_ui (offset); nelemen > 0; nelemen--)
 	{
-	  for (nelemen = mpz_get_ui (offset); nelemen > 0; nelemen--)
+	  if (cons->iterator)
 	    {
-	      if (cons->iterator)
-		{
-		  cons = NULL;
-		  break;
-		}
-	      cons = cons->next;
+	      cons = NULL;
+	      goto depart;
 	    }
+	  cons = cons->next;
 	}
-      else
-	cons = NULL;
     }
 
+depart:
   mpz_clear (delta);
   mpz_clear (offset);
-
-  return cons;
+  if (e)
+    gfc_free_expr (e);
+  *rval = cons;
+  return t;
 }
 
 
@@ -983,6 +1006,284 @@ remove_subobject_ref (gfc_expr * p, gfc_constructor * cons)
 }
 
 
+/* Pull an array section out of an array constructor.  */
+
+static try
+find_array_section (gfc_expr *expr, gfc_ref *ref)
+{
+  int idx;
+  int rank;
+  int d;
+  int shape_i;
+  long unsigned one = 1;
+  bool incr_ctr;
+  mpz_t start[GFC_MAX_DIMENSIONS];
+  mpz_t end[GFC_MAX_DIMENSIONS];
+  mpz_t stride[GFC_MAX_DIMENSIONS];
+  mpz_t delta[GFC_MAX_DIMENSIONS];
+  mpz_t ctr[GFC_MAX_DIMENSIONS];
+  mpz_t delta_mpz;
+  mpz_t tmp_mpz;
+  mpz_t nelts;
+  mpz_t ptr;
+  mpz_t index;
+  gfc_constructor *cons;
+  gfc_constructor *base;
+  gfc_expr *begin;
+  gfc_expr *finish;
+  gfc_expr *step;
+  gfc_expr *upper;
+  gfc_expr *lower;
+  gfc_constructor *vecsub[GFC_MAX_DIMENSIONS], *c;
+  try t;
+
+  t = SUCCESS;
+
+  base = expr->value.constructor;
+  expr->value.constructor = NULL;
+
+  rank = ref->u.ar.as->rank;
+
+  if (expr->shape == NULL)
+    expr->shape = gfc_get_shape (rank);
+
+  mpz_init_set_ui (delta_mpz, one);
+  mpz_init_set_ui (nelts, one);
+  mpz_init (tmp_mpz);
+
+  /* Do the initialization now, so that we can cleanup without
+     keeping track of where we were.  */
+  for (d = 0; d < rank; d++)
+    {
+      mpz_init (delta[d]);
+      mpz_init (start[d]);
+      mpz_init (end[d]);
+      mpz_init (ctr[d]);
+      mpz_init (stride[d]);
+      vecsub[d] = NULL;
+    }
+
+  /* Build the counters to clock through the array reference.  */
+  shape_i = 0;
+  for (d = 0; d < rank; d++)
+    {
+      /* Make this stretch of code easier on the eye!  */
+      begin = ref->u.ar.start[d];
+      finish = ref->u.ar.end[d];
+      step = ref->u.ar.stride[d];
+      lower = ref->u.ar.as->lower[d];
+      upper = ref->u.ar.as->upper[d];
+
+      if (ref->u.ar.dimen_type[d] == DIMEN_VECTOR)  /* Vector subscript.  */
+        {
+          gcc_assert(begin);
+	  gcc_assert(begin->expr_type == EXPR_ARRAY); 
+	  gcc_assert(begin->rank == 1);
+	  gcc_assert(begin->shape);
+
+	  vecsub[d] = begin->value.constructor;
+	  mpz_set (ctr[d], vecsub[d]->expr->value.integer);
+	  mpz_mul (nelts, nelts, begin->shape[0]);
+	  mpz_set (expr->shape[shape_i++], begin->shape[0]);
+
+	  /* Check bounds.  */
+	  for (c = vecsub[d]; c; c = c->next)
+	    {
+	      if (mpz_cmp (c->expr->value.integer, upper->value.integer) > 0
+	          || mpz_cmp (c->expr->value.integer, lower->value.integer) < 0)
+		{
+		  gfc_error ("index in dimension %d is out of bounds "
+			     "at %L", d + 1, &ref->u.ar.c_where[d]);
+		  t = FAILURE;
+		  goto cleanup;
+		}
+	    }
+        }
+      else
+        {
+	  if ((begin && begin->expr_type != EXPR_CONSTANT)
+		|| (finish && finish->expr_type != EXPR_CONSTANT)
+		|| (step && step->expr_type != EXPR_CONSTANT))
+	    {
+	      t = FAILURE;
+	      goto cleanup;
+	    }
+
+	  /* Obtain the stride.  */
+	  if (step)
+	    mpz_set (stride[d], step->value.integer);
+	  else
+	    mpz_set_ui (stride[d], one);
+
+	  if (mpz_cmp_ui (stride[d], 0) == 0)
+	    mpz_set_ui (stride[d], one);
+
+	  /* Obtain the start value for the index.  */
+	  if (begin)
+	    mpz_set (start[d], begin->value.integer);
+	  else
+	    mpz_set (start[d], lower->value.integer);
+
+	  mpz_set (ctr[d], start[d]);
+
+	  /* Obtain the end value for the index.  */
+	  if (finish)
+	    mpz_set (end[d], finish->value.integer);
+	  else
+	    mpz_set (end[d], upper->value.integer);
+
+	  /* Separate 'if' because elements sometimes arrive with
+	     non-null end.  */
+	  if (ref->u.ar.dimen_type[d] == DIMEN_ELEMENT)
+	    mpz_set (end [d], begin->value.integer);
+
+	  /* Check the bounds.  */
+	  if (mpz_cmp (ctr[d], upper->value.integer) > 0
+	      || mpz_cmp (end[d], upper->value.integer) > 0
+	      || mpz_cmp (ctr[d], lower->value.integer) < 0
+	      || mpz_cmp (end[d], lower->value.integer) < 0)
+	    {
+	      gfc_error ("index in dimension %d is out of bounds "
+			 "at %L", d + 1, &ref->u.ar.c_where[d]);
+	      t = FAILURE;
+	      goto cleanup;
+	    }
+
+	  /* Calculate the number of elements and the shape.  */
+	  mpz_abs (tmp_mpz, stride[d]);
+	  mpz_div (tmp_mpz, stride[d], tmp_mpz);
+	  mpz_add (tmp_mpz, end[d], tmp_mpz);
+	  mpz_sub (tmp_mpz, tmp_mpz, ctr[d]);
+	  mpz_div (tmp_mpz, tmp_mpz, stride[d]);
+	  mpz_mul (nelts, nelts, tmp_mpz);
+
+	  /* An element reference reduces the rank of the expression; don't add
+	     anything to the shape array.  */
+	  if (ref->u.ar.dimen_type[d] != DIMEN_ELEMENT) 
+	    mpz_set (expr->shape[shape_i++], tmp_mpz);
+	}
+
+      /* Calculate the 'stride' (=delta) for conversion of the
+	 counter values into the index along the constructor.  */
+      mpz_set (delta[d], delta_mpz);
+      mpz_sub (tmp_mpz, upper->value.integer, lower->value.integer);
+      mpz_add_ui (tmp_mpz, tmp_mpz, one);
+      mpz_mul (delta_mpz, delta_mpz, tmp_mpz);
+    }
+
+  mpz_init (index);
+  mpz_init (ptr);
+  cons = base;
+
+  /* Now clock through the array reference, calculating the index in
+     the source constructor and transferring the elements to the new
+     constructor.  */  
+  for (idx = 0; idx < (int)mpz_get_si (nelts); idx++)
+    {
+      if (ref->u.ar.offset)
+	mpz_set (ptr, ref->u.ar.offset->value.integer);
+      else
+	mpz_init_set_ui (ptr, 0);
+
+      incr_ctr = true;
+      for (d = 0; d < rank; d++)
+	{
+	  mpz_set (tmp_mpz, ctr[d]);
+	  mpz_sub_ui (tmp_mpz, tmp_mpz, one);
+	  mpz_mul (tmp_mpz, tmp_mpz, delta[d]);
+	  mpz_add (ptr, ptr, tmp_mpz);
+
+	  if (!incr_ctr) continue;
+
+	  if (ref->u.ar.dimen_type[d] == DIMEN_VECTOR)  /* Vector subscript.  */
+	    {
+	      gcc_assert(vecsub[d]);
+
+	      if (!vecsub[d]->next)
+		vecsub[d] = ref->u.ar.start[d]->value.constructor;
+	      else
+		{
+		  vecsub[d] = vecsub[d]->next;
+		  incr_ctr = false;
+		}
+	      mpz_set (ctr[d], vecsub[d]->expr->value.integer);
+	    }
+	  else
+	    {
+	      mpz_add (ctr[d], ctr[d], stride[d]); 
+
+	      if (mpz_cmp_ui (stride[d], 0) > 0 ?
+		    mpz_cmp (ctr[d], end[d]) > 0 :
+		    mpz_cmp (ctr[d], end[d]) < 0)
+		mpz_set (ctr[d], start[d]);
+	      else
+		incr_ctr = false;
+	    }
+	}
+
+      /* There must be a better way of dealing with negative strides
+	 than resetting the index and the constructor pointer!  */ 
+      if (mpz_cmp (ptr, index) < 0)
+	{
+	  mpz_set_ui (index, 0);
+	  cons = base;
+	}
+
+      while (mpz_cmp (ptr, index) > 0)
+	{
+	  mpz_add_ui (index, index, one);
+	  cons = cons->next;
+	}
+
+      gfc_append_constructor (expr, gfc_copy_expr (cons->expr));
+    }
+
+  mpz_clear (ptr);
+  mpz_clear (index);
+
+cleanup:
+
+  mpz_clear (delta_mpz);
+  mpz_clear (tmp_mpz);
+  mpz_clear (nelts);
+  for (d = 0; d < rank; d++)
+    {
+      mpz_clear (delta[d]);
+      mpz_clear (start[d]);
+      mpz_clear (end[d]);
+      mpz_clear (ctr[d]);
+      mpz_clear (stride[d]);
+    }
+  gfc_free_constructor (base);
+  return t;
+}
+
+/* Pull a substring out of an expression.  */
+
+static try
+find_substring_ref (gfc_expr *p, gfc_expr **newp)
+{
+  int end;
+  int start;
+  char *chr;
+
+  if (p->ref->u.ss.start->expr_type != EXPR_CONSTANT
+	|| p->ref->u.ss.end->expr_type != EXPR_CONSTANT)
+    return FAILURE;
+
+  *newp = gfc_copy_expr (p);
+  chr = p->value.character.string;
+  end = (int)mpz_get_ui (p->ref->u.ss.end->value.integer);
+  start = (int)mpz_get_ui (p->ref->u.ss.start->value.integer);
+
+  (*newp)->value.character.length = end - start + 1;
+  strncpy ((*newp)->value.character.string, &chr[start - 1],
+	   (*newp)->value.character.length);
+  return SUCCESS;
+}
+
+
+
 /* Simplify a subobject reference of a constructor.  This occurs when
    parameter variable values are substituted.  */
 
@@ -990,6 +1291,7 @@ static try
 simplify_const_ref (gfc_expr * p)
 {
   gfc_constructor *cons;
+  gfc_expr *newp;
 
   while (p->ref)
     {
@@ -999,24 +1301,40 @@ simplify_const_ref (gfc_expr * p)
 	  switch (p->ref->u.ar.type)
 	    {
 	    case AR_ELEMENT:
-	      cons = find_array_element (p->value.constructor, &p->ref->u.ar);
+	      if (find_array_element (p->value.constructor,
+				      &p->ref->u.ar,
+				      &cons) == FAILURE)
+		return FAILURE;
+
 	      if (!cons)
 		return SUCCESS;
+
 	      remove_subobject_ref (p, cons);
 	      break;
 
+	    case AR_SECTION:
+	      if (find_array_section (p, p->ref) == FAILURE)
+		return FAILURE;
+	      p->ref->u.ar.type = AR_FULL;
+
+	    /* FALLTHROUGH  */
+
 	    case AR_FULL:
-	      if (p->ref->next != NULL)
+	      if (p->ref->next != NULL
+		    && (p->ts.type == BT_CHARACTER || p->ts.type == BT_DERIVED))
 		{
-		  /* TODO: Simplify array subobject references.  */
-		  return SUCCESS;
+		  cons = p->value.constructor;
+		  for (; cons; cons = cons->next)
+		    {
+		      cons->expr->ref = copy_ref (p->ref->next);
+		      simplify_const_ref (cons->expr);
+		    }
 		}
-		gfc_free_ref_list (p->ref);
-		p->ref = NULL;
+	      gfc_free_ref_list (p->ref);
+	      p->ref = NULL;
 	      break;
 
 	    default:
-	      /* TODO: Simplify array subsections.  */
 	      return SUCCESS;
 	    }
 
@@ -1028,8 +1346,13 @@ simplify_const_ref (gfc_expr * p)
 	  break;
 
 	case REF_SUBSTRING:
-	  /* TODO: Constant substrings.  */
-	  return SUCCESS;
+  	  if (find_substring_ref (p, &newp) == FAILURE)
+	    return FAILURE;
+
+	  gfc_replace_expr (p, newp);
+	  gfc_free_ref_list (p->ref);
+	  p->ref = NULL;
+	  break;
 	}
     }
 
@@ -1060,6 +1383,7 @@ simplify_ref_chain (gfc_ref * ref, int type)
 	      if (gfc_simplify_expr (ref->u.ar.stride[n], type)
 		     == FAILURE)
 		return FAILURE;
+
 	    }
 	  break;
 
@@ -1086,6 +1410,11 @@ simplify_parameter_variable (gfc_expr * p, int type)
   try t;
 
   e = gfc_copy_expr (p->symtree->n.sym->value);
+  if (e == NULL)
+    return FAILURE;
+
+  e->rank = p->rank;
+
   /* Do not copy subobject refs for constant.  */
   if (e->expr_type != EXPR_CONSTANT && p->ref != NULL)
     e->ref = copy_ref (p->ref);
@@ -1157,9 +1486,9 @@ gfc_simplify_expr (gfc_expr * p, int type)
 	  gfc_extract_int (p->ref->u.ss.start, &start);
 	  start--;  /* Convert from one-based to zero-based.  */
 	  gfc_extract_int (p->ref->u.ss.end, &end);
-	  s = gfc_getmem (end - start + 1);
+	  s = gfc_getmem (end - start + 2);
 	  memcpy (s, p->value.character.string + start, end - start);
-	  s[end] = '\0';  /* TODO: C-style string for debugging.  */
+	  s[end-start+1] = '\0';  /* TODO: C-style string for debugging.  */
 	  gfc_free (p->value.character.string);
 	  p->value.character.string = s;
 	  p->value.character.length = end - start;
@@ -1209,7 +1538,9 @@ gfc_simplify_expr (gfc_expr * p, int type)
       if (simplify_constructor (p->value.constructor, type) == FAILURE)
 	return FAILURE;
 
-      if (p->expr_type == EXPR_ARRAY)
+      if (p->expr_type == EXPR_ARRAY
+	    && p->ref && p->ref->type == REF_ARRAY
+	    && p->ref->u.ar.type == AR_FULL)
 	  gfc_expand_constructor (p);
 
       if (simplify_const_ref (p) == FAILURE)
@@ -1863,13 +2194,49 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       return FAILURE;
     }
 
-  if (sym->attr.flavor == FL_PROCEDURE && sym->attr.use_assoc)
+/* 12.5.2.2, Note 12.26: The result variable is very similar to any other
+   variable local to a function subprogram.  Its existence begins when
+   execution of the function is initiated and ends when execution of the
+   function is terminated.....
+   Therefore, the left hand side is no longer a varaiable, when it is:*/
+  if (sym->attr.flavor == FL_PROCEDURE
+	&& sym->attr.proc != PROC_ST_FUNCTION
+	&& !sym->attr.external)
     {
-      gfc_error ("'%s' in the assignment at %L cannot be an l-value "
-		 "since it is a procedure", sym->name, &lvalue->where);
-      return FAILURE;
-    }
+      bool bad_proc;
+      bad_proc = false;
 
+      /* (i) Use associated; */
+      if (sym->attr.use_assoc)
+	bad_proc = true;
+
+      /* (ii) The assignment is in the main program; or  */
+      if (gfc_current_ns->proc_name->attr.is_main_program)
+	bad_proc = true;
+
+      /* (iii) A module or internal procedure....  */
+      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	     || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+	  && gfc_current_ns->parent
+	  && (!(gfc_current_ns->parent->proc_name->attr.function
+		  || gfc_current_ns->parent->proc_name->attr.subroutine)
+	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
+	{
+	  /* .... that is not a function.... */ 
+	  if (!gfc_current_ns->proc_name->attr.function)
+	    bad_proc = true;
+
+	  /* .... or is not an entry and has a different name.  */
+	  if (!sym->attr.entry && sym->name != gfc_current_ns->proc_name->name)
+	    bad_proc = true;
+	}
+
+      if (bad_proc)
+	{
+	  gfc_error ("'%s' at %L is not a VALUE", sym->name, &lvalue->where);
+	  return FAILURE;
+	}
+    }
 
   if (rvalue->rank != 0 && lvalue->rank != rvalue->rank)
     {
@@ -1894,11 +2261,11 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 
    if (sym->attr.cray_pointee
        && lvalue->ref != NULL
-       && lvalue->ref->u.ar.type != AR_ELEMENT
+       && lvalue->ref->u.ar.type == AR_FULL
        && lvalue->ref->u.ar.as->cp_was_assumed)
      {
        gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
-		  " is illegal.", &lvalue->where);
+		  " is illegal", &lvalue->where);
        return FAILURE;
      }
 
@@ -2091,7 +2458,7 @@ gfc_default_initializer (gfc_typespec *ts)
   /* See if we have a default initializer.  */
   for (c = ts->derived->components; c; c = c->next)
     {
-      if (c->initializer && init == NULL)
+      if ((c->initializer || c->allocatable) && init == NULL)
         init = gfc_get_expr ();
     }
 
@@ -2115,6 +2482,13 @@ gfc_default_initializer (gfc_typespec *ts)
 
       if (c->initializer)
         tail->expr = gfc_copy_expr (c->initializer);
+
+      if (c->allocatable)
+	{
+	  tail->expr = gfc_get_expr ();
+	  tail->expr->expr_type = EXPR_NULL;
+	  tail->expr->ts = c->ts;
+	}
     }
   return init;
 }

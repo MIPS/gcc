@@ -29,6 +29,7 @@
                  (match_operand 2 "immediate_operand" "i,i")))]
   ""
   "mul.b\t%2,%1"
+  [(set_attr "flags" "o")]
 )
 
 ; Here is the pattern for registers and such.
@@ -38,6 +39,7 @@
                  (sign_extend:HI (match_operand:QI 2 "mra_operand" "RqiSd,?Rmm,RqiSd,?Rmm,RhlSd,?Rmm"))))]
   ""
   "mul.b\t%2,%1"
+  [(set_attr "flags" "o")]
 )
 
 ; Don't try to sign_extend a const_int.  Same for all other multiplies.
@@ -56,6 +58,7 @@
                  (match_operand 2 "immediate_operand" "i,i")))]
   ""
   "mulu.b\t%U2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_insn "umulqihi3_r"
@@ -64,6 +67,7 @@
                  (zero_extend:HI (match_operand:QI 2 "mra_operand" "RqiSd,?Rmm,RqiSd,?Rmm,RhlSd,?Rmm"))))]
   ""
   "mulu.b\t%U2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_expand "umulqihi3"
@@ -76,19 +80,21 @@
 )
 
 (define_insn "mulhisi3_c"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,??Rmm")
-        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
-                 (match_operand 2 "immediate_operand" "i,i")))]
+  [(set (match_operand:SI 0 "ra_operand" "=Rsi")
+        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0"))
+                 (match_operand 2 "immediate_operand" "i")))]
   ""
   "mul.w\t%2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_insn "mulhisi3_r"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,RsiSd,??Rmm,??Rmm")
-        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0,0,0"))
-                 (sign_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm,RhiSd,?Rmm"))))]
+  [(set (match_operand:SI 0 "mra_operand" "=Rsi,Rsi")
+        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
+                 (sign_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm"))))]
   ""
   "mul.w\t%2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_expand "mulhisi3"
@@ -101,19 +107,21 @@
 )
 
 (define_insn "umulhisi3_c"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,??Rmm")
-        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
-                 (match_operand 2 "immediate_operand" "i,i")))]
+  [(set (match_operand:SI 0 "ra_operand" "=Rsi")
+        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0"))
+                 (match_operand 2 "immediate_operand" "i")))]
   ""
   "mulu.w\t%u2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_insn "umulhisi3_r"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,RsiSd,??Rmm,??Rmm")
-        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0,0,0"))
-                 (zero_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm,RhiSd,?Rmm"))))]
+  [(set (match_operand:SI 0 "mra_operand" "=Rsi,Rsi")
+        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
+                 (zero_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm"))))]
   ""
   "mulu.w\t%u2,%1"
+  [(set_attr "flags" "o")]
 )
 
 (define_expand "umulhisi3"
@@ -144,7 +152,7 @@
 		  (match_operand 2 "m32c_psi_scale" "Ilb")))]
   "TARGET_A24"
   "if (GET_CODE (operands[2]) != CONST_INT
-       || INTVAL(operands[2]) < 0)
+       || ! m32c_psi_scale (operands[2], PSImode))
      {
        m32c_expand_neg_mulpsi3 (operands);
        DONE;
@@ -175,6 +183,7 @@
    ]
   "0"
   "div.b\t%2"
+  [(set_attr "flags" "o")]
   )
 
 (define_expand "udivmodqi4"
@@ -199,6 +208,7 @@
    ]
   "0"
   "divu.b\t%2"
+  [(set_attr "flags" "o")]
   )
 
 (define_expand "divmodhi4"
@@ -223,6 +233,7 @@
    ]
   ""
   "div.w\t%2"
+  [(set_attr "flags" "o")]
   )
 
 (define_expand "udivmodhi4"
@@ -247,4 +258,5 @@
    ]
   ""
   "divu.w\t%2"
+  [(set_attr "flags" "o")]
   )

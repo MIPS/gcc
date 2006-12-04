@@ -123,9 +123,9 @@ struct edge_def GTY(())
 
   /* Instructions queued on the edge.  */
   union edge_def_insns {
-    rtx GTY ((tag ("0"))) r;
-    tree GTY ((tag ("1"))) t;
-  } GTY ((desc ("ir_type ()"))) insns;
+    tree GTY ((tag ("true"))) t;
+    rtx GTY ((tag ("false"))) r;
+  } GTY ((desc ("current_ir_type () == IR_GIMPLE"))) insns;
 
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
@@ -146,6 +146,7 @@ struct edge_def GTY(())
 typedef struct edge_def *edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
+DEF_VEC_ALLOC_P(edge,heap);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -179,7 +180,6 @@ extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
 struct loop;
-struct loops;
 
 /* Declared in tree-flow.h.  */
 struct edge_prediction;
@@ -460,7 +460,8 @@ extern bitmap_obstack reg_obstack;
 #define REG_BLOCK_UNKNOWN -1
 #define REG_BLOCK_GLOBAL -2
 
-#define REG_BASIC_BLOCK(N) (VARRAY_REG (reg_n_info, N)->basic_block)
+#define REG_BASIC_BLOCK(N)				\
+  (VEC_index (reg_info_p, reg_n_info, N)->basic_block)
 
 /* Stuff for recording basic block info.  */
 
@@ -485,7 +486,7 @@ extern void update_bb_for_insn (basic_block);
 extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
-bool safe_insert_insn_on_edge (rtx, edge);
+basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
@@ -516,7 +517,7 @@ extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
 extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
-extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type, 
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
 					     gcov_type);
 
 /* Structure to group all of the information to process IF-THEN and
@@ -765,7 +766,7 @@ ei_cond (edge_iterator ei, edge *p)
    an element might be removed during the traversal, otherwise
    elements will be missed.  Instead, use a for-loop like that shown
    in the following pseudo-code:
-   
+
    FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
      {
 	IF (e != taken_edge)
@@ -880,6 +881,8 @@ extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
+extern bool edge_probability_reliable_p (edge);
+extern bool br_prob_note_reliable_p (rtx);
 
 /* In flow.c */
 extern void init_flow (void);
@@ -944,6 +947,7 @@ extern void update_br_prob_note (basic_block);
 extern void fixup_abnormal_edges (void);
 extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
+extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);
@@ -970,7 +974,7 @@ extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
-extern basic_block nearest_common_dominator_for_set (enum cdi_direction, 
+extern basic_block nearest_common_dominator_for_set (enum cdi_direction,
 						     bitmap);
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
@@ -988,6 +992,9 @@ extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_in (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
+
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
 extern void check_bb_profile (basic_block, FILE *);
@@ -1000,6 +1007,8 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+
+extern rtx insert_insn_end_bb_new (rtx, basic_block);
 
 #include "cfghooks.h"
 
@@ -1167,5 +1176,19 @@ extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 
 /* In cfgrtl.c */
 extern bool condjump_equiv_p (struct equiv_info *, bool);
+
+/* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
+static inline bool bb_has_eh_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+	return true;
+    }
+  return false;
+}
 
 #endif /* GCC_BASIC_BLOCK_H */

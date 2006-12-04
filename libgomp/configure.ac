@@ -16,9 +16,9 @@ LIBGOMP_ENABLE(version-specific-runtime-libs, no, ,
 AC_MSG_RESULT($enable_version_specific_runtime_libs)
 
 AC_MSG_CHECKING([for --enable-linux-futex])
-LIBGOMP_ENABLE(linux-futex, yes,
+LIBGOMP_ENABLE(linux-futex, default, ,
   [Use the Linux futex system call],
-  permit yes|no)
+  permit yes|no|default)
 AC_MSG_RESULT($enable_linux_futex)
 
 # -------
@@ -145,13 +145,20 @@ GCC_HEADER_STDINT(gstdint.h)
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
-CFLAGS="$CFLAGS -pthread"
+
+# Darwin doesn't need the -pthread option since threads are in libSystem
 AC_LINK_IFELSE(
  [AC_LANG_PROGRAM(
   [#include <pthread.h>
    void *g(void *d) { return NULL; }],
   [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
- [XPCFLAGS=" -Wc,-pthread"],
+ [case $host in
+   *-darwin*)
+     ;;
+   default)
+     XPCFLAGS=" -Wc,-pthread"
+     ;;
+     esac],
  [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
   AC_LINK_IFELSE(
    [AC_LANG_PROGRAM(
@@ -171,6 +178,48 @@ case "$host" in
     AC_DEFINE(HAVE_BROKEN_POSIX_SEMAPHORES, 1,
 	Define if the POSIX Semaphores do not work on your system.)
     ;;
+  *-linux*)
+    case "$enable_linux_futex" in
+      default)
+	# If headers don't have gettid/futex syscalls definition, then
+	# default to no, otherwise there will be compile time failures.
+	# Otherwise, default to yes.  If we don't detect we are
+	# compiled/linked against NPTL and not cross-compiling, check
+	# if programs are run by default against NPTL and if not, issue
+	# a warning.
+	enable_linux_futex=no
+	AC_LINK_IFELSE(
+	 [AC_LANG_PROGRAM(
+	  [#include <sys/syscall.h>
+	   int lk;],
+	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],
+	  [AC_LINK_IFELSE(
+	   [AC_LANG_PROGRAM(
+	    [#ifndef _GNU_SOURCE
+	     #define _GNU_SOURCE 1
+	     #endif
+	     #include <pthread.h>
+	     pthread_t th; void *status;],
+	    [pthread_tryjoin_np (th, &status);])],[enable_linux_futex=yes],
+	    [if test x$cross_compiling = xno; then
+	       if getconf GNU_LIBPTHREAD_VERSION 2>/dev/null \
+		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then
+		 AC_MSG_WARN([The kernel might not support futex or gettid syscalls.
+If so, please configure with --disable-linux-futex])
+	       fi
+	     fi
+	     enable_linux_futex=yes])])
+	;;
+      yes)
+	AC_LINK_IFELSE(
+	 [AC_LANG_PROGRAM(
+	  [#include <sys/syscall.h>
+	   int lk;],
+	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],[],
+	  [AC_MSG_ERROR([SYS_gettid and SYS_futex required for --enable-linux-futex])])
+	;;
+    esac
+    ;;
 esac
 
 # At least for glibc, clock_gettime is in librt.  But don't pull that
@@ -178,12 +227,12 @@ esac
 if test $ac_cv_func_clock_gettime = no; then
   AC_CHECK_LIB(rt, clock_gettime,
     [LIBS="-lrt $LIBS"
-     AC_DEFINE(HAVE_CLOCK_GETTIME,
+     AC_DEFINE(HAVE_CLOCK_GETTIME, 1,
 	       [Define to 1 if you have the `clock_gettime' function.])])
 fi
 
 # See if we support thread-local storage.
-LIBGOMP_CHECK_TLS
+GCC_CHECK_TLS
 
 # See what sort of export controls are availible.
 LIBGOMP_CHECK_ATTRIBUTE_VISIBILITY

@@ -1,6 +1,6 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -858,7 +858,7 @@ current_function_has_exception_handlers (void)
 }
 
 /* A subroutine of duplicate_eh_regions.  Search the region tree under O
-   for the miniumum and maximum region numbers.  Update *MIN and *MAX.  */
+   for the minimum and maximum region numbers.  Update *MIN and *MAX.  */
 
 static void
 duplicate_eh_regions_0 (eh_region o, int *min, int *max)
@@ -893,6 +893,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 
   *n = *old;
   n->outer = outer;
+  n->next_peer = NULL;
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
@@ -912,7 +913,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
   return ret;
 }
 
-/* Duplicate the EH regions of IFUN, rootted at COPY_REGION, into current
+/* Duplicate the EH regions of IFUN, rooted at COPY_REGION, into current
    function and root the tree below OUTER_REGION.  Remap labels using MAP
    callback.  The special case of COPY_REGION of 0 means all regions.  */
 
@@ -956,7 +957,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
   /* Zero all entries in the range allocated.  */
   memset (VEC_address (eh_region, cfun->eh->region_array)
-	  + cfun_last_region_number + 1, 0, num_regions);
+	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region));
 
   /* Locate the spot at which to insert the new tree.  */
   if (outer_region > 0)
@@ -1077,6 +1078,48 @@ eh_region_outer_p (struct function *ifun, int region_a, int region_b)
   while (rp_b);
 
   return false;
+}
+
+/* Return region number of region that is outer to both if REGION_A and
+   REGION_B in IFUN.  */
+
+int
+eh_region_outermost (struct function *ifun, int region_a, int region_b)
+{
+  struct eh_region *rp_a, *rp_b;
+  sbitmap b_outer;
+
+  gcc_assert (ifun->eh->last_region_number > 0);
+  gcc_assert (ifun->eh->region_tree);
+
+  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
+  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
+  gcc_assert (rp_a != NULL);
+  gcc_assert (rp_b != NULL);
+
+  b_outer = sbitmap_alloc (ifun->eh->last_region_number + 1);
+  sbitmap_zero (b_outer);
+
+  do
+    {
+      SET_BIT (b_outer, rp_b->region_number);
+      rp_b = rp_b->outer;
+    }
+  while (rp_b);
+
+  do
+    {
+      if (TEST_BIT (b_outer, rp_a->region_number))
+	{
+	  sbitmap_free (b_outer);
+	  return rp_a->region_number;
+	}
+      rp_a = rp_a->outer;
+    }
+  while (rp_a);
+
+  sbitmap_free (b_outer);
+  return -1;
 }
 
 static int
@@ -1558,14 +1601,12 @@ static void
 dw2_build_landing_pads (void)
 {
   int i;
-  unsigned int j;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
       struct eh_region *region;
       rtx seq;
       basic_block bb;
-      bool clobbers_hard_regs = false;
       edge e;
 
       region = VEC_index (eh_region, cfun->eh->region_array, i);
@@ -1594,30 +1635,6 @@ dw2_build_landing_pads (void)
 	else
 #endif
 	  { /* Nothing */ }
-
-      /* If the eh_return data registers are call-saved, then we
-	 won't have considered them clobbered from the call that
-	 threw.  Kill them now.  */
-      for (j = 0; ; ++j)
-	{
-	  unsigned r = EH_RETURN_DATA_REGNO (j);
-	  if (r == INVALID_REGNUM)
-	    break;
-	  if (! call_used_regs[r])
-	    {
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
-	      clobbers_hard_regs = true;
-	    }
-	}
-
-      if (clobbers_hard_regs)
-	{
-	  /* @@@ This is a kludge.  Not all machine descriptions define a
-	     blockage insn, but we must not allow the code we just generated
-	     to be reordered by scheduling.  So emit an ASM_INPUT to act as
-	     blockage insn.  */
-	  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
-	}
 
       emit_move_insn (cfun->eh->exc_ptr,
 		      gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
@@ -1852,17 +1869,15 @@ sjlj_emit_function_enter (rtx dispatch_label)
 
 #ifdef DONT_USE_BUILTIN_SETJMP
   {
-    rtx x, note;
+    rtx x;
     x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
 				 TYPE_MODE (integer_type_node), 1,
 				 plus_constant (XEXP (fc, 0),
 						sjlj_fc_jbuf_ofs), Pmode);
 
-    note = emit_note (NOTE_INSN_EXPECTED_VALUE);
-    NOTE_EXPECTED_VALUE (note) = gen_rtx_EQ (VOIDmode, x, const0_rtx);
-
     emit_cmp_and_jump_insns (x, const0_rtx, NE, 0,
 			     TYPE_MODE (integer_type_node), 0, dispatch_label);
+    add_reg_br_prob_note (get_insns (), REG_BR_PROB_BASE/100);
   }
 #else
   expand_builtin_setjmp_setup (plus_constant (XEXP (fc, 0), sjlj_fc_jbuf_ofs),
@@ -2770,6 +2785,9 @@ set_nothrow_function_flags (void)
 {
   rtx insn;
 
+  if (!targetm.binds_local_p (current_function_decl))
+    return 0;
+
   TREE_NOTHROW (current_function_decl) = 1;
 
   /* Assume cfun->all_throwers_are_sibcalls until we encounter
@@ -3500,10 +3518,16 @@ sjlj_output_call_site_table (void)
 /* Switch to the section that should be used for exception tables.  */
 
 static void
-switch_to_exception_section (void)
+switch_to_exception_section (const char * ARG_UNUSED (fnname))
 {
-  if (exception_section == 0)
+  section *s;
+
+  if (exception_section)
+    s = exception_section;
+  else
     {
+      /* Compute the section and cache it into exception_section,
+	 unless it depends on the function name.  */
       if (targetm.have_named_sections)
 	{
 	  int flags;
@@ -3519,18 +3543,32 @@ switch_to_exception_section (void)
 	    }
 	  else
 	    flags = SECTION_WRITE;
-	  exception_section = get_section (".gcc_except_table", flags, NULL);
+
+#ifdef HAVE_LD_EH_GC_SECTIONS
+	  if (flag_function_sections)
+	    {
+	      char *section_name = xmalloc (strlen (fnname) + 32);
+	      sprintf (section_name, ".gcc_except_table.%s", fnname);
+	      s = get_section (section_name, flags, NULL);
+	      free (section_name);
+	    }
+	  else
+#endif
+	    exception_section
+	      = s = get_section (".gcc_except_table", flags, NULL);
 	}
       else
-	exception_section = flag_pic ? data_section : readonly_data_section;
+	exception_section
+	  = s = flag_pic ? data_section : readonly_data_section;
     }
-  switch_to_section (exception_section);
+
+  switch_to_section (s);
 }
 #endif
 
 
 /* Output a reference from an exception table to the type_info object TYPE.
-   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   TT_FORMAT and TT_FORMAT_SIZE describe the DWARF encoding method used for
    the value.  */
 
 static void
@@ -3546,7 +3584,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
       struct cgraph_varpool_node *node;
 
       type = lookup_type_for_runtime (type);
-      value = expand_normal (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
 
       /* Let cgraph know that the rtti decl is used.  Not all of the
 	 paths below go through assemble_integer, which would take
@@ -3579,7 +3617,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 }
 
 void
-output_function_exception_table (void)
+output_function_exception_table (const char * ARG_UNUSED (fnname))
 {
   int tt_format, cs_format, lp_format, i, n;
 #ifdef HAVE_AS_LEB128
@@ -3607,7 +3645,7 @@ output_function_exception_table (void)
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  switch_to_exception_section ();
+  switch_to_exception_section (fnname);
 #endif
 
   /* If the target wants a label to begin the table, emit it here.  */

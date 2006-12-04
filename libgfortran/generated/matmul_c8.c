@@ -1,5 +1,5 @@
 /* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -36,6 +36,16 @@ Boston, MA 02110-1301, USA.  */
 
 #if defined (HAVE_GFC_COMPLEX_8)
 
+/* Prototype for the BLAS ?gemm subroutine, a pointer to which can be
+   passed to us by the front-end, in which case we'll call it for large
+   matrices.  */
+
+typedef void (*blas_call)(const char *, const char *, const int *, const int *,
+                          const int *, const GFC_COMPLEX_8 *, const GFC_COMPLEX_8 *,
+                          const int *, const GFC_COMPLEX_8 *, const int *,
+                          const GFC_COMPLEX_8 *, GFC_COMPLEX_8 *, const int *,
+                          int, int);
+
 /* The order of loops is different in the case of plain matrix
    multiplication C=MATMUL(A,B), and in the frequent special case where
    the argument A is the temporary result of a TRANSPOSE intrinsic:
@@ -56,18 +66,24 @@ Boston, MA 02110-1301, USA.  */
        DO I=1,M
          S = 0
          DO K=1,COUNT
-           S = S+A(I,K)+B(K,J)
+           S = S+A(I,K)*B(K,J)
          C(I,J) = S
    ENDIF
 */
 
+/* If try_blas is set to a nonzero value, then the matmul function will
+   see if there is a way to perform the matrix multiplication by a call
+   to the BLAS gemm function.  */
+
 extern void matmul_c8 (gfc_array_c8 * const restrict retarray, 
-	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b);
+	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm);
 export_proto(matmul_c8);
 
 void
 matmul_c8 (gfc_array_c8 * const restrict retarray, 
-	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b)
+	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm)
 {
   const GFC_COMPLEX_8 * restrict abase;
   const GFC_COMPLEX_8 * restrict bbase;
@@ -119,15 +135,6 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
 	= internal_malloc_size (sizeof (GFC_COMPLEX_8) * size0 ((array_t *) retarray));
       retarray->offset = 0;
     }
-
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
-
-  /* This prevents constifying the input arguments.  */
-  if (a->dim[0].stride == 0)
-    a->dim[0].stride = 1;
-  if (b->dim[0].stride == 0)
-    b->dim[0].stride = 1;
 
 
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
@@ -186,6 +193,31 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
   bbase = b->data;
   dest = retarray->data;
 
+
+  /* Now that everything is set up, we're performing the multiplication
+     itself.  */
+
+#define POW3(x) (((float) (x)) * ((float) (x)) * ((float) (x)))
+
+  if (try_blas && rxstride == 1 && (axstride == 1 || aystride == 1)
+      && (bxstride == 1 || bystride == 1)
+      && (((float) xcount) * ((float) ycount) * ((float) count)
+          > POW3(blas_limit)))
+  {
+    const int m = xcount, n = ycount, k = count, ldc = rystride;
+    const GFC_COMPLEX_8 one = 1, zero = 0;
+    const int lda = (axstride == 1) ? aystride : axstride,
+              ldb = (bxstride == 1) ? bystride : bxstride;
+
+    if (lda > 0 && ldb > 0 && ldc > 0 && m > 1 && n > 1 && k > 1)
+      {
+        assert (gemm != NULL);
+        gemm (axstride == 1 ? "N" : "T", bxstride == 1 ? "N" : "T", &m, &n, &k,
+              &one, abase, &lda, bbase, &ldb, &zero, dest, &ldc, 1, 1);
+        return;
+      }
+  }
+
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
       const GFC_COMPLEX_8 * restrict bbase_y;
@@ -193,8 +225,8 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
       const GFC_COMPLEX_8 * restrict abase_n;
       GFC_COMPLEX_8 bbase_yn;
 
-      if (rystride == ycount)
-	memset (dest, 0, (sizeof (GFC_COMPLEX_8) * size0((array_t *) retarray)));
+      if (rystride == xcount)
+	memset (dest, 0, (sizeof (GFC_COMPLEX_8) * xcount * ycount));
       else
 	{
 	  for (y = 0; y < ycount; y++)
@@ -219,22 +251,39 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
     {
-      const GFC_COMPLEX_8 *restrict abase_x;
-      const GFC_COMPLEX_8 *restrict bbase_y;
-      GFC_COMPLEX_8 *restrict dest_y;
-      GFC_COMPLEX_8 s;
-
-      for (y = 0; y < ycount; y++)
+      if (GFC_DESCRIPTOR_RANK (a) != 1)
 	{
-	  bbase_y = &bbase[y*bystride];
-	  dest_y = &dest[y*rystride];
-	  for (x = 0; x < xcount; x++)
+	  const GFC_COMPLEX_8 *restrict abase_x;
+	  const GFC_COMPLEX_8 *restrict bbase_y;
+	  GFC_COMPLEX_8 *restrict dest_y;
+	  GFC_COMPLEX_8 s;
+
+	  for (y = 0; y < ycount; y++)
 	    {
-	      abase_x = &abase[x*axstride];
+	      bbase_y = &bbase[y*bystride];
+	      dest_y = &dest[y*rystride];
+	      for (x = 0; x < xcount; x++)
+		{
+		  abase_x = &abase[x*axstride];
+		  s = (GFC_COMPLEX_8) 0;
+		  for (n = 0; n < count; n++)
+		    s += abase_x[n] * bbase_y[n];
+		  dest_y[x] = s;
+		}
+	    }
+	}
+      else
+	{
+	  const GFC_COMPLEX_8 *restrict bbase_y;
+	  GFC_COMPLEX_8 s;
+
+	  for (y = 0; y < ycount; y++)
+	    {
+	      bbase_y = &bbase[y*bystride];
 	      s = (GFC_COMPLEX_8) 0;
 	      for (n = 0; n < count; n++)
-		s += abase_x[n] * bbase_y[n];
-	      dest_y[x] = s;
+		s += abase[n*axstride] * bbase_y[n];
+	      dest[y*rystride] = s;
 	    }
 	}
     }
@@ -249,6 +298,20 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
 	  for (x = 0; x < xcount; x++)
 	    /* dest[x,y] += a[x,n] * b[n,y] */
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
+    }
+  else if (GFC_DESCRIPTOR_RANK (a) == 1)
+    {
+      const GFC_COMPLEX_8 *restrict bbase_y;
+      GFC_COMPLEX_8 s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  s = (GFC_COMPLEX_8) 0;
+	  for (n = 0; n < count; n++)
+	    s += abase[n*axstride] * bbase_y[n*bxstride];
+	  dest[y*rxstride] = s;
+	}
     }
   else
     {

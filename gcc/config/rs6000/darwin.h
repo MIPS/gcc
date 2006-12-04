@@ -40,6 +40,9 @@
 
 #define TARGET_OBJECT_FORMAT OBJECT_MACHO
 
+/* Size of the Obj-C jump buffer.  */
+#define OBJC_JBLEN ((TARGET_64BIT) ? (26*2 + 18*2 + 129 + 1) : (26 + 18*2 + 129 + 1))
+
 /* We're not ever going to do TOCs.  */
 
 #define TARGET_TOC 0
@@ -51,10 +54,6 @@
 
 /* Translate config/rs6000/darwin.opt to config/darwin.h.  */
 #define TARGET_DYNAMIC_NO_PIC (TARGET_MACHO_DYNAMIC_NO_PIC)
-
-/* Handle #pragma weak and #pragma pack.  */
-#define HANDLE_SYSV_PRAGMA 1
-
 
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
@@ -84,7 +83,6 @@ do {									\
       }									\
     else if (flag_pic == 1)						\
       {									\
-        /* Darwin doesn't support -fpic.  */				\
         flag_pic = 2;							\
       }									\
   }									\
@@ -92,6 +90,11 @@ do {									\
     {									\
       target_flags |= MASK_POWERPC64;					\
       warning (0, "-m64 requires PowerPC64 architecture, enabling");	\
+    }									\
+  if (flag_mkernel)                                                     \
+    {									\
+      rs6000_default_long_calls = 1;					\
+      target_flags |= MASK_SOFT_FLOAT;					\
     }									\
 } while(0)
 
@@ -102,6 +105,9 @@ do {									\
        || strverscmp (darwin_macosx_version_min, "10.4.6") < 0)		\
       && flag_use_cxa_get_exception_ptr == 2)				\
     flag_use_cxa_get_exception_ptr = 0;					\
+  if (flag_mkernel)							\
+    flag_no_builtin = 1;						\
+  SUBTARGET_C_COMMON_OVERRIDE_OPTIONS;					\
 } while (0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -116,9 +122,11 @@ do {									\
    the kernel or some such.  */
 
 #define CC1_SPEC "\
-%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
-%{!static:%{!mdynamic-no-pic:-fPIC}}"
+  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
+  %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
+  %{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}}"
+
+#define DARWIN_ARCH_SPEC "%{m64:ppc64;:ppc}"
 
 #define DARWIN_SUBARCH_SPEC "			\
  %{m64: ppc64}					\
@@ -145,7 +153,7 @@ do {									\
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  { "darwin_arch", DARWIN_ARCH_SPEC },		\
   { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 
@@ -289,20 +297,20 @@ do {									\
         fprintf (FILE, "\t.align32 %d,0x60000000\n", (LOG));  \
     } while (0)
 
-/* Generate insns to call the profiler.  */
-
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
 /* This is supported in cctools 465 and later.  The macro test
    above prevents using it in earlier build environments.  */
-#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)           \
-   if ((LOG) != 0)                                             \
-     {                                                         \
-       if ((MAX_SKIP) == 0)                                    \
-         fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
-       else                                                    \
-         fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
-     }
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)          \
+  if ((LOG) != 0)                                             \
+    {                                                         \
+      if ((MAX_SKIP) == 0)                                    \
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
+      else                                                    \
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
+    }
 #endif
+
+/* Generate insns to call the profiler.  */
 
 #define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)
 
@@ -368,26 +376,28 @@ do {									\
 /* Fix for emit_group_load (): force large constants to be pushed via regs.  */
 #define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
 
-/* This now supports a natural alignment mode */
-/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED)))
+/* Compute field alignment.  This is similar to the version of the
+   macro in the Apple version of GCC, except that version supports
+   'mac68k' alignment, and that version uses the computed alignment
+   always for the first field of a structure.  The first-field
+   behaviour is dealt with by
+   darwin_rs6000_special_round_type_align.  */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)	\
+  (TARGET_ALIGN_NATURAL ? (COMPUTED)		\
+   : (COMPUTED) == 128 ? 128			\
+   : MIN ((COMPUTED), 32))
 
 /* Darwin increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
-    || TREE_CODE (STRUCT) == UNION_TYPE					\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
-   && TARGET_ALIGN_NATURAL == 0                         		\
-   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
-   : (TREE_CODE (STRUCT) == VECTOR_TYPE					\
-      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			  \
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					  \
+    || TREE_CODE (STRUCT) == UNION_TYPE					  \
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				  \
+   && TARGET_ALIGN_NATURAL == 0						  \
+   ? darwin_rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED) \
+   : (TREE_CODE (STRUCT) == VECTOR_TYPE					  \
+      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT)))			  \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				  \
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Specify padding for the last element of a block move between
@@ -443,49 +453,6 @@ do {									\
    || (darwin_macosx_version_min				\
        && strverscmp (darwin_macosx_version_min, "10.3") >= 0))
 
-/* Attempt to turn on execute permission for the stack.  This may be
-    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
-    if the target machine can change execute permissions on a page).
-
-    There is no way to query the execute permission of the stack, so
-    we always issue the mprotect() call.
-
-    Note that we go out of our way to use namespace-non-invasive calls
-    here.  Unfortunately, there is no libc-internal name for mprotect().
-
-    Also note that no errors should be emitted by this code; it is
-    considered dangerous for library calls to send messages to
-    stdout/stderr.  */
-
-#define ENABLE_EXECUTE_STACK                                            \
-extern void __enable_execute_stack (void *);                            \
-void                                                                    \
-__enable_execute_stack (void *addr)                                     \
-{                                                                       \
-   extern int mprotect (void *, size_t, int);                           \
-   extern int __sysctl (int *, unsigned int, void *, size_t *,          \
-                       void *, size_t);                                 \
-                                                                        \
-   static int size;                                                     \
-   static long mask;                                                    \
-                                                                        \
-   char *page, *end;                                                    \
-                                                                        \
-   if (size == 0)                                                       \
-     {                                                                  \
-       int mib[2];                                                      \
-       size_t len;                                                      \
-                                                                        \
-       mib[0] = 6; /* CTL_HW */                                         \
-       mib[1] = 7; /* HW_PAGESIZE */                                    \
-       len = sizeof (size);                                             \
-       (void) __sysctl (mib, 2, &size, &len, NULL, 0);                  \
-       mask = ~((long) size - 1);                                       \
-     }                                                                  \
-                                                                        \
-   page = (char *) (((long) addr) & mask);                              \
-   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
-                                                                        \
-   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
-   (void) mprotect (page, end - page, 7);                               \
-}
+/* When generating kernel code or kexts, we don't use Altivec by
+   default, as kernel code doesn't save/restore those registers.  */
+#define OS_MISSING_ALTIVEC (flag_mkernel || flag_apple_kext)

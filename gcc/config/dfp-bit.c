@@ -64,7 +64,7 @@ typedef decNumber* (*dfp_unary_func)
 
 /* A pointer to a binary decNumber operation.  */
 typedef decNumber* (*dfp_binary_func)
-     (decNumber *, decNumber *, decNumber *, decContext *);
+     (decNumber *, const decNumber *, const decNumber *, decContext *);
 
 extern unsigned long __dec_byte_swap (unsigned long);
 
@@ -87,9 +87,6 @@ dfp_unary_op (dfp_unary_func op, DFP_C_TYPE arg)
 
   /* Perform the operation.  */
   op (&res, &arg1, &context);
-
-  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
-    DFP_RAISE (0);
 
   TO_ENCODED (&encoded_result, &res, &context);
   IEEE_TO_HOST (encoded_result, &result);
@@ -118,9 +115,6 @@ dfp_binary_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
   /* Perform the operation.  */
   op (&res, &arg1, &arg2, &context);
 
-  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
-    DFP_RAISE (0);
-
   TO_ENCODED (&encoded_result, &res, &context);
   IEEE_TO_HOST (encoded_result, &result);
   return result;
@@ -147,9 +141,6 @@ dfp_compare_op (dfp_binary_func op, DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 
   /* Perform the comparison.  */
   op (&res, &arg1, &arg2, &context);
-
-  if (CONTEXT_TRAPS && CONTEXT_ERRORS (context))
-    DFP_RAISE (0);
 
   if (decNumberIsNegative (&res))
     result = -1;
@@ -379,8 +370,6 @@ DFP_TO_DFP (DFP_C_TYPE f_from)
   HOST_TO_IEEE (f_from, &s_from);
   TO_INTERNAL (&s_from, &d);
   TO_ENCODED_TO (&s_to, &d, &context);
-  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
-    DFP_RAISE (DEC_Inexact);
 
   IEEE_TO_HOST_TO (s_to, &f_to);
   return f_to;
@@ -411,33 +400,10 @@ DFP_TO_INT (DFP_C_TYPE x)
   TO_INTERNAL (&s, &n1);
   /* Rescale if the exponent is less than zero.  */
   decNumberToIntegralValue (&n2, &n1, &context);
-  /* Get a value to use for the quanitize call.  */
+  /* Get a value to use for the quantize call.  */
   decNumberFromString (&qval, (char *) "1.0", &context);
   /* Force the exponent to zero.  */
   decNumberQuantize (&n1, &n2, &qval, &context);
-  /* This is based on text in N1107 section 5.1; it might turn out to be
-     undefined behavior instead.  */
-  if (context.status & DEC_Invalid_operation)
-    {
-#if defined (L_sd_to_si) || defined (L_dd_to_si) || defined (L_td_to_si)
-      if (decNumberIsNegative(&n2))
-        return INT_MIN;
-      else
-        return INT_MAX;
-#elif defined (L_sd_to_di) || defined (L_dd_to_di) || defined (L_td_to_di)
-      if (decNumberIsNegative(&n2))
-        /* Find a defined constant that will work here.  */
-        return (-9223372036854775807LL - 1LL);
-      else
-        /* Find a defined constant that will work here.  */
-        return 9223372036854775807LL;
-#elif defined (L_sd_to_usi) || defined (L_dd_to_usi) || defined (L_td_to_usi)
-      return UINT_MAX;
-#elif defined (L_sd_to_udi) || defined (L_dd_to_udi) || defined (L_td_to_udi)
-        /* Find a defined constant that will work here.  */
-      return 18446744073709551615ULL;
-#endif
-    }
   /* Get a string, which at this point will not include an exponent.  */
   decNumberToString (&n1, buf);
   /* Ignore the fractional part.  */
@@ -469,8 +435,6 @@ INT_TO_DFP (INT_TYPE i)
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&s, buf, &context);
   IEEE_TO_HOST (s, &f);
-  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
-    DFP_RAISE (DEC_Inexact);
   return f;
 }
 #endif
@@ -519,8 +483,6 @@ BFP_TO_DFP (BFP_TYPE x)
   /* Convert from the floating point string to a decimal* type.  */
   FROM_STRING (&s, buf, &context);
   IEEE_TO_HOST (s, &f);
-  if (CONTEXT_TRAPS && (context.status & DEC_Inexact) != 0)
-    DFP_RAISE (DEC_Inexact);
   return f;
 }
 #endif

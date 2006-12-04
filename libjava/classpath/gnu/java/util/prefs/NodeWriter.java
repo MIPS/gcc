@@ -168,7 +168,7 @@ public class NodeWriter {
         } else {
             bw.write("system");
         }
-        bw.write("\"/>");
+        bw.write("\">");
 
         writeRootMap();
         writeNode();
@@ -202,9 +202,6 @@ public class NodeWriter {
             path = path.substring(1, lastslash);
             StringTokenizer st = new StringTokenizer(path);
             parents = st.countTokens();
-
-            System.out.println("path: " + path);
-            System.out.println("parents: " + parents);
 
             for (int i=0; i<parents; i++) {
                 String name = st.nextToken();

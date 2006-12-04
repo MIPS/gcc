@@ -1,6 +1,6 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -265,7 +265,7 @@ match_hollerith_constant (gfc_expr ** result)
 	}
       if (e->ts.kind != gfc_default_integer_kind)
 	{
-	  gfc_error ("Invalid Hollerith constant: Interger kind at %L "
+	  gfc_error ("Invalid Hollerith constant: Integer kind at %L "
 		"should be default", &old_loc);
 	  goto cleanup;
 	}
@@ -281,6 +281,7 @@ match_hollerith_constant (gfc_expr ** result)
 		gfc_default_character_kind, &gfc_current_locus);
 	  e->value.character.string = gfc_getmem (num+1);
 	  memcpy (e->value.character.string, buffer, num);
+	  e->value.character.string[num] = '\0';
 	  e->value.character.length = num;
 	  *result = e;
 	  return MATCH_YES;
@@ -577,16 +578,6 @@ done:
 	  goto cleanup;
 	}
       kind = gfc_default_double_kind;
-      break;
-
-    case 'q':
-      if (kind != -2)
-	{
-	  gfc_error
-	    ("Real number at %C has a 'q' exponent and an explicit kind");
-	  goto cleanup;
-	}
-      kind = gfc_option.q_kind;
       break;
 
     default:
@@ -1083,6 +1074,10 @@ match_sym_complex_part (gfc_expr ** result)
       gfc_error ("Scalar PARAMETER required in complex constant at %C");
       return MATCH_ERROR;
     }
+
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: PARAMETER symbol in "
+		      "complex constant at %C") == FAILURE)
+    return MATCH_ERROR;
 
   switch (sym->value->ts.type)
     {
@@ -1711,7 +1706,7 @@ check_substring:
 symbol_attribute
 gfc_variable_attr (gfc_expr * expr, gfc_typespec * ts)
 {
-  int dimension, pointer, target;
+  int dimension, pointer, allocatable, target;
   symbol_attribute attr;
   gfc_ref *ref;
 
@@ -1723,6 +1718,7 @@ gfc_variable_attr (gfc_expr * expr, gfc_typespec * ts)
 
   dimension = attr.dimension;
   pointer = attr.pointer;
+  allocatable = attr.allocatable;
 
   target = attr.target;
   if (pointer)
@@ -1743,12 +1739,12 @@ gfc_variable_attr (gfc_expr * expr, gfc_typespec * ts)
 	    break;
 
 	  case AR_SECTION:
-	    pointer = 0;
+	    allocatable = pointer = 0;
 	    dimension = 1;
 	    break;
 
 	  case AR_ELEMENT:
-	    pointer = 0;
+	    allocatable = pointer = 0;
 	    break;
 
 	  case AR_UNKNOWN:
@@ -1763,18 +1759,20 @@ gfc_variable_attr (gfc_expr * expr, gfc_typespec * ts)
 	  *ts = ref->u.c.component->ts;
 
 	pointer = ref->u.c.component->pointer;
+	allocatable = ref->u.c.component->allocatable;
 	if (pointer)
 	  target = 1;
 
 	break;
 
       case REF_SUBSTRING:
-	pointer = 0;
+	allocatable = pointer = 0;
 	break;
       }
 
   attr.dimension = dimension;
   attr.pointer = pointer;
+  attr.allocatable = allocatable;
   attr.target = target;
 
   return attr;
@@ -1912,12 +1910,15 @@ gfc_match_rvalue (gfc_expr ** result)
   gfc_expr *e;
   match m, m2;
   int i;
+  gfc_typespec *ts;
+  bool implicit_char;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_find_state (COMP_INTERFACE) == SUCCESS)
+  if (gfc_find_state (COMP_INTERFACE) == SUCCESS
+      && !gfc_current_ns->has_import_set)
     i = gfc_get_sym_tree (name, NULL, &symtree);
   else
     i = gfc_get_ha_sym_tree (name, &symtree);
@@ -1933,6 +1934,21 @@ gfc_match_rvalue (gfc_expr ** result)
 
   if (sym->attr.function && sym->result == sym)
     {
+      /* See if this is a directly recursive function call.  */
+      gfc_gobble_whitespace ();
+      if (sym->attr.recursive
+	    && gfc_peek_char () == '('
+	    && gfc_current_ns->proc_name == sym)
+	{
+	  if (!sym->attr.dimension)
+	    goto function0;
+
+	  gfc_error ("'%s' is array valued and directly recursive "
+		     "at %C , so the keyword RESULT must be specified "
+		     "in the FUNCTION statement", sym->name);
+	  return MATCH_ERROR;
+	}
+	
       if (gfc_current_ns->proc_name == sym
 	  || (gfc_current_ns->parent != NULL
 	      && gfc_current_ns->parent->proc_name == sym))
@@ -2141,10 +2157,22 @@ gfc_match_rvalue (gfc_expr ** result)
 
       if (m2 != MATCH_YES)
 	{
+	  /* Try to figure out whether we're dealing with a character type.
+	     We're peeking ahead here, because we don't want to call 
+	     match_substring if we're dealing with an implicitly typed
+	     non-character variable.  */
+	  implicit_char = false;
+	  if (sym->ts.type == BT_UNKNOWN)
+	    {
+	      ts = gfc_get_default_type (sym,NULL);
+	      if (ts->type == BT_CHARACTER)
+		implicit_char = true;
+	    }
+
 	  /* See if this could possibly be a substring reference of a name
 	     that we're not sure is a variable yet.  */
 
-	  if ((sym->ts.type == BT_UNKNOWN || sym->ts.type == BT_CHARACTER)
+	  if ((implicit_char || sym->ts.type == BT_CHARACTER)
 	      && match_substring (sym->ts.cl, 0, &e->ref) == MATCH_YES)
 	    {
 
@@ -2254,6 +2282,17 @@ match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
   locus where;
   match m;
 
+  /* Since nothing has any business being an lvalue in a module
+     specification block, an interface block or a contains section,
+     we force the changed_symbols mechanism to work by setting
+     host_flag to 0. This prevents valid symbols that have the name
+     of keywords, such as 'end', being turned into variables by
+     failed matching to assignments for, eg., END INTERFACE.  */
+  if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_INTERFACE
+      || gfc_current_state () == COMP_CONTAINS)
+    host_flag = 0;
+
   m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)
     return m;
@@ -2270,6 +2309,14 @@ match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
       if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
 			  sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
+      break;
+
+    case FL_PARAMETER:
+      if (equiv_flag)
+	gfc_error ("Named constant at %C in an EQUIVALENCE");
+      else
+	gfc_error ("Cannot assign to a named constant at %C");
+      return MATCH_ERROR;
       break;
 
     case FL_PROCEDURE:

@@ -156,6 +156,15 @@ default_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
   return have_insn_for (DIV, mode) ? 3 : 2;
 }
 
+/* The default implementation of TARGET_MODE_REP_EXTENDED.  */
+
+int
+default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
+			   enum machine_mode mode_rep ATTRIBUTE_UNUSED)
+{
+  return UNKNOWN;
+}
+
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
@@ -308,6 +317,15 @@ default_invalid_within_doloop (rtx insn)
     return "Computed branch in the loop.";
   
   return NULL;
+}
+
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
 }
 
 bool

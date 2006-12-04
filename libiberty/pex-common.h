@@ -69,6 +69,8 @@ struct pex_obj
   struct pex_time *time;
   /* Number of children we have already waited for.  */
   int number_waited;
+  /* FILE created by pex_input_file.  */
+  FILE *input_file;
   /* FILE created by pex_read_output.  */
   FILE *read_output;
   /* Number of temporary files to remove.  */
@@ -94,16 +96,20 @@ struct pex_funcs
   int (*open_write) (struct pex_obj *, const char */* name */,
                      int /* binary */);
   /* Execute a child process.  FLAGS, EXECUTABLE, ARGV, ERR are from
-     pex_run.  IN, OUT, ERRDES are each a descriptor, from open_read,
-     open_write, or pipe, or they are one of STDIN_FILE_NO,
-     STDOUT_FILE_NO or STDERR_FILE_NO; if not STD*_FILE_NO, they
-     should be closed.  The function should handle the
+     pex_run.  IN, OUT, ERRDES, TOCLOSE are all descriptors, from
+     open_read, open_write, or pipe, or they are one of STDIN_FILE_NO,
+     STDOUT_FILE_NO or STDERR_FILE_NO; if IN, OUT, and ERRDES are not
+     STD*_FILE_NO, they should be closed.  If the descriptor TOCLOSE
+     is not -1, and the system supports pipes, TOCLOSE should be
+     closed in the child process.  The function should handle the
      PEX_STDERR_TO_STDOUT flag.  Return >= 0 on success, or -1 on
      error and set *ERRMSG and *ERR.  */
   long (*exec_child) (struct pex_obj *, int /* flags */,
                       const char */* executable */, char * const * /* argv */,
+                      char * const * /* env */,
                       int /* in */, int /* out */, int /* errdes */,
-		      const char **/* errmsg */, int */* err */);
+		      int /* toclose */, const char **/* errmsg */,
+		      int */* err */);
   /* Close a descriptor.  Return 0 on success, -1 on error.  */
   int (*close) (struct pex_obj *, int);
   /* Wait for a child to complete, returning exit status in *STATUS
@@ -121,6 +127,11 @@ struct pex_funcs
      PEX_USE_PIPES is set).  If BINARY is non-zero, open in binary
      mode.  Return pointer on success, NULL on error.  */
   FILE * (*fdopenr) (struct pex_obj *, int /* fd */, int /* binary */);
+  /* Get a FILE pointer to write to the file descriptor FD (only
+     called if PEX_USE_PIPES is set).  If BINARY is non-zero, open in
+     binary mode.  Arrange for FD not to be inherited by the child
+     processes.  Return pointer on success, NULL on error.  */
+  FILE * (*fdopenw) (struct pex_obj *, int /* fd */, int /* binary */);
   /* Free any system dependent data associated with OBJ.  May be
      NULL if there is nothing to do.  */
   void (*cleanup) (struct pex_obj *);

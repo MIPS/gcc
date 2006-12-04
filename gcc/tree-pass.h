@@ -177,13 +177,13 @@ struct dump_file_info
    in blocks that have one or more edges with no incoming definition
    for O_j.  This would lead to uninitialized warnings for O_j's
    symbol.  */
-#define TODO_update_ssa			(1 << 7)
+#define TODO_update_ssa			(1 << 8)
 
 /* Update the SSA form without inserting any new PHI nodes at all.
    This is used by passes that have either inserted all the PHI nodes
    themselves or passes that need only to patch use-def and def-def
    chains for virtuals (e.g., DCE).  */
-#define TODO_update_ssa_no_phi		(1 << 8)
+#define TODO_update_ssa_no_phi		(1 << 9)
 
 /* Insert PHI nodes everywhere they are needed.  No pruning of the
    IDF is done.  This is used by passes that need the PHI nodes for
@@ -194,7 +194,7 @@ struct dump_file_info
    may be doing something wrong.  Inserting PHI nodes for an old name
    where not all edges carry a new replacement may lead to silent
    codegen errors or spurious uninitialized warnings.  */
-#define TODO_update_ssa_full_phi	(1 << 9)
+#define TODO_update_ssa_full_phi	(1 << 10)
 
 /* Passes that update the SSA form on their own may want to delegate
    the updating of virtual names to the generic updater.  Since FUD
@@ -202,20 +202,20 @@ struct dump_file_info
    to do.  NOTE: If this flag is used, any OLD->NEW mappings for real
    names are explicitly destroyed and only the symbols marked for
    renaming are processed.  */
-#define TODO_update_ssa_only_virtuals	(1 << 10)
+#define TODO_update_ssa_only_virtuals	(1 << 11)
 
 /* Some passes leave unused local variables that can be removed from
    cfun->unexpanded_var_list.  This reduces the size of dump files and
    the memory footprint for VAR_DECLs.  */
-#define TODO_remove_unused_locals	(1 << 11)
+#define TODO_remove_unused_locals	(1 << 12)
 
 /* Internally used for the first in a sequence of passes.  It is set
    for the passes that are handed to register_dump_files.  */
-#define TODO_set_props			(1 << 12)
+#define TODO_set_props			(1 << 13)
 
 /* Set by passes that may make SMT's that were previously never used
    in statements, used.  */
-#define TODO_update_smt_usage           (1 << 13)
+#define TODO_update_smt_usage           (1 << 14)
 
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
@@ -330,6 +330,8 @@ extern struct tree_opt_pass pass_rtl_eh;
 extern struct tree_opt_pass pass_initial_value_sets;
 extern struct tree_opt_pass pass_unshare_all_rtl;
 extern struct tree_opt_pass pass_instantiate_virtual_regs;
+extern struct tree_opt_pass pass_rtl_fwprop;
+extern struct tree_opt_pass pass_rtl_fwprop_addr;
 extern struct tree_opt_pass pass_jump2;
 extern struct tree_opt_pass pass_cse;
 extern struct tree_opt_pass pass_gcse;
@@ -356,6 +358,7 @@ extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;
 extern struct tree_opt_pass pass_mode_switching;
+extern struct tree_opt_pass pass_see;
 extern struct tree_opt_pass pass_recompute_reg_usage;
 extern struct tree_opt_pass pass_sms;
 extern struct tree_opt_pass pass_sched;
@@ -383,7 +386,6 @@ extern struct tree_opt_pass pass_duplicate_computed_gotos;
 extern struct tree_opt_pass pass_variable_tracking;
 extern struct tree_opt_pass pass_free_cfg;
 extern struct tree_opt_pass pass_machine_reorg;
-extern struct tree_opt_pass pass_purge_lineno_notes;
 extern struct tree_opt_pass pass_cleanup_barriers;
 extern struct tree_opt_pass pass_delay_slots;
 extern struct tree_opt_pass pass_split_for_shorten_branches;

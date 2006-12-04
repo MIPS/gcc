@@ -117,6 +117,21 @@ may_propagate_copy (tree dest, tree orig)
       else if (get_alias_set (TREE_TYPE (type_d)) != 
 	       get_alias_set (TREE_TYPE (type_o)))
 	return false;
+
+      /* Also verify flow-sensitive information is compatible.  */
+      if (SSA_NAME_PTR_INFO (orig) && SSA_NAME_PTR_INFO (dest))
+	{
+	  struct ptr_info_def *orig_ptr_info = SSA_NAME_PTR_INFO (orig);
+	  struct ptr_info_def *dest_ptr_info = SSA_NAME_PTR_INFO (dest);
+
+	  if (orig_ptr_info->name_mem_tag
+	      && dest_ptr_info->name_mem_tag
+	      && orig_ptr_info->pt_vars
+	      && dest_ptr_info->pt_vars
+	      && !bitmap_intersect_p (dest_ptr_info->pt_vars,
+				      orig_ptr_info->pt_vars))
+	    return false;
+	}
     }
 
   /* If the destination is a SSA_NAME for a virtual operand, then we have
@@ -376,7 +391,10 @@ stmt_may_generate_copy (tree stmt)
   /* Otherwise, the only statements that generate useful copies are
      assignments whose RHS is just an SSA name that doesn't flow
      through abnormal edges.  */
-  return TREE_CODE (rhs) == SSA_NAME && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs);
+  return (do_store_copy_prop
+	  && TREE_CODE (lhs) == SSA_NAME)
+	 || (TREE_CODE (rhs) == SSA_NAME
+	     && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs));
 }
 
 
@@ -681,6 +699,34 @@ copy_prop_visit_stmt (tree stmt, edge *taken_edge_p, tree *result_p)
 	 see if the lattice value of its output has changed.  */
       retval = copy_prop_visit_assignment (stmt, result_p);
     }
+  else if (TREE_CODE (stmt) == MODIFY_EXPR
+	   && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+	   && do_store_copy_prop
+	   && stmt_makes_single_load (stmt))
+    {
+      /* If the statement is a copy assignment with a memory load
+	 on the RHS, see if we know the value of this load and
+	 update the lattice accordingly.  */
+      prop_value_t *val = get_value_loaded_by (stmt, copy_of);
+      if (val
+	  && val->mem_ref
+	  && is_gimple_reg (val->value)
+	  && operand_equal_p (val->mem_ref, TREE_OPERAND (stmt, 1), 0))
+        {
+	  bool changed;
+	  changed = set_copy_of_val (TREE_OPERAND (stmt, 0),
+				     val->value, val->mem_ref);
+	  if (changed)
+	    {
+	      *result_p = TREE_OPERAND (stmt, 0);
+	      retval = SSA_PROP_INTERESTING;
+	    }
+	  else
+	    retval = SSA_PROP_NOT_INTERESTING;
+	}
+      else
+        retval = SSA_PROP_VARYING;
+    }
   else if (TREE_CODE (stmt) == COND_EXPR)
     {
       /* See if we can determine which edge goes out of a conditional
@@ -836,11 +882,9 @@ init_copy_prop (void)
 {
   basic_block bb;
 
-  copy_of = XNEWVEC (prop_value_t, num_ssa_names);
-  memset (copy_of, 0, num_ssa_names * sizeof (*copy_of));
+  copy_of = XCNEWVEC (prop_value_t, num_ssa_names);
 
-  cached_last_copy_of = XNEWVEC (tree, num_ssa_names);
-  memset (cached_last_copy_of, 0, num_ssa_names * sizeof (*cached_last_copy_of));
+  cached_last_copy_of = XCNEWVEC (tree, num_ssa_names);
 
   FOR_EACH_BB (bb)
     {
@@ -908,8 +952,7 @@ fini_copy_prop (void)
   
   /* Set the final copy-of value for each variable by traversing the
      copy-of chains.  */
-  tmp = XNEWVEC (prop_value_t, num_ssa_names);
-  memset (tmp, 0, num_ssa_names * sizeof (*tmp));
+  tmp = XCNEWVEC (prop_value_t, num_ssa_names);
   for (i = 1; i < num_ssa_names; i++)
     {
       tree var = ssa_name (i);

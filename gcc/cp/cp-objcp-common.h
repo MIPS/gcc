@@ -59,6 +59,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
+#undef LANG_HOOKS_STATICP
+#define LANG_HOOKS_STATICP cxx_staticp
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
@@ -82,9 +84,11 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+#define LANG_HOOKS_WRITE_GLOBALS cp_write_global_declarations
 #undef LANG_HOOKS_COMDAT_GROUP
 #define LANG_HOOKS_COMDAT_GROUP cxx_comdat_group
+#undef  LANG_HOOKS_BUILTIN_FUNCTION
+#define LANG_HOOKS_BUILTIN_FUNCTION cxx_builtin_function
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -161,5 +165,7 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP cxx_omp_clause_assign_op
 #undef LANG_HOOKS_OMP_CLAUSE_DTOR
 #define LANG_HOOKS_OMP_CLAUSE_DTOR cxx_omp_clause_dtor
+#undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE cxx_omp_privatize_by_reference
 
 #endif /* GCC_CP_OBJCP_COMMON */

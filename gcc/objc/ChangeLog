@@ -1,3 +1,55 @@
+2006-11-02  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* objc-act.c (objc_finish_file): Remove ifdef clause for OBJCPLUS and
+	content where we called cp_finish_file.
+
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* objc-act.c (synth_module_prologue): Replace calls to
+	builtin_function with add_builtin_function.
+	(build_next_objc_exception_stuff): Replace calls to
+	builtin_function with add_builtin_function.
+	(build_objc_exception_stuff): Replace calls to
+	builtin_function with add_builtin_function.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added empty "objc.pdf" target.
+
+2006-09-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/29195
+	* objc-act.c (objc_push_parm): If we change the type of the
+	decl, relayout the decl.
+
+2006-09-19  Eric Christopher  <echristo@apple.com>
+
+	* objc-act.c (JBLEN): Rename to OBJC_JBLEN,
+	default to something innocuous.
+	(build_next_objc_exception_stuff): Rename JBLEN.
+
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-07-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR obj-c++/28434
+	* objc-act.c (lookup_and_install_protocols): Skip error_mark_nodes.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* objc-act.c: Remove prototype for objc_build_volatilized_type.
+
+2006-05-24  Mike Stump  <mrs@apple.com>
+
+	* objc-act.c (build_next_objc_exception_stuff): Use JBLEN instead of _JBLEN.
+
+2006-05-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR objc/27240
+	* objc-act.c (objc_is_public): Return early on invalid type.
+
 2006-03-02 Fariborz Jahanian <fjahanian@apple.com>
 
 	* objc-act.c (init_module_descriptor): Remove file name from
@@ -13,8 +65,8 @@
 2005-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR objc/25360
-        * objc/objc-act.c (encode_type): Encode Complex types as 'j' followed
-        by the inner type.
+	* objc/objc-act.c (encode_type): Encode Complex types as 'j' followed
+	by the inner type.
 
 2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
 

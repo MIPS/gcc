@@ -48,12 +48,8 @@ import java.io.OutputStream;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.security.cert.Certificate;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import javax.net.ssl.HandshakeCompletedEvent;
@@ -69,7 +65,7 @@ import javax.net.ssl.SSLSocketFactory;
  * @author Chris Burdess (dog@gnu.org)
  */
 public class HTTPURLConnection
-  extends HttpsURLConnection
+ extends HttpsURLConnection
   implements HandshakeCompletedListener
 {
   /*
@@ -153,6 +149,14 @@ public class HTTPURLConnection
     final Credentials creds = (username == null) ? null :
       new Credentials (username, password);
     
+    if ("POST".equals(method))
+      {
+        String contentType = requestHeaders.getValue("Content-Type");
+        if (null == contentType)
+          requestHeaders.addValue("Content-Type",
+                                  "application/x-www-form-urlencoded");
+      }
+
     boolean retry;
     do
       {
@@ -271,6 +275,8 @@ public class HTTPURLConnection
 		    secure = false;
 		    start = 7;
 		    int end = location.indexOf('/', start);
+                    if (end == -1)
+                      end = location.length();
 		    host = location.substring(start, end);
 		    int ci = host.lastIndexOf(':');
 		    if (ci != -1)
@@ -292,6 +298,8 @@ public class HTTPURLConnection
 		    secure = true;
 		    start = 8;
 		    int end = location.indexOf('/', start);
+                    if (end == -1)
+                      end = location.length();
 		    host = location.substring(start, end);
 		    int ci = host.lastIndexOf(':');
 		    if (ci != -1)
@@ -346,11 +354,11 @@ public class HTTPURLConnection
     HTTPConnection connection;
     if (keepAlive)
       {
-        connection = HTTPConnection.Pool.instance.get(host, port, secure);
+        connection = HTTPConnection.Pool.instance.get(host, port, secure, getConnectTimeout(), 0);
       }
     else
       {
-        connection = new HTTPConnection(host, port, secure);
+        connection = new HTTPConnection(host, port, secure, 0, getConnectTimeout());
       }
     return connection;
   }
@@ -410,10 +418,7 @@ public class HTTPURLConnection
   }
 
   public String getRequestProperty(String key)
-  {
-    if (key == null)
-      return null;
-    
+  {    
     return requestHeaders.getValue(key);
   }
 
@@ -656,5 +661,27 @@ public class HTTPURLConnection
     handshakeEvent = event;
   }
 
+  /**
+   * Set the connection timeout speed, in milliseconds, or zero if the timeout
+   * is to be considered infinite.
+   *
+   * Overloaded.
+   *
+   */
+  public void setConnectTimeout(int timeout)
+    throws IllegalArgumentException
+  {
+    super.setConnectTimeout( timeout );
+    if( connection == null )
+      return;
+    try 
+      {
+	connection.getSocket().setSoTimeout( timeout );
+      } 
+    catch(IOException se)
+      {
+	// Ignore socket exceptions.
+      }
+  }
 }
 

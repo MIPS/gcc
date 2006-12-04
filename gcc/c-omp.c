@@ -82,15 +82,18 @@ c_finish_omp_barrier (void)
 
 
 /* Complete a #pragma omp atomic construct.  The expression to be 
-   implemented atomically is LHS code= RHS.  */
+   implemented atomically is LHS code= RHS.  The value returned is
+   either error_mark_node (if the construct was erroneous) or an
+   OMP_ATOMIC node which should be added to the current statement tree
+   with add_stmt.  */
 
-void
+tree
 c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
   tree x, type, addr;
 
   if (lhs == error_mark_node || rhs == error_mark_node)
-    return;
+    return error_mark_node;
 
   /* ??? According to one reading of the OpenMP spec, complex type are
      supported, but there are no atomic stores for any architecture.
@@ -102,7 +105,7 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
       && !SCALAR_FLOAT_TYPE_P (type))
     {
       error ("invalid expression type for %<#pragma omp atomic%>");
-      return;
+      return error_mark_node;
     }
 
   /* ??? Validate that rhs does not overlap lhs.  */
@@ -111,8 +114,17 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
      via indirection.  */
   addr = build_unary_op (ADDR_EXPR, lhs, 0);
   if (addr == error_mark_node)
-    return;
+    return error_mark_node;
   addr = save_expr (addr);
+  if (TREE_CODE (addr) != SAVE_EXPR
+      && (TREE_CODE (addr) != ADDR_EXPR
+	  || TREE_CODE (TREE_OPERAND (addr, 0)) != VAR_DECL))
+    {
+      /* Make sure LHS is simple enough so that goa_lhs_expr_p can recognize
+	 it even after unsharing function body.  */
+      tree var = create_tmp_var_raw (TREE_TYPE (addr), NULL);
+      addr = build4 (TARGET_EXPR, TREE_TYPE (addr), var, addr, NULL, NULL);
+    }
   lhs = build_indirect_ref (addr, NULL);
 
   /* There are lots of warnings, errors, and conversions that need to happen
@@ -120,12 +132,12 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
      to do this, and then take it apart again.  */
   x = build_modify_expr (lhs, code, rhs);
   if (x == error_mark_node)
-    return;
+    return error_mark_node;
   gcc_assert (TREE_CODE (x) == MODIFY_EXPR);  
   rhs = TREE_OPERAND (x, 1);
 
   /* Punt the actual generation of atomic operations to common code.  */
-  add_stmt (build2 (OMP_ATOMIC, void_type_node, addr, rhs));
+  return build2 (OMP_ATOMIC, void_type_node, addr, rhs);
 }
 
 

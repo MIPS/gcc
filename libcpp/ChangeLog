@@ -1,3 +1,85 @@
+2006-11-20  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	* configure.ac (need_64bit_hwint): Need 64bit hwint for SPU.
+	* configure: Rebuilt.
+
+2006-11-01	Douglas Gregor <doug.gregor@gmail.com>
+
+	* include/cpplib.h (enum c_lang): Add CLK_GNUCXX0X and CLK_CXX0X
+	for experimental C++0x mode.
+	* init.c (lang_defaults): Add defaults for C++0x modes. C++0x has
+	adopted the preprocessor changes introduced in C99.
+
+2006-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac (need_64bit_hwint): Set for i[34567]86-*-linux*
+	depending on --enable-targets=all.
+	* configure: Regenerate.
+
+2006-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/28709
+	* macro.c (paste_tokens): Do error reporting here, use BUF with the
+	spelled LHS token as opposed to spelling it again.
+	(paste_all_tokens): Don't report errors here, just break on failure.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Makefile.in: Added empty "pdf" target.
+
+2006-09-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Make need_64_bit_hwint case for x86-darwin
+	match exactly the glob in gcc/config.gcc.
+	* configure: Regenerate.
+
+2006-09-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28768
+	PR preprocessor/14634
+	* lex.c (lex_string): Pedwarn for unterminated literals.
+
+2006-09-08  Eric Christopher  <echristo@apple.com>
+
+	* configure.ac: Add 64-bit HWI support for i?86-darwin.
+
+2006-08-14  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28288
+	PR c++/14556
+	* include/cpplib.h: Remove <?, >?, <?=, and >?= tokens.
+	(CPP_LAST_EQ): Change.
+	(CPP_LAST_PUNCTUATOR): Change.
+	* expr.c (cpp_operator): Remove MIN and MAX.
+	(reduce): Remove CPP_MIN and CPP_MAX.
+	(num_binary_op): Ditto.
+	* lex.c (_cpp_lex_direct): Ditto.
+	(cpp_avoid_paste): Remove ? as legal symbol after > or <.
+
+2006-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/27746
+	* directives.c (do_pragma): Handle pragma with valid namespace
+	and invalid name coming from macro expansion.
+	* directives.c (destringize_and_run): Initialize next field in
+	context.
+
+	PR c/27747
+	PR c++/27748
+	* directives.c (destringize_and_run): Set NO_EXPAND on the
+	tokens.
+
+	* macro.c (_cpp_backup_tokens): Fix comment typo.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (CATALOGS): Add po/ prefix.
+	* configure: Regenerated.
+
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Add install-html target. Add install-html to .PHONY
+
 2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
 
 	* macro.c (_cpp_builtin_macro_text): Handle BT_TIMESTAMP.
@@ -83,7 +165,7 @@
 
 2005-11-09  Per Bothner  <per@bothner.com>
 	    Uros Bizjak  <uros@kss-loka.si>
-	
+
 	PR c/24101
 	* init.c (read_original_filename): Temporarily set
 	state.in_directive before calling _cpp_lex_direct for
@@ -125,7 +207,7 @@
 	Use in print_dep assignment.
 	* init.c (cpp_read_main_file): Pass additional arg to _cpp_find_file.
 	* internal.h (_cpp_find_file): Add new parm to declaration.
-	
+
 2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* configure.ac: Require 64-bit int for arm*-*-*eabi*.

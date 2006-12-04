@@ -274,6 +274,7 @@ do { \
 #endif
 #if SUPPORT_SH2
 #define SUPPORT_SH3 1
+#define SUPPORT_SH2A_NOFPU 1
 #endif
 #if SUPPORT_SH3
 #define SUPPORT_SH4_NOFPU 1
@@ -281,16 +282,17 @@ do { \
 #if SUPPORT_SH4_NOFPU
 #define SUPPORT_SH4A_NOFPU 1
 #define SUPPORT_SH4AL 1
-#define SUPPORT_SH2A_NOFPU 1
 #endif
 
 #if SUPPORT_SH2E
 #define SUPPORT_SH3E 1
+#define SUPPORT_SH2A_SINGLE_ONLY 1
 #endif
 #if SUPPORT_SH3E
 #define SUPPORT_SH4_SINGLE_ONLY 1
+#endif
+#if SUPPORT_SH4_SINGLE_ONLY
 #define SUPPORT_SH4A_SINGLE_ONLY 1
-#define SUPPORT_SH2A_SINGLE_ONLY 1
 #endif
 
 #if SUPPORT_SH4
@@ -366,9 +368,9 @@ do { \
   SUBTARGET_EXTRA_SPECS
 
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH4
-#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*:%{!m5*:-isa=sh4}}}}"
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*:%{!m5*:-isa=sh4-up}}}}"
 #else
-#define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4}"
+#define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4-up}"
 #endif
 
 #define SH_ASM_SPEC \
@@ -469,6 +471,11 @@ do {									\
       target_flags |= MASK_SMALLCODE;					\
       sh_div_str = SH_DIV_STR_FOR_SIZE ;				\
     }									\
+  else									\
+    {									\
+      TARGET_CBRANCHDI4 = 1;						\
+      TARGET_EXPAND_CBRANCHDI4 = 1;					\
+    }									\
   /* We can't meaningfully test TARGET_SHMEDIA here, because -m options	\
      haven't been parsed yet, hence we'd read only the default.	\
      sh_target_reg_class will return NO_REGS if this is not SHMEDIA, so	\
@@ -488,6 +495,8 @@ do {									\
      the user explicitly requested this to be on or off.  */		\
   if (flag_schedule_insns > 0)						\
     flag_schedule_insns = 2;						\
+									\
+  set_param_value ("simultaneous-prefetches", 2);			\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -507,8 +516,8 @@ enum sh_divide_strategy_e {
   SH_DIV_INV_CALL2,
   SH_DIV_INV_FP,
   /* SH1 .. SH4 strategies.  Because of the small number of registers
-     available, the compiler uses knowledge of the actual et of registers
-     being clobbed by the different functions called.  */
+     available, the compiler uses knowledge of the actual set of registers
+     being clobbered by the different functions called.  */
   SH_DIV_CALL_DIV1, /* No FPU, medium size, highest latency.  */
   SH_DIV_CALL_FP,     /* FPU needed, small size, high latency.  */
   SH_DIV_CALL_TABLE,  /* No FPU, large size, medium latency. */
@@ -608,6 +617,7 @@ do {									\
 	      else							\
 		sh_div_strategy = SH_DIV_INV;				\
 	    }								\
+	  TARGET_CBRANCHDI4 = 0;					\
 	}								\
       /* -fprofile-arcs needs a working libgcov .  In unified tree	\
 	 configurations with newlib, this requires to configure with	\
@@ -631,7 +641,7 @@ do {									\
 		   || (TARGET_HARD_SH4 && TARGET_SH2E)			\
 		   || (TARGET_SHCOMPACT && TARGET_FPU_ANY)))		\
 	sh_div_strategy = SH_DIV_CALL_FP;				\
-      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH3)	\
+      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH2)	\
 	sh_div_strategy = SH_DIV_CALL_TABLE;				\
       else								\
 	/* Pick one that makes most sense for the target in general.	\
@@ -651,6 +661,8 @@ do {									\
 	  sh_div_strategy = SH_DIV_CALL_FP;				\
         /* SH1 .. SH3 cores often go into small-footprint systems, so	\
 	   default to the smallest implementation available.  */	\
+	else if (TARGET_SH2)	/* ??? EXPERIMENTAL */			\
+	  sh_div_strategy = SH_DIV_CALL_TABLE;				\
 	else								\
 	  sh_div_strategy = SH_DIV_CALL_DIV1;				\
     }									\
@@ -666,6 +678,9 @@ do {									\
     sh_divsi3_libfunc = "__sdivsi3_1";					\
   else									\
     sh_divsi3_libfunc = "__sdivsi3";					\
+  if (sh_branch_cost == -1)						\
+    sh_branch_cost							\
+      = TARGET_SH5 ? 1 : ! TARGET_SH2 || TARGET_HARD_SH4 ? 2 : 1;	\
   if (TARGET_FMOVD)							\
     reg_class_from_letter['e' - 'a'] = NO_REGS;				\
 									\
@@ -842,7 +857,7 @@ do {									\
   ((GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_INT \
     || GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_FLOAT) \
    ? (unsigned) MIN (BIGGEST_ALIGNMENT, GET_MODE_BITSIZE (TYPE_MODE (TYPE))) \
-   : (unsigned) ALIGN)
+   : (unsigned) DATA_ALIGNMENT(TYPE, ALIGN))
 
 /* Make arrays of chars word-aligned for the same reasons.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
@@ -2286,6 +2301,7 @@ struct sh_args {
 #define CONSTANT_ADDRESS_P(X)	(GET_CODE (X) == LABEL_REF)
 
 /* Nonzero if the constant value X is a legitimate general operand.  */
+/* can_store_by_pieces constructs VOIDmode CONST_DOUBLEs.  */
 
 #define LEGITIMATE_CONSTANT_P(X) \
   (TARGET_SHMEDIA							\
@@ -2296,7 +2312,7 @@ struct sh_args {
       || TARGET_SHMEDIA64)						\
    : (GET_CODE (X) != CONST_DOUBLE					\
       || GET_MODE (X) == DFmode || GET_MODE (X) == SFmode		\
-      || (TARGET_SH2E && (fp_zero_operand (X) || fp_one_operand (X)))))
+      || GET_MODE (X) == DImode || GET_MODE (X) == VOIDmode))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2818,6 +2834,12 @@ struct sh_args {
 /* Since the SH2e has only `float' support, it is desirable to make all
    floating point types equivalent to `float'.  */
 #define DOUBLE_TYPE_SIZE ((TARGET_SH2E && ! TARGET_SH4 && ! TARGET_SH2A_DOUBLE) ? 32 : 64)
+
+#if defined(__SH2E__) || defined(__SH3E__) || defined( __SH4_SINGLE_ONLY__)
+#define LIBGCC2_DOUBLE_TYPE_SIZE 32
+#else
+#define LIBGCC2_DOUBLE_TYPE_SIZE 64
+#endif
 
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
@@ -3446,8 +3468,6 @@ extern int current_function_interrupt;
 1:	.long	" USER_LABEL_PREFIX #FUNC " - 0b\n\
 2:\n" TEXT_SECTION_ASM_OP);
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
-
-#define SIMULTANEOUS_PREFETCHES 2
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */
 #define high_life_started reload_in_progress

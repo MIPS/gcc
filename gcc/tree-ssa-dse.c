@@ -173,7 +173,7 @@ memory_ssa_name_same (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* If we've found a default definition, then there's no problem.  Both
      stores will post-dominate it.  And def_bb will be NULL.  */
-  if (expr == default_def (SSA_NAME_VAR (expr)))
+  if (expr == gimple_default_def (cfun, SSA_NAME_VAR (expr)))
     return NULL_TREE;
 
   def_stmt = SSA_NAME_DEF_STMT (expr);
@@ -249,7 +249,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
     {
       use_operand_p first_use_p = NULL_USE_OPERAND_P;
       use_operand_p use_p = NULL;
-      tree use, use_stmt, temp;
+      tree use_stmt, temp;
       tree defvar = NULL_TREE, usevar = NULL_TREE;
       bool fail = false;
       use_operand_p var2;
@@ -269,7 +269,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
 	  /* If this virtual def does not have precisely one use, then
 	     we will not be able to eliminate STMT.  */
-	  if (num_imm_uses (defvar) != 1)
+	  if (! has_single_use (defvar))
 	    {
 	      fail = true;
 	      break;
@@ -279,7 +279,6 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  single_imm_use (defvar, &use_p, &temp);
 	  gcc_assert (use_p != NULL_USE_OPERAND_P);
 	  first_use_p = use_p;
-	  use = USE_FROM_PTR (use_p);
 
 	  /* If the immediate use of DEF_VAR is not the same as the
 	     previously find immediate uses, then we will not be able
@@ -320,8 +319,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
 	  /* Skip past this PHI and loop again in case we had a PHI
 	     chain.  */
-	  if (single_imm_use (PHI_RESULT (use_stmt), &use_p, &use_stmt))
-	    use = USE_FROM_PTR (use_p);
+	  single_imm_use (PHI_RESULT (use_stmt), &use_p, &use_stmt);
 	}
 
       /* If we have precisely one immediate use at this point, then we may

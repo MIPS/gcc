@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -30,15 +30,18 @@
 
 #include "libgomp.h"
 #include "libgomp_f.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <errno.h>
 
 
-unsigned gomp_nthreads_var = 1;
+unsigned long gomp_nthreads_var = 1;
 bool gomp_dyn_var = false;
 bool gomp_nest_var = false;
 enum gomp_schedule_type gomp_run_sched_var = GFS_DYNAMIC;
-unsigned gomp_run_sched_chunk = 1;
+unsigned long gomp_run_sched_chunk = 1;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -46,22 +49,25 @@ static void
 parse_schedule (void)
 {
   char *env, *end;
+  unsigned long value;
 
   env = getenv ("OMP_SCHEDULE");
   if (env == NULL)
     return;
 
-  if (strncmp (env, "static", 6) == 0)
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (strncasecmp (env, "static", 6) == 0)
     {
       gomp_run_sched_var = GFS_STATIC;
       env += 6;
     }
-  else if (strncmp (env, "dynamic", 7) == 0)
+  else if (strncasecmp (env, "dynamic", 7) == 0)
     {
       gomp_run_sched_var = GFS_DYNAMIC;
       env += 7;
     }
-  else if (strncmp (env, "guided", 6) == 0)
+  else if (strncasecmp (env, "guided", 6) == 0)
     {
       gomp_run_sched_var = GFS_GUIDED;
       env += 6;
@@ -69,22 +75,28 @@ parse_schedule (void)
   else
     goto unknown;
 
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
     return;
-  if (*env != ' ' && *env != ',')
+  if (*env++ != ',')
     goto unknown;
-  while (*env == ' ')
-    env++;
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
-    return;
-  if (*env != ',')
-    goto unknown;
-  if (*++env == '\0')
     goto invalid;
 
-  gomp_run_sched_chunk = strtoul (env, &end, 10);
+  errno = 0;
+  value = strtoul (env, &end, 10);
+  if (errno)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
   if (*end != '\0')
     goto invalid;
+
+  gomp_run_sched_chunk = value;
   return;
 
  unknown:
@@ -94,37 +106,46 @@ parse_schedule (void)
  invalid:
   gomp_error ("Invalid value for chunk size in "
 	      "environment variable OMP_SCHEDULE");
-  gomp_run_sched_chunk = 1;
   return;
 }
 
-/* Parse the OMP_NUM_THREADS environment varible.  Return true if one was
+/* Parse an unsigned long environment varible.  Return true if one was
    present and it was successfully parsed.  */
 
 static bool
-parse_num_threads (void)
+parse_unsigned_long (const char *name, unsigned long *pvalue)
 {
   char *env, *end;
+  unsigned long value;
 
-  env = getenv ("OMP_NUM_THREADS");
+  env = getenv (name);
   if (env == NULL)
     return false;
 
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
     goto invalid;
 
-  gomp_nthreads_var = strtoul (env, &end, 10);
+  errno = 0;
+  value = strtoul (env, &end, 10);
+  if (errno || (long) value <= 0)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
   if (*end != '\0')
     goto invalid;
+
+  *pvalue = value;
   return true;
 
  invalid:
-  gomp_error ("Invalid value for enviroment variable OMP_NUM_THREADS");
-  gomp_nthreads_var = 1;
+  gomp_error ("Invalid value for environment variable %s", name);
   return false;
 }
 
-/* Parse a boolean value for environement variable NAME and store the 
+/* Parse a boolean value for environment variable NAME and store the 
    result in VALUE.  */
 
 static void
@@ -136,25 +157,66 @@ parse_boolean (const char *name, bool *value)
   if (env == NULL)
     return;
 
-  if (strcmp (env, "true") == 0)
-    *value = true;
-  else if (strcmp (env, "false") == 0)
-    *value = false;
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (strncasecmp (env, "true", 4) == 0)
+    {
+      *value = true;
+      env += 4;
+    }
+  else if (strncasecmp (env, "false", 5) == 0)
+    {
+      *value = false;
+      env += 5;
+    }
   else
-    gomp_error ("Invalid value for environement variable %s", name);
+    env = "X";
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (*env != '\0')
+    gomp_error ("Invalid value for environment variable %s", name);
 }
 
 static void __attribute__((constructor))
 initialize_env (void)
 {
+  unsigned long stacksize;
+
   /* Do a compile time check that mkomp_h.pl did good job.  */
   omp_check_defines ();
 
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_nest_var);
-  if (!parse_num_threads ())
+  if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_nthreads_var))
     gomp_init_num_threads ();
+
+  /* Not strictly environment related, but ordering constructors is tricky.  */
+  pthread_attr_init (&gomp_thread_attr);
+  pthread_attr_setdetachstate (&gomp_thread_attr, PTHREAD_CREATE_DETACHED);
+
+  if (parse_unsigned_long ("GOMP_STACKSIZE", &stacksize))
+    {
+      int err;
+
+      stacksize *= 1024;
+      err = pthread_attr_setstacksize (&gomp_thread_attr, stacksize);
+
+#ifdef PTHREAD_STACK_MIN
+      if (err == EINVAL)
+	{
+	  if (stacksize < PTHREAD_STACK_MIN)
+	    gomp_error ("Stack size less than minimum of %luk",
+			PTHREAD_STACK_MIN / 1024ul
+			+ (PTHREAD_STACK_MIN % 1024 != 0));
+	  else
+	    gomp_error ("Stack size larger than system limit");
+	}
+      else
+#endif
+      if (err != 0)
+	gomp_error ("Stack size change failed: %s", strerror (err));
+    }
 }
 
 

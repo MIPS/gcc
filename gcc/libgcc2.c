@@ -40,6 +40,28 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define ATTRIBUTE_HIDDEN
 #endif
 
+#ifndef MIN_UNITS_PER_WORD
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#endif
+
+/* Work out the largest "word" size that we can deal with on this target.  */
+#if MIN_UNITS_PER_WORD > 4
+# define LIBGCC2_MAX_UNITS_PER_WORD 8
+#elif (MIN_UNITS_PER_WORD > 2 \
+       || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32))
+# define LIBGCC2_MAX_UNITS_PER_WORD 4
+#else
+# define LIBGCC2_MAX_UNITS_PER_WORD MIN_UNITS_PER_WORD
+#endif
+
+/* Work out what word size we are using for this compilation.
+   The value can be set on the command line.  */
+#ifndef LIBGCC2_UNITS_PER_WORD
+#define LIBGCC2_UNITS_PER_WORD LIBGCC2_MAX_UNITS_PER_WORD
+#endif
+
+#if LIBGCC2_UNITS_PER_WORD <= LIBGCC2_MAX_UNITS_PER_WORD
+
 #include "libgcc2.h"
 
 #ifdef DECLARE_LIBRARY_RENAMES
@@ -470,6 +492,30 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_bswapsi2
+UWtype
+__bswapsi2 (UWtype u)
+{
+  return ((((u) & 0xff000000) >> 24)
+	  | (((u) & 0x00ff0000) >>  8)
+	  | (((u) & 0x0000ff00) <<  8)
+	  | (((u) & 0x000000ff) << 24));
+}
+#endif
+#ifdef L_bswapdi2
+UDWtype
+__bswapdi2 (UDWtype u)
+{
+  return ((((u) & 0xff00000000000000ull) >> 56)
+	  | (((u) & 0x00ff000000000000ull) >> 40)
+	  | (((u) & 0x0000ff0000000000ull) >> 24)
+	  | (((u) & 0x000000ff00000000ull) >>  8)
+	  | (((u) & 0x00000000ff000000ull) <<  8)
+	  | (((u) & 0x0000000000ff0000ull) << 24)
+	  | (((u) & 0x000000000000ff00ull) << 40)
+	  | (((u) & 0x00000000000000ffull) << 56));
+}
+#endif
 #ifdef L_ffssi2
 #undef int
 int
@@ -1840,7 +1886,7 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE denom, ratio, x, y;
 
-  /* ??? We can get better behavior from logarithmic scaling instead of 
+  /* ??? We can get better behavior from logarithmic scaling instead of
      the division.  But that would mean starting to link libgcc against
      libm.  We could implement something akin to ldexp/frexp as gcc builtins
      fairly easily...  */
@@ -2162,3 +2208,4 @@ func_ptr __DTOR_LIST__[2];
 #endif
 #endif /* no INIT_SECTION_ASM_OP and not CTOR_LISTS_DEFINED_EXTERNALLY */
 #endif /* L_ctors */
+#endif /* LIBGCC2_UNITS_PER_WORD <= MIN_UNITS_PER_WORD */

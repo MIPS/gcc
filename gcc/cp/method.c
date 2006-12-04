@@ -161,6 +161,9 @@ make_thunk (tree function, bool this_adjusting,
   DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
+  /* Nor is it a template instantiation.  */
+  DECL_USE_TEMPLATE (thunk) = 0;
+  DECL_TEMPLATE_INFO (thunk) = NULL;
 
   /* Add it to the list of thunks associated with FUNCTION.  */
   TREE_CHAIN (thunk) = DECL_THUNKS (function);
@@ -416,6 +419,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       TREE_CHAIN (x) = t;
       DECL_CONTEXT (x) = thunk_fndecl;
       SET_DECL_RTL (x, NULL_RTX);
+      DECL_HAS_VALUE_EXPR_P (x) = 0;
       t = x;
     }
   a = nreverse (t);
@@ -780,7 +784,7 @@ synthesize_method (tree fndecl)
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
-      else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
+      else
 	finish_mem_initializers (NULL_TREE);
     }
 
@@ -943,6 +947,10 @@ locate_copy (tree type, void *client_)
       if (!parms)
 	continue;
       src_type = non_reference (TREE_VALUE (parms));
+
+      if (src_type == error_mark_node)
+        return NULL_TREE;
+
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
       if (!sufficient_parms_p (TREE_CHAIN (parms)))
@@ -978,6 +986,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
+  tree this_parm;
   tree name;
   HOST_WIDE_INT saved_processing_template_decl;
 
@@ -1067,8 +1076,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ASSIGNMENT_OPERATOR_P (fn) = 1;
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
-  /* Create the argument list.  The call to "grokclassfn" will add the
-     "this" parameter and any other implicit parameters.  */
+  /* Create the explicit arguments.  */
   if (rhs_parm_type)
     {
       /* Note that this parameter is *not* marked DECL_ARTIFICIAL; we
@@ -1077,10 +1085,12 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ARGUMENTS (fn) = cp_build_parm_decl (NULL_TREE, rhs_parm_type);
       TREE_READONLY (DECL_ARGUMENTS (fn)) = 1;
     }
+  /* Add the "this" parameter.  */
+  this_parm = build_this_parm (fn_type, TYPE_UNQUALIFIED);
+  TREE_CHAIN (this_parm) = DECL_ARGUMENTS (fn);
+  DECL_ARGUMENTS (fn) = this_parm;
 
-  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL,
-	       TYPE_UNQUALIFIED);
-  grok_special_member_properties (fn);
+  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL);
   set_linkage_according_to_type (type, fn);
   rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;

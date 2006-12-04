@@ -164,6 +164,16 @@ struct file_stack *input_file_stack;
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
 
+/* Record of input_file_stack at each tick.  */
+typedef struct file_stack *fs_p;
+DEF_VEC_P(fs_p);
+DEF_VEC_ALLOC_P(fs_p,heap);
+static VEC(fs_p,heap) *input_file_stack_history;
+
+/* Whether input_file_stack has been restored to a previous state (in
+   which case there should be no more pushing).  */
+static bool input_file_stack_restored;
+
 /* Name to use as base of names for dump output files.  */
 
 const char *dump_base_name;
@@ -377,10 +387,10 @@ const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
 #define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
-  { OPTION, DEFAULT, MIN, MAX, HELP },
+  { OPTION, DEFAULT, false, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, 0, 0, NULL }
+  { NULL, 0, false, 0, 0, NULL }
 };
 
 /* Output files for assembler code (real compiler output)
@@ -951,6 +961,10 @@ push_srcloc (const char *file, int line)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = XNEW (struct file_stack);
   fs->location = input_location;
   fs->next = input_file_stack;
@@ -962,6 +976,7 @@ push_srcloc (const char *file, int line)
 #endif
   input_file_stack = fs;
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
 }
 
 /* Pop the top entry off the stack of presently open source files.
@@ -973,11 +988,30 @@ pop_srcloc (void)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = input_file_stack;
   input_location = fs->location;
   input_file_stack = fs->next;
-  free (fs);
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
+}
+
+/* Restore the input file stack to its state as of TICK, for the sake
+   of diagnostics after processing the whole input.  Once this has
+   been called, push_srcloc and pop_srcloc may no longer be
+   called.  */
+void
+restore_input_file_stack (int tick)
+{
+  if (tick == 0)
+    input_file_stack = NULL;
+  else
+    input_file_stack = VEC_index (fs_p, input_file_stack_history, tick - 1);
+  input_file_stack_tick = tick;
+  input_file_stack_restored = true;
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -1010,6 +1044,10 @@ compile_file (void)
     return;
 
   lang_hooks.decls.final_write_globals ();
+
+  if (errorcount || sorrycount)
+    return;
+
   cgraph_varpool_assemble_pending_decls ();
   finish_aliases_2 ();
 
@@ -1783,8 +1821,10 @@ process_options (void)
     }
 
 #ifndef OBJECT_FORMAT_ELF
+#ifndef OBJECT_FORMAT_MACHO
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning (0, "-ffunction-sections may affect debugging on some targets");
+#endif
 #endif
 
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */

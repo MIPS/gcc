@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include <stdarg.h>
 #include <string.h>
 #include <float.h>
+#include <errno.h>
 
 #include "libgfortran.h"
 #include "../io/io.h"
@@ -284,7 +285,7 @@ show_locus (st_parameter_common *cmp)
   if (!options.locus || cmp == NULL || cmp->filename == NULL)
     return;
 
-  st_printf ("At line %d of file %s\n", cmp->line, cmp->filename);
+  st_printf ("At line %d of file %s\n", (int) cmp->line, cmp->filename);
 }
 
 
@@ -435,6 +436,10 @@ translate_error (int code)
       p = "Write exceeds length of DIRECT access record";
       break;
 
+    case ERROR_SHORT_RECORD:
+      p = "Short record on unformatted read";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -457,7 +462,7 @@ generate_error (st_parameter_common *cmp, int family, const char *message)
 {
   /* Set the error status.  */
   if ((cmp->flags & IOPARM_HAS_IOSTAT))
-    *cmp->iostat = family;
+    *cmp->iostat = (family == ERROR_OS) ? errno : family;
 
   if (message == NULL)
     message =
@@ -527,7 +532,7 @@ notification_std (int std)
    standard does not contain the requested bits.  */
 
 try
-notify_std (int std, const char * message)
+notify_std (st_parameter_common *cmp, int std, const char * message)
 {
   int warning;
 
@@ -540,10 +545,15 @@ notify_std (int std, const char * message)
 
   if (!warning)
     {
+      recursion_check ();
+      show_locus (cmp);
       st_printf ("Fortran runtime error: %s\n", message);
       sys_exit (2);
     }
   else
-    st_printf ("Fortran runtime warning: %s\n", message);
+    {
+      show_locus (cmp);
+      st_printf ("Fortran runtime warning: %s\n", message);
+    }
   return FAILURE;
 }

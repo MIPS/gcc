@@ -693,7 +693,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   CLEAR_HARD_REG_SET (clobbered_regs);
   for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
-      const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+      const char *regname;
+
+      if (TREE_VALUE (tail) == error_mark_node)
+	return;
+      regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 
       i = decode_reg_name (regname);
       if (i >= 0 || i == -4)
@@ -881,9 +885,13 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       val = TREE_VALUE (tail);
       type = TREE_TYPE (val);
+      /* EXPAND_INITIALIZER will not generate code for valid initializer
+	 constants, but will still generate code for other types of operand.
+	 This is the behavior we want for constant constraints.  */
       op = expand_expr (val, NULL_RTX, VOIDmode,
-			(allows_mem && !allows_reg
-			 ? EXPAND_MEMORY : EXPAND_NORMAL));
+			allows_reg ? EXPAND_NORMAL
+			: allows_mem ? EXPAND_MEMORY
+			: EXPAND_INITIALIZER);
 
       /* Never pass a CONCAT to an ASM.  */
       if (GET_CODE (op) == CONCAT)

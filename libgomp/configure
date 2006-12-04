@@ -854,8 +854,8 @@ Optional Features:
   --enable-version-specific-runtime-libs
                           Specify that runtime libraries should be installed
                           in a compiler-specific directory [default=no]
-  _g_switchUse the Linux futex system call
-                          permit yes|no [default=yes]
+  --enable-linux-futex    Use the Linux futex system call
+                          [default=default]
   --enable-multilib       build many library versions (default)
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
@@ -865,8 +865,7 @@ Optional Features:
   --disable-libtool-lock  avoid locking (might break parallel builds)
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
-  _g_switchUse thread-local storage
-                          [default=yes]
+  --enable-tls            Use thread-local storage [default=yes]
   --enable-symvers=STYLE  enables symbol versioning of the shared library
                           [default=yes]
 
@@ -1369,14 +1368,14 @@ if test "${enable_linux_futex+set}" = set; then
   enableval="$enable_linux_futex"
 
       case "$enableval" in
-       yes|no) ;;
-       *) { { echo "$as_me:$LINENO: error: Argument to enable/disable linux-futex must be yes or no" >&5
-echo "$as_me: error: Argument to enable/disable linux-futex must be yes or no" >&2;}
+       yes|no|default) ;;
+       *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable linux-futex" >&5
+echo "$as_me: error: Unknown argument to enable/disable linux-futex" >&2;}
    { (exit 1); exit 1; }; } ;;
-      esac
+                          esac
 
 else
-  enable_linux_futex=yes
+  enable_linux_futex=default
 fi;
 
 echo "$as_me:$LINENO: result: $enable_linux_futex" >&5
@@ -1962,6 +1961,13 @@ else
   multi_basedir="$srcdir/.."
 fi
 
+
+# Even if the default multilib is not a cross compilation,
+# it may be that some of the other multilibs are.
+if test $cross_compiling = no && test $multilib = yes \
+   && test "x${with_multisubdir}" != x ; then
+   cross_compiling=maybe
+fi
 
           ac_config_commands="$ac_config_commands default-1"
 
@@ -4228,7 +4234,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4231 "configure"' > conftest.$ac_ext
+  echo '#line 4237 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -4638,7 +4644,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:4641:" \
+echo "$as_me:4647:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -5831,8 +5837,9 @@ fi
   break
 done
 if test "$acx_cv_header_stdint" = stddef.h; then
-  acx_cv_header_stdint_kind="(lacks uintptr_t)"
+  acx_cv_header_stdint_kind="(lacks uintmax_t)"
   for i in stdint.h $inttype_headers; do
+    unset ac_cv_type_uintptr_t
     unset ac_cv_type_uint32_t
     unset ac_cv_type_uint64_t
     echo $ECHO_N "looking for an incomplete stdint.h in $i, $ECHO_C" >&6
@@ -5958,11 +5965,65 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_type_uint64_t" >&5
 echo "${ECHO_T}$ac_cv_type_uint64_t" >&6
-if test $ac_cv_type_uint64_t = yes; then
-  :
+
+    echo "$as_me:$LINENO: checking for uintptr_t" >&5
+echo $ECHO_N "checking for uintptr_t... $ECHO_C" >&6
+if test "${ac_cv_type_uintptr_t+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  acx_cv_header_stdint_kind="(lacks uintptr_t and uint64_t)"
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+#include <$i>
+
+int
+main ()
+{
+if ((uintptr_t *) 0)
+  return 0;
+if (sizeof (uintptr_t))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_uintptr_t=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_uintptr_t=no
 fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_uintptr_t" >&5
+echo "${ECHO_T}$ac_cv_type_uintptr_t" >&6
 
     break
   done
@@ -6095,11 +6156,6 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_type_u_int64_t" >&5
 echo "${ECHO_T}$ac_cv_type_u_int64_t" >&6
-if test $ac_cv_type_u_int64_t = yes; then
-  :
-else
-  acx_cv_header_stdint_kind="(u_intXX_t style, lacks u_int64_t)"
-fi
 
     break
   done
@@ -8296,7 +8352,8 @@ fi
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
-CFLAGS="$CFLAGS -pthread"
+
+# Darwin doesn't need the -pthread option since threads are in libSystem
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -8335,7 +8392,13 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  XPCFLAGS=" -Wc,-pthread"
+  case $host in
+   *-darwin*)
+     ;;
+   default)
+     XPCFLAGS=" -Wc,-pthread"
+     ;;
+     esac
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -8509,6 +8572,174 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
     ;;
+  *-linux*)
+    case "$enable_linux_futex" in
+      default)
+	# If headers don't have gettid/futex syscalls definition, then
+	# default to no, otherwise there will be compile time failures.
+	# Otherwise, default to yes.  If we don't detect we are
+	# compiled/linked against NPTL and not cross-compiling, check
+	# if programs are run by default against NPTL and if not, issue
+	# a warning.
+	enable_linux_futex=no
+	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/syscall.h>
+	   int lk;
+int
+main ()
+{
+syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#ifndef _GNU_SOURCE
+	     #define _GNU_SOURCE 1
+	     #endif
+	     #include <pthread.h>
+	     pthread_t th; void *status;
+int
+main ()
+{
+pthread_tryjoin_np (th, &status);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  enable_linux_futex=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+if test x$cross_compiling = xno; then
+	       if getconf GNU_LIBPTHREAD_VERSION 2>/dev/null \
+		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then
+		 { echo "$as_me:$LINENO: WARNING: The kernel might not support futex or gettid syscalls.
+If so, please configure with --disable-linux-futex" >&5
+echo "$as_me: WARNING: The kernel might not support futex or gettid syscalls.
+If so, please configure with --disable-linux-futex" >&2;}
+	       fi
+	     fi
+	     enable_linux_futex=yes
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+	;;
+      yes)
+	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/syscall.h>
+	   int lk;
+int
+main ()
+{
+syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  :
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+{ { echo "$as_me:$LINENO: error: SYS_gettid and SYS_futex required for --enable-linux-futex" >&5
+echo "$as_me: error: SYS_gettid and SYS_futex required for --enable-linux-futex" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+	;;
+    esac
+    ;;
 esac
 
 # At least for glibc, clock_gettime is in librt.  But don't pull that
@@ -8580,8 +8811,9 @@ echo "$as_me:$LINENO: result: $ac_cv_lib_rt_clock_gettime" >&5
 echo "${ECHO_T}$ac_cv_lib_rt_clock_gettime" >&6
 if test $ac_cv_lib_rt_clock_gettime = yes; then
   LIBS="-lrt $LIBS"
-     cat >>confdefs.h <<\_ACEOF
-#define HAVE_CLOCK_GETTIME Define to 1 if you have the `clock_gettime' function.
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_CLOCK_GETTIME 1
 _ACEOF
 
 fi
@@ -8611,24 +8843,13 @@ if test "${have_tls+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
-    cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
+    if test "$cross_compiling" = yes; then
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int a; int b; int main() { return a = b; }
 _ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-__thread int foo;
-int
-main ()
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
   ac_status=$?
   grep -v '^ *+' conftest.er1 >conftest.err
   rm -f conftest.er1
@@ -8642,24 +8863,86 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
+	 { ac_try='test -s conftest$ac_exeext'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=$enable_tls
+  have_tls=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 have_tls=no
 fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int a; int b; int main() { return a = b; }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+                    save_LDFLAGS="$LDFLAGS"
+      LDFLAGS="-static $LDFLAGS"
+      if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int a; int b; int main() { return a = b; }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  have_tls=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+have_tls=no
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+      LDFLAGS="$save_LDFLAGS"
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+have_tls=no
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
 fi
 echo "$as_me:$LINENO: result: $have_tls" >&5
 echo "${ECHO_T}$have_tls" >&6
-  if test $have_tls = yes; then
+  if test "$enable_tls $have_tls" = "yes yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_TLS 1
@@ -8812,11 +9095,8 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 
-#define ULP	STR1(__USER_LABEL_PREFIX__)
-#define STR1(x)	STR2(x)
-#define STR2(x)	#x
 void foo(void) { }
-extern void bar(void) __attribute__((alias(ULP "foo")));
+extern void bar(void) __attribute__((alias("foo")));
 int
 main ()
 {

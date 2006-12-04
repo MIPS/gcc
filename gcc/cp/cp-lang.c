@@ -125,11 +125,11 @@ cp_init_ts (void)
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_WRTL] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_WRTL] = 1;
-  
+
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_COMMON] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_COMMON] = 1;
- 
+
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[USING_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[TEMPLATE_DECL][TS_DECL_MINIMAL] = 1;
@@ -141,7 +141,6 @@ cp_init_ts (void)
 void
 finish_file (void)
 {
-  cp_finish_file ();
 }
 
 #include "gtype-cp.h"

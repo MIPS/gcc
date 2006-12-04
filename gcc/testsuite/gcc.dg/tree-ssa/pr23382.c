@@ -6,7 +6,7 @@ struct a
   int a1[256];
 };
 
-void *malloc(long size) __attribute__((malloc));
+void *malloc(__SIZE_TYPE__ size) __attribute__((malloc));
 
 void f(void)
 {

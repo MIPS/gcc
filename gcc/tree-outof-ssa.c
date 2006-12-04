@@ -46,15 +46,13 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "vecprim.h"
 
 /* Flags to pass to remove_ssa_form.  */
 
 #define SSANORM_PERFORM_TER		0x1
 #define SSANORM_COMBINE_TEMPS		0x2
 #define SSANORM_COALESCE_PARTITIONS	0x4
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -170,9 +168,9 @@ create_temp (tree t)
     }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
-  add_referenced_tmp_var (tmp);
+  add_referenced_var (tmp);
 
-  /* add_referenced_tmp_var will create the annotation and set up some
+  /* add_referenced_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
   var_ann (tmp)->symbol_mem_tag = var_ann (t)->symbol_mem_tag;
@@ -872,7 +870,7 @@ coalesce_ssa_name (var_map map, int flags)
   for (x = 0 ; x < num; x++)
     {
       tree var = partition_to_var (map, x);
-      if (default_def (SSA_NAME_VAR (var)) == var)
+      if (gimple_default_def (cfun, SSA_NAME_VAR (var)) == var)
 	SET_BIT (live, x);
     }
 
@@ -1323,7 +1321,7 @@ static inline void add_value_to_list (temp_expr_table_p, value_expr_p *, int);
 static inline void add_info_to_list (temp_expr_table_p, value_expr_p *, 
 				     value_expr_p);
 static value_expr_p remove_value_from_list (value_expr_p *, int);
-static void add_dependance (temp_expr_table_p, int, tree);
+static void add_dependence (temp_expr_table_p, int, tree);
 static bool check_replaceable (temp_expr_table_p, tree);
 static void finish_expr (temp_expr_table_p, int, bool);
 static void mark_replaceable (temp_expr_table_p, tree);
@@ -1512,7 +1510,7 @@ remove_value_from_list (value_expr_p *list, int value)
    expression table.  */
 
 static void
-add_dependance (temp_expr_table_p tab, int version, tree var)
+add_dependence (temp_expr_table_p tab, int version, tree var)
 {
   int i, x;
   value_expr_p info;
@@ -1558,7 +1556,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   var_map map = tab->map;
   ssa_op_iter iter;
   tree call_expr;
-  bitmap def_vars = BITMAP_ALLOC (NULL), use_vars;
+  bitmap def_vars, use_vars;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1590,12 +1588,13 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 
   version = SSA_NAME_VERSION (def);
   basevar = SSA_NAME_VAR (def);
+  def_vars = BITMAP_ALLOC (NULL);
   bitmap_set_bit (def_vars, DECL_UID (basevar));
 
   /* Add this expression to the dependency list for each use partition.  */
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     {
-      add_dependance (tab, version, var);
+      add_dependence (tab, version, var);
 
       use_vars = tab->expr_vars[SSA_NAME_VERSION (var)];
       if (use_vars)
@@ -1977,9 +1976,6 @@ rewrite_trees (var_map map, tree *values)
   delete_elim_graph (g);
 }
 
-
-DEF_VEC_ALLOC_P(edge,heap);
-
 /* These are the local work structures used to determine the best place to 
    insert the copies that were placed on edges by the SSA->normal pass..  */
 static VEC(edge,heap) *edge_leader;
@@ -2216,7 +2212,7 @@ analyze_edges_for_bb (basic_block bb)
 	leader_match = leader;
 
 	/* The tree_* cfg manipulation routines use the PENDING_EDGE field
-	   for various PHI manipulations, so it gets cleared whhen calls are 
+	   for various PHI manipulations, so it gets cleared when calls are 
 	   made to make_forwarder_block(). So make sure the edge is clear, 
 	   and use the saved stmt list.  */
 	PENDING_STMT (leader) = NULL;
@@ -2547,7 +2543,7 @@ rewrite_out_of_ssa (void)
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
 
-  in_ssa_p = false;
+  cfun->gimple_df->in_ssa_p = false;
   return 0;
 }
 

@@ -43,15 +43,10 @@ import gnu.java.security.Registry;
 /**
  * The implementation of the Khazad <i>Service Provider Interface</i>
  * (<b>SPI</b>) adapter.
- *
- * @version $Revision: 1.1 $
  */
-public final class KhazadSpi extends CipherAdapter
+public final class KhazadSpi
+    extends CipherAdapter
 {
-
-  // Constructors.
-  // --------------------------------------------------------------------
-
   public KhazadSpi()
   {
     super(Registry.KHAZAD_CIPHER);

@@ -164,7 +164,7 @@ classpath/gnu/CORBA/typecodes/StringTypeCode.java
 
 gnu-CORBA.lo: $(gnu_CORBA_source_files)
 	@find classpath/lib/gnu/CORBA -name '*.class' > gnu-CORBA.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-CORBA.lo @gnu-CORBA.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-CORBA.lo @gnu-CORBA.list
 	@rm -f gnu-CORBA.list
 
 gnu_awt_source_files = \
@@ -232,8 +232,8 @@ gnu/awt/xlib.list: $(gnu_awt_xlib_source_files)
 
 
 gnu_classpath_source_files = \
-classpath/gnu/classpath/ByteArray.java \
 classpath/gnu/classpath/Configuration.java \
+classpath/gnu/classpath/NotImplementedException.java \
 classpath/gnu/classpath/Pointer.java \
 classpath/gnu/classpath/Pointer32.java \
 classpath/gnu/classpath/Pointer64.java \
@@ -258,7 +258,11 @@ gnu_classpath_debug_source_files = \
 classpath/gnu/classpath/debug/Component.java \
 classpath/gnu/classpath/debug/PreciseFilter.java \
 classpath/gnu/classpath/debug/Simple1LineFormatter.java \
-classpath/gnu/classpath/debug/SystemLogger.java
+classpath/gnu/classpath/debug/SystemLogger.java \
+classpath/gnu/classpath/debug/TeeInputStream.java \
+classpath/gnu/classpath/debug/TeeOutputStream.java \
+classpath/gnu/classpath/debug/TeeReader.java \
+classpath/gnu/classpath/debug/TeeWriter.java
 
 gnu_classpath_debug_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_classpath_debug_source_files)))
 
@@ -278,6 +282,7 @@ classpath/gnu/classpath/jdwp/Jdwp.java \
 classpath/gnu/classpath/jdwp/JdwpConstants.java \
 gnu/classpath/jdwp/VMFrame.java \
 gnu/classpath/jdwp/VMIdManager.java \
+gnu/classpath/jdwp/VMMethod.java \
 gnu/classpath/jdwp/VMVirtualMachine.java
 
 gnu_classpath_jdwp_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_classpath_jdwp_source_files)))
@@ -294,10 +299,16 @@ gnu/classpath/jdwp.list: $(gnu_classpath_jdwp_source_files)
 
 
 gnu_classpath_jdwp_event_source_files = \
+classpath/gnu/classpath/jdwp/event/BreakpointEvent.java \
 classpath/gnu/classpath/jdwp/event/ClassPrepareEvent.java \
+classpath/gnu/classpath/jdwp/event/ClassUnloadEvent.java \
 classpath/gnu/classpath/jdwp/event/Event.java \
 classpath/gnu/classpath/jdwp/event/EventManager.java \
 classpath/gnu/classpath/jdwp/event/EventRequest.java \
+classpath/gnu/classpath/jdwp/event/ExceptionEvent.java \
+classpath/gnu/classpath/jdwp/event/MethodEntryEvent.java \
+classpath/gnu/classpath/jdwp/event/MethodExitEvent.java \
+classpath/gnu/classpath/jdwp/event/SingleStepEvent.java \
 classpath/gnu/classpath/jdwp/event/ThreadEndEvent.java \
 classpath/gnu/classpath/jdwp/event/ThreadStartEvent.java \
 classpath/gnu/classpath/jdwp/event/VmDeathEvent.java \
@@ -358,6 +369,7 @@ classpath/gnu/classpath/jdwp/exception/InvalidThreadGroupException.java \
 classpath/gnu/classpath/jdwp/exception/JdwpException.java \
 classpath/gnu/classpath/jdwp/exception/JdwpIllegalArgumentException.java \
 classpath/gnu/classpath/jdwp/exception/JdwpInternalErrorException.java \
+classpath/gnu/classpath/jdwp/exception/NativeMethodException.java \
 classpath/gnu/classpath/jdwp/exception/NotImplementedException.java \
 classpath/gnu/classpath/jdwp/exception/VmDeadException.java
 
@@ -553,6 +565,24 @@ gnu/gcj/io.list: $(gnu_gcj_io_source_files)
 -include gnu/gcj/io.deps
 
 
+gnu_gcj_jvmti_source_files = \
+gnu/gcj/jvmti/Breakpoint.java \
+gnu/gcj/jvmti/BreakpointManager.java \
+gnu/gcj/jvmti/Location.java
+
+gnu_gcj_jvmti_header_files = $(patsubst %.java,%.h,$(gnu_gcj_jvmti_source_files))
+
+gnu/gcj/jvmti.list: $(gnu_gcj_jvmti_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_gcj_jvmti_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/gcj/jvmti.list
+
+-include gnu/gcj/jvmti.deps
+
+
 gnu_gcj_runtime_source_files = \
 gnu/gcj/runtime/BootClassLoader.java \
 gnu/gcj/runtime/ExtensionClassLoader.java \
@@ -685,6 +715,95 @@ gnu/java/awt/color.list: $(gnu_java_awt_color_source_files)
 -include gnu/java/awt/color.deps
 
 
+gnu_java_awt_dnd_source_files = \
+classpath/gnu/java/awt/dnd/GtkMouseDragGestureRecognizer.java
+
+gnu_java_awt_dnd_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_dnd_source_files)))
+
+gnu/java/awt/dnd.list: $(gnu_java_awt_dnd_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_dnd_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/dnd.list
+
+-include gnu/java/awt/dnd.deps
+
+
+gnu_java_awt_dnd_peer_gtk_source_files = \
+classpath/gnu/java/awt/dnd/peer/gtk/GtkDragSourceContextPeer.java \
+classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetContextPeer.java \
+classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetPeer.java
+
+gnu-java-awt-dnd-peer-gtk.lo: $(gnu_java_awt_dnd_peer_gtk_source_files)
+	@find classpath/lib/gnu/java/awt/dnd/peer/gtk -name '*.class' > gnu-java-awt-dnd-peer-gtk.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-dnd-peer-gtk.lo @gnu-java-awt-dnd-peer-gtk.list
+	@rm -f gnu-java-awt-dnd-peer-gtk.list
+
+gnu_java_awt_font_source_files = \
+classpath/gnu/java/awt/font/FontDelegate.java \
+classpath/gnu/java/awt/font/FontFactory.java \
+classpath/gnu/java/awt/font/GNUGlyphVector.java
+
+gnu_java_awt_font_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_font_source_files)))
+
+gnu/java/awt/font.list: $(gnu_java_awt_font_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_font_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/font.list
+
+-include gnu/java/awt/font.deps
+
+
+gnu_java_awt_font_opentype_source_files = \
+classpath/gnu/java/awt/font/opentype/CharGlyphMap.java \
+classpath/gnu/java/awt/font/opentype/GlyphNamer.java \
+classpath/gnu/java/awt/font/opentype/MacResourceFork.java \
+classpath/gnu/java/awt/font/opentype/NameDecoder.java \
+classpath/gnu/java/awt/font/opentype/OpenTypeFont.java \
+classpath/gnu/java/awt/font/opentype/OpenTypeFontFactory.java \
+classpath/gnu/java/awt/font/opentype/Scaler.java
+
+gnu_java_awt_font_opentype_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_font_opentype_source_files)))
+
+gnu/java/awt/font/opentype.list: $(gnu_java_awt_font_opentype_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_font_opentype_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/font/opentype.list
+
+-include gnu/java/awt/font/opentype.deps
+
+
+gnu_java_awt_font_opentype_truetype_source_files = \
+classpath/gnu/java/awt/font/opentype/truetype/Fixed.java \
+classpath/gnu/java/awt/font/opentype/truetype/GlyphLoader.java \
+classpath/gnu/java/awt/font/opentype/truetype/GlyphLocator.java \
+classpath/gnu/java/awt/font/opentype/truetype/GlyphMeasurer.java \
+classpath/gnu/java/awt/font/opentype/truetype/TrueTypeScaler.java \
+classpath/gnu/java/awt/font/opentype/truetype/VirtualMachine.java \
+classpath/gnu/java/awt/font/opentype/truetype/Zone.java \
+classpath/gnu/java/awt/font/opentype/truetype/ZonePathIterator.java
+
+gnu_java_awt_font_opentype_truetype_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_font_opentype_truetype_source_files)))
+
+gnu/java/awt/font/opentype/truetype.list: $(gnu_java_awt_font_opentype_truetype_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_font_opentype_truetype_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/font/opentype/truetype.list
+
+-include gnu/java/awt/font/opentype/truetype.deps
+
+
 gnu_java_awt_image_source_files = \
 classpath/gnu/java/awt/image/ImageDecoder.java \
 classpath/gnu/java/awt/image/XBMDecoder.java
@@ -702,9 +821,34 @@ gnu/java/awt/image.list: $(gnu_java_awt_image_source_files)
 -include gnu/java/awt/image.deps
 
 
+gnu_java_awt_java2d_source_files = \
+classpath/gnu/java/awt/java2d/AbstractGraphics2D.java \
+classpath/gnu/java/awt/java2d/AlphaCompositeContext.java \
+classpath/gnu/java/awt/java2d/CubicSegment.java \
+classpath/gnu/java/awt/java2d/ImagePaint.java \
+classpath/gnu/java/awt/java2d/LineSegment.java \
+classpath/gnu/java/awt/java2d/PolyEdge.java \
+classpath/gnu/java/awt/java2d/PolyEdgeComparator.java \
+classpath/gnu/java/awt/java2d/QuadSegment.java \
+classpath/gnu/java/awt/java2d/RasterGraphics.java \
+classpath/gnu/java/awt/java2d/Segment.java \
+classpath/gnu/java/awt/java2d/TexturePaintContext.java
+
+gnu_java_awt_java2d_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_java2d_source_files)))
+
+gnu/java/awt/java2d.list: $(gnu_java_awt_java2d_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_java2d_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/java2d.list
+
+-include gnu/java/awt/java2d.deps
+
+
 gnu_java_awt_peer_source_files = \
 classpath/gnu/java/awt/peer/ClasspathFontPeer.java \
-classpath/gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
 classpath/gnu/java/awt/peer/EmbeddedWindowPeer.java \
 classpath/gnu/java/awt/peer/GLightweightPeer.java
 
@@ -722,22 +866,24 @@ gnu/java/awt/peer.list: $(gnu_java_awt_peer_source_files)
 
 
 gnu_java_awt_peer_gtk_source_files = \
+classpath/gnu/java/awt/peer/gtk/BufferedImageGraphics.java \
+classpath/gnu/java/awt/peer/gtk/CairoGraphics2D.java \
+classpath/gnu/java/awt/peer/gtk/CairoSurface.java \
+classpath/gnu/java/awt/peer/gtk/CairoSurfaceGraphics.java \
+classpath/gnu/java/awt/peer/gtk/ComponentGraphics.java \
+classpath/gnu/java/awt/peer/gtk/ComponentGraphicsCopy.java \
+classpath/gnu/java/awt/peer/gtk/FreetypeGlyphVector.java \
 classpath/gnu/java/awt/peer/gtk/GThreadMutex.java \
 classpath/gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java \
 classpath/gnu/java/awt/peer/gtk/GdkFontMetrics.java \
 classpath/gnu/java/awt/peer/gtk/GdkFontPeer.java \
-classpath/gnu/java/awt/peer/gtk/GdkGlyphVector.java \
-classpath/gnu/java/awt/peer/gtk/GdkGraphics.java \
-classpath/gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 classpath/gnu/java/awt/peer/gtk/GdkGraphicsConfiguration.java \
 classpath/gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 classpath/gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
 classpath/gnu/java/awt/peer/gtk/GdkRobotPeer.java \
 classpath/gnu/java/awt/peer/gtk/GdkScreenGraphicsDevice.java \
-classpath/gnu/java/awt/peer/gtk/GdkTextLayout.java \
 classpath/gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
-classpath/gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkCheckboxPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkChoicePeer.java \
@@ -745,10 +891,10 @@ classpath/gnu/java/awt/peer/gtk/GtkClipboard.java \
 classpath/gnu/java/awt/peer/gtk/GtkClipboardNotifier.java \
 classpath/gnu/java/awt/peer/gtk/GtkComponentPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkContainerPeer.java \
+classpath/gnu/java/awt/peer/gtk/GtkCursor.java \
 classpath/gnu/java/awt/peer/gtk/GtkDialogPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
-classpath/gnu/java/awt/peer/gtk/GtkFontPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkFramePeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkGenericPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkImage.java \
@@ -759,6 +905,7 @@ classpath/gnu/java/awt/peer/gtk/GtkMenuBarPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkMenuItemPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkMenuPeer.java \
+classpath/gnu/java/awt/peer/gtk/GtkMouseInfoPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkPanelPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkScrollPanePeer.java \
@@ -768,11 +915,12 @@ classpath/gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkToolkit.java \
 classpath/gnu/java/awt/peer/gtk/GtkVolatileImage.java \
-classpath/gnu/java/awt/peer/gtk/GtkWindowPeer.java
+classpath/gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+classpath/gnu/java/awt/peer/gtk/VolatileImageGraphics.java
 
 gnu-java-awt-peer-gtk.lo: $(gnu_java_awt_peer_gtk_source_files)
 	@find classpath/lib/gnu/java/awt/peer/gtk -name '*.class' > gnu-java-awt-peer-gtk.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-java-awt-peer-gtk.lo @gnu-java-awt-peer-gtk.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-gtk.lo @gnu-java-awt-peer-gtk.list
 	@rm -f gnu-java-awt-peer-gtk.list
 
 gnu_java_awt_peer_qt_source_files = \
@@ -822,7 +970,7 @@ classpath/gnu/java/awt/peer/qt/QtWindowPeer.java
 
 gnu-java-awt-peer-qt.lo: $(gnu_java_awt_peer_qt_source_files)
 	@find classpath/lib/gnu/java/awt/peer/qt -name '*.class' > gnu-java-awt-peer-qt.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-java-awt-peer-qt.lo @gnu-java-awt-peer-qt.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-qt.lo @gnu-java-awt-peer-qt.list
 	@rm -f gnu-java-awt-peer-qt.list
 
 gnu_java_awt_peer_swing_source_files = \
@@ -843,8 +991,27 @@ classpath/gnu/java/awt/peer/swing/SwingWindowPeer.java
 
 gnu-java-awt-peer-swing.lo: $(gnu_java_awt_peer_swing_source_files)
 	@find classpath/lib/gnu/java/awt/peer/swing -name '*.class' > gnu-java-awt-peer-swing.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
 	@rm -f gnu-java-awt-peer-swing.list
+
+gnu_java_awt_print_source_files = \
+classpath/gnu/java/awt/print/JavaPrinterGraphics.java \
+classpath/gnu/java/awt/print/JavaPrinterJob.java \
+classpath/gnu/java/awt/print/PostScriptGraphics2D.java \
+classpath/gnu/java/awt/print/SpooledDocument.java
+
+gnu_java_awt_print_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_print_source_files)))
+
+gnu/java/awt/print.list: $(gnu_java_awt_print_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_print_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/print.list
+
+-include gnu/java/awt/print.deps
+
 
 gnu_java_beans_source_files = \
 classpath/gnu/java/beans/BeanInfoEmbryo.java \
@@ -932,7 +1099,7 @@ classpath/gnu/java/beans/encoder/elements/StringReference.java
 
 gnu-java-beans.lo: $(gnu_java_beans_source_files)
 	@find classpath/lib/gnu/java/beans -name '*.class' > gnu-java-beans.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-java-beans.lo @gnu-java-beans.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-beans.lo @gnu-java-beans.list
 	@rm -f gnu-java-beans.list
 
 gnu_java_io_source_files = \
@@ -960,7 +1127,9 @@ gnu_java_lang_source_files = \
 classpath/gnu/java/lang/ArrayHelper.java \
 classpath/gnu/java/lang/CharData.java \
 classpath/gnu/java/lang/ClassHelper.java \
-gnu/java/lang/MainThread.java
+classpath/gnu/java/lang/InstrumentationImpl.java \
+gnu/java/lang/MainThread.java \
+gnu/java/lang/VMInstrumentationImpl.java
 
 gnu_java_lang_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_source_files)))
 
@@ -975,7 +1144,45 @@ gnu/java/lang.list: $(gnu_java_lang_source_files)
 -include gnu/java/lang.deps
 
 
+gnu_java_lang_management_source_files = \
+classpath/gnu/java/lang/management/BeanImpl.java \
+classpath/gnu/java/lang/management/ClassLoadingMXBeanImpl.java \
+classpath/gnu/java/lang/management/CompilationMXBeanImpl.java \
+classpath/gnu/java/lang/management/GarbageCollectorMXBeanImpl.java \
+classpath/gnu/java/lang/management/MemoryMXBeanImpl.java \
+classpath/gnu/java/lang/management/MemoryManagerMXBeanImpl.java \
+classpath/gnu/java/lang/management/MemoryPoolMXBeanImpl.java \
+classpath/gnu/java/lang/management/OperatingSystemMXBeanImpl.java \
+classpath/gnu/java/lang/management/RuntimeMXBeanImpl.java \
+classpath/gnu/java/lang/management/ThreadMXBeanImpl.java \
+gnu/java/lang/management/VMClassLoadingMXBeanImpl.java \
+gnu/java/lang/management/VMCompilationMXBeanImpl.java \
+gnu/java/lang/management/VMGarbageCollectorMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryManagerMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryPoolMXBeanImpl.java \
+gnu/java/lang/management/VMRuntimeMXBeanImpl.java \
+gnu/java/lang/management/VMThreadMXBeanImpl.java
+
+gnu_java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_management_source_files)))
+
+gnu/java/lang/management.list: $(gnu_java_lang_management_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_lang_management_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/lang/management.list
+
+-include gnu/java/lang/management.deps
+
+
 gnu_java_lang_reflect_source_files = \
+classpath/gnu/java/lang/reflect/ClassSignatureParser.java \
+classpath/gnu/java/lang/reflect/FieldSignatureParser.java \
+classpath/gnu/java/lang/reflect/GenericSignatureParser.java \
+classpath/gnu/java/lang/reflect/MethodSignatureParser.java \
+classpath/gnu/java/lang/reflect/TypeImpl.java \
 classpath/gnu/java/lang/reflect/TypeSignature.java
 
 gnu_java_lang_reflect_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_reflect_source_files)))
@@ -996,6 +1203,7 @@ gnu/java/locale/Calendar.java \
 gnu/java/locale/Calendar_de.java \
 gnu/java/locale/Calendar_en.java \
 gnu/java/locale/Calendar_nl.java \
+classpath/gnu/java/locale/LocaleData.java \
 classpath/gnu/java/locale/LocaleHelper.java \
 gnu/java/locale/LocaleInformation.java \
 gnu/java/locale/LocaleInformation_af_ZA.java \
@@ -1166,19 +1374,15 @@ gnu_java_net_source_files = \
 classpath/gnu/java/net/BASE64.java \
 classpath/gnu/java/net/CRLFInputStream.java \
 classpath/gnu/java/net/CRLFOutputStream.java \
-gnu/java/net/DefaultContentHandlerFactory.java \
+classpath/gnu/java/net/DefaultContentHandlerFactory.java \
 classpath/gnu/java/net/EmptyX509TrustManager.java \
 classpath/gnu/java/net/GetLocalHostAction.java \
 classpath/gnu/java/net/HeaderFieldHelper.java \
+classpath/gnu/java/net/IndexListParser.java \
 classpath/gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
-classpath/gnu/java/net/URLParseError.java \
-gnu/java/net/protocol/core/Connection.java \
-gnu/java/net/protocol/core/CoreInputStream.java \
-gnu/java/net/protocol/core/Handler.java \
-gnu/java/net/protocol/gcjlib/Connection.java \
-gnu/java/net/protocol/gcjlib/Handler.java
+classpath/gnu/java/net/URLParseError.java
 
 gnu_java_net_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_net_source_files)))
 
@@ -1191,6 +1395,67 @@ gnu/java/net.list: $(gnu_java_net_source_files)
 	done > gnu/java/net.list
 
 -include gnu/java/net.deps
+
+
+gnu_java_net_loader_source_files = \
+classpath/gnu/java/net/loader/FileResource.java \
+classpath/gnu/java/net/loader/FileURLLoader.java \
+classpath/gnu/java/net/loader/JarURLLoader.java \
+classpath/gnu/java/net/loader/JarURLResource.java \
+classpath/gnu/java/net/loader/RemoteResource.java \
+classpath/gnu/java/net/loader/RemoteURLLoader.java \
+classpath/gnu/java/net/loader/Resource.java \
+classpath/gnu/java/net/loader/URLLoader.java \
+classpath/gnu/java/net/loader/URLStreamHandlerCache.java
+
+gnu_java_net_loader_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_net_loader_source_files)))
+
+gnu/java/net/loader.list: $(gnu_java_net_loader_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_net_loader_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/net/loader.list
+
+-include gnu/java/net/loader.deps
+
+
+gnu_java_net_local_source_files = \
+classpath/gnu/java/net/local/LocalServerSocket.java \
+classpath/gnu/java/net/local/LocalSocket.java \
+classpath/gnu/java/net/local/LocalSocketAddress.java \
+gnu/java/net/local/LocalSocketImpl.java
+
+gnu_java_net_local_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_net_local_source_files)))
+
+gnu/java/net/local.list: $(gnu_java_net_local_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_net_local_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/net/local.list
+
+-include gnu/java/net/local.deps
+
+
+gnu_java_net_protocol_core_source_files = \
+gnu/java/net/protocol/core/Connection.java \
+gnu/java/net/protocol/core/CoreInputStream.java \
+gnu/java/net/protocol/core/Handler.java
+
+gnu_java_net_protocol_core_header_files = $(patsubst %.java,%.h,$(gnu_java_net_protocol_core_source_files))
+
+gnu/java/net/protocol/core.list: $(gnu_java_net_protocol_core_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_net_protocol_core_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/net/protocol/core.list
+
+-include gnu/java/net/protocol/core.deps
 
 
 gnu_java_net_protocol_file_source_files = \
@@ -1239,6 +1504,23 @@ gnu/java/net/protocol/ftp.list: $(gnu_java_net_protocol_ftp_source_files)
 	done > gnu/java/net/protocol/ftp.list
 
 -include gnu/java/net/protocol/ftp.deps
+
+
+gnu_java_net_protocol_gcjlib_source_files = \
+gnu/java/net/protocol/gcjlib/Connection.java \
+gnu/java/net/protocol/gcjlib/Handler.java
+
+gnu_java_net_protocol_gcjlib_header_files = $(patsubst %.java,%.h,$(gnu_java_net_protocol_gcjlib_source_files))
+
+gnu/java/net/protocol/gcjlib.list: $(gnu_java_net_protocol_gcjlib_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_net_protocol_gcjlib_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/net/protocol/gcjlib.list
+
+-include gnu/java/net/protocol/gcjlib.deps
 
 
 gnu_java_net_protocol_http_source_files = \
@@ -1290,7 +1572,7 @@ gnu/java/net/protocol/https.list: $(gnu_java_net_protocol_https_source_files)
 
 
 gnu_java_net_protocol_jar_source_files = \
-gnu/java/net/protocol/jar/Connection.java \
+classpath/gnu/java/net/protocol/jar/Connection.java \
 classpath/gnu/java/net/protocol/jar/Handler.java
 
 gnu_java_net_protocol_jar_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_net_protocol_jar_source_files)))
@@ -1310,6 +1592,7 @@ gnu_java_nio_source_files = \
 classpath/gnu/java/nio/ChannelInputStream.java \
 classpath/gnu/java/nio/ChannelOutputStream.java \
 classpath/gnu/java/nio/ChannelReader.java \
+classpath/gnu/java/nio/ChannelWriter.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/DatagramChannelSelectionKey.java \
 classpath/gnu/java/nio/FileLockImpl.java \
@@ -1327,6 +1610,8 @@ gnu/java/nio/ServerSocketChannelImpl.java \
 gnu/java/nio/ServerSocketChannelSelectionKey.java \
 gnu/java/nio/SocketChannelImpl.java \
 gnu/java/nio/SocketChannelSelectionKey.java \
+classpath/gnu/java/nio/SocketChannelSelectionKeyImpl.java \
+gnu/java/nio/VMChannel.java \
 gnu/java/nio/VMPipe.java \
 gnu/java/nio/VMSelector.java
 
@@ -1437,15 +1722,7 @@ gnu/java/nio/charset.list: $(gnu_java_nio_charset_source_files)
 
 gnu_java_rmi_source_files = \
 classpath/gnu/java/rmi/RMIMarshalledObjectInputStream.java \
-classpath/gnu/java/rmi/RMIMarshalledObjectOutputStream.java \
-gnu/java/rmi/rmic/Compile_gcj.java \
-gnu/java/rmi/rmic/Compile_jikes.java \
-gnu/java/rmi/rmic/Compile_kjc.java \
-gnu/java/rmi/rmic/Compiler.java \
-gnu/java/rmi/rmic/CompilerProcess.java \
-gnu/java/rmi/rmic/RMIC.java \
-gnu/java/rmi/rmic/RMICException.java \
-gnu/java/rmi/rmic/TabbedWriter.java
+classpath/gnu/java/rmi/RMIMarshalledObjectOutputStream.java
 
 gnu_java_rmi_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_rmi_source_files)))
 
@@ -1460,10 +1737,30 @@ gnu/java/rmi.list: $(gnu_java_rmi_source_files)
 -include gnu/java/rmi.deps
 
 
+gnu_java_rmi_activation_source_files = \
+classpath/gnu/java/rmi/activation/ActivationSystemTransient.java \
+classpath/gnu/java/rmi/activation/BidiTable.java \
+classpath/gnu/java/rmi/activation/DefaultActivationGroup.java \
+classpath/gnu/java/rmi/activation/DefaultActivationSystem.java
+
+gnu_java_rmi_activation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_rmi_activation_source_files)))
+
+gnu/java/rmi/activation.list: $(gnu_java_rmi_activation_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_rmi_activation_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/rmi/activation.list
+
+-include gnu/java/rmi/activation.deps
+
+
 gnu_java_rmi_dgc_source_files = \
 classpath/gnu/java/rmi/dgc/DGCImpl.java \
 classpath/gnu/java/rmi/dgc/DGCImpl_Skel.java \
-classpath/gnu/java/rmi/dgc/DGCImpl_Stub.java
+classpath/gnu/java/rmi/dgc/DGCImpl_Stub.java \
+classpath/gnu/java/rmi/dgc/LeaseRenewingTask.java
 
 gnu_java_rmi_dgc_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_rmi_dgc_source_files)))
 
@@ -1496,7 +1793,32 @@ gnu/java/rmi/registry.list: $(gnu_java_rmi_registry_source_files)
 -include gnu/java/rmi/registry.deps
 
 
+gnu_java_rmi_rmic_source_files = \
+gnu/java/rmi/rmic/Compile_gcj.java \
+gnu/java/rmi/rmic/Compile_jikes.java \
+gnu/java/rmi/rmic/Compile_kjc.java \
+gnu/java/rmi/rmic/Compiler.java \
+gnu/java/rmi/rmic/CompilerProcess.java \
+gnu/java/rmi/rmic/RMIC.java \
+gnu/java/rmi/rmic/RMICException.java \
+gnu/java/rmi/rmic/TabbedWriter.java
+
+gnu_java_rmi_rmic_header_files = $(patsubst %.java,%.h,$(gnu_java_rmi_rmic_source_files))
+
+gnu/java/rmi/rmic.list: $(gnu_java_rmi_rmic_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_rmi_rmic_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/rmi/rmic.list
+
+-include gnu/java/rmi/rmic.deps
+
+
 gnu_java_rmi_server_source_files = \
+classpath/gnu/java/rmi/server/ActivatableRef.java \
+classpath/gnu/java/rmi/server/ActivatableServerRef.java \
 classpath/gnu/java/rmi/server/CombinedClassLoader.java \
 classpath/gnu/java/rmi/server/ConnectionRunnerPool.java \
 classpath/gnu/java/rmi/server/ProtocolConstants.java \
@@ -1529,6 +1851,7 @@ gnu/java/rmi/server.list: $(gnu_java_rmi_server_source_files)
 
 
 gnu_java_security_source_files = \
+classpath/gnu/java/security/Configuration.java \
 classpath/gnu/java/security/Engine.java \
 classpath/gnu/java/security/OID.java \
 classpath/gnu/java/security/PolicyFile.java \
@@ -1790,6 +2113,7 @@ gnu/java/security/key/rsa.list: $(gnu_java_security_key_rsa_source_files)
 
 
 gnu_java_security_pkcs_source_files = \
+classpath/gnu/java/security/pkcs/PKCS7Data.java \
 classpath/gnu/java/security/pkcs/PKCS7SignedData.java \
 classpath/gnu/java/security/pkcs/SignerInfo.java
 
@@ -1831,7 +2155,6 @@ gnu/java/security/prng.list: $(gnu_java_security_prng_source_files)
 
 gnu_java_security_provider_source_files = \
 classpath/gnu/java/security/provider/CollectionCertStoreImpl.java \
-classpath/gnu/java/security/provider/DSAParameterGenerator.java \
 classpath/gnu/java/security/provider/DefaultPolicy.java \
 classpath/gnu/java/security/provider/Gnu.java \
 classpath/gnu/java/security/provider/PKIXCertPathValidatorImpl.java \
@@ -1915,12 +2238,13 @@ gnu/java/security/sig/rsa.list: $(gnu_java_security_sig_rsa_source_files)
 
 gnu_java_security_util_source_files = \
 classpath/gnu/java/security/util/Base64.java \
+classpath/gnu/java/security/util/ByteArray.java \
 classpath/gnu/java/security/util/DerUtil.java \
 classpath/gnu/java/security/util/ExpirableObject.java \
 classpath/gnu/java/security/util/FormatUtil.java \
+classpath/gnu/java/security/util/IntegerUtil.java \
 classpath/gnu/java/security/util/PRNG.java \
 classpath/gnu/java/security/util/Prime.java \
-classpath/gnu/java/security/util/Prime2.java \
 classpath/gnu/java/security/util/Sequence.java \
 classpath/gnu/java/security/util/SimpleList.java \
 classpath/gnu/java/security/util/Util.java
@@ -2035,10 +2359,28 @@ gnu/java/util.list: $(gnu_java_util_source_files)
 -include gnu/java/util.deps
 
 
+gnu_java_util_jar_source_files = \
+classpath/gnu/java/util/jar/JarUtils.java
+
+gnu_java_util_jar_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_util_jar_source_files)))
+
+gnu/java/util/jar.list: $(gnu_java_util_jar_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_util_jar_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/util/jar.list
+
+-include gnu/java/util/jar.deps
+
+
 gnu_java_util_prefs_source_files = \
 classpath/gnu/java/util/prefs/EventDispatcher.java \
 classpath/gnu/java/util/prefs/FileBasedFactory.java \
 classpath/gnu/java/util/prefs/FileBasedPreferences.java \
+classpath/gnu/java/util/prefs/GConfBasedFactory.java \
+classpath/gnu/java/util/prefs/GConfBasedPreferences.java \
 classpath/gnu/java/util/prefs/MemoryBasedFactory.java \
 classpath/gnu/java/util/prefs/MemoryBasedPreferences.java \
 classpath/gnu/java/util/prefs/NodeReader.java \
@@ -2055,6 +2397,60 @@ gnu/java/util/prefs.list: $(gnu_java_util_prefs_source_files)
 	done > gnu/java/util/prefs.list
 
 -include gnu/java/util/prefs.deps
+
+
+gnu_java_util_prefs_gconf_source_files = \
+classpath/gnu/java/util/prefs/gconf/GConfNativePeer.java
+
+gnu-java-util-prefs-gconf.lo: $(gnu_java_util_prefs_gconf_source_files)
+	@find classpath/lib/gnu/java/util/prefs/gconf -name '*.class' > gnu-java-util-prefs-gconf.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-util-prefs-gconf.lo @gnu-java-util-prefs-gconf.list
+	@rm -f gnu-java-util-prefs-gconf.list
+
+gnu_java_util_regex_source_files = \
+classpath/gnu/java/util/regex/BacktrackStack.java \
+classpath/gnu/java/util/regex/CharIndexed.java \
+classpath/gnu/java/util/regex/CharIndexedCharArray.java \
+classpath/gnu/java/util/regex/CharIndexedCharSequence.java \
+classpath/gnu/java/util/regex/CharIndexedInputStream.java \
+classpath/gnu/java/util/regex/CharIndexedString.java \
+classpath/gnu/java/util/regex/CharIndexedStringBuffer.java \
+classpath/gnu/java/util/regex/RE.java \
+classpath/gnu/java/util/regex/REException.java \
+classpath/gnu/java/util/regex/REFilterInputStream.java \
+classpath/gnu/java/util/regex/REMatch.java \
+classpath/gnu/java/util/regex/REMatchEnumeration.java \
+classpath/gnu/java/util/regex/RESyntax.java \
+classpath/gnu/java/util/regex/REToken.java \
+classpath/gnu/java/util/regex/RETokenAny.java \
+classpath/gnu/java/util/regex/RETokenBackRef.java \
+classpath/gnu/java/util/regex/RETokenChar.java \
+classpath/gnu/java/util/regex/RETokenEnd.java \
+classpath/gnu/java/util/regex/RETokenEndOfPreviousMatch.java \
+classpath/gnu/java/util/regex/RETokenEndSub.java \
+classpath/gnu/java/util/regex/RETokenIndependent.java \
+classpath/gnu/java/util/regex/RETokenLookAhead.java \
+classpath/gnu/java/util/regex/RETokenLookBehind.java \
+classpath/gnu/java/util/regex/RETokenNamedProperty.java \
+classpath/gnu/java/util/regex/RETokenOneOf.java \
+classpath/gnu/java/util/regex/RETokenPOSIX.java \
+classpath/gnu/java/util/regex/RETokenRange.java \
+classpath/gnu/java/util/regex/RETokenRepeated.java \
+classpath/gnu/java/util/regex/RETokenStart.java \
+classpath/gnu/java/util/regex/RETokenWordBoundary.java \
+classpath/gnu/java/util/regex/UncheckedRE.java
+
+gnu_java_util_regex_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_util_regex_source_files)))
+
+gnu/java/util/regex.list: $(gnu_java_util_regex_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_util_regex_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/util/regex.list
+
+-include gnu/java/util/regex.deps
 
 
 gnu_javax_crypto_source_files = \
@@ -2152,6 +2548,10 @@ gnu/javax/crypto/jce.list: $(gnu_javax_crypto_jce_source_files)
 
 
 gnu_javax_crypto_jce_cipher_source_files = \
+classpath/gnu/javax/crypto/jce/cipher/AES128KeyWrapSpi.java \
+classpath/gnu/javax/crypto/jce/cipher/AES192KeyWrapSpi.java \
+classpath/gnu/javax/crypto/jce/cipher/AES256KeyWrapSpi.java \
+classpath/gnu/javax/crypto/jce/cipher/AESKeyWrapSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/AESSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/ARCFourSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/AnubisSpi.java \
@@ -2159,12 +2559,14 @@ classpath/gnu/javax/crypto/jce/cipher/BlowfishSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/Cast5Spi.java \
 classpath/gnu/javax/crypto/jce/cipher/CipherAdapter.java \
 classpath/gnu/javax/crypto/jce/cipher/DESSpi.java \
+classpath/gnu/javax/crypto/jce/cipher/KeyWrappingAlgorithmAdapter.java \
 classpath/gnu/javax/crypto/jce/cipher/KhazadSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/NullCipherSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/PBES2.java \
 classpath/gnu/javax/crypto/jce/cipher/RijndaelSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/SerpentSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/SquareSpi.java \
+classpath/gnu/javax/crypto/jce/cipher/TripleDESKeyWrapSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/TripleDESSpi.java \
 classpath/gnu/javax/crypto/jce/cipher/TwofishSpi.java
 
@@ -2470,6 +2872,27 @@ gnu/javax/crypto/keyring.list: $(gnu_javax_crypto_keyring_source_files)
 -include gnu/javax/crypto/keyring.deps
 
 
+gnu_javax_crypto_kwa_source_files = \
+classpath/gnu/javax/crypto/kwa/AESKeyWrap.java \
+classpath/gnu/javax/crypto/kwa/BaseKeyWrappingAlgorithm.java \
+classpath/gnu/javax/crypto/kwa/IKeyWrappingAlgorithm.java \
+classpath/gnu/javax/crypto/kwa/KeyUnwrappingException.java \
+classpath/gnu/javax/crypto/kwa/KeyWrappingAlgorithmFactory.java \
+classpath/gnu/javax/crypto/kwa/TripleDESKeyWrap.java
+
+gnu_javax_crypto_kwa_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_crypto_kwa_source_files)))
+
+gnu/javax/crypto/kwa.list: $(gnu_javax_crypto_kwa_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_crypto_kwa_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/crypto/kwa.list
+
+-include gnu/javax/crypto/kwa.deps
+
+
 gnu_javax_crypto_mac_source_files = \
 classpath/gnu/javax/crypto/mac/BaseMac.java \
 classpath/gnu/javax/crypto/mac/HMac.java \
@@ -2525,6 +2948,7 @@ gnu/javax/crypto/mode.list: $(gnu_javax_crypto_mode_source_files)
 gnu_javax_crypto_pad_source_files = \
 classpath/gnu/javax/crypto/pad/BasePad.java \
 classpath/gnu/javax/crypto/pad/IPad.java \
+classpath/gnu/javax/crypto/pad/ISO10126.java \
 classpath/gnu/javax/crypto/pad/PKCS1_V1_5.java \
 classpath/gnu/javax/crypto/pad/PKCS7.java \
 classpath/gnu/javax/crypto/pad/PadFactory.java \
@@ -2691,12 +3115,31 @@ gnu/javax/crypto/sasl/srp.list: $(gnu_javax_crypto_sasl_srp_source_files)
 -include gnu/javax/crypto/sasl/srp.deps
 
 
+gnu_javax_imageio_source_files = \
+classpath/gnu/javax/imageio/IIOInputStream.java
+
+gnu_javax_imageio_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_imageio_source_files)))
+
+gnu/javax/imageio.list: $(gnu_javax_imageio_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_imageio_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/imageio.list
+
+-include gnu/javax/imageio.deps
+
+
 gnu_javax_imageio_bmp_source_files = \
 classpath/gnu/javax/imageio/bmp/BMPDecoder.java \
+classpath/gnu/javax/imageio/bmp/BMPEncoder.java \
 classpath/gnu/javax/imageio/bmp/BMPException.java \
 classpath/gnu/javax/imageio/bmp/BMPFileHeader.java \
 classpath/gnu/javax/imageio/bmp/BMPImageReader.java \
 classpath/gnu/javax/imageio/bmp/BMPImageReaderSpi.java \
+classpath/gnu/javax/imageio/bmp/BMPImageWriter.java \
+classpath/gnu/javax/imageio/bmp/BMPImageWriterSpi.java \
 classpath/gnu/javax/imageio/bmp/BMPInfoHeader.java \
 classpath/gnu/javax/imageio/bmp/DecodeBF16.java \
 classpath/gnu/javax/imageio/bmp/DecodeBF32.java \
@@ -2705,7 +3148,15 @@ classpath/gnu/javax/imageio/bmp/DecodeRGB24.java \
 classpath/gnu/javax/imageio/bmp/DecodeRGB4.java \
 classpath/gnu/javax/imageio/bmp/DecodeRGB8.java \
 classpath/gnu/javax/imageio/bmp/DecodeRLE4.java \
-classpath/gnu/javax/imageio/bmp/DecodeRLE8.java
+classpath/gnu/javax/imageio/bmp/DecodeRLE8.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB1.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB16.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB24.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB32.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB4.java \
+classpath/gnu/javax/imageio/bmp/EncodeRGB8.java \
+classpath/gnu/javax/imageio/bmp/EncodeRLE4.java \
+classpath/gnu/javax/imageio/bmp/EncodeRLE8.java
 
 gnu_javax_imageio_bmp_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_imageio_bmp_source_files)))
 
@@ -2718,6 +3169,83 @@ gnu/javax/imageio/bmp.list: $(gnu_javax_imageio_bmp_source_files)
 	done > gnu/javax/imageio/bmp.list
 
 -include gnu/javax/imageio/bmp.deps
+
+
+gnu_javax_imageio_gif_source_files = \
+classpath/gnu/javax/imageio/gif/GIFFile.java \
+classpath/gnu/javax/imageio/gif/GIFImageReader.java \
+classpath/gnu/javax/imageio/gif/GIFImageReaderSpi.java
+
+gnu_javax_imageio_gif_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_imageio_gif_source_files)))
+
+gnu/javax/imageio/gif.list: $(gnu_javax_imageio_gif_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_imageio_gif_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/imageio/gif.list
+
+-include gnu/javax/imageio/gif.deps
+
+
+gnu_javax_imageio_jpeg_source_files = \
+classpath/gnu/javax/imageio/jpeg/DCT.java \
+classpath/gnu/javax/imageio/jpeg/HuffmanTable.java \
+classpath/gnu/javax/imageio/jpeg/JPEGComponent.java \
+classpath/gnu/javax/imageio/jpeg/JPEGDecoder.java \
+classpath/gnu/javax/imageio/jpeg/JPEGException.java \
+classpath/gnu/javax/imageio/jpeg/JPEGFrame.java \
+classpath/gnu/javax/imageio/jpeg/JPEGImageInputStream.java \
+classpath/gnu/javax/imageio/jpeg/JPEGImageReader.java \
+classpath/gnu/javax/imageio/jpeg/JPEGImageReaderSpi.java \
+classpath/gnu/javax/imageio/jpeg/JPEGMarker.java \
+classpath/gnu/javax/imageio/jpeg/JPEGMarkerFoundException.java \
+classpath/gnu/javax/imageio/jpeg/JPEGScan.java \
+classpath/gnu/javax/imageio/jpeg/YCbCr_ColorSpace.java \
+classpath/gnu/javax/imageio/jpeg/ZigZag.java
+
+gnu_javax_imageio_jpeg_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_imageio_jpeg_source_files)))
+
+gnu/javax/imageio/jpeg.list: $(gnu_javax_imageio_jpeg_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_imageio_jpeg_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/imageio/jpeg.list
+
+-include gnu/javax/imageio/jpeg.deps
+
+
+gnu_javax_imageio_png_source_files = \
+classpath/gnu/javax/imageio/png/PNGChunk.java \
+classpath/gnu/javax/imageio/png/PNGData.java \
+classpath/gnu/javax/imageio/png/PNGDecoder.java \
+classpath/gnu/javax/imageio/png/PNGEncoder.java \
+classpath/gnu/javax/imageio/png/PNGException.java \
+classpath/gnu/javax/imageio/png/PNGFile.java \
+classpath/gnu/javax/imageio/png/PNGFilter.java \
+classpath/gnu/javax/imageio/png/PNGGamma.java \
+classpath/gnu/javax/imageio/png/PNGHeader.java \
+classpath/gnu/javax/imageio/png/PNGICCProfile.java \
+classpath/gnu/javax/imageio/png/PNGImageReader.java \
+classpath/gnu/javax/imageio/png/PNGImageReaderSpi.java \
+classpath/gnu/javax/imageio/png/PNGPalette.java \
+classpath/gnu/javax/imageio/png/PNGPhys.java \
+classpath/gnu/javax/imageio/png/PNGTime.java
+
+gnu_javax_imageio_png_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_imageio_png_source_files)))
+
+gnu/javax/imageio/png.list: $(gnu_javax_imageio_png_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_imageio_png_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/imageio/png.list
+
+-include gnu/javax/imageio/png.deps
 
 
 gnu_javax_net_ssl_source_files = \
@@ -2818,6 +3346,189 @@ gnu/javax/net/ssl/provider.list: $(gnu_javax_net_ssl_provider_source_files)
 -include gnu/javax/net/ssl/provider.deps
 
 
+gnu_javax_print_source_files = \
+classpath/gnu/javax/print/CupsIppOperation.java \
+classpath/gnu/javax/print/CupsMediaMapping.java \
+classpath/gnu/javax/print/CupsPrintService.java \
+classpath/gnu/javax/print/CupsPrintServiceLookup.java \
+classpath/gnu/javax/print/CupsServer.java \
+classpath/gnu/javax/print/PrintAttributeException.java \
+classpath/gnu/javax/print/PrintFlavorException.java \
+classpath/gnu/javax/print/PrintUriException.java \
+classpath/gnu/javax/print/PrinterDialog.java
+
+gnu_javax_print_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_source_files)))
+
+gnu/javax/print.list: $(gnu_javax_print_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print.list
+
+-include gnu/javax/print.deps
+
+
+gnu_javax_print_ipp_source_files = \
+classpath/gnu/javax/print/ipp/DocPrintJobImpl.java \
+classpath/gnu/javax/print/ipp/IppDelimiterTag.java \
+classpath/gnu/javax/print/ipp/IppException.java \
+classpath/gnu/javax/print/ipp/IppMultiDocPrintService.java \
+classpath/gnu/javax/print/ipp/IppPrintService.java \
+classpath/gnu/javax/print/ipp/IppRequest.java \
+classpath/gnu/javax/print/ipp/IppResponse.java \
+classpath/gnu/javax/print/ipp/IppStatusCode.java \
+classpath/gnu/javax/print/ipp/IppUtilities.java \
+classpath/gnu/javax/print/ipp/IppValueTag.java \
+classpath/gnu/javax/print/ipp/MultiDocPrintJobImpl.java
+
+gnu_javax_print_ipp_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_source_files)))
+
+gnu/javax/print/ipp.list: $(gnu_javax_print_ipp_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp.list
+
+-include gnu/javax/print/ipp.deps
+
+
+gnu_javax_print_ipp_attribute_source_files = \
+classpath/gnu/javax/print/ipp/attribute/CharsetSyntax.java \
+classpath/gnu/javax/print/ipp/attribute/DefaultValueAttribute.java \
+classpath/gnu/javax/print/ipp/attribute/DetailedStatusMessage.java \
+classpath/gnu/javax/print/ipp/attribute/DocumentAccessError.java \
+classpath/gnu/javax/print/ipp/attribute/NaturalLanguageSyntax.java \
+classpath/gnu/javax/print/ipp/attribute/RequestedAttributes.java \
+classpath/gnu/javax/print/ipp/attribute/StatusMessage.java \
+classpath/gnu/javax/print/ipp/attribute/UnknownAttribute.java
+
+gnu_javax_print_ipp_attribute_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_attribute_source_files)))
+
+gnu/javax/print/ipp/attribute.list: $(gnu_javax_print_ipp_attribute_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_attribute_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp/attribute.list
+
+-include gnu/javax/print/ipp/attribute.deps
+
+
+gnu_javax_print_ipp_attribute_defaults_source_files = \
+classpath/gnu/javax/print/ipp/attribute/defaults/CopiesDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/DocumentFormatDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/FinishingsDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/JobHoldUntilDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/JobPriorityDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/JobSheetsDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/MediaDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/MultipleDocumentHandlingDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/NumberUpDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/OrientationRequestedDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/PrintQualityDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/PrinterResolutionDefault.java \
+classpath/gnu/javax/print/ipp/attribute/defaults/SidesDefault.java
+
+gnu_javax_print_ipp_attribute_defaults_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_attribute_defaults_source_files)))
+
+gnu/javax/print/ipp/attribute/defaults.list: $(gnu_javax_print_ipp_attribute_defaults_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_attribute_defaults_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp/attribute/defaults.list
+
+-include gnu/javax/print/ipp/attribute/defaults.deps
+
+
+gnu_javax_print_ipp_attribute_job_source_files = \
+classpath/gnu/javax/print/ipp/attribute/job/AttributesCharset.java \
+classpath/gnu/javax/print/ipp/attribute/job/AttributesNaturalLanguage.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobDetailedStatusMessages.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobDocumentAccessErrors.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobId.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobMoreInfo.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobPrinterUri.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobStateMessage.java \
+classpath/gnu/javax/print/ipp/attribute/job/JobUri.java
+
+gnu_javax_print_ipp_attribute_job_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_attribute_job_source_files)))
+
+gnu/javax/print/ipp/attribute/job.list: $(gnu_javax_print_ipp_attribute_job_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_attribute_job_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp/attribute/job.list
+
+-include gnu/javax/print/ipp/attribute/job.deps
+
+
+gnu_javax_print_ipp_attribute_printer_source_files = \
+classpath/gnu/javax/print/ipp/attribute/printer/CharsetConfigured.java \
+classpath/gnu/javax/print/ipp/attribute/printer/DocumentFormat.java \
+classpath/gnu/javax/print/ipp/attribute/printer/MultipleOperationTimeOut.java \
+classpath/gnu/javax/print/ipp/attribute/printer/NaturalLanguageConfigured.java \
+classpath/gnu/javax/print/ipp/attribute/printer/PrinterCurrentTime.java \
+classpath/gnu/javax/print/ipp/attribute/printer/PrinterDriverInstaller.java \
+classpath/gnu/javax/print/ipp/attribute/printer/PrinterStateMessage.java \
+classpath/gnu/javax/print/ipp/attribute/printer/PrinterUpTime.java
+
+gnu_javax_print_ipp_attribute_printer_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_attribute_printer_source_files)))
+
+gnu/javax/print/ipp/attribute/printer.list: $(gnu_javax_print_ipp_attribute_printer_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_attribute_printer_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp/attribute/printer.list
+
+-include gnu/javax/print/ipp/attribute/printer.deps
+
+
+gnu_javax_print_ipp_attribute_supported_source_files = \
+classpath/gnu/javax/print/ipp/attribute/supported/CharsetSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/CompressionSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/DocumentFormatSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/FinishingsSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/GeneratedNaturalLanguageSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/IppVersionsSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/JobHoldUntilSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/JobSheetsSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/MediaSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/MultipleDocumentHandlingSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/MultipleDocumentJobsSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/OperationsSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/OrientationRequestedSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/PageRangesSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/PrintQualitySupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/PrinterResolutionSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/PrinterUriSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/SidesSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/UriAuthenticationSupported.java \
+classpath/gnu/javax/print/ipp/attribute/supported/UriSecuritySupported.java
+
+gnu_javax_print_ipp_attribute_supported_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_print_ipp_attribute_supported_source_files)))
+
+gnu/javax/print/ipp/attribute/supported.list: $(gnu_javax_print_ipp_attribute_supported_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_print_ipp_attribute_supported_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/print/ipp/attribute/supported.list
+
+-include gnu/javax/print/ipp/attribute/supported.deps
+
+
 gnu_javax_rmi_source_files = \
 classpath/gnu/javax/rmi/CORBA/CorbaInput.java \
 classpath/gnu/javax/rmi/CORBA/CorbaOutput.java \
@@ -2833,7 +3544,7 @@ classpath/gnu/javax/rmi/CORBA/ValueHandlerDelegateImpl.java
 
 gnu-javax-rmi.lo: $(gnu_javax_rmi_source_files)
 	@find classpath/lib/gnu/javax/rmi -name '*.class' > gnu-javax-rmi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-javax-rmi.lo @gnu-javax-rmi.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-rmi.lo @gnu-javax-rmi.list
 	@rm -f gnu-javax-rmi.list
 
 gnu_javax_security_auth_source_files = \
@@ -2898,15 +3609,105 @@ classpath/gnu/javax/sound/midi/alsa/AlsaMidiSequencerDevice.java \
 classpath/gnu/javax/sound/midi/alsa/AlsaOutputPortDevice.java \
 classpath/gnu/javax/sound/midi/alsa/AlsaPortDevice.java \
 classpath/gnu/javax/sound/midi/dssi/DSSIMidiDeviceProvider.java \
-classpath/gnu/javax/sound/midi/dssi/DSSISynthesizer.java
+classpath/gnu/javax/sound/midi/dssi/DSSISynthesizer.java \
+classpath/gnu/javax/sound/midi/file/ExtendedMidiFileFormat.java \
+classpath/gnu/javax/sound/midi/file/MidiDataInputStream.java \
+classpath/gnu/javax/sound/midi/file/MidiDataOutputStream.java \
+classpath/gnu/javax/sound/midi/file/MidiFileReader.java \
+classpath/gnu/javax/sound/midi/file/MidiFileWriter.java
 
 gnu-javax-sound-midi.lo: $(gnu_javax_sound_midi_source_files)
 	@find classpath/lib/gnu/javax/sound/midi -name '*.class' > gnu-javax-sound-midi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-javax-sound-midi.lo @gnu-javax-sound-midi.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-sound-midi.lo @gnu-javax-sound-midi.list
 	@rm -f gnu-javax-sound-midi.list
 
+gnu_javax_sound_sampled_AU_source_files = \
+classpath/gnu/javax/sound/sampled/AU/AUReader.java
+
+gnu_javax_sound_sampled_AU_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_sound_sampled_AU_source_files)))
+
+gnu/javax/sound/sampled/AU.list: $(gnu_javax_sound_sampled_AU_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_sound_sampled_AU_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/sound/sampled/AU.list
+
+-include gnu/javax/sound/sampled/AU.deps
+
+
+gnu_javax_sound_sampled_WAV_source_files = \
+classpath/gnu/javax/sound/sampled/WAV/WAVReader.java
+
+gnu_javax_sound_sampled_WAV_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_sound_sampled_WAV_source_files)))
+
+gnu/javax/sound/sampled/WAV.list: $(gnu_javax_sound_sampled_WAV_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_sound_sampled_WAV_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/sound/sampled/WAV.list
+
+-include gnu/javax/sound/sampled/WAV.deps
+
+
+gnu_javax_swing_plaf_gnu_source_files = \
+classpath/gnu/javax/swing/plaf/gnu/GNULookAndFeel.java
+
+gnu_javax_swing_plaf_gnu_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_plaf_gnu_source_files)))
+
+gnu/javax/swing/plaf/gnu.list: $(gnu_javax_swing_plaf_gnu_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_swing_plaf_gnu_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/swing/plaf/gnu.list
+
+-include gnu/javax/swing/plaf/gnu.deps
+
+
+gnu_javax_swing_plaf_metal_source_files = \
+classpath/gnu/javax/swing/plaf/metal/CustomizableTheme.java
+
+gnu_javax_swing_plaf_metal_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_plaf_metal_source_files)))
+
+gnu/javax/swing/plaf/metal.list: $(gnu_javax_swing_plaf_metal_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_swing_plaf_metal_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/swing/plaf/metal.list
+
+-include gnu/javax/swing/plaf/metal.deps
+
+
+gnu_javax_swing_text_html_source_files = \
+classpath/gnu/javax/swing/text/html/CharacterAttributeTranslator.java \
+classpath/gnu/javax/swing/text/html/CombinedAttributes.java \
+classpath/gnu/javax/swing/text/html/ImageViewIconFactory.java
+
+gnu_javax_swing_text_html_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_text_html_source_files)))
+
+gnu/javax/swing/text/html.list: $(gnu_javax_swing_text_html_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_swing_text_html_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/swing/text/html.list
+
+-include gnu/javax/swing/text/html.deps
+
+
 gnu_javax_swing_text_html_parser_source_files = \
+classpath/gnu/javax/swing/text/html/parser/GnuParserDelegator.java \
 classpath/gnu/javax/swing/text/html/parser/HTML_401F.java \
+classpath/gnu/javax/swing/text/html/parser/HTML_401Swing.java \
+classpath/gnu/javax/swing/text/html/parser/SmallHtmlAttributeSet.java \
 classpath/gnu/javax/swing/text/html/parser/gnuDTD.java \
 classpath/gnu/javax/swing/text/html/parser/htmlAttributeSet.java \
 classpath/gnu/javax/swing/text/html/parser/htmlValidator.java
@@ -2988,47 +3789,20 @@ gnu/javax/swing/text/html/parser/support/low.list: $(gnu_javax_swing_text_html_p
 -include gnu/javax/swing/text/html/parser/support/low.deps
 
 
-gnu_regexp_source_files = \
-classpath/gnu/regexp/CharIndexed.java \
-classpath/gnu/regexp/CharIndexedCharArray.java \
-classpath/gnu/regexp/CharIndexedInputStream.java \
-classpath/gnu/regexp/CharIndexedString.java \
-classpath/gnu/regexp/CharIndexedStringBuffer.java \
-classpath/gnu/regexp/RE.java \
-classpath/gnu/regexp/REException.java \
-classpath/gnu/regexp/REFilterInputStream.java \
-classpath/gnu/regexp/REMatch.java \
-classpath/gnu/regexp/REMatchEnumeration.java \
-classpath/gnu/regexp/RESyntax.java \
-classpath/gnu/regexp/REToken.java \
-classpath/gnu/regexp/RETokenAny.java \
-classpath/gnu/regexp/RETokenBackRef.java \
-classpath/gnu/regexp/RETokenChar.java \
-classpath/gnu/regexp/RETokenEnd.java \
-classpath/gnu/regexp/RETokenEndSub.java \
-classpath/gnu/regexp/RETokenIndependent.java \
-classpath/gnu/regexp/RETokenLookAhead.java \
-classpath/gnu/regexp/RETokenLookBehind.java \
-classpath/gnu/regexp/RETokenNamedProperty.java \
-classpath/gnu/regexp/RETokenOneOf.java \
-classpath/gnu/regexp/RETokenPOSIX.java \
-classpath/gnu/regexp/RETokenRange.java \
-classpath/gnu/regexp/RETokenRepeated.java \
-classpath/gnu/regexp/RETokenStart.java \
-classpath/gnu/regexp/RETokenWordBoundary.java \
-classpath/gnu/regexp/UncheckedRE.java
+gnu_javax_swing_tree_source_files = \
+classpath/gnu/javax/swing/tree/GnuPath.java
 
-gnu_regexp_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_regexp_source_files)))
+gnu_javax_swing_tree_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_tree_source_files)))
 
-gnu/regexp.list: $(gnu_regexp_source_files)
+gnu/javax/swing/tree.list: $(gnu_javax_swing_tree_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	@for file in $(gnu_regexp_source_files); do \
+	@for file in $(gnu_javax_swing_tree_source_files); do \
 	  if test -f $(srcdir)/$$file; then \
 	    echo $(srcdir)/$$file; \
 	  else echo $$file; fi; \
-	done > gnu/regexp.list
+	done > gnu/javax/swing/tree.list
 
--include gnu/regexp.deps
+-include gnu/javax/swing/tree.deps
 
 
 gnu_xml_source_files = \
@@ -3085,6 +3859,7 @@ classpath/gnu/xml/dom/html2/DomHTMLDirectoryElement.java \
 classpath/gnu/xml/dom/html2/DomHTMLDivElement.java \
 classpath/gnu/xml/dom/html2/DomHTMLDocument.java \
 classpath/gnu/xml/dom/html2/DomHTMLElement.java \
+classpath/gnu/xml/dom/html2/DomHTMLEmbedElement.java \
 classpath/gnu/xml/dom/html2/DomHTMLFieldSetElement.java \
 classpath/gnu/xml/dom/html2/DomHTMLFontElement.java \
 classpath/gnu/xml/dom/html2/DomHTMLFormElement.java \
@@ -3448,7 +4223,7 @@ classpath/gnu/xml/xpath/XPathTokenizer.java
 
 gnu-xml.lo: $(gnu_xml_source_files)
 	@find classpath/lib/gnu/xml -name '*.class' > gnu-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o gnu-xml.lo @gnu-xml.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-xml.lo @gnu-xml.list
 	@rm -f gnu-xml.list
 
 java_applet_source_files = \
@@ -3548,11 +4323,13 @@ classpath/java/awt/MenuComponent.java \
 classpath/java/awt/MenuContainer.java \
 classpath/java/awt/MenuItem.java \
 classpath/java/awt/MenuShortcut.java \
+classpath/java/awt/MouseInfo.java \
 classpath/java/awt/PageAttributes.java \
 classpath/java/awt/Paint.java \
 classpath/java/awt/PaintContext.java \
 classpath/java/awt/Panel.java \
 classpath/java/awt/Point.java \
+classpath/java/awt/PointerInfo.java \
 classpath/java/awt/Polygon.java \
 classpath/java/awt/PopupMenu.java \
 classpath/java/awt/PrintGraphics.java \
@@ -3959,6 +4736,7 @@ classpath/java/awt/peer/MenuBarPeer.java \
 classpath/java/awt/peer/MenuComponentPeer.java \
 classpath/java/awt/peer/MenuItemPeer.java \
 classpath/java/awt/peer/MenuPeer.java \
+classpath/java/awt/peer/MouseInfoPeer.java \
 classpath/java/awt/peer/PanelPeer.java \
 classpath/java/awt/peer/PopupMenuPeer.java \
 classpath/java/awt/peer/RobotPeer.java \
@@ -4114,9 +4892,9 @@ classpath/java/io/Externalizable.java \
 java/io/File.java \
 classpath/java/io/FileDescriptor.java \
 classpath/java/io/FileFilter.java \
-java/io/FileInputStream.java \
+classpath/java/io/FileInputStream.java \
 classpath/java/io/FileNotFoundException.java \
-java/io/FileOutputStream.java \
+classpath/java/io/FileOutputStream.java \
 classpath/java/io/FilePermission.java \
 classpath/java/io/FileReader.java \
 classpath/java/io/FileWriter.java \
@@ -4156,7 +4934,7 @@ java/io/PrintStream.java \
 classpath/java/io/PrintWriter.java \
 classpath/java/io/PushbackInputStream.java \
 classpath/java/io/PushbackReader.java \
-java/io/RandomAccessFile.java \
+classpath/java/io/RandomAccessFile.java \
 classpath/java/io/Reader.java \
 classpath/java/io/SequenceInputStream.java \
 classpath/java/io/Serializable.java \
@@ -4208,6 +4986,7 @@ classpath/java/lang/Comparable.java \
 classpath/java/lang/Compiler.java \
 java/lang/ConcreteProcess.java \
 classpath/java/lang/Double.java \
+classpath/java/lang/Enum.java \
 classpath/java/lang/EnumConstantNotPresentException.java \
 classpath/java/lang/Error.java \
 classpath/java/lang/Exception.java \
@@ -4221,12 +5000,13 @@ classpath/java/lang/IllegalStateException.java \
 classpath/java/lang/IllegalThreadStateException.java \
 classpath/java/lang/IncompatibleClassChangeError.java \
 classpath/java/lang/IndexOutOfBoundsException.java \
-java/lang/InheritableThreadLocal.java \
+classpath/java/lang/InheritableThreadLocal.java \
 classpath/java/lang/InstantiationError.java \
 classpath/java/lang/InstantiationException.java \
 classpath/java/lang/Integer.java \
 classpath/java/lang/InternalError.java \
 classpath/java/lang/InterruptedException.java \
+classpath/java/lang/Iterable.java \
 classpath/java/lang/LinkageError.java \
 classpath/java/lang/Long.java \
 java/lang/Math.java \
@@ -4261,7 +5041,7 @@ java/lang/System.java \
 java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
 classpath/java/lang/ThreadGroup.java \
-java/lang/ThreadLocal.java \
+classpath/java/lang/ThreadLocal.java \
 classpath/java/lang/Throwable.java \
 classpath/java/lang/TypeNotPresentException.java \
 classpath/java/lang/UnknownError.java \
@@ -4292,8 +5072,10 @@ java/lang.list: $(java_lang_source_files)
 
 
 java_lang_annotation_source_files = \
+classpath/java/lang/annotation/Annotation.java \
 classpath/java/lang/annotation/AnnotationFormatError.java \
-classpath/java/lang/annotation/AnnotationTypeMismatchException.java
+classpath/java/lang/annotation/AnnotationTypeMismatchException.java \
+classpath/java/lang/annotation/IncompleteAnnotationException.java
 
 java_lang_annotation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_annotation_source_files)))
 
@@ -4306,6 +5088,56 @@ java/lang/annotation.list: $(java_lang_annotation_source_files)
 	done > java/lang/annotation.list
 
 -include java/lang/annotation.deps
+
+
+java_lang_instrument_source_files = \
+classpath/java/lang/instrument/ClassDefinition.java \
+classpath/java/lang/instrument/ClassFileTransformer.java \
+classpath/java/lang/instrument/IllegalClassFormatException.java \
+classpath/java/lang/instrument/Instrumentation.java \
+classpath/java/lang/instrument/UnmodifiableClassException.java
+
+java_lang_instrument_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_instrument_source_files)))
+
+java/lang/instrument.list: $(java_lang_instrument_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(java_lang_instrument_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > java/lang/instrument.list
+
+-include java/lang/instrument.deps
+
+
+java_lang_management_source_files = \
+classpath/java/lang/management/ClassLoadingMXBean.java \
+classpath/java/lang/management/CompilationMXBean.java \
+classpath/java/lang/management/GarbageCollectorMXBean.java \
+classpath/java/lang/management/ManagementFactory.java \
+classpath/java/lang/management/ManagementPermission.java \
+classpath/java/lang/management/MemoryMXBean.java \
+classpath/java/lang/management/MemoryManagerMXBean.java \
+classpath/java/lang/management/MemoryNotificationInfo.java \
+classpath/java/lang/management/MemoryPoolMXBean.java \
+classpath/java/lang/management/MemoryUsage.java \
+classpath/java/lang/management/OperatingSystemMXBean.java \
+classpath/java/lang/management/RuntimeMXBean.java \
+classpath/java/lang/management/ThreadInfo.java \
+classpath/java/lang/management/ThreadMXBean.java \
+java/lang/management/VMManagementFactory.java
+
+java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_management_source_files)))
+
+java/lang/management.list: $(java_lang_management_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(java_lang_management_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > java/lang/management.list
+
+-include java/lang/management.deps
 
 
 java_lang_ref_source_files = \
@@ -4330,13 +5162,16 @@ java/lang/ref.list: $(java_lang_ref_source_files)
 
 java_lang_reflect_source_files = \
 classpath/java/lang/reflect/AccessibleObject.java \
+classpath/java/lang/reflect/AnnotatedElement.java \
 java/lang/reflect/Array.java \
 java/lang/reflect/Constructor.java \
 java/lang/reflect/Field.java \
 classpath/java/lang/reflect/GenericArrayType.java \
+classpath/java/lang/reflect/GenericDeclaration.java \
 classpath/java/lang/reflect/GenericSignatureFormatError.java \
 classpath/java/lang/reflect/InvocationHandler.java \
 classpath/java/lang/reflect/InvocationTargetException.java \
+classpath/java/lang/reflect/MalformedParameterizedTypeException.java \
 classpath/java/lang/reflect/Member.java \
 java/lang/reflect/Method.java \
 java/lang/reflect/Modifier.java \
@@ -4344,6 +5179,7 @@ classpath/java/lang/reflect/ParameterizedType.java \
 classpath/java/lang/reflect/Proxy.java \
 classpath/java/lang/reflect/ReflectPermission.java \
 classpath/java/lang/reflect/Type.java \
+classpath/java/lang/reflect/TypeVariable.java \
 classpath/java/lang/reflect/UndeclaredThrowableException.java \
 java/lang/reflect/VMProxy.java \
 classpath/java/lang/reflect/WildcardType.java
@@ -4363,7 +5199,8 @@ java/lang/reflect.list: $(java_lang_reflect_source_files)
 
 java_math_source_files = \
 classpath/java/math/BigDecimal.java \
-classpath/java/math/BigInteger.java
+classpath/java/math/BigInteger.java \
+classpath/java/math/MathContext.java
 
 java_math_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_math_source_files)))
 
@@ -4392,9 +5229,9 @@ classpath/java/net/FileNameMap.java \
 classpath/java/net/HttpURLConnection.java \
 classpath/java/net/Inet4Address.java \
 classpath/java/net/Inet6Address.java \
-java/net/InetAddress.java \
+classpath/java/net/InetAddress.java \
 classpath/java/net/InetSocketAddress.java \
-java/net/JarURLConnection.java \
+classpath/java/net/JarURLConnection.java \
 classpath/java/net/MalformedURLException.java \
 classpath/java/net/MimeTypeMapper.java \
 classpath/java/net/MulticastSocket.java \
@@ -4404,6 +5241,7 @@ classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
+classpath/java/net/ResolverCache.java \
 classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
@@ -4417,14 +5255,16 @@ classpath/java/net/URI.java \
 classpath/java/net/URISyntaxException.java \
 java/net/URL.java \
 java/net/URLClassLoader.java \
-java/net/URLConnection.java \
+classpath/java/net/URLConnection.java \
 classpath/java/net/URLDecoder.java \
 classpath/java/net/URLEncoder.java \
 classpath/java/net/URLStreamHandler.java \
 classpath/java/net/URLStreamHandlerFactory.java \
 classpath/java/net/UnknownHostException.java \
 classpath/java/net/UnknownServiceException.java \
-java/net/VMNetworkInterface.java
+java/net/VMInetAddress.java \
+java/net/VMNetworkInterface.java \
+java/net/VMURLConnection.java
 
 java_net_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_net_source_files)))
 
@@ -4491,7 +5331,7 @@ classpath/java/nio/channels/AsynchronousCloseException.java \
 classpath/java/nio/channels/ByteChannel.java \
 classpath/java/nio/channels/CancelledKeyException.java \
 classpath/java/nio/channels/Channel.java \
-java/nio/channels/Channels.java \
+classpath/java/nio/channels/Channels.java \
 classpath/java/nio/channels/ClosedByInterruptException.java \
 classpath/java/nio/channels/ClosedChannelException.java \
 classpath/java/nio/channels/ClosedSelectorException.java \
@@ -4520,6 +5360,7 @@ classpath/java/nio/channels/ServerSocketChannel.java \
 classpath/java/nio/channels/SocketChannel.java \
 classpath/java/nio/channels/UnresolvedAddressException.java \
 classpath/java/nio/channels/UnsupportedAddressTypeException.java \
+java/nio/channels/VMChannels.java \
 classpath/java/nio/channels/WritableByteChannel.java
 
 java_nio_channels_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_nio_channels_source_files)))
@@ -4741,9 +5582,9 @@ java/rmi/server.list: $(java_rmi_server_source_files)
 
 
 java_security_source_files = \
-java/security/AccessControlContext.java \
+classpath/java/security/AccessControlContext.java \
 classpath/java/security/AccessControlException.java \
-java/security/AccessController.java \
+classpath/java/security/AccessController.java \
 classpath/java/security/AlgorithmParameterGenerator.java \
 classpath/java/security/AlgorithmParameterGeneratorSpi.java \
 classpath/java/security/AlgorithmParameters.java \
@@ -4807,7 +5648,10 @@ classpath/java/security/SignatureSpi.java \
 classpath/java/security/SignedObject.java \
 classpath/java/security/Signer.java \
 classpath/java/security/UnrecoverableKeyException.java \
-classpath/java/security/UnresolvedPermission.java
+classpath/java/security/UnresolvedPermission.java \
+java/security/VMAccessControlState.java \
+java/security/VMAccessController.java \
+java/security/VMSecureRandom.java
 
 java_security_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_security_source_files)))
 
@@ -5015,7 +5859,7 @@ classpath/java/text/ChoiceFormat.java \
 classpath/java/text/CollationElementIterator.java \
 classpath/java/text/CollationKey.java \
 java/text/Collator.java \
-java/text/DateFormat.java \
+classpath/java/text/DateFormat.java \
 java/text/DateFormatSymbols.java \
 classpath/java/text/DecimalFormat.java \
 java/text/DecimalFormatSymbols.java \
@@ -5059,16 +5903,29 @@ classpath/java/util/ConcurrentModificationException.java \
 java/util/Currency.java \
 classpath/java/util/Date.java \
 classpath/java/util/Dictionary.java \
+classpath/java/util/DuplicateFormatFlagsException.java \
 classpath/java/util/EmptyStackException.java \
 classpath/java/util/Enumeration.java \
 classpath/java/util/EventListener.java \
 classpath/java/util/EventListenerProxy.java \
 classpath/java/util/EventObject.java \
+classpath/java/util/FormatFlagsConversionMismatchException.java \
+classpath/java/util/Formattable.java \
+classpath/java/util/FormattableFlags.java \
+classpath/java/util/Formatter.java \
+classpath/java/util/FormatterClosedException.java \
 java/util/GregorianCalendar.java \
 classpath/java/util/HashMap.java \
 classpath/java/util/HashSet.java \
 classpath/java/util/Hashtable.java \
 classpath/java/util/IdentityHashMap.java \
+classpath/java/util/IllegalFormatCodePointException.java \
+classpath/java/util/IllegalFormatConversionException.java \
+classpath/java/util/IllegalFormatException.java \
+classpath/java/util/IllegalFormatFlagsException.java \
+classpath/java/util/IllegalFormatPrecisionException.java \
+classpath/java/util/IllegalFormatWidthException.java \
+classpath/java/util/InputMismatchException.java \
 classpath/java/util/InvalidPropertiesFormatException.java \
 classpath/java/util/Iterator.java \
 classpath/java/util/LinkedHashMap.java \
@@ -5078,8 +5935,9 @@ classpath/java/util/List.java \
 classpath/java/util/ListIterator.java \
 classpath/java/util/ListResourceBundle.java \
 java/util/Locale.java \
-classpath/java/util/LocaleData.java \
 classpath/java/util/Map.java \
+classpath/java/util/MissingFormatArgumentException.java \
+classpath/java/util/MissingFormatWidthException.java \
 classpath/java/util/MissingResourceException.java \
 classpath/java/util/NoSuchElementException.java \
 classpath/java/util/Observable.java \
@@ -5103,6 +5961,9 @@ classpath/java/util/TimerTask.java \
 classpath/java/util/TooManyListenersException.java \
 classpath/java/util/TreeMap.java \
 classpath/java/util/TreeSet.java \
+classpath/java/util/UUID.java \
+classpath/java/util/UnknownFormatConversionException.java \
+classpath/java/util/UnknownFormatFlagsException.java \
 java/util/VMTimeZone.java \
 classpath/java/util/Vector.java \
 classpath/java/util/WeakHashMap.java
@@ -5153,6 +6014,7 @@ classpath/java/util/logging/Level.java \
 java/util/logging/LogManager.java \
 classpath/java/util/logging/LogRecord.java \
 java/util/logging/Logger.java \
+classpath/java/util/logging/LoggingMXBean.java \
 classpath/java/util/logging/LoggingPermission.java \
 classpath/java/util/logging/MemoryHandler.java \
 classpath/java/util/logging/SimpleFormatter.java \
@@ -5252,12 +6114,14 @@ java/util/zip.list: $(java_util_zip_source_files)
 javax_accessibility_source_files = \
 classpath/javax/accessibility/Accessible.java \
 classpath/javax/accessibility/AccessibleAction.java \
+classpath/javax/accessibility/AccessibleAttributeSequence.java \
 classpath/javax/accessibility/AccessibleBundle.java \
 classpath/javax/accessibility/AccessibleComponent.java \
 classpath/javax/accessibility/AccessibleContext.java \
 classpath/javax/accessibility/AccessibleEditableText.java \
 classpath/javax/accessibility/AccessibleExtendedComponent.java \
 classpath/javax/accessibility/AccessibleExtendedTable.java \
+classpath/javax/accessibility/AccessibleExtendedText.java \
 classpath/javax/accessibility/AccessibleHyperlink.java \
 classpath/javax/accessibility/AccessibleHypertext.java \
 classpath/javax/accessibility/AccessibleIcon.java \
@@ -5269,9 +6133,11 @@ classpath/javax/accessibility/AccessibleRole.java \
 classpath/javax/accessibility/AccessibleSelection.java \
 classpath/javax/accessibility/AccessibleState.java \
 classpath/javax/accessibility/AccessibleStateSet.java \
+classpath/javax/accessibility/AccessibleStreamable.java \
 classpath/javax/accessibility/AccessibleTable.java \
 classpath/javax/accessibility/AccessibleTableModelChange.java \
 classpath/javax/accessibility/AccessibleText.java \
+classpath/javax/accessibility/AccessibleTextSequence.java \
 classpath/javax/accessibility/AccessibleValue.java
 
 javax_accessibility_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_accessibility_source_files)))
@@ -5396,6 +6262,10 @@ classpath/javax/imageio/metadata/IIOMetadataFormat.java \
 classpath/javax/imageio/metadata/IIOMetadataFormatImpl.java \
 classpath/javax/imageio/metadata/IIOMetadataNode.java \
 classpath/javax/imageio/plugins/bmp/BMPImageWriteParam.java \
+classpath/javax/imageio/plugins/jpeg/JPEGHuffmanTable.java \
+classpath/javax/imageio/plugins/jpeg/JPEGImageReadParam.java \
+classpath/javax/imageio/plugins/jpeg/JPEGImageWriteParam.java \
+classpath/javax/imageio/plugins/jpeg/JPEGQTable.java \
 classpath/javax/imageio/spi/IIORegistry.java \
 classpath/javax/imageio/spi/IIOServiceProvider.java \
 classpath/javax/imageio/spi/ImageInputStreamSpi.java \
@@ -5420,11 +6290,37 @@ classpath/javax/imageio/stream/MemoryCacheImageOutputStream.java
 
 javax-imageio.lo: $(javax_imageio_source_files)
 	@find classpath/lib/javax/imageio -name '*.class' > javax-imageio.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o javax-imageio.lo @javax-imageio.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-imageio.lo @javax-imageio.list
 	@rm -f javax-imageio.list
 
 javax_management_source_files = \
-classpath/javax/management/Attribute.java
+classpath/javax/management/Attribute.java \
+classpath/javax/management/AttributeList.java \
+classpath/javax/management/AttributeNotFoundException.java \
+classpath/javax/management/DynamicMBean.java \
+classpath/javax/management/IntrospectionException.java \
+classpath/javax/management/InvalidAttributeValueException.java \
+classpath/javax/management/JMException.java \
+classpath/javax/management/JMRuntimeException.java \
+classpath/javax/management/ListenerNotFoundException.java \
+classpath/javax/management/MBeanAttributeInfo.java \
+classpath/javax/management/MBeanConstructorInfo.java \
+classpath/javax/management/MBeanException.java \
+classpath/javax/management/MBeanFeatureInfo.java \
+classpath/javax/management/MBeanInfo.java \
+classpath/javax/management/MBeanNotificationInfo.java \
+classpath/javax/management/MBeanOperationInfo.java \
+classpath/javax/management/MBeanParameterInfo.java \
+classpath/javax/management/NotCompliantMBeanException.java \
+classpath/javax/management/Notification.java \
+classpath/javax/management/NotificationBroadcaster.java \
+classpath/javax/management/NotificationEmitter.java \
+classpath/javax/management/NotificationFilter.java \
+classpath/javax/management/NotificationListener.java \
+classpath/javax/management/OperationsException.java \
+classpath/javax/management/ReflectionException.java \
+classpath/javax/management/RuntimeOperationsException.java \
+classpath/javax/management/StandardMBean.java
 
 javax_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_management_source_files)))
 
@@ -5437,6 +6333,31 @@ javax/management.list: $(javax_management_source_files)
 	done > javax/management.list
 
 -include javax/management.deps
+
+
+javax_management_openmbean_source_files = \
+classpath/javax/management/openmbean/ArrayType.java \
+classpath/javax/management/openmbean/CompositeData.java \
+classpath/javax/management/openmbean/CompositeDataSupport.java \
+classpath/javax/management/openmbean/CompositeType.java \
+classpath/javax/management/openmbean/InvalidKeyException.java \
+classpath/javax/management/openmbean/OpenDataException.java \
+classpath/javax/management/openmbean/OpenType.java \
+classpath/javax/management/openmbean/SimpleType.java \
+classpath/javax/management/openmbean/TabularData.java \
+classpath/javax/management/openmbean/TabularType.java
+
+javax_management_openmbean_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_management_openmbean_source_files)))
+
+javax/management/openmbean.list: $(javax_management_openmbean_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(javax_management_openmbean_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > javax/management/openmbean.list
+
+-include javax/management/openmbean.deps
 
 
 javax_naming_source_files = \
@@ -5559,6 +6480,8 @@ classpath/javax/naming/ldap/HasControls.java \
 classpath/javax/naming/ldap/InitialLdapContext.java \
 classpath/javax/naming/ldap/LdapContext.java \
 classpath/javax/naming/ldap/LdapReferralException.java \
+classpath/javax/naming/ldap/StartTlsRequest.java \
+classpath/javax/naming/ldap/StartTlsResponse.java \
 classpath/javax/naming/ldap/UnsolicitedNotification.java \
 classpath/javax/naming/ldap/UnsolicitedNotificationEvent.java \
 classpath/javax/naming/ldap/UnsolicitedNotificationListener.java
@@ -5582,7 +6505,7 @@ classpath/javax/naming/spi/DirStateFactory.java \
 classpath/javax/naming/spi/DirectoryManager.java \
 classpath/javax/naming/spi/InitialContextFactory.java \
 classpath/javax/naming/spi/InitialContextFactoryBuilder.java \
-classpath/javax/naming/spi/NamingManager.java \
+javax/naming/spi/NamingManager.java \
 classpath/javax/naming/spi/ObjectFactory.java \
 classpath/javax/naming/spi/ObjectFactoryBuilder.java \
 classpath/javax/naming/spi/ResolveResult.java \
@@ -5679,6 +6602,7 @@ classpath/javax/print/MultiDocPrintService.java \
 classpath/javax/print/PrintException.java \
 classpath/javax/print/PrintService.java \
 classpath/javax/print/PrintServiceLookup.java \
+classpath/javax/print/ServiceUI.java \
 classpath/javax/print/ServiceUIFactory.java \
 classpath/javax/print/SimpleDoc.java \
 classpath/javax/print/StreamPrintService.java \
@@ -5856,11 +6780,13 @@ classpath/javax/rmi/CORBA/Util.java \
 classpath/javax/rmi/CORBA/UtilDelegate.java \
 classpath/javax/rmi/CORBA/ValueHandler.java \
 classpath/javax/rmi/CORBA/ValueHandlerMultiFormat.java \
-classpath/javax/rmi/PortableRemoteObject.java
+classpath/javax/rmi/PortableRemoteObject.java \
+classpath/javax/rmi/ssl/SslRMIClientSocketFactory.java \
+classpath/javax/rmi/ssl/SslRMIServerSocketFactory.java
 
 javax-rmi.lo: $(javax_rmi_source_files)
 	@find classpath/lib/javax/rmi -name '*.class' > javax-rmi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o javax-rmi.lo @javax-rmi.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-rmi.lo @javax-rmi.list
 	@rm -f javax-rmi.list
 
 javax_security_auth_source_files = \
@@ -5910,6 +6836,27 @@ javax/security/auth/callback.list: $(javax_security_auth_callback_source_files)
 	done > javax/security/auth/callback.list
 
 -include javax/security/auth/callback.deps
+
+
+javax_security_auth_kerberos_source_files = \
+classpath/javax/security/auth/kerberos/DelegationPermission.java \
+classpath/javax/security/auth/kerberos/KerberosKey.java \
+classpath/javax/security/auth/kerberos/KerberosPrincipal.java \
+classpath/javax/security/auth/kerberos/KerberosTicket.java \
+classpath/javax/security/auth/kerberos/KeyImpl.java \
+classpath/javax/security/auth/kerberos/ServicePermission.java
+
+javax_security_auth_kerberos_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_security_auth_kerberos_source_files)))
+
+javax/security/auth/kerberos.list: $(javax_security_auth_kerberos_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(javax_security_auth_kerberos_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > javax/security/auth/kerberos.list
+
+-include javax/security/auth/kerberos.deps
 
 
 javax_security_auth_login_source_files = \
@@ -6182,6 +7129,7 @@ classpath/javax/swing/CellEditor.java \
 classpath/javax/swing/CellRendererPane.java \
 classpath/javax/swing/ComboBoxEditor.java \
 classpath/javax/swing/ComboBoxModel.java \
+classpath/javax/swing/CompatibilityFocusTraversalPolicy.java \
 classpath/javax/swing/ComponentInputMap.java \
 classpath/javax/swing/DebugGraphics.java \
 classpath/javax/swing/DefaultBoundedRangeModel.java \
@@ -6542,7 +7490,8 @@ classpath/javax/swing/plaf/basic/BasicToolTipUI.java \
 classpath/javax/swing/plaf/basic/BasicTreeUI.java \
 classpath/javax/swing/plaf/basic/BasicViewportUI.java \
 classpath/javax/swing/plaf/basic/ComboPopup.java \
-classpath/javax/swing/plaf/basic/DefaultMenuLayout.java
+classpath/javax/swing/plaf/basic/DefaultMenuLayout.java \
+classpath/javax/swing/plaf/basic/SharedUIDefaults.java
 
 javax_swing_plaf_basic_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_swing_plaf_basic_source_files)))
 
@@ -6729,6 +7678,7 @@ classpath/javax/swing/text/DocumentFilter.java \
 classpath/javax/swing/text/EditorKit.java \
 classpath/javax/swing/text/Element.java \
 classpath/javax/swing/text/ElementIterator.java \
+classpath/javax/swing/text/EmptyAttributeSet.java \
 classpath/javax/swing/text/FieldView.java \
 classpath/javax/swing/text/FlowView.java \
 classpath/javax/swing/text/GapContent.java \
@@ -6783,21 +7733,26 @@ javax/swing/text.list: $(javax_swing_text_source_files)
 
 
 javax_swing_text_html_source_files = \
+classpath/javax/swing/text/html/BRView.java \
 classpath/javax/swing/text/html/BlockView.java \
 classpath/javax/swing/text/html/CSS.java \
 classpath/javax/swing/text/html/CSSParser.java \
 classpath/javax/swing/text/html/FormView.java \
+classpath/javax/swing/text/html/HRuleView.java \
 classpath/javax/swing/text/html/HTML.java \
 classpath/javax/swing/text/html/HTMLDocument.java \
 classpath/javax/swing/text/html/HTMLEditorKit.java \
 classpath/javax/swing/text/html/HTMLFrameHyperlinkEvent.java \
-classpath/javax/swing/text/html/HTMLTableView.java \
+classpath/javax/swing/text/html/ImageView.java \
 classpath/javax/swing/text/html/InlineView.java \
+classpath/javax/swing/text/html/ListView.java \
+classpath/javax/swing/text/html/MinimalHTMLWriter.java \
 classpath/javax/swing/text/html/NullView.java \
 classpath/javax/swing/text/html/ObjectView.java \
 classpath/javax/swing/text/html/Option.java \
 classpath/javax/swing/text/html/ParagraphView.java \
-classpath/javax/swing/text/html/StyleSheet.java
+classpath/javax/swing/text/html/StyleSheet.java \
+classpath/javax/swing/text/html/TableView.java
 
 javax_swing_text_html_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_swing_text_html_source_files)))
 
@@ -7034,6 +7989,7 @@ classpath/javax/xml/transform/stream/StreamResult.java \
 classpath/javax/xml/transform/stream/StreamSource.java \
 classpath/javax/xml/validation/Schema.java \
 classpath/javax/xml/validation/SchemaFactory.java \
+classpath/javax/xml/validation/SchemaFactoryLoader.java \
 classpath/javax/xml/validation/TypeInfoProvider.java \
 classpath/javax/xml/validation/Validator.java \
 classpath/javax/xml/validation/ValidatorHandler.java \
@@ -7051,7 +8007,7 @@ classpath/javax/xml/xpath/XPathVariableResolver.java
 
 javax-xml.lo: $(javax_xml_source_files)
 	@find classpath/lib/javax/xml -name '*.class' > javax-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o javax-xml.lo @javax-xml.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-xml.lo @javax-xml.list
 	@rm -f javax-xml.list
 
 org_ietf_jgss_source_files = \
@@ -7508,7 +8464,6 @@ classpath/org/omg/PortableInterceptor/ObjectIdHelper.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceFactory.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceFactoryHelper.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceFactoryHolder.java \
-classpath/org/omg/PortableInterceptor/ObjectReferenceFactoryOperations.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceTemplate.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceTemplateHelper.java \
 classpath/org/omg/PortableInterceptor/ObjectReferenceTemplateHolder.java \
@@ -7615,7 +8570,7 @@ classpath/org/omg/stub/java/rmi/_Remote_Stub.java
 
 org-omg.lo: $(org_omg_source_files)
 	@find classpath/lib/org/omg -name '*.class' > org-omg.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o org-omg.lo @org-omg.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-omg.lo @org-omg.list
 	@rm -f org-omg.list
 
 org_relaxng_source_files = \
@@ -7632,7 +8587,7 @@ classpath/external/relaxngDatatype/org/relaxng/datatype/helpers/StreamingValidat
 
 org-relaxng.lo: $(org_relaxng_source_files)
 	@find classpath/lib/org/relaxng -name '*.class' > org-relaxng.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o org-relaxng.lo @org-relaxng.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-relaxng.lo @org-relaxng.list
 	@rm -f org-relaxng.list
 
 org_w3c_source_files = \
@@ -7785,7 +8740,7 @@ classpath/external/w3c_dom/org/w3c/dom/xpath/XPathResult.java
 
 org-w3c.lo: $(org_w3c_source_files)
 	@find classpath/lib/org/w3c -name '*.class' > org-w3c.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o org-w3c.lo @org-w3c.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-w3c.lo @org-w3c.list
 	@rm -f org-w3c.list
 
 org_xml_source_files = \
@@ -7828,7 +8783,7 @@ classpath/external/sax/org/xml/sax/helpers/XMLReaderFactory.java
 
 org-xml.lo: $(org_xml_source_files)
 	@find classpath/lib/org/xml -name '*.class' > org-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -c -o org-xml.lo @org-xml.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-xml.lo @org-xml.list
 	@rm -f org-xml.list
 
 
@@ -7848,20 +8803,32 @@ all_packages_source_files = \
   gnu/gcj.list \
   gnu/gcj/convert.list \
   gnu/gcj/io.list \
+  gnu/gcj/jvmti.list \
   gnu/gcj/runtime.list \
   gnu/gcj/util.list \
   gnu/java/awt.list \
   gnu/java/awt/color.list \
+  gnu/java/awt/dnd.list \
+  gnu/java/awt/font.list \
+  gnu/java/awt/font/opentype.list \
+  gnu/java/awt/font/opentype/truetype.list \
   gnu/java/awt/image.list \
+  gnu/java/awt/java2d.list \
   gnu/java/awt/peer.list \
+  gnu/java/awt/print.list \
   gnu/java/io.list \
   gnu/java/lang.list \
+  gnu/java/lang/management.list \
   gnu/java/lang/reflect.list \
   gnu/java/locale.list \
   gnu/java/math.list \
   gnu/java/net.list \
+  gnu/java/net/loader.list \
+  gnu/java/net/local.list \
+  gnu/java/net/protocol/core.list \
   gnu/java/net/protocol/file.list \
   gnu/java/net/protocol/ftp.list \
+  gnu/java/net/protocol/gcjlib.list \
   gnu/java/net/protocol/http.list \
   gnu/java/net/protocol/https.list \
   gnu/java/net/protocol/jar.list \
@@ -7869,8 +8836,10 @@ all_packages_source_files = \
   gnu/java/nio/channels.list \
   gnu/java/nio/charset.list \
   gnu/java/rmi.list \
+  gnu/java/rmi/activation.list \
   gnu/java/rmi/dgc.list \
   gnu/java/rmi/registry.list \
+  gnu/java/rmi/rmic.list \
   gnu/java/rmi/server.list \
   gnu/java/security.list \
   gnu/java/security/action.list \
@@ -7894,7 +8863,9 @@ all_packages_source_files = \
   gnu/java/security/x509/ext.list \
   gnu/java/text.list \
   gnu/java/util.list \
+  gnu/java/util/jar.list \
   gnu/java/util/prefs.list \
+  gnu/java/util/regex.list \
   gnu/javax/crypto.list \
   gnu/javax/crypto/assembly.list \
   gnu/javax/crypto/cipher.list \
@@ -7911,6 +8882,7 @@ all_packages_source_files = \
   gnu/javax/crypto/key/dh.list \
   gnu/javax/crypto/key/srp6.list \
   gnu/javax/crypto/keyring.list \
+  gnu/javax/crypto/kwa.list \
   gnu/javax/crypto/mac.list \
   gnu/javax/crypto/mode.list \
   gnu/javax/crypto/pad.list \
@@ -7920,17 +8892,33 @@ all_packages_source_files = \
   gnu/javax/crypto/sasl/crammd5.list \
   gnu/javax/crypto/sasl/plain.list \
   gnu/javax/crypto/sasl/srp.list \
+  gnu/javax/imageio.list \
   gnu/javax/imageio/bmp.list \
+  gnu/javax/imageio/gif.list \
+  gnu/javax/imageio/jpeg.list \
+  gnu/javax/imageio/png.list \
   gnu/javax/net/ssl.list \
   gnu/javax/net/ssl/provider.list \
+  gnu/javax/print.list \
+  gnu/javax/print/ipp.list \
+  gnu/javax/print/ipp/attribute.list \
+  gnu/javax/print/ipp/attribute/defaults.list \
+  gnu/javax/print/ipp/attribute/job.list \
+  gnu/javax/print/ipp/attribute/printer.list \
+  gnu/javax/print/ipp/attribute/supported.list \
   gnu/javax/security/auth.list \
   gnu/javax/security/auth/callback.list \
   gnu/javax/security/auth/login.list \
+  gnu/javax/sound/sampled/AU.list \
+  gnu/javax/sound/sampled/WAV.list \
+  gnu/javax/swing/plaf/gnu.list \
+  gnu/javax/swing/plaf/metal.list \
+  gnu/javax/swing/text/html.list \
   gnu/javax/swing/text/html/parser.list \
   gnu/javax/swing/text/html/parser/models.list \
   gnu/javax/swing/text/html/parser/support.list \
   gnu/javax/swing/text/html/parser/support/low.list \
-  gnu/regexp.list \
+  gnu/javax/swing/tree.list \
   java/applet.list \
   java/awt.list \
   java/awt/color.list \
@@ -7951,6 +8939,8 @@ all_packages_source_files = \
   java/io.list \
   java/lang.list \
   java/lang/annotation.list \
+  java/lang/instrument.list \
+  java/lang/management.list \
   java/lang/ref.list \
   java/lang/reflect.list \
   java/math.list \
@@ -7983,6 +8973,7 @@ all_packages_source_files = \
   javax/crypto/interfaces.list \
   javax/crypto/spec.list \
   javax/management.list \
+  javax/management/openmbean.list \
   javax/naming.list \
   javax/naming/directory.list \
   javax/naming/event.list \
@@ -7996,6 +8987,7 @@ all_packages_source_files = \
   javax/print/event.list \
   javax/security/auth.list \
   javax/security/auth/callback.list \
+  javax/security/auth/kerberos.list \
   javax/security/auth/login.list \
   javax/security/auth/spi.list \
   javax/security/auth/x500.list \
@@ -8043,20 +9035,32 @@ ordinary_header_files = \
   $(gnu_gcj_header_files) \
   $(gnu_gcj_convert_header_files) \
   $(gnu_gcj_io_header_files) \
+  $(gnu_gcj_jvmti_header_files) \
   $(gnu_gcj_runtime_header_files) \
   $(gnu_gcj_util_header_files) \
   $(gnu_java_awt_header_files) \
   $(gnu_java_awt_color_header_files) \
+  $(gnu_java_awt_dnd_header_files) \
+  $(gnu_java_awt_font_header_files) \
+  $(gnu_java_awt_font_opentype_header_files) \
+  $(gnu_java_awt_font_opentype_truetype_header_files) \
   $(gnu_java_awt_image_header_files) \
+  $(gnu_java_awt_java2d_header_files) \
   $(gnu_java_awt_peer_header_files) \
+  $(gnu_java_awt_print_header_files) \
   $(gnu_java_io_header_files) \
   $(gnu_java_lang_header_files) \
+  $(gnu_java_lang_management_header_files) \
   $(gnu_java_lang_reflect_header_files) \
   $(gnu_java_locale_header_files) \
   $(gnu_java_math_header_files) \
   $(gnu_java_net_header_files) \
+  $(gnu_java_net_loader_header_files) \
+  $(gnu_java_net_local_header_files) \
+  $(gnu_java_net_protocol_core_header_files) \
   $(gnu_java_net_protocol_file_header_files) \
   $(gnu_java_net_protocol_ftp_header_files) \
+  $(gnu_java_net_protocol_gcjlib_header_files) \
   $(gnu_java_net_protocol_http_header_files) \
   $(gnu_java_net_protocol_https_header_files) \
   $(gnu_java_net_protocol_jar_header_files) \
@@ -8064,8 +9068,10 @@ ordinary_header_files = \
   $(gnu_java_nio_channels_header_files) \
   $(gnu_java_nio_charset_header_files) \
   $(gnu_java_rmi_header_files) \
+  $(gnu_java_rmi_activation_header_files) \
   $(gnu_java_rmi_dgc_header_files) \
   $(gnu_java_rmi_registry_header_files) \
+  $(gnu_java_rmi_rmic_header_files) \
   $(gnu_java_rmi_server_header_files) \
   $(gnu_java_security_header_files) \
   $(gnu_java_security_action_header_files) \
@@ -8089,7 +9095,9 @@ ordinary_header_files = \
   $(gnu_java_security_x509_ext_header_files) \
   $(gnu_java_text_header_files) \
   $(gnu_java_util_header_files) \
+  $(gnu_java_util_jar_header_files) \
   $(gnu_java_util_prefs_header_files) \
+  $(gnu_java_util_regex_header_files) \
   $(gnu_javax_crypto_header_files) \
   $(gnu_javax_crypto_assembly_header_files) \
   $(gnu_javax_crypto_cipher_header_files) \
@@ -8106,6 +9114,7 @@ ordinary_header_files = \
   $(gnu_javax_crypto_key_dh_header_files) \
   $(gnu_javax_crypto_key_srp6_header_files) \
   $(gnu_javax_crypto_keyring_header_files) \
+  $(gnu_javax_crypto_kwa_header_files) \
   $(gnu_javax_crypto_mac_header_files) \
   $(gnu_javax_crypto_mode_header_files) \
   $(gnu_javax_crypto_pad_header_files) \
@@ -8115,17 +9124,33 @@ ordinary_header_files = \
   $(gnu_javax_crypto_sasl_crammd5_header_files) \
   $(gnu_javax_crypto_sasl_plain_header_files) \
   $(gnu_javax_crypto_sasl_srp_header_files) \
+  $(gnu_javax_imageio_header_files) \
   $(gnu_javax_imageio_bmp_header_files) \
+  $(gnu_javax_imageio_gif_header_files) \
+  $(gnu_javax_imageio_jpeg_header_files) \
+  $(gnu_javax_imageio_png_header_files) \
   $(gnu_javax_net_ssl_header_files) \
   $(gnu_javax_net_ssl_provider_header_files) \
+  $(gnu_javax_print_header_files) \
+  $(gnu_javax_print_ipp_header_files) \
+  $(gnu_javax_print_ipp_attribute_header_files) \
+  $(gnu_javax_print_ipp_attribute_defaults_header_files) \
+  $(gnu_javax_print_ipp_attribute_job_header_files) \
+  $(gnu_javax_print_ipp_attribute_printer_header_files) \
+  $(gnu_javax_print_ipp_attribute_supported_header_files) \
   $(gnu_javax_security_auth_header_files) \
   $(gnu_javax_security_auth_callback_header_files) \
   $(gnu_javax_security_auth_login_header_files) \
+  $(gnu_javax_sound_sampled_AU_header_files) \
+  $(gnu_javax_sound_sampled_WAV_header_files) \
+  $(gnu_javax_swing_plaf_gnu_header_files) \
+  $(gnu_javax_swing_plaf_metal_header_files) \
+  $(gnu_javax_swing_text_html_header_files) \
   $(gnu_javax_swing_text_html_parser_header_files) \
   $(gnu_javax_swing_text_html_parser_models_header_files) \
   $(gnu_javax_swing_text_html_parser_support_header_files) \
   $(gnu_javax_swing_text_html_parser_support_low_header_files) \
-  $(gnu_regexp_header_files) \
+  $(gnu_javax_swing_tree_header_files) \
   $(java_applet_header_files) \
   $(java_awt_header_files) \
   $(java_awt_color_header_files) \
@@ -8146,6 +9171,8 @@ ordinary_header_files = \
   $(java_io_header_files) \
   $(java_lang_header_files) \
   $(java_lang_annotation_header_files) \
+  $(java_lang_instrument_header_files) \
+  $(java_lang_management_header_files) \
   $(java_lang_ref_header_files) \
   $(java_lang_reflect_header_files) \
   $(java_math_header_files) \
@@ -8178,6 +9205,7 @@ ordinary_header_files = \
   $(javax_crypto_interfaces_header_files) \
   $(javax_crypto_spec_header_files) \
   $(javax_management_header_files) \
+  $(javax_management_openmbean_header_files) \
   $(javax_naming_header_files) \
   $(javax_naming_directory_header_files) \
   $(javax_naming_event_header_files) \
@@ -8191,6 +9219,7 @@ ordinary_header_files = \
   $(javax_print_event_header_files) \
   $(javax_security_auth_header_files) \
   $(javax_security_auth_callback_header_files) \
+  $(javax_security_auth_kerberos_header_files) \
   $(javax_security_auth_login_header_files) \
   $(javax_security_auth_spi_header_files) \
   $(javax_security_auth_x500_header_files) \
@@ -8224,8 +9253,12 @@ ordinary_header_files = \
 
 bc_objects = \
   gnu-CORBA.lo \
+  gnu-java-awt-dnd-peer-gtk.lo \
+  gnu-java-awt-peer-gtk.lo \
+  gnu-java-awt-peer-qt.lo \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
+  gnu-java-util-prefs-gconf.lo \
   gnu-javax-rmi.lo \
   gnu-javax-sound-midi.lo \
   gnu-xml.lo \
@@ -8236,3 +9269,35 @@ bc_objects = \
   org-relaxng.lo \
   org-w3c.lo \
   org-xml.lo
+
+property_files = \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle.properties \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle_de.properties \
+  classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
+  classpath/resource/gnu/classpath/tools/jar/messages.properties \
+  classpath/resource/gnu/classpath/tools/jarsigner/messages.properties \
+  classpath/resource/gnu/classpath/tools/keytool/messages.properties \
+  classpath/resource/gnu/classpath/tools/native2ascii/messages.properties \
+  classpath/resource/gnu/classpath/tools/serialver/messages.properties \
+  classpath/resource/gnu/java/awt/peer/gtk/font.properties \
+  classpath/resource/gnu/java/awt/peer/x/fonts.properties \
+  classpath/resource/gnu/java/util/regex/MessagesBundle.properties \
+  classpath/resource/gnu/java/util/regex/MessagesBundle_fr.properties \
+  classpath/resource/gnu/java/util/regex/MessagesBundle_it.properties \
+  classpath/resource/gnu/javax/print/PrinterDialog.properties \
+  classpath/resource/gnu/javax/print/PrinterDialog_de.properties \
+  classpath/resource/gnu/javax/security/auth/callback/MessagesBundle.properties \
+  classpath/resource/java/util/iso4217.properties \
+  classpath/resource/javax/imageio/plugins/jpeg/MessagesBundle.properties \
+  classpath/resource/org/ietf/jgss/MessagesBundle.properties \
+  classpath/resource/META-INF/services/java.util.prefs.PreferencesFactory \
+  classpath/resource/META-INF/services/java.util.prefs.PreferencesFactory.in \
+  classpath/resource/META-INF/services/javax.sound.midi.spi.MidiDeviceProvider \
+  classpath/resource/META-INF/services/javax.sound.midi.spi.MidiFileReader \
+  classpath/resource/META-INF/services/javax.sound.midi.spi.MidiFileWriter \
+  classpath/resource/META-INF/services/javax.sound.sampled.spi.AudioFileReader \
+  classpath/resource/META-INF/services/javax.xml.parsers.DocumentBuilderFactory \
+  classpath/resource/META-INF/services/javax.xml.parsers.SAXParserFactory \
+  classpath/resource/META-INF/services/javax.xml.parsers.TransformerFactory \
+  classpath/resource/META-INF/services/org.relaxng.datatype.DatatypeLibraryFactory \
+  classpath/resource/META-INF/services/org.xml.sax.driver

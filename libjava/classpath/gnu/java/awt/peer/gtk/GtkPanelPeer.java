@@ -1,5 +1,5 @@
 /* GtkPanelPeer.java -- Implements PanelPeer with GTK
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,11 +39,8 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.AWTEvent;
-import java.awt.Graphics;
 import java.awt.Panel;
-import java.awt.event.ComponentEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.PaintEvent;
 import java.awt.peer.PanelPeer;
 
 public class GtkPanelPeer extends GtkContainerPeer
@@ -59,35 +56,10 @@ public class GtkPanelPeer extends GtkContainerPeer
   public void handleEvent(AWTEvent event)
   {
     int id = event.getID();
-    switch (id)
-      {
-      case MouseEvent.MOUSE_PRESSED:
-        awtComponent.requestFocusInWindow();
-        break;
-      case PaintEvent.UPDATE:
-      case PaintEvent.PAINT:
-      {
-        try
-          {
-            Graphics g = getGraphics();
-            if (! awtComponent.isShowing() || awtComponent.getWidth() < 1
-                || awtComponent.getHeight() < 1 || g == null)
-              return;
 
-            g.setClip(((PaintEvent) event).getUpdateRect());
-
-            // Do not want to clear anything before painting.);
-            awtComponent.paint(g);
-
-            g.dispose();
-            return;
-          }
-        catch (InternalError e)
-          {
-            System.err.println(e);
-          }
-      }
-      }
+    if (id == MouseEvent.MOUSE_PRESSED)
+      awtComponent.requestFocusInWindow();
+    
     super.handleEvent(event);
   }
 

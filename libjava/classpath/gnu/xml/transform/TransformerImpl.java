@@ -238,7 +238,7 @@ class TransformerImpl
       outputProperties.getProperty(OutputKeys.CDATA_SECTION_ELEMENTS);
     boolean indent =
       "yes".equals(outputProperties.getProperty(OutputKeys.INDENT));
-    if (created)
+    if (created && parent instanceof DomDocument)
       {
         // Discover document element
         DomDocument resultDoc = (DomDocument) parent;
@@ -320,12 +320,25 @@ class TransformerImpl
       }
     if (indent)
       {
+        if (created && parent instanceof DomDocument)
+          {
+            DomDocument domDoc = (DomDocument) parent;
+            domDoc.setBuilding(true);
+            domDoc.setCheckWellformedness(false);
+          }
         parent.normalize();
-        strip(stylesheet, parent);
+        if (stylesheet != null)
+          strip(stylesheet, parent);
         Document resultDoc = (parent instanceof Document) ?
           (Document) parent :
           parent.getOwnerDocument();
         reindent(resultDoc, parent, 0);
+        if (created && parent instanceof DomDocument)
+          {
+            DomDocument domDoc = (DomDocument) parent;
+            domDoc.setBuilding(false);
+            domDoc.setCheckWellformedness(true);
+          }
       }
     // Render result to the target device
     if (outputTarget instanceof DOMResult)
@@ -564,6 +577,19 @@ class TransformerImpl
           }
         catch (IOException e)
           {
+            if (errorListener != null)
+              {
+                try
+                  {
+                    errorListener.error(new TransformerException(e));
+                  }
+                catch (TransformerException e2)
+                  {
+                    e2.printStackTrace(System.err);
+                  }
+              }
+            else
+              e.printStackTrace(System.err);
           }
       }
   }

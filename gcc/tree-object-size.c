@@ -1,5 +1,5 @@
 /* __builtin_object_size (ptr, object_size_type) computation
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -134,7 +134,7 @@ compute_object_offset (tree expr, tree var)
 	  code = MINUS_EXPR;
 	  t = fold_build1 (NEGATE_EXPR, TREE_TYPE (t), t);
 	}
-      t = convert (sizetype, t);
+      t = fold_convert (sizetype, t);
       off = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (TREE_TYPE (expr)), t);
       break;
 
@@ -595,7 +595,7 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 	{
 	  unsigned HOST_WIDE_INT off = tree_low_cst (op1, 1);
 
-	  bytes = compute_builtin_object_size (value, object_size_type);
+	  bytes = compute_builtin_object_size (op0, object_size_type);
 	  if (off > offset_limit)
 	    bytes = unknown[object_size_type];
 	  else if (off > bytes)

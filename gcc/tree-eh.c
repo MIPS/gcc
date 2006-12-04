@@ -1889,13 +1889,14 @@ tree_could_trap_p (tree expr)
       goto restart;
 
     case ARRAY_RANGE_REF:
-      /* Let us be conservative here for now.  We might be checking bounds of
-	 the access similarly to the case below.  */
-      if (!TREE_THIS_NOTRAP (expr))
+      base = TREE_OPERAND (expr, 0);
+      if (tree_could_trap_p (base))
 	return true;
 
-      base = TREE_OPERAND (expr, 0);
-      return tree_could_trap_p (base);
+      if (TREE_THIS_NOTRAP (expr))
+	return false;
+
+      return !range_in_array_bounds_p (expr);
 
     case ARRAY_REF:
       base = TREE_OPERAND (expr, 0);
@@ -1955,9 +1956,6 @@ tree_could_trap_p (tree expr)
 
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
       /* Conversion of floating point might trap.  */
       return honor_nans;
 

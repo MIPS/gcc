@@ -54,7 +54,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    exist when compiling in ANSI conformant mode.
 
    ATTRs is an attribute list as defined in builtin-attrs.def that
-   describes the attributes of this builtin function.  
+   describes the attributes of this builtin function.
 
    IMPLICIT specifies condition when the builtin can be produced by
    compiler.  For instance C90 reserves floorf function, but does not
@@ -71,13 +71,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #undef DEF_GCC_BUILTIN
 #define DEF_GCC_BUILTIN(ENUM, NAME, TYPE, ATTRS)		\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,	\
-               false, false, false, ATTRS, true, true)
+	       false, false, false, ATTRS, true, true)
 
 /* Like DEF_GCC_BUILTIN, except we don't prepend "__builtin_".  */
 #undef DEF_SYNC_BUILTIN
 #define DEF_SYNC_BUILTIN(ENUM, NAME, TYPE, ATTRS)		\
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,	\
-               false, false, false, ATTRS, true, true)
+	       false, false, false, ATTRS, true, true)
 
 /* A library builtin (like __builtin_strchr) is a builtin equivalent
    of an ANSI/ISO standard library function.  In addition to the
@@ -85,7 +85,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    `strchr') as well.  If we cannot compute the answer using the
    builtin function, we will fall back to the standard library
    version.  */
-#undef DEF_LIB_BUILTIN					
+#undef DEF_LIB_BUILTIN
 #define DEF_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
 	       true, true, false, ATTRS, true, true)
@@ -94,39 +94,39 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    specified by ANSI/ISO C.  So, when we're being fully conformant we
    ignore the version of these builtins that does not begin with
    __builtin.  */
-#undef DEF_EXT_LIB_BUILTIN				
+#undef DEF_EXT_LIB_BUILTIN
 #define DEF_EXT_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, true, ATTRS, false, true)
+	       true, true, true, ATTRS, false, true)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C94 or above.  */
-#undef DEF_C94_BUILTIN					
+#undef DEF_C94_BUILTIN
 #define DEF_C94_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C99 or above.  */
-#undef DEF_C99_BUILTIN					
+#undef DEF_C99_BUILTIN
 #define DEF_C99_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Builtin that is specified by C99 and C90 reserve the name for future use.
    We can still recognize the builtin in C90 mode but we can't produce it
    implicitly.  */
-#undef DEF_C99_C90RES_BUILTIN					
+#undef DEF_C99_C90RES_BUILTIN
 #define DEF_C99_C90RES_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Builtin that C99 reserve the name for future use. We can still recognize
    the builtin in C99 mode but we can't produce it implicitly.  */
 #undef DEF_EXT_C99RES_BUILTIN
 #define DEF_EXT_C99RES_BUILTIN(ENUM, NAME, TYPE, ATTRS)        \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,   \
-              true, true, true, ATTRS, false, true)
+	      true, true, true, ATTRS, false, true)
 
 /* Allocate the enum and the name for a builtin, but do not actually
    define it here at all.  */
@@ -255,9 +255,9 @@ DEF_C99_C90RES_BUILTIN (BUILT_IN_FMODL, "fmodl", BT_FN_LONGDOUBLE_LONGDOUBLE_LON
 DEF_LIB_BUILTIN        (BUILT_IN_FREXP, "frexp", BT_FN_DOUBLE_DOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FREXPF, "frexpf", BT_FN_FLOAT_FLOAT_INTPTR, ATTR_MATHFN_FPROUNDING_STORE)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FREXPL, "frexpl", BT_FN_LONGDOUBLE_LONGDOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMA, "gamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAF, "gammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAL, "gammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMA, "gamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_STORE)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAF, "gammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_STORE)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAL, "gammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_STORE)
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VAL, "huge_val", BT_FN_DOUBLE, ATTR_CONST_NOTHROW_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALF, "huge_valf", BT_FN_FLOAT, ATTR_CONST_NOTHROW_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALL, "huge_vall", BT_FN_LONGDOUBLE, ATTR_CONST_NOTHROW_LIST)
@@ -291,9 +291,9 @@ DEF_C99_C90RES_BUILTIN (BUILT_IN_LDEXPL, "ldexpl", BT_FN_LONGDOUBLE_LONGDOUBLE_I
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOOR, "lfloor", BT_FN_LONG_DOUBLE, ATTR_MATHFN_FPROUNDING)
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOORF, "lfloorf", BT_FN_LONG_FLOAT, ATTR_MATHFN_FPROUNDING)
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOORL, "lfloorl", BT_FN_LONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMA, "lgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMAF, "lgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMAL, "lgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMA, "lgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_STORE)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMAF, "lgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_STORE)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMAL, "lgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_STORE)
 DEF_GCC_BUILTIN        (BUILT_IN_LLCEIL, "llceil", BT_FN_LONGLONG_DOUBLE, ATTR_MATHFN_FPROUNDING)
 DEF_GCC_BUILTIN        (BUILT_IN_LLCEILF, "llceilf", BT_FN_LONGLONG_FLOAT, ATTR_MATHFN_FPROUNDING)
 DEF_GCC_BUILTIN        (BUILT_IN_LLCEILL, "llceill", BT_FN_LONGLONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING)
@@ -594,6 +594,8 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_ALLOCA, "alloca", BT_FN_PTR_SIZE, ATTR_MALLOC_N
 DEF_GCC_BUILTIN        (BUILT_IN_APPLY, "apply", BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE, ATTR_NULL)
 DEF_GCC_BUILTIN        (BUILT_IN_APPLY_ARGS, "apply_args", BT_FN_PTR_VAR, ATTR_NULL)
 DEF_GCC_BUILTIN        (BUILT_IN_ARGS_INFO, "args_info", BT_FN_INT_INT, ATTR_NULL)
+DEF_GCC_BUILTIN        (BUILT_IN_BSWAP32, "bswap32", BT_FN_UINT32_UINT32, ATTR_CONST_NOTHROW_LIST)
+DEF_GCC_BUILTIN        (BUILT_IN_BSWAP64, "bswap64", BT_FN_UINT64_UINT64, ATTR_CONST_NOTHROW_LIST)
 DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "calloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLASSIFY_TYPE, "classify_type", BT_FN_INT_VAR, ATTR_NULL)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZ, "clz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LIST)
@@ -689,6 +691,11 @@ DEF_C99_BUILTIN        (BUILT_IN__EXIT2, "_Exit", BT_FN_VOID_INT, ATTR_NORETURN_
 DEF_BUILTIN_STUB (BUILT_IN_INIT_TRAMPOLINE, "__builtin_init_trampoline")
 DEF_BUILTIN_STUB (BUILT_IN_ADJUST_TRAMPOLINE, "__builtin_adjust_trampoline")
 DEF_BUILTIN_STUB (BUILT_IN_NONLOCAL_GOTO, "__builtin_nonlocal_goto")
+
+/* Implementing __builtin_setjmp.  */
+DEF_BUILTIN_STUB (BUILT_IN_SETJMP_SETUP, "__builtin_setjmp_setup")
+DEF_BUILTIN_STUB (BUILT_IN_SETJMP_DISPATCHER, "__builtin_setjmp_dispatcher")
+DEF_BUILTIN_STUB (BUILT_IN_SETJMP_RECEIVER, "__builtin_setjmp_receiver")
 
 /* Implementing variable sized local variables.  */
 DEF_BUILTIN_STUB (BUILT_IN_STACK_SAVE, "__builtin_stack_save")

@@ -304,8 +304,8 @@ insert_reciprocals (block_stmt_iterator *def_bsi, struct occurrence *occ,
       type = TREE_TYPE (def);
       recip_def = make_rename_temp (type, "reciptmp");
       new_stmt = build2 (MODIFY_EXPR, void_type_node, recip_def,
-		         fold_build2 (RDIV_EXPR, type,
-				      build_real (type, dconst1), def));
+		         fold_build2 (RDIV_EXPR, type, build_one_cst (type),
+				      def));
   
   
       if (occ->bb_has_division)
@@ -417,17 +417,20 @@ execute_cse_reciprocals_1 (block_stmt_iterator *def_bsi, tree def)
   threshold = targetm.min_divisions_for_recip_mul (TYPE_MODE (TREE_TYPE (def)));
   if (count >= threshold)
     {
+      tree use_stmt;
       for (occ = occ_head; occ; occ = occ->next)
 	{
 	  compute_merit (occ);
 	  insert_reciprocals (def_bsi, occ, def, NULL, threshold);
 	}
 
-      FOR_EACH_IMM_USE_SAFE (use_p, use_iter, def)
+      FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, def)
 	{
-	  tree use_stmt = USE_STMT (use_p);
 	  if (is_division_by (use_stmt, def))
-	    replace_reciprocal (use_p);
+	    {
+	      FOR_EACH_IMM_USE_ON_STMT (use_p, use_iter)
+		replace_reciprocal (use_p);
+	    }
 	}
     }
 
@@ -457,7 +460,8 @@ execute_cse_reciprocals (void)
 				sizeof (struct occurrence),
 				n_basic_blocks / 3 + 1);
 
-  calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
 #ifdef ENABLE_CHECKING
   FOR_EACH_BB (bb)
@@ -465,10 +469,10 @@ execute_cse_reciprocals (void)
 #endif
 
   for (arg = DECL_ARGUMENTS (cfun->decl); arg; arg = TREE_CHAIN (arg))
-    if (default_def (arg)
+    if (gimple_default_def (cfun, arg)
 	&& FLOAT_TYPE_P (TREE_TYPE (arg))
 	&& is_gimple_reg (arg))
-      execute_cse_reciprocals_1 (NULL, default_def (arg));
+      execute_cse_reciprocals_1 (NULL, gimple_default_def (cfun, arg));
 
   FOR_EACH_BB (bb)
     {
@@ -494,7 +498,8 @@ execute_cse_reciprocals (void)
 	}
     }
 
-  free_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   free_alloc_pool (occ_pool);
   return 0;
 }

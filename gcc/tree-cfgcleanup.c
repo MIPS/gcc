@@ -127,14 +127,6 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   return retval;
 }
 
-/* A list of all the noreturn calls passed to modify_stmt.
-   cleanup_control_flow uses it to detect cases where a mid-block
-   indirect call has been turned into a noreturn call.  When this
-   happens, all the instructions after the call are no longer
-   reachable and must be deleted as dead.  */
-
-VEC(tree,gc) *modified_noreturn_calls;
-
 /* Try to remove superfluous control structures.  */
 
 static bool
@@ -146,13 +138,14 @@ cleanup_control_flow (void)
   tree stmt;
 
   /* Detect cases where a mid-block call is now known not to return.  */
-  while (VEC_length (tree, modified_noreturn_calls))
-    {
-      stmt = VEC_pop (tree, modified_noreturn_calls);
-      bb = bb_for_stmt (stmt);
-      if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
-	split_block (bb, stmt);
-    }
+  if (cfun->gimple_df)
+    while (VEC_length (tree, MODIFIED_NORETURN_CALLS (cfun)))
+      {
+	stmt = VEC_pop (tree, MODIFIED_NORETURN_CALLS (cfun));
+	bb = bb_for_stmt (stmt);
+	if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
+	  split_block (bb, stmt);
+      }
 
   FOR_EACH_BB (bb)
     {
@@ -160,7 +153,7 @@ cleanup_control_flow (void)
 
       /* If the last statement of the block could throw and now cannot,
 	 we need to prune cfg.  */
-      tree_purge_dead_eh_edges (bb);
+      retval |= tree_purge_dead_eh_edges (bb);
 
       if (bsi_end_p (bsi))
 	continue;
@@ -239,6 +232,9 @@ static bool
 tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 {
   block_stmt_iterator bsi;
+  edge_iterator ei;
+  edge e, succ;
+  basic_block dest;
 
   /* BB must have a single outgoing edge.  */
   if (single_succ_p (bb) != 1
@@ -288,6 +284,22 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
       if (dest->loop_father->header == dest)
 	return false;
+    }
+
+  /* If we have an EH edge leaving this block, make sure that the
+     destination of this block has only one predecessor.  This ensures
+     that we don't get into the situation where we try to remove two
+     forwarders that go to the same basic block but are handlers for
+     different EH regions.  */
+  succ = single_succ_edge (bb);
+  dest = succ->dest;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+        {
+	  if (!single_pred_p (dest))
+	    return false;
+	}
     }
 
   return true;
@@ -570,7 +582,7 @@ cleanup_tree_cfg_loop (void)
   if (changed)
     {
       bitmap changed_bbs = BITMAP_ALLOC (NULL);
-      fix_loop_structure (current_loops, changed_bbs);
+      fix_loop_structure (changed_bbs);
       calculate_dominance_info (CDI_DOMINATORS);
 
       /* This usually does nothing.  But sometimes parts of cfg that originally
@@ -581,7 +593,7 @@ cleanup_tree_cfg_loop (void)
       BITMAP_FREE (changed_bbs);
 
 #ifdef ENABLE_CHECKING
-      verify_loop_structure (current_loops);
+      verify_loop_structure ();
 #endif
       scev_reset ();
     }
@@ -765,13 +777,12 @@ merge_phi_nodes (void)
 	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree result = PHI_RESULT (phi);
-	      int num_uses = num_imm_uses (result);
 	      use_operand_p imm_use;
 	      tree use_stmt;
 
 	      /* If the PHI's result is never used, then we can just
 		 ignore it.  */
-	      if (num_uses == 0)
+	      if (has_zero_uses (result))
 		continue;
 
 	      /* Get the single use of the result of this PHI node.  */

@@ -165,7 +165,7 @@ init_parameter_lattice_values (void)
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
     if (is_complex_reg (parm) && var_ann (parm) != NULL)
       {
-	tree ssa_name = default_def (parm);
+	tree ssa_name = gimple_default_def (cfun, parm);
 	VEC_replace (complex_lattice_t, complex_lattice_values,
 		     SSA_NAME_VERSION (ssa_name), VARYING);
       }
@@ -387,7 +387,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
 			  const char *suffix, enum tree_code code)
 {
   tree r = create_tmp_var (type, prefix);
-  add_referenced_tmp_var (r);
+  add_referenced_var (r);
 
   DECL_SOURCE_LOCATION (r) = DECL_SOURCE_LOCATION (orig);
   DECL_ARTIFICIAL (r) = 1;
@@ -625,7 +625,7 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
   mod = stmt = bsi_stmt (*bsi);
   if (TREE_CODE (stmt) == RETURN_EXPR)
     mod = TREE_OPERAND (mod, 0);
-  else if (in_ssa_p)
+  else if (gimple_in_ssa_p (cfun))
     update_complex_components (bsi, stmt, r, i);
   
   type = TREE_TYPE (TREE_OPERAND (mod, 1));
@@ -651,7 +651,9 @@ update_parameter_components (void)
 	continue;
 
       type = TREE_TYPE (type);
-      ssa_name = default_def (parm);
+      ssa_name = gimple_default_def (cfun, parm);
+      if (!ssa_name)
+	continue;
 
       r = build1 (REALPART_EXPR, type, ssa_name);
       i = build1 (IMAGPART_EXPR, type, ssa_name);
@@ -908,7 +910,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
     = build3 (CALL_EXPR, type, build_fold_addr_expr (fn), args, NULL);
   update_stmt (stmt);
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       tree lhs = TREE_OPERAND (stmt, 0);
       type = TREE_TYPE (type);
@@ -1420,7 +1422,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 	}
     }
 
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     {
       al = find_lattice_value (ac);
       if (al == UNINITIALIZED)
@@ -1539,11 +1541,12 @@ struct tree_opt_pass pass_lower_complex =
   0,					/* tv_id */
   PROP_ssa,				/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,                       /* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect
-    | TODO_update_ssa
-    | TODO_verify_stmts,		/* todo_flags_finish */
+  | TODO_update_smt_usage
+  | TODO_update_ssa
+  | TODO_verify_stmts,		        /* todo_flags_finish */
   0					/* letter */
 };
 

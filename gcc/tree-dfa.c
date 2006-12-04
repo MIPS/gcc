@@ -65,31 +65,10 @@ struct dfa_stats_d
 };
 
 
-/* State information for find_vars_r.  */
-struct walk_state
-{
-  /* Hash table used to avoid adding the same variable more than once.  */
-  htab_t vars_found;
-};
-
-
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static tree find_vars_r (tree *, int *, void *);
-static void add_referenced_var (tree, struct walk_state *);
-
-
-/* Global declarations.  */
-
-/* Array of all variables referenced in the function.  */
-htab_t referenced_vars;
-
-/* Default definition for this symbols.  If set for symbol, it
-   means that the first reference to this variable in the function is a
-   USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
-   for this variable with an empty defining statement.  */
-htab_t default_defs;
 
 
 /*---------------------------------------------------------------------------
@@ -106,23 +85,16 @@ htab_t default_defs;
 static unsigned int
 find_referenced_vars (void)
 {
-  htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
-  struct walk_state walk_state;
-
-  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-  memset (&walk_state, 0, sizeof (walk_state));
-  walk_state.vars_found = vars_found;
 
   FOR_EACH_BB (bb)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	tree *stmt_p = bsi_stmt_ptr (si);
-	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
+	walk_tree (stmt_p, find_vars_r, NULL, NULL);
       }
 
-  htab_delete (vars_found);
   return 0;
 }
 
@@ -158,8 +130,7 @@ create_var_ann (tree t)
   gcc_assert (DECL_P (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
-  ann = GGC_NEW (struct var_ann_d);
-  memset ((void *) ann, 0, sizeof (*ann));
+  ann = GGC_CNEW (struct var_ann_d);
 
   ann->common.type = VAR_ANN;
 
@@ -199,8 +170,7 @@ create_stmt_ann (tree t)
   gcc_assert (is_gimple_stmt (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
-  ann = GGC_NEW (struct stmt_ann_d);
-  memset ((void *) ann, 0, sizeof (*ann));
+  ann = GGC_CNEW (struct stmt_ann_d);
 
   ann->common.type = STMT_ANN;
 
@@ -214,19 +184,18 @@ create_stmt_ann (tree t)
 
 /* Create a new annotation for a tree T.  */
 
-tree_ann_t
-create_tree_ann (tree t)
+tree_ann_common_t
+create_tree_common_ann (tree t)
 {
-  tree_ann_t ann;
+  tree_ann_common_t ann;
 
   gcc_assert (t);
   gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
 
-  ann = GGC_NEW (union tree_ann_d);
-  memset ((void *) ann, 0, sizeof (*ann));
+  ann = GGC_CNEW (struct tree_ann_common_d);
 
-  ann->common.type = TREE_ANN_COMMON;
-  t->common.ann = ann;
+  ann->type = TREE_ANN_COMMON;
+  t->common.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -241,9 +210,9 @@ make_rename_temp (tree type, const char *prefix)
   if (TREE_CODE (type) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
 
-  if (referenced_vars)
+  if (gimple_referenced_vars (cfun))
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 
@@ -394,10 +363,10 @@ dump_variable (FILE *file, tree var)
 	}
     }
 
-  if (default_def (var))
+  if (gimple_default_def (cfun, var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, default_def (var), dump_flags);
+      print_generic_expr (file, gimple_default_def (cfun, var), dump_flags);
     }
 
   if (may_aliases (var))
@@ -607,14 +576,12 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
    the function.  */
 
 static tree
-find_vars_r (tree *tp, int *walk_subtrees, void *data)
+find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
-  struct walk_state *walk_state = (struct walk_state *) data;
-
   /* If T is a regular variable that the optimizers are interested
      in, add it to the list of variables.  */
   if (SSA_VAR_P (*tp))
-    add_referenced_var (*tp, walk_state);
+    add_referenced_var (*tp);
 
   /* Type, _DECL and constant nodes have no interesting children.
      Ignore them.  */
@@ -624,7 +591,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-
 /* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
 
@@ -633,38 +599,57 @@ referenced_var_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (gimple_referenced_vars (cfun),
+						   &in, uid);
   gcc_assert (h || uid == 0);
   if (h)
     return h->to;
   return NULL_TREE;
 }
 
-/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+/* Check if TO is in the referenced_vars hash table and insert it if not.  
+   Return true if it required insertion.  */
 
-static void
-referenced_var_insert (unsigned int uid, tree to)
+bool
+referenced_var_check_and_insert (tree to)
 { 
-  struct int_tree_map *h;
+  struct int_tree_map *h, in;
   void **loc;
+  unsigned int uid = DECL_UID (to);
+
+  in.uid = uid;
+  in.to = to;
+  h = (struct int_tree_map *) htab_find_with_hash (gimple_referenced_vars (cfun),
+						   &in, uid);
+
+  if (h)
+    {
+      /* DECL_UID has already been entered in the table.  Verify that it is
+	 the same entry as TO.  See PR 27793.  */
+      gcc_assert (h->to == to);
+      return false;
+    }
 
   h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
-  loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  loc = htab_find_slot_with_hash (gimple_referenced_vars (cfun),
+				  h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
+  return true;
 }
 
 /* Lookup VAR UID in the default_defs hashtable and return the associated
    variable.  */
 
 tree 
-default_def (tree var)
+gimple_default_def (struct function *fn, tree var)
 {
   struct int_tree_map *h, in;
   gcc_assert (SSA_VAR_P (var));
   in.uid = DECL_UID (var);
-  h = (struct int_tree_map *) htab_find_with_hash (default_defs, &in,
+  h = (struct int_tree_map *) htab_find_with_hash (DEFAULT_DEFS (fn),
+						   &in,
                                                    DECL_UID (var));
   if (h)
     return h->to;
@@ -682,14 +667,16 @@ set_default_def (tree var, tree def)
 
   gcc_assert (SSA_VAR_P (var));
   in.uid = DECL_UID (var);
-  if (!def && default_def (var))
+  if (!def && gimple_default_def (cfun, var))
     {
-      loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
-      htab_remove_elt (default_defs, *loc);
+      loc = htab_find_slot_with_hash (DEFAULT_DEFS (cfun), &in,
+            DECL_UID (var), INSERT);
+      htab_remove_elt (DEFAULT_DEFS (cfun), *loc);
       return;
     }
   gcc_assert (TREE_CODE (def) == SSA_NAME);
-  loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+  loc = htab_find_slot_with_hash (DEFAULT_DEFS (cfun), &in,
+                                  DECL_UID (var), INSERT);
   /* Default definition might be changed by tail call optimization.  */
   if (!*loc)
     {
@@ -705,35 +692,21 @@ set_default_def (tree var, tree def)
     }
 }
 
-/* Add VAR to the list of dereferenced variables.
+/* Add VAR to the list of referenced variables if it isn't already there.  */
 
-   WALK_STATE contains a hash table used to avoid adding the same
-      variable more than once. Note that this function assumes that
-      VAR is a valid SSA variable.  If WALK_STATE is NULL, no
-      duplicate checking is done.  */
-
-static void
-add_referenced_var (tree var, struct walk_state *walk_state)
+void
+add_referenced_var (tree var)
 {
-  void **slot;
   var_ann_t v_ann;
 
   v_ann = get_var_ann (var);
-
-  if (walk_state)
-    slot = htab_find_slot (walk_state->vars_found, (void *) var, INSERT);
-  else
-    slot = NULL;
-
-  if (slot == NULL || *slot == NULL)
+  gcc_assert (DECL_P (var));
+  
+  /* Insert VAR into the referenced_vars has table if it isn't present.  */
+  if (referenced_var_check_and_insert (var))
     {
-      /* This is the first time we find this variable, add it to the
-         REFERENCED_VARS array and annotate it with attributes that are
-	 intrinsic to the variable.  */
-      if (slot)
-	*slot = (void *) var;
-      
-      referenced_var_insert (DECL_UID (var), var);
+      /* This is the first time we found this variable, annotate it with
+	 attributes that are intrinsic to the variable.  */
       
       /* Tag's don't have DECL_INITIAL.  */
       if (MTAG_P (var))
@@ -750,7 +723,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	     variables because it cannot be propagated by the
 	     optimizers.  */
 	  && (TREE_CONSTANT (var) || TREE_READONLY (var)))
-      	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
+      	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
     }
 }
 
@@ -777,19 +750,6 @@ get_virtual_var (tree var)
 
   return var;
 }
-
-/* Add a temporary variable to REFERENCED_VARS.  This is similar to
-   add_referenced_var, but is used by passes that need to add new temps to
-   the REFERENCED_VARS array after the program has been scanned for
-   variables.  The variable will just receive a new UID and be added
-   to the REFERENCED_VARS array without checking for duplicates.  */
-
-void
-add_referenced_tmp_var (tree var)
-{
-  add_referenced_var (var, NULL);
-}
-
 
 /* Mark all the non-SSA variables found in STMT's operands to be
    processed by update_ssa.  */
@@ -868,7 +828,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
 
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 

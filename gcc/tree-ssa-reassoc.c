@@ -264,7 +264,7 @@ get_rank (tree e)
       int i;
 
       if (TREE_CODE (SSA_NAME_VAR (e)) == PARM_DECL
-	  && e == default_def (SSA_NAME_VAR (e)))
+	  && e == gimple_default_def (cfun, SSA_NAME_VAR (e)))
 	return find_operand_rank (e)->rank;
 
       stmt = SSA_NAME_DEF_STMT (e);
@@ -1032,7 +1032,7 @@ negate_value (tree tonegate, block_stmt_iterator *bsi)
   if (TREE_CODE (tonegate) == SSA_NAME
       && TREE_CODE (negatedef) == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (negatedef, 0)) == SSA_NAME
-      && num_imm_uses (TREE_OPERAND (negatedef, 0)) == 1
+      && has_single_use (TREE_OPERAND (negatedef, 0))
       && TREE_CODE (TREE_OPERAND (negatedef, 1)) == PLUS_EXPR)
     {
       block_stmt_iterator bsi;
@@ -1331,7 +1331,7 @@ reassociate_bb (basic_block bb)
 
 	      /* There may be no immediate uses left by the time we
 		 get here because we may have eliminated them all.  */
-	      if (TREE_CODE (lhs) == SSA_NAME && num_imm_uses (lhs) == 0)
+	      if (TREE_CODE (lhs) == SSA_NAME && has_zero_uses (lhs))
 		continue;
 
 	      TREE_VISITED (stmt) = 1;
@@ -1435,9 +1435,9 @@ init_reassoc (void)
        param;
        param = TREE_CHAIN (param))
     {
-      if (default_def (param) != NULL)
+      if (gimple_default_def (cfun, param) != NULL)
 	{
-	  tree def = default_def (param);
+	  tree def = gimple_default_def (cfun, param);
 	  insert_operand_rank (def, ++rank);
 	}
     }
@@ -1445,7 +1445,7 @@ init_reassoc (void)
   /* Give the chain decl a distinct rank. */
   if (cfun->static_chain_decl != NULL)
     {
-      tree def = default_def (cfun->static_chain_decl);
+      tree def = gimple_default_def (cfun, cfun->static_chain_decl);
       if (def != NULL)
 	insert_operand_rank (def, ++rank);
     }

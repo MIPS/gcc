@@ -321,7 +321,7 @@ struct haifa_insn_data
      (e.g. add_dependence was invoked with (insn == elem)).  */
   unsigned int has_internal_dep : 1;
   
-  /* What speculations are neccessary to apply to schedule the instruction.  */
+  /* What speculations are necessary to apply to schedule the instruction.  */
   ds_t todo_spec;
   /* What speculations were already applied.  */
   ds_t done_spec; 
@@ -359,7 +359,22 @@ extern regset *glat_start, *glat_end;
 #define RECOVERY_BLOCK(INSN)    (h_i_d[INSN_UID (INSN)].recovery_block)
 #define ORIG_PAT(INSN)          (h_i_d[INSN_UID (INSN)].orig_pat)
 
-/* DEP_STATUS of the link incapsulates information, that is needed for
+/* INSN is either a simple or a branchy speculation check.  */
+#define IS_SPECULATION_CHECK_P(INSN) (RECOVERY_BLOCK (INSN) != NULL)
+
+/* INSN is a speculation check that will simply reexecute the speculatively
+   scheduled instruction if the speculation fails.  */
+#define IS_SPECULATION_SIMPLE_CHECK_P(INSN) \
+  (RECOVERY_BLOCK (INSN) == EXIT_BLOCK_PTR)
+
+/* INSN is a speculation check that will branch to RECOVERY_BLOCK if the
+   speculation fails.  Insns in that block will reexecute the speculatively
+   scheduled code and then will return immediately after INSN thus preserving
+   semantics of the program.  */
+#define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
+  (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
+
+/* DEP_STATUS of the link encapsulates information, that is needed for
    speculative scheduling.  Namely, it is 4 integers in the range
    [0, MAX_DEP_WEAK] and 3 bits.
    The integers correspond to the probability of the dependence to *not*
@@ -374,7 +389,7 @@ extern regset *glat_start, *glat_end;
    to know just the major type of all the dependence between two instructions,
    as only true dependence can be overcome.
    There also is the 4-th bit in the DEP_STATUS (HARD_DEP), that is reserved
-   for using to describe instruction's status.  It is set whenever instuction
+   for using to describe instruction's status.  It is set whenever instruction
    has at least one dependence, that cannot be overcome.
    See also: check_dep_status () in sched-deps.c .  */
 #define DEP_STATUS(LINK) XINT (LINK, 2)
@@ -421,27 +436,27 @@ enum SPEC_TYPES_OFFSETS {
 /* The following defines provide numerous constants used to distinguish between
    different types of speculative dependencies.  */
 
-/* Dependence can be overcomed with generation of new data speculative
+/* Dependence can be overcome with generation of new data speculative
    instruction.  */
 #define BEGIN_DATA (((ds_t) DEP_WEAK_MASK) << BEGIN_DATA_BITS_OFFSET)
 
 /* This dependence is to the instruction in the recovery block, that was
    formed to recover after data-speculation failure.
-   Thus, this dependence can overcomed with generating of the copy of
+   Thus, this dependence can overcome with generating of the copy of
    this instruction in the recovery block.  */
 #define BE_IN_DATA (((ds_t) DEP_WEAK_MASK) << BE_IN_DATA_BITS_OFFSET)
 
-/* Dependence can be overcomed with generation of new control speculative
+/* Dependence can be overcome with generation of new control speculative
    instruction.  */
 #define BEGIN_CONTROL (((ds_t) DEP_WEAK_MASK) << BEGIN_CONTROL_BITS_OFFSET)
 
 /* This dependence is to the instruction in the recovery block, that was
    formed to recover after control-speculation failure.
-   Thus, this dependence can overcomed with generating of the copy of
+   Thus, this dependence can be overcome with generating of the copy of
    this instruction in the recovery block.  */
 #define BE_IN_CONTROL (((ds_t) DEP_WEAK_MASK) << BE_IN_CONTROL_BITS_OFFSET)
 
-/* Few convinient combinations.  */
+/* A few convenient combinations.  */
 #define BEGIN_SPEC (BEGIN_DATA | BEGIN_CONTROL)
 #define DATA_SPEC (BEGIN_DATA | BE_IN_DATA)
 #define CONTROL_SPEC (BEGIN_CONTROL | BE_IN_CONTROL)
@@ -619,10 +634,8 @@ extern int haifa_classify_insn (rtx);
 extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
 extern int no_real_insns_p (rtx, rtx);
 
-extern void rm_line_notes (rtx, rtx);
 extern void save_line_notes (int, rtx, rtx);
 extern void restore_line_notes (rtx, rtx);
-extern void rm_redundant_line_notes (void);
 extern void rm_other_notes (rtx, rtx);
 
 extern int insn_cost (rtx, rtx, rtx);
@@ -637,6 +650,7 @@ extern void * xrecalloc (void *, size_t, size_t, size_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern void attach_life_info (void);
+extern rtx bb_note (basic_block);
 
 #ifdef ENABLE_CHECKING
 extern void check_reg_live (bool);

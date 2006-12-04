@@ -40,9 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define HEADER_BLOCK(B) (* (int *) (B)->aux)
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
 
-static void flow_loops_cfg_dump (const struct loops *, FILE *);
-static int flow_loop_level_compute (struct loop *);
-static void flow_loops_level_compute (struct loops *);
+static void flow_loops_cfg_dump (FILE *);
 static void establish_preds (struct loop *);
 static void canonicalize_loop_headers (void);
 static bool glb_enum_p (basic_block, void *);
@@ -50,12 +48,11 @@ static bool glb_enum_p (basic_block, void *);
 /* Dump loop related CFG information.  */
 
 static void
-flow_loops_cfg_dump (const struct loops *loops, FILE *file)
+flow_loops_cfg_dump (FILE *file)
 {
-  int i;
   basic_block bb;
 
-  if (! loops->num || ! file)
+  if (!file)
     return;
 
   FOR_EACH_BB (bb)
@@ -67,26 +64,6 @@ flow_loops_cfg_dump (const struct loops *loops, FILE *file)
       FOR_EACH_EDGE (succ, ei, bb->succs)
 	fprintf (file, "%d ", succ->dest->index);
       fprintf (file, "}\n");
-    }
-
-  /* Dump the DFS node order.  */
-  if (loops->cfg.dfs_order)
-    {
-      fputs (";; DFS order: ", file);
-      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
-	fprintf (file, "%d ", loops->cfg.dfs_order[i]);
-
-      fputs ("\n", file);
-    }
-
-  /* Dump the reverse completion node order.  */
-  if (loops->cfg.rc_order)
-    {
-      fputs (";; RC order: ", file);
-      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
-	fprintf (file, "%d ", loops->cfg.rc_order[i]);
-
-      fputs ("\n", file);
     }
 }
 
@@ -131,9 +108,8 @@ flow_loop_dump (const struct loop *loop, FILE *file,
 
   fprintf (file, ";;  header %d, latch %d\n",
 	   loop->header->index, loop->latch->index);
-  fprintf (file, ";;  depth %d, level %d, outer %ld\n",
-	   loop->depth, loop->level,
-	   (long) (loop->outer ? loop->outer->num : -1));
+  fprintf (file, ";;  depth %d, outer %ld\n",
+	   loop->depth, (long) (loop->outer ? loop->outer->num : -1));
 
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
@@ -146,24 +122,22 @@ flow_loop_dump (const struct loop *loop, FILE *file,
     loop_dump_aux (loop, file, verbose);
 }
 
-/* Dump the loop information specified by LOOPS to the stream FILE,
+/* Dump the loop information about loops to the stream FILE,
    using auxiliary dump callback function LOOP_DUMP_AUX if non null.  */
 
 void
-flow_loops_dump (const struct loops *loops, FILE *file, void (*loop_dump_aux) (const struct loop *, FILE *, int), int verbose)
+flow_loops_dump (FILE *file, void (*loop_dump_aux) (const struct loop *, FILE *, int), int verbose)
 {
-  int i;
-  int num_loops;
+  unsigned i;
 
-  num_loops = loops->num;
-  if (! num_loops || ! file)
+  if (!current_loops || ! file)
     return;
 
-  fprintf (file, ";; %d loops found\n", num_loops);
+  fprintf (file, ";; %d loops found\n", current_loops->num);
 
-  for (i = 0; i < num_loops; i++)
+  for (i = 0; i < current_loops->num; i++)
     {
-      struct loop *loop = loops->parray[i];
+      struct loop *loop = current_loops->parray[i];
 
       if (!loop)
 	continue;
@@ -172,7 +146,7 @@ flow_loops_dump (const struct loops *loops, FILE *file, void (*loop_dump_aux) (c
     }
 
   if (verbose)
-    flow_loops_cfg_dump (loops, file);
+    flow_loops_cfg_dump (file);
 }
 
 /* Free data allocated for LOOP.  */
@@ -208,12 +182,6 @@ flow_loops_free (struct loops *loops)
 
       free (loops->parray);
       loops->parray = NULL;
-
-      if (loops->cfg.dfs_order)
-	free (loops->cfg.dfs_order);
-      if (loops->cfg.rc_order)
-	free (loops->cfg.rc_order);
-
     }
 }
 
@@ -266,28 +234,27 @@ flow_loop_nodes_find (basic_block header, struct loop *loop)
   return num_nodes;
 }
 
-/* For each loop in the lOOPS tree that has just a single exit
-   record the exit edge.  */
+/* For each loop that has just a single exit, record the exit edge.  */
 
 void
-mark_single_exit_loops (struct loops *loops)
+mark_single_exit_loops (void)
 {
   basic_block bb;
   edge e;
   struct loop *loop;
   unsigned i;
 
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (loop)
-	loop->single_exit = NULL;
+	set_single_exit (loop, NULL);
     }
 
   FOR_EACH_BB (bb)
     {
       edge_iterator ei;
-      if (bb->loop_father == loops->tree_root)
+      if (bb->loop_father == current_loops->tree_root)
 	continue;
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
@@ -303,25 +270,25 @@ mark_single_exit_loops (struct loops *loops)
 	    {
 	      /* If we have already seen an exit, mark this by the edge that
 		 surely does not occur as any exit.  */
-	      if (loop->single_exit)
-		loop->single_exit = single_succ_edge (ENTRY_BLOCK_PTR);
+	      if (single_exit (loop))
+		set_single_exit (loop, single_succ_edge (ENTRY_BLOCK_PTR));
 	      else
-		loop->single_exit = e;
+		set_single_exit (loop, e);
 	    }
 	}
     }
 
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (!loop)
 	continue;
 
-      if (loop->single_exit == single_succ_edge (ENTRY_BLOCK_PTR))
-	loop->single_exit = NULL;
+      if (single_exit (loop) == single_succ_edge (ENTRY_BLOCK_PTR))
+	set_single_exit (loop, NULL);
     }
 
-  loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
+  current_loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
 }
 
 static void
@@ -380,45 +347,6 @@ flow_loop_tree_node_remove (struct loop *loop)
   loop->depth = -1;
   free (loop->pred);
   loop->pred = NULL;
-}
-
-/* Helper function to compute loop nesting depth and enclosed loop level
-   for the natural loop specified by LOOP.  Returns the loop level.  */
-
-static int
-flow_loop_level_compute (struct loop *loop)
-{
-  struct loop *inner;
-  int level = 1;
-
-  if (! loop)
-    return 0;
-
-  /* Traverse loop tree assigning depth and computing level as the
-     maximum level of all the inner loops of this loop.  The loop
-     level is equivalent to the height of the loop in the loop tree
-     and corresponds to the number of enclosed loop levels (including
-     itself).  */
-  for (inner = loop->inner; inner; inner = inner->next)
-    {
-      int ilevel = flow_loop_level_compute (inner) + 1;
-
-      if (ilevel > level)
-	level = ilevel;
-    }
-
-  loop->level = level;
-  return level;
-}
-
-/* Compute the loop nesting depth and enclosed loop level for the loop
-   hierarchy tree specified by LOOPS.  Return the maximum enclosed loop
-   level.  */
-
-static void
-flow_loops_level_compute (struct loops *loops)
-{
-  flow_loop_level_compute (loops->tree_root);
 }
 
 /* A callback to update latch and header info for basic block JUMP created
@@ -697,10 +625,6 @@ flow_loops_find (struct loops *loops)
       rc_order = XNEWVEC (int, n_basic_blocks);
       pre_and_rev_post_order_compute (dfs_order, rc_order, false);
 
-      /* Save CFG derived information to avoid recomputing it.  */
-      loops->cfg.dfs_order = dfs_order;
-      loops->cfg.rc_order = rc_order;
-
       num_loops = 1;
 
       for (b = 0; b < n_basic_blocks - NUM_FIXED_BLOCKS; b++)
@@ -738,22 +662,16 @@ flow_loops_find (struct loops *loops)
 	  loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
 	}
 
-      /* Assign the loop nesting depth and enclosed loop level for each
-	 loop.  */
-      flow_loops_level_compute (loops);
-
       loops->num = num_loops;
       initialize_loops_parallel_p (loops);
+
+      free (dfs_order);
+      free (rc_order);
     }
 
   sbitmap_free (headers);
 
   loops->state = 0;
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-  verify_loop_structure (loops);
-#endif
-
   return loops->num;
 }
 
@@ -885,59 +803,53 @@ get_loop_body_in_bfs_order (const struct loop *loop)
     {
       edge e;
       edge_iterator ei;
-      
+
       if (!bitmap_bit_p (visited, bb->index))
-        { 
-          /* This basic block is now visited */
-          bitmap_set_bit (visited, bb->index);
-          blocks[i++] = bb;
-        }
-      
+	{
+	  /* This basic block is now visited */
+	  bitmap_set_bit (visited, bb->index);
+	  blocks[i++] = bb;
+	}
+
       FOR_EACH_EDGE (e, ei, bb->succs)
-        { 
-          if (flow_bb_inside_loop_p (loop, e->dest))
-            { 
-              if (!bitmap_bit_p (visited, e->dest->index))
-                { 
-                  bitmap_set_bit (visited, e->dest->index);
-                  blocks[i++] = e->dest;
-                }
-            }
-        }
-      
+	{
+	  if (flow_bb_inside_loop_p (loop, e->dest))
+	    {
+	      if (!bitmap_bit_p (visited, e->dest->index))
+		{
+		  bitmap_set_bit (visited, e->dest->index);
+		  blocks[i++] = e->dest;
+		}
+	    }
+	}
+
       gcc_assert (i >= vc);
-      
+
       bb = blocks[vc++];
     }
-  
+
   BITMAP_FREE (visited);
   return blocks;
 }
 
-/* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
-edge *
-get_loop_exit_edges (const struct loop *loop, unsigned int *num_edges)
+/* Returns the list of the exit edges of a LOOP.  */
+
+VEC (edge, heap) *
+get_loop_exit_edges (const struct loop *loop)
 {
-  edge *edges, e;
-  unsigned i, n;
-  basic_block * body;
+  VEC (edge, heap) *edges = NULL;
+  edge e;
+  unsigned i;
+  basic_block *body;
   edge_iterator ei;
 
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   body = get_loop_body (loop);
-  n = 0;
   for (i = 0; i < loop->num_nodes; i++)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
       if (!flow_bb_inside_loop_p (loop, e->dest))
-	n++;
-  edges = XNEWVEC (edge, n);
-  *num_edges = n;
-  n = 0;
-  for (i = 0; i < loop->num_nodes; i++)
-    FOR_EACH_EDGE (e, ei, body[i]->succs)
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	edges[n++] = e;
+	VEC_safe_push (edge, heap, edges, e);
   free (body);
 
   return edges;
@@ -969,12 +881,13 @@ add_bb_to_loop (basic_block bb, struct loop *loop)
 {
    int i;
 
+   gcc_assert (bb->loop_father == NULL);
    bb->loop_father = loop;
    bb->loop_depth = loop->depth;
    loop->num_nodes++;
    for (i = 0; i < loop->depth; i++)
      loop->pred[i]->num_nodes++;
- }
+}
 
 /* Remove basic block BB from loops.  */
 void
@@ -983,6 +896,7 @@ remove_bb_from_loops (basic_block bb)
    int i;
    struct loop *loop = bb->loop_father;
 
+   gcc_assert (loop != NULL);
    loop->num_nodes--;
    for (i = 0; i < loop->depth; i++)
      loop->pred[i]->num_nodes--;
@@ -1013,7 +927,7 @@ find_common_loop (struct loop *loop_s, struct loop *loop_d)
 /* Cancels the LOOP; it must be innermost one.  */
 
 static void
-cancel_loop (struct loops *loops, struct loop *loop)
+cancel_loop (struct loop *loop)
 {
   basic_block *bbs;
   unsigned i;
@@ -1029,7 +943,7 @@ cancel_loop (struct loops *loops, struct loop *loop)
   flow_loop_tree_node_remove (loop);
 
   /* Remove loop from loops array.  */
-  loops->parray[loop->num] = NULL;
+  current_loops->parray[loop->num] = NULL;
 
   /* Free loop data.  */
   flow_loop_free (loop);
@@ -1037,14 +951,14 @@ cancel_loop (struct loops *loops, struct loop *loop)
 
 /* Cancels LOOP and all its subloops.  */
 void
-cancel_loop_tree (struct loops *loops, struct loop *loop)
+cancel_loop_tree (struct loop *loop)
 {
   while (loop->inner)
-    cancel_loop_tree (loops, loop->inner);
-  cancel_loop (loops, loop);
+    cancel_loop_tree (loop->inner);
+  cancel_loop (loop);
 }
 
-/* Checks that LOOPS are all right:
+/* Checks that information about loops is correct
      -- sizes of loops are all right
      -- results of get_loop_body really belong to the loop
      -- loop header have just single entry edge and single latch edge
@@ -1052,7 +966,7 @@ cancel_loop_tree (struct loops *loops, struct loop *loop)
      -- irreducible loops are correctly marked
   */
 void
-verify_loop_structure (struct loops *loops)
+verify_loop_structure (void)
 {
   unsigned *sizes, i, j;
   sbitmap irreds;
@@ -1062,30 +976,30 @@ verify_loop_structure (struct loops *loops)
   edge e;
 
   /* Check sizes.  */
-  sizes = XCNEWVEC (unsigned, loops->num);
+  sizes = XCNEWVEC (unsigned, current_loops->num);
   sizes[0] = 2;
 
   FOR_EACH_BB (bb)
     for (loop = bb->loop_father; loop; loop = loop->outer)
       sizes[loop->num]++;
 
-  for (i = 0; i < loops->num; i++)
+  for (i = 0; i < current_loops->num; i++)
     {
-      if (!loops->parray[i])
-        continue;
+      if (!current_loops->parray[i])
+	continue;
 
-      if (loops->parray[i]->num_nodes != sizes[i])
+      if (current_loops->parray[i]->num_nodes != sizes[i])
 	{
 	  error ("size of loop %d should be %d, not %d",
-		   i, sizes[i], loops->parray[i]->num_nodes);
+		   i, sizes[i], current_loops->parray[i]->num_nodes);
 	  err = 1;
 	}
     }
 
   /* Check get_loop_body.  */
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (!loop)
 	continue;
       bbs = get_loop_body (loop);
@@ -1101,19 +1015,19 @@ verify_loop_structure (struct loops *loops)
     }
 
   /* Check headers and latches.  */
-  for (i = 1; i < loops->num; i++)
+  for (i = 1; i < current_loops->num; i++)
     {
-      loop = loops->parray[i];
+      loop = current_loops->parray[i];
       if (!loop)
 	continue;
 
-      if ((loops->state & LOOPS_HAVE_PREHEADERS)
+      if ((current_loops->state & LOOPS_HAVE_PREHEADERS)
 	  && EDGE_COUNT (loop->header->preds) != 2)
 	{
 	  error ("loop %d's header does not have exactly 2 entries", i);
 	  err = 1;
 	}
-      if (loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
+      if (current_loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
 	{
 	  if (!single_succ_p (loop->latch))
 	    {
@@ -1136,7 +1050,7 @@ verify_loop_structure (struct loops *loops)
 	  error ("loop %d's header does not belong directly to it", i);
 	  err = 1;
 	}
-      if ((loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+      if ((current_loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
 	  && (loop_latch_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP))
 	{
 	  error ("loop %d's latch is marked as part of irreducible region", i);
@@ -1145,7 +1059,7 @@ verify_loop_structure (struct loops *loops)
     }
 
   /* Check irreducible loops.  */
-  if (loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+  if (current_loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
     {
       /* Record old info.  */
       irreds = sbitmap_alloc (last_basic_block);
@@ -1162,7 +1076,7 @@ verify_loop_structure (struct loops *loops)
 	}
 
       /* Recount it.  */
-      mark_irreducible_loops (loops);
+      mark_irreducible_loops ();
 
       /* Compare.  */
       FOR_EACH_BB (bb)
@@ -1204,13 +1118,13 @@ verify_loop_structure (struct loops *loops)
     }
 
   /* Check the single_exit.  */
-  if (loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
+  if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
     {
-      memset (sizes, 0, sizeof (unsigned) * loops->num);
+      memset (sizes, 0, sizeof (unsigned) * current_loops->num);
       FOR_EACH_BB (bb)
 	{
 	  edge_iterator ei;
-	  if (bb->loop_father == loops->tree_root)
+	  if (bb->loop_father == current_loops->tree_root)
 	    continue;
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
@@ -1225,12 +1139,12 @@ verify_loop_structure (struct loops *loops)
 		   loop = loop->outer)
 		{
 		  sizes[loop->num]++;
-		  if (loop->single_exit
-		      && loop->single_exit != e)
+		  if (single_exit (loop)
+		      && single_exit (loop) != e)
 		    {
 		      error ("wrong single exit %d->%d recorded for loop %d",
-			     loop->single_exit->src->index,
-			     loop->single_exit->dest->index,
+			     single_exit (loop)->src->index,
+			     single_exit (loop)->dest->index,
 			     loop->num);
 		      error ("right exit is %d->%d",
 			     e->src->index, e->dest->index);
@@ -1240,26 +1154,26 @@ verify_loop_structure (struct loops *loops)
 	    }
 	}
 
-      for (i = 1; i < loops->num; i++)
+      for (i = 1; i < current_loops->num; i++)
 	{
-	  loop = loops->parray[i];
+	  loop = current_loops->parray[i];
 	  if (!loop)
 	    continue;
 
 	  if (sizes[i] == 1
-	      && !loop->single_exit)
+	      && !single_exit (loop))
 	    {
 	      error ("single exit not recorded for loop %d", loop->num);
 	      err = 1;
 	    }
 
 	  if (sizes[i] != 1
-	      && loop->single_exit)
+	      && single_exit (loop))
 	    {
 	      error ("loop %d should not have single exit (%d -> %d)",
 		     loop->num,
-		     loop->single_exit->src->index,
-		     loop->single_exit->dest->index);
+		     single_exit (loop)->src->index,
+		     single_exit (loop)->dest->index);
 	      err = 1;
 	    }
 	}
@@ -1298,4 +1212,21 @@ loop_exit_edge_p (const struct loop *loop, edge e)
 {
   return (flow_bb_inside_loop_p (loop, e->src)
 	  && !flow_bb_inside_loop_p (loop, e->dest));
+}
+
+/* Returns the single exit edge of LOOP, or NULL if LOOP has either no exit
+   or more than one exit.  */
+
+edge
+single_exit (const struct loop *loop)
+{
+  return loop->single_exit_;
+}
+
+/* Records E as a single exit edge of LOOP.  */
+
+void
+set_single_exit (struct loop *loop, edge e)
+{
+  loop->single_exit_ = e;
 }

@@ -48,6 +48,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Internal function decls */
 
+
+/* Options.  */
+#define flag_mudflap_threads (flag_mudflap == 2)
+
 /* Helpers.  */
 static tree mf_build_string (const char *string);
 static tree mf_varname_tree (tree);
@@ -815,7 +819,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
               size = DECL_SIZE_UNIT (field);
             
 	    if (elt)
-	      elt = build1 (ADDR_EXPR, build_pointer_type TREE_TYPE (elt), elt);
+	      elt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (elt)), elt);
             addr = fold_convert (ptr_type_node, elt ? elt : base);
             addr = fold_build2 (PLUS_EXPR, ptr_type_node,
 				addr, fold_convert (ptr_type_node,
@@ -845,7 +849,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       base = addr;
       limit = fold_build2 (MINUS_EXPR, ptr_type_node,
 			   fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
-			   build_int_cst_type (ptr_type_node, 1));
+			   build_int_cst (ptr_type_node, 1));
       break;
 
     case ARRAY_RANGE_REF:
@@ -1232,6 +1236,10 @@ mudflap_finish_file (void)
 {
   tree ctor_statements = NULL_TREE;
 
+  /* No need to continue when there were errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
   /* Insert a call to __mf_init.  */
   {
     tree call2_stmt = build_function_call_expr (mf_init_fndecl, NULL_TREE);
@@ -1255,9 +1263,6 @@ mudflap_finish_file (void)
       for (i = 0; VEC_iterate (tree, deferred_static_decls, i, obj); i++)
         {
           gcc_assert (DECL_P (obj));
-
-          if (TREE_TYPE (obj) == error_mark_node)
-	    continue;
 
           if (mf_marked_p (obj))
             continue;

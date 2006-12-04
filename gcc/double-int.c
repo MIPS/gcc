@@ -72,8 +72,8 @@ double_int_zext (double_int cst, unsigned prec)
   double_int mask = double_int_mask (prec);
   double_int r;
 
-  r.low = cst.low & ~mask.low;
-  r.high = cst.high & ~mask.high;
+  r.low = cst.low & mask.low;
+  r.high = cst.high & mask.high;
 
   return r;
 }
@@ -96,13 +96,13 @@ double_int_sext (double_int cst, unsigned prec)
     }
   if (((snum >> (prec - 1)) & 1) == 1)
     {
-      r.low = cst.low | mask.low;
-      r.high = cst.high | mask.high;
+      r.low = cst.low | ~mask.low;
+      r.high = cst.high | ~mask.high;
     }
   else
     {
-      r.low = cst.low & ~mask.low;
-      r.high = cst.high & ~mask.high;
+      r.low = cst.low & mask.low;
+      r.high = cst.high & mask.high;
     } 
 
   return r;
@@ -203,18 +203,46 @@ double_int_neg (double_int a)
 
 /* Returns A / B (computed as unsigned depending on UNS, and rounded as
    specified by CODE).  CODE is enum tree_code in fact, but double_int.h
+   must be included before tree.h.  The remainder after the division is
+   stored to MOD.  */
+
+double_int
+double_int_divmod (double_int a, double_int b, bool uns, unsigned code,
+		   double_int *mod)
+{
+  double_int ret;
+
+  div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
+			&ret.low, &ret.high, &mod->low, &mod->high);
+  return ret;
+}
+
+/* The same as double_int_divmod with UNS = false.  */
+
+double_int
+double_int_sdivmod (double_int a, double_int b, unsigned code, double_int *mod)
+{
+  return double_int_divmod (a, b, false, code, mod);
+}
+
+/* The same as double_int_divmod with UNS = true.  */
+
+double_int
+double_int_udivmod (double_int a, double_int b, unsigned code, double_int *mod)
+{
+  return double_int_divmod (a, b, true, code, mod);
+}
+
+/* Returns A / B (computed as unsigned depending on UNS, and rounded as
+   specified by CODE).  CODE is enum tree_code in fact, but double_int.h
    must be included before tree.h.  */
 
 double_int
 double_int_div (double_int a, double_int b, bool uns, unsigned code)
 {
-  unsigned HOST_WIDE_INT rem_lo;
-  HOST_WIDE_INT rem_hi;
-  double_int ret;
+  double_int mod;
 
-  div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
-			&ret.low, &ret.high, &rem_lo, &rem_hi);
-  return ret;
+  return double_int_divmod (a, b, uns, code, &mod);
 }
 
 /* The same as double_int_div with UNS = false.  */
@@ -233,7 +261,37 @@ double_int_udiv (double_int a, double_int b, unsigned code)
   return double_int_div (a, b, true, code);
 }
 
-/* Constructs tree in type TYPE from with value given by CST.  */
+/* Returns A % B (computed as unsigned depending on UNS, and rounded as
+   specified by CODE).  CODE is enum tree_code in fact, but double_int.h
+   must be included before tree.h.  */
+
+double_int
+double_int_mod (double_int a, double_int b, bool uns, unsigned code)
+{
+  double_int mod;
+
+  double_int_divmod (a, b, uns, code, &mod);
+  return mod;
+}
+
+/* The same as double_int_mod with UNS = false.  */
+
+double_int
+double_int_smod (double_int a, double_int b, unsigned code)
+{
+  return double_int_mod (a, b, false, code);
+}
+
+/* The same as double_int_mod with UNS = true.  */
+
+double_int
+double_int_umod (double_int a, double_int b, unsigned code)
+{
+  return double_int_mod (a, b, true, code);
+}
+
+/* Constructs tree in type TYPE from with value given by CST.  Signedness of CST
+   is assumed to be the same as the signedness of TYPE.  */
 
 tree
 double_int_to_tree (tree type, double_int cst)
@@ -241,6 +299,19 @@ double_int_to_tree (tree type, double_int cst)
   cst = double_int_ext (cst, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
 
   return build_int_cst_wide (type, cst.low, cst.high);
+}
+
+/* Returns true if CST fits into range of TYPE.  Signedness of CST is assumed
+   to be the same as the signedness of TYPE.  */
+
+bool
+double_int_fits_to_tree_p (tree type, double_int cst)
+{
+  double_int ext = double_int_ext (cst,
+				   TYPE_PRECISION (type),
+				   TYPE_UNSIGNED (type));
+
+  return double_int_equal_p (cst, ext);
 }
 
 /* Returns true if CST is negative.  Of course, CST is considered to

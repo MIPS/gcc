@@ -1,6 +1,6 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -86,6 +86,16 @@ gfc_resolve_abs (gfc_expr * f, gfc_expr * a)
 
   f->value.function.name =
     gfc_get_string ("__abs_%c%d", gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_access (gfc_expr * f, gfc_expr * name ATTRIBUTE_UNUSED,
+	            gfc_expr * mode ATTRIBUTE_UNUSED)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_c_int_kind;
+  f->value.function.name = PREFIX("access_func");
 }
 
 
@@ -348,6 +358,32 @@ gfc_resolve_chdir_sub (gfc_code * c)
     kind = gfc_default_integer_kind;
 
   name = gfc_get_string (PREFIX("chdir_i%d_sub"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_chmod (gfc_expr * f, gfc_expr * name ATTRIBUTE_UNUSED,
+		   gfc_expr * mode ATTRIBUTE_UNUSED)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_c_int_kind;
+  f->value.function.name = PREFIX("chmod_func");
+}
+
+
+void
+gfc_resolve_chmod_sub (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  if (c->ext.actual->next->next->expr != NULL)
+    kind = c->ext.actual->next->next->expr->ts.kind;
+  else
+    kind = gfc_default_integer_kind;
+
+  name = gfc_get_string (PREFIX("chmod_i%d_sub"), kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
@@ -841,11 +877,70 @@ gfc_resolve_ior (gfc_expr * f, gfc_expr * i, gfc_expr * j)
 
 
 void
+gfc_resolve_index_func (gfc_expr * f, gfc_expr * str,
+			ATTRIBUTE_UNUSED gfc_expr * sub_str, gfc_expr * back)
+{
+  gfc_typespec ts;
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+
+  if (back && back->ts.kind != gfc_default_integer_kind)
+    {
+      ts.type = BT_LOGICAL;
+      ts.kind = gfc_default_integer_kind;
+      ts.derived = NULL;
+      ts.cl = NULL;
+      gfc_convert_type (back, &ts, 2);
+    }
+
+  f->value.function.name =
+    gfc_get_string ("__index_%d_i%d", str->ts.kind, f->ts.kind);
+}
+
+
+void
 gfc_resolve_int (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
   f->ts.type = BT_INTEGER;
   f->ts.kind = (kind == NULL) ? gfc_default_integer_kind
     : mpz_get_si (kind->value.integer);
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
+gfc_resolve_int2 (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 2;
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
+gfc_resolve_int8 (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 8;
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
+gfc_resolve_long (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 4;
 
   f->value.function.name =
     gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
@@ -879,6 +974,24 @@ gfc_resolve_ishft (gfc_expr * f, gfc_expr * i, gfc_expr * shift)
   f->ts = i->ts;
   f->value.function.name =
     gfc_get_string ("__ishft_%d_%d", i->ts.kind, shift->ts.kind);
+}
+
+
+void
+gfc_resolve_rshift (gfc_expr * f, gfc_expr * i, gfc_expr * shift)
+{
+  f->ts = i->ts;
+  f->value.function.name =
+    gfc_get_string ("__rshift_%d_%d", i->ts.kind, shift->ts.kind);
+}
+
+
+void
+gfc_resolve_lshift (gfc_expr * f, gfc_expr * i, gfc_expr * shift)
+{
+  f->ts = i->ts;
+  f->value.function.name =
+    gfc_get_string ("__lshift_%d_%d", i->ts.kind, shift->ts.kind);
 }
 
 
@@ -932,7 +1045,8 @@ gfc_resolve_len (gfc_expr * f, gfc_expr * string)
 {
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
-  f->value.function.name = gfc_get_string ("__len_%d", string->ts.kind);
+  f->value.function.name = gfc_get_string ("__len_%d_i%d", string->ts.kind,
+					   gfc_default_integer_kind);
 }
 
 
@@ -1081,16 +1195,32 @@ gfc_resolve_maxloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
 
   if (dim == NULL)
-    f->rank = 1;
+    {
+      f->rank = 1;
+      f->shape = gfc_get_shape (1);
+      mpz_init_set_si (f->shape[0], array->rank);
+    }
   else
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+      if (array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1125,6 +1255,7 @@ gfc_resolve_maxval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts = array->ts;
 
@@ -1132,6 +1263,18 @@ gfc_resolve_maxval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+
+      if (f->rank && array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1162,6 +1305,24 @@ gfc_resolve_maxval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 
 
 void
+gfc_resolve_mclock (gfc_expr * f)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 4;
+  f->value.function.name = PREFIX("mclock");
+}
+
+
+void
+gfc_resolve_mclock8 (gfc_expr * f)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 8;
+  f->value.function.name = PREFIX("mclock8");
+}
+
+
+void
 gfc_resolve_merge (gfc_expr * f, gfc_expr * tsource,
 		   gfc_expr * fsource ATTRIBUTE_UNUSED,
 		   gfc_expr * mask ATTRIBUTE_UNUSED)
@@ -1188,16 +1349,32 @@ gfc_resolve_minloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
 
   if (dim == NULL)
-    f->rank = 1;
+    {
+      f->rank = 1;
+      f->shape = gfc_get_shape (1);
+      mpz_init_set_si (f->shape[0], array->rank);
+    }
   else
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+      if (array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1232,6 +1409,7 @@ gfc_resolve_minval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts = array->ts;
 
@@ -1239,6 +1417,18 @@ gfc_resolve_minval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+
+      if (f->rank && array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1516,14 +1706,10 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
     case 8:
     case 10:
     case 16:
-      if (source->ts.type == BT_COMPLEX)
+      if (source->ts.type == BT_COMPLEX || source->ts.type == BT_REAL)
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%c%d"),
-			  gfc_type_letter (BT_COMPLEX), source->ts.kind);
-      else if (source->ts.type == BT_REAL && kind == 10)
-	f->value.function.name =
-	  gfc_get_string (PREFIX("reshape_%c%d"),
-			  gfc_type_letter (BT_REAL), source->ts.kind);
+			  gfc_type_letter (source->ts.type), source->ts.kind);
       else
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%d"), source->ts.kind);
@@ -1568,8 +1754,19 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
 void
 gfc_resolve_rrspacing (gfc_expr * f, gfc_expr * x)
 {
+  int k;
+  gfc_actual_arglist *prec;
+
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("__rrspacing_%d", x->ts.kind);
+
+  /* Create a hidden argument to the library routines for rrspacing.  This
+     hidden argument is the precision of x.  */
+  k = gfc_validate_kind (BT_REAL, x->ts.kind, false);
+  prec = gfc_get_actual_arglist ();
+  prec->name = "p";
+  prec->expr = gfc_int_expr (gfc_real_kinds[k].digits);
+  f->value.function.actual->next = prec;
 }
 
 
@@ -1699,8 +1896,40 @@ gfc_resolve_sinh (gfc_expr * f, gfc_expr * x)
 void
 gfc_resolve_spacing (gfc_expr * f, gfc_expr * x)
 {
+  int k; 
+  gfc_actual_arglist *prec, *tiny, *emin_1;
+ 
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("__spacing_%d", x->ts.kind);
+
+  /* Create hidden arguments to the library routine for spacing.  These
+     hidden arguments are tiny(x), min_exponent - 1,  and the precision
+     of x.  */
+
+  k = gfc_validate_kind (BT_REAL, x->ts.kind, false);
+
+  tiny = gfc_get_actual_arglist ();
+  tiny->name = "tiny";
+  tiny->expr = gfc_get_expr ();
+  tiny->expr->expr_type = EXPR_CONSTANT;
+  tiny->expr->where = gfc_current_locus;
+  tiny->expr->ts.type = x->ts.type;
+  tiny->expr->ts.kind = x->ts.kind;
+  mpfr_init (tiny->expr->value.real);
+  mpfr_set (tiny->expr->value.real, gfc_real_kinds[k].tiny, GFC_RND_MODE);
+
+  emin_1 = gfc_get_actual_arglist ();
+  emin_1->name = "emin";
+  emin_1->expr = gfc_int_expr (gfc_real_kinds[k].min_exponent - 1);
+  emin_1->next = tiny;
+
+  prec = gfc_get_actual_arglist ();
+  prec->name = "prec";
+  prec->expr = gfc_int_expr (gfc_real_kinds[k].digits);
+  prec->next = emin_1;
+
+  f->value.function.actual->next = prec;
+
 }
 
 
@@ -1722,6 +1951,23 @@ gfc_resolve_spread (gfc_expr * f, gfc_expr * source,
     f->value.function.name = (source->ts.type == BT_CHARACTER
 			      ? PREFIX("spread_char")
 			      : PREFIX("spread"));
+
+  if (dim && gfc_is_constant_expr (dim)
+	&& ncopies && gfc_is_constant_expr (ncopies)
+	&& source->shape[0])
+    {
+      int i, idim;
+      idim = mpz_get_ui (dim->value.integer);
+      f->shape = gfc_get_shape (f->rank);
+      for (i = 0; i < (idim - 1); i++)
+	mpz_init_set (f->shape[i], source->shape[i]);
+
+      mpz_init_set (f->shape[idim - 1], ncopies->value.integer);
+
+      for (i = idim; i < f->rank ; i++)
+	mpz_init_set (f->shape[i], source->shape[i-1]);
+    }
+
 
   gfc_resolve_dim_arg (dim);
   gfc_resolve_index (ncopies, 1);
@@ -1746,6 +1992,16 @@ gfc_resolve_stat (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED,
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
   f->value.function.name = gfc_get_string (PREFIX("stat_i%d"), f->ts.kind);
+}
+
+
+void
+gfc_resolve_lstat (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED,
+		   gfc_expr * a ATTRIBUTE_UNUSED)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  f->value.function.name = gfc_get_string (PREFIX("lstat_i%d"), f->ts.kind);
 }
 
 
@@ -1955,6 +2211,11 @@ gfc_resolve_transfer (gfc_expr * f, gfc_expr * source ATTRIBUTE_UNUSED,
     {
       f->rank = 1;
       f->value.function.name = transfer1;
+      if (size && gfc_is_constant_expr (size))
+	{
+	  f->shape = gfc_get_shape (1);
+	  mpz_init_set (f->shape[0], size->value.integer);
+	}
     }
 }
 
@@ -1962,8 +2223,6 @@ gfc_resolve_transfer (gfc_expr * f, gfc_expr * source ATTRIBUTE_UNUSED,
 void
 gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
 {
-  int kind;
-
   f->ts = matrix->ts;
   f->rank = 2;
   if (matrix->shape)
@@ -1973,9 +2232,7 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
       mpz_init_set (f->shape[1], matrix->shape[0]);
     }
 
-  kind = matrix->ts.kind;
-
-  switch (kind)
+  switch (matrix->ts.kind)
     {
     case 4:
     case 8:
@@ -1983,29 +2240,20 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
     case 16:
       switch (matrix->ts.type)
         {
+        case BT_REAL:
         case BT_COMPLEX:
           f->value.function.name =
-            gfc_get_string (PREFIX("transpose_c%d"), kind);
+            gfc_get_string (PREFIX("transpose_%c%d"),
+			    gfc_type_letter (matrix->ts.type),
+			    matrix->ts.kind);
           break;
-
-        case BT_REAL:
-	  /* There is no kind=10 integer type.  We need to
-	     call the real version.  */
-	  if (kind == 10)
-	    {
-	      f->value.function.name =
-		gfc_get_string (PREFIX("transpose_r%d"), kind);
-	      break;
-	    }
-
-	  /* Fall through */
 
         case BT_INTEGER:
         case BT_LOGICAL:
 	  /* Use the integer routines for real and logical cases.  This
 	     assumes they all have the same alignment requirements.  */
           f->value.function.name =
-            gfc_get_string (PREFIX("transpose_i%d"), kind);
+            gfc_get_string (PREFIX("transpose_i%d"), matrix->ts.kind);
           break;
 
         default:
@@ -2173,7 +2421,7 @@ gfc_resolve_alarm_sub (gfc_code * c)
 }
 
 void
-gfc_resolve_cpu_time (gfc_code * c ATTRIBUTE_UNUSED)
+gfc_resolve_cpu_time (gfc_code * c)
 {
   const char *name;
 
@@ -2197,7 +2445,7 @@ gfc_resolve_mvbits (gfc_code * c)
 
 
 void
-gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
+gfc_resolve_random_number (gfc_code * c)
 {
   const char *name;
   int kind;
@@ -2285,6 +2533,41 @@ gfc_resolve_etime_sub (gfc_code * c)
 
   name = gfc_get_string (PREFIX("etime_sub"));
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* G77 compatibility subroutines itime(), idate(), ltime() and gmtime().  */
+
+void
+gfc_resolve_itime (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("itime_i%d"),
+				       gfc_default_integer_kind));
+}
+
+void
+gfc_resolve_idate (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("idate_i%d"),
+				       gfc_default_integer_kind));
+}
+
+void
+gfc_resolve_ltime (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("ltime_i%d"),
+				       gfc_default_integer_kind));
+}
+
+void
+gfc_resolve_gmtime (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("gmtime_i%d"),
+				       gfc_default_integer_kind));
 }
 
 
@@ -2585,6 +2868,16 @@ gfc_resolve_stat_sub (gfc_code * c)
   const char *name;
 
   name = gfc_get_string (PREFIX("stat_i%d_sub"), gfc_default_integer_kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_lstat_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("lstat_i%d_sub"), gfc_default_integer_kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 

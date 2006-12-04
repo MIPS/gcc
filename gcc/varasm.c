@@ -655,16 +655,20 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 			  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			  unsigned int flags ATTRIBUTE_UNUSED)
 {
+  HOST_WIDE_INT len;
+
   if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && TREE_CODE (decl) == STRING_CST
       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
       && align <= 256
-      && TREE_STRING_LENGTH (decl) >= int_size_in_bytes (TREE_TYPE (decl)))
+      && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
+      && TREE_STRING_LENGTH (decl) >= len)
     {
       enum machine_mode mode;
       unsigned int modesize;
       const char *str;
-      int i, j, len, unit;
+      HOST_WIDE_INT i;
+      int j, unit;
       char name[30];
 
       mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (decl)));
@@ -676,7 +680,6 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 	    align = modesize;
 
 	  str = TREE_STRING_POINTER (decl);
-	  len = TREE_STRING_LENGTH (decl);
 	  unit = GET_MODE_SIZE (mode);
 
 	  /* Check for embedded NUL characters.  */
@@ -828,6 +831,48 @@ bss_initializer_p (tree decl)
 	      && initializer_zerop (DECL_INITIAL (decl))));
 }
 
+/* Compute the alignment of variable specified by DECL.
+   DONT_OUTPUT_DATA is from assemble_variable.  */
+
+void
+align_variable (tree decl, bool dont_output_data)
+{
+  unsigned int align = DECL_ALIGN (decl);
+
+  /* In the case for initialing an array whose length isn't specified,
+     where we have not yet been able to do the layout,
+     figure out the proper alignment now.  */
+  if (dont_output_data && DECL_SIZE (decl) == 0
+      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+    align = MAX (align, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
+
+  /* Some object file formats have a maximum alignment which they support.
+     In particular, a.out format supports a maximum alignment of 4.  */
+  if (align > MAX_OFILE_ALIGNMENT)
+    {
+      warning (0, "alignment of %q+D is greater than maximum object "
+               "file alignment.  Using %d", decl,
+	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+      align = MAX_OFILE_ALIGNMENT;
+    }
+
+  /* On some machines, it is good to increase alignment sometimes.  */
+  if (! DECL_USER_ALIGN (decl))
+    {
+#ifdef DATA_ALIGNMENT
+      align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
+#endif
+#ifdef CONSTANT_ALIGNMENT
+      if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
+	align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+#endif
+    }
+
+  /* Reset the alignment in case we have made it tighter, so we can benefit
+     from it in get_pointer_alignment.  */
+  DECL_ALIGN (decl) = align;
+}
+
 /* Return the section into which the given VAR_DECL or CONST_DECL
    should be placed.  PREFER_NOSWITCH_P is true if a noswitch
    section should be used wherever possible.  */
@@ -899,6 +944,8 @@ get_block_for_decl (tree decl)
 
   /* Find out which section should contain DECL.  We cannot put it into
      an object block if it requires a standalone definition.  */
+  if (TREE_CODE (decl) == VAR_DECL)
+      align_variable (decl, 0);
   sect = get_variable_section (decl, true);
   if (SECTION_STYLE (sect) == SECTION_NOSWITCH)
     return NULL;
@@ -1683,7 +1730,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 		   int at_end ATTRIBUTE_UNUSED, int dont_output_data)
 {
   const char *name;
-  unsigned int align;
   rtx decl_rtl, symbol;
   section *sect;
 
@@ -1764,41 +1810,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Compute the alignment of this data.  */
 
-  align = DECL_ALIGN (decl);
-
-  /* In the case for initialing an array whose length isn't specified,
-     where we have not yet been able to do the layout,
-     figure out the proper alignment now.  */
-  if (dont_output_data && DECL_SIZE (decl) == 0
-      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-    align = MAX (align, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-
-  /* Some object file formats have a maximum alignment which they support.
-     In particular, a.out format supports a maximum alignment of 4.  */
-  if (align > MAX_OFILE_ALIGNMENT)
-    {
-      warning (0, "alignment of %q+D is greater than maximum object "
-               "file alignment.  Using %d", decl,
-	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
-      align = MAX_OFILE_ALIGNMENT;
-    }
-
-  /* On some machines, it is good to increase alignment sometimes.  */
-  if (! DECL_USER_ALIGN (decl))
-    {
-#ifdef DATA_ALIGNMENT
-      align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
-#endif
-#ifdef CONSTANT_ALIGNMENT
-      if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
-	align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
-#endif
-    }
-
-  /* Reset the alignment in case we have made it tighter, so we can benefit
-     from it in get_pointer_alignment.  */
-  DECL_ALIGN (decl) = align;
-  set_mem_align (decl_rtl, align);
+  align_variable (decl, dont_output_data);
+  set_mem_align (decl_rtl, DECL_ALIGN (decl));
 
   if (TREE_PUBLIC (decl))
     maybe_assemble_visibility (decl);
@@ -1834,7 +1847,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   else
     {
       switch_to_section (sect);
-      if (align > BITS_PER_UNIT)
+      if (DECL_ALIGN (decl) > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
       assemble_variable_contents (decl, name, dont_output_data);
     }
@@ -2736,7 +2749,7 @@ copy_constant (tree exp)
       {
 	tree t = lang_hooks.expand_constant (exp);
 
-	gcc_assert (t == exp);
+	gcc_assert (t != exp);
 	return copy_constant (t);
       }
     }
@@ -3686,6 +3699,20 @@ output_addressed_constants (tree exp)
     }
 }
 
+/* Whether a constructor CTOR is a valid static constant initializer if all
+   its elements are.  This used to be internal to initializer_constant_valid_p
+   and has been exposed to let other functions like categorize_ctor_elements
+   evaluate the property while walking a constructor for other purposes.  */
+
+bool
+constructor_static_from_elts_p (tree ctor)
+{
+  return (TREE_CONSTANT (ctor)
+	  && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
+	      || TREE_CODE (TREE_TYPE (ctor)) == RECORD_TYPE)
+	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (ctor)));
+}
+
 /* Return nonzero if VALUE is a valid constant-valued expression
    for use in initializing a static variable; one that can be an
    element of a "constant" initializer.
@@ -3706,10 +3733,7 @@ initializer_constant_valid_p (tree value, tree endtype)
   switch (TREE_CODE (value))
     {
     case CONSTRUCTOR:
-      if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
-	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
-	  && TREE_CONSTANT (value)
-	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (value)))
+      if (constructor_static_from_elts_p (value))
 	{
 	  unsigned HOST_WIDE_INT idx;
 	  tree elt;
@@ -4015,14 +4039,17 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       if (type_size > op_size
 	  && TREE_CODE (exp) != VIEW_CONVERT_EXPR
 	  && TREE_CODE (TREE_TYPE (exp)) != UNION_TYPE)
-	internal_error ("no-op convert from %wd to %wd bytes in initializer",
-			op_size, type_size);
-
-      exp = TREE_OPERAND (exp, 0);
+	/* Keep the conversion. */
+	break;
+      else
+	exp = TREE_OPERAND (exp, 0);
     }
 
   code = TREE_CODE (TREE_TYPE (exp));
   thissize = int_size_in_bytes (TREE_TYPE (exp));
+
+  /* Give the front end another chance to expand constants.  */
+  exp = lang_hooks.expand_constant (exp);
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
@@ -4101,8 +4128,12 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 
 	    link = TREE_VECTOR_CST_ELTS (exp);
 	    output_constant (TREE_VALUE (link), elt_size, align);
+	    thissize = elt_size;
 	    while ((link = TREE_CHAIN (link)) != NULL)
-	      output_constant (TREE_VALUE (link), elt_size, nalign);
+	      {
+		output_constant (TREE_VALUE (link), elt_size, nalign);
+		thissize += elt_size;
+	      }
 	    break;
 	  }
 	default:
@@ -4137,7 +4168,7 @@ array_size_for_constructor (tree val)
 {
   tree max_index, i;
   unsigned HOST_WIDE_INT cnt;
-  tree index, value;
+  tree index, value, tmp;
 
   /* This code used to attempt to handle string constants that are not
      arrays of single-bytes, but nothing else does, so there's no point in
@@ -4158,9 +4189,9 @@ array_size_for_constructor (tree val)
     return 0;
 
   /* Compute the total number of array elements.  */
-  i = size_binop (MINUS_EXPR, convert (sizetype, max_index),
-		  convert (sizetype,
-			   TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (val)))));
+  tmp = TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (val)));
+  i = size_binop (MINUS_EXPR, fold_convert (sizetype, max_index),
+		  fold_convert (sizetype, tmp));
   i = size_binop (PLUS_EXPR, i, build_int_cst (sizetype, 1));
 
   /* Multiply by the array element unit size to find number of bytes.  */
@@ -4733,16 +4764,16 @@ globalize_decl (tree decl)
 	    p = &TREE_CHAIN (t);
 	}
 
-	/* Remove weakrefs to the same target from the pending weakref
-	   list, for the same reason.  */
-	for (p = &weakref_targets; (t = *p) ; )
-	  {
-	    if (DECL_ASSEMBLER_NAME (decl)
-		== ultimate_transparent_alias_target (&TREE_VALUE (t)))
-	      *p = TREE_CHAIN (t);
-	    else
-	      p = &TREE_CHAIN (t);
-	  }
+      /* Remove weakrefs to the same target from the pending weakref
+	 list, for the same reason.  */
+      for (p = &weakref_targets; (t = *p) ; )
+	{
+	  if (DECL_ASSEMBLER_NAME (decl)
+	      == ultimate_transparent_alias_target (&TREE_VALUE (t)))
+	    *p = TREE_CHAIN (t);
+	  else
+	    p = &TREE_CHAIN (t);
+	}
 
       return;
     }
@@ -5020,7 +5051,7 @@ void
 default_assemble_visibility (tree decl, int vis)
 {
   static const char * const visibility_types[] = {
-    NULL, "internal", "hidden", "protected"
+    NULL, "protected", "hidden", "internal"
   };
 
   const char *name, *type;

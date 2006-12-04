@@ -303,11 +303,12 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
 /* Also used to CALL subroutines.  */
-int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
+int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
+			    tree);
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
-tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, bt);
+tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, gfc_typespec, bool, bool);
 
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);
@@ -317,6 +318,8 @@ void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 
 /* Return an expression which determines if a dummy parameter is present.  */
 tree gfc_conv_expr_present (gfc_symbol *);
+/* Convert a missing, dummy argument into a null or zero.  */
+void gfc_conv_missing_dummy (gfc_se *, gfc_expr *, gfc_typespec);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);
@@ -417,11 +420,14 @@ void gfc_get_backend_locus (locus *);
 extern GTY(()) tree gfc_static_ctors;
 void gfc_generate_constructors (void);
 
+/* Get the string length of an array constructor.  */
+bool get_array_ctor_strlen (gfc_constructor *, tree *);
+
 /* Generate a runtime error check.  */
-void gfc_trans_runtime_check (tree, tree, stmtblock_t *);
+void gfc_trans_runtime_check (tree, const char *, stmtblock_t *, locus *);
 
 /* Generate code for an assignment, includes scalarization.  */
-tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
+tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
 
 /* Generate code for a pointer assignment.  */
 tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
@@ -440,12 +446,12 @@ void pushlevel (int);
 tree poplevel (int, int, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
-tree builtin_function (const char *, tree, int, enum built_in_class,
-		       const char *, tree);
+tree gfc_builtin_function (tree);
 
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
+tree gfc_omp_clause_default_ctor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
 struct gimplify_omp_ctx;
@@ -501,8 +507,13 @@ extern GTY(()) tree gfor_fndecl_math_exponent8;
 extern GTY(()) tree gfor_fndecl_math_exponent10;
 extern GTY(()) tree gfor_fndecl_math_exponent16;
 
+/* BLAS functions.  */
+extern GTY(()) tree gfor_fndecl_sgemm;
+extern GTY(()) tree gfor_fndecl_dgemm;
+extern GTY(()) tree gfor_fndecl_cgemm;
+extern GTY(()) tree gfor_fndecl_zgemm;
+
 /* String functions.  */
-extern GTY(()) tree gfor_fndecl_copy_string;
 extern GTY(()) tree gfor_fndecl_compare_string;
 extern GTY(()) tree gfor_fndecl_concat_string;
 extern GTY(()) tree gfor_fndecl_string_len_trim;
@@ -668,5 +679,12 @@ void gfc_finish_interface_mapping (gfc_interface_mapping *,
 				   stmtblock_t *, stmtblock_t *);
 void gfc_apply_interface_mapping (gfc_interface_mapping *,
 				  gfc_se *, gfc_expr *);
+
+
+/* Standard error messages used in all the trans-*.c files.  */
+extern char gfc_msg_bounds[];
+extern char gfc_msg_fault[];
+extern char gfc_msg_wrong_return[];
+
 
 #endif /* GFC_TRANS_H */

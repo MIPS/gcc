@@ -21,6 +21,12 @@ details.  */
 
 #include <java-interp.h>
 
+// Set GC_DEBUG before including gc.h!
+#ifdef LIBGCJ_GC_DEBUG
+# define GC_DEBUG
+#endif
+#include <gc.h>
+
 #include <jvm.h>
 #include <gcj/cni.h>
 #include <string.h>
@@ -48,8 +54,6 @@ details.  */
 #include <java/security/CodeSource.h>
 
 using namespace gcj;
-
-typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 
 template<typename T>
 struct aligner
@@ -265,6 +269,21 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 {
   using namespace java::lang::reflect;
 
+  if (GC_base (klass) && klass->constants.data
+      && ! GC_base (klass->constants.data))
+    {
+      jsize count = klass->constants.size;
+      if (count)
+	{
+	  _Jv_word* constants
+	    = (_Jv_word*) _Jv_AllocRawObj (count * sizeof (_Jv_word));
+	  memcpy ((void*)constants,
+		  (void*)klass->constants.data,
+		  count * sizeof (_Jv_word));
+	  klass->constants.data = constants;
+	}
+    }
+
   _Jv_Constants *pool = &klass->constants;
 
   if ((pool->tags[index] & JV_CONSTANT_ResolvedFlag) != 0)
@@ -440,19 +459,11 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 	      goto end_of_method_search;
 	  }
 
-	// Finally, search superclasses. 
-	for (jclass cls = owner->getSuperclass (); cls != 0; 
-	     cls = cls->getSuperclass ())
-	  {
-	    the_method = search_method_in_class (cls, klass, method_name,
-						 method_signature);
-	    if (the_method != 0)
-	      {
-		found_class = cls;
-		break;
-	      }
-	  }
-
+	// Finally, search superclasses.
+	the_method = (search_method_in_superclasses 
+		      (owner->getSuperclass (), klass, method_name, 
+		       method_signature, &found_class));
+	
       end_of_method_search:
     
 	// FIXME: if (cls->loader != klass->loader), then we
@@ -475,16 +486,11 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 	    throw new java::lang::NoSuchMethodError (sb->toString());
 	  }
       
-	int vtable_index = -1;
-	if (pool->tags[index] != JV_CONSTANT_InterfaceMethodref)
-	  vtable_index = (jshort)the_method->index;
-
 	pool->data[index].rmethod
 	  = klass->engine->resolve_method(the_method,
 					  found_class,
 					  ((the_method->accflags
-					    & Modifier::STATIC) != 0),
-					  vtable_index);
+					    & Modifier::STATIC) != 0));
 	pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
       }
       break;
@@ -518,11 +524,12 @@ _Jv_Linker::resolve_class_ref (jclass klass, jclass *classref)
 }
 
 // Find a method declared in the cls that is referenced from klass and
-// perform access checks.
+// perform access checks if CHECK_PERMS is true.
 _Jv_Method *
 _Jv_Linker::search_method_in_class (jclass cls, jclass klass, 
 				    _Jv_Utf8Const *method_name, 
-				    _Jv_Utf8Const *method_signature)
+				    _Jv_Utf8Const *method_signature,
+				    bool check_perms)
 {
   using namespace java::lang::reflect;
 
@@ -535,7 +542,7 @@ _Jv_Linker::search_method_in_class (jclass cls, jclass klass,
 				    method_signature)))
 	continue;
 
-      if (_Jv_CheckAccess (klass, cls, method->accflags))
+      if (!check_perms || _Jv_CheckAccess (klass, cls, method->accflags))
 	return method;
       else
 	{
@@ -552,6 +559,30 @@ _Jv_Linker::search_method_in_class (jclass cls, jclass klass,
   return 0;
 }
 
+// Like search_method_in_class, but work our way up the superclass
+// chain.
+_Jv_Method *
+_Jv_Linker::search_method_in_superclasses (jclass cls, jclass klass, 
+					   _Jv_Utf8Const *method_name, 
+					   _Jv_Utf8Const *method_signature,
+					   jclass *found_class, bool check_perms)
+{
+  _Jv_Method *the_method = NULL;
+
+  for ( ; cls != 0; cls = cls->getSuperclass ())
+    {
+      the_method = search_method_in_class (cls, klass, method_name,
+					   method_signature, check_perms);
+      if (the_method != 0)
+	{
+	  if (found_class)
+	    *found_class = cls;
+	  break;
+	}
+    }
+  
+  return the_method;
+}
 
 #define INITIAL_IOFFSETS_LEN 4
 #define INITIAL_IFACES_LEN 4
@@ -772,7 +803,7 @@ _Jv_ThrowNoSuchMethodError ()
   throw new java::lang::NoSuchMethodError;
 }
 
-#ifdef USE_LIBFFI
+#if defined USE_LIBFFI && FFI_CLOSURES
 // A function whose invocation is prepared using libffi. It gets called
 // whenever a static method of a missing class is invoked. The data argument
 // holds a reference to a String denoting the missing class.
@@ -958,7 +989,7 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
   return i;
 }
 
-#ifdef USE_LIBFFI
+#if defined USE_LIBFFI && FFI_CLOSURES
 // We use a structure of this type to store the closure that
 // represents a missing method.
 struct method_closure
@@ -1011,7 +1042,7 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *)
   // of the missing class then.
   return (void *) _Jv_ThrowNoClassDefFoundError;
 }
-#endif // USE_LIBFFI
+#endif // USE_LIBFFI && FFI_CLOSURES
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
 
@@ -1060,6 +1091,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       _Jv_Method *meth = NULL;            
 
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       if (target_class == NULL)
 	throw new java::lang::NoClassDefFoundError 
@@ -1085,8 +1118,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	  // it out now.
 	  wait_for_state(target_class, JV_STATE_PREPARED);
 
-	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
-					  sym.signature);
+	  try
+	    {
+	      meth = (search_method_in_superclasses 
+		      (target_class, klass, sym.name, signature, 
+		       NULL, special == 0));
+	    }
+	  catch (::java::lang::IllegalAccessError *e)
+	    {
+	    }
 
 	  // Every class has a throwNoSuchMethodErrorIndex method that
 	  // it inherits from java.lang.Object.  Find its vtable
@@ -1142,7 +1182,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	try
 	  {
 	    the_field = find_field (klass, target_class, &found_class,
-				    sym.name, sym.signature);
+				    sym.name, signature);
 	    if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	      throw new java::lang::IncompatibleClassChangeError;
 	    else
@@ -1169,7 +1209,10 @@ _Jv_Linker::link_symbol_table (jclass klass)
         _Jv_FindClassNoException (sym.class_name, klass->loader);
 
       _Jv_Method *meth = NULL;            
+
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       // ??? Setting this pointer to null will at least get us a
       // NullPointerException
@@ -1177,7 +1220,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 
       // If the target class is missing we prepare a function call
       // that throws a NoClassDefFoundError and store the address of
-      // that newly prepare method in the atable. The user can run
+      // that newly prepared method in the atable. The user can run
       // code in classes where the missing class is part of the
       // execution environment as long as it is never referenced.
       if (target_class == NULL)
@@ -1203,8 +1246,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	      throw new VerifyError(sb->toString());
 	    }
 
-	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
-					  sym.signature);
+	  try
+	    {
+	      meth = (search_method_in_superclasses 
+		      (target_class, klass, sym.name, signature, 
+		       NULL, special == 0));
+	    }
+	  catch (::java::lang::IllegalAccessError *e)
+	    {
+	    }
 
 	  if (meth != NULL)
 	    {
@@ -1234,7 +1284,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	wait_for_state(target_class, JV_STATE_PREPARED);
 	jclass found_class;
 	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
-					   sym.name, sym.signature);
+					   sym.name, signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  klass->atable->addresses[index] = the_field->u.addr;
 	else
@@ -1254,14 +1304,17 @@ _Jv_Linker::link_symbol_table (jclass klass)
        ++index)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
+
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       jclass cls;
       int i;
 
       wait_for_state(target_class, JV_STATE_LOADED);
       bool found = _Jv_getInterfaceMethod (target_class, cls, i,
-					   sym.name, sym.signature);
+					   sym.name, signature);
 
       if (found)
 	{
@@ -1511,6 +1564,8 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
   else
     instance_size = java::lang::Object::class$.size();
 
+  klass->engine->allocate_field_initializers (klass); 
+
   for (int i = 0; i < klass->field_count; i++)
     {
       int field_size;
@@ -1523,7 +1578,6 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
 	  // It is safe to resolve the field here, since it's a
 	  // primitive class, which does not cause loading to happen.
 	  resolve_field (field, klass->loader);
-
 	  field_size = field->type->size ();
 	  field_align = get_alignment_from_class (field->type);
 	}
@@ -1612,21 +1666,6 @@ _Jv_Linker::ensure_class_linked (jclass klass)
 		resolve_pool_entry (klass, index, true);
 	    }
 	}
-
-#if 0  // Should be redundant now
-      // If superclass looks like a constant pool entry,
-      // resolve it now.
-      if ((uaddr) klass->superclass < (uaddr) pool->size)
-	klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
-
-      // Likewise for interfaces.
-      for (int i = 0; i < klass->interface_count; i++)
-	{
-	  if ((uaddr) klass->interfaces[i] < (uaddr) pool->size)
-	    klass->interfaces[i]
-	      = pool->data[(uaddr) klass->interfaces[i]].clazz;
-	}
-#endif
 
       // Resolve the remaining constant pool entries.
       for (int index = 1; index < pool->size; ++index)
@@ -1893,6 +1932,21 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
   java::lang::Thread *save = klass->thread;
   klass->thread = self;
 
+  // Allocate memory for static fields and constants.
+  if (GC_base (klass) && klass->fields && ! GC_base (klass->fields))
+    {
+      jsize count = klass->field_count;
+      if (count)
+	{
+	  _Jv_Field* fields 
+	    = (_Jv_Field*) _Jv_AllocRawObj (count * sizeof (_Jv_Field));
+	  memcpy ((void*)fields,
+		  (void*)klass->fields,
+		  count * sizeof (_Jv_Field));
+	  klass->fields = fields;
+	}
+    }
+      
   // Print some debugging info if requested.  Interpreted classes are
   // handled in defineclass, so we only need to handle the two
   // pre-compiled cases here.

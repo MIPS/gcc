@@ -93,6 +93,7 @@ gfc_free_statement (gfc_code * p)
     {
     case EXEC_NOP:
     case EXEC_ASSIGN:
+    case EXEC_INIT_ASSIGN:
     case EXEC_GOTO:
     case EXEC_CYCLE:
     case EXEC_RETURN:
@@ -112,6 +113,7 @@ gfc_free_statement (gfc_code * p)
       break;
 
     case EXEC_CALL:
+    case EXEC_ASSIGN_CALL:
       gfc_free_actual_arglist (p->ext.actual);
       break;
 

@@ -84,7 +84,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    a diagonal matrix in the matrix formulation.
  
    Each segment is described by a chain of segment_info structures.  Each
-   segment_info structure describes the extents of a single varible within
+   segment_info structure describes the extents of a single variable within
    the segment.  This list is maintained in the order the elements are
    positioned withing the segment.  If two elements have the same starting
    offset the smaller will come first.  If they also have the same size their
@@ -219,7 +219,7 @@ add_segments (segment_info *list, segment_info *v)
 /* Construct mangled common block name from symbol name.  */
 
 static tree
-gfc_sym_mangled_common_id (const char  *name)
+gfc_sym_mangled_common_id (const char *name)
 {
   int has_underscore;
   char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
@@ -848,7 +848,7 @@ align_segment (unsigned HOST_WIDE_INT * palign)
 	    {
 	      /* Aligning this field would misalign a previous field.  */
 	      gfc_error ("The equivalence set for variable '%s' "
-			 "declared at %L violates alignment requirents",
+			 "declared at %L violates alignment requirements",
 			 s->sym->name, &s->sym->declared_at);
 	    }
 	  offset += this_offset;
@@ -962,6 +962,13 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
       current_offset += s->length;
     }
 
+  if (common_segment == NULL)
+    {
+      gfc_error ("COMMON '%s' at %L does not exist",
+		 common->name, &common->where);
+      return;
+    }
+
   if (common_segment->offset != 0)
     {
       gfc_warning ("COMMON '%s' at %L requires %d bytes of padding at start",
@@ -1047,19 +1054,25 @@ gfc_trans_common (gfc_namespace *ns)
   if (ns->blank_common.head != NULL)
     {
       c = gfc_get_common_head ();
+
       /* We've lost the real location, so use the location of the
 	 enclosing procedure.  */
-      c->where = ns->proc_name->declared_at;
+      if (ns->proc_name != NULL)
+	c->where = ns->proc_name->declared_at;
+      else
+	c->where = ns->blank_common.head->common_head->where;
+
       strcpy (c->name, BLANK_COMMON_NAME);
       translate_common (c, ns->blank_common.head);
     }
- 
+
   /* Translate all named common blocks.  */
   gfc_traverse_symtree (ns->common_root, named_common);
 
-  /* Commit the newly created symbols for common blocks.  */
-  gfc_commit_symbols ();
-
   /* Translate local equivalence.  */
   finish_equivalences (ns);
+
+  /* Commit the newly created symbols for common blocks and module
+     equivalences.  */
+  gfc_commit_symbols ();
 }

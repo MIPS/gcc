@@ -120,6 +120,7 @@ static void declare_inline_vars (tree, tree);
 static void remap_save_expr (tree *, void *, int *);
 static void add_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
+static tree copy_result_decl_to_var (tree, copy_body_data *);
 static tree copy_decl_no_change (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
 
@@ -590,6 +591,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  if (n)
 	    {
 	      tree new;
+	      tree old;
 	      /* If we happen to get an ADDR_EXPR in n->value, strip
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
@@ -598,13 +600,17 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	         does other useful transformations, try that first, though.  */
 	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
 	      new = unshare_expr ((tree)n->value);
+	      old = *tp;
 	      *tp = fold_indirect_ref_1 (type, new);
 	      if (! *tp)
 	        {
 		  if (TREE_CODE (new) == ADDR_EXPR)
 		    *tp = TREE_OPERAND (new, 0);
 	          else
-	            *tp = build1 (INDIRECT_REF, type, new);
+		    {
+	              *tp = build1 (INDIRECT_REF, type, new);
+		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		    }
 		}
 	      *walk_subtrees = 0;
 	      return NULL;
@@ -654,7 +660,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
-	  recompute_tree_invariant_for_addr_expr (*tp);
+	  /* Handle the case where we substituted an INDIRECT_REF
+	     into the operand of the ADDR_EXPR.  */
+	  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == INDIRECT_REF)
+	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	  else
+	    recompute_tree_invariant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
     }
@@ -694,6 +705,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
       if (stmt)
 	{
 	  tree call, decl;
+
+	  /* With return slot optimization we can end up with
+	     non-gimple (foo *)&this->m, fix that here.  */
+	  if (TREE_CODE (stmt) == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
+	      && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0)))
+	    gimplify_stmt (&stmt);
+
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 	  call = get_call_expr_in (stmt);
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
@@ -719,14 +738,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 		    {
 		      edge = cgraph_edge (node, orig_stmt);
 		      gcc_assert (edge);
-		      edge->call_stmt = stmt;
+		      cgraph_set_call_stmt (edge, stmt);
 		    }
 		  /* FALLTHRU */
 
 		case CB_CGE_MOVE:
 		  edge = cgraph_edge (id->dst_node, orig_stmt);
 		  if (edge)
-		    edge->call_stmt = stmt;
+		    cgraph_set_call_stmt (edge, stmt);
 		  break;
 
 		default:
@@ -893,7 +912,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
       *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
       new_cfun->cfg = NULL;
       new_cfun->decl = new_fndecl = copy_node (callee_fndecl);
-      new_cfun->ib_boundaries_block = (varray_type) 0;
+      new_cfun->ib_boundaries_block = NULL;
       DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
       push_cfun (new_cfun);
       init_empty_tree_cfg ();
@@ -1072,6 +1091,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       if (rhs == error_mark_node)
 	return;
 
+      STRIP_USELESS_TYPE_CONVERSION (rhs);
+
       /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	 keep our trees in gimple form.  */
       init_stmt = build2 (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
@@ -1241,7 +1262,7 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 
   gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
-  var = copy_decl_to_var (result, id);
+  var = copy_result_decl_to_var (result, id);
 
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
   DECL_STRUCT_FUNCTION (caller)->unexpanded_var_list
@@ -1252,11 +1273,18 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
      not be visible to the user.  */
   TREE_NO_WARNING (var) = 1;
 
+  declare_inline_vars (id->block, var);
+
   /* Build the use expr.  If the return type of the function was
      promoted, convert it back to the expected type.  */
   use = var;
   if (!lang_hooks.types_compatible_p (TREE_TYPE (var), caller_type))
     use = fold_convert (caller_type, var);
+    
+  STRIP_USELESS_TYPE_CONVERSION (use);
+
+  if (DECL_BY_REFERENCE (result))
+    var = build_fold_addr_expr (var);
 
  done:
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
@@ -1603,7 +1631,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case PHI_NODE:
     case WITH_SIZE_EXPR:
     case OMP_CLAUSE:
-    case OMP_RETURN_EXPR:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -1671,9 +1700,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MULT_EXPR:
 
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
 
     case NEGATE_EXPR:
     case FLOAT_EXPR:
@@ -1736,8 +1762,19 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case REDUC_PLUS_EXPR:
     case WIDEN_SUM_EXPR:
     case DOT_PROD_EXPR: 
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_SAT_EXPR:
 
     case WIDEN_MULT_EXPR:
+
+    case VEC_EXTRACT_EVEN_EXPR:
+    case VEC_EXTRACT_ODD_EXPR:
+    case VEC_INTERLEAVE_HIGH_EXPR:
+    case VEC_INTERLEAVE_LOW_EXPR:
 
     case RESX_EXPR:
       *count += 1;
@@ -1901,9 +1938,9 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   edge e;
   block_stmt_iterator bsi, stmt_bsi;
   bool successfully_inlined = FALSE;
+  bool purge_dead_abnormal_edges;
   tree t_step;
   tree var;
-  tree decl;
 
   /* See what we've got.  */
   id = (copy_body_data *) data;
@@ -1996,30 +2033,36 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 #endif
 
   /* We will be inlining this callee.  */
-
   id->eh_region = lookup_stmt_eh_region (stmt);
 
   /* Split the block holding the CALL_EXPR.  */
-
   e = split_block (bb, stmt);
   bb = e->src;
   return_block = e->dest;
   remove_edge (e);
 
-  /* split_block splits before the statement, work around this by moving
-     the call into the first half_bb.  Not pretty, but seems easier than
-     doing the CFG manipulation by hand when the CALL_EXPR is in the last
-     statement in BB.  */
+  /* split_block splits after the statement; work around this by
+     moving the call into the second block manually.  Not pretty,
+     but seems easier than doing the CFG manipulation by hand
+     when the CALL_EXPR is in the last statement of BB.  */
   stmt_bsi = bsi_last (bb);
+  bsi_remove (&stmt_bsi, false);
+
+  /* If the CALL_EXPR was in the last statement of BB, it may have
+     been the source of abnormal edges.  In this case, schedule
+     the removal of dead abnormal edges.  */
   bsi = bsi_start (return_block);
-  if (!bsi_end_p (bsi))
-    bsi_move_before (&stmt_bsi, &bsi);
+  if (bsi_end_p (bsi))
+    {
+      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+      purge_dead_abnormal_edges = true;
+    }
   else
     {
-      tree stmt = bsi_stmt (stmt_bsi);
-      bsi_remove (&stmt_bsi, false);
-      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      purge_dead_abnormal_edges = false;
     }
+
   stmt_bsi = bsi_start (return_block);
 
   /* Build a block containing code to initialize the arguments, the
@@ -2072,6 +2115,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
       if (CALL_EXPR_RETURN_SLOT_OPT (t))
 	{
 	  return_slot_addr = build_fold_addr_expr (modify_dest);
+	  STRIP_USELESS_TYPE_CONVERSION (return_slot_addr);
 	  modify_dest = NULL;
 	}
     }
@@ -2079,11 +2123,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
     modify_dest = NULL;
 
   /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, return_slot_addr,
-			          modify_dest, &use_retvar);
-  /* Do this only if declare_return_variable created a new one.  */
-  if (decl && !return_slot_addr && decl != modify_dest)
-    declare_inline_vars (id->block, decl);
+  declare_return_variable (id, return_slot_addr,
+			   modify_dest, &use_retvar);
 
   /* This is it.  Duplicate the callee body.  Assume callee is
      pre-gimplified.  Note that we must not alter the caller
@@ -2121,9 +2162,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
        tsi_delink() will leave the iterator in a sane state.  */
     bsi_remove (&stmt_bsi, true);
 
-  bsi_next (&bsi);
-  if (bsi_end_p (bsi))
-    tree_purge_dead_eh_edges (return_block);
+  if (purge_dead_abnormal_edges)
+    tree_purge_dead_abnormal_call_edges (return_block);
 
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
@@ -2139,8 +2179,6 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   /* Update callgraph if needed.  */
   cgraph_remove_node (cg_edge->callee);
 
-  /* Declare the 'auto' variables added with this inlined body.  */
-  record_vars (BLOCK_VARS (id->block));
   id->block = NULL_TREE;
   successfully_inlined = TRUE;
 
@@ -2532,7 +2570,13 @@ declare_inline_vars (tree block, tree vars)
 {
   tree t;
   for (t = vars; t; t = TREE_CHAIN (t))
-    DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+    {
+      DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+      gcc_assert (!TREE_STATIC (t) && !TREE_ASM_WRITTEN (t));
+      cfun->unexpanded_var_list =
+	tree_cons (NULL_TREE, t,
+		   cfun->unexpanded_var_list);
+    }
 
   if (block)
     BLOCK_VARS (block) = chainon (BLOCK_VARS (block), vars);
@@ -2601,6 +2645,34 @@ copy_decl_to_var (tree decl, copy_body_data *id)
 
   return copy_decl_for_dup_finish (id, decl, copy);
 }
+
+/* Like copy_decl_to_var, but create a return slot object instead of a
+   pointer variable for return by invisible reference.  */
+
+static tree
+copy_result_decl_to_var (tree decl, copy_body_data *id)
+{
+  tree copy, type;
+
+  gcc_assert (TREE_CODE (decl) == PARM_DECL
+	      || TREE_CODE (decl) == RESULT_DECL);
+
+  type = TREE_TYPE (decl);
+  if (DECL_BY_REFERENCE (decl))
+    type = TREE_TYPE (type);
+
+  copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
+  TREE_READONLY (copy) = TREE_READONLY (decl);
+  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
+  if (!DECL_BY_REFERENCE (decl))
+    {
+      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (decl);
+    }
+
+  return copy_decl_for_dup_finish (id, decl, copy);
+}
+
 
 static tree
 copy_decl_no_change (tree decl, copy_body_data *id)
@@ -2719,14 +2791,10 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   /* Generate a new name for the new version. */
   if (!update_clones)
-    DECL_NAME (new_decl) = create_tmp_var_name (NULL);
-  /* Create a new SYMBOL_REF rtx for the new name. */
-  if (DECL_RTL (old_decl) != NULL)
     {
-      SET_DECL_RTL (new_decl, copy_rtx (DECL_RTL (old_decl)));
-      XEXP (DECL_RTL (new_decl), 0) =
-	gen_rtx_SYMBOL_REF (GET_MODE (XEXP (DECL_RTL (old_decl), 0)),
-			    IDENTIFIER_POINTER (DECL_NAME (new_decl)));
+      DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
+      SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
+      SET_DECL_RTL (new_decl, NULL_RTX);
     }
 
   /* Prepare the data structures for the tree copy.  */

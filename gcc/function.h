@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define GCC_FUNCTION_H
 
 #include "tree.h"
+#include "hashtab.h"
 
 struct var_refs_queue GTY(())
 {
@@ -158,6 +159,24 @@ struct expr_status GTY(())
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
+struct gimple_df;
+struct temp_slot;
+typedef struct temp_slot *temp_slot_p;
+
+DEF_VEC_P(temp_slot_p);
+DEF_VEC_ALLOC_P(temp_slot_p,gc);
+
+enum function_frequency {
+  /* This function most likely won't be executed at all.
+     (set only when profile feedback is available).  */
+  FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+  /* The default value.  */
+  FUNCTION_FREQUENCY_NORMAL,
+  /* Optimize this function hard
+     (set only when profile feedback is available).  */
+  FUNCTION_FREQUENCY_HOT
+};
+
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
 
@@ -170,7 +189,11 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
-  bool after_inlining;
+  /* SSA and dataflow information.  */
+  struct gimple_df *gimple_df;
+
+  /* The loops in this function.  */
+  struct loops * GTY((skip)) x_current_loops;
 
   /* For function.c.  */
 
@@ -265,23 +288,17 @@ struct function GTY(())
   rtx x_parm_birth_insn;
 
   /* List of all used temporaries allocated, by level.  */
-  struct varray_head_tag * GTY((param_is (struct temp_slot))) x_used_temp_slots;
+  VEC(temp_slot_p,gc) *x_used_temp_slots;
 
   /* List of available temp slots.  */
   struct temp_slot *x_avail_temp_slots;
-
-  /* Current nesting level for temporaries.  */
-  int x_temp_slot_level;
 
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
   struct var_refs_queue *fixup_var_refs_queue;
 
-  /* For integrate.c.  */
-  int inlinable;
-  int no_debugging_symbols;
-  rtvec original_arg_vector;
-  tree original_decl_initial;
+  /* Current nesting level for temporaries.  */
+  int x_temp_slot_level;
 
   /* Highest label number in current function.  */
   int inl_max_label_num;
@@ -300,36 +317,24 @@ struct function GTY(())
 
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
+
   /* The largest alignment of slot allocated on the stack.  */
   unsigned int stack_alignment_needed;
+
   /* Preferred alignment of the end of stack frame.  */
   unsigned int preferred_stack_boundary;
-  /* Set when the call to function itself has been emit.  */
-  bool recursive_call_emit;
-  /* Set when the tail call has been produced.  */
-  bool tail_call_emit;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
+
+  /* Used types hash table.  */
+  htab_t GTY ((param_is (union tree_node))) used_types_hash;
 
   /* For reorg.  */
 
   /* If some insns can be deferred to the delay slots of the epilogue, the
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
-
-  /* How commonly executed the function is.  Initialized during branch
-     probabilities pass.  */
-  enum function_frequency {
-    /* This function most likely won't be executed at all.
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
-    /* The default value.  */
-    FUNCTION_FREQUENCY_NORMAL,
-    /* Optimize this function hard
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_HOT
-  } function_frequency;
 
   /* Maximal number of entities in the single jumptable.  Used to estimate
      final flowgraph size.  */
@@ -342,7 +347,7 @@ struct function GTY(())
   location_t function_end_locus;
 
   /* Array mapping insn uids to blocks.  */
-  struct varray_head_tag *ib_boundaries_block;
+  VEC(tree,gc) *ib_boundaries_block;
 
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
@@ -444,6 +449,18 @@ struct function GTY(())
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
 
+  unsigned int after_inlining : 1;
+
+  /* Set when the call to function itself has been emit.  */
+  unsigned int recursive_call_emit : 1;
+
+  /* Set when the tail call has been produced.  */
+  unsigned int tail_call_emit : 1;
+
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  ENUM_BITFIELD (function_frequency) function_frequency : 2;
+
   /* Number of units of general registers that need saving in stdarg
      function.  What unit is depends on the backend, either it is number
      of bytes, or it can be number of registers.  */
@@ -509,6 +526,7 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define current_loops (cfun->x_current_loops)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
@@ -565,5 +583,7 @@ extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 			       tree, bool);
 extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, bool);
+
+extern void used_types_insert (tree);
 
 #endif  /* GCC_FUNCTION_H */

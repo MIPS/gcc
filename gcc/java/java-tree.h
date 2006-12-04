@@ -1,6 +1,6 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -78,7 +78,7 @@ struct JCF;
    2: CLASS_PARSED_P (in RECORD_TYPE).
    3: CLASS_FROM_SOURCE_P (in RECORD_TYPE).
    4: CLASS_P (in RECORD_TYPE).
-   5: CLASS_FROM_CURRENTLY_COMPILED_SOURCE_P (in RECORD_TYPE)
+   5: CLASS_FROM_CURRENTLY_COMPILED_P (in RECORD_TYPE)
    6: CLASS_BEING_LAIDOUT (in RECORD_TYPE)
 
    Usage of DECL_LANG_FLAG_?:
@@ -208,6 +208,9 @@ extern int flag_check_references;
    initialization optimization should be performed.  */
 extern int flag_optimize_sci;
 
+/* Generate instances of Class at runtime.  */
+extern int flag_indirect_classes;
+
 /* When nonzero, use offset tables for virtual method calls
    in order to improve binary compatibility. */
 extern int flag_indirect_dispatch;
@@ -269,6 +272,12 @@ typedef struct CPool constant_pool;
 extern GTY(()) tree java_lang_cloneable_identifier_node;
 extern GTY(()) tree java_io_serializable_identifier_node;
 extern GTY(()) tree gcj_abi_version;
+
+/* The decl for the .constants field of an instance of Class.  */
+extern GTY(()) tree constants_field_decl_node;
+
+/* The decl for the .data field of an instance of Class.  */
+extern GTY(()) tree constants_data_field_decl_node;
 
 enum java_tree_index
 {
@@ -1212,7 +1221,6 @@ extern void set_java_signature (tree, tree);
 extern tree build_static_field_ref (tree);
 extern tree build_address_of (tree);
 extern tree find_local_variable (int index, tree type, int pc);
-extern void update_aliases (tree decl, int index, int pc);
 extern tree find_stack_slot (int index, tree type);
 extern tree build_prim_array_type (tree, HOST_WIDE_INT);
 extern tree build_java_array_type (tree, HOST_WIDE_INT);
@@ -1232,14 +1240,16 @@ extern tree check_for_builtin (tree, tree);
 extern void initialize_builtins (void);
 
 extern tree lookup_name (tree);
-extern tree build_known_method_ref (tree, tree, tree, tree, tree);
+extern void maybe_rewrite_invocation (tree *, tree *, tree *, tree *);
+extern tree build_known_method_ref (tree, tree, tree, tree, tree, tree);
 extern tree build_class_init (tree, tree);
 extern int attach_init_test_initialization_flags (void **, void *);
-extern tree build_invokevirtual (tree, tree);
+extern tree build_invokevirtual (tree, tree, tree);
 extern tree build_invokeinterface (tree, tree);
 extern tree build_jni_stub (tree);
 extern tree invoke_build_dtable (int, tree);
 extern tree build_field_ref (tree, tree, tree);
+extern tree java_modify_addr_for_volatile (tree);
 extern void pushdecl_force_head (tree);
 extern tree build_java_binop (enum tree_code, tree, tree, tree);
 extern tree build_java_soft_divmod (enum tree_code, tree, tree, tree);
@@ -1348,6 +1358,7 @@ extern void java_debug_context (void);
 extern void safe_layout_class (tree);
 
 extern tree get_boehm_type_descriptor (tree);
+extern bool uses_jv_markobj_p (tree);
 extern bool class_has_finalize_method (tree);
 extern void java_check_methods (tree);
 extern void init_jcf_parse (void);
@@ -1382,7 +1393,7 @@ extern void register_exception_range(struct eh_range *, int, int);
 extern void finish_method (tree);
 extern void java_expand_body (tree);
 
-extern int get_symbol_table_index (tree, tree *);
+extern int get_symbol_table_index (tree, tree, tree *);
 
 extern tree make_catch_class_record (tree, tree);
 extern tree emit_catch_table (tree);
@@ -1390,9 +1401,6 @@ extern tree emit_catch_table (tree);
 extern void gen_indirect_dispatch_tables (tree type);
 extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
-
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 

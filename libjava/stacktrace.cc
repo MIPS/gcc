@@ -1,6 +1,6 @@
 // stacktrace.cc - Functions for unwinding & inspecting the call stack.
 
-/* Copyright (C) 2005  Free Software Foundation
+/* Copyright (C) 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,24 +9,24 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 
 #include <jvm.h>
 #include <gcj/cni.h>
 #include <java-interp.h>
 #include <java-stack.h>
 
-#ifdef HAVE_DLFCN_H
-#include <dlfcn.h>
-#endif
-
 #include <stdio.h>
 
+#include <java/lang/Boolean.h>
 #include <java/lang/Class.h>
 #include <java/lang/Long.h>
+#include <java/security/AccessController.h>
 #include <java/util/ArrayList.h>
-#include <java/util/IdentityHashMap.h>
+#include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/java/lang/MainThread.h>
 #include <gnu/gcj/runtime/NameFinder.h>
+#include <gnu/gcj/runtime/StringBuffer.h>
 
 #include <sysdep/backtrace.h>
 #include <sysdep/descriptor.h>
@@ -40,7 +40,7 @@ using namespace gnu::gcj::runtime;
 // NOTE: Currently this Map contradicts class GC for native classes. This map
 // (and the "new class stack") will need to use WeakReferences in order to 
 // enable native class GC.
-static java::util::IdentityHashMap *ncodeMap;
+java::util::IdentityHashMap *_Jv_StackTrace::ncodeMap;
 
 // Check the "class stack" for any classes initialized since we were last 
 // called, and add them to ncodeMap.
@@ -57,18 +57,15 @@ _Jv_StackTrace::UpdateNCodeMap ()
   while ((klass = _Jv_PopClass ()))
     {
       //printf ("got %s\n", klass->name->data);
-#ifdef INTERPRETER
-      JvAssert (! _Jv_IsInterpretedClass (klass));
-#endif
-      for (int i=0; i < klass->method_count; i++)
-        {
+      for (int i = 0; i < klass->method_count; i++)
+	{
 	  _Jv_Method *method = &klass->methods[i];
 	  void *ncode = method->ncode;
 	  // Add non-abstract methods to ncodeMap.
 	  if (ncode)
 	    {
 	      ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
-	      ncodeMap->put ((java::lang::Object *)ncode, klass);
+	      ncodeMap->put ((java::lang::Object *) ncode, klass);
 	    }
 	}
     }
@@ -83,12 +80,16 @@ _Jv_StackTrace::ClassForFrame (_Jv_StackFrame *frame)
 {
   JvAssert (frame->type == frame_native);
   jclass klass = NULL;
-  // use _Unwind_FindEnclosingFunction to find start of method
-  //void *entryPoint = _Unwind_FindEnclosingFunction (ip);
 
   // look it up in ncodeMap
   if (frame->start_ip)
-    klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+    {
+      klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+
+      // Exclude interpreted classes
+      if (klass != NULL && _Jv_IsInterpretedClass (klass))
+	klass = NULL;
+    }
 
   return klass;
 }
@@ -117,7 +118,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  void *interp_run = (void *) &_Jv_InterpMethod::run;
+  void *interp_run = NULL;
+  
+  if (::gnu::classpath::jdwp::Jdwp::isDebugging)
+  	interp_run = (void *) &_Jv_InterpMethod::run_debug;
+  else
+    interp_run = (void *) &_Jv_InterpMethod::run;
+  	
   if (func_addr == UNWRAP_FUNCTION_DESCRIPTOR (interp_run))
     {
       state->frames[pos].type = frame_interpreter;
@@ -128,12 +135,24 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   else
 #endif
     {
+#ifdef HAVE_GETIPINFO
+      _Unwind_Ptr ip;
+      int ip_before_insn = 0;
+      ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+
+      // If the unwinder gave us a 'return' address, roll it back a little
+      // to ensure we get the correct line number for the call itself.
+      if (! ip_before_insn)
+	--ip;
+#endif
       state->frames[pos].type = frame_native;
+#ifdef HAVE_GETIPINFO
+      state->frames[pos].ip = (void *) ip;
+#else
       state->frames[pos].ip = (void *) _Unwind_GetIP (context);
+#endif
       state->frames[pos].start_ip = func_addr;
     }
-
-  //printf ("unwind ip: %p\n", _Unwind_GetIP (context));
 
   _Unwind_Reason_Code result = _URC_NO_REASON;
   if (state->trace_function != NULL)
@@ -152,13 +171,7 @@ _Jv_StackTrace::GetStackTrace(void)
   _Jv_UnwindState state (trace_size);
   state.frames = (_Jv_StackFrame *) &frames;
 
-#ifdef SJLJ_EXCEPTIONS
-  // The Unwind interface doesn't work with the SJLJ exception model.
-  // Fall back to a platform-specific unwinder.
-  fallback_backtrace (&state);
-#else /* SJLJ_EXCEPTIONS */  
   _Unwind_Backtrace (UnwindTraceFn, &state);
-#endif /* SJLJ_EXCEPTIONS */
   
   // Copy the trace and return it.
   int traceSize = sizeof (_Jv_StackTrace) + 
@@ -181,50 +194,59 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
       _Jv_InterpClass *interp_class = 
 	 (_Jv_InterpClass *) interp_meth->defining_class->aux_info;
       *sourceFileName = interp_class->source_file_name;
-      *lineNum = interp_meth->get_source_line(frame->interp.pc);
+      // The interpreter advances the PC before executing an instruction,
+      // so roll-back 1 byte to ensure the line number is accurate.
+      *lineNum = interp_meth->get_source_line(frame->interp.pc - 1);
       return;
     }
 #endif
-  // Use dladdr() to determine in which binary the address IP resides.
-#if defined (HAVE_DLFCN_H) && defined (HAVE_DLADDR)
-  Dl_info info;
+
+  // Use _Jv_platform_dladdr() to determine in which binary the address IP
+  // resides.
+  _Jv_AddrInfo info;
   jstring binaryName = NULL;
   const char *argv0 = _Jv_GetSafeArg(0);
 
   void *ip = frame->ip;
   _Unwind_Ptr offset = 0;
 
-  if (dladdr (ip, &info))
+  if (_Jv_platform_dladdr (ip, &info))
     {
-      if (info.dli_fname)
-	binaryName = JvNewStringUTF (info.dli_fname);
+      if (info.file_name)
+	binaryName = JvNewStringUTF (info.file_name);
       else
         return;
 
-      if (*methodName == NULL && info.dli_sname)
-	*methodName = JvNewStringUTF (info.dli_sname);
+      if (*methodName == NULL && info.sym_name)
+	*methodName = JvNewStringUTF (info.sym_name);
 
       // addr2line expects relative addresses for shared libraries.
-      if (strcmp (info.dli_fname, argv0) == 0)
+      if (strcmp (info.file_name, argv0) == 0)
         offset = (_Unwind_Ptr) ip;
       else
-        offset = (_Unwind_Ptr) ip - (_Unwind_Ptr) info.dli_fbase;
+        offset = (_Unwind_Ptr) ip - (_Unwind_Ptr) info.base;
 
-      //printf ("linenum ip: %p\n", ip);
-      //printf ("%s: 0x%x\n", info.dli_fname, offset);
-      //offset -= sizeof(void *);
-      
+#ifndef HAVE_GETIPINFO
       // The unwinder gives us the return address. In order to get the right
       // line number for the stack trace, roll it back a little.
       offset -= 1;
+#endif
 
-      // printf ("%s: 0x%x\n", info.dli_fname, offset);
-      
       finder->lookup (binaryName, (jlong) offset);
       *sourceFileName = finder->getSourceFile();
       *lineNum = finder->getLineNum();
+      if (*lineNum == -1 && NameFinder::showRaw())
+        {
+          gnu::gcj::runtime::StringBuffer *t =
+            new gnu::gcj::runtime::StringBuffer(binaryName);
+          t->append ((jchar)' ');
+          t->append ((jchar)'[');
+          // + 1 to compensate for the - 1 adjustment above;
+          t->append (Long::toHexString (offset + 1));
+          t->append ((jchar)']');
+          *sourceFileName = t->toString();
+        }
     }
-#endif
 }
 
 // Look up class and method info for the given stack frame, setting 
@@ -243,7 +265,8 @@ _Jv_StackTrace::FillInFrameInfo (_Jv_StackFrame *frame)
 	// Find method in class
 	for (int j = 0; j < klass->method_count; j++)
 	  {
-	    if (klass->methods[j].ncode == frame->start_ip)
+	    void *wncode = UNWRAP_FUNCTION_DESCRIPTOR (klass->methods[j].ncode);
+	    if (wncode == frame->start_ip)
 	      {
 		meth = &klass->methods[j];
 		break;
@@ -272,7 +295,7 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
 {
   ArrayList *list = new ArrayList ();
 
-#ifdef SJLJ_EXCEPTIONS
+#if defined (SJLJ_EXCEPTIONS) && ! defined (WIN32)
   // We can't use the nCodeMap without unwinder support. Instead,
   // fake the method name by giving the IP in hex - better than nothing.  
   jstring hex = JvNewStringUTF ("0x");
@@ -291,7 +314,7 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
       list->add (element);
     }
 
-#else /* SJLJ_EXCEPTIONS */
+#else /* SJLJ_EXCEPTIONS && !WIN32 */
 
   //JvSynchronized (ncodeMap);
   UpdateNCodeMap ();
@@ -359,7 +382,7 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
     }
   
   finder->close();
-#endif /* SJLJ_EXCEPTIONS */
+#endif /* SJLJ_EXCEPTIONS && !WIN32 */
 
   JArray<Object *> *array = JvNewObjectArray (list->size (), 
     &StackTraceElement::class$, NULL);
@@ -418,7 +441,6 @@ void
 _Jv_StackTrace::GetCallerInfo (jclass checkClass, jclass *caller_class,
   _Jv_Method **caller_meth)
 {
-#ifndef SJLJ_EXCEPTIONS
   int trace_size = 20;
   _Jv_StackFrame frames[trace_size];
   _Jv_UnwindState state (trace_size);
@@ -442,9 +464,6 @@ _Jv_StackTrace::GetCallerInfo (jclass checkClass, jclass *caller_class,
     *caller_class = trace_data.foundClass;
   if (caller_meth)
     *caller_meth = trace_data.foundMeth;
-#else
-  return;
-#endif
 }
 
 // Return a java array containing the Java classes on the stack above CHECKCLASS.
@@ -538,4 +557,76 @@ _Jv_StackTrace::GetFirstNonSystemClassLoader ()
     return (ClassLoader *) state.trace_data;
   
   return NULL;
+}
+
+struct AccessControlTraceData
+{
+  jint length;
+  jboolean privileged;
+};
+
+_Unwind_Reason_Code
+_Jv_StackTrace::accesscontrol_trace_fn (_Jv_UnwindState *state)
+{
+  AccessControlTraceData *trace_data = (AccessControlTraceData *)
+    state->trace_data;
+  _Jv_StackFrame *frame = &state->frames[state->pos];
+  FillInFrameInfo (frame);
+
+  if (!(frame->klass && frame->meth))
+    return _URC_NO_REASON;
+
+  trace_data->length++;
+
+  // If the previous frame was a call to doPrivileged, then this is
+  // the last frame we look at.
+  if (trace_data->privileged)
+    return _URC_NORMAL_STOP;
+  
+  if (frame->klass == &::java::security::AccessController::class$
+      && strcmp (frame->meth->name->chars(), "doPrivileged") == 0)
+    trace_data->privileged = true;
+
+  return _URC_NO_REASON;
+}
+
+jobjectArray
+_Jv_StackTrace::GetAccessControlStack (void)
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  AccessControlTraceData trace_data;
+  trace_data.length = 0;
+  trace_data.privileged = false;
+  
+  state.trace_function = accesscontrol_trace_fn;
+  state.trace_data = (void *) &trace_data;
+
+  UpdateNCodeMap();
+  _Unwind_Backtrace (UnwindTraceFn, &state);
+
+  JArray<jclass> *classes = (JArray<jclass> *)
+    _Jv_NewObjectArray (trace_data.length, &::java::lang::Class::class$, NULL);
+  jclass *c = elements (classes);
+
+  for (int i = 0, j = 0; i < state.pos; i++)
+    {
+      _Jv_StackFrame *frame = &state.frames[i];
+      if (!frame->klass || !frame->meth)
+	continue;
+      c[j] = frame->klass;
+      j++;
+    }
+
+  jobjectArray result =
+    (jobjectArray) _Jv_NewObjectArray (2, &::java::lang::Object::class$,
+					 NULL);
+  jobject *r = elements (result);
+  r[0] = (jobject) classes;
+  r[1] = (jobject) new Boolean (trace_data.privileged);
+  
+  return result;
 }

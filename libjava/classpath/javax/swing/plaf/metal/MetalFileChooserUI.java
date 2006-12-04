@@ -42,6 +42,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
@@ -52,12 +53,13 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.text.NumberFormat;
-
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-
 import java.io.File;
+import java.sql.Date;
+import java.text.DateFormat;
+import java.text.NumberFormat;
+import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractListModel;
@@ -79,7 +81,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
-import javax.swing.JViewport;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
@@ -93,12 +94,6 @@ import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.basic.BasicFileChooserUI;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-
-import java.sql.Date;
-
-import java.text.DateFormat;
-
-import java.util.List;
 
 
 /**
@@ -309,8 +304,9 @@ public class MetalFileChooserUI
             
           if (file == null)
             setFileName(null);
-          else
-            setFileName(file.getName());
+          else if (file.isFile() || filechooser.getFileSelectionMode() 
+		   != JFileChooser.FILES_ONLY)
+	    setFileName(file.getName());
           int index = -1;
           index = getModel().indexOf(file);
           if (index >= 0)
@@ -350,7 +346,7 @@ public class MetalFileChooserUI
           setDirectorySelected(false);
           File currentDirectory = filechooser.getCurrentDirectory();
           setDirectory(currentDirectory);
-          boolean hasParent = (currentDirectory.getParentFile() != null);
+          boolean hasParent = currentDirectory.getParentFile() != null;
           getChangeToParentDirectoryAction().setEnabled(hasParent);
         }
       
@@ -573,10 +569,17 @@ public class MetalFileChooserUI
     extends DefaultListCellRenderer
   {
     /**
+     * This is the icon that is displayed in the combobox. This wraps
+     * the standard icon and adds indendation.
+     */
+    private IndentIcon indentIcon;
+
+    /**
      * Creates a new renderer.
      */
     public DirectoryComboBoxRenderer(JFileChooser fc)
-    { 
+    {
+      indentIcon = new IndentIcon();
     }
     
     /**
@@ -592,28 +595,83 @@ public class MetalFileChooserUI
      * @return The list cell renderer.
      */
     public Component getListCellRendererComponent(JList list, Object value,
-        int index, boolean isSelected, boolean cellHasFocus)
+                                                  int index,
+                                                  boolean isSelected,
+                                                  boolean cellHasFocus)
     {
-      FileView fileView = getFileView(getFileChooser());
+      super.getListCellRendererComponent(list, value, index, isSelected,
+                                         cellHasFocus);
       File file = (File) value;
-      setIcon(fileView.getIcon(file));
-      setText(fileView.getName(file));
-      
-      if (isSelected)
-        {
-          setBackground(list.getSelectionBackground());
-          setForeground(list.getSelectionForeground());
-        }
-      else
-        {
-          setBackground(list.getBackground());
-          setForeground(list.getForeground());
-        }
+      setText(getFileChooser().getName(file));
 
-      setEnabled(list.isEnabled());
-      setFont(list.getFont());
+      // Install indented icon.
+      Icon icon = getFileChooser().getIcon(file);
+      indentIcon.setIcon(icon);
+      int depth = directoryModel.getDepth(index);
+      indentIcon.setDepth(depth);
+      setIcon(indentIcon);
+
       return this;
     }
+  }
+
+  /**
+   * An icon that wraps another icon and adds indentation.
+   */
+  class IndentIcon
+    implements Icon
+  {
+
+    /**
+     * The indentation level.
+     */
+    private static final int INDENT = 10;
+
+    /**
+     * The wrapped icon.
+     */
+    private Icon icon;
+
+    /**
+     * The current depth.
+     */
+    private int depth;
+
+    /**
+     * Sets the icon to be wrapped.
+     *
+     * @param i the icon
+     */
+    void setIcon(Icon i)
+    {
+      icon = i;
+    }
+
+    /**
+     * Sets the indentation depth.
+     *
+     * @param d the depth to set
+     */
+    void setDepth(int d)
+    {
+      depth = d;
+    }
+
+    public int getIconHeight()
+    {
+      return icon.getIconHeight();
+    }
+
+    public int getIconWidth()
+    {
+      return icon.getIconWidth() + depth * INDENT;
+    }
+
+    public void paintIcon(Component c, Graphics g, int x, int y)
+    {
+      icon.paintIcon(c, g, x + depth * INDENT, y);
+    }
+      
   }
 
   /**
@@ -648,15 +706,15 @@ public class MetalFileChooserUI
       FileView v = getFileView(getFileChooser());
       File f = (File) value;
       if (f != null)
-	{
-	  setText(v.getName(f));
-	  setIcon(v.getIcon(f));
-	}
+        {
+          setText(v.getName(f));
+          setIcon(v.getIcon(f));
+        }
       else
-	{
-	  setText("");
-	  setIcon(null);
-	}
+        {
+          setText("");
+          setIcon(null);
+        }
       setOpaque(true);
       if (isSelected)
         {
@@ -962,10 +1020,12 @@ public class MetalFileChooserUI
         {
           String text = editField.getText();
           if (text != null && text != "" && !text.equals(fc.getName(editFile)))
-              if (editFile.renameTo
-                  (fc.getFileSystemView().createFileObject
-                   (fc.getCurrentDirectory(), text)))
-                  rescanCurrentDirectory(fc);
+	    {
+	      File f = fc.getFileSystemView().
+		createFileObject(fc.getCurrentDirectory(), text);
+              if ( editFile.renameTo(f) )
+                rescanCurrentDirectory(fc);
+	    }
           list.remove(editField);
         }
       startEditing = false;
@@ -989,17 +1049,8 @@ public class MetalFileChooserUI
        */
       public void actionPerformed(ActionEvent e)
       {
-        if (e.getActionCommand().equals("notify-field-accept"))
+	if (editField != null)
           completeEditing();
-        else if (editField != null)
-          {
-            list.remove(editField);
-            startEditing = false;
-            editFile = null;
-            lastSelected = null;
-            editField = null;
-            list.repaint();
-          }
       }
     }
   }
@@ -1018,7 +1069,7 @@ public class MetalFileChooserUI
     JFileChooser fc;
 
     /** The last selected file. */
-    Object lastSelected = null;
+    Object lastSelected;
     
     /** 
      * Stores the current file that is being edited.
@@ -1032,10 +1083,8 @@ public class MetalFileChooserUI
     /**
      * Creates a new listener.
      * 
-     * @param table
-     *          the directory/file table
-     * @param fc
-     *          the JFileChooser
+     * @param table the directory/file table
+     * @param fc the JFileChooser
      */
     public TableClickListener(JTable table, JFileChooser fc)
     {
@@ -1051,8 +1100,7 @@ public class MetalFileChooserUI
     /**
      * Receives notification of a mouse click event.
      * 
-     * @param e
-     *          the event.
+     * @param e the event.
      */
     public void mouseClicked(MouseEvent e)
     {
@@ -1111,7 +1159,7 @@ public class MetalFileChooserUI
           lastSelected = selVal;
           if (f.isFile())
             setFileName(path.substring(path.lastIndexOf("/") + 1));
-          else if (fc.getFileSelectionMode() == JFileChooser.DIRECTORIES_ONLY)
+          else if (fc.getFileSelectionMode() != JFileChooser.FILES_ONLY)
             setFileName(path);
         }
       fileTable.repaint();
@@ -1156,10 +1204,9 @@ public class MetalFileChooserUI
         {
           String text = editField.getText();
           if (text != null && text != "" && !text.equals(fc.getName(editFile)))
-              if (editFile.renameTo
-                  (fc.getFileSystemView().createFileObject
-                   (fc.getCurrentDirectory(), text)))
-                  rescanCurrentDirectory(fc);
+              if (editFile.renameTo(fc.getFileSystemView().createFileObject(
+                  fc.getCurrentDirectory(), text)))
+                rescanCurrentDirectory(fc);
           table.remove(editField);
         }
       startEditing = false;
@@ -1182,16 +1229,8 @@ public class MetalFileChooserUI
        */
       public void actionPerformed(ActionEvent e)
       {
-        if (e.getActionCommand().equals("notify-field-accept"))
+	if (editField != null)
           completeEditing();
-        else if (editField != null)
-          {
-            table.remove(editField);
-            startEditing = false;
-            editFile = null;
-            editField = null;
-            table.repaint();
-          }
       }
     }
     
@@ -1636,8 +1675,7 @@ public class MetalFileChooserUI
   /**
    * Formats bytes into the appropriate size.
    * 
-   * @param bytes -
-   *          the number of bytes to convert
+   * @param bytes the number of bytes to convert
    * @return a string representation of the size
    */
   private String formatSize(long bytes)
@@ -1838,7 +1876,7 @@ public class MetalFileChooserUI
   /**
    * Updates the current directory.
    * 
-   * @param the file chooser to update.
+   * @param fc  the file chooser to update.
    */
   public void rescanCurrentDirectory(JFileChooser fc)
   {
@@ -1966,7 +2004,8 @@ public class MetalFileChooserUI
      * 
      * @param component  the component.
      */
-    public void removeLayoutComponent(Component component) {
+    public void removeLayoutComponent(Component component) 
+    {
       // do nothing
     }
   }
@@ -2072,7 +2111,8 @@ public class MetalFileChooserUI
      * 
      * @param component  the component.
      */
-    public void removeLayoutComponent(Component component) {
+    public void removeLayoutComponent(Component component) 
+    {
       // do nothing
     }
   }

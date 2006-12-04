@@ -388,15 +388,13 @@ coverage_counter_alloc (unsigned counter, unsigned num)
 
   if (!tree_ctr_tables[counter])
     {
-      /* Generate and save a copy of this so it can be shared.  */
-      /* We don't know the size yet; make it big enough that nobody
-	 will make any clever transformation on it.  */
+      /* Generate and save a copy of this so it can be shared.  Leave
+	 the index type unspecified for now; it will be set after all
+	 functions have been compiled.  */
       char buf[20];
       tree gcov_type_node = get_gcov_type ();
-      tree domain_tree
-        = build_index_type (build_int_cst (NULL_TREE, 1000)); /* replaced later */
       tree gcov_type_array_type
-        = build_array_type (gcov_type_node, domain_tree);
+        = build_array_type (gcov_type_node, NULL_TREE);
       tree_ctr_tables[counter]
         = build_decl (VAR_DECL, NULL_TREE, gcov_type_array_type);
       TREE_STATIC (tree_ctr_tables[counter]) = 1;
@@ -416,18 +414,13 @@ tree
 tree_coverage_counter_ref (unsigned counter, unsigned no)
 {
   tree gcov_type_node = get_gcov_type ();
-  tree domain_type = TYPE_DOMAIN (TREE_TYPE (tree_ctr_tables[counter]));
 
   gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
   return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
-		 fold_convert (domain_type,
-			       build_int_cst (NULL_TREE, no)),
-		 TYPE_MIN_VALUE (domain_type),
-		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (gcov_type_node),
-			     size_int (TYPE_ALIGN_UNIT (gcov_type_node))));
+		 build_int_cst (NULL_TREE, no), NULL, NULL);
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current
@@ -440,7 +433,7 @@ coverage_checksum_string (unsigned chksum, const char *string)
   char *dup = NULL;
 
   /* Look for everything that looks if it were produced by
-     get_file_function_name_long and zero out the second part
+     get_file_function_name and zero out the second part
      that may result from flag_random_seed.  This is not critical
      as the checksums are used only for sanity checking.  */
   for (i = 0; string[i]; i++)
@@ -457,30 +450,31 @@ coverage_checksum_string (unsigned chksum, const char *string)
        to be no better chance then walk all possible offsets looking
        for magicnuber.  */
       if (offset)
-        for (;string[offset]; offset++)
-        for (i = i + offset; string[i]; i++)
-          if (string[i]=='_')
-            {
-              int y;
+	{
+	  for (i = i + offset; string[i]; i++)
+	    if (string[i]=='_')
+	      {
+		int y;
 
-              for (y = 1; y < 9; y++)
-                if (!(string[i + y] >= '0' && string[i + y] <= '9')
-                    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
-                  break;
-              if (y != 9 || string[i + 9] != '_')
-                continue;
-              for (y = 10; y < 18; y++)
-                if (!(string[i + y] >= '0' && string[i + y] <= '9')
-                    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
-                  break;
-              if (y != 18)
-                continue;
-              if (!dup)
-                string = dup = xstrdup (string);
-              for (y = 10; y < 18; y++)
-                dup[i + y] = '0';
-            }
-        break;
+		for (y = 1; y < 9; y++)
+		  if (!(string[i + y] >= '0' && string[i + y] <= '9')
+		      && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+		    break;
+		if (y != 9 || string[i + 9] != '_')
+		  continue;
+		for (y = 10; y < 18; y++)
+		  if (!(string[i + y] >= '0' && string[i + y] <= '9')
+		      && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+		    break;
+		if (y != 18)
+		  continue;
+		if (!dup)
+		  string = dup = xstrdup (string);
+		for (y = 10; y < 18; y++)
+		  dup[i + y] = '0';
+	      }
+	  break;
+	}
     }
 
   chksum = crc32_string (chksum, string);
@@ -608,7 +602,7 @@ build_fn_info_type (unsigned int counters)
 
   array_type = build_int_cst (NULL_TREE, counters - 1);
   array_type = build_index_type (array_type);
-  array_type = build_array_type (unsigned_type_node, array_type);
+  array_type = build_array_type (get_gcov_unsigned_t (), array_type);
 
   /* counters */
   field = build_decl (FIELD_DECL, NULL_TREE, array_type);
@@ -646,7 +640,7 @@ build_fn_info_value (const struct function_list *function, tree type)
   for (ix = 0; ix != GCOV_COUNTERS; ix++)
     if (prg_ctr_mask & (1 << ix))
       {
-	tree counters = build_int_cstu (unsigned_type_node,
+	tree counters = build_int_cstu (get_gcov_unsigned_t (),
 					function->n_ctrs[ix]);
 
 	array_value = tree_cons (NULL_TREE, counters, array_value);
@@ -686,7 +680,7 @@ build_ctr_info_type (void)
   /* merge */
   gcov_merge_fn_type =
     build_function_type_list (void_type_node,
-			      gcov_ptr_type, unsigned_type_node,
+			      gcov_ptr_type, get_gcov_unsigned_t (),
 			      NULL_TREE);
   field = build_decl (FIELD_DECL, NULL_TREE,
 		      build_pointer_type (gcov_merge_fn_type));
@@ -720,7 +714,7 @@ build_ctr_info_value (unsigned int counter, tree type)
     {
       tree array_type;
 
-      array_type = build_int_cstu (unsigned_type_node,
+      array_type = build_int_cstu (get_gcov_unsigned_t (),
 				   prg_n_ctrs[counter] - 1);
       array_type = build_index_type (array_type);
       array_type = build_array_type (TREE_TYPE (TREE_TYPE (fields)),
@@ -849,11 +843,11 @@ build_gcov_info (void)
     fn_info_value = null_pointer_node;
 
   /* number of functions */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
   value = tree_cons (field,
-		     build_int_cstu (unsigned_type_node, n_fns),
+		     build_int_cstu (get_gcov_unsigned_t (), n_fns),
 		     value);
 
   /* fn_info table */
@@ -863,11 +857,11 @@ build_gcov_info (void)
   value = tree_cons (field, fn_info_value, value);
 
   /* counter_mask */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
   value = tree_cons (field,
-		     build_int_cstu (unsigned_type_node, prg_ctr_mask),
+		     build_int_cstu (get_gcov_unsigned_t (), prg_ctr_mask),
 		     value);
 
   /* counters */

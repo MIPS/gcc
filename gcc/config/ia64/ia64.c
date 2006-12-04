@@ -54,6 +54,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "intl.h"
 #include "debug.h"
+#include "params.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -814,7 +815,30 @@ ia64_legitimate_constant_p (rtx x)
 
     case CONST:
     case SYMBOL_REF:
-      return tls_symbolic_operand_type (x) == 0;
+      /* ??? Short term workaround for PR 28490.  We must make the code here
+	 match the code in ia64_expand_move and move_operand, even though they
+	 are both technically wrong.  */
+      if (tls_symbolic_operand_type (x) == 0)
+	{
+	  HOST_WIDE_INT addend = 0;
+	  rtx op = x;
+
+	  if (GET_CODE (op) == CONST
+	      && GET_CODE (XEXP (op, 0)) == PLUS
+	      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
+	    {
+	      addend = INTVAL (XEXP (XEXP (op, 0), 1));
+	      op = XEXP (XEXP (op, 0), 0);
+	    }
+
+          if (any_offset_symbol_operand (op, GET_MODE (op))
+              || function_operand (op, GET_MODE (op)))
+            return true;
+	  if (aligned_offset_symbol_operand (op, GET_MODE (op)))
+	    return (addend & 0x3fff) == 0;
+	  return false;
+	}
+      return false;
 
     case CONST_VECTOR:
       {
@@ -4655,11 +4679,13 @@ ia64_print_operand (FILE * file, rtx x, int code)
 	    int pred_val = INTVAL (XEXP (x, 0));
 
 	    /* Guess top and bottom 10% statically predicted.  */
-	    if (pred_val < REG_BR_PROB_BASE / 50)
+	    if (pred_val < REG_BR_PROB_BASE / 50
+		&& br_prob_note_reliable_p (x))
 	      which = ".spnt";
 	    else if (pred_val < REG_BR_PROB_BASE / 2)
 	      which = ".dpnt";
-	    else if (pred_val < REG_BR_PROB_BASE / 100 * 98)
+	    else if (pred_val < REG_BR_PROB_BASE / 100 * 98
+		     || !br_prob_note_reliable_p (x))
 	      which = ".dptk";
 	    else
 	      which = ".sptk";
@@ -8306,7 +8332,7 @@ ia64_ld_address_bypass_p (rtx producer, rtx consumer)
   if (GET_CODE (mem) == UNSPEC && XVECLEN (mem, 0) > 0)
     mem = XVECEXP (mem, 0, 0);
   else if (GET_CODE (mem) == IF_THEN_ELSE)
-    /* ??? Is this bypass neccessary for ld.c?  */
+    /* ??? Is this bypass necessary for ld.c?  */
     {
       gcc_assert (XINT (XEXP (XEXP (mem, 0), 0), 1) == UNSPEC_LDCCLR);
       mem = XEXP (mem, 1);
@@ -9088,8 +9114,8 @@ ia64_init_builtins (void)
 					       "__float128");
 
 #define def_builtin(name, type, code)					\
-  lang_hooks.builtin_function ((name), (type), (code), BUILT_IN_MD,	\
-			       NULL, NULL_TREE)
+  add_builtin_function ((name), (type), (code), BUILT_IN_MD,	\
+		       NULL, NULL_TREE)
 
   def_builtin ("__builtin_ia64_bsp",
 	       build_function_type (ptr_type_node, void_list_node),
@@ -9246,6 +9272,22 @@ ia64_hpux_init_libfuncs (void)
 {
   ia64_init_libfuncs ();
 
+  /* The HP SI millicode division and mod functions expect DI arguments.
+     By turning them off completely we avoid using both libgcc and the
+     non-standard millicode routines and use the HP DI millicode routines
+     instead.  */
+
+  set_optab_libfunc (sdiv_optab, SImode, 0);
+  set_optab_libfunc (udiv_optab, SImode, 0);
+  set_optab_libfunc (smod_optab, SImode, 0);
+  set_optab_libfunc (umod_optab, SImode, 0);
+
+  set_optab_libfunc (sdiv_optab, DImode, "__milli_divI");
+  set_optab_libfunc (udiv_optab, DImode, "__milli_divU");
+  set_optab_libfunc (smod_optab, DImode, "__milli_remI");
+  set_optab_libfunc (umod_optab, DImode, "__milli_remU");
+
+  /* HP-UX libc has TF min/max/abs routines in it.  */
   set_optab_libfunc (smin_optab, TFmode, "_U_Qfmin");
   set_optab_libfunc (smax_optab, TFmode, "_U_Qfmax");
   set_optab_libfunc (abs_optab, TFmode, "_U_Qfabs");
@@ -9307,7 +9349,8 @@ ia64_select_rtx_section (enum machine_mode mode, rtx x,
 			 unsigned HOST_WIDE_INT align)
 {
   if (GET_MODE_SIZE (mode) > 0
-      && GET_MODE_SIZE (mode) <= ia64_section_threshold)
+      && GET_MODE_SIZE (mode) <= ia64_section_threshold
+      && !TARGET_NO_SDATA)
     return sdata_section;
   else
     return default_elf_select_rtx_section (mode, x, align);
@@ -9746,6 +9789,20 @@ ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, tree type1, tree type2)
   if (TYPE_MODE (type1) == RFmode || TYPE_MODE (type2) == RFmode)
     return N_("invalid operation on %<__fpreg%>");
   return NULL;
+}
+
+/* Implement overriding of the optimization options.  */
+void
+ia64_optimization_options (int level ATTRIBUTE_UNUSED,
+                           int size ATTRIBUTE_UNUSED)
+{
+  /* Let the scheduler form additional regions.  */
+  set_param_value ("max-sched-extend-regions-iters", 2);
+
+  /* Set the default values for cache-related parameters.  */
+  set_param_value ("simultaneous-prefetches", 6);
+  set_param_value ("l1-cache-line-size", 32);
+
 }
 
 #include "gt-ia64.h"

@@ -111,6 +111,9 @@
 /* Define to 1 if you have the <gconv.h> header file. */
 #undef HAVE_GCONV_H
 
+/* Define if _Unwind_GetIPInfo is available. */
+#undef HAVE_GETIPINFO
+
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 
@@ -655,6 +658,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define if builtin atomic operations are supported on this host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS
+
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
 
@@ -740,6 +746,10 @@
 
 /* Define if NLS translations are to be used. */
 #undef _GLIBCXX_USE_NLS
+
+/* Define if dev/random and dev/urandom are available for the random_device of
+   TR1 (Chapter 5.1). */
+#undef _GLIBCXX_USE_RANDOM_TR1
 
 /* Define if code specialized for wchar_t should be used. */
 #undef _GLIBCXX_USE_WCHAR_T

@@ -39,6 +39,8 @@ exception statement from your version. */
 package javax.swing.text.html;
 
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -68,6 +70,11 @@ import javax.swing.text.TextAction;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 import javax.swing.text.html.parser.ParserDelegator;
+
+/* Move these imports here after javax.swing.text.html to make it compile
+   with jikes.  */
+import gnu.javax.swing.text.html.parser.GnuParserDelegator;
+import gnu.javax.swing.text.html.parser.HTML_401Swing;
 
 /**
  * @author Lillian Angel (langel at redhat dot com)
@@ -298,6 +305,7 @@ public class HTMLEditorKit
                                       Element insertElement,
                                       String html, HTML.Tag parentTag,
                                       HTML.Tag addTag)
+        throws NotImplementedException
       {
         /*
         As its name implies, this protected method is used when HTML is inserted at a
@@ -545,6 +553,8 @@ public class HTMLEditorKit
                    || tag.equals(HTML.Tag.BLOCKQUOTE)
                    || tag.equals(HTML.Tag.PRE))
             view = new BlockView(element, View.Y_AXIS);
+          else if (tag.equals(HTML.Tag.IMG))
+            view = new ImageView(element);
           
           // FIXME: Uncomment when the views have been implemented
           else if (tag.equals(HTML.Tag.CONTENT))
@@ -552,20 +562,18 @@ public class HTMLEditorKit
           else if (tag == HTML.Tag.HEAD)
             view = new NullView(element);
           else if (tag.equals(HTML.Tag.TABLE))
-            view = new HTMLTableView(element);
+            view = new javax.swing.text.html.TableView(element);
           else if (tag.equals(HTML.Tag.TD))
             view = new ParagraphView(element);
+          else if (tag.equals(HTML.Tag.HR))
+            view = new HRuleView(element);
+          else if (tag.equals(HTML.Tag.BR))
+            view = new BRView(element);
 
           /*
           else if (tag.equals(HTML.Tag.MENU) || tag.equals(HTML.Tag.DIR)
                    || tag.equals(HTML.Tag.UL) || tag.equals(HTML.Tag.OL))
             view = new ListView(element);
-          else if (tag.equals(HTML.Tag.IMG))
-            view = new ImageView(element);
-          else if (tag.equals(HTML.Tag.HR))
-            view = new HRuleView(element);
-          else if (tag.equals(HTML.Tag.BR))
-            view = new BRView(element);
           else if (tag.equals(HTML.Tag.INPUT) || tag.equals(HTML.Tag.SELECT)
                    || tag.equals(HTML.Tag.TEXTAREA))
             view = new FormView(element);
@@ -883,7 +891,9 @@ public class HTMLEditorKit
   protected Parser getParser()
   {
     if (parser == null)
-      parser = new ParserDelegator();
+      {
+        parser = new GnuParserDelegator(HTML_401Swing.getInstance());
+      }
     return parser;
   }
   

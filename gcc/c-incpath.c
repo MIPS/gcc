@@ -127,6 +127,7 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 		    const char *imultilib, int cxx_stdinc)
 {
   const struct default_include *p;
+  int relocated = cpp_relocated();
   size_t len;
 
   if (iprefix && (len = cpp_GCC_INCLUDE_DIR_len) != 0)
@@ -163,6 +164,17 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 	  /* Should this directory start with the sysroot?  */
 	  if (sysroot && p->add_sysroot)
 	    str = concat (sysroot, p->fname, NULL);
+	  else if (!p->add_sysroot && relocated)
+	    {
+	      /* If the compiler is relocated, and this is a configured 
+		 prefix relative path, then we use gcc_exec_prefix instead 
+		 of the configured prefix.  */
+	      gcc_assert (strncmp (p->fname, cpp_PREFIX,
+				     cpp_PREFIX_len) == 0);
+	      str = concat (gcc_exec_prefix, p->fname
+			      + cpp_PREFIX_len, NULL);
+	      str = update_path (str, p->component);
+	    }
 	  else
 	    str = update_path (p->fname, p->component);
 
@@ -220,8 +232,8 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	  /* Remove this one if it is in the system chain.  */
 	  reason = REASON_DUP_SYS;
 	  for (tmp = system; tmp; tmp = tmp->next)
-           if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
-               && cur->construct == tmp->construct)
+	   if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
+	       && cur->construct == tmp->construct)
 	      break;
 
 	  if (!tmp)
@@ -229,16 +241,16 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	      /* Duplicate of something earlier in the same chain?  */
 	      reason = REASON_DUP;
 	      for (tmp = head; tmp != cur; tmp = tmp->next)
-               if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
-                   && cur->construct == tmp->construct)
+	       if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
+		   && cur->construct == tmp->construct)
 		  break;
 
 	      if (tmp == cur
 		  /* Last in the chain and duplicate of JOIN?  */
 		  && !(cur->next == NULL && join
 		       && INO_T_EQ (cur->ino, join->ino)
-                      && cur->dev == join->dev
-                      && cur->construct == join->construct))
+		      && cur->dev == join->dev
+		      && cur->construct == join->construct))
 		{
 		  /* Unique, so keep this directory.  */
 		  pcur = &cur->next;
@@ -384,7 +396,7 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
      include chain.  */
   add_env_var_paths ("CPATH", BRACKET);
   add_env_var_paths (lang_env_vars[idx], SYSTEM);
-  
+
   target_c_incpath.extra_pre_includes (sysroot, iprefix, stdinc);
 
   /* Finally chain on the standard directories.  */

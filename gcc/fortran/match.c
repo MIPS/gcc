@@ -1,6 +1,6 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -843,21 +843,24 @@ gfc_match_assignment (void)
 
   old_loc = gfc_current_locus;
 
-  lvalue = rvalue = NULL;
+  lvalue = NULL;
   m = gfc_match (" %v =", &lvalue);
   if (m != MATCH_YES)
-    goto cleanup;
-
-  if (lvalue->symtree->n.sym->attr.flavor == FL_PARAMETER)
     {
-      gfc_error ("Cannot assign to a PARAMETER variable at %C");
-      m = MATCH_ERROR;
-      goto cleanup;
+      gfc_current_locus = old_loc;
+      gfc_free_expr (lvalue);
+      return MATCH_NO;
     }
 
+  rvalue = NULL;
   m = gfc_match (" %e%t", &rvalue);
   if (m != MATCH_YES)
-    goto cleanup;
+    {
+      gfc_current_locus = old_loc;
+      gfc_free_expr (lvalue);
+      gfc_free_expr (rvalue);
+      return m;
+    }
 
   gfc_set_sym_referenced (lvalue->symtree->n.sym);
 
@@ -868,12 +871,6 @@ gfc_match_assignment (void)
   gfc_check_do_variable (lvalue->symtree);
 
   return MATCH_YES;
-
-cleanup:
-  gfc_current_locus = old_loc;
-  gfc_free_expr (lvalue);
-  gfc_free_expr (rvalue);
-  return m;
 }
 
 
@@ -1061,6 +1058,12 @@ gfc_match_if (gfc_statement * if_type)
   gfc_undo_symbols ();
   gfc_current_locus = old_loc;
 
+  /* m can be MATCH_NO or MATCH_ERROR, here.  For MATCH_ERROR, a mangled
+     assignment was found.  For MATCH_NO, continue to call the various
+     matchers.  */
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
   gfc_match (" if ( %e ) ", &expr);	/* Guaranteed to match */
 
   m = gfc_match_pointer_assignment ();
@@ -1083,30 +1086,43 @@ gfc_match_if (gfc_statement * if_type)
   gfc_clear_error ();
 
   match ("allocate", gfc_match_allocate, ST_ALLOCATE)
-    match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
-    match ("backspace", gfc_match_backspace, ST_BACKSPACE)
-    match ("call", gfc_match_call, ST_CALL)
-    match ("close", gfc_match_close, ST_CLOSE)
-    match ("continue", gfc_match_continue, ST_CONTINUE)
-    match ("cycle", gfc_match_cycle, ST_CYCLE)
-    match ("deallocate", gfc_match_deallocate, ST_DEALLOCATE)
-    match ("end file", gfc_match_endfile, ST_END_FILE)
-    match ("exit", gfc_match_exit, ST_EXIT)
-    match ("flush", gfc_match_flush, ST_FLUSH)
-    match ("forall", match_simple_forall, ST_FORALL)
-    match ("go to", gfc_match_goto, ST_GOTO)
-    match ("if", match_arithmetic_if, ST_ARITHMETIC_IF)
-    match ("inquire", gfc_match_inquire, ST_INQUIRE)
-    match ("nullify", gfc_match_nullify, ST_NULLIFY)
-    match ("open", gfc_match_open, ST_OPEN)
-    match ("pause", gfc_match_pause, ST_NONE)
-    match ("print", gfc_match_print, ST_WRITE)
-    match ("read", gfc_match_read, ST_READ)
-    match ("return", gfc_match_return, ST_RETURN)
-    match ("rewind", gfc_match_rewind, ST_REWIND)
-    match ("stop", gfc_match_stop, ST_STOP)
-    match ("where", match_simple_where, ST_WHERE)
-    match ("write", gfc_match_write, ST_WRITE)
+  match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
+  match ("backspace", gfc_match_backspace, ST_BACKSPACE)
+  match ("call", gfc_match_call, ST_CALL)
+  match ("close", gfc_match_close, ST_CLOSE)
+  match ("continue", gfc_match_continue, ST_CONTINUE)
+  match ("cycle", gfc_match_cycle, ST_CYCLE)
+  match ("deallocate", gfc_match_deallocate, ST_DEALLOCATE)
+  match ("end file", gfc_match_endfile, ST_END_FILE)
+  match ("exit", gfc_match_exit, ST_EXIT)
+  match ("flush", gfc_match_flush, ST_FLUSH)
+  match ("forall", match_simple_forall, ST_FORALL)
+  match ("go to", gfc_match_goto, ST_GOTO)
+  match ("if", match_arithmetic_if, ST_ARITHMETIC_IF)
+  match ("inquire", gfc_match_inquire, ST_INQUIRE)
+  match ("nullify", gfc_match_nullify, ST_NULLIFY)
+  match ("open", gfc_match_open, ST_OPEN)
+  match ("pause", gfc_match_pause, ST_NONE)
+  match ("print", gfc_match_print, ST_WRITE)
+  match ("read", gfc_match_read, ST_READ)
+  match ("return", gfc_match_return, ST_RETURN)
+  match ("rewind", gfc_match_rewind, ST_REWIND)
+  match ("stop", gfc_match_stop, ST_STOP)
+  match ("where", match_simple_where, ST_WHERE)
+  match ("write", gfc_match_write, ST_WRITE)
+
+  /* The gfc_match_assignment() above may have returned a MATCH_NO
+     where the assignment was to a named constant.  Check that 
+     special case here.  */
+  m = gfc_match_assignment ();
+  if (m == MATCH_NO)
+   {
+      gfc_error ("Cannot assign to a named constant at %C");
+      gfc_free_expr (expr);
+      gfc_undo_symbols ();
+      gfc_current_locus = old_loc;
+      return MATCH_ERROR;
+   }
 
   /* All else has failed, so give up.  See if any of the matchers has
      stored an error message of some sort.  */
@@ -1792,6 +1808,9 @@ gfc_match_allocate (void)
 	  goto cleanup;
 	}
 
+      if (tail->expr->ts.type == BT_DERIVED)
+	tail->expr->ts.derived = gfc_use_derived (tail->expr->ts.derived);
+
       if (gfc_match_char (',') != MATCH_YES)
 	break;
 
@@ -2293,7 +2312,7 @@ gfc_match_common (void)
       if (gsym->type != GSYM_UNKNOWN && gsym->type != GSYM_COMMON)
 	{
 	  gfc_error ("Symbol '%s' at %C is already an external symbol that is not COMMON",
-		     sym->name);
+		     name);
 	  goto cleanup;
 	}
 
@@ -2308,16 +2327,19 @@ gfc_match_common (void)
 
       if (name[0] == '\0')
 	{
+	  if (gfc_current_ns->is_block_data)
+	    {
+	      gfc_warning ("BLOCK DATA unit cannot contain blank COMMON at %C");
+	    }
 	  t = &gfc_current_ns->blank_common;
 	  if (t->head == NULL)
 	    t->where = gfc_current_locus;
-	  head = &t->head;
 	}
       else
 	{
 	  t = gfc_get_common (name, 0);
-	  head = &t->head;
 	}
+      head = &t->head;
 
       if (*head == NULL)
 	tail = NULL;
@@ -2576,8 +2598,8 @@ gfc_match_namelist (void)
 	     these are the only errors for the next two lines.  */
 	  if (sym->as && sym->as->type == AS_ASSUMED_SIZE)
 	    {
-	      gfc_error ("Assumed size array '%s' in namelist '%s'at "
-		         "%C is not allowed.", sym->name, group_name->name);
+	      gfc_error ("Assumed size array '%s' in namelist '%s' at "
+		         "%C is not allowed", sym->name, group_name->name);
 	      gfc_error_check ();
 	    }
 
@@ -2796,7 +2818,11 @@ cleanup:
 
 /* Check that a statement function is not recursive. This is done by looking
    for the statement function symbol(sym) by looking recursively through its
-   expression(e).  If a reference to sym is found, true is returned.  */
+   expression(e).  If a reference to sym is found, true is returned.  
+   12.5.4 requires that any variable of function that is implicitly typed
+   shall have that type confirmed by any subsequent type declaration.  The
+   implicit typing is conveniently done here.  */
+
 static bool
 recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 {
@@ -2830,11 +2856,17 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	    && recursive_stmt_fcn (e->symtree->n.sym->value, sym))
 	return true;
 
+      if (e->symtree->n.sym->ts.type == BT_UNKNOWN)
+	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
+
       break;
 
     case EXPR_VARIABLE:
       if (e->symtree && sym->name == e->symtree->n.sym->name)
 	return true;
+
+      if (e->symtree->n.sym->ts.type == BT_UNKNOWN)
+	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
       break;
 
     case EXPR_OP:
@@ -3023,6 +3055,14 @@ match_case_eos (void)
 
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
+
+  /* If the case construct doesn't have a case-construct-name, we
+     should have matched the EOS.  */
+  if (!gfc_current_block ())
+    {
+      gfc_error ("Expected the name of the select case construct at %C");
+      return MATCH_ERROR;
+    }
 
   gfc_gobble_whitespace ();
 
@@ -3381,6 +3421,13 @@ syntax:
   m = MATCH_ERROR;
 
 cleanup:
+  /* Make sure that potential internal function references in the
+     mask do not get messed up.  */
+  if (iter->var
+	&& iter->var->expr_type == EXPR_VARIABLE
+	&& iter->var->symtree->n.sym->refs == 1)
+    iter->var->symtree->n.sym->attr.flavor = FL_UNKNOWN;
+
   gfc_current_locus = where;
   gfc_free_forall_iterator (iter);
   return m;
@@ -3573,9 +3620,7 @@ gfc_match_forall (gfc_statement * st)
 
   c = gfc_get_code ();
   *c = new_st;
-
-  if (gfc_match_eos () != MATCH_YES)
-    goto syntax;
+  c->loc = gfc_current_locus;
 
   gfc_clear_new_st ();
   new_st.op = EXEC_FORALL;

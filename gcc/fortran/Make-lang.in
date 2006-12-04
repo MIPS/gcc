@@ -27,7 +27,7 @@
 # foo.all.cross, foo.start.encap, foo.rest.encap,
 # foo.info
 # foo.install-common, foo.install-info, foo.install-man,
-# foo.uninstall, foo.install-info, foo.dvi, foo.html,
+# foo.uninstall, foo.install-info, foo.dvi, foo.pdf, foo.html,
 # foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
@@ -76,9 +76,6 @@ F95_OBJS = $(F95_PARSER_OBJS) \
     fortran/trans-intrinsic.o fortran/trans-io.o fortran/trans-openmp.o \
     fortran/trans-stmt.o fortran/trans-types.o
 
-# GFORTRAN uses GMP for its internal arithmetics.
-F95_LIBS = $(GMPLIBS) $(LIBS)
-
 #
 # Define the names for selecting gfortran in LANGUAGES.
 fortran: f951$(exeext)
@@ -93,7 +90,7 @@ gfortranspec.o: $(srcdir)/fortran/gfortranspec.c $(SYSTEM_H) $(TM_H) $(GCC_H) $(
 		$(INCLUDES) $(srcdir)/fortran/gfortranspec.c)
 
 # Create the compiler driver gfortran.
-GFORTRAN_D_OBJS = gcc.o gfortranspec.o version.o prefix.o intl.o
+GFORTRAN_D_OBJS = $(GCC_OBJS) gfortranspec.o version.o prefix.o intl.o
 gfortran$(exeext): $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	  $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBS)
@@ -105,9 +102,9 @@ gfortran-cross$(exeext): gfortran$(exeext)
 
 # The compiler itself is called f951.
 f951$(exeext): $(F95_OBJS) \
-		$(BACKEND) $(LIBDEPS)
+		$(BACKEND) $(LIBDEPS) attribs.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(F95_OBJS) $(BACKEND) $(F95_LIBS)
+		$(F95_OBJS) $(BACKEND) $(LIBS) attribs.o
 
 gt-fortran-trans.h    : s-gtype; @true
 #
@@ -127,7 +124,8 @@ fortran.tags: force
 
 fortran.info: doc/gfortran.info
 fortran.dvi: doc/gfortran.dvi
-fortran.html: $(htmldir)/gfortran/index.html
+fortran.pdf: doc/gfortran.pdf
+fortran.html: $(build_htmldir)/gfortran/index.html
 
 F95_MANFILES = doc/gfortran.1
 
@@ -145,6 +143,7 @@ lang_checks += check-gfortran
 # GFORTRAN documentation.
 GFORTRAN_TEXI = \
   $(srcdir)/fortran/gfortran.texi \
+  $(srcdir)/fortran/intrinsic.texi \
   $(srcdir)/fortran/invoke.texi \
   $(srcdir)/doc/include/fdl.texi \
   $(srcdir)/doc/include/gpl.texi \
@@ -162,7 +161,10 @@ doc/gfortran.info: $(GFORTRAN_TEXI)
 doc/gfortran.dvi: $(GFORTRAN_TEXI)
 	$(TEXI2DVI) -I $(srcdir)/fortran -I $(abs_docdir)/include -o $@ $<
 
-$(htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
+doc/gfortran.pdf: $(GFORTRAN_TEXI)
+	$(TEXI2PDF) -I $(srcdir)/fortran -I $(abs_docdir)/include -o $@ $<
+
+$(build_htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/fortran -o $(@D) $<
@@ -266,7 +268,7 @@ $(F95_PARSER_OBJS): fortran/gfortran.h fortran/intrinsic.h fortran/match.h \
 		fortran/parse.h \
 		$(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TM_P_H) coretypes.h \
 		$(RTL_H) $(TREE_H) $(TREE_DUMP_H) $(GGC_H) $(EXPR_H) \
-		flags.h output.h diagnostic.h errors.h function.h 
+		$(FLAGS_H) output.h $(DIAGNOSTIC_H) errors.h $(FUNCTION_H) 
 fortran/openmp.o: pointer-set.h $(TARGET_H) toplev.h
 
 GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array.h \
@@ -275,16 +277,16 @@ GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/intrinsic.h fortran/trans-array
     $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) coretypes.h $(GGC_H)
 
 fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
-  gt-fortran-f95-lang.h gtype-fortran.h cgraph.h $(TARGET_H) \
+  gt-fortran-f95-lang.h gtype-fortran.h $(CGRAPH_H) $(TARGET_H) \
   $(BUILTINS_DEF) fortran/types.def
 fortran/scanner.o: toplev.h
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \
-  cgraph.h $(TARGET_H) function.h $(FLAGS_H) $(RTL_H) tree-gimple.h \
-  tree-dump.h
+  $(CGRAPH_H) $(TARGET_H) $(FUNCTION_H) $(FLAGS_H) $(RTL_H) $(TREE_GIMPLE_H) \
+  $(TREE_DUMP_H)
 fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h \
-  real.h toplev.h $(TARGET_H)
+  $(REAL_H) toplev.h $(TARGET_H)
 fortran/trans-const.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-expr.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
 fortran/trans-stmt.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
@@ -297,4 +299,4 @@ fortran/trans-intrinsic.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
 fortran/dependency.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
 fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS) $(TARGET_H) $(RTL_H)
 fortran/resolve.o: fortran/dependency.h
-
+fortran/options.o: $(TARGET_H)

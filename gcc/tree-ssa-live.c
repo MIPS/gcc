@@ -38,6 +38,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "toplev.h"
+#include "vecprim.h"
 
 static void live_worklist (tree_live_info_p, int *, int);
 static tree_live_info_p new_tree_live_info (var_map);
@@ -735,7 +736,7 @@ calculate_live_on_entry (var_map map)
 	  var = partition_to_var (map, i);
 	  stmt = SSA_NAME_DEF_STMT (var);
 	  tmp = bb_for_stmt (stmt);
-	  d = default_def (SSA_NAME_VAR (var));
+	  d = gimple_default_def (cfun, SSA_NAME_VAR (var));
 
 	  if (bitmap_bit_p (live_entry_blocks (live, i), entry_block))
 	    {
@@ -881,7 +882,7 @@ tpa_init (var_map map)
 
   x = MAX (40, (num_partitions / 20));
   tpa->trees = VEC_alloc (tree, heap, x);
-  VARRAY_INT_INIT (tpa->first_partition, x, "first_partition");
+  tpa->first_partition = VEC_alloc (int, heap, x);
 
   return tpa;
 
@@ -898,7 +899,8 @@ tpa_remove_partition (tpa_p tpa, int tree_index, int partition_index)
   i = tpa_first_partition (tpa, tree_index);
   if (i == partition_index)
     {
-      VARRAY_INT (tpa->first_partition, tree_index) = tpa->next_partition[i];
+      VEC_replace (int, tpa->first_partition, tree_index,
+		   tpa->next_partition[i]);
     }
   else
     {
@@ -923,6 +925,7 @@ tpa_delete (tpa_p tpa)
     return;
 
   VEC_free (tree, heap, tpa->trees);
+  VEC_free (int, heap, tpa->first_partition);
   free (tpa->partition_to_tree_map);
   free (tpa->next_partition);
   free (tpa);
@@ -957,20 +960,20 @@ tpa_compact (tpa_p tpa)
       if (tpa_next_partition (tpa, first) == NO_PARTITION)
         {
 	  swap_t = VEC_index (tree, tpa->trees, last);
-	  swap_i = VARRAY_INT (tpa->first_partition, last);
+	  swap_i = VEC_index (int, tpa->first_partition, last);
 
 	  /* Update the last entry. Since it is known to only have one
 	     partition, there is nothing else to update.  */
 	  VEC_replace (tree, tpa->trees, last,
 		       VEC_index (tree, tpa->trees, x));
-	  VARRAY_INT (tpa->first_partition, last) 
-	    = VARRAY_INT (tpa->first_partition, x);
+	  VEC_replace (int, tpa->first_partition, last,
+		       VEC_index (int, tpa->first_partition, x));
 	  tpa->partition_to_tree_map[tpa_first_partition (tpa, last)] = last;
 
 	  /* Since this list is known to have more than one partition, update
 	     the list owner entries.  */
 	  VEC_replace (tree, tpa->trees, x, swap_t);
-	  VARRAY_INT (tpa->first_partition, x) = swap_i;
+	  VEC_replace (int, tpa->first_partition, x, swap_i);
 	  for (y = tpa_first_partition (tpa, x); 
 	       y != NO_PARTITION; 
 	       y = tpa_next_partition (tpa, y))
@@ -1040,16 +1043,16 @@ root_var_init (var_map map)
       ann = var_ann (t);
       if (ann->root_var_processed)
         {
-	  rv->next_partition[p] = VARRAY_INT (rv->first_partition, 
-					      VAR_ANN_ROOT_INDEX (ann));
-	  VARRAY_INT (rv->first_partition, VAR_ANN_ROOT_INDEX (ann)) = p;
+	  rv->next_partition[p] = VEC_index (int, rv->first_partition, 
+					     VAR_ANN_ROOT_INDEX (ann));
+	  VEC_replace (int, rv->first_partition, VAR_ANN_ROOT_INDEX (ann), p);
 	}
       else
         {
 	  ann->root_var_processed = 1;
 	  VAR_ANN_ROOT_INDEX (ann) = rv->num_trees++;
 	  VEC_safe_push (tree, heap, rv->trees, t);
-	  VARRAY_PUSH_INT (rv->first_partition, p);
+	  VEC_safe_push (int, heap, rv->first_partition, p);
 	}
       rv->partition_to_tree_map[p] = VAR_ANN_ROOT_INDEX (ann);
     }
@@ -1119,12 +1122,12 @@ type_var_init (var_map map)
         {
 	  tv->num_trees++;
 	  VEC_safe_push (tree, heap, tv->trees, t);
-	  VARRAY_PUSH_INT (tv->first_partition, p);
+	  VEC_safe_push (int, heap, tv->first_partition, p);
 	}
       else
         {
-	  tv->next_partition[p] = VARRAY_INT (tv->first_partition, y);
-	  VARRAY_INT (tv->first_partition, y) = p;
+	  tv->next_partition[p] = VEC_index (int, tv->first_partition, y);
+	  VEC_replace (int, tv->first_partition, y, p);
 	}
       tv->partition_to_tree_map[p] = y;
     }
@@ -1384,9 +1387,6 @@ add_conflicts_if_valid (tpa_p tpa, conflict_graph graph,
 	}
     }
 }
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* Return a conflict graph for the information contained in LIVE_INFO.  Only
    conflicts between items in the same TPA list are added.  If optional 

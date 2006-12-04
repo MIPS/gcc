@@ -47,14 +47,31 @@ struct lpt_decision
 
 struct nb_iter_bound
 {
-  tree bound;		/* The expression whose value is an upper bound on the
-			   number of executions of anything after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* A conjunction of conditions the operands of BOUND
-			   satisfy.  The additional information about the value
-			   of the bound may be derived from it.  */
+  /* The statement STMT is executed at most ...  */
+  tree stmt;
+
+  /* ... BOUND + 1 times (BOUND must be an unsigned constant).
+     The + 1 is added for the following reasons:
+
+     a) 0 would otherwise be unused, while we would need to care more about
+        overflows (as MAX + 1 is sometimes produced as the estimate on number
+	of executions of STMT).
+     b) it is consistent with the result of number_of_iterations_exit.  */
+  double_int bound;
+
+  /* True if the statement will cause the loop to be leaved the (at most) 
+     BOUND + 1-st time it is executed, that is, all the statements after it
+     are executed at most BOUND times.  */
+  bool is_exit;
+
+  /* True if the bound is "realistic" -- i.e., most likely the loop really has
+     number of iterations close to the bound.  Exact bounds (if the number of
+     iterations of a loop is a constant) and bounds derived from the size of
+     data accessed in the loop are considered realistic.  */
+  bool realistic;
+
+  /* The next bound in the list.  */
   struct nb_iter_bound *next;
-			/* The next bound in a list.  */
 };
 
 /* Structure to hold information for each natural loop.  */
@@ -87,10 +104,6 @@ struct loop
   /* Superloops of the loop.  */
   struct loop **pred;
 
-  /* The height of the loop (enclosed loop levels) within the loop
-     hierarchy tree.  */
-  int level;
-
   /* The outer (parent) loop or NULL if outermost loop.  */
   struct loop *outer;
 
@@ -113,16 +126,26 @@ struct loop
      information in this field.  */
   tree nb_iterations;
 
-  /* An INTEGER_CST estimation of the number of iterations.  NULL_TREE
-     if there is no estimation.  */
-  tree estimated_nb_iterations;
+  /* An integer estimation of the number of iterations.  Estimate_state
+     describes what is the state of the estimation.  */
+  enum
+    {
+      /* Estimate was not computed yet.  */
+      EST_NOT_COMPUTED,
+      /* Estimate was computed, but we could derive no useful bound.  */
+      EST_NOT_AVAILABLE,
+      /* Estimate is ready.  */
+      EST_AVAILABLE
+    } estimate_state;
+  double_int estimated_nb_iterations;
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
   /* If not NULL, loop has just single exit edge stored here (edges to the
-     EXIT_BLOCK_PTR do not count.  */
-  edge single_exit;
+     EXIT_BLOCK_PTR do not count.  Do not use direcly, this field should
+     only be accessed via single_exit/set_single_exit functions.  */
+  edge single_exit_;
 
   /* True when the loop does not carry data dependences, and
      consequently the iterations can be executed in any order.  False
@@ -149,13 +172,10 @@ struct loops
   /* Number of natural loops in the function.  */
   unsigned num;
 
-  /* Array of natural loop descriptors (scanning this array in reverse order
-     will find the inner loops before their enclosing outer loops).  */
-  struct loop *array;
+  /* State of loops.  */
+  int state;
 
-  /* The above array is unused in new loop infrastructure and is kept only for
-     purposes of the old loop optimizer.  Instead we store just pointers to
-     loops here.  
+  /* We store just pointers to loops here.  
      Note that a loop in this array may actually be NULL, if the loop
      has been removed and the entire loops structure has not been
      recomputed since that time.  */
@@ -164,40 +184,22 @@ struct loops
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
 
-  /* Information derived from the CFG.  */
-  struct cfg
-  {
-    /* The ordering of the basic blocks in a depth first search.  */
-    int *dfs_order;
-
-    /* The reverse completion ordering of the basic blocks found in a
-       depth first search.  */
-    int *rc_order;
-  } cfg;
-
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
-
-  /* State of loops.  */
-  int state;
 };
-
-/* The loop tree currently optimized.  */
-
-extern struct loops *current_loops;
 
 /* Loop recognition.  */
 extern int flow_loops_find (struct loops *);
 extern void flow_loops_free (struct loops *);
-extern void flow_loops_dump (const struct loops *, FILE *,
+extern void flow_loops_dump (FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
-void fix_loop_structure (struct loops *, bitmap changed_bbs);
-void mark_irreducible_loops (struct loops *);
-void mark_single_exit_loops (struct loops *);
+void fix_loop_structure (bitmap changed_bbs);
+void mark_irreducible_loops (void);
+void mark_single_exit_loops (void);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
@@ -211,13 +213,15 @@ extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
 extern bool loop_exit_edge_p (const struct loop *, edge);
-extern void mark_loop_exit_edges (struct loops *);
+extern void mark_loop_exit_edges (void);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
-extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
+extern VEC (edge, heap) *get_loop_exit_edges (const struct loop *);
+edge single_exit (const struct loop *);
+void set_single_exit (struct loop *, edge);
 extern unsigned num_loop_branches (const struct loop *);
 
 extern edge loop_preheader_edge (const struct loop *);
@@ -226,9 +230,8 @@ extern edge loop_latch_edge (const struct loop *);
 extern void add_bb_to_loop (basic_block, struct loop *);
 extern void remove_bb_from_loops (basic_block);
 
-extern void cancel_loop_tree (struct loops *, struct loop *);
+extern void cancel_loop_tree (struct loop *);
 
-extern basic_block loop_split_edge_with (edge, rtx);
 extern int fix_loop_placement (struct loop *);
 
 enum
@@ -236,10 +239,10 @@ enum
   CP_SIMPLE_PREHEADERS = 1
 };
 
-extern void create_preheaders (struct loops *, int);
-extern void force_single_succ_latches (struct loops *);
+extern void create_preheaders (int);
+extern void force_single_succ_latches (void);
 
-extern void verify_loop_structure (struct loops *);
+extern void verify_loop_structure (void);
 
 /* Loop analysis.  */
 extern bool just_once_each_iteration_p (const struct loop *, basic_block);
@@ -256,16 +259,15 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 #define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
 					   a complete peeling.  */
 
-extern struct loop * duplicate_loop (struct loops *, struct loop *,
-				     struct loop *);
-extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+extern struct loop * duplicate_loop (struct loop *, struct loop *);
+extern bool duplicate_loop_to_header_edge (struct loop *, edge, 
 					   unsigned, sbitmap, edge, edge *,
 					   unsigned *, int);
-extern struct loop *loopify (struct loops *, edge, edge,
+extern struct loop *loopify (edge, edge,
 			     basic_block, edge, edge, bool);
-struct loop * loop_version (struct loops *, struct loop *, void *,
+struct loop * loop_version (struct loop *, void *,
 			    basic_block *, bool);
-extern bool remove_path (struct loops *, edge);
+extern bool remove_path (edge);
 
 /* Induction variable analysis.  */
 
@@ -278,7 +280,7 @@ extern bool remove_path (struct loops *, edge);
 
    If first_special is true, the value in the first iteration is
      delta + mult * base
-     
+
    If extend = UNKNOWN, first_special must be false, delta 0, mult 1 and value is
      subreg_{mode} (base + i * step)
 
@@ -390,27 +392,21 @@ extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
 extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
-extern struct loops *loop_optimizer_init (unsigned);
-extern void loop_optimizer_finalize (struct loops *);
+extern void loop_optimizer_init (unsigned);
+extern void loop_optimizer_finalize (void);
 
 /* Optimization passes.  */
-extern void unswitch_loops (struct loops *);
+extern void unswitch_loops (void);
 
 enum
 {
   UAP_PEEL = 1,		/* Enables loop peeling.  */
-  UAP_UNROLL = 2,	/* Enables peeling of loops if it seems profitable.  */
-  UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
+  UAP_UNROLL = 2,	/* Enables unrolling of loops if it seems profitable.  */
+  UAP_UNROLL_ALL = 4	/* Enables unrolling of all loops.  */
 };
 
-extern void unroll_and_peel_loops (struct loops *, int);
-extern void doloop_optimize_loops (struct loops *);
-extern void move_loop_invariants (struct loops *);
-extern void record_estimate (struct loop *, tree, tree, tree);
-
-/* Old loop optimizer interface.  */
-
-/* Flags passed to loop_optimize.  */
-#define LOOP_PREFETCH 1
+extern void unroll_and_peel_loops (int);
+extern void doloop_optimize_loops (void);
+extern void move_loop_invariants (void);
 
 #endif /* GCC_CFGLOOP_H */

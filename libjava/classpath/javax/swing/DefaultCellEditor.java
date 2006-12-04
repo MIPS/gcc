@@ -171,9 +171,7 @@ public class DefaultCellEditor
     /**
      * Cancel the cell editing session. This method notifies the registered
      * cell editor listeners (including the table) that the editing has been
-     * canceled. 
-     * 
-     * @returns boolean
+     * canceled.
      */
     public void cancelCellEditing()
     {
@@ -315,7 +313,24 @@ public class DefaultCellEditor
     {
       JComboBox c = (JComboBox) editorComponent;
       return value = c.getSelectedItem();
-    }     
+    } 
+    
+    /**
+     * Returns true to indicate that the editing cell can be selected. If the
+     * check box is not editable, expands it. If it is editable, brings
+     * focus to the editor field.
+     * 
+     * @param event unused in default method
+     *
+     * @return true always
+     */
+    public boolean shouldSelectCell(EventObject event)
+    {
+      JComboBox c = (JComboBox) editorComponent;
+      if (!c.isEditable)
+        c.showPopup();
+      return true;
+    }    
   }
 
   /**

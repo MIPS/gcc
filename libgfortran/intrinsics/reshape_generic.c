@@ -1,5 +1,5 @@
 /* Generic implementation of the RESHAPE intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -37,9 +37,6 @@ Boston, MA 02110-1301, USA.  */
 typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
 typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) parray;
 
-/* The shape parameter is ignored. We can currently deduce the shape from the
-   return array.  */
-
 static void
 reshape_internal (parray *ret, parray *source, shape_type *shape,
 		  parray *pad, shape_type *order, index_type size)
@@ -73,21 +70,13 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   const char *src;
   int n;
   int dim;
-
-  if (source->dim[0].stride == 0)
-    source->dim[0].stride = 1;
-  if (shape->dim[0].stride == 0)
-    shape->dim[0].stride = 1;
-  if (pad && pad->dim[0].stride == 0)
-    pad->dim[0].stride = 1;
-  if (order && order->dim[0].stride == 0)
-    order->dim[0].stride = 1;
+  int sempty, pempty;
 
   if (ret->data == NULL)
     {
       rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
       rs = 1;
-      for (n=0; n < rdim; n++)
+      for (n = 0; n < rdim; n++)
 	{
 	  ret->dim[n].lbound = 0;
 	  rex = shape->data[n * shape->dim[0].stride];
@@ -102,8 +91,6 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   else
     {
       rdim = GFC_DESCRIPTOR_RANK (ret);
-      if (ret->dim[0].stride == 0)
-	ret->dim[0].stride = 1;
     }
 
   rsize = 1;
@@ -131,13 +118,17 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 
   sdim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
+  sempty = 0;
   for (n = 0; n < sdim; n++)
     {
       scount[n] = 0;
       sstride[n] = source->dim[n].stride;
       sextent[n] = source->dim[n].ubound + 1 - source->dim[n].lbound;
       if (sextent[n] <= 0)
-        abort ();
+	{
+	  sempty = 1;
+	  sextent[n] = 0;
+	}
 
       if (ssize == sstride[n])
         ssize *= sextent[n];
@@ -149,13 +140,18 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
     {
       pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
+      pempty = 0;
       for (n = 0; n < pdim; n++)
         {
           pcount[n] = 0;
           pstride[n] = pad->dim[n].stride;
           pextent[n] = pad->dim[n].ubound + 1 - pad->dim[n].lbound;
           if (pextent[n] <= 0)
-            abort ();
+	    {
+	      pempty = 1;
+              pextent[n] = 0;
+	    }
+
           if (psize == pstride[n])
             psize *= pextent[n];
           else
@@ -167,6 +163,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
     {
       pdim = 0;
       psize = 1;
+      pempty = 1;
       pptr = NULL;
     }
 
@@ -184,6 +181,24 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   rstride0 = rstride[0] * size;
   sstride0 = sstride[0] * size;
 
+  if (sempty && pempty)
+    abort ();
+
+  if (sempty)
+    {
+      /* Switch immediately to the pad array.  */
+      src = pptr;
+      sptr = NULL;
+      sdim = pdim;
+      for (dim = 0; dim < pdim; dim++)
+	{
+	  scount[dim] = pcount[dim];
+	  sextent[dim] = pextent[dim];
+	  sstride[dim] = pstride[dim];
+	  sstride0 = sstride[0] * size;
+	}
+    }
+
   while (rptr)
     {
       /* Select between the source and pad arrays.  */
@@ -193,6 +208,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
       src += sstride0;
       rcount[0]++;
       scount[0]++;
+
       /* Advance to the next destination element.  */
       n = 0;
       while (rcount[n] == rextent[n])
@@ -201,7 +217,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
              the next dimension.  */
           rcount[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           rptr -= rstride[n] * rextent[n] * size;
           n++;
           if (n == rdim)
@@ -215,7 +231,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
               rcount[n]++;
               rptr += rstride[n] * size;
             }
-        }
+	}
+
       /* Advance to the next source element.  */
       n = 0;
       while (scount[n] == sextent[n])
@@ -224,7 +241,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
              the next dimension.  */
           scount[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           src -= sstride[n] * sextent[n] * size;
           n++;
           if (n == sdim)

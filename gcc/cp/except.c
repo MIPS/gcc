@@ -392,11 +392,9 @@ initialize_handler_parm (tree decl, tree exp)
       init = build1 (MUST_NOT_THROW_EXPR, TREE_TYPE (init), init);
     }
 
-  /* Let `cp_finish_decl' know that this initializer is ok.  */
-  DECL_INITIAL (decl) = error_mark_node;
   decl = pushdecl (decl);
 
-  start_decl_1 (decl);
+  start_decl_1 (decl, true);
   cp_finish_decl (decl, init, /*init_const_expr_p=*/false, NULL_TREE,
 		  LOOKUP_ONLYCONVERTING|DIRECT_BIND);
 }
@@ -414,7 +412,7 @@ expand_start_catch_block (tree decl)
 
   /* Make sure this declaration is reasonable.  */
   if (decl && !complete_ptr_ref_or_void_ptr_p (TREE_TYPE (decl), NULL_TREE))
-    decl = NULL_TREE;
+    decl = error_mark_node;
 
   if (decl)
     type = prepare_eh_type (TREE_TYPE (decl));
@@ -440,13 +438,13 @@ expand_start_catch_block (tree decl)
 
   /* If there's no decl at all, then all we need to do is make sure
      to tell the runtime that we've begun handling the exception.  */
-  if (decl == NULL)
+  if (decl == NULL || decl == error_mark_node)
     finish_expr_stmt (do_begin_catch ());
 
   /* If the C++ object needs constructing, we need to do that before
      calling __cxa_begin_catch, so that std::uncaught_exception gets
      the right value during the copy constructor.  */
-  else if (flag_use_cxa_get_exception_ptr 
+  else if (flag_use_cxa_get_exception_ptr
 	   && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
     {
       exp = do_get_exception_ptr ();
@@ -460,11 +458,17 @@ expand_start_catch_block (tree decl)
   else
     {
       tree init = do_begin_catch ();
-      exp = create_temporary_var (ptr_type_node);
+      tree init_type = type;
+
+      /* Pointers are passed by values, everything else by reference.  */
+      if (!TYPE_PTR_P (type))
+	init_type = build_pointer_type (type);
+      if (init_type != TREE_TYPE (init))
+	init = build1 (NOP_EXPR, init_type, init);
+      exp = create_temporary_var (init_type);
       DECL_REGISTER (exp) = 1;
-      cp_finish_decl (exp, init, /*init_const_expr=*/false, 
+      cp_finish_decl (exp, init, /*init_const_expr=*/false,
 		      NULL_TREE, LOOKUP_ONLYCONVERTING);
-      finish_expr_stmt (build_modify_expr (exp, INIT_EXPR, init));
       initialize_handler_parm (decl, exp);
     }
 
@@ -601,7 +605,8 @@ build_throw (tree exp)
 
   if (processing_template_decl)
     {
-      current_function_returns_abnormally = 1;
+      if (cfun)
+	current_function_returns_abnormally = 1;
       return build_min (THROW_EXPR, void_type_node, exp);
     }
 
@@ -638,6 +643,7 @@ build_throw (tree exp)
   else if (exp)
     {
       tree throw_type;
+      tree temp_type;
       tree cleanup;
       tree object, ptr;
       tree tmp;
@@ -666,9 +672,17 @@ build_throw (tree exp)
 	  fn = push_throw_library_fn (fn, tmp);
 	}
 
-      /* throw expression */
-      /* First, decay it.  */
-      exp = decay_conversion (exp);
+      /* [except.throw]
+
+	 A throw-expression initializes a temporary object, the type
+	 of which is determined by removing any top-level
+	 cv-qualifiers from the static type of the operand of throw
+	 and adjusting the type from "array of T" or "function return
+	 T" to "pointer to T" or "pointer to function returning T"
+	 respectively.  */
+      temp_type = is_bitfield_expr_with_lowered_type (exp);
+      if (!temp_type)
+	temp_type = type_decays_to (TYPE_MAIN_VARIANT (TREE_TYPE (exp)));
 
       /* OK, this is kind of wacky.  The standard says that we call
 	 terminate when the exception handling mechanism, after
@@ -684,21 +698,32 @@ build_throw (tree exp)
 	 matter, since it can't throw).  */
 
       /* Allocate the space for the exception.  */
-      allocate_expr = do_allocate_exception (TREE_TYPE (exp));
+      allocate_expr = do_allocate_exception (temp_type);
       allocate_expr = get_target_expr (allocate_expr);
       ptr = TARGET_EXPR_SLOT (allocate_expr);
-      object = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (exp)), ptr);
+      object = build_nop (build_pointer_type (temp_type), ptr);
       object = build_indirect_ref (object, NULL);
 
       elided = (TREE_CODE (exp) == TARGET_EXPR);
 
       /* And initialize the exception object.  */
-      exp = build_init (object, exp, LOOKUP_ONLYCONVERTING);
-      if (exp == error_mark_node)
+      if (CLASS_TYPE_P (temp_type))
 	{
-	  error ("  in thrown expression");
-	  return error_mark_node;
+	  /* Call the copy constructor.  */
+	  exp = (build_special_member_call
+		 (object, complete_ctor_identifier,
+		  build_tree_list (NULL_TREE, exp),
+		  TREE_TYPE (object),
+		  LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING));
+	  if (exp == error_mark_node)
+	    {
+	      error ("  in thrown expression");
+	      return error_mark_node;
+	    }
 	}
+      else
+	exp = build2 (INIT_EXPR, temp_type, object,
+		      decay_conversion (exp));
 
       /* Pre-evaluate the thrown expression first, since if we allocated
 	 the space first we would have to deal with cleaning it up if
@@ -727,7 +752,7 @@ build_throw (tree exp)
       /* Wrap the initialization in a CLEANUP_POINT_EXPR so that cleanups
 	 for temporaries within the initialization are run before the one
 	 for the exception object, preserving LIFO order.  */
-      exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
+      exp = build1 (CLEANUP_POINT_EXPR, void_type_node, exp);
 
       if (elided)
 	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,

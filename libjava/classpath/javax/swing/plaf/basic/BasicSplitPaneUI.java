@@ -1,5 +1,5 @@
 /* BasicSplitPaneUI.java --
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -55,11 +55,17 @@ import java.awt.event.FocusListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
+import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
+import javax.swing.JSlider;
 import javax.swing.JSplitPane;
 import javax.swing.KeyStroke;
 import javax.swing.LookAndFeel;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.plaf.ActionMapUIResource;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.SplitPaneUI;
 import javax.swing.plaf.UIResource;
@@ -99,6 +105,16 @@ public class BasicSplitPaneUI extends SplitPaneUI
      * for components.
      */
     protected int[] sizes = new int[3];
+
+    /**
+     * Creates a new instance. This is package private because the reference
+     * implementation has no public constructor either. Still, we need to
+     * call it from BasicVerticalLayoutManager.
+     */
+    BasicHorizontalLayoutManager()
+    {
+      // Nothing to do here.
+    }
 
     /**
      * This method adds the component given to the JSplitPane. The position of
@@ -664,7 +680,9 @@ public class BasicSplitPaneUI extends SplitPaneUI
      */
     public void focusGained(FocusEvent ev)
     {
-      // FIXME: implement.
+      // repaint the divider because its background color may change due to
+      // the focus state...
+      divider.repaint();
     }
 
     /**
@@ -674,7 +692,9 @@ public class BasicSplitPaneUI extends SplitPaneUI
      */
     public void focusLost(FocusEvent ev)
     {
-      // FIXME: implement.
+      // repaint the divider because its background color may change due to
+      // the focus state...
+      divider.repaint();
     }
   }
 
@@ -1034,11 +1054,133 @@ public class BasicSplitPaneUI extends SplitPaneUI
   }
 
   /**
-   * This method installs the keyboard actions for the JSplitPane.
+   * Returns the input map for the specified condition.
+   * 
+   * @param condition  the condition.
+   * 
+   * @return The input map.
+   */
+  InputMap getInputMap(int condition) 
+  {
+    if (condition == JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+      return (InputMap) UIManager.get("SplitPane.ancestorInputMap");
+    return null;
+  }
+
+  /**
+   * Returns the action map for the {@link JSplitPane}.  All sliders share
+   * a single action map which is created the first time this method is 
+   * called, then stored in the UIDefaults table for subsequent access.
+   * 
+   * @return The shared action map.
+   */
+  ActionMap getActionMap() 
+  {
+    ActionMap map = (ActionMap) UIManager.get("SplitPane.actionMap");
+
+    if (map == null) // first time here
+      {
+        map = createActionMap();
+        if (map != null)
+          UIManager.put("SplitPane.actionMap", map);
+      }
+    return map;
+  }
+
+  /**
+   * Creates the action map shared by all {@link JSlider} instances.
+   * This method is called once by {@link #getActionMap()} when it 
+   * finds no action map in the UIDefaults table...after the map is 
+   * created, it gets added to the defaults table so that subsequent 
+   * calls to {@link #getActionMap()} will return the same shared 
+   * instance.
+   * 
+   * @return The action map.
+   */
+  ActionMap createActionMap()
+  {
+    ActionMap map = new ActionMapUIResource();
+    map.put("toggleFocus", 
+            new AbstractAction("toggleFocus") {
+              public void actionPerformed(ActionEvent event)
+              {
+                // FIXME: What to do here?
+              }
+            }
+    );
+    map.put("startResize", 
+            new AbstractAction("startResize") {
+              public void actionPerformed(ActionEvent event)
+              {
+                splitPane.requestFocus();
+              }
+            }
+    );
+    map.put("selectMax", 
+            new AbstractAction("selectMax") {
+              public void actionPerformed(ActionEvent event)
+              {
+                splitPane.setDividerLocation(1.0);
+              }
+            }
+    );
+    map.put("selectMin", 
+            new AbstractAction("selectMin") {
+              public void actionPerformed(ActionEvent event)
+              {
+                splitPane.setDividerLocation(0.0);
+              }
+            }
+    );
+    map.put("negativeIncrement", 
+            new AbstractAction("negativeIncrement") {
+              public void actionPerformed(ActionEvent event)
+              {
+                setDividerLocation(splitPane, Math.max(dividerLocation 
+                    - KEYBOARD_DIVIDER_MOVE_OFFSET, 0));
+              }
+            }
+    );
+    map.put("positiveIncrement", 
+            new AbstractAction("positiveIncrement") {
+              public void actionPerformed(ActionEvent event)
+              {
+                setDividerLocation(splitPane, dividerLocation 
+                    + KEYBOARD_DIVIDER_MOVE_OFFSET);
+              }
+            }
+    );
+    map.put("focusOutBackward",
+            new AbstractAction("focusOutBackward") {
+              public void actionPerformed(ActionEvent event)
+              {
+                // FIXME: implement this
+              }
+            }
+    );    
+    map.put("focusOutForward",
+            new AbstractAction("focusOutForward") {
+              public void actionPerformed(ActionEvent event)
+              {
+                // FIXME: implement this
+              }
+            }
+    );    
+    return map;
+  }
+
+  /**
+   * Installs any keyboard actions. The list of keys that need to be bound are
+   * listed in Basic look and feel's defaults.
    */
   protected void installKeyboardActions()
   {
-    // FIXME: implement.
+    InputMap keyMap = getInputMap(
+        JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+    SwingUtilities.replaceUIInputMap(splitPane, 
+        JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, keyMap);
+    ActionMap map = getActionMap();
+    SwingUtilities.replaceUIActionMap(splitPane, map);
   }
 
   /**
@@ -1046,7 +1188,9 @@ public class BasicSplitPaneUI extends SplitPaneUI
    */
   protected void uninstallKeyboardActions()
   {
-    // FIXME: implement.
+    SwingUtilities.replaceUIActionMap(splitPane, null);
+    SwingUtilities.replaceUIInputMap(splitPane, 
+        JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, null);
   }
 
   /**

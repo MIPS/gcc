@@ -325,49 +325,9 @@ ssa_operand_alloc (unsigned size)
 }
 
 
-/* Make sure PTR is in the correct immediate use list.  Since uses are simply
-   pointers into the stmt TREE, there is no way of telling if anyone has
-   changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
-   The contents are different, but the pointer is still the same.  This
-   routine will check to make sure PTR is in the correct list, and if it isn't
-   put it in the correct list.  We cannot simply check the previous node 
-   because all nodes in the same stmt might have be changed.  */
-
-static inline void
-correct_use_link (use_operand_p ptr, tree stmt)
-{
-  use_operand_p prev;
-  tree root;
-
-  /*  fold_stmt may have changed the stmt pointers.  */
-  if (ptr->stmt != stmt)
-    ptr->stmt = stmt;
-
-  prev = ptr->prev;
-  if (prev)
-    {
-      /* Find the root element, making sure we skip any safe iterators.  */
-      while (prev->use != NULL || prev->stmt == NULL)
-	prev = prev->prev;
-
-      /* Get the SSA_NAME of the list the node is in.  */
-      root = prev->stmt;
-
-      /* If it's the right list, simply return.  */
-      if (root == *(ptr->use))
-	return;
-    }
-
-  /* It is in the wrong list if we reach here.  */
-  delink_imm_use (ptr);
-  link_imm_use (ptr, *(ptr->use));
-}
-
 
 /* This routine makes sure that PTR is in an immediate use list, and makes
-   sure the stmt pointer is set to the current stmt.  Virtual uses do not need
-   the overhead of correct_use_link since they cannot be directly manipulated
-   like a real use can be.  (They don't exist in the TREE_OPERAND nodes.)  */
+   sure the stmt pointer is set to the current stmt.  */
 
 static inline void
 set_virtual_use_link (use_operand_p ptr, tree stmt)
@@ -412,7 +372,7 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
     } while (0)
 
 /* Initializes immediate use at USE_PTR to value VAL, and links it to the list
-   of immeditate uses.  STMT is the current statement.  */
+   of immediate uses.  STMT is the current statement.  */
 
 #define INITIALIZE_USE(USE_PTR, VAL, STMT)		\
   do							\
@@ -492,7 +452,7 @@ add_mustdef_op (tree stmt, tree op, mustdef_optype_p *last)
 }
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
-   TODO -- Given that def operands list is not neccessarily sorted, merging
+   TODO -- Given that def operands list is not necessarily sorted, merging
 	   the operands this way does not make much sense.
 	-- Make build_defs VEC of tree *.  */
 
@@ -579,9 +539,7 @@ finalize_ssa_defs (tree stmt)
 }
 
 /* Takes elements from build_uses and turns them into use operands of STMT.
-   TODO -- Given that use operands list is not neccessarily sorted, merging
-	   the operands this way does not make much sense.
-	-- Make build_uses VEC of tree *.  */
+   TODO -- Make build_uses VEC of tree *.  */
 
 static inline void
 finalize_ssa_use_ops (tree stmt)
@@ -589,45 +547,11 @@ finalize_ssa_use_ops (tree stmt)
   unsigned new_i;
   struct use_optype_d new_list;
   use_optype_p old_ops, ptr, last;
-  tree *old_base, *new_base;
 
   new_list.next = NULL;
   last = &new_list;
 
   old_ops = USE_OPS (stmt);
-
-  new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_uses))
-    {
-      new_base = (tree *) VEC_index (tree, build_uses, new_i);
-      old_base = USE_OP_PTR (old_ops)->use;
-
-      if (old_base == new_base)
-        {
-	  /* if variables are the same, reuse this node.  */
-	  MOVE_HEAD_AFTER (old_ops, last);
-	  correct_use_link (USE_OP_PTR (last), stmt);
-	  new_i++;
-	}
-      else if (old_base < new_base)
-	{
-	  /* if old is less than new, old goes to the free list.  */
-	  delink_imm_use (USE_OP_PTR (old_ops));
-	  MOVE_HEAD_TO_FREELIST (old_ops, use);
-	}
-      else
-	{
-	  /* This is a new operand.  */
-	  add_use_op (stmt, new_base, &last);
-	  new_i++;
-	}
-    }
-
-  /* If there is anything remaining in the build_uses list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_uses); new_i++)
-    add_use_op (stmt, (tree *) VEC_index (tree, build_uses, new_i), &last);
-
-  last->next = NULL;
 
   /* If there is anything in the old list, free it.  */
   if (old_ops)
@@ -637,6 +561,12 @@ finalize_ssa_use_ops (tree stmt)
       old_ops->next = free_uses;
       free_uses = old_ops;
     }
+
+  /* Now create nodes for all the new nodes.  */
+  for (new_i = 0; new_i < VEC_length (tree, build_uses); new_i++)
+    add_use_op (stmt, (tree *) VEC_index (tree, build_uses, new_i), &last);
+
+  last->next = NULL;
 
   /* Now set the stmt's operands.  */
   USE_OPS (stmt) = new_list.next;
@@ -1107,9 +1037,7 @@ append_v_must_def (tree var)
 /* REF is a tree that contains the entire pointer dereference
    expression, if available, or NULL otherwise.  ALIAS is the variable
    we are asking if REF can access.  OFFSET and SIZE come from the
-   memory access expression that generated this virtual operand.
-   FOR_CLOBBER is true is this is adding a virtual operand for a call
-   clobber.  */
+   memory access expression that generated this virtual operand.  */
 
 static bool
 access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
@@ -1118,6 +1046,17 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   bool offsetgtz = offset > 0;
   unsigned HOST_WIDE_INT uoffset = (unsigned HOST_WIDE_INT) offset;
   tree base = ref ? get_base_address (ref) : NULL;
+
+  /* If ALIAS is .GLOBAL_VAR then the memory reference REF must be
+     using a call-clobbered memory tag.  By definition, call-clobbered
+     memory tags can always touch .GLOBAL_VAR.  */
+  if (alias == gimple_global_var (cfun))
+    return true;
+
+  /* We cannot prune nonlocal aliases because they are not type
+     specific.  */
+  if (alias == gimple_nonlocal_all (cfun))
+    return true;
 
   /* If ALIAS is an SFT, it can't be touched if the offset     
      and size of the access is not overlapping with the SFT offset and
@@ -1188,14 +1127,43 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
      { return (struct foos *)&foo; }
      
      (taken from 20000623-1.c)
+
+     The docs also say/imply that access through union pointers
+     is legal (but *not* if you take the address of the union member,
+     i.e. the inverse), such that you can do
+
+     typedef union {
+       int d;
+     } U;
+
+     int rv;
+     void breakme()
+     {
+       U *rv0;
+       U *pretmp = (U*)&rv;
+       rv0 = pretmp;
+       rv0->d = 42;    
+     }
+     To implement this, we just punt on accesses through union
+     pointers entirely.
   */
   else if (ref 
 	   && flag_strict_aliasing
 	   && TREE_CODE (ref) != INDIRECT_REF
 	   && !MTAG_P (alias)
+	   && (TREE_CODE (base) != INDIRECT_REF
+	       || TREE_CODE (TREE_TYPE (base)) != UNION_TYPE)
 	   && !AGGREGATE_TYPE_P (TREE_TYPE (alias))
 	   && TREE_CODE (TREE_TYPE (alias)) != COMPLEX_TYPE
-	   && !POINTER_TYPE_P (TREE_TYPE (alias)))
+#if 0
+	   /* FIXME: PR tree-optimization/29680.  */
+	   && !var_ann (alias)->is_heapvar
+#else
+	   && !POINTER_TYPE_P (TREE_TYPE (alias))
+#endif
+	   /* When the struct has may_alias attached to it, we need not to
+	      return true.  */
+	   && get_alias_set (base))
     {
 #ifdef ACCESS_DEBUGGING
       fprintf (stderr, "Access to ");
@@ -1349,7 +1317,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		 set on it, or else we will get the wrong answer on
 		 clobbers.  */
 	      if (none_added
-		  && !updating_used_alone && aliases_computed_p
+		  && !updating_used_alone && gimple_aliases_computed_p (cfun)
 		  && TREE_CODE (var) == SYMBOL_MEMORY_TAG)
 		gcc_assert (SMT_USED_ALONE (var));
 
@@ -1584,9 +1552,10 @@ add_call_clobber_ops (tree stmt, tree callee)
 
   /* If we created .GLOBAL_VAR earlier, just use it.  See compute_may_aliases 
      for the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
-  if (global_var)
+  if (gimple_global_var (cfun))
     {
-      add_stmt_operand (&global_var, s_ann, opf_is_def);
+      tree var = gimple_global_var (cfun);
+      add_stmt_operand (&var, s_ann, opf_is_def);
       return;
     }
 
@@ -1596,7 +1565,7 @@ add_call_clobber_ops (tree stmt, tree callee)
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
     {
       tree var = referenced_var_lookup (u);
       unsigned int escape_mask = var_ann (var)->escape_mask;
@@ -1665,16 +1634,17 @@ add_call_read_ops (tree stmt, tree callee)
   /* if the function is not pure, it may reference memory.  Add
      a VUSE for .GLOBAL_VAR if it has been created.  See add_referenced_var
      for the heuristic used to decide whether to create .GLOBAL_VAR.  */
-  if (global_var)
+  if (gimple_global_var (cfun))
     {
-      add_stmt_operand (&global_var, s_ann, opf_none);
+      tree var = gimple_global_var (cfun);
+      add_stmt_operand (&var, s_ann, opf_none);
       return;
     }
   
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
 
   /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
     {
       tree var = referenced_var (u);
       tree real_var = var;
@@ -1720,8 +1690,8 @@ get_call_expr_operands (tree stmt, tree expr)
      computed.  By not bothering with virtual operands for CALL_EXPRs
      we avoid adding superfluous virtual operands, which can be a
      significant compile time sink (See PR 15855).  */
-  if (aliases_computed_p
-      && !bitmap_empty_p (call_clobbered_vars)
+  if (gimple_aliases_computed_p (cfun)
+      && !bitmap_empty_p (gimple_call_clobbered_vars (cfun))
       && !(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
@@ -1808,17 +1778,20 @@ get_asm_expr_operands (tree stmt)
 
 	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
 	   decided to group them).  */
-	if (global_var)
-	  add_stmt_operand (&global_var, s_ann, opf_is_def);
+	if (gimple_global_var (cfun))
+	  {
+            tree var = gimple_global_var (cfun);
+	    add_stmt_operand (&var, s_ann, opf_is_def);
+	  }
 	else
-	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
 	    }
 
 	/* Now clobber all addressables.  */
-	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
+	EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 
@@ -2096,11 +2069,12 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case OMP_PARALLEL:
     case OMP_SECTIONS:
     case OMP_FOR:
-    case OMP_RETURN_EXPR:
     case OMP_SINGLE:
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_CRITICAL:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       /* Expressions that make no memory references.  */
       return;
 
@@ -2561,10 +2535,13 @@ dump_immediate_uses_for (FILE *file, tree var)
 
   FOR_EACH_IMM_USE_FAST (use_p, iter, var)
     {
-      if (!is_gimple_reg (USE_FROM_PTR (use_p)))
-	print_generic_stmt (file, USE_STMT (use_p), TDF_VOPS);
+      if (use_p->stmt == NULL && use_p->use == NULL)
+        fprintf (file, "***end of stmt iterator marker***\n");
       else
-	print_generic_stmt (file, USE_STMT (use_p), TDF_SLIM);
+	if (!is_gimple_reg (USE_FROM_PTR (use_p)))
+	  print_generic_stmt (file, USE_STMT (use_p), TDF_VOPS);
+	else
+	  print_generic_stmt (file, USE_STMT (use_p), TDF_SLIM);
     }
   fprintf(file, "\n");
 }

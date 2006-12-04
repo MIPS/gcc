@@ -2647,6 +2647,11 @@ try_replace_reg (rtx from, rtx to, rtx insn)
   int success = 0;
   rtx set = single_set (insn);
 
+  /* Usually we substitute easy stuff, so we won't copy everything.
+     We however need to take care to not duplicate non-trivial CONST
+     expressions.  */
+  to = copy_rtx (to);
+
   validate_replace_src_group (from, to, insn);
   if (num_changes_pending () && apply_change_group ())
     success = 1;
@@ -2660,9 +2665,9 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  if (note != 0)
+  /* If there is already a REG_EQUAL note, update the expression in it
+     with our replacement.  */
+  if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
@@ -2689,7 +2694,7 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      We don't allow that. Remove that note. This code ought
      not to happen, because previous code ought to synthesize
      reg-reg move, but be on the safe side.  */
-  if (note && REG_P (XEXP (note, 0)))
+  if (note && REG_NOTE_KIND (note) == REG_EQUAL && REG_P (XEXP (note, 0)))
     remove_note (insn, note);
 
   return success;
@@ -3396,7 +3401,8 @@ one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
   global_const_prop_count = local_const_prop_count = 0;
   global_copy_prop_count = local_copy_prop_count = 0;
 
-  local_cprop_pass (cprop_jumps);
+  if (cprop_jumps)
+    local_cprop_pass (cprop_jumps);
 
   /* Determine implicit sets.  */
   implicit_sets = XCNEWVEC (rtx, last_basic_block);
@@ -4575,9 +4581,6 @@ one_pre_gcse_pass (int pass)
    If notes are added to an insn which references a CODE_LABEL, the
    LABEL_NUSES count is incremented.  We have to add REG_LABEL notes,
    because the following loop optimization pass requires them.  */
-
-/* ??? This is very similar to the loop.c add_label_notes function.  We
-   could probably share code here.  */
 
 /* ??? If there was a jump optimization pass after gcse and before loop,
    then we would not need to do this here, because jump would add the

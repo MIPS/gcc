@@ -1146,7 +1146,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
      (We don't count single block regions here).
 
      By default we do at most 2 iterations.
-     This can be overriden with max-sched-extend-regions-iters parameter:
+     This can be overridden with max-sched-extend-regions-iters parameter:
      0 - disable region extension,
      N > 0 - do at most N iterations.  */
   
@@ -2038,7 +2038,7 @@ can_schedule_ready_p (rtx insn)
     return 1;
 }
 
-/* Updates counter and other information.  Splitted from can_schedule_ready_p ()
+/* Updates counter and other information.  Split from can_schedule_ready_p ()
    because when we schedule insn speculatively then insn passed to
    can_schedule_ready_p () differs from the one passed to
    begin_schedule_ready ().  */
@@ -2089,7 +2089,7 @@ new_ready (rtx next, ds_t ts)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) 
                    > PARAM_VALUE (PARAM_MAX_SCHED_INSN_CONFLICT_DELAY))
-                  || RECOVERY_BLOCK (next)
+                  || IS_SPECULATION_CHECK_P (next)
 		  || !check_live (next, INSN_BB (next))
 		  || (not_ex_free = !is_exception_free (next, INSN_BB (next),
 							target_bb)))))
@@ -2752,7 +2752,7 @@ schedule_region (int rgn)
 	compute_dom_prob_ps (bb);
 
       /* Cleanup ->aux used for EDGE_TO_BIT mapping.  */
-      /* We don't need them anymore.  But we want to avoid dublication of
+      /* We don't need them anymore.  But we want to avoid duplication of
 	 aux fields in the newly created edges.  */
       FOR_EACH_BB (block)
 	{
@@ -2787,7 +2787,6 @@ schedule_region (int rgn)
       if (write_symbols != NO_DEBUG)
 	{
 	  save_line_notes (b, head, tail);
-	  rm_line_notes (head, tail);
 	}
 
       /* rm_other_notes only removes notes which are _inside_ the
@@ -2952,7 +2951,7 @@ schedule_insns (void)
 
   init_regions ();
 
-  /* EBB_HEAD is a region-scope sctructure.  But we realloc it for
+  /* EBB_HEAD is a region-scope structure.  But we realloc it for
      each region to save time/memory/something else.  */
   ebb_head = 0;
   
@@ -2996,7 +2995,7 @@ schedule_insns (void)
      liveness.  */
   for (rgn = 0; rgn < nr_regions; rgn++)    
     if (RGN_NR_BLOCKS (rgn) > 1
-	/* Or the only block of this region has been splitted.  */
+	/* Or the only block of this region has been split.  */
 	|| RGN_HAS_REAL_EBB (rgn)
 	/* New blocks (e.g. recovery blocks) should be processed
 	   as parts of large regions.  */
@@ -3044,10 +3043,6 @@ schedule_insns (void)
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
-
-  /* Delete redundant line notes.  */
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
 
   if (sched_verbose)
     {
@@ -3159,7 +3154,7 @@ add_block1 (basic_block bb, basic_block after)
       /* ebb_head[i] - VALID.  */
 
       /* Source position: ebb_head[i]
-	 Destination posistion: ebb_head[i] + 1
+	 Destination position: ebb_head[i] + 1
 	 Last position: 
 	   RGN_BLOCKS (nr_regions) - 1
 	 Number of elements to copy: (last_position) - (source_position) + 1

@@ -166,8 +166,14 @@ dump_template_argument_list (tree args, int flags)
 static void
 dump_template_parameter (tree parm, int flags)
 {
-  tree p = TREE_VALUE (parm);
-  tree a = TREE_PURPOSE (parm);
+  tree p;
+  tree a;
+
+  if (parm == error_mark_node)
+   return;
+
+  p = TREE_VALUE (parm);
+  a = TREE_PURPOSE (parm);
 
   if (TREE_CODE (p) == TYPE_DECL)
     {
@@ -880,6 +886,10 @@ dump_decl (tree t, int flags)
       dump_decl (DECL_NAME (t), flags);
       break;
 
+    case STATIC_ASSERT:
+      pp_cxx_declaration (cxx_pp, t);
+      break;
+
     case BASELINK:
       dump_decl (BASELINK_FUNCTIONS (t), flags);
       break;
@@ -1236,7 +1246,15 @@ dump_template_parms (tree info, int primary, int flags)
 
       for (ix = 0; ix != len; ix++)
 	{
-	  tree parm = TREE_VALUE (TREE_VEC_ELT (parms, ix));
+	  tree parm;
+
+          if (TREE_VEC_ELT (parms, ix) == error_mark_node)
+            {
+              pp_identifier (cxx_pp, "<template parameter error>");
+              continue;
+            }
+
+          parm = TREE_VALUE (TREE_VEC_ELT (parms, ix));
 
 	  if (ix)
 	    pp_separate_with_comma (cxx_pp);
@@ -1396,9 +1414,9 @@ dump_expr (tree t, int flags)
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);
 
-        /* Nobody is interested in seeing the guts of vcalls.  */
-        if (TREE_CODE (fn) == OBJ_TYPE_REF)
-          fn = resolve_virtual_fun_from_obj_type_ref (fn);
+	/* Nobody is interested in seeing the guts of vcalls.  */
+	if (TREE_CODE (fn) == OBJ_TYPE_REF)
+	  fn = resolve_virtual_fun_from_obj_type_ref (fn);
 
 	if (TREE_TYPE (fn) != NULL_TREE && NEXT_CODE (fn) == METHOD_TYPE)
 	  {

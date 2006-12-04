@@ -24,9 +24,7 @@ AC_DEFUN([CLASSPATH_FIND_JAVAC],
   AM_CONDITIONAL(FOUND_GCJX, test "x${user_specified_javac}" = xgcjx)
 
   if test "x${GCJ}" = x && test "x${JIKES}" = x && test "x${user_specified_javac}" != xkjc && test "x${user_specified_javac}" != xgcjx && test "x${user_specified_javac}" != xecj; then
-      # FIXME: use autoconf error function
-      echo "configure: cannot find javac, try --with-gcj, --with-jikes, --with-kjc, --with-ecj, or --with-gcjx" 1>&2
-      exit 1    
+      AC_MSG_ERROR([cannot find javac, try --with-gcj, --with-jikes, --with-kjc, --with-ecj, or --with-gcjx])
   fi
 ])
 
@@ -411,13 +409,13 @@ AC_DEFUN([REGEN_WITH_JAY],
         AC_MSG_ERROR("jay executable not found");
       fi
     else
-      JAY_DIR_PATH=$(dirname "${withval}")
+      JAY_DIR_PATH=`dirname "${withval}"`
       JAY="${withval}"
       AC_SUBST(JAY)
     fi
     JAY_SKELETON="${JAY_DIR_PATH}/skeleton"
     AC_CHECK_FILE(${JAY_SKELETON}, AC_SUBST(JAY_SKELETON),
-	AC_MSG_ERROR("Expected skeleton file in $(dirname ${withval})"))
+	AC_MSG_ERROR("Expected skeleton file in `dirname ${withval}`"))
     JAY_FOUND=yes
   ],
   [
@@ -459,4 +457,17 @@ AC_DEFUN([CLASSPATH_CHECK_ECJ],
   else
     AC_PATH_PROG(ECJ, "ecj")
   fi
+])
+
+dnl -----------------------------------------------------------
+dnl GCJ LOCAL: Calculate toolexeclibdir
+dnl -----------------------------------------------------------
+AC_DEFUN([CLASSPATH_TOOLEXECLIBDIR],
+[
+  multi_os_directory=`$CC -print-multi-os-directory`
+  case $multi_os_directory in
+    .) toolexeclibdir=${libdir} ;; # Avoid trailing /.
+    *) toolexeclibdir=${libdir}/${multi_os_directory} ;;
+  esac
+  AC_SUBST(toolexeclibdir)
 ])

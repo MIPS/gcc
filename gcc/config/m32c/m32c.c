@@ -1204,15 +1204,15 @@ static struct
   int a24_bytes;
 } pushm_info[] =
 {
-  /* These are in push order.  */
-  { FB_REGNO, 0x01, 2, 4 },
-  { SB_REGNO, 0x02, 2, 4 },
-  { A1_REGNO, 0x04, 2, 4 },
-  { A0_REGNO, 0x08, 2, 4 },
-  { R3_REGNO, 0x10, 2, 2 },
-  { R2_REGNO, 0x20, 2, 2 },
+  /* These are in reverse push (nearest-to-sp) order.  */
+  { R0_REGNO, 0x80, 2, 2 },
   { R1_REGNO, 0x40, 2, 2 },
-  { R0_REGNO, 0x80, 2, 2 }
+  { R2_REGNO, 0x20, 2, 2 },
+  { R3_REGNO, 0x10, 2, 2 },
+  { A0_REGNO, 0x08, 2, 4 },
+  { A1_REGNO, 0x04, 2, 4 },
+  { SB_REGNO, 0x02, 2, 4 },
+  { FB_REGNO, 0x01, 2, 4 }
 };
 
 #define PUSHM_N (sizeof(pushm_info)/sizeof(pushm_info[0]))
@@ -1475,6 +1475,9 @@ m32c_function_arg (CUMULATIVE_ARGS * ca,
   if (type && INTEGRAL_TYPE_P (type) && POINTER_TYPE_P (type))
     return NULL_RTX;
 
+  if (type && AGGREGATE_TYPE_P (type))
+    return NULL_RTX;
+
   switch (ca->parm_num)
     {
     case 1:
@@ -1508,12 +1511,15 @@ m32c_pass_by_reference (CUMULATIVE_ARGS * ca ATTRIBUTE_UNUSED,
 /* Implements INIT_CUMULATIVE_ARGS.  */
 void
 m32c_init_cumulative_args (CUMULATIVE_ARGS * ca,
-			   tree fntype ATTRIBUTE_UNUSED,
+			   tree fntype,
 			   rtx libname ATTRIBUTE_UNUSED,
-			   tree fndecl ATTRIBUTE_UNUSED,
+			   tree fndecl,
 			   int n_named_args ATTRIBUTE_UNUSED)
 {
-  ca->force_mem = 0;
+  if (fntype && aggregate_value_p (TREE_TYPE (fntype), fndecl))
+    ca->force_mem = 1;
+  else
+    ca->force_mem = 0;
   ca->parm_num = 1;
 }
 
@@ -1529,7 +1535,8 @@ m32c_function_arg_advance (CUMULATIVE_ARGS * ca,
 {
   if (ca->force_mem)
     ca->force_mem = 0;
-  ca->parm_num++;
+  else
+    ca->parm_num++;
 }
 
 /* Implements FUNCTION_ARG_REGNO_P.  */
@@ -2294,6 +2301,7 @@ m32c_print_operand (FILE * file, rtx x, int code)
   const char *comma;
   HOST_WIDE_INT ival;
   int unsigned_const = 0;
+  int force_sign;
 
   /* Multiplies; constants are converted to sign-extended format but
    we need unsigned, so 'u' and 'U' tell us what size unsigned we
@@ -2456,6 +2464,7 @@ m32c_print_operand (FILE * file, rtx x, int code)
     code = 0;
 
   encode_pattern (x);
+  force_sign = 0;
   for (i = 0; conversions[i].pattern; i++)
     if (conversions[i].code == code
 	&& streq (conversions[i].pattern, pattern))
@@ -2569,6 +2578,8 @@ m32c_print_operand (FILE * file, rtx x, int code)
 			  /* Integers used as addresses are unsigned.  */
 			  ival &= (TARGET_A24 ? 0xffffff : 0xffff);
 			}
+		      if (force_sign && ival >= 0)
+			fputc ('+', file);
 		      fprintf (file, HOST_WIDE_INT_PRINT_DEC, ival);
 		      break;
 		    }
@@ -2613,13 +2624,14 @@ m32c_print_operand (FILE * file, rtx x, int code)
 	      /* Signed displacements off symbols need to have signs
 		 blended cleanly.  */
 	      if (conversions[i].format[j] == '+'
-		  && (!code || code == 'I')
+		  && (!code || code == 'D' || code == 'd')
 		  && ISDIGIT (conversions[i].format[j + 1])
-		  && GET_CODE (patternr[conversions[i].format[j + 1] - '0'])
-		  == CONST_INT
-		  && INTVAL (patternr[conversions[i].format[j + 1] - '0']) <
-		  0)
-		continue;
+		  && (GET_CODE (patternr[conversions[i].format[j + 1] - '0'])
+		      == CONST_INT))
+		{
+		  force_sign = 1;
+		  continue;
+		}
 	      fputc (conversions[i].format[j], file);
 	    }
 	break;
@@ -2779,6 +2791,102 @@ m32c_mov_ok (rtx * operands, enum machine_mode mode ATTRIBUTE_UNUSED)
 #endif
   return true;
 }
+
+/* Returns TRUE if two consecutive HImode mov instructions, generated
+   for moving an immediate double data to a double data type variable
+   location, can be combined into single SImode mov instruction.  */
+bool
+m32c_immd_dbl_mov (rtx * operands, 
+		   enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  int flag = 0, okflag = 0, offset1 = 0, offset2 = 0, offsetsign = 0;
+  const char *str1;
+  const char *str2;
+
+  if (GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF
+      && MEM_SCALAR_P (operands[0])
+      && !MEM_IN_STRUCT_P (operands[0])
+      && GET_CODE (XEXP (operands[2], 0)) == CONST
+      && GET_CODE (XEXP (XEXP (operands[2], 0), 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (XEXP (operands[2], 0), 0), 0)) == SYMBOL_REF
+      && GET_CODE (XEXP (XEXP (XEXP (operands[2], 0), 0), 1)) == CONST_INT
+      && MEM_SCALAR_P (operands[2])
+      && !MEM_IN_STRUCT_P (operands[2]))
+    flag = 1; 
+
+  else if (GET_CODE (XEXP (operands[0], 0)) == CONST
+           && GET_CODE (XEXP (XEXP (operands[0], 0), 0)) == PLUS
+           && GET_CODE (XEXP (XEXP (XEXP (operands[0], 0), 0), 0)) == SYMBOL_REF
+           && MEM_SCALAR_P (operands[0])
+           && !MEM_IN_STRUCT_P (operands[0])
+           && !(XINT (XEXP (XEXP (XEXP (operands[0], 0), 0), 1), 0) %4)
+           && GET_CODE (XEXP (operands[2], 0)) == CONST
+           && GET_CODE (XEXP (XEXP (operands[2], 0), 0)) == PLUS
+           && GET_CODE (XEXP (XEXP (XEXP (operands[2], 0), 0), 0)) == SYMBOL_REF
+           && MEM_SCALAR_P (operands[2])
+           && !MEM_IN_STRUCT_P (operands[2]))
+    flag = 2; 
+
+  else if (GET_CODE (XEXP (operands[0], 0)) == PLUS
+           &&  GET_CODE (XEXP (XEXP (operands[0], 0), 0)) == REG
+           &&  REGNO (XEXP (XEXP (operands[0], 0), 0)) == FB_REGNO 
+           &&  GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == CONST_INT
+           &&  MEM_SCALAR_P (operands[0])
+           &&  !MEM_IN_STRUCT_P (operands[0])
+           &&  !(XINT (XEXP (XEXP (operands[0], 0), 1), 0) %4)
+           &&  REGNO (XEXP (XEXP (operands[2], 0), 0)) == FB_REGNO 
+           &&  GET_CODE (XEXP (XEXP (operands[2], 0), 1)) == CONST_INT
+           &&  MEM_SCALAR_P (operands[2])
+           &&  !MEM_IN_STRUCT_P (operands[2]))
+    flag = 3; 
+
+  else
+    return false;
+
+  switch (flag)
+    {
+    case 1:
+      str1 = XSTR (XEXP (operands[0], 0), 0);
+      str2 = XSTR (XEXP (XEXP (XEXP (operands[2], 0), 0), 0), 0);
+      if (strcmp (str1, str2) == 0)
+	okflag = 1; 
+      else
+	okflag = 0; 
+      break;
+    case 2:
+      str1 = XSTR (XEXP (XEXP (XEXP (operands[0], 0), 0), 0), 0);
+      str2 = XSTR (XEXP (XEXP (XEXP (operands[2], 0), 0), 0), 0);
+      if (strcmp(str1,str2) == 0)
+	okflag = 1; 
+      else
+	okflag = 0; 
+      break; 
+    case 3:
+      offset1 = XINT (XEXP (XEXP (operands[0], 0), 1), 0);
+      offset2 = XINT (XEXP (XEXP (operands[2], 0), 1), 0);
+      offsetsign = offset1 >> ((sizeof (offset1) * 8) -1);
+      if (((offset2-offset1) == 2) && offsetsign != 0)
+	okflag = 1;
+      else 
+	okflag = 0; 
+      break; 
+    default:
+      okflag = 0; 
+    } 
+      
+  if (okflag == 1)
+    {
+      HOST_WIDE_INT val;
+      operands[4] = gen_rtx_MEM (SImode, XEXP (operands[0], 0));
+
+      val = (XINT (operands[3], 0) << 16) + (XINT (operands[1], 0) & 0xFFFF);
+      operands[5] = gen_rtx_CONST_INT (VOIDmode, val);
+     
+      return true;
+    }
+
+  return false;
+}  
 
 /* Expanders */
 
@@ -3291,9 +3399,8 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
   else
     /* We'll only use it for the shift, no point emitting a move.  */
     temp = operands[2];
-    
 
-  if (TARGET_A16 && mode == SImode)
+  if (TARGET_A16 && GET_MODE_SIZE (mode) == 4)
     {
       /* The m16c has a limit of -16..16 for SI shifts, even when the
 	 shift count is in a register.  Since there are so many targets
@@ -3316,20 +3423,24 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	 undefined to skip one of the comparisons.  */
 
       rtx count;
-      rtx label, lref, insn;
+      rtx label, lref, insn, tempvar;
+
+      emit_move_insn (operands[0], operands[1]);
 
       count = temp;
       label = gen_label_rtx ();
       lref = gen_rtx_LABEL_REF (VOIDmode, label);
       LABEL_NUSES (label) ++;
 
+      tempvar = gen_reg_rtx (mode);
+
       if (shift_code == ASHIFT)
 	{
 	  /* This is a left shift.  We only need check positive counts.  */
 	  emit_jump_insn (gen_cbranchqi4 (gen_rtx_LE (VOIDmode, 0, 0),
 					  count, GEN_INT (16), label));
-	  emit_insn (func (operands[1], operands[1], GEN_INT (8)));
-	  emit_insn (func (operands[1], operands[1], GEN_INT (8)));
+	  emit_insn (func (tempvar, operands[0], GEN_INT (8)));
+	  emit_insn (func (operands[0], tempvar, GEN_INT (8)));
 	  insn = emit_insn (gen_addqi3 (count, count, GEN_INT (-16)));
 	  emit_label_after (label, insn);
 	}
@@ -3338,12 +3449,14 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	  /* This is a right shift.  We only need check negative counts.  */
 	  emit_jump_insn (gen_cbranchqi4 (gen_rtx_GE (VOIDmode, 0, 0),
 					  count, GEN_INT (-16), label));
-	  emit_insn (func (operands[1], operands[1], GEN_INT (-8)));
-	  emit_insn (func (operands[1], operands[1], GEN_INT (-8)));
+	  emit_insn (func (tempvar, operands[0], GEN_INT (-8)));
+	  emit_insn (func (operands[0], tempvar, GEN_INT (-8)));
 	  insn = emit_insn (gen_addqi3 (count, count, GEN_INT (16)));
 	  emit_label_after (label, insn);
 	}
-
+      operands[1] = operands[0];
+      emit_insn (func (operands[0], operands[0], count));
+      return 1;
     }
 
   operands[2] = temp;
@@ -3377,6 +3490,42 @@ m32c_expand_neg_mulpsi3 (rtx * operands)
   emit_insn (gen_truncsipsi2 (operands[0], temp2));
 }
 
+static rtx compare_op0, compare_op1;
+
+void
+m32c_pend_compare (rtx *operands)
+{
+  compare_op0 = operands[0];
+  compare_op1 = operands[1];
+}
+
+void
+m32c_unpend_compare (void)
+{
+  switch (GET_MODE (compare_op0))
+    {
+    case QImode:
+      emit_insn (gen_cmpqi_op (compare_op0, compare_op1));
+    case HImode:
+      emit_insn (gen_cmphi_op (compare_op0, compare_op1));
+    case PSImode:
+      emit_insn (gen_cmppsi_op (compare_op0, compare_op1));
+    }
+}
+
+void
+m32c_expand_scc (int code, rtx *operands)
+{
+  enum machine_mode mode = TARGET_A16 ? QImode : HImode;
+
+  emit_insn (gen_rtx_SET (mode,
+			  operands[0],
+			  gen_rtx_fmt_ee (code,
+					  mode,
+					  compare_op0,
+					  compare_op1)));
+}
+
 /* Pattern Output Functions */
 
 /* Returns a (OP (reg:CC FLG_REGNO) (const_int 0)) from some other
@@ -3394,6 +3543,8 @@ int
 m32c_expand_movcc (rtx *operands)
 {
   rtx rel = operands[1];
+  rtx cmp;
+
   if (GET_CODE (rel) != EQ && GET_CODE (rel) != NE)
     return 1;
   if (GET_CODE (operands[2]) != CONST_INT
@@ -3406,12 +3557,17 @@ m32c_expand_movcc (rtx *operands)
       operands[2] = operands[3];
       operands[3] = tmp;
     }
-  if (TARGET_A16)
-    emit_insn (gen_stzx_16 (operands[0], operands[2], operands[3]));
-  else if (GET_MODE (operands[0]) == QImode)
-    emit_insn (gen_stzx_24_qi (operands[0], operands[2], operands[3]));
-  else
-    emit_insn (gen_stzx_24_hi (operands[0], operands[2], operands[3]));
+
+  cmp = gen_rtx_fmt_ee (GET_CODE (rel),
+			GET_MODE (rel),
+			compare_op0,
+			compare_op1);
+
+  emit_move_insn (operands[0],
+		  gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]),
+					cmp,
+					operands[2],
+					operands[3]));
   return 0;
 }
 
@@ -3423,6 +3579,14 @@ m32c_expand_insv (rtx *operands)
   int mask;
 
   if (INTVAL (operands[1]) != 1)
+    return 1;
+
+  /* Our insv opcode (bset, bclr) can only insert a one-bit constant.  */
+  if (GET_CODE (operands[3]) != CONST_INT)
+    return 1;
+  if (INTVAL (operands[3]) != 0
+      && INTVAL (operands[3]) != 1
+      && INTVAL (operands[3]) != -1)
     return 1;
 
   mask = 1 << INTVAL (operands[2]);
@@ -3459,6 +3623,7 @@ m32c_expand_insv (rtx *operands)
      storing a zero, we want an AND mask, so invert it.  */
   if (INTVAL (operands[3]) == 0)
     {
+      /* Storing a zero, use an AND mask */
       if (GET_MODE (op0) == HImode)
 	mask ^= 0xffff;
       else
@@ -3689,6 +3854,239 @@ m32c_emit_eh_epilogue (rtx ret_addr)
   emit_jump_insn (gen_eh_epilogue (ret_addr, cfun->machine->eh_stack_adjust));
   /*  emit_insn (gen_rtx_CLOBBER (HImode, gen_rtx_REG (HImode, R0L_REGNO))); */
   emit_barrier ();
+}
+
+/* Indicate which flags must be properly set for a given conditional.  */
+static int
+flags_needed_for_conditional (rtx cond)
+{
+  switch (GET_CODE (cond))
+    {
+    case LE:
+    case GT:
+      return FLAGS_OSZ;
+    case LEU:
+    case GTU:
+      return FLAGS_ZC;
+    case LT:
+    case GE:
+      return FLAGS_OS;
+    case LTU:
+    case GEU:
+      return FLAGS_C;
+    case EQ:
+    case NE:
+      return FLAGS_Z;
+    default:
+      return FLAGS_N;
+    }
+}
+
+#define DEBUG_CMP 0
+
+/* Returns true if a compare insn is redundant because it would only
+   set flags that are already set correctly.  */
+static bool
+m32c_compare_redundant (rtx cmp, rtx *operands)
+{
+  int flags_needed;
+  int pflags;
+  rtx prev, pp, next;
+  rtx op0, op1, op2;
+#if DEBUG_CMP
+  int prev_icode, i;
+#endif
+
+  op0 = operands[0];
+  op1 = operands[1];
+  op2 = operands[2];
+
+#if DEBUG_CMP
+  fprintf(stderr, "\n\033[32mm32c_compare_redundant\033[0m\n");
+  debug_rtx(cmp);
+  for (i=0; i<2; i++)
+    {
+      fprintf(stderr, "operands[%d] = ", i);
+      debug_rtx(operands[i]);
+    }
+#endif
+
+  next = next_nonnote_insn (cmp);
+  if (!next || !INSN_P (next))
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "compare not followed by insn\n");
+      debug_rtx(next);
+#endif
+      return false;
+    }
+  if (GET_CODE (PATTERN (next)) == SET
+      && GET_CODE (XEXP ( PATTERN (next), 1)) == IF_THEN_ELSE)
+    {
+      next = XEXP (XEXP (PATTERN (next), 1), 0);
+    }
+  else if (GET_CODE (PATTERN (next)) == SET)
+    {
+      /* If this is a conditional, flags_needed will be something
+	 other than FLAGS_N, which we test below.  */
+      next = XEXP (PATTERN (next), 1);
+    }
+  else
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "compare not followed by conditional\n");
+      debug_rtx(next);
+#endif
+      return false;
+    }
+#if DEBUG_CMP
+  fprintf(stderr, "conditional is: ");
+  debug_rtx(next);
+#endif
+
+  flags_needed = flags_needed_for_conditional (next);
+  if (flags_needed == FLAGS_N)
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "compare not followed by conditional\n");
+      debug_rtx(next);
+#endif
+      return false;
+    }
+
+  /* Compare doesn't set overflow and carry the same way that
+     arithmetic instructions do, so we can't replace those.  */
+  if (flags_needed & FLAGS_OC)
+    return false;
+
+  prev = cmp;
+  do {
+    prev = prev_nonnote_insn (prev);
+    if (!prev)
+      {
+#if DEBUG_CMP
+	fprintf(stderr, "No previous insn.\n");
+#endif
+	return false;
+      }
+    if (!INSN_P (prev))
+      {
+#if DEBUG_CMP
+	fprintf(stderr, "Previous insn is a non-insn.\n");
+#endif
+	return false;
+      }
+    pp = PATTERN (prev);
+    if (GET_CODE (pp) != SET)
+      {
+#if DEBUG_CMP
+	fprintf(stderr, "Previous insn is not a SET.\n");
+#endif
+	return false;
+      }
+    pflags = get_attr_flags (prev);
+
+    /* Looking up attributes of previous insns corrupted the recog
+       tables.  */
+    INSN_UID (cmp) = -1;
+    recog (PATTERN (cmp), cmp, 0);
+
+    if (pflags == FLAGS_N
+	&& reg_mentioned_p (op0, pp))
+      {
+#if DEBUG_CMP
+	fprintf(stderr, "intermediate non-flags insn uses op:\n");
+	debug_rtx(prev);
+#endif
+	return false;
+      }
+  } while (pflags == FLAGS_N);
+#if DEBUG_CMP
+  fprintf(stderr, "previous flag-setting insn:\n");
+  debug_rtx(prev);
+  debug_rtx(pp);
+#endif
+
+  if (GET_CODE (pp) == SET
+      && GET_CODE (XEXP (pp, 0)) == REG
+      && REGNO (XEXP (pp, 0)) == FLG_REGNO
+      && GET_CODE (XEXP (pp, 1)) == COMPARE)
+    {
+      /* Adjacent cbranches must have the same operands to be
+	 redundant.  */
+      rtx pop0 = XEXP (XEXP (pp, 1), 0);
+      rtx pop1 = XEXP (XEXP (pp, 1), 1);
+#if DEBUG_CMP
+      fprintf(stderr, "adjacent cbranches\n");
+      debug_rtx(pop0);
+      debug_rtx(pop1);
+#endif
+      if (rtx_equal_p (op0, pop0)
+	  && rtx_equal_p (op1, pop1))
+	return true;
+#if DEBUG_CMP
+      fprintf(stderr, "prev cmp not same\n");
+#endif
+      return false;
+    }
+
+  /* Else the previous insn must be a SET, with either the source or
+     dest equal to operands[0], and operands[1] must be zero.  */
+
+  if (!rtx_equal_p (op1, const0_rtx))
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "operands[1] not const0_rtx\n");
+#endif
+      return false;
+    }
+  if (GET_CODE (pp) != SET)
+    {
+#if DEBUG_CMP
+      fprintf (stderr, "pp not set\n");
+#endif
+      return false;
+    }
+  if (!rtx_equal_p (op0, SET_SRC (pp))
+      && !rtx_equal_p (op0, SET_DEST (pp)))
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "operands[0] not found in set\n");
+#endif
+      return false;
+    }
+
+#if DEBUG_CMP
+  fprintf(stderr, "cmp flags %x prev flags %x\n", flags_needed, pflags);
+#endif
+  if ((pflags & flags_needed) == flags_needed)
+    return true;
+
+  return false;
+}
+
+/* Return the pattern for a compare.  This will be commented out if
+   the compare is redundant, else a normal pattern is returned.  Thus,
+   the assembler output says where the compare would have been.  */
+char *
+m32c_output_compare (rtx insn, rtx *operands)
+{
+  static char template[] = ";cmp.b\t%1,%0";
+  /*                             ^ 5  */
+
+  template[5] = " bwll"[GET_MODE_SIZE(GET_MODE(operands[0]))];
+  if (m32c_compare_redundant (insn, operands))
+    {
+#if DEBUG_CMP
+      fprintf(stderr, "cbranch: cmp not needed\n");
+#endif
+      return template;
+    }
+
+#if DEBUG_CMP
+  fprintf(stderr, "cbranch: cmp needed: `%s'\n", template);
+#endif
+  return template + 1;
 }
 
 /* The Global `targetm' Variable. */

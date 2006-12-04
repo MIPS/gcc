@@ -1,5 +1,5 @@
 /* Dependency analysis
-   Copyright (C) 2000, 2001, 2002, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of GCC.
@@ -72,7 +72,111 @@ gfc_expr_is_one (gfc_expr * expr, int def)
 int
 gfc_dep_compare_expr (gfc_expr * e1, gfc_expr * e2)
 {
+  gfc_actual_arglist *args1;
+  gfc_actual_arglist *args2;
   int i;
+
+  if (e1->expr_type == EXPR_OP
+      && (e1->value.op.operator == INTRINSIC_UPLUS
+          || e1->value.op.operator == INTRINSIC_PARENTHESES))
+    return gfc_dep_compare_expr (e1->value.op.op1, e2);
+  if (e2->expr_type == EXPR_OP
+      && (e2->value.op.operator == INTRINSIC_UPLUS
+          || e2->value.op.operator == INTRINSIC_PARENTHESES))
+    return gfc_dep_compare_expr (e1, e2->value.op.op1);
+
+  if (e1->expr_type == EXPR_OP
+      && e1->value.op.operator == INTRINSIC_PLUS)
+    {
+      /* Compare X+C vs. X.  */
+      if (e1->value.op.op2->expr_type == EXPR_CONSTANT
+	  && e1->value.op.op2->ts.type == BT_INTEGER
+	  && gfc_dep_compare_expr (e1->value.op.op1, e2) == 0)
+	return mpz_sgn (e1->value.op.op2->value.integer);
+
+      /* Compare P+Q vs. R+S.  */
+      if (e2->expr_type == EXPR_OP
+	  && e2->value.op.operator == INTRINSIC_PLUS)
+	{
+	  int l, r;
+
+	  l = gfc_dep_compare_expr (e1->value.op.op1, e2->value.op.op1);
+	  r = gfc_dep_compare_expr (e1->value.op.op2, e2->value.op.op2);
+	  if (l == 0 && r == 0)
+	    return 0;
+	  if (l == 0 && r != -2)
+	    return r;
+	  if (l != -2 && r == 0)
+	    return l;
+	  if (l == 1 && r == 1)
+	    return 1;
+	  if (l == -1 && r == -1)
+	    return -1;
+
+	  l = gfc_dep_compare_expr (e1->value.op.op1, e2->value.op.op2);
+	  r = gfc_dep_compare_expr (e1->value.op.op2, e2->value.op.op1);
+	  if (l == 0 && r == 0)
+	    return 0;
+	  if (l == 0 && r != -2)
+	    return r;
+	  if (l != -2 && r == 0)
+	    return l;
+	  if (l == 1 && r == 1)
+	    return 1;
+	  if (l == -1 && r == -1)
+	    return -1;
+	}
+    }
+
+  /* Compare X vs. X+C.  */
+  if (e2->expr_type == EXPR_OP
+      && e2->value.op.operator == INTRINSIC_PLUS)
+    {
+      if (e2->value.op.op2->expr_type == EXPR_CONSTANT
+	  && e2->value.op.op2->ts.type == BT_INTEGER
+	  && gfc_dep_compare_expr (e1, e2->value.op.op1) == 0)
+	return -mpz_sgn (e2->value.op.op2->value.integer);
+    }
+
+  /* Compare X-C vs. X.  */
+  if (e1->expr_type == EXPR_OP
+      && e1->value.op.operator == INTRINSIC_MINUS)
+    {
+      if (e1->value.op.op2->expr_type == EXPR_CONSTANT
+	  && e1->value.op.op2->ts.type == BT_INTEGER
+	  && gfc_dep_compare_expr (e1->value.op.op1, e2) == 0)
+	return -mpz_sgn (e1->value.op.op2->value.integer);
+
+      /* Compare P-Q vs. R-S.  */
+      if (e2->expr_type == EXPR_OP
+	  && e2->value.op.operator == INTRINSIC_MINUS)
+	{
+	  int l, r;
+
+	  l = gfc_dep_compare_expr (e1->value.op.op1, e2->value.op.op1);
+	  r = gfc_dep_compare_expr (e1->value.op.op2, e2->value.op.op2);
+	  if (l == 0 && r == 0)
+	    return 0;
+	  if (l != -2 && r == 0)
+	    return l;
+	  if (l == 0 && r != -2)
+	    return -r;
+	  if (l == 1 && r == -1)
+	    return 1;
+	  if (l == -1 && r == 1)
+	    return -1;
+	}
+    }
+
+  /* Compare X vs. X-C.  */
+  if (e2->expr_type == EXPR_OP
+      && e2->value.op.operator == INTRINSIC_MINUS)
+    {
+      if (e2->value.op.op2->expr_type == EXPR_CONSTANT
+	  && e2->value.op.op2->ts.type == BT_INTEGER
+	  && gfc_dep_compare_expr (e1, e2->value.op.op1) == 0)
+	return mpz_sgn (e2->value.op.op2->value.integer);
+    }
 
   if (e1->expr_type != e2->expr_type)
     return -2;
@@ -119,12 +223,29 @@ gfc_dep_compare_expr (gfc_expr * e1, gfc_expr * e2)
 	  || e1->value.function.isym != e2->value.function.isym)
 	return -2;
 
+      args1 = e1->value.function.actual;
+      args2 = e2->value.function.actual;
+
       /* We should list the "constant" intrinsic functions.  Those
 	 without side-effects that provide equal results given equal
 	 argument lists.  */
       switch (e1->value.function.isym->generic_id)
 	{
 	case GFC_ISYM_CONVERSION:
+	  /* Handle integer extensions specially, as __convert_i4_i8
+	     is not only "constant" but also "unary" and "increasing".  */
+	  if (args1 && !args1->next
+	      && args2 && !args2->next
+	      && e1->ts.type == BT_INTEGER
+	      && args1->expr->ts.type == BT_INTEGER
+	      && e1->ts.kind > args1->expr->ts.kind
+	      && e2->ts.type == e1->ts.type
+	      && e2->ts.kind == e1->ts.kind
+	      && args2->expr->ts.type == args1->expr->ts.type
+	      && args2->expr->ts.kind == args2->expr->ts.kind)
+	    return gfc_dep_compare_expr (args1->expr, args2->expr);
+	  break;
+
 	case GFC_ISYM_REAL:
 	case GFC_ISYM_LOGICAL:
 	case GFC_ISYM_DBLE:
@@ -135,18 +256,14 @@ gfc_dep_compare_expr (gfc_expr * e1, gfc_expr * e2)
 	}
 
       /* Compare the argument lists for equality.  */
-      {
-	gfc_actual_arglist *args1 = e1->value.function.actual;
-	gfc_actual_arglist *args2 = e2->value.function.actual;
-	while (args1 && args2)
-	  {
-	    if (gfc_dep_compare_expr (args1->expr, args2->expr) != 0)
-	      return -2;
-	    args1 = args1->next;
-	    args2 = args2->next;
-	  }
-	return (args1 || args2) ? -2 : 0;
-      }
+      while (args1 && args2)
+	{
+	  if (gfc_dep_compare_expr (args1->expr, args2->expr) != 0)
+	    return -2;
+	  args1 = args1->next;
+	  args2 = args2->next;
+	}
+      return (args1 || args2) ? -2 : 0;
       
     default:
       return -2;
@@ -396,6 +513,10 @@ gfc_check_fncall_dependency (gfc_expr * other, sym_intent intent,
       if (!expr)
 	continue;
 
+      /* Skip other itself.  */
+      if (expr == other)
+	continue;
+
       /* Skip intent(in) arguments if OTHER itself is intent(in).  */
       if (formal
 	  && intent == INTENT_IN
@@ -585,118 +706,26 @@ gfc_check_dependency (gfc_expr * expr1, gfc_expr * expr2, bool identical)
 }
 
 
-/* Calculates size of the array reference using lower bound, upper bound
-   and stride.  */
-
-static void
-get_no_of_elements(mpz_t ele, gfc_expr * u1, gfc_expr * l1, gfc_expr * s1)
-{
-  /* nNoOfEle = (u1-l1)/s1  */
-
-  mpz_sub (ele, u1->value.integer, l1->value.integer);
-
-  if (s1 != NULL)
-    mpz_tdiv_q (ele, ele, s1->value.integer);
-}
-
-
-/* Returns if the ranges ((0..Y), (X1..X2))  overlap.  */
-
-static gfc_dependency
-get_deps (mpz_t x1, mpz_t x2, mpz_t y)
-{
-  int start;
-  int end;
-
-  start = mpz_cmp_ui (x1, 0);
-  end = mpz_cmp (x2, y);
-  
-  /* Both ranges the same.  */
-  if (start == 0 && end == 0)
-    return GFC_DEP_EQUAL;
-
-  /* Distinct ranges.  */
-  if ((start < 0 && mpz_cmp_ui (x2, 0) < 0)
-      || (mpz_cmp (x1, y) > 0 && end > 0))
-    return GFC_DEP_NODEP;
-
-  /* Overlapping, but with corresponding elements of the second range
-     greater than the first.  */
-  if (start > 0 && end > 0)
-    return GFC_DEP_FORWARD;
-
-  /* Overlapping in some other way.  */
-  return GFC_DEP_OVERLAP;
-}
-
-
-/* Perform the same linear transformation on sections l and r such that 
-   (l_start:l_end:l_stride) -> (0:no_of_elements)
-   (r_start:r_end:r_stride) -> (X1:X2)
-   Where r_end is implicit as both sections must have the same number of
-   elements.
-   Returns 0 on success, 1 of the transformation failed.  */
-/* TODO: Should this be (0:no_of_elements-1) */
-
-static int
-transform_sections (mpz_t X1, mpz_t X2, mpz_t no_of_elements,
-		    gfc_expr * l_start, gfc_expr * l_end, gfc_expr * l_stride,
-		    gfc_expr * r_start, gfc_expr * r_stride)
-{
-  if (NULL == l_start || NULL == l_end || NULL == r_start)
-    return 1;
-
-  /* TODO : Currently we check the dependency only when start, end and stride
-    are constant.  We could also check for equal (variable) values, and
-    common subexpressions, eg. x vs. x+1.  */
-
-  if (l_end->expr_type != EXPR_CONSTANT
-      || l_start->expr_type != EXPR_CONSTANT
-      || r_start->expr_type != EXPR_CONSTANT
-      || ((NULL != l_stride) && (l_stride->expr_type != EXPR_CONSTANT))
-      || ((NULL != r_stride) && (r_stride->expr_type != EXPR_CONSTANT)))
-    {
-       return 1;
-    }
-
-
-  get_no_of_elements (no_of_elements, l_end, l_start, l_stride);
-
-  mpz_sub (X1, r_start->value.integer, l_start->value.integer);
-  if (l_stride != NULL)
-    mpz_cdiv_q (X1, X1, l_stride->value.integer);
-  
-  if (r_stride == NULL)
-    mpz_set (X2, no_of_elements);
-  else
-    mpz_mul (X2, no_of_elements, r_stride->value.integer);
-
-  if (l_stride != NULL)
-    mpz_cdiv_q (X2, X2, l_stride->value.integer);
-  mpz_add (X2, X2, X1);
-
-  return 0;
-}
-  
-
 /* Determines overlapping for two array sections.  */
 
 static gfc_dependency
 gfc_check_section_vs_section (gfc_ref * lref, gfc_ref * rref, int n)
 {
+  gfc_array_ref l_ar;
   gfc_expr *l_start;
   gfc_expr *l_end;
   gfc_expr *l_stride;
+  gfc_expr *l_lower;
+  gfc_expr *l_upper;
+  int l_dir;
 
-  gfc_expr *r_start;
-  gfc_expr *r_stride;
-
-  gfc_array_ref l_ar;
   gfc_array_ref r_ar;
-
-  mpz_t no_of_elements;
-  mpz_t X1, X2;
-  gfc_dependency dep;
+  gfc_expr *r_start;
+  gfc_expr *r_end;
+  gfc_expr *r_stride;
+  gfc_expr *r_lower;
+  gfc_expr *r_upper;
+  int r_dir;
 
   l_ar = lref->u.ar;
   r_ar = rref->u.ar;
@@ -708,76 +737,136 @@ gfc_check_section_vs_section (gfc_ref * lref, gfc_ref * rref, int n)
   l_start = l_ar.start[n];
   l_end = l_ar.end[n];
   l_stride = l_ar.stride[n];
+
   r_start = r_ar.start[n];
+  r_end = r_ar.end[n];
   r_stride = r_ar.stride[n];
 
-  /* if l_start is NULL take it from array specifier  */
-  if (NULL == l_start && IS_ARRAY_EXPLICIT(l_ar.as))
+  /* If l_start is NULL take it from array specifier.  */
+  if (NULL == l_start && IS_ARRAY_EXPLICIT (l_ar.as))
     l_start = l_ar.as->lower[n];
-
-  /* if l_end is NULL take it from array specifier  */
-  if (NULL == l_end && IS_ARRAY_EXPLICIT(l_ar.as))
+  /* If l_end is NULL take it from array specifier.  */
+  if (NULL == l_end && IS_ARRAY_EXPLICIT (l_ar.as))
     l_end = l_ar.as->upper[n];
 
-  /* if r_start is NULL take it from array specifier  */
-  if (NULL == r_start && IS_ARRAY_EXPLICIT(r_ar.as))
+  /* If r_start is NULL take it from array specifier.  */
+  if (NULL == r_start && IS_ARRAY_EXPLICIT (r_ar.as))
     r_start = r_ar.as->lower[n];
+  /* If r_end is NULL take it from array specifier.  */
+  if (NULL == r_end && IS_ARRAY_EXPLICIT (r_ar.as))
+    r_end = r_ar.as->upper[n];
 
-  mpz_init (X1);
-  mpz_init (X2);
-  mpz_init (no_of_elements);
-
-  if (transform_sections (X1, X2, no_of_elements,
-			  l_start, l_end, l_stride,
-			  r_start, r_stride))
-    dep = GFC_DEP_OVERLAP;
+  /* Determine whether the l_stride is positive or negative.  */
+  if (!l_stride)
+    l_dir = 1;
+  else if (l_stride->expr_type == EXPR_CONSTANT
+           && l_stride->ts.type == BT_INTEGER)
+    l_dir = mpz_sgn (l_stride->value.integer);
+  else if (l_start && l_end)
+    l_dir = gfc_dep_compare_expr (l_end, l_start);
   else
-    dep =  get_deps (X1, X2, no_of_elements);
+    l_dir = -2;
 
-  mpz_clear (no_of_elements);
-  mpz_clear (X1);
-  mpz_clear (X2);
-  return dep;
-}
+  /* Determine whether the r_stride is positive or negative.  */
+  if (!r_stride)
+    r_dir = 1;
+  else if (r_stride->expr_type == EXPR_CONSTANT
+           && r_stride->ts.type == BT_INTEGER)
+    r_dir = mpz_sgn (r_stride->value.integer);
+  else if (r_start && r_end)
+    r_dir = gfc_dep_compare_expr (r_end, r_start);
+  else
+    r_dir = -2;
 
-
-/* Checks if the expr chk is inside the range left-right.
-   Returns  GFC_DEP_NODEP if chk is outside the range,
-   GFC_DEP_OVERLAP otherwise.
-   Assumes left<=right.  */
-
-static gfc_dependency
-gfc_is_inside_range (gfc_expr * chk, gfc_expr * left, gfc_expr * right)
-{
-  int l;
-  int r;
-  int s;
-
-  s = gfc_dep_compare_expr (left, right);
-  if (s == -2)
+  /* The strides should never be zero.  */
+  if (l_dir == 0 || r_dir == 0)
     return GFC_DEP_OVERLAP;
 
-  l = gfc_dep_compare_expr (chk, left);
-  r = gfc_dep_compare_expr (chk, right);
-
-  /* Check for indeterminate relationships.  */
-  if (l == -2 || r == -2 || s == -2)
-    return GFC_DEP_OVERLAP;
-
-  if (s == 1)
+  /* Determine LHS upper and lower bounds.  */
+  if (l_dir == 1)
     {
-      /* When left>right we want to check for right <= chk <= left.  */
-      if (l <= 0 || r >= 0)
-	return GFC_DEP_OVERLAP;
+      l_lower = l_start;
+      l_upper = l_end;
+    }
+  else if (l_dir == -1)
+    {
+      l_lower = l_end;
+      l_upper = l_start;
     }
   else
     {
-      /* Otherwise check for left <= chk <= right.  */
-      if (l >= 0 || r <= 0)
-	return GFC_DEP_OVERLAP;
+      l_lower = NULL;
+      l_upper = NULL;
     }
-  
-  return GFC_DEP_NODEP;
+
+  /* Determine RHS upper and lower bounds.  */
+  if (r_dir == 1)
+    {
+      r_lower = r_start;
+      r_upper = r_end;
+    }
+  else if (r_dir == -1)
+    {
+      r_lower = r_end;
+      r_upper = r_start;
+    }
+  else
+    {
+      r_lower = NULL;
+      r_upper = NULL;
+    }
+
+  /* Check whether the ranges are disjoint.  */
+  if (l_upper && r_lower && gfc_dep_compare_expr (l_upper, r_lower) == -1)
+    return GFC_DEP_NODEP;
+  if (r_upper && l_lower && gfc_dep_compare_expr (r_upper, l_lower) == -1)
+    return GFC_DEP_NODEP;
+
+  /* Handle cases like x:y:1 vs. x:z:-1 as GFC_DEP_EQUAL.  */
+  if (l_start && r_start && gfc_dep_compare_expr (l_start, r_start) == 0)
+    {
+      if (l_dir == 1 && r_dir == -1)
+        return GFC_DEP_EQUAL;
+      if (l_dir == -1 && r_dir == 1)
+        return GFC_DEP_EQUAL;
+    }
+
+  /* Handle cases like x:y:1 vs. z:y:-1 as GFC_DEP_EQUAL.  */
+  if (l_end && r_end && gfc_dep_compare_expr (l_end, r_end) == 0)
+    {
+      if (l_dir == 1 && r_dir == -1)
+        return GFC_DEP_EQUAL;
+      if (l_dir == -1 && r_dir == 1)
+        return GFC_DEP_EQUAL;
+    }
+
+  /* Check for forward dependencies x:y vs. x+1:z.  */
+  if (l_dir == 1 && r_dir == 1
+      && l_start && r_start && gfc_dep_compare_expr (l_start, r_start) == -1
+      && l_end && r_end && gfc_dep_compare_expr (l_end, r_end) == -1)
+    {
+      /* Check that the strides are the same.  */
+      if (!l_stride && !r_stride)
+	return GFC_DEP_FORWARD;
+      if (l_stride && r_stride
+	  && gfc_dep_compare_expr (l_stride, r_stride) == 0)
+	return GFC_DEP_FORWARD;
+    }
+
+  /* Check for forward dependencies x:y:-1 vs. x-1:z:-1.  */
+  if (l_dir == -1 && r_dir == -1
+      && l_start && r_start && gfc_dep_compare_expr (l_start, r_start) == 1
+      && l_end && r_end && gfc_dep_compare_expr (l_end, r_end) == 1)
+    {
+      /* Check that the strides are the same.  */
+      if (!l_stride && !r_stride)
+	return GFC_DEP_FORWARD;
+      if (l_stride && r_stride
+	  && gfc_dep_compare_expr (l_stride, r_stride) == 0)
+	return GFC_DEP_FORWARD;
+    }
+
+  return GFC_DEP_OVERLAP;
 }
 
 
@@ -786,25 +875,120 @@ gfc_is_inside_range (gfc_expr * chk, gfc_expr * left, gfc_expr * right)
 static gfc_dependency
 gfc_check_element_vs_section( gfc_ref * lref, gfc_ref * rref, int n)
 {
-  gfc_array_ref l_ar;
-  gfc_array_ref r_ar;
-  gfc_expr *l_start;
-  gfc_expr *r_start;
-  gfc_expr *r_end;
+  gfc_array_ref *ref;
+  gfc_expr *elem;
+  gfc_expr *start;
+  gfc_expr *end;
+  gfc_expr *stride;
+  int s;
 
-  l_ar = lref->u.ar;
-  r_ar = rref->u.ar;
-  l_start = l_ar.start[n] ;
-  r_start = r_ar.start[n] ;
-  r_end = r_ar.end[n] ;
-  if (NULL == r_start && IS_ARRAY_EXPLICIT (r_ar.as))
-    r_start = r_ar.as->lower[n];
-  if (NULL == r_end && IS_ARRAY_EXPLICIT (r_ar.as))
-    r_end = r_ar.as->upper[n];
-  if (NULL == r_start || NULL == r_end || l_start == NULL)
+  elem = lref->u.ar.start[n];
+  if (!elem)
     return GFC_DEP_OVERLAP;
 
-  return gfc_is_inside_range (l_start, r_end, r_start);
+  ref = &rref->u.ar;
+  start = ref->start[n] ;
+  end = ref->end[n] ;
+  stride = ref->stride[n];
+
+  if (!start && IS_ARRAY_EXPLICIT (ref->as))
+    start = ref->as->lower[n];
+  if (!end && IS_ARRAY_EXPLICIT (ref->as))
+    end = ref->as->upper[n];
+
+  /* Determine whether the stride is positive or negative.  */
+  if (!stride)
+    s = 1;
+  else if (stride->expr_type == EXPR_CONSTANT
+	   && stride->ts.type == BT_INTEGER)
+    s = mpz_sgn (stride->value.integer);
+  else
+    s = -2;
+
+  /* Stride should never be zero.  */
+  if (s == 0)
+    return GFC_DEP_OVERLAP;
+
+  /* Positive strides.  */
+  if (s == 1)
+    {
+      /* Check for elem < lower.  */
+      if (start && gfc_dep_compare_expr (elem, start) == -1)
+	return GFC_DEP_NODEP;
+      /* Check for elem > upper.  */
+      if (end && gfc_dep_compare_expr (elem, end) == 1)
+	return GFC_DEP_NODEP;
+
+      if (start && end)
+	{
+	  s = gfc_dep_compare_expr (start, end);
+	  /* Check for an empty range.  */
+	  if (s == 1)
+	    return GFC_DEP_NODEP;
+	  if (s == 0 && gfc_dep_compare_expr (elem, start) == 0)
+	    return GFC_DEP_EQUAL;
+	}
+    }
+  /* Negative strides.  */
+  else if (s == -1)
+    {
+      /* Check for elem > upper.  */
+      if (end && gfc_dep_compare_expr (elem, start) == 1)
+	return GFC_DEP_NODEP;
+      /* Check for elem < lower.  */
+      if (start && gfc_dep_compare_expr (elem, end) == -1)
+	return GFC_DEP_NODEP;
+
+      if (start && end)
+	{
+	  s = gfc_dep_compare_expr (start, end);
+	  /* Check for an empty range.  */
+	  if (s == -1)
+	    return GFC_DEP_NODEP;
+	  if (s == 0 && gfc_dep_compare_expr (elem, start) == 0)
+	    return GFC_DEP_EQUAL;
+	}
+    }
+  /* Unknown strides.  */
+  else
+    {
+      if (!start || !end)
+	return GFC_DEP_OVERLAP;
+      s = gfc_dep_compare_expr (start, end);
+      if (s == -2)
+	return GFC_DEP_OVERLAP;
+      /* Assume positive stride.  */
+      if (s == -1)
+	{
+	  /* Check for elem < lower.  */
+	  if (gfc_dep_compare_expr (elem, start) == -1)
+	    return GFC_DEP_NODEP;
+	  /* Check for elem > upper.  */
+	  if (gfc_dep_compare_expr (elem, end) == 1)
+	    return GFC_DEP_NODEP;
+	}
+      /* Assume negative stride.  */
+      else if (s == 1)
+	{
+	  /* Check for elem > upper.  */
+	  if (gfc_dep_compare_expr (elem, start) == 1)
+	    return GFC_DEP_NODEP;
+	  /* Check for elem < lower.  */
+	  if (gfc_dep_compare_expr (elem, end) == -1)
+	    return GFC_DEP_NODEP;
+	}
+      /* Equal bounds.  */
+      else if (s == 0)
+	{
+	  s = gfc_dep_compare_expr (elem, start);
+	  if (s == 0)
+	    return GFC_DEP_EQUAL;
+	  if (s == 1 || s == -1)
+	    return GFC_DEP_NODEP;
+	}
+    }
+
+  return GFC_DEP_OVERLAP;
 }
 
 
@@ -904,8 +1088,6 @@ gfc_check_element_vs_element (gfc_ref * lref, gfc_ref * rref, int n)
   i = gfc_dep_compare_expr (r_start, l_start);
   if (i == 0)
     return GFC_DEP_EQUAL;
-  if (i != -2)
-    return GFC_DEP_NODEP;
 
   /* Treat two scalar variables as potentially equal.  This allows
      us to prove that a(i,:) and a(j,:) have no dependency.  See
@@ -920,6 +1102,8 @@ gfc_check_element_vs_element (gfc_ref * lref, gfc_ref * rref, int n)
       || contains_forall_index_p (l_start))
     return GFC_DEP_OVERLAP;
 
+  if (i != -2)
+    return GFC_DEP_NODEP;
   return GFC_DEP_EQUAL;
 }
 

@@ -168,6 +168,7 @@ extern void mips_restore_gp (void);
 #ifdef RTX_CODE
 extern bool mips_emit_scc (enum rtx_code, rtx);
 extern void gen_conditional_branch (rtx *, enum rtx_code);
+extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 #endif
 extern void gen_conditional_move (rtx *);
 extern void mips_gen_conditional_trap (rtx *);
@@ -188,6 +189,7 @@ extern void mips_va_start (tree, rtx);
 
 extern bool mips_expand_unaligned_load (rtx, rtx, unsigned int, int);
 extern bool mips_expand_unaligned_store (rtx, rtx, unsigned int, int);
+extern bool mips_mem_fits_mode_p (enum machine_mode mode, rtx x);
 extern void override_options (void);
 extern void mips_conditional_register_usage (void);
 extern void mips_order_regs_for_local_alloc (void);
@@ -242,6 +244,7 @@ extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_division (const char *, rtx *);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
 extern bool mips_linked_madd_p (rtx, rtx);
+extern int mips_store_data_bypass_p (rtx, rtx);
 extern rtx mips_prefetch_cookie (rtx, rtx);
 
 extern void irix_asm_output_align (FILE *, unsigned);

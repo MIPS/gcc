@@ -301,6 +301,13 @@ push_value (tree value)
       TREE_CHAIN (node) = quick_stack;
       quick_stack = node;
     }
+  /* If the value has a side effect, then we need to evaluate it
+     whether or not the result is used.  If the value ends up on the
+     quick stack and is then popped, this won't happen -- so we flush
+     the quick stack.  It is safest to simply always flush, though,
+     since TREE_SIDE_EFFECTS doesn't capture COMPONENT_REF, and for
+     the latter we may need to strip conversions.  */
+  flush_quick_stack ();
 }
 
 /* Pop a type from the type stack.
@@ -1451,7 +1458,6 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   constant_value = build_int_cst (NULL_TREE, ival);
   res = fold_build2 (PLUS_EXPR, int_type_node, local_var, constant_value);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
-  update_aliases (local_var, local_var_index, pc);
 }
 
 
@@ -1694,9 +1700,10 @@ build_field_ref (tree self_value, tree self_class, tree name)
 
 	 We assume that Page 0 will be mapped with NOPERM, and that
 	 memory may be allocated from any other page, so only field
-	 offsets < pagesize are guaratneed to trap.  We also assume
+	 offsets < pagesize are guaranteed to trap.  We also assume
 	 the smallest page size we'll encounter is 4k bytes.  */
-      if (check && ! flag_check_references && ! flag_indirect_dispatch)
+      if (! flag_syntax_only && check && ! flag_check_references 
+	  && ! flag_indirect_dispatch)
 	{
 	  tree field_offset = byte_position (field_decl);
 	  if (! page_size)
@@ -1710,7 +1717,8 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	{
 	  tree otable_index
 	    = build_int_cst (NULL_TREE, get_symbol_table_index 
-			     (field_decl, &TYPE_OTABLE_METHODS (output_class)));
+			     (field_decl, NULL_TREE, 
+			      &TYPE_OTABLE_METHODS (output_class)));
 	  tree field_offset
 	    = build4 (ARRAY_REF, integer_type_node,
 		      TYPE_OTABLE_DECL (output_class), otable_index,
@@ -2019,10 +2027,94 @@ build_class_init (tree clas, tree expr)
   return init;
 }
 
+
+
+/* Rewrite expensive calls that require stack unwinding at runtime to
+   cheaper alternatives.  The logic here performs these
+   transformations:
+
+   java.lang.Class.forName("foo") -> java.lang.Class.forName("foo", class$)
+   java.lang.Class.getClassLoader() -> java.lang.Class.getClassLoader(class$)
+
+*/
+
+typedef struct
+{
+  const char *classname;
+  const char *method;
+  const char *signature;
+  const char *new_signature;
+  int flags;
+  tree (*rewrite_arglist) (tree arglist);
+} rewrite_rule;
+
+/* Add this.class to the end of an arglist.  */
+
+static tree 
+rewrite_arglist_getclass (tree arglist)
+{
+  return chainon (arglist, 
+		  tree_cons (NULL_TREE, build_class_ref (output_class), NULL_TREE));
+}
+
+static rewrite_rule rules[] =
+  {{"java.lang.Class", "getClassLoader", "()Ljava/lang/ClassLoader;", 
+    "(Ljava/lang/Class;)Ljava/lang/ClassLoader;", 
+    ACC_FINAL|ACC_PRIVATE, rewrite_arglist_getclass},
+   {"java.lang.Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;",
+    "(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Class;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getclass},
+   {NULL, NULL, NULL, NULL, 0, NULL}};
+
+/* Scan the rules list for replacements for *METHOD_P and replace the
+   args accordingly.  If the rewrite results in an access to a private
+   method, update SPECIAL.*/
+
+void
+maybe_rewrite_invocation (tree *method_p, tree *arg_list_p, 
+			  tree *method_signature_p, tree *special)
+{
+  tree context = DECL_NAME (TYPE_NAME (DECL_CONTEXT (*method_p)));
+  rewrite_rule *p;
+  *special = NULL_TREE;
+
+  for (p = rules; p->classname; p++)
+    {
+      if (get_identifier (p->classname) == context)
+	{
+	  tree method = DECL_NAME (*method_p);
+	  if (get_identifier (p->method) == method
+	      && get_identifier (p->signature) == *method_signature_p)
+	    {
+	      tree maybe_method
+		= lookup_java_method (DECL_CONTEXT (*method_p),
+				      method,
+				      get_identifier (p->new_signature));
+	      if (! maybe_method && ! flag_verify_invocations)
+		{
+		  maybe_method
+		    = add_method (DECL_CONTEXT (*method_p), p->flags, 
+				  method, get_identifier (p->new_signature));
+		  DECL_EXTERNAL (maybe_method) = 1;
+		}
+	      *method_p = maybe_method;
+	      gcc_assert (*method_p);
+	      *arg_list_p = p->rewrite_arglist (*arg_list_p);
+	      *method_signature_p = get_identifier (p->new_signature);
+	      *special = integer_one_node;
+
+	      break;
+	    }
+	}
+    }
+}
+
+
+
 tree
 build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 			tree self_type, tree method_signature ATTRIBUTE_UNUSED,
-			tree arg_list ATTRIBUTE_UNUSED)
+			tree arg_list ATTRIBUTE_UNUSED, tree special)
 {
   tree func;
   if (is_compiled_class (self_type))
@@ -2040,8 +2132,10 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
       else
 	{
 	  tree table_index
-	    = build_int_cst (NULL_TREE, get_symbol_table_index 
-			     (method, &TYPE_ATABLE_METHODS (output_class)));
+	    = build_int_cst (NULL_TREE, 
+			     (get_symbol_table_index 
+			      (method, special,
+			       &TYPE_ATABLE_METHODS (output_class))));
 	  func 
 	    = build4 (ARRAY_REF,  
 		      TREE_TYPE (TREE_TYPE (TYPE_ATABLE_DECL (output_class))),
@@ -2126,14 +2220,14 @@ invoke_build_dtable (int is_invoke_interface, tree arg_list)
    reused.  */
 
 int
-get_symbol_table_index (tree t, tree *symbol_table)
+get_symbol_table_index (tree t, tree special, tree *symbol_table)
 {
   int i = 1;
   tree method_list;
 
   if (*symbol_table == NULL_TREE)
     {
-      *symbol_table = build_tree_list (t, t);
+      *symbol_table = build_tree_list (special, t);
       return 1;
     }
   
@@ -2142,7 +2236,8 @@ get_symbol_table_index (tree t, tree *symbol_table)
   while (1)
     {
       tree value = TREE_VALUE (method_list);
-      if (value == t)
+      tree purpose = TREE_PURPOSE (method_list);
+      if (value == t && purpose == special)
 	return i;
       i++;
       if (TREE_CHAIN (method_list) == NULL_TREE)
@@ -2151,12 +2246,12 @@ get_symbol_table_index (tree t, tree *symbol_table)
         method_list = TREE_CHAIN (method_list);
     }
 
-  TREE_CHAIN (method_list) = build_tree_list (t, t);
+  TREE_CHAIN (method_list) = build_tree_list (special, t);
   return i;
 }
 
 tree 
-build_invokevirtual (tree dtable, tree method)
+build_invokevirtual (tree dtable, tree method, tree special)
 {
   tree func;
   tree nativecode_ptr_ptr_type_node
@@ -2170,7 +2265,8 @@ build_invokevirtual (tree dtable, tree method)
 
       otable_index 
 	= build_int_cst (NULL_TREE, get_symbol_table_index 
-			 (method, &TYPE_OTABLE_METHODS (output_class)));
+			 (method, special,
+			  &TYPE_OTABLE_METHODS (output_class)));
       method_index = build4 (ARRAY_REF, integer_type_node, 
 			     TYPE_OTABLE_DECL (output_class), 
 			     otable_index, NULL_TREE, NULL_TREE);
@@ -2226,7 +2322,7 @@ build_invokeinterface (tree dtable, tree method)
     {
       int itable_index 
 	= 2 * (get_symbol_table_index 
-	       (method, &TYPE_ITABLE_METHODS (output_class)));
+	       (method, NULL_TREE, &TYPE_ITABLE_METHODS (output_class)));
       interface 
 	= build4 (ARRAY_REF, 
 		 TREE_TYPE (TREE_TYPE (TYPE_ITABLE_DECL (output_class))),
@@ -2278,6 +2374,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
     = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree call, func, method, arg_list, method_type;
   tree check = NULL_TREE;
+
+  tree special = NULL_TREE;
 
   if (! CLASS_LOADED_P (self_type))
     {
@@ -2393,10 +2491,13 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
   arg_list = pop_arguments (TYPE_ARG_TYPES (method_type));
   flush_quick_stack ();
 
+  maybe_rewrite_invocation (&method, &arg_list, &method_signature,
+			    &special);
+
   func = NULL_TREE;
   if (opcode == OPCODE_invokestatic)
     func = build_known_method_ref (method, method_type, self_type,
-				   method_signature, arg_list);
+				   method_signature, arg_list, special);
   else if (opcode == OPCODE_invokespecial
 	   || (opcode == OPCODE_invokevirtual
 	       && (METHOD_PRIVATE (method)
@@ -2416,14 +2517,14 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       TREE_VALUE (arg_list) = save_arg;
       check = java_check_reference (save_arg, ! DECL_INIT_P (method));
       func = build_known_method_ref (method, method_type, self_type,
-				     method_signature, arg_list);
+				     method_signature, arg_list, special);
     }
   else
     {
       tree dtable = invoke_build_dtable (opcode == OPCODE_invokeinterface, 
 					 arg_list);
       if (opcode == OPCODE_invokevirtual)
-	func = build_invokevirtual (dtable, method);
+	func = build_invokevirtual (dtable, method, special);
       else
 	func = build_invokeinterface (dtable, method);
     }
@@ -2647,6 +2748,25 @@ build_jni_stub (tree method)
   return bind;
 }
 
+
+/* Given lvalue EXP, return a volatile expression that references the
+   same object.  */
+
+tree
+java_modify_addr_for_volatile (tree exp)
+{
+  tree exp_type = TREE_TYPE (exp);
+  tree v_type 
+    = build_qualified_type (exp_type,
+			    TYPE_QUALS (exp_type) | TYPE_QUAL_VOLATILE);
+  tree addr = build_fold_addr_expr (exp);
+  v_type = build_pointer_type (v_type);
+  addr = fold_convert (v_type, addr);
+  exp = build_fold_indirect_ref (addr);
+  return exp;
+}
+
+
 /* Expand an operation to extract from or store into a field.
    IS_STATIC is 1 iff the field is static.
    IS_PUTTING is 1 for putting into a field;  0 for getting from the field.
@@ -2670,6 +2790,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   int is_error = 0;
   tree original_self_type = self_type;
   tree field_decl;
+  tree modify_expr;
   
   if (! CLASS_LOADED_P (self_type))
     load_class (self_type, 1);  
@@ -2690,6 +2811,13 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 				  field_type, flags); 
 	  DECL_ARTIFICIAL (field_decl) = 1;
 	  DECL_IGNORED_P (field_decl) = 1;
+#if 0
+	  /* FIXME: We should be pessimistic about volatility.  We
+	     don't know one way or another, but this is safe.
+	     However, doing this has bad effects on code quality.  We
+	     need to look at better ways to do this.  */
+	  TREE_THIS_VOLATILE (field_decl) = 1;
+#endif
 	}
       else
 	{      
@@ -2716,7 +2844,12 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   field_ref = build_field_ref (field_ref, self_type, field_name);
   if (is_static
       && ! flag_indirect_dispatch)
-    field_ref = build_class_init (self_type, field_ref);
+    {
+      tree context = DECL_CONTEXT (field_ref);
+      if (context != self_type && CLASS_INTERFACE (TYPE_NAME (context)))
+	field_ref = build_class_init (context, field_ref);
+      field_ref = build_class_init (self_type, field_ref);
+    }
   if (is_putting)
     {
       flush_quick_stack ();
@@ -2725,27 +2858,49 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  if (DECL_CONTEXT (field_decl) != current_class)
             error ("assignment to final field %q+D not in field's class",
                    field_decl);
-	  else if (FIELD_STATIC (field_decl))
-	    {
-	      if (!DECL_CLINIT_P (current_function_decl))
-		warning (0, "assignment to final static field %q+D not in "
-                         "class initializer",
-                         field_decl);
-	    }
-	  else
-	    {
-	      tree cfndecl_name = DECL_NAME (current_function_decl);
-	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
-		  && !ID_FINIT_P (cfndecl_name))
-                warning (0, "assignment to final field %q+D not in constructor",
-			 field_decl);
-	    }
-	}
-      java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
-			     field_ref, new_value));
+	  /* We used to check for assignments to final fields not
+	     occurring in the class initializer or in a constructor
+	     here.  However, this constraint doesn't seem to be
+	     enforced by the JVM.  */
+	}      
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr = build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
+			    field_ref, new_value);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+      	  
+      java_add_stmt (modify_expr);
     }
   else
-    push_value (field_ref);
+    {
+      tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (field_ref));
+      java_add_local_var (temp);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr 
+	= build2 (MODIFY_EXPR, TREE_TYPE (field_ref), temp, field_ref);
+      java_add_stmt (modify_expr);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+
+      push_value (temp);
+    }      
+  TREE_THIS_VOLATILE (field_ref) = TREE_THIS_VOLATILE (field_decl);
 }
 
 void
@@ -3034,6 +3189,12 @@ java_push_constant_from_pool (JCF *jcf, int index)
       c = build_ref_from_constant_pool (index);
       c = convert (promote_type (string_type_node), c);
     }
+  else if (JPOOL_TAG (jcf, index) == CONSTANT_Class
+	   || JPOOL_TAG (jcf, index) == CONSTANT_ResolvedClass)
+    {
+      tree record = get_class_constant (jcf, index);
+      c = build_class_ref (record);
+    }
   else
     c = get_constant (jcf, index);
   push_value (c);
@@ -3252,7 +3413,6 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     decl = find_local_variable (index, type, oldpc);		\
     set_local_type (index, type);				\
     java_add_stmt (build2 (MODIFY_EXPR, type, decl, value));	\
-    update_aliases (decl, index, PC);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \

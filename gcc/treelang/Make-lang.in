@@ -1,7 +1,7 @@
 # Top level makefile fragment for TREELANG For GCC. -*- makefile -*-
 
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
-#   Free Software Foundation, Inc.
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005,
+#   2006 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -24,8 +24,8 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.html,
-# foo.uninstall,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.pdf
+# foo.html, foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
@@ -87,10 +87,10 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
 	$(BACKEND) $(LIBS) attribs.o
 
 # Create the compiler driver treelang.
-gtreelang$(exeext): gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
+gtreelang$(exeext): $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
   $(LIBDEPS) treelang/spec.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ treelang/spec.o \
-	  gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
+	  $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 
 
@@ -100,27 +100,27 @@ gtreelang$(exeext): gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
 # object file makes
 
 treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-  flags.h toplev.h $(GGC_H) $(TREE_H) diagnostic.h treelang/treelang.h \
+  $(FLAGS_H) toplev.h $(GGC_H) $(TREE_H) $(DIAGNOSTIC_H) treelang/treelang.h \
   input.h treelang/treetree.h options.h opts.h \
   treelang/treetree.h gt-treelang-tree1.h gtype-treelang.h
 
 treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) $(TREE_H) flags.h output.h $(RTL_H) $(GGC_H) toplev.h \
-  varray.h $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
-  treelang/treetree.h treelang/parse.h
+  $(TM_H) $(TREE_H) $(FLAGS_H) output.h $(RTL_H) $(GGC_H) toplev.h \
+  $(VARRAY_H) $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
+  treelang/treetree.h treelang/parse.h $(TARGET_H)
 
 treelang/tree-convert.o: treelang/tree-convert.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
+  coretypes.h $(DIAGNOSTIC_H) $(TREE_H) $(FLAGS_H) toplev.h langhooks.h $(TM_H)
 
 treelang/spec.o: treelang/spec.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
+  coretypes.h $(DIAGNOSTIC_H) $(TREE_H) $(FLAGS_H) toplev.h langhooks.h $(TM_H)
 
 treelang/parse.o: treelang/parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) diagnostic.h treelang/treelang.h input.h treelang/treetree.h \
+  $(TM_H) $(DIAGNOSTIC_H) treelang/treelang.h input.h treelang/treetree.h \
   toplev.h
 
 treelang/lex.o: treelang/lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) diagnostic.h $(TREE_H) treelang/treelang.h input.h \
+  $(TM_H) $(DIAGNOSTIC_H) $(TREE_H) treelang/treelang.h input.h \
   treelang/parse.h toplev.h
 
 # generated files the files from lex and yacc are put into the source
@@ -160,6 +160,8 @@ treelang.srcinfo: doc/treelang.info
 
 treelang.dvi: doc/treelang.dvi
 
+treelang.pdf: doc/treelang.pdf
+
 TEXI_TREELANG_FILES = treelang/treelang.texi \
 	 $(gcc_docdir)/include/gcc-common.texi \
 	 $(gcc_docdir)/include/gpl.texi \
@@ -173,9 +175,12 @@ doc/treelang.info: $(TEXI_TREELANG_FILES)
 doc/treelang.dvi: $(TEXI_TREELANG_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
-treelang.html: $(htmldir)/treelang/index.html
+doc/treelang.pdf: $(TEXI_TREELANG_FILES)
+	$(TEXI2PDF) -I $(abs_docdir)/include -o $@ $<
 
-$(htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
+treelang.html: $(build_htmldir)/treelang/index.html
+
+$(build_htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/treelang -o $(@D) $<
@@ -288,7 +293,6 @@ treelang.check: $(TESTSUITEDIR)/site.exp
 	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
-	TRANSFORM=$(program_transform_name); export TRANSFORM; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
 	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	   export TCL_LIBRARY ; fi ; \

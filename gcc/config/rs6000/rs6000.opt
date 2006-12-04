@@ -64,6 +64,10 @@ mfprnd
 Target Report Mask(FPRND)
 Use PowerPC V2.02 floating point rounding instructions
 
+mmfpgpr
+Target Report Mask(MFPGPR)
+Use extended PowerPC V2.05 move floating point to/from GPR instructions
+
 maltivec
 Target Report Mask(ALTIVEC)
 Use AltiVec instructions
@@ -144,7 +148,7 @@ Target Report RejectNegative Var(TARGET_NO_FP_IN_TOC)
 Do not place floating point constants in TOC
 
 mfp-in-toc
-Target Report RejectNegative Var(TARGET_NO_FP_IN_TOC,0) VarExists
+Target Report RejectNegative Var(TARGET_NO_FP_IN_TOC,0)
 Place floating point constants in TOC
 
 mno-sum-in-toc

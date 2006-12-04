@@ -22,6 +22,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef TREE_SSA_STRUCTALIAS_H
 #define TREE_SSA_STRUCTALIAS_H
 
+/* True if the data pointed to by PTR can alias anything.  */
+#define PTR_IS_REF_ALL(PTR) TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (PTR))
+
 struct constraint;
 typedef struct constraint *constraint_t;
 
@@ -34,7 +37,7 @@ struct alias_info
   sbitmap ssa_names_visited;
 
   /* Array of SSA_NAME pointers processed by the points-to collector.  */
-  varray_type processed_ptrs;
+  VEC(tree,heap) *processed_ptrs;
 
   /* ADDRESSABLE_VARS contains all the global variables and locals that
      have had their address taken.  */
@@ -52,11 +55,6 @@ struct alias_info
   /* Number of const/pure function calls found in the program.  */
   size_t num_pure_const_calls_found;
 
-  /* Array of counters to keep track of how many times each pointer has
-     been dereferenced in the program.  This is used by the alias grouping
-     heuristic in compute_flow_insensitive_aliasing.  */
-  varray_type num_references;
-
   /* Total number of virtual operands that will be needed to represent
      all the aliases of all the pointers found in the program.  */
   long total_alias_vops;
@@ -69,6 +67,9 @@ struct alias_info
 
   /* Pointers that have been used in an indirect load operation.  */
   bitmap dereferenced_ptrs_load;
+
+  /* Memory tag for all the PTR_IS_REF_ALL pointers.  */
+  tree ref_all_symbol_mem_tag;
 };
 
 /* Keep track of how many times each pointer has been dereferenced in
@@ -80,7 +81,7 @@ struct alias_info
 #define NUM_REFERENCES_SET(ANN, VAL) (ANN)->common.aux = (void*) ((void *)(VAL))
 
 /* In tree-ssa-alias.c.  */
-enum escape_type is_escape_site (tree, struct alias_info *);
+enum escape_type is_escape_site (tree);
 
 /* In tree-ssa-structalias.c.  */
 extern void compute_points_to_sets (struct alias_info *);

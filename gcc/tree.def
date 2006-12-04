@@ -634,15 +634,8 @@ DEFTREECODE (RDIV_EXPR, "rdiv_expr", tcc_binary, 2)
    Used for pointer subtraction in C.  */
 DEFTREECODE (EXACT_DIV_EXPR, "exact_div_expr", tcc_binary, 2)
 
-/* Conversion of real to fixed point: four ways to round,
-   like the four ways to divide.
-   CONVERT_EXPR can also be used to convert a real to an integer,
-   and that is what is used in languages that do not have ways of
-   specifying which of these is wanted.  Maybe these are not needed.  */
+/* Conversion of real to fixed point by truncation.  */
 DEFTREECODE (FIX_TRUNC_EXPR, "fix_trunc_expr", tcc_unary, 1)
-DEFTREECODE (FIX_CEIL_EXPR, "fix_ceil_expr", tcc_unary, 1)
-DEFTREECODE (FIX_FLOOR_EXPR, "fix_floor_expr", tcc_unary, 1)
-DEFTREECODE (FIX_ROUND_EXPR, "fix_round_expr", tcc_unary, 1)
 
 /* Conversion of an integer to a real.  */
 DEFTREECODE (FLOAT_EXPR, "float_expr", tcc_unary, 1)
@@ -987,11 +980,8 @@ DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
    Operand 0: OMP_SECTIONS_BODY: Sections body.
-   Operand 1: OMP_SECTIONS_CLAUSES: List of clauses.
-   Operand 2: OMP_SECTIONS_SECTIONS: Vector of the different sections
-	      in the body.  Only valid after lowering and destroyed
-	      after the CFG has been built.  */
-DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 3)
+   Operand 1: OMP_SECTIONS_CLAUSES: List of clauses.  */
+DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 2)
 
 /* OpenMP - #pragma omp single
    Operand 0: OMP_SINGLE_BODY: Single section body.
@@ -1015,6 +1005,13 @@ DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_statement, 1)
    Operand 1: OMP_CRITICAL_NAME: Identifier for critical section.  */
 DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_statement, 2)
 
+/* Return from an OpenMP directive.  */
+DEFTREECODE (OMP_RETURN, "omp_return", tcc_statement, 0)
+
+/* OpenMP - An intermediate tree code to mark the location of the
+   loop or sections iteration in the partially lowered code.  */
+DEFTREECODE (OMP_CONTINUE, "omp_continue", tcc_statement, 0)
+
 /* OpenMP - #pragma omp atomic
    Operand 0: The address at which the atomic operation is to be performed.
 	This address should be stabilized with save_expr.
@@ -1025,9 +1022,6 @@ DEFTREECODE (OMP_ATOMIC, "omp_atomic", tcc_statement, 2)
 
 /* OpenMP clauses.  */
 DEFTREECODE (OMP_CLAUSE, "omp_clause", tcc_exceptional, 0)
-
-/* Return from an OpenMP directive.  */
-DEFTREECODE (OMP_RETURN_EXPR, "omp_return", tcc_statement, 0)
 
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar
@@ -1071,6 +1065,36 @@ DEFTREECODE (WIDEN_MULT_EXPR, "widen_mult_expr", tcc_binary, 2)
    Operand 1 is an integer shift amount in bits.  */
 DEFTREECODE (VEC_LSHIFT_EXPR, "vec_lshift_expr", tcc_binary, 2)
 DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
+
+/* Widening vector multiplication.
+   The two operands are vectors with N elements of size S. Multiplying the
+   elements of the two vectors will result in N products of size 2*S.
+   VEC_WIDEN_MULT_HI_EXPR computes the N/2 high products.
+   VEC_WIDEN_MULT_LO_EXPR computes the N/2 low products.  */
+DEFTREECODE (VEC_WIDEN_MULT_HI_EXPR, "widen_mult_hi_expr", tcc_binary, 2)
+DEFTREECODE (VEC_WIDEN_MULT_LO_EXPR, "widen_mult_hi_expr", tcc_binary, 2)
+
+/* Unpack (extract and promote/widen) the high/low elements of the input vector
+   into the output vector. The input vector has twice as many elements
+   as the output vector, that are half the size of the elements
+   of the output vector.  This is used to support type promotion. */
+DEFTREECODE (VEC_UNPACK_HI_EXPR, "vec_unpack_hi_expr", tcc_unary, 1)
+DEFTREECODE (VEC_UNPACK_LO_EXPR, "vec_unpack_lo_expr", tcc_unary, 1)
+
+/* Pack (demote/narrow and merge) the elements of the two input vectors
+   into the output vector, using modulo/saturating arithmetic.
+   The elements of the input vectors are twice the size of the elements of the
+   output vector.  This is used to support type demotion.  */
+DEFTREECODE (VEC_PACK_MOD_EXPR, "vec_pack_mod_expr", tcc_binary, 2)
+DEFTREECODE (VEC_PACK_SAT_EXPR, "vec_pack_sat_expr", tcc_binary, 2)
+                                                                                
+/* Extract even/odd fields from vectors.  */
+DEFTREECODE (VEC_EXTRACT_EVEN_EXPR, "vec_extracteven_expr", tcc_binary, 2)
+DEFTREECODE (VEC_EXTRACT_ODD_EXPR, "vec_extractodd_expr", tcc_binary, 2)
+
+/* Merge input vectors interleaving their fields.  */
+DEFTREECODE (VEC_INTERLEAVE_HIGH_EXPR, "vec_interleavehigh_expr", tcc_binary, 2)
+DEFTREECODE (VEC_INTERLEAVE_LOW_EXPR, "vec_interleavelow_expr", tcc_binary, 2)
 
 /*
 Local variables:

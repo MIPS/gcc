@@ -240,7 +240,6 @@ tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
   unsigned int i;
-  struct loops loops_info;
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -276,9 +275,12 @@ tree_ssa_dominator_optimize (void)
   /* We need to know which edges exit loops so that we can
      aggressively thread through loop headers to an exit
      edge.  */
-  flow_loops_find (&loops_info);
-  mark_loop_exit_edges (&loops_info);
-  flow_loops_free (&loops_info);
+  loop_optimizer_init (0);
+  if (current_loops)
+    {
+      mark_loop_exit_edges ();
+      loop_optimizer_finalize ();
+    }
 
   /* Clean up the CFG so that any forwarder blocks created by loop
      canonicalization are removed.  */
@@ -950,36 +952,61 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
     {
     case LT_EXPR:
     case GT_EXPR:
-      edge_info->max_cond_equivalences = 12;
-      edge_info->cond_equivalences = XNEWVEC (tree, 12);
+      if (FLOAT_TYPE_P (TREE_TYPE (op0)))
+	{
+	  edge_info->max_cond_equivalences = 12;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 12);
+	  build_and_record_new_cond (ORDERED_EXPR, op0, op1,
+				     &edge_info->cond_equivalences[8]);
+	  build_and_record_new_cond (LTGT_EXPR, op0, op1,
+				     &edge_info->cond_equivalences[10]);
+	}
+      else
+	{
+	  edge_info->max_cond_equivalences = 8;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 8);
+	}
+
       build_and_record_new_cond ((TREE_CODE (cond) == LT_EXPR
 				  ? LE_EXPR : GE_EXPR),
 				 op0, op1, &edge_info->cond_equivalences[4]);
-      build_and_record_new_cond (ORDERED_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[6]);
       build_and_record_new_cond (NE_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[8]);
-      build_and_record_new_cond (LTGT_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[10]);
+				 &edge_info->cond_equivalences[6]);
       break;
 
     case GE_EXPR:
     case LE_EXPR:
-      edge_info->max_cond_equivalences = 6;
-      edge_info->cond_equivalences = XNEWVEC (tree, 6);
-      build_and_record_new_cond (ORDERED_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[4]);
+      if (FLOAT_TYPE_P (TREE_TYPE (op0)))
+	{
+	  edge_info->max_cond_equivalences = 6;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 6);
+	  build_and_record_new_cond (ORDERED_EXPR, op0, op1,
+				     &edge_info->cond_equivalences[4]);
+	}
+      else
+	{
+	  edge_info->max_cond_equivalences = 4;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 4);
+	}
       break;
 
     case EQ_EXPR:
-      edge_info->max_cond_equivalences = 10;
-      edge_info->cond_equivalences = XNEWVEC (tree, 10);
-      build_and_record_new_cond (ORDERED_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[4]);
+      if (FLOAT_TYPE_P (TREE_TYPE (op0)))
+	{
+	  edge_info->max_cond_equivalences = 10;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 10);
+	  build_and_record_new_cond (ORDERED_EXPR, op0, op1,
+				     &edge_info->cond_equivalences[8]);
+	}
+      else
+	{
+	  edge_info->max_cond_equivalences = 8;
+	  edge_info->cond_equivalences = XNEWVEC (tree, 8);
+	}
       build_and_record_new_cond (LE_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[6]);
+				 &edge_info->cond_equivalences[4]);
       build_and_record_new_cond (GE_EXPR, op0, op1,
-				 &edge_info->cond_equivalences[8]);
+				 &edge_info->cond_equivalences[6]);
       break;
 
     case UNORDERED_EXPR:
@@ -2118,6 +2145,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
     {
       use_operand_p use_p;
       imm_use_iterator iter;
+      tree use_stmt;
       bool all = true;
 
       /* Dump details.  */
@@ -2134,10 +2162,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
       /* Walk over every use of LHS and try to replace the use with RHS. 
 	 At this point the only reason why such a propagation would not
 	 be successful would be if the use occurs in an ASM_EXPR.  */
-    repeat:
-      FOR_EACH_IMM_USE_SAFE (use_p, iter, lhs)
+      FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
 	{
-	  tree use_stmt = USE_STMT (use_p);
 	
 	  /* It's not always safe to propagate into an ASM_EXPR.  */
 	  if (TREE_CODE (use_stmt) == ASM_EXPR
@@ -2155,10 +2181,47 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  /* Propagate, fold and update the statement.  Note this may
-	     expose new const/copy propagation opportunities as well
-	     collapse control statements.  */
-	  propagate_value (use_p, rhs);
+	  /* Propagate the RHS into this use of the LHS.  */
+	  FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+	    propagate_value (use_p, rhs);
+
+	  /* Special cases to avoid useless calls into the folding
+	     routines, operand scanning, etc.
+
+	     First, propagation into a PHI may cause the PHI to become
+	     a degenerate, so mark the PHI as interesting.  No other
+	     actions are necessary.
+
+	     Second, if we're propagating a virtual operand and the
+	     propagation does not change the underlying _DECL node for
+	     the virtual operand, then no further actions are necessary.  */
+	  if (TREE_CODE (use_stmt) == PHI_NODE
+	      || (! is_gimple_reg (lhs)
+		  && TREE_CODE (rhs) == SSA_NAME
+		  && SSA_NAME_VAR (lhs) == SSA_NAME_VAR (rhs)))
+	    {
+	      /* Dump details.  */
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "    Updated statement:");
+		  print_generic_expr (dump_file, use_stmt, dump_flags);
+		  fprintf (dump_file, "\n");
+		}
+
+	      /* Propagation into a PHI may expose new degenerate PHIs,
+		 so mark the result of the PHI as interesting.  */
+	      if (TREE_CODE (use_stmt) == PHI_NODE)
+		{
+		  tree result = get_lhs_or_phi_result (use_stmt);
+		  bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
+		}
+	      continue;
+	    }
+
+	  /* From this point onward we are propagating into a 
+	     real statement.  Folding may (or may not) be possible,
+	     we may expose new operands, expose dead EH edges,
+	     etc.  */
 	  fold_stmt_inplace (use_stmt);
 
 	  /* Sometimes propagation can expose new operands to the
@@ -2189,13 +2252,12 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 		fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	    }
 
-	  /* Propagation may expose new degenerate PHIs or
-	     trivial copy/constant propagation opportunities.  */
-	  if (TREE_CODE (use_stmt) == PHI_NODE
-	      || (TREE_CODE (use_stmt) == MODIFY_EXPR
-		  && TREE_CODE (TREE_OPERAND (use_stmt, 0)) == SSA_NAME
-		  && (TREE_CODE (TREE_OPERAND (use_stmt, 1)) == SSA_NAME
-		      || is_gimple_min_invariant (TREE_OPERAND (use_stmt, 1)))))
+	  /* Propagation may expose new trivial copy/constant propagation
+	     opportunities.  */
+	  if (TREE_CODE (use_stmt) == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (use_stmt, 0)) == SSA_NAME
+	      && (TREE_CODE (TREE_OPERAND (use_stmt, 1)) == SSA_NAME
+		  || is_gimple_min_invariant (TREE_OPERAND (use_stmt, 1))))
 	    {
 	      tree result = get_lhs_or_phi_result (use_stmt);
 	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
@@ -2268,23 +2330,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	    }
 	}
 
-      /* Due to a bug in the immediate use iterator code, we can
-	 miss visiting uses in some cases when there is more than
-	 one use in a statement.  Missing a use can cause a multitude
-         of problems if we expected to eliminate all uses and remove
-         the defining statement.
-
-	 Until Andrew can fix the iterator, this hack will detect
-	 the cases which cause us problems.  Namely if ALL is set
-	 and we still have some immediate uses, then we must have
-	 skipped one or more in the loop above.  So just re-execute
-	 the loop.
-
-	 The maximum number of times we can re-execute the loop is
-	 bounded by the maximum number of times a given SSA_NAME
-	 appears in a single statement.  */
-      if (all && num_imm_uses (lhs) != 0)
-	goto repeat;
+      /* Ensure there is nothing else to do. */ 
+      gcc_assert (!all || has_zero_uses (lhs));
 
       /* If we were able to propagate away all uses of LHS, then
 	 we can remove STMT.  */
@@ -2293,7 +2340,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
     }
 }
 
-/* T is either a PHI node (potentally a degenerate PHI node) or
+/* T is either a PHI node (potentially a degenerate PHI node) or
    a statement that is a trivial copy or constant initialization.
 
    Attempt to eliminate T by propagating its RHS into all uses of
@@ -2404,14 +2451,14 @@ eliminate_degenerate_phis (void)
 
      A set bit indicates that the statement or PHI node which
      defines the SSA_NAME should be (re)examined to determine if
-     it has become a degenerate PHI or trival const/copy propagation
+     it has become a degenerate PHI or trivial const/copy propagation
      opportunity. 
 
      Experiments have show we generally get better compilation
      time behavior with bitmaps rather than sbitmaps.  */
   interesting_names = BITMAP_ALLOC (NULL);
 
-  /* First phase.  Elimiante degenerate PHIs via a domiantor
+  /* First phase.  Eliminate degenerate PHIs via a dominator
      walk of the CFG.
 
      Experiments have indicated that we generally get better
@@ -2422,7 +2469,7 @@ eliminate_degenerate_phis (void)
   calculate_dominance_info (CDI_DOMINATORS);
   eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
 
-  /* Second phase.  Eliminate second order degnerate PHIs as well
+  /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by
      the first phase or this phase.  Basically we keep iterating
      until our set of INTERESTING_NAMEs is empty.   */

@@ -571,25 +571,81 @@ set_rhs (tree *stmt_p, tree expr)
   ssa_op_iter iter;
 
   /* Verify the constant folded result is valid gimple.  */
-  if (TREE_CODE_CLASS (code) == tcc_binary)
+  switch (TREE_CODE_CLASS (code))
     {
+    case tcc_declaration:
+      if (!is_gimple_variable(expr))
+	return false;
+      break;
+
+    case tcc_constant:
+      break;
+
+    case tcc_binary:
+    case tcc_comparison:
       if (!is_gimple_val (TREE_OPERAND (expr, 0))
 	  || !is_gimple_val (TREE_OPERAND (expr, 1)))
 	return false;
-    }
-  else if (TREE_CODE_CLASS (code) == tcc_unary)
-    {
+      break;
+
+    case tcc_unary:
       if (!is_gimple_val (TREE_OPERAND (expr, 0)))
 	return false;
+      break;
+
+    case tcc_expression:
+      switch (code)
+	{
+	case ADDR_EXPR:
+          if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF
+	      && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
+	    return false;
+	  break;
+
+	case TRUTH_NOT_EXPR:
+	  if (!is_gimple_val (TREE_OPERAND (expr, 0)))
+	    return false;
+	  break;
+
+	case TRUTH_AND_EXPR:
+	case TRUTH_XOR_EXPR:
+	case TRUTH_OR_EXPR:
+	  if (!is_gimple_val (TREE_OPERAND (expr, 0))
+	      || !is_gimple_val (TREE_OPERAND (expr, 1)))
+	    return false;
+	  break;
+
+	case CALL_EXPR:
+	case EXC_PTR_EXPR:
+	case FILTER_EXPR:
+	  break;
+
+	default:
+	  return false;
+	}
+      break;
+
+    case tcc_exceptional:
+      switch (code)
+	{
+	case SSA_NAME:
+	  break;
+
+	default:
+	  return false;
+	}
+      break;
+
+    default:
+      return false;
     }
-  else if (code == ADDR_EXPR)
-    {
-      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF
-	  && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
-	return false;
-    }
-  else if (code == COMPOUND_EXPR)
-    return false;
+
+  if (EXPR_HAS_LOCATION (stmt)
+      && EXPR_P (expr)
+      && ! EXPR_HAS_LOCATION (expr)
+      && TREE_SIDE_EFFECTS (expr)
+      && TREE_CODE (expr) != LABEL_EXPR)
+    SET_EXPR_LOCATION (expr, EXPR_LOCATION (stmt));
 
   switch (TREE_CODE (stmt))
     {
@@ -632,7 +688,7 @@ set_rhs (tree *stmt_p, tree expr)
       *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
       (*stmt_p)->common.ann = (tree_ann_t) ann;
 
-      if (in_ssa_p
+      if (gimple_in_ssa_p (cfun)
 	  && TREE_SIDE_EFFECTS (expr))
 	{
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new

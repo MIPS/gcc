@@ -114,19 +114,19 @@ struct opt_info
   basic_block loop_preheader;      /* The loop preheader basic block.  */
 };
 
-static void decide_unrolling_and_peeling (struct loops *, int);
-static void peel_loops_completely (struct loops *, int);
+static void decide_unrolling_and_peeling (int);
+static void peel_loops_completely (int);
 static void decide_peel_simple (struct loop *, int);
 static void decide_peel_once_rolling (struct loop *, int);
 static void decide_peel_completely (struct loop *, int);
 static void decide_unroll_stupid (struct loop *, int);
 static void decide_unroll_constant_iterations (struct loop *, int);
 static void decide_unroll_runtime_iterations (struct loop *, int);
-static void peel_loop_simple (struct loops *, struct loop *);
-static void peel_loop_completely (struct loops *, struct loop *);
-static void unroll_loop_stupid (struct loops *, struct loop *);
-static void unroll_loop_constant_iterations (struct loops *, struct loop *);
-static void unroll_loop_runtime_iterations (struct loops *, struct loop *);
+static void peel_loop_simple (struct loop *);
+static void peel_loop_completely (struct loop *);
+static void unroll_loop_stupid (struct loop *);
+static void unroll_loop_constant_iterations (struct loop *);
+static void unroll_loop_runtime_iterations (struct loop *);
 static struct opt_info *analyze_insns_in_loop (struct loop *);
 static void opt_info_start_duplication (struct opt_info *);
 static void apply_opt_in_copies (struct opt_info *, unsigned, bool, bool);
@@ -142,24 +142,24 @@ static rtx get_expansion (struct var_to_expand *);
 
 /* Unroll and/or peel (depending on FLAGS) LOOPS.  */
 void
-unroll_and_peel_loops (struct loops *loops, int flags)
+unroll_and_peel_loops (int flags)
 {
   struct loop *loop, *next;
   bool check;
 
   /* First perform complete loop peeling (it is almost surely a win,
      and affects parameters for further decision a lot).  */
-  peel_loops_completely (loops, flags);
+  peel_loops_completely (flags);
 
   /* Now decide rest of unrolling and peeling.  */
-  decide_unrolling_and_peeling (loops, flags);
+  decide_unrolling_and_peeling (flags);
 
-  loop = loops->tree_root;
+  loop = current_loops->tree_root;
   while (loop->inner)
     loop = loop->inner;
 
   /* Scan the loops, inner ones first.  */
-  while (loop != loops->tree_root)
+  while (loop != current_loops->tree_root)
     {
       if (loop->next)
 	{
@@ -178,16 +178,16 @@ unroll_and_peel_loops (struct loops *loops, int flags)
 	  /* Already done.  */
 	  gcc_unreachable ();
 	case LPT_PEEL_SIMPLE:
-	  peel_loop_simple (loops, loop);
+	  peel_loop_simple (loop);
 	  break;
 	case LPT_UNROLL_CONSTANT:
-	  unroll_loop_constant_iterations (loops, loop);
+	  unroll_loop_constant_iterations (loop);
 	  break;
 	case LPT_UNROLL_RUNTIME:
-	  unroll_loop_runtime_iterations (loops, loop);
+	  unroll_loop_runtime_iterations (loop);
 	  break;
 	case LPT_UNROLL_STUPID:
-	  unroll_loop_stupid (loops, loop);
+	  unroll_loop_stupid (loop);
 	  break;
 	case LPT_NONE:
 	  check = false;
@@ -199,7 +199,7 @@ unroll_and_peel_loops (struct loops *loops, int flags)
 	{
 #ifdef ENABLE_CHECKING
 	  verify_dominators (CDI_DOMINATORS);
-	  verify_loop_structure (loops);
+	  verify_loop_structure ();
 #endif
 	}
       loop = next;
@@ -229,26 +229,19 @@ loop_exit_at_end_p (struct loop *loop)
   return true;
 }
 
-/* Check whether to peel LOOPS (depending on FLAGS) completely and do so.  */
+/* Depending on FLAGS, check whether to peel loops completely and do so.  */
 static void
-peel_loops_completely (struct loops *loops, int flags)
+peel_loops_completely (int flags)
 {
-  struct loop *loop, *next;
+  struct loop *loop;
+  unsigned i;
 
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
+  /* Scan the loops, the inner ones first.  */
+  for (i = current_loops->num - 1; i > 0; i--)
     {
-      if (loop->next)
-	{
-	  next = loop->next;
-	  while (next->inner)
-	    next = next->inner;
-	}
-      else
-	next = loop->outer;
+      loop = current_loops->parray[i];
+      if (!loop)
+	continue;
 
       loop->lpt_decision.decision = LPT_NONE;
 
@@ -265,27 +258,26 @@ peel_loops_completely (struct loops *loops, int flags)
 
       if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
 	{
-	  peel_loop_completely (loops, loop);
+	  peel_loop_completely (loop);
 #ifdef ENABLE_CHECKING
 	  verify_dominators (CDI_DOMINATORS);
-	  verify_loop_structure (loops);
+	  verify_loop_structure ();
 #endif
 	}
-      loop = next;
     }
 }
 
-/* Decide whether unroll or peel LOOPS (depending on FLAGS) and how much.  */
+/* Decide whether unroll or peel loops (depending on FLAGS) and how much.  */
 static void
-decide_unrolling_and_peeling (struct loops *loops, int flags)
+decide_unrolling_and_peeling (int flags)
 {
-  struct loop *loop = loops->tree_root, *next;
+  struct loop *loop = current_loops->tree_root, *next;
 
   while (loop->inner)
     loop = loop->inner;
 
   /* Scan the loops, inner ones first.  */
-  while (loop != loops->tree_root)
+  while (loop != current_loops->tree_root)
     {
       if (loop->next)
 	{
@@ -483,7 +475,7 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
    body; i++;
    */
 static void
-peel_loop_completely (struct loops *loops, struct loop *loop)
+peel_loop_completely (struct loop *loop)
 {
   sbitmap wont_exit;
   unsigned HOST_WIDE_INT npeel;
@@ -512,7 +504,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
       
       opt_info_start_duplication (opt_info);
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					  loops, npeel,
+					  npeel,
 					  wont_exit, desc->out_edge,
 					  remove_edges, &n_remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ
@@ -531,7 +523,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
 
       /* Remove the exit edges.  */
       for (i = 0; i < n_remove_edges; i++)
-	remove_path (loops, remove_edges[i]);
+	remove_path (remove_edges[i]);
       free (remove_edges);
     }
 
@@ -540,7 +532,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
 
   /* Now remove the unreachable part of the last iteration and cancel
      the loop.  */
-  remove_path (loops, ein);
+  remove_path (ein);
 
   if (dump_file)
     fprintf (dump_file, ";; Peeled loop completely, %d times\n", (int) npeel);
@@ -666,7 +658,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
      }
   */
 static void
-unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
+unroll_loop_constant_iterations (struct loop *loop)
 {
   unsigned HOST_WIDE_INT niter;
   unsigned exit_mod;
@@ -713,7 +705,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 	{
 	  opt_info_start_duplication (opt_info);
           ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					      loops, exit_mod,
+					      exit_mod,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
 					      DLTHE_FLAG_UPDATE_FREQ
@@ -752,7 +744,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
          
           opt_info_start_duplication (opt_info);
 	  ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					      loops, exit_mod + 1,
+					      exit_mod + 1,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
 					      DLTHE_FLAG_UPDATE_FREQ
@@ -779,7 +771,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
   
   opt_info_start_duplication (opt_info);
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      loops, max_unroll,
+				      max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ
@@ -819,7 +811,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
-    remove_path (loops, remove_edges[i]);
+    remove_path (remove_edges[i]);
   free (remove_edges);
 
   if (dump_file)
@@ -907,6 +899,23 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     loop->lpt_decision.times);
 }
 
+/* Splits edge E and inserts the sequence of instructions INSNS on it, and
+   returns the newly created block.  If INSNS is NULL_RTX, nothing is changed
+   and NULL is returned instead.  */
+
+basic_block
+split_edge_and_insert (edge e, rtx insns)
+{
+  basic_block bb;
+
+  if (!insns)
+    return NULL;
+  bb = split_edge (e); 
+  emit_insn_after (insns, BB_END (bb));
+  bb->flags |= BB_SUPERBLOCK;
+  return bb;
+}
+
 /* Unroll LOOP for that we are able to count number of iterations in runtime
    LOOP->LPT_DECISION.TIMES + 1 times.  The transformation does this (with some
    extra care for case n < 0):
@@ -939,7 +948,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
      }
    */
 static void
-unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
+unroll_loop_runtime_iterations (struct loop *loop)
 {
   rtx old_niter, niter, init_code, branch_code, tmp;
   unsigned i, j, p;
@@ -1017,7 +1026,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   end_sequence ();
 
   /* Precondition the loop.  */
-  loop_split_edge_with (loop_preheader_edge (loop), init_code);
+  split_edge_and_insert (loop_preheader_edge (loop), init_code);
 
   remove_edges = XCNEWVEC (edge, max_unroll + n_peel + 1);
   n_remove_edges = 0;
@@ -1034,15 +1043,13 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
     SET_BIT (wont_exit, 1);
   ezc_swtch = loop_preheader_edge (loop)->src;
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-				      loops, 1,
-				      wont_exit, desc->out_edge,
+				      1, wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ);
   gcc_assert (ok);
 
   /* Record the place where switch will be built for preconditioning.  */
-  swtch = loop_split_edge_with (loop_preheader_edge (loop),
-				NULL_RTX);
+  swtch = split_edge (loop_preheader_edge (loop));
 
   for (i = 0; i < n_peel; i++)
     {
@@ -1051,8 +1058,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       if (i != n_peel - 1 || !last_may_exit)
 	SET_BIT (wont_exit, 1);
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					  loops, 1,
-					  wont_exit, desc->out_edge,
+					  1, wont_exit, desc->out_edge,
 					  remove_edges, &n_remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ);
       gcc_assert (ok);
@@ -1061,12 +1067,16 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       j = n_peel - i - (extra_zero_check ? 0 : 1);
       p = REG_BR_PROB_BASE / (i + 2);
 
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      preheader = split_edge (loop_preheader_edge (loop));
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL_RTX);
 
-      swtch = loop_split_edge_with (single_pred_edge (swtch), branch_code);
+      /* We rely on the fact that the compare and jump cannot be optimized out,
+	 and hence the cfg we create is correct.  */
+      gcc_assert (branch_code != NULL_RTX);
+
+      swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
@@ -1079,12 +1089,13 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       /* Add branch for zero iterations.  */
       p = REG_BR_PROB_BASE / (max_unroll + 1);
       swtch = ezc_swtch;
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      preheader = split_edge (loop_preheader_edge (loop));
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p,
 					  NULL_RTX);
+      gcc_assert (branch_code != NULL_RTX);
 
-      swtch = loop_split_edge_with (single_succ_edge (swtch), branch_code);
+      swtch = split_edge_and_insert (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
@@ -1102,7 +1113,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   opt_info_start_duplication (opt_info);
   
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      loops, max_unroll,
+				      max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ
@@ -1139,7 +1150,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
-    remove_path (loops, remove_edges[i]);
+    remove_path (remove_edges[i]);
   free (remove_edges);
 
   /* We must be careful when updating the number of iterations due to
@@ -1269,7 +1280,7 @@ decide_peel_simple (struct loop *loop, int flags)
    end: ;
    */
 static void
-peel_loop_simple (struct loops *loops, struct loop *loop)
+peel_loop_simple (struct loop *loop)
 {
   sbitmap wont_exit;
   unsigned npeel = loop->lpt_decision.times;
@@ -1286,7 +1297,7 @@ peel_loop_simple (struct loops *loops, struct loop *loop)
   opt_info_start_duplication (opt_info);
   
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-				      loops, npeel, wont_exit,
+				      npeel, wont_exit,
 				      NULL, NULL,
 				      NULL, DLTHE_FLAG_UPDATE_FREQ
 				      | (opt_info
@@ -1419,7 +1430,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
      }
    */
 static void
-unroll_loop_stupid (struct loops *loops, struct loop *loop)
+unroll_loop_stupid (struct loop *loop)
 {
   sbitmap wont_exit;
   unsigned nunroll = loop->lpt_decision.times;
@@ -1437,7 +1448,7 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
   opt_info_start_duplication (opt_info);
   
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      loops, nunroll, wont_exit,
+				      nunroll, wont_exit,
 				      NULL, NULL, NULL,
 				      DLTHE_FLAG_UPDATE_FREQ
 				      | (opt_info
@@ -1474,7 +1485,7 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
 static hashval_t
 si_info_hash (const void *ivts)
 {
-  return htab_hash_pointer (((struct iv_to_split *) ivts)->insn);
+  return (hashval_t) INSN_UID (((struct iv_to_split *) ivts)->insn);
 }
 
 /* An equality functions for information about insns to split.  */
@@ -1493,7 +1504,7 @@ si_info_eq (const void *ivts1, const void *ivts2)
 static hashval_t
 ve_info_hash (const void *ves)
 {
-  return htab_hash_pointer (((struct var_to_expand *) ves)->insn);
+  return (hashval_t) INSN_UID (((struct var_to_expand *) ves)->insn);
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 
@@ -1706,14 +1717,15 @@ static struct opt_info *
 analyze_insns_in_loop (struct loop *loop)
 {
   basic_block *body, bb;
-  unsigned i, num_edges = 0;
+  unsigned i;
   struct opt_info *opt_info = XCNEW (struct opt_info);
   rtx insn;
   struct iv_to_split *ivts = NULL;
   struct var_to_expand *ves = NULL;
   PTR *slot1;
   PTR *slot2;
-  edge *edges = get_loop_exit_edges (loop, &num_edges);
+  VEC (edge, heap) *edges = get_loop_exit_edges (loop);
+  edge exit;
   bool can_apply = false;
   
   iv_analysis_loop_init (loop);
@@ -1725,19 +1737,16 @@ analyze_insns_in_loop (struct loop *loop)
                                             si_info_hash, si_info_eq, free);
   
   /* Record the loop exit bb and loop preheader before the unrolling.  */
-  if (!loop_preheader_edge (loop)->src)
-    {
-      loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-      opt_info->loop_preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
-    }
-  else
-    opt_info->loop_preheader = loop_preheader_edge (loop)->src;
+  opt_info->loop_preheader = loop_preheader_edge (loop)->src;
   
-  if (num_edges == 1
-      && !(edges[0]->flags & EDGE_COMPLEX))
+  if (VEC_length (edge, edges) == 1)
     {
-      opt_info->loop_exit = loop_split_edge_with (edges[0], NULL_RTX);
-      can_apply = true;
+      exit = VEC_index (edge, edges, 0);
+      if (!(exit->flags & EDGE_COMPLEX))
+	{
+	  opt_info->loop_exit = split_edge (exit);
+	  can_apply = true;
+	}
     }
   
   if (flag_variable_expansion_in_unroller
@@ -1777,7 +1786,7 @@ analyze_insns_in_loop (struct loop *loop)
       }
     }
   
-  free (edges);
+  VEC_free (edge, heap, edges);
   free (body);
   return opt_info;
 }

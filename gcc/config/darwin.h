@@ -40,6 +40,9 @@ Boston, MA 02110-1301, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
+/* Don't assume anything about the header files.  */
+#define NO_IMPLICIT_EXTERN_C
+
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
 
@@ -79,6 +82,9 @@ Boston, MA 02110-1301, USA.  */
 
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
+
+/* True if pragma ms_struct is in effect.  */
+extern GTY(()) int darwin_ms_struct;
 
 /* This table intercepts weirdo options whose names would interfere
    with normal driver conventions, and either translates them into
@@ -124,14 +130,18 @@ Boston, MA 02110-1301, USA.  */
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
+  { "-fapple-kext", "-fapple-kext -static -Wa,-static" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
-  { "-framework", "-Xlinker -framework -Xlinker" },  \
+  { "-findirect-virtual-calls", "-fapple-kext" }, \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
+  { "-framework", "-Xlinker -framework -Xlinker" },  \
+  { "-fterminated-vtables", "-fapple-kext" }, \
   { "-image_base", "-Zimage_base" },  \
   { "-init", "-Zinit" },  \
   { "-install_name", "-Zinstall_name" },  \
+  { "-mkernel", "-mkernel -static -Wa,-static" }, \
   { "-multiply_defined_unused", "-Zmultiplydefinedunused" },  \
   { "-multiply_defined", "-Zmultiply_defined" },  \
   { "-multi_module", "-Zmulti_module" },  \
@@ -139,6 +149,11 @@ Boston, MA 02110-1301, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+#define SUBSUBTARGET_OVERRIDE_OPTIONS					\
+  do {									\
+    darwin_override_options ();						\
+  } while (0)
 
 /* These compiler options take n arguments.  */
 
@@ -185,11 +200,25 @@ Boston, MA 02110-1301, USA.  */
    !strcmp (STR, "dylinker_install_name") ? 1 : \
    0)
 
+#define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {                        \
+    if (flag_mkernel || flag_apple_kext)				\
+      {									\
+	if (flag_use_cxa_atexit == 2)					\
+	  flag_use_cxa_atexit = 0;					\
+	/* kexts should always be built without the coalesced sections	\
+	   because the kernel loader doesn't grok such sections.  */	\
+	flag_weak = 0;							\
+	/* No RTTI in kexts.  */					\
+	flag_rtti = 0;							\
+      }									\
+  } while (0)
+
 /* Machine dependent cpp options.  Don't add more options here, add
    them to darwin_cpp_builtins in darwin-c.c.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}" \
+	" %{pthread:-D_REENTRANT}"
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -200,16 +229,26 @@ Boston, MA 02110-1301, USA.  */
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
 #define LINK_COMMAND_SPEC "\
-%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
-    %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
+    %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
     %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
     %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
+%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+    %{.c|.cc|.C|.cpp|.c++|.CPP|.m|.mm: \
+    %{gdwarf-2:%{!gstabs*:%{!gnone: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+
+#ifdef TARGET_SYSTEM_ROOT
+#define LINK_SYSROOT_SPEC \
+  "%{isysroot*:-syslibroot %*;:-syslibroot " TARGET_SYSTEM_ROOT "}"
+#else
+#define LINK_SYSROOT_SPEC "%{isysroot*:-syslibroot %*}"
+#endif
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -279,7 +318,7 @@ Boston, MA 02110-1301, USA.  */
    %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
-   %{isysroot*:-syslibroot %*} \
+   " LINK_SYSROOT_SPEC " \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -352,11 +391,10 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_SPEC "-arch %(darwin_arch) \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
 
-/* We use Dbx symbol format.  */
+/* We still allow output of STABS.  */
 
 #define DBX_DEBUGGING_INFO 1
 
-/* Also enable Dwarf 2 as an option.  */
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
@@ -368,6 +406,7 @@ Boston, MA 02110-1301, USA.  */
 #define DEBUG_LINE_SECTION	"__DWARF,__debug_line,regular,debug"
 #define DEBUG_LOC_SECTION	"__DWARF,__debug_loc,regular,debug"
 #define DEBUG_PUBNAMES_SECTION	"__DWARF,__debug_pubnames,regular,debug"
+#define DEBUG_PUBTYPES_SECTION	"__DWARF,__debug_pubtypes,regular,debug"
 #define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
 #define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
 
@@ -439,7 +478,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_USES_WEAK_UNWIND_INFO 1
 
 /* We need to use a nonlocal label for the start of an EH frame: the
-   Darwin linker requires that a coalesced section start with a label. 
+   Darwin linker requires that a coalesced section start with a label.
    Unfortunately, it also requires that 'debug' sections don't contain
    labels.  */
 #undef FRAME_BEGIN_LABEL
@@ -683,6 +722,8 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
+  { "apple_kext_compatibility", 0, 0, false, true, false,		     \
+    darwin_handle_kext_attribute },					     \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 
@@ -695,7 +736,9 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
-   variable has been defined in this translation unit.  */
+   variable has been defined in this translation unit.
+   When porting Mach-O to new architectures you need to make
+   sure these aren't clobbered by the backend.  */
 
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
@@ -809,8 +852,6 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
-#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
-
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
 
@@ -824,12 +865,18 @@ enum machopic_addr_class {
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
 
+/* Handle pragma weak and pragma pack.  */
+#define HANDLE_SYSV_PRAGMA 1
+
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
+
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
     c_register_pragma (0, "mark", darwin_pragma_ignore);	\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    c_register_pragma (0, "ms_struct", darwin_pragma_ms_struct); \
   } while (0)
 
 #undef ASM_APP_ON
@@ -848,6 +895,7 @@ void add_framework_path (char *);
 #define TARGET_POSIX_IO
 
 /* All new versions of Darwin have C99 functions.  */
+
 #define TARGET_C99_FUNCTIONS 1
 
 #define WINT_TYPE "int"
@@ -855,7 +903,65 @@ void add_framework_path (char *);
 /* Every program on darwin links against libSystem which contains the pthread
    routines, so there's no need to explicitly call out when doing threaded
    work.  */
+
 #undef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS ""
+
+/* Darwin can't support anchors until we can cope with the adjustments
+   to size that ASM_DECLARE_OBJECT_NAME and ASM_DECLARE_CONSTANT_NAME
+   when outputting members of an anchor block and the linker can be
+   taught to keep them together or we find some other suitable
+   code-gen technique.  */
+
+#if 0
+#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
+#else
+#define TARGET_ASM_OUTPUT_ANCHOR NULL
+#endif
+
+/* Attempt to turn on execute permission for the stack.  This may be
+    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    if the target machine can change execute permissions on a page).
+
+    There is no way to query the execute permission of the stack, so
+    we always issue the mprotect() call.
+
+    Unfortunately it is not possible to make this namespace-clean.
+
+    Also note that no errors should be emitted by this code; it is
+    considered dangerous for library calls to send messages to
+    stdout/stderr.  */
+
+#define ENABLE_EXECUTE_STACK                                            \
+extern void __enable_execute_stack (void *);                            \
+void                                                                    \
+__enable_execute_stack (void *addr)                                     \
+{                                                                       \
+   extern int mprotect (void *, size_t, int);                           \
+   extern int getpagesize (void);					\
+   static int size;                                                     \
+   static long mask;                                                    \
+                                                                        \
+   char *page, *end;                                                    \
+                                                                        \
+   if (size == 0)                                                       \
+     {                                                                  \
+       size = getpagesize();						\
+       mask = ~((long) size - 1);                                       \
+     }                                                                  \
+                                                                        \
+   page = (char *) (((long) addr) & mask);                              \
+   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
+                                                                        \
+   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
+   (void) mprotect (page, end - page, 7);                               \
+}
+
+/* For Apple KEXTs, we make the constructors return this to match gcc
+   2.95.  */
+#define TARGET_CXX_CDTOR_RETURNS_THIS (darwin_kextabi_p)
+extern int flag_mkernel;
+extern int flag_apple_kext;
+#define TARGET_KEXTABI flag_apple_kext
 
 #endif /* CONFIG_DARWIN_H */

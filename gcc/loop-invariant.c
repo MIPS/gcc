@@ -1178,6 +1178,11 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	{
 	  start_sequence ();
 	  op = force_operand (SET_SRC (set), reg);
+	  if (!op)
+	    {
+	      end_sequence ();
+	      goto fail;
+	    }
 	  if (op != reg)
 	    emit_move_insn (reg, op);
 	  seq = get_insns ();
@@ -1307,10 +1312,10 @@ free_loop_data (struct loop *loop)
   loop->aux = NULL;
 }
 
-/* Move the invariants out of the LOOPS.  */
+/* Move the invariants out of the loops.  */
 
 void
-move_loop_invariants (struct loops *loops)
+move_loop_invariants (void)
 {
   struct loop *loop;
   unsigned i;
@@ -1319,11 +1324,11 @@ move_loop_invariants (struct loops *loops)
   df_chain_add_problem (df, DF_UD_CHAIN);
  
   /* Process the loops, innermost first.  */
-  loop = loops->tree_root;
+  loop = current_loops->tree_root;
   while (loop->inner)
     loop = loop->inner;
 
-  while (loop != loops->tree_root)
+  while (loop != current_loops->tree_root)
     {
       move_single_loop_invariants (loop);
 
@@ -1337,9 +1342,9 @@ move_loop_invariants (struct loops *loops)
 	loop = loop->outer;
     }
 
-  for (i = 1; i < loops->num; i++)
-    if (loops->parray[i])
-      free_loop_data (loops->parray[i]);
+  for (i = 1; i < current_loops->num; i++)
+    if (current_loops->parray[i])
+      free_loop_data (current_loops->parray[i]);
 
   df_finish (df);
   df = NULL;

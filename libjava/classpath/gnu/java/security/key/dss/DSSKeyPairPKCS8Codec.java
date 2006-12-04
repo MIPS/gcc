@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package gnu.java.security.key.dss;
 
+import gnu.java.security.Configuration;
 import gnu.java.security.OID;
 import gnu.java.security.Registry;
 import gnu.java.security.der.DER;
@@ -55,6 +56,7 @@ import java.security.InvalidParameterException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 /**
  * An implementation of an {@link IKeyPairCodec} that knows how to encode /
@@ -65,6 +67,7 @@ import java.util.ArrayList;
 public class DSSKeyPairPKCS8Codec
     implements IKeyPairCodec
 {
+  private static final Logger log = Logger.getLogger(DSSKeyPairPKCS8Codec.class.getName());
   private static final OID DSA_ALG_OID = new OID(Registry.DSA_OID_STRING);
 
   // implicit 0-arguments constructor
@@ -137,7 +140,9 @@ public class DSSKeyPairPKCS8Codec
     DERValue derAlgorithmID = new DERValue(DER.CONSTRUCTED | DER.SEQUENCE,
                                            algorithmID);
 
-    DERValue derPrivateKey = new DERValue(DER.OCTET_STRING, Util.trim(x));
+    // The OCTET STRING is the DER encoding of an INTEGER.
+    DERValue derX = new DERValue(DER.INTEGER, x);
+    DERValue derPrivateKey = new DERValue(DER.OCTET_STRING, derX.getEncoded());
 
     ArrayList pki = new ArrayList(3);
     pki.add(derVersion);
@@ -154,11 +159,10 @@ public class DSSKeyPairPKCS8Codec
       }
     catch (IOException e)
       {
-        InvalidParameterException y = new InvalidParameterException();
+        InvalidParameterException y = new InvalidParameterException(e.getMessage());
         y.initCause(e);
         throw y;
       }
-
     return result;
   }
 
@@ -180,6 +184,8 @@ public class DSSKeyPairPKCS8Codec
    */
   public PrivateKey decodePrivateKey(byte[] input)
   {
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "decodePrivateKey");
     if (input == null)
       throw new InvalidParameterException("Input bytes MUST NOT be null");
 
@@ -220,16 +226,24 @@ public class DSSKeyPairPKCS8Codec
         g = (BigInteger) val.getValue();
 
         val = der.read();
+        if (Configuration.DEBUG)
+          log.fine("val = " + val);
         byte[] xBytes = (byte[]) val.getValue();
-        x = new BigInteger(1, xBytes);
+        if (Configuration.DEBUG)
+          log.fine(Util.dumpString(xBytes, "xBytes: "));
+        DERReader der2 = new DERReader(xBytes);
+        val = der2.read();
+        DerUtil.checkIsBigInteger(val, "Wrong X field");
+        x = (BigInteger) val.getValue();
       }
     catch (IOException e)
       {
-        InvalidParameterException y = new InvalidParameterException();
+        InvalidParameterException y = new InvalidParameterException(e.getMessage());
         y.initCause(e);
         throw y;
       }
-
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "decodePrivateKey");
     return new DSSPrivateKey(Registry.PKCS8_ENCODING_ID, p, q, g, x);
   }
 }

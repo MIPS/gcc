@@ -562,7 +562,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 			     build2 (MULT_EXPR, ret_type, m_acc, a));
 
 	      tmp = create_tmp_var (ret_type, "acc_tmp");
-	      add_referenced_tmp_var (tmp);
+	      add_referenced_var (tmp);
 
 	      var = make_ssa_name (tmp, stmt);
 	      TREE_OPERAND (stmt, 0) = var;
@@ -641,7 +641,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 		     build2 (MULT_EXPR, ret_type, m_acc, ret_var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
-      add_referenced_tmp_var (tmp);
+      add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
@@ -656,7 +656,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 		     build2 (PLUS_EXPR, ret_type, a_acc, var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
-      add_referenced_tmp_var (tmp);
+      add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
@@ -702,7 +702,7 @@ arg_needs_copy_p (tree param)
     return false;
 		
   /* Parameters that are only defined but never used need not be copied.  */
-  def = default_def (param);
+  def = gimple_default_def (cfun, param);
   if (!def)
     return false;
 
@@ -826,7 +826,7 @@ add_virtual_phis (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      if (!is_gimple_reg (var) && default_def (var) != NULL_TREE)
+      if (!is_gimple_reg (var) && gimple_default_def (cfun, var) != NULL_TREE)
 	mark_sym_for_renaming (var);
     }
 
@@ -911,7 +911,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	       param = TREE_CHAIN (param))
 	    if (arg_needs_copy_p (param))
 	      {
-		tree name = default_def (param);
+		tree name = gimple_default_def (cfun, param);
 		tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 		tree phi;
 
@@ -928,7 +928,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
 
 	  tmp = create_tmp_var (ret_type, "add_acc");
-	  add_referenced_tmp_var (tmp);
+	  add_referenced_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
 	  add_phi_arg (phi,
@@ -944,7 +944,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
 
 	  tmp = create_tmp_var (ret_type, "mult_acc");
-	  add_referenced_tmp_var (tmp);
+	  add_referenced_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
 	  add_phi_arg (phi,
@@ -1017,7 +1017,7 @@ execute_tail_calls (void)
 struct tree_opt_pass pass_tail_recursion = 
 {
   "tailr",				/* name */
-  NULL,					/* gate */
+  gate_tail_calls,			/* gate */
   execute_tail_recursion,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

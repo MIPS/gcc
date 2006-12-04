@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -25,6 +25,72 @@ Boston, MA 02110-1301, USA.  */
 /* Inline functions for manipulating various data structures defined in
    tree-flow.h.  See tree-flow.h for documentation.  */
 
+/* Return true when gimple SSA form was built.
+   gimple_in_ssa_p is queried by gimplifier in various early stages before SSA
+   infrastructure is initialized.  Check for presence of the datastructures
+   at first place.  */
+static inline bool
+gimple_in_ssa_p (struct function *fun)
+{
+  return fun && fun->gimple_df && fun->gimple_df->in_ssa_p;
+}
+
+/* 'true' after aliases have been computed (see compute_may_aliases).  */
+static inline bool
+gimple_aliases_computed_p (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->aliases_computed_p;
+}
+
+/* Addressable variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) has had its address taken.  Note that
+   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
+   addressable variable is not necessarily call-clobbered (e.g., a
+   local addressable whose address does not escape) and not all
+   call-clobbered variables are addressable (e.g., a local static
+   variable).  */
+static inline bitmap
+gimple_addressable_vars (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->addressable_vars;
+}
+
+/* Call clobbered variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) is call-clobbered.  */
+static inline bitmap
+gimple_call_clobbered_vars (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->call_clobbered_vars;
+}
+
+/* Array of all variables referenced in the function.  */
+static inline htab_t
+gimple_referenced_vars (struct function *fun)
+{
+  if (!fun->gimple_df)
+    return NULL;
+  return fun->gimple_df->referenced_vars;
+}
+
+/* Artificial variable used to model the effects of function calls.  */
+static inline tree
+gimple_global_var (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->global_var;
+}
+
+/* Artificial variable used to model the effects of nonlocal
+   variables.  */
+static inline tree
+gimple_nonlocal_all (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->nonlocal_all;
+}
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -79,7 +145,8 @@ first_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
   itm = (struct int_tree_map *) first_htab_element (&iter->hti,
-                                                    referenced_vars);
+                                                    gimple_referenced_vars
+						    (cfun));
   if (!itm) 
     return NULL;
   return itm->to;
@@ -159,7 +226,19 @@ static inline function_ann_t
 get_function_ann (tree var)
 {
   function_ann_t ann = function_ann (var);
+  gcc_assert (!var->common.ann || var->common.ann->common.type == FUNCTION_ANN);
   return (ann) ? ann : create_function_ann (var);
+}
+
+/* Return true if T has a statement annotation attached to it.  */
+
+static inline bool
+has_stmt_ann (tree t)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (is_gimple_stmt (t));
+#endif
+  return t->common.ann && t->common.ann->common.type == STMT_ANN;
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -170,6 +249,7 @@ stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
+  gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
   return (stmt_ann_t) t->common.ann;
 }
 
@@ -265,8 +345,8 @@ mark_stmt_modified (tree t)
   ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
-  else if (noreturn_call_p (t))
-    VEC_safe_push (tree, gc, modified_noreturn_calls, t);
+  else if (noreturn_call_p (t) && cfun->gimple_df)
+    VEC_safe_push (tree, gc, MODIFIED_NORETURN_CALLS (cfun), t);
   ann->modified = 1;
 }
 
@@ -394,83 +474,6 @@ relink_imm_use_stmt (ssa_use_operand_t *linknode, ssa_use_operand_t *old, tree s
   linknode->stmt = stmt;
 }
 
-/* Finished the traverse of an immediate use list IMM by removing it from 
-   the list.  */
-static inline void
-end_safe_imm_use_traverse (imm_use_iterator *imm)
-{
- delink_imm_use (&(imm->iter_node));
-}
-
-/* Return true if IMM is at the end of the list.  */
-static inline bool
-end_safe_imm_use_p (imm_use_iterator *imm)
-{
-  return (imm->imm_use == imm->end_p);
-}
-
-/* Initialize iterator IMM to process the list for VAR.  */
-static inline use_operand_p
-first_safe_imm_use (imm_use_iterator *imm, tree var)
-{
-  /* Set up and link the iterator node into the linked list for VAR.  */
-  imm->iter_node.use = NULL;
-  imm->iter_node.stmt = NULL_TREE;
-  imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
-  /* Check if there are 0 elements.  */
-  if (imm->end_p->next == imm->end_p)
-    {
-      imm->imm_use = imm->end_p;
-      return NULL_USE_OPERAND_P;
-    }
-
-  link_imm_use (&(imm->iter_node), var);
-  imm->imm_use = imm->iter_node.next;
-  return imm->imm_use;
-}
-
-/* Bump IMM to the next use in the list.  */
-static inline use_operand_p
-next_safe_imm_use (imm_use_iterator *imm)
-{
-  ssa_use_operand_t *ptr;
-  use_operand_p old;
-
-  old = imm->imm_use;
-  /* If the next node following the iter_node is still the one referred to by
-     imm_use, then the list hasn't changed, go to the next node.  */
-  if (imm->iter_node.next == imm->imm_use)
-    {
-      ptr = &(imm->iter_node);
-      /* Remove iternode from the list.  */
-      delink_imm_use (ptr);
-      imm->imm_use = imm->imm_use->next;
-      if (! end_safe_imm_use_p (imm))
-	{
-	  /* This isn't the end, link iternode before the next use.  */
-	  ptr->prev = imm->imm_use->prev;
-	  ptr->next = imm->imm_use;
-	  imm->imm_use->prev->next = ptr;
-	  imm->imm_use->prev = ptr;
-	}
-      else
-	return old;
-    }
-  else
-    {
-      /* If the 'next' value after the iterator isn't the same as it was, then
-	 a node has been deleted, so we simply proceed to the node following 
-	 where the iterator is in the list.  */
-      imm->imm_use = imm->iter_node.next;
-      if (end_safe_imm_use_p (imm))
-        {
-	  end_safe_imm_use_traverse (imm);
-	  return old;
-	}
-    }
-
-  return imm->imm_use;
-}
 
 /* Return true is IMM has reached the end of the immediate use list.  */
 static inline bool
@@ -824,7 +827,7 @@ is_call_clobbered (tree var)
   if (!MTAG_P (var))
     return DECL_CALL_CLOBBERED (var);
   else
-    return bitmap_bit_p (call_clobbered_vars, DECL_UID (var)); 
+    return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
@@ -834,7 +837,7 @@ mark_call_clobbered (tree var, unsigned int escape_type)
   var_ann (var)->escape_mask |= escape_type;
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = true;
-  bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
 /* Clear the call-clobbered attribute from variable VAR.  */
@@ -847,7 +850,7 @@ clear_call_clobbered (tree var)
     MTAG_GLOBAL (var) = 0;
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -856,25 +859,25 @@ mark_non_addressable (tree var)
 {
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
   TREE_ADDRESSABLE (var) = 0;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
    doesn't already exist.  */
-static inline tree_ann_t
-tree_ann (tree t)
+static inline tree_ann_common_t
+tree_common_ann (tree t)
 {
-  return t->common.ann;
+  return &t->common.ann->common;
 }
 
 /* Return a common annotation for T.  Create the constant annotation if it
    doesn't exist.  */
-static inline tree_ann_t
-get_tree_ann (tree t)
+static inline tree_ann_common_t
+get_tree_common_ann (tree t)
 {
-  tree_ann_t ann = tree_ann (t);
-  return (ann) ? ann : create_tree_ann (t);
+  tree_ann_common_t ann = tree_common_ann (t);
+  return (ann) ? ann : create_tree_common_ann (t);
 }
 
 /*  -----------------------------------------------------------------------  */
@@ -1219,8 +1222,8 @@ single_ssa_def_operand (tree stmt, int flags)
 }
 
 
-/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  */
+/* Return true if there are zero operands in STMT matching the type 
+   given in FLAGS.  */
 static inline bool
 zero_ssa_operands (tree stmt, int flags)
 {
@@ -1319,7 +1322,7 @@ single_phi_def (tree stmt, int flags)
 }
 
 /* Initialize the iterator PTR for uses matching FLAGS in PHI.  FLAGS should
-   be either SSA_OP_USES or SAS_OP_VIRTUAL_USES.  */
+   be either SSA_OP_USES or SSA_OP_VIRTUAL_USES.  */
 static inline use_operand_p
 op_iter_init_phiuse (ssa_op_iter *ptr, tree phi, int flags)
 {
@@ -1376,7 +1379,162 @@ op_iter_init_phidef (ssa_op_iter *ptr, tree phi, int flags)
   return PHI_RESULT_PTR (phi);
 }
 
+/* Return true is IMM has reached the end of the immediate use stmt list.  */
 
+static inline bool
+end_imm_use_stmt_p (imm_use_iterator *imm)
+{
+  return (imm->imm_use == imm->end_p);
+}
+
+/* Finished the traverse of an immediate use stmt list IMM by removing the
+   placeholder node from the list.  */
+
+static inline void
+end_imm_use_stmt_traverse (imm_use_iterator *imm)
+{
+  delink_imm_use (&(imm->iter_node));
+}
+
+/* Immediate use traversal of uses within a stmt require that all the
+   uses on a stmt be sequentially listed.  This routine is used to build up
+   this sequential list by adding USE_P to the end of the current list 
+   currently delimited by HEAD and LAST_P.  The new LAST_P value is 
+   returned.  */
+
+static inline use_operand_p
+move_use_after_head (use_operand_p use_p, use_operand_p head, 
+		      use_operand_p last_p)
+{
+  gcc_assert (USE_FROM_PTR (use_p) == USE_FROM_PTR (head));
+  /* Skip head when we find it.  */
+  if (use_p != head)
+    {
+      /* If use_p is already linked in after last_p, continue.  */
+      if (last_p->next == use_p)
+	last_p = use_p;
+      else
+	{
+	  /* Delink from current location, and link in at last_p.  */
+	  delink_imm_use (use_p);
+	  link_imm_use_to_list (use_p, last_p);
+	  last_p = use_p;
+	}
+    }
+  return last_p;
+}
+
+
+/* This routine will relink all uses with the same stmt as HEAD into the list
+   immediately following HEAD for iterator IMM.  */
+
+static inline void
+link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
+{
+  use_operand_p use_p;
+  use_operand_p last_p = head;
+  tree head_stmt = USE_STMT (head);
+  tree use = USE_FROM_PTR (head);
+  ssa_op_iter op_iter;
+  int flag;
+
+  /* Only look at virtual or real uses, depending on the type of HEAD.  */
+  flag = (is_gimple_reg (use) ? SSA_OP_USE : SSA_OP_VIRTUAL_USES);
+
+  if (TREE_CODE (head_stmt) == PHI_NODE)
+    {
+      FOR_EACH_PHI_ARG (use_p, head_stmt, op_iter, flag)
+	if (USE_FROM_PTR (use_p) == use)
+	  last_p = move_use_after_head (use_p, head, last_p);
+    }
+  else
+    {
+      FOR_EACH_SSA_USE_OPERAND (use_p, head_stmt, op_iter, flag)
+	if (USE_FROM_PTR (use_p) == use)
+	  last_p = move_use_after_head (use_p, head, last_p);
+    }
+  /* LInk iter node in after last_p.  */
+  if (imm->iter_node.prev != NULL)
+    delink_imm_use (&imm->iter_node);
+  link_imm_use_to_list (&(imm->iter_node), last_p);
+}
+
+/* Initialize IMM to traverse over uses of VAR.  Return the first statement.  */
+static inline tree
+first_imm_use_stmt (imm_use_iterator *imm, tree var)
+{
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+  
+  imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
+  imm->imm_use = imm->end_p->next;
+  imm->next_imm_name = NULL_USE_OPERAND_P;
+
+  /* iter_node is used as a marker within the immediate use list to indicate
+     where the end of the current stmt's uses are.  Initialize it to NULL
+     stmt and use, which indicates a marker node.  */
+  imm->iter_node.prev = NULL_USE_OPERAND_P;
+  imm->iter_node.next = NULL_USE_OPERAND_P;
+  imm->iter_node.stmt = NULL_TREE;
+  imm->iter_node.use = NULL_USE_OPERAND_P;
+
+  if (end_imm_use_stmt_p (imm))
+    return NULL_TREE;
+
+  link_use_stmts_after (imm->imm_use, imm);
+
+  return USE_STMT (imm->imm_use);
+}
+
+/* Bump IMM to the next stmt which has a use of var.  */
+
+static inline tree
+next_imm_use_stmt (imm_use_iterator *imm)
+{
+  imm->imm_use = imm->iter_node.next;
+  if (end_imm_use_stmt_p (imm))
+    {
+      if (imm->iter_node.prev != NULL)
+	delink_imm_use (&imm->iter_node);
+      return NULL_TREE;
+    }
+
+  link_use_stmts_after (imm->imm_use, imm);
+  return USE_STMT (imm->imm_use);
+
+}
+
+/* This routine will return the first use on the stmt IMM currently refers
+   to.  */
+
+static inline use_operand_p
+first_imm_use_on_stmt (imm_use_iterator *imm)
+{
+  imm->next_imm_name = imm->imm_use->next;
+  return imm->imm_use;
+}
+
+/*  Return TRUE if the last use on the stmt IMM refers to has been visited.  */
+
+static inline bool
+end_imm_use_on_stmt_p (imm_use_iterator *imm)
+{
+  return (imm->imm_use == &(imm->iter_node));
+}
+
+/* Bump to the next use on the stmt IMM refers to, return NULL if done.  */
+
+static inline use_operand_p
+next_imm_use_on_stmt (imm_use_iterator *imm)
+{
+  imm->imm_use = imm->next_imm_name;
+  if (end_imm_use_on_stmt_p (imm))
+    return NULL_USE_OPERAND_P;
+  else
+    {
+      imm->next_imm_name = imm->imm_use->next;
+      return imm->imm_use;
+    }
+}
 
 /* Return true if VAR cannot be modified by the program.  */
 
@@ -1538,6 +1696,34 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     }
   return false;
 
+}
+
+/* Get the value handle of EXPR.  This is the only correct way to get
+   the value handle for a "thing".  If EXPR does not have a value
+   handle associated, it returns NULL_TREE.  
+   NB: If EXPR is min_invariant, this function is *required* to return
+   EXPR.  */
+
+static inline tree
+get_value_handle (tree expr)
+{
+  if (TREE_CODE (expr) == SSA_NAME)
+    return SSA_NAME_VALUE (expr);
+  else if (DECL_P (expr) || TREE_CODE (expr) == TREE_LIST
+	   || TREE_CODE (expr) == CONSTRUCTOR)
+    {
+      tree_ann_common_t ann = tree_common_ann (expr);
+      return ((ann) ? ann->value_handle : NULL_TREE);
+    }
+  else if (is_gimple_min_invariant (expr))
+    return expr;
+  else if (EXPR_P (expr))
+    {
+      tree_ann_common_t ann = tree_common_ann (expr);
+      return ((ann) ? ann->value_handle : NULL_TREE);
+    }
+  else
+    gcc_unreachable ();
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -246,7 +246,11 @@ exception statement from your version. */
 #define VK_COMPOSE 65312
 #define VK_ALT_GRAPH 65406
 #define VK_UNDEFINED 0
+#define VK_BEGIN 65368
+#define VK_CONTEXT_MENU 525
+#define VK_WINDOWS 524
 
+ 
 #define AWT_KEY_CHAR_UNDEFINED 0
 
 #define AWT_FRAME_STATE_NORMAL 0
@@ -721,14 +725,28 @@ keysym_to_awt_keycode (GdkEventKey *event)
       return VK_CUT;
       return VK_COPY;
       return VK_PASTE;
+      */
+    case GDK_Undo:
       return VK_UNDO;
+    case GDK_Redo:
       return VK_AGAIN;
+      /*
       return VK_FIND;
       return VK_PROPS;
       return VK_STOP;
       return VK_COMPOSE;
-      return VK_ALT_GRAPH;
       */
+    case GDK_ISO_Level3_Shift:
+      return VK_ALT_GRAPH;
+      /*
+	case VK_BEGIN:
+      */
+    case GDK_Menu:
+      return VK_CONTEXT_MENU;
+    case GDK_Super_L:
+    case GDK_Super_R:
+      return VK_WINDOWS;
+
     default:
       return VK_UNDEFINED;
     }
@@ -1227,6 +1245,38 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetModal
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetAlwaysOnTop
+  (JNIEnv *env, jobject obj, jboolean alwaysOnTop)
+{
+  void *ptr;
+
+  gdk_threads_enter ();
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gtk_window_set_keep_above (GTK_WINDOW (ptr), alwaysOnTop);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT jboolean JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowHasFocus
+(JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  jboolean retval;
+
+  gdk_threads_enter ();
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  retval = gtk_window_has_toplevel_focus (GTK_WINDOW (ptr));
+
+  gdk_threads_leave ();
+  return retval;
+}
+
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_setVisibleNative
   (JNIEnv *env, jobject obj, jboolean visible)
 {
@@ -1424,6 +1474,8 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBoundsUnlocked
   (JNIEnv *env, jobject obj, jint x, jint y, jint width, jint height)
 {
   void *ptr;
+  gint current_width;
+  gint current_height;
 
   ptr = NSA_GET_PTR (env, obj);
 
@@ -1447,12 +1499,19 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBoundsUnlocked
   if (GTK_WIDGET (ptr)->window != NULL)
     gdk_window_move (GTK_WIDGET (ptr)->window, x, y);
 
-  /* Need to change the widget's request size. */
-  gtk_widget_set_size_request (GTK_WIDGET(ptr), width, height);
-  /* Also need to call gtk_window_resize.  If the resize is requested
-     by the program and the window's "resizable" property is true then
-     the size request will not be honoured. */
-  gtk_window_resize (GTK_WINDOW (ptr), width, height);
+  /* Only request resizing if the actual width or height change, otherwise
+   * we get unnecessary flickers because resizing causes GTK to clear the
+   * window content, even if the actual size doesn't change. */
+  gtk_window_get_size(GTK_WINDOW(ptr), &current_width, &current_height);
+  if (current_width != width || current_height != height)
+    {
+      /* Need to change the widget's request size. */
+      gtk_widget_set_size_request (GTK_WIDGET(ptr), width, height);
+      /* Also need to call gtk_window_resize.  If the resize is requested
+	 by the program and the window's "resizable" property is true then
+	 the size request will not be honoured. */
+      gtk_window_resize (GTK_WINDOW (ptr), width, height);
+    }
 }
 
 static void
@@ -2106,14 +2165,27 @@ cp_gtk_awt_keycode_to_keysym (jint keyCode, jint keyLocation)
     case VK_CUT:
     case VK_COPY:
     case VK_PASTE:
+      */
     case VK_UNDO:
+      return GDK_Undo;
     case VK_AGAIN:
+      return GDK_Redo;
+      /*
     case VK_FIND:
     case VK_PROPS:
     case VK_STOP:
     case VK_COMPOSE:
-    case VK_ALT_GRAPH:
       */
+    case VK_ALT_GRAPH:
+      return GDK_ISO_Level3_Shift;
+      /*
+	case VK_BEGIN:
+      */
+    case VK_CONTEXT_MENU:
+      return GDK_Menu;
+    case VK_WINDOWS:
+      return GDK_Super_R;
+
     default:
       return GDK_VoidSymbol;
     }

@@ -32,14 +32,12 @@
 #include <cctype>
 #include <cwctype>     // For towupper, etc.
 #include <locale>
-#include <bits/atomicity.h>
-#include <bits/concurrence.h>
+#include <ext/concurrence.h>
 
-namespace __gnu_internal
+namespace
 {
-  // Mutex object for cache access
-  static __glibcxx_mutex_define_initialized(locale_cache_mutex);
-}
+  __gnu_cxx::__mutex locale_cache_mutex;
+} // anonymous namespace
 
 // XXX GLIBCXX_ABI Deprecated
 #ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
@@ -391,7 +389,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   locale::_Impl::
   _M_install_cache(const facet* __cache, size_t __index)
   {
-    __gnu_cxx::lock sentry(__gnu_internal::locale_cache_mutex);
+    __gnu_cxx::__scoped_lock sentry(locale_cache_mutex);
     if (_M_caches[__index] != 0)
       {
 	// Some other thread got in first.
@@ -433,7 +431,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  _M_index = 1 + f->_M_id();
 	else
 #endif
-	  _M_index = 1 + __gnu_cxx::__exchange_and_add(&_S_refcount, 1);
+	  _M_index = 1 + __gnu_cxx::__exchange_and_add_dispatch(&_S_refcount,
+								1);
       }
     return _M_index - 1;
   }

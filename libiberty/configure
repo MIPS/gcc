@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libiberty_topdir MAINT NOTMAINT MAKEINFO BUILD_INFO PERL HAVE_PERL build build_cpu build_vendor build_os host host_cpu host_vendor host_os AR ac_ct_AR RANLIB ac_ct_RANLIB CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP ac_libiberty_warn_cflags NO_MINUS_C_MINUS_O OUTPUT_OPTION INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA EGREP LIBOBJS CHECK target_header_dir pexecute INSTALL_DEST LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libiberty_topdir MAINT NOTMAINT MAKEINFO BUILD_INFO PERL HAVE_PERL build build_cpu build_vendor build_os host host_cpu host_vendor host_os AR ac_ct_AR RANLIB ac_ct_RANLIB CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP ac_libiberty_warn_cflags NO_MINUS_C_MINUS_O OUTPUT_OPTION INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA EGREP LIBOBJS CHECK target_header_dir pexecute INSTALL_DEST datarootdir docdir htmldir LTLIBOBJS'
 ac_subst_files='host_makefile_frag'
 
 # Initialize some variables set by options.
@@ -5679,6 +5679,208 @@ _ACEOF
 
   fi
 
+  # If we are being configured for Mingw, we know which functions
+  # Mingw provides and which ones we will be expected to provide.
+
+  case "${host}" in
+  *-*-mingw*)
+    case $LIBOBJS in
+    "asprintf.$ac_objext"   | \
+  *" asprintf.$ac_objext"   | \
+    "asprintf.$ac_objext "* | \
+  *" asprintf.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS asprintf.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "basename.$ac_objext"   | \
+  *" basename.$ac_objext"   | \
+    "basename.$ac_objext "* | \
+  *" basename.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS basename.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "bcmp.$ac_objext"   | \
+  *" bcmp.$ac_objext"   | \
+    "bcmp.$ac_objext "* | \
+  *" bcmp.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS bcmp.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "bcopy.$ac_objext"   | \
+  *" bcopy.$ac_objext"   | \
+    "bcopy.$ac_objext "* | \
+  *" bcopy.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS bcopy.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "bzero.$ac_objext"   | \
+  *" bzero.$ac_objext"   | \
+    "bzero.$ac_objext "* | \
+  *" bzero.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS bzero.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "clock.$ac_objext"   | \
+  *" clock.$ac_objext"   | \
+    "clock.$ac_objext "* | \
+  *" clock.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS clock.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "ffs.$ac_objext"   | \
+  *" ffs.$ac_objext"   | \
+    "ffs.$ac_objext "* | \
+  *" ffs.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS ffs.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "getpagesize.$ac_objext"   | \
+  *" getpagesize.$ac_objext"   | \
+    "getpagesize.$ac_objext "* | \
+  *" getpagesize.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS getpagesize.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "index.$ac_objext"   | \
+  *" index.$ac_objext"   | \
+    "index.$ac_objext "* | \
+  *" index.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS index.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "insque.$ac_objext"   | \
+  *" insque.$ac_objext"   | \
+    "insque.$ac_objext "* | \
+  *" insque.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS insque.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "mempcpy.$ac_objext"   | \
+  *" mempcpy.$ac_objext"   | \
+    "mempcpy.$ac_objext "* | \
+  *" mempcpy.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS mempcpy.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "mkstemps.$ac_objext"   | \
+  *" mkstemps.$ac_objext"   | \
+    "mkstemps.$ac_objext "* | \
+  *" mkstemps.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS mkstemps.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "random.$ac_objext"   | \
+  *" random.$ac_objext"   | \
+    "random.$ac_objext "* | \
+  *" random.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS random.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "rindex.$ac_objext"   | \
+  *" rindex.$ac_objext"   | \
+    "rindex.$ac_objext "* | \
+  *" rindex.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS rindex.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "sigsetmask.$ac_objext"   | \
+  *" sigsetmask.$ac_objext"   | \
+    "sigsetmask.$ac_objext "* | \
+  *" sigsetmask.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS sigsetmask.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "stpcpy.$ac_objext"   | \
+  *" stpcpy.$ac_objext"   | \
+    "stpcpy.$ac_objext "* | \
+  *" stpcpy.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS stpcpy.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "stpncpy.$ac_objext"   | \
+  *" stpncpy.$ac_objext"   | \
+    "stpncpy.$ac_objext "* | \
+  *" stpncpy.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS stpncpy.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "strndup.$ac_objext"   | \
+  *" strndup.$ac_objext"   | \
+    "strndup.$ac_objext "* | \
+  *" strndup.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS strndup.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "strverscmp.$ac_objext"   | \
+  *" strverscmp.$ac_objext"   | \
+    "strverscmp.$ac_objext "* | \
+  *" strverscmp.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS strverscmp.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "vasprintf.$ac_objext"   | \
+  *" vasprintf.$ac_objext"   | \
+    "vasprintf.$ac_objext "* | \
+  *" vasprintf.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS vasprintf.$ac_objext" ;;
+esac
+
+    case $LIBOBJS in
+    "waitpid.$ac_objext"   | \
+  *" waitpid.$ac_objext"   | \
+    "waitpid.$ac_objext "* | \
+  *" waitpid.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS waitpid.$ac_objext" ;;
+esac
+
+
+    for f in $funcs; do
+      case "$f" in
+	asprintf | basename | bcmp | bcopy | bzero | clock | ffs | getpagesize | index | insque | mempcpy | mkstemps | random | rindex | sigsetmask | stpcpy | stpncpy | strdup | strndup | strverscmp | vasprintf | waitpid)
+	  ;;
+	*)
+	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+	  cat >>confdefs.h <<_ACEOF
+#define $n 1
+_ACEOF
+
+	  ;;
+      esac
+    done
+
+    # Mingw doesnt provide any of the variables in $vars, so we
+    # dont have to check them here.
+
+    # Of the functions in $checkfuncs, Mingw only has strerror.
+    cat >>confdefs.h <<\_ACEOF
+#define HAVE_STRERROR 1
+_ACEOF
+
+
+    setobjs=yes
+    ;;
+
+  esac
+
   # We may wish to install the target headers somewhere.
   # Check whether --enable-install-libiberty or --disable-install-libiberty was given.
 if test "${enable_install_libiberty+set}" = set; then
@@ -8677,6 +8879,10 @@ for l in x $LIBOBJS; do
 done
 LIBOBJS="$L"
 
+
+
+
+
 # We need multilib support, but only if configuring for the target.
                     ac_config_files="$ac_config_files Makefile testsuite/Makefile"
 
@@ -9354,6 +9560,9 @@ s,@CHECK@,$CHECK,;t t
 s,@target_header_dir@,$target_header_dir,;t t
 s,@pexecute@,$pexecute,;t t
 s,@INSTALL_DEST@,$INSTALL_DEST,;t t
+s,@datarootdir@,$datarootdir,;t t
+s,@docdir@,$docdir,;t t
+s,@htmldir@,$htmldir,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 /@host_makefile_frag@/r $host_makefile_frag
 s,@host_makefile_frag@,,;t t

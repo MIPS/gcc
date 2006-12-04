@@ -24,6 +24,12 @@ proc ${tool}_check_compile {testcase option objname gcc_output} {
     global tool
     set fatal_signal "*cc: Internal compiler error: program*got fatal signal"
  
+    if {[istarget spu-*-*] && [string match "*exceeds local store range*" $gcc_output]} {
+	setup_xfail [istarget]
+	${tool}_fail $testcase $option
+	return 0
+    }
+
     if [string match "$fatal_signal 6" $gcc_output] then {
 	${tool}_fail $testcase "Got Signal 6, $option"
 	return 0
@@ -31,6 +37,11 @@ proc ${tool}_check_compile {testcase option objname gcc_output} {
 
     if [string match "$fatal_signal 11" $gcc_output] then {
 	${tool}_fail $testcase "Got Signal 11, $option"
+	return 0
+    }
+
+    if [string match "*internal compiler error*" $gcc_output] then {
+	${tool}_fail $testcase "$option (internal compiler error)"
 	return 0
     }
 
@@ -238,7 +249,7 @@ proc gcc-set-multilib-library-path { compiler } {
     if { [is_remote host] == 0 && [which $compiler] != 0 } {
 	foreach i "[exec $compiler --print-multi-lib]" {
 	    set mldir ""
-	    regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+	    regexp -- "\[a-z0-9=_/\.-\]*;" $i mldir
 	    set mldir [string trimright $mldir "\;@"]
 	    if { "$mldir" == "." } {
 		continue

@@ -8,12 +8,12 @@
 ; the terms of the GNU General Public License as published by the Free
 ; Software Foundation; either version 2, or (at your option) any later
 ; version.
-; 
+;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 ; WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 ; for more details.
-; 
+;
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
 ; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
@@ -108,6 +108,10 @@ Warn if the loop cannot be optimized due to nontrivial assumptions.
 Wmissing-noreturn
 Common Var(warn_missing_noreturn)
 Warn about functions which might be candidates for __attribute__((noreturn))
+
+Woverflow
+Common Var(warn_overflow) Init(1)
+Warn about overflow in arithmetic expressions
 
 Wpacked
 Common Var(warn_packed)
@@ -377,9 +381,13 @@ fdump-
 Common Joined RejectNegative
 -fdump-<type>	Dump various compiler internals to a file
 
+fdump-noaddr
+Common Report Var(flag_dump_noaddr)
+Suppress output of addresses in debugging dumps
+
 fdump-unnumbered
 Common Report Var(flag_dump_unnumbered) VarExists
-Suppress output of instruction numbers and line number notes in debugging dumps
+Suppress output of instruction numbers, line number notes and addresses in debugging dumps
 
 fearly-inlining
 Common Report Var(flag_early_inlining) Init(1)
@@ -435,6 +443,10 @@ Copy memory address constants into registers before use
 fforce-mem
 Common Report Var(flag_force_mem)
 Copy memory operands into registers before use
+
+fforward-propagate
+Common Report Var(flag_forward_propagate)
+Perform a forward propagation pass on RTL
 
 ; Nonzero means don't put addresses of constant functions in registers.
 ; Used for compiling the Unix kernel, where strange substitutions are
@@ -605,7 +617,7 @@ Common RejectNegative Report Var(flag_mudflap)
 Add mudflap bounds-checking instrumentation for single-threaded program
 
 fmudflapth
-Common RejectNegative Report Var(flag_mudflap_threads)
+Common RejectNegative Report VarExists Var(flag_mudflap,2)
 Add mudflap bounds-checking instrumentation for multi-threaded program
 
 fmudflapir
@@ -782,7 +794,7 @@ Common Report Var(flag_sched_stalled_insns)
 Allow premature scheduling of queued insns
 
 fsched-stalled-insns=
-Common RejectNegative Joined UInteger 
+Common RejectNegative Joined UInteger
 -fsched-stalled-insns=<number>	Set number of queued insns that can be prematurely scheduled
 
 ; sched_stalled_insns_dep controls how many recently scheduled cycles will
@@ -805,6 +817,10 @@ frtl-abstract-sequences
 Common Report Var(flag_rtl_seqabstr)
 Perform sequence abstraction optimization on RTL
 
+fsee
+Common Report Var(flag_see) Init(0)
+Eliminate redundant sign extensions using LCM.
+
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
 Show column numbers in diagnostics, when available.  Default on
@@ -822,7 +838,7 @@ Common Report Var(flag_split_ivs_in_unroller) Init(1)
 Split lifetimes of induction variables when loops are unrolled
 
 fvariable-expansion-in-unroller
-Common Report Var(flag_variable_expansion_in_unroller) 
+Common Report Var(flag_variable_expansion_in_unroller)
 Apply variable expansion when loops are unrolled
 
 ; Emit code to probe the stack, to help detect stack overflow; also
@@ -1080,11 +1096,11 @@ Common JoinedOrMissing
 Generate debug information in default format
 
 gcoff
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gdwarf-2)
 Generate debug information in COFF format
 
 gdwarf-2
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gstabs)
 Generate debug information in DWARF v2 format
 
 ggdb
@@ -1092,23 +1108,23 @@ Common JoinedOrMissing
 Generate debug information in default extended format
 
 gstabs
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gstabs+)
 Generate debug information in STABS format
 
 gstabs+
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gvms)
 Generate debug information in extended STABS format
 
 gvms
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gxcoff)
 Generate debug information in VMS format
 
 gxcoff
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gxcoff+)
 Generate debug information in XCOFF format
 
 gxcoff+
-Common JoinedOrMissing
+Common JoinedOrMissing Negative(gcoff)
 Generate debug information in extended XCOFF format
 
 o

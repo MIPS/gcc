@@ -3,6 +3,7 @@
    hidden visibility from the first push, so the call didn't use the PLT.  */
 
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
+/* { dg-skip-if "" { *-*-darwin* } { "*" } { "" } } */
 /* { dg-require-visibility "" } */
 /* { dg-options "-Os -fpic" } */
 /* { dg-final { scan-assembler "memcpy@PLT" } } */
@@ -12,7 +13,7 @@
 extern void* memcpy (void *, const void *, __SIZE_TYPE__);
 #pragma GCC visibility pop
 
-struct a { int a[10]; };
+struct a { int a[4096]; };
 
 extern void *bar (struct a *, struct a *, int);
 

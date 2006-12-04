@@ -780,6 +780,24 @@ s390_emit_compare (enum rtx_code code, rtx op0, rtx op1)
   return ret;
 }
 
+/* Emit a SImode compare and swap instruction setting MEM to NEW if OLD
+   matches CMP.
+   Return the correct condition RTL to be placed in the IF_THEN_ELSE of the
+   conditional branch testing the result.  */
+
+static rtx
+s390_emit_compare_and_swap (enum rtx_code code, rtx old, rtx mem, rtx cmp, rtx new)
+{
+  rtx ret;
+
+  emit_insn (gen_sync_compare_and_swap_ccsi (old, mem, cmp, new));
+  ret = gen_rtx_fmt_ee (code, VOIDmode, s390_compare_emitted, const0_rtx);
+
+  s390_compare_emitted = NULL_RTX;
+
+  return ret;
+}
+
 /* Emit a jump instruction to TARGET.  If COND is NULL_RTX, emit an
    unconditional jump, else a conditional jump under condition COND.  */
 
@@ -1739,7 +1757,6 @@ s390_decompose_address (rtx addr, struct s390_address *out)
       if (GET_CODE (disp) == UNSPEC
           && (XINT (disp, 1) == UNSPEC_GOT
 	      || XINT (disp, 1) == UNSPEC_GOTNTPOFF)
-	  && offset == 0
 	  && flag_pic == 1)
         {
 	  ;
@@ -1843,14 +1860,16 @@ s390_legitimate_address_without_index_p (rtx op)
   return true;
 }
 
-/* Return 1 if OP is a valid operand for a C constraint, 0 else.  */
+
+/* Evaluates constraint strings described by the regular expression
+   ([A|B](Q|R|S|T))|U|W and returns 1 if OP is a valid operand for the
+   constraint given in STR, or 0 else.  */
 
 int
-s390_extra_constraint_str (rtx op, int c, const char * str)
+s390_mem_constraint (const char *str, rtx op)
 {
   struct s390_address addr;
-
-  gcc_assert (c == str[0]);
+  char c = str[0];
 
   /* Check for offsettable variants of memory constraints.  */
   if (c == 'A')
@@ -1860,8 +1879,7 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
 	return 0;
 
       if ((reload_completed || reload_in_progress)
-	  ? !offsettable_memref_p (op)
-	  : !offsettable_nonstrict_memref_p (op))
+	  ? !offsettable_memref_p (op) : !offsettable_nonstrict_memref_p (op))
 	return 0;
 
       c = str[1];
@@ -1969,129 +1987,119 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
   return 1;
 }
 
-/* Return true if VALUE matches the constraint STR.  */
+
+
+/* Evaluates constraint strings starting with letter O.  Input
+   parameter C is the second letter following the "O" in the constraint
+   string. Returns 1 if VALUE meets the respective constraint and 0
+   otherwise.  */
 
 int
-s390_const_double_ok_for_constraint_p (rtx value,
-				       int c,
-				       const char * str)
+s390_O_constraint_str (const char c, HOST_WIDE_INT value)
 {
-  gcc_assert (c == str[0]);
+  if (!TARGET_EXTIMM)
+    return 0;
 
-  switch (str[0])
+  switch (c)
     {
-    case 'G':
-      /* The floating point zero constant.  */
-      return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
-              && value == CONST0_RTX (GET_MODE (value)));
-      
+    case 's':
+      return trunc_int_for_mode (value, SImode) == value;
+
+    case 'p':
+      return value == 0
+	|| s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
+
+    case 'n':
+      return value == -1
+	|| s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
+
     default:
-      return 0;
+      gcc_unreachable ();
     }
 }
 
-/* Return true if VALUE matches the constraint STR.  */
+
+/* Evaluates constraint strings starting with letter N.  Parameter STR
+   contains the letters following letter "N" in the constraint string.
+   Returns true if VALUE matches the constraint.  */
 
 int
-s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
-				int c,
-				const char * str)
+s390_N_constraint_str (const char *str, HOST_WIDE_INT value)
 {
   enum machine_mode mode, part_mode;
   int def;
   int part, part_goal;
 
-  gcc_assert (c == str[0]);
 
-  switch (str[0])
+  if (str[0] == 'x')
+    part_goal = -1;
+  else
+    part_goal = str[0] - '0';
+
+  switch (str[1])
     {
-    case 'I':
-      return (unsigned int)value < 256;
-
-    case 'J':
-      return (unsigned int)value < 4096;
-
-    case 'K':
-      return value >= -32768 && value < 32768;
-
-    case 'L':
-      return (TARGET_LONG_DISPLACEMENT ?
-	      (value >= -524288 && value <= 524287)
-	      : (value >= 0 && value <= 4095));
-    case 'M':
-      return value == 2147483647;
-
-    case 'N':
-      if (str[1] == 'x')
-	part_goal = -1;
-      else
-	part_goal = str[1] - '0';
-
-      switch (str[2])
-	{
-  	case 'Q': part_mode = QImode; break;
- 	case 'H': part_mode = HImode; break;
- 	case 'S': part_mode = SImode; break;
-	default:  return 0;
-	}
-
-      switch (str[3])
-	{
-	case 'H': mode = HImode; break;
-	case 'S': mode = SImode; break;
-	case 'D': mode = DImode; break;
-	default: return 0;
-	}
-
-      switch (str[4])
-	{
-	case '0': def = 0;  break;
-	case 'F': def = -1; break;
-	default: return 0;
-	}
-
-      if (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (part_mode))
-	return 0;
-
-      part = s390_single_part (GEN_INT (value), mode, part_mode, def);
-      if (part < 0)
-	return 0;
-      if (part_goal != -1 && part_goal != part)
-	return 0;
-
+    case 'Q':
+      part_mode = QImode;
       break;
-
-    case 'O':
-      if (!TARGET_EXTIMM)
-	return 0;
-      
-      switch (str[1])
-	{
-	case 's':
-	  return trunc_int_for_mode (value, SImode) == value;
-	  
-	case 'p':
-	  return value == 0
-	    || s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
-	  
-	case 'n':
-	  return value == -1
-	    || s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
-	  
-	default:
-	  gcc_unreachable ();
-	}
+    case 'H':
+      part_mode = HImode;
       break;
-
-    case 'P':
-      return legitimate_reload_constant_p (GEN_INT (value));
-
+    case 'S':
+      part_mode = SImode;
+      break;
     default:
       return 0;
     }
 
+  switch (str[2])
+    {
+    case 'H':
+      mode = HImode;
+      break;
+    case 'S':
+      mode = SImode;
+      break;
+    case 'D':
+      mode = DImode;
+      break;
+    default:
+      return 0;
+    }
+
+  switch (str[3])
+    {
+    case '0':
+      def = 0;
+      break;
+    case 'F':
+      def = -1;
+      break;
+    default:
+      return 0;
+    }
+
+  if (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (part_mode))
+    return 0;
+
+  part = s390_single_part (GEN_INT (value), mode, part_mode, def);
+  if (part < 0)
+    return 0;
+  if (part_goal != -1 && part_goal != part)
+    return 0;
+
   return 1;
 }
+
+
+/* Returns true if the input parameter VALUE is a float zero.  */
+
+int
+s390_float_const_zero_p (rtx value)
+{
+  return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
+	  && value == CONST0_RTX (GET_MODE (value)));
+}
+
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
@@ -3012,7 +3020,10 @@ legitimize_pic_address (rtx orig, rtx reg)
 		|| (GET_CODE (op0) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op0)))
 	      && GET_CODE (op1) == CONST_INT)
 	    {
-              if (TARGET_CPU_ZARCH && larl_operand (op0, VOIDmode))
+              if (TARGET_CPU_ZARCH
+		  && larl_operand (op0, VOIDmode)
+		  && INTVAL (op1) < (HOST_WIDE_INT)1 << 31
+		  && INTVAL (op1) >= -((HOST_WIDE_INT)1 << 31))
                 {
                   if (INTVAL (op1) & 1)
                     {
@@ -3022,7 +3033,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
                       if (!DISP_IN_RANGE (INTVAL (op1)))
                         {
-                          int even = INTVAL (op1) - 1;
+                          HOST_WIDE_INT even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
 			  op0 = gen_rtx_CONST (Pmode, op0);
                           op1 = const1_rtx;
@@ -4197,11 +4208,9 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx target, rtx mem, rtx cmp, rtx ne
     newv = force_reg (SImode, expand_simple_binop (SImode, IOR, new, val,
 						   NULL_RTX, 1, OPTAB_DIRECT));
 
-  /* Emit compare_and_swap pattern.  */
-  emit_insn (gen_sync_compare_and_swap_ccsi (res, ac.memsi, cmpv, newv));
-      
   /* Jump to end if we're done (likely?).  */
-  s390_emit_jump (csend, s390_emit_compare (EQ, cmpv, ac.memsi));
+  s390_emit_jump (csend, s390_emit_compare_and_swap (EQ, res, ac.memsi,
+						     cmpv, newv));
 
   /* Check for changes outside mode.  */
   resv = expand_simple_binop (SImode, AND, res, ac.modemaski, 
@@ -4294,13 +4303,9 @@ s390_expand_atomic (enum machine_mode mode, enum rtx_code code,
     default:
       gcc_unreachable ();
     }
-  /* Emit compare_and_swap pattern.  */
-  emit_insn (gen_sync_compare_and_swap_ccsi (cmp, ac.memsi, cmp, new));
 
-  /* Loop until swapped (unlikely?).  */
-  s390_emit_jump (csloop, gen_rtx_fmt_ee (NE, CCZ1mode,
-					  gen_rtx_REG (CCZ1mode, CC_REGNUM),
-					  const0_rtx));
+  s390_emit_jump (csloop, s390_emit_compare_and_swap (NE, cmp,
+						      ac.memsi, cmp, new));
 
   /* Return the correct part of the bitfield.  */
   if (target)
@@ -6728,8 +6733,8 @@ s390_init_frame_layout (void)
       /* Try to predict whether we'll need the base register.  */
       base_used = cfun->machine->split_branches_pending_p
 		  || current_function_uses_const_pool
-		  || (!DISP_IN_RANGE (-frame_size)
-		      && !CONST_OK_FOR_K (-frame_size));
+		  || (!DISP_IN_RANGE (frame_size)
+		      && !CONST_OK_FOR_K (frame_size));
 
       /* Decide which register to use as literal pool base.  In small
 	 leaf functions, try to use an unused call-clobbered register
@@ -8179,14 +8184,14 @@ s390_init_builtins (void)
   tree ftype;
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       S390_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+  add_builtin_function ("__builtin_thread_pointer", ftype,
+			S390_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			NULL, NULL_TREE);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
-  lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
-			       S390_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+  add_builtin_function ("__builtin_set_thread_pointer", ftype,
+			S390_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
+			NULL, NULL_TREE);
 }
 
 /* Expand an expression EXP that calls a built-in function,

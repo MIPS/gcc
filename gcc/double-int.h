@@ -44,7 +44,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    ??? The components of double_int differ in signedness mostly for
    historical reasons (they replace an older structure used to represent
-   numbers with precision wigher than HOST_WIDE_INT).  It might be less
+   numbers with precision higher than HOST_WIDE_INT).  It might be less
    confusing to have them both signed or both unsigned.  */
 
 typedef struct
@@ -58,7 +58,8 @@ union tree_node;
 /* Constructors and conversions.  */
 
 union tree_node *double_int_to_tree (union tree_node *, double_int);
-double_int tree_to_double_int (union tree_node *tree);
+bool double_int_fits_to_tree_p (union tree_node *, double_int);
+double_int tree_to_double_int (union tree_node *);
 
 /* Constructs double_int from integer CST.  The bits over the precision of
    HOST_WIDE_INT are filled with the sign bit.  */
@@ -116,6 +117,12 @@ unsigned HOST_WIDE_INT double_int_to_uhwi (double_int);
 double_int double_int_div (double_int, double_int, bool, unsigned);
 double_int double_int_sdiv (double_int, double_int, unsigned);
 double_int double_int_udiv (double_int, double_int, unsigned);
+double_int double_int_mod (double_int, double_int, bool, unsigned);
+double_int double_int_smod (double_int, double_int, unsigned);
+double_int double_int_umod (double_int, double_int, unsigned);
+double_int double_int_divmod (double_int, double_int, bool, unsigned, double_int *);
+double_int double_int_sdivmod (double_int, double_int, unsigned, double_int *);
+double_int double_int_udivmod (double_int, double_int, unsigned, double_int *);
 bool double_int_negative_p (double_int);
 int double_int_cmp (double_int, double_int, bool);
 int double_int_scmp (double_int, double_int);

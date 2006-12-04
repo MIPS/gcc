@@ -1,6 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -165,7 +166,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define first_label_num (cfun->emit->x_first_label_num)
 
 static rtx make_call_insn_raw (rtx);
-static rtx find_line_note (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
 static void unshare_all_decls (tree);
 static void reset_used_decls (tree);
@@ -1596,8 +1596,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
-				     size_binop (MULT_EXPR, convert (sizetype,
-								     index),
+				     size_binop (MULT_EXPR,
+						 fold_convert (sizetype,
+							       index),
 						 unit_size),
 				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
@@ -3661,22 +3662,6 @@ reorder_insns (rtx from, rtx to, rtx after)
     }
 }
 
-/* Return the line note insn preceding INSN.  */
-
-static rtx
-find_line_note (rtx insn)
-{
-  if (no_line_numbers)
-    return 0;
-
-  for (; insn; insn = PREV_INSN (insn))
-    if (NOTE_P (insn)
-	&& NOTE_LINE_NUMBER (insn) >= 0)
-      break;
-
-  return insn;
-}
-
 
 /* Emit insn(s) of given code and pattern
    at a specified place within the doubly-linked list.
@@ -3961,22 +3946,6 @@ emit_insn_after_noloc (rtx x, rtx after)
   return last;
 }
 
-/* Similar to emit_insn_after, except that line notes are to be inserted so
-   as to act as if this insn were at FROM.  */
-
-void
-emit_insn_after_with_line_notes (rtx x, rtx after, rtx from)
-{
-  rtx from_line = find_line_note (from);
-  rtx after_line = find_line_note (after);
-  rtx insn = emit_insn_after (x, after);
-
-  if (from_line)
-    emit_note_copy_after (from_line, after);
-
-  if (after_line)
-    emit_note_copy_after (after_line, insn);
-}
 
 /* Make an insn of code JUMP_INSN with body X
    and output it after the insn AFTER.  */
@@ -4092,28 +4061,6 @@ emit_note_after (int subtype, rtx after)
   NOTE_SOURCE_FILE (note) = 0;
 #endif
   NOTE_LINE_NUMBER (note) = subtype;
-  BLOCK_FOR_INSN (note) = NULL;
-  add_insn_after (note, after);
-  return note;
-}
-
-/* Emit a copy of note ORIG after the insn AFTER.  */
-
-rtx
-emit_note_copy_after (rtx orig, rtx after)
-{
-  rtx note;
-
-  if (NOTE_LINE_NUMBER (orig) >= 0 && no_line_numbers)
-    {
-      cur_insn_uid++;
-      return 0;
-    }
-
-  note = rtx_alloc (NOTE);
-  INSN_UID (note) = cur_insn_uid++;
-  NOTE_LINE_NUMBER (note) = NOTE_LINE_NUMBER (orig);
-  NOTE_DATA (note) = NOTE_DATA (orig);
   BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
   return note;
@@ -4501,12 +4448,6 @@ rtx
 emit_note_copy (rtx orig)
 {
   rtx note;
-  
-  if (NOTE_LINE_NUMBER (orig) >= 0 && no_line_numbers)
-    {
-      cur_insn_uid++;
-      return NULL_RTX;
-    }
   
   note = rtx_alloc (NOTE);
   

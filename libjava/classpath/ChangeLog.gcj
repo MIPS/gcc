@@ -1,4 +1,229 @@
-2006-03-29  Tom Tromey  <tromey@redhat.com>
+2006-11-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/Inet4Address.java
+	(FAMILY): Renamed to AF_INET.
+	(<init>, writeReplace): Reflect the above.
+	* java/net/Inet6Address.java
+	(FAMILY): Renamed to AF_INET6.
+	(<init>): Reflect the above.	
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/29362:
+	* gnu/xml/transform/TransformerImpl.java (transform): Only strip if
+	there is a stylesheet.
+
+2006-10-05  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(processHostport): Cope with IPv6 addresses with a
+	one-digit first component.
+
+2006-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* native/jni/gconf-peer/Makefile.in: Rebuilt.
+	* native/jni/gconf-peer/Makefile.am (libgconfpeer_la_LDFLAGS): New
+	variable.
+
+2006-09-25  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29178:
+	* gnu/java/nio/charset/US_ASCII.java (Encoder.canEncode): New method.
+	(Encoder.canEncode): Likewise.
+	(Encoder.encodeLoop): Return unmappable for all non-ASCII characters.
+	* gnu/java/nio/charset/ByteCharset.java (Encoder.canEncode): New
+	method.
+	(Encoder.canEncode): Likewise.
+	* gnu/java/nio/charset/ISO_8859_1.java (Encoder.canEncode): New
+	method.
+	(Encoder.canEncode): Likewise.
+
+2006-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* native/fdlibm/mprec.c (mprec_calloc): Renamed.
+	(Balloc): Updated.
+
+2006-09-25  Mark Wielaard  <mark@klomp.org>
+
+	Suggested by Aaron M. Ucko <ucko@debian.org>
+	Fixes bug #29203
+	* native/fdlibm/mprec.c (ulp): Define L as int32_t.
+
+2006-09-22  David Daney  <ddaney@avtrex.com>
+
+	PR classpath/28661
+	* gnu/java/net/protocol/http/HTTPURLConnection.java (connect):  Add
+	default content-type for POST method.
+
+2006-09-20  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Updated to latest.
+	* java/net/Inet4Address.java: Likewise.
+	* java/net/Inet6Address.java: Likewise.
+	* java/net/ResolverCache.java: Likewise.
+	* java/net/SocketPermission.java: Likewise.
+
+	* java/net/Inet4Address.java
+	(AF_INET): Renamed to FAMILY.
+	(<init>, writeReplace): Reflect the above.
+	* java/net/Inet6Address.java
+	(AF_INET6): Renamed to FAMILY.
+	(<init>): Reflect the above.
+
+2006-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/javax/net/ssl/provider/SSLSocket.java (isBound, isClosed,
+	isConnected): Removed old comment.
+	(getRemoteSocketAddress): Uncommented.
+	(setOOBInline, getOOBInline, setKeepAlive, getKeepAlive,
+	setTrafficClass, getTrafficClass, setReuseAddress,
+	getReuseAddress, shutdownInput, shutdownOutput, isInputShutdown,
+	isOutputShutdown): Uncommented.
+
+2006-09-11 David Daney  <ddaney@avtrex.com>
+
+	PR classpath/28580
+	* gnu/java/net/protocol/http/Request.java (readResponse):  Call 
+	createResponseBodyStream in more cases and with new parameter.
+	(createResponseBodyStream):  Added new parameter mayHaveBody. Handle
+	HEAD and !mayHaveBody responses specially.
+
+2006-09-05  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(maybeBracketIPv6Address): Renamed to processHostport.
+	(processHostport): Also translate "" to "localhost".
+	(setHostPort): Remove special cases for empty hostport and for
+	extra colons in hostport (processHostport handles these now).
+	
+2006-08-31  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti.h: Update from Classpath to get latest fixes and
+	improvements.
+
+2006-08-29  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(maybeBracketIPv6Address): New method.
+	(<init>): Pass the hostport argument through the above.
+
+	* java/net/NetworkInterface.java (getInetAddresses):
+	Revert the previous change.
+
+2006-08-24  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/NetworkInterface.java (getInetAddresses): Bracket IPv6
+	addresses.
+
+2006-08-18  Roger Sayle  <roger@eyesopen.com>
+
+	* scripts/check_jni_methods.sh: Don't use the "set -C" command
+	which isn't available in all shells.
+
+2006-08-18  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/util/prefs/NodeWriter.java (writeParents): Removed
+	debugging prints.
+	* gnu/java/util/prefs/NodeReader.java (readNodes): Removed debugging
+	print.
+	(readEntries): Likewise.
+
+2006-08-09  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/28666:
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkScreenGraphicsDevice.c
+	(Java_gnu_java_awt_peer_gtk_GdkScreenGraphicsDevice_nativeGetDisplayModes):
+	Create a 'short' array.
+
+2006-08-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/28609:
+	* ltconfig: Copied from gcc.
+
+2006-07-20  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti.h: Include copy from upstream before next merge.
+
+2006-07-12  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27271:
+	* java/util/zip/ZipFile.java (getInputStream): Call addDummyByte
+	on PartialInputStream.
+	(PartialInputStream.dummyByteCount): New field.
+	(PartialInputStream.fillBuffer): Handle dummy byte.
+	(PartialInputStream.read): Likewise.
+	(PartialInputStream.addDummyByte): New method.
+
+2006-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28024:
+	* aclocal.m4, configure: Rebuilt.
+	* m4/acinclude.m4 (REGEN_WITH_JAY): Use backquote, not $(...).
+	* configure.ac (QT_INCLUDE_DIR): Use backquote, not $(...).
+
+2006-06-09  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/23863:
+	* native/fdlibm/dtoa.c (_dtoa): Free contents of _Jv_reent when
+	finished.
+	* native/fdlibm/mprec.c: New version from newlib.  Commented out
+	some includes.  Added <assert.h>.
+	(_reent, _Bigint): New defines.
+	(_REENT_CHECK_MP, _REENT_MP_FREELIST, _REENT_MP_P5S): Likewise.
+	(__ULong, __Long): New types.
+	(_calloc_r): New function.
+	(Balloc): Dynamically add new _freelist entries as needed.
+	* native/fdlibm/mprec.h (struct _Jv_Bigint): Don't use
+	MAX_BIGNUMS to size _x[].
+	(struct _Jv_reent): _freelist now a _Jv_Bigint**.  Removed
+	_allocation_map, num.  Added _max_k.
+
+2006-05-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* native/jni/gtk-peer/Makefile.am (gcc_version): New variable.
+	(gcjversionedlibdir): Likewise.
+	(libgtkpeer_la_LDFLAGS): Likewise.
+	Install libgtkpeer.so in GCJ versioned library directory.
+	* native/jawt/Makefile.am (gcc_version): New variable.
+	(gcjversionedlibdir): Likewise.
+	(libjawt_la_LDFLAGS): Likewise.
+	Rename libjawtgnu.so libjawt.so.  Install libjawt.so in GCJ
+	versioned library directory.
+	* gnu/java/awt/peer/gtk/GdkFontPeer.java (static): Call
+	System.loadLibrary unconditionally.
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkGraphics.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkTextLayout.java: Likewise.
+
+2006-05-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/config-int.h: Delete, it is a generated file.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26625:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (compile-classes): Touch the output file.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	* lib/gen-classlist.sh.in: Correct handle generated files.
+
+2006-04-04  Mark Wielaard  <mark@klomp.org>
+
+	* lib/gen-classlist.sh.in: Use classes.tmp, not classes.2
+	as temporary file name.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	* lib/split-for-gcj.sh: Updated for multi-field format.
+	* lib/Makefile.am (CLEANFILES): Added classes.2.
+	* lib/gen-classlist.sh.in (GCJ): Removed.  Create classes.1 and
+	classes.2 using multiple fields.
+
+2006-04-03  Bernhard Rosenkraenzer  <bero@arklinux.org>
 
 	PR gcc/26901:
 	* Makefile.in: Rebuilt.

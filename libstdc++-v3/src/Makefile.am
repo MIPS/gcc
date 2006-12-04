@@ -138,7 +138,6 @@ sources = \
 	debug.cc \
 	debug_list.cc \
 	functexcept.cc \
-	globals_locale.cc \
 	globals_io.cc \
 	ios.cc \
 	ios_failure.cc \
@@ -162,7 +161,6 @@ sources = \
 	istream-inst.cc \
 	istream.cc \
 	locale-inst.cc \
-	locale-misc-inst.cc \
 	misc-inst.cc \
 	ostream-inst.cc \
 	sstream-inst.cc \

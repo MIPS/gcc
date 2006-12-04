@@ -61,7 +61,8 @@ if [istarget "powerpc*-*-*"] {
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
     set dg-do-what-default run
-} elseif [istarget "mipsisa64*-*-*"] {
+} elseif { [istarget "mipsisa64*-*-*"]
+	   && [check_effective_target_mpaired_single] } {
     lappend DEFAULT_VECTCFLAGS "-mpaired-single"
     set dg-do-what-default run
 } elseif [istarget "sparc*-*-*"] {
@@ -87,6 +88,16 @@ dg-init
 # Main loop.
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.{c,cc,S} ]] \
         "" $DEFAULT_VECTCFLAGS
+
+#### Tests with special options
+global SAVED_DEFAULT_VECTCFLAGS
+set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
+    
+# --param max-aliased-vops=0
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "--param max-aliased-vops=0"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/param-max-aliased*.\[cS\]]]  \
+        "" $DEFAULT_VECTCFLAGS 
 
 # Clean up.
 set dg-do-what-default ${save-dg-do-what-default} 

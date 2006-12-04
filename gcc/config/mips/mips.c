@@ -409,6 +409,7 @@ static rtx mips_expand_builtin_compare (enum mips_builtin_type,
 static rtx mips_expand_builtin_bposge (enum mips_builtin_type, rtx);
 static void mips_encode_section_info (tree, rtx, int);
 static void mips_extra_live_on_entry (bitmap);
+static int mips_mode_rep_extended (enum machine_mode, enum machine_mode);
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -748,16 +749,25 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
-  { "24k", PROCESSOR_24K, 33 },
-  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
-  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
-  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
+  { "4kec", PROCESSOR_4KC, 33 },
+  { "4kem", PROCESSOR_4KC, 33 },
+  { "4kep", PROCESSOR_4KP, 33 },
+  { "24kc", PROCESSOR_24KC, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24KF, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 },  /* 24K 1:1 FPU */
+  { "24kec", PROCESSOR_24KC, 33 }, /* 24K with DSP */
+  { "24kef", PROCESSOR_24KF, 33 },
+  { "24kex", PROCESSOR_24KX, 33 },
+  { "34kc", PROCESSOR_24KC, 33 },  /* 34K with MT/DSP */
+  { "34kf", PROCESSOR_24KF, 33 },
+  { "34kx", PROCESSOR_24KX, 33 },
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
   { "5kf", PROCESSOR_5KF, 64 },
   { "20kc", PROCESSOR_20KC, 64 },
   { "sb1", PROCESSOR_SB1, 64 },
+  { "sb1a", PROCESSOR_SB1A, 64 },
   { "sr71000", PROCESSOR_SR71000, 64 },
 
   /* End marker */
@@ -785,6 +795,21 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
                       COSTS_N_INSNS (256), /* fp_mult_df */   \
                       COSTS_N_INSNS (256), /* fp_div_sf */    \
                       COSTS_N_INSNS (256)  /* fp_div_df */
+
+static struct mips_rtx_cost_data const mips_rtx_cost_optimize_size =
+  {
+      COSTS_N_INSNS (1),            /* fp_add */
+      COSTS_N_INSNS (1),            /* fp_mult_sf */
+      COSTS_N_INSNS (1),            /* fp_mult_df */
+      COSTS_N_INSNS (1),            /* fp_div_sf */
+      COSTS_N_INSNS (1),            /* fp_div_df */
+      COSTS_N_INSNS (1),            /* int_mult_si */
+      COSTS_N_INSNS (1),            /* int_mult_di */
+      COSTS_N_INSNS (1),            /* int_div_si */
+      COSTS_N_INSNS (1),            /* int_div_di */
+                       2,           /* branch_cost */
+                       4            /* memory_latency */
+  };
 
 static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
   {
@@ -845,7 +870,16 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
     { /* 20KC */
       DEFAULT_COSTS
     },
-    { /* 24k */
+    { /* 24KC */
+      SOFT_FP_COSTS,
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 24KF */
       COSTS_N_INSNS (8),            /* fp_add */
       COSTS_N_INSNS (8),            /* fp_mult_sf */
       COSTS_N_INSNS (10),           /* fp_mult_df */
@@ -858,7 +892,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 24kx */
+    { /* 24KX */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (5),            /* fp_mult_df */
@@ -1015,6 +1049,21 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        4            /* memory_latency */
     },
     { /* SB1 */
+      /* These costs are the same as the SB-1A below.  */
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (4),            /* fp_mult_df */
+      COSTS_N_INSNS (24),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (3),            /* int_mult_si */
+      COSTS_N_INSNS (4),            /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (68),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* SB1-A */
+      /* These costs are the same as the SB-1 above.  */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (4),            /* fp_mult_df */
@@ -1139,6 +1188,9 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES mips_arg_partial_bytes
 
+#undef TARGET_MODE_REP_EXTENDED
+#define TARGET_MODE_REP_EXTENDED mips_mode_rep_extended
+
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
 
@@ -1178,6 +1230,8 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static enum mips_symbol_type
 mips_classify_symbol (rtx x)
 {
+  tree decl;
+
   if (GET_CODE (x) == LABEL_REF)
     {
       if (TARGET_MIPS16)
@@ -1201,12 +1255,16 @@ mips_classify_symbol (rtx x)
 	return SYMBOL_SMALL_DATA;
     }
 
-  if (SYMBOL_REF_SMALL_P (x))
+  /* Do not use small-data accesses for weak symbols; they may end up
+     being zero.  */
+  if (SYMBOL_REF_SMALL_P (x)
+      && !SYMBOL_REF_WEAK (x))
     return SYMBOL_SMALL_DATA;
 
   if (TARGET_ABICALLS)
     {
-      if (SYMBOL_REF_DECL (x) == 0)
+      decl = SYMBOL_REF_DECL (x);
+      if (decl == 0)
 	{
 	  if (!SYMBOL_REF_LOCAL_P (x))
 	    return SYMBOL_GOT_GLOBAL;
@@ -1234,11 +1292,15 @@ mips_classify_symbol (rtx x)
 
 	     In the third case we have more freedom since both forms of
 	     access will work for any kind of symbol.  However, there seems
-	     little point in doing things differently.  */
-	  if (DECL_P (SYMBOL_REF_DECL (x))
-	      && TREE_PUBLIC (SYMBOL_REF_DECL (x))
-	      && !(TARGET_ABSOLUTE_ABICALLS
-		   && targetm.binds_local_p (SYMBOL_REF_DECL (x))))
+	     little point in doing things differently.
+
+	     Note that weakref symbols are not TREE_PUBLIC, but their
+	     targets are global or weak symbols.  Relocations in the
+	     object file will be against the target symbol, so it's
+	     that symbol's binding that matters here.  */
+	  if (DECL_P (decl)
+	      && (TREE_PUBLIC (decl) || DECL_WEAK (decl))
+	      && !(TARGET_ABSOLUTE_ABICALLS && targetm.binds_local_p (decl)))
 	    return SYMBOL_GOT_GLOBAL;
 	}
 
@@ -1259,12 +1321,13 @@ mips_split_const (rtx x, rtx *base, HOST_WIDE_INT *offset)
   *offset = 0;
 
   if (GET_CODE (x) == CONST)
-    x = XEXP (x, 0);
-
-  if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
     {
-      *offset += INTVAL (XEXP (x, 1));
       x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  *offset += INTVAL (XEXP (x, 1));
+	  x = XEXP (x, 0);
+	}
     }
   *base = x;
 }
@@ -1459,18 +1522,16 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
       /* The address will have to be loaded from the GOT first.  */
       return false;
 
-    case SYMBOL_TLSGD:
-    case SYMBOL_TLSLDM:
-    case SYMBOL_DTPREL:
-    case SYMBOL_TPREL:
-    case SYMBOL_GOTTPREL:
-    case SYMBOL_TLS:
-      return false;
-
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_GLOBAL:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
+    case SYMBOL_TLS:
+    case SYMBOL_TLSGD:
+    case SYMBOL_TLSLDM:
+    case SYMBOL_DTPREL:
+    case SYMBOL_GOTTPREL:
+    case SYMBOL_TPREL:
     case SYMBOL_64_HIGH:
     case SYMBOL_64_MID:
     case SYMBOL_64_LOW:
@@ -2015,6 +2076,11 @@ mips_legitimize_tls_address (rtx loc)
   v1 = gen_rtx_REG (Pmode, GP_RETURN + 1);
 
   model = SYMBOL_REF_TLS_MODEL (loc);
+  /* Only TARGET_ABICALLS code can have more than one module; other
+     code must be be static and should not use a GOT.  All TLS models
+     reduce to local exec in this situation.  */
+  if (!TARGET_ABICALLS)
+    model = TLS_MODEL_LOCAL_EXEC;
 
   switch (model)
     {
@@ -2057,7 +2123,6 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     case TLS_MODEL_LOCAL_EXEC:
-
       if (Pmode == DImode)
 	emit_insn (gen_tls_get_tp_di (v1));
       else
@@ -2781,15 +2846,35 @@ mips_split_64bit_move (rtx dest, rtx src)
   if (FP_REG_RTX_P (dest))
     {
       /* Loading an FPR from memory or from GPRs.  */
-      emit_insn (gen_load_df_low (copy_rtx (dest), mips_subword (src, 0)));
-      emit_insn (gen_load_df_high (dest, mips_subword (src, 1),
-				   copy_rtx (dest)));
+      if (ISA_HAS_MXHC1)
+	{
+	  dest = gen_lowpart (DFmode, dest);
+	  emit_insn (gen_load_df_low (dest, mips_subword (src, 0)));
+	  emit_insn (gen_mthc1 (dest, mips_subword (src, 1),
+				copy_rtx (dest)));
+	}
+      else
+	{
+	  emit_insn (gen_load_df_low (copy_rtx (dest),
+				      mips_subword (src, 0)));
+	  emit_insn (gen_load_df_high (dest, mips_subword (src, 1),
+				       copy_rtx (dest)));
+	}
     }
   else if (FP_REG_RTX_P (src))
     {
       /* Storing an FPR into memory or GPRs.  */
-      emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
-      emit_insn (gen_store_df_high (mips_subword (dest, 1), src));
+      if (ISA_HAS_MXHC1)
+	{
+	  src = gen_lowpart (DFmode, src);
+	  emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
+	  emit_insn (gen_mfhc1 (mips_subword (dest, 1), src));
+	}
+      else
+	{
+	  emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
+	  emit_insn (gen_store_df_high (mips_subword (dest, 1), src));
+	}
     }
   else
     {
@@ -3114,6 +3199,27 @@ mips_zero_if_equal (rtx cmp0, rtx cmp1)
 		       cmp0, cmp1, 0, 0, OPTAB_DIRECT);
 }
 
+/* Convert *CODE into a code that can be used in a floating-point
+   scc instruction (c.<cond>.<fmt>).  Return true if the values of
+   the condition code registers will be inverted, with 0 indicating
+   that the condition holds.  */
+
+static bool
+mips_reverse_fp_cond_p (enum rtx_code *code)
+{
+  switch (*code)
+    {
+    case NE:
+    case LTGT:
+    case ORDERED:
+      *code = reverse_condition_maybe_unordered (*code);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Convert a comparison into something that can be used in a branch or
    conditional move.  cmp_operands[0] and cmp_operands[1] are the values
    being compared and *CODE is the code used to compare them.
@@ -3171,20 +3277,8 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 
 	 Set CMP_CODE to the code of the comparison instruction and
 	 *CODE to the code that the branch or move should use.  */
-      switch (*code)
-	{
-	case NE:
-	case LTGT:
-	case ORDERED:
-	  cmp_code = reverse_condition_maybe_unordered (*code);
-	  *code = EQ;
-	  break;
-
-	default:
-	  cmp_code = *code;
-	  *code = NE;
-	  break;
-	}
+      cmp_code = *code;
+      *code = mips_reverse_fp_cond_p (&cmp_code) ? EQ : NE;
       *op0 = (ISA_HAS_8CC
 	      ? gen_reg_rtx (CCmode)
 	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
@@ -3228,6 +3322,30 @@ gen_conditional_branch (rtx *operands, enum rtx_code code)
   mips_emit_compare (&code, &op0, &op1, TARGET_MIPS16);
   condition = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
   emit_jump_insn (gen_condjump (condition, operands[0]));
+}
+
+/* Implement:
+
+   (set temp (COND:CCV2 CMP_OP0 CMP_OP1))
+   (set DEST (unspec [TRUE_SRC FALSE_SRC temp] UNSPEC_MOVE_TF_PS))  */
+
+void
+mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
+		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
+{
+  rtx cmp_result;
+  bool reversed_p;
+
+  reversed_p = mips_reverse_fp_cond_p (&cond);
+  cmp_result = gen_reg_rtx (CCV2mode);
+  emit_insn (gen_scc_ps (cmp_result,
+			 gen_rtx_fmt_ee (cond, VOIDmode, cmp_op0, cmp_op1)));
+  if (reversed_p)
+    emit_insn (gen_mips_cond_move_tf_ps (dest, false_src, true_src,
+					 cmp_result));
+  else
+    emit_insn (gen_mips_cond_move_tf_ps (dest, true_src, false_src,
+					 cmp_result));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array
@@ -3859,13 +3977,24 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       inner = GET_MODE_INNER (mode);
       reg = FP_ARG_FIRST + info.reg_offset;
-      real = gen_rtx_EXPR_LIST (VOIDmode,
-				gen_rtx_REG (inner, reg),
-				const0_rtx);
-      imag = gen_rtx_EXPR_LIST (VOIDmode,
-				gen_rtx_REG (inner, reg + info.reg_words / 2),
-				GEN_INT (GET_MODE_SIZE (inner)));
-      return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
+      if (info.reg_words * UNITS_PER_WORD == GET_MODE_SIZE (inner))
+	{
+	  /* Real part in registers, imaginary part on stack.  */
+	  gcc_assert (info.stack_words == info.reg_words);
+	  return gen_rtx_REG (inner, reg);
+	}
+      else
+	{
+	  gcc_assert (info.stack_words == 0);
+	  real = gen_rtx_EXPR_LIST (VOIDmode,
+				    gen_rtx_REG (inner, reg),
+				    const0_rtx);
+	  imag = gen_rtx_EXPR_LIST (VOIDmode,
+				    gen_rtx_REG (inner,
+						 reg + info.reg_words / 2),
+				    GEN_INT (GET_MODE_SIZE (inner)));
+	  return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
+	}
     }
 
   if (!info.fpr_p)
@@ -4479,13 +4608,15 @@ bool
 mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
 {
   rtx left, right;
+  enum machine_mode mode;
 
   if (!mips_get_unaligned_mem (&dest, width, bitpos, &left, &right))
     return false;
 
-  src = gen_lowpart (mode_for_size (width, MODE_INT, 0), src);
+  mode = mode_for_size (width, MODE_INT, 0);
+  src = gen_lowpart (mode, src);
 
-  if (GET_MODE (src) == DImode)
+  if (mode == DImode)
     {
       emit_insn (gen_mov_sdl (dest, src, left));
       emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
@@ -4496,6 +4627,20 @@ mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
       emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
     }
   return true;
+}
+
+/* Return true if X is a MEM with the same size as MODE.  */
+
+bool
+mips_mem_fits_mode_p (enum machine_mode mode, rtx x)
+{
+  rtx size;
+
+  if (!MEM_P (x))
+    return false;
+
+  size = MEM_SIZE (x);
+  return size && INTVAL (size) == GET_MODE_SIZE (mode);
 }
 
 /* Return true if (zero_extract OP SIZE POSITION) can be used as the
@@ -4646,7 +4791,10 @@ override_options (void)
     mips_set_tune (mips_arch_info);
 
   /* Set cost structure for the processor.  */
-  mips_cost = &mips_rtx_cost_data[mips_tune];
+  if (optimize_size)
+    mips_cost = &mips_rtx_cost_optimize_size;
+  else
+    mips_cost = &mips_rtx_cost_data[mips_tune];
 
   if ((target_flags_explicit & MASK_64BIT) != 0)
     {
@@ -4676,8 +4824,10 @@ override_options (void)
 	 only one right answer here.  */
       if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
-      else if (!TARGET_64BIT && TARGET_FLOAT64)
-	error ("unsupported combination: %s", "-mgp32 -mfp64");
+      else if (!TARGET_64BIT && TARGET_FLOAT64 
+	       && !(ISA_HAS_MXHC1 && mips_abi == ABI_32))
+	error ("-mgp32 and -mfp64 can only be combined if the target"
+	       " supports the mfhc1 and mthc1 instructions");
       else if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mfp64 -msingle-float");
     }
@@ -5795,8 +5945,9 @@ mips_file_start (void)
 
       /* There is no ELF header flag to distinguish long32 forms of the
 	 EABI from long64 forms.  Emit a special section to help tools
-	 such as GDB.  */
-      if (mips_abi == ABI_EABI)
+	 such as GDB.  Do the same for o64, which is sometimes used with
+	 -mlong64.  */
+      if (mips_abi == ABI_EABI || mips_abi == ABI_O64)
 	fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n",
 		 TARGET_LONG64 ? 64 : 32);
 
@@ -6442,7 +6593,7 @@ mips_save_restore_reg (enum machine_mode mode, int regno,
 {
   rtx mem;
 
-  mem = gen_rtx_MEM (mode, plus_constant (stack_pointer_rtx, offset));
+  mem = gen_frame_mem (mode, plus_constant (stack_pointer_rtx, offset));
 
   fn (gen_rtx_REG (mode, regno), mem);
 }
@@ -7234,8 +7385,10 @@ mips_function_rodata_section (tree decl)
   return data_section;
 }
 
-/* Implement TARGET_IN_SMALL_DATA_P.  Return true if it would be safe to
-   access DECL using %gp_rel(...)($gp).  */
+/* Implement TARGET_IN_SMALL_DATA_P.  This function controls whether
+   locally-defined objects go in a small data section.  It also controls
+   the setting of the SYMBOL_REF_SMALL_P flag, which in turn helps
+   mips_classify_symbol decide when to use %gp_rel(...)($gp) accesses.  */
 
 static bool
 mips_in_small_data_p (tree decl)
@@ -7477,10 +7630,10 @@ mips_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
       int size;
 
       /* ??? How should SCmode be handled?  */
-      if (type == NULL_TREE || mode == DImode || mode == DFmode)
+      if (mode == DImode || mode == DFmode)
 	return 0;
 
-      size = int_size_in_bytes (type);
+      size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
       return size == -1 || size > UNITS_PER_WORD;
     }
   else
@@ -7529,15 +7682,27 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	    return true;
 	}
     }
+
+  /* gcc assumes that each word of a multiword register can be accessed
+     individually using SUBREGs.  This is not true for floating-point
+     registers if they are bigger than a word.  */  
+  if (UNITS_PER_FPREG > UNITS_PER_WORD
+      && GET_MODE_SIZE (from) > UNITS_PER_WORD
+      && GET_MODE_SIZE (to) < UNITS_PER_FPREG
+      && reg_classes_intersect_p (FP_REGS, class))
+    return true;
+
   /* Loading a 32-bit value into a 64-bit floating-point register
      will not sign-extend the value, despite what LOAD_EXTEND_OP says.
      We can't allow 64-bit float registers to change from SImode to
      to a wider mode.  */
-  if (TARGET_FLOAT64
+  if (TARGET_64BIT
+      && TARGET_FLOAT64
       && from == SImode
       && GET_MODE_SIZE (to) >= UNITS_PER_WORD
       && reg_classes_intersect_p (FP_REGS, class))
     return true;
+
   return false;
 }
 
@@ -7699,14 +7864,17 @@ mips_secondary_reload_class (enum reg_class class,
 
 /* Implement CLASS_MAX_NREGS.
 
-   Usually all registers are word-sized.  The only supported exception
-   is -mgp64 -msingle-float, which has 64-bit words but 32-bit float
-   registers.  A word-based calculation is correct even in that case,
-   since -msingle-float disallows multi-FPR values.
+   - UNITS_PER_FPREG controls the number of registers needed by FP_REGS.
 
-   The FP status registers are an exception to this rule.  They are always
-   4 bytes wide as they only hold condition code modes, and CCmode is always
-   considered to be 4 bytes wide.  */
+   - ST_REGS are always hold CCmode values, and CCmode values are
+     considered to be 4 bytes wide.
+
+   All other register classes are covered by UNITS_PER_WORD.  Note that
+   this is true even for unions of integer and float registers when the
+   latter are smaller than the former.  The only supported combination
+   in which case this occurs is -mgp64 -msingle-float, which has 64-bit
+   words but 32-bit float registers.  A word-based calculation is correct
+   in that case since -msingle-float disallows multi-FPR values.  */
 
 int
 mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
@@ -7714,6 +7882,8 @@ mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
 {
   if (class == ST_REGS)
     return (GET_MODE_SIZE (mode) + 3) / 4;
+  else if (class == FP_REGS)
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FPREG - 1) / UNITS_PER_FPREG;
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
@@ -9857,6 +10027,7 @@ mips_issue_rate (void)
       return 2;
 
     case PROCESSOR_SB1:
+    case PROCESSOR_SB1A:
       /* This is actually 4, but we get better performance if we claim 3.
 	 This is partly because of unwanted speculative code motion with the
 	 larger number, and partly because in most common cases we can't
@@ -9875,10 +10046,24 @@ static int
 mips_multipass_dfa_lookahead (void)
 {
   /* Can schedule up to 4 of the 6 function units in any one cycle.  */
-  if (mips_tune == PROCESSOR_SB1)
+  if (TUNE_SB1)
     return 4;
 
   return 0;
+}
+
+/* Implements a store data bypass check.  We need this because the cprestore
+   pattern is type store, but defined using an UNSPEC.  This UNSPEC causes the
+   default routine to abort.  We just return false for that case.  */
+/* ??? Should try to give a better result here than assuming false.  */
+
+int
+mips_store_data_bypass_p (rtx out_insn, rtx in_insn)
+{
+  if (GET_CODE (PATTERN (in_insn)) == UNSPEC_VOLATILE)
+    return false;
+
+  return ! store_data_bypass_p (out_insn, in_insn);
 }
 
 /* Given that we have an rtx of the form (prefetch ... WRITE LOCALITY),
@@ -9989,9 +10174,6 @@ struct builtin_description
   CMP_PS_BUILTINS (cabs, COND, MASK_MIPS3D),				\
   CMP_4S_BUILTINS (c, COND),						\
   CMP_4S_BUILTINS (cabs, COND)
-
-/* __builtin_mips_abs_ps() maps to the standard absM2 pattern.  */
-#define CODE_FOR_mips_abs_ps CODE_FOR_absv2sf2
 
 static const struct builtin_description mips_bdesc[] =
 {
@@ -10502,9 +10684,9 @@ mips_init_builtins (void)
       if (m->proc == PROCESSOR_MAX || (m->proc == mips_arch))
 	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
 	  if ((d->target_flags & target_flags) == d->target_flags)
-	    lang_hooks.builtin_function (d->name, types[d->function_type],
-					 d - m->bdesc + offset,
-					 BUILT_IN_MD, NULL, NULL);
+	    add_builtin_function (d->name, types[d->function_type],
+				  d - m->bdesc + offset,
+				  BUILT_IN_MD, NULL, NULL);
       offset += m->size;
     }
 }
@@ -10725,5 +10907,15 @@ mips_extra_live_on_entry (bitmap regs)
     bitmap_set_bit (regs, PIC_FUNCTION_ADDR_REGNUM);
 }
 
+/* SImode values are represented as sign-extended to DImode.  */
+
+int
+mips_mode_rep_extended (enum machine_mode mode, enum machine_mode mode_rep)
+{
+  if (TARGET_64BIT && mode == SImode && mode_rep == DImode)
+    return SIGN_EXTEND;
+
+  return UNKNOWN;
+}
 
 #include "gt-mips.h"

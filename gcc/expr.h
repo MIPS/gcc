@@ -29,8 +29,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "rtl.h"
 /* For optimize_size */
 #include "flags.h"
-/* For host_integerp, tree_low_cst, convert, size_binop, ssize_int, TREE_CODE,
-   TYPE_SIZE, int_size_in_bytes,    */
+/* For host_integerp, tree_low_cst, fold_convert, size_binop, ssize_int,
+   TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
 #include "tree.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
@@ -123,36 +123,36 @@ struct locate_and_pad_arg_data
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
 
-#define ADD_PARM_SIZE(TO, INC)				\
-do {							\
-  tree inc = (INC);					\
-  if (host_integerp (inc, 0))				\
-    (TO).constant += tree_low_cst (inc, 0);		\
-  else if ((TO).var == 0)				\
-    (TO).var = convert (ssizetype, inc);		\
-  else							\
-    (TO).var = size_binop (PLUS_EXPR, (TO).var,		\
-			   convert (ssizetype, inc));	\
+#define ADD_PARM_SIZE(TO, INC)					\
+do {								\
+  tree inc = (INC);						\
+  if (host_integerp (inc, 0))					\
+    (TO).constant += tree_low_cst (inc, 0);			\
+  else if ((TO).var == 0)					\
+    (TO).var = fold_convert (ssizetype, inc);			\
+  else								\
+    (TO).var = size_binop (PLUS_EXPR, (TO).var,			\
+			   fold_convert (ssizetype, inc));	\
 } while (0)
 
-#define SUB_PARM_SIZE(TO, DEC)				\
-do {							\
-  tree dec = (DEC);					\
-  if (host_integerp (dec, 0))				\
-    (TO).constant -= tree_low_cst (dec, 0);		\
-  else if ((TO).var == 0)				\
-    (TO).var = size_binop (MINUS_EXPR, ssize_int (0),	\
-			   convert (ssizetype, dec));	\
-  else							\
-    (TO).var = size_binop (MINUS_EXPR, (TO).var,	\
-			   convert (ssizetype, dec));	\
+#define SUB_PARM_SIZE(TO, DEC)					\
+do {								\
+  tree dec = (DEC);						\
+  if (host_integerp (dec, 0))					\
+    (TO).constant -= tree_low_cst (dec, 0);			\
+  else if ((TO).var == 0)					\
+    (TO).var = size_binop (MINUS_EXPR, ssize_int (0),		\
+			   fold_convert (ssizetype, dec));	\
+  else								\
+    (TO).var = size_binop (MINUS_EXPR, (TO).var,		\
+			   fold_convert (ssizetype, dec));	\
 } while (0)
 
 /* Convert the implicit sum in a `struct args_size' into a tree
    of type ssizetype.  */
 #define ARGS_SIZE_TREE(SIZE)					\
 ((SIZE).var == 0 ? ssize_int ((SIZE).constant)			\
- : size_binop (PLUS_EXPR, convert (ssizetype, (SIZE).var),	\
+ : size_binop (PLUS_EXPR, fold_convert (ssizetype, (SIZE).var),	\
 	       ssize_int ((SIZE).constant)))
 
 /* Convert the implicit sum in a `struct args_size' into an rtx.  */
@@ -338,7 +338,6 @@ extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern tree std_build_builtin_va_list (void);
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
-extern rtx default_expand_library_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
 extern rtx expand_builtin_saveregs (void);
@@ -378,6 +377,7 @@ extern void init_block_move_fn (const char *);
 extern void init_block_clear_fn (const char *);
 
 extern rtx emit_block_move (rtx, rtx, rtx, enum block_op_methods);
+extern rtx emit_block_move_via_libcall (rtx, rtx, rtx, bool);
 
 /* Copy all or part of a value X into registers starting at REGNO.
    The number of registers to be filled is NREGS.  */
@@ -424,6 +424,8 @@ extern void use_group_regs (rtx *, rtx);
 /* Write zeros through the storage of OBJECT.
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
 extern rtx clear_storage (rtx, rtx, enum block_op_methods);
+/* The same, but always output an library call.  */
+rtx set_storage_via_libcall (rtx, rtx, rtx, bool);
 
 /* Expand a setmem pattern; return true if successful.  */
 extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int);

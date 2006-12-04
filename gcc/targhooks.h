@@ -34,6 +34,7 @@ extern enum machine_mode default_eh_return_filter_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (enum machine_mode);
 extern unsigned int default_min_divisions_for_recip_mul (enum machine_mode);
+extern int default_mode_rep_extended (enum machine_mode, enum machine_mode);
 
 extern tree default_stack_protect_guard (void);
 extern tree default_external_stack_protect_fail (void);
@@ -55,6 +56,8 @@ extern bool default_decimal_float_supported_p (void);
 extern const char * default_invalid_within_doloop (rtx);
 
 extern bool default_narrow_bitfield (void);
+
+extern tree default_builtin_vectorized_function (enum built_in_function, tree);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

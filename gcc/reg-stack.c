@@ -173,9 +173,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
-
-DEF_VEC_I(char);
-DEF_VEC_ALLOC_I(char,heap);
+#include "vecprim.h"
 
 #ifdef STACK_REGS
 
@@ -188,6 +186,8 @@ DEF_VEC_ALLOC_I(char,heap);
 static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
+
+int regstack_completed = 0;
 
 /* This is the basic stack record.  TOP is an index into REG[] such
    that REG[TOP] is the top of stack.  If TOP is -1 the stack is empty.
@@ -438,6 +438,11 @@ get_true_reg (rtx *pat)
       case FLOAT_EXTEND:
 	pat = & XEXP (*pat, 0);
 	break;
+
+      case UNSPEC:
+	if (XINT (*pat, 1) == UNSPEC_TRUNC_NOOP)
+	  pat = & XVECEXP (*pat, 0, 0);
+	return pat;
 
       case FLOAT_TRUNCATE:
 	if (!flag_unsafe_math_optimizations)
@@ -1371,16 +1376,20 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		if (!note)
 		  {
 		    rtx t = *dest;
+		    if (COMPLEX_MODE_P (GET_MODE (t)))
+		      {
+			rtx u = FP_MODE_REG (REGNO (t) + 1, SFmode);
+			if (get_hard_regnum (regstack, u) == -1)
+			  {
+			    rtx pat2 = gen_rtx_CLOBBER (VOIDmode, u);
+			    rtx insn2 = emit_insn_before (pat2, insn);
+			    control_flow_insn_deleted
+			      |= move_nan_for_stack_reg (insn2, regstack, u);
+			  }
+		      }
 		    if (get_hard_regnum (regstack, t) == -1)
 		      control_flow_insn_deleted
 			|= move_nan_for_stack_reg (insn, regstack, t);
-		    if (COMPLEX_MODE_P (GET_MODE (t)))
-		      {
-			t = FP_MODE_REG (REGNO (t) + 1, DFmode);
-			if (get_hard_regnum (regstack, t) == -1)
-			  control_flow_insn_deleted
-			    |= move_nan_for_stack_reg (insn, regstack, t);
-		      }
 		  }
 	      }
 	  }
@@ -1698,11 +1707,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Empty stack slot
 		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
@@ -1729,11 +1739,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Fill empty slot from
 		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top - 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top - 1] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG + 1);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
@@ -1756,11 +1767,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Empty stack slot
 		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top + 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top + 1] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
@@ -1782,13 +1794,14 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Fill empty slot from
 		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG + 1);
 
-		  regstack->top++;
-		}
+		    regstack->top++;
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
@@ -2278,6 +2291,16 @@ subst_stack_regs (rtx insn, stack regstack)
   if (NOTE_P (insn) || INSN_DELETED_P (insn))
     return control_flow_insn_deleted;
 
+  /* If this a noreturn call, we can't insert pop insns after it.
+     Instead, reset the stack state to empty.  */
+  if (CALL_P (insn)
+      && find_reg_note (insn, REG_NORETURN, NULL))
+    {
+      regstack->top = -1;
+      CLEAR_HARD_REG_SET (regstack->reg_set);
+      return control_flow_insn_deleted;
+    }
+
   /* If there is a REG_UNUSED note on a stack register on this insn,
      the indicated reg must be popped.  The REG_UNUSED note is removed,
      since the form of the newly emitted pop insn references the reg,
@@ -2535,11 +2558,28 @@ print_stack (FILE *file, stack s)
 static int
 convert_regs_entry (void)
 {
+  tree params = DECL_ARGUMENTS (current_function_decl);
+  tree p;
+  HARD_REG_SET incoming_regs;
+  rtx inc_rtx;
+
   int inserted = 0;
   edge e;
   edge_iterator ei;
 
-  /* Load something into each stack register live at function entry.
+  /* Find out which registers were used as argument passing registers.  */
+
+  CLEAR_HARD_REG_SET (incoming_regs);
+  for (p = params; p; p = TREE_CHAIN (p))
+    {
+      inc_rtx = DECL_INCOMING_RTL (p);
+
+      if (REG_P (inc_rtx)
+          && IN_RANGE (REGNO (inc_rtx), FIRST_STACK_REG, LAST_STACK_REG))
+	SET_HARD_REG_BIT (incoming_regs, REGNO (inc_rtx));
+    }
+
+  /* Load something into remaining stack register live at function entry.
      Such live registers can be caused by uninitialized variables or
      functions not returning values on all paths.  In order to keep
      the push/pop code happy, and to not scrog the register stack, we
@@ -2560,6 +2600,10 @@ convert_regs_entry (void)
 	    rtx init;
 
 	    bi->stack_in.reg[++top] = reg;
+
+	    /* Skip argument passing registers.  */
+	    if (TEST_HARD_REG_BIT (incoming_regs, reg))
+	      continue;
 
 	    init = gen_rtx_SET (VOIDmode,
 				FP_MODE_REG (FIRST_STACK_REG, SFmode),
@@ -3153,6 +3197,7 @@ rest_of_handle_stack_regs (void)
 #ifdef STACK_REGS
   if (reg_to_stack () && optimize)
     {
+      regstack_completed = 1;
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
                        | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
           && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
@@ -3161,6 +3206,8 @@ rest_of_handle_stack_regs (void)
           cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
         }
     }
+  else 
+    regstack_completed = 1;
 #endif
   return 0;
 }
