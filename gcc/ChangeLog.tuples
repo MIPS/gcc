@@ -1,5 +1,10 @@
 2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
 
+        * config/frv/frv.c (frv_expand_builtin_va_start): Change MODIFY_EXPR
+        to GIMPLE_MODIFY_STMT.
+
+2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
+
         * config/alpha/alpha.c (va_list_skip_additions): Change all
 	occurrences of MODIFY_EXPR to GIMPLE_MODIFY_STMT.
         (alpha_va_start): Same.
