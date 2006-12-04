@@ -1,5 +1,11 @@
 2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
 
+        * config/stormy16/stormy16.c (xstormy16_expand_builtin_va_start): 
+        Change uses of MODIFY_EXPR to GIMPLE_MODIFY_STMT.
+        (xstormy16_expand_builtin_va_arg): Same.
+
+2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
+
         * config/frv/frv.c (frv_expand_builtin_va_start): Change MODIFY_EXPR
         to GIMPLE_MODIFY_STMT.
 
