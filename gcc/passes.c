@@ -635,6 +635,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_instantiate_virtual_regs);
   NEXT_PASS (pass_jump2);
   NEXT_PASS (pass_cse);
+  NEXT_PASS (pass_rtl_fwprop);
   NEXT_PASS (pass_gcse);
   NEXT_PASS (pass_jump_bypass);
   NEXT_PASS (pass_rtl_ifcvt);
@@ -645,6 +646,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_loop2);
   NEXT_PASS (pass_web);
   NEXT_PASS (pass_cse2);
+  NEXT_PASS (pass_rtl_fwprop_addr);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_combine);
   NEXT_PASS (pass_if_after_combine);
@@ -681,7 +683,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_variable_tracking);
   NEXT_PASS (pass_free_cfg);
   NEXT_PASS (pass_machine_reorg);
-  NEXT_PASS (pass_purge_lineno_notes);
   NEXT_PASS (pass_cleanup_barriers);
   NEXT_PASS (pass_delay_slots);
   NEXT_PASS (pass_split_for_shorten_branches);

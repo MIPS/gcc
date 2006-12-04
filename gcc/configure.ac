@@ -983,7 +983,7 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
-powerpc-*-darwin*)
+powerpc*-*-darwin*)
   # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
   # sources; use -no-cpp-precomp to get to GNU cpp.
   # Apple's GCC has bugs in designated initializer handling, so disable
@@ -1366,7 +1366,7 @@ if test "$host_xm_file" != "$build_xm_file"; then
 fi
 
 case ${host} in
-  powerpc-*-darwin*)
+  powerpc*-*-darwin*)
     AC_CACHE_CHECK([whether mcontext_t fields have underscores],
       gcc_cv_mcontext_underscores,
       AC_COMPILE_IFELSE([
@@ -1429,8 +1429,17 @@ use_cxa_atexit=no
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
   if test x$host = x$target; then
-    AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
-	[echo "__cxa_atexit can't be enabled on this target"])
+    case $host in
+      # mingw32 doesn't have __cxa_atexit but uses atexit registration
+      # keyed to flag_use_cxa_atexit
+      *-*-mingw32*)
+	use_cxa_atexit=yes
+	;;
+      *)
+	AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
+	  [echo "__cxa_atexit can't be enabled on this target"])
+	;;
+    esac
   else
     # We can't check for __cxa_atexit when building a cross, so assume
     # it is available 
@@ -2107,7 +2116,7 @@ changequote(,)dnl
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -2841,6 +2850,18 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
         [Define if your assembler supports the ffreep mnemonic.])])
 
+    gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
+      gcc_cv_as_ix86_diff_sect_delta,,,
+      [.section .rodata
+.L1:
+        .long .L2-.L1
+        .long .L3-.L1
+        .text
+.L3:    nop
+.L2:    nop],,
+      [AC_DEFINE(HAVE_AS_IX86_DIFF_SECT_DELTA, 1,
+        [Define if your assembler supports the subtraction of symbols in different sections.])])
+
     # This one is used unconditionally by i386.[ch]; it is to be defined
     # to 1 if the feature is present, 0 otherwise.
     gcc_GAS_CHECK_FEATURE([GOTOFF in data],
@@ -2923,6 +2944,21 @@ foo:	nop
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_FPRND, 1,
 	  [Define if your assembler supports fprnd.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	mffgpr 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	mffgpr 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([move fp gpr support],
+      gcc_cv_as_powerpc_mfpgpr, [9,99,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_MFPGPR, 1,
+	  [Define if your assembler supports mffgpr and mftgpr.])])
 
     case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
@@ -3249,7 +3285,8 @@ if test x"$gcc_cv_ld_sysroot" = xyes; then
 fi	  
 
 if test x$with_sysroot = x && test x$host = x$target \
-   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
+   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" \
+   && test "$prefix" != "NONE"; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
 fi
@@ -3316,9 +3353,12 @@ case "$target" in
       else
 	glibc_header_dir=/usr/include
       fi
+changequote(,)dnl
       grep '^[ 	]*#[ 	]*define[ 	][ 	]*__LONG_DOUBLE_MATH_OPTIONAL' \
         $glibc_header_dir/bits/wordsize.h > /dev/null 2>&1 \
-      && gcc_cv_target_ldbl128=yes])
+      && gcc_cv_target_ldbl128=yes
+changequote([,])dnl
+      ])
     ;;
 esac
 if test x$gcc_cv_target_ldbl128 = xyes; then

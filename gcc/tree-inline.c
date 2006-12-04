@@ -1703,9 +1703,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MULT_EXPR:
 
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
 
     case NEGATE_EXPR:
     case FLOAT_EXPR:
@@ -1768,8 +1765,19 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case REDUC_PLUS_EXPR:
     case WIDEN_SUM_EXPR:
     case DOT_PROD_EXPR: 
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_SAT_EXPR:
 
     case WIDEN_MULT_EXPR:
+
+    case VEC_EXTRACT_EVEN_EXPR:
+    case VEC_EXTRACT_ODD_EXPR:
+    case VEC_INTERLEAVE_HIGH_EXPR:
+    case VEC_INTERLEAVE_LOW_EXPR:
 
     case RESX_EXPR:
       *count += 1;
@@ -2790,14 +2798,10 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   /* Generate a new name for the new version. */
   if (!update_clones)
-    DECL_NAME (new_decl) = create_tmp_var_name (NULL);
-  /* Create a new SYMBOL_REF rtx for the new name. */
-  if (DECL_RTL (old_decl) != NULL)
     {
-      SET_DECL_RTL (new_decl, copy_rtx (DECL_RTL (old_decl)));
-      XEXP (DECL_RTL (new_decl), 0) =
-	gen_rtx_SYMBOL_REF (GET_MODE (XEXP (DECL_RTL (old_decl), 0)),
-			    IDENTIFIER_POINTER (DECL_NAME (new_decl)));
+      DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
+      SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
+      SET_DECL_RTL (new_decl, NULL_RTX);
     }
 
   /* Prepare the data structures for the tree copy.  */

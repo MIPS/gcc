@@ -221,7 +221,7 @@ var_element (gfc_data_variable * new)
   if (!sym->attr.function && gfc_current_ns->parent && gfc_current_ns->parent == sym->ns)
     {
       gfc_error ("Host associated variable '%s' may not be in the DATA "
-		 "statement at %C.", sym->name);
+		 "statement at %C", sym->name);
       return MATCH_ERROR;
     }
 
@@ -754,10 +754,11 @@ gfc_set_constant_character_len (int len, gfc_expr * expr)
   slen = expr->value.character.length;
   if (len != slen)
     {
-      s = gfc_getmem (len);
+      s = gfc_getmem (len + 1);
       memcpy (s, expr->value.character.string, MIN (len, slen));
       if (len > slen)
 	memset (&s[slen], ' ', len - slen);
+      s[len] = '\0';
       gfc_free (expr->value.character.string);
       expr->value.character.string = s;
       expr->value.character.length = len;
@@ -1169,7 +1170,7 @@ variable_decl (int elem)
 	    {
 	      if (sym->as != NULL)
 		{
-		  gfc_error ("Duplicate array spec for Cray pointee at %C.");
+		  gfc_error ("Duplicate array spec for Cray pointee at %C");
 		  gfc_free_array_spec (cp_as);
 		  m = MATCH_ERROR;
 		  goto cleanup;
@@ -1217,8 +1218,10 @@ variable_decl (int elem)
      that the interface may specify a procedure that is not pure if the procedure
      is defined to be pure(12.3.2).  */
   if (current_ts.type == BT_DERIVED
+	&& gfc_current_ns->proc_name
 	&& gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
-	&& current_ts.derived->ns != gfc_current_ns)
+	&& current_ts.derived->ns != gfc_current_ns
+	&& !gfc_current_ns->has_import_set)
     {
       gfc_error ("the type of '%s' at %C has not been declared within the "
 		 "interface", name);
@@ -1481,7 +1484,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
 
   if (gfc_match_char (')') != MATCH_YES)
     {
-      gfc_error ("Missing right paren at %C");
+      gfc_error ("Missing right parenthesis at %C");
       goto no_match;
     }
 
@@ -2003,6 +2006,96 @@ error:
   return MATCH_ERROR;
 }
 
+match
+gfc_match_import (void)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  match m;
+  gfc_symbol *sym;
+  gfc_symtree *st;
+
+  if (gfc_current_ns->proc_name == NULL ||
+      gfc_current_ns->proc_name->attr.if_source != IFSRC_IFBODY)
+    {
+      gfc_error ("IMPORT statement at %C only permitted in "
+		 "an INTERFACE body");
+      return MATCH_ERROR;
+    }
+
+  if (gfc_notify_std (GFC_STD_F2003, 
+		      "Fortran 2003: IMPORT statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      /* All host variables should be imported.  */
+      gfc_current_ns->has_import_set = 1;
+      return MATCH_YES;
+    }
+
+  if (gfc_match (" ::") == MATCH_YES)
+    {
+      if (gfc_match_eos () == MATCH_YES)
+        {
+           gfc_error ("Expecting list of named entities at %C");
+           return MATCH_ERROR;
+        }
+    }
+
+  for(;;)
+    {
+      m = gfc_match (" %n", name);
+      switch (m)
+	{
+	case MATCH_YES:
+          if (gfc_find_symbol (name, gfc_current_ns->parent, 1, &sym))
+            {
+               gfc_error ("Type name '%s' at %C is ambiguous", name);
+               return MATCH_ERROR;
+            }
+
+          if (sym == NULL)
+            {
+              gfc_error ("Cannot IMPORT '%s' from host scoping unit "
+                         "at %C - does not exist.", name);
+              return MATCH_ERROR;
+            }
+
+          if (gfc_find_symtree (gfc_current_ns->sym_root,name)) 
+            {
+              gfc_warning ("'%s' is already IMPORTed from host scoping unit "
+                           "at %C.", name);
+              goto next_item;
+            }
+
+          st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
+          st->n.sym = sym;
+          sym->refs++;
+          sym->ns = gfc_current_ns;
+
+	  goto next_item;
+
+	case MATCH_NO:
+	  break;
+
+	case MATCH_ERROR:
+	  return MATCH_ERROR;
+	}
+
+    next_item:
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in IMPORT statement at %C");
+  return MATCH_ERROR;
+}
 
 /* Matches an attribute specification including array specs.  If
    successful, leaves the variables current_attr and current_as
@@ -2024,7 +2117,7 @@ match_attr_spec (void)
     DECL_ALLOCATABLE = GFC_DECL_BEGIN, DECL_DIMENSION, DECL_EXTERNAL,
     DECL_IN, DECL_OUT, DECL_INOUT, DECL_INTRINSIC, DECL_OPTIONAL,
     DECL_PARAMETER, DECL_POINTER, DECL_PRIVATE, DECL_PUBLIC, DECL_SAVE,
-    DECL_TARGET, DECL_COLON, DECL_NONE,
+    DECL_TARGET, DECL_VOLATILE, DECL_COLON, DECL_NONE,
     GFC_DECL_END /* Sentinel */
   }
   decl_types;
@@ -2047,6 +2140,7 @@ match_attr_spec (void)
     minit (", public", DECL_PUBLIC),
     minit (", save", DECL_SAVE),
     minit (", target", DECL_TARGET),
+    minit (", volatile", DECL_VOLATILE),
     minit ("::", DECL_COLON),
     minit (NULL, DECL_NONE)
   };
@@ -2167,6 +2261,9 @@ match_attr_spec (void)
 	  case DECL_TARGET:
 	    attr = "TARGET";
 	    break;
+	  case DECL_VOLATILE:
+	    attr = "VOLATILE";
+	    break;
 	  default:
 	    attr = NULL;	/* This shouldn't happen */
 	  }
@@ -2190,8 +2287,8 @@ match_attr_spec (void)
 	  if (d == DECL_ALLOCATABLE)
 	    {
 	      if (gfc_notify_std (GFC_STD_F2003, 
-				   "In the selected standard, the ALLOCATABLE "
-				   "attribute at %C is not allowed in a TYPE "
+				   "Fortran 2003: ALLOCATABLE "
+				   "attribute at %C in a TYPE "
 				   "definition") == FAILURE)         
 		{
 		  m = MATCH_ERROR;
@@ -2281,6 +2378,15 @@ match_attr_spec (void)
 	  t = gfc_add_target (&current_attr, &seen_at[d]);
 	  break;
 
+	case DECL_VOLATILE:
+	  if (gfc_notify_std (GFC_STD_F2003,
+                              "Fortran 2003: VOLATILE attribute at %C")
+	      == FAILURE)
+	    t = FAILURE;
+	  else
+	    t = gfc_add_volatile (&current_attr, NULL, &seen_at[d]);
+	  break;
+
 	default:
 	  gfc_internal_error ("match_attr_spec(): Bad attribute");
 	}
@@ -2354,7 +2460,7 @@ gfc_match_data_decl (void)
       /* Now we have an error, which we signal, and then fix up
 	 because the knock-on is plain and simple confusing.  */
       gfc_error_now ("Derived type at %C has not been previously defined "
-		 "and so cannot appear in a derived type definition.");
+		 "and so cannot appear in a derived type definition");
       current_attr.pointer = 1;
       goto ok;
     }
@@ -2383,7 +2489,8 @@ ok:
 	break;
     }
 
-  gfc_error ("Syntax error in data declaration at %C");
+  if (gfc_error_flag_test () == 0)
+    gfc_error ("Syntax error in data declaration at %C");
   m = MATCH_ERROR;
 
   gfc_free_data_all (gfc_current_ns);
@@ -3314,7 +3421,7 @@ attr_decl1 (void)
 	goto cleanup;
     }
 
-  if (gfc_add_attribute (&sym->attr, &var_locus, current_attr.intent) == FAILURE)
+  if (gfc_add_attribute (&sym->attr, &var_locus) == FAILURE)
     {
       m = MATCH_ERROR;
       goto cleanup;
@@ -3429,12 +3536,12 @@ cray_pointer_decl (void)
 	}
       else if (cptr->ts.type != BT_INTEGER)
 	{
-	  gfc_error ("Cray pointer at %C must be an integer.");
+	  gfc_error ("Cray pointer at %C must be an integer");
 	  return MATCH_ERROR;
 	}
       else if (cptr->ts.kind < gfc_index_integer_kind)
 	gfc_warning ("Cray pointer at %C has %d bytes of precision;"
-		     " memory addresses require %d bytes.",
+		     " memory addresses require %d bytes",
 		     cptr->ts.kind,
 		     gfc_index_integer_kind);
 
@@ -3483,7 +3590,7 @@ cray_pointer_decl (void)
 	}
       else if (as != NULL)
 	{
-	  gfc_error ("Duplicate array spec for Cray pointee at %C.");
+	  gfc_error ("Duplicate array spec for Cray pointee at %C");
 	  gfc_free_array_spec (as);
 	  return MATCH_ERROR;
 	}
@@ -3581,7 +3688,7 @@ gfc_match_pointer (void)
       if (!gfc_option.flag_cray_pointer)
 	{
 	  gfc_error ("Cray pointer declaration at %C requires -fcray-pointer"
-		     " flag.");
+		     " flag");
 	  return MATCH_ERROR;
 	}
       return cray_pointer_decl ();
@@ -3943,6 +4050,59 @@ syntax:
 }
 
 
+match
+gfc_match_volatile (void)
+{
+  gfc_symbol *sym;
+  match m;
+
+  if (gfc_notify_std (GFC_STD_F2003, 
+		      "Fortran 2003: VOLATILE statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  if (gfc_match (" ::") == MATCH_NO && gfc_match_space () == MATCH_NO)
+    {
+      return MATCH_ERROR;
+    }
+
+  if (gfc_match_eos () == MATCH_YES)
+    goto syntax;
+
+  for(;;)
+    {
+      m = gfc_match_symbol (&sym, 0);
+      switch (m)
+	{
+	case MATCH_YES:
+	  if (gfc_add_volatile (&sym->attr, sym->name,
+  			        &gfc_current_locus) == FAILURE)
+	    return MATCH_ERROR;
+	  goto next_item;
+
+	case MATCH_NO:
+	  break;
+
+	case MATCH_ERROR:
+	  return MATCH_ERROR;
+	}
+
+    next_item:
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in VOLATILE statement at %C");
+  return MATCH_ERROR;
+}
+
+
+
 /* Match a module procedure statement.  Note that we have to modify
    symbols in the parent's namespace because the current one was there
    to receive symbols that are in an interface's formal argument list.  */
@@ -4142,7 +4302,7 @@ gfc_match_enum (void)
     return m;
 
   if (gfc_notify_std (GFC_STD_F2003, 
-		      "New in Fortran 2003: ENUM AND ENUMERATOR at %C")
+		      "Fortran 2003: ENUM AND ENUMERATOR at %C")
       == FAILURE)
     return MATCH_ERROR;
 

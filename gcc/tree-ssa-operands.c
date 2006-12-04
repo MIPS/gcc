@@ -116,19 +116,10 @@ static VEC(tree,heap) *build_vuses;
 /* Array for building all the V_MUST_DEF operands.  */
 static VEC(tree,heap) *build_v_must_defs;
 
-/* These arrays are the cached operand vectors for call clobbered calls.  */
-static bool ops_active = false;
-
-static GTY (()) struct ssa_operand_memory_d *operand_memory = NULL;
-static unsigned operand_memory_index;
-
 static void get_expr_operands (tree, tree *, int);
 
-static def_optype_p free_defs = NULL;
-static use_optype_p free_uses = NULL;
-static vuse_optype_p free_vuses = NULL;
-static maydef_optype_p free_maydefs = NULL;
-static mustdef_optype_p free_mustdefs = NULL;
+/* Number of functions with initialized ssa_operands.  */
+static int n_initialized = 0;
 
 /* Allocates operand OP of given TYPE from the appropriate free list,
    or of the new value if the list is empty.  */
@@ -136,9 +127,11 @@ static mustdef_optype_p free_mustdefs = NULL;
 #define ALLOC_OPTYPE(OP, TYPE)				\
   do							\
     {							\
-      TYPE##_optype_p ret = free_##TYPE##s;		\
+      TYPE##_optype_p ret				\
+	 = gimple_ssa_operands (cfun)->free_##TYPE##s;	\
       if (ret)						\
-	free_##TYPE##s = ret->next;			\
+	gimple_ssa_operands (cfun)->free_##TYPE##s 	\
+	 = ret->next;					\
       else						\
 	ret = ssa_operand_alloc (sizeof (*ret));	\
       (OP) = ret;					\
@@ -212,7 +205,7 @@ operand_build_sort_virtual (VEC(tree,heap) *list)
 bool
 ssa_operands_active (void)
 {
-  return ops_active;
+  return cfun->gimple_df && gimple_ssa_operands (cfun)->ops_active;
 }
 
 
@@ -250,15 +243,18 @@ static struct
 void
 init_ssa_operands (void)
 {
-  build_defs = VEC_alloc (tree, heap, 5);
-  build_uses = VEC_alloc (tree, heap, 10);
-  build_vuses = VEC_alloc (tree, heap, 25);
-  build_v_may_defs = VEC_alloc (tree, heap, 25);
-  build_v_must_defs = VEC_alloc (tree, heap, 25);
+  if (!n_initialized++)
+    {
+      build_defs = VEC_alloc (tree, heap, 5);
+      build_uses = VEC_alloc (tree, heap, 10);
+      build_vuses = VEC_alloc (tree, heap, 25);
+      build_v_may_defs = VEC_alloc (tree, heap, 25);
+      build_v_must_defs = VEC_alloc (tree, heap, 25);
+    }
 
-  gcc_assert (operand_memory == NULL);
-  operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
-  ops_active = true;
+  gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
+  gimple_ssa_operands (cfun)->operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
+  gimple_ssa_operands (cfun)->ops_active = true;
   memset (&clobber_stats, 0, sizeof (clobber_stats));
 }
 
@@ -269,23 +265,27 @@ void
 fini_ssa_operands (void)
 {
   struct ssa_operand_memory_d *ptr;
-  VEC_free (tree, heap, build_defs);
-  VEC_free (tree, heap, build_uses);
-  VEC_free (tree, heap, build_v_must_defs);
-  VEC_free (tree, heap, build_v_may_defs);
-  VEC_free (tree, heap, build_vuses);
-  free_defs = NULL;
-  free_uses = NULL;
-  free_vuses = NULL;
-  free_maydefs = NULL;
-  free_mustdefs = NULL;
-  while ((ptr = operand_memory) != NULL)
+  if (!--n_initialized)
     {
-      operand_memory = operand_memory->next;
+      VEC_free (tree, heap, build_defs);
+      VEC_free (tree, heap, build_uses);
+      VEC_free (tree, heap, build_v_must_defs);
+      VEC_free (tree, heap, build_v_may_defs);
+      VEC_free (tree, heap, build_vuses);
+    }
+  gimple_ssa_operands (cfun)->free_defs = NULL;
+  gimple_ssa_operands (cfun)->free_uses = NULL;
+  gimple_ssa_operands (cfun)->free_vuses = NULL;
+  gimple_ssa_operands (cfun)->free_maydefs = NULL;
+  gimple_ssa_operands (cfun)->free_mustdefs = NULL;
+  while ((ptr = gimple_ssa_operands (cfun)->operand_memory) != NULL)
+    {
+      gimple_ssa_operands (cfun)->operand_memory
+	= gimple_ssa_operands (cfun)->operand_memory->next;
       ggc_free (ptr);
     }
 
-  ops_active = false;
+  gimple_ssa_operands (cfun)->ops_active = false;
   
   if (dump_file && (dump_flags & TDF_STATS))
     {
@@ -311,16 +311,18 @@ static inline void *
 ssa_operand_alloc (unsigned size)
 {
   char *ptr;
-  if (operand_memory_index + size >= SSA_OPERAND_MEMORY_SIZE)
+  if (gimple_ssa_operands (cfun)->operand_memory_index + size
+        >= SSA_OPERAND_MEMORY_SIZE)
     {
       struct ssa_operand_memory_d *ptr;
       ptr = GGC_NEW (struct ssa_operand_memory_d);
-      ptr->next = operand_memory;
-      operand_memory = ptr;
-      operand_memory_index = 0;
+      ptr->next = gimple_ssa_operands (cfun)->operand_memory;
+      gimple_ssa_operands (cfun)->operand_memory = ptr;
+      gimple_ssa_operands (cfun)->operand_memory_index = 0;
     }
-  ptr = &(operand_memory->mem[operand_memory_index]);
-  operand_memory_index += size;
+  ptr = &(gimple_ssa_operands (cfun)->operand_memory
+	  ->mem[gimple_ssa_operands (cfun)->operand_memory_index]);
+  gimple_ssa_operands (cfun)->operand_memory_index += size;
   return ptr;
 }
 
@@ -366,8 +368,9 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
   do							\
     {							\
       TYPE##_optype_p next = (OP)->next;		\
-      (OP)->next = free_##TYPE##s;			\
-      free_##TYPE##s = (OP);				\
+      (OP)->next					\
+	 = gimple_ssa_operands (cfun)->free_##TYPE##s;	\
+      gimple_ssa_operands (cfun)->free_##TYPE##s = (OP);\
       (OP) = next;					\
     } while (0)
 
@@ -503,8 +506,8 @@ finalize_ssa_def_ops (tree stmt)
   /* If there is anything in the old list, free it.  */
   if (old_ops)
     {
-      old_ops->next = free_defs;
-      free_defs = old_ops;
+      old_ops->next = gimple_ssa_operands (cfun)->free_defs;
+      gimple_ssa_operands (cfun)->free_defs = old_ops;
     }
 
   /* Now set the stmt's operands.  */
@@ -558,8 +561,8 @@ finalize_ssa_use_ops (tree stmt)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
 	delink_imm_use (USE_OP_PTR (ptr));
-      old_ops->next = free_uses;
-      free_uses = old_ops;
+      old_ops->next = gimple_ssa_operands (cfun)->free_uses;
+      gimple_ssa_operands (cfun)->free_uses = old_ops;
     }
 
   /* Now create nodes for all the new nodes.  */
@@ -661,8 +664,8 @@ finalize_ssa_v_may_def_ops (tree stmt)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
 	delink_imm_use (MAYDEF_OP_PTR (ptr));
-      old_ops->next = free_maydefs;
-      free_maydefs = old_ops;
+      old_ops->next = gimple_ssa_operands (cfun)->free_maydefs;
+      gimple_ssa_operands (cfun)->free_maydefs = old_ops;
     }
 
   /* Now set the stmt's operands.  */
@@ -763,8 +766,8 @@ finalize_ssa_vuse_ops (tree stmt)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
 	delink_imm_use (VUSE_OP_PTR (ptr));
-      old_ops->next = free_vuses;
-      free_vuses = old_ops;
+      old_ops->next = gimple_ssa_operands (cfun)->free_vuses;
+      gimple_ssa_operands (cfun)->free_vuses = old_ops;
     }
 
   /* Now set the stmt's operands.  */
@@ -904,8 +907,8 @@ finalize_ssa_v_must_def_ops (tree stmt)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
 	delink_imm_use (MUSTDEF_KILL_PTR (ptr));
-      old_ops->next = free_mustdefs;
-      free_mustdefs = old_ops;
+      old_ops->next = gimple_ssa_operands (cfun)->free_mustdefs;
+      gimple_ssa_operands (cfun)->free_mustdefs = old_ops;
     }
 
   /* Now set the stmt's operands.  */
@@ -1050,12 +1053,12 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   /* If ALIAS is .GLOBAL_VAR then the memory reference REF must be
      using a call-clobbered memory tag.  By definition, call-clobbered
      memory tags can always touch .GLOBAL_VAR.  */
-  if (alias == global_var)
+  if (alias == gimple_global_var (cfun))
     return true;
 
   /* We cannot prune nonlocal aliases because they are not type
      specific.  */
-  if (alias == nonlocal_all)
+  if (alias == gimple_nonlocal_all (cfun))
     return true;
 
   /* If ALIAS is an SFT, it can't be touched if the offset     
@@ -1151,11 +1154,16 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
 	   && flag_strict_aliasing
 	   && TREE_CODE (ref) != INDIRECT_REF
 	   && !MTAG_P (alias)
-	   && !var_ann (alias)->is_heapvar
 	   && (TREE_CODE (base) != INDIRECT_REF
 	       || TREE_CODE (TREE_TYPE (base)) != UNION_TYPE)
 	   && !AGGREGATE_TYPE_P (TREE_TYPE (alias))
 	   && TREE_CODE (TREE_TYPE (alias)) != COMPLEX_TYPE
+#if 0
+	   /* FIXME: PR tree-optimization/29680.  */
+	   && !var_ann (alias)->is_heapvar
+#else
+	   && !POINTER_TYPE_P (TREE_TYPE (alias))
+#endif
 	   /* When the struct has may_alias attached to it, we need not to
 	      return true.  */
 	   && get_alias_set (base))
@@ -1312,7 +1320,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		 set on it, or else we will get the wrong answer on
 		 clobbers.  */
 	      if (none_added
-		  && !updating_used_alone && aliases_computed_p
+		  && !updating_used_alone && gimple_aliases_computed_p (cfun)
 		  && TREE_CODE (var) == SYMBOL_MEMORY_TAG)
 		gcc_assert (SMT_USED_ALONE (var));
 
@@ -1547,9 +1555,10 @@ add_call_clobber_ops (tree stmt, tree callee)
 
   /* If we created .GLOBAL_VAR earlier, just use it.  See compute_may_aliases 
      for the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
-  if (global_var)
+  if (gimple_global_var (cfun))
     {
-      add_stmt_operand (&global_var, s_ann, opf_is_def);
+      tree var = gimple_global_var (cfun);
+      add_stmt_operand (&var, s_ann, opf_is_def);
       return;
     }
 
@@ -1559,7 +1568,7 @@ add_call_clobber_ops (tree stmt, tree callee)
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
   /* Add a V_MAY_DEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
     {
       tree var = referenced_var_lookup (u);
       unsigned int escape_mask = var_ann (var)->escape_mask;
@@ -1628,16 +1637,17 @@ add_call_read_ops (tree stmt, tree callee)
   /* if the function is not pure, it may reference memory.  Add
      a VUSE for .GLOBAL_VAR if it has been created.  See add_referenced_var
      for the heuristic used to decide whether to create .GLOBAL_VAR.  */
-  if (global_var)
+  if (gimple_global_var (cfun))
     {
-      add_stmt_operand (&global_var, s_ann, opf_none);
+      tree var = gimple_global_var (cfun);
+      add_stmt_operand (&var, s_ann, opf_none);
       return;
     }
   
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
 
   /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
     {
       tree var = referenced_var (u);
       tree real_var = var;
@@ -1683,8 +1693,8 @@ get_call_expr_operands (tree stmt, tree expr)
      computed.  By not bothering with virtual operands for CALL_EXPRs
      we avoid adding superfluous virtual operands, which can be a
      significant compile time sink (See PR 15855).  */
-  if (aliases_computed_p
-      && !bitmap_empty_p (call_clobbered_vars)
+  if (gimple_aliases_computed_p (cfun)
+      && !bitmap_empty_p (gimple_call_clobbered_vars (cfun))
       && !(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
@@ -1771,17 +1781,20 @@ get_asm_expr_operands (tree stmt)
 
 	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
 	   decided to group them).  */
-	if (global_var)
-	  add_stmt_operand (&global_var, s_ann, opf_is_def);
+	if (gimple_global_var (cfun))
+	  {
+            tree var = gimple_global_var (cfun);
+	    add_stmt_operand (&var, s_ann, opf_is_def);
+	  }
 	else
-	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
 	    }
 
 	/* Now clobber all addressables.  */
-	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
+	EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 
@@ -2573,5 +2586,3 @@ debug_immediate_uses_for (tree var)
 {
   dump_immediate_uses_for (stderr, var);
 }
-
-#include "gt-tree-ssa-operands.h"

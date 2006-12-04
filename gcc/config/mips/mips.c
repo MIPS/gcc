@@ -749,10 +749,18 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
-  { "24k", PROCESSOR_24K, 33 },
-  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
-  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
-  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
+  { "4kec", PROCESSOR_4KC, 33 },
+  { "4kem", PROCESSOR_4KC, 33 },
+  { "4kep", PROCESSOR_4KP, 33 },
+  { "24kc", PROCESSOR_24KC, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24KF, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 },  /* 24K 1:1 FPU */
+  { "24kec", PROCESSOR_24KC, 33 }, /* 24K with DSP */
+  { "24kef", PROCESSOR_24KF, 33 },
+  { "24kex", PROCESSOR_24KX, 33 },
+  { "34kc", PROCESSOR_24KC, 33 },  /* 34K with MT/DSP */
+  { "34kf", PROCESSOR_24KF, 33 },
+  { "34kx", PROCESSOR_24KX, 33 },
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -787,6 +795,21 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
                       COSTS_N_INSNS (256), /* fp_mult_df */   \
                       COSTS_N_INSNS (256), /* fp_div_sf */    \
                       COSTS_N_INSNS (256)  /* fp_div_df */
+
+static struct mips_rtx_cost_data const mips_rtx_cost_optimize_size =
+  {
+      COSTS_N_INSNS (1),            /* fp_add */
+      COSTS_N_INSNS (1),            /* fp_mult_sf */
+      COSTS_N_INSNS (1),            /* fp_mult_df */
+      COSTS_N_INSNS (1),            /* fp_div_sf */
+      COSTS_N_INSNS (1),            /* fp_div_df */
+      COSTS_N_INSNS (1),            /* int_mult_si */
+      COSTS_N_INSNS (1),            /* int_mult_di */
+      COSTS_N_INSNS (1),            /* int_div_si */
+      COSTS_N_INSNS (1),            /* int_div_di */
+                       2,           /* branch_cost */
+                       4            /* memory_latency */
+  };
 
 static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
   {
@@ -847,7 +870,16 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
     { /* 20KC */
       DEFAULT_COSTS
     },
-    { /* 24k */
+    { /* 24KC */
+      SOFT_FP_COSTS,
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 24KF */
       COSTS_N_INSNS (8),            /* fp_add */
       COSTS_N_INSNS (8),            /* fp_mult_sf */
       COSTS_N_INSNS (10),           /* fp_mult_df */
@@ -860,7 +892,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        1,           /* branch_cost */
                        4            /* memory_latency */
     },
-    { /* 24kx */
+    { /* 24KX */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (5),            /* fp_mult_df */
@@ -2814,15 +2846,35 @@ mips_split_64bit_move (rtx dest, rtx src)
   if (FP_REG_RTX_P (dest))
     {
       /* Loading an FPR from memory or from GPRs.  */
-      emit_insn (gen_load_df_low (copy_rtx (dest), mips_subword (src, 0)));
-      emit_insn (gen_load_df_high (dest, mips_subword (src, 1),
-				   copy_rtx (dest)));
+      if (ISA_HAS_MXHC1)
+	{
+	  dest = gen_lowpart (DFmode, dest);
+	  emit_insn (gen_load_df_low (dest, mips_subword (src, 0)));
+	  emit_insn (gen_mthc1 (dest, mips_subword (src, 1),
+				copy_rtx (dest)));
+	}
+      else
+	{
+	  emit_insn (gen_load_df_low (copy_rtx (dest),
+				      mips_subword (src, 0)));
+	  emit_insn (gen_load_df_high (dest, mips_subword (src, 1),
+				       copy_rtx (dest)));
+	}
     }
   else if (FP_REG_RTX_P (src))
     {
       /* Storing an FPR into memory or GPRs.  */
-      emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
-      emit_insn (gen_store_df_high (mips_subword (dest, 1), src));
+      if (ISA_HAS_MXHC1)
+	{
+	  src = gen_lowpart (DFmode, src);
+	  emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
+	  emit_insn (gen_mfhc1 (mips_subword (dest, 1), src));
+	}
+      else
+	{
+	  emit_move_insn (mips_subword (dest, 0), mips_subword (src, 0));
+	  emit_insn (gen_store_df_high (mips_subword (dest, 1), src));
+	}
     }
   else
     {
@@ -4739,7 +4791,10 @@ override_options (void)
     mips_set_tune (mips_arch_info);
 
   /* Set cost structure for the processor.  */
-  mips_cost = &mips_rtx_cost_data[mips_tune];
+  if (optimize_size)
+    mips_cost = &mips_rtx_cost_optimize_size;
+  else
+    mips_cost = &mips_rtx_cost_data[mips_tune];
 
   if ((target_flags_explicit & MASK_64BIT) != 0)
     {
@@ -4769,8 +4824,10 @@ override_options (void)
 	 only one right answer here.  */
       if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
-      else if (!TARGET_64BIT && TARGET_FLOAT64)
-	error ("unsupported combination: %s", "-mgp32 -mfp64");
+      else if (!TARGET_64BIT && TARGET_FLOAT64 
+	       && !(ISA_HAS_MXHC1 && mips_abi == ABI_32))
+	error ("-mgp32 and -mfp64 can only be combined if the target"
+	       " supports the mfhc1 and mthc1 instructions");
       else if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mfp64 -msingle-float");
     }
@@ -7625,15 +7682,27 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	    return true;
 	}
     }
+
+  /* gcc assumes that each word of a multiword register can be accessed
+     individually using SUBREGs.  This is not true for floating-point
+     registers if they are bigger than a word.  */  
+  if (UNITS_PER_FPREG > UNITS_PER_WORD
+      && GET_MODE_SIZE (from) > UNITS_PER_WORD
+      && GET_MODE_SIZE (to) < UNITS_PER_FPREG
+      && reg_classes_intersect_p (FP_REGS, class))
+    return true;
+
   /* Loading a 32-bit value into a 64-bit floating-point register
      will not sign-extend the value, despite what LOAD_EXTEND_OP says.
      We can't allow 64-bit float registers to change from SImode to
      to a wider mode.  */
-  if (TARGET_FLOAT64
+  if (TARGET_64BIT
+      && TARGET_FLOAT64
       && from == SImode
       && GET_MODE_SIZE (to) >= UNITS_PER_WORD
       && reg_classes_intersect_p (FP_REGS, class))
     return true;
+
   return false;
 }
 
@@ -7795,14 +7864,17 @@ mips_secondary_reload_class (enum reg_class class,
 
 /* Implement CLASS_MAX_NREGS.
 
-   Usually all registers are word-sized.  The only supported exception
-   is -mgp64 -msingle-float, which has 64-bit words but 32-bit float
-   registers.  A word-based calculation is correct even in that case,
-   since -msingle-float disallows multi-FPR values.
+   - UNITS_PER_FPREG controls the number of registers needed by FP_REGS.
 
-   The FP status registers are an exception to this rule.  They are always
-   4 bytes wide as they only hold condition code modes, and CCmode is always
-   considered to be 4 bytes wide.  */
+   - ST_REGS are always hold CCmode values, and CCmode values are
+     considered to be 4 bytes wide.
+
+   All other register classes are covered by UNITS_PER_WORD.  Note that
+   this is true even for unions of integer and float registers when the
+   latter are smaller than the former.  The only supported combination
+   in which case this occurs is -mgp64 -msingle-float, which has 64-bit
+   words but 32-bit float registers.  A word-based calculation is correct
+   in that case since -msingle-float disallows multi-FPR values.  */
 
 int
 mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
@@ -7810,6 +7882,8 @@ mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
 {
   if (class == ST_REGS)
     return (GET_MODE_SIZE (mode) + 3) / 4;
+  else if (class == FP_REGS)
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FPREG - 1) / UNITS_PER_FPREG;
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }

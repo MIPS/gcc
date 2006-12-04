@@ -1,6 +1,6 @@
 // class template tuple -*- C++ -*-
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,10 +34,19 @@
 
 // Chris Jefferson <chris@bubblescope.net>
 
+namespace std
+{
+_GLIBCXX_BEGIN_NAMESPACE(tr1)
+
 /// @brief class tuple_size
 template<_GLIBCXX_TEMPLATE_PARAMS>
   struct tuple_size<tuple<_GLIBCXX_TEMPLATE_ARGS> >
   { static const int value = _GLIBCXX_NUM_ARGS; };
+
+#if _GLIBCXX_NUM_ARGS > 0
+template<_GLIBCXX_TEMPLATE_PARAMS>
+  const int tuple_size<tuple<_GLIBCXX_TEMPLATE_ARGS> >::value;
+#endif
 
 template<_GLIBCXX_TEMPLATE_PARAMS>
 #ifdef _GLIBCXX_LAST_INCLUDE
@@ -159,3 +168,5 @@ template<_GLIBCXX_TEMPLATE_PARAMS>
   { return make_tuple(_GLIBCXX_REF_WRAP_PARAMS); }
 #endif
 
+_GLIBCXX_END_NAMESPACE
+}

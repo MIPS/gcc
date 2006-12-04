@@ -950,6 +950,9 @@ cgraph_analyze_function (struct cgraph_node *node)
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, decl);
 
+  node->local.estimated_self_stack_size = estimated_stack_frame_size ();
+  node->global.estimated_stack_size = node->local.estimated_self_stack_size;
+  node->global.stack_frame_offset = 0;
   node->local.inlinable = tree_inlinable_function_p (decl);
   if (!flag_unit_at_a_time)
     node->local.self_insns = estimate_num_insns (decl);
@@ -1073,7 +1076,7 @@ cgraph_finalize_compilation_unit (void)
 
   if (!quiet_flag)
     {
-      fprintf (stderr, "\nAnalyzing compilation unit");
+      fprintf (stderr, "\nAnalyzing compilation unit\n");
       fflush (stderr);
     }
 
@@ -1675,7 +1678,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   tree decl, name, resdecl;
 
   sprintf (which_buf, "%c_%d", which, counter++);
-  name = get_file_function_name_long (which_buf);
+  name = get_file_function_name (which_buf);
 
   decl = build_decl (FUNCTION_DECL, name,
 		     build_function_type (void_type_node, void_list_node));

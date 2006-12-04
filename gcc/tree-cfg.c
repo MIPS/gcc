@@ -1203,11 +1203,13 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
     return false;
 
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
-     is not up-to-date, we cannot eliminate any phis.  */
+     is not up-to-date, we cannot eliminate any phis; however, if only
+     some symbols as whole are marked for renaming, this is not a problem,
+     as phi nodes for those symbols are irrelevant in updating anyway.  */
   phi = phi_nodes (b);
   if (phi)
     {
-      if (need_ssa_update_p ())
+      if (name_mappings_registered_p ())
 	return false;
 
       for (; phi; phi = PHI_CHAIN (phi))
@@ -1244,7 +1246,6 @@ replace_uses_by (tree name, tree val)
   tree stmt;
   edge e;
   unsigned i;
-
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, name)
     {
@@ -2003,24 +2004,15 @@ remove_bb (basic_block bb)
 	}
     }
 
-  /* If we remove the header or the latch of a loop, mark the loop for
-     removal by setting its header and latch to NULL.  */
   if (current_loops)
     {
       struct loop *loop = bb->loop_father;
 
+      /* If a loop gets removed, clean up the information associated
+	 with it.  */
       if (loop->latch == bb
 	  || loop->header == bb)
-	{
-	  loop->latch = NULL;
-	  loop->header = NULL;
-
-	  /* Also clean up the information associated with the loop.  Updating
-	     it would waste time. More importantly, it may refer to ssa
-	     names that were defined in other removed basic block -- these
-	     ssa names are now removed and invalid.  */
-	  free_numbers_of_iterations_estimates_loop (loop);
-	}
+	free_numbers_of_iterations_estimates_loop (loop);
     }
 
   /* Remove all the instructions in the block.  */
@@ -2054,7 +2046,7 @@ remove_bb (basic_block bb)
 	     may be called when not in SSA.  For example,
 	     final_cleanup calls this function via
 	     cleanup_tree_cfg.  */
-	  if (in_ssa_p)
+	  if (gimple_in_ssa_p (cfun))
 	    release_defs (stmt);
 
 	  bsi_remove (&i, true);
@@ -3338,9 +3330,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
     case FLOAT_EXPR:
     case NEGATE_EXPR:
     case ABS_EXPR:
@@ -3429,6 +3418,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case BIT_AND_EXPR:
       CHECK_OP (0, "invalid operand to binary operator");
       CHECK_OP (1, "invalid operand to binary operator");
+      break;
+
+    case CONSTRUCTOR:
+      if (TREE_CONSTANT (t) && TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	*walk_subtrees = 0;
       break;
 
     default:
@@ -5692,7 +5686,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
   TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
 
   bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-  if (in_ssa_p)
+  if (gimple_in_ssa_p (cfun))
     mark_new_vars_to_rename (new_stmt);
 
   return t;

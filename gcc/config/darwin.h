@@ -40,6 +40,9 @@ Boston, MA 02110-1301, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
+/* Don't assume anything about the header files.  */
+#define NO_IMPLICIT_EXTERN_C
+
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
 
@@ -214,7 +217,8 @@ extern GTY(()) int darwin_ms_struct;
    them to darwin_cpp_builtins in darwin-c.c.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}" \
+	" %{pthread:-D_REENTRANT}"
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -225,16 +229,19 @@ extern GTY(()) int darwin_ms_struct;
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
 #define LINK_COMMAND_SPEC "\
-%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
-    %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
+    %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
     %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
     %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
+%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+    %{.c|.cc|.C|.cpp|.c++|.CPP|.m|.mm: \
+    %{gdwarf-2:%{!gstabs*:%{!gnone: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
 
 #ifdef TARGET_SYSTEM_ROOT
 #define LINK_SYSROOT_SPEC \
@@ -384,11 +391,10 @@ extern GTY(()) int darwin_ms_struct;
 #define ASM_SPEC "-arch %(darwin_arch) \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
 
-/* We use Dbx symbol format.  */
+/* We still allow output of STABS.  */
 
 #define DBX_DEBUGGING_INFO 1
 
-/* Also enable Dwarf 2 as an option.  */
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
@@ -400,6 +406,7 @@ extern GTY(()) int darwin_ms_struct;
 #define DEBUG_LINE_SECTION	"__DWARF,__debug_line,regular,debug"
 #define DEBUG_LOC_SECTION	"__DWARF,__debug_loc,regular,debug"
 #define DEBUG_PUBNAMES_SECTION	"__DWARF,__debug_pubnames,regular,debug"
+#define DEBUG_PUBTYPES_SECTION	"__DWARF,__debug_pubtypes,regular,debug"
 #define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
 #define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
 

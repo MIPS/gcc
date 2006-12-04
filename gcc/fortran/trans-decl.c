@@ -94,6 +94,7 @@ tree gfor_fndecl_set_fpe;
 tree gfor_fndecl_set_std;
 tree gfor_fndecl_set_convert;
 tree gfor_fndecl_set_record_marker;
+tree gfor_fndecl_set_max_subrecord_length;
 tree gfor_fndecl_ctime;
 tree gfor_fndecl_fdate;
 tree gfor_fndecl_ttynam;
@@ -513,7 +514,15 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if ((sym->attr.save || sym->attr.data || sym->value)
       && !sym->attr.use_assoc)
     TREE_STATIC (decl) = 1;
-  
+
+  if (sym->attr.volatile_)
+    {
+      tree new;
+      TREE_THIS_VOLATILE (decl) = 1;
+      new = build_qualified_type (TREE_TYPE (decl), TYPE_QUAL_VOLATILE);
+      TREE_TYPE (decl) = new;
+    } 
+
   /* Keep variables larger than max-stack-var-size off stack.  */
   if (!sym->ns->proc_name->attr.recursive
       && INTEGER_CST_P (DECL_SIZE_UNIT (decl))
@@ -1000,9 +1009,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   sym->backend_decl = decl;
 
   if (sym->attr.assign)
-    {
-      gfc_add_assign_aux_vars (sym);
-    }
+    gfc_add_assign_aux_vars (sym);
 
   if (TREE_STATIC (decl) && !sym->attr.use_assoc)
     {
@@ -2106,6 +2113,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[jkind][ikind].integer =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    jtype, 2, jtype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[jkind][ikind].integer) = 1;
 	      }
 	  }
 
@@ -2119,6 +2127,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[rkind][ikind].real =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    rtype, 2, rtype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].real) = 1;
 	      }
 
 	    ctype = gfc_get_complex_type (rkinds[rkind]);
@@ -2129,6 +2138,7 @@ gfc_build_intrinsic_function_decls (void)
 		gfor_fndecl_math_powi[rkind][ikind].cmplx =
 		  gfc_build_library_function_decl (get_identifier (name),
 		    ctype, 2,ctype, itype);
+		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].cmplx) = 1;
 	      }
 	  }
       }
@@ -2370,6 +2380,10 @@ gfc_build_builtin_function_decls (void)
     gfc_build_library_function_decl (get_identifier (PREFIX("set_record_marker")),
 				     void_type_node, 1, gfc_c_int_type_node);
 
+  gfor_fndecl_set_max_subrecord_length =
+    gfc_build_library_function_decl (get_identifier (PREFIX("set_max_subrecord_length")),
+				     void_type_node, 1, gfc_c_int_type_node);
+
   gfor_fndecl_in_pack = gfc_build_library_function_decl (
         get_identifier (PREFIX("internal_pack")),
         pvoid_type_node, 1, pvoid_type_node);
@@ -2583,6 +2597,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
   gfc_symbol *sym;
   gfc_formal_arglist *f;
   stmtblock_t body;
+  bool seen_trans_deferred_array = false;
 
   /* Deal with implicit return variables.  Explicit return variables will
      already have been added.  */
@@ -2639,10 +2654,19 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		  if (TREE_STATIC (sym->backend_decl))
 		    gfc_trans_static_array_pointer (sym);
 		  else
-		    fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    {
+		      seen_trans_deferred_array = true;
+		      fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    }
 		}
 	      else
 		{
+		  if (sym_has_alloc_comp)
+		    {
+		      seen_trans_deferred_array = true;
+		      fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    }
+
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 		  fnbody = gfc_trans_auto_array_allocation (sym->backend_decl,
@@ -2668,14 +2692,14 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      break;
 
 	    case AS_DEFERRED:
-	      if (!sym_has_alloc_comp)
-		fnbody = gfc_trans_deferred_array (sym, fnbody);
+	      seen_trans_deferred_array = true;
+	      fnbody = gfc_trans_deferred_array (sym, fnbody);
 	      break;
 
 	    default:
 	      gcc_unreachable ();
 	    }
-	  if (sym_has_alloc_comp)
+	  if (sym_has_alloc_comp && !seen_trans_deferred_array)
 	    fnbody = gfc_trans_deferred_array (sym, fnbody);
 	}
       else if (sym_has_alloc_comp)
@@ -3168,6 +3192,18 @@ gfc_generate_function_code (gfc_namespace * ns)
 
     }
 
+  if (sym->attr.is_main_program && gfc_option.max_subrecord_length != 0)
+    {
+      tree arglist, gfc_c_int_type_node;
+
+      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      arglist = gfc_chainon_list (NULL_TREE,
+				  build_int_cst (gfc_c_int_type_node,
+						 gfc_option.max_subrecord_length));
+      tmp = build_function_call_expr (gfor_fndecl_set_max_subrecord_length, arglist);
+      gfc_add_expr_to_block (&body, tmp);
+    }
+
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
       && sym->attr.subroutine)
     {
@@ -3299,7 +3335,7 @@ gfc_generate_constructors (void)
   if (gfc_static_ctors == NULL_TREE)
     return;
 
-  fnname = get_file_function_name ('I');
+  fnname = get_file_function_name ("I");
   type = build_function_type (void_type_node,
 			      gfc_chainon_list (NULL_TREE, void_type_node));
 

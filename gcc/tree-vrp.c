@@ -265,8 +265,7 @@ get_value_range (tree var)
     return vr;
 
   /* Create a default value range.  */
-  vr_value[ver] = vr = XNEW (value_range_t);
-  memset (vr, 0, sizeof (*vr));
+  vr_value[ver] = vr = XCNEW (value_range_t);
 
   /* Allocate an equivalence set.  */
   vr->equiv = BITMAP_ALLOC (NULL);
@@ -274,7 +273,7 @@ get_value_range (tree var)
   /* If VAR is a default definition, the variable can take any value
      in VAR's type.  */
   sym = SSA_NAME_VAR (var);
-  if (var == default_def (sym))
+  if (var == gimple_default_def (cfun, sym))
     {
       /* Try to use the "nonnull" attribute to create ~[0, 0]
 	 anti-ranges for pointers.  Note that this is only valid with
@@ -1177,7 +1176,7 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
       else if (code == MULT_EXPR && !integer_zerop (val1))
 	{
 	  tree tmp = int_const_binop (TRUNC_DIV_EXPR,
-				      TYPE_MAX_VALUE (TREE_TYPE (val1)),
+				      res,
 				      val1, 0);
 	  int check = compare_values (tmp, val2);
 
@@ -1596,9 +1595,6 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   /* Refuse to operate on certain unary expressions for which we
      cannot easily determine a resulting range.  */
   if (code == FIX_TRUNC_EXPR
-      || code == FIX_CEIL_EXPR
-      || code == FIX_FLOOR_EXPR
-      || code == FIX_ROUND_EXPR
       || code == FLOAT_EXPR
       || code == BIT_NOT_EXPR
       || code == NON_LVALUE_EXPR
@@ -2908,7 +2904,7 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
 
   /* In the case of NAME == 1 or NAME != 0, for TRUTH_AND_EXPR defining
      statement of NAME we can assert both operands of the TRUTH_AND_EXPR
-     have non-zero value.  */
+     have nonzero value.  */
   if (((comp_code == EQ_EXPR && integer_onep (val))
        || (comp_code == NE_EXPR && integer_zerop (val))))
     {
@@ -3358,8 +3354,7 @@ insert_range_assertions (void)
   sbitmap_zero (blocks_visited);
 
   need_assert_for = BITMAP_ALLOC (NULL);
-  asserts_for = XNEWVEC (assert_locus_t, num_ssa_names);
-  memset (asserts_for, 0, num_ssa_names * sizeof (assert_locus_t));
+  asserts_for = XCNEWVEC (assert_locus_t, num_ssa_names);
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -3498,8 +3493,7 @@ vrp_initialize (void)
 {
   basic_block bb;
 
-  vr_value = XNEWVEC (value_range_t *, num_ssa_names);
-  memset (vr_value, 0, num_ssa_names * sizeof (value_range_t *));
+  vr_value = XCNEWVEC (value_range_t *, num_ssa_names);
 
   FOR_EACH_BB (bb)
     {
@@ -3993,14 +3987,8 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
 
 /* Meet operation for value ranges.  Given two value ranges VR0 and
-   VR1, store in VR0 the result of meeting VR0 and VR1.
-   
-   The meeting rules are as follows:
-
-   1- If VR0 and VR1 have an empty intersection, set VR0 to VR_VARYING.
-
-   2- If VR0 and VR1 have a non-empty intersection, set VR0 to the
-      union of VR0 and VR1.  */
+   VR1, store in VR0 a range that contains both VR0 and VR1.  This
+   may not be the smallest possible such range.  */
 
 static void
 vrp_meet (value_range_t *vr0, value_range_t *vr1)
@@ -4031,56 +4019,44 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 
   if (vr0->type == VR_RANGE && vr1->type == VR_RANGE)
     {
-      /* If VR0 and VR1 have a non-empty intersection, compute the
-	 union of both ranges.  */
-      if (value_ranges_intersect_p (vr0, vr1))
-	{
-	  int cmp;
-	  tree min, max;
+      int cmp;
+      tree min, max;
 
-	  /* The lower limit of the new range is the minimum of the
-	     two ranges.  If they cannot be compared, the result is
-	     VARYING.  */
-	  cmp = compare_values (vr0->min, vr1->min);
-	  if (cmp == 0 || cmp == 1)
-	    min = vr1->min;
-	  else if (cmp == -1)
-	    min = vr0->min;
-	  else
-	    {
-	      set_value_range_to_varying (vr0);
-	      return;
-	    }
-
-	  /* Similarly, the upper limit of the new range is the
-	     maximum of the two ranges.  If they cannot be compared,
-	     the result is VARYING.  */
-	  cmp = compare_values (vr0->max, vr1->max);
-	  if (cmp == 0 || cmp == -1)
-	    max = vr1->max;
-	  else if (cmp == 1)
-	    max = vr0->max;
-	  else
-	    {
-	      set_value_range_to_varying (vr0);
-	      return;
-	    }
-
-	  /* The resulting set of equivalences is the intersection of
-	     the two sets.  */
-	  if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
-	    bitmap_and_into (vr0->equiv, vr1->equiv);
-	  else if (vr0->equiv && !vr1->equiv)
-	    bitmap_clear (vr0->equiv);
-
-	  set_value_range (vr0, vr0->type, min, max, vr0->equiv);
-	}
+      /* Compute the convex hull of the ranges.  The lower limit of
+         the new range is the minimum of the two ranges.  If they
+	 cannot be compared, then give up.  */
+      cmp = compare_values (vr0->min, vr1->min);
+      if (cmp == 0 || cmp == 1)
+        min = vr1->min;
+      else if (cmp == -1)
+        min = vr0->min;
       else
-	goto no_meet;
+	goto give_up;
+
+      /* Similarly, the upper limit of the new range is the maximum
+         of the two ranges.  If they cannot be compared, then
+	 give up.  */
+      cmp = compare_values (vr0->max, vr1->max);
+      if (cmp == 0 || cmp == -1)
+        max = vr1->max;
+      else if (cmp == 1)
+        max = vr0->max;
+      else
+	goto give_up;
+
+      /* The resulting set of equivalences is the intersection of
+	 the two sets.  */
+      if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
+        bitmap_and_into (vr0->equiv, vr1->equiv);
+      else if (vr0->equiv && !vr1->equiv)
+        bitmap_clear (vr0->equiv);
+
+      set_value_range (vr0, vr0->type, min, max, vr0->equiv);
     }
   else if (vr0->type == VR_ANTI_RANGE && vr1->type == VR_ANTI_RANGE)
     {
-      /* Two anti-ranges meet only if they are both identical.  */
+      /* Two anti-ranges meet only if their complements intersect.
+         Only handle the case of identical ranges.  */
       if (compare_values (vr0->min, vr1->min) == 0
 	  && compare_values (vr0->max, vr1->max) == 0
 	  && compare_values (vr0->min, vr0->max) == 0)
@@ -4093,13 +4069,13 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	    bitmap_clear (vr0->equiv);
 	}
       else
-	goto no_meet;
+	goto give_up;
     }
   else if (vr0->type == VR_ANTI_RANGE || vr1->type == VR_ANTI_RANGE)
     {
-      /* A numeric range [VAL1, VAL2] and an anti-range ~[VAL3, VAL4]
-	 meet only if the ranges have an empty intersection.  The
-	 result of the meet operation is the anti-range.  */
+      /* For a numeric range [VAL1, VAL2] and an anti-range ~[VAL3, VAL4],
+         only handle the case where the ranges have an empty intersection.
+	 The result of the meet operation is the anti-range.  */
       if (!symbolic_range_p (vr0)
 	  && !symbolic_range_p (vr1)
 	  && !value_ranges_intersect_p (vr0, vr1))
@@ -4118,17 +4094,17 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	    bitmap_clear (vr0->equiv);
 	}
       else
-	goto no_meet;
+	goto give_up;
     }
   else
     gcc_unreachable ();
 
   return;
 
-no_meet:
-  /* The two range VR0 and VR1 do not meet.  Before giving up and
-     setting the result to VARYING, see if we can at least derive a
-     useful anti-range.  FIXME, all this nonsense about distinguishing
+give_up:
+  /* Failed to find an efficient meet.  Before giving up and setting
+     the result to VARYING, see if we can at least derive a useful
+     anti-range.  FIXME, all this nonsense about distinguishing
      anti-ranges from ranges is necessary because of the odd
      semantics of range_includes_zero_p and friends.  */
   if (!symbolic_range_p (vr0)
@@ -4695,8 +4671,7 @@ vrp_finalize (void)
   /* We may have ended with ranges that have exactly one value.  Those
      values can be substituted as any other copy/const propagated
      value using substitute_and_fold.  */
-  single_val_range = XNEWVEC (prop_value_t, num_ssa_names);
-  memset (single_val_range, 0, num_ssa_names * sizeof (*single_val_range));
+  single_val_range = XCNEWVEC (prop_value_t, num_ssa_names);
 
   do_value_subst_p = false;
   for (i = 0; i < num_ssa_names; i++)
@@ -4788,9 +4763,9 @@ execute_vrp (void)
 {
   insert_range_assertions ();
 
-  current_loops = loop_optimizer_init (LOOPS_NORMAL);
+  loop_optimizer_init (LOOPS_NORMAL);
   if (current_loops)
-    scev_initialize (current_loops);
+    scev_initialize ();
 
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
@@ -4799,8 +4774,7 @@ execute_vrp (void)
   if (current_loops)
     {
       scev_finalize ();
-      loop_optimizer_finalize (current_loops);
-      current_loops = NULL;
+      loop_optimizer_finalize ();
     }
 
   /* ASSERT_EXPRs must be removed before finalizing jump threads

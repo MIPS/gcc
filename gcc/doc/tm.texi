@@ -1078,6 +1078,12 @@ Biggest alignment supported by the object file format of this machine.
 Use this macro to limit the alignment which can be specified using the
 @code{__attribute__ ((aligned (@var{n})))} construct.  If not defined,
 the default value is @code{BIGGEST_ALIGNMENT}.
+
+On systems that use ELF, the default (in @file{config/elfos.h}) is
+the largest supported 32-bit ELF section alignment representable on
+a 32-bit host e.g. @samp{(((unsigned HOST_WIDEST_INT) 1 << 28) * 8)}.
+On 32-bit ELF the largest supported section alignment in bits is
+@samp{(0x80000000 * 8)}, but this is not representable on 32-bit hosts.
 @end defmac
 
 @defmac DATA_ALIGNMENT (@var{type}, @var{basic-align})
@@ -1970,6 +1976,33 @@ definition of this macro is
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)  \
     / UNITS_PER_WORD)
 @end smallexample
+@end defmac
+
+@defmac HARD_REGNO_NREGS_HAS_PADDING (@var{regno}, @var{mode})
+A C expression that is nonzero if a value of mode @var{mode}, stored
+in memory, ends with padding that causes it to take up more space than
+in registers starting at register number @var{regno} (as determined by
+multiplying GCC's notion of the size of the register when containing
+this mode by the number of registers returned by
+@code{HARD_REGNO_NREGS}).  By default this is zero.
+
+For example, if a floating-point value is stored in three 32-bit
+registers but takes up 128 bits in memory, then this would be
+nonzero.
+
+This macros only needs to be defined if there are cases where
+@code{subreg_regno_offset} and @code{subreg_offset_representable_p}
+would otherwise wrongly determine that a @code{subreg} can be
+represented by an offset to the register number, when in fact such a
+@code{subreg} would contain some of the padding not stored in
+registers and so not be representable.
+@end defmac
+
+@defmac HARD_REGNO_NREGS_WITH_PADDING (@var{regno}, @var{mode})
+For values of @var{regno} and @var{mode} for which
+@code{HARD_REGNO_NREGS_HAS_PADDING} returns nonzero, a C expression
+returning the greater number of registers required to hold the value
+including any padding.  In the example above, the value would be four.
 @end defmac
 
 @defmac REGMODE_NATURAL_SIZE (@var{mode})
@@ -4535,10 +4568,11 @@ not support profiling.
 @end defmac
 
 @defmac NO_PROFILE_COUNTERS
-Define this macro if the @code{mcount} subroutine on your system does
-not need a counter variable allocated for each function.  This is true
-for almost all modern implementations.  If you define this macro, you
-must not use the @var{labelno} argument to @code{FUNCTION_PROFILER}.
+Define this macro to be an expression with a nonzero value if the
+@code{mcount} subroutine on your system does not need a counter variable
+allocated for each function.  This is true for almost all modern
+implementations.  If you define this macro, you must not use the
+@var{labelno} argument to @code{FUNCTION_PROFILER}.
 @end defmac
 
 @defmac PROFILE_BEFORE_PROLOGUE
@@ -5282,6 +5316,35 @@ described above.
 If this hook is not defined, then @var{addr} will be used as
 the argument @var{OFF} to @code{REALIGN_LOAD}, in which case the low
 log2(@var{VS})-1 bits of @var{addr} will be considered.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN (tree @var{x})
+This hook should return the DECL of a function @var{f} that implements
+widening multiplication of the even elements of two input vectors of type @var{x}.
+
+If this hook is defined, the autovectorizer will use it along with the
+@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD} target hook when vectorizing
+widening multiplication in cases that the order of the results does not have to be
+preserved (e.g. used only by a reduction computation). Otherwise, the
+@code{widen_mult_hi/lo} idioms will be used.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD (tree @var{x})
+This hook should return the DECL of a function @var{f} that implements
+widening multiplication of the odd elements of two input vectors of type @var{x}.
+
+If this hook is defined, the autovectorizer will use it along with the
+@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN} target hook when vectorizing
+widening multiplication in cases that the order of the results does not have to be
+preserved (e.g. used only by a reduction computation). Otherwise, the
+@code{widen_mult_hi/lo} idioms will be used.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION (enum built_in_function @var{code}, tree @var{vec_type})
+This hook should return the decl of a function that implements the vectorized
+variant of the builtin function with builtin function code @var{code} or
+@code{NULL_TREE} if such a function is not available.  The return type of
+the vectorized function shall be of vector type @var{vec_type}.
 @end deftypefn
 
 @node Anchored Addresses
@@ -8969,6 +9032,14 @@ unit will not be COMDAT.
 This hook returns true if @code{__aeabi_atexit} (as defined by the ARM EABI)
 should be used to register static destructors when @option{-fuse-cxa-atexit}
 is in effect.  The default is to return false to use @code{__cxa_atexit}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT (void)
+This hook returns true if the target @code{atexit} function can be used
+in the same manner as @code{__cxa_atexit} to register C++ static
+destructors. This requires that @code{atexit}-registered functions in
+shared libraries are run in the correct order when the libraries are
+unloaded. The default is to return false.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_CXX_ADJUST_CLASS_AT_DEFINITION (tree @var{type})

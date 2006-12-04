@@ -4131,6 +4131,7 @@ coerce_template_parms (tree parms,
   tree inner_args;
   tree new_args;
   tree new_inner_args;
+  bool saved_skip_evaluation;
 
   inner_args = INNERMOST_TEMPLATE_ARGS (args);
   nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
@@ -4155,6 +4156,10 @@ coerce_template_parms (tree parms,
       return error_mark_node;
     }
 
+  /* We need to evaluate the template arguments, even though this
+     template-id may be nested within a "sizeof".  */
+  saved_skip_evaluation = skip_evaluation;
+  skip_evaluation = false;
   new_inner_args = make_tree_vec (nparms);
   new_args = add_outermost_template_args (args, new_inner_args);
   for (i = 0; i < nparms; i++)
@@ -4196,6 +4201,7 @@ coerce_template_parms (tree parms,
 	lost++;
       TREE_VEC_ELT (new_inner_args, i) = arg;
     }
+  skip_evaluation = saved_skip_evaluation;
 
   if (lost)
     return error_mark_node;
@@ -5880,8 +5886,18 @@ instantiate_class_template (tree type)
 	  else
 	    {
 	      /* Build new TYPE_FIELDS.  */
-
-	      if (TREE_CODE (t) != CONST_DECL)
+              if (TREE_CODE (t) == STATIC_ASSERT)
+                {
+                  tree condition = 
+                    tsubst_expr (STATIC_ASSERT_CONDITION (t), args, 
+                                 tf_warning_or_error, NULL_TREE,
+                                 /*integral_constant_expression_p=*/true);
+                  finish_static_assert (condition,
+                                        STATIC_ASSERT_MESSAGE (t), 
+                                        STATIC_ASSERT_SOURCE_LOCATION (t),
+                                        /*member_p=*/true);
+                }
+	      else if (TREE_CODE (t) != CONST_DECL)
 		{
 		  tree r;
 
@@ -7117,6 +7133,13 @@ tsubst_function_type (tree t,
   if (arg_types == error_mark_node)
     return error_mark_node;
 
+  if (TYPE_QUALS (return_type) != TYPE_UNQUALIFIED
+      && in_decl != NULL_TREE
+      && !TREE_NO_WARNING (in_decl)
+      && (SCALAR_TYPE_P (return_type) || VOID_TYPE_P (return_type)))
+    warning (OPT_Wreturn_type,
+            "type qualifiers ignored on function return type");
+
   /* Construct a new type node and return it.  */
   if (TREE_CODE (t) == FUNCTION_TYPE)
     fntype = build_function_type (return_type, arg_types);
@@ -7261,7 +7284,6 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	max = tsubst_expr (omax, args, complain, in_decl,
 			   /*integral_constant_expression_p=*/false);
-	max = fold_non_dependent_expr (max);
 	max = fold_decl_constant_value (max);
 
 	if (TREE_CODE (max) != INTEGER_CST 
@@ -8709,6 +8731,20 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case TAG_DEFN:
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
+      break;
+
+    case STATIC_ASSERT:
+      {
+        tree condition = 
+          tsubst_expr (STATIC_ASSERT_CONDITION (t), 
+                       args,
+                       complain, in_decl,
+                       /*integral_constant_expression_p=*/true);
+        finish_static_assert (condition,
+                              STATIC_ASSERT_MESSAGE (t),
+                              STATIC_ASSERT_SOURCE_LOCATION (t),
+                              /*member_p=*/false);
+      }
       break;
 
     case OMP_PARALLEL:

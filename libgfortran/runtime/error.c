@@ -285,7 +285,7 @@ show_locus (st_parameter_common *cmp)
   if (!options.locus || cmp == NULL || cmp->filename == NULL)
     return;
 
-  st_printf ("At line %d of file %s\n", cmp->line, cmp->filename);
+  st_printf ("At line %d of file %s\n", (int) cmp->line, cmp->filename);
 }
 
 
@@ -434,6 +434,10 @@ translate_error (int code)
 
     case ERROR_DIRECT_EOR:
       p = "Write exceeds length of DIRECT access record";
+      break;
+
+    case ERROR_SHORT_RECORD:
+      p = "I/O past end of record on unformatted file";
       break;
 
     default:

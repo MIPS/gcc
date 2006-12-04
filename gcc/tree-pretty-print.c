@@ -732,10 +732,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
 	  {
-	    static char format[10]; /* "%x%09999x\0" */
-	    if (!format[0])
-	      sprintf (format, "%%x%%0%dx", HOST_BITS_PER_INT / 4);
-	    sprintf (pp_buffer (buffer)->digit_buffer, format,
+	    sprintf (pp_buffer (buffer)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 		     TREE_INT_CST_HIGH (val),
 		     TREE_INT_CST_LOW (val));
 	    pp_string (buffer, pp_buffer (buffer)->digit_buffer);
@@ -755,7 +752,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 #if !defined(REAL_IS_NOT_DOUBLE) || defined(REAL_ARITHMETIC)
 	d = TREE_REAL_CST (node);
 	if (REAL_VALUE_ISINF (d))
-	  pp_string (buffer, " Inf");
+	  pp_string (buffer, REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
 	else if (REAL_VALUE_ISNAN (d))
 	  pp_string (buffer, " Nan");
 	else
@@ -1330,9 +1327,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
     case FLOAT_EXPR:
     case CONVERT_EXPR:
     case NOP_EXPR:
@@ -1705,9 +1699,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case DOT_PROD_EXPR:
       pp_string (buffer, " DOT_PROD_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (buffer, " , ");
+      pp_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      pp_string (buffer, " , ");
+      pp_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
       pp_string (buffer, " > ");
       break;
@@ -1866,6 +1860,50 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+      pp_string (buffer, " VEC_WIDEN_MULT_HI_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_WIDEN_MULT_LO_EXPR:
+      pp_string (buffer, " VEC_WIDEN_MULT_LO_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_UNPACK_HI_EXPR:
+      pp_string (buffer, " VEC_UNPACK_HI_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_UNPACK_LO_EXPR:
+      pp_string (buffer, " VEC_UNPACK_LO_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_PACK_MOD_EXPR:
+      pp_string (buffer, " VEC_PACK_MOD_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+                                                                                
+    case VEC_PACK_SAT_EXPR:
+      pp_string (buffer, " VEC_PACK_SAT_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+                                                                                
     case BLOCK:
       {
 	tree t;
@@ -1923,6 +1961,38 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  }
       }
     break;
+
+    case VEC_EXTRACT_EVEN_EXPR:
+      pp_string (buffer, " VEC_EXTRACT_EVEN_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+  
+    case VEC_EXTRACT_ODD_EXPR:
+      pp_string (buffer, " VEC_EXTRACT_ODD_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_INTERLEAVE_HIGH_EXPR:
+      pp_string (buffer, " VEC_INTERLEAVE_HIGH_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_INTERLEAVE_LOW_EXPR:
+      pp_string (buffer, " VEC_INTERLEAVE_LOW_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
 
     default:
       NIY;
@@ -2169,6 +2239,8 @@ op_prio (tree op)
     case MINUS_EXPR:
       return 12;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
     case MULT_EXPR:
@@ -2199,9 +2271,6 @@ op_prio (tree op)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
     case TARGET_EXPR:
       return 14;
 
@@ -2222,6 +2291,10 @@ op_prio (tree op)
     case REDUC_PLUS_EXPR:
     case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_SAT_EXPR:
       return 16;
 
     case SAVE_EXPR:

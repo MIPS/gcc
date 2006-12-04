@@ -966,8 +966,7 @@ tree
 get_loop_exit_condition (struct loop *loop)
 {
   tree res = NULL_TREE;
-  edge exit_edge = loop->single_exit;
-
+  edge exit_edge = single_exit (loop);
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(get_loop_exit_condition \n  ");
@@ -1003,7 +1002,7 @@ get_exit_conditions_rec (struct loop *loop,
   get_exit_conditions_rec (loop->inner, exit_conditions);
   get_exit_conditions_rec (loop->next, exit_conditions);
   
-  if (loop->single_exit)
+  if (single_exit (loop))
     {
       tree loop_condition = get_loop_exit_condition (loop);
       
@@ -1016,10 +1015,9 @@ get_exit_conditions_rec (struct loop *loop,
    initializes the EXIT_CONDITIONS array.  */
 
 static void
-select_loops_exit_conditions (struct loops *loops, 
-			      VEC(tree,heap) **exit_conditions)
+select_loops_exit_conditions (VEC(tree,heap) **exit_conditions)
 {
-  struct loop *function_body = loops->parray[0];
+  struct loop *function_body = current_loops->tree_root;
   
   get_exit_conditions_rec (function_body->inner, exit_conditions);
 }
@@ -2108,7 +2106,7 @@ loop_closed_phi_def (tree var)
     return NULL_TREE;
 
   loop = loop_containing_stmt (SSA_NAME_DEF_STMT (var));
-  exit = loop->single_exit;
+  exit = single_exit (loop);
   if (!exit)
     return NULL_TREE;
 
@@ -2486,7 +2484,7 @@ number_of_iterations_in_loop (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(number_of_iterations_in_loop\n");
   
-  exit = loop->single_exit;
+  exit = single_exit (loop);
   if (!exit)
     goto end;
 
@@ -2747,10 +2745,9 @@ initialize_scalar_evolutions_analyzer (void)
 /* Initialize the analysis of scalar evolutions for LOOPS.  */
 
 void
-scev_initialize (struct loops *loops)
+scev_initialize (void)
 {
   unsigned i;
-  current_loops = loops;
 
   scalar_evolution_info = htab_create (100, hash_scev_info,
 				       eq_scev_info, del_scev_info);
@@ -2758,9 +2755,9 @@ scev_initialize (struct loops *loops)
   
   initialize_scalar_evolutions_analyzer ();
 
-  for (i = 1; i < loops->num; i++)
-    if (loops->parray[i])
-      loops->parray[i]->nb_iterations = NULL_TREE;
+  for (i = 1; i < current_loops->num; i++)
+    if (current_loops->parray[i])
+      current_loops->parray[i]->nb_iterations = NULL_TREE;
 }
 
 /* Cleans up the information cached by the scalar evolutions analysis.  */
@@ -2852,7 +2849,7 @@ scev_analysis (void)
   VEC(tree,heap) *exit_conditions;
   
   exit_conditions = VEC_alloc (tree, heap, 37);
-  select_loops_exit_conditions (current_loops, &exit_conditions);
+  select_loops_exit_conditions (&exit_conditions);
 
   if (dump_file && (dump_flags & TDF_STATS))
     analyze_scalar_evolution_for_all_loop_phi_nodes (&exit_conditions);
@@ -2962,7 +2959,7 @@ scev_const_prop (void)
 
       /* If we do not know exact number of iterations of the loop, we cannot
 	 replace the final value.  */
-      exit = loop->single_exit;
+      exit = single_exit (loop);
       if (!exit)
 	continue;
 

@@ -68,6 +68,7 @@
   %{mno-power: %{!mpowerpc*: -mcom}} \
   %{!mno-power: %{!mpower*: %(asm_default)}}} \
 %{mcpu=common: -mcom} \
+%{mcpu=cell: -mcell} \
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
@@ -75,6 +76,7 @@
 %{mcpu=power5: -mpower4} \
 %{mcpu=power5+: -mpower4} \
 %{mcpu=power6: -mpower4 -maltivec} \
+%{mcpu=power6x: -mpower4 -maltivec} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -162,6 +164,14 @@
 #define TARGET_FPRND 0
 #endif
 
+/* Define TARGET_MFPGPR if the target assembler does not support the
+   mffpr and mftgpr instructions. */
+
+#ifndef HAVE_AS_MFPGPR
+#undef  TARGET_MFPGPR
+#define TARGET_MFPGPR 0
+#endif
+
 #ifndef TARGET_SECURE_PLT
 #define TARGET_SECURE_PLT 0
 #endif
@@ -212,7 +222,9 @@ enum processor_type
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
    PROCESSOR_POWER4,
-   PROCESSOR_POWER5
+   PROCESSOR_POWER5,
+   PROCESSOR_POWER6,
+   PROCESSOR_CELL
 };
 
 extern enum processor_type rs6000_cpu;
@@ -329,6 +341,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
+
+/* E500 processors only support plain "sync", not lwsync.  */
+#define TARGET_NO_LWSYNC TARGET_E500
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -1109,12 +1124,18 @@ enum reg_class
   rs6000_secondary_reload_class (CLASS, MODE, IN)
 
 /* If we are copying between FP or AltiVec registers and anything
-   else, we need a memory location.  */
+   else, we need a memory location.  The exception is when we are
+   targeting ppc64 and the move to/from fpr to gpr instructions
+   are available.*/
 
-#define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE) 		\
- ((CLASS1) != (CLASS2) && ((CLASS1) == FLOAT_REGS		\
-			   || (CLASS2) == FLOAT_REGS		\
-			   || (CLASS1) == ALTIVEC_REGS		\
+#define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
+ ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
+                            && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
+				|| ((MODE != DFmode) && (MODE != DImode)))) \
+			   || ((CLASS2) == FLOAT_REGS			\
+                               && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
+				|| ((MODE != DFmode) && (MODE != DImode)))) \
+			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
 /* Return the maximum number of consecutive registers

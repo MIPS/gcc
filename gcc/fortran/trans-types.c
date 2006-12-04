@@ -97,6 +97,10 @@ int gfc_c_int_kind;
    kind=8, this will be set to 8, otherwise it is set to 4.  */
 int gfc_intio_kind; 
 
+/* The size of the numeric storage unit and character storage unit.  */
+int gfc_numeric_storage_size;
+int gfc_character_storage_size;
+
 /* Query the target to determine which machine modes are available for
    computation.  Choose KIND numbers for them.  */
 
@@ -228,11 +232,22 @@ gfc_init_kinds (void)
       if (!saw_i8)
 	fatal_error ("integer kind=8 not available for -fdefault-integer-8 option");
       gfc_default_integer_kind = 8;
+
+      /* Even if the user specified that the default integer kind be 8,
+         the numerica storage size isn't 64.  In this case, a warning will
+	 be issued when NUMERIC_STORAGE_SIZE is used.  */
+      gfc_numeric_storage_size = 4 * 8;
     }
   else if (saw_i4)
-    gfc_default_integer_kind = 4;
+    {
+      gfc_default_integer_kind = 4;
+      gfc_numeric_storage_size = 4 * 8;
+    }
   else
-    gfc_default_integer_kind = gfc_integer_kinds[i_index - 1].kind;
+    {
+      gfc_default_integer_kind = gfc_integer_kinds[i_index - 1].kind;
+      gfc_numeric_storage_size = gfc_integer_kinds[i_index - 1].bit_size;
+    }
 
   /* Choose the default real kind.  Again, we choose 4 when possible.  */
   if (gfc_option.flag_default_real)
@@ -283,6 +298,7 @@ gfc_init_kinds (void)
 
   /* Choose the smallest integer kind for our default character.  */
   gfc_default_character_kind = gfc_integer_kinds[0].kind;
+  gfc_character_storage_size = gfc_default_character_kind * 8;
 
   /* Choose the integer kind the same size as "void*" for our index kind.  */
   gfc_index_integer_kind = POINTER_SIZE / 8;
@@ -1482,11 +1498,16 @@ gfc_get_derived_type (gfc_symbol * derived)
 	 building anew so that potential dummy and actual arguments use the
 	 same TREE_TYPE.  If an equal type is found without a backend_decl,
 	 build the parent version and use it in the current namespace.  */
-
-      /* Derived types in an interface body obtain their parent reference
-	 through the proc_name symbol.  */
-      ns = derived->ns->parent ? derived->ns->parent
-			       : derived->ns->proc_name->ns;
+      if (derived->ns->parent)
+	ns = derived->ns->parent;
+      else if (derived->ns->proc_name
+		 && derived->ns->proc_name->ns != derived->ns)
+	/* Derived types in an interface body obtain their parent reference
+	   through the proc_name symbol.  */
+	ns = derived->ns->proc_name->ns;
+      else
+	/* Sometimes there isn't a parent reference!  */
+	ns = NULL;
 
       for (; ns; ns = ns->parent)
 	{
@@ -1587,8 +1608,8 @@ gfc_get_derived_type (gfc_symbol * derived)
 other_equal_dts:
   /* Add this backend_decl to all the other, equal derived types and
      their components in this and sibling namespaces.  */
-
-  for (ns = derived->ns->sibling; ns; ns = ns->sibling)
+  ns = derived->ns->parent ? derived->ns->parent->contained : derived->ns;
+  for (; ns; ns = ns->sibling)
     for (dt = ns->derived_types; dt; dt = dt->next)
       copy_dt_decls_ifequal (derived, dt->derived);
 

@@ -160,28 +160,94 @@
   "move,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,sync,compare,dummy"
   (const_string "misc"))
 
+(define_attr "addrtype" "32bit,preg,ireg"
+  (cond [(and (eq_attr "type" "mcld")
+	      (and (match_operand 0 "d_register_operand" "")
+		   (match_operand 1 "mem_p_address_operand" "")))
+	   (const_string "preg")
+	 (and (eq_attr "type" "mcld")
+	      (and (match_operand 0 "d_register_operand" "")
+		   (match_operand 1 "mem_i_address_operand" "")))
+	   (const_string "ireg")
+	 (and (eq_attr "type" "mcst")
+	      (and (match_operand 1 "d_register_operand" "")
+		   (match_operand 0 "mem_p_address_operand" "")))
+	   (const_string "preg")
+	 (and (eq_attr "type" "mcst")
+	      (and (match_operand 1 "d_register_operand" "")
+		   (match_operand 0 "mem_i_address_operand" "")))
+	   (const_string "ireg")]
+	(const_string "32bit")))
+
 ;; Scheduling definitions
 
 (define_automaton "bfin")
 
-(define_cpu_unit "core" "bfin")
+(define_cpu_unit "slot0" "bfin")
+(define_cpu_unit "slot1" "bfin")
+(define_cpu_unit "slot2" "bfin")
+
+;; Three units used to enforce parallel issue restrictions:
+;; only one of the 16 bit slots can use a P register in an address,
+;; and only one them can be a store.
+(define_cpu_unit "store" "bfin")
+(define_cpu_unit "pregs" "bfin")
+
+(define_reservation "core" "slot0+slot1+slot2")
 
 (define_insn_reservation "alu" 1
-  (eq_attr "type" "move,mvi,mcst,dsp32,alu0,shft,brcc,br,call,misc,sync,compare")
+  (eq_attr "type" "move,mvi,alu0,shft,brcc,br,call,misc,sync,compare")
   "core")
 
 (define_insn_reservation "imul" 3
   (eq_attr "type" "mult")
   "core*3")
 
-(define_insn_reservation "load" 1
-  (eq_attr "type" "mcld")
+(define_insn_reservation "dsp32" 1
+  (eq_attr "type" "dsp32")
+  "slot0")
+
+(define_insn_reservation "load32" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcld") (eq_attr "addrtype" "32bit")))
   "core")
+
+(define_insn_reservation "loadp" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcld") (eq_attr "addrtype" "preg")))
+  "(slot1|slot2)+pregs")
+
+(define_insn_reservation "loadi" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcld") (eq_attr "addrtype" "ireg")))
+  "(slot1|slot2)")
+
+(define_insn_reservation "store32" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcst") (eq_attr "addrtype" "32bit")))
+  "core")
+
+(define_insn_reservation "storep" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcst") (eq_attr "addrtype" "preg")))
+  "(slot1|slot2)+pregs+store")
+
+(define_insn_reservation "storei" 1
+  (and (not (eq_attr "seq_insns" "multi"))
+       (and (eq_attr "type" "mcst") (eq_attr "addrtype" "ireg")))
+  "(slot1|slot2)+store")
+
+(define_insn_reservation "multi" 2
+  (eq_attr "seq_insns" "multi")
+  "core")
+
+(absence_set "slot0" "slot1,slot2")
+(absence_set "slot1" "slot2")
 
 ;; Make sure genautomata knows about the maximum latency that can be produced
 ;; by the adjust_cost function.
 (define_insn_reservation "dummy" 5
-  (eq_attr "type" "mcld")
+  (eq_attr "type" "dummy")
   "core")
 
 ;; Operand and operator predicates
@@ -253,7 +319,6 @@
         ]
 
 	(const_int 2)))
-
 
 ;; Classify the insns into those that are one instruction and those that
 ;; are more than one in sequence.
@@ -437,14 +502,16 @@
   ""
   "[--SP] = %0;"
   [(set_attr "type" "mcst")
+   (set_attr "addrtype" "32bit")
    (set_attr "length" "2")])
 
 (define_insn "*popsi_insn"
-  [(set (match_operand:SI 0 "register_operand" "=xy")
+  [(set (match_operand:SI 0 "register_operand" "=d,xy")
         (mem:SI (post_inc:SI (reg:SI REG_SP))))]
   ""
   "%0 = [SP++];"
   [(set_attr "type" "mcld")
+   (set_attr "addrtype" "preg,32bit")
    (set_attr "length" "2")])
 
 ;; The first alternative is used to make reload choose a limited register
@@ -605,7 +672,10 @@
   [(set (match_operand:SI 0 "nonimmediate_operand" "")
 	(match_operand:SI 1 "general_operand" ""))]
   ""
-  "expand_move (operands, SImode);")
+{
+  if (expand_move (operands, SImode))
+    DONE;
+})
 
 (define_expand "movv2hi"
   [(set (match_operand:V2HI 0 "nonimmediate_operand" "")
@@ -1768,7 +1838,7 @@
 	 (match_operand 1 "general_operand" "g"))
    (use (match_operand 2 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !TARGET_ID_SHARED_LIBRARY
+   && (!TARGET_ID_SHARED_LIBRARY || TARGET_LEAF_ID_SHARED_LIBRARY)
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
   "call %0;"
@@ -1781,7 +1851,7 @@
    (use (match_operand 2 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !TARGET_ID_SHARED_LIBRARY
+   && (!TARGET_ID_SHARED_LIBRARY || TARGET_LEAF_ID_SHARED_LIBRARY)
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
   "jump.l %0;"
@@ -1794,7 +1864,7 @@
 	      (match_operand 2 "general_operand" "g")))
    (use (match_operand 3 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !TARGET_ID_SHARED_LIBRARY
+   && (!TARGET_ID_SHARED_LIBRARY || TARGET_LEAF_ID_SHARED_LIBRARY)
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
   "call %1;"
@@ -1808,7 +1878,7 @@
    (use (match_operand 3 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !TARGET_ID_SHARED_LIBRARY
+   && (!TARGET_ID_SHARED_LIBRARY || TARGET_LEAF_ID_SHARED_LIBRARY)
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
   "jump.l %1;"

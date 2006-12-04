@@ -112,7 +112,6 @@ struct cfg_hooks
   /* A hook for duplicating loop in CFG, currently this is used
      in loop versioning.  */
   bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *loop, edge e,
-						  struct loops *loops,
 						  unsigned int ndupl,
 						  sbitmap wont_exit,
 						  edge orig, edge *to_remove,
@@ -164,7 +163,6 @@ extern int flow_call_edges_add (sbitmap);
 extern void execute_on_growing_pred (edge);
 extern void execute_on_shrinking_pred (edge);
 extern bool cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge,
-						    struct loops *loops,
 						    unsigned int ndupl,
 						    sbitmap wont_exit,
 						    edge orig, edge *to_remove,
@@ -184,7 +182,7 @@ extern struct cfg_hooks rtl_cfg_hooks;
 extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
 /* Declarations.  */
-extern int ir_type (void);
+extern enum ir_type current_ir_type (void);
 extern void rtl_register_cfg_hooks (void);
 extern void cfg_layout_rtl_register_cfg_hooks (void);
 extern void tree_register_cfg_hooks (void);

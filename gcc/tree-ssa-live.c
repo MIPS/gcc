@@ -45,7 +45,6 @@ static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, bitmap, tree);
 static inline void add_livein_if_notdef (tree_live_info_p, bitmap,
 					 tree, basic_block);
-static inline void register_ssa_partition (var_map, tree, bool);
 static inline void add_conflicts_if_valid (tpa_p, conflict_graph,
 					   var_map, bitmap, tree);
 static partition_pair_p find_partition_pair (coalesce_list_p, int, int, bool);
@@ -79,7 +78,6 @@ init_var_map (int size)
   map->compact_to_partition = NULL;
   map->num_partitions = size;
   map->partition_size = size;
-  map->ref_count = NULL;
   return map;
 }
 
@@ -95,8 +93,6 @@ delete_var_map (var_map map)
     free (map->partition_to_compact);
   if (map->compact_to_partition)
     free (map->compact_to_partition);
-  if (map->ref_count)
-    free (map->ref_count);
   free (map);
 }
 
@@ -402,11 +398,11 @@ remove_unused_locals (void)
    new partition map is returned.  */
 
 var_map
-create_ssa_var_map (int flags)
+create_ssa_var_map (void)
 {
   block_stmt_iterator bsi;
   basic_block bb;
-  tree dest, use;
+  tree var;
   tree stmt;
   var_map map;
   ssa_op_iter iter;
@@ -422,13 +418,6 @@ create_ssa_var_map (int flags)
   used_in_virtual_ops = BITMAP_ALLOC (NULL);
 #endif
 
-  if (flags & SSA_VAR_MAP_REF_COUNT)
-    {
-      map->ref_count
-	= (int *)xmalloc (((num_ssa_names + 1) * sizeof (int)));
-      memset (map->ref_count, 0, (num_ssa_names + 1) * sizeof (int));
-    }
-
   FOR_EACH_BB (bb)
     {
       tree phi, arg;
@@ -436,12 +425,12 @@ create_ssa_var_map (int flags)
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int i;
-	  register_ssa_partition (map, PHI_RESULT (phi), false);
+	  register_ssa_partition (map, PHI_RESULT (phi));
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      arg = PHI_ARG_DEF (phi, i);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		register_ssa_partition (map, arg, true);
+		register_ssa_partition (map, arg);
 
 	      mark_all_vars_used (&PHI_ARG_DEF_TREE (phi, i));
 	    }
@@ -452,31 +441,22 @@ create_ssa_var_map (int flags)
 	  stmt = bsi_stmt (bsi);
 
 	  /* Register USE and DEF operands in each statement.  */
-	  FOR_EACH_SSA_TREE_OPERAND (use , stmt, iter, SSA_OP_USE)
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, (SSA_OP_DEF|SSA_OP_USE))
 	    {
-	      register_ssa_partition (map, use, true);
+	      register_ssa_partition (map, var);
 
 #ifdef ENABLE_CHECKING
-	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (use)));
-#endif
-	    }
-
-	  FOR_EACH_SSA_TREE_OPERAND (dest, stmt, iter, SSA_OP_DEF)
-	    {
-	      register_ssa_partition (map, dest, false);
-
-#ifdef ENABLE_CHECKING
-	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (dest)));
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (var)));
 #endif
 	    }
 
 #ifdef ENABLE_CHECKING
 	  /* Validate that virtual ops don't get used in funny ways.  */
-	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
 				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
 	    {
 	      bitmap_set_bit (used_in_virtual_ops, 
-			      DECL_UID (SSA_NAME_VAR (use)));
+			      DECL_UID (SSA_NAME_VAR (var)));
 	    }
 
 #endif /* ENABLE_CHECKING */
@@ -736,7 +716,7 @@ calculate_live_on_entry (var_map map)
 	  var = partition_to_var (map, i);
 	  stmt = SSA_NAME_DEF_STMT (var);
 	  tmp = bb_for_stmt (stmt);
-	  d = default_def (SSA_NAME_VAR (var));
+	  d = gimple_default_def (cfun, SSA_NAME_VAR (var));
 
 	  if (bitmap_bit_p (live_entry_blocks (live, i), entry_block))
 	    {
@@ -1069,70 +1049,32 @@ root_var_init (var_map map)
 }
 
 
-/* Initialize a type_var structure which associates all the partitions in MAP 
-   of the same type to the type node's index.  Volatiles are ignored.  */
+/* Hash function for 2 integer coalesce pairs.  */
+#define COALESCE_HASH_FN(R1, R2) ((R2) * ((R2) - 1) / 2 + (R1))
 
-type_var_p
-type_var_init (var_map map)
+
+/* Return hash value for partition pair PAIR.  */
+
+unsigned int 
+partition_pair_map_hash (const void *pair)
 {
-  type_var_p tv;
-  int x, y, p;
-  int num_partitions = num_var_partitions (map);
-  tree t;
-  sbitmap seen;
+  hashval_t a = (hashval_t)(((partition_pair_p)pair)->first_partition);
+  hashval_t b = (hashval_t)(((partition_pair_p)pair)->second_partition);
 
-  tv = tpa_init (map);
-  if (!tv)
-    return NULL;
+  return COALESCE_HASH_FN (a,b);
+}
 
-  seen = sbitmap_alloc (num_partitions);
-  sbitmap_zero (seen);
 
-  for (x = num_partitions - 1; x >= 0; x--)
-    {
-      t = partition_to_var (map, x);
+/* Return TRUE if PAIR1 is equivilent to PAIR2.  */
 
-      /* Disallow coalescing of these types of variables.  */
-      if (!t
-	  || TREE_THIS_VOLATILE (t)
-	  || TREE_CODE (t) == RESULT_DECL
-      	  || TREE_CODE (t) == PARM_DECL 
-	  || (DECL_P (t)
-	      && (DECL_REGISTER (t)
-		  || !DECL_IGNORED_P (t)
-		  || DECL_RTL_SET_P (t))))
-        continue;
+int 
+partition_pair_map_eq (const void *pair1, const void *pair2)
+{
+  partition_pair_p p1 = (partition_pair_p) pair1;
+  partition_pair_p p2 = (partition_pair_p) pair2;
 
-      p = var_to_partition (map, t);
-
-      gcc_assert (p != NO_PARTITION);
-
-      /* If partitions have been coalesced, only add the representative 
-	 for the partition to the list once.  */
-      if (TEST_BIT (seen, p))
-        continue;
-      SET_BIT (seen, p);
-      t = TREE_TYPE (t);
-
-      /* Find the list for this type.  */
-      for (y = 0; y < tv->num_trees; y++)
-        if (t == VEC_index (tree, tv->trees, y))
-	  break;
-      if (y == tv->num_trees)
-        {
-	  tv->num_trees++;
-	  VEC_safe_push (tree, heap, tv->trees, t);
-	  VEC_safe_push (int, heap, tv->first_partition, p);
-	}
-      else
-        {
-	  tv->next_partition[p] = VEC_index (int, tv->first_partition, y);
-	  VEC_replace (int, tv->first_partition, y, p);
-	}
-      tv->partition_to_tree_map[p] = y;
-    }
-  sbitmap_free (seen);
-  return tv;
+  return (p1->first_partition == p2->first_partition
+	  && p1->second_partition == p2->second_partition);
 }
 
 
@@ -1142,13 +1084,19 @@ coalesce_list_p
 create_coalesce_list (var_map map)
 {
   coalesce_list_p list;
+  unsigned size = num_ssa_names * 3;
 
-  list = (coalesce_list_p) xmalloc (sizeof (struct coalesce_list_d));
+  if (size < 40)
+    size = 40;
+
+  list = xmalloc (sizeof (struct coalesce_list_d));
+  list->list = htab_create (size, partition_pair_map_hash,
+  			    partition_pair_map_eq, NULL);
 
   list->map = map;
+  list->sorted = NULL;
   list->add_mode = true;
-  list->list = (partition_pair_p *) xcalloc (num_var_partitions (map),
-					     sizeof (struct partition_pair_d));
+  list->num_sorted = 0;
   return list;
 }
 
@@ -1158,7 +1106,10 @@ create_coalesce_list (var_map map)
 void 
 delete_coalesce_list (coalesce_list_p cl)
 {
-  free (cl->list);
+  htab_delete (cl->list);
+  if (cl->sorted)
+    free (cl->sorted);
+  gcc_assert (cl->num_sorted == 0);
   free (cl);
 }
 
@@ -1170,52 +1121,38 @@ delete_coalesce_list (coalesce_list_p cl)
 static partition_pair_p
 find_partition_pair (coalesce_list_p cl, int p1, int p2, bool create)
 {
-  partition_pair_p node, tmp;
-  int s;
+  struct partition_pair p, *pair;
+  void **slot;
+  unsigned int hash;
     
-  /* Normalize so that p1 is the smaller value.  */
+  /* normalize so that p1 is the smaller value.  */
   if (p2 < p1)
     {
-      s = p1;
-      p1 = p2;
-      p2 = s;
-    }
-  
-  tmp = NULL;
-
-  /* The list is sorted such that if we find a value greater than p2,
-     p2 is not in the list.  */
-  for (node = cl->list[p1]; node; node = node->next)
-    {
-      if (node->second_partition == p2)
-        return node;
-      else
-        if (node->second_partition > p2)
-	  break;
-     tmp = node;
-    }
-
-  if (!create)
-    return NULL;
-
-  node = (partition_pair_p) xmalloc (sizeof (struct partition_pair_d));
-  node->first_partition = p1;
-  node->second_partition = p2;
-  node->cost = 0;
-    
-  if (tmp != NULL)
-    {
-      node->next = tmp->next;
-      tmp->next = node;
+      p.first_partition = p2;
+      p.second_partition = p1;
     }
   else
     {
-      /* This is now the first node in the list.  */
-      node->next = cl->list[p1];
-      cl->list[p1] = node;
+      p.first_partition = p1;
+      p.second_partition = p2;
+    }
+  
+  
+  hash = partition_pair_map_hash (&p);
+  pair = (struct partition_pair *) htab_find_with_hash (cl->list, &p, hash);
+
+  if (create && !pair)
+    {
+      gcc_assert (cl->add_mode);
+      pair = xmalloc (sizeof (struct partition_pair));
+      pair->first_partition = p.first_partition;
+      pair->second_partition = p.second_partition;
+      pair->cost = 0;
+      slot = htab_find_slot_with_hash (cl->list, pair, hash, INSERT);
+      *(struct partition_pair **)slot = pair;
     }
 
-  return node;
+  return pair;
 }
 
 /* Return cost of execution of copy instruction with FREQUENCY
@@ -1256,13 +1193,54 @@ add_coalesce (coalesce_list_p cl, int p1, int p2,
 }
 
 
-/* Comparison function to allow qsort to sort P1 and P2 in descending order.  */
+/* Comparison function to allow qsort to sort P1 and P2 in Ascendiong order.  */
 
 static
 int compare_pairs (const void *p1, const void *p2)
 {
-  return (*(partition_pair_p *)p2)->cost - (*(partition_pair_p *)p1)->cost;
+  return (*(partition_pair_p *)p1)->cost - (*(partition_pair_p *)p2)->cost;
 }
+
+
+static inline int
+num_coalesce_pairs (coalesce_list_p cl)
+{
+  return htab_elements (cl->list);
+}
+
+typedef struct
+{
+  htab_iterator hti;
+} partition_pair_iterator;
+
+static inline partition_pair_p
+first_partition_pair (coalesce_list_p cl, partition_pair_iterator *iter)
+{
+  partition_pair_p pair;
+
+  pair = (partition_pair_p) first_htab_element (&(iter->hti), cl->list);
+  return pair;
+}
+
+static inline bool
+end_partition_pair_p (partition_pair_iterator *iter)
+{
+  return end_htab_p (&(iter->hti));
+}
+
+static inline partition_pair_p
+next_partition_pair (partition_pair_iterator *iter)
+{
+  partition_pair_p pair;
+
+  pair = (partition_pair_p) next_htab_element (&(iter->hti));
+  return pair;
+}
+
+#define FOR_EACH_PARTITION_PAIR(PAIR, ITER, CL)		\
+  for ((PAIR) = first_partition_pair ((CL), &(ITER));	\
+       !end_partition_pair_p (&(ITER));			\
+       (PAIR) = next_partition_pair (&(ITER)))
 
 
 /* Prepare CL for removal of preferred pairs.  When finished, list element 
@@ -1272,64 +1250,45 @@ int compare_pairs (const void *p1, const void *p2)
 void
 sort_coalesce_list (coalesce_list_p cl)
 {
-  unsigned x, num, count;
-  partition_pair_p chain, p;
-  partition_pair_p  *list;
+  unsigned x, num;
+  partition_pair_p p;
+  partition_pair_iterator ppi;
 
   gcc_assert (cl->add_mode);
 
   cl->add_mode = false;
 
-  /* Compact the array of lists to a single list, and count the elements.  */
-  num = 0;
-  chain = NULL;
-  for (x = 0; x < num_var_partitions (cl->map); x++)
-    if (cl->list[x] != NULL)
-      {
-        for (p = cl->list[x]; p->next != NULL; p = p->next)
-	  num++;
-	num++;
-	p->next = chain;
-	chain = cl->list[x];
-	cl->list[x] = NULL;
-      }
+  /* allocate a vector for the pair pointers.  */
+  num = num_coalesce_pairs (cl);
+  cl->num_sorted = num;
+  if (num == 0)
+    return;
+  cl->sorted = XNEWVEC (partition_pair_p, num);
+
+  /* Populate the vector with pointers to the partition pairs.  */
+  
+  x = 0;
+  FOR_EACH_PARTITION_PAIR (p, ppi, cl)
+    cl->sorted[x++] = p;
+  gcc_assert (x == num);
+
+  if (num == 1)
+    return;
+
+  if (num == 2)
+    {
+      if (cl->sorted[0]->cost > cl->sorted[1]->cost)
+        {
+	  p = cl->sorted[0];
+	  cl->sorted[0] = cl->sorted[1];
+	  cl->sorted[1] = p;
+	}
+      return;
+    }
 
   /* Only call qsort if there are more than 2 items.  */
   if (num > 2)
-    {
-      list = XNEWVEC (partition_pair_p, num);
-      count = 0;
-      for (p = chain; p != NULL; p = p->next)
-	list[count++] = p;
-
-      gcc_assert (count == num);
-	
-      qsort (list, count, sizeof (partition_pair_p), compare_pairs);
-
-      p = list[0];
-      for (x = 1; x < num; x++)
-	{
-	  p->next = list[x];
-	  p = list[x];
-	}
-      p->next = NULL;
-      cl->list[0] = list[0];
-      free (list);
-    }
-  else
-    {
-      cl->list[0] = chain;
-      if (num == 2)
-	{
-	  /* Simply swap the two elements if they are in the wrong order.  */
-	  if (chain->cost < chain->next->cost)
-	    {
-	      cl->list[0] = chain->next;
-	      cl->list[0]->next = chain;
-	      chain->next = NULL;
-	    }
-	}
-    }
+      qsort (cl->sorted, num, sizeof (partition_pair_p), compare_pairs);
 }
 
 
@@ -1345,11 +1304,10 @@ pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
 
   gcc_assert (!cl->add_mode);
 
-  node = cl->list[0];
-  if (!node)
+  if (cl->num_sorted == 0)
     return NO_BEST_COALESCE;
 
-  cl->list[0] = node->next;
+  node = cl->sorted[--(cl->num_sorted)];
 
   *p1 = node->first_partition;
   *p2 = node->second_partition;
@@ -1729,40 +1687,34 @@ void
 dump_coalesce_list (FILE *f, coalesce_list_p cl)
 {
   partition_pair_p node;
-  int x, num;
+  partition_pair_iterator ppi;
+  int x;
   tree var;
 
   if (cl->add_mode)
     {
       fprintf (f, "Coalesce List:\n");
-      num = num_var_partitions (cl->map);
-      for (x = 0; x < num; x++)
+      FOR_EACH_PARTITION_PAIR (node, ppi, cl)
         {
-	  node = cl->list[x];
-	  if (node)
-	    {
-	      fprintf (f, "[");
-	      print_generic_expr (f, partition_to_var (cl->map, x), TDF_SLIM);
-	      fprintf (f, "] - ");
-	      for ( ; node; node = node->next)
-	        {
-		  var = partition_to_var (cl->map, node->second_partition);
-		  print_generic_expr (f, var, TDF_SLIM);
-		  fprintf (f, "(%1d), ", node->cost);
-		}
-	      fprintf (f, "\n");
-	    }
+	  tree var1 = partition_to_var (cl->map, node->first_partition);
+	  tree var2 = partition_to_var (cl->map, node->second_partition);
+	  print_generic_expr (f, var1, TDF_SLIM);
+	  fprintf (f, " <-> ");
+	  print_generic_expr (f, var2, TDF_SLIM);
+	  fprintf (f, "  (%1d), ", node->cost);
+	  fprintf (f, "\n");
 	}
     }
   else
     {
       fprintf (f, "Sorted Coalesce list:\n");
-      for (node = cl->list[0]; node; node = node->next)
+      for (x = cl->num_sorted - 1 ; x >=0; x--)
         {
+	  node = cl->sorted[x];
 	  fprintf (f, "(%d) ", node->cost);
 	  var = partition_to_var (cl->map, node->first_partition);
 	  print_generic_expr (f, var, TDF_SLIM);
-	  fprintf (f, " : ");
+	  fprintf (f, " <-> ");
 	  var = partition_to_var (cl->map, node->second_partition);
 	  print_generic_expr (f, var, TDF_SLIM);
 	  fprintf (f, "\n");

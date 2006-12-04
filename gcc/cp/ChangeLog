@@ -1,3 +1,218 @@
+2006-12-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	* name-lookup.c: Follow spelling conventions.
+
+2006-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (poplevel): Check DECL_INITIAL invariant.
+	(duplicate_decls): Preserve DECL_INITIAL when eliminating
+	a new definition in favour of an old declaration.
+	(start_preparsed_function): Define and document value of
+	DECL_INITIAL before and after routine.
+	(finish_function): Check DECL_INITIAL invariant.
+	* parser.c 
+	(cp_parser_function_definition_from_specifiers_and_declarator): 
+	Skip duplicate function definitions.
+
+2006-12-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/30022
+	* typeck.c (type_after_usual_arithmetic_conversions):
+	Fix assertion for vector types.
+	(build_binary_op): Use temporary for inner type of vector types.
+
+2006-12-01  Ryan Mansfield  <rmansfield@qnx.com>
+
+        PR c++/29066
+	* typeck.c (build_binary_op):  Fix pointer to member function
+	comparison for ptrmemfunc_vbit_in_delta targets.
+
+2006-12-01  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/18313
+	* decl.c (grokdeclarator): Warn for type qualifiers on return
+	type for non-dependent types.
+	* pt.c (tsubst_function_type): Warn for type qualifiers on
+	return type for dependent types.
+
+2006-11-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* rtti.c (get_tinfo_decl): Handle return value from
+	pushdecl_top_level_and_finish.
+
+2006-11-29  Lee Millward  <lee.millward@codesourcery.com> 
+
+	PR c++/29022
+	* parser.c (cp_parser_class_head): Move processing
+	of any base classes to...
+	(cp_parser_class_specifier) ...here. Take an extra
+	tree* parameter for any base classes. Only process
+	them if the opening brace was found.
+	
+2006-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/29735
+	* decl.c (grokfndecl): Check main's type after applying
+	attributes, not before.
+
+2006-11-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_vcall_offset_vtbl_entries): Do not add vcall
+	entries for a primary construction virtual table.
+
+2006-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29886
+	* parser.c (cp_parser): Add in_function_body.
+	(cp_parser_new): Initialize it.
+	(cp_parser_primary_expression): Use parser->in_function_body
+	instead of at_function_scope_p.
+	(cp_parser_asm_definition): Likewise.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_class_specifier): Clear parser->in_function_body.
+	(cp_parser_constructor_declarator_p): Use parser->in_function_body
+	instead of at_function_scope_p.
+	(cp_parser_function_body_after_declarator): Set
+	parser->in_function_body.
+
+2006-11-21      Douglas Gregor <doug.gregor@gmail.com>
+
+        * cp-tree.def (STATIC_ASSERT): New.  
+	* cp-objcp-common.c (cp_tree_size): Handle STATIC_ASSERT.
+	* error.c (dump_decl): Handle STATIC_ASSERT.
+	* cp-tree.h (STATIC_ASSERT_CONDITION): New.
+        (STATIC_ASSERT_MESSAGE): New.
+	(STATIC_ASSERT_SOURCE_LOCATION): New.
+	(struct tree_static_assert): New.
+	(enum cp_tree_node_structure_enum): Add TS_CP_STATIC_ASSERT.
+	(union lang_tree_node): Add static_assertion.
+        (finish_static_assert): Declare.
+	* cxx-pretty-print.c (pp_cxx_statement): Handle STATIC_ASSERT.
+	(pp_cxx_declaration): Handle STATIC_ASSERT.
+	* pt.c (instantiate_class_template): Handle
+	STATIC_ASSERT members.
+        (tsubst_expr): Handle STATIC_ASSERT statements.  
+	* semantics.c (finish_static_assert): New.
+        * lex.c (D_CPP0X): New.
+        (reswords): Add static_assert keyword.
+        (init_reswords): If not flag_cpp0x, mask out C++0x keywords.
+        * parser.c (cp_parser_block_declaration): Parse static
+	assertions.
+        (cp_parser_static_assert): New.
+        (cp_parser_member_declaration): Parse static assertions.
+
+2006-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/29570
+	* decl.c (cp_finish_decl): Check for value dependent brace enclosed
+	scalar initializer.
+
+	PR c++/29734
+	* cp-tree.h (WANT_VECTOR): Define.
+	(WANT_ARITH): Add WANT_VECTOR.
+	* cvt.c (build_expr_type_conversion): Handle vector types.
+	* typeck.c (build_unary_op): Add WANT_VECTOR to
+	build_expr_type_conversion flags.
+
+2006-11-20  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29475
+	* cp-tree.h (enforce_access, perform_or_defer_access_check): Added an
+	extra argument that represents the declaration to use to print
+	potential error messages.
+	* init.c (build_offset_ref): Adjusted the call to
+	perform_or_defer_access_check.
+	* class.c (alter_access, resolve_address_of_overloaded_function):
+	Likewise.
+	* decl.c (make_typename_type, make_unbound_class_template): Likewise. 
+	* search.c (lookup_member): Likewise.
+	* friend.c (add_friend): Likewise.
+	* parser.c (cp_parser_template_id,
+	cp_parser_pre_parsed_nested_name_specifier): Likewise.
+	* semantics.c (finish_non_static_data_member,
+	check_accessibility_of_qualified_id, finish_id_expression): Likewise.
+	(pop_to_parent_deferring_access_checks, perform_access_checks,
+	perform_or_defer_access_check): Adjusted the call to enforce_access.
+	* call.c (enforce_access): Use the new extra argument to build the
+	error message.
+	(build_op_delete_call): Adjusted the call to
+	perform_or_defer_access_check.
+	(build_over_call): Likewise.
+	
+2006-11-16  Dirk Mueller  <dmueller@suse.de>
+
+	* name-lookup.c (begin_scope): Use GGC_CNEW instead of
+	GGC_NEW and memset.
+
+2006-11-13  Roger Sayle  <roger@eyesopen.com>
+
+	* rtti.c (get_pseudo_ti_init): Ensure that the offset field of the
+	base type info initializer has the correct type.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29518
+	* pt.c (coerce_template_parms): Do not skip_evaluation while
+	substituting template arguments.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* typeck.c (build_unary_op): Remove handling of FIX_CEIL_EXPR,
+	FIX_FLOOR_EXPR and FIX_ROUND_EXPR.
+
+2006-11-03  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (build_op_delete_call): Test user-visible type against
+	size_type_node, instead of against the internal type, sizetype.
+	* class.c (type_requires_array_cookie): Likewise.
+	* mangle.c (write_builtin_type) <INTEGER_TYPE>: Remove special
+	handling of TYPE_IS_SIZETYPE.
+	* typeck.c (type_after_usual_arithmetic_conversions): Remove
+	special case handling of TYPE_IS_SIZETYPE.
+	(comptypes): Likewise.
+
+2006-11-01  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* decl.c (get_atexit_node): Reference atexit, not __cxa_exit.
+	if targetm.cxx.use_atexit_for cxa_atexit.
+	(start_cleanup_fn): Likewise.
+	(register_dtor_fn): Likewise.
+
+2006-09-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl2.c (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-lang.c (finish_file): Don't call cp_finish_file.
+	* cp-tree.h (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-objcp-common.h (LANG_HOOKS_WRITE_GLOBALS): Define to
+	cp_write_global_declarations.
+
+2006-10-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* name-lookup.c (get_anonymous_namespace_name): New.
+	(push_namespace_with_attribs): Use get_anonymous_namespace_name.
+	* decl2.c (start_objects): Update for rename of
+	get_file_function_name_long.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/28704
+	* decl.c (grokdeclarator): Duplicate diagnostic message
+	for easier translation.
+	* decl.c (grokdeclarator): Fix line-wrapping.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/6321
+	* decl.c (grokfndecl): Use check_main_parameter_types.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/28669
+	* decl.c (grokfndecl): Duplicate warning message for
+	easier translation.
+
 2006-10-30  Dirk Mueller  <dmueller@suse.de>
 
 	* typeck.c (build_unary_op): Fix indenting. Use G_().

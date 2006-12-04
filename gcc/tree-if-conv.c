@@ -523,7 +523,7 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
     }
 
   /* More than one loop exit is too much to handle.  */
-  if (!loop->single_exit)
+  if (!single_exit (loop))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "multiple exits\n");
@@ -952,17 +952,9 @@ combine_blocks (struct loop *loop)
       /* Update stmt list.  */
       last = tsi_last (merge_target_bb->stmt_list);
       tsi_link_after (&last, bb->stmt_list, TSI_NEW_STMT);
-      bb->stmt_list = NULL;
+      bb->stmt_list = alloc_stmt_list ();
 
-      /* Update dominator info.  */
-      if (dom_computed[CDI_DOMINATORS])
-	delete_from_dominance_info (CDI_DOMINATORS, bb);
-      if (dom_computed[CDI_POST_DOMINATORS])
-	delete_from_dominance_info (CDI_POST_DOMINATORS, bb);
-
-      /* Remove basic block.  */
-      remove_bb_from_loops (bb);
-      expunge_block (bb);
+      delete_basic_block (bb);
     }
 
   /* Now if possible, merge loop header and block with exit edge.
@@ -971,10 +963,7 @@ combine_blocks (struct loop *loop)
   if (exit_bb
       && exit_bb != loop->header
       && can_merge_blocks_p (loop->header, exit_bb))
-    {
-      remove_bb_from_loops (exit_bb);
-      merge_blocks (loop->header, exit_bb);
-    }
+    merge_blocks (loop->header, exit_bb);
 }
 
 /* Make new  temp variable of type TYPE. Add GIMPLE_MODIFY_STMT to assign EXP

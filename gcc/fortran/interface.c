@@ -1,5 +1,6 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -963,12 +964,12 @@ check_interface0 (gfc_interface * p, const char *interface_name)
    here.  */
 
 static int
-check_interface1 (gfc_interface * p, gfc_interface * q,
+check_interface1 (gfc_interface * p, gfc_interface * q0,
 		  int generic_flag, const char *interface_name)
 {
-
+  gfc_interface * q;
   for (; p; p = p->next)
-    for (; q; q = q->next)
+    for (q = q0; q; q = q->next)
       {
 	if (p->sym == q->sym)
 	  continue;		/* Duplicates OK here */
@@ -1378,8 +1379,9 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	     && (f->sym->attr.intent == INTENT_OUT
 		   || f->sym->attr.intent == INTENT_INOUT))
 	{
-	  gfc_error ("Actual argument at %L must be definable to "
-		     "match dummy INTENT = OUT/INOUT", &a->expr->where);
+	  if (where)
+	    gfc_error ("Actual argument at %L must be definable to "
+		       "match dummy INTENT = OUT/INOUT", &a->expr->where);
           return 0;
         }
 

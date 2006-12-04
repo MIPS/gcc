@@ -369,6 +369,17 @@ struct gcc_target
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
+
+    /* Returns a code for builtin that realizes vectorized version of
+       function, or NULL_TREE if not available.  */
+    tree (* builtin_vectorized_function) (unsigned, tree);
+
+    /* Target builtin that implements vector widening multiplication.
+       builtin_mul_widen_eve computes the element-by-element products 
+       for the even elements, and builtin_mul_widen_odd computes the
+       element-by-element products for the odd elements.  */
+    tree (* builtin_mul_widen_even) (tree);
+    tree (* builtin_mul_widen_odd) (tree);
   } vectorize;
 
   /* The initial value of target_flags.  */
@@ -776,6 +787,9 @@ struct gcc_target
     /* Returns true if __aeabi_atexit should be used to register static
        destructors.  */
     bool (*use_aeabi_atexit) (void);
+    /* Returns true if target may use atexit in the same manner as
+    __cxa_atexit  to register static destructors.  */
+    bool (*use_atexit_for_cxa_atexit) (void);
     /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
        has just been defined.  Use this hook to make adjustments to the
        class  (eg, tweak visibility or perform any other required

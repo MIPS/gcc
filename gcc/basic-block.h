@@ -123,9 +123,9 @@ struct edge_def GTY(())
 
   /* Instructions queued on the edge.  */
   union edge_def_insns {
-    rtx GTY ((tag ("0"))) r;
-    tree GTY ((tag ("1"))) t;
-  } GTY ((desc ("ir_type ()"))) insns;
+    tree GTY ((tag ("true"))) t;
+    rtx GTY ((tag ("false"))) r;
+  } GTY ((desc ("current_ir_type () == IR_GIMPLE"))) insns;
 
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
@@ -146,6 +146,7 @@ struct edge_def GTY(())
 typedef struct edge_def *edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
+DEF_VEC_ALLOC_P(edge,heap);
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -179,7 +180,6 @@ extern const struct gcov_ctr_summary *profile_info;
 
 /* Declared in cfgloop.h.  */
 struct loop;
-struct loops;
 
 /* Declared in tree-flow.h.  */
 struct edge_prediction;
@@ -486,6 +486,7 @@ extern void update_bb_for_insn (basic_block);
 extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
+basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
@@ -946,6 +947,7 @@ extern void update_br_prob_note (basic_block);
 extern void fixup_abnormal_edges (void);
 extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
+extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);

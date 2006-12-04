@@ -387,10 +387,10 @@ const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
 #define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
-  { OPTION, DEFAULT, MIN, MAX, HELP },
+  { OPTION, DEFAULT, false, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, 0, 0, NULL }
+  { NULL, 0, false, 0, 0, NULL }
 };
 
 /* Output files for assembler code (real compiler output)
@@ -1040,10 +1040,14 @@ compile_file (void)
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
-  if (flag_syntax_only || errorcount || sorrycount)
+  if (flag_syntax_only)
     return;
 
   lang_hooks.decls.final_write_globals ();
+
+  if (errorcount || sorrycount)
+    return;
+
   cgraph_varpool_assemble_pending_decls ();
   finish_aliases_2 ();
 

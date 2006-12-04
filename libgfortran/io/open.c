@@ -343,7 +343,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	break;
 
       opp->file = tmpname;
-      opp->file_len = sprintf(opp->file, "fort.%d", opp->common.unit);
+      opp->file_len = sprintf(opp->file, "fort.%d", (int) opp->common.unit);
       break;
 
     default:
@@ -406,26 +406,36 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   /* Unspecified recl ends up with a processor dependent value.  */
 
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
-    u->recl = opp->recl_in;
+    {
+      u->flags.has_recl = 1;
+      u->recl = opp->recl_in;
+    }
   else
     {
-      switch (compile_options.record_marker)
+      u->flags.has_recl = 0;
+      u->recl = max_offset;
+      if (compile_options.max_subrecord_length)
 	{
-	case 0:
-	  u->recl = max_offset;
-	  break;
+	  u->recl_subrecord = compile_options.max_subrecord_length;
+	}
+      else
+	{
+	  switch (compile_options.record_marker)
+	    {
+	    case 0:
+	      /* Fall through */
+	    case sizeof (GFC_INTEGER_4):
+	      u->recl_subrecord = GFC_MAX_SUBRECORD_LENGTH;
+	      break;
 
-	case sizeof (GFC_INTEGER_4):
-	  u->recl = GFC_INTEGER_4_HUGE;
-	  break;
+	    case sizeof (GFC_INTEGER_8):
+	      u->recl_subrecord = max_offset - 16;
+	      break;
 
-	case sizeof (GFC_INTEGER_8):
-	  u->recl = max_offset;
-	  break;
-
-	default:
-	  runtime_error ("Illegal value for record marker");
-	  break;
+	    default:
+	      runtime_error ("Illegal value for record marker");
+	      break;
+	    }
 	}
     }
 

@@ -159,6 +159,7 @@ struct expr_status GTY(())
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
+struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
 
@@ -188,6 +189,11 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+  /* SSA and dataflow information.  */
+  struct gimple_df *gimple_df;
+
+  /* The loops in this function.  */
+  struct loops * GTY((skip)) x_current_loops;
 
   /* For function.c.  */
 
@@ -525,6 +531,7 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define current_loops (cfun->x_current_loops)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */

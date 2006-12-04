@@ -281,6 +281,7 @@ match_hollerith_constant (gfc_expr ** result)
 		gfc_default_character_kind, &gfc_current_locus);
 	  e->value.character.string = gfc_getmem (num+1);
 	  memcpy (e->value.character.string, buffer, num);
+	  e->value.character.string[num] = '\0';
 	  e->value.character.length = num;
 	  *result = e;
 	  return MATCH_YES;
@@ -577,16 +578,6 @@ done:
 	  goto cleanup;
 	}
       kind = gfc_default_double_kind;
-      break;
-
-    case 'q':
-      if (kind != -2)
-	{
-	  gfc_error
-	    ("Real number at %C has a 'q' exponent and an explicit kind");
-	  goto cleanup;
-	}
-      kind = gfc_option.q_kind;
       break;
 
     default:
@@ -1926,7 +1917,8 @@ gfc_match_rvalue (gfc_expr ** result)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_find_state (COMP_INTERFACE) == SUCCESS)
+  if (gfc_find_state (COMP_INTERFACE) == SUCCESS
+      && !gfc_current_ns->has_import_set)
     i = gfc_get_sym_tree (name, NULL, &symtree);
   else
     i = gfc_get_ha_sym_tree (name, &symtree);

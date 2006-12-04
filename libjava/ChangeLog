@@ -1,3 +1,75 @@
+2006-11-27  Mike Stump  <mrs@apple.com>
+
+	* sysdep/x86-64/locks.h: Enable use of either file on either
+	target to support multilibs from one to the other.
+	* sysdep/i386/locks.h: Likewise.
+
+2006-11-21  Gary Benson  <gbenson@redhat.com>
+
+	* java/security/Security.java: Merge with classpath.
+	* java/lang/Package.java: Likewise.
+	* java/lang/Class.java (getDeclaredAnnotations): New method.
+
+2006-11-20  David Daney  <ddaney@avtrex.com>
+
+	* include/mips-signal.h (sys/syscall.h): Do not include.
+	(sig_ucontext_t): Removed.
+	(MAKE_THROW_FRAME): Changed to be a nop.
+	(_INIT_SIG_HANDLER): New macro.
+	(INIT_SEGV): Rewrote to use _INIT_SIG_HANDLER.
+	(INIT_FPE): Same.
+
+2006-11-20  David Daney  <ddaney@avtrex.com>
+
+	* testsuite/libjava.lang/Throw_3.java: New Test.
+	* testsuite/libjava.lang/Throw_3.out: Its expected output.
+
+2006-11-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure: Regenerated.
+
+2006-11-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Removed.
+	* java/net/natInetAddressNoNet.cc: Likewise.
+	* java/net/natInetAddressPosix.cc: Likewise.
+	* java/net/natInetAddressWin32.cc: Likewise.
+	* java/net/VMInetAddress.java (getLocalHostname,
+	lookupInaddrAny, getHostByAddr, getHostByName,
+	aton): Replace glue methods with native ones.
+	* java/net/natVMInetAddressNoNet.cc: New file.
+	* java/net/natVMInetAddressPosix.cc: Likewise.
+	* java/net/natVMInetAddressWin32.cc: Likewise.
+	* Makefile.am, configure.ac: Reflect the above.
+	* sources.am, Makefile.in, configure: Rebuilt.
+
+	* java/net/natVMNetworkInterfaceWin32.cc
+	(winsock2GetRealNetworkInterfaces): Create InetAddress
+	objects using InetAddress.getByAddress.
+	* gnu/java/net/natPlainSocketImplWin32.cc
+	(accept, getOption): Likewise.
+	* gnu/java/net/natPlainDatagramSocketImplWin32.cc
+	(peekData, receive, getOption): Likewise.
+
+2006-11-02  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMMethod.cc (getLineTable): Implement.
+
+2006-11-02  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetLineNumberTable): New function.
+	(_Jv_JVMTI_Interface): Define GetLineNumberTable.
+
+2006-11-01  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/gcj/jvmti/Location.java: New file.
+	* gnu/gcj/jvmti/BreakpointManager.java: New file.
+	* jvmti.cc (_Jv_JVMTI_SetBreakpoint): New function.
+	(_Jv_JVMTI_ClearBreakpoint): New function.
+	(_Jv_JVMTI_Interface): Define SetBreakpoint and ClearBreakpoint.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
 2006-10-28  Keith Seitz  <keiths@redhat.com>
 
 	* Makefile.am (nat_source_files): Add natBreakpoint.cc.

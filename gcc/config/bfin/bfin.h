@@ -39,8 +39,8 @@ extern int target_flags;
 #define TARGET_CPU_CPP_BUILTINS()               \
   do                                            \
     {                                           \
-      builtin_define ("bfin");                  \
-      builtin_define ("BFIN");                  \
+      builtin_define_std ("bfin");              \
+      builtin_define_std ("BFIN");              \
       builtin_define ("__ADSPBLACKFIN__");	\
       if (TARGET_FDPIC)				\
 	builtin_define ("__BFIN_FDPIC__");	\
@@ -51,6 +51,7 @@ extern int target_flags;
 #endif
 
 #define DRIVER_SELF_SPECS SUBTARGET_DRIVER_SELF_SPECS	"\
+ %{mleaf-id-shared-library:%{!mid-shared-library:-mid-shared-library}} \
  %{mfdpic:%{!fpic:%{!fpie:%{!fPIC:%{!fPIE:\
    	    %{!fno-pic:%{!fno-pie:%{!fno-PIC:%{!fno-PIE:-fpie}}}}}}}}} \
 "
@@ -729,7 +730,7 @@ typedef struct {
    See force_const_mem().
    If -mno-pool, all constants are legitimate.
  */
-#define LEGITIMATE_CONSTANT_P(x) 1
+#define LEGITIMATE_CONSTANT_P(X) bfin_legitimate_constant_p (X)
 
 /*   A number, the maximum number of registers that can appear in a
      valid memory address.  Note that it is up to you to specify a
@@ -1210,11 +1211,13 @@ do { 						\
 
 #define ASM_COMMENT_START "//"
 
-#define FUNCTION_PROFILER(FILE, LABELNO) \
-  do {\
-    fprintf (FILE, "\tP1.l =LP$%d; P1.h =LP$%d; call mcount;\n", \
-       LABELNO, LABELNO);\
+#define FUNCTION_PROFILER(FILE, LABELNO)	\
+  do {						\
+    fprintf (FILE, "\tCALL __mcount;\n");	\
   } while(0)
+
+#undef NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS 1
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO) fprintf (FILE, "[SP--] = %s;\n", reg_names[REGNO])
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  fprintf (FILE, "%s = [SP++];\n", reg_names[REGNO])

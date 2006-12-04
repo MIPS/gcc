@@ -48,6 +48,7 @@ Boston, MA 02110-1301, USA.  */
 #include "c-common.h"
 #include "c-pragma.h"
 #include "diagnostic.h"
+#include "intl.h"
 #include "debug.h"
 #include "timevar.h"
 #include "tree-flow.h"
@@ -755,7 +756,12 @@ poplevel (int keep, int reverse, int functionbody)
 
   leave_scope ();
   if (functionbody)
-    DECL_INITIAL (current_function_decl) = block;
+    {
+      /* The current function is being defined, so its DECL_INITIAL
+	 should be error_mark_node.  */
+      gcc_assert (DECL_INITIAL (current_function_decl) == error_mark_node);
+      DECL_INITIAL (current_function_decl) = block;
+    }
   else if (block)
     current_binding_level->blocks
       = chainon (current_binding_level->blocks, block);
@@ -1631,13 +1637,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
 
       /* If the new declaration is a definition, update the file and
-	 line information on the declaration.  */
+	 line information on the declaration, and also make
+	 the old declaration the same definition.  */
       if (DECL_INITIAL (old_result) == NULL_TREE
 	  && DECL_INITIAL (new_result) != NULL_TREE)
 	{
 	  DECL_SOURCE_LOCATION (olddecl)
 	    = DECL_SOURCE_LOCATION (old_result)
 	    = DECL_SOURCE_LOCATION (newdecl);
+	  DECL_INITIAL (old_result) = DECL_INITIAL (new_result);
 	  if (DECL_FUNCTION_TEMPLATE_P (newdecl))
 	    DECL_ARGUMENTS (old_result)
 	      = DECL_ARGUMENTS (new_result);
@@ -2857,7 +2865,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
     }
   
   if (complain & tf_error)
-    perform_or_defer_access_check (TYPE_BINFO (context), t);
+    perform_or_defer_access_check (TYPE_BINFO (context), t, t);
 
   if (want_template)
     return lookup_template_class (t, TREE_OPERAND (fullname, 1),
@@ -2920,7 +2928,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 	}
 
       if (complain & tf_error)
-	perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
+	perform_or_defer_access_check (TYPE_BINFO (context), tmpl, tmpl);
 
       return tmpl;
     }
@@ -5057,7 +5065,14 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  || !DECL_CLASS_SCOPE_P (decl)
 	  || !DECL_INTEGRAL_CONSTANT_VAR_P (decl)
 	  || type_dependent_p
-	  || value_dependent_expression_p (init))
+	  || value_dependent_expression_p (init)
+	     /* Check also if initializer is a value dependent
+		{ integral_constant_expression }.  */
+	  || (TREE_CODE (init) == CONSTRUCTOR
+	      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) == 1
+	      && value_dependent_expression_p
+		   (VEC_index (constructor_elt,
+			       CONSTRUCTOR_ELTS (init), 0)->value)))
 	{
 	  if (init)
 	    DECL_INITIAL (decl) = init;
@@ -5347,7 +5362,7 @@ get_atexit_node (void)
   if (atexit_node)
     return atexit_node;
 
-  if (flag_use_cxa_atexit)
+  if (flag_use_cxa_atexit && !targetm.cxx.use_atexit_for_cxa_atexit ())
     {
       /* The declaration for `__cxa_atexit' is:
 
@@ -5435,6 +5450,8 @@ start_cleanup_fn (void)
   tree parmtypes;
   tree fntype;
   tree fndecl;
+  bool use_cxa_atexit = flag_use_cxa_atexit
+			&& !targetm.cxx.use_atexit_for_cxa_atexit ();
 
   push_to_top_level ();
 
@@ -5447,7 +5464,7 @@ start_cleanup_fn (void)
      We'll just ignore it.  After we implement the new calling
      convention for destructors, we can eliminate the use of
      additional cleanup functions entirely in the -fnew-abi case.  */
-  if (flag_use_cxa_atexit)
+  if (use_cxa_atexit)
     parmtypes = tree_cons (NULL_TREE, ptr_type_node, parmtypes);
   /* Build the function type itself.  */
   fntype = build_function_type (void_type_node, parmtypes);
@@ -5467,7 +5484,7 @@ start_cleanup_fn (void)
   DECL_DECLARED_INLINE_P (fndecl) = 1;
   DECL_INTERFACE_KNOWN (fndecl) = 1;
   /* Build the parameter.  */
-  if (flag_use_cxa_atexit)
+  if (use_cxa_atexit)
     {
       tree parmdecl;
 
@@ -5536,7 +5553,7 @@ register_dtor_fn (tree decl)
   cxx_mark_addressable (cleanup);
   mark_used (cleanup);
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
-  if (flag_use_cxa_atexit)
+  if (flag_use_cxa_atexit && !targetm.cxx.use_atexit_for_cxa_atexit ())
     {
       args = tree_cons (NULL_TREE,
 			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
@@ -6016,16 +6033,6 @@ grokfndecl (tree ctype,
 	error ("cannot declare %<::main%> to be inline");
       if (!publicp)
 	error ("cannot declare %<::main%> to be static");
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
-			integer_type_node))
-	{
-	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	  tree newtype;
-	  error ("%<::main%> must return %<int%>");
-	  newtype =  build_function_type (integer_type_node,
-					  oldtypeargs);
-	  TREE_TYPE (decl) = newtype;
-	}
       inlinep = 0;
       publicp = 1;
     }
@@ -6085,8 +6092,10 @@ grokfndecl (tree ctype,
   DECL_EXTERNAL (decl) = 1;
   if (quals && TREE_CODE (type) == FUNCTION_TYPE)
     {
-      error ("%smember function %qD cannot have cv-qualifier",
-	     (ctype ? "static " : "non-"), decl);
+      error (ctype
+             ? G_("static member function %qD cannot have cv-qualifier")
+             : G_("non-member function %qD cannot have cv-qualifier"),
+	     decl);
       quals = TYPE_UNQUALIFIED;
     }
 
@@ -6128,6 +6137,21 @@ grokfndecl (tree ctype,
     {
       cplus_decl_attributes (&decl, *attrlist, 0);
       *attrlist = NULL_TREE;
+    }
+
+  /* Check main's type after attributes have been applied.  */
+  if (ctype == NULL_TREE && DECL_MAIN_P (decl))
+    {
+      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
+			integer_type_node))
+	{
+	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  tree newtype;
+	  error ("%<::main%> must return %<int%>");
+	  newtype = build_function_type (integer_type_node, oldtypeargs);
+	  TREE_TYPE (decl) = newtype;
+	}
+      check_main_parameter_types (decl);
     }
 
   if (ctype != NULL_TREE
@@ -6878,6 +6902,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
+  bool set_no_warning = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
   unsigned_p = declspecs->specs[(int)ds_unsigned];
@@ -7524,9 +7549,16 @@ grokdeclarator (const cp_declarator *declarator,
 	    /* Declaring a function type.
 	       Make sure we have a valid type for the function to return.  */
 
-	    /* We now know that the TYPE_QUALS don't apply to the
-	       decl, but to its return type.  */
-	    type_quals = TYPE_UNQUALIFIED;
+	    if (type_quals != TYPE_UNQUALIFIED)
+	      {
+		if (SCALAR_TYPE_P (type) || VOID_TYPE_P (type))
+		  warning (OPT_Wreturn_type,
+			   "type qualifiers ignored on function return type");
+		/* We now know that the TYPE_QUALS don't apply to the
+		   decl, but to its return type.  */
+		type_quals = TYPE_UNQUALIFIED;
+		set_no_warning = true;
+	      }
 
 	    /* Warn about some types functions can't return.  */
 
@@ -8035,8 +8067,11 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (cp_type_quals (type) != TYPE_UNQUALIFIED
 	      && (current_class_type == NULL_TREE || staticp) )
 	    {
-	      error ("qualified function types cannot be used to declare %s functions",
-		     (staticp? "static member" : "free"));
+	      error (staticp
+                     ? G_("qualified function types cannot be used to "
+                          "declare static member functions")
+                     : G_("qualified function types cannot be used to "
+                          "declare free functions"));
 	      type = TYPE_MAIN_VARIANT (type);
 	    }
 
@@ -8602,6 +8637,9 @@ grokdeclarator (const cp_declarator *declarator,
        declaration based on the type of DECL.  */
     if (!processing_template_decl)
       cp_apply_type_quals_to_decl (type_quals, decl);
+
+    if (set_no_warning)
+        TREE_NO_WARNING (decl) = 1;
 
     return decl;
   }
@@ -10343,7 +10381,13 @@ check_function_type (tree decl, tree current_function_parms)
    For C++, we must first check whether that datum makes any sense.
    For example, "class A local_a(1,2);" means that variable local_a
    is an aggregate of type A, which should have a constructor
-   applied to it with the argument list [1, 2].  */
+   applied to it with the argument list [1, 2].
+
+   On entry, DECL_INITIAL (decl1) should be NULL_TREE or error_mark_node,
+   or may be a BLOCK if the function has been defined previously
+   in this translation unit.  On exit, DECL_INITIAL (decl1) will be
+   error_mark_node if the function has never been defined, or
+   a BLOCK if the function has been defined somewhere.  */
 
 void
 start_preparsed_function (tree decl1, tree attrs, int flags)
@@ -10472,24 +10516,6 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       cp_apply_type_quals_to_decl (cp_type_quals (restype), resdecl);
     }
 
-  /* Initialize RTL machinery.  We cannot do this until
-     CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
-     even when processing a template; this is how we get
-     CFUN set up, and our per-function variables initialized.
-     FIXME factor out the non-RTL stuff.  */
-  bl = current_binding_level;
-  allocate_struct_function (decl1);
-  current_binding_level = bl;
-
-  /* Even though we're inside a function body, we still don't want to
-     call expand_expr to calculate the size of a variable-sized array.
-     We haven't necessarily assigned RTL to all variables yet, so it's
-     not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* Start the statement-tree, start the tree now.  */
-  DECL_SAVED_TREE (decl1) = push_stmt_list ();
-
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
 
@@ -10535,9 +10561,33 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	maybe_apply_pragma_weak (decl1);
     }
 
-  /* Reset these in case the call to pushdecl changed them.  */
+  /* Reset this in case the call to pushdecl changed it.  */
   current_function_decl = decl1;
-  cfun->decl = decl1;
+
+  gcc_assert (DECL_INITIAL (decl1));
+
+  /* This function may already have been parsed, in which case just
+     return; our caller will skip over the body without parsing.  */
+  if (DECL_INITIAL (decl1) != error_mark_node)
+    return;
+
+  /* Initialize RTL machinery.  We cannot do this until
+     CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
+     even when processing a template; this is how we get
+     CFUN set up, and our per-function variables initialized.
+     FIXME factor out the non-RTL stuff.  */
+  bl = current_binding_level;
+  allocate_struct_function (decl1);
+  current_binding_level = bl;
+
+  /* Even though we're inside a function body, we still don't want to
+     call expand_expr to calculate the size of a variable-sized array.
+     We haven't necessarily assigned RTL to all variables yet, so it's
+     not safe to try to expand expressions involving them.  */
+  cfun->x_dont_save_pending_sizes_p = 1;
+
+  /* Start the statement-tree, start the tree now.  */
+  DECL_SAVED_TREE (decl1) = push_stmt_list ();
 
   /* If we are (erroneously) defining a function that we have already
      defined before, wipe out what we knew before.  */
@@ -11046,6 +11096,10 @@ finish_function (int flags)
       which then got a warning when stored in a ptr-to-function variable.  */
 
   gcc_assert (building_stmt_tree ());
+  /* The current function is being defined, so its DECL_INITIAL should
+     be set, and unless there's a multiple definition, it should be
+     error_mark_node.  */
+  gcc_assert (DECL_INITIAL (fndecl) == error_mark_node);
 
   /* For a cloned function, we've already got all the code we need;
      there's no need to add any extra bits.  */

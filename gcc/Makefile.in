@@ -997,7 +997,7 @@ OBJS-common = \
  debug.o df-core.o df-problems.o df-scan.o dfp.o diagnostic.o dojump.o     \
  dominance.o loop-doloop.o	   					   \
  dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
- expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
+ expmed.o expr.o final.o flow.o fold-const.o function.o fwprop.o gcse.o	   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
  haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
@@ -1900,7 +1900,7 @@ tree-ssa-threadupdate.o : tree-ssa-threadupdate.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(BASIC_BLOCK_H) $(FLAGS_H) tree-pass.h $(CFGLOOP_H)
 tree-ssanames.o : tree-ssanames.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TREE_H) $(VARRAY_H) $(GGC_H) gt-tree-ssanames.h  $(TREE_FLOW_H)
+   $(TM_H) $(TREE_H) $(VARRAY_H) $(GGC_H) $(TREE_FLOW_H)
 tree-phinodes.o : tree-phinodes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TREE_H) $(VARRAY_H) $(GGC_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
    gt-tree-phinodes.h $(RTL_H) toplev.h
@@ -1972,7 +1972,7 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) errors.h $(TREE_INLINE_H) \
    $(FLAGS_H) $(FUNCTION_H) $(TM_H) $(TIMEVAR_H) tree-pass.h toplev.h \
-   gt-tree-ssa-operands.h coretypes.h langhooks.h $(IPA_REFERENCE_H)
+   coretypes.h langhooks.h $(IPA_REFERENCE_H)
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) $(FLAGS_H) $(FUNCTION_H) except.h langhooks.h \
    $(GGC_H) tree-pass.h coretypes.h $(TIMEVAR_H) $(TM_P_H) \
@@ -2080,7 +2080,7 @@ tree-scalar-evolution.o: tree-scalar-evolution.c $(CONFIG_H) $(SYSTEM_H) \
 tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
-   $(TREE_DATA_REF_H) $(SCEV_H) tree-pass.h tree-chrec.h
+   $(TREE_DATA_REF_H) $(SCEV_H) tree-pass.h tree-chrec.h langhooks.h
 tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(GGC_H) $(OPTABS_H) $(TREE_H) $(BASIC_BLOCK_H) \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
@@ -2140,7 +2140,8 @@ opts-common.o : opts-common.c opts.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h intl.h
 targhooks.o : targhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(EXPR_H) $(TM_H) $(RTL_H) $(TM_P_H) $(FUNCTION_H) output.h toplev.h \
-   $(MACHMODE_H) $(TARGET_DEF_H) $(TARGET_H) $(GGC_H) gt-targhooks.h
+   $(MACHMODE_H) $(TARGET_DEF_H) $(TARGET_H) $(GGC_H) gt-targhooks.h \
+   $(OPTABS_H)
 
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    version.h $(RTL_H) $(FUNCTION_H) $(FLAGS_H) xcoffout.h input.h \
@@ -2336,6 +2337,9 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h $(FUNCTION_H) $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) \
    except.h $(TARGET_H) $(PARAMS_H) rtlhooks-def.h tree-pass.h $(REAL_H)
+fwprop.o : fwprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   toplev.h insn-config.h $(RECOG_H) $(FLAGS_H) $(OBSTACK_H) $(BASIC_BLOCK_H) \
+   output.h $(DF_H) alloc-pool.h $(TIMEVAR_H) tree-pass.h
 web.o : web.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
    $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h
@@ -2423,7 +2427,7 @@ cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    $(REGS_H) hard-reg-set.h output.h toplev.h $(FUNCTION_H) except.h $(GGC_H) \
    $(TM_P_H) $(TIMEVAR_H) $(OBSTACK_H) $(TREE_H) alloc-pool.h $(HASHTAB_H)
 cfghooks.o: cfghooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   $(TREE_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(TIMEVAR_H) toplev.h
+   $(TREE_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(TIMEVAR_H) toplev.h $(CFGLOOP_H)
 cfgexpand.o : cfgexpand.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) \
    coretypes.h $(TREE_DUMP_H) except.h langhooks.h tree-pass.h $(RTL_H) \
@@ -2864,7 +2868,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
   $(srcdir)/tree-chrec.h $(srcdir)/tree-vect-generic.c \
-  $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
+  $(srcdir)/tree-ssa-operands.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
@@ -2897,9 +2901,9 @@ gt-dbxout.h \
 gtype-c.h gt-cfglayout.h \
 gt-tree-mudflap.h gt-tree-vect-generic.h \
 gt-tree-profile.h gt-tree-ssa-address.h \
-gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
+gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
-gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
+gt-tree-ssa-propagate.h \
 gt-tree-ssa-structalias.h gt-ipa-inline.h gt-cgraphunit.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
@@ -3067,6 +3071,7 @@ PREPROCESSOR_DEFINES = \
   -DLOCAL_INCLUDE_DIR=\"$(local_includedir)\" \
   -DCROSS_INCLUDE_DIR=\"$(CROSS_SYSTEM_HEADER_DIR)\" \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\" \
+  -DPREFIX=\"$(prefix)\" \
   @TARGET_SYSTEM_ROOT_DEFINE@
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -3729,9 +3734,9 @@ install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 install-driver: installdirs xgcc$(exeext)
 	-rm -f $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext)
 	-$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(bindir)/$(GCC_INSTALL_NAME)$(exeext)
-	-rm -f $(DESTDIR)$(bindir)/$(target_noncanonical)-gcc-$(version)
+	-rm -f $(DESTDIR)$(bindir)/$(target_noncanonical)-gcc-$(version)$(exeext)
 	-( cd $(DESTDIR)$(bindir) && \
-	   $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_noncanonical)-gcc-$(version) )
+	   $(LN) $(GCC_INSTALL_NAME)$(exeext) $(target_noncanonical)-gcc-$(version)$(exeext) )
 	-if [ -f gcc-cross$(exeext) ] ; then \
 	  if [ -d $(DESTDIR)$(gcc_tooldir)/bin/. ] ; then \
 	    rm -f $(DESTDIR)$(gcc_tooldir)/bin/gcc$(exeext); \
@@ -3983,6 +3988,7 @@ site.exp: ./config.status Makefile
 	@echo "set HOSTCFLAGS \"$(CFLAGS)\"" >> ./tmp0
 	@echo "set TESTING_IN_BUILD_TREE 1" >> ./tmp0
 	@echo "set HAVE_LIBSTDCXX_V3 1" >> ./tmp0
+	@echo "set GCC_EXEC_PREFIX \"$(libdir)/gcc/\"" >> ./tmp0
 # If newlib has been configured, we need to pass -B to gcc so it can find
 # newlib's crt0.o if it exists.  This will cause a "path prefix not used"
 # message if it doesn't, but the testsuite is supposed to ignore the message -

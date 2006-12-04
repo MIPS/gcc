@@ -3167,6 +3167,11 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 		TREE_OPERAND (*expr_p, 1) = build_vector_from_ctor (type, elts);
 		break;
 	      }
+
+	    /* Don't reduce a TREE_CONSTANT vector ctor even if we can't
+	       make a VECTOR_CST.  It won't do anything for us, and it'll
+	       prevent us from representing it as a single constant.  */
+	    break;
 	  }
 
 	/* Vector types use CONSTRUCTOR all the way through gimple
@@ -3213,7 +3218,7 @@ fold_indirect_ref_rhs (tree t)
   tree sub = t;
   tree subtype;
 
-  STRIP_NOPS (sub);
+  STRIP_USELESS_TYPE_CONVERSION (sub);
   subtype = TREE_TYPE (sub);
   if (!POINTER_TYPE_P (subtype))
     return NULL_TREE;
@@ -5563,9 +5568,6 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  /* FALLTHRU */
 
 	case FIX_TRUNC_EXPR:
-	case FIX_CEIL_EXPR:
-	case FIX_FLOOR_EXPR:
-	case FIX_ROUND_EXPR:
 	  /* unary_expr: ... | '(' cast ')' val | ...  */
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_val, fb_rvalue);
@@ -5926,7 +5928,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 			     gimple_test_f, fallback);
 	      break;
 
-	    case ARRAY_REF: case ARRAY_RANGE_REF:
+	    case ARRAY_REF:
+	    case ARRAY_RANGE_REF:
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			     gimple_test_f, fallback);
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
@@ -5935,16 +5938,17 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	    default:
 	       /* Anything else with side-effects must be converted to
-	       	  a valid statement before we get here.  */
+		  a valid statement before we get here.  */
 	      gcc_unreachable ();
 	    }
 
 	  *expr_p = NULL;
 	}
-      else if (COMPLETE_TYPE_P (TREE_TYPE (*expr_p)))
+      else if (COMPLETE_TYPE_P (TREE_TYPE (*expr_p))
+	       && TYPE_MODE (TREE_TYPE (*expr_p)) != BLKmode)
 	{
-	  /* Historically, the compiler has treated a bare
-	     reference to a volatile lvalue as forcing a load.  */
+	  /* Historically, the compiler has treated a bare reference
+	     to a non-BLKmode volatile lvalue as forcing a load.  */
 	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
 	  /* Normally, we do not want to create a temporary for a
 	     TREE_ADDRESSABLE type because such a type should not be
@@ -5959,7 +5963,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	}
       else
 	/* We can't do anything useful with a volatile reference to
-	   incomplete type, so just throw it away.  */
+	   an incomplete type, so just throw it away.  Likewise for
+	   a BLKmode type, since any implicit inner load should
+	   already have been turned into an explicit one by the
+	   gimplification process.  */
 	*expr_p = NULL;
     }
 
@@ -6432,7 +6439,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   gimple_test_f = simple ? is_gimple_val : is_gimple_reg_rhs;
 
   push_gimplify_context ();
-  gimplify_ctxp->into_ssa = in_ssa_p;
+  gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
 
   if (var)
     expr = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (var), var, expr);
@@ -6441,7 +6448,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 		       gimple_test_f, fb_rvalue);
   gcc_assert (ret != GS_ERROR);
 
-  if (referenced_vars)
+  if (gimple_referenced_vars (cfun))
     {
       for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
 	add_referenced_var (t);
