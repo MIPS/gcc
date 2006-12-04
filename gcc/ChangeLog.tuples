@@ -1,7 +1,7 @@
 2006-12-04  Aldy Hernandez  <aldyh@redhat.com>
 
-        * alpha.c (va_list_skip_additions): Change all occurrences of
-        MODIFY_EXPR to GIMPLE_MODIFY_STMT.
+        * config/alpha/alpha.c (va_list_skip_additions): Change all
+	occurrences of MODIFY_EXPR to GIMPLE_MODIFY_STMT.
         (alpha_va_start): Same.
         (alpha_gimplify_va_arg_1): Same.
         (alpha_gimplify_va_arg): Same.
