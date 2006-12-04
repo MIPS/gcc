@@ -469,55 +469,6 @@ _Jv_StackTrace::GetCallerInfo (jclass checkClass, jclass *caller_class,
     *caller_meth = trace_data.foundMeth;
 }
 
-// Return a java array containing the Java classes on the stack above CHECKCLASS.
-JArray<jclass> *
-_Jv_StackTrace::GetClassContext (jclass checkClass)
-{
-  JArray<jclass> *result = NULL;
-
-  int trace_size = 100;
-  _Jv_StackFrame frames[trace_size];
-  _Jv_UnwindState state (trace_size);
-  state.frames = (_Jv_StackFrame *) &frames;
-
-  //JvSynchronized (ncodeMap);
-  UpdateNCodeMap ();
-
-  _Unwind_Backtrace (UnwindTraceFn, &state);
-
-  // Count the number of Java frames on the stack.
-  int jframe_count = 0;
-  bool seen_checkClass = false;
-  int start_pos = -1;
-  for (int i = 0; i < state.pos; i++)
-    {
-      _Jv_StackFrame *frame = &state.frames[i];
-      FillInFrameInfo (frame);
-      
-      if (seen_checkClass)
-	{
-	  if (frame->klass)
-	    {
-	      jframe_count++;
-	      if (start_pos == -1)
-		start_pos = i;
-	    }
-	}
-      else
-	seen_checkClass = frame->klass == checkClass;
-    }
-  result = (JArray<jclass> *) _Jv_NewObjectArray (jframe_count, &Class::class$, NULL);
-  int pos = 0;
-  
-  for (int i = start_pos; i < state.pos; i++)
-    {
-      _Jv_StackFrame *frame = &state.frames[i];
-      if (frame->klass)
-        elements(result)[pos++] = frame->klass;
-    }
-  return result;
-}
-
 _Unwind_Reason_Code
 _Jv_StackTrace::non_system_trace_fn (_Jv_UnwindState *state)
 {

@@ -1,5 +1,10 @@
 2006-12-04  Gary Benson  <gbenson@redhat.com>
 
+	* stacktrace.cc (GetClassContext): Remove.
+	* include/java-stack.h (GetClassContext): Likewise.
+
+2006-12-04  Gary Benson  <gbenson@redhat.com>
+
 	* java/lang/SecurityManager.java: Removed.
 	* java/lang/VMSecurityManager.java: Likewise.
 	* java/lang/natVMSecurityManager.cc: Likewise.

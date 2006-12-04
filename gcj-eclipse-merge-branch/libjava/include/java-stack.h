@@ -136,7 +136,6 @@ public:
     java::lang::Throwable *throwable);
   static jclass GetCallingClass (jclass);
   static void GetCallerInfo (jclass checkClass, jclass *, _Jv_Method **);
-  static JArray<jclass> *GetClassContext (jclass checkClass);
   static ClassLoader *GetFirstNonSystemClassLoader (void);
   static jobjectArray GetAccessControlStack ();
   static JArray<jclass> *GetStackWalkerStack ();
