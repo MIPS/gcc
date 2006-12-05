@@ -47,7 +47,7 @@ target_triplet = @target@
 @NATIVE_TRUE@bin_PROGRAMS = jv-convert$(EXEEXT) gij$(EXEEXT) \
 @NATIVE_TRUE@	grmic$(EXEEXT) grmiregistry$(EXEEXT) \
 @NATIVE_TRUE@	gcj-dbtool$(EXEEXT)
-@BUILD_ECJ1_TRUE@toolexec_PROGRAMS = ecjx$(EXEEXT)
+@BUILD_ECJ1_TRUE@libexecsub_PROGRAMS = ecjx$(EXEEXT)
 @BASH_JAR_TRUE@am__append_5 = scripts/jar
 @USING_GCC_TRUE@am__append_6 = $(WARNINGS)
 @USING_BOEHMGC_TRUE@am__append_7 = boehm.cc
@@ -110,7 +110,7 @@ am__vpath_adj = case $$p in \
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(dbexecdir)" \
 	"$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(toolexecdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(libexecsubdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" \
 	"$(DESTDIR)$(toolexecmainlibdir)"
 dbexecLTLIBRARIES_INSTALL = $(INSTALL)
@@ -405,8 +405,8 @@ libgij_la_OBJECTS = $(am_libgij_la_OBJECTS)
 am_libjvm_la_OBJECTS = jni-libjvm.lo
 libjvm_la_OBJECTS = $(am_libjvm_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-toolexecPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS) $(toolexec_PROGRAMS)
+libexecsubPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(bin_PROGRAMS) $(libexecsub_PROGRAMS) $(noinst_PROGRAMS)
 am_ecjx_OBJECTS =
 ecjx_OBJECTS = $(am_ecjx_OBJECTS)
 am_gcj_dbtool_OBJECTS = gnu/gcj/tools/gcj_dbtool/natMain.$(OBJEXT)
@@ -737,6 +737,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 
 # This is required by TL_AC_GXX_INCLUDE_DIR.
 libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
+libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la $(am__append_2) \
 	$(am__append_3)
 toolexecmainlib_DATA = libgcj.spec
@@ -8286,37 +8287,37 @@ clean-binPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
-
-clean-noinstPROGRAMS:
-	@list='$(noinst_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  echo " rm -f $$p $$f"; \
-	  rm -f $$p $$f ; \
-	done
-install-toolexecPROGRAMS: $(toolexec_PROGRAMS)
+install-libexecsubPROGRAMS: $(libexecsub_PROGRAMS)
 	@$(NORMAL_INSTALL)
-	test -z "$(toolexecdir)" || $(mkdir_p) "$(DESTDIR)$(toolexecdir)"
-	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+	test -z "$(libexecsubdir)" || $(mkdir_p) "$(DESTDIR)$(libexecsubdir)"
+	@list='$(libexecsub_PROGRAMS)'; for p in $$list; do \
 	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
 	  if test -f $$p \
 	     || test -f $$p1 \
 	  ; then \
 	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
-	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(toolexecPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toolexecdir)/$$f'"; \
-	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(toolexecPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toolexecdir)/$$f" || exit 1; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(libexecsubPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(libexecsubdir)/$$f'"; \
+	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(libexecsubPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(libexecsubdir)/$$f" || exit 1; \
 	  else :; fi; \
 	done
 
-uninstall-toolexecPROGRAMS:
+uninstall-libexecsubPROGRAMS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+	@list='$(libexecsub_PROGRAMS)'; for p in $$list; do \
 	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
-	  echo " rm -f '$(DESTDIR)$(toolexecdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(toolexecdir)/$$f"; \
+	  echo " rm -f '$(DESTDIR)$(libexecsubdir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(libexecsubdir)/$$f"; \
 	done
 
-clean-toolexecPROGRAMS:
-	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+clean-libexecsubPROGRAMS:
+	@list='$(libexecsub_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
+
+clean-noinstPROGRAMS:
+	@list='$(noinst_PROGRAMS)'; for p in $$list; do \
 	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
@@ -9294,7 +9295,7 @@ check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(toolexecdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
+	for dir in "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(libexecsubdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-recursive
@@ -9388,7 +9389,7 @@ maintainer-clean-generic:
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-dbexecLTLIBRARIES clean-generic \
-	clean-libtool clean-noinstPROGRAMS clean-toolexecPROGRAMS \
+	clean-libexecsubPROGRAMS clean-libtool clean-noinstPROGRAMS \
 	clean-toolexeclibLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
@@ -9412,7 +9413,7 @@ install-data-am: install-data-local install-jarDATA
 
 install-exec-am: install-binPROGRAMS install-binSCRIPTS \
 	install-dbexecDATA install-dbexecLTLIBRARIES \
-	install-toolexecPROGRAMS install-toolexeclibLTLIBRARIES \
+	install-libexecsubPROGRAMS install-toolexeclibLTLIBRARIES \
 	install-toolexecmainlibDATA
 	@$(NORMAL_INSTALL)
 	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
@@ -9445,15 +9446,16 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-dbexecDATA uninstall-dbexecLTLIBRARIES \
-	uninstall-info-am uninstall-jarDATA uninstall-toolexecPROGRAMS \
-	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
+	uninstall-info-am uninstall-jarDATA \
+	uninstall-libexecsubPROGRAMS uninstall-toolexeclibLTLIBRARIES \
+	uninstall-toolexecmainlibDATA
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
 	check-am clean clean-binPROGRAMS clean-dbexecLTLIBRARIES \
-	clean-generic clean-libtool clean-noinstPROGRAMS \
-	clean-recursive clean-toolexecPROGRAMS \
+	clean-generic clean-libexecsubPROGRAMS clean-libtool \
+	clean-noinstPROGRAMS clean-recursive \
 	clean-toolexeclibLTLIBRARIES ctags ctags-recursive dist \
 	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
 	distcheck distclean distclean-compile distclean-generic \
@@ -9464,7 +9466,7 @@ uninstall-info: uninstall-info-recursive
 	install-data-am install-data-local install-dbexecDATA \
 	install-dbexecLTLIBRARIES install-exec install-exec-am \
 	install-exec-hook install-info install-info-am install-jarDATA \
-	install-man install-strip install-toolexecPROGRAMS \
+	install-libexecsubPROGRAMS install-man install-strip \
 	install-toolexeclibLTLIBRARIES install-toolexecmainlibDATA \
 	installcheck installcheck-am installdirs installdirs-am \
 	maintainer-clean maintainer-clean-generic \
@@ -9474,7 +9476,7 @@ uninstall-info: uninstall-info-recursive
 	uninstall uninstall-am uninstall-binPROGRAMS \
 	uninstall-binSCRIPTS uninstall-dbexecDATA \
 	uninstall-dbexecLTLIBRARIES uninstall-info-am \
-	uninstall-jarDATA uninstall-toolexecPROGRAMS \
+	uninstall-jarDATA uninstall-libexecsubPROGRAMS \
 	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
 
 
@@ -11083,7 +11085,7 @@ gcjh.stamp: classpath/lib/compile-classes
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
-install-exec-hook: install-toolexeclibLTLIBRARIES install-toolexecPROGRAMS
+install-exec-hook: install-toolexeclibLTLIBRARIES install-libexecsubPROGRAMS
 @USE_LIBGCJ_BC_TRUE@	@echo Installing dummy lib libgcj_bc.so.1.0.0; \
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.so; \
 @USE_LIBGCJ_BC_TRUE@	mv $(toolexeclibdir)/libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so; \
@@ -11092,7 +11094,7 @@ install-exec-hook: install-toolexeclibLTLIBRARIES install-toolexecPROGRAMS
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	$(LN_S) libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.la;
-@BUILD_ECJ1_TRUE@	mv $(DESTDIR)$(toolexecdir)/ecjx $(DESTDIR)$(toolexecdir)/ecj1
+@BUILD_ECJ1_TRUE@	mv $(DESTDIR)$(libexecsubdir)/ecjx $(DESTDIR)$(libexecsubdir)/ecj1
 
 install-data-local:
 	$(PRE_INSTALL)

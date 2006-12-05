@@ -1,5 +1,12 @@
 2006-12-05  Tom Tromey  <tromey@redhat.com>
 
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libexecsubdir): New variable.
+	(install-exec-hook): Install ecj1 in libexecsubdir.
+	(libexecsub_PROGRAMS): Renamed.
+
+2006-12-05  Tom Tromey  <tromey@redhat.com>
+
 	PR java/29495:
 	* testsuite/libjava.lang/PR29495.out: New file.
 	* testsuite/libjava.lang/PR29495.java: New file.

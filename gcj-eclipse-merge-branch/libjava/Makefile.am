@@ -29,6 +29,8 @@ target_noncanonical = @target_noncanonical@
 # This is required by TL_AC_GXX_INCLUDE_DIR.
 libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
 
+libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 ##
 ## What gets installed, and where.
 ##
@@ -82,7 +84,7 @@ if BUILD_ECJ1
 ## We build ecjx and not ecj1 because in one mode, ecjx will not work
 ## until after 'make install', and we don't want it to be picked up in
 ## the build tree by gcj via a -B option.
-toolexec_PROGRAMS = ecjx
+libexecsub_PROGRAMS = ecjx
 endif
 
 ## ################################################################
@@ -423,7 +425,7 @@ extra_headers = java/lang/Object.h java/lang/Class.h
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
-install-exec-hook: install-toolexeclibLTLIBRARIES install-toolexecPROGRAMS
+install-exec-hook: install-toolexeclibLTLIBRARIES install-libexecsubPROGRAMS
 ## Support for libgcj_bc: dummy shared library used only at link-time.
 if USE_LIBGCJ_BC
 ## Install libgcj_bc dummy lib in the target directory. We also need to delete
@@ -439,7 +441,7 @@ if USE_LIBGCJ_BC
 	rm $(toolexeclibdir)/libgcj_bc.la;
 endif
 if BUILD_ECJ1
-	mv $(DESTDIR)$(toolexecdir)/ecjx $(DESTDIR)$(toolexecdir)/ecj1
+	mv $(DESTDIR)$(libexecsubdir)/ecjx $(DESTDIR)$(libexecsubdir)/ecj1
 endif
 
 ## Install the headers.  It is fairly ugly that we have to do this by
