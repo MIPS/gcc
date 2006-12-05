@@ -104,7 +104,7 @@ gnu::gcj::runtime::SharedLibHelper::init(void)
 #else
   const char *msg
     = "shared library class loading is not supported on this platform";
-  throw new java::lang::UnsupportedOperationException(JvNewStringLatin1(msg));
+  throw new ::java::lang::UnsupportedOperationException(JvNewStringLatin1(msg));
 #endif
 }
 

@@ -1,5 +1,10 @@
 2006-12-04  Adam Megacz <megacz@cs.berkeley.edu>
 
+	* gnu/gcj/runtime/natSharedLibLoader.cc (init): add "::" to fix
+	syntax error
+
+2006-12-04  Adam Megacz <megacz@cs.berkeley.edu>
+
 	* include/win32.h (_Jv_platform_process): change to Win32Process
 	
 2006-12-04  Gary Benson  <gbenson@redhat.com>
