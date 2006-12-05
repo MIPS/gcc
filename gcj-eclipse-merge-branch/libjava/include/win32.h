@@ -77,7 +77,7 @@ extern jstring _Jv_Win32NewString (LPCTSTR pcsz);
 #define _Jv_platform_solib_suffix ".dll"
 
 // Name of the Process implementation.
-#define _Jv_platform_process ::java::lang::PosixProcess
+#define _Jv_platform_process ::java::lang::Win32Process
 
 // Separator for file name components.
 #define _Jv_platform_file_separator ((jchar) '\\')

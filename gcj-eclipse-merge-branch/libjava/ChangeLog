@@ -1,3 +1,7 @@
+2006-12-04  Adam Megacz <megacz@cs.berkeley.edu>
+
+	* include/win32.h (_Jv_platform_process): change to Win32Process
+	
 2006-12-04  Gary Benson  <gbenson@redhat.com>
 
 	* stacktrace.cc (GetClassContext): Remove.
