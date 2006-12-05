@@ -21,15 +21,12 @@ details.  */
 JArray<jclass> *
 gnu::classpath::VMStackWalker::getClassContext(void)
 {
-  // FIXME: Security check here?
   return _Jv_StackTrace::GetStackWalkerStack ();
 }
 
 jclass
 gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
 {
-  // FIXME: Security check here?
-
   void *f = _Unwind_FindEnclosingFunction (pc);
 
   // FIXME: it might well be a good idea to cache pc values here in
@@ -58,14 +55,12 @@ gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
 ::java::lang::ClassLoader *
 gnu::classpath::VMStackWalker::getClassLoader(::java::lang::Class *c)
 {
-  // FIXME: Security check here?
   return c->getClassLoaderInternal ();
 }
 
 ::java::lang::ClassLoader *
 gnu::classpath::VMStackWalker::getCallingClassLoader(::gnu::gcj::RawData *pc)
 {
-  // FIXME: Security check here?
   return getCallingClass (pc)->getClassLoaderInternal ();
 }
 

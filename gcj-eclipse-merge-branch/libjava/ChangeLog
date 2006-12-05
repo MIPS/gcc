@@ -1,5 +1,9 @@
 2006-12-05  Gary Benson  <gbenson@redhat.com>
 
+	* gnu/classpath/natVMStackWalker.cc: Comment fixes.
+
+2006-12-05  Gary Benson  <gbenson@redhat.com>
+
 	* gnu/classpath/natVMStackWalker.cc (getCallingClass): Unwind
 	the stack when the caller is a compiled frame and the caller
 	of the caller is an interpreted frame.
