@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 extern tree convert_to_integer (tree, tree);
 extern tree convert_to_pointer (tree, tree);
 extern tree convert_to_real (tree, tree);
+extern tree convert_to_fixed (tree, tree);
 extern tree convert_to_complex (tree, tree);
 extern tree convert_to_vector (tree, tree);
 

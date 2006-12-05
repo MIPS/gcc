@@ -605,9 +605,11 @@ c_common_type (tree t1, tree t2)
   code2 = TREE_CODE (t2);
 
   gcc_assert (code1 == VECTOR_TYPE || code1 == COMPLEX_TYPE
-	      || code1 == REAL_TYPE || code1 == INTEGER_TYPE);
+	      || code1 == FIXED_POINT_TYPE || code1 == REAL_TYPE
+	      || code1 == INTEGER_TYPE);
   gcc_assert (code2 == VECTOR_TYPE || code2 == COMPLEX_TYPE
-	      || code2 == REAL_TYPE || code2 == INTEGER_TYPE);
+	      || code2 == FIXED_POINT_TYPE || code2 == REAL_TYPE
+	      || code2 == INTEGER_TYPE);
 
   /* When one operand is a decimal float type, the other operand cannot be
      a generic float type or a complex type.  We also disallow vector types
@@ -680,6 +682,82 @@ c_common_type (tree t1, tree t2)
       else if (TYPE_MAIN_VARIANT (t1) == dfloat32_type_node
 	       || TYPE_MAIN_VARIANT (t2) == dfloat32_type_node)
 	return dfloat32_type_node;
+    }
+
+  /* Deal with fixed-point types.  */
+  if (code1 == FIXED_POINT_TYPE || code2 == FIXED_POINT_TYPE)
+    {
+      unsigned int unsignedp = 0, satp = 0;
+      enum machine_mode m1, m2;
+      unsigned int fbit1, ibit1, fbit2, ibit2, max_fbit, max_ibit;
+
+      m1 = TYPE_MODE (t1);
+      m2 = TYPE_MODE (t2);
+
+      /* If one input type is saturating, the result type is saturating.  */
+      if (TYPE_SATURATING (t1) || TYPE_SATURATING (t2))
+	satp = 1;
+
+      /* If both types are unsigned, the result type is unsigned.
+	 Otherwise, the result type is signed.  */
+      if (TYPE_UNSIGNED (t1) && TYPE_UNSIGNED (t2))
+	unsignedp = 1;
+
+      /* The result type is signed.  */
+      if (unsignedp == 0)
+	{
+	  /* If the input type is unsigned, we need to convert to the
+	     signed type.  */
+	  if (code1 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t1))
+	    {
+	      unsigned char mclass;
+	      if (GET_MODE_CLASS (m1) == MODE_UFRACT)
+		mclass = MODE_FRACT;
+	      else if (GET_MODE_CLASS (m1) == MODE_UACCUM)
+		mclass = MODE_ACCUM;
+	      else
+		error ("machine mode is wrong");
+	      m1 = mode_for_size (GET_MODE_PRECISION (m1), mclass, 0);
+	    }
+	  if (code2 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t2))
+	    {
+	      unsigned char mclass;
+	      if (GET_MODE_CLASS (m2) == MODE_UFRACT)
+		mclass = MODE_FRACT;
+	      else if (GET_MODE_CLASS (m2) == MODE_UACCUM)
+		mclass = MODE_ACCUM;
+	      else
+		error ("machine mode is wrong");
+	      m2 = mode_for_size (GET_MODE_PRECISION (m2), mclass, 0);
+	    }
+	} 
+
+      if (code1 == FIXED_POINT_TYPE)
+	{
+	  fbit1 = GET_MODE_FBIT (m1);
+	  ibit1 = GET_MODE_IBIT (m1);
+	}
+      else
+	{
+	  fbit1 = 0;
+	  ibit1 = TYPE_PRECISION (t1);;
+	}
+
+      if (code2 == FIXED_POINT_TYPE)
+	{
+	  fbit2 = GET_MODE_FBIT (m2); 
+	  ibit2 = GET_MODE_IBIT (m2);
+	}
+      else
+	{
+	  fbit2 = 0;
+	  ibit2 = TYPE_PRECISION (t2);;
+	}
+
+      max_ibit = ibit1 >= ibit2 ?  ibit1 : ibit2;
+      max_fbit = fbit1 >= fbit2 ?  fbit1 : fbit2;
+      return c_common_fixed_point_type_for_size (max_ibit, max_fbit, unsignedp,
+						 satp);
     }
 
   /* Both real or both integers; use the one with greater precision.  */
@@ -827,6 +905,14 @@ comptypes_internal (tree type1, tree type2)
 
   if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return 0;
+
+  /* Allow saturating and not-saturating types be compatible.  */
+  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (t1))
+      && ALL_FIXED_POINT_MODE_P (TYPE_MODE (t2))
+      && TYPE_MODE (t1) == TYPE_MODE (t2)
+      && TYPE_UNSIGNED (t1) == TYPE_UNSIGNED (t2)
+      && TYPE_SATURATING (t1) != TYPE_SATURATING (t2))
+    return 1;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -2954,7 +3040,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
       /* Report invalid types.  */
 
-      if (typecode != POINTER_TYPE
+      if (typecode != POINTER_TYPE && typecode != FIXED_POINT_TYPE
 	  && typecode != INTEGER_TYPE && typecode != REAL_TYPE)
 	{
 	  if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
@@ -3000,7 +3086,9 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	else
 	  inc = integer_one_node;
 
-	inc = convert (argtype, inc);
+	/* Don't convert integer_one_node to a fixed-point type.  */
+	if (TREE_CODE (argtype) != FIXED_POINT_TYPE)
+	  inc = convert (argtype, inc);
 
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
@@ -3940,9 +4028,11 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE
+	    || codel == FIXED_POINT_TYPE
 	    || codel == ENUMERAL_TYPE || codel == COMPLEX_TYPE
 	    || codel == BOOLEAN_TYPE)
 	   && (coder == INTEGER_TYPE || coder == REAL_TYPE
+	       || coder == FIXED_POINT_TYPE
 	       || coder == ENUMERAL_TYPE || coder == COMPLEX_TYPE
 	       || coder == BOOLEAN_TYPE))
     return convert_and_check (type, rhs);
@@ -4785,9 +4875,9 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 
   /* Handle scalar types, including conversions.  */
 
-  if (code == INTEGER_TYPE || code == REAL_TYPE || code == POINTER_TYPE
-      || code == ENUMERAL_TYPE || code == BOOLEAN_TYPE || code == COMPLEX_TYPE
-      || code == VECTOR_TYPE)
+  if (code == INTEGER_TYPE || code == REAL_TYPE || code == FIXED_POINT_TYPE
+      || code == POINTER_TYPE || code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
+      || code == COMPLEX_TYPE || code == VECTOR_TYPE)
     {
       if (TREE_CODE (TREE_TYPE (init)) == ARRAY_TYPE
 	  && (TREE_CODE (init) == STRING_CST

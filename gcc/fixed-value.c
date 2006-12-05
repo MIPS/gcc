@@ -122,7 +122,7 @@ do_fixed_multiply (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
       lshift_double (f->data.low, f->data.high,
 		     (-GET_MODE_FBIT (f->mode)),
 		     2 * HOST_BITS_PER_WIDE_INT,
-		     &f->data.low, & f->data.high,
+		     &f->data.low, &f->data.high,
 		     SIGNED_FIXED_POINT_MODE_P (f->mode));
       f->data = double_int_ext (f->data,
 				SIGNED_FIXED_POINT_MODE_P (f->mode)
@@ -284,5 +284,33 @@ fixed_compare (int icode, const FIXED_VALUE_TYPE *op0,
 
     default:
       gcc_unreachable ();
+    }
+}
+
+/* Extend or truncate to a new mode.  */
+
+void
+fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
+               const FIXED_VALUE_TYPE *a)
+{
+  if (mode == a->mode)
+    *f = *a;
+  else
+    {
+      f->mode = mode;
+      /* If fbit is not the same, we need to left or right shift data.  */
+      if (GET_MODE_FBIT (f->mode) != GET_MODE_FBIT (a->mode))
+	lshift_double (a->data.low, a->data.high,
+		       GET_MODE_FBIT (f->mode) - GET_MODE_FBIT (a->mode),
+		       2 * HOST_BITS_PER_WIDE_INT,
+		       &f->data.low, &f->data.high,
+		       SIGNED_FIXED_POINT_MODE_P (f->mode));
+      else
+	f->data = a->data;
+      f->data = double_int_ext (f->data,
+				SIGNED_FIXED_POINT_MODE_P (f->mode)
+				+ GET_MODE_FBIT (f->mode)
+				+ GET_MODE_IBIT (f->mode),
+				UNSIGNED_FIXED_POINT_MODE_P (f->mode));
     }
 }

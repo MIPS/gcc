@@ -1795,6 +1795,33 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
   return 0;
 }
 
+/* Return a fixed-point type that has at least IBIT ibits and FBIT fbits
+   that is unsigned if UNSIGNEDP is nonzero, otherwise signed;
+   and saturating if SATP is nonzero, otherwise not saturating.  */
+
+tree
+c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
+				    int unsignedp, int satp)
+{
+  enum machine_mode mode;
+  if (ibit == 0)
+    mode = unsignedp ? UQQmode : QQmode;
+  else
+    mode = unsignedp ? UHAmode : HAmode;
+
+  for (; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_IBIT (mode) >= ibit && GET_MODE_FBIT (mode) >= fbit)
+      break;
+
+  if (mode == VOIDmode)
+    {
+      error ("cannot find a common fixed-point mode to operate.");
+      return 0;
+    }
+
+  return c_common_type_for_mode (mode, satp);
+}
+
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
 static GTY(()) tree registered_builtin_types;

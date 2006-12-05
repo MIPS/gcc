@@ -821,3 +821,26 @@ convert_to_vector (tree type, tree expr)
       return error_mark_node;
     }
 }
+
+/* Convert EXPR to some fixed-point type TYPE.
+
+   EXPR must be fixed-point, float, integer, or enumeral;
+   in other cases error is called.  */
+
+tree
+convert_to_fixed (tree type, tree expr)
+{
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case FIXED_POINT_TYPE:
+      {
+	enum tree_code code;
+	code = CONVERT_EXPR;
+	return fold_build1 (code, type, expr);
+      }
+
+    default:
+      error ("aggregate value used where a fixed-point was expected");
+      return error_mark_node;
+    }
+}

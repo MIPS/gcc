@@ -1,3 +1,25 @@
+2006-12-4  Chao-ying Fu  <fu@mips.com>
+
+	* fold-const.c (fold_convert_const_fixed_from_fixed): New function.
+	(fold_convert_const): Support FIXED_POINT_TYPE.
+	(fold_convert): Likewise.
+	* c-typeck.c (c_common_type): Check FIXED_POINT_TYPE.  Build
+	a common fixed-point type based on fbit, ibit, sign, and saturation.
+	(comptypes_internal): Allow saturating and non-saturating 
+	fixed-point types compatible.
+	(build_unary_op): Allow FIXED_POINT_TYPE for PREINCREMENT_EXPR,
+	POSTINCREMENT_EXPR, PREDECREMENT_EXPR, and POSTDECREMENT_EXPR.
+	Don't convert integer_one_node to a fixed-point type.
+	(convert_for_assignment): Support FIXED_POINT_TYPE.
+	* c-convert.c (convert): Support FIXED_POINT_TYPE.
+	* fixed-value.h (fixed_convert): Declare.
+	* fixed-value.c (do_fixed_multiply): Delete one space.
+	(fixed_convert): New function.
+	* c-common.h (c_common_fixed_point_type_for_size): Declare.
+	* c-common.c (c_common_fixed_point_type_for_size): New function. 
+	* convert.h (convert_to_fixed): Declare.
+	* convert.c (convert_to_fixed): New function.
+
 2006-12-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/30021

@@ -45,6 +45,10 @@ extern void fixed_from_string (FIXED_VALUE_TYPE *, const char *, tree);
 /* In tree.c: wrap up a FIXED_VALUE_TYPE in a tree node.  */
 extern tree build_fixed (tree, FIXED_VALUE_TYPE);
 
+/* Extend or truncate to a new mode.  */
+extern void fixed_convert (FIXED_VALUE_TYPE *, enum machine_mode,
+			   const FIXED_VALUE_TYPE *);
+
 /* Compare two fixed-point objects for bitwise identity.  */
 extern bool fixed_identical (const FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *);
 

@@ -2017,6 +2017,21 @@ fold_convert_const_real_from_real (tree type, tree arg1)
   return t;
 }
 
+/* A subroutine of fold_convert_const handling conversions a FIXED_CST
+   to another fixed-point type.  */
+
+static tree
+fold_convert_const_fixed_from_fixed (tree type, tree arg1)
+{
+  FIXED_VALUE_TYPE value;
+  tree t;
+
+  fixed_convert (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1));
+  t = build_fixed (type, value);
+
+  return t;
+}
+
 /* Attempt to fold type conversion operation CODE of expression ARG1 to
    type TYPE.  If no simplification can be done return NULL_TREE.  */
 
@@ -2039,6 +2054,11 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 	return build_real_from_int_cst (type, arg1);
       if (TREE_CODE (arg1) == REAL_CST)
 	return fold_convert_const_real_from_real (type, arg1);
+    }
+  else if (TREE_CODE (type) == FIXED_POINT_TYPE)
+    {
+      if (TREE_CODE (arg1) == FIXED_CST)
+	return fold_convert_const_fixed_from_fixed (type, arg1);
     }
   return NULL_TREE;
 }
@@ -2136,6 +2156,15 @@ fold_convert (tree type, tree arg)
 	default:
 	  gcc_unreachable ();
 	}
+
+    case FIXED_POINT_TYPE:
+      if (TREE_CODE (orig) == FIXED_CST)
+	{
+	  tem = fold_convert_const (CONVERT_EXPR, type, arg);
+	  if (tem != NULL_TREE)
+	    return tem;
+	}
+      gcc_unreachable ();
 
     case COMPLEX_TYPE:
       switch (TREE_CODE (orig))
