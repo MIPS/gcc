@@ -970,11 +970,14 @@ handle_signature_attribute (int member_index, JCF *jcf,
 #define HANDLE_SYNTHETIC_ATTRIBUTE()					\
 {									\
   /* Irrelevant decls should have been nullified by the END macros.	\
-     We only handle the `Synthetic' attribute on method DECLs.		\
      DECL_ARTIFICIAL on fields is used for something else (See		\
      PUSH_FIELD in java-tree.h) */					\
   if (current_method)							\
     DECL_ARTIFICIAL (current_method) = 1;				\
+  else if (current_field)						\
+    FIELD_SYNTHETIC (current_field) = 1;				\
+  else									\
+    CLASS_SYNTHETIC (current_class) = 1;				\
 }
 
 #define HANDLE_GCJCOMPILED_ATTRIBUTE()		\

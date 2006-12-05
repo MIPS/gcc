@@ -1,3 +1,9 @@
+2006-12-05  Tom Tromey  <tromey@redhat.com>
+
+	PR java/29495:
+	* testsuite/libjava.lang/PR29495.out: New file.
+	* testsuite/libjava.lang/PR29495.java: New file.
+
 2006-12-05  Gary Benson  <gbenson@redhat.com>
 
 	* gnu/classpath/natVMStackWalker.cc: Comment fixes.

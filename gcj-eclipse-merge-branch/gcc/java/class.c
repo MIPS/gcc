@@ -499,6 +499,8 @@ set_class_decl_access_flags (int access_flags, tree class_decl)
   if (access_flags & ACC_PROTECTED) CLASS_PROTECTED (class_decl) = 1;
   if (access_flags & ACC_STRICT)    CLASS_STRICTFP (class_decl) = 1;
   if (access_flags & ACC_ENUM)      CLASS_ENUM (class_decl) = 1;
+  if (access_flags & ACC_SYNTHETIC) CLASS_SYNTHETIC (class_decl) = 1;
+  if (access_flags & ACC_ANNOTATION) CLASS_ANNOTATION (class_decl) = 1;
 }
 
 /* Return length of inheritance chain of CLAS, where java.lang.Object is 0,
@@ -750,6 +752,9 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
   if (access_flags & ACC_SYNCHRONIZED) METHOD_SYNCHRONIZED (fndecl) = 1;
   if (access_flags & ACC_ABSTRACT) METHOD_ABSTRACT (fndecl) = 1;
   if (access_flags & ACC_STRICT) METHOD_STRICTFP (fndecl) = 1;
+  if (access_flags & ACC_SYNTHETIC) DECL_ARTIFICIAL (fndecl) = 1;
+  if (access_flags & ACC_BRIDGE) METHOD_BRIDGE (fndecl) = 1;
+  if (access_flags & ACC_VARARGS) METHOD_VARARGS (fndecl) = 1;
   return fndecl;
 }
 
@@ -795,6 +800,7 @@ add_field (tree class, tree name, tree field_type, int flags)
     }
   if (flags & ACC_TRANSIENT) FIELD_TRANSIENT (field) = 1;
   if (flags & ACC_ENUM) FIELD_ENUM (field) = 1;
+  if (flags & ACC_SYNTHETIC) FIELD_SYNTHETIC (field) = 1;
   if (is_static)
     {
       FIELD_STATIC (field) = 1;
@@ -1225,6 +1231,8 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_TRANSIENT;
       if (FIELD_ENUM (decl))
 	access_flags |= ACC_ENUM;
+      if (FIELD_SYNTHETIC (decl))
+	access_flags |= ACC_SYNTHETIC;
       return access_flags;
     }
   if (TREE_CODE (decl) == TYPE_DECL)
@@ -1249,6 +1257,10 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_STRICT;
       if (CLASS_ENUM (decl))
 	access_flags |= ACC_ENUM;
+      if (CLASS_SYNTHETIC (decl))
+	access_flags |= ACC_SYNTHETIC;
+      if (CLASS_ANNOTATION (decl))
+	access_flags |= ACC_ANNOTATION;
       return access_flags;
     }
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -1273,6 +1285,12 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_STRICT;
       if (METHOD_INVISIBLE (decl))
 	access_flags |= ACC_INVISIBLE;
+      if (DECL_ARTIFICIAL (decl))
+	access_flags |= ACC_SYNTHETIC;
+      if (METHOD_BRIDGE (decl))
+	access_flags |= ACC_BRIDGE;
+      if (METHOD_VARARGS (decl))
+	access_flags |= ACC_VARARGS;
       return access_flags;
     }
   gcc_unreachable ();

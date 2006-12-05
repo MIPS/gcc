@@ -991,6 +991,8 @@ struct lang_decl_func GTY(())
 				   written to the .class file.  */
   unsigned int dummy : 1;
   unsigned int local_cni : 1;	/* Decl needs mangle_local_cni_method.  */
+  unsigned int bridge : 1;	/* Bridge method.  */
+  unsigned int varargs : 1;	/* Varargs method.  */
 };
 
 struct treetreehash_entry GTY(())
@@ -1103,6 +1105,9 @@ struct lang_decl GTY(())
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC (T)->poic)
 #define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC (T)->strictfp)
 #define TYPE_ENUM(T) 		(TYPE_LANG_SPECIFIC (T)->enum_class)
+#define TYPE_SYNTHETIC(T)	(TYPE_LANG_SPECIFIC (T)->synthetic)
+#define TYPE_ANNOTATION(T)	(TYPE_LANG_SPECIFIC (T)->annotation)
+
 #define TYPE_USES_ASSERTIONS(T) (TYPE_LANG_SPECIFIC (T)->assertions)
 
 #define TYPE_ATABLE_METHODS(T)   (TYPE_LANG_SPECIFIC (T)->atable_methods)
@@ -1191,6 +1196,8 @@ struct lang_type GTY(())
   unsigned assertions:1;	/* Any method uses `assert'.  */
   unsigned dummy_class:1;	/* Not a real class, just a placeholder.  */
   unsigned enum_class:1;	/* Class is an enum type.  */
+  unsigned synthetic:1;		/* Class is synthetic.  */
+  unsigned annotation:1;	/* Class is an annotation type.  */
 };
 
 #define JCF_u4 unsigned long
@@ -1468,6 +1475,10 @@ extern void rewrite_reflection_indexes (void *);
   (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.f.strictfp)
 #define METHOD_INVISIBLE(DECL) \
   (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.f.invisible)
+#define METHOD_BRIDGE(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.f.bridge)
+#define METHOD_VARARGS(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.f.varargs)
 
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)
 
@@ -1511,6 +1522,8 @@ extern void rewrite_reflection_indexes (void *);
 #define CLASS_STRICTFP(DECL)	(TYPE_STRICTFP (TREE_TYPE (DECL)))
 #define CLASS_ENUM(DECL)	(TYPE_ENUM (TREE_TYPE (DECL)))
 #define CLASS_USES_ASSERTIONS(DECL) (TYPE_USES_ASSERTIONS (TREE_TYPE (DECL)))
+#define CLASS_SYNTHETIC(DECL)   (TYPE_SYNTHETIC (TREE_TYPE (DECL)))
+#define CLASS_ANNOTATION(DECL)  (TYPE_ANNOTATION (TREE_TYPE (DECL)))
 
 /* @deprecated marker flag on methods, fields and classes */
 
