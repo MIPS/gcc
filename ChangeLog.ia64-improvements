@@ -1,5 +1,21 @@
 2006-12-04  Robert Kidd  <rkidd@crhc.uiuc.edu>
 
+	* libjava/java/util/logging/LogManager.java,
+	libjava/classpath/tools/.cvsignore,
+	libjava/classpath/java/text/DateFormatSymbols.java,
+	libjava/classpath/java/text/SimpleDateFormat.java,
+	libjava/classpath/java/text/NumberFormat.java,
+	libjava/classpath/java/text/RuleBasedCollator.java,
+	libjava/classpath/java/text/Bidi.java,
+	libjava/classpath/java/text/DecimalFormat.java,
+	libjava/classpath/java/text/Collator.java,
+	libjava/classpath/java/text/class-dependencies.conf,
+	libjava/classpath/java/text/AttributedString.java,
+	libjava/classpath/java/text/AttributedCharacterIterator.java:
+	Manually merging changes to mainline through revision 119296.
+
+2006-12-04  Robert Kidd  <rkidd@crhc.uiuc.edu>
+
 	* Merging changes to mainline through revision 119296
 
 2006-04-12  Robert Kidd  <rkidd@crhc.uiuc.edu>
