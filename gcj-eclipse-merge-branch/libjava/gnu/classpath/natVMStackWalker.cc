@@ -42,9 +42,15 @@ gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
   _Jv_StackTrace::UpdateNCodeMap ();
   jclass klass = (jclass) _Jv_StackTrace::ncodeMap->get ((jobject) f);
 
-  // FIXME: If klass is null at this point, we need to use the
-  // unwinder machinery to scan the stack to find the real caller.
-  JvAssert (klass);
+  // If the caller is a compiled frame and the caller of the caller
+  // is an interpreted frame then klass will be null and we need to
+  // unwind the stack.
+  if (klass == NULL)
+    {
+      JArray<jclass> *ctx = getClassContext ();
+      if (ctx->length >= 3)
+	klass = elements(ctx)[2];
+    }
 
   return klass;
 }
