@@ -36,6 +36,9 @@ extern "Java"
 class java::lang::VMCompiler : public ::java::lang::Object
 {
 
+public:
+  static jboolean precompiles();
+private:
   VMCompiler();
   static ::java::lang::Class * loadSharedLibrary(::java::lang::ClassLoader *, ::java::lang::String *, ::java::security::ProtectionDomain *, ::java::lang::String *);
 public:

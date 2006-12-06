@@ -1,3 +1,22 @@
+2006-12-05  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am: Add java/lang/reflect/natVMProxy.cc.
+	* java/lang/reflect/Method.java (exception_types, parameter_types,
+	return_type): Make package private.
+	* include/jvm.h (_Jv_makeUtf8Const(const char *s)): New function.
+	(_Jv_Linker::layout_vtable_methods): Given
+	public linkage.
+	(_Jv_Linker::search_method_in_class): Likewise.
+	* interpret.cc (_Jv_init_cif): Renamed from init_cif.  Given
+	public linkage.
+	* include/java-interp.h (_Jv_init_cif): Likewise.
+	* java/lang/reflect/natVMProxy.cc: New file.
+	* java/lang/VMCompiler.java (precompiles): New method.
+	(compileClass): Use it.
+	* java/lang/reflect/VMProxy.java
+	(HAVE_NATIVE_GENERATE_PROXY_CLASS): true.
+	(generateProxyClass): Native.
+	
 2006-12-05  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.

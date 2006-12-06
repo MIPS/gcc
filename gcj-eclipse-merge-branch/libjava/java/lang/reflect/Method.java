@@ -470,13 +470,13 @@ public final class Method
   private Class declaringClass;
 
   // Exception types.
-  private Class[] exception_types;
+  Class[] exception_types;
   // Name cache.  (Initially null.)
   private String name;
   // Parameter types.
-  private Class[] parameter_types;
+  Class[] parameter_types;
   // Return type.
-  private Class return_type;
+  Class return_type;
 
   // Offset in bytes from the start of declaringClass's methods array.
   private int offset;

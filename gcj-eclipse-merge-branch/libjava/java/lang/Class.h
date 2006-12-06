@@ -619,6 +619,7 @@ private:
   friend class java::lang::reflect::Field;
   friend class java::lang::reflect::Method;
   friend class java::lang::reflect::Constructor;
+  friend class java::lang::reflect::VMProxy;
 
   // Chain for class pool.  This also doubles as the ABI version
   // number.  It is only used for this purpose at class registration

@@ -45,6 +45,12 @@ int  _Jv_count_arguments (_Jv_Utf8Const *signature,
 			  jboolean staticp = true);
 void _Jv_VerifyMethod (_Jv_InterpMethod *method);
 void _Jv_CompileMethod (_Jv_InterpMethod* method);
+int _Jv_init_cif (_Jv_Utf8Const* signature,
+		  int arg_count,
+		  jboolean staticp,
+		  ffi_cif *cif,
+		  ffi_type **arg_types,
+		  ffi_type **rtype_p);
 
 /* the interpreter is written in C++, primarily because it makes it easy for
  * the entire thing to be "friend" with class Class. */

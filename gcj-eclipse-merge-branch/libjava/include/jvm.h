@@ -141,6 +141,10 @@ extern int _Jv_strLengthUtf8(const char* str, int len);
 typedef struct _Jv_Utf8Const Utf8Const;
 _Jv_Utf8Const *_Jv_makeUtf8Const (const char *s, int len);
 _Jv_Utf8Const *_Jv_makeUtf8Const (jstring string);
+static inline _Jv_Utf8Const *_Jv_makeUtf8Const (const char *s)
+{
+  return _Jv_makeUtf8Const (s, strlen (s));
+}
 extern jboolean _Jv_equalUtf8Consts (const _Jv_Utf8Const *, const _Jv_Utf8Const *);
 extern jboolean _Jv_equal (_Jv_Utf8Const *, jstring, jint);
 extern jboolean _Jv_equaln (_Jv_Utf8Const *, jstring, jint);
@@ -266,7 +270,6 @@ private:
   static void link_symbol_table(jclass);
   static void link_exception_table(jclass);
   static void layout_interface_methods(jclass);
-  static void layout_vtable_methods(jclass);
   static void set_vtable_entries(jclass, _Jv_VTable *);
   static void make_vtable(jclass);
   static void ensure_fields_laid_out(jclass);
@@ -280,10 +283,6 @@ private:
   static int get_alignment_from_class(jclass);
   static void generate_itable(jclass, _Jv_ifaces *, jshort *);
   static jshort append_partial_itable(jclass, jclass, void **, jshort);
-  static _Jv_Method *search_method_in_class (jclass, jclass,
-					     _Jv_Utf8Const *,
-					     _Jv_Utf8Const *,
-					     bool check_perms = true);
   static _Jv_Method *search_method_in_superclasses (jclass cls, jclass klass, 
 						    _Jv_Utf8Const *method_name,
  						    _Jv_Utf8Const *method_signature,
@@ -320,6 +319,11 @@ public:
   static _Jv_word resolve_pool_entry (jclass, int, bool =false);
   static void resolve_field (_Jv_Field *, java::lang::ClassLoader *);
   static void verify_type_assertions (jclass);
+  static _Jv_Method *search_method_in_class (jclass, jclass,
+					     _Jv_Utf8Const *,
+					     _Jv_Utf8Const *,
+					     bool check_perms = true);
+  static void layout_vtable_methods(jclass);
 };
 
 /* Type of pointer used as finalizer.  */

@@ -55,10 +55,14 @@ public: // actually package-private
   static const jint METHOD_MODIFIERS = 3391;
 private:
   ::java::lang::Class * __attribute__((aligned(__alignof__( ::java::lang::reflect::AccessibleObject)))) declaringClass;
+public: // actually package-private
   JArray< ::java::lang::Class * > * exception_types;
+private:
   ::java::lang::String * name;
+public: // actually package-private
   JArray< ::java::lang::Class * > * parameter_types;
   ::java::lang::Class * return_type;
+private:
   jint offset;
 public:
   static ::java::lang::Class class$;

@@ -311,7 +311,8 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/lang/reflect/natArray.cc \
 	java/lang/reflect/natConstructor.cc \
 	java/lang/reflect/natField.cc java/lang/reflect/natMethod.cc \
-	java/net/natVMInetAddress.cc java/net/natVMNetworkInterface.cc \
+	java/lang/reflect/natVMProxy.cc java/net/natVMInetAddress.cc \
+	java/net/natVMNetworkInterface.cc \
 	java/net/natVMURLConnection.cc \
 	java/nio/channels/natVMChannels.cc \
 	java/nio/natDirectByteBufferImpl.cc \
@@ -373,7 +374,8 @@ am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	java/lang/reflect/natArray.lo \
 	java/lang/reflect/natConstructor.lo \
 	java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
-	java/net/natVMInetAddress.lo java/net/natVMNetworkInterface.lo \
+	java/lang/reflect/natVMProxy.lo java/net/natVMInetAddress.lo \
+	java/net/natVMNetworkInterface.lo \
 	java/net/natVMURLConnection.lo \
 	java/nio/channels/natVMChannels.lo \
 	java/nio/natDirectByteBufferImpl.lo \
@@ -7639,6 +7641,7 @@ java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
+java/lang/reflect/natVMProxy.cc \
 java/net/natVMInetAddress.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natVMURLConnection.cc \
@@ -8161,6 +8164,8 @@ java/lang/reflect/natField.lo: java/lang/reflect/$(am__dirstamp) \
 	java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
 java/lang/reflect/natMethod.lo: java/lang/reflect/$(am__dirstamp) \
 	java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
+java/lang/reflect/natVMProxy.lo: java/lang/reflect/$(am__dirstamp) \
+	java/lang/reflect/$(DEPDIR)/$(am__dirstamp)
 java/net/$(am__dirstamp):
 	@$(mkdir_p) java/net
 	@: > java/net/$(am__dirstamp)
@@ -8556,6 +8561,8 @@ mostlyclean-compile:
 	-rm -f java/lang/reflect/natField.lo
 	-rm -f java/lang/reflect/natMethod.$(OBJEXT)
 	-rm -f java/lang/reflect/natMethod.lo
+	-rm -f java/lang/reflect/natVMProxy.$(OBJEXT)
+	-rm -f java/lang/reflect/natVMProxy.lo
 	-rm -f java/net/natVMInetAddress.$(OBJEXT)
 	-rm -f java/net/natVMInetAddress.lo
 	-rm -f java/net/natVMNetworkInterface.$(OBJEXT)
@@ -8698,6 +8705,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/reflect/$(DEPDIR)/natConstructor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/reflect/$(DEPDIR)/natField.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/reflect/$(DEPDIR)/natMethod.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/lang/reflect/$(DEPDIR)/natVMProxy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/net/$(DEPDIR)/natVMInetAddress.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/net/$(DEPDIR)/natVMNetworkInterface.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/net/$(DEPDIR)/natVMURLConnection.Plo@am__quote@

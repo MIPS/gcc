@@ -782,6 +782,7 @@ java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
+java/lang/reflect/natVMProxy.cc \
 java/net/natVMInetAddress.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natVMURLConnection.cc \

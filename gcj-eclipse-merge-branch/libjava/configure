@@ -2366,13 +2366,13 @@ if test "$ac_test_CFLAGS" = set; then
   CFLAGS=$ac_save_CFLAGS
 elif test $ac_cv_prog_cc_g = yes; then
   if test "$GCC" = yes; then
-    CFLAGS="-g -O2"
+    CFLAGS="-g -O0"
   else
     CFLAGS="-g"
   fi
 else
   if test "$GCC" = yes; then
-    CFLAGS="-O2"
+    CFLAGS="-O0"
   else
     CFLAGS=
   fi
@@ -2873,13 +2873,13 @@ if test "$ac_test_CXXFLAGS" = set; then
   CXXFLAGS=$ac_save_CXXFLAGS
 elif test $ac_cv_prog_cxx_g = yes; then
   if test "$GXX" = yes; then
-    CXXFLAGS="-g -O2"
+    CXXFLAGS="-g -O0"
   else
     CXXFLAGS="-g"
   fi
 else
   if test "$GXX" = yes; then
-    CXXFLAGS="-O2"
+    CXXFLAGS="-O0"
   else
     CXXFLAGS=
   fi
@@ -6536,7 +6536,7 @@ test -z "$GCJ" && { { echo "$as_me:$LINENO: error: no acceptable gcj found in \$
 echo "$as_me: error: no acceptable gcj found in \$PATH" >&2;}
    { (exit 1); exit 1; }; }
 if test "x${GCJFLAGS-unset}" = xunset; then
-   GCJFLAGS="-g -O2"
+   GCJFLAGS="-g -O0"
 fi
 
 
@@ -14498,7 +14498,7 @@ else
   GCJ="$ac_cv_prog_GCJ"
 fi
 
-  test "x${GCJFLAGS+set}" = xset || GCJFLAGS="-g -O2"
+  test "x${GCJFLAGS+set}" = xset || GCJFLAGS="-g -O0"
 
 
 
