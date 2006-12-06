@@ -847,6 +847,7 @@ extern "C" jstring _Jv_NewStringLatin1(const char*, jsize)
 extern "C" jsize _Jv_GetStringUTFLength (jstring);
 extern "C" jsize _Jv_GetStringUTFRegion (jstring, jsize, jsize, char *);
 extern "C" jint _Jv_hashUtf8String (const char*, int);
+extern bool _Jv_is_proxy (void *pc);
 
 struct _Jv_VMOption
 {

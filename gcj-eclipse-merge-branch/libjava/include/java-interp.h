@@ -318,18 +318,27 @@ public:
 // The interpreted call stack, represented by a linked list of frames.
 struct _Jv_InterpFrame
 {
-  _Jv_InterpMethod *self;
+  union
+  {
+    void *meth;
+    _Jv_InterpMethod *self;
+    _Jv_Method *proxyMethod;
+  };
   java::lang::Thread *thread;
   _Jv_InterpFrame *next;
-  pc_t pc;
-
-  _Jv_InterpFrame (_Jv_InterpMethod *s, java::lang::Thread *thr)
+  union
   {
-    self = s;
+    pc_t pc;
+    jclass proxyClass;
+  };
+  
+  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyClass = NULL)
+  {
+    this->meth = meth;
     thread = thr;
     next = (_Jv_InterpFrame *) thr->interp_frame;
     thr->interp_frame = (gnu::gcj::RawData *) this;
-    pc = NULL;
+    this->proxyClass = proxyClass;
   }
 
   ~_Jv_InterpFrame ()

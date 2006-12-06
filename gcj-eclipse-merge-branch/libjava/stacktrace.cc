@@ -135,8 +135,17 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
       state->frames[pos].interp.pc = state->interp_frame->pc;
       state->interp_frame = state->interp_frame->next;
     }
-  else
+  else 
 #endif
+  // We handle proxies in the same way as interpreted classes
+  if (_Jv_is_proxy (func_addr))
+    {
+      state->frames[pos].type = frame_proxy;
+      state->frames[pos].proxyClass = state->interp_frame->proxyClass;
+      state->frames[pos].proxyMethod = state->interp_frame->proxyMethod;
+      state->interp_frame = state->interp_frame->next;
+    }
+  else 
     {
 #ifdef HAVE_GETIPINFO
       _Unwind_Ptr ip;
@@ -203,6 +212,13 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
       return;
     }
 #endif
+
+  if (frame->type == frame_proxy)
+    {
+      *sourceFileName = NULL;
+      *lineNum = 0;
+      return;
+    }
 
   // Use _Jv_platform_dladdr() to determine in which binary the address IP
   // resides.
@@ -275,6 +291,11 @@ _Jv_StackTrace::FillInFrameInfo (_Jv_StackFrame *frame)
 		break;
 	      }
 	  }
+    }
+  else if (frame->type == frame_proxy)
+    {
+      klass = frame->proxyClass;
+      meth = frame->proxyMethod;
     }
 #ifdef INTERPRETER
   else if (frame->type == frame_interpreter)

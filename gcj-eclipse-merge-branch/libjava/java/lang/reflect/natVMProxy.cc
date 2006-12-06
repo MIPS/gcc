@@ -18,6 +18,7 @@ details.  */
 
 #include <config.h>
 #include <platform.h>
+#include <sysdep/descriptor.h>
 
 #include <limits.h>
 #include <string.h>
@@ -70,6 +71,13 @@ static void run_proxy (ffi_cif*, void*, void**, void*);
 
 typedef jobject invoke_t (jobject, Proxy *, Method *, JArray< jobject > *);
 
+// True if pc points to a proxy frame.
+
+bool 
+_Jv_is_proxy (void *pc)
+{
+  return pc == UNWRAP_FUNCTION_DESCRIPTOR ((void*)&run_proxy);
+}
 
 // Generate a proxy class by using libffi closures for each entry
 // point.
@@ -294,8 +302,17 @@ run_proxy (ffi_cif *cif,
 	   void **args,
 	   void*user_data)
 {
-  ncode_closure *self = (ncode_closure *) user_data;
   Proxy *proxy = *(Proxy**)args[0];
+  ncode_closure *self = (ncode_closure *) user_data;
+
+  // FRAME_DESC registers this particular invocation as the top-most
+  // interpreter frame.  This lets the stack tracing code (for
+  // Throwable) print information about the Proxy being run rather
+  // than about Proxy.class itself.  FRAME_DESC has a destructor so it
+  // cleans up automatically when this proxy invocation returns.
+  Thread *thread = Thread::currentThread();
+  _Jv_InterpFrame frame_desc (self->self, thread, proxy->getClass());
+
   InvocationHandler *handler = proxy->h;
   void *poo 
     = _Jv_NewObjectArray (self->meth->parameter_types->length, &Object::class$, NULL);

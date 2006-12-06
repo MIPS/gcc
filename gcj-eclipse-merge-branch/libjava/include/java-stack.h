@@ -44,7 +44,8 @@ extern "Java"
 enum _Jv_FrameType
 {
   frame_native,
-  frame_interpreter
+  frame_interpreter,
+  frame_proxy
 };
 
 #ifdef INTERPRETER
@@ -66,6 +67,10 @@ struct _Jv_StackFrame
 #ifdef INTERPRETER
     _Jv_InterpFrameInfo interp;
 #endif
+    struct {
+      jclass proxyClass;
+      _Jv_Method *proxyMethod;
+    };
     struct {
       void *ip;
       void *start_ip;
