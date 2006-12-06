@@ -1,3 +1,7 @@
+2006-12-05  Mohan Embar  <gnustuff@thisiscool.com>
+
+        * configure: Regenerated with autoconf 2.13.
+
 2006-11-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* configure.in: Robustify error message for missing GMP/MPFR.
