@@ -1,3 +1,11 @@
+2006-11-06  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc,
+	testsuite/27_io/basic_stringbuf/overflow/char/1.cc,
+	testsuite/27_io/basic_stringbuf/overflow/wchar_t/1.cc: Revert
+	XFAILs.
+
 2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/testsuite/

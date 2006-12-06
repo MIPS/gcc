@@ -20,8 +20,6 @@
 
 // 27.7.1.3 basic_stringbuf overridden virtual functions.
 
-// { dg-do run { xfail arm-wrs-linux-gnueabi } }
-
 #include <sstream>
 #include <cstdlib>
 #include <testsuite_hooks.h>
