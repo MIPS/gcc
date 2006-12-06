@@ -1,3 +1,7 @@
+2006-12-06  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* lang-specs.h: Pass '%U'-based options as separate arguments.
+
 2006-12-05  Tom Tromey  <tromey@redhat.com>
 
 	PR java/29495:
