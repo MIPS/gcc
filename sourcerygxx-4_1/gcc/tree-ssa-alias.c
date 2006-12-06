@@ -716,6 +716,12 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	  if (pi->pt_vars)
 	    EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 	      mark_call_clobbered (referenced_var (j));
+
+	  /* CSL#1060, conservative fix mentioned in GCC PR28778/20 */
+	  if (pi->pt_anything)
+	    EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, j, bi)
+	      if (!unmodifiable_var_p (referenced_var (j)))
+		mark_call_clobbered (referenced_var (j));
 	}
 
       /* Set up aliasing information for PTR's name memory tag (if it has

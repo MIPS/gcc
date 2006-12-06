@@ -1,3 +1,18 @@
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/testsuite/
+	Backport:
+	2006-10-19  Daniel Berlin  <dberlin@dberlin.org>
+	* gcc/testsuite/gcc.c-torture/execute/pr28778.c
+	* gcc/testsuite/gcc.c-torture/execute/pr29156.c
+
+2006-12-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	Richard Guenther's conservative fix for PR28778 attachment 20
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): If
+	pt_anything is set, mark all addressable_vars as call clobbered.
+
 2006-12-06  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/
