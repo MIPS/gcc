@@ -1,4 +1,4 @@
-2006-11-06  Joseph Myers  <joseph@codesourcery.com>
+2006-12-06  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/
 	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc,
