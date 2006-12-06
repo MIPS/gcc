@@ -35,7 +35,7 @@ classpath/gnu/CORBA/DuplicateNameHolder.java \
 classpath/gnu/CORBA/DynAn/AbstractAny.java \
 classpath/gnu/CORBA/DynAn/DivideableAny.java \
 classpath/gnu/CORBA/DynAn/NameValuePairHolder.java \
-gnu/CORBA/DynAn/RecordAny.java \
+classpath/gnu/CORBA/DynAn/RecordAny.java \
 classpath/gnu/CORBA/DynAn/UndivideableAny.java \
 classpath/gnu/CORBA/DynAn/ValueChangeListener.java \
 classpath/gnu/CORBA/DynAn/gnuDynAny.java \
@@ -46,7 +46,7 @@ classpath/gnu/CORBA/DynAn/gnuDynFixed.java \
 classpath/gnu/CORBA/DynAn/gnuDynSequence.java \
 classpath/gnu/CORBA/DynAn/gnuDynStruct.java \
 classpath/gnu/CORBA/DynAn/gnuDynUnion.java \
-gnu/CORBA/DynAn/gnuDynValue.java \
+classpath/gnu/CORBA/DynAn/gnuDynValue.java \
 classpath/gnu/CORBA/DynAn/gnuDynValueBox.java \
 classpath/gnu/CORBA/DynAnySeqHolder.java \
 classpath/gnu/CORBA/EmptyExceptionHolder.java \

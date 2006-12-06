@@ -1,3 +1,11 @@
+2006-12-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/24938:
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/CORBA/DynAn/gnuDynValue.java: Removed.
+	* gnu/CORBA/DynAn/RecordAny.java: Removed.
+	* gnu/CORBA/DynAn/RecordAny.h: Rebuilt.
+
 2006-12-06  Andrew Haley  <aph@redhat.com>
 
 	* gcj/javaprims.h (_Jv_is_proxy): Declare.

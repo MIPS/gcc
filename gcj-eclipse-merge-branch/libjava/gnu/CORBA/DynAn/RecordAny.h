@@ -65,9 +65,6 @@ public: // actually protected
 public:
   virtual ::org::omg::CORBA::Any * to_any();
   virtual void from_any(::org::omg::CORBA::Any *);
-public: // actually package-private
-  virtual jint record_component_count();
-  virtual jboolean record_equal(::org::omg::DynamicAny::DynAny *);
 private:
   static const jlong serialVersionUID = 1LL;
 public: // actually package-private
