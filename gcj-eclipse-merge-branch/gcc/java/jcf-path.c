@@ -457,6 +457,9 @@ jcf_path_next (void *x)
   return (void *) ent->next;
 }
 
+static const char
+PATH_SEPARATOR_STR[] = {PATH_SEPARATOR, '\0'};
+
 char *
 jcf_path_compute (const char *prefix)
 {
@@ -474,7 +477,7 @@ jcf_path_compute (const char *prefix)
   for (iter = sealed; iter != NULL; iter = iter->next)
     {
       if (! first)
-	strcat (result, ":");
+	strcat (result, PATH_SEPARATOR_STR);
       first = 0;
       strcat (result, iter->name);
       /* Ugly: we want to strip the '/' from zip entries when
