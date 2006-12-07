@@ -652,6 +652,7 @@
     || (memory_operand (inner, mode)
 	&& GET_CODE (XEXP (inner, 0)) != PRE_INC
 	&& GET_CODE (XEXP (inner, 0)) != PRE_DEC
+	&& GET_CODE (XEXP (inner, 0)) != PRE_MODIFY
 	&& (GET_CODE (XEXP (inner, 0)) != PLUS
 	    || GET_CODE (XEXP (XEXP (inner, 0), 1)) != CONST_INT
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
