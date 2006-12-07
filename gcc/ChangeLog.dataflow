@@ -1,5 +1,14 @@
 2006-12-07  David Edelsohn  <edelsohn@gnu.org>
 
+	* config/rs6000/predicates.md (lwa_operand): Allow PRE_MODIFY
+	indexed address.
+	* config/rs6000/rs6000-protos.h (legitimate_indexed_address_p):
+	Declare.
+	* config/rs6000/rs6000.c (legitimate_indexed_address_p): Remove
+	static.
+
+2006-12-07  David Edelsohn  <edelsohn@gnu.org>
+
 	* config/rs6000/predicates.md (lwa_operand): Exclude PRE_MODIFY
 	addresses.
 

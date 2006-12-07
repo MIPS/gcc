@@ -638,8 +638,8 @@
        (match_operand 0 "reg_or_mem_operand")))
 
 ;; Return 1 if the operand is a general register or memory operand without
-;; pre_inc or pre_dec, which produces invalid form of PowerPC lwa
-;; instruction.
+;; pre_inc or pre_dec or pre_modify, which produces invalid form of PowerPC
+;; lwa instruction.
 (define_predicate "lwa_operand"
   (match_code "reg,subreg,mem")
 {
@@ -652,7 +652,8 @@
     || (memory_operand (inner, mode)
 	&& GET_CODE (XEXP (inner, 0)) != PRE_INC
 	&& GET_CODE (XEXP (inner, 0)) != PRE_DEC
-	&& GET_CODE (XEXP (inner, 0)) != PRE_MODIFY
+	&& (GET_CODE (XEXP (inner, 0)) != PRE_MODIFY
+	    || legitimate_indexed_address_p (XEXP (XEXP (inner, 0), 1), 0))
 	&& (GET_CODE (XEXP (inner, 0)) != PLUS
 	    || GET_CODE (XEXP (XEXP (inner, 0), 1)) != CONST_INT
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
