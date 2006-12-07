@@ -133,6 +133,7 @@ private:
   static _Unwind_Reason_Code calling_class_trace_fn (_Jv_UnwindState *state);
   static _Unwind_Reason_Code non_system_trace_fn (_Jv_UnwindState *state);
   static _Unwind_Reason_Code accesscontrol_trace_fn (_Jv_UnwindState *state);
+  static _Unwind_Reason_Code stackwalker_trace_fn (_Jv_UnwindState *state);
 
 public:
   static _Jv_StackTrace *GetStackTrace (void);
@@ -144,6 +145,7 @@ public:
   static ClassLoader *GetFirstNonSystemClassLoader (void);
   static jobjectArray GetAccessControlStack ();
   static JArray<jclass> *GetStackWalkerStack ();
+  static jclass GetStackWalkerCallingClass ();
 
   friend jclass _Jv_GetMethodDeclaringClass (jmethodID);
   friend class gnu::classpath::VMStackWalker;

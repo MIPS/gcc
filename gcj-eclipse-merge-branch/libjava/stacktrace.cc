@@ -678,3 +678,78 @@ _Jv_StackTrace::GetStackWalkerStack ()
  
   return result;
 }
+
+typedef enum
+  {
+    VMSW_GETCLASSCONTEXT,
+    JLRM_INVOKE_OR_CALLER,
+    CALLER,
+    CALLER_OF_CALLER
+  } gswcc_expect;
+
+struct StackWalkerTraceData
+{
+  gswcc_expect expect;
+  jclass result;
+};
+
+_Unwind_Reason_Code
+_Jv_StackTrace::stackwalker_trace_fn (_Jv_UnwindState *state)
+{
+  StackWalkerTraceData *trace_data = (StackWalkerTraceData *)
+    state->trace_data;
+  _Jv_StackFrame *frame = &state->frames[state->pos];
+  FillInFrameInfo (frame);
+
+  if (!(frame->klass && frame->meth))
+    return _URC_NO_REASON;
+
+  switch (trace_data->expect)
+    {
+    case VMSW_GETCLASSCONTEXT:
+      JvAssert (
+	frame->klass == &::gnu::classpath::VMStackWalker::class$
+	&& strcmp (frame->meth->name->chars(), "getClassContext") == 0);
+      trace_data->expect = JLRM_INVOKE_OR_CALLER;
+      break;
+
+    case JLRM_INVOKE_OR_CALLER:
+      if (frame->klass == &::java::lang::reflect::Method::class$
+	  && strcmp (frame->meth->name->chars(), "invoke") == 0)
+	trace_data->expect = CALLER;
+      else
+	trace_data->expect = CALLER_OF_CALLER;
+      break;
+
+    case CALLER:
+      trace_data->expect = CALLER_OF_CALLER;
+      break;
+
+    case CALLER_OF_CALLER:
+      trace_data->result = frame->klass;
+      return _URC_NORMAL_STOP;
+    }
+
+  return _URC_NO_REASON;
+}
+
+jclass
+_Jv_StackTrace::GetStackWalkerCallingClass (void)
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  StackWalkerTraceData trace_data;
+  trace_data.expect = VMSW_GETCLASSCONTEXT;
+  trace_data.result = NULL;
+  
+  state.trace_function = stackwalker_trace_fn;
+  state.trace_data = (void *) &trace_data;
+
+  UpdateNCodeMap();
+  _Unwind_Backtrace (UnwindTraceFn, &state);
+
+  return trace_data.result;
+}

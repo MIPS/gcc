@@ -25,6 +25,12 @@ gnu::classpath::VMStackWalker::getClassContext(void)
 }
 
 jclass
+gnu::classpath::VMStackWalker::getCallingClass(void)
+{
+  return _Jv_StackTrace::GetStackWalkerCallingClass ();
+}
+
+jclass
 gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
 {
   void *f = _Unwind_FindEnclosingFunction (pc);
@@ -43,11 +49,7 @@ gnu::classpath::VMStackWalker::getCallingClass(::gnu::gcj::RawData *pc)
   // is an interpreted frame then klass will be null and we need to
   // unwind the stack.
   if (klass == NULL)
-    {
-      JArray<jclass> *ctx = getClassContext ();
-      if (ctx->length >= 3)
-	klass = elements(ctx)[2];
-    }
+    klass = _Jv_StackTrace::GetStackWalkerCallingClass ();
 
   return klass;
 }

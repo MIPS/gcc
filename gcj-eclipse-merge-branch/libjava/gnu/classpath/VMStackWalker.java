@@ -85,13 +85,7 @@ public final class VMStackWalker
    * method. <code>getCallingClass(addr)</code> does not unwind the
    * stack, so is therefore more efficient.
    */
-  public static Class getCallingClass()
-  {
-    Class[] ctx = getClassContext();
-    if (ctx.length < 3)
-      return null;
-    return ctx[2];
-  }
+  public static native Class getCallingClass();
 
   /**
    * Get the class associated with the method invoking the method
