@@ -306,8 +306,7 @@ struct _Jv_ClassReader
   void handleInterfacesBegin (int);
   void handleInterface (int, int);
   void handleFieldsBegin (int);
-  void handleField (int, int, int, int);
-  void handleFieldsEnd ();
+  void handleField (int, int, int, int, int *);
   void handleConstantValueAttribute (int, int, bool *);
   void handleMethodsBegin (int);
   void handleMethod (int, int, int, int);
@@ -644,7 +643,7 @@ _Jv_ClassReader::handleParameterAnnotations(int member_index, int len)
 
   ::java::io::DataOutputStream *stream = get_reflection_stream ();
   stream->writeByte(JV_METHOD_ATTR);
-  stream->writeByte(len + 3);
+  stream->writeInt(len + 3);
   stream->writeByte(JV_PARAMETER_ANNOTATIONS_KIND);
   stream->writeShort(member_index);
   stream->write(input_data, input_offset + orig_pos, len);
@@ -710,6 +709,47 @@ void _Jv_ClassReader::read_fields ()
   int fields_count = read2u ();
   handleFieldsBegin (fields_count);
 
+  // We want to sort the fields so that static fields come first,
+  // followed by instance fields.  We do this before parsing the
+  // fields so that we can have the new indices available when
+  // creating the annotation data structures.
+
+  // Allocate this on the heap in case there are a large number of
+  // fields.
+  int *fieldmap = (int *) _Jv_AllocBytes (fields_count * sizeof (int));
+  int save_pos = pos;
+  int static_count = 0, instance_count = -1;
+  for (int i = 0; i < fields_count; ++i)
+    {
+      using namespace java::lang::reflect;
+
+      int access_flags = read2u ();
+      skip (4);
+      int attributes_count = read2u ();
+
+      if ((access_flags & Modifier::STATIC) != 0) 
+	fieldmap[i] = static_count++;
+      else
+	fieldmap[i] = instance_count--;
+
+      for (int j = 0; j < attributes_count; ++j)
+	{
+	  skip (2);
+	  int length = read4 ();
+	  skip (length);
+	}
+    }
+  pos = save_pos;
+
+  // In the loop above, instance fields are represented by negative
+  // numbers.  Here we rewrite these to be proper offsets.
+  for (int i = 0; i < fields_count; ++i)
+    {
+      if (fieldmap[i] < 0)
+	fieldmap[i] = static_count - 1 - fieldmap[i];
+    }
+  def->static_field_count = static_count;
+
   for (int i = 0; i < fields_count; i++)
     {
       int access_flags     = read2u ();
@@ -723,16 +763,14 @@ void _Jv_ClassReader::read_fields ()
       check_tag (descriptor_index, JV_CONSTANT_Utf8);
       prepare_pool_entry (descriptor_index, JV_CONSTANT_Utf8);
 
-      handleField (i, access_flags, name_index, descriptor_index);
+      handleField (i, access_flags, name_index, descriptor_index, fieldmap);
 
       bool found_value = false;
       for (int j = 0; j < attributes_count; j++)
 	{
-	  read_one_field_attribute (i, &found_value);
+	  read_one_field_attribute (fieldmap[i], &found_value);
 	}
     }
-
-  handleFieldsEnd ();
 }
 
 bool
@@ -1420,13 +1458,14 @@ void _Jv_ClassReader::handleFieldsBegin (int count)
 void _Jv_ClassReader::handleField (int field_no,
 				   int flags,
 				   int name,
-				   int desc)
+				   int desc,
+				   int *fieldmap)
 {
   using namespace java::lang::reflect;
 
   _Jv_word *pool_data = def->constants.data;
 
-  _Jv_Field *field = &def->fields[field_no];
+  _Jv_Field *field = &def->fields[fieldmap[field_no]];
   _Jv_Utf8Const *field_name = pool_data[name].utf8;
 
   field->name      = field_name;
@@ -1444,7 +1483,7 @@ void _Jv_ClassReader::handleField (int field_no,
 
       for (int i = 0; i < field_no; ++i)
 	{
-	  if (_Jv_equalUtf8Consts (field_name, def->fields[i].name)
+	  if (_Jv_equalUtf8Consts (field_name, def->fields[fieldmap[i]].name)
 	      && _Jv_equalUtf8Consts (sig,
 				      // We know the other fields are
 				      // unresolved.
@@ -1504,53 +1543,6 @@ void _Jv_ClassReader::handleConstantValueAttribute (int field_index,
 
   /* FIXME: do the rest */
 }
-
-void _Jv_ClassReader::handleFieldsEnd ()
-{
-  using namespace java::lang::reflect;
-
-  // We need to reorganize the fields so that the static ones are first,
-  // to conform to GCJ class layout.
-
-  int low            = 0;
-  int high           = def->field_count-1;
-  _Jv_Field  *fields = def->fields;
-  _Jv_ushort *inits  = def_interp->field_initializers;
-
-  // this is kind of a raw version of quicksort.
-  while (low < high)
-    {
-      // go forward on low, while it's a static
-      while (low < high && (fields[low].flags & Modifier::STATIC) != 0)
-	low++;
-      
-      // go backwards on high, while it's a non-static
-      while (low < high && (fields[high].flags & Modifier::STATIC) == 0)
-	high--;
-
-      if (low==high)
-	break;
-
-      _Jv_Field  tmp  = fields[low];
-      _Jv_ushort itmp = inits[low];
-	  
-      fields[low] = fields[high];
-      inits[low]  = inits[high];
-	  
-      fields[high] = tmp;
-      inits[high]  = itmp;
-	  
-      high -= 1;
-      low  += 1;
-    }
-  
-  if ((fields[low].flags & Modifier::STATIC) != 0) 
-    low += 1;
-
-  def->static_field_count = low;
-}
-
-
 
 void
 _Jv_ClassReader::handleMethodsBegin (int count)
