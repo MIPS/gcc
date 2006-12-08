@@ -1,3 +1,18 @@
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* config/arm/elf.h (MAX_OFILE_ALIGNMENT): Remove definition.
+	* config/mips/mips.h (MAX_OFILE_ALIGNMENT): Likewise.
+
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport:
+	2006-11-30  Carlos O'Donell  <carlos@codesourcery.com>
+	* doc/tm.texi (MAX_OFILE_ALIGNMENT): Document default.
+	* config/elfos.h [!MAX_OFILE_ALIGNMENT] (MAX_OFILE_ALIGNMENT):
+	Default is the largest alignment supported for 32-bit ELF and
+	representable on a 32-bit host.
+
 2006-12-06  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/

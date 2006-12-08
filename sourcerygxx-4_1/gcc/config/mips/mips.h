@@ -2806,8 +2806,3 @@ while (0)
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
 #endif
-
-/* The PageMask register allows a maximum page size of 256Mb.
-   The value of MAX_OFILE_ALIGNMENT is in bits, so multiple by 8.  */
-#undef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT (0x10000000 << 3)
