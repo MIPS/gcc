@@ -238,11 +238,15 @@ sun::misc::Unsafe::getLongVolatile (jobject obj, jlong offset)
 void
 sun::misc::Unsafe::unpark (::java::lang::Thread *thread)
 {
-  _Jv_ThreadUnpark (thread);
+  natThread *nt = (natThread *) thread->data;
+  nt->park_helper.unpark ();
 }
 
 void
 sun::misc::Unsafe::park (jboolean isAbsolute, jlong time)
 {
-  _Jv_ThreadPark (isAbsolute, time);
+  using namespace ::java::lang;
+  Thread *thread = Thread::currentThread();
+  natThread *nt = (natThread *) thread->data;
+  nt->park_helper.park (isAbsolute, time);
 }

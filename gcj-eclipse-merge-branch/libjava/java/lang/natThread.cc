@@ -54,8 +54,7 @@ java::lang::Thread::initialize_native (void)
   _Jv_MutexInit (&nt->join_mutex);
   _Jv_CondInit (&nt->join_cond);
 
-  pthread_mutex_init (&nt->park_mutex, NULL);
-  pthread_cond_init (&nt->park_cond, NULL);
+  nt->park_helper.init();
 
   nt->thread = _Jv_ThreadInitData (this);
   // FIXME: if JNI_ENV is set we will want to free it.  It is
@@ -75,9 +74,8 @@ finalize_native (jobject ptr)
   _Jv_MutexDestroy (&nt->join_mutex);
 #endif
   _Jv_FreeJNIEnv((JNIEnv*)nt->jni_env);
-
-  pthread_mutex_destroy (&nt->park_mutex);
-  pthread_cond_destroy (&nt->park_cond);
+  
+  nt->park_helper.destroy();
 }
 
 jint
@@ -131,7 +129,7 @@ java::lang::Thread::interrupt (void)
 
       // Even though we've interrupted this thread, it might still be
       // parked.
-      _Jv_ThreadUnpark (this);
+      nt->park_helper.unpark ();
     }
 }
 
@@ -214,7 +212,7 @@ java::lang::Thread::finish_ ()
   __sync_synchronize();
   natThread *nt = (natThread *) data;
   
-  nt->park_permit = THREAD_PARK_DEAD;
+  nt->park_helper.deactivate ();
   group->removeThread (this);
 
 #ifdef ENABLE_JVMPI  

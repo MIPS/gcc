@@ -19,6 +19,7 @@ details.  */
 
 #include <pthread.h>
 #include <sched.h>
+#include <sysdep/locks.h>
 
 //
 // Typedefs.
@@ -350,7 +351,33 @@ void _Jv_ThreadWait (void);
 
 void _Jv_ThreadInterrupt (_Jv_Thread_t *data);
 
-void _Jv_ThreadUnpark (::java::lang::Thread *thread);
-void _Jv_ThreadPark (jboolean isAbsolute, jlong time);
+// park() / unpark() support
+
+struct ParkHelper
+{
+  volatile obj_addr_t permit;
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  
+  void init ();
+  void deactivate ();
+  void destroy ();
+  void park (jboolean isAbsolute, jlong time);
+  void unpark ();
+};
+
+inline void
+ParkHelper::init ()
+{
+  pthread_mutex_init (&mutex, NULL);
+  pthread_cond_init (&cond, NULL);
+}
+
+inline void
+ParkHelper::destroy ()
+{
+  pthread_mutex_destroy (&mutex);
+  pthread_cond_destroy (&cond);
+}
 
 #endif /* __JV_POSIX_THREADS__ */

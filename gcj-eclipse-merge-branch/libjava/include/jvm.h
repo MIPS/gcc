@@ -778,9 +778,7 @@ struct natThread
   _Jv_ConditionVariable_t join_cond;
 
   // These are used by Unsafe.park() and Unsafe.unpark().
-  volatile obj_addr_t park_permit;
-  pthread_mutex_t park_mutex;
-  pthread_cond_t park_cond;
+  ParkHelper park_helper;
 
   // This is private data for the thread system layer.
   _Jv_Thread_t *thread;

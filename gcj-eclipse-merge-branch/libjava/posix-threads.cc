@@ -347,13 +347,11 @@ _Jv_ThreadInterrupt (_Jv_Thread_t *data)
  *
  * @param thread the thread to unblock.
  */
-
 void
-_Jv_ThreadUnpark (::java::lang::Thread *thread)
+ParkHelper::unpark ()
 {
   using namespace ::java::lang;
-  natThread *nt = (natThread *) thread->data;
-  volatile obj_addr_t *ptr = &nt->park_permit;
+  volatile obj_addr_t *ptr = &permit;
 
   /* If this thread is in state RUNNING, give it a permit and return
      immediately.  */
@@ -366,10 +364,19 @@ _Jv_ThreadUnpark (::java::lang::Thread *thread)
   if (compare_and_swap 
       (ptr, Thread::THREAD_PARK_PARKED, Thread::THREAD_PARK_RUNNING))
     {
-      pthread_mutex_lock (&nt->park_mutex);
-      pthread_cond_signal (&nt->park_cond);
-      pthread_mutex_unlock (&nt->park_mutex);
+      pthread_mutex_lock (&mutex);
+      pthread_cond_signal (&cond);
+      pthread_mutex_unlock (&mutex);
     }
+}
+
+/**
+ * Sets our state to dead.
+ */
+void
+ParkHelper::deactivate ()
+{
+  permit = ::java::lang::Thread::THREAD_PARK_DEAD;
 }
 
 /**
@@ -387,14 +394,11 @@ _Jv_ThreadUnpark (::java::lang::Thread *thread)
  * @param time either the number of nanoseconds to wait, or a time in
  *             milliseconds from the epoch to wait for.
  */
-
 void
-_Jv_ThreadPark (jboolean isAbsolute, jlong time)
+ParkHelper::park (jboolean isAbsolute, jlong time)
 {
   using namespace ::java::lang;
-  Thread *thread = Thread::currentThread();
-  natThread *nt = (natThread *) thread->data;
-  volatile obj_addr_t *ptr = &nt->park_permit;
+  volatile obj_addr_t *ptr = &permit;
 
   /* If we have a permit, return immediately.  */
   if (compare_and_swap 
@@ -444,22 +448,22 @@ _Jv_ThreadPark (jboolean isAbsolute, jlong time)
 	}
     }
       
-  pthread_mutex_lock (&nt->park_mutex);
   if (compare_and_swap 
       (ptr, Thread::THREAD_PARK_RUNNING, Thread::THREAD_PARK_PARKED))
     {
+      pthread_mutex_lock (&mutex);
       if (millis == 0 && nanos == 0)
-	pthread_cond_wait (&nt->park_cond, &nt->park_mutex);
+	pthread_cond_wait (&cond, &mutex);
       else
-	pthread_cond_timedwait (&nt->park_cond, &nt->park_mutex, 
-					&ts);
+	pthread_cond_timedwait (&cond, &mutex, &ts);
+      pthread_mutex_unlock (&mutex);
+      
       /* If we were unparked by some other thread, this will already
 	 be in state THREAD_PARK_RUNNING.  If we timed out, we have to
 	 do it ourself.  */
       compare_and_swap 
 	(ptr, Thread::THREAD_PARK_PARKED, Thread::THREAD_PARK_RUNNING);
     }
-  pthread_mutex_unlock (&nt->park_mutex);
 }
 
 static void

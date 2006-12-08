@@ -1,3 +1,37 @@
+2006-12-08  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* posix-threads.cc (_Jv_ThreadUnpark): Removed.
+	(ParkHelper::unpark): Ported from _Jv_ThreadUnpark.
+	(ParkHelper::deactivate): Implemented.
+	(_Jv_ThreadPark): Removed.
+	(ParkHelper::park): Ported from _Jv_ThreadPark; moved
+	mutex locking and unlocking to inside if statement.
+	* win32-threads.cc (compare_and_exchange): New helper function.
+	(_Jv_ThreadUnpark, _Jv_ThreadPark): Removed.
+	(ParkHelper::init): Implemented.
+	(ParkHelper::init_event): Implemented.
+	(ParkHelper::deactivate): Implemented.
+	(ParkHelper::destroy): Implemented.
+	(ParkHelper::unpark): Implemented.
+	(ParkHelper::park): Implemented.
+	* java/lang/natThread.cc (initialize_native): Use ParkHelper
+	instead of POSIX synchronization constructs.
+	(finalize_native):  Likewise.
+	(interrupt): Use ParkHelper method instead of _Jv_ThreadUnpark().
+	(finish_): Use ParkHelper::deactivate().
+	* include/jvm.h (struct natThread): Use ParkHelper instead of POSIX
+	synchronization constructs.
+	* include/posix-threads.h: Include sysdep/locks.h
+	(_Jv_ThreadUnpark, _Jv_ThreadPark): Removed.
+	(ParkHelper): New struct.
+	(ParkHelper::init): Implemented.
+	(ParkHelper::destroy): Implemented.
+	* include/win32-threads.h (ParkHelper): New struct.
+	(TEXT): undefined this macro.
+	* sun/misc/natUnsafe.cc (unpark): Use ParkHelper instead of
+	_Jv_ThreadUnpark.
+	(park):  Use ParkHelper instead of _Jv_ThreadPark.
+
 2006-12-08  Ben Konrath  <bkonrath@redhat.com>
 
 	PR libgcj/30110:
