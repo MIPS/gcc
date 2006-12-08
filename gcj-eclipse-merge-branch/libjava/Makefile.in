@@ -525,6 +525,8 @@ ECHO_T = @ECHO_T@
 ECJ_BUILD_JAR = @ECJ_BUILD_JAR@
 ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
+ENABLE_SHARED_FALSE = @ENABLE_SHARED_FALSE@
+ENABLE_SHARED_TRUE = @ENABLE_SHARED_TRUE@
 EXCEPTIONSPEC = @EXCEPTIONSPEC@
 EXEEXT = @EXEEXT@
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
@@ -535,6 +537,7 @@ GCJDEPMODE = @GCJDEPMODE@
 GCJFLAGS = @GCJFLAGS@
 GCJH = @GCJH@
 GCJVERSION = @GCJVERSION@
+GCJ_FOR_ECJX = @GCJ_FOR_ECJX@
 GCLIBS = @GCLIBS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
@@ -688,6 +691,7 @@ here = @here@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
+host_exeext = @host_exeext@
 host_os = @host_os@
 host_subdir = @host_subdir@
 host_vendor = @host_vendor@
@@ -759,6 +763,7 @@ GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
 
+GCJ_FOR_ECJX_LINK = $(GCJ_FOR_ECJX) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) $(extra_ldflags_libjava) -o $@
 
@@ -921,7 +926,7 @@ classpath/gnu/CORBA/DuplicateNameHolder.java \
 classpath/gnu/CORBA/DynAn/AbstractAny.java \
 classpath/gnu/CORBA/DynAn/DivideableAny.java \
 classpath/gnu/CORBA/DynAn/NameValuePairHolder.java \
-classpath/gnu/CORBA/DynAn/RecordAny.java \
+gnu/CORBA/DynAn/RecordAny.java \
 classpath/gnu/CORBA/DynAn/UndivideableAny.java \
 classpath/gnu/CORBA/DynAn/ValueChangeListener.java \
 classpath/gnu/CORBA/DynAn/gnuDynAny.java \
@@ -932,7 +937,7 @@ classpath/gnu/CORBA/DynAn/gnuDynFixed.java \
 classpath/gnu/CORBA/DynAn/gnuDynSequence.java \
 classpath/gnu/CORBA/DynAn/gnuDynStruct.java \
 classpath/gnu/CORBA/DynAn/gnuDynUnion.java \
-classpath/gnu/CORBA/DynAn/gnuDynValue.java \
+gnu/CORBA/DynAn/gnuDynValue.java \
 classpath/gnu/CORBA/DynAn/gnuDynValueBox.java \
 classpath/gnu/CORBA/DynAnySeqHolder.java \
 classpath/gnu/CORBA/EmptyExceptionHolder.java \
@@ -7546,13 +7551,18 @@ grmiregistry_LINK = $(GCJLINK)
 grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 ecjx_SOURCES = 
-ecjx_LDFLAGS = -findirect-dispatch \
-	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain \
-	-Djava.class.path=$(ECJ_JAR)
+ECJX_BASE_FLAGS = -findirect-dispatch \
+	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain
 
-ecjx_LINK = $(GCJLINK)
-ecjx_LDADD = -L$(here)/.libs libgcj.la
-ecjx_DEPENDENCIES = libgcj.la libgcj.spec
+@NATIVE_FALSE@ecjx_LINK = $(GCJ_FOR_ECJX_LINK)
+@NATIVE_TRUE@ecjx_LINK = $(GCJLINK)
+@ENABLE_SHARED_FALSE@@NATIVE_TRUE@ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+@ENABLE_SHARED_TRUE@@NATIVE_TRUE@ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) -Djava.class.path=$(ECJ_JAR)
+@NATIVE_FALSE@ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+@NATIVE_FALSE@ecjx_LDADD = 
+@NATIVE_TRUE@ecjx_LDADD = -L$(here)/.libs libgcj.la
+@NATIVE_FALSE@ecjx_DEPENDENCIES = 
+@NATIVE_TRUE@ecjx_DEPENDENCIES = libgcj.la libgcj.spec
 gappletviewer_SOURCES = 
 gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
@@ -11102,7 +11112,8 @@ install-exec-hook: install-toolexeclibLTLIBRARIES install-libexecsubPROGRAMS
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	$(LN_S) libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.la;
-@BUILD_ECJ1_TRUE@	mv $(DESTDIR)$(libexecsubdir)/ecjx $(DESTDIR)$(libexecsubdir)/ecj1
+@BUILD_ECJ1_TRUE@@NATIVE_TRUE@	mv $(DESTDIR)$(libexecsubdir)/ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
+@BUILD_ECJ1_TRUE@@NATIVE_FALSE@	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
 
 install-data-local:
 	$(PRE_INSTALL)

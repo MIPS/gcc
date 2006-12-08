@@ -105,6 +105,8 @@ extra_ldflags_libjava = @extra_ldflags_libjava@
 
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
+GCJ_FOR_ECJX = @GCJ_FOR_ECJX@
+GCJ_FOR_ECJX_LINK = $(GCJ_FOR_ECJX) -o $@
 LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) $(extra_ldflags_libjava) -o $@
 
@@ -441,8 +443,13 @@ if USE_LIBGCJ_BC
 	rm $(toolexeclibdir)/libgcj_bc.la;
 endif
 if BUILD_ECJ1
-	mv $(DESTDIR)$(libexecsubdir)/ecjx $(DESTDIR)$(libexecsubdir)/ecj1
-endif
+if NATIVE
+	mv $(DESTDIR)$(libexecsubdir)/ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
+else !NATIVE
+## Undo the prepending of the target prefix
+	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
+endif !NATIVE
+endif BUILD_ECJ1
 
 ## Install the headers.  It is fairly ugly that we have to do this by
 ## hand.
@@ -672,12 +679,33 @@ ecjx_SOURCES =
 ## We use the BC ABI here so that we don't need to compile ecj.jar.
 ## Hopefully the user has compiled it into his system .db.
 ## However, even if not it will run reasonably quickly.
-ecjx_LDFLAGS = -findirect-dispatch \
-	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain \
-	-Djava.class.path=$(ECJ_JAR)
+
+ECJX_BASE_FLAGS = -findirect-dispatch \
+	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain
+
+if NATIVE
+
 ecjx_LINK = $(GCJLINK)
+
+if ENABLE_SHARED
+## Use ecj.jar at runtime.
+ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) -Djava.class.path=$(ECJ_JAR)
+else !ENABLE_SHARED
+## Use ecj.jar at compile time.
+ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+endif !ENABLE_SHARED
+
 ecjx_LDADD = -L$(here)/.libs libgcj.la
 ecjx_DEPENDENCIES = libgcj.la libgcj.spec
+
+else !NATIVE
+
+ecjx_LINK = $(GCJ_FOR_ECJX_LINK)
+ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+ecjx_LDADD = 
+ecjx_DEPENDENCIES = 
+
+endif !NATIVE
 
 ## This is a dummy definition.
 gappletviewer_SOURCES =

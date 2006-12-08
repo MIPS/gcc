@@ -308,19 +308,23 @@ fi
 
 NATIVE=yes
 
-# Which gcj do we use?
+# Which gcj and host gcj (for ecjx) do we use?
 which_gcj=default
+host_exeext=${ac_exeext}
+GCJ_FOR_ECJX=
 built_gcc_dir="`cd ${builddotdot}/../../${host_subdir}/gcc && ${PWDCMD-pwd}`"
 if test -n "${with_cross_host}"; then
   # We are being configured with a cross compiler. We can't
   # use ac_exeext, because that is for the target platform.
   NATIVE=no
   cross_host_exeext=
+  GCJ_FOR_ECJX="${with_cross_host}-gcj"
   case "${with_cross_host}" in
      *mingw* | *cygwin*)
          cross_host_exeext=.exe
      ;;
   esac
+  host_exeext=${cross_host_exeext}
   if test -x "${built_gcc_dir}/gcj${cross_host_exeext}"; then
      if test x"$build_noncanonical" = x"$with_cross_host"; then
         # Ordinary cross (host!=target and host=build)
@@ -367,7 +371,9 @@ case "${which_gcj}" in
    ;;
 esac
 
+AC_SUBST(GCJ_FOR_ECJX)
 AC_SUBST(GCJH)
+AC_SUBST(host_exeext)
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec
@@ -1317,6 +1323,7 @@ AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
+AM_CONDITIONAL(ENABLE_SHARED, test "$enable_shared" = yes)
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
