@@ -375,7 +375,7 @@ get_default_value (tree var)
 	  else
 	    val.lattice_val = VARYING;
 	}
-      else if (TREE_CODE (stmt) == MODIFY_EXPR
+      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	       || TREE_CODE (stmt) == PHI_NODE)
 	{
 	  /* Any other variable defined by an assignment or a PHI node
@@ -418,6 +418,54 @@ set_value_varying (tree var)
   val->mem_ref = NULL_TREE;
 }
 
+/* For float types, modify the value of VAL to make ccp work correctly
+   for non-standard values (-0, NaN):
+
+   If HONOR_SIGNED_ZEROS is false, and VAL = -0, we canonicalize it to 0.
+   If HONOR_NANS is false, and VAL is NaN, we canonicalize it to UNDEFINED.
+     This is to fix the following problem (see PR 29921): Suppose we have
+
+     x = 0.0 * y
+
+     and we set value of y to NaN.  This causes value of x to be set to NaN.
+     When we later determine that y is in fact VARYING, fold uses the fact
+     that HONOR_NANS is false, and we try to change the value of x to 0,
+     causing an ICE.  With HONOR_NANS being false, the real appearance of
+     NaN would cause undefined behavior, though, so claiming that y (and x)
+     are UNDEFINED initially is correct.  */
+
+static void
+canonicalize_float_value (prop_value_t *val)
+{
+  enum machine_mode mode;
+  tree type;
+  REAL_VALUE_TYPE d;
+
+  if (val->lattice_val != CONSTANT
+      || TREE_CODE (val->value) != REAL_CST)
+    return;
+
+  d = TREE_REAL_CST (val->value);
+  type = TREE_TYPE (val->value);
+  mode = TYPE_MODE (type);
+
+  if (!HONOR_SIGNED_ZEROS (mode)
+      && REAL_VALUE_MINUS_ZERO (d))
+    {
+      val->value = build_real (type, dconst0);
+      return;
+    }
+
+  if (!HONOR_NANS (mode)
+      && REAL_VALUE_ISNAN (d))
+    {
+      val->lattice_val = UNDEFINED;
+      val->value = NULL;
+      val->mem_ref = NULL;
+      return;
+    }
+}
+
 /* Set the value for variable VAR to NEW_VAL.  Return true if the new
    value is different from VAR's previous value.  */
 
@@ -425,6 +473,8 @@ static bool
 set_lattice_value (tree var, prop_value_t new_val)
 {
   prop_value_t *old_val = get_value (var);
+
+  canonicalize_float_value (&new_val);
 
   /* Lattice transitions must always be monotonically increasing in
      value.  If *OLD_VAL and NEW_VAL are the same, return false to
@@ -493,7 +543,7 @@ likely_value (tree stmt)
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != MODIFY_EXPR
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
       && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
       && TREE_CODE (stmt) != COND_EXPR
       && TREE_CODE (stmt) != SWITCH_EXPR)
@@ -551,7 +601,7 @@ surely_varying_stmt_p (tree stmt)
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != MODIFY_EXPR
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
       && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
       && TREE_CODE (stmt) != COND_EXPR
       && TREE_CODE (stmt) != SWITCH_EXPR)
@@ -1134,8 +1184,8 @@ visit_assignment (tree stmt, tree *output_p)
   tree lhs, rhs;
   enum ssa_prop_result retval;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (rhs) == SSA_NAME)
     {
@@ -1169,7 +1219,7 @@ visit_assignment (tree stmt, tree *output_p)
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree orig_lhs = TREE_OPERAND (stmt, 0);
+    tree orig_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
@@ -1314,7 +1364,7 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
       /* If the statement is an assignment that produces a single
 	 output value, evaluate its RHS to see if the lattice value of
@@ -1384,7 +1434,7 @@ struct tree_opt_pass pass_ccp =
   TV_TREE_CCP,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect | TODO_verify_ssa
@@ -1422,7 +1472,7 @@ struct tree_opt_pass pass_store_ccp =
   TV_TREE_STORE_CCP,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect | TODO_verify_ssa
@@ -2095,14 +2145,14 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 
   switch (TREE_CODE (def_stmt))
     {
-      case MODIFY_EXPR:
+      case GIMPLE_MODIFY_STMT:
 	{
 	  tree rhs;
 
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
-	  rhs = TREE_OPERAND (def_stmt, 1);
+	  rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
 	  return get_maxval_strlen (rhs, length, visited, type);
 	}
@@ -2154,7 +2204,7 @@ ccp_fold_builtin (tree stmt, tree fn)
   bitmap visited;
   bool ignore;
 
-  ignore = TREE_CODE (stmt) != MODIFY_EXPR;
+  ignore = TREE_CODE (stmt) != GIMPLE_MODIFY_STMT;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
@@ -2258,13 +2308,13 @@ ccp_fold_builtin (tree stmt, tree fn)
 
     case BUILT_IN_FPUTS:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 1,
 				   val[0]);
       break;
 
@@ -2528,7 +2578,7 @@ execute_fold_all_builtins (void)
 	    {
 	      result = convert_to_gimple_builtin (&i, result,
 			      			  TREE_CODE (old_stmt)
-						  != MODIFY_EXPR);
+						  != GIMPLE_MODIFY_STMT);
 	      if (result)
 		{
 		  bool ok = set_rhs (stmtp, result);

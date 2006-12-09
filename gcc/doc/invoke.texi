@@ -709,7 +709,7 @@ See RS/6000 and PowerPC Options.
 -m5-compact  -m5-compact-nofpu @gol
 -mb  -ml  -mdalign  -mrelax @gol
 -mbigtable  -mfmovd  -mhitachi -mrenesas -mno-renesas -mnomacsave @gol
--mieee  -misize  -mpadstruct  -mspace @gol
+-mieee  -misize  -minline-ic_invalidate -mpadstruct  -mspace @gol
 -mprefergot  -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
 -mdivsi3_libfunc=@var{name}  @gol
 -madjust-unroll -mindexed-addressing -mgettrcost=@var{number} -mpt-fixed @gol
@@ -783,6 +783,7 @@ See S/390 and zSeries Options.
 -fno-common  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
 -fno-jump-tables @gol
+-frecord-gcc-switches @gol
 -freg-struct-return  -fshort-enums @gol
 -fshort-double  -fshort-wchar @gol
 -fverbose-asm  -fpack-struct[=@var{n}]  -fstack-check @gol
@@ -6033,6 +6034,15 @@ This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 50 which limits unit growth to 1.5 times the original
 size.
 
+@item large-stack-frame
+The limit specifying large stack frames.  While inlining the algorithm is trying
+to not grow past this limit too much.  Default value is 256 bytes.
+
+@item large-stack-frame-growth
+Specifies maximal growth of large stack frames caused by inlining in percents.
+The default value is 1000 which limits large stack frame growth to 11 times
+the original size.
+
 @item max-inline-insns-recursive
 @itemx max-inline-insns-recursive-auto
 Specifies maximum number of instructions out-of-line copy of self recursive inline
@@ -9721,6 +9731,19 @@ aligned at least to 4 byte boundary.  This enables more inlining, increase code
 size, but may improve performance of code that depends on fast memcpy, strlen
 and memset for short lengths.
 
+@item -minline-stringops-dynamically
+@opindex minline-stringops-dynamically
+For string operation of unknown size, inline runtime checks so for small
+blocks inline code is used, while for large blocks library call is used.
+
+@item -mstringop-strategy=@var{alg}
+@opindex mstringop-strategy=@var{alg}
+Overwrite internal decision heuristic about particular algorithm to inline
+string operation with.  The allowed values are @code{rep_byte},
+@code{rep_4byte}, @code{rep_8byte} for expanding using i386 @code{rep} prefix
+of specified size, @code{loop}, @code{unrolled_loop} for expanding inline loop,
+@code{libcall} for always expanding library call.
+
 @item -momit-leaf-frame-pointer
 @opindex momit-leaf-frame-pointer
 Don't keep the frame pointer in a register for leaf functions.  This
@@ -12436,6 +12459,19 @@ comparisons of NANs / infinities incurs extra overhead in every
 floating point comparison, therefore the default is set to
 @option{-ffinite-math-only}.
 
+@item -minline-ic_invalidate
+@opindex minline-ic_invalidate
+Inline code to invalidate instruction cache entries after setting up
+nested function trampolines.
+This option has no effect if -musermode is in effect and the selected
+code generation option (e.g. -m4) does not allow the use of the icbi
+instruction.
+If the selected code generation option does not allow the use of the icbi
+instruction, and -musermode is not in effect, the inlined code will
+manipulate the instruction cache address array directly with an associative
+write.  This not only requires privileged mode, but it will also
+fail if the cache line had been mapped via the TLB and has become unmapped.
+
 @item -misize
 @opindex misize
 Dump instruction size and location in the assembly code.
@@ -12456,10 +12492,9 @@ the Global Offset Table instead of the Procedure Linkage Table.
 
 @item -musermode
 @opindex musermode
-Generate a library function call to invalidate instruction cache
-entries, after fixing up a trampoline.  This library function call
-doesn't assume it can write to the whole memory address space.  This
-is the default when the target is @code{sh-*-linux*}.
+Don't generate privileged mode only code; implies -mno-inline-ic_invalidate
+if the inlined code would not work in user mode.
+This is the default when the target is @code{sh-*-linux*}.
 
 @item -multcost=@var{number}
 @opindex multcost=@var{number}
@@ -13473,6 +13508,17 @@ debugging the compiler itself).
 @option{-fno-verbose-asm}, the default, causes the
 extra information to be omitted and is useful when comparing two assembler
 files.
+
+@item -frecord-gcc-switches
+@opindex frecord-gcc-switches
+This switch causes the command line that was used to invoke the
+compiler to be recorded into the object file that is being created.
+This switch is only implemented on some targets and the exact format
+of the recording is target and binary file format dependent, but it
+usually takes the form of a section containing ASCII text.  This
+switch is related to the @option{-fverbose-asm} switch, but that
+switch only records information in the assembler output file as
+comments, so it never reaches the object file.
 
 @item -fpic
 @opindex fpic

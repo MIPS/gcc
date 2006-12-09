@@ -3020,7 +3020,10 @@ legitimize_pic_address (rtx orig, rtx reg)
 		|| (GET_CODE (op0) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op0)))
 	      && GET_CODE (op1) == CONST_INT)
 	    {
-              if (TARGET_CPU_ZARCH && larl_operand (op0, VOIDmode))
+              if (TARGET_CPU_ZARCH
+		  && larl_operand (op0, VOIDmode)
+		  && INTVAL (op1) < (HOST_WIDE_INT)1 << 31
+		  && INTVAL (op1) >= -((HOST_WIDE_INT)1 << 31))
                 {
                   if (INTVAL (op1) & 1)
                     {
@@ -3030,7 +3033,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
                       if (!DISP_IN_RANGE (INTVAL (op1)))
                         {
-                          int even = INTVAL (op1) - 1;
+                          HOST_WIDE_INT even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
 			  op0 = gen_rtx_CONST (Pmode, op0);
                           op1 = const1_rtx;
@@ -7928,7 +7931,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 	          build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7936,7 +7939,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 	          build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7956,7 +7959,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
       t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off));
 
-      t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -7969,7 +7972,7 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	          build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
   
-      t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -8102,7 +8105,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
 	      fold_convert (TREE_TYPE (reg), size_int (sav_scale)));
   t = build2 (PLUS_EXPR, ptr_type_node, t, fold_convert (ptr_type_node, u));
 
-  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t, pre_p);
 
   t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -8121,12 +8124,12 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
 
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, ptr_type_node, t, 
 	      fold_convert (ptr_type_node, size_int (size)));
-  t = build2 (MODIFY_EXPR, ptr_type_node, ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, ovf, t);
   gimplify_and_add (t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, lab_over);

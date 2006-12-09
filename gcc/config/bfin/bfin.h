@@ -827,13 +827,7 @@ do {					       \
 
      You may assume that ADDR is a valid address for the machine.
 */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)  \
-do {                                              \
- if (GET_CODE (ADDR) == POST_INC                  \
-     || GET_CODE (ADDR) == POST_DEC               \
-     || GET_CODE (ADDR) == PRE_DEC)               \
-   goto LABEL;					  \
-} while (0)
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define NOTICE_UPDATE_CC(EXPR, INSN) 0
 
@@ -1232,5 +1226,9 @@ extern struct rtx_def *bfin_cc_rtx, *bfin_rets_rtx;
 #define DBX_REGISTER_NUMBER(REGNO)  (REGNO) 
 
 #define SIZE_ASM_OP     "\t.size\t"
+
+extern int splitting_for_sched;
+
+#define PRINT_OPERAND_PUNCT_VALID_P(CHAR) ((CHAR) == '!')
 
 #endif /*  _BFIN_CONFIG */

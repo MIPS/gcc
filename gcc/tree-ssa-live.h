@@ -44,9 +44,6 @@ typedef struct _var_map
 
   /* Original partition size.  */
   unsigned int partition_size;
-
-  /* Reference count, if required.  */
-  int *ref_count;
 } *var_map;
 
 #define VAR_ANN_PARTITION(ann) (ann->partition)
@@ -74,11 +71,9 @@ static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
 static inline tree version_to_var (var_map, int);
-static inline int version_ref_count (var_map, tree);
-static inline void register_ssa_partition (var_map, tree, bool);
+static inline void register_ssa_partition (var_map, tree);
 
-#define SSA_VAR_MAP_REF_COUNT	 0x01
-extern var_map create_ssa_var_map (int);
+extern var_map create_ssa_var_map (void);
 
 /* Number of partitions in MAP.  */
 
@@ -88,17 +83,6 @@ num_var_partitions (var_map map)
   return map->num_partitions;
 }
 
-
-/* Return the reference count for SSA_VAR's partition in MAP.  */
-
-static inline int
-version_ref_count (var_map map, tree ssa_var)
-{
-  int version = SSA_NAME_VERSION (ssa_var);
-  gcc_assert (map->ref_count);
-  return map->ref_count[version];
-}
- 
 
 /* Given partition index I from MAP, return the variable which represents that 
    partition.  */
@@ -147,7 +131,7 @@ var_to_partition (var_map map, tree var)
   else
     {
       ann = var_ann (var);
-      if (ann->out_of_ssa_tag)
+      if (ann && ann->out_of_ssa_tag)
 	part = VAR_ANN_PARTITION (ann);
       else
         part = NO_PARTITION;
@@ -176,7 +160,7 @@ var_to_partition_to_var (var_map map, tree var)
    later.  */ 
 
 static inline void
-register_ssa_partition (var_map map, tree ssa_var, bool is_use)
+register_ssa_partition (var_map map, tree ssa_var)
 {
   int version;
 
@@ -185,9 +169,6 @@ register_ssa_partition (var_map map, tree ssa_var, bool is_use)
 #endif
 
   version = SSA_NAME_VERSION (ssa_var);
-  if (is_use && map->ref_count)
-    map->ref_count[version]++;
-
   if (map->partition_to_var[version] == NULL_TREE)
     map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
 }
@@ -201,11 +182,11 @@ register_ssa_partition (var_map map, tree ssa_var, bool is_use)
     As well, partitions are marked as to whether they are global (live 
     outside the basic block they are defined in).
 
-    The live-on-entry information is per variable. It provide a bitmap for 
-    each variable which has a bit set for each basic block that the variable
-    is live on entry to that block.
+    The live-on-entry information is per block.  It provide a bitmap for 
+    each block which has a bit set for each partition that is live on entry to 
+    that block.
 
-    The live-on-exit information is per block. It provides a bitmap for each
+    The live-on-exit information is per block.  It provides a bitmap for each
     block indicating which partitions are live on exit from the block.
 
     For the purposes of this implementation, we treat the elements of a PHI 
@@ -237,12 +218,18 @@ typedef struct tree_live_info_d
   /* Number of basic blocks when live on exit calculated.  */
   int num_blocks;
 
+  /* Vector used when creating live ranges as a visited stack.  */
+  int *work_stack;
+
+  /* Top of workstack.  */
+  int *stack_top;
+
   /* Bitmap of what variables are live on exit for a basic blocks.  */
   bitmap *liveout;
 } *tree_live_info_p;
 
 
-extern tree_live_info_p calculate_live_on_entry (var_map);
+extern tree_live_info_p calculate_live_ranges (var_map);
 extern void calculate_live_on_exit (tree_live_info_p);
 extern void delete_tree_live_info (tree_live_info_p);
 
@@ -252,7 +239,7 @@ extern void delete_tree_live_info (tree_live_info_p);
 extern void dump_live_info (FILE *, tree_live_info_p, int);
 
 static inline int partition_is_global (tree_live_info_p, int);
-static inline bitmap live_entry_blocks (tree_live_info_p, int);
+static inline bitmap live_on_entry (tree_live_info_p, basic_block);
 static inline bitmap live_on_exit (tree_live_info_p, basic_block);
 static inline var_map live_var_map (tree_live_info_p);
 static inline void live_merge_and_clear (tree_live_info_p, int, int);
@@ -273,10 +260,13 @@ partition_is_global (tree_live_info_p live, int p)
    partition P.  */
 
 static inline bitmap
-live_entry_blocks (tree_live_info_p live, int p)
+live_on_entry (tree_live_info_p live, basic_block bb)
 {
   gcc_assert (live->livein);
-  return live->livein[p];
+  gcc_assert (bb != ENTRY_BLOCK_PTR);
+  gcc_assert (bb != EXIT_BLOCK_PTR);
+
+  return live->livein[bb->index];
 }
 
 
@@ -309,6 +299,8 @@ live_var_map (tree_live_info_p live)
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
+  gcc_assert (live->livein[p1]);
+  gcc_assert (live->livein[p2]);
   bitmap_ior_into (live->livein[p1], live->livein[p2]);
   bitmap_zero (live->livein[p2]);
 }
@@ -319,7 +311,7 @@ live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 static inline void 
 make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 {
-  bitmap_set_bit (live->livein[p], bb->index);
+  bitmap_set_bit (live->livein[bb->index], p);
   bitmap_set_bit (live->global, p);
 }
 
@@ -551,151 +543,32 @@ root_var_decompact (root_var_p rv)
 }
 
 
-/* A TYPE_VAR object is similar to a root_var object, except this associates 
-   partitions with their type rather than their root variable.  This is used to 
-   coalesce memory locations based on type.  */
-
-typedef tpa_p type_var_p;
-
-static inline tree type_var (type_var_p, int);
-static inline int type_var_first_partition (type_var_p, int);
-static inline int type_var_next_partition (type_var_p, int);
-static inline int type_var_num (type_var_p);
-static inline void type_var_dump (FILE *, type_var_p);
-static inline void type_var_remove_partition (type_var_p, int, int);
-static inline void type_var_delete (type_var_p);
-static inline int type_var_find (type_var_p, int);
-static inline int type_var_compact (type_var_p);
-static inline void type_var_decompact (type_var_p);
-
-extern type_var_p type_var_init (var_map);
-
-/* Value returned when there is no partitions associated with a list.  */
-#define TYPE_VAR_NONE		TPA_NONE
-
-
-/* Return the number of distinct type lists in TV.  */
-
-static inline int 
-type_var_num (type_var_p tv)
-{
-  return tpa_num_trees (tv);
-}
-
-
-/* Return the type of list I in TV.  */
-
-static inline tree
-type_var (type_var_p tv, int i)
-{
-  return tpa_tree (tv, i);
-}
-
-
-/* Return the first partition belonging to type list I in TV.  */
-
-static inline int
-type_var_first_partition (type_var_p tv, int i)
-{
-  return tpa_first_partition (tv, i);
-}
-
-
-/* Return the next partition after partition I in a type list within TV.  */
-
-static inline int
-type_var_next_partition (type_var_p tv, int i)
-{
-  return tpa_next_partition (tv, i);
-}
-
-
-/* Send debug info for type_var object TV to file F.  */
-
-static inline void
-type_var_dump (FILE *f, type_var_p tv)
-{
-  fprintf (f, "\nType Var dump\n");
-  tpa_dump (f, tv);
-  fprintf (f, "\n");
-}
-
-
-/* Delete type_var object TV.  */
-
-static inline void
-type_var_delete (type_var_p tv)
-{
-  tpa_delete (tv);
-}
-
-
-/* Remove partition PARTITION_INDEX from type list TYPE_INDEX in TV.  */
-
-static inline void
-type_var_remove_partition (type_var_p tv, int type_index, int partition_index)
-{
-  tpa_remove_partition (tv, type_index, partition_index);
-}
-
-
-/* Return the type index in TV for the list partition I is in.  */
-
-static inline int
-type_var_find (type_var_p tv, int i)
-{
-  return tpa_find_tree (tv, i);
-}
-
-
-/* Hide single element lists in TV.  */
-
-static inline int 
-type_var_compact (type_var_p tv)
-{
-  return tpa_compact (tv);
-}
-
-
-/* Expose single element lists in TV.  */
-
-static inline void
-type_var_decompact (type_var_p tv)
-{
-  tpa_decompact (tv);
-}
-
 /* This set of routines implements a coalesce_list. This is an object which
    is used to track pairs of partitions which are desirable to coalesce
    together at some point.  Costs are associated with each pair, and when 
    all desired information has been collected, the object can be used to 
    order the pairs for processing.  */
 
-/* This structure defines a pair for coalescing.  */
+/* This structure defines a pair entry.  */
 
-typedef struct partition_pair_d
+typedef struct partition_pair
 {
   int first_partition;
   int second_partition;
   int cost;
-  struct partition_pair_d *next;
-} *partition_pair_p;
+} * partition_pair_p;
 
-/* This structure maintains the list of coalesce pairs.  
-   When add_mode is true, list is a triangular shaped list of coalesce pairs.
-   The smaller partition number is used to index the list, and the larger is
-   index is located in a partition_pair_p object. These lists are sorted from 
-   smallest to largest by 'second_partition'.  New coalesce pairs are allowed
-   to be added in this mode.
-   When add_mode is false, the lists have all been merged into list[0]. The
-   rest of the lists are not used. list[0] is ordered from most desirable
-   coalesce to least desirable. pop_best_coalesce() retrieves the pairs
-   one at a time.  */
+extern unsigned int partition_pair_map_hash (const void *);
+extern int partition_pair_map_eq (const void *, const void *);
+
+/* This structure maintains the list of coalesce pairs.  */
 
 typedef struct coalesce_list_d 
 {
   var_map map;
-  partition_pair_p *list;
+  htab_t list;
+  partition_pair_p *sorted;
+  int num_sorted;
   bool add_mode;
 } *coalesce_list_p;
 
@@ -712,6 +585,10 @@ extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p,
 						 coalesce_list_p);
 extern void coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 				  coalesce_list_p cl, FILE *);
+
+/* From tree-ssa-ter.c  */
+extern tree *find_replaceable_exprs (var_map);
+extern void dump_replaceable_exprs (FILE *, tree *);
 
 
 #endif /* _TREE_SSA_LIVE_H  */

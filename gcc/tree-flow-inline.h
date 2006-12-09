@@ -25,6 +25,72 @@ Boston, MA 02110-1301, USA.  */
 /* Inline functions for manipulating various data structures defined in
    tree-flow.h.  See tree-flow.h for documentation.  */
 
+/* Return true when gimple SSA form was built.
+   gimple_in_ssa_p is queried by gimplifier in various early stages before SSA
+   infrastructure is initialized.  Check for presence of the datastructures
+   at first place.  */
+static inline bool
+gimple_in_ssa_p (struct function *fun)
+{
+  return fun && fun->gimple_df && fun->gimple_df->in_ssa_p;
+}
+
+/* 'true' after aliases have been computed (see compute_may_aliases).  */
+static inline bool
+gimple_aliases_computed_p (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->aliases_computed_p;
+}
+
+/* Addressable variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) has had its address taken.  Note that
+   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
+   addressable variable is not necessarily call-clobbered (e.g., a
+   local addressable whose address does not escape) and not all
+   call-clobbered variables are addressable (e.g., a local static
+   variable).  */
+static inline bitmap
+gimple_addressable_vars (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->addressable_vars;
+}
+
+/* Call clobbered variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) is call-clobbered.  */
+static inline bitmap
+gimple_call_clobbered_vars (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->call_clobbered_vars;
+}
+
+/* Array of all variables referenced in the function.  */
+static inline htab_t
+gimple_referenced_vars (struct function *fun)
+{
+  if (!fun->gimple_df)
+    return NULL;
+  return fun->gimple_df->referenced_vars;
+}
+
+/* Artificial variable used to model the effects of function calls.  */
+static inline tree
+gimple_global_var (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->global_var;
+}
+
+/* Artificial variable used to model the effects of nonlocal
+   variables.  */
+static inline tree
+gimple_nonlocal_all (struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->nonlocal_all;
+}
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -79,7 +145,8 @@ first_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
   itm = (struct int_tree_map *) first_htab_element (&iter->hti,
-                                                    referenced_vars);
+                                                    gimple_referenced_vars
+						    (cfun));
   if (!itm) 
     return NULL;
   return itm->to;
@@ -127,9 +194,10 @@ var_ann (tree t)
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
+  gcc_assert (!t->base.ann
+	      || t->base.ann->common.type == VAR_ANN);
 
-  return (var_ann_t) t->common.ann;
+  return (var_ann_t) t->base.ann;
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -148,9 +216,10 @@ function_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+  gcc_assert (!t->base.ann
+	      || t->base.ann->common.type == FUNCTION_ANN);
 
-  return (function_ann_t) t->common.ann;
+  return (function_ann_t) t->base.ann;
 }
 
 /* Return the function annotation for T, which must be a FUNCTION_DECL node.
@@ -159,7 +228,7 @@ static inline function_ann_t
 get_function_ann (tree var)
 {
   function_ann_t ann = function_ann (var);
-  gcc_assert (!var->common.ann || var->common.ann->common.type == FUNCTION_ANN);
+  gcc_assert (!var->base.ann || var->base.ann->common.type == FUNCTION_ANN);
   return (ann) ? ann : create_function_ann (var);
 }
 
@@ -171,7 +240,7 @@ has_stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
-  return t->common.ann && t->common.ann->common.type == STMT_ANN;
+  return t->base.ann && t->base.ann->common.type == STMT_ANN;
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -182,8 +251,8 @@ stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
-  gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
-  return (stmt_ann_t) t->common.ann;
+  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
+  return (stmt_ann_t) t->base.ann;
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -278,8 +347,8 @@ mark_stmt_modified (tree t)
   ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
-  else if (noreturn_call_p (t))
-    VEC_safe_push (tree, gc, modified_noreturn_calls, t);
+  else if (noreturn_call_p (t) && cfun->gimple_df)
+    VEC_safe_push (tree, gc, MODIFIED_NORETURN_CALLS (cfun), t);
   ann->modified = 1;
 }
 
@@ -760,7 +829,7 @@ is_call_clobbered (tree var)
   if (!MTAG_P (var))
     return DECL_CALL_CLOBBERED (var);
   else
-    return bitmap_bit_p (call_clobbered_vars, DECL_UID (var)); 
+    return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
@@ -770,7 +839,7 @@ mark_call_clobbered (tree var, unsigned int escape_type)
   var_ann (var)->escape_mask |= escape_type;
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = true;
-  bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
 /* Clear the call-clobbered attribute from variable VAR.  */
@@ -783,7 +852,7 @@ clear_call_clobbered (tree var)
     MTAG_GLOBAL (var) = 0;
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -792,7 +861,7 @@ mark_non_addressable (tree var)
 {
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
   TREE_ADDRESSABLE (var) = 0;
 }
 
@@ -801,7 +870,7 @@ mark_non_addressable (tree var)
 static inline tree_ann_common_t
 tree_common_ann (tree t)
 {
-  return &t->common.ann->common;
+  return &t->base.ann->common;
 }
 
 /* Return a common annotation for T.  Create the constant annotation if it
@@ -1659,4 +1728,10 @@ get_value_handle (tree expr)
     gcc_unreachable ();
 }
 
+/* Accessor to tree-ssa-operands.c caches.  */
+static inline struct ssa_operands *
+gimple_ssa_operands (struct function *fun)
+{
+  return &fun->gimple_df->ssa_operands;
+}
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -52,9 +52,6 @@ Boston, MA 02110-1301, USA.  */
    aliasing  */
 static bitmap_obstack alias_obstack;
 
-/* 'true' after aliases have been computed (see compute_may_aliases).  */
-bool aliases_computed_p;
-
 /* Structure to map a variable to its alias set and keep track of the
    virtual operands that will be needed to represent it.  */
 struct alias_map_d
@@ -116,26 +113,6 @@ static void group_aliases (struct alias_info *);
 static void set_pt_anything (tree ptr);
 
 /* Global declarations.  */
-
-/* Call clobbered variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) is call-clobbered.  */
-bitmap call_clobbered_vars;
-
-/* Addressable variables in the function.  If bit I is set, then
-   REFERENCED_VARS (I) has had its address taken.  Note that
-   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
-   addressable variable is not necessarily call-clobbered (e.g., a
-   local addressable whose address does not escape) and not all
-   call-clobbered variables are addressable (e.g., a local static
-   variable).  */
-bitmap addressable_vars;
-
-/* When the program has too many call-clobbered variables and call-sites,
-   this variable is used to represent the clobbering effects of function
-   calls.  In these cases, all the call clobbered variables in the program
-   are forced to alias this variable.  This reduces compile times by not
-   having to keep track of too many V_MAY_DEF expressions at call sites.  */
-tree global_var;
 
 /* qsort comparison function to sort type/name tags by DECL_UID.  */
 
@@ -327,10 +304,10 @@ set_initial_properties (struct alias_info *ai)
 	    mark_call_clobbered (var, ESCAPE_IS_GLOBAL);
 	}
       else if (TREE_CODE (var) == PARM_DECL
-	       && default_def (var)
+	       && gimple_default_def (cfun, var)
 	       && POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree def = default_def (var);
+	  tree def = gimple_default_def (cfun, var);
 	  get_ptr_info (def)->value_escapes_p = 1;
 	  get_ptr_info (def)->escape_mask |= ESCAPE_IS_PARM;	  
 	}
@@ -393,12 +370,6 @@ set_initial_properties (struct alias_info *ai)
     }
 }
 
-
-/* This variable is set to true if we are updating the used alone
-   information for SMTs, or are in a pass that is going to break it
-   temporarily.  */
-bool updating_used_alone;
-
 /* Compute which variables need to be marked call clobbered because
    their tag is call clobbered, and which tags need to be marked
    global because they contain global variables.  */
@@ -422,120 +393,6 @@ compute_call_clobbered (struct alias_info *ai)
   VEC_free (tree, heap, worklist);
   VEC_free (int, heap, worklist2);
   compute_tag_properties ();
-}
-
-
-/* Helper for recalculate_used_alone.  Return a conservatively correct
-   answer as to whether STMT may make a store on the LHS to SYM.  */
-
-static bool
-lhs_may_store_to (tree stmt, tree sym ATTRIBUTE_UNUSED)
-{
-  tree lhs = TREE_OPERAND (stmt, 0);
-  
-  lhs = get_base_address (lhs);
-  
-  if (!lhs)
-    return false;
-
-  if (TREE_CODE (lhs) == SSA_NAME)
-    return false;
-  /* We could do better here by looking at the type tag of LHS, but it
-     is unclear whether this is worth it. */
-  return true;
-}
-
-/* Recalculate the used_alone information for SMTs . */
-
-void 
-recalculate_used_alone (void)
-{
-  VEC (tree, heap) *calls = NULL;
-  block_stmt_iterator bsi;
-  basic_block bb;
-  tree stmt;
-  size_t i;
-  referenced_var_iterator rvi;
-  tree var;
-  
-  /* First, reset all the SMT used alone bits to zero.  */
-  updating_used_alone = true;
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    if (TREE_CODE (var) == SYMBOL_MEMORY_TAG)
-      {
-	SMT_OLD_USED_ALONE (var) = SMT_USED_ALONE (var);
-	SMT_USED_ALONE (var) = 0;
-      }
-
-  /* Walk all the statements.
-     Calls get put into a list of statements to update, since we will
-     need to update operands on them if we make any changes.
-     If we see a bare use of a SMT anywhere in a real virtual use or virtual
-     def, mark the SMT as used alone, and for renaming.  */
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  bool iscall = false;
-	  ssa_op_iter iter;
-
-	  stmt = bsi_stmt (bsi);
-	  
-	  if (TREE_CODE (stmt) == CALL_EXPR
-	      || (TREE_CODE (stmt) == MODIFY_EXPR 
-		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
-	    {
-	      iscall = true;
-	      VEC_safe_push (tree, heap, calls, stmt);	    
-	    }
-	  
-	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
-				     SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
-	    {
-	      tree svar = var;
-	      
-	      if (TREE_CODE (var) == SSA_NAME)
-		svar = SSA_NAME_VAR (var);
-	      
-	      if (TREE_CODE (svar) == SYMBOL_MEMORY_TAG)
-		{
-		  /* We only care about the LHS on calls.  */
-		  if (iscall && !lhs_may_store_to (stmt, svar))
-		    continue;
-
-		  if (!SMT_USED_ALONE (svar))
-		    {
-		      SMT_USED_ALONE (svar) = true;
-		      
-		      /* Only need to mark for renaming if it wasn't
-			 used alone before.  */
-		      if (!SMT_OLD_USED_ALONE (svar))
-			mark_sym_for_renaming (svar);
-		    }
-		}
-	    }
-	}	           
-    }
-  
-  /* Update the operands on all the calls we saw.  */
-  if (calls)
-    {
-      for (i = 0; VEC_iterate (tree, calls, i, stmt); i++)
-	update_stmt (stmt);
-    }
-  
-  /* We need to mark SMT's that are no longer used for renaming so the
-     symbols go away, or else verification will be angry with us, even
-     though they are dead.  */
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    if (TREE_CODE (var) == SYMBOL_MEMORY_TAG)
-      {
-	if (SMT_OLD_USED_ALONE (var) && !SMT_USED_ALONE (var))
-	  mark_sym_for_renaming (var);
-      }
-
-  VEC_free (tree, heap, calls);
-  updating_used_alone = false;
 }
 
 /* Compute may-alias information for every variable referenced in function
@@ -669,15 +526,13 @@ compute_may_aliases (void)
      not needed anymore.  */
   setup_pointers_and_addressables (ai);
 
-  /* Compute flow-sensitive, points-to based aliasing for all the name
-     memory tags.  Note that this pass needs to be done before flow
-     insensitive analysis because it uses the points-to information
-     gathered before to mark call-clobbered symbol tags.  */
-  compute_flow_sensitive_aliasing (ai);
-
   /* Compute type-based flow-insensitive aliasing for all the type
      memory tags.  */
   compute_flow_insensitive_aliasing (ai);
+
+  /* Compute flow-sensitive, points-to based aliasing for all the name
+     memory tags.  */
+  compute_flow_sensitive_aliasing (ai);
   
   /* Compute call clobbering information.  */
   compute_call_clobbered (ai);
@@ -712,7 +567,6 @@ compute_may_aliases (void)
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
 
-  updating_used_alone = true;
   {
     block_stmt_iterator bsi;
     basic_block bb;
@@ -724,8 +578,6 @@ compute_may_aliases (void)
           }
       }
   }
-  recalculate_used_alone ();
-  updating_used_alone = false;
   return 0;
 }
 
@@ -811,24 +663,24 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
      find all the indirect and direct uses of x_1 inside.  The only
      shortcut we can take is the fact that GIMPLE only allows
      INDIRECT_REFs inside the expressions below.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
       || (TREE_CODE (stmt) == RETURN_EXPR
-	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
+	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == GIMPLE_MODIFY_STMT)
       || TREE_CODE (stmt) == ASM_EXPR
       || TREE_CODE (stmt) == CALL_EXPR)
     {
       tree lhs, rhs;
 
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
+      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 	{
-	  lhs = TREE_OPERAND (stmt, 0);
-	  rhs = TREE_OPERAND (stmt, 1);
+	  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	}
       else if (TREE_CODE (stmt) == RETURN_EXPR)
 	{
 	  tree e = TREE_OPERAND (stmt, 0);
-	  lhs = TREE_OPERAND (e, 0);
-	  rhs = TREE_OPERAND (e, 1);
+	  lhs = GIMPLE_STMT_OPERAND (e, 0);
+	  rhs = GIMPLE_STMT_OPERAND (e, 1);
 	}
       else if (TREE_CODE (stmt) == ASM_EXPR)
 	{
@@ -841,7 +693,8 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 	  rhs = stmt;
 	}
 
-      if (lhs && (TREE_CODE (lhs) == TREE_LIST || EXPR_P (lhs)))
+      if (lhs && (TREE_CODE (lhs) == TREE_LIST
+		  || EXPR_P (lhs) || GIMPLE_STMT_P (lhs)))
 	{
 	  struct count_ptr_d count;
 	  count.ptr = ptr;
@@ -851,7 +704,8 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 	  *num_derefs_p = count.count;
 	}
 
-      if (rhs && (TREE_CODE (rhs) == TREE_LIST || EXPR_P (rhs)))
+      if (rhs && (TREE_CODE (rhs) == TREE_LIST
+		  || EXPR_P (rhs) || GIMPLE_STMT_P (rhs)))
 	{
 	  struct count_ptr_d count;
 	  count.ptr = ptr;
@@ -883,14 +737,14 @@ init_alias_info (void)
   ai->dereferenced_ptrs_load = BITMAP_ALLOC (&alias_obstack);
 
   /* If aliases have been computed before, clear existing information.  */
-  if (aliases_computed_p)
+  if (gimple_aliases_computed_p (cfun))
     {
       unsigned i;
   
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
-      bitmap_clear (addressable_vars);
+      bitmap_clear (gimple_addressable_vars (cfun));
 
       /* Clear flow-insensitive alias information from each symbol.  */
       FOR_EACH_REFERENCED_VAR (var, rvi)
@@ -945,7 +799,7 @@ init_alias_info (void)
     }
 
   /* Next time, we will need to reset alias information.  */
-  aliases_computed_p = true;
+  cfun->gimple_df->aliases_computed_p = true;
 
   return ai;
 }
@@ -1121,6 +975,8 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
   size_t i;
   tree ptr;
   
+  set_used_smts ();
+  
   for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
       if (!find_what_p_points_to (ptr))
@@ -1144,7 +1000,8 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 	  {
 	    add_may_alias (pi->name_mem_tag, referenced_var (j));
-	    add_may_alias (v_ann->symbol_mem_tag, referenced_var (j));
+	    if (j != DECL_UID (v_ann->symbol_mem_tag))
+	      add_may_alias (v_ann->symbol_mem_tag, referenced_var (j));
 	  }
     }
 }
@@ -1341,8 +1198,8 @@ finalize_ref_all_pointers (struct alias_info *ai)
 {
   size_t i;
 
-  if (global_var)
-    add_may_alias (ai->ref_all_symbol_mem_tag, global_var);
+  if (gimple_global_var (cfun))
+    add_may_alias (ai->ref_all_symbol_mem_tag, gimple_global_var (cfun));
   else
     {
       /* First add the real call-clobbered variables.  */
@@ -1761,7 +1618,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
          cleanup passes.  */
       if (TREE_ADDRESSABLE (var))
 	{
-	  if (!bitmap_bit_p (addressable_vars, DECL_UID (var))
+	  if (!bitmap_bit_p (gimple_addressable_vars (cfun), DECL_UID (var))
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
@@ -1781,7 +1638,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
 		  for (sv = svars; sv; sv = sv->next)
 		    {	      
-		      if (bitmap_bit_p (addressable_vars, DECL_UID (sv->var)))
+		      if (bitmap_bit_p (gimple_addressable_vars (cfun),
+					DECL_UID (sv->var)))
 			okay_to_mark = false;
 		      mark_sym_for_renaming (sv->var);
 		    }
@@ -1902,11 +1760,11 @@ maybe_create_global_var (struct alias_info *ai)
   bitmap_iterator bi;
   
   /* No need to create it, if we have one already.  */
-  if (global_var == NULL_TREE)
+  if (gimple_global_var (cfun) == NULL_TREE)
     {
       /* Count all the call-clobbered variables.  */
       n_clobbered = 0;
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	{
 	  n_clobbered++;
 	}
@@ -1949,16 +1807,16 @@ maybe_create_global_var (struct alias_info *ai)
   /* Mark all call-clobbered symbols for renaming.  Since the initial
      rewrite into SSA ignored all call sites, we may need to rename
      .GLOBAL_VAR and the call-clobbered variables.   */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       tree var = referenced_var (i);
 
       /* If the function has calls to clobbering functions and
 	 .GLOBAL_VAR has been created, make it an alias for all
 	 call-clobbered variables.  */
-      if (global_var && var != global_var)
+      if (gimple_global_var (cfun) && var != gimple_global_var (cfun))
 	{
-	  add_may_alias (var, global_var);
+	  add_may_alias (var, gimple_global_var (cfun));
 	  gcc_assert (!get_subvars_for_var (var));
 	}
       
@@ -2188,9 +2046,9 @@ is_escape_site (tree stmt)
     }
   else if (TREE_CODE (stmt) == ASM_EXPR)
     return ESCAPE_TO_ASM;
-  else if (TREE_CODE (stmt) == MODIFY_EXPR)
+  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree lhs = TREE_OPERAND (stmt, 0);
+      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 
       /* Get to the base of _REF nodes.  */
       if (TREE_CODE (lhs) != SSA_NAME)
@@ -2201,12 +2059,13 @@ is_escape_site (tree stmt)
       if (lhs == NULL_TREE)
 	return ESCAPE_UNKNOWN;
 
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
-	  || TREE_CODE (TREE_OPERAND (stmt, 1)) == CONVERT_EXPR
-	  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
+      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
+	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CONVERT_EXPR
+	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
 	{
-	  tree from = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0));
-	  tree to = TREE_TYPE (TREE_OPERAND (stmt, 1));
+	  tree from
+	    = TREE_TYPE (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0));
+	  tree to = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
 
 	  /* If the RHS is a conversion between a pointer and an integer, the
 	     pointer escapes since we can't track the integer.  */
@@ -2398,8 +2257,8 @@ get_tmt_for (tree ptr, struct alias_info *ai)
 static void
 create_global_var (void)
 {
-  global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
-                           void_type_node);
+  tree global_var = build_decl (VAR_DECL, get_identifier (".GLOBAL_VAR"),
+                                void_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
   DECL_EXTERNAL (global_var) = 1;
@@ -2413,6 +2272,7 @@ create_global_var (void)
   mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
   add_referenced_var (global_var);
   mark_sym_for_renaming (global_var);
+  cfun->gimple_df->global_var = global_var;
 }
 
 
@@ -2622,7 +2482,7 @@ dump_points_to_info (FILE *file)
     {
       if (POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree def = default_def (var);
+	  tree def = gimple_default_def (cfun, var);
 	  if (def)
 	    dump_points_to_info_for (file, def);
 	}
@@ -3193,11 +3053,12 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 {
   switch (TREE_CODE (*tp))
     {
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       /* Recurse manually here to track whether the use is in the
 	 LHS of an assignment.  */
-      find_used_portions (&TREE_OPERAND (*tp, 0), walk_subtrees, tp);
-      return find_used_portions (&TREE_OPERAND (*tp, 1), walk_subtrees, NULL);
+      find_used_portions (&GIMPLE_STMT_OPERAND (*tp, 0), walk_subtrees, tp);
+      return find_used_portions (&GIMPLE_STMT_OPERAND (*tp, 1),
+	  			 walk_subtrees, NULL);
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case COMPONENT_REF:

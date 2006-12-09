@@ -213,12 +213,19 @@ alias analysis		Diego Novillo		dnovillo@redhat.com
 reload			Ulrich Weigand		uweigand@de.ibm.com
 dfp.c, related		Ben Elliston		bje@au.ibm.com
 RTL optimizers		Eric Botcazou		ebotcazou@libertysurf.fr
-loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
-loop optimizer		Daniel Berlin		dberlin@dberlin.org
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
 
+			Non-Algorithmic Maintainers
+
+loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
+loop optimizer		Daniel Berlin		dberlin@dberlin.org
+middle-end		Richard Guenther	rguenther@suse.de
+
+Note individuals who maintain parts of the compiler as non-algorithmic
+maintainer need approval to check in algorithmic changes or changes
+outside of the parts of the compiler they maintain.
 
 			Write After Approval	(last name alphabetical order)
 
@@ -267,6 +274,7 @@ Doug Evans					dje@transmeta.com
 Bernhard Fischer				rep.nop@aon.at
 Thomas Fitzsimmons				fitzsim@redhat.com
 Brian Ford					ford@vss.fsi.com
+Daniel Franke					franke.daniel@gmail.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
 Matthew Gingell					gingell@gnat.com
 Anthony Green					green@redhat.com
@@ -324,7 +332,7 @@ Robert Millan					rmh@gcc.gnu.org
 Lee Millward					lee.millward@gmail.com
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
-Brooks Moses					bmoses@stanford.edu
+Brooks Moses					brooks.moses@codesourcery.com
 Dirk Mueller					dmueller@suse.de
 Adam Nemet					anemet@caviumnetworks.com
 Dan Nicolaescu					dann@ics.uci.edu

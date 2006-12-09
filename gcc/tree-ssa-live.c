@@ -40,15 +40,15 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "vecprim.h"
 
-static void live_worklist (tree_live_info_p, int *, int);
+static void live_worklist (tree_live_info_p);
 static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, bitmap, tree);
-static inline void add_livein_if_notdef (tree_live_info_p, bitmap,
-					 tree, basic_block);
-static inline void register_ssa_partition (var_map, tree, bool);
 static inline void add_conflicts_if_valid (tpa_p, conflict_graph,
 					   var_map, bitmap, tree);
 static partition_pair_p find_partition_pair (coalesce_list_p, int, int, bool);
+#ifdef ENABLE_CHECKING
+static void  verify_live_on_entry (tree_live_info_p);
+#endif
 
 /* This is where the mapping from SSA version number to real storage variable
    is tracked.  
@@ -79,7 +79,6 @@ init_var_map (int size)
   map->compact_to_partition = NULL;
   map->num_partitions = size;
   map->partition_size = size;
-  map->ref_count = NULL;
   return map;
 }
 
@@ -95,8 +94,6 @@ delete_var_map (var_map map)
     free (map->partition_to_compact);
   if (map->compact_to_partition)
     free (map->compact_to_partition);
-  if (map->ref_count)
-    free (map->ref_count);
   free (map);
 }
 
@@ -402,11 +399,11 @@ remove_unused_locals (void)
    new partition map is returned.  */
 
 var_map
-create_ssa_var_map (int flags)
+create_ssa_var_map (void)
 {
   block_stmt_iterator bsi;
   basic_block bb;
-  tree dest, use;
+  tree var;
   tree stmt;
   var_map map;
   ssa_op_iter iter;
@@ -422,13 +419,6 @@ create_ssa_var_map (int flags)
   used_in_virtual_ops = BITMAP_ALLOC (NULL);
 #endif
 
-  if (flags & SSA_VAR_MAP_REF_COUNT)
-    {
-      map->ref_count
-	= (int *)xmalloc (((num_ssa_names + 1) * sizeof (int)));
-      memset (map->ref_count, 0, (num_ssa_names + 1) * sizeof (int));
-    }
-
   FOR_EACH_BB (bb)
     {
       tree phi, arg;
@@ -436,12 +426,12 @@ create_ssa_var_map (int flags)
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int i;
-	  register_ssa_partition (map, PHI_RESULT (phi), false);
+	  register_ssa_partition (map, PHI_RESULT (phi));
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      arg = PHI_ARG_DEF (phi, i);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		register_ssa_partition (map, arg, true);
+		register_ssa_partition (map, arg);
 
 	      mark_all_vars_used (&PHI_ARG_DEF_TREE (phi, i));
 	    }
@@ -452,31 +442,22 @@ create_ssa_var_map (int flags)
 	  stmt = bsi_stmt (bsi);
 
 	  /* Register USE and DEF operands in each statement.  */
-	  FOR_EACH_SSA_TREE_OPERAND (use , stmt, iter, SSA_OP_USE)
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, (SSA_OP_DEF|SSA_OP_USE))
 	    {
-	      register_ssa_partition (map, use, true);
+	      register_ssa_partition (map, var);
 
 #ifdef ENABLE_CHECKING
-	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (use)));
-#endif
-	    }
-
-	  FOR_EACH_SSA_TREE_OPERAND (dest, stmt, iter, SSA_OP_DEF)
-	    {
-	      register_ssa_partition (map, dest, false);
-
-#ifdef ENABLE_CHECKING
-	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (dest)));
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (var)));
 #endif
 	    }
 
 #ifdef ENABLE_CHECKING
 	  /* Validate that virtual ops don't get used in funny ways.  */
-	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
 				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
 	    {
 	      bitmap_set_bit (used_in_virtual_ops, 
-			      DECL_UID (SSA_NAME_VAR (use)));
+			      DECL_UID (SSA_NAME_VAR (var)));
 	    }
 
 #endif /* ENABLE_CHECKING */
@@ -522,14 +503,18 @@ new_tree_live_info (var_map map)
   live->map = map;
   live->num_blocks = last_basic_block;
 
-  live->global = BITMAP_ALLOC (NULL);
-
-  live->livein = (bitmap *)xmalloc (num_var_partitions (map) * sizeof (bitmap));
-  for (x = 0; x < num_var_partitions (map); x++)
+  live->livein = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
+  for (x = 0; x < (unsigned)last_basic_block; x++)
     live->livein[x] = BITMAP_ALLOC (NULL);
 
-  /* liveout is deferred until it is actually requested.  */
-  live->liveout = NULL;
+  live->liveout = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
+  for (x = 0; x < (unsigned)last_basic_block; x++)
+    live->liveout[x] = BITMAP_ALLOC (NULL);
+
+  live->work_stack = XNEWVEC (int, last_basic_block);
+  live->stack_top = live->work_stack;
+
+  live->global = BITMAP_ALLOC (NULL);
   return live;
 }
 
@@ -540,270 +525,164 @@ void
 delete_tree_live_info (tree_live_info_p live)
 {
   int x;
-  if (live->liveout)
-    {
-      for (x = live->num_blocks - 1; x >= 0; x--)
-        BITMAP_FREE (live->liveout[x]);
-      free (live->liveout);
-    }
-  if (live->livein)
-    {
-      for (x = num_var_partitions (live->map) - 1; x >= 0; x--)
-        BITMAP_FREE (live->livein[x]);
-      free (live->livein);
-    }
-  if (live->global)
-    BITMAP_FREE (live->global);
-  
+
+  BITMAP_FREE (live->global);
+  free (live->work_stack);
+
+  for (x = live->num_blocks - 1; x >= 0; x--)
+    BITMAP_FREE (live->liveout[x]);
+  free (live->liveout);
+
+  for (x = live->num_blocks - 1; x >= 0; x--)
+    BITMAP_FREE (live->livein[x]);
+  free (live->livein);
+
   free (live);
 }
 
 
+/* Visit basic block BB, and propogate any required live on entry bits from 
+   LIVE into the predecessors.  VISITED is the bitmap of visited blocks.  
+   TMP is a temporary work bitmap which is passed in to avoid reallocting
+   it each time.  */
+
+static void 
+loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited,
+		 bitmap tmp)
+{
+  edge e;
+  bool change;
+  edge_iterator ei;
+  basic_block pred_bb;
+  bitmap loe;
+  gcc_assert (!TEST_BIT (visited, bb->index));
+
+  SET_BIT (visited, bb->index);
+  loe = live_on_entry (live, bb);
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      pred_bb = e->src;
+      if (pred_bb == ENTRY_BLOCK_PTR)
+	continue;
+      /* tmp is vars live-=on-entry from BB that aren't defined in the
+	 pred. block.  This should be the live on entry vars to pred.  
+	 Note that liveout is the DEFs in a block while live on entry is
+	 being calculated.  */
+      bitmap_and_compl (tmp, loe, live->liveout[pred_bb->index]);
+
+      /* Add these bits to live-on-entry for the pred. if there are any 
+	 changes, and pred_bb has been visited already, add it to the
+	 revisit stack.  */
+      change = bitmap_ior_into (live_on_entry (live, pred_bb), tmp);
+      if (TEST_BIT (visited, pred_bb->index) && change)
+	{
+	  RESET_BIT (visited, pred_bb->index);
+	  *(live->stack_top)++ = pred_bb->index;
+	}
+    }
+}
+
+
 /* Using LIVE, fill in all the live-on-entry blocks between the defs and uses 
-   for partition I.  STACK is a varray used for temporary memory which is 
-   passed in rather than being allocated on every call.  */
+   of all the vairables.  */
 
 static void
-live_worklist (tree_live_info_p live, int *stack, int i)
+live_worklist (tree_live_info_p live)
 {
   unsigned b;
-  tree var;
-  basic_block def_bb = NULL;
-  edge e;
-  var_map map = live->map;
-  edge_iterator ei;
-  bitmap_iterator bi;
-  int *tos = stack;
-
-  var = partition_to_var (map, i);
-  if (SSA_NAME_DEF_STMT (var))
-    def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
-
-  EXECUTE_IF_SET_IN_BITMAP (live->livein[i], 0, b, bi)
-    {
-      *tos++ = b;
-    }
-
-  while (tos != stack)
-    {
-      b = *--tos;
-
-      FOR_EACH_EDGE (e, ei, BASIC_BLOCK (b)->preds)
-	if (e->src != ENTRY_BLOCK_PTR)
-	  {
-	    /* Its not live on entry to the block its defined in.  */
-	    if (e->src == def_bb)
-	      continue;
-	    if (!bitmap_bit_p (live->livein[i], e->src->index))
-	      {
-		bitmap_set_bit (live->livein[i], e->src->index);
-		*tos++ = e->src->index;
-	      }
-	  }
-    }
-}
-
-
-/* If VAR is in a partition of MAP, set the bit for that partition in VEC.  */
-
-static inline void
-set_if_valid (var_map map, bitmap vec, tree var)
-{
-  int p = var_to_partition (map, var);
-  if (p != NO_PARTITION)
-    bitmap_set_bit (vec, p);
-}
-
-
-/* If VAR is in a partition and it isn't defined in DEF_VEC, set the livein and 
-   global bit for it in the LIVE object.  BB is the block being processed.  */
-
-static inline void
-add_livein_if_notdef (tree_live_info_p live, bitmap def_vec,
-		      tree var, basic_block bb)
-{
-  int p = var_to_partition (live->map, var);
-  if (p == NO_PARTITION || bb == ENTRY_BLOCK_PTR)
-    return;
-  if (!bitmap_bit_p (def_vec, p))
-    {
-      bitmap_set_bit (live->livein[p], bb->index);
-      bitmap_set_bit (live->global, p);
-    }
-}
-
-
-/* Given partition map MAP, calculate all the live on entry bitmaps for 
-   each basic block.  Return a live info object.  */
-
-tree_live_info_p 
-calculate_live_on_entry (var_map map)
-{
-  tree_live_info_p live;
-  unsigned i;
   basic_block bb;
-  bitmap saw_def;
-  tree phi, var, stmt;
-  tree op;
-  edge e;
-  int *stack;
-  block_stmt_iterator bsi;
-  ssa_op_iter iter;
-  bitmap_iterator bi;
-#ifdef ENABLE_CHECKING
-  int num;
-  edge_iterator ei;
-#endif
+  sbitmap visited = sbitmap_alloc (last_basic_block + 1);
+  bitmap tmp = BITMAP_ALLOC (NULL);
 
-  saw_def = BITMAP_ALLOC (NULL);
+  sbitmap_zero (visited);
 
-  live = new_tree_live_info (map);
+  /* Visit all the blocks in reverse order and propogate live on entry values
+     into the predecessors blocks.  */
+  FOR_EACH_BB_REVERSE (bb)
+    loe_visit_block (live, bb, visited, tmp);
 
-  FOR_EACH_BB (bb)
+  /* Process any blocks which require further iteration.  */
+  while (live->stack_top != live->work_stack)
     {
-      bitmap_clear (saw_def);
+      b = *--(live->stack_top);
+      loe_visit_block (live, BASIC_BLOCK (b), visited, tmp);
+    }
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  for (i = 0; i < (unsigned)PHI_NUM_ARGS (phi); i++)
-	    {
-	      var = PHI_ARG_DEF (phi, i);
-	      if (!phi_ssa_name_p (var))
-	        continue;
-	      stmt = SSA_NAME_DEF_STMT (var);
-	      e = EDGE_PRED (bb, i);
+  BITMAP_FREE (tmp);
+  sbitmap_free (visited);
+}
 
-	      /* Any uses in PHIs which either don't have def's or are not
-	         defined in the block from which the def comes, will be live
-		 on entry to that block.  */
-	      if (!stmt || e->src != bb_for_stmt (stmt))
-		add_livein_if_notdef (live, saw_def, var, e->src);
-	    }
-        }
 
-      /* Don't mark PHI results as defined until all the PHI nodes have
-	 been processed. If the PHI sequence is:
-	    a_3 = PHI <a_1, a_2>
-	    b_3 = PHI <b_1, a_3>
-	 The a_3 referred to in b_3's PHI node is the one incoming on the
-	 edge, *not* the PHI node just seen.  */
+/* Calulate the initial live on entry vector for SSA_NAME using immediate_use
+   links.  Set the live on entry fields in LIVE.  Def's are marked temporarily
+   in the liveout vector.  */
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+static void
+set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
+{
+  int p;
+  tree stmt;
+  use_operand_p use;
+  basic_block def_bb = NULL;
+  imm_use_iterator imm_iter;
+  bool global = false;
+
+  p = var_to_partition (live->map, ssa_name);
+  if (p == NO_PARTITION)
+    return;
+
+  stmt = SSA_NAME_DEF_STMT (ssa_name);
+  if (stmt)
+    {
+      def_bb = bb_for_stmt (stmt);
+      /* Mark defs in liveout bitmap for now.  */
+      if (def_bb)
+	bitmap_set_bit (live->liveout[def_bb->index], p);
+    }
+  else
+    def_bb = ENTRY_BLOCK_PTR;
+
+  /* Visit each use of SSA_NAME and if it isn't in the same block as the def,
+     add it to the list of live on entry blocks.  */
+  FOR_EACH_IMM_USE_FAST (use, imm_iter, ssa_name)
+    {
+      tree use_stmt = USE_STMT (use);
+      basic_block add_block = NULL;
+
+      if (TREE_CODE (use_stmt) == PHI_NODE)
         {
-	  var = PHI_RESULT (phi);
-	  set_if_valid (map, saw_def, var);
+	  /* Uses in PHI's are considered to be live at exit of the SRC block
+	     as this is where a copy would be inserted.  Check to see if it is
+	     defined in that block, or whether its live on entry.  */
+	  int index = PHI_ARG_INDEX_FROM_USE (use);
+	  edge e = PHI_ARG_EDGE (use_stmt, index);
+	  if (e->src != ENTRY_BLOCK_PTR)
+	    {
+	      if (e->src != def_bb)
+		add_block = e->src;
+	    }
 	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      else
         {
-	  stmt = bsi_stmt (bsi);
+	  /* If its not defined in this block, its live on entry.  */
+	  basic_block use_bb = bb_for_stmt (use_stmt);
+	  if (use_bb != def_bb)
+	    add_block = use_bb;
+	}  
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
-	    {
-	      add_livein_if_notdef (live, saw_def, op, bb);
-	    }
-
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
-	    {
-	      set_if_valid (map, saw_def, op);
-	    }
+      /* If there was a live on entry use, set the bit.  */
+      if (add_block)
+        {
+	  global = true;
+	  bitmap_set_bit (live->livein[add_block->index], p);
 	}
     }
 
-  stack = XNEWVEC (int, last_basic_block);
-  EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i, bi)
-    {
-      live_worklist (live, stack, i);
-    }
-  free (stack);
-
-#ifdef ENABLE_CHECKING
-   /* Check for live on entry partitions and report those with a DEF in
-      the program. This will typically mean an optimization has done
-      something wrong.  */
-
-  bb = ENTRY_BLOCK_PTR;
-  num = 0;
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      int entry_block = e->dest->index;
-      if (e->dest == EXIT_BLOCK_PTR)
-        continue;
-      for (i = 0; i < (unsigned)num_var_partitions (map); i++)
-	{
-	  basic_block tmp;
-	  tree d;
-	  var = partition_to_var (map, i);
-	  stmt = SSA_NAME_DEF_STMT (var);
-	  tmp = bb_for_stmt (stmt);
-	  d = default_def (SSA_NAME_VAR (var));
-
-	  if (bitmap_bit_p (live_entry_blocks (live, i), entry_block))
-	    {
-	      if (!IS_EMPTY_STMT (stmt))
-		{
-		  num++;
-		  print_generic_expr (stderr, var, TDF_SLIM);
-		  fprintf (stderr, " is defined ");
-		  if (tmp)
-		    fprintf (stderr, " in BB%d, ", tmp->index);
-		  fprintf (stderr, "by:\n");
-		  print_generic_expr (stderr, stmt, TDF_SLIM);
-		  fprintf (stderr, "\nIt is also live-on-entry to entry BB %d", 
-			   entry_block);
-		  fprintf (stderr, " So it appears to have multiple defs.\n");
-		}
-	      else
-	        {
-		  if (d != var)
-		    {
-		      num++;
-		      print_generic_expr (stderr, var, TDF_SLIM);
-		      fprintf (stderr, " is live-on-entry to BB%d ",entry_block);
-		      if (d)
-		        {
-			  fprintf (stderr, " but is not the default def of ");
-			  print_generic_expr (stderr, d, TDF_SLIM);
-			  fprintf (stderr, "\n");
-			}
-		      else
-			fprintf (stderr, " and there is no default def.\n");
-		    }
-		}
-	    }
-	  else
-	    if (d == var)
-	      {
-		/* The only way this var shouldn't be marked live on entry is 
-		   if it occurs in a PHI argument of the block.  */
-		int z, ok = 0;
-		for (phi = phi_nodes (e->dest); 
-		     phi && !ok; 
-		     phi = PHI_CHAIN (phi))
-		  {
-		    for (z = 0; z < PHI_NUM_ARGS (phi); z++)
-		      if (var == PHI_ARG_DEF (phi, z))
-			{
-			  ok = 1;
-			  break;
-			}
-		  }
-		if (ok)
-		  continue;
-	        num++;
-		print_generic_expr (stderr, var, TDF_SLIM);
-		fprintf (stderr, " is not marked live-on-entry to entry BB%d ", 
-			 entry_block);
-		fprintf (stderr, "but it is a default def so it should be.\n");
-	      }
-	}
-    }
-  gcc_assert (num <= 0);
-#endif
-
-  BITMAP_FREE (saw_def);
-
-  return live;
+  /* If SSA_NAME is live on entry to at least one block, fill in all the live
+     on entry blocks between the def and all the uses.  */
+  if (global)
+    bitmap_set_bit (live->global, p);
 }
 
 
@@ -812,49 +691,69 @@ calculate_live_on_entry (var_map map)
 void
 calculate_live_on_exit (tree_live_info_p liveinfo)
 {
-  unsigned b;
-  unsigned i, x;
-  bitmap *on_exit;
+  unsigned i;
+  int p;
+  tree t, phi;
   basic_block bb;
   edge e;
-  tree t, phi;
-  bitmap on_entry;
-  var_map map = liveinfo->map;
+  edge_iterator ei;
 
-  on_exit = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
-  for (x = 0; x < (unsigned)last_basic_block; x++)
-    on_exit[x] = BITMAP_ALLOC (NULL);
+  /* live on entry calculations used the liveouit vector for defs.  */
+  FOR_EACH_BB (bb)
+    bitmap_clear (liveinfo->liveout[bb->index]);
 
   /* Set all the live-on-exit bits for uses in PHIs.  */
   FOR_EACH_BB (bb)
     {
+      /* Mark the PHI arguments which are live on exit to the pred block.  */
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned)PHI_NUM_ARGS (phi); i++)
 	  { 
 	    t = PHI_ARG_DEF (phi, i);
-	    e = PHI_ARG_EDGE (phi, i);
-	    if (!phi_ssa_name_p (t) || e->src == ENTRY_BLOCK_PTR)
+	    if (TREE_CODE (t) != SSA_NAME)
 	      continue;
-	    set_if_valid (map, on_exit[e->src->index], t);
+	    p = var_to_partition (liveinfo->map, t);
+	    if (p == NO_PARTITION)
+	      continue;
+	    e = PHI_ARG_EDGE (phi, i);
+	    if (e->src != ENTRY_BLOCK_PTR)
+	      bitmap_set_bit (liveinfo->liveout[e->src->index], p);
 	  }
-    }
 
-  /* Set live on exit for all predecessors of live on entry's.  */
+      /* add each successors live on entry to this bock live on exit.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        if (e->dest != EXIT_BLOCK_PTR)
+	  bitmap_ior_into (liveinfo->liveout[bb->index],
+			   live_on_entry (liveinfo, e->dest));
+    }
+}
+
+/* Given partition map MAP, calculate all the live on entry bitmaps for 
+   each partition.  Return a new live info object.  */
+
+tree_live_info_p 
+calculate_live_ranges (var_map map)
+{
+  tree var;
+  unsigned i;
+  tree_live_info_p live;
+
+  live = new_tree_live_info (map);
   for (i = 0; i < num_var_partitions (map); i++)
     {
-      bitmap_iterator bi;
-
-      on_entry = live_entry_blocks (liveinfo, i);
-      EXECUTE_IF_SET_IN_BITMAP (on_entry, 0, b, bi)
-        {
-	  edge_iterator ei;
-	  FOR_EACH_EDGE (e, ei, BASIC_BLOCK (b)->preds)
-	    if (e->src != ENTRY_BLOCK_PTR)
-	      bitmap_set_bit (on_exit[e->src->index], i);
-	}
+      var = partition_to_var (map, i);
+      if (var != NULL_TREE)
+	set_var_live_on_entry (var, live);
     }
 
-  liveinfo->liveout = on_exit;
+  live_worklist (live);
+
+#ifdef ENABLE_CHECKING
+  verify_live_on_entry (live);
+#endif
+
+  calculate_live_on_exit (live);
+  return live;
 }
 
 
@@ -1069,70 +968,32 @@ root_var_init (var_map map)
 }
 
 
-/* Initialize a type_var structure which associates all the partitions in MAP 
-   of the same type to the type node's index.  Volatiles are ignored.  */
+/* Hash function for 2 integer coalesce pairs.  */
+#define COALESCE_HASH_FN(R1, R2) ((R2) * ((R2) - 1) / 2 + (R1))
 
-type_var_p
-type_var_init (var_map map)
+
+/* Return hash value for partition pair PAIR.  */
+
+unsigned int 
+partition_pair_map_hash (const void *pair)
 {
-  type_var_p tv;
-  int x, y, p;
-  int num_partitions = num_var_partitions (map);
-  tree t;
-  sbitmap seen;
+  hashval_t a = (hashval_t)(((partition_pair_p)pair)->first_partition);
+  hashval_t b = (hashval_t)(((partition_pair_p)pair)->second_partition);
 
-  tv = tpa_init (map);
-  if (!tv)
-    return NULL;
+  return COALESCE_HASH_FN (a,b);
+}
 
-  seen = sbitmap_alloc (num_partitions);
-  sbitmap_zero (seen);
 
-  for (x = num_partitions - 1; x >= 0; x--)
-    {
-      t = partition_to_var (map, x);
+/* Return TRUE if PAIR1 is equivalent to PAIR2.  */
 
-      /* Disallow coalescing of these types of variables.  */
-      if (!t
-	  || TREE_THIS_VOLATILE (t)
-	  || TREE_CODE (t) == RESULT_DECL
-      	  || TREE_CODE (t) == PARM_DECL 
-	  || (DECL_P (t)
-	      && (DECL_REGISTER (t)
-		  || !DECL_IGNORED_P (t)
-		  || DECL_RTL_SET_P (t))))
-        continue;
+int 
+partition_pair_map_eq (const void *pair1, const void *pair2)
+{
+  partition_pair_p p1 = (partition_pair_p) pair1;
+  partition_pair_p p2 = (partition_pair_p) pair2;
 
-      p = var_to_partition (map, t);
-
-      gcc_assert (p != NO_PARTITION);
-
-      /* If partitions have been coalesced, only add the representative 
-	 for the partition to the list once.  */
-      if (TEST_BIT (seen, p))
-        continue;
-      SET_BIT (seen, p);
-      t = TREE_TYPE (t);
-
-      /* Find the list for this type.  */
-      for (y = 0; y < tv->num_trees; y++)
-        if (t == VEC_index (tree, tv->trees, y))
-	  break;
-      if (y == tv->num_trees)
-        {
-	  tv->num_trees++;
-	  VEC_safe_push (tree, heap, tv->trees, t);
-	  VEC_safe_push (int, heap, tv->first_partition, p);
-	}
-      else
-        {
-	  tv->next_partition[p] = VEC_index (int, tv->first_partition, y);
-	  VEC_replace (int, tv->first_partition, y, p);
-	}
-      tv->partition_to_tree_map[p] = y;
-    }
-  sbitmap_free (seen);
-  return tv;
+  return (p1->first_partition == p2->first_partition
+	  && p1->second_partition == p2->second_partition);
 }
 
 
@@ -1142,13 +1003,19 @@ coalesce_list_p
 create_coalesce_list (var_map map)
 {
   coalesce_list_p list;
+  unsigned size = num_ssa_names * 3;
 
-  list = (coalesce_list_p) xmalloc (sizeof (struct coalesce_list_d));
+  if (size < 40)
+    size = 40;
+
+  list = xmalloc (sizeof (struct coalesce_list_d));
+  list->list = htab_create (size, partition_pair_map_hash,
+  			    partition_pair_map_eq, NULL);
 
   list->map = map;
+  list->sorted = NULL;
   list->add_mode = true;
-  list->list = (partition_pair_p *) xcalloc (num_var_partitions (map),
-					     sizeof (struct partition_pair_d));
+  list->num_sorted = 0;
   return list;
 }
 
@@ -1158,7 +1025,10 @@ create_coalesce_list (var_map map)
 void 
 delete_coalesce_list (coalesce_list_p cl)
 {
-  free (cl->list);
+  htab_delete (cl->list);
+  if (cl->sorted)
+    free (cl->sorted);
+  gcc_assert (cl->num_sorted == 0);
   free (cl);
 }
 
@@ -1170,52 +1040,38 @@ delete_coalesce_list (coalesce_list_p cl)
 static partition_pair_p
 find_partition_pair (coalesce_list_p cl, int p1, int p2, bool create)
 {
-  partition_pair_p node, tmp;
-  int s;
+  struct partition_pair p, *pair;
+  void **slot;
+  unsigned int hash;
     
-  /* Normalize so that p1 is the smaller value.  */
+  /* normalize so that p1 is the smaller value.  */
   if (p2 < p1)
     {
-      s = p1;
-      p1 = p2;
-      p2 = s;
-    }
-  
-  tmp = NULL;
-
-  /* The list is sorted such that if we find a value greater than p2,
-     p2 is not in the list.  */
-  for (node = cl->list[p1]; node; node = node->next)
-    {
-      if (node->second_partition == p2)
-        return node;
-      else
-        if (node->second_partition > p2)
-	  break;
-     tmp = node;
-    }
-
-  if (!create)
-    return NULL;
-
-  node = (partition_pair_p) xmalloc (sizeof (struct partition_pair_d));
-  node->first_partition = p1;
-  node->second_partition = p2;
-  node->cost = 0;
-    
-  if (tmp != NULL)
-    {
-      node->next = tmp->next;
-      tmp->next = node;
+      p.first_partition = p2;
+      p.second_partition = p1;
     }
   else
     {
-      /* This is now the first node in the list.  */
-      node->next = cl->list[p1];
-      cl->list[p1] = node;
+      p.first_partition = p1;
+      p.second_partition = p2;
+    }
+  
+  
+  hash = partition_pair_map_hash (&p);
+  pair = (struct partition_pair *) htab_find_with_hash (cl->list, &p, hash);
+
+  if (create && !pair)
+    {
+      gcc_assert (cl->add_mode);
+      pair = xmalloc (sizeof (struct partition_pair));
+      pair->first_partition = p.first_partition;
+      pair->second_partition = p.second_partition;
+      pair->cost = 0;
+      slot = htab_find_slot_with_hash (cl->list, pair, hash, INSERT);
+      *(struct partition_pair **)slot = pair;
     }
 
-  return node;
+  return pair;
 }
 
 /* Return cost of execution of copy instruction with FREQUENCY
@@ -1256,13 +1112,54 @@ add_coalesce (coalesce_list_p cl, int p1, int p2,
 }
 
 
-/* Comparison function to allow qsort to sort P1 and P2 in descending order.  */
+/* Comparison function to allow qsort to sort P1 and P2 in Ascending order.  */
 
 static
 int compare_pairs (const void *p1, const void *p2)
 {
-  return (*(partition_pair_p *)p2)->cost - (*(partition_pair_p *)p1)->cost;
+  return (*(partition_pair_p *)p1)->cost - (*(partition_pair_p *)p2)->cost;
 }
+
+
+static inline int
+num_coalesce_pairs (coalesce_list_p cl)
+{
+  return htab_elements (cl->list);
+}
+
+typedef struct
+{
+  htab_iterator hti;
+} partition_pair_iterator;
+
+static inline partition_pair_p
+first_partition_pair (coalesce_list_p cl, partition_pair_iterator *iter)
+{
+  partition_pair_p pair;
+
+  pair = (partition_pair_p) first_htab_element (&(iter->hti), cl->list);
+  return pair;
+}
+
+static inline bool
+end_partition_pair_p (partition_pair_iterator *iter)
+{
+  return end_htab_p (&(iter->hti));
+}
+
+static inline partition_pair_p
+next_partition_pair (partition_pair_iterator *iter)
+{
+  partition_pair_p pair;
+
+  pair = (partition_pair_p) next_htab_element (&(iter->hti));
+  return pair;
+}
+
+#define FOR_EACH_PARTITION_PAIR(PAIR, ITER, CL)		\
+  for ((PAIR) = first_partition_pair ((CL), &(ITER));	\
+       !end_partition_pair_p (&(ITER));			\
+       (PAIR) = next_partition_pair (&(ITER)))
 
 
 /* Prepare CL for removal of preferred pairs.  When finished, list element 
@@ -1272,64 +1169,45 @@ int compare_pairs (const void *p1, const void *p2)
 void
 sort_coalesce_list (coalesce_list_p cl)
 {
-  unsigned x, num, count;
-  partition_pair_p chain, p;
-  partition_pair_p  *list;
+  unsigned x, num;
+  partition_pair_p p;
+  partition_pair_iterator ppi;
 
   gcc_assert (cl->add_mode);
 
   cl->add_mode = false;
 
-  /* Compact the array of lists to a single list, and count the elements.  */
-  num = 0;
-  chain = NULL;
-  for (x = 0; x < num_var_partitions (cl->map); x++)
-    if (cl->list[x] != NULL)
-      {
-        for (p = cl->list[x]; p->next != NULL; p = p->next)
-	  num++;
-	num++;
-	p->next = chain;
-	chain = cl->list[x];
-	cl->list[x] = NULL;
-      }
+  /* allocate a vector for the pair pointers.  */
+  num = num_coalesce_pairs (cl);
+  cl->num_sorted = num;
+  if (num == 0)
+    return;
+  cl->sorted = XNEWVEC (partition_pair_p, num);
+
+  /* Populate the vector with pointers to the partition pairs.  */
+  
+  x = 0;
+  FOR_EACH_PARTITION_PAIR (p, ppi, cl)
+    cl->sorted[x++] = p;
+  gcc_assert (x == num);
+
+  if (num == 1)
+    return;
+
+  if (num == 2)
+    {
+      if (cl->sorted[0]->cost > cl->sorted[1]->cost)
+        {
+	  p = cl->sorted[0];
+	  cl->sorted[0] = cl->sorted[1];
+	  cl->sorted[1] = p;
+	}
+      return;
+    }
 
   /* Only call qsort if there are more than 2 items.  */
   if (num > 2)
-    {
-      list = XNEWVEC (partition_pair_p, num);
-      count = 0;
-      for (p = chain; p != NULL; p = p->next)
-	list[count++] = p;
-
-      gcc_assert (count == num);
-	
-      qsort (list, count, sizeof (partition_pair_p), compare_pairs);
-
-      p = list[0];
-      for (x = 1; x < num; x++)
-	{
-	  p->next = list[x];
-	  p = list[x];
-	}
-      p->next = NULL;
-      cl->list[0] = list[0];
-      free (list);
-    }
-  else
-    {
-      cl->list[0] = chain;
-      if (num == 2)
-	{
-	  /* Simply swap the two elements if they are in the wrong order.  */
-	  if (chain->cost < chain->next->cost)
-	    {
-	      cl->list[0] = chain->next;
-	      cl->list[0]->next = chain;
-	      chain->next = NULL;
-	    }
-	}
-    }
+      qsort (cl->sorted, num, sizeof (partition_pair_p), compare_pairs);
 }
 
 
@@ -1345,11 +1223,10 @@ pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
 
   gcc_assert (!cl->add_mode);
 
-  node = cl->list[0];
-  if (!node)
+  if (cl->num_sorted == 0)
     return NO_BEST_COALESCE;
 
-  cl->list[0] = node->next;
+  node = cl->sorted[--(cl->num_sorted)];
 
   *p1 = node->first_partition;
   *p2 = node->second_partition;
@@ -1386,6 +1263,17 @@ add_conflicts_if_valid (tpa_p tpa, conflict_graph graph,
 	    conflict_graph_add (graph, p, y);
 	}
     }
+}
+
+
+/* If VAR is in a partition of MAP, set the bit for that partition in VEC.  */
+
+static inline void
+set_if_valid (var_map map, bitmap vec, tree var)
+{
+  int p = var_to_partition (map, var);
+  if (p != NO_PARTITION)
+    bitmap_set_bit (vec, p);
 }
 
 /* Return a conflict graph for the information contained in LIVE_INFO.  Only
@@ -1443,10 +1331,10 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	     be interested in trying to coalesce SSA_NAME variables with
 	     root variables in some cases.  */
 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 	    {
-	      tree lhs = TREE_OPERAND (stmt, 0);
-	      tree rhs = TREE_OPERAND (stmt, 1);
+	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	      int p1, p2;
 	      int bit;
 
@@ -1729,40 +1617,34 @@ void
 dump_coalesce_list (FILE *f, coalesce_list_p cl)
 {
   partition_pair_p node;
-  int x, num;
+  partition_pair_iterator ppi;
+  int x;
   tree var;
 
   if (cl->add_mode)
     {
       fprintf (f, "Coalesce List:\n");
-      num = num_var_partitions (cl->map);
-      for (x = 0; x < num; x++)
+      FOR_EACH_PARTITION_PAIR (node, ppi, cl)
         {
-	  node = cl->list[x];
-	  if (node)
-	    {
-	      fprintf (f, "[");
-	      print_generic_expr (f, partition_to_var (cl->map, x), TDF_SLIM);
-	      fprintf (f, "] - ");
-	      for ( ; node; node = node->next)
-	        {
-		  var = partition_to_var (cl->map, node->second_partition);
-		  print_generic_expr (f, var, TDF_SLIM);
-		  fprintf (f, "(%1d), ", node->cost);
-		}
-	      fprintf (f, "\n");
-	    }
+	  tree var1 = partition_to_var (cl->map, node->first_partition);
+	  tree var2 = partition_to_var (cl->map, node->second_partition);
+	  print_generic_expr (f, var1, TDF_SLIM);
+	  fprintf (f, " <-> ");
+	  print_generic_expr (f, var2, TDF_SLIM);
+	  fprintf (f, "  (%1d), ", node->cost);
+	  fprintf (f, "\n");
 	}
     }
   else
     {
       fprintf (f, "Sorted Coalesce list:\n");
-      for (node = cl->list[0]; node; node = node->next)
+      for (x = cl->num_sorted - 1 ; x >=0; x--)
         {
+	  node = cl->sorted[x];
 	  fprintf (f, "(%d) ", node->cost);
 	  var = partition_to_var (cl->map, node->first_partition);
 	  print_generic_expr (f, var, TDF_SLIM);
-	  fprintf (f, " : ");
+	  fprintf (f, " <-> ");
 	  var = partition_to_var (cl->map, node->second_partition);
 	  print_generic_expr (f, var, TDF_SLIM);
 	  fprintf (f, "\n");
@@ -1865,13 +1747,10 @@ dump_live_info (FILE *f, tree_live_info_p live, int flag)
       FOR_EACH_BB (bb)
 	{
 	  fprintf (f, "\nLive on entry to BB%d : ", bb->index);
-	  for (i = 0; i < num_var_partitions (map); i++)
+	  EXECUTE_IF_SET_IN_BITMAP (live->livein[bb->index], 0, i, bi)
 	    {
-	      if (bitmap_bit_p (live_entry_blocks (live, i), bb->index))
-	        {
-		  print_generic_expr (f, partition_to_var (map, i), TDF_SLIM);
-		  fprintf (f, "  ");
-		}
+	      print_generic_expr (f, partition_to_var (map, i), TDF_SLIM);
+	      fprintf (f, "  ");
 	    }
 	  fprintf (f, "\n");
 	}
@@ -1904,5 +1783,104 @@ register_ssa_partition_check (tree ssa_var)
       fprintf (stderr, " in the SSA->Normal phase.\n");
       internal_error ("SSA corruption");
     }
+}
+
+
+/* Verify that the info in LIVE matches the current cfg.  */
+static void
+verify_live_on_entry (tree_live_info_p live)
+{
+  unsigned i;
+  tree var;
+  tree phi, stmt;
+  basic_block bb;
+  edge e;
+  int num;
+  edge_iterator ei;
+  var_map map = live->map;
+
+   /* Check for live on entry partitions and report those with a DEF in
+      the program. This will typically mean an optimization has done
+      something wrong.  */
+
+  bb = ENTRY_BLOCK_PTR;
+  num = 0;
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      int entry_block = e->dest->index;
+      if (e->dest == EXIT_BLOCK_PTR)
+        continue;
+      for (i = 0; i < (unsigned)num_var_partitions (map); i++)
+	{
+	  basic_block tmp;
+	  tree d;
+	  bitmap loe;
+	  var = partition_to_var (map, i);
+	  stmt = SSA_NAME_DEF_STMT (var);
+	  tmp = bb_for_stmt (stmt);
+	  d = gimple_default_def (cfun, SSA_NAME_VAR (var));
+
+	  loe = live_on_entry (live, e->dest);
+	  if (loe && bitmap_bit_p (loe, i))
+	    {
+	      if (!IS_EMPTY_STMT (stmt))
+		{
+		  num++;
+		  print_generic_expr (stderr, var, TDF_SLIM);
+		  fprintf (stderr, " is defined ");
+		  if (tmp)
+		    fprintf (stderr, " in BB%d, ", tmp->index);
+		  fprintf (stderr, "by:\n");
+		  print_generic_expr (stderr, stmt, TDF_SLIM);
+		  fprintf (stderr, "\nIt is also live-on-entry to entry BB %d", 
+			   entry_block);
+		  fprintf (stderr, " So it appears to have multiple defs.\n");
+		}
+	      else
+	        {
+		  if (d != var)
+		    {
+		      num++;
+		      print_generic_expr (stderr, var, TDF_SLIM);
+		      fprintf (stderr, " is live-on-entry to BB%d ",entry_block);
+		      if (d)
+		        {
+			  fprintf (stderr, " but is not the default def of ");
+			  print_generic_expr (stderr, d, TDF_SLIM);
+			  fprintf (stderr, "\n");
+			}
+		      else
+			fprintf (stderr, " and there is no default def.\n");
+		    }
+		}
+	    }
+	  else
+	    if (d == var)
+	      {
+		/* The only way this var shouldn't be marked live on entry is 
+		   if it occurs in a PHI argument of the block.  */
+		int z, ok = 0;
+		for (phi = phi_nodes (e->dest); 
+		     phi && !ok; 
+		     phi = PHI_CHAIN (phi))
+		  {
+		    for (z = 0; z < PHI_NUM_ARGS (phi); z++)
+		      if (var == PHI_ARG_DEF (phi, z))
+			{
+			  ok = 1;
+			  break;
+			}
+		  }
+		if (ok)
+		  continue;
+	        num++;
+		print_generic_expr (stderr, var, TDF_SLIM);
+		fprintf (stderr, " is not marked live-on-entry to entry BB%d ", 
+			 entry_block);
+		fprintf (stderr, "but it is a default def so it should be.\n");
+	      }
+	}
+    }
+  gcc_assert (num <= 0);
 }
 #endif

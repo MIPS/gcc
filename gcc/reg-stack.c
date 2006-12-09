@@ -441,10 +441,8 @@ get_true_reg (rtx *pat)
 
       case UNSPEC:
 	if (XINT (*pat, 1) == UNSPEC_TRUNC_NOOP)
-	  {
-	    pat = & XVECEXP (*pat, 0, 0);
-	    break;
-	  }
+	  pat = & XVECEXP (*pat, 0, 0);
+	return pat;
 
       case FLOAT_TRUNCATE:
 	if (!flag_unsafe_math_optimizations)
@@ -2597,7 +2595,8 @@ convert_regs_entry (void)
       int reg, top = -1;
 
       for (reg = LAST_STACK_REG; reg >= FIRST_STACK_REG; --reg)
-	if (TEST_HARD_REG_BIT (bi->stack_in.reg_set, reg))
+	if (TEST_HARD_REG_BIT (bi->stack_in.reg_set, reg)
+	    || TEST_HARD_REG_BIT (incoming_regs, reg))
 	  {
 	    rtx init;
 

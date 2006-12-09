@@ -591,8 +591,8 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 				bb->loop_depth);
 	    walk_tree (&TREE_OPERAND (call, 1),
 		       record_reference, node, visited_nodes);
-	    if (TREE_CODE (stmt) == MODIFY_EXPR)
-	      walk_tree (&TREE_OPERAND (stmt, 0),
+	    if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+	      walk_tree (&GIMPLE_STMT_OPERAND (stmt, 0),
 			 record_reference, node, visited_nodes);
 	  }
 	else
@@ -950,6 +950,9 @@ cgraph_analyze_function (struct cgraph_node *node)
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, decl);
 
+  node->local.estimated_self_stack_size = estimated_stack_frame_size ();
+  node->global.estimated_stack_size = node->local.estimated_self_stack_size;
+  node->global.stack_frame_offset = 0;
   node->local.inlinable = tree_inlinable_function_p (decl);
   if (!flag_unit_at_a_time)
     node->local.self_insns = estimate_num_insns (decl);
@@ -1073,7 +1076,7 @@ cgraph_finalize_compilation_unit (void)
 
   if (!quiet_flag)
     {
-      fprintf (stderr, "\nAnalyzing compilation unit");
+      fprintf (stderr, "\nAnalyzing compilation unit\n");
       fflush (stderr);
     }
 

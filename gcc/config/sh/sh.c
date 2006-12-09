@@ -1416,7 +1416,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
      compare r0.  Hence, if operands[1] has to be loaded from somewhere else
      into a register, that register might as well be r0, and we allow the
      constant.  If it is already in a register, this is likely to be
-     allocatated to a different hard register, thus we load the constant into
+     allocated to a different hard register, thus we load the constant into
      a register unless it is zero.  */
   if (!REG_P (operands[2])
       && (GET_CODE (operands[2]) != CONST_INT
@@ -1468,7 +1468,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
      operation should be EQ or NE.
    - If items are searched in an ordered tree from the root, we can expect
      the highpart to be unequal about half of the time; operation should be
-     an unequality comparison, operands non-constant, and overall probability
+     an inequality comparison, operands non-constant, and overall probability
      about 50%.  Likewise for quicksort.
    - Range checks will be often made against constants.  Even if we assume for
      simplicity an even distribution of the non-constant operand over a
@@ -2413,7 +2413,7 @@ sh_rtx_costs (rtx x, int code, int outer_code, int *total)
 	       && CONST_OK_FOR_K08 (INTVAL (x)))
         *total = 1;
       /* prepare_cmp_insn will force costly constants int registers before
-	 the cbrach[sd]i4 pattterns can see them, so preserve potentially
+	 the cbrach[sd]i4 patterns can see them, so preserve potentially
 	 interesting ones not covered by I08 above.  */
       else if (outer_code == COMPARE
 	       && ((unsigned HOST_WIDE_INT) INTVAL (x)
@@ -2440,7 +2440,7 @@ sh_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (TARGET_SHMEDIA)
         *total = COSTS_N_INSNS (4);
       /* prepare_cmp_insn will force costly constants int registers before
-	 the cbrachdi4 patttern can see them, so preserve potentially
+	 the cbrachdi4 pattern can see them, so preserve potentially
 	 interesting ones.  */
       else if (outer_code == COMPARE && GET_MODE (x) == DImode)
         *total = 1;
@@ -7117,7 +7117,7 @@ sh_va_start (tree valist, rtx nextarg)
 
   /* Call __builtin_saveregs.  */
   u = make_tree (ptr_type_node, expand_builtin_saveregs ());
-  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp, u);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -7128,11 +7128,11 @@ sh_va_start (tree valist, rtx nextarg)
     nfp = 0;
   u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
 		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp));
-  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp_limit, u);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  t = build2 (MODIFY_EXPR, ptr_type_node, next_o, u);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -7143,12 +7143,12 @@ sh_va_start (tree valist, rtx nextarg)
     nint = 0;
   u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
 		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint));
-  t = build2 (MODIFY_EXPR, ptr_type_node, next_o_limit, u);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   u = make_tree (ptr_type_node, nextarg);
-  t = build2 (MODIFY_EXPR, ptr_type_node, next_stack, u);
+  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_stack, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -7268,10 +7268,10 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  bool is_double = size == 8 && TREE_CODE (eff_type) == REAL_TYPE;
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_fp);
-	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 
-	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_tmp, valist);
 	  gimplify_and_add (tmp, pre_p);
 	  tmp = next_fp_limit;
 	  if (size > 4 && !is_double)
@@ -7290,7 +7290,8 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
 	      tmp = build2 (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
 	      tmp = build2 (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
-	      tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
+		  	    next_fp_tmp, tmp);
 	      gimplify_and_add (tmp, pre_p);
 	    }
 	  if (is_double)
@@ -7323,12 +7324,12 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
-	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_tmp, valist);
 	  gimplify_and_add (tmp, pre_p);
 
-	  tmp = build2 (MODIFY_EXPR, ptr_type_node, valist, next_fp_tmp);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, next_fp_tmp);
 	  gimplify_and_add (tmp, post_p);
 	  valist = next_fp_tmp;
 	}
@@ -7343,7 +7344,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_o);
-	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -7354,12 +7355,13 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
 	  if (size > 4 && ! TARGET_SH4)
 	    {
-	      tmp = build2 (MODIFY_EXPR, ptr_type_node, next_o, next_o_limit);
+	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
+		  	    next_o, next_o_limit);
 	      gimplify_and_add (tmp, pre_p);
 	    }
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 	}
 
@@ -7376,7 +7378,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   tmp = std_gimplify_va_arg_expr (valist, type, pre_p, NULL);
   if (result)
     {
-      tmp = build2 (MODIFY_EXPR, void_type_node, result, tmp);
+      tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, result, tmp);
       gimplify_and_add (tmp, pre_p);
 
       tmp = build1 (LABEL_EXPR, void_type_node, lab_over);
@@ -9597,7 +9599,8 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_move_insn (adjust_address (tramp_mem, SImode, 12), fnaddr);
   if (TARGET_HARVARD)
     {
-      if (TARGET_USERMODE)
+      if (!TARGET_INLINE_IC_INVALIDATE
+	  || !(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE)
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
 			   0, VOIDmode, 1, tramp, SImode);

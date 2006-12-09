@@ -59,6 +59,9 @@ char *alloca ();
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
 
+#define MAX_SUBRECORD_LENGTH 2147483639   /* 2**31-9 */
+
+
 #define free(x) Use_gfc_free_instead_of_free()
 #define gfc_is_whitespace(c) ((c==' ') || (c=='\t'))
 
@@ -476,7 +479,7 @@ typedef struct
 {
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
-    optional:1, pointer:1, save:1, target:1, volatile_:1,
+    optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
     dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
@@ -1661,11 +1664,11 @@ typedef struct
   int fshort_enums;
   int convert;
   int record_marker;
+  int max_subrecord_length;
 }
 gfc_option_t;
 
 extern gfc_option_t gfc_option;
-
 
 /* Constructor nodes for array and structure constructors.  */
 typedef struct gfc_constructor
@@ -1868,6 +1871,7 @@ try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
 try gfc_add_function (symbol_attribute *, const char *, locus *);
 try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
+try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);

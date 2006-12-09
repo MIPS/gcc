@@ -71,18 +71,6 @@ static tree collect_dfa_stats_r (tree *, int *, void *);
 static tree find_vars_r (tree *, int *, void *);
 
 
-/* Global declarations.  */
-
-/* Array of all variables referenced in the function.  */
-htab_t referenced_vars;
-
-/* Default definition for this symbols.  If set for symbol, it
-   means that the first reference to this variable in the function is a
-   USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
-   for this variable with an empty defining statement.  */
-htab_t default_defs;
-
-
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
@@ -140,13 +128,13 @@ create_var_ann (tree t)
 
   gcc_assert (t);
   gcc_assert (DECL_P (t));
-  gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == VAR_ANN);
 
   ann = GGC_CNEW (struct var_ann_d);
 
   ann->common.type = VAR_ANN;
 
-  t->common.ann = (tree_ann_t) ann;
+  t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -160,14 +148,14 @@ create_function_ann (tree t)
 
   gcc_assert (t);
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == FUNCTION_ANN);
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = FUNCTION_ANN;
 
-  t->common.ann = (tree_ann_t) ann;
+  t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -180,7 +168,7 @@ create_stmt_ann (tree t)
   stmt_ann_t ann;
 
   gcc_assert (is_gimple_stmt (t));
-  gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
 
   ann = GGC_CNEW (struct stmt_ann_d);
 
@@ -189,7 +177,7 @@ create_stmt_ann (tree t)
   /* Since we just created the annotation, mark the statement modified.  */
   ann->modified = true;
 
-  t->common.ann = (tree_ann_t) ann;
+  t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -202,12 +190,12 @@ create_tree_common_ann (tree t)
   tree_ann_common_t ann;
 
   gcc_assert (t);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == TREE_ANN_COMMON);
 
   ann = GGC_CNEW (struct tree_ann_common_d);
 
   ann->type = TREE_ANN_COMMON;
-  t->common.ann = (tree_ann_t) ann;
+  t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -222,7 +210,7 @@ make_rename_temp (tree type, const char *prefix)
   if (TREE_CODE (type) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
 
-  if (referenced_vars)
+  if (gimple_referenced_vars (cfun))
     {
       add_referenced_var (t);
       mark_sym_for_renaming (t);
@@ -375,10 +363,10 @@ dump_variable (FILE *file, tree var)
 	}
     }
 
-  if (default_def (var))
+  if (gimple_default_def (cfun, var))
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, default_def (var), dump_flags);
+      print_generic_expr (file, gimple_default_def (cfun, var), dump_flags);
     }
 
   if (may_aliases (var))
@@ -552,9 +540,9 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
 
-  if (t->common.ann)
+  if (t->base.ann)
     {
-      switch (ann_type (t->common.ann))
+      switch (ann_type (t->base.ann))
 	{
 	case STMT_ANN:
 	  {
@@ -611,7 +599,8 @@ referenced_var_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (gimple_referenced_vars (cfun),
+						   &in, uid);
   gcc_assert (h || uid == 0);
   if (h)
     return h->to;
@@ -630,7 +619,8 @@ referenced_var_check_and_insert (tree to)
 
   in.uid = uid;
   in.to = to;
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (gimple_referenced_vars (cfun),
+						   &in, uid);
 
   if (h)
     {
@@ -643,7 +633,8 @@ referenced_var_check_and_insert (tree to)
   h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
-  loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  loc = htab_find_slot_with_hash (gimple_referenced_vars (cfun),
+				  h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
   return true;
 }
@@ -652,12 +643,13 @@ referenced_var_check_and_insert (tree to)
    variable.  */
 
 tree 
-default_def (tree var)
+gimple_default_def (struct function *fn, tree var)
 {
   struct int_tree_map *h, in;
   gcc_assert (SSA_VAR_P (var));
   in.uid = DECL_UID (var);
-  h = (struct int_tree_map *) htab_find_with_hash (default_defs, &in,
+  h = (struct int_tree_map *) htab_find_with_hash (DEFAULT_DEFS (fn),
+						   &in,
                                                    DECL_UID (var));
   if (h)
     return h->to;
@@ -675,14 +667,16 @@ set_default_def (tree var, tree def)
 
   gcc_assert (SSA_VAR_P (var));
   in.uid = DECL_UID (var);
-  if (!def && default_def (var))
+  if (!def && gimple_default_def (cfun, var))
     {
-      loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
-      htab_remove_elt (default_defs, *loc);
+      loc = htab_find_slot_with_hash (DEFAULT_DEFS (cfun), &in,
+            DECL_UID (var), INSERT);
+      htab_remove_elt (DEFAULT_DEFS (cfun), *loc);
       return;
     }
   gcc_assert (TREE_CODE (def) == SSA_NAME);
-  loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+  loc = htab_find_slot_with_hash (DEFAULT_DEFS (cfun), &in,
+                                  DECL_UID (var), INSERT);
   /* Default definition might be changed by tail call optimization.  */
   if (!*loc)
     {
