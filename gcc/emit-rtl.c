@@ -109,8 +109,9 @@ REAL_VALUE_TYPE dconstthird;
 REAL_VALUE_TYPE dconstpi;
 REAL_VALUE_TYPE dconste;
 
-/* Record fixed-point constant 0.  */
+/* Record fixed-point constant 0 and 1.  */
 FIXED_VALUE_TYPE fconst0[(int) MAX_MACHINE_MODE];
+FIXED_VALUE_TYPE fconst1[(int) MAX_MACHINE_MODE];
 
 /* All references to the following fixed hard registers go through
    these unique rtl objects.  On machines where the frame-pointer and
@@ -5280,11 +5281,26 @@ init_emit_once (int line_numbers)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
+      double_int temp;
       fconst0[mode].data.high = 0;
       fconst0[mode].data.low = 0;
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+      /* We store the maximum value close to the value 1.  */
+      fconst1[mode].data.high = 0;
+      fconst1[mode].data.low = 0;
+      fconst1[mode].mode = mode;
+      lshift_double (1, 0, GET_MODE_FBIT (mode),
+                     2 * HOST_BITS_PER_WIDE_INT,
+                     &fconst1[mode].data.low, &fconst1[mode].data.high,
+                     SIGNED_FIXED_POINT_MODE_P (mode));
+      temp.low = 1;
+      temp.high = 0;
+      fconst1[mode].data = double_int_add (fconst1[mode].data,
+					   double_int_neg (temp));
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst1[mode], mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
@@ -5296,6 +5312,14 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+      /* We store the maximum value close to the value 1.  */
+      fconst1[mode].mode = mode;
+      fconst1[mode].data.high = -1;
+      fconst1[mode].data.low = -1;
+      fconst1[mode].data = double_int_ext (fconst1[mode].data,
+					   GET_MODE_FBIT (mode), 1);
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst1[mode], mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
@@ -5307,6 +5331,16 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+      /* We store the value 1.  */
+      fconst1[mode].data.high = 0;
+      fconst1[mode].data.low = 0;
+      fconst1[mode].mode = mode;
+      lshift_double (1, 0, GET_MODE_FBIT (mode),
+                     2 * HOST_BITS_PER_WIDE_INT,
+                     &fconst1[mode].data.low, &fconst1[mode].data.high,
+                     SIGNED_FIXED_POINT_MODE_P (mode));
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst1[mode], mode);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UACCUM);
@@ -5318,6 +5352,16 @@ init_emit_once (int line_numbers)
       fconst0[mode].mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      fconst0[mode], mode);
+      /* We store the value 1.  */
+      fconst1[mode].data.high = 0;
+      fconst1[mode].data.low = 0;
+      fconst1[mode].mode = mode;
+      lshift_double (1, 0, GET_MODE_FBIT (mode),
+                     2 * HOST_BITS_PER_WIDE_INT,
+                     &fconst1[mode].data.low, &fconst1[mode].data.high,
+                     SIGNED_FIXED_POINT_MODE_P (mode));
+      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
+				      fconst1[mode], mode);
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)

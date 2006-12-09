@@ -3086,9 +3086,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	else
 	  inc = integer_one_node;
 
-	/* Don't convert integer_one_node to a fixed-point type.  */
-	if (TREE_CODE (argtype) != FIXED_POINT_TYPE)
-	  inc = convert (argtype, inc);
+	inc = convert (argtype, inc);
 
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR

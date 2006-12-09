@@ -70,6 +70,20 @@ typedef struct convert_optab *convert_optab;
 /* Enumeration of valid indexes into optab_table.  */
 enum optab_index
 {
+  /* Fixed-point operators with signed/unsigned saturation */
+  OTI_ssadd,
+  OTI_usadd,
+  OTI_sssub,
+  OTI_ussub,
+  OTI_ssmul,
+  OTI_usmul,
+  OTI_ssdiv,
+  OTI_usdiv,
+  OTI_ssneg,
+  OTI_usneg,
+  OTI_ssashl,
+  OTI_usashl,
+
   OTI_add,
   OTI_addv,
   OTI_sub,
@@ -291,6 +305,19 @@ enum optab_index
 };
 
 extern GTY(()) optab optab_table[OTI_MAX];
+
+#define ssadd_optab (optab_table[OTI_ssadd])
+#define usadd_optab (optab_table[OTI_usadd])
+#define sssub_optab (optab_table[OTI_sssub])
+#define ussub_optab (optab_table[OTI_ussub])
+#define ssmul_optab (optab_table[OTI_ssmul])
+#define usmul_optab (optab_table[OTI_usmul])
+#define ssdiv_optab (optab_table[OTI_ssdiv])
+#define usdiv_optab (optab_table[OTI_usdiv])
+#define ssneg_optab (optab_table[OTI_ssneg])
+#define usneg_optab (optab_table[OTI_usneg])
+#define ssashl_optab (optab_table[OTI_ssashl])
+#define usashl_optab (optab_table[OTI_usashl])
 
 #define add_optab (optab_table[OTI_add])
 #define sub_optab (optab_table[OTI_sub])

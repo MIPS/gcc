@@ -33,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "langhooks.h"
 #include "real.h"
+#include "fixed-value.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
@@ -830,6 +831,12 @@ convert_to_vector (tree type, tree expr)
 tree
 convert_to_fixed (tree type, tree expr)
 {
+  if (expr == integer_one_node)
+    {
+      tree fixed_one_node = build_fixed (type, fconst1[TYPE_MODE (type)]);
+      return fixed_one_node; 
+    }
+
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case FIXED_POINT_TYPE:

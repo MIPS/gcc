@@ -1,3 +1,76 @@
+2006-12-8  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.h (enum optab_index): Add OTI_ssadd, OTI_usadd, OTI_sssub,
+	OTI_ussub, OTI_ssmul, OTI_usmul, OTI_ssdiv, OTI_usdiv, OTI_ssneg,
+	OTI_usneg, OTI_ssashl, OTI_usashl for fixed-point operators with
+	signed or unsigned saturation.
+	(ssadd_optab, usadd_optab, sssub_optab, ussub_optab, ssmul_optab,
+	usmul_optab, ssdiv_optab, usdiv_optab, ssneg_optab, usneg_optab,
+	ssashl_optab, usashl_optab): Define.
+
+	* optabs.c (optab_for_tree_code): For *DIV_EXPR, LSHIFT_EXPR,
+	PLUS_EXPR, MINUS_EXPR, MULT_EXPR, NEGATE_EXPR, return signed or
+	unsigned saturation optabs.
+	(expand_binop): Set shift_op when SS_ASHIFT or US_ASHIFT.
+	(init_optabs): Initialize ssadd_optab, usadd_optab, sssub_optab,
+	ussub_optab, ssmul_optab, usmul_optab, ssdiv_optab, usdiv_optab,
+	ssashl_optab, usashl_optab, ssneg_optab, usneg_optab.
+
+	* genopinit.c: Add comment about $Q for only fixed-point modes.
+	(optabs): Add add_optab, ssadd_optab, usadd_optab, sub_optab,
+	sssub_optab, ussub_optab, smul_optab, ssmul_optab, usmul_optab,
+	ssdiv_optab, udiv_optab, usdiv_optab, ssashl_optab, usashl_optab,
+	neg_optab, ssneg_optab, usneg_optab for fixed-point modes.
+	(gen_insn): Add force_fixed to track the $Q format for all fixed-point
+	modes.
+
+	* rtl.def (SS_MULT, US_MULT, SS_DIV, US_DIV, US_NEG, US_ASHIFT):
+	New codes.
+
+	* expr.c (expand_expr_real_1): For MULT_EXPR, *DIV_EXPR, *SHIFT_EXPR,
+	if the mode if a fixed-point mode, we jump to binop directly.
+	(do_store_flag): Check FIXED_CST to put a constant second.
+
+	* c-typeck.c (build_unary_op): For PREINCREMENT_EXPR,
+	POSTINCREMENT_EXPR, PREDECREMENT_EXPR, and POSTDECREMENT_EXPR,
+	we still need to convert integer_one_node to a fixed-point type.
+
+	* emit-rtl.c (fconst1): New array for fixed-point one. 
+	(init_emit_once): Init fconst1.
+
+	* simplify-rtx.c (simplify_unary_operation): Don't abort when we see
+	US_NEG.
+	(simplify_binary_operation_1, simplify_const_binary_operation): Don't
+	abort when we see US_ASHIFT, SS_MULT, US_MULT, SS_DIV, US_DIV.
+
+	* fixed-value.h (fconst1): Declare.
+
+	* c-common.c (shorten_compare): Check if the first op is not a
+	fixed-point type for the integer case.
+	(c_common_truthvalue_conversion): For fixed-point types, we create and
+	pass fixed_zero_node to build_binary_op.
+
+	* convert.c (convert_to_fixed): Convert integer_one_node to a
+	fixed-point type.
+
+	* doc/rtl.texi (SS_MULT, US_MULT, SS_DIV, US_DIV, US_NEG, US_ASHIFT):
+	Document them.
+
+	* doc/md.texi (ssadd, usadd, sssub, ussub, ssmul, usmul, ssdiv, usdiv,
+	ssneg, usneg, ssashl, usashl): Document them.
+
+	* config/mips/mips.h (SHORT_FRACT_TYPE_SIZE, FRACT_TYPE_SIZE,
+	LONG_FRACT_TYPE_SIZE, LONG_LONG_FRACT_TYPE_SIZE,
+	SHORT_ACCUM_TYPE_SIZE, ACCUM_TYPE_SIZE, LONG_ACCUM_TYPE_SIZE,
+	LONG_LONG_ACCUM_TYPE_SIZE): Define.
+
+	* config/mips/mips.c (mips_emit_compare): Process fixed-point modes.
+
+	* config/mips/mips.md (mips-fixed.md): Include fake fixed-point
+	instructions for experiments.
+
+	* config/mips/mips-fixed.md: New file.
+
 2006-12-4  Chao-ying Fu  <fu@mips.com>
 
 	* fold-const.c (fold_convert_const_fixed_from_fixed): New function.

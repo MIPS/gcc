@@ -2382,6 +2382,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
      and see if that preserves the constant's value.  */
 
   if (!real1 && !real2
+      && TREE_CODE (TREE_TYPE (primop0)) != FIXED_POINT_TYPE
       && TREE_CODE (primop1) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (primop0)) < TYPE_PRECISION (*restype_ptr))
     {
@@ -2869,6 +2870,12 @@ c_common_truthvalue_conversion (tree expr)
 	c_common_truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
 	c_common_truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
 	       0));
+    }
+
+  if (TREE_CODE (TREE_TYPE (expr)) == FIXED_POINT_TYPE)
+    {
+      tree fixed_zero_node = build_fixed (TREE_TYPE (expr), fconst0[TYPE_MODE (TREE_TYPE (expr))]);
+      return build_binary_op (NE_EXPR, expr, fixed_zero_node, 1);
     }
 
   return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);

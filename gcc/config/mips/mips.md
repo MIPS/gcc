@@ -5514,3 +5514,5 @@
 ; The MIPS DSP Instructions.
 
 (include "mips-dsp.md")
+
+(include "mips-fixed.md")

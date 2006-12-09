@@ -2000,24 +2000,35 @@ still known.
 
 @findex neg
 @findex ss_neg
+@findex us_neg
 @cindex negation
 @cindex negation with signed saturation
+@cindex negation with unsigned saturation
 @item (neg:@var{m} @var{x})
 @itemx (ss_neg:@var{m} @var{x})
+@itemx (us_neg:@var{m} @var{x})
 These two expressions represent the negation (subtraction from zero) of
 the value represented by @var{x}, carried out in mode @var{m}.  They
 differ in the behavior on overflow of integer modes.  In the case of
 @code{neg}, the negation of the operand may be a number not representable
 in mode @var{m}, in which case it is truncated to @var{m}.  @code{ss_neg}
-ensures that an out-of-bounds result saturates to the maximum or minimum
-representable value.
+and @code{us_neg} ensure that an out-of-bounds result saturates to the
+maximum or minimum signed or unsigned value.
 
 @findex mult
+@findex ss_mult
+@findex us_mult
 @cindex multiplication
 @cindex product
+@cindex multiplication with signed saturation
+@cindex multiplication with unsigned saturation
 @item (mult:@var{m} @var{x} @var{y})
+@itemx (ss_mult:@var{m} @var{x} @var{y})
+@itemx (us_mult:@var{m} @var{x} @var{y})
 Represents the signed product of the values represented by @var{x} and
 @var{y} carried out in machine mode @var{m}.
+@code{ss_mult} and @code{us_mult} ensure that an out-of-bounds result
+saturates to the maximum or minimum signed or unsigned value.
 
 Some machines support a multiplication that generates a product wider
 than the operands.  Write the pattern for this as
@@ -2033,14 +2044,19 @@ For unsigned widening multiplication, use the same idiom, but with
 @code{zero_extend} instead of @code{sign_extend}.
 
 @findex div
+@findex ss_div
 @cindex division
 @cindex signed division
+@cindex signed division with signed saturation
 @cindex quotient
 @item (div:@var{m} @var{x} @var{y})
+@itemx (ss_div:@var{m} @var{x} @var{y})
 Represents the quotient in signed division of @var{x} by @var{y},
 carried out in machine mode @var{m}.  If @var{m} is a floating point
 mode, it represents the exact quotient; otherwise, the integerized
 quotient.
+@code{ss_div} ensures that an out-of-bounds result saturates to the maximum
+or minimum signed value.
 
 Some machines have division instructions in which the operands and
 quotient widths are not all the same; you should represent
@@ -2052,9 +2068,13 @@ such instructions using @code{truncate} and @code{sign_extend} as in,
 
 @findex udiv
 @cindex unsigned division
+@cindex unsigned division with unsigned saturation
 @cindex division
 @item (udiv:@var{m} @var{x} @var{y})
+@itemx (us_div:@var{m} @var{x} @var{y})
 Like @code{div} but represents unsigned division.
+@code{us_div} ensures that an out-of-bounds result saturates to the maximum
+or minimum unsigned value.
 
 @findex mod
 @findex umod

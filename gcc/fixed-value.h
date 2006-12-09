@@ -31,8 +31,9 @@ struct fixed_value GTY(())
 
 #define FIXED_VALUE_TYPE struct fixed_value
 
-/* Constant fixed-point values 0.  */
+/* Constant fixed-point values 0 and 1.  */
 extern FIXED_VALUE_TYPE fconst0[];
+extern FIXED_VALUE_TYPE fconst1[];
 
 /* Return a CONST_FIXED with value R and mode M.  */
 #define CONST_FIXED_FROM_FIXED_VALUE(r, m) \

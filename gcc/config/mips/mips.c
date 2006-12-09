@@ -3267,6 +3267,15 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	  *code = (invert ? EQ : NE);
 	}
     }
+  else if (ALL_FIXED_POINT_MODE_P (GET_MODE (cmp_operands[0])))
+    {
+      enum rtx_code cmp_code;
+      cmp_code = *code;
+      *code = NE;
+      *op0 = gen_rtx_REG (CCDSPmode, CCDSP_CC_REGNUM);
+      *op1 = const0_rtx;
+      mips_emit_binary (cmp_code, *op0, cmp_operands[0], cmp_operands[1]);
+    }
   else
     {
       enum rtx_code cmp_code;

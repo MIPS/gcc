@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    only full integer modes should be considered for the next mode, and $F
    means that only float modes should be considered.
    $P means that both full and partial integer modes should be considered.
+   $Q means that only fixed-point modes should be considered.
 
    $V means to emit 'v' if the first mode is a MODE_FLOAT mode.
 
@@ -72,11 +73,20 @@ static const char * const optabs[] =
   "addv_optab->handlers[$A].insn_code =\n\
     add_optab->handlers[$A].insn_code = CODE_FOR_$(add$F$a3$)",
   "addv_optab->handlers[$A].insn_code = CODE_FOR_$(addv$I$a3$)",
+  "add_optab->handlers[$A].insn_code = CODE_FOR_$(add$Q$a3$)",
+  "ssadd_optab->handlers[$A].insn_code = CODE_FOR_$(ssadd$Q$a3$)",
+  "usadd_optab->handlers[$A].insn_code = CODE_FOR_$(usadd$Q$a3$)",
   "sub_optab->handlers[$A].insn_code = CODE_FOR_$(sub$P$a3$)",
   "subv_optab->handlers[$A].insn_code =\n\
     sub_optab->handlers[$A].insn_code = CODE_FOR_$(sub$F$a3$)",
   "subv_optab->handlers[$A].insn_code = CODE_FOR_$(subv$I$a3$)",
+  "sub_optab->handlers[$A].insn_code = CODE_FOR_$(sub$Q$a3$)",
+  "sssub_optab->handlers[$A].insn_code = CODE_FOR_$(sssub$Q$a3$)",
+  "ussub_optab->handlers[$A].insn_code = CODE_FOR_$(ussub$Q$a3$)",
   "smul_optab->handlers[$A].insn_code = CODE_FOR_$(mul$P$a3$)",
+  "smul_optab->handlers[$A].insn_code = CODE_FOR_$(mul$Q$a3$)",
+  "ssmul_optab->handlers[$A].insn_code = CODE_FOR_$(ssmul$Q$a3$)",
+  "usmul_optab->handlers[$A].insn_code = CODE_FOR_$(usmul$Q$a3$)",
   "smulv_optab->handlers[$A].insn_code =\n\
     smul_optab->handlers[$A].insn_code = CODE_FOR_$(mul$F$a3$)",
   "smulv_optab->handlers[$A].insn_code = CODE_FOR_$(mulv$I$a3$)",
@@ -86,8 +96,11 @@ static const char * const optabs[] =
   "umul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umul$a$b3$)$N",
   "usmul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(usmul$a$b3$)$N",
   "sdiv_optab->handlers[$A].insn_code = CODE_FOR_$(div$a3$)",
+  "ssdiv_optab->handlers[$A].insn_code = CODE_FOR_$(ssdiv$Q$a3$)",
   "sdivv_optab->handlers[$A].insn_code = CODE_FOR_$(div$V$I$a3$)",
   "udiv_optab->handlers[$A].insn_code = CODE_FOR_$(udiv$I$a3$)",
+  "udiv_optab->handlers[$A].insn_code = CODE_FOR_$(udiv$Q$a3$)",
+  "usdiv_optab->handlers[$A].insn_code = CODE_FOR_$(usdiv$Q$a3$)",
   "sdivmod_optab->handlers[$A].insn_code = CODE_FOR_$(divmod$a4$)",
   "udivmod_optab->handlers[$A].insn_code = CODE_FOR_$(udivmod$a4$)",
   "smod_optab->handlers[$A].insn_code = CODE_FOR_$(mod$a3$)",
@@ -99,6 +112,8 @@ static const char * const optabs[] =
   "ior_optab->handlers[$A].insn_code = CODE_FOR_$(ior$a3$)",
   "xor_optab->handlers[$A].insn_code = CODE_FOR_$(xor$a3$)",
   "ashl_optab->handlers[$A].insn_code = CODE_FOR_$(ashl$a3$)",
+  "ssashl_optab->handlers[$A].insn_code = CODE_FOR_$(ssashl$Q$a3$)",
+  "usashl_optab->handlers[$A].insn_code = CODE_FOR_$(usashl$Q$a3$)",
   "ashr_optab->handlers[$A].insn_code = CODE_FOR_$(ashr$a3$)",
   "lshr_optab->handlers[$A].insn_code = CODE_FOR_$(lshr$a3$)",
   "rotl_optab->handlers[$A].insn_code = CODE_FOR_$(rotl$a3$)",
@@ -113,6 +128,9 @@ static const char * const optabs[] =
   "negv_optab->handlers[$A].insn_code =\n\
     neg_optab->handlers[$A].insn_code = CODE_FOR_$(neg$F$a2$)",
   "negv_optab->handlers[$A].insn_code = CODE_FOR_$(negv$I$a2$)",
+  "neg_optab->handlers[$A].insn_code = CODE_FOR_$(neg$Q$a2$)",
+  "ssneg_optab->handlers[$A].insn_code = CODE_FOR_$(ssneg$Q$a2$)",
+  "usneg_optab->handlers[$A].insn_code = CODE_FOR_$(usneg$Q$a2$)",
   "abs_optab->handlers[$A].insn_code = CODE_FOR_$(abs$P$a2$)",
   "absv_optab->handlers[$A].insn_code =\n\
     abs_optab->handlers[$A].insn_code = CODE_FOR_$(abs$F$a2$)",
@@ -253,6 +271,7 @@ gen_insn (rtx insn)
   for (pindex = 0; pindex < ARRAY_SIZE (optabs); pindex++)
     {
       int force_float = 0, force_int = 0, force_partial_int = 0;
+      int force_fixed = 0;
       int force_consec = 0;
       int matches = 1;
 
@@ -281,6 +300,9 @@ gen_insn (rtx insn)
                 break;
 	      case 'F':
 		force_float = 1;
+		break;
+	      case 'Q':
+		force_fixed = 1;
 		break;
 	      case 'V':
                 break;
@@ -328,7 +350,16 @@ gen_insn (rtx insn)
 			    || mode_class[i] == MODE_FLOAT 
 			    || mode_class[i] == MODE_DECIMAL_FLOAT
 			    || mode_class[i] == MODE_COMPLEX_FLOAT
-			    || mode_class[i] == MODE_VECTOR_FLOAT))
+			    || mode_class[i] == MODE_VECTOR_FLOAT)
+			&& (! force_fixed
+			    || mode_class[i] == MODE_FRACT
+			    || mode_class[i] == MODE_UFRACT
+			    || mode_class[i] == MODE_ACCUM
+			    || mode_class[i] == MODE_UACCUM
+			    || mode_class[i] == MODE_VECTOR_FRACT
+			    || mode_class[i] == MODE_VECTOR_UFRACT
+			    || mode_class[i] == MODE_VECTOR_ACCUM
+			    || mode_class[i] == MODE_VECTOR_UACCUM))
 		      break;
 		  }
 
@@ -339,7 +370,7 @@ gen_insn (rtx insn)
 		else
 		  m2 = i, np += strlen (GET_MODE_NAME(i));
 
-		force_int = force_partial_int = force_float = 0;
+		force_int = force_partial_int = force_float = force_fixed = 0;
 		break;
 
 	      default:

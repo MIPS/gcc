@@ -271,9 +271,13 @@ optab_for_tree_code (enum tree_code code, tree type)
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? usdiv_optab : ssdiv_optab;
       return TYPE_UNSIGNED (type) ? udiv_optab : sdiv_optab;
 
     case LSHIFT_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? usashl_optab : ssashl_optab;
       return ashl_optab;
 
     case RSHIFT_EXPR:
@@ -345,15 +349,23 @@ optab_for_tree_code (enum tree_code code, tree type)
   switch (code)
     {
     case PLUS_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? usadd_optab : ssadd_optab;
       return trapv ? addv_optab : add_optab;
 
     case MINUS_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? ussub_optab : sssub_optab;
       return trapv ? subv_optab : sub_optab;
 
     case MULT_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? usmul_optab : ssmul_optab;
       return trapv ? smulv_optab : smul_optab;
 
     case NEGATE_EXPR:
+      if (TYPE_SATURATING(type))
+	return TYPE_UNSIGNED(type) ? usneg_optab : ssneg_optab;
       return trapv ? negv_optab : neg_optab;
 
     case ABS_EXPR:
@@ -1240,6 +1252,8 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   rtx temp;
   int commutative_op = 0;
   int shift_op = (binoptab->code == ASHIFT
+		  || binoptab->code == SS_ASHIFT
+		  || binoptab->code == US_ASHIFT
 		  || binoptab->code == ASHIFTRT
 		  || binoptab->code == LSHIFTRT
 		  || binoptab->code == ROTATE
@@ -5289,7 +5303,13 @@ init_optabs (void)
   addv_optab = init_optabv (PLUS);
   sub_optab = init_optab (MINUS);
   subv_optab = init_optabv (MINUS);
+  ssadd_optab = init_optab (SS_PLUS);
+  usadd_optab = init_optab (US_PLUS);
+  sssub_optab = init_optab (SS_MINUS);
+  ussub_optab = init_optab (US_MINUS);
   smul_optab = init_optab (MULT);
+  ssmul_optab = init_optab (SS_MULT);
+  usmul_optab = init_optab (US_MULT);
   smulv_optab = init_optabv (MULT);
   smul_highpart_optab = init_optab (UNKNOWN);
   umul_highpart_optab = init_optab (UNKNOWN);
@@ -5297,6 +5317,8 @@ init_optabs (void)
   umul_widen_optab = init_optab (UNKNOWN);
   usmul_widen_optab = init_optab (UNKNOWN);
   sdiv_optab = init_optab (DIV);
+  ssdiv_optab = init_optab (SS_DIV);
+  usdiv_optab = init_optab (US_DIV);
   sdivv_optab = init_optabv (DIV);
   sdivmod_optab = init_optab (UNKNOWN);
   udiv_optab = init_optab (UDIV);
@@ -5310,6 +5332,8 @@ init_optabs (void)
   ior_optab = init_optab (IOR);
   xor_optab = init_optab (XOR);
   ashl_optab = init_optab (ASHIFT);
+  ssashl_optab = init_optab (SS_ASHIFT);
+  usashl_optab = init_optab (US_ASHIFT);
   ashr_optab = init_optab (ASHIFTRT);
   lshr_optab = init_optab (LSHIFTRT);
   rotl_optab = init_optab (ROTATE);
@@ -5339,6 +5363,8 @@ init_optabs (void)
   unord_optab = init_optab (UNORDERED);
 
   neg_optab = init_optab (NEG);
+  ssneg_optab = init_optab (SS_NEG);
+  usneg_optab = init_optab (US_NEG);
   negv_optab = init_optabv (NEG);
   abs_optab = init_optab (ABS);
   absv_optab = init_optabv (ABS);
