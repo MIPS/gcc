@@ -200,10 +200,12 @@ public class ThreadInfo
 		     long waitedTime, boolean isInNative, boolean isSuspended,
 		     StackTraceElement[] trace)
   {
-    this(thread.getId(), thread.getName(), thread.getState(), blockedCount,
-	 blockedTime, lock.getClass().getName() + "@" + 
-	 Integer.toHexString(System.identityHashCode(lock)), lockOwner.getId(),
-	 lockOwner.getName(), waitedCount, waitedTime, isInNative, isSuspended,
+    this(thread.getId(), thread.getName(), thread.getState(), blockedCount, blockedTime,
+         lock == null ? null : lock.getClass().getName() + "@" + 
+	       Integer.toHexString(System.identityHashCode(lock)),
+         lockOwner == null ? -1 : lockOwner.getId(),
+         lockOwner == null ? null : lockOwner.getName(),
+         waitedCount, waitedTime, isInNative, isSuspended,
 	 trace);
   }
 

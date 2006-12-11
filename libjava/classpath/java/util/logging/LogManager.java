@@ -318,26 +318,23 @@ public class LogManager
      * When adding "foo.bar", the logger "foo.bar.baz" should change
      * its parent to "foo.bar".
      */
-    if (parent != Logger.root)
+    for (Iterator iter = loggers.keySet().iterator(); iter.hasNext();)
       {
-	for (Iterator<String> iter = loggers.keySet().iterator();
-	     iter.hasNext(); )
-	  {
-	    Logger possChild = loggers.get(iter.next()).get();
-	    if ((possChild == null) || (possChild == logger)
-	        || (possChild.getParent() != parent))
-	      continue;
-
-	    if (! possChild.getName().startsWith(name))
-	      continue;
-
-	    if (possChild.getName().charAt(name.length()) != '.')
-	      continue;
-
-	    possChild.setParent(logger);
-	  }
+	Logger possChild = (Logger) ((WeakReference) loggers.get(iter.next()))
+	  .get();
+	if ((possChild == null) || (possChild == logger)
+	    || (possChild.getParent() != parent))
+	  continue;
+	
+	if (! possChild.getName().startsWith(name))
+	  continue;
+	
+	if (possChild.getName().charAt(name.length()) != '.')
+	  continue;
+	
+	possChild.setParent(logger);
       }
-
+    
     return true;
   }
 
@@ -711,7 +708,11 @@ public class LogManager
   {
     try
       {
-	return Level.parse(getLogManager().getProperty(propertyName));
+        String value = getLogManager().getProperty(propertyName);
+	if (value != null)
+	  return Level.parse(getLogManager().getProperty(propertyName));
+        else
+	   return defaultValue;
       }
     catch (Exception ex)
       {

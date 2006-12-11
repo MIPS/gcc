@@ -93,7 +93,7 @@ public class ThreadLocal<T>
    * user. Do not expose this to the public. Package visible for use by
    * InheritableThreadLocal
    */
-  static final Object NULL = new Object();
+  static final Object sentinel = new Object();
 
   /**
    * Creates a ThreadLocal object without associating any value to it yet.
@@ -132,9 +132,9 @@ public class ThreadLocal<T>
     if (value == null)
       {
         value = initialValue();
-        map.put(this, (T) (value == null ? NULL : value));
+        map.put(this, (T) (value == null ? sentinel : value));
       }
-    return value == (T) NULL ? null : value;
+    return value == (T) sentinel ? null : value;
   }
 
   /**
@@ -150,7 +150,7 @@ public class ThreadLocal<T>
     Map map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
     // ever modify the map.
-    map.put(this, value == null ? NULL : value);
+    map.put(this, value == null ? sentinel : value);
   }
 
   /**
