@@ -1,5 +1,9 @@
 2006-12-11  Gary Benson  <gbenson@redhat.com>
 
+	* gcj/Makefile.in: Rebuilt.
+
+2006-12-11  Gary Benson  <gbenson@redhat.com>
+
 	* Makefile.in: Rebuilt.
 	* include/Makefile.in: Likewise.
 	* testsuite/Makefile.in: Likewise.
