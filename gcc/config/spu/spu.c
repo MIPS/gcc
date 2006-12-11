@@ -141,7 +141,7 @@ enum spu_immediate {
   SPU_ORI,
   SPU_ORHI,
   SPU_ORBI,
-  SPU_IOHL,
+  SPU_IOHL
 };
 
 static enum spu_immediate which_immediate_load (HOST_WIDE_INT val);
@@ -322,7 +322,7 @@ valid_subreg (rtx op)
 }
 
 /* When insv and ext[sz]v ar passed a TI SUBREG, we want to strip it off
-   and ajust the start offset. */
+   and adjust the start offset.  */
 static rtx
 adjust_operand (rtx op, HOST_WIDE_INT * start)
 {
@@ -1088,6 +1088,8 @@ print_operand (FILE * file, rtx x, int code)
 	}
       else if (xcode == SYMBOL_REF || xcode == LABEL_REF || xcode == CONST)
 	fprintf (file, "a");
+      else if (xcode == HIGH)
+	fprintf (file, "hu");
       else
 	gcc_unreachable ();
       return;
@@ -1118,6 +1120,11 @@ print_operand (FILE * file, rtx x, int code)
 	}
       else if (xcode == CONST || xcode == SYMBOL_REF || xcode == LABEL_REF)
 	output_addr_const (file, x);
+      else if (xcode == HIGH)
+	{
+	  output_addr_const (file, XEXP (x, 0));
+	  fprintf (file, "@h");
+	}
       else
 	gcc_unreachable ();
       return;
@@ -1265,6 +1272,27 @@ get_pic_reg (void)
   if (!reload_completed && !reload_in_progress)
     abort ();
   return pic_reg;
+}
+
+/* Split constant addresses to handle cases that are too large.  Also, add in
+   the pic register when in PIC mode. */
+void
+spu_split_address (rtx * ops)
+{
+  if (TARGET_LARGE_MEM
+      || (GET_CODE (ops[1]) == CONST && !legitimate_const (ops[1], 0)))
+    {
+      emit_insn (gen_high (ops[0], ops[1]));
+      emit_insn (gen_low (ops[0], ops[0], ops[1]));
+    }
+  else if (flag_pic)
+    emit_insn (gen_pic (ops[0], ops[1]));
+  if (flag_pic)
+    {
+      rtx pic_reg = get_pic_reg ();
+      emit_insn (gen_addsi3 (ops[0], ops[0], pic_reg));
+      current_function_uses_pic_offset_table = 1;
+    }
 }
 
 /* SAVING is TRUE when we are generating the actual load and store
@@ -1651,8 +1679,8 @@ int spu_hint_dist = (8 * 4);
 /* An array of these is used to propagate hints to predecessor blocks. */
 struct spu_bb_info
 {
-  rtx prop_jump;		/* propogated from another block */
-  basic_block bb;		/* the orignal block. */
+  rtx prop_jump;		/* propagated from another block */
+  basic_block bb;		/* the original block. */
 };
 
 /* The special $hbr register is used to prevent the insn scheduler from
@@ -2408,7 +2436,7 @@ spu_legitimate_address (enum machine_mode mode ATTRIBUTE_UNUSED,
       return !TARGET_LARGE_MEM;
 
     case CONST:
-      return !TARGET_LARGE_MEM && legitimate_const (x, 1);
+      return !TARGET_LARGE_MEM && legitimate_const (x, 0);
 
     case CONST_INT:
       return INTVAL (x) >= 0 && INTVAL (x) <= 0x3ffff;
@@ -2455,7 +2483,7 @@ spu_legitimate_address (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 /* When the address is reg + const_int, force the const_int into a
-   regiser. */
+   register.  */
 rtx
 spu_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 			enum machine_mode mode)
@@ -2697,7 +2725,7 @@ spu_pass_by_reference (CUMULATIVE_ARGS * cum ATTRIBUTE_UNUSED,
             
         } va_list[1];
 
-   wheare __args points to the arg that will be returned by the next
+   where __args points to the arg that will be returned by the next
    va_arg(), and __skip points to the previous stack frame such that
    when __args == __skip we should advance __args by 32 bytes. */
 static tree
@@ -2773,7 +2801,7 @@ spu_va_start (tree valist, rtx nextarg)
   if (current_function_pretend_args_size > 0)
     t = build2 (PLUS_EXPR, TREE_TYPE (args), t,
 		build_int_cst (integer_type_node, -STACK_POINTER_OFFSET));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (args), args, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (args), args, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -2783,7 +2811,7 @@ spu_va_start (tree valist, rtx nextarg)
 	      build_int_cst (integer_type_node,
 			     (current_function_pretend_args_size
 			      - STACK_POINTER_OFFSET)));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (skip), skip, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (skip), skip, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -2848,12 +2876,12 @@ spu_gimplify_va_arg_expr (tree valist, tree type, tree * pre_p,
 		build2 (PLUS_EXPR, ptr_type_node, skip,
 			fold_convert (ptr_type_node, size_int (32))), args);
 
-  tmp = build2 (MODIFY_EXPR, ptr_type_node, addr, tmp);
+  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, addr, tmp);
   gimplify_and_add (tmp, pre_p);
 
   /* update VALIST.__args */
   tmp = build2 (PLUS_EXPR, ptr_type_node, addr, paddedsize);
-  tmp = build2 (MODIFY_EXPR, TREE_TYPE (args), args, tmp);
+  tmp = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (args), args, tmp);
   gimplify_and_add (tmp, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
@@ -2913,8 +2941,8 @@ spu_conditional_register_usage (void)
    aligned.  Taking into account that CSE might replace this reg with
    another one that has not been marked aligned.  
    So this is really only true for frame, stack and virtual registers,
-   which we know are always aligned and should not be adversly effected
-   by CSE. */
+   which we know are always aligned and should not be adversely effected
+   by CSE.  */
 static int
 regno_aligned_for_load (int regno)
 {
@@ -2981,7 +3009,7 @@ store_with_one_insn_p (rtx mem)
   if (GET_CODE (addr) == SYMBOL_REF)
     {
       /* We use the associated declaration to make sure the access is
-         refering to the whole object.
+         referring to the whole object.
          We check both MEM_EXPR and and SYMBOL_REF_DECL.  I'm not sure
          if it is necessary.  Will there be cases where one exists, and
          the other does not?  Will there be cases where both exist, but
@@ -3089,34 +3117,6 @@ spu_expand_mov (rtx * ops, enum machine_mode mode)
 	  lo = array_to_constant (mode, arrlo);
 	  emit_move_insn (to, hi);
 	  emit_insn (gen_rtx_SET (VOIDmode, to, gen_rtx_IOR (mode, to, lo)));
-	  return 1;
-	}
-      if ((GET_CODE (ops[1]) == CONST
-	    && !legitimate_const (ops[1], 0))
-	  || (TARGET_LARGE_MEM
-	      && (GET_CODE (ops[1]) == CONST
-	          || GET_CODE (ops[1]) == SYMBOL_REF
-		  || GET_CODE (ops[1]) == LABEL_REF)))
-	{
-	  emit_insn (gen_high (ops[0], ops[1]));
-	  emit_insn (gen_low (ops[0], ops[0], ops[1]));
-	  if (flag_pic)
-	    {
-	      rtx pic_reg = get_pic_reg ();
-	      emit_insn (gen_addsi3 (ops[0], ops[0], pic_reg));
-	      current_function_uses_pic_offset_table = 1;
-	    }
-	  return 1;
-	}
-      if (flag_pic
-	  && (GET_CODE (ops[1]) == SYMBOL_REF
-	      || GET_CODE (ops[1]) == LABEL_REF
-	      || GET_CODE (ops[1]) == CONST))
-	{
-	  rtx pic_reg = get_pic_reg ();
-	  emit_insn (gen_pic (ops[0], ops[1]));
-	  emit_insn (gen_addsi3 (ops[0], ops[0], pic_reg));
-	  current_function_uses_pic_offset_table = 1;
 	  return 1;
 	}
       return 0;
@@ -3426,8 +3426,8 @@ mem_is_padded_component_ref (rtx x)
   if (GET_MODE (x) != TYPE_MODE (TREE_TYPE (t)))
     return 0;
   /* If there are no following fields then the field alignment assures
-     the structure is padded to the alignement which means this field is
-     padded too. */
+     the structure is padded to the alignment which means this field is
+     padded too.  */
   if (TREE_CHAIN (t) == 0)
     return 1;
   /* If the following field is also aligned then this field will be
@@ -3670,10 +3670,10 @@ reloc_diagnostic (rtx x)
   else
     msg = "creating run-time relocation";
 
-  if (TARGET_ERROR_RELOC) /** default : error reloc **/
-    error (msg, loc_decl, decl);
-  else
+  if (TARGET_WARN_RELOC)
     warning (0, msg, loc_decl, decl);
+  else
+    error (msg, loc_decl, decl);
 }
 
 /* Hook into assemble_integer so we can generate an error for run-time
@@ -3707,7 +3707,7 @@ spu_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 
   /* Folding to a CONST_VECTOR will use extra space but there might
      be only a small savings in cycles.  We'd like to use a CONST_VECTOR
-     only if it allows us to fold away multiple insns.  Changin the cost
+     only if it allows us to fold away multiple insns.  Changing the cost
      of a CONST_VECTOR here (or in CONST_COSTS) doesn't help though
      because this cost will only be compared against a single insn. 
      if (code == CONST_VECTOR)

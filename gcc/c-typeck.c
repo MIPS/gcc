@@ -7538,7 +7538,7 @@ c_process_expr_stmt (tree expr)
   if (DECL_P (expr) || CONSTANT_CLASS_P (expr))
     expr = build1 (NOP_EXPR, TREE_TYPE (expr), expr);
 
-  if (EXPR_P (expr))
+  if (CAN_HAVE_LOCATION_P (expr))
     SET_EXPR_LOCATION (expr, input_location);
 
   return expr;
@@ -7675,7 +7675,7 @@ c_finish_stmt_expr (tree body)
     {
       /* Do not warn if the return value of a statement expression is
 	 unused.  */
-      if (EXPR_P (last))
+      if (CAN_HAVE_LOCATION_P (last))
 	TREE_NO_WARNING (last) = 1;
       return last;
     }

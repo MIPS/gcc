@@ -442,6 +442,29 @@ valid_value_p (tree expr)
   return is_gimple_min_invariant (expr);
 }
 
+/* Return 
+   1 if VAL < VAL2
+   0 if !(VAL < VAL2)
+   -2 if those are incomparable.  */
+static inline int
+operand_less_p (tree val, tree val2)
+{
+  tree tcmp;
+  /* LT is folded faster than GE and others.  Inline the common case.  */
+  if (TREE_CODE (val) == INTEGER_CST && TREE_CODE (val2) == INTEGER_CST)
+    {
+      if (TYPE_UNSIGNED (TREE_TYPE (val)))
+	return INT_CST_LT_UNSIGNED (val, val2);
+      else
+	return INT_CST_LT (val, val2);
+    }
+  else
+    tcmp = fold_binary_to_constant (LT_EXPR, boolean_type_node, val, val2);
+  if (!tcmp)
+    return -2;
+  return !integer_zerop (tcmp);
+}
+
 /* Compare two values VAL1 and VAL2.  Return
    
    	-2 if VAL1 and VAL2 cannot be compared at compile-time,
@@ -590,13 +613,11 @@ compare_values (tree val1, tree val2)
 	return 0;
       
       /* If VAL1 is a lower address than VAL2, return -1.  */
-      t = fold_binary (LT_EXPR, boolean_type_node, val1, val2);
-      if (t == boolean_true_node)
+      if (operand_less_p (val1, val2) == 1)
 	return -1;
 
       /* If VAL1 is a higher address than VAL2, return +1.  */
-      t = fold_binary (GT_EXPR, boolean_type_node, val1, val2);
-      if (t == boolean_true_node)
+      if (operand_less_p (val2, val1) == 1)
 	return 1;
 
       /* If VAL1 is different than VAL2, return +2.  */
@@ -627,27 +648,36 @@ compare_values (tree val1, tree val2)
 	  This also applies to value_ranges_intersect_p and
 	  range_includes_zero_p.  The semantics of VR_RANGE and
 	  VR_ANTI_RANGE should be encoded here, but that also means
-	  adapting the users of these functions to the new semantics.  */
+	  adapting the users of these functions to the new semantics.  
+
+   Benchmark compile/20001226-1.c compilation time after changing this
+   function.  */
 
 static inline int
-value_inside_range (tree val, value_range_t *vr)
+value_inside_range (tree val, value_range_t * vr)
 {
-  tree cmp1, cmp2;
+  int cmp1, cmp2;
 
-  cmp1 = fold_binary_to_constant (GE_EXPR, boolean_type_node, val, vr->min);
-  if (!cmp1)
+  cmp1 = operand_less_p (val, vr->min);
+  if (cmp1 == -2)
+    return -2;
+  if (cmp1 == 1)
+    return 0;
+
+  cmp2 = operand_less_p (vr->max, val);
+  if (cmp2 == -2)
     return -2;
 
-  cmp2 = fold_binary_to_constant (LE_EXPR, boolean_type_node, val, vr->max);
-  if (!cmp2)
-    return -2;
-
-  return cmp1 == boolean_true_node && cmp2 == boolean_true_node;
+  return !cmp2;
 }
 
 
 /* Return true if value ranges VR0 and VR1 have a non-empty
-   intersection.  */
+   intersection.  
+   
+   Benchmark compile/20001226-1.c compilation time after changing this
+   function.
+   */
 
 static inline bool
 value_ranges_intersect_p (value_range_t *vr0, value_range_t *vr1)
@@ -2399,20 +2429,22 @@ build_assert_expr_for (tree cond, tree v)
   if (COMPARISON_CLASS_P (cond))
     {
       tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, a);
+      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n, a);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
       /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
+      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n,
+			  boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
       /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
+      assertion = build2 (GIMPLE_MODIFY_STMT,
+	  		  TREE_TYPE (v), n, boolean_true_node);
     }
   else
     gcc_unreachable ();
@@ -2797,10 +2829,10 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
      a truth operation or some bit operations, then we may be able
      to register information about the operands of that assignment.  */
   op_def = SSA_NAME_DEF_STMT (op);
-  if (TREE_CODE (op_def) != MODIFY_EXPR)
+  if (TREE_CODE (op_def) != GIMPLE_MODIFY_STMT)
     return retval;
 
-  rhs = TREE_OPERAND (op_def, 1);
+  rhs = GIMPLE_STMT_OPERAND (op_def, 1);
 
   if (COMPARISON_CLASS_P (rhs))
     {
@@ -2902,18 +2934,18 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
 
   /* In the case of NAME == 1 or NAME != 0, for TRUTH_AND_EXPR defining
      statement of NAME we can assert both operands of the TRUTH_AND_EXPR
-     have non-zero value.  */
+     have nonzero value.  */
   if (((comp_code == EQ_EXPR && integer_onep (val))
        || (comp_code == NE_EXPR && integer_zerop (val))))
     {
       tree def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (TREE_CODE (def_stmt) == MODIFY_EXPR
-	  && (TREE_CODE (TREE_OPERAND (def_stmt, 1)) == TRUTH_AND_EXPR
-	      || TREE_CODE (TREE_OPERAND (def_stmt, 1)) == BIT_AND_EXPR))
+      if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_AND_EXPR
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_AND_EXPR))
 	{
-	  tree op0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
-	  tree op1 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 1);
+	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
+	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
 	  retval |= register_edge_assert_for_1 (op0, NE_EXPR, e, si);
 	  retval |= register_edge_assert_for_1 (op1, NE_EXPR, e, si);
 	}
@@ -2927,12 +2959,12 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
     {
       tree def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (TREE_CODE (def_stmt) == MODIFY_EXPR
-	  && (TREE_CODE (TREE_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
-	      || TREE_CODE (TREE_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
+      if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
 	{
-	  tree op0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
-	  tree op1 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 1);
+	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
+	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
 	  retval |= register_edge_assert_for_1 (op0, EQ_EXPR, e, si);
 	  retval |= register_edge_assert_for_1 (op1, EQ_EXPR, e, si);
 	}
@@ -3156,12 +3188,18 @@ find_assert_locations (basic_block bb)
 		  tree t = op;
 		  tree def_stmt = SSA_NAME_DEF_STMT (t);
 	
-		  while (TREE_CODE (def_stmt) == MODIFY_EXPR
-			 && TREE_CODE (TREE_OPERAND (def_stmt, 1)) == NOP_EXPR
-			 && TREE_CODE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0)) == SSA_NAME
-			 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0))))
+		  while (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+			 && TREE_CODE
+			     (GIMPLE_STMT_OPERAND (def_stmt, 1)) == NOP_EXPR
+			 && TREE_CODE
+			     (TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1),
+					    0)) == SSA_NAME
+			 && POINTER_TYPE_P
+			     (TREE_TYPE (TREE_OPERAND
+					  (GIMPLE_STMT_OPERAND (def_stmt,
+								1), 0))))
 		    {
-		      t = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+		      t = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
 		      def_stmt = SSA_NAME_DEF_STMT (t);
 
 		      /* Note we want to register the assert for the
@@ -3412,10 +3450,10 @@ remove_range_assertions (void)
 	tree stmt = bsi_stmt (si);
 	tree use_stmt;
 
-	if (TREE_CODE (stmt) == MODIFY_EXPR
-	    && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
+	if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	    && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ASSERT_EXPR)
 	  {
-	    tree rhs = TREE_OPERAND (stmt, 1), var;
+	    tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), var;
 	    tree cond = fold (ASSERT_EXPR_COND (rhs));
 	    use_operand_p use_p;
 	    imm_use_iterator iter;
@@ -3424,7 +3462,8 @@ remove_range_assertions (void)
 
 	    /* Propagate the RHS into every use of the LHS.  */
 	    var = ASSERT_EXPR_VAR (rhs);
-	    FOR_EACH_IMM_USE_STMT (use_stmt, iter, TREE_OPERAND (stmt, 0))
+	    FOR_EACH_IMM_USE_STMT (use_stmt, iter,
+				   GIMPLE_STMT_OPERAND (stmt, 0))
 	      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		{
 		  SET_USE (use_p, var);
@@ -3452,10 +3491,10 @@ stmt_interesting_for_vrp (tree stmt)
       && (INTEGRAL_TYPE_P (TREE_TYPE (PHI_RESULT (stmt)))
 	  || POINTER_TYPE_P (TREE_TYPE (PHI_RESULT (stmt)))))
     return true;
-  else if (TREE_CODE (stmt) == MODIFY_EXPR)
+  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree lhs = TREE_OPERAND (stmt, 0);
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to
@@ -3533,8 +3572,8 @@ vrp_visit_assignment (tree stmt, tree *output_p)
   tree lhs, rhs, def;
   ssa_op_iter iter;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   /* We only keep track of ranges in integral and pointer types.  */
   if (TREE_CODE (lhs) == SSA_NAME
@@ -3951,9 +3990,9 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
     }
 
   ann = stmt_ann (stmt);
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to
@@ -4267,7 +4306,7 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
 	  t = build2 (BIT_AND_EXPR, TREE_TYPE (op0), op0, t);
 	}
 
-      TREE_OPERAND (stmt, 1) = t;
+      GIMPLE_STMT_OPERAND (stmt, 1) = t;
       update_stmt (stmt);
     }
 }
@@ -4314,7 +4353,7 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
 	  else
 	    t = op;
 
-	  TREE_OPERAND (stmt, 1) = t;
+	  GIMPLE_STMT_OPERAND (stmt, 1) = t;
 	  update_stmt (stmt);
 	}
     }
@@ -4464,9 +4503,9 @@ simplify_cond_using_ranges (tree stmt)
 void
 simplify_stmt_using_ranges (tree stmt)
 {
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       enum tree_code rhs_code = TREE_CODE (rhs);
 
       /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
@@ -4801,7 +4840,7 @@ struct tree_opt_pass pass_vrp =
   TV_TREE_VRP,				/* tv_id */
   PROP_ssa | PROP_alias,		/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg
     | TODO_ggc_collect

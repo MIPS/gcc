@@ -356,7 +356,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1
 #else
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1 \
-"%{march=native:%<march=native %:local_cpu_detect(arch)} \
+"%{march=native:%<march=native %:local_cpu_detect(arch) \
+  %{!mtune=*:%<mtune=native %:local_cpu_detect(tune)}} \
 %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
 #endif
 #endif
@@ -1494,7 +1495,7 @@ typedef struct ix86_args {
   int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
   int float_in_x87;		/* 1 if floating point arguments should
-				   be passed in 80387 registere.  */
+				   be passed in 80387 registers.  */
   int float_in_sse;		/* 1 if in 32-bit mode SFmode (2 for DFmode) should
 				   be passed in SSE registers.  Otherwise 0.  */
 } CUMULATIVE_ARGS;

@@ -1622,9 +1622,11 @@ check_intrinsic_op (gfc_expr * e, try (*check_function) (gfc_expr *))
       if (e->value.op.operator == INTRINSIC_POWER
 	  && check_function == check_init_expr && et0 (op2) != BT_INTEGER)
 	{
-	  gfc_error ("Exponent at %L must be INTEGER for an initialization "
-		     "expression", &op2->where);
-	  return FAILURE;
+	  if (gfc_notify_std (GFC_STD_F2003,"Fortran 2003: Noninteger "
+			      "exponent in an initialization "
+			      "expression at %L", &op2->where)
+	      == FAILURE)
+	    return FAILURE;
 	}
 
       break;
@@ -2047,14 +2049,15 @@ check_restricted (gfc_expr * e)
 
       /* gfc_is_formal_arg broadcasts that a formal argument list is being processed
 	 in resolve.c(resolve_formal_arglist).  This is done so that host associated
-	 dummy array indices are accepted (PR23446).  */
+	 dummy array indices are accepted (PR23446). This mechanism also does the
+	 same for the specification expressions of array-valued functions.  */
       if (sym->attr.in_common
 	  || sym->attr.use_assoc
 	  || sym->attr.dummy
 	  || sym->ns != gfc_current_ns
 	  || (sym->ns->proc_name != NULL
 	      && sym->ns->proc_name->attr.flavor == FL_MODULE)
-	  || gfc_is_formal_arg ())
+	  || (gfc_is_formal_arg () && (sym->ns == gfc_current_ns)))
 	{
 	  t = SUCCESS;
 	  break;

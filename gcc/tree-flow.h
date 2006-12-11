@@ -39,8 +39,8 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
 
-/* Gimple dataflow datastructure. All publically available fields shall have
-   gimple_ accessor defined in tree-flow-inline.h, all publically modifiable
+/* Gimple dataflow datastructure. All publicly available fields shall have
+   gimple_ accessor defined in tree-flow-inline.h, all publicly modifiable
    fields should have gimple_set accessor.  */
 struct gimple_df GTY(()) {
   /* Array of all variables referenced in the function.  */
@@ -156,7 +156,7 @@ struct ptr_info_def GTY(())
 
 
 /*---------------------------------------------------------------------------
-		   Tree annotations stored in tree_common.ann
+		   Tree annotations stored in tree_base.ann
 ---------------------------------------------------------------------------*/
 enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, FUNCTION_ANN, STMT_ANN };
 
@@ -1059,9 +1059,6 @@ void delete_alias_heapvars (void);
 #include "tree-flow-inline.h"
 
 void swap_tree_operands (tree, tree *, tree *);
-
-extern void recalculate_used_alone (void);
-extern bool updating_used_alone;
 
 int least_common_multiple (int, int);
 

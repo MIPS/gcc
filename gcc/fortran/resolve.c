@@ -675,7 +675,7 @@ was_declared (gfc_symbol * sym)
     return 1;
 
   if (a.allocatable || a.dimension || a.dummy || a.external || a.intrinsic
-      || a.optional || a.pointer || a.save || a.target || a.volatile_
+      || a.optional || a.pointer || a.save || a.target || a.volatile_ || a.value
       || a.access != ACCESS_UNKNOWN || a.intent != INTENT_UNKNOWN)
     return 1;
 
@@ -2191,7 +2191,14 @@ resolve_operator (gfc_expr * e)
 
   /* Attempt to simplify the expression.  */
   if (t == SUCCESS)
-    t = gfc_simplify_expr (e, 0);
+    {
+      t = gfc_simplify_expr (e, 0);
+      /* Some calls do not succeed in simplification and return FAILURE
+	 even though there is no error; eg. variable references to
+	 PARAMETER arrays.  */
+      if (!gfc_is_constant_expr (e))
+	t = SUCCESS;
+    }
   return t;
 
 bad_op:
@@ -5961,6 +5968,14 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
+  if (sym->attr.value && !sym->attr.dummy)
+    {
+      gfc_error ("'%s' at %L cannot have the VALUE attribute because "
+		 "it is not a dummy", sym->name, &sym->declared_at);
+      return;
+    }
+
+
   /* If a derived type symbol has reached this point, without its
      type being declared, we have an error.  Notice that most
      conditions that produce undefined derived types have already
@@ -6035,7 +6050,16 @@ resolve_symbol (gfc_symbol * sym)
      on COMMON blocks.  */
 
   check_constant = sym->attr.in_common && !sym->attr.pointer;
+
+  /* Set the formal_arg_flag so that check_conflict will not throw
+     an error for host associated variables in the specification
+     expression for an array_valued function.  */
+  if (sym->attr.function && sym->as)
+    formal_arg_flag = 1;
+
   gfc_resolve_array_spec (sym->as, check_constant);
+
+  formal_arg_flag = 0;
 
   /* Resolve formal namespaces.  */
 

@@ -1199,7 +1199,7 @@ Case_Statement_to_gnu (Node_Id gnat_node)
 
          /* If the case value is a subtype that raises Constraint_Error at
              run-time because of a wrong bound, then gnu_low or gnu_high
-             is not transtaleted into an INTEGER_CST.  In such a case, we need
+             is not translated into an INTEGER_CST.  In such a case, we need
              to ensure that the when statement is not added in the tree,
              otherwise it will crash the gimplifier.  */
          if ((!gnu_low || TREE_CODE (gnu_low) == INTEGER_CST)
@@ -4840,7 +4840,7 @@ gnat_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	       && TREE_CODE_CLASS (TREE_CODE (op)) != tcc_constant)
 	{
 	  tree new_var = create_tmp_var (TREE_TYPE (op), "A");
-	  tree mod = build2 (MODIFY_EXPR, TREE_TYPE (op), new_var, op);
+	  tree mod = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (op), new_var, op);
 
 	  TREE_ADDRESSABLE (new_var) = 1;
 

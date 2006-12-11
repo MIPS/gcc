@@ -554,7 +554,7 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
      override us.  Therefore frame pointer elimination is OK, and using
      the soft frame pointer is OK.
 
-     For a non-zero count, or a zero count with __builtin_frame_address,
+     For a nonzero count, or a zero count with __builtin_frame_address,
      we require a stable offset from the current frame pointer to the
      previous one, so we must use the hard frame pointer, and
      we must disable frame pointer elimination.  */
@@ -4319,7 +4319,7 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
 	      make_tree (ptr_type_node, nextarg));
   TREE_SIDE_EFFECTS (t) = 1;
 
@@ -4390,12 +4390,12 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       && !integer_zerop (TYPE_SIZE (type)))
     {
       t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
-      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist_tmp,
 		  build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
 
       t = fold_convert (TREE_TYPE (valist), size_int (-boundary));
-      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist_tmp,
 		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
     }
@@ -4434,7 +4434,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   /* Compute new value for AP.  */
   t = fold_convert (TREE_TYPE (valist), rounded_size);
   t = build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t);
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist, t);
   gimplify_and_add (t, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
@@ -4599,7 +4599,7 @@ expand_builtin_va_copy (tree arglist)
 
   if (TREE_CODE (va_list_type_node) != ARRAY_TYPE)
     {
-      t = build2 (MODIFY_EXPR, va_list_type_node, dst, src);
+      t = build2 (GIMPLE_MODIFY_STMT, va_list_type_node, dst, src);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -6738,9 +6738,9 @@ integer_valued_real_p (tree t)
       return integer_valued_real_p (TREE_OPERAND (t, 0));
 
     case COMPOUND_EXPR:
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case BIND_EXPR:
-      return integer_valued_real_p (TREE_OPERAND (t, 1));
+      return integer_valued_real_p (GENERIC_TREE_OPERAND (t, 1));
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -8096,7 +8096,7 @@ fold_builtin_memset (tree arglist, tree type, bool ignore)
     }
 
   ret = build_int_cst_type (TREE_TYPE (var), cval);
-  ret = build2 (MODIFY_EXPR, TREE_TYPE (var), var, ret);
+  ret = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (var), var, ret);
   if (ignore)
     return ret;
 
@@ -8202,8 +8202,8 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 	  || !TYPE_SIZE_UNIT (desttype)
 	  || TREE_CODE (TYPE_SIZE_UNIT (srctype)) != INTEGER_CST
 	  || TREE_CODE (TYPE_SIZE_UNIT (desttype)) != INTEGER_CST
-	  || !operand_equal_p (TYPE_SIZE_UNIT (srctype), len, 0)
-	  || !operand_equal_p (TYPE_SIZE_UNIT (desttype), len, 0))
+	  || !tree_int_cst_equal (TYPE_SIZE_UNIT (srctype), len)
+	  || !tree_int_cst_equal (TYPE_SIZE_UNIT (desttype), len))
 	return 0;
 
       if (get_pointer_alignment (dest, BIGGEST_ALIGNMENT) 
@@ -8217,6 +8217,8 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 
       srcvar = build_fold_indirect_ref (src);
       if (TREE_THIS_VOLATILE (srcvar))
+	return 0;
+      if (!tree_int_cst_equal (lang_hooks.expr_size (srcvar), len))
 	return 0;
       /* With memcpy, it is possible to bypass aliasing rules, so without
          this check i. e. execute/20060930-2.c would be misoptimized, because
@@ -8233,6 +8235,8 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
       destvar = build_fold_indirect_ref (dest);
       if (TREE_THIS_VOLATILE (destvar))
 	return 0;
+      if (!tree_int_cst_equal (lang_hooks.expr_size (destvar), len))
+	return 0;
       if (!var_decl_component_p (destvar))
 	return 0;
 
@@ -8247,7 +8251,7 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 	expr = fold_convert (TREE_TYPE (destvar), srcvar);
       else
 	expr = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (destvar), srcvar);
-      expr = build2 (MODIFY_EXPR, TREE_TYPE (destvar), destvar, expr);
+      expr = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (destvar), destvar, expr);
     }
 
   if (ignore)
@@ -9470,7 +9474,7 @@ fold_builtin (tree fndecl, tree arglist, bool ignore)
   tree exp = fold_builtin_1 (fndecl, arglist, ignore);
   if (exp && !ignore)
     {
-      exp = build1 (NOP_EXPR, TREE_TYPE (exp), exp);
+      exp = build1 (NOP_EXPR, GENERIC_TREE_TYPE (exp), exp);
       TREE_NO_WARNING (exp) = 1;
     }
 
@@ -11495,7 +11499,7 @@ init_target_chars (void)
 
 /* Helper function for do_mpfr_arg*().  Ensure M is a normal number
    and no overflow/underflow occurred.  INEXACT is true if M was not
-   exacly calculated.  TYPE is the tree type for the result.  This
+   exactly calculated.  TYPE is the tree type for the result.  This
    function assumes that you cleared the MPFR flags and then
    calculated M to see if anything subsequently set a flag prior to
    entering this function.  Return NULL_TREE if any checks fail.  */
@@ -11700,9 +11704,11 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
 		  && TYPE_MAIN_VARIANT (TREE_TYPE (arg_cosp)) == TYPE_MAIN_VARIANT (type))
 	        {
 		  /* Set the values. */
-		  result_s = fold_build2 (MODIFY_EXPR, type, arg_sinp, result_s);
+		  result_s = fold_build2 (GIMPLE_MODIFY_STMT, type, arg_sinp,
+		      			  result_s);
 		  TREE_SIDE_EFFECTS (result_s) = 1;
-		  result_c = fold_build2 (MODIFY_EXPR, type, arg_cosp, result_c);
+		  result_c = fold_build2 (GIMPLE_MODIFY_STMT, type, arg_cosp,
+		      			  result_c);
 		  TREE_SIDE_EFFECTS (result_c) = 1;
 		  /* Combine the assignments into a compound expr.  */
 		  result = non_lvalue (fold_build2 (COMPOUND_EXPR, type,

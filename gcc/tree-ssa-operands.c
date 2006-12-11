@@ -98,7 +98,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Operand is a "non-specific" kill for call-clobbers and such.  This
    is used to distinguish "reset the world" events from explicit
-   MODIFY_EXPRs.  */
+   GIMPLE_MODIFY_STMTs.  */
 #define opf_non_specific  (1 << 3)
 
 /* Array for building all the def operands.  */
@@ -533,7 +533,7 @@ finalize_ssa_defs (tree stmt)
   unsigned int num = VEC_length (tree, build_defs);
 
   /* There should only be a single real definition per assignment.  */
-  gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
+  gcc_assert ((stmt && TREE_CODE (stmt) != GIMPLE_MODIFY_STMT) || num <= 1);
 
   /* If there is an old list, often the new list is identical, or close, so
      find the elements at the beginning that are the same as the vector.  */
@@ -1056,11 +1056,6 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   if (alias == gimple_global_var (cfun))
     return true;
 
-  /* We cannot prune nonlocal aliases because they are not type
-     specific.  */
-  if (alias == gimple_nonlocal_all (cfun))
-    return true;
-
   /* If ALIAS is an SFT, it can't be touched if the offset     
      and size of the access is not overlapping with the SFT offset and
      size.  This is only true if we are accessing through a pointer
@@ -1158,12 +1153,7 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
 	       || TREE_CODE (TREE_TYPE (base)) != UNION_TYPE)
 	   && !AGGREGATE_TYPE_P (TREE_TYPE (alias))
 	   && TREE_CODE (TREE_TYPE (alias)) != COMPLEX_TYPE
-#if 0
-	   /* FIXME: PR tree-optimization/29680.  */
 	   && !var_ann (alias)->is_heapvar
-#else
-	   && !POINTER_TYPE_P (TREE_TYPE (alias))
-#endif
 	   /* When the struct has may_alias attached to it, we need not to
 	      return true.  */
 	   && get_alias_set (base))
@@ -1235,7 +1225,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
      check that this only happens on non-specific stores.
 
      Note that if this is a specific store, i.e. associated with a
-     modify_expr, then we can't suppress the V_MAY_DEF, lest we run
+     gimple_modify_stmt, then we can't suppress the V_MAY_DEF, lest we run
      into validation problems.
 
      This can happen when programs cast away const, leaving us with a
@@ -1313,17 +1303,8 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	  if (v_ann->is_aliased
 	      || none_added
 	      || (TREE_CODE (var) == SYMBOL_MEMORY_TAG
-		  && for_clobber
-		  && SMT_USED_ALONE (var)))
+		  && for_clobber))
 	    {
-	      /* Every bare SMT def we add should have SMT_USED_ALONE
-		 set on it, or else we will get the wrong answer on
-		 clobbers.  */
-	      if (none_added
-		  && !updating_used_alone && gimple_aliases_computed_p (cfun)
-		  && TREE_CODE (var) == SYMBOL_MEMORY_TAG)
-		gcc_assert (SMT_USED_ALONE (var));
-
 	      append_v_may_def (var);
 	    }
 	}
@@ -1819,10 +1800,10 @@ get_asm_expr_operands (tree stmt)
 /* Scan operands for the assignment expression EXPR in statement STMT.  */
 
 static void
-get_modify_expr_operands (tree stmt, tree expr)
+get_modify_stmt_operands (tree stmt, tree expr)
 {
   /* First get operands from the RHS.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+  get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (expr, 1), opf_none);
 
   /* For the LHS, use a regular definition (OPF_IS_DEF) for GIMPLE
      registers.  If the LHS is a store to memory, we will either need
@@ -1837,7 +1818,8 @@ get_modify_expr_operands (tree stmt, tree expr)
      The determination of whether to use a preserving or a killing
      definition is done while scanning the LHS of the assignment.  By
      default, assume that we will emit a V_MUST_DEF.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def|opf_kill_def);
+  get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (expr, 0),
+      		     opf_is_def|opf_kill_def);
 }
 
 
@@ -2010,8 +1992,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
 
-    case MODIFY_EXPR:
-      get_modify_expr_operands (stmt, expr);
+    case GIMPLE_MODIFY_STMT:
+      get_modify_stmt_operands (stmt, expr);
       return;
 
     case CONSTRUCTOR:
@@ -2111,8 +2093,8 @@ parse_ssa_operands (tree stmt)
   code = TREE_CODE (stmt);
   switch (code)
     {
-    case MODIFY_EXPR:
-      get_modify_expr_operands (stmt, stmt);
+    case GIMPLE_MODIFY_STMT:
+      get_modify_stmt_operands (stmt, stmt);
       break;
 
     case COND_EXPR:
