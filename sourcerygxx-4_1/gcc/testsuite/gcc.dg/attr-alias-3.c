@@ -52,5 +52,12 @@ extern ftype Af4a __attribute__((alias ("lf4")));
 static ftype *pf4a = &Af4a;
 
 main() {
+#ifdef __mips
+  /* If the "m" operands use %lo() relocations, those relocations must
+     appear in the object file, otherwise the corresponding %hi() or
+     %got() relocations will be orphaned. */
+  asm volatile ("lw $0,%0\n\tlw $0,%1" : : "m" (pv4a), "m" (pf4a));
+#else
   asm volatile ("" : : "m" (pv4a), "m" (pf4a));
+#endif
 }

@@ -1,3 +1,9 @@
+2006-12-11  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/attr-alias-3.c (main): Generate real assembly on
+	MIPS targets.
+
 2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/
