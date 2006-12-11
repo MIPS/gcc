@@ -1714,7 +1714,7 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
      to the new definition.  So just replace rhs of the statement with something
      harmless.  */
   type = TREE_TYPE (scalar_dest);
-  TREE_OPERAND (stmt, 1) = fold_convert (type, integer_zero_node);
+  GIMPLE_STMT_OPERAND (stmt, 1) = fold_convert (type, integer_zero_node);
 
   return true;
 }
@@ -2575,7 +2575,7 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
   unsigned int j;
   VEC(tree,heap) *first, *second;
   
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   first = VEC_alloc (tree, heap, length/2);
   second = VEC_alloc (tree, heap, length/2);
 
@@ -2941,7 +2941,7 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge pe = loop_preheader_edge (loop);
-  tree scalar_dest = TREE_OPERAND (stmt, 0);
+  tree scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   tree vec_dest;
   tree init_addr;
   tree inc;
@@ -3162,7 +3162,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  data_ref = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = data_ref;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
-	  mark_new_vars_to_rename (perm_stmt);
+	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2, data_ref);	      
 	      
@@ -3176,7 +3176,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  data_ref = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = data_ref;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
-	  mark_new_vars_to_rename (perm_stmt);
+	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2+length/2, data_ref);
 	}
@@ -3540,7 +3540,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 	  copy_virtual_operands (new_stmt, stmt);
-	  mark_new_vars_to_rename (new_stmt);
+	  mark_symbols_for_renaming (new_stmt);
 
 	  /* 3. Handle explicit realignment if necessary/supported.  */
 	  if (alignment_support_cheme == dr_unaligned_software_pipeline)

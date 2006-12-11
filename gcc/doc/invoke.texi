@@ -536,8 +536,8 @@ Objective-C and Objective-C++ Dialects}.
 -mmmx  -msse  -msse2 -msse3 -mssse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
--m96bit-long-double  -mregparm=@var{num}  -mx87regparm @gol
--msseregparm @gol  -mstackrealign @gol
+-m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
+-mstackrealign @gol
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num}}
@@ -733,7 +733,7 @@ See RS/6000 and PowerPC Options.
 @gccoptlist{-mwarn-reloc -merror-reloc @gol
 -msafe-dma -munsafe-dma @gol
 -mbranch-hints @gol
--msmall-mem -mlarge-mem}
+-msmall-mem -mlarge-mem -mstdmain}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -783,6 +783,7 @@ See S/390 and zSeries Options.
 -fno-common  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
 -fno-jump-tables @gol
+-frecord-gcc-switches @gol
 -freg-struct-return  -fshort-enums @gol
 -fshort-double  -fshort-wchar @gol
 -fverbose-asm  -fpack-struct[=@var{n}]  -fstack-check @gol
@@ -9596,17 +9597,6 @@ function by using the function attribute @samp{regparm}.
 value, including any libraries.  This includes the system libraries and
 startup modules.
 
-@item -mx87regparm
-@opindex mx87regparm
-Use 80387 register passing conventions for floating point arguments.
-You can control this behavior for a specific function by using the
-function attribute @samp{x87regparm}.
-@xref{Function Attributes}.
-
-@strong{Warning:} if you use this switch then you must build all
-modules with the same value, including any libraries.  This includes
-the system libraries and startup modules.
-
 @item -msseregparm
 @opindex msseregparm
 Use SSE register passing conventions for float and double arguments
@@ -12919,6 +12909,15 @@ By default, GCC generates code assuming that addresses are never larger
 than 18 bits.  With @option{-mlarge-mem} code is generated that assumes
 a full 32 bit address.
 
+@item -mstdmain
+@opindex mstdmain
+
+By default, GCC links against startup code that assumes the SPU-style
+main function interface (which has an unconventional parameter list).
+With @option{-mstdmain}, GCC will link your program against startup
+code that assumes a C99-style interface to @code{main}, including a
+local copy of @code{argv} strings.
+
 @end table
 
 @node System V Options
@@ -13507,6 +13506,17 @@ debugging the compiler itself).
 @option{-fno-verbose-asm}, the default, causes the
 extra information to be omitted and is useful when comparing two assembler
 files.
+
+@item -frecord-gcc-switches
+@opindex frecord-gcc-switches
+This switch causes the command line that was used to invoke the
+compiler to be recorded into the object file that is being created.
+This switch is only implemented on some targets and the exact format
+of the recording is target and binary file format dependent, but it
+usually takes the form of a section containing ASCII text.  This
+switch is related to the @option{-fverbose-asm} switch, but that
+switch only records information in the assembler output file as
+comments, so it never reaches the object file.
 
 @item -fpic
 @opindex fpic

@@ -541,6 +541,18 @@ has_single_use (tree var)
   return (ptr != ptr->next && ptr == ptr->next->next);
 }
 
+
+/* If VAR has only a single immediate use, return true.  */
+static inline bool
+single_imm_use_p (tree var)
+{
+  ssa_use_operand_t *ptr;
+
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  return (ptr != ptr->next && ptr == ptr->next->next);
+}
+
+
 /* If VAR has only a single immediate use, return true, and set USE_P and STMT
    to the use pointer and stmt of occurrence.  */
 static inline bool
@@ -575,7 +587,14 @@ num_imm_uses (tree var)
   return num;
 }
 
-
+/* Return true if VAR has no immediate uses.  */
+static inline bool
+zero_imm_uses_p (tree var)
+{
+  ssa_use_operand_t *ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  return (ptr == ptr->next);
+}
+ 
 /* Return the tree pointer to by USE.  */ 
 static inline tree
 get_use_from_ptr (use_operand_p use)
@@ -1698,6 +1717,35 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     }
   return false;
 
+}
+
+/* Return the memory tag associated with symbol SYM.  */
+
+static inline tree
+symbol_mem_tag (tree sym)
+{
+  tree tag = get_var_ann (sym)->symbol_mem_tag;
+
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  return tag;
+}
+
+
+/* Set the memory tag associated with symbol SYM.  */
+
+static inline void
+set_symbol_mem_tag (tree sym, tree tag)
+{
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  get_var_ann (sym)->symbol_mem_tag = tag;
 }
 
 /* Get the value handle of EXPR.  This is the only correct way to get

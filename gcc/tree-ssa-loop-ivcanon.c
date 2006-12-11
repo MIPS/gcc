@@ -279,18 +279,12 @@ canonicalize_loop_induction_variables (struct loop *loop,
   edge exit = NULL;
   tree niter;
 
-  niter = number_of_iterations_in_loop (loop);
+  niter = number_of_latch_executions (loop);
   if (TREE_CODE (niter) == INTEGER_CST)
     {
       exit = single_exit (loop);
       if (!just_once_each_iteration_p (loop, exit->src))
 	return false;
-
-      /* The result of number_of_iterations_in_loop is by one higher than
-	 we expect (i.e. it returns number of executions of the exit
-	 condition, not of the loop latch edge).  */
-      niter = fold_build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
-			   build_int_cst (TREE_TYPE (niter), 1));
     }
   else
     {
@@ -332,18 +326,15 @@ canonicalize_loop_induction_variables (struct loop *loop,
 unsigned int
 canonicalize_induction_variables (void)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-
-      if (loop)
-	changed |= canonicalize_loop_induction_variables (loop,
-							  true, UL_SINGLE_ITER,
-							  true);
+      changed |= canonicalize_loop_induction_variables (loop,
+							true, UL_SINGLE_ITER,
+							true);
     }
 
   /* Clean up the information about numbers of iterations, since brute force
@@ -362,18 +353,13 @@ canonicalize_induction_variables (void)
 unsigned int
 tree_unroll_loops_completely (bool may_increase_size)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   enum unroll_level ul;
 
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-
-      if (!loop)
-	continue;
-
       if (may_increase_size && maybe_hot_bb_p (loop->header))
 	ul = UL_ALL;
       else
