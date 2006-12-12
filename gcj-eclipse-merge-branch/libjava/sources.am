@@ -1666,25 +1666,6 @@ gnu/java/rmi/registry.list: $(gnu_java_rmi_registry_source_files)
 -include gnu/java/rmi/registry.deps
 
 
-gnu_java_rmi_rmic_source_files = \
-gnu/java/rmi/rmic/Compile_gcj.java \
-gnu/java/rmi/rmic/Compile_jikes.java \
-gnu/java/rmi/rmic/Compile_kjc.java \
-gnu/java/rmi/rmic/Compiler.java \
-gnu/java/rmi/rmic/CompilerProcess.java \
-gnu/java/rmi/rmic/RMIC.java \
-gnu/java/rmi/rmic/RMICException.java \
-gnu/java/rmi/rmic/TabbedWriter.java
-
-gnu_java_rmi_rmic_header_files = $(patsubst %.java,%.h,$(gnu_java_rmi_rmic_source_files))
-
-gnu/java/rmi/rmic.list: $(gnu_java_rmi_rmic_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo $(srcdir)/classpath/lib/gnu/java/rmi/rmic/*.class > gnu/java/rmi/rmic.list
-
--include gnu/java/rmi/rmic.deps
-
-
 gnu_java_rmi_server_source_files = \
 classpath/gnu/java/rmi/server/ActivatableRef.java \
 classpath/gnu/java/rmi/server/ActivatableServerRef.java \
@@ -8407,7 +8388,6 @@ all_packages_source_files = \
   gnu/java/rmi/activation.list \
   gnu/java/rmi/dgc.list \
   gnu/java/rmi/registry.list \
-  gnu/java/rmi/rmic.list \
   gnu/java/rmi/server.list \
   gnu/java/security.list \
   gnu/java/security/action.list \
@@ -8656,7 +8636,6 @@ ordinary_header_files = \
   $(gnu_java_rmi_activation_header_files) \
   $(gnu_java_rmi_dgc_header_files) \
   $(gnu_java_rmi_registry_header_files) \
-  $(gnu_java_rmi_rmic_header_files) \
   $(gnu_java_rmi_server_header_files) \
   $(gnu_java_security_header_files) \
   $(gnu_java_security_action_header_files) \

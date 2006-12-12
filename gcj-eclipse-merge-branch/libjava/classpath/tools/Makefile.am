@@ -1,11 +1,12 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
-GLIBJ_BOOTCLASSPATH='$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
+## GCJ LOCAL: use srcdir to find core classes.
+GLIBJ_BOOTCLASSPATH='$(top_srcdir)/lib'
 GLIBJ_CLASSPATH=asm
 
 # Setup the compiler to use the GNU Classpath library we just build
-if FOUND_GCJX
-JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
+if FOUND_GCJ
+JCOMPILER = $(GCJ) -C -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_ECJ
 JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)

@@ -392,12 +392,12 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
-GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
+GLIBJ_BOOTCLASSPATH = '$(top_srcdir)/lib'
 GLIBJ_CLASSPATH = asm
-@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
+@FOUND_ECJ_TRUE@@FOUND_GCJ_FALSE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just build
-@FOUND_GCJX_TRUE@JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
+@FOUND_GCJ_TRUE@JCOMPILER = $(GCJ) -C -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH):.
 @CREATE_WRAPPERS_FALSE@bin_SCRIPTS = gappletviewer gjarsigner gkeytool \
 @CREATE_WRAPPERS_FALSE@	gjar gnative2ascii gserialver gjavah grmiregistry \
 @CREATE_WRAPPERS_FALSE@	gtnameserv gorbd grmid grmic
@@ -1076,7 +1076,7 @@ uninstall-am: uninstall-TOOLSDATA uninstall-binPROGRAMS \
 	tags uninstall uninstall-TOOLSDATA uninstall-am \
 	uninstall-binPROGRAMS uninstall-binSCRIPTS uninstall-info-am
 
-@FOUND_ECJ_FALSE@@FOUND_GCJX_FALSE@error dunno how to setup the JCOMPILER and compile
+@FOUND_ECJ_FALSE@@FOUND_GCJ_FALSE@error dunno how to setup the JCOMPILER and compile
 
 # Make sure everything is included in the distribution.
 dist-hook:

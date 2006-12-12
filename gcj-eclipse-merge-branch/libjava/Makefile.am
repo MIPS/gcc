@@ -35,7 +35,7 @@ libexecsubdir = $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
 ## What gets installed, and where.
 ##
 
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la # libgcj-tools.la
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la libgcj-tools.la
 toolexecmainlib_DATA = libgcj.spec
 
 if USE_LIBGCJ_BC
@@ -51,7 +51,7 @@ dbexec_LTLIBRARIES = libjvm.la
 pkgconfigdir = $(libdir)/pkgconfig
 
 jardir = $(datadir)/java
-jar_DATA = libgcj-$(gcc_version).jar # libgcj-tools-$(gcc_version).jar
+jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 if INSTALL_ECJ_JAR
 jar_DATA += $(ECJ_BUILD_JAR)
 endif
@@ -71,7 +71,9 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
+bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
+	gappletviewer gjarsigner gkeytool gjar gjavah gnative2ascii \
+	gorbd grmid gserialver gtnameserv
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -252,13 +254,12 @@ libgcj_la_LINK = $(LIBLINK)
 ## compiled.
 EXTRA_libgcj_la_SOURCES = java/lang/Object.java
 
-## Removed during merge
-# libgcj_tools_la_SOURCES = classpath/tools/tools.jar
-# libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
-# libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
-#  -version-info `grep -v '^\#' $(srcdir)/libtool-version`
-# libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
-# libgcj_tools_la_LINK = $(LIBLINK)
+libgcj_tools_la_SOURCES = classpath/tools/tools.zip
+libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
+libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
+ -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
+libgcj_tools_la_LINK = $(LIBLINK)
 
 ## libjvm.so
 libjvm_la_SOURCES = jni-libjvm.cc
@@ -333,8 +334,8 @@ libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	here=`pwd`; cd $(srcdir)/classpath/lib; $(JAR) -cfM \
 	    $$here/libgcj-$(gcc_version).jar gnu java javax org sun
 
-# libgcj-tools-$(gcc_version).jar: classpath/tools/tools.jar
-# 	cp $< $@
+libgcj-tools-$(gcc_version).jar: classpath/tools/tools.zip
+	cp $< $@
 
 CLEANFILES = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
@@ -652,28 +653,6 @@ gij_LDADD = -L$(here)/.libs libgij.la
 ## linking this program.
 gij_DEPENDENCIES = libgij.la
 
-## This is a dummy definition.
-grmic_SOURCES =
-grmic_LDFLAGS = --main=gnu.java.rmi.rmic.RMIC \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-grmic_LINK = $(GCJLINK)
-## See jv_convert_LDADD.
-grmic_LDADD = -L$(here)/.libs libgcj.la
-## Depend on the spec file to make sure it is up to date before
-## linking this program.
-grmic_DEPENDENCIES = libgcj.la libgcj.spec
-
-## This is a dummy definition.
-grmiregistry_SOURCES =
-grmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
-	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-grmiregistry_LINK = $(GCJLINK)
-## See jv_convert_LDADD.
-grmiregistry_LDADD = -L$(here)/.libs libgcj.la
-## Depend on the spec file to make sure it is up to date before
-## linking this program.
-grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
-
 ## Build an ecjx from a .jar.
 ecjx_SOURCES =
 ## We use the BC ABI here so that we don't need to compile ecj.jar.
@@ -714,8 +693,6 @@ gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
 gappletviewer_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gappletviewer_LDADD = -L$(here)/.libs libgcj-tools.la
-## Depend on the spec file to make sure it is up to date before
-## linking this program.
 gappletviewer_DEPENDENCIES = libgcj-tools.la
 
 ## This is a dummy definition.
@@ -725,8 +702,6 @@ gjarsigner_LDFLAGS = --main=gnu.classpath.tools.jarsigner.Main \
 gjarsigner_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gjarsigner_LDADD = -L$(here)/.libs libgcj-tools.la
-## Depend on the spec file to make sure it is up to date before
-## linking this program.
 gjarsigner_DEPENDENCIES = libgcj-tools.la
 
 ## This is a dummy definition.
@@ -736,9 +711,88 @@ gkeytool_LDFLAGS = --main=gnu.classpath.tools.keytool.Main \
 gkeytool_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gkeytool_LDADD = -L$(here)/.libs libgcj-tools.la
-## Depend on the spec file to make sure it is up to date before
-## linking this program.
 gkeytool_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gjar_SOURCES =
+gjar_LDFLAGS = --main=gnu.classpath.tools.jar.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gjar_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjar_LDADD = -L$(here)/.libs libgcj-tools.la
+gjar_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gjavah_SOURCES =
+gjavah_LDFLAGS = --main=gnu.classpath.tools.javah.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gjavah_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjavah_LDADD = -L$(here)/.libs libgcj-tools.la
+gjavah_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gnative2ascii_SOURCES =
+gnative2ascii_LDFLAGS = --main=gnu.classpath.tools.native2ascii.Native2ASCII \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gnative2ascii_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gnative2ascii_LDADD = -L$(here)/.libs libgcj-tools.la
+gnative2ascii_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gorbd_SOURCES =
+gorbd_LDFLAGS = --main=gnu.classpath.tools.orbd.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gorbd_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gorbd_LDADD = -L$(here)/.libs libgcj-tools.la
+gorbd_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+grmid_SOURCES =
+grmid_LDFLAGS = --main=gnu.classpath.tools.rmid.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+grmid_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+grmid_LDADD = -L$(here)/.libs libgcj-tools.la
+grmid_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gserialver_SOURCES =
+gserialver_LDFLAGS = --main=gnu.classpath.tools.serialver.SerialVer \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gserialver_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gserialver_LDADD = -L$(here)/.libs libgcj-tools.la
+gserialver_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gtnameserv_SOURCES =
+gtnameserv_LDFLAGS = --main=gnu.classpath.tools.tnameserv.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gtnameserv_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gtnameserv_LDADD = -L$(here)/.libs libgcj-tools.la
+gtnameserv_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+grmic_SOURCES =
+grmic_LDFLAGS = --main=gnu.classpath.tools.rmic.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+grmic_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+grmic_LDADD = -L$(here)/.libs libgcj-tools.la
+grmic_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+grmiregistry_SOURCES =
+grmiregistry_LDFLAGS = --main=gnu.classpath.tools.rmiregistry.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+grmiregistry_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+grmiregistry_LDADD = -L$(here)/.libs libgcj-tools.la
+grmiregistry_DEPENDENCIES = libgcj-tools.la
 
 ## ################################################################
 
