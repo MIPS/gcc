@@ -1037,14 +1037,14 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt, affine_iv *iv)
   iv->base = NULL_TREE;
   iv->step = NULL_TREE;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  lhs = TREE_OPERAND (stmt, 0);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), iv, true))
+  if (!simple_iv (loop, stmt, GIMPLE_STMT_OPERAND (stmt, 1), iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 
@@ -1065,7 +1065,7 @@ find_givs_in_stmt (struct ivopts_data *data, tree stmt)
   if (!find_givs_in_stmt_scev (data, stmt, &iv))
     return;
 
-  set_iv (data, TREE_OPERAND (stmt, 0), iv.base, iv.step);
+  set_iv (data, GIMPLE_STMT_OPERAND (stmt, 0), iv.base, iv.step);
 }
 
 /* Finds general ivs in basic block BB.  */
@@ -1222,7 +1222,7 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
 
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (TREE_CODE (stmt) == PHI_NODE
-	      || TREE_CODE (stmt) == MODIFY_EXPR);
+	      || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
 
   use = record_use (data, NULL, civ, stmt, USE_NONLINEAR_EXPR);
   iv->use_id = use->id;
@@ -1314,7 +1314,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
       return true;
     }
 
-  if (!EXPR_P (expr))
+  if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return false;
 
   len = TREE_CODE_LENGTH (TREE_CODE (expr));
@@ -1636,10 +1636,10 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       return;
     }
 
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      lhs = TREE_OPERAND (stmt, 0);
-      rhs = TREE_OPERAND (stmt, 1);
+      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -1655,13 +1655,16 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
 	{
 	case tcc_comparison:
-	  find_interesting_uses_cond (data, stmt, &TREE_OPERAND (stmt, 1));
+	  find_interesting_uses_cond (data, stmt,
+	      			      &GIMPLE_STMT_OPERAND (stmt, 1));
 	  return;
 
 	case tcc_reference:
-	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 1));
+	  find_interesting_uses_address (data, stmt,
+					 &GIMPLE_STMT_OPERAND (stmt, 1));
 	  if (REFERENCE_CLASS_P (lhs))
-	    find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
+	    find_interesting_uses_address (data, stmt,
+					   &GIMPLE_STMT_OPERAND (stmt, 0));
 	  return;
 
 	default: ;
@@ -1670,7 +1673,8 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       if (REFERENCE_CLASS_P (lhs)
 	  && is_gimple_val (rhs))
 	{
-	  find_interesting_uses_address (data, stmt, &TREE_OPERAND (stmt, 0));
+	  find_interesting_uses_address (data, stmt,
+					 &GIMPLE_STMT_OPERAND (stmt, 0));
 	  find_interesting_uses_op (data, rhs);
 	  return;
 	}
@@ -5347,12 +5351,7 @@ remove_statement (tree stmt, bool including_defined_name)
 {
   if (TREE_CODE (stmt) == PHI_NODE)
     {
-      if (!including_defined_name)
-	{
-	  /* Prevent the ssa name defined by the statement from being removed.  */
-	  SET_PHI_RESULT (stmt, NULL);
-	}
-      remove_phi_node (stmt, NULL_TREE);
+      remove_phi_node (stmt, NULL_TREE, including_defined_name);
     }
   else
     {
@@ -5383,8 +5382,8 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       tree step, ctype, utype;
       enum tree_code incr_code = PLUS_EXPR;
 
-      gcc_assert (TREE_CODE (use->stmt) == MODIFY_EXPR);
-      gcc_assert (TREE_OPERAND (use->stmt, 0) == cand->var_after);
+      gcc_assert (TREE_CODE (use->stmt) == GIMPLE_MODIFY_STMT);
+      gcc_assert (GIMPLE_STMT_OPERAND (use->stmt, 0) == cand->var_after);
 
       step = cand->iv->step;
       ctype = TREE_TYPE (step);
@@ -5400,7 +5399,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	 computations in the loop -- otherwise, the computation
 	 we rely upon may be removed in remove_unused_ivs,
 	 thus leading to ICE.  */
-      op = TREE_OPERAND (use->stmt, 1);
+      op = GIMPLE_STMT_OPERAND (use->stmt, 1);
       if (TREE_CODE (op) == PLUS_EXPR
 	  || TREE_CODE (op) == MINUS_EXPR)
 	{
@@ -5448,8 +5447,8 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	}
       break;
 
-    case MODIFY_EXPR:
-      tgt = TREE_OPERAND (use->stmt, 0);
+    case GIMPLE_MODIFY_STMT:
+      tgt = GIMPLE_STMT_OPERAND (use->stmt, 0);
       bsi = bsi_for_stmt (use->stmt);
       break;
 
@@ -5463,7 +5462,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     {
       if (stmts)
 	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
-      ass = build2 (MODIFY_EXPR, TREE_TYPE (tgt), tgt, op);
+      ass = build2_gimple (GIMPLE_MODIFY_STMT, tgt, op);
       bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
       remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;
@@ -5472,7 +5471,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     {
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      TREE_OPERAND (use->stmt, 1) = op;
+      GIMPLE_STMT_OPERAND (use->stmt, 1) = op;
     }
 }
 
@@ -5557,7 +5556,7 @@ get_ref_tag (tree ref, tree orig)
 	}
  
       var = SSA_NAME_VAR (var);
-      tag = var_ann (var)->symbol_mem_tag;
+      tag = symbol_mem_tag (var);
       gcc_assert (tag != NULL_TREE);
       return tag;
     }
@@ -5566,7 +5565,7 @@ get_ref_tag (tree ref, tree orig)
       if (!DECL_P (var))
 	return NULL_TREE;
 
-      tag = var_ann (var)->symbol_mem_tag;
+      tag = symbol_mem_tag (var);
       if (tag)
 	return tag;
 
@@ -5658,9 +5657,10 @@ rewrite_use_compare (struct ivopts_data *data,
 /* Rewrites USE using candidate CAND.  */
 
 static void
-rewrite_use (struct ivopts_data *data,
-	     struct iv_use *use, struct iv_cand *cand)
+rewrite_use (struct ivopts_data *data, struct iv_use *use, struct iv_cand *cand)
 {
+  push_stmt_changes (&use->stmt);
+
   switch (use->type)
     {
       case USE_NONLINEAR_EXPR:
@@ -5678,7 +5678,8 @@ rewrite_use (struct ivopts_data *data,
       default:
 	gcc_unreachable ();
     }
-  mark_new_vars_to_rename (use->stmt);
+
+  pop_stmt_changes (&use->stmt);
 }
 
 /* Rewrite the uses using the selected induction variables.  */
@@ -5885,30 +5886,17 @@ tree_ssa_iv_optimize (void)
 {
   struct loop *loop;
   struct ivopts_data data;
+  loop_iterator li;
 
   tree_ssa_iv_optimize_init (&data);
 
   /* Optimize the loops starting with the innermost ones.  */
-  loop = current_loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  /* Scan the loops, inner ones first.  */
-  while (loop != current_loops->tree_root)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	flow_loop_dump (loop, dump_file, NULL, 1);
 
       tree_ssa_iv_optimize_loop (&data, loop);
-
-      if (loop->next)
-	{
-	  loop = loop->next;
-	  while (loop->inner)
-	    loop = loop->inner;
-	}
-      else
-	loop = loop->outer;
     }
 
   tree_ssa_iv_optimize_finalize (&data);

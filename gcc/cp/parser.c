@@ -1639,7 +1639,7 @@ static tree cp_parser_class_name
 static tree cp_parser_class_specifier
   (cp_parser *);
 static tree cp_parser_class_head
-  (cp_parser *, bool *, tree *);
+  (cp_parser *, bool *, tree *, tree *);
 static enum tag_types cp_parser_class_key
   (cp_parser *);
 static void cp_parser_member_specification_opt
@@ -10311,10 +10311,15 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	    }
 
 	  if (TREE_CODE (TREE_TYPE (decl)) != TYPENAME_TYPE)
-	    check_elaborated_type_specifier
-	      (tag_type, decl,
-	       (parser->num_template_parameter_lists
-		|| DECL_SELF_REFERENCE_P (decl)));
+            {
+              bool allow_template = (parser->num_template_parameter_lists
+		                      || DECL_SELF_REFERENCE_P (decl));
+              type = check_elaborated_type_specifier (tag_type, decl, 
+                                                      allow_template);
+
+              if (type == error_mark_node)
+                return error_mark_node;
+            }
 
 	  type = TREE_TYPE (decl);
 	}
@@ -11139,6 +11144,10 @@ cp_parser_init_declarator (cp_parser* parser,
   if (declarator == cp_error_declarator)
     return error_mark_node;
 
+  /* Check that the number of template-parameter-lists is OK.  */
+  if (!cp_parser_check_declarator_template_parameters (parser, declarator))
+    return error_mark_node;
+
   if (declares_class_or_enum & 2)
     cp_parser_check_for_definition_in_return_type (declarator,
 						   decl_specifiers->type);
@@ -11258,10 +11267,6 @@ cp_parser_init_declarator (cp_parser* parser,
   /* Check to see whether or not this declaration is a friend.  */
   friend_p = cp_parser_friend_p (decl_specifiers);
 
-  /* Check that the number of template-parameter-lists is OK.  */
-  if (!cp_parser_check_declarator_template_parameters (parser, declarator))
-    return error_mark_node;
-
   /* Enter the newly declared entry in the symbol table.  If we're
      processing a declaration in a class-specifier, we wait until
      after processing the initializer.  */
@@ -11311,9 +11316,23 @@ cp_parser_init_declarator (cp_parser* parser,
   is_non_constant_init = true;
   if (is_initialized)
     {
-      if (function_declarator_p (declarator)
-	  && initialization_kind == CPP_EQ)
-	initializer = cp_parser_pure_specifier (parser);
+      if (function_declarator_p (declarator))
+	{
+	   if (initialization_kind == CPP_EQ)
+	     initializer = cp_parser_pure_specifier (parser);
+	   else
+	     {
+	       /* If the declaration was erroneous, we don't really
+		  know what the user intended, so just silently
+		  consume the initializer.  */
+	       if (decl != error_mark_node)
+		 error ("initializer provided for function");
+	       cp_parser_skip_to_closing_parenthesis (parser,
+						      /*recovering=*/true,
+						      /*or_comma=*/false,
+						      /*consume_paren=*/true);
+	     }
+	}
       else
 	initializer = cp_parser_initializer (parser,
 					     &is_parenthesized_init,
@@ -13090,13 +13109,15 @@ cp_parser_class_specifier (cp_parser* parser)
   bool saved_in_function_body;
   tree old_scope = NULL_TREE;
   tree scope = NULL_TREE;
+  tree bases;
 
   push_deferring_access_checks (dk_no_deferred);
 
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
 			       &nested_name_specifier_p,
-			       &attributes);
+			       &attributes,
+			       &bases);
   /* If the class-head was a semantic disaster, skip the entire body
      of the class.  */
   if (!type)
@@ -13109,6 +13130,19 @@ cp_parser_class_specifier (cp_parser* parser)
   /* Look for the `{'.  */
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
     {
+      pop_deferring_access_checks ();
+      return error_mark_node;
+    }
+
+  /* Process the base classes. If they're invalid, skip the 
+     entire class body.  */
+  if (!xref_basetypes (type, bases))
+    {
+      cp_parser_skip_to_closing_brace (parser);
+
+      /* Consuming the closing brace yields better error messages
+         later on.  */
+      cp_lexer_consume_token (parser->lexer);
       pop_deferring_access_checks ();
       return error_mark_node;
     }
@@ -13268,7 +13302,8 @@ cp_parser_class_specifier (cp_parser* parser)
 static tree
 cp_parser_class_head (cp_parser* parser,
 		      bool* nested_name_specifier_p,
-		      tree *attributes_p)
+		      tree *attributes_p,
+		      tree *bases)
 {
   tree nested_name_specifier;
   enum tag_types class_key;
@@ -13281,7 +13316,6 @@ cp_parser_class_head (cp_parser* parser,
   bool invalid_explicit_specialization_p = false;
   tree pushed_scope = NULL_TREE;
   unsigned num_templates;
-  tree bases;
 
   /* Assume no nested-name-specifier will be present.  */
   *nested_name_specifier_p = false;
@@ -13569,6 +13603,8 @@ cp_parser_class_head (cp_parser* parser,
       type = NULL_TREE;
       goto done;
     }
+  else if (type == error_mark_node)
+    type = NULL_TREE;
 
   /* We will have entered the scope containing the class; the names of
      base classes should be looked up in that context.  For example:
@@ -13577,15 +13613,11 @@ cp_parser_class_head (cp_parser* parser,
        struct A::C : B {};
 
      is valid.  */
-  bases = NULL_TREE;
+  *bases = NULL_TREE;
 
   /* Get the list of base-classes, if there is one.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
-    bases = cp_parser_base_clause (parser);
-
-  /* Process the base classes.  */
-  if (!xref_basetypes (type, bases))
-    type = NULL_TREE;
+    *bases = cp_parser_base_clause (parser);
 
  done:
   /* Leave the scope given by the nested-name-specifier.  We will
@@ -15280,10 +15312,14 @@ cp_parser_check_declarator_template_parameters (cp_parser* parser,
 
 		 is correct; there shouldn't be a `template <>' for
 		 the definition of `S<int>::f'.  */
-	      if (CLASSTYPE_TEMPLATE_INFO (scope)
-		  && (CLASSTYPE_TEMPLATE_INSTANTIATION (scope)
-		      || uses_template_parms (CLASSTYPE_TI_ARGS (scope)))
-		  && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
+	      if (!CLASSTYPE_TEMPLATE_INFO (scope))
+		/* If SCOPE does not have template information of any
+		   kind, then it is not a template, nor is it nested
+		   within a template.  */
+		break;
+	      if (explicit_class_specialization_p (scope))
+		break;
+	      if (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
 		++num_templates;
 
 	      scope = TYPE_CONTEXT (scope);
@@ -15570,6 +15606,16 @@ cp_parser_function_definition_from_specifiers_and_declarator
       cp_parser_skip_to_end_of_block_or_statement (parser);
       fn = error_mark_node;
     }
+  else if (DECL_INITIAL (current_function_decl) != error_mark_node)
+    {
+      /* Seen already, skip it.  An error message has already been output.  */
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      fn = current_function_decl;
+      current_function_decl = NULL_TREE;
+      /* If this is a function from a class, pop the nested class.  */
+      if (current_class_name)
+	pop_nested_class ();
+    }
   else
     fn = cp_parser_function_definition_after_declarator (parser,
 							 /*inline_p=*/false);
@@ -15673,6 +15719,15 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   /* And the `<'.  */
   if (!cp_parser_require (parser, CPP_LESS, "`<'"))
     return;
+  if (at_class_scope_p () && current_function_decl)
+    {
+      /* 14.5.2.2 [temp.mem]
+
+         A local class shall not have member templates.  */
+      error ("invalid declaration of member template in local class");
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return;
+    }
   /* [temp]
 
      A template ... shall not have C linkage.  */
@@ -18018,25 +18073,6 @@ cp_parser_objc_statement (cp_parser * parser) {
 
 /* OpenMP 2.5 parsing routines.  */
 
-/* All OpenMP clauses.  OpenMP 2.5.  */
-typedef enum pragma_omp_clause {
-  PRAGMA_OMP_CLAUSE_NONE = 0,
-
-  PRAGMA_OMP_CLAUSE_COPYIN,
-  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
-  PRAGMA_OMP_CLAUSE_DEFAULT,
-  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
-  PRAGMA_OMP_CLAUSE_IF,
-  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
-  PRAGMA_OMP_CLAUSE_NOWAIT,
-  PRAGMA_OMP_CLAUSE_NUM_THREADS,
-  PRAGMA_OMP_CLAUSE_ORDERED,
-  PRAGMA_OMP_CLAUSE_PRIVATE,
-  PRAGMA_OMP_CLAUSE_REDUCTION,
-  PRAGMA_OMP_CLAUSE_SCHEDULE,
-  PRAGMA_OMP_CLAUSE_SHARED
-} pragma_omp_clause;
-
 /* Returns name of the next clause.
    If the clause is not recognized PRAGMA_OMP_CLAUSE_NONE is returned and
    the token is not consumed.  Otherwise appropriate pragma_omp_clause is
@@ -19385,9 +19421,5 @@ c_parse_file (void)
   error_occurred = cp_parser_translation_unit (the_parser);
   the_parser = NULL;
 }
-
-/* This variable must be provided by every front end.  */
-
-int yydebug;
 
 #include "gt-cp-parser.h"

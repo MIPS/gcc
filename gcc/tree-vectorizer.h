@@ -327,11 +327,8 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 extern FILE *vect_dump;
 extern enum verbosity_levels vect_verbosity_level;
 
-/* Number of loops, at the beginning of vectorization.  */
-extern unsigned int vect_loops_num;
-
 /* Bitmap of virtual variables to be renamed.  */
-extern bitmap vect_vnames_to_rename;
+extern bitmap vect_memsyms_to_rename;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
@@ -398,6 +395,7 @@ extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_function (tree, tree);
 extern bool vectorizable_call (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);

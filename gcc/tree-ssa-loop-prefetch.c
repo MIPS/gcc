@@ -461,11 +461,11 @@ gather_memory_references (struct loop *loop)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  stmt = bsi_stmt (bsi);
-	  if (TREE_CODE (stmt) != MODIFY_EXPR)
+	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	    continue;
 
-	  lhs = TREE_OPERAND (stmt, 0);
-	  rhs = TREE_OPERAND (stmt, 1);
+	  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	  if (REFERENCE_CLASS_P (rhs))
 	    gather_memory_references_ref (loop, &refs, rhs, false, stmt);
@@ -998,7 +998,7 @@ fail:
 unsigned int
 tree_ssa_prefetch_arrays (void)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   bool unrolled = false;
   int todo_flags = 0;
@@ -1043,12 +1043,8 @@ tree_ssa_prefetch_arrays (void)
      here.  */
   gcc_assert ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) == 0);
 
-  for (i = current_loops->num - 1; i > 0; i--)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
-      loop = current_loops->parray[i];
-      if (!loop)
-	continue;
-
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Processing loop %d:\n", loop->num);
 

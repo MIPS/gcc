@@ -59,6 +59,9 @@ char *alloca ();
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
 
+#define MAX_SUBRECORD_LENGTH 2147483639   /* 2**31-9 */
+
+
 #define free(x) Use_gfc_free_instead_of_free()
 #define gfc_is_whitespace(c) ((c==' ') || (c=='\t'))
 
@@ -476,14 +479,16 @@ typedef struct
 {
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
-    optional:1, pointer:1, save:1, target:1, volatile_:1,
+    optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
     dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
-    use_assoc:1;		/* Symbol has been use-associated.  */
+    protected:1,		/* Symbol has been marked as protected.  */
+    use_assoc:1,		/* Symbol has been use-associated.  */
+    use_only:1;			/* Symbol has been use-associated, with ONLY.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
-  unsigned function:1, subroutine:1, generic:1;
+  unsigned function:1, subroutine:1, generic:1, generic_copy:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
 
@@ -514,6 +519,9 @@ typedef struct
   /* Set if the symbol has been referenced in an expression.  No further
      modification of type or type parameters is permitted.  */
   unsigned referenced:1;
+
+  /* Set if the symbol has ambiguous interfaces.  */
+  unsigned ambiguous_interfaces:1;
 
   /* Set if the is the symbol for the main program.  This is the least
      cumbersome way to communicate this function property without
@@ -1661,11 +1669,11 @@ typedef struct
   int fshort_enums;
   int convert;
   int record_marker;
+  int max_subrecord_length;
 }
 gfc_option_t;
 
 extern gfc_option_t gfc_option;
-
 
 /* Constructor nodes for array and structure constructors.  */
 typedef struct gfc_constructor
@@ -1850,6 +1858,7 @@ try gfc_add_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointee (symbol_attribute *, locus *);
 try gfc_mod_pointee_as (gfc_array_spec *as);
+try gfc_add_protected (symbol_attribute *, const char *, locus *);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
@@ -1868,6 +1877,7 @@ try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
 try gfc_add_function (symbol_attribute *, const char *, locus *);
 try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
+try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);

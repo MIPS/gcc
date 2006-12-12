@@ -6247,6 +6247,9 @@ safe_from_p (rtx x, tree exp, int top_p)
     case tcc_type:
       /* Should never get a type here.  */
       gcc_unreachable ();
+
+    case tcc_gimple_stmt:
+      gcc_unreachable ();
     }
 
   /* If we have an rtl, find any enclosed object.  Then see if we conflict
@@ -6667,7 +6670,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
-      || TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK)
+      || (!GIMPLE_TUPLE_P (exp) && TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK))
     {
       ret = CONST0_RTX (tmode);
       return ret ? ret : const0_rtx;
@@ -6737,7 +6740,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		    enum expand_modifier modifier, rtx *alt_rtl)
 {
   rtx op0, op1, temp, decl_rtl;
-  tree type = TREE_TYPE (exp);
+  tree type;
   int unsignedp;
   enum machine_mode mode;
   enum tree_code code = TREE_CODE (exp);
@@ -6752,8 +6755,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 								  type)	  \
 				 : (expr))
 
-  mode = TYPE_MODE (type);
-  unsignedp = TYPE_UNSIGNED (type);
+  if (GIMPLE_STMT_P (exp))
+    {
+      type = void_type_node;
+      mode = VOIDmode;
+      unsignedp = 0;
+    }
+  else
+    {
+      type = TREE_TYPE (exp);
+      mode = TYPE_MODE (type);
+      unsignedp = TYPE_UNSIGNED (type);
+    }
   if (lang_hooks.reduce_bit_field_operations
       && TREE_CODE (type) == INTEGER_TYPE
       && GET_MODE_PRECISION (mode) > TYPE_PRECISION (type))
@@ -8563,10 +8576,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	target = expand_vec_cond_expr (exp, target);
 	return target;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
-	tree lhs = TREE_OPERAND (exp, 0);
-	tree rhs = TREE_OPERAND (exp, 1);
+	tree lhs = GIMPLE_STMT_OPERAND (exp, 0);
+	tree rhs = GIMPLE_STMT_OPERAND (exp, 1);
 
 	gcc_assert (ignore);
 
@@ -8910,7 +8923,7 @@ is_aligning_offset (tree offset, tree exp)
 tree
 string_constant (tree arg, tree *ptr_offset)
 {
-  tree array, offset;
+  tree array, offset, lower_bound;
   STRIP_NOPS (arg);
 
   if (TREE_CODE (arg) == ADDR_EXPR)
@@ -8932,6 +8945,20 @@ string_constant (tree arg, tree *ptr_offset)
 	  if (TREE_CODE (array) != STRING_CST
 	      && TREE_CODE (array) != VAR_DECL)
 	    return 0;
+
+	  /* Check if the array has a non-zero lower bound.  */
+	  lower_bound = array_ref_low_bound (TREE_OPERAND (arg, 0));
+	  if (!integer_zerop (lower_bound))
+	    {
+	      /* If the offset and base aren't both constants, return 0.  */
+	      if (TREE_CODE (lower_bound) != INTEGER_CST)
+	        return 0;
+	      if (TREE_CODE (offset) != INTEGER_CST)
+		return 0;
+	      /* Adjust offset by the lower bound.  */
+	      offset = size_diffop (fold_convert (sizetype, offset), 
+				    fold_convert (sizetype, lower_bound));
+	    }
 	}
       else
 	return 0;

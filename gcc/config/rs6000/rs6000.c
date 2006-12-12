@@ -2737,8 +2737,7 @@ invalid_e500_subreg (rtx op, enum machine_mode mode)
       && GET_CODE (op) == SUBREG
       && mode == SImode
       && REG_P (SUBREG_REG (op))
-      && SPE_VECTOR_MODE (GET_MODE (SUBREG_REG (op)))
-      && SUBREG_BYTE (op) != 4)
+      && SPE_VECTOR_MODE (GET_MODE (SUBREG_REG (op))))
     return true;
 
   return false;
@@ -3767,9 +3766,7 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    case PRE_INC:
-    case PRE_DEC:
-      return TARGET_UPDATE;
+    /* Auto-increment cases are now treated generically in recog.c.  */
 
     default:
       break;
@@ -3823,15 +3820,20 @@ rs6000_hard_regno_nregs (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
 
-  if (TARGET_E500_DOUBLE && mode == DFmode)
-    return 1;
-
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return (GET_MODE_SIZE (mode) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD;
 
   if (ALTIVEC_REGNO_P (regno))
     return
       (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
+
+  /* The value returned for SCmode in the E500 double case is 2 for
+     ABI compatibility; storing an SCmode value in a single register
+     would require function_arg and rs6000_spe_function_arg to handle
+     SCmode so as to pass the value correctly in a pair of
+     registers.  */
+  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode)
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
 
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
@@ -4201,8 +4203,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* 128-bit constant floating-point values on Darwin should really be
      loaded as two parts.  */
-  if (!TARGET_IEEEQUAD
-      && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128
+  if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128
       && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       /* DImode is used, not DFmode, because simplify_gen_subreg doesn't
@@ -6010,7 +6011,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 		  build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6018,7 +6019,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6029,7 +6030,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
 	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -6046,7 +6047,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (cfun->machine->varargs_save_offset)
     t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -6179,7 +6180,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
       t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -6192,7 +6193,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 gpr case.  */
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -6209,17 +6210,38 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
   if (lab_over)
     {
       t = build1 (LABEL_EXPR, void_type_node, lab_over);
       append_to_statement_list (t, pre_p);
+    }
+
+  if (STRICT_ALIGNMENT
+      && (TYPE_ALIGN (type)
+	  > (unsigned) BITS_PER_UNIT * (align < 4 ? 4 : align)))
+    {
+      /* The value (of type complex double, for example) may not be
+	 aligned in memory in the saved registers, so copy via a
+	 temporary.  (This is the same code as used for SPARC.)  */
+      tree tmp = create_tmp_var (type, "va_arg_tmp");
+      tree dest_addr = build_fold_addr_expr (tmp);
+
+      tree copy = build_function_call_expr
+	(implicit_built_in_decls[BUILT_IN_MEMCPY],
+	 tree_cons (NULL_TREE, dest_addr,
+		    tree_cons (NULL_TREE, addr,
+			       tree_cons (NULL_TREE, size_int (rsize * 4),
+					  NULL_TREE))));
+
+      gimplify_and_add (copy, pre_p);
+      addr = dest_addr;
     }
 
   addr = fold_convert (ptrtype, addr);
@@ -12724,6 +12746,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
     reg_mode = DFmode;
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
+  else if (TARGET_E500_DOUBLE && mode == TFmode)
+    reg_mode = DFmode;
   else
     reg_mode = word_mode;
   reg_mode_size = GET_MODE_SIZE (reg_mode);
@@ -17531,7 +17555,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
          cycle and we attempt to locate another load in the ready list to
          issue with it.
 
-       - If the pedulum is -2, then two stores have already been
+       - If the pendulum is -2, then two stores have already been
          issued in this cycle, so we increase the priority of the first load
          in the ready list to increase it's likelihood of being chosen first
          in the next cycle.

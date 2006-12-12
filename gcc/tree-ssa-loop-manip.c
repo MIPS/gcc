@@ -100,9 +100,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   if (stmts)
     bsi_insert_on_edge_immediate (pe, stmts);
 
-  stmt = build2 (MODIFY_EXPR, void_type_node, va,
-		 build2 (incr_op, TREE_TYPE (base),
-			 vb, step));
+  stmt = build2_gimple (GIMPLE_MODIFY_STMT, va,
+		        build2 (incr_op, TREE_TYPE (base), vb, step));
   SSA_NAME_DEF_STMT (va) = stmt;
   if (after)
     bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
@@ -263,7 +262,7 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks, bitmap need_phis)
   tree var;
   basic_block bb = bb_for_stmt (stmt);
 
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
     find_uses_to_rename_use (bb, var, use_blocks, need_phis);
 }
 
@@ -407,7 +406,7 @@ check_loop_closed_ssa_stmt (basic_block bb, tree stmt)
   ssa_op_iter iter;
   tree var;
 
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
     check_loop_closed_ssa_use (bb, var);
 }
 
@@ -455,13 +454,13 @@ split_loop_exit_edge (edge exit)
 
       name = USE_FROM_PTR (op_p);
 
-      /* If the argument of the phi node is a constant, we do not need
+      /* If the argument of the PHI node is a constant, we do not need
 	 to keep it inside loop.  */
       if (TREE_CODE (name) != SSA_NAME)
 	continue;
 
       /* Otherwise create an auxiliary phi node that will copy the value
-	 of the ssa name out of the loop.  */
+	 of the SSA name out of the loop.  */
       new_name = duplicate_ssa_name (name, NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
@@ -627,7 +626,7 @@ can_unroll_loop_p (struct loop *loop, unsigned factor,
       || niter->cmp == ERROR_MARK
       /* Scalar evolutions analysis might have copy propagated
 	 the abnormal ssa names into these expressions, hence
-	 emiting the computations based on them during loop
+	 emitting the computations based on them during loop
 	 unrolling might create overlapping life ranges for
 	 them, and failures in out-of-ssa.  */
       || contains_abnormal_ssa_name_p (niter->may_be_zero)

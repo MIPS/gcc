@@ -356,7 +356,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1
 #else
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1 \
-"%{march=native:%<march=native %:local_cpu_detect(arch)} \
+"%{march=native:%<march=native %:local_cpu_detect(arch) \
+  %{!mtune=*:%<mtune=native %:local_cpu_detect(tune)}} \
 %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
 #endif
 #endif
@@ -917,6 +918,15 @@ do {									\
       ? (TARGET_64BIT ? 4 : 6)						\
       : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
 
+#define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE)			\
+  ((TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT)				\
+   ? (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
+      ? 0								\
+      : ((MODE) == XFmode || (MODE) == XCmode))				\
+   : 0)
+
+#define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
+
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
      || (MODE) == V2DImode || (MODE) == DFmode)
@@ -1471,21 +1481,19 @@ enum reg_class
    such as FUNCTION_ARG to determine where the next arg should go.  */
 
 typedef struct ix86_args {
+  int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
-  int words;			/* # words passed so far */
   int fastcall;			/* fastcall calling convention is used */
-  int x87_nregs;		/* # x87 registers available for passing */
-  int x87_regno;		/* # next available x87 register number */
+  int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
-  int sse_regno;		/* next available sse register number */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
+  int warn_mmx;			/* True when we want to warn about MMX ABI.  */
+  int sse_regno;		/* next available sse register number */
+  int mmx_words;		/* # mmx words passed so far */
   int mmx_nregs;		/* # mmx registers available for passing */
   int mmx_regno;		/* next available mmx register number */
-  int warn_mmx;			/* True when we want to warn about MMX ABI.  */
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
-  int float_in_x87;		/* 1 if floating point arguments should
-				   be passed in 80387 registere.  */
   int float_in_sse;		/* 1 if in 32-bit mode SFmode (2 for DFmode) should
 				   be passed in SSE registers.  Otherwise 0.  */
 } CUMULATIVE_ARGS;
@@ -1757,13 +1765,9 @@ do {									\
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
    On the 80386, only postdecrement and postincrement address depend thus
-   (the amount of decrement or increment being the length of the operand).  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-do {							\
- if (GET_CODE (ADDR) == POST_INC			\
-     || GET_CODE (ADDR) == POST_DEC)			\
-   goto LABEL;						\
-} while (0)
+   (the amount of decrement or increment being the length of the operand).
+   These are now caught in recog.c.  */
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and
@@ -1771,8 +1775,6 @@ do {							\
    3 registers to be passed in registers.  */
 
 #define REGPARM_MAX (TARGET_64BIT ? 6 : 3)
-
-#define X87_REGPARM_MAX 3
 
 #define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_SSE ? 3 : 0))
 

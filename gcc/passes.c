@@ -159,7 +159,7 @@ rest_of_decl_compilation (tree decl,
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    cgraph_varpool_finalize_decl (decl);
+	    varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
 	}
@@ -186,7 +186,7 @@ rest_of_decl_compilation (tree decl,
 
   /* Let cgraph know about the existence of variables.  */
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
-    cgraph_varpool_node (decl);
+    varpool_node (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -722,23 +722,13 @@ execute_todo (unsigned int flags)
   if (!flags)
     return;
   
-  /* Always recalculate SMT usage before doing anything else.  */
-  if (flags & TODO_update_smt_usage)
-    recalculate_used_alone ();
-
   /* Always cleanup the CFG before trying to update SSA .  */
   if (flags & TODO_cleanup_cfg)
     {
-      /* CFG Cleanup can cause a constant to prop into an ARRAY_REF.  */
-      updating_used_alone = true;
-
       if (current_loops)
 	cleanup_tree_cfg_loop ();
       else
 	cleanup_tree_cfg ();
-
-      /* Update the used alone after cleanup cfg.  */
-      recalculate_used_alone ();
 
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single
@@ -836,9 +826,6 @@ execute_one_pass (struct tree_opt_pass *pass)
   gcc_assert ((curr_properties & pass->properties_required)
 	      == pass->properties_required);
 
-  if (pass->properties_destroyed & PROP_smt_usage)
-    updating_used_alone = true;
-
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
     {
@@ -899,14 +886,12 @@ execute_one_pass (struct tree_opt_pass *pass)
       free ((char *) dump_file_name);
       dump_file_name = NULL;
     }
+
   if (dump_file)
     {
       dump_end (pass->static_pass_number, dump_file);
       dump_file = NULL;
     }
-
-  if (pass->properties_destroyed & PROP_smt_usage)
-    updating_used_alone = false;
 
   return true;
 }

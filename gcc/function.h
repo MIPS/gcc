@@ -159,6 +159,7 @@ struct expr_status GTY(())
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
+struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
 
@@ -188,6 +189,8 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+  /* SSA and dataflow information.  */
+  struct gimple_df *gimple_df;
 
   /* The loops in this function.  */
   struct loops * GTY((skip)) x_current_loops;
@@ -466,6 +469,11 @@ struct function GTY(())
   /* Number of units of floating point registers that need saving in stdarg
      function.  */
   unsigned int va_list_fpr_size : 8;
+
+  /* FIXME tuples: This bit is temporarily here to mark when a
+     function has been gimplified, so we can make sure we're not
+     creating non GIMPLE tuples after gimplification.  */
+  unsigned gimplified : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how

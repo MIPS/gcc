@@ -174,14 +174,11 @@ FILE *vect_dump;
    to mark that it's uninitialized.  */
 enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
 
-/* Number of loops, at the beginning of vectorization.  */
-unsigned int vect_loops_num;
-
 /* Loop location.  */
 static LOC vect_loop_location;
 
 /* Bitmap of virtual variables to be renamed.  */
-bitmap vect_vnames_to_rename;
+bitmap vect_memsyms_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -229,8 +226,7 @@ rename_variables_in_bb (basic_block bb)
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       stmt = bsi_stmt (bsi);
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, 
-				 (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	rename_use_op (use_p);
     }
 
@@ -532,7 +528,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 	 renaming later.  */
       name = PHI_RESULT (orig_phi);
       if (!is_gimple_reg (SSA_NAME_VAR (name)))
-        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+        bitmap_set_bit (vect_memsyms_to_rename, DECL_UID (SSA_NAME_VAR (name)));
 
       /** 1. Handle new-merge-point phis  **/
 
@@ -556,6 +552,9 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 
 
       /** 2. Handle loop-closed-ssa-form phis  **/
+
+      if (!is_gimple_reg (PHI_RESULT (orig_phi)))
+	continue;
 
       /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
       new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
@@ -1233,7 +1232,7 @@ find_loop_location (struct loop *loop)
 
   node = get_loop_exit_condition (loop);
 
-  if (node && EXPR_P (node) && EXPR_HAS_LOCATION (node)
+  if (node && CAN_HAVE_LOCATION_P (node) && EXPR_HAS_LOCATION (node)
       && EXPR_FILENAME (node) && EXPR_LINENO (node))
     return EXPR_LOC (node);
 
@@ -1248,7 +1247,7 @@ find_loop_location (struct loop *loop)
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
       node = bsi_stmt (si);
-      if (node && EXPR_P (node) && EXPR_HAS_LOCATION (node))
+      if (node && CAN_HAVE_LOCATION_P (node) && EXPR_HAS_LOCATION (node))
         return EXPR_LOC (node);
     }
 
@@ -1681,7 +1680,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
     }
 
   /* empty stmt is expected only in case of a function argument.
-     (Otherwise - we expect a phi_node or a modify_expr).  */
+     (Otherwise - we expect a phi_node or a GIMPLE_MODIFY_STMT).  */
   if (IS_EMPTY_STMT (*def_stmt))
     {
       tree arg = TREE_OPERAND (*def_stmt, 0);
@@ -1733,8 +1732,8 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
                   || *dt == vect_invariant_def);
       break;
 
-    case MODIFY_EXPR:
-      *def = TREE_OPERAND (*def_stmt, 0);
+    case GIMPLE_MODIFY_STMT:
+      *def = GIMPLE_STMT_OPERAND (*def_stmt, 0);
       gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
       break;
 
@@ -1762,7 +1761,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
    vector form (i.e., when operating on arguments of type VECTYPE).
     
    The two kinds of widening operations we currently support are
-   NOP and WIDEN_MULT. This function checks if these oprations
+   NOP and WIDEN_MULT. This function checks if these operations
    are supported by the target platform either directly (via vector 
    tree-codes), or via target builtins.
 
@@ -1783,7 +1782,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   enum machine_mode vec_mode;
   enum insn_code icode1, icode2;
   optab optab1, optab2;
-  tree expr = TREE_OPERAND (stmt, 1);
+  tree expr = GIMPLE_STMT_OPERAND (stmt, 1);
   tree type = TREE_TYPE (expr);
   tree wide_vectype = get_vectype_for_scalar_type (type);
   enum tree_code c1, c2;
@@ -1796,9 +1795,9 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         vect1: [res1,res2,res3,res4], vect2: [res5,res6,res7,res8]. 
 
      However, in the special case that the result of the widening operation is 
-     used in a reduction copmutation only, the order doesn't matter (because 
+     used in a reduction computation only, the order doesn't matter (because
      when vectorizing a reduction we change the order of the computation). 
-     Some targets can take advatage of this and generate more efficient code. 
+     Some targets can take advantage of this and generate more efficient code.
      For example, targets like Altivec, that support widen_mult using a sequence
      of {mult_even,mult_odd} generate the following vectors:
         vect1: [res1,res3,res5,res7], vect2: [res2,res4,res6,res8].  */
@@ -1960,7 +1959,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (def_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         {
@@ -1969,7 +1968,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  operation = TREE_OPERAND (def_stmt, 1);
+  operation = GIMPLE_STMT_OPERAND (def_stmt, 1);
   code = TREE_CODE (operation);
   if (!commutative_tree_code (code) || !associative_tree_code (code))
     {
@@ -2059,7 +2058,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (def1) == MODIFY_EXPR
+  if (TREE_CODE (def1) == GIMPLE_MODIFY_STMT
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def1))
       && def2 == phi)
     {
@@ -2070,7 +2069,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
         }
       return def_stmt;
     }
-  else if (TREE_CODE (def2) == MODIFY_EXPR
+  else if (TREE_CODE (def2) == GIMPLE_MODIFY_STMT
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
       && def1 == phi)
     {
@@ -2157,27 +2156,26 @@ vectorize_loops (void)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
+  unsigned int vect_loops_num;
+  loop_iterator li;
+  struct loop *loop;
 
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
   /* Allocate the bitmap that records which virtual variables that 
      need to be renamed.  */
-  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
+  vect_memsyms_to_rename = BITMAP_ALLOC (NULL);
 
   /*  ----------- Analyze loops. -----------  */
 
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
-  vect_loops_num = current_loops->num;
-  for (i = 1; i < vect_loops_num; i++)
+  vect_loops_num = number_of_loops ();
+  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD)
     {
       loop_vec_info loop_vinfo;
-      struct loop *loop = current_loops->parray[i];
-
-      if (!loop)
-        continue;
 
       vect_loop_location = find_loop_location (loop);
       loop_vinfo = vect_analyze_loop (loop);
@@ -2197,13 +2195,13 @@ vectorize_loops (void)
 
   /*  ----------- Finalize. -----------  */
 
-  BITMAP_FREE (vect_vnames_to_rename);
+  BITMAP_FREE (vect_memsyms_to_rename);
 
   for (i = 1; i < vect_loops_num; i++)
     {
-      struct loop *loop = current_loops->parray[i];
       loop_vec_info loop_vinfo;
 
+      loop = get_loop (i);
       if (!loop)
 	continue;
       loop_vinfo = loop->aux;
