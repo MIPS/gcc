@@ -351,13 +351,13 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	{
 	case BIT_FIELD_REF:
 	case COMPONENT_REF:
-	  temp.op0 = TREE_OPERAND (ref, 1);
-	  temp.op1 = TREE_OPERAND (ref, 2);
+	  temp.op0 = GIMPLE_STMT_OPERAND (ref, 1);
+	  temp.op1 = GIMPLE_STMT_OPERAND (ref, 2);
 	  break;
 	case ARRAY_REF:
-	  temp.op0 = TREE_OPERAND (ref, 1);
-	  temp.op1 = TREE_OPERAND (ref, 2);
-	  temp.op2 = TREE_OPERAND (ref, 3);
+	  temp.op0 = GIMPLE_STMT_OPERAND (ref, 1);
+	  temp.op1 = GIMPLE_STMT_OPERAND (ref, 2);
+	  temp.op2 = GIMPLE_STMT_OPERAND (ref, 3);
 	  break;
 	case VAR_DECL:
 	case PARM_DECL:
@@ -372,7 +372,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
 
       if (TREE_CODE_CLASS (temp.opcode) == tcc_reference)
-	ref = TREE_OPERAND (ref, 0);
+	ref = GIMPLE_STMT_OPERAND (ref, 0);
       else
 	ref = NULL_TREE;
     }
@@ -490,7 +490,7 @@ vn_unary_op_lookup (tree op)
   struct vn_unary_op_s vuo1;
 
   vuo1.opcode = TREE_CODE (op);
-  vuo1.op0 = TREE_OPERAND (op, 0);
+  vuo1.op0 = GIMPLE_STMT_OPERAND (op, 0);
 
   if (TREE_CODE (vuo1.op0) == SSA_NAME)
     vuo1.op0 = SSA_VAL (vuo1.op0);
@@ -513,7 +513,7 @@ vn_unary_op_insert (tree op, tree result)
   vn_unary_op_t vuo1 = (vn_unary_op_t) pool_alloc (current_info->unary_op_pool);
 
   vuo1->opcode = TREE_CODE (op);
-  vuo1->op0 = TREE_OPERAND (op, 0);
+  vuo1->op0 = GIMPLE_STMT_OPERAND (op, 0);
   vuo1->result = result;
 
   if (TREE_CODE (vuo1->op0) == SSA_NAME)
@@ -567,8 +567,8 @@ vn_binary_op_lookup (tree op)
   struct vn_binary_op_s vbo1;
 
   vbo1.opcode = TREE_CODE (op);
-  vbo1.op0 = TREE_OPERAND (op, 0);
-  vbo1.op1 = TREE_OPERAND (op, 1);
+  vbo1.op0 = GIMPLE_STMT_OPERAND (op, 0);
+  vbo1.op1 = GIMPLE_STMT_OPERAND (op, 1);
 
   if (TREE_CODE (vbo1.op0) == SSA_NAME)
     vbo1.op0 = SSA_VAL (vbo1.op0);
@@ -602,8 +602,8 @@ vn_binary_op_insert (tree op, tree result)
 
 
   vbo1->opcode = TREE_CODE (op);
-  vbo1->op0 = TREE_OPERAND (op, 0);
-  vbo1->op1 = TREE_OPERAND (op, 1);
+  vbo1->op0 = GIMPLE_STMT_OPERAND (op, 0);
+  vbo1->op1 = GIMPLE_STMT_OPERAND (op, 1);
   vbo1->result = result;
 
   if (TREE_CODE (vbo1->op0) == SSA_NAME)
@@ -1003,11 +1003,11 @@ expr_has_constants (tree expr)
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_unary:
-      return is_gimple_min_invariant (TREE_OPERAND (expr, 0));
+      return is_gimple_min_invariant (GIMPLE_STMT_OPERAND (expr, 0));
 
     case tcc_binary:
-      return is_gimple_min_invariant (TREE_OPERAND (expr, 0))
-	|| is_gimple_min_invariant (TREE_OPERAND (expr, 1));
+      return is_gimple_min_invariant (GIMPLE_STMT_OPERAND (expr, 0))
+	|| is_gimple_min_invariant (GIMPLE_STMT_OPERAND (expr, 1));
       /* XXX: We are such liars */
     case tcc_reference:
       return false;
@@ -1045,7 +1045,7 @@ try_to_simplify (tree stmt, tree rhs)
 	case tcc_unary:
 	  {
 	    tree result = NULL_TREE;
-	    tree op0 = TREE_OPERAND (rhs, 0);
+	    tree op0 = GIMPLE_STMT_OPERAND (rhs, 0);
 	    if (TREE_CODE (op0) == SSA_NAME && VN_INFO (op0)->has_constants)
 	      result = fold_unary (TREE_CODE (rhs), TREE_TYPE (rhs),
 				   VN_INFO (op0)->expr);
@@ -1056,8 +1056,8 @@ try_to_simplify (tree stmt, tree rhs)
 	case tcc_binary:
 	  {
 	    tree result = NULL_TREE;
-	    tree op0 = TREE_OPERAND (rhs, 0);
-	    tree op1 = TREE_OPERAND (rhs, 1);
+	    tree op0 = GIMPLE_STMT_OPERAND (rhs, 0);
+	    tree op1 = GIMPLE_STMT_OPERAND (rhs, 1);
 
 	    if (TREE_CODE (op0) == SSA_NAME)
 	      {
@@ -1090,15 +1090,15 @@ try_to_simplify (tree stmt, tree rhs)
 		      {
 		      case tcc_unary:
 			{
-			  tree op0 = TREE_OPERAND (result, 0);
+			  tree op0 = GIMPLE_STMT_OPERAND (result, 0);
 			  if (!EXPR_P (op0))
 			    return result;
 			}
 			break;
 		      case tcc_binary:
 			{
-			  tree op0 = TREE_OPERAND (result, 0);
-			  tree op1 = TREE_OPERAND (result, 1);
+			  tree op0 = GIMPLE_STMT_OPERAND (result, 0);
+			  tree op1 = GIMPLE_STMT_OPERAND (result, 1);
 			  if (!EXPR_P (op0) && !EXPR_P (op1))
 			    return result;
 			}
@@ -1151,15 +1151,15 @@ visit_use (tree use)
 	  if (is_gimple_reg (PHI_RESULT (stmt)))
 	    changed = visit_phi (stmt);
 	}
-      else if (TREE_CODE (stmt) != MODIFY_EXPR
+      else if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
 	       || stmt_ann (stmt)->has_volatile_ops)
 	{
 	  changed = defs_to_varying (stmt);
 	}
       else
 	{
-	  tree lhs = TREE_OPERAND (stmt, 0);
-	  tree rhs = TREE_OPERAND (stmt, 1);
+	  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 	  tree simplified;
 
 	  STRIP_USELESS_TYPE_CONVERSION (rhs);
@@ -1592,9 +1592,9 @@ execute_scc_vn (void)
        param;
        param = TREE_CHAIN (param))
     {
-      if (default_def (param) != NULL)
+      if (gimple_default_def (cfun, param) != NULL)
 	{
-	  tree def = default_def (param);
+	  tree def = gimple_default_def (cfun, param);
 	  SSA_VAL (def) = def;
 	}
     }
