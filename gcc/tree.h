@@ -1317,7 +1317,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define TREE_INVARIANT(NODE) ((NODE)->base.invariant_flag)
 
 /* In fixed-point types, means a saturating type.  */
-#define TYPE_SATURATING(NODE) ((NODE)->common.saturating_flag)
+#define TYPE_SATURATING(NODE) ((NODE)->base.saturating_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) ((NODE)->base.lang_flag_0)

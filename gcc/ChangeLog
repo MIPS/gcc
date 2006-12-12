@@ -1,3 +1,8 @@
+2006-12-11  Chao-ying Fu  <fu@mips.com>
+
+	* fwprop.c: Add this file, because it was deleted somehow.
+	* tree.h (TYPE_SATURATING): Change from ->common to ->base.
+
 2006-12-11  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR rtl-optimization/30113
