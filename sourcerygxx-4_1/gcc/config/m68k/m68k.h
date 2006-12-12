@@ -1005,7 +1005,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 /* All registers are live on exit from an interrupt routine.  */
 #define EPILOGUE_USES(REGNO) \
-  m68k_interrupt_function_p (current_function_decl)
+  (reload_completed && m68k_interrupt_function_p (current_function_decl))
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
