@@ -37,9 +37,8 @@ extern "Java"
 class gnu::java::awt::font::opentype::CharGlyphMap : public ::java::lang::Object
 {
 
-public: // actually package-private
-  CharGlyphMap();
 public:
+  CharGlyphMap();
   virtual jint getGlyph(jint) = 0;
   static ::gnu::java::awt::font::opentype::CharGlyphMap * forTable(::java::nio::ByteBuffer *);
 private:

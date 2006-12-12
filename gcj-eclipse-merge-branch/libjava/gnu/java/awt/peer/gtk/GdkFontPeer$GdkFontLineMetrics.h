@@ -28,20 +28,13 @@ extern "Java"
       }
     }
   }
-  namespace java
-  {
-    namespace awt
-    {
-        class FontMetrics;
-    }
-  }
 }
 
 class gnu::java::awt::peer::gtk::GdkFontPeer$GdkFontLineMetrics : public ::java::awt::font::LineMetrics
 {
 
 public:
-  GdkFontPeer$GdkFontLineMetrics(::gnu::java::awt::peer::gtk::GdkFontPeer *, ::java::awt::FontMetrics *, jint);
+  GdkFontPeer$GdkFontLineMetrics(::gnu::java::awt::peer::gtk::GdkFontPeer *, ::gnu::java::awt::peer::gtk::GdkFontPeer *, jint);
   virtual jfloat getAscent();
   virtual jint getBaselineIndex();
   virtual JArray< jfloat > * getBaselineOffsets();
@@ -54,12 +47,9 @@ public:
   virtual jfloat getUnderlineOffset();
   virtual jfloat getUnderlineThickness();
 private:
-  ::java::awt::FontMetrics * __attribute__((aligned(__alignof__( ::java::awt::font::LineMetrics)))) fm;
-  jint nchars;
-  jfloat strikethroughOffset;
-  jfloat strikethroughThickness;
-  jfloat underlineOffset;
-  jfloat underlineThickness;
+  jint __attribute__((aligned(__alignof__( ::java::awt::font::LineMetrics)))) nchars;
+public: // actually package-private
+  ::gnu::java::awt::peer::gtk::GdkFontPeer * this$0;
 public:
   static ::java::lang::Class class$;
 };

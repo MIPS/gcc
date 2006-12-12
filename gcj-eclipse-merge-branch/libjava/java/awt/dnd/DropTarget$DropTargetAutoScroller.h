@@ -15,6 +15,7 @@ extern "Java"
     {
         class Component;
         class Point;
+        class Rectangle;
       namespace dnd
       {
           class DropTarget$DropTargetAutoScroller;
@@ -23,6 +24,13 @@ extern "Java"
       {
           class ActionEvent;
       }
+    }
+  }
+  namespace javax
+  {
+    namespace swing
+    {
+        class Timer;
     }
   }
 }
@@ -37,8 +45,13 @@ public: // actually protected
 public:
   virtual void actionPerformed(::java::awt::event::ActionEvent *);
 private:
+  static const jint HYSTERESIS = 10;
+  static const jint DELAY = 100;
   ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) component;
   ::java::awt::Point * point;
+  ::javax::swing::Timer * timer;
+  ::java::awt::Rectangle * outer;
+  ::java::awt::Rectangle * inner;
 public:
   static ::java::lang::Class class$;
 };

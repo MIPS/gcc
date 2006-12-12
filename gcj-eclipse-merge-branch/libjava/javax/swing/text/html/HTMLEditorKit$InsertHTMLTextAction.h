@@ -50,6 +50,9 @@ public: // actually protected
   virtual void insertAtBoundry(::javax::swing::JEditorPane *, ::javax::swing::text::html::HTMLDocument *, jint, ::javax::swing::text::Element *, ::java::lang::String *, ::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::html::HTML$Tag *);
 public:
   virtual void actionPerformed(::java::awt::event::ActionEvent *);
+private:
+  jboolean tryInsert(::javax::swing::JEditorPane *, ::javax::swing::text::html::HTMLDocument *, jint, ::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::html::HTML$Tag *);
+  void adjustSelection(::javax::swing::JEditorPane *, ::javax::swing::text::html::HTMLDocument *, jint, jint);
 public: // actually protected
   ::javax::swing::text::html::HTML$Tag * __attribute__((aligned(__alignof__( ::javax::swing::text::html::HTMLEditorKit$HTMLTextAction)))) addTag;
   ::javax::swing::text::html::HTML$Tag * alternateAddTag;

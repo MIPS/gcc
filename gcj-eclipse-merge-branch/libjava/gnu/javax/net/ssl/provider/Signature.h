@@ -7,6 +7,8 @@
 #pragma interface
 
 #include <java/lang/Object.h>
+#include <gcj/array.h>
+
 extern "Java"
 {
   namespace gnu
@@ -19,9 +21,8 @@ extern "Java"
         {
           namespace provider
           {
-              class CipherSuite;
-              class ProtocolVersion;
               class Signature;
+              class SignatureAlgorithm;
           }
         }
       }
@@ -29,9 +30,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace security
+    namespace nio
     {
-        class PublicKey;
+        class ByteBuffer;
     }
   }
 }
@@ -39,20 +40,19 @@ extern "Java"
 class gnu::javax::net::ssl::provider::Signature : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Signature(::java::lang::Object *, ::java::lang::String *);
-  static ::gnu::javax::net::ssl::provider::Signature * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
 public:
-  virtual void write(::java::io::OutputStream *);
-  virtual void write(::java::io::OutputStream *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
-public: // actually package-private
-  virtual ::java::lang::Object * getSigValue();
-  virtual ::java::lang::String * getSigAlg();
-public:
+  Signature(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::SignatureAlgorithm *);
+  Signature(JArray< jbyte > *, ::gnu::javax::net::ssl::provider::SignatureAlgorithm *);
+  virtual jint length();
+  virtual ::java::nio::ByteBuffer * buffer();
+  virtual JArray< jbyte > * signature();
+  virtual void setSignature(JArray< jbyte > *);
+  virtual void setSignature(JArray< jbyte > *, jint, jint);
   virtual ::java::lang::String * toString();
+  virtual ::java::lang::String * toString(::java::lang::String *);
 private:
-  ::java::lang::Object * __attribute__((aligned(__alignof__( ::java::lang::Object)))) sigValue;
-  ::java::lang::String * sigAlg;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer__;
+  ::gnu::javax::net::ssl::provider::SignatureAlgorithm * alg;
 public:
   static ::java::lang::Class class$;
 };

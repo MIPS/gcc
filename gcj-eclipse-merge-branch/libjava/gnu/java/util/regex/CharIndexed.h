@@ -31,11 +31,14 @@ class gnu::java::util::regex::CharIndexed : public ::java::lang::Object
 public:
   virtual jchar charAt(jint) = 0;
   virtual jboolean move(jint) = 0;
+  virtual jboolean move1(jint) = 0;
   virtual jboolean isValid() = 0;
   virtual ::gnu::java::util::regex::CharIndexed * lookBehind(jint, jint) = 0;
   virtual jint length() = 0;
   virtual void setLastMatch(::gnu::java::util::regex::REMatch *) = 0;
   virtual ::gnu::java::util::regex::REMatch * getLastMatch() = 0;
+  virtual void setHitEnd(::gnu::java::util::regex::REMatch *) = 0;
+  virtual jboolean hitEnd() = 0;
   virtual jint getAnchor() = 0;
   virtual void setAnchor(jint) = 0;
   static const jchar OUT_OF_BOUNDS = 65535;

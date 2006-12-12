@@ -113,8 +113,6 @@ public: // actually protected
   virtual jint getDividerBorderSize();
 private:
   jint validLocation(jint);
-public: // actually package-private
-  static jint access$0(::javax::swing::plaf::basic::BasicSplitPaneUI *);
 public: // actually protected
   jint __attribute__((aligned(__alignof__( ::javax::swing::plaf::SplitPaneUI)))) beginDragDividerLocation;
   jint dividerSize;
@@ -142,8 +140,8 @@ public: // actually protected
   static ::java::lang::String * NON_CONTINUOUS_DIVIDER;
   ::java::awt::Component * nonContinuousLayoutDivider;
   ::javax::swing::JSplitPane * splitPane;
-private:
-  jint dividerLocation;
+public: // actually package-private
+  jboolean dividerLocationSet;
 public:
   static ::java::lang::Class class$;
 };

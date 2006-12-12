@@ -23,9 +23,17 @@ extern "Java"
           {
               class Extension;
               class Extension$Type;
+              class Extension$Value;
           }
         }
       }
+    }
+  }
+  namespace java
+  {
+    namespace nio
+    {
+        class ByteBuffer;
     }
   }
 }
@@ -33,19 +41,26 @@ extern "Java"
 class gnu::javax::net::ssl::provider::Extension : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Extension(::gnu::javax::net::ssl::provider::Extension$Type *, JArray< jbyte > *);
-  static ::gnu::javax::net::ssl::provider::Extension * read(::java::io::InputStream *);
 public:
-  void write(::java::io::OutputStream *);
-public: // actually package-private
-  ::gnu::javax::net::ssl::provider::Extension$Type * getType();
-  JArray< jbyte > * getValue();
-public:
+  Extension(::java::nio::ByteBuffer *);
+  Extension(::gnu::javax::net::ssl::provider::Extension$Type *, ::gnu::javax::net::ssl::provider::Extension$Value *);
+  jint length();
+  ::java::nio::ByteBuffer * buffer();
+  ::gnu::javax::net::ssl::provider::Extension$Type * type();
+  JArray< jbyte > * valueBytes();
+  ::java::nio::ByteBuffer * valueBuffer();
+  ::gnu::javax::net::ssl::provider::Extension$Value * value();
+  void setLength(jint);
+  void setType(::gnu::javax::net::ssl::provider::Extension$Type *);
+  void setValue(JArray< jbyte > *);
+  void setValue(JArray< jbyte > *, jint, jint);
   ::java::lang::String * toString();
+  ::java::lang::String * toString(::java::lang::String *);
+public: // actually package-private
+  static JArray< jint > * $SWITCH_TABLE$gnu$javax$net$ssl$provider$Extension$Type();
 private:
-  ::gnu::javax::net::ssl::provider::Extension$Type * __attribute__((aligned(__alignof__( ::java::lang::Object)))) type;
-  JArray< jbyte > * value;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer__;
+  static JArray< jint > * $SWITCH_TABLE$gnu$javax$net$ssl$provider$Extension$Type__;
 public:
   static ::java::lang::Class class$;
 };

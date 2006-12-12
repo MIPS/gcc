@@ -53,6 +53,9 @@ public:
   virtual jint getCaretPosition();
   virtual jint getCharCount();
   virtual ::java::awt::Rectangle * getCharacterBounds(jint);
+private:
+  ::java::awt::Rectangle * getTextRectangle();
+public:
   virtual jint getIndexAtPoint(::java::awt::Point *);
 public: // actually package-private
   ::javax::swing::JLabel * __attribute__((aligned(__alignof__( ::javax::swing::JComponent$AccessibleJComponent)))) this$0;

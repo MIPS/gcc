@@ -46,8 +46,8 @@ class javax::swing::text::WrappedPlainView$WrappedLine : public ::javax::swing::
 public:
   WrappedPlainView$WrappedLine(::javax::swing::text::WrappedPlainView *, ::javax::swing::text::Element *);
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
-public: // actually package-private
-  virtual void determineNumLines();
+private:
+  jint determineNumLines();
 public:
   virtual jfloat getPreferredSpan(jint);
   virtual ::java::awt::Shape * modelToView(jint, ::java::awt::Shape *, ::javax::swing::text::Position$Bias *);

@@ -15,6 +15,7 @@ extern "Java"
   {
     namespace security
     {
+        class Principal;
       namespace cert
       {
           class Certificate;
@@ -49,8 +50,10 @@ public:
   HandshakeCompletedEvent(::javax::net::ssl::SSLSocket *, ::javax::net::ssl::SSLSession *);
   virtual ::java::lang::String * getCipherSuite();
   virtual JArray< ::java::security::cert::Certificate * > * getLocalCertificates();
+  virtual ::java::security::Principal * getLocalPrincipal();
   virtual JArray< ::java::security::cert::Certificate * > * getPeerCertificates();
   virtual JArray< ::javax::security::cert::X509Certificate * > * getPeerCertificateChain();
+  virtual ::java::security::Principal * getPeerPrincipal();
   virtual ::javax::net::ssl::SSLSession * getSession();
   virtual ::javax::net::ssl::SSLSocket * getSocket();
 private:

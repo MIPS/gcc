@@ -45,6 +45,9 @@ public:
   virtual ::java::awt::RenderingHints * getRenderingHints();
   virtual ::java::awt::image::BufferedImage * filter(::java::awt::image::BufferedImage *, ::java::awt::image::BufferedImage *);
   virtual ::java::awt::image::WritableRaster * filter(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *);
+private:
+  ::java::awt::image::WritableRaster * filter(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *, JArray< jboolean > *);
+public:
   virtual ::java::awt::image::BufferedImage * createCompatibleDestImage(::java::awt::image::BufferedImage *, ::java::awt::image::ColorModel *);
   virtual ::java::awt::image::WritableRaster * createCompatibleDestRaster(::java::awt::image::Raster *);
   virtual ::java::awt::geom::Rectangle2D * getBounds2D(::java::awt::image::BufferedImage *);

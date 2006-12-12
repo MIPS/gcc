@@ -32,13 +32,12 @@ public:
 private:
   static ::java::util::ResourceBundle * tryBundle(::java::lang::String *, ::java::lang::ClassLoader *);
   static ::java::util::ResourceBundle * tryBundle(::java::lang::String *, ::java::util::Locale *, ::java::lang::ClassLoader *, jboolean);
+  static const jint CACHE_SIZE = 100;
 public: // actually protected
   ::java::util::ResourceBundle * __attribute__((aligned(__alignof__( ::java::lang::Object)))) parent;
 private:
   ::java::util::Locale * locale;
   static ::java::util::Map * bundleCache;
-  static ::java::util::Locale * lastDefaultLocale;
-  static ::java::util::Locale * emptyLocale;
   static ::java::util::ResourceBundle$BundleKey * lookupKey;
   static ::java::lang::Object * nullEntry;
 public:

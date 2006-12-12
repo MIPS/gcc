@@ -15,6 +15,7 @@ extern "Java"
     {
         class Dimension;
         class Graphics;
+        class Insets;
         class Rectangle;
     }
   }
@@ -59,6 +60,9 @@ public: // actually protected
   virtual void uninstallKeyboardActions(::javax::swing::AbstractButton *);
 public:
   virtual void installUI(::javax::swing::JComponent *);
+  virtual void uninstallUI(::javax::swing::JComponent *);
+  virtual ::java::awt::Dimension * getMinimumSize(::javax::swing::JComponent *);
+  virtual ::java::awt::Dimension * getMaximumSize(::javax::swing::JComponent *);
   virtual ::java::awt::Dimension * getPreferredSize(::javax::swing::JComponent *);
 public: // actually package-private
   static ::javax::swing::Icon * currentIcon(::javax::swing::AbstractButton *);
@@ -70,12 +74,21 @@ public: // actually protected
   virtual void paintButtonPressed(::java::awt::Graphics *, ::javax::swing::AbstractButton *);
   virtual void paintText(::java::awt::Graphics *, ::javax::swing::JComponent *, ::java::awt::Rectangle *, ::java::lang::String *);
   virtual void paintText(::java::awt::Graphics *, ::javax::swing::AbstractButton *, ::java::awt::Rectangle *, ::java::lang::String *);
+private:
+  ::javax::swing::plaf::basic::BasicButtonListener * getButtonListener(::javax::swing::AbstractButton *);
+public: // actually package-private
+  static ::java::awt::Rectangle * viewR;
+  static ::java::awt::Rectangle * iconR;
+  static ::java::awt::Rectangle * textR;
+  static ::java::awt::Insets * cachedInsets;
+private:
+  static ::javax::swing::plaf::basic::BasicButtonUI * sharedUI;
+  static ::javax::swing::plaf::basic::BasicButtonListener * sharedListener;
+public: // actually protected
   jint __attribute__((aligned(__alignof__( ::javax::swing::plaf::ButtonUI)))) defaultTextIconGap;
   jint defaultTextShiftOffset;
 private:
   jint textShiftOffset;
-public: // actually protected
-  ::javax::swing::plaf::basic::BasicButtonListener * listener;
 public:
   static ::java::lang::Class class$;
 };

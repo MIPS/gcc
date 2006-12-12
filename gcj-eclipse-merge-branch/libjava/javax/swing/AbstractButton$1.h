@@ -11,12 +11,9 @@ extern "Java"
 {
   namespace java
   {
-    namespace awt
+    namespace beans
     {
-      namespace event
-      {
-          class ActionEvent;
-      }
+        class PropertyChangeEvent;
     }
   }
   namespace javax
@@ -35,7 +32,7 @@ class javax::swing::AbstractButton$1 : public ::java::lang::Object
 public: // actually package-private
   AbstractButton$1(::javax::swing::AbstractButton *);
 public:
-  void actionPerformed(::java::awt::event::ActionEvent *);
+  void propertyChange(::java::beans::PropertyChangeEvent *);
 public: // actually package-private
   ::javax::swing::AbstractButton * __attribute__((aligned(__alignof__( ::java::lang::Object)))) this$0;
 public:

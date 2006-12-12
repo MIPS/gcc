@@ -15,9 +15,7 @@ public: // actually package-private
   ReentrantReadWriteLock$Sync$ThreadLocalHoldCounter();
 public:
   ::java::util::concurrent::locks::ReentrantReadWriteLock$Sync$HoldCounter * target$initialValue();
-public: // actually protected
   ::java::lang::Object * initialValue();
-public:
   static ::java::lang::Class class$;
 };
 

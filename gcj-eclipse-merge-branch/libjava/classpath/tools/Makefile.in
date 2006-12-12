@@ -42,12 +42,18 @@ target_triplet = @target@
 @CREATE_WRAPPERS_TRUE@bin_PROGRAMS = gappletviewer$(EXEEXT) \
 @CREATE_WRAPPERS_TRUE@	gjarsigner$(EXEEXT) gkeytool$(EXEEXT) \
 @CREATE_WRAPPERS_TRUE@	gjar$(EXEEXT) gnative2ascii$(EXEEXT) \
-@CREATE_WRAPPERS_TRUE@	gserialver$(EXEEXT)
+@CREATE_WRAPPERS_TRUE@	gserialver$(EXEEXT) gjavah$(EXEEXT) \
+@CREATE_WRAPPERS_TRUE@	grmiregistry$(EXEEXT) \
+@CREATE_WRAPPERS_TRUE@	gtnameserv$(EXEEXT) gorbd$(EXEEXT) \
+@CREATE_WRAPPERS_TRUE@	grmid$(EXEEXT) grmic$(EXEEXT)
 subdir = tools
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/gappletviewer.in $(srcdir)/gjar.in \
-	$(srcdir)/gjarsigner.in $(srcdir)/gkeytool.in \
-	$(srcdir)/gnative2ascii.in $(srcdir)/gserialver.in
+	$(srcdir)/gjarsigner.in $(srcdir)/gjavah.in \
+	$(srcdir)/gkeytool.in $(srcdir)/gnative2ascii.in \
+	$(srcdir)/gorbd.in $(srcdir)/grmic.in $(srcdir)/grmid.in \
+	$(srcdir)/grmiregistry.in $(srcdir)/gserialver.in \
+	$(srcdir)/gtnameserv.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../config/lead-dot.m4 \
@@ -55,15 +61,17 @@ am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../libtool.m4 $(top_srcdir)/m4/acattribute.m4 \
 	$(top_srcdir)/m4/accross.m4 $(top_srcdir)/m4/acinclude.m4 \
 	$(top_srcdir)/m4/ax_create_stdint_h.m4 \
-	$(top_srcdir)/m4/iconv.m4 $(top_srcdir)/m4/lib-ld.m4 \
-	$(top_srcdir)/m4/lib-link.m4 $(top_srcdir)/m4/lib-prefix.m4 \
-	$(top_srcdir)/m4/pkg.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/m4/gcc_attribute.m4 $(top_srcdir)/m4/iconv.m4 \
+	$(top_srcdir)/m4/lib-ld.m4 $(top_srcdir)/m4/lib-link.m4 \
+	$(top_srcdir)/m4/lib-prefix.m4 $(top_srcdir)/m4/pkg.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES = gappletviewer gjarsigner gkeytool gjar \
-	gnative2ascii gserialver
+	gnative2ascii gserialver grmiregistry gtnameserv gorbd grmid \
+	grmic gjavah
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(TOOLSdir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
@@ -82,6 +90,11 @@ am__gjarsigner_SOURCES_DIST = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@	gjarsigner-toolwrapper.$(OBJEXT)
 gjarsigner_OBJECTS = $(am_gjarsigner_OBJECTS)
 gjarsigner_LDADD = $(LDADD)
+am__gjavah_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_gjavah_OBJECTS =  \
+@CREATE_WRAPPERS_TRUE@	gjavah-toolwrapper.$(OBJEXT)
+gjavah_OBJECTS = $(am_gjavah_OBJECTS)
+gjavah_LDADD = $(LDADD)
 am__gkeytool_SOURCES_DIST = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@am_gkeytool_OBJECTS =  \
 @CREATE_WRAPPERS_TRUE@	gkeytool-toolwrapper.$(OBJEXT)
@@ -92,11 +105,33 @@ am__gnative2ascii_SOURCES_DIST = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@	gnative2ascii-toolwrapper.$(OBJEXT)
 gnative2ascii_OBJECTS = $(am_gnative2ascii_OBJECTS)
 gnative2ascii_LDADD = $(LDADD)
+am__gorbd_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_gorbd_OBJECTS = gorbd-toolwrapper.$(OBJEXT)
+gorbd_OBJECTS = $(am_gorbd_OBJECTS)
+gorbd_LDADD = $(LDADD)
+am__grmic_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_grmic_OBJECTS = grmic-toolwrapper.$(OBJEXT)
+grmic_OBJECTS = $(am_grmic_OBJECTS)
+grmic_LDADD = $(LDADD)
+am__grmid_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_grmid_OBJECTS = grmid-toolwrapper.$(OBJEXT)
+grmid_OBJECTS = $(am_grmid_OBJECTS)
+grmid_LDADD = $(LDADD)
+am__grmiregistry_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_grmiregistry_OBJECTS =  \
+@CREATE_WRAPPERS_TRUE@	grmiregistry-toolwrapper.$(OBJEXT)
+grmiregistry_OBJECTS = $(am_grmiregistry_OBJECTS)
+grmiregistry_LDADD = $(LDADD)
 am__gserialver_SOURCES_DIST = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@am_gserialver_OBJECTS =  \
 @CREATE_WRAPPERS_TRUE@	gserialver-toolwrapper.$(OBJEXT)
 gserialver_OBJECTS = $(am_gserialver_OBJECTS)
 gserialver_LDADD = $(LDADD)
+am__gtnameserv_SOURCES_DIST = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@am_gtnameserv_OBJECTS =  \
+@CREATE_WRAPPERS_TRUE@	gtnameserv-toolwrapper.$(OBJEXT)
+gtnameserv_OBJECTS = $(am_gtnameserv_OBJECTS)
+gtnameserv_LDADD = $(LDADD)
 binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(bin_SCRIPTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/include
@@ -111,12 +146,17 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(gappletviewer_SOURCES) $(gjar_SOURCES) \
-	$(gjarsigner_SOURCES) $(gkeytool_SOURCES) \
-	$(gnative2ascii_SOURCES) $(gserialver_SOURCES)
+	$(gjarsigner_SOURCES) $(gjavah_SOURCES) $(gkeytool_SOURCES) \
+	$(gnative2ascii_SOURCES) $(gorbd_SOURCES) $(grmic_SOURCES) \
+	$(grmid_SOURCES) $(grmiregistry_SOURCES) $(gserialver_SOURCES) \
+	$(gtnameserv_SOURCES)
 DIST_SOURCES = $(am__gappletviewer_SOURCES_DIST) \
 	$(am__gjar_SOURCES_DIST) $(am__gjarsigner_SOURCES_DIST) \
-	$(am__gkeytool_SOURCES_DIST) $(am__gnative2ascii_SOURCES_DIST) \
-	$(am__gserialver_SOURCES_DIST)
+	$(am__gjavah_SOURCES_DIST) $(am__gkeytool_SOURCES_DIST) \
+	$(am__gnative2ascii_SOURCES_DIST) $(am__gorbd_SOURCES_DIST) \
+	$(am__grmic_SOURCES_DIST) $(am__grmid_SOURCES_DIST) \
+	$(am__grmiregistry_SOURCES_DIST) \
+	$(am__gserialver_SOURCES_DIST) $(am__gtnameserv_SOURCES_DIST)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -352,24 +392,20 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
-GLIBJ_CLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
-@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
+GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
+GLIBJ_CLASSPATH = asm
+@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just build
-@FOUND_GCJX_TRUE@JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
+@FOUND_GCJX_TRUE@JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
 @CREATE_WRAPPERS_FALSE@bin_SCRIPTS = gappletviewer gjarsigner gkeytool \
-@CREATE_WRAPPERS_FALSE@	gjar gnative2ascii gserialver
+@CREATE_WRAPPERS_FALSE@	gjar gnative2ascii gserialver gjavah grmiregistry \
+@CREATE_WRAPPERS_FALSE@	gtnameserv gorbd grmid grmic
 
 @CREATE_WRAPPERS_TRUE@bin_SCRIPTS = 
-@CREATE_WRAPPERS_TRUE@@FOUND_CACAO_FALSE@LIBJVM = 
-
-#if FOUND_GCJ
-#LIBJVM = -lgcj
-#else
-@CREATE_WRAPPERS_TRUE@@FOUND_CACAO_TRUE@LIBJVM = -ljvm
-#endif
 @CREATE_WRAPPERS_TRUE@AM_CPPFLAGS = -Wall \
 @CREATE_WRAPPERS_TRUE@	-I$(top_srcdir)/include \
+@CREATE_WRAPPERS_TRUE@	-DLIBJVM="\"$(libdir)/libjvm\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLS_ZIP="\"$(TOOLSdir)/$(TOOLS_ZIP)\""
 
 @CREATE_WRAPPERS_TRUE@gappletviewer_SOURCES = toolwrapper.c
@@ -377,43 +413,79 @@ GLIBJ_CLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"appletviewer\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gappletviewer\""
 
-@CREATE_WRAPPERS_TRUE@gappletviewer_LDFLAGS = -L$(libdir) $(LIBJVM)
 @CREATE_WRAPPERS_TRUE@gjarsigner_SOURCES = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@gjarsigner_CFLAGS = \
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"jarsigner\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gjarsigner\""
 
-@CREATE_WRAPPERS_TRUE@gjarsigner_LDFLAGS = -L$(libdir) $(LIBJVM)
 @CREATE_WRAPPERS_TRUE@gkeytool_SOURCES = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@gkeytool_CFLAGS = \
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"keytool\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gkeytool\""
 
-@CREATE_WRAPPERS_TRUE@gkeytool_LDFLAGS = -L$(libdir) $(LIBJVM)
 @CREATE_WRAPPERS_TRUE@gjar_SOURCES = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@gjar_CFLAGS = \
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"jar\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gjar\""
 
-@CREATE_WRAPPERS_TRUE@gjar_LDFLAGS = -L$(libdir) $(LIBJVM)
 @CREATE_WRAPPERS_TRUE@gnative2ascii_SOURCES = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@gnative2ascii_CFLAGS = \
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"native2ascii\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gnative2ascii\""
 
-@CREATE_WRAPPERS_TRUE@gnative2ascii_LDFLAGS = -L$(libdir) $(LIBJVM)
 @CREATE_WRAPPERS_TRUE@gserialver_SOURCES = toolwrapper.c
 @CREATE_WRAPPERS_TRUE@gserialver_CFLAGS = \
 @CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"serialver\"" \
 @CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gserialver\""
 
-@CREATE_WRAPPERS_TRUE@gserialver_LDFLAGS = -L$(libdir) $(LIBJVM)
+@CREATE_WRAPPERS_TRUE@grmiregistry_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@grmiregistry_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"rmiregistry\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"grmiregistry\""
+
+@CREATE_WRAPPERS_TRUE@gtnameserv_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@gtnameserv_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"tnameserv\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gtnameserv\""
+
+@CREATE_WRAPPERS_TRUE@gorbd_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@gorbd_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"orbd\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gorbd\""
+
+@CREATE_WRAPPERS_TRUE@grmid_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@grmid_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"rmid\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"grmid\""
+
+@CREATE_WRAPPERS_TRUE@gjavah_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@gjavah_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"javah\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"gjavah\""
+
+@CREATE_WRAPPERS_TRUE@grmic_SOURCES = toolwrapper.c
+@CREATE_WRAPPERS_TRUE@grmic_CFLAGS = \
+@CREATE_WRAPPERS_TRUE@	-DTOOLPACKAGE="\"rmic\"" \
+@CREATE_WRAPPERS_TRUE@	-DTOOLNAME="\"grmic\""
+
 EXTRA_DIST = toolwrapper.c gappletviewer.in gjarsigner.in gkeytool.in \
-	gjar.in gnative2ascii.in gserialver.in
+	gjar.in gnative2ascii.in gserialver.in gjavah.in grmiregistry.in \
+	gtnameserv.in gorbd.in grmid.in grmic.in
 
 
 # All our example java source files
-TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*.java $(srcdir)/gnu/classpath/tools/*/*.java $(srcdir)/gnu/classpath/tools/*/*/*.java
+TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/attrs/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/commons/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/optimizer/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/signature/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/tree/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/tree/analysis/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/util/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/util/attrs/*.java \
+	$(srcdir)/external/asm/org/objectweb/asm/xml/*.java
+
 
 # The zip files with classes we want to produce.
 TOOLS_ZIP = tools.zip
@@ -421,24 +493,14 @@ TOOLS_ZIP = tools.zip
 # Extra objects that will not exist until configure-time
 BUILT_SOURCES = $(TOOLS_ZIP)
 
-# The templates that must be included into the generated zip file.
-GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav
-RMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/rmi/rmic/templates/*.jav
-TOOLS_TEMPLATES = $(GRMIC_TEMPLATES) $(RMIC_TEMPLATES)
-
-# This covers the built-in help texts, both for giop and rmic subpackages.
-GIOP_HELPS = $(srcdir)/gnu/classpath/tools/giop/*.txt
-RMI_HELPS = $(srcdir)/gnu/classpath/tools/rmi/*.txt
-TOOLS_HELPS = $(GIOP_HELPS) $(RMI_HELPS)
-
-# The tool specific README files.
-READMES = $(srcdir)/gnu/classpath/tools/giop/README
+# RMIC templates that must be included in the generated zip file.
+RMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/rmic/templates/*.jav
 
 # All the files we find "interesting"
-ALL_TOOLS_FILES = $(TOOLS_JAVA_FILES) $(TOOLS_TEMPLATES) $(TOOLS_HELPS) $(READMES)
+ALL_TOOLS_FILES = $(TOOLS_JAVA_FILES) $(RMIC_TEMPLATES)
 
 # Some architecture independent data to be installed.
-TOOLS_DATA = $(TOOLS_ZIP) README
+TOOLS_DATA = $(TOOLS_ZIP)
 
 # Where we want these data files installed.
 TOOLSdir = $(pkgdatadir)
@@ -487,6 +549,18 @@ gjar: $(top_builddir)/config.status $(srcdir)/gjar.in
 gnative2ascii: $(top_builddir)/config.status $(srcdir)/gnative2ascii.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 gserialver: $(top_builddir)/config.status $(srcdir)/gserialver.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+grmiregistry: $(top_builddir)/config.status $(srcdir)/grmiregistry.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+gtnameserv: $(top_builddir)/config.status $(srcdir)/gtnameserv.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+gorbd: $(top_builddir)/config.status $(srcdir)/gorbd.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+grmid: $(top_builddir)/config.status $(srcdir)/grmid.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+grmic: $(top_builddir)/config.status $(srcdir)/grmic.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+gjavah: $(top_builddir)/config.status $(srcdir)/gjavah.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
@@ -541,15 +615,33 @@ gjar$(EXEEXT): $(gjar_OBJECTS) $(gjar_DEPENDENCIES)
 gjarsigner$(EXEEXT): $(gjarsigner_OBJECTS) $(gjarsigner_DEPENDENCIES) 
 	@rm -f gjarsigner$(EXEEXT)
 	$(LINK) $(gjarsigner_LDFLAGS) $(gjarsigner_OBJECTS) $(gjarsigner_LDADD) $(LIBS)
+gjavah$(EXEEXT): $(gjavah_OBJECTS) $(gjavah_DEPENDENCIES) 
+	@rm -f gjavah$(EXEEXT)
+	$(LINK) $(gjavah_LDFLAGS) $(gjavah_OBJECTS) $(gjavah_LDADD) $(LIBS)
 gkeytool$(EXEEXT): $(gkeytool_OBJECTS) $(gkeytool_DEPENDENCIES) 
 	@rm -f gkeytool$(EXEEXT)
 	$(LINK) $(gkeytool_LDFLAGS) $(gkeytool_OBJECTS) $(gkeytool_LDADD) $(LIBS)
 gnative2ascii$(EXEEXT): $(gnative2ascii_OBJECTS) $(gnative2ascii_DEPENDENCIES) 
 	@rm -f gnative2ascii$(EXEEXT)
 	$(LINK) $(gnative2ascii_LDFLAGS) $(gnative2ascii_OBJECTS) $(gnative2ascii_LDADD) $(LIBS)
+gorbd$(EXEEXT): $(gorbd_OBJECTS) $(gorbd_DEPENDENCIES) 
+	@rm -f gorbd$(EXEEXT)
+	$(LINK) $(gorbd_LDFLAGS) $(gorbd_OBJECTS) $(gorbd_LDADD) $(LIBS)
+grmic$(EXEEXT): $(grmic_OBJECTS) $(grmic_DEPENDENCIES) 
+	@rm -f grmic$(EXEEXT)
+	$(LINK) $(grmic_LDFLAGS) $(grmic_OBJECTS) $(grmic_LDADD) $(LIBS)
+grmid$(EXEEXT): $(grmid_OBJECTS) $(grmid_DEPENDENCIES) 
+	@rm -f grmid$(EXEEXT)
+	$(LINK) $(grmid_LDFLAGS) $(grmid_OBJECTS) $(grmid_LDADD) $(LIBS)
+grmiregistry$(EXEEXT): $(grmiregistry_OBJECTS) $(grmiregistry_DEPENDENCIES) 
+	@rm -f grmiregistry$(EXEEXT)
+	$(LINK) $(grmiregistry_LDFLAGS) $(grmiregistry_OBJECTS) $(grmiregistry_LDADD) $(LIBS)
 gserialver$(EXEEXT): $(gserialver_OBJECTS) $(gserialver_DEPENDENCIES) 
 	@rm -f gserialver$(EXEEXT)
 	$(LINK) $(gserialver_LDFLAGS) $(gserialver_OBJECTS) $(gserialver_LDADD) $(LIBS)
+gtnameserv$(EXEEXT): $(gtnameserv_OBJECTS) $(gtnameserv_DEPENDENCIES) 
+	@rm -f gtnameserv$(EXEEXT)
+	$(LINK) $(gtnameserv_LDFLAGS) $(gtnameserv_OBJECTS) $(gtnameserv_LDADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -579,9 +671,15 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gappletviewer-toolwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gjar-toolwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gjarsigner-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gjavah-toolwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gkeytool-toolwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gnative2ascii-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gorbd-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/grmic-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/grmid-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/grmiregistry-toolwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gserialver-toolwrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtnameserv-toolwrapper.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -646,6 +744,20 @@ gjarsigner-toolwrapper.obj: toolwrapper.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gjarsigner_CFLAGS) $(CFLAGS) -c -o gjarsigner-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
 
+gjavah-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gjavah_CFLAGS) $(CFLAGS) -MT gjavah-toolwrapper.o -MD -MP -MF "$(DEPDIR)/gjavah-toolwrapper.Tpo" -c -o gjavah-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gjavah-toolwrapper.Tpo" "$(DEPDIR)/gjavah-toolwrapper.Po"; else rm -f "$(DEPDIR)/gjavah-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gjavah-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gjavah_CFLAGS) $(CFLAGS) -c -o gjavah-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+gjavah-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gjavah_CFLAGS) $(CFLAGS) -MT gjavah-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/gjavah-toolwrapper.Tpo" -c -o gjavah-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gjavah-toolwrapper.Tpo" "$(DEPDIR)/gjavah-toolwrapper.Po"; else rm -f "$(DEPDIR)/gjavah-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gjavah-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gjavah_CFLAGS) $(CFLAGS) -c -o gjavah-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
 gkeytool-toolwrapper.o: toolwrapper.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gkeytool_CFLAGS) $(CFLAGS) -MT gkeytool-toolwrapper.o -MD -MP -MF "$(DEPDIR)/gkeytool-toolwrapper.Tpo" -c -o gkeytool-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gkeytool-toolwrapper.Tpo" "$(DEPDIR)/gkeytool-toolwrapper.Po"; else rm -f "$(DEPDIR)/gkeytool-toolwrapper.Tpo"; exit 1; fi
@@ -674,6 +786,62 @@ gnative2ascii-toolwrapper.obj: toolwrapper.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gnative2ascii_CFLAGS) $(CFLAGS) -c -o gnative2ascii-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
 
+gorbd-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gorbd_CFLAGS) $(CFLAGS) -MT gorbd-toolwrapper.o -MD -MP -MF "$(DEPDIR)/gorbd-toolwrapper.Tpo" -c -o gorbd-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gorbd-toolwrapper.Tpo" "$(DEPDIR)/gorbd-toolwrapper.Po"; else rm -f "$(DEPDIR)/gorbd-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gorbd-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gorbd_CFLAGS) $(CFLAGS) -c -o gorbd-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+gorbd-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gorbd_CFLAGS) $(CFLAGS) -MT gorbd-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/gorbd-toolwrapper.Tpo" -c -o gorbd-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gorbd-toolwrapper.Tpo" "$(DEPDIR)/gorbd-toolwrapper.Po"; else rm -f "$(DEPDIR)/gorbd-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gorbd-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gorbd_CFLAGS) $(CFLAGS) -c -o gorbd-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
+grmic-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmic_CFLAGS) $(CFLAGS) -MT grmic-toolwrapper.o -MD -MP -MF "$(DEPDIR)/grmic-toolwrapper.Tpo" -c -o grmic-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmic-toolwrapper.Tpo" "$(DEPDIR)/grmic-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmic-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmic-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmic_CFLAGS) $(CFLAGS) -c -o grmic-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+grmic-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmic_CFLAGS) $(CFLAGS) -MT grmic-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/grmic-toolwrapper.Tpo" -c -o grmic-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmic-toolwrapper.Tpo" "$(DEPDIR)/grmic-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmic-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmic-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmic_CFLAGS) $(CFLAGS) -c -o grmic-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
+grmid-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmid_CFLAGS) $(CFLAGS) -MT grmid-toolwrapper.o -MD -MP -MF "$(DEPDIR)/grmid-toolwrapper.Tpo" -c -o grmid-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmid-toolwrapper.Tpo" "$(DEPDIR)/grmid-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmid-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmid-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmid_CFLAGS) $(CFLAGS) -c -o grmid-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+grmid-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmid_CFLAGS) $(CFLAGS) -MT grmid-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/grmid-toolwrapper.Tpo" -c -o grmid-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmid-toolwrapper.Tpo" "$(DEPDIR)/grmid-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmid-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmid-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmid_CFLAGS) $(CFLAGS) -c -o grmid-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
+grmiregistry-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmiregistry_CFLAGS) $(CFLAGS) -MT grmiregistry-toolwrapper.o -MD -MP -MF "$(DEPDIR)/grmiregistry-toolwrapper.Tpo" -c -o grmiregistry-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmiregistry-toolwrapper.Tpo" "$(DEPDIR)/grmiregistry-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmiregistry-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmiregistry-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmiregistry_CFLAGS) $(CFLAGS) -c -o grmiregistry-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+grmiregistry-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmiregistry_CFLAGS) $(CFLAGS) -MT grmiregistry-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/grmiregistry-toolwrapper.Tpo" -c -o grmiregistry-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/grmiregistry-toolwrapper.Tpo" "$(DEPDIR)/grmiregistry-toolwrapper.Po"; else rm -f "$(DEPDIR)/grmiregistry-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='grmiregistry-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(grmiregistry_CFLAGS) $(CFLAGS) -c -o grmiregistry-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
 gserialver-toolwrapper.o: toolwrapper.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gserialver_CFLAGS) $(CFLAGS) -MT gserialver-toolwrapper.o -MD -MP -MF "$(DEPDIR)/gserialver-toolwrapper.Tpo" -c -o gserialver-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gserialver-toolwrapper.Tpo" "$(DEPDIR)/gserialver-toolwrapper.Po"; else rm -f "$(DEPDIR)/gserialver-toolwrapper.Tpo"; exit 1; fi
@@ -687,6 +855,20 @@ gserialver-toolwrapper.obj: toolwrapper.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gserialver-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gserialver_CFLAGS) $(CFLAGS) -c -o gserialver-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
+
+gtnameserv-toolwrapper.o: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gtnameserv_CFLAGS) $(CFLAGS) -MT gtnameserv-toolwrapper.o -MD -MP -MF "$(DEPDIR)/gtnameserv-toolwrapper.Tpo" -c -o gtnameserv-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gtnameserv-toolwrapper.Tpo" "$(DEPDIR)/gtnameserv-toolwrapper.Po"; else rm -f "$(DEPDIR)/gtnameserv-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gtnameserv-toolwrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gtnameserv_CFLAGS) $(CFLAGS) -c -o gtnameserv-toolwrapper.o `test -f 'toolwrapper.c' || echo '$(srcdir)/'`toolwrapper.c
+
+gtnameserv-toolwrapper.obj: toolwrapper.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gtnameserv_CFLAGS) $(CFLAGS) -MT gtnameserv-toolwrapper.obj -MD -MP -MF "$(DEPDIR)/gtnameserv-toolwrapper.Tpo" -c -o gtnameserv-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/gtnameserv-toolwrapper.Tpo" "$(DEPDIR)/gtnameserv-toolwrapper.Po"; else rm -f "$(DEPDIR)/gtnameserv-toolwrapper.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='toolwrapper.c' object='gtnameserv-toolwrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(gtnameserv_CFLAGS) $(CFLAGS) -c -o gtnameserv-toolwrapper.obj `if test -f 'toolwrapper.c'; then $(CYGPATH_W) 'toolwrapper.c'; else $(CYGPATH_W) '$(srcdir)/toolwrapper.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -915,25 +1097,33 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
-	mkdir -p classes/gnu/classpath/tools/giop/grmic/templates
-	mkdir -p classes/gnu/classpath/tools/rmi/rmic/templates
-	mkdir -p classes/gnu/classpath/tools/appletviewer
-	mkdir -p classes/gnu/classpath/tools/jarsigner
-	mkdir -p classes/gnu/classpath/tools/keytool
-	cp $(RMIC_TEMPLATES) classes/gnu/classpath/tools/rmi/rmic/templates
-	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates
-	cp $(RMI_HELPS) classes/gnu/classpath/tools/rmi/
-	cp $(GIOP_HELPS) classes/gnu/classpath/tools/giop/
-	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES)
+	@rm -rf classes asm
+	mkdir classes asm
+	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
+	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
+	  $$AC -d asm @asm.lst
+	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
+	$(JCOMPILER) -d classes @classes.lst
+	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
+	for p in $$list; do \
+	  dirname=classes/`dirname $$p`; \
+	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
+	  echo "  cp $(top_srcdir)/resource/$$p classes/$$p"; \
+	  cp $(top_srcdir)/resource/$$p classes/$$p; \
+	done
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
 	cd ..)
-	rm -rf classes
+	(cd asm; \
+	if test "$(ZIP)" != ""; then $(ZIP) -u -r ../$(TOOLS_ZIP) .; fi; \
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) uf ../$(TOOLS_ZIP) .; fi; \
+	cd ..)
+	rm -rf classes classes.lst
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
-	rm -rf $(TOOLS_ZIP) classes
+	rm -rf $(TOOLS_ZIP) classes asm asm.lst
 
 # FIXME: remove this when GNU Classpath includes a bootstrap VM.
 installcheck-binSCRIPTS:

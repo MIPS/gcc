@@ -44,6 +44,7 @@ public:
   BufferedImage(::java::awt::image::ColorModel *, ::java::awt::image::WritableRaster *, jboolean, ::java::util::Hashtable *);
 private:
   void init(::java::awt::image::ColorModel *, ::java::awt::image::WritableRaster *, jboolean, ::java::util::Hashtable *, jint);
+  ::java::awt::image::IndexColorModel * createDefaultIndexedColorModel(jboolean);
 public:
   virtual void coerceData(jboolean);
   virtual ::java::awt::image::WritableRaster * copyData(::java::awt::image::WritableRaster *);
@@ -108,14 +109,7 @@ public:
   static const jint TYPE_BYTE_BINARY = 12;
   static const jint TYPE_BYTE_INDEXED = 13;
 public: // actually package-private
-  static JArray< jint > * bits3;
-  static JArray< jint > * bits4;
-  static JArray< jint > * bits1byte;
-  static JArray< jint > * bits1ushort;
-  static JArray< jint > * masks_int;
-  static JArray< jint > * masks_565;
-  static JArray< jint > * masks_555;
-  ::java::util::Vector * __attribute__((aligned(__alignof__( ::java::awt::Image)))) observers;
+  ::java::util::Vector * __attribute__((aligned(__alignof__( ::java::awt::Image)))) tileObservers;
   ::java::awt::image::WritableRaster * raster;
   ::java::awt::image::ColorModel * colorModel;
   ::java::util::Hashtable * properties;

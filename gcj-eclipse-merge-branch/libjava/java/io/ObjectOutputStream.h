@@ -15,6 +15,10 @@ extern "Java"
   {
     namespace java
     {
+      namespace io
+      {
+          class ObjectIdentityMap2Int;
+      }
       namespace security
       {
         namespace action
@@ -76,25 +80,16 @@ public:
   virtual void writeFields();
 private:
   void writeBlockDataHeader(jint);
-  ::java::lang::Integer * findHandle(::java::lang::Object *);
+  jint findHandle(::java::lang::Object *);
   jint assignNewHandle(::java::lang::Object *);
   void clearHandles();
   void writeArraySizeAndElements(::java::lang::Object *, ::java::lang::Class *);
   void writeFields(::java::lang::Object *, ::java::io::ObjectStreamClass *);
+  void writeFields(::java::lang::Object *, JArray< ::java::io::ObjectStreamField * > *);
 public: // actually package-private
   virtual jboolean setBlockDataMode(jboolean);
 private:
   void callWriteMethod(::java::lang::Object *, ::java::io::ObjectStreamClass *);
-  jboolean getBooleanField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jbyte getByteField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jchar getCharField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jdouble getDoubleField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jfloat getFloatField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jint getIntField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jlong getLongField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  jshort getShortField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *);
-  ::java::lang::Object * getObjectField(::java::lang::Object *, ::java::lang::Class *, ::java::lang::String *, ::java::lang::String *);
-  ::java::lang::reflect::Field * getField(::java::lang::Class *, ::java::lang::String *);
   void dumpElementln(::java::lang::String *);
   static const jint BUFFER_SIZE = 1024;
   static jint defaultProtocolVersion;
@@ -113,7 +108,7 @@ private:
   jboolean replacementEnabled;
   jboolean isSerializing;
   jint nextOID;
-  ::java::util::Hashtable * OIDLookupTable;
+  ::gnu::java::io::ObjectIdentityMap2Int * OIDLookupTable;
   jint protocolVersion;
   jboolean useSubclassMethod;
   ::gnu::java::security::action::SetAccessibleAction * setAccessible;

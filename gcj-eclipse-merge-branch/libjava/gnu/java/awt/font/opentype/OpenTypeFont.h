@@ -25,6 +25,10 @@ extern "Java"
               class GlyphNamer;
               class OpenTypeFont;
               class Scaler;
+            namespace truetype
+            {
+                class Zone;
+            }
           }
         }
       }
@@ -85,6 +89,7 @@ public:
   ::java::awt::font::GlyphVector * createGlyphVector(::java::awt::Font *, ::java::awt::font::FontRenderContext *, ::java::text::CharacterIterator *);
   void getAdvance(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean, ::java::awt::geom::Point2D *);
   ::java::awt::geom::GeneralPath * getGlyphOutline(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean);
+  ::gnu::java::awt::font::opentype::truetype::Zone * getRawGlyphOutline(jint, ::java::awt::geom::AffineTransform *);
   ::java::lang::String * getGlyphName(jint);
   jfloat getAscent(jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean);
   jfloat getDescent(jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean);
@@ -102,7 +107,9 @@ public: // actually package-private
   JArray< jint > * tableLength;
 private:
   jint version;
+public:
   jint unitsPerEm;
+private:
   jfloat emsPerUnit;
   ::gnu::java::awt::font::opentype::Scaler * scaler;
   ::gnu::java::awt::font::opentype::CharGlyphMap * cmap;

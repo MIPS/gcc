@@ -35,6 +35,7 @@ class java::awt::image::ComponentColorModel : public ::java::awt::image::ColorMo
 {
 
   static jint sum(JArray< jint > *);
+  static JArray< jint > * findBits(::java::awt::color::ColorSpace *, jint, jboolean);
 public:
   ComponentColorModel(::java::awt::color::ColorSpace *, JArray< jint > *, jboolean, jboolean, jint, jint);
   ComponentColorModel(::java::awt::color::ColorSpace *, jboolean, jboolean, jint, jint);

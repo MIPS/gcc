@@ -82,9 +82,6 @@ public: // actually protected
   virtual ::java::beans::PropertyChangeListener * createActionPropertyChangeListener(::javax::swing::Action *);
 public:
   virtual void processMouseEvent(::java::awt::event::MouseEvent *, JArray< ::javax::swing::MenuElement * > *, ::javax::swing::MenuSelectionManager *);
-private:
-  ::javax::swing::event::MenuDragMouseEvent * createMenuDragMouseEvent(::java::awt::event::MouseEvent *, JArray< ::javax::swing::MenuElement * > *, ::javax::swing::MenuSelectionManager *);
-public:
   virtual void processKeyEvent(::java::awt::event::KeyEvent *, JArray< ::javax::swing::MenuElement * > *, ::javax::swing::MenuSelectionManager *);
   virtual void processMenuDragMouseEvent(::javax::swing::event::MenuDragMouseEvent *);
   virtual void processMenuKeyEvent(::javax::swing::event::MenuKeyEvent *);
@@ -110,9 +107,12 @@ public: // actually protected
   virtual ::java::lang::String * paramString();
 public:
   virtual ::javax::accessibility::AccessibleContext * getAccessibleContext();
+public: // actually package-private
+  virtual jboolean onTop();
 private:
   static const jlong serialVersionUID = -1681004643499461044LL;
   ::javax::swing::KeyStroke * __attribute__((aligned(__alignof__( ::javax::swing::AbstractButton)))) accelerator;
+  jboolean isDragging;
 public:
   static ::java::lang::Class class$;
 };

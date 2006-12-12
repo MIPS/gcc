@@ -46,7 +46,6 @@ public:
   virtual JArray< jint > * getPixel(jint, jint, JArray< jint > *, ::java::awt::image::DataBuffer *);
   virtual JArray< jint > * getPixels(jint, jint, jint, jint, JArray< jint > *, ::java::awt::image::DataBuffer *);
   virtual jint getSample(jint, jint, jint, ::java::awt::image::DataBuffer *);
-  virtual void setDataElements(jint, jint, jint, jint, ::java::lang::Object *, ::java::awt::image::DataBuffer *);
   virtual void setDataElements(jint, jint, ::java::lang::Object *, ::java::awt::image::DataBuffer *);
   virtual void setPixel(jint, jint, JArray< jint > *, ::java::awt::image::DataBuffer *);
   virtual void setPixels(jint, jint, jint, jint, JArray< jint > *, ::java::awt::image::DataBuffer *);

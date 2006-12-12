@@ -52,7 +52,7 @@ public:
   SwingFramePeer(::java::awt::Frame *);
   virtual void setMenuBar(::java::awt::MenuBar *);
 public: // actually protected
-  virtual void peerPaint(::java::awt::Graphics *);
+  virtual void peerPaintComponent(::java::awt::Graphics *);
 public:
   virtual void setBounds(jint, jint, jint, jint);
   virtual ::java::awt::Insets * getInsets();

@@ -67,6 +67,7 @@ private:
   static ::java::net::SocketImplFactory * factory;
   ::java::net::SocketImpl * __attribute__((aligned(__alignof__( ::java::lang::Object)))) impl;
   ::java::net::InetSocketAddress * local;
+  jint port;
 public:
   static ::java::lang::Class class$;
 };

@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <java/lang/Object.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace gnu
@@ -22,7 +20,8 @@ extern "Java"
           namespace provider
           {
               class CertificateRequest;
-              class CertificateRequest$ClientType;
+              class ClientCertificateTypeList;
+              class X500PrincipalList;
           }
         }
       }
@@ -30,9 +29,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace security
+    namespace nio
     {
-        class Principal;
+        class ByteBuffer;
     }
   }
 }
@@ -40,20 +39,15 @@ extern "Java"
 class gnu::javax::net::ssl::provider::CertificateRequest : public ::java::lang::Object
 {
 
-public: // actually package-private
-  CertificateRequest(JArray< ::gnu::javax::net::ssl::provider::CertificateRequest$ClientType * > *, JArray< ::java::security::Principal * > *);
-  static ::gnu::javax::net::ssl::provider::CertificateRequest * read(::java::io::InputStream *);
 public:
-  void write(::java::io::OutputStream *);
-public: // actually package-private
-  JArray< ::gnu::javax::net::ssl::provider::CertificateRequest$ClientType * > * getTypes();
-  JArray< ::java::lang::String * > * getTypeStrings();
-  JArray< ::java::security::Principal * > * getAuthorities();
-public:
-  ::java::lang::String * toString();
-private:
-  JArray< ::gnu::javax::net::ssl::provider::CertificateRequest$ClientType * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) types;
-  JArray< ::java::security::Principal * > * authorities;
+  CertificateRequest(::java::nio::ByteBuffer *);
+  virtual jint length();
+  virtual ::gnu::javax::net::ssl::provider::ClientCertificateTypeList * types();
+  virtual ::gnu::javax::net::ssl::provider::X500PrincipalList * authorities();
+  virtual ::java::lang::String * toString();
+  virtual ::java::lang::String * toString(::java::lang::String *);
+public: // actually protected
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
 public:
   static ::java::lang::Class class$;
 };

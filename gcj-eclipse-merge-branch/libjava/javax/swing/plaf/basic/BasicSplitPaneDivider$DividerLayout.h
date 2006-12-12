@@ -45,9 +45,6 @@ public:
   virtual ::java::awt::Dimension * minimumLayoutSize(::java::awt::Container *);
   virtual ::java::awt::Dimension * preferredLayoutSize(::java::awt::Container *);
   virtual void removeLayoutComponent(::java::awt::Component *);
-private:
-  void changeButtonOrientation();
-  void positionButtons();
 public: // actually package-private
   ::javax::swing::plaf::basic::BasicSplitPaneDivider * __attribute__((aligned(__alignof__( ::java::lang::Object)))) this$0;
 public:

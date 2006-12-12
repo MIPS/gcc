@@ -65,7 +65,7 @@ class gnu::java::awt::peer::GLightweightPeer : public ::java::lang::Object
 {
 
 public:
-  GLightweightPeer(::java::awt::Component *);
+  GLightweightPeer();
   virtual ::java::awt::Insets * insets();
   virtual ::java::awt::Insets * getInsets();
   virtual void beginValidate();
@@ -127,10 +127,6 @@ public:
   virtual void setBounds(jint, jint, jint, jint, jint);
   virtual jboolean isReparentSupported();
   virtual void layout();
-private:
-  ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) comp;
-  ::java::awt::Insets * containerInsets;
-public:
   static ::java::lang::Class class$;
 };
 

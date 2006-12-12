@@ -43,8 +43,11 @@ public:
   virtual jint length();
   virtual void setLastMatch(::gnu::java::util::regex::REMatch *);
   virtual ::gnu::java::util::regex::REMatch * getLastMatch();
+  virtual void setHitEnd(::gnu::java::util::regex::REMatch *);
+  virtual jboolean hitEnd();
   virtual jint getAnchor();
   virtual void setAnchor(jint);
+  virtual jboolean move1(jint);
 private:
   static const jint BUFFER_INCREMENT = 1024;
   static const jint UNKNOWN = 2147483647;

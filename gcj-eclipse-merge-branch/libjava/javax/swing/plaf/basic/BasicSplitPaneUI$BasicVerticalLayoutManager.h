@@ -9,16 +9,6 @@
 #include <javax/swing/plaf/basic/BasicSplitPaneUI$BasicHorizontalLayoutManager.h>
 extern "Java"
 {
-  namespace java
-  {
-    namespace awt
-    {
-        class Component;
-        class Container;
-        class Dimension;
-        class Insets;
-    }
-  }
   namespace javax
   {
     namespace swing
@@ -40,18 +30,7 @@ class javax::swing::plaf::basic::BasicSplitPaneUI$BasicVerticalLayoutManager : p
 
 public:
   BasicSplitPaneUI$BasicVerticalLayoutManager(::javax::swing::plaf::basic::BasicSplitPaneUI *);
-public: // actually protected
-  virtual jint getAvailableSize(::java::awt::Dimension *, ::java::awt::Insets *);
-  virtual jint getInitialLocation(::java::awt::Insets *);
-  virtual jint getPreferredSizeOfComponent(::java::awt::Component *);
-  virtual jint getSizeOfComponent(::java::awt::Component *);
-public:
-  virtual ::java::awt::Dimension * minimumLayoutSize(::java::awt::Container *);
-  virtual ::java::awt::Dimension * preferredLayoutSize(::java::awt::Container *);
-public: // actually protected
-  virtual void setComponentToSize(::java::awt::Component *, jint, jint, ::java::awt::Insets *, ::java::awt::Dimension *);
 public: // actually package-private
-  virtual jint minimumSizeOfComponent(jint);
   ::javax::swing::plaf::basic::BasicSplitPaneUI * __attribute__((aligned(__alignof__( ::javax::swing::plaf::basic::BasicSplitPaneUI$BasicHorizontalLayoutManager)))) this$0;
 public:
   static ::java::lang::Class class$;

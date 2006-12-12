@@ -57,7 +57,10 @@ public:
   virtual jboolean isUndecorated();
   virtual void setUndecorated(jboolean);
   virtual ::javax::accessibility::AccessibleContext * getAccessibleContext();
+public: // actually package-private
+  virtual ::java::lang::String * generateName();
 private:
+  static jlong getUniqueLong();
   static const jlong serialVersionUID = 5920926903803293709LL;
   jboolean __attribute__((aligned(__alignof__( ::java::awt::Window)))) modal;
   jboolean resizable;
@@ -65,6 +68,7 @@ private:
   jboolean undecorated;
   jboolean blocked;
   ::java::awt::EventQueue * eq2;
+  static jlong next_dialog_number;
 public:
   static ::java::lang::Class class$;
 };

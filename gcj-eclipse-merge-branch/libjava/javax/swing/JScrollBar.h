@@ -32,6 +32,10 @@ extern "Java"
     {
         class BoundedRangeModel;
         class JScrollBar;
+      namespace event
+      {
+          class ChangeListener;
+      }
       namespace plaf
       {
           class ScrollBarUI;
@@ -77,6 +81,8 @@ public:
   virtual JArray< ::java::awt::event::AdjustmentListener * > * getAdjustmentListeners();
 public: // actually protected
   virtual void fireAdjustmentValueChanged(jint, jint, jint);
+public: // actually package-private
+  virtual void fireAdjustmentValueChanged(jint, jint, jint, jboolean);
 public:
   virtual ::java::awt::Dimension * getMinimumSize();
   virtual ::java::awt::Dimension * getMaximumSize();
@@ -92,6 +98,8 @@ public: // actually protected
   ::javax::swing::BoundedRangeModel * model;
   jint orientation;
   jint unitIncrement;
+private:
+  ::javax::swing::event::ChangeListener * sbChangeListener;
 public:
   static ::java::lang::Class class$;
 };

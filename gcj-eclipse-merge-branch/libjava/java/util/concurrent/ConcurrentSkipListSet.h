@@ -58,9 +58,8 @@ public:
   virtual ::java::util::NavigableSet * descendingSet();
 private:
   void setMap(::java::util::concurrent::ConcurrentNavigableMap *);
-public: // actually protected
-  virtual ::java::lang::Object * clone();
 public:
+  virtual ::java::lang::Object * clone();
   virtual ::java::util::SortedSet * subSet(::java::lang::Object *, ::java::lang::Object *);
   virtual ::java::util::SortedSet * tailSet(::java::lang::Object *);
   virtual ::java::util::SortedSet * headSet(::java::lang::Object *);

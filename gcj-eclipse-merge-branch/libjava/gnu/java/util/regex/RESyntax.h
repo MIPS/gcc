@@ -39,7 +39,6 @@ public:
 public: // actually package-private
   static ::java::lang::String * DEFAULT_LINE_SEPARATOR;
 private:
-  static ::java::lang::String * SYNTAX_IS_FINAL;
   ::java::util::BitSet * __attribute__((aligned(__alignof__( ::java::lang::Object)))) bits;
   jboolean isFinal;
   ::java::lang::String * lineSeparator;

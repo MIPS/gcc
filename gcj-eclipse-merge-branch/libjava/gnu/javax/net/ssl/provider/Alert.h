@@ -29,26 +29,35 @@ extern "Java"
       }
     }
   }
+  namespace java
+  {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
+  }
 }
 
 class gnu::javax::net::ssl::provider::Alert : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Alert(::gnu::javax::net::ssl::provider::Alert$Level *, ::gnu::javax::net::ssl::provider::Alert$Description *);
-  static ::gnu::javax::net::ssl::provider::Alert * read(::java::io::InputStream *);
-  static ::gnu::javax::net::ssl::provider::Alert * forName(::java::lang::String *);
 public:
-  void write(::java::io::OutputStream *);
+  Alert(::java::nio::ByteBuffer *);
+  Alert(::gnu::javax::net::ssl::provider::Alert$Level *, ::gnu::javax::net::ssl::provider::Alert$Description *);
+  jint length();
 public: // actually package-private
   JArray< jbyte > * getEncoded();
-  ::gnu::javax::net::ssl::provider::Alert$Level * getLevel();
-  ::gnu::javax::net::ssl::provider::Alert$Description * getDescription();
 public:
+  ::gnu::javax::net::ssl::provider::Alert$Level * level();
+  ::gnu::javax::net::ssl::provider::Alert$Description * description();
+  void setLevel(::gnu::javax::net::ssl::provider::Alert$Level *);
+  void setDescription(::gnu::javax::net::ssl::provider::Alert$Description *);
+  jboolean equals(::java::lang::Object *);
+  jint hashCode();
   ::java::lang::String * toString();
+  ::java::lang::String * toString(::java::lang::String *);
 private:
-  ::gnu::javax::net::ssl::provider::Alert$Level * __attribute__((aligned(__alignof__( ::java::lang::Object)))) level;
-  ::gnu::javax::net::ssl::provider::Alert$Description * description;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
 public:
   static ::java::lang::Class class$;
 };

@@ -19,6 +19,7 @@ extern "Java"
     }
     namespace security
     {
+        class Principal;
       namespace cert
       {
           class Certificate;
@@ -53,6 +54,8 @@ public:
   virtual void setHostnameVerifier(::javax::net::ssl::HostnameVerifier *);
   virtual ::javax::net::ssl::SSLSocketFactory * getSSLSocketFactory();
   virtual void setSSLSocketFactory(::javax::net::ssl::SSLSocketFactory *);
+  virtual ::java::security::Principal * getLocalPrincipal();
+  virtual ::java::security::Principal * getPeerPrincipal();
   virtual ::java::lang::String * getCipherSuite() = 0;
   virtual JArray< ::java::security::cert::Certificate * > * getLocalCertificates() = 0;
   virtual JArray< ::java::security::cert::Certificate * > * getServerCertificates() = 0;

@@ -32,6 +32,7 @@ extern "Java"
       namespace dom
       {
           class Attr;
+          class Document;
           class Element;
           class Node;
           class Text;
@@ -52,9 +53,12 @@ extern "Java"
 class gnu::xml::dom::ls::SAXEventSink : public ::java::lang::Object
 {
 
-public: // actually package-private
+public:
   SAXEventSink();
+public: // actually package-private
   virtual void interrupt();
+public: // actually protected
+  virtual ::org::w3c::dom::Document * getDocument();
 public:
   virtual void setDocumentLocator(::org::xml::sax::Locator *);
   virtual void startDocument();

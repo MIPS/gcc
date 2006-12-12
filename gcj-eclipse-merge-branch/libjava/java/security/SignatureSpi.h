@@ -13,6 +13,10 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class AlgorithmParameters;
@@ -39,6 +43,7 @@ public: // actually protected
   virtual void engineInitSign(::java::security::PrivateKey *, ::java::security::SecureRandom *);
   virtual void engineUpdate(jbyte) = 0;
   virtual void engineUpdate(JArray< jbyte > *, jint, jint) = 0;
+  virtual void engineUpdate(::java::nio::ByteBuffer *);
   virtual JArray< jbyte > * engineSign() = 0;
   virtual jint engineSign(JArray< jbyte > *, jint, jint);
   virtual jboolean engineVerify(JArray< jbyte > *) = 0;

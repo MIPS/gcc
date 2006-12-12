@@ -15,7 +15,6 @@ extern "Java"
   {
     namespace awt
     {
-        class Insets;
         class Rectangle;
         class Shape;
     }
@@ -51,9 +50,6 @@ public:
   virtual void replace(jint, jint, JArray< ::javax::swing::text::View * > *);
   virtual ::java::awt::Shape * getChildAllocation(jint, ::java::awt::Shape *);
   virtual ::java::awt::Shape * modelToView(jint, ::java::awt::Shape *, ::javax::swing::text::Position$Bias *);
-private:
-  ::java::awt::Shape * createDefaultLocation(::java::awt::Shape *, ::javax::swing::text::Position$Bias *);
-public:
   virtual ::java::awt::Shape * modelToView(jint, ::javax::swing::text::Position$Bias *, jint, ::javax::swing::text::Position$Bias *, ::java::awt::Shape *);
   virtual jint viewToModel(jfloat, jfloat, ::java::awt::Shape *, JArray< ::javax::swing::text::Position$Bias * > *);
   virtual jint getNextVisualPositionFrom(jint, ::javax::swing::text::Position$Bias *, ::java::awt::Shape *, jint, JArray< ::javax::swing::text::Position$Bias * > *);
@@ -75,10 +71,14 @@ public: // actually protected
   virtual jint getNextNorthSouthVisualPositionFrom(jint, ::javax::swing::text::Position$Bias *, ::java::awt::Shape *, jint, JArray< ::javax::swing::text::Position$Bias * > *);
   virtual jint getNextEastWestVisualPositionFrom(jint, ::javax::swing::text::Position$Bias *, ::java::awt::Shape *, jint, JArray< ::javax::swing::text::Position$Bias * > *);
   virtual jboolean flipEastAndWestAtEnds(jint, ::javax::swing::text::Position$Bias *);
-public: // actually package-private
+private:
   JArray< ::javax::swing::text::View * > * __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) children;
+  jint numChildren;
   ::java::awt::Rectangle * insideAllocation;
-  ::java::awt::Insets * insets;
+  jshort top;
+  jshort bottom;
+  jshort left;
+  jshort right;
 public:
   static ::java::lang::Class class$;
 };

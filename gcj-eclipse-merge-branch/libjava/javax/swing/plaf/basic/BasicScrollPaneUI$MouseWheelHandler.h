@@ -13,7 +13,6 @@ extern "Java"
   {
     namespace awt
     {
-        class Component;
         class Rectangle;
       namespace event
       {
@@ -25,7 +24,6 @@ extern "Java"
   {
     namespace swing
     {
-        class JScrollBar;
       namespace plaf
       {
         namespace basic
@@ -46,9 +44,6 @@ public: // actually protected
 public:
   virtual void mouseWheelMoved(::java::awt::event::MouseWheelEvent *);
 public: // actually package-private
-  virtual void bounds(::java::awt::Component *);
-  virtual jint getValue(::javax::swing::JScrollBar *);
-  virtual void scroll(::javax::swing::JScrollBar *, jint);
   ::java::awt::Rectangle * __attribute__((aligned(__alignof__( ::java::lang::Object)))) rect;
   ::javax::swing::plaf::basic::BasicScrollPaneUI * this$0;
 public:

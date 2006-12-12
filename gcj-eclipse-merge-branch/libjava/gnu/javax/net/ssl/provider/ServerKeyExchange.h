@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <java/lang/Object.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace gnu
@@ -22,8 +20,8 @@ extern "Java"
           namespace provider
           {
               class CipherSuite;
-              class ProtocolVersion;
               class ServerKeyExchange;
+              class ServerKeyExchangeParams;
               class Signature;
           }
         }
@@ -32,13 +30,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace math
+    namespace nio
     {
-        class BigInteger;
-    }
-    namespace security
-    {
-        class PublicKey;
+        class ByteBuffer;
     }
   }
 }
@@ -46,24 +40,16 @@ extern "Java"
 class gnu::javax::net::ssl::provider::ServerKeyExchange : public ::java::lang::Object
 {
 
-public: // actually package-private
-  ServerKeyExchange(::java::security::PublicKey *, ::gnu::javax::net::ssl::provider::Signature *);
-  ServerKeyExchange(::java::security::PublicKey *, ::gnu::javax::net::ssl::provider::Signature *, JArray< jbyte > *);
-  static ::gnu::javax::net::ssl::provider::ServerKeyExchange * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
 public:
-  virtual void write(::java::io::OutputStream *);
-  virtual void write(::java::io::OutputStream *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
-public: // actually package-private
-  virtual ::java::security::PublicKey * getPublicKey();
-  virtual ::gnu::javax::net::ssl::provider::Signature * getSignature();
-  virtual JArray< jbyte > * getSRPSalt();
-public:
+  ServerKeyExchange(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::CipherSuite *);
+  virtual jint length();
+  virtual ::gnu::javax::net::ssl::provider::ServerKeyExchangeParams * params();
+  virtual ::gnu::javax::net::ssl::provider::Signature * signature();
   virtual ::java::lang::String * toString();
-private:
-  void writeBigint(::java::io::OutputStream *, ::java::math::BigInteger *);
-  ::java::security::PublicKey * __attribute__((aligned(__alignof__( ::java::lang::Object)))) publicKey;
-  ::gnu::javax::net::ssl::provider::Signature * signature;
-  JArray< jbyte > * srpSalt;
+  virtual ::java::lang::String * toString(::java::lang::String *);
+public: // actually protected
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  ::gnu::javax::net::ssl::provider::CipherSuite * suite;
 public:
   static ::java::lang::Class class$;
 };

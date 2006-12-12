@@ -105,9 +105,7 @@ public: // actually package-private
 public:
   virtual ::java::util::SortedMap * subMap(::java::lang::Object *, ::java::lang::Object *);
   virtual ::java::util::NavigableMap * subMap(::java::lang::Object *, jboolean, ::java::lang::Object *, jboolean);
-public: // actually protected
   virtual ::java::lang::Object * clone();
-public:
   virtual ::java::util::SortedMap * tailMap(::java::lang::Object *);
   virtual ::java::util::NavigableMap * tailMap(::java::lang::Object *, jboolean);
   virtual ::java::util::SortedMap * headMap(::java::lang::Object *);

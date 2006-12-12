@@ -18,7 +18,7 @@ public:
   ObjectStreamField(::java::lang::String *, ::java::lang::Class *, jboolean);
 public: // actually package-private
   ObjectStreamField(::java::lang::String *, ::java::lang::String *);
-  ObjectStreamField(::java::lang::String *, ::java::lang::String *, ::java::lang::ClassLoader *);
+  virtual void resolveType(::java::lang::ClassLoader *);
 public:
   virtual ::java::lang::String * getName();
   virtual ::java::lang::Class * getType();
@@ -58,6 +58,7 @@ private:
   jboolean unshared;
   jboolean persistent;
   jboolean toset;
+public: // actually package-private
   ::java::lang::reflect::Field * field;
 public:
   static ::java::lang::Class class$;

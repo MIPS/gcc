@@ -29,18 +29,22 @@ public:
   virtual ::java::util::Set * keySet();
   virtual ::java::lang::Object * put(::java::lang::Object *, ::java::lang::Object *);
   virtual void putAll(::java::util::Map *);
+public: // actually package-private
+  virtual void removeAtIndex(jint);
+public:
   virtual ::java::lang::Object * remove(::java::lang::Object *);
   virtual jint size();
   virtual ::java::util::Collection * values();
 public: // actually package-private
+  virtual ::java::lang::Object * xform(::java::lang::Object *);
+  virtual ::java::lang::Object * unxform(::java::lang::Object *);
   virtual jint hash(::java::lang::Object *);
 private:
   void readObject(::java::io::ObjectInputStream *);
   void writeObject(::java::io::ObjectOutputStream *);
   static const jint DEFAULT_CAPACITY = 21;
 public: // actually package-private
-  static ::java::lang::Object * tombstone;
-  static ::java::lang::Object * emptyslot;
+  static ::java::lang::Object * nullslot;
 private:
   static const jlong serialVersionUID = 8188218128353913216LL;
 public: // actually package-private

@@ -16,6 +16,7 @@ class java::util::concurrent::CopyOnWriteArrayList : public ::java::util::Abstra
 public:
   CopyOnWriteArrayList();
   CopyOnWriteArrayList(::java::util::Collection *);
+  CopyOnWriteArrayList(JArray< ::java::lang::Object * > *);
   virtual jint size();
   virtual jboolean isEmpty();
   virtual jboolean contains(::java::lang::Object *);

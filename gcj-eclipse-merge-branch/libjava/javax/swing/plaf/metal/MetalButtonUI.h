@@ -28,10 +28,6 @@ extern "Java"
       namespace plaf
       {
           class ComponentUI;
-        namespace basic
-        {
-            class BasicButtonListener;
-        }
         namespace metal
         {
             class MetalButtonUI;
@@ -45,17 +41,16 @@ class javax::swing::plaf::metal::MetalButtonUI : public ::javax::swing::plaf::ba
 {
 
 public:
+  static ::javax::swing::plaf::ComponentUI * createUI(::javax::swing::JComponent *);
   MetalButtonUI();
 public: // actually protected
   virtual ::java::awt::Color * getFocusColor();
   virtual ::java::awt::Color * getSelectColor();
   virtual ::java::awt::Color * getDisabledTextColor();
 public:
-  static ::javax::swing::plaf::ComponentUI * createUI(::javax::swing::JComponent *);
   virtual void installDefaults(::javax::swing::AbstractButton *);
   virtual void uninstallDefaults(::javax::swing::AbstractButton *);
 public: // actually protected
-  virtual ::javax::swing::plaf::basic::BasicButtonListener * createButtonListener(::javax::swing::AbstractButton *);
   virtual void paintButtonPressed(::java::awt::Graphics *, ::javax::swing::AbstractButton *);
   virtual void paintFocus(::java::awt::Graphics *, ::javax::swing::AbstractButton *, ::java::awt::Rectangle *, ::java::awt::Rectangle *, ::java::awt::Rectangle *);
   virtual void paintText(::java::awt::Graphics *, ::javax::swing::JComponent *, ::java::awt::Rectangle *, ::java::lang::String *);
@@ -64,6 +59,7 @@ public:
 private:
   jboolean isToolbarButton(::java::awt::Component *);
   jboolean isDrawingGradient(::java::lang::String *);
+  static ::javax::swing::plaf::metal::MetalButtonUI * sharedUI;
 public: // actually protected
   ::java::awt::Color * __attribute__((aligned(__alignof__( ::javax::swing::plaf::basic::BasicButtonUI)))) focusColor;
   ::java::awt::Color * selectColor;

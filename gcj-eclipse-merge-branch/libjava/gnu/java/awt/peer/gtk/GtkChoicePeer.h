@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <gnu/java/awt/peer/gtk/GtkComponentPeer.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace gnu
@@ -31,6 +29,7 @@ extern "Java"
   {
     namespace awt
     {
+        class AWTEvent;
         class Choice;
     }
   }
@@ -43,22 +42,26 @@ public:
   GtkChoicePeer(::java::awt::Choice *);
 public: // actually package-private
   virtual void create();
-  virtual void append(JArray< ::java::lang::String * > *);
   virtual jint nativeGetSelected();
-  virtual void nativeAdd(::java::lang::String *, jint);
-  virtual void nativeRemove(jint);
-  virtual void nativeRemoveAll();
   virtual void connectSignals();
   virtual void selectNative(jint);
   virtual void selectNativeUnlocked(jint);
 public:
-  virtual void select(jint);
   virtual void add(::java::lang::String *, jint);
+public: // actually package-private
+  virtual void nativeRemove(jint);
+  virtual void nativeRemoveAll();
+public:
+  virtual void select(jint);
   virtual void remove(jint);
   virtual void removeAll();
   virtual void addItem(::java::lang::String *, jint);
 public: // actually protected
-  virtual void postChoiceItemEvent(::java::lang::String *, jint);
+  virtual void postChoiceItemEvent(jint);
+public:
+  virtual void handleEvent(::java::awt::AWTEvent *);
+private:
+  jint __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::GtkComponentPeer)))) selected;
 public:
   static ::java::lang::Class class$;
 };

@@ -58,6 +58,7 @@ public:
   virtual JArray< JArray< jint > * > * getLayoutDimensions();
   virtual JArray< JArray< jdouble > * > * getLayoutWeights();
   virtual ::java::awt::Point * location(jint, jint);
+  virtual ::java::lang::String * toString();
 public: // actually protected
   virtual void AdjustForGravity(::java::awt::GridBagConstraints *, ::java::awt::Rectangle *);
   virtual void ArrangeGrid(::java::awt::Container *);

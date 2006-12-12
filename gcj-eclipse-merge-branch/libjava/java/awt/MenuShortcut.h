@@ -33,9 +33,11 @@ public:
 public: // actually protected
   virtual ::java::lang::String * paramString();
 private:
+  void setKeyName(jint);
   static const jlong serialVersionUID = 143448358473180225LL;
   jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) key;
   jboolean usesShift;
+  ::java::lang::String * keyName;
 public:
   static ::java::lang::Class class$;
 };

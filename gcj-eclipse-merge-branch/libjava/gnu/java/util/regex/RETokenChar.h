@@ -37,8 +37,8 @@ public: // actually package-private
   jint getMinimumLength();
   jint getMaximumLength();
   ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
-  jboolean matchOneString(::gnu::java::util::regex::CharIndexed *, jint);
 private:
+  jboolean matchOneString(::gnu::java::util::regex::CharIndexed *, jint);
   jboolean charEquals(jchar, jchar);
 public: // actually package-private
   jboolean returnsFixedLengthMatches();
@@ -48,6 +48,7 @@ public: // actually package-private
 private:
   JArray< jchar > * __attribute__((aligned(__alignof__( ::gnu::java::util::regex::REToken)))) ch;
   jboolean insens;
+  jint matchedLength;
 public:
   static ::java::lang::Class class$;
 };

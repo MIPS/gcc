@@ -32,6 +32,9 @@ class gnu::javax::net::ssl::provider::Jessie : public ::java::security::Provider
 
 public:
   Jessie();
+private:
+  static const jlong serialVersionUID = -1LL;
+public:
   static ::java::lang::String * VERSION;
   static jdouble VERSION_DOUBLE;
   static ::java::lang::Class class$;

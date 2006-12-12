@@ -7,6 +7,8 @@
 #pragma interface
 
 #include <javax/swing/plaf/basic/BasicSplitPaneDivider.h>
+#include <gcj/array.h>
+
 extern "Java"
 {
   namespace java
@@ -21,6 +23,7 @@ extern "Java"
   {
     namespace swing
     {
+        class JButton;
         class JSplitPane;
       namespace plaf
       {
@@ -40,7 +43,12 @@ class javax::swing::plaf::metal::MetalSplitPaneDivider : public ::javax::swing::
 public:
   MetalSplitPaneDivider(::javax::swing::plaf::metal::MetalSplitPaneUI *, ::java::awt::Color *, ::java::awt::Color *);
   virtual void paint(::java::awt::Graphics *);
+public: // actually protected
+  virtual ::javax::swing::JButton * createLeftOneTouchButton();
+  virtual ::javax::swing::JButton * createRightOneTouchButton();
 public: // actually package-private
+  static JArray< JArray< jbyte > * > * BUTTON_SPRITE_L;
+  static JArray< JArray< jbyte > * > * BUTTON_SPRITE_R;
   ::java::awt::Color * __attribute__((aligned(__alignof__( ::javax::swing::plaf::basic::BasicSplitPaneDivider)))) dark;
   ::java::awt::Color * light;
   ::javax::swing::JSplitPane * splitPane;

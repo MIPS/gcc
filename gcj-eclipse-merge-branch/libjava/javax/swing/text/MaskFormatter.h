@@ -42,16 +42,12 @@ public:
   virtual void setMask(::java::lang::String *);
   virtual void install(::javax::swing::JFormattedTextField *);
   virtual ::java::lang::Object * stringToValue(::java::lang::String *);
-public: // actually package-private
-  virtual ::java::lang::String * stripLiterals(::java::lang::String *);
+private:
+  ::java::lang::String * convertStringToValue(::java::lang::String *);
 public:
   virtual ::java::lang::String * valueToString(::java::lang::Object *);
-public: // actually package-private
-  virtual ::java::lang::String * convertValue(::java::lang::String *, jboolean);
-  virtual jboolean isCharValid(jchar);
-  virtual ::java::lang::String * pad(::java::lang::String *, jint);
-  virtual jchar getPadCharAt(jint);
 private:
+  ::java::lang::String * convertValueToString(::java::lang::String *);
   static const jchar NUM_CHAR = 35;
   static const jchar ESCAPE_CHAR = 39;
   static const jchar UPPERCASE_CHAR = 85;

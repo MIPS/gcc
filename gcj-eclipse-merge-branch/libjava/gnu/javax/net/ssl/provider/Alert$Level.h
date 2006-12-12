@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,21 +29,20 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::Alert$Level : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::Alert$Level : public ::java::lang::Enum
 {
 
-  Alert$Level(jint);
-public: // actually package-private
-  static ::gnu::javax::net::ssl::provider::Alert$Level * read(::java::io::InputStream *);
+  Alert$Level(::java::lang::String *, jint, jint);
 public:
-  JArray< jbyte > * getEncoded();
+  static ::gnu::javax::net::ssl::provider::Alert$Level * forInteger(jint);
   jint getValue();
-  ::java::lang::String * toString();
-public: // actually package-private
+  static JArray< ::gnu::javax::net::ssl::provider::Alert$Level * > * values();
+  static ::gnu::javax::net::ssl::provider::Alert$Level * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::Alert$Level * WARNING;
   static ::gnu::javax::net::ssl::provider::Alert$Level * FATAL;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::Alert$Level * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

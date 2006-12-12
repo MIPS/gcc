@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/ref/WeakReference.h>
 extern "Java"
 {
   namespace javax
@@ -16,26 +16,23 @@ extern "Java"
       namespace text
       {
           class GapContent;
+          class GapContent$GapContentPosition;
           class GapContent$Mark;
       }
     }
   }
 }
 
-class javax::swing::text::GapContent$Mark : public ::java::lang::Object
+class javax::swing::text::GapContent$Mark : public ::java::lang::ref::WeakReference
 {
 
 public: // actually package-private
   GapContent$Mark(::javax::swing::text::GapContent *, jint);
+  GapContent$Mark(::javax::swing::text::GapContent *, jint, ::javax::swing::text::GapContent$GapContentPosition *, ::java::lang::ref::ReferenceQueue *);
   virtual jint getOffset();
-public:
-  virtual jint compareTo(::java::lang::Object *);
-  virtual jboolean equals(::java::lang::Object *);
-public: // actually package-private
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) mark;
-  jint refCount;
+  virtual ::javax::swing::text::GapContent$GapContentPosition * getPosition();
+  jint __attribute__((aligned(__alignof__( ::java::lang::ref::WeakReference)))) mark;
   ::javax::swing::text::GapContent * this$0;
-  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

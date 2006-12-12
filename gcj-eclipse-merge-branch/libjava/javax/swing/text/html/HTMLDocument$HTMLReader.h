@@ -24,6 +24,8 @@ extern "Java"
             class HTMLDocument;
             class HTMLDocument$HTMLReader;
             class HTMLDocument$HTMLReader$TagAction;
+            class Option;
+            class ResetablePlainDocument;
         }
       }
     }
@@ -33,8 +35,6 @@ extern "Java"
 class javax::swing::text::html::HTMLDocument$HTMLReader : public ::javax::swing::text::html::HTMLEditorKit$ParserCallback
 {
 
-public: // actually package-private
-  virtual void print(::java::lang::String *);
 public:
   HTMLDocument$HTMLReader(::javax::swing::text::html::HTMLDocument *, jint);
   HTMLDocument$HTMLReader(::javax::swing::text::html::HTMLDocument *, jint, jint, jint, ::javax::swing::text::html::HTML$Tag *);
@@ -46,6 +46,9 @@ public: // actually protected
   virtual void registerTag(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::html::HTMLDocument$HTMLReader$TagAction *);
 public:
   virtual void flush();
+private:
+  void flushImpl();
+public:
   virtual void handleText(JArray< jchar > *, jint);
 private:
   jboolean shouldInsert();
@@ -59,18 +62,26 @@ public: // actually protected
   virtual void textAreaContent(JArray< jchar > *);
   virtual void preContent(JArray< jchar > *);
   virtual void blockOpen(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::MutableAttributeSet *);
+private:
+  jboolean inParagraph();
+  jboolean inImpliedParagraph();
+public: // actually protected
   virtual void blockClose(::javax::swing::text::html::HTML$Tag *);
   virtual void addContent(JArray< jchar > *, jint, jint);
   virtual void addContent(JArray< jchar > *, jint, jint, jboolean);
   virtual void addSpecialElement(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::MutableAttributeSet *);
 public: // actually package-private
-  virtual void printBuffer();
+  static ::javax::swing::text::html::HTMLDocument * access$0(::javax::swing::text::html::HTMLDocument$HTMLReader *);
+private:
+  static const jint MAX_THRESHOLD = 10000;
+  static const jint GROW_THRESHOLD = 5;
 public: // actually protected
   ::javax::swing::text::MutableAttributeSet * __attribute__((aligned(__alignof__( ::javax::swing::text::html::HTMLEditorKit$ParserCallback)))) charAttr;
   ::java::util::Vector * parseBuffer;
+private:
+  ::java::util::Stack * parseStack;
 public: // actually package-private
   ::java::util::Stack * charAttrStack;
-  ::java::util::Stack * parseStack;
   ::java::util::HashMap * tagToAction;
   jboolean endHTMLEncountered;
   jint popDepth;
@@ -79,7 +90,20 @@ public: // actually package-private
   ::javax::swing::text::html::HTML$Tag * insertTag;
   jboolean insertTagEncountered;
   jboolean debug;
+  jboolean inPreTag;
+  jboolean inStyleTag;
+  jboolean inTextArea;
+  ::java::util::ArrayList * styles;
+  ::javax::swing::text::html::ResetablePlainDocument * textAreaDocument;
+  ::java::lang::Object * selectModel;
+  ::javax::swing::text::html::Option * option;
+  jint numOptions;
+  ::java::util::HashMap * buttonGroups;
+private:
+  jint threshold;
+public: // actually package-private
   ::javax::swing::text::html::HTMLDocument * this$0;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

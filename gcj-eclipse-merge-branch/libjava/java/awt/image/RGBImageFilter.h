@@ -33,19 +33,9 @@ public:
   virtual void setColorModel(::java::awt::image::ColorModel *);
   virtual void substituteColorModel(::java::awt::image::ColorModel *, ::java::awt::image::ColorModel *);
   virtual ::java::awt::image::IndexColorModel * filterIndexColorModel(::java::awt::image::IndexColorModel *);
-private:
-  jint makeColor(jbyte, jbyte, jbyte, jbyte);
-public:
   virtual void filterRGBPixels(jint, jint, jint, jint, JArray< jint > *, jint, jint);
   virtual void setPixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jbyte > *, jint, jint);
   virtual void setPixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jint > *, jint, jint);
-private:
-  JArray< jint > * convertColorModelToDefault(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jbyte > *, jint, jint);
-  void convertColorModelToDefault(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jint > *, jint, jint);
-  jint makeColorbyDefaultCM(::java::awt::image::ColorModel *, jbyte);
-  jint makeColorbyDefaultCM(::java::awt::image::ColorModel *, jint);
-  jint makeColor(jint, jint, jint, jint);
-public:
   virtual jint filterRGB(jint, jint, jint) = 0;
 public: // actually protected
   ::java::awt::image::ColorModel * __attribute__((aligned(__alignof__( ::java::awt::image::ImageFilter)))) origmodel;

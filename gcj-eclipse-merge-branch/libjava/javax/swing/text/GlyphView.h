@@ -76,6 +76,9 @@ public: // actually protected
 public:
   virtual ::javax::swing::text::View * breakView(jint, jint, jfloat, jfloat);
   virtual jint getBreakWeight(jint, jfloat, jfloat);
+private:
+  jint getBreakLocation(jint, jint);
+public:
   virtual void changedUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
   virtual void insertUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
   virtual void removeUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
@@ -85,8 +88,11 @@ public:
 public: // actually package-private
   ::javax::swing::text::GlyphView$GlyphPainter * __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) glyphPainter;
 private:
-  jint startOffset;
-  jint endOffset;
+  jint offset;
+  jint length;
+  jfloat tabX;
+  ::javax::swing::text::TabExpander * tabExpander;
+  ::javax::swing::text::Segment * cached;
 public:
   static ::java::lang::Class class$;
 };

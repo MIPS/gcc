@@ -71,7 +71,7 @@ public:
   virtual jboolean stopCellEditing();
   virtual void cancelCellEditing();
 private:
-  void stopEditingTimer();
+  void finish();
 public:
   virtual void addCellEditorListener(::javax::swing::event::CellEditorListener *);
   virtual void removeCellEditorListener(::javax::swing::event::CellEditorListener *);
@@ -88,8 +88,6 @@ public: // actually protected
   virtual void prepareForEditing();
   virtual ::java::awt::Container * createContainer();
   virtual ::javax::swing::tree::TreeCellEditor * createTreeCellEditor();
-public: // actually package-private
-  static jint CLICK_COUNT_TO_START;
 private:
   ::javax::swing::event::EventListenerList * __attribute__((aligned(__alignof__( ::java::lang::Object)))) listenerList;
 public: // actually protected

@@ -18,6 +18,7 @@ extern "Java"
       namespace datatransfer
       {
           class DataFlavor;
+          class MimeType;
           class Transferable;
       }
     }
@@ -29,21 +30,17 @@ class java::awt::datatransfer::DataFlavor : public ::java::lang::Object
 
 public: // actually protected
   static ::java::lang::Class * tryToLoadClass(::java::lang::String *, ::java::lang::ClassLoader *);
-private:
-  static ::java::lang::Class * getRepresentationClassFromMimeThrows(::java::lang::String *, ::java::lang::ClassLoader *);
-  static ::java::lang::Class * getRepresentationClassFromMime(::java::lang::String *, ::java::lang::ClassLoader *);
-  static ::java::lang::String * getParameter(::java::lang::String *, ::java::lang::String *);
 public:
   static ::java::awt::datatransfer::DataFlavor * getTextPlainUnicodeFlavor();
   static ::java::awt::datatransfer::DataFlavor * selectBestTextFlavor(JArray< ::java::awt::datatransfer::DataFlavor * > *);
   DataFlavor();
-private:
-  DataFlavor(::java::lang::Class *, ::java::lang::String *, ::java::lang::String *);
-public:
   DataFlavor(::java::lang::Class *, ::java::lang::String *);
   DataFlavor(::java::lang::String *, ::java::lang::String *, ::java::lang::ClassLoader *);
   DataFlavor(::java::lang::String *, ::java::lang::String *);
   DataFlavor(::java::lang::String *);
+private:
+  void init(::java::lang::String *, ::java::lang::String *, ::java::lang::ClassLoader *);
+public:
   virtual ::java::lang::String * getMimeType();
   virtual ::java::lang::Class * getRepresentationClass();
   virtual ::java::lang::String * getHumanPresentableName();
@@ -91,9 +88,11 @@ public:
   static ::java::lang::String * javaJVMLocalObjectMimeType;
   static ::java::lang::String * javaRemoteObjectMimeType;
 private:
-  ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) mimeType;
+  ::java::awt::datatransfer::MimeType * __attribute__((aligned(__alignof__( ::java::lang::Object)))) mimeType;
   ::java::lang::Class * representationClass;
   ::java::lang::String * humanPresentableName;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

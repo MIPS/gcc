@@ -47,6 +47,9 @@ public: // actually protected
   virtual JArray< jbyte > * generateObjectKey(::org::omg::CORBA::Object *);
 private:
   static jlong getFreeInstanceNumber();
+public:
+  virtual jint size();
+private:
   static jlong free_object_number;
   ::java::util::Map * __attribute__((aligned(__alignof__( ::java::lang::Object)))) objects;
 public:

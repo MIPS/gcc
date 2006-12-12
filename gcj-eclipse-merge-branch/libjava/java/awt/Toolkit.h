@@ -11,6 +11,19 @@
 
 extern "Java"
 {
+  namespace gnu
+  {
+    namespace java
+    {
+      namespace awt
+      {
+        namespace peer
+        {
+            class GLightweightPeer;
+        }
+      }
+    }
+  }
   namespace java
   {
     namespace awt
@@ -223,6 +236,8 @@ public: // actually protected
   ::java::beans::PropertyChangeSupport * desktopPropsSupport;
 public: // actually package-private
   JArray< ::java::awt::event::AWTEventListenerProxy * > * awtEventListeners;
+private:
+  ::gnu::java::awt::peer::GLightweightPeer * lightweightPeer;
 public:
   static ::java::lang::Class class$;
 };

@@ -16,6 +16,10 @@ extern "Java"
         class Dimension;
         class Graphics;
     }
+    namespace beans
+    {
+        class PropertyChangeListener;
+    }
   }
   namespace javax
   {
@@ -57,6 +61,7 @@ public:
 private:
   static ::javax::swing::plaf::basic::BasicToolTipUI * shared;
   ::java::lang::String * __attribute__((aligned(__alignof__( ::javax::swing::plaf::ToolTipUI)))) text;
+  ::java::beans::PropertyChangeListener * propertyChangeHandler;
 public:
   static ::java::lang::Class class$;
 };

@@ -32,7 +32,9 @@ class gnu::java::util::regex::RETokenEnd : public ::gnu::java::util::regex::RETo
 public: // actually package-private
   RETokenEnd(jint, ::java::lang::String *);
   RETokenEnd(jint, ::java::lang::String *, jboolean);
+  void setFake(jboolean);
   jint getMaximumLength();
+  jboolean match(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   jboolean returnsFixedLengthMatches();
   jint findFixedLengthMatches(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, jint);
@@ -40,6 +42,7 @@ public: // actually package-private
 private:
   ::java::lang::String * __attribute__((aligned(__alignof__( ::gnu::java::util::regex::REToken)))) newline;
   jboolean check_java_line_terminators;
+  jboolean fake;
 public:
   static ::java::lang::Class class$;
 };

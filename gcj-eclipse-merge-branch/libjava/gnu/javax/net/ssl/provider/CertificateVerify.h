@@ -7,6 +7,8 @@
 #pragma interface
 
 #include <gnu/javax/net/ssl/provider/Signature.h>
+#include <gcj/array.h>
+
 extern "Java"
 {
   namespace gnu
@@ -20,8 +22,7 @@ extern "Java"
           namespace provider
           {
               class CertificateVerify;
-              class CipherSuite;
-              class Signature;
+              class SignatureAlgorithm;
           }
         }
       }
@@ -29,9 +30,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace security
+    namespace nio
     {
-        class PublicKey;
+        class ByteBuffer;
     }
   }
 }
@@ -39,11 +40,11 @@ extern "Java"
 class gnu::javax::net::ssl::provider::CertificateVerify : public ::gnu::javax::net::ssl::provider::Signature
 {
 
-public: // actually package-private
-  CertificateVerify(::java::lang::Object *, ::java::lang::String *);
-  static ::gnu::javax::net::ssl::provider::Signature * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
 public:
-  ::java::lang::String * toString();
+  CertificateVerify(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::SignatureAlgorithm *);
+  CertificateVerify(JArray< jbyte > *, ::gnu::javax::net::ssl::provider::SignatureAlgorithm *);
+  virtual ::java::lang::String * toString();
+  virtual ::java::lang::String * toString(::java::lang::String *);
   static ::java::lang::Class class$;
 };
 

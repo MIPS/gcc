@@ -57,6 +57,7 @@ public:
   static ::javax::swing::text::AttributeSet * EMPTY;
 public: // actually package-private
   ::java::util::Hashtable * __attribute__((aligned(__alignof__( ::java::lang::Object)))) tab;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

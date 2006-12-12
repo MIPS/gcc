@@ -50,6 +50,11 @@ public: // actually protected
   virtual jint layoutRow(::javax::swing::text::FlowView *, jint, jint);
   virtual ::javax::swing::text::View * createView(::javax::swing::text::FlowView *, jint, jint, jint);
   virtual void adjustRow(::javax::swing::text::FlowView *, jint, jint, jint);
+private:
+  jboolean contains(::javax::swing::text::View *, ::javax::swing::text::View *);
+  void reparent(::javax::swing::text::View *, ::javax::swing::text::View *);
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

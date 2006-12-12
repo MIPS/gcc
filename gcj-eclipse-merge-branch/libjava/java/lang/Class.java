@@ -119,7 +119,7 @@ public final class Class<T>
    * @throws ExceptionInInitializerError if the class loads, but an exception
    *         occurs during initialization
    */
-  public static native Class forName (String className)
+  public static native Class<?> forName (String className)
     throws ClassNotFoundException;
 
   // A private internal method that is called by compiler-generated code.
@@ -154,8 +154,8 @@ public final class Class<T>
    * @see ClassLoader
    * @since 1.2
    */
-  public static native Class forName (String className, boolean initialize,
-				      ClassLoader loader)
+  public static native Class<?> forName (String className, boolean initialize,
+					 ClassLoader loader)
     throws ClassNotFoundException;
   
   /**
@@ -170,7 +170,7 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Class[] getClasses()
+  public Class<?>[] getClasses()
   {
     memberAccessCheck(Member.PUBLIC);
     return internalGetClasses();
@@ -179,16 +179,16 @@ public final class Class<T>
   /**
    * Like <code>getClasses()</code> but without the security checks.
    */
-  private Class[] internalGetClasses()
+  private Class<?>[] internalGetClasses()
   {
-    ArrayList list = new ArrayList();
+    ArrayList<Class> list = new ArrayList<Class>();
     list.addAll(Arrays.asList(getDeclaredClasses(true)));
     Class superClass = getSuperclass();
     if (superClass != null)
       list.addAll(Arrays.asList(superClass.internalGetClasses()));
-    return (Class[])list.toArray(new Class[list.size()]);
+    return list.toArray(new Class<?>[list.size()]);
   }
-  
+
   /**
    * Get the ClassLoader that loaded this class.  If the class was loaded
    * by the bootstrap classloader, this method will return null.
@@ -223,7 +223,7 @@ public final class Class<T>
    * @see Array
    * @since 1.1
    */
-  public native Class getComponentType ();
+  public native Class<?> getComponentType ();
 
   /**
    * Get a public constructor declared in this class. If the constructor takes
@@ -239,7 +239,7 @@ public final class Class<T>
    * @see #getConstructors()
    * @since 1.1
    */
-  public native Constructor<T> getConstructor(Class... args)
+  public native Constructor<T> getConstructor(Class<?>... args)
     throws NoSuchMethodException;
 
   /**
@@ -254,7 +254,7 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Constructor[] getConstructors()
+  public Constructor<?>[] getConstructors()
   {
     memberAccessCheck(Member.PUBLIC);
     return getDeclaredConstructors(true);
@@ -274,7 +274,7 @@ public final class Class<T>
    * @see #getDeclaredConstructors()
    * @since 1.1
    */
-  public native Constructor<T> getDeclaredConstructor(Class... args)
+  public native Constructor<T> getDeclaredConstructor(Class<?>... args)
     throws NoSuchMethodException;
 
   /**
@@ -289,13 +289,13 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Class[] getDeclaredClasses()
+  public Class<?>[] getDeclaredClasses()
   {
     memberAccessCheck(Member.DECLARED);
     return getDeclaredClasses(false);
   }
 
-  native Class[] getDeclaredClasses (boolean publicOnly);
+  native Class<?>[] getDeclaredClasses (boolean publicOnly);
 
   /**
    * Get all the declared constructors of this class. This returns an array of
@@ -309,13 +309,13 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Constructor[] getDeclaredConstructors()
+  public Constructor<?>[] getDeclaredConstructors()
   {
     memberAccessCheck(Member.DECLARED);
     return getDeclaredConstructors(false);
   }
 
-  native Constructor[] getDeclaredConstructors (boolean publicOnly);
+  native Constructor<?>[] getDeclaredConstructors (boolean publicOnly);
 
   /**
    * Get a field declared in this class, where name is its simple name. The
@@ -376,7 +376,7 @@ public final class Class<T>
    * @see #getDeclaredMethods()
    * @since 1.1
    */
-  public Method getDeclaredMethod(String methodName, Class... args)
+  public Method getDeclaredMethod(String methodName, Class<?>... args)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.DECLARED);
@@ -416,7 +416,7 @@ public final class Class<T>
    * @since 1.1
    */
   // This is marked as unimplemented in the JCL book.
-  public native Class getDeclaringClass ();
+  public native Class<?> getDeclaringClass ();
 
   private native Field getField (String fieldName, int hash)
     throws NoSuchFieldException;
@@ -505,7 +505,7 @@ public final class Class<T>
    *
    * @return the interfaces this class directly implements
    */
-  public native Class[] getInterfaces ();
+  public native Class<?>[] getInterfaces ();
 
   private final native void getSignature(StringBuffer buffer);
   private static final native String getSignature(Class[] args,
@@ -535,7 +535,7 @@ public final class Class<T>
    * @see #getMethods()
    * @since 1.1
    */
-  public Method getMethod(String methodName, Class... args)
+  public Method getMethod(String methodName, Class<?>... args)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.PUBLIC);
@@ -708,7 +708,7 @@ public final class Class<T>
    *
    * @return the direct superclass of this class
    */
-  public native Class getSuperclass ();
+  public native Class<? super T> getSuperclass ();
   
   /**
    * Return whether this class is an array type.
@@ -732,7 +732,7 @@ public final class Class<T>
    * @throws NullPointerException if c is null
    * @since 1.1
    */
-  public native boolean isAssignableFrom (Class c);
+  public native boolean isAssignableFrom (Class<?> c);
  
   /**
    * Discover whether an Object is an instance of this Class.  Think of it
@@ -790,7 +790,7 @@ public final class Class<T>
    * @throws ExceptionInInitializerError if class initialization caused by
    *         this call fails with an exception
    */
-  public native Object newInstance ()
+  public native T newInstance ()
     throws InstantiationException, IllegalAccessException;
 
   // We need a native method to retrieve the protection domain, because we

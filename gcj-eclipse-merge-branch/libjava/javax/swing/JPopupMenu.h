@@ -122,6 +122,8 @@ public:
   virtual ::java::awt::Component * getComponent();
   virtual jboolean isPopupTrigger(::java::awt::event::MouseEvent *);
   virtual ::javax::accessibility::AccessibleContext * getAccessibleContext();
+public: // actually package-private
+  virtual jboolean onTop();
 private:
   static const jlong serialVersionUID = -8336996630009646009LL;
   jboolean __attribute__((aligned(__alignof__( ::javax::swing::JComponent)))) borderPainted;

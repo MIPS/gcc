@@ -62,6 +62,9 @@ public: // actually protected
   SchemaFactory();
 public:
   static ::javax::xml::validation::SchemaFactory * newInstance(::java::lang::String *);
+private:
+  static ::java::lang::String * getFactoryClassName(::java::lang::ClassLoader *, ::java::lang::String *, jint);
+public:
   virtual jboolean isSchemaLanguageSupported(::java::lang::String *) = 0;
   virtual jboolean getFeature(::java::lang::String *);
   virtual void setFeature(::java::lang::String *, jboolean);

@@ -56,7 +56,6 @@ extern "Java"
           class MouseMotionListener;
           class MouseWheelEvent;
           class MouseWheelListener;
-          class PaintEvent;
       }
       namespace im
       {
@@ -128,6 +127,9 @@ public:
   virtual void setBackground(::java::awt::Color *);
   virtual jboolean isBackgroundSet();
   virtual ::java::awt::Font * getFont();
+private:
+  ::java::awt::Font * getFontImpl();
+public:
   virtual void setFont(::java::awt::Font *);
   virtual jboolean isFontSet();
   virtual ::java::util::Locale * getLocale();
@@ -149,8 +151,8 @@ public:
   virtual ::java::awt::Rectangle * bounds();
   virtual void setBounds(jint, jint, jint, jint);
   virtual void reshape(jint, jint, jint, jint);
-private:
-  void notifyReshape(jboolean, jboolean);
+public: // actually package-private
+  virtual void notifyReshape(jboolean, jboolean);
 public:
   virtual void setBounds(::java::awt::Rectangle *);
   virtual jint getX();
@@ -352,9 +354,7 @@ public: // actually package-private
   static ::java::awt::Event * translateEvent(::java::awt::AWTEvent *);
   virtual void dispatchEventImpl(::java::awt::AWTEvent *);
   virtual jboolean eventTypeEnabled(jint);
-private:
-  ::java::awt::event::PaintEvent * coalescePaintEvents(::java::awt::event::PaintEvent *, ::java::awt::event::PaintEvent *);
-public: // actually package-private
+  virtual jboolean isHierarchyVisible();
   virtual ::java::awt::Component * findNextFocusComponent(::java::awt::Component *);
 private:
   void readObject(::java::io::ObjectInputStream *);
@@ -416,7 +416,7 @@ public: // actually package-private
   ::java::awt::event::HierarchyBoundsListener * hierarchyBoundsListener;
   ::java::awt::Container * parent;
   ::java::awt::peer::ComponentPeer * peer;
-  ::java::awt::ComponentOrientation * orientation;
+  ::java::awt::ComponentOrientation * componentOrientation;
   ::java::awt::GraphicsConfiguration * graphicsConfig;
   ::java::awt::image::BufferStrategy * bufferStrategy;
   jint numHierarchyListeners;

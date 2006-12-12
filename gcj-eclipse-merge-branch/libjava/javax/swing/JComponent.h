@@ -113,9 +113,6 @@ public:
   virtual ::java::awt::Dimension * getMaximumSize();
   virtual ::java::awt::Dimension * getMinimumSize();
   virtual ::java::awt::Dimension * getPreferredSize();
-  virtual jboolean isMaximumSizeSet();
-  virtual jboolean isMinimumSizeSet();
-  virtual jboolean isPreferredSizeSet();
   virtual ::java::awt::Component * getNextFocusableComponent();
   virtual JArray< ::javax::swing::KeyStroke * > * getRegisteredKeyStrokes();
   virtual ::javax::swing::JRootPane * getRootPane();
@@ -143,22 +140,25 @@ public:
   virtual jboolean isValidateRoot();
   virtual void paint(::java::awt::Graphics *);
 private:
+  jboolean isOccupiedByChild(jint, jint, jint, jint);
   void initializeDragBuffer();
 public: // actually protected
   virtual void paintBorder(::java::awt::Graphics *);
   virtual void paintChildren(::java::awt::Graphics *);
 private:
-  jboolean isCompletelyObscured(jint, ::java::awt::Rectangle *);
+  jboolean isCompletelyObscured(jint, jint, jint, jint, jint);
+  jboolean isPartiallyObscured(jint, jint, jint, jint, jint);
 public: // actually protected
   virtual void paintComponent(::java::awt::Graphics *);
 public:
   virtual void paintImmediately(jint, jint, jint, jint);
   virtual void paintImmediately(::java::awt::Rectangle *);
 public: // actually package-private
-  virtual void paintImmediately2(::java::awt::Rectangle *);
+  virtual void paintImmediately2(jint, jint, jint, jint);
+  virtual jboolean onTop();
+  virtual jboolean isPaintRoot();
 private:
-  jboolean isPaintingDoubleBuffered();
-  void paintDoubleBuffered(::java::awt::Rectangle *);
+  void paintDoubleBuffered(jint, jint, jint, jint);
   void clipAndTranslateGraphics(::java::awt::Component *, ::java::awt::Component *, ::java::awt::Graphics *);
 public: // actually package-private
   virtual void paintSimple(::java::awt::Rectangle *);
@@ -195,9 +195,6 @@ public:
   virtual void setFont(::java::awt::Font *);
   virtual void setBackground(::java::awt::Color *);
   virtual void setForeground(::java::awt::Color *);
-  virtual void setMaximumSize(::java::awt::Dimension *);
-  virtual void setMinimumSize(::java::awt::Dimension *);
-  virtual void setPreferredSize(::java::awt::Dimension *);
   virtual void setNextFocusableComponent(::java::awt::Component *);
   virtual void setRequestFocusEnabled(jboolean);
   virtual ::javax::swing::TransferHandler * getTransferHandler();
@@ -243,11 +240,6 @@ public:
   virtual void reshape(jint, jint, jint, jint);
 public: // actually package-private
   virtual void fireAncestorEvent(::javax::swing::JComponent *, jint);
-private:
-  ::java::awt::Component * findPaintRoot(::java::awt::Rectangle *);
-  ::java::awt::Component * findOverlapFreeParent(::java::awt::Rectangle *);
-  ::java::awt::Component * findOpaqueParent(::java::awt::Component *);
-public: // actually package-private
   virtual void updateComponentInputMap(::javax::swing::ComponentInputMap *);
   virtual void setUIProperty(::java::lang::String *, ::java::lang::Object *);
 private:
@@ -255,13 +247,9 @@ private:
 public: // actually protected
   ::javax::accessibility::AccessibleContext * __attribute__((aligned(__alignof__( ::java::awt::Container)))) accessibleContext;
 public: // actually package-private
-  ::java::awt::Dimension * preferredSize;
-  ::java::awt::Dimension * minimumSize;
-  ::java::awt::Dimension * maximumSize;
   jfloat alignmentX;
   jfloat alignmentY;
   ::javax::swing::border::Border * border;
-  ::java::lang::String * toolTipText;
   ::javax::swing::JPopupMenu * componentPopupMenu;
   jboolean inheritsPopupMenu;
   jboolean doubleBuffered;
@@ -273,7 +261,6 @@ public: // actually package-private
   jboolean requestFocusEnabled;
   jboolean autoscrolls;
   static jboolean paintingDoubleBuffered;
-private:
   static jboolean isRepainting;
 public: // actually protected
   ::javax::swing::event::EventListenerList * listenerList;
@@ -298,6 +285,8 @@ public:
   static const jint WHEN_FOCUSED = 0;
   static const jint WHEN_ANCESTOR_OF_FOCUSED_COMPONENT = 1;
   static const jint WHEN_IN_FOCUSED_WINDOW = 2;
+public: // actually package-private
+  ::java::awt::Component * paintChild;
 private:
   jboolean clientOpaqueSet;
   jboolean clientAutoscrollsSet;

@@ -43,6 +43,8 @@ public:
   virtual ::java::net::URL * getURL();
   virtual jint getConnectTimeout();
   virtual void setConnectTimeout(jint);
+  virtual jint getReadTimeout();
+  virtual void setReadTimeout(jint);
   virtual jint getContentLength();
   virtual ::java::lang::String * getContentType();
   virtual ::java::lang::String * getContentEncoding();
@@ -105,7 +107,8 @@ public: // actually protected
 private:
   static JArray< ::java::text::SimpleDateFormat * > * dateFormats;
   static jboolean dateformats_initialized;
-  jint timeout;
+  jint connectTimeout;
+  jint readTimeout;
   ::java::text::ParsePosition * position;
 public:
   static ::java::lang::Class class$;

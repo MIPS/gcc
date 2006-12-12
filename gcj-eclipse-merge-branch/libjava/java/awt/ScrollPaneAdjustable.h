@@ -49,6 +49,9 @@ public:
   virtual void setValue(jint);
   virtual void setVisibleAmount(jint);
   virtual ::java::lang::String * paramString();
+private:
+  ::java::lang::String * paramStringHelper();
+public:
   virtual ::java::lang::String * toString();
   virtual jboolean getValueIsAdjusting();
   virtual void setValueIsAdjusting(jboolean);

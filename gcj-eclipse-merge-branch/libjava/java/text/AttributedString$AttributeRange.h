@@ -25,8 +25,8 @@ class java::text::AttributedString$AttributeRange : public ::java::lang::Object
 public: // actually package-private
   AttributedString$AttributeRange(::java::text::AttributedString *, ::java::util::Map *, jint, jint);
   ::java::util::Map * __attribute__((aligned(__alignof__( ::java::lang::Object)))) attribs;
-  jint begin_index;
-  jint end_index;
+  jint beginIndex;
+  jint endIndex;
   ::java::text::AttributedString * this$0;
 public:
   static ::java::lang::Class class$;

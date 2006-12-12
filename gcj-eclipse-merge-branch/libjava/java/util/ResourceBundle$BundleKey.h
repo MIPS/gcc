@@ -13,13 +13,14 @@ class java::util::ResourceBundle$BundleKey : public ::java::lang::Object
 
 public: // actually package-private
   ResourceBundle$BundleKey();
-  ResourceBundle$BundleKey(::java::lang::String *, ::java::util::Locale *, ::java::lang::ClassLoader *);
-  virtual void set(::java::lang::String *, ::java::util::Locale *, ::java::lang::ClassLoader *);
+  ResourceBundle$BundleKey(::java::util::Locale *, ::java::lang::String *, ::java::util::Locale *, ::java::lang::ClassLoader *);
+  virtual void set(::java::util::Locale *, ::java::lang::String *, ::java::util::Locale *, ::java::lang::ClassLoader *);
 public:
   virtual jint hashCode();
   virtual jboolean equals(::java::lang::Object *);
 public: // actually package-private
-  ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) baseName;
+  ::java::util::Locale * __attribute__((aligned(__alignof__( ::java::lang::Object)))) defaultLocale;
+  ::java::lang::String * baseName;
   ::java::util::Locale * locale;
   ::java::lang::ClassLoader * classLoader;
   jint hashcode;

@@ -17,7 +17,6 @@ extern "Java"
         class Component;
         class Container;
         class LightweightDispatcher;
-        class Point;
       namespace event
       {
           class MouseEvent;
@@ -34,15 +33,17 @@ public: // actually package-private
 private:
   LightweightDispatcher();
 public:
-  virtual jboolean dispatchEvent(::java::awt::AWTEvent *);
+  jboolean dispatchEvent(::java::awt::AWTEvent *);
 private:
   jboolean handleMouseEvent(::java::awt::event::MouseEvent *);
-  ::java::awt::Component * findTarget(::java::awt::Container *, ::java::awt::Point *);
-  ::java::awt::Point * convertPointToChild(::java::awt::Component *, ::java::awt::Point *, ::java::awt::Component *);
+  ::java::awt::Component * findTarget(::java::awt::Container *, jint, jint);
+  jboolean isMouseListening(::java::awt::Component *);
+  void trackEnterExit(::java::awt::Component *, ::java::awt::event::MouseEvent *);
+  void redispatch(::java::awt::event::MouseEvent *, ::java::awt::Component *, jint);
+  jboolean isDragging(::java::awt::event::MouseEvent *);
   static ::java::util::WeakHashMap * instances;
-  ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) dragTarget;
-  jint dragButton;
-  ::java::awt::Component * lastTarget;
+  ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) lastTarget;
+  ::java::awt::Component * mouseEventTarget;
 public:
   static ::java::lang::Class class$;
 };

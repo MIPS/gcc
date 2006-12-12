@@ -38,8 +38,10 @@ extern "Java"
       }
       namespace text
       {
+          class AttributeSet;
           class Document;
           class EditorKit;
+          class Element;
           class Position$Bias;
           class View;
           class ViewFactory;
@@ -56,6 +58,7 @@ public:
   virtual ::javax::swing::text::ViewFactory * getViewFactory();
   virtual void preferenceChanged(::javax::swing::text::View *, jboolean, jboolean);
   virtual void setView(::javax::swing::text::View *);
+  virtual void setSize(jfloat, jfloat);
   virtual ::javax::swing::text::View * getView(jint);
   virtual jint getViewCount();
   virtual ::java::awt::Container * getContainer();
@@ -70,6 +73,8 @@ public:
   virtual jint getStartOffset();
   virtual jint getEndOffset();
   virtual ::javax::swing::text::Document * getDocument();
+  virtual ::javax::swing::text::AttributeSet * getAttributes();
+  virtual ::javax::swing::text::Element * getElement();
 private:
   ::javax::swing::text::View * __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) view;
   ::javax::swing::JComponent * component;

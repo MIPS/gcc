@@ -6,7 +6,9 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/util/logging/Logger.h>
+#include <gcj/array.h>
+
 extern "Java"
 {
   namespace gnu
@@ -21,12 +23,16 @@ extern "Java"
   }
 }
 
-class gnu::classpath::debug::SystemLogger : public ::java::lang::Object
+class gnu::classpath::debug::SystemLogger : public ::java::util::logging::Logger
 {
 
 public:
+  static ::gnu::classpath::debug::SystemLogger * getSystemLogger();
+private:
   SystemLogger();
-  static ::java::util::logging::Logger * SYSTEM;
+public:
+  void logv(::java::util::logging::Level *, ::java::lang::String *, JArray< ::java::lang::Object * > *);
+  static ::gnu::classpath::debug::SystemLogger * SYSTEM;
   static ::java::lang::Class class$;
 };
 

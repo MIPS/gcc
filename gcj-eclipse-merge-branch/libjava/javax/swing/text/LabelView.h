@@ -78,6 +78,8 @@ public: // actually package-private
   jboolean underline;
   jboolean subscript;
   jboolean superscript;
+private:
+  jboolean valid;
 public:
   static ::java::lang::Class class$;
 };

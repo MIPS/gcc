@@ -142,6 +142,8 @@ class gnu::java::awt::peer::gtk::GtkToolkit : public ::gnu::java::awt::Classpath
 
 public: // actually package-private
   static void gtkInit(jint);
+  static void gtkMain();
+  static void gtkQuit();
 public:
   GtkToolkit();
   virtual void beep();
@@ -149,8 +151,8 @@ private:
   void getScreenSizeDimensions(JArray< jint > *);
 public:
   virtual jint checkImage(::java::awt::Image *, jint, jint, ::java::awt::image::ImageObserver *);
-private:
-  ::java::awt::Image * imageOrError(::java::awt::Image *);
+public: // actually package-private
+  static ::java::awt::Image * imageOrError(::java::awt::Image *);
 public:
   virtual ::java::awt::Image * createImage(::java::lang::String *);
   virtual ::java::awt::Image * createImage(::java::net::URL *);
@@ -214,18 +216,17 @@ public:
   virtual ::java::awt::Font * createFont(jint, ::java::io::InputStream *);
   virtual ::java::awt::peer::RobotPeer * createRobot(::java::awt::GraphicsDevice *);
   virtual void registerImageIOSpis(::javax::imageio::spi::IIORegistry *);
-  static void gtkMain();
 public: // actually protected
   virtual ::java::awt::peer::MouseInfoPeer * getMouseInfoPeer();
 public:
-  virtual jint getMouseNumberOfButtons();
-public: // actually package-private
-  ::java::util::Hashtable * __attribute__((aligned(__alignof__( ::gnu::java::awt::ClasspathToolkit)))) containers;
-  static ::java::awt::EventQueue * q;
-  static ::java::lang::Thread * mainThread;
+  virtual jboolean isFrameStateSupported(jint);
 private:
-  ::gnu::java::awt::peer::gtk::GtkToolkit$LRUCache * fontCache;
-  ::gnu::java::awt::peer::gtk::GtkToolkit$LRUCache * metricsCache;
+  void checkHeadless();
+public:
+  virtual jint getMouseNumberOfButtons();
+private:
+  static ::java::awt::EventQueue * q;
+  ::gnu::java::awt::peer::gtk::GtkToolkit$LRUCache * __attribute__((aligned(__alignof__( ::gnu::java::awt::ClasspathToolkit)))) fontCache;
   ::gnu::java::awt::peer::gtk::GtkToolkit$LRUCache * imageCache;
 public:
   static ::java::lang::Class class$;

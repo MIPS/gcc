@@ -98,7 +98,8 @@ public: // actually package-private
   virtual void paintSimple(::java::awt::Graphics *);
   virtual void paintBackingStore(::java::awt::Graphics *);
   virtual void paintBlit(::java::awt::Graphics *);
-  virtual void paintImmediately2(::java::awt::Rectangle *);
+  virtual void paintImmediately2(jint, jint, jint, jint);
+  virtual jboolean isPaintRoot();
 public:
   static const jint SIMPLE_SCROLL_MODE = 0;
   static const jint BLIT_SCROLL_MODE = 1;
@@ -115,8 +116,6 @@ public: // actually protected
 public: // actually package-private
   ::javax::swing::event::ChangeEvent * changeEvent;
   jint scrollMode;
-  ::java::awt::Dimension * extentSize;
-  ::java::awt::Dimension * viewSize;
   ::javax::swing::JViewport$ViewListener * viewListener;
   ::java::awt::Point * cachedBlitFrom;
   ::java::awt::Point * cachedBlitTo;
@@ -125,7 +124,7 @@ public: // actually package-private
   jboolean damaged;
   jboolean sizeChanged;
 private:
-  jboolean isPaintRoot;
+  jboolean isPaintRoot__;
 public:
   static ::java::lang::Class class$;
 };

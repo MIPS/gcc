@@ -132,6 +132,9 @@ public:
   virtual void setScrollsOnExpand(jboolean);
   virtual void setSelectionPath(::javax::swing::tree::TreePath *);
   virtual void setSelectionPaths(JArray< ::javax::swing::tree::TreePath * > *);
+private:
+  void clearSelectionPathStates();
+public:
   virtual void setSelectionRow(jint);
   virtual void setSelectionRows(JArray< jint > *);
   virtual void setSelectionInterval(jint, jint);
@@ -238,6 +241,7 @@ private:
   jboolean __attribute__((aligned(__alignof__( ::javax::swing::JComponent)))) dragEnabled;
   jboolean expandsSelectedPaths;
   ::javax::swing::tree::TreePath * anchorSelectionPath;
+public: // actually package-private
   ::java::util::Hashtable * nodeStates;
 public: // actually protected
   ::javax::swing::tree::TreeCellEditor * cellEditor;

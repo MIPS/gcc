@@ -17,6 +17,10 @@ extern "Java"
         class Insets;
         class Rectangle;
     }
+    namespace beans
+    {
+        class PropertyChangeListener;
+    }
   }
   namespace javax
   {
@@ -59,6 +63,16 @@ public: // actually protected
   virtual void paintHorizontalSeparators(::java::awt::Graphics *, ::javax::swing::JComponent *);
   virtual void paintVerticalPartOfLeg(::java::awt::Graphics *, ::java::awt::Rectangle *, ::java::awt::Insets *, ::javax::swing::tree::TreePath *);
   virtual void paintHorizontalPartOfLeg(::java::awt::Graphics *, ::java::awt::Rectangle *, ::java::awt::Insets *, ::java::awt::Rectangle *, ::javax::swing::tree::TreePath *, jint, jboolean, jboolean, jboolean);
+private:
+  static ::java::lang::String * LINE_STYLE_PROPERTY;
+  static ::java::lang::String * LINE_STYLE_VALUE_NONE;
+  static ::java::lang::String * LINE_STYLE_VALUE_ANGLED;
+  static ::java::lang::String * LINE_STYLE_VALUE_HORIZONTAL;
+  static const jint LINE_STYLE_NONE = 0;
+  static const jint LINE_STYLE_ANGLED = 1;
+  static const jint LINE_STYLE_HORIZONTAL = 2;
+  jint __attribute__((aligned(__alignof__( ::javax::swing::plaf::basic::BasicTreeUI)))) lineStyle;
+  ::java::beans::PropertyChangeListener * lineStyleListener;
 public:
   static ::java::lang::Class class$;
 };

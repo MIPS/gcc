@@ -30,8 +30,11 @@ extern "Java"
   {
     namespace awt
     {
+        class Container;
+        class Graphics;
         class Image;
         class Point;
+        class TextField;
       namespace event
       {
           class KeyEvent;
@@ -51,7 +54,8 @@ extern "Java"
 class gnu::java::awt::peer::swing::SwingTextFieldPeer$SwingTextField : public ::javax::swing::JTextField
 {
 
-  SwingTextFieldPeer$SwingTextField(::gnu::java::awt::peer::swing::SwingTextFieldPeer *);
+public: // actually package-private
+  SwingTextFieldPeer$SwingTextField(::gnu::java::awt::peer::swing::SwingTextFieldPeer *, ::java::awt::TextField *);
 public:
   virtual ::java::awt::Point * getLocationOnScreen();
   virtual jboolean isShowing();
@@ -60,9 +64,11 @@ public:
   virtual void handleMouseEvent(::java::awt::event::MouseEvent *);
   virtual void handleMouseMotionEvent(::java::awt::event::MouseEvent *);
   virtual void handleKeyEvent(::java::awt::event::KeyEvent *);
+  virtual ::java::awt::Container * getParent();
+  virtual ::java::awt::Graphics * getGraphics();
 public: // actually package-private
-  SwingTextFieldPeer$SwingTextField(::gnu::java::awt::peer::swing::SwingTextFieldPeer *, ::gnu::java::awt::peer::swing::SwingTextFieldPeer$SwingTextField *);
-  ::gnu::java::awt::peer::swing::SwingTextFieldPeer * __attribute__((aligned(__alignof__( ::javax::swing::JTextField)))) this$0;
+  ::java::awt::TextField * __attribute__((aligned(__alignof__( ::javax::swing::JTextField)))) textField;
+  ::gnu::java::awt::peer::swing::SwingTextFieldPeer * this$0;
 public:
   static ::java::lang::Class class$;
 };

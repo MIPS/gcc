@@ -55,6 +55,7 @@ class gnu::java::awt::font::opentype::truetype::TrueTypeScaler : public ::gnu::j
 public:
   TrueTypeScaler(jint, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, jint, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *, ::java::nio::ByteBuffer *);
   ::java::awt::geom::GeneralPath * getOutline(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean);
+  ::gnu::java::awt::font::opentype::truetype::Zone * getRawOutline(jint, ::java::awt::geom::AffineTransform *);
   void getAdvance(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean, ::java::awt::geom::Point2D *);
 private:
   jfloat scaleFromFUnits(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean);

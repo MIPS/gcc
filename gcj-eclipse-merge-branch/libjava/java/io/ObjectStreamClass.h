@@ -43,7 +43,7 @@ public: // actually package-private
   virtual jboolean isExternalizable();
   virtual jboolean isEnum();
   virtual ::java::io::ObjectStreamClass * getSuper();
-  static JArray< ::java::io::ObjectStreamClass * > * getObjectStreamClasses(::java::lang::Class *);
+  virtual JArray< ::java::io::ObjectStreamClass * > * hierarchy();
   virtual jint getFlags();
   ObjectStreamClass(::java::lang::String *, jlong, jbyte, JArray< ::java::io::ObjectStreamField * > *);
   virtual void setClass(::java::lang::Class *, ::java::io::ObjectStreamClass *);
@@ -53,16 +53,28 @@ private:
   ::java::lang::reflect::Method * findMethod(JArray< ::java::lang::reflect::Method * > *, ::java::lang::String *, JArray< ::java::lang::Class * > *, ::java::lang::Class *, jboolean);
   static jboolean inSamePackage(::java::lang::Class *, ::java::lang::Class *);
   static ::java::lang::reflect::Method * findAccessibleMethod(::java::lang::String *, ::java::lang::Class *);
+  static jboolean loadedByBootOrApplicationClassLoader(::java::lang::Class *);
   void cacheMethods();
   ObjectStreamClass(::java::lang::Class *);
   void setFlags(::java::lang::Class *);
   void setFields(::java::lang::Class *);
   jlong getClassUID(::java::lang::Class *);
+public: // actually package-private
+  virtual jlong getClassUIDFromField(::java::lang::Class *);
+  virtual jlong calculateClassUID(::java::lang::Class *);
+private:
   JArray< ::java::io::ObjectStreamField * > * getSerialPersistentFields(::java::lang::Class *);
 public: // actually package-private
   virtual ::java::io::Externalizable * newInstance();
   static JArray< ::java::io::ObjectStreamField * > * INVALID_FIELDS;
+private:
+  JArray< ::java::io::ObjectStreamClass * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) hierarchy__;
+public: // actually package-private
   static JArray< ::java::lang::Class * > * noArgs;
+  static ::java::util::Hashtable * methodCache;
+  static JArray< ::java::lang::Class * > * readObjectSignature;
+  static JArray< ::java::lang::Class * > * writeObjectSignature;
+  static ::java::util::Hashtable * uidCache;
 public:
   static JArray< ::java::io::ObjectStreamField * > * NO_FIELDS;
 private:
@@ -71,7 +83,7 @@ private:
   static ::java::util::Comparator * interfaceComparator;
   static ::java::util::Comparator * memberComparator;
   static JArray< ::java::lang::Class * > * writeMethodArgTypes;
-  ::java::io::ObjectStreamClass * __attribute__((aligned(__alignof__( ::java::lang::Object)))) superClass;
+  ::java::io::ObjectStreamClass * superClass;
   ::java::lang::Class * clazz;
   ::java::lang::String * name;
   jlong uid;

@@ -18,7 +18,6 @@ extern "Java"
         class Color;
         class Dimension;
         class Font;
-        class FontMetrics;
         class Graphics;
         class Rectangle;
       namespace event
@@ -34,7 +33,6 @@ extern "Java"
         class Icon;
         class JComponent;
         class JMenuItem;
-        class KeyStroke;
         class MenuElement;
         class MenuSelectionManager;
       namespace event
@@ -98,9 +96,8 @@ public:
   virtual void uninstallUI(::javax::swing::JComponent *);
   virtual void update(::java::awt::Graphics *, ::javax::swing::JComponent *);
 private:
-  ::java::lang::String * getAcceleratorText(::javax::swing::KeyStroke *);
-  ::java::awt::Rectangle * getAcceleratorRect(::javax::swing::KeyStroke *, ::java::awt::FontMetrics *);
   ::java::lang::String * getAcceleratorString(::javax::swing::JMenuItem *);
+  void resetRectangles(::javax::swing::JMenuItem *);
   void layoutMenuItem(::javax::swing::JMenuItem *, ::java::lang::String *);
 public: // actually protected
   ::java::awt::Font * __attribute__((aligned(__alignof__( ::javax::swing::plaf::MenuItemUI)))) acceleratorFont;
@@ -120,11 +117,7 @@ public: // actually protected
 private:
   ::java::lang::String * acceleratorDelimiter;
   ::java::awt::event::ItemListener * itemListener;
-  jint defaultAcceleratorLabelGap;
-  jint MenuGap;
-public: // actually package-private
   ::javax::swing::plaf::basic::BasicMenuItemUI$PropertyChangeHandler * propertyChangeListener;
-private:
   ::java::awt::Rectangle * viewRect;
   ::java::awt::Rectangle * textRect;
   ::java::awt::Rectangle * accelRect;

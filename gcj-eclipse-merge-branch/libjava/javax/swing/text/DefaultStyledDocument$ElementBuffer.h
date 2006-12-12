@@ -17,10 +17,10 @@ extern "Java"
     {
       namespace text
       {
-          class AbstractDocument$BranchElement;
           class AbstractDocument$DefaultDocumentEvent;
           class DefaultStyledDocument;
           class DefaultStyledDocument$ElementBuffer;
+          class DefaultStyledDocument$ElementBuffer$Edit;
           class DefaultStyledDocument$ElementSpec;
           class Element;
       }
@@ -37,34 +37,55 @@ public:
   virtual void remove(jint, jint, ::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
 public: // actually protected
   virtual void removeUpdate();
+private:
+  jboolean removeElements(::javax::swing::text::Element *, jint, jint);
+public: // actually package-private
+  virtual void create(jint, JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *, ::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
+private:
+  jboolean canJoin(::javax::swing::text::Element *, ::javax::swing::text::Element *);
+  ::javax::swing::text::Element * join(::javax::swing::text::Element *, ::javax::swing::text::Element *, ::javax::swing::text::Element *, jint, jint);
+public: // actually protected
   virtual void changeUpdate();
 public:
   virtual void change(jint, jint, ::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
   virtual ::javax::swing::text::Element * clone(::javax::swing::text::Element *, ::javax::swing::text::Element *);
+private:
+  ::javax::swing::text::Element * cloneAsNecessary(::javax::swing::text::Element *, ::javax::swing::text::Element *, jint, jint);
+public:
   virtual void insert(jint, jint, JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *, ::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
+private:
+  void prepareEdit(jint, jint);
+  void finishEdit(::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
 public: // actually protected
   virtual void insertUpdate(JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *);
 private:
-  ::javax::swing::text::Element * insertParagraph(::javax::swing::text::AbstractDocument$BranchElement *, jint);
+  void pop();
+  void insertElement(::javax::swing::text::DefaultStyledDocument$ElementSpec *);
   void insertFirstContentTag(JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *);
-  void insertContentTag(::javax::swing::text::DefaultStyledDocument$ElementSpec *);
+  void insertContentTag(::javax::swing::text::DefaultStyledDocument$ElementSpec *, ::javax::swing::text::DefaultStyledDocument$ElementBuffer$Edit *);
   void createFracture(JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *);
-  void recreateLeaves(jint, ::javax::swing::text::AbstractDocument$BranchElement *, jboolean);
-  JArray< ::javax::swing::text::Element * > * split(::javax::swing::text::Element *, jint, jint, jint);
-  void insertFracture(::javax::swing::text::DefaultStyledDocument$ElementSpec *);
-  JArray< ::javax::swing::text::Element * > * recreateAfterFracture(JArray< ::javax::swing::text::Element * > *, ::javax::swing::text::AbstractDocument$BranchElement *, jint, jint);
+  void fracture(jint);
+  void recreate(jint, jint);
+  ::javax::swing::text::Element * recreateFracturedElement(::javax::swing::text::Element *, ::javax::swing::text::Element *);
+  jboolean split(jint, jint);
   static const jlong serialVersionUID = 1688745877691146623LL;
   ::javax::swing::text::Element * __attribute__((aligned(__alignof__( ::java::lang::Object)))) root;
   jint offset;
   jint endOffset;
   jint length;
   jint pos;
-  ::javax::swing::text::Element * lastFractured;
-  jboolean fracNotCreated;
+  ::javax::swing::text::Element * fracturedParent;
+  ::javax::swing::text::Element * fracturedChild;
+  jboolean createdFracture;
   ::java::util::Stack * elementStack;
+  JArray< ::javax::swing::text::DefaultStyledDocument$ElementBuffer$Edit * > * insertPath;
+  jboolean recreateLeafs;
+  ::java::util::ArrayList * edits;
+  jboolean offsetLastIndex;
+  jboolean offsetLastIndexReplace;
 public: // actually package-private
-  ::javax::swing::text::AbstractDocument$DefaultDocumentEvent * documentEvent;
   ::javax::swing::text::DefaultStyledDocument * this$0;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

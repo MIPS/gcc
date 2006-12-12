@@ -113,7 +113,13 @@ public:
   virtual void removeLayoutComponent(::java::awt::Component *);
 public: // actually protected
   virtual void scrollByBlock(jint);
+public: // actually package-private
+  static void scrollByBlock(::javax::swing::JScrollBar *, jint);
+public: // actually protected
   virtual void scrollByUnit(jint);
+public: // actually package-private
+  static void scrollByUnits(::javax::swing::JScrollBar *, jint, jint);
+public: // actually protected
   virtual void setThumbBounds(jint, jint, jint, jint);
   virtual void uninstallComponents();
   virtual void uninstallDefaults();

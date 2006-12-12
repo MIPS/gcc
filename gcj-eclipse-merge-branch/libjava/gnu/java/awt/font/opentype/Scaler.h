@@ -20,6 +20,10 @@ extern "Java"
           namespace opentype
           {
               class Scaler;
+            namespace truetype
+            {
+                class Zone;
+            }
           }
         }
       }
@@ -48,6 +52,7 @@ public:
   virtual void getAdvance(jint, jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean, ::java::awt::geom::Point2D *) = 0;
   virtual jfloat getAscent(jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean) = 0;
   virtual jfloat getDescent(jfloat, ::java::awt::geom::AffineTransform *, jboolean, jboolean, jboolean) = 0;
+  virtual ::gnu::java::awt::font::opentype::truetype::Zone * getRawOutline(jint, ::java::awt::geom::AffineTransform *) = 0;
   static ::java::lang::Class class$;
 };
 

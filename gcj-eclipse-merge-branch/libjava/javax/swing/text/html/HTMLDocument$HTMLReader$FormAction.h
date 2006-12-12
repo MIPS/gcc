@@ -34,8 +34,11 @@ public:
   HTMLDocument$HTMLReader$FormAction(::javax::swing::text::html::HTMLDocument$HTMLReader *);
   virtual void start(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::MutableAttributeSet *);
   virtual void end(::javax::swing::text::html::HTML$Tag *);
+private:
+  void setModel(::java::lang::String *, ::javax::swing::text::MutableAttributeSet *);
 public: // actually package-private
   ::javax::swing::text::html::HTMLDocument$HTMLReader * __attribute__((aligned(__alignof__( ::javax::swing::text::html::HTMLDocument$HTMLReader$SpecialAction)))) this$1;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

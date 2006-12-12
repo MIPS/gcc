@@ -51,7 +51,7 @@ class gnu::java::awt::dnd::peer::gtk::GtkDropTargetContextPeer : public ::gnu::j
 {
 
 public:
-  GtkDropTargetContextPeer();
+  GtkDropTargetContextPeer(::java::lang::Object *);
   virtual void setTargetActions(jint);
   virtual jint getTargetActions();
   virtual ::java::awt::dnd::DropTarget * getDropTarget();

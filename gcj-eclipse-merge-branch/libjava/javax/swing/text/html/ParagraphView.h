@@ -9,6 +9,25 @@
 #include <javax/swing/text/ParagraphView.h>
 extern "Java"
 {
+  namespace gnu
+  {
+    namespace javax
+    {
+      namespace swing
+      {
+        namespace text
+        {
+          namespace html
+          {
+            namespace css
+            {
+                class Length;
+            }
+          }
+        }
+      }
+    }
+  }
   namespace java
   {
     namespace awt
@@ -31,6 +50,7 @@ extern "Java"
         {
             class ParagraphView;
             class StyleSheet;
+            class StyleSheet$BoxPainter;
         }
       }
     }
@@ -48,12 +68,20 @@ public: // actually protected
   virtual void setPropertiesFromAttributes();
   virtual ::javax::swing::text::html::StyleSheet * getStyleSheet();
   virtual ::javax::swing::SizeRequirements * calculateMinorAxisRequirements(jint, ::javax::swing::SizeRequirements *);
+private:
+  jboolean setCSSSpan(::javax::swing::SizeRequirements *, jint);
 public:
   virtual jboolean isVisible();
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
   virtual jfloat getPreferredSpan(jint);
   virtual jfloat getMinimumSpan(jint);
   virtual jfloat getMaximumSpan(jint);
+private:
+  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::javax::swing::text::ParagraphView)))) attributes;
+  ::javax::swing::text::html::StyleSheet$BoxPainter * painter;
+  ::gnu::javax::swing::text::html::css::Length * cssWidth;
+  ::gnu::javax::swing::text::html::css::Length * cssHeight;
+public:
   static ::java::lang::Class class$;
 };
 

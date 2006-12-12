@@ -52,11 +52,7 @@ private:
 public:
   virtual ::java::awt::Image * getOffscreenBuffer(::java::awt::Component *, jint, jint);
 public: // actually package-private
-  virtual void commitBuffer(::java::awt::Component *, ::java::awt::Rectangle *);
-private:
-  void blitBuffer(::java::awt::Component *, ::java::awt::Rectangle *);
-  ::java::awt::Component * getHeavyweightParent(::java::awt::Component *);
-  void commitRemainingBuffers();
+  virtual void commitBuffer(::java::awt::Component *, jint, jint, jint, jint);
 public:
   virtual ::java::awt::Image * getVolatileOffscreenBuffer(::java::awt::Component *, jint, jint);
   virtual ::java::awt::Dimension * getDoubleBufferMaximumSize();
@@ -64,6 +60,8 @@ public:
   virtual void setDoubleBufferingEnabled(jboolean);
   virtual jboolean isDoubleBufferingEnabled();
   virtual ::java::lang::String * toString();
+private:
+  void invokeLater(::java::lang::Runnable *);
 public: // actually package-private
   static ::java::util::WeakHashMap * currentRepaintManagers;
 private:
@@ -74,8 +72,6 @@ private:
   ::java::util::ArrayList * invalidComponents;
   jboolean doubleBufferingEnabled;
   ::java::util::WeakHashMap * offscreenBuffers;
-  jboolean repaintUnderway;
-  ::java::util::HashMap * commitRequests;
   ::java::awt::Dimension * doubleBufferMaximumSize;
 public:
   static ::java::lang::Class class$;

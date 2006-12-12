@@ -34,7 +34,7 @@ public:
   virtual JArray< ::java::security::cert::Certificate * > * getCertificates();
 public: // actually package-private
   ::java::util::jar::Attributes * __attribute__((aligned(__alignof__( ::java::util::zip::ZipEntry)))) attr;
-  JArray< ::java::security::cert::Certificate * > * certs;
+  ::java::util::jar::JarFile * jarfile;
 public:
   static ::java::lang::Class class$;
 };

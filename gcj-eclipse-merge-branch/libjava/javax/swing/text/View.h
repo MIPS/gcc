@@ -107,9 +107,7 @@ public:
   static const jint X_AXIS = 0;
   static const jint Y_AXIS = 1;
 private:
-  jfloat __attribute__((aligned(__alignof__( ::java::lang::Object)))) width;
-  jfloat height;
-  ::javax::swing::text::Element * elt;
+  ::javax::swing::text::Element * __attribute__((aligned(__alignof__( ::java::lang::Object)))) elt;
   ::javax::swing::text::View * parent;
 public:
   static ::java::lang::Class class$;

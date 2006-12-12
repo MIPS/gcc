@@ -34,11 +34,13 @@ public:
   static jdouble acos(jdouble);
   static jdouble atan(jdouble);
   static jdouble atan2(jdouble, jdouble);
+  static jdouble sinh(jdouble);
   static jdouble cosh(jdouble);
+  static jdouble tanh(jdouble);
 private:
-  static jint getLowDWord(jlong);
-  static jint getHighDWord(jlong);
-  static jdouble buildDouble(jint, jint);
+  static jlong getLowDWord(jlong);
+  static jlong getHighDWord(jlong);
+  static jdouble buildDouble(jlong, jlong);
 public:
   static jdouble cbrt(jdouble);
   static jdouble exp(jdouble);

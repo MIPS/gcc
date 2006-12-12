@@ -35,16 +35,7 @@ public:
   virtual void write(JArray< jbyte > *);
   virtual void write(JArray< jbyte > *, jint, jint);
 private:
-  void process();
   ::javax::crypto::Cipher * __attribute__((aligned(__alignof__( ::java::io::FilterOutputStream)))) cipher;
-  JArray< JArray< jbyte > * > * inBuffer;
-  jint inLength;
-  JArray< jbyte > * outBuffer;
-  static const jint FIRST_TIME = 0;
-  static const jint SECOND_TIME = 1;
-  static const jint SEASONED = 2;
-  jint state;
-  jboolean isStream;
 public:
   static ::java::lang::Class class$;
 };

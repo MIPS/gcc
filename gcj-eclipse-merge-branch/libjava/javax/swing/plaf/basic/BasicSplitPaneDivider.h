@@ -89,6 +89,7 @@ private:
   ::javax::swing::border::Border * border;
 public: // actually package-private
   jint currentDividerLocation;
+  jboolean centerOneTouchButtons;
 public:
   static ::java::lang::Class class$;
 };

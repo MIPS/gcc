@@ -57,7 +57,7 @@ class gnu::java::awt::peer::gtk::FreetypeGlyphVector : public ::java::awt::font:
 
 public:
   FreetypeGlyphVector(::java::awt::Font *, ::java::lang::String *, ::java::awt::font::FontRenderContext *);
-  FreetypeGlyphVector(::java::awt::Font *, ::java::lang::String *, ::java::awt::font::FontRenderContext *, jint);
+  FreetypeGlyphVector(::java::awt::Font *, JArray< jchar > *, jint, jint, ::java::awt::font::FontRenderContext *, jint);
   FreetypeGlyphVector(::java::awt::Font *, JArray< jint > *, ::java::awt::font::FontRenderContext *);
 private:
   FreetypeGlyphVector(::gnu::java::awt::peer::gtk::FreetypeGlyphVector *);

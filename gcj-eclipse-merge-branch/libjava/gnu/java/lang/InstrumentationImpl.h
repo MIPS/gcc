@@ -33,6 +33,7 @@ extern "Java"
 class gnu::java::lang::InstrumentationImpl : public ::java::lang::Object
 {
 
+public: // actually package-private
   InstrumentationImpl();
 public:
   void addTransformer(::java::lang::instrument::ClassFileTransformer *);

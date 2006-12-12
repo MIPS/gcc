@@ -15,6 +15,7 @@ extern "Java"
   {
     namespace security
     {
+        class Principal;
       namespace cert
       {
           class Certificate;
@@ -45,19 +46,25 @@ class javax::net::ssl::SSLSession : public ::java::lang::Object
 {
 
 public:
+  virtual jint getApplicationBufferSize() = 0;
   virtual ::java::lang::String * getCipherSuite() = 0;
   virtual jlong getCreationTime() = 0;
   virtual JArray< jbyte > * getId() = 0;
   virtual jlong getLastAccessedTime() = 0;
   virtual JArray< ::java::security::cert::Certificate * > * getLocalCertificates() = 0;
+  virtual ::java::security::Principal * getLocalPrincipal() = 0;
+  virtual jint getPacketBufferSize() = 0;
   virtual JArray< ::java::security::cert::Certificate * > * getPeerCertificates() = 0;
   virtual JArray< ::javax::security::cert::X509Certificate * > * getPeerCertificateChain() = 0;
   virtual ::java::lang::String * getPeerHost() = 0;
+  virtual jint getPeerPort() = 0;
+  virtual ::java::security::Principal * getPeerPrincipal() = 0;
   virtual ::java::lang::String * getProtocol() = 0;
   virtual ::javax::net::ssl::SSLSessionContext * getSessionContext() = 0;
   virtual JArray< ::java::lang::String * > * getValueNames() = 0;
   virtual ::java::lang::Object * getValue(::java::lang::String *) = 0;
   virtual void invalidate() = 0;
+  virtual jboolean isValid() = 0;
   virtual void putValue(::java::lang::String *, ::java::lang::Object *) = 0;
   virtual void removeValue(::java::lang::String *) = 0;
   static ::java::lang::Class class$;

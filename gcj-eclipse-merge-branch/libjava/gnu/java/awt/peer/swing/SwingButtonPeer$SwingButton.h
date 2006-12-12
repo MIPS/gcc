@@ -30,6 +30,8 @@ extern "Java"
   {
     namespace awt
     {
+        class Button;
+        class Container;
         class Graphics;
         class Image;
         class Point;
@@ -53,7 +55,7 @@ class gnu::java::awt::peer::swing::SwingButtonPeer$SwingButton : public ::javax:
 {
 
 public: // actually package-private
-  SwingButtonPeer$SwingButton(::gnu::java::awt::peer::swing::SwingButtonPeer *);
+  SwingButtonPeer$SwingButton(::gnu::java::awt::peer::swing::SwingButtonPeer *, ::java::awt::Button *);
 public:
   virtual ::java::awt::Point * getLocationOnScreen();
   virtual jboolean isShowing();
@@ -63,8 +65,10 @@ public:
   virtual void handleMouseEvent(::java::awt::event::MouseEvent *);
   virtual void handleMouseMotionEvent(::java::awt::event::MouseEvent *);
   virtual void handleKeyEvent(::java::awt::event::KeyEvent *);
+  virtual ::java::awt::Container * getParent();
 public: // actually package-private
-  ::gnu::java::awt::peer::swing::SwingButtonPeer * __attribute__((aligned(__alignof__( ::javax::swing::JButton)))) this$0;
+  ::java::awt::Button * __attribute__((aligned(__alignof__( ::javax::swing::JButton)))) button;
+  ::gnu::java::awt::peer::swing::SwingButtonPeer * this$0;
 public:
   static ::java::lang::Class class$;
 };

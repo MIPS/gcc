@@ -24,10 +24,17 @@ extern "Java"
     namespace swing
     {
         class JEditorPane;
+      namespace event
+      {
+          class HyperlinkEvent;
+      }
       namespace text
       {
+          class AttributeSet;
+          class Element;
         namespace html
         {
+            class HTMLDocument;
             class HTMLEditorKit$LinkController;
         }
       }
@@ -45,6 +52,10 @@ public:
   virtual void mouseMoved(::java::awt::event::MouseEvent *);
 public: // actually protected
   virtual void activateLink(jint, ::javax::swing::JEditorPane *);
+private:
+  void activateLink(jint, ::javax::swing::JEditorPane *, jint, jint);
+  ::javax::swing::event::HyperlinkEvent * createHyperlinkEvent(::javax::swing::JEditorPane *, ::javax::swing::text::html::HTMLDocument *, ::java::lang::String *, ::javax::swing::text::AttributeSet *, ::javax::swing::text::Element *);
+  ::javax::swing::text::Element * __attribute__((aligned(__alignof__( ::java::awt::event::MouseAdapter)))) lastAnchorElement;
 public:
   static ::java::lang::Class class$;
 };

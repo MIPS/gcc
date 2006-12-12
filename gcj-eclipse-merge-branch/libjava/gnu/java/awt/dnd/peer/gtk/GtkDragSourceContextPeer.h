@@ -22,6 +22,7 @@ extern "Java"
             namespace gtk
             {
                 class GtkDragSourceContextPeer;
+                class GtkDropTargetContextPeer;
             }
           }
         }
@@ -57,6 +58,7 @@ public: // actually package-private
   virtual void connectSignals(::java::awt::peer::ComponentPeer *);
   virtual void create(::java::awt::peer::ComponentPeer *);
   virtual void nativeSetCursor(jint);
+  virtual void setTarget(::gnu::java::awt::dnd::peer::gtk::GtkDropTargetContextPeer *);
 public:
   GtkDragSourceContextPeer(::java::awt::dnd::DragGestureEvent *);
 public: // actually package-private
@@ -77,6 +79,7 @@ private:
   ::java::awt::Cursor * cursor;
   ::java::awt::dnd::DragSourceContext * context;
 public:
+  static ::java::awt::Component * target;
   static ::java::lang::Class class$;
 };
 

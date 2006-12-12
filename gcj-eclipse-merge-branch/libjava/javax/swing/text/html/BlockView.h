@@ -11,6 +11,25 @@
 
 extern "Java"
 {
+  namespace gnu
+  {
+    namespace javax
+    {
+      namespace swing
+      {
+        namespace text
+        {
+          namespace html
+          {
+            namespace css
+            {
+                class Length;
+            }
+          }
+        }
+      }
+    }
+  }
   namespace java
   {
     namespace awt
@@ -38,6 +57,7 @@ extern "Java"
         {
             class BlockView;
             class StyleSheet;
+            class StyleSheet$BoxPainter;
         }
       }
     }
@@ -53,7 +73,14 @@ public:
 public: // actually protected
   virtual ::javax::swing::SizeRequirements * calculateMajorAxisRequirements(jint, ::javax::swing::SizeRequirements *);
   virtual ::javax::swing::SizeRequirements * calculateMinorAxisRequirements(jint, ::javax::swing::SizeRequirements *);
+private:
+  jboolean setCSSSpan(::javax::swing::SizeRequirements *, jint);
+  void constrainSize(jint, ::javax::swing::SizeRequirements *, ::javax::swing::SizeRequirements *);
+public: // actually protected
   virtual void layoutMinorAxis(jint, jint, JArray< jint > *, JArray< jint > *);
+  virtual void layoutMajorAxis(jint, jint, JArray< jint > *, JArray< jint > *);
+private:
+  void positionView(jint, jint, jint, JArray< jint > *, JArray< jint > *);
 public:
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
   virtual ::javax::swing::text::AttributeSet * getAttributes();
@@ -66,6 +93,16 @@ public:
 public: // actually protected
   virtual void setPropertiesFromAttributes();
   virtual ::javax::swing::text::html::StyleSheet * getStyleSheet();
+public:
+  virtual void replace(jint, jint, JArray< ::javax::swing::text::View * > *);
+private:
+  void fetchLayoutInfo(::javax::swing::text::View *);
+  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::javax::swing::text::BoxView)))) attributes;
+public: // actually package-private
+  ::javax::swing::text::html::StyleSheet$BoxPainter * painter;
+private:
+  JArray< ::gnu::javax::swing::text::html::css::Length * > * cssSpans;
+  ::java::util::HashMap * positionInfo;
 public:
   static ::java::lang::Class class$;
 };

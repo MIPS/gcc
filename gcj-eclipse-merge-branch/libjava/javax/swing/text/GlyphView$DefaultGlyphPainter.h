@@ -15,6 +15,7 @@ extern "Java"
   {
     namespace awt
     {
+        class FontMetrics;
         class Graphics;
         class Shape;
     }
@@ -48,6 +49,11 @@ public:
   virtual jfloat getDescent(::javax::swing::text::GlyphView *);
   virtual jint getBoundedPosition(::javax::swing::text::GlyphView *, jint, jfloat, jfloat);
   virtual jint viewToModel(::javax::swing::text::GlyphView *, jfloat, jfloat, ::java::awt::Shape *, JArray< ::javax::swing::text::Position$Bias * > *);
+private:
+  void updateFontMetrics(::javax::swing::text::GlyphView *);
+public: // actually package-private
+  ::java::awt::FontMetrics * __attribute__((aligned(__alignof__( ::javax::swing::text::GlyphView$GlyphPainter)))) fontMetrics;
+public:
   static ::java::lang::Class class$;
 };
 

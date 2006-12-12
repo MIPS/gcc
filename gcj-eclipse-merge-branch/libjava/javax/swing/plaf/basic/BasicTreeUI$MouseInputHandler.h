@@ -50,6 +50,9 @@ public:
   virtual void mouseMoved(::java::awt::event::MouseEvent *);
 public: // actually protected
   virtual void removeFromSource();
+private:
+  void dispatch(::java::awt::event::MouseEvent *);
+public: // actually protected
   ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) source;
   ::java::awt::Component * destination;
 public: // actually package-private

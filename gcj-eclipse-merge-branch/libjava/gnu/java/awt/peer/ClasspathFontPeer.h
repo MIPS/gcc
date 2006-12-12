@@ -109,7 +109,6 @@ public:
   virtual jboolean hasUniformLineMetrics(::java::awt::Font *) = 0;
   virtual ::java::awt::font::LineMetrics * getLineMetrics(::java::awt::Font *, ::java::text::CharacterIterator *, jint, jint, ::java::awt::font::FontRenderContext *) = 0;
   virtual ::java::awt::geom::Rectangle2D * getMaxCharBounds(::java::awt::Font *, ::java::awt::font::FontRenderContext *) = 0;
-  virtual ::java::awt::geom::Rectangle2D * getStringBounds(::java::awt::Font *, ::java::text::CharacterIterator *, jint, jint, ::java::awt::font::FontRenderContext *) = 0;
 public: // actually protected
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) logicalName;
   ::java::lang::String * familyName;

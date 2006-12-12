@@ -14,6 +14,7 @@ extern "Java"
     namespace awt
     {
         class Graphics;
+        class Rectangle;
     }
   }
   namespace javax
@@ -26,6 +27,7 @@ extern "Java"
           class View;
         namespace html
         {
+            class StyleSheet;
             class StyleSheet$ListPainter;
         }
       }
@@ -37,11 +39,14 @@ class javax::swing::text::html::StyleSheet$ListPainter : public ::java::lang::Ob
 {
 
 public: // actually package-private
-  StyleSheet$ListPainter(::javax::swing::text::AttributeSet *);
+  StyleSheet$ListPainter(::javax::swing::text::AttributeSet *, ::javax::swing::text::html::StyleSheet *);
 public:
   virtual void paint(::java::awt::Graphics *, jfloat, jfloat, jfloat, jfloat, ::javax::swing::text::View *, jint);
-public: // actually package-private
-  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::java::lang::Object)))) as;
+private:
+  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::java::lang::Object)))) attributes;
+  ::javax::swing::text::html::StyleSheet * styleSheet;
+  ::java::lang::String * type;
+  ::java::awt::Rectangle * tmpRect;
 public:
   static ::java::lang::Class class$;
 };

@@ -27,6 +27,7 @@ extern "Java"
     {
       namespace text
       {
+          class AttributeSet;
           class Element;
         namespace html
         {
@@ -52,9 +53,23 @@ public: // actually protected
   virtual void imageSubmit(::java::lang::String *);
 public: // actually package-private
   virtual ::java::lang::String * getImageData(::java::awt::Point *);
+  virtual ::javax::swing::text::Element * getFormElement();
+private:
+  ::java::lang::String * getFormData();
+  void getElementFormData(::javax::swing::text::Element *, ::java::lang::StringBuilder *);
+  void getSelectData(::javax::swing::text::AttributeSet *, ::java::lang::StringBuilder *);
+  ::java::lang::String * getTextAreaData(::javax::swing::text::AttributeSet *);
+  ::java::lang::String * getInputFormData(::javax::swing::text::AttributeSet *);
+  void addData(::java::lang::StringBuilder *, ::java::lang::String *, ::java::lang::String *);
+  void resetForm();
 public:
   static ::java::lang::String * SUBMIT;
   static ::java::lang::String * RESET;
+private:
+  jboolean __attribute__((aligned(__alignof__( ::javax::swing::text::ComponentView)))) maxIsPreferred;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
+public:
   static ::java::lang::Class class$;
 };
 

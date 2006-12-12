@@ -51,7 +51,7 @@ public:
   virtual JArray< ::java::security::cert::X509Certificate * > * getAcceptedIssuers();
 private:
   void checkTrusted(JArray< ::java::security::cert::X509Certificate * > *, ::java::lang::String *);
-  JArray< ::java::security::cert::X509Certificate * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) trusted;
+  ::java::util::Set * __attribute__((aligned(__alignof__( ::java::lang::Object)))) anchors;
 public: // actually package-private
   ::gnu::javax::net::ssl::provider::X509TrustManagerFactory * this$0;
 public:

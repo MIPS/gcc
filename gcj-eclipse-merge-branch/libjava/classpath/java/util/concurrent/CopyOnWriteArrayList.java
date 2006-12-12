@@ -84,6 +84,20 @@ public class CopyOnWriteArrayList<E> extends AbstractList<E> implements
   }
 
   /**
+   * Construct a new ArrayList, and initialize it with the elements in the
+   * supplied array.
+   * 
+   * @param array
+   *          the array used to initialize this list
+   * @throws NullPointerException
+   *           if array is null
+   */
+  public CopyOnWriteArrayList(E[] array)
+  {
+    data = (E[]) array.clone();
+  }
+
+  /**
    * Returns the number of elements in this list.
    * 
    * @return the list size

@@ -67,6 +67,9 @@ public:
   virtual ::java::lang::String * getAtIndex(jint, jint);
   virtual ::java::lang::String * getAfterIndex(jint, jint);
   virtual ::java::lang::String * getBeforeIndex(jint, jint);
+private:
+  ::java::lang::String * getAtIndexImpl(jint, jint, jint);
+public:
   virtual jint getAccessibleActionCount();
   virtual ::java::lang::String * getAccessibleActionDescription(jint);
   virtual jboolean doAccessibleAction(jint);
@@ -81,10 +84,10 @@ public:
   virtual void setAttributes(jint, jint, ::javax::swing::text::AttributeSet *);
 private:
   static const jlong serialVersionUID = 7664188944091413696LL;
+  jint __attribute__((aligned(__alignof__( ::javax::swing::JComponent$AccessibleJComponent)))) caretDot;
 public: // actually package-private
-  jint __attribute__((aligned(__alignof__( ::javax::swing::JComponent$AccessibleJComponent)))) dot;
-  ::javax::swing::text::JTextComponent * textComp;
   ::javax::swing::text::JTextComponent * this$0;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

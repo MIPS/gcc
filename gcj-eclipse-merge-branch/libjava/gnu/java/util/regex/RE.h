@@ -121,6 +121,7 @@ public:
 private:
   static ::java::lang::String * VERSION;
   static ::java::util::ResourceBundle * messages;
+  static ::java::lang::String * bundle;
   ::gnu::java::util::regex::REToken * __attribute__((aligned(__alignof__( ::gnu::java::util::regex::REToken)))) firstToken;
   ::gnu::java::util::regex::REToken * lastToken;
   jint numSubs;
@@ -138,6 +139,7 @@ public:
   static const jint REG_REPLACE_USE_BACKSLASHESCAPE = 512;
   static const jint REG_X_COMMENTS = 1024;
   static const jint REG_ICASE_USASCII = 2048;
+  static const jint REG_FIX_STARTING_POSITION = 4096;
   static ::java::lang::Class class$;
 };
 

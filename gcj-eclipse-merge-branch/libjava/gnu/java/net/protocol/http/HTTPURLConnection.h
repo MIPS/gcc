@@ -91,7 +91,7 @@ public:
   virtual JArray< ::java::security::cert::Certificate * > * getLocalCertificates();
   virtual JArray< ::java::security::cert::Certificate * > * getServerCertificates();
   virtual void handshakeCompleted(::javax::net::ssl::HandshakeCompletedEvent *);
-  virtual void setConnectTimeout(jint);
+  virtual void setReadTimeout(jint);
 private:
   ::gnu::java::net::protocol::http::HTTPConnection * __attribute__((aligned(__alignof__( ::javax::net::ssl::HttpsURLConnection)))) connection;
 public: // actually package-private

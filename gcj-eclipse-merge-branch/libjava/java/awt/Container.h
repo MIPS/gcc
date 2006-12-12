@@ -69,8 +69,8 @@ public:
   virtual void layout();
   virtual void invalidate();
   virtual void validate();
-public: // actually package-private
-  virtual void invalidateTree();
+private:
+  void invalidateTree();
 public: // actually protected
   virtual void validateTree();
 public:
@@ -131,10 +131,12 @@ private:
   void visitChild(::java::awt::Graphics *, ::java::awt::Container$GfxVisitor *, ::java::awt::Component *);
 public: // actually package-private
   virtual void dispatchEventImpl(::java::awt::AWTEvent *);
+  virtual void dispatchNoLightweight(::java::awt::AWTEvent *);
   virtual jboolean eventTypeEnabled(jint);
   virtual ::java::awt::Component * findNextFocusComponent(::java::awt::Component *);
   virtual void fireHierarchyEvent(jint, ::java::awt::Component *, ::java::awt::Container *, jlong);
   virtual void updateHierarchyListenerCount(jlong, jint);
+  virtual void notifyReshape(jboolean, jboolean);
 private:
   void addNotifyContainerChildren();
   void readObject(::java::io::ObjectInputStream *);
@@ -144,7 +146,6 @@ public: // actually package-private
   jint __attribute__((aligned(__alignof__( ::java::awt::Component)))) ncomponents;
   JArray< ::java::awt::Component * > * component;
   ::java::awt::LayoutManager * layoutMgr;
-  ::java::awt::Dimension * maxSize;
   jboolean focusCycleRoot;
 private:
   jboolean focusTraversalPolicyProvider;

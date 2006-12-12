@@ -26,6 +26,7 @@ extern "Java"
       {
           class KeyManager;
           class SSLContextSpi;
+          class SSLEngine;
           class SSLServerSocketFactory;
           class SSLSessionContext;
           class SSLSocketFactory;
@@ -41,6 +42,8 @@ class javax::net::ssl::SSLContextSpi : public ::java::lang::Object
 public:
   SSLContextSpi();
 public: // actually protected
+  virtual ::javax::net::ssl::SSLEngine * engineCreateSSLEngine() = 0;
+  virtual ::javax::net::ssl::SSLEngine * engineCreateSSLEngine(::java::lang::String *, jint) = 0;
   virtual ::javax::net::ssl::SSLSessionContext * engineGetClientSessionContext() = 0;
   virtual ::javax::net::ssl::SSLSessionContext * engineGetServerSessionContext() = 0;
   virtual ::javax::net::ssl::SSLServerSocketFactory * engineGetServerSocketFactory() = 0;

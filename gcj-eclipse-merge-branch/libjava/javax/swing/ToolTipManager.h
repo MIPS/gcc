@@ -59,6 +59,8 @@ public:
   virtual void mousePressed(::java::awt::event::MouseEvent *);
   virtual void mouseDragged(::java::awt::event::MouseEvent *);
   virtual void mouseMoved(::java::awt::event::MouseEvent *);
+private:
+  void checkTipUpdate(::java::awt::event::MouseEvent *);
 public: // actually package-private
   virtual void showTip();
 private:
@@ -78,10 +80,11 @@ public: // actually protected
   jboolean heavyWeightPopupEnabled;
 private:
   static ::javax::swing::ToolTipManager * shared;
-  static ::java::awt::Component * currentComponent;
-  static ::javax::swing::JToolTip * currentTip;
-  static ::java::awt::Point * currentPoint;
-  static ::javax::swing::Popup * popup;
+  ::javax::swing::JComponent * currentComponent;
+  ::javax::swing::JToolTip * currentTip;
+  ::java::lang::String * toolTipText;
+  ::java::awt::Point * currentPoint;
+  ::javax::swing::Popup * popup;
 public:
   static ::java::lang::Class class$;
 };

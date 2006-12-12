@@ -42,6 +42,8 @@ public:
   ::java::lang::String * getKey(::java::lang::String *);
   ::java::util::List * getKeys(::java::lang::String *);
   ::java::util::List * getChildrenNodes(::java::lang::String *);
+  static ::java::lang::String * escapeString(::java::lang::String *);
+  static ::java::lang::String * unescapeString(::java::lang::String *);
   void suggestSync();
 public: // actually protected
   void finalize();
@@ -57,8 +59,10 @@ public: // actually protected
   static ::java::lang::String * gconf_client_get_string(::java::lang::String *);
   static jboolean gconf_client_unset(::java::lang::String *);
   static void gconf_client_suggest_sync();
-  static ::java::util::List * gconf_client_gconf_client_all_nodes(::java::lang::String *);
-  static ::java::util::List * gconf_client_gconf_client_all_keys(::java::lang::String *);
+  static ::java::util::List * gconf_client_all_nodes(::java::lang::String *);
+  static ::java::util::List * gconf_client_all_keys(::java::lang::String *);
+  static ::java::lang::String * gconf_escape_key(::java::lang::String *);
+  static ::java::lang::String * gconf_unescape_key(::java::lang::String *);
 private:
   static JArray< ::java::lang::Object * > * semaphore;
 public:

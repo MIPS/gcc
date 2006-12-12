@@ -64,6 +64,10 @@ public:
   virtual ::java::awt::Component * getTreeCellRendererComponent(::javax::swing::JTree *, ::java::lang::Object *, jboolean, jboolean, jboolean, jint, jboolean);
   virtual ::java::awt::Font * getFont();
   virtual void paint(::java::awt::Graphics *);
+private:
+  void paintFocus(::java::awt::Graphics *, jint, jint, jint, jint);
+  jint getXOffset();
+public:
   virtual ::java::awt::Dimension * getPreferredSize();
   virtual void validate();
   virtual void revalidate();

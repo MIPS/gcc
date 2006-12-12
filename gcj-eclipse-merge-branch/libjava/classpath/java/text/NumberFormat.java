@@ -218,7 +218,7 @@ public abstract class NumberFormat extends Format implements Cloneable
   public final String format (long number)
   {
     StringBuffer sbuf = new StringBuffer(50);
-    format (number, sbuf, null);
+    format (number, sbuf, new FieldPosition(0));
     return sbuf.toString();
   }
 
@@ -230,9 +230,9 @@ public abstract class NumberFormat extends Format implements Cloneable
   {
     if (obj instanceof Number)
       return format(((Number) obj).doubleValue(), sbuf, pos);
-    else
-      throw new IllegalArgumentException 
-	("Cannot format given Object as a Number");
+  
+    throw new
+      IllegalArgumentException("Cannot format given Object as a Number");
   }
 
   /**
@@ -354,7 +354,7 @@ public abstract class NumberFormat extends Format implements Cloneable
   {
     NumberFormat format;
     
-    format = computeInstance (loc, "currencyFormat", "$#,##0.00;($#,##0.00)");
+    format = computeInstance (loc, "currencyFormat", "\u00A4#,##0.00;(\u00A4#,##0.00)");
     format.setMaximumFractionDigits(format.getCurrency().getDefaultFractionDigits());  
     return format;
   }
@@ -723,7 +723,9 @@ public abstract class NumberFormat extends Format implements Cloneable
   public final String format (double number)
   {
     StringBuffer sbuf = new StringBuffer(50);
-    format (number, sbuf, null);
+    FieldPosition position = new FieldPosition(0);
+    
+    format (number, sbuf, position);
     return sbuf.toString();
   }
 

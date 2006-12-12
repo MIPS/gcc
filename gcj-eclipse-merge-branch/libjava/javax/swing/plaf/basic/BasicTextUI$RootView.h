@@ -38,6 +38,7 @@ extern "Java"
       }
       namespace text
       {
+          class AttributeSet;
           class Document;
           class Position$Bias;
           class View;
@@ -58,7 +59,7 @@ public:
   virtual ::javax::swing::text::View * getView(jint);
   virtual jint getViewCount();
   virtual ::java::awt::Container * getContainer();
-  virtual jfloat getPreferredSpan(jint);
+  virtual void setSize(jfloat, jfloat);
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
   virtual ::java::awt::Shape * modelToView(jint, ::java::awt::Shape *, ::javax::swing::text::Position$Bias *);
   virtual jint viewToModel(jfloat, jfloat, ::java::awt::Shape *, JArray< ::javax::swing::text::Position$Bias * > *);
@@ -69,6 +70,10 @@ public:
   virtual jint getStartOffset();
   virtual jint getEndOffset();
   virtual ::javax::swing::text::Document * getDocument();
+  virtual ::javax::swing::text::AttributeSet * getAttributes();
+  virtual jfloat getPreferredSpan(jint);
+  virtual jfloat getMinimumSpan(jint);
+  virtual jfloat getMaximumSpan(jint);
 private:
   ::javax::swing::text::View * __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) view;
 public: // actually package-private

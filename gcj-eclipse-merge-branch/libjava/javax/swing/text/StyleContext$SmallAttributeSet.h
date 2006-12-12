@@ -46,6 +46,9 @@ public:
   virtual ::java::lang::String * toString();
 public: // actually package-private
   JArray< ::java::lang::Object * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) attrs;
+private:
+  ::javax::swing::text::AttributeSet * resolveParent;
+public: // actually package-private
   ::javax::swing::text::StyleContext * this$0;
 public:
   static ::java::lang::Class class$;

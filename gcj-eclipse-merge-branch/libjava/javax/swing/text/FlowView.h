@@ -62,8 +62,6 @@ public: // actually protected
   jint __attribute__((aligned(__alignof__( ::javax::swing::text::BoxView)))) layoutSpan;
   ::javax::swing::text::View * layoutPool;
   ::javax::swing::text::FlowView$FlowStrategy * strategy;
-private:
-  jboolean layoutDirty;
 public:
   static ::java::lang::Class class$;
 };

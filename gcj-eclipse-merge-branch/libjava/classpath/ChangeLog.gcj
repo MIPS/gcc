@@ -1,3 +1,7 @@
+2006-12-11  Tom Tromey  <tromey@redhat.com>
+
+	* Merged in Classpath from libgcj-import-20061211.
+
 2006-10-17  Tom Tromey  <tromey@redhat.com>
 
 	* sun/reflect/annotation/AnnotationInvocationHandler.java

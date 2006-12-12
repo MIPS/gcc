@@ -11,6 +11,13 @@
 
 extern "Java"
 {
+  namespace java
+  {
+    namespace text
+    {
+        class Bidi;
+    }
+  }
   namespace javax
   {
     namespace swing
@@ -27,6 +34,7 @@ extern "Java"
       {
           class AbstractDocument;
           class AbstractDocument$AttributeContext;
+          class AbstractDocument$BidiRootElement;
           class AbstractDocument$Content;
           class AbstractDocument$DefaultDocumentEvent;
           class AttributeSet;
@@ -88,6 +96,10 @@ public: // actually protected
   virtual void postRemoveUpdate(::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
 public:
   virtual void putProperty(::java::lang::Object *, ::java::lang::Object *);
+private:
+  void updateBidi(::javax::swing::text::AbstractDocument$DefaultDocumentEvent *);
+  JArray< ::java::text::Bidi * > * getBidis(jint, jint);
+public:
   virtual void readLock();
   virtual void readUnlock();
   virtual void remove(jint, jint);
@@ -127,6 +139,10 @@ public:
   static ::java::lang::String * ParagraphElementName;
   static ::java::lang::String * SectionElementName;
   static ::java::lang::String * ElementNameAttribute;
+private:
+  static ::java::lang::String * BidiRootName;
+  static ::java::lang::String * AsyncLoadPriority;
+  static ::java::lang::String * I18N;
 public: // actually package-private
   ::javax::swing::text::AbstractDocument$Content * __attribute__((aligned(__alignof__( ::java::lang::Object)))) content;
   ::javax::swing::text::AbstractDocument$AttributeContext * context;
@@ -137,10 +153,12 @@ public: // actually protected
 private:
   ::java::lang::Thread * currentWriter;
   jint numReaders;
-  jint numWritersWaiting;
-  ::java::lang::Object * documentCV;
+  jint numWriters;
   ::javax::swing::text::DocumentFilter$FilterBypass * bypass;
-  ::javax::swing::text::Element * bidiRoot;
+  ::javax::swing::text::AbstractDocument$BidiRootElement * bidiRoot;
+  jboolean notifyListeners;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

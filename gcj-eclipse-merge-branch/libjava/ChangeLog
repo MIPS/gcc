@@ -1,3 +1,47 @@
+2006-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/java/nio/FileLockImpl.java: New override.
+	* gnu/java/nio/SelectorProviderImpl.java: New override.
+	* gnu/java/nio/PipeImpl.java: New override.
+	* gnu/java/nio/SocketChannelSelectionKeyImpl.java: New override.
+	* gnu/java/nio/NIOSocket.java: New override.
+	* gnu/java/nio/SocketChannelSelectionKey.java: New override.
+	* java/io/FileDescriptor.java: New override.
+	* java/io/RandomAccessFile.java: New override.
+	* java/io/FileInputStream.java: New override.
+	* java/io/FileOutputStream.java: New override.
+	* configure.ac: Pass --disable-Werror, --disable-tool-wrappers to
+	Classpath configure.
+	* java/io/ObjectInputStream.java (readClassDescriptor): Don't pass
+	class loader to ObjectStreamField.
+	* java/net/DatagramSocket.java: New override.
+	* java/net/Socket.java: New override.
+	* java/net/MulticastSocket.java: New override.
+	* gnu/classpath/VMStackWalker.java (firstNonNullClassLoader): New
+	method from Classpath.
+	* java/lang/Class.java (newInstance): Fixed return type.
+	(forName): Likewise.
+	(getClasses): Likewise.
+	(getComponentType): Likewise.
+	(getConstructors): Likewise.
+	(getDeclaredClasses): Likewise.
+	(getDeclaredConstructors): Likewise.
+	(getDeclaringClass): Likewise.
+	(getInterfaces): Likewise.
+	(getSuperclass): Likewise.
+	(internalGetClasses): Genericized.
+	(getMethod): Likewise.
+	(isAssignableFrom): Likewise.
+	* java/util/zip/natDeflater.cc (getBytesWritten): Renamed.
+	(getBytesRead): Likewise.
+	* java/util/zip/Deflater.java (getBytesRead, getBytesWritten): New
+	methods.
+	(getTotalIn, getTotalOut): Rewrote.
+	* java/net/NetworkInterface.java: New override.
+	* java/lang/ClassLoader.java (defineClass): New overload from
+	Classpath.
+
 2006-12-11  Gary Benson  <gbenson@redhat.com>
 
 	* gcj/Makefile.in: Rebuilt.

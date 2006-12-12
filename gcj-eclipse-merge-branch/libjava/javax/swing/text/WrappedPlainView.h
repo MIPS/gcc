@@ -64,6 +64,9 @@ public:
   virtual void insertUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
   virtual void removeUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
   virtual void changedUpdate(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *, ::javax::swing::text::ViewFactory *);
+private:
+  void updateChildren(::javax::swing::event::DocumentEvent *, ::java::awt::Shape *);
+public:
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
   virtual void setSize(jfloat, jfloat);
 public: // actually package-private
@@ -77,7 +80,11 @@ public: // actually package-private
   jint selectionEnd;
   jint lineHeight;
 private:
+  jint tabBase;
+  jint tabSize;
   ::javax::swing::text::Segment * lineBuffer;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

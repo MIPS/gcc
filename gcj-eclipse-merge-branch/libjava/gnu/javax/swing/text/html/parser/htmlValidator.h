@@ -60,7 +60,7 @@ class gnu::javax::swing::text::html::parser::htmlValidator : public ::java::lang
 public:
   htmlValidator(::javax::swing::text::html::parser::DTD *);
   virtual void closeAll();
-  virtual void closeTag(::javax::swing::text::html::parser::TagElement *);
+  virtual jboolean closeTag(::javax::swing::text::html::parser::TagElement *);
   virtual void openTag(::javax::swing::text::html::parser::TagElement *, ::gnu::javax::swing::text::html::parser::htmlAttributeSet *);
   virtual void restart();
   virtual ::java::lang::Object * tagIsValidForContext(::javax::swing::text::html::parser::TagElement *);

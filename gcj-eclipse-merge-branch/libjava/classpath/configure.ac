@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.92-generics],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.94-pre],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -88,13 +88,17 @@ AM_CONDITIONAL(CREATE_CORE_JNI_LIBRARIES, test "x${COMPILE_CORE_JNI}" = xyes)
 dnl -----------------------------------------------------------
 dnl Default Preference Backend
 dnl -----------------------------------------------------------
-AC_ARG_ENABLE(default-preferences-peer,
-  AS_HELP_STRING([--enable-default-preferences-peer],
-                 [fully qualified class name of default Preferences API Backend]))
-DEFAULT_PREFS_PEER=$enable_default_preferences_peer
-if test "$DEFAULT_PREFS_PEER" = ""; then
-   DEFAULT_PREFS_PEER=gnu.java.util.prefs.FileBasedFactory
-fi
+AC_ARG_ENABLE([default-preferences-peer],
+              [AS_HELP_STRING([--enable-default-preferences-peer@<:@=peer type or class name@:>@],
+                              [specify one of: "gconf" [default] for a GConf based backend, "file" for a file based one, "memory" for a transient one, or a fully qualified class name implementing java.util.prefs.PreferencesFactory])],
+              [case "${enableval}" in 
+                file) DEFAULT_PREFS_PEER=gnu.java.util.prefs.FileBasedFactory  ;;
+                gconf|yes|true) DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory  ;;
+                memory) DEFAULT_PREFS_PEER=gnu.java.util.prefs.MemoryBasedFactory  ;;
+                no|false) AC_MSG_ERROR(bad value '${enableval}' for --enable-default-preferences-peer) ;;
+                *) DEFAULT_PREFS_PEER=${enableval} ;;
+              esac],
+              [DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory])
 dnl AC_SUBST(DEFAULT_PREFS_PEER)
 
 dnl -----------------------------------------------------------
@@ -123,9 +127,9 @@ AC_ARG_ENABLE([Werror],
               [case "${enableval}" in
                 yes) ENABLE_WERROR=yes ;;
                 no) ENABLE_WERROR=no ;;
-                *) ENABLE_WERROR=no ;;
+                *) ENABLE_WERROR=default ;;
               esac],
-              [ENABLE_WERROR=no])
+              [ENABLE_WERROR=default])
 
 dnl -----------------------------------------------------------
 dnl Default AWT toolkit
@@ -286,7 +290,11 @@ dnl -----------------------------------------------------------
 AC_ARG_ENABLE([tool-wrappers],
               [AS_HELP_STRING(--enable-tool-wrappers,create tool wrapper binaries [default=no])],
               [case x"${enableval}" in
-                xyes) COMPILE_WRAPPERS=yes ;;
+                xyes)
+                  COMPILE_WRAPPERS=yes;
+                  AC_CHECK_HEADERS([ltdl.h],, [AC_MSG_ERROR(cannot find ltdl.h)])
+                  AC_CHECK_LIB(ltdl, lt_dlopen,, [AC_MSG_ERROR(cannot find libltdl)])
+                  ;;
                 xno) COMPILE_WRAPPERS=no ;;
 		x) COMPILE_WRAPPERS=yes ;;
                 *) COMPILE_WRAPPERS=yes ;;
@@ -309,6 +317,17 @@ AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
 
+# Handle -Werror default case.
+if test "$ENABLE_WERROR" = default; then
+  case "$host_os" in
+    *linux*)
+      if test "$GCC" = yes; then
+        ENABLE_WERROR=yes
+      fi
+      ;;
+  esac
+fi
+
 if test "x${COMPILE_COLLECTIONS}" = xyes; then
   AC_PATH_PROG(PERL, [perl])
   AC_SUBST(PERL)
@@ -318,6 +337,8 @@ if test "x${COMPILE_COLLECTIONS}" = xyes; then
 fi
 
 if test "x${COMPILE_JNI}" = xyes; then
+  GCC_ATTRIBUTE_UNUSED
+
   AC_HEADER_STDC
 
   dnl Checking sizeof void * is needed for fdlibm to work properly on ppc64, 
@@ -339,7 +360,9 @@ if test "x${COMPILE_JNI}" = xyes; then
 		    crt_externs.h \
                     fcntl.h \
 		    sys/mman.h \
-		    magic.h])
+		    magic.h \
+                    sys/event.h sys/epoll.h \
+		    ifaddrs.h])
 
   AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
   AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
@@ -348,19 +371,28 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   AC_CHECK_FUNCS([ftruncate fsync select \
 		  gethostname socket strerror fork pipe execve open close \
-		  lseek fstat read write htonl memset htons connect \
+		  lseek fstat read readv write writev htonl memset htons connect \
 		  getsockname getpeername bind listen accept \
 		  recvfrom send sendto setsockopt getsockopt time mktime \
-		  localtime_r \
+		  gethostbyname_r localtime_r \
 		  strerror_r \
                   fcntl \
 		  mmap munmap mincore msync madvise getpagesize sysconf \
 		  lstat readlink \
-		  ])
+ 		  inet_aton inet_addr inet_pton \
+		  getifaddrs kqueue kevent epoll_create \
+                  readdir_r ])
 
   LIBMAGIC=
   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
   AC_SUBST(LIBMAGIC)
+
+  AC_MSG_CHECKING([whether struct sockaddr_in6 is in netinet/in.h])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netinet/in.h>]], [[struct sockaddr_in6 addr6;]])],
+                    [AC_DEFINE(HAVE_INET6, 1,
+                     [Define if inet6 structures are defined in netinet/in.h.])
+                     AC_MSG_RESULT(yes)],
+                    [AC_MSG_RESULT(no)])
 
   AC_HEADER_TIME
   AC_STRUCT_TM
@@ -396,17 +428,17 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl When using gcc we want warnings, lots of warnings :-)
   if test "x${GCC}" = xyes; then
-    dnl We want ISO C90 pedantic ansi, but with longlong (jlong) support
+    dnl We want ISO C90 ansi, but with longlong (jlong) support
     dnl and modern POSIX and BSD C library functions/prototypes.
 
     dnl Warning flags for (almost) everybody.
     dnl Should probably be configurable
-    WARNING_CFLAGS='-pedantic -W -Wall -Wmissing-declarations -Wwrite-strings -Wmissing-prototypes -Wno-long-long'
+    WARNING_CFLAGS='-W -Wall -Wmissing-declarations -Wwrite-strings -Wmissing-prototypes -Wno-long-long'
     AC_SUBST(WARNING_CFLAGS)
 
     dnl Strict warning flags which not every module uses.
     dnl Should probably be configurable.
-    STRICT_WARNING_CFLAGS=-Wstrict-prototypes
+    STRICT_WARNING_CFLAGS='-Wstrict-prototypes -pedantic'
     AC_SUBST(STRICT_WARNING_CFLAGS)
 
     dnl Whether or not to add -Werror, also not used by all modueles.
@@ -533,6 +565,28 @@ if test "x${COMPILE_JNI}" = xyes; then
     AC_SUBST(QT_CFLAGS)
     AC_SUBST(QT_LIBS)
   fi
+  dnl **********************************************************************
+  dnl Check for MSG_NOSIGNAL
+  dnl **********************************************************************
+  AC_MSG_CHECKING(for MSG_NOSIGNAL)
+  AC_TRY_COMPILE([#include <sys/socket.h>],
+   [ int f = MSG_NOSIGNAL; ],
+   [ AC_MSG_RESULT(yes)
+     AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
+     	       [Define this symbol if you have MSG_NOSIGNAL]) ],
+   [ AC_MSG_RESULT(no)]
+  )
+ dnl **********************************************************************
+ dnl Check for SO_NOSIGPIPE (Darwin equivalent for MSG_NOSIGNAL)
+ dnl **********************************************************************
+ AC_MSG_CHECKING(for SO_NOSIGPIPE )
+ AC_TRY_COMPILE([#include <sys/socket.h>],
+  [ int f = SO_NOSIGPIPE; ],
+  [ AC_MSG_RESULT(yes)
+    AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
+    	      [Define this symbol if you have SO_NOSIGPIPE]) ],
+  [ AC_MSG_RESULT(no)]
+ )
 
   dnl Check for plugin support headers and libraries.
   if test "x${COMPILE_PLUGIN}" = xyes; then
@@ -545,6 +599,9 @@ if test "x${COMPILE_JNI}" = xyes; then
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
       PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    fi
+    if test "x${MOZILLA_FOUND}" = xno; then
+      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     PKG_CHECK_MODULES(GLIB, glib-2.0)
 
@@ -563,7 +620,7 @@ dnl -----------------------------------------------------------
 dnl Add the include files for the native abstraction layer.
 dnl Used by AM_CPPFLAGS in the different modules.
 dnl -----------------------------------------------------------
-CLASSPATH_INCLUDES="-I\$(top_srcdir)/include -I\$(top_srcdir)/native/jni/classpath -I\$(top_srcdir)/native/target/Linux -I\$(top_srcdir)/native/target/generic"
+CLASSPATH_INCLUDES="-I\$(top_srcdir)/include -I\$(top_srcdir)/native/jni/classpath -I\$(top_srcdir)/native/jni/native-lib"
 AC_SUBST(CLASSPATH_INCLUDES)
 
 dnl -----------------------------------------------------------
@@ -741,13 +798,13 @@ case "$with_escher" in
         use_escher=false
         ;;
 "yes")
-        AC_MSG_ERROR([Please suply an absolute path to Escher library])
+        AC_MSG_ERROR([Please supply an absolute path to Escher library])
         ;;
 *)
         use_escher=true
         PATH_TO_ESCHER=$with_escher
         ;;
-esac;
+esac
 
 AM_CONDITIONAL(USE_ESCHER, test x$use_escher = xtrue)
 AC_SUBST(PATH_TO_ESCHER)
@@ -810,10 +867,8 @@ native/jni/qt-peer/Makefile
 native/jni/xmlj/Makefile
 native/jni/midi-alsa/Makefile
 native/jni/midi-dssi/Makefile
+native/jni/native-lib/Makefile
 native/plugin/Makefile
-native/target/Makefile
-native/target/Linux/Makefile
-native/target/generic/Makefile
 resource/Makefile
 resource/META-INF/services/java.util.prefs.PreferencesFactory
 scripts/Makefile
@@ -833,13 +888,25 @@ tools/gjarsigner
 tools/gkeytool
 tools/gjar
 tools/gnative2ascii
-tools/gserialver])
+tools/gserialver
+tools/grmiregistry
+tools/gtnameserv
+tools/gorbd
+tools/grmid
+tools/grmic
+tools/gjavah])
 AC_CONFIG_COMMANDS([gappletviewer],[chmod 755 tools/gappletviewer])
 AC_CONFIG_COMMANDS([gjarsigner],[chmod 755 tools/gjarsigner])
 AC_CONFIG_COMMANDS([gkeytool],[chmod 755 tools/gkeytool])
 AC_CONFIG_COMMANDS([gjar],[chmod 755 tools/gjar])
 AC_CONFIG_COMMANDS([gnative2ascii],[chmod 755 tools/gnative2ascii])
 AC_CONFIG_COMMANDS([gserialver],[chmod 755 tools/gserialver])
+AC_CONFIG_COMMANDS([grmiregistry],[chmod 755 tools/grmiregistry])
+AC_CONFIG_COMMANDS([gtnameserv],[chmod 755 tools/gtnameserv])
+AC_CONFIG_COMMANDS([gorbd],[chmod 755 tools/gorbd])
+AC_CONFIG_COMMANDS([grmid],[chmod 755 tools/grmid])
+AC_CONFIG_COMMANDS([grmic],[chmod 755 tools/grmic])
+AC_CONFIG_COMMANDS([gjavah], [chmod 755 tools/gjavah])
 fi
 
 AC_CONFIG_COMMANDS([gen-classlist],[chmod 755 lib/gen-classlist.sh])
@@ -851,4 +918,3 @@ cat ${srcdir}/lib/standard.omit.in > lib/standard.omit
 if test x$use_escher != xtrue; then
    echo gnu/java/awt/peer/x/.*java$ >> lib/standard.omit
 fi
-

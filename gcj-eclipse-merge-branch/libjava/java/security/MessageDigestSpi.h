@@ -13,6 +13,10 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class MessageDigestSpi;
@@ -29,6 +33,7 @@ public: // actually protected
   virtual jint engineGetDigestLength();
   virtual void engineUpdate(jbyte) = 0;
   virtual void engineUpdate(JArray< jbyte > *, jint, jint) = 0;
+  virtual void engineUpdate(::java::nio::ByteBuffer *);
   virtual JArray< jbyte > * engineDigest() = 0;
   virtual jint engineDigest(JArray< jbyte > *, jint, jint);
   virtual void engineReset() = 0;

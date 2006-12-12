@@ -52,6 +52,12 @@ public: // actually package-private
   virtual void setMenuBarPeer(::java::awt::peer::MenuBarPeer *);
   virtual void removeMenuBarPeer();
   virtual void gtkFixedSetVisible(jboolean);
+private:
+  void maximize();
+  void unmaximize();
+  void iconify();
+  void deiconify();
+public: // actually package-private
   virtual jint getMenuBarHeight();
 public:
   virtual void setMenuBar(::java::awt::MenuBar *);

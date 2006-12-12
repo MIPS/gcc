@@ -13,8 +13,8 @@ extern "Java"
   {
     namespace awt
     {
+        class Dimension;
         class Graphics;
-        class Rectangle;
     }
   }
   namespace javax
@@ -36,9 +36,9 @@ class javax::swing::tree::DefaultTreeCellEditor$EditorContainer : public ::java:
 public:
   DefaultTreeCellEditor$EditorContainer(::javax::swing::tree::DefaultTreeCellEditor *);
   virtual void EditorContainer();
-  virtual void setBounds(::java::awt::Rectangle *);
   virtual void paint(::java::awt::Graphics *);
   virtual void doLayout();
+  virtual ::java::awt::Dimension * getPreferredSize();
 public: // actually package-private
   static const jlong serialVersionUID = 6470339600449699810LL;
   ::javax::swing::tree::DefaultTreeCellEditor * __attribute__((aligned(__alignof__( ::java::awt::Container)))) this$0;

@@ -26,6 +26,7 @@ extern "Java"
       }
       namespace tree
       {
+          class AbstractLayoutCache$NodeDimensions;
           class TreeModel;
           class TreePath;
           class VariableHeightLayoutCache;
@@ -42,7 +43,7 @@ public:
   virtual jint getRowCount();
 private:
   void update();
-  void countRows(::java::lang::Object *, ::java::lang::Object *, jint);
+  jint countRows(::java::lang::Object *, ::java::lang::Object *, jint, jint);
 public:
   virtual void invalidatePathBounds(::javax::swing::tree::TreePath *);
   virtual void invalidateSizes();
@@ -66,10 +67,14 @@ public:
   virtual void setRootVisible(jboolean);
   virtual jint getPreferredHeight();
   virtual jint getPreferredWidth(::java::awt::Rectangle *);
+  virtual void setNodeDimensions(::javax::swing::tree::AbstractLayoutCache$NodeDimensions *);
+  virtual void setRowHeight(jint);
+private:
+  static ::java::awt::Rectangle * RECT_CACHE;
 public: // actually package-private
   ::java::util::Set * __attribute__((aligned(__alignof__( ::javax::swing::tree::AbstractLayoutCache)))) expanded;
   ::java::util::Hashtable * nodes;
-  ::java::util::Hashtable * row2node;
+  ::java::util::ArrayList * row2node;
   jboolean dirty;
   jint totalHeight;
   jint maximalWidth;

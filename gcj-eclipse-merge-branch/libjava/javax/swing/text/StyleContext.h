@@ -27,7 +27,6 @@ extern "Java"
       namespace event
       {
           class ChangeListener;
-          class EventListenerList;
       }
       namespace text
       {
@@ -58,6 +57,10 @@ public:
   virtual void removeStyle(::java::lang::String *);
   virtual ::javax::swing::text::Style * getStyle(::java::lang::String *);
   virtual ::java::util::Enumeration * getStyleNames();
+private:
+  void readObject(::java::io::ObjectInputStream *);
+  void writeObject(::java::io::ObjectOutputStream *);
+public:
   virtual ::java::awt::Font * getFont(::javax::swing::text::AttributeSet *);
   virtual ::java::awt::Font * getFont(::java::lang::String *, jint, jint);
   virtual ::java::awt::FontMetrics * getFontMetrics(::java::awt::Font *);
@@ -81,21 +84,25 @@ public:
   virtual void readAttributes(::java::io::ObjectInputStream *, ::javax::swing::text::MutableAttributeSet *);
   virtual void writeAttributes(::java::io::ObjectOutputStream *, ::javax::swing::text::AttributeSet *);
   static void registerStaticAttributeKey(::java::lang::Object *);
+  virtual ::java::lang::String * toString();
 private:
+  ::javax::swing::text::AttributeSet * searchImmutableSet();
+  void cleanupPool();
+  ::javax::swing::text::MutableAttributeSet * getMutableAttributeSet(::javax::swing::text::AttributeSet *);
   static const jlong serialVersionUID = 8042858831190784241LL;
 public:
   static ::java::lang::String * DEFAULT_STYLE;
 public: // actually package-private
-  ::javax::swing::text::StyleContext$NamedStyle * __attribute__((aligned(__alignof__( ::java::lang::Object)))) defaultStyle;
   static ::java::util::Hashtable * sharedAttributeSets;
   static ::java::util::Hashtable * sharedFonts;
   static ::javax::swing::text::StyleContext * defaultStyleContext;
   static const jint compressionThreshold = 9;
 private:
-  static ::java::util::Hashtable * staticAttributeKeys;
-public: // actually package-private
-  ::javax::swing::event::EventListenerList * listenerList;
-  ::java::util::Hashtable * styleTable;
+  static ::java::util::Hashtable * writeAttributeKeys;
+  static ::java::util::Hashtable * readAttributeKeys;
+  ::javax::swing::text::StyleContext$NamedStyle * __attribute__((aligned(__alignof__( ::java::lang::Object)))) styles;
+  ::javax::swing::text::MutableAttributeSet * search;
+  ::java::util::Map * attributeSetPool;
 public:
   static ::java::lang::Class class$;
 };

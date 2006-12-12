@@ -67,6 +67,7 @@ public:
   static ::gnu::javax::swing::text::html::parser::support::low::pattern * SCRIPT_CLOSE;
   static ::gnu::javax::swing::text::html::parser::support::low::pattern * STYLE_CLOSE;
   static ::gnu::javax::swing::text::html::parser::support::low::pattern * TAG;
+  static ::gnu::javax::swing::text::html::parser::support::low::pattern * TAG_CLOSE;
   static const jint OTHER = 1999;
 public: // actually package-private
   static const jchar ETX = 3;

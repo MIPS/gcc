@@ -13,6 +13,13 @@ extern "Java"
 {
   namespace gnu
   {
+    namespace classpath
+    {
+      namespace debug
+      {
+          class SystemLogger;
+      }
+    }
     namespace javax
     {
       namespace crypto
@@ -68,7 +75,7 @@ public: // actually protected
   virtual jint engineDoFinal(JArray< jbyte > *, jint, jint, JArray< jbyte > *, jint);
 private:
   JArray< jbyte > * rsaDecrypt(::java::math::BigInteger *);
-  static ::java::util::logging::Logger * logger;
+  static ::gnu::classpath::debug::SystemLogger * logger;
   static JArray< jbyte > * EMPTY;
   jint __attribute__((aligned(__alignof__( ::javax::crypto::CipherSpi)))) opmode;
   ::java::security::interfaces::RSAPrivateKey * decipherKey;

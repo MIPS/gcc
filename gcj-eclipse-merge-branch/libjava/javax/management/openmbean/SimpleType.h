@@ -26,11 +26,11 @@ class javax::management::openmbean::SimpleType : public ::javax::management::ope
 
   SimpleType(::java::lang::String *);
 public:
-  virtual jboolean equals(::java::lang::Object *);
-  virtual jint hashCode();
-  virtual jboolean isValue(::java::lang::Object *);
-  virtual ::java::lang::Object * readResolve();
-  virtual ::java::lang::String * toString();
+  jboolean equals(::java::lang::Object *);
+  jint hashCode();
+  jboolean isValue(::java::lang::Object *);
+  ::java::lang::Object * readResolve();
+  ::java::lang::String * toString();
   static ::javax::management::openmbean::SimpleType * BIGDECIMAL;
   static ::javax::management::openmbean::SimpleType * BIGINTEGER;
   static ::javax::management::openmbean::SimpleType * BOOLEAN;

@@ -44,9 +44,11 @@ public:
   virtual void mouseDragged(::java::awt::event::MouseEvent *);
   virtual void mouseMoved(::java::awt::event::MouseEvent *);
   virtual void mouseReleased(::java::awt::event::MouseEvent *);
+private:
+  void handleEvent(::java::awt::event::MouseEvent *);
+  jboolean __attribute__((aligned(__alignof__( ::java::awt::event::MouseAdapter)))) selectedOnPress;
 public: // actually package-private
-  static ::javax::swing::plaf::basic::BasicTreeUI * access$0(::javax::swing::plaf::basic::BasicTreeUI$MouseHandler *);
-  ::javax::swing::plaf::basic::BasicTreeUI * __attribute__((aligned(__alignof__( ::java::awt::event::MouseAdapter)))) this$0;
+  ::javax::swing::plaf::basic::BasicTreeUI * this$0;
 public:
   static ::java::lang::Class class$;
 };

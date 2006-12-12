@@ -20,6 +20,7 @@ extern "Java"
         namespace java2d
         {
             class AbstractGraphics2D;
+            class ShapeCache;
         }
       }
     }
@@ -142,6 +143,7 @@ public:
   virtual void setClip(::java::awt::Shape *);
   virtual void copyArea(jint, jint, jint, jint, jint, jint);
   virtual void drawLine(jint, jint, jint, jint);
+  virtual void drawRect(jint, jint, jint, jint);
   virtual void fillRect(jint, jint, jint, jint);
   virtual void clearRect(jint, jint, jint, jint);
   virtual void drawRoundRect(jint, jint, jint, jint, jint, jint);
@@ -165,6 +167,7 @@ public: // actually protected
   virtual ::java::awt::image::ColorModel * getColorModel() = 0;
   virtual ::java::awt::Rectangle * getDeviceBounds();
   virtual void rawDrawLine(jint, jint, jint, jint);
+  virtual void rawDrawRect(jint, jint, jint, jint);
   virtual void rawDrawString(::java::lang::String *, jint, jint);
   virtual void rawClearRect(jint, jint, jint, jint);
   virtual void rawFillRect(jint, jint, jint, jint);
@@ -187,7 +190,9 @@ private:
   static ::java::awt::Rectangle * computeIntersection(jint, jint, jint, jint, ::java::awt::Rectangle *);
   void updateClip(::java::awt::geom::AffineTransform *);
   ::java::util::ArrayList * getSegments(::java::awt::Shape *, ::java::awt::geom::AffineTransform *, ::java::awt::geom::Rectangle2D *, jboolean);
+  ::gnu::java::awt::java2d::ShapeCache * getShapeCache();
   static const jint AA_SAMPLING = 8;
+  static ::java::lang::ThreadLocal * shapeCache;
 public: // actually protected
   ::java::awt::geom::AffineTransform * __attribute__((aligned(__alignof__( ::java::awt::Graphics2D)))) transform__;
 private:
@@ -198,7 +203,6 @@ private:
   ::java::awt::Stroke * stroke;
   ::java::awt::Shape * clip__;
   ::java::awt::RenderingHints * renderingHints;
-  ::java::awt::image::Raster * paintRaster;
   ::java::awt::image::WritableRaster * destinationRaster;
   JArray< jint > * alpha;
   JArray< ::java::util::ArrayList * > * edgeTable;

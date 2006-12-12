@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <javax/net/ssl/X509ExtendedKeyManager.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -44,17 +44,29 @@ extern "Java"
       }
     }
   }
+  namespace javax
+  {
+    namespace net
+    {
+      namespace ssl
+      {
+          class SSLEngine;
+      }
+    }
+  }
 }
 
-class gnu::javax::net::ssl::provider::X509KeyManagerFactory$Manager : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::X509KeyManagerFactory$Manager : public ::javax::net::ssl::X509ExtendedKeyManager
 {
 
 public: // actually package-private
   X509KeyManagerFactory$Manager(::gnu::javax::net::ssl::provider::X509KeyManagerFactory *, ::java::util::Map *, ::java::util::Map *);
 public:
   virtual ::java::lang::String * chooseClientAlias(JArray< ::java::lang::String * > *, JArray< ::java::security::Principal * > *, ::java::net::Socket *);
+  virtual ::java::lang::String * chooseEngineClientAlias(JArray< ::java::lang::String * > *, JArray< ::java::security::Principal * > *, ::javax::net::ssl::SSLEngine *);
   virtual JArray< ::java::lang::String * > * getClientAliases(::java::lang::String *, JArray< ::java::security::Principal * > *);
   virtual ::java::lang::String * chooseServerAlias(::java::lang::String *, JArray< ::java::security::Principal * > *, ::java::net::Socket *);
+  virtual ::java::lang::String * chooseEngineServerAlias(::java::lang::String *, JArray< ::java::security::Principal * > *, ::javax::net::ssl::SSLEngine *);
   virtual JArray< ::java::lang::String * > * getServerAliases(::java::lang::String *, JArray< ::java::security::Principal * > *);
 private:
   JArray< ::java::lang::String * > * getAliases(::java::lang::String *, JArray< ::java::security::Principal * > *);
@@ -62,7 +74,7 @@ public:
   virtual JArray< ::java::security::cert::X509Certificate * > * getCertificateChain(::java::lang::String *);
   virtual ::java::security::PrivateKey * getPrivateKey(::java::lang::String *);
 private:
-  ::java::util::Map * __attribute__((aligned(__alignof__( ::java::lang::Object)))) privateKeys;
+  ::java::util::Map * __attribute__((aligned(__alignof__( ::javax::net::ssl::X509ExtendedKeyManager)))) privateKeys;
   ::java::util::Map * certChains;
 public: // actually package-private
   ::gnu::javax::net::ssl::provider::X509KeyManagerFactory * this$0;

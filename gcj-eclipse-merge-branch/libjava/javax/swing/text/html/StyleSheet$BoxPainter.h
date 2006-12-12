@@ -13,6 +13,7 @@ extern "Java"
   {
     namespace awt
     {
+        class Color;
         class Graphics;
     }
   }
@@ -20,12 +21,17 @@ extern "Java"
   {
     namespace swing
     {
+      namespace border
+      {
+          class Border;
+      }
       namespace text
       {
           class AttributeSet;
           class View;
         namespace html
         {
+            class StyleSheet;
             class StyleSheet$BoxPainter;
         }
       }
@@ -37,12 +43,21 @@ class javax::swing::text::html::StyleSheet$BoxPainter : public ::java::lang::Obj
 {
 
 public: // actually package-private
-  StyleSheet$BoxPainter(::javax::swing::text::AttributeSet *);
+  StyleSheet$BoxPainter(::javax::swing::text::AttributeSet *, ::javax::swing::text::html::StyleSheet *);
 public:
   virtual jfloat getInset(jint, ::javax::swing::text::View *);
   virtual void paint(::java::awt::Graphics *, jfloat, jfloat, jfloat, jfloat, ::javax::swing::text::View *);
-public: // actually package-private
-  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::java::lang::Object)))) as;
+private:
+  jfloat __attribute__((aligned(__alignof__( ::java::lang::Object)))) leftInset;
+  jfloat rightInset;
+  jfloat topInset;
+  jfloat bottomInset;
+  ::javax::swing::border::Border * border;
+  jfloat leftPadding;
+  jfloat rightPadding;
+  jfloat topPadding;
+  jfloat bottomPadding;
+  ::java::awt::Color * background;
 public:
   static ::java::lang::Class class$;
 };

@@ -119,7 +119,6 @@ GCC_NO_EXECUTABLES
 # (5) For libstdc++-v3, -fno-builtin must be present here so that a
 # non-conflicting form of std::exit can be guessed by AC_PROG_CXX, and
 # used in later tests.  This may not be necessary in libjava; I don't know.
-m4_define([ac_cv_prog_CXX],[glibcxx_cv_prog_CXX])
 m4_rename([_AC_ARG_VAR_PRECIOUS],[glibcxx_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 save_CXXFLAGS="$CXXFLAGS"
@@ -383,7 +382,8 @@ test -f libgcj.spec || touch libgcj.spec
 # Set up to configure Classpath.
 # FIXME: no supported way to pass args in autoconf.
 ac_configure_args="$ac_configure_args --with-fastjar=$JAR"
-ac_configure_args="$ac_configure_args --enable-tool-wrappers"
+# Disable tool wrappers to avoid ltdl.h configure check.
+ac_configure_args="$ac_configure_args --disable-tool-wrappers"
 ac_configure_args="$ac_configure_args --disable-load-library"
 ac_configure_args="$ac_configure_args --${LIBGCJDEBUG}-debug"
 ac_configure_args="$ac_configure_args --enable-default-toolkit=$TOOLKIT"
@@ -420,6 +420,8 @@ else
     ac_configure_args="$ac_configure_args --with-escher=$with_escher"
   fi
 fi
+# -Werror causes unavoidable problems in code using alsa.
+ac_configure_args="$ac_configure_args --disable-Werror"
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
 dnl gjdoc?

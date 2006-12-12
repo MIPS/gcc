@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,21 +29,19 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::CertificateType : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::CertificateType : public ::java::lang::Enum
 {
 
-  CertificateType(jint);
-public: // actually package-private
-  static ::gnu::javax::net::ssl::provider::CertificateType * read(::java::io::InputStream *);
+  CertificateType(::java::lang::String *, jint, jint);
 public:
-  JArray< jbyte > * getEncoded();
-  jint getValue();
-  ::java::lang::String * toString();
-public: // actually package-private
+  static ::gnu::javax::net::ssl::provider::CertificateType * forValue(jint);
+  static JArray< ::gnu::javax::net::ssl::provider::CertificateType * > * values();
+  static ::gnu::javax::net::ssl::provider::CertificateType * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::CertificateType * X509;
   static ::gnu::javax::net::ssl::provider::CertificateType * OPEN_PGP;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::CertificateType * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

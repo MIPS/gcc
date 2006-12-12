@@ -18,6 +18,7 @@ extern "Java"
         class AWTEvent;
         class EventDispatchThread;
         class EventQueue;
+        class EventQueue$Queue;
     }
   }
 }
@@ -25,15 +26,20 @@ extern "Java"
 class java::awt::EventQueue : public ::java::lang::Object
 {
 
-  void setShutdown(jboolean);
-public: // actually package-private
-  virtual jboolean isShutdown();
+  jboolean isShutdown();
 public:
   EventQueue();
   virtual ::java::awt::AWTEvent * getNextEvent();
+private:
+  ::java::awt::AWTEvent * getNextEventImpl(jboolean);
+public:
   virtual ::java::awt::AWTEvent * peekEvent();
   virtual ::java::awt::AWTEvent * peekEvent(jint);
   virtual void postEvent(::java::awt::AWTEvent *);
+private:
+  void postEventImpl(::java::awt::AWTEvent *);
+  void postEventImpl(::java::awt::AWTEvent *, jint);
+public:
   static void invokeAndWait(::java::lang::Runnable *);
   static void invokeLater(::java::lang::Runnable *);
   static jboolean isDispatchThread();
@@ -45,16 +51,17 @@ public: // actually protected
 public:
   static jlong getMostRecentEventTime();
 private:
-  static const jint INITIAL_QUEUE_DEPTH = 8;
-  JArray< ::java::awt::AWTEvent * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) queue;
-  jint next_in;
-  jint next_out;
+  static const jint NORM_PRIORITY = 0;
+  static const jint LOW_PRIORITY = 1;
+  JArray< ::java::awt::EventQueue$Queue * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) queues;
   ::java::awt::EventQueue * next;
   ::java::awt::EventQueue * prev;
   ::java::awt::AWTEvent * currentEvent;
   jlong lastWhen;
   ::java::awt::EventDispatchThread * dispatchThread;
-  jboolean shutdown;
+  jboolean nativeLoopRunning;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

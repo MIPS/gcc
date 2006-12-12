@@ -42,6 +42,7 @@ class javax::swing::plaf::basic::BasicSplitPaneUI$BasicHorizontalLayoutManager :
 
 public: // actually package-private
   BasicSplitPaneUI$BasicHorizontalLayoutManager(::javax::swing::plaf::basic::BasicSplitPaneUI *);
+  BasicSplitPaneUI$BasicHorizontalLayoutManager(::javax::swing::plaf::basic::BasicSplitPaneUI *, jint);
 public:
   virtual void addLayoutComponent(::java::awt::Component *, ::java::lang::Object *);
   virtual void addLayoutComponent(::java::lang::String *, ::java::awt::Component *);
@@ -76,6 +77,8 @@ public: // actually package-private
 public: // actually protected
   JArray< ::java::awt::Component * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) components;
   JArray< jint > * sizes;
+private:
+  jint axis;
 public: // actually package-private
   ::javax::swing::plaf::basic::BasicSplitPaneUI * this$0;
 public:

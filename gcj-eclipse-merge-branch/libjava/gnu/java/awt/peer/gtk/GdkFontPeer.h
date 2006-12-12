@@ -22,6 +22,7 @@ extern "Java"
           namespace gtk
           {
               class GdkFontPeer;
+              class GdkFontPeer$GdkFontMetrics;
           }
         }
       }
@@ -79,6 +80,11 @@ public:
   GdkFontPeer(::java::lang::String *, jint);
   GdkFontPeer(::java::lang::String *, jint, jint);
   GdkFontPeer(::java::lang::String *, ::java::util::Map *);
+public: // actually package-private
+  static ::java::awt::Font * initFont(::java::awt::Font *);
+private:
+  void setupMetrics();
+public:
   virtual ::java::lang::String * getSubFamilyName(::java::awt::Font *, ::java::util::Locale *);
 private:
   JArray< jbyte > * getTrueTypeTable(jbyte, jbyte, jbyte, jbyte);
@@ -97,7 +103,6 @@ public:
   virtual jint getMissingGlyphCode(::java::awt::Font *);
   virtual ::java::lang::String * getGlyphName(::java::awt::Font *, jint);
   virtual jint getNumGlyphs(::java::awt::Font *);
-  virtual ::java::awt::geom::Rectangle2D * getStringBounds(::java::awt::Font *, ::java::text::CharacterIterator *, jint, jint, ::java::awt::font::FontRenderContext *);
   virtual jboolean hasUniformLineMetrics(::java::awt::Font *);
   virtual ::java::awt::font::GlyphVector * layoutGlyphVector(::java::awt::Font *, ::java::awt::font::FontRenderContext *, JArray< jchar > *, jint, jint, jint);
   virtual ::java::awt::font::LineMetrics * getLineMetrics(::java::awt::Font *, ::java::lang::String *, ::java::awt::font::FontRenderContext *);
@@ -105,10 +110,30 @@ public:
 public: // actually package-private
   virtual ::java::awt::font::GlyphMetrics * getGlyphMetrics(jint);
   virtual void putGlyphMetrics(jint, ::java::lang::Object *);
+  static ::java::awt::font::FontRenderContext * DEFAULT_CTX;
+  ::java::util::HashMap * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::ClasspathFontPeer)))) textLayoutCache;
 private:
-  jint __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::ClasspathFontPeer)))) native_state;
-  static ::java::util::ResourceBundle * bundle;
+  jint native_state;
   ::java::util::HashMap * metricsCache;
+  static const jint FONT_METRICS_ASCENT = 0;
+  static const jint FONT_METRICS_MAX_ASCENT = 1;
+  static const jint FONT_METRICS_DESCENT = 2;
+  static const jint FONT_METRICS_MAX_DESCENT = 3;
+  static const jint FONT_METRICS_MAX_ADVANCE = 4;
+  static const jint FONT_METRICS_HEIGHT = 5;
+  static const jint FONT_METRICS_UNDERLINE_OFFSET = 6;
+  static const jint FONT_METRICS_UNDERLINE_THICKNESS = 7;
+public: // actually package-private
+  jfloat ascent;
+  jfloat descent;
+  jfloat maxAscent;
+  jfloat maxDescent;
+  jfloat maxAdvance;
+  jfloat height;
+  jfloat underlineOffset;
+  jfloat underlineThickness;
+  ::gnu::java::awt::peer::gtk::GdkFontPeer$GdkFontMetrics * metrics;
+private:
   ::java::nio::ByteBuffer * nameTable;
 public:
   static ::java::lang::Class class$;

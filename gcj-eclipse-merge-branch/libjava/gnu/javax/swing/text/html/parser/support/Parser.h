@@ -48,8 +48,10 @@ extern "Java"
     {
       namespace text
       {
+          class SimpleAttributeSet;
         namespace html
         {
+            class HTML$Tag;
           namespace parser
           {
               class DTD;
@@ -67,7 +69,7 @@ class gnu::javax::swing::text::html::parser::support::Parser : public ::gnu::jav
 
 public:
   Parser(::javax::swing::text::html::parser::DTD *);
-  virtual ::gnu::javax::swing::text::html::parser::htmlAttributeSet * getAttributes();
+  virtual ::javax::swing::text::SimpleAttributeSet * getAttributes();
   virtual void error(::java::lang::String *);
   virtual void error(::java::lang::String *, ::gnu::javax::swing::text::html::parser::support::low::Token *);
   virtual void error(::java::lang::String *, ::java::lang::String *);
@@ -125,6 +127,7 @@ private:
   void restOfTag(jboolean, ::gnu::javax::swing::text::html::parser::support::low::Token *, ::gnu::javax::swing::text::html::parser::support::low::Token *);
   void startingTag(::javax::swing::text::html::parser::TagElement *);
   void ws_error();
+  jboolean isBlock(::javax::swing::text::html::HTML$Tag *);
 public:
   ::gnu::javax::swing::text::html::parser::support::low::Token * __attribute__((aligned(__alignof__( ::gnu::javax::swing::text::html::parser::support::low::ReaderTokenizer)))) hTag;
 public: // actually protected

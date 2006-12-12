@@ -17,6 +17,7 @@ extern "Java"
     {
         class Dimension;
         class Graphics;
+        class Insets;
         class Point;
         class Rectangle;
       namespace event
@@ -41,8 +42,7 @@ extern "Java"
         namespace basic
         {
             class BasicTextUI;
-            class BasicTextUI$DocumentHandler;
-            class BasicTextUI$PropertyChangeHandler;
+            class BasicTextUI$Handler;
             class BasicTextUI$RootView;
         }
       }
@@ -74,6 +74,9 @@ public:
   virtual void installUI(::javax::swing::JComponent *);
 public: // actually protected
   virtual void installDefaults();
+private:
+  void installFixedDefaults();
+public: // actually protected
   virtual void installListeners();
   virtual ::java::lang::String * getKeymapName();
   virtual ::javax::swing::text::Keymap * createKeymap();
@@ -86,6 +89,9 @@ public:
   virtual void uninstallUI(::javax::swing::JComponent *);
 public: // actually protected
   virtual void uninstallDefaults();
+private:
+  void uninstallFixedDefaults();
+public: // actually protected
   virtual void uninstallListeners();
   virtual void uninstallKeyboardActions();
   virtual ::java::lang::String * getPropertyPrefix() = 0;
@@ -115,16 +121,15 @@ public: // actually protected
   virtual void setView(::javax::swing::text::View *);
   virtual void modelChanged();
   virtual void propertyChange(::java::beans::PropertyChangeEvent *);
-public: // actually package-private
+private:
+  static ::java::awt::event::FocusListener * focusListener;
   static ::javax::swing::text::EditorKit * kit;
-  ::javax::swing::plaf::basic::BasicTextUI$RootView * __attribute__((aligned(__alignof__( ::javax::swing::plaf::TextUI)))) rootView;
+public: // actually package-private
+  ::javax::swing::plaf::basic::BasicTextUI$Handler * __attribute__((aligned(__alignof__( ::javax::swing::plaf::TextUI)))) handler;
+  ::javax::swing::plaf::basic::BasicTextUI$RootView * rootView;
   ::javax::swing::text::JTextComponent * textComponent;
 private:
-  ::javax::swing::plaf::basic::BasicTextUI$PropertyChangeHandler * updateHandler;
-public: // actually package-private
-  ::javax::swing::plaf::basic::BasicTextUI$DocumentHandler * documentHandler;
-private:
-  ::java::awt::event::FocusListener * focuslistener;
+  ::java::awt::Insets * cachedInsets;
 public:
   static ::java::lang::Class class$;
 };

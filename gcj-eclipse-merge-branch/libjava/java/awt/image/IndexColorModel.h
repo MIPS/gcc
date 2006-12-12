@@ -20,6 +20,7 @@ extern "Java"
           class BufferedImage;
           class IndexColorModel;
           class Raster;
+          class SampleModel;
       }
     }
     namespace math
@@ -56,7 +57,9 @@ public:
   virtual jboolean isValid();
   virtual ::java::math::BigInteger * getValidPixels();
   virtual ::java::awt::image::BufferedImage * convertToIntDiscrete(::java::awt::image::Raster *, jboolean);
+  virtual ::java::awt::image::SampleModel * createCompatibleSampleModel(jint, jint);
 private:
+  void setTransparentPixel(jint);
   jint __attribute__((aligned(__alignof__( ::java::awt::image::ColorModel)))) map_size;
   jboolean opaque;
   jint trans;

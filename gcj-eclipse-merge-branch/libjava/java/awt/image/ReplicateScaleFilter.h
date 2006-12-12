@@ -34,8 +34,7 @@ public:
   virtual void setPixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jbyte > *, jint, jint);
   virtual void setPixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jint > *, jint, jint);
 private:
-  JArray< jbyte > * replicatePixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jbyte > *, jint, jint, jdouble, jdouble, jint);
-  JArray< jint > * replicatePixels(jint, jint, jint, jint, ::java::awt::image::ColorModel *, JArray< jint > *, jint, jint, jdouble, jdouble, jint);
+  void setupSources();
 public: // actually protected
   jint __attribute__((aligned(__alignof__( ::java::awt::image::ImageFilter)))) destHeight;
   jint destWidth;

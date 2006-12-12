@@ -118,6 +118,9 @@ public:
   static ::javax::swing::text::html::HTML$Attribute * VLINK;
   static ::javax::swing::text::html::HTML$Attribute * VSPACE;
   static ::javax::swing::text::html::HTML$Attribute * WIDTH;
+public: // actually package-private
+  static ::javax::swing::text::html::HTML$Attribute * PSEUDO_CLASS;
+  static ::javax::swing::text::html::HTML$Attribute * DYNAMIC_CLASS;
 private:
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) name;
 public:

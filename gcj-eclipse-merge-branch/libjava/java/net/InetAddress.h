@@ -24,7 +24,7 @@ class java::net::InetAddress : public ::java::lang::Object
 {
 
 public: // actually package-private
-  InetAddress(JArray< jbyte > *, ::java::lang::String *);
+  InetAddress(JArray< jbyte > *, ::java::lang::String *, jint);
 public:
   virtual jboolean isMulticastAddress();
   virtual jboolean isAnyLocalAddress();
@@ -37,6 +37,9 @@ public:
   virtual jboolean isMCSiteLocal();
   virtual jboolean isMCOrgLocal();
   virtual ::java::lang::String * getHostName();
+public: // actually package-private
+  virtual ::java::lang::String * internalGetCanonicalHostName();
+public:
   virtual ::java::lang::String * getCanonicalHostName();
   virtual JArray< jbyte > * getAddress();
   virtual ::java::lang::String * getHostAddress();
@@ -45,21 +48,17 @@ public:
   virtual ::java::lang::String * toString();
   static ::java::net::InetAddress * getByAddress(JArray< jbyte > *);
   static ::java::net::InetAddress * getByAddress(::java::lang::String *, JArray< jbyte > *);
-private:
-  static JArray< jbyte > * aton(::java::lang::String *);
+public: // actually package-private
+  static ::java::net::InetAddress * getByLiteral(::java::lang::String *);
 public:
   static ::java::net::InetAddress * getByName(::java::lang::String *);
   static JArray< ::java::net::InetAddress * > * getAllByName(::java::lang::String *);
-public: // actually package-private
-  static ::java::net::InetAddress * getInaddrAny();
-public:
   static ::java::net::InetAddress * getLocalHost();
 private:
   ::java::lang::Object * readResolve();
   void readObject(::java::io::ObjectInputStream *);
   void writeObject(::java::io::ObjectOutputStream *);
   static const jlong serialVersionUID = 3286316764910316507LL;
-  static ::java::net::InetAddress * inaddr_any;
 public: // actually package-private
   static ::java::net::InetAddress * ANY_IF;
   static ::java::net::InetAddress * LOCALHOST;
@@ -68,6 +67,7 @@ private:
 public: // actually package-private
   JArray< jbyte > * addr;
   ::java::lang::String * hostName;
+private:
   jint family;
 public:
   static ::java::lang::Class class$;

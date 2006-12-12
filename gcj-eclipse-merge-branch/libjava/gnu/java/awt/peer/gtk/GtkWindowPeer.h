@@ -33,10 +33,6 @@ extern "Java"
         class Graphics;
         class Rectangle;
         class Window;
-      namespace event
-      {
-          class PaintEvent;
-      }
     }
   }
 }
@@ -51,6 +47,9 @@ public: // actually package-private
   virtual void gtkWindowSetAlwaysOnTop(jboolean);
   virtual jboolean gtkWindowHasFocus();
   virtual void realize();
+public:
+  virtual void dispose();
+public: // actually package-private
   virtual jint getX();
   virtual jint getY();
   virtual jint getWidth();
@@ -99,7 +98,6 @@ public:
   virtual jboolean requestFocus(::java::awt::Component *, jboolean, jboolean, jlong);
   virtual ::java::awt::Graphics * getGraphics();
 public: // actually protected
-  virtual void updateComponent(::java::awt::event::PaintEvent *);
   virtual void postMouseEvent(jint, jlong, jint, jint, jint, jint, jboolean);
 public:
   virtual ::java::awt::Rectangle * getBounds();
@@ -112,9 +110,8 @@ public: // actually protected
   static const jint GDK_WINDOW_TYPE_HINT_UTILITY = 5;
   static const jint GDK_WINDOW_TYPE_HINT_DOCK = 6;
   static const jint GDK_WINDOW_TYPE_HINT_DESKTOP = 7;
+  jint __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::GtkContainerPeer)))) windowState;
 private:
-  jboolean __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::GtkContainerPeer)))) hasBeenShown;
-  jint oldState;
   jint x;
   jint y;
   jint width;

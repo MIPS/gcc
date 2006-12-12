@@ -29,7 +29,7 @@ class gnu::CORBA::NamingService::NamingServiceTransient : public ::java::lang::O
 public:
   NamingServiceTransient();
   static JArray< jbyte > * getDefaultKey();
-  static void main(JArray< ::java::lang::String * > *);
+  static void start(jint, ::java::lang::String *);
   static const jint PORT = 900;
   static ::java::lang::Class class$;
 };

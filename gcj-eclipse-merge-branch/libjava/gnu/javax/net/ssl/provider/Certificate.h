@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <java/lang/Object.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace gnu
@@ -30,12 +28,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace security
+    namespace nio
     {
-      namespace cert
-      {
-          class X509Certificate;
-      }
+        class ByteBuffer;
     }
   }
 }
@@ -43,17 +38,15 @@ extern "Java"
 class gnu::javax::net::ssl::provider::Certificate : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Certificate(JArray< ::java::security::cert::X509Certificate * > *);
-  static ::gnu::javax::net::ssl::provider::Certificate * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CertificateType *);
 public:
-  void write(::java::io::OutputStream *);
-public: // actually package-private
-  JArray< ::java::security::cert::X509Certificate * > * getCertificates();
-public:
-  ::java::lang::String * toString();
-private:
-  JArray< ::java::security::cert::X509Certificate * > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) certs;
+  Certificate(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::CertificateType *);
+  virtual jint length();
+  virtual ::java::util::List * certificates();
+  virtual ::java::lang::String * toString();
+  virtual ::java::lang::String * toString(::java::lang::String *);
+public: // actually protected
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  ::gnu::javax::net::ssl::provider::CertificateType * type;
 public:
   static ::java::lang::Class class$;
 };

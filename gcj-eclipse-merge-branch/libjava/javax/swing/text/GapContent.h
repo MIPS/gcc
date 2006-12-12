@@ -18,6 +18,7 @@ extern "Java"
       namespace text
       {
           class GapContent;
+          class GapContent$Mark;
           class Position;
           class Segment;
       }
@@ -52,25 +53,24 @@ public: // actually protected
   virtual void shiftGapEndUp(jint);
   virtual ::java::lang::Object * getArray();
   virtual void replace(jint, jint, ::java::lang::Object *, jint);
+private:
+  void removeImpl(jint, jint);
+  jint addImpl(jint, jint);
+public: // actually protected
   virtual jint getGapStart();
   virtual jint getGapEnd();
   virtual ::java::util::Vector * getPositionsInRange(::java::util::Vector *, jint, jint);
-private:
-  void setPositionsInRange(jint, jint, jboolean);
-  void adjustPositionsInRange(jint, jint, jint);
-public: // actually protected
   virtual void resetMarksAtZero();
   virtual void updateUndoPositions(::java::util::Vector *, jint, jint);
 private:
   void dump();
   void dumpMarks();
 public: // actually package-private
-  virtual void garbageCollect();
+  virtual jint search(::javax::swing::text::GapContent$Mark *);
 private:
-  jint search(::java::util::List *, ::java::lang::Object *);
-public: // actually package-private
-  static jint access$0(::javax::swing::text::GapContent *, ::java::util::List *, ::java::lang::Object *);
-private:
+  jint searchFirst(jint);
+  jint compare(::javax::swing::text::GapContent$Mark *, ::javax::swing::text::GapContent$Mark *);
+  void garbageCollect();
   static const jlong serialVersionUID = -6226052713477823730LL;
 public: // actually package-private
   static const jint DEFAULT_BUFSIZE = 10;
@@ -78,7 +78,10 @@ public: // actually package-private
   jint gapStart;
   jint gapEnd;
   ::java::util::ArrayList * marks;
-  ::java::util::WeakHashMap * positions;
+private:
+  jint garbageMarks;
+  ::javax::swing::text::GapContent$Mark * searchMark;
+public: // actually package-private
   ::java::lang::ref::ReferenceQueue * queueOfDeath;
   static jboolean $assertionsDisabled;
 public:

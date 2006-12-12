@@ -44,6 +44,7 @@ import gnu.java.lang.reflect.ClassSignatureParser;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.annotation.Inherited;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -62,6 +63,7 @@ import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -242,7 +244,7 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Class[] getClasses()
+  public Class<?>[] getClasses()
   {
     memberAccessCheck(Member.PUBLIC);
     return internalGetClasses();
@@ -251,14 +253,14 @@ public final class Class<T>
   /**
    * Like <code>getClasses()</code> but without the security checks.
    */
-  private Class[] internalGetClasses()
+  private Class<?>[] internalGetClasses()
   {
     ArrayList<Class> list = new ArrayList<Class>();
     list.addAll(Arrays.asList(getDeclaredClasses(true)));
     Class superClass = getSuperclass();
     if (superClass != null)
       list.addAll(Arrays.asList(superClass.internalGetClasses()));
-    return list.toArray(new Class[list.size()]);
+    return list.toArray(new Class<?>[list.size()]);
   }
   
   /**
@@ -321,7 +323,7 @@ public final class Class<T>
    * @see #getConstructors()
    * @since 1.1
    */
-  public Constructor<T> getConstructor(Class... types)
+  public Constructor<T> getConstructor(Class<?>... types)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.PUBLIC);
@@ -347,7 +349,7 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Constructor[] getConstructors()
+  public Constructor<?>[] getConstructors()
   {
     memberAccessCheck(Member.PUBLIC);
     return getDeclaredConstructors(true);
@@ -367,7 +369,7 @@ public final class Class<T>
    * @see #getDeclaredConstructors()
    * @since 1.1
    */
-  public Constructor<T> getDeclaredConstructor(Class... types)
+  public Constructor<T> getDeclaredConstructor(Class<?>... types)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.DECLARED);
@@ -393,13 +395,13 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Class[] getDeclaredClasses()
+  public Class<?>[] getDeclaredClasses()
   {
     memberAccessCheck(Member.DECLARED);
     return getDeclaredClasses(false);
   }
 
-  Class[] getDeclaredClasses (boolean publicOnly)
+  Class<?>[] getDeclaredClasses (boolean publicOnly)
   {
     return VMClass.getDeclaredClasses (this, publicOnly);
   }
@@ -416,13 +418,13 @@ public final class Class<T>
    * @throws SecurityException if the security check fails
    * @since 1.1
    */
-  public Constructor[] getDeclaredConstructors()
+  public Constructor<?>[] getDeclaredConstructors()
   {
     memberAccessCheck(Member.DECLARED);
     return getDeclaredConstructors(false);
   }
 
-  Constructor[] getDeclaredConstructors (boolean publicOnly)
+  Constructor<?>[] getDeclaredConstructors (boolean publicOnly)
   {
     return VMClass.getDeclaredConstructors (this, publicOnly);
   }
@@ -496,7 +498,7 @@ public final class Class<T>
    * @see #getDeclaredMethods()
    * @since 1.1
    */
-  public Method getDeclaredMethod(String methodName, Class... types)
+  public Method getDeclaredMethod(String methodName, Class<?>... types)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.DECLARED);
@@ -629,7 +631,7 @@ public final class Class<T>
    *
    * @return the interfaces this class directly implements
    */
-  public Class[] getInterfaces()
+  public Class<?>[] getInterfaces()
   {
     return VMClass.getInterfaces (this);
   }
@@ -700,7 +702,7 @@ public final class Class<T>
    * @see #getMethods()
    * @since 1.1
    */
-  public Method getMethod(String methodName, Class... types)
+  public Method getMethod(String methodName, Class<?>... types)
     throws NoSuchMethodException
   {
     memberAccessCheck(Member.PUBLIC);
@@ -1505,15 +1507,22 @@ public final class Class<T>
    */
   public Annotation[] getAnnotations()
   {
-    HashSet<Annotation> set = new HashSet<Annotation>();
-    set.addAll(Arrays.asList(getDeclaredAnnotations()));
-    Class[] interfaces = getInterfaces();
-    for (int i = 0; i < interfaces.length; i++)
-      set.addAll(Arrays.asList(interfaces[i].getAnnotations()));
-    Class<? super T> superClass = getSuperclass();
-    if (superClass != null)
-      set.addAll(Arrays.asList(superClass.getAnnotations()));
-    return set.toArray(new Annotation[set.size()]);
+    HashMap<Class, Annotation> map = new HashMap<Class, Annotation>();
+    for (Annotation a : getDeclaredAnnotations())
+      map.put((Class) a.annotationType(), a);
+    for (Class<? super T> s = getSuperclass();
+	 s != null;
+	 s = s.getSuperclass())
+      {
+	for (Annotation a : s.getDeclaredAnnotations())
+	  {
+	    Class k = (Class) a.annotationType();
+	    if (! map.containsKey(k) && k.isAnnotationPresent(Inherited.class))
+	      map.put(k, a);
+	  }
+      }
+    Collection<Annotation> v = map.values();
+    return v.toArray(new Annotation[v.size()]);
   }
 
   /**

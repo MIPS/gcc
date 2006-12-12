@@ -49,6 +49,8 @@ public:
   ::java::util::regex::Matcher * reset(::java::lang::CharSequence *);
   jint start();
   jint start(jint);
+  jboolean hitEnd();
+  ::java::lang::String * toString();
 private:
   void assertMatchOp();
   ::java::util::regex::Pattern * __attribute__((aligned(__alignof__( ::java::lang::Object)))) pattern__;

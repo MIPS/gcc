@@ -33,6 +33,7 @@ private:
   jint __attribute__((aligned(__alignof__( ::javax::swing::undo::AbstractUndoableEdit)))) start;
   jint length;
   ::java::lang::String * redoContent;
+  ::java::util::Vector * positions;
 public: // actually package-private
   ::javax::swing::text::StringContent * this$0;
 public:

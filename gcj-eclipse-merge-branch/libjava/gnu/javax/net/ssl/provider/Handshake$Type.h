@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,15 +29,15 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::Handshake$Type : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::Handshake$Type : public ::java::lang::Enum
 {
 
-  Handshake$Type(jint);
+  Handshake$Type(::java::lang::String *, jint, jint);
 public:
-  static ::gnu::javax::net::ssl::provider::Handshake$Type * read(::java::io::InputStream *);
-  virtual JArray< jbyte > * getEncoded();
-  virtual jint getValue();
-  virtual ::java::lang::String * toString();
+  static ::gnu::javax::net::ssl::provider::Handshake$Type * forInteger(jint);
+  jint getValue();
+  static JArray< ::gnu::javax::net::ssl::provider::Handshake$Type * > * values();
+  static ::gnu::javax::net::ssl::provider::Handshake$Type * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::Handshake$Type * HELLO_REQUEST;
   static ::gnu::javax::net::ssl::provider::Handshake$Type * CLIENT_HELLO;
   static ::gnu::javax::net::ssl::provider::Handshake$Type * SERVER_HELLO;
@@ -51,7 +51,8 @@ public:
   static ::gnu::javax::net::ssl::provider::Handshake$Type * CERTIFICATE_URL;
   static ::gnu::javax::net::ssl::provider::Handshake$Type * CERTIFICATE_STATUS;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::Handshake$Type * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

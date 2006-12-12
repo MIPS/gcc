@@ -26,12 +26,10 @@ extern "Java"
       namespace text
       {
           class AbstractDocument$AbstractElement;
-          class AbstractDocument$BranchElement;
           class AbstractDocument$Content;
           class AbstractDocument$DefaultDocumentEvent;
           class AttributeSet;
           class DefaultStyledDocument;
-          class DefaultStyledDocument$Edit;
           class DefaultStyledDocument$ElementBuffer;
           class DefaultStyledDocument$ElementSpec;
           class DefaultStyledDocument$StyleChangeListener;
@@ -46,8 +44,6 @@ extern "Java"
 class javax::swing::text::DefaultStyledDocument : public ::javax::swing::text::AbstractDocument
 {
 
-public: // actually package-private
-  virtual ::javax::swing::text::DefaultStyledDocument$Edit * getEditForParagraphAndIndex(::javax::swing::text::AbstractDocument$BranchElement *, jint);
 public:
   DefaultStyledDocument();
   DefaultStyledDocument(::javax::swing::text::StyleContext *);
@@ -70,6 +66,8 @@ public:
   virtual void setParagraphAttributes(jint, jint, ::javax::swing::text::AttributeSet *, jboolean);
 public: // actually protected
   virtual void insertUpdate(::javax::swing::text::AbstractDocument$DefaultDocumentEvent *, ::javax::swing::text::AttributeSet *);
+private:
+  jshort insertAfterNewline(::javax::swing::text::Element *, ::javax::swing::text::Element *, ::javax::swing::text::AttributeSet *, ::java::util::ArrayList *, jint, jint);
 public: // actually package-private
   virtual jshort handleInsertAfterNewline(::java::util::Vector *, jint, jint, ::javax::swing::text::Element *, ::javax::swing::text::Element *, ::javax::swing::text::AttributeSet *);
 public: // actually protected
@@ -89,7 +87,7 @@ public: // actually protected
 private:
   ::javax::swing::text::DefaultStyledDocument$StyleChangeListener * styleChangeListener;
 public: // actually package-private
-  ::java::util::Vector * edits;
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

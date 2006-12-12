@@ -42,6 +42,7 @@ public: // actually protected
   jint __attribute__((aligned(__alignof__( ::java::util::EventObject)))) id;
   jboolean consumed;
 public: // actually package-private
+  ::java::awt::AWTEvent * queueNext;
   JArray< jbyte > * bdata;
   jboolean isFocusManagerEvent;
 public:

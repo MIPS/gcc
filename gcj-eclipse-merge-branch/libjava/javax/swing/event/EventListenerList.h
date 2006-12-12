@@ -35,6 +35,9 @@ public:
   virtual JArray< ::java::util::EventListener * > * getListeners(::java::lang::Class *);
   virtual void remove(::java::lang::Class *, ::java::util::EventListener *);
   virtual ::java::lang::String * toString();
+private:
+  void writeObject(::java::io::ObjectOutputStream *);
+  void readObject(::java::io::ObjectInputStream *);
 public: // actually package-private
   static const jlong serialVersionUID = -5677132037850737084LL;
 private:

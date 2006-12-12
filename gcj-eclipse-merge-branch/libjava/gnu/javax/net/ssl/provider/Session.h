@@ -38,6 +38,7 @@ extern "Java"
   {
     namespace security
     {
+        class Principal;
         class SecureRandom;
       namespace cert
       {
@@ -94,6 +95,13 @@ public:
 public: // actually package-private
   void access();
   void setLastAccessedTime(jlong);
+public:
+  jint getApplicationBufferSize() = 0;
+  ::java::security::Principal * getLocalPrincipal() = 0;
+  jint getPacketBufferSize() = 0;
+  jint getPeerPort() = 0;
+  ::java::security::Principal * getPeerPrincipal() = 0;
+  jboolean isValid() = 0;
 private:
   static ::javax::net::ssl::SSLPermission * GET_SESSION_CONTEXT_PERMISSION;
   jlong __attribute__((aligned(__alignof__( ::java::lang::Object)))) creationTime;

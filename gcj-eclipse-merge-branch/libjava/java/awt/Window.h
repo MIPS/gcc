@@ -120,6 +120,7 @@ public:
   virtual void setAlwaysOnTop(jboolean);
 public: // actually package-private
   virtual ::java::lang::String * generateName();
+  virtual jboolean eventTypeEnabled(jint);
 private:
   static jlong getUniqueLong();
   static const jlong serialVersionUID = 4497834738069338734LL;

@@ -148,7 +148,8 @@ public: // actually package-private
   virtual ::javax::swing::InputMap * getInputMap(jint);
   virtual ::javax::swing::ActionMap * getActionMap();
   virtual ::javax::swing::ActionMap * createActionMap();
-  static void access$0(::javax::swing::plaf::basic::BasicSliderUI *, jboolean);
+private:
+  jboolean hitClip(::java::awt::Graphics *, ::java::awt::Rectangle *);
 public: // actually protected
   ::javax::swing::event::ChangeListener * __attribute__((aligned(__alignof__( ::javax::swing::plaf::SliderUI)))) changeListener;
   ::java::beans::PropertyChangeListener * propertyChangeListener;
@@ -178,7 +179,6 @@ private:
   ::java::awt::Color * shadowColor;
   ::java::awt::Color * highlightColor;
   ::java::awt::Color * focusColor;
-  jboolean hasFocus;
 public: // actually package-private
   jboolean dragging;
 public:

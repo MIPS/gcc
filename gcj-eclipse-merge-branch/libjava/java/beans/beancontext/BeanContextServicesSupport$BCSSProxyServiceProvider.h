@@ -15,6 +15,7 @@ extern "Java"
     {
       namespace beancontext
       {
+          class BeanContextServiceProvider;
           class BeanContextServiceRevokedEvent;
           class BeanContextServices;
           class BeanContextServicesSupport;
@@ -27,7 +28,7 @@ extern "Java"
 class java::beans::beancontext::BeanContextServicesSupport$BCSSProxyServiceProvider : public ::java::lang::Object
 {
 
-  BeanContextServicesSupport$BCSSProxyServiceProvider(::java::beans::beancontext::BeanContextServicesSupport *);
+  BeanContextServicesSupport$BCSSProxyServiceProvider(::java::beans::beancontext::BeanContextServicesSupport *, ::java::beans::beancontext::BeanContextServiceProvider *);
 public:
   virtual ::java::util::Iterator * getCurrentServiceSelectors(::java::beans::beancontext::BeanContextServices *, ::java::lang::Class *);
   virtual ::java::lang::Object * getService(::java::beans::beancontext::BeanContextServices *, ::java::lang::Object *, ::java::lang::Class *, ::java::lang::Object *);
@@ -35,8 +36,9 @@ public:
   virtual void serviceRevoked(::java::beans::beancontext::BeanContextServiceRevokedEvent *);
 private:
   static const jlong serialVersionUID = 7078212910685744490LL;
+  ::java::beans::beancontext::BeanContextServiceProvider * __attribute__((aligned(__alignof__( ::java::lang::Object)))) provider;
 public: // actually package-private
-  ::java::beans::beancontext::BeanContextServicesSupport * __attribute__((aligned(__alignof__( ::java::lang::Object)))) this$0;
+  ::java::beans::beancontext::BeanContextServicesSupport * this$0;
 public:
   static ::java::lang::Class class$;
 };

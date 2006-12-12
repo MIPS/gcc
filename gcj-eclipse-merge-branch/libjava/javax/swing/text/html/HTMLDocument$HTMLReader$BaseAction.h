@@ -34,7 +34,6 @@ public: // actually package-private
   HTMLDocument$HTMLReader$BaseAction(::javax::swing::text::html::HTMLDocument$HTMLReader *);
 public:
   virtual void start(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::MutableAttributeSet *);
-  virtual void end(::javax::swing::text::html::HTML$Tag *);
 public: // actually package-private
   ::javax::swing::text::html::HTMLDocument$HTMLReader * __attribute__((aligned(__alignof__( ::javax::swing::text::html::HTMLDocument$HTMLReader$TagAction)))) this$1;
 public:

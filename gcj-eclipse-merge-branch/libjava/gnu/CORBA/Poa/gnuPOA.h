@@ -132,7 +132,8 @@ public:
   virtual ::org::omg::CORBA::ORB * orb();
 private:
   void create_and_connect(JArray< jbyte > *, ::java::lang::String *, ::gnu::CORBA::Poa::ServantDelegateImpl *);
-  void checkDiscarding();
+public: // actually package-private
+  virtual void checkDiscarding();
 public: // actually protected
   virtual void connect_to_orb(JArray< jbyte > *, ::org::omg::CORBA::Object *);
 public:

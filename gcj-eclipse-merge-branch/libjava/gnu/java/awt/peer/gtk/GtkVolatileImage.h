@@ -39,7 +39,9 @@ extern "Java"
       namespace image
       {
           class BufferedImage;
+          class ColorModel;
           class ImageObserver;
+          class SampleModel;
       }
     }
   }
@@ -78,6 +80,8 @@ public:
   virtual jint getWidth(::java::awt::image::ImageObserver *);
   virtual jint getHeight(::java::awt::image::ImageObserver *);
   virtual ::java::lang::Object * getProperty(::java::lang::String *, ::java::awt::image::ImageObserver *);
+public: // actually protected
+  static ::java::awt::image::SampleModel * createGdkSampleModel(jint, jint);
 public: // actually package-private
   jint __attribute__((aligned(__alignof__( ::java::awt::image::VolatileImage)))) width;
   jint height;
@@ -85,6 +89,7 @@ private:
   ::java::awt::ImageCapabilities * caps;
 public: // actually package-private
   ::gnu::java::awt::peer::gtk::GtkComponentPeer * component;
+  static ::java::awt::image::ColorModel * gdkColorModel;
   jlong nativePointer;
 public:
   static ::java::lang::Class class$;

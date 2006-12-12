@@ -31,8 +31,10 @@ public:
   virtual void redo();
 private:
   jint __attribute__((aligned(__alignof__( ::javax::swing::undo::AbstractUndoableEdit)))) start;
+  jint len;
   ::java::lang::String * undoString;
 public: // actually package-private
+  ::java::util::Vector * positions;
   ::javax::swing::text::StringContent * this$0;
 public:
   static ::java::lang::Class class$;

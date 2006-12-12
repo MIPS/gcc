@@ -32,6 +32,9 @@ public:
   jint __attribute__((aligned(__alignof__( ::javax::swing::undo::AbstractUndoableEdit)))) where;
 public: // actually package-private
   ::java::lang::String * text;
+private:
+  ::java::util::Vector * positions;
+public: // actually package-private
   ::javax::swing::text::GapContent * this$0;
 public:
   static ::java::lang::Class class$;

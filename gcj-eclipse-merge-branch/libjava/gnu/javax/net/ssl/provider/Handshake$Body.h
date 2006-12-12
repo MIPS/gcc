@@ -31,7 +31,8 @@ class gnu::javax::net::ssl::provider::Handshake$Body : public ::java::lang::Obje
 {
 
 public:
-  virtual void write(::java::io::OutputStream *) = 0;
+  virtual jint length() = 0;
+  virtual ::java::lang::String * toString(::java::lang::String *) = 0;
   static ::java::lang::Class class$;
 } __attribute__ ((java_interface));
 

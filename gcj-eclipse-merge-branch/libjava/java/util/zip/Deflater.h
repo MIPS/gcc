@@ -35,7 +35,9 @@ public:
   virtual void end();
   virtual jint getAdler();
   virtual jint getTotalIn();
+  virtual jlong getBytesRead();
   virtual jint getTotalOut();
+  virtual jlong getBytesWritten();
 public: // actually protected
   virtual void finalize();
 public:

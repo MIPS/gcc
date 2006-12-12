@@ -13,10 +13,15 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class CodeSource;
         class PermissionCollection;
+        class ProtectionDomain;
         class SecureClassLoader;
     }
   }
@@ -29,9 +34,13 @@ public: // actually protected
   SecureClassLoader(::java::lang::ClassLoader *);
   SecureClassLoader();
   virtual ::java::lang::Class * defineClass(::java::lang::String *, JArray< jbyte > *, jint, jint, ::java::security::CodeSource *);
+  virtual ::java::lang::Class * defineClass(::java::lang::String *, ::java::nio::ByteBuffer *, ::java::security::CodeSource *);
+private:
+  ::java::security::ProtectionDomain * getProtectionDomain(::java::security::CodeSource *);
+public: // actually protected
   virtual ::java::security::PermissionCollection * getPermissions(::java::security::CodeSource *);
-public: // actually package-private
-  ::java::util::WeakHashMap * __attribute__((aligned(__alignof__( ::java::lang::ClassLoader)))) protectionDomainCache;
+private:
+  ::java::util::HashMap * __attribute__((aligned(__alignof__( ::java::lang::ClassLoader)))) protectionDomainCache;
 public:
   static ::java::lang::Class class$;
 };

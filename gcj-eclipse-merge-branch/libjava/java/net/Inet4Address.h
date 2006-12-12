@@ -43,6 +43,8 @@ public:
   jboolean equals(::java::lang::Object *);
 public: // actually package-private
   static const jlong serialVersionUID = 3286316764910316507LL;
+private:
+  static const jint AF_INET = 2;
 public:
   static ::java::lang::Class class$;
 };

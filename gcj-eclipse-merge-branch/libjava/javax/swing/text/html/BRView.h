@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <javax/swing/text/html/NullView.h>
+#include <javax/swing/text/html/InlineView.h>
 extern "Java"
 {
   namespace javax
@@ -25,7 +25,7 @@ extern "Java"
   }
 }
 
-class javax::swing::text::html::BRView : public ::javax::swing::text::html::NullView
+class javax::swing::text::html::BRView : public ::javax::swing::text::html::InlineView
 {
 
 public:

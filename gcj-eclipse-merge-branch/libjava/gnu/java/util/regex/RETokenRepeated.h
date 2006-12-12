@@ -24,6 +24,9 @@ extern "Java"
             class REMatch;
             class REToken;
             class RETokenRepeated;
+            class RETokenRepeated$DoablesFinder;
+            class RETokenRepeated$FindMatchControlStack;
+            class RETokenRepeated$TryAnotherResult;
         }
       }
     }
@@ -45,6 +48,8 @@ public: // actually package-private
   ::gnu::java::util::regex::REMatch * backtrack(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, ::java::lang::Object *);
 private:
   ::gnu::java::util::regex::REMatch * findMatch(::gnu::java::util::regex::BacktrackStack *);
+  ::gnu::java::util::regex::REMatch * findMatch(::gnu::java::util::regex::BacktrackStack *, ::gnu::java::util::regex::RETokenRepeated$FindMatchControlStack *);
+  ::gnu::java::util::regex::RETokenRepeated$TryAnotherResult * tryAnother(::gnu::java::util::regex::BacktrackStack *, ::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, jint, ::gnu::java::util::regex::RETokenRepeated$DoablesFinder *, JArray< jint > *);
 public: // actually package-private
   jboolean match(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
 private:

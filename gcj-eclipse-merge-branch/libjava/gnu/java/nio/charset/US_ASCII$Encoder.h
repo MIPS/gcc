@@ -42,6 +42,9 @@ class gnu::java::nio::charset::US_ASCII$Encoder : public ::java::nio::charset::C
 
 public: // actually package-private
   US_ASCII$Encoder(::java::nio::charset::Charset *);
+public:
+  jboolean canEncode(jchar);
+  jboolean canEncode(::java::lang::CharSequence *);
 public: // actually protected
   ::java::nio::charset::CoderResult * encodeLoop(::java::nio::CharBuffer *, ::java::nio::ByteBuffer *);
 public:

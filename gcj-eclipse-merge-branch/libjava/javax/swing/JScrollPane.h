@@ -106,7 +106,7 @@ public: // actually protected
   ::javax::swing::JScrollBar * verticalScrollBar;
   jint verticalScrollBarPolicy;
   ::javax::swing::JViewport * viewport;
-public: // actually package-private
+private:
   ::javax::swing::border::Border * viewportBorder;
   jboolean wheelScrollingEnabled;
 public:

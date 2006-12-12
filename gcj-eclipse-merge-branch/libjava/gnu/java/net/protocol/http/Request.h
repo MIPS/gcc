@@ -59,7 +59,7 @@ public: // actually package-private
   virtual ::gnu::java::net::protocol::http::Response * readResponse(::java::io::InputStream *);
   virtual void notifyHeaderHandlers(::gnu::java::net::protocol::http::Headers *);
 private:
-  ::java::io::InputStream * createResponseBodyStream(::gnu::java::net::protocol::http::Headers *, jint, jint, ::java::io::InputStream *);
+  ::java::io::InputStream * createResponseBodyStream(::gnu::java::net::protocol::http::Headers *, jint, jint, ::java::io::InputStream *, jboolean);
 public: // actually package-private
   virtual jboolean authenticate(::gnu::java::net::protocol::http::Response *, jint);
   virtual ::java::util::Properties * parseAuthParams(::java::lang::String *);

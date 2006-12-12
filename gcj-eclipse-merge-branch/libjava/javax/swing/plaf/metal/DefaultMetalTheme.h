@@ -47,18 +47,25 @@ public:
   virtual ::javax::swing::plaf::FontUIResource * getUserTextFont();
   virtual ::javax::swing::plaf::FontUIResource * getWindowTitleFont();
 private:
+  ::javax::swing::plaf::FontUIResource * getFont(jint);
+  jboolean isBoldMetal();
   static ::javax::swing::plaf::ColorUIResource * PRIMARY1;
   static ::javax::swing::plaf::ColorUIResource * PRIMARY2;
   static ::javax::swing::plaf::ColorUIResource * PRIMARY3;
   static ::javax::swing::plaf::ColorUIResource * SECONDARY1;
   static ::javax::swing::plaf::ColorUIResource * SECONDARY2;
   static ::javax::swing::plaf::ColorUIResource * SECONDARY3;
-  static ::javax::swing::plaf::FontUIResource * CONTROL_TEXT_FONT;
-  static ::javax::swing::plaf::FontUIResource * MENU_TEXT_FONT;
   static ::javax::swing::plaf::FontUIResource * SUB_TEXT_FONT;
   static ::javax::swing::plaf::FontUIResource * SYSTEM_TEXT_FONT;
   static ::javax::swing::plaf::FontUIResource * USER_TEXT_FONT;
   static ::javax::swing::plaf::FontUIResource * WINDOW_TITLE_FONT;
+  static ::javax::swing::plaf::FontUIResource * PLAIN_CONTROL_TEXT_FONT;
+  static ::javax::swing::plaf::FontUIResource * BOLD_CONTROL_TEXT_FONT;
+  static ::javax::swing::plaf::FontUIResource * PLAIN_MENU_TEXT_FONT;
+  static ::javax::swing::plaf::FontUIResource * BOLD_MENU_TEXT_FONT;
+public: // actually package-private
+  static const jint CONTROL_TEXT_FONT = 1;
+  static const jint MENU_TEXT_FONT = 2;
 public:
   static ::java::lang::Class class$;
 };

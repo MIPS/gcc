@@ -187,6 +187,9 @@ public: // actually package-private
   ::java::awt::BufferCapabilities * caps;
   ::java::awt::Component * awtComponent;
   ::java::awt::Insets * insets;
+private:
+  ::java::awt::Rectangle * currentPaintArea;
+public: // actually package-private
   static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;

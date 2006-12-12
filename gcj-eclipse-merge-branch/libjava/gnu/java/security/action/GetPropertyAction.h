@@ -31,9 +31,10 @@ public:
   GetPropertyAction();
   GetPropertyAction(::java::lang::String *);
   GetPropertyAction(::java::lang::String *, ::java::lang::String *);
-  virtual ::java::lang::Object * run();
+  virtual ::java::lang::String * target$run();
   virtual ::gnu::java::security::action::GetPropertyAction * setParameters(::java::lang::String *);
   virtual ::gnu::java::security::action::GetPropertyAction * setParameters(::java::lang::String *, ::java::lang::String *);
+  virtual ::java::lang::Object * run();
 public: // actually package-private
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) name;
   ::java::lang::String * value;

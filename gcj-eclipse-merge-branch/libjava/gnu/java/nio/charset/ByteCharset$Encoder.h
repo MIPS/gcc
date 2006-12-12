@@ -44,6 +44,9 @@ class gnu::java::nio::charset::ByteCharset$Encoder : public ::java::nio::charset
 
 public: // actually package-private
   ByteCharset$Encoder(::gnu::java::nio::charset::ByteCharset *);
+public:
+  jboolean canEncode(jchar);
+  jboolean canEncode(::java::lang::CharSequence *);
 public: // actually protected
   ::java::nio::charset::CoderResult * encodeLoop(::java::nio::CharBuffer *, ::java::nio::ByteBuffer *);
 private:

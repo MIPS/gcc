@@ -79,7 +79,15 @@ public: // actually protected
 public:
   virtual void drawGlyphVector(::java::awt::font::GlyphVector *, jfloat, jfloat);
 private:
+  jboolean drawComposite(::java::awt::geom::Rectangle2D *, ::java::awt::image::ImageObserver *);
+  void createBuffer();
+public: // actually protected
+  virtual ::java::awt::image::ColorModel * getNativeCM();
+  virtual ::java::awt::image::ColorModel * getBufferCM();
+private:
   ::java::awt::image::BufferedImage * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::CairoGraphics2D)))) image;
+  ::java::awt::image::BufferedImage * buffer;
+  jboolean locked;
   jint imageWidth;
   jint imageHeight;
 public: // actually package-private
@@ -87,10 +95,6 @@ public: // actually package-private
   static ::java::util::WeakHashMap * bufferedImages;
 private:
   jlong cairo_t;
-public: // actually package-private
-  static ::java::awt::image::ColorModel * rgb32;
-  static ::java::awt::image::ColorModel * argb32;
-private:
   jboolean hasFastCM;
   jboolean hasAlpha;
 public:

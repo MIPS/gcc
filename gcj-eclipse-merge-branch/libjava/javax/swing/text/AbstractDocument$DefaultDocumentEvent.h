@@ -47,12 +47,13 @@ public:
   virtual ::java::lang::String * toString();
 private:
   static const jlong serialVersionUID = 5230037221564563284LL;
+  static const jint THRESHOLD = 10;
   jint __attribute__((aligned(__alignof__( ::javax::swing::undo::CompoundEdit)))) offset;
   jint length;
   ::javax::swing::event::DocumentEvent$EventType * type;
-public: // actually package-private
-  ::java::util::Hashtable * changes;
+  ::java::util::HashMap * changes;
   jboolean modified;
+public: // actually package-private
   ::javax::swing::text::AbstractDocument * this$0;
 public:
   static ::java::lang::Class class$;

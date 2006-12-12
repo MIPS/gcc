@@ -13,6 +13,10 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class MessageDigest;
@@ -34,6 +38,7 @@ public:
   virtual void update(jbyte);
   virtual void update(JArray< jbyte > *, jint, jint);
   virtual void update(JArray< jbyte > *);
+  virtual void update(::java::nio::ByteBuffer *);
   virtual JArray< jbyte > * digest();
   virtual jint digest(JArray< jbyte > *, jint, jint);
   virtual JArray< jbyte > * digest(JArray< jbyte > *);

@@ -35,10 +35,13 @@ public:
   virtual jchar charAt(jint);
   virtual jboolean isValid();
   virtual jboolean move(jint);
+  virtual jboolean move1(jint);
   virtual ::gnu::java::util::regex::CharIndexed * lookBehind(jint, jint);
   virtual jint length();
   virtual void setLastMatch(::gnu::java::util::regex::REMatch *);
   virtual ::gnu::java::util::regex::REMatch * getLastMatch();
+  virtual void setHitEnd(::gnu::java::util::regex::REMatch *);
+  virtual jboolean hitEnd();
   virtual jint getAnchor();
   virtual void setAnchor(jint);
 private:
@@ -46,6 +49,7 @@ private:
   jint anchor;
   jint len;
   ::gnu::java::util::regex::REMatch * lastMatch;
+  jint rightmostTriedPosition;
 public:
   static ::java::lang::Class class$;
 };

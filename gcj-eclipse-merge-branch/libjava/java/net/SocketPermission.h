@@ -15,6 +15,7 @@ extern "Java"
   {
     namespace net
     {
+        class InetAddress;
         class SocketPermission;
     }
     namespace security
@@ -31,6 +32,7 @@ class java::net::SocketPermission : public ::java::security::Permission
 public:
   SocketPermission(::java::lang::String *, ::java::lang::String *);
 private:
+  static ::java::lang::String * processHostport(::java::lang::String *);
   void setHostPort(::java::lang::String *);
   void setActions(::java::lang::String *);
   void setAction(::java::lang::String *);
@@ -39,6 +41,10 @@ public:
   jint hashCode();
   ::java::lang::String * getActions();
   ::java::security::PermissionCollection * newPermissionCollection();
+private:
+  JArray< ::java::net::InetAddress * > * getAddresses();
+  ::java::lang::String * getCanonicalHostName();
+public:
   jboolean implies(::java::security::Permission *);
 private:
   void readObject(::java::io::ObjectInputStream *);
@@ -46,7 +52,8 @@ private:
 public: // actually package-private
   static const jlong serialVersionUID = -7204263841984476862LL;
 private:
-  ::java::lang::String * __attribute__((aligned(__alignof__( ::java::security::Permission)))) host;
+  ::java::lang::String * __attribute__((aligned(__alignof__( ::java::security::Permission)))) hostname;
+  ::java::net::InetAddress * address;
   jint minport;
   jint maxport;
   static const jint MIN_PORT = 0;

@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <java/lang/Object.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace gnu
@@ -23,6 +21,7 @@ extern "Java"
           {
               class CipherSuite;
               class ClientKeyExchange;
+              class ExchangeKeys;
               class ProtocolVersion;
           }
         }
@@ -31,13 +30,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace math
+    namespace nio
     {
-        class BigInteger;
-    }
-    namespace security
-    {
-        class PublicKey;
+        class ByteBuffer;
     }
   }
 }
@@ -45,19 +40,16 @@ extern "Java"
 class gnu::javax::net::ssl::provider::ClientKeyExchange : public ::java::lang::Object
 {
 
-public: // actually package-private
-  ClientKeyExchange(JArray< jbyte > *);
-  ClientKeyExchange(::java::math::BigInteger *);
-  static ::gnu::javax::net::ssl::provider::ClientKeyExchange * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
 public:
-  void write(::java::io::OutputStream *);
-  void write(::java::io::OutputStream *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
-public: // actually package-private
-  ::java::lang::Object * getExchangeObject();
-public:
-  ::java::lang::String * toString();
-private:
-  ::java::lang::Object * __attribute__((aligned(__alignof__( ::java::lang::Object)))) exObject;
+  ClientKeyExchange(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
+  virtual ::gnu::javax::net::ssl::provider::ExchangeKeys * exchangeKeys();
+  virtual jint length();
+  virtual ::java::lang::String * toString();
+  virtual ::java::lang::String * toString(::java::lang::String *);
+public: // actually protected
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  ::gnu::javax::net::ssl::provider::CipherSuite * suite;
+  ::gnu::javax::net::ssl::provider::ProtocolVersion * version;
 public:
   static ::java::lang::Class class$;
 };

@@ -33,6 +33,7 @@ private:
 public: // actually protected
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) description;
   ::java::lang::String * name;
+public: // actually package-private
   ::java::lang::String * string;
 public:
   static ::java::lang::Class class$;

@@ -89,15 +89,8 @@ public:
   virtual JArray< ::java::beans::PropertyChangeListener * > * getPropertyChangeListeners();
 public: // actually protected
   virtual void insureRowContinuity();
-private:
-  void selectOne();
-  ::javax::swing::tree::TreePath * getPath(jint);
-public: // actually protected
   virtual jboolean arePathsContiguous(JArray< ::javax::swing::tree::TreePath * > *);
   virtual jboolean canPathsBeAdded(JArray< ::javax::swing::tree::TreePath * > *);
-private:
-  jboolean canPathBeAdded(::javax::swing::tree::TreePath *);
-public: // actually protected
   virtual jboolean canPathsBeRemoved(JArray< ::javax::swing::tree::TreePath * > *);
   virtual void notifyPathChange(::java::util::Vector *, ::javax::swing::tree::TreePath *);
   virtual void updateLeadIndex();
@@ -116,6 +109,9 @@ public: // actually protected
   ::javax::swing::tree::TreePath * leadPath;
   jint leadIndex;
   jint leadRow;
+private:
+  ::java::util::HashSet * selectedPaths;
+  ::java::util::HashSet * tmpPaths;
 public:
   static ::java::lang::Class class$;
 };

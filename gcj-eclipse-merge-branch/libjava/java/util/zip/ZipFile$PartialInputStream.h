@@ -9,6 +9,20 @@
 #include <java/io/InputStream.h>
 #include <gcj/array.h>
 
+extern "Java"
+{
+  namespace java
+  {
+    namespace nio
+    {
+      namespace charset
+      {
+          class Charset;
+          class CharsetDecoder;
+      }
+    }
+  }
+}
 
 class java::util::zip::ZipFile$PartialInputStream : public ::java::io::InputStream
 {
@@ -30,11 +44,16 @@ public: // actually package-private
   void readFully(JArray< jbyte > *, jint, jint);
   jint readLeShort();
   jint readLeInt();
+private:
+  ::java::lang::String * decodeChars(JArray< jbyte > *, jint, jint);
+public: // actually package-private
   ::java::lang::String * readString(jint);
 public:
   void addDummyByte();
 private:
-  ::java::io::RandomAccessFile * __attribute__((aligned(__alignof__( ::java::io::InputStream)))) raf;
+  static ::java::nio::charset::Charset * UTF8CHARSET;
+  ::java::nio::charset::CharsetDecoder * __attribute__((aligned(__alignof__( ::java::io::InputStream)))) utf8Decoder;
+  ::java::io::RandomAccessFile * raf;
   JArray< jbyte > * buffer;
   jlong bufferOffset;
   jint pos;

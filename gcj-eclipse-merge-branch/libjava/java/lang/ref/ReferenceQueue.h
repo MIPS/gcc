@@ -15,7 +15,7 @@ public:
   ReferenceQueue();
   virtual ::java::lang::ref::Reference * poll();
 public: // actually package-private
-  virtual void enqueue(::java::lang::ref::Reference *);
+  virtual jboolean enqueue(::java::lang::ref::Reference *);
 private:
   ::java::lang::ref::Reference * dequeue();
 public:
@@ -23,6 +23,7 @@ public:
   virtual ::java::lang::ref::Reference * remove();
 private:
   ::java::lang::ref::Reference * __attribute__((aligned(__alignof__( ::java::lang::Object)))) first;
+  ::java::lang::Object * lock;
 public:
   static ::java::lang::Class class$;
 };

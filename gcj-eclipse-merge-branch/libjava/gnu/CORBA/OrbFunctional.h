@@ -117,6 +117,7 @@ public:
 public: // actually protected
   virtual void finalize();
 public:
+  virtual jint countConnectedObjects();
   static jint DEFAULT_INITIAL_PORT;
   static jint RANDOM_PORT_FROM;
   static jint RANDOM_PORT_TO;

@@ -13,6 +13,10 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class Key;
@@ -44,6 +48,7 @@ public: // actually protected
   virtual void engineReset() = 0;
   virtual void engineUpdate(jbyte) = 0;
   virtual void engineUpdate(JArray< jbyte > *, jint, jint) = 0;
+  virtual void engineUpdate(::java::nio::ByteBuffer *);
 public:
   static ::java::lang::Class class$;
 };

@@ -30,11 +30,26 @@ extern "Java"
   {
     namespace awt
     {
+        class Color;
         class Graphics;
         class GraphicsConfiguration;
+        class Image;
+        class Shape;
+      namespace font
+      {
+          class GlyphVector;
+      }
       namespace geom
       {
+          class AffineTransform;
           class Rectangle2D;
+      }
+      namespace image
+      {
+          class BufferedImage;
+          class ColorModel;
+          class ImageObserver;
+          class RenderedImage;
       }
     }
   }
@@ -54,9 +69,22 @@ public: // actually protected
   virtual ::java::awt::geom::Rectangle2D * getRealBounds();
 public:
   virtual void copyAreaImpl(jint, jint, jint, jint, jint, jint);
+  virtual void draw(::java::awt::Shape *);
+  virtual void fill(::java::awt::Shape *);
+  virtual void drawRenderedImage(::java::awt::image::RenderedImage *, ::java::awt::geom::AffineTransform *);
 public: // actually protected
+  virtual jboolean drawImage(::java::awt::Image *, ::java::awt::geom::AffineTransform *, ::java::awt::Color *, ::java::awt::image::ImageObserver *);
+public:
+  virtual void drawGlyphVector(::java::awt::font::GlyphVector *, jfloat, jfloat);
+private:
+  jboolean drawComposite(::java::awt::geom::Rectangle2D *, ::java::awt::image::ImageObserver *);
+  void createBuffer();
+public: // actually protected
+  virtual ::java::awt::image::ColorModel * getNativeCM();
+  virtual ::java::awt::image::ColorModel * getBufferCM();
   ::gnu::java::awt::peer::gtk::CairoSurface * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::CairoGraphics2D)))) surface;
 private:
+  ::java::awt::image::BufferedImage * buffer;
   jlong cairo_t;
 public:
   static ::java::lang::Class class$;

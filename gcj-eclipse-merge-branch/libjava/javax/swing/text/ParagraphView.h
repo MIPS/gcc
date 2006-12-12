@@ -67,6 +67,8 @@ public: // actually protected
 public:
   virtual ::javax::swing::text::View * breakView(jint, jfloat, ::java::awt::Shape *);
   virtual jint getBreakWeight(jint, jfloat);
+public: // actually package-private
+  static jint access$0(::javax::swing::text::ParagraphView *);
 public: // actually protected
   jint __attribute__((aligned(__alignof__( ::javax::swing::text::FlowView)))) firstLineIndent;
 private:

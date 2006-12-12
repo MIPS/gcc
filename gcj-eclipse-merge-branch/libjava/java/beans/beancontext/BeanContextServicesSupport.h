@@ -79,6 +79,10 @@ public: // actually protected
   ::java::beans::beancontext::BeanContextServicesSupport$BCSSProxyServiceProvider * proxy;
   jint serializable;
   ::java::util::HashMap * services;
+private:
+  ::java::util::HashMap * serviceUsers;
+  ::java::util::HashMap * serviceRequests;
+  ::java::util::HashMap * serviceLeases;
 public:
   static ::java::lang::Class class$;
 };

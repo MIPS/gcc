@@ -38,6 +38,7 @@ extern "Java"
     namespace swing
     {
         class AbstractButton;
+        class AbstractButton$EventHandler;
         class Action;
         class ButtonModel;
         class Icon;
@@ -156,6 +157,7 @@ public:
   virtual void setLayout(::java::awt::LayoutManager *);
 public: // actually package-private
   virtual void setUIProperty(::java::lang::String *, ::java::lang::Object *);
+  virtual ::javax::swing::AbstractButton$EventHandler * getEventHandler();
 private:
   static const jlong serialVersionUID = -937921345538462020LL;
 public: // actually package-private
@@ -187,6 +189,8 @@ public: // actually protected
   ::java::awt::event::ActionListener * actionListener;
   ::java::awt::event::ItemListener * itemListener;
   ::javax::swing::event::ChangeListener * changeListener;
+private:
+  ::javax::swing::AbstractButton$EventHandler * eventHandler;
 public: // actually package-private
   jlong multiClickThreshhold;
   ::java::beans::PropertyChangeListener * actionPropertyChangeListener;

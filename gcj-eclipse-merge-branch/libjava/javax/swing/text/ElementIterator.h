@@ -7,8 +7,6 @@
 #pragma interface
 
 #include <java/lang/Object.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
   namespace javax
@@ -38,11 +36,9 @@ public:
   virtual ::javax::swing::text::Element * next();
   virtual ::javax::swing::text::Element * previous();
 private:
+  ::javax::swing::text::Element * deepestLeaf(::javax::swing::text::Element *);
   ::javax::swing::text::Element * __attribute__((aligned(__alignof__( ::java::lang::Object)))) root;
-  ::javax::swing::text::Element * currentElement;
-  jint currentDepth;
-  JArray< jint > * state;
-  ::javax::swing::text::Element * previousItem;
+  ::java::util::Stack * stack;
 public:
   static ::java::lang::Class class$;
 };

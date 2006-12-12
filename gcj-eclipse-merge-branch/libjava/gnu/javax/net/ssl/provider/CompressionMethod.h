@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,21 +29,20 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::CompressionMethod : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::CompressionMethod : public ::java::lang::Enum
 {
 
-  CompressionMethod(jint);
-public: // actually package-private
-  static ::gnu::javax::net::ssl::provider::CompressionMethod * read(::java::io::InputStream *);
+  CompressionMethod(::java::lang::String *, jint, jint);
 public:
-  JArray< jbyte > * getEncoded();
+  static ::gnu::javax::net::ssl::provider::CompressionMethod * getInstance(jint);
   jint getValue();
-  ::java::lang::String * toString();
-public: // actually package-private
+  static JArray< ::gnu::javax::net::ssl::provider::CompressionMethod * > * values();
+  static ::gnu::javax::net::ssl::provider::CompressionMethod * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::CompressionMethod * NULL;
   static ::gnu::javax::net::ssl::provider::CompressionMethod * ZLIB;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::CompressionMethod * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

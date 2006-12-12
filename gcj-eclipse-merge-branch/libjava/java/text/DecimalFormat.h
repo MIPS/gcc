@@ -7,28 +7,21 @@
 #pragma interface
 
 #include <java/text/NumberFormat.h>
-#include <gcj/array.h>
-
 extern "Java"
 {
-  namespace gnu
-  {
-    namespace java
-    {
-      namespace text
-      {
-          class FormatBuffer;
-      }
-    }
-  }
   namespace java
   {
+    namespace math
+    {
+        class BigDecimal;
+    }
     namespace text
     {
         class AttributedCharacterIterator;
         class DecimalFormat;
         class DecimalFormatSymbols;
         class FieldPosition;
+        class NumberFormat$Field;
         class ParsePosition;
     }
   }
@@ -37,27 +30,19 @@ extern "Java"
 class java::text::DecimalFormat : public ::java::text::NumberFormat
 {
 
-  jint scanFix(::java::lang::String *, jint, ::gnu::java::text::FormatBuffer *, ::java::lang::String *, ::java::text::DecimalFormatSymbols *, jboolean);
-  jint scanFormat(::java::lang::String *, jint, ::java::lang::String *, ::java::text::DecimalFormatSymbols *, jboolean);
-  ::java::lang::String * patternChars(::java::text::DecimalFormatSymbols *);
-  void applyPatternWithSymbols(::java::lang::String *, ::java::text::DecimalFormatSymbols *);
 public:
-  virtual void applyLocalizedPattern(::java::lang::String *);
-  virtual void applyPattern(::java::lang::String *);
-  virtual ::java::lang::Object * clone();
   DecimalFormat();
   DecimalFormat(::java::lang::String *);
   DecimalFormat(::java::lang::String *, ::java::text::DecimalFormatSymbols *);
-private:
-  jboolean equals(::java::lang::String *, ::java::lang::String *);
-public:
+  virtual void applyLocalizedPattern(::java::lang::String *);
+  virtual void applyPattern(::java::lang::String *);
+  virtual ::java::lang::Object * clone();
   virtual jboolean equals(::java::lang::Object *);
-private:
-  void formatInternal(jdouble, ::gnu::java::text::FormatBuffer *, ::java::text::FieldPosition *);
-public:
+  virtual jint hashCode();
+  virtual ::java::lang::StringBuffer * format(::java::lang::Object *, ::java::lang::StringBuffer *, ::java::text::FieldPosition *);
   virtual ::java::lang::StringBuffer * format(jdouble, ::java::lang::StringBuffer *, ::java::text::FieldPosition *);
-  virtual ::java::text::AttributedCharacterIterator * formatToCharacterIterator(::java::lang::Object *);
   virtual ::java::lang::StringBuffer * format(jlong, ::java::lang::StringBuffer *, ::java::text::FieldPosition *);
+  virtual ::java::text::AttributedCharacterIterator * formatToCharacterIterator(::java::lang::Object *);
   virtual ::java::util::Currency * getCurrency();
   virtual ::java::text::DecimalFormatSymbols * getDecimalFormatSymbols();
   virtual jint getGroupingSize();
@@ -66,54 +51,68 @@ public:
   virtual ::java::lang::String * getNegativeSuffix();
   virtual ::java::lang::String * getPositivePrefix();
   virtual ::java::lang::String * getPositiveSuffix();
-  virtual jint hashCode();
   virtual jboolean isDecimalSeparatorAlwaysShown();
+  virtual void setParseBigDecimal(jboolean);
+  virtual jboolean isParseBigDecimal();
   virtual ::java::lang::Number * parse(::java::lang::String *, ::java::text::ParsePosition *);
   virtual void setCurrency(::java::util::Currency *);
   virtual void setDecimalFormatSymbols(::java::text::DecimalFormatSymbols *);
   virtual void setDecimalSeparatorAlwaysShown(jboolean);
   virtual void setGroupingSize(jint);
-  virtual void setMaximumFractionDigits(jint);
   virtual void setMaximumIntegerDigits(jint);
-  virtual void setMinimumFractionDigits(jint);
   virtual void setMinimumIntegerDigits(jint);
+  virtual void setMaximumFractionDigits(jint);
+  virtual void setMinimumFractionDigits(jint);
   virtual void setMultiplier(jint);
   virtual void setNegativePrefix(::java::lang::String *);
   virtual void setNegativeSuffix(::java::lang::String *);
   virtual void setPositivePrefix(::java::lang::String *);
   virtual void setPositiveSuffix(::java::lang::String *);
-private:
-  void quoteFix(::java::lang::StringBuffer *, ::java::lang::String *, ::java::lang::String *);
-  ::java::lang::String * computePattern(::java::text::DecimalFormatSymbols *);
-public:
   virtual ::java::lang::String * toLocalizedPattern();
   virtual ::java::lang::String * toPattern();
 private:
-  void readObject(::java::io::ObjectInputStream *);
-  ::java::lang::String * substituteCurrency(::java::lang::String *, jdouble);
-  static const jint MAXIMUM_INTEGER_DIGITS = 309;
-  jboolean __attribute__((aligned(__alignof__( ::java::text::NumberFormat)))) decimalSeparatorAlwaysShown;
+  jboolean equals(::java::lang::String *, ::java::lang::String *);
+  ::java::lang::String * patternChars(::java::text::DecimalFormatSymbols *);
+  ::java::lang::StringBuffer * quoteFix(::java::lang::String *, ::java::lang::String *);
+  ::java::lang::String * computePattern(::java::text::DecimalFormatSymbols *);
+  void applyPatternWithSymbols(::java::lang::String *, ::java::text::DecimalFormatSymbols *);
+  jint scanFix(::java::lang::String *, ::java::text::DecimalFormatSymbols *, jint, jboolean);
+  jint scanNumberInteger(::java::lang::String *, ::java::text::DecimalFormatSymbols *, jint);
+  jint scanFractionalPortion(::java::lang::String *, ::java::text::DecimalFormatSymbols *, jint);
+  jint scanExponent(::java::lang::String *, ::java::text::DecimalFormatSymbols *, jint);
+  void scanNegativePattern(::java::lang::String *, ::java::text::DecimalFormatSymbols *, jint);
+  void formatInternal(::java::math::BigDecimal *, jboolean, ::java::lang::StringBuffer *, ::java::text::FieldPosition *);
+  void handleFractionalPart(::java::lang::StringBuffer *, ::java::lang::String *, ::java::text::FieldPosition *, jboolean);
+  void appendZero(::java::lang::StringBuffer *, jint, jint);
+  void appendDigit(::java::lang::String *, ::java::lang::StringBuffer *, jboolean);
+  jlong getExponent(::java::math::BigDecimal *);
+  ::java::lang::String * adjustTrailingZeros(::java::lang::String *, jint);
+  void addAttribute(::java::text::NumberFormat$Field *, jint, jint);
+  void setDefaultValues();
+  static const jlong serialVersionUID = 864413376551465018LL;
+  static const jint DEFAULT_INTEGER_DIGITS = 309;
+  static const jint DEFAULT_FRACTION_DIGITS = 340;
+  static ::java::text::DecimalFormatSymbols * nonLocalizedSymbols;
+  jboolean __attribute__((aligned(__alignof__( ::java::text::NumberFormat)))) parseBigDecimal;
+  jboolean useCurrencySeparator;
+  jboolean decimalSeparatorAlwaysShown;
+  jboolean showDecimalSeparator;
+  jboolean groupingSeparatorInPattern;
   jbyte groupingSize;
   jbyte minExponentDigits;
   jint exponentRound;
   jint multiplier;
+  jint negativePatternMultiplier;
   ::java::lang::String * negativePrefix;
   ::java::lang::String * negativeSuffix;
   ::java::lang::String * positivePrefix;
   ::java::lang::String * positiveSuffix;
-  JArray< jint > * negativePrefixRanges;
-  JArray< jint > * positivePrefixRanges;
-  JArray< ::java::util::HashMap * > * negativePrefixAttrs;
-  JArray< ::java::util::HashMap * > * positivePrefixAttrs;
-  JArray< jint > * negativeSuffixRanges;
-  JArray< jint > * positiveSuffixRanges;
-  JArray< ::java::util::HashMap * > * negativeSuffixAttrs;
-  JArray< ::java::util::HashMap * > * positiveSuffixAttrs;
-  jint serialVersionOnStream;
   ::java::text::DecimalFormatSymbols * symbols;
   jboolean useExponentialNotation;
-  static const jlong serialVersionUID = 864413376551465018LL;
-  static ::java::text::DecimalFormatSymbols * nonLocalizedSymbols;
+  jint maxIntegerDigitsExponent;
+  jboolean hasNegativePrefix;
+  jboolean hasFractionalPattern;
+  ::java::util::ArrayList * attributes;
 public:
   static ::java::lang::Class class$;
 };

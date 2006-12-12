@@ -42,19 +42,28 @@ public:
   jint length();
   ::javax::swing::undo::UndoableEdit * insertString(jint, ::java::lang::String *);
   ::javax::swing::undo::UndoableEdit * remove(jint, jint);
+private:
+  void replace(jint, jint, JArray< jchar > *);
+public:
   ::java::lang::String * getString(jint, jint);
   void getChars(jint, jint, ::javax::swing::text::Segment *);
 public: // actually protected
   void updateUndoPositions(::java::util::Vector *);
 public: // actually package-private
   void checkLocation(jint, jint);
+  void garbageCollect();
 private:
   static const jlong serialVersionUID = 4755994433709540381LL;
 public: // actually package-private
   JArray< jchar > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) content;
 private:
   jint count;
-  ::java::util::Vector * positions;
+public: // actually package-private
+  ::java::util::Vector * marks;
+private:
+  static JArray< jchar > * EMPTY;
+public: // actually package-private
+  ::java::lang::ref::ReferenceQueue * queueOfDeath;
 public:
   static ::java::lang::Class class$;
 };

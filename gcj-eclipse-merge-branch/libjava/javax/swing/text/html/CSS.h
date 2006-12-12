@@ -17,6 +17,7 @@ extern "Java"
     {
       namespace text
       {
+          class MutableAttributeSet;
         namespace html
         {
             class CSS;
@@ -34,6 +35,15 @@ public:
   CSS();
   static JArray< ::javax::swing::text::html::CSS$Attribute * > * getAllAttributeKeys();
   static ::javax::swing::text::html::CSS$Attribute * getAttribute(::java::lang::String *);
+public: // actually package-private
+  static ::java::lang::Object * getValue(::javax::swing::text::html::CSS$Attribute *, ::java::lang::String *);
+  static void addInternal(::javax::swing::text::MutableAttributeSet *, ::javax::swing::text::html::CSS$Attribute *, ::java::lang::String *);
+private:
+  static void parseBackgroundShorthand(::javax::swing::text::MutableAttributeSet *, ::java::lang::String *);
+  static void parsePaddingShorthand(::javax::swing::text::MutableAttributeSet *, ::java::lang::String *);
+  static void parseMarginShorthand(::javax::swing::text::MutableAttributeSet *, ::java::lang::String *);
+  static void parseBorderShorthand(::javax::swing::text::MutableAttributeSet *, ::java::lang::String *, ::javax::swing::text::html::CSS$Attribute *);
+public:
   static ::java::lang::Class class$;
 };
 

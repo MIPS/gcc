@@ -15,7 +15,6 @@ extern "Java"
     {
         class Color;
         class Graphics;
-        class Rectangle;
         class Shape;
     }
   }
@@ -39,9 +38,6 @@ class javax::swing::text::DefaultHighlighter$DefaultHighlightPainter : public ::
 public:
   DefaultHighlighter$DefaultHighlightPainter(::java::awt::Color *);
   virtual ::java::awt::Color * getColor();
-private:
-  void paintHighlight(::java::awt::Graphics *, ::java::awt::Rectangle *);
-public:
   virtual void paint(::java::awt::Graphics *, jint, jint, ::java::awt::Shape *, ::javax::swing::text::JTextComponent *);
   virtual ::java::awt::Shape * paintLayer(::java::awt::Graphics *, jint, jint, ::java::awt::Shape *, ::javax::swing::text::JTextComponent *, ::javax::swing::text::View *);
 private:

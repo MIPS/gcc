@@ -21,11 +21,18 @@ extern "Java"
         {
           namespace provider
           {
-              class CipherSuite;
               class Finished;
+              class ProtocolVersion;
           }
         }
       }
+    }
+  }
+  namespace java
+  {
+    namespace nio
+    {
+        class ByteBuffer;
     }
   }
 }
@@ -34,21 +41,22 @@ class gnu::javax::net::ssl::provider::Finished : public ::java::lang::Object
 {
 
 public: // actually package-private
-  Finished(JArray< jbyte > *);
-  Finished(JArray< jbyte > *, JArray< jbyte > *);
-  static ::gnu::javax::net::ssl::provider::Finished * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *);
+  Finished(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
 public:
-  void write(::java::io::OutputStream *);
+  jint length();
 public: // actually package-private
-  JArray< jbyte > * getVerifyData();
-  JArray< jbyte > * getMD5Hash();
-  JArray< jbyte > * getSHAHash();
+  JArray< jbyte > * verifyData();
+  JArray< jbyte > * md5Hash();
+  JArray< jbyte > * shaHash();
+  void setVerifyData(JArray< jbyte > *, jint);
+  void setMD5Hash(JArray< jbyte > *, jint);
+  void setShaHash(JArray< jbyte > *, jint);
 public:
   ::java::lang::String * toString();
+  ::java::lang::String * toString(::java::lang::String *);
 private:
-  JArray< jbyte > * __attribute__((aligned(__alignof__( ::java::lang::Object)))) verifyData;
-  JArray< jbyte > * md5;
-  JArray< jbyte > * sha;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  ::gnu::javax::net::ssl::provider::ProtocolVersion * version;
 public:
   static ::java::lang::Class class$;
 };

@@ -17,6 +17,10 @@ extern "Java"
     {
         class URL;
     }
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class ProtectionDomain;
@@ -43,6 +47,7 @@ public: // actually protected
   virtual ::java::lang::Class * defineClass(JArray< jbyte > *, jint, jint);
   virtual ::java::lang::Class * defineClass(::java::lang::String *, JArray< jbyte > *, jint, jint);
   virtual ::java::lang::Class * defineClass(::java::lang::String *, JArray< jbyte > *, jint, jint, ::java::security::ProtectionDomain *);
+  virtual ::java::lang::Class * defineClass(::java::lang::String *, ::java::nio::ByteBuffer *, ::java::security::ProtectionDomain *);
   virtual void resolveClass(::java::lang::Class *);
   virtual ::java::lang::Class * findSystemClass(::java::lang::String *);
 public:

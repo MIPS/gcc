@@ -38,6 +38,11 @@ public: // actually package-private
   virtual jint getMaximumLength();
   virtual void setUncle(::gnu::java::util::regex::REToken *);
   virtual jboolean match(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
+  virtual jboolean matchFake(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
+private:
+  jboolean match(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, jboolean);
+public: // actually package-private
+  virtual void setHitEnd(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   virtual ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
 public: // actually protected
   virtual jboolean next(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);

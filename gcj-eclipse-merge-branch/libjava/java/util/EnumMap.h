@@ -30,9 +30,7 @@ public:
   virtual ::java::util::Set * entrySet();
   virtual jboolean equals(::java::lang::Object *);
   virtual ::java::util::EnumMap * target$clone();
-public: // actually protected
   virtual ::java::lang::Object * clone();
-public:
   virtual ::java::lang::Object * put(::java::lang::Object *, ::java::lang::Object *);
 private:
   static const jlong serialVersionUID = 458661240069192865LL;

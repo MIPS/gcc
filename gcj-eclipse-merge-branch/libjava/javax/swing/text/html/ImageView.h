@@ -11,14 +11,36 @@
 
 extern "Java"
 {
+  namespace gnu
+  {
+    namespace javax
+    {
+      namespace swing
+      {
+        namespace text
+        {
+          namespace html
+          {
+            namespace css
+            {
+                class Length;
+            }
+          }
+        }
+      }
+    }
+  }
   namespace java
   {
     namespace awt
     {
         class Graphics;
         class Image;
-        class Rectangle;
         class Shape;
+      namespace image
+      {
+          class ImageObserver;
+      }
     }
     namespace net
     {
@@ -30,12 +52,12 @@ extern "Java"
     namespace swing
     {
         class Icon;
-        class ImageIcon;
       namespace text
       {
           class AttributeSet;
           class Element;
           class Position$Bias;
+          class View;
         namespace html
         {
             class ImageView;
@@ -51,8 +73,8 @@ class javax::swing::text::html::ImageView : public ::javax::swing::text::View
 
 public:
   ImageView(::javax::swing::text::Element *);
-public: // actually package-private
-  virtual void reloadImage(jboolean);
+private:
+  void reloadImage();
 public:
   virtual jfloat getAlignment(jint);
   virtual ::java::lang::String * getAltText();
@@ -68,9 +90,6 @@ public: // actually protected
 public:
   virtual ::java::lang::String * getToolTipText(jfloat, jfloat, ::java::awt::Shape *);
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
-private:
-  void renderIcon(::java::awt::Graphics *, ::java::awt::Rectangle *, ::javax::swing::Icon *);
-public:
   virtual void setLoadsSynchronously(jboolean);
 public: // actually protected
   virtual void setPropertiesFromAttributes();
@@ -78,10 +97,28 @@ public:
   virtual jint viewToModel(jfloat, jfloat, ::java::awt::Shape *, JArray< ::javax::swing::text::Position$Bias * > *);
   virtual ::java::awt::Shape * modelToView(jint, ::java::awt::Shape *, ::javax::swing::text::Position$Bias *);
   virtual void setSize(jfloat, jfloat);
+private:
+  void updateState();
+  void loadImage();
+  void updateSize();
 public: // actually package-private
+  virtual void safePreferenceChanged(::javax::swing::text::View *, jboolean, jboolean);
   jboolean __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) loadOnDemand;
-  ::javax::swing::ImageIcon * imageIcon;
+  ::java::awt::Image * image;
   jbyte imageState;
+private:
+  jboolean reloadImage__;
+  jboolean reloadProperties;
+  jboolean haveWidth;
+  jboolean haveHeight;
+  jboolean loading;
+  jint width;
+  jint height;
+  ::java::awt::image::ImageObserver * observer;
+public: // actually package-private
+  JArray< ::gnu::javax::swing::text::html::css::Length * > * spans;
+private:
+  ::javax::swing::text::AttributeSet * attributes;
 public:
   static ::java::lang::Class class$;
 };

@@ -57,6 +57,7 @@ public: // actually package-private
   GlyphLoader(::gnu::java::awt::font::opentype::truetype::GlyphLocator *, ::gnu::java::awt::font::opentype::truetype::VirtualMachine *, jint, jint, jint, ::gnu::java::awt::font::opentype::truetype::GlyphMeasurer *);
 public:
   void loadGlyph(jint, jdouble, ::java::awt::geom::AffineTransform *, jboolean, ::gnu::java::awt::font::opentype::truetype::Zone *);
+  void loadGlyph(jint, ::java::awt::geom::AffineTransform *, ::gnu::java::awt::font::opentype::truetype::Zone *);
 private:
   void loadSubGlyph(jint, jdouble, ::java::awt::geom::AffineTransform *, jboolean, ::gnu::java::awt::font::opentype::truetype::Zone *, jint, jint);
   void loadSimpleGlyph(jint, jdouble, ::java::awt::geom::AffineTransform *, jboolean, jint, ::java::nio::ByteBuffer *, ::gnu::java::awt::font::opentype::truetype::Zone *, jint, jint);

@@ -77,6 +77,9 @@ public:
   virtual jboolean equals(::java::lang::Object *);
   virtual ::java::awt::color::ColorSpace * getColorSpace();
   virtual ::java::awt::image::ColorModel * coerceData(::java::awt::image::WritableRaster *, jboolean);
+public: // actually protected
+  virtual void coerceDataWorker(::java::awt::image::WritableRaster *, jboolean);
+public:
   virtual jboolean isCompatibleRaster(::java::awt::image::Raster *);
   virtual ::java::awt::image::WritableRaster * createCompatibleWritableRaster(jint, jint);
   virtual ::java::awt::image::SampleModel * createCompatibleSampleModel(jint, jint);

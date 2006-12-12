@@ -23,6 +23,7 @@ extern "Java"
           {
               class CipherSuite;
               class CompressionMethod;
+              class ExtensionList;
               class ProtocolVersion;
               class Random;
               class ServerHello;
@@ -31,33 +32,36 @@ extern "Java"
       }
     }
   }
+  namespace java
+  {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
+  }
 }
 
 class gnu::javax::net::ssl::provider::ServerHello : public ::java::lang::Object
 {
 
-public: // actually package-private
-  ServerHello(::gnu::javax::net::ssl::provider::ProtocolVersion *, ::gnu::javax::net::ssl::provider::Random *, JArray< jbyte > *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::gnu::javax::net::ssl::provider::CompressionMethod *);
-  ServerHello(::gnu::javax::net::ssl::provider::ProtocolVersion *, ::gnu::javax::net::ssl::provider::Random *, JArray< jbyte > *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::gnu::javax::net::ssl::provider::CompressionMethod *, ::java::util::List *);
-  static ::gnu::javax::net::ssl::provider::ServerHello * read(::java::io::InputStream *);
 public:
-  virtual void write(::java::io::OutputStream *);
-public: // actually package-private
-  virtual ::gnu::javax::net::ssl::provider::ProtocolVersion * getVersion();
-  virtual ::gnu::javax::net::ssl::provider::Random * getRandom();
-  virtual JArray< jbyte > * getSessionId();
-  virtual ::gnu::javax::net::ssl::provider::CipherSuite * getCipherSuite();
-  virtual ::gnu::javax::net::ssl::provider::CompressionMethod * getCompressionMethod();
-  virtual ::java::util::List * getExtensions();
-public:
+  ServerHello(::java::nio::ByteBuffer *);
+  virtual jint length();
+  virtual ::gnu::javax::net::ssl::provider::ProtocolVersion * version();
+  virtual ::gnu::javax::net::ssl::provider::Random * random();
+  virtual JArray< jbyte > * sessionId();
+  virtual ::gnu::javax::net::ssl::provider::CipherSuite * cipherSuite();
+  virtual ::gnu::javax::net::ssl::provider::CompressionMethod * compressionMethod();
+  virtual jint extensionsLength();
+  virtual ::gnu::javax::net::ssl::provider::ExtensionList * extensions();
   virtual ::java::lang::String * toString();
-private:
-  ::gnu::javax::net::ssl::provider::ProtocolVersion * __attribute__((aligned(__alignof__( ::java::lang::Object)))) version;
-  ::gnu::javax::net::ssl::provider::Random * random;
-  JArray< jbyte > * sessionId;
-  ::gnu::javax::net::ssl::provider::CipherSuite * suite;
-  ::gnu::javax::net::ssl::provider::CompressionMethod * comp;
-  ::java::util::List * extensions;
+  virtual ::java::lang::String * toString(::java::lang::String *);
+public: // actually protected
+  static const jint RANDOM_OFFSET = 2;
+  static const jint SESSID_OFFSET = 34;
+  static const jint SESSID_OFFSET2 = 35;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  jboolean disableExtensions;
 public:
   static ::java::lang::Class class$;
 };

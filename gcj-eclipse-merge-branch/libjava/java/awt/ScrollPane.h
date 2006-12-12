@@ -57,6 +57,9 @@ public:
   virtual void setLayout(::java::awt::LayoutManager *);
   virtual void printComponents(::java::awt::Graphics *);
   virtual ::java::lang::String * paramString();
+private:
+  ::java::lang::String * getScrollbarDisplayPolicyString();
+  ::java::lang::String * getIsValidString();
 public: // actually protected
   virtual jboolean eventTypeEnabled(jint);
 public:

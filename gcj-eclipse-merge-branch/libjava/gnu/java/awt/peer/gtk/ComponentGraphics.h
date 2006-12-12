@@ -52,6 +52,8 @@ extern "Java"
       }
       namespace image
       {
+          class BufferedImage;
+          class ColorModel;
           class ImageObserver;
           class RenderedImage;
       }
@@ -62,14 +64,14 @@ extern "Java"
 class gnu::java::awt::peer::gtk::ComponentGraphics : public ::gnu::java::awt::peer::gtk::CairoGraphics2D
 {
 
-  void lock();
-  void unlock();
 public: // actually package-private
   ComponentGraphics();
 private:
   ComponentGraphics(::gnu::java::awt::peer::gtk::GtkComponentPeer *);
   ComponentGraphics(::gnu::java::awt::peer::gtk::ComponentGraphics *);
   jlong initState(::gnu::java::awt::peer::gtk::GtkComponentPeer *);
+  void lock();
+  void unlock();
 public:
   virtual void dispose();
 private:
@@ -103,16 +105,20 @@ public:
   virtual void drawGlyphVector(::java::awt::font::GlyphVector *, jfloat, jfloat);
   virtual jboolean drawImage(::java::awt::Image *, jint, jint, ::java::awt::image::ImageObserver *);
   virtual jboolean drawImage(::java::awt::Image *, jint, jint, jint, jint, ::java::awt::image::ImageObserver *);
-  virtual void drawLine(jint, jint, jint, jint);
-  virtual void drawRect(jint, jint, jint, jint);
-  virtual void fillRect(jint, jint, jint, jint);
   virtual void setClip(::java::awt::Shape *);
+private:
+  jboolean drawComposite(::java::awt::geom::Rectangle2D *, ::java::awt::image::ImageObserver *);
+  void createBuffer();
+public: // actually protected
+  virtual ::java::awt::image::ColorModel * getNativeCM();
 private:
   static jboolean hasXRenderExtension;
   ::gnu::java::awt::peer::gtk::GtkComponentPeer * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::CairoGraphics2D)))) component;
 public: // actually protected
   jlong cairo_t;
 private:
+  ::java::awt::image::BufferedImage * buffer;
+  ::java::awt::image::BufferedImage * componentBuffer;
   static ::java::lang::ThreadLocal * hasLock;
   static ::java::lang::Integer * ONE;
 public:

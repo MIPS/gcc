@@ -13,10 +13,8 @@ extern "Java"
   {
     namespace awt
     {
-      namespace event
-      {
-          class ActionEvent;
-      }
+        class Component;
+        class Graphics;
     }
   }
   namespace javax
@@ -27,13 +25,9 @@ extern "Java"
       {
         namespace basic
         {
+            class BasicTreeUI;
             class BasicTreeUI$1;
-            class BasicTreeUI$MouseHandler;
         }
-      }
-      namespace tree
-      {
-          class TreePath;
       }
     }
   }
@@ -43,13 +37,13 @@ class javax::swing::plaf::basic::BasicTreeUI$1 : public ::java::lang::Object
 {
 
 public: // actually package-private
-  BasicTreeUI$1(::javax::swing::plaf::basic::BasicTreeUI$MouseHandler *, ::javax::swing::tree::TreePath *);
+  BasicTreeUI$1(::javax::swing::plaf::basic::BasicTreeUI *);
 public:
-  void actionPerformed(::java::awt::event::ActionEvent *);
+  jint getIconHeight();
+  jint getIconWidth();
+  void paintIcon(::java::awt::Component *, ::java::awt::Graphics *, jint, jint);
 public: // actually package-private
-  ::javax::swing::plaf::basic::BasicTreeUI$MouseHandler * __attribute__((aligned(__alignof__( ::java::lang::Object)))) this$1;
-private:
-  ::javax::swing::tree::TreePath * val$editPath;
+  ::javax::swing::plaf::basic::BasicTreeUI * __attribute__((aligned(__alignof__( ::java::lang::Object)))) this$0;
 public:
   static ::java::lang::Class class$;
 };

@@ -27,12 +27,12 @@ class java::text::CollationKey : public ::java::lang::Object
 public: // actually package-private
   CollationKey(::java::text::Collator *, ::java::lang::String *, JArray< jbyte > *);
 public:
-  jint target$compareTo(::java::text::CollationKey *);
-  jboolean equals(::java::lang::Object *);
-  ::java::lang::String * getSourceString();
-  jint hashCode();
-  JArray< jbyte > * toByteArray();
-  jint compareTo(::java::lang::Object *);
+  virtual jint target$compareTo(::java::text::CollationKey *);
+  virtual jboolean equals(::java::lang::Object *);
+  virtual ::java::lang::String * getSourceString();
+  virtual jint hashCode();
+  virtual JArray< jbyte > * toByteArray();
+  virtual jint compareTo(::java::lang::Object *);
 private:
   ::java::text::Collator * __attribute__((aligned(__alignof__( ::java::lang::Object)))) collator;
   ::java::lang::String * originalText;

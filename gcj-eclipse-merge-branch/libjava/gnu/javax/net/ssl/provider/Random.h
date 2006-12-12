@@ -27,25 +27,34 @@ extern "Java"
       }
     }
   }
+  namespace java
+  {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
+  }
 }
 
 class gnu::javax::net::ssl::provider::Random : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Random(jint, JArray< jbyte > *);
-  static ::gnu::javax::net::ssl::provider::Random * read(::java::io::InputStream *);
 public:
-  virtual void write(::java::io::OutputStream *);
-public: // actually package-private
-  virtual JArray< jbyte > * getEncoded();
-  virtual jint getTime();
-  virtual JArray< jbyte > * getRandomBytes();
-public:
+  Random(::java::nio::ByteBuffer *);
+  virtual ::gnu::javax::net::ssl::provider::Random * copy();
+  virtual jint length();
+  virtual ::java::nio::ByteBuffer * buffer();
+  virtual jint gmtUnixTime();
+  virtual JArray< jbyte > * randomBytes();
+  virtual void setGmtUnixTime(jint);
+  virtual void setRandomBytes(JArray< jbyte > *);
+  virtual void setRandomBytes(JArray< jbyte > *, jint);
+  virtual ::java::lang::String * toString(::java::lang::String *);
   virtual ::java::lang::String * toString();
+public: // actually package-private
+  static const jint RANDOM_LENGTH = 28;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) gmtUnixTime;
-  JArray< jbyte > * randomBytes;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer__;
 public:
   static ::java::lang::Class class$;
 };

@@ -44,7 +44,6 @@ extern "Java"
         class Icon;
         class JComponent;
         class JTree;
-        class Timer;
       namespace event
       {
           class CellEditorListener;
@@ -192,6 +191,9 @@ public: // actually protected
   virtual void completeEditing();
   virtual void completeEditing(jboolean, jboolean, jboolean);
   virtual jboolean startEditing(::javax::swing::tree::TreePath *, ::java::awt::event::MouseEvent *);
+private:
+  void editorRequestFocus(::java::awt::Component *);
+public: // actually protected
   virtual void checkForClickInExpandControl(::javax::swing::tree::TreePath *, jint, jint);
   virtual jboolean isLocationInExpandControl(::javax::swing::tree::TreePath *, jint, jint);
   virtual void handleExpandControlClick(::javax::swing::tree::TreePath *, jint, jint);
@@ -222,9 +224,6 @@ public: // actually protected
   virtual void paintRow(::java::awt::Graphics *, ::java::awt::Rectangle *, ::java::awt::Insets *, ::java::awt::Rectangle *, ::javax::swing::tree::TreePath *, jint, jboolean, jboolean, jboolean);
   virtual void prepareForUIUninstall();
   virtual jboolean shouldPaintExpandControl(::javax::swing::tree::TreePath *, jint, jboolean, jboolean, jboolean);
-public: // actually package-private
-  virtual void finish();
-public: // actually protected
   virtual jint getRowX(jint, jint);
 public: // actually package-private
   static jint WAIT_TILL_EDITING;
@@ -272,7 +271,6 @@ public: // actually package-private
   ::javax::swing::event::CellEditorListener * cellEditorListener;
   ::javax::swing::event::TreeExpansionListener * treeExpansionListener;
   ::javax::swing::event::TreeModelListener * treeModelListener;
-  ::javax::swing::Timer * startEditTimer;
   static ::javax::swing::Icon * nullIcon;
   static ::java::awt::event::MouseEvent * EDIT;
 public:

@@ -13,7 +13,6 @@ extern "Java"
   {
     namespace awt
     {
-        class Color;
         class Component;
         class Graphics;
         class Insets;
@@ -44,8 +43,6 @@ public:
   virtual ::java::awt::Insets * getBorderInsets(::java::awt::Component *, ::java::awt::Insets *);
 public: // actually protected
   static ::java::awt::Insets * borderInsets;
-private:
-  static ::java::awt::Color * borderColor;
 public:
   static ::java::lang::Class class$;
 };

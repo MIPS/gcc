@@ -35,6 +35,7 @@ public:
   static ::gnu::classpath::debug::Component * SSL_HANDSHAKE;
   static ::gnu::classpath::debug::Component * SSL_RECORD_LAYER;
   static ::gnu::classpath::debug::Component * SSL_KEY_EXCHANGE;
+  static ::gnu::classpath::debug::Component * SSL_DELEGATED_TASK;
   static ::gnu::classpath::debug::Component * CRYPTO;
   static ::gnu::classpath::debug::Component * X509;
   static ::gnu::classpath::debug::Component * POLICY;

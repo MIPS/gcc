@@ -87,6 +87,20 @@ public:
   static ::javax::swing::text::html::CSS$Attribute * WIDTH;
   static ::javax::swing::text::html::CSS$Attribute * WORD_SPACING;
 public: // actually package-private
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_TOP_STYLE;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_BOTTOM_STYLE;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_LEFT_STYLE;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_RIGHT_STYLE;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_TOP_COLOR;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_BOTTOM_COLOR;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_LEFT_COLOR;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_RIGHT_COLOR;
+  static ::javax::swing::text::html::CSS$Attribute * BORDER_SPACING;
+  static ::javax::swing::text::html::CSS$Attribute * POSITION;
+  static ::javax::swing::text::html::CSS$Attribute * LEFT;
+  static ::javax::swing::text::html::CSS$Attribute * RIGHT;
+  static ::javax::swing::text::html::CSS$Attribute * TOP;
+  static ::javax::swing::text::html::CSS$Attribute * BOTTOM;
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) attStr;
   jboolean isInherited__;
   ::java::lang::String * defaultValue;

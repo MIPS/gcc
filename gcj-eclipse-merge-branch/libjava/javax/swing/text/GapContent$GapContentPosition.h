@@ -27,7 +27,7 @@ class javax::swing::text::GapContent$GapContentPosition : public ::java::lang::O
 {
 
 public: // actually package-private
-  GapContent$GapContentPosition(::javax::swing::text::GapContent *, jint);
+  GapContent$GapContentPosition(::javax::swing::text::GapContent *);
 public:
   virtual jint getOffset();
 public: // actually package-private

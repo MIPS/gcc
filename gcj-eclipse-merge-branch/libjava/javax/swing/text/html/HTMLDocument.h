@@ -27,11 +27,13 @@ extern "Java"
           class AbstractDocument$AbstractElement;
           class AbstractDocument$AttributeContext;
           class AbstractDocument$Content;
+          class AbstractDocument$DefaultDocumentEvent;
           class AttributeSet;
           class DefaultStyledDocument$ElementSpec;
           class Element;
         namespace html
         {
+            class HTML$Attribute;
             class HTML$Tag;
             class HTMLDocument;
             class HTMLDocument$Iterator;
@@ -67,6 +69,11 @@ public:
   virtual jboolean getPreservesUnknownTags();
   virtual void setPreservesUnknownTags(jboolean);
   virtual void processHTMLFrameHyperlinkEvent(::javax::swing::text::html::HTMLFrameHyperlinkEvent *);
+private:
+  ::javax::swing::text::Element * findFrame(::java::lang::String *);
+  void updateFrame(::javax::swing::text::Element *, ::java::net::URL *);
+  void updateFrameSet(::javax::swing::text::Element *, ::java::net::URL *);
+public:
   virtual ::javax::swing::text::html::HTMLDocument$Iterator * getIterator(::javax::swing::text::html::HTML$Tag *);
   virtual ::javax::swing::text::html::HTMLEditorKit$ParserCallback * getReader(jint);
   virtual ::javax::swing::text::html::HTMLEditorKit$ParserCallback * getReader(jint, jint, jint, ::javax::swing::text::html::HTML$Tag *);
@@ -79,7 +86,13 @@ public:
   virtual void insertBeforeEnd(::javax::swing::text::Element *, ::java::lang::String *);
   virtual void insertAfterEnd(::javax::swing::text::Element *, ::java::lang::String *);
   virtual void insertAfterStart(::javax::swing::text::Element *, ::java::lang::String *);
+public: // actually protected
+  virtual void insertUpdate(::javax::swing::text::AbstractDocument$DefaultDocumentEvent *, ::javax::swing::text::AttributeSet *);
 public: // actually package-private
+  virtual jboolean isFrameDocument();
+  virtual void setFrameDocument(jboolean);
+  virtual ::java::lang::String * getBaseTarget();
+  virtual void updateSpecialClass(::javax::swing::text::Element *, ::javax::swing::text::html::HTML$Attribute *, ::java::lang::String *);
   static void access$0(::javax::swing::text::html::HTMLDocument *, JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *);
   static void access$1(::javax::swing::text::html::HTMLDocument *, jint, JArray< ::javax::swing::text::DefaultStyledDocument$ElementSpec * > *);
   static ::javax::swing::text::AbstractDocument$AttributeContext * access$2(::javax::swing::text::html::HTMLDocument *);
@@ -90,8 +103,10 @@ public: // actually package-private
   jboolean preservesUnknownTags;
   jint tokenThreshold;
   ::javax::swing::text::html::HTMLEditorKit$Parser * parser;
-  ::javax::swing::text::html::StyleSheet * styleSheet;
-  ::javax::swing::text::AbstractDocument$Content * content;
+private:
+  jboolean frameDocument;
+public: // actually package-private
+  ::java::lang::String * baseTarget;
 public:
   static ::java::lang::Class class$;
 };

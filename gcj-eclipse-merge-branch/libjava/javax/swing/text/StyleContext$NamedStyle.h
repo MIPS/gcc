@@ -65,13 +65,15 @@ public:
   virtual void setResolveParent(::javax::swing::text::AttributeSet *);
   virtual ::java::lang::String * toString();
 private:
+  void writeObject(::java::io::ObjectOutputStream *);
+  void readObject(::java::io::ObjectInputStream *);
   static const jlong serialVersionUID = -6690628971806226374LL;
 public: // actually protected
   ::javax::swing::event::ChangeEvent * __attribute__((aligned(__alignof__( ::java::lang::Object)))) changeEvent;
   ::javax::swing::event::EventListenerList * listenerList;
-public: // actually package-private
+private:
   ::javax::swing::text::AttributeSet * attributes;
-  ::java::lang::String * name;
+public: // actually package-private
   ::javax::swing::text::StyleContext * this$0;
 public:
   static ::java::lang::Class class$;

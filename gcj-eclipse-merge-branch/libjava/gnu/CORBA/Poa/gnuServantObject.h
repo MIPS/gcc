@@ -87,6 +87,9 @@ public:
   ::org::omg::PortableServer::POAManager * manager;
   ::gnu::CORBA::Poa::ORB_1_4 * orb;
   JArray< ::java::lang::String * > * repository_ids;
+public: // actually package-private
+  jboolean noRetain;
+public:
   static ::java::lang::Class class$;
 };
 

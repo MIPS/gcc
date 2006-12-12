@@ -26,6 +26,10 @@ extern "Java"
           class InputEvent;
       }
     }
+    namespace beans
+    {
+        class PropertyDescriptor;
+    }
   }
   namespace javax
   {
@@ -63,6 +67,8 @@ public:
   virtual ::javax::swing::Icon * getVisualRepresentation(::java::awt::datatransfer::Transferable *);
   virtual jboolean importData(::javax::swing::JComponent *, ::java::awt::datatransfer::Transferable *);
 private:
+  ::java::beans::PropertyDescriptor * getPropertyDescriptor(::javax::swing::JComponent *);
+  ::java::awt::datatransfer::DataFlavor * getPropertyDataFlavor(::java::lang::Class *, JArray< ::java::awt::datatransfer::DataFlavor * > *);
   static const jlong serialVersionUID = -967749805571669910LL;
   static ::java::lang::String * COMMAND_COPY;
   static ::java::lang::String * COMMAND_CUT;
@@ -78,6 +84,7 @@ private:
   static ::javax::swing::Action * pasteAction;
   jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) sourceActions;
   ::javax::swing::Icon * visualRepresentation;
+  ::java::lang::String * propertyName;
 public:
   static ::java::lang::Class class$;
 };

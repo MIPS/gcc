@@ -65,8 +65,7 @@ public: // actually package-private
   virtual void readSignatures();
 private:
   void verify(JArray< ::java::security::cert::Certificate * > *, ::gnu::java::security::pkcs::SignerInfo *, ::java::lang::String *, ::java::util::Set *);
-  jboolean verifyHashes(::java::lang::String *, ::java::util::jar::Attributes *);
-  JArray< jbyte > * readManifestEntry(::java::util::zip::ZipEntry *);
+  jboolean verifyHashes(::java::lang::String *, ::java::util::jar::Attributes *, ::java::util::HashMap *);
 public:
   static ::java::lang::String * MANIFEST_NAME;
 private:
@@ -93,6 +92,9 @@ public: // actually package-private
   jboolean signaturesRead;
   ::java::util::HashMap * verified;
   ::java::util::HashMap * entryCerts;
+private:
+  ::java::util::HashMap * digestAlgorithms;
+public: // actually package-private
   static jboolean DEBUG;
 public:
   static ::java::lang::Class class$;

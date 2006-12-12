@@ -94,6 +94,8 @@ public: // actually protected
   ::java::awt::FontMetrics * metrics;
 private:
   ::javax::swing::text::Segment * lineBuffer;
+  jint tabBase;
+  jint tabSize;
 public:
   static ::java::lang::Class class$;
 };

@@ -39,6 +39,7 @@ public:
   virtual ::java::awt::image::WritableRaster * getWritableParent();
   virtual ::java::awt::image::WritableRaster * createWritableTranslatedChild(jint, jint);
   virtual ::java::awt::image::WritableRaster * createWritableChild(jint, jint, jint, jint, jint, jint, JArray< jint > *);
+  virtual ::java::awt::image::Raster * createChild(jint, jint, jint, jint, jint, jint, JArray< jint > *);
   virtual void setDataElements(jint, jint, ::java::lang::Object *);
   virtual void setDataElements(jint, jint, ::java::awt::image::Raster *);
   virtual void setDataElements(jint, jint, jint, jint, ::java::lang::Object *);

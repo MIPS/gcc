@@ -19,7 +19,6 @@ extern "Java"
         {
           namespace gtk
           {
-              class GtkToolkit;
               class GtkToolkit$LRUCache;
           }
         }
@@ -32,12 +31,11 @@ class gnu::java::awt::peer::gtk::GtkToolkit$LRUCache : public ::java::util::Link
 {
 
 public:
-  GtkToolkit$LRUCache(::gnu::java::awt::peer::gtk::GtkToolkit *, jint);
+  GtkToolkit$LRUCache(jint);
 public: // actually protected
   virtual jboolean removeEldestEntry(::java::util::Map$Entry *);
 public: // actually package-private
   jint __attribute__((aligned(__alignof__( ::java::util::LinkedHashMap)))) max_entries;
-  ::gnu::java::awt::peer::gtk::GtkToolkit * this$0;
 public:
   static ::java::lang::Class class$;
 };

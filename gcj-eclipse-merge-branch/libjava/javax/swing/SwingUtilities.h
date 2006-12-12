@@ -84,6 +84,10 @@ private:
 public:
   static ::java::lang::String * layoutCompoundLabel(::javax::swing::JComponent *, ::java::awt::FontMetrics *, ::java::lang::String *, ::javax::swing::Icon *, jint, jint, jint, jint, ::java::awt::Rectangle *, ::java::awt::Rectangle *, ::java::awt::Rectangle *, jint);
   static ::java::lang::String * layoutCompoundLabel(::java::awt::FontMetrics *, ::java::lang::String *, ::javax::swing::Icon *, jint, jint, jint, jint, ::java::awt::Rectangle *, ::java::awt::Rectangle *, ::java::awt::Rectangle *, jint);
+private:
+  static ::java::lang::String * layoutCompoundLabelImpl(::javax::swing::JComponent *, ::java::awt::FontMetrics *, ::java::lang::String *, ::javax::swing::Icon *, jint, jint, jint, jint, ::java::awt::Rectangle *, ::java::awt::Rectangle *, ::java::awt::Rectangle *, jint);
+  static ::java::lang::String * clipString(::javax::swing::JComponent *, ::java::awt::FontMetrics *, ::java::lang::String *, jint);
+public:
   static void invokeLater(::java::lang::Runnable *);
   static void invokeAndWait(::java::lang::Runnable *);
   static jboolean isEventDispatchThread();

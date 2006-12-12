@@ -34,6 +34,7 @@ public: // actually package-private
   jint getMaximumLength();
   ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   ::gnu::java::util::regex::REMatch * findMatch(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
+  void setHitEnd(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   void dump(::java::lang::StringBuffer *);
 public:
   static ::java::lang::Class class$;

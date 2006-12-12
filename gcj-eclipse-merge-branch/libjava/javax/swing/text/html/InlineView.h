@@ -55,6 +55,14 @@ public: // actually protected
   virtual void setPropertiesFromAttributes();
   virtual ::javax::swing::text::html::StyleSheet * getStyleSheet();
 public:
+  virtual jfloat getMinimumSpan(jint);
+private:
+  jfloat getLongestWord();
+  jfloat calculateLongestWord();
+  ::javax::swing::text::AttributeSet * __attribute__((aligned(__alignof__( ::javax::swing::text::LabelView)))) attributes;
+  jfloat longestWord;
+  jboolean nowrap;
+public:
   static ::java::lang::Class class$;
 };
 

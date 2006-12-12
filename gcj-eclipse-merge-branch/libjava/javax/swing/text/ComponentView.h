@@ -27,6 +27,7 @@ extern "Java"
       namespace text
       {
           class ComponentView;
+          class ComponentView$Interceptor;
           class Element;
           class Position$Bias;
           class View;
@@ -51,14 +52,15 @@ public:
   virtual ::java::awt::Shape * modelToView(jint, ::java::awt::Shape *, ::javax::swing::text::Position$Bias *);
   virtual void paint(::java::awt::Graphics *, ::java::awt::Shape *);
   virtual void setParent(::javax::swing::text::View *);
-private:
-  void setParentImpl(::javax::swing::text::View *);
+public: // actually package-private
+  virtual void setParentImpl();
 public:
   virtual jint viewToModel(jfloat, jfloat, ::java::awt::Shape *, JArray< ::javax::swing::text::Position$Bias * > *);
-public: // actually package-private
-  static void access$0(::javax::swing::text::ComponentView *, ::javax::swing::text::View *);
 private:
   ::java::awt::Component * __attribute__((aligned(__alignof__( ::javax::swing::text::View)))) comp;
+  ::javax::swing::text::ComponentView$Interceptor * interceptor;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

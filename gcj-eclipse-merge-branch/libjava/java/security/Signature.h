@@ -13,6 +13,10 @@ extern "Java"
 {
   namespace java
   {
+    namespace nio
+    {
+        class ByteBuffer;
+    }
     namespace security
     {
         class AlgorithmParameters;
@@ -54,6 +58,7 @@ public:
   virtual void update(jbyte);
   virtual void update(JArray< jbyte > *);
   virtual void update(JArray< jbyte > *, jint, jint);
+  virtual void update(::java::nio::ByteBuffer *);
   virtual ::java::lang::String * getAlgorithm();
   virtual ::java::lang::String * toString();
   virtual void setParameter(::java::lang::String *, ::java::lang::Object *);

@@ -125,7 +125,8 @@ public:
   virtual jboolean isReparentSupported();
   virtual void layout();
 public: // actually protected
-  virtual void peerPaint(::java::awt::Graphics *);
+  virtual void peerPaint(::java::awt::Graphics *, jboolean);
+  virtual void peerPaintComponent(::java::awt::Graphics *);
   virtual void handleMouseEvent(::java::awt::event::MouseEvent *);
   virtual void handleMouseMotionEvent(::java::awt::event::MouseEvent *);
   virtual void handleKeyEvent(::java::awt::event::KeyEvent *);
@@ -134,6 +135,10 @@ public:
 public: // actually protected
   ::java::awt::Component * __attribute__((aligned(__alignof__( ::java::lang::Object)))) awtComponent;
   ::gnu::java::awt::peer::swing::SwingComponent * swingComponent;
+  ::java::awt::Font * peerFont;
+  ::java::awt::Rectangle * paintArea;
+public: // actually package-private
+  static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;
 };

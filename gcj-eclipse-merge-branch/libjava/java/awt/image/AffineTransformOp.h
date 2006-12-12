@@ -7,6 +7,8 @@
 #pragma interface
 
 #include <java/lang/Object.h>
+#include <gcj/array.h>
+
 extern "Java"
 {
   namespace java
@@ -48,6 +50,11 @@ public:
   virtual ::java::awt::geom::Point2D * getPoint2D(::java::awt::geom::Point2D *, ::java::awt::geom::Point2D *);
   virtual ::java::awt::RenderingHints * getRenderingHints();
   virtual ::java::awt::geom::AffineTransform * getTransform();
+private:
+  void filterNearest(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *, JArray< jdouble > *, JArray< jdouble > *);
+  void filterBilinear(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *, JArray< jdouble > *, JArray< jdouble > *);
+  void filterBicubic(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *, JArray< jdouble > *, JArray< jdouble > *);
+public:
   static const jint TYPE_NEAREST_NEIGHBOR = 1;
   static const jint TYPE_BILINEAR = 2;
   static const jint TYPE_BICUBIC = 3;

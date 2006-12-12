@@ -35,6 +35,7 @@ extern "Java"
         class BasicStroke;
         class Color;
         class Composite;
+        class CompositeContext;
         class Font;
         class FontMetrics;
         class Graphics;
@@ -98,9 +99,9 @@ public: // actually protected
 public:
   virtual void disposeNative(jlong);
 private:
-  void drawPixels(jlong, JArray< jint > *, jint, jint, jint, JArray< jdouble > *, jdouble);
+  void drawPixels(jlong, JArray< jint > *, jint, jint, jint, JArray< jdouble > *, jdouble, jint);
   void setGradient(jlong, jdouble, jdouble, jdouble, jdouble, jint, jint, jint, jint, jint, jint, jint, jint, jboolean);
-  void setTexturePixels(jlong, JArray< jint > *, jint, jint, jint);
+  void setPaintPixels(jlong, JArray< jint > *, jint, jint, jint, jboolean, jint, jint);
   void cairoSetMatrix(jlong, JArray< jdouble > *);
   void cairoScale(jlong, jdouble, jdouble);
   void cairoSetOperator(jlong, jint);
@@ -111,6 +112,7 @@ private:
 public: // actually package-private
   virtual void cairoDrawGlyphVector(jlong, ::gnu::java::awt::peer::gtk::GdkFontPeer *, jfloat, jfloat, jint, JArray< jint > *, JArray< jfloat > *);
 private:
+  void cairoSetFont(jlong, ::gnu::java::awt::peer::gtk::GdkFontPeer *);
   void cairoRelCurveTo(jlong, jdouble, jdouble, jdouble, jdouble, jdouble, jdouble);
   void cairoRectangle(jlong, jdouble, jdouble, jdouble, jdouble);
   void cairoArc(jlong, jdouble, jdouble, jdouble, jdouble, jdouble);
@@ -128,7 +130,6 @@ private:
   void cairoClip(jlong);
   void cairoPreserveClip(jlong);
   void cairoResetClip(jlong);
-  void cairoSurfaceSetFilter(jlong, jint);
   void cairoDrawLine(jlong, jdouble, jdouble, jdouble, jdouble);
   void cairoDrawRect(jlong, jdouble, jdouble, jdouble, jdouble);
   void cairoFillRect(jlong, jdouble, jdouble, jdouble, jdouble);
@@ -148,8 +149,14 @@ public:
   virtual ::java::awt::Paint * getPaint();
   virtual ::java::awt::geom::AffineTransform * getTransform();
   virtual void setPaint(::java::awt::Paint *);
+public: // actually protected
+  virtual void setCustomPaint(::java::awt::Rectangle *);
+public:
   virtual ::java::awt::Stroke * getStroke();
   virtual void setStroke(::java::awt::Stroke *);
+public: // actually protected
+  virtual ::java::awt::Rectangle * findStrokedBounds(::java::awt::Shape *);
+public:
   virtual void setPaintMode();
   virtual void setXORMode(::java::awt::Color *);
   virtual void setColor(::java::awt::Color *);
@@ -169,10 +176,14 @@ public:
   virtual ::java::awt::Color * getBackground();
   virtual ::java::awt::Composite * getComposite();
   virtual void setComposite(::java::awt::Composite *);
+public: // actually protected
+  virtual ::java::awt::image::ColorModel * getNativeCM() = 0;
+  virtual ::java::awt::image::ColorModel * getBufferCM();
+public:
   virtual void draw(::java::awt::Shape *);
   virtual void fill(::java::awt::Shape *);
 private:
-  void createPath(::java::awt::Shape *);
+  void createPath(::java::awt::Shape *, jboolean);
 public:
   virtual void clearRect(jint, jint, jint, jint);
   virtual void draw3DRect(jint, jint, jint, jint, jboolean);
@@ -194,6 +205,8 @@ public:
   virtual void setRenderingHints(::java::util::Map *);
   virtual void addRenderingHints(::java::util::Map *);
   virtual ::java::awt::RenderingHints * getRenderingHints();
+private:
+  jint getInterpolation();
 public: // actually protected
   virtual jboolean drawImage(::java::awt::Image *, ::java::awt::geom::AffineTransform *, ::java::awt::Color *, ::java::awt::image::ImageObserver *);
 public:
@@ -221,7 +234,8 @@ public:
   virtual ::java::lang::String * toString();
 private:
   jboolean drawRaster(::java::awt::image::ColorModel *, ::java::awt::image::Raster *, ::java::awt::geom::AffineTransform *, ::java::awt::Color *);
-  jdouble shifted(jdouble, jboolean);
+  jdouble shiftX(jdouble, jboolean);
+  jdouble shiftY(jdouble, jboolean);
   void walkPath(::java::awt::geom::PathIterator *, jboolean);
   ::java::util::Map * getDefaultHints();
 public:
@@ -232,6 +246,7 @@ private:
 public: // actually package-private
   jlong __attribute__((aligned(__alignof__( ::java::awt::Graphics2D)))) nativePointer;
   ::java::awt::Paint * paint;
+  jboolean customPaint;
   ::java::awt::Stroke * stroke;
   ::java::awt::Color * fg;
   ::java::awt::Color * bg;
@@ -239,9 +254,12 @@ public: // actually package-private
   ::java::awt::geom::AffineTransform * transform__;
   ::java::awt::Font * font;
   ::java::awt::Composite * comp;
+  ::java::awt::CompositeContext * compCtx;
 private:
   ::java::awt::RenderingHints * hints;
+public: // actually protected
   jboolean shiftDrawCalls;
+private:
   jboolean firstClip;
   ::java::awt::Shape * originalClip;
   static ::java::awt::BasicStroke * draw3DRectStroke;
@@ -249,6 +267,12 @@ public: // actually package-private
   static ::java::awt::image::ColorModel * rgb32;
   static ::java::awt::image::ColorModel * argb32;
 public:
+  static const jint INTERPOLATION_NEAREST = 0;
+  static const jint INTERPOLATION_BILINEAR = 1;
+  static const jint INTERPOLATION_BICUBIC = 5;
+  static const jint ALPHA_INTERPOLATION_SPEED = 2;
+  static const jint ALPHA_INTERPOLATION_QUALITY = 3;
+  static const jint ALPHA_INTERPOLATION_DEFAULT = 4;
   static ::java::lang::Class class$;
 };
 

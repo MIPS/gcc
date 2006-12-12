@@ -58,6 +58,7 @@ private:
   jboolean scope_ifname_set;
   ::java::lang::String * ifname;
   ::java::net::NetworkInterface * nif;
+  static const jint AF_INET6 = 10;
 public:
   static ::java::lang::Class class$;
 };

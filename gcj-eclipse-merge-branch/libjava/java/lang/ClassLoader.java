@@ -46,6 +46,7 @@ import gnu.java.util.EmptyEnumeration;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.security.CodeSource;
 import java.security.PermissionCollection;
 import java.security.Policy;
@@ -485,6 +486,35 @@ public abstract class ClassLoader
 					     offset, len, domain);
     loadedClasses.put(retval.getName(), retval);
     return retval;
+  }
+
+  /**
+   * Helper to define a class using the contents of a byte buffer. If
+   * the domain is null, the default of
+   * <code>Policy.getPolicy().getPermissions(new CodeSource(null,
+   * null))</code> is used. Once a class has been defined in a
+   * package, all further classes in that package must have the same
+   * set of certificates or a SecurityException is thrown.
+   *
+   * @param name the name to give the class.  null if unknown
+   * @param buf a byte buffer containing bytes that form a class.
+   * @param domain the ProtectionDomain to give to the class, null for the
+   *        default protection domain
+   * @return the class that was defined
+   * @throws ClassFormatError if data is not in proper classfile format
+   * @throws NoClassDefFoundError if the supplied name is not the same as
+   *                              the one specified by the byte buffer.
+   * @throws SecurityException if name starts with "java.", or if certificates
+   *         do not match up
+   * @since 1.5
+   */
+  protected final Class<?> defineClass(String name, ByteBuffer buf,
+				       ProtectionDomain domain)
+    throws ClassFormatError
+  {
+    byte[] data = new byte[buf.remaining()];
+    buf.get(data);
+    return defineClass(name, data, 0, data.length, domain);
   }
 
   /**

@@ -18,6 +18,7 @@ extern "Java"
           class DefaultHighlighter;
           class DefaultHighlighter$HighlightEntry;
           class Highlighter$HighlightPainter;
+          class Position;
       }
     }
   }
@@ -27,13 +28,13 @@ class javax::swing::text::DefaultHighlighter$HighlightEntry : public ::java::lan
 {
 
 public:
-  DefaultHighlighter$HighlightEntry(::javax::swing::text::DefaultHighlighter *, jint, jint, ::javax::swing::text::Highlighter$HighlightPainter *);
+  DefaultHighlighter$HighlightEntry(::javax::swing::text::DefaultHighlighter *, ::javax::swing::text::Position *, ::javax::swing::text::Position *, ::javax::swing::text::Highlighter$HighlightPainter *);
   virtual jint getStartOffset();
   virtual jint getEndOffset();
   virtual ::javax::swing::text::Highlighter$HighlightPainter * getPainter();
 public: // actually package-private
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) p0;
-  jint p1;
+  ::javax::swing::text::Position * __attribute__((aligned(__alignof__( ::java::lang::Object)))) p0;
+  ::javax::swing::text::Position * p1;
   ::javax::swing::text::Highlighter$HighlightPainter * painter;
   ::javax::swing::text::DefaultHighlighter * this$0;
 public:

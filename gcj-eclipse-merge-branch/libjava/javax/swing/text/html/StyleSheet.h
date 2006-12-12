@@ -54,6 +54,11 @@ class javax::swing::text::html::StyleSheet : public ::javax::swing::text::StyleC
 public:
   StyleSheet();
   virtual ::javax::swing::text::Style * getRule(::javax::swing::text::html::HTML$Tag *, ::javax::swing::text::Element *);
+private:
+  ::javax::swing::text::Style * getResolvedStyle(::java::lang::String *, ::java::util::List *, ::javax::swing::text::html::HTML$Tag *);
+  ::javax::swing::text::Style * resolveStyle(::java::lang::String *, ::java::util::List *, ::javax::swing::text::html::HTML$Tag *);
+  ::javax::swing::text::Style * resolveStyle(::java::lang::String *, JArray< ::java::lang::String * > *, JArray< ::java::util::Map * > *);
+public:
   virtual ::javax::swing::text::Style * getRule(::java::lang::String *);
   virtual void addRule(::java::lang::String *);
   virtual ::javax::swing::text::AttributeSet * getDeclaration(::java::lang::String *);
@@ -69,6 +74,9 @@ public:
   virtual void addCSSAttribute(::javax::swing::text::MutableAttributeSet *, ::javax::swing::text::html::CSS$Attribute *, ::java::lang::String *);
   virtual jboolean addCSSAttributeFromHTML(::javax::swing::text::MutableAttributeSet *, ::javax::swing::text::html::CSS$Attribute *, ::java::lang::String *);
   virtual ::javax::swing::text::AttributeSet * translateHTMLToCSS(::javax::swing::text::AttributeSet *);
+private:
+  ::javax::swing::text::AttributeSet * translateBorder(::javax::swing::text::AttributeSet *, ::java::lang::Object *);
+public:
   virtual ::javax::swing::text::AttributeSet * addAttribute(::javax::swing::text::AttributeSet *, ::java::lang::Object *, ::java::lang::Object *);
   virtual ::javax::swing::text::AttributeSet * addAttributes(::javax::swing::text::AttributeSet *, ::javax::swing::text::AttributeSet *);
   virtual ::javax::swing::text::AttributeSet * removeAttribute(::javax::swing::text::AttributeSet *, ::java::lang::Object *);
@@ -79,6 +87,12 @@ public: // actually protected
   virtual ::javax::swing::text::MutableAttributeSet * createLargeAttributeSet(::javax::swing::text::AttributeSet *);
 public:
   virtual ::java::awt::Font * getFont(::javax::swing::text::AttributeSet *);
+public: // actually package-private
+  virtual jfloat getEMBase(::javax::swing::text::AttributeSet *);
+  virtual jfloat getEXBase(::javax::swing::text::AttributeSet *);
+private:
+  jint getFontSize(::javax::swing::text::AttributeSet *);
+public:
   virtual ::java::awt::Color * getForeground(::javax::swing::text::AttributeSet *);
   virtual ::java::awt::Color * getBackground(::javax::swing::text::AttributeSet *);
   virtual ::javax::swing::text::html::StyleSheet$BoxPainter * getBoxPainter(::javax::swing::text::AttributeSet *);
@@ -89,10 +103,17 @@ public:
   virtual jfloat getPointSize(jint);
   virtual jfloat getPointSize(::java::lang::String *);
   virtual ::java::awt::Color * stringToColor(::java::lang::String *);
+private:
+  ::java::util::Map * attributeSetToMap(::javax::swing::text::AttributeSet *);
 public: // actually package-private
   ::java::net::URL * __attribute__((aligned(__alignof__( ::javax::swing::text::StyleContext)))) base;
   jint baseFontSize;
-  JArray< ::javax::swing::text::html::StyleSheet * > * styleSheet;
+private:
+  ::java::util::ArrayList * linked;
+public: // actually package-private
+  ::java::util::ArrayList * css;
+private:
+  ::java::util::HashMap * resolvedStyles;
 public:
   static ::java::lang::Class class$;
 };

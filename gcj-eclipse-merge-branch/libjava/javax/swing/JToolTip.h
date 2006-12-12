@@ -43,6 +43,8 @@ public:
   virtual void setComponent(::javax::swing::JComponent *);
   virtual void setTipText(::java::lang::String *);
   virtual void updateUI();
+public: // actually package-private
+  virtual jboolean onTop();
 private:
   static const jlong serialVersionUID = -1138929898906751643LL;
 public: // actually package-private

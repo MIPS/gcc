@@ -47,6 +47,7 @@ private:
   static const jlong serialVersionUID = -6037216547466333183LL;
   JArray< ::javax::swing::text::Element * > * __attribute__((aligned(__alignof__( ::javax::swing::text::AbstractDocument$AbstractElement)))) children__;
   jint numChildren;
+  jint lastIndex;
 public: // actually package-private
   ::javax::swing::text::AbstractDocument * this$0;
 public:

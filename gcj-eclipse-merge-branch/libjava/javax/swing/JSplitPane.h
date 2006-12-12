@@ -113,6 +113,7 @@ public: // actually protected
   ::java::awt::Component * leftComponent;
   ::java::awt::Component * rightComponent;
 private:
+  jint dividerLocation;
   jdouble resizeWeight;
   jboolean clientDividerSizeSet;
   jboolean clientOneTouchExpandableSet;

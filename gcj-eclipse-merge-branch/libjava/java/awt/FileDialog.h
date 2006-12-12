@@ -41,6 +41,10 @@ public:
   virtual void addNotify();
 public: // actually protected
   virtual ::java::lang::String * paramString();
+public: // actually package-private
+  virtual ::java::lang::String * generateName();
+private:
+  static jlong getUniqueLong();
 public:
   static const jint LOAD = 0;
   static const jint SAVE = 1;
@@ -50,6 +54,7 @@ private:
   ::java::lang::String * file;
   ::java::io::FilenameFilter * filter;
   jint mode;
+  static jlong next_file_dialog_number;
 public:
   static ::java::lang::Class class$;
 };

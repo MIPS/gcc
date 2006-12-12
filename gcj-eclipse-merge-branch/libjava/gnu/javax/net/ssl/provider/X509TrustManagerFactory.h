@@ -58,6 +58,7 @@ public: // actually protected
   virtual void engineInit(::javax::net::ssl::ManagerFactoryParameters *);
   virtual void engineInit(::java::security::KeyStore *);
 private:
+  static ::java::lang::String * sep;
   static ::java::lang::String * JSSE_CERTS;
   static ::java::lang::String * CA_CERTS;
   ::gnu::javax::net::ssl::provider::X509TrustManagerFactory$Manager * __attribute__((aligned(__alignof__( ::javax::net::ssl::TrustManagerFactorySpi)))) current;

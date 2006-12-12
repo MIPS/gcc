@@ -31,6 +31,7 @@ extern "Java"
     namespace swing
     {
         class JEditorPane;
+        class JEditorPane$PageLoader;
       namespace event
       {
           class HyperlinkEvent;
@@ -91,14 +92,19 @@ public:
   virtual void addHyperlinkListener(::javax::swing::event::HyperlinkListener *);
   virtual void removeHyperlinkListener(::javax::swing::event::HyperlinkListener *);
   virtual JArray< ::javax::swing::event::HyperlinkListener * > * getHyperlinkListeners();
+public: // actually package-private
+  static void access$0(::javax::swing::JEditorPane *, ::java::lang::String *, ::java::lang::Object *, ::java::lang::Object *);
 private:
   static const jlong serialVersionUID = 3140472492599046285LL;
-  ::java::net::URL * __attribute__((aligned(__alignof__( ::javax::swing::text::JTextComponent)))) page;
-  ::javax::swing::text::EditorKit * editorKit;
+  ::javax::swing::text::EditorKit * __attribute__((aligned(__alignof__( ::javax::swing::text::JTextComponent)))) editorKit;
 public: // actually package-private
   jboolean focus_root;
+  static ::java::util::HashMap * editorKits;
   static ::java::util::HashMap * registerMap;
   ::java::util::HashMap * editorMap;
+private:
+  ::javax::swing::JEditorPane$PageLoader * loader;
+public: // actually package-private
   static jboolean $assertionsDisabled;
 public:
   static ::java::lang::Class class$;

@@ -33,27 +33,28 @@ class gnu::javax::net::ssl::provider::ProtocolVersion : public ::java::lang::Obj
 {
 
   ProtocolVersion(jint, jint);
-public: // actually package-private
+public:
   static ::gnu::javax::net::ssl::provider::ProtocolVersion * read(::java::io::InputStream *);
+  static ::gnu::javax::net::ssl::provider::ProtocolVersion * forName(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::ProtocolVersion * getInstance(jint, jint);
-public:
-  void write(::java::io::OutputStream *);
-public: // actually package-private
+  static ::gnu::javax::net::ssl::provider::ProtocolVersion * getInstance(jshort);
+  jint length();
   JArray< jbyte > * getEncoded();
-  jint getMajor();
-  jint getMinor();
-public:
+  jint major();
+  jint minor();
+  jint rawValue();
   jboolean equals(::java::lang::Object *);
   jint hashCode();
-  jint compareTo(::java::lang::Object *);
+  jint target$compareTo(::gnu::javax::net::ssl::provider::ProtocolVersion *);
+  ::java::lang::String * toString(::java::lang::String *);
   ::java::lang::String * toString();
-public: // actually package-private
+  jint compareTo(::java::lang::Object *);
   static ::gnu::javax::net::ssl::provider::ProtocolVersion * SSL_3;
   static ::gnu::javax::net::ssl::provider::ProtocolVersion * TLS_1;
   static ::gnu::javax::net::ssl::provider::ProtocolVersion * TLS_1_1;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) major;
-  jint minor;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) major__;
+  jint minor__;
 public:
   static ::java::lang::Class class$;
 };

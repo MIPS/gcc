@@ -29,6 +29,7 @@ extern "Java"
     namespace swing
     {
         class AbstractButton;
+        class ActionMap;
         class JComponent;
       namespace event
       {
@@ -57,6 +58,9 @@ public:
   virtual void focusGained(::java::awt::event::FocusEvent *);
   virtual void focusLost(::java::awt::event::FocusEvent *);
   virtual void installKeyboardActions(::javax::swing::JComponent *);
+private:
+  ::javax::swing::ActionMap * createDefaultActionMap();
+public:
   virtual void uninstallKeyboardActions(::javax::swing::JComponent *);
   virtual void stateChanged(::javax::swing::event::ChangeEvent *);
   virtual void mouseMoved(::java::awt::event::MouseEvent *);

@@ -33,6 +33,10 @@ extern "Java"
     {
         class BigInteger;
     }
+    namespace nio
+    {
+        class ByteBuffer;
+    }
   }
 }
 
@@ -40,13 +44,17 @@ class gnu::javax::net::ssl::provider::Util : public ::java::lang::Object
 {
 
   Util();
-public: // actually package-private
+public:
+  static ::java::lang::Object * wrapBuffer(::java::nio::ByteBuffer *);
+  static ::java::lang::Object * wrapBuffer(::java::nio::ByteBuffer *, ::java::lang::String *);
   static JArray< jbyte > * toByteArray(::java::lang::String *);
   static ::java::lang::String * toHexString(JArray< jbyte > *, jint, jint);
   static ::java::lang::String * toHexString(JArray< jbyte > *);
   static ::java::lang::String * toHexString(JArray< jbyte > *, jint, jint, jchar);
   static ::java::lang::String * toHexString(JArray< jbyte > *, jchar);
   static ::java::lang::String * hexDump(JArray< jbyte > *, jint, jint, ::java::lang::String *);
+  static ::java::lang::String * hexDump(::java::nio::ByteBuffer *);
+  static ::java::lang::String * hexDump(::java::nio::ByteBuffer *, ::java::lang::String *);
   static ::java::lang::String * hexDump(JArray< jbyte > *, jint, jint);
   static ::java::lang::String * hexDump(JArray< jbyte > *, ::java::lang::String *);
   static ::java::lang::String * hexDump(JArray< jbyte > *);
@@ -56,6 +64,7 @@ public: // actually package-private
   static JArray< jbyte > * trim(JArray< jbyte > *, jint, jint);
   static JArray< jbyte > * trim(::java::math::BigInteger *);
   static jint unixTime();
+public: // actually package-private
   static JArray< ::java::lang::Object * > * transform(JArray< ::java::lang::Object * > *, ::java::lang::Class *, ::java::lang::String *, JArray< ::java::lang::Object * > *);
   static ::java::lang::String * getProperty(::java::lang::String *);
   static ::java::lang::String * getSecurityProperty(::java::lang::String *);

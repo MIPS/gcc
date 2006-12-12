@@ -101,12 +101,14 @@ struct _Jv_UnwindState
       length = ln;
       pos = 0;
       frames = NULL;
+#ifdef INTERPRETER
       Thread *thread = Thread::currentThread();
       // Check for NULL currentThread(), in case an exception is created 
       // very early during the runtime startup.
-#ifdef INTERPRETER
       if (thread)
 	interp_frame = (_Jv_InterpFrame *) thread->interp_frame;
+      else
+	interp_frame = NULL;
 #endif
       trace_function = NULL;
       trace_data = NULL;

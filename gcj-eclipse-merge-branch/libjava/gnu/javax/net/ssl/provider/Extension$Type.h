@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,17 +29,15 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::Extension$Type : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::Extension$Type : public ::java::lang::Enum
 {
 
-  Extension$Type(jint);
-public: // actually package-private
-  static ::gnu::javax::net::ssl::provider::Extension$Type * read(::java::io::InputStream *);
+  Extension$Type(::java::lang::String *, jint, jint);
 public:
-  JArray< jbyte > * getEncoded();
+  static ::gnu::javax::net::ssl::provider::Extension$Type * forValue(jint);
   jint getValue();
-  ::java::lang::String * toString();
-public: // actually package-private
+  static JArray< ::gnu::javax::net::ssl::provider::Extension$Type * > * values();
+  static ::gnu::javax::net::ssl::provider::Extension$Type * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::Extension$Type * SERVER_NAME;
   static ::gnu::javax::net::ssl::provider::Extension$Type * MAX_FRAGMENT_LENGTH;
   static ::gnu::javax::net::ssl::provider::Extension$Type * CLIENT_CERTIFICATE_URL;
@@ -49,7 +47,8 @@ public: // actually package-private
   static ::gnu::javax::net::ssl::provider::Extension$Type * SRP;
   static ::gnu::javax::net::ssl::provider::Extension$Type * CERT_TYPE;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::Extension$Type * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

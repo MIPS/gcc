@@ -47,23 +47,22 @@ public:
   ColorConvertOp(JArray< ::java::awt::color::ICC_Profile * > *, ::java::awt::RenderingHints *);
   ColorConvertOp(::java::awt::RenderingHints *);
   virtual ::java::awt::image::BufferedImage * filter(::java::awt::image::BufferedImage *, ::java::awt::image::BufferedImage *);
+  virtual ::java::awt::image::WritableRaster * filter(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *);
   virtual ::java::awt::image::BufferedImage * createCompatibleDestImage(::java::awt::image::BufferedImage *, ::java::awt::image::ColorModel *);
+  virtual ::java::awt::image::WritableRaster * createCompatibleDestRaster(::java::awt::image::Raster *);
   virtual JArray< ::java::awt::color::ICC_Profile * > * getICC_Profiles();
   virtual ::java::awt::RenderingHints * getRenderingHints();
-  virtual ::java::awt::image::WritableRaster * filter(::java::awt::image::Raster *, ::java::awt::image::WritableRaster *);
-  virtual ::java::awt::image::WritableRaster * createCompatibleDestRaster(::java::awt::image::Raster *);
   virtual ::java::awt::geom::Point2D * getPoint2D(::java::awt::geom::Point2D *, ::java::awt::geom::Point2D *);
   virtual ::java::awt::geom::Rectangle2D * getBounds2D(::java::awt::image::BufferedImage *);
   virtual ::java::awt::geom::Rectangle2D * getBounds2D(::java::awt::image::Raster *);
 private:
   void copyimage(::java::awt::image::BufferedImage *, ::java::awt::image::BufferedImage *);
   void copyraster(::java::awt::image::Raster *, ::java::awt::color::ColorSpace *, ::java::awt::image::WritableRaster *, ::java::awt::color::ColorSpace *);
-  ::java::awt::color::ColorSpace * __attribute__((aligned(__alignof__( ::java::lang::Object)))) srccs;
-  ::java::awt::color::ColorSpace * dstcs;
-  ::java::awt::RenderingHints * hints;
+  ::java::awt::image::ColorModel * createCompatibleColorModel(::java::awt::image::BufferedImage *, ::java::awt::color::ColorSpace *);
+  ::java::awt::image::WritableRaster * createCompatibleDestRaster(::java::awt::image::Raster *, ::java::awt::color::ColorSpace *, jboolean, jint);
+  ::java::awt::RenderingHints * __attribute__((aligned(__alignof__( ::java::lang::Object)))) hints;
   JArray< ::java::awt::color::ICC_Profile * > * profiles;
   JArray< ::java::awt::color::ColorSpace * > * spaces;
-  jboolean rasterValid;
 public:
   static ::java::lang::Class class$;
 };

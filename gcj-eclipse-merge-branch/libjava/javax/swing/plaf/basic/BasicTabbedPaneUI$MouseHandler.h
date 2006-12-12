@@ -46,6 +46,7 @@ public:
   virtual void mouseExited(::java::awt::event::MouseEvent *);
   virtual void mouseMoved(::java::awt::event::MouseEvent *);
 public: // actually package-private
+  virtual void redispatchEvent(::java::awt::event::MouseEvent *);
   ::javax::swing::plaf::basic::BasicTabbedPaneUI * __attribute__((aligned(__alignof__( ::java::awt::event::MouseAdapter)))) this$0;
 public:
   static ::java::lang::Class class$;

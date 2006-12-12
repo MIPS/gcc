@@ -54,8 +54,6 @@ public:
   static jint getPositionBelow(::javax::swing::text::JTextComponent *, jint, jint);
 public: // actually package-private
   static jint getNextVisualPositionFrom(::javax::swing::text::JTextComponent *, jint, jint);
-private:
-  static const jint BUF_LENGTH = 64;
 public:
   static ::java::lang::Class class$;
 };

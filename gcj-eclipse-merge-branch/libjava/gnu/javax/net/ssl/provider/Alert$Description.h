@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <java/lang/Object.h>
+#include <java/lang/Enum.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -29,17 +29,15 @@ extern "Java"
   }
 }
 
-class gnu::javax::net::ssl::provider::Alert$Description : public ::java::lang::Object
+class gnu::javax::net::ssl::provider::Alert$Description : public ::java::lang::Enum
 {
 
-  Alert$Description(jint);
-public: // actually package-private
-  static ::gnu::javax::net::ssl::provider::Alert$Description * read(::java::io::InputStream *);
+  Alert$Description(::java::lang::String *, jint, jint);
 public:
-  JArray< jbyte > * getEncoded();
+  static ::gnu::javax::net::ssl::provider::Alert$Description * forInteger(jint);
   jint getValue();
-  ::java::lang::String * toString();
-public: // actually package-private
+  static JArray< ::gnu::javax::net::ssl::provider::Alert$Description * > * values();
+  static ::gnu::javax::net::ssl::provider::Alert$Description * valueOf(::java::lang::String *);
   static ::gnu::javax::net::ssl::provider::Alert$Description * CLOSE_NOTIFY;
   static ::gnu::javax::net::ssl::provider::Alert$Description * UNEXPECTED_MESSAGE;
   static ::gnu::javax::net::ssl::provider::Alert$Description * BAD_RECORD_MAC;
@@ -72,7 +70,8 @@ public: // actually package-private
   static ::gnu::javax::net::ssl::provider::Alert$Description * UNKNOWN_SRP_USERNAME;
   static ::gnu::javax::net::ssl::provider::Alert$Description * MISSING_SRP_USERNAME;
 private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) value;
+  jint __attribute__((aligned(__alignof__( ::java::lang::Enum)))) value;
+  static JArray< ::gnu::javax::net::ssl::provider::Alert$Description * > * ENUM$VALUES;
 public:
   static ::java::lang::Class class$;
 };

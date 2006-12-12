@@ -25,13 +25,20 @@ extern "Java"
 class java::beans::beancontext::BeanContextServicesSupport$BCSSServiceProvider : public ::java::lang::Object
 {
 
-  BeanContextServicesSupport$BCSSServiceProvider();
+  BeanContextServicesSupport$BCSSServiceProvider(::java::lang::Class *, ::java::beans::beancontext::BeanContextServiceProvider *);
 public: // actually protected
   virtual ::java::beans::beancontext::BeanContextServiceProvider * getServiceProvider();
+private:
+  ::java::lang::Class * getServiceClass();
+public: // actually package-private
+  static ::java::lang::Class * access$0(::java::beans::beancontext::BeanContextServicesSupport$BCSSServiceProvider *);
+  BeanContextServicesSupport$BCSSServiceProvider(::java::lang::Class *, ::java::beans::beancontext::BeanContextServiceProvider *, ::java::beans::beancontext::BeanContextServicesSupport$BCSSServiceProvider *);
 private:
   static const jlong serialVersionUID = 861278251667444782LL;
 public: // actually protected
   ::java::beans::beancontext::BeanContextServiceProvider * __attribute__((aligned(__alignof__( ::java::lang::Object)))) serviceProvider;
+private:
+  ::java::lang::Class * serviceClass;
 public:
   static ::java::lang::Class class$;
 };

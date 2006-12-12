@@ -33,7 +33,6 @@ extern "Java"
           class Document;
           class Element;
           class MutableAttributeSet;
-          class StyleContext;
           class ViewFactory;
         namespace html
         {
@@ -79,6 +78,8 @@ public:
   virtual ::javax::swing::text::MutableAttributeSet * getInputAttributes();
   virtual ::javax::swing::text::html::StyleSheet * getStyleSheet();
   virtual void setStyleSheet(::javax::swing::text::html::StyleSheet *);
+  virtual jboolean isAutoFormSubmission();
+  virtual void setAutoFormSubmission(jboolean);
 private:
   static const jlong serialVersionUID = 8751997116710384592LL;
 public:
@@ -97,17 +98,20 @@ public:
   static ::java::lang::String * PARA_INDENT_RIGHT;
 private:
   static JArray< ::javax::swing::Action * > * defaultActions;
-public: // actually package-private
   ::javax::swing::text::html::StyleSheet * __attribute__((aligned(__alignof__( ::javax::swing::text::StyledEditorKit)))) styleSheet;
+public: // actually package-private
   ::javax::swing::text::html::HTMLEditorKit$HTMLFactory * viewFactory;
   ::java::awt::Cursor * linkCursor;
   ::java::awt::Cursor * defaultCursor;
   ::javax::swing::text::html::HTMLEditorKit$Parser * parser;
-  ::javax::swing::text::html::HTMLEditorKit$LinkController * mouseListener;
-  ::javax::swing::text::StyleContext * styleContext;
+private:
+  ::javax::swing::text::html::HTMLEditorKit$LinkController * linkController;
+public: // actually package-private
   ::java::lang::String * contentType;
   ::javax::swing::text::MutableAttributeSet * inputAttributes;
   ::javax::swing::JEditorPane * editorPane;
+private:
+  jboolean autoFormSubmission;
 public:
   static ::java::lang::Class class$;
 };

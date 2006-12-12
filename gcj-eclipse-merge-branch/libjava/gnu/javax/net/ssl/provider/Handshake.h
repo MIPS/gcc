@@ -21,12 +21,10 @@ extern "Java"
         {
           namespace provider
           {
-              class CertificateType;
               class CipherSuite;
               class Handshake;
               class Handshake$Body;
               class Handshake$Type;
-              class Handshake$buffer;
               class ProtocolVersion;
           }
         }
@@ -35,9 +33,9 @@ extern "Java"
   }
   namespace java
   {
-    namespace security
+    namespace nio
     {
-        class PublicKey;
+        class ByteBuffer;
     }
   }
 }
@@ -45,26 +43,24 @@ extern "Java"
 class gnu::javax::net::ssl::provider::Handshake : public ::java::lang::Object
 {
 
-public: // actually package-private
-  Handshake(::gnu::javax::net::ssl::provider::Handshake$Type *, ::gnu::javax::net::ssl::provider::Handshake$Body *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(JArray< jbyte > *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(JArray< jbyte > *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(::java::io::InputStream *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CertificateType *);
-  static ::gnu::javax::net::ssl::provider::Handshake * read(::java::io::InputStream *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::java::security::PublicKey *, ::gnu::javax::net::ssl::provider::CertificateType *);
 public:
-  void write(::java::io::OutputStream *);
-  jint write(::java::io::OutputStream *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
-public: // actually package-private
-  ::gnu::javax::net::ssl::provider::Handshake$Type * getType();
-  ::gnu::javax::net::ssl::provider::Handshake$Body * getBody();
-public:
+  Handshake(::java::nio::ByteBuffer *);
+  Handshake(::java::nio::ByteBuffer *, ::gnu::javax::net::ssl::provider::CipherSuite *, ::gnu::javax::net::ssl::provider::ProtocolVersion *);
+  ::gnu::javax::net::ssl::provider::Handshake$Type * type();
+  jint length();
+  ::gnu::javax::net::ssl::provider::Handshake$Body * body();
+  ::java::nio::ByteBuffer * bodyBuffer();
+  void setType(::gnu::javax::net::ssl::provider::Handshake$Type *);
+  void setLength(jint);
   ::java::lang::String * toString();
+  ::java::lang::String * toString(::java::lang::String *);
+public: // actually package-private
+  static JArray< jint > * $SWITCH_TABLE$gnu$javax$net$ssl$provider$Handshake$Type();
 private:
-  static ::gnu::javax::net::ssl::provider::Handshake$buffer * BUF;
-  ::gnu::javax::net::ssl::provider::Handshake$Type * __attribute__((aligned(__alignof__( ::java::lang::Object)))) type;
-  ::gnu::javax::net::ssl::provider::Handshake$Body * body;
+  ::java::nio::ByteBuffer * __attribute__((aligned(__alignof__( ::java::lang::Object)))) buffer;
+  ::gnu::javax::net::ssl::provider::CipherSuite * suite;
+  ::gnu::javax::net::ssl::provider::ProtocolVersion * version;
+  static JArray< jint > * $SWITCH_TABLE$gnu$javax$net$ssl$provider$Handshake$Type__;
 public:
   static ::java::lang::Class class$;
 };

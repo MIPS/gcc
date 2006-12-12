@@ -127,6 +127,8 @@ public: // actually protected
   jboolean designTime;
   ::java::util::Locale * locale;
   jboolean okToUseGui__;
+private:
+  jboolean serializing;
 public:
   static ::java::lang::Class class$;
 };

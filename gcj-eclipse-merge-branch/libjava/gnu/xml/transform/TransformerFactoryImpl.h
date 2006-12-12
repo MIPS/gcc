@@ -6,7 +6,7 @@
 
 #pragma interface
 
-#include <javax/xml/transform/TransformerFactory.h>
+#include <javax/xml/transform/sax/SAXTransformerFactory.h>
 #include <gcj/array.h>
 
 extern "Java"
@@ -34,6 +34,11 @@ extern "Java"
           class Templates;
           class Transformer;
           class URIResolver;
+        namespace sax
+        {
+            class TemplatesHandler;
+            class TransformerHandler;
+        }
       }
       namespace xpath
       {
@@ -41,9 +46,19 @@ extern "Java"
       }
     }
   }
+  namespace org
+  {
+    namespace xml
+    {
+      namespace sax
+      {
+          class XMLFilter;
+      }
+    }
+  }
 }
 
-class gnu::xml::transform::TransformerFactoryImpl : public ::javax::xml::transform::TransformerFactory
+class gnu::xml::transform::TransformerFactoryImpl : public ::javax::xml::transform::sax::SAXTransformerFactory
 {
 
 public:
@@ -67,9 +82,15 @@ public:
   virtual ::java::lang::Object * getAttribute(::java::lang::String *);
   virtual void setErrorListener(::javax::xml::transform::ErrorListener *);
   virtual ::javax::xml::transform::ErrorListener * getErrorListener();
+  virtual ::javax::xml::transform::sax::TemplatesHandler * newTemplatesHandler();
+  virtual ::javax::xml::transform::sax::TransformerHandler * newTransformerHandler();
+  virtual ::javax::xml::transform::sax::TransformerHandler * newTransformerHandler(::javax::xml::transform::Source *);
+  virtual ::javax::xml::transform::sax::TransformerHandler * newTransformerHandler(::javax::xml::transform::Templates *);
+  virtual ::org::xml::sax::XMLFilter * newXMLFilter(::javax::xml::transform::Source *);
+  virtual ::org::xml::sax::XMLFilter * newXMLFilter(::javax::xml::transform::Templates *);
   static void main(JArray< ::java::lang::String * > *);
 public: // actually package-private
-  ::javax::xml::xpath::XPathFactory * __attribute__((aligned(__alignof__( ::javax::xml::transform::TransformerFactory)))) xpathFactory;
+  ::javax::xml::xpath::XPathFactory * __attribute__((aligned(__alignof__( ::javax::xml::transform::sax::SAXTransformerFactory)))) xpathFactory;
   ::gnu::xml::transform::XSLURIResolver * resolver;
   ::javax::xml::transform::ErrorListener * userListener;
   ::javax::xml::transform::URIResolver * userResolver;

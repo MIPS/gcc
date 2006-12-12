@@ -31,14 +31,17 @@ extern "Java"
 class gnu::javax::net::ssl::provider::AlertException : public ::javax::net::ssl::SSLException
 {
 
-public: // actually package-private
-  AlertException(::gnu::javax::net::ssl::provider::Alert *, jboolean);
 public:
+  AlertException(::gnu::javax::net::ssl::provider::Alert *, jboolean);
+  AlertException(::gnu::javax::net::ssl::provider::Alert *);
+  AlertException(::gnu::javax::net::ssl::provider::Alert *, jboolean, ::java::lang::Throwable *);
+  AlertException(::gnu::javax::net::ssl::provider::Alert *, ::java::lang::Throwable *);
   virtual ::java::lang::String * getMessage();
-  virtual ::gnu::javax::net::ssl::provider::Alert * getAlert();
+  virtual ::gnu::javax::net::ssl::provider::Alert * alert();
+  virtual jboolean isLocal();
 private:
-  ::gnu::javax::net::ssl::provider::Alert * __attribute__((aligned(__alignof__( ::javax::net::ssl::SSLException)))) alert;
-  jboolean isLocal;
+  ::gnu::javax::net::ssl::provider::Alert * __attribute__((aligned(__alignof__( ::javax::net::ssl::SSLException)))) alert__;
+  jboolean isLocal__;
 public:
   static ::java::lang::Class class$;
 };

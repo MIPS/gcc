@@ -117,6 +117,7 @@ public:
   static ::java::lang::Object * NameAttribute;
   static ::java::lang::Object * ResolveAttribute;
 public: // actually package-private
+  static ::java::util::ArrayList * keys;
   ::java::lang::String * __attribute__((aligned(__alignof__( ::java::lang::Object)))) keyname;
 public:
   static ::java::lang::Class class$;

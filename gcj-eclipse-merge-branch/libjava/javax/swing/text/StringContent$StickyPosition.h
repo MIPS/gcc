@@ -16,6 +16,7 @@ extern "Java"
       namespace text
       {
           class StringContent;
+          class StringContent$Mark;
           class StringContent$StickyPosition;
       }
     }
@@ -27,13 +28,9 @@ class javax::swing::text::StringContent$StickyPosition : public ::java::lang::Ob
 
 public:
   StringContent$StickyPosition(::javax::swing::text::StringContent *, jint);
-public: // actually package-private
-  virtual void setOffset(jint);
-public:
   virtual jint getOffset();
-private:
-  jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) offset;
 public: // actually package-private
+  ::javax::swing::text::StringContent$Mark * __attribute__((aligned(__alignof__( ::java::lang::Object)))) mark;
   ::javax::swing::text::StringContent * this$0;
 public:
   static ::java::lang::Class class$;

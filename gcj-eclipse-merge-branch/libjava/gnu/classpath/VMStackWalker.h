@@ -39,6 +39,7 @@ private:
   static ::java::lang::ClassLoader * getCallingClassLoader(::gnu::gcj::RawData *);
 public:
   static ::java::lang::ClassLoader * getClassLoader(::java::lang::Class *);
+  static ::java::lang::ClassLoader * firstNonNullClassLoader();
   static ::java::lang::Class class$;
 };
 

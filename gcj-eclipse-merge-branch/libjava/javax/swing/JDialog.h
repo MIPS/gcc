@@ -103,7 +103,7 @@ public: // actually protected
   ::javax::swing::JRootPane * rootPane;
   jboolean rootPaneCheckingEnabled;
 private:
-  jint close_action;
+  jint closeAction;
   static jboolean decorated;
 public:
   static ::java::lang::Class class$;

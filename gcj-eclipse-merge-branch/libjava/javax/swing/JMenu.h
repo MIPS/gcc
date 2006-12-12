@@ -45,6 +45,7 @@ extern "Java"
         class MenuElement;
       namespace event
       {
+          class ChangeListener;
           class MenuEvent;
           class MenuListener;
       }
@@ -76,9 +77,6 @@ public:
   virtual ::java::lang::String * getUIClassID();
   virtual void setModel(::javax::swing::ButtonModel *);
   virtual jboolean isSelected();
-private:
-  void setSelectedHelper(jboolean, jboolean, jboolean);
-public:
   virtual void setSelected(jboolean);
   virtual jboolean isPopupMenuVisible();
   virtual void setPopupMenuVisible(jboolean);
@@ -135,6 +133,7 @@ public: // actually protected
   ::javax::swing::JMenu$WinListener * popupListener;
 private:
   ::java::awt::Point * menuLocation;
+  ::javax::swing::event::ChangeListener * menuChangeListener;
 public:
   static ::java::lang::Class class$;
 };
