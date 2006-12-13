@@ -100,7 +100,7 @@ jcf_dependency_set_dep_file (const char *name)
 }
 
 void
-jcf_dependency_add_file (const char *filename, int system_p)
+jcf_dependency_add_file (const char *filename ATTRIBUTE_UNUSED, int system_p)
 {
   if (! dependencies)
     return;
