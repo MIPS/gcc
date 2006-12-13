@@ -2659,8 +2659,9 @@ case "${target}" in
 
 		case "$with_arch" in
 		"" \
-		| armv[23456] | armv2a | armv3m | armv4t | armv5t \
-		| armv5te | armv6j |armv6k | armv6z | armv6zk \
+		| armv[234567] | armv2a | armv3m | armv4t | armv5t \
+		| armv5te | armv6j |armv6k | armv6z | armv6zk | armv6t2 \
+		| armv7-a | armv7-r | armv7-m \
 		| iwmmxt | ep9312)
 			# OK
 			;;
