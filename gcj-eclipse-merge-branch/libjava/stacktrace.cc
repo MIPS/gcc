@@ -681,7 +681,7 @@ _Jv_StackTrace::GetStackWalkerStack ()
 
 typedef enum
   {
-    VMSW_GETCLASSCONTEXT,
+    VMSW_GET_CALLING_ITEM,
     JLRM_INVOKE_OR_CALLER,
     CALLER,
     CALLER_OF_CALLER
@@ -706,10 +706,8 @@ _Jv_StackTrace::stackwalker_trace_fn (_Jv_UnwindState *state)
 
   switch (trace_data->expect)
     {
-    case VMSW_GETCLASSCONTEXT:
-      JvAssert (
-	frame->klass == &::gnu::classpath::VMStackWalker::class$
-	&& strcmp (frame->meth->name->chars(), "getClassContext") == 0);
+    case VMSW_GET_CALLING_ITEM:
+      JvAssert (frame->klass == &::gnu::classpath::VMStackWalker::class$);
       trace_data->expect = JLRM_INVOKE_OR_CALLER;
       break;
 
@@ -742,7 +740,7 @@ _Jv_StackTrace::GetStackWalkerCallingClass (void)
   state.frames = (_Jv_StackFrame *) &frames;
 
   StackWalkerTraceData trace_data;
-  trace_data.expect = VMSW_GETCLASSCONTEXT;
+  trace_data.expect = VMSW_GET_CALLING_ITEM;
   trace_data.result = NULL;
   
   state.trace_function = stackwalker_trace_fn;

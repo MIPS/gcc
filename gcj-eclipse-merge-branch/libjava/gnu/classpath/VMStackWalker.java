@@ -110,13 +110,7 @@ public final class VMStackWalker
    * this method. <code>getCallingClassLoader(addr)</code> does not
    * unwind the stack, so is therefore more efficient.
    */
-  public static ClassLoader getCallingClassLoader()
-  {
-    Class[] ctx = getClassContext();
-    if (ctx.length < 3)
-      return null;
-    return getClassLoader(ctx[2]);
-  }
+  public static native ClassLoader getCallingClassLoader();
 
   /**
    * Get the class loader associated with the Class returned by
