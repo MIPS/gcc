@@ -449,7 +449,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dom = 1;
       flag_tree_dse = 1;
       flag_tree_ter = 1;
-      flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
       flag_tree_fre = 1;
@@ -474,6 +473,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_thread_jumps = 1;
       flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
+      flag_forward_propagate = 1;
       flag_cse_follow_jumps = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;

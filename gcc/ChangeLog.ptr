@@ -1,3 +1,7 @@
+2006-12-14  Zdenek Dvorak <dvorakz@suse.cz>
+
+	Merge mainline, revision 119860.
+
 2006-11-23  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* tree.def (POINTER_PLUS_EXPR): New tree code.

@@ -495,6 +495,8 @@ do {									\
      the user explicitly requested this to be on or off.  */		\
   if (flag_schedule_insns > 0)						\
     flag_schedule_insns = 2;						\
+									\
+  set_param_value ("simultaneous-prefetches", 2);			\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -2800,13 +2802,11 @@ struct sh_args {
    ??? Strictly speaking, we should also include all indexed addressing,
    because the index scale factor is the length of the operand.
    However, the impact of GO_IF_MODE_DEPENDENT_ADDRESS would be to
-   high if we did that.  So we rely on reload to fix things up.  */
+   high if we did that.  So we rely on reload to fix things up.
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)			\
-{									\
-  if (GET_CODE(ADDR) == PRE_DEC || GET_CODE(ADDR) == POST_INC)		\
-    goto LABEL;								\
-}
+   Auto-increment addressing is now treated in recog.c.  */
+
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -3466,8 +3466,6 @@ extern int current_function_interrupt;
 1:	.long	" USER_LABEL_PREFIX #FUNC " - 0b\n\
 2:\n" TEXT_SECTION_ASM_OP);
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
-
-#define SIMULTANEOUS_PREFETCHES 2
 
 /* FIXME: middle-end support for highpart optimizations is missing.  */
 #define high_life_started reload_in_progress

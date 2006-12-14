@@ -115,6 +115,7 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 void
 cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_original)
 {
+  HOST_WIDE_INT peak;
   if (duplicate)
     {
       /* We may eliminate the need for out-of-line copy to be output.
@@ -141,6 +142,11 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_o
     e->callee->global.inlined_to = e->caller->global.inlined_to;
   else
     e->callee->global.inlined_to = e->caller;
+  e->callee->global.stack_frame_offset
+    = e->caller->global.stack_frame_offset + e->caller->local.estimated_self_stack_size;
+  peak = e->callee->global.stack_frame_offset + e->callee->local.estimated_self_stack_size;
+  if (e->callee->global.inlined_to->global.estimated_stack_size < peak)
+    e->callee->global.inlined_to->global.estimated_stack_size = peak;
 
   /* Recursively clone all bodies.  */
   for (e = e->callee->callees; e; e = e->next_callee)
@@ -257,6 +263,7 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
   struct cgraph_edge *e;
   int newsize;
   int limit;
+  HOST_WIDE_INT stack_size_limit, inlined_stack;
 
   if (one_only)
     times = 1;
@@ -286,6 +293,21 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
     {
       if (reason)
         *reason = N_("--param large-function-growth limit reached");
+      return false;
+    }
+
+  stack_size_limit = to->local.estimated_self_stack_size;
+
+  stack_size_limit += stack_size_limit * PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) / 100;
+
+  inlined_stack = (to->global.stack_frame_offset
+		   + to->local.estimated_self_stack_size
+		   + what->global.estimated_stack_size);
+  if (inlined_stack  > stack_size_limit
+      && inlined_stack > PARAM_VALUE (PARAM_LARGE_STACK_FRAME))
+    {
+      if (reason)
+        *reason = N_("--param large-stack-frame-growth limit reached");
       return false;
     }
   return true;
@@ -536,7 +558,7 @@ cgraph_find_cycles (struct cgraph_node *node, htab_t cycles)
   node->aux = 0;
 }
 
-/* Leafify the cgraph node.  We have to be careful in recursing
+/* Flatten the cgraph node.  We have to be careful in recursing
    as to not run endlessly in circles of the callgraph.
    We do so by using a hashtab of cycle entering nodes as generated
    by cgraph_find_cycles.  */
@@ -961,7 +983,7 @@ cgraph_decide_inlining (void)
 	  htab_t cycles;
   	  if (dump_file)
     	    fprintf (dump_file,
-	     	     "Leafifying %s\n", cgraph_node_name (node));
+	     	     "Flattening %s\n", cgraph_node_name (node));
 	  cycles = htab_create (7, htab_hash_pointer, htab_eq_pointer, NULL);
 	  cgraph_find_cycles (node, cycles);
 	  cgraph_flatten_node (node, cycles);

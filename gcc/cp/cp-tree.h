@@ -446,6 +446,29 @@ struct tree_default_arg GTY (())
   VEC(tree,gc) *instantiations;
 };
 
+/* The condition associated with the static assertion.  This must be
+   an integral constant expression.  */
+#define STATIC_ASSERT_CONDITION(NODE) \
+  (((struct tree_static_assert *)STATIC_ASSERT_CHECK (NODE))->condition)
+
+/* The message associated with the static assertion.  This must be a
+   string constant, which will be emitted as an error message when the
+   static assert condition is false.  */
+#define STATIC_ASSERT_MESSAGE(NODE) \
+  (((struct tree_static_assert *)STATIC_ASSERT_CHECK (NODE))->message)
+
+/* Source location information for a static assertion.  */
+#define STATIC_ASSERT_SOURCE_LOCATION(NODE) \
+  (((struct tree_static_assert *)STATIC_ASSERT_CHECK (NODE))->location)
+
+struct tree_static_assert GTY (())
+{
+  struct tree_common common;
+  tree condition;
+  tree message;
+  location_t location;
+};
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -457,12 +480,13 @@ enum cp_tree_node_structure_enum {
   TS_CP_BASELINK,
   TS_CP_WRAPPER,
   TS_CP_DEFAULT_ARG,
+  TS_CP_STATIC_ASSERT,
   LAST_TS_CP_ENUM
 };
 
 /* The resulting tree type.  */
 union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+       chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
 {
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
@@ -473,6 +497,8 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
   struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
+  struct tree_static_assert GTY ((tag ("TS_CP_STATIC_ASSERT"))) 
+    static_assertion;
 };
 
 
@@ -2041,7 +2067,7 @@ struct lang_decl GTY(())
 
 /* In a TREE_LIST concatenating using directives, indicate indirect
    directives  */
-#define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->common.lang_flag_0)
+#define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->base.lang_flag_0)
 
 extern tree decl_shadowed_for_var_lookup (tree);
 extern void decl_shadowed_for_var_insert (tree, tree);
@@ -2853,8 +2879,14 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    indicates the type of specializations:
 
      1=implicit instantiation
-     2=explicit specialization, e.g. int min<int> (int, int);
-     3=explicit instantiation, e.g. template int min<int> (int, int);
+
+     2=partial or explicit specialization, e.g.:
+
+        template <> int min<int> (int, int),
+
+     3=explicit instantiation, e.g.:
+  
+        template int min<int> (int, int);
 
    Note that NODE will be marked as a specialization even if the
    template it is instantiating is not a primary template.  For
@@ -3468,7 +3500,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define WANT_ENUM	4 /* enumerated types */
 #define WANT_POINTER	8 /* pointer types */
 #define WANT_NULL      16 /* null pointer constant */
-#define WANT_ARITH	(WANT_INT | WANT_FLOAT)
+#define WANT_VECTOR    32 /* vector types */
+#define WANT_ARITH	(WANT_INT | WANT_FLOAT | WANT_VECTOR)
 
 /* Used with comptypes, and related functions, to guide type
    comparison.  */
@@ -3772,7 +3805,7 @@ extern tree build_op_delete_call		(enum tree_code, tree, tree, bool, tree, tree)
 extern bool can_convert				(tree, tree);
 extern bool can_convert_arg			(tree, tree, tree, int);
 extern bool can_convert_arg_bad			(tree, tree, tree);
-extern bool enforce_access			(tree, tree);
+extern bool enforce_access			(tree, tree, tree);
 extern tree convert_default_arg			(tree, tree, tree, int);
 extern tree convert_arg_to_ellipsis		(tree);
 extern tree build_x_va_arg			(tree, tree);
@@ -4141,6 +4174,7 @@ extern tree build_non_dependent_expr		(tree);
 extern tree build_non_dependent_args		(tree);
 extern bool reregister_specialization		(tree, tree, tree);
 extern tree fold_non_dependent_expr		(tree);
+extern bool explicit_class_specialization_p     (tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -4209,7 +4243,7 @@ extern tree get_deferred_access_checks		(void);
 extern void pop_to_parent_deferring_access_checks (void);
 extern void perform_access_checks		(tree);
 extern void perform_deferred_access_checks	(void);
-extern void perform_or_defer_access_check	(tree, tree);
+extern void perform_or_defer_access_check	(tree, tree, tree);
 extern int stmts_are_full_exprs_p		(void);
 extern void init_cp_semantics			(void);
 extern tree do_poplevel				(tree);
@@ -4325,6 +4359,8 @@ extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
 extern bool cxx_omp_privatize_by_reference	(tree);
 extern tree baselink_for_fns                    (tree);
+extern void finish_static_assert                (tree, tree, location_t,
+                                                 bool);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4422,8 +4458,9 @@ extern tree build_x_indirect_ref		(tree, const char *);
 extern tree build_indirect_ref			(tree, const char *);
 extern tree build_array_ref			(tree, tree);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
-extern tree build_x_binary_op			(enum tree_code, tree, tree,
-						 bool *);
+extern tree build_x_binary_op			(enum tree_code, tree,
+						 enum tree_code, tree,
+						 enum tree_code, bool *);
 extern tree build_x_unary_op			(enum tree_code, tree);
 extern tree unary_complex_lvalue		(enum tree_code, tree);
 extern tree build_x_conditional_expr		(tree, tree, tree);

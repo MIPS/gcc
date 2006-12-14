@@ -98,7 +98,8 @@ static const char * const tree_node_kind_names[] = {
   "random kinds",
   "lang_decl kinds",
   "lang_type kinds",
-  "omp clauses"
+  "omp clauses",
+  "gimple statements"
 };
 #endif /* GATHER_STATISTICS */
 
@@ -270,12 +271,15 @@ init_ttree (void)
   tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[SYMBOL_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_DECL_MINIMAL] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[SYMBOL_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_STRUCT_FIELD_TAG] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_MEMORY_PARTITION_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -304,6 +308,40 @@ decl_assembler_name (tree decl)
   if (!DECL_ASSEMBLER_NAME_SET_P (decl))
     lang_hooks.set_decl_assembler_name (decl);
   return DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name;
+}
+
+/* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
+
+bool
+decl_assembler_name_equal (tree decl, tree asmname)
+{
+  tree decl_asmname = DECL_ASSEMBLER_NAME (decl);
+
+  if (decl_asmname == asmname)
+    return true;
+
+  /* If the target assembler name was set by the user, things are trickier.
+     We have a leading '*' to begin with.  After that, it's arguable what
+     is the correct thing to do with -fleading-underscore.  Arguably, we've
+     historically been doing the wrong thing in assemble_alias by always
+     printing the leading underscore.  Since we're not changing that, make
+     sure user_label_prefix follows the '*' before matching.  */
+  if (IDENTIFIER_POINTER (decl_asmname)[0] == '*')
+    {
+      const char *decl_str = IDENTIFIER_POINTER (decl_asmname) + 1;
+      size_t ulp_len = strlen (user_label_prefix);
+
+      if (ulp_len == 0)
+	;
+      else if (strncmp (decl_str, user_label_prefix, ulp_len) == 0)
+	decl_str += ulp_len;
+      else
+	return false;
+
+      return strcmp (decl_str, IDENTIFIER_POINTER (asmname)) == 0;
+    }
+
+  return false;
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.
@@ -339,6 +377,8 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_memory_tag);
 	  case STRUCT_FIELD_TAG:
 	    return sizeof (struct tree_struct_field_tag);
+	  case MEMORY_PARTITION_TAG:
+	    return sizeof (struct tree_memory_partition_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -354,6 +394,10 @@ tree_code_size (enum tree_code code)
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
       return (sizeof (struct tree_exp)
+	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+
+    case tcc_gimple_stmt:
+      return (sizeof (struct gimple_stmt)
 	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
 
     case tcc_constant:  /* a constant */
@@ -476,6 +520,10 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       kind = c_kind;
       break;
 
+    case tcc_gimple_stmt:
+      kind = gimple_stmt_kind;
+      break;
+
     case tcc_exceptional:  /* something random, like an identifier.  */
       switch (code)
 	{
@@ -591,6 +639,17 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	}
       break;
 
+    case tcc_gimple_stmt:
+      switch (code)
+	{
+      case GIMPLE_MODIFY_STMT:
+	TREE_SIDE_EFFECTS (t) = 1;
+	break;
+
+      default:
+	break;
+	}
+
     default:
       /* Other classes need no special treatment.  */
       break;
@@ -615,10 +674,11 @@ copy_node_stat (tree node MEM_STAT_DECL)
   t = ggc_alloc_zone_pass_stat (length, &tree_zone);
   memcpy (t, node, length);
 
-  TREE_CHAIN (t) = 0;
+  if (!GIMPLE_TUPLE_P (node))
+    TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
   TREE_VISITED (t) = 0;
-  t->common.ann = 0;
+  t->base.ann = 0;
 
   if (TREE_CODE_CLASS (code) == tcc_declaration)
     {
@@ -844,8 +904,12 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 	    ix = 0;
 	}
       break;
-    default:
+
+    case ENUMERAL_TYPE:
       break;
+
+    default:
+      gcc_unreachable ();
     }
 
   if (ix >= 0)
@@ -968,6 +1032,10 @@ build_vector (tree type, tree vals)
   for (link = vals; link; link = TREE_CHAIN (link))
     {
       tree value = TREE_VALUE (link);
+
+      /* Don't crash if we get an address constant.  */
+      if (!CONSTANT_CLASS_P (value))
+	continue;
 
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
@@ -1864,7 +1932,14 @@ expr_align (tree t)
       align1 = TYPE_ALIGN (TREE_TYPE (t));
       return MAX (align0, align1);
 
-    case SAVE_EXPR:         case COMPOUND_EXPR:       case MODIFY_EXPR:
+    case MODIFY_EXPR:
+      /* FIXME tuples: It is unclear to me if this function, which
+         is only called from ADA, is called on gimple or non gimple
+         trees.  Let's assume it's from gimple trees unless we hit
+         this abort.  */
+      gcc_unreachable ();
+
+    case SAVE_EXPR:         case COMPOUND_EXPR:       case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:         case TARGET_EXPR:         case WITH_CLEANUP_EXPR:
     case CLEANUP_POINT_EXPR:
       /* These don't change the alignment of an object.  */
@@ -2119,6 +2194,7 @@ tree_node_structure (tree t)
 	  case SYMBOL_MEMORY_TAG:
 	  case NAME_MEMORY_TAG:
 	  case STRUCT_FIELD_TAG:
+	  case MEMORY_PARTITION_TAG:
 	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
@@ -2133,6 +2209,8 @@ tree_node_structure (tree t)
     case tcc_expression:
     case tcc_statement:
       return TS_EXP;
+    case tcc_gimple_stmt:
+      return TS_GIMPLE_STATEMENT;
     default:  /* tcc_constant and tcc_exceptional */
       break;
     }
@@ -2145,6 +2223,8 @@ tree_node_structure (tree t)
     case VECTOR_CST:		return TS_VECTOR;
     case STRING_CST:		return TS_STRING;
       /* tcc_exceptional cases.  */
+    /* FIXME tuples: eventually this should be TS_BASE.  For now, nothing
+       returns TS_BASE.  */
     case ERROR_MARK:		return TS_COMMON;
     case IDENTIFIER_NODE:	return TS_IDENTIFIER;
     case TREE_LIST:		return TS_LIST;
@@ -2595,9 +2675,6 @@ stabilize_reference (tree ref)
     case CONVERT_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FIX_CEIL_EXPR:
       result = build_nt (code, stabilize_reference (TREE_OPERAND (ref, 0)));
       break;
 
@@ -2962,6 +3039,17 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 2);
 
+  if (code == MODIFY_EXPR && cfun && cfun->gimplified)
+    {
+      /* We should be talking GIMPLE_MODIFY_STMT by now.  */
+      gcc_unreachable ();
+    }
+
+  /* FIXME tuples: For now let's be lazy; later we must rewrite all
+     build2 calls to build2_gimple calls.  */
+  if (TREE_CODE_CLASS (code) == tcc_gimple_stmt)
+    return build2_gimple (code, arg0, arg1);
+
   if ((code == MINUS_EXPR || code == PLUS_EXPR) && arg0 && arg1 && tt && POINTER_TYPE_P (tt))
     gcc_assert (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST);
 
@@ -2995,6 +3083,35 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   TREE_THIS_VOLATILE (t)
     = (TREE_CODE_CLASS (code) == tcc_reference
        && arg0 && TREE_THIS_VOLATILE (arg0));
+
+  return t;
+}
+
+
+/* Similar as build2_stat, but for GIMPLE tuples.  For convenience's sake,
+   arguments and return type are trees.  */
+
+tree
+build2_gimple_stat (enum tree_code code, tree arg0, tree arg1 MEM_STAT_DECL)
+{
+  bool side_effects;
+  tree t;
+
+  gcc_assert (TREE_CODE_LENGTH (code) == 2);
+
+  t = make_node_stat (code PASS_MEM_STAT);
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  /* ?? We don't care about setting flags for tuples...  */
+  GIMPLE_STMT_OPERAND (t, 0) = arg0;
+  GIMPLE_STMT_OPERAND (t, 1) = arg1;
+
+  /* ...except perhaps side_effects and volatility.  ?? */
+  TREE_SIDE_EFFECTS (t) = side_effects;
+  TREE_THIS_VOLATILE (t) = (TREE_CODE_CLASS (code) == tcc_reference
+	             	    && arg0 && TREE_THIS_VOLATILE (arg0));
+
 
   return t;
 }
@@ -3287,6 +3404,130 @@ annotate_with_locus (tree node, location_t locus)
   annotate_with_file_line (node, locus.file, locus.line);
 }
 #endif
+
+/* Source location accessor functions.  */
+
+
+/* The source location of this expression.  Non-tree_exp nodes such as
+   decls and constants can be shared among multiple locations, so
+   return nothing.  */
+location_t
+expr_location (tree node)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (GIMPLE_STMT_P (node))
+    return GIMPLE_STMT_LOCUS (node);
+  return EXPR_P (node) ? node->exp.locus : UNKNOWN_LOCATION;
+#else
+  if (GIMPLE_STMT_P (node))
+    return EXPR_HAS_LOCATION (node)
+      ? *GIMPLE_STMT_LOCUS (node) : UNKNOWN_LOCATION;
+  return EXPR_HAS_LOCATION (node) ? *node->exp.locus : UNKNOWN_LOCATION;
+#endif
+}
+
+void
+set_expr_location (tree node, location_t locus)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (GIMPLE_STMT_P (node))
+    GIMPLE_STMT_LOCUS (node) = locus;
+  else
+    EXPR_CHECK (node)->exp.locus = locus;
+#else
+      annotate_with_locus (node, locus);
+#endif
+}
+
+bool
+expr_has_location (tree node)
+{
+#ifdef USE_MAPPED_LOCATION
+  return expr_location (node) != UNKNOWN_LOCATION;
+#else
+  return expr_locus (node) != NULL;
+#endif
+}
+
+#ifdef USE_MAPPED_LOCATION
+source_location *
+#else
+source_locus
+#endif
+expr_locus (tree node)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node);
+  return EXPR_P (node) ? &node->exp.locus : (location_t *) NULL;
+#else
+  if (GIMPLE_STMT_P (node))
+    return GIMPLE_STMT_LOCUS (node);
+  /* ?? The cast below was originally "(location_t *)" in the macro,
+     but that makes no sense.  ?? */
+  return EXPR_P (node) ? node->exp.locus : (source_locus) NULL;
+#endif
+}
+
+void
+set_expr_locus (tree node,
+#ifdef USE_MAPPED_LOCATION
+		source_location *loc
+#else
+		source_locus loc
+#endif
+		)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (loc == NULL)
+    {
+      if (GIMPLE_STMT_P (node))
+	GIMPLE_STMT_LOCUS (node) = UNKNOWN_LOCATION;
+      else
+	EXPR_CHECK (node)->exp.locus = UNKNOWN_LOCATION;
+    }
+  else
+    {
+      if (GIMPLE_STMT_P (node))
+	GIMPLE_STMT_LOCUS (node) = *loc;
+      else
+	EXPR_CHECK (node)->exp.locus = *loc;
+    }
+#else
+  if (GIMPLE_STMT_P (node))
+    GIMPLE_STMT_LOCUS (node) = loc;
+  else
+    EXPR_CHECK (node)->exp.locus = loc;
+#endif
+}
+
+const char **
+expr_filename (tree node)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (GIMPLE_STMT_P (node))
+    return &LOCATION_FILE (GIMPLE_STMT_LOCUS (node));
+  return &LOCATION_FILE (EXPR_CHECK (node)->exp.locus);
+#else
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node)->file;
+  return &(EXPR_CHECK (node)->exp.locus->file);
+#endif
+}
+
+int *
+expr_lineno (tree node)
+{
+#ifdef USE_MAPPED_LOCATION
+  if (GIMPLE_STMT_P (node))
+    return &LOCATION_LINE (GIMPLE_STMT_LOCUS (node));
+  return &LOCATION_LINE (EXPR_CHECK (node)->exp.locus);
+#else
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node)->line;
+  return &EXPR_CHECK (node)->exp.locus->line;
+#endif
+}
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES
    is ATTRIBUTE.  */
@@ -7078,6 +7319,9 @@ is_global_var (tree t)
 bool
 needs_to_live_in_memory (tree t)
 {
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   return (TREE_ADDRESSABLE (t)
 	  || is_global_var (t)
 	  || (TREE_CODE (t) == RESULT_DECL
@@ -7444,14 +7688,6 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
       WALK_SUBTREE (TYPE_DOMAIN (type));
       break;
 
-    case BOOLEAN_TYPE:
-    case ENUMERAL_TYPE:
-    case INTEGER_TYPE:
-    case REAL_TYPE:
-      WALK_SUBTREE (TYPE_MIN_VALUE (type));
-      WALK_SUBTREE (TYPE_MAX_VALUE (type));
-      break;
-
     case OFFSET_TYPE:
       WALK_SUBTREE (TREE_TYPE (type));
       WALK_SUBTREE (TYPE_OFFSET_BASETYPE (type));
@@ -7520,7 +7756,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 
   result = lang_hooks.tree_inlining.walk_subtrees (tp, &walk_subtrees, func,
 						   data, pset);
-  if (result || ! walk_subtrees)
+  if (result || !walk_subtrees)
     return result;
 
   switch (code)
@@ -7650,23 +7886,29 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
       }
 
     case DECL_EXPR:
-      /* Walk into various fields of the type that it's defining.  We only
-	 want to walk into these fields of a type in this case.  Note that
-	 decls get walked as part of the processing of a BIND_EXPR.
+      /* If this is a TYPE_DECL, walk into the fields of the type that it's
+	 defining.  We only want to walk into these fields of a type in this
+	 case and not in the general case of a mere reference to the type.
 
-	 ??? Precisely which fields of types that we are supposed to walk in
-	 this case vs. the normal case aren't well defined.  */
-      if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL
-	  && TREE_CODE (TREE_TYPE (DECL_EXPR_DECL (*tp))) != ERROR_MARK)
+	 The criterion is as follows: if the field can be an expression, it
+	 must be walked only here.  This should be in keeping with the fields
+	 that are directly gimplified in gimplify_type_sizes in order for the
+	 mark/copy-if-shared/unmark machinery of the gimplifier to work with
+	 variable-sized types.
+  
+	 Note that DECLs get walked as part of processing the BIND_EXPR.  */
+      if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
 	{
 	  tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+	  if (TREE_CODE (*type_p) == ERROR_MARK)
+	    return NULL_TREE;
 
 	  /* Call the function for the type.  See if it returns anything or
 	     doesn't want us to continue.  If we are to continue, walk both
 	     the normal fields and those for the declaration case.  */
 	  result = (*func) (type_p, &walk_subtrees, data);
 	  if (result || !walk_subtrees)
-	    return NULL_TREE;
+	    return result;
 
 	  result = walk_type_fields (*type_p, func, data, pset);
 	  if (result)
@@ -7697,13 +7939,24 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 		}
 	    }
 
+	  /* Same for scalar types.  */
+	  else if (TREE_CODE (*type_p) == BOOLEAN_TYPE
+		   || TREE_CODE (*type_p) == ENUMERAL_TYPE
+		   || TREE_CODE (*type_p) == INTEGER_TYPE
+		   || TREE_CODE (*type_p) == REAL_TYPE)
+	    {
+	      WALK_SUBTREE (TYPE_MIN_VALUE (*type_p));
+	      WALK_SUBTREE (TYPE_MAX_VALUE (*type_p));
+	    }
+
 	  WALK_SUBTREE (TYPE_SIZE (*type_p));
 	  WALK_SUBTREE_TAIL (TYPE_SIZE_UNIT (*type_p));
 	}
       /* FALLTHRU */
 
     default:
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+	  || IS_GIMPLE_STMT_CODE_CLASS (TREE_CODE_CLASS (code)))
 	{
 	  int i, len;
 
@@ -7715,11 +7968,10 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  if (len)
 	    {
 	      for (i = 0; i < len - 1; ++i)
-		WALK_SUBTREE (TREE_OPERAND (*tp, i));
-	      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
+		WALK_SUBTREE (GENERIC_TREE_OPERAND (*tp, i));
+	      WALK_SUBTREE_TAIL (GENERIC_TREE_OPERAND (*tp, len - 1));
 	    }
 	}
-
       /* If this is a type, walk the needed fields in the type.  */
       else if (TYPE_P (*tp))
 	return walk_type_fields (*tp, func, data, pset);
@@ -7771,6 +8023,35 @@ empty_body_p (tree stmt)
       return false;
 
   return true;
+}
+
+tree *
+tree_block (tree t)
+{
+  char const c = TREE_CODE_CLASS (TREE_CODE (t));
+
+  if (IS_EXPR_CODE_CLASS (c))
+    return &t->exp.block;
+  else if (IS_GIMPLE_STMT_CODE_CLASS (c))
+    return &GIMPLE_STMT_BLOCK (t);
+  gcc_unreachable ();
+  return NULL;
+}
+
+tree *
+generic_tree_operand (tree node, int i)
+{
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_OPERAND (node, i);
+  return &TREE_OPERAND (node, i);
+}
+
+tree *
+generic_tree_type (tree node)
+{
+  if (GIMPLE_STMT_P (node))
+    return &void_type_node;
+  return &TREE_TYPE (node);
 }
 
 #include "gt-tree.h"

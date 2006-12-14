@@ -234,7 +234,7 @@ pop_to_parent_deferring_access_checks (void)
 	  /* Check access.  */
 	  for (; checks; checks = TREE_CHAIN (checks))
 	    enforce_access (TREE_PURPOSE (checks),
-			    TREE_VALUE (checks));
+			    TREE_VALUE (checks), TREE_VALUE (checks));
 	}
       else
 	{
@@ -271,7 +271,7 @@ perform_access_checks (tree checks)
   while (checks)
     {
       enforce_access (TREE_PURPOSE (checks),
-		      TREE_VALUE (checks));
+		      TREE_VALUE (checks), TREE_VALUE (checks));
       checks = TREE_CHAIN (checks);
     }
 }
@@ -299,10 +299,10 @@ perform_deferred_access_checks (void)
 }
 
 /* Defer checking the accessibility of DECL, when looked up in
-   BINFO.  */
+   BINFO. DIAG_DECL is the declaration to use to print diagnostics.  */
 
 void
-perform_or_defer_access_check (tree binfo, tree decl)
+perform_or_defer_access_check (tree binfo, tree decl, tree diag_decl)
 {
   tree check;
   deferred_access *ptr;
@@ -319,7 +319,7 @@ perform_or_defer_access_check (tree binfo, tree decl)
   /* If we are not supposed to defer access checks, just check now.  */
   if (ptr->deferring_access_checks_kind == dk_no_deferred)
     {
-      enforce_access (binfo, decl);
+      enforce_access (binfo, decl, diag_decl);
       return;
     }
 
@@ -1432,7 +1432,8 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 				     DECL_NAME (decl),
 				     /*template_p=*/false);
 
-      perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
+      perform_or_defer_access_check (TYPE_BINFO (access_type), decl,
+				     decl);
 
       /* If the data member was named `C::M', convert `*this' to `C'
 	 first.  */
@@ -1511,7 +1512,8 @@ check_accessibility_of_qualified_id (tree decl,
 	 or similar in a default argument value.  */
       && CLASS_TYPE_P (qualifying_type)
       && !dependent_type_p (qualifying_type))
-    perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
+    perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl,
+				   decl);
 }
 
 /* EXPR is the result of a qualified-id.  The QUALIFYING_CLASS was the
@@ -2839,7 +2841,7 @@ finish_id_expression (tree id_expression,
 	      tree path;
 
 	      path = currently_open_derived_class (DECL_CONTEXT (decl));
-	      perform_or_defer_access_check (TYPE_BINFO (path), decl);
+	      perform_or_defer_access_check (TYPE_BINFO (path), decl, decl);
 	    }
 
 	  decl = convert_from_reference (decl);
@@ -3911,6 +3913,58 @@ cxx_omp_predetermined_sharing (tree decl)
 void
 init_cp_semantics (void)
 {
+}
+
+/* Build a STATIC_ASSERT for a static assertion with the condition
+   CONDITION and the message text MESSAGE.  LOCATION is the location
+   of the static assertion in the source code.  When MEMBER_P, this
+   static assertion is a member of a class.  */
+void 
+finish_static_assert (tree condition, tree message, location_t location, 
+                      bool member_p)
+{
+  if (type_dependent_expression_p (condition) 
+      || value_dependent_expression_p (condition))
+    {
+      /* We're in a template; build a STATIC_ASSERT and put it in
+         the right place. */
+      tree assertion;
+
+      assertion = make_node (STATIC_ASSERT);
+      STATIC_ASSERT_CONDITION (assertion) = condition;
+      STATIC_ASSERT_MESSAGE (assertion) = message;
+      STATIC_ASSERT_SOURCE_LOCATION (assertion) = location;
+
+      if (member_p)
+        maybe_add_class_template_decl_list (current_class_type, 
+                                            assertion,
+                                            /*friend_p=*/0);
+      else
+        add_stmt (assertion);
+
+      return;
+    }
+
+  /* Fold the expression and convert it to a boolean value. */
+  condition = fold_non_dependent_expr (condition);
+  condition = cp_convert (boolean_type_node, condition);
+
+  if (TREE_CODE (condition) == INTEGER_CST && !integer_zerop (condition))
+    /* Do nothing; the condition is satisfied. */
+    ;
+  else 
+    {
+      location_t saved_loc = input_location;
+
+      input_location = location;
+      if (TREE_CODE (condition) == INTEGER_CST 
+          && integer_zerop (condition))
+        /* Report the error. */
+        error ("static assertion failed: %E", message);
+      else if (condition && condition != error_mark_node)
+        error ("non-constant condition for static assertion");
+      input_location = saved_loc;
+    }
 }
 
 #include "gt-cp-semantics.h"

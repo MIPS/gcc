@@ -444,6 +444,10 @@ fforce-mem
 Common Report Var(flag_force_mem)
 Copy memory operands into registers before use
 
+fforward-propagate
+Common Report Var(flag_forward_propagate)
+Perform a forward propagation pass on RTL
+
 ; Nonzero means don't put addresses of constant functions in registers.
 ; Used for compiling the Unix kernel, where strange substitutions are
 ; done on the assembly output.
@@ -711,6 +715,16 @@ frandom-seed=
 Common Joined RejectNegative
 -frandom-seed=<string>	Make compile reproducible using <string>
 
+; This switch causes the command line that was used to create an
+; object file to be recorded into the object file.  The exact format
+; of this recording is target and binary file format dependent.
+; It is related to the -fverbose-asm switch, but that switch only
+; records information in the assembler output file as comments, so
+; they never reach the object file.
+frecord-gcc-switches
+Common Report Var(flag_record_gcc_switches)
+Record gcc command line switches in the object file.
+
 freg-struct-return
 Common Report Var(flag_pcc_struct_return,0) VarExists
 Return small aggregates in registers
@@ -925,10 +939,6 @@ ftree-ch
 Common Report Var(flag_tree_ch)
 Enable loop header copying on trees
 
-ftree-combine-temps
-Common Report Var(flag_tree_combine_temps)
-Coalesce memory temporaries in the SSA->normal pass
-
 ftree-copyrename
 Common Report Var(flag_tree_copyrename)
 Replace SSA temporaries with better names in copies
@@ -992,10 +1002,6 @@ Perform scalar replacement of aggregates
 ftree-ter
 Common Report Var(flag_tree_ter)
 Replace temporary expressions in the SSA->normal pass
-
-ftree-lrs
-Common Report Var(flag_tree_live_range_split)
-Perform live range splitting during the SSA->normal pass
 
 ftree-vrp
 Common Report Var(flag_tree_vrp) Init(0)

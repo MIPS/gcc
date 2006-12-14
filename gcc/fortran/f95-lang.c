@@ -62,7 +62,8 @@ GTY(())
 
 union lang_tree_node
 GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-     chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+     chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+
 {
   union tree_node GTY((tag ("0"),
 		       desc ("tree_node_structure (&%h)"))) generic;
@@ -225,7 +226,7 @@ gfc_expand_function (tree fndecl)
 		&& TREE_CODE (TREE_OPERAND (expr, 0)) == VAR_DECL
 		&& TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
 		   == UNION_TYPE
-		&& cgraph_varpool_node (TREE_OPERAND (expr, 0))->needed
+		&& varpool_node (TREE_OPERAND (expr, 0))->needed
 		&& errorcount == 0 && sorrycount == 0)
 	      {
 		timevar_push (TV_SYMOUT);
@@ -896,6 +897,13 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_COPYSIGN, "copysign", true);
   gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
 		      BUILT_IN_COPYSIGNF, "copysignf", true);
+ 
+  gfc_define_builtin ("__builtin_fmodl", mfunc_longdouble[1], 
+		      BUILT_IN_FMODL, "fmodl", true);
+  gfc_define_builtin ("__builtin_fmod", mfunc_double[1], 
+		      BUILT_IN_FMOD, "fmod", true);
+  gfc_define_builtin ("__builtin_fmodf", mfunc_float[1], 
+		      BUILT_IN_FMODF, "fmodf", true);
 
   /* These are used to implement the ** operator.  */
   gfc_define_builtin ("__builtin_powl", mfunc_longdouble[1], 

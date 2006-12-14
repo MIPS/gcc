@@ -238,6 +238,28 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
+/* Keep X canonicalized if some changes have made it non-canonical; only
+   modifies the operands of X, not (for example) its code.  Simplifications
+   are not the job of this routine.
+
+   Return true if anything was changed.  */
+bool
+canonicalize_change_group (rtx insn, rtx x)
+{
+  if (COMMUTATIVE_P (x)
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      /* Oops, the caller has made X no longer canonical.
+	 Let's redo the changes in the correct order.  */
+      rtx tem = XEXP (x, 0);
+      validate_change (insn, &XEXP (x, 0), XEXP (x, 1), 1);
+      validate_change (insn, &XEXP (x, 1), tem, 1);
+      return true;
+    }
+  else
+    return false;
+}
+  
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -1961,8 +1983,17 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
    because the amount of the increment depends on the mode.  */
 
 int
-mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */)
+mode_dependent_address_p (rtx addr)
 {
+  /* Auto-increment addressing with anything other than post_modify
+     or pre_modify always introduces a mode dependency.  Catch such
+     cases now instead of deferring to the target.  */
+  if (GET_CODE (addr) == PRE_INC
+      || GET_CODE (addr) == POST_INC
+      || GET_CODE (addr) == PRE_DEC
+      || GET_CODE (addr) == POST_DEC)
+    return 1;
+
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;
   /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */

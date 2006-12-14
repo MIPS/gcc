@@ -416,6 +416,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	  /* C++-specific warnings.  */
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
+          if (value > 0)
+            warn_write_strings = true;
 	}
 
       cpp_opts->warn_trigraphs = value;
@@ -1161,14 +1163,26 @@ c_common_parse_file (int set_yydebug)
 {
   unsigned int i;
 
-  /* Enable parser debugging, if requested and we can.  If requested
-     and we can't, notify the user.  */
-#if YYDEBUG != 0
-  yydebug = set_yydebug;
-#else
   if (set_yydebug)
-    warning (0, "YYDEBUG was not defined at build time, -dy ignored");
-#endif
+    switch (c_language)
+      {
+      case clk_c:
+	warning(0, "The C parser does not support -dy, option ignored");
+	break;
+      case clk_objc:
+	warning(0,
+		"The Objective-C parser does not support -dy, option ignored");
+	break;
+      case clk_cxx:
+	warning(0, "The C++ parser does not support -dy, option ignored");
+	break;
+      case clk_objcxx:
+	warning(0,
+	    "The Objective-C++ parser does not support -dy, option ignored");
+	break;
+      default:
+	gcc_unreachable ();
+    }
 
   i = 0;
   for (;;)

@@ -68,6 +68,7 @@
   %{mno-power: %{!mpowerpc*: -mcom}} \
   %{!mno-power: %{!mpower*: %(asm_default)}}} \
 %{mcpu=common: -mcom} \
+%{mcpu=cell: -mcell} \
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
@@ -222,7 +223,8 @@ enum processor_type
    PROCESSOR_PPC8540,
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
-   PROCESSOR_POWER6
+   PROCESSOR_POWER6,
+   PROCESSOR_CELL
 };
 
 extern enum processor_type rs6000_cpu;
@@ -339,6 +341,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
+
+/* E500 processors only support plain "sync", not lwsync.  */
+#define TARGET_NO_LWSYNC TARGET_E500
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro

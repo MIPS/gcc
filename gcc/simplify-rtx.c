@@ -158,6 +158,9 @@ avoid_constant_pool_reference (rtx x)
       return x;
     }
 
+  if (GET_MODE (x) == BLKmode)
+    return x;
+
   addr = XEXP (x, 0);
 
   /* Call target hook to avoid the effects of -fpic etc....  */
@@ -4850,9 +4853,9 @@ simplify_rtx (rtx x)
 
     case RTX_EXTRA:
       if (code == SUBREG)
-	return simplify_gen_subreg (mode, SUBREG_REG (x),
-				    GET_MODE (SUBREG_REG (x)),
-				    SUBREG_BYTE (x));
+	return simplify_subreg (mode, SUBREG_REG (x),
+				GET_MODE (SUBREG_REG (x)),
+				SUBREG_BYTE (x));
       break;
 
     case RTX_OBJ:

@@ -96,6 +96,18 @@ do {									\
       rs6000_default_long_calls = 1;					\
       target_flags |= MASK_SOFT_FLOAT;					\
     }									\
+  /* Unless the user (not the configurer) has explicitly overridden	\
+     it with -mcpu=G3 or -mno-altivec, then 10.5+ targets default to	\
+     G4 unless targetting the kernel.  */				\
+  if (!flag_mkernel							\
+      && !flag_apple_kext						\
+      && darwin_macosx_version_min					\
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0		\
+      && ! (target_flags_explicit & MASK_ALTIVEC)			\
+      && ! rs6000_select[1].string)					\
+    {									\
+      target_flags |= MASK_ALTIVEC;					\
+    }									\
 } while(0)
 
 #define C_COMMON_OVERRIDE_OPTIONS do {					\
@@ -126,6 +138,8 @@ do {									\
   %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
   %{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}}"
 
+#define DARWIN_ARCH_SPEC "%{m64:ppc64;:ppc}"
+
 #define DARWIN_SUBARCH_SPEC "			\
  %{m64: ppc64}					\
  %{!m64:					\
@@ -151,7 +165,8 @@ do {									\
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  DARWIN_EXTRA_SPECS                            \
+  { "darwin_arch", DARWIN_ARCH_SPEC },		\
   { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 

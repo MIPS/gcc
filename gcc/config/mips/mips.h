@@ -576,7 +576,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    been generated up to this point.  */
 #define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1)
 
-/* ISA has a three-operand multiplcation instruction (usually spelt "mul").  */
+/* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
 				  || TARGET_MIPS5400			\
 				  || TARGET_MIPS5500			\
@@ -607,6 +607,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    FP madd and msub instructions, and the FP recip and recip sqrt
    instructions.  */
 #define ISA_HAS_FP4		((ISA_MIPS4				\
+				  || (ISA_MIPS32R2 && TARGET_FLOAT64)   \
 				  || ISA_MIPS64)			\
 				 && !TARGET_MIPS16)
 
@@ -686,6 +687,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
    (prefx is a cop1x instruction, so can only be used if FP is
    enabled.)  */
 #define ISA_HAS_PREFETCHX	((ISA_MIPS4				\
+				  || ISA_MIPS32R2			\
 				  || ISA_MIPS64)			\
 				 && !TARGET_MIPS16)
 
@@ -701,6 +703,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
 #define ISA_HAS_EXT_INS		(ISA_MIPS32R2				\
 				 && !TARGET_MIPS16)
+
+/* ISA has instructions for accessing top part of 64 bit fp regs */
+#define ISA_HAS_MXHC1		(TARGET_FLOAT64 && ISA_MIPS32R2)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
@@ -820,6 +825,7 @@ extern const struct mips_rtx_cost_data *mips_cost;
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
+%{mfp32} %{mfp64} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} %{v} \
@@ -2513,6 +2519,7 @@ while (0)
    the assembler uses length information on externals to allocate in
    data/sdata bss/sbss, thereby saving exec time.  */
 
+#undef ASM_OUTPUT_EXTERNAL
 #define ASM_OUTPUT_EXTERNAL(STREAM,DECL,NAME) \
   mips_output_external(STREAM,DECL,NAME)
 

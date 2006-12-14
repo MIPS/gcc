@@ -1,3 +1,37 @@
+2006-12-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure: Regenerate.
+
+2006-11-27  Mike Stump  <mrs@apple.com>
+
+	* sysdep/x86-64/locks.h: Enable use of either file on either
+	target to support multilibs from one to the other.
+	* sysdep/i386/locks.h: Likewise.
+
+2006-11-21  Gary Benson  <gbenson@redhat.com>
+
+	* java/security/Security.java: Merge with classpath.
+	* java/lang/Package.java: Likewise.
+	* java/lang/Class.java (getDeclaredAnnotations): New method.
+
+2006-11-20  David Daney  <ddaney@avtrex.com>
+
+	* include/mips-signal.h (sys/syscall.h): Do not include.
+	(sig_ucontext_t): Removed.
+	(MAKE_THROW_FRAME): Changed to be a nop.
+	(_INIT_SIG_HANDLER): New macro.
+	(INIT_SEGV): Rewrote to use _INIT_SIG_HANDLER.
+	(INIT_FPE): Same.
+
+2006-11-20  David Daney  <ddaney@avtrex.com>
+
+	* testsuite/libjava.lang/Throw_3.java: New Test.
+	* testsuite/libjava.lang/Throw_3.out: Its expected output.
+
+2006-11-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure: Regenerated.
+
 2006-11-03  Gary Benson  <gbenson@redhat.com>
 
 	* java/net/InetAddress.java: Removed.

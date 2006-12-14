@@ -1316,6 +1316,17 @@ register_local_specialization (tree spec, tree tmpl)
   *slot = build_tree_list (spec, tmpl);
 }
 
+/* TYPE is a class type.  Returns true if TYPE is an explicitly
+   specialized class.  */
+
+bool
+explicit_class_specialization_p (tree type)
+{
+  if (!CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
+    return false;
+  return !uses_template_parms (CLASSTYPE_TI_ARGS (type));
+}
+
 /* Print the list of candidate FNS in an error message.  */
 
 void
@@ -4131,6 +4142,7 @@ coerce_template_parms (tree parms,
   tree inner_args;
   tree new_args;
   tree new_inner_args;
+  bool saved_skip_evaluation;
 
   inner_args = INNERMOST_TEMPLATE_ARGS (args);
   nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
@@ -4155,6 +4167,10 @@ coerce_template_parms (tree parms,
       return error_mark_node;
     }
 
+  /* We need to evaluate the template arguments, even though this
+     template-id may be nested within a "sizeof".  */
+  saved_skip_evaluation = skip_evaluation;
+  skip_evaluation = false;
   new_inner_args = make_tree_vec (nparms);
   new_args = add_outermost_template_args (args, new_inner_args);
   for (i = 0; i < nparms; i++)
@@ -4196,6 +4212,7 @@ coerce_template_parms (tree parms,
 	lost++;
       TREE_VEC_ELT (new_inner_args, i) = arg;
     }
+  skip_evaluation = saved_skip_evaluation;
 
   if (lost)
     return error_mark_node;
@@ -4949,6 +4966,14 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 	*walk_subtrees = 0;
       else if (for_each_template_parm (TREE_VALUE (TYPE_TEMPLATE_INFO (t)),
 				       fn, data, pfd->visited))
+	return error_mark_node;
+      break;
+
+    case INTEGER_TYPE:
+      if (for_each_template_parm (TYPE_MIN_VALUE (t),
+				  fn, data, pfd->visited)
+	  || for_each_template_parm (TYPE_MAX_VALUE (t),
+				     fn, data, pfd->visited))
 	return error_mark_node;
       break;
 
@@ -5880,8 +5905,18 @@ instantiate_class_template (tree type)
 	  else
 	    {
 	      /* Build new TYPE_FIELDS.  */
-
-	      if (TREE_CODE (t) != CONST_DECL)
+              if (TREE_CODE (t) == STATIC_ASSERT)
+                {
+                  tree condition = 
+                    tsubst_expr (STATIC_ASSERT_CONDITION (t), args, 
+                                 tf_warning_or_error, NULL_TREE,
+                                 /*integral_constant_expression_p=*/true);
+                  finish_static_assert (condition,
+                                        STATIC_ASSERT_MESSAGE (t), 
+                                        STATIC_ASSERT_SOURCE_LOCATION (t),
+                                        /*member_p=*/true);
+                }
+	      else if (TREE_CODE (t) != CONST_DECL)
 		{
 		  tree r;
 
@@ -6930,6 +6965,27 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	    if (type == error_mark_node)
 	      return error_mark_node;
+	    if (TREE_CODE (type) == FUNCTION_TYPE)
+	      {
+		/* It may seem that this case cannot occur, since:
+
+		     typedef void f();
+		     void g() { f x; }
+
+		   declares a function, not a variable.  However:
+      
+		     typedef void f();
+		     template <typename T> void g() { T t; }
+		     template void g<f>();
+
+		   is an attempt to declare a variable with function
+		   type.  */
+		error ("variable %qD has function type",
+		       /* R is not yet sufficiently initialized, so we
+			  just use its name.  */
+		       DECL_NAME (r));
+		return error_mark_node;
+	      }
 	    type = complete_type (type);
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 	      = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t);
@@ -7117,6 +7173,13 @@ tsubst_function_type (tree t,
   if (arg_types == error_mark_node)
     return error_mark_node;
 
+  if (TYPE_QUALS (return_type) != TYPE_UNQUALIFIED
+      && in_decl != NULL_TREE
+      && !TREE_NO_WARNING (in_decl)
+      && (SCALAR_TYPE_P (return_type) || VOID_TYPE_P (return_type)))
+    warning (OPT_Wreturn_type,
+            "type qualifiers ignored on function return type");
+
   /* Construct a new type node and return it.  */
   if (TREE_CODE (t) == FUNCTION_TYPE)
     fntype = build_function_type (return_type, arg_types);
@@ -7261,7 +7324,6 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	max = tsubst_expr (omax, args, complain, in_decl,
 			   /*integral_constant_expression_p=*/false);
-	max = fold_non_dependent_expr (max);
 	max = fold_decl_constant_value (max);
 
 	if (TREE_CODE (max) != INTEGER_CST 
@@ -8711,6 +8773,20 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
       break;
 
+    case STATIC_ASSERT:
+      {
+        tree condition = 
+          tsubst_expr (STATIC_ASSERT_CONDITION (t), 
+                       args,
+                       complain, in_decl,
+                       /*integral_constant_expression_p=*/true);
+        finish_static_assert (condition,
+                              STATIC_ASSERT_MESSAGE (t),
+                              STATIC_ASSERT_SOURCE_LOCATION (t),
+                              /*member_p=*/false);
+      }
+      break;
+
     case OMP_PARALLEL:
       tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t),
 				args, complain, in_decl);
@@ -9029,7 +9105,13 @@ tsubst_copy_and_build (tree t,
       return build_x_binary_op
 	(TREE_CODE (t),
 	 RECUR (TREE_OPERAND (t, 0)),
+	 (TREE_NO_WARNING (TREE_OPERAND (t, 0))
+	  ? ERROR_MARK
+	  : TREE_CODE (TREE_OPERAND (t, 0))),
 	 RECUR (TREE_OPERAND (t, 1)),
+	 (TREE_NO_WARNING (TREE_OPERAND (t, 1))
+	  ? ERROR_MARK
+	  : TREE_CODE (TREE_OPERAND (t, 1))),
 	 /*overloaded_p=*/NULL);
 
     case SCOPE_REF:
@@ -9038,7 +9120,14 @@ tsubst_copy_and_build (tree t,
     case ARRAY_REF:
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
-      return build_x_binary_op (ARRAY_REF, op1, RECUR (TREE_OPERAND (t, 1)),
+      return build_x_binary_op (ARRAY_REF, op1,
+				(TREE_NO_WARNING (TREE_OPERAND (t, 0))
+				 ? ERROR_MARK
+				 : TREE_CODE (TREE_OPERAND (t, 0))),
+				RECUR (TREE_OPERAND (t, 1)),
+				(TREE_NO_WARNING (TREE_OPERAND (t, 1))
+				 ? ERROR_MARK
+				 : TREE_CODE (TREE_OPERAND (t, 1))),
 				/*overloaded_p=*/NULL);
 
     case SIZEOF_EXPR:

@@ -672,13 +672,13 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
   switch (TREE_CODE (stmt))
     {
     case RETURN_EXPR:
-      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR);
+      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == GIMPLE_MODIFY_STMT);
       stmt = TREE_OPERAND (stmt, 0);
       /* FALLTHRU  */
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
-	tree rhs = TREE_OPERAND (stmt, 1), arg;
+	tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), arg;
 	STRIP_NOPS (rhs);
 
 	if (TREE_CODE (rhs) == CALL_EXPR)
@@ -798,13 +798,13 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
   switch (TREE_CODE (stmt))
     {
     case RETURN_EXPR:
-      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR);
+      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == GIMPLE_MODIFY_STMT);
       stmt = TREE_OPERAND (stmt, 0);
       /* FALLTHRU  */
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
-	tree rhs = TREE_OPERAND (stmt, 1), arg;
+	tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), arg;
 	STRIP_NOPS (rhs);
 
 	if (TREE_CODE (rhs) == CALL_EXPR)
@@ -867,13 +867,13 @@ check_for_plus_in_loops (struct object_size_info *osi, tree var)
   switch (TREE_CODE (stmt))
     {
     case RETURN_EXPR:
-      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR);
+      gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 0)) == GIMPLE_MODIFY_STMT);
       stmt = TREE_OPERAND (stmt, 0);
       /* FALLTHRU  */
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
-	tree rhs = TREE_OPERAND (stmt, 1), arg;
+	tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), arg;
 	STRIP_NOPS (rhs);
 
 	if (TREE_CODE (rhs) == CALL_EXPR)

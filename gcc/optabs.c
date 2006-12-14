@@ -315,6 +315,28 @@ optab_for_tree_code (enum tree_code code, tree type)
     case VEC_RSHIFT_EXPR:
       return vec_shr_optab;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+      return TYPE_UNSIGNED (type) ? 
+	vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
+
+    case VEC_WIDEN_MULT_LO_EXPR:
+      return TYPE_UNSIGNED (type) ? 
+	vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
+
+    case VEC_UNPACK_HI_EXPR:
+      return TYPE_UNSIGNED (type) ? 
+	vec_unpacku_hi_optab : vec_unpacks_hi_optab;
+
+    case VEC_UNPACK_LO_EXPR:
+      return TYPE_UNSIGNED (type) ? 
+	vec_unpacku_lo_optab : vec_unpacks_lo_optab;
+
+    case VEC_PACK_MOD_EXPR:
+      return vec_pack_mod_optab;
+                                                                                
+    case VEC_PACK_SAT_EXPR:
+      return TYPE_UNSIGNED (type) ? vec_pack_usat_optab : vec_pack_ssat_optab;
+                                                                                
     default:
       break;
     }
@@ -337,6 +359,18 @@ optab_for_tree_code (enum tree_code code, tree type)
 
     case ABS_EXPR:
       return trapv ? absv_optab : abs_optab;
+
+    case VEC_EXTRACT_EVEN_EXPR:
+      return vec_extract_even_optab;
+
+    case VEC_EXTRACT_ODD_EXPR:
+      return vec_extract_odd_optab;
+
+    case VEC_INTERLEAVE_HIGH_EXPR:
+      return vec_interleave_high_optab;
+
+    case VEC_INTERLEAVE_LOW_EXPR:
+      return vec_interleave_low_optab;
 
     default:
       return NULL;
@@ -1277,6 +1311,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       int icode = (int) binoptab->handlers[(int) mode].insn_code;
       enum machine_mode mode0 = insn_data[icode].operand[1].mode;
       enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+      enum machine_mode tmp_mode;
       rtx pat;
       rtx xop0 = op0, xop1 = op1;
 
@@ -1330,8 +1365,21 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  && mode1 != VOIDmode)
 	xop1 = copy_to_mode_reg (mode1, xop1);
 
-      if (!insn_data[icode].operand[0].predicate (temp, mode))
-	temp = gen_reg_rtx (mode);
+      if (binoptab == vec_pack_mod_optab 
+	  || binoptab == vec_pack_usat_optab
+          || binoptab == vec_pack_ssat_optab)
+	{
+	  /* The mode of the result is different then the mode of the
+	     arguments.  */
+	  tmp_mode = insn_data[icode].operand[0].mode;
+	  if (GET_MODE_NUNITS (tmp_mode) != 2 * GET_MODE_NUNITS (mode))
+	    return 0;
+	}
+      else
+        tmp_mode = mode;
+
+      if (!insn_data[icode].operand[0].predicate (temp, tmp_mode))
+	temp = gen_reg_rtx (tmp_mode);
 
       pat = GEN_FCN (icode) (temp, xop0, xop1);
       if (pat)
@@ -5349,12 +5397,27 @@ init_optabs (void)
   udot_prod_optab = init_optab (UNKNOWN);
 
   vec_extract_optab = init_optab (UNKNOWN);
+  vec_extract_even_optab = init_optab (UNKNOWN);
+  vec_extract_odd_optab = init_optab (UNKNOWN);
+  vec_interleave_high_optab = init_optab (UNKNOWN);
+  vec_interleave_low_optab = init_optab (UNKNOWN);
   vec_set_optab = init_optab (UNKNOWN);
   vec_init_optab = init_optab (UNKNOWN);
   vec_shl_optab = init_optab (UNKNOWN);
   vec_shr_optab = init_optab (UNKNOWN);
   vec_realign_load_optab = init_optab (UNKNOWN);
   movmisalign_optab = init_optab (UNKNOWN);
+  vec_widen_umult_hi_optab = init_optab (UNKNOWN);
+  vec_widen_umult_lo_optab = init_optab (UNKNOWN);
+  vec_widen_smult_hi_optab = init_optab (UNKNOWN);
+  vec_widen_smult_lo_optab = init_optab (UNKNOWN);
+  vec_unpacks_hi_optab = init_optab (UNKNOWN);
+  vec_unpacks_lo_optab = init_optab (UNKNOWN);
+  vec_unpacku_hi_optab = init_optab (UNKNOWN);
+  vec_unpacku_lo_optab = init_optab (UNKNOWN);
+  vec_pack_mod_optab = init_optab (UNKNOWN);
+  vec_pack_usat_optab = init_optab (UNKNOWN);
+  vec_pack_ssat_optab = init_optab (UNKNOWN);
 
   powi_optab = init_optab (UNKNOWN);
 

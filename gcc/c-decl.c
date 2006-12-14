@@ -62,6 +62,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks-def.h"
 #include "pointer-set.h"
 
+/* Set this to 1 if you want the standard ISO C99 semantics of 'inline'
+   when you specify -std=c99 or -std=gnu99, and to 0 if you want
+   behaviour compatible with the nonstandard semantics implemented by
+   GCC 2.95 through 4.2.  */
+#define WANT_C99_INLINE_SEMANTICS 1
+
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
@@ -250,7 +256,7 @@ extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
 
 union lang_tree_node
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *) TREE_CHAIN (&%h.generic)")))
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : (GIMPLE_TUPLE_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *) TREE_CHAIN (&%h.generic))")))
 {
   union tree_node GTY ((tag ("0"),
 			desc ("tree_node_structure (&%h)")))
@@ -428,7 +434,7 @@ add_stmt (tree t)
 {
   enum tree_code code = TREE_CODE (t);
 
-  if (EXPR_P (t) && code != LABEL_EXPR)
+  if (CAN_HAVE_LOCATION_P (t) && code != LABEL_EXPR)
     {
       if (!EXPR_HAS_LOCATION (t))
 	SET_EXPR_LOCATION (t, input_location);
@@ -1333,7 +1339,16 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		 unit.  */
 	      if ((!DECL_EXTERN_INLINE (olddecl)
 		   || DECL_EXTERN_INLINE (newdecl)
-		   || flag_isoc99)
+#if WANT_C99_INLINE_SEMANTICS
+		   || (flag_isoc99
+		       && (!DECL_DECLARED_INLINE_P (olddecl)
+			   || !lookup_attribute ("gnu_inline",
+						 DECL_ATTRIBUTES (olddecl)))
+		       && (!DECL_DECLARED_INLINE_P (newdecl)
+			   || !lookup_attribute ("gnu_inline",
+						 DECL_ATTRIBUTES (newdecl))))
+#endif /* WANT_C99_INLINE_SEMANTICS */
+		  )
 		  && same_translation_unit_p (newdecl, olddecl))
 		{
 		  error ("redefinition of %q+D", newdecl);
@@ -1391,6 +1406,23 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      warning (OPT_Wtraditional, "non-static declaration of %q+D "
 		       "follows static declaration", newdecl);
 	      warned = true;
+	    }
+	}
+
+      /* Make sure gnu_inline attribute is either not present, or
+	 present on all inline decls.  */
+      if (DECL_DECLARED_INLINE_P (olddecl)
+	  && DECL_DECLARED_INLINE_P (newdecl))
+	{
+	  bool newa = lookup_attribute ("gnu_inline",
+					DECL_ATTRIBUTES (newdecl)) != NULL;
+	  bool olda = lookup_attribute ("gnu_inline",
+					DECL_ATTRIBUTES (olddecl)) != NULL;
+	  if (newa != olda)
+	    {
+	      error ("%<gnu_inline%> attribute present on %q+D",
+		     newa ? newdecl : olddecl);
+	      error ("%Jbut not here", newa ? olddecl : newdecl);
 	    }
 	}
     }
@@ -1525,9 +1557,9 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	 mode and can get it right?
 	 Definitely don't complain if the decls are in different translation
 	 units.
-         C99 permits this, so don't warn in that case.  (The function
-         may not be inlined everywhere in function-at-a-time mode, but
-         we still shouldn't warn.)  */
+	 C99 permits this, so don't warn in that case.  (The function
+	 may not be inlined everywhere in function-at-a-time mode, but
+	 we still shouldn't warn.)  */
       if (DECL_DECLARED_INLINE_P (newdecl) && !DECL_DECLARED_INLINE_P (olddecl)
 	  && same_translation_unit_p (olddecl, newdecl)
 	  && ! flag_isoc99)
@@ -1760,17 +1792,21 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	}
     }
 
-   /* In c99, 'extern' declaration before (or after) 'inline' means this
-      function is not DECL_EXTERNAL.  */
-   if (TREE_CODE (newdecl) == FUNCTION_DECL
-       && (DECL_DECLARED_INLINE_P (newdecl) 
-	   || DECL_DECLARED_INLINE_P (olddecl))
-       && (!DECL_DECLARED_INLINE_P (newdecl) 
-	   || !DECL_DECLARED_INLINE_P (olddecl)
-	   || !DECL_EXTERNAL (olddecl))
-       && DECL_EXTERNAL (newdecl)
-       && flag_isoc99)
-     DECL_EXTERNAL (newdecl) = 0;
+#if WANT_C99_INLINE_SEMANTICS
+  /* In c99, 'extern' declaration before (or after) 'inline' means this
+     function is not DECL_EXTERNAL, unless 'gnu_inline' attribute
+     is present.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL
+      && flag_isoc99
+      && (DECL_DECLARED_INLINE_P (newdecl)
+	  || DECL_DECLARED_INLINE_P (olddecl))
+      && (!DECL_DECLARED_INLINE_P (newdecl)
+	  || !DECL_DECLARED_INLINE_P (olddecl)
+	  || !DECL_EXTERNAL (olddecl))
+      && DECL_EXTERNAL (newdecl)
+      && !lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (newdecl)))
+    DECL_EXTERNAL (newdecl) = 0;
+#endif /* WANT_C99_INLINE_SEMANTICS */
 
   if (DECL_EXTERNAL (newdecl))
     {
@@ -3284,6 +3320,20 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (&decl, attributes, 0);
 
+#if WANT_C99_INLINE_SEMANTICS
+  /* Handle gnu_inline attribute.  */
+  if (declspecs->inline_p
+      && flag_isoc99
+      && TREE_CODE (decl) == FUNCTION_DECL
+      && lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl)))
+    {
+      if (declspecs->storage_class == csc_auto && current_scope != file_scope)
+	;
+      else if (declspecs->storage_class != csc_static)
+	DECL_EXTERNAL (decl) = !DECL_EXTERNAL (decl);
+    }
+#endif /* WANT_C99_INLINE_SEMANTICS */
+
   if (TREE_CODE (decl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (decl)))
     {
@@ -3333,6 +3383,23 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
     }
 
   return tem;
+}
+
+/* Initialize EH if not initialized yet and exceptions are enabled.  */
+
+void
+c_maybe_initialize_eh (void)
+{
+  if (!flag_exceptions || c_eh_initialized_p)
+    return;
+
+  c_eh_initialized_p = true;
+  eh_personality_libfunc
+    = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+			? "__gcc_personality_sj0"
+			: "__gcc_personality_v0");
+  default_init_unwind_resume_libfunc ();
+  using_eh_for_cleanups ();
 }
 
 /* Finish processing of a declaration;
@@ -3626,16 +3693,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  TREE_USED (cleanup_decl) = 1;
 
 	  /* Initialize EH, if we've been told to do so.  */
-	  if (flag_exceptions && !c_eh_initialized_p)
-	    {
-	      c_eh_initialized_p = true;
-	      eh_personality_libfunc
-		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
-				    ? "__gcc_personality_sj0"
-				    : "__gcc_personality_v0");
-	      default_init_unwind_resume_libfunc ();
-	      using_eh_for_cleanups ();
-	    }
+	  c_maybe_initialize_eh ();
 
 	  push_cleanup (decl, cleanup, false);
 	}
@@ -4772,7 +4830,11 @@ grokdeclarator (const struct c_declarator *declarator,
 	   in this file, C99 6.7.4p6.  In GNU C89, a function declared
 	   'extern inline' is an external reference.  */
 	else if (declspecs->inline_p && storage_class != csc_static)
+#if WANT_C99_INLINE_SEMANTICS
 	  DECL_EXTERNAL (decl) = (storage_class == csc_extern) == !flag_isoc99;
+#else
+	  DECL_EXTERNAL (decl) = (storage_class == csc_extern);
+#endif
 	else
 	  DECL_EXTERNAL (decl) = !initialized;
 
@@ -6041,6 +6103,18 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
     warning (OPT_Wattributes, "inline function %q+D given attribute noinline",
 	     decl1);
 
+#if WANT_C99_INLINE_SEMANTICS
+  /* Handle gnu_inline attribute.  */
+  if (declspecs->inline_p
+      && flag_isoc99
+      && TREE_CODE (decl1) == FUNCTION_DECL
+      && lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl1)))
+    {
+      if (declspecs->storage_class != csc_static)
+	DECL_EXTERNAL (decl1) = !DECL_EXTERNAL (decl1);
+    }
+#endif /* WANT_C99_INLINE_SEMANTICS */
+
   announce_function (decl1);
 
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl1))))
@@ -6408,8 +6482,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
       tree type;
       for (parm = DECL_ARGUMENTS (fndecl),
 	     type = current_function_prototype_arg_types;
-	   parm || (type && (TYPE_MAIN_VARIANT (TREE_VALUE (type))
-			     != void_type_node));
+	   parm || (type && TREE_VALUE (type) != error_mark_node
+                   && (TYPE_MAIN_VARIANT (TREE_VALUE (type)) != void_type_node));
 	   parm = TREE_CHAIN (parm), type = TREE_CHAIN (type))
 	{
 	  if (parm == 0 || type == 0

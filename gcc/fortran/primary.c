@@ -580,16 +580,6 @@ done:
       kind = gfc_default_double_kind;
       break;
 
-    case 'q':
-      if (kind != -2)
-	{
-	  gfc_error
-	    ("Real number at %C has a 'q' exponent and an explicit kind");
-	  goto cleanup;
-	}
-      kind = gfc_option.q_kind;
-      break;
-
     default:
       if (kind == -2)
 	kind = gfc_default_real_kind;
@@ -1927,7 +1917,8 @@ gfc_match_rvalue (gfc_expr ** result)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_find_state (COMP_INTERFACE) == SUCCESS)
+  if (gfc_find_state (COMP_INTERFACE) == SUCCESS
+      && !gfc_current_ns->has_import_set)
     i = gfc_get_sym_tree (name, NULL, &symtree);
   else
     i = gfc_get_ha_sym_tree (name, &symtree);
@@ -2312,6 +2303,11 @@ match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
   switch (sym->attr.flavor)
     {
     case FL_VARIABLE:
+      if (sym->attr.protected && sym->attr.use_assoc)
+        {
+	  gfc_error ("Assigning to PROTECTED variable at %C");
+          return MATCH_ERROR;
+        }
       break;
 
     case FL_UNKNOWN:

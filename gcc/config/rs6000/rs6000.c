@@ -139,6 +139,8 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mtune=",		1,	0 },
 };
 
+static GTY(()) bool rs6000_cell_dont_microcode;
+
 /* Always emit branch hint bits.  */
 static GTY(()) bool rs6000_always_hint;
 
@@ -519,6 +521,22 @@ struct processor_costs ppc630_cost = {
   COSTS_N_INSNS (21),   /* ddiv */
 };
 
+/* Instruction costs on Cell processor.  */
+/* COSTS_N_INSNS (1) ~ one add.  */
+static const
+struct processor_costs ppccell_cost = {
+  COSTS_N_INSNS (9/2)+2,    /* mulsi */
+  COSTS_N_INSNS (6/2),    /* mulsi_const */
+  COSTS_N_INSNS (6/2),    /* mulsi_const9 */
+  COSTS_N_INSNS (15/2)+2,   /* muldi */
+  COSTS_N_INSNS (38/2),   /* divsi */
+  COSTS_N_INSNS (70/2),   /* divdi */
+  COSTS_N_INSNS (10/2),   /* fp */
+  COSTS_N_INSNS (10/2),   /* dmul */
+  COSTS_N_INSNS (74/2),   /* sdiv */
+  COSTS_N_INSNS (74/2),   /* ddiv */
+};
+
 /* Instruction costs on PPC750 and PPC7400 processors.  */
 static const
 struct processor_costs ppc750_cost = {
@@ -671,9 +689,11 @@ static bool rs6000_rtx_costs (rtx, int, int, int *);
 static int rs6000_adjust_cost (rtx, rtx, rtx, int);
 static void rs6000_sched_init (FILE *, int, int);
 static bool is_microcoded_insn (rtx);
+static bool is_nonpipeline_insn (rtx);
 static bool is_cracked_insn (rtx);
 static bool is_branch_slot_insn (rtx);
 static bool is_load_insn (rtx);
+static rtx get_store_dest (rtx pat);
 static bool is_store_insn (rtx);
 static bool set_to_load_agen (rtx,rtx);
 static bool adjacent_mem_locations (rtx,rtx); 
@@ -692,7 +712,10 @@ static void rs6000_sched_finish (FILE *, int);
 static int rs6000_sched_reorder (FILE *, int, rtx *, int *, int);
 static int rs6000_sched_reorder2 (FILE *, int, rtx *, int *, int);
 static int rs6000_use_sched_lookahead (void);
+static int rs6000_use_sched_lookahead_guard (rtx);
 static tree rs6000_builtin_mask_for_load (void);
+static tree rs6000_builtin_mul_widen_even (tree);
+static tree rs6000_builtin_mul_widen_odd (tree);
 
 static void def_builtin (int, const char *, tree, int);
 static void rs6000_init_builtins (void);
@@ -950,8 +973,15 @@ static const char alt_reg_names[][8] =
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD rs6000_use_sched_lookahead
 
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD rs6000_use_sched_lookahead_guard
+
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
+#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1205,12 +1235,16 @@ rs6000_override_options (const char *default_cpu)
 	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
-	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"8540", PROCESSOR_PPC8540,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
 	 /* 8548 has a dummy entry for now.  */
-	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"8548", PROCESSOR_PPC8540,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_STRICT_ALIGN},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+	 {"cell", PROCESSOR_CELL,
+	  POWERPC_7400_MASK  | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS},
 	 {"ec603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"G3", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
@@ -1259,7 +1293,7 @@ rs6000_override_options (const char *default_cpu)
 
   enum {
     POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
-    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT
+    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
 		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		     | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
 		     | MASK_DLMZB | MASK_MFPGPR)
@@ -1439,7 +1473,8 @@ rs6000_override_options (const char *default_cpu)
 
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
 			&& rs6000_cpu != PROCESSOR_POWER5
-                        && rs6000_cpu != PROCESSOR_POWER6);
+                        && rs6000_cpu != PROCESSOR_POWER6
+			&& rs6000_cpu != PROCESSOR_CELL);
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5);
   rs6000_align_branch_targets = (rs6000_cpu == PROCESSOR_POWER4
@@ -1513,6 +1548,16 @@ rs6000_override_options (const char *default_cpu)
   /* Set branch target alignment, if not optimizing for size.  */
   if (!optimize_size)
     {
+      /* Cell wants to be aligned 8byte for dual issue. */
+      if (rs6000_cpu == PROCESSOR_CELL)
+	{
+	  if (align_functions <= 0)
+	    align_functions = 8;
+	  if (align_jumps <= 0)
+	    align_jumps = 8;
+	  if (align_loops <= 0)
+	    align_loops = 8;
+ 	}
       if (rs6000_align_branch_targets)
 	{
 	  if (align_functions <= 0)
@@ -1594,6 +1639,10 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_cost = &ppc630_cost;
 	break;
 
+      case PROCESSOR_CELL: 
+	rs6000_cost = &ppccell_cost;
+	break;
+
       case PROCESSOR_PPC750:
       case PROCESSOR_PPC7400:
 	rs6000_cost = &ppc750_cost;
@@ -1629,6 +1678,52 @@ rs6000_builtin_mask_for_load (void)
     return altivec_builtin_mask_for_load;
   else
     return 0;
+}
+
+/* Implement targetm.vectorize.builtin_mul_widen_even.  */
+static tree
+rs6000_builtin_mul_widen_even (tree type)
+{
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  switch (TYPE_MODE (type))
+    {
+    case V8HImode:
+      return TYPE_UNSIGNED (type) ? 
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH] :
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
+
+    case V16QImode:
+      return TYPE_UNSIGNED (type) ?
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB] :
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Implement targetm.vectorize.builtin_mul_widen_odd.  */
+static tree
+rs6000_builtin_mul_widen_odd (tree type)
+{
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+
+  switch (TYPE_MODE (type))
+    {
+    case V8HImode:
+      return TYPE_UNSIGNED (type) ?
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH] :
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
+
+    case V16QImode:
+      return TYPE_UNSIGNED (type) ?
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB] :
+            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
@@ -2621,18 +2716,28 @@ build_mask64_2_operands (rtx in, rtx *out)
 bool
 invalid_e500_subreg (rtx op, enum machine_mode mode)
 {
-  /* Reject (subreg:SI (reg:DF)).  */
-  if (GET_CODE (op) == SUBREG
+  if (TARGET_E500_DOUBLE)
+    {
+      /* Reject (subreg:SI (reg:DF)).  */
+      if (GET_CODE (op) == SUBREG
+	  && mode == SImode
+	  && REG_P (SUBREG_REG (op))
+	  && GET_MODE (SUBREG_REG (op)) == DFmode)
+	return true;
+
+      /* Reject (subreg:DF (reg:DI)).  */
+      if (GET_CODE (op) == SUBREG
+	  && mode == DFmode
+	  && REG_P (SUBREG_REG (op))
+	  && GET_MODE (SUBREG_REG (op)) == DImode)
+	return true;
+    }
+
+  if (TARGET_SPE
+      && GET_CODE (op) == SUBREG
       && mode == SImode
       && REG_P (SUBREG_REG (op))
-      && GET_MODE (SUBREG_REG (op)) == DFmode)
-    return true;
-
-  /* Reject (subreg:DF (reg:DI)).  */
-  if (GET_CODE (op) == SUBREG
-      && mode == DFmode
-      && REG_P (SUBREG_REG (op))
-      && GET_MODE (SUBREG_REG (op)) == DImode)
+      && SPE_VECTOR_MODE (GET_MODE (SUBREG_REG (op))))
     return true;
 
   return false;
@@ -3661,9 +3766,7 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    case PRE_INC:
-    case PRE_DEC:
-      return TARGET_UPDATE;
+    /* Auto-increment cases are now treated generically in recog.c.  */
 
     default:
       break;
@@ -3717,15 +3820,20 @@ rs6000_hard_regno_nregs (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
 
-  if (TARGET_E500_DOUBLE && mode == DFmode)
-    return 1;
-
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return (GET_MODE_SIZE (mode) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD;
 
   if (ALTIVEC_REGNO_P (regno))
     return
       (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
+
+  /* The value returned for SCmode in the E500 double case is 2 for
+     ABI compatibility; storing an SCmode value in a single register
+     would require function_arg and rs6000_spe_function_arg to handle
+     SCmode so as to pass the value correctly in a pair of
+     registers.  */
+  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode)
+    return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
 
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
@@ -4095,8 +4203,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* 128-bit constant floating-point values on Darwin should really be
      loaded as two parts.  */
-  if (!TARGET_IEEEQUAD
-      && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128
+  if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128
       && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       /* DImode is used, not DFmode, because simplify_gen_subreg doesn't
@@ -5904,7 +6011,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 		  build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5912,7 +6019,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5923,7 +6030,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
 	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5940,7 +6047,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (cfun->machine->varargs_save_offset)
     t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -6073,7 +6180,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
       t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -6086,7 +6193,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 gpr case.  */
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -6103,17 +6210,38 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
   if (lab_over)
     {
       t = build1 (LABEL_EXPR, void_type_node, lab_over);
       append_to_statement_list (t, pre_p);
+    }
+
+  if (STRICT_ALIGNMENT
+      && (TYPE_ALIGN (type)
+	  > (unsigned) BITS_PER_UNIT * (align < 4 ? 4 : align)))
+    {
+      /* The value (of type complex double, for example) may not be
+	 aligned in memory in the saved registers, so copy via a
+	 temporary.  (This is the same code as used for SPARC.)  */
+      tree tmp = create_tmp_var (type, "va_arg_tmp");
+      tree dest_addr = build_fold_addr_expr (tmp);
+
+      tree copy = build_function_call_expr
+	(implicit_built_in_decls[BUILT_IN_MEMCPY],
+	 tree_cons (NULL_TREE, dest_addr,
+		    tree_cons (NULL_TREE, addr,
+			       tree_cons (NULL_TREE, size_int (rsize * 4),
+					  NULL_TREE))));
+
+      gimplify_and_add (copy, pre_p);
+      addr = dest_addr;
     }
 
   addr = fold_convert (ptrtype, addr);
@@ -12618,6 +12746,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
     reg_mode = DFmode;
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
+  else if (TARGET_E500_DOUBLE && mode == TFmode)
+    reg_mode = DFmode;
   else
     reg_mode = word_mode;
   reg_mode_size = GET_MODE_SIZE (reg_mode);
@@ -14888,7 +15018,7 @@ rs6000_emit_epilogue (int sibcall)
   rs6000_stack_t *info;
   int restoring_FPRs_inline;
   int using_load_multiple;
-  int using_mfcr_multiple;
+  int using_mtcr_multiple;
   int use_backchain_to_restore_sp;
   int sp_offset = 0;
   rtx sp_reg_rtx = gen_rtx_REG (Pmode, 1);
@@ -14917,7 +15047,7 @@ rs6000_emit_epilogue (int sibcall)
   use_backchain_to_restore_sp = (frame_pointer_needed
 				 || current_function_calls_alloca
 				 || info->total_size > 32767);
-  using_mfcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
+  using_mtcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
 			 || rs6000_cpu == PROCESSOR_PPC603
 			 || rs6000_cpu == PROCESSOR_PPC750
 			 || optimize_size);
@@ -15217,7 +15347,7 @@ rs6000_emit_epilogue (int sibcall)
       rtx r12_rtx = gen_rtx_REG (SImode, 12);
       int count = 0;
 
-      if (using_mfcr_multiple)
+      if (using_mtcr_multiple)
 	{
 	  for (i = 0; i < 8; i++)
 	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
@@ -15225,7 +15355,7 @@ rs6000_emit_epilogue (int sibcall)
 	  gcc_assert (count);
 	}
 
-      if (using_mfcr_multiple && count > 1)
+      if (using_mtcr_multiple && count > 1)
 	{
 	  rtvec p;
 	  int ndx;
@@ -16543,6 +16673,10 @@ rs6000_variable_issue (FILE *stream ATTRIBUTE_UNUSED,
       return cached_can_issue_more;
     }
 
+  /* If no reservation, but reach here */
+  if (recog_memoized (insn) < 0)
+    return more;
+
   if (rs6000_sched_groups)
     {
       if (is_microcoded_insn (insn))
@@ -16554,6 +16688,9 @@ rs6000_variable_issue (FILE *stream ATTRIBUTE_UNUSED,
 
       return cached_can_issue_more;
     }
+
+  if (rs6000_cpu_attr == CPU_CELL && is_nonpipeline_insn (insn))
+    return 0;
 
   cached_can_issue_more = more - 1;
   return cached_can_issue_more;
@@ -16610,7 +16747,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                  || rs6000_cpu_attr == CPU_PPC7400
                  || rs6000_cpu_attr == CPU_PPC7450
                  || rs6000_cpu_attr == CPU_POWER4
-                 || rs6000_cpu_attr == CPU_POWER5)
+                 || rs6000_cpu_attr == CPU_POWER5
+                 || rs6000_cpu_attr == CPU_CELL)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
               
@@ -16860,6 +16998,9 @@ is_microcoded_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
+  if (rs6000_cpu_attr == CPU_CELL)
+    return get_attr_cell_micro (insn) == CELL_MICRO_ALWAYS;
+
   if (rs6000_sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
@@ -16952,9 +17093,9 @@ static bool
 adjacent_mem_locations (rtx insn1, rtx insn2)
 {
 
-  rtx a = SET_DEST (PATTERN (insn1));
-  rtx b = SET_DEST (PATTERN (insn2));
- 
+  rtx a = get_store_dest (PATTERN (insn1));
+  rtx b = get_store_dest (PATTERN (insn2));
+
   if ((GET_CODE (XEXP (a, 0)) == REG
        || (GET_CODE (XEXP (a, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (a, 0), 1)) == CONST_INT))
@@ -17063,6 +17204,37 @@ rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
   return priority;
 }
 
+/* Return true if the instruction is nonpipelined on the Cell. */
+static bool
+is_nonpipeline_insn (rtx insn)
+{
+  enum attr_type type;
+  if (!insn || !INSN_P (insn)
+      || GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  type = get_attr_type (insn);
+  if (type == TYPE_IMUL
+      || type == TYPE_IMUL2
+      || type == TYPE_IMUL3
+      || type == TYPE_LMUL
+      || type == TYPE_IDIV
+      || type == TYPE_LDIV
+      || type == TYPE_SDIV
+      || type == TYPE_DDIV
+      || type == TYPE_SSQRT
+      || type == TYPE_DSQRT
+      || type == TYPE_MFCR
+      || type == TYPE_MFCRF
+      || type == TYPE_MFJMPR)
+    {
+      return true;
+    }
+  return false;
+}
+
+
 /* Return how many instructions the machine can issue per cycle.  */
 
 static int
@@ -17083,6 +17255,7 @@ rs6000_issue_rate (void)
   case CPU_PPC750:
   case CPU_PPC7400:
   case CPU_PPC8540:
+  case CPU_CELL:
     return 2;
   case CPU_RIOS2:
   case CPU_PPC604:
@@ -17107,7 +17280,27 @@ rs6000_use_sched_lookahead (void)
 {
   if (rs6000_cpu_attr == CPU_PPC8540)
     return 4;
+  if (rs6000_cpu_attr == CPU_CELL)
+    return (reload_completed ? 8 : 0);
   return 0;
+}
+
+/* We are choosing insn from the ready queue.  Return nonzero if INSN can be chosen.  */
+static int
+rs6000_use_sched_lookahead_guard (rtx insn)
+{
+  if (rs6000_cpu_attr != CPU_CELL)
+    return 1;
+
+   if (insn == NULL_RTX || !INSN_P (insn))
+     abort ();
+   
+  if (!reload_completed
+      || is_nonpipeline_insn (insn)
+      || is_microcoded_insn (insn))
+    return 0;
+
+  return 1;
 }
 
 /* Determine is PAT refers to memory.  */
@@ -17208,6 +17401,32 @@ is_store_insn (rtx insn)
   return is_store_insn1 (PATTERN (insn));
 }
 
+/* Return the dest of a store insn.  */
+
+static rtx
+get_store_dest (rtx pat)
+{
+  gcc_assert (is_store_insn1 (pat));
+
+  if (GET_CODE (pat) == SET)
+    return SET_DEST (pat);
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  rtx inner_pat = XVECEXP (pat, 0, i);
+	  if (GET_CODE (inner_pat) == SET
+	      && is_mem_ref (SET_DEST (inner_pat)))
+	    return inner_pat;
+	}
+    }
+  /* We shouldn't get here, because we should have either a simple
+     store insn or a store with update which are covered above.  */
+  gcc_unreachable();
+}
+
 /* Returns whether the dependence between INSN and NEXT is considered
    costly by the given target.  */
 
@@ -17285,8 +17504,24 @@ rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
                         int *pn_ready ATTRIBUTE_UNUSED,
 		        int clock_var ATTRIBUTE_UNUSED)
 {
+  int n_ready = *pn_ready;
+
   if (sched_verbose)
     fprintf (dump, "// rs6000_sched_reorder :\n");
+
+  /* Reorder the ready list, if the second to last ready insn
+     is a nonepipeline insn.  */
+  if (rs6000_cpu_attr == CPU_CELL && n_ready > 1)
+  {
+    if (is_nonpipeline_insn (ready[n_ready - 1])
+        && (recog_memoized (ready[n_ready - 2]) > 0))
+      /* Simply swap first two insns.  */
+      {
+	rtx tmp = ready[n_ready - 1];
+	ready[n_ready - 1] = ready[n_ready - 2];
+	ready[n_ready - 2] = tmp;
+      }
+  }
 
   if (rs6000_cpu == PROCESSOR_POWER6)
     load_store_pendulum = 0;
@@ -17320,7 +17555,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
          cycle and we attempt to locate another load in the ready list to
          issue with it.
 
-       - If the pedulum is -2, then two stores have already been
+       - If the pendulum is -2, then two stores have already been
          issued in this cycle, so we increase the priority of the first load
          in the ready list to increase it's likelihood of being chosen first
          in the next cycle.

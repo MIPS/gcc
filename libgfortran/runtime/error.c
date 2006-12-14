@@ -285,7 +285,7 @@ show_locus (st_parameter_common *cmp)
   if (!options.locus || cmp == NULL || cmp->filename == NULL)
     return;
 
-  st_printf ("At line %d of file %s\n", cmp->line, cmp->filename);
+  st_printf ("At line %d of file %s\n", (int) cmp->line, cmp->filename);
 }
 
 
@@ -437,7 +437,11 @@ translate_error (int code)
       break;
 
     case ERROR_SHORT_RECORD:
-      p = "Short record on unformatted read";
+      p = "I/O past end of record on unformatted file";
+      break;
+
+    case ERROR_CORRUPT_FILE:
+      p = "Unformatted file structure has been corrupted";
       break;
 
     default:

@@ -19,6 +19,38 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+/* Algorithm to expand string function with.  */
+enum stringop_alg
+{
+   no_stringop,
+   libcall,
+   rep_prefix_1_byte,
+   rep_prefix_4_byte,
+   rep_prefix_8_byte,
+   loop_1_byte,
+   loop,
+   unrolled_loop
+};
+#define NAX_STRINGOP_ALGS 4
+/* Specify what algorithm to use for stringops on known size.
+   When size is unknown, the UNKNOWN_SIZE alg is used.  When size is
+   known at compile time or estimated via feedback, the SIZE array
+   is walked in order until MAX is greater then the estimate (or -1
+   means infinity).  Corresponding ALG is used then.  
+   For example initializer:
+    {{256, loop}, {-1, rep_prefix_4_byte}}		
+   will use loop for blocks smaller or equal to 256 bytes, rep prefix will
+   be used otherwise.
+*/
+struct stringop_algs
+{
+  const enum stringop_alg unknown_size;
+  const struct stringop_strategy {
+    const int max;
+    const enum stringop_alg alg;
+  } size [NAX_STRINGOP_ALGS];
+};
+
 /* The purpose of this file is to define the characteristics of the i386,
    independent of assembler syntax or operating system.
 
@@ -84,6 +116,9 @@ struct processor_costs {
   const int fabs;		/* cost of FABS instruction.  */
   const int fchs;		/* cost of FCHS instruction.  */
   const int fsqrt;		/* cost of FSQRT instruction.  */
+				/* Specify what algorithm
+				   to use for stringops on unknown size.  */
+  struct stringop_algs memcpy[2], memset[2];
 };
 
 extern const struct processor_costs *ix86_cost;
@@ -137,6 +172,7 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+#define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
 #define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
 #define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
 #define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
@@ -216,7 +252,6 @@ extern int x86_prefetch_sse;
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & TUNEMASK)
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
-#define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & TUNEMASK)
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
@@ -321,7 +356,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1
 #else
 #define CC1_CPU_SPEC CC1_CPU_SPEC_1 \
-"%{march=native:%<march=native %:local_cpu_detect(arch)} \
+"%{march=native:%<march=native %:local_cpu_detect(arch) \
+  %{!mtune=*:%<mtune=native %:local_cpu_detect(tune)}} \
 %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
 #endif
 #endif
@@ -403,6 +439,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__tune_pentium4__");			\
       else if (TARGET_NOCONA)					\
 	builtin_define ("__tune_nocona__");			\
+      else if (TARGET_CORE2)					\
+	builtin_define ("__tune_core2__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -483,6 +521,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define ("__nocona");				\
 	  builtin_define ("__nocona__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_CORE2)			\
+	{							\
+	  builtin_define ("__core2");				\
+	  builtin_define ("__core2__");				\
+	}							\
     }								\
   while (0)
 
@@ -504,14 +547,15 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_CPU_DEFAULT_pentium_m 15
 #define TARGET_CPU_DEFAULT_prescott 16
 #define TARGET_CPU_DEFAULT_nocona 17
-#define TARGET_CPU_DEFAULT_generic 18
+#define TARGET_CPU_DEFAULT_core2 18
+#define TARGET_CPU_DEFAULT_generic 19
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
                                   "pentium4", "geode", "k6", "k6-2", "k6-3", \
 				  "athlon", "athlon-4", "k8", \
 				  "pentium-m", "prescott", "nocona", \
-				  "generic"}
+				  "core2", "generic"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -724,7 +768,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 54
+#define FIRST_PSEUDO_REGISTER 53
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER.  */
@@ -744,8 +788,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define FIXED_REGISTERS						\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
 {  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,	\
-/*arg,flags,fpsr,fpcr,dir,frame*/				\
-    1,    1,   1,   1,  1,    1,				\
+/*arg,flags,fpsr,fpcr,frame*/					\
+    1,    1,   1,   1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
@@ -772,8 +816,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CALL_USED_REGISTERS					\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
 {  1, 1, 1, 0, 3, 3, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,	\
-/*arg,flags,fpsr,fpcr,dir,frame*/				\
-    1,   1,    1,   1,  1,    1,				\
+/*arg,flags,fpsr,fpcr,frame*/					\
+    1,   1,    1,   1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      1,   1,   1,   1,   1,   1,   1,   1,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
@@ -796,7 +840,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,\
    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,	\
    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,  \
-   48, 49, 50, 51, 52, 53 }
+   48, 49, 50, 51, 52 }
 
 /* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
@@ -873,6 +917,15 @@ do {									\
       : (MODE) == XCmode						\
       ? (TARGET_64BIT ? 4 : 6)						\
       : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
+
+#define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE)			\
+  ((TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT)				\
+   ? (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
+      ? 0								\
+      : ((MODE) == XFmode || (MODE) == XCmode))				\
+   : 0)
+
+#define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
@@ -953,7 +1006,7 @@ do {									\
 #define HARD_FRAME_POINTER_REGNUM 6
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 21
+#define FRAME_POINTER_REGNUM 20
 
 /* First floating point reg */
 #define FIRST_FLOAT_REG 8
@@ -1147,21 +1200,21 @@ enum reg_class
       { 0x10,     0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
       { 0x03,     0x0 },		/* AD_REGS */			\
       { 0x0f,     0x0 },		/* Q_REGS */			\
-  { 0x2100f0,  0x3fc0 },		/* NON_Q_REGS */		\
-      { 0x7f,  0x3fc0 },		/* INDEX_REGS */		\
-  { 0x2100ff,     0x0 },		/* LEGACY_REGS */		\
-  { 0x2100ff,  0x3fc0 },		/* GENERAL_REGS */		\
+  { 0x1100f0,  0x1fe0 },		/* NON_Q_REGS */		\
+      { 0x7f,  0x1fe0 },		/* INDEX_REGS */		\
+  { 0x1100ff,     0x0 },		/* LEGACY_REGS */		\
+  { 0x1100ff,  0x1fe0 },		/* GENERAL_REGS */		\
      { 0x100,     0x0 }, { 0x0200, 0x0 },/* FP_TOP_REG, FP_SECOND_REG */\
     { 0xff00,     0x0 },		/* FLOAT_REGS */		\
-{ 0x3fc00000,0x3fc000 },		/* SSE_REGS */			\
-{ 0xc0000000,    0x3f },		/* MMX_REGS */			\
-{ 0x3fc00100,0x3fc000 },		/* FP_TOP_SSE_REG */		\
-{ 0x3fc00200,0x3fc000 },		/* FP_SECOND_SSE_REG */		\
-{ 0x3fc0ff00,0x3fc000 },		/* FLOAT_SSE_REGS */		\
-   { 0x1ffff,  0x3fc0 },		/* FLOAT_INT_REGS */		\
-{ 0x3fc100ff,0x3fffc0 },		/* INT_SSE_REGS */		\
-{ 0x3fc1ffff,0x3fffc0 },		/* FLOAT_INT_SSE_REGS */	\
-{ 0xffffffff,0x3fffff }							\
+{ 0x1fe00000,0x1fe000 },		/* SSE_REGS */			\
+{ 0xe0000000,    0x1f },		/* MMX_REGS */			\
+{ 0x1fe00100,0x1fe000 },		/* FP_TOP_SSE_REG */		\
+{ 0x1fe00200,0x1fe000 },		/* FP_SECOND_SSE_REG */		\
+{ 0x1fe0ff00,0x3fe000 },		/* FLOAT_SSE_REGS */		\
+   { 0x1ffff,  0x1fe0 },		/* FLOAT_INT_REGS */		\
+{ 0x1fe100ff,0x1fffe0 },		/* INT_SSE_REGS */		\
+{ 0x1fe1ffff,0x1fffe0 },		/* FLOAT_INT_SSE_REGS */	\
+{ 0xffffffff,0x1fffff }							\
 }
 
 /* The same information, inverted:
@@ -1712,13 +1765,9 @@ do {									\
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
    On the 80386, only postdecrement and postincrement address depend thus
-   (the amount of decrement or increment being the length of the operand).  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-do {							\
- if (GET_CODE (ADDR) == POST_INC			\
-     || GET_CODE (ADDR) == POST_DEC)			\
-   goto LABEL;						\
-} while (0)
+   (the amount of decrement or increment being the length of the operand).
+   These are now caught in recog.c.  */
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and
@@ -1738,12 +1787,6 @@ do {							\
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* Number of bytes moved into a data cache for a single prefetch operation.  */
-#define PREFETCH_BLOCK ix86_cost->prefetch_block
-
-/* Number of prefetch operations that can be done in parallel.  */
-#define SIMULTANEOUS_PREFETCHES ix86_cost->simultaneous_prefetches
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
@@ -1910,7 +1953,7 @@ do {							\
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)",		\
- "argp", "flags", "fpsr", "fpcr", "dirflag", "frame",			\
+ "argp", "flags", "fpsr", "fpcr", "frame",				\
  "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",		\
  "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",		\
  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",			\
@@ -2075,6 +2118,7 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+  PROCESSOR_CORE2,
   PROCESSOR_GENERIC32,
   PROCESSOR_GENERIC64,
   PROCESSOR_max

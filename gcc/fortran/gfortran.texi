@@ -1380,7 +1380,32 @@ TR 15581:
 The @code{OPEN} statement supports the @code{ACCESS='STREAM'} specifier,
 allowing I/O without any record structure.
 
+@item
+Namelist input/output for internal files.
 
+@item
+@cindex @code{PROTECTED}
+The @code{PROTECTED} statement and attribute.
+
+@item
+@cindex @code{VALUE}
+The @code{VALUE} statement and attribute.
+
+@item
+@cindex @code{VOLATILE}
+The @code{VOLATILE} statement and attribute.
+
+@item
+@cindex @code{IMPORT}
+The @code{IMPORT} statement, allowing to import
+host-associated derived types.
+
+@item
+@cindex @code{USE, INTRINSIC}
+@cindex @code{ISO_FORTRAN_ENV}
+@code{USE} statement with @code{INTRINSIC} and @code{NON_INTRINSIC}
+attribute; supported intrinsic modules: @code{ISO_FORTRAN_ENV},
+@code{OMP_LIB} and @code{OMP_LIB_KINDS}.
 
 @end itemize
 
