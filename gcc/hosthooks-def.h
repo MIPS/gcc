@@ -24,14 +24,20 @@ Boston, MA 02111-1307, USA.  */
 #include "hooks.h"
 
 #define HOST_HOOKS_EXTRA_SIGNALS hook_void_void
-#define HOST_HOOKS_GT_PCH_GET_ADDRESS hook_voidp_size_t_null
-#define HOST_HOOKS_GT_PCH_USE_ADDRESS hook_bool_voidp_size_t_false
+#define HOST_HOOKS_GT_PCH_GET_ADDRESS hook_voidp_size_t_int_null
+#define HOST_HOOKS_GT_PCH_USE_ADDRESS hook_int_voidp_size_t_voidp_size_t_int_0
+
+#define HOST_HOOKS_GT_PCH_ALLOC_GRANULARITY \
+  default_gt_pch_alloc_granularity
+
+extern size_t default_gt_pch_alloc_granularity (void);
 
 /* The structure is defined in hosthooks.h.  */
 #define HOST_HOOKS_INITIALIZER {		\
   HOST_HOOKS_EXTRA_SIGNALS,			\
   HOST_HOOKS_GT_PCH_GET_ADDRESS,		\
-  HOST_HOOKS_GT_PCH_USE_ADDRESS			\
+  HOST_HOOKS_GT_PCH_USE_ADDRESS,		\
+  HOST_HOOKS_GT_PCH_ALLOC_GRANULARITY		\
 }
 
 #endif /* GCC_HOST_HOOKS_DEF_H */

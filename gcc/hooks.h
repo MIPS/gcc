@@ -61,5 +61,7 @@ extern rtx hook_rtx_rtx_null (rtx);
 extern rtx hook_rtx_tree_int_null (tree, int);
 extern void * hook_voidp_size_t_null (size_t);
 extern bool hook_bool_voidp_size_t_false (void *, size_t);
+extern int hook_int_voidp_size_t_voidp_size_t_int_0 (void *, size_t, void *, size_t);
+extern void * hook_voidp_size_t_int_null (size_t, int);
 extern const char *hook_constcharptr_tree_null (tree);
 #endif

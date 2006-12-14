@@ -241,3 +241,22 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
+
+/* Generic hook that takes void, size_t, void, size_t, and return zero.  */
+int
+hook_int_voidp_size_t_voidp_size_t_int_0 (void * a ATTRIBUTE_UNUSED,
+					  size_t b ATTRIBUTE_UNUSED,
+					  void * c ATTRIBUTE_UNUSED,
+					  size_t d ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+/* Generic hook that takes size_t and int, and returns NULL.  */
+void *
+hook_voidp_size_t_int_null (size_t a ATTRIBUTE_UNUSED, 
+			    int b ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+

@@ -31,6 +31,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "hosthooks.h"
 
+#include <unistd.h>	/* Required for getpagesize().  */
+
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
@@ -417,6 +419,16 @@ struct mmap_info
   void *preferred_base;
 };
 
+/* Default version of HOST_HOOKS_GT_PCH_GET_ADDRESS.   Return the
+   alignment required for allocating virtual memory. Usually this is the
+   same as pagesize.  */
+
+size_t
+default_gt_pch_alloc_granularity (void)
+{
+  return getpagesize();
+}
+
 /* Write out the state of the compiler to F.  */
 
 void
@@ -429,7 +441,7 @@ gt_pch_save (FILE *f)
   char *this_object = NULL;
   size_t this_object_size = 0;
   struct mmap_info mmi;
-  size_t page_size = getpagesize();
+  const size_t mmap_offset_alignment = host_hooks.gt_pch_alloc_granularity();
 
   gt_pch_save_stringpool ();
 
@@ -458,7 +470,7 @@ gt_pch_save (FILE *f)
      and on the rest it's a lot of work to do better.  
      (The extra work goes in HOST_HOOKS_GT_PCH_GET_ADDRESS and
      HOST_HOOKS_GT_PCH_USE_ADDRESS.)  */
-  mmi.preferred_base = host_hooks.gt_pch_get_address (mmi.size);
+  mmi.preferred_base = host_hooks.gt_pch_get_address (mmi.size, fileno (state.f));
       
 #if HAVE_MMAP_FILE
   if (mmi.preferred_base == NULL)
@@ -492,14 +504,15 @@ gt_pch_save (FILE *f)
 
   ggc_pch_prepare_write (state.d, state.f);
 
-  /* Pad the PCH file so that the mmapped area starts on a page boundary.  */
+  /* Pad the PCH file so that the mmapped area starts on an allocation
+     granularity (usually page) boundary.  */
   {
     long o;
     o = ftell (state.f) + sizeof (mmi);
     if (o == -1)
       fatal_error ("can't get position in PCH file: %m");
-    mmi.offset = page_size - o % page_size;
-    if (mmi.offset == page_size)
+    mmi.offset = mmap_offset_alignment - o % mmap_offset_alignment;
+    if (mmi.offset == mmap_offset_alignment)
       mmi.offset = 0;
     mmi.offset += o;
   }
@@ -548,6 +561,7 @@ gt_pch_restore (FILE *f)
   struct mmap_info mmi;
   void *addr;
   bool needs_read;
+  int result;
 
   /* Delete any deletable objects.  This makes ggc_pch_read much
      faster, as it can be sure that no GCable objects remain other
@@ -580,28 +594,16 @@ gt_pch_restore (FILE *f)
   if (fread (&mmi, sizeof (mmi), 1, f) != 1)
     fatal_error ("can't read PCH file: %m");
 
-  if (host_hooks.gt_pch_use_address (mmi.preferred_base, mmi.size))
+  /* Set the default value of addr.  */
+  addr = mmi.preferred_base;
+  result = host_hooks.gt_pch_use_address (addr, mmi.size, fileno(f), 
+					  mmi.offset);
+
+  if (result == 0)
     {
-#if HAVE_MMAP_FILE
-      void *mmap_result;
-
-      mmap_result = mmap (mmi.preferred_base, mmi.size,
-			  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
-			  fileno (f), mmi.offset);
-
-      /* The file might not be mmap-able.  */
-      needs_read = mmap_result == (void *) MAP_FAILED;
-
-      /* Sanity check for broken MAP_FIXED.  */
-      if (! needs_read && mmap_result != mmi.preferred_base)
-	abort ();
-#else
-      needs_read = true;
-#endif
-      addr = mmi.preferred_base;
-    }
-  else
-    {
+      /* Default hook for gt_pch_use_address returns 0. 
+	 This if case is used by all targets, and mingw32
+	 if a failure occurs in gt_pch_use_address.  */
 #if HAVE_MMAP_FILE
       addr = mmap (mmi.preferred_base, mmi.size,
 		   PROT_READ | PROT_WRITE, MAP_PRIVATE,
@@ -612,9 +614,6 @@ gt_pch_restore (FILE *f)
 	{
 	  size_t page_size = getpagesize();
 	  char one_byte;
-	  
-	  if (addr != (void *) MAP_FAILED)
-	    munmap (addr, mmi.size);
 	  
 	  /* We really want to be mapped at mmi.preferred_base
 	     so we're going to resort to MAP_FIXED.  But before,
@@ -632,54 +631,46 @@ gt_pch_restore (FILE *f)
 	      break;
 	  
 	  if (i >= mmi.size)
-	    addr = mmap (mmi.preferred_base, mmi.size, 
-			 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
-			 fileno (f), mmi.offset);
+	    {
+	      if (addr != (void *) MAP_FAILED)
+		munmap (addr, mmi.size);
+
+	      addr = mmap (mmi.preferred_base, mmi.size, 
+			   PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED,
+			   fileno (f), mmi.offset);
+	    }
 	}
 #endif /* HAVE_MINCORE */
       
       needs_read = addr == (void *) MAP_FAILED;
 
 #else /* HAVE_MMAP_FILE */
+
+      /* Mingw32 targets do all the work in gt_pch_use_address.
+	 Should that fail we fallback to using xmalloc to setup 
+	 addr and attempt to read the file via needs_read.  */
       needs_read = true;
 #endif /* HAVE_MMAP_FILE */
+      /* In all probability this will fail, since 
+	 addr != mmi.preferred_base. This is a last ditch attempt.  */
       if (needs_read)
 	addr = xmalloc (mmi.size);
     }
 
+  /* PCH files cannot be relocated.  */
+  if (result == -1 || addr != mmi.preferred_base)
+    fatal_error ("had to relocate PCH");
+
   if (needs_read)
     {
       if (fseek (f, mmi.offset, SEEK_SET) != 0
-	  || fread (&mmi, mmi.size, 1, f) != 1)
+	  || fread (addr, mmi.size, 1, f) != 1)
 	fatal_error ("can't read PCH file: %m");
     }
   else if (fseek (f, mmi.offset + mmi.size, SEEK_SET) != 0)
     fatal_error ("can't read PCH file: %m");
 
   ggc_pch_read (f, addr);
-
-  if (addr != mmi.preferred_base)
-    {
-      for (rt = gt_ggc_rtab; *rt; rt++)
-	for (rti = *rt; rti->base != NULL; rti++)
-	  for (i = 0; i < rti->nelt; i++)
-	    {
-	      char **ptr = (char **)((char *)rti->base + rti->stride * i);
-	      if (*ptr != NULL)
-		*ptr += (size_t)addr - (size_t)mmi.preferred_base;
-	    }
-
-      for (rt = gt_pch_cache_rtab; *rt; rt++)
-	for (rti = *rt; rti->base != NULL; rti++)
-	  for (i = 0; i < rti->nelt; i++)
-	    {
-	      char **ptr = (char **)((char *)rti->base + rti->stride * i);
-	      if (*ptr != NULL)
-		*ptr += (size_t)addr - (size_t)mmi.preferred_base;
-	    }
-
-      sorry ("had to relocate PCH");
-    }
 
   gt_pch_restore_stringpool ();
 }

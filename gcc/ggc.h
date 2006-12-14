@@ -261,6 +261,9 @@ extern size_t ggc_get_size (const void *);
 /* Write out all GCed objects to F.  */
 extern void gt_pch_save (FILE *f);
 
+/* Default hook for granularity.  */
+extern size_t default_gt_pch_alloc_granularity (void);
+
 /* Read objects previously saved with gt_pch_save from F.  */
 extern void gt_pch_restore (FILE *f);
 

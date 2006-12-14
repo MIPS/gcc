@@ -25,8 +25,12 @@ struct host_hooks
 {
   void (*extra_signals) (void);
 
-  void * (*gt_pch_get_address) (size_t);
-  bool (*gt_pch_use_address) (void *, size_t);
+  void * (*gt_pch_get_address) (size_t, int);
+  int (*gt_pch_use_address) (void *, size_t, FILE *, size_t);
+
+  /*  Return the alignment required for allocating virtual memory. Usually
+      this is the same as pagesize.  */
+  size_t (*gt_pch_alloc_granularity) (void);
 
   /* Whenever you add entries here, make sure you adjust hosthooks-def.h.  */
 };
