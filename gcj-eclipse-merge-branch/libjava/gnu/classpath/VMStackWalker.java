@@ -133,16 +133,6 @@ public final class VMStackWalker
    * Walk up the stack and return the first non-null class loader.
    * If there aren't any non-null class loaders on the stack, return null.
    */
-  public static ClassLoader firstNonNullClassLoader()
-  {
-    Class[] stack = getClassContext();
-    for (int i = 0; i < stack.length; i++)
-      {
-        ClassLoader loader = getClassLoader(stack[i]);
-        if (loader != null)
-          return loader;
-      }
-    return null;
-  }
+  public static native ClassLoader firstNonNullClassLoader();
 }
 

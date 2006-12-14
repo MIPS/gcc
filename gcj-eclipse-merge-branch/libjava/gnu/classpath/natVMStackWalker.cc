@@ -73,3 +73,8 @@ gnu::classpath::VMStackWalker::getCallingClassLoader(::gnu::gcj::RawData *pc)
   return getCallingClass (pc)->getClassLoaderInternal ();
 }
 
+::java::lang::ClassLoader *
+gnu::classpath::VMStackWalker::firstNonNullClassLoader(void)
+{
+  return _Jv_StackTrace::GetStackWalkerFirstNonNullLoader ();
+}

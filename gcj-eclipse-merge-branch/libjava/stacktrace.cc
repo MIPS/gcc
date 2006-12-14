@@ -751,3 +751,72 @@ _Jv_StackTrace::GetStackWalkerCallingClass (void)
 
   return trace_data.result;
 }
+
+struct StackWalkerNNLTraceData
+{
+  gswcc_expect expect;
+  ClassLoader *result;
+};
+
+_Unwind_Reason_Code
+_Jv_StackTrace::stackwalker_nnl_trace_fn (_Jv_UnwindState *state)
+{
+  StackWalkerNNLTraceData *trace_data = (StackWalkerNNLTraceData *)
+    state->trace_data;
+  _Jv_StackFrame *frame = &state->frames[state->pos];
+  FillInFrameInfo (frame);
+
+  if (!(frame->klass && frame->meth))
+    return _URC_NO_REASON;
+
+  switch (trace_data->expect)
+    {
+    case VMSW_GET_CALLING_ITEM:
+      JvAssert (frame->klass == &::gnu::classpath::VMStackWalker::class$);
+      trace_data->expect = JLRM_INVOKE_OR_CALLER;
+      break;
+
+    case JLRM_INVOKE_OR_CALLER:
+      if (frame->klass == &::java::lang::reflect::Method::class$
+	  && strcmp (frame->meth->name->chars(), "invoke") == 0)
+	trace_data->expect = CALLER;
+      else
+	trace_data->expect = CALLER_OF_CALLER;
+      break;
+
+    case CALLER:
+      trace_data->expect = CALLER_OF_CALLER;
+      break;
+
+    case CALLER_OF_CALLER:
+      ClassLoader *cl = frame->klass->getClassLoaderInternal ();
+      if (cl != NULL)
+	{
+	  trace_data->result = cl;
+	  return _URC_NORMAL_STOP;
+	}
+    }
+
+  return _URC_NO_REASON;
+}
+
+ClassLoader *
+_Jv_StackTrace::GetStackWalkerFirstNonNullLoader (void)
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  StackWalkerNNLTraceData trace_data;
+  trace_data.expect = VMSW_GET_CALLING_ITEM;
+  trace_data.result = NULL;
+  
+  state.trace_function = stackwalker_nnl_trace_fn;
+  state.trace_data = (void *) &trace_data;
+
+  UpdateNCodeMap();
+  _Unwind_Backtrace (UnwindTraceFn, &state);
+
+  return trace_data.result;
+}

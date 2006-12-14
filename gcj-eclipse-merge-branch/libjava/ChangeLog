@@ -1,3 +1,14 @@
+2006-12-14  Gary Benson  <gbenson@redhat.com>
+
+	* include/java-stack.h (stackwalker_nnl_trace_fn,
+	GetStackWalkerFirstNonNullLoader): Declare.
+	* stacktrace.cc (stackwalker_nnl_trace_fn,
+	GetStackWalkerFirstNonNullLoader): New methods.
+	* gnu/classpath/natVMStackWalker.cc
+	(firstNonNullClassLoader): New method.
+	* gnu/classpath/VMStackWalker.java
+	(firstNonNullClassLoader): Replace with native method.
+
 2006-12-13  Gary Benson  <gbenson@redhat.com>
 
 	* stacktrace.cc (stackwalker_trace_fn,
