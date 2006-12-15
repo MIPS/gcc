@@ -1,6 +1,16 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (override_options): Use jbsr and jra rather
+	than jsr and jmp unless MOTOROLA && !USE_GAS.  Use %c rather than %a
+	for TARGET_PCREL calls.
+	(print_operand): Remove 'o' handling.
+	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Remove comment
+	about 'o'.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config.gcc (m68k-*-linux*, m68k-*-uclinux*): Put m68k.h first again.
 	* config/m68k/m68k.h (TARGET_VERSION, FUNCTION_VALUE, LIBCALL_VALUE)
 	(FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL, FUNCTION_PROFILER)

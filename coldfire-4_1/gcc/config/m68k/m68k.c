@@ -542,8 +542,13 @@ override_options (void)
 
   if (!flag_pic)
     {
+#if MOTOROLA && !defined (USE_GAS)
       m68k_symbolic_call = "jsr %a0";
       m68k_symbolic_jump = "jmp %a0";
+#else
+      m68k_symbolic_call = "jbsr %a0";
+      m68k_symbolic_jump = "jra %a0";
+#endif
     }
   else if (TARGET_ID_SHARED_LIBRARY)
     /* All addresses must be loaded from the GOT.  */
@@ -552,8 +557,8 @@ override_options (void)
     {
       if (TARGET_PCREL)
 	{
-	  m68k_symbolic_call = "bsr.l %a0";
-	  m68k_symbolic_jump = "bra.l %a0";
+	  m68k_symbolic_call = "bsr.l %c0";
+	  m68k_symbolic_jump = "bra.l %c0";
 	}
       else
 	{
@@ -3358,8 +3363,6 @@ floating_exact_log2 (rtx x)
    'b' for byte insn (no effect, on the Sun; this is for the ISI).
    'd' to force memory addressing to be absolute, not relative.
    'f' for float insn (print a CONST_DOUBLE as a float rather than in hex)
-   'o' for operands to go directly to output_operand_address (bypassing
-       print_operand_address--used only for SYMBOL_REFs under TARGET_PCREL)
    'x' for float insn (print a CONST_DOUBLE as a float rather than in hex),
        or print pair of registers as rx:ry.
    'p' print an address with @PLTPC attached, but only if the operand
@@ -3397,14 +3400,6 @@ print_operand (FILE *file, rtx op, int letter)
     asm_fprintf (file, "%R");
   else if (letter == '?')
     asm_fprintf (file, m68k_library_id_string);
-  else if (letter == 'o')
-    {
-      /* This is only for direct addresses with TARGET_PCREL */
-      gcc_assert (GET_CODE (op) == MEM
-		  && GET_CODE (XEXP (op, 0)) == SYMBOL_REF
-		  && TARGET_PCREL);
-      output_addr_const (file, XEXP (op, 0));
-    }
   else if (letter == 'p')
     {
       output_addr_const (file, op);
