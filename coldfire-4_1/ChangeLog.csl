@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68k*-*-*): Remove --with-float support.
+	* config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Likewise.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config.gcc (m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Always
 	set default_m68k_cpu to 68020
 	(m68k-*-linux*): Change default_m68k_cpu from 68040 to 68020.

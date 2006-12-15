@@ -34,15 +34,13 @@ Boston, MA 02110-1301, USA.  */
 # endif
 #endif
 
-/* Handle --with-cpu, --with-float default options from configure script.  */
+/* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
   { "cpu",   "%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
 %{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
 %{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
-%{!mcpu=*:%{!march=*:-%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },		\
-  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:%{!no-m68881:\
--m%(VALUE)-float}}}}" },
-
+%{!mcpu=*:%{!march=*:-%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },
+
 /* Pass flags to gas indicating which type of processor we have.  This
    can be simplified when we can rely on the assembler supporting .cpu
    and .arch directives.  */
