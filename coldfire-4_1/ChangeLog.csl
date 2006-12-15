@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Do not accept any symbolic
+	constants for 'T' if flag_pic.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/linux-unwind.h (m68k_fallback_frame_state): Fix
 	rt_sigreturn sequence for non-Coldfire targets.
 
