@@ -1274,72 +1274,72 @@ output_dbcc_and_branch (rtx *operands)
   switch (GET_CODE (operands[3]))
     {
       case EQ:
-	output_asm_insn (MOTOROLA ?
-			   "dbeq %0,%l1\n\tjbeq %l2" :
-			   "dbeq %0,%l1\n\tjeq %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbeq %0,%l1\n\tjbeq %l2"
+			 : "dbeq %0,%l1\n\tjeq %l2",
 			 operands);
 	break;
 
       case NE:
-	output_asm_insn (MOTOROLA ?
-			   "dbne %0,%l1\n\tjbne %l2" :
-			   "dbne %0,%l1\n\tjne %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbne %0,%l1\n\tjbne %l2"
+			 : "dbne %0,%l1\n\tjne %l2",
 			 operands);
 	break;
 
       case GT:
-	output_asm_insn (MOTOROLA ?
-			   "dbgt %0,%l1\n\tjbgt %l2" :
-			   "dbgt %0,%l1\n\tjgt %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbgt %0,%l1\n\tjbgt %l2"
+			 : "dbgt %0,%l1\n\tjgt %l2",
 			 operands);
 	break;
 
       case GTU:
-	output_asm_insn (MOTOROLA ?
-			   "dbhi %0,%l1\n\tjbhi %l2" :
-			   "dbhi %0,%l1\n\tjhi %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbhi %0,%l1\n\tjbhi %l2"
+			 : "dbhi %0,%l1\n\tjhi %l2",
 			 operands);
 	break;
 
       case LT:
-	output_asm_insn (MOTOROLA ?
-			   "dblt %0,%l1\n\tjblt %l2" :
-			   "dblt %0,%l1\n\tjlt %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dblt %0,%l1\n\tjblt %l2"
+			 : "dblt %0,%l1\n\tjlt %l2",
 			 operands);
 	break;
 
       case LTU:
-	output_asm_insn (MOTOROLA ?
-			   "dbcs %0,%l1\n\tjbcs %l2" :
-			   "dbcs %0,%l1\n\tjcs %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbcs %0,%l1\n\tjbcs %l2"
+			 : "dbcs %0,%l1\n\tjcs %l2",
 			 operands);
 	break;
 
       case GE:
-	output_asm_insn (MOTOROLA ?
-			   "dbge %0,%l1\n\tjbge %l2" :
-			   "dbge %0,%l1\n\tjge %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbge %0,%l1\n\tjbge %l2"
+			 : "dbge %0,%l1\n\tjge %l2",
 			 operands);
 	break;
 
       case GEU:
-	output_asm_insn (MOTOROLA ?
-			   "dbcc %0,%l1\n\tjbcc %l2" :
-			   "dbcc %0,%l1\n\tjcc %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbcc %0,%l1\n\tjbcc %l2"
+			 : "dbcc %0,%l1\n\tjcc %l2",
 			 operands);
 	break;
 
       case LE:
-	output_asm_insn (MOTOROLA ?
-			   "dble %0,%l1\n\tjble %l2" :
-			   "dble %0,%l1\n\tjle %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dble %0,%l1\n\tjble %l2"
+			 : "dble %0,%l1\n\tjle %l2",
 			 operands);
 	break;
 
       case LEU:
-	output_asm_insn (MOTOROLA ?
-			   "dbls %0,%l1\n\tjbls %l2" : 
-			   "dbls %0,%l1\n\tjls %l2",
+	output_asm_insn (MOTOROLA
+			 ? "dbls %0,%l1\n\tjbls %l2"
+			 : "dbls %0,%l1\n\tjls %l2",
 			 operands);
 	break;
 
@@ -1352,9 +1352,9 @@ output_dbcc_and_branch (rtx *operands)
   switch (GET_MODE (operands[0]))
     {
       case SImode:
-        output_asm_insn (MOTOROLA ?
-			   "clr%.w %0\n\tsubq%.l #1,%0\n\tjbpl %l1" :
-			   "clr%.w %0\n\tsubq%.l #1,%0\n\tjpl %l1",
+        output_asm_insn (MOTOROLA
+			 ? "clr%.w %0\n\tsubq%.l #1,%0\n\tjbpl %l1"
+			 : "clr%.w %0\n\tsubq%.l #1,%0\n\tjpl %l1",
 			 operands);
         break;
 
@@ -1402,19 +1402,17 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
   loperands[4] = gen_label_rtx ();
   if (operand2 != const0_rtx)
     {
-      output_asm_insn (MOTOROLA ?
-	  "cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1" :
-          "cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1",
-	loperands);
+      output_asm_insn (MOTOROLA
+		       ? "cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1"
+		       : "cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1",
+		       loperands);
     }
   else
     {
       if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[0]))
 	output_asm_insn ("tst%.l %0", loperands);
       else
-	{
-	  output_asm_insn ("cmp%.w #0,%0", loperands);
-	}
+	output_asm_insn ("cmp%.w #0,%0", loperands);
 
       output_asm_insn (MOTOROLA ? "jbne %l4" : "jne %l4", loperands);
 
@@ -1430,89 +1428,81 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
     {
       case EQ:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("seq %5", loperands);
         break;
 
       case NE:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sne %5", loperands);
         break;
 
       case GT:
         loperands[6] = gen_label_rtx ();
-        output_asm_insn (MOTOROLA ?
-			   "shi %5\n\tjbra %l6" :
-			   "shi %5\n\tjra %l6",
+        output_asm_insn (MOTOROLA ? "shi %5\n\tjbra %l6" : "shi %5\n\tjra %l6",
 			 loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sgt %5", loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[6]));
+					   CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GTU:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("shi %5", loperands);
         break;
 
       case LT:
         loperands[6] = gen_label_rtx ();
-        output_asm_insn (MOTOROLA ?
-			   "scs %5\n\tjbra %l6" :
-			   "scs %5\n\tjra %l6",
+        output_asm_insn (MOTOROLA ? "scs %5\n\tjbra %l6" : "scs %5\n\tjra %l6",
 			 loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("slt %5", loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[6]));
+					   CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LTU:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scs %5", loperands);
         break;
 
       case GE:
         loperands[6] = gen_label_rtx ();
-        output_asm_insn (MOTOROLA ?
-			   "scc %5\n\tjbra %l6" :
-			   "scc %5\n\tjra %l6",
-			   loperands);
+        output_asm_insn (MOTOROLA ? "scc %5\n\tjbra %l6" : "scc %5\n\tjra %l6",
+			 loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sge %5", loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[6]));
+					   CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GEU:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scc %5", loperands);
         break;
 
       case LE:
         loperands[6] = gen_label_rtx ();
-        output_asm_insn (MOTOROLA ?
-			   "sls %5\n\tjbra %l6" :
-			   "sls %5\n\tjra %l6",
+        output_asm_insn (MOTOROLA ? "sls %5\n\tjbra %l6" : "sls %5\n\tjra %l6",
 			 loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sle %5", loperands);
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[6]));
+					   CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LEU:
         (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				    CODE_LABEL_NUMBER (loperands[4]));
+					   CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sls %5", loperands);
         break;
 
@@ -1944,7 +1934,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 
 typedef enum { MOVL, SWAP, NEGW, NOTW, NOTB, MOVQ, MVS, MVZ } CONST_METHOD;
 
-#define USE_MOVQ(i)	((unsigned)((i) + 128) <= 255)
+#define USE_MOVQ(i)	((unsigned) ((i) + 128) <= 255)
 
 /* Return the type of move that should be used for integer I.  */
 
@@ -2049,7 +2039,8 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
        in synth_mult on the 68020, relative to an average of the time
        for add and the time for shift, taking away a little more because
        sometimes move insns are needed.  */
-    /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
+    /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS
+       terms.  */
 #define MULL_COST				\
   (TUNE_68060 ? 2				\
    : TUNE_68040 ? 5				\
@@ -2102,7 +2093,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 	        *total = COSTS_N_INSNS (4) + (INTVAL (XEXP (x, 1)) - 16) / 2;
 	    }
 	  else
-	    *total = COSTS_N_INSNS (10); /* worst case */
+	    *total = COSTS_N_INSNS (10); /* Worst case.  */
 	  return true;
         }
       /* A shift by a big integer takes an extra instruction.  */
@@ -2275,9 +2266,7 @@ output_move_himode (rtx *operands)
       else if (DATA_REG_P (operands[0])
 	       && INTVAL (operands[1]) < 128
 	       && INTVAL (operands[1]) >= -128)
-	{
-	  return "moveq %1,%0";
-	}
+	return "moveq %1,%0";
       else if (INTVAL (operands[1]) < 0x8000
 	       && INTVAL (operands[1]) >= -0x8000)
 	return "move%.w %1,%0";
@@ -2301,7 +2290,7 @@ output_move_himode (rtx *operands)
 		     CODE_LABEL_NUMBER (XEXP (labelref, 0)));
       else
 	(*targetm.asm_out.internal_label) (asm_out_file, "LI",
-		     CODE_LABEL_NUMBER (XEXP (labelref, 0)));
+					   CODE_LABEL_NUMBER (XEXP (labelref, 0)));
     }
   return "move%.w %1,%0";
 }
@@ -2312,7 +2301,7 @@ output_move_qimode (rtx *operands)
   /* 68k family always modifies the stack pointer by at least 2, even for
      byte pushes.  The 5200 (ColdFire) does not do this.  */
   
-  /* This case is generated by pushqi1 pattern now */
+  /* This case is generated by pushqi1 pattern now.  */
   gcc_assert (!(GET_CODE (operands[0]) == MEM
 		&& GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
 		&& XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
@@ -2338,9 +2327,7 @@ output_move_qimode (rtx *operands)
       && DATA_REG_P (operands[0])
       && INTVAL (operands[1]) < 128
       && INTVAL (operands[1]) >= -128)
-    {
-      return "moveq %1,%0";
-    }
+    return "moveq %1,%0";
   if (operands[1] == const0_rtx && ADDRESS_REG_P (operands[0]))
     return "sub%.l %0,%0";
   if (GET_CODE (operands[1]) != CONST_INT && CONSTANT_P (operands[1]))
@@ -2761,7 +2748,7 @@ fp_reg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
    normally.
 
    Note SCRATCH_REG may not be in the proper mode depending on how it
-   will be used.  This routine is resposible for creating a new copy
+   will be used.  This routine is responsible for creating a new copy
    of SCRATCH_REG in the proper mode.  */
 
 int
@@ -3220,9 +3207,7 @@ notice_update_cc (rtx exp, rtx insn)
   if (GET_CODE (exp) == SET)
     {
       if (GET_CODE (SET_SRC (exp)) == CALL)
-	{
-	  CC_STATUS_INIT; 
-	}
+	CC_STATUS_INIT; 
       else if (ADDRESS_REG_P (SET_DEST (exp)))
 	{
 	  if (cc_status.value1 && modified_in_p (cc_status.value1, insn))
@@ -3242,9 +3227,7 @@ notice_update_cc (rtx exp, rtx insn)
 	       && (FP_REG_P (SET_SRC (exp))
 		   || GET_CODE (SET_SRC (exp)) == FIX
 		   || FLOAT_MODE_P (GET_MODE (SET_DEST (exp)))))
-	{
-	  CC_STATUS_INIT; 
-	}
+	CC_STATUS_INIT; 
       /* A pair of move insns doesn't produce a useful overall cc.  */
       else if (!FP_REG_P (SET_DEST (exp))
 	       && !FP_REG_P (SET_SRC (exp))
@@ -3252,30 +3235,29 @@ notice_update_cc (rtx exp, rtx insn)
 	       && (GET_CODE (SET_SRC (exp)) == REG
 		   || GET_CODE (SET_SRC (exp)) == MEM
 		   || GET_CODE (SET_SRC (exp)) == CONST_DOUBLE))
-	{
-	  CC_STATUS_INIT; 
-	}
+	CC_STATUS_INIT; 
       else if (GET_CODE (SET_SRC (exp)) == CALL)
-	{
-	  CC_STATUS_INIT; 
-	}
-      else if (XEXP (exp, 0) != pc_rtx)
+	CC_STATUS_INIT; 
+      else if (SET_DEST (exp) != pc_rtx)
 	{
 	  cc_status.flags = 0;
-	  cc_status.value1 = XEXP (exp, 0);
-	  cc_status.value2 = XEXP (exp, 1);
+	  cc_status.value1 = SET_DEST (exp);
+	  cc_status.value2 = SET_SRC (exp);
 	}
     }
   else if (GET_CODE (exp) == PARALLEL
 	   && GET_CODE (XVECEXP (exp, 0, 0)) == SET)
     {
-      if (ADDRESS_REG_P (XEXP (XVECEXP (exp, 0, 0), 0)))
+      rtx dest = SET_DEST (XVECEXP (exp, 0, 0));
+      rtx src  = SET_SRC  (XVECEXP (exp, 0, 0));
+
+      if (ADDRESS_REG_P (dest))
 	CC_STATUS_INIT;
-      else if (XEXP (XVECEXP (exp, 0, 0), 0) != pc_rtx)
+      else if (dest != pc_rtx)
 	{
 	  cc_status.flags = 0;
-	  cc_status.value1 = XEXP (XVECEXP (exp, 0, 0), 0);
-	  cc_status.value2 = XEXP (XVECEXP (exp, 0, 0), 1);
+	  cc_status.value1 = dest;
+	  cc_status.value2 = src;
 	}
     }
   else
@@ -3367,7 +3349,7 @@ static const char *const strings_68881[7] = {
   "10000.0",
   "1e8",
   "1e16"
-  };
+};
 
 static const int codes_68881[7] = {
   0x0f,
@@ -3377,7 +3359,7 @@ static const int codes_68881[7] = {
   0x35,
   0x36,
   0x37
-  };
+};
 
 REAL_VALUE_TYPE values_68881[7];
 
@@ -3900,9 +3882,7 @@ output_andsi3 (rtx *operands)
           || offsettable_memref_p (operands[0])))
     {
       if (DATA_REG_P (operands[0]))
-        {
-          operands[1] = GEN_INT (logval);
-        }
+	operands[1] = GEN_INT (logval);
       else
         {
 	  operands[0] = adjust_address (operands[0], SImode, 3 - (logval / 8));
@@ -4238,7 +4218,7 @@ m68k_preferred_reload_class (rtx x, enum reg_class rclass)
 /* Return floating point values in a 68881 register.  This makes 68881 code
    a little bit faster.  It also makes -msoft-float code incompatible with
    hard-float code, so people have to be careful not to mix the two.
-   For ColdFire it was decided the ABI incopmatibility is undesirable.
+   For ColdFire it was decided the ABI incompatibility is undesirable.
    If there is need for a hard-float ABI it is probably worth doing it
    properly and also passing function arguments in FP registers.  */
 rtx

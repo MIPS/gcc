@@ -1,6 +1,18 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (output_dbcc_and_branch, USE_MOVQ)
+	(rtx_costs, output_move_const_into_data_reg, output_move_simode_const)
+	(output_move_himode, output_move_qimode, emit_move_sequence)
+	(strings_68881, codes_68881, output_andsi3, m68k_libcall_value):
+	Bring in formatting and typo fixes from mainline.
+	(notice_update_cc): Likewise.  Bring in change to use SET_SRC
+	and SET_DEST from mainline.
+	* config/m68k/m68k.md (prec): Bring in typo fix from mainline.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	Backport from mainline:
 
 	2005-11-23  Kazu Hirata  <kazu@codesourcery.com>
