@@ -2,7 +2,7 @@
 
 # add multilibs for each distinct cpu family and float support variant
 
-# An awk command to extract lines from the m68k-cores.def file that
+# An awk command to extract lines from the m68k-devices.def file that
 # match $1 and then print the string defined by $2.  Leading and
 # trailing whitespace is removed.  $1 & $2 can make use of
 # CPU -- the cpu identifier (has leading 'm'/'mcf')
@@ -11,10 +11,10 @@
 # MLIB_NAME -- the multilib cpu name (no leading m/mcf)
 # This is intended to be used as $(call M68K_AWK,predicate,string)
 M68K_AWK = $(strip $(shell $(AWK) 'BEGIN { FS="[ \t]*[,()][ \t]*"; ORS=" " }; \
-	/^M68K_CORE/ { CPU=$$3; FLAGS=$$8; \
+	/^M68K_DEVICE/ { CPU=$$3; FLAGS=$$8; \
 	CPU_NAME=substr($$2,2,length($$2)-2); \
 	MLIB=substr($$5,2,length($$5)-2); \
-	if ($1) print $2 }' $(srcdir)/config/m68k/m68k-cores.def))
+	if ($1) print $2 }' $(srcdir)/config/m68k/m68k-devices.def))
 
 # Add a multilib for each distinct architecture
 M68K_MLIB_CPUS := $(call M68K_AWK,\

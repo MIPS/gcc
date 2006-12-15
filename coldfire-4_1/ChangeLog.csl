@@ -1,6 +1,36 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k-cores.def: Rename to...
+	* config/m68k/m68k-devices.def: ...this.  Change the macro from
+	M68K_CORE to M68K_DEVICE.  Expand on comments.  Fix 5470 entry.
+	* config/m68k/m68k.h (processor_type): Replace with...
+	(target_device): ...this.
+	(target_cpus): Delete.
+	(m68k_cpu): Change type to "enum target_device".
+	* config/m68k/m68k.c (m68k_cpu): Likewise.
+	(processors): Rename to...
+	(target_device): ...this.  Replace the "core" field with a "device"
+	field.  Add commentary.  Remove const qualifier from the "flags"
+	field.
+	(all_cores): Replace with...
+	(all_devices): ...this and add commentary.
+	(all_architectures): Replace with...
+	(all_isas): ...this.  Add commentary and fix long lines.
+	(all_tunings): Likewise replace with...
+	(all_microarchs): ...this.
+	(m68k_cpu_select): Update the type of the "processors" field.
+	Fix formatting.
+	(m68k_select): Update after above changes.
+	(current_cpu): Change type to "struct target_device *".
+	(override_options): Update after above changes.
+	* config/m68k/t-mlibs: Replace m68k-cores.def references with
+	m68k-devices.def references throughout.
+	* config.gcc: Likewise.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_use_return_insn): Update comments
 	before function.  Extend register save check to include all
 	registers, not just integer ones.

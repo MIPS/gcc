@@ -206,7 +206,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 /* Predicates for use in m68k.md etc.  */
 
 /* Which CPU we are generating code for.  */
-enum processor_type m68k_cpu = unk_proc;
+enum target_device m68k_cpu = unk_device;
 
 /* Nonzero if 68020 instructions are supported.  */
 int m68k_arch_68020 = 0;
@@ -247,7 +247,7 @@ int m68k_cf_hwdiv = 0;
 const char *m68k_symbolic_call;
 const char *m68k_symbolic_jump;
 
-/* Bit values used by m68k-cores.def to identify processor capabilities.  */
+/* Bit values used by m68k-devices.def to identify processor capabilities.  */
 #define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
 #define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
 #define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
@@ -298,77 +298,91 @@ enum m68k_isa
   isa_max
 };
 
-struct processors
+/* Information about one of the -march, -mcpu or -mtune arguments.  */
+struct m68k_target_selection
 {
+  /* The argument being described.  */
   const char *name;
-  enum processor_type core;
+
+  /* For -mcpu, this is the device selected by the option.
+     For -mtune and -march, it is a representative device
+     for the microarchitecture or ISA respectively.  */
+  enum target_device device;
+
+  /* The M68K_DEVICE fields associated with DEVICE.  See the comment
+     in m68k-devices.def for details.  FAMILY is only valid for -mcpu.  */
   const char *family;
   enum uarch_type microarch;
   enum m68k_isa isa;
-  const unsigned long flags;
+  unsigned long flags;
 };
 
-static const struct processors all_cores[] =
+/* A list of all devices in m68k-devices.def.  Used for -mcpu selection.  */
+static const struct m68k_target_selection all_devices[] =
 {
-  /* m68k cores.  */
-#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
-  { NAME, IDENT, FAMILY, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
-#include "m68k-cores.def"
-#undef M68K_CORE
-  { NULL, unk_proc, NULL, unk_arch, isa_max, 0 }
+#define M68K_DEVICE(NAME,ENUM_VALUE,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
+  { NAME, ENUM_VALUE, FAMILY, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
+#include "m68k-devices.def"
+#undef M68K_DEVICE
+  { NULL, unk_device, NULL, unk_arch, isa_max, 0 }
 };
 
-/* Note that arch settings specify the minimum set of flags to enable running
-   on any CPU implementing that architecture. This may be non-optimal in many
-   cases.  */
-
-static const struct processors all_architectures[] =
+/* A list of all ISAs, mapping each one to a representative device.
+   Used for -march selection.  */
+static const struct m68k_target_selection all_isas[] =
 {
-  { "68000",    m68000,   NULL,    u68000,   isa_00,    FL_FOR_isa_00 },
-  { "68010",    m68010,   NULL,    u68000,   isa_00,    FL_FOR_isa_00 },
-  { "68020",    m68020,   NULL,    u68020,   isa_20,    FL_FOR_isa_20 },
-  { "68030",    m68030,   NULL,    u68020,   isa_20,    FL_FOR_isa_20 },
-  { "68040",    m68040,   NULL,    u68040,   isa_40,    FL_FOR_isa_40 },
-  { "68060",    m68060,   NULL,    u68060,   isa_60,    FL_FOR_isa_60 },
-  { "cpu32",    cpu32,    NULL,    ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
-  { "isaa",     mcf5206e, NULL,    ucfv2,    isa_a,     FL_FOR_isa_a | FL_CF_HWDIV },
-  { "isaaplus", mcf5271,  NULL,    ucfv2,    isa_aplus, FL_FOR_isa_aplus
-					       | FL_CF_HWDIV },
-  { "isab",     mcf5407,  NULL,    ucfv4,    isa_b,     FL_FOR_isa_b },
-  { "isac",     unk_proc, NULL,    ucfv4,    isa_c,     FL_FOR_isa_c | FL_CF_FPU
-					       | FL_CF_EMAC },
-  { NULL,       unk_proc, NULL,    unk_arch, isa_max,   0 }
+  { "68000",    m68000,     NULL,  u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68010",    m68010,     NULL,  u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68020",    m68020,     NULL,  u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68030",    m68030,     NULL,  u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68040",    m68040,     NULL,  u68040,   isa_40,    FL_FOR_isa_40 },
+  { "68060",    m68060,     NULL,  u68060,   isa_60,    FL_FOR_isa_60 },
+  { "cpu32",    cpu32,      NULL,  ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
+  { "isaa",     mcf5206e,   NULL,  ucfv2,    isa_a,     (FL_FOR_isa_a
+							 | FL_CF_HWDIV) },
+  { "isaaplus", mcf5271,    NULL,  ucfv2,    isa_aplus, (FL_FOR_isa_aplus
+							 | FL_CF_HWDIV) },
+  { "isab",     mcf5407,    NULL,  ucfv4,    isa_b,     FL_FOR_isa_b },
+  { "isac",     unk_device, NULL,  ucfv4,    isa_c,     (FL_FOR_isa_c
+							 | FL_CF_FPU
+							 | FL_CF_EMAC) },
+  { NULL,       unk_device, NULL,  unk_arch, isa_max,   0 }
 };
 
-static const struct processors all_tunings[] =
+/* A list of all microarchitectures, mapping each one to a representative
+   device.  Used for -mtune selection.  */
+static const struct m68k_target_selection all_microarchs[] =
 {
-  { "68000",    m68000,   NULL,    u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68010",    m68010,   NULL,    u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68020",    m68020,   NULL,    u68020,   isa_20,  FL_FOR_isa_20 },
-  { "68030",    m68030,   NULL,    u68020,   isa_20,  FL_FOR_isa_20 },
-  { "68040",    m68040,   NULL,    u68040,   isa_40,  FL_FOR_isa_40 },
-  { "68060",    m68060,   NULL,    u68060,   isa_60,  FL_FOR_isa_60 },
-  { "cpu32",    cpu32,    NULL,    ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
-  { "cfv2",     mcf5206,  NULL,    ucfv2,    isa_a,   FL_FOR_isa_a },
-  { "cfv3",     mcf5307,  NULL,    ucfv3,    isa_a,   FL_FOR_isa_a | FL_CF_HWDIV },
-  { "cfv4",     mcf5407,  NULL,    ucfv4,    isa_b,   FL_FOR_isa_b },
-  { "cfv4e",    mcf547x,  NULL,    ucfv4e,   isa_b,   FL_FOR_isa_b | FL_CF_USP
-					     | FL_CF_EMAC | FL_CF_FPU },
-  { NULL,       unk_proc, NULL,    unk_arch, isa_max, 0 }
+  { "68000",    m68000,     NULL,  u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,     NULL,  u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68020",    m68020,     NULL,  u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68030",    m68030,     NULL,  u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68040",    m68040,     NULL,  u68040,   isa_40,  FL_FOR_isa_40 },
+  { "68060",    m68060,     NULL,  u68060,   isa_60,  FL_FOR_isa_60 },
+  { "cpu32",    cpu32,      NULL,  ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
+  { "cfv2",     mcf5206,    NULL,  ucfv2,    isa_a,   FL_FOR_isa_a },
+  { "cfv3",     mcf5307,    NULL,  ucfv3,    isa_a,   (FL_FOR_isa_a
+						       | FL_CF_HWDIV) },
+  { "cfv4",     mcf5407,    NULL,  ucfv4,    isa_b,   FL_FOR_isa_b },
+  { "cfv4e",    mcf547x,    NULL,  ucfv4e,   isa_b,   (FL_FOR_isa_b
+						       | FL_CF_USP
+						       | FL_CF_EMAC
+						       | FL_CF_FPU) },
+  { NULL,       unk_device, NULL,  unk_arch, isa_max, 0 }
 };
 
 struct m68k_cpu_select
 {
-  const char *              string;
-  const char *              name;
-  const struct processors * processors;
+  const char *string;
+  const char *name;
+  const struct m68k_target_selection *processors;
 };
 
 static struct m68k_cpu_select m68k_select[] =
 {
-  { NULL, "-mtune=", all_tunings },
-  { NULL, "-march=", all_architectures },
-  { NULL, "-mcpu=",  all_cores }
+  { NULL, "-mtune=", all_microarchs },
+  { NULL, "-march=", all_isas },
+  { NULL, "-mcpu=",  all_devices }
 };
 
 /* Defines representing indices into the above table.  */
@@ -378,7 +392,7 @@ static struct m68k_cpu_select m68k_select[] =
 
 /* The cpu that has been selected.  */
 
-const struct processors *current_cpu;
+const struct m68k_target_selection *current_cpu;
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -490,7 +504,7 @@ void
 override_options (void)
 {
   unsigned int i;
-  enum processor_type target_cpu = unk_proc;
+  enum target_device target_cpu = unk_device;
   enum uarch_type uarch = unk_arch;
   unsigned long flags = 0;
   int tuning = -1;
@@ -512,7 +526,7 @@ override_options (void)
 
       if (ptr->string != NULL && ptr->string[0] != '\0')
         {
-	  const struct processors * sel;
+	  const struct m68k_target_selection *sel;
 	  
 	  for (sel = ptr->processors; sel->name != NULL; sel++)
 	    if (strcmp (ptr->string, sel->name) == 0)
@@ -527,7 +541,7 @@ override_options (void)
 			       "switch", ptr->string);
 		    flags = sel->flags;
 		    uarch = sel->microarch;
-		    target_cpu = sel->core;
+		    target_cpu = sel->device;
 		  }
 		else
 		  tuning = sel - ptr->processors;
@@ -547,7 +561,7 @@ override_options (void)
 
   /* Override tuning. This should never alter the ISA used.  */
   if (tuning != -1)
-    uarch = all_tunings[tuning].microarch;
+    uarch = all_microarchs[tuning].microarch;
 
   /* This should be set by now.  */
   gcc_assert (flags != 0);

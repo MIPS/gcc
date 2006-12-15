@@ -2746,8 +2746,8 @@ case "${target}" in
 		if [ x"$with_cpu" != x ] ; then
 			# We need the core ident, rather than the name.
 			m68k_cpu_ident=`awk 'BEGIN { FS="[ \t]*[,()][ \t]*" };\
-			    /^M68K_CORE\("'$with_cpu'",/ { print $3 }' \
-				 ${srcdir}/config/m68k/m68k-cores.def`
+			    /^M68K_DEVICE \("'$with_cpu'",/ { print $3 }' \
+				 ${srcdir}/config/m68k/m68k-devices.def`
 			if [ x"$m68k_cpu_ident" = x ] ; then
 				echo "Unknown CPU used in --with-cpu=$with_cpu" 1>&2
 				exit 1

@@ -1180,23 +1180,14 @@ enum uarch_type
   unk_arch
 };
 
-enum processor_type
+/* An enumeration of all supported target devices.  */
+enum target_device
 {
-#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
-  IDENT,
-#include "m68k-cores.def"
-#undef M68K_CORE
-  unk_proc
-};
-
-/* Used by config.gcc to identify the compiled-in CPU.  */
-enum target_cpus
-{
-#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
-  TARGET_CPU_##IDENT,
-#include "m68k-cores.def"
-#undef M68K_CORE
-  TARGET_CPU_invalid
+#define M68K_DEVICE(NAME,ENUM_VALUE,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
+  ENUM_VALUE,
+#include "m68k-devices.def"
+#undef M68K_DEVICE
+  unk_device
 };
 
 enum fpu_type
@@ -1221,7 +1212,7 @@ extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;
 
 /* Which CPU we are generating code for.  */
-extern enum processor_type m68k_cpu;
+extern enum target_device m68k_cpu;
 
 /* Nonzero if 68020 instructions are supported.  */
 extern int m68k_arch_68020;
