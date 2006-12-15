@@ -39,10 +39,6 @@ m5407
 Target RejectNegative
 Generate code for a 5407
 
-mcfv4e
-Target RejectNegative
-Generate code for a ColdFire v4e
-
 m68000
 Target RejectNegative
 Generate code for a 68000
@@ -88,9 +84,17 @@ m68851
 Target
 Generate code for a 68851
 
+m68881
+Target RejectNegative Mask(HARD_FLOAT)
+Generate code that uses 68881 floating-point instructions
+
 malign-int
 Target Report Mask(ALIGN_INT)
 Align variables on a 32-bit boundary
+
+march=
+Target RejectNegative Joined
+Specify the name of the target architecture
 
 mbitfield
 Target Report Mask(BITFIELD)
@@ -104,9 +108,25 @@ mc68020
 Target RejectNegative
 Generate code for a 68020
 
+mcfv4e
+Target RejectNegative
+Generate code for a ColdFire v4e
+
+mcpu=
+Target RejectNegative Joined
+Specify the target CPU
+
 mcpu32
 Target RejectNegative
 Generate code for a cpu32
+
+mdiv
+Target Report Mask(CF_HWDIV)
+Use hardware division instructions on ColdFire
+
+mhard-float
+Target RejectNegative Mask(HARD_FLOAT) MaskExists
+Generate code which uses hardware floating point instructions
 
 mid-shared-library
 Target Report Mask(ID_SHARED_LIBRARY)
@@ -144,14 +164,6 @@ mshort
 Target Report Mask(SHORT)
 Consider type 'int' to be 16 bits wide
 
-mhard-float
-Target RejectNegative Mask(HARD_FLOAT)
-Generate code which uses hardware floating point instructions
-
-m68881
-Target RejectNegative Mask(HARD_FLOAT) MaskExists
-Generate code that uses 68881 floating-point instructions
-
 msoft-float
 Target RejectNegative InverseMask(HARD_FLOAT)
 Generate code with library calls for floating point
@@ -160,18 +172,6 @@ mstrict-align
 Target Report Mask(STRICT_ALIGNMENT)
 Do not use unaligned memory references
 
-mcpu=
-Target RejectNegative Joined
-Specify the target CPU
-
-march=
-Target RejectNegative Joined
-Specify the name of the target architecture
-
 mtune=
 Target RejectNegative Joined
 Tune for the specified target CPU or architecture
-
-mdiv
-Target Report Mask(CF_HWDIV)
-Use hardware division instructions on ColdFire

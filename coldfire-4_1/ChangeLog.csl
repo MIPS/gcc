@@ -1,6 +1,11 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.opt: Resort into alphabestical order.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* doc/invoke.texi: Document -mtune=68040-60 and relate it to
 	-m68020-60.
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Add a u68040_60 case.
