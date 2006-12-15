@@ -1,6 +1,20 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	Backport from mainline:
+
+	2005-11-23  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/predicates.md (pcrel_address, extend_operator,
+	post_inc_operand, pre_dec_operand): Remove redundant
+	conditionals.
+	(const_uint32_operand, const_sint32_operand): Use gcc_assert
+	instead of abort.
+	(valid_dbcc_comparison_p): Rewrite in the lisp style.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (LEGITIMATE_PIC_OPERAND_P): Reinstate
 	strictness check for TARGET_PCREL.
 	* config/m68k/m68k.md (movsi): Reinstate mainline condition
