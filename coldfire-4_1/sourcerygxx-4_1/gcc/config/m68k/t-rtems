@@ -1,0 +1,11 @@
+# Custom multilibs for RTEMS
+
+MULTILIB_OPTIONS = mcpu=68000/mcpu=68020/mcpu=5206/mcpu=cpu32/mcpu=68030/mcpu=68040/mcpu=68060 mhard-float/msoft-float
+MULTILIB_DIRNAMES = m68000 m68020 m5206 mcpu32 m68030 m68040 m68060 hardfp softfp
+
+# FIXME: This breaks t-multilib. Easier to add another multilib?
+# MULTILIB_MATCHES += m5200=m528x
+MULTILIB_EXCEPTIONS = mcpu=68000/msoft-float mcpu=5200/mhard-float \
+		      mcpu=5200/msoft-float mcpu=cpu32/mhard-float \
+		      mcpu=cpu32/msoft-float mcpu=68040/mhard-float \
+		      mcpu=68060/mhard-float

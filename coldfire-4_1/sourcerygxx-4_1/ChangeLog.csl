@@ -1,0 +1,4838 @@
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_use_return_insn): Update comments
+	before function.  Extend register save check to include all
+	registers, not just integer ones.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (adddi_dilshr32): Rename to...
+	(*adddi_dilshr32): ...this.  Fix formatting.  Remove commented-out
+	non-canonical pattern.  Restrict to !m68k_arch_coldfire.
+	(*adddi_dilshr32_cf): New pattern.
+	(adddi3, subdi3): Remove first alternatives.
+
+	gcc/testsuite/
+	* gcc.c-torture/compile/20061214-1.c: New test.
+
+2006-12-13  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* Makefile.in: export GCC_EXEC_PREFIX before calling runtest.
+
+2006-12-13  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* doc/invoke.texi: Add new ARM cores and architectures.
+	* config/arm/arm.c: Fix spelling of ARMv7 architecture profiles.
+	* gcc/config/arm/t-arm-elf (MULTILIB_MATCHES): Match new ARMv7
+	spellings.
+	* config.gcc: Add new ARM architectures.
+
+2006-12-13  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (output_move_vfp): Add %? to output templates.
+
+2006-12-12  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (EPILOGUE_USES): Restrict interrupt check
+	to reload_completed.
+
+	gcc/testsuite/
+	* gcc.dg/torture/m68k-interrupt-1.c: New file.
+
+2006-12-11  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline.
+	gcc/
+	2006-11-20  Carlos O'Donell  <carlos@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* cppdefault.c: Define cpp_PREFIX, cpp_PREFIX_len, and 
+	gcc_exec_prefix.
+	(cpp_relocated): New function.
+	* cppdefault.h: Declare cpp_PREFIX, cpp_PREFIX_len, gcc_exec_prefix 
+	and cpp_relocated. 
+	* Makefile.in (PREPROCESSOR_DEFINES): Add -DPREFIX option.
+	* c-incpath.c (add_standard_paths): Call cpp_relocated. If relocated,
+	replace configured prefix with gcc_exec_prefix. 
+
+2006-12-11  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/attr-alias-3.c (main): Generate real assembly on
+	MIPS targets.
+
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* config/arm/elf.h (MAX_OFILE_ALIGNMENT): Remove definition.
+	* config/mips/mips.h (MAX_OFILE_ALIGNMENT): Likewise.
+
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport:
+	2006-11-30  Carlos O'Donell  <carlos@codesourcery.com>
+	* doc/tm.texi (MAX_OFILE_ALIGNMENT): Document default.
+	* config/elfos.h [!MAX_OFILE_ALIGNMENT] (MAX_OFILE_ALIGNMENT):
+	Default is the largest alignment supported for 32-bit ELF and
+	representable on a 32-bit host.
+
+2006-12-06  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc,
+	testsuite/27_io/basic_stringbuf/overflow/char/1.cc,
+	testsuite/27_io/basic_stringbuf/overflow/wchar_t/1.cc: Revert
+	XFAILs.
+
+2006-12-06  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/testsuite/
+	Backport:
+	2006-10-19  Daniel Berlin  <dberlin@dberlin.org>
+	* gcc/testsuite/gcc.c-torture/execute/pr28778.c
+	* gcc/testsuite/gcc.c-torture/execute/pr29156.c
+
+2006-12-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	Richard Guenther's conservative fix for PR28778 attachment 20
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): If
+	pt_anything is set, mark all addressable_vars as call clobbered.
+
+2006-12-06  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* rtlanal.c (struct subreg_info, subreg_get_info, subreg_nregs):
+	New.
+	(subreg_regno_offset, subreg_offset_representable_p): Change to
+	wrappers about subreg_get_info.
+	(refers_to_regno_p, reg_overlap_mentioned_p): Use subreg_nregs.
+	* rtl.h (subreg_nregs): Declare.
+	* tm.texi (HARD_REGNO_NREGS_HAS_PADDING): Update to refer to
+	subreg_get_info.
+	* caller-save.c (mark_set_regs, add_stored_regs): Use
+	subreg_nregs.
+	* flow.c (mark_set_1): Use subreg_nregs.
+	* postreload.c (move2add_note_store): Use subreg_nregs.
+	* reload.c (decompose, refers_to_regno_for_reload_p,
+	reg_overlap_mentioned_for_reload_p): Use subreg_nregs.
+	* resource.c (update_live_status, mark_referenced_resources,
+	mark_set_resources): Use subreg_nregs.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_SOFT_DOUBLE if doubles use software floating-point.
+	* config/rs6000/libgcc-ppc-glibc.ver: Export additional long
+	double functions if _SOFT_DOUBLE, not _SOFT_FLOAT.
+	* config/rs6000/darwin-ldouble.c: Also compile functions for
+	hard-float without FPRs.  Use fmsub function for all __NO_FPRS__
+	cases.  Compile extra functions if _SOFT_DOUBLE, not _SOFT_FLOAT.
+	* config/rs6000/linuxspe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Remove
+	commented-out long double override.
+	(CPP_LONGDOUBLE_DEFAULT_SPEC): Likewise.
+	* config/rs6000/eabispe.h: Likewise.
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't override
+	long double for non-SPE.
+	(rs6000_handle_option): Likewise.
+	(invalid_e500_subreg): Disallow more subregs involding DImode,
+	DFmode, TImode or TFmode.
+	(rs6000_legitimate_offset_address_p): Check TFmode offsets for
+	E500 double.
+	(legitimate_lo_sum_address_p): Also check for TFmode for E500
+	double.
+	(rs6000_legitimize_address): Also handle TFmode for E500 double.
+	(rs6000_legitimize_reload_address): Also handle TFmode for E500
+	double.
+	(rs6000_legitimate_address): Also check for TFmode for E500
+	double.
+	(rs6000_emit_move): Use DFmode subregs of TFmode for E500 double.
+	(spe_build_register_parallel): Handle TFmode and TCmode.
+	(rs6000_spe_function_arg): Handle TFmode and TCmode for E500
+	double.
+	(function_arg): Handle TFmode and TCmode for E500 double.
+	(rs6000_init_libfuncs): Initialize extra libfuncs for soft double
+	in general.
+	(print_operand): Handle TFmode and TImode for %y.
+	(rs6000_generate_compare): Handle TFmode comparisons for E500
+	double.
+	(spe_func_has_64bit_regs_p): Check for TFmode for E500 double.
+	(rs6000_function_value): Handle TFmode and TCmode for E500 double.
+	(rs6000_libcall_value): Handle TFmode and TCmode for E500 double.
+	* config/rs6000/rs6000.h (CANNOT_CHANGE_MODE_CLASS): Check for
+	TFmode for E500 double.
+	* config/rs6000/rs6000.md (FP): Allow TF for E500 double.
+	(floatsidf2): Enable for E500 double.
+	(movtf_softfloat): Use rs6000_nonimmediate_operand.
+	(extenddftf2): Change to extenddftf2_fprs.
+	(extenddftf2): Call gen_spe_extenddftf2 or gen_extenddftf2_fprs
+	depending on TARGET_E500_DOUBLE.
+	(extendsftf2): Enable for E500 double.
+	(trunctfdf2): Enable for E500 double.
+	(trunctfsf2): Change to trunctfsf2_fprs.
+	(trunctfsf2): Call gen_spe_trunctfsf2 or gen_trunctfsf2_fprs
+	depending on TARGET_E500_DOUBLE.
+	(floatsitf2): Enable for E500 double.
+	(fix_trunctfsi2): Change to fix_trunctfsi2_fprs.
+	(fix_trunctfsi2): Call gen_spe_fix_trunctfsi2 or
+	gen_fix_trunctfsi2_fprs depending on TARGET_E500_DOUBLE.
+	(negtf2): Change to negtf2_internal.
+	(negtf2): New expander.
+	(abstf2): Enable for E500 double.  Call gen_spe_abstf2_tst,
+	gen_spe_abstf2_cmp or gen_abstf2_internal depending on
+	TARGET_E500_DOUBLE and flag_unsafe_math_optimizations.
+	(movdi_internal32): Use rs6000_nonimmediate_operand.
+	(unnamed splitter): Likewise.
+	* config/rs6000/spe.md (CMPTFEQ_GPR, TSTTFEQ_GPR, CMPTFGT_GPR,
+	TSTTFGT_GPR, CMPTFLT_GPR, TSTTFLT_GPR): New unspecs.
+	(SPE64TF, DITI): New mode macros.
+	(frob_df_di): Change to frob_<SPE64:mode>_<DITI:mode>; allow more
+	modes.
+	(frob_tf_ti): New.
+	(frob_<mode>_di_2): New.
+	(frob_tf_di_8_2): New.
+	(frob_di_df): Change to frob_di_<mode>; allow more modes.
+	(frob_ti_tf): New.
+	(frob_di_df_2): Change to frob_<DITI:mode>_<SPE64:mode>_2; allow
+	more modes.
+	(frob_ti_<mode>_8_2): New.
+	(frob_ti_tf_2): New.
+	(mov_si<mode>_e500_subreg0, mov_si<mode>_e500_subreg0_2,
+	mov_si<mode>_e500_subreg4, mov_si<mode>_e500_subreg4_2): Allow
+	TFmode.
+	(mov_sitf_e500_subreg8, mov_sitf_e500_subreg8_2,
+	mov_sitf_e500_subreg12, mov_sitf_e500_subreg12_2): New.
+	(spe_trunctfdf2_internal1, spe_trunctfsf2, spe_extenddftf2,
+	spe_fix_trunctfsi2, spe_fix_trunctfsi2_internal,
+	spe_negtf2_internal, spe_abstf2_cmp, spe_abstf2_tst): New.
+	(cmptfeq_gpr, tsttfeq_gpr, cmptfgt_gpr, tsttfgt_gpr, cmptflt_gpr,
+	tsttflt_gp): New.
+
+2006-12-01  Joseph Myers  <joseph@codesourcery.com>
+            David Edelsohn  <edelsohn@gnu.org>
+
+	gcc/
+	* doc/tm.texi (HARD_REGNO_NREGS_HAS_PADDING,
+	HARD_REGNO_NREGS_WITH_PADDING): Document new target macros.
+	* defaults.h (HARD_REGNO_NREGS_HAS_PADDING,
+	HARD_REGNO_NREGS_WITH_PADDING): Define.
+	* config/i386/i386.h (HARD_REGNO_NREGS_HAS_PADDING,
+	HARD_REGNO_NREGS_WITH_PADDING): Define.
+	* rtlanal.c (subreg_regno_offset, subreg_offset_representable_p):
+	Use new macros to detect modes with holes; do not look at integer
+	units.
+	(subreg_offset_representable_p): Check for and disallow cases
+	where the modes use different numbers of bits from registers.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs): Use
+	UNITS_PER_FP_WORD for e500 GPRs containing doubles.
+	(rs6000_split_multireg_move): Use DFmode reg_mode for TFmode moves
+	in E500 double case.
+
+2006-11-30  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/vect/vect.exp: Skip PowerPC targets not supporting
+	-maltivec.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-03-02  Nick Clifton  <nickc@redhat.com>
+	* config.gcc (default_use_cxa_atexit): Extend the description of
+	this configure variable.  Set its default value to "yes" for
+	Linux, NetBSD and ELF targets on the assumption that they will
+	use C libraries with the __cxa_atexit function.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/predicates.md (gpc_reg_operand): Check
+	invalid_e500_subreg.
+	* config/rs6000/rs6000.c (invalid_e500_subreg): Don't allow any
+	SImode subregs of SPE vectors.
+	* config/rs6000/rs6000.md (insv): Fail for invalid E500 subregs.
+	* jump.c (true_regnum): Require subregs to satisfy
+	subreg_offset_representable_p.
+
+2006-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): If
+	STRICT_ALIGNMENT and the type is more aligned than the saved
+	registers, copy via a temporary.
+
+2006-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/pack-test-1.c: Use __alignof__ to determine natural
+	alignments.
+
+2006-11-25  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* function.c (instantiate_virtual_regs_in_insn): Call force_reg
+	inside start_sequence / end_sequence pair.
+
+2006-11-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/t-mlibs (MULTILIB_MATCHES): Use != not ==.
+
+2006-11-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* config/arm/unwind-arm.c: Adjust __cxa_type_match declaration.
+	(__gnu_unwind_pr_common): Pass is_reference to __cxa_type_match.
+
+2006-11-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline:
+	gcc/
+	2006-04-11  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcse.c (try_replace_reg): Revert last change.  Continue to search
+	for both REG_EQUAL and REG_EQUIV notes, but only perform replacements
+	on the former.
+
+	gcc/
+	2006-04-09  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcse.c (try_replace_reg): Just propagate into REG_EQUAL notes,
+	not REG_EQUIVs.
+
+	gcc/testsuite/
+	2006-04-09  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcc.c-torture/execute/pr27073.c: New test.
+
+2006-11-24  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/eabispe.h (TARGET_DEFAULT): Include
+	MASK_STRICT_ALIGN.
+	* config/rs6000/linuxspe.h (TARGET_DEFAULT): Likewise.
+	* config/rs6000/rs6000.c (rs6000_override_options): Use
+	MASK_STRICT_ALIGN for 8540 and 8548.  Add MASK_STRICT_ALIGN to
+	POWERPC_MASKS.
+
+2006-11-24  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* g++.dg/eh/simd-2.C: Use -O -w in general for PowerPC.
+
+2006-11-22  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/pr16194.c: Make harmless for targets without
+	hard register names given in the testcase.
+
+2006-11-22  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/spe.md (SPE64): New mode macro.
+	(mov_sidf_e500_subreg0): Change to mov_si<mode>_e500_subreg0.  Add
+	memory load.
+	(mov_si<mode>_e500_subreg0_2): New.
+	(mov_sidf_e500_subreg4): Change to mov_si<mode>_e500_subreg4.  Add
+	memory load.
+	(mov_si<mode>_e500_subreg4_2): New.
+	* config/rs6000/predicates.md (input_operand): Do not allow
+	invalid E500 subregs.
+	(rs6000_nonimmediate_operand): Check for invalid E500 subregs also
+	if TARGET_SPE.
+	* config/rs6000/rs6000.c (invalid_e500_subreg): Check for subregs
+	involving DFmode if TARGET_E500_DOUBLE.  Check for subregs
+	involving vector modes if TARGET_SPE.
+
+2006-11-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/pr16194.c: Add m68k clause.
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Fix spacing typo in
+	jump instruction.
+
+2006-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/spe.md (movv4hi_internal): Add alternative for
+	easy vector constant loads.
+
+2006-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/rs6000.h (TARGET_NO_LWSYNC): Define.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__NO_LWSYNC__ if TARGET_NO_LWSYNC.
+	* config/rs6000/sync.md (lwsync): Emit plain sync if
+	TARGET_NO_LWSYNC.
+
+	libstdc++-v3/
+	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_WRITE_MEM_BARRIER):
+	Use plain sync if __NO_LWSYNC__.
+
+2006-11-17  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline:
+	2006-05-11  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.target/powerpc/pr27158.c: Use powerpc_altivec_ok.
+
+2006-11-17  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/pr16194.c: Remove dg-error directive.
+
+2006-11-17  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/compat/struct-layout-1.h (u16sf): Define to u4sf on
+	uClinux targets.
+	* g++.dg/compat/struct-layout-1.h (u16sf): Likewise.
+	(v16sf) Likewise v4sf.
+
+2006-11-17  Kazu Hirata  <kazu@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* resource.c: Include tree.h.
+	* Makefile.in (resource.o): Update dependencies accordingly.
+	* config/m68k/m68k-protos.h (m68k_interrupt_function_p): Declare.
+	(m68k_movem_pattern_p, m68k_output_movem): Likewise.
+	(m68k_expand_prologue, m68k_expand_epilogue): Likewise.
+	* config/m68k/m68k.h (EPILOGUE_USES): Define.  Treat all registers
+	as being live on exit from an interrupt function.
+	(EH_RETURN_STACKADJ_RTX): Use A0_REG.
+	* config/m68k/m68k.c (MIN_MOVEM_REGS, MIN_FMOVEM_REGS): New macros.
+	(m68k_frame): Remove reg_rev_mask and fpu_rev_mask.
+	(TARGET_ASM_FUNCTION_PROLOGUE, TARGET_ASM_FUNCTION_EPILOGUE): Delete.
+	(m68k_interrupt_function_p): Globalize.
+	(m68k_compute_frame_layout): Remove reverse mask code.
+	(m68k_save_reg): Fix formatting.
+	(m68k_emit_movem, m68k_set_frame_related): New functions.
+	(m68k_output_function_prologue): Delete in favor of...
+	(m68k_expand_prologue): ...this new function.
+	(m68k_output_function_epilogue): Delete in favor of...
+	(m68k_expand_epilogue): ...this new function.
+	(m68k_split_offset, m68k_valid_movem_base_p): New functions.
+	(m68k_movem_pattern_p, m68k_output_movem): Likewise.
+	* config/m68k/m68k.md (prologue, epilogue): New patterns.
+	(return): Turn into a define_expand.
+	(*return): New pattern, derived from old "return" pattern.  Use rte
+	rather than rts for interrupt functions.  Only use rtd if the pop
+	count is nonzero.
+	(*m68k_store_multiple, *m68k_store_multiple_automod): New patterns.
+	(*m68k_load_multiple, *m68k_load_multiple_automod): Likewise.
+	(link, unlink): Turn into a define_expands.  Use gen_frane_mem
+	to create the memory reference.
+	(*link, *unlink): New, derived from the old "link" and "unlink"
+	patterns.  Fix tabbing.  Fix constraints and match_operand
+	placement for unlink.
+
+2006-11-16  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/rs6000/spe.md (frob_di_df_2): Handle non-offsettable
+	memory operand.
+
+2006-11-16  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* tree-outof-ssa.c (check_replaceable): Deem assignments
+	with register variables on their RHS to not be replaceable.
+
+	gcc/testsuite/
+	* gcc.target/arm/register-variables.c: New test.
+
+2006-11-15  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	Backport from mainline.
+	* config/arm/unwind-arm.c (_Unwind_GetDataRelBase,
+	_Unwind_GetTextRelBase): Move from here ...
+	* config/arm/pr-support.c (_Unwind_GetDataRelBase,
+	_Unwind_GetTextRelBase): ... To here.
+
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/tree-ssa/stdarg-2.c, gcc.dg/tree-ssa/stdarg-4.c:
+	Condition PowerPC tests for saving FPRs on powerpc_fprs.
+	* gcc.target/powerpc/compress-float-ppc.c,
+	gcc.target/powerpc/compress-float-ppc-pic.c: Only test if
+	powerpc_fprs.
+	* gcc.target/powerpc/rs6000-power2-2.c: Only test if powerpc_fprs;
+	do not pass -mhard-float.
+
+	libstdc++-v3/
+	* testsuite/26_numerics/complex/13450.cc: Do not test long double
+	in IBM long double case.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* libsupc++/eh_globals.cc (__cxxabiv1::__cxa_get_globals):
+	Initialize propagatingExceptions if __ARM_EABI_UNWINDER__.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* libsupc++/eh_personality.cc (empty_exception_spec): Define
+	separately in __ARM_EABI_UNWINDER__ case.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/bpapi.h (TARGET_BPABI_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE but not
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/arm/symbian.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE.
+	* config/m68k/uclinux.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE.
+
+	libstdc++-v3/
+	* libsupc++/typeinfo (__GXX_TYPEINFO_EQUALITY_INLINE): Define.
+	Use instead of __GXX_MERGED_TYPEINFO_NAMES to condition inline
+	definitions.
+	* libsupc++/tinfo.cc (operator==): Condition on
+	__GXX_TYPEINFO_EQUALITY_INLINE; check __GXX_MERGED_TYPEINFO_NAMES
+	to determine algorithm.
+	* libsupc++/tinfo2.cc (type_info::before): Likewise.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline:
+	2006-03-04  Andrew Pinski  <pinskia@physics.uc.edu>
+	* gcc.target/powerpc/pr18096-1.c: Change where the error
+	would match.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Merge from GCC 4.1 branch:
+	2006-06-15  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.dg/vmx/pr27842.c: Remove dg-do directive; use default.
+	* gcc.dg/vmx/pr27006.c: Ditto.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Loosen pattern for
+	ld version output.
+	* configure: Regenerate.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Merge from GCC 4.1 branch:
+
+	2006-06-01  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Consume all
+	fp regs if the last fp arg doesn't fit in regs.
+
+	2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+	* config/rs6000/altivec.md (UNSPEC_VSLW): Remove.
+	("altivec_vspltisw_v4sf", "altivec_vslw_v4sf"): Remove.
+	("mulv4sf3", "absv4sf3", "negv4sf3"): Adapt users to use
+	V4SImode temporaries and operations instead.
+
+	2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+	* gcc.dg/vmx/pr27842.c: New test.
+
+	2006-06-14  Roger Sayle  <roger@eyesopen.com>
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): New function to
+	extract a CONST_VECTOR element and interpret it as an integer.
+	(vspltis_constant): Use const_vector_elt_as_int instead of the
+	macro CONST_VECTOR_ELT in order to handle FP vector modes.
+	* config/rs6000/predicates.md (easy_vector_const): Consider
+	floating point ALTIVEC_VECTOR_MODEs via easy_altivec_constant.
+
+	2006-07-03  Pete Steinmetz  <steinmtz@us.ibm.com>
+	Backport from mainline
+	* doc/invoke.texi: Add cpu_type power6.
+	* config.gcc: Add cpu_type power6.
+	* config/rs6000/rs6000.c (rs6000_override_options): Alias power6
+	to power5+ with Altivec.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add power6.
+
+	2006-07-04  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (function_arg_boundary): Double-word align
+	128-bit IBM long doubles for ABI_V4.
+
+	2006-07-26  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	2006-07-14  Eliot Dresselhaus  <eliot@sonic.net>
+	* config/rs6000/spe.md (frob_di_df_2): Add m->r alternative.
+	2006-07-06  David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/rs6000.c (rs6000_legitimate_address): Do not allow
+	PRE_{INC,DEC} of TFmode.
+	2006-07-06  David Edelsohn  <edelsohn@gnu.org>
+		    Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (insvdi_rshift_rlwimi_p): Correct shiftop
+	bounds. Simplify.
+
+	2006-08-03  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Do
+	not reload a SPE symbol_ref into a lo_sum address.
+
+	2006-08-18  Joseph Myers  <joseph@codesourcery.com>
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): For SPE, only adjust
+	alignment of SPE vector types.
+
+	2006-08-25  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (print_operand): Only use e500 %y syntax
+	for 8 byte objects.
+
+	2006-10-05  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	2006-09-11  Guenter Roeck  <guenter@roeck-us.net>
+		    David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/spe.md (frob_df_di): Remove %H.
+	(frob_di_df): Remove %H.  Change evmergelo to mr.
+	(frob_di_df_2): Remove %H.  Change evldd to two loads.
+
+2006-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	Apply from glibc Bugzilla:
+	2006-10-12  David Edelsohn  <dje@watson.ibm.com>
+	            Steve Munroe  <sjmunroe@us.ibm.com>
+	* config/rs6000/darwin-ldouble.c: Build file for SOFT_FLOAT.
+	(strong_alias): Define.
+	(__gcc_qmul): Provide non-FMA for soft-float.
+	(__gcc_qdiv): Same.
+	(__gcc_qneg): New.
+	(__gcc_qeq): New.
+	(__gcc_qle): New.
+	(__gcc_qge): New.
+	(__gcc_qunord): New.
+	(__gcc_stoq): New.
+	(__gcc_dtoq): New.
+	(__gcc_qtos): New.
+	(__gcc_qtod): New.
+	(__gcc_qtoi): New.
+	(__gcc_qtou): New.
+	(__gcc_itoq): New.
+	(__gcc_utoq): New.
+	(fmsub): New.
+	* config/rs6000/rs6000.c (rs6000_emit_move): Handle TFmode
+	constant for soft-float.
+	(rs6000_init_libfuncs): Initialize soft-float functions.
+	* config/rs6000/libgcc-ppc-glibc.ver: Version soft-float symbols.
+	* config/rs6000/rs6000.md (movtf): Allow soft-float.
+	(movtf_softfloat): New.
+	* config/rs6000/t-ppccomm (TARGET_LIBGCC2_CFLAGS): Add
+	-mlong-double-128.
+	(ldblspecs): Remove.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Do not warn
+	about long double soft float.
+
+2006-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	Apply gcc41-ldbl-default-libstdc++.patch:
+	2006-02-07  Jakub Jelinek  <jakub@redhat.com>
+	            Benjamin Kosnik  <bkoz@redhat.com>
+	* configure.ac (_GLIBCXX_LONG_DOUBLE_COMPAT): New check.
+	If true, set also port_specific_symbol_files and create
+	as_symver_specs.
+	(GLIBCXX_LDBL_COMPAT): New GLIBCXX_CONDITIONAL.
+	* configure: Rebuilt.
+	* config.h.in: Rebuilt.
+	* config/os/gnu-linux/ldbl-extra.ver: New file.
+	* config/linker-map.gnu: Make sure no __float128 symbols are
+	exported.
+	* include/bits/c++config (_GLIBCXX_LONG_DOUBLE_COMPAT,
+	_GLIBCXX_LDBL_NAMESPACE, _GLIBCXX_BEGIN_LDBL_NAMESPACE,
+	_GLIBCXX_END_LDBL_NAMESPACE): Define.
+	* include/bits/localefwd.h: Use them to conditionally scope facets.
+	* include/bits/locale_facets.h: Surround std::{money,num}_{get,put}
+	with _GLIBCXX_BEGIN_LDBL_NAMESPACE and _GLIBCXX_END_LDBL_NAMESPACE.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::money_get): Add __do_get method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::money_put): Add __do_put method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::num_get): Add __do_get method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::num_put): Add __do_put method.
+	* include/bits/locale_facets.tcc: Surround std::{money,num}_{get,put}
+	with _GLIBCXX_BEGIN_LDBL_NAMESPACE and _GLIBCXX_END_LDBL_NAMESPACE.
+	(std::money_get::__do_get, std::money_put::__do_put,
+	std::num_get::__do_get, std::num_put::__do_put): New
+	specializations.
+	* include/Makefile.am: Conditionally define
+	_GLIBCXX_LONG_DOUBLE_COMPAT in c++config.
+	* include/Makefile.in: Regenerate.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT] (_GLIBCXX_LOC_ID,
+	_GLIBCXX_SYNC_ID): Define, use them.
+	* src/compatibility-ldbl.cc: New file.
+	* src/complex_io.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Add compatibility
+	symbols.
+	* src/limits.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.	
+	* src/locale-misc-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/istream-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/ostream-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/wlocale-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/compatibility.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* config/locale/generic/c_locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]:
+	Likewise.
+	* config/locale/gnu/c_locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]:
+	Likewise.
+	* src/Makefile.am (libstdc++-symbol.ver): Append instead of
+	insert in the middle if port specific symbol file requests it.
+	(ldbl_compat_sources): New variable.
+	(sources): Use it.
+	(compatibility-ldbl.lo, compatibility-ldbl.o): New rules.
+	* src/Makefile.in: Rebuilt.
+	* testsuite/testsuite_abi.cc: Recognize GLIBCXX_LDBL_3.4,
+	GLIBCXX_LDBL_3.4.7, CXXABI_LDBL_1.3.
+
+2006-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	Apply gcc41-ldbl-default.patch:
+	2006-02-10  Jakub Jelinek  <jakub@redhat.com>
+	* doc/install.texi (Options specification): Document
+	--with-long-double-128.
+
+	2006-02-05  Jakub Jelinek  <jakub@redhat.com>
+	* config.gcc (sparc-*-linux*): Add sparc/t-linux to tmake_file.
+	(sparc64-*-linux*): Likewise.
+	* config/sparc/t-linux64 (SHLIB_MAPFILES): Removed.
+	* config/sparc/t-linux: New file.
+	* config/sparc/libgcc-sparc-glibc.ver (__fixtfdi, __fixunstfdi,
+	__floatditf): Export at GCC_LDBL_3.0 if -m32 -mlong-double-128.
+	(__divtc3, __multc3, __powitf2): Export at GCC_LDBL_4.0.0 if
+	-m32 -mlong-double-128.
+
+	* config.gcc (alpha*-*-linux*): Add alpha/t-linux to tmake_file.
+	* config/alpha/t-linux: New file.
+	* config/alpha/libgcc-alpha-ldbl.ver: New file.
+
+	2006-02-04  Jakub Jelinek  <jakub@redhat.com>
+	* config/sparc/linux.h (TARGET_OS_CPP_BUILTINS): Define
+	__LONG_DOUBLE_128__ if TARGET_LONG_DOUBLE_128.
+	(CPP_SUBTARGET_SPEC): Don't add -D__LONG_DOUBLE_128__ here.
+	* config/sparc/linux64.h (TARGET_OS_CPP_BUILTINS): Define
+	__LONG_DOUBLE_128__ if TARGET_LONG_DOUBLE_128 and TARGET_ARCH32.
+	(CPP_ARCH32_SPEC): Remove.
+
+	2006-02-03  Aldy Hernandez  <aldyh@redhat.com>
+	* config/s390/s390.c (override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	* config/alpha/alpha.c (override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	* config/sparc/sparc.c (sparc_override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	2006-02-04  Jakub Jelinek  <jakub@redhat.com>
+	* config/rs6000/linux.h [TARGET_DEFAULT_LONG_DOUBLE_128]
+	(RS6000_DEFAULT_LONG_DOUBLE_SIZE): Define to 128.
+	* config/rs6000/linux64.h [TARGET_DEFAULT_LONG_DOUBLE_128]
+	(RS6000_DEFAULT_LONG_DOUBLE_SIZE): Define to 128.
+
+	* configure.ac: Add --with{out}-long-double-128 configure option.
+	(TARGET_DEFAULT_LONG_DOUBLE_128): New test.
+	* configure: Rebuilt.
+	* config.in: Rebuilt.
+
+2006-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/soft-fp/op-4.c, config/soft-fp/op-common.h: Apply changes
+	from ppc-ld-nofpu-20060920.txt from glibc bug 2749:
+	2006-09-20  Steven Munroe  <sjmunroe@us.ibm.com>
+	            Joe Kerian  <jkerian@us.us.ibm.com>
+	* soft-fp/op-common.h (_FP_OVERFLOW_SEMIRAW): Always set inexact
+	and overflow for infinity.
+	(_FP_PACK_SEMIRAW): Update comment.  Do not round if NaN.
+	* soft-fp/op-4.h (__FP_FRAC_SUB_3, __FP_FRAC_SUB_4): Correct
+	borrow handling for high words.
+
+2006-11-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68kelf.h (STATIC_CHAIN_REGNUM): Define.
+	(M68K_STATIC_CHAIN_REG_NAME): New.
+	* config/m68k/m68k.h (M68K_STATIC_CHAIN_REG_NAME): New.
+	(INITIALIZE_TRAMPOLINE): Use STATIC_CHAIN_REGNUM.
+	(__transfer_from_trampoline): Use M68K_STATIC_CHAIN_REG_NAME.
+	* config/m68k/m68k.c (m68k_init_pic): New, broken out of ...
+	(m68k_output_function_prologue): ... here.  Use it.
+	(m68k_output_mi_thunk): Initialize scratch PIC register if
+	needed.  Use STATIC_CHAIN_REGNUM & M68K_STATIC_CHAIN_REG_NAME.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/nestfunc-7.c: New.
+
+	gcc/
+	* config/m68k/coff.h (REGISTER_PREFIX_MD): Remove.
+	* config/m68k/m68kelf.h (REGISTER_PREFIX_MD): Remove.
+
+2006-11-07  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.h (enum reg_class): Add VFP_D0_D7_REGS.
+	(REG_CLASS_NAMES): Add entry corresponding to VFP_D0_D7_REGS.
+	(REG_CLASS_CONTENTS): Likewise.
+	(IS_VFP_CLASS): Add VFP_D0_D7_REGS case.
+	(REG_CLASS_FROM_LETTER): Add 'x' case.
+	(D7_VFP_REGNUM): New.
+	* config/arm/arm.c (arm_regno_class): Adjust for VFP_D0_D7_REGS.
+	* config/arm/neon.md (scalar_mul_constraint): New.
+	Use scalar_mul_constraint for operands corresponding to
+	scalars for scalar multiply operations (vmul_lane, vmull_lane,
+	vqdmull_lane, vqdmulh_lane, vmla_lane, vmlal_lane,
+	vqdmlal_lane, vmls_lane, vmlsl_lane and vqdmlsl_lane).
+
+2006-11-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/dg-pch.exp (dg-pch): Don't expect .s files if there are
+	dg-errors expected.
+
+	gcc/testsuite/
+	* lib/gcc-dg.exp (cleanup-saved-temps): Add optional list of
+	suffixes not to delete.
+	* gcc.dg/pch/save-temps-1.c: Don't delete ".s" temp.
+	* g++.dg/pch/pch.C: Likewise.
+
+2006-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc,
+	testsuite/27_io/basic_stringbuf/overflow/char/1.cc,
+	testsuite/27_io/basic_stringbuf/overflow/wchar_t/1.cc: XFAIL on
+	arm-wrs-linux-gnueabi.
+
+2006-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/wrs-linux.h (CC1_SPEC): Disallow option combinations
+	with no multilib built.
+
+2006-11-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/t-mlibs: Use $(error) for error.
+	(LIBGCC, INSTALL_LIBGCC): Define.
+	* config/m68k/t-m68kbare (LIBGCC, INSTALL_LIBGCC): Remove.
+	* config/m68k/t-uclinux (LIBGCC, INSTALL_LIBGCC): Remove.
+
+2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k): Add t-floatlib to tmake_file.  Prepend the
+	t-$m68k_arch_family fragment.
+	* config/m68k/fpgnulib.c: Only build extended float when not
+	coldfire.
+	* config/m68k/t-m68kbare: Remove float routine definitions.
+	* config/m68k/t-linux: Likewise.
+	* config/m68k/t-uclinux: Likewise.
+	* config/m68k/t-floatlib: New.
+
+2006-11-02  Vladimir Prus  <vladimir@codesourcery.com>
+
+	Backport from mainline:
+	2006-11-01  Chris Johns <chris@contemporary.net.au>
+	
+	PR bootstrap/28400
+	* Makefile.in (install-driver): Use exeext when installing
+	$target-gcc-$version.
+
+2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68020-*-elf*, m68k-*-elf*): Add m68k/t-m68kbare to
+	tmake_file.
+	* config/m68k/t-m68kelf: Remove pieces common to t-m68kbare.
+	* config/t-slibgcc-elf-ver: Remove. It is unused.
+
+	gcc/
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*,
+	m68k-*-elf*, m68010-*-netbsdelf*, m68k*-*-netbsdelf*,
+	m68k*-*-openbsd*, m68k-*-linux*, m68k-*-rtems*, m68k-*-uclinux*):
+	Remove t-mlib-matches from tmake_file.  Add default_m68k_cpu &
+	default_cf_cpu.
+	(m68k-*-*): Process with_arch to select arch family. Set default
+	cpu depending on with_arch.  Remove uclinux & linux coldfire cpu
+	overrides. Append architecture family & t-mlibs make file
+	fragments to tmake_file.
+	* config/m68k/linux.h (TARGET_CPU_DEFAULT, ASM_CPU_DEFAULT_SPEC):
+	Remove.
+	* config/m68k/m68k-none.h: Likewise.
+	* config/m68k/t-m68k: New.
+	* config/m68k/t-cf: New.
+	* config/m68k/m68k-cores.def: Add FL_MMU to MMU systems.
+	* config/m68k/t-mlib-matches: Remove.
+	* config/m68k/t-mlibs: New.
+	* config/m68k/t-m68kelf: Remove MULTILIB settings here.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Add soft float
+	* config/m68k/t-m68kbare: Remove MULTILIB settings here.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Add soft float
+	* config/m68k/t-uclinux: Remove MULTILIB settings here.
+	(M68K_MLIB_CPU): Require no MMU.
+	(M68K_MLIB_OPTIONS, M68K_MLIB_DIRNAMES): Add
+	msep-data/mid-shared-library.
+	(sysroot-suffix.h): New target, moved from t-mlib-matches.
+	* config/m68k/t-linux: Remove MULTILIB settings here.
+	(M68K_MLIB_CPU): Require MMU.
+	* config/m68k/m68k.c (FL_MMU): Define.
+	(override_options): Always default to m68020.
+	* config/m68k/m68k.h (ASM_CPU_DEFAULT_SPEC): Remove.
+	(ASM_CPU_SPEC): Remove asm_cpu_default setting.
+	(EXTRA_SPECS): Likewise.
+
+2006-11-01  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.h (FUNCTION_ARG_ADVANCE): Only adjust
+	iwmmxt_nregs if TARGET_IWMMXT_ABI.
+	* config/arm/iwmmxt.md (movv8qi_internal, movv4hi_internal,
+	movv2si_internal): Support moves between core registers.
+
+2006-11-01  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_save_coproc_regs): Reverse order of saving
+	iWMMXt registers.
+
+2006-10-31  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (WCHAR_TYPE_SIZE): Define to BITS_PER_WORD
+	rather than 32, and explain why.
+
+2006-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	Backport from mainline:
+
+	gcc/
+	2006-10-26  Nathan Froyd  <froydnj@codesourcery.com>
+		    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* ggc-common.c (ggc_min_heapsize_heuristic): Be more conservative
+	when choosing the minimum heapsize.
+
+	gcc/
+	2006-10-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (gen_compile_unit_die): Use IS_ABSOLUTE_PATH.
+	(dwarf2out_finish): Likewise.
+	(output_file_names): Use DIR_SEPARATOR and DIR_SEPARATOR_2.
+	
+2006-10-30  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/t-strongarm-pe: (TARGET_LIBGCC2_CFLAGS): Do no set
+	inhibit_libc.
+	* config/arm/t-strongarm-elf: Likewise.
+	* config/arm/t-pe: Likewise.
+	* config/arm/t-arm-elf: Likewise.
+	* config/arm/t-xscale-elf: Likewise.
+	* config/arm/t-arm-coff: Likewise.
+	* config/arm/t-xscale-coff: Likewise.
+	* config/arm/t-wince-pe: Likewise.
+
+2006-10-30  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/neon-testgen.ml (emit_prologue): Emit
+	"dg-do assemble" not "dg-do compile".  Emit "-save-temps".
+	(emit_epilogue): Emit cleanup-saved-temps call. Delete
+	unused code.
+
+	gcc/testsuite/
+	* lib/gcc-dg.exp (cleanup-saved-temps): Delete .s files.
+	* gcc.target/arm/neon/*.c: Regenerate.
+
+2006-10-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*,
+	m68k-*-elf*, m68010-*-netbsdelf*, m68k*-*-netbsdelf*,
+	m68k*-*-openbsd*, m68k-*-rtems*): Use tm_file rather than
+	m68k/m68k.h and explicitly set MOTOROLA to 1.
+	m68k-*-uclinux*, m68k-*-linux*): Place m68k/m68k.h last, define
+	MOTOROLA to 1, remove obsolete comments.
+	* config/m68k/linux.h (TARGET_VERSION): Don't undef here.
+	(ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.  Remove unneeded %{Wa,*:%*} spec.
+	(REGISTER_PREFIX, LOCAL_LABEL_PREFIX, USER_LABEL_PREFIX,
+	SIZE_TYPE, CPP_SPEC, ASM_OUTPUT_ALIGN, FUNCTION_PROFILER,
+	FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL, FUNCTION_VALUE,
+	LIBCALL_VALUE): Remove undefs prior to setting them.
+	(WCHAR_TYPE, WCHAR_TYPE_SIZE, SIZE_TYPE, PTR_DIFFTYPE,
+	DBX_REGISTER_NUMBER): Remove definitions, the defaults are ok.
+	(TARGET_ASM_FILE_START_APP_OFF): Explicitly define to false
+	* config/m68k/m68k-none.h: Remove obsolete MULTILIB_DEFAULTS comment.
+	(ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.
+	* config/m68k/openbsd.h (ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.
+	* config/m68k/m68k.h (MOTOROLA): Expect to be defined to a value,
+	if defined.
+	(ASM_CPU_SPEC, SUBTARGET_ASM_SPEC): New.
+	(ASM_SPEC): Define.
+	(EXTRA_SPECS): Add asm_cpu_spec, subtarget_asm_spec.
+	(CPP_SUBTARGET_SPEC): Remove.
+	(WCHAR_TYPE_SIZE): Set to BITS_PER_WORD.
+	(STACK_GROWS_DOWNWARD): Set to 1.
+	(SUBTARGET_EXTRA_SPECS): Remove.
+	(TARGET_VERSION, FUNCTION_VALUE,
+	LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL,
+	FUNCTION_PROFILER, M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P,
+	REGISTER_PREFIX, LOCAL_LABEL_PREFIX,
+	TARGET_ASM_FILE_START_APP_OFF, ASM_GENERATE_INTERNAL_LABEL,
+	ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP): Add protective #ifndefs
+	* config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Unconditionally define.
+
+	gcc/
+	* config/m68k/m68k.h (REGISTER_MOVE_COST): Simplify.
+	(RETURN_POPS_ARGS): Reformat to avoid long line.
+
+2006-10-30  Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config/arm/neon.ml (poly_unsigned_variant): New function.
+	(elts_same_io_bits_suffix): Now unused, remove.
+	(table, table_2, table_io): New type munging functions for table
+	look-up operations.
+	(ops): Use table_2 and table_io for Vtbl, Vtbx instead of bits_2 and
+	elts_same_io_bits_suffix.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	* testsuite/gcc.target/arm/neon/*.c: Regenerate.
+
+2006-10-29  Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_init_neon_builtins): Fix function types for
+	floating-point bit-select builtin operations.
+	* config/arm/neon.md (V_cmp_result): Add DI, V2DI modes.
+	(neon_vbsl<mode>): Turn into expander, and rename previous version
+	to...
+	(neon_vbsl<mode>_internal): New name for above insn pattern. Fix
+	order of arguments, and make mode of operand 1 integer for float
+	variants.
+	* config/arm/neon.ml (bit_select): Add type munging function for bit
+	selection ops.
+	(Vneg): Fix operand shape for vqnegq.
+	(Vbsl): Use bit_select not notype_3 for type munging function.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	* testsuite/gcc.target/arm/neon/*.c: Regenerate.
+
+2006-10-29  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_print_operand): Handle new 't' case.
+	(neon_itype): Add NEON_LANEMUL{L,H} and NEON_SCALARMULH cases.
+	(neon_builtin_data): Add vmull_lane, vqdmull_n, vqdmull_lane,
+	vqdmulh_n and vqdmulh_lane entries.
+	(arm_init_neon_builtins): Add two TYPE5 entries.
+	Handle NEON_LANEMULL, NEON_LANEMULLH and NEON_SCALARMULH cases.
+	(arm_expand_neon_builtin): Handle NEON_LANEMULL, NEON_LANEMULLH
+	and NEON_SCALARMULH cases.
+	* config/arm/neon.md: Add UNSPEC_VMULL_LANE, UNSPEC_VQDMULL_LANE
+	and UNSPEC_VQDMULH_LANE unspec identifiers.  Use %t not %T when
+	dealing with vget_lane cases on polynomial vectors.  Add
+	expanders and instruction definitions for neon_vqdmull_lane,
+	neon_vqdmulh_lane, neon_vqdmull_n and neon_vqdmulh_n.
+	* config/arm/neon.ml (opcode): Add Vmull_lane, Vqdmull_n,
+	Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane constructors.
+	(features): Add Const_valuator constructor.
+	(get_lane): New function.
+	(ops): Use Const_valuator in cases where the test generator must
+	use constants other than the default.  Add entries for
+	Vmull_lane, Vqdmull_n, Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane.
+	* config/arm/neon-testgen.ml (emit_call): Add const_valuator
+	argument and use it.  Emit 1 as the default constant rather than 0.
+	(analyze_shape): Relax regexps for Element_of_dreg and
+	Element_of_qreg.
+	(test_intrinsic): Extract any Const_valuator functions from
+	feature lists; pass to emit_call.
+	* config/arm/neon-docgen.ml (intrinsic_groups): Add entries for
+	Vmull_lane, Vqdmull_n, Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+
+	gcc/testsuite/
+	* gcc.target/arm/neon/*.c: Regenerate.
+
+2006-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/config/default.exp (${tool}_target_compile): Use
+	v3_target_compile.
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_function_available): Declare
+	function before calling.
+
+2006-10-27  Joseph Myers  <joseph@codesourcery.com>
+            Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (get_compiler_messages): Append options
+	as a single list element.
+	(check_profiling_available): Return 0 for uClibc with -p or -pg.
+	(check_effective_target_arm_vfp_ok): New.
+	* lib/c-torture.exp: Load target-supports.exp.
+	* gcc.c-torture/execute/20030125-1.x: Disable test for uClibc.
+	* gcc.dg/arm-vfp1.c, gcc.target/arm/vfp-ldmdbd.c,
+	gcc.target/arm/vfp-ldmdbs.c, gcc.target/arm/vfp-ldmiad.c,
+	gcc.target/arm/vfp-ldmias.c, gcc.target/arm/vfp-stmdbd.c,
+	gcc.target/arm/vfp-stmdbs.c, gcc.target/arm/vfp-stmiad.c,
+	gcc.target/arm/vfp-stmias.c: Use arm_vfp_ok.
+
+2006-10-27  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (neon_itype): Add NEON_SCALARMULL.
+	(neon_builtin_data): Add data for vmull_n.
+	(arm_init_neon_builtins): Add case for NEON_SCALARMULL.
+	(arm_expand_neon_builtin): Likewise.  Use gcc_unreachable instead
+	of returning NULL.
+	* config/arm/neon.md (UNSPEC_VMULL_LANE): New.
+	(define_insn "neon_vmull_lane<mode>"): New.
+	(define_expand "neon_vmull_n<mode>"): New.
+	* config/arm/neon.ml (opcode): Add Vmull_n.
+	(ops): Add data for Vmull_n.
+	* config/arm/neon-testgen.ml: Add extra line break.
+	* config/arm/arm_neon.h: Regenerate.
+	* config/arm/neon-docgen.ml (intrinsic_groups): Add entry for
+	Vmull.n.
+	(analyze_shape): Correct typo.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	
+	gcc/testsuite/
+	* gcc.target/arm/neon/vmull_nu16.c: New.
+	* gcc.target/arm/neon/vmull_nu32.c: New.
+	* gcc.target/arm/neon/vmull_ns16.c: New.
+	* gcc.target/arm/neon/vmull_ns32.c: New.
+
+2006-10-26  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/neon.md (reduc_splus_<mode>): New pattern, renamed from
+	reduc_uplus.
+	(reduc_uplus_<mode>): Use reduc_splus.
+	(reduc_splus_v2di): New pattern.
+
+2006-10-26  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/neon.md (smin<mode>3, smax<mode>3): Include SF vectors.
+
+2006-10-24  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* final.c (asm_insn_count): Return zero for an empty asm body.
+
+2006-10-23  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* stor-layout.c (start_record_layout): maximum_field_alignment
+	overrides STRUCTURE_SIZE_BOUNDARY.
+
+	gcc/testsuite/
+	* gcc.dg/pragma-pack-4.c: New test.
+
+2006-10-23  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/neon-testgen.ml (emit_prologue): Don't emit
+	iWMMXt dg-skip-ifs.  Emit checks for arm_neon_ok effective
+	target.
+
+	gcc/testsuite/
+	* gcc.target/arm/neon/*.c: Regenerate.
+
+2006-10-23  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* c-common.c (vector_types_convertible_p): Check
+	TYPE_VECTOR_SUBPARTS when assessing convertibility.
+	
+	gcc/testsuite/
+	* g++.dg/conversion/simd1.C: Adjust dg-error directives.
+	* g++.dg/ext/attribute-test-2.C: Add "vs" member to union and
+	use it.
+
+2006-10-21  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_legitimate_index_p): Add NEON vector
+	addressing modes.
+
+2006-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+	    Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (link, unlink): New.
+
+2006-10-20  Joseph Myers  <joseph@codesourcery.com>
+
+	fixincludes/
+	* inclhack.def (AAB_fd_zero_asm_posix_types_h): Bypass on x86_64.
+	* fixincl.x: Regenerate.
+
+2006-10-20  Mark Mitchell  <mark@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+            Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config.gcc (arm-wrs-linux-gnueabi, i586-wrs-linux-gnu,
+	mips-wrs-linux-gnu, powerpc-wrs-linux-gnu): New configurations.
+	* config/arm/t-wrs-linux, config/arm/wrs-linux.h,
+	config/mips/t-wrs-linux, config/mips/wrs-linux.h,
+	config/rs6000/t-wrs-linux, config/rs6000/wrs-linux.h: New files.
+	* config/rs6000/rs6000.h (OPTION_DEFAULT_SPECS): Allow for
+	-te500v2.
+	* config/rs6000/sysv4.h (CC1_EXTRA_SPEC): Define and use.
+
+	libcpp/
+	* configure.ac (i[34567]86-wrs-linux*): Set need_64bit_hwint=yes.
+	* configure: Regenerate.
+
+2006-10-20  Richard Sandiford  <richard@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* gcc.c (license_me_flag): New variable.
+	(feature_proxy_flag): New variable.
+	(no_license): New variable.
+	(process_command): Handle -flicense-me, -ffeature-proxy and
+	-fno-feature-proxy.  Initialize no_license.
+	(main): Check licenses.
+
+2006-10-19  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (all_architectures): Add iWMMXt2 entry.
+	* config/arm/arm-cores.def: New ARM_CORE entry for iWMMXt2.
+	* config/arm/arm-tune.md: Regenerate.
+
+2006-10-19  Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (DATA_REGNO_P, ADDRESS_REGNO_P,
+	INT_REGNO_P, FP_REGNO_P): New.
+	(REGNO_MODE_OK_FOR_INDEX_P): Use INT_REGNO_P.
+	(REGNO_OK_FOR_BASE_P): Use ADDRESS_REGNO_P.
+	(REGNO_OK_FOR_DATA_P): Use DATA_REGNO_P.
+	(REGNO_OK_FOR_FP_P): Use FP_REGNO_P.
+
+2006-10-17  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_init_neon_builtins): Remove superfluous
+	semicolons.  Move declarations before code.
+
+2007-10-17  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/neon.h (neon_vld3qa<mode>, neon_vld3qb<mode>,
+	neon_vst3qa<mode>, neon_vst3qb>mode>, neon_vld4qa<mode>,
+	neon_vld4qb<mode>, neon_vst4qa<mode>, neon_vst4qb<mode>): Add missing
+	mode.
+
+2006-10-17  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/vec-common.md (VALLW, VINTW): New mode macros.
+	(mul<mode>3, smin<mode>3, umin<mode>3, smax<mode>2, umax<mode3>):
+	Use them.
+	* config/arm/neon.md (VDQ, VDQI): Add V2DI.
+	(QDQW, VDQIW): New mode macros.
+	(V_suf64): Only suffix DImode.
+	(vec_setv2di, vec_extractv2di): New insns.
+	(ior<mode>3_64): Rename to iordi3_neon.
+	(and<mode>3_64): Rename to anddi3_neon.
+	(orn<mode>3_64): Rename to orndi3_neon.
+	(bic<mode>3_64): Rename to bicdi3_neon.
+	(xor<mode>3_64): Rename to xordi3_neon.
+	(abs<mode2>, neg<mode>2, umin<mode>3, umax<mode>3, smin<mode>3,
+	smax<mode>3, ashl<mode>3, ashr<mode>3, lshr<mode>3, neon_vhadd<mode>,
+	neon_vmul<mode>, neon_vmla<mode>, neon_vmls<mode>, neon_vqsub<mode>,
+	neon_vhsub<mode>, neon_vceq<mode>, neon_vcgt<mode>, neon_vtst<mode>,
+	neon_vabd<mode>, neon_vaba<mode>, neon_vmax<mode>, neon_vmin<mode>,
+	neon_vpadd<mode>, neon_vpaddl<mode>, neon_vabs<mode>,
+	neon_vqabs<mode>, neon_vqneg<mode>, neon_vcls<mode>, neon_vclz<mode>,
+	neon_vmvn<mode>, neon_vdup_n<mode>, neon_vtrn<mode>_internal,
+	neon_vtrn<mode>, neon_vzip<mode>_internal, neon_vzip<mode>,
+	neon_vuzp<mode>_internal, neon_vuzp<mode>): Use VDQW and VDQIW.
+	
+2006-10-11  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-11-23  Ben Elliston  <bje@au.ibm.com>
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_decimal_float.
+
+	2006-03-01  Jakub Jelinek  <jakub@redhat.com>
+	* dwarf2.h (DW_TAG_condition, DW_TAG_shared_type): New constants
+	from DWARF 3.
+	(DW_AT_description, DW_AT_binary_scale, DW_AT_decimal_scale,
+	DW_AT_small, DW_AT_decimal_sign, DW_AT_digit_count,
+	DW_AT_picture_string, DW_AT_mutable, DW_AT_threads_scaled,
+	DW_AT_explicit, DW_AT_object_pointer, DW_AT_endianity,
+	DW_AT_elemental, DW_AT_pure, DW_AT_recursive): New.
+	(DW_OP_form_tls_address, DW_OP_call_frame_cfa, DW_OP_bit_piece): New.
+	(DW_ATE_packed_decimal, DW_ATE_numeric_string, DW_ATE_edited,
+	DW_ATE_signed_fixed, DW_ATE_unsigned_fixed): New.
+	(DW_DS_unsigned, DW_DS_leading_overpunch, DW_DS_trailing_overpunch,
+	DW_DS_leading_separate, DW_DS_trailing_separate): New.
+	(DW_END_default, DW_END_big, DW_END_little): New.
+	(DW_END_lo_user, DW_END_hi_user): Define.
+	(DW_LNE_lo_user, DW_LNE_hi_user): Define.
+	(DW_CFA_val_offset, DW_CFA_val_offset_sf, DW_CFA_val_expression): New.
+	(DW_LANG_PLI, DW_LANG_ObjC, DW_LANG_ObjC_plus_plus, DW_LANG_UPC,
+	DW_LANG_D): New.
+
+	2006-03-04  Jakub Jelinek  <jakub@redhat.com>
+	* unwind-dw2.h (_Unwind_FrameState): Add REG_SAVED_VAL_OFFSET
+	and REG_SAVED_VAL_EXP constants.
+	* unwind-dw2.c (struct _Unwind_Context): Add by_value array.
+	(_Unwind_GetGR, _Unwind_SetGR, _Unwind_GetGRPtr, _Unwind_SetGRPtr):
+	Handle regs stored by value.
+	(_Unwind_SetGRValue, _Unwind_GRByValue): New functions.
+	(execute_cfa_program): Handle DW_CFA_val_offset,
+	DW_CFA_val_offset_sf and DW_CFA_val_expression.
+	(uw_update_context_1): Handle REG_SAVED_REG with regs stored by
+	value specially.  Handle REG_SAVED_VAL_OFFSET and REG_SAVED_VAL_EXP.
+	(uw_install_context_1): Handle target regs stored by value.
+
+	2006-03-04  Jakub Jelinek  <jakub@redhat.com>
+	* gcc.target/i386/cleanup-1.c: New test.
+	* gcc.target/i386/cleanup-2.c: New test.
+
+2006-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.c (clzusi): New function.
+	(si_to_float, usi_to_float): Use it to compute proper shift.
+	(usi_to_float): Preserve guard bits when shifting right.
+	* libgcc2.c (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): New functions.
+	* libgcc2.h (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): Declare.
+	* mklibgcc.in (lib2funcs): Add _floatundidf, _floatundisf,
+	_floatundixf, and _floatunditf.
+	* optabs.c (expand_float): If target does not define a pattern for
+	signed or unsigned conversion, use an unsigned libcall instead of
+	a signed one.
+	(init_optabs): Initialize ufloat_optab.
+
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.c-torture/execute/floatunsisf-1.c: New test.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Use _q_utoq for
+	unsigned conversions from SImode to TFmode.
+
+	2005-11-25  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/ppc64-fp.c (__floatunditf): New function.
+	(__floatundidf, __floatundisf): Likewise.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/sparc/sparc.c (sparc_init_libfuncs): Use _Q_utoq and
+	_Q_ulltoq for unsigned conversions from SImode and DImode to
+	TFmode.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-float.c,
+	gcc.dg/torture/fp-int-convert-double.c,
+	gcc.dg/torture/fp-int-convert-long-double.c,
+	gcc.dg/torture/fp-int-convert-timode.c,
+	gcc.dg/torture/fp-int-convert-float80.c,
+	gcc.dg/torture/fp-int-convert-float80-timode.c,
+	gcc.dg/torture/fp-int-convert-float128.c,
+	gcc.dg/torture/fp-int-convert-float128-timode.c,
+	gcc.dg/torture/fp-int-convert.h: New files.
+
+	2005-11-27  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/floatunsisf.c, config/floatunsidf.c,
+	config/floatunsixf.c, config/floatunsitf.c: New files.
+	* config/ia64/t-hpux: Add floatunsitf.c.
+	* config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvxuf_dbl_to_quad for unsigned DImode-to-TFmode conversion.
+
+	2005-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.h (LSHIFT): Take shift count parameter.
+	* config/fp-bit.c (_fpadd_parts): Shift in one go instead of one
+	bit at a time.
+
+	2005-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.c (isnan, isinf, pack_d, unpack_d): Use
+	__builtin_expect.
+
+	2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-timode.c: XFAIL only on lp64
+	targets.
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: XFAIL also for
+	LP64 ia64.
+
+	2005-12-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+	* pa/pa.c (pa_hpux_init_libfuncs): Add _U_Qfcnvxf_usgl_to_quad and
+	_U_Qfcnvxf_udbl_to_quad to set of initialized libfuncs.
+	* pa/quadlib.c (_U_Qfcnvxf_usgl_to_quad, _U_Qfcnvxf_udbl_to_quad): New
+	functions.
+
+	2005-12-05  Joseph S. Myers  <joseph@codesourcery.com>
+	* doc/libgcc.texi (__floatunsisf, __floatunsidf, __floatunsitf,
+	__floatunsixf, __floatundisf, __floatundidf, __floatunditf,
+	__floatundixf, __floatuntisf, __floatuntidf, __floatuntitf,
+	__floatuntixf, __powisf2, __powidf2, __powixf2, __mulsc3,
+	__muldc3, __multc3, __mulxc3, __divsc3, __divdc3, __divtc3,
+	__divxc3): Document.
+
+	2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+	* libgcc2.h (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Define.
+	* libgcc2.c (__floatdixf, __floatundixf, __floatditf,
+	__floatunditf): Use #error if type sizes don't match requirements
+	of implementation.
+	(__floatdisf, __floatdidf): Unify.  Possibly use XFmode or TFmode
+	as wider floating-point type.  Use #error if type sizes don't
+	match requirements of implementation.  Avoid overflow in computing
+	Wtype_MAXp1_F * Wtype_MAXp1_F.  When special casing conversion,
+	shift one more bit.  Cast 1 to DWtype or UDWtype for shifting.
+	(__floatundisf, __floatundidf): Likewise.
+	* config/ia64/hpux.h (XF_SIZE, TF_SIZE): Define.
+	* config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvfxt_quad_to_quad and _U_Qfcnvxf_quad_to_quad for
+	TFmode-TImode conversions.
+	* doc/tm.texi (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Document.
+
+	2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-timode.c: Only XFAIL for LP64 IA64
+	HP-UX.
+
+	2005-12-21  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Add _floatundidf and
+	_floatundisf.
+
+	2005-12-28  Alan Modra  <amodra@bigpond.net.au>
+	* gcc.dg/torture/fp-int-convert-timode.c: Don't test IBM
+	Extended Double long doubles or repeat tests when long double is
+	the same size as double.
+
+	2006-01-05  Richard Earnshaw  <rearnsha@arm.com>
+	* arm/t-netbsd (LIB2FUNCS_EXTRA): Define.
+
+	2006-01-20  Alan Modra  <amodra@bigpond.net.au>
+	* libgcc2.c (__floatdisf, __floatdidf): Don't use IBM Extended
+	Double TFmode.
+	(__floatundisf, __floatundidf): Likewise.
+	* libgcc2.h (IS_IBM_EXTENDED): Define.
+
+	2006-04-18  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/soft-fp: New directory.  From glibc.
+	* config/soft-fp/t-softfp: New.
+	* config/soft-fp/README: New.
+	* mklibgcc.in: Handle LIB2FUNCS_EXCLUDE.
+	* Makefile.in (LIB2FUNCS_EXCLUDE, SFP_MACHINE): New.
+	(libgcc.mk): Pass LIB2FUNCS_EXCLUDE.
+	(LIBGCC_DEPS): Add $(SFP_MACHINE).
+	* config.gcc: Use rs6000/t-fprules-fpbit or
+	rs6000/t-fprules-softfp and soft-fp/t-softfp together with
+	rs6000/t-fprules.
+	* config/rs6000/sfp-machine.h: New.  Based on glibc.
+	* config/rs6000/t-fprules-fpbit, config/rs6000/t-fprules-softfp:
+	New.
+	* config/rs6000/t-fprules: Remove fp-bit rules.
+	* config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Use +=.
+	* config/rs6000/t-linux64: Likewise.  Remove duplicates from
+	LIB2FUNCS_EXTRA.  Remove fp-bit rules.
+	(softfp_wrap_start, softfp_wrap_end): New.
+
+2006-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-10-09  Steve Ellcey  <sje@cup.hp.com>
+	* unwind-c.c (PERSONALITY_FUNCTION): Ifdef use of _Unwind_GetIPInfo.
+	* configure.ac (HAVE_GETIPINFO): Check for _Unwind_GetIPInfo.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2006-10-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* g++.old-deja/g++.jason/thunk2.C: Remove dg-bogus for m68k.
+	* g++.old-deja/g++.pt/static11.C: Replace xfail by target requirement.
+	* lib/target-supports.exp (check_effective_target_unwrapped): New.
+
+	libstdc++-v3/testsuite/
+	* 23_containers/set/modifiers/16728.cc (iterations): Reduce to 2000.
+
+2006-10-07  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* libgcc-std.ver (GCC_4.2.0): New version.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* unwind-dw2.c (struct _Unwind_Context): Add signal_frame field.
+	(extract_cie_info): Handle S flag in augmentation string.
+	(execute_cfa_program): If context->signal_frame, execute also
+	fs->pc == context->ra instructions.
+	(uw_frame_state_for): If context->signal_frame, don't subtract one
+	from context->ra to find FDE.
+	(uw_update_context_1): Set context->signal_frame to
+	fs->signal_frame.
+	(_Unwind_GetIPInfo): New function.
+	* unwind-dw2.h (_Unwind_FrameState): Add signal_frame field.
+	* unwind-c.c (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* unwind-sjlj.c (_Unwind_GetIPInfo): New function.
+	* unwind-generic.h (_Unwind_GetIPInfo): New prototype.
+	* unwind-compat.c (_Unwind_GetIPInfo): New function.
+	* libgcc-std.ver (_Unwind_GetIPInfo): Export @@GCC_4.2.0.
+	* config/ia64/unwind-ia64.c (_Unwind_GetIPInfo): New function.
+	* config/arm/unwind-arm.h (_Unwind_GetIPInfo): Define.
+	* config/i386/linux-unwind.h (x86_fallback_frame_state,
+	x86_64_fallback_frame_state): Set fs->signal_frame.
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Likewise.
+	(MD_FROB_UPDATE_CONTEXT): Define unconditionally.
+	(frob_update_context): Likewise.  Workaround missing S flag in
+	Linux 2.6.12 - 2.6.16 kernel vDSOs.
+	* config/s390/linux-unwind.h (s390_fallback_frame_state): Likewise.
+	Remove the psw_addr + 1 hack.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Use
+	_Unwind_GetIPInfo instead of _Unwind_GetIP.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* exception.cc (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* include/i386-signal.h (MAKE_THROW_FRAME): Change into empty macro.
+	(HANDLE_DIVIDE_OVERFLOW): Don't adjust _res->eip if falling through
+	to throw.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	* include/powerpc-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+
+	2006-03-03  Jakub Jelinek  <jakub@redhat.com>
+	* config/arm/unwind-arm.h (_Unwind_GetIPInfo): Fix pasto.
+
+	2006-07-21  Steve Ellcey  <sje@cup.hp.com>
+	* unwind_ipinfo.m4: New.
+
+	2006-07-21  Steve Ellcey  <sje@cup.hp.com>
+	* configure.ac: Use GCC_CHECK_UNWIND_GETIPINFO to
+	define HAVE_GETIPINFO.
+	* aclocal.m4: Add include of ../config/unwind_ipinfo.m4.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* libsupc++/eh_personality.cc: Check HAVE_GETIPINFO.
+
+	2006-09-26  Jack Howarth  <howarth@bromo.med.uc.edu>
+	* exception.cc (PERSONALITY_FUNCTION): use _Unwind_GetIP
+	if HAVE_GETIPINFO not defined.
+	* configure.ac: use GCC_CHECK_UNWIND_GETIPINFO.
+	* aclocal.m4, configure, include/config.h.in, Makefile.in:
+	Rebuilt.
+
+	2006-10-03  Geoffrey Keating  <geoffk@apple.com>
+	* config/i386/darwin-libgcc.10.5.ver: Update to symbol list for
+	current Leopard versions.
+	* config/rs6000/darwin-libgcc.10.5.ver: Likewise.
+
+2006-10-05  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Avoid caching
+	across change of target.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	gcc/
+	2006-09-20  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (CODE_FOR_mips_abs_ps): Delete.
+	* config/mips/mips.md (UNSPEC_ABS_PS): New constant.
+	(UNSPEC_RSQRT1, UNSPEC_RSQRT2, UNSPEC_RECIP1, UNSPEC_RECIP2)
+	(UNSPEC_SINGLE_CC, UNSPEC_SCC): Bump values by 1.
+	(*nmadd<mode>, *nmadd<mode>_fastmath): Require !HONOR_NANS.
+	(*nmsub<mode>, *nmsub<mode>_fastmath): Likewise.
+	(abs<mode>2, neg<mode>2): Likewise.
+	* config/mips/mips-ps-3d.md (mips_abs_ps): New define_expand.
+	(*mips_abs_ps): New define_insn.
+
+	gcc/testsuite/
+	2006-09-20  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.target/mips/mips-ps-type.c: Add -ffinite-math-only.
+	* gcc.target/mips/nmadd-2.c: Likewise.
+	* gcc.target/mips/mips-ps-6.c: New test.
+	* gcc.target/mips/neg-abs-1.c: Likewise.
+	* gcc.target/mips/neg-abs-2.c: Likewise.
+	* gcc.target/mips/nmadd-3.c: New test.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.c (mips_offset_within_object_p): Delete
+	declaration.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.c (mips_expand_builtin_compare): Use gen_single_cc
+	as the condition for __builtin_mips_upper_* or __builtin_mips_lower_*.
+	* config/mips/mips.md (UNSPEC_SINGLE_CC): New constant.
+	* config/mips/mips-ps-3d.md (single_cc): New expander.
+	(*branch_upper_lower, *branch_upper_lower_inverted): New patterns.
+
+2006-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Handle i?86-*-* the
+	same as x86_64-*-*; check for LP64.
+
+2006-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-07-24  Uros Bizjak  <uros@kss-loka.si>
+	* gcc.dg/visibility-11.c: Enlarge test array to 1024 bytes to
+	avoid memcpy optimization.
+
+2006-10-04  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config.gcc: Handle tuning for bi-arch i[34567]86-*-linux* like
+	that for i[34567]86-*-solaris2.1[0-9]*.
+
+	Backport:
+	2006-01-19  Jan Hubicka  <jh@suse.cz>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+	    Evandro Menezes <evandro.menezes@amd.com>
+	* invoke.texi (generic): Document
+	(i686) Update.
+	* config.gcc: Make x86_64-* and i686-* default to generic tunning.
+	* i386.h (TARGET_GENERIC32, TARGET_GENERIC64, TARGET_GENERIC,
+	TARGET_USE_INCDEC, TARGET_PAD_RETURNS): New macros.
+	(x86_use_incdec, x86_pad_returns): New variables
+	(TARGET_CPU_DEFAULT_generic): New constant
+	(TARGET_CPU_DEFAULT_NAMES): Add generic.
+	(enum processor_type): Add generic32 and generic64.
+	* i386.md (cpu attribute): Add generic32/generic64
+	(movhi splitter): Behave sanely when both partial_reg_dependency and
+	partial_reg_stall are set.
+	(K8 splitters): Enable for generic as well.
+	* predicates.md (incdec_operand): Use TARGET_INCDEC
+	(aligned_operand): Avoid memory mismatch stalls.
+	* athlon.md: Enable for generic64, new patterns for 128bit moves.
+	* ppro.md: Enable for generic32
+	* i386.c (generic64_cost, generic32_cost): New.
+	(m_GENERIC32, m_GENERIC64, m_GENERIC): New macros.
+	(x86_use_leave): Enable for generic64.  (x86_use_sahf,
+	x86_ext_80387_constants): Enable for generic32.  (x86_push_memory,
+	x86_movx, x86_unroll_strlen, x86_deep_branch, x86_use_simode_fiop,
+	x86_use_cltd, x86_promote_QImode, x86_sub_esp_4, x86_sub_esp_8,
+	x86_add_esp_4, x86_add_esp_8, x86_integer_DFmode_moves,
+	x86_partial_reg_dependency, x86_memory_mismatch_stall,
+	x86_accumulate_outgoing_args, x86_prologue_using_move,
+	x86_epilogue_using_move, x86_arch_always_fancy_math_387,
+	x86_sse_partial_reg_dependency, x86_four_jump_limit, x86_schedule):
+	Enable for generic.
+	(x86_use_incdec, x86_pad_returns): New.
+	(override_options): Add generic32 and generic64, translate "generic"
+	to generic32/generic64 and "i686" to "generic32", refuse
+	"generic32"/"generic64" as arch target.
+	(ix86_issue_rate, ix86_adjust_cost): Handle generic as athlon.
+	(ix86_reorg): Honor PAD_RETURNS.
+
+	2006-01-19  Jan Hubicka  <jh@suse.cz>
+	* i386.h (TARGET_DECOMPOSE_LEA): Kill.
+	* i386.c (x86_decompose_lea): Kill.
+	(ix86_rtx_costs): Kill.
+
+	2006-01-19  Jan Hubicka  <jh@suse.cz>
+	* i386.c (*_cost): Add COSTS_N_INSNS.
+	(ix86_rtx_costs): Do not use COSTS_N_INSNS.
+
+	2006-01-19  Jan Hubicka  <jh@suse.cz>
+	* gcc.target/i386/lea.c: Test pentiumpro, not i686.
+
+	2006-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+	* config.gcc: Check with_cpu for i[34567]86-*-solaris2.1[0-9]*.
+
+2006-10-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/t-mlib-matches (MULTILIB_MATCHES): Correct AWK
+	script for updated m68k-cores.def file.
+	* config/m68k/t-m68kelf (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_EXCEPTIONS): Adjust for updated m68k-cores.def file.
+	* config/m68k/t-uclinux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Likewise.
+
+2006-10-03  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-09-08  Eric Christopher  <echristo@apple.com>
+	* gcc.target/i386/asm-1.c: Run test on ilp32 only.
+	* gcc.target/i386/compress-float-387.c: Ditto.
+	* gcc.target/i386/compress-float-sse.c: Ditto.
+	* gcc.target/i386/compress-float-sse-pic.c: Ditto.
+	* gcc.target/i386/compress-float-387-pic.c: Ditto.
+
+2006-10-03  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config.gcc (i[34567]86-*-linux*): Handle --enable-targets=all.
+	(with_cpu): Don't set to pentiumpro in bi-arch case.
+	* config/i386/linux64.h (TARGET_VERSION, MULTILIB_DEFAULTS):
+	Define conditionally depending on TARGET_64BIT_DEFAULT.
+	(SPEC_32, SPEC_64): Define.
+	(LINK_SPEC): Use them.
+	* doc/install.texi (--enable-targets=all): Document for x86-linux.
+
+	libcpp/
+	* configure.ac (need_64bit_hwint): Set for i[34567]86-*-linux*
+	depending on --enable-targets=all.
+	* configure: Regenerate.
+
+2006-10-02  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/lib/libstdc++.exp (check_v3_target_fileio): Correct
+	test program and name of output variable.
+
+2006-09-29  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* doc/extend.texi (ARM NEON Intrinsics): Note that only intrinsics
+	not the underlying built-in functions are supported.  Document
+	types used.
+
+2006-09-29  Julian Brown  <julian@codesourcery.com>
+
+	* Merge from CSL arm-neon-4_1 branch, revision 150297.
+
+2006-09-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_rtx_costs_1): Handle multiply-accumulate.
+
+2006-09-27  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2006-09-20  Danny Smith  <dannysmith@users.sourceforge.net>
+	gcc/cp/
+	PR target/27650
+	* class.c (check_for_override): Remove dllimport from virtual
+	methods.
+
+	gcc/testsuite/
+	* g++.dg/ext/dllimport12.C: New file.
+
+	2006-07-20  Jason Merrill  <jason@redhat.com>
+	gcc/
+	* tree.c (remove_attribute): New fn.
+
+2006-09-27  Paul Brook  <paul@codesourcery.com>
+
+	PR target/29230
+	gcc/
+	* config/arm/arm.md (arith_adjacentmem): Handle large offsets.
+
+2006-09-26  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/thumb2.md (thumb2_negdi2): Use shorter code sequence.
+	* config/arm/ieee754-df.S: Ditto.
+	* config/arm/ieee754-sf.S: Ditto.
+
+2006-09-26  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* Makefile.in: Add GCC_EXEC_PREFIX to site.exp.
+
+	gcc/testsuite/
+	* lib/c-torture.exp: Load target-libpath.exp and run
+	set_ld_library_path_evn_vars if required.
+	* lib/target-libpath.exp (set_ld_library_path_env_vars): Export 
+	env var GCC_EXEC_PREFIX	if global variable of same name is defined.
+
+2006-09-20  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/unwind-arm.c (selfrel_offset31): Clear top bit for
+	positive offsets.
+
+2006-09-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* calls.c (expand_call): If the return value is a PARALLEL,
+	extract its first member.
+	* config/m68k/linux.h (FUNCTION_EXTRA_EPILOGUE): Remove.
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	use FUNCTION_EXTRA_EPILOGUE.
+	(m68k_function_value): Return a PARALLEL
+	if the return value is of a pointer type.
+	* config/m68k/netbsd-elf.h (current_function_returns_pointer,
+	FUNCTION_EXTRA_EPILOGUE): Remove.
+
+	gcc/
+	* config/m68k/m68k.c (print_operand): Handle '?'.
+	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Accept '?'.
+	* config/m68k/m68k.md (load_got): New.
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	output nop.
+
+2006-09-20  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.h (MAX_OFILE_ALIGNMENT): Define.
+
+2006-09-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-cores.def: Rename multilibs by family name.
+	* config/m68k/t-mlib-matches (MULTILIB_MATCHES): Adjust.
+
+2006-09-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/28516
+	gcc/
+	* config/arm/arm.c (arm_unwind_emit_set): Handle reg = sp + const.
+
+	gcc/testsuite/
+	* gcc.dg/nested-func-5.c: New test.
+
+2006-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-cores.def: Add CORE_FAMILY setting.  Add
+	synonyms for members of a family.
+	* config/m68k/m68k-protos.h (m68k_cpp_cpu_ident,
+	m68k_cpp_cpu_family): Declare.
+	* config/m68k/m68k.c (struct processors): Add family member.
+	(all_cores): Adjust.
+	(all_architectures, all_tunings): Adjust.
+	(current_cpu): New.
+	(override_options): Set current_cpu.
+	(m68k_cpp_cpu_ident, m68k_cpp_cpu_family): New.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define cpu's ident
+	and family.
+	(processor_type, target_cpus): Adjust.
+	* doc/invoke.texi (M680x0 Options): Document new cpus.  Document
+	new #defines.
+
+2006-09-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Use
+	current_function_is_leaf instead of leaf_function_p.
+
+	gcc/
+	* config/m68k/m68k.md (D0_REG, A1_REG, PIC_REG, FP0_REG): New.
+
+	gcc/
+	* calls.c (expand_call): If the return value is a PARALLEL,
+	extract its first member.
+	* config/m68k/linux.h (FUNCTION_EXTRA_EPILOGUE): Remove.
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	use FUNCTION_EXTRA_EPILOGUE.
+	(m68k_function_value): Return a PARALLEL
+	if the return value is of a pointer type.
+	* config/m68k/netbsd-elf.h (current_function_returns_pointer,
+	FUNCTION_EXTRA_EPILOGUE): Remove.
+
+2006-09-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_tls,
+	check_effective_target_tls_runtime): Remove bogus second definitions.
+
+2006-09-13  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* gcc.c (process_command): Use standard_libexec_prefix
+	as a fallback for gcc_libexec_prefix. 
+
+2006-09-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+	gcc/testsuite/
+	* lib/c-torture.exp (c-torture-compile, c-torture-execute):
+	Treat $srcdir as a literal.
+	* lib/fortran-torture.exp (fortran-torture-compile,
+	fortran-torture-execute): Likewise.
+	* lib/objc-torture.exp (objc-torture-compile,
+	objc-torture-execute): Likewise.
+	* lib/profopt.exp (profopt-execute): Likewise.
+
+2006-09-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* configure.ac: Replace --with-versuffix with --with-pkgversion.
+	* version.c (version_string): Remove VERSUFFIX.
+	(pkgversion_string): New.
+	* version.h (pkgversion_string): Declare.
+	* Makefile.in (VERSUFFIX_s): Replace with ...
+	(PKGVERSION_s): ... this.
+	(version.o): Adjust.
+	* configure: Rebuilt.
+	
+	* gcc.c (process_command, main): Check for pkgversion_string.
+	* gcov.c (print_version): Likewise.
+	* gcov-dump.c (print_version): Likewise.
+	* mips-tdump.c (main): Likewise.
+	* mips-tfile.c (main): Likewise.
+	* toplev.c (compile_file, print_version): Likewise.
+	* protoize.c (main): Likewise.
+
+	gcc/java/
+	* jv-scan.c (version): Check pkgversion_string.
+	* jcf-dump.c (version): Likewise.
+	* gjavah.c (version): Likewise.
+
+	gcc/fortran/
+	(lang_specific_driver): Check pkgversion_string.
+
+	gcc/treelang/
+	* tree1.c (treelanf_handle_option): Check pkgversion_string.
+
+2006-09-11  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/libunwind.S: Assemble for armv5t, not armv5.
+
+2006-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* m68k/config/m68k-cores.def: Add m5210a & m5211a.
+
+	gcc/
+	* flow.c (create_reg_inc_note, update_reg_inc_notes_between): New.
+	* recog.c (split_insn): Call update_reg_inc_notes_between.
+	* basic-block.h (update_reg_inc_notes_between): Declare.
+	
+	gcc/testsuite/
+	* gcc.target/m68k/m68k.exp: New.
+	* gcc.target/m68k/crash1.c: New.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/mips/mips-protos.h (mips_mem_fits_mode_p): Declare.
+	* config/mips/mips.c (mips_expand_unaligned_store): Use the mode
+	returned by mode_for_size, rather than the mode of src itself,
+	to choose between 32-bit and 64-bit patterns.
+	(mips_mem_fits_mode_p): New function.
+	* config/mips/mips.md (mov_<load>l, mov_<load>r): Use it to check
+	that the size of the source matches the size of the destination.
+	(mov_<store>l, mov_<store>r): Likewise.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/pr29006.c: New test.
+
+2006-09-10  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/linux-eabi.h (SYSROOT_SUFFIX_SPEC): Define.
+	* config/arm/libunwind.S: Add .arch/.object_arch for armv4 builds.
+	* config/arm/t-linux-eabi (MULTILIB_OPTIONS, MULTILIB_DIRNAMES):
+	Add armv4t multilib.
+
+2006-09-08  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* reload.c (find_reloads_address_1): Use RELOAD_OTHER for the
+	index of a PRE_MODIFY or POST_MODIFY address.
+	* reload1.c (inc_for_reload): Use find_replacement on the original
+	base and index registers.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/pr28982a.c: New test.
+	* gcc.c-torture/execute/pr28982b.c: Likewise.
+
+2006-09-06  Julian Brown  <julian@codesourcery.com>
+
+	Merge ARM NEON support from CodeSourcery internal arm-neon-4_1 branch
+	revision 148395.
+
+2006-09-02  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-07-23  Roger Sayle  <roger@eyesopen.com>
+	* gcc.dg/fold-cond-1.c: Increase test case portability by checking
+	that "g ? 1 : h" doesn't match, instead of checking for "(g | h) != 0"
+	which may be transformed to "g || h" on some platforms.
+
+2006-09-01  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/pr26765.c: Add -w to options.
+
+2006-09-01  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config.gcc (arm*-*-eabi*): Add arm/nocrt0.h to tm_file.
+	* config/arm/nocrt0.h: New file.
+
+2006-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/builtins/memops-asm-lib.c: Do the copy or
+	set before checking whether it was allowed.
+	* gcc.c-torture/execute/builtins/memops-asm.c: Set inside_main.
+	* gcc.c-torture/execute/builtins/lib/memset.c: Do the memset
+	before checking inside_main.
+
+2006-08-30  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/arm-mmx-1.c: Skip for -mfloat-abi=softfp.
+
+2006-08-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-protos.h: Rename use_return_insn to
+	m68k_use_return_insn.
+	* config/m68k/m68k.c (use_return_insn): Rename to
+	m68k_use_return_insn.
+	* config/m68k/m68k.h (USE_RETURN_INSN): Remove.
+	* config/m68k/m68k.md: Use m68k_use_return_insn instead of
+	USE_RETURN_INSN.
+
+2006-08-23  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* recog.c (mode_dependent_address_p): Identify pre-increment,
+	pre-decrement, post-increment and post-decrement addressing as always
+	being mode-dependent.
+	* config/m32c/m32c.c (m32c_mode_dependent_address): Delete.
+	* config/m32c/m32c.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/m32c/m32c-protos.h (m32c_mode_dependent_address): Delete.
+	* config/m32r/m32r.h (GO_IF_MODE_DEPENDENT_ADDRESS): Delete PRE_DEC,
+	PRE_INC and POST_INC checks.
+	* config/i386/i386.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/sh/sh.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/pdp11/pdp11.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/avr/avr.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/c4x/c4x.h (GO_IF_MODE_DEPENDENT_ADDRESS): Delete PRE_DEC,
+	PRE_INC, POST_DEC and POST_INC cases.
+	* config/stormy16/stormy16.c (xstormy16_mode_dependent_address_p):
+	Delete POST_INC and PRE_DEC cases.
+	* config/m68hc11/m68hc11.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to
+	no-op.
+	* config/cris/cris.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/mn10300/mn10300.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to
+	no-op.
+	* config/ia64/ia64.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/m68k/m68k.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/rs6000/rs6000.c (rs6000_mode_dependent_address): Delete
+	PRE_INC and PRE_DEC cases.
+	* config/arc/arc.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/mcore/mcore.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/arm/arm.h (ARM_GO_IF_MODE_DEPENDENT_ADDRESS): Delete.
+	(GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/pa/pa.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+	* config/vax/vax.c (vax_mode_dependent_address_p): Delete
+	auto-increment cases.
+	* config/h8300/h8300.h (GO_IF_MODE_DEPENDENT_ADDRESS): Delete
+	auto-increment cases.
+	* config/bfin/bfin.h (GO_IF_MODE_DEPENDENT_ADDRESS): Change to no-op.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/mode-dependent-address.c: New test.
+
+2006-08-21  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/testsuite/
+	* g++.dg/eh/arm-vfp-unwind.C: Correct order of DejaGNU directives.
+
+2006-08-21  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* g++.dg/eh/arm-iwmmxt-unwind.C: Move dg-require-effective-target
+	after dg-do line.
+
+2006-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/arm/vfp-ldmdbd.c, gcc.target/arm/vfp-ldmdbs.c,
+	gcc.target/arm/vfp-ldmiad.c, gcc.target/arm/vfp-ldmias.c,
+	gcc.target/arm/vfp-stmdbd.c, gcc.target/arm/vfp-stmdbs.c,
+	gcc.target/arm/vfp-stmiad.c, gcc.target/arm/vfp-stmias.c: Skip for
+	iWMMXt.
+
+2006-08-18  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/unwind-arm.c (struct wmmxd_regs, struct wmmxc_regs):
+	New.
+	(phase1_vrs): Use them.
+	(DEMAND_SAVE_WMMXD, DEMAND_SAVE_WMMXC): New.
+	(__gnu_Unwind_Save_WMMXD, __gnu_Unwind_Restore_WMMXD,
+	__gnu_Unwind_Save_WMMXC, __gnu_Unwind_Restore_WMMXC): Declare.
+	(restore_non_core_regs): Call __gnu_Unwind_Restore_WMMXD and
+	__gnu_Unwind_Restore_WMMXC if required.
+	(_Unwind_VRS_Pop): Implement iWMMXt support.
+	* config/arm/libunwind.S (gnu_Unwind_Restore_WMMXD,
+	gnu_Unwind_Save_WMMXD, gnu_Unwind_Restore_WMMXC,
+	gnu_Unwind_Save_WMMXC): Define.
+
+	gcc/testsuite/
+	* g++.dg/eh/arm-iwmmxt-unwind.C: New test.
+
+2006-08-18  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* config/arm/arm.c (arm_output_fldmx): Output FLDMD instead of
+	FLDMX if target supports FLDMD.
+	(vfp_output_fstmx): Output FSTMD instead of FSTMX if target supports
+	FLDMD.
+	(vfp_emit_fstmx): Don't leave space in the frame layout for the
+	FSTMX format word if using FSTMD.
+	(arm_get_vfp_saved_size): Don't add in space for the FSTMX format word
+	if using FSTMD/FLDMD instead of FSTMX/FLDMX.
+	(arm_output_epilogue): Adjust comment to reflect use of FSTMD.
+	(arm_unwind_emit_sequence): Don't compensate for the FSTMX format
+	word if emitting FSTMD.  Also emit "vsave" assembler directives in
+	such cases rather than "save".
+	* config/arm/libunwind.S (gnu_Unwind_Restore_VFP,
+	gnu_Unwind_Save_VFP): Adjust comments.
+	(gnu_Unwind_Restore_VFP_D, gnu_Unwind_Save_VFP_D): New functions
+	for saving and restoring using FSTMD and FLDMD, rather than
+	FSTMX and FLDMX.
+	(gnu_Unwind_Restore_VFP_D_16_to_31, gnu_Unwind_Restore_VFP_D_16_to_31):
+	New functions for saving and restoring the VFPv3 registers 16 .. 31.
+	* config/arm/pr-support.c (gnu_unwind_execute): Add conditional
+	compilation case to correctly handle unwind opcode 0xc8 when using
+	VFP.
+	* config/arm/unwind-arm.c (struct vfpv3_regs): New.
+	(DEMAND_SAVE_VFP_D, DEMAND_SAVE_VFP_V3): New flags.
+	(__gnu_Unwind_Save_VFP_D, __gnu_Unwind_Restore_VFP_D,
+	__gnu_Unwind_Save_VFP_D_16_to_31, __gnu_Unwind_Restore_VFP_D_16_to_31):
+	Declare.
+	(restore_non_core_regs): Restore registers using FLDMD rather than
+	FLDMX if required.  Also handle restoration of VFPv3 registers.
+	(_Unwind_VRS_Pop): Handle saving and restoring of registers using
+	FSTMD and FLDMD if required; also handle VFPv3 registers 16 .. 31,
+	including cases where the caller specifies a range of registers
+	that overlaps the d15/d16 boundary.
+	* config/arm/arm.h (TARGET_FLDMX): New.
+
+2006-08-16  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/pr-support.c (__gnu_unwind_execute): Insert " + 1" in
+	necessary places to pass the correct "number of registers" values
+	to _Unwind_VRS_Pop.
+
+	gcc/testsuite/
+	* g++.dg/eh/arm-vfp-unwind.C: New test.
+
+2006-08-14  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (notice_update_cc): If an SFmode move is
+	implemented using move.l, do not use its cc result for floating-point
+	comparisons.
+
+2006-08-09  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* final.c (final_scan_insn): Clear current_insn_predicate before
+	outputting inline asm.
+
+	gcc/testsuite/
+	* gcc.target/arm/cond-asm.c: New test.
+
+2006-08-09  Paul Brook  <paul@codesourcery.com>
+
+	PR target/16634
+	* config/arm/arm.c (use_return_insn): Return 0 for Thumb interrupt
+	functions.
+	(print_multi_reg): Add rfe argument for IRQ returns.
+	(arm_output_epilogue): Pop interrupt return address directly into PC.
+	(arm_expand_prologue): Only adjust IRQ return address in Arm mode.
+
+2006-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Reorder to simplify.
+
+2006-07-27  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* gcc.c: Organize search path variables into $prefix relative,
+	and well-known native. Add comments.
+	(add_sysrooted_prefix): Add comment.
+	(process_command): If !gcc_exec_prefix add $prefix based paths.
+	If *cross_compile == '0', add native well-known paths.
+	Assert tooldir_base_prefix is always relative.
+	(main): If print_search_dirs, and if gcc_exec_prefix is set,
+	use this value for 'install:' path.
+
+2006-07-27  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* config/arm/linux-elf.h (NEED_INDICATE_EXEC_STACK): Define as 1.
+	* arm.c (arm_file_end): If NEED_INDICATE_EXEC_STACK call 
+	file_end_indicate_exec_stack. 
+	* arm.h [!NEED_INDICATE_EXEC_STACK] (NEED_INIDCATE_EXEC_STACK): 
+	Define as 0.
+	* lib1funcs.asm [__ELF__ && __linux__]: Emit .note.GNU-stack section
+	for a non-executable stack.
+	* crti.asm: Likewise.
+	* crtn.asm: Likewise.
+	* libunwind.S: Likewise. 
+
+2006-07-26  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (movsf_cf_hard): Use fsmove instead of
+	f%$smove and f%$move.
+	(movdf_cf_hard): Use fdmove for cases 0 and 3 and fmove for case 1.
+	(extendsfdf2_cf): Use fdmove instead of f%&move.
+	(truncdfsf2_cf): Use fsmove instead of f%$smove.
+	(add<mode>3_cf, sub<mode>3_cf): Use <FP:prec> instead of <FP:round>.
+
+2006-07-22  Richard Sandiford  <richard@codesourcery.com>
+
+	Merge from csl/coldfire-4_1 branch:
+
+	2006-06-28  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/uclinux.h (LIB_SPEC): Allow -static-libc to suppress
+	the linking of the shared C library.
+
+	2006-06-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/compat/vector-defs.h: Revert previous change.
+	* gcc.dg/compat/struct-layout-1.h (v16sf): Define to v4sf on uClinux.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/loop-2f.x: Extend XFAIL to m68k-ilnux.
+	* gcc.c-torture/execute/loop-2g.x: Likewise.
+	* gcc.dg/tree-ssa/20040204-1.c: Don't XFAIL for m68k*-*-*.
+	* gcc.dg/compat/vector-defs.h (v16sf): Define to be the same
+	v4sf on uClinux targets.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Remove unneeded brackets
+	from the !flag_pic settings of m68k_symbolic_call and
+	m68k_symbolic_jump.  Use %p0 instead of %a0@PLTPC.
+	(print_operand): Add a 'p' operand code.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/linux-unwind.h (rt_sigframe_footer): Remove special
+	case for __mcoldfire__.
+	(m68k_fallback_frame_state): Update coldfire code for new kernel
+	signal trampolines.  Index individual elements of f_fpregs.
+
+	2006-06-22  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/uclinux.h (STARTFILE_SPEC): Use Scrt1.o instead of
+	crt1.o for shared libraries.
+	(LIB_SPEC): Remove -elf2flt and -shared-lib-id 0 options.
+	(LINK_SPEC): Map -mshared-library-id=N to -shared-lib-id N.
+	Provide a default -shared-lib-id of 0.
+	(TARGET_OS_CPP_BUILTINS): Define __GXX_MERGED_TYPEINFO_NAMES=0
+	for -mid-shared-library.
+	(DRIVER_SELF_SPECS): Map unadorned PIC options to -msep-data.
+	* config/m68k/t-uclinux (MULTILIB_OPTIONS): Add -msep-data and
+	-mid-shared-library multilibs.
+	(MULTILIB_DIRNAMES): Update accordingly.
+
+2006-07-20  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_gen_constant): Check for sets that can use
+	movw.
+	* config/arm/thumb2.md (thumb2_movsi_insn): Add movw alternative.
+	* config/arm/arm.md (arm_movsi_insn): Ditto.
+	* config/arm/vfp.md (arm_movsi_vfp): Ditto.
+	(thumb2_movsi_vfp): Ditto.
+
+2006-07-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	PR 27363
+	gcc/
+	* cse.c (cse_insn): Add destination addresses to hash table. Check if
+	they are invalidated by this instruction.
+
+	gcc/testsuite/
+	* gcc.dg/pr27363.c: New test.
+
+2006-07-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	2006-07-17  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	PR middle-end/28402
+	* optabs.c (expand_binop): Pass next_methods rather than methods
+	to expand_doubleword_shift.
+
+	gcc/testsuite/
+	PR middle-end/28402
+	* gcc.dg/pr28402.c: New test.
+
+2006-07-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	2006-07-17  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	PR middle-end/28403
+	* optabs.c (expand_doubleword_shift): Wrap the call to
+	do_compare_rtx_and_jump with NO_DEFER_POP and OK_DEFER_POP.
+
+	gcc/testsuite/
+	PR middle-end/28403
+	* gcc.c-torture/execute/pr28403.c: New test.
+
+2006-07-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	backport 2006-04-23  David Edelsohn  <edelsohn@gnu.org>
+	* g++.dg/opt/pr15551.C: Include cstdio.
+	(main): Use remove instead of unlink.
+
+2006-07-14  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/thumb2.mb (thumb2_cbz, thumb2_cbnz): New insns.
+
+2006-07-14  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* testsuite/gcc.dg/sh-relax.c: XFAIL for sh*-*-uclinux.
+	* config.gcc: Add support for sh on uclinux.
+	* config/sh/sh.c: Define TARGET_CANNOT_FORCE_CONST_MEM.
+	(prepare_move_operands): Handle moves where the second operand
+	may lie outside the current section.
+	(sh_cannot_force_const_mem): New.
+	* config/sh/sh.h: Define SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	(LEGITIMATE_CONSTANT_P): Check for moves that may use an
+	out-of-section address.
+	* config/sh/t-uclinux: New.
+	* config/sh/uclinux.h: New.
+
+2006-07-13  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/elf.h (JUMP_TABLES_IN_TEXT_SECTION): Set to TARGET_32BIT.
+	* config/arm/coff.h (JUMP_TABLES_IN_TEXT_SECTION): Ditto.
+	* config/arm/aout.h (ASM_OUTPUT_ADDR_VEC_ELT): Remove Thumb-2 code.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Output QImode and HImode tables.
+	* config/arm/aof.h (ASM_OUTPUT_ADDR_VEC_ELT): Remove Thumb-2 code.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Output QImode and HImode tables.
+	* config/arm/thumb2.md (thumb2_tablejump): Remove.
+	(thumb2_casesi_internal, thumb2_casesi_internal_pic): New patterns.
+	* config/arm/arm.c (get_jump_table_size): Add padding for QImode
+	and HImode tables.
+	(thumb2_output_casesi): New function.
+	* config/arm/arm-protos.h (thumb2_output_casesi): Add prototype.
+	* config/arm/arm.h (CASE_VECTOR_PC_RELATIVE): Define.
+	(CASE_VECTOR_SHORTEN_MODE): Define.
+	(ADDR_VEC_ALIGN): Define.
+	(ASM_OUTPUT_CASE_LABEL): Only align SImode tables.
+	(ASM_OUTPUT_CASE_END): Define.
+	* config/arm/arm.md (casesi): Enable for Thumb-2.
+	(casesi_internal): Rename ...
+	(arm_casesi_internal): ... to this.
+	(tablejump): Only enable for Thumb-1.
+
+2006-07-13  Paul Brook  <paul@codesourcery.com>
+
+	Merge from gcc-4_1-branch revision 114100 (gcc-4_1_1-release)
+
+2006-07-13  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/thumb2.md (pic_load_dot_plus_four): Use adr instead of
+	addw.
+
+2006-07-05  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* dbxout.c (dbxout_begin_prologue): Emit LFBB label at function start.
+	(dbxout_function_end): Use local label LFBB.
+	(dbxout_source_line): Likewise. 
+	(dbxout_block): Likewise.
+
+2006-06-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/mips.c (function_arg): Where one part of a
+	complex argument is in registers and the other part in the stack,
+	return a REG not a PARALLEL.
+	* gcc/testsuite/gcc.c-torture/execute/complex-7.c: New.
+
+2006-06-21  Richard Sandiford  <richard@codesourcery.com>
+
+	Merge from csl/coldfire-4_1 branch:
+
+	2006-06-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Use -lm for link tests in
+	GCC_TRY_COMPILE_OR_LINK.  Fall back to compile-only tests if
+	-lm is not available.
+	* libstdc++-v3/configure: Regenerate.
+
+	2006-06-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	gcc/
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* combine.c (replaced_rhs_value): New variable.
+	(combine_instructions): Set it.
+	(distribute_notes): When distributing a note in replaced_rhs_insn,
+	check whether the value was used in replaced_rhs_value.
+
+	2006-06-20  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* postreload.c (reload_combine): Fix calculation of index_regs set.
+
+	2006-06-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (PCC_STATIC_STRUCT_RETURN): Don't define here.
+	* config/m68k/m68kemb.h (PCC_STATIC_STRUCT_RETURN): Don't undefine
+	here ...
+	* config/m68k/m68kelf.h (PCC_STATIC_STRUCT_RETURN): ... or here ...
+	* config/m68k/netbsd-elf.h (PCC_STATIC_STRUCT_RETURN): ... or here.
+	* /config/m68k/openbsd.h (PCC_STATIC_STRUCT_RETURN): Define here.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/print-sysroot-suffix.sh: Rewrite to be more flexible.
+	Take the sysroot, MULTILIB_MATCHES and MULTILIB_OPTIONS as arguments.
+	* config/m68k/t-mlib-matches (sysroot-suffix.h): Update accordingly.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Don't check FL_PCREL_16
+	for -msep-data and -mid-shared-library.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (ASM_PREFERRED_EH_DATA_FORMAT): Don't use
+	indirect or pc-relative references to code or globals if either
+	TARGET_SEP_DATA or TARGET_ID_SHARED_LIBRARY is in effect.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/lb1sf68.asm (PICCALL): Use an lea and pc-relative
+	jump sequence for ISA A and ISA A+.
+	(PICJUMP): Likewise.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/predicates.md (call_operand): Define.
+	* config/m68k/m68k.md (call): Remove SYMBOL_REF_FLAG handilng.
+	Call m68k_legitimize_call_address.  Replace the separate flag_pic
+	and !flag_pic define_insns with a unified pattern.  Make the
+	target operand match the address inside the MEM rather than
+	the MEM itself.  Provide two alternatives, one for direct jumps
+	and one for indirect jumps.  Use output_call.
+	(call_value): Likewise, but copy operand 1 to operand 0 before
+	invoking output_call.
+	* config/m68k/m68k-protos.h (m68k_output_pic_call): Delete.
+	(output_call): Declare.
+	(m68k_legitimize_call_address): Declare.
+	* config/m68k/m68k.c (m68k_symbolic_call): New variable.
+	(m68k_symbolic_jump): Likewise.
+	(override_options): Initialize m68k_symbolic_call and
+	m68k_symbolic_jump.  Only set function_no_cse for PIC
+	if symbolic calls and jumps are supported.
+	(m68k_output_pic_call): Delete.
+	(m68k_legitimize_call_address): New function.
+	(m68k_legitimate_address_p): Remove SYMBOL_REF_FLAG handling.
+	(output_call): New function.
+	(m68k_output_mi_thunk): Change operand 0 of the call from a
+	memory reference to an address.  Use mips_symbolic_jump if
+	non-null, otherwise load the address from the GOT.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Add a 'W' constraint.
+	Remove superfluous brackets.
+	(m68k_symbolic_call): Declare.
+	(m68k_symbolic_jump): Declare.
+
+	2006-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Add 52235 & 5225 cores.
+	* gcc/doc/invoke.texi (M680x0 Options): Add 52235 & 5225.
+
+	2006-05-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libiberty/make-relative-prefix.c (split_directories): Add
+	ignore_final arg.
+	(make_relative_prefix): Keep the final path component if it was a
+	directory.  Adjust calls to split_directories.
+
+	2006-05-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (movdf_cf_hard): Use output_move_double for
+	GPR<-GPR moves.
+
+	2006-05-12  Sandra Loosemore <sandra@codesourcery.com>
+
+        * gcc/config/m68k/m68k.md ("clzsi2"):  Define for ColdFire
+        architectures that support ff1 instruction.
+        * gcc/config/m68k/m68k.h (CLZ_DEFINED_VALUE_AT_ZERO): Ditto.
+        * gcc/longlong.h (count_leading_zeros, COUNT_LEADING_ZEROS_0): Ditto.
+
+	2006-05-11  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Fix the lea
+	instruction that restores the stack pointer from the frame pointer.
+
+	2006-05-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_CPU_DEFAULT_SPEC): Undefine it
+	before setting it.
+
+	2006-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (TOPLEVEL_CONFIGURE_ARGS): Protect args with active
+	characters.
+	(baseargs): Simplify protection, use ac_arg temp name, correct $
+	to $$ conversion.
+	* configure: Rebuilt.
+
+	2006-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
+	storing in baseargs.
+	* configure: Regenerated.
+	* gcc/configure.ac: Add --with-versuffix and --with-bugurl.
+	* gcc/version.c (VERSUFFIX): Remove.
+	(bug_report_url): Do not hard-code initializer.
+	* gcc/Makefile.in (VERSUFFIX_s): Define.
+	(BUGURL_s): Likewise.
+	(version.o): Define VERSUFFIX and BUGURL.
+	* gcc/doc/install.texi: Document them.
+	* gcc/configure: Regenerated.
+
+	2006-04-28  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/linux.h (MD_UNWIND_SUPPORT): Define.
+	* config/m68k/linux-unwind.h: New file.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_tls): Use
+	${tool}_target_compile instead of target_compile.
+	(check_effective_target_tls_runtime): Likewise.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/m68k-fp-1.c: Use -mcpu=547x instead of -mcpu=m5485.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_coldfire_fpu):
+	New procedure.
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: XFAIL for
+	Coldfire GNU/Linux.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* combine.c (replaced_rhs_insn): New variable.
+	(combine_instructions): Set replaced_rhs_insn when trying to replace
+	a SET_SRC with a REG_EQUAL note.
+	(distribute_notes): Use replaced_rhs_insn when determining the live
+	range of a REG_DEAD register.
+
+	gcc/testsute
+	* gcc.c-torture/compile/pr25514.c: New test.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-protos.h (m68k_secondary_reload_class): Declare.
+	(m68k_preferred_reload_class): Declare.
+	* config/m68k/m68k.c (m68k_regno_mode_ok): Don't prevent address
+	registers from storing bytes.  Fix formatting.
+	(m68k_secondary_reload_class): New function.
+	(m68k_preferred_reload_class): Likewise.
+	* config/m68k/m68k.h (HARD_REGNO_MODE_OK): Remove duplicated comment.
+	(SECONDARY_RELOAD_CLASS): Define.
+	(PREFERRED_RELOAD_CLASS): Use m68k_preferred_reload_class.
+	(LIMIT_RELOAD_CLASS): Delete.
+
+	gcc/testsuite/
+	* gcc.c-torture/compile/m68k-byte-addr.c: New test.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k-*-linux*): Add to tmake_file instead of
+	replacing it.  Don't include m68k/t-crtstuff.  Don't include
+	m68k/t-slibgcc-elf-ver.
+	* config/m68k/linux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Delete.
+	* config/m68k/uclinux.h (SYSROOT_HEADERS_SUFFIX_SPEC): Remove undef.
+	* config/m68k/t-linux (MULTILIB_OPTIONS): Delete.
+	(MULTILIB_DIRNAMES): Delete.
+	(MULTILIB_EXCEPTIONS): Delete.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	(LIBGCC): Delete.
+	(INSTALL_LIBGCC): Delete.
+	(EXTRA_MULTILIB_PARTS): Override.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcffpu__
+	when using the Coldfire FPU.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Restrict the -fPIC error
+	to -mpcrel.
+	(m68k_output_function_prologue): Use a (d8,%pc,Xi) lea to load the
+	PIC register on Coldfire targets.
+	(m68k_output_pic_call): Use bsr.l for ISA B too.
+	(print_operand_address): Only use GOT displacement lengths for
+	m68k_arch_68020.
+	(m68k_output_mi_thunk): Use bra.l for ISA B too.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_save_reg): Save the PIC register in
+	functions that need a constant pool.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_save_reg): Save the PIC register in
+	functions that call eh_return.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* real.c (encode_ieee_single): Use canonical_nan_lsbs_set instead
+	of qnan_msb_set to determine the lower bits of a canonical
+	NaN significand.
+	(encode_ieee_double): Likewise.
+	(encode_ieee_quad): Likewise.
+	(ieee_single_format): Initialize canonical_nan_lsbs_set.
+	(mips_single_format): Likewise.
+	(ieee_double_format): Likewise.
+	(mips_double_format): Likewise.
+	(ieee_extended_motorola_format): Likewise.
+	(ieee_extended_intel_96_format): Likewise.
+	(ieee_extended_intel_128_format): Likewise.
+	(ieee_extended_intel_96_round_53_format): Likewise.
+	(ibm_extended_format): Likewise.
+	(mips_extended_format): Likewise.
+	(ieee_quad_format): Likewise.
+	(mips_quad_format): Likewise.
+	(vax_f_format): Likewise.
+	(vax_d_format): Likewise.
+	(vax_g_format): Likewise.
+	(i370_single_format): Likewise.
+	(i370_double_format): Likewise.
+	(c4x_single_format): Likewise.
+	(c4x_extended_format): Likewise.
+	(real_internal_format): Likewise.
+	(coldfire_single_format): New real_format.
+	(coldfire_double_format): Likewise.
+	* real.h (real_format): Add a canonical_nan_lsbs_set field.
+	(coldfire_single_format): Declare.
+	(coldfire_double_format): Likewise.
+	* config/pdp11/pdp11.c (pdp11_f_format): Initialize
+	canonical_nan_lsbs_set.
+	(pdp11_d_format): Likewise.
+	* config/m68k/m68k.c (override_options): Override REAL_FORMAT_MODE
+	if TARGET_COLDFIRE_CPU.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (cmpsi): Remove PIC handling.
+	(movsi): Remove predicates.  Use LEGITIMATE_PIC_OPERAND_P.
+	* config/m68k/m68k.h (LEGITIMATE_PIC_OPERAND_P): Define.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Use a stack-
+	based restore sequence for big frames on Coldfire if we need to
+	use a movem or fmovem instruction.  Fix formatting.  Use proper
+	MOTOROLA syntax for Coldfire fmoves from %fp + offset.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_prologue): Fix handling
+	of %sp-based CFA offsets on Coldfire.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-cores.def (68000, 68010): Remove FL_PCREL_16
+	from these isa_00 entries.
+	(68020, 68030): Remove FL_BITFIELD from these isa_20 entries.
+	(68040): Remove FL_BITFIELD and FL_68881 from this isa_40 entry.
+	(68060): Likewise this isa_60 entry.
+	(5202, 5204, 5206, 5206e, 5249, 5250, 5272, 5307): Remove FL_PCREL16
+	from these isa_a entries.
+	(5207, 5208, 5211, 5212, 5213, 5214, 5216, 523x, 5270, 5271, 5274)
+	(5275, 528x, 532x): Likewise these isa_aplus entries.
+	* config/m68k/m68k.c (FL_FOR_isa_00): Include FL_PCREL_16.
+	(FL_FOR_isa_20): Include FL_BITFIELD.
+	(FL_FOR_isa_40): Include FL_FOR_isa_20 instead of FL_ISA_68020.
+	Include FL_68881.
+	(FL_FOR_isa_60): Include FL_FOR_isa_40 instead of FL_ISA_68020
+	and FL_ISA_68040.
+	(FL_FOR_isa_a): Include FL_PCREL_16.
+	(FL_FOR_isa_aplus): Include FL_FOR_isa_a instead of FL_COLDFIRE
+	and FL_ISA_A.
+	(FL_FOR_isa_b): Likewise.
+	(FL_FOR_isa_c): Include FL_FOR_isa_b instead of FL_COLDFIRE,
+	FL_ISA_A, FL_ISA_B and FL_CF_HWDIV.
+	(m68k_isa): Add isa_cpu32.
+	(all_architectures): Use FL_FOR_isa_* macros.  In so doing,
+	fix the isab entry so that it includes FL_ISA_A and FL_PCREL_16.
+	Likewise include these flags and FL_ISA_B in the isac entry.
+	(all_tunings): Use FL_FOR_isa_* macros, and in so doing, add
+	the FL_ISA_A and FL_PCREL_16 flags to the cfv4 and cf4ve entries.
+
+	2006-04-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_missing_uclibc_feature): Make test
+	produce an error unless the required condition is known not to hold.
+	(check_effective_target_uclibc): New procedure.
+	(check_effective_target_uclibc_lax_strtofp): Likewise.
+	(check_effective_target_uclibc_dummy_wcsftime): Likewise.
+
+	libstdc++-v3/testsuite/
+	* 22_locale/time_put/put/wchar_t/1.cc: XFAIL if uclibc_dummy_wcsftime.
+	* 22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/10.cc: Likewise.
+	* 22_locale/num_get/get/wchar_t/2.cc: XFAIL if uclibc_lax_strtofp.
+	* 22_locale/num_get/get/char/2.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/09.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/09.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/wchar_t/6.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/char/6.cc: Likewise.
+	* 26_numerics/cmath/c99_classification_macros_c++.cc: XFAIL
+	for uClibc.
+	* 26_numerics/cmath/c99_classification_macros_c.cc: Likewise.
+
+	2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/regrename.c (scan_rtx_address): Use REG_MODE_OK_FOR_INDEX_P
+	instead of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead
+	of INDEX_REG_CLASS.
+	(replace_oldest_value_addr): Likewise.
+	* gcc/doc/tm.texi (MODE_BASE_REG_CLASS): Clarify what a VOIDmode
+	argument means.
+	(REGNO_MODE_OK_FOR_BASE_P): Likewise.
+	(REG_MODE_OK_FOR_BASE_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Document.
+	(REGNO_MODE_OK_FOR_INDEX_P): Likewise.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	* gcc/defaults.h (REGNO_MODE_OK_FOR_INDEX_P): Provide default.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Likewise.
+	* gcc/postreload.c (reload_combine): Compute the set of index
+	registers that can be used for at least one mode.  Use that set
+	instead of INDEX_REG_CLASS.
+	* gcc/reload.c (find_reloads): Use operand_mode[i] as the argument
+	to MODE_BASE_REG_CLASS.
+	(find_reloads_address): Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.  Check MODE_INDEX_REG_CLASS (mode) as well
+	as double_reg_address_ok.
+	(find_reload_address_1): Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use REGNO_MODE_OK_FOR_INDEX_P instead
+	of REGNO_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/recog.c (preprocess_constraints): Pass recog_data.operand_mode[i]
+	as the argument to BASE_REG_CLASS.
+	* gcc/regclass.c (record_operand_costs): Pass the mode of the
+	addressed data to record_address_regs.
+	(scan_one_insn): Likewise.  Also pass the mode of the memory reference
+	to MODE_BASE_REG_CLASS.
+	(record_reg_classes): Pass the operand mode to MODE_BASE_REG_CLASS.
+	(record_address_regs): Add a mode argument.  Update recursive calls.
+	Pass the mode argument to REG_MODE_OK_FOR_REG_BASE_P and
+	MODE_BASE_REG_REG_CLASS.  Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/config/m68k/m68k.md (tst<mode>_cf): Use "m" instead of "<Q>U".
+	(cmp<mode>_cf): Likewise.
+	(movsf_cf_hard): Likewise.
+	(movdf_cf_hard): Likewise.
+	(extendsfdf2_cf): Likewise.
+	(truncdfsf2_cf): Likewise.
+	(floatsi<mode>2_cf): Likewise.
+	(ftrunc<mode>2_cf): Likewise.
+	(add<mode>3_cf): Likewise.
+	(sub<mode>3_cf): Likewise.
+	(fmul<mode>3_cf): Likewise.
+	(div<mode>3_cf): Likewise.
+	(neg<mode>2_cf): Likewise.
+	(sqrt<mode>2_cf): Likewise.
+	(abs<mode>2_cf): Likewise.
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address):
+	Delete.
+	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT): Add a mode
+	argument.  Use REGNO_MODE_OK_FOR_INDEX_P.  Test MODE_OK_FOR_INDEX_P.
+	(LEGITIMATE_INDEX_REG_P): Add a mode argument.  Update calls to
+	REG_OK_FOR_INDEX_STRICT.
+	(LEGITIMATE_INDEX_P): Add a mode argument.  Update calls to
+	LEGITIMATE_INDEX_REG_P.
+	(m68k_legitimate_address_p): Update calls to LEGITIMATE_INDEX_P.
+	(m68k_legitimize_reload_address): Delete.
+	* gcc/config/m68k/m68k.h (INDEX_REG_CLASS): Delete in favor of...
+	(MODE_INDEX_REG_CLASS): ...this new macro.
+	(MODE_OK_FOR_INDEX_P): New macro.
+	(REGNO_OK_FOR_INDEX_P): Delete in favor of...
+	(REGNO_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(REG_OK_FOR_INDEX_P): Delete in favor of...
+	(REG_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(LEGITIMIZE_RELOAD_ADDRESS): Delete.
+	* gcc/reload1.c (maybe_fix_stack_asms): Pass operand_mode[i]
+	to MODE_BASE_REG_CLASS.
+
+	2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c: Include
+	<sys/types.h>.  Use __UCLIBC__ rather than __uClinux__ to guard
+	the definition of vsnprintf.
+
+	2006-04-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (PREFERRED_STACK_BOUNDARY): Define to 32
+	for Coldfire targets.
+
+	2006-04-01  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Reinstate defintion.
+	(END_SPEC): Likewise.
+	(LINK_SPEC): Make -elf2flt the default.
+
+	2006-03-31  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/no-executables.m4 (GCC_TRY_COMPILE_OR_LINK): New function.
+	* libstdc++-v3/aclocal.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.
+	* libstdc++-v3/libmath/Makefile.in: Regenerate.
+	* libstdc++-v3/configure: Regenerate.
+	* libstdc++-v3/Makefile.in: Regenerate.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+	* libstdc++-v3/src/Makefile.in: Regenerate.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerate.
+	* libstdc++-v3/testsuite/Makefile.in: Regenerate.
+	* libstdc++-v3/acinclude.m4: Regenerate.
+	* libstdc++-v3/po/Makefile.in: Regenerate.
+
+	2006-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
+	filename. 
+	(open): Likewise.
+	(stat): Likewise.
+	(access): Likewise.
+
+	2006-03-30  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty/configure.ac: Add cygpath for mingw hosts.
+	* libiberty.configure: Rebuilt.
+	* libiberty/Makefile.in: Add cygpath.
+	* libiberty/cygpath.c: New.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/configure.ac: Allow $tm_file to contain names of the form ./*.
+	Look for them in the build directory rather than $srcdir/config.
+	* gcc/configure: Regenerate.
+	* gcc/config.gcc (tm_file): Update commentary.
+	(m68k-*-uclinux*): Add ./sysroot-suffix.h to tm_file.
+	* gcc/config/m68k/print-sysroot-suffix.sh: New file.
+	* gcc/config/m68k/t-mlib-matches (sysroot-suffix.h): New rule.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Remove -mcpu=5206.
+	(MULTILIB_DIRNAMES): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Just undefine; don't redefine.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Reorder includes to match
+	m68k-*-linux.  Include linux.h and m68k/linux.h.  Include linux.opt
+	and define UCLIBC_DEFAULT.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Delete.
+	(ENDFILE_SPEC): Delete.
+	(HAS_INIT_SECTION): Delete.
+	(TARGET_OS_CPP_BUILTINS): Use LINUX_TARGET_OS_CPP_BUILTINS.
+	(CPLUSPLUS_CPP_SPEC): Delete.
+	(TARGET_ASM_FILE_START_APP_OFF): Delete.
+	(MULTILIB_DEFAULTS): Undefine before redefining.
+	(SYSROOT_SUFFIX_SPEC): Likewise.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Likewise.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_missing_uclibc_feature):
+	New procedure.
+	(check_gc_sections_available): Return false if ldflags includes
+	-elf2flt.
+	(check_profiling_available): Return false for m68k-*-uclinux.
+	(check_effective_target_wchar): New procedure.
+	* gcc/testsuite/gcc.dg/wint_t-1.c: Require { target wchar }.
+	* gcc/testsuite/gcc.dg/wchar_t-1.c: Likewise.
+
+	2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add some whitespace.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Add deprecated
+	cpu selectors to inhibit default.
+
+	* gcc/config/m68k/uclinux.h (SYSROOT_SUFFIX_SPEC): Add 532x.
+
+	* gcc/config/m68k/m68k-cores.def (532x, 537x): Use 532x multilib.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Remove m68k
+	options.  Add mcpu=532x.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Add mcpu=532x
+	(MULTILIB_DIRNAMES): Likewise.
+
+	* gcc/gcc.c (LINK_COMMAND_SPEC): Place T* options before
+	endfile_spec.
+	* gcc/doc/invoke.texi (M680x0 Options): Revert previous change.
+	* gcc/config/m68kenb.h (LIB_SPEC): Revert previous change.
+	* gcc/config/m68k.opt (mboard, mbsp): Revert previous change.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testuite/lib/target-supports.exp (check_no_compiler_messages):
+	New procedure.
+	(check_visibility_available): Use it.
+	(check_effective_target_default_packed): Likewise.
+	(check_effective_target_pcc_bitfield_type_matters): Likewise.
+	(check_effective_target_freorder): Likewise.
+	(check_effective_target_fpic): Likewise.
+	(check_named_sections_available): Likewise.
+	(check_effective_target_ilp32): Likewise.
+	(check_effective_target_lp64): Likewise.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c (vsnprintf):
+	Don't define for uClinux targets.
+	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Restrict the
+	test *-linux* rather than *linux* targets.
+	* gcc/testsuite/g++.dg/init/array15.C: Don't run on m68k-uclinux.
+	* gcc/testsuite/g++.dg/init/array16.C: Likewise.
+
+	2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/gcc.c (do_spec_1): <case '*'> Don't append space here.
+	(process_marked_switches): Put a space between each marked switch.
+	(process_brace_body): Put a space between each live switch.
+	(give_switch): Don't append space here.
+	* gcc/config/m68k/m68kemb.h (LIB_SPEC): Add BSP lib and linker
+	script here.  Group with LIBGCC spec.
+	* gcc/config/m68k/m68k.opt (mboard, mbsp): New switches.
+	* gcc/config/m68k/m68020-elf.h (LIB_SPEC): Do not define here.
+	* gcc/doc/invoke.texi (M680x0 Options): Document new switches.
+
+	2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (DWARF_FRAME_RETURN_COLUMN): Define.
+	* gcc/config/m68k/m68k.c (m68k_output_function_prologue): Output
+	dwarf to allow unwinding from interrupt_handlers.
+
+	2006-03-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-linux*): Add default --with-cpu.
+	* gcc/config/m68k/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): Fix thinko
+	in previous change.
+	* gcc/testsuite/gcc.dg/m68k-pic-1.c: New.
+
+	2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libstdc++-v3/config/cpu/m68k/atomicity.h (__exchange_and_add): Add
+	coldfire fragments.
+
+	* gcc/config/gcc (m68k-*-linux*): Add t-linux.
+	(m68k/t-rtems): Reorder include files.
+	* gcc/config/m68k/linux.h (TARGET_DEFAULT): Do not define.
+	(TARGET_CPU_DEFAULT, ASM_CPU_DEFAULT_SPEC): Default to 68040.
+	(STRICT_ALIGNMENT): Do not define here.
+	(ASM_SPEC): Define earlier.
+	(TARGET_OS_CPP_BUILTINS): Do not define mc68000 or mc68020 here.
+	(CPP_SPEC): Simplify.
+	(FUNCTION_VALUE_REGNO_P): fp0 is only a return on 68k, not
+	coldfire.
+	(TARGET_ASM_FILE_START_APP_OFF): Undef.
+	(MULTILB_DEFAULTS, SYSROOT_SUFFIX_SPEC,
+	SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+	* gcc/config/m68k/m68k-none.h (TARGET_DEFAULT, ASM_CPU_DEFAULT,
+	OPTION_DEFAULT_SPECS): Do not process here, move to m68k.h.
+	(EXTRA_SPECS, CPP_SUBTARGET_SPEC, SUBTARGET_EXTRA_SPECS):
+	Likewise.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS, TARGET_DEFAULT,
+	ASM_CPU_DEFAULT_SPEC, EXTRA_SPECS, CPP_SUBTARGET_SPECS,
+	SUBTARGET_EXTRA_SPECS): Moved here from m68k-none.h.
+	* gcc/config/m68k/t-linux: New.
+	* gcc/config/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): fp0 is not a
+	return reg on coldfire.
+
+	* gcc/config/m68k/t-mlib-matches (MULTILIB_MATCHES): m5206e is
+	equivalent to isaa.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add 5211.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Inhibit all 68k multilibs.  Allow
+	m547x/soft-float.
+
+	* gcc/config/m68k/m68k.md (cmpsi): Split symbol+const for Coldfire.
+
+	2006-03-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (CPLUSPLUS_CPP_SPEC): Override and
+	define _GNU_SOURCE.
+
+	2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/doc/tm.texi (TARGET_USE_COMDAT_GROUPS): Document.
+	* gcc/target.h (use_comdat_groups): New hook.
+	* gcc/crtstuff.c (USE_PT_GNU_EH_FRAME): Don't define if
+	OBJECT_FORMAT_FLAT.
+	* gcc/varasm.c (default_function_rodata_section): Test the
+	use_comdat_groups target hok instead of HAVE_COMDAT_GROUP.
+	(default_elf_asm_named_section): Likewise.
+	(default_unique_section): Likewise.
+	* gcc/target-def.h (TARGET_USE_COMDAT_GROUPS): Define if undefined.
+	(TARGET_INITIALIZER): Include it.
+	* gcc/config.gcc (m68k-*-uclinux*): Add flat.h to tm_defines.
+	Remove t-crtstuff from tmake_file.
+	* gcc/config/flat.h: New file.
+	* gcc/config/m68k/t-uclinux (EXTRA_MULTILIB_PARTS): Define.
+	* gcc/config/m68k/uclinux.h (EH_FRAME_IN_DATA_SECTION): Delete.
+
+	2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Move definition outside !REG_OK_STRICT block.
+
+	2006-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Don't
+	override here.
+	* gcc/config/m68k/m68k.h (TARGET_ASM_FILE_START_APP_OFF): Define.
+	* gcc/config/m68k/uclinux.h (TARGET_ASM_FILE_START_APP_OFF): Override.
+	(M68K_NO_ASM_FILE_START_APP_OFF): Delete.
+
+	2006-03-21  Richard Sandiford  <richard@codesourcery.com>
+		    Nathan Sidwell <nathan@codesourcery.com>
+
+	* gcc/rtlanal.c: Include tree.h.
+	(offset_within_block_p): New function, taken from
+	mips_offset_within_object_p.
+	(constant_may_be_outside_section_p): Likewise.
+	* gcc/rtl.h (offset_within_section_p): New function.
+	(constant_may_be_outside_section_p): Likewise.
+	* gcc/Makefile.in (rtlanal.o): Depend on $(TREE_H).
+	* gcc/config/m68k/m68k.md (movsi): Split possbily out-of-section
+	constants if M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	* gcc/config/m68k/m68k.c (TARGET_CANNOT_FORCE_CONST_MEM): Override.
+	(m68k_cannot_force_const_mem): New function.
+	* gcc/config/m68k/m68k.h (CONSTANT_ADDRESS_P): Check
+	LEGITIMATE_CONSTANT_P.
+	(LEGITIMATE_CONSTANT_P): Reject possibly out-of-section constants if
+	M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P): New macro.
+	* gcc/config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Override.
+	* gcc/config/mips/mips.c (mips_offset_within_object_p): Delete.
+	(mips_symbolic_constant_p): Use offset_within_section_p.
+
+	2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Set with_cpu to 5206 by default.
+	* gcc/config/m68k/m68k-cores.def (5211, 5212, 5213): Use the -mcpu=5211
+	multilibs instead of the -mcpu=5207 ones.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Restrict to coldfire
+	cores.
+	(MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Override default.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Define.
+	(SYSROOT_SUFFIX_SPEC): Define.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+
+	2006-03-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-protos.h (m68k_out_of_object_offset): New.
+	* gcc/config/m68k/m68k.c (m68k_out_of_object_offset): New.
+	(m68k_legitimate_address_p): Check out of object offset.
+	* gcc/config/m68k/m68k.md (movsi): Split if out of object offset.
+	* gcc/config/m68k/predicates.md (general_src_operand): Check out of
+	object offset.
+	* gcc/config/m68k/uclinux.h (M68K_NO_OUT_OF_OBJECT_OFFSETS): Declare.
+	
+	* gcc/config/m68k/m68k.c (m68k_output_function_epilogue): Prevent
+	compilation warning.
+
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address): Declare.
+	* gcc/config/m68k/m68k.c (m68k_legitimize_reload_address): New.
+	* gcc/config/m68k/m68k.h (LEGITIMIZE_RELOAD_ADDRESS): New.
+	* gcc/testsuite/gcc.dg/m68k-fp-1.c: New.
+	
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimiate_address_p): Declare.
+	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT,
+	REG_OK_FOR_BASE_STRICT, LEGITIMATE_BASE_REG_P,
+	LEGTIMATE_INDEX_REG_P): Copied & adjusted from m68k.h.
+	(m68k_legitimate_address_p): New, converted from
+	GO_IF_LEGITIMATE_ADDRESS.
+	* gcc/config/m68k/m68k.hh (PCREL_GENERAL_OPERAND_OK,
+	LEGTIMIATE_PIC_OPERAND_P): Remove.
+	(GO_IF_LEGITIMATE_ADDRESS): Call m68k_legitimate_address_p.
+	(LEGTIMIATE_BASE_REG_P, INDIRECTABLE_1_ADDRESS_P,
+	GO_IF_NONINDEXED_ADDRESS, GO_IF_INDEXABLE_BASE, GO_IF_INDEXING,
+	GO_IF_INDEXED_ADDRESS, LEGTIMIATE_INDEX_REG_P, LEGITIMATE_INDEX_P,
+	GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS): Remove.
+
+	2006-03-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/fpgnulib.c (__truncdfsf2): Implement round to
+	nearest even, fix denormal rounding overflow.
+
+	2006-03-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libstdc++-v2/configure.ac (LIBSUPCXX_PRONLY): Protect against unset
+	environment variable.
+	* libstdc++-v3/configure: Rebuilt.
+
+	* gcc/config.gcc (m68k-*-uclinux*): Include t-crtstuff.
+	* gcc/config/m68k/t-uclinux (MULITLIB_EXCEPTIONS): Disable
+	mid-shared-library & msep-data on coldfire chips without 32bit PC
+	rel addressing.
+	(EXTRA_MULTILIB_PARTS): Don't define here.
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Protect
+	with M68K_NO_ASM_FUILE_START_APP_OFF.
+	(override_options): Avoid signed/unsigned warning. Give more
+	informative error message when TARGET_SEP_DATA or
+	TARGET_ID_SHARED_LIBRARY are unsupported.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Define here.
+	(ENDFILE_SPEC): Likewise.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP): Don't define.
+	(TARGET_OS_CP_BUILTINS): Remove duplicared mc68000 #define.
+	(M68K_NO_ASM_FILE_START_APP_OFF): New.
+
+	2006-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Pass -mno-float for
+	soft-float.
+
+	2006-03-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Detect -mtune
+	usage to set multiple 68k core #defines.
+
+	2006-03-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Set FL_PCREL_16 as appropriate.
+	* gcc/config/m68k/m68k.c (FL_NOPIC): Remove.
+	(FL_PCREL_16): Define.
+	(all_architectures): Set FL_PCREL_16 as appropriate.
+	(all_tunings): Likewise.
+	(override_options): Replace 68k specific FL_NOPIC test with general
+	FL_PCREL_16 one.
+
+	2006-02-26  Nathan Sidwell  <nathan@potter.codesourcery.com>
+
+	* libstdc++-v3/testsuite/lib/libstdc++.exp (check_v3_target_fileio,
+	check_v3_target_time): New.
+	* libstdc++-v3/testsuite/lib/dg-options.exp (dg-require-fileio,
+	dg-require-time): New.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-3.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-4.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-3.cc: Use it.
+	* libstdc++-v3/testsuite/22_locale/time_put/put/char/12439_1.cc: Use it.
+	* libstdc++-v3/testsuite/22_locale/time_put/put/char/12439_3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ofstream/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ofstream/cons/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/10.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-5.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/get/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/ignore/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/ignore/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/getline/char/5.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/seekg/char/sstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/seekg/char/fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/readsome/char/6746-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/extractors_other/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/sstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/extractors_character/char/4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/inserters_other/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/tellp/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/seekp/char/2346-fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ifstream/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ifstream/cons/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/11543.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/in_avail/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/in_avail/char/9701-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/12875-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/12875-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/9825.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/is_open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/2-unbuf.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9988.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9169.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/10096.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/9339.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/pbackfail/char/9761.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/10.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/11.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/5.cc: Use it.
+
+	2006-02-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/doc/invoke.text (M680x0 Options): Update.
+	* gcc/config/m68k/m68k.opt (mdiv): Rename from mhwdiv, to match
+	assembler.
+	(musp): Remove.
+	(mbitfield, mrtd, mshort): Allow negated.
+	* gcc/config/m68k/m68k.c (m68k_cf_usp): Remove.
+	(all_architectures): isaa defaults to HWDIV and 5206e. isaa+
+	defaults to HWDIV.
+	(override_options): Remove m68k_cf_usp setting.
+	* gcc/config/m68k/m68k.h (m68k_cf_usp): Remove.
+
+	* gcc/config/m68k/m68k-cores.def: Add 5202, 5204, 5250.
+
+	* gcc/config/m68k/m68k.h (TARGET_COLDFIRE): Remove, use
+	m68k_arch_coldfire directly.  Update all users.
+	* gcc/config/m68k/m68k.c: Update all users.
+	* gcc/config/m68k/m58k.md: Update all users.
+	* gcc/config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Update.
+
+	2006-02-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_cpu_cpp_builtins): Move to ...
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): ... here.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Remove.
+
+	2005-02-21  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (fpu_impl, fpu_select): Remove.
+	(m68k_handle_option): Remove msoft-float, mhard-float, m68881 handling
+	from here.
+	(override_options): Handle default CPU setting. Handle bitfield, hwdiv,
+	usp options. Use FL_NOPIC.
+	* gcc/config/m68k/m68k.h (TARGET_BITFIELD): Define to m68k_bitfield,
+	temporarily.
+	(target_cpus): New enumeration of CPU identifiers, TARGET_CPU_<core>.
+	* gcc/config/m68k/m68k-none.h: Remove old TARGET_CPU_DEFAULT handling.
+	(OPTION_DEFAULT_SPECS): Define macro for handling default CPU/float.
+	(EXTRA_SPECS): Remove CC1_CPU_DEFAULT_SPEC.
+	* gcc/config/m68k/m68k.opt (mbitfield): Use m68k_flag_bitfield.
+	(mnobitfield): Likewise.
+	(mhwdiv, musp): Fix options.
+	(m68881, msoft-float, mhard-float): Use m68k_flag_hardfloat.
+	(mfpu): Remove.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_EXCEPTIONS): Add msoft-float,
+	mhard-float.
+	* gcc/config.gcc (m68k*-linux*): Rename to...
+	(m68k*-*): Implement --with-cpu, --with-float. Remove old
+	compile-time CPU selection options.
+
+	2006-02-16  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-aout*): Use t-mlib-matches file.
+	(m68k-*-coff*): Likewise.
+	(m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Likewise.
+	(m68k-*-uclinux*): Likewise.
+	(m68k-*-linux*): Likewise.
+	(m68k-*-rtems*): Likewise.
+	* gcc/config/m68k/t-rtems: Use -mcpu= options for multilibs.
+	* gcc/config/m68k/t-m68kelf: Likewise.
+	* gcc/config/m68k/t-m68kbare: Likewise.
+	* gcc/config/m68k/t-uclinux: Likewise.
+	* gcc/config/m68k/m68k-cores.def: Add multilib field. Add missing HWDIV
+	flag to various cores. Replace 5280, 5281, 5282 with 528x.
+	* gcc/config/m68k/t-mlib-matches: Find canonical multilib for
+	CPU/arch settings.
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add -mcpu/-march options.
+	* gcc/config/m68k/m68k.c (all_cores): Ignore new multilib field in
+	m68k-cores.def.
+	(m68k_handle_option): Use 528x instead of 5280.
+	(override_options): Don't set CPU/arch if tuning option only is given.
+	* gcc/config/m68k/m68k.h (processor_type): Ignore new multilib field in
+	m68k-cores.def.
+
+	2006-02-13  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Implement 'R'
+	constraint for immediates which can be handled by mov3q.
+
+	2006-02-10  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md: Replace uses of TARGET_68020, TARGET_68040,
+	TARGET_68060, TARGET_68040_ONLY, TARGET_CPU32, TARGET_CFV4 with
+	TUNE_68000, TUNE_68020, TUNE_68040, TUNE_CFV4, m68k_arch_68020,
+	m68k_arch_68040, m68k_arch_68060, m68k_arch_isab as appropriate,
+	throughout.
+	* gcc/config/m68k/linux.h (MASK_68881): Change spelling to MASK_HARDFP.
+	* gcc/config/m68k/m68k-cores.def (68020-40, 68020-60): Remove CPU
+	names.
+	(68332, cpu32): Use cpu32 as microarchitecture.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Add prototype.
+	* gcc/config/m68k/m68k-none.h (MASK_68881): Change spelling to
+	MASK_HARDFP. Use -mhard-float instead of -m68881.
+	* gcc/config/m68k/m68k.opt (-m5200, -m5206e, -m528x, -m5307, -m5407)
+	(-mcfv4e, -m68881): Don't use target flags to handle legacy options.
+	(-mhard-float): Add option to enable ColdFire FPU or 68881 depending
+	on context.
+	(-msoft-float): Negation of above.
+	(-mhwdiv): Enable/disable ColdFire hardware divide instructions
+	(unimplemented).
+	* gcc/config/m68k/m68k.c (m68k_cpu, m68k_arch_68020, m68k_arch_68040)
+	(m68k_arch_68060, m68k_arch_coldfire, m68k_arch_isaaplus)
+	(m68k_arch_isab, m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield)
+	(m68k_cf_hwdiv, m68k_cf_usp): New variables describing target
+	capabilities.
+	(FL_FOR_isa_40, FL_FOR_isa_60): Alter definitions.
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60): Remove.
+	(m68k_isa): Remove isa_20_40 and isa_20_60.
+	(all_cores): Alter last entry.
+	(all_architectures): Reformat. Update various fields. Remove 68020-40
+	and 68020-60. Remove cfvX entries.
+	(all_tunings): New array. Describe different tuning options.
+	(m68k_select): Tune for microarch not CPU.
+	(MASK_ALL_CPU_BITS): Remove.
+	(m68k_handle_option): Handle legacy options using new CPU/tuning
+	selection code. Add support for -mhard-float and fix support for
+	-msoft-float, -m68881.
+	(override_options): Add tuning support. Remove legacy target flag
+	support.
+	(m68k_cpu_cpp_builtins): New function (from TARGET_CPU_CPP_BUILTINS
+	in m68k.h). Handle legacy defines, and support new __mcfisaX__ and
+	__mcfvX__ defines to be used in new code.
+	(m68k_output_function_prologue): Use TUNE_* macros and m68k_arch_*
+	predicates.
+	(m68k_output_function_epilogue): Likewise.
+	(m68k_output_pic_call): Likewise.
+	(output_scc_di): Likewise.
+	(const_method): Likewise.
+	(m68k_rtx_costs): Likewise.
+	(output_move_simode_const): Likewise.
+	(output_move_himode): Likewise.
+	(output_move_qimode): Likewise.
+	(output_move_stricthi): Likewise.
+	(output_move_strictqi): Likewise.
+	(output_addsi3): Likewise.
+	(standard_68881_constant_p): Likewise.
+	(print_operand): Likewise.
+	(m68k_output_mi_thunk): Likewise.
+	* gcc/config/m68k/netbsd-elf.h (MASK_68881): Spell MASK_HARDFP.
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Implement as
+	function call to m68k_cpu_cpp_builtins.
+	(TARGET_CPU32): Remove.
+	(TARGET_COLDFIRE): Define as m68k_arch_coldfire.
+	(TARGET_COLDFIRE_FPU, TARGET_68881, TARGET_HARD_FLOAT): Define in terms
+	of m68k_fpu.
+	(TARGET_FLT_EVAL_METHOD): Use m68k_arch_68040.
+	(CONST_OK_FOR_LETTER_P): Add 'R' constraint.
+	(INDIRECTABLE_1_ADDRESS_P, GO_IF_INDEXED_ADDRESS, LEGITIMATE_INDEX_P):
+	Use m68k_arch_68020.
+	(uarch_type): Remove u68030, ucfv2m. Add ucpu32.
+	(TUNE_68000, TUNE_68020, TUNE_68040, TUNE_68060, TUNE_68040_60)
+	(TUNE_CPU32, TUNE_CFV2, TUNE_CFV3, TUNE_CFV4): Add tuning macros.
+	(m68k_cpu, m68k_arch_68020, m68k_arch_68040, m68k_arch_68060)
+	(m68k_arch_coldfire, m68k_arch_isaaplus, m68k_arch_isab)
+	(m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield, m68k_cf_hwdiv)
+	(m68k_cf_usp): Declare extern variables describing target capabilities.
+
+	2006-02-01  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm (__divsf3, __divdf3, __mulsf3,
+	__muldf3): Return a correctly signed zero.
+
+	2006-01-31  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
+	2006-01-30  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: New file. Define various 68k/ColdFire
+	cores.
+	* gcc/config/m68k/m68k.opt (-mcpu, -march, -mtune, -mfpu): New
+	options.
+	* gcc/config/m68k/m68k.c (FL_NOPIC, FL_BITFIELD, FL_68881, FL_COLDFIRE)
+	(FL_CF_HWDIV, FL_CF_MAC, FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP)
+	(FL_CF_FPU, FL_ISA_68000, FL_ISA_68020, FL_ISA_68040, FL_ISA_68060)
+	(FL_ISA_A, FL_ISA_APLUS, FL_ISA_B, FL_ISA_C): Define flags for
+	m68k-cores.def.
+	(FL_FOR_isa_00, FL_FOR_isa_20, FL_FOR_isa_40, FL_FOR_isa_60)
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60, FL_FOR_isa_a, FL_FOR_isa_aplus)
+	(FL_FOR_isa_b, FL_FOR_isa_c): Define base flags for ISAs.
+	(m68k_isa): New enumerated type for instruction-set architectures.
+	(processors): New type for processors.
+	(all_cores): New array. All m68k cores, read from m68k-cores.def.
+	(all_architectures): New array. All m68k architectures.
+	(m68k_cpu_select): New type for selecting cpu/arch.
+	(m68k_select): New array for selecting cpu/arch/tuning.
+	(fpu_impl): New type for floating-point units.
+	(fpu_select): New array for selecting FPU.
+	(M68K_OPT_SET_TUNE, M68K_OPT_SET_ARCH, M68K_OPT_SET_CPU): New defines
+	for indices into m68k_select array.
+	(m68k_handle_option): Handle -mcpu=, -march=, -mtune=.
+	(override_options): Handle new -mcpu, -march options. Translate to old
+	target flags.
+	* gcc/config/m68k/m68k.h (uarch_type): New enumeration for
+	microarchitecture types.
+	(processor_type): New enumeration for processor core identifications.
+	(fpu_type): New enumeration for FPU types.
+
+	2006-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* version.c: Mark as CodeSourcery build.
+
+	2006-01-23  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-23  Kazu Hirata  <kazu@codesourcery.com>
+	PR testsuite/25590
+	* gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+	2006-01-23  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/netbsd-elf.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Make
+	64-bit on Coldfire.
+	* gcc/config/m68k/m68k.h (LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Likewise. 
+
+	2006-01-22  Paul Brook  <paul@codesourcery.com>
+		Peter Barada  <peter@the-baradas.com>
+
+	* gcc/config/m68k/m68k.md: Add Coldfire FPU support.
+	Define FP mode macro and associated attributes.
+	Use it for float mode patterns.
+	* gcc/config/m68k/linux.h (FUNCTION_VALUE): Use m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k-protos.h (m68k_libcall_value): Add prototype.
+	(m68k_function_value): Ditto.
+	(emit_move_sequence): Ditto.
+	* gcc/config/m68k/m68kemb.h (LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add mcfv4e.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add mcfv4e.
+	(MULTILIB_EXCEPTIONS): Ditto.
+	* gcc/config/m68k/m68k.opt: Add mcfv4e.
+	* gcc/config/m68k/m68k.c (m68k_handle_option): Handle OPT_mcfv4e.
+	(m68k_compute_frame_layout): Include space for ColdFire FPU regs.
+	(m68k_output_function_prologue): Save ColdFire FPU registers.
+	(m68k_output_function_epilogue): Restore ColdFire FPU registers.
+	(force_mode, fp_reg_operand, emit_move_sequence): New functions.
+	(m68k_regno_mode_ok): Don't allow types larget than 8 bytes in
+	ColdFire FPU registers.
+	(m68k_libcall_value, m68k_function_value): New functions.
+	* gcc/config/m68k/netbsd-elf.h (FUNCTION_VALUE): Use
+	m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcfv4e__.
+	(MASK_COLDFIRE): Add MASK_CFV4E.
+	(TARGET_COLDFIRE_FPU, TARGET_HARD_FLOAT, TARGET_FP_REG_SIZE): New.
+	(MODES_TIEABLE_P): Use TARGET_HARD_FLOAT.
+	(REG_CLASS_FROM_LETTER, PREFERRED_RELOAD_CLASS): Ditto.
+	(GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS): Define.
+	(GO_IF_LEGITIMATE_ADDRESS): Use it.
+	(LEGITIMIZE_ADDRESS): Handle ColdFire FPU addresses.
+	* gcc/doc/invoke.tex: Document -mcfv4e on m68k.
+
+2006-06-21  Mark Mitchell  <mark@codesourcery.com>
+
+	libstdc++/
+	* acinclude.m4 (GLIBCXX_EXPORT_INSTALL_INFO): When
+	cross-compiling, put headers in $prefix/$target/include/c++.
+	* configure: Regenerated.
+
+	gcc/
+	* configure.ac: Set gcc_gxx_include_dir to $target/include/c++
+	when cross-compiling.  Do not substitute libstdcxx_incdir.
+	* configure: Regenerated.
+
+2006-06-20  Vladimir Prus  <vladimir@codesourcery.com>
+
+	libstdc++/
+	* libsupc++/eh_arm.cc (__cxa_begin_cleanup): Always return 'true'.
+
+2006-06-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/t-linux64 (tp-bit.c): Append to tp-bit.c, not
+	dp-bit.c.
+
+2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc/builtins.c (expand_builtin_return_addr): Always use
+	hard_frame_pointer_rtx and prevent frame pointer elimination
+	if INITIAL_FRAME_ADDRESS_RTX isn't set.
+
+2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc/tree.h: Declare folding_initializer.
+	* gcc/builtins.c (fold_builtin_constant_p): Give definite answer
+	if folding inside an initializer.
+	* gcc/fold-const.c: Define folding_initializer.
+	(START_FOLD_INIT): Save and then set folding_initializer.
+	(END_FOLD_INIT): Restore folding_initializer.
+	* gcc/testsuite/gcc.c-torture/compile/builtin_constant_p.c:
+	New test.
+
+2006-05-31  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline:
+	2006-05-31  Richard Earnshaw  <richard.earnshaw@arm.com>
+	PR target/27829
+	* gcc/config/arm/arm.c (arm_print_operand case 'S'): Validate 
+	that the operand is a shift operand before calling shift_op.  
+	Avoid redundant call of	shift_op.
+
+2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+	2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+	PR tree-optimization/26622.
+	* gcc/fold-const.c (fold_ternary) <COND_EXPR>: Call fold_convert
+	on arg1.
+
+	PR tree-optimization/26622.
+	* gcc/testsuite/gcc.c-torture/compile/pr26622.c: New.
+
+2006-05-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libiberty/make-relative-prefix.c (split_directories): Add
+	ignore_final arg.
+	(make_relative_prefix): Keep the final path component if it was a
+	directory.  Adjust calls to split_directories.
+
+2006-05-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Merge from mainline:
+	gcc/
+	2006-05-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/linux-unwind.h: Include <asm/unistd.h>
+	(mips_fallback_frame_state): Use syscall numbers to determine
+	the appropriate li instruction for the current ABI.  Only use
+	__NR_sigreturn for o32.
+
+2006-05-11  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp
+	(check_effective_target_powerpc_fprs,
+	check_effective_target_powerpc_altivec_ok): New.
+	* gcc/testsuite/g++.dg/eh/simd-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-1.C,
+	gcc/testsuite/g++.dg/ext/altivec-10.C,
+	gcc/testsuite/g++.dg/ext/altivec-11.C,
+	gcc/testsuite/g++.dg/ext/altivec-12.C,
+	gcc/testsuite/g++.dg/ext/altivec-13.C,
+	gcc/testsuite/g++.dg/ext/altivec-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-3.C,
+	gcc/testsuite/g++.dg/ext/altivec-4.C,
+	gcc/testsuite/g++.dg/ext/altivec-5.C,
+	gcc/testsuite/g++.dg/ext/altivec-6.C,
+	gcc/testsuite/g++.dg/ext/altivec-7.C,
+	gcc/testsuite/g++.dg/ext/altivec-8.C,
+	gcc/testsuite/g++.dg/ext/altivec-9.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-1.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-3.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-4.C,
+	gcc/testsuite/gcc.dg/simd-3.c,
+	gcc/testsuite/gcc.dg/vect/vect-82_64.c,
+	gcc/testsuite/gcc.dg/vect/vect-83_64.c,
+	gcc/testsuite/gcc.dg/vmx/vmx.exp,
+	gcc/testsuite/gcc.target/powerpc/980827-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-10.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-11.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-12.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-13.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-14.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-15.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-16.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-17.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-18.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-19.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-2.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-21.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-22.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-3.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-4.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-5.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-6.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-7.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-8.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-9.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-consts.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-pr22085.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-splat.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-2.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-3.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-4.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-varargs-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-vec-merge.c,
+	gcc/testsuite/gcc.target/powerpc/ppc-vector-memcpy.c,
+	gcc/testsuite/gcc.target/powerpc/ppc-vector-memset.c,
+	gcc/testsuite/gcc.target/powerpc/ppc64-abi-2.c,
+	gcc/testsuite/gcc.target/powerpc/pr16155.c,
+	gcc/testsuite/gcc.target/powerpc/pr16286.c: Use these effective
+	targets.
+	* gcc/testsuite/gcc.dg/20020103-1.c: XFAIL on powerpc*-*-*.
+
+2006-05-08  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/cofnig/arm/arm.c (output_move_vfp): Fix typo.
+
+2006-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (TOPLEVEL_CONFIGURE_ARGS): Protect args with active
+	characters.
+	(baseargs): Simplify protection, use ac_arg temp name, correct $
+	to $$ conversion.
+	* configure: Rebuilt.
+
+2006-05-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	mips*-*-linux*.
+
+2006-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
+	storing in baseargs.
+	* configure: Regenerated.
+	* gcc/configure.ac: Add --with-versuffix and --with-bugurl.
+	* gcc/version.c (VERSUFFIX): Remove.
+	(bug_report_url): Do not hard-code initializer.
+	* gcc/Makefile.in (VERSUFFIX_s): Define.
+	(BUGURL_s): Likewise.
+	(version.o): Define VERSUFFIX and BUGURL.
+	* gcc/doc/install.texi: Document them.
+	* gcc/configure: Regenerated.
+
+2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
+	2006-05-04  Richard Sandiford  <richard@codesourcery.com>
+	PR target/26765
+	* gcc/config/mips/mips.c (mips_symbolic_address_p): Return true
+	for SYMBOL_TLSGD, SYMBOL_TLSLDM, SYMBOL_DTPREL, SYMBOL_TPREL,
+	SYMBOL_GOTTPREL, and SYMBOL_TLS.
+
+	2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/26765
+	* gcc/testsuite/gcc.target/mips/pr26765.c: New.
+
+2006-05-04  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/version.c: Revert back to Sourcery G++.
+
+2006-05-03  Paul Brook  <paul@codesourcery.com>
+
+	Merge from branches/csl/arm-4_1 r113476.
+	2006-05-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (add_minipool_forward_ref): Check if insn
+	and pool overlap.
+	(create_fix_barrier): Check that a suitable barrier location is
+	found.
+	(arm_reorg): Include ftmp->address in allowable range of addresses.
+
+	2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/vfp.md (arm_movdi_vfp): Correct the output templates
+	for case 3 and 4.
+	(thumb2_movdi_vfp): Ditto.
+
+	2006-04-21  Kazu Hirata  <kazu@codesourcery.com>
+	* gcc/config/arm/arm-protos.h: Add a prototype for
+	output_move_vfp.
+	* gcc/config/arm/arm.c (arm_coproc_mem_operand): When WB is
+	false, accept PRE_DEC and POST_INC.
+	(output_move_vfp): New.
+	* gcc/config/arm/vfp.md (*arm_movsi_vfp, *thumb2_movsi_vfp,
+	*arm_movdi_vfp, *thumb2_movdi_vfp, *movsf_vfp,
+	*thumb2_movsf_vfp, *movdf_vfp, *thumb2_movdf_vfp): Call
+	output_move_vfp on loads to and stores from VFP registers.
+	* gcc/testsuite/gcc.target/arm/arm.exp,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmias.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmias.c: New.
+
+	2006-04-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/ieee754-df.S (adddf3): Avoid clobbering yl.
+
+
+	2006-04-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_file_start): Output additional object
+	attribute directives.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/thumb2.md (thumb2_shiftsi3_short): Disallow rotate by
+	immediate.
+	(divsi3, udivsi3): Remove bogus length attribute.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Fix typo in condition
+	modifier characters.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Handle Thumb register shifts.
+
+	2006-03-30  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Change set_flags to
+	tristate option.  Use modified shift value.
+	* gcc/config/arm/thumb2.md (thumb2_shiftsi3_short): Use
+	arm_output_shift.
+	* gcc/config/arm/arm.md (arm_shiftsi3, shiftsi3_compare0,
+	shiftsi3_compare0_scratch): Adjust arguments to arm_output_shift.
+
+	2006-03-29  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/vfp.md (movsf_vfp): Disparage w<->r alternatives.
+	(thumb2_movsf_vfp, movdf_vfp, thumb2_movdf_vfp): Ditto.
+
+	2005-03-21  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/thumb2.md (divsi3, udivsi3): New define_insn.
+	* gcc/config/arm/arm.c (arm_arch_hwdiv): Define.
+	(arm_override_options): Set arm_arch_hwdiv.
+	* gcc/config/arm/arm.h (arm_arch_hwdiv): Declare.
+
+
+	2006-03-14  Paul Brook  <paul@codesourcery.com>
+	* doc/install.texi: Docuemnt --with-mode.
+	* config.gcc: Add --with-mode for arm*-*-*.
+	* config/arm/arm.h (OPTION_DEFAULT_SPECS): Add "mode".
+
+	2006-03-13  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_dwarf_handle_frame_unspec): New function.
+	(TARGET_DWARF_HANDLE_FRAME_UNSPEC): Define.
+	(arm_compute_save_reg0_reg12_mask): Save r0 if dynamic stack
+	alignment is required.
+	(arm_output_epilogue): Restore sp from r0.
+	(arm_expand_prologue): Save sp in r0 before aligning stack.
+	(arm_unwind_emit_sequence): Remove redundant SP push code.
+	(arm_unwind_emit_set): Handle UNSPEC_STACK_ALIGN.
+	* gcc/config/arm/arm.md (UNSPEC_STACK_ALIGN): Define.
+
+	2006-03-01  Paul Brook  <paul@codesourcery.com>
+	* gcc/doc/extend.texi: Document ARMv7 interrupt attribute.
+	* gcc/config/arm/arm.c (arm_isr_value): Check arm_arch_notm.
+	(use_return_insn): Return 0 is SP needs realignment.
+	(arm_function_ok_for_sibcall): Ditto.
+	(arm_output_function_prologue): Add IS_STACKALIGN comment.
+	(arm_output_epilogue): Restore SP from stack if it needed realignment.
+	(arm_expand_prologue): Add dynamic stack alignment code.
+	(-arm_unwind_emit_stm): Rename...
+	(arm_unwind_emit_sequence): ... to this.  Handle popping SP.
+	* gcc/config/arm/arm.h (ARM_FT_STACKALIGN, IS_STACKALIGN): Define.
+	* gcc/g++.dg/other/armv7m-1.c: New test.
+
+	2006-02-27  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/t-arm-elf: Fix backwards MULTILIB_MATCHES.
+
+	2006-02-24  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (FL_NOTM, FL_DIV, FL_FOR_ARCH7, FL_FOR_ARCH7A,
+	FL_FOR_ARCH7R, FL_FOR_ARCH7M): New defines.
+	(arm_arch_notm): New variable.
+	(arm_override_options): Check if CPU supports ARM mode.
+	Set arm_arch_notm.
+	* gcc/config/arm/lib1funcs.asm: Recognise V7 architecture variants.
+	* gcc/config/arm/arm.h (TARGET_DSP_MULTIPLY, TARGET_INT_SIMD): Define.
+	(arm_arch_notm): Declare.
+	* gcc/config/arm/arm-cores.def: Add cortex-a8, cortex-r4 and cortex-m3.
+	* gcc/config/arm/arm-cores.def: Regenerate.
+	* gcc/config/arm/t-arm-elf: Add Armv7 Thumb-2 multilib.
+	* gcc/config/arm/arm.md (mulhisi3, mulhisi3tb, mulhisi3bt, mulhisi3tt,
+	mulhisi3addsi, mulhidi3adddi): Depend on TARGET_DSP_MULTIPLY.
+	(arm_zero_extendhisi2addsi, arm_zero_extendqisi2addsi,
+	arm_extendhisi2addsi, arm_extendqisi2addsi): Depend on
+	TARGET_INT_SIMD.
+
+	2006-02-07  Paul Brook  <paul@codesourcery.com>
+	* config/gcc/arm/lib1funcs.asm: Use unified assembly syntax.
+	Assemble "Arm" code as Thumb-2 where appropriate.
+	* config/gcc/arm/ieee754-df.S: Use unified assembly syntax for Arm
+	code.  Add Thumb-2 code.
+	* config/gcc/arm/ieee754-df.S: Ditto.
+	* config/gcc/arm/libunwind.S: Ditto.
+	* config/gcc/arm/bpabi.S: Ditto.
+
+	2006-01-27  Paul Brook  <paul@codesourcery.com>
+	* version.c: Mark as CodeSourcery build.
+
+	2006-01-26  Paul Brook  <paul@codesourcery.com>
+	Thumb-2 support.
+	* gcc/doc/invoke.texi: Document -cpu=arm1156t2-s and -march=armv6t2
+	Document that -mthumb may enable Thumb-2.
+	* gcc/config/arm/aof.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Set Thumb bit on Thumb-2 addresses.
+	* gcc/config/arm/out.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Ditto.
+	* gcc/config/arm/arm-cores.def: Add arm1156t2-s.
+	* gcc/config/arm/arm-protos.h: Update and add function prototypes.
+	* gcc/config/arm/arm-tune.md: Regenerate.
+	* gcc/config/arm/arm.c (TARGET_ASM_FILE_START, FL_THUMB2,
+	FL_FOR_ARCH6T2): Define.
+	(arm_arch_thumb2, arm_condexec_count, arm_condexec_mask,
+	arm_condexec_masklen): New variables.
+	(ARM_LSL_NAME): Define.
+	(THUMB2_WORK_REGS): Define.
+	(all_architectures): Add 6T2.
+	(arm_override_options): Set arm_arch_thumb2. Allow use of 
+	coprocessors in Thumb-2.
+	(use_return_insn): Only use StrongARM workaround in Arm mode.
+	(const_ok_for_arm): Handle Thumb-2 constants.
+	(arm_gen_constant): Ditto.
+	(legitimize_pic_address): Add Thumb-2.
+	(arm_load_pic_register): Generate Thumb-2 sequence.
+	(arm_call_tls_get_addr): Ditto.
+	(legitimize_tls_address): Ditto.
+	(thumb2_legitimate_address_p): New function.
+	(thumb2_index_mul_operand): New function.
+	(thumb2_legitimate_index_p): New function.
+	(thumb_base_register_rtx_p, thumb_index_register_rtx_p,
+	thumb_legitimate_address_p, thumb_rtx_costs,
+	thumb_compute_save_reg_mask, thumb_final_prescan_insn,
+	thumb_expand_prologue, thumb_expand_epilogue,
+	thumb_output_function_prologue, thumb_cmp_operand,
+	thumb_cmpneg_operand): Rename ...
+	(thumb1_base_register_rtx_p, thumb1_index_register_rtx_p,
+	thumb1_legitimate_address_p, thumb1_rtx_costs,
+	thumb1_compute_save_reg_mask, thumb1_final_prescan_insn,
+	thumb1_expand_prologue, thumb1_expand_epilogue,
+	thumb1_output_function_prologue, thumb1_cmp_operand,
+	thumb1_cmpneg_operand): ... to this.  Update callers.
+	(arm_address_cost): Use arm routine for Thumb-2.
+	(load_multiple_sequence): Only allow ldmib and ldmda in Arm mode.
+	(emit_ldm_seq): Output unified assembly.
+	(emit_stm_seq): Ditto.
+	(arm_select_cc_mode): Treat Thumb-2 like Arm.
+	(print_multi_reg): Don't print comma.
+	(output_mov_long_double_fpa_from_arm): Output unified assebly.
+	(output_mov_double_arm_from_fpa): Ditto.
+	(output_move_double): Ditto.  Disallow Arm specific addressing modes
+	in Thumb-2 mode.
+	(arm_shift_nmem): New function.
+	(arithmetic_instr, shift_op): Use it.  Use ARM_LSL_NAME.
+	(arm_compute_save_reg0_reg12_mask): Handle Thumb-2 frames.
+	(arm_compute_save_reg_mask): Don't create apcs frame for Thumb-2.
+	Create scratch register if needed for PIC.
+	(output_return_instruction): Only use StrongARM workaround in Arm mode.
+	(arm_output_function_prologue): Threat Thumb-2 like Arm.
+	(arm_output_epilogue): Implement Thumb-2.
+	(arm_output_function_epilogue): Treat Thumb-2 like Arm.
+	(arm_get_frame_offsets): Ditto.
+	(arm_save_coproc_regs, thumb_set_frame_pointer): New function.
+	(arm_expand_prologue): Use them.  Handle Thumb-2.
+	(arm_print_condition): New function.
+	(arm_print_operand): Use it.  Implement '(', ')', '.', '!' and 'L'.
+	(thumb2_final_prescan_insn): New function.
+	(thumb2_asm_output_opcode): New function.
+	(arm_hard_regno_mode_ok): Treat Thumb-2 like Arm.
+	(arm_regno_class): Implement thumb2 classes.
+	(arm_file_start): New function.
+	(arm_output_mi_thunk): Treat Thumb-2 like Arm.
+	(thumb_set_return_address): Implement Thumb-2.
+	(arm_output_shift): New function.
+	* gcc/config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add __thumb2__.
+	(TARGET_THUMB1, TARGET_THUMB2, TARGET_32BIT, TARGET_UNIFIED_ASM):
+	Define.
+	(arm_arch_thumb2): Declare;
+	(CONDITIONAL_REGISTER_USAGE): Enable coprocessor registers on Thumb-2.
+	(STATIC_CHAIN_REGNUM, HARD_REGNO_NREGS, MODE_BASE_REG_CLASS,
+	SMALL_REGISTER_CLASSES, CONST_DOUBLE_OK_FOR_LETTER_P,
+	EXTRA_CONSTRAINT_STR, SECONDARY_OUTPUT_RELOAD_CLASS,
+	SECONDARY_INPUT_RELOAD_CLASS, REGISTER_MOVE_COST, LIBCALL_VALUE,
+	FUNCTION_VALUE_REGNO_P, REGNO_MODE_OK_FOR_BASE_P,
+	LEGITIMATE_CONSTANT_P, REG_MODE_OK_FOR_BASE_P, REG_OK_FOR_INDEX_P,
+	GO_IF_MODE_DEPENDENT_ADDRESS, MEMORY_MOVE_COST, BRANCH_COST,
+	(HAVE_PRE_INCREMENT, HAVE_POST_DECREMENT, HAVE_PRE_DECREMENT,
+	HAVE_PRE_MODIFY_DISP, HAVE_POST_MODIFY_DISP, HAVE_PRE_MODIFY_REG,
+	HAVE_POST_MODIFY_REG, PRINT_OPERAND_ADDRESS): Treat Thumb-2 like Arm.
+	(CONST_OK_FOR_THUMB2_LETTER): Define.
+	(CONST_OK_FOR_THUMB_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB_REGNO_MODE_OK_FOR_BASE_P, THUMB_REG_MODE_OK_FOR_BASE_P,
+	THUMB_REG_MODE_OK_FOR_BASE_P, THUMB_REG_OK_FOR_INDEX_P,
+	THUMB_GO_IF_LEGITIMATE_ADDRESS): Rename ...
+	(CONST_OK_FOR_THUMB1_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB1_REGNO_MODE_OK_FOR_BASE_P, THUMB1_REG_MODE_OK_FOR_BASE_P,
+	THUMB1_REG_MODE_OK_FOR_BASE_P, THUMB1_REG_OK_FOR_INDEX_P,
+	THUMB1_GO_IF_LEGITIMATE_ADDRESS): ... to this.
+	(CONST_OK_FOR_LETTER_P, TRAMPOLINE_TEMPLATE, TRAMPOLINE_SIZE,
+	INITIALIZE_TRAMPOLINE, GO_IF_LEGITIMATE_ADDRESS, LEGITIMIZE_ADDRESS,
+	ASM_APP_OFF, ARM_DECLARE_FUNCTION_NAME): Handle Thumb-2.
+	(THUMB2_TRAMPOLINE_TEMPLATE): Define.
+	(TRAMPOLINE_ADJUST_ADDRESS, ASM_OUTPUT_OPCODE,
+	THUMB2_GO_IF_LEGITIMATE_ADDRESS, THUMB2_LEGITIMIZE_ADDRESS,
+	ADJUST_INSN_LENGTH): Define.
+	(PRINT_OPERAND_PUNCT_VALID_P): Add '(', ')', '.' and '!'.
+	(PREFERRED_RELOAD_CLASS): Prefer LO_REGS for core integer reg
+	classes.
+	* gcc/config/arm/arm.md: Rename thumb_* thumb1_*.  Make 16-bit thumb
+	patterns conditional on TARGET_THUMB1. Replace '%?' with
+	'%(', '%)' and '%.' as appropriate for unified assembly syntax.
+	Enable many Arm patterns/expanders for Thumb-2.
+	Add new "ce_count" attribute.
+	Include thumb2.md
+	(incscc, decscc, smaxsi3, sminsi3, umaxsi3, sminsi3, zero_extendsidi2,
+	zero_extendqidi2, extendsidi2): Divide into
+	define_expand and define_insn.
+	(ne_zeroextractsi, minmax_arithsi): Insert IT instructions for Thumb-2.
+	(arm_shiftsi3, shiftsi3_compare0, shiftsi3_compare0_scratch): Use
+	arm_output_shift.
+	(movhi, indirect_jump): Handle thumb2.
+	(push_multi): Use push and pop for thumb2.
+	(nop): Output "nop" in unified assembly.
+	* gcc/config/arm/cirrus.md: Enable arithmetic patterns for Thumb-2.
+	(cirrus_thumb2_movdi, cirrus_thumb2_movsi_insn,
+	thumb2_cirrus_movsf_hard_insn, thumb2_cirrus_movdf_hard_insn): New.
+	* gcc/config/arm/fpa.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsf_fpa, thumb2_movdf_fpa, thumb2_movxf_fpa): New.
+	(thumb2_movsfcc_fpa, thumb2_movdfcc_fpa): New.
+	* gcc/config/arm/vfp.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsi_vfp, thumb2_movdi_vfp, thumb2_movsf_vfp,
+	thumb2_movdf_vfp, thumb2_movsfcc_vfp, thumb2_movdfcc_vfp): New.
+	* gcc/config/arm/predicates.md (low_register_operand): New predicate.
+	(low_reg_or_int_operand, thumb_16bit_operator): New predicates.
+	(thumb_cmp_operand, thumb_cmpneg_operand): Rename...
+	(thumb1_cmp_operand, thumb1_cmpneg_operand): ... to this.
+	* gcc/config/arm/lib1funcs.asm: Add __ARM_ARCH_6T2__.
+	* gcc/config/arm/t-arm (MD_INCLUDES): Add thumb2.md
+	* gcc/config/arm/thumb2.md: New file.
+
+2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
+	2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/27387
+	* arm.c (arm_output_mi_thunk): Use pc-relative addressing when
+	-mthumb -fPIC are used.
+
+	2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/27387
+	* gcc.target/arm/arm.exp: New.
+	* gcc.target/arm/pr27387.C: Likewise.
+
+2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
+	2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/27374
+	* gcc/config/arm/vfp.md (*arm_movdi_vfp): Correct the output
+	templates for case 3 and 4.
+
+2006-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-10-28  Pascal Obry  <obry@act-europe.fr>     
+	* w32-shared-ptr.c: New file.
+	* w32-shared-ptr.h: Likewise.
+
+2006-04-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/gcc.c (process_command): Add program name to GCC_EXEC_PREFIX
+	value before passing to make_relative_prefix.
+
+2006-04-26  Joseph Myers  <joseph@codesourcery.com>
+
+	From Bugzilla:
+	2006-04-26  Joshua Kinard  <kumba@gentoo.org>
+
+	PR target/25871
+	* gcc/config/mips/mips.h (TRAMPOLINE_TEMPLATE): Avoid 32-bit moves
+	with 64-bit pointers.
+
+2006-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/linux64.h (DWARF_OFFSET_SIZE): Remove.
+
+2006-04-22  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/Makefile.in: Correct dependencies for gcc, cpp, 
+	gccint, and cppinternals html manuals.
+
+2006-04-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/compile/20060421-1.c: New testcase.
+
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.tpl: Add install-html to install target.
+	* Makefile.in: Regenerate.
+
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.tpl: Add install-html target.
+	* Makefile.def: Add install-html target.
+	* Makefile.in: Regenerate.
+	* configure.in: Add --with-datarootdir, --with-docdir,
+	and --with-htmldir options. AC_SUBST datarootdir, docdir and htmldir.
+	* configure: Regenerate.
+	* gcc/Makefile.in: Rename htmldir to gcc_htmldir. Add install-html 
+	target. Define HTMLS for all manuals. Simplify html target.
+	* gcc/configure.ac: AC_SUBST datarootdir, docdir, and htmldir.
+	* gcc/configure: Regenerate.
+	* gcc/fortran/Make-lang.in: Rename htmldir to gcc_htmldir.
+	* gcc/java/Make-lang.in: Likewise.
+	* gcc/treelang/Make-lang.in: Likewise.
+	* fixincludes/Makefile.in: Add install-html target.
+	Fixup .PHONY listing.
+	* intl/Makefile.in: Add html info ps pdf and dvi and install-html 
+	to .PHONY. Add install-html target.
+	* libcpp/Makefile.in: Add install-html target. Add install-html to
+	.PHONY list.
+	* libstdc++-v3/Makefile.am: Add install-html target.
+	* libstdc++-v3/aclocal.m4: Regenerate.
+	* libstdc++-v3/Makefile.in: Regenerate.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+	* libstdc++-v3/libmath/Makefile.in: Regenerate.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerate.
+	* libstdc++-v3/po/Makefile.in: Regenerate.
+	* libstdc++-v3/src/Makefile.in: Regenerate.
+	* libstdc++-v3/testsuite/Makefile.in: Regenerate.
+	* libmudflap/Makefile.am: Add install-html target.
+	* libmudflap/Makefile.in: Regenerate. 
+	* libssp/Makefile.am: Add install-html target.
+	* libssp/Makefile.in: Regenerate.
+	* fastjar/Makefile.am: Add install-html target.
+	* fastjar/Makefile.in: Regenerate.
+	* fastjar/aclocal.m4: Regenerate.
+	* zlib/Makefile.am: Add install-html target.
+	* zlib/Makefile.in: Regenerate.
+	* zlib/aclocal.m4: Regenerate.
+	* libobjc/Makefile.in: Add install-html target.
+	* libffi/Makefile.am: Add install-html target.
+	* libffi/Makefile.in: Regenerate.
+	* libffi/aclocal.m4: Regenerate.
+	* libffi/include/Makefile.in: Regenerate.
+	* libffi/testsuite/Makefile.in: Regenerate.
+	* libjava/Makefile.am: Add install-html target.
+	* libjava/Makefile.in: Regenerate. 
+	* libjava/aclocal.m4: Regenerate.
+	* libjava/classpath/Makefile.in: Regenerate.
+	* libjava/classpath/aclocal.m4: Regenerate.
+	* libjava/classpath/doc/Makefile.in: Regenerate.
+	* libjava/classpath/doc/api/Makefile.am: Conditionalize html target.
+	* libjava/classpath/doc/api/Makefile.in: Regenerate.
+	* libjava/classpath/examples/Makefile.in: Regenerate.
+	* libjava/classpath/external/Makefile.in: Regenerate.
+	* libjava/classpath/external/sax/Makefile.in: Regenerate.
+	* libjava/classpath/external/w3c_dom/Makefile.in: Regenerate.
+	* libjava/classpath/include/Makefile.in: Regenerate.
+	* libjava/classpath/lib/Makefile.in: Regenerate.
+	* libjava/classpath/native/Makefile.in: Regenerate.
+	* libjava/classpath/native/fdlibm/Makefile.in: Regenerate.
+	* libjava/classpath/native/jawt/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/classpath/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/gtk-peer/Makefile.in : Regenerate.
+	* libjava/classpath/native/jni/java-io/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/java-lang/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/java-net/Makefile.in : Regenerate.
+	* libjava/classpath/native/jni/java-nio/Makefile.in : Regenerate.
+	* libjava/classpath/native/jni/java-util/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/midi-alsa/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/midi-dssi/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/qt-peer/Makefile.in: Regenerate.
+	* libjava/classpath/native/jni/xmlj/Makefile.in: Regenerate.
+	* libjava/classpath/native/target/Linux/Makefile.in: Regenerate.
+	* libjava/classpath/native/target/Makefile.in: Regenerate.
+	* libjava/classpath/native/target/generic/Makefile.in: Regenerate.
+	* libjava/classpath/resource/Makefile.in: Regenerate.
+	* libjava/classpath/scripts/Makefile.in: Regenerate.
+	* libjava/gcj/Makefile.in: Regenerate.
+	* libjava/include/Makefile.in : Regenerate.
+	* libjava/testsuite/Makefile.in: Regenerate.
+	* boehm-gc/Makefile.am: Add install-html target.
+	* boehm-gc/Makefile.in: Regenerate.
+	* boehm-gc/aclocal.m4: Regenerate.
+	* boehm-gc/include/Makefile.in: Regenerate.
+	* gnattools/Makefile.in: Add html and install-html targets.
+	* libgfortran/Makefile.am: Add install-html target.
+	* libgfortran/Makefile.in: Regenerate. 
+	* libada/Makefile.in: Add install-html target.
+	
+
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline.
+	2006-04-06  Carlos O'Donell  <carlos@codesourcery.com>
+	* libiberty/Makefile.in: Add install-html, install-html-am, and
+	install-html-recursive targets. Define mkdir_p and 
+	NORMAL_INSTALL. 
+	* libiberty/configure.ac: AC_SUBST datarootdir, docdir, htmldir.
+	* libiberty/configure: Regenerate.
+	* libiberty/testsuite/Makefile.in: Add install-html and html targets.
+
+	2006-03-30  Carlos O'Donell  <carlos@codesourcery.com>
+	* gcc/Makefile.in: Rename docdir to gcc_docdir.
+	* gcc/java/Make-lang.in: Rename docdir to gcc_docdir.
+	* gcc/ada/Make-lang.in: Rename docdir to gcc_docdir.
+	* gcc/fortran/Make-lang.in: Rename docdir to gcc_docdir.
+	* gcc/treelang/Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-04-11  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline.
+	2006-03-13  Roger Sayle  <roger@eyesopen.com>
+	PR middle-end/26557
+	* gcc/stmt.c (emit_case_nodes): Handle the case where the
+	index is a CONST_INT, where the comparison mode is specified
+	by the index type.
+
+	2006-03-13  Roger Sayle  <roger@eyesopen.com>
+	PR middle-end/26557
+	* gcc/gcc.c-torture/compile/switch-1.c: New test case.
+
+2006-04-04  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/struct-parse-1.c: New test case.
+
+	2006-03-31  Nathan Sidwell  <nathan@codesourcery.com>
+	* gcc/stor-layout.c: Place invalid field at the current end of
+	the structure or start of union, to maintain placement
+	invariants.
+
+2006-04-02  Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	* gcc/testsuite/gcc.c-torture/execute/loop-ivopts-3.c: New test.
+
+	2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond): Split into
+	several functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_no_overflow_lt, assert_loop_rolls_lt, number_of_iterations_lt,
+	number_of_iterations_le): New functions.
+	(number_of_iterations_special): Removed.
+	(number_of_iterations_exit): Do not use number_of_iterations_special.
+	* gcc/tree.c (unsigned_type_for): Always return integer type.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-1.c: Update outcome.
+	Add new test loop.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-2.c: Ditto.
+
+	2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+	PR tree-optimization/18527
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond,
+	number_of_iterations_special, number_of_iterations_exit):
+	Move base and step of an iv to a single structure.  Add
+	no_overflow flag, and use it in # of iterations analysis.
+	* gcc/tree-scalar-evolution.c (analyze_scalar_evolution_in_loop): Add
+	folded_casts argument.
+	(simple_iv): Pass base and step in a structure.  Set no_overflow
+	flag.
+	(scev_const_prop): Add argument to analyze_scalar_evolution_in_loop.
+	Evaluate expensiveness of computing # of iterations instead of
+	the final expression.
+	* gcc/tree-scalar-evolution.h (affine_iv): New structure.
+	(simple_iv): Declaration changed.
+	* gcc/tree-chrec.c (chrec_apply): Handle chrecs containing symbols.
+	* gcc/tree-ssa-loop-ivopts.c (determine_biv_step,
+	find_givs_in_stmt_scev, find_givs_in_stmt): Changed due to simple_iv
+	change.
+
+2006-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
+	filename. 
+	(open): Likewise.
+	(stat): Likewise.
+	(access): Likewise.
+
+2006-03-30  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty/configure.ac: Add cygpath for mingw hosts.
+	* libiberty.configure: Rebuilt.
+	* libiberty/Makefile.in: Add cygpath.
+	* libiberty/cygpath.c: New.
+
+2006-03-28  Paul Brook  <paul@codesourcery.com>
+
+	PR middle-end/23623
+	* gcc/targhooks.c (default_narrow_bitfield): New fuction.
+	* gcc/targhooks.h (default_narrow_bitfield): add prototype.
+	* gcc/target-def.h (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+	* gcc/doc/tm.texi: Document TARGET_NARROW_VOLATILE_BITFIELDS.
+	* gcc/config/arm/arm.c (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+
+2006-03-28  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/reload1.c (choose_reload_regs): Check for all RTX_AUTOINC
+	operators.
+	(inc_for_reload): Handle PRE_MODIFY and POST_MODIFY addresses.
+
+2006-03-27  Jim Blandy	<jimb@codesourcery.com>
+
+	* include/libiberty.h (pex_write_input): New declaration.
+
+	* libiberty/pex-common.c (pex_write_input): New function.
+	* libiberty/pexecute.txh (pex_write_input): Document it.
+	* libiberty/pex-common.h (struct pex_funcs): New function ptr fdopenw.
+	* libiberty/pex-unix.c (pex_unix_fdopenw): New function.
+	(funcs): List it as our fdopenw function.
+	* libiberty/pex-win32.c (pex_win32_fdopenw): New function.
+	(funcs): List it as our fdopenw function.
+	* libiberty/pex-djgpp.c (funcs): Leave fdopenw null.
+	* libiberty/pex-msdos (funcs): Same.
+	* libiberty/functions.texi: Regenerated.
+
+	* libiberty/pex-common.h (struct pex_obj): Doc fixes.
+
+	* libiberty/functions.texi: Regenerate.
+
+2006-03-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-win32.c (pex_win32_exec_child): Close stdout/stderr
+	in parent.
+
+2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* libstdc++-v3/scripts/testsuite_flags.in (--cxxflags): Don't
+	define LOCALEDIR.
+	* libstdc++-v3/testsuite/lib/libstdc++.exp (libstdc++_init):
+	Always define LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
+2006-03-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-win32.c (<errno.h>): Include.
+	(fix_argv): Remove.
+	(argv_to_cmdline): New function.
+	(std_suffixes): New variable.
+	(no_suffixes): Likewise.
+	(find_executable): New function.
+	(win32_spawn): Likewise.
+	(spawn_script): Use win32_spawn instead of _spawnv[p].
+	(pex_win32_exec_child): Replace MSVCRT calls with Win32 API calls.
+	(pex_win32_wait): Likewise.
+
+2006-03-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/dwarf2.h (DW64_CIE_ID): Define.
+	* gcc/dwarf2out.c (DWARF_CIE_ID): Define.
+	(output_call_frame_info): Output 0xffffffff before standard 8-byte
+	length header.  Use DWARF_CIE_ID.
+	(value_format): Use DW_FORM_data4 or DW_FORM_data8 for
+	dw_val_class_loc_list depending on DWARF_OFFSET_SIZE.
+
+2006-03-17  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/doc/invoke.texi: Define -femit-class-debug-always.
+	* gcc/common.opts: Likewise.
+	* gcc/cp/search.c (maybe_suppress_debug_info): Suppress
+	debug info if flag_emit_class_debug_always is zero.
+
+2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+	* gcc/config.gcc (mips64*-*-linux*): Keep existing tm_defines.
+	(mips*-*-linux*): Likewise.
+
+2006-03-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config.gcc (tm_defines): Always add to previous value rather
+	than replacing it.
+
+2006-03-15  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* gcc/config/arm/arm.c (minipool_pad): New.
+	(add_minipool_forward_ref): Unclude pool alignment padding in address
+	calculation.
+	(push_minipool_fix): Set minipool_pad.
+	(minipool_pad): Ditto.
+
+2006-02-27  Nathan Sidwell  <nathan@potter.codesourcery.com>
+
+	Backport the following
+	* gcc/config.gcc (mt-*-*): Add --with-arch support.
+	(--with): Print accepted options on error.
+	* gcc/config/mt/mt.h (OPTION_DEFAULT_SPECS): Define.
+
+	* gcc/config/mt/mt.c (DEF_VEC_P(basic_block),
+	DEF_VEC_ALLOC_P(basic_bloc,heap)): Remove from here.
+
+	* gcc/config/mt/mt.md (UNSPEC_LOOP): New constant.
+	(loop_end, loop_init, doloop_end): New insns.
+	* gcc/config/mt/mt.h (LOOP_FIRST, LOOP_LAST): New.
+	(SPECIAL_REG_FIRST, FIRST_PSEUDO_REGISTER): Adjust.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Adjust.
+	(REG_CLASS_CONTENTS, REGISTER_NAMES): Adjust.
+	* gcc/config/mt/mt.c: #include basic-block.h
+	(struct machine_function): Add has_loops field.
+	(mt_add_loop): New.
+	(MAX_LOOP_DEPTH, MAX_LOO_LENGTH): New.
+	(struct loop_info, struct loop_work): New.
+	(mt_loop_nesting, ms1_block_length, ms1_scan_loop): New workers.
+	(mt_reorg_loops): New loop optimization.
+	(mt_machine_reorg): Call it.
+	* gcc/config/mt/mt-protos.h (mt_add_loop): Declare.
+
+	* gcc/vec.h (VEC_block_remove): New.
+
+	* gcc/loop-doloop.c (add_test): Only add jump notes if we did emit a
+	jump.
+
+2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR target/24837
+	* gcc/config.gcc: Define UCLIBC_DEFAULT to 0 or 1.
+	* gcc/opth-gen.awk: Handle Var and InverseMask together.
+	* gcc/config/linux.opt (muclibc, mglibc): Use Var(linux_uclibc).
+	* gcc/config/linux.h: Use #if not #ifdef for testing
+	UCLIBC_DEFAULT.
+	(TARGET_C99_FUNCTIONS): Test OPTION_GLIBC not TARGET_GLIBC.
+	(CHOOSE_DYNAMIC_LINKER): Give an error for -mglibc and -muclibc
+	used together.
+	(UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	* gcc/config/alpha/linux-elf.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(ELF_DYNAMIC_LINKER): Define to LINUX_DYNAMIC_LINKER.
+	* gcc/config/alpha/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* gcc/config/cris/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(CRIS_LINK_SUBTARGET_SPEC): Pass a -dynamic-linker option.
+	* gcc/config/frv/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Don't define.
+	* gcc/config/i386/linux.h (DYNAMIC_LINKER): Rename to
+	GLIBC_DYNAMIC_LINKER.
+	(SUBTARGET_EXTRA_SPECS): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/i386/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* gcc/config/ia64/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/m32r/linux.h (GLIBC_DYNAMIC_LINKE): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/m68k/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/mips/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, GLIBC_DYNAMIC_LINKERN32,
+	UCLIBC_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKERN32): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKER64
+	and LINUX_DYNAMIC_LINKER32.
+	* gcc/config/mn10300/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/pa/pa-linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/rs6000/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* gcc/config/rs6000/linux64.h (TARGET_C99_FUNCTIONS): Likewise.
+	(GLIBC_DYNAMIC_LINKER32, GLIBC_DYNAMIC_LINKER64,
+	UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	CHOOSE_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_OS_LINUX_SPEC32): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_OS_LINUX_SPEC64): Use LINUX_DYNAMIC_LINKER64.
+	* gcc/config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_OS_LINUX_SPEC): Use LINUX_DYNAMIC_LINKE.
+	* gcc/config/s390/linux.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* gcc/config/sh/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(SUBTARGET_LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/sparc/linux.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* gcc/config/sparc/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER32,
+	UCLIBC_DYNAMIC_LINKER64, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_ARCH32_SPEC): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_ARCH64_SPEC, LINK_SPEC): Use LINUX_DYNAMIC_LINKER64.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* gcc/config/xtensa/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/doc/invoke.texi (-muclibc): Remove caveat about supported
+	targets.
+	* gcc/testsuite/gcc.dg/glibc-uclibc-1.c,
+	gcc/testsuite/gcc.dg/glibc-uclibc-2.c: New tests.
+
+2006-02-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/14939
+	PR target/20353
+	PR target/24578
+	PR target/24837
+	* gcc/config/linux.opt: New file.
+	* gcc/config/linux.h (CHOOSE_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, LINUX_DYNAMIC_LINKER): Define.
+	(TARGET_C99_FUNCTIONS): Define depending on TARGET_GLIBC.
+	* gcc/config.gcc (*-*-linux*): Define extra_options.
+	(*-*-*uclibc*): Define UCLIBC_DEFAULT.
+	(arm*-*-linux-gnueabi): Change to arm*-*-linux-*eabi.
+	* gcc/config/arm/linux-eabi.h (LINUX_TARGET_INTERPRETER): Change
+	to GLIBC_DYNAMIC_LINKER.
+	* gcc/config/arm/linux-elf.h (LINUX_TARGET_INTERPRETER): Likewise.
+	(LINUX_TARGET_LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/mips/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/doc/invoke.texi (GNU/Linux Options): New section.
+	* gcc/testsuite/gcc.dg/builtins-config.h (HAVE_C99_RUNTIME): Don't
+	define if __UCLIBC__ is defined.
+	* libstdc++-v3/config/os/uclibc/ctype_base.h,
+	libstdc++-v3/config/os/uclibc/ctype_inline.h,
+	libstdc++-v3/config/os/uclibc/ctype_noninline.h,
+	libstdc++-v3/config/os/uclibc/os_defines.h: New.
+	* libstdc++-v3/acinclude.m4 (GLIBCXX_CONFIGURE): Test whether
+	using uClibc.
+	* libstdc++-v3/configure.host: Use os/uclibc for uClibc.
+	* libstdc++-v3/crossconfig.m4 (*-linux*): Use link tests.  Don't
+	hardcode presence of math functions.
+	* libstdc++-v3/configure: Regenerate.
+
+2005-02-16  Paul Brook  <paul@codesourcery.com>
+
+	* reload1.c (emit_reload_insns): Invalidate dead input registers used
+	for reloads.
+
+2006-02-01  Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	* gcc/function.c (assign_parm_setup_reg): Use function argument
+	promotion rules.
+	* gcc/expr.c (expand_expr_real_1): Use function argument promotion
+	rules for PARM_DECLs.
+
+2006-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* version.c: Mark as CodeSourcery build.
+
+2006-01-24  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-23  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* fix-header.c (read_scan_file): Add new parameter imultilib when
+	calling register_include_chains.
+
+2006-01-23  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-23  Kazu Hirata  <kazu@codesourcery.com>
+	PR testsuite/25590
+	* gcc/testsuite/gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
+	* gcc/config/arm/arm.md (movdi): Force operands[1] to a register
+	if we have a non-register source.
+	(*arm_movdi, *movdf_soft_insn): Require that one of the
+	operands be a register.
+	* gcc/config/arm/iwmmxt.md (*iwmmxt_arm_movdi): Likewise.
+	* gcc/config/arm/vfp.md (*arm_movdi_vfp, *movdf_vfp): Likewise.
+
+2006-01-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/25524
+	* gcc/cppdefault.h (struct default_include): Add multilib flag.
+	* gcc/cppdefault.c (cpp_include_defaults): Set it.
+	* gcc/c.opt (-imultilib): New option.
+	* gcc/c-opts.c (imultilib): New.
+	(c_common_handle_option): Handle -imultilib.
+	(c_common_post_options): Likewise.
+	* gcc/c-incpath.c (add_standard_paths, register_include_chains):
+	Likewise.
+	* gcc/c-incpath.h (register_include_chains): Add extra parameter.
+	* gcc/gcc.c (do_spec_1): Generate -imultilib option.
+	(The Specs Language): Update %I description.
+	(process_command): Update copyright notice.
+	* gcc/doc/cppopts.texi (-imultilib): Document.
+	* gcc/doc/invoke.texi (-imultilib): Include in option summary.
+	(%I): Update specs documentation.
+	* libstdc++-v3/include/Makefile.am: Install host-specific headers
+	in multilib subdirectory.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Merge from csl-gxxpro-3_4-branch.
+	2005-11-28  Mark Mitchell  <mark@codesourcery.com>
+	Backport:
+	2004-10-28  Pascal Obry  <obry@act-europe.fr>
+	* unwind-dw2-fde.c: Import from MingW build for ZCX support.
+	* unwind-sjlj.c: Idem.
+	* config/i386/cygming.h: Idem.
+	* config/i386/mingw32.h: Idem.
+	* config/i386/t-cygming: Idem.
+	* config/i386/t-mingw32: Idem.
+	* config/i386/win32-ehfb.c: New file to support unwinding through
+	signals on Windows.
+	Provides support for ZCX on Windows platforms. This set of patch
+	comes from the MingW compiler (Danny Smith) adapted and enhanced to
+	support unwinding through signals for example.
+	2005-07-29  Pascal Obry  <obry@act-europe.fr>
+	Support for crtbegin/crtend.o on MingW.
+	* config.gcc: Add crtbegin.o and crtend.o as extra_parts on MingW.
+	* crtstuff.c: Add support for MingW.
+	Provides support for ZCX on Windows platforms. This set of patch
+	comes from the MingW compiler (Danny Smith) adapted to GCC 3.4.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libstdc++-v3/src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/src/Makefile.in: Regenerated.
+	* libstdc++-v3/libsupc++/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerated.
+
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Merge from csl-gxxpro-3_4-branch:
+	2005-09-14  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/doc/invoke.texi: For man pages, include gcc-vers.texi.
+	List @file in the option summary.  Include the libiberty documentation
+	for @file.
+	* gcc/gcc.c (main): Call expandargv.
+	* gcc/Makefile.in (gcc-vers.texi): Define srcdir.
+
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* maintainer-scripts/update_web_docs_svn: Set @srcdir in gcc-vers.texi.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_default_cpu): New.
+	(arm_override_options): Set arm_default_cpu.
+	(arm_file_start): Output EABI attribute directives.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
+	from priority argument.  Use different section names for non-default
+	priority.
+	* config/arm/elf.h: Remove definition of SUPPORTS_INIT_PRIORITY.
+
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-03-14  Julian Brown  <julian@codesourcery.com>
+	* gcc/config/arm/lib1funcs.asm (ashldi3): Don't define on SymbianOS.
+	(aeabi_llsl): Likewise.
+	(ashrdi3): Likewise.
+	(aeabi_lasr): Likewise.
+	(lshrdi3): Likewise.
+	(aeabi_llsr): Likewise. 
+	2005-03-10  Julian Brown  <julian@codesourcery.com>
+	* gcc/config.gcc: Disable shared libgcc for SymbianOS.
+	* gcc/config/arm/t-symbian (LIB2ADDEH): Include config/arm/pr-support.c.
+
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch
+	2005-03-10  Julian Brown  <julian@codesourcery.com>
+	* libstdc++configure.ac (LIBSUPCXX_PRONLY): New AM_CONDITIONAL: yes
+	if we are compiling for SymbianOS on ARM.
+	* libstdc++include/Makefile.am: Don't install C++ headers if
+	LIBSUPCXX_PRONLY is true.
+	* libstdc++libsupc++/Makefile.am: Include only eh_personality.cc
+	in libsupc++ if LIBSUPCXX_PRONLY is true.
+	* libstdc++Makefile.in: Regenerate.
+	* libstdc++configure: Regenerate.
+	* libstdc++include/Makefile.in: Regenerate.
+	* libstdc++libmath/Makefile.in: Regenerate.
+	* libstdc++libsupc++/Makefile.in: Regenerate.
+	* libstdc++po/Makefile.in: Regenerate.
+	* libstdc++src/Makefile.in: Regenerate.
+	* libstdc++testsuite/Makefile.in: Regenerate.
+
+2005-01-17  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+	* gcc/c-cppbuiltin.c (builtin_define_float_constants): Add
+	fp_cast parameter, pass to builtin_define_with_hex_fp_value.
+	Define __FLT_HAS_DENORM__, __DBL_HAS_DENORM__, __LDBL_HAS_DENORM__.
+	(builtin_define_with_hex_fp_value): Use fp_cast when building macro.
+	(c_cpp_builtins): If flag_single_precision_constant then set fp_cast
+	to "((double)%sL)" otherwise "%s".
+	* gcc/testsuite/gcc.dg/single-precision-constant.c: New test.
+	* libstdc++-v3/include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-01-17  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2005-12-15  Richard Sandiford  <richard@codesourcery.com>
+	* gcc/config/arm/predicates.md (call_memory_operand): New.
+	* gcc/config/arm/arm.md (*call_mem, *call_value_mem): Use it.
+	* gcc/testsuite/gcc.dg/20051215-1.c: New file.
+
+	* gcc/config/arm/arm.md: Provide a big-endian version of the
+	(zero_extend:SI (subreg:QI ...)) splitter.
+
+2006-01-16  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (output_move_const_into_data_reg):
+	Output correct mnemonic for mvz and mvs.
+
+2006-01-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Use jmp, not jsr.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.md: Convert define_peephole to define_peephole2.
+	(UNSPEC_MOVEQ_MEM): New constant.
+	(movsi_smallconst): New pattern.
+	* config/m68k/m68k.h (HARD_FP_REG_P): Define.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	PR target/23482
+	* doc/md.texi: Document m68k Q, S, T and U constraints.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINTS): Restrict U to 16-bit
+	offsets.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.h (RETURN_ADDR_RTX): Define.
+	* config/m68k/m68k.c (m68k_initial_elimination_offset): Remove FIXME.
+	Include offset due to FIRST_PARM_OFFSET.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/lb1sf68.asm (__cmpdf2): Fix typo in immediate mask.
+	Create wrapper and rename body...
+	(__cmpdf2_internal): ... to this.  Return correct value for unordered
+	result.
+	(__cmpsf2): Create wrapper and rename body...
+	(__cmpsf2_internal): ... to this.  Return corerct value for unordered
+	result.
+	(__eqdf2, __nedf2, __gtdf2, __gedf2, __ltdf2, __ledf2): Use
+	__cmpdf2_internal.
+	(__eqsf2, __nesf2, __gtsf2, __gesf2, __ltsf2, __lesf2): Use
+	__cmpsf2_internal.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__extendsfdf2): Handle negative zero.
+	(__truncdfsf2): Ditto.
+	(__extenddfxf2): Ditto.
+	(__truncxfdf2): Ditto.
+	* config/m68k/lb1sf68.asm (__addsf3): Return -0.0 for -0.0 + -0.0.
+	(__adddf3): Ditto.
+
+2005-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_output_pic_call): Don't use bsr.l for
+	!TARGET_68020.
+	* gcc/config/m68k/t-m68kelf (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+	* gcc/config/m68k/t-uclinux (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/pr19340.c: Skip on m68k targets.
+
+2005-12-20  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):
+	Add m68k-*-elf.
+
+2005-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md (m68k_output_function_prologue): Always call
+	dwarf2out_def_cfa. Only add space for frame pointer to cfa_offset
+	when frame_pointer_needed. 
+
+2005-12-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__unordsf2, __unorddf2, __unordxf2,
+	__floatunsidf, __floatunsisf, __floatunsixf): New functions.
+
+2005-11-28  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Don't use fixproto on m68k-elf.
+
