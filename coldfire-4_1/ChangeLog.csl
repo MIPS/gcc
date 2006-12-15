@@ -1,6 +1,21 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use TUNE_68060
+	instead of TARGET_68060.
+	(FL_ISA_68060): Delete.
+	(FL_ISA_A, FL_ISA_APLUS, FL_ISA_B, FL_ISA_C): Adjust accordingly.
+	(TARGET_68060): Delete.
+	* config/m68k/m68k.md: Use TUNE_68060 instead of TARGET_68060
+	throughout.
+	* config/m68k/netbsd-elf.h (LONG_DOUBLE_TYPE_SIZE): Simplify.
+	* config/m68k/m68k-devices.def (68060): Use isa_40 instead of isa_60.
+	* config/m68k/m68k.c (FL_FOR_isa_60, isa_60): Delete.
+	(all_architectures, all_tunings): Use isa_40 instead of isa_60.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use TARGET_CF_HWDIV
 	rather than m68k_cf_hwdiv.
 	(TARGET_HARD_FLOAT): Delete.

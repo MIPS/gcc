@@ -206,7 +206,6 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
 #define FL_FOR_isa_20    (FL_ISA_68020 | FL_BITFIELD)
 #define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
-#define FL_FOR_isa_60    (FL_FOR_isa_40 | FL_ISA_68060)
 #define FL_FOR_isa_cpu32 (FL_ISA_68020)
 
 /* Base flags for ColdFire ISAs.  */
@@ -222,7 +221,6 @@ enum m68k_isa
   isa_00,
   isa_20,
   isa_40,
-  isa_60,
   isa_cpu32,
   /* ColdFire instruction set variants.  */
   isa_a,
@@ -270,7 +268,7 @@ static const struct m68k_target_selection all_isas[] =
   { "68020",    m68020,     NULL,  u68020,   isa_20,    FL_FOR_isa_20 },
   { "68030",    m68030,     NULL,  u68030,   isa_20,    FL_FOR_isa_20 },
   { "68040",    m68040,     NULL,  u68040,   isa_40,    FL_FOR_isa_40 },
-  { "68060",    m68060,     NULL,  u68060,   isa_60,    FL_FOR_isa_60 },
+  { "68060",    m68060,     NULL,  u68060,   isa_40,    FL_FOR_isa_40 },
   { "cpu32",    cpu32,      NULL,  ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
   { "isaa",     mcf5206e,   NULL,  ucfv2,    isa_a,     (FL_FOR_isa_a
 							 | FL_CF_HWDIV) },
@@ -292,7 +290,7 @@ static const struct m68k_target_selection all_microarchs[] =
   { "68020",    m68020,     NULL,  u68020,   isa_20,  FL_FOR_isa_20 },
   { "68030",    m68030,     NULL,  u68030,   isa_20,  FL_FOR_isa_20 },
   { "68040",    m68040,     NULL,  u68040,   isa_40,  FL_FOR_isa_40 },
-  { "68060",    m68060,     NULL,  u68060,   isa_60,  FL_FOR_isa_60 },
+  { "68060",    m68060,     NULL,  u68060,   isa_40,  FL_FOR_isa_40 },
   { "cpu32",    cpu32,      NULL,  ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
   { "cfv2",     mcf5206,    NULL,  ucfv2,    isa_a,   FL_FOR_isa_a },
   { "cfv3",     mcf5307,    NULL,  ucfv3,    isa_a,   (FL_FOR_isa_a

@@ -113,7 +113,7 @@ Boston, MA 02110-1301, USA.  */
 	    builtin_define_std ("mc68060");				     \
         }								     \
 									     \
-      if (TARGET_68060)							     \
+      if (TUNE_68060)							     \
         builtin_define_std ("mc68060");					     \
 									     \
       if (TARGET_68881)							     \
@@ -248,16 +248,14 @@ Boston, MA 02110-1301, USA.  */
 #define FL_ISA_68000 (1 << 10)
 #define FL_ISA_68020 (1 << 11)
 #define FL_ISA_68040 (1 << 12)
-#define FL_ISA_68060 (1 << 13)
-#define FL_ISA_A     (1 << 14)
-#define FL_ISA_APLUS (1 << 15)
-#define FL_ISA_B     (1 << 16)
-#define FL_ISA_C     (1 << 17)
+#define FL_ISA_A     (1 << 13)
+#define FL_ISA_APLUS (1 << 14)
+#define FL_ISA_B     (1 << 15)
+#define FL_ISA_C     (1 << 16)
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
-#define TARGET_68060		((m68k_cpu_flags & FL_ISA_68060) != 0)
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
