@@ -774,14 +774,15 @@ __transfer_from_trampoline ()					\
    && !(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P			\
 	&& constant_may_be_outside_section_p (X, NULL, NULL)))
 
-#define LEGITIMATE_PIC_OPERAND_P(X) \
-  (TARGET_PCREL || !symbolic_operand (X, VOIDmode))
-
 #ifndef REG_OK_STRICT
 #define REG_STRICT_P 0
 #else
 #define REG_STRICT_P 1
 #endif
+
+#define LEGITIMATE_PIC_OPERAND_P(X)				\
+  (!symbolic_operand (X, VOIDmode)				\
+   || (TARGET_PCREL && REG_STRICT_P))
 
 #define REG_OK_FOR_BASE_P(X) \
   m68k_legitimate_base_reg_p (X, REG_STRICT_P)
