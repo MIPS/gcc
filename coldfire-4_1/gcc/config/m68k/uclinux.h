@@ -21,6 +21,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#undef TARGET_VERSION
+#define TARGET_VERSION fprintf (stderr, " (68k uClinux)");
+
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
 "%{mshared-library-id=0|!mshared-library-id=*: crt1.o%s ;: Scrt1.o%s} \
