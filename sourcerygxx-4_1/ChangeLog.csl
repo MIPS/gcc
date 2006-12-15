@@ -1,3 +1,13 @@
+2006-12-15  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (STATIC_CHAIN_REGNUM): Always set to 12.
+	(THUMB1_TRAMPOLINE_TEMPLATE): Implement as Thumb code.
+	(TRAMPOLINE_ADJUST_ADDRESS): Always enter trampolines for Thumb
+	functions in Thumb mode.
+	(TRAMPOLINE_SIZE): Adjust for new Thumb-1 trampolines.
+	(INITIALIZE_TRAMPOLINE): Ditto.
+
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/

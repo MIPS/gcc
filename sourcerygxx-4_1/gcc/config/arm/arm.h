@@ -871,7 +871,7 @@ extern int arm_structure_size_boundary;
 /* The native (Norcroft) Pascal compiler for the ARM passes the static chain
    as an invisible last argument (possible since varargs don't exist in
    Pascal), so the following is not true.  */
-#define STATIC_CHAIN_REGNUM	(TARGET_32BIT ? 12 : 9)
+#define STATIC_CHAIN_REGNUM	12
 
 /* Define this to be where the real frame pointer is if it is not possible to
    work out the offset between the frame pointer and the automatic variables
@@ -1953,27 +1953,24 @@ typedef struct
   assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
 }
 
-/* On 16-bit Thumb we always switch into ARM mode to execute the trampoline.
-   Why - because it is easier.  This code will always be branched to via
-   a BX instruction and since the compiler magically generates the address
-   of the function the linker has no opportunity to ensure that the
-   bottom bit is set.  Thus the processor will be in ARM mode when it
-   reaches this code.  So we duplicate the ARM trampoline code and add
-   a switch into Thumb mode as well.  */
-#define THUMB1_TRAMPOLINE_TEMPLATE(FILE)		\
+#define THUMB1_TRAMPOLINE_TEMPLATE(FILE)	\
 {						\
-  fprintf (FILE, "\t.code\t32\n");		\
-  fprintf (FILE, ".Ltrampoline_start:\n");	\
-  asm_fprintf (FILE, "\tldr\t%r, [%r, #8]\n",	\
-	       STATIC_CHAIN_REGNUM, PC_REGNUM);	\
-  asm_fprintf (FILE, "\tldr\t%r, [%r, #8]\n",	\
-	       IP_REGNUM, PC_REGNUM);		\
-  asm_fprintf (FILE, "\torr\t%r, %r, #1\n",     \
-	       IP_REGNUM, IP_REGNUM);     	\
-  asm_fprintf (FILE, "\tbx\t%r\n", IP_REGNUM);	\
-  fprintf (FILE, "\t.word\t0\n");		\
-  fprintf (FILE, "\t.word\t0\n");		\
+  ASM_OUTPUT_ALIGN(FILE, 2);			\
   fprintf (FILE, "\t.code\t16\n");		\
+  fprintf (FILE, ".Ltrampoline_start:\n");	\
+  asm_fprintf (FILE, "\tpush\t{r0, r1}\n");	\
+  asm_fprintf (FILE, "\tldr\tr0, [%r, #8]\n",	\
+	       PC_REGNUM);			\
+  asm_fprintf (FILE, "\tmov\t%r, r0\n",		\
+	       STATIC_CHAIN_REGNUM);		\
+  asm_fprintf (FILE, "\tldr\tr0, [%r, #8]\n",	\
+	       PC_REGNUM);			\
+  asm_fprintf (FILE, "\tstr\tr0, [%r, #4]\n",	\
+	       SP_REGNUM);			\
+  asm_fprintf (FILE, "\tpop\t{r0, %r}\n",	\
+	       PC_REGNUM);			\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);	\
 }
 
 #define TRAMPOLINE_TEMPLATE(FILE)		\
@@ -1984,17 +1981,17 @@ typedef struct
   else						\
     THUMB1_TRAMPOLINE_TEMPLATE (FILE)
 
-/* Thumb-2 trampolines should be entered in thumb mode, so set the bottom bit
+/* Thumb trampolines should be entered in thumb mode, so set the bottom bit
    of the address.  */
 #define TRAMPOLINE_ADJUST_ADDRESS(ADDR) do				    \
 {									    \
-  if (TARGET_THUMB2)							    \
+  if (TARGET_THUMB)							    \
     (ADDR) = expand_simple_binop (Pmode, IOR, (ADDR), GEN_INT(1),	    \
 				  gen_reg_rtx (Pmode), 0, OPTAB_LIB_WIDEN); \
 } while(0)
 
 /* Length in units of the trampoline for entering a nested function.  */
-#define TRAMPOLINE_SIZE  (TARGET_32BIT ? 16 : 24)
+#define TRAMPOLINE_SIZE  (TARGET_32BIT ? 16 : 20)
 
 /* Alignment required for a trampoline in bits.  */
 #define TRAMPOLINE_ALIGNMENT  32
@@ -2008,11 +2005,11 @@ typedef struct
 {									\
   emit_move_insn (gen_rtx_MEM (SImode,					\
 			       plus_constant (TRAMP,			\
-					      TARGET_32BIT ? 8 : 16)),	\
+					      TARGET_32BIT ? 8 : 12)),	\
 		  CXT);							\
   emit_move_insn (gen_rtx_MEM (SImode,					\
 			       plus_constant (TRAMP,			\
-					      TARGET_32BIT ? 12 : 20)),	\
+					      TARGET_32BIT ? 12 : 16)),	\
 		  FNADDR);						\
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
 		     0, VOIDmode, 2, TRAMP, Pmode,			\
