@@ -1,6 +1,25 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use TARGET_CF_HWDIV
+	rather than m68k_cf_hwdiv.
+	(TARGET_HARD_FLOAT): Delete.
+	(TARGET_BITFIELD): Delete macro and FIXME.
+	(m68k_bitfield, m68k_cf_hwdiv): Delete.
+	* config/m68k/m68k.c (m68k_bitfield, m68k_cf_hwdiv): Delete.
+	(override_options): Don't set them.  Use the FL_* flags to set
+	the defaults for MASK_BITFIELD, MASK_CF_HWDIV and MASK_HARD_FLOAT.
+	Simplify m68k_fpu code accordingly.  Remove "flags" local variable
+	and use m68k_cpu_flags instead.
+	(rtx_costs): Use TARGET_CF_HWDIV rather than m68k_cf_hwdiv.
+	* config/m68k/m68k.md: Use TARGET_CF_HWDIV instead of
+	m68k_cf_hwdiv throughout.
+	* config/m68k/m68k.opt (mbitfield, mnobitfield): Add back target mask.
+	(mhard-float, msoft-float, m68881, mdiv): Likewise.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h: Replace uses of m68k_arch_* with TARGET_*
 	throughout.  Remove FIXMEs relating to TARGET_* macros.
 	(TARGET_68020, TARGET_68040, TARGET_68060, TARGET_COLDFIRE)

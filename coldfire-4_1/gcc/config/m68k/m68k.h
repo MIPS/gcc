@@ -209,7 +209,7 @@ Boston, MA 02110-1301, USA.  */
       if (TARGET_COLDFIRE_FPU)						     \
         cpp_define (pfile, "__mcffpu__");				     \
 									     \
-      if (m68k_cf_hwdiv)						     \
+      if (TARGET_CF_HWDIV)						     \
         cpp_define (pfile, "__mcfhwdiv__");				     \
 									     \
       if (flag_pic)							     \
@@ -262,16 +262,12 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
 
-#define TARGET_HARD_FLOAT	(m68k_fpu != FPUTYPE_NONE)
 /* Size (in bytes) of FPU registers.  */
 #define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
 
 #define TARGET_ISAAPLUS		((m68k_cpu_flags & FL_ISA_APLUS) != 0)
 #define TARGET_ISAB		((m68k_cpu_flags & FL_ISA_B) != 0)
 #define TARGET_ISAC		((m68k_cpu_flags & FL_ISA_C) != 0)
-
-/* FIXME: Remove, use m68k_bitfield instead.  */
-#define TARGET_BITFIELD		(m68k_bitfield)
 
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
@@ -1242,7 +1238,5 @@ extern enum target_device m68k_cpu;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;
 extern unsigned int m68k_cpu_flags;
-extern int m68k_bitfield;
-extern int m68k_cf_hwdiv;
 extern const char *m68k_symbolic_call;
 extern const char *m68k_symbolic_jump;

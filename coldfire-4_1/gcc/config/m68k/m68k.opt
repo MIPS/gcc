@@ -89,7 +89,7 @@ Target Report Mask(ALIGN_INT)
 Align variables on a 32-bit boundary
 
 mbitfield
-Target Report Var(m68k_flag_bitfield) Init(-1)
+Target Report Mask(BITFIELD)
 Use the bit-field instructions
 
 mc68000
@@ -109,7 +109,7 @@ Target Report Mask(ID_SHARED_LIBRARY)
 Enable ID based shared library
 
 mnobitfield
-Target RejectNegative Var(m68k_flag_bitfield, 0)
+Target RejectNegative InverseMask(BITFIELD)
 Do not use the bit-field instructions
 
 mnortd
@@ -141,15 +141,15 @@ Target Report Mask(SHORT)
 Consider type 'int' to be 16 bits wide
 
 mhard-float
-Target RejectNegative Var(m68k_flag_hardfloat) Init(-1)
+Target RejectNegative Mask(HARD_FLOAT)
 Generate code which uses hardware floating point instructions
 
 m68881
-Target RejectNegative Var(m68k_flag_hardfloat)
+Target RejectNegative Mask(HARD_FLOAT) MaskExists
 Generate code that uses 68881 floating-point instructions
 
 msoft-float
-Target RejectNegative Var(m68k_flag_hardfloat, 0)
+Target RejectNegative InverseMask(HARD_FLOAT)
 Generate code with library calls for floating point
 
 mstrict-align
@@ -169,5 +169,5 @@ Target RejectNegative Joined
 Tune for the specified target CPU or architecture
 
 mdiv
-Target Report Var(m68k_flag_hwdiv) Init(-1)
+Target Report Mask(CF_HWDIV)
 Use hardware division instructions on ColdFire

@@ -323,12 +323,6 @@ enum fpu_type m68k_fpu;
 /* The set of FL_* flags that apply to the target processor.  */
 unsigned int m68k_cpu_flags;
 
-/* Nonzero if hardware bitfield instructions are supported.  */
-int m68k_bitfield = 0;
-
-/* Nonzero if hardware divide is supported.  */
-int m68k_cf_hwdiv = 0;
-
 /* Asm templates for calling or jumping to an arbitrary symbolic address,
    or NULL if such calls or jumps are not supported.  The address is held
    in operand 0.  */
@@ -447,7 +441,7 @@ void
 override_options (void)
 {
   const struct m68k_target_selection *entry;
-  unsigned long flags;
+  unsigned long target_mask;
 
   /* User can choose:
 
@@ -479,44 +473,26 @@ override_options (void)
   /* We should always have an explicit CPU setting.  */
   gcc_assert (entry);
   m68k_cpu_flags = entry->flags;
-  flags = entry->flags;
+
+  /* Use the architecture setting to derive default values for
+     certain flags.  */
+  target_mask = 0;
+  if ((m68k_cpu_flags & FL_BITFIELD) != 0)
+    target_mask |= MASK_BITFIELD;
+  if ((m68k_cpu_flags & FL_CF_HWDIV) != 0)
+    target_mask |= MASK_CF_HWDIV;
+  if ((m68k_cpu_flags & (FL_68881 | FL_CF_FPU)) != 0)
+    target_mask |= MASK_HARD_FLOAT;
+  target_flags |= target_mask & ~target_flags_explicit;
 
   /* Set the directly-usable versions of the -mcpu and -mtune settings.  */
   m68k_cpu = entry->device;
   m68k_tune = (m68k_tune_entry ? m68k_tune_entry : entry)->microarch;
 
-  gcc_assert ((flags & FL_68881) == 0 || (flags & FL_CF_FPU) == 0);
-
-  if ((flags & FL_COLDFIRE) && (flags & FL_68881))
-    error ("can't use 68881 with a ColdFire CPU");
-
-  if (!(flags & FL_COLDFIRE) && (flags & FL_CF_FPU))
-    error ("can't use ColdFire FPU with non-ColdFire CPU");
-
-  /* Default FPU setting: can be overridden below.  */
-  m68k_fpu = (flags & FL_68881) ? FPUTYPE_68881
-	   : (flags & FL_CF_FPU) ? FPUTYPE_COLDFIRE
-	   : FPUTYPE_NONE;
-
-  m68k_bitfield = (m68k_flag_bitfield != -1) ? m68k_flag_bitfield
-                                             : (flags & FL_BITFIELD) != 0;
-  m68k_cf_hwdiv = (m68k_flag_hwdiv != -1) ? m68k_flag_hwdiv
-                                          : (flags & FL_CF_HWDIV) != 0;
-
-  /* Allow overriding of FPU selection on command-line.  */ 
-  switch (m68k_flag_hardfloat)
-    {
-    case 0:
-      m68k_fpu = FPUTYPE_NONE;
-      break;
-
-    case 1:
-      m68k_fpu = (flags & FL_COLDFIRE) ? FPUTYPE_COLDFIRE : FPUTYPE_68881;
-      break;
-
-    default:
-      ;
-    }
+  /* Set the type of FPU.  */
+  m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE
+	      : (m68k_cpu_flags & FL_COLDFIRE) != 0 ? FPUTYPE_COLDFIRE
+	      : FPUTYPE_68881);
 
   if (TARGET_COLDFIRE_FPU)
     {
@@ -539,7 +515,7 @@ override_options (void)
 
   /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
      error if the target does not support them.  */
-  if (TARGET_PCREL && (flags & FL_PCREL_16) && flag_pic == 2)
+  if (TARGET_PCREL && (m68k_cpu_flags & FL_PCREL_16) && flag_pic == 2)
     error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
@@ -1915,7 +1891,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 #define MULW_COST (TUNE_68060 ? 2 :TUNE_68040 ? 3 : \
   TUNE_68020 ? 8 : (TARGET_COLDFIRE && !TUNE_CFV2) ? 2 : 5)
 
-#define DIVW_COST (TUNE_68020 ? 27 : m68k_cf_hwdiv ? 11 : 12)
+#define DIVW_COST (TUNE_68020 ? 27 : TARGET_CF_HWDIV ? 11 : 12)
 
     case PLUS:
       /* An lea costs about three times as much as a simple add.  */
@@ -1989,7 +1965,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
     case UMOD:
       if (GET_MODE (x) == QImode || GET_MODE (x) == HImode)
         *total = COSTS_N_INSNS (DIVW_COST);	/* div.w */
-      else if (m68k_cf_hwdiv)
+      else if (TARGET_CF_HWDIV)
         *total = COSTS_N_INSNS (18);
       else
 	*total = COSTS_N_INSNS (43);		/* div.l */
