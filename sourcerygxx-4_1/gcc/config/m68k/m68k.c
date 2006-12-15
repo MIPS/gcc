@@ -1115,7 +1115,8 @@ m68k_expand_prologue (void)
     }
 }
 
-/* Return true if this function's epilogue can be output as RTL.  */
+/* Return true if a simple (return) instruction is sufficient for this
+   instruction (i.e. if no epilogue is needed).  */
 
 bool
 m68k_use_return_insn (void)
@@ -1123,10 +1124,8 @@ m68k_use_return_insn (void)
   if (!reload_completed || frame_pointer_needed || get_frame_size () != 0)
     return false;
 
-  /* We can output the epilogue as RTL only if no registers need to be
-     restored.  */
-  m68k_compute_frame_layout();
-  return current_frame.reg_no ? false : true;
+  m68k_compute_frame_layout ();
+  return current_frame.offset == 0;
 }
 
 /* Emit RTL for the "epilogue" define_expand.

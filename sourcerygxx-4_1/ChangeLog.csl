@@ -1,6 +1,13 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (m68k_use_return_insn): Update comments
+	before function.  Extend register save check to include all
+	registers, not just integer ones.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (adddi_dilshr32): Rename to...
 	(*adddi_dilshr32): ...this.  Fix formatting.  Remove commented-out
 	non-canonical pattern.  Restrict to !m68k_arch_coldfire.
