@@ -1230,48 +1230,20 @@ enum fpu_type
   FPUTYPE_COLDFIRE
 };
 
-/* Variables in m68k.c */
+/* Variables in m68k.c; see there for details.  */
 extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;
-
-/* Which CPU we are generating code for.  */
 extern enum target_device m68k_cpu;
-
-/* Nonzero if 68020 instructions are supported.  */
 extern int m68k_arch_68020;
-
-/* Nonzero if 68040 instructions are supported.  */
 extern int m68k_arch_68040;
-
-/* Nonzero if 68060 instructions are supported.  */
 extern int m68k_arch_68060;
-
-/* Nonzero if this is a ColdFire processor.  */
 extern int m68k_arch_coldfire;
-
-/* Nonzero if ISA_A+ instructions are supported.  */
 extern int m68k_arch_isaaplus;
-
-/* Nonzero if ISA_B instructions are supported.  */
 extern int m68k_arch_isab;
-
-/* Nonzero if ISA_C instructions are supported.  */
 extern int m68k_arch_isac;
-
-/* Which microarchitecture to tune for.  */
 extern enum uarch_type m68k_tune;
-
-/* Which FPU to use.  */
 extern enum fpu_type m68k_fpu;
-
-/* Nonzero if hardware bitfield instructions are supported.  */
 extern int m68k_bitfield;
-
-/* Nonzero if hardware divide is supported.  */
 extern int m68k_cf_hwdiv;
-
-/* Asm templates for calling or jumping to an arbitrary symbolic address,
-   or NULL if such calls or jumps are not supported.  The address is held
-   in operand 0.  */
 extern const char *m68k_symbolic_call;
 extern const char *m68k_symbolic_jump;

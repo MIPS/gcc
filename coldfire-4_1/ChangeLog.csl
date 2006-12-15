@@ -1,6 +1,11 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h: Remove duplicate comments.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_cpu_select, m68k_select): Delete.
 	(m68k_cpu_entry, m68k_arch_entry, m68k_tune_entry): New variables.
 	(m68k_cpu, m68k_tune, m68k_fpu): Remove initializations.
