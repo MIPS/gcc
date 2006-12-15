@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (m68k_movem_pattern_p): Check that the
+	automodification direction agrees with the move direction.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (*movsi_smallconst): Change target predicate
 	to memory_operand.  Remove unnecessary constraints.
 	In the define_peephole2s, use float_register and integer_register

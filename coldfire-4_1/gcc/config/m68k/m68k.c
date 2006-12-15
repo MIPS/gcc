@@ -2830,6 +2830,10 @@ m68k_movem_pattern_p (rtx pattern, rtx automod_base,
 
   if (automod_base)
     {
+      /* Stores must be pre-decrement and loads must be post-increment.  */
+      if (store_p != (automod_offset < 0))
+	return false;
+
       /* Work out the base and offset for lowest memory location.  */
       base = automod_base;
       offset = (automod_offset < 0 ? automod_offset : 0);
