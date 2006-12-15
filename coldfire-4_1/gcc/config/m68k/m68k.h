@@ -234,6 +234,27 @@ Boston, MA 02110-1301, USA.  */
 /* Set the default.  */
 #define INT_OP_GROUP INT_OP_DOT_WORD
 
+/* Bit values used by m68k-devices.def to identify processor capabilities.  */
+#define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
+#define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
+#define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
+#define FL_COLDFIRE  (1 << 3)    /* ColdFire processor.  */
+#define FL_CF_HWDIV  (1 << 4)    /* ColdFire hardware divide supported.  */
+#define FL_CF_MAC    (1 << 5)    /* ColdFire MAC unit supported.  */
+#define FL_CF_EMAC   (1 << 6)    /* ColdFire eMAC unit supported.  */
+#define FL_CF_EMAC_B (1 << 7)    /* ColdFire eMAC-B unit supported.  */
+#define FL_CF_USP    (1 << 8)    /* ColdFire User Stack Pointer supported.  */
+#define FL_CF_FPU    (1 << 9)    /* ColdFire FPU supported.  */
+#define FL_ISA_68000 (1 << 10)
+#define FL_ISA_68020 (1 << 11)
+#define FL_ISA_68040 (1 << 12)
+#define FL_ISA_68060 (1 << 13)
+#define FL_ISA_A     (1 << 14)
+#define FL_ISA_APLUS (1 << 15)
+#define FL_ISA_B     (1 << 16)
+#define FL_ISA_C     (1 << 17)
+#define FL_MMU 	     0   /* Used by multilib machinery.  */
+
 /* FIXME: Use non-TARGET name.  */
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 
@@ -246,6 +267,17 @@ Boston, MA 02110-1301, USA.  */
 
 /* FIXME: Remove, use m68k_bitfield instead.  */
 #define TARGET_BITFIELD		(m68k_bitfield)
+
+#define TUNE_68000	(m68k_tune == u68000)
+#define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
+#define TUNE_68030	(m68k_tune == u68030)
+#define TUNE_68040	(m68k_tune == u68040)
+#define TUNE_68060	(m68k_tune == u68060)
+#define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
+#define TUNE_CPU32	(m68k_tune == ucpu32)
+#define TUNE_CFV2	(m68k_tune == ucfv2)
+#define TUNE_CFV3	(m68k_tune == ucfv3)
+#define TUNE_CFV4	(m68k_tune == ucfv4)
 
 #define OVERRIDE_OPTIONS   override_options()
 
@@ -1197,17 +1229,6 @@ enum fpu_type
   FPUTYPE_68881,
   FPUTYPE_COLDFIRE
 };
-
-#define TUNE_68000	(m68k_tune == u68000)
-#define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
-#define TUNE_68030	(m68k_tune == u68030)
-#define TUNE_68040	(m68k_tune == u68040)
-#define TUNE_68060	(m68k_tune == u68060)
-#define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
-#define TUNE_CPU32	(m68k_tune == ucpu32)
-#define TUNE_CFV2	(m68k_tune == ucfv2)
-#define TUNE_CFV3	(m68k_tune == ucfv3)
-#define TUNE_CFV4	(m68k_tune == ucfv4)
 
 /* Variables in m68k.c */
 extern const char *m68k_library_id_string;

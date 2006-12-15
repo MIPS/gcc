@@ -202,72 +202,6 @@ static const struct attribute_spec m68k_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-
-/* Predicates for use in m68k.md etc.  */
-
-/* Which CPU we are generating code for.  */
-enum target_device m68k_cpu = unk_device;
-
-/* Nonzero if 68020 instructions are supported.  */
-int m68k_arch_68020 = 0;
-
-/* Nonzero if 68040 instructions are supported.  */
-int m68k_arch_68040 = 0;
-
-/* Nonzero if 68060 instructions are supported.  */
-int m68k_arch_68060 = 0;
-
-/* Nonzero if this is a ColdFire processor.  */
-int m68k_arch_coldfire = 0;
-
-/* Nonzero if ISA_A+ instructions are supported.  */
-int m68k_arch_isaaplus = 0;
-
-/* Nonzero if ISA_B instructions are supported.  */
-int m68k_arch_isab = 0;
-
-/* Nonzero if ISA_C instructions are supported.  */
-int m68k_arch_isac = 0;
-
-/* Which microarchitecture to tune for.  */
-enum uarch_type m68k_tune = unk_arch;
-
-/* Which FPU to use.  */
-enum fpu_type m68k_fpu = FPUTYPE_NONE;
-
-/* Nonzero if hardware bitfield instructions are supported.  */
-int m68k_bitfield = 0;
-
-/* Nonzero if hardware divide is supported.  */
-int m68k_cf_hwdiv = 0;
-
-/* Asm templates for calling or jumping to an arbitrary symbolic address,
-   or NULL if such calls or jumps are not supported.  The address is held
-   in operand 0.  */
-const char *m68k_symbolic_call;
-const char *m68k_symbolic_jump;
-
-/* Bit values used by m68k-devices.def to identify processor capabilities.  */
-#define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
-#define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
-#define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
-#define FL_COLDFIRE  (1 << 3)    /* ColdFire processor.  */
-#define FL_CF_HWDIV  (1 << 4)    /* ColdFire hardware divide supported.  */
-#define FL_CF_MAC    (1 << 5)    /* ColdFire MAC unit supported.  */
-#define FL_CF_EMAC   (1 << 6)    /* ColdFire eMAC unit supported.  */
-#define FL_CF_EMAC_B (1 << 7)    /* ColdFire eMAC-B unit supported.  */
-#define FL_CF_USP    (1 << 8)    /* ColdFire User Stack Pointer supported.  */
-#define FL_CF_FPU    (1 << 9)    /* ColdFire FPU supported.  */
-#define FL_ISA_68000 (1 << 10)
-#define FL_ISA_68020 (1 << 11)
-#define FL_ISA_68040 (1 << 12)
-#define FL_ISA_68060 (1 << 13)
-#define FL_ISA_A     (1 << 14)
-#define FL_ISA_APLUS (1 << 15)
-#define FL_ISA_B     (1 << 16)
-#define FL_ISA_C     (1 << 17)
-#define FL_MMU 	     0   /* Used by multilib machinery.  */
-
 /* Base flags for 68k ISAs.  */
 #define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
 #define FL_FOR_isa_20    (FL_ISA_68020 | FL_BITFIELD)
@@ -384,6 +318,48 @@ static struct m68k_cpu_select m68k_select[] =
   { NULL, "-march=", all_isas },
   { NULL, "-mcpu=",  all_devices }
 };
+
+/* Which CPU we are generating code for.  */
+enum target_device m68k_cpu = unk_device;
+
+/* Nonzero if 68020 instructions are supported.  */
+int m68k_arch_68020 = 0;
+
+/* Nonzero if 68040 instructions are supported.  */
+int m68k_arch_68040 = 0;
+
+/* Nonzero if 68060 instructions are supported.  */
+int m68k_arch_68060 = 0;
+
+/* Nonzero if this is a ColdFire processor.  */
+int m68k_arch_coldfire = 0;
+
+/* Nonzero if ISA_A+ instructions are supported.  */
+int m68k_arch_isaaplus = 0;
+
+/* Nonzero if ISA_B instructions are supported.  */
+int m68k_arch_isab = 0;
+
+/* Nonzero if ISA_C instructions are supported.  */
+int m68k_arch_isac = 0;
+
+/* Which microarchitecture to tune for.  */
+enum uarch_type m68k_tune = unk_arch;
+
+/* Which FPU to use.  */
+enum fpu_type m68k_fpu = FPUTYPE_NONE;
+
+/* Nonzero if hardware bitfield instructions are supported.  */
+int m68k_bitfield = 0;
+
+/* Nonzero if hardware divide is supported.  */
+int m68k_cf_hwdiv = 0;
+
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+const char *m68k_symbolic_call;
+const char *m68k_symbolic_jump;
 
 /* Defines representing indices into the above table.  */
 #define M68K_OPT_SET_TUNE 0

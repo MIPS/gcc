@@ -1,6 +1,23 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (m68k_cpu, m68k_arch_68020, m68k_arch_68040)
+	(m68k_arch_68060, m68k_arch_coldfire, m68k_arch_isaaplus)
+	(m68k_arch_isab, m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield)
+	(m68k_cf_hwdiv, m68k_symbolic_call, m68k_symbolic_jump): Move after
+	table and structure declarations.
+	(FL_PCREL_16, FL_68881, FL_COLDFIRE, FL_CF_HWDIV, FL_CF_MAC)
+	(FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP, FL_CF_FPU, FL_ISA_68000)
+	(FL_ISA_68020,  FL_ISA_68040, FL_ISA_68060, FL_ISA_A, FL_ISA_APLUS)
+	(FL_ISA_B, FL_ISA_C, FL_MMU): Move to...
+	* config/m68k/m68k.h: ...here.
+	(TUNE_68000, TUNE_68020, TUNE_68030, TUNE_68040, TUNE_68060)
+	(TUNE_68040_60, TUNE_CPU32, TUNE_CFV2, TUNE_CFV3, TUNE_CFV4): Move
+	to be with TARGET_* and OVERRIDE_OPTIONS macros.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define mc68030
 	if TUNE_68030.  Remove related FIXME.
 	(u68030): New microarch.
