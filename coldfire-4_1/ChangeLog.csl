@@ -1,6 +1,22 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k-protos.h (m68k_legitimize_call_address): Remove
+	parameter name.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Use const_call_operand.
+	Remove unnecessary parentheses.
+	* config/m68k/m68k.c (m68k_legitimize_call_address): Simplify by
+	using call_operand.
+	(print_operand): Fix comment formatting.
+	(output_call): Simplify by removing REG_P case.
+	* config/m68k/m68k.md (*call, *call_value): Name previously unnamed
+	patterns.
+	* config/m68k/predicates.md (const_call_operand): New, split from...
+	(call_operand): ...here.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config.gcc (m68k*-*-*): Remove --with-float support.
 	* config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Likewise.
 

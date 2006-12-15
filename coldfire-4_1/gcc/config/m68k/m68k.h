@@ -517,26 +517,26 @@ extern enum reg_class regno_reg_class[];
    `S' is for operands that satisfy 'm' when -mpcrel is in effect.
    `T' is for operands that satisfy 's' when -mpcrel is not in effect.
    `U' is for register offset addressing.
-   `W' is for constants that satisfy call_operand.  */
+   `W' is for const_call_operands.  */
 #define EXTRA_CONSTRAINT(OP,CODE)			\
-  (((CODE) == 'S')					\
+  ((CODE) == 'S'					\
    ? (TARGET_PCREL					\
       && GET_CODE (OP) == MEM				\
       && (GET_CODE (XEXP (OP, 0)) == SYMBOL_REF		\
 	  || GET_CODE (XEXP (OP, 0)) == LABEL_REF	\
 	  || GET_CODE (XEXP (OP, 0)) == CONST))		\
    : 							\
-   ((CODE) == 'T')					\
+   (CODE) == 'T'					\
    ? ( !TARGET_PCREL 					\
       && (GET_CODE (OP) == SYMBOL_REF			\
 	  || GET_CODE (OP) == LABEL_REF			\
 	  || GET_CODE (OP) == CONST))			\
    :							\
-   ((CODE) == 'Q')					\
+   (CODE) == 'Q'					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == REG)		\
    :							\
-   ((CODE) == 'U')					\
+   (CODE) == 'U'					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == PLUS		\
       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
@@ -544,8 +544,8 @@ extern enum reg_class regno_reg_class[];
       && INTVAL (XEXP (XEXP (OP, 0), 1)) < 0x8000	\
       && INTVAL (XEXP (XEXP (OP, 0), 1)) >= -0x8000)	\
    :							\
-   ((CODE) == 'W')					\
-   ? CONSTANT_P (OP) && call_operand (OP, VOIDmode)	\
+   (CODE) == 'W'					\
+   ? const_call_operand (OP, VOIDmode)			\
    : 0)
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS) \

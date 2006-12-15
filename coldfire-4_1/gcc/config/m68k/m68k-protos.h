@@ -73,5 +73,5 @@ extern bool m68k_use_return_insn (void);
 extern void m68k_expand_epilogue (void);
 extern void override_options (void);
 extern void init_68881_table (void);
-extern rtx m68k_legitimize_call_address (rtx x);
+extern rtx m68k_legitimize_call_address (rtx);
 extern int m68k_hard_regno_rename_ok(unsigned int, unsigned int);

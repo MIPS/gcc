@@ -1256,9 +1256,7 @@ rtx
 m68k_legitimize_call_address (rtx x)
 {
   gcc_assert (MEM_P (x));
-  if (REG_P (XEXP (x, 0)))
-    return x;
-  if (CONSTANT_P (XEXP (x, 0)) && m68k_symbolic_call != NULL)
+  if (call_operand (XEXP (x, 0), VOIDmode))
     return x;
   return replace_equiv_address (x, force_reg (Pmode, XEXP (x, 0)));
 }
@@ -3376,8 +3374,7 @@ floating_exact_log2 (rtx x)
    'x' for float insn (print a CONST_DOUBLE as a float rather than in hex),
        or print pair of registers as rx:ry.
    'p' print an address with @PLTPC attached, but only if the operand
-       is not locally-bound.
-   */
+       is not locally-bound.  */
 
 void
 print_operand (FILE *file, rtx op, int letter)
@@ -4002,8 +3999,6 @@ output_call (rtx x)
 {
   if (symbolic_operand (x, VOIDmode))
     return m68k_symbolic_call;
-  else if (REG_P (x))
-    return "jsr (%0)";
   else
     return "jsr %a0";
 }
