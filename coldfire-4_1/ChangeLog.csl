@@ -1,6 +1,13 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/t-rtems (MULTILIB_OPTIONS, MULTILIB_DIRNAMES)
+	(MULTILIB_EXCEPTIONS): Delete.  Delete related FIXME.
+	(M68K_MLIB_CPU): Define.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_movem_pattern_p): Check that the
 	automodification direction agrees with the move direction.
 
