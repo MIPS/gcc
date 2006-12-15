@@ -49,16 +49,7 @@ Boston, MA 02110-1301, USA.  */
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS \
-  { "cpp_cpu_spec",         CPP_CPU_SPEC }, \
-  { "netbsd_cpp_spec",      NETBSD_CPP_SPEC }, \
   { "netbsd_entry_point",   NETBSD_ENTRY_POINT },
-
-
-#define CPP_CPU_SPEC \
-  "%{m68010:-D__mc68010__} \
-   %{m68020:-D__mc68020__} \
-   %{m68030:-D__mc68030__} \
-   %{m68040:-D__mc68040__}"
 
 
 #undef TARGET_VERSION
@@ -74,8 +65,7 @@ Boston, MA 02110-1301, USA.  */
    whether or not use of the FPU is allowed.  */
 
 #undef CPP_SPEC
-#define CPP_SPEC \
-  "%(netbsd_cpp_spec) %(cpp_cpu_spec)"
+#define CPP_SPEC NETBSD_CPP_SPEC
 
 
 /* Provide an ASM_SPEC appropriate for NetBSD m68k ELF targets.  We need

@@ -87,6 +87,10 @@ Boston, MA 02110-1301, USA.  */
 	  builtin_define_std ("mc68020");				\
 	  break;							\
 									\
+	case u68010:							\
+	  builtin_define_std ("mc68010");				\
+	  break;							\
+									\
 	case ucpu32:							\
 	  builtin_define_std ("mc68332");				\
 	  builtin_define_std ("mcpu32");				\
@@ -209,14 +213,16 @@ Boston, MA 02110-1301, USA.  */
 #define FL_CF_USP    (1 << 8)    /* ColdFire User Stack Pointer supported.  */
 #define FL_CF_FPU    (1 << 9)    /* ColdFire FPU supported.  */
 #define FL_ISA_68000 (1 << 10)
-#define FL_ISA_68020 (1 << 11)
-#define FL_ISA_68040 (1 << 12)
-#define FL_ISA_A     (1 << 13)
-#define FL_ISA_APLUS (1 << 14)
-#define FL_ISA_B     (1 << 15)
-#define FL_ISA_C     (1 << 16)
+#define FL_ISA_68010 (1 << 11)
+#define FL_ISA_68020 (1 << 12)
+#define FL_ISA_68040 (1 << 13)
+#define FL_ISA_A     (1 << 14)
+#define FL_ISA_APLUS (1 << 15)
+#define FL_ISA_B     (1 << 16)
+#define FL_ISA_C     (1 << 17)
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 
+#define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
 #define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
 #define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
@@ -231,6 +237,8 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_ISAC		((m68k_cpu_flags & FL_ISA_C) != 0)
 
 #define TUNE_68000	(m68k_tune == u68000)
+#define TUNE_68010	(m68k_tune == u68010)
+#define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
 #define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
 #define TUNE_68030	(m68k_tune == u68030)
 #define TUNE_68040	(m68k_tune == u68040)

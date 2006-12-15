@@ -204,9 +204,11 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Base flags for 68k ISAs.  */
 #define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
-#define FL_FOR_isa_20    (FL_ISA_68020 | FL_BITFIELD)
+#define FL_FOR_isa_10    (FL_FOR_isa_00 | FL_ISA_68010)
+#define FL_FOR_isa_20    (FL_ISA_68000 | FL_ISA_68010 \
+			  | FL_ISA_68020 | FL_BITFIELD)
 #define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
-#define FL_FOR_isa_cpu32 (FL_ISA_68020)
+#define FL_FOR_isa_cpu32 (FL_ISA_68000 | FL_FOR_68010 | FL_ISA_68020)
 
 /* Base flags for ColdFire ISAs.  */
 #define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A | FL_PCREL_16)
@@ -219,6 +221,7 @@ enum m68k_isa
 {
   /* Traditional 68000 instruction sets.  */
   isa_00,
+  isa_10,
   isa_20,
   isa_40,
   isa_cpu32,
@@ -264,7 +267,7 @@ static const struct m68k_target_selection all_devices[] =
 static const struct m68k_target_selection all_isas[] =
 {
   { "68000",    m68000,     NULL,  u68000,   isa_00,    FL_FOR_isa_00 },
-  { "68010",    m68010,     NULL,  u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68010",    m68010,     NULL,  u68010,   isa_10,    FL_FOR_isa_10 },
   { "68020",    m68020,     NULL,  u68020,   isa_20,    FL_FOR_isa_20 },
   { "68030",    m68030,     NULL,  u68030,   isa_20,    FL_FOR_isa_20 },
   { "68040",    m68040,     NULL,  u68040,   isa_40,    FL_FOR_isa_40 },
@@ -286,7 +289,7 @@ static const struct m68k_target_selection all_isas[] =
 static const struct m68k_target_selection all_microarchs[] =
 {
   { "68000",    m68000,     NULL,  u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68010",    m68010,     NULL,  u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,     NULL,  u68010,   isa_10,  FL_FOR_isa_10 },
   { "68020",    m68020,     NULL,  u68020,   isa_20,  FL_FOR_isa_20 },
   { "68030",    m68030,     NULL,  u68030,   isa_20,  FL_FOR_isa_20 },
   { "68040",    m68040,     NULL,  u68040,   isa_40,  FL_FOR_isa_40 },
@@ -384,6 +387,9 @@ m68k_handle_option (size_t code, const char *arg, int value)
     case OPT_m68000:
     case OPT_mc68000:
       return m68k_find_selection (&m68k_cpu_entry, all_devices, "68000");
+
+    case OPT_m68010:
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68010");
 
     case OPT_m68020:
     case OPT_mc68020:
@@ -2036,9 +2042,8 @@ output_move_simode_const (rtx *operands)
   if (operands[1] == const0_rtx
       && (DATA_REG_P (operands[0])
 	  || GET_CODE (operands[0]) == MEM)
-      /* clr insns on 68000 read before writing.
-	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      /* clr insns on 68000 read before writing.  */
+      && ((TARGET_68010 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
@@ -2095,9 +2100,8 @@ output_move_himode (rtx *operands)
       if (operands[1] == const0_rtx
 	  && (DATA_REG_P (operands[0])
 	      || GET_CODE (operands[0]) == MEM)
-	  /* clr insns on 68000 read before writing.
-	     This isn't so on the 68010, but we have no TARGET_68010.  */
-	  && ((TARGET_68020 || TARGET_COLDFIRE)
+	  /* clr insns on 68000 read before writing.  */
+	  && ((TARGET_68010 || TARGET_COLDFIRE)
 	      || !(GET_CODE (operands[0]) == MEM
 		   && MEM_VOLATILE_P (operands[0]))))
 	return "clr%.w %0";
@@ -2151,10 +2155,9 @@ output_move_qimode (rtx *operands)
 		&& ! ADDRESS_REG_P (operands[1])
 		&& ! TARGET_COLDFIRE));
 
-  /* clr and st insns on 68000 read before writing.
-     This isn't so on the 68010, but we have no TARGET_68010.  */
+  /* clr and st insns on 68000 read before writing.  */
   if (!ADDRESS_REG_P (operands[0])
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      && ((TARGET_68010 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     {
       if (operands[1] == const0_rtx)
@@ -2189,9 +2192,8 @@ const char *
 output_move_stricthi (rtx *operands)
 {
   if (operands[1] == const0_rtx
-      /* clr insns on 68000 read before writing.
-	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      /* clr insns on 68000 read before writing.  */
+      && ((TARGET_68010 || TARGET_COLDFIRE)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.w %0";
   return "move%.w %1,%0";
@@ -2201,9 +2203,8 @@ const char *
 output_move_strictqi (rtx *operands)
 {
   if (operands[1] == const0_rtx
-      /* clr insns on 68000 read before writing.
-         This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      /* clr insns on 68000 read before writing.  */
+      && ((TARGET_68010 || TARGET_COLDFIRE)
           || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.b %0";
   return "move%.b %1,%0";
