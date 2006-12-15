@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.md (addsi3): Add alternatives for addq and
+	subq with memory destinations.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-protos.h (output_sibcall): Declare.
 	(mips_expand_epilogue): Add a bool parameter.
 	(m68k_legitimize_sibcall_address): Declare.
