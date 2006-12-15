@@ -81,6 +81,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "ggc.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "params.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -292,7 +293,6 @@ static int equiv_init_movable_p (rtx, int);
 static int contains_replace_regs (rtx);
 static int memref_referenced_p (rtx, rtx);
 static int memref_used_between_p (rtx, rtx, rtx);
-static void update_equiv_regs (void);
 static void no_equiv (rtx, rtx, void *);
 static void block_alloc (int);
 static int qty_sugg_compare (int, int);
@@ -788,9 +788,11 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
    into the using insn.  If it succeeds, we can eliminate the register
    completely.
 
-   Initialize the REG_EQUIV_INIT array of initializing insns.  */
+   Initialize the REG_EQUIV_INIT array of initializing insns.
 
-static void
+   Return non-zero if jump label rebuilding should be done.  */
+
+int
 update_equiv_regs (void)
 {
   rtx insn;
@@ -1240,6 +1242,7 @@ update_equiv_regs (void)
   end_alias_analysis ();
   CLEAR_REG_SET (&cleared_regs);
   free (reg_equiv);
+  return recorded_label_ref;
 }
 
 /* Mark REG as having no known equivalence.
@@ -2522,6 +2525,12 @@ dump_local_alloc (FILE *file)
       fprintf (file, ";; Register %d in %d.\n", i, reg_renumber[i]);
 }
 
+static bool
+gate_handle_local_alloc (void)
+{
+  return ! flag_ira;
+}
+
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static unsigned int
@@ -2575,7 +2584,7 @@ rest_of_handle_local_alloc (void)
 struct tree_opt_pass pass_local_alloc =
 {
   "lreg",                               /* name */
-  NULL,                                 /* gate */
+  gate_handle_local_alloc,              /* gate */
   rest_of_handle_local_alloc,           /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */

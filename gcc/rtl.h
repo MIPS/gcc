@@ -1474,6 +1474,7 @@ extern int rtx_equal_p (rtx, rtx);
 extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
+extern rtx gen_reg_rtx_offset (rtx, enum machine_mode, int);
 extern rtx gen_label_rtx (void);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 
@@ -2147,6 +2148,9 @@ extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
 
 /* In global.c */
+#ifdef HARD_CONST
+extern HARD_REG_SET eliminable_regset;
+#endif
 extern void mark_elimination (int, int);
 extern void dump_global_regs (FILE *);
 #ifdef HARD_CONST
@@ -2181,6 +2185,7 @@ extern void dbr_schedule (rtx);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);
+extern int update_equiv_regs (void);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);

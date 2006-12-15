@@ -1,3 +1,113 @@
+2006-12-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+        * ira.h, ira-int.h, ira.c, ira-build.c, ira-costs.c
+	ira-conflicts.c, ira-color.c, ira-emit.c: New files.
+
+	* flags.h (ira_algorithm): New enumeration.
+	(flag_ira_algorithm): New external variable declaration.
+
+	* tree-pass.h (pass_ira): New external variable declaration.
+
+	* toplev.c (ira.h): New include.
+	(flag_ira_algorithm): New global variable.
+	(backend_init): Call init_ira_once.
+
+	* toplev.h (flag_ira, flag_ira_biased_coloring): New external
+	variable declarations.
+
+	* regs.h (contains_reg_of_mode, move_cost, may_move_in_cost,
+	may_move_out_cost): New external variable declarations.
+	
+	* caller-save.c (no_caller_save_reg_set): New global variable.
+	(init_caller_save): Set up no_caller_save_reg_set.
+	
+	* global.c (eliminable_regset): Make it external.
+	(gate_handle_global_alloc): New function.
+	(pass_global_alloc): Add the gate function.
+
+	* opts.c (decode_options):  Print the warning for -fira.
+	(common_handle_option): Process -fira-algorithm option.
+
+	* timevar.def (TV_IRA): New pass.
+
+	* hard-reg-set.h (no_caller_save_reg_set): New external variable
+	declaration.
+
+	* regmove.c (regmove_optimize): Don't do replacement of output
+	operands by input operands.
+        (rest_of_handle_regmove): Don't do CFG cleanup for IRA.
+
+	* local-alloc.c (update_equiv_regs): Make it external.  Return
+	true if jump label rebuilding should be done.
+	(gate_handle_local_alloc): New function.
+	(pass_local_alloc): Add the gate function.
+
+	* alias.c (stack_addr_p): New function.
+	(nonoverlapping_memrefs_p): Add code for IRA.
+
+	* common.opt (fira, fira-algorithm, fira-biased-coloring): New
+	options.
+
+	* regclass.c (contains_reg_of_mode, move_cost, may_move_in_cost,
+	may_move_out_cost): Make the variables external.
+	
+	* rtl.h (eliminable_regset): New external variable declaration.
+	(update_equiv_regs): New external function definition.
+
+	* Makefile.in (IRA_INT_H): New definition.
+	(OBJS-common): Add ira.o, ira-build.o, ira-costs.o,
+	ira-conflicts.o, ira-color.o, and ira-emit.o.
+	(reload1.o, toplev.o): Add dependence on ira.h.
+	(ira.o, ira-build.o, ira-costs.o, ira-conflicts.o, ira-color.o,
+	ira-emit.o): New entries.
+
+	* passes.c (pass_ira): New pass.
+
+	* reload1.c (alter_reg): Add a new parameter.
+	(pseudo_reg_compare): New function.
+	(reload): Sort pseudos for IRA.  Call alter_reg with the
+	additional parameter.
+	(count_spilled_pseudo): New variable freq.  Use it.
+	(alter_reg): Add code for IRA.
+	(eliminate_regs_1, finish_spills, emit_input_reload_insns,
+	delete_output_reload): Use additional parameter for alter_reg.
+	(finish_spills, emit_input_reload_insns, delete_output_reload):
+	Call mark_allocation_change.
+	(finish_spills): Call retry_ira_color.
+	
+	* doc/invoke.texi: Describe new options -fira,
+	-fira-biased-coloring, and -fira-algorithm.
+	
+	* doc/passes.texi: Decribe IRA.
+
+	* doc/tm.texi:  Decribe macro IRA_COVER_CLASSES.
+	
+	* config/sparc/sparc.h (IRA_COVER_CLASSES): New macro.
+
+	* config/i386/i386.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/ia64/ia64.h (IRA_COVER_CLASSES): Ditto.
+
+	* config/rs6000/rs6000.h (IRA_COVER_CLASSES): Ditto.
+	
+	Richard Henderson  <rth@redhat.com>
+
+	* tree-pass.h (pass_lower_subreg): New external definition.
+	* toplev.h (flag_lower_subreg): New external definition.
+	* rtl.def (CONCATN): New rtl expression.
+	* dwarf2out.c (concatn_loc_descriptor): New function.
+	(loc_descriptor): Process CONCATN.
+	* timevar.def (TV_LOWER_SUBREG): New definition.
+	* emit-rtl.c (gen_reg_rtx_offset): New function.
+	(gen_lowpart_common): Process CONCATN.
+	* simplify-rtx.c (simplify_subreg): Process CONCATN.
+	* common.opt (flower-subreg): New options.
+	* rtl.h (gen_reg_rtx_offset): New external definition.
+	* Makefile.in (OBJS-common): Add lower-subreg.o.
+	(lower-subreg.o): New entry.
+	* passes.c (pass_lower_subreg): Add new pass.
+	* lower-subreg.c: New file.
+	
 2006-12-15  Uros Bizjak  <ubizjak@gmail.com>
 
 	* invoke.texi (mstringop-strategy): Add missing "byte_loop" value.

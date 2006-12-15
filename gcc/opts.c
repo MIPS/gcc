@@ -628,6 +628,14 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
+
+#ifndef IRA_COVER_CLASSES
+  if (flag_ira)
+    {
+      inform ("-fira does not work on this architecture");
+      flag_ira = 0;
+    }
+#endif
 }
 
 /* Handle target- and language-independent options.  Return zero to
@@ -944,6 +952,17 @@ common_handle_option (size_t scode, const char *arg, int value,
 	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
       else
 	warning (0, "unknown tls-model \"%s\"", arg);
+      break;
+
+    case OPT_fira_algorithm_:
+      if (!strcmp (arg, "regional"))
+	flag_ira_algorithm = IRA_ALGORITHM_REGIONAL;
+      else if (!strcmp (arg, "CB"))
+	flag_ira_algorithm = IRA_ALGORITHM_CB;
+      else if (!strcmp (arg, "priority"))
+	flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
+      else
+	warning (0, "unknown ira algorithm \"%s\"", arg);
       break;
 
     case OPT_ftracer:

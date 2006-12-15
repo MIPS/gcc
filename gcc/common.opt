@@ -557,6 +557,18 @@ fipa-type-escape
 Common Report Var(flag_ipa_type_escape) Init(0)
 Type based escape and alias analysis
 
+fira
+Common Report Var(flag_ira)
+Use integrated register allocator.
+
+fira-algorithm=
+Common Joined RejectNegative
+-fira-algorithm=[regional|CB|priority]	Set the used IRA algorithm
+
+fira-biased-coloring
+Common Report Var(flag_ira_biased_coloring)
+Use biased coloring for the integrated register allocator.
+
 fivopts
 Common Report Var(flag_ivopts) Init(1)
 Optimize induction variables on trees
@@ -580,6 +592,10 @@ Give external symbols a leading underscore
 floop-optimize
 Common
 Does nothing.  Preserved for backward compatibility.
+
+flower-subreg
+Common Report Var(flag_lower_subreg)
+Subreg lowering
 
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)

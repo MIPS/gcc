@@ -37,6 +37,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "addresses.h"
 
+/* Call used hard registers which can not be saved because there is no
+   insn for this.  */
+HARD_REG_SET no_caller_save_reg_set;
+
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
 #endif
@@ -117,6 +121,7 @@ init_caller_save (void)
   rtx test_reg, test_mem;
   rtx saveinsn, restinsn;
 
+  CLEAR_HARD_REG_SET (no_caller_save_reg_set);
   /* First find all the registers that we need to deal with and all
      the modes that they can have.  If we can't find a mode to use,
      we can't have the register live over calls.  */
@@ -244,6 +249,8 @@ init_caller_save (void)
 	    {
 	      call_fixed_regs[i] = 1;
 	      SET_HARD_REG_BIT (call_fixed_reg_set, i);
+	      if (call_used_regs[i])
+		SET_HARD_REG_BIT (no_caller_save_reg_set, i);
 	    }
 	}
 }

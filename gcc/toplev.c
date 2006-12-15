@@ -67,6 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "params.h"
 #include "reload.h"
+#include "ira.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
 #include "real.h"
@@ -305,6 +306,10 @@ int flag_next_runtime = 0;
 /* Set to the default thread-local storage (tls) model to use.  */
 
 enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
+
+/* Set the default algorithm for the integrated register allocator.  */
+
+enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_REGIONAL;
 
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
@@ -1952,6 +1957,7 @@ backend_init (void)
   init_alias_once ();
   init_reload ();
   init_varasm_once ();
+  init_ira_once ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

@@ -812,13 +812,12 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate a register with same attributes as REG, but offsetted by OFFSET.
+/* Update NEW with same attributes as REG, but offsetted by OFFSET.
    Do the big endian correction if needed.  */
 
-rtx
-gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int offset)
+static void
+update_reg_offset (rtx new, rtx reg, int offset)
 {
-  rtx new = gen_rtx_REG (mode, regno);
   tree decl;
   HOST_WIDE_INT var_size;
 
@@ -860,7 +859,7 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
   if ((BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
       && decl != NULL
       && offset > 0
-      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)
+      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (GET_MODE (new))
       && ((var_size = int_size_in_bytes (TREE_TYPE (decl))) > 0
 	  && var_size < GET_MODE_SIZE (GET_MODE (reg))))
     {
@@ -904,6 +903,27 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
 
   REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
 				   REG_OFFSET (reg) + offset);
+}
+
+/* Generate a register with same attributes as REG, but offsetted by OFFSET. */
+
+rtx
+gen_rtx_REG_offset (rtx reg, enum machine_mode mode,
+		    unsigned int regno, int offset)
+{
+  rtx new = gen_rtx_REG (mode, regno);
+  update_reg_offset (new, reg, offset);
+  return new;
+}
+
+/* Generate a new pseudo register with same attributes as REG, but
+   offsetted by OFFSET.  */
+
+rtx
+gen_reg_rtx_offset (rtx reg, enum machine_mode mode, int offset)
+{
+  rtx new = gen_reg_rtx (mode);
+  update_reg_offset (new, reg, offset);
   return new;
 }
 
@@ -1153,8 +1173,9 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
-	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
-	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
+	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONCATN
+	   || GET_CODE (x) == CONST_VECTOR || GET_CODE (x) == CONST_DOUBLE
+	   || GET_CODE (x) == CONST_INT)
     return simplify_gen_subreg (mode, x, innermode, offset);
 
   /* Otherwise, we can't do this.  */

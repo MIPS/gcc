@@ -4646,13 +4646,23 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 
   /* Handle complex values represented as CONCAT
      of real and imaginary part.  */
-  if (GET_CODE (op) == CONCAT)
+  if (GET_CODE (op) == CONCAT || GET_CODE (op) == CONCATN)
     {
       unsigned int inner_size, final_offset;
       rtx part, res;
 
-      inner_size = GET_MODE_UNIT_SIZE (innermode);
-      part = byte < inner_size ? XEXP (op, 0) : XEXP (op, 1);
+      if (GET_CODE (op) == CONCAT)
+	{
+          inner_size = GET_MODE_SIZE (innermode) / 2;
+	  part = byte < inner_size ? XEXP (op, 0) : XEXP (op, 1);
+	}
+      else
+	{
+	  /* ??? We've got room; perhaps we should store the inner size
+	     of the CONCATN in one of the subsequent unused fields.  */
+	  inner_size = GET_MODE_SIZE (innermode) / XVECLEN (op, 0);
+	  part = XVECEXP (op, 0, byte / inner_size);
+	}
       final_offset = byte % inner_size;
       if (final_offset + GET_MODE_SIZE (outermode) > inner_size)
 	return NULL_RTX;

@@ -292,7 +292,7 @@ static int n_regs_set;
 
 /* All registers that can be eliminated.  */
 
-static HARD_REG_SET eliminable_regset;
+HARD_REG_SET eliminable_regset;
 
 static int allocno_compare (const void *, const void *);
 static void global_conflicts (void);
@@ -2501,6 +2501,13 @@ make_accurate_live_analysis (void)
     }
   free_bb_info ();
 }
+
+static bool
+gate_handle_global_alloc (void)
+{
+  return ! flag_ira;
+}
+
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static unsigned int
@@ -2534,7 +2541,7 @@ rest_of_handle_global_alloc (void)
 struct tree_opt_pass pass_global_alloc =
 {
   "greg",                               /* name */
-  NULL,                                 /* gate */
+  gate_handle_global_alloc,             /* gate */
   rest_of_handle_global_alloc,          /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */

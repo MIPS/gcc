@@ -411,6 +411,13 @@ DEF_RTL_EXPR(SYMBOL_REF, "symbol_ref", "s00", RTX_CONST_OBJ)
    pretend to be looking at the entire value and comparing it.  */
 DEF_RTL_EXPR(CC0, "cc0", "", RTX_OBJ)
 
+/* (CONCATN [a1 a2 .. an]) represents the virtual concatenation of all
+   An to make a value.  This is an extension of the CONCAT to larger 
+   numbers of components.  This is used for decomposing large values
+   into register sized components.  Like CONCAT, it should not appear
+   in the insn chain.  */
+DEF_RTL_EXPR (CONCATN, "concatn", "E", RTX_OBJ)
+
 /* ----------------------------------------------------------------------
    Expressions for operators in an rtl pattern
    ---------------------------------------------------------------------- */

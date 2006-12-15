@@ -45,6 +45,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "except.h"
 #include "tree.h"
+#include "ira.h"
+#include "params.h"
 #include "target.h"
 
 /* This file contains the reload pass of the compiler, which is
@@ -388,7 +390,7 @@ static void delete_caller_save_insns (void);
 static void spill_failure (rtx, enum reg_class);
 static void count_spilled_pseudo (int, int, int);
 static void delete_dead_insn (rtx);
-static void alter_reg (int, int);
+static void alter_reg (int, int, bool);
 static void set_label_offsets (rtx, rtx, int);
 static void check_eliminable_occurrences (rtx);
 static void elimination_effects (rtx, enum machine_mode);
@@ -633,6 +635,20 @@ static int something_needs_operands_changed;
 /* Nonzero means we couldn't get enough spill regs.  */
 static int failure;
 
+/* The function is used to sort pseudos according their usage
+   frequencies (putting most frequently ones first).  */
+static int
+pseudo_reg_compare (const void *v1p, const void *v2p)
+{
+  int regno1 = *(int *) v1p;
+  int regno2 = *(int *) v2p;
+  int diff;
+
+  if ((diff = REG_FREQ (regno2) - REG_FREQ (regno1)) != 0)
+    return diff;
+  return regno1 - regno2;
+}
+
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -827,12 +843,27 @@ reload (rtx first, int global)
   offsets_known_at = XNEWVEC (char, num_labels);
   offsets_at = (HOST_WIDE_INT (*)[NUM_ELIMINABLE_REGS]) xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
-  /* Alter each pseudo-reg rtx to contain its hard reg number.
-     Assign stack slots to the pseudos that lack hard regs or equivalents.
-     Do not touch virtual registers.  */
+  {
+    int n, *pseudo_regs;
 
-  for (i = LAST_VIRTUAL_REGISTER + 1; i < max_regno; i++)
-    alter_reg (i, -1);
+    /* Alter each pseudo-reg rtx to contain its hard reg number.
+       Assign stack slots to the pseudos that lack hard regs or
+       equivalents.  Do not touch virtual registers.  */
+
+    pseudo_regs = XNEWVEC (int, max_regno - LAST_VIRTUAL_REGISTER - 1);
+    for (n = 0, i = LAST_VIRTUAL_REGISTER + 1; i < max_regno; i++)
+      pseudo_regs [n++] = i;
+    
+    if (flag_ira)
+      qsort (pseudo_regs, n, sizeof (int), pseudo_reg_compare);
+    if (frame_pointer_needed || ! flag_ira)
+      for (i = 0; i < n; i++)
+	alter_reg (pseudo_regs [i], -1, false);
+    else
+       for (i = n - 1; i >= 0; i--)
+	 alter_reg (pseudo_regs [i], -1, false);
+    free (pseudo_regs);
+  }
 
   /* If we have some registers we think can be eliminated, scan all insns to
      see if there is an insn that sets one of these registers to something
@@ -954,7 +985,7 @@ reload (rtx first, int global)
 		   the loop.  */
 		reg_equiv_memory_loc[i] = 0;
 		reg_equiv_init[i] = 0;
-		alter_reg (i, -1);
+		alter_reg (i, -1, true);
 	      }
 	  }
 
@@ -1689,6 +1720,7 @@ static HARD_REG_SET used_spill_regs_local;
 static void
 count_spilled_pseudo (int spilled, int spilled_nregs, int reg)
 {
+  int freq = REG_FREQ (reg);
   int r = reg_renumber[reg];
   int nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (reg)];
 
@@ -1698,9 +1730,9 @@ count_spilled_pseudo (int spilled, int spilled_nregs, int reg)
 
   SET_REGNO_REG_SET (&spilled_pseudos, reg);
 
-  spill_add_cost[r] -= REG_FREQ (reg);
+  spill_add_cost[r] -= freq;
   while (nregs-- > 0)
-    spill_cost[r + nregs] -= REG_FREQ (reg);
+    spill_cost[r + nregs] -= freq;
 }
 
 /* Find reload register to use for reload number ORDER.  */
@@ -1969,7 +2001,7 @@ delete_dead_insn (rtx insn)
    can share one stack slot.  */
 
 static void
-alter_reg (int i, int from_reg)
+alter_reg (int i, int from_reg, bool dont_share_p)
 {
   /* When outputting an inline function, this can happen
      for a reg that isn't actually used.  */
@@ -2002,7 +2034,13 @@ alter_reg (int i, int from_reg)
       unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]);
       unsigned int min_align = reg_max_ref_width[i] * BITS_PER_UNIT;
       int adjust = 0;
+      bool shared_p = false;
 
+      
+      x = (dont_share_p || ! flag_ira
+	   ? NULL_RTX : reuse_stack_slot (i, inherent_size, total_size));
+      if (x)
+	shared_p = true;
       /* Each pseudo reg has an inherent size which comes from its own mode,
 	 and a total size which provides room for paradoxical subregs
 	 which refer to the pseudo reg in wider modes.
@@ -2011,7 +2049,7 @@ alter_reg (int i, int from_reg)
 	 enough inherent space and enough total space.
 	 Otherwise, we allocate a new slot, making sure that it has no less
 	 inherent space, and no less total space, then the previous slot.  */
-      if (from_reg == -1)
+      else if (from_reg == -1 || (! dont_share_p && flag_ira))
 	{
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
@@ -2026,6 +2064,9 @@ alter_reg (int i, int from_reg)
 
 	  /* Nothing can alias this slot except this pseudo.  */
 	  set_mem_alias_set (x, new_alias_set ());
+
+	  if (! dont_share_p && flag_ira)
+	    mark_new_stack_slot (x, i, total_size);
 	}
 
       /* Reuse a stack slot if possible.  */
@@ -2096,8 +2137,13 @@ alter_reg (int i, int from_reg)
 
       /* If we have a decl for the original register, set it for the
 	 memory.  If this is a shared MEM, make a copy.  */
-      if (REG_EXPR (regno_reg_rtx[i])
-	  && DECL_P (REG_EXPR (regno_reg_rtx[i])))
+      if (shared_p)
+	{
+	  x = copy_rtx (x);
+	  set_mem_attrs_from_reg (x, regno_reg_rtx[i]);
+	}
+      else if (REG_EXPR (regno_reg_rtx[i])
+	       && DECL_P (REG_EXPR (regno_reg_rtx[i])))
 	{
 	  rtx decl = DECL_RTL_IF_SET (REG_EXPR (regno_reg_rtx[i]));
 
@@ -2361,7 +2407,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
 	  /* There exists at least one use of REGNO that cannot be
 	     eliminated.  Prevent the defining insn from being deleted.  */
 	  reg_equiv_init[regno] = NULL_RTX;
-	  alter_reg (regno, -1);
+	  alter_reg (regno, -1, true);
 	}
       return x;
 
@@ -3710,6 +3756,8 @@ finish_spills (int global)
       SET_HARD_REG_BIT (pseudo_previous_regs[i], reg_renumber[i]);
       /* Mark it as no longer having a hard register home.  */
       reg_renumber[i] = -1;
+      if (flag_ira)
+	mark_allocation_change (i);
       /* We will need to scan everything again.  */
       something_changed = 1;
     }
@@ -3746,10 +3794,23 @@ finish_spills (int global)
 	if (reg_old_renumber[i] != reg_renumber[i])
 	  {
 	    HARD_REG_SET forbidden;
+
 	    COPY_HARD_REG_SET (forbidden, bad_spill_regs_global);
 	    IOR_HARD_REG_SET (forbidden, pseudo_forbidden_regs[i]);
 	    IOR_HARD_REG_SET (forbidden, pseudo_previous_regs[i]);
-	    retry_global_alloc (i, forbidden);
+	    if (flag_ira)
+	      {
+		/* We might migrate pseudo to another hard register on
+		   previous iteration.  So check this.  */
+		if (reg_renumber [i] < 0)
+		  {
+		    retry_ira_color (i, forbidden);
+		    if (reg_renumber[i] >= 0)
+		      something_changed = 1;
+		  }
+	      }
+	    else
+	      retry_global_alloc (i, forbidden);
 	    if (reg_renumber[i] >= 0)
 	      CLEAR_REGNO_REG_SET (&spilled_pseudos, i);
 	  }
@@ -3796,7 +3857,7 @@ finish_spills (int global)
       if (reg_old_renumber[i] == regno)
 	continue;
 
-      alter_reg (i, reg_old_renumber[i]);
+      alter_reg (i, reg_old_renumber[i], false);
       reg_old_renumber[i] = regno;
       if (dump_file)
 	{
@@ -6610,7 +6671,9 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		  && REG_N_SETS (REGNO (old)) == 1)
 		{
 		  reg_renumber[REGNO (old)] = REGNO (rl->reg_rtx);
-		  alter_reg (REGNO (old), -1);
+		  if (flag_ira)
+		    mark_allocation_change (REGNO (old));
+		  alter_reg (REGNO (old), -1, false);
 		}
 	      special = 1;
 	    }
@@ -8081,7 +8144,9 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
 
       /* For the debugging info, say the pseudo lives in this reload reg.  */
       reg_renumber[REGNO (reg)] = REGNO (rld[j].reg_rtx);
-      alter_reg (REGNO (reg), -1);
+      if (flag_ira)
+	mark_allocation_change (REGNO (reg));
+      alter_reg (REGNO (reg), -1, false);
     }
   else
     {

@@ -446,6 +446,11 @@ extern char global_regs[FIRST_PSEUDO_REGISTER];
 
 extern HARD_REG_SET regs_invalidated_by_call;
 
+/* Call used hard registers which can not be saved because there is no
+   insn for this.  */
+
+extern HARD_REG_SET no_caller_save_reg_set;
+
 #ifdef REG_ALLOC_ORDER
 /* Table of register numbers in the order in which to try to use them.  */
 

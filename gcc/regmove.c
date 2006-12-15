@@ -1082,7 +1082,8 @@ regmove_optimize (rtx f, int nregs)
 
   for (pass = 0; pass <= 2; pass++)
     {
-      if (! flag_regmove && pass >= flag_expensive_optimizations)
+      if ((! flag_regmove || flag_ira)
+	  && pass >= flag_expensive_optimizations)
 	goto done;
 
       if (dump_file)
@@ -1130,7 +1131,7 @@ regmove_optimize (rtx f, int nregs)
 		    }
 		}
 	    }
-	  if (! flag_regmove)
+	  if (! flag_regmove || flag_ira)
 	    continue;
 
 	  if (! find_matches (insn, &match))
@@ -2486,7 +2487,8 @@ static unsigned int
 rest_of_handle_regmove (void)
 {
   regmove_optimize (get_insns (), max_reg_num ());
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+  if (! flag_ira)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   return 0;
 }
 

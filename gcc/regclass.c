@@ -206,22 +206,22 @@ bool have_regs_of_mode [MAX_MACHINE_MODE];
 
 /* 1 if class does contain register of given mode.  */
 
-static char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
+char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
 
 /* Maximum cost of moving from a register in one class to a register in
    another class.  Based on REGISTER_MOVE_COST.  */
 
-static int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 /* Similar, but here we don't have to move if the first index is a subset
    of the second so in that case the cost is zero.  */
 
-static int may_move_in_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int may_move_in_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 /* Similar, but here we don't have to move if the first index is a superset
    of the second so in that case the cost is zero.  */
 
-static int may_move_out_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int may_move_out_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 

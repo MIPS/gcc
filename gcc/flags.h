@@ -192,6 +192,16 @@ extern int flag_dump_rtl_in_asm;
    unused UIDs if there are a lot of instructions.  If greater than
    one, unconditionally renumber instruction UIDs.  */
 extern int flag_renumber_insns;
+
+/* The algorithm used for the integrated register allocator (IRA).  */
+enum ira_algorithm {
+  IRA_ALGORITHM_REGIONAL,
+  IRA_ALGORITHM_CB,
+  IRA_ALGORITHM_PRIORITY
+};
+
+extern enum ira_algorithm flag_ira_algorithm;
+
 
 /* Other basic status info about current function.  */
 

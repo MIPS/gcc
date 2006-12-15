@@ -313,7 +313,8 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
--finline-limit=@var{n}  -fkeep-inline-functions @gol
+-finline-limit=@var{n} -fira -fira-alogirthm=@var{algorithm} @gol
+-fira-biased-coloring -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
@@ -4998,6 +4999,29 @@ Note @option{-fregmove} and @option{-foptimize-register-move} are the same
 optimization.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fira
+@opindex fira
+If supported for the target machine, use the integrated register
+allocator (@acronym{IRA}) for the register allocation.
+
+@item -fira-biased-coloring
+@opindex fira-biased-coloring
+Use biased coloring for the integrated register allocator for possible
+improvement of the generated code.  It makes register allocator
+slower.
+
+@item -fira-algorithm=@var{algorithm}
+Use specified algorithm for the integrated register allocator.  The
+@var{algorithm} argument should be one of @code{regional}, @code{CB},
+or @code{priority}.  The second algorithm specifies Chaitin-Briggs
+coloring, the third one specifies Chow's priority based coloring, and
+the third one which is the default specifies regional coloring based
+on Chaitin-Briggs coloring.  The first algorithm is the best for the
+generated code quality especially for machines with small or moderate
+size register set, the second one is faster and generates decent code
+and the smallest size code, and the priority-based one is the fastest
+one.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
