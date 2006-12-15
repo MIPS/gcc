@@ -94,7 +94,7 @@ Boston, MA 02110-1301, USA.  */
       builtin_define_std ("mc68000");					     \
       if (TUNE_68030)							     \
 	builtin_define_std ("mc68030");					     \
-      else if (m68k_arch_68020)						     \
+      else if (TARGET_68020)						     \
         {								     \
           builtin_define_std ("mc68020");				     \
           if (TUNE_68040)						     \
@@ -106,14 +106,14 @@ Boston, MA 02110-1301, USA.  */
 	    }								     \
         }								     \
 									     \
-      if (m68k_arch_68040)						     \
+      if (TARGET_68040)							     \
         {								     \
           builtin_define_std ("mc68040");				     \
           if (TUNE_68060) 						     \
 	    builtin_define_std ("mc68060");				     \
         }								     \
 									     \
-      if (m68k_arch_68060)						     \
+      if (TARGET_68060)							     \
         builtin_define_std ("mc68060");					     \
 									     \
       if (TARGET_68881)							     \
@@ -125,7 +125,7 @@ Boston, MA 02110-1301, USA.  */
           builtin_define_std ("mcpu32");				     \
         }								     \
 									     \
-      if (m68k_arch_coldfire)						     \
+      if (TARGET_COLDFIRE)						     \
         {								     \
 	  const char *tmp;						     \
 	  								     \
@@ -137,9 +137,9 @@ Boston, MA 02110-1301, USA.  */
 	    cpp_define (pfile, tmp);					     \
           cpp_define (pfile, "__mcoldfire__");				     \
 									     \
-          if (m68k_arch_isac)						     \
+          if (TARGET_ISAC)						     \
     	    cpp_define (pfile, "__mcfisac__");				     \
-          else if (m68k_arch_isab)					     \
+          else if (TARGET_ISAB)						     \
 	    {								     \
 	      cpp_define (pfile, "__mcfisab__");			     \
 	      /* ISA_B: Legacy 5307, 5407 defines.  */			     \
@@ -159,7 +159,7 @@ Boston, MA 02110-1301, USA.  */
 	          ;							     \
 	        }							     \
 	    }								     \
-          else if (m68k_arch_isaaplus)					     \
+          else if (TARGET_ISAAPLUS)					     \
 	    {								     \
 	      cpp_define (pfile, "__mcfisaaplus__");			     \
 	      /* ISA_A+: legacy defines.  */				     \
@@ -255,15 +255,20 @@ Boston, MA 02110-1301, USA.  */
 #define FL_ISA_C     (1 << 17)
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 
-/* FIXME: Use non-TARGET name.  */
+#define TARGET_68020		((m68k_cpu_flags & FL_ISA_68020) != 0)
+#define TARGET_68040		((m68k_cpu_flags & FL_ISA_68040) != 0)
+#define TARGET_68060		((m68k_cpu_flags & FL_ISA_68060) != 0)
+#define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
-
-/* FIXME: Use non-TARGET name.  */
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
 
 #define TARGET_HARD_FLOAT	(m68k_fpu != FPUTYPE_NONE)
 /* Size (in bytes) of FPU registers.  */
-#define TARGET_FP_REG_SIZE	(m68k_arch_coldfire ? 8 : 12)
+#define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
+
+#define TARGET_ISAAPLUS		((m68k_cpu_flags & FL_ISA_APLUS) != 0)
+#define TARGET_ISAB		((m68k_cpu_flags & FL_ISA_B) != 0)
+#define TARGET_ISAC		((m68k_cpu_flags & FL_ISA_C) != 0)
 
 /* FIXME: Remove, use m68k_bitfield instead.  */
 #define TARGET_BITFIELD		(m68k_bitfield)
@@ -288,7 +293,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* For Coldfire, sizeof (long double) is 64 bits.  */
 
-#define LONG_DOUBLE_TYPE_SIZE (m68k_arch_coldfire ? 64 : 80)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_COLDFIRE ? 64 : 80)
 
 /* We need to know the size of long double at compile-time in libgcc2.  */
 
@@ -301,7 +306,7 @@ Boston, MA 02110-1301, USA.  */
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
    instructions, we get proper intermediate rounding, otherwise we
    get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD ((m68k_arch_68040 || ! TARGET_68881) ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD ((TARGET_68040 || ! TARGET_68881) ? 0 : 2)
 
 #define BITS_BIG_ENDIAN 1
 #define BYTES_BIG_ENDIAN 1
@@ -314,7 +319,7 @@ Boston, MA 02110-1301, USA.  */
 #define FUNCTION_BOUNDARY 16
 #define EMPTY_FIELD_BOUNDARY 16
 /* Coldfire strongly prefers a 32-bit aligned stack.  */
-#define PREFERRED_STACK_BOUNDARY (m68k_arch_coldfire ? 32 : 16)
+#define PREFERRED_STACK_BOUNDARY (TARGET_COLDFIRE ? 32 : 16)
 
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16 bit
@@ -601,7 +606,7 @@ extern enum reg_class regno_reg_class[];
 
 /* On the 680x0, sp@- in a byte insn really pushes a word.
    On the ColdFire, sp@- in a byte insn pushes just a byte.  */
-#define PUSH_ROUNDING(BYTES) (m68k_arch_coldfire ? BYTES : ((BYTES) + 1) & ~1)
+#define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
@@ -1234,15 +1239,9 @@ enum fpu_type
 extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;
 extern enum target_device m68k_cpu;
-extern int m68k_arch_68020;
-extern int m68k_arch_68040;
-extern int m68k_arch_68060;
-extern int m68k_arch_coldfire;
-extern int m68k_arch_isaaplus;
-extern int m68k_arch_isab;
-extern int m68k_arch_isac;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;
+extern unsigned int m68k_cpu_flags;
 extern int m68k_bitfield;
 extern int m68k_cf_hwdiv;
 extern const char *m68k_symbolic_call;

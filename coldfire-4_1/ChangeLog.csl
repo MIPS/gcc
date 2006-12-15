@@ -1,6 +1,28 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h: Replace uses of m68k_arch_* with TARGET_*
+	throughout.  Remove FIXMEs relating to TARGET_* macros.
+	(TARGET_68020, TARGET_68040, TARGET_68060, TARGET_COLDFIRE)
+	(TARGET_ISAAPLUS, TARGET_ISAB, TARGET_ISAC): New macros.
+	(m68k_arch_68020, m68k_arch_68040, m68k_arch_68060, m68k_arch_coldfire)
+	(m68k_arch_isaaplus, m68k_arch_isab, m68k_arch_isac): Delete.
+	(m68k_cpu_flags): Declare.
+	* config/m68k/coff.h: Replace uses of m68k_arch_* with TARGET_*
+	throughout.
+	* config/m68k/linux.h: Likewise.
+	* config/m68k/m68kelf.h: Likewise.
+	* config/m68k/netbsd-elf.h: Likewise.
+	* config/m68k/m68k.md: Likewise.
+	* config/m68k/m68k.c: Likewise.
+	(m68k_arch_68020, m68k_arch_68040, m68k_arch_68060, m68k_arch_coldfire)
+	(m68k_arch_isaaplus, m68k_arch_isab, m68k_arch_isac): Delete.
+	(m68k_cpu_flags): New variable.
+	(override_options): Set it.  Don't set the m68k_arch_* variables.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h: Remove duplicate comments.
 
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
