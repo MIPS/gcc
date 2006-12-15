@@ -1,5 +1,0 @@
-# crti and crtn are provided by glibc.
-EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o
-
-# Only cpus with an mmu
-M68K_MLIB_CPU += && match(FLAGS, "FL_MMU")

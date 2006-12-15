@@ -1,4 +1,0 @@
-# Select only m68k specific cpus
-
-M68K_MLIB_CPU += && (CPU !~ "^mcf")
-M68K_ARCH := m68k
