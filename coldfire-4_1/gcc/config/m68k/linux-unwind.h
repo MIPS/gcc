@@ -77,21 +77,21 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
     }
   /* Coldfire uses the sequence:
 
-	move.l #__NR_rt_sigreturn, %d0	(203c xxxx xxxx)
-	trap #0				(4e40)
+	move.l #__NR_rt_sigreturn, %d0		(203c xxxx xxxx)
+	trap #0					(4e40)
 
      Others use:
 
-	moveq #__NR_rt_sigreturn, %d0	(70xx)
-	not.b %d0			(4600)
-	trap #0				(4e40)  */
+	moveq #__NR_rt_sigreturn ^ 0xff, %d0	(70xx)
+	not.b %d0				(4600)
+	trap #0					(4e40)  */
 #ifdef __mcoldfire__
   else if (pc[0] == 0x203c
 	   && pc[1] == 0x0000
 	   && pc[2] == __NR_rt_sigreturn
 	   && pc[3] == 0x4e40)
 #else
-  else if (pc[0] == (0x7000 | __NR_rt_sigreturn)
+  else if (pc[0] == (0x7000 | (__NR_rt_sigreturn ^ 0xff))
 	   && pc[1] == 0x4600
 	   && pc[2] == 0x4e40)
 #endif
