@@ -730,8 +730,6 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 	 the address reloads.  */
       if (current_function_uses_const_pool)
 	return true;
-      if (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)
-	return true;
     }
 
   if (current_function_calls_eh_return)
@@ -1022,8 +1020,7 @@ m68k_expand_prologue (void)
 
   if (flag_pic
       && !TARGET_SEP_DATA
-      && (current_function_uses_pic_offset_table
-	  || (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)))
+      && current_function_uses_pic_offset_table)
     {
       insn = emit_insn (gen_load_got ());
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
