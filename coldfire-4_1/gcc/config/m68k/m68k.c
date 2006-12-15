@@ -1889,13 +1889,21 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
        for add and the time for shift, taking away a little more because
        sometimes move insns are needed.  */
     /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
-#define MULL_COST (TUNE_68060 ? 2 : TUNE_68040 ? 5 : \
-  (TARGET_COLDFIRE && !TUNE_CFV2) ? 3 : TARGET_COLDFIRE ? 10 : 13)
+#define MULL_COST				\
+  (TUNE_68060 ? 2				\
+   : TUNE_68040 ? 5				\
+   : TUNE_CFV2 ? 10				\
+   : TARGET_COLDFIRE ? 3 : 13)
 
-#define MULW_COST (TUNE_68060 ? 2 :TUNE_68040 ? 3 : \
-  TUNE_68020 ? 8 : (TARGET_COLDFIRE && !TUNE_CFV2) ? 2 : 5)
+#define MULW_COST				\
+  (TUNE_68060 ? 2				\
+   : TUNE_68040 ? 3				\
+   : TUNE_68000_10 || TUNE_CFV2 ? 5		\
+   : TARGET_COLDFIRE ? 2 : 8)
 
-#define DIVW_COST (TUNE_68020 ? 27 : TARGET_CF_HWDIV ? 11 : 12)
+#define DIVW_COST				\
+  (TARGET_CF_HWDIV ? 11				\
+   : TUNE_68000_10 || TARGET_COLDFIRE ? 12 : 27)
 
     case PLUS:
       /* An lea costs about three times as much as a simple add.  */
@@ -1922,7 +1930,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
           *total = COSTS_N_INSNS(1);
 	  return true;
 	}
-      if (!TUNE_68020 && ! TARGET_COLDFIRE)
+      if (TUNE_68000_10)
         {
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {

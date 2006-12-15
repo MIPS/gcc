@@ -239,7 +239,6 @@ Boston, MA 02110-1301, USA.  */
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
 #define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
-#define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
 #define TUNE_68030	(m68k_tune == u68030)
 #define TUNE_68040	(m68k_tune == u68040)
 #define TUNE_68060	(m68k_tune == u68060)

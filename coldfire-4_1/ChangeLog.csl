@@ -1,6 +1,16 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TUNE_68020): Delete.
+	* config/m68k/m68k.c (MULL_COST): Refactor TARGET_COLDFIRE case.
+	(MULW_COST, DIVW_COST): Likewise.  Replace TUNE_68020 with
+	tests based on TUNE_68000_10 and TARGET_COLDFIRE.
+	(rtx_costs): Replace !TUNE_68020 && !TARGET_COLDFIRE with
+	TUNE_68000_10.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.opt (m68010): New.
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define mc68010
 	if m68k_tune == u68010.
