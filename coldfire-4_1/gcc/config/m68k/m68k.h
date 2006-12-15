@@ -505,7 +505,7 @@ extern enum reg_class regno_reg_class[];
    (C) == 'N' ? (VALUE) >= 24 && (VALUE) <= 31 : \
    (C) == 'O' ? (VALUE) == 16 : \
    (C) == 'P' ? (VALUE) >= 8 && (VALUE) <= 15 : \
-   (C) == 'R' ? (VALUE) == -1 || ((VALUE) >= 1 && (VALUE) <= 7) : 0)
+   (C) == 'R' ? valid_mov3q_const (VALUE) : 0)
 
 /* "G" defines all of the floating constants that are *NOT* 68881
    constants.  This is so 68881 constants get reloaded and the

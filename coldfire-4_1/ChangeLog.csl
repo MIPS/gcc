@@ -1,6 +1,15 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Restrict the 'R'
+	case to TARGET_ISAB.
+	* config/m68k/m68k.md (*movsi_cfv4): Fold into...
+	(*movsi_cf): ...here.  Remove unnecessary 'R' from 'Rg'.
+	Add commentary.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-protos.h (valid_mov3q_const): Take a HOST_WIDE_INT
 	and return a bool.
 	(output_move_const_into_data_reg, output_move_simode_const): Delete.
