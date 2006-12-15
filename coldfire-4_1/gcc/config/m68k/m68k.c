@@ -479,8 +479,9 @@ override_options (void)
   else
     entry = m68k_arch_entry;
 
-  /* We should always have an explicit CPU setting.  */
-  gcc_assert (entry);
+  if (!entry)
+    entry = all_devices + TARGET_CPU_DEFAULT;
+
   m68k_cpu_flags = entry->flags;
 
   /* Use the architecture setting to derive default values for
@@ -496,7 +497,14 @@ override_options (void)
 
   /* Set the directly-usable versions of the -mcpu and -mtune settings.  */
   m68k_cpu = entry->device;
-  m68k_tune = (m68k_tune_entry ? m68k_tune_entry : entry)->microarch;
+  if (m68k_tune_entry)
+    m68k_tune = m68k_tune_entry->microarch;
+#ifdef M68K_DEFAULT_TUNE
+  else if (!m68k_cpu_entry && !m68k_arch_entry)
+    m68k_tune = M68K_DEFAULT_TUNE;
+#endif
+  else
+    m68k_tune = entry->microarch;
 
   /* Set the type of FPU.  */
   m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE

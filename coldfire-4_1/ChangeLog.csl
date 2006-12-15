@@ -1,6 +1,37 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Always
+	set default_m68k_cpu to 68020
+	(m68k-*-linux*): Change default_m68k_cpu from 68040 to 68020.
+	(m680[012]0-*-*): Set the default with_cpu to the first part of
+	the target name.  Extend later m68k handling to these targets too.
+	(m68k-*-*): Generalize to...
+	(m68k*-*-*): ...this.  Prepend an "m" to the m68k with_cpu default.
+	Combine with_arch cases.  Restore the old m68* --with-cpu settings
+	along with new m68000 and m68010 cases.  Set M68K_DEFAULT_TUNE to
+	the default -mtune option if different from with_cpu.  Always expect
+	with_cpu to be defined at this point.  Turn with_cpu into a full
+	option (minus leading "-").  Remove TARGET_CPU_ prefix from
+	target_cpu_default2.
+	* config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Expect the --with-cpu
+	setting to be a full option, minus leading "-".
+	* config/m68k/m68k.c (override_options): Set the default
+	m68k_cpu_entry from TARGET_DEFAULT.  Set the default m68k_tune
+	entry from M68K_DEFAULT_TUNE, if defined.
+	* config/m68k/t-mlibs (M68K_MLIB_DEFAULT): Don't expect
+	$target_cpu_default to include a TARGET_CPU_ prefix.
+	(CANONICALIZE_OPTIONS): New variable.
+	(MULTILIB_OPTIONS): Use it to process the option names.
+	(MULTILIB_MATCHES): Map new-style 680x0 options to legacy options,
+	rather than the other way round.  Update ColdFire comments.
+	When reading m68k-devices.def, map 680x0 entries to -m68*
+	options rather than -mcpu=* options.
+	(MULTILIB_EXCEPTIONS): Pass the value through CANONICALIZE_OPTIONS.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.opt: Resort into alphabestical order.
 
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
