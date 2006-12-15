@@ -304,23 +304,15 @@ static const struct m68k_target_selection all_microarchs[] =
 						       | FL_CF_FPU) },
   { NULL,       unk_device, NULL,  unk_arch, isa_max, 0 }
 };
-
-struct m68k_cpu_select
-{
-  const char *string;
-  const char *name;
-  const struct m68k_target_selection *processors;
-};
-
-static struct m68k_cpu_select m68k_select[] =
-{
-  { NULL, "-mtune=", all_microarchs },
-  { NULL, "-march=", all_isas },
-  { NULL, "-mcpu=",  all_devices }
-};
 
+/* The entries associated with the -mcpu, -march and -mtune settings,
+   or null for options that have not been used.  */
+const struct m68k_target_selection *m68k_cpu_entry;
+const struct m68k_target_selection *m68k_arch_entry;
+const struct m68k_target_selection *m68k_tune_entry;
+
 /* Which CPU we are generating code for.  */
-enum target_device m68k_cpu = unk_device;
+enum target_device m68k_cpu;
 
 /* Nonzero if 68020 instructions are supported.  */
 int m68k_arch_68020 = 0;
@@ -344,10 +336,10 @@ int m68k_arch_isab = 0;
 int m68k_arch_isac = 0;
 
 /* Which microarchitecture to tune for.  */
-enum uarch_type m68k_tune = unk_arch;
+enum uarch_type m68k_tune;
 
 /* Which FPU to use.  */
-enum fpu_type m68k_fpu = FPUTYPE_NONE;
+enum fpu_type m68k_fpu;
 
 /* Nonzero if hardware bitfield instructions are supported.  */
 int m68k_bitfield = 0;
@@ -360,15 +352,26 @@ int m68k_cf_hwdiv = 0;
    in operand 0.  */
 const char *m68k_symbolic_call;
 const char *m68k_symbolic_jump;
+
+/* See whether TABLE has an entry with name NAME.  Return true and
+   store the entry in *ENTRY if so, otherwise return false and
+   leave *ENTRY alone.  */
 
-/* Defines representing indices into the above table.  */
-#define M68K_OPT_SET_TUNE 0
-#define M68K_OPT_SET_ARCH 1
-#define M68K_OPT_SET_CPU 2
+static bool
+m68k_find_selection (const struct m68k_target_selection **entry,
+		     const struct m68k_target_selection *table,
+		     const char *name)
+{
+  size_t i;
 
-/* The cpu that has been selected.  */
-
-const struct m68k_target_selection *current_cpu;
+  for (i = 0; table[i].name; i++)
+    if (strcmp (table[i].name, name) == 0)
+      {
+	*entry = table + i;
+	return true;
+      }
+  return false;
+}
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -378,81 +381,63 @@ m68k_handle_option (size_t code, const char *arg, int value)
   switch (code)
     {
     case OPT_march_:
-      m68k_select[M68K_OPT_SET_ARCH].string = arg;
-      return true;
+      return m68k_find_selection (&m68k_arch_entry, all_isas, arg);
 
     case OPT_mcpu_:
-      m68k_select[M68K_OPT_SET_CPU].string = arg;
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, arg);
 
     case OPT_mtune_:
-      m68k_select[M68K_OPT_SET_TUNE].string = arg;
-      return true;
+      return m68k_find_selection (&m68k_tune_entry, all_microarchs, arg);
 
     case OPT_m5200:
-      m68k_select[M68K_OPT_SET_CPU].string = "5206";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "5206");
 
     case OPT_m5206e:
-      m68k_select[M68K_OPT_SET_CPU].string = "5206e";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "5206e");
 
     case OPT_m528x:
-      m68k_select[M68K_OPT_SET_CPU].string = "528x";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "528x");
 
     case OPT_m5307:
-      m68k_select[M68K_OPT_SET_CPU].string = "5307";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "5307");
 
     case OPT_m5407:
-      m68k_select[M68K_OPT_SET_CPU].string = "5407";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "5407");
 
     case OPT_mcfv4e:
-      m68k_select[M68K_OPT_SET_CPU].string = "547x";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "547x");
 
     case OPT_m68000:
     case OPT_mc68000:
-      m68k_select[M68K_OPT_SET_CPU].string = "68000";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68000");
 
     case OPT_m68020:
     case OPT_mc68020:
-      m68k_select[M68K_OPT_SET_CPU].string = "68020";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68020");
 
     case OPT_m68020_40:
-      m68k_select[M68K_OPT_SET_CPU].string = "68020";
-      m68k_select[M68K_OPT_SET_TUNE].string = "68040";
-      return true;
+      return (m68k_find_selection (&m68k_tune_entry, all_microarchs, "68040")
+	      && m68k_find_selection (&m68k_cpu_entry, all_devices, "68020"));
 
     case OPT_m68020_60:
-      m68k_select[M68K_OPT_SET_CPU].string = "68020";
-      m68k_select[M68K_OPT_SET_TUNE].string = "68060";
-      return true;
+      return (m68k_find_selection (&m68k_tune_entry, all_microarchs, "68060")
+	      && m68k_find_selection (&m68k_cpu_entry, all_devices, "68020"));
 
     case OPT_m68030:
-      m68k_select[M68K_OPT_SET_CPU].string = "68030";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68030");
 
     case OPT_m68040:
-      m68k_select[M68K_OPT_SET_CPU].string = "68040";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68040");
 
     case OPT_m68060:
-      m68k_select[M68K_OPT_SET_CPU].string = "68060";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68060");
 
     case OPT_m68302:
-      m68k_select[M68K_OPT_SET_CPU].string = "68302";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68302");
 
     case OPT_m68332:
     case OPT_mcpu32:
-      m68k_select[M68K_OPT_SET_CPU].string = "68332";
-      return true;
+      return m68k_find_selection (&m68k_cpu_entry, all_devices, "68332");
 
     case OPT_mshared_library_id_:
       if (value > MAX_LIBRARY_ID)
@@ -479,68 +464,43 @@ m68k_handle_option (size_t code, const char *arg, int value)
 void
 override_options (void)
 {
-  unsigned int i;
-  enum target_device target_cpu = unk_device;
-  enum uarch_type uarch = unk_arch;
-  unsigned long flags = 0;
-  int tuning = -1;
+  const struct m68k_target_selection *entry;
+  unsigned long flags;
 
   /* User can choose:
-       -mcpu=
-       -march=
-       -mtune=
-     -mcpu should override -march. Tune should not affect CPU/arch, but should
-     tweak costs, etc., unless no other CPU/arch is specified, in which case
-     it should pick sensible defaults for them.
-     -march (without -mcpu) should enable code to run on any processor
-     implementing that architecture, without requiring any extensions.
-  */
 
-  for (i = 0; i < ARRAY_SIZE (m68k_select); i++)
+     -mcpu=
+     -march=
+     -mtune=
+
+     -march=ARCH should generate code that runs any processor
+     implementing architecture ARCH.  -mcpu=CPU should override -march
+     and should generate code that runs on processor CPU, making free
+     use of any instructions that CPU understands.  -mtune=UARCH applies
+     on top of -mcpu or -march and optimises the code for UARCH.  It does
+     not change the target architecture.  */
+  if (m68k_cpu_entry)
     {
-      struct m68k_cpu_select * ptr = m68k_select + i;
+      /* Complain if the -march setting is for a different microarchitecture,
+	 or includes flags that the -mcpu setting doesn't.  */
+      if (m68k_arch_entry
+	  && (m68k_arch_entry->microarch != m68k_cpu_entry->microarch
+	      || (m68k_arch_entry->flags & ~m68k_cpu_entry->flags) != 0))
+	warning (0, "-mcpu=%s conflicts with -march=%s",
+		 m68k_cpu_entry->name, m68k_arch_entry->name);
 
-      if (ptr->string != NULL && ptr->string[0] != '\0')
-        {
-	  const struct m68k_target_selection *sel;
-	  
-	  for (sel = ptr->processors; sel->name != NULL; sel++)
-	    if (strcmp (ptr->string, sel->name) == 0)
-	      {
-		if (i != M68K_OPT_SET_TUNE)
-		  {
-		    /* FIXME: We complain if the arch provides a flag that the
-		       CPU doesn't. This might not be sufficient.  */
-		    if ((flags != 0 && (flags & ~sel->flags))
-		        || (uarch != unk_arch && uarch != sel->microarch))
-		      warning (0, "switch -mcpu=%s conflicts with -march= "
-			       "switch", ptr->string);
-		    flags = sel->flags;
-		    uarch = sel->microarch;
-		    target_cpu = sel->device;
-		  }
-		else
-		  tuning = sel - ptr->processors;
-
-		if (i == M68K_OPT_SET_CPU)
-		  current_cpu = sel;
-		break;
-	      }
-
-	  if (sel->name == NULL)
-	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
-	}
+      entry = m68k_cpu_entry;
     }
+  else
+    entry = m68k_arch_entry;
 
   /* We should always have an explicit CPU setting.  */
-  gcc_assert (flags);
+  gcc_assert (entry);
+  flags = entry->flags;
 
-  /* Override tuning. This should never alter the ISA used.  */
-  if (tuning != -1)
-    uarch = all_microarchs[tuning].microarch;
-
-  /* This should be set by now.  */
-  gcc_assert (flags != 0);
+  /* Set the directly-usable versions of the -mcpu and -mtune settings.  */
+  m68k_cpu = entry->device;
+  m68k_tune = (m68k_tune_entry ? m68k_tune_entry : entry)->microarch;
 
   gcc_assert ((flags & FL_68881) == 0 || (flags & FL_CF_FPU) == 0);
 
@@ -554,11 +514,6 @@ override_options (void)
   m68k_fpu = (flags & FL_68881) ? FPUTYPE_68881
 	   : (flags & FL_CF_FPU) ? FPUTYPE_COLDFIRE
 	   : FPUTYPE_NONE;
-
-  /* Set tuning to uarch selected above.  */
-  m68k_tune = uarch;
-  /* Likewise for CPU.  */
-  m68k_cpu = target_cpu;
 
   m68k_arch_68020 = flags & FL_ISA_68020;
   m68k_arch_68040 = flags & FL_ISA_68040;
@@ -657,11 +612,11 @@ override_options (void)
 const char *
 m68k_cpp_cpu_ident (const char *prefix)
 {
-  if (!current_cpu)
+  if (!m68k_cpu_entry)
     return NULL;
-  if (!current_cpu->name)
+  if (!m68k_cpu_entry->name)
     return NULL;
-  return concat ("__m", prefix, "_cpu_", current_cpu->name, NULL);
+  return concat ("__m", prefix, "_cpu_", m68k_cpu_entry->name, NULL);
 }
 
 /* Generate a cpp define naming this cpu's family.  */
@@ -669,11 +624,11 @@ m68k_cpp_cpu_ident (const char *prefix)
 const char *
 m68k_cpp_cpu_family (const char *prefix)
 {
-  if (!current_cpu)
+  if (!m68k_cpu_entry)
     return NULL;
-  if (!current_cpu->family)
+  if (!m68k_cpu_entry->family)
     return NULL;
-  return concat ("__m", prefix, "_family_", current_cpu->family, NULL);
+  return concat ("__m", prefix, "_family_", m68k_cpu_entry->family, NULL);
 }
 
 

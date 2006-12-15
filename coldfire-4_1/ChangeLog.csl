@@ -1,6 +1,23 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (m68k_cpu_select, m68k_select): Delete.
+	(m68k_cpu_entry, m68k_arch_entry, m68k_tune_entry): New variables.
+	(m68k_cpu, m68k_tune, m68k_fpu): Remove initializations.
+	(M68K_OPT_SET_TUNE, M68K_OPT_SET_ARCH, M68K_OPT_SET_CPU): Delete.
+	(current_cpu): Delete.
+	(m68k_find_selection): New function.
+	(m68k_handle_option): Use it to interpret every option and set
+	the new global variables.
+	(override_options): Remove the m68k_select code and use the new
+	global variables instead.  Don't set current_cpu.  Specify the
+	-march option in the -mcpu/-march compatiblity message.
+	(m68k_cpp_cpu_ident): Use m68k_cpu_entry instead of current_cpu.
+	(m68k_cpp_cpu_family): Likewise.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_cpu, m68k_arch_68020, m68k_arch_68040)
 	(m68k_arch_68060, m68k_arch_coldfire, m68k_arch_isaaplus)
 	(m68k_arch_isab, m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield)
