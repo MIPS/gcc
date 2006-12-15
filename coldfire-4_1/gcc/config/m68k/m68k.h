@@ -85,16 +85,16 @@ Boston, MA 02110-1301, USA.  */
   { "subtarget_asm_spec", SUBTARGET_ASM_SPEC }		\
 
 /* Note that some other tm.h files include this one and then override
-   many of the definitions that relate to assembler syntax.  FIXME:We
-   no longer set the mc68030 #define, it never made any difference to
-   code generation.  */
+   many of the definitions that relate to assembler syntax.  */
 
 #define TARGET_CPU_CPP_BUILTINS()					     \
   do									     \
     {									     \
       cpp_define (pfile, "__m68k__");					     \
       builtin_define_std ("mc68000");					     \
-      if (m68k_arch_68020)						     \
+      if (TUNE_68030)							     \
+	builtin_define_std ("mc68030");					     \
+      else if (m68k_arch_68020)						     \
         {								     \
           builtin_define_std ("mc68020");				     \
           if (TUNE_68040)						     \
@@ -1169,6 +1169,7 @@ enum uarch_type
   u68000,
   u68010,
   u68020,
+  u68030,
   u68040,
   u68060,
   ucpu32,
@@ -1198,7 +1199,8 @@ enum fpu_type
 };
 
 #define TUNE_68000	(m68k_tune == u68000)
-#define TUNE_68020	(m68k_tune == u68020)
+#define TUNE_68020	(m68k_tune == u68020 || m68k_tune == u68030)
+#define TUNE_68030	(m68k_tune == u68030)
 #define TUNE_68040	(m68k_tune == u68040)
 #define TUNE_68060	(m68k_tune == u68060)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)

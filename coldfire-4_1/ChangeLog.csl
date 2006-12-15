@@ -1,6 +1,17 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define mc68030
+	if TUNE_68030.  Remove related FIXME.
+	(u68030): New microarch.
+	(TUNE_68020): Include u68030 as well as u68020.
+	(TUNE_68030): New macro.
+	* config/m68k/m68k-devices.def (68030): Change microarch to 68030.
+	* config/m68k/m68k.c (all_isas, all_microarchs): Likewise.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-cores.def: Rename to...
 	* config/m68k/m68k-devices.def: ...this.  Change the macro from
 	M68K_CORE to M68K_DEVICE.  Expand on comments.  Fix 5470 entry.
