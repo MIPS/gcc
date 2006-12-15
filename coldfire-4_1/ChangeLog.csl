@@ -1,6 +1,11 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/netbsd-elf.h (M68K_STATIC_CHAIN_REG_NAME): Define.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Do not accept any symbolic
 	constants for 'T' if flag_pic.
 
