@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (FL_FOR_isa_20): Include FL_68881.
+	(FL_FOR_isa_40: Remove FL_68881.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (ftrunc<mode>2, ftrunc<mode>2_68881): Use
 	TUNE_68040 instead of TARGET_68040.  Update comment at top of
 	file accordingly.
