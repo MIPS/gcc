@@ -1,6 +1,35 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k-protos.h (m68k_legitimate_address_p): Change
+	strictness paramter and return value to bool.
+	(m68k_legitimate_base_reg_p, m68k_legitimate_index_reg_p)
+	(m68k_matches_q_p, m68k_matches_u_p): Declare.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Use m68k_matches_q_p
+	and m68k_matches_u_p for the 'Q' and 'U' cases.
+	(REG_STRICT_P): New macro.
+	(REG_OK_FOR_BASE_P): Define only once using m68k_legitimate_base_reg_p.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise m68k_legitimate_index_reg_p.
+	(GO_IF_LEGITIMATE_ADDRESS): Define only once.
+	(PIC_CASE_VECTOR_ADDRESS): Remove reference to deleted code.
+	* config/m68k/m68k.c (m68k_address): New structure.
+	(REG_OK_FOR_INDEX_STRICT, REG_OK_FOR_BASE_STRICT): Delete.
+	(LEGITIMATE_BASE_REG_P, LEGITIMATE_INDEX_REG_P): Delete.
+	(LEGITIMATE_INDEX_P): Delete.
+	(m68k_legitimate_base_reg_p, m68k_legitimate_index_reg_p)
+	(m68k_decompose_index, m68k_legitimate_constant_address_p)
+	(m68k_decompose_address): New functions.
+	(m68k_legitimate_address_p): Use m68k_decompose_address.
+	(m68k_legitimate_mem_p, m68k_matches_q_p, m68k_matches_u_p): New
+	functions.
+	(m68k_valid_movem_base_p): Delete.
+	(m68k_movem_pattern_p): Use m68k_legitimate_base_reg_p directly.
+	(ASM_OUTPUT_CASE_FETCH): Delete.
+	(print_operand_address): Rewrite to use m68k_decompose_address.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (TARGET_ASM_CAN_OUTPUT_MI_THUNK): Always
 	return true.
 	(m68k_save_reg): Use PIC_REG instead of PIC_OFFSET_TABLE_REGNO.

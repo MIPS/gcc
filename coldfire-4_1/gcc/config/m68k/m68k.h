@@ -527,16 +527,10 @@ extern enum reg_class regno_reg_class[];
 	  || GET_CODE (OP) == CONST))			\
    :							\
    (CODE) == 'Q'					\
-   ? (GET_CODE (OP) == MEM 				\
-      && GET_CODE (XEXP (OP, 0)) == REG)		\
+   ? m68k_matches_q_p (OP)				\
    :							\
    (CODE) == 'U'					\
-   ? (GET_CODE (OP) == MEM 				\
-      && GET_CODE (XEXP (OP, 0)) == PLUS		\
-      && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
-      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT	\
-      && INTVAL (XEXP (XEXP (OP, 0), 1)) < 0x8000	\
-      && INTVAL (XEXP (XEXP (OP, 0), 1)) >= -0x8000)	\
+   ? m68k_matches_u_p (OP)				\
    :							\
    (CODE) == 'W'					\
    ? const_call_operand (OP, VOIDmode)			\
@@ -784,43 +778,27 @@ __transfer_from_trampoline ()					\
   (TARGET_PCREL || !symbolic_operand (X, VOIDmode))
 
 #ifndef REG_OK_STRICT
-
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
-  (MODE_OK_FOR_INDEX_P (MODE) && (REGNO (X) ^ 020) >= 8)
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-  do									\
-    {									\
-      if (m68k_legitimate_address_p (MODE, X, 0))			\
-        goto ADDR;							\
-    }									\
-  while (0)
-
+#define REG_STRICT_P 0
 #else
-
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
-  REGNO_MODE_OK_FOR_INDEX_P (REGNO (X), MODE)
-
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-  do									\
-    {									\
-      if (m68k_legitimate_address_p (MODE, X, 1))			\
-        goto ADDR;							\
-    }									\
-  while (0)
+#define REG_STRICT_P 1
 #endif
 
+#define REG_OK_FOR_BASE_P(X) \
+  m68k_legitimate_base_reg_p (X, REG_STRICT_P)
+
+#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
+  m68k_legitimate_index_reg_p (MODE, X, REG_STRICT_P)
+
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+  do									\
+    {									\
+      if (m68k_legitimate_address_p (MODE, X, REG_STRICT_P))		\
+        goto ADDR;							\
+    }									\
+  while (0)
+
 /* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands (see above),
+   the switch offset.  This address is ok as it stands,
    but memory_address_noforce would alter it.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
