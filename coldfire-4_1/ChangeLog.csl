@@ -1,6 +1,13 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.md (ftrunc<mode>2, ftrunc<mode>2_68881): Use
+	TUNE_68040 instead of TARGET_68040.  Update comment at top of
+	file accordingly.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TUNE_68020): Delete.
 	* config/m68k/m68k.c (MULL_COST): Refactor TARGET_COLDFIRE case.
 	(MULW_COST, DIVW_COST): Likewise.  Replace TUNE_68020 with
