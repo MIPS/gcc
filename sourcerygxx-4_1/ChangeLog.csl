@@ -1,3 +1,15 @@
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (adddi_dilshr32): Rename to...
+	(*adddi_dilshr32): ...this.  Fix formatting.  Remove commented-out
+	non-canonical pattern.  Restrict to !m68k_arch_coldfire.
+	(*adddi_dilshr32_cf): New pattern.
+	(adddi3, subdi3): Remove first alternatives.
+
+	gcc/testsuite/
+	* gcc.c-torture/compile/20061214-1.c: New test.
+
 2006-12-13  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/
