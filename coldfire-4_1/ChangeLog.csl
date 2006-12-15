@@ -1,6 +1,19 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (FL_PCREL_16): Delete.
+	(FL_BITFIELD, FL_68881, FL_COLDFIRE, FL_CF_HWDIV, FL_CF_MAC)
+	(FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP, FL_CF_FPU, FL_ISA_68000)
+	(FL_ISA_68010, FL_ISA_68020, FL_ISA_68040, FL_ISA_A, FL_ISA_APLUS)
+	(FL_ISA_B, FL_ISA_C): Move down to cover the gap.
+	* config/m68k/m68k.c (FL_FOR_isa_00): Remove FL_PCREL_16.
+	(FL_FOR_isa_20, FL_FOR_isa_cpu32): Include FL_FOR_isa_10.
+	(FL_FOR_isa_a): Remove FL_PCREL_16.
+	(override_options): Use TARGET_68020 instead of FL_PCREL_16.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Restrict the 'R'
 	case to TARGET_ISAB.
 	* config/m68k/m68k.md (*movsi_cfv4): Fold into...

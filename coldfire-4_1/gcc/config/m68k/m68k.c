@@ -202,18 +202,18 @@ static const struct attribute_spec m68k_attribute_table[] =
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Base flags for 68k ISAs.  */
-#define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
+#define FL_FOR_isa_00    FL_ISA_68000
 #define FL_FOR_isa_10    (FL_FOR_isa_00 | FL_ISA_68010)
 /* FL_68881 controls the default setting of -m68881.  gcc has traditionally
    generated 68881 code for 68020 and 68030 targets unless explicitly told
    not to.  */
-#define FL_FOR_isa_20    (FL_ISA_68000 | FL_ISA_68010 \
-			  | FL_ISA_68020 | FL_BITFIELD | FL_68881)
+#define FL_FOR_isa_20    (FL_FOR_isa_10 | FL_ISA_68020 \
+			  | FL_BITFIELD | FL_68881)
 #define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040)
-#define FL_FOR_isa_cpu32 (FL_ISA_68000 | FL_FOR_68010 | FL_ISA_68020)
+#define FL_FOR_isa_cpu32 (FL_FOR_isa_10 | FL_ISA_68020)
 
 /* Base flags for ColdFire ISAs.  */
-#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A | FL_PCREL_16)
+#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A)
 #define FL_FOR_isa_aplus (FL_FOR_isa_a | FL_ISA_APLUS | FL_CF_USP)
 /* Note ISA_B doesn't necessarily include USP (user stack pointer) support.  */
 #define FL_FOR_isa_b     (FL_FOR_isa_a | FL_ISA_B | FL_CF_HWDIV)
@@ -531,7 +531,7 @@ override_options (void)
 
   /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
      error if the target does not support them.  */
-  if (TARGET_PCREL && (m68k_cpu_flags & FL_PCREL_16) && flag_pic == 2)
+  if (TARGET_PCREL && !TARGET_68020 && flag_pic == 2)
     error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
