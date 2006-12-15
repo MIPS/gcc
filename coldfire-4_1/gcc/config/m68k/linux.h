@@ -22,12 +22,10 @@ Boston, MA 02110-1301, USA.  */
 
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
-/* ASM_SPEC is set in m68k.h, so we have to set SUBTARGET_ASM_SPEC to
-   the svr4.h options.  We have to undef ASM_SPEC here, so that m68k.h
-   does not complain.  */
+/* Add %(asm_cpu_spec) to the svr4.h definition of ASM_SPEC.  */
 #undef ASM_SPEC
-#define SUBTARGET_ASM_SPEC \
-  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
+#define ASM_SPEC \
+  "%(asm_cpu_spec) %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
 /* Here are four prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.

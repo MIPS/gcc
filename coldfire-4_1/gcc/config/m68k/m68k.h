@@ -55,29 +55,13 @@ Boston, MA 02110-1301, USA.  */
 %{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
 "
 
-/* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
-   overridden by subtargets.  */
-#ifndef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC ""
-#endif
-
-/* We do not #undef this beforehand in order to detect it being
-   erronously #defined.  */
-#define ASM_SPEC "%(asm_cpu_spec) %(subtarget_asm_spec)"
-  
-/* This macro defines names of additional specifications to put in the specs
-   that can be used in various specifications like CC1_SPEC.  Its definition
-   is an initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GCC driver
-   program.
-
-   Do not define this macro if it does not need to do anything.  */
+#define ASM_SPEC "%(asm_cpu_spec)"
 
 #define EXTRA_SPECS					\
-  { "asm_cpu_spec",	ASM_CPU_SPEC },			\
-  { "subtarget_asm_spec", SUBTARGET_ASM_SPEC }		\
+  { "asm_cpu_spec", ASM_CPU_SPEC },			\
+  SUBTARGET_EXTRA_SPECS
+
+#define SUBTARGET_EXTRA_SPECS
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  */

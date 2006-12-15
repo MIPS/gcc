@@ -47,7 +47,8 @@ Boston, MA 02110-1301, USA.  */
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
 #endif
 
-#define EXTRA_SPECS \
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
   { "cpp_cpu_spec",         CPP_CPU_SPEC }, \
   { "netbsd_cpp_spec",      NETBSD_CPP_SPEC }, \
   { "netbsd_entry_point",   NETBSD_ENTRY_POINT },
@@ -80,8 +81,8 @@ Boston, MA 02110-1301, USA.  */
 /* Provide an ASM_SPEC appropriate for NetBSD m68k ELF targets.  We need
    to passn PIC code generation options.  */
 
-#undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "%{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
+#undef ASM_SPEC
+#define ASM_SPEC "%(asm_cpu_spec) %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 

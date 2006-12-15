@@ -1,6 +1,22 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (SUBTARGET_ASM_SPEC): Delete.
+	(ASM_SPEC): Remove %(subtarget_asm_spec).
+	(EXTRA_SPECS): Remove subtarget_asm_spec and boiler-plate comment.
+	Include SUBTARGET_EXTRA_SPECS.
+	(SUBTARGET_EXTRA_SPECS): Define.
+	* config/m68k/linux.h (SUBTARGET_ASM_SPEC): Rename to...
+	(ASM_SPEC): ...this and add %(asm_cpu_spec).
+	* config/m68k/m68k-none.h: As for linux.h.
+	* config/m68k/openbsd.h: Likewise.
+	* config/m68k/netbsd-elf.h: Likewise.
+	(EXTRA_SPECS): Rename to...
+	(SUBTARGET_EXTRA_SPECS): ...this.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Treat the mc680x0
 	macros as tuning macros rather than a mixture of tuning and target
 	macros.  Handle m68k and Coldfire tuning options in one switch

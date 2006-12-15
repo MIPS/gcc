@@ -34,8 +34,8 @@ Boston, MA 02110-1301, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "%{!msoft-float:-D__HAVE_68881__ -D__HAVE_FPU__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_POSIX_THREADS}"
 
-#undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "%{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
+#undef ASM_SPEC
+#define ASM_SPEC "%(asm_cpu_spec) %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
