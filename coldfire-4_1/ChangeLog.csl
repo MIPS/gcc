@@ -1,6 +1,23 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k-protos.h (valid_mov3q_const): Take a HOST_WIDE_INT
+	and return a bool.
+	(output_move_const_into_data_reg, output_move_simode_const): Delete.
+	* config/m68k/m68k.c (const_method, const_int_cost): Take a
+	HOST_WIDE_INT instead of an rtx.  Fix formatting.
+	(m68k_rtx_costs): Update call accordingly.
+	(output_move_const_into_data_reg): Likewise.  Fix formatting.
+	(valid_mov3q_const): Take a HOST_WIDE_INT instead of an rtx.
+	Return a bool.
+	(output_move_simode_const): Update calls after above changes.
+	Rework to use automatic variables and predicates like MEM_P.
+	* config/m68k/m68k.md (pushexthisi_const): Update call to
+	valid_mov3q_const.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Add
 	MOTOROLA cases.
 	* config/m68k/m68k-none.h (CC1_SPEC): Delete.
