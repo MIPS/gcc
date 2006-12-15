@@ -1,6 +1,25 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68k-*-linux*, m68k-*-uclinux*): Put m68k.h first again.
+	* config/m68k/m68k.h (TARGET_VERSION, FUNCTION_VALUE, LIBCALL_VALUE)
+	(FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL, FUNCTION_PROFILER)
+	(REGISTER_PREFIX, LOCAL_LABEL_PREFIX, USER_LABEL_PREFIX)
+	(TARGET_ASM_FILE_START_APP_OFF, ASM_GENERATE_INTERNAL_LABEL)
+	(ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP): Remove ifndef guards.
+	(WCHAR_TYPE_SIZE): Revert to 32.
+	* config/m68k/linux.h (TARGET_VERSION, FUNCTION_VALUE, LIBCALL_VALUE)
+	(FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL, FUNCTION_PROFILER)
+	(REGISTER_PREFIX, LOCAL_LABEL_PREFIX, USER_LABEL_PREFIX)
+	(TARGET_ASM_FILE_START_APP_OFF, ASM_OUTPUT_ALIGN, CPP_SPEC): Undefine
+	before redefining.
+	(ASM_SPEC): Do not undefine.
+	* config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Undefine before redefining.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-protos.h (m68k_cpp_cpu_ident): Move outside
 	RTX_CODE guard.
 	(m68k_cpp_cpu_famliy): Likewise.

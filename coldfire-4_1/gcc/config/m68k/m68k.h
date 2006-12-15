@@ -24,14 +24,10 @@ Boston, MA 02110-1301, USA.  */
    for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
    to optimize away all constant tests.  */
 #if MOTOROLA  /* Use the Motorola assembly syntax.  */
-# ifndef TARGET_VERSION
-#  define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
-# endif
+# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
 #else
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
-# ifndef TARGET_VERSION
-#  define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
-# endif
+# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
 #endif
 
 /* Handle --with-cpu default option from configure script.  */
@@ -294,8 +290,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Define these to avoid dependence on meaning of `int'.  */
 #define WCHAR_TYPE "long int"
-/* Use BITS_PER_WORD rather than 32 to agree with svr4.h.  */
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
+#define WCHAR_TYPE_SIZE 32
 
 /* Maximum number of library IDs we permit with -mid-shared-library.  */
 #define MAX_LIBRARY_ID 255
@@ -586,27 +581,19 @@ extern enum reg_class regno_reg_class[];
    ? (SIZE) : 0)
 
 /* On the m68k the return value defaults to D0.  */
-#ifndef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
   gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
-#endif
 
 /* On the m68k the return value defaults to D0.  */
-#ifndef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, 0)
-#endif
 
 /* On the m68k, D0 is usually the only register used.  */
-#ifndef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
-#endif
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.
    XXX This macro is m68k specific and used only for m68kemb.h.  */
-#ifndef NEEDS_UNTYPED_CALL
 #define NEEDS_UNTYPED_CALL 0
-#endif
 
 /* On the m68k, all arguments are usually pushed on the stack.  */
 #define FUNCTION_ARG_REGNO_P(N) 0
@@ -627,10 +614,8 @@ extern enum reg_class regno_reg_class[];
 /* On the m68k all args are always pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
 
-#ifndef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))
-#endif
 
 #define EXIT_IGNORE_STACK 1
 
@@ -939,19 +924,11 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define TEXT_SECTION_ASM_OP "\t.text"
 #define DATA_SECTION_ASM_OP "\t.data"
 #define GLOBAL_ASM_OP "\t.globl\t"
-#ifndef REGISTER_PREFIX
 #define REGISTER_PREFIX ""
-#endif
-#ifndef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ""
-#endif
-#ifndef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
-#endif
 #define IMMEDIATE_PREFIX "#"
-#ifndef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
-#endif
 
 #define REGISTER_NAMES \
 {REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
@@ -1050,10 +1027,8 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
   asm_fprintf (FILE, "%U%s", NAME)
 
-#ifndef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
-#endif
 
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)			\
   asm_fprintf (FILE, (MOTOROLA				\
@@ -1077,16 +1052,12 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 /* We don't have a way to align to more than a two-byte boundary, so do the
    best we can and don't complain.  */
-#ifndef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) >= 1)			\
     fprintf (FILE, "\t.even\n");
-#endif
 
-#ifndef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (int)(SIZE))
-#endif
 
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\

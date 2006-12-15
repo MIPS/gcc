@@ -20,6 +20,7 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
 /* Add %(asm_cpu_spec) to the svr4.h definition of ASM_SPEC.  */
@@ -36,15 +37,18 @@ Boston, MA 02110-1301, USA.  */
    is supposed to include this prefix. Also note that this is NOT an
    fprintf format string, it is a literal string */
 
+#undef REGISTER_PREFIX
 #define REGISTER_PREFIX "%"
 
 /* The prefix for local (compiler generated) labels.
    These labels will not appear in the symbol table.  */
 
+#undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
 
 /* The prefix to add to user-visible assembler symbols.  */
 
+#undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 
 #define ASM_COMMENT_START "|"
@@ -52,6 +56,7 @@ Boston, MA 02110-1301, USA.  */
 /* Target OS builtins.  */
 #define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
+#undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 /* Provide a LINK_SPEC appropriate for GNU/Linux.  Here we provide support
@@ -107,6 +112,7 @@ Boston, MA 02110-1301, USA.  */
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */
 
+#undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)				\
   if ((LOG) > 0)						\
     fprintf ((FILE), "%s%u\n", ALIGN_ASM_OP, 1 << (LOG));
@@ -128,6 +134,7 @@ Boston, MA 02110-1301, USA.  */
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
+#undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO) \
 {									\
   asm_fprintf (FILE, "\tlea (%LLP%d,%Rpc),%Ra1\n", (LABELNO));		\
@@ -146,12 +153,14 @@ Boston, MA 02110-1301, USA.  */
    pointer, or floating types, respectively.  Reject fp0 if not using
    a 68881 coprocessor.  */
 
+#undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
   ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.  */
 
+#undef NEEDS_UNTYPED_CALL
 #define NEEDS_UNTYPED_CALL 1
 
 /* Define how to generate (in the callee) the output value of a
@@ -161,6 +170,7 @@ Boston, MA 02110-1301, USA.  */
    FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
    result in d0, a0, or fp0 as appropriate.  */
 
+#undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
   m68k_function_value (VALTYPE, FUNC)
 
@@ -169,6 +179,7 @@ Boston, MA 02110-1301, USA.  */
    For m68k/SVR4 look for integer values in d0, pointer values in d0
    (returned in both d0 and a0), and floating values in fp0.  */
 
+#undef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)						\
   m68k_libcall_value (MODE)
 
@@ -216,6 +227,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* glibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
+#undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF false
 
 #define MD_UNWIND_SUPPORT "config/m68k/linux-unwind.h"
