@@ -11,6 +11,13 @@ AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
 
+dnl GCJ LOCAL
+AC_ARG_ENABLE(java-maintainer-mode,
+	AS_HELP_STRING([--enable-java-maintainer-mode],
+	[allow rebuilding of .class and .h files]))
+AM_CONDITIONAL(JAVA_MAINTAINER_MODE, test "$enable_java_maintainer_mode" = yes)
+dnl END GCJ LOCAL
+
 dnl -----------------------------------------------------------
 dnl Fold all IA-32 CPU architectures into "x86"
 dnl -----------------------------------------------------------

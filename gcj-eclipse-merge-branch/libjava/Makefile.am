@@ -399,7 +399,7 @@ MYGCJH = gjavah
 $(generic_header_files): gcjh.stamp
 
 gcjh.stamp: classpath/lib/compile-classes
-if MAINTAINER_MODE
+if JAVA_MAINTAINER_MODE
 	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
 	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
 endif

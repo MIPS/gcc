@@ -166,7 +166,7 @@ $(JAVA_DEPEND): genclasses
 # 	touch compile-classes
 # else
 compile-classes: classes $(JAVA_SRCS) Makefile
-if MAINTAINER_MODE
+if JAVA_MAINTAINER_MODE
 	$(JAVAC)
 endif
 	touch compile-classes

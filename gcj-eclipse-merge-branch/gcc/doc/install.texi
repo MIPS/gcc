@@ -432,12 +432,13 @@ Necessary when applying patches, created with @command{diff}, to one's
 own sources.
 
 @item ecj1
+@itemx gjavah
 
 If you wish to modify @file{.java} files in libjava, you will need to
-configure with @code{--enable-maintainer-mode}, and you will need to
-have an executable named @code{ecj1} on your path.  This executable
-should run the Eclipse Java compiler via the GCC-specific entry point.
-You can download a suitable jar from
+configure with @code{--enable-java-maintainer-mode}, and you will need
+to have executables named @code{ecj1} and @code{gjavah} on your path.
+The @code{ecj1} executable should run the Eclipse Java compiler via
+the GCC-specific entry point.  You can download a suitable jar from
 @uref{ftp://sources.redhat.com/pub/java/}, or by running the script
 @file{contrib/download_ecj}.
 

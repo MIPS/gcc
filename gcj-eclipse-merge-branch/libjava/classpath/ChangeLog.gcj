@@ -1,3 +1,9 @@
+2006-12-15  Tom Tromey  <tromey@redhat.com>
+
+	* configure, lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (compile-classes): Use JAVA_MAINTAINER_MODE.
+	* configure.ac: Added --enable-java-maintainer-mode.
+
 2006-12-12  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in, tools/Makefile.in: Rebuilt.

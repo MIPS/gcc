@@ -106,6 +106,11 @@ AC_ARG_ENABLE(gconf-peer,
     [gconf_enabled=no]
 )
 
+AC_ARG_ENABLE(java-maintainer-mode,
+	AS_HELP_STRING([--enable-java-maintainer-mode],
+	[allow rebuilding of .class and .h files]))
+AM_CONDITIONAL(JAVA_MAINTAINER_MODE, test "$enable_java_maintainer_mode" = yes)
+
 # It may not be safe to run linking tests in AC_PROG_CC/AC_PROG_CXX.
 GCC_NO_EXECUTABLES
 

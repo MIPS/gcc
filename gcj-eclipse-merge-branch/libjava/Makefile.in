@@ -602,6 +602,8 @@ JAR = @JAR@
 JAVA_HOME = @JAVA_HOME@
 JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
 JAVA_HOME_SET_TRUE = @JAVA_HOME_SET_TRUE@
+JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
+JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
 JC1GCSPEC = @JC1GCSPEC@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
@@ -11516,8 +11518,8 @@ java/process-Posix.list: java/lang/PosixProcess.java
 $(generic_header_files): gcjh.stamp
 
 gcjh.stamp: classpath/lib/compile-classes
-@MAINTAINER_MODE_TRUE@	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
-@MAINTAINER_MODE_TRUE@	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
+@JAVA_MAINTAINER_MODE_TRUE@	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
+@JAVA_MAINTAINER_MODE_TRUE@	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
 	echo > gcjh.stamp
 
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
