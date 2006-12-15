@@ -243,8 +243,6 @@ Boston, MA 02110-1301, USA.  */
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
 #define TUNE_CFV2	(m68k_tune == ucfv2)
-#define TUNE_CFV3	(m68k_tune == ucfv3)
-#define TUNE_CFV4	(m68k_tune == ucfv4)
 
 #define OVERRIDE_OPTIONS   override_options()
 
@@ -694,7 +692,7 @@ extern enum reg_class regno_reg_class[];
 void								\
 __transfer_from_trampoline ()					\
 {								\
-  register char *a0 asm (M68K_STATIC_CHAIN_REG_NAME);	\
+  register char *a0 asm (M68K_STATIC_CHAIN_REG_NAME);		\
   asm (GLOBAL_ASM_OP "___trampoline");				\
   asm ("___trampoline:");					\
   asm volatile ("move%.l %0,%@" : : "m" (a0[22]));		\
@@ -857,7 +855,8 @@ __transfer_from_trampoline ()					\
 	{ COPY_ONCE (X); XEXP (X, 1) = force_operand (XEXP (X, 1), 0);}	\
       if (ch && GET_CODE (XEXP (X, 1)) == REG				\
 	  && GET_CODE (XEXP (X, 0)) == REG)				\
-	{ if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (MODE) == MODE_FLOAT) \
+	{ if (TARGET_COLDFIRE_FPU					\
+	      && GET_MODE_CLASS (MODE) == MODE_FLOAT)			\
 	    { COPY_ONCE (X); X = force_operand (X, 0);}			\
 	  goto WIN; }							\
       if (ch) { GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN); }		\
@@ -903,8 +902,7 @@ __transfer_from_trampoline ()					\
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* The ColdFire FF1 instruction returns 32 for zero. */
-#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  \
-	((VALUE) = 32, 1)
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 
 #define STORE_FLAG_VALUE (-1)
 
@@ -1043,8 +1041,9 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    pointer for code and global references.  We still use pc-relative
    references to data, as this avoids a relocation.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)			   \
-  (flag_pic && !((TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)		   \
-		 && ((GLOBAL) || (CODE)))				   \
+  (flag_pic								   \
+   && !((TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)			   \
+	&& ((GLOBAL) || (CODE)))					   \
    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
    : DW_EH_PE_absptr)
 
@@ -1168,8 +1167,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
-/* CPU/architecture selection bits.  */
-
+/* Values used in the MICROARCH argument to M68K_DEVICE.  */
 enum uarch_type
 {
   u68000,

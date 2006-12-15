@@ -50,15 +50,9 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_COMMENT_START "|"
 
 /* Target OS builtins.  */
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-	LINUX_TARGET_OS_CPP_BUILTINS();		\
-   }						\
-  while (0)
+#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
-#define CPP_SPEC \
-  "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 /* Provide a LINK_SPEC appropriate for GNU/Linux.  Here we provide support
    for the special GCC options -static and -shared, which allow us to

@@ -598,7 +598,6 @@ m68k_cpp_cpu_family (const char *prefix)
     return NULL;
   return concat ("__m", prefix, "_family_", m68k_cpu_entry->family, NULL);
 }
-
 
 /* Return nonzero if FUNC is an interrupt function as specified by the
    "interrupt_handler" attribute.  */
@@ -881,7 +880,7 @@ m68k_expand_prologue (void)
   HOST_WIDE_INT fsize_with_regs;
   rtx limit, src, dest, insn;
 
-  m68k_compute_frame_layout();
+  m68k_compute_frame_layout ();
 
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
@@ -903,7 +902,7 @@ m68k_expand_prologue (void)
   fsize_with_regs = current_frame.size;
   if (TARGET_COLDFIRE)
     {
-      /* Coldfire's move multiple instructions do not allow predecrement
+      /* Coldfire's move multiple instructions do not allow pre-decrement
 	 addressing.  Add the size of movem saves to the initial stack
 	 allocation instead.  */
       if (current_frame.reg_no >= MIN_MOVEM_REGS)
@@ -1054,11 +1053,7 @@ m68k_expand_epilogue (void)
   HOST_WIDE_INT fsize, fsize_with_regs;
   bool big, restore_from_sp;
 
-  m68k_compute_frame_layout();
-
-#ifdef FUNCTION_EXTRA_EPILOGUE
-  FUNCTION_EXTRA_EPILOGUE ();
-#endif
+  m68k_compute_frame_layout ();
 
   fsize = current_frame.size;
   big = false;
@@ -1076,7 +1071,7 @@ m68k_expand_epilogue (void)
   fsize_with_regs = fsize;
   if (TARGET_COLDFIRE && restore_from_sp)
     {
-      /* Coldfire's move multiple instructions do not allow postincrement
+      /* Coldfire's move multiple instructions do not allow post-increment
 	 addressing.  Add the size of movem loads to the final deallocation
 	 instead.  */
       if (current_frame.reg_no >= MIN_MOVEM_REGS)
@@ -1123,16 +1118,16 @@ m68k_expand_epilogue (void)
           {
 	    rtx addr;
 
-            if (big)
+	    if (big)
 	      {
 		/* Generate the address -OFFSET(%fp,%a1.l).  */
 		addr = gen_rtx_REG (Pmode, A1_REG);
 		addr = gen_rtx_PLUS (Pmode, addr, frame_pointer_rtx);
 		addr = plus_constant (addr, -offset);
 	      }
-            else if (restore_from_sp)
+	    else if (restore_from_sp)
 	      addr = gen_rtx_POST_INC (Pmode, stack_pointer_rtx);
-            else
+	    else
 	      addr = plus_constant (frame_pointer_rtx, -offset);
 	    emit_move_insn (gen_rtx_REG (SImode, D0_REG + i),
 			    gen_frame_mem (SImode, addr));
@@ -2808,11 +2803,11 @@ m68k_valid_movem_base_p (rtx base)
 /* Return true if PATTERN is a PARALLEL suitable for a movem or fmovem
    instruction.  STORE_P says whether the move is a load or store.
 
-   If the instruction uses pre-increment or post-decrement addressing,
+   If the instruction uses post-increment or pre-decrement addressing,
    AUTOMOD_BASE is the base register and AUTOMOD_OFFSET is the total
    adjustment.  This adjustment will be made by the first element of
    PARALLEL, with the loads or stores starting at element 1.  If the
-   instruction does not use pre-increment or post-decrement addressing,
+   instruction does not use post-increment or pre-decrement addressing,
    AUTOMOD_BASE is null, AUTOMOD_OFFSET is 0, and the loads or stores
    start at element 0.  */
 
@@ -2930,7 +2925,7 @@ m68k_output_movem (rtx *operands, rtx pattern,
   first = (automod_offset != 0);
   for (i = first; i < XVECLEN (pattern, 0); i++)
     {
-      /* When using movem with predecrement addressing, register X + D0_REG
+      /* When using movem with pre-decrement addressing, register X + D0_REG
 	 is controlled by bit 15 - X.  For all other addressing modes,
 	 register X + D0_REG is controlled by bit X.  Confusingly, the
 	 register mask for fmovem is in the opposite order to that for
@@ -3400,6 +3395,8 @@ print_operand (FILE *file, rtx op, int letter)
     }
   else if (letter == '/')
     asm_fprintf (file, "%R");
+  else if (letter == '?')
+    asm_fprintf (file, m68k_library_id_string);
   else if (letter == 'o')
     {
       /* This is only for direct addresses with TARGET_PCREL */
@@ -3414,8 +3411,6 @@ print_operand (FILE *file, rtx op, int letter)
       if (!(GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op)))
 	fprintf (file, "@PLTPC");
     }
-  else if (letter == '?')
-    asm_fprintf (file, m68k_library_id_string);
   else if (GET_CODE (op) == REG)
     {
       if (letter == 'R')
@@ -4183,7 +4178,7 @@ m68k_preferred_reload_class (rtx x, enum reg_class rclass)
   /* Prefer to use moveq for in-range constants.  */
   if (GET_CODE (x) == CONST_INT
       && reg_class_subset_p (DATA_REGS, rclass)
-      && (unsigned) (INTVAL (x) + 0x80) < 0x100)
+      && IN_RANGE (INTVAL (x), -0x80, 0x7f))
     return DATA_REGS;
 
   /* ??? Do we really need this now?  */
@@ -4192,7 +4187,7 @@ m68k_preferred_reload_class (rtx x, enum reg_class rclass)
     {
       if (TARGET_HARD_FLOAT && reg_class_subset_p (FP_REGS, rclass))
 	return FP_REGS;
-      
+
       return NO_REGS;
     }
 

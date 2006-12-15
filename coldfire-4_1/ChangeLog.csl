@@ -1,6 +1,40 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k-protos.h (m68k_cpp_cpu_ident): Move outside
+	RTX_CODE guard.
+	(m68k_cpp_cpu_famliy): Likewise.
+	* config/m68k/m68k.h (TUNE_CFV3, TUNE_CFV4): Delete unused macros.
+	(TRANSFER_FROM_TRAMPOLINE): Line up backslash.
+	(LEGITIMIZE_ADDRESS): Break long line.
+	(CLZ_DEFINED_VALUE_AT_ZERO): Reformat.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	(uarch_type): Update comment.
+	* config/m68k/linux.h (TARGET_OS_CPP_BUILTINS): Simplify formatting.
+	(CPP_SPEC): Remove backslash.
+	* config/m68k/linux-unwind.h: Fix comment formatting.
+	* config/m68k/openbsd.h (PCC_STATIC_STRUCT_RETURN): Remove
+	boiler-plate comment.  Fix formatting in specific comment.
+	* config/m68k/m68k.c: Remove excess blank lines.
+	(m68k_expand_prologue): Fix formatting in call to
+	m68k_compute_frame_layout.  Hyphenate pre-decrement.
+	(m68k_expand_epilogue): Fix formatting in call to
+	m68k_compute_frame_layout.  Hyphenate post-increment.
+	Remove FUNCTION_EXTRA_EPILOGUE.  Fix tabulation.
+	(m68k_valid_movem_base_p): Fix comment typos.
+	(print_operand): Move %? case to the other punctuation handling.
+	(m68k_preferred_reload_class): Use IN_RANGE.  Remove excess whitespace.
+	* config/m68k/t-mlibs (M68K_AWK): Fix commentary.
+	(M68K_MLIB_CPUS): Add commentary.
+	(MULTILIB_EXCEPTIONS): Remove excess whitespace.
+	* config/m68k/m68k.md: Fix formatting of TUNE_68000 conditions
+	and define_peephole2s.  Coordinate spacing of define_constants.
+	Trim some trailing whitespace.
+	(andsi3_5200): Tweak formatting.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (FL_PCREL_16): Delete.
 	(FL_BITFIELD, FL_68881, FL_COLDFIRE, FL_CF_HWDIV, FL_CF_MAC)
 	(FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP, FL_CF_FPU, FL_ISA_68000)

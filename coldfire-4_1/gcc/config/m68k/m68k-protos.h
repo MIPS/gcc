@@ -56,8 +56,6 @@ extern rtx m68k_function_value (tree, tree);
 extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 extern bool m68k_movem_pattern_p (rtx, rtx, HOST_WIDE_INT, bool);
 extern const char *m68k_output_movem (rtx *, rtx, HOST_WIDE_INT, bool);
-extern const char *m68k_cpp_cpu_ident (const char *);
-extern const char *m68k_cpp_cpu_family (const char *);
 
 #endif /* RTX_CODE */
 
@@ -70,6 +68,8 @@ extern void m68k_expand_prologue (void);
 extern bool m68k_use_return_insn (void);
 extern void m68k_expand_epilogue (void);
 extern void override_options (void);
+extern const char *m68k_cpp_cpu_ident (const char *);
+extern const char *m68k_cpp_cpu_family (const char *);
 extern void init_68881_table (void);
 extern rtx m68k_legitimize_call_address (rtx);
 extern int m68k_hard_regno_rename_ok(unsigned int, unsigned int);

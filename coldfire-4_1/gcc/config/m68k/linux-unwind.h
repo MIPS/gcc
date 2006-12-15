@@ -57,8 +57,7 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
   /* Check for:
 
 	moveq #__NR_sigreturn, %d0	(70xx)
-	trap #0				(4e40)
-  */
+	trap #0				(4e40)  */
   if (pc[0] == (0x7000 | __NR_sigreturn) && pc[1] == 0x4e40)
     {
       struct sigcontext *sc;
@@ -85,8 +84,7 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
 
 	moveq #__NR_rt_sigreturn, %d0	(70xx)
 	not.b %d0			(4600)
-	trap #0				(4e40)
-  */
+	trap #0				(4e40)  */
 #ifdef __mcoldfire__
   else if (pc[0] == 0x203c
 	   && pc[1] == 0x0000
