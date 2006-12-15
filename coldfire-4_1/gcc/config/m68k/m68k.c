@@ -4122,18 +4122,18 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 bool
 m68k_regno_mode_ok (int regno, enum machine_mode mode)
 {
-  if (regno < 8)
+  if (DATA_REGNO_P (regno))
     {
       /* Data Registers, can hold aggregate if fits in.  */
       if (regno + GET_MODE_SIZE (mode) / 4 <= 8)
 	return true;
     }
-  else if (regno < 16)
+  else if (ADDRESS_REGNO_P (regno))
     {
       if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
 	return true;
     }
-  else if (regno < 24)
+  else if (FP_REGNO_P (regno))
     {
       /* FPU registers, hold float or complex float of long double or
 	 smaller.  */
@@ -4160,7 +4160,7 @@ m68k_secondary_reload_class (enum reg_class rclass,
      of operand must be reloaded through a data register.  */
   if (GET_MODE_SIZE (mode) == 1
       && reg_classes_intersect_p (rclass, ADDR_REGS)
-      && !((regno >= 0 && regno < 16) || CONSTANT_P (x)))
+      && !(INT_REGNO_P (regno) || CONSTANT_P (x)))
     return DATA_REGS;
 
   /* PC-relative addresses must be loaded into an address register first.  */
