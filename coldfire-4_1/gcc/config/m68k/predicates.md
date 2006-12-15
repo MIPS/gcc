@@ -205,3 +205,15 @@
 {
   return MEM_P (op) && GET_CODE (XEXP (op, 0)) == PRE_DEC;
 })
+
+;; A hard integer register
+
+(define_predicate "integer_register"
+  (and (match_code "reg")
+       (match_test "INT_REGNO_P (REGNO (op))")))
+
+;; A hard floating-point register
+
+(define_predicate "float_register"
+  (and (match_code "reg")
+       (match_test "FP_REGNO_P (REGNO (op))")))

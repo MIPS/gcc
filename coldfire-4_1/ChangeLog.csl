@@ -1,6 +1,25 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.md (*movsi_smallconst): Change target predicate
+	to memory_operand.  Remove unnecessary constraints.
+	In the define_peephole2s, use float_register and integer_register
+	instead of separate HARD_FP_REG_P checks.  Stop the SFmode
+	peephole using an addition if the previous restore is 4 bytes.
+	Handle both the SFmode and SImode versions of this case by
+	emitting the addition in the code part of the define_peephole2,
+	leaving only the move in the output template.  Merge SImode
+	peepholes accordingly.  Create a version of the original MEM rather
+	than hard-coding (mem: ...) into the output template.  Use IN_RANGE
+	to check whether UNSPEC_MOVEQ_MEM is needed.  Match (plus ... -X)
+	rather than (minus ... X).  Fix stack offsets.  Reenable the QImode
+	register peephole for Coldfire.
+	* config/m68k/predicates.md (float_register, integer_register): New.
+	* config/m68k/m68k.h (HARD_FP_REG_P): Delete.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (movsf_cf_soft): Provide the same non-mov3q
 	alternatives as movsi_cf.
 	(movsf_cf_hard): Add commentary.
