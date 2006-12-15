@@ -78,6 +78,7 @@ Boston, MA 02110-1301, USA.  */
 	{								\
 	  /* These options cascade.  */					\
 	case u68060:							\
+	case u68040_60:							\
 	  builtin_define_std ("mc68060");				\
 	case u68040:							\
 	  builtin_define_std ("mc68040");				\
@@ -240,8 +241,8 @@ Boston, MA 02110-1301, USA.  */
 #define TUNE_68010	(m68k_tune == u68010)
 #define TUNE_68000_10	(TUNE_68000 || TUNE_68010)
 #define TUNE_68030	(m68k_tune == u68030)
-#define TUNE_68040	(m68k_tune == u68040)
-#define TUNE_68060	(m68k_tune == u68060)
+#define TUNE_68040	(m68k_tune == u68040 || m68k_tune == u68040_60)
+#define TUNE_68060	(m68k_tune == u68060 || m68k_tune == u68040_60)
 #define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
 #define TUNE_CPU32	(m68k_tune == ucpu32)
 #define TUNE_CFV2	(m68k_tune == ucfv2)
@@ -1172,6 +1173,7 @@ enum uarch_type
   u68020,
   u68030,
   u68040,
+  u68040_60,
   u68060,
   ucpu32,
   ucfv2,

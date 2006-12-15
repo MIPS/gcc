@@ -9885,7 +9885,10 @@ This option selects a particular micro architecture to tune for.
 M680x0 micro architectures are: @samp{68000}, @samp{68010},
 @samp{68020}, @samp{68030}, @samp{68040}, @samp{68060} and
 @samp{cpu32}. Coldfire micro architectures are @samp{cfv2},
-@samp{cfv3}, @samp{cfv4} and @samp{cfv4e}.
+@samp{cfv3}, @samp{cfv4} and @samp{cfv4e}.  In addition,
+the option @samp{68040-60} generates code that should run
+well on both a 68040 and 68060; it makes the same optimization
+decisions as @option{-m68020-60}.
 
 @item -m68000
 @itemx -mc68000
@@ -9922,7 +9925,7 @@ Instructions added to the 68060 will not be generated.  Nor will 68881
 instructions that are emulated on the 68060.  This results in code
 which can run relatively efficiently on either a 68020/68881 or a
 68030 or a 68040.  This is equivalent to @option{-mcpu=68020}
-@option{-mtune=68060}.
+@option{-mtune=68040-60}.
 
 @item -m68030
 @opindex m68030

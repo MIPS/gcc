@@ -291,22 +291,23 @@ static const struct m68k_target_selection all_isas[] =
    device.  Used for -mtune selection.  */
 static const struct m68k_target_selection all_microarchs[] =
 {
-  { "68000",    m68000,     NULL,  u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68010",    m68010,     NULL,  u68010,   isa_10,  FL_FOR_isa_10 },
-  { "68020",    m68020,     NULL,  u68020,   isa_20,  FL_FOR_isa_20 },
-  { "68030",    m68030,     NULL,  u68030,   isa_20,  FL_FOR_isa_20 },
-  { "68040",    m68040,     NULL,  u68040,   isa_40,  FL_FOR_isa_40 },
-  { "68060",    m68060,     NULL,  u68060,   isa_40,  FL_FOR_isa_40 },
-  { "cpu32",    cpu32,      NULL,  ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
-  { "cfv2",     mcf5206,    NULL,  ucfv2,    isa_a,   FL_FOR_isa_a },
-  { "cfv3",     mcf5307,    NULL,  ucfv3,    isa_a,   (FL_FOR_isa_a
-						       | FL_CF_HWDIV) },
-  { "cfv4",     mcf5407,    NULL,  ucfv4,    isa_b,   FL_FOR_isa_b },
-  { "cfv4e",    mcf547x,    NULL,  ucfv4e,   isa_b,   (FL_FOR_isa_b
-						       | FL_CF_USP
-						       | FL_CF_EMAC
-						       | FL_CF_FPU) },
-  { NULL,       unk_device, NULL,  unk_arch, isa_max, 0 }
+  { "68000",    m68000,     NULL,  u68000,    isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,     NULL,  u68010,    isa_10,  FL_FOR_isa_10 },
+  { "68020",    m68020,     NULL,  u68020,    isa_20,  FL_FOR_isa_20 },
+  { "68030",    m68030,     NULL,  u68030,    isa_20,  FL_FOR_isa_20 },
+  { "68040",    m68040,     NULL,  u68040,    isa_40,  FL_FOR_isa_40 },
+  { "68060",    m68060,     NULL,  u68060,    isa_40,  FL_FOR_isa_40 },
+  { "68040-60", m68040,     NULL,  u68040_60, isa_40,  FL_FOR_isa_40 },
+  { "cpu32",    cpu32,      NULL,  ucpu32,    isa_20,  FL_FOR_isa_cpu32 },
+  { "cfv2",     mcf5206,    NULL,  ucfv2,     isa_a,   FL_FOR_isa_a },
+  { "cfv3",     mcf5307,    NULL,  ucfv3,     isa_a,   (FL_FOR_isa_a
+							| FL_CF_HWDIV) },
+  { "cfv4",     mcf5407,    NULL,  ucfv4,     isa_b,   FL_FOR_isa_b },
+  { "cfv4e",    mcf547x,    NULL,  ucfv4e,    isa_b,   (FL_FOR_isa_b
+							| FL_CF_USP
+							| FL_CF_EMAC
+							| FL_CF_FPU) },
+  { NULL,       unk_device, NULL,  unk_arch,  isa_max, 0 }
 };
 
 /* The entries associated with the -mcpu, -march and -mtune settings,
@@ -403,7 +404,8 @@ m68k_handle_option (size_t code, const char *arg, int value)
 	      && m68k_find_selection (&m68k_cpu_entry, all_devices, "68020"));
 
     case OPT_m68020_60:
-      return (m68k_find_selection (&m68k_tune_entry, all_microarchs, "68060")
+      return (m68k_find_selection (&m68k_tune_entry, all_microarchs,
+				   "68040-60")
 	      && m68k_find_selection (&m68k_cpu_entry, all_devices, "68020"));
 
     case OPT_m68030:
