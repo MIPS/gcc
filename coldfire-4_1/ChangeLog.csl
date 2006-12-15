@@ -1,6 +1,12 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use builtin_define
+	rather than cpp_define and builtin_assert rather than cpp_assert.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Put backlashes
 	in the last tabulation column.
 
