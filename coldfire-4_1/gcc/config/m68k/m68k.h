@@ -87,38 +87,54 @@ Boston, MA 02110-1301, USA.  */
     {									\
       builtin_define ("__m68k__");					\
       builtin_define_std ("mc68000");					\
-      if (TUNE_68030)							\
-	builtin_define_std ("mc68030");					\
-      else if (TARGET_68020)						\
+      /* The other mc680x0 macros have traditionally been derived	\
+	 from the tuning setting.  For example, -m68020-60 defines	\
+	 m68060, even though it generates pure 68020 code.  */		\
+      switch (m68k_tune)						\
 	{								\
-	  builtin_define_std ("mc68020");				\
-	  if (TUNE_68040)						\
-	    builtin_define_std ("mc68040");				\
-	  if (TUNE_68060)						\
-	    {								\
-	      builtin_define_std ("mc68040");				\
-	      builtin_define_std ("mc68060");				\
-	    }								\
-	}								\
-									\
-      if (TARGET_68040)							\
-	{								\
+	  /* These options cascade.  */					\
+	case u68060:							\
+	  builtin_define_std ("mc68060");				\
+	case u68040:							\
 	  builtin_define_std ("mc68040");				\
-	  if (TUNE_68060) 						\
-	    builtin_define_std ("mc68060");				\
-	}								\
+	case u68030:							\
+	  builtin_define_std ("mc68030");				\
+	case u68020:							\
+	  builtin_define_std ("mc68020");				\
+	  break;							\
 									\
-      if (TUNE_68060)							\
-	builtin_define_std ("mc68060");					\
+	case ucpu32:							\
+	  builtin_define_std ("mc68332");				\
+	  builtin_define_std ("mcpu32");				\
+	  builtin_define_std ("mc68020");				\
+	  break;							\
+									\
+	case ucfv2:							\
+	  builtin_define ("__mcfv2__");					\
+	  break;							\
+									\
+    	case ucfv3:							\
+	  builtin_define ("__mcfv3__");					\
+	  break;							\
+									\
+	case ucfv4:							\
+	  builtin_define ("__mcfv4__");					\
+	  break;							\
+									\
+	case ucfv4e:							\
+	  builtin_define ("__mcfv4e__");				\
+	  break;							\
+									\
+	case ucfv5:							\
+	  builtin_define ("__mcfv5__");					\
+	  break;							\
+									\
+	default:							\
+	  break;							\
+	}								\
 									\
       if (TARGET_68881)							\
 	builtin_define ("__HAVE_68881__");				\
-									\
-      if (m68k_cpu == cpu32 || m68k_cpu == m68332 || TUNE_CPU32)	\
-	{								\
-	  builtin_define_std ("mc68332");				\
-	  builtin_define_std ("mcpu32");				\
-	}								\
 									\
       if (TARGET_COLDFIRE)						\
 	{								\
@@ -137,22 +153,9 @@ Boston, MA 02110-1301, USA.  */
 	  else if (TARGET_ISAB)						\
 	    {								\
 	      builtin_define ("__mcfisab__");				\
-	      /* ISA_B: Legacy 5307, 5407 defines.  */			\
-	      switch (m68k_cpu)						\
-		{							\
-		case mcf5307:						\
-		  builtin_define ("__mcf5300__");			\
-		  builtin_define ("__mcf5307__");			\
-		  break;						\
-									\
-		case mcf5407:						\
-		  builtin_define ("__mcf5400__");			\
-		  builtin_define ("__mcf5407__");			\
-		  break;						\
-									\
-		default:						\
-		  ;							\
-		}							\
+	      /* ISA_B: Legacy 5407 defines.  */			\
+	      builtin_define ("__mcf5400__");				\
+	      builtin_define ("__mcf5407__");				\
 	    }								\
 	  else if (TARGET_ISAAPLUS)					\
 	    {								\
@@ -164,41 +167,22 @@ Boston, MA 02110-1301, USA.  */
 	  else 								\
 	    {								\
 	      builtin_define ("__mcfisaa__");				\
-	      /* ISA_A: legacy define.  */				\
-	      builtin_define ("__mcf5200__");				\
+	      /* ISA_A: legacy defines.  */				\
+	      switch (m68k_tune)					\
+		{							\
+		case ucfv2:						\
+		  builtin_define ("__mcf5200__");			\
+		  break;						\
+									\
+		case ucfv3:						\
+		  builtin_define ("__mcf5307__");			\
+		  builtin_define ("__mcf5300__");			\
+		  break;						\
+									\
+		default:						\
+		  break;						\
+		}							\
     	    }								\
-									\
-	  /* Handle options to allow selecting different user code for	\
-	     tuning purposes.  */					\
-	  switch (m68k_tune)						\
-	    {								\
-	    case ucfv2:							\
-	      builtin_define ("__mcfv2__");				\
-	      break;							\
-									\
-    	    case ucfv3:							\
-	      builtin_define ("__mcfv3__");				\
-	      break;							\
-									\
-	    case ucfv4:							\
-	      builtin_define ("__mcfv4__");				\
-	      break;							\
-									\
-	    case ucfv4e:						\
-	      builtin_define ("__mcfv4e__");				\
-	      /* More legacy flags: these aren't correct, strictly	\
-		 speaking.  */						\
-	      builtin_define ("__mcf5400__");				\
-	      builtin_define ("__mcf5407__");				\
-	      break;							\
-									\
-	    case ucfv5:							\
-	      builtin_define ("__mcfv5__");				\
-	      break;							\
-									\
-	    default:							\
-    	      ;								\
-	    }								\
 	}								\
 									\
       if (TARGET_COLDFIRE_FPU)						\

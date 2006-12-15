@@ -1,6 +1,15 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Treat the mc680x0
+	macros as tuning macros rather than a mixture of tuning and target
+	macros.  Handle m68k and Coldfire tuning options in one switch
+	statement.  Move the __mcf530x__ macros into the TARGET_ISAA
+	block and use m68k_tune to choose between them and __mcf5200__.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use builtin_define
 	rather than cpp_define and builtin_assert rather than cpp_assert.
 
