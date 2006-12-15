@@ -255,7 +255,7 @@ libgcj_la_LINK = $(LIBLINK)
 EXTRA_libgcj_la_SOURCES = java/lang/Object.java
 
 libgcj_tools_la_SOURCES = classpath/tools/tools.zip
-libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
+libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes  -fsource-filename=$(here)/classpath/tools/all-classes.lst
 libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
  -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
@@ -1057,7 +1057,8 @@ AM_MAKEFLAGS = \
 	"NM=$(NM)" \
 	"PICFLAG=$(PICFLAG)" \
 	"RANLIB=$(RANLIB)" \
-	"DESTDIR=$(DESTDIR)"
+	"DESTDIR=$(DESTDIR)" \
+	"JAR=$(JAR)"
 
 # Subdir rules rely on $(FLAGS_TO_PASS)
 FLAGS_TO_PASS = $(AM_MAKEFLAGS)
