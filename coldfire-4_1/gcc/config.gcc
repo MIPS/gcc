@@ -1478,16 +1478,15 @@ m68020-*-elf* | m68k-*-elf*)
 	extra_parts="crtbegin.o crtend.o"
 	;;
 m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
-	default_m68k_cpu=68020
 	default_cf_cpu=5206
 	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h m68k/netbsd-elf.h"
 	tm_defines="${tm_defines} MOTOROLA=1 USE_GAS"
 	case ${target} in
 	m68010*)
-		target_cpu_default="0"
+		default_m68k_cpu=68010
 		;;
 	*)
-		target_cpu_default="MASK_68020|MASK_68881|MASK_BITFIELD"
+		default_m68k_cpu=68020
 		;;
 	esac
 	;;
@@ -1495,7 +1494,7 @@ m68k*-*-openbsd*)
 	default_m68k_cpu=68020
 	default_cf_cpu=5206
 	# needed to unconfuse gdb
-	tm_defines="${tm_defines} OBSD_OLD_GAS TARGET_DEFAULT=(MASK_68020|MASK_68881|MASK_BITFIELD)"
+	tm_defines="${tm_defines} OBSD_OLD_GAS"
 	tm_file="${tm_file} openbsd.h m68k/openbsd.h"
 	tmake_file="t-libc-ok t-openbsd m68k/t-openbsd"
 	# we need collect2 until our bug is fixed...

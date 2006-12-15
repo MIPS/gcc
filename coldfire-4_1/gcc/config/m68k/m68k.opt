@@ -48,23 +48,23 @@ Target RejectNegative
 Generate code for a 68000
 
 m68020
-Target RejectNegative Mask(68020)
+Target RejectNegative
 Generate code for a 68020
 
 m68020-40
-Target RejectNegative Mask(68040)
+Target RejectNegative
 Generate code for a 68040, without any new instructions
 
 m68020-60
-Target RejectNegative Mask(68060)
+Target RejectNegative
 Generate code for a 68060, without any new instructions
 
 m68030
-Target RejectNegative Mask(68030)
+Target RejectNegative
 Generate code for a 68030
 
 m68040
-Target RejectNegative Mask(68040_ONLY)
+Target RejectNegative
 Generate code for a 68040
 
 m68060

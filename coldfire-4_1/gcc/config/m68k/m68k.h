@@ -42,11 +42,6 @@ Boston, MA 02110-1301, USA.  */
 %{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },		\
   { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:%{!no-m68881:\
 -m%(VALUE)-float}}}}" },
-
-#ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 0
-#endif
-
 
 /* Pass flags to gas indicating which type of processor we have.  This
    can be simplified when we can rely on the assembler supporting .cpu

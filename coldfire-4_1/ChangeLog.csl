@@ -1,6 +1,32 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Set
+	default_m68k_cpu to 68010 or 68020 as appropriate.  Do not set
+	target_default.
+	(m68k*-*-openbsd*): Remove TARGET_DEFAULT setting from tm_defines.
+	* config/m68k/m68k.h (TARGET_DEFAULT): Delete.
+	* config/m68k/netbsd-elf.h (TARGET_OS_CPP_BUILTINS): Set
+	__HAVE_FPU__ if TARGET_HARD_FLOAT.
+	(TARGET_DEFAULT): Delete.
+	(EXTRA_SPECS): Delete cpp_cpu_default_spec, cpp_fpu_spec,
+	and asm_default_spec.
+	(CPP_CPU_SPEC): Remove use of %(cpp_cpu_default_spec).
+	(CPP_SPEC): Likewise %(cpp_fpu_spec).
+	(TARGET_VERSION): Use TARGET_68020 to distinguish the two targets.
+	(CPP_CPU_DEFAULT_SPEC, ASM_DEFAULT_SPEC, CPP_FPU_SPEC): Delete.
+	(ASM_SPEC): Delete in favour of...
+	(SUBTARGET_ASM_SPEC): ...this new macro.  Remove use of
+	%(asm_default_spec).
+	* config/m68k/m68k.c (TARGET_DEFAULT_TARGET_FLAGS): Remove
+	TARGET_DEFAULT.
+	* config/m68k/m68k.md: Delete mention of TARGET_DEFAULT.
+	* config/m68k/m68k.opt (m68020, m68020-40, m68020-60, m68030)
+	(m68040): Delete mask settings.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Use TUNE_68060
 	instead of TARGET_68060.
 	(FL_ISA_68060): Delete.
