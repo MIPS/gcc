@@ -1057,10 +1057,17 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
 #endif
 
-#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \
-  asm_fprintf (FILE, "\tmovel %s,%Rsp@-\n", reg_names[REGNO])
-#define ASM_OUTPUT_REG_POP(FILE,REGNO)  \
-  asm_fprintf (FILE, "\tmovel %Rsp@+,%s\n", reg_names[REGNO])
+#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)			\
+  asm_fprintf (FILE, (MOTOROLA				\
+		      ? "\tmove.l %s,-(%Rsp)\n"		\
+		      : "\tmovel %s,%Rsp@-\n"),		\
+	       reg_names[REGNO])
+
+#define ASM_OUTPUT_REG_POP(FILE,REGNO)			\
+  asm_fprintf (FILE, (MOTOROLA				\
+		      ? "\tmove.l (%Rsp)+,%s\n"		\
+		      : "\tmovel %Rsp@+,%s\n"),		\
+	       reg_names[REGNO])
 
 /* The m68k does not use absolute case-vectors, but we must define this macro
    anyway.  */

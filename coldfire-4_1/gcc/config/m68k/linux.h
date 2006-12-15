@@ -27,7 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_SPEC \
   "%(asm_cpu_spec) %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
-/* Here are four prefixes that are used by asm_fprintf to
+/* Here are three prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.
    Machines with no likelihood of an alternate syntax need not
    define these and need not use asm_fprintf.  */
@@ -55,13 +55,6 @@ Boston, MA 02110-1301, USA.  */
     {						\
 	LINUX_TARGET_OS_CPP_BUILTINS();		\
    }						\
-  while (0)
-
-#define TARGET_OBJFMT_CPP_BUILTINS()		\
-  do						\
-    {						\
-	builtin_define ("__ELF__");		\
-    }						\
   while (0)
 
 #define CPP_SPEC \

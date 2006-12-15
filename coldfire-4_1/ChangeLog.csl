@@ -1,6 +1,20 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Add
+	MOTOROLA cases.
+	* config/m68k/m68k-none.h (CC1_SPEC): Delete.
+	* config/m68k/m68kelf.h (IMMEDIATE_PREFIX, ASM_OUTPUT_REG_PUSH)
+	(ASM_OUTPUT_REG_POP): Delete.
+	(NO_DOLLAR_IN_LABEL): Don't undefine.
+	(BSS_ASM_OP, ASM_OUTPUT_SKIP, ASM_OUTPUT_ASCII): Delete.
+	* config/m68k/linux.h: Fix comment.
+	(TARGET_OBJFMT_CPP_BUILTINS): Delete.
+	* config/m68k/netbsd-elf.h (IMMEDIATE_PREFIX): Delete.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (DATA_REGNO_P, ADDRESS_REGNO_P, INT_REGNO_P)
 	(FP_REGNO_P): Allow both signed and unsigned arguments.
 	(REGNO_MODE_OK_FOR_INDEX_P, REGNO_OK_FOR_DATA_P)

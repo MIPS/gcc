@@ -55,9 +55,9 @@ Boston, MA 02110-1301, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION			\
   fprintf (stderr,			\
-	   TARGET_68020			\
-	   ? " (NetBSD/m68k ELF)"	\
-	   : " (NetBSD/68010 ELF)");
+	   TARGET_68010			\
+	   ? " (NetBSD/68010 ELF)"	\
+	   : " (NetBSD/m68k ELF)");
 
 
 /* Provide a CPP_SPEC appropriate for NetBSD m68k targets.  Currently we
@@ -132,12 +132,6 @@ while (0)
 
 #undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
-
-
-/* The prefix for immediate operands.  */
-
-#undef IMMEDIATE_PREFIX
-#define IMMEDIATE_PREFIX "#"
 
 
 #undef ASM_COMMENT_START
