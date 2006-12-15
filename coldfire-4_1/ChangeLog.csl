@@ -1,6 +1,16 @@
 2006-12-15  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.md (bordered, bunordered, buneq, bunge, bungt)
+	(bunle, bunlt, bltgt, bordered_rev, bunordered_rev, buneq_rev)
+	(bunge_rev, bunle_rev, bunlt_rev, bltgt_rev): Change condition
+	from TARGET_68881 to TARGET_HARD_FLOAT.
+	(bungt_rev): New pattern, backported from mainline.  Make the same
+	TARGET_68881->TARGET_HARD_FLOAT change here.
+
+2006-12-15  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (addsi3): Add alternatives for addq and
 	subq with memory destinations.
 
