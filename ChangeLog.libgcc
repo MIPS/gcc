@@ -1,3 +1,8 @@
+2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	gcc/
+	* config/rs6000/t-newas (milli.exp): Use $(T).
+
 2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.def (lang_env_dependencies): Remove default items.
