@@ -1,6 +1,11 @@
 2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	gcc/
+	* config/rs6000/t-newas (EXTRA_PARTS): Don't use $(T).
+
+2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	gcc/
 	* config/rs6000/t-newas (milli.exp): Use $(T).
 
 2006-11-25  Daniel Jacobowitz  <dan@codesourcery.com>
