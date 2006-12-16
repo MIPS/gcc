@@ -4354,8 +4354,6 @@ extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
 
 /* In function.c */
-struct df;
-
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
@@ -4363,7 +4361,7 @@ extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void generate_setjmp_warnings (struct df *);
+extern void generate_setjmp_warnings (void);
 extern void init_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);

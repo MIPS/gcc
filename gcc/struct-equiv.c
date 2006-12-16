@@ -988,8 +988,8 @@ insns_match_p (rtx i1, rtx i2, struct equiv_info *info)
 bool
 struct_equiv_init (int mode, struct equiv_info *info)
 {
-  if (!REG_SET_EQUAL_P (DF_LR_OUT (rtl_df, info->x_block),
-			DF_LR_OUT (rtl_df, info->y_block)))
+  if (!REG_SET_EQUAL_P (DF_LR_OUT (info->x_block),
+			DF_LR_OUT (info->y_block)))
     {
 #ifdef STACK_REGS
       unsigned rn;
@@ -1002,11 +1002,11 @@ struct_equiv_init (int mode, struct equiv_info *info)
 	 least makes the regsets comparable.  */
       for (rn = FIRST_STACK_REG; rn <= LAST_STACK_REG; rn++)
 	{
-	  CLEAR_REGNO_REG_SET (DF_LR_OUT (rtl_df, info->x_block), rn);
-	  CLEAR_REGNO_REG_SET (DF_LR_OUT (rtl_df, info->y_block), rn);
+	  CLEAR_REGNO_REG_SET (DF_LR_OUT (info->x_block), rn);
+	  CLEAR_REGNO_REG_SET (DF_LR_OUT (info->y_block), rn);
 	}
-      if (!REG_SET_EQUAL_P (DF_LR_OUT (rtl_df, info->x_block),
-			    DF_LR_OUT (rtl_df, info->y_block)))
+      if (!REG_SET_EQUAL_P (DF_LR_OUT (info->x_block),
+			    DF_LR_OUT (info->y_block)))
 #endif
 	return false;
     }
@@ -1028,7 +1028,7 @@ struct_equiv_init (int mode, struct equiv_info *info)
   info->common_live = ALLOC_REG_SET (&reg_obstack);
   info->x_local_live = ALLOC_REG_SET (&reg_obstack);
   info->y_local_live = ALLOC_REG_SET (&reg_obstack);
-  COPY_REG_SET (info->common_live, DF_LR_OUT (rtl_df, info->x_block));
+  COPY_REG_SET (info->common_live, DF_LR_OUT (info->x_block));
   struct_equiv_make_checkpoint (&info->best_match, info);
   return true;
 }

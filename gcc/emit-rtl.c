@@ -3370,10 +3370,9 @@ add_insn (rtx insn)
    SEQUENCE.  */
 
 void
-add_insn_after (rtx insn, rtx after)
+add_insn_after (rtx insn, rtx after, basic_block bb)
 {
   rtx next = NEXT_INSN (after);
-  basic_block bb;
 
   gcc_assert (!optimize || !INSN_DELETED_P (after));
 
@@ -3428,15 +3427,15 @@ add_insn_after (rtx insn, rtx after)
 }
 
 /* Add INSN into the doubly-linked list before insn BEFORE.  This and
-   the previous should be the only functions called to insert an insn once
-   delay slots have been filled since only they know how to update a
-   SEQUENCE.  */
+   the previous should be the only functions called to insert an insn
+   once delay slots have been filled since only they know how to
+   update a SEQUENCE.  If BB is NULL, an attempt is made to infer the
+   bb from before.  */
 
 void
-add_insn_before (rtx insn, rtx before)
+add_insn_before (rtx insn, rtx before, basic_block bb)
 {
   rtx prev = PREV_INSN (before);
-  basic_block bb;
 
   gcc_assert (!optimize || !INSN_DELETED_P (before));
 
@@ -3468,9 +3467,12 @@ add_insn_before (rtx insn, rtx before)
       gcc_assert (stack);
     }
 
-  if (!BARRIER_P (before)
-      && !BARRIER_P (insn)
-      && (bb = BLOCK_FOR_INSN (before)))
+  if (!bb 
+      && !BARRIER_P (before)
+      && !BARRIER_P (insn))
+    bb = BLOCK_FOR_INSN (before);
+
+  if (bb)
     {
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
@@ -3494,7 +3496,7 @@ add_insn_before (rtx insn, rtx before)
 
 void set_insn_deleted (rtx insn)
 {
-  df_insn_delete (insn);
+  df_insn_delete (INSN_UID (insn));
   PUT_CODE (insn, NOTE);
 #ifndef USE_MAPPED_LOCATION
   NOTE_SOURCE_FILE (insn) = 0;
@@ -3512,7 +3514,7 @@ remove_insn (rtx insn)
   rtx prev = PREV_INSN (insn);
   basic_block bb;
 
-  df_insn_delete (insn);
+  df_insn_delete (INSN_UID (insn));
 
   if (prev)
     {
@@ -3711,7 +3713,7 @@ reorder_insns (rtx from, rtx to, rtx after)
 /* Make X be output before the instruction BEFORE.  */
 
 rtx
-emit_insn_before_noloc (rtx x, rtx before)
+emit_insn_before_noloc (rtx x, rtx before, basic_block bb)
 {
   rtx last = before;
   rtx insn;
@@ -3733,7 +3735,7 @@ emit_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, bb);
 	  last = insn;
 	  insn = next;
 	}
@@ -3747,7 +3749,7 @@ emit_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, bb);
       break;
     }
 
@@ -3776,7 +3778,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, NULL);
 	  last = insn;
 	  insn = next;
 	}
@@ -3790,7 +3792,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_jump_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, NULL);
       break;
     }
 
@@ -3819,7 +3821,7 @@ emit_call_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, NULL);
 	  last = insn;
 	  insn = next;
 	}
@@ -3833,7 +3835,7 @@ emit_call_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_call_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, NULL);
       break;
     }
 
@@ -3850,7 +3852,7 @@ emit_barrier_before (rtx before)
 
   INSN_UID (insn) = cur_insn_uid++;
 
-  add_insn_before (insn, before);
+  add_insn_before (insn, before, NULL);
   return insn;
 }
 
@@ -3864,7 +3866,7 @@ emit_label_before (rtx label, rtx before)
   if (INSN_UID (label) == 0)
     {
       INSN_UID (label) = cur_insn_uid++;
-      add_insn_before (label, before);
+      add_insn_before (label, before, NULL);
     }
 
   return label;
@@ -3883,24 +3885,22 @@ emit_note_before (int subtype, rtx before)
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
 
-  add_insn_before (note, before);
+  add_insn_before (note, before, NULL);
   return note;
 }
 
 /* Helper for emit_insn_after, handles lists of instructions
    efficiently.  */
 
-static rtx emit_insn_after_1 (rtx, rtx);
-
 static rtx
-emit_insn_after_1 (rtx first, rtx after)
+emit_insn_after_1 (rtx first, rtx after, basic_block bb)
 {
   rtx last;
   rtx after_after;
-  basic_block bb;
+  if (!bb && !BARRIER_P (after))
+    bb = BLOCK_FOR_INSN (after);
 
-  if (!BARRIER_P (after)
-      && (bb = BLOCK_FOR_INSN (after)))
+  if (bb)
     {
       df_set_bb_dirty (bb);
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
@@ -3934,10 +3934,11 @@ emit_insn_after_1 (rtx first, rtx after)
   return last;
 }
 
-/* Make X be output after the insn AFTER.  */
+/* Make X be output after the insn AFTER and set the BB of insn.  If
+   BB is NULL, an attempt is made to infer the BB from AFTER.  */
 
 rtx
-emit_insn_after_noloc (rtx x, rtx after)
+emit_insn_after_noloc (rtx x, rtx after, basic_block bb)
 {
   rtx last = after;
 
@@ -3954,7 +3955,7 @@ emit_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, bb);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -3965,7 +3966,7 @@ emit_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, bb);
       break;
     }
 
@@ -3991,7 +3992,7 @@ emit_jump_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, NULL);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -4002,7 +4003,7 @@ emit_jump_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_jump_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, NULL);
       break;
     }
 
@@ -4027,7 +4028,7 @@ emit_call_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, NULL);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -4038,7 +4039,7 @@ emit_call_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_call_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, NULL);
       break;
     }
 
@@ -4055,7 +4056,7 @@ emit_barrier_after (rtx after)
 
   INSN_UID (insn) = cur_insn_uid++;
 
-  add_insn_after (insn, after);
+  add_insn_after (insn, after, NULL);
   return insn;
 }
 
@@ -4070,7 +4071,7 @@ emit_label_after (rtx label, rtx after)
   if (INSN_UID (label) == 0)
     {
       INSN_UID (label) = cur_insn_uid++;
-      add_insn_after (label, after);
+      add_insn_after (label, after, NULL);
     }
 
   return label;
@@ -4088,7 +4089,7 @@ emit_note_after (int subtype, rtx after)
 #endif
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
-  add_insn_after (note, after);
+  add_insn_after (note, after, NULL);
   return note;
 }
 
@@ -4096,7 +4097,7 @@ emit_note_after (int subtype, rtx after)
 rtx
 emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
-  rtx last = emit_insn_after_noloc (pattern, after);
+  rtx last = emit_insn_after_noloc (pattern, after, NULL);
 
   if (pattern == NULL_RTX || !loc)
     return last;
@@ -4120,7 +4121,7 @@ emit_insn_after (rtx pattern, rtx after)
   if (INSN_P (after))
     return emit_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
   else
-    return emit_insn_after_noloc (pattern, after);
+    return emit_insn_after_noloc (pattern, after, NULL);
 }
 
 /* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
@@ -4190,7 +4191,7 @@ rtx
 emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
   rtx first = PREV_INSN (before);
-  rtx last = emit_insn_before_noloc (pattern, before);
+  rtx last = emit_insn_before_noloc (pattern, before, NULL);
 
   if (pattern == NULL_RTX || !loc)
     return last;
@@ -4214,7 +4215,7 @@ emit_insn_before (rtx pattern, rtx before)
   if (INSN_P (before))
     return emit_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
   else
-    return emit_insn_before_noloc (pattern, before);
+    return emit_insn_before_noloc (pattern, before, NULL);
 }
 
 /* like emit_insn_before_noloc, but set insn_locator according to scope.  */
@@ -4523,6 +4524,7 @@ rtx
 set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 {
   rtx note = find_reg_note (insn, kind, NULL_RTX);
+  rtx new_note = NULL;
 
   switch (kind)
     {
@@ -4542,19 +4544,37 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 	 It serves no useful purpose and breaks eliminate_regs.  */
       if (GET_CODE (datum) == ASM_OPERANDS)
 	return NULL_RTX;
+
+      if (note)
+	{
+	  XEXP (note, 0) = datum;
+	  df_notes_rescan (insn);
+	  return note;
+	}
       break;
 
+    default:
+      if (note)
+	{
+	  XEXP (note, 0) = datum;
+	  return note;
+	}
+      break;
+    }
+
+  new_note = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
+  REG_NOTES (insn) = new_note;
+
+  switch (kind)
+    {
+    case REG_EQUAL:
+    case REG_EQUIV:
+      df_notes_rescan (insn);
+      break;
     default:
       break;
     }
 
-  if (note)
-    {
-      XEXP (note, 0) = datum;
-      return note;
-    }
-
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
   return REG_NOTES (insn);
 }
 

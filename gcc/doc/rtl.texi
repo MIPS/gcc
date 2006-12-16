@@ -3244,7 +3244,9 @@ file as some small positive or negative offset from a named pattern.
 @item LOG_LINKS (@var{i})
 A list (chain of @code{insn_list} expressions) giving information about
 dependencies between instructions within a basic block.  Neither a jump
-nor a label may come between the related insns.
+nor a label may come between the related insns.  These are only used by
+the schedulars and by combine.  This is a deprecated data structure.
+Def-use and use-def chains are now prefered. 
 
 @findex REG_NOTES
 @item REG_NOTES (@var{i})

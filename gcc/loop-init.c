@@ -271,7 +271,7 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */ 
-  TODO_df_finish |  /* This is shutting down the instance in loop_invariant.c  */
+  TODO_df_finish |                      /* This is shutting down the instance in loop_invariant.c  */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
 };
@@ -323,8 +323,8 @@ rtl_unroll_and_peel_loops (void)
   if (current_loops)
     {
       int flags = 0;
-      if (dump_file && df_current_instance)
-	df_dump (df_current_instance, dump_file);
+      if (dump_file)
+	df_dump (dump_file);
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;

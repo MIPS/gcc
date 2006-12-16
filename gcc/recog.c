@@ -2881,11 +2881,9 @@ peephole2_optimize (void)
   basic_block bb;
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
-  struct df * df = df_init (0, DF_LR_RUN_DCE);
 
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_analyze ();
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
@@ -2907,7 +2905,7 @@ peephole2_optimize (void)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      df_lr_simulate_artificial_refs_at_end (df, bb, live);
+      df_lr_simulate_artificial_refs_at_end (bb, live);
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
@@ -2927,17 +2925,7 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
-	      df_lr_simulate_one_insn (df, bb, insn, live);
-#if 0
-	      propagate_one_insn (pbi, insn);
-	      if (!bitmap_equal_p (livep, live))
-		{
-		  fprintf (stderr, "****failing with insn %d****\n\n", 
-			   INSN_UID (insn));
-		  print_rtl_with_bb (stderr, get_insns ());
-		  gcc_assert (0);
-		}
-#endif
+	      df_lr_simulate_one_insn (bb, insn, live);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3099,7 +3087,7 @@ peephole2_optimize (void)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  df_insn_rescan (x);
-			  df_lr_simulate_one_insn (df, bb, x, live);
+			  df_lr_simulate_one_insn (bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
@@ -3337,7 +3325,7 @@ struct tree_opt_pass pass_split_all_insns =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
- TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 

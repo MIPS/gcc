@@ -171,6 +171,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "hashtab.h"
+#include "df.h"
 #include "dbgcnt.h"
 
 /* Propagate flow information through back edges and thus enable PRE's
@@ -2669,8 +2670,10 @@ try_replace_reg (rtx from, rtx to, rtx insn)
   /* If there is already a REG_EQUAL note, update the expression in it
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
-    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
-
+    {
+      XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
+      df_notes_rescan (insn);
+    }
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -3095,7 +3098,7 @@ do_local_cprop (rtx x, rtx insn, bool alter_jumps, rtx *libcall_sp)
 	  /* If we find a case where we can't fix the retval REG_EQUAL notes
 	     match the new register, we either have to abandon this replacement
 	     or fix delete_trivially_dead_insns to preserve the setting insn,
-	     or make it delete the REG_EUAQL note, and fix up all passes that
+	     or make it delete the REG_EQUAL note, and fix up all passes that
 	     require the REG_EQUAL note there.  */
 	  bool adjusted;
 
@@ -3164,6 +3167,7 @@ adjust_libcall_notes (rtx oldreg, rtx newval, rtx insn, rtx *libcall_sp)
 	    }
 	}
       XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), oldreg, newval);
+      df_notes_rescan (end);
       insn = end;
     }
   return true;
@@ -3214,12 +3218,14 @@ local_cprop_pass (bool alter_jumps)
 
 		  for (reg_used = &reg_use_table[0]; reg_use_count > 0;
 		       reg_used++, reg_use_count--)
-		    if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
-			libcall_sp))
-		      {
-			changed = true;
-			break;
-		      }
+		    {
+		      if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
+					  libcall_sp))
+			{
+			  changed = true;
+			  break;
+			}
+		    }
 		  if (INSN_DELETED_P (insn))
 		    break;
 		}
@@ -4048,7 +4054,7 @@ insert_insn_end_basic_block (struct expr *expr, basic_block bb, int pre)
 	}
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
-      new_insn = emit_insn_before_noloc (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
@@ -4087,10 +4093,10 @@ insert_insn_end_basic_block (struct expr *expr, basic_block bb, int pre)
 	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
-      new_insn = emit_insn_before_noloc (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
   else
-    new_insn = emit_insn_after_noloc (pat, insn);
+    new_insn = emit_insn_after_noloc (pat, insn, bb);
 
   while (1)
     {
@@ -4516,7 +4522,6 @@ pre_gcse (void)
      - we know which insns are redundant when we go to create copies  */
 
   changed = pre_delete ();
-
   did_insert = pre_edge_insert (edge_list, index_map);
 
   /* In other places with reaching expressions, copy the expression to the
@@ -5441,6 +5446,7 @@ update_ld_motion_stores (struct expr * expr)
 	  new = emit_insn_before (copy, insn);
 	  record_one_set (REGNO (reg), new);
 	  SET_SRC (pat) = reg;
+	  df_insn_rescan (insn);
 
 	  /* un-recognize this pattern since it's probably different now.  */
 	  INSN_CODE (insn) = -1;
@@ -6150,7 +6156,7 @@ insert_insn_start_basic_block (rtx insn, basic_block bb)
       before = NEXT_INSN (before);
     }
 
-  insn = emit_insn_after_noloc (insn, prev);
+  insn = emit_insn_after_noloc (insn, prev, bb);
 
   if (dump_file)
     {
@@ -6674,11 +6680,9 @@ rest_of_handle_gcse (void)
 {
   int save_csb, save_cfj;
   int tem2 = 0, tem;
-
   tem = gcse_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-
   save_csb = flag_cse_skip_blocks;
   save_cfj = flag_cse_follow_jumps;
   flag_cse_skip_blocks = flag_cse_follow_jumps = 0;

@@ -548,7 +548,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
       if (r < 0)
 	{
 	  /* reload_combine uses the information from
-	     DF_RA_LIVE_IN (ra_df, BASIC_BLOCK), which might still
+	     DF_RA_LIVE_IN (BASIC_BLOCK), which might still
 	     contain registers that have not actually been allocated
 	     since they have an equivalence.  */
 	  gcc_assert (reload_completed);
@@ -1097,8 +1097,8 @@ reload (rtx first, int global)
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
       {
-	CLEAR_REGNO_REG_SET (DF_RA_LIVE_IN (ra_df, bb), HARD_FRAME_POINTER_REGNUM);
-	/*	CLEAR_REGNO_REG_SET (DF_RA_LIVE_OUT (ra_df, bb), HARD_FRAME_POINTER_REGNUM); */
+	CLEAR_REGNO_REG_SET (DF_RA_LIVE_IN (bb), HARD_FRAME_POINTER_REGNUM);
+	/*	CLEAR_REGNO_REG_SET (DF_RA_LIVE_OUT (bb), HARD_FRAME_POINTER_REGNUM); */
       }
 	
   /* Come here (with failure set nonzero) if we can't get enough spill
@@ -1986,8 +1986,8 @@ alter_reg (int i, int from_reg)
 
   /* Modify the reg-rtx to contain the new hard reg
      number or else to contain its pseudo reg number.  */
-  REGNO (regno_reg_rtx[i])
-    = reg_renumber[i] >= 0 ? reg_renumber[i] : i;
+  SET_REGNO (regno_reg_rtx[i],
+	     reg_renumber[i] >= 0 ? reg_renumber[i] : i);
 
   /* If we have a pseudo that is needed but has no hard reg or equivalent,
      allocate a stack slot for it.  */

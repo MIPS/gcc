@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "target.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Maximum register number used in this function, plus one.  */
 
@@ -937,6 +938,9 @@ regclass_init (void)
 {
   int i;
 
+  memset (regs_ever_live, 0, sizeof (regs_ever_live));
+  df_compute_regs_ever_live ();
+
   init_cost.mem_cost = 10000;
   for (i = 0; i < N_REG_CLASSES; i++)
     init_cost.cost[i] = 10000;
@@ -1214,7 +1218,7 @@ init_reg_autoinc (void)
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (TEST_HARD_REG_BIT (reg_class_contents[i], j))
 	  {
-	    REGNO (r) = j;
+	    SET_REGNO (r, j);
 
 	    for (m = VOIDmode; (int) m < (int) MAX_MACHINE_MODE;
 		 m = (enum machine_mode) ((int) m + 1))

@@ -6859,7 +6859,7 @@ mips_expand_prologue (void)
   HOST_WIDE_INT size;
 
   if (cfun->machine->global_pointer > 0)
-    REGNO (pic_offset_table_rtx) = cfun->machine->global_pointer;
+    SET_REGNO (pic_offset_table_rtx, cfun->machine->global_pointer);
 
   size = compute_frame_size (get_frame_size ());
 

@@ -664,6 +664,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_instantiate_virtual_regs);
   NEXT_PASS (pass_jump2);
   NEXT_PASS (pass_cse);
+  NEXT_PASS (pass_df_initialize);
   NEXT_PASS (pass_rtl_fwprop);
   NEXT_PASS (pass_gcse);
   NEXT_PASS (pass_jump_bypass);
@@ -723,8 +724,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_compute_alignments);
   NEXT_PASS (pass_duplicate_computed_gotos);
   NEXT_PASS (pass_variable_tracking);
-  NEXT_PASS (pass_free_cfg);
   NEXT_PASS (pass_machine_reorg);
+  NEXT_PASS (pass_df_finish);
+  NEXT_PASS (pass_free_cfg);
   NEXT_PASS (pass_cleanup_barriers);
   NEXT_PASS (pass_delay_slots);
   NEXT_PASS (pass_split_for_shorten_branches);
@@ -850,13 +852,11 @@ execute_todo (unsigned int flags)
     verify_stmts ();
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
-  if (flags & TODO_df_verify_scan)
-    df_verify_blocks (NULL);
 #endif
 
-  /* Now that the dumping has been done, we can get rid of the df instance.  */
-  if (flags & TODO_df_finish && df_current_instance)
-    df_finish (df_current_instance);
+  /* Now that the dumping has been done, we can get rid of the optional df problems.  */
+  if (flags & TODO_df_finish)
+    df_finish_pass ();
 
   last_verified = flags & TODO_verify_all;
 }

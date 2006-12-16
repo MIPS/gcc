@@ -45,8 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    iv_analyze_expr (insn, rhs, mode, iv):  Stores to IV the description of iv
      corresponding to expression EXPR evaluated at INSN.  All registers used bu
      EXPR must also be used in INSN.
-   iv_current_loop_df (): Returns the dataflow object for the current loop used
-     by iv analysis.  */
+*/
 
 #include "config.h"
 #include "system.h"
@@ -107,20 +106,9 @@ static struct rtx_iv ** iv_ref_table;
 
 static struct loop *current_loop;
 
-/* Dataflow information for the current loop.  */
-
-static struct df *df = NULL;
-
 /* Bivs of the current loop.  */
 
 static htab_t bivs;
-
-/* Return the dataflow object for the current loop.  */
-struct df *
-iv_current_loop_df (void)
-{
-  return df;
-}
 
 static bool iv_analyze_op (rtx, rtx, struct rtx_iv *);
 
@@ -182,9 +170,9 @@ lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 static void 
 check_iv_ref_table_size (void)
 {
-  if (iv_ref_table_size < DF_DEFS_SIZE(df))
+  if (iv_ref_table_size < DF_DEFS_TABLE_SIZE())
     {
-      unsigned int new_size = DF_DEFS_SIZE (df) + (DF_DEFS_SIZE (df) / 4);
+      unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       iv_ref_table = xrealloc (iv_ref_table, 
 			       sizeof (struct rtx_iv *) * new_size);
       memset (&iv_ref_table[iv_ref_table_size], 0, 
@@ -226,7 +214,7 @@ simple_reg_p (rtx reg)
 static void
 clear_iv_info (void)
 {
-  unsigned i, n_defs = DF_DEFS_SIZE (df);
+  unsigned i, n_defs = DF_DEFS_TABLE_SIZE ();
   struct rtx_iv *iv;
 
   check_iv_ref_table_size ();
@@ -273,8 +261,7 @@ iv_analysis_loop_init (struct loop *loop)
   /* Clear the information from the analysis of the previous loop.  */
   if (clean_slate)
     {
-      df = df_init (DF_UD_CHAIN + DF_DU_CHAIN, DF_EQ_NOTES);
-      df_chain_add_problem (df);
+      df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
       bivs = htab_create (10, biv_hash, biv_eq, free);
       clean_slate = false;
     }
@@ -285,11 +272,17 @@ iv_analysis_loop_init (struct loop *loop)
     {
       bb = body[i];
       bitmap_set_bit (blocks, bb->index);
+      df_recompute_luids (bb);
     }
-  df_set_blocks (df, blocks);
-  df_analyze (df);
+  /* Get rid of the ud chains before processing the rescans.  Then add
+     the problem back.  */
+  df_remove_problem (df_chain);
+  df_process_deferred_rescans ();
+  df_chain_add_problem (DF_UD_CHAIN);
+  df_set_blocks (blocks);
+  df_analyze ();
   if (dump_file)
-    df_dump (df, dump_file);
+    df_dump (dump_file);
 
   check_iv_ref_table_size ();
   BITMAP_FREE (blocks);
@@ -306,9 +299,9 @@ latch_dominating_def (rtx reg, struct df_ref **def)
 {
   struct df_ref *single_rd = NULL, *adef;
   unsigned regno = REGNO (reg);
-  struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (df, current_loop->latch);
+  struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (current_loop->latch);
 
-  for (adef = DF_REG_DEF_CHAIN (df, regno); adef; adef = adef->next_reg)
+  for (adef = DF_REG_DEF_CHAIN (regno); adef; adef = adef->next_reg)
     {
       if (!bitmap_bit_p (bb_info->out, DF_REF_ID (adef)))
 	continue;
@@ -344,7 +337,7 @@ iv_get_reaching_def (rtx insn, rtx reg, struct df_ref **def)
     reg = SUBREG_REG (reg);
   gcc_assert (REG_P (reg));
 
-  use = df_find_use (df, insn, reg);
+  use = df_find_use (insn, reg);
   gcc_assert (use != NULL);
 
   if (!DF_REF_CHAIN (use))
@@ -360,7 +353,7 @@ iv_get_reaching_def (rtx insn, rtx reg, struct df_ref **def)
   use_bb = BLOCK_FOR_INSN (insn);
 
   if (use_bb == def_bb)
-    dom_p = (DF_INSN_LUID (df, def_insn) < DF_INSN_LUID (df, insn));
+    dom_p = (DF_INSN_LUID (def_insn) < DF_INSN_LUID (insn));
   else
     dom_p = dominated_by_p (CDI_DOMINATORS, use_bb, def_bb);
 
@@ -1180,7 +1173,7 @@ iv_analyze (rtx insn, rtx val, struct rtx_iv *iv)
       else
 	reg = val;
 
-      while (!df_find_use (df, insn, reg))
+      while (!df_find_use (insn, reg))
 	insn = NEXT_INSN (insn);
     }
 
@@ -1194,7 +1187,7 @@ iv_analyze_result (rtx insn, rtx def, struct rtx_iv *iv)
 {
   struct df_ref *adef;
 
-  adef = df_find_def (df, insn, def);
+  adef = df_find_def (insn, def);
   if (!adef)
     return false;
 
@@ -1214,7 +1207,7 @@ biv_p (rtx insn, rtx reg)
   if (!simple_reg_p (reg))
     return false;
 
-  def = df_find_def (df, insn, reg);
+  def = df_find_def (insn, reg);
   gcc_assert (def != NULL);
   if (!latch_dominating_def (reg, &last_def))
     return false;
@@ -1266,11 +1259,11 @@ get_iv_value (struct rtx_iv *iv, rtx iteration)
 void
 iv_analysis_done (void)
 {
-  if (df)
+  if (!clean_slate)
     {
       clear_iv_info ();
       clean_slate = true;
-      df_finish (df);
+      df_finish_pass ();
       htab_delete (bivs);
       free (iv_ref_table);
       iv_ref_table = NULL;

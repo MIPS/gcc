@@ -188,8 +188,6 @@ static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
-static struct df *df = NULL;
-
 int regstack_completed = 0;
 
 /* This is the basic stack record.  TOP is an index into REG[] such
@@ -3128,10 +3126,8 @@ reg_to_stack (void)
   if (i > LAST_STACK_REG)
     return false;
 
-  df = df_init (0, 0);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_ri_add_problem (0);
+  df_analyze ();
 
   mark_dfs_back_edges ();
 
@@ -3155,9 +3151,9 @@ reg_to_stack (void)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_LR_OUT (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_OUT (bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_LR_IN (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_IN (bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

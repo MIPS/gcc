@@ -398,7 +398,6 @@ optimize_mode_switching (void)
   int max_num_modes = 0;
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
-  struct df *df;
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
@@ -421,10 +420,8 @@ optimize_mode_switching (void)
   if (! n_entities)
     return 0;
 
-  df = df_init (0, 0);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_ri_add_problem (0);
+  df_analyze ();
 
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that
@@ -456,7 +453,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (df, bb));
+	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -601,7 +598,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (df, src_bb));
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);

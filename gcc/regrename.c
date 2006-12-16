@@ -91,7 +91,7 @@ static struct du_chain *build_def_use (basic_block);
 static void dump_def_use_chain (struct du_chain *);
 static void note_sets (rtx, rtx, void *);
 static void clear_dead_regs (HARD_REG_SET *, enum machine_mode, rtx);
-static void merge_overlapping_regs (struct df *, basic_block, HARD_REG_SET *,
+static void merge_overlapping_regs (basic_block, HARD_REG_SET *,
 				    struct du_chain *);
 
 /* Called through note_stores.  Find sets of registers, and
@@ -144,14 +144,14 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
    its lifetime and set the corresponding bits in *PSET.  */
 
 static void
-merge_overlapping_regs (struct df *df, basic_block b, HARD_REG_SET *pset,
+merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
 			struct du_chain *chain)
 {
   struct du_chain *t = chain;
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (df, b));
+  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (b));
   insn = BB_HEAD (b);
   while (t)
     {
@@ -193,12 +193,12 @@ regrename_optimize (void)
   int this_tick = 0;
   basic_block bb;
   char *first_obj;
-  struct df * df = df_init (0, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
 
+  df_set_flags (DF_LR_RUN_DCE);
+  df_ri_add_problem (0);
+  df_analyze ();
+  df_set_flags (DF_NO_INSN_RESCAN);
+  
   memset (tick, 0, sizeof tick);
 
   gcc_obstack_init (&rename_obstack);
@@ -289,7 +289,7 @@ regrename_optimize (void)
 	  if (this->need_caller_save_reg)
 	    IOR_HARD_REG_SET (this_unavailable, call_used_reg_set);
 
-	  merge_overlapping_regs (df, bb, &this_unavailable, this);
+	  merge_overlapping_regs (bb, &this_unavailable, this);
 
 	  /* Now potential_regs is a reasonable approximation, let's
 	     have a closer look at each register still in there.  */
@@ -363,6 +363,8 @@ regrename_optimize (void)
     }
 
   obstack_free (&rename_obstack, NULL);
+  df_clear_flags (DF_NO_INSN_RESCAN);
+  df_insn_rescan_all ();
 
   if (dump_file)
     fputc ('\n', dump_file);
@@ -380,6 +382,9 @@ do_replace (struct du_chain *chain, int reg)
       if (regno >= FIRST_PSEUDO_REGISTER)
 	ORIGINAL_REGNO (*chain->loc) = regno;
       REG_ATTRS (*chain->loc) = attr;
+#if 0
+      df_insn_rescan (chain->insn);
+#endif
       chain = chain->next_use;
     }
 }

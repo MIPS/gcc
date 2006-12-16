@@ -1,3 +1,361 @@
+2006-12-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regrename.c (mrege_overlapping_regs): Removed df parameter
+	and changed calls to df_ routines to support new incremental
+	scanning.
+	* sched_ebb (schedule_ebbs): Removed return value and changed
+	calls to df_ routines to support new incremental scanning.
+	* fwprop.c (local_ref_killed_between_p, use_killed_between,
+	all_uses_available_at, update_df, try_fwprop_subst, fwprop,
+	fwprop_addr): Removed df parameter and changed calls to df_
+	routines to support new incremental scanning.
+	(gate_fwprop, gate_fwprop_addr): Reenabled pass.
+	* doc/cfg.texi: Updated liveness info documentation.
+	* doc/rtl.texi: Updated liveness info documentation.
+	* see.c (see_initialize_data_structures, see_emit_use_extension,
+	see_commit_changes, see_analyze_merged_def_local_prop,
+	see_analyze_use_local_prop, see_set_prop_merged_def,
+	see_set_prop_unmerged_use, see_store_reference_and_extension,
+	see_handle_relevant_defs, see_handle_relevant_uses,
+	see_update_uses_relevancy, see_propagate_extensions_to_uses,
+	pass_see): Removed df parameter and changed calls to df_ routines
+	to support new incremental scanning.
+	* postreload.c (reload_cse_simplify_operands): Changed REGNO to
+	SET_REGNO.
+	(reload_combine): Removed df parameter and changed calls to df_
+	routines to support new incremental scanning.
+	* tree.h (generate_setjmp_warnings): Removed df parameter.
+	* reload.c (push_reload, find_dummy_reload): Removed df parameter
+	and changed calls to df_ routines to support new incremental
+	scanning.
+	* tree-pass.h (pass_df_initialize, pass_df_finish): New passes.
+	* rtlanal.c (remove_note): Call df_notes_rescan if the
+	REG_EQUAL/EQUIV notes change.
+	* ddg.c (add_deps_for_def, add_deps_for_use,
+	add_inter_loop_mem_dep): Removed df parameter and changed calls to
+	df_ routines to support new incremental scanning.
+	* ddg.h (struct df) Removed.
+	* final.c (cleanup_subreg_operands): Added call df_insn_rescan if
+	insn changes.
+	(walk_alter_subreg): Added changed parameter to track changes.
+	(output_address): Added changed parameter to walk_alter_subreg.
+	* cfg.c (compact_blocks, dump_bb_info): Removed df parameter to df_
+	calls. 
+	* auto_inc_dec.c (attempt_changed): Moved call to
+	df_recompute_luids so that it is only called when moves are added.
+	(find_inc, merge_in_block, rest_of_handle_auto_inc_dec): Removed
+	df parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	(merge_in_block): Added call to df_recompute_luids.
+	* reorg.c (delete_from_delay_slot, relax_delay_slots): Added basic
+	block parm to add_insn_after.
+	(fill_simple_delay_slots, fill_slots_from_thread,
+	fill_eager_delay_slots, make_return_insns, dbr_schedule): Removed
+	df parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* df-scan.c (struct df_reg_chains): Removed.
+	(df_scan_free_internal, df_scan_free_internal,
+	df_scan_free_bb_info, df_scan_alloc, df_scan_free,
+	df_scan_start_dump, df_scan_add_problem, df_grow_reg_info,
+	df_check_and_grow_ref_info, df_grow_insn_info, df_scan_blocks,
+	df_ref_create, df_scan_alloc, df_scan_start_block,
+	df_scan_add_problem, df_grow_reg_info, df_check_and_grow_ref_info,
+	df_grow_insn_info, df_scan_blocks, df_ref_create,
+	df_get_artificial_uses, df_reg_chain_create, df_reg_chain_unlink,
+	df_ref_remove, df_insn_create_insn_record,
+	df_ref_chain_delete_du_chain, df_ref_chain_delete, df_insn_delete,
+	df_bb_delete, df_insn_rescan, df_reorganize_refs,
+	df_insn_change_bb, df_maybe_reorganize_use_refs,
+	df_maybe_reorganize_def_refs, df_reg_chain_find_ref,
+	df_ref_find_chains, df_ref_add_to_chains, df_refs_add_to_chains,
+	df_ref_create_structure, df_ref_record, df_def_record_1,
+	df_defs_record, df_uses_record, df_get_conditional_uses,
+	df_get_call_refs, df_get_call_refs, df_insn_refs_collect,
+	df_insn_refs_record, df_recompute_luids, df_bb_refs_collect,
+	df_bb_refs_record, df_bb_refs_record, df_mark_reg,
+	df_get_entry_block_def_set, df_entry_block_defs_collect,
+	df_record_entry_block_defs, df_update_entry_block_defs,
+	df_exit_block_uses_collect, df_record_exit_block_uses,
+	df_update_exit_block_uses, df_compute_regs_ever_live,
+	df_reg_chain_unmark, df_ref_chain_free, df_ref_verify,
+	df_ref_verify, df_insn_refs_verify, df_bb_verify,
+	df_exit_block_bitmap_verify, df_entry_block_bitmap_verify,
+	df_verify_blocks): Removed df and dflow parameters and changed
+	calls to df_ routines to support new incremental scanning.
+	(df_ref_chain_unmark): Renamed to df_ref_chain_verify_and_unmark.
+	(df_scan_get_bb_info, df_scan_set_bb_info): Made tolerant of
+	missing basic block info.
+	(df_insn_rescan_all, df_process_deferred_rescans,
+	df_ref_chain_find_ref_by_regno, df_ref_change_reg_with_loc_1,
+	df_ref_change_reg_with_loc,
+	df_mw_hardreg_chain_delete_eq_uses, df_notes_rescan,
+	df_update_entry_exit_and_calls, df_hard_reg_used_p,
+	df_mw_hardreg_find_hardreg): New function.
+	(df_ref_is_pointer_equal, df_bb_refs_verify): Deleted function.	
+	* haifa_sched.c (move_insn): Removed df parameter and changed calls to
+	df_ routines to support new incremental scanning.
+	* df-core.c (df_init): Deleted function.
+	(df): New static instance of dataflow.
+	(df_add_problem, df_remove_problem, df_set_flags, df_clear_flags,
+	df_set_blocks, df_delete_basic_block, df_hybrid_search_forward,
+	df_hybrid_search_backward, df_iterative_dataflow,
+	df_analyze_problem, df_analyze, df_get_n_blocks, df_get_postorder,
+	df_mark_solutions_dirty, df_get_bb_dirty, df_set_bb_dirty,
+	df_compact_blocks, df_bb_replace, df_bb_regno_last_use_find,
+	df_bb_regno_first_def_find, df_bb_regno_last_def_find,
+	df_insn_regno_def_p, df_find_def, df_reg_defined, df_find_use,
+	df_reg_used, df_dump, df_dump_start, df_dump_top, df_dump_bottom,
+	df_regs_chain_dump, df_insn_uid_debug, df_insn_debug,
+	df_insn_debug_regno, df_regno_debug, debug_df_insn, debug_df_reg,
+	debug_df_defno, debug_df_useno): Removed df parameter and
+	changed calls to df_ routines to support new incremental scanning.
+	(df_finish1): Deleted function.	
+	(df_remove_problem, df_finish_pass, rest_of_handle_df_initialize, 
+	rest_of_handle_df_finish): New function.
+	(pass_df_finish, pass_df_initialize): New passes.
+	* mode-switching.c (optimize_mode_switching):  Removed df parameter and
+	changed calls to df_ routines to support new incremental scanning.
+	* modulo-sched.c (sms_schedule): Removed df parameter and
+	changed calls to df_ routines to support new incremental scanning.
+	(add_insn_before): Added extra parameter to add_insn_before.
+	* caller-save.c (init_caller_save): Changed REGNO to SET_REGNO.
+	* cse.c (cse_main): Disabled incremental df update during this
+	pass.
+	* web.c (union_defs, replace_ref, web_main, pass_web): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* loop-init.c (rtl_unroll_and_peel_loops,
+	pass_rtl_move_loop_invariants): Removed df parameter and changed
+	calls to df_ routines to support new incremental scanning.
+	* global.c (global_alloc, global_conflicts, retry_global_alloc,
+	mark_elimination, build_insn_chain, rest_of_handle_global_alloc):
+	Removed df parameter and changed calls to df_ routines to support
+	new incremental scanning.
+	* ifcvt.c (, find_if_header, find_if_case_1, find_if_case_2,
+	dead_or_predicable, if_convert, pass_rtl_ifcvt,
+	pass_if_after_combine, pass_if_after_reload): Removed df parameter
+	and changed calls to df_ routines to support new incremental
+	scanning.
+	* expr.c (init_expr_once): Changed REGNO to SET_REGNO.
+	* recog.c (peephole2_optimize, pass_split_all_insn): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* regmove.c (mark_flags_life_zones, optimize_reg_copy_2,
+	regmove_optimize, rest_of_handle_stack_adjustments): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* local-alloc.c (block_alloc, rest_of_handle_local_alloc): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* function.c (regno_clobbered_at_setjmp, setjmp_vars_warning,
+	setjmp_args_warning, generate_setjmp_warnings,
+	keep_stack_depressed, thread_prologue_and_epilogue_insns,
+	epilogue_done, rest_of_handle_thread_prologue_and_epilogue): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* function.h (df): Deleted variable.
+	* df.h (DF_RU, DF_RD, DF_LR, DF_UR, DF_LIVE): Renumbered to put
+	permanent problems before optional problems.
+	(DF_FIRST_OPTIONAL_PROBLEM): New symbol.
+	(df_ref_flags.DF_REF_REF_MARKER, df_ref_flags.DF_REF_REG_MARKER): New flag.
+	(df_ref_flags.DF_REF_ARTIFICIAL, df_ref_flags.DF_REF_MARKER):
+	Deleted flag. 
+	(df_alloc_function, df_reset_function, df_free_bb_function,
+	df_local_compute_function, df_init_function, df_dataflow_function,
+	df_confluence_function_0, df_confluence_function_n,
+	df_transfer_function, df_finalizer_function, df_free_function,
+	df_remove_problem_function, df_dump_problem_function,
+	df_dump_bb_problem_function, DF_SCAN_BB_INFO, DF_RU_BB_INFO,
+	DF_RD_BB_INFO, DF_UR_BB_INFO, DF_UREC_BB_INFO, DF_LIVE_BB_INFO,
+	DF_LIVE_IN, DF_LIVE_OUT, DF_RA_LIVE_IN, DF_RA_LIVE_OUT,
+	DF_RA_LIVE_TOP, DF_LR_IN, DF_LR_OUT, DF_UR_IN, DF_UR_OUT,
+	DF_DEFS_GET, DF_DEFS_SET, DF_DEFS_COUNT, DF_DEFS_BEGIN,
+	DF_USES_GET, DF_USES_SET, DF_USES_COUNT, DF_USES_BEGIN,
+	DF_REG_SIZE, DF_REG_DEF_GET, DF_REG_DEF_CHAIN, DF_REG_DEF_COUNT,
+	DF_REG_USE_GET, DF_REG_USE_CHAIN, DF_REG_USE_COUNT,
+	DF_REG_EQ_USE_GET, DF_REG_EQ_USE_CHAIN, DF_REG_EQ_USE_COUNT,
+	DF_REGNO_FIRST_DEF, DF_REGNO_LAST_USE, DF_REGNO_FIRST_DEF,
+	DF_REGNO_LAST_USE, DF_INSN_SIZE, DF_INSN_GET, DF_INSN_SET,
+	DF_INSN_CONTAINS_ASM, DF_INSN_LUID, DF_INSN_DEFS, DF_INSN_USES,
+	DF_INSN_EQ_USES, DF_INSN_UID_GET, DF_INSN_UID_SAFE_GET,
+	DF_INSN_UID_LUID, DF_INSN_UID_DEFS, DF_INSN_UID_USES,
+	DF_INSN_UID_EQ_USES, DF_INSN_UID_MWS): Removed df or dflow
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	(DF_DEFS_SIZE, DF_USES_SIZE): Renamed to DF_DEFS_TABLE_SIZE and 
+	DF_USES_TABLE_SIZE.
+	(DF_DEFS_TOTAL_SIZE, DF_USES_TOTAL_SIZE, df_scan, df_ru, df_rd,
+	df_lr, df_ur, df_live, df_urec, df_chain, df_ri,
+	DF_DEFS_TOTAL_SIZE, DF_USES_TOTAL_SIZE): New macros.
+	(dataflow.df): Removed field.
+	(df_ref_info.bitmap_size): Split into df_ref_info.table_size and
+	df_ref_info.total_size.
+	(dataflow.local_flags, df_insn_info.insn,
+	df_changeable_flags.DF_DEFER_INSN_RESCAN, df_ref_info.count,
+	df.insns_to_rescan, df.insns_to_delete): New field.
+	(df_permanent_flags): Split into df_chain_flags and df_ri_flags.
+	* gcse (try_replace_reg, adjust_libcall_notes,
+	update_ld_motion_stores):  Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	(insert_insn_end_basic_block, insert_insn_start_basic_block):
+	Added bb parameter to emit_insn_before_noloc.
+	* rtl-factoring.c (match_seqs, collect_pattern_seqs,
+	collect_pattern_seqs, clear_regs_live_in_seq,
+	recompute_gain_for_pattern_seq,, recompute_gain,
+	split_blocks_after_seqs, split_pattern_seq, erase_matching_seqs,
+	abstract_best_seq, rtl_seqabstr): Removed df parameter and changed
+	calls to df_ routines to support new incremental scanning.
+	* expmed.c (init_expmed): Changed REGNO to SET_REGNO.
+	* bt-load.c (, compute_defs_uses_and_gen, build_btr_def_use_webs,
+	migrate_btr_defs, branch_target_load_optimize, 
+	pass_branch_target_load_optimize1,
+	pass_branch_target_load_optimize1): Removed df parameter and changed
+	calls to df_ routines to support new incremental scanning.
+	* emit-rtl.c (add_insn_after, add_insn_before,
+	emit_insn_before_noloc, emit_insn_after_1,
+	emit_insn_after_noloc): Added basic block parameter and threaded
+	it to subcalls.
+	(emit_jump_insn_before_noloc,
+	emit_call_insn_before_noloc, emit_barrier_before,
+	emit_label_before, emit_note_before, emit_call_insn_after_noloc, 
+	emit_jump_insn_after_noloc, emit_label_after, emit_note_after,
+	emit_insn_after_setloc, emit_insn_before_setloc): Add NULL basic
+	block parameter to certain subcalls.  
+	(set_unique_reg_note): Now calls df_notes_rescan if REG_EQUAL or
+	REG_EQUIV notes change.
+	* loop-invariant.c (check_invariant_table_size,
+	hash_invariant_expr_1, invariant_expr_equal_p, find_defs,
+	check_dependencies, record_uses, find_invariants_to_move,
+	move_invariant_reg, fail, free_inv_motion_data, 
+	move_loop_invariants):	Removed df parameter and changed
+	calls to df_ routines to support new incremental scanning.
+	* subregs_init (initialize_uninitialized_subregs): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* loop-iv.c (iv_current_loop_df): Deleted function.
+	(check_iv_ref_table_size, clear_iv_info, iv_analysis_loop_init,
+	latch_dominating_def, iv_get_reaching_def, iv_get_reaching_def,
+	iv_analyze, iv_analyze_result, biv_p, iv_analysis_done): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* regclass.c (regclass_init): Insert call to recalculate the 
+	effects of changing regs_ever_live.
+	(init_reg_autoinc):  Changed REGNO to SET_REGNO.
+	* rtl.h (REGNO): Changed so that it cannot appear on lhs.
+	(SET_REGNO): New macro.
+	(rhs_regno): New function.
+	(basic_block): New forward declaration.
+	* integrate.c (allocate_initial_values): Changed REGNO to
+	SET_REGNO and removed df parameter and changed calls to df_
+	routines to support new incremental scanning.
+	* combine.c (set_nonzero_bits_and_sign_copies, subst,
+	reg_nonzero_bits_for_combine, reg_num_sign_bit_copies_for_combine,
+	get_last_value_validate, get_last_value, reg_dead_at_p,
+	create_log_links, create_log_links, rest_of_handle_combine,
+	pass_combine): Removed df parameter and changed calls to df_
+	routines to support new incremental scanning.
+	* stack-ptr-mod.c (notice_stack_pointer_modification): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* resource.c (mark_target_live_regs): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* resource.h (mark_target_live_regs): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* cfgloop.h (iv_current_loop_df): Removed.
+	* df-problems.c (df_get_live_in, df_get_live_out,
+	df_ru_get_bb_info, df_ru_set_bb_info, df_ru_free_bb_info,
+	df_ru_alloc, df_ru_bb_local_compute_process_def,
+	df_ru_bb_local_compute_process_use, df_ru_bb_local_compute,
+	df_ru_local_compute, df_ru_init_solution, df_ru_confluence_n,
+	df_ru_transfer_function, df_ru_free, df_ru_start_dump,
+	df_ru_top_dump, df_ru_bottom_dump, df_ru_add_problem,
+	df_rd_get_bb_info, df_rd_set_bb_info, df_rd_free_bb_info,
+	df_rd_alloc, df_rd_bb_local_compute_process_def,
+	df_rd_bb_local_compute, df_rd_local_compute, df_rd_init_solution,
+	df_rd_confluence_n, df_rd_transfer_function, df_rd_free,
+	df_rd_start_dump, df_rd_top_dump, df_rd_bottom_dump,
+	df_rd_add_problem, df_lr_get_bb_info, df_lr_set_bb_info,
+	df_lr_free_bb_info, df_lr_alloc, df_lr_bb_local_compute,
+	df_lr_local_compute, df_lr_init, df_lr_confluence_0,
+	df_lr_confluence_n, df_lr_transfer_function, df_lr_local_finalize,
+	df_lr_free, df_lr_simulate_artificial_refs_at_end,
+	df_lr_simulate_one_insn, df_lr_top_dump, df_lr_bottom_dump,
+	df_lr_add_problem, df_ur_get_bb_info, df_ur_set_bb_info,
+	df_ur_free_bb_info, df_ur_alloc, df_ur_bb_local_compute,
+	df_ur_local_compute, df_ur_init, df_ur_confluence_n,
+	df_ur_transfer_function, df_ur_free, df_ur_top_dump,
+	df_ur_bottom_dump, df_ur_add_problem, df_live_get_bb_info,
+	df_live_set_bb_info, df_live_free_bb_info, df_live_alloc,
+	df_live_local_finalize, df_live_free, df_live_top_dump,
+	df_live_add_problem, df_urec_get_bb_info, df_urec_set_bb_info,
+	df_urec_free_bb_info, df_urec_alloc, df_urec_bb_local_compute,
+	df_urec_local_compute, df_urec_init, df_urec_local_finalize,
+	df_urec_confluence_n, df_urec_transfer_function, df_urec_free,
+	df_urec_top_dump, df_urec_bottom_dump, df_urec_add_problem,
+	df_chain_create, df_chain_unlink, df_chain_copy,
+	df_chain_remove_problem, df_chain_alloc, df_chain_reset,
+	df_chain_create_bb_process_use, df_chain_create_bb,
+	df_chain_finalize, df_chain_free, df_chain_start_dump,
+	df_chain_add_problem, df_ri_alloc, df_kill_notes,
+	df_set_dead_notes_for_mw, df_set_unused_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute, df_ri_compute,
+	df_ri_free, df_ri_start_dump, df_ri_add_problem,
+	df_ri_get_setjmp_crosses): Removed df and dflow parameters and
+	changed calls to df_ routines to support new incremental scanning.
+	(df_chain_unlink_1, df_chain_fully_remove_problem): New function.
+	* reg-stack.c (reg_to_stack): Removed df parameter and changed
+	calls to df_ routines to support new incremental scanning.
+	* Makefile.in (rtlanal.o, expr.o, expmed.o, cse.o, gcse.o,
+	regclass.o, caller-save.o, stack-ptr-mod.o, final.o): Added df.h.
+	(reorg.o): Deleted df.h.
+	* sched-rgn.c (check_live_1, update_live_1, schedule_insns):
+	Removed df parameter and changed calls to df_ routines to support
+	new incremental scanning.
+	* basic-block.h (forward for basic_block): Moved to rtl.h.
+	* passes.c (pass_df_initialize, pass_df_finish): New passes.
+	(execute_todo): Changed TODO_df_finish.
+	* struct-equiv.c (insns_match_p, struct_equiv_init): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	* config/frv/frv.c (frv_function_prologue, frv_int_to_acc):
+	Changed REGNO to SET_REGNO.
+	(frv_reorder_packet): Added null basic block parm to
+	add_insn_before.
+	* config/i386/i386.c (ix86_eax_live_at_start_p): Removed df
+	parameter and changed calls to df_ routines to support new
+	incremental scanning.
+	(ix86_expand_prologue, ix86_output_function_epilogue):
+	Changed REGNO to SET_REGNO.
+	* config/ia64/ia64.c (emit_predicate_relation_info, ia64_reorg):
+	Removed df parameter and changed calls to df_ routines to support
+	new incremental scanning.
+	* config/mips/mips.c (mips_expand_prologue): Changed REGNO to
+	SET_REGNO.
+	* cfgrtl.c (commit_one_edge_insertion, rtl_dump_bb,
+	print_rtl_with_bb, cfg_layout_merge_blocks,
+	insert_insn_end_bb_new): Added bb parameter to insn insert calls.
+	* dce.c (prescan_insns_for_dce): Removed fast parameter.
+	(init_dce, end_dce, mark_artificial_uses, mark_reg_dependencies,
+	end_fast_dce, dce_process_block, fast_dce, run_fast_df_dce,
+	rs_init, rs_confluence, rs_transfer_function, dump_stores,
+	record_store, mark_dependent_stores, prescan_insns_for_dse,
+	rest_of_handle_dse): Removed df parameter and changed calls to df_
+	routines to support new incremental scanning.
+	(rest_of_handle_dce, gate_dce, run_dce, pass_rtl_dce): Deleted.
+	(delete_corresponding_reg_equal_notes): Renamed to
+	delete_corresponding_reg_eq_notes and made to process both kinds
+	of notes.
+	(delete_unmarked_insns): Changed call to
+	delete_corresponding_reg_eq_notes.
+	* dce.h (run_fast_df_dce): Removed df parameter.
+	* reload1.c (compute_use_by_pseudos, reload): Removed df parameter
+	and changed calls to df_ routines to support new incremental
+	scanning.
+	(alter_reg): Changed REGNO to SET_REGNO.
+	
+	
 2006-12-07  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/predicates.md (lwa_operand): Allow PRE_MODIFY

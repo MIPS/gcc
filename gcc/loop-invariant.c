@@ -157,18 +157,14 @@ DEF_VEC_ALLOC_P(invariant_p, heap);
 
 static VEC(invariant_p,heap) *invariants;
 
-/* The dataflow object.  */
-
-static struct df *df = NULL;
-
 /* Check the size of the invariant table and realloc if necessary.  */
 
 static void 
 check_invariant_table_size (void)
 {
-  if (invariant_table_size < DF_DEFS_SIZE(df))
+  if (invariant_table_size < DF_DEFS_TABLE_SIZE())
     {
-      unsigned int new_size = DF_DEFS_SIZE (df) + (DF_DEFS_SIZE (df) / 4);
+      unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       invariant_table = xrealloc (invariant_table, 
 				  sizeof (struct rtx_iv *) * new_size);
       memset (&invariant_table[invariant_table_size], 0, 
@@ -294,7 +290,7 @@ hash_invariant_expr_1 (rtx insn, rtx x)
       return hash_rtx (x, GET_MODE (x), &do_not_record_p, NULL, false);
 
     case REG:
-      use = df_find_use (df, insn, x);
+      use = df_find_use (insn, x);
       if (!use)
 	return hash_rtx (x, GET_MODE (x), &do_not_record_p, NULL, false);
       inv = invariant_for_use (use);
@@ -354,8 +350,8 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
       return rtx_equal_p (e1, e2);
 
     case REG:
-      use1 = df_find_use (df, insn1, e1);
-      use2 = df_find_use (df, insn2, e2);
+      use1 = df_find_use (insn1, e1);
+      use2 = df_find_use (insn2, e2);
       if (use1)
 	inv1 = invariant_for_use (use1);
       if (use2)
@@ -638,11 +634,14 @@ find_defs (struct loop *loop, basic_block *body)
   for (i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (blocks, body[i]->index);
 
-  df_set_blocks (df, blocks);
-  df_analyze (df);
+  df_remove_problem (df_chain);
+  df_process_deferred_rescans ();
+  df_chain_add_problem (DF_UD_CHAIN);
+  df_set_blocks (blocks);
+  df_analyze ();
 
   if (dump_file)
-    df_dump (df, dump_file);
+    df_dump (dump_file);
   check_invariant_table_size ();
 
   BITMAP_FREE (blocks);
@@ -764,10 +763,10 @@ check_dependencies (rtx insn, bitmap depends_on)
   struct df_ref *use;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
-  for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
+  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
     if (!check_dependency (bb, use, depends_on))
       return false;
-  for (use = DF_INSN_EQ_USES (df, insn); use; use = use->next_ref)
+  for (use = DF_INSN_EQ_USES (insn); use; use = use->next_ref)
     if (!check_dependency (bb, use, depends_on))
       return false;
 	
@@ -838,7 +837,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
 
   if (simple)
     {
-      ref = df_find_def (df, insn, dest);
+      ref = df_find_def (insn, dest);
       check_invariant_table_size ();
       invariant_table[DF_REF_ID(ref)] = inv;
     }
@@ -852,13 +851,13 @@ record_uses (rtx insn)
   struct df_ref *use;
   struct invariant *inv;
 
-  for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
+  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
     {
       inv = invariant_for_use (use);
       if (inv)
 	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
     }
-  for (use = DF_INSN_EQ_USES (df, insn); use; use = use->next_ref)
+  for (use = DF_INSN_EQ_USES (insn); use; use = use->next_ref)
     {
       inv = invariant_for_use (use);
       if (inv)
@@ -1123,7 +1122,7 @@ find_invariants_to_move (void)
 {
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
-  unsigned int n_regs = DF_REG_SIZE (df);
+  unsigned int n_regs = DF_REG_SIZE ();
 
   if (!VEC_length (invariant_p, invariants))
     return;
@@ -1138,7 +1137,7 @@ find_invariants_to_move (void)
 
   for (i = 0; i < n_regs; i++)
     {
-      if (!DF_REGNO_FIRST_DEF (df, i) && DF_REGNO_LAST_USE (df, i))
+      if (!DF_REGNO_FIRST_DEF (i) && DF_REGNO_LAST_USE (i))
 	{
 	  /* This is a value that is used but not changed inside loop.  */
 	  regs_used++;
@@ -1192,7 +1191,6 @@ move_invariant_reg (struct loop *loop, unsigned invno)
     return true;
   if (!repr->move)
     return false;
-
   /* If this is a representative of the class of equivalent invariants,
      really move the invariant.  Otherwise just replace its use with
      the register used for the representative.  */
@@ -1223,6 +1221,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	{
 	  emit_insn_after (gen_move_insn (dest, reg), inv->insn);
 	  SET_DEST (set) = reg;
+	  df_insn_rescan (inv->insn);
 	  reorder_insns (inv->insn, inv->insn, BB_END (preheader));
 	}
       else
@@ -1257,6 +1256,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       delete_insn (inv->insn);
     }
 
+
   inv->reg = reg;
 
   /* Replace the uses we know to be dominated.  It saves work for copy
@@ -1265,7 +1265,10 @@ move_invariant_reg (struct loop *loop, unsigned invno)
   if (inv->def)
     {
       for (use = inv->def->uses; use; use = use->next)
-	*use->pos = reg;
+	{
+	  *use->pos = reg;
+	  df_insn_rescan (use->insn);
+	}      
     }
 
   return true;
@@ -1277,6 +1280,7 @@ fail:
     fprintf (dump_file, "Failed to move invariant %d\n", invno);
   inv->move = false;
   inv->reg = NULL_RTX;
+
   return false;
 }
 
@@ -1313,7 +1317,7 @@ free_inv_motion_data (void)
   struct invariant *inv;
 
   check_invariant_table_size ();
-  for (i = 0; i < DF_DEFS_SIZE (df); i++)
+  for (i = 0; i < DF_DEFS_TABLE_SIZE (); i++)
     {
       inv = invariant_table[i];
       if (inv)
@@ -1367,9 +1371,9 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-  df = df_init (DF_UD_CHAIN + DF_DU_CHAIN, DF_EQ_NOTES);
-  df_chain_add_problem (df);
+  unsigned int count = 0;
 
+  df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
   while (loop->inner)
@@ -1378,6 +1382,7 @@ move_loop_invariants (struct loops *loops)
   while (loop != loops->tree_root)
     {
       move_single_loop_invariants (loop);
+      count++;
 
       if (loop->next)
 	{

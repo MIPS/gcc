@@ -959,12 +959,24 @@ enum label_kind
    eventually winds up at the CODE_LABEL: it is circular.  */
 #define LABEL_REFS(LABEL) XCEXP (LABEL, 5, CODE_LABEL)
 
-/* For a REG rtx, REGNO extracts the register number.  ORIGINAL_REGNO holds
-   the number the register originally had; for a pseudo register turned into
-   a hard reg this will hold the old pseudo register number.  */
+/* For a REG rtx, REGNO extracts the register number.  REGNO can only
+   be used on RHS.  Use SET_REGNO to change the value.  */
+#define REGNO(RTX) (rhs_regno(RTX))
+#define SET_REGNO(RTX,N) {df_ref_change_reg_with_loc (REGNO(RTX), N, RTX); XCUINT (RTX, 0, REG) = N;}
 
-#define REGNO(RTX) XCUINT (RTX, 0, REG)
+/* ORIGINAL_REGNO holds the number the register originally had; for a
+   pseudo register turned into a hard reg this will hold the old pseudo
+   register number.  */
 #define ORIGINAL_REGNO(RTX) X0UINT (RTX, 1)
+
+/* Force the REGNO macro to only be used on the lhs.  */
+inline static unsigned int
+rhs_regno (rtx tree)
+{
+  return XCUINT (tree, 0, REG);
+}
+
+
 
 /* 1 if RTX is a reg or parallel that is the current function's return
    value.  */
@@ -1526,9 +1538,12 @@ extern rtx assign_stack_temp_for_type (enum machine_mode,
 				       HOST_WIDE_INT, int, tree);
 extern rtx assign_temp (tree, int, int, int);
 
+struct basic_block_def;
+typedef struct basic_block_def *basic_block;
+
 /* In emit-rtl.c */
 extern rtx emit_insn_before (rtx, rtx);
-extern rtx emit_insn_before_noloc (rtx, rtx);
+extern rtx emit_insn_before_noloc (rtx, rtx, basic_block);
 extern rtx emit_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_before (rtx, rtx);
 extern rtx emit_jump_insn_before_noloc (rtx, rtx);
@@ -1540,7 +1555,7 @@ extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (int, rtx);
 extern rtx emit_insn_after (rtx, rtx);
-extern rtx emit_insn_after_noloc (rtx, rtx);
+extern rtx emit_insn_after_noloc (rtx, rtx, basic_block);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_after (rtx, rtx);
 extern rtx emit_jump_insn_after_noloc (rtx, rtx);
@@ -1955,11 +1970,6 @@ extern rtx lookup_constant_def (tree);
 
 extern int reload_completed;
 
-/* Instance of df used by thread_prologue_and_epilogue and all of it's
-   target hooks.  */
-struct df;
-extern struct df * prologue_epilogue_df;
-
 /* Nonzero after thread_prologue_and_epilogue_insns has run.  */
 extern int epilogue_completed;
 
@@ -2055,8 +2065,8 @@ extern void set_first_insn (rtx);
 extern void set_last_insn (rtx);
 extern void link_cc0_insns (rtx);
 extern void add_insn (rtx);
-extern void add_insn_before (rtx, rtx);
-extern void add_insn_after (rtx, rtx);
+extern void add_insn_before (rtx, rtx, basic_block);
+extern void add_insn_after (rtx, rtx, basic_block);
 extern void remove_insn (rtx);
 extern rtx emit (rtx);
 extern void renumber_insns (void);
@@ -2088,12 +2098,11 @@ extern void print_rtl_slim_with_bb (FILE *, rtx, int);
 extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);
 
-struct df;
 /* In sched-rgn.c.  */
 extern void schedule_insns (void);
 
 /* In sched-ebb.c.  */
-extern struct df *schedule_ebbs (void);
+extern void schedule_ebbs (void);
 
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);

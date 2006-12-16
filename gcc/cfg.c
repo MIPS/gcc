@@ -167,7 +167,7 @@ compact_blocks (void)
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   
-  if (df_current_instance)
+  if (df)
     df_compact_blocks ();
   else 
     {
@@ -542,8 +542,8 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
-	  && df_current_instance)
-	df_dump_top (df_current_instance, bb, file);
+	  && df)
+	df_dump_top (bb, file);
    }
 
   if (footer)
@@ -554,8 +554,8 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
-	  && df_current_instance)
-	df_dump_bottom (df_current_instance, bb, file);
+	  && df)
+	df_dump_bottom (bb, file);
    }
 
   putc ('\n', file);

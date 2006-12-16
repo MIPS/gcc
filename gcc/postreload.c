@@ -523,7 +523,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	  if (! TEST_HARD_REG_BIT (equiv_regs[i], regno))
 	    continue;
 
-	  REGNO (testreg) = regno;
+	  SET_REGNO (testreg, regno);
 	  PUT_MODE (testreg, mode);
 
 	  /* We found a register equal to this operand.  Now look for all
@@ -743,8 +743,8 @@ reload_combine (void)
 	{
 	  HARD_REG_SET live;
 
-	  REG_SET_TO_HARD_REG_SET (live, DF_RA_LIVE_IN (ra_df, bb));
-	  compute_use_by_pseudos (&live, DF_RA_LIVE_IN (ra_df, bb));
+	  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (bb));
+	  compute_use_by_pseudos (&live, DF_LIVE_IN (bb));
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}

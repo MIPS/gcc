@@ -105,8 +105,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "df.h"
 
-static struct df *df;
-
 /* Number of attempts to combine instructions in this function.  */
 
 static int combine_attempts;
@@ -1254,7 +1252,7 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
       && REGNO_REG_SET_P
-         (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
+         (DF_UR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x))
       && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
     {
       if (set == 0 || GET_CODE (set) == CLOBBER)
@@ -1279,7 +1277,7 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
 
       if (insn
 	  && reg_referenced_p (x, PATTERN (insn))
-	  && !REGNO_REG_SET_P (DF_LR_IN (df, BLOCK_FOR_INSN (insn)),
+	  && !REGNO_REG_SET_P (DF_LR_IN (BLOCK_FOR_INSN (insn)),
 			       REGNO (x)))
 	{
 	  rtx link;
@@ -4166,7 +4164,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
     }
 
   /* If X and FROM are the same register but different modes, they
-     will not have been seen as equal above.  However, df-problems.c
+     will not have been seen as equal above.  However, the log links code
      will make a LOG_LINKS entry for that case.  If we do nothing, we
      will try to rerecognize our original insn and, when it succeeds,
      we will delete the feeding insn, which is incorrect.
@@ -8540,7 +8538,7 @@ reg_nonzero_bits_for_combine (rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && REGNO_REG_SET_P
-	      (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
+	      (DF_UR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *nonzero &= reg_stat[REGNO (x)].last_set_nonzero_bits;
@@ -8607,7 +8605,7 @@ reg_num_sign_bit_copies_for_combine (rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && REGNO_REG_SET_P
-	      (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
+	      (DF_UR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *result = reg_stat[REGNO (x)].last_set_sign_bit_copies;
@@ -11500,7 +11498,7 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	    || (! (regno >= FIRST_PSEUDO_REGISTER
 		   && REG_N_SETS (regno) == 1
 		   && (REGNO_REG_SET_P
-		       (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), regno)))
+		       (DF_UR_IN (ENTRY_BLOCK_PTR->next_bb), regno)))
 		&& reg_stat[j].last_set_label > tick))
 	  {
 	    if (replace)
@@ -11610,7 +11608,7 @@ get_last_value (rtx x)
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
 	      || ! (REGNO_REG_SET_P
-		    (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), regno)))))
+		    (DF_UR_IN (ENTRY_BLOCK_PTR->next_bb), regno)))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -11771,7 +11769,7 @@ reg_dead_at_p (rtx reg, rtx insn)
     }
 
   for (i = reg_dead_regno; i < reg_dead_endregno; i++)
-    if (REGNO_REG_SET_P (DF_LIVE_IN (df, block), i))
+    if (REGNO_REG_SET_P (DF_LIVE_IN (block), i))
       return 0;
 
   return 1;
@@ -12876,7 +12874,7 @@ create_log_links (void)
 	  /* Log links are created only once.  */
 	  gcc_assert (!LOG_LINKS (insn));
 
-          for (def = DF_INSN_DEFS (df, insn); def; def = def->next_ref)
+          for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
             {
               int regno = DF_REF_REGNO (def);
               rtx use_insn;
@@ -12919,7 +12917,7 @@ create_log_links (void)
               next_use[regno] = NULL_RTX;
             }
 
-          for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
+          for (use = DF_INSN_USES (insn); use; use = use->next_ref)
             {
               int regno = DF_REF_REGNO (use);
 
@@ -12961,11 +12959,9 @@ rest_of_handle_combine (void)
 {
   int rebuild_jump_labels_after_combine;
 
-  df = df_init (DF_RI_LIFE, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE + DF_DEFER_INSN_RESCAN);
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
 
   create_log_links ();
   rebuild_jump_labels_after_combine
@@ -12984,6 +12980,7 @@ rest_of_handle_combine (void)
       cleanup_cfg (CLEANUP_EXPENSIVE);
     }
   clear_log_links ();
+
   return 0;
 }
 
@@ -13001,7 +12998,6 @@ struct tree_opt_pass pass_combine =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_verify_scan |
   TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'c'                                   /* letter */

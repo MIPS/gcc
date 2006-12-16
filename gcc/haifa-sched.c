@@ -1870,6 +1870,7 @@ move_insn (rtx insn)
 	}
 
       set_block_for_insn (insn, bb);    
+      df_insn_change_bb (insn);
   
       /* Update BB_END, if needed.  */
       if (BB_END (bb) == last)

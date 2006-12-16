@@ -449,7 +449,6 @@ dump_mem_insn (FILE *file)
 static rtx * reg_next_use = NULL;
 static rtx * reg_next_inc_use = NULL;
 static rtx * reg_next_def = NULL;
-static struct df *df = NULL;
 
 
 /* Move dead note that match PATTERN to TO_INSN from FROM_INSN.  We do
@@ -569,6 +568,7 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
       reg_next_use [regno] = NULL;
       regno = REGNO (inc_insn.reg0);
       reg_next_use [regno] = mov_insn;
+      df_recompute_luids (bb);
       break;
 
     case FORM_POST_INC:
@@ -601,6 +601,7 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
       if ((reg_next_use [regno] == reg_next_inc_use[regno])
 	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
+      df_recompute_luids (bb);
       break;
 
     case FORM_last:
@@ -624,7 +625,6 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
       fprintf (dump_file, "inserting mov ");
       dump_insn_slim (dump_file, mov_insn);
     }
-  df_recompute_luids (df, bb);
 
   /* Record that this insn has an implicit side effect.  */
   REG_NOTES (mem_insn.insn) 
@@ -1056,7 +1056,7 @@ find_inc (bool first_try)
 
   /* Need to assure that none of the operands of the inc instruction are 
      assigned to by the mem insn.  */
-  for (def = DF_INSN_DEFS (df, mem_insn.insn); def; def = def->next_ref)
+  for (def = DF_INSN_DEFS (mem_insn.insn); def; def = def->next_ref)
     {
       unsigned int regno = DF_REF_REGNO (def);
       if ((regno == REGNO (inc_insn.reg0)) 
@@ -1097,7 +1097,7 @@ find_inc (bool first_try)
 				 reg_next_use);
       if (other_insn 
 	  && (other_insn != inc_insn.insn)
-	  && (DF_INSN_LUID (df, inc_insn.insn) > DF_INSN_LUID (df, other_insn)))
+	  && (DF_INSN_LUID (inc_insn.insn) > DF_INSN_LUID (other_insn)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, 
@@ -1124,7 +1124,7 @@ find_inc (bool first_try)
 	    {
 	      /* The mem looks like *r0 and the rhs of the add has two
 		 registers.  */
-	      int luid = DF_INSN_LUID (df, inc_insn.insn);
+	      int luid = DF_INSN_LUID (inc_insn.insn);
 	      if (inc_insn.form == FORM_POST_ADD)
 		{
 		  /* The trick is that we are not going to increment r0, 
@@ -1142,7 +1142,7 @@ find_inc (bool first_try)
 		     inc result is after the inc.  */
 		  other_insn 
 		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
-		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		  if (other_insn && luid > DF_INSN_LUID (other_insn))
 		    return false;
 
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
@@ -1151,7 +1151,7 @@ find_inc (bool first_try)
 
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	    }
 	}
@@ -1169,7 +1169,7 @@ find_inc (bool first_try)
 	 the add is of the form a + c where c does not match b and
 	 then we just abandon this.  */
       
-      int luid = DF_INSN_LUID (df, inc_insn.insn);
+      int luid = DF_INSN_LUID (inc_insn.insn);
       rtx other_insn;
       
       /* Make sure this reg appears only once in this insn.  */
@@ -1205,7 +1205,7 @@ find_inc (bool first_try)
 		 before the add insn.  */
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	      /* All ok for the next step.  */
 	    }
@@ -1233,7 +1233,7 @@ find_inc (bool first_try)
 	      
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg0), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	    }
 
@@ -1241,7 +1241,7 @@ find_inc (bool first_try)
 	     add insn since this will be the reg incremented.  */
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg_res), bb, reg_next_use);
-	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	  if (other_insn && luid > DF_INSN_LUID (other_insn))
 	    return false;
 	}
       else /* FORM_POST_INC.  There is less to check here because we
@@ -1269,7 +1269,7 @@ find_inc (bool first_try)
 	   the inc.  */
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	  if (other_insn && luid > DF_INSN_LUID (other_insn))
 	    return false;
 	}
     }
@@ -1380,6 +1380,8 @@ merge_in_block (int max_reg, basic_block bb)
   if (dump_file)
     fprintf (dump_file, "\n\nstarting bb %d\n", bb->index);
 
+  df_recompute_luids (bb);
+
   FOR_BB_INSNS_REVERSE_SAFE (bb, insn, curr)
     {
       unsigned int uid = INSN_UID (insn);
@@ -1418,17 +1420,17 @@ merge_in_block (int max_reg, basic_block bb)
 			 inc_insn to the mem_insn.insn is both def and use
 			 clear of c because the inc insn is going to move
 			 into the mem_insn.insn.  */
-		      int luid = DF_INSN_LUID (df, mem_insn.insn);
+		      int luid = DF_INSN_LUID (mem_insn.insn);
 		      rtx other_insn 
 			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
 		      
-		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		      if (other_insn && luid > DF_INSN_LUID (other_insn))
 			ok = false;
 		      
 		      other_insn 
 			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 		      
-		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		      if (other_insn && luid > DF_INSN_LUID (other_insn))
 			ok = false;
 		    }
 		  
@@ -1458,17 +1460,17 @@ merge_in_block (int max_reg, basic_block bb)
       
       /* If the inc insn was merged with a mem, the inc insn is gone
 	 and there is noting to update.  */
-      if (DF_INSN_UID_GET(df, uid))
+      if (DF_INSN_UID_GET(uid))
 	{
 	  /* Need to update next use.  */
-	  for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+	  for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
 	    {
 	      reg_next_use[DF_REF_REGNO (def)] = NULL;
 	      reg_next_inc_use[DF_REF_REGNO (def)] = NULL;
 	      reg_next_def[DF_REF_REGNO (def)] = insn;
 	    }
 	  
-	  for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
+	  for (use = DF_INSN_UID_USES (uid); use; use = use->next_ref)
 	    {
 	      reg_next_use[DF_REF_REGNO (use)] = insn;
 	      if (insn_is_add_or_inc)
@@ -1509,10 +1511,8 @@ rest_of_handle_auto_inc_dec (void)
 
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
-  df = df_init (0, 0);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_ri_add_problem (0);
+  df_analyze ();
 
   reg_next_use = XCNEWVEC (rtx, max_reg);
   reg_next_inc_use = XCNEWVEC (rtx, max_reg);

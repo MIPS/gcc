@@ -220,8 +220,6 @@ contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
   return 1;
 }
 
-static struct df *df;
-
  /* INSN is a JUMP_INSN, COND_SET is the set of registers that are
     conditionally set before INSN.  Store the set of registers that
     must be considered as used by this jump in USED and that of
@@ -242,9 +240,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_and (set, DF_LIVE_IN (df, e->dest), cond_set);
+      bitmap_and (set, DF_LIVE_IN (e->dest), cond_set);
     else
-      bitmap_ior_into (used, DF_LIVE_IN (df, e->dest));
+      bitmap_ior_into (used, DF_LIVE_IN (e->dest));
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -530,7 +528,7 @@ schedule_ebb (rtx head, rtx tail)
 
 /* The one entry point in this file.  */
 
-struct df *
+void
 schedule_ebbs (void)
 {
   basic_block bb;
@@ -546,17 +544,15 @@ schedule_ebbs (void)
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return NULL;
+    return;
 
   /* We need current_sched_info in init_dependency_caches, which is
      invoked via sched_init.  */
   current_sched_info = &ebb_sched_info;
 
-  df = df_init (DF_RI_LIFE, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
   sched_init ();
 
   compute_bb_for_insn ();
@@ -615,7 +611,6 @@ schedule_ebbs (void)
     reposition_prologue_and_epilogue_notes ();
 
   sched_finish ();
-  return df;
 }
 
 /* INSN has been added to/removed from current ebb.  */

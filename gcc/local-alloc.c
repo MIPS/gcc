@@ -1274,7 +1274,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_TOP (ra_df, BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_TOP (BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -2492,17 +2492,20 @@ rest_of_handle_local_alloc (void)
   int rebuild_notes;
 
   /* Create a new version of df that has the special version of UR.  */
-  ra_df = df_init (DF_RI_LIFE + DF_RI_SETJMP, 0);
-  df_lr_add_problem (ra_df);
-  df_urec_add_problem (ra_df);
-  df_ri_add_problem (ra_df);
-  df_analyze (ra_df);
+  df_urec_add_problem ();
+  df_ri_add_problem (DF_RI_LIFE + DF_RI_SETJMP);
+  /* There is just too much going on in the register allocators to
+     keep things up to date.  At the end we have to rescan anyway
+     because things change when the reload_completed flag is set.  
+     So we just turn off scanning and we will rescan by hand.  */
+  df_set_flags (DF_NO_INSN_RESCAN);
+  df_analyze ();
 
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed
      to generate these warnings.  */
   if (extra_warnings)
-    generate_setjmp_warnings (ra_df);
+    generate_setjmp_warnings ();
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and

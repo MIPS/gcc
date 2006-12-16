@@ -222,10 +222,6 @@ struct dump_file_info
    the instance before it is destroyed.  */
 #define TODO_df_finish                  (1 << 15)
 
-/* Verify that all the incremental scanning of the df infomation is
-   correct.  */
-#define TODO_df_verify_scan             (1 << 16)
-
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\
@@ -364,6 +360,7 @@ extern struct tree_opt_pass pass_rtl_loop_done;
 
 extern struct tree_opt_pass pass_web;
 extern struct tree_opt_pass pass_cse2;
+extern struct tree_opt_pass pass_df_initialize;
 extern struct tree_opt_pass pass_regclass_init;
 extern struct tree_opt_pass pass_subregs_of_mode_init;
 extern struct tree_opt_pass pass_inc_dec;
@@ -401,6 +398,7 @@ extern struct tree_opt_pass pass_leaf_regs;
 extern struct tree_opt_pass pass_split_before_sched2;
 extern struct tree_opt_pass pass_sched2;
 extern struct tree_opt_pass pass_stack_regs;
+extern struct tree_opt_pass pass_df_finish;
 extern struct tree_opt_pass pass_compute_alignments;
 extern struct tree_opt_pass pass_duplicate_computed_gotos;
 extern struct tree_opt_pass pass_variable_tracking;

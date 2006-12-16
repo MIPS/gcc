@@ -218,7 +218,7 @@ static struct machine_function * ia64_init_machine_status (void);
 static void emit_insn_group_barriers (FILE *);
 static void emit_all_insn_group_barriers (FILE *);
 static void final_emit_insn_group_barriers (FILE *);
-static void emit_predicate_relation_info (struct df *);
+static void emit_predicate_relation_info (void);
 static void ia64_reorg (void);
 static bool ia64_in_small_data_p (tree);
 static void process_epilogue (FILE *, rtx, bool, bool);
@@ -8489,7 +8489,7 @@ ia64_produce_address_p (rtx insn)
    straight-line code.  */
 
 static void
-emit_predicate_relation_info (struct df *df)
+emit_predicate_relation_info (void)
 {
   basic_block bb;
 
@@ -8508,7 +8508,7 @@ emit_predicate_relation_info (struct df *df)
       /* Skip p0, which may be thought to be live due to (reg:DI p0)
 	 grabbing the entire block of predicate registers.  */
       for (r = PR_REG (2); r < PR_REG (64); r += 2)
-	if (REGNO_REG_SET_P (DF_LIVE_IN (df, bb), r))
+	if (REGNO_REG_SET_P (DF_LIVE_IN (bb), r))
 	  {
 	    rtx p = gen_rtx_REG (BImode, r);
 	    rtx n = emit_insn_after (gen_pred_rel_mutex (p), head);
@@ -8552,8 +8552,6 @@ emit_predicate_relation_info (struct df *df)
 static void
 ia64_reorg (void)
 {
-  struct df *df;
-
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn ();
@@ -8636,10 +8634,9 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      df = schedule_ebbs ();
+      schedule_ebbs ();
       /* We cannot reuse this one because it has been corrupted by the
 	 evil glat.  */
-      df_finish (df);
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
@@ -8656,9 +8653,7 @@ ia64_reorg (void)
   else
     emit_all_insn_group_barriers (dump_file);
 
-  df = df_init (0, 0);
-  df_live_add_problem (df);
-  df_analyze (df);
+  df_analyze ();
  
   /* A call must not be the last instruction in a function, so that the
      return address is still within the function, so that unwinding works
@@ -8688,7 +8683,7 @@ ia64_reorg (void)
 	}
     }
 
-  emit_predicate_relation_info (df);
+  emit_predicate_relation_info ();
 
   if (ia64_flag_var_tracking)
     {
@@ -8696,7 +8691,7 @@ ia64_reorg (void)
       variable_tracking_main ();
       timevar_pop (TV_VAR_TRACKING);
     }
-  df_finish (df);
+  df_finish_pass ();
 }
 
 /* Return true if REGNO is used by the epilogue.  */

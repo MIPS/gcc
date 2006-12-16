@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "addresses.h"
+#include "df.h"
 
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
@@ -200,7 +201,7 @@ init_caller_save (void)
 
 	  /* Update the register number and modes of the register
 	     and memory operand.  */
-	  REGNO (test_reg) = i;
+	  SET_REGNO (test_reg, i);
 	  PUT_MODE (test_reg, mode);
 	  PUT_MODE (test_mem, mode);
 

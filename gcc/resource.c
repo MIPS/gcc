@@ -884,7 +884,7 @@ return_insn_p (rtx insn)
    init_resource_info () was invoked before we are called.  */
 
 void
-mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *res)
+mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 {
   int b = -1;
   unsigned int i;
@@ -966,7 +966,7 @@ mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *r
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = DF_LIVE_IN (df, BASIC_BLOCK (b));
+      regset regs_live = DF_LIVE_IN (BASIC_BLOCK (b));
       unsigned int j;
       unsigned int regno;
       rtx start_insn, stop_insn;
@@ -1129,7 +1129,7 @@ mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *r
       struct resources new_resources;
       rtx stop_insn = next_active_insn (jump_insn);
 
-      mark_target_live_regs (df, insns, next_active_insn (jump_target),
+      mark_target_live_regs (insns, next_active_insn (jump_target),
 			     &new_resources);
       CLEAR_RESOURCE (&set);
       CLEAR_RESOURCE (&needed);

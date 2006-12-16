@@ -70,7 +70,7 @@ struct match {
 };
 
 static rtx discover_flags_reg (void);
-static void mark_flags_life_zones (struct df *, rtx);
+static void mark_flags_life_zones (rtx);
 static void flags_set_1 (rtx, rtx, void *);
 
 static int try_auto_increment (rtx, rtx, rtx, rtx, HOST_WIDE_INT, int);
@@ -283,7 +283,7 @@ static rtx flags_set_1_rtx;
 static int flags_set_1_set;
 
 static void
-mark_flags_life_zones (struct df *df, rtx flags)
+mark_flags_life_zones (rtx flags)
 {
   int flags_regno;
   int flags_nregs;
@@ -333,7 +333,7 @@ mark_flags_life_zones (struct df *df, rtx flags)
       {
 	int i;
 	for (i = 0; i < flags_nregs; ++i)
-	  live |= REGNO_REG_SET_P (DF_LIVE_IN (df, block), flags_regno + i);
+	  live |= REGNO_REG_SET_P (DF_LIVE_IN (block), flags_regno + i);
       }
 #endif
 
@@ -686,8 +686,10 @@ optimize_reg_copy_2 (rtx insn, rtx dest, rtx src)
 	    if (INSN_P (q))
 	      {
 		if (reg_mentioned_p (dest, PATTERN (q)))
-		  PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
-
+		  {
+		    PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
+		    df_insn_rescan (q);
+		  }
 
 	      if (CALL_P (q))
 		{
@@ -1125,10 +1127,9 @@ regmove_optimize (rtx f, int nregs)
   int i;
   rtx copy_src, copy_dst;
   basic_block bb;
-  struct df * df = df_init (DF_RI_LIFE, 0);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
 
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily
      confused by non-call exceptions ending blocks.  */
@@ -1137,7 +1138,7 @@ regmove_optimize (rtx f, int nregs)
 
   /* Find out where a potential flags register is live, and so that we
      can suppress some optimizations in those zones.  */
-  mark_flags_life_zones (df, discover_flags_reg ());
+  mark_flags_life_zones (discover_flags_reg ());
 
   regno_src_regno = XNEWVEC (int, nregs);
   for (i = nregs; --i >= 0; ) regno_src_regno[i] = -1;
@@ -1565,7 +1566,6 @@ regmove_optimize (rtx f, int nregs)
 	     alternative approach of copying the source to the destination.  */
 	  if (!success && copy_src != NULL_RTX)
 	    copy_src_to_dest (insn, copy_src, copy_dst, old_max_uid);
-
 	}
     }
 
@@ -2597,10 +2597,8 @@ rest_of_handle_stack_adjustments (void)
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
     {
-      struct df * df = df_init (0, 0);
-      df_live_add_problem (df);
-      df_ri_add_problem (df);
-      df_analyze (df);
+      df_ri_add_problem (0);
+      df_analyze ();
       combine_stack_adjustments ();
     }
   return 0;

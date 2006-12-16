@@ -101,13 +101,13 @@ static int noce_process_if_block (ce_if_block_t *);
 static int process_if_block (ce_if_block_t *);
 static void merge_if_block (ce_if_block_t *);
 static int find_cond_trap (basic_block, edge, edge);
-static basic_block find_if_header (struct df *, basic_block, int);
+static basic_block find_if_header (basic_block, int);
 static int block_jumps_and_fallthru_p (basic_block, basic_block);
 static int find_if_block (ce_if_block_t *);
-static int find_if_case_1 (struct df *, basic_block, edge, edge);
-static int find_if_case_2 (struct df *, basic_block, edge, edge);
+static int find_if_case_1 (basic_block, edge, edge);
+static int find_if_case_2 (basic_block, edge, edge);
 static int find_memory (rtx *, void *);
-static int dead_or_predicable (struct df *, basic_block, basic_block, basic_block,
+static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
@@ -2789,7 +2789,7 @@ merge_if_block (struct ce_if_block * ce_info)
    first block if some transformation was done.  Return NULL otherwise.  */
 
 static basic_block
-find_if_header (struct df *df, basic_block test_bb, int pass)
+find_if_header (basic_block test_bb, int pass)
 {
   ce_if_block_t ce_info;
   edge then_edge;
@@ -2850,9 +2850,9 @@ find_if_header (struct df *df, basic_block test_bb, int pass)
   if (dom_computed[CDI_POST_DOMINATORS] >= DOM_NO_FAST_QUERY
       && (! HAVE_conditional_execution || reload_completed))
     {
-      if (find_if_case_1 (df, test_bb, then_edge, else_edge))
+      if (find_if_case_1 (test_bb, then_edge, else_edge))
 	goto success;
-      if (find_if_case_2 (df, test_bb, then_edge, else_edge))
+      if (find_if_case_2 (test_bb, then_edge, else_edge))
 	goto success;
     }
 
@@ -3353,7 +3353,7 @@ block_has_only_trap (basic_block bb)
 /* Tests for case 1 above.  */
 
 static int
-find_if_case_1 (struct df *df, basic_block test_bb, edge then_edge, edge else_edge)
+find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
@@ -3406,7 +3406,7 @@ find_if_case_1 (struct df *df, basic_block test_bb, edge then_edge, edge else_ed
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (df, test_bb, then_bb, else_bb,
+  if (! dead_or_predicable (test_bb, then_bb, else_bb,
 			    single_succ (then_bb), 1))
     return FALSE;
 
@@ -3454,7 +3454,7 @@ find_if_case_1 (struct df *df, basic_block test_bb, edge then_edge, edge else_ed
 /* Test for case 2 above.  */
 
 static int
-find_if_case_2 (struct df *df, basic_block test_bb, edge then_edge, edge else_edge)
+find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
@@ -3520,7 +3520,7 @@ find_if_case_2 (struct df *df, basic_block test_bb, edge then_edge, edge else_ed
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (df, test_bb, else_bb, then_bb, else_succ->dest, 0))
+  if (! dead_or_predicable (test_bb, else_bb, then_bb, else_succ->dest, 0))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -3557,7 +3557,7 @@ find_memory (rtx *px, void *data ATTRIBUTE_UNUSED)
    REVERSEP is true if the sense of the branch should be reversed.  */
 
 static int
-dead_or_predicable (struct df *df, basic_block test_bb, basic_block merge_bb,
+dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		    basic_block other_bb, basic_block new_dest, int reversep)
 {
   rtx head, end, jump, earliest = NULL_RTX, old_dest, new_label = NULL_RTX;
@@ -3705,7 +3705,7 @@ dead_or_predicable (struct df *df, basic_block test_bb, basic_block merge_bb,
 	    {
 	      unsigned int uid = INSN_UID (insn);
 	      struct df_ref *def;
-	      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+	      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
 		bitmap_set_bit (merge_set, DF_REF_REGNO (def));
 	    }
 	}
@@ -3726,15 +3726,15 @@ dead_or_predicable (struct df *df, basic_block test_bb, basic_block merge_bb,
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
       
-      bitmap_copy (test_live, DF_LIVE_IN (df, other_bb));
-      bitmap_copy (test_set, DF_LIVE_IN (df, other_bb));
+      bitmap_copy (test_live, DF_LIVE_IN (other_bb));
+      bitmap_copy (test_set, DF_LIVE_IN (other_bb));
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
 	      struct df_ref *def;
-	      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+	      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
 		bitmap_set_bit (test_set, DF_REF_REGNO (def));
 	    }
 	  prev = PREV_INSN (insn);
@@ -3745,12 +3745,12 @@ dead_or_predicable (struct df *df, basic_block test_bb, basic_block merge_bb,
       /* We can perform the transformation if
 	   MERGE_SET & (TEST_SET | TEST_LIVE)
 	 and
-	   TEST_SET & DF_LIVE_IN (df, merge_bb)
+	   TEST_SET & DF_LIVE_IN (merge_bb)
 	 are empty.  */
 
       if (bitmap_intersect_p (test_set, merge_set)
 	  || bitmap_intersect_p (test_live, merge_set)
-	  || bitmap_intersect_p (test_set, DF_LIVE_IN (df, merge_bb)))
+	  || bitmap_intersect_p (test_set, DF_LIVE_IN (merge_bb)))
 	fail = 1;
 
       BITMAP_FREE (merge_set);
@@ -3852,7 +3852,6 @@ if_convert (void)
 {
   basic_block bb;
   int pass;
-  struct df * df;
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -3875,9 +3874,7 @@ if_convert (void)
   if (HAVE_conditional_execution)
     calculate_dominance_info (CDI_POST_DOMINATORS);
 
-  df = df_init (0, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
+  df_set_flags (DF_LR_RUN_DCE);
 
   /* Go through each of the basic blocks looking for things to convert.  If we
      have conditional execution, we make multiple passes to allow us to handle
@@ -3885,9 +3882,9 @@ if_convert (void)
   pass = 0;
   do
     {
-      df_analyze (df);
+      df_analyze ();
       /* Only need to do dce on the first pass.  */
-      df_clear_flags (df, DF_LR_RUN_DCE);
+      df_clear_flags (DF_LR_RUN_DCE);
       cond_exec_changed_p = FALSE;
       pass++;
 
@@ -3900,7 +3897,7 @@ if_convert (void)
 	{
           basic_block new_bb;
           while (!df_get_bb_dirty (bb) 
-                 && (new_bb = find_if_header (df, bb, pass)) != NULL)
+                 && (new_bb = find_if_header (bb, pass)) != NULL)
             bb = new_bb;
 	}
 
@@ -3987,7 +3984,6 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish |
-  TODO_df_verify_scan |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4025,7 +4021,6 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
-  TODO_df_verify_scan |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4061,7 +4056,6 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
-  TODO_df_verify_scan |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */
 };

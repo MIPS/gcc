@@ -1440,11 +1440,11 @@ commit_one_edge_insertion (edge e, int watch_calls)
 
   if (before)
     {
-      emit_insn_before_noloc (insns, before);
+      emit_insn_before_noloc (insns, before, bb);
       last = prev_nonnote_insn (before);
     }
   else
-    last = emit_insn_after_noloc (insns, after);
+    last = emit_insn_after_noloc (insns, after, bb);
 
   if (returnjump_p (last))
     {
@@ -1574,9 +1574,9 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
   
-  if (df_current_instance)
+  if (df)
     {
-      df_dump_top (df_current_instance, bb, outf);
+      df_dump_top (bb, outf);
       putc ('\n', outf);
     }
 
@@ -1584,9 +1584,9 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
        insn = NEXT_INSN (insn))
     print_rtl_single (outf, insn);
 
-  if (df_current_instance)
+  if (df)
     {
-      df_dump_bottom (df_current_instance, bb, outf);
+      df_dump_bottom (bb, outf);
       putc ('\n', outf);
     }
 
@@ -1599,8 +1599,6 @@ void
 print_rtl_with_bb (FILE *outf, rtx rtx_first)
 {
   rtx tmp_rtx;
-  struct df *df = df_current_instance;
-
   if (rtx_first == 0)
     fprintf (outf, "(nil)\n");
   else
@@ -1614,7 +1612,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
       basic_block bb;
 
       if (df)
-	df_dump_start (df, outf);
+	df_dump_start (outf);
 
       FOR_EACH_BB_REVERSE (bb)
 	{
@@ -1651,7 +1649,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 
 	      if (df)
 		{
-		  df_dump_top (df, bb, outf);
+		  df_dump_top (bb, outf);
 		  putc ('\n', outf);
 		}
 	    }
@@ -1677,7 +1675,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 
 	      if (df)
 		{
-		  df_dump_bottom (df, bb, outf);
+		  df_dump_bottom (bb, outf);
 		  putc ('\n', outf);
 		}
 	      putc ('\n', outf);
@@ -2606,7 +2604,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     {
       rtx first = BB_END (a), last;
 
-      last = emit_insn_after_noloc (b->il.rtl->header, BB_END (a));
+      last = emit_insn_after_noloc (b->il.rtl->header, BB_END (a), a);
       delete_insn_chain (NEXT_INSN (first), last);
       b->il.rtl->header = NULL;
     }
@@ -2616,7 +2614,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     {
       rtx first = unlink_insn_chain (BB_HEAD (b), BB_END (b));
 
-      emit_insn_after_noloc (first, BB_END (a));
+      emit_insn_after_noloc (first, BB_END (a), a);
       /* Skip possible DELETED_LABEL insn.  */
       if (!NOTE_INSN_BASIC_BLOCK_P (first))
 	first = NEXT_INSN (first);
@@ -2981,7 +2979,7 @@ insert_insn_end_bb_new (rtx pat, basic_block bb)
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new
          insn?  */
-      new_insn = emit_insn_before_noloc (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
@@ -3012,10 +3010,10 @@ insert_insn_end_bb_new (rtx pat, basic_block bb)
              || NOTE_INSN_BASIC_BLOCK_P (insn))
         insn = NEXT_INSN (insn);
 
-      new_insn = emit_insn_before_noloc (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn, bb);
     }
   else
-    new_insn = emit_insn_after_noloc (pat, insn);
+    new_insn = emit_insn_after_noloc (pat, insn, bb);
 
   return new_insn;
 }

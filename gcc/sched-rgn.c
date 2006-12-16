@@ -1491,7 +1491,6 @@ debug_candidates (int trg)
 
 /* Functions for speculative scheduling.  */
 
-static struct df *df;
 static bitmap_head not_in_df;
 
 /* Return 0 if x is a set of a register alive in the beginning of one
@@ -1552,7 +1551,7 @@ check_live_1 (int src, rtx x)
 		  gcc_assert (!t || (CONTAINING_RGN (b->index)
 				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
 
-		  if (t || REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno + j))
+		  if (t || REGNO_REG_SET_P (DF_LIVE_IN (b), regno + j))
 		    return 0;
 		}
 	    }
@@ -1568,7 +1567,7 @@ check_live_1 (int src, rtx x)
 	      gcc_assert (!t || (CONTAINING_RGN (b->index)
 				 != CONTAINING_RGN (BB_TO_BLOCK (src))));
 
-	      if (t || REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno))
+	      if (t || REGNO_REG_SET_P (DF_LIVE_IN (b), regno))
 		return 0;
 	    }
 	}
@@ -1625,7 +1624,7 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_IN (b), regno + j);
 		}
 	    }
 	}
@@ -1635,7 +1634,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno);
+	      SET_REGNO_REG_SET (DF_LIVE_IN (b), regno);
 	    }
 	}
     }
@@ -2905,11 +2904,9 @@ schedule_insns (void)
      invoked via sched_init.  */
   current_sched_info = &region_sched_info;
 
-  df = df_init (DF_RI_LIFE, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
-  df_ri_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
 
   sched_init ();
 

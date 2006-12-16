@@ -341,9 +341,6 @@ struct function GTY(())
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
 
-  /* The rtl dataflow information.  */
-  struct df* GTY ((skip (""))) df;
-
   /* Assembly labels for the hot and cold text sections, to
      be used by debugger functions for determining the size of text
      sections.  */

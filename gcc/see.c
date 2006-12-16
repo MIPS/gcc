@@ -611,9 +611,6 @@ struct see_mentioned_reg_data
   bool mentioned;
 };
 
-/* A data flow object that will be created once and used throughout the
-   optimization.  */
-static struct df *df = NULL;
 /* An array of web_entries.  The i'th definition in the df object is associated
    with def_entry[i]  */
 static struct web_entry *def_entry = NULL;
@@ -1330,20 +1327,25 @@ see_free_data_structures (void)
 static void
 see_initialize_data_structures (void)
 {
+  basic_block bb;
+
   /* Build the df object. */
-  df = df_init (DF_DU_CHAIN + DF_UD_CHAIN, DF_EQ_NOTES);
-  df_chain_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_EQ_NOTES);
+  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
+  FOR_EACH_BB (bb)
+    df_recompute_luids (bb);
+  df_analyze ();
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 
   if (dump_file)
-    df_dump (df, dump_file);
+    df_dump (dump_file);
 
   /* Record the last basic block at the beginning of the optimization.  */
   last_bb = last_basic_block;
   /* Record the number of uses at the beginning of the optimization.  */
-  uses_num = DF_USES_SIZE (df);
+  uses_num = DF_USES_TABLE_SIZE ();
   /* Record the number of definitions at the beginning of the optimization.  */
-  defs_num = DF_DEFS_SIZE (df);
+  defs_num = DF_DEFS_TABLE_SIZE ();
 
   /*  Allocate web entries array for the union-find data structure.  */
   def_entry = xcalloc (defs_num, sizeof (struct web_entry));
@@ -1579,7 +1581,7 @@ see_emit_use_extension (void **slot, void *b)
       print_rtl_single (dump_file, use_se);
     }
 
-  add_insn_before (use_se, curr_ref_s->insn);
+  add_insn_before (use_se, curr_ref_s->insn, NULL);
 
   return 1;
 }
@@ -1800,10 +1802,6 @@ see_commit_changes (void)
      the first place.  */
   htab_traverse (see_pre_extension_hash, see_pre_delete_extension, NULL);
 
-  /* At this point, we must free the DF object, since the number of basic blocks
-     may change.  */
-  df_finish (df);
-
   /* Insert extensions on edges, according to the LCM result.  */
   did_insert = see_pre_insert_extensions (index_map);
 
@@ -1873,7 +1871,7 @@ see_analyze_merged_def_local_prop (void **slot, void *b)
   /* Reset the killed bit.  */
   RESET_BIT (ae_kill[bb_num], indx);
 
-  if (curr_prop->first_se_after_last_def == DF_INSN_LUID (df, ref))
+  if (curr_prop->first_se_after_last_def == DF_INSN_LUID (ref))
     {
       /* Set the available bit.  */
       SET_BIT (comp[bb_num], indx);
@@ -1983,7 +1981,7 @@ see_analyze_use_local_prop (void **slot, void *b)
 
   indx = extension_expr->bitmap_index;
 
-  if (curr_prop->first_se_before_any_def == DF_INSN_LUID (df, ref))
+  if (curr_prop->first_se_before_any_def == DF_INSN_LUID (ref))
     {
       /* Set the anticipatable bit.  */
       SET_BIT (antloc[bb_num], indx);
@@ -2023,7 +2021,7 @@ see_analyze_use_local_prop (void **slot, void *b)
       /* Note: there is no need to reset the killed bit since it must be zero at
 	 this point.  */
     }
-  else if (curr_prop->first_se_after_last_def == DF_INSN_LUID (df, ref))
+  else if (curr_prop->first_se_after_last_def == DF_INSN_LUID (ref))
     {
       /* Set the available bit.  */
       SET_BIT (comp[bb_num], indx);
@@ -2161,7 +2159,7 @@ see_set_prop_merged_def (void **slot, void *b)
   struct see_register_properties *curr_prop = NULL;
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -2232,7 +2230,7 @@ see_set_prop_unmerged_def (void **slot, void *b)
   struct see_register_properties *curr_prop = NULL;
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -2306,7 +2304,7 @@ see_set_prop_unmerged_use (void **slot, void *b)
   struct see_register_properties **slot_prop;
   struct see_register_properties temp_prop;
   bool locally_redundant = false;
-  int ref_luid = DF_INSN_LUID (df, insn);
+  int ref_luid = DF_INSN_LUID (insn);
 
   curr_bb_hash = see_bb_hash_ar[BLOCK_NUM (curr_ref_s->insn)];
   if (!curr_bb_hash)
@@ -3054,7 +3052,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
        in it.  */
     {
       stn = splay_tree_lookup (see_bb_splay_ar[curr_bb_num],
-			       DF_INSN_LUID (df, ref_insn));
+			       DF_INSN_LUID (ref_insn));
       if (stn)
 	switch (type)
 	  {
@@ -3104,7 +3102,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
   if (!stn)
     {
       ref_s = xmalloc (sizeof (struct see_ref_s));
-      ref_s->luid = DF_INSN_LUID (df, ref_insn);
+      ref_s->luid = DF_INSN_LUID (ref_insn);
       ref_s->insn = ref_insn;
       ref_s->merged_insn = NULL;
 
@@ -3157,7 +3155,7 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
   /* If this is a new reference, insert it into the splay_tree.  */
   if (!stn)
     splay_tree_insert (see_bb_splay_ar[curr_bb_num],
-		       DF_INSN_LUID (df, ref_insn), (splay_tree_value) ref_s);
+		       DF_INSN_LUID (ref_insn), (splay_tree_value) ref_s);
   return true;
 }
 
@@ -3186,8 +3184,8 @@ see_handle_relevant_defs (void)
 
   for (i = 0; i < defs_num; i++)
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (df, i));
+      insn = DF_REF_INSN (DF_DEFS_GET (i));
+      reg = DF_REF_REAL_REG (DF_DEFS_GET (i));
 
       if (!insn)
 	continue;
@@ -3271,8 +3269,8 @@ see_handle_relevant_uses (void)
 
   for (i = 0; i < uses_num; i++)
     {
-      insn = DF_REF_INSN (DF_USES_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (df, i));
+      insn = DF_REF_INSN (DF_USES_GET (i));
+      reg = DF_REF_REAL_REG (DF_USES_GET (i));
 
       if (!insn)
 	continue;
@@ -3333,13 +3331,13 @@ see_update_uses_relevancy (void)
   enum entry_type et;
   unsigned int i;
 
-  if (!df || !use_entry)
+  if (!use_entry)
     return;
 
   for (i = 0; i < uses_num; i++)
     {
-      insn = DF_REF_INSN (DF_USES_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (df, i));
+      insn = DF_REF_INSN (DF_USES_GET (i));
+      reg = DF_REF_REAL_REG (DF_USES_GET (i));
 
       et = RELEVANT_USE;
 
@@ -3556,13 +3554,13 @@ see_update_defs_relevancy (void)
   enum machine_mode source_mode;
   enum machine_mode source_mode_unsigned;
 
-  if (!df || !def_entry)
+  if (!def_entry)
     return;
 
   for (i = 0; i < defs_num; i++)
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (df, i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (df, i));
+      insn = DF_REF_INSN (DF_DEFS_GET (i));
+      reg = DF_REF_REAL_REG (DF_DEFS_GET (i));
 
       et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
 
@@ -3661,7 +3659,7 @@ see_propagate_extensions_to_uses (void)
      and there is at least one definition that was marked as SIGN_EXTENDED_DEF
      or ZERO_EXTENDED_DEF.  */
   for (i = 0; i < uses_num; i++)
-    union_defs (df, DF_USES_GET (df, i), def_entry, use_entry,
+    union_defs (DF_USES_GET (i), def_entry, use_entry,
 		see_update_leader_extra_info);
 
   /* Generate use extensions for references and insert these
@@ -3771,6 +3769,7 @@ struct tree_opt_pass pass_see =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,			/* todo_flags_finish */
   'u'					/* letter */
 };

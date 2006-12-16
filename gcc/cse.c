@@ -44,6 +44,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "rtlhooks-def.h"
 #include "tree-pass.h"
+#include "df.h"
 #include "dbgcnt.h"
 
 /* The basic idea of common subexpression elimination is to go
@@ -5983,6 +5984,9 @@ cse_main (rtx f, int nregs)
   rtx insn = f;
   int i;
 
+  if (df)
+    df_set_flags (DF_NO_INSN_RESCAN);
+
   init_cse_reg_info (nregs);
 
   val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
@@ -6079,6 +6083,11 @@ cse_main (rtx f, int nregs)
   free (val.path);
   rtl_hooks = general_rtl_hooks;
 
+  if (df)
+    {
+      df_clear_flags (DF_NO_INSN_RESCAN);
+      df_insn_rescan_all ();
+    }
   return cse_jumps_altered || recorded_label_ref;
 }
 

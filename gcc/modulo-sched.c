@@ -498,7 +498,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  rtx reg_move = gen_move_insn (new_reg, prev_reg);
 	  sbitmap_iterator sbi;
 
-	  add_insn_before (reg_move, last_reg_move);
+	  add_insn_before (reg_move, last_reg_move, NULL);
 	  last_reg_move = reg_move;
 
 	  if (!SCHED_FIRST_REG_MOVE (u))
@@ -868,7 +868,6 @@ sms_schedule (void)
   int maxii;
   unsigned i,num_loops;
   partial_schedule_ptr ps;
-  struct df *df;
   basic_block bb = NULL;
   /* vars to the versioning only if needed*/
   struct loop * nloop;
@@ -897,13 +896,12 @@ sms_schedule (void)
   current_sched_info = &sms_sched_info;
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init (DF_DU_CHAIN + DF_UD_CHAIN, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_rd_add_problem (df);
-  df_ru_add_problem (df);
-  df_ri_add_problem (df);
-  df_chain_add_problem (df);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_rd_add_problem ();
+  df_ru_add_problem ();
+  df_ri_add_problem (0);
+  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
+  df_analyze ();
   sched_init ();
 
   /* Allocate memory to hold the DDG array one entry for each loop.
@@ -997,7 +995,7 @@ sms_schedule (void)
 	  continue;
 	}
 
-      if (! (g = create_ddg (bb, df, 0)))
+      if (! (g = create_ddg (bb, 0)))
         {
           if (dump_file)
 	    fprintf (dump_file, "SMS doloop\n");

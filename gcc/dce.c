@@ -44,7 +44,7 @@ DEF_VEC_ALLOC_I(int,heap);
    ------------------------------------------------------------------------- */
 
 /* The data-flow information needed by this pass.  */
-static struct df *dce_df;
+static bool df_in_progress = false;
 
 /* True if we deleted at least one instruction.  */
 static bool something_changed;
@@ -69,6 +69,12 @@ deletable_insn_p (rtx insn)
     case USE:
     case PREFETCH:
     case TRAP_IF:
+      /* The UNSPEC case was added here because the ia-64 claims that
+	 USEs do not work after reload and generates UNSPECS rather
+	 than USEs.  Since dce/dse is run after reload we need to
+	 avoid deleting these even if they are dead.  If it turns out
+	 that USEs really do work after reload, the ia-64 should be
+	 changed, and the UNSPEC case can be removed.  */
     case UNSPEC:
       return false;
 
@@ -164,7 +170,7 @@ mark_nonreg_stores (rtx body, rtx insn, bool fast)
    instructions are not marked.  */
 
 static void
-prescan_insns_for_dce (bool fast)
+prescan_insns_for_dce (void)
 {
   basic_block bb;
   rtx insn;
@@ -177,9 +183,9 @@ prescan_insns_for_dce (bool fast)
     if (INSN_P (insn))
       {
 	if (deletable_insn_p (insn))
-	  mark_nonreg_stores (PATTERN (insn), insn, fast);
+	  mark_nonreg_stores (PATTERN (insn), insn, true);
 	else
-	  mark_insn (insn, fast);
+	  mark_insn (insn, true);
       }
 }
 
@@ -189,72 +195,51 @@ prescan_insns_for_dce (bool fast)
 static void
 init_dce (bool fast)
 {
-  if (!dce_df)
+  if (!df_in_progress)
     {
-      if (fast)
-	{
-	  dce_df = df_init (0, 0);
-	  df_lr_add_problem (dce_df);
-	  df_analyze (dce_df);
-	}
-      else
-	{
-	  dce_df = df_init (DF_UD_CHAIN, 0);
-	  df_chain_add_problem (dce_df);
-	  df_analyze (dce_df);
-	}
+      if (!fast)
+	df_chain_add_problem (DF_UD_CHAIN);
+      df_analyze ();
     }
 
   if (dump_file)
-    df_dump (dce_df, dump_file);
+    df_dump (dump_file);
 
   marked = BITMAP_ALLOC (NULL);
   marked_libcalls = BITMAP_ALLOC (NULL);
 }
 
 
-/* Delete all REG_EQUAL notes of the registers INSN writes,
-   to prevent bad dangling REG_EQUAL notes. */
+/* Delete all REG_EQUAL notes of the registers INSN writes, to prevent
+   bad dangling REG_EQUAL notes. */
 
 static void
-delete_corresponding_reg_equal_notes (rtx insn)
+delete_corresponding_reg_eq_notes (rtx insn)
 {
   struct df_ref *def;
-  for (def = DF_INSN_DEFS (dce_df, insn); def; def = DF_REF_NEXT_REF (def))
+  for (def = DF_INSN_DEFS (insn); def; def = DF_REF_NEXT_REF (def))
     {
-      struct df_ref *eq_use = DF_REG_EQ_USE_CHAIN (dce_df, DF_REF_REGNO (def));
-
-      if (eq_use)
-        {
-          rtx *insns = alloca (sizeof(rtx) 
-                               * DF_REG_EQ_USE_COUNT (dce_df, DF_REF_REGNO (def)));
-          rtx *p_insn = insns;
-          do
-            {
-              rtx note;
-              if (DF_REF_INSN (eq_use) != insn
-                  && (note = find_reg_note (DF_REF_INSN (eq_use), 
-                                            REG_EQUAL, NULL_RTX)) != NULL)
-                {
-                  remove_note (DF_REF_INSN (eq_use), note);
-                  /* We can't rescan while iterating over EQ_USE chain,
-                     because rescanning invalidates EQ_USE chain. 
-                     Instead, we just keep the record of the insns. */
-                  *p_insn++ = DF_REF_INSN (eq_use);
-                }
-            }
-          while ((eq_use = DF_REF_NEXT_REG (eq_use)) != NULL);
-
-          /* Now rescan insns that have REG_EQUAL note removed.  */
-          while (--p_insn >= insns)
-            df_insn_rescan (*p_insn);
-        }
+      unsigned int regno = DF_REF_REGNO (def);
+      /* This loop is a little tricky.  We cannot just go down the
+	 chain because it is being modified by the actions in the
+	 loop.  So we just get the head.  We plan to drain the list
+	 anyway.  */
+      while (DF_REG_EQ_USE_CHAIN (regno))
+	{
+	  struct df_ref *eq_use = DF_REG_EQ_USE_CHAIN (regno);
+	  rtx noted_insn = DF_REF_INSN (eq_use);
+	  rtx note = find_reg_note (noted_insn, REG_EQUAL, NULL_RTX);
+	  if (!note)
+	    note = find_reg_note (noted_insn, REG_EQUIV, NULL_RTX);
+	  gcc_assert (note);
+	  remove_note (noted_insn, note);
+	}
     }
 }
 
 
-/* Delete every instruction that hasn't been marked.  Clear the insn from DCE_DF if
-   DF_DELETE is true.  */
+/* Delete every instruction that hasn't been marked.  Clear the insn
+   from DCE_DF if DF_DELETE is true.  */
 
 static void
 delete_unmarked_insns (void)
@@ -271,16 +256,18 @@ delete_unmarked_insns (void)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
-	  /* XXX: This may need to be changed to delete_insn_and_edges */
 
           /* Before we delete the insn, we have to delete
              REG_EQUAL of the destination regs of the deleted insn
              to prevent dangling REG_EQUAL. */
-          delete_corresponding_reg_equal_notes (insn);
+          delete_corresponding_reg_eq_notes (insn);
+
+	  /* XXX: This may need to be changed to delete_insn_and_edges */
 	  delete_insn (insn);
 	  something_changed = true;
 	}
 }
+
 
 /* Return true if INSN has libcall id ID.  */
 static bool
@@ -337,10 +324,7 @@ end_dce (void)
 {
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
-
-  /* The TODO_df_finish will really get rid of the instance, we need to 
-     clear this here so that we init_dce does the correct thing.  */
-  dce_df = NULL;
+  df_in_progress = false;
 }
 
 
@@ -361,7 +345,7 @@ mark_artificial_uses (void)
 
   FOR_ALL_BB (bb)
     {
-      for (use = df_get_artificial_uses (dce_df, bb->index); 
+      for (use = df_get_artificial_uses (bb->index); 
 	   use; use = use->next_ref)
 	for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
 	  mark_insn (DF_REF_INSN (defs->ref), false);
@@ -380,7 +364,7 @@ mark_reg_dependencies (rtx insn)
   if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
     mark_libcall (insn, false);
 
-  for (use = DF_INSN_USES (dce_df, insn); use; use = use->next_ref)
+  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
     {
       if (dump_file)
 	{
@@ -394,63 +378,6 @@ mark_reg_dependencies (rtx insn)
 }
 
 /* -------------------------------------------------------------------------
-   Regular DCE pass functions
-   ------------------------------------------------------------------------- */
-
-/* Callback for running pass_rtl_dce.  */
-
-static unsigned int
-rest_of_handle_dce (void)
-{
-  init_dce (false);
-  
-  prescan_insns_for_dce (false);
-
-  mark_artificial_uses ();
-  while (VEC_length (rtx, worklist) > 0)
-    mark_reg_dependencies (VEC_pop (rtx, worklist));
-
-  /* df_remove_problem (dce_df, dce_df->problems_by_index[DF_RD]); */
-  df_remove_problem (dce_df, dce_df->problems_by_index[DF_CHAIN]);
-  delete_unmarked_insns ();
-  end_dce ();
-  return 0;
-}
-
-static bool
-gate_dce (void)
-{
-  return optimize > 0 && flag_new_dce;
-}
-
-/* Run a DCE pass and return true if any instructions were deleted.  */
-
-bool
-run_dce (void)
-{
-  return gate_dce () && (rest_of_handle_dce (), something_changed);
-}
-
-struct tree_opt_pass pass_rtl_dce =
-{
-  "dce",                                /* name */
-  gate_dce,                             /* gate */
-  rest_of_handle_dce,                   /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_DCE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func |
-  TODO_df_finish |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
-};
-
-/* -------------------------------------------------------------------------
    Fast DCE functions
    ------------------------------------------------------------------------- */
 
@@ -462,10 +389,7 @@ end_fast_dce (void)
 {
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
-
-  /* The TODO_df_finish will really get rid of the instance, we need to 
-     clear this here so that we init_dce does the correct thing.  */
-  dce_df = NULL;
+  df_in_progress = false;
 }
 
 
@@ -480,7 +404,6 @@ dce_process_block (basic_block bb, bool redo_out)
   bool block_changed;
   struct df_ref *def, *use;
   unsigned int bb_index = bb->index;
-  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
   rtx libcall_start = NULL;
   int libcall_id = -1;
 
@@ -491,21 +414,21 @@ dce_process_block (basic_block bb, bool redo_out)
 	 set.  */
       edge e;
       edge_iterator ei;
-      df_confluence_function_n con_fun_n = dflow->problem->con_fun_n;
+      df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
       FOR_EACH_EDGE (e, ei, bb->succs)
-	(*con_fun_n) (dflow, e);
+	(*con_fun_n) (e);
     }
 
-  bitmap_copy (local_live, DF_LR_OUT (dce_df, bb));
+  bitmap_copy (local_live, DF_LR_OUT (bb));
 
   /* Process the artificial defs and uses at the bottom of the block.  */
-  for (def = df_get_artificial_defs (dce_df, bb_index); 
+  for (def = df_get_artificial_defs (bb_index); 
        def; def = def->next_ref)
     if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
 	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
-  for (use = df_get_artificial_uses (dce_df, bb_index); 
+  for (use = df_get_artificial_uses (bb_index); 
        use; use = use->next_ref)
     if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
       bitmap_set_bit (local_live, DF_REF_REGNO (use));
@@ -541,7 +464,7 @@ dce_process_block (basic_block bb, bool redo_out)
 		libcall_start = NULL;
 		libcall_id = -1;
 	      }
-	    for (def = DF_INSN_DEFS (dce_df, insn); 
+	    for (def = DF_INSN_DEFS (insn); 
 		 def; def = def->next_ref)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
 		{
@@ -569,14 +492,14 @@ dce_process_block (basic_block bb, bool redo_out)
 	
 	/* No matter if the instruction is needed or not, we remove
 	   any regno in the defs from the live set.  */
-	for (def = DF_INSN_DEFS (dce_df, insn); def; def = def->next_ref)
+	for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
 	  {
 	    unsigned int regno = DF_REF_REGNO (def);
 	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	      bitmap_clear_bit (local_live, regno);
 	  }
 	if (marked_insn_p (insn))
-	  for (use = DF_INSN_USES (dce_df, insn); 
+	  for (use = DF_INSN_USES (insn); 
 	       use; use = use->next_ref)
 	    {
 	      unsigned int regno = DF_REF_REGNO (use);
@@ -584,24 +507,24 @@ dce_process_block (basic_block bb, bool redo_out)
 	    }
       }
   
-  for (def = df_get_artificial_defs (dce_df, bb_index); def; def = def->next_ref)
+  for (def = df_get_artificial_defs (bb_index); def; def = def->next_ref)
     if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
 	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
 #ifdef EH_USES
   /* Process the uses that are live into an exception handler.  */
-  for (use = df_get_artificial_uses (dce_df, bb_index); use; use = use->next_ref)
+  for (use = df_get_artificial_uses (bb_index); use; use = use->next_ref)
     /* Add use to set of uses in this BB.  */
     if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
       bitmap_set_bit (local_live, DF_REF_REGNO (use));
 #endif
 
-  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (dce_df, bb));
+  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
   if (block_changed)
     {
-      BITMAP_FREE (DF_LR_IN (dce_df, bb));
-      DF_LR_IN (dce_df, bb) = local_live;
+      BITMAP_FREE (DF_LR_IN (bb));
+      DF_LR_IN (bb) = local_live;
     }
   else
     BITMAP_FREE (local_live);
@@ -612,8 +535,8 @@ dce_process_block (basic_block bb, bool redo_out)
 static void
 fast_dce (void)
 {
-  int *postorder = df_get_postorder (dce_df);
-  int n_blocks = df_get_n_blocks (dce_df);
+  int *postorder = df_get_postorder ();
+  int n_blocks = df_get_n_blocks ();
   int i;
   /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
@@ -625,11 +548,10 @@ fast_dce (void)
   bitmap redo_out = BITMAP_ALLOC (NULL);
   bitmap all_blocks = BITMAP_ALLOC (NULL);
   bool global_changed = true;
-  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
 
   int loop_count = 0;
 
-  prescan_insns_for_dce (true);
+  prescan_insns_for_dce ();
 
   for (i = 0; i < n_blocks; i++)
     bitmap_set_bit (all_blocks, postorder[i]);
@@ -671,7 +593,7 @@ fast_dce (void)
 	{
 	  /* Turn off the RUN_DCE flag to prevent recursive calls to
 	     dce.  */
-	  int old_flag = df_clear_flags (dce_df, DF_LR_RUN_DCE);
+	  int old_flag = df_clear_flags (DF_LR_RUN_DCE);
 
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
@@ -684,13 +606,12 @@ fast_dce (void)
 	     to redo the dataflow equations for the blocks that had a
 	     change at the top of the block.  Then we need to redo the
 	     iteration.  */ 
-	  df_analyze_problem (dflow, all_blocks, all_blocks, 
-			      changed, postorder, n_blocks, false);
+	  df_analyze_problem (df_lr, all_blocks, changed, postorder, n_blocks, false);
 
 	  if (old_flag & DF_LR_RUN_DCE)
-	    df_set_flags (dce_df, DF_LR_RUN_DCE);
+	    df_set_flags (DF_LR_RUN_DCE);
 	  bitmap_clear (changed);
-	  prescan_insns_for_dce (true);
+	  prescan_insns_for_dce ();
 	}
       loop_count++;
     }
@@ -727,14 +648,14 @@ rest_of_handle_fast_dce (void)
 */
 
 void
-run_fast_df_dce (struct df *df)
+run_fast_df_dce (void)
 {
-  dce_df = df;
+  df_in_progress = true;
   init_dce (true);
   fast_dce ();
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
-  dce_df = NULL;
+  df_in_progress = false;
 }
 
 
@@ -970,7 +891,7 @@ static bitmap iterating;
 
 /* Functions used to compute the reaching stores sets.  */
 static void 
-rs_init (struct dataflow * dflow ATTRIBUTE_UNUSED, bitmap all_blocks)
+rs_init (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
@@ -982,7 +903,7 @@ rs_init (struct dataflow * dflow ATTRIBUTE_UNUSED, bitmap all_blocks)
 }
 
 static void
-rs_confluence (struct dataflow * dflow ATTRIBUTE_UNUSED, edge e)
+rs_confluence (edge e)
 {
   bitmap op1 = in_vec[e->dest->index];
   bitmap op2 = out_vec[e->src->index];
@@ -990,7 +911,7 @@ rs_confluence (struct dataflow * dflow ATTRIBUTE_UNUSED, edge e)
 }
 
 static bool
-rs_transfer_function (struct dataflow * dflow ATTRIBUTE_UNUSED, int bb_index)
+rs_transfer_function (int bb_index)
 {
   bitmap in = in_vec[bb_index];
   bitmap out = out_vec[bb_index];
@@ -1052,8 +973,8 @@ init_rs_dflow (void)
   out_vec = XNEWVEC (bitmap, last_basic_block);
   gen_vec = XNEWVEC (bitmap, last_basic_block);
   kill_vec = XNEWVEC (bitmap, last_basic_block);
-  n_blocks = df_get_n_blocks (dce_df);
-  postorder = df_get_postorder (dce_df);
+  n_blocks = df_get_n_blocks ();
+  postorder = df_get_postorder ();
   iterating = BITMAP_ALLOC (NULL);
 
   num_stores = VEC_length (store_info, stores.stores);
@@ -1161,7 +1082,7 @@ dump_stores (FILE *file)
       else
 	{
 	  end = store->insn;
-	  while (DF_INSN_LUID (dce_df, end) != store->max_gen_luid)
+	  while (DF_INSN_LUID (end) != store->max_gen_luid)
 	    end = NEXT_INSN (end);
 	  fprintf (file, " gen range (%d, %d]\n",
 		   INSN_UID (store->insn), INSN_UID (end));
@@ -1273,7 +1194,7 @@ record_store (rtx body, rtx insn)
   store->mem = mem;
   store->insn = insn;
   store->bb = BLOCK_NUM (insn);
-  store->luid = DF_INSN_LUID (dce_df, insn);
+  store->luid = DF_INSN_LUID (insn);
   store->max_gen_luid = INT_MAX;
   return true;
 }
@@ -1651,7 +1572,7 @@ mark_dependent_stores (rtx insn)
 
   /* Look at the local stores that haven't been marked yet.  */
   bb = BLOCK_NUM (insn);
-  luid = DF_INSN_LUID (dce_df, insn);
+  luid = DF_INSN_LUID (insn);
   bb_max_in_luid = max_in_luid[bb];
   s = VEC_address (store_info, stores.stores);
   for (i = 0; VEC_iterate (int, unmarked_stores, i, id); i++)
@@ -1690,6 +1611,7 @@ prescan_insns_for_dse (void)
   init_value_store_group (&local_value_stores);
   FOR_EACH_BB (bb)
     {
+      df_recompute_luids (bb);
       cselib_clear_table ();
       cselib_discard_hook = remove_useless_values;
       FOR_BB_INSNS (bb, insn)
@@ -1723,6 +1645,7 @@ rest_of_handle_dse (void)
 {
   rtx insn;
 
+  df_in_progress = false;
   init_dce (false);
   init_alias_analysis ();
   init_dse ();
@@ -1742,8 +1665,9 @@ rest_of_handle_dse (void)
       mark_reg_dependencies (insn);
       mark_dependent_stores (insn);
     }
-  /* df_remove_problem (dce_df, dce_df->problems_by_index[DF_RD]); */
-  df_remove_problem (dce_df, dce_df->problems_by_index[DF_CHAIN]);
+  /* Before any insns are deleted, we must remove the chains since
+     they are not bidirectional.  */
+  df_remove_problem (df_chain);
   delete_unmarked_insns ();
   if (stores.stores)
     {

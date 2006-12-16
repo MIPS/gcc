@@ -30,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "predict.h"
 #include "vec.h"
 #include "function.h"
+#include "rtl.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -274,8 +275,6 @@ struct rtl_bb_info GTY(())
   /* This field is used by the bb-reorder and tracer passes.  */
   int visited;
 };
-
-typedef struct basic_block_def *basic_block;
 
 DEF_VEC_P(basic_block);
 DEF_VEC_ALLOC_P(basic_block,gc);

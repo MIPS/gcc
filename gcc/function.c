@@ -116,10 +116,6 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Instance of df used by thread_prologue_and_epilogue and all of it's
-   target hooks.  */
-struct df * prologue_epilogue_df;
-
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
 static GTY(()) int funcdef_no;
 
@@ -3525,13 +3521,13 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
    be clobbered by `longjmp'.  */
 
 static bool
-regno_clobbered_at_setjmp (struct df *df, bitmap setjmp_crosses, int regno)
+regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
 {
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (df_get_live_out (df, ENTRY_BLOCK_PTR), regno))
+	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
 	  && REGNO_REG_SET_P (setjmp_crosses, regno));
 }
 
@@ -3542,7 +3538,7 @@ regno_clobbered_at_setjmp (struct df *df, bitmap setjmp_crosses, int regno)
    regs.  */
 
 static void
-setjmp_vars_warning (struct df *df, bitmap setjmp_crosses, tree block)
+setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 {
   tree decl, sub;
 
@@ -3551,28 +3547,28 @@ setjmp_vars_warning (struct df *df, bitmap setjmp_crosses, tree block)
       if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
-	  && regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
+	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
 	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
 		 decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    setjmp_vars_warning (df, setjmp_crosses, sub);
+    setjmp_vars_warning (setjmp_crosses, sub);
 }
 
 /* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
 static void
-setjmp_args_warning (struct df *df, bitmap setjmp_crosses)
+setjmp_args_warning (bitmap setjmp_crosses)
 {
   tree decl;
   for (decl = DECL_ARGUMENTS (current_function_decl);
        decl; decl = TREE_CHAIN (decl))
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
-	&& regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
+	&& regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
       warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
 }
@@ -3580,12 +3576,12 @@ setjmp_args_warning (struct df *df, bitmap setjmp_crosses)
 /* Generate warning messages for variables live across setjmp.  */
 
 void 
-generate_setjmp_warnings (struct df *df)
+generate_setjmp_warnings (void)
 {
-  bitmap setjmp_crosses = df_ri_get_setjmp_crosses (df);
+  bitmap setjmp_crosses = df_ri_get_setjmp_crosses ();
 
-  setjmp_vars_warning (df, setjmp_crosses, DECL_INITIAL (current_function_decl));
-  setjmp_args_warning (df, setjmp_crosses);
+  setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
+  setjmp_args_warning (setjmp_crosses);
 }
 
 
@@ -4855,7 +4851,7 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		    (DF_LR_IN (prologue_epilogue_df, EXIT_BLOCK_PTR), regno)
+		    (DF_LR_IN (EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5083,7 +5079,6 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  prologue_epilogue_df = df_init (0, 0);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and
@@ -5094,8 +5089,7 @@ thread_prologue_and_epilogue_insns (void)
      designed for modular testing.  All of the test cases that fail
      because of running dce here fail in the g++ library, not in the
      test case.  */
-  df_lr_add_problem (prologue_epilogue_df);
-  df_analyze (prologue_epilogue_df);
+  df_analyze ();
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -5348,6 +5342,11 @@ epilogue_done:
 	}
     }
 #endif
+
+  /* Threading the prologue and epilogue changes the artificial refs
+     in the entry and exit blocks.  */
+  epilogue_completed = 1;
+  df_update_entry_exit_and_calls ();
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
@@ -5579,7 +5578,6 @@ rest_of_handle_thread_prologue_and_epilogue (void)
      scheduling to operate in the epilogue.  */
 
   thread_prologue_and_epilogue_insns ();
-  epilogue_completed = 1;
   return 0;
 }
 

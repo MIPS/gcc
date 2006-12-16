@@ -102,7 +102,7 @@ unionfind_union (struct web_entry *first, struct web_entry *second)
    FUN is the function that does the union.  */
 
 void
-union_defs (struct df *df, struct df_ref *use, struct web_entry *def_entry,
+union_defs (struct df_ref *use, struct web_entry *def_entry,
  	    struct web_entry *use_entry,
  	    bool (*fun) (struct web_entry *, struct web_entry *))
 {
@@ -115,9 +115,9 @@ union_defs (struct df *df, struct df_ref *use, struct web_entry *def_entry,
 
   if (insn)
     {
-      use_link = DF_INSN_USES (df, insn);
-      eq_use_link = DF_INSN_EQ_USES (df, insn);
-      def_link = DF_INSN_DEFS (df, insn);
+      use_link = DF_INSN_USES (insn);
+      eq_use_link = DF_INSN_EQ_USES (insn);
+      def_link = DF_INSN_DEFS (insn);
       set = single_set (insn);
     }
   else
@@ -181,7 +181,7 @@ union_defs (struct df *df, struct df_ref *use, struct web_entry *def_entry,
       struct df_ref *link;
 
       if (DF_REF_INSN (use))
-	link = DF_INSN_DEFS (df, DF_REF_INSN (use));
+	link = DF_INSN_DEFS (DF_REF_INSN (use));
       else
 	link = NULL;
 
@@ -244,13 +244,15 @@ replace_ref (struct df_ref *ref, rtx reg)
 {
   rtx oldreg = DF_REF_REAL_REG (ref);
   rtx *loc = DF_REF_REAL_LOC (ref);
+  unsigned int uid = INSN_UID (DF_REF_INSN (ref));
 
   if (oldreg == reg)
     return;
   if (dump_file)
     fprintf (dump_file, "Updating insn %i (%i->%i)\n",
-	     INSN_UID (DF_REF_INSN (ref)), REGNO (oldreg), REGNO (reg)); 
+	     uid, REGNO (oldreg), REGNO (reg)); 
   *loc = reg;
+  df_insn_rescan (DF_REF_INSN (ref));
 }
 
 /* Main entry point.  */
@@ -258,53 +260,48 @@ replace_ref (struct df_ref *ref, rtx reg)
 static void
 web_main (void)
 {
-  struct df *df;
   struct web_entry *def_entry;
   struct web_entry *use_entry;
   unsigned int i;
   int max = max_reg_num ();
   char *used;
 
-  df = df_init (DF_UD_CHAIN, DF_NO_HARD_REGS + DF_EQ_NOTES);
-  df_chain_add_problem (df);
-  df_analyze (df);
-  df_maybe_reorganize_def_refs (df);
-  df_maybe_reorganize_use_refs (df);
+  df_set_flags (DF_NO_HARD_REGS + DF_EQ_NOTES);
+  df_chain_add_problem (DF_UD_CHAIN);
+  df_analyze ();
+  df_maybe_reorganize_use_refs ();
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 
-  def_entry = XCNEWVEC (struct web_entry, DF_DEFS_SIZE (df));
-  use_entry = XCNEWVEC (struct web_entry, DF_USES_SIZE (df));
+  def_entry = XCNEWVEC (struct web_entry, DF_DEFS_TABLE_SIZE ());
+  use_entry = XCNEWVEC (struct web_entry, DF_USES_TABLE_SIZE ());
   used = XCNEWVEC (char, max);
 
   /* Produce the web.  */
-  for (i = 0; i < DF_USES_SIZE (df); i++)
+  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (df, i);
+      struct df_ref *use = DF_USES_GET (i);
       if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
-	union_defs (df, use, def_entry, use_entry, unionfind_union);
+	union_defs (use, def_entry, use_entry, unionfind_union);
     }
 
   /* Update the instruction stream, allocating new registers for split pseudos
      in progress.  */
-  for (i = 0; i < DF_USES_SIZE (df); i++)
+  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (df, i);
+      struct df_ref *use = DF_USES_GET (i);
       if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
 	replace_ref (use, entry_register (use_entry + i, use, used));
     }
-  for (i = 0; i < DF_DEFS_SIZE (df); i++)
+  for (i = 0; i < DF_DEFS_TABLE_SIZE (); i++)
     {
-      struct df_ref *def = DF_DEFS_GET (df, i);
+      struct df_ref *def = DF_DEFS_GET (i);
       if (DF_REF_REGNO (def) >= FIRST_PSEUDO_REGISTER)
 	replace_ref (def, entry_register (def_entry + i, def, used));
     }
 
-  /* Dataflow information is corrupt here, but it can be easily updated
-     by creating new entries for new registers and updates or calling
-     df_insns_modify.  */
   free (def_entry);
   free (use_entry);
   free (used);
-  df = NULL;
 }
 
 static bool
@@ -336,7 +333,7 @@ struct tree_opt_pass pass_web =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | 
   TODO_dump_func,                       /* todo_flags_finish */
   'Z'                                   /* letter */
 };

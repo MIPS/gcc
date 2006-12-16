@@ -335,8 +335,9 @@ global_alloc (void)
   max_allocno = 0;
   /* Do not recompute the register info.  Local_alloc has played with
      this in a way that global expects.  */
-  df_set_flags (ra_df, DF_RI_NO_UPDATE);
-  df_analyze (ra_df);
+  df_insn_rescan_all ();
+  df_set_flags (DF_RI_NO_UPDATE);
+  df_analyze ();
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
@@ -685,8 +686,8 @@ global_conflicts (void)
 	int ax = 0;
 	reg_set_iterator rsi;
 
-	REG_SET_TO_HARD_REG_SET (hard_regs_live, DF_RA_LIVE_TOP (ra_df, b));
-	EXECUTE_IF_SET_IN_REG_SET (DF_RA_LIVE_TOP (ra_df, b), FIRST_PSEUDO_REGISTER, i, rsi)
+	REG_SET_TO_HARD_REG_SET (hard_regs_live, DF_RA_LIVE_TOP (b));
+	EXECUTE_IF_SET_IN_REG_SET (DF_RA_LIVE_TOP (b), FIRST_PSEUDO_REGISTER, i, rsi)
 	  {
 	    int a = reg_allocno[i];
 	    if (a >= 0)
@@ -1378,7 +1379,7 @@ retry_global_alloc (int regno, HARD_REG_SET forbidden_regs)
 	 show the hard register, and mark that register live.  */
       if (reg_renumber[regno] >= 0)
 	{
-	  REGNO (regno_reg_rtx[regno]) = reg_renumber[regno];
+	  SET_REGNO (regno_reg_rtx[regno], reg_renumber[regno]);
 	  mark_home_live (regno);
 	}
     }
@@ -1745,7 +1746,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
-      regset r = DF_RA_LIVE_IN (ra_df, bb);
+      regset r = DF_RA_LIVE_IN (bb);
       if (REGNO_REG_SET_P (r, from))
 	{
 	  CLEAR_REGNO_REG_SET (r, from);
@@ -1835,7 +1836,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_TOP (ra_df, b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_TOP (b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -2012,9 +2013,8 @@ rest_of_handle_global_alloc (void)
   else
     {
       build_insn_chain (get_insns ());
-      df_analyze (ra_df);
+      df_analyze ();
       failure = reload (get_insns (), 0);
-      df_finish (ra_df);
     }
 
   if (dump_enabled_p (pass_global_alloc.static_pass_number))
@@ -2032,6 +2032,14 @@ rest_of_handle_global_alloc (void)
      afterwards.  */
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
+
+  /* The world has changed so much that at this point we might as well
+     just rescan everything.  Not that df_rescan_all_insns is not
+     going to help here because it does not touch the artificial uses
+     and defs.  */
+  df_finish_pass ();
+  df_scan_alloc (NULL, NULL);
+  df_scan_blocks ();
   return 0;
 }
 
