@@ -271,12 +271,15 @@ init_ttree (void)
   tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[SYMBOL_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_DECL_MINIMAL] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[SYMBOL_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_STRUCT_FIELD_TAG] = 1;
+  tree_contains_struct[MEMORY_PARTITION_TAG][TS_MEMORY_PARTITION_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -305,6 +308,40 @@ decl_assembler_name (tree decl)
   if (!DECL_ASSEMBLER_NAME_SET_P (decl))
     lang_hooks.set_decl_assembler_name (decl);
   return DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name;
+}
+
+/* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
+
+bool
+decl_assembler_name_equal (tree decl, tree asmname)
+{
+  tree decl_asmname = DECL_ASSEMBLER_NAME (decl);
+
+  if (decl_asmname == asmname)
+    return true;
+
+  /* If the target assembler name was set by the user, things are trickier.
+     We have a leading '*' to begin with.  After that, it's arguable what
+     is the correct thing to do with -fleading-underscore.  Arguably, we've
+     historically been doing the wrong thing in assemble_alias by always
+     printing the leading underscore.  Since we're not changing that, make
+     sure user_label_prefix follows the '*' before matching.  */
+  if (IDENTIFIER_POINTER (decl_asmname)[0] == '*')
+    {
+      const char *decl_str = IDENTIFIER_POINTER (decl_asmname) + 1;
+      size_t ulp_len = strlen (user_label_prefix);
+
+      if (ulp_len == 0)
+	;
+      else if (strncmp (decl_str, user_label_prefix, ulp_len) == 0)
+	decl_str += ulp_len;
+      else
+	return false;
+
+      return strcmp (decl_str, IDENTIFIER_POINTER (asmname)) == 0;
+    }
+
+  return false;
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.
@@ -340,6 +377,8 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_memory_tag);
 	  case STRUCT_FIELD_TAG:
 	    return sizeof (struct tree_struct_field_tag);
+	  case MEMORY_PARTITION_TAG:
+	    return sizeof (struct tree_memory_partition_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -2155,6 +2194,7 @@ tree_node_structure (tree t)
 	  case SYMBOL_MEMORY_TAG:
 	  case NAME_MEMORY_TAG:
 	  case STRUCT_FIELD_TAG:
+	  case MEMORY_PARTITION_TAG:
 	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
@@ -7272,6 +7312,9 @@ is_global_var (tree t)
 bool
 needs_to_live_in_memory (tree t)
 {
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   return (TREE_ADDRESSABLE (t)
 	  || is_global_var (t)
 	  || (TREE_CODE (t) == RESULT_DECL

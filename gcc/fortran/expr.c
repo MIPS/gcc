@@ -1189,7 +1189,8 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
       for (d = 0; d < rank; d++)
 	{
 	  mpz_set (tmp_mpz, ctr[d]);
-	  mpz_sub_ui (tmp_mpz, tmp_mpz, one);
+	  mpz_sub (tmp_mpz, tmp_mpz,
+		   ref->u.ar.as->lower[d]->value.integer);
 	  mpz_mul (tmp_mpz, tmp_mpz, delta[d]);
 	  mpz_add (ptr, ptr, tmp_mpz);
 
@@ -2410,6 +2411,13 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
     {
       gfc_error ("Pointer assignment with vector subscript "
 		 "on rhs at %L", &rvalue->where);
+      return FAILURE;
+    }
+
+  if (attr.protected && attr.use_assoc)
+    {
+      gfc_error ("Pointer assigment target has PROTECTED "
+                 "attribute at %L", &rvalue->where);
       return FAILURE;
     }
 

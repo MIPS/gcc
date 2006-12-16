@@ -507,6 +507,7 @@ scan_for_static_refs (tree *tp,
 	switch (TREE_CODE_CLASS (TREE_CODE (rhs))) 
 	  {
 	  case tcc_binary:	    
+	  case tcc_comparison:	    
  	    {
  	      tree op0 = TREE_OPERAND (rhs, 0);
  	      tree op1 = TREE_OPERAND (rhs, 1);
@@ -770,7 +771,7 @@ ipa_init (void)
    to variables defined within this unit.  */
 
 static void 
-analyze_variable (struct cgraph_varpool_node *vnode)
+analyze_variable (struct varpool_node *vnode)
 {
   tree global = vnode->decl;
   if (TREE_CODE (global) == VAR_DECL)
@@ -892,7 +893,7 @@ static unsigned int
 static_execute (void)
 {
   struct cgraph_node *node;
-  struct cgraph_varpool_node *vnode;
+  struct varpool_node *vnode;
   struct cgraph_node *w;
   struct cgraph_node **order =
     xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
@@ -902,7 +903,7 @@ static_execute (void)
   ipa_init ();
 
   /* Process all of the variables first.  */
-  for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+  for (vnode = varpool_nodes_queue; vnode; vnode = vnode->next_needed)
     analyze_variable (vnode);
 
   /* Process all of the functions next. 

@@ -59,10 +59,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cgraph.h"
 
 
-/* Miscellaneous data and functions needed for the parser.  */
-
-int yydebug;
-
 /* Objective-C specific parser/lexer information.  */
 
 static int objc_pq_context = 0;
@@ -199,26 +195,6 @@ static const struct resword reswords[] =
   { "out",		RID_OUT,		D_OBJC },
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
-
-/* All OpenMP clauses.  OpenMP 2.5.  */
-typedef enum pragma_omp_clause {
-  PRAGMA_OMP_CLAUSE_NONE = 0,
-
-  PRAGMA_OMP_CLAUSE_COPYIN,
-  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
-  PRAGMA_OMP_CLAUSE_DEFAULT,
-  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
-  PRAGMA_OMP_CLAUSE_IF,
-  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
-  PRAGMA_OMP_CLAUSE_NOWAIT,
-  PRAGMA_OMP_CLAUSE_NUM_THREADS,
-  PRAGMA_OMP_CLAUSE_ORDERED,
-  PRAGMA_OMP_CLAUSE_PRIVATE,
-  PRAGMA_OMP_CLAUSE_REDUCTION,
-  PRAGMA_OMP_CLAUSE_SCHEDULE,
-  PRAGMA_OMP_CLAUSE_SHARED
-} pragma_omp_clause;
-
 
 /* Initialization routine for this file.  */
 
@@ -3856,7 +3832,7 @@ c_parser_c99_block_statement (c_parser *parser)
    is just parsing a statement but (a) it is a block in C99, (b) we
    track whether the body is an if statement for the sake of
    -Wparentheses warnings, (c) we handle an empty body specially for
-   the sake of -Wextra warnings.  */
+   the sake of -Wempty-body warnings.  */
 
 static tree
 c_parser_if_body (c_parser *parser, bool *if_p)
@@ -3868,7 +3844,7 @@ c_parser_if_body (c_parser *parser, bool *if_p)
 	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
     c_parser_label (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
-  if (extra_warnings && c_parser_next_token_is (parser, CPP_SEMICOLON))
+  if (warn_empty_body && c_parser_next_token_is (parser, CPP_SEMICOLON))
     add_stmt (build_empty_stmt ());
   c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (block, flag_isoc99);

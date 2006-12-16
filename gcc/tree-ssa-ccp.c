@@ -132,13 +132,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    We should be able to deduce that the predicate 'a.a != B' is always
    false.  To achieve this, we associate constant values to the SSA
-   names in the V_MAY_DEF and V_MUST_DEF operands for each store.
-   Additionally, since we also glob partial loads/stores with the base
-   symbol, we also keep track of the memory reference where the
-   constant value was stored (in the MEM_REF field of PROP_VALUE_T).
-   For instance,
+   names in the VDEF operands for each store.  Additionally,
+   since we also glob partial loads/stores with the base symbol, we
+   also keep track of the memory reference where the constant value
+   was stored (in the MEM_REF field of PROP_VALUE_T).  For instance,
 
-        # a_5 = V_MAY_DEF <a_4>
+        # a_5 = VDEF <a_4>
         a.a = 2;
 
         # VUSE <a_5>
@@ -222,9 +221,9 @@ typedef enum
 /* Array of propagated constant values.  After propagation,
    CONST_VAL[I].VALUE holds the constant value for SSA_NAME(I).  If
    the constant is held in an SSA name representing a memory store
-   (i.e., a V_MAY_DEF or V_MUST_DEF), CONST_VAL[I].MEM_REF will
-   contain the actual memory reference used to store (i.e., the LHS of
-   the assignment doing the store).  */
+   (i.e., a VDEF), CONST_VAL[I].MEM_REF will contain the actual
+   memory reference used to store (i.e., the LHS of the assignment
+   doing the store).  */
 static prop_value_t *const_val;
 
 /* True if we are also propagating constants in stores and loads.  */
@@ -1274,9 +1273,9 @@ visit_assignment (tree stmt, tree *output_p)
     }
   else if (do_store_ccp && stmt_makes_single_store (stmt))
     {
-      /* Otherwise, set the names in V_MAY_DEF/V_MUST_DEF operands
-	 to the new constant value and mark the LHS as the memory
-	 reference associated with VAL.  */
+      /* Otherwise, set the names in VDEF operands to the new
+	 constant value and mark the LHS as the memory reference
+	 associated with VAL.  */
       ssa_op_iter i;
       tree vdef;
       bool changed;
@@ -1436,9 +1435,13 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+  TODO_cleanup_cfg
+    | TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1474,10 +1477,13 @@ struct tree_opt_pass pass_store_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
+  TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2512,7 +2518,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr, bool ignore)
       tree new_stmt = tsi_stmt (ti);
       find_new_referenced_vars (tsi_stmt_ptr (ti));
       bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
-      mark_new_vars_to_rename (bsi_stmt (*si_p));
+      mark_symbols_for_renaming (new_stmt);
       bsi_next (si_p);
     }
 
@@ -2574,6 +2580,8 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
+	  push_stmt_changes (stmtp);
+
 	  if (!set_rhs (stmtp, result))
 	    {
 	      result = convert_to_gimple_builtin (&i, result,
@@ -2582,11 +2590,12 @@ execute_fold_all_builtins (void)
 	      if (result)
 		{
 		  bool ok = set_rhs (stmtp, result);
-		  
 		  gcc_assert (ok);
 		}
 	    }
-	  mark_new_vars_to_rename (*stmtp);
+
+	  pop_stmt_changes (stmtp);
+
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;

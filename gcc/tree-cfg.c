@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
+#include "value-prof.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -1245,10 +1246,12 @@ replace_uses_by (tree name, tree val)
   use_operand_p use;
   tree stmt;
   edge e;
-  unsigned i;
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, name)
     {
+      if (TREE_CODE (stmt) != PHI_NODE)
+	push_stmt_changes (&stmt);
+
       FOR_EACH_IMM_USE_ON_STMT (use, imm_iter)
         {
 	  replace_exp (use, val);
@@ -1266,32 +1269,35 @@ replace_uses_by (tree name, tree val)
 		}
 	    }
 	}
+
       if (TREE_CODE (stmt) != PHI_NODE)
 	{
 	  tree rhs;
 
 	  fold_stmt_inplace (stmt);
+
+	  /* FIXME.  This should go in pop_stmt_changes.  */
 	  rhs = get_rhs (stmt);
 	  if (TREE_CODE (rhs) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr (rhs);
 
 	  maybe_clean_or_replace_eh_stmt (stmt, stmt);
-	  mark_new_vars_to_rename (stmt);
+
+	  pop_stmt_changes (&stmt);
 	}
     }
 
-  gcc_assert (num_imm_uses (name) == 0);
+  gcc_assert (zero_imm_uses_p (name));
 
   /* Also update the trees stored in loop structures.  */
   if (current_loops)
     {
       struct loop *loop;
+      loop_iterator li;
 
-      for (i = 0; i < current_loops->num; i++)
+      FOR_EACH_LOOP (li, loop, 0)
 	{
-	  loop = current_loops->parray[i];
-	  if (loop)
-	    substitute_in_loop_info (loop, name, val);
+	  substitute_in_loop_info (loop, name, val);
 	}
     }
 }
@@ -1335,13 +1341,12 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     appear as arguments of the phi nodes.  */
 	  copy = build2_gimple (GIMPLE_MODIFY_STMT, def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
-	  SET_PHI_RESULT (phi, NULL_TREE);
 	  SSA_NAME_DEF_STMT (def) = copy;
 	}
       else
 	replace_uses_by (def, use);
 
-      remove_phi_node (phi, NULL);
+      remove_phi_node (phi, NULL, false);
     }
 
   /* Ensure that B follows A.  */
@@ -1972,7 +1977,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   while (phi)
     {
       tree next = PHI_CHAIN (phi);
-      remove_phi_node (phi, NULL_TREE);
+      remove_phi_node (phi, NULL_TREE, true);
       phi = next;
     }
 
@@ -2226,7 +2231,7 @@ find_case_label_for_value (tree switch_expr, tree val)
 void
 tree_dump_bb (basic_block bb, FILE *outf, int indent)
 {
-  dump_generic_bb (outf, bb, indent, TDF_VOPS);
+  dump_generic_bb (outf, bb, indent, TDF_VOPS|TDF_MEMSYMS);
 }
 
 
@@ -2867,7 +2872,10 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
   tsi_delink (&i->tsi);
   mark_stmt_modified (t);
   if (remove_eh_info)
-    remove_stmt_from_eh_region (t);
+    {
+      remove_stmt_from_eh_region (t);
+      gimple_remove_stmt_histograms (cfun, t);
+    }
 }
 
 
@@ -2930,6 +2938,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
 	{
 	  remove_stmt_from_eh_region (orig_stmt);
 	  add_stmt_to_eh_region (stmt, eh_region);
+	  gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
+          gimple_remove_stmt_histograms (cfun, orig_stmt);
 	}
     }
 
@@ -3667,6 +3677,7 @@ verify_stmts (void)
     internal_error ("verify_stmts failed");
 
   htab_delete (htab);
+  verify_histograms ();
   timevar_pop (TV_TREE_STMT_VERIFY);
 }
 
@@ -3999,7 +4010,7 @@ tree_make_forwarder_block (edge fallthru)
   if (single_pred_p (bb))
     return;
 
-  /* If we redirected a branch we must create new phi nodes at the
+  /* If we redirected a branch we must create new PHI nodes at the
      start of BB.  */
   for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
@@ -4338,6 +4349,7 @@ tree_duplicate_bb (basic_block bb)
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
 	add_stmt_to_eh_region (copy, region);
+      gimple_duplicate_stmt_histograms (cfun, copy, cfun, stmt);
 
       /* Create new names for all the definitions created by COPY and
 	 add replacement mappings for each new name.  */
@@ -4781,6 +4793,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	{
 	  add_stmt_to_eh_region_fn (dest_cfun, stmt, region + eh_offset);
 	  remove_stmt_from_eh_region (stmt);
+	  gimple_duplicate_stmt_histograms (dest_cfun, stmt, cfun, stmt);
+          gimple_remove_stmt_histograms (cfun, stmt);
 	}
     }
 }
@@ -5687,7 +5701,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
 
   bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
   if (gimple_in_ssa_p (cfun))
-    mark_new_vars_to_rename (new_stmt);
+    mark_symbols_for_renaming (new_stmt);
 
   return t;
 }

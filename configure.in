@@ -369,9 +369,14 @@ case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
-  *-*-darwin*)
+  powerpc-*-darwin* | i[[3456789]]86-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
+    ;;
+  *-*-darwin*)
+    noconfigdirs="$noconfigdirs ld gas gdb gprof"
+    noconfigdirs="$noconfigdirs sim target-rda"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   *-*-freebsd[[12]] | *-*-freebsd[[12]].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
@@ -771,7 +776,7 @@ case "${target}" in
   sparc-*-solaris* | sparc64-*-solaris* | sparcv9-*-solaris*)
     ;;
   spu-*-*)
-    skipdirs="target-libiberty target-libssp"
+    skipdirs="target-libssp"
     ;;
   v810-*-*)
     noconfigdirs="$noconfigdirs bfd binutils gas gcc gdb ld target-libstdc++-v3 opcodes target-libgloss ${libgcj}"
@@ -1631,6 +1636,9 @@ extra_nmflags_for_target=
 extra_ranlibflags_for_target=
 target_makefile_frag=/dev/null
 case "${target}" in
+  spu-*-*)
+    target_makefile_frag="config/mt-spu"
+    ;;
   *-*-netware*)
     target_makefile_frag="config/mt-netware"
     ;;

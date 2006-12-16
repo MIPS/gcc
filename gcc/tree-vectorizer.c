@@ -174,14 +174,11 @@ FILE *vect_dump;
    to mark that it's uninitialized.  */
 enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
 
-/* Number of loops, at the beginning of vectorization.  */
-unsigned int vect_loops_num;
-
 /* Loop location.  */
 static LOC vect_loop_location;
 
 /* Bitmap of virtual variables to be renamed.  */
-bitmap vect_vnames_to_rename;
+bitmap vect_memsyms_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -229,8 +226,7 @@ rename_variables_in_bb (basic_block bb)
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       stmt = bsi_stmt (bsi);
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, 
-				 (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	rename_use_op (use_p);
     }
 
@@ -532,7 +528,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 	 renaming later.  */
       name = PHI_RESULT (orig_phi);
       if (!is_gimple_reg (SSA_NAME_VAR (name)))
-        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+        bitmap_set_bit (vect_memsyms_to_rename, DECL_UID (SSA_NAME_VAR (name)));
 
       /** 1. Handle new-merge-point phis  **/
 
@@ -556,6 +552,9 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 
 
       /** 2. Handle loop-closed-ssa-form phis  **/
+
+      if (!is_gimple_reg (PHI_RESULT (orig_phi)))
+	continue;
 
       /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
       new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
@@ -2157,27 +2156,26 @@ vectorize_loops (void)
 {
   unsigned int i;
   unsigned int num_vectorized_loops = 0;
+  unsigned int vect_loops_num;
+  loop_iterator li;
+  struct loop *loop;
 
   /* Fix the verbosity level if not defined explicitly by the user.  */
   vect_set_dump_settings ();
 
   /* Allocate the bitmap that records which virtual variables that 
      need to be renamed.  */
-  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
+  vect_memsyms_to_rename = BITMAP_ALLOC (NULL);
 
   /*  ----------- Analyze loops. -----------  */
 
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fact allows us to run 
      only over initial loops skipping newly generated ones.  */
-  vect_loops_num = current_loops->num;
-  for (i = 1; i < vect_loops_num; i++)
+  vect_loops_num = number_of_loops ();
+  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD)
     {
       loop_vec_info loop_vinfo;
-      struct loop *loop = current_loops->parray[i];
-
-      if (!loop)
-        continue;
 
       vect_loop_location = find_loop_location (loop);
       loop_vinfo = vect_analyze_loop (loop);
@@ -2197,13 +2195,13 @@ vectorize_loops (void)
 
   /*  ----------- Finalize. -----------  */
 
-  BITMAP_FREE (vect_vnames_to_rename);
+  BITMAP_FREE (vect_memsyms_to_rename);
 
   for (i = 1; i < vect_loops_num; i++)
     {
-      struct loop *loop = current_loops->parray[i];
       loop_vec_info loop_vinfo;
 
+      loop = get_loop (i);
       if (!loop)
 	continue;
       loop_vinfo = loop->aux;

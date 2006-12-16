@@ -128,6 +128,9 @@ static unsigned char spu_rtx_costs (rtx x, int code, int outer_code,
 static unsigned char spu_function_ok_for_sibcall (tree decl, tree exp);
 static void spu_init_libfuncs (void);
 static bool spu_return_in_memory (tree type, tree fntype);
+static void fix_range (const char *);
+static void spu_encode_section_info (tree, rtx, int);
+static tree spu_builtin_mask_for_load (void);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
@@ -243,6 +246,12 @@ const struct attribute_spec spu_attribute_table[];
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY spu_return_in_memory
 
+#undef  TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO spu_encode_section_info
+
+#undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD spu_builtin_mask_for_load
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Sometimes certain combinations of command options do not make sense
@@ -252,7 +261,6 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 void
 spu_override_options (void)
 {
-
   /* Override some of the default param values.  With so many registers
      larger values are better for these params.  */
   if (MAX_UNROLLED_INSNS == 100)
@@ -264,6 +272,9 @@ spu_override_options (void)
 
   if (align_functions < 8)
     align_functions = 8;
+
+  if (spu_fixed_range_string)
+    fix_range (spu_fixed_range_string);
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
@@ -2352,7 +2363,7 @@ cpat_info(unsigned char *arr, int size, int *prun, int *pstart)
 	else
 	  cpat = 0;
       }
-  if (cpat)
+  if (cpat && (run || size < 16))
     {
       if (run == 0)
 	run = 1;
@@ -3174,6 +3185,20 @@ aligned_mem_p (rtx mem)
   return 0;
 }
 
+/* Encode symbol attributes (local vs. global, tls model) of a SYMBOL_REF
+   into its SYMBOL_REF_FLAGS.  */
+static void
+spu_encode_section_info (tree decl, rtx rtl, int first)
+{
+  default_encode_section_info (decl, rtl, first);
+
+  /* If a variable has a forced alignment to < 16 bytes, mark it with
+     SYMBOL_FLAG_ALIGN1.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && DECL_USER_ALIGN (decl) && DECL_ALIGN (decl) < 128)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= SYMBOL_FLAG_ALIGN1;
+}
+
 /* Return TRUE if we are certain the mem refers to a complete object
    which is both 16-byte aligned and padded to a 16-byte boundary.  This
    would make it safe to store with a single instruction. 
@@ -3572,6 +3597,68 @@ mem_is_padded_component_ref (rtx x)
   if (TREE_CODE (t) == FIELD_DECL && DECL_ALIGN (t) >= 128)
     return 1;
   return 0;
+}
+
+/* Parse the -mfixed-range= option string.  */
+static void
+fix_range (const char *const_str)
+{
+  int i, first, last;
+  char *str, *dash, *comma;
+  
+  /* str must be of the form REG1'-'REG2{,REG1'-'REG} where REG1 and
+     REG2 are either register names or register numbers.  The effect
+     of this option is to mark the registers in the range from REG1 to
+     REG2 as ``fixed'' so they won't be used by the compiler.  */
+  
+  i = strlen (const_str);
+  str = (char *) alloca (i + 1);
+  memcpy (str, const_str, i + 1);
+  
+  while (1)
+    {
+      dash = strchr (str, '-');
+      if (!dash)
+	{
+	  warning (0, "value of -mfixed-range must have form REG1-REG2");
+	  return;
+	}
+      *dash = '\0';
+      comma = strchr (dash + 1, ',');
+      if (comma)
+	*comma = '\0';
+      
+      first = decode_reg_name (str);
+      if (first < 0)
+	{
+	  warning (0, "unknown register name: %s", str);
+	  return;
+	}
+      
+      last = decode_reg_name (dash + 1);
+      if (last < 0)
+	{
+	  warning (0, "unknown register name: %s", dash + 1);
+	  return;
+	}
+      
+      *dash = '-';
+      
+      if (first > last)
+	{
+	  warning (0, "%s-%s is an empty range", str, dash + 1);
+	  return;
+	}
+      
+      for (i = first; i <= last; ++i)
+	fixed_regs[i] = call_used_regs[i] = 1;
+
+      if (!comma)
+	break;
+
+      *comma = ',';
+      str = comma + 1;
+    }
 }
 
 int
@@ -4205,6 +4292,8 @@ spu_init_builtins (void)
       d->fndecl =
 	add_builtin_function (name, p, END_BUILTINS + i, BUILT_IN_MD,
 			      NULL, NULL_TREE);
+      if (d->fcode == SPU_MASK_FOR_LOAD)
+	TREE_READONLY (d->fndecl) = 1;	
     }
 }
 
@@ -4760,6 +4849,31 @@ spu_expand_builtin_1 (struct spu_builtin_description *d,
       i++;
     }
 
+  if (d->fcode == SPU_MASK_FOR_LOAD)
+    {
+      enum machine_mode mode = insn_data[icode].operand[1].mode;
+      tree arg;
+      rtx addr, op, pat;
+
+      /* get addr */
+      arg = TREE_VALUE (arglist);
+      gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
+      op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
+      addr = memory_address (mode, op);
+
+      /* negate addr */
+      op = gen_reg_rtx (GET_MODE (addr));
+      emit_insn (gen_rtx_SET (VOIDmode, op,
+                 gen_rtx_NEG (GET_MODE (addr), addr)));
+      op = gen_rtx_MEM (mode, op);
+
+      pat = GEN_FCN (icode) (target, op);
+      if (!pat) 
+        return 0;
+      emit_insn (pat);
+      return target;
+    }   
+
   /* Ignore align_hint, but still expand it's args in case they have
      side effects. */
   if (icode == CODE_FOR_spu_align_hint)
@@ -4879,3 +4993,11 @@ spu_expand_builtin (tree exp,
   abort ();
 }
 
+/* Implement targetm.vectorize.builtin_mask_for_load.  */
+static tree
+spu_builtin_mask_for_load (void)
+{
+  struct spu_builtin_description *d = &spu_builtins[SPU_MASK_FOR_LOAD];
+  gcc_assert (d);
+  return d->fndecl;
+}

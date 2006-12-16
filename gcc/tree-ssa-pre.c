@@ -2177,16 +2177,13 @@ compute_rvuse_and_antic_safe (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  if (first_store_uid[bb->index] == 0
-	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VMAYDEF
-				     | SSA_OP_VMUSTDEF | SSA_OP_VMUSTKILL))
+	  if (first_store_uid[bb->index] == 0 
+	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VDEF))
 	    {
 	      first_store_uid[bb->index] = stmt_ann (stmt)->uid;
 	    }
 
-
-	  FOR_EACH_SSA_USE_OPERAND (usep, stmt, iter, SSA_OP_VIRTUAL_KILLS
-				    | SSA_OP_VMAYUSE)
+	  FOR_EACH_SSA_USE_OPERAND (usep, stmt, iter, SSA_OP_VMAYUSE)
 	    {
 	      tree use = USE_FROM_PTR (usep);
 	      bitmap repbit = get_representative (vuse_names,
@@ -2616,7 +2613,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  vn_add (forcedname, val);
 	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
 	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
-	  mark_new_vars_to_rename (stmt);
+	  mark_symbols_for_renaming (stmt);
 	}
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
@@ -2633,8 +2630,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   temp = pretemp;
   add_referenced_var (temp);
 
-  if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
-    DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
+  if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (temp) = 1;
 
   newexpr = build2_gimple (GIMPLE_MODIFY_STMT, temp, newexpr);
   name = make_ssa_name (temp, newexpr);
@@ -2644,7 +2642,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   tsi = tsi_last (stmts);
   tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
   VEC_safe_push (tree, heap, inserted_exprs, newexpr);
-  mark_new_vars_to_rename (newexpr);
+
+  /* All the symbols in NEWEXPR should be put into SSA form.  */
+  mark_symbols_for_renaming (newexpr);
 
   /* Add a value handle to the temporary.
      The value may already exist in either NEW_SETS, or AVAIL_OUT, because
@@ -2779,8 +2779,10 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   temp = prephitemp;
   add_referenced_var (temp);
 
-  if (TREE_CODE (type) == COMPLEX_TYPE)
-    DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
+
+  if (TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (temp) = 1;
   temp = create_phi_node (temp, block);
 
   NECESSARY (temp) = 0;
@@ -3536,6 +3538,8 @@ insert_fake_stores (void)
 	      if (!storetemp || TREE_TYPE (rhs) != TREE_TYPE (storetemp))
 		{
 		  storetemp = create_tmp_var (TREE_TYPE (rhs), "storetmp");
+		  if (TREE_CODE (TREE_TYPE (storetemp)) == VECTOR_TYPE)
+		    DECL_GIMPLE_REG_P (storetemp) = 1;
 		  get_var_ann (storetemp);
 		}
 
@@ -3543,7 +3547,7 @@ insert_fake_stores (void)
 
 	      lhs = make_ssa_name (storetemp, new);
 	      GIMPLE_STMT_OPERAND (new, 0) = lhs;
-	      create_ssa_artficial_load_stmt (new, stmt);
+	      create_ssa_artificial_load_stmt (new, stmt);
 
 	      NECESSARY (new) = 0;
 	      VEC_safe_push (tree, heap, inserted_exprs, new);
@@ -3609,7 +3613,9 @@ try_combine_conversion (tree *expr_p)
   unsigned int firstbit;
 
   if (!((TREE_CODE (expr) == NOP_EXPR
-	 || TREE_CODE (expr) == CONVERT_EXPR)
+	 || TREE_CODE (expr) == CONVERT_EXPR
+	 || TREE_CODE (expr) == REALPART_EXPR
+	 || TREE_CODE (expr) == IMAGPART_EXPR)
 	&& TREE_CODE (TREE_OPERAND (expr, 0)) == VALUE_HANDLE
 	&& !VALUE_HANDLE_VUSES (TREE_OPERAND (expr, 0))))
     return false;
@@ -4002,14 +4008,14 @@ remove_dead_inserted_code (void)
       else
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
-	     V_MAY_DEF operands in this statement.  Mark all the statements
+	     VDEF operands in this statement.  Mark all the statements 
 	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
 
-	  /* The operands of V_MAY_DEF expressions are also needed as they
+	  /* The operands of VDEF expressions are also needed as they
 	     represent potential definitions that may reach this
-	     statement (V_MAY_DEF operands allow us to follow def-def
+	     statement (VDEF operands allow us to follow def-def 
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, t, iter, SSA_OP_ALL_USES)
@@ -4035,7 +4041,7 @@ remove_dead_inserted_code (void)
 
 	  if (TREE_CODE (t) == PHI_NODE)
 	    {
-	      remove_phi_node (t, NULL);
+	      remove_phi_node (t, NULL, true);
 	    }
 	  else
 	    {

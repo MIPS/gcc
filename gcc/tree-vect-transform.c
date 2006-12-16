@@ -106,6 +106,10 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   else
     new_vect_var = create_tmp_var (type, prefix);
 
+  /* Mark vector typed variable as a gimple register variable.  */
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (new_vect_var) = true;
+
   return new_vect_var;
 }
 
@@ -301,7 +305,7 @@ vect_create_data_ref_ptr (tree stmt,
   if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag, DR_REF (dr));
   else
-    var_ann (vect_ptr)->symbol_mem_tag = tag;
+    set_symbol_mem_tag (vect_ptr, tag);
 
   var_ann (vect_ptr)->subvars = DR_SUBVARS (dr);
 
@@ -1660,7 +1664,7 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
       return false;
     }
-  gcc_assert (!stmt_references_memory_p (stmt));
+  gcc_assert (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
 
   for (args = TREE_OPERAND (operation, 1); args; args = TREE_CHAIN (args))
     {
@@ -2575,7 +2579,7 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
   unsigned int j;
   VEC(tree,heap) *first, *second;
   
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   first = VEC_alloc (tree, heap, length/2);
   second = VEC_alloc (tree, heap, length/2);
 
@@ -2592,23 +2596,43 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
 	  vect1 = VEC_index (tree, dr_chain, j);
 	  vect2 = VEC_index (tree, dr_chain, j+length/2);
 
-	  /* high = interleave_high (vect1, vect2);  */
+	  /* Create interleaving stmt:
+	     in the case of big endian: 
+                                high = interleave_high (vect1, vect2) 
+             and in the case of little endian: 
+                                high = interleave_low (vect1, vect2).  */
 	  perm_dest = create_tmp_var (vectype, "vect_inter_high");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
-	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
-			      build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, vect1, 
-				      vect2));
+          if (BYTES_BIG_ENDIAN)
+	    perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+	        		build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, 
+                                        vect1, vect2)); 
+	  else
+            perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+                                build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, 
+                                        vect1, vect2));
 	  high = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = high;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
 	  VEC_replace (tree, *result_chain, 2*j, high);
 
-	  /* low = interleave_low (vect1, vect2);  */
+	  /* Create interleaving stmt:
+             in the case of big endian:
+                               low  = interleave_low (vect1, vect2) 
+             and in the case of little endian:
+                               low  = interleave_high (vect1, vect2).  */     
 	  perm_dest = create_tmp_var (vectype, "vect_inter_low");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
-	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
-			      build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, vect1, 
-				      vect2));
+	  if (BYTES_BIG_ENDIAN)
+	    perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+	               	        build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, 
+ 					vect1, vect2));
+	  else
+            perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+                                build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, 
+                                        vect1, vect2));
 	  low = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = low;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
@@ -2851,16 +2875,16 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 			     vec_oprnd);
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 
-	  /* Set the V_MAY_DEFS for the vector pointer. If this virtual def has a 
-	     use outside the loop and a loop peel is performed then the def may be 
-	     renamed by the peel.  Mark it for renaming so the later use will also 
-	     be renamed.  */
+	  /* Set the VDEFs for the vector pointer. If this virtual def
+	     has a use outside the loop and a loop peel is performed
+	     then the def may be renamed by the peel.  Mark it for
+	     renaming so the later use will also be renamed.  */
 	  copy_virtual_operands (new_stmt, next_stmt);
 	  if (j == 0)
 	    {
-	      /* The original store is deleted so the same SSA_NAMEs can be used.  
-	       */
-	      FOR_EACH_SSA_TREE_OPERAND (def, next_stmt, iter, SSA_OP_VMAYDEF)
+	      /* The original store is deleted so the same SSA_NAMEs
+		 can be used.  */
+	      FOR_EACH_SSA_TREE_OPERAND (def, next_stmt, iter, SSA_OP_VDEF)
 		{
 		  SSA_NAME_DEF_STMT (def) = new_stmt;
 		  mark_sym_for_renaming (SSA_NAME_VAR (def));
@@ -2872,7 +2896,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	    {
 	      /* Create new names for all the definitions created by COPY and
 		 add replacement mappings for each new name.  */
-	      FOR_EACH_SSA_DEF_OPERAND (def_p, new_stmt, iter, SSA_OP_VMAYDEF)
+	      FOR_EACH_SSA_DEF_OPERAND (def_p, new_stmt, iter, SSA_OP_VDEF)
 		{
 		  create_new_def_for (DEF_FROM_PTR (def_p), new_stmt, def_p);
 		  mark_sym_for_renaming (SSA_NAME_VAR (DEF_FROM_PTR (def_p)));
@@ -2941,7 +2965,7 @@ vect_setup_realignment (tree stmt, block_stmt_iterator *bsi,
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge pe = loop_preheader_edge (loop);
-  tree scalar_dest = TREE_OPERAND (stmt, 0);
+  tree scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   tree vec_dest;
   tree init_addr;
   tree inc;
@@ -3153,6 +3177,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 
 	  /* data_ref = permute_even (first_data_ref, second_data_ref);  */
 	  perm_dest = create_tmp_var (vectype, "vect_perm_even");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 	 
 	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
@@ -3162,12 +3187,13 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  data_ref = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = data_ref;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
-	  mark_new_vars_to_rename (perm_stmt);
+	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2, data_ref);	      
 	      
 	  /* data_ref = permute_odd (first_data_ref, second_data_ref);  */
 	  perm_dest = create_tmp_var (vectype, "vect_perm_odd");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 
 	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
@@ -3176,7 +3202,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	  data_ref = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = data_ref;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
-	  mark_new_vars_to_rename (perm_stmt);
+	  mark_symbols_for_renaming (perm_stmt);
 
 	  VEC_replace (tree, *result_chain, j/2+length/2, data_ref);
 	}
@@ -3540,7 +3566,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
 	  copy_virtual_operands (new_stmt, stmt);
-	  mark_new_vars_to_rename (new_stmt);
+	  mark_symbols_for_renaming (new_stmt);
 
 	  /* 3. Handle explicit realignment if necessary/supported.  */
 	  if (alignment_support_cheme == dr_unaligned_software_pipeline)
@@ -4037,9 +4063,9 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
    LOOP - the loop whose preheader will contain STMT.
 
    It's possible to vectorize a loop even though an SSA_NAME from a VUSE
-   appears to be defined in a V_MAY_DEF in another statement in a loop.
+   appears to be defined in a VDEF in another statement in a loop.
    One such case is when the VUSE is at the dereference of a __restricted__
-   pointer in a load and the V_MAY_DEF is at the dereference of a different
+   pointer in a load and the VDEF is at the dereference of a different
    __restricted__ pointer in a store.  Vectorization may result in
    copy_virtual_uses being called to copy the problematic VUSE to a new
    statement that is being inserted in the loop preheader.  This procedure
@@ -4651,8 +4677,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   int i;
   tree ratio = NULL;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  bitmap_iterator bi;
-  unsigned int j;
   bool strided_store;
 
   if (vect_print_dump_info (REPORT_DETAILS))
@@ -4715,7 +4739,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
   /* CHECKME: we wouldn't need this if we called update_ssa once
      for all loops.  */
-  bitmap_zero (vect_vnames_to_rename);
+  bitmap_zero (vect_memsyms_to_rename);
 
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
@@ -4837,8 +4861,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
   slpeel_make_loop_iterate_ntimes (loop, ratio);
 
-  EXECUTE_IF_SET_IN_BITMAP (vect_vnames_to_rename, 0, j, bi)
-    mark_sym_for_renaming (SSA_NAME_VAR (ssa_name (j)));
+  mark_set_for_renaming (vect_memsyms_to_rename);
 
   /* The memory tags and pointers in vectorized statements need to
      have their SSA forms updated.  FIXME, why can't this be delayed

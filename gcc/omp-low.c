@@ -514,7 +514,7 @@ omp_copy_decl_2 (tree var, tree name, tree type, omp_context *ctx)
   tree copy = build_decl (VAR_DECL, name, type);
 
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
-  DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (var);
+  DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (var);
   DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
   DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
   TREE_USED (copy) = 1;
@@ -2531,6 +2531,8 @@ expand_omp_parallel (struct omp_region *region)
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb);
       if (exit_bb)
 	single_succ_edge (new_bb)->flags = EDGE_FALLTHRU;
+      DECL_STRUCT_FUNCTION (child_fn)->curr_properties
+	= cfun->curr_properties;
       cgraph_add_new_function (child_fn);
 
       /* Convert OMP_RETURN into a RETURN_EXPR.  */
@@ -3929,7 +3931,7 @@ lower_omp_critical (tree *stmt_p, omp_context *ctx)
 	  DECL_COMMON (decl) = 1;
 	  DECL_ARTIFICIAL (decl) = 1;
 	  DECL_IGNORED_P (decl) = 1;
-	  cgraph_varpool_finalize_decl (decl);
+	  varpool_finalize_decl (decl);
 
 	  splay_tree_insert (critical_name_mutexes, (splay_tree_key) name,
 			     (splay_tree_value) decl);

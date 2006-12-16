@@ -25,29 +25,11 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "flags.h"
-#include "rtl.h"
-#include "tm_p.h"
-#include "ggc.h"
-#include "langhooks.h"
-#include "hard-reg-set.h"
-#include "basic-block.h"
-#include "output.h"
-#include "expr.h"
-#include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-gimple.h"
-#include "tree-inline.h"
-#include "varray.h"
-#include "timevar.h"
-#include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
-#include "tree-pass.h"
-#include "toplev.h"
-#include "vecprim.h"
 
 
 /* Temporary Expression Replacement (TER)
@@ -185,7 +167,7 @@ typedef struct temp_expr_table_d
   int *num_in_part;			/* # of ssa_names in a partition.  */
 } *temp_expr_table_p;
 
-/* Used to indicate a dependency on V_MAY_DEFs.  */
+/* Used to indicate a dependency on VDEFs.  */
 #define VIRTUAL_PARTITION(table)	(table->virtual_partition)
 
 #ifdef ENABLE_CHECKING
@@ -402,8 +384,8 @@ is_replaceable_p (tree stmt)
   if (TREE_CODE (use_stmt) == PHI_NODE)
     return false;
 
-  /* There must be no V_MAY_DEFS or V_MUST_DEFS.  */
-  if (!(ZERO_SSA_OPERANDS (stmt, (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF))))
+  /* There must be no VDEFs.  */
+  if (!(ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF)))
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
@@ -690,7 +672,8 @@ dump_replaceable_exprs (FILE *f, tree *expr)
 	gcc_assert (var != NULL_TREE);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
-	print_generic_expr (f, TREE_OPERAND (stmt, 1), TDF_SLIM);
+	print_generic_expr (f, GENERIC_TREE_OPERAND (stmt, 1),
+			    TDF_SLIM);
 	fprintf (f, "\n");
       }
   fprintf (f, "\n");
