@@ -125,6 +125,12 @@ case ${host} in
 esac
 
 case ${host} in
+i[3456x]86-*-netware*)
+	case /${with_ld} in
+		hmake_file="${hmake_file} i386/t-nwld"
+		;;
+	esac
+	;;
 x86_64-*-darwin*)
 	hmake_file="t-darwin ${cpu_type}/t-darwin64 t-slibgcc-darwin"
 	;;

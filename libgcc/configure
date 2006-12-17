@@ -816,6 +816,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-target-subdir=SUBDIR      Configuring in a subdirectory for target
   --with-cross-host=HOST           Configuring with a cross compiler
+  --with-ld               arrange to use the specified ld (full pathname)
   --with-slibdir=DIR      shared libraries in DIR LIBDIR
 
 Some influential environment variables:
@@ -1287,6 +1288,12 @@ fi;
 # Check whether --with-cross-host or --without-cross-host was given.
 if test "${with_cross_host+set}" = set; then
   withval="$with_cross_host"
+
+fi;
+
+# Check whether --with-ld or --without-ld was given.
+if test "${with_ld+set}" = set; then
+  withval="$with_ld"
 
 fi;
 

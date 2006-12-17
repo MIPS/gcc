@@ -731,11 +731,10 @@ install: $(install-shared) $(install-libunwind)
 
 include $(srcdir)/empty.mk $(wildcard *.dep)
 
-# FIXME QUEUE:
-#  Darwin and i386-netware (t-nwld) have additional rules needed to build
-#  bits of shared libgcc.  Darwin's are handled and need to be garbage
-#  collected from gcc/.  Netware's need handling.
-
 # TODO QUEUE:
 #   Garbage collect in gcc/:
-#     $(LIBGCC) settings in t-*
+#     $(LIBGCC) settings in t-* are now unused
+#
+#   Remove use of $(gcc_srcdir).  Source files referenced using $(gcc_srcdir)
+#   should move into the libgcc directory.
+

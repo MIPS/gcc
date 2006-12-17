@@ -11,6 +11,8 @@ AC_ARG_WITH(target-subdir,
 [  --with-target-subdir=SUBDIR      Configuring in a subdirectory for target])
 AC_ARG_WITH(cross-host,
 [  --with-cross-host=HOST           Configuring with a cross compiler])
+AC_ARG_WITH(ld,
+[  --with-ld               arrange to use the specified ld (full pathname)])
 
 if test "${srcdir}" = "."; then
   if test -n "${with_build_subdir}"; then

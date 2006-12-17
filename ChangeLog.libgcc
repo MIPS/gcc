@@ -1,6 +1,14 @@
 2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	gcc/
+	* config/i386/t-nwld: Use $(T) for extra_parts files.
+	(SHLIB_EXT, SHLIB_NAME, SHLIB_SLIBDIR_QUAL, SHLIB_DEF, SHLIB_MAP)
+	(SHLIB_SRC, SHLIB_INSTALL): Delete.
+	(SHLIB_LINK): Make dummy.
+
+2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	gcc/
 	* config/rs6000/t-newas (EXTRA_PARTS): Don't use $(T).
 
 2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>

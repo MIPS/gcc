@@ -1,3 +1,11 @@
+2006-12-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in: Clean up FIXME and TODO.
+	* config/i386/t-nwld: New file.
+	* config.gcc: Handle i386 NetWare.
+	* configure.ac: Add --with-ld.
+	* configure: Regenerated.
+
 2006-11-26  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/t-slibgcc-darwin (SHLIB_LINK): Doc fix.
