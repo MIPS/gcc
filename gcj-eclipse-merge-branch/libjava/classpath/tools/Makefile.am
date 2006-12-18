@@ -1,4 +1,4 @@
-g## Input file for automake to generate the Makefile.in used by configure
+## Input file for automake to generate the Makefile.in used by configure
 
 ## GCJ LOCAL: use srcdir to find core classes.
 GLIBJ_BOOTCLASSPATH='$(top_srcdir)/lib'

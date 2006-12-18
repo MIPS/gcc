@@ -1078,7 +1078,6 @@ uninstall-am: uninstall-TOOLSDATA uninstall-binPROGRAMS \
 	tags uninstall uninstall-TOOLSDATA uninstall-am \
 	uninstall-binPROGRAMS uninstall-binSCRIPTS uninstall-info-am
 
-g## Input file for automake to generate the Makefile.in used by configure
 @FOUND_ECJ_FALSE@@FOUND_GCJ_FALSE@error dunno how to setup the JCOMPILER and compile
 
 # Make sure everything is included in the distribution.
