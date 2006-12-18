@@ -48,6 +48,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #error If you really need >99 dimensions, continue the sequence above...
 #endif
 
+/* array of structs so we don't have to worry about xmalloc or free */
+CInteropKind_t c_interop_kinds_table[ISOCBINDING_NUMBER];
+
 static tree gfc_get_derived_type (gfc_symbol * derived);
 
 tree gfc_array_index_type;
@@ -77,6 +80,11 @@ gfc_real_info gfc_real_kinds[MAX_REAL_KINDS + 1];
 static GTY(()) tree gfc_real_types[MAX_REAL_KINDS + 1];
 static GTY(()) tree gfc_complex_types[MAX_REAL_KINDS + 1];
 
+#define NUM_C_DERIVED_TYPES 2 /* c_ptr and c_funptr */
+#define C_PTR_TYPE_INDEX 0    /* index of c_ptr type tree */
+#define C_FUNPTR_TYPE_INDEX 1 /* index of c_funptr type tree */
+static tree gfc_iso_c_derived_types[NUM_C_DERIVED_TYPES];
+
 /* The integer kind to use for array indices.  This will be set to the
    proper value based on target information from the backend.  */
 
@@ -100,6 +108,118 @@ int gfc_intio_kind;
 /* The size of the numeric storage unit and character storage unit.  */
 int gfc_numeric_storage_size;
 int gfc_character_storage_size;
+
+
+/**
+ * Validate that the <code>f90_type</code> of the given
+ * <code>gfc_typespec</code> is valid for the type it represents.
+ *
+ * @param ts <code>gfc_typespec</code> representing the type being tested.
+ * @return FAILURE if a mismatch occurs between <code>ts->f90_type</code>
+ * and <code>ts->type</code>; SUCCESS if they match.
+ */
+try gfc_validate_c_kind(gfc_typespec *ts)
+{
+   return ((ts->type == ts->f90_type) ? SUCCESS : FAILURE);
+}/* end gfc_validate_c_kind() */
+
+
+static int
+get_real_kind_from_node (tree type)
+{
+  int i;
+
+  for (i = 0; gfc_real_kinds[i].kind != 0; i++)
+    if (gfc_real_kinds[i].mode_precision == TYPE_PRECISION (type))
+      return gfc_real_kinds[i].kind;
+
+  return -4;
+}
+
+static int
+get_int_kind_from_node (tree type)
+{
+  int i;
+
+  if (!type)
+    return -2;
+
+  for (i = 0; gfc_integer_kinds[i].kind != 0; i++)
+    if (gfc_integer_kinds[i].bit_size == TYPE_PRECISION (type))
+      return gfc_integer_kinds[i].kind;
+
+  return -1;
+}
+
+static int
+get_int_kind_from_width (int size)
+{
+  int i;
+
+  for (i = 0; gfc_integer_kinds[i].kind != 0; i++)
+    if (gfc_integer_kinds[i].bit_size == size)
+      return gfc_integer_kinds[i].kind;
+
+  return -2;
+}
+
+static int
+get_int_kind_from_minimal_width (int size)
+{
+  int i;
+
+  for (i = 0; gfc_integer_kinds[i].kind != 0; i++)
+    if (gfc_integer_kinds[i].bit_size >= size)
+      return gfc_integer_kinds[i].kind;
+
+  return -2;
+}
+
+
+/**
+ * Generate the <code>CInteropKind_t</code> objects for the C
+ * interoperable kinds.  
+ *
+ * @return None
+ */
+static
+void init_c_interop_kinds(void)
+{
+  int i;
+  tree intmax_type_node = INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE ?
+			  integer_type_node :
+			  (LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE ?
+			   long_integer_type_node :
+			   long_long_integer_type_node);
+
+  /* init all pointers in the list to NULL */
+  for (i = ISOCBINDING_INVALID; i < ISOCBINDING_NUMBER; i++)
+    {
+      /* Initialize the name and value fields.  */
+      c_interop_kinds_table[i].name[0] = '\0';
+      c_interop_kinds_table[i].value = -100;
+      c_interop_kinds_table[i].f90_type = BT_UNKNOWN;
+    }
+
+#define NAMED_INTCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_INTEGER; \
+  c_interop_kinds_table[a].value = c;
+#define NAMED_CHARCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_CHARACTER; \
+  c_interop_kinds_table[a].value = c;
+#define DERIVED_TYPE(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_DERIVED; \
+  c_interop_kinds_table[a].value = c;
+#define PROCEDURE(a,b) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_PROCEDURE; \
+  c_interop_kinds_table[a].value = 0;
+#include "iso-c-binding.def"
+}
+
 
 /* Query the target to determine which machine modes are available for
    computation.  Choose KIND numbers for them.  */
@@ -304,6 +424,9 @@ gfc_init_kinds (void)
   gfc_index_integer_kind = POINTER_SIZE / 8;
   /* Pick a kind the same size as the C "int" type.  */
   gfc_c_int_kind = INT_TYPE_SIZE / 8;
+
+  /* initialize the C interoperable kinds  */
+  init_c_interop_kinds();
 }
 
 /* Make sure that a valid kind is present.  Returns an index into the
@@ -704,7 +827,12 @@ gfc_typenode_for_spec (gfc_typespec * spec)
     case BT_DERIVED:
       basetype = gfc_get_derived_type (spec->derived);
       break;
-
+    case BT_VOID:
+       /* this is for the second arg to c_f_pointer and c_f_procpointer
+        * of the iso_c_binding module, to accept any ptr type.
+        */
+       basetype = ptr_type_node;
+       break;
     default:
       gcc_unreachable ();
     }
@@ -1364,7 +1492,9 @@ gfc_sym_type (gfc_symbol * sym)
 	    }
         }
       else
+      {
 	type = gfc_build_array_type (type, sym->as);
+    }
     }
   else
     {
@@ -1382,6 +1512,7 @@ gfc_sym_type (gfc_symbol * sym)
       if (sym->attr.optional || sym->ns->proc_name->attr.entry_master)
 	type = build_pointer_type (type);
       else
+         if(sym->attr.value != 1)
 	type = build_reference_type (type);
     }
 
@@ -1425,6 +1556,46 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
 
   return decl;
 }
+
+
+/**
+ * Check whether the given derived type is from the
+ * <code>iso_c_binding</code> intrinsic module.
+ *
+ * @param derived Derived type symbol to test.
+ * @return 1 if is from the iso_c_binding module; 0 if not.
+ */
+static int check_iso_c_derived(gfc_symbol *derived)
+{
+   /* this should only be 1 for c_ptr and c_funptr; 0 otherwise */
+   return derived->attr.is_iso_c;
+}/* end check_iso_c_derived() */
+
+
+/**
+ * Get the stored <code>iso_c_binding</code> derived type for either
+ * <code>c_ptr</code> or <code>c_funptr</code>.  A reference is stored
+ * to the first of these created for a given namespace because when
+ * the expressions they are used in are being generated, the types are
+ * checked to see if they are the same.  The checks are limited to if
+ * they point to the same object.  Even if the fields are all identical
+ * in type, the derived types could not be used in expressions for each
+ * other, such as assigning one to the other.  Therefore, to allow this
+ * to work, they will share an underlying derived type definition, so
+ * the definitions for these are stored to be used for all variables
+ * declared of type <code>c_ptr</code> or <code>c_funptr</code>.
+ *
+ * @param derived Derived symbol used to determine which of the ISO C
+ * derived types we need the tree for.
+ * @return The tree that was created for the given ISO C derived type.
+ */
+static tree get_iso_c_derived(gfc_symbol *derived)
+{
+   if(strcmp(derived->name, "c_ptr") == 0)
+      return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];
+   else
+      return gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX];
+}/* end get_iso_c_derived() */
 
 
 /* Copy the backend_decl and component backend_decls if
@@ -1474,19 +1645,40 @@ copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to)
 static tree
 gfc_get_derived_type (gfc_symbol * derived)
 {
-  tree typenode, field, field_type, fieldlist;
+  tree typenode = NULL, field = NULL, field_type = NULL, fieldlist = NULL;
   gfc_component *c;
+  tree iso_c_tree = NULL;
   gfc_dt_list *dt;
   gfc_namespace * ns;
 
   gcc_assert (derived && derived->attr.flavor == FL_DERIVED);
 
+  /* see if it's one of the iso_c_binding derived types */
+  if(check_iso_c_derived(derived) == 1)
+  {
+     iso_c_tree = get_iso_c_derived(derived);
+     if(iso_c_tree != NULL && derived->backend_decl == NULL)
+        derived->backend_decl = iso_c_tree;
+  }
+  
   /* derived->backend_decl != 0 means we saw it before, but its
      components' backend_decl may have not been built.  */
   if (derived->backend_decl)
     {
       /* Its components' backend_decl have been built.  */
       if (TYPE_FIELDS (derived->backend_decl))
+          if(iso_c_tree != NULL)
+          {
+             if(!(derived->components->backend_decl))
+                /* if we're working on building this for an iso c
+                 * type in a different ns than when we started, this
+                 * may not have been set yet.  --Rickett, 03.02.06
+                 */
+                derived->components->backend_decl =
+                   iso_c_tree->type.values;
+             return iso_c_tree;
+          }
+          else
         return derived->backend_decl;
       else
         typenode = derived->backend_decl;
@@ -1528,10 +1720,27 @@ gfc_get_derived_type (gfc_symbol * derived)
 	}
 
       /* We see this derived type first time, so build the type node.  */
+      if(iso_c_tree != NULL)
+      {
+         derived->backend_decl = iso_c_tree;
+      }
+      else
+      {
       typenode = make_node (RECORD_TYPE);
       TYPE_NAME (typenode) = get_identifier (derived->name);
       TYPE_PACKED (typenode) = gfc_option.flag_pack_derived;
       derived->backend_decl = typenode;
+
+         /* there should be a cleaner way to do this..
+          * --Rickett, 06.12.06
+          */
+         if(strcmp(derived->name, "c_ptr") == 0 &&
+            gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] == NULL)
+            gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] = typenode;
+         else if(strcmp(derived->name, "c_funptr") == 0 &&
+                 gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] == NULL)
+            gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] = typenode;
+      }
     }
 
   /* Go through the derived type components, building them as

@@ -131,6 +131,7 @@ typedef struct pointer_info
       module_locus where;
       fixup_t *stfixup;
       gfc_symtree *symtree;
+      char binding_label[GFC_MAX_SYMBOL_LEN + 1];
     }
     rsym;
 
@@ -1314,6 +1315,9 @@ write_atom (atom_type atom, const void *v)
 
     }
 
+  if(p == NULL || *p == '\0') 
+     len = 0;
+  else
   len = strlen (p);
 
   if (atom != ATOM_RPAREN)
@@ -1331,7 +1335,7 @@ write_atom (atom_type atom, const void *v)
   if (atom == ATOM_STRING)
     write_char ('\'');
 
-  while (*p)
+  while (p != NULL && *p)
     {
       if (atom == ATOM_STRING && *p == '\'')
 	write_char ('\'');
@@ -1491,7 +1495,8 @@ typedef enum
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
-  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP, AB_VOLATILE
+  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP, AB_VOLATILE,
+  AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_VALUE
 }
 ab_attribute;
 
@@ -1522,6 +1527,10 @@ static const mstring attr_bits[] =
     minit ("ALWAYS_EXPLICIT", AB_ALWAYS_EXPLICIT),
     minit ("CRAY_POINTER", AB_CRAY_POINTER),
     minit ("CRAY_POINTEE", AB_CRAY_POINTEE),
+    minit ("IS_BIND_C", AB_IS_BIND_C),
+    minit ("IS_C_INTEROP", AB_IS_C_INTEROP),
+    minit ("IS_ISO_C", AB_IS_ISO_C),
+    minit ("VALUE", AB_VALUE),
     minit ("ALLOC_COMP", AB_ALLOC_COMP),
     minit (NULL, -1)
 };
@@ -1615,6 +1624,14 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_CRAY_POINTER, attr_bits);
       if (attr->cray_pointee)
 	MIO_NAME(ab_attribute) (AB_CRAY_POINTEE, attr_bits);
+      if(attr->is_bind_c)
+         MIO_NAME(ab_attribute) (AB_IS_BIND_C, attr_bits);
+      if (attr->is_c_interop)
+         MIO_NAME(ab_attribute) (AB_IS_C_INTEROP, attr_bits);
+      if (attr->is_iso_c)
+         MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
+      if (attr->value)
+         MIO_NAME(ab_attribute) (AB_VALUE, attr_bits);
       if (attr->alloc_comp)
 	MIO_NAME(ab_attribute) (AB_ALLOC_COMP, attr_bits);
 
@@ -1709,6 +1726,18 @@ mio_symbol_attribute (symbol_attribute * attr)
 	    case AB_CRAY_POINTEE:
 	      attr->cray_pointee = 1;
 	      break;
+            case AB_IS_BIND_C:
+               attr->is_bind_c = 1;
+               break;
+            case AB_IS_C_INTEROP:
+               attr->is_c_interop = 1;
+               break;
+            case AB_IS_ISO_C:
+               attr->is_iso_c = 1;
+               break;
+            case AB_VALUE:
+               attr->value = 1;
+               break;
 	    case AB_ALLOC_COMP:
 	      attr->alloc_comp = 1;
 	      break;
@@ -1727,6 +1756,7 @@ static const mstring bt_types[] = {
     minit ("DERIVED", BT_DERIVED),
     minit ("PROCEDURE", BT_PROCEDURE),
     minit ("UNKNOWN", BT_UNKNOWN),
+    minit ("VOID", BT_VOID),
     minit (NULL, -1)
 };
 
@@ -1800,6 +1830,14 @@ mio_typespec (gfc_typespec * ts)
   else
     mio_symbol_ref (&ts->derived);
 
+  /* add info for C interop and iso_c.  --Rickett, 06.29.06 */
+  /* in the case of the iso_c_binding named constants, this field
+   * says what fortran types it can work with.
+   */
+  ts->f90_type = ts->type;
+  mio_integer(&ts->is_c_interop);
+  mio_integer(&ts->is_iso_c);
+  
   mio_charlen (&ts->cl);
 
   mio_rparen ();
@@ -3079,6 +3117,11 @@ load_commons(void)
 	p->threadprivate = 1;
       p->use_assoc = 1;
 
+      /* get whether this was a bind(c) common or not */
+      mio_integer (&p->is_bind_c);
+      /* get the binding label */
+      mio_internal_string (p->binding_label);
+      
       mio_rparen();
     }
 
@@ -3287,7 +3330,9 @@ read_module (void)
 
       mio_internal_string (info->u.rsym.true_name);
       mio_internal_string (info->u.rsym.module);
+      mio_internal_string (info->u.rsym.binding_label);
 
+      
       require_atom (ATOM_INTEGER);
       info->u.rsym.ns = atom_int;
 
@@ -3369,6 +3414,11 @@ read_module (void)
 				      gfc_current_ns);
 
 		  sym->module = gfc_get_string (info->u.rsym.module);
+                  /* hmm, can we test this.  do we know it will be
+                   * initialized to zeros?? --Rickett, 03.13.06
+                   */
+                  if (info->u.rsym.binding_label[0] != '\0')
+                    strcpy (sym->binding_label, info->u.rsym.binding_label);
 		}
 
 	      st->n.sym = sym;
@@ -3495,6 +3545,8 @@ write_common (gfc_symtree *st)
   gfc_common_head *p;
   const char * name;
   int flags;
+  const char *label;
+              
 
   if (st == NULL)
     return;
@@ -3515,6 +3567,20 @@ write_common (gfc_symtree *st)
   if (p->threadprivate) flags |= 2;
   mio_integer(&flags);
 
+  /* write out whether the common block is bind(c) or not */
+  mio_integer(&(p->is_bind_c));
+  /* write out the binding label, or the com name if no label given */
+  if (p->is_bind_c && p->binding_label[0] != '\0')
+    {
+      label = p->binding_label;
+      mio_pool_string (&label);
+    }
+  else
+    {
+      label = p->name;
+      mio_pool_string (&label);
+    }
+
   mio_rparen();
 }
 
@@ -3525,6 +3591,11 @@ write_blank_common (void)
 {
   const char * name = BLANK_COMMON_NAME;
   int saved;
+  /* blank commons are not bind(c).  the draft probably says this,
+   * but i haven't checked.  just making it so for now.
+   * --Rickett, 04.12.06
+   */  
+  int is_bind_c = 0;  
 
   if (gfc_current_ns->blank_common.head == NULL)
     return;
@@ -3536,6 +3607,13 @@ write_blank_common (void)
   mio_symbol_ref(&gfc_current_ns->blank_common.head);
   saved = gfc_current_ns->blank_common.saved;
   mio_integer(&saved);
+
+  /* write out whether the common block is bind(c) or not */
+  mio_integer(&is_bind_c);
+  /* write out the binding label, which is BLANK_COMMON_NAME, though
+   * it doesn't matter because the label isn't used.
+   */
+  mio_pool_string (&name);
 
   mio_rparen();
 }
@@ -3571,6 +3649,7 @@ write_equiv(void)
 static void
 write_symbol (int n, gfc_symbol * sym)
 {
+   const char *label;
 
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
     gfc_internal_error ("write_symbol(): bad module symbol '%s'", sym->name);
@@ -3579,6 +3658,15 @@ write_symbol (int n, gfc_symbol * sym)
   mio_pool_string (&sym->name);
 
   mio_pool_string (&sym->module);
+  if ((sym->attr.is_bind_c || sym->attr.is_iso_c)
+      && sym->binding_label[0] != '\0')
+    {
+      label = sym->binding_label;
+      mio_pool_string (&label);
+    }
+  else
+    mio_pool_string (&sym->name);
+
   mio_pointer_ref (&sym->ns);
 
   mio_symbol (sym);
@@ -3843,6 +3931,84 @@ gfc_dump_module (const char *name, int dump_flag)
 }
 
 
+/* Import the instrinsic ISO_C_BINDING module, generating symbols in the
+   current namespace for all named constants, pointer types,
+   and procedures in the module unless the only clause was used
+   or a rename list was provided.  */
+static void
+import_iso_c_binding_module (void)
+{
+  gfc_symbol *mod_sym = NULL;
+  gfc_symtree *mod_symtree = NULL;
+  const char *iso_c_module_name = "__iso_c_binding";
+  gfc_use_rename *u;
+  int i;
+  char *local_name;
+
+  /* Look only in the current namespace.  */
+  mod_symtree = gfc_find_symtree(gfc_current_ns->sym_root, iso_c_module_name);
+
+  if (mod_symtree == NULL)
+    {
+      /* symtree doesn't already exist in current namespace.  */
+      gfc_get_sym_tree (iso_c_module_name, gfc_current_ns, &mod_symtree);
+      
+      if (mod_symtree != NULL)
+        mod_sym = mod_symtree->n.sym;
+      else
+        gfc_internal_error ("import_iso_c_binding_module(): Unable to "
+			    "create symbol for %s", iso_c_module_name);
+
+      mod_sym->attr.flavor = FL_MODULE;
+      mod_sym->module = gfc_get_string(iso_c_module_name);
+    }
+
+  /* Generate the symbols for the named constants representing
+     the kinds for intrinsic data types.  */
+  if (only_flag)
+    for (u = gfc_rename_list; u; u = u->next)
+      {
+	i = get_c_kind (u->use_name, c_interop_kinds_table);
+
+	if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
+	  {
+	    gfc_error ("Symbol '%s' referenced at %L does not exist in "
+		       "intrinsic module ISO_C_BINDING.", u->use_name,
+		       &u->where);
+	    continue;
+	  }
+	  
+	generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
+      }
+  else
+    {
+      for (i = 0; i < ISOCBINDING_NUMBER; i++)
+	{
+	  local_name = NULL;
+	  for (u = gfc_rename_list; u; u = u->next)
+	    {
+	      if (strcmp (c_interop_kinds_table[i].name, u->use_name) == 0)
+		{
+		  local_name = u->local_name;
+		  u->found = 1;
+		  break;
+	        }
+	    }
+	  generate_isocbinding_symbol (iso_c_module_name, i, local_name);
+	}
+
+      for (u = gfc_rename_list; u; u = u->next)
+	{
+	  if (u->found)
+	    continue;
+
+	  gfc_error ("Symbol '%s' referenced at %L not found in intrinsic "
+		     "module ISO_C_BINDING", u->use_name, &u->where);
+	}
+    }
+}
+
+
 /* Add an integer named constant from a given module.  */
 static void
 create_int_parameter (const char *name, int value, const char *modname)
@@ -4007,6 +4173,14 @@ gfc_use_module (void)
          use_iso_fortran_env_module ();
          return;
        }
+
+      if (strcmp (module_name, "iso_c_binding") == 0
+	  && gfc_notify_std (GFC_STD_F2003, "New in Fortran 2003: "
+			     "ISO_C_BINDING module at %C") != FAILURE)
+	{
+	  import_iso_c_binding_module();
+	  return;
+	}
 
       module_fp = gfc_open_intrinsic_module (filename);
 

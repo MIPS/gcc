@@ -452,8 +452,19 @@ gfc_copy_expr (gfc_expr * p)
 	  s = gfc_getmem (p->value.character.length + 1);
 	  q->value.character.string = s;
 
+          /* this is the case for the C_NULL_CHAR named constant */
+          if(p->value.character.length == 0)
+          {
+             *s = '\0';
+             /* need to set the length to 1 to make sure the null terminator
+              * is copied.  --Rickett, 02.07.06
+              */
+             q->value.character.length = 1;
+          }
+          else
 	  memcpy (s, p->value.character.string,
 		  p->value.character.length + 1);
+          
 	  break;
 
 	case BT_LOGICAL:
@@ -461,6 +472,8 @@ gfc_copy_expr (gfc_expr * p)
 	  break;		/* Already done */
 
 	case BT_PROCEDURE:
+        case BT_VOID:
+           /* should never be reached.  --Rickett, 03.14.06 */
 	case BT_UNKNOWN:
 	  gfc_internal_error ("gfc_copy_expr(): Bad expr node");
 	  /* Not reached */

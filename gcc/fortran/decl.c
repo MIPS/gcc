@@ -43,6 +43,10 @@ static symbol_attribute current_attr;
 static gfc_array_spec *current_as;
 static int colon_seen;
 
+/* the current binding label (if any).  */
+static char curr_binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
+
+
 /* Initializer of the previous enumerator.  */
 
 static gfc_expr *last_initializer;
@@ -698,6 +702,108 @@ get_proc_name (const char *name, gfc_symbol ** result,
 }
 
 
+/**
+ * Verify that the given symbol representing a parameter is C
+ * interoperable, by checking to see if it was marked as such after
+ * its declaration.  If the given symbol is not interoperable, a  
+ * warning is reported, thus removing the need to return the status
+ * to the calling function.  The standard does not require the user
+ * use one of the iso_c_binding named constants to declare an interoperable
+ * parameter, but we can't be sure if the param is C interop or
+ * not if the user doesn't.  For example, integer(4) may be legal Fortran,
+ * but doesn't have meaning in C.  It may interop with a number of the
+ * C types, which causes a problem because the compiler can't know which
+ * one.  This code is almost certainly not portable, and the user will
+ * get what they deserve if the C type across platforms isn't always
+ * interoperable with integer(4).  If the user had used something like
+ * integer(c_int) or integer(c_long), the compiler could have automatically
+ * handled the varying sizes across platforms.  
+ *
+ * @param sym Symbol to test for interoperability.
+ * @return None
+ */
+void verify_c_interop_param(gfc_symbol *sym)
+{
+   int is_c_interop = 0;
+
+   /* see if we've stored a reference to a procedure that owns sym */
+   if(sym->ns != NULL && sym->ns->proc_name != NULL)
+   {
+      /* if we're dealing with a derived type, then we have to
+       * look up if it's defn is bind(c).  if it is, then it should've
+       * passed inspection of the fields being interoperable.
+       */
+      if(sym->ts.type == BT_DERIVED)
+         /* get the is_c_interop from the derived type defn. */
+         is_c_interop = (sym->ts.derived->ts.is_c_interop ||
+                         sym->ts.derived->attr.is_c_interop);
+      else
+         is_c_interop = (sym->ts.is_c_interop ||
+                         sym->attr.is_c_interop);
+         
+      if(sym->ns->proc_name->attr.is_bind_c == 1)
+      {
+         if(is_c_interop != 1)
+         {
+            /* make personalized messages to give better feedback */
+            if(sym->ts.type == BT_DERIVED)
+               gfc_warning_now("Type \"%s\" at %L "
+                               "is a parameter to the BIND(C) procedure '%s' but "
+                               "may not be C interoperable "
+                               "because derived type \"%s\" is not C "
+                               "interoperable",
+                               sym->name, &(sym->declared_at),
+                               sym->ns->proc_name->name, 
+                               sym->ts.derived->name);
+            else
+               gfc_warning_now("Variable \"%s\" at %L "
+                               "is a parameter to the BIND(C) procedure '%s' but "
+                               "may not be C interoperable",
+                               sym->name, &(sym->declared_at),
+                               sym->ns->proc_name->name);
+         }/* end if(is not c interop param) */
+         
+         /* we have to make sure that any param to a bind(c) routine does
+          * not have the allocatable, pointer, or optional attributes,
+          * according to J3/04-007, section 5.1.  
+          */
+         if(sym->attr.allocatable == 1)
+         {
+            gfc_error_now("Variable '%s' at %L can not have the "
+                          "ALLOCATABLE attribute because procedure '%s'"
+                          " is BIND(C)", sym->name, &(sym->declared_at),
+                          sym->ns->proc_name->name);
+         }
+         if(sym->attr.pointer == 1)
+         {
+            gfc_error_now("Variable '%s' at %L can not have the "
+                          "POINTER attribute because procedure '%s'"
+                          " is BIND(C)", sym->name, &(sym->declared_at),
+                          sym->ns->proc_name->name);
+         }
+         if(sym->attr.optional == 1)
+         {
+            gfc_error_now("Variable '%s' at %L can not have the "
+                          "OPTIONAL attribute because procedure '%s'"
+                          " is BIND(C)", sym->name, &(sym->declared_at),
+                          sym->ns->proc_name->name);
+         }
+      }/* end if(owning proc is bind(c) */
+   }/* end if(namespace ptr is not NULL) */
+
+   /* make sure we clear out any buffered errors since we're not
+    * returning a status to the caller about whether an error
+    * was encountered or not.  if the symbol has more than one error,
+    * only one of the errors for it's decl may be reported here, but
+    * the other will get caught once the first one is fixed.
+    */
+/*    gfc_warning_check(); */
+/*    gfc_error_check(); */
+         
+   return;
+}/* end verify_c_interop_param() */
+
+
 /* Function called by variable_decl() that adds a name to the symbol
    table.  */
 
@@ -735,6 +841,104 @@ build_sym (const char *name, gfc_charlen * cl,
 
   if (gfc_copy_attr (&sym->attr, &attr, var_locus) == FAILURE)
     return FAILURE;
+
+  /* finish any work that may need to be done for the binding label,
+   * if it's a bind(c).  the bind(c) attr is found before the symbol
+   * is made, and before the symbol name (for data decls), so the
+   * current_ts is holding the binding label, or nothing if the
+   * name= attr wasn't given.  therefore, test here if we're dealing
+   * with a bind(c) and make sure the bindingLabel is set correctly
+   * --Rickett, 10.13.05
+   */
+  if(sym->attr.is_bind_c == 1)
+  {
+     if(sym->binding_label[0] == '\0')
+     {
+        /* here, we're not checking the numIdents (the last param)!!!
+         * this could be an error we're letting slip through!
+         * --Rickett, 10.27.05
+         */
+        set_binding_label(sym->binding_label, sym->name, 1);
+     }/* end if(bind(c) sym has no binding label yet) */
+
+     /* the fields of a common block (and derived types),
+      * can't be bind(c) i'd think since the fields themselves are
+      * not visible according to the f90 names.  they're known by
+      * the C defn for the common block of derived type
+      * this is something else to error check now!!!!
+      * --Rickett, 11.10.05, 04.11.06
+      */
+     /* verify that the decl is semantically ok for a bind(c).
+      * ignore whether this func returns FAILURE or SUCCESS so we
+      * can continue the compilation since this isn't fatal.
+      * the 0 param means it's not in a common (or not that we care).
+      * the NULL is for the non-existent commonHead
+      */
+     verify_bind_c_sym(sym, &current_ts, 0, NULL);
+  }/* end if(symbol is a bind(c) */
+
+  /* see if we know we're in a common block, and if it's a bind(c)
+   * common then we need to make sure we're an interoperable type.
+   */
+  if(sym->attr.in_common == 1)
+  {
+     /* test the common block object */
+     if(sym->common_block != NULL && sym->common_block->is_bind_c == 1
+        && sym->ts.is_c_interop != 1)
+     {
+        gfc_error_now("Variable \"%s\" in common block \"%s\" at %C "
+                      "must be declared with a C interoperable "
+                      "kind since common block \"%s\" is bind(c)",
+                      sym->name, sym->common_block->name,
+                      sym->common_block->name);
+        gfc_clear_error();
+     }/* end if(common block is bind(C) but symbol isn't) */
+  }/* end if(we know given symbol is in a common block) */
+
+  /* this could allow constant variables that are declared with a
+   * C interop kind to be used as a kind themselves and incorrectly
+   * allow the variable using them to be marked as c interoperable.
+   * for example:
+   * integer(c_int), parameter :: my_int = 4 ! c interop
+   * integer(my_int) :: my_int_2 ! should NOT be c interop
+   * so, only allow it to be c interop if it uses something from the
+   * iso_c_binding module..  --Rickett, 06.22.06
+   */
+/*   /\* if the typespec says it's c interop, then make sure we put */
+/*    * that info into the symbol attr. */
+/*    *\/ */
+/*   sym->attr.is_c_interop = sym->ts.is_c_interop; */
+/*   sym->attr.is_c_interop = sym->attr.is_iso_c; /\* sym->ts.is_c_interop; *\/ */
+/*   sym->ts.is_c_interop = sym->attr.is_iso_c; */
+
+  if(sym->attr.dummy == 1)
+  {
+     verify_c_interop_param(sym);
+
+     /* character strings are a hassle because they may be length 1,
+      * or assumed length (*), etc., so we need to find a way to
+      * prevent by-value dummy char args from being anything but
+      * length 1 constants, because C will only pass a pointer in
+      * any other cases.  however, we can't help the following with the
+      * logic being used below:
+      * character(c_char), value :: my_char
+      * character(kind=c_char, len=1), value :: my_char_str
+      * hope the user does the right thing..  --Rickett, 06.21.06
+      */
+     if(sym->attr.value == 1 && sym->ts.type == BT_CHARACTER)
+        /* if we can't verify the length of 1...error */
+        if(sym->ts.cl == NULL || sym->ts.cl->length == NULL 
+           || (sym->ts.cl->length->value.character.length != 1))
+           gfc_error_now("'VALUE' attribute at %L can not be used "
+                         "for character strings", &(sym->declared_at));
+  }/* end if(possible param) */
+  else
+  {
+     if(sym->attr.value == 1)
+        /* can not use VALUE attribute if not a dummy */
+        gfc_error_now("VALUE attribute at %L can only be used for "
+                      "dummy arguments", &(sym->declared_at));
+  }/* end else(not a dummy) */
 
   return SUCCESS;
 }
@@ -924,6 +1128,25 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       if (sym->attr.dimension && init->rank == 0)
 	init->rank = sym->as->rank;
 
+      /* need to check if the expression we initialized this
+       * to was one of the iso_c_binding named constants.  if so,
+       * and we're a parameter (constant), let it be iso_c.
+       * for example:
+       * integer(c_int), parameter :: my_int = c_int
+       * integer(my_int) :: my_int_2
+       * if we mark my_int as iso_c (since we can see it's value
+       * is equal to one of the named constants), then my_int_2
+       * will be considered C interoperable.  --Rickett, 06.23.06
+       */
+      if(sym->ts.type != BT_CHARACTER && sym->ts.type != BT_DERIVED)
+      {
+         sym->ts.is_iso_c |= init->ts.is_iso_c;
+         sym->ts.is_c_interop |= init->ts.is_c_interop;
+         /* attr bits needed for module files */
+         sym->attr.is_iso_c |= init->ts.is_iso_c;
+         sym->attr.is_c_interop |= init->ts.is_c_interop;
+      }/* end if(not a character or derived type) */
+      
       sym->value = init;
       *initp = NULL;
     }
@@ -1470,25 +1693,64 @@ gfc_match_kind_spec (gfc_typespec * ts)
       goto no_match;
     }
 
+  /* before throwing away the expression, let's see if we had a
+   * C interoperable kind (and store the fact).
+   */
+  if(e->ts.is_c_interop == 1)
+  {
+/*      ts->is_c_interop = e->ts.is_c_interop; */
+     /* mark this as c interoperable if being declared with one
+      * of the named constants from iso_c_binding.
+      */
+     ts->is_c_interop = e->ts.is_iso_c;
+     ts->f90_type = e->ts.f90_type;
+     /* we need to verify that if it's a c interop kind, that the
+      * kind makes sense for the given fortran type.  (i.e., the user
+      * can NOT do the following for example: real(c_int) :: x)
+      *
+      * can't do this with the function gfc_validate_kind, but need to
+      * do something similar.  --Rickett, 10.31.05
+      */
+     if(gfc_validate_c_kind(ts) != SUCCESS)
+     {
+        /* print error, but continue parsing line */
+        /* this should maybe be made into a gfc_error_now and forget
+         * the m=match_error since we'll ignore it later and
+         * continue parsing.  --Rickett, 01.24.06
+         */
+        gfc_error_now("C kind param '%s' at %C not valid for %s",
+                      e->symtree->name, gfc_basic_typename(ts->type));
+        m = MATCH_ERROR;
+     }
+  }/* end if(a C interop type) */
+  
   gfc_free_expr (e);
   e = NULL;
 
+  /* ignore errors to this point, if we've gotten here.  this means
+   * we ignore the m=MATCH_ERROR above
+   * --Rickett, 01.24.06
+   */
   if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Kind %d not supported for type %s at %C", ts->kind,
 		 gfc_basic_typename (ts->type));
-
       m = MATCH_ERROR;
-      goto no_match;
     }
-
-  if (gfc_match_char (')') != MATCH_YES)
+  else if (gfc_match_char (')') != MATCH_YES)
     {
       gfc_error ("Missing right parenthesis at %C");
-      goto no_match;
+     m = MATCH_ERROR;
     }
+  else
+     /* all tests passed */
+     m = MATCH_YES;
 
-  return MATCH_YES;
+  if(m == MATCH_ERROR)
+     gfc_current_locus = where;
+  
+  /* return what we know from the test(s) */
+  return m;
 
 no_match:
   gfc_free_expr (e);
@@ -1507,7 +1769,7 @@ match_char_spec (gfc_typespec * ts)
   gfc_charlen *cl;
   gfc_expr *len;
   match m;
-
+  gfc_expr *kind_expr = NULL;
   kind = gfc_default_character_kind;
   len = NULL;
   seen_length = 0;
@@ -1534,7 +1796,9 @@ match_char_spec (gfc_typespec * ts)
   /* Try the weird case:  ( KIND = <int> [ , LEN = <len-param> ] )   */
   if (gfc_match (" kind =") == MATCH_YES)
     {
-      m = gfc_match_small_int (&kind);
+       m = gfc_match_small_int_expr(&kind, &kind_expr);
+/*        m = gfc_match_small_int (&kind); */
+       
       if (m == MATCH_ERROR)
 	goto done;
       if (m == MATCH_NO)
@@ -1569,7 +1833,8 @@ match_char_spec (gfc_typespec * ts)
       if (gfc_match (" , kind =") != MATCH_YES)
 	goto syntax;
 
-      gfc_match_small_int (&kind);
+       gfc_match_small_int_expr(&kind, &kind_expr);
+/*        gfc_match_small_int (&kind); */
 
       if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
 	{
@@ -1597,7 +1862,8 @@ match_char_spec (gfc_typespec * ts)
 
   gfc_match (" kind =");	/* Gobble optional text */
 
-  m = gfc_match_small_int (&kind);
+  m = gfc_match_small_int_expr(&kind, &kind_expr);
+/*   m = gfc_match_small_int (&kind); */
   if (m == MATCH_ERROR)
     goto done;
   if (m == MATCH_NO)
@@ -1623,6 +1889,7 @@ done:
   if (m != MATCH_YES)
     {
       gfc_free_expr (len);
+       gfc_free_expr (kind_expr);
       return m;
     }
 
@@ -1647,6 +1914,43 @@ done:
   ts->cl = cl;
   ts->kind = kind;
 
+  /* we have to know if it was a c interoperable kind so we can
+   * do accurate type checking of bind(c) procs, etc.
+   * --Rickett, 01.31.06
+   */
+  if(kind_expr != NULL)
+  {
+/*      ts->is_c_interop = kind_expr->ts.is_c_interop; */
+     /* mark this as c interoperable if being declared with one
+      * of the named constants from iso_c_binding.
+      */
+     ts->is_c_interop = kind_expr->ts.is_iso_c;
+     gfc_free_expr(kind_expr);
+  }
+  else if(len != NULL)
+  {
+     /* here, we might have parsed something such as:
+      * character(c_char)
+      * in this case, the parsing code above grabs the c_char when
+      * looking for the length (line 1690, roughly).  it's the last
+      * testcase for parsing the kind params of a character variable.
+      * however, it's not actually the length.  this seems like it
+      * could be an error.  i'm rather confused..
+      * so, to see if the user used a C interop kind, test the expr.
+      * of the so called length, and see if it's C interoperable.
+      * --Rickett, 04.14.06
+      *
+      * this also seems to mean that the kind is being accidentally set
+      * to 1 for a character(c_char) in this way, and not because the
+      * value of c_char is 1.  this seems to be wrong... this really
+      * needs fixed.  should ask the fortran list why it's assumed that
+      * all that comes is the len parameter in this case!!
+      * --Rickett, 04.14.06
+      */
+/*      ts->is_c_interop = len->ts.is_c_interop; */
+     ts->is_c_interop = len->ts.is_iso_c;
+  }
+
   return MATCH_YES;
 }
 
@@ -1668,6 +1972,9 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   int c;
 
   gfc_clear_ts (ts);
+
+  /* clear the current binding label, in case one is given */
+  curr_binding_label[0] = '\0';
 
   if (gfc_match (" byte") == MATCH_YES)
     {
@@ -2118,6 +2425,8 @@ match_attr_spec (void)
     DECL_IN, DECL_OUT, DECL_INOUT, DECL_INTRINSIC, DECL_OPTIONAL,
     DECL_PARAMETER, DECL_POINTER, DECL_PRIVATE, DECL_PUBLIC, DECL_SAVE,
     DECL_TARGET, DECL_VOLATILE, DECL_COLON, DECL_NONE,
+    DECL_IS_BIND_C,
+    DECL_VALUE,
     GFC_DECL_END /* Sentinel */
   }
   decl_types;
@@ -2140,6 +2449,7 @@ match_attr_spec (void)
     minit (", public", DECL_PUBLIC),
     minit (", save", DECL_SAVE),
     minit (", target", DECL_TARGET),
+    minit (", value", DECL_VALUE),
     minit (", volatile", DECL_VOLATILE),
     minit ("::", DECL_COLON),
     minit (NULL, DECL_NONE)
@@ -2151,6 +2461,7 @@ match_attr_spec (void)
   const char *attr;
   match m;
   try t;
+  char peek_char;
 
   gfc_clear_attr (&current_attr);
   start = gfc_current_locus;
@@ -2165,6 +2476,26 @@ match_attr_spec (void)
   for (;;)
     {
       d = (decl_types) gfc_match_strings (decls);
+
+     if(d == DECL_NONE)
+     {
+        /* see if we can find the bind(c) since all else failed */ 
+        if(gfc_peek_char() == ',')
+        {
+           /* chomp the comma */
+           peek_char = gfc_next_char();
+           /* try and match the bind(c) */
+           if(gfc_match_bind_c(NULL) == MATCH_YES)              
+              d = DECL_IS_BIND_C;
+           else
+           {
+              /* we're in trouble here.. --Rickett, 10.13.05 */
+              gfc_error("Syntax error in BIND(C) attribute at %C");
+              return MATCH_ERROR;
+           }
+        }/* end if(next char is a comma) */
+     }/* end if(is decl_none and not the colon yet) */
+       
       if (d == DECL_NONE || d == DECL_COLON)
 	break;
        
@@ -2261,6 +2592,12 @@ match_attr_spec (void)
 	  case DECL_TARGET:
 	    attr = "TARGET";
 	    break;
+          case DECL_IS_BIND_C:
+             attr = "IS_BIND_C";
+             break;
+          case DECL_VALUE:
+             attr = "VALUE";
+             break;
 	  case DECL_VOLATILE:
 	    attr = "VOLATILE";
 	    break;
@@ -2378,6 +2715,20 @@ match_attr_spec (void)
 	  t = gfc_add_target (&current_attr, &seen_at[d]);
 	  break;
 
+        case DECL_IS_BIND_C:
+           /* the attr for is_bind_c should have been set in the
+            * gfc_match_bind_c function, but we have to set it here
+            * because gfc_match_bind_c will store it in the sym->attr,
+            * which will be overwritten when we return from this func.
+            * --Rickett, 10.13.05
+            */
+           t = gfc_add_is_bind_c(&current_attr, &seen_at[d]);
+           break;
+           
+        case DECL_VALUE:
+           t = gfc_add_value(&current_attr, &seen_at[d]);
+           break;
+           
 	case DECL_VOLATILE:
 	  if (gfc_notify_std (GFC_STD_F2003,
                               "Fortran 2003: VOLATILE attribute at %C")
@@ -2409,6 +2760,673 @@ cleanup:
 }
 
 
+/**
+ * Set the binding label, <code>dest_label</code>, either with the
+ * binding label stored in the given <code>#gfc_typespec</code>, <code>ts</code>,
+ * or if none was provided, it will be the symbol name in all lower
+ * case, as required by the draft (J3/04-007, section 15.4.1).
+ *
+ * @param dest_label Output buffer for the binding label being created.
+ * @param sym_name Name of the symbol the binding label is being created
+ * for.  This is used to create a binding label if the user didn't give
+ * one with the 'name=' specifier in the declaration.
+ * @param ts The <code>#gfc_typespec</code> object that holds the user
+ * provided binding label, if given.  Typically, this is the
+ * <code>#current_ts</code>.
+ * @param num_idents The number of identifiers provided in this
+ * bind(c) statement.  If a binding label was provided by the user and
+ * the number of identifiers is greater than 1, it is an error and is
+ * reported as such.
+ * @return FAILURE if multiple identifiers are given for a single
+ * binding label with a 'name=' specifier; SUCCESS otherwise.
+ *
+ * TODO!!!!!!!!!!!!!!!!!!!!
+ * F03_ENABLED
+ * this needs to make sure that the binding label is unique (as much
+ * as it can at least).  --Rickett, 08.15.06
+ *
+ */
+try set_binding_label(char *dest_label, const char *sym_name,
+                      int num_idents)
+{
+   if(curr_binding_label[0] != '\0')
+   {
+      if(num_idents > 1)
+      {
+         gfc_error("Multiple identifiers provided with "
+                   "single Name= specifier at %C");
+         return FAILURE;
+      }
+      
+      /* binding label given; store in temp holder til have sym */
+      strncpy(dest_label, curr_binding_label,
+              strlen(curr_binding_label) + 1);
+   }
+   else
+   {
+      /* no binding label given */
+      if(sym_name != NULL)
+         strncpy(dest_label, sym_name, strlen(sym_name) + 1);
+      else
+         gfc_internal_error("set_binding_label(): Name is "
+                            "unexpectedly NULL!");
+   }
+   
+   return SUCCESS;
+}/* end set_binding_label() */
+
+
+/**
+ * Set the status of the given common block as being BIND(C) or not,
+ * depending on the given parameter, <code>is_bind_c</code>.
+ *
+ * @param com_block The <code>gfc_common_head</code> for the given
+ * common block being updated.
+ * @param is_bind_c 1 if the common block is BIND(C); 0 if not.
+ * @return None
+ */
+void set_com_block_bind_c(gfc_common_head *com_block, int is_bind_c)
+{
+   com_block->is_bind_c = is_bind_c;
+   return;
+}/* end set_com_block_bind_c() */
+
+
+/**
+ * Verify that the given <code>gfc_typespec</code> is for a
+ * C interoperable type.
+ *
+ * @param ts The <code>gfc_typespec</code> to test.
+ * @return FAILURE if <code>ts</code> is not C interoperable;
+ * SUCCESS if it is.
+ */
+try verify_c_interop(gfc_typespec *ts)
+{
+   /* make sure the symbol is C interoperable */
+   if(ts->type == BT_DERIVED && ts->derived != NULL)
+      return (ts->derived->ts.is_c_interop ? SUCCESS : FAILURE);
+   else if(ts->is_c_interop != 1)
+      return FAILURE;
+   
+   return SUCCESS;
+}/* end verify_c_interop() */
+
+
+/**
+ * Verify that the variables of a given common block, which has been
+ * defined with the attribute specifier <code>bind(c)</code>, to be of
+ * a C interoperable type.  Errors will be reported here, if encountered.
+ *
+ * @param com_block <code>gfc_common_head</code> being tested.
+ * @return None.
+ */
+void verify_com_block_vars_c_interop(gfc_common_head *com_block)
+{
+   gfc_symbol *curr_sym = NULL;
+
+   curr_sym = com_block->head;
+
+   /* make sure we have at least one symbol */
+   if(curr_sym == NULL)
+      return;
+
+   /* here we know we have a symbol, so we'll execute this loop
+    * at least once.
+    */
+   do
+   {
+      /* the second to last param, 1, says this is in a common block */
+      verify_bind_c_sym(curr_sym, &(curr_sym->ts), 1, com_block);
+      curr_sym = curr_sym->common_next;
+   }while(curr_sym != NULL); 
+
+   return;
+}/* end verify_com_block_vars_c_interop() */
+
+
+/**
+ * Verify that a given BIND(C) symbol is C interoperable.  If it is not,
+ * an appropriate error message is reported.  This is not used to test
+ * interoperable derived types; that is done by
+ * <code>#verify_bind_c_derived_type()</code>.
+ *
+ * @param tmp_sym A possibly incomplete symbol that represents the
+ * identifier that has been marked as BIND(C).
+ * @param ts The <code>gfc_typespec</code> for the current declaration,
+ * which <code>tmp_sym</code> represents.  Used to fill in information
+ * that could be missing in <code>tmp_sym</code>.
+ * @param is_in_common Flag stating if the declaration is part of a
+ * common block.  1 if it is; 0 if it is not. 
+ * @param com_block The common block that the given symbol belongs to,
+ * if any.
+ * @return None.
+ */
+void verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
+                       int is_in_common, gfc_common_head *com_block)
+{
+   /* don't test variables declared of some derived type */
+   if(tmp_sym->ts.type == BT_DERIVED || ts->type == BT_DERIVED)
+      return;
+   
+   /* here, we know we have the bind(c) attribute, so if we have
+    * enough type info, then verify that it's a C interop kind
+    * the info could be in the symbol already, or possibly still in
+    * the given ts (current_ts), so look in both.
+    */
+   if(tmp_sym->ts.type != BT_UNKNOWN || ts->type != BT_UNKNOWN) 
+   {
+      if(verify_c_interop(&(tmp_sym->ts)) != SUCCESS &&
+         verify_c_interop(ts) != SUCCESS)
+      {
+         /* see if we're dealing with a sym in a common block or not */
+         if(is_in_common == 1)
+         {
+            gfc_warning_now("Variable \"%s\" in common block \"%s\" at %L "
+                            "may not be a C interoperable "
+                            "kind though common block \"%s\" is bind(c)",
+                            tmp_sym->name, com_block->name,
+                            &(tmp_sym->declared_at), com_block->name);
+         }/* end if(variable is in bind(c) common block) */
+         else
+         {
+            gfc_warning_now("Variable \"%s\" at %L "
+                            "may not be a C interoperable "
+                            "kind but it is bind(c)",
+                            tmp_sym->name, &(tmp_sym->declared_at));
+         }/* end else(not in common block) */
+      }/* end if(not a C interop type) */
+
+      /* variables declared w/in a common block can't be bind(c)
+       * since there's no way for C to see these variables, so there's
+       * semantically no reason for the attribute.  --Rickett, 11.10.05
+       */
+      if(is_in_common == 1 && tmp_sym->attr.is_bind_c == 1)
+      {
+         gfc_error_now("Variable \"%s\" in common block \"%s\" at "
+                       "%L can not be declared with bind(c) "
+                       "since it is not a global",
+                       tmp_sym->name, com_block->name,
+                       &(tmp_sym->declared_at));
+      }/* end if(common block field declared with bind(c)) */
+   }/* end if(type info is known (i.e., variable has been declared)) */
+
+   /* no flag returned; if there's an error, we've printed it */
+   return;
+}/* end verify_bind_c_sym() */
+
+
+/**
+ * Set the appropriate fields for a symbol that's been declared as
+ * BIND(C) (the <code>is_bind_c</code> flag and the binding label), and
+ * verify that the type is C interoperable.  Errors are reported by
+ * the functions used to set/test these fields.  
+ *
+ * @param tmp_sym Symbol being created for the current declaration which
+ * has been marked BIND(C).
+ * @param ts <code>gfc_typespec</code> for the current declaration.
+ * @param num_idents Number of identifiers in the current declaration.
+ * If a 'name=' specifier was given and <code>num_idents</code> is
+ * greater than 1, it is an error.
+ * @return FAILURE if there is a problem in setting the binding label;
+ * SUCCESS otherwise.
+ */
+try set_verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
+                          int num_idents)
+{
+   /* hmm, do we need to make sure the vars aren't marked private?
+    * --Rickett, 10.28.05
+    */
+
+   /* make sure it hasn't already been marked as bind(c) */
+   if(tmp_sym->attr.is_bind_c == 1)
+   {
+      gfc_error_now("Variable \"%s\" already declared as bind(c) "
+                    "at %L", tmp_sym->name, &(tmp_sym->declared_at));
+   }/* end if(was already defined as bind(c)) */
+
+   /* set the is_bind_c bit in symbol_attribute */
+   gfc_add_is_bind_c(&(tmp_sym->attr), &gfc_current_locus);   
+
+   if(set_binding_label(tmp_sym->binding_label, tmp_sym->name, 
+                        num_idents) != SUCCESS)
+      return FAILURE;
+
+   /* we'll let this function print errors, so don't worry about
+    * success/fail here and just continue parsing.
+    */
+   verify_bind_c_sym(tmp_sym, ts, 0, NULL);
+   
+   return SUCCESS;
+}/* end set_verify_bind_c_sym() */
+
+
+/**
+ * Set the fields marking the given common block as BIND(C), including
+ * a binding label, and report any errors encountered.
+ *
+ * @param com_block The common block being set as BIND(C).
+ * @param num_idents Number of identifiers in the current BIND(C)
+ * statement.  Can not be greater than 1 if the 'name=' was used.
+ * @return FAILURE if an error is encountered in setting the binding
+ * label; SUCCESS otherwise.
+ */
+try set_verify_bind_c_com_block(gfc_common_head *com_block,
+                                int num_idents)
+{
+   /* destLabel, common name, typespec (which may have binding label) */
+   if(set_binding_label(com_block->binding_label, com_block->name, 
+                        num_idents) != SUCCESS)
+      return FAILURE;
+
+   /* set the given common block (com_block) to being bind(c) (1) */
+   set_com_block_bind_c(com_block, 1);
+
+   /* see if we have any variables to verify that they're all c interop.
+    * don't check for failure or success here, because the function
+    * will handle printing the appropriate error msg(s).
+    */
+   verify_com_block_vars_c_interop(com_block);
+   
+   return SUCCESS;
+}/* end set_verify_bind_c_com_block() */
+
+
+/**
+ * Retrieve the list of one or more identifiers that the given bind(c)
+ * attribute applies to.  
+ *
+ * @param ts <code>#gfc_typespec</code> for the current declaration.
+ * @return FAILURE if an error is encountered and reported; SUCCESS if not.
+ */
+try get_bind_c_idents(gfc_typespec *ts)
+{
+   char name[GFC_MAX_SYMBOL_LEN + 1];
+   int num_idents = 0;
+   gfc_symbol *tmp_sym = NULL;
+   match found_id;
+   gfc_common_head *com_block = NULL;
+
+   if(gfc_match_name(name) == MATCH_YES)
+   {
+      found_id = MATCH_YES;
+      gfc_get_ha_symbol(name, &tmp_sym);
+   }
+   else if(match_common_name(name) == MATCH_YES)
+   {
+      found_id = MATCH_YES;
+      /* not sure what the 0 is for; need to figure out...
+       * --Rickett, 10.17.05
+       */
+      com_block = gfc_get_common(name, 0);
+   }
+   else
+   {
+      gfc_error("Need either entity or common block name for "
+                "attribute specification statement at %C");
+      return FAILURE;
+   }/* didn't find a valid entity name or common block name */
+   
+   /* save the current identifier and look for more */
+   do
+   {
+      /* inc the number of identifiers found for this spec stmt */
+      num_idents++;
+
+      /* make sure we have a sym or com block, and verify that it can
+       * be bind(c).  set the appropriate field(s) and look for more
+       * identifiers.
+       */
+      if(tmp_sym != NULL || com_block != NULL)         
+      {
+         if(tmp_sym != NULL)
+         {
+            if(set_verify_bind_c_sym(tmp_sym, ts, num_idents)
+               != SUCCESS)
+               return FAILURE;
+         }
+         else
+         {
+            if(set_verify_bind_c_com_block(com_block, num_idents)
+               != SUCCESS)
+               return FAILURE;
+         }
+         
+         /* look to see if we have another identifier */
+         tmp_sym = NULL;
+         if(gfc_match_eos() == MATCH_YES)
+            found_id = MATCH_NO;
+         else if(gfc_match_char(',') != MATCH_YES)
+            found_id = MATCH_NO;
+         else if(gfc_match_name(name) == MATCH_YES)
+         {
+            found_id = MATCH_YES;
+            gfc_get_ha_symbol(name, &tmp_sym);
+         }/* end if(is entity) */
+         else if(match_common_name(name) == MATCH_YES)
+         {
+            found_id = MATCH_YES;
+            com_block = gfc_get_common(name, 0);
+         }/* end if(is common block) */
+         else
+         {
+            gfc_error("Missing entity or common block name for "
+                      "attribute specification statement at %C");
+            return FAILURE;
+         }/* end else(missing entity after , ) */
+      }/* if(found symbol for given name) */
+      else
+      {
+         gfc_internal_error("Missing symbol");
+      }/* end else(error cause missing symbol) */
+   }while(found_id == MATCH_YES);
+
+   /* if we get here we were successful */
+   return SUCCESS;
+}/* end get_bind_c_idents() */
+
+
+/**
+ * Verifies that if a variable in a procedure declaration statement is
+ * BIND(C) then the procedure represented by the named interface in the
+ * statement also is.  If the user specifies the procedure in the
+ * declaration as BIND(C) but the provided named interface is not to a
+ * BIND(C) routine, then it is an error.  The error will be reported here.
+ *
+ * @param proc_sym Symbol for the procedure being declared in the statement.
+ * @param int_sym Symbol for the procedure from the named interface.
+ * @return FAILURE if error encountered; SUCCESS if not.
+ */ 
+static try verify_proc_decl_attrs(gfc_symbol *proc_sym,
+                                  gfc_symbol *int_sym)
+{
+   /* the only case where these would not be equal would be if the
+    * procSym is bind(c) but the interface one is not.  this is because
+    * the procSym inherits properties from the interface.  so, the only
+    * error would arise if the interface proc was not bind(c), but the
+    * user explicitly makes the proc decl sym bind(c).
+    * --Rickett, 04.12.06
+    */
+   if(proc_sym->attr.is_bind_c != int_sym->attr.is_bind_c)
+   {
+      gfc_error("Procedure '%s' at %C can not be bind(c) because "
+                "procedure '%s' at %L is not bind(c)", proc_sym->name,
+                int_sym->name, &int_sym->declared_at);
+      return FAILURE;
+   }
+   
+   /* if we get here, no errors reported */
+   return SUCCESS;
+}/* end verify_proc_decl_attrs() */
+
+
+/**
+ * Match a procedure declaration statement, creating symbols for the
+ * given variables.  Currently, this function expects a named interface
+ * to be given to describe the formal args and return type of the
+ * variables, though the draft does not require this.  This is a very
+ * initial start to the function (read: very little completed).  Some
+ * error checking is done to make sure a named interface is given and
+ * is complete enough, there aren't attribute conflicts (for the attributes
+ * tested -- incomplete), the binding labels can be set correctly, etc.  
+ * The errors are reported here, and passed back to the calling function
+ * by returning MATCH_ERROR.
+ *
+ * @return MATCH_ERROR if an error was encountered; MATCH_YES if the
+ * procedure declaration statement was valid (based on what can be
+ * handled so far).  If the initial test for the keyword 'procedure'
+ * failed, the return status of that matching routine is returned.
+ */
+static match match_proc_decl(void)
+{
+   match proc_decl = MATCH_NO;
+   char int_name[GFC_MAX_SYMBOL_LEN + 1];
+   char proc_name[GFC_MAX_SYMBOL_LEN + 1];
+   gfc_symtree *int_symtree = NULL;
+   gfc_symbol *new_proc_sym = NULL;
+   int is_sub = 0;
+   int num_idents = 0;
+   int i = 0;
+   char *src_attr;
+   char *dest_attr;
+
+   proc_decl = gfc_match(" procedure ");
+   
+   /* much more work to do here, such as matching attributes,
+    * interface name, etc.  --Rickett, 02.14.06
+    */
+   
+   if(proc_decl != MATCH_YES)
+      return proc_decl;
+
+   /* get the optional procedure interface now.
+    * the parens seem required (looking at the grammar), but the
+    * interface is not.  --Rickett, 02.14.06
+    */
+   proc_decl = gfc_match_char('(');
+   /* get the optional name.  if this fails, it's ok as long as
+    * nothing is between the parens then
+    */
+   gfc_match_name(int_name);
+   if(proc_decl == MATCH_ERROR || gfc_match_char(')') != MATCH_YES)
+   {
+      gfc_error("Syntax error in procedure declaration statement "
+                "at %C");
+      return MATCH_ERROR;
+   }
+
+   /* get the symbol for the procedure that defines the interface
+    * of the declared proc(s).
+    *
+    * don't check for nonzero return, because if the procedure used as
+    * an interface is ambiguous, it should have been caught elsewhere.
+    * --Rickett, 03.20.06
+    */
+   gfc_find_sym_tree(int_name, gfc_current_ns, 1, &int_symtree);
+   if(int_symtree == NULL)
+   {
+      gfc_error("Procedure '%s' used in procedure declaration statement"
+                " at %C has not been defined", int_name);
+      return MATCH_ERROR;
+   }
+
+   /* store whether it's a function or subroutine */
+   /* odd thing is that we may not know if it is either.. not worrying
+    * about that here.  look at draft, section 12.3.2.3.
+    */
+   is_sub = int_symtree->n.sym->attr.subroutine;
+   /* make sure the symbol we have is for a sub or func, for now.. */
+   if(is_sub != 1 && int_symtree->n.sym->attr.function != 1)
+   {
+      gfc_error("Symbol '%s' at %C must be either a subroutine or "
+                "function", int_name);
+      return MATCH_ERROR;
+   }
+
+   /* try and match attributes.  we will match any attr here, and
+    * report conflicts as we find them
+    * TODO!!! MAKE SURE ALL CONFLICTS ARE CAUGHT!!
+    */
+   /* this will say we're declaring the sym from a proc decl stmt, so
+    * we can catch conflicts.
+    */
+   match_attr_spec();
+   current_attr.in_proc_decl = 1;
+
+   gfc_match(" :: ");
+
+   /* get the proc decl list */
+   do
+   {
+      /* initialize to NULL. will reuse the pointer for all proc(s) */
+      new_proc_sym = NULL;
+      /* initialized to 0 */
+      num_idents++;
+      
+      if(gfc_match_name(proc_name) != MATCH_YES)
+         return MATCH_ERROR;
+
+      /* create the symbol for the procedure of this name */
+      if(get_proc_name(proc_name, &new_proc_sym, false))
+         /* nonzero return value means error, but the message should
+          * have been handled by the get_proc_name, so just return.
+          */
+         return MATCH_ERROR;
+      
+      /* copy the attr and typespecs.  these are an or of what the
+       * user lists, and what is defined for the interface proc
+       */
+      new_proc_sym->attr = int_symtree->n.sym->attr;
+      new_proc_sym->ts = int_symtree->n.sym->ts;
+      src_attr = (char *)(&(current_attr));
+      dest_attr = (char *)(&(new_proc_sym->attr));
+      for(i = 0; i < (int)sizeof(new_proc_sym->attr); i++)
+      {
+         *dest_attr = (*dest_attr) | (*src_attr);
+         dest_attr++;
+         src_attr++;
+      }/* end for(each byte in attr struct) */
+
+      /* this should join the attributes of the two.  the gfc_copy_attr
+       * will test if each field is 1, and if so, it'll set the field
+       * in the dest.  this is just extra work since some of the fields
+       * could already be set to 1 by the interface attr, but oh well.
+       * i suppose this way is *safer* than the looping over bytes
+       * above.  --Rickett, 04.27.06
+       */
+/*       gfc_copy_attr(&(new_proc_sym->attr), &current_attr, NULL); */
+      
+      /* or necessary current_ts info with ts from interface proc */
+      new_proc_sym->ts.is_c_interop |= current_ts.is_c_interop;
+      new_proc_sym->ts.f90_type |= current_ts.f90_type;
+         
+      /* all procedure decls refer to external procedures (this may
+       * not be right to do if it's a proc pointer..)
+       */
+      new_proc_sym->attr.external = 1;
+      /* we have the symbol for the new procedure, so set up the
+       * properties such as formal args, sub/func flag, etc.
+       */
+      if(is_sub == 1)
+         gfc_add_subroutine(&(new_proc_sym->attr), proc_name,
+                            &gfc_current_locus);
+      else
+         gfc_add_function(&(new_proc_sym->attr), proc_name,
+                          &gfc_current_locus);
+      
+      /* if the binding label has been set in the sym, that means the
+       * sym was made before now, so leave the binding label alone.
+       * if it's not set yet, and the sym is bind(c), set it to the sym name
+       * in all lowercase letters for now.  --Rickett, 03.20.06
+       */
+      if(set_binding_label(new_proc_sym->binding_label, new_proc_sym->name,
+                         num_idents) != SUCCESS)
+         return MATCH_ERROR;
+         
+      /* copy the formal arg list (params are: (dest, src)) */
+      copy_formal_args(new_proc_sym, int_symtree->n.sym);
+
+      /* verify the proc decl attributes with the interface's attrs */
+      if(verify_proc_decl_attrs(new_proc_sym, int_symtree->n.sym)
+         != SUCCESS)
+         /* error messages will have already been printed */
+         return MATCH_ERROR;
+   }while(gfc_match_char(',') == MATCH_YES);
+      
+   /* make sure we match the eos now */
+   if(gfc_match_eos() != MATCH_YES)
+      return MATCH_ERROR;
+
+   /* now that we know we successfully matched a proc decl, make
+    * sure the user didn't specify a standard that doesn't allow them.
+    */
+   if(gfc_notify_std(GFC_STD_F2003,
+                     "New in Fortran 2003: procedure declaration "
+                     "statement at %C") == FAILURE)
+      return MATCH_ERROR;
+
+   return proc_decl;
+}/* end match_proc_decl() */
+
+
+/**
+ * Try and match an attribute specification statement.  There are
+ * multiple things that could be matched here, according to the
+ * draft, section 5.2, but currently we're just focusing on catching
+ * the bind(c) if it exists.  --Rickett, 10.14.05
+ *
+ * @param ts <code>#gfc_typespec</code> for the current declaration.
+ * @return MATCH_NO if couldn't match either BIND(C) or a
+ * procedure declaration statement.  MATCH_ERROR if an error is
+ * encountered; MATCH_YES otherwise.
+ */
+match gfc_match_attr_spec_stmt(gfc_typespec *ts)
+{
+   match is_bind_c = MATCH_NO;
+   match found_match = MATCH_NO;
+   char peek_char;
+
+   /* this may not be necessary */
+   gfc_clear_ts(ts);
+   /* clear the temporary binding label holder */
+   curr_binding_label[0] = '\0';
+
+   /* there should be no whitespace, since we should be at the
+    * start of the line, but we may need to gobble ws if there is..
+    */
+   peek_char = gfc_peek_char();
+
+   /* assuming that the attr specs can appear with more than one on a
+    * line (i.e., bind(c) and allocatable on same stmt line).  this
+    * may not be the case; the draft seems unclear.  --Rickett, 10.14.05
+    *
+    * while it seems feasible that there could be multiple attrs per
+    * line, it seems in the standard that a attr spec stmt contains
+    * only one, and multiple stmts are allowed.  --Rickett, 10.17.05
+    *
+    * it seems that a attr stmt can have multiple attrs, or the
+    * procedure one can at least have the pointer attr.
+    * --Rickett, 01.04.06
+    */
+   switch(peek_char)
+   {
+   case 'b':
+      /* look for the bind(c) */
+      is_bind_c = gfc_match_bind_c(NULL);
+      found_match = is_bind_c;
+      break;
+   case 'p':
+      /* look for procedure */
+      found_match = match_proc_decl();
+      break;
+   default:
+      /* can't say it's an error here, because it may not be an error
+       * just because we can't classify it yet.  --Rickett, 01.04.06
+       */
+      found_match = MATCH_NO;
+      break;
+   }/* end switch(peek_char) */
+
+   if(is_bind_c == MATCH_YES)      
+   {
+      /* look for the :: now, but it is not required */
+      gfc_match(" :: ");
+
+      /* get the identifier(s) that need updated */
+      /* this may need to change to hand the flag(s) for the attr
+       * specified so all identifiers found can have all appropriate
+       * parts updated (assuming that the same spec stmt can have
+       * multiple attrs, such as both bind(c) and allocatable...).
+       * --Rickett, 10.14.05
+       */
+      if(get_bind_c_idents(ts) != SUCCESS)
+         /* error message should have printed already */
+         return MATCH_ERROR;
+   }/* end if(found some match) */
+
+   return found_match;
+}/* end gfc_match_attr_spec_stmt() */
+
+
 /* Match a data declaration statement.  */
 
 match
@@ -2416,8 +3434,15 @@ gfc_match_data_decl (void)
 {
   gfc_symbol *sym;
   match m;
+  match attr_spec_stmt;
   int elem;
 
+  /* try and match an attribute specification statement */
+  attr_spec_stmt = gfc_match_attr_spec_stmt(&current_ts);
+  if(attr_spec_stmt == MATCH_YES || attr_spec_stmt == MATCH_ERROR)
+     /* not sure if we should return m or attrSpecStmt here.. */
+     return attr_spec_stmt;
+  
   m = match_type_spec (&current_ts, 0);
   if (m != MATCH_YES)
     return m;
@@ -2709,9 +3734,14 @@ match_result (gfc_symbol * function, gfc_symbol ** result)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_match (" )%t") != MATCH_YES)
+  /* get the right paren, and that's it because there could be the
+   * bind(c) attribute after the result clause.
+   */
+  if(gfc_match_char(')') != MATCH_YES)
     {
-      gfc_error ("Unexpected junk following RESULT variable at %C");
+     /* should report the missing right paren here.
+      * --Rickett, 10.04.05
+      */
       return MATCH_ERROR;
     }
 
@@ -2735,6 +3765,79 @@ match_result (gfc_symbol * function, gfc_symbol ** result)
 }
 
 
+/**
+ * Match a function suffix, which could be a combination of a result
+ * clause and BIND(C), either one, or neither.  The draft does not 
+ * require them to come in a specific order.
+ *
+ * @param sym Symbol representing the function being parsed.
+ * @param result Symbol for the result caluse, if any.  This is an
+ * output variable.
+ * @return MATCH_ERROR if an error is encountered; MATCH_YES otherwise.
+ * If this function is called, then at least one of these should match.
+ */
+match gfc_match_suffix(gfc_symbol *sym, gfc_symbol **result)
+{
+   match is_bind_c;   /* found bind(c) */
+   match is_result;   /* found result clause */
+   match found_match; /* status of whether we've found a good match */
+   int peek_char;     /* character we're going to peek at */
+
+   /* initialize to having found nothing */
+   found_match = MATCH_NO;
+   is_bind_c = MATCH_NO; 
+   is_result = MATCH_NO;
+
+   /* get the next char to narrow between result and bind(c) */
+   gfc_gobble_whitespace();
+   peek_char = gfc_peek_char();
+
+   switch(peek_char)
+   {
+   case 'r':
+      /* look for result clause */
+      is_result = match_result(sym, result);
+      if(is_result == MATCH_YES)
+      {
+         /* now see if there is a bind(c) after it */
+         is_bind_c = gfc_match_bind_c(sym);
+         /* we've found the result clause and possibly bind(c) */
+         found_match = MATCH_YES;
+      }
+      else
+         /* this should only be MATCH_ERROR */
+         found_match = is_result; 
+      break;
+   case 'b':
+      /* look for bind(c) first */
+      is_bind_c = gfc_match_bind_c(sym);
+      if(is_bind_c == MATCH_YES)
+      {
+         /* now see if a result clause followed it */
+         is_result = match_result(sym, result);
+         found_match = MATCH_YES;
+      }
+      else
+      {
+         /* should only be a MATCH_ERROR if get here after seeing 'b' */
+         found_match = MATCH_ERROR;
+      }
+      break;
+   default:
+      gfc_error("Unexpected junk after function declaration at %C");
+      found_match = MATCH_ERROR;
+      break;
+   }/* end switch(peek_char) */
+
+   if(is_result == MATCH_ERROR || is_bind_c == MATCH_ERROR)
+   {
+      gfc_error("Error in function suffix at %C");
+      return MATCH_ERROR;
+   }
+   return found_match;
+}/* end gfc_match_suffix() */
+
+
 /* Match a function declaration.  */
 
 match
@@ -2744,6 +3847,8 @@ gfc_match_function_decl (void)
   gfc_symbol *sym, *result;
   locus old_loc;
   match m;
+  match suffix_match;
+  match found_match; /* status returned by match func */  
 
   if (gfc_current_state () != COMP_NONE
       && gfc_current_state () != COMP_INTERFACE
@@ -2784,20 +3889,31 @@ gfc_match_function_decl (void)
 
   result = NULL;
 
-  if (gfc_match_eos () != MATCH_YES)
-    {
-      /* See if a result variable is present.  */
-      m = match_result (sym, &result);
-      if (m == MATCH_NO)
-	gfc_error ("Unexpected junk after function declaration at %C");
+  /* well, according to the draft, the bind(c) and result clause can
+   * come in either order after the formal_arg_list (i.e., either
+   * can be first, both can exist together or by themselves or neither
+   * one).  therefore, the match_result can't match the end of the
+   * string, and perhaps a new function should be created called
+   * something like match_suffix() (that name follows the "grammar"
+   * better from the draft), which will test for either, both, 
+   * or none, and in either order.  --Rickett, 10.03.05
+   */
+  found_match = gfc_match_eos ();
+  if(found_match != MATCH_YES)
+  {
+     /* if haven't found the end-of-statement, look for a suffix */
+     suffix_match = gfc_match_suffix(sym, &result);
+     if(suffix_match == MATCH_YES)
+        /* need to get the eos now */
+        found_match = gfc_match_eos();
+     else
+        found_match = suffix_match;
+  }/* end if(did not find end-of-statement) */
 
-      if (m != MATCH_YES)
-	{
+  if(found_match != MATCH_YES)
 	  m = MATCH_ERROR;
-	  goto cleanup;
-	}
-    }
-
+  else
+  {
   /* Make changes to the symbol.  */
   m = MATCH_ERROR;
 
@@ -2829,6 +3945,7 @@ gfc_match_function_decl (void)
     }
 
   return MATCH_YES;
+  }/* end else(found either a suffix or eos) */
 
 cleanup:
   gfc_current_locus = old_loc;
@@ -3067,6 +4184,7 @@ gfc_match_subroutine (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
+  match is_bind_c;
 
   if (gfc_current_state () != COMP_NONE
       && gfc_current_state () != COMP_INTERFACE
@@ -3091,6 +4209,22 @@ gfc_match_subroutine (void)
   if (gfc_match_formal_arglist (sym, 0, 1) != MATCH_YES)
     return MATCH_ERROR;
 
+  /* here, we are just checking if it has the bind(c) attribute, and if
+   * so, then we need to make sure it's all correct.  if it doesn't,
+   * we still need to continue matching the rest of the subroutine line
+   * --Rickett, 09.28.05
+   */
+  is_bind_c = gfc_match_bind_c(sym);
+  if(is_bind_c == MATCH_ERROR)
+  {
+     gfc_error("Syntax error in BIND(C) statement at %C\n");
+     /* there was an attempt at the bind(c), but it was wrong.  an
+      * error message should have been printed w/in the gfc_match_bind_c
+      * so here we'll just return the MATCH_ERROR.  --Rickett, 09.28.05
+      */
+     return MATCH_ERROR;
+  }
+
   if (gfc_match_eos () != MATCH_YES)
     {
       gfc_syntax_error (ST_SUBROUTINE);
@@ -3102,6 +4236,141 @@ gfc_match_subroutine (void)
 
   return MATCH_YES;
 }
+
+
+/**
+ * Match a BIND(C) specifier, with the optional 'name=' specifier if
+ * given, and set the binding label in either the given symbol
+ * (if not NULL), or in the <code>#current_ts</code>.  The symbol may
+ * be NULL becuase we may encounter the BIND(C) before the declaration
+ * itself.
+ *
+ * @param sym Symbol for the identifier being created, if known; NULL if
+ * the identifier has not had a <code>gfc_symbol</code> created for it
+ * yet (the declaration of the identifier hasn't occurred yet).
+ * @return MATCH_NO if what we're looking at isn't a BIND(C) specifier.
+ * MATCH_ERROR if it is a BIND(C) clause but an error was encountered; 
+ * MATCH_YES if the specifier was correct and the binding label and
+ * bind(c) fields were set correctly for the given symbol or the
+ * <code>current_ts</code>.
+ */
+match gfc_match_bind_c(gfc_symbol *sym)
+{
+   /* binding label, if exists */   
+   char binding_label[GFC_MAX_SYMBOL_LEN + 1];
+   match double_quote;
+   match single_quote;
+
+   /* init the first char to nil so we can catch if we don't have
+    * the label (name attr) or the symbol name yet
+    * --Rickett, 10.13.05
+    */
+   binding_label[0] = '\0';
+   
+   /* this much we have to be able to match, in this order, if
+    * there is a bind(c) label.  --Rickett, 09.28.05
+    */
+   if(gfc_match(" bind ( c ") != MATCH_YES)
+      return MATCH_NO;
+
+   /* now see if there is a binding label, or if we've reached the
+    * end of the bind(c) attribute without one.  --Rickett, 09.28.05
+    */
+   if(gfc_match_char(',') == MATCH_YES)
+   {
+/*       if(gfc_match(" name = \"") != MATCH_YES && */
+/*          gfc_match(" name = \'") != MATCH_YES) */
+      if(gfc_match(" name = ") != MATCH_YES)
+         /* should give an error message here */
+         return MATCH_ERROR;
+
+      /* get the opening quote */
+      double_quote = MATCH_YES;
+      single_quote = MATCH_YES;
+      double_quote = gfc_match_char('"');
+      if(double_quote != MATCH_YES)
+         single_quote = gfc_match_char('\'');
+      if(double_quote != MATCH_YES && single_quote != MATCH_YES)
+         return MATCH_ERROR;
+      
+      /* grab the binding label, using functions that will not lower
+       * case the names automatically.
+       */
+      if(gfc_match_name_C(binding_label) != MATCH_YES)
+         /* should give an error message here because we're
+          * expecting the binding label.  --Rickett, 09.28.05
+          */
+         return MATCH_ERROR;
+      
+      /* get the closing quotation */
+      if(double_quote == MATCH_YES)
+      {
+         if(gfc_match_char('"') != MATCH_YES)
+         /* user started string with '"' so looked to match it */
+            return MATCH_ERROR;
+      }/* end if(user is using double quotes) */
+      else
+      {
+         if(gfc_match_char('\'') != MATCH_YES)
+            /* user started string with ''' char */
+            return MATCH_ERROR;
+      }/* end else(user is using single quotes) */
+         
+/*       if(gfc_match_char('"') != MATCH_YES) */
+/*          return MATCH_ERROR; */
+   }/* end if(found a ',' so expecting the name attribute) */
+
+   /* get the required right paren */
+   if(gfc_match_char(')') != MATCH_YES)
+      /* should put error message here because we know that we've
+       * started the bind(c) and have encountered the missing paren
+       * --Rickett, 09.28.05
+       */
+      return MATCH_ERROR;
+
+   /* save the binding label to the symbol */
+   /* if sym is null, we're probably matching the typespec attrs of
+    * a declaration and haven't gotten the name yet, and therefore,
+    * no symbol yet.  
+    */
+   if(binding_label[0] != '\0')
+   {
+      if(sym != NULL)
+         strncpy(sym->binding_label, binding_label,
+                 strlen(binding_label)+1);
+      else
+         strncpy(curr_binding_label, binding_label,
+                 strlen(binding_label) + 1);   
+   }/* end if(binding label was given) */
+   else
+   {
+      /* no binding label, but if symbol isn't null, we
+       * can set the label for it here.
+       */
+      if(sym != NULL && sym->name != NULL)
+         strncpy(sym->binding_label, sym->name, strlen(sym->name) + 1);
+   }
+              
+   /* mark it as bound to a C name so the name mangle is either
+    * the user provided binding label or the name in all lowercase
+    */
+   if(sym != NULL)
+   {
+      if(gfc_add_is_bind_c(&(sym->attr), &gfc_current_locus) != SUCCESS)
+         return MATCH_ERROR;
+   }
+   else
+   {
+      /* set the is_bind_c field of the current_attr because we're
+       * probably matching the typespec attrs for a decl and haven't
+       * made the symbol yet (therfore, we were called from
+       * match_attr_spec()).  --Rickett, 10.13.05
+       */
+      current_attr.is_bind_c = 1;
+   }
+
+   return MATCH_YES;
+}/* end gfc_match_bind_c() */
 
 
 /* Return nonzero if we're currently compiling a contained procedure.  */
@@ -4156,6 +5425,74 @@ syntax:
 }
 
 
+/**
+ * Match the optional attribute specifiers for a type declaration.
+ *
+ * @param attr <code>#symbol_attribute</code> for the <code>type</code>
+ * being declared.
+ * @return MATCH_ERROR if an error is encountered in one fo the
+ * handled attributes (public, private, bind(c)), MATCH_NO if what's
+ * found is not a handled attribute, and MATCH_YES otherwise.
+ * @note  More error checking on attribute conflicts needs to be done.
+ */
+match gfc_get_type_attr_spec(symbol_attribute *attr)
+{
+   /* see if the derived type is marked as private */
+  if (gfc_match (" , private") == MATCH_YES)
+    {
+      if (gfc_find_state (COMP_MODULE) == FAILURE)
+	{
+	  gfc_error
+	    ("Derived type at %C can only be PRIVATE within a MODULE");
+	  return MATCH_ERROR;
+	}
+
+      if (gfc_add_access (attr, ACCESS_PRIVATE, NULL, NULL) == FAILURE)
+	return MATCH_ERROR;
+   }/* end if(matched type specifier "private") */
+   else if (gfc_match (" , public") == MATCH_YES)
+    {
+      /* if the derived type is marked as public */
+      if (gfc_find_state (COMP_MODULE) == FAILURE)
+	{
+	  gfc_error ("Derived type at %C can only be PUBLIC within a MODULE");
+	  return MATCH_ERROR;
+	}
+
+      if (gfc_add_access (attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
+	return MATCH_ERROR;
+   }/* end if(matched type specifier "public") */
+   else if(gfc_match(" , bind ( c )") == MATCH_YES)
+   {
+      /* if the type is defined to be bind(c) it then needs to make
+       * sure that all fields are interoperable.  this will
+       * need to be a semantic check on the finished derived type.
+       * sect. 15.2.3 (lines 9-12) of f03 draft
+       * --Rickett, 10.04.05
+       *
+       * a derived-type with the bind(c) can not have the EXTENDS
+       * attr.  sect 15.2.3, line 5
+       *
+       * no binding label for the bind(c) of derived type, according
+       * to grammar, sect. 4.5.1 of f03 draft, type-attr-spec
+       */
+      if(gfc_add_is_bind_c(attr, &gfc_current_locus) != SUCCESS)
+         return MATCH_ERROR;
+
+      /* TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+      
+      /* attr conflicts need to be checked, probably in symbol.c */
+
+      /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+   }/* end if(found bind(c) attr) */
+   else
+      return MATCH_NO;
+
+   /* if get here, something matched */
+   return MATCH_YES;
+}/* end gfc_get_type_attr_spec() */
+
+
 /* Match the beginning of a derived type declaration.  If a type name
    was the result of a function, then it is possible to have a symbol
    already to be known as a derived type yet have no components.  */
@@ -4167,39 +5504,44 @@ gfc_match_derived_decl (void)
   symbol_attribute attr;
   gfc_symbol *sym;
   match m;
+  match is_type_attr_spec = MATCH_NO;
 
   if (gfc_current_state () == COMP_DERIVED)
     return MATCH_NO;
 
   gfc_clear_attr (&attr);
 
-loop:
-  if (gfc_match (" , private") == MATCH_YES)
-    {
-      if (gfc_find_state (COMP_MODULE) == FAILURE)
-	{
-	  gfc_error
-	    ("Derived type at %C can only be PRIVATE within a MODULE");
-	  return MATCH_ERROR;
-	}
+  do
+  {
+     is_type_attr_spec = gfc_get_type_attr_spec(&attr);
+  }while(is_type_attr_spec == MATCH_YES);
+/* loop: */
+/*   if (gfc_match (" , private") == MATCH_YES) */
+/*     { */
+/*       if (gfc_find_state (COMP_MODULE) == FAILURE) */
+/* 	{ */
+/* 	  gfc_error */
+/* 	    ("Derived type at %C can only be PRIVATE within a MODULE"); */
+/* 	  return MATCH_ERROR; */
+/* 	} */
 
-      if (gfc_add_access (&attr, ACCESS_PRIVATE, NULL, NULL) == FAILURE)
-	return MATCH_ERROR;
-      goto loop;
-    }
+/*       if (gfc_add_access (&attr, ACCESS_PRIVATE, NULL, NULL) == FAILURE) */
+/* 	return MATCH_ERROR; */
+/*       goto loop; */
+/*     } */
 
-  if (gfc_match (" , public") == MATCH_YES)
-    {
-      if (gfc_find_state (COMP_MODULE) == FAILURE)
-	{
-	  gfc_error ("Derived type at %C can only be PUBLIC within a MODULE");
-	  return MATCH_ERROR;
-	}
+/*   if (gfc_match (" , public") == MATCH_YES) */
+/*     { */
+/*       if (gfc_find_state (COMP_MODULE) == FAILURE) */
+/* 	{ */
+/* 	  gfc_error ("Derived type at %C can only be PUBLIC within a MODULE"); */
+/* 	  return MATCH_ERROR; */
+/* 	} */
 
-      if (gfc_add_access (&attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
-	return MATCH_ERROR;
-      goto loop;
-    }
+/*       if (gfc_add_access (&attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE) */
+/* 	return MATCH_ERROR; */
+/*       goto loop; */
+/*     } */
 
   if (gfc_match (" ::") != MATCH_YES && attr.access != ACCESS_UNKNOWN)
     {
@@ -4255,6 +5597,10 @@ loop:
   if (attr.access != ACCESS_UNKNOWN
       && gfc_add_access (&sym->attr, attr.access, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
+
+  /* see if the derived type was labeled as bind(c) */
+  if(attr.is_bind_c != 0)
+     sym->attr.is_bind_c = attr.is_bind_c;
 
   gfc_new_block = sym;
 

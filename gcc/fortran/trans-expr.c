@@ -457,8 +457,10 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	}
       else
 	{
+         /* if it's not by-value, build the indirect reference */
           /* Dereference non-character scalar dummy arguments.  */
-	  if (sym->attr.dummy && !sym->attr.dimension)
+         if (sym->attr.dummy && !sym->attr.dimension &&
+             !sym->attr.value)
 	    se->expr = build_fold_indirect_ref (se->expr);
 
           /* Dereference scalar hidden result.  */
@@ -2006,6 +2008,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 	  if (argss == gfc_ss_terminator)
             {
+             /* if it's passed by-value, don't add the reference layer */
+             if(formal && formal->sym->attr.value == 1)
+                gfc_conv_expr (&parmse, arg->expr);
+             else
+             {
 	      gfc_conv_expr_reference (&parmse, e);
 	      parm_kind = SCALAR;
               if (fsym && fsym->attr.pointer
@@ -2017,6 +2024,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  parm_kind = SCALAR_POINTER;
                   parmse.expr = build_fold_addr_expr (parmse.expr);
                 }
+             }/* end else(formal sym not by value) */
             }
 	  else
 	    {

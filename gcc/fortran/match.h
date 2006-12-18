@@ -44,8 +44,10 @@ match gfc_match_small_literal_int (int *, int *);
 match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
+match gfc_match_small_int_expr (int *, gfc_expr **);
 int gfc_match_strings (mstring *);
 match gfc_match_name (char *);
+match gfc_match_name_C(char *buffer);
 match gfc_match_symbol (gfc_symbol **, int);
 match gfc_match_sym_tree (gfc_symtree **, int);
 match gfc_match_intrinsic_op (gfc_intrinsic_op *);
@@ -74,6 +76,14 @@ match gfc_match_nullify (void);
 match gfc_match_deallocate (void);
 match gfc_match_return (void);
 match gfc_match_call (void);
+/* want to use this function to check for a common-block-name
+ * that can exist in a bind statement, so i remove the "static"
+ * declaration of the function in match.c.  --Rickett, 10.17.05
+ *
+ * should probably rename this now that it'll be globally seen to
+ * something like gfc_match_common_name.  --Rickett, 10.17.05
+ */
+match match_common_name (char *name);
 match gfc_match_common (void);
 match gfc_match_block_data (void);
 match gfc_match_namelist (void);
@@ -148,6 +158,27 @@ match gfc_match_save (void);
 match gfc_match_modproc (void);
 match gfc_match_target (void);
 match gfc_match_volatile (void);
+
+/* F03 c interop */
+/* --Rickett, 09.27.05 */
+/* some of these should be moved to another file rather than decl.c */
+/* decl.c */
+void verify_c_interop_param(gfc_symbol *sym);
+void verify_com_block_vars_c_interop(gfc_common_head *com_block);
+void set_com_block_bind_c(gfc_common_head *com_block, int is_bind_c);
+try set_binding_label(char *dest_label, const char *sym_name,
+                      int num_idents);
+void verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
+                       int is_in_common, gfc_common_head *com_block);
+try set_verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
+                          int num_idents);
+try set_verify_bind_c_com_block(gfc_common_head *com_block,
+                                int num_idents);
+try get_bind_c_idents(gfc_typespec *ts);
+match gfc_match_attr_spec_stmt(gfc_typespec *ts);
+match gfc_match_suffix(gfc_symbol *sym, gfc_symbol **result);
+match gfc_match_bind_c(gfc_symbol *sym);
+match gfc_get_type_attr_spec(symbol_attribute *attr);
 
 /* primary.c */
 match gfc_match_structure_constructor (gfc_symbol *, gfc_expr **);

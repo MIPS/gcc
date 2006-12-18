@@ -173,15 +173,15 @@ am__objects_32 = associated.lo abort.lo access.lo args.lo \
 	c99_functions.lo chdir.lo chmod.lo clock.lo cpu_time.lo \
 	cshift0.lo ctime.lo date_and_time.lo env.lo eoshift0.lo \
 	eoshift2.lo etime.lo exit.lo fget.lo flush.lo fnum.lo ftell.lo \
-	gerror.lo getcwd.lo getlog.lo getXid.lo hostnm.lo kill.lo \
-	ierrno.lo ishftc.lo link.lo malloc.lo mvbits.lo move_alloc.lo \
-	pack_generic.lo perror.lo signal.lo size.lo sleep.lo \
-	spread_generic.lo string_intrinsics.lo system.lo rand.lo \
-	random.lo rename.lo reshape_generic.lo reshape_packed.lo \
-	selected_int_kind.lo selected_real_kind.lo stat.lo symlnk.lo \
-	system_clock.lo time.lo transpose_generic.lo tty.lo umask.lo \
-	unlink.lo unpack_generic.lo in_pack_generic.lo \
-	in_unpack_generic.lo
+	gerror.lo getcwd.lo getlog.lo getXid.lo hostnm.lo ierrno.lo \
+	ishftc.lo iso_c_generated_procs.lo iso_c_binding.lo kill.lo \
+	link.lo malloc.lo mvbits.lo move_alloc.lo pack_generic.lo \
+	perror.lo signal.lo size.lo sleep.lo spread_generic.lo \
+	string_intrinsics.lo system.lo rand.lo random.lo rename.lo \
+	reshape_generic.lo reshape_packed.lo selected_int_kind.lo \
+	selected_real_kind.lo stat.lo symlnk.lo system_clock.lo \
+	time.lo transpose_generic.lo tty.lo umask.lo unlink.lo \
+	unpack_generic.lo in_pack_generic.lo in_unpack_generic.lo
 am__objects_33 =
 am__objects_34 = _abs_c4.lo _abs_c8.lo _abs_c10.lo _abs_c16.lo \
 	_abs_i4.lo _abs_i8.lo _abs_i16.lo _abs_r4.lo _abs_r8.lo \
@@ -424,9 +424,11 @@ intrinsics/getcwd.c \
 intrinsics/getlog.c \
 intrinsics/getXid.c \
 intrinsics/hostnm.c \
-intrinsics/kill.c \
 intrinsics/ierrno.c \
 intrinsics/ishftc.c \
+intrinsics/iso_c_generated_procs.c \
+intrinsics/iso_c_binding.c \
+intrinsics/kill.c \
 intrinsics/link.c \
 intrinsics/malloc.c \
 intrinsics/mvbits.c \
@@ -2422,14 +2424,20 @@ getXid.lo: intrinsics/getXid.c
 hostnm.lo: intrinsics/hostnm.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hostnm.lo `test -f 'intrinsics/hostnm.c' || echo '$(srcdir)/'`intrinsics/hostnm.c
 
-kill.lo: intrinsics/kill.c
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o kill.lo `test -f 'intrinsics/kill.c' || echo '$(srcdir)/'`intrinsics/kill.c
-
 ierrno.lo: intrinsics/ierrno.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ierrno.lo `test -f 'intrinsics/ierrno.c' || echo '$(srcdir)/'`intrinsics/ierrno.c
 
 ishftc.lo: intrinsics/ishftc.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o ishftc.lo `test -f 'intrinsics/ishftc.c' || echo '$(srcdir)/'`intrinsics/ishftc.c
+
+iso_c_generated_procs.lo: intrinsics/iso_c_generated_procs.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o iso_c_generated_procs.lo `test -f 'intrinsics/iso_c_generated_procs.c' || echo '$(srcdir)/'`intrinsics/iso_c_generated_procs.c
+
+iso_c_binding.lo: intrinsics/iso_c_binding.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o iso_c_binding.lo `test -f 'intrinsics/iso_c_binding.c' || echo '$(srcdir)/'`intrinsics/iso_c_binding.c
+
+kill.lo: intrinsics/kill.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o kill.lo `test -f 'intrinsics/kill.c' || echo '$(srcdir)/'`intrinsics/kill.c
 
 link.lo: intrinsics/link.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o link.lo `test -f 'intrinsics/link.c' || echo '$(srcdir)/'`intrinsics/link.c

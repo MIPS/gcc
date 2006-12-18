@@ -82,6 +82,12 @@ gfc_clear_ts (gfc_typespec * ts)
   ts->kind = 0;
   ts->derived = NULL;
   ts->cl = NULL;
+  /* flag that says if the type is C interoperable */
+  ts->is_c_interop = 0;
+  /* says what f90 type the C kind interops with */
+  ts->f90_type = BT_UNKNOWN;
+  /* flag that says whether it's from iso_c_binding or not */
+  ts->is_iso_c = 0;
 }
 
 
@@ -294,3 +300,27 @@ gfc_done_2 (void)
   gfc_module_done_2 ();
 }
 
+
+/**
+ * Returns the index into the table of C interoperable kinds where
+ * the kind with the given name (<code>c_kind_name</code>) was found.
+ *
+ * @param c_kind_name Name constant to find the <code>#CInteropKind_t</code>
+ * object for.
+ * @param kinds_table Table holding the C interoperable kinds.
+ * @param table_length Length of the table.
+ * @return Index into the table where the requested
+ * <code>CInteropKind_t</code> object exists, if it exists.  -1 is
+ * returned if it does not exist.  
+ */
+int
+get_c_kind(const char *c_kind_name, CInteropKind_t kinds_table[])
+{
+  int index = 0;
+
+  for (index = 0; index < ISOCBINDING_LAST; index++)
+    if (strcmp (kinds_table[index].name, c_kind_name) == 0)
+      return index;
+
+  return ISOCBINDING_INVALID;
+}

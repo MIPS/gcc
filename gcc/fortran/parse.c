@@ -44,6 +44,7 @@ static void check_statement_label (gfc_statement);
 static void undo_new_statement (void);
 static void reject_statement (void);
 
+
 /* A sort of half-matching function.  We try to match the word on the
    input with the passed string.  If this succeeds, we call the
    keyword-dependent matching function that will match the rest of the
@@ -741,7 +742,6 @@ push_state (gfc_state_data * p, gfc_compile_state new_state, gfc_symbol * sym)
 
 
 /* Pop the current state.  */
-
 static void
 pop_state (void)
 {
@@ -1515,6 +1515,7 @@ parse_derived (void)
   int compiling_type, seen_private, seen_sequence, seen_component, error_flag;
   gfc_statement st;
   gfc_state_data s;
+  gfc_symbol *derived_sym = NULL;
   gfc_symbol *sym;
   gfc_component *c;
 
@@ -1612,6 +1613,29 @@ parse_derived (void)
 	  break;
 	}
     }
+
+  /* need to verify that all fields of the derived type are
+   * interoperable with C if the type is declared to be bind(c)
+   */
+  derived_sym = gfc_current_block();
+  /* see if the derived type was declared with bind(c) */
+  if(derived_sym != NULL && derived_sym->attr.is_bind_c != 0)
+  {
+     /* need to verify all of the components of the derived type
+      * as being C interoperable (not bind(c) though, because that
+      * wouldn't make sense as they're fields of a derived type).
+      * --Rickett, 10.24.05
+      *
+      * also need to verify that the derived type attributes don't
+      * collide with the bind(c).  --Rickett, 10.24.05
+      */
+     /* any errors in the verification will be printed in the function,
+      * so don't print anything here and just continue on.
+      */
+     verify_bind_c_derived_type(derived_sym);
+     /* this will be 1 if the derived type passed verification above */
+     derived_sym->attr.is_c_interop = derived_sym->ts.is_c_interop;
+  }
 
   /* Look for allocatable components.  */
   sym = gfc_current_block ();

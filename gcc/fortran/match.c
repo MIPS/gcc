@@ -220,6 +220,42 @@ gfc_match_small_int (int *value)
   return m;
 }
 
+/**
+ * This function is the same as the gfc_match_small_int, except that
+ * we're keeping the pointer to the expr.  This function could just be
+ * removed and the previously mentioned one modified, though all calls
+ * to it would have to be modified then (and there were a number of
+ * them..).  --Rickett, 04.11.06
+ *
+ * @param value Value of the expression (output).
+ * @param expr The matched expression (output).
+ * @return MATCH_ERROR if fail to extract the int; otherwise, return
+ * the result of gfc_match_expr().  The expr (if any) that was
+ * matched is returned in the parameter <code>expr</code>.
+ */
+match
+gfc_match_small_int_expr (int *value, gfc_expr **expr)
+{
+  const char *p;
+  match m;
+  int i;
+
+  m = gfc_match_expr (expr);
+  if (m != MATCH_YES)
+    return m;
+
+  p = gfc_extract_int (*expr, &i);
+
+  if (p != NULL)
+    {
+      gfc_error (p);
+      m = MATCH_ERROR;
+    }
+
+  *value = i;
+  return m;
+}
+
 
 /* Matches a statement label.  Uses gfc_match_small_literal_int() to
    do most of the work.  */
@@ -424,6 +460,73 @@ gfc_match_name (char *buffer)
 
   return MATCH_YES;
 }
+
+
+/**
+ * Match a valid name for C, which is almost the same as for Fortran,
+ * except that you can start with an underscore, etc..  It could have
+ * been done by modifying the <code>#gfc_match_name</code>, but this way
+ * other things C allows can be added, such as no limits on the length.
+ * Right now, the length is limited to the same thing as Fortran..
+ * Also, by rewriting it, we use the <code>#gfc_next_char_C()</code> to
+ * prevent the input characters from being automatically lower cased,
+ * since C is case sensitive.
+ *
+ * @param buffer Output buffer for the name that is matched.
+ * @return MATCH_ERROR if the name is too long (though this is a
+ * self-imposed limit), MATCH_NO if what we're seeing isn't a name,
+ * and MATCH_YES if we successfully match a C name.
+ */
+match gfc_match_name_C(char *buffer)
+{
+   locus old_loc;
+   int i = 0;
+   int c;
+
+   old_loc = gfc_current_locus;
+   gfc_gobble_whitespace ();
+
+   /* get the next char (first possible char of name) and see if
+    * it's valid for C (either a letter or an underscore)
+    */
+/*    c = gfc_next_char_C(); */
+   /* get the next literal char; param means we're w/in a string */
+   c = gfc_next_char_literal(1);
+   if(!ISALPHA(c) && c != '_')
+   {
+      gfc_current_locus = old_loc;
+      return MATCH_NO;
+   }/* end if(c not a char or underscore) */
+
+   /* continue to read valid variable name characters */
+   do
+   {
+      buffer[i++] = c;
+      
+      /* C does not define a maximum length of variable names, to my
+       * knowledge, but the compiler typically places a limit on them.
+       * for now, i'll use the same as the fortran limit for simplicity,
+       * but this may need to be changed to a dynamic buffer that can
+       * be realloc'ed here if necessary, or more likely, a larger
+       * upper-bound set.  --Rickett, 09.29.05
+       */
+      if(i > gfc_option.max_identifier_length)
+      {
+         gfc_error ("Name at %C is too long");
+         return MATCH_ERROR;
+      }
+      
+      old_loc = gfc_current_locus;
+/*       c = gfc_next_char_C(); */
+      /* get next char; param means we're in a string */
+      c = gfc_next_char_literal(1);
+   } while(ISALNUM (c) || c == '_');
+
+   buffer[i] = '\0';
+   gfc_current_locus = old_loc;
+   
+   return MATCH_YES;
+}/* end gfc_match_name_C() */
 
 
 /* Match a symbol on the input.  Modifies the pointer to the symbol
@@ -2251,8 +2354,7 @@ gfc_get_common (const char *name, int from_module)
 
 /* Match a common block name.  */
 
-static match
-match_common_name (char *name)
+match match_common_name (char *name)
 {
   match m;
 
@@ -2359,6 +2461,37 @@ gfc_match_common (void)
 	  if (m == MATCH_NO)
 	    goto syntax;
 
+          /* store a ref to the common block for error checking */
+          sym->common_block = t;
+          
+          /* see if we know the current common block is bind(c), and if
+           * so, then see if we can check if the symbol is (which it'll
+           * need to be).  this can happen if the bind(c) attr stmt was
+           * applied to the common block, and the variable(s) already
+           * defined, before declaring the common block.
+           * --Rickett, 10.27.05
+           */
+          if(t->is_bind_c == 1)
+          {
+             if(sym->ts.type != BT_UNKNOWN && sym->ts.is_c_interop != 1)
+             {
+                /* if we find an error, just print it and continue,
+                 * cause it's just semantic, and we can see if there
+                 * are more errors.
+                 */
+                gfc_error_now("Variable \"%s\" at %L in common block \"%s\" "
+                              "at %C must be declared with a C "
+                              "interoperable kind since common block "
+                              "\"%s\" is bind(c)",
+                              sym->name, &(sym->declared_at), t->name,
+                              t->name);
+             }/* end if(sym isn't of a C interop kind) */
+             if(sym->attr.is_bind_c == 1)
+                gfc_error_now("Variable \"%s\" in common block "
+                              "\"%s\" at %C can not be bind(c) since "
+                              "it is not global", sym->name, t->name);
+          }/* end if(com block is bind(c) and sym type is known) */
+          
 	  if (sym->attr.in_common)
 	    {
 	      gfc_error ("Symbol '%s' at %C is already in a COMMON block",
