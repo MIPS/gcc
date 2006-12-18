@@ -1099,21 +1099,21 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
-	@rm -rf classes asm
-	mkdir classes asm
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
-	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
-	  $$AC -g -w -d asm @asm.lst
 	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
-	$(JCOMPILER) -g -w -d classes @classes.lst
 	cat classes.lst asm.lst > all-classes.lst
-	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
-	for p in $$list; do \
-	  dirname=classes/`dirname $$p`; \
-	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
-	  echo "  cp $(top_srcdir)/resource/$$p classes/$$p"; \
-	  cp $(top_srcdir)/resource/$$p classes/$$p; \
-	done
+@JAVA_MAINTAINER_MODE_TRUE@	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
+@JAVA_MAINTAINER_MODE_TRUE@	  $$AC -g -w -d $(srcdir)/asm @asm.lst
+@JAVA_MAINTAINER_MODE_TRUE@	$(JCOMPILER) -g -w -d $(srcdir)/classes @classes.lst
+@JAVA_MAINTAINER_MODE_TRUE@	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
+@JAVA_MAINTAINER_MODE_TRUE@	for p in $$list; do \
+@JAVA_MAINTAINER_MODE_TRUE@	  dirname=classes/`dirname $$p`; \
+@JAVA_MAINTAINER_MODE_TRUE@	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
+@JAVA_MAINTAINER_MODE_TRUE@	  echo "  cp $(top_srcdir)/resource/$$p classes/$$p"; \
+@JAVA_MAINTAINER_MODE_TRUE@	  cp $(top_srcdir)/resource/$$p classes/$$p; \
+@JAVA_MAINTAINER_MODE_TRUE@	done
+	cp -a $(srcdir)/asm .
+	cp -a $(srcdir)/classes .
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
@@ -1122,7 +1122,7 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	if test "$(ZIP)" != ""; then $(ZIP) -u -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) uf ../$(TOOLS_ZIP) .; fi; \
 	cd ..)
-	rm -rf classes classes.lst asm.lst
+	rm -rf asm classes classes.lst asm.lst
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:

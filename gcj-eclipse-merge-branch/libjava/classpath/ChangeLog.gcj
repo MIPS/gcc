@@ -1,3 +1,9 @@
+2006-12-18  Tom Tromey  <tromey@redhat.com>
+
+	* tools/Makefile.in: Rebuilt.
+	* tools/Makefile.am ($(TOOLS_ZIP)): Put classes in srcdir.
+	* tools/asm, tools/classes: Check in .class files.
+
 2006-12-18  Gary Benson  <gbenson@redhat.com>
 
 	* tools/Makefile.am: Fix typo.

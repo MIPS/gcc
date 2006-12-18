@@ -147,15 +147,17 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
-	@rm -rf classes asm
-	mkdir classes asm
-## Compile ASM separately as it is latin-1 encoded.
+## GCJ LOCAL: put classes in srcdir
+##	@rm -rf classes asm
+##	mkdir classes asm
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
-	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
-	  $$AC -g -w -d asm @asm.lst
 	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
-	$(JCOMPILER) -g -w -d classes @classes.lst
 	cat classes.lst asm.lst > all-classes.lst
+if JAVA_MAINTAINER_MODE
+## Compile ASM separately as it is latin-1 encoded.
+	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
+	  $$AC -g -w -d $(srcdir)/asm @asm.lst
+	$(JCOMPILER) -g -w -d $(srcdir)/classes @classes.lst
 ## Copy over tools resource files.
 	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
 	for p in $$list; do \
@@ -164,6 +166,10 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	  echo "  cp $(top_srcdir)/resource/$$p classes/$$p"; \
 	  cp $(top_srcdir)/resource/$$p classes/$$p; \
 	done
+endif
+	cp -a $(srcdir)/asm .
+	cp -a $(srcdir)/classes .
+## END GCJ LOCAL
 ## First add classpath tools stuff.
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
@@ -174,7 +180,7 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	if test "$(ZIP)" != ""; then $(ZIP) -u -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) uf ../$(TOOLS_ZIP) .; fi; \
 	cd ..)
-	rm -rf classes classes.lst asm.lst
+	rm -rf asm classes classes.lst asm.lst
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
