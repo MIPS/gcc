@@ -32,8 +32,9 @@
 //
 
 #include <bits/c++config.h>
-#include <bits/concurrence.h>
+#include <ext/concurrence.h>
 #include <ext/mt_allocator.h>
+#include <cstring>
 
 namespace
 {
@@ -58,13 +59,13 @@ namespace
 
   // Ensure freelist is constructed first.
   static __freelist freelist;
-  static __glibcxx_mutex_define_initialized(freelist_mutex);
+  __gnu_cxx::__mutex freelist_mutex;
 
   static void 
   _M_destroy_thread_key(void* __id)
   {
     // Return this thread id record to the front of thread_freelist.
-    __gnu_cxx::lock sentry(freelist_mutex);
+    __gnu_cxx::__scoped_lock sentry(freelist_mutex);
     size_t _M_id = reinterpret_cast<size_t>(__id);
 
     typedef __gnu_cxx::__pool<true>::_Thread_record _Thread_record;
@@ -263,13 +264,33 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	// number of records is "high enough".
 	const size_t __thread_id = _M_get_thread_id();
 	const _Tune& __options = _M_get_options();	
-	const unsigned long __limit = 100 * (_M_bin_size - __which)
-		                      * __options._M_freelist_headroom;
+	const size_t __limit = (100 * (_M_bin_size - __which)
+				* __options._M_freelist_headroom);
 
-	unsigned long __remove = __bin._M_free[__thread_id];
+	size_t __remove = __bin._M_free[__thread_id];
 	__remove *= __options._M_freelist_headroom;
-	if (__remove >= __bin._M_used[__thread_id])
-	  __remove -= __bin._M_used[__thread_id];
+
+	// NB: We assume that reads of _Atomic_words are atomic.
+	const size_t __max_threads = __options._M_max_threads + 1;
+	_Atomic_word* const __reclaimed_base =
+	  reinterpret_cast<_Atomic_word*>(__bin._M_used + __max_threads);
+	const _Atomic_word __reclaimed = __reclaimed_base[__thread_id];
+	const size_t __net_used = __bin._M_used[__thread_id] - __reclaimed;
+
+	// NB: For performance sake we don't resync every time, in order
+	// to spare atomic ops.  Note that if __reclaimed increased by,
+	// say, 1024, since the last sync, it means that the other
+	// threads executed the atomic in the else below at least the
+	// same number of times (at least, because _M_reserve_block may
+	// have decreased the counter), therefore one more cannot hurt.
+	if (__reclaimed > 1024)
+	  {
+	    __bin._M_used[__thread_id] -= __reclaimed;
+	    __atomic_add(&__reclaimed_base[__thread_id], -__reclaimed);
+	  }
+
+	if (__remove >= __net_used)
+	  __remove -= __net_used;
 	else
 	  __remove = 0;
 	if (__remove > __limit && __remove > __bin._M_free[__thread_id])
@@ -277,7 +298,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	    _Block_record* __first = __bin._M_first[__thread_id];
 	    _Block_record* __tmp = __first;
 	    __remove /= __options._M_freelist_headroom;
-	    const unsigned long __removed = __remove;
+	    const size_t __removed = __remove;
 	    while (--__remove > 0)
 	      __tmp = __tmp->_M_next;
 	    __bin._M_first[__thread_id] = __tmp->_M_next;
@@ -292,8 +313,11 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	// Return this block to our list and update counters and
 	// owner id as needed.
-	--__bin._M_used[__block->_M_thread_id];
-	
+	if (__block->_M_thread_id == __thread_id)
+	  --__bin._M_used[__thread_id];
+	else
+	  __atomic_add(&__reclaimed_base[__block->_M_thread_id], 1);
+
 	__block->_M_next = __bin._M_first[__thread_id];
 	__bin._M_first[__thread_id] = __block;
 	
@@ -333,6 +357,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     _Block_record* __block = NULL;
     if (__gthread_active_p())
       {
+	// Resync the _M_used counters.
+	const size_t __max_threads = __options._M_max_threads + 1;
+	_Atomic_word* const __reclaimed_base =
+	  reinterpret_cast<_Atomic_word*>(__bin._M_used + __max_threads);
+	const _Atomic_word __reclaimed = __reclaimed_base[__thread_id];
+	__bin._M_used[__thread_id] -= __reclaimed;
+	__atomic_add(&__reclaimed_base[__thread_id], -__reclaimed);
+
 	__gthread_mutex_lock(__bin._M_mutex);
 	if (__bin._M_first[0] == NULL)
 	  {
@@ -391,7 +423,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	__bin._M_address = __address;
 
 	char* __c = static_cast<char*>(__v) + sizeof(_Block_address);
-	_Block_record* __block = reinterpret_cast<_Block_record*>(__c);
+	__block = reinterpret_cast<_Block_record*>(__c);
  	__bin._M_first[0] = __block;
 	while (--__block_count > 0)
 	  {
@@ -465,17 +497,15 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     if (__gthread_active_p())
       {
 	{
-	  __gnu_cxx::lock sentry(freelist_mutex);
+	  __gnu_cxx::__scoped_lock sentry(freelist_mutex);
 
 	  if (!freelist._M_thread_freelist_array
-	      || freelist._M_max_threads
-		 < _M_options._M_max_threads)
+	      || freelist._M_max_threads < _M_options._M_max_threads)
 	    {
 	      const size_t __k = sizeof(_Thread_record)
 				 * _M_options._M_max_threads;
 	      __v = ::operator new(__k);
-	      _Thread_record* _M_thread_freelist
-		= static_cast<_Thread_record*>(__v);
+	      _M_thread_freelist = static_cast<_Thread_record*>(__v);
 
 	      // NOTE! The first assignable thread id is 1 since the
 	      // global pool uses id 0
@@ -497,8 +527,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		  // _M_thread_freelist.
 		  __gthread_key_create(&freelist._M_key,
 				       ::_M_destroy_thread_key);
-		  freelist._M_thread_freelist
-		    = _M_thread_freelist;
+		  freelist._M_thread_freelist = _M_thread_freelist;
 		}
 	      else
 		{
@@ -521,10 +550,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		    }
 		  ::operator delete(static_cast<void*>(_M_old_array));
 		}
-	      freelist._M_thread_freelist_array
-		= _M_thread_freelist;
-	      freelist._M_max_threads
-		= _M_options._M_max_threads;
+	      freelist._M_thread_freelist_array = _M_thread_freelist;
+	      freelist._M_max_threads = _M_options._M_max_threads;
 	    }
 	}
 
@@ -533,14 +560,20 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	  {
 	    _Bin_record& __bin = _M_bin[__n];
 	    __v = ::operator new(sizeof(_Block_record*) * __max_threads);
+	    std::memset(__v, 0, sizeof(_Block_record*) * __max_threads);    
 	    __bin._M_first = static_cast<_Block_record**>(__v);
 
 	    __bin._M_address = NULL;
 
 	    __v = ::operator new(sizeof(size_t) * __max_threads);
+	    std::memset(__v, 0, sizeof(size_t) * __max_threads);
+
 	    __bin._M_free = static_cast<size_t*>(__v);
-	      
-	    __v = ::operator new(sizeof(size_t) * __max_threads);
+
+	    __v = ::operator new(sizeof(size_t) * __max_threads
+				 + sizeof(_Atomic_word) * __max_threads);
+	    std::memset(__v, 0, (sizeof(size_t) * __max_threads
+				 + sizeof(_Atomic_word) * __max_threads));
 	    __bin._M_used = static_cast<size_t*>(__v);
 	      
 	    __v = ::operator new(sizeof(__gthread_mutex_t));
@@ -555,12 +588,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #else
 	    { __GTHREAD_MUTEX_INIT_FUNCTION(__bin._M_mutex); }
 #endif
-	    for (size_t __threadn = 0; __threadn < __max_threads; ++__threadn)
-	      {
-		__bin._M_first[__threadn] = NULL;
-		__bin._M_free[__threadn] = 0;
-		__bin._M_used[__threadn] = 0;
-	      }
 	  }
       }
     else
@@ -591,7 +618,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	if (_M_id == 0)
 	  {
 	    {
-	      __gnu_cxx::lock sentry(freelist_mutex);
+	      __gnu_cxx::__scoped_lock sentry(freelist_mutex);
 	      if (freelist._M_thread_freelist)
 		{
 		  _M_id = freelist._M_thread_freelist->_M_id;
@@ -600,8 +627,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		}
 	    }
 
-	    __gthread_setspecific(freelist._M_key,
-				  (void*)_M_id);
+	    __gthread_setspecific(freelist._M_key, (void*)_M_id);
 	  }
 	return _M_id >= _M_options._M_max_threads ? 0 : _M_id;
       }
@@ -664,17 +690,15 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     if (__gthread_active_p())
       {
 	{
-	  __gnu_cxx::lock sentry(freelist_mutex);
+	  __gnu_cxx::__scoped_lock sentry(freelist_mutex);
 
 	  if (!freelist._M_thread_freelist_array
-	      || freelist._M_max_threads
-		 < _M_options._M_max_threads)
+	      || freelist._M_max_threads < _M_options._M_max_threads)
 	    {
 	      const size_t __k = sizeof(_Thread_record)
 				 * _M_options._M_max_threads;
 	      __v = ::operator new(__k);
-	      _Thread_record* _M_thread_freelist
-		= static_cast<_Thread_record*>(__v);
+	      _M_thread_freelist = static_cast<_Thread_record*>(__v);
 
 	      // NOTE! The first assignable thread id is 1 since the
 	      // global pool uses id 0
@@ -729,16 +753,21 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	  {
 	    _Bin_record& __bin = _M_bin[__n];
 	    __v = ::operator new(sizeof(_Block_record*) * __max_threads);
+	    std::memset(__v, 0, sizeof(_Block_record*) * __max_threads);
 	    __bin._M_first = static_cast<_Block_record**>(__v);
 
 	    __bin._M_address = NULL;
 
 	    __v = ::operator new(sizeof(size_t) * __max_threads);
+	    std::memset(__v, 0, sizeof(size_t) * __max_threads);
 	    __bin._M_free = static_cast<size_t*>(__v);
 	      
-	    __v = ::operator new(sizeof(size_t) * __max_threads);
+	    __v = ::operator new(sizeof(size_t) * __max_threads + 
+				 sizeof(_Atomic_word) * __max_threads);
+	    std::memset(__v, 0, (sizeof(size_t) * __max_threads
+				 + sizeof(_Atomic_word) * __max_threads));
 	    __bin._M_used = static_cast<size_t*>(__v);
-	      
+
 	    __v = ::operator new(sizeof(__gthread_mutex_t));
 	    __bin._M_mutex = static_cast<__gthread_mutex_t*>(__v);
 	      
@@ -751,12 +780,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #else
 	    { __GTHREAD_MUTEX_INIT_FUNCTION(__bin._M_mutex); }
 #endif
-	    for (size_t __threadn = 0; __threadn < __max_threads; ++__threadn)
-	      {
-		__bin._M_first[__threadn] = NULL;
-		__bin._M_free[__threadn] = 0;
-		__bin._M_used[__threadn] = 0;
-	      }
 	  }
       }
     else

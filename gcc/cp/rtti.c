@@ -342,11 +342,10 @@ get_tinfo_decl (tree type)
   tree name;
   tree d;
 
-  if (COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
       error ("cannot create type information for type %qT because "
-	     "its size is variable",
+	     "it involves types of variable size",
 	     type);
       return error_mark_node;
     }
@@ -385,10 +384,11 @@ get_tinfo_decl (tree type)
 	 define it later if we need to do so.  */
       DECL_EXTERNAL (d) = 1;
       DECL_NOT_REALLY_EXTERN (d) = 1;
+      set_linkage_according_to_type (type, d);
+
+      d = pushdecl_top_level_and_finish (d, NULL_TREE);
       if (CLASS_TYPE_P (type))
 	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
-      set_linkage_according_to_type (type, d);
-      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
       VEC_safe_push (tree, gc, unemitted_tinfo_decls, d);
@@ -619,6 +619,13 @@ build_dynamic_cast_1 (tree type, tree expr)
 		}
 	    }
 
+	  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
+	  if (!flag_rtti)
+	    {
+	      error ("%<dynamic_cast%> not permitted with -fno-rtti");
+	      return error_mark_node;
+	    }
+
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
@@ -703,13 +710,6 @@ build_dynamic_cast (tree type, tree expr)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
-
-  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
-  if (!flag_rtti)
-    {
-      error ("%<dynamic_cast%> not permitted with -fno-rtti");
-      return error_mark_node;
-    }
 
   if (processing_template_decl)
     {
@@ -825,13 +825,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     DECL_TINFO_P (name_decl) = 1;
-    if (involves_incomplete_p (target))
-      {
-	TREE_PUBLIC (name_decl) = 0;
-	DECL_INTERFACE_KNOWN (name_decl) = 1;
-      }
-    else
-      set_linkage_according_to_type (target, name_decl);
+    set_linkage_according_to_type (target, name_decl);
     import_export_decl (name_decl);
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);
@@ -1044,6 +1038,7 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	tree binfo = TYPE_BINFO (type);
 	int nbases = BINFO_N_BASE_BINFOS (binfo);
 	VEC(tree,gc) *base_accesses = BINFO_BASE_ACCESSES (binfo);
+	tree offset_type = integer_types[itk_long];
 	tree base_inits = NULL_TREE;
 	int ix;
 
@@ -1066,17 +1061,17 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 		/* We store the vtable offset at which the virtual
 		   base offset can be found.  */
 		offset = BINFO_VPTR_FIELD (base_binfo);
-		offset = convert (sizetype, offset);
 		flags |= 1;
 	      }
 	    else
 	      offset = BINFO_OFFSET (base_binfo);
 
 	    /* Combine offset and flags into one field.  */
-	    offset = cp_build_binary_op (LSHIFT_EXPR, offset,
-					 build_int_cst (NULL_TREE, 8));
-	    offset = cp_build_binary_op (BIT_IOR_EXPR, offset,
-					 build_int_cst (NULL_TREE, flags));
+	    offset = fold_convert (offset_type, offset);
+	    offset = fold_build2 (LSHIFT_EXPR, offset_type, offset,
+				  build_int_cst (offset_type, 8));
+	    offset = fold_build2 (BIT_IOR_EXPR, offset_type, offset,
+				  build_int_cst (offset_type, flags));
 	    base_init = tree_cons (NULL_TREE, offset, base_init);
 	    base_init = tree_cons (NULL_TREE, tinfo, base_init);
 	    base_init = build_constructor_from_list (NULL_TREE, base_init);

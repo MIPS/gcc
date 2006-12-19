@@ -608,14 +608,6 @@ branch is not taken.  When @code{INSN_ANNULLED_BRANCH_P} is not set,
 this insn will always be executed.  Stored in the @code{in_struct}
 field and printed as @samp{/s}.
 
-@findex LABEL_OUTSIDE_LOOP_P
-@cindex @code{label_ref} and @samp{/s}
-@cindex @code{in_struct}, in @code{label_ref}
-@item LABEL_OUTSIDE_LOOP_P (@var{x})
-In @code{label_ref} expressions, nonzero if this is a reference to a
-label that is outside the innermost loop containing the reference to the
-label.  Stored in the @code{in_struct} field and printed as @samp{/s}.
-
 @findex LABEL_PRESERVE_P
 @cindex @code{code_label} and @samp{/i}
 @cindex @code{note} and @samp{/i}
@@ -2092,6 +2084,11 @@ mode @var{m}.  The mode of @var{x} will usually be an integer mode.
 Represents the number of 1-bits modulo 2 in @var{x}, represented as an
 integer of mode @var{m}.  The mode of @var{x} will usually be an integer
 mode.
+
+@findex bswap
+@item (bswap:@var{m} @var{x})
+Represents the value @var{x} with the order of bytes reversed, carried out
+in mode @var{m}, which must be a fixed-point machine mode.
 @end table
 
 @node Comparisons
@@ -3180,13 +3177,6 @@ invariants.
 @item NOTE_INSN_FUNCTION_BEG
 Appears at the start of the function body, after the function
 prologue.
-
-@findex NOTE_INSN_FUNCTION_END
-@item NOTE_INSN_FUNCTION_END
-Appears near the end of the function body, just before the label that
-@code{return} statements jump to (on machine where a single instruction
-does not suffice for returning).  This note may be deleted by jump
-optimization.
 
 @end table
 

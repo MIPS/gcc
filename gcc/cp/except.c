@@ -458,7 +458,14 @@ expand_start_catch_block (tree decl)
   else
     {
       tree init = do_begin_catch ();
-      exp = create_temporary_var (ptr_type_node);
+      tree init_type = type;
+
+      /* Pointers are passed by values, everything else by reference.  */
+      if (!TYPE_PTR_P (type))
+	init_type = build_pointer_type (type);
+      if (init_type != TREE_TYPE (init))
+	init = build1 (NOP_EXPR, init_type, init);
+      exp = create_temporary_var (init_type);
       DECL_REGISTER (exp) = 1;
       cp_finish_decl (exp, init, /*init_const_expr=*/false,
 		      NULL_TREE, LOOKUP_ONLYCONVERTING);
@@ -598,7 +605,8 @@ build_throw (tree exp)
 
   if (processing_template_decl)
     {
-      current_function_returns_abnormally = 1;
+      if (cfun)
+	current_function_returns_abnormally = 1;
       return build_min (THROW_EXPR, void_type_node, exp);
     }
 
@@ -744,7 +752,7 @@ build_throw (tree exp)
       /* Wrap the initialization in a CLEANUP_POINT_EXPR so that cleanups
 	 for temporaries within the initialization are run before the one
 	 for the exception object, preserving LIFO order.  */
-      exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
+      exp = build1 (CLEANUP_POINT_EXPR, void_type_node, exp);
 
       if (elided)
 	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,

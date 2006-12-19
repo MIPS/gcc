@@ -1015,8 +1015,8 @@ This target hook should return @code{true} if the promotion described by
 @code{PROMOTE_FUNCTION_MODE} should be done for the return value of
 functions.
 
-If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_FUNCTION_MODE}.
+If this target hook returns @code{true}, @code{TARGET_FUNCTION_VALUE}
+must perform the same promotions done by @code{PROMOTE_FUNCTION_MODE}.
 @end deftypefn
 
 @defmac PARM_BOUNDARY
@@ -1078,6 +1078,12 @@ Biggest alignment supported by the object file format of this machine.
 Use this macro to limit the alignment which can be specified using the
 @code{__attribute__ ((aligned (@var{n})))} construct.  If not defined,
 the default value is @code{BIGGEST_ALIGNMENT}.
+
+On systems that use ELF, the default (in @file{config/elfos.h}) is
+the largest supported 32-bit ELF section alignment representable on
+a 32-bit host e.g. @samp{(((unsigned HOST_WIDEST_INT) 1 << 28) * 8)}.
+On 32-bit ELF the largest supported section alignment in bits is
+@samp{(0x80000000 * 8)}, but this is not representable on 32-bit hosts.
 @end defmac
 
 @defmac DATA_ALIGNMENT (@var{type}, @var{basic-align})
@@ -1970,6 +1976,33 @@ definition of this macro is
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)  \
     / UNITS_PER_WORD)
 @end smallexample
+@end defmac
+
+@defmac HARD_REGNO_NREGS_HAS_PADDING (@var{regno}, @var{mode})
+A C expression that is nonzero if a value of mode @var{mode}, stored
+in memory, ends with padding that causes it to take up more space than
+in registers starting at register number @var{regno} (as determined by
+multiplying GCC's notion of the size of the register when containing
+this mode by the number of registers returned by
+@code{HARD_REGNO_NREGS}).  By default this is zero.
+
+For example, if a floating-point value is stored in three 32-bit
+registers but takes up 128 bits in memory, then this would be
+nonzero.
+
+This macros only needs to be defined if there are cases where
+@code{subreg_regno_offset} and @code{subreg_offset_representable_p}
+would otherwise wrongly determine that a @code{subreg} can be
+represented by an offset to the register number, when in fact such a
+@code{subreg} would contain some of the padding not stored in
+registers and so not be representable.
+@end defmac
+
+@defmac HARD_REGNO_NREGS_WITH_PADDING (@var{regno}, @var{mode})
+For values of @var{regno} and @var{mode} for which
+@code{HARD_REGNO_NREGS_HAS_PADDING} returns nonzero, a C expression
+returning the greater number of registers required to hold the value
+including any padding.  In the example above, the value would be four.
 @end defmac
 
 @defmac REGMODE_NATURAL_SIZE (@var{mode})
@@ -2994,6 +3027,14 @@ The default value, @code{virtual_stack_vars_rtx}, is correct for most
 machines.  One reason you may need to define this target hook is if
 @code{hard_frame_pointer_rtx} is the appropriate value on your machine.
 @end deftypefn
+
+@defmac FRAME_ADDR_RTX (@var{frameaddr})
+A C expression whose value is RTL representing the value of the frame
+address for the current frame.  @var{frameaddr} is the frame pointer
+of the current frame.  This is used for __builtin_frame_address.
+You need only define this macro if the frame address is not the same
+as the frame pointer.  Most machines do not need to define it.
+@end defmac
 
 @defmac RETURN_ADDR_RTX (@var{count}, @var{frameaddr})
 A C expression whose value is RTL representing the value of the return
@@ -4028,23 +4069,28 @@ must have move patterns for this mode.
 This section discusses the macros that control returning scalars as
 values---values that can fit in registers.
 
-@defmac FUNCTION_VALUE (@var{valtype}, @var{func})
-A C expression to create an RTX representing the place where a
-function returns a value of data type @var{valtype}.  @var{valtype} is
-a tree node representing a data type.  Write @code{TYPE_MODE
-(@var{valtype})} to get the machine mode used to represent that type.
-On many machines, only the mode is relevant.  (Actually, on most
-machines, scalar values are returned in the same place regardless of
-mode).
+@deftypefn {Target Hook} rtx TARGET_FUNCTION_VALUE (tree @var{ret_type}, tree @var{fn_decl_or_type}, bool @var{outgoing})
 
-The value of the expression is usually a @code{reg} RTX for the hard
-register where the return value is stored.  The value can also be a
-@code{parallel} RTX, if the return value is in multiple places.  See
-@code{FUNCTION_ARG} for an explanation of the @code{parallel} form.
+Define this to return an RTX representing the place where a function
+returns or receives a value of data type @var{ret_type}, a tree node
+node representing a data type.  @var{fn_decl_or_type} is a tree node
+representing @code{FUNCTION_DECL} or @code{FUNCTION_TYPE} of a
+function being called.  If @var{outgoing} is false, the hook should
+compute the register in which the caller will see the return value.
+Otherwise, the hook should return an RTX representing the place where
+a function returns a value.
 
-If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply the same
-promotion rules specified in @code{PROMOTE_MODE} if @var{valtype} is a
-scalar type.
+On many machines, only @code{TYPE_MODE (@var{ret_type})} is relevant.
+(Actually, on most machines, scalar values are returned in the same
+place regardless of mode.)  The value of the expression is usually a
+@code{reg} RTX for the hard register where the return value is stored.
+The value can also be a @code{parallel} RTX, if the return value is in
+multiple places.  See @code{FUNCTION_ARG} for an explanation of the
+@code{parallel} form.
+
+If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply
+the same promotion rules specified in @code{PROMOTE_MODE} if
+@var{valtype} is a scalar type.
 
 If the precise function being called is known, @var{func} is a tree
 node (@code{FUNCTION_DECL}) for it; otherwise, @var{func} is a null
@@ -4052,27 +4098,24 @@ pointer.  This makes it possible to use a different value-returning
 convention for specific functions when all their calls are
 known.
 
-@code{FUNCTION_VALUE} is not used for return vales with aggregate data
-types, because these are returned in another way.  See
+Some target machines have ``register windows'' so that the register in
+which a function returns its value is not the same as the one in which
+the caller sees the value.  For such machines, you should return
+different RTX depending on @var{outgoing}.
+
+@code{TARGET_FUNCTION_VALUE} is not used for return values with
+aggregate data types, because these are returned in another way.  See
 @code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
+@end deftypefn
+
+@defmac FUNCTION_VALUE (@var{valtype}, @var{func})
+This macro has been deprecated.  Use @code{TARGET_FUNCTION_VALUE} for
+a new target instead.
 @end defmac
 
 @defmac FUNCTION_OUTGOING_VALUE (@var{valtype}, @var{func})
-Define this macro if the target machine has ``register windows''
-so that the register in which a function returns its value is not
-the same as the one in which the caller sees the value.
-
-For such machines, @code{FUNCTION_VALUE} computes the register in which
-the caller will see the value.  @code{FUNCTION_OUTGOING_VALUE} should be
-defined in a similar fashion to tell the function where to put the
-value.
-
-If @code{FUNCTION_OUTGOING_VALUE} is not defined,
-@code{FUNCTION_VALUE} serves both purposes.
-
-@code{FUNCTION_OUTGOING_VALUE} is not used for return vales with
-aggregate data types, because these are returned in another way.  See
-@code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
+This macro has been deprecated.  Use @code{TARGET_FUNCTION_VALUE} for
+a new target instead.
 @end defmac
 
 @defmac LIBCALL_VALUE (@var{mode})
@@ -4123,10 +4166,11 @@ at the most significant end of a register (in other words, if they are
 padded at the least significant end).  You can assume that @var{type}
 is returned in a register; the caller is required to check this.
 
-Note that the register provided by @code{FUNCTION_VALUE} must be able
-to hold the complete return value.  For example, if a 1-, 2- or 3-byte
-structure is returned at the most significant end of a 4-byte register,
-@code{FUNCTION_VALUE} should provide an @code{SImode} rtx.
+Note that the register provided by @code{TARGET_FUNCTION_VALUE} must
+be able to hold the complete return value.  For example, if a 1-, 2-
+or 3-byte structure is returned at the most significant end of a
+4-byte register, @code{TARGET_FUNCTION_VALUE} should provide an
+@code{SImode} rtx.
 @end deftypefn
 
 @node Aggregate Return
@@ -4137,10 +4181,11 @@ structure is returned at the most significant end of a 4-byte register,
 @cindex structure value address
 
 When a function value's mode is @code{BLKmode} (and in some other
-cases), the value is not returned according to @code{FUNCTION_VALUE}
-(@pxref{Scalar Return}).  Instead, the caller passes the address of a
-block of memory in which the value should be stored.  This address
-is called the @dfn{structure value address}.
+cases), the value is not returned according to
+@code{TARGET_FUNCTION_VALUE} (@pxref{Scalar Return}).  Instead, the
+caller passes the address of a block of memory in which the value
+should be stored.  This address is called the @dfn{structure value
+address}.
 
 This section describes how to control returning structure values in
 memory.
@@ -4194,7 +4239,7 @@ the caller.
 If @var{incoming} is nonzero and the address is to be found on the
 stack, return a @code{mem} which refers to the frame pointer. If
 @var{incoming} is @code{2}, the result is being used to fetch the
-structure value address at the beginning of a function.  If you need 
+structure value address at the beginning of a function.  If you need
 to emit adjusting code, you should do it at this point.
 @end deftypefn
 
@@ -4401,7 +4446,7 @@ compiler knows this regardless of @code{EXIT_IGNORE_STACK}.
 @defmac EPILOGUE_USES (@var{regno})
 Define this macro as a C expression that is nonzero for registers that are
 used by the epilogue or the @samp{return} pattern.  The stack and frame
-pointer registers are already be assumed to be used as needed.
+pointer registers are already assumed to be used as needed.
 @end defmac
 
 @defmac EH_USES (@var{regno})
@@ -4523,10 +4568,11 @@ not support profiling.
 @end defmac
 
 @defmac NO_PROFILE_COUNTERS
-Define this macro if the @code{mcount} subroutine on your system does
-not need a counter variable allocated for each function.  This is true
-for almost all modern implementations.  If you define this macro, you
-must not use the @var{labelno} argument to @code{FUNCTION_PROFILER}.
+Define this macro to be an expression with a nonzero value if the
+@code{mcount} subroutine on your system does not need a counter variable
+allocated for each function.  This is true for almost all modern
+implementations.  If you define this macro, you must not use the
+@var{labelno} argument to @code{FUNCTION_PROFILER}.
 @end defmac
 
 @defmac PROFILE_BEFORE_PROLOGUE
@@ -5270,6 +5316,35 @@ described above.
 If this hook is not defined, then @var{addr} will be used as
 the argument @var{OFF} to @code{REALIGN_LOAD}, in which case the low
 log2(@var{VS})-1 bits of @var{addr} will be considered.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN (tree @var{x})
+This hook should return the DECL of a function @var{f} that implements
+widening multiplication of the even elements of two input vectors of type @var{x}.
+
+If this hook is defined, the autovectorizer will use it along with the
+@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD} target hook when vectorizing
+widening multiplication in cases that the order of the results does not have to be
+preserved (e.g. used only by a reduction computation). Otherwise, the
+@code{widen_mult_hi/lo} idioms will be used.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD (tree @var{x})
+This hook should return the DECL of a function @var{f} that implements
+widening multiplication of the odd elements of two input vectors of type @var{x}.
+
+If this hook is defined, the autovectorizer will use it along with the
+@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN} target hook when vectorizing
+widening multiplication in cases that the order of the results does not have to be
+preserved (e.g. used only by a reduction computation). Otherwise, the
+@code{widen_mult_hi/lo} idioms will be used.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION (enum built_in_function @var{code}, tree @var{vec_type})
+This hook should return the decl of a function that implements the vectorized
+variant of the builtin function with builtin function code @var{code} or
+@code{NULL_TREE} if such a function is not available.  The return type of
+the vectorized function shall be of vector type @var{vec_type}.
 @end deftypefn
 
 @node Anchored Addresses
@@ -6034,12 +6109,12 @@ per instruction data structures.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_SPECULATE_INSN (rtx @var{insn}, int @var{request}, rtx *@var{new_pat})
-This hook is called by the insn scheduler when @var{insn} has only 
-speculative dependencies and therefore can be scheduled speculatively.  
-The hook is used to check if the pattern of @var{insn} has a speculative 
-version and, in case of successful check, to generate that speculative 
-pattern.  The hook should return 1, if the instruction has a speculative form, 
-or -1, if it doesn't.  @var{request} describes the type of requested 
+This hook is called by the insn scheduler when @var{insn} has only
+speculative dependencies and therefore can be scheduled speculatively.
+The hook is used to check if the pattern of @var{insn} has a speculative
+version and, in case of successful check, to generate that speculative
+pattern.  The hook should return 1, if the instruction has a speculative form,
+or -1, if it doesn't.  @var{request} describes the type of requested
 speculation.  If the return value equals 1 then @var{new_pat} is assigned
 the generated speculative pattern.
 @end deftypefn
@@ -6052,12 +6127,12 @@ instruction should branch to recovery code, or zero otherwise.
 
 @deftypefn {Target Hook} rtx TARGET_SCHED_GEN_CHECK (rtx @var{insn}, rtx @var{label}, int @var{mutate_p})
 This hook is called by the insn scheduler to generate a pattern for recovery
-check instruction.  If @var{mutate_p} is zero, then @var{insn} is a 
-speculative instruction for which the check should be generated.  
-@var{label} is either a label of a basic block, where recovery code should 
-be emitted, or a null pointer, when requested check doesn't branch to 
-recovery code (a simple check).  If @var{mutate_p} is nonzero, then 
-a pattern for a branchy check corresponding to a simple check denoted by 
+check instruction.  If @var{mutate_p} is zero, then @var{insn} is a
+speculative instruction for which the check should be generated.
+@var{label} is either a label of a basic block, where recovery code should
+be emitted, or a null pointer, when requested check doesn't branch to
+recovery code (a simple check).  If @var{mutate_p} is nonzero, then
+a pattern for a branchy check corresponding to a simple check denoted by
 @var{insn} should be generated.  In this case @var{label} can't be null.
 @end deftypefn
 
@@ -6066,20 +6141,20 @@ This hook is used as a workaround for
 @samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD} not being
 called on the first instruction of the ready list.  The hook is used to
 discard speculative instruction that stand first in the ready list from
-being scheduled on the current cycle.  For non-speculative instructions, 
+being scheduled on the current cycle.  For non-speculative instructions,
 the hook should always return nonzero.  For example, in the ia64 backend
 the hook is used to cancel data speculative insns when the ALAT table
 is nearly full.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_SET_SCHED_FLAGS (unsigned int *@var{flags}, spec_info_t @var{spec_info})
-This hook is used by the insn scheduler to find out what features should be 
+This hook is used by the insn scheduler to find out what features should be
 enabled/used.  @var{flags} initially may have either the SCHED_RGN or SCHED_EBB
-bit set.  This denotes the scheduler pass for which the data should be 
+bit set.  This denotes the scheduler pass for which the data should be
 provided.  The target backend should modify @var{flags} by modifying
 the bits corresponding to the following features: USE_DEPS_LIST, USE_GLAT,
-DETACH_LIFE_INFO, and DO_SPECULATION.  For the DO_SPECULATION feature 
-an additional structure @var{spec_info} should be filled by the target.  
+DETACH_LIFE_INFO, and DO_SPECULATION.  For the DO_SPECULATION feature
+an additional structure @var{spec_info} should be filled by the target.
 The structure describes speculation types that can be used in the scheduler.
 @end deftypefn
 
@@ -6576,6 +6651,58 @@ The default version of this function handles choosing code vs data,
 read-only vs read-write data, and @code{flag_pic}.  You should only
 need to override this if your target has special flags that might be
 set via @code{__attribute__}.
+@end deftypefn
+
+@deftypefn {Target Hook} {int} TARGET_ASM_RECORD_GCC_SWITCHES (print_switch_type @var{type}, const char * @var{text})
+Provides the target with the ability to record the gcc command line
+switches that have been passed to the compiler, and options that are
+enabled.  The @var{type} argument specifies what is being recorded.
+It can take the following values:
+
+@table @gcctabopt
+@item SWITCH_TYPE_PASSED
+@var{text} is a command line switch that has been set by the user.
+
+@item SWITCH_TYPE_ENABLED
+@var{text} is an option which has been enabled.  This might be as a
+direct result of a command line switch, or because it is enabled by
+default or because it has been enabled as a side effect of a different
+command line switch.  For example, the @option{-O2} switch enables
+various different individual optimization passes.
+
+@item SWITCH_TYPE_DESCRIPTIVE
+@var{text} is either NULL or some descriptive text which should be
+ignored.  If @var{text} is NULL then it is being used to warn the
+target hook that either recording is starting or ending.  The first
+time @var{type} is SWITCH_TYPE_DESCRIPTIVE and @var{text} is NULL, the
+warning is for start up and the second time the warning is for
+wind down.  This feature is to allow the target hook to make any
+necessary preparations before it starts to record switches and to
+perform any necessary tidying up after it has finished recording
+switches.
+
+@item SWITCH_TYPE_LINE_START
+This option can be ignored by this target hook.
+
+@item  SWITCH_TYPE_LINE_END
+This option can be ignored by this target hook.
+@end table
+
+The hook's return value must be zero.  Other return values may be
+supported in the future.
+
+By default this hook is set to NULL, but an example implementation is
+provided for ELF based targets.  Called @var{elf_record_gcc_switches},
+it records the switches as ASCII text inside a new, string mergeable
+section in the assembler output file.  The name of the new section is
+provided by the @code{TARGET_ASM_RECORD_GCC_SWITCHES_SECTION} target
+hook.
+@end deftypefn
+
+@deftypefn {Target Hook} {const char *} TARGET_ASM_RECORD_GCC_SWITCHES_SECTION
+This is the name of the section that will be created by the example
+ELF implementation of the @code{TARGET_ASM_RECORD_GCC_SWITCHES} target
+hook.
 @end deftypefn
 
 @need 2000
@@ -7920,8 +8047,7 @@ Define this macro to 0 if your target supports DWARF 2 frame unwind
 information, but it does not yet work with exception handling.
 Otherwise, if your target supports this information (if it defines
 @samp{INCOMING_RETURN_ADDR_RTX} and either @samp{UNALIGNED_INT_ASM_OP}
-or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of
-1.
+or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of 1.
 
 If @code{TARGET_UNWIND_INFO} is defined, the target specific unwinder
 will be used in all cases.  Defining this macro will enable the generation
@@ -7929,7 +8055,8 @@ of DWARF 2 frame debugging information.
 
 If @code{TARGET_UNWIND_INFO} is not defined, and this macro is defined to 1,
 the DWARF 2 unwinder will be the default exception handling mechanism;
-otherwise, @code{setjmp}/@code{longjmp} will be used by default.
+otherwise, the @code{setjmp}/@code{longjmp}-based scheme will be used by
+default.
 @end defmac
 
 @defmac TARGET_UNWIND_INFO
@@ -7937,7 +8064,7 @@ Define this macro if your target has ABI specified unwind tables.  Usually
 these will be output by @code{TARGET_UNWIND_EMIT}.
 @end defmac
 
-@deftypevar {Target Hook} bool TARGET_UNWID_TABLES_DEFAULT
+@deftypevar {Target Hook} bool TARGET_UNWIND_TABLES_DEFAULT
 This variable should be set to @code{true} if the target ABI requires unwinding
 tables even when exceptions are not used.
 @end deftypevar
@@ -7945,8 +8072,14 @@ tables even when exceptions are not used.
 @defmac MUST_USE_SJLJ_EXCEPTIONS
 This macro need only be defined if @code{DWARF2_UNWIND_INFO} is
 runtime-variable.  In that case, @file{except.h} cannot correctly
-determine the corresponding definition of
-@code{MUST_USE_SJLJ_EXCEPTIONS}, so the target must provide it directly.
+determine the corresponding definition of @code{MUST_USE_SJLJ_EXCEPTIONS},
+so the target must provide it directly.
+@end defmac
+
+@defmac DONT_USE_BUILTIN_SETJMP
+Define this macro to 1 if the @code{setjmp}/@code{longjmp}-based scheme
+should use the @code{setjmp}/@code{longjmp} functions from the C library
+instead of the @code{__builtin_setjmp}/@code{__builtin_longjmp} machinery.
 @end defmac
 
 @defmac DWARF_CIE_DATA_ALIGNMENT
@@ -8062,7 +8195,7 @@ This works only if @code{ASM_OUTPUT_MAX_SKIP_ALIGN} is defined.
 A C statement to output to the stdio stream @var{stream} an assembler
 instruction to advance the location counter by @var{nbytes} bytes.
 Those bytes should be zero when loaded.  @var{nbytes} will be a C
-expression of type @code{int}.
+expression of type @code{unsigned HOST_WIDE_INT}.
 @end defmac
 
 @defmac ASM_NO_SKIP_IN_TEXT
@@ -8953,6 +9086,14 @@ should be used to register static destructors when @option{-fuse-cxa-atexit}
 is in effect.  The default is to return false to use @code{__cxa_atexit}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT (void)
+This hook returns true if the target @code{atexit} function can be used
+in the same manner as @code{__cxa_atexit} to register C++ static
+destructors. This requires that @code{atexit}-registered functions in
+shared libraries are run in the correct order when the libraries are
+unloaded. The default is to return false.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_CXX_ADJUST_CLASS_AT_DEFINITION (tree @var{type})
 @var{type} is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that has just been
 defined.  Use this hook to make adjustments to the class (eg, tweak
@@ -9473,7 +9614,7 @@ arguments of @samp{#pragma pack}.
 @defmac TARGET_DEFAULT_PACK_STRUCT
 If your target requires a structure packing default other than 0 (meaning
 the machine default), define this macro to the necessary value (in bytes).
-This must be a value that would also valid to be used with
+This must be a value that would also be valid to use with
 @samp{#pragma pack()} (that is, a small power of two).
 @end defmac
 
@@ -9910,4 +10051,9 @@ the front end.
 This macro determines whether to use the JCR section to register Java
 classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
 SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
+@end defmac
+
+@defmac OBJC_JBLEN
+This macro determines the size of the objective C jump buffer for the
+NeXT runtime. By default, OBJC_JBLEN is defined to an innocuous value.
 @end defmac

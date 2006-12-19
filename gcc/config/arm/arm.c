@@ -154,6 +154,7 @@ static void arm_encode_section_info (tree, rtx, int);
 #endif
 
 static void arm_file_end (void);
+static void arm_file_start (void);
 
 #ifdef AOF_ASSEMBLER
 static void aof_globalize_label (FILE *, const char *);
@@ -201,6 +202,9 @@ static bool arm_tls_symbol_p (rtx x);
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START arm_file_start
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END arm_file_end
@@ -389,6 +393,9 @@ rtx arm_compare_op0, arm_compare_op1;
 
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
+
+/* The default processor used if not overridden by commandline.  */
+static enum processor_type arm_default_cpu = arm_none;
 
 /* Which floating point model to use.  */
 enum arm_fp_model arm_fp_model;
@@ -626,7 +633,7 @@ static struct arm_cpu_select arm_select[] =
 #define ARM_OPT_SET_ARCH 1
 #define ARM_OPT_SET_TUNE 2
 
-/* The name of the proprocessor macro to define for this architecture.  */
+/* The name of the preprocessor macro to define for this architecture.  */
 
 char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
@@ -1020,8 +1027,9 @@ arm_override_options (void)
 	  insn_flags = sel->flags;
 	}
       sprintf (arm_arch_name, "__ARM_ARCH_%s__", sel->arch);
+      arm_default_cpu = (enum processor_type) (sel - all_cores);
       if (arm_tune == arm_none)
-	arm_tune = (enum processor_type) (sel - all_cores);
+	arm_tune = arm_default_cpu;
     }
 
   /* The processor for which we should tune should now have been
@@ -3222,7 +3230,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      /* Play games to avoid marking the function as needing pic
 		 if we are being called as part of the cost-estimation
 		 process.  */
-	      if (!ir_type())
+	      if (current_ir_type () != IR_GIMPLE)
 		current_function_uses_pic_offset_table = 1;
 	    }
 	  else
@@ -3234,7 +3242,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      /* Play games to avoid marking the function as needing pic
 		 if we are being called as part of the cost-estimation
 		 process.  */
-	      if (!ir_type())
+	      if (current_ir_type () != IR_GIMPLE)
 		{
 		  current_function_uses_pic_offset_table = 1;
 		  start_sequence ();
@@ -3791,7 +3799,10 @@ thumb_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 	return 1;
 
       else if (GET_CODE (XEXP (x, 0)) == REG
-	       && REGNO (XEXP (x, 0)) == FRAME_POINTER_REGNUM
+	       && (REGNO (XEXP (x, 0)) == FRAME_POINTER_REGNUM
+		   || REGNO (XEXP (x, 0)) == ARG_POINTER_REGNUM
+		   || (REGNO (XEXP (x, 0)) >= FIRST_VIRTUAL_REGISTER
+		       && REGNO (XEXP (x, 0)) <= LAST_VIRTUAL_REGISTER))
 	       && GET_MODE_SIZE (mode) >= 4
 	       && GET_CODE (XEXP (x, 1)) == CONST_INT
 	       && (INTVAL (XEXP (x, 1)) & 3) == 0)
@@ -4465,6 +4476,14 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       /* Fall through */
 
     case PLUS:
+      if (GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  extra_cost = rtx_cost (XEXP (x, 0), code);
+	  if (!REG_OR_SUBREG_REG (XEXP (x, 1)))
+	    extra_cost += 4 * ARM_NUM_REGS (mode);
+	  return extra_cost;
+	}
+
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
@@ -8406,13 +8425,17 @@ print_multi_reg (FILE *stream, const char *instr, unsigned reg,
 }
 
 
-/* Output a FLDMX instruction to STREAM.
+/* Output a FLDMD instruction to STREAM.
    BASE if the register containing the address.
    REG and COUNT specify the register range.
-   Extra registers may be added to avoid hardware bugs.  */
+   Extra registers may be added to avoid hardware bugs.
+
+   We output FLDMD even for ARMv5 VFP implementations.  Although
+   FLDMD is technically not supported until ARMv6, it is believed
+   that all VFP implementations support its use in this context.  */
 
 static void
-arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
+vfp_output_fldmd (FILE * stream, unsigned int base, int reg, int count)
 {
   int i;
 
@@ -8425,7 +8448,7 @@ arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
     }
 
   fputc ('\t', stream);
-  asm_fprintf (stream, "fldmfdx\t%r!, {", base);
+  asm_fprintf (stream, "fldmfdd\t%r!, {", base);
 
   for (i = reg; i < reg + count; i++)
     {
@@ -8441,14 +8464,14 @@ arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
 /* Output the assembly for a store multiple.  */
 
 const char *
-vfp_output_fstmx (rtx * operands)
+vfp_output_fstmd (rtx * operands)
 {
   char pattern[100];
   int p;
   int base;
   int i;
 
-  strcpy (pattern, "fstmfdx\t%m0!, {%P1");
+  strcpy (pattern, "fstmfdd\t%m0!, {%P1");
   p = strlen (pattern);
 
   gcc_assert (GET_CODE (operands[1]) == REG);
@@ -8469,7 +8492,7 @@ vfp_output_fstmx (rtx * operands)
    number of bytes pushed.  */
 
 static int
-vfp_emit_fstmx (int base_reg, int count)
+vfp_emit_fstmd (int base_reg, int count)
 {
   rtx par;
   rtx dwarf;
@@ -8486,10 +8509,6 @@ vfp_emit_fstmx (int base_reg, int count)
       count++;
     }
 
-  /* ??? The frame layout is implementation defined.  We describe
-     standard format 1 (equivalent to a FSTMD insn and unused pad word).
-     We really need some way of representing the whole block so that the
-     unwinder can figure it out at runtime.  */
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
   dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (count + 1));
 
@@ -8506,7 +8525,7 @@ vfp_emit_fstmx (int base_reg, int count)
 				   UNSPEC_PUSH_MULT));
 
   tmp = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-		     plus_constant (stack_pointer_rtx, -(count * 8 + 4)));
+		     plus_constant (stack_pointer_rtx, -(count * 8)));
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 0) = tmp;
 
@@ -8536,7 +8555,7 @@ vfp_emit_fstmx (int base_reg, int count)
 				       REG_NOTES (par));
   RTX_FRAME_RELATED_P (par) = 1;
 
-  return count * 8 + 4;
+  return count * 8;
 }
 
 
@@ -9432,7 +9451,7 @@ arm_get_vfp_saved_size (void)
 		  /* Workaround ARM10 VFPr1 bug.  */
 		  if (count == 2 && !arm_arch6)
 		    count++;
-		  saved += count * 8 + 4;
+		  saved += count * 8;
 		}
 	      count = 0;
 	    }
@@ -9443,7 +9462,7 @@ arm_get_vfp_saved_size (void)
 	{
 	  if (count == 2 && !arm_arch6)
 	    count++;
-	  saved += count * 8 + 4;
+	  saved += count * 8;
 	}
     }
   return saved;
@@ -9869,8 +9888,8 @@ arm_output_epilogue (rtx sibling)
 	{
 	  int saved_size;
 
-	  /* The fldmx insn does not have base+offset addressing modes,
-	     so we use IP to hold the address.  */
+	  /* The fldmd insns do not have base+offset addressing
+             modes, so we use IP to hold the address.  */
 	  saved_size = arm_get_vfp_saved_size ();
 
 	  if (saved_size > 0)
@@ -9886,14 +9905,14 @@ arm_output_epilogue (rtx sibling)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    arm_output_fldmx (f, IP_REGNUM,
+		    vfp_output_fldmd (f, IP_REGNUM,
 				      (start_reg - FIRST_VFP_REGNUM) / 2,
 				      (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    arm_output_fldmx (f, IP_REGNUM,
+	    vfp_output_fldmd (f, IP_REGNUM,
 			      (start_reg - FIRST_VFP_REGNUM) / 2,
 			      (reg - start_reg) / 2);
 	}
@@ -10017,14 +10036,14 @@ arm_output_epilogue (rtx sibling)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    arm_output_fldmx (f, SP_REGNUM,
+		    vfp_output_fldmd (f, SP_REGNUM,
 				      (start_reg - FIRST_VFP_REGNUM) / 2,
 				      (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    arm_output_fldmx (f, SP_REGNUM,
+	    vfp_output_fldmd (f, SP_REGNUM,
 			      (start_reg - FIRST_VFP_REGNUM) / 2,
 			      (reg - start_reg) / 2);
 	}
@@ -10822,13 +10841,13 @@ arm_expand_prologue (void)
 		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
-		    saved_regs += vfp_emit_fstmx (start_reg,
+		    saved_regs += vfp_emit_fstmd (start_reg,
 						  (reg - start_reg) / 2);
 		  start_reg = reg + 2;
 		}
 	    }
 	  if (start_reg != reg)
-	    saved_regs += vfp_emit_fstmx (start_reg,
+	    saved_regs += vfp_emit_fstmd (start_reg,
 					  (reg - start_reg) / 2);
 	}
     }
@@ -11341,8 +11360,10 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 /* Add a function to the list of static constructors.  */
 
 static void
-arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+arm_elf_asm_constructor (rtx symbol, int priority)
 {
+  section *s;
+
   if (!TARGET_AAPCS_BASED)
     {
       default_named_section_asm_out_constructor (symbol, priority);
@@ -11350,7 +11371,16 @@ arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
     }
 
   /* Put these in the .init_array section, using a special relocation.  */
-  switch_to_section (ctors_section);
+  if (priority != DEFAULT_INIT_PRIORITY)
+    {
+      char buf[18];
+      sprintf (buf, ".init_array.%.5u", priority);
+      s = get_section (buf, SECTION_WRITE, NULL_TREE);
+    }
+  else
+    s = ctors_section;
+
+  switch_to_section (s);
   assemble_align (POINTER_SIZE);
   fputs ("\t.word\t", asm_out_file);
   output_addr_const (asm_out_file, symbol);
@@ -12052,8 +12082,8 @@ arm_debugger_arg_offset (int value, rtx addr)
   do									\
     {									\
       if ((MASK) & insn_flags)						\
-        lang_hooks.builtin_function ((NAME), (TYPE), (CODE),		\
-				     BUILT_IN_MD, NULL, NULL_TREE);	\
+        add_builtin_function ((NAME), (TYPE), (CODE),			\
+			     BUILT_IN_MD, NULL, NULL_TREE);		\
     }									\
   while (0)
 
@@ -12525,9 +12555,9 @@ arm_init_tls_builtins (void)
   tree const_nothrow = tree_cons (get_identifier ("const"), NULL, nothrow);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, const_nothrow);
+  add_builtin_function ("__builtin_thread_pointer", ftype,
+			ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			NULL, const_nothrow);
 }
 
 static void
@@ -14394,9 +14424,112 @@ arm_asm_output_labelref (FILE *stream, const char *name)
 }
 
 static void
+arm_file_start (void)
+{
+  int val;
+
+  if (TARGET_BPABI)
+    {
+      const char *fpu_name;
+      if (arm_select[0].string)
+	asm_fprintf (asm_out_file, "\t.cpu %s\n", arm_select[0].string);
+      else if (arm_select[1].string)
+	asm_fprintf (asm_out_file, "\t.arch %s\n", arm_select[1].string);
+      else
+	asm_fprintf (asm_out_file, "\t.cpu %s\n",
+		     all_cores[arm_default_cpu].name);
+
+      if (TARGET_SOFT_FLOAT)
+	{
+	  if (TARGET_VFP)
+	    fpu_name = "softvfp";
+	  else
+	    fpu_name = "softfpa";
+	}
+      else
+	{
+	  switch (arm_fpu_arch)
+	    {
+	    case FPUTYPE_FPA:
+	      fpu_name = "fpa";
+	      break;
+	    case FPUTYPE_FPA_EMU2:
+	      fpu_name = "fpe2";
+	      break;
+	    case FPUTYPE_FPA_EMU3:
+	      fpu_name = "fpe3";
+	      break;
+	    case FPUTYPE_MAVERICK:
+	      fpu_name = "maverick";
+	      break;
+	    case FPUTYPE_VFP:
+	      if (TARGET_HARD_FLOAT)
+		asm_fprintf (asm_out_file, "\t.eabi_attribute 27, 3\n");
+	      if (TARGET_HARD_FLOAT_ABI)
+		asm_fprintf (asm_out_file, "\t.eabi_attribute 28, 1\n");
+	      fpu_name = "vfp";
+	      break;
+	    default:
+	      abort();
+	    }
+	}
+      asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
+
+      /* Some of these attributes only apply when the corresponding features
+         are used.  However we don't have any easy way of figuring this out.
+	 Conservatively record the setting that would have been used.  */
+
+      /* Tag_ABI_PCS_wchar_t.  */
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 18, %d\n",
+		   (int)WCHAR_TYPE_SIZE / BITS_PER_UNIT);
+
+      /* Tag_ABI_FP_rounding.  */
+      if (flag_rounding_math)
+	asm_fprintf (asm_out_file, "\t.eabi_attribute 19, 1\n");
+      if (!flag_unsafe_math_optimizations)
+	{
+	  /* Tag_ABI_FP_denomal.  */
+	  asm_fprintf (asm_out_file, "\t.eabi_attribute 20, 1\n");
+	  /* Tag_ABI_FP_exceptions.  */
+	  asm_fprintf (asm_out_file, "\t.eabi_attribute 21, 1\n");
+	}
+      /* Tag_ABI_FP_user_exceptions.  */
+      if (flag_signaling_nans)
+	asm_fprintf (asm_out_file, "\t.eabi_attribute 22, 1\n");
+      /* Tag_ABI_FP_number_model.  */
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 23, %d\n", 
+		   flag_finite_math_only ? 1 : 3);
+
+      /* Tag_ABI_align8_needed.  */
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 24, 1\n");
+      /* Tag_ABI_align8_preserved.  */
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 25, 1\n");
+      /* Tag_ABI_enum_size.  */
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 26, %d\n",
+		   flag_short_enums ? 1 : 2);
+
+      /* Tag_ABI_optimization_goals.  */
+      if (optimize_size)
+	val = 4;
+      else if (optimize >= 2)
+	val = 2;
+      else if (optimize)
+	val = 1;
+      else
+	val = 6;
+      asm_fprintf (asm_out_file, "\t.eabi_attribute 30, %d\n", val);
+    }
+  default_file_start();
+}
+
+static void
 arm_file_end (void)
 {
   int regno;
+
+  if (NEED_INDICATE_EXEC_STACK)
+    /* Add .note.GNU-stack.  */
+    file_end_indicate_exec_stack ();
 
   if (! thumb_call_reg_needed)
     return;
@@ -15274,12 +15407,12 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
 	  offset -= 4;
 	}
       reg_size = 4;
+      fprintf (asm_out_file, "\t.save {");
     }
   else if (IS_VFP_REGNUM (reg))
     {
-      /* FPA register saves use an additional word.  */
-      offset -= 4;
       reg_size = 8;
+      fprintf (asm_out_file, "\t.vsave {");
     }
   else if (reg >= FIRST_FPA_REGNUM && reg <= LAST_FPA_REGNUM)
     {
@@ -15295,8 +15428,6 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
      something has gone horribly wrong.  */
   if (offset != nregs * reg_size)
     abort ();
-
-  fprintf (asm_out_file, "\t.save {");
 
   offset = 0;
   lastreg = 0;
@@ -15414,6 +15545,15 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 	{
 	  /* Move from sp to reg.  */
 	  asm_fprintf (asm_out_file, "\t.movsp %r\n", REGNO (e0));
+	}
+     else if (GET_CODE (e1) == PLUS
+	      && GET_CODE (XEXP (e1, 0)) == REG
+	      && REGNO (XEXP (e1, 0)) == SP_REGNUM
+	      && GET_CODE (XEXP (e1, 1)) == CONST_INT)
+	{
+	  /* Set reg to offset from sp.  */
+	  asm_fprintf (asm_out_file, "\t.movsp %r, #%d\n",
+		       REGNO (e0), (int)INTVAL(XEXP (e1, 1)));
 	}
       else
 	abort ();

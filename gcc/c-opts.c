@@ -109,6 +109,7 @@ static size_t include_cursor;
 static void set_Wimplicit (int);
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
+static void set_std_cxx0x (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
 static void check_deps_environment_vars (void);
@@ -268,6 +269,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   enum opt_code code = (enum opt_code) scode;
   int result = 1;
 
+  /* Prevent resetting the language standard to a C dialect when the driver
+     has already determined that we're looking at assembler input.  */
+  bool preprocessing_asm_p = (cpp_get_options (parse_in)->lang == CLK_ASM);
+ 
   switch (code)
     {
     default:
@@ -411,6 +416,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	  /* C++-specific warnings.  */
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
+          if (value > 0)
+            warn_write_strings = true;
 	}
 
       cpp_opts->warn_trigraphs = value;
@@ -785,7 +792,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fuse_cxa_atexit:
       flag_use_cxa_atexit = value;
       break;
-      
+
     case OPT_fuse_cxa_get_exception_ptr:
       flag_use_cxa_get_exception_ptr = value;
       break;
@@ -905,29 +912,40 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_std_c__98:
     case OPT_std_gnu__98:
-      set_std_cxx98 (code == OPT_std_c__98 /* ISO */);
+      if (!preprocessing_asm_p)
+	set_std_cxx98 (code == OPT_std_c__98 /* ISO */);
+      break;
+
+    case OPT_std_c__0x:
+    case OPT_std_gnu__0x:
+      if (!preprocessing_asm_p)
+	set_std_cxx0x (code == OPT_std_c__0x /* ISO */);
       break;
 
     case OPT_std_c89:
     case OPT_std_iso9899_1990:
     case OPT_std_iso9899_199409:
-      set_std_c89 (code == OPT_std_iso9899_199409 /* c94 */, true /* ISO */);
+      if (!preprocessing_asm_p)
+	set_std_c89 (code == OPT_std_iso9899_199409 /* c94 */, true /* ISO */);
       break;
 
     case OPT_std_gnu89:
-      set_std_c89 (false /* c94 */, false /* ISO */);
+      if (!preprocessing_asm_p)
+	set_std_c89 (false /* c94 */, false /* ISO */);
       break;
 
     case OPT_std_c99:
     case OPT_std_c9x:
     case OPT_std_iso9899_1999:
     case OPT_std_iso9899_199x:
-      set_std_c99 (true /* ISO */);
+      if (!preprocessing_asm_p)
+	set_std_c99 (true /* ISO */);
       break;
 
     case OPT_std_gnu99:
     case OPT_std_gnu9x:
-      set_std_c99 (false /* ISO */);
+      if (!preprocessing_asm_p)
+	set_std_c99 (false /* ISO */);
       break;
 
     case OPT_trigraphs:
@@ -1007,12 +1025,17 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wsign-compare and -Wmissing-field-initializers,
+  /* -Wextra implies -Wempty-body, -Wsign-compare, 
+     -Wmissing-field-initializers and -Woverride-init, 
      but not if explicitly overridden.  */
+  if (warn_empty_body == -1)
+    warn_empty_body = extra_warnings;
   if (warn_sign_compare == -1)
     warn_sign_compare = extra_warnings;
   if (warn_missing_field_initializers == -1)
     warn_missing_field_initializers = extra_warnings;
+  if (warn_override_init == -1)
+    warn_override_init = extra_warnings;
 
   /* -Wpointer_sign is disabled by default, but it is enabled if any
      of -Wall or -pedantic are given.  */
@@ -1143,14 +1166,26 @@ c_common_parse_file (int set_yydebug)
 {
   unsigned int i;
 
-  /* Enable parser debugging, if requested and we can.  If requested
-     and we can't, notify the user.  */
-#if YYDEBUG != 0
-  yydebug = set_yydebug;
-#else
   if (set_yydebug)
-    warning (0, "YYDEBUG was not defined at build time, -dy ignored");
-#endif
+    switch (c_language)
+      {
+      case clk_c:
+	warning(0, "The C parser does not support -dy, option ignored");
+	break;
+      case clk_objc:
+	warning(0,
+		"The Objective-C parser does not support -dy, option ignored");
+	break;
+      case clk_cxx:
+	warning(0, "The C++ parser does not support -dy, option ignored");
+	break;
+      case clk_objcxx:
+	warning(0,
+	    "The Objective-C++ parser does not support -dy, option ignored");
+	break;
+      default:
+	gcc_unreachable ();
+    }
 
   i = 0;
   for (;;)
@@ -1496,6 +1531,17 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+}
+
+/* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
+static void
+set_std_cxx0x (int iso)
+{
+  cpp_set_lang (parse_in, iso ? CLK_CXX0X: CLK_GNUCXX0X);
+  flag_no_gnu_keywords = iso;
+  flag_no_nonansi_builtin = iso;
+  flag_iso = iso;
+  flag_cpp0x = 1;
 }
 
 /* Handle setting implicit to ON.  */

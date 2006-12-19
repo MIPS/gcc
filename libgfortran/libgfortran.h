@@ -200,10 +200,10 @@ typedef off_t gfc_offset;
 /* Define the type used for the current record number for large file I/O.
    The size must be consistent with the size defined on the compiler side.  */
 #ifdef HAVE_GFC_INTEGER_8
-typedef GFC_INTEGER_8 GFC_LARGE_IO_INT;
+typedef GFC_INTEGER_8 GFC_IO_INT;
 #else
 #ifdef HAVE_GFC_INTEGER_4
-typedef GFC_INTEGER_4 GFC_LARGE_IO_INT;
+typedef GFC_INTEGER_4 GFC_IO_INT;
 #else
 #error "GFC_INTEGER_4 should be available for the library to compile".
 #endif
@@ -370,6 +370,7 @@ typedef struct
   int pedantic;
   int convert;
   size_t record_marker;
+  int max_subrecord_length;
 }
 compile_options_t;
 
@@ -379,6 +380,7 @@ internal_proto(compile_options);
 extern void init_compile_options (void);
 internal_proto(init_compile_options);
 
+#define GFC_MAX_SUBRECORD_LENGTH 2147483639   /* 2**31 - 9 */
 
 /* Structure for statement options.  */
 
@@ -397,7 +399,7 @@ typedef enum
   ERROR_EOR = -2,
   ERROR_END = -1,
   ERROR_OK = 0,			/* Indicates success, must be zero.  */
-  ERROR_OS,			/* Operating system error, more info in errno.  */
+  ERROR_OS = 5000,		/* Operating system error, more info in errno.  */
   ERROR_OPTION_CONFLICT,
   ERROR_BAD_OPTION,
   ERROR_MISSING_OPTION,
@@ -413,6 +415,8 @@ typedef enum
   ERROR_INTERNAL_UNIT,
   ERROR_ALLOCATION,
   ERROR_DIRECT_EOR,
+  ERROR_SHORT_RECORD,
+  ERROR_CORRUPT_FILE,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -644,6 +648,11 @@ internal_proto(internal_unpack_c8);
 #if defined HAVE_GFC_COMPLEX_10
 extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
 internal_proto(internal_unpack_c10);
+#endif
+
+#if defined HAVE_GFC_COMPLEX_16
+extern void internal_unpack_c16 (gfc_array_c16 *, const GFC_COMPLEX_16 *);
+internal_proto(internal_unpack_c16);
 #endif
 
 /* string_intrinsics.c */

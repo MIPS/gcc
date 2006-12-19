@@ -1,5 +1,5 @@
 dnl
-dnl This file contains details for non-natives builds.
+dnl This file contains details for non-native builds.
 dnl
 
 AC_DEFUN([GLIBCXX_CROSSCONFIG],[
@@ -17,7 +17,6 @@ case "${host}" in
     machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
     sys/types.h])
 
-    GLIBCXX_CHECK_COMPILER_FEATURES
     # Don't call GLIBCXX_CHECK_LINKER_FEATURES, Darwin doesn't have a GNU ld
     GLIBCXX_CHECK_MATH_SUPPORT
     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
@@ -52,7 +51,6 @@ case "${host}" in
       memory.h stdint.h stdlib.h strings.h string.h unistd.h \
       wchar.h wctype.h machine/endian.h sys/ioctl.h sys/param.h \
       sys/resource.h sys/stat.h sys/time.h sys/types.h sys/uio.h])
-    GLIBCXX_CHECK_COMPILER_FEATURES
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_MATH_SUPPORT
     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
@@ -180,7 +178,6 @@ case "${host}" in
     AC_CHECK_HEADERS([sys/types.h locale.h float.h])
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     ;;
   *-netbsd*)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
@@ -256,6 +253,7 @@ case "${host}" in
     #    os_include_dir="os/solaris/solaris2.6"
     #    ;;
       *-solaris2.7 | *-solaris2.8 | *-solaris2.9 | *-solaris2.10)
+         GLIBCXX_CHECK_LINKER_FEATURES
          AC_DEFINE(HAVE_GETPAGESIZE)
          AC_DEFINE(HAVE_SIGSETJMP)
          AC_DEFINE(HAVE_MBSTATE_T)

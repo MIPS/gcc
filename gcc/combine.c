@@ -1659,7 +1659,7 @@ likely_spilled_retval_1 (rtx x, rtx set, void *data)
     new_mask >>= info->regno - regno;
   else
     new_mask <<= regno - info->regno;
-  info->mask &= new_mask;
+  info->mask &= ~new_mask;
 }
 
 /* Return nonzero iff part of the return value is live during INSN, and
@@ -1695,7 +1695,8 @@ likely_spilled_retval_p (rtx insn)
   info.nregs = nregs;
   info.mask = mask;
   for (p = PREV_INSN (use); info.mask && p != insn; p = PREV_INSN (p))
-    note_stores (PATTERN (insn), likely_spilled_retval_1, &info);
+    if (INSN_P (p))
+      note_stores (PATTERN (p), likely_spilled_retval_1, &info);
   mask = info.mask;
 
   /* Check if any of the (probably) live return value registers is
@@ -1818,8 +1819,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
   rtx i2dest, i2src, i1dest = 0, i1src = 0;
-  /* PATTERN (I2), or a copy of it in certain cases.  */
-  rtx i2pat;
+  /* PATTERN (I1) and PATTERN (I2), or a copy of it in certain cases.  */
+  rtx i1pat = 0, i2pat = 0;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
   int i2dest_in_i2src = 0, i1dest_in_i1src = 0, i2dest_in_i1src = 0;
   int i2dest_killed = 0, i1dest_killed = 0;
@@ -2217,12 +2218,21 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      rtx.  If I2 is a PARALLEL, we just need the piece that assigns I2SRC to
      I2DEST.  */
 
-  i2pat = (GET_CODE (PATTERN (i2)) == PARALLEL
-	   ? gen_rtx_SET (VOIDmode, i2dest, i2src)
-	   : PATTERN (i2));
-
   if (added_sets_2)
-    i2pat = copy_rtx (i2pat);
+    {
+      if (GET_CODE (PATTERN (i2)) == PARALLEL)
+	i2pat = gen_rtx_SET (VOIDmode, i2dest, copy_rtx (i2src));
+      else
+	i2pat = copy_rtx (PATTERN (i2));
+    }
+
+  if (added_sets_1)
+    {
+      if (GET_CODE (PATTERN (i1)) == PARALLEL)
+	i1pat = gen_rtx_SET (VOIDmode, i1dest, copy_rtx (i1src));
+      else
+	i1pat = copy_rtx (PATTERN (i1));
+    }
 
   combine_merges++;
 
@@ -2417,9 +2427,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	}
 
       if (added_sets_1)
-	XVECEXP (newpat, 0, --total_sets)
-	  = (GET_CODE (PATTERN (i1)) == PARALLEL
-	     ? gen_rtx_SET (VOIDmode, i1dest, i1src) : PATTERN (i1));
+	XVECEXP (newpat, 0, --total_sets) = i1pat;
 
       if (added_sets_2)
 	{
@@ -6860,7 +6868,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
   nonzero = nonzero_bits (x, mode);
 
   /* If none of the bits in X are needed, return a zero.  */
-  if (! just_select && (nonzero & mask) == 0)
+  if (!just_select && (nonzero & mask) == 0 && !side_effects_p (x))
     x = const0_rtx;
 
   /* If X is a CONST_INT, return a new one.  Do this here since the
@@ -8637,14 +8645,14 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	      == 0))
 	code = LSHIFTRT;
 
-      if (code == LSHIFTRT
-	  && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
-	  && !(nonzero_bits (varop, shift_mode) >> count))
-	varop = const0_rtx;
-      if (code == ASHIFT
-	  && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
-	  && !((nonzero_bits (varop, shift_mode) << count)
-	       & GET_MODE_MASK (shift_mode)))
+      if (((code == LSHIFTRT
+	    && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
+	    && !(nonzero_bits (varop, shift_mode) >> count))
+	   || (code == ASHIFT
+	       && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
+	       && !((nonzero_bits (varop, shift_mode) << count)
+		    & GET_MODE_MASK (shift_mode))))
+	  && !side_effects_p (varop))
 	varop = const0_rtx;
 
       switch (GET_CODE (varop))
@@ -9229,9 +9237,12 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
       if (outer_op == AND)
 	x = simplify_and_const_int (NULL_RTX, result_mode, x, outer_const);
       else if (outer_op == SET)
-	/* This means that we have determined that the result is
-	   equivalent to a constant.  This should be rare.  */
-	x = GEN_INT (outer_const);
+	{
+	  /* This means that we have determined that the result is
+	     equivalent to a constant.  This should be rare.  */
+	  if (!side_effects_p (x))
+	    x = GEN_INT (outer_const);
+	}
       else if (GET_RTX_CLASS (outer_op) == RTX_UNARY)
 	x = simplify_gen_unary (outer_op, result_mode, x, result_mode);
       else
@@ -12162,12 +12173,14 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		      continue;
 		    }
 
-		  /* If the register is being set at TEM, see if that is all
-		     TEM is doing.  If so, delete TEM.  Otherwise, make this
-		     into a REG_UNUSED note instead. Don't delete sets to
-		     global register vars.  */
-		  if ((REGNO (XEXP (note, 0)) >= FIRST_PSEUDO_REGISTER
-		       || !global_regs[REGNO (XEXP (note, 0))])
+		  /* If TEM is a (reaching) definition of the use to which the
+		     note was attached, see if that is all TEM is doing.  If so,
+		     delete TEM.  Otherwise, make this into a REG_UNUSED note
+		     instead.  Don't delete sets to global register vars.  */
+		  if ((!from_insn
+		       || INSN_CUID (tem) < INSN_CUID (from_insn))
+		      && (REGNO (XEXP (note, 0)) >= FIRST_PSEUDO_REGISTER
+			  || !global_regs[REGNO (XEXP (note, 0))])
 		      && reg_set_p (XEXP (note, 0), PATTERN (tem)))
 		    {
 		      rtx set = single_set (tem);

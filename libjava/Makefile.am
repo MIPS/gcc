@@ -36,6 +36,10 @@ libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la libgcj-tools.la
 toolexecmainlib_DATA = libgcj.spec
 
+if USE_LIBGCJ_BC
+toolexeclib_LTLIBRARIES += libgcj_bc.la
+endif
+
 if XLIB_AWT
 toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
@@ -43,7 +47,6 @@ endif
 dbexec_LTLIBRARIES = libjvm.la
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
 jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
@@ -55,11 +58,6 @@ else
 JAVA_HOME_DIR = $(prefix)
 BOOT_CLASS_PATH_DIR = $(jardir)/libgcj-$(gcc_version).jar
 endif
-
-## FIXME: Using libdir violates GNU coding standards.
-secdir = $(libdir)/security
-## Where to install default logging property file.
-propdir = $(libdir)
 
 ## Name of the default .db.
 db_name = classmap.db
@@ -116,11 +114,10 @@ AM_CXXFLAGS = \
 	-Wswitch-enum \
 	-D_FILE_OFFSET_BITS=64 \
 	@LIBGCJ_CXXFLAGS@ \
-	@X_CFLAGS@ \
 	$(WARNINGS) \
 	-D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" \
-	-DLIBDIR="\"$(libdir)\"" \
+	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\"" \
         -DJAVA_HOME="\"$(JAVA_HOME_DIR)\"" \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
@@ -128,8 +125,7 @@ AM_CXXFLAGS = \
 	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
 	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
-	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
-	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\""
+	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\""
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
@@ -161,9 +157,6 @@ AM_CPPFLAGS = -I$(top_srcdir) \
 BOOTCLASSPATH = $(here)/classpath/lib
 
 ## ################################################################
-
-all_property_files = $(property_files) \
-    java/util/logging/logging.properties
 
 ##
 ## How to build libgcj.a and libgcj.jar
@@ -276,6 +269,31 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
+
+## Support for libgcj_bc: dummy shared library.
+##
+## This lets us have one soname in BC objects and another in C++ ABI objects.
+libgcj_bc_la_SOURCES = libgcj_bc.c
+libgcj_bc_la_LDFLAGS = -rpath $(toolexeclibdir) -no-static -version-info 1:0:0
+libgcj_bc_la_LIBADD = libgcj.la
+libgcj_bc_la_DEPENDENCIES = libgcj.la
+libgcj_bc_la_LINK = $(LIBLINK)
+## This is specific to Linux/{Free,Net,Open}BSD/Hurd and perhaps few others.
+## USE_LIBGCJ_BC shouldn't be set on other targets.
+libgcj_bc_dummy_LINK = $(CC) -L$(here)/.libs $(CFLAGS) $(LDFLAGS) -shared \
+	-fPIC -nostdlib
+
+## This rule creates the libgcj_bc dummy library in the .libs directory, for use
+## when testing.
+libgcj_bc.la: $(libgcj_bc_la_OBJECTS) $(libgcj_bc_la_DEPENDENCIES)
+	$(libgcj_bc_la_LINK) $(am_libgcj_bc_la_rpath) $(libgcj_bc_la_LDFLAGS) \
+	$(libgcj_bc_la_OBJECTS) $(libgcj_bc_la_LIBADD) $(LIBS) || exit; \
+	rm .libs/libgcj_bc.so; \
+	mv .libs/libgcj_bc.so.1.0.0 .libs/libgcj_bc.so; \
+	$(libgcj_bc_dummy_LINK) -xc /dev/null -Wl,-soname,libgcj_bc.so.1 \
+	-o .libs/libgcj_bc.so.1.0.0 -lgcj || exit; \
+	rm .libs/libgcj_bc.so.1; \
+	$(LN_S) libgcj_bc.so.1.0.0 .libs/libgcj_bc.so.1
 
 ## Note that property_files is defined in sources.am.
 propertyo_files = $(patsubst classpath/resource/%,%,$(addsuffix .lo,$(property_files)))
@@ -507,10 +525,32 @@ extra_headers = java/lang/Object.h java/lang/Class.h
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
+## Support for libgcj_bc: dummy shared library used only at link-time.
+if USE_LIBGCJ_BC
+## Install libgcj_bc dummy lib in the target directory. We also need to delete
+## libtool's .la file, this prevents libtool resetting the lib again 
+## later.
+install-exec-hook: install-toolexeclibLTLIBRARIES
+	@echo Installing dummy lib libgcj_bc.so.1.0.0; \
+	rm $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so; \
+	mv $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so.1.0.0 $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so; \
+	$(libgcj_bc_dummy_LINK) -xc /dev/null -Wl,-soname,libgcj_bc.so.1 \
+	-o $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so.1.0.0 -lgcj || exit; \
+	rm $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so.1; \
+	$(LN_S) libgcj_bc.so.1.0.0 $(DESTDIR)$(toolexeclibdir)/libgcj_bc.so.1; \
+	rm $(DESTDIR)$(toolexeclibdir)/libgcj_bc.la;
+endif
+
 ## Install the headers.  It is fairly ugly that we have to do this by
 ## hand.
 install-data-local:
 	$(PRE_INSTALL)
+## Install the .pc file.
+	@pc_version=`echo $(GCJVERSION) | sed -e 's/[.][^.]*$$//'`; \
+	file="libgcj-$${pc_version}.pc"; \
+	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir); \
+	echo "  $(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file"; \
+	$(INSTALL_DATA) libgcj.pc $(DESTDIR)$(pkgconfigdir)/$$file
 ## We use a GNU make trick here so that we don't go over the command
 ## length limit of some shells.
 	@echo Creating list of headers to install...
@@ -523,14 +563,6 @@ install-data-local:
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f; \
 	done
 	-@rm -f tmp-ilist
-## FIXME: the obvious approach using lib_DATA doesn't work with
-## automake 1.4.
-	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in libgcj.security; do \
-	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
-	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
-	done
-	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 ## Install inner class headers.
 	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
 	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
@@ -785,6 +817,7 @@ gnu/gcj/convert/natOutput_EUCJIS.cc \
 gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
+gnu/gcj/jvmti/natBreakpoint.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natSystemClassLoader.cc \
@@ -824,11 +857,12 @@ java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/net/natVMNetworkInterface.cc \
-java/net/natInetAddress.cc \
+java/net/natVMInetAddress.cc \
 java/net/natURLClassLoader.cc \
 java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/security/natVMAccessController.cc \
+java/security/natVMAccessControlState.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \

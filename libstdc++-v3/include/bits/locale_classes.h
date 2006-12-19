@@ -28,14 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-
 /** @file locale_classes.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 22.1  Locales
+//
 
 #ifndef _LOCALE_CLASSES_H
 #define _LOCALE_CLASSES_H 1
@@ -45,8 +45,7 @@
 #include <bits/localefwd.h>
 #include <cstring>		// For strcmp.
 #include <string>
-#include <bits/atomicity.h>
-#include <bits/gthr.h>
+#include <ext/atomicity.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 

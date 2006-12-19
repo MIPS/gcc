@@ -1,6 +1,6 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -607,7 +607,7 @@ gfc_simplify_atan2 (gfc_expr * y, gfc_expr * x)
       return &gfc_bad_expr;
     }
 
-  arctangent2 (y->value.real, x->value.real, result->value.real);
+  mpfr_atan2 (result->value.real, y->value.real, x->value.real, GFC_RND_MODE);
 
   return range_check (result, "ATAN2");
 }
@@ -1054,7 +1054,6 @@ gfc_expr *
 gfc_simplify_exponent (gfc_expr * x)
 {
   int i;
-  mpfr_t tmp;
   gfc_expr *result;
 
   if (x->expr_type != EXPR_CONSTANT)
@@ -1071,20 +1070,8 @@ gfc_simplify_exponent (gfc_expr * x)
       return result;
     }
 
-  mpfr_init (tmp);
-
-  mpfr_abs (tmp, x->value.real, GFC_RND_MODE);
-  mpfr_log2 (tmp, tmp, GFC_RND_MODE);
-
-  gfc_mpfr_to_mpz (result->value.integer, tmp);
-
-  /* The model number for tiny(x) is b**(emin - 1) where b is the base and emin
-     is the smallest exponent value.  So, we need to add 1 if x is tiny(x).  */
-  i = gfc_validate_kind (x->ts.type, x->ts.kind, false);
-  if (mpfr_cmp (x->value.real, gfc_real_kinds[i].tiny) == 0)
-    mpz_add_ui (result->value.integer,result->value.integer, 1);
-
-  mpfr_clear (tmp);
+  i = (int) mpfr_get_exp (x->value.real);
+  mpz_set_si (result->value.integer, i);
 
   return range_check (result, "EXPONENT");
 }
@@ -1926,17 +1913,17 @@ simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
 {
   gfc_ref *ref;
   gfc_array_spec *as;
-  gfc_expr *e;
+  gfc_expr *l, *u, *result;
   int d;
-
-  if (array->expr_type != EXPR_VARIABLE)
-    return NULL;
 
   if (dim == NULL)
     /* TODO: Simplify constant multi-dimensional bounds.  */
     return NULL;
 
   if (dim->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  if (array->expr_type != EXPR_VARIABLE)
     return NULL;
 
   /* Follow any component references.  */
@@ -1988,12 +1975,43 @@ simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
       return &gfc_bad_expr;
     }
 
-  e = upper ? as->upper[d-1] : as->lower[d-1];
+  /* The last dimension of an assumed-size array is special.  */
+  if (d == as->rank && as->type == AS_ASSUMED_SIZE && !upper)
+    {
+      if (as->lower[d-1]->expr_type == EXPR_CONSTANT)
+	return gfc_copy_expr (as->lower[d-1]);
+      else
+	return NULL;
+    }
 
-  if (e->expr_type != EXPR_CONSTANT)
+  /* Then, we need to know the extent of the given dimension.  */
+  l = as->lower[d-1];
+  u = as->upper[d-1];
+
+  if (l->expr_type != EXPR_CONSTANT || u->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  return gfc_copy_expr (e);
+  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				&array->where);
+
+  if (mpz_cmp (l->value.integer, u->value.integer) > 0)
+    {
+      /* Zero extent.  */
+      if (upper)
+	mpz_set_si (result->value.integer, 0);
+      else
+	mpz_set_si (result->value.integer, 1);
+    }
+  else
+    {
+      /* Nonzero extent.  */
+      if (upper)
+	mpz_set (result->value.integer, u->value.integer);
+      else
+	mpz_set (result->value.integer, l->value.integer);
+    }
+
+  return range_check (result, upper ? "UBOUND" : "LBOUND");
 }
 
 
@@ -2146,8 +2164,8 @@ gfc_simplify_log (gfc_expr * x)
       mpfr_init (xr);
       mpfr_init (xi);
 
-      arctangent2 (x->value.complex.i, x->value.complex.r,
-	           result->value.complex.i);
+      mpfr_atan2 (result->value.complex.i, x->value.complex.i, x->value.complex.r,
+		  GFC_RND_MODE);
 
       mpfr_mul (xr, x->value.complex.r, x->value.complex.r, GFC_RND_MODE);
       mpfr_mul (xi, x->value.complex.i, x->value.complex.i, GFC_RND_MODE);
@@ -2474,71 +2492,25 @@ gfc_simplify_nearest (gfc_expr * x, gfc_expr * s)
 {
   gfc_expr *result;
   mpfr_t tmp;
-  int direction, sgn;
+  int sgn;
 
   if (x->expr_type != EXPR_CONSTANT || s->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  gfc_set_model_kind (x->ts.kind);
-  result = gfc_copy_expr (x);
-
-  direction = mpfr_sgn (s->value.real);
-
-  if (direction == 0)
+  if (mpfr_sgn (s->value.real) == 0)
     {
-      gfc_error ("Second argument of NEAREST at %L may not be zero",
-		 &s->where);
-      gfc_free (result);
+      gfc_error ("Second argument of NEAREST at %L shall not be zero", &s->where);
       return &gfc_bad_expr;
     }
 
-  /* TODO: Use mpfr_nextabove and mpfr_nextbelow once we move to a
-     newer version of mpfr.  */
+  gfc_set_model_kind (x->ts.kind);
+  result = gfc_copy_expr (x);
 
-  sgn = mpfr_sgn (x->value.real);
-
-  if (sgn == 0)
-    {
-      int k = gfc_validate_kind (BT_REAL, x->ts.kind, 0);
-
-      if (direction > 0)
-	mpfr_add (result->value.real,
-		  x->value.real, gfc_real_kinds[k].subnormal, GFC_RND_MODE);
-      else
-	mpfr_sub (result->value.real,
-		  x->value.real, gfc_real_kinds[k].subnormal, GFC_RND_MODE);
-    }
-  else
-    {
-      if (sgn < 0)
-	{
-	  direction = -direction;
-	  mpfr_neg (result->value.real, result->value.real, GFC_RND_MODE);
-	}
-
-      if (direction > 0)
-	mpfr_add_one_ulp (result->value.real, GFC_RND_MODE);
-      else
-	{
-	  /* In this case the exponent can shrink, which makes us skip
-	     over one number because we subtract one ulp with the
-	     larger exponent.  Thus we need to compensate for this.  */
-	  mpfr_init_set (tmp, result->value.real, GFC_RND_MODE);
-
-	  mpfr_sub_one_ulp (result->value.real, GFC_RND_MODE);
-	  mpfr_add_one_ulp (result->value.real, GFC_RND_MODE);
-
-	  /* If we're back to where we started, the spacing is one
-	     ulp, and we get the correct result by subtracting.  */
-	  if (mpfr_cmp (tmp, result->value.real) == 0)
-	    mpfr_sub_one_ulp (result->value.real, GFC_RND_MODE);
-
-	  mpfr_clear (tmp);
-	}
-
-      if (sgn < 0)
-	mpfr_neg (result->value.real, result->value.real, GFC_RND_MODE);
-    }
+  sgn = mpfr_sgn (s->value.real); 
+  mpfr_init (tmp);
+  mpfr_set_inf (tmp, sgn);
+  mpfr_nexttoward (result->value.real, tmp);
+  mpfr_clear(tmp);
 
   return range_check (result, "NEAREST");
 }
@@ -2572,6 +2544,25 @@ simplify_nint (const char *name, gfc_expr * e, gfc_expr * k)
 
 
 gfc_expr *
+gfc_simplify_new_line (gfc_expr * e)
+{
+  gfc_expr *result;
+
+  if (e->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
+
+  result->value.character.string = gfc_getmem (2);
+
+  result->value.character.length = 1;
+  result->value.character.string[0] = '\n';
+  result->value.character.string[1] = '\0';     /* For debugger */
+  return result;
+}
+
+
+gfc_expr *
 gfc_simplify_nint (gfc_expr * e, gfc_expr * k)
 {
   return simplify_nint ("NINT", e, k);
@@ -2590,6 +2581,7 @@ gfc_simplify_not (gfc_expr * e)
 {
   gfc_expr *result;
   int i;
+  mpz_t mask;
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -2599,14 +2591,19 @@ gfc_simplify_not (gfc_expr * e)
   mpz_com (result->value.integer, e->value.integer);
 
   /* Because of how GMP handles numbers, the result must be ANDed with
-     the max_int mask.  For radices <> 2, this will require change.  */
+     a mask.  For radices <> 2, this will require change.  */
 
   i = gfc_validate_kind (BT_INTEGER, e->ts.kind, false);
 
-  mpz_and (result->value.integer, result->value.integer,
-	   gfc_integer_kinds[i].max_int);
+  mpz_init (mask);
+  mpz_add (mask, gfc_integer_kinds[i].huge, gfc_integer_kinds[i].huge);
+  mpz_add_ui (mask, mask, 1);
+
+  mpz_and (result->value.integer, result->value.integer, mask);
 
   twos_complement (result->value.integer, gfc_integer_kinds[i].bit_size);
+
+  mpz_clear (mask);
 
   return range_check (result, "NOT");
 }
@@ -3066,8 +3063,8 @@ gfc_expr *
 gfc_simplify_rrspacing (gfc_expr * x)
 {
   gfc_expr *result;
-  mpfr_t absv, log2, exp, frac, pow2;
-  int i, p;
+  int i;
+  long int e, p;
 
   if (x->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -3076,38 +3073,21 @@ gfc_simplify_rrspacing (gfc_expr * x)
 
   result = gfc_constant_result (BT_REAL, x->ts.kind, &x->where);
 
-  p = gfc_real_kinds[i].digits;
+  mpfr_abs (result->value.real, x->value.real, GFC_RND_MODE);
 
-  gfc_set_model_kind (x->ts.kind);
-
-  if (mpfr_sgn (x->value.real) == 0)
+  /* Special case x = 0 and 0.  */
+  if (mpfr_sgn (result->value.real) == 0)
     {
-      mpfr_ui_div (result->value.real, 1, gfc_real_kinds[i].tiny, GFC_RND_MODE);
+      mpfr_set_ui (result->value.real, 0, GFC_RND_MODE);
       return result;
     }
 
-  mpfr_init (log2);
-  mpfr_init (absv);
-  mpfr_init (frac);
-  mpfr_init (pow2);
-  mpfr_init (exp);
+  /* | x * 2**(-e) | * 2**p.  */
+  e = - (long int) mpfr_get_exp (x->value.real);
+  mpfr_mul_2si (result->value.real, result->value.real, e, GFC_RND_MODE);
 
-  mpfr_abs (absv, x->value.real, GFC_RND_MODE);
-  mpfr_log2 (log2, absv, GFC_RND_MODE);
-
-  mpfr_trunc (log2, log2);
-  mpfr_add_ui (exp, log2, 1, GFC_RND_MODE);
-
-  mpfr_ui_pow (pow2, 2, exp, GFC_RND_MODE);
-  mpfr_div (frac, absv, pow2, GFC_RND_MODE);
-
-  mpfr_mul_2exp (result->value.real, frac, (unsigned long)p, GFC_RND_MODE);
-
-  mpfr_clear (log2);
-  mpfr_clear (absv);
-  mpfr_clear (frac);
-  mpfr_clear (pow2);
-  mpfr_clear (exp);
+  p = (long int) gfc_real_kinds[i].digits;
+  mpfr_mul_2si (result->value.real, result->value.real, p, GFC_RND_MODE);
 
   return range_check (result, "RRSPACING");
 }
@@ -3560,49 +3540,35 @@ gfc_expr *
 gfc_simplify_spacing (gfc_expr * x)
 {
   gfc_expr *result;
-  mpfr_t absv, log2;
-  long diff;
-  int i, p;
+  int i;
+  long int en, ep;
 
   if (x->expr_type != EXPR_CONSTANT)
     return NULL;
 
   i = gfc_validate_kind (x->ts.type, x->ts.kind, false);
 
-  p = gfc_real_kinds[i].digits;
-
   result = gfc_constant_result (BT_REAL, x->ts.kind, &x->where);
 
-  gfc_set_model_kind (x->ts.kind);
-
-  if (mpfr_sgn (x->value.real) == 0)
+  /* Special case x = 0 and -0.  */
+  mpfr_abs (result->value.real, x->value.real, GFC_RND_MODE);
+  if (mpfr_sgn (result->value.real) == 0)
     {
       mpfr_set (result->value.real, gfc_real_kinds[i].tiny, GFC_RND_MODE);
       return result;
     }
 
-  mpfr_init (log2);
-  mpfr_init (absv);
+  /* In the Fortran 95 standard, the result is b**(e - p) where b, e, and p
+     are the radix, exponent of x, and precision.  This excludes the 
+     possibility of subnormal numbers.  Fortran 2003 states the result is
+     b**max(e - p, emin - 1).  */
 
-  mpfr_abs (absv, x->value.real, GFC_RND_MODE);
-  mpfr_log2 (log2, absv, GFC_RND_MODE);
-  mpfr_trunc (log2, log2);
+  ep = (long int) mpfr_get_exp (x->value.real) - gfc_real_kinds[i].digits;
+  en = (long int) gfc_real_kinds[i].min_exponent - 1;
+  en = en > ep ? en : ep;
 
-  mpfr_add_ui (log2, log2, 1, GFC_RND_MODE);
-
-  /* FIXME: We should be using mpfr_get_si here, but this function is
-     not available with the version of mpfr distributed with gmp (as of
-     2004-09-17). Replace once mpfr has been imported into the gcc cvs
-     tree.  */
-  diff = (long)mpfr_get_d (log2, GFC_RND_MODE) - (long)p;
   mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
-  mpfr_mul_2si (result->value.real, result->value.real, diff, GFC_RND_MODE);
-
-  mpfr_clear (log2);
-  mpfr_clear (absv);
-
-  if (mpfr_cmp (result->value.real, gfc_real_kinds[i].tiny) < 0)
-    mpfr_set (result->value.real, gfc_real_kinds[i].tiny, GFC_RND_MODE);
+  mpfr_mul_2si (result->value.real, result->value.real, en, GFC_RND_MODE);
 
   return range_check (result, "SPACING");
 }

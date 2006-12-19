@@ -27,8 +27,8 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.html,
-# foo.uninstall,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.pdf,
+# foo.html, foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
@@ -131,10 +131,10 @@ jvspec.o-warn = -Wno-error
 java/parse-scan.o-warn = -Wno-error
 java/parse.o-warn = -Wno-error
 
-jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
+jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS) attribs.o
 	rm -f $@
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS)
+		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS) attribs.o
 
 gcjh$(exeext): $(GCJH_OBJS) $(LIBDEPS)
 	rm -f $@
@@ -177,6 +177,7 @@ java.srcinfo: doc/gcj.info
 	-cp -p $^ $(srcdir)/doc
 
 java.dvi: doc/gcj.dvi
+java.pdf: doc/gcj.pdf
 java.html: $(build_htmldir)/java/index.html
 JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
                 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
@@ -309,7 +310,7 @@ java/constants.o: java/constants.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
 java/decl.o: java/decl.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \
   toplev.h $(FLAGS_H) $(SYSTEM_H) coretypes.h $(TM_H) $(FUNCTION_H) $(EXPR_H) \
   libfuncs.h except.h java/java-except.h $(GGC_H) $(REAL_H) gt-java-decl.h \
-  $(TARGET_H) $(CGRAPH_H)
+  $(TARGET_H) $(CGRAPH_H) langhooks.h
 java/except.o: java/except.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h $(REAL_H) \
   $(RTL_H) java/javaop.h java/java-opcodes.h except.h java/java-except.h \
   toplev.h $(SYSTEM_H) coretypes.h $(TM_H) $(FUNCTION_H) 
@@ -393,6 +394,9 @@ doc/gcj.info: $(TEXI_JAVA_FILES)
 
 doc/gcj.dvi: $(TEXI_JAVA_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
+
+doc/gcj.pdf: $(TEXI_JAVA_FILES)
+	$(TEXI2PDF) -I $(abs_docdir)/include -o $@ $<
 
 $(build_htmldir)/java/index.html: $(TEXI_JAVA_FILES)
 	$(mkinstalldirs) $(@D)

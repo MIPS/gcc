@@ -312,6 +312,7 @@ build_cplus_new (tree type, tree init)
     rval = init;
 
   rval = build_target_expr (slot, rval);
+  TARGET_EXPR_IMPLICIT_P (rval) = 1;
 
   return rval;
 }
@@ -842,32 +843,38 @@ build_qualified_name (tree type, tree scope, tree name, bool template_p)
   return t;
 }
 
+/* Returns non-zero if X is an expression for a (possibly overloaded)
+   function.  If "f" is a function or function template, "f", "c->f",
+   "c.f", "C::f", and "f<int>" will all be considered possibly
+   overloaded functions.  Returns 2 if the function is actually
+   overloaded, i.e., if it is impossible to know the the type of the
+   function without performing overload resolution.  */
+ 
 int
 is_overloaded_fn (tree x)
 {
   /* A baselink is also considered an overloaded function.  */
-  if (TREE_CODE (x) == OFFSET_REF)
+  if (TREE_CODE (x) == OFFSET_REF
+      || TREE_CODE (x) == COMPONENT_REF)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
     x = BASELINK_FUNCTIONS (x);
-  return (TREE_CODE (x) == FUNCTION_DECL
-	  || TREE_CODE (x) == TEMPLATE_ID_EXPR
-	  || DECL_FUNCTION_TEMPLATE_P (x)
-	  || TREE_CODE (x) == OVERLOAD);
+  if (TREE_CODE (x) == TEMPLATE_ID_EXPR
+      || DECL_FUNCTION_TEMPLATE_P (OVL_CURRENT (x))
+      || (TREE_CODE (x) == OVERLOAD && OVL_CHAIN (x)))
+    return 2;
+  return  (TREE_CODE (x) == FUNCTION_DECL
+	   || TREE_CODE (x) == OVERLOAD);
 }
 
-int
+/* Returns true iff X is an expression for an overloaded function
+   whose type cannot be known without performing overload
+   resolution.  */
+
+bool
 really_overloaded_fn (tree x)
 {
-  if (TREE_CODE (x) == OFFSET_REF)
-    x = TREE_OPERAND (x, 1);
-  /* A baselink is also considered an overloaded function.  */
-  if (BASELINK_P (x))
-    x = BASELINK_FUNCTIONS (x);
-
-  return ((TREE_CODE (x) == OVERLOAD && OVL_CHAIN (x))
-	  || DECL_FUNCTION_TEMPLATE_P (OVL_CURRENT (x))
-	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
+  return is_overloaded_fn (x) == 2;
 }
 
 tree
@@ -875,6 +882,8 @@ get_first_fn (tree from)
 {
   gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
+  if (TREE_CODE (from) == COMPONENT_REF)
+    from = TREE_OPERAND (from, 1);
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
@@ -1393,7 +1402,7 @@ decl_anon_ns_mem_p (tree decl)
 {
   while (1)
     {
-      if (decl == NULL_TREE)
+      if (decl == NULL_TREE || decl == error_mark_node)
 	return false;
       if (TREE_CODE (decl) == NAMESPACE_DECL
 	  && DECL_NAME (decl) == NULL_TREE)
@@ -1936,6 +1945,10 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 	  != TYPE_RAISES_EXCEPTIONS (type)))
     new_type = build_exception_variant (new_type,
 					TYPE_RAISES_EXCEPTIONS (type));
+
+  /* Making a new main variant of a class type is broken.  */
+  gcc_assert (!CLASS_TYPE_P (type) || new_type == type);
+    
   return new_type;
 }
 
@@ -2374,6 +2387,17 @@ fold_if_not_in_template (tree expr)
     return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
 
   return fold (expr);
+}
+
+/* Returns true if a cast to TYPE may appear in an integral constant
+   expression.  */
+
+bool
+cast_valid_in_integral_constant_expression_p (tree type)
+{
+  return (INTEGRAL_OR_ENUMERATION_TYPE_P (type)
+	  || dependent_type_p (type)
+	  || type == error_mark_node);
 }
 
 

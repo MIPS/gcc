@@ -28,72 +28,40 @@ include $(top_srcdir)/fragment.am
 std_srcdir = ${glibcxx_srcdir}/include/std
 std_builddir = .
 std_headers = \
-	${std_srcdir}/std_algorithm.h \
-	${std_srcdir}/std_bitset.h \
-	${std_srcdir}/std_complex.h \
-	${std_srcdir}/std_deque.h \
-	${std_srcdir}/std_fstream.h \
-	${std_srcdir}/std_functional.h \
-	${std_srcdir}/std_iomanip.h \
-	${std_srcdir}/std_ios.h \
-	${std_srcdir}/std_iosfwd.h \
-	${std_srcdir}/std_iostream.h \
-	${std_srcdir}/std_istream.h \
-	${std_srcdir}/std_iterator.h \
-	${std_srcdir}/std_limits.h \
-	${std_srcdir}/std_list.h \
-	${std_srcdir}/std_locale.h \
-	${std_srcdir}/std_map.h \
-	${std_srcdir}/std_memory.h \
-	${std_srcdir}/std_numeric.h \
-	${std_srcdir}/std_ostream.h \
-	${std_srcdir}/std_queue.h \
-	${std_srcdir}/std_set.h \
-	${std_srcdir}/std_sstream.h \
-	${std_srcdir}/std_stack.h \
-	${std_srcdir}/std_stdexcept.h \
-	${std_srcdir}/std_streambuf.h \
-	${std_srcdir}/std_string.h \
-	${std_srcdir}/std_utility.h \
-	${std_srcdir}/std_valarray.h \
-	${std_srcdir}/std_vector.h
-# Renamed at build time.
-std_headers_rename = \
-	algorithm \
-	bitset \
-	complex \
-	deque \
-	fstream \
-	functional \
-	iomanip \
-	ios \
-	iosfwd \
-	iostream \
-	istream \
-	iterator \
-	limits \
-	list \
-	locale \
-	map \
-	memory \
-	numeric \
-	ostream \
-	queue \
-	set \
-	sstream \
-	stack \
-	stdexcept \
-	streambuf \
-	string \
-	utility \
-	valarray \
-	vector
+	${std_srcdir}/algorithm \
+	${std_srcdir}/bitset \
+	${std_srcdir}/complex \
+	${std_srcdir}/deque \
+	${std_srcdir}/fstream \
+	${std_srcdir}/functional \
+	${std_srcdir}/iomanip \
+	${std_srcdir}/ios \
+	${std_srcdir}/iosfwd \
+	${std_srcdir}/iostream \
+	${std_srcdir}/istream \
+	${std_srcdir}/iterator \
+	${std_srcdir}/limits \
+	${std_srcdir}/list \
+	${std_srcdir}/locale \
+	${std_srcdir}/map \
+	${std_srcdir}/memory \
+	${std_srcdir}/numeric \
+	${std_srcdir}/ostream \
+	${std_srcdir}/queue \
+	${std_srcdir}/set \
+	${std_srcdir}/sstream \
+	${std_srcdir}/stack \
+	${std_srcdir}/stdexcept \
+	${std_srcdir}/streambuf \
+	${std_srcdir}/string \
+	${std_srcdir}/utility \
+	${std_srcdir}/valarray \
+	${std_srcdir}/vector
 
 bits_srcdir = ${glibcxx_srcdir}/include/bits
 bits_builddir = ./bits
 bits_headers = \
 	${bits_srcdir}/allocator.h \
-	${bits_srcdir}/atomicity.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
@@ -102,7 +70,6 @@ bits_headers = \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
-	${bits_srcdir}/concurrence.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
@@ -206,7 +173,6 @@ pb_subdirs = \
 	${pb_builddir}/detail/pairing_heap_ \
 	${pb_builddir}/detail/splay_tree_ \
 	${pb_builddir}/detail/list_update_map_ \
-	${pb_builddir}/detail/typelist \
 	${pb_builddir}/detail/basic_tree_policy \
 	${pb_builddir}/detail/trie_policy \
 	${pb_builddir}/detail/gp_hash_table_map_ \
@@ -505,17 +471,6 @@ pb_headers7 = \
 	${pb_srcdir}/detail/trie_policy/sample_trie_node_update.hpp \
 	${pb_srcdir}/detail/trie_policy/string_trie_e_access_traits_imp.hpp \
 	${pb_srcdir}/detail/trie_policy/trie_policy_base.hpp \
-	${pb_srcdir}/detail/typelist_assoc_container.hpp \
-	${pb_srcdir}/detail/typelist.hpp \
-	${pb_srcdir}/detail/typelist/typelist_append.hpp \
-	${pb_srcdir}/detail/typelist/typelist_apply.hpp \
-	${pb_srcdir}/detail/typelist/typelist_assoc_container_find.hpp \
-	${pb_srcdir}/detail/typelist/typelist_at_index.hpp \
-	${pb_srcdir}/detail/typelist/typelist_contains.hpp \
-	${pb_srcdir}/detail/typelist/typelist_filter.hpp \
-	${pb_srcdir}/detail/typelist/typelist_flatten.hpp \
-	${pb_srcdir}/detail/typelist/typelist_transform.hpp \
-	${pb_srcdir}/detail/typelist/typelist_typelist_append.hpp \
 	${pb_srcdir}/detail/types_traits.hpp \
 	${pb_srcdir}/detail/type_utils.hpp \
 	${pb_srcdir}/detail/unordered_iterator/const_iterator.hpp \
@@ -529,9 +484,11 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext 
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/atomicity.h \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/codecvt_specializations.h \
+	${ext_srcdir}/concurrence.h \
 	${ext_srcdir}/debug_allocator.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
@@ -552,7 +509,9 @@ ext_headers = \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
+	${ext_srcdir}/throw_allocator.h \
 	${ext_srcdir}/typelist.h \
+	${ext_srcdir}/type_traits.h \
 	${ext_srcdir}/rc_string_base.h \
 	${ext_srcdir}/sso_string_base.h \
 	${ext_srcdir}/vstring.h \
@@ -609,6 +568,7 @@ tr1_headers = \
 	${tr1_srcdir}/stdlib.h \
 	${tr1_srcdir}/tgmath.h \
 	${tr1_srcdir}/tuple \
+	${tr1_srcdir}/tuple_defs.h \
 	${tr1_srcdir}/tuple_iterate.h \
 	${tr1_srcdir}/type_traits \
 	${tr1_srcdir}/type_traits_fwd.h \
@@ -623,43 +583,24 @@ tr1_headers = \
 c_base_srcdir = $(C_INCLUDE_DIR)
 c_base_builddir = .
 c_base_headers = \
-	${c_base_srcdir}/std_cassert.h \
-	${c_base_srcdir}/std_cctype.h \
-	${c_base_srcdir}/std_cerrno.h \
-	${c_base_srcdir}/std_cfloat.h \
-	${c_base_srcdir}/std_ciso646.h \
-	${c_base_srcdir}/std_climits.h \
-	${c_base_srcdir}/std_clocale.h \
-	${c_base_srcdir}/std_cmath.h \
-	${c_base_srcdir}/std_csetjmp.h \
-	${c_base_srcdir}/std_csignal.h \
-	${c_base_srcdir}/std_cstdarg.h \
-	${c_base_srcdir}/std_cstddef.h \
-	${c_base_srcdir}/std_cstdio.h \
-	${c_base_srcdir}/std_cstdlib.h \
-	${c_base_srcdir}/std_cstring.h \
-	${c_base_srcdir}/std_ctime.h \
-	${c_base_srcdir}/std_cwchar.h \
-	${c_base_srcdir}/std_cwctype.h
-c_base_headers_rename = \
-	cassert \
-	cctype \
-	cerrno \
-	cfloat \
-	ciso646 \
-	climits \
-	clocale \
-	cmath \
-	csetjmp \
-	csignal \
-	cstdarg \
-	cstddef \
-	cstdio \
-	cstdlib \
-	cstring \
-	ctime \
-	cwchar \
-	cwctype
+	${c_base_srcdir}/cassert \
+	${c_base_srcdir}/cctype \
+	${c_base_srcdir}/cerrno \
+	${c_base_srcdir}/cfloat \
+	${c_base_srcdir}/ciso646 \
+	${c_base_srcdir}/climits \
+	${c_base_srcdir}/clocale \
+	${c_base_srcdir}/cmath \
+	${c_base_srcdir}/csetjmp \
+	${c_base_srcdir}/csignal \
+	${c_base_srcdir}/cstdarg \
+	${c_base_srcdir}/cstddef \
+	${c_base_srcdir}/cstdio \
+	${c_base_srcdir}/cstdlib \
+	${c_base_srcdir}/cstring \
+	${c_base_srcdir}/ctime \
+	${c_base_srcdir}/cwchar \
+	${c_base_srcdir}/cwctype
 
 # "C" compatibility headers.
 c_compatibility_srcdir = ${glibcxx_srcdir}/include/c_compatibility
@@ -803,8 +744,9 @@ endif
 # List of all timestamp files.  By keeping only one copy of this list, both
 # CLEANFILES and all-local are kept up-to-date.
 allstamped = \
-	stamp-std stamp-bits stamp-c_base stamp-c_compatibility \
-	stamp-backward stamp-ext stamp-pb stamp-tr1 stamp-debug stamp-host
+	stamp-std stamp-bits stamp-c_base stamp-c_base_extra \
+	stamp-c_compatibility  stamp-backward stamp-ext stamp-pb \
+	stamp-tr1 stamp-debug stamp-host
 
 # List of all files that are created by explicit building, editing, or
 # catenation.
@@ -823,10 +765,7 @@ stamp-std: ${std_headers}
 	  mkdir -p ${std_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-std ]; then \
-	  (cd ${std_builddir} && for h in $?; do \
-	    build_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
-	    $(LN_S) $$h ./$${build_name} || true ;\
-	  done) ;\
+	  (cd ${std_builddir} && $(LN_S) $? . || true) ;\
 	fi ;\
 	$(STAMP) stamp-std
 
@@ -839,20 +778,23 @@ stamp-bits: ${bits_headers}
 	fi ;\
 	$(STAMP) stamp-bits
 
-stamp-c_base: stamp-bits ${c_base_headers} ${c_base_headers_extra}
+stamp-c_base: ${c_base_headers} 
 	@if [ ! -d "${c_base_builddir}" ]; then \
 	  mkdir -p ${c_base_builddir} ;\
 	fi ;\
 	if [ ! -f stamp-c_base ]; then \
-	  (cd ${c_base_builddir} && for h in ${c_base_headers}; do \
-	    build_name=`echo $$h | sed -e 's,.*/std_,,' -e 's,\.h$$,,'` ;\
-	    $(LN_S) $$h ./$${build_name} || true ;\
-	  done) ;\
-	  if [ ! -z "${c_base_headers_extra}" ]; then \
-	  (cd ${bits_builddir} && $(LN_S) ${c_base_headers_extra}  . || true) ;\
-	  fi ;\
+	  (cd ${c_base_builddir} && $(LN_S) $? . || true) ;\
 	fi ;\
 	$(STAMP) stamp-c_base
+
+stamp-c_base_extra: ${c_base_headers_extra}
+	@if [ ! -d "${bits_builddir}" ]; then \
+	  mkdir -p ${bits_builddir} ;\
+	fi ;\
+	if [ ! -f stamp-c_base_extra ]; then \
+	  (cd ${bits_builddir} && $(LN_S) $? . || true) ;\
+	fi ;\
+	$(STAMP) stamp-c_base_extra
 
 stamp-c_compatibility: ${c_compatibility_headers_extra}
 	@if [ ! -d "${c_compatibility_builddir}" ]; then \
@@ -971,8 +913,7 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(COMPATIBILITY_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_H) messages_members.h || true ;\
-	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true ;\
-	  $(LN_S) ${glibcxx_srcdir}/$(CCODECVT_H) codecvt_specializations.h || true);\
+	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true);\
 	fi ;\
 	$(STAMP) stamp-host
 
@@ -1170,8 +1111,8 @@ install-headers:
 	for file in ${tr1_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${tr1_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
-	for file in ${c_base_headers_rename}; do \
-	  $(INSTALL_DATA) ${c_base_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
+	for file in ${c_base_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
 	c_base_headers_extra_install='$(c_base_headers_extra)';\
 	for file in $$c_base_headers_extra_install; do \
 	  $(INSTALL_DATA) $$file $(DESTDIR)${gxx_include_dir}/${bits_builddir}; done
@@ -1179,8 +1120,8 @@ install-headers:
 	for file in $$c_compatibility_headers_install; do \
 	  $(INSTALL_DATA) $$file $(DESTDIR)${gxx_include_dir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
-	for file in ${std_headers_rename}; do \
-	  $(INSTALL_DATA) ${std_builddir}/$${file} $(DESTDIR)${gxx_include_dir}/${std_builddir}; done
+	for file in ${std_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${std_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
 	for file in ${debug_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
@@ -1211,6 +1152,8 @@ clean-local:
 # developer tries to create them via make in the include build
 # directory. (This is more of an example of how this kind of rule can
 # be made.)
-.PRECIOUS: $(std_headers_rename) $(c_base_headers_rename)
-$(std_headers_rename): ; @:
-$(c_base_headers_rename): ; @:
+.PRECIOUS: $(std_headers) $(c_base_headers) $(tr1_headers) $(ext_headers)
+$(std_headers): ; @:
+$(c_base_headers): ; @:
+$(tr1_headers): ; @:
+$(ext_headers): ; @:

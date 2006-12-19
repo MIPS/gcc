@@ -983,7 +983,7 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
-powerpc-*-darwin*)
+powerpc*-*-darwin*)
   # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
   # sources; use -no-cpp-precomp to get to GNU cpp.
   # Apple's GCC has bugs in designated initializer handling, so disable
@@ -1229,6 +1229,12 @@ AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
 AC_ARG_WITH(system-libunwind,
 [  --with-system-libunwind use installed libunwind])
 
+# config.gcc also contains tests of with_system_libunwind.
+if test x$with_system_libunwind = xyes; then
+        AC_DEFINE(HAVE_GETIPINFO, 1,
+[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+fi
+
 # --------------------------------------------------------
 # Build, host, and target specific configuration fragments
 # --------------------------------------------------------
@@ -1360,7 +1366,7 @@ if test "$host_xm_file" != "$build_xm_file"; then
 fi
 
 case ${host} in
-  powerpc-*-darwin*)
+  powerpc*-*-darwin*)
     AC_CACHE_CHECK([whether mcontext_t fields have underscores],
       gcc_cv_mcontext_underscores,
       AC_COMPILE_IFELSE([
@@ -1423,8 +1429,17 @@ use_cxa_atexit=no
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
   if test x$host = x$target; then
-    AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
-	[echo "__cxa_atexit can't be enabled on this target"])
+    case $host in
+      # mingw32 doesn't have __cxa_atexit but uses atexit registration
+      # keyed to flag_use_cxa_atexit
+      *-*-mingw32*)
+	use_cxa_atexit=yes
+	;;
+      *)
+	AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
+	  [echo "__cxa_atexit can't be enabled on this target"])
+	;;
+    esac
   else
     # We can't check for __cxa_atexit when building a cross, so assume
     # it is available 
@@ -1437,6 +1452,20 @@ if test x$enable___cxa_atexit = xyes || \
       This is essential for fully standards-compliant handling of
       destructors, but requires __cxa_atexit in libc.])
   fi
+fi
+
+use_getipinfo=yes
+if test x$with_system_libunwind = xyes; then
+   if test x$host = x$target; then
+     AC_SEARCH_LIBS(_Unwind_GetIPInfo, unwind,, [use_getipinfo=no])
+   fi
+fi
+GCC_TARGET_TEMPLATE(HAVE_GETIPINFO)
+if test x$use_getipinfo = xyes; then
+   AC_DEFINE(HAVE_GETIPINFO, 1,
+	[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+else
+   echo "The system unwind library does not support _Unwind_GetIPInfo."
 fi
 
 # Look for a file containing extra machine modes.
@@ -1716,7 +1745,8 @@ for f in $build_xm_file; do
   esac
 done
 
-# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
+# Define macro CROSS_DIRECTORY_STRUCTURE in compilation if this is a
+# cross-compiler which does not use the native headers and libraries.
 # Also use all.cross instead of all.internal and adjust SYSTEM_HEADER_DIR.
 CROSS=						AC_SUBST(CROSS)
 ALL=all.internal				AC_SUBST(ALL)
@@ -1733,7 +1763,7 @@ fi
 
 if test x$host != x$target
 then
-	CROSS="-DCROSS_COMPILE"
+	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
 	ALL=all.cross
 	SYSTEM_HEADER_DIR=$build_system_header_dir
 	case "$host","$target" in
@@ -2087,7 +2117,7 @@ changequote(,)dnl
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -2821,6 +2851,18 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
         [Define if your assembler supports the ffreep mnemonic.])])
 
+    gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
+      gcc_cv_as_ix86_diff_sect_delta,,,
+      [.section .rodata
+.L1:
+        .long .L2-.L1
+        .long .L3-.L1
+        .text
+.L3:    nop
+.L2:    nop],,
+      [AC_DEFINE(HAVE_AS_IX86_DIFF_SECT_DELTA, 1,
+        [Define if your assembler supports the subtraction of symbols in different sections.])])
+
     # This one is used unconditionally by i386.[ch]; it is to be defined
     # to 1 if the feature is present, 0 otherwise.
     gcc_GAS_CHECK_FEATURE([GOTOFF in data],
@@ -2905,6 +2947,21 @@ foo:	nop
 	  [Define if your assembler supports fprnd.])])
 
     case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	mffgpr 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	mffgpr 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([move fp gpr support],
+      gcc_cv_as_powerpc_mfpgpr, [9,99,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_MFPGPR, 1,
+	  [Define if your assembler supports mffgpr and mftgpr.])])
+
+    case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 LCF..0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
@@ -2932,6 +2989,10 @@ LCF0:
        then target_cpu_default=MASK_EXPLICIT_RELOCS
        else target_cpu_default="($target_cpu_default)|MASK_EXPLICIT_RELOCS"
        fi])
+    gcc_GAS_CHECK_FEATURE([-mno-shared support],
+      gcc_cv_as_mips_no_shared, [2,16,0], [-mno-shared], [nop],,
+      [AC_DEFINE(HAVE_AS_NO_SHARED, 1,
+		 [Define if the assembler understands -mno-shared.])])
     ;;
 esac
 
@@ -2961,7 +3022,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3099,6 +3160,49 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
+AC_MSG_CHECKING(linker EH-compatible garbage collection of sections)
+gcc_cv_ld_eh_gc_sections=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 17 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_eh_gc_sections=yes
+  fi
+elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
+  cat > conftest.s <<EOF
+	.section	.text
+.globl _start
+        .type _start, @function
+_start:
+	.long foo
+	.size _start, .-_start
+	.section	.text.foo,"ax",@progbits
+	.type foo, @function
+foo:
+	.long 0
+	.size foo, .-foo
+	.section	.gcc_except_table.foo,"a",@progbits
+.L0:
+	.long 0
+	.section	.eh_frame,"a",@progbits
+	.long .L0
+EOF
+  if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+    if $gcc_cv_ld -o conftest conftest.o --entry=_start --gc-sections 2>&1 \
+	 | grep "gc-sections option ignored" > /dev/null; then
+      gcc_cv_ld_eh_gc_sections=no
+    elif $gcc_cv_objdump -h conftest | grep gcc_except_table > /dev/null; then
+      gcc_cv_ld_eh_gc_sections=yes
+    fi
+  fi
+  rm -f conftest.s conftest.o conftest
+fi
+if test x$gcc_cv_ld_eh_gc_sections = xyes; then
+	AC_DEFINE(HAVE_LD_EH_GC_SECTIONS, 1,
+  [Define if your linker supports garbage collection of
+   sections in presence of EH frames.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_eh_gc_sections)
+
 # --------
 # UNSORTED
 # --------
@@ -3182,7 +3286,8 @@ if test x"$gcc_cv_ld_sysroot" = xyes; then
 fi	  
 
 if test x$with_sysroot = x && test x$host = x$target \
-   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
+   && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" \
+   && test "$prefix" != "NONE"; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
 fi
@@ -3249,9 +3354,12 @@ case "$target" in
       else
 	glibc_header_dir=/usr/include
       fi
+changequote(,)dnl
       grep '^[ 	]*#[ 	]*define[ 	][ 	]*__LONG_DOUBLE_MATH_OPTIONAL' \
         $glibc_header_dir/bits/wordsize.h > /dev/null 2>&1 \
-      && gcc_cv_target_ldbl128=yes])
+      && gcc_cv_target_ldbl128=yes
+changequote([,])dnl
+      ])
     ;;
 esac
 if test x$gcc_cv_target_ldbl128 = xyes; then
@@ -3450,7 +3558,7 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi html \
+	install-common install-man install-info dvi pdf html \
 	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"

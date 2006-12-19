@@ -36,7 +36,7 @@
 #ifndef _RC_STRING_BASE_H
 #define _RC_STRING_BASE_H 1
 
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -225,7 +225,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       template<typename _InIterator>
         static _CharT*
         _S_construct_aux(_InIterator __beg, _InIterator __end,
-			 const _Alloc& __a, __false_type)
+			 const _Alloc& __a, std::__false_type)
 	{
           typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
           return _S_construct(__beg, __end, __a, _Tag());
@@ -234,7 +234,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       template<typename _InIterator>
         static _CharT*
         _S_construct_aux(_InIterator __beg, _InIterator __end,
-			 const _Alloc& __a, __true_type)
+			 const _Alloc& __a, std::__true_type)
 	{ return _S_construct(static_cast<size_type>(__beg),
 			      static_cast<value_type>(__end), __a); }
 
@@ -337,6 +337,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       
       void
       _M_erase(size_type __pos, size_type __n);
+
+      void
+      _M_clear()
+      { _M_erase(size_type(0), _M_length()); }
 
       bool
       _M_compare(const __rc_string_base&) const
@@ -695,6 +699,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       return false;
     }
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     inline bool
     __rc_string_base<wchar_t, std::char_traits<wchar_t>,
@@ -705,6 +710,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	return true;
       return false;
     }
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

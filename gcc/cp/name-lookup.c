@@ -61,6 +61,24 @@ tree global_namespace;
    unit.  */
 static GTY(()) tree anonymous_namespace_name;
 
+/* Initialize anonymous_namespace_name if necessary, and return it.  */
+
+static tree
+get_anonymous_namespace_name(void)
+{
+  if (!anonymous_namespace_name)
+    {
+      /* The anonymous namespace has to have a unique name
+	 if typeinfo objects are being compared by name.  */
+      if (! flag_weak || ! SUPPORTS_ONE_ONLY)
+	anonymous_namespace_name = get_file_function_name ("N");
+      else
+	/* The demangler expects anonymous namespaces to be called
+	   something starting with '_GLOBAL__N_'.  */
+	anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
+    }
+  return anonymous_namespace_name;
+}
 
 /* Compute the chain index of a binding_entry given the HASH value of its
    name and the total COUNT of chains.  COUNT is assumed to be a power
@@ -1271,11 +1289,11 @@ begin_scope (scope_kind kind, tree entity)
   if (!ENABLE_SCOPE_CHECKING && free_binding_level)
     {
       scope = free_binding_level;
+      memset (scope, 0, sizeof (cxx_scope));
       free_binding_level = scope->level_chain;
     }
   else
-    scope = GGC_NEW (cxx_scope);
-  memset (scope, 0, sizeof (cxx_scope));
+    scope = GGC_CNEW (cxx_scope);
 
   scope->this_entity = entity;
   scope->more_cleanups_ok = true;
@@ -2824,18 +2842,19 @@ do_class_using_decl (tree scope, tree name)
      class type.  However, if all of the base classes are
      non-dependent, then we can avoid delaying the check until
      instantiation.  */
-  if (!scope_dependent_p && !bases_dependent_p)
+  if (!scope_dependent_p)
     {
       base_kind b_kind;
-      tree binfo;
       binfo = lookup_base (current_class_type, scope, ba_any, &b_kind);
       if (b_kind < bk_proper_base)
 	{
-	  error_not_base_type (scope, current_class_type);
-	  return NULL_TREE;
+	  if (!bases_dependent_p)
+	    {
+	      error_not_base_type (scope, current_class_type);
+	      return NULL_TREE;
+	    }
 	}
-
-      if (!name_dependent_p)
+      else if (!name_dependent_p)
 	{
 	  decl = lookup_member (binfo, name, 0, false);
 	  if (!decl)
@@ -3010,11 +3029,7 @@ push_namespace_with_attribs (tree name, tree attributes)
 
   if (anon)
     {
-      /* The name of anonymous namespace is unique for the translation
-	 unit.  */
-      if (!anonymous_namespace_name)
-	anonymous_namespace_name = get_file_function_name ('N');
-      name = anonymous_namespace_name;
+      name = get_anonymous_namespace_name();
       d = IDENTIFIER_NAMESPACE_VALUE (name);
       if (d)
 	/* Reopening anonymous namespace.  */
@@ -4668,7 +4683,19 @@ lookup_arg_dependent (tree name, tree fns, tree args)
   k.namespaces = NULL_TREE;
 
   arg_assoc_args (&k, args);
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, k.functions);
+
+  fns = k.functions;
+  
+  if (fns
+      && TREE_CODE (fns) != VAR_DECL
+      && !is_overloaded_fn (fns))
+    {
+      error ("argument dependent lookup finds %q+D", fns);
+      error ("  in call to %qD", name);
+      fns = error_mark_node;
+    }
+    
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fns);
 }
 
 /* Add namespace to using_directives. Return NULL_TREE if nothing was

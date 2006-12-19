@@ -52,6 +52,7 @@
 #include "tm-preds.h"
 #include "gt-bfin.h"
 #include "basic-block.h"
+#include "timevar.h"
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
@@ -82,6 +83,16 @@ static int arg_regs[] = FUNCTION_ARG_REGISTERS;
 /* Nonzero if -mshared-library-id was given.  */
 static int bfin_lib_id_given;
 
+/* Nonzero if -fschedule-insns2 was given.  We override it and
+   call the scheduler ourselves during reorg.  */
+static int bfin_flag_schedule_insns2;
+
+/* Determines whether we run variable tracking in machine dependent
+   reorganization.  */
+static int bfin_flag_var_tracking;
+
+int splitting_for_sched;
+
 static void
 bfin_globalize_label (FILE *stream, const char *name)
 {
@@ -96,6 +107,13 @@ output_file_start (void)
 {
   FILE *file = asm_out_file;
   int i;
+
+  /* Variable tracking should be run after all optimizations which change order
+     of insns.  It also needs a valid CFG.  This can't be done in
+     override_options, because flag_var_tracking is finalized after
+     that.  */
+  bfin_flag_var_tracking = flag_var_tracking;
+  flag_var_tracking = 0;
 
   fprintf (file, ".file \"%s\";\n", input_filename);
   
@@ -145,36 +163,27 @@ legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
 
   if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
     {
-      if (GET_CODE (addr) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (addr))
-	reg = new = orig;
+      int unspec;
+      rtx tmp;
+
+      if (TARGET_ID_SHARED_LIBRARY)
+	unspec = UNSPEC_MOVE_PIC;
+      else if (GET_CODE (addr) == SYMBOL_REF
+	       && SYMBOL_REF_FUNCTION_P (addr))
+	unspec = UNSPEC_FUNCDESC_GOT17M4;
       else
+	unspec = UNSPEC_MOVE_FDPIC;
+
+      if (reg == 0)
 	{
-	  int unspec;
-	  rtx tmp;
-
-	  if (TARGET_ID_SHARED_LIBRARY)
-	    unspec = UNSPEC_MOVE_PIC;
-	  else if (GET_CODE (addr) == SYMBOL_REF
-		   && SYMBOL_REF_FUNCTION_P (addr))
-	    {
-	      unspec = UNSPEC_FUNCDESC_GOT17M4;
-	    }
-	  else
-	    {
-	      unspec = UNSPEC_MOVE_FDPIC;
-	    }
-
-	  if (reg == 0)
-	    {
-	      gcc_assert (!no_new_pseudos);
-	      reg = gen_reg_rtx (Pmode);
-	    }
-
-	  tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), unspec);
-	  new = gen_const_mem (Pmode, gen_rtx_PLUS (Pmode, picreg, tmp));
-
-	  emit_move_insn (reg, new);
+	  gcc_assert (!no_new_pseudos);
+	  reg = gen_reg_rtx (Pmode);
 	}
+
+      tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), unspec);
+      new = gen_const_mem (Pmode, gen_rtx_PLUS (Pmode, picreg, tmp));
+
+      emit_move_insn (reg, new);
       if (picreg == pic_offset_table_rtx)
 	current_function_uses_pic_offset_table = 1;
       return reg;
@@ -556,12 +565,12 @@ frame_related_constant_load (rtx reg, HOST_WIDE_INT constant, bool related)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
-/* Generate efficient code to add a value to the frame pointer.  We
-   can use P1 as a scratch register.  Set RTX_FRAME_RELATED_P on the
-   generated insns if FRAME is nonzero.  */
+/* Generate efficient code to add a value to a P register.  We can use
+   P1 as a scratch register.  Set RTX_FRAME_RELATED_P on the generated
+   insns if FRAME is nonzero.  */
 
 static void
-add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
+add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
 {
   if (value == 0)
     return;
@@ -577,13 +586,9 @@ add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
       if (frame)
 	frame_related_constant_load (tmpreg, value, TRUE);
       else
-	{
-	  insn = emit_move_insn (tmpreg, GEN_INT (value));
-	  if (frame)
-	    RTX_FRAME_RELATED_P (insn) = 1;
-	}
+	insn = emit_move_insn (tmpreg, GEN_INT (value));
 
-      insn = emit_insn (gen_addsi3 (spreg, spreg, tmpreg));
+      insn = emit_insn (gen_addsi3 (reg, reg, tmpreg));
       if (frame)
 	RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -600,7 +605,7 @@ add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
 	     it's no good.  */
 	  size = -60;
 
-	insn = emit_insn (gen_addsi3 (spreg, spreg, GEN_INT (size)));
+	insn = emit_insn (gen_addsi3 (reg, reg, GEN_INT (size)));
 	if (frame)
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	value -= size;
@@ -693,7 +698,7 @@ do_link (rtx spreg, HOST_WIDE_INT frame_size, bool all)
 	  rtx insn = emit_insn (pat);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      add_to_sp (spreg, -frame_size, 1);
+      add_to_reg (spreg, -frame_size, 1);
     }
 }
 
@@ -710,7 +715,7 @@ do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all)
     {
       rtx postinc = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, spreg));
 
-      add_to_sp (spreg, frame_size, 0);
+      add_to_reg (spreg, frame_size, 0);
       if (must_save_fp_p ())
 	{
 	  rtx fpreg = gen_rtx_REG (Pmode, REG_FP);
@@ -920,16 +925,24 @@ bfin_expand_prologue (void)
       return;
     }
 
-  if (current_function_limit_stack)
+  if (current_function_limit_stack
+      || TARGET_STACK_CHECK_L1)
     {
       HOST_WIDE_INT offset
 	= bfin_initial_elimination_offset (ARG_POINTER_REGNUM,
 					   STACK_POINTER_REGNUM);
-      rtx lim = stack_limit_rtx;
+      rtx lim = current_function_limit_stack ? stack_limit_rtx : NULL_RTX;
+      rtx p2reg = gen_rtx_REG (Pmode, REG_P2);
 
+      if (!lim)
+	{
+	  rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
+	  emit_move_insn (p2reg, gen_int_mode (0xFFB00000, SImode));
+	  emit_move_insn (p2reg, gen_rtx_MEM (Pmode, p2reg));
+	  lim = p2reg;
+	}
       if (GET_CODE (lim) == SYMBOL_REF)
 	{
-	  rtx p2reg = gen_rtx_REG (Pmode, REG_P2);
 	  if (TARGET_ID_SHARED_LIBRARY)
 	    {
 	      rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
@@ -944,10 +957,17 @@ bfin_expand_prologue (void)
 	    }
 	  else
 	    {
-	      rtx limit = plus_constant (stack_limit_rtx, offset);
+	      rtx limit = plus_constant (lim, offset);
 	      emit_move_insn (p2reg, limit);
 	      lim = p2reg;
 	    }
+	}
+      else
+	{
+	  if (lim != p2reg)
+	    emit_move_insn (p2reg, lim);
+	  add_to_reg (p2reg, offset, 0);
+	  lim = p2reg;
 	}
       emit_insn (gen_compare_lt (bfin_cc_rtx, spreg, lim));
       emit_insn (gen_trapifcc ());
@@ -957,6 +977,7 @@ bfin_expand_prologue (void)
   do_link (spreg, frame_size, false);
 
   if (TARGET_ID_SHARED_LIBRARY
+      && !TARGET_SEP_DATA
       && (current_function_uses_pic_offset_table
 	  || !current_function_is_leaf))
     bfin_load_pic_reg (pic_offset_table_rtx);
@@ -1076,6 +1097,9 @@ effective_address_32bit_p (rtx op, enum machine_mode mode)
       return 0;
     }
 
+  if (GET_CODE (XEXP (op, 1)) == UNSPEC)
+    return 1;
+
   offset = INTVAL (XEXP (op, 1));
 
   /* All byte loads use a 16 bit offset.  */
@@ -1158,7 +1182,18 @@ print_address_operand (FILE *file, rtx x)
 void
 print_operand (FILE *file, rtx x, char code)
 {
-  enum machine_mode mode = GET_MODE (x);
+  enum machine_mode mode;
+
+  if (code == '!')
+    {
+      if (GET_MODE (current_output_insn) == SImode)
+	fprintf (file, " ||");
+      else
+	fprintf (file, ";");
+      return;
+    }
+
+  mode = GET_MODE (x);
 
   switch (code)
     {
@@ -1349,6 +1384,8 @@ print_operand (FILE *file, rtx x, char code)
 	    x = GEN_INT ((INTVAL (x) >> 16) & 0xffff);
 	  else if (code == 'h')
 	    x = GEN_INT (INTVAL (x) & 0xffff);
+	  else if (code == 'N')
+	    x = GEN_INT (-INTVAL (x));
 	  else if (code == 'X')
 	    x = GEN_INT (exact_log2 (0xffffffff & INTVAL (x)));
 	  else if (code == 'Y')
@@ -1604,7 +1641,28 @@ bfin_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
 			      tree exp ATTRIBUTE_UNUSED)
 {
   e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
-  return fkind == SUBROUTINE;
+  if (fkind != SUBROUTINE)
+    return false;
+  if (!TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)
+    return true;
+
+  /* When compiling for ID shared libraries, can't sibcall a local function
+     from a non-local function, because the local function thinks it does
+     not need to reload P5 in the prologue, but the sibcall wil pop P5 in the
+     sibcall epilogue, and we end up with the wrong value in P5.  */
+
+  if (!flag_unit_at_a_time || decl == NULL)
+    /* Not enough information.  */
+    return false;
+
+  {
+    struct cgraph_local_info *this_func, *called_func;
+    rtx addr, insn;
+ 
+    this_func = cgraph_local_info (current_function_decl);
+    called_func = cgraph_local_info (decl);
+    return !called_func->local || this_func->local;
+  }
 }
 
 /* Emit RTL insns to initialize the variable parts of a trampoline at
@@ -1657,21 +1715,44 @@ emit_pic_move (rtx *operands, enum machine_mode mode ATTRIBUTE_UNUSED)
 					  : pic_offset_table_rtx);
 }
 
-/* Expand a move operation in mode MODE.  The operands are in OPERANDS.  */
+/* Expand a move operation in mode MODE.  The operands are in OPERANDS.
+   Returns true if no further code must be generated, false if the caller
+   should generate an insn to move OPERANDS[1] to OPERANDS[0].  */
 
-void
+bool
 expand_move (rtx *operands, enum machine_mode mode)
 {
   rtx op = operands[1];
   if ((TARGET_ID_SHARED_LIBRARY || TARGET_FDPIC)
       && SYMBOLIC_CONST (op))
     emit_pic_move (operands, mode);
+  else if (mode == SImode && GET_CODE (op) == CONST
+	   && GET_CODE (XEXP (op, 0)) == PLUS
+	   && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
+	   && !bfin_legitimate_constant_p (op))
+    {
+      rtx dest = operands[0];
+      rtx op0, op1;
+      gcc_assert (!reload_in_progress && !reload_completed);
+      op = XEXP (op, 0);
+      op0 = force_reg (mode, XEXP (op, 0));
+      op1 = XEXP (op, 1);
+      if (!insn_data[CODE_FOR_addsi3].operand[2].predicate (op1, mode))
+	op1 = force_reg (mode, op1);
+      if (GET_CODE (dest) == MEM)
+	dest = gen_reg_rtx (mode);
+      emit_insn (gen_addsi3 (dest, op0, op1));
+      if (dest == operands[0])
+	return true;
+      operands[1] = dest;
+    }
   /* Don't generate memory->memory or constant->memory moves, go through a
      register */
   else if ((reload_in_progress | reload_completed) == 0
 	   && GET_CODE (operands[0]) == MEM
     	   && GET_CODE (operands[1]) != REG)
     operands[1] = force_reg (mode, operands[1]);
+  return false;
 }
 
 /* Split one or more DImode RTL references into pairs of SImode
@@ -1766,7 +1847,7 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
   else if ((!register_no_elim_operand (callee, Pmode)
 	    && GET_CODE (callee) != SYMBOL_REF)
 	   || (GET_CODE (callee) == SYMBOL_REF
-	       && (flag_pic
+	       && ((TARGET_ID_SHARED_LIBRARY && !TARGET_LEAF_ID_SHARED_LIBRARY)
 		   || bfin_longcall_p (callee, INTVAL (cookie)))))
     {
       callee = copy_to_mode_reg (Pmode, callee);
@@ -1807,10 +1888,16 @@ hard_regno_mode_ok (int regno, enum machine_mode mode)
     return mode == BImode;
   if (mode == PDImode || mode == V2PDImode)
     return regno == REG_A0 || regno == REG_A1;
+
+  /* Allow all normal 32 bit regs, except REG_M3, in case regclass ever comes
+     up with a bad register class (such as ALL_REGS) for DImode.  */
+  if (mode == DImode)
+    return regno < REG_M3;
+
   if (mode == SImode
       && TEST_HARD_REG_BIT (reg_class_contents[PROLOGUE_REGS], regno))
     return 1;
-      
+
   return TEST_HARD_REG_BIT (reg_class_contents[MOST_REGS], regno);
 }
 
@@ -1826,7 +1913,7 @@ bfin_vector_mode_supported_p (enum machine_mode mode)
    one in class CLASS2.  A cost of 2 is the default.  */
 
 int
-bfin_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
+bfin_register_move_cost (enum machine_mode mode,
 			 enum reg_class class1, enum reg_class class2)
 {
   /* These need secondary reloads, so they're more expensive.  */
@@ -1844,6 +1931,15 @@ bfin_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
   if (class1 == DREGS && class2 != DREGS)
     return 2 * 2;
 
+  if (GET_MODE_CLASS (mode) == MODE_INT)
+    {
+      /* Discourage trying to use the accumulators.  */
+      if (TEST_HARD_REG_BIT (reg_class_contents[class1], REG_A0)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class1], REG_A1)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class2], REG_A0)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class2], REG_A1))
+	return 20;
+    }
   return 2;
 }
 
@@ -1990,8 +2086,19 @@ override_options (void)
   if (TARGET_ID_SHARED_LIBRARY && flag_pic == 0)
     flag_pic = 1;
 
+  if (stack_limit_rtx && TARGET_STACK_CHECK_L1)
+    error ("Can't use multiple stack checking methods together.");
+
   if (TARGET_ID_SHARED_LIBRARY && TARGET_FDPIC)
-      error ("ID shared libraries and FD-PIC mode can't be used together.");
+    error ("ID shared libraries and FD-PIC mode can't be used together.");
+
+  /* Don't allow the user to specify -mid-shared-library and -msep-data
+     together, as it makes little sense from a user's point of view...  */
+  if (TARGET_SEP_DATA && TARGET_ID_SHARED_LIBRARY)
+    error ("cannot specify both -msep-data and -mid-shared-library");
+  /* ... internally, however, it's nearly the same.  */
+  if (TARGET_SEP_DATA)
+    target_flags |= MASK_ID_SHARED_LIBRARY | MASK_LEAF_ID_SHARED_LIBRARY;
 
   /* There is no single unaligned SI op for PIC code.  Sometimes we
      need to use ".4byte" and sometimes we need to use ".picptr".
@@ -2005,6 +2112,11 @@ override_options (void)
     flag_pic = 0;
 
   flag_schedule_insns = 0;
+
+  /* Passes after sched2 can break the helpful TImode annotations that
+     haifa-sched puts on every insn.  Just do scheduling in reorg.  */
+  bfin_flag_schedule_insns2 = flag_schedule_insns_after_reload;
+  flag_schedule_insns_after_reload = 0;
 
   init_machine_status = bfin_init_machine_status;
 }
@@ -2266,8 +2378,9 @@ bfin_valid_add (enum machine_mode mode, HOST_WIDE_INT value)
   int shift = sz == 1 ? 0 : sz == 2 ? 1 : 2;
   /* The usual offsettable_memref machinery doesn't work so well for this
      port, so we deal with the problem here.  */
-  unsigned HOST_WIDE_INT mask = sz == 8 ? 0x7ffe : 0x7fff;
-  return (v & ~(mask << shift)) == 0;
+  if (value > 0 && sz == 8)
+    v += 4;
+  return (v & ~(0x7fff << shift)) == 0;
 }
 
 static bool
@@ -2315,10 +2428,58 @@ bfin_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
   return false;
 }
 
+/* Decide whether we can force certain constants to memory.  If we
+   decide we can't, the caller should be able to cope with it in
+   another way.  */
+
+static bool
+bfin_cannot_force_const_mem (rtx x ATTRIBUTE_UNUSED)
+{
+  /* We have only one class of non-legitimate constants, and our movsi
+     expander knows how to handle them.  Dropping these constants into the
+     data section would only shift the problem - we'd still get relocs
+     outside the object, in the data section rather than the text section.  */
+  return true;
+}
+
+/* Ensure that for any constant of the form symbol + offset, the offset
+   remains within the object.  Any other constants are ok.
+   This ensures that flat binaries never have to deal with relocations
+   crossing section boundaries.  */
+
+bool
+bfin_legitimate_constant_p (rtx x)
+{
+  rtx sym;
+  HOST_WIDE_INT offset;
+
+  if (GET_CODE (x) != CONST)
+    return true;
+
+  x = XEXP (x, 0);
+  gcc_assert (GET_CODE (x) == PLUS);
+
+  sym = XEXP (x, 0);
+  x = XEXP (x, 1);
+  if (GET_CODE (sym) != SYMBOL_REF
+      || GET_CODE (x) != CONST_INT)
+    return true;
+  offset = INTVAL (x);
+
+  if (SYMBOL_REF_DECL (sym) == 0)
+    return true;
+  if (offset < 0
+      || offset >= int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (sym))))
+    return false;
+
+  return true;
+}
+
 static bool
 bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
   int cost2 = COSTS_N_INSNS (1);
+  rtx op0, op1;
 
   switch (code)
     {
@@ -2352,43 +2513,158 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
       return true;
 
     case PLUS:
-      if (GET_MODE (x) == Pmode)
+      op0 = XEXP (x, 0);
+      op1 = XEXP (x, 1);
+      if (GET_MODE (x) == SImode)
 	{
-	  if (GET_CODE (XEXP (x, 0)) == MULT
-	      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	  if (GET_CODE (op0) == MULT
+	      && GET_CODE (XEXP (op0, 1)) == CONST_INT)
 	    {
-	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (x, 0), 1));
+	      HOST_WIDE_INT val = INTVAL (XEXP (op0, 1));
 	      if (val == 2 || val == 4)
 		{
 		  *total = cost2;
-		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
-		  *total += rtx_cost (XEXP (x, 1), outer_code);
+		  *total += rtx_cost (XEXP (op0, 0), outer_code);
+		  *total += rtx_cost (op1, outer_code);
 		  return true;
 		}
 	    }
+	  *total = cost2;
+	  if (GET_CODE (op0) != REG
+	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
+	    *total += rtx_cost (op0, SET);
+#if 0 /* We'd like to do this for accuracy, but it biases the loop optimizer
+	 towards creating too many induction variables.  */
+	  if (!reg_or_7bit_operand (op1, SImode))
+	    *total += rtx_cost (op1, SET);
+#endif
 	}
-
-      /* fall through */
+      else if (GET_MODE (x) == DImode)
+	{
+	  *total = 6 * cost2;
+	  if (GET_CODE (op1) != CONST_INT
+	      || !CONST_7BIT_IMM_P (INTVAL (op1)))
+	    *total += rtx_cost (op1, PLUS);
+	  if (GET_CODE (op0) != REG
+	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
+	    *total += rtx_cost (op0, PLUS);
+	}
+      return true;
 
     case MINUS:
+      if (GET_MODE (x) == DImode)
+	*total = 6 * cost2;
+      else
+	*total = cost2;
+      return true;
+      
     case ASHIFT: 
     case ASHIFTRT:
     case LSHIFTRT:
       if (GET_MODE (x) == DImode)
 	*total = 6 * cost2;
-      return false;
+      else
+	*total = cost2;
+
+      op0 = XEXP (x, 0);
+      op1 = XEXP (x, 1);
+      if (GET_CODE (op0) != REG
+	  && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
+	*total += rtx_cost (op0, code);
+
+      return true;
 	  
-    case AND:
     case IOR:
+    case AND:
     case XOR:
+      op0 = XEXP (x, 0);
+      op1 = XEXP (x, 1);
+
+      /* Handle special cases of IOR: rotates, ALIGN insns, movstricthi_high.  */
+      if (code == IOR)
+	{
+	  if ((GET_CODE (op0) == LSHIFTRT && GET_CODE (op1) == ASHIFT)
+	      || (GET_CODE (op0) == ASHIFT && GET_CODE (op1) == ZERO_EXTEND)
+	      || (GET_CODE (op0) == ASHIFT && GET_CODE (op1) == LSHIFTRT)
+	      || (GET_CODE (op0) == AND && GET_CODE (op1) == CONST_INT))
+	    {
+	      *total = cost2;
+	      return true;
+	    }
+	}
+
+      if (GET_CODE (op0) != REG
+	  && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
+	*total += rtx_cost (op0, code);
+
       if (GET_MODE (x) == DImode)
-	*total = 2 * cost2;
-      return false;
+	{
+	  *total = 2 * cost2;
+	  return true;
+	}
+      *total = cost2;
+      if (GET_MODE (x) != SImode)
+	return true;
+
+      if (code == AND)
+	{
+	  if (! rhs_andsi3_operand (XEXP (x, 1), SImode))
+	    *total += rtx_cost (XEXP (x, 1), code);
+	}
+      else
+	{
+	  if (! regorlog2_operand (XEXP (x, 1), SImode))
+	    *total += rtx_cost (XEXP (x, 1), code);
+	}
+
+      return true;
+
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+      if (outer_code == SET
+	  && XEXP (x, 1) == const1_rtx
+	  && GET_CODE (XEXP (x, 2)) == CONST_INT)
+	{
+	  *total = 2 * cost2;
+	  return true;
+	}
+      /* fall through */
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      *total = cost2;
+      return true;
 
     case MULT:
-      if (GET_MODE_SIZE (GET_MODE (x)) <= UNITS_PER_WORD)
-	*total = COSTS_N_INSNS (3);
-      return false;
+	{
+	  op0 = XEXP (x, 0);
+	  op1 = XEXP (x, 1);
+	  if (GET_CODE (op0) == GET_CODE (op1)
+	      && (GET_CODE (op0) == ZERO_EXTEND
+		  || GET_CODE (op0) == SIGN_EXTEND))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      op0 = XEXP (op0, 0);
+	      op1 = XEXP (op1, 0);
+	    }
+	  else if (optimize_size)
+	    *total = COSTS_N_INSNS (1);
+	  else
+	    *total = COSTS_N_INSNS (3);
+
+	  if (GET_CODE (op0) != REG
+	      && (GET_CODE (op0) != SUBREG || GET_CODE (SUBREG_REG (op0)) != REG))
+	    *total += rtx_cost (op0, MULT);
+	  if (GET_CODE (op1) != REG
+	      && (GET_CODE (op1) != SUBREG || GET_CODE (SUBREG_REG (op1)) != REG))
+	    *total += rtx_cost (op1, MULT);
+	}
+      return true;
+
+    case UDIV:
+    case UMOD:
+      *total = COSTS_N_INSNS (32);
+      return true;
 
     case VEC_CONCAT:
     case VEC_SELECT:
@@ -2691,8 +2967,15 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
     }
   return false;
 }
-
 
+/* Implement TARGET_SCHED_ISSUE_RATE.  */
+
+static int
+bfin_issue_rate (void)
+{
+  return 3;
+}
+
 static int
 bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
@@ -2717,7 +3000,8 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
       rtx pat = PATTERN (dep_insn);
       rtx dest = SET_DEST (pat);
       rtx src = SET_SRC (pat);
-      if (! ADDRESS_REGNO_P (REGNO (dest)) || ! D_REGNO_P (REGNO (src)))
+      if (! ADDRESS_REGNO_P (REGNO (dest))
+	  || ! (MEM_P (src) || D_REGNO_P (REGNO (src))))
 	return cost;
       return cost + (dep_insn_type == TYPE_MOVE ? 4 : 3);
     }
@@ -2792,8 +3076,11 @@ struct loop_info GTY (())
   /* The length of the loop.  */
   int length;
 
-  /* The nesting depth of the loop.  Set to -1 for a bad loop.  */
+  /* The nesting depth of the loop.  */
   int depth;
+
+  /* Nonzero if we can't optimize this loop.  */
+  int bad;
 
   /* True if we have visited this loop.  */
   int visited;
@@ -2810,27 +3097,16 @@ struct loop_info GTY (())
   /* Immediate outer loop of this loop.  */
   struct loop_info *outer;
 
-  /* Vector of blocks only within the loop, (excluding those within
-     inner loops).  */
+  /* Vector of blocks only within the loop, including those within
+     inner loops.  */
   VEC (basic_block,heap) *blocks;
+
+  /* Same information in a bitmap.  */
+  bitmap block_bitmap;
 
   /* Vector of inner loops within this loop  */
   VEC (loop_info,heap) *loops;
 };
-
-/* Information used during loop detection.  */
-typedef struct loop_work GTY(())
-{
-  /* Basic block to be scanned.  */
-  basic_block block;
-
-  /* Loop it will be within.  */
-  loop_info loop;
-} loop_work;
-
-/* Work list.  */
-DEF_VEC_O (loop_work);
-DEF_VEC_ALLOC_O (loop_work,heap);
 
 static void
 bfin_dump_loops (loop_info loops)
@@ -2844,6 +3120,8 @@ bfin_dump_loops (loop_info loops)
       unsigned ix;
 
       fprintf (dump_file, ";; loop %d: ", loop->loop_no);
+      if (loop->bad)
+	fprintf (dump_file, "(bad) ");
       fprintf (dump_file, "{head:%d, depth:%d}", loop->head->index, loop->depth);
 
       fprintf (dump_file, " blocks: [ ");
@@ -2865,19 +3143,7 @@ bfin_dump_loops (loop_info loops)
 static bool
 bfin_bb_in_loop (loop_info loop, basic_block bb)
 {
-  unsigned ix;
-  loop_info inner;
-  basic_block b;
-
-  for (ix = 0; VEC_iterate (basic_block, loop->blocks, ix, b); ix++)
-    if (b == bb)
-      return true;
-
-  for (ix = 0; VEC_iterate (loop_info, loop->loops, ix, inner); ix++)
-    if (bfin_bb_in_loop (inner, bb))
-      return true;
-
-  return false;
+  return bitmap_bit_p (loop->block_bitmap, bb->index);
 }
 
 /* Scan the blocks of LOOP (and its inferiors) looking for uses of
@@ -2888,7 +3154,6 @@ static bool
 bfin_scan_loop (loop_info loop, rtx reg, rtx loop_end)
 {
   unsigned ix;
-  loop_info inner;
   basic_block bb;
 
   for (ix = 0; VEC_iterate (basic_block, loop->blocks, ix, bb); ix++)
@@ -2907,10 +3172,6 @@ bfin_scan_loop (loop_info loop, rtx reg, rtx loop_end)
 	    return true;
 	}
     }
-  for (ix = 0; VEC_iterate (loop_info, loop->loops, ix, inner); ix++)
-    if (bfin_scan_loop (inner, reg, NULL_RTX))
-      return true;
-
   return false;
 }
 
@@ -2920,7 +3181,7 @@ static void
 bfin_optimize_loop (loop_info loop)
 {
   basic_block bb;
-  loop_info inner, outer;
+  loop_info inner;
   rtx insn, init_insn, last_insn, nop_insn;
   rtx loop_init, start_label, end_label;
   rtx reg_lc0, reg_lc1, reg_lt0, reg_lt1, reg_lb0, reg_lb1;
@@ -2930,39 +3191,33 @@ bfin_optimize_loop (loop_info loop)
   int length;
   unsigned ix;
   int inner_depth = 0;
-  int inner_num;
-  int bb_num;
 
   if (loop->visited)
     return;
 
   loop->visited = 1;
 
-  for (ix = 0; VEC_iterate (loop_info, loop->loops, ix, inner); ix++)
-    {
-      if (inner->loop_no == loop->loop_no)
-	loop->depth = -1;
-      else
-	bfin_optimize_loop (inner);
-
-      if (inner->depth < 0 || inner->depth > MAX_LOOP_DEPTH)
-	{
-	  inner->outer = NULL;
-	  VEC_ordered_remove (loop_info, loop->loops, ix);
-	}
-
-      if (inner_depth < inner->depth)
-	inner_depth = inner->depth;
-
-      loop->clobber_loop0 |= inner->clobber_loop0;
-      loop->clobber_loop1 |= inner->clobber_loop1;
-    }
-
-  if (loop->depth < 0)
+  if (loop->bad)
     {
       if (dump_file)
 	fprintf (dump_file, ";; loop %d bad when found\n", loop->loop_no);
       goto bad_loop;
+    }
+
+  /* Every loop contains in its list of inner loops every loop nested inside
+     it, even if there are intermediate loops.  This works because we're doing
+     a depth-first search here and never visit a loop more than once.  */
+  for (ix = 0; VEC_iterate (loop_info, loop->loops, ix, inner); ix++)
+    {
+      bfin_optimize_loop (inner);
+
+      if (!inner->bad && inner_depth < inner->depth)
+	{
+	  inner_depth = inner->depth;
+
+	  loop->clobber_loop0 |= inner->clobber_loop0;
+	  loop->clobber_loop1 |= inner->clobber_loop1;
+	}
     }
 
   loop->depth = inner_depth + 1;
@@ -2970,31 +3225,6 @@ bfin_optimize_loop (loop_info loop)
     {
       if (dump_file)
 	fprintf (dump_file, ";; loop %d too deep\n", loop->loop_no);
-      goto bad_loop;
-    }
-
-  /* Make sure we only have one entry point.  */
-  if (EDGE_COUNT (loop->head->preds) == 2)
-    {
-      loop->predecessor = EDGE_PRED (loop->head, 0)->src;
-      if (loop->predecessor == loop->tail)
-	/* We wanted the other predecessor.  */
-	loop->predecessor = EDGE_PRED (loop->head, 1)->src;
-
-      /* We can only place a loop insn on a fall through edge of a
-	 single exit block.  */
-      if (EDGE_COUNT (loop->predecessor->succs) != 1
-	  || !(EDGE_SUCC (loop->predecessor, 0)->flags & EDGE_FALLTHRU)
-	  /* If loop->predecessor is in loop, loop->head is not really
-	     the head of the loop.  */
-	  || bfin_bb_in_loop (loop, loop->predecessor))
-	loop->predecessor = NULL;
-    }
-
-  if (loop->predecessor == NULL)
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; loop %d has bad predecessor\n", loop->loop_no);
       goto bad_loop;
     }
 
@@ -3164,7 +3394,8 @@ bfin_optimize_loop (loop_info loop)
 	}
     }
   else if (CALL_P (last_insn)
-	   || get_attr_type (last_insn) == TYPE_SYNC
+	   || (GET_CODE (PATTERN (last_insn)) != SEQUENCE
+	       && get_attr_type (last_insn) == TYPE_SYNC)
 	   || recog_memoized (last_insn) == CODE_FOR_return_internal)
     {
       if (dump_file)
@@ -3175,7 +3406,8 @@ bfin_optimize_loop (loop_info loop)
 
   if (GET_CODE (PATTERN (last_insn)) == ASM_INPUT
       || asm_noperands (PATTERN (last_insn)) >= 0
-      || get_attr_seq_insns (last_insn) == SEQ_INSNS_MULTI)
+      || (GET_CODE (PATTERN (last_insn)) != SEQUENCE
+	  && get_attr_seq_insns (last_insn) == SEQ_INSNS_MULTI))
     {
       nop_insn = emit_insn_after (gen_nop (), last_insn);
       last_insn = nop_insn;
@@ -3259,49 +3491,7 @@ bad_loop:
   if (dump_file)
     fprintf (dump_file, ";; loop %d is bad\n", loop->loop_no);
 
-  /* Mark this loop bad.  */
-  if (loop->depth <= MAX_LOOP_DEPTH)
-    loop->depth = -1;
-
-  outer = loop->outer;
-
-  /* Move all inner loops to loop's outer loop.  */
-  inner_num = VEC_length (loop_info, loop->loops);
-  if (inner_num)
-    {
-      loop_info l;
-
-      if (outer)
-	VEC_reserve (loop_info, heap, outer->loops, inner_num);
-
-      for (ix = 0; VEC_iterate (loop_info, loop->loops, ix, l); ix++)
-	{
-	  l->outer = outer;
-	  if (outer)
-	    VEC_quick_push (loop_info, outer->loops, l);
-	}
-
-      VEC_free (loop_info, heap, loop->loops);
-    }
-
-  /* Move all blocks to loop's outer loop.  */
-  bb_num = VEC_length (basic_block, loop->blocks);
-  if (bb_num)
-    {
-      basic_block b;
-
-      if (outer)
-	VEC_reserve (basic_block, heap, outer->blocks, bb_num);
-
-      for (ix = 0; VEC_iterate (basic_block, loop->blocks, ix, b); ix++)
-	{
-	  b->aux = outer;
-	  if (outer)
-	    VEC_quick_push (basic_block, outer->blocks, b);
-	}
-
-      VEC_free (basic_block, heap, loop->blocks);
-    }
+  loop->bad = 1;
 
   if (DPREG_P (loop->iter_reg))
     {
@@ -3326,18 +3516,146 @@ bad_loop:
     }
 }
 
+/* Called from bfin_reorg_loops when a potential loop end is found.  LOOP is
+   a newly set up structure describing the loop, it is this function's
+   responsibility to fill most of it.  TAIL_BB and TAIL_INSN point to the
+   loop_end insn and its enclosing basic block.  */
+
+static void
+bfin_discover_loop (loop_info loop, basic_block tail_bb, rtx tail_insn)
+{
+  unsigned dwork = 0;
+  basic_block bb;
+  VEC (basic_block,heap) *works = VEC_alloc (basic_block,heap,20);
+
+  loop->tail = tail_bb;
+  loop->head = BRANCH_EDGE (tail_bb)->dest;
+  loop->successor = FALLTHRU_EDGE (tail_bb)->dest;
+  loop->predecessor = NULL;
+  loop->loop_end = tail_insn;
+  loop->last_insn = NULL_RTX;
+  loop->iter_reg = SET_DEST (XVECEXP (PATTERN (tail_insn), 0, 1));
+  loop->depth = loop->length = 0;
+  loop->visited = 0;
+  loop->clobber_loop0 = loop->clobber_loop1 = 0;
+  loop->outer = NULL;
+  loop->loops = NULL;
+
+  loop->init = loop->loop_init = NULL_RTX;
+  loop->start_label = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (tail_insn), 0, 0)), 1), 0);
+  loop->end_label = NULL_RTX;
+  loop->bad = 0;
+
+  VEC_safe_push (basic_block, heap, works, loop->head);
+
+  while (VEC_iterate (basic_block, works, dwork++, bb))
+    {
+      edge e;
+      edge_iterator ei;
+      if (bb == EXIT_BLOCK_PTR)
+	{
+	  /* We've reached the exit block.  The loop must be bad. */
+	  if (dump_file)
+	    fprintf (dump_file,
+		     ";; Loop is bad - reached exit block while scanning\n");
+	  loop->bad = 1;
+	  break;
+	}
+
+      if (bitmap_bit_p (loop->block_bitmap, bb->index))
+	continue;
+
+      /* We've not seen this block before.  Add it to the loop's
+	 list and then add each successor to the work list.  */
+
+      VEC_safe_push (basic_block, heap, loop->blocks, bb);
+      bitmap_set_bit (loop->block_bitmap, bb->index);
+
+      if (bb != tail_bb)
+	{
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    {
+	      basic_block succ = EDGE_SUCC (bb, ei.index)->dest;
+	      if (!REGNO_REG_SET_P (succ->il.rtl->global_live_at_start,
+				    REGNO (loop->iter_reg)))
+		continue;
+	      if (!VEC_space (basic_block, works, 1))
+		{
+		  if (dwork)
+		    {
+		      VEC_block_remove (basic_block, works, 0, dwork);
+		      dwork = 0;
+		    }
+		  else
+		    VEC_reserve (basic_block, heap, works, 1);
+		}
+	      VEC_quick_push (basic_block, works, succ);
+	    }
+	}
+    }
+
+  if (!loop->bad)
+    {
+      /* Make sure we only have one entry point.  */
+      if (EDGE_COUNT (loop->head->preds) == 2)
+	{
+	  loop->predecessor = EDGE_PRED (loop->head, 0)->src;
+	  if (loop->predecessor == loop->tail)
+	    /* We wanted the other predecessor.  */
+	    loop->predecessor = EDGE_PRED (loop->head, 1)->src;
+
+	  /* We can only place a loop insn on a fall through edge of a
+	     single exit block.  */
+	  if (EDGE_COUNT (loop->predecessor->succs) != 1
+	      || !(EDGE_SUCC (loop->predecessor, 0)->flags & EDGE_FALLTHRU)
+	      /* If loop->predecessor is in loop, loop->head is not really
+		 the head of the loop.  */
+	      || bfin_bb_in_loop (loop, loop->predecessor))
+	    loop->predecessor = NULL;
+	}
+
+      if (loop->predecessor == NULL)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, ";; loop has bad predecessor\n");
+	  loop->bad = 1;
+	}
+    }
+
+#ifdef ENABLE_CHECKING
+  /* Make sure nothing jumps into this loop.  This shouldn't happen as we
+     wouldn't have generated the counted loop patterns in such a case.
+     However, this test must be done after the test above to detect loops
+     with invalid headers.  */
+  if (!loop->bad)
+    for (dwork = 0; VEC_iterate (basic_block, loop->blocks, dwork, bb); dwork++)
+      {
+	edge e;
+	edge_iterator ei;
+	if (bb == loop->head)
+	  continue;
+	FOR_EACH_EDGE (e, ei, bb->preds)
+	  {
+	    basic_block pred = EDGE_PRED (bb, ei.index)->src;
+	    if (!bfin_bb_in_loop (loop, pred))
+	      abort ();
+	  }
+      }
+#endif
+  VEC_free (basic_block, heap, works);
+}
+
 static void
 bfin_reorg_loops (FILE *dump_file)
 {
+  bitmap_obstack stack;
+  bitmap tmp_bitmap;
   basic_block bb;
   loop_info loops = NULL;
   loop_info loop;
   int nloops = 0;
-  unsigned dwork = 0;
-  VEC (loop_work,heap) *works = VEC_alloc (loop_work,heap,20);
-  loop_work *work;
-  edge e;
-  edge_iterator ei;
+
+  bitmap_obstack_initialize (&stack);
 
   /* Find all the possible loop tails.  This means searching for every
      loop_end instruction.  For each one found, create a loop_info
@@ -3350,6 +3668,7 @@ bfin_reorg_loops (FILE *dump_file)
 	tail = PREV_INSN (tail);
 
       bb->aux = NULL;
+
       if (INSN_P (tail) && recog_memoized (tail) == CODE_FOR_loop_end)
 	{
 	  /* A possible loop end */
@@ -3357,30 +3676,9 @@ bfin_reorg_loops (FILE *dump_file)
 	  loop = XNEW (struct loop_info);
 	  loop->next = loops;
 	  loops = loop;
-	  loop->tail = bb;
-	  loop->head = BRANCH_EDGE (bb)->dest;
-	  loop->successor = FALLTHRU_EDGE (bb)->dest;
-	  loop->predecessor = NULL;
-	  loop->loop_end = tail;
-	  loop->last_insn = NULL_RTX;
-	  loop->iter_reg = SET_DEST (XVECEXP (PATTERN (tail), 0, 1));
-	  loop->depth = loop->length = 0;
-	  loop->visited = 0;
-	  loop->clobber_loop0 = loop->clobber_loop1 = 0;
-	  loop->blocks = VEC_alloc (basic_block, heap, 20);
-	  VEC_quick_push (basic_block, loop->blocks, bb);
-	  loop->outer = NULL;
-	  loop->loops = NULL;
 	  loop->loop_no = nloops++;
-
-	  loop->init = loop->loop_init = NULL_RTX;
-	  loop->start_label = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (tail), 0, 0)), 1), 0);
-	  loop->end_label = NULL_RTX;
-
-	  work = VEC_safe_push (loop_work, heap, works, NULL);
-	  work->block = loop->head;
-	  work->loop = loop;
-
+	  loop->blocks = VEC_alloc (basic_block, heap, 20);
+	  loop->block_bitmap = BITMAP_ALLOC (&stack);
 	  bb->aux = loop;
 
 	  if (dump_file)
@@ -3389,75 +3687,44 @@ bfin_reorg_loops (FILE *dump_file)
 		       loop->loop_no);
 	      print_rtl_single (dump_file, tail);
 	    }
+
+	  bfin_discover_loop (loop, bb, tail);
 	}
     }
 
-  /*  Now find all the closed loops.
-      until work list empty,
-       if block's auxptr is set
-         if != loop slot
-           if block's loop's start != block
-	     mark loop as bad
-	   else
-             append block's loop's fallthrough block to worklist
-	     increment this loop's depth
-       else if block is exit block
-         mark loop as bad
-       else
-	  set auxptr
-	  for each target of block
-	    add to worklist */
-  while (VEC_iterate (loop_work, works, dwork++, work))
+  tmp_bitmap = BITMAP_ALLOC (&stack);
+  /* Compute loop nestings.  */
+  for (loop = loops; loop; loop = loop->next)
     {
-      loop = work->loop;
-      bb = work->block;
-      if (bb == EXIT_BLOCK_PTR)
-	/* We've reached the exit block.  The loop must be bad. */
-	loop->depth = -1;
-      else if (!bb->aux)
-	{
-	  /* We've not seen this block before.  Add it to the loop's
-	     list and then add each successor to the work list.  */
-	  bb->aux = loop;
-	  VEC_safe_push (basic_block, heap, loop->blocks, bb);
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    {
-	      if (!VEC_space (loop_work, works, 1))
-		{
-		  if (dwork)
-		    {
-		      VEC_block_remove (loop_work, works, 0, dwork);
-		      dwork = 0;
-		    }
-		  else
-		    VEC_reserve (loop_work, heap, works, 1);
-		}
-	      work = VEC_quick_push (loop_work, works, NULL);
-	      work->block = EDGE_SUCC (bb, ei.index)->dest;
-	      work->loop = loop;
-	    }
-	}
-      else if (bb->aux != loop)
-	{
-	  /* We've seen this block in a different loop.  If it's not
-	     the other loop's head, then this loop must be bad.
-	     Otherwise, the other loop might be a nested loop, so
-	     continue from that loop's successor.  */
-	  loop_info other = bb->aux;
+      loop_info other;
+      if (loop->bad)
+	continue;
 
-	  if (other->head != bb)
-	    loop->depth = -1;
-	  else
+      for (other = loop->next; other; other = other->next)
+	{
+	  if (other->bad)
+	    continue;
+
+	  bitmap_and (tmp_bitmap, other->block_bitmap, loop->block_bitmap);
+	  if (bitmap_empty_p (tmp_bitmap))
+	    continue;
+	  if (bitmap_equal_p (tmp_bitmap, other->block_bitmap))
 	    {
 	      other->outer = loop;
 	      VEC_safe_push (loop_info, heap, loop->loops, other);
-	      work = VEC_safe_push (loop_work, heap, works, NULL);
-	      work->loop = loop;
-	      work->block = other->successor;
+	    }
+	  else if (bitmap_equal_p (tmp_bitmap, loop->block_bitmap))
+	    {
+	      loop->outer = other;
+	      VEC_safe_push (loop_info, heap, other->loops, loop);
+	    }
+	  else
+	    {
+	      loop->bad = other->bad = 1;
 	    }
 	}
     }
-  VEC_free (loop_work, heap, works);
+  BITMAP_FREE (tmp_bitmap);
 
   if (dump_file)
     {
@@ -3482,14 +3749,192 @@ bfin_reorg_loops (FILE *dump_file)
       loops = loop->next;
       VEC_free (loop_info, heap, loop->loops);
       VEC_free (basic_block, heap, loop->blocks);
+      BITMAP_FREE (loop->block_bitmap);
       XDELETE (loop);
     }
 
   if (dump_file)
     print_rtl (dump_file, get_insns ());
+
+  FOR_EACH_BB (bb)
+    bb->aux = NULL;
+}
+
+/* Possibly generate a SEQUENCE out of three insns found in SLOT.
+   Returns true if we modified the insn chain, false otherwise.  */
+static bool
+gen_one_bundle (rtx slot[3])
+{
+  rtx bundle;
+
+  gcc_assert (slot[1] != NULL_RTX);
+
+  /* Verify that we really can do the multi-issue.  */
+  if (slot[0])
+    {
+      rtx t = NEXT_INSN (slot[0]);
+      while (t != slot[1])
+	{
+	  if (GET_CODE (t) != NOTE
+	      || NOTE_LINE_NUMBER (t) != NOTE_INSN_DELETED)
+	    return false;
+	  t = NEXT_INSN (t);
+	}
+    }
+  if (slot[2])
+    {
+      rtx t = NEXT_INSN (slot[1]);
+      while (t != slot[2])
+	{
+	  if (GET_CODE (t) != NOTE
+	      || NOTE_LINE_NUMBER (t) != NOTE_INSN_DELETED)
+	    return false;
+	  t = NEXT_INSN (t);
+	}
+    }
+
+  if (slot[0] == NULL_RTX)
+    slot[0] = emit_insn_before (gen_mnop (), slot[1]);
+  if (slot[2] == NULL_RTX)
+    slot[2] = emit_insn_after (gen_nop (), slot[1]);
+
+  /* Avoid line number information being printed inside one bundle.  */
+  if (INSN_LOCATOR (slot[1])
+      && INSN_LOCATOR (slot[1]) != INSN_LOCATOR (slot[0]))
+    INSN_LOCATOR (slot[1]) = INSN_LOCATOR (slot[0]);
+  if (INSN_LOCATOR (slot[2])
+      && INSN_LOCATOR (slot[2]) != INSN_LOCATOR (slot[0]))
+    INSN_LOCATOR (slot[2]) = INSN_LOCATOR (slot[0]);
+
+  /* Terminate them with "|| " instead of ";" in the output.  */
+  PUT_MODE (slot[0], SImode);
+  PUT_MODE (slot[1], SImode);
+
+  /* This is a cheat to avoid emit_insn's special handling of SEQUENCEs.
+     Generating a PARALLEL first and changing its code later is the
+     easiest way to emit a SEQUENCE insn.  */
+  bundle = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (3, slot[0], slot[1], slot[2]));
+  emit_insn_before (bundle, slot[0]);
+  remove_insn (slot[0]);
+  remove_insn (slot[1]);
+  remove_insn (slot[2]);
+  PUT_CODE (bundle, SEQUENCE);
+  
+  return true;
 }
 
+/* Go through all insns, and use the information generated during scheduling
+   to generate SEQUENCEs to represent bundles of instructions issued
+   simultaneously.  */
+
+static void
+bfin_gen_bundles (void)
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      rtx insn, next;
+      rtx slot[3];
+      int n_filled = 0;
+
+      slot[0] = slot[1] = slot[2] = NULL_RTX;
+      for (insn = BB_HEAD (bb);; insn = next)
+	{
+	  int at_end;
+	  if (INSN_P (insn))
+	    {
+	      if (get_attr_type (insn) == TYPE_DSP32)
+		slot[0] = insn;
+	      else if (slot[1] == NULL_RTX)
+		slot[1] = insn;
+	      else
+		slot[2] = insn;
+	      n_filled++;
+	    }
+
+	  next = NEXT_INSN (insn);
+	  while (next && insn != BB_END (bb)
+		 && !(INSN_P (next)
+		      && GET_CODE (PATTERN (next)) != USE
+		      && GET_CODE (PATTERN (next)) != CLOBBER))
+	    {
+	      insn = next;
+	      next = NEXT_INSN (insn);
+	    }
+
+	  /* BB_END can change due to emitting extra NOPs, so check here.  */
+	  at_end = insn == BB_END (bb);
+	  if (at_end || GET_MODE (next) == TImode)
+	    {
+	      if ((n_filled < 2
+		   || !gen_one_bundle (slot))
+		  && slot[0] != NULL_RTX)
+		{
+		  rtx pat = PATTERN (slot[0]);
+		  if (GET_CODE (pat) == SET
+		      && GET_CODE (SET_SRC (pat)) == UNSPEC
+		      && XINT (SET_SRC (pat), 1) == UNSPEC_32BIT)
+		    {
+		      SET_SRC (pat) = XVECEXP (SET_SRC (pat), 0, 0);
+		      INSN_CODE (slot[0]) = -1;
+		    }
+		}
+	      n_filled = 0;
+	      slot[0] = slot[1] = slot[2] = NULL_RTX;
+	    }
+	  if (at_end)
+	    break;
+	}
+    }
+}
 
+/* Return an insn type for INSN that can be used by the caller for anomaly
+   workarounds.  This differs from plain get_attr_type in that it handles
+   SEQUENCEs.  */
+
+static enum attr_type
+type_for_anomaly (rtx insn)
+{
+  rtx pat = PATTERN (insn);
+  if (GET_CODE (pat) == SEQUENCE)
+    {
+      enum attr_type t;
+      t = get_attr_type (XVECEXP (pat, 0, 1));
+      if (t == TYPE_MCLD)
+	return t;
+      t = get_attr_type (XVECEXP (pat, 0, 2));
+      if (t == TYPE_MCLD)
+	return t;
+      return TYPE_MCST;
+    }
+  else
+    return get_attr_type (insn);
+}
+
+/* Return nonzero if INSN contains any loads that may trap.  It handles
+   SEQUENCEs correctly.  */
+
+static bool
+trapping_loads_p (rtx insn)
+{
+  rtx pat = PATTERN (insn);
+  if (GET_CODE (pat) == SEQUENCE)
+    {
+      enum attr_type t;
+      t = get_attr_type (XVECEXP (pat, 0, 1));
+      if (t == TYPE_MCLD
+	  && may_trap_p (SET_SRC (PATTERN (XVECEXP (pat, 0, 1)))))
+	return true;
+      t = get_attr_type (XVECEXP (pat, 0, 2));
+      if (t == TYPE_MCLD
+	  && may_trap_p (SET_SRC (PATTERN (XVECEXP (pat, 0, 2)))))
+	return true;
+      return false;
+    }
+  else
+    return may_trap_p (SET_SRC (single_set (insn)));
+}
+
 /* We use the machine specific reorg pass for emitting CSYNC instructions
    after conditional branches as needed.
 
@@ -3515,6 +3960,27 @@ bfin_reorg (void)
 {
   rtx insn, last_condjump = NULL_RTX;
   int cycles_since_jump = INT_MAX;
+
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn ();
+
+  if (bfin_flag_schedule_insns2)
+    {
+      splitting_for_sched = 1;
+      split_all_insns (0);
+      splitting_for_sched = 0;
+
+      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
+
+      timevar_push (TV_SCHED2);
+      schedule_insns ();
+      timevar_pop (TV_SCHED2);
+
+      /* Examine the schedule and insert nops as necessary for 64 bit parallel
+	 instructions.  */
+      bfin_gen_bundles ();
+    }
 
   /* Doloop optimization */
   if (cfun->machine->has_hardware_loops)
@@ -3551,15 +4017,14 @@ bfin_reorg (void)
 	}
       else if (INSN_P (insn))
 	{
-	  enum attr_type type = get_attr_type (insn);
+	  enum attr_type type = type_for_anomaly (insn);
 	  int delay_needed = 0;
 	  if (cycles_since_jump < INT_MAX)
 	    cycles_since_jump++;
 
 	  if (type == TYPE_MCLD && TARGET_SPECLD_ANOMALY)
 	    {
-	      rtx pat = single_set (insn);
-	      if (may_trap_p (SET_SRC (pat)))
+	      if (trapping_loads_p (insn))
 		delay_needed = 3;
 	    }
 	  else if (type == TYPE_SYNC && TARGET_CSYNC_ANOMALY)
@@ -3621,7 +4086,7 @@ bfin_reorg (void)
 
 	      if (INSN_P (target))
 		{
-		  enum attr_type type = get_attr_type (target);
+		  enum attr_type type = type_for_anomaly (target);
 		  int delay_needed = 0;
 		  if (cycles_since_jump < INT_MAX)
 		    cycles_since_jump++;
@@ -3658,6 +4123,13 @@ bfin_reorg (void)
 		}
 	    }
 	}
+    }
+
+  if (bfin_flag_var_tracking)
+    {
+      timevar_push (TV_VAR_TRACKING);
+      variable_tracking_main ();
+      timevar_pop (TV_VAR_TRACKING);
     }
 }
 
@@ -3928,8 +4400,8 @@ enum bfin_builtins
 
 #define def_builtin(NAME, TYPE, CODE)					\
 do {									\
-  lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-			       NULL, NULL_TREE);			\
+  add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,		\
+		       NULL, NULL_TREE);				\
 } while (0)
 
 /* Set up all builtin functions for this target.  */
@@ -4420,6 +4892,9 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST bfin_adjust_cost
 
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE bfin_issue_rate
+
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -4453,5 +4928,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS bfin_delegitimize_address
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM bfin_cannot_force_const_mem
 
 struct gcc_target targetm = TARGET_INITIALIZER;

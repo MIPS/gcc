@@ -138,7 +138,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 
       d = TREE_REAL_CST (node);
       if (REAL_VALUE_ISINF (d))
-	fprintf (file, " Inf");
+	fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
       else if (REAL_VALUE_ISNAN (d))
 	fprintf (file, " Nan");
       else
@@ -263,7 +263,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (indent <= 4)
 	print_node_brief (file, "type", TREE_TYPE (node), indent + 4);
     }
-  else
+  else if (!GIMPLE_TUPLE_P (node))
     {
       print_node (file, "type", TREE_TYPE (node), indent + 4);
       if (TREE_TYPE (node))
@@ -679,6 +679,18 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
+    case tcc_gimple_stmt:
+      len = TREE_CODE_LENGTH (TREE_CODE (node));
+
+      for (i = 0; i < len; i++)
+	{
+	  char temp[10];
+
+	  sprintf (temp, "arg %d", i);
+	  print_node (file, temp, GIMPLE_STMT_OPERAND (node, i), indent + 4);
+	}
+      break;
+
     case tcc_constant:
     case tcc_exceptional:
       switch (TREE_CODE (node))
@@ -709,7 +721,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    d = TREE_REAL_CST (node);
 	    if (REAL_VALUE_ISINF (d))
-	      fprintf (file, " Inf");
+	      fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
 	    else if (REAL_VALUE_ISNAN (d))
 	      fprintf (file, " Nan");
 	    else

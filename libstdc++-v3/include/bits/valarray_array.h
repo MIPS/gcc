@@ -28,12 +28,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
-
 /** @file valarray_array.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+// Written by Gabriel Dos Reis <Gabriel.Dos-Reis@DPTMaths.ENS-Cachan.Fr>
 
 #ifndef _VALARRAY_ARRAY_H
 #define _VALARRAY_ARRAY_H 1
@@ -693,7 +693,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    _DEFINE_ARRAY_FUNCTION(<<, __shift_left)
    _DEFINE_ARRAY_FUNCTION(>>, __shift_right)
 
-#undef _DEFINE_VALARRAY_FUNCTION
+#undef _DEFINE_ARRAY_FUNCTION
 
 _GLIBCXX_END_NAMESPACE
 

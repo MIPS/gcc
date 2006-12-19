@@ -112,12 +112,6 @@ static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
 
-static int print_single_switch (FILE *, int, int, const char *,
-				const char *, const char *,
-				const char *, const char *);
-static void print_switch_values (FILE *, int, int, const char *,
-				 const char *, const char *);
-
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
 
@@ -163,6 +157,16 @@ struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
+
+/* Record of input_file_stack at each tick.  */
+typedef struct file_stack *fs_p;
+DEF_VEC_P(fs_p);
+DEF_VEC_ALLOC_P(fs_p,heap);
+static VEC(fs_p,heap) *input_file_stack_history;
+
+/* Whether input_file_stack has been restored to a previous state (in
+   which case there should be no more pushing).  */
+static bool input_file_stack_restored;
 
 /* Name to use as base of names for dump output files.  */
 
@@ -377,10 +381,10 @@ const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
 #define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
-  { OPTION, DEFAULT, MIN, MAX, HELP },
+  { OPTION, DEFAULT, false, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, 0, 0, NULL }
+  { NULL, 0, false, 0, 0, NULL }
 };
 
 /* Output files for assembler code (real compiler output)
@@ -747,9 +751,9 @@ wrapup_global_declaration_2 (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     {
-      struct cgraph_varpool_node *node;
+      struct varpool_node *node;
       bool needed = true;
-      node = cgraph_varpool_node (decl);
+      node = varpool_node (decl);
 
       if (node->finalized)
 	needed = false;
@@ -951,6 +955,10 @@ push_srcloc (const char *file, int line)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = XNEW (struct file_stack);
   fs->location = input_location;
   fs->next = input_file_stack;
@@ -962,6 +970,7 @@ push_srcloc (const char *file, int line)
 #endif
   input_file_stack = fs;
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
 }
 
 /* Pop the top entry off the stack of presently open source files.
@@ -973,11 +982,30 @@ pop_srcloc (void)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = input_file_stack;
   input_location = fs->location;
   input_file_stack = fs->next;
-  free (fs);
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
+}
+
+/* Restore the input file stack to its state as of TICK, for the sake
+   of diagnostics after processing the whole input.  Once this has
+   been called, push_srcloc and pop_srcloc may no longer be
+   called.  */
+void
+restore_input_file_stack (int tick)
+{
+  if (tick == 0)
+    input_file_stack = NULL;
+  else
+    input_file_stack = VEC_index (fs_p, input_file_stack_history, tick - 1);
+  input_file_stack_tick = tick;
+  input_file_stack_restored = true;
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -1006,11 +1034,15 @@ compile_file (void)
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
-  if (flag_syntax_only || errorcount || sorrycount)
+  if (flag_syntax_only)
     return;
 
   lang_hooks.decls.final_write_globals ();
-  cgraph_varpool_assemble_pending_decls ();
+
+  if (errorcount || sorrycount)
+    return;
+
+  varpool_assemble_pending_decls ();
   finish_aliases_2 ();
 
   /* This must occur after the loop to output deferred functions.
@@ -1044,9 +1076,7 @@ compile_file (void)
 
   dw2_output_indirect_constants ();
 
-  /* Flush any pending external directives.  cgraph did this for
-     assemble_external calls from the front end, but the RTL
-     expander can also generate them.  */
+  /* Flush any pending external directives.  */
   process_pending_assemble_externals ();
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -1144,44 +1174,107 @@ print_version (FILE *file, const char *indent)
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
-/* Print an option value and return the adjusted position in the line.
-   ??? We don't handle error returns from fprintf (disk full); presumably
-   other code will catch a disk full though.  */
+#ifdef ASM_COMMENT_START
+static int
+print_to_asm_out_file (print_switch_type type, const char * text)
+{
+  bool prepend_sep = true;
+
+  switch (type)
+    {
+    case SWITCH_TYPE_LINE_END:
+      putc ('\n', asm_out_file);
+      return 1;
+
+    case SWITCH_TYPE_LINE_START:
+      fputs (ASM_COMMENT_START, asm_out_file);
+      return strlen (ASM_COMMENT_START);
+
+    case SWITCH_TYPE_DESCRIPTIVE:
+      if (ASM_COMMENT_START[0] == 0)
+	prepend_sep = false;
+      /* Drop through.  */
+    case SWITCH_TYPE_PASSED:
+    case SWITCH_TYPE_ENABLED:
+      if (prepend_sep)
+	fputc (' ', asm_out_file);
+      fprintf (asm_out_file, text);
+      /* No need to return the length here as
+	 print_single_switch has already done it.  */
+      return 0;
+
+    default:
+      return -1;
+    }
+}
+#endif
 
 static int
-print_single_switch (FILE *file, int pos, int max,
-		     const char *indent, const char *sep, const char *term,
-		     const char *type, const char *name)
+print_to_stderr (print_switch_type type, const char * text)
 {
-  /* The ultrix fprintf returns 0 on success, so compute the result we want
-     here since we need it for the following test.  */
-  int len = strlen (sep) + strlen (type) + strlen (name);
+  switch (type)
+    {
+    case SWITCH_TYPE_LINE_END:
+      putc ('\n', stderr);
+      return 1;
 
-  if (pos != 0
-      && pos + len > max)
-    {
-      fprintf (file, "%s", term);
-      pos = 0;
+    case SWITCH_TYPE_LINE_START:
+      return 0;
+      
+    case SWITCH_TYPE_PASSED:
+    case SWITCH_TYPE_ENABLED:
+      fputc (' ', stderr);
+      /* Drop through.  */
+
+    case SWITCH_TYPE_DESCRIPTIVE:
+      fprintf (stderr, text);
+      /* No need to return the length here as
+	 print_single_switch has already done it.  */
+      return 0;
+
+    default:
+      return -1;
     }
-  if (pos == 0)
-    {
-      fprintf (file, "%s", indent);
-      pos = strlen (indent);
-    }
-  fprintf (file, "%s%s%s", sep, type, name);
-  pos += len;
-  return pos;
 }
 
-/* Print active target switches to FILE.
+/* Print an option value and return the adjusted position in the line.
+   ??? print_fn doesn't handle errors, eg disk full; presumably other
+   code will catch a disk full though.  */
+
+static int
+print_single_switch (print_switch_fn_type print_fn,
+		     int pos,
+		     print_switch_type type,
+		     const char * text)
+{
+  /* The ultrix fprintf returns 0 on success, so compute the result
+     we want here since we need it for the following test.  The +1
+     is for the seperator character that will probably be emitted.  */
+  int len = strlen (text) + 1;
+
+  if (pos != 0
+      && pos + len > MAX_LINE)
+    {
+      print_fn (SWITCH_TYPE_LINE_END, NULL);
+      pos = 0;
+    }
+
+  if (pos == 0)
+    pos += print_fn (SWITCH_TYPE_LINE_START, NULL);
+
+  print_fn (type, text);
+  return pos + len;
+}
+
+/* Print active target switches using PRINT_FN.
    POS is the current cursor position and MAX is the size of a "line".
    Each line begins with INDENT and ends with TERM.
    Each switch is separated from the next by SEP.  */
 
 static void
-print_switch_values (FILE *file, int pos, int max,
-		     const char *indent, const char *sep, const char *term)
+print_switch_values (print_switch_fn_type print_fn)
 {
+  int pos = 0;
   size_t j;
   const char **p;
 
@@ -1190,45 +1283,50 @@ print_switch_values (FILE *file, int pos, int max,
   randomize ();
 
   /* Print the options as passed.  */
-  pos = print_single_switch (file, pos, max, indent, *indent ? " " : "", term,
-			     _("options passed: "), "");
+  pos = print_single_switch (print_fn, pos,
+			     SWITCH_TYPE_DESCRIPTIVE, _("options passed: "));
 
   for (p = &save_argv[1]; *p != NULL; p++)
-    if (**p == '-')
-      {
-	/* Ignore these.  */
-	if (strcmp (*p, "-o") == 0)
-	  {
-	    if (p[1] != NULL)
-	      p++;
-	    continue;
-	  }
-	if (strcmp (*p, "-quiet") == 0)
-	  continue;
-	if (strcmp (*p, "-version") == 0)
-	  continue;
-	if ((*p)[1] == 'd')
-	  continue;
+    {
+      if (**p == '-')
+	{
+	  /* Ignore these.  */
+	  if (strcmp (*p, "-o") == 0
+	      || strcmp (*p, "-dumpbase") == 0
+	      || strcmp (*p, "-auxbase") == 0)
+	    {
+	      if (p[1] != NULL)
+		p++;
+	      continue;
+	    }
 
-	pos = print_single_switch (file, pos, max, indent, sep, term, *p, "");
-      }
+	  if (strcmp (*p, "-quiet") == 0
+	      || strcmp (*p, "-version") == 0)
+	    continue;
+
+	  if ((*p)[1] == 'd')
+	    continue;
+	}
+
+      pos = print_single_switch (print_fn, pos, SWITCH_TYPE_PASSED, *p);
+    }
+
   if (pos > 0)
-    fprintf (file, "%s", term);
+    print_fn (SWITCH_TYPE_LINE_END, NULL);
 
   /* Print the -f and -m options that have been enabled.
      We don't handle language specific options but printing argv
      should suffice.  */
-
-  pos = print_single_switch (file, 0, max, indent, *indent ? " " : "", term,
-			     _("options enabled: "), "");
+  pos = print_single_switch (print_fn, 0,
+			     SWITCH_TYPE_DESCRIPTIVE, _("options enabled: "));
 
   for (j = 0; j < cl_options_count; j++)
     if ((cl_options[j].flags & CL_REPORT)
 	&& option_enabled (j) > 0)
-      pos = print_single_switch (file, pos, max, indent, sep, term,
-				 "", cl_options[j].opt_text);
+      pos = print_single_switch (print_fn, pos,
+				 SWITCH_TYPE_ENABLED, cl_options[j].opt_text);
 
-  fprintf (file, "%s", term);
+  print_fn (SWITCH_TYPE_LINE_END, NULL);
 }
 
 /* Open assembly code output file.  Do this even if -fsyntax-only is
@@ -1246,6 +1344,7 @@ init_asm_output (const char *name)
 	{
 	  int len = strlen (dump_base_name);
 	  char *dumpname = XNEWVEC (char, len + 6);
+
 	  memcpy (dumpname, dump_base_name, len + 1);
 	  strip_off_ending (dumpname, len);
 	  strcat (dumpname, ".s");
@@ -1263,15 +1362,30 @@ init_asm_output (const char *name)
     {
       targetm.asm_out.file_start ();
 
+      if (flag_record_gcc_switches)
+	{
+	  if (targetm.asm_out.record_gcc_switches)
+	    {
+	      /* Let the target know that we are about to start recording.  */
+	      targetm.asm_out.record_gcc_switches (SWITCH_TYPE_DESCRIPTIVE,
+						   NULL);
+	      /* Now record the switches.  */
+	      print_switch_values (targetm.asm_out.record_gcc_switches);
+	      /* Let the target know that the recording is over.  */
+	      targetm.asm_out.record_gcc_switches (SWITCH_TYPE_DESCRIPTIVE,
+						   NULL);
+	    }
+	  else
+	    inform ("-frecord-gcc-switches is not supported by the current target");
+	}
+
 #ifdef ASM_COMMENT_START
       if (flag_verbose_asm)
 	{
-	  /* Print the list of options in effect.  */
+	  /* Print the list of switches in effect
+	     into the assembler file as comments.  */
 	  print_version (asm_out_file, ASM_COMMENT_START);
-	  print_switch_values (asm_out_file, 0, MAX_LINE,
-			       ASM_COMMENT_START, " ", "\n");
-	  /* Add a blank line here so it appears in assembler output but not
-	     screen output.  */
+	  print_switch_values (print_to_asm_out_file);
 	  fprintf (asm_out_file, "\n");
 	}
 #endif
@@ -1639,7 +1753,7 @@ process_options (void)
     {
       print_version (stderr, "");
       if (! quiet_flag)
-	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
+	print_switch_values (print_to_stderr);
     }
 
   if (flag_syntax_only)
@@ -1933,6 +2047,7 @@ finalize (void)
       dump_rtx_statistics ();
       dump_varray_statistics ();
       dump_alloc_pool_statistics ();
+      dump_bitmap_statistics ();
       dump_ggc_loc_statistics ();
     }
 

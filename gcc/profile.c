@@ -220,7 +220,6 @@ instrument_values (histogram_values values)
 	  gcc_unreachable ();
 	}
     }
-  VEC_free (histogram_value, heap, values);
 }
 
 
@@ -649,15 +648,13 @@ compute_value_histograms (histogram_values values)
     {
       histogram_value hist = VEC_index (histogram_value, values, i);
       tree stmt = hist->hvalue.stmt;
-      stmt_ann_t ann = get_stmt_ann (stmt);
 
       t = (int) hist->type;
 
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      hist->hvalue.next = ann->histograms;
-      ann->histograms = hist;
+      gimple_add_histogram_value (cfun, stmt, hist);
       hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
 	hist->hvalue.counters[j] = aact_count[j];
@@ -1049,6 +1046,7 @@ branch_prob (void)
 
   free_aux_for_edges ();
 
+  VEC_free (histogram_value, heap, values);
   free_edge_list (el);
   if (flag_branch_probabilities)
     profile_status = PROFILE_READ;
@@ -1228,7 +1226,7 @@ end_branch_prob (void)
 void
 tree_register_profile_hooks (void)
 {
-  gcc_assert (ir_type ());
+  gcc_assert (current_ir_type () == IR_GIMPLE);
   profile_hooks = &tree_profile_hooks;
 }
 

@@ -46,6 +46,7 @@ i*86-*-gnu*) TARGET=X86; TARGETDIR=x86;;
 i*86-*-solaris2.1[[0-9]]*) TARGET=X86_64; TARGETDIR=x86;;
 i*86-*-solaris*) TARGET=X86; TARGETDIR=x86;;
 i*86-*-beos*) TARGET=X86; TARGETDIR=x86;;
+i*86-*-darwin*) TARGET=X86_DARWIN; TARGETDIR=x86;;
 i*86-*-freebsd* | i*86-*-kfreebsd*-gnu) TARGET=X86; TARGETDIR=x86;;
 i*86-*-netbsdelf* | i*86-*-knetbsd*-gnu) TARGET=X86; TARGETDIR=x86;;
 i*86-*-rtems*) TARGET=X86; TARGETDIR=x86;;
@@ -79,6 +80,7 @@ cris-*-*) TARGET=LIBFFI_CRIS; TARGETDIR=cris;;
 s390-*-linux-*) TARGET=S390; TARGETDIR=s390;;
 s390x-*-linux-*) TARGET=S390; TARGETDIR=s390;;
 x86_64-*-linux* | x86_64-*-freebsd* | x86_64-*-kfreebsd*-gnu) TARGET=X86_64; TARGETDIR=x86;;
+x86_64-*-darwin*) TARGET=X86_DARWIN; TARGETDIR=x86;;
 sh-*-linux* | sh[[34]]*-*-linux*) TARGET=SH; TARGETDIR=sh;;
 sh-*-rtems*) TARGET=SH; TARGETDIR=sh;;
 sh64-*-linux* | sh5*-*-linux*) TARGET=SH64; TARGETDIR=sh64;;
@@ -98,6 +100,7 @@ AM_CONDITIONAL(MIPS_LINUX, test x$TARGET = xMIPS_LINUX)
 AM_CONDITIONAL(SPARC, test x$TARGET = xSPARC)
 AM_CONDITIONAL(X86, test x$TARGET = xX86)
 AM_CONDITIONAL(X86_WIN32, test x$TARGET = xX86_WIN32)
+AM_CONDITIONAL(X86_DARWIN, test x$TARGET = xX86_DARWIN)
 AM_CONDITIONAL(ALPHA, test x$TARGET = xALPHA)
 AM_CONDITIONAL(IA64, test x$TARGET = xIA64)
 AM_CONDITIONAL(M32R, test x$TARGET = xM32R)

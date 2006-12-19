@@ -387,22 +387,25 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
 			      aff_tree *addr)
 {
   HOST_WIDE_INT coef;
-  double_int best_mult = {0, 0}, amult, amult_neg;
+  double_int best_mult, amult, amult_neg;
   unsigned best_mult_cost = 0, acost;
   tree mult_elt = NULL_TREE, elt;
   unsigned i, j;
   enum tree_code op_code;
 
+  best_mult = double_int_zero;
   for (i = 0; i < addr->n; i++)
     {
       if (!double_int_fits_in_shwi_p (addr->elts[i].coef))
 	continue;
 
+      /* FIXME: Should use the correct memory mode rather than Pmode.  */
+
       coef = double_int_to_shwi (addr->elts[i].coef);
       if (coef == 1
-	  || !multiplier_allowed_in_address_p (coef))
+	  || !multiplier_allowed_in_address_p (coef, Pmode))
 	continue;
-      
+
       acost = multiply_by_cost (coef, Pmode);
 
       if (acost > best_mult_cost)
@@ -420,7 +423,7 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
     {
       amult = addr->elts[i].coef;
       amult_neg = double_int_ext_for_comb (double_int_neg (amult), addr);
-
+ 
       if (double_int_equal_p (amult, best_mult))
 	op_code = PLUS_EXPR;
       else if (double_int_equal_p (amult_neg, best_mult))
@@ -431,17 +434,17 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
 	  j++;
 	  continue;
 	}
-
+  
       elt = fold_convert (type, addr->elts[i].val);
       if (mult_elt)
 	mult_elt = fold_build2 (op_code, type, mult_elt, elt);
       else if (op_code == PLUS_EXPR)
-      	mult_elt = elt;
+	mult_elt = elt;
       else
 	mult_elt = fold_build1 (NEGATE_EXPR, type, elt);
     }
   addr->n = j;
-
+  
   parts->index = mult_elt;
   parts->step = double_int_to_tree (type, best_mult);
 }

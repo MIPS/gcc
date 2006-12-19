@@ -16,7 +16,7 @@ SHLIB_LC = -lc
 # Note that this version is used for the loader, not the linker; the linker
 # uses the stub versions named by $(LIBGCC).
 SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -dynamiclib -nodefaultlibs \
-	-Wl,-install_name,$(slibdir)/$(SHLIB_INSTALL_NAME) \
+	-install_name $(slibdir)/$(SHLIB_INSTALL_NAME) \
 	-single_module -o $(SHLIB_DIR)/$(SHLIB_SONAME).tmp \
 	-Wl,-exported_symbols_list,$(SHLIB_MAP) \
 	$(SHLIB_VERSTRING) \
@@ -92,5 +92,10 @@ install-darwin-libgcc-stubs : $(INSTALL_FILES) installdirs
 	else true; fi
 	$(LN_S) libgcc_s.1.dylib \
 		$(DESTDIR)$(slibdir)/libgcc_s_ppc64.1.dylib
+	if [ -f $(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib ]; then \
+	  rm -f $(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib; \
+	else true; fi
+	$(LN_S) libgcc_s.1.dylib \
+		$(DESTDIR)$(slibdir)/libgcc_s_x86_64.1.dylib
 
 INSTALL_LIBGCC = install-darwin-libgcc-stubs install-multilib

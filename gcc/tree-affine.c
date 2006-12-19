@@ -30,7 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "tree-affine.h"
-#include "tree-flow.h"
+#include "tree-gimple.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 
@@ -123,49 +123,27 @@ aff_combination_scale (aff_tree *comb, double_int scale)
     }
 }
 
-/* Returns the element of COMB whose value is VAL, or NULL if no such
-   element exists.  If IDX is not NULL, it is set to the index of VAL in
-   COMB.  */
-	      
-static struct aff_comb_elt *
-aff_combination_find_elt (aff_tree *comb, tree val, unsigned *idx)
-{
-  unsigned i;
-
-  for (i = 0; i < comb->n; i++)
-    if (operand_equal_p (comb->elts[i].val, val, 0))
-      {
-	if (idx)
-	  *idx = i;
-
-	return &comb->elts[i];
-      }
-
-  return NULL;
-}
-
 /* Adds ELT * SCALE to COMB.  */
 
 void
 aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
 {
   unsigned i;
-  struct aff_comb_elt *oelt;
 
   scale = double_int_ext_for_comb (scale, comb);
   if (double_int_zero_p (scale))
     return;
 
-  oelt = aff_combination_find_elt (comb, elt, &i);
-  if (oelt)
-    {
-      double_int new_coef;
+  for (i = 0; i < comb->n; i++)
+    if (operand_equal_p (comb->elts[i].val, elt, 0))
+      {
+	double_int new_coef;
 
-      new_coef = double_int_add (oelt->coef, scale);
+	new_coef = double_int_add (comb->elts[i].coef, scale);
 	new_coef = double_int_ext_for_comb (new_coef, comb);
 	if (!double_int_zero_p (new_coef))
 	  {
-	    oelt->coef = new_coef;
+	    comb->elts[i].coef = new_coef;
 	    return;
 	  }
 
@@ -190,9 +168,11 @@ aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
       return;
     }
 
-  elt = fold_convert (comb->type, elt);
-  if (!double_int_one_p (scale))
-    elt = fold_build2 (MULT_EXPR, comb->type, elt,
+  if (double_int_one_p (scale))
+    elt = fold_convert (comb->type, elt);
+  else
+    elt = fold_build2 (MULT_EXPR, comb->type,
+		       fold_convert (comb->type, elt),
 		       double_int_to_tree (comb->type, scale)); 
 
   if (comb->rest)
@@ -327,51 +307,6 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
   aff_combination_elt (comb, type, expr);
 }
 
-/* Similar to tree_to_aff_combination, but follows SSA name definitions
-   and expands them recursively.
-
-   FIXME -- the way this function is now defined, it may have exponential
-   time complexity.  */
-
-void
-tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb)
-{
-  unsigned i;
-  aff_tree to_add, current, curre;
-  tree e, def, rhs;
-  double_int scale;
-
-  tree_to_aff_combination (expr, type, comb);
-  aff_combination_zero (&to_add, type);
-  for (i = 0; i < comb->n; i++)
-    {
-      e = comb->elts[i].val;
-      if (TREE_CODE (e) != SSA_NAME)
-	continue;
-      def = SSA_NAME_DEF_STMT (e);
-      if (TREE_CODE (def) != MODIFY_EXPR
-	  || TREE_OPERAND (def, 0) != e)
-	continue;
-
-      rhs = TREE_OPERAND (def, 1);
-      if (TREE_CODE (rhs) != SSA_NAME
-	  && !EXPR_P (rhs)
-	  && !is_gimple_min_invariant (rhs))
-	continue;
-
-      /* Accumulate the new terms to TO_ADD, so that we do not modify
-	 COMB while traversing it.  */
-      scale = comb->elts[i].coef;
-      tree_to_aff_combination_expand (rhs, type, &current);
-      aff_combination_zero (&curre, type);
-      aff_combination_add_elt (&curre, e, double_int_neg (scale));
-      aff_combination_scale (&current, scale);
-      aff_combination_add (&to_add, &current);
-      aff_combination_add (&to_add, &curre);
-    }
-  aff_combination_add (comb, &to_add);
-}
-
 /* Creates EXPR + ELT * SCALE in TYPE.  EXPR is taken from affine
    combination COMB.  */
 
@@ -479,6 +414,72 @@ aff_combination_remove_elt (aff_tree *comb, unsigned m)
     }
 }
 
+/* Returns the element of COMB whose value is VAL, or NULL if no such
+   element exists.  If IDX is not NULL, it is set to the index of VAL in
+   COMB.  */
+	      
+static struct aff_comb_elt *
+aff_combination_find_elt (aff_tree *comb, tree val, unsigned *idx)
+{
+  unsigned i;
+
+  for (i = 0; i < comb->n; i++)
+    if (operand_equal_p (comb->elts[i].val, val, 0))
+      {
+	if (idx)
+	  *idx = i;
+
+	return &comb->elts[i];
+      }
+
+  return NULL;
+}
+
+/* Similar to tree_to_aff_combination, but follows SSA name definitions
+   and expands them recursively.
+
+   FIXME -- the way this function is now defined, it may have exponential
+   time complexity.  */
+
+void
+tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb)
+{
+  unsigned i;
+  aff_tree to_add, current, curre;
+  tree e, def, rhs;
+  double_int scale;
+
+  tree_to_aff_combination (expr, type, comb);
+  aff_combination_zero (&to_add, type);
+  for (i = 0; i < comb->n; i++)
+    {
+      e = comb->elts[i].val;
+      if (TREE_CODE (e) != SSA_NAME)
+	continue;
+      def = SSA_NAME_DEF_STMT (e);
+      if (TREE_CODE (def) != MODIFY_EXPR
+	  || TREE_OPERAND (def, 0) != e)
+	continue;
+
+      rhs = TREE_OPERAND (def, 1);
+      if (TREE_CODE (rhs) != SSA_NAME
+	  && !EXPR_P (rhs)
+	  && !is_gimple_min_invariant (rhs))
+	continue;
+
+      /* Accumulate the new terms to TO_ADD, so that we do not modify
+	 COMB while traversing it.  */
+      scale = comb->elts[i].coef;
+      tree_to_aff_combination_expand (rhs, type, &current);
+      aff_combination_zero (&curre, type);
+      aff_combination_add_elt (&curre, e, double_int_neg (scale));
+      aff_combination_scale (&current, scale);
+      aff_combination_add (&to_add, &current);
+      aff_combination_add (&to_add, &curre);
+    }
+  aff_combination_add (comb, &to_add);
+}
+
 /* If VAL != CST * DIV for any constant CST, returns false.
    Otherwise, if VAL != 0 (and hence CST != 0), and *MULT_SET is true,
    additionally compares CST and MULT, and if they are different,
@@ -498,7 +499,7 @@ double_int_constant_multiple_p (double_int val, double_int div,
   if (double_int_zero_p (div))
     return false;
 
-  cst = double_int_sdiv (val, div, FLOOR_DIV_EXPR, &rem);
+  cst = double_int_sdivmod (val, div, FLOOR_DIV_EXPR, &rem);
   if (!double_int_zero_p (rem))
     return false;
 

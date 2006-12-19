@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:9:0
+libtool_VERSION=6:10:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -124,6 +124,7 @@ if test $atomicity_dir = cpu/generic/atomic_mutex ; then
   fi
 fi
 
+GLIBCXX_CHECK_COMPILER_FEATURES
 
 if $GLIBCXX_IS_NATIVE; then
 
@@ -135,7 +136,6 @@ if $GLIBCXX_IS_NATIVE; then
   machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
   sys/types.h sys/ipc.h sys/sem.h])
 
-  GLIBCXX_CHECK_COMPILER_FEATURES
   GLIBCXX_CHECK_LINKER_FEATURES
   GLIBCXX_CHECK_MATH_SUPPORT
   GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
@@ -210,7 +210,6 @@ else
   fi
 
   # Construct crosses by hand, eliminating bits that need ld...
-  # GLIBCXX_CHECK_COMPILER_FEATURES
   # GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   # GLIBCXX_CHECK_MATH_SUPPORT
 

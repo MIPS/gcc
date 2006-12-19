@@ -327,6 +327,15 @@
 /* libm includes floorl */
 #undef HAVE_FLOORL
 
+/* libm includes fmod */
+#undef HAVE_FMOD
+
+/* libm includes fmodf */
+#undef HAVE_FMODF
+
+/* libm includes fmodl */
+#undef HAVE_FMODL
+
 /* Define to 1 if you have the `fork' function. */
 #undef HAVE_FORK
 
@@ -390,6 +399,9 @@
 /* Define to 1 if you have the <ieeefp.h> header file. */
 #undef HAVE_IEEEFP_H
 
+/* Define to 1 if the system has the type `intptr_t'. */
+#undef HAVE_INTPTR_T
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -422,6 +434,15 @@
 
 /* Define to 1 if you have the `kill' function. */
 #undef HAVE_KILL
+
+/* libm includes ldexp */
+#undef HAVE_LDEXP
+
+/* libm includes ldexpf */
+#undef HAVE_LDEXPF
+
+/* libm includes ldexpl */
+#undef HAVE_LDEXPL
 
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
@@ -491,6 +512,9 @@
 
 /* libm includes scalbnl */
 #undef HAVE_SCALBNL
+
+/* Define to 1 if you have the `setmode' function. */
+#undef HAVE_SETMODE
 
 /* Define to 1 if you have the `signal' function. */
 #undef HAVE_SIGNAL

@@ -231,14 +231,16 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
 
   # Start by getting the version number.  I think the libtool test already
   # does some of this, but throws away the result.
-  AC_MSG_CHECKING([for ld version])
-  changequote(,)
-  ldver=`$LD --version 2>/dev/null | head -1 | \
-         sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
-  changequote([,])
-  glibcxx_gnu_ld_version=`echo $ldver | \
-         $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
-  AC_MSG_RESULT($glibcxx_gnu_ld_version)
+  if test x"$with_gnu_ld" = x"yes"; then
+    AC_MSG_CHECKING([for ld version])
+    changequote(,)
+    ldver=`$LD --version 2>/dev/null | head -1 | \
+           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+    changequote([,])
+    glibcxx_gnu_ld_version=`echo $ldver | \
+           $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
+    AC_MSG_RESULT($glibcxx_gnu_ld_version)
+  fi
 
   # Set --gc-sections.
   glibcxx_gcsections_min_ld=21602
@@ -324,20 +326,30 @@ AC_DEFUN([GLIBCXX_CHECK_ICONV_SUPPORT], [
   # Only continue checking if the ISO C99 headers exist and support is on.
   if test x"$enable_wchar_t" = xyes; then
 
+    # From Bruno Haible's AM_ICONV, but without link tests.
+    # Check for existence of libiconv.a providing XPG2 wchar_t support.
+    # Some systems have iconv in libc, some have it in libiconv (OSF/1 and
+    # those with the standalone portable GNU libiconv installed).
+    AC_ARG_WITH([libiconv-prefix],
+[  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [  for dir in `echo "$withval" | tr : ' '`; do
+      if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
+      if test -d $dir/lib; then LIBICONV="$LIBICONV -L$dir/lib"; fi
+    done
+    LIBICONV="$LIBICONV -liconv"
+   ])
+   if test x"$LIBICONV" != x; then
+     AC_MSG_NOTICE([--with-libiconv-prefix is $LIBICONV])
+   fi
+
     # Use iconv for wchar_t to char conversions. As such, check for
     # X/Open Portability Guide, version 2 features (XPG2).
     AC_CHECK_HEADER(iconv.h, ac_has_iconv_h=yes, ac_has_iconv_h=no)
     AC_CHECK_HEADER(langinfo.h, ac_has_langinfo_h=yes, ac_has_langinfo_h=no)
 
-    # Check for existence of libiconv.a providing XPG2 wchar_t support.
-    AC_CHECK_LIB(iconv, iconv, LIBICONV="-liconv")
     ac_save_LIBS="$LIBS"
     LIBS="$LIBS $LIBICONV"
-    AC_SUBST(LIBICONV)
-
     AC_CHECK_FUNCS([iconv_open iconv_close iconv nl_langinfo],
     [ac_XPG2funcs=yes], [ac_XPG2funcs=no])
-
     LIBS="$ac_save_LIBS"
 
     if test x"$ac_has_iconv_h" = xyes &&
@@ -347,6 +359,7 @@ AC_DEFUN([GLIBCXX_CHECK_ICONV_SUPPORT], [
       AC_DEFINE([_GLIBCXX_USE_ICONV],1,
 	        [Define if iconv and related functions exist and are usable.])
       enable_iconv=yes
+      AC_SUBST(LIBICONV)
     fi
   fi
   AC_MSG_CHECKING([for enabled iconv specializations])
@@ -653,8 +666,8 @@ dnl
 AC_DEFUN([GLIBCXX_EXPORT_FLAGS], [
   # Optimization flags that are probably a good idea for thrill-seekers. Just
   # uncomment the lines below and make, everything else is ready to go...
+  # Alternatively OPTIMIZE_CXXFLAGS can be set in configure.host.
   # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc
-  OPTIMIZE_CXXFLAGS=
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
   WARN_FLAGS='-Wall -Wextra -Wwrite-strings -Wcast-qual'
@@ -1959,7 +1972,7 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
 
   GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
-    glibcxx_PCHFLAGS="-include bits/stdc++.h"
+    glibcxx_PCHFLAGS="-include bits/stdtr1c++.h"
   else
     glibcxx_PCHFLAGS=""
   fi
@@ -2007,7 +2020,7 @@ int main()
 }
 EOF
     old_CXXFLAGS="$CXXFLAGS"
-    CXXFLAGS="$CXXFLAGS -S"
+    CXXFLAGS=-S
     if AC_TRY_EVAL(ac_compile); then
       if grep __sync_fetch_and_add conftest.s >/dev/null 2>&1 ; then
         enable_atomic_builtins=no
@@ -2158,7 +2171,7 @@ AC_REQUIRE([GLIBCXX_CHECK_LINKER_FEATURES])
 
 # Turn a 'yes' into a suitable default.
 if test x$enable_symvers = xyes ; then
-  if test $enable_shared = no || test "x$LD" = x ; then
+  if test $enable_shared = no || test "x$LD" = x || test x$gcc_no_link = xyes; then
     enable_symvers=no
   else
     if test $with_gnu_ld = yes ; then

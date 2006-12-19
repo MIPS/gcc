@@ -1,5 +1,5 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -153,14 +153,16 @@ cheap_bb_rtx_cost_p (basic_block bb, int max_cost)
 
 	  /* If this instruction is the load or set of a "stack" register,
 	     such as a floating point register on x87, then the cost of
-	     speculatively executing this instruction needs to include
-	     the additional cost of popping this register off of the
-	     register stack.  */
+	     speculatively executing this insn may need to include
+	     the additional cost of popping its result off of the
+	     register stack.  Unfortunately, correctly recognizing and
+	     accounting for this additional overhead is tricky, so for
+	     now we simply prohibit such speculative execution.  */
 #ifdef STACK_REGS
 	  {
 	    rtx set = single_set (insn);
 	    if (set && STACK_REG_P (SET_DEST (set)))
-	      cost += COSTS_N_INSNS (1);
+	      return false;
 	  }
 #endif
 
@@ -1327,15 +1329,14 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	return FALSE;
     }
   else
-    {
-      insn_cost = 0;
-    }
+    insn_cost = 0;
 
-  if (insn_b) {
-    insn_cost += insn_rtx_cost (PATTERN (insn_b));
-    if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
-      return FALSE;
-  }
+  if (insn_b)
+    {
+      insn_cost += insn_rtx_cost (PATTERN (insn_b));
+      if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
+        return FALSE;
+    }
 
   /* Possibly rearrange operands to make things come out more natural.  */
   if (reversed_comparison_code (if_info->cond, if_info->jump) != UNKNOWN)
@@ -1942,7 +1943,9 @@ noce_try_bitop (struct noce_if_info *if_info)
 	return FALSE;
       bitnum = INTVAL (XEXP (cond, 2));
       mode = GET_MODE (x);
-      if (bitnum >= HOST_BITS_PER_WIDE_INT)
+      if (BITS_BIG_ENDIAN)
+	bitnum = GET_MODE_BITSIZE (mode) - 1 - bitnum;
+      if (bitnum < 0 || bitnum >= HOST_BITS_PER_WIDE_INT)
 	return FALSE;
     }
   else
@@ -2422,7 +2425,7 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
       src = SET_SRC (set);
       if (!REG_P (dest)
 	  || (SMALL_REGISTER_CLASSES && HARD_REGISTER_P (dest)))
-	return false;
+	return FALSE;
 
       if (!CONSTANT_P (src) && !register_operand (src, VOIDmode))
 	return FALSE;
@@ -2431,6 +2434,14 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
 	return FALSE;
 
       if (may_trap_p (src) || may_trap_p (dest))
+	return FALSE;
+
+      /* Don't try to handle this if the source register was
+	 modified earlier in the block.  */
+      if ((REG_P (src)
+	   && vals[REGNO (src)] != NULL)
+	  || (GET_CODE (src) == SUBREG && REG_P (SUBREG_REG (src))
+	      && vals[REGNO (SUBREG_REG (src))] != NULL))
 	return FALSE;
 
       /* Don't try to handle this if the destination register was
@@ -3558,6 +3569,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
   head = BB_HEAD (merge_bb);
   end = BB_END (merge_bb);
 
+  /* If merge_bb ends with a tablejump, predicating/moving insn's
+     into test_bb and then deleting merge_bb will result in the jumptable
+     that follows merge_bb being removed along with merge_bb and then we
+     get an unresolved reference to the jumptable.  */
+  if (tablejump_p (end, NULL, NULL))
+    return FALSE;
+
   if (LABEL_P (head))
     head = NEXT_INSN (head);
   if (NOTE_P (head))
@@ -3755,7 +3773,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
+      redirect_jump_2 (jump, old_dest, new_label, 0, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3836,11 +3854,12 @@ if_convert (int x_life_data_ok)
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
     {
-      struct loops loops;
-
-      flow_loops_find (&loops);
-      mark_loop_exit_edges (&loops);
-      flow_loops_free (&loops);
+      loop_optimizer_init (0);
+      if (current_loops)
+	{
+	  mark_loop_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
       free_dominance_info (CDI_DOMINATORS);
     }
 

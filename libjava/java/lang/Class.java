@@ -40,6 +40,7 @@ package java.lang;
 
 import java.io.InputStream;
 import java.io.Serializable;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericDeclaration;
@@ -949,6 +950,23 @@ public final class Class implements Type, GenericDeclaration, Serializable
   }
 
   /**
+   * Returns all annotations directly defined by this class.  If there are
+   * no annotations associated with this class, then a zero-length array
+   * will be returned.  The returned array may be modified by the client
+   * code, but this will have no effect on the annotation content of this
+   * class, and hence no effect on the return value of this method for
+   * future callers.
+   *
+   * @return the annotations directly defined by this class.
+   * @since 1.5
+   */
+  public Annotation[] getDeclaredAnnotations()
+  {
+    // FIXME write real implementation
+    return new Annotation[0];
+  }
+
+  /**
    * Returns the class which immediately encloses this class.  If this class
    * is a top-level class, this method returns <code>null</code>.
    *
@@ -1016,4 +1034,17 @@ public final class Class implements Type, GenericDeclaration, Serializable
     // FIXME - provide real implementation.
     return new TypeVariable[0];
   }
+
+  /**
+   * Returns true if this class is an <code>Enum</code>.
+   *
+   * @return true if this is an enumeration class.
+   * @since 1.5
+   */
+  public boolean isEnum()
+  {
+    // FIXME - provide real implementation.
+    return false;
+  }
+
 }

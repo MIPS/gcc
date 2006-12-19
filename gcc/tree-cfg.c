@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
+#include "value-prof.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -314,8 +315,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build2 (MODIFY_EXPR, ptr_type_node,
-			       var, GOTO_DESTINATION (last));
+	  assignment = build2_gimple (GIMPLE_MODIFY_STMT,
+			              var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -489,9 +490,8 @@ make_edges (void)
 	      /* If this function receives a nonlocal goto, then we need to
 		 make edges from this call site to all the nonlocal goto
 		 handlers.  */
-	      if (TREE_SIDE_EFFECTS (last)
-		  && current_function_has_nonlocal_label)
-		make_goto_expr_edges (bb);
+	      if (tree_can_make_abnormal_goto (last))
+		make_abnormal_goto_edges (bb, true);
 
 	      /* If this statement has reachable exception handlers, then
 		 create abnormal edges to them.  */
@@ -502,15 +502,16 @@ make_edges (void)
 	      break;
 
 	    case MODIFY_EXPR:
+	      gcc_unreachable ();
+
+	    case GIMPLE_MODIFY_STMT:
 	      if (is_ctrl_altering_stmt (last))
 		{
-		  /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the
-		     CALL_EXPR may have an abnormal edge.  Search the RHS for
-		     this case and create any required edges.  */
-		  tree op = get_call_expr_in (last);
-		  if (op && TREE_SIDE_EFFECTS (op)
-		      && current_function_has_nonlocal_label)
-		    make_goto_expr_edges (bb);
+		  /* A GIMPLE_MODIFY_STMT may have a CALL_EXPR on its RHS and
+		     the CALL_EXPR may have an abnormal edge.  Search the RHS
+		     for this case and create any required edges.  */
+		  if (tree_can_make_abnormal_goto (last))
+		    make_abnormal_goto_edges (bb, true);  
 
 		  make_eh_edges (last);
 		}
@@ -836,76 +837,60 @@ label_to_block_fn (struct function *ifun, tree dest)
   return VEC_index (basic_block, ifun->cfg->x_label_to_block_map, uid);
 }
 
+/* Create edges for an abnormal goto statement at block BB.  If FOR_CALL
+   is true, the source statement is a CALL_EXPR instead of a GOTO_EXPR.  */
+
+void
+make_abnormal_goto_edges (basic_block bb, bool for_call)
+{
+  basic_block target_bb;
+  block_stmt_iterator bsi;
+
+  FOR_EACH_BB (target_bb)
+    for (bsi = bsi_start (target_bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree target = bsi_stmt (bsi);
+
+	if (TREE_CODE (target) != LABEL_EXPR)
+	  break;
+
+	target = LABEL_EXPR_LABEL (target);
+
+	/* Make an edge to every label block that has been marked as a
+	   potential target for a computed goto or a non-local goto.  */
+	if ((FORCED_LABEL (target) && !for_call)
+	    || (DECL_NONLOCAL (target) && for_call))
+	  {
+	    make_edge (bb, target_bb, EDGE_ABNORMAL);
+	    break;
+	  }
+      }
+}
+
 /* Create edges for a goto statement at block BB.  */
 
 static void
 make_goto_expr_edges (basic_block bb)
 {
-  tree goto_t;
-  basic_block target_bb;
-  bool for_call;
   block_stmt_iterator last = bsi_last (bb);
+  tree goto_t = bsi_stmt (last);
 
-  goto_t = bsi_stmt (last);
-
-  /* If the last statement is not a GOTO (i.e., it is a RETURN_EXPR,
-     CALL_EXPR or MODIFY_EXPR), then the edge is an abnormal edge resulting
-     from a nonlocal goto.  */
-  if (TREE_CODE (goto_t) != GOTO_EXPR)
-    for_call = true;
-  else
+  /* A simple GOTO creates normal edges.  */
+  if (simple_goto_p (goto_t))
     {
       tree dest = GOTO_DESTINATION (goto_t);
-      for_call = false;
-
-      /* A GOTO to a local label creates normal edges.  */
-      if (simple_goto_p (goto_t))
-	{
-	  edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
+      edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
 #ifdef USE_MAPPED_LOCATION
-	  e->goto_locus = EXPR_LOCATION (goto_t);
+      e->goto_locus = EXPR_LOCATION (goto_t);
 #else
-	  e->goto_locus = EXPR_LOCUS (goto_t);
+      e->goto_locus = EXPR_LOCUS (goto_t);
 #endif
-	  bsi_remove (&last, true);
-	  return;
-	}
-
-      /* Nothing more to do for nonlocal gotos.  */
-      if (TREE_CODE (dest) == LABEL_DECL)
-	return;
-
-      /* Computed gotos remain.  */
+      bsi_remove (&last, true);
+      return;
     }
 
-  /* Look for the block starting with the destination label.  In the
-     case of a computed goto, make an edge to any label block we find
-     in the CFG.  */
-  FOR_EACH_BB (target_bb)
-    {
-      block_stmt_iterator bsi;
-
-      for (bsi = bsi_start (target_bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  tree target = bsi_stmt (bsi);
-
-	  if (TREE_CODE (target) != LABEL_EXPR)
-	    break;
-
-	  if (
-	      /* Computed GOTOs.  Make an edge to every label block that has
-		 been marked as a potential target for a computed goto.  */
-	      (FORCED_LABEL (LABEL_EXPR_LABEL (target)) && !for_call)
-	      /* Nonlocal GOTO target.  Make an edge to every label block
-		 that has been marked as a potential target for a nonlocal
-		 goto.  */
-	      || (DECL_NONLOCAL (LABEL_EXPR_LABEL (target)) && for_call))
-	    {
-	      make_edge (bb, target_bb, EDGE_ABNORMAL);
-	      break;
-	    }
-	}
-    }
+  /* A computed GOTO creates abnormal edges.  */
+  make_abnormal_goto_edges (bb, false);
 }
 
 
@@ -1219,11 +1204,13 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
     return false;
 
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
-     is not up-to-date, we cannot eliminate any phis.  */
+     is not up-to-date, we cannot eliminate any phis; however, if only
+     some symbols as whole are marked for renaming, this is not a problem,
+     as phi nodes for those symbols are irrelevant in updating anyway.  */
   phi = phi_nodes (b);
   if (phi)
     {
-      if (need_ssa_update_p ())
+      if (name_mappings_registered_p ())
 	return false;
 
       for (; phi; phi = PHI_CHAIN (phi))
@@ -1259,11 +1246,12 @@ replace_uses_by (tree name, tree val)
   use_operand_p use;
   tree stmt;
   edge e;
-  unsigned i;
-
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, name)
     {
+      if (TREE_CODE (stmt) != PHI_NODE)
+	push_stmt_changes (&stmt);
+
       FOR_EACH_IMM_USE_ON_STMT (use, imm_iter)
         {
 	  replace_exp (use, val);
@@ -1281,32 +1269,35 @@ replace_uses_by (tree name, tree val)
 		}
 	    }
 	}
+
       if (TREE_CODE (stmt) != PHI_NODE)
 	{
 	  tree rhs;
 
 	  fold_stmt_inplace (stmt);
+
+	  /* FIXME.  This should go in pop_stmt_changes.  */
 	  rhs = get_rhs (stmt);
 	  if (TREE_CODE (rhs) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr (rhs);
 
 	  maybe_clean_or_replace_eh_stmt (stmt, stmt);
-	  mark_new_vars_to_rename (stmt);
+
+	  pop_stmt_changes (&stmt);
 	}
     }
 
-  gcc_assert (num_imm_uses (name) == 0);
+  gcc_assert (zero_imm_uses_p (name));
 
   /* Also update the trees stored in loop structures.  */
   if (current_loops)
     {
       struct loop *loop;
+      loop_iterator li;
 
-      for (i = 0; i < current_loops->num; i++)
+      FOR_EACH_LOOP (li, loop, 0)
 	{
-	  loop = current_loops->parray[i];
-	  if (loop)
-	    substitute_in_loop_info (loop, name, val);
+	  substitute_in_loop_info (loop, name, val);
 	}
     }
 }
@@ -1348,15 +1339,14 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     with ordering of phi nodes.  This is because A is the single
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
-	  copy = build2 (MODIFY_EXPR, void_type_node, def, use);
+	  copy = build2_gimple (GIMPLE_MODIFY_STMT, def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
-	  SET_PHI_RESULT (phi, NULL_TREE);
 	  SSA_NAME_DEF_STMT (def) = copy;
 	}
       else
 	replace_uses_by (def, use);
 
-      remove_phi_node (phi, NULL);
+      remove_phi_node (phi, NULL, false);
     }
 
   /* Ensure that B follows A.  */
@@ -1577,9 +1567,9 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
       else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
 	{
 	  if (else_stmt
-	      && TREE_CODE (else_stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (else_stmt, 0) == cond
-	      && integer_zerop (TREE_OPERAND (else_stmt, 1)))
+	      && TREE_CODE (else_stmt) == GIMPLE_MODIFY_STMT
+	      && GIMPLE_STMT_OPERAND (else_stmt, 0) == cond
+	      && integer_zerop (GIMPLE_STMT_OPERAND (else_stmt, 1)))
 	    COND_EXPR_ELSE (*stmt_p) = alloc_stmt_list ();
 	}
       else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
@@ -1594,9 +1584,9 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 			    : &COND_EXPR_ELSE (*stmt_p));
 
 	  if (stmt
-	      && TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
-	      && TREE_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
+	      && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && GIMPLE_STMT_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
+	      && GIMPLE_STMT_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
 	    *location = alloc_stmt_list ();
 	}
     }
@@ -1889,6 +1879,9 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       break;
 
     case MODIFY_EXPR:
+      gcc_unreachable ();
+
+    case GIMPLE_MODIFY_STMT:
       data->last_goto = NULL;
       fold_stmt (tp);
       op = get_call_expr_in (t);
@@ -1984,7 +1977,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   while (phi)
     {
       tree next = PHI_CHAIN (phi);
-      remove_phi_node (phi, NULL_TREE);
+      remove_phi_node (phi, NULL_TREE, true);
       phi = next;
     }
 
@@ -2016,24 +2009,15 @@ remove_bb (basic_block bb)
 	}
     }
 
-  /* If we remove the header or the latch of a loop, mark the loop for
-     removal by setting its header and latch to NULL.  */
   if (current_loops)
     {
       struct loop *loop = bb->loop_father;
 
+      /* If a loop gets removed, clean up the information associated
+	 with it.  */
       if (loop->latch == bb
 	  || loop->header == bb)
-	{
-	  loop->latch = NULL;
-	  loop->header = NULL;
-
-	  /* Also clean up the information associated with the loop.  Updating
-	     it would waste time. More importantly, it may refer to ssa
-	     names that were defined in other removed basic block -- these
-	     ssa names are now removed and invalid.  */
-	  free_numbers_of_iterations_estimates_loop (loop);
-	}
+	free_numbers_of_iterations_estimates_loop (loop);
     }
 
   /* Remove all the instructions in the block.  */
@@ -2067,7 +2051,7 @@ remove_bb (basic_block bb)
 	     may be called when not in SSA.  For example,
 	     final_cleanup calls this function via
 	     cleanup_tree_cfg.  */
-	  if (in_ssa_p)
+	  if (gimple_in_ssa_p (cfun))
 	    release_defs (stmt);
 
 	  bsi_remove (&i, true);
@@ -2247,7 +2231,7 @@ find_case_label_for_value (tree switch_expr, tree val)
 void
 tree_dump_bb (basic_block bb, FILE *outf, int indent)
 {
-  dump_generic_bb (outf, bb, indent, TDF_VOPS);
+  dump_generic_bb (outf, bb, indent, TDF_VOPS|TDF_MEMSYMS);
 }
 
 
@@ -2517,13 +2501,31 @@ computed_goto_p (tree t)
 }
 
 
-/* Checks whether EXPR is a simple local goto.  */
+/* Return true if T is a simple local goto.  */
 
 bool
-simple_goto_p (tree expr)
+simple_goto_p (tree t)
 {
-  return (TREE_CODE (expr) == GOTO_EXPR
-	  && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL);
+  return (TREE_CODE (t) == GOTO_EXPR
+	  && TREE_CODE (GOTO_DESTINATION (t)) == LABEL_DECL);
+}
+
+
+/* Return true if T can make an abnormal transfer of control flow.
+   Transfers of control flow associated with EH are excluded.  */
+
+bool
+tree_can_make_abnormal_goto (tree t)
+{
+  if (computed_goto_p (t))
+    return true;
+  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
+    t = GIMPLE_STMT_OPERAND (t, 1);
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
+    t = TREE_OPERAND (t, 0);
+  if (TREE_CODE (t) == CALL_EXPR)
+    return TREE_SIDE_EFFECTS (t) && current_function_has_nonlocal_label;
+  return false;
 }
 
 
@@ -2870,7 +2872,10 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
   tsi_delink (&i->tsi);
   mark_stmt_modified (t);
   if (remove_eh_info)
-    remove_stmt_from_eh_region (t);
+    {
+      remove_stmt_from_eh_region (t);
+      gimple_remove_stmt_histograms (cfun, t);
+    }
 }
 
 
@@ -2933,6 +2938,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
 	{
 	  remove_stmt_from_eh_region (orig_stmt);
 	  add_stmt_to_eh_region (stmt, eh_region);
+	  gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
+          gimple_remove_stmt_histograms (cfun, orig_stmt);
 	}
     }
 
@@ -3020,9 +3027,9 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 	  tree op = TREE_OPERAND (tmp, 0);
 	  if (op && !is_gimple_val (op))
 	    {
-	      gcc_assert (TREE_CODE (op) == MODIFY_EXPR);
+	      gcc_assert (TREE_CODE (op) == GIMPLE_MODIFY_STMT);
 	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
-	      TREE_OPERAND (tmp, 0) = TREE_OPERAND (op, 0);
+	      TREE_OPERAND (tmp, 0) = GIMPLE_STMT_OPERAND (op, 0);
 	    }
 	  bsi_prev (bsi);
 	  return true;
@@ -3241,7 +3248,10 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case MODIFY_EXPR:
-      x = TREE_OPERAND (t, 0);
+      gcc_unreachable ();
+
+    case GIMPLE_MODIFY_STMT:
+      x = GIMPLE_STMT_OPERAND (t, 0);
       if (TREE_CODE (x) == BIT_FIELD_REF
 	  && is_gimple_reg (TREE_OPERAND (x, 0)))
 	{
@@ -3330,9 +3340,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
     case FLOAT_EXPR:
     case NEGATE_EXPR:
     case ABS_EXPR:
@@ -3421,6 +3428,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case BIT_AND_EXPR:
       CHECK_OP (0, "invalid operand to binary operator");
       CHECK_OP (1, "invalid operand to binary operator");
+      break;
+
+    case CONSTRUCTOR:
+      if (TREE_CONSTANT (t) && TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	*walk_subtrees = 0;
       break;
 
     default:
@@ -3543,6 +3555,35 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 }
 
 
+/* Helper function for verify_gimple_tuples.  */
+
+static tree
+verify_gimple_tuples_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			 void *data ATTRIBUTE_UNUSED)
+{
+  switch (TREE_CODE (*tp))
+    {
+    case MODIFY_EXPR:
+      error ("unexpected non-tuple");
+      debug_tree (*tp);
+      gcc_unreachable ();
+      return NULL_TREE;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Verify that there are no trees that should have been converted to
+   gimple tuples.  Return true if T contains a node that should have
+   been converted to a gimple tuple, but hasn't.  */
+
+static bool
+verify_gimple_tuples (tree t)
+{
+  return walk_tree (&t, verify_gimple_tuples_1, NULL, NULL) != NULL;
+}
+
 /* Verify the GIMPLE statement chain.  */
 
 void
@@ -3611,6 +3652,8 @@ verify_stmts (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
+	  err |= verify_gimple_tuples (stmt);
+
 	  if (bb_for_stmt (stmt) != bb)
 	    {
 	      error ("bb_for_stmt (stmt) is set to a wrong basic block");
@@ -3634,6 +3677,7 @@ verify_stmts (void)
     internal_error ("verify_stmts failed");
 
   htab_delete (htab);
+  verify_histograms ();
   timevar_pop (TV_TREE_STMT_VERIFY);
 }
 
@@ -3752,6 +3796,19 @@ tree_verify_flow_info (void)
 	    if (e->flags & EDGE_FALLTHRU)
 	      {
 		error ("fallthru edge after a control statement in bb %d",
+		       bb->index);
+		err = 1;
+	      }
+	}
+
+      if (TREE_CODE (stmt) != COND_EXPR)
+	{
+	  /* Verify that there are no edges with EDGE_TRUE/FALSE_FLAG set
+	     after anything else but if statement.  */
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    if (e->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE))
+	      {
+		error ("true/false edge after a non-COND_EXPR in bb %d",
 		       bb->index);
 		err = 1;
 	      }
@@ -3953,7 +4010,7 @@ tree_make_forwarder_block (edge fallthru)
   if (single_pred_p (bb))
     return;
 
-  /* If we redirected a branch we must create new phi nodes at the
+  /* If we redirected a branch we must create new PHI nodes at the
      start of BB.  */
   for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
@@ -4059,7 +4116,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   edge ret;
   tree label, stmt;
 
-  if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
+  if (e->flags & EDGE_ABNORMAL)
     return NULL;
 
   if (e->src != ENTRY_BLOCK_PTR
@@ -4292,6 +4349,7 @@ tree_duplicate_bb (basic_block bb)
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
 	add_stmt_to_eh_region (copy, region);
+      gimple_duplicate_stmt_histograms (cfun, copy, cfun, stmt);
 
       /* Create new names for all the definitions created by COPY and
 	 add replacement mappings for each new name.  */
@@ -4564,7 +4622,8 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
   struct move_stmt_d *p = (struct move_stmt_d *) data;
   tree t = *tp;
 
-  if (p->block && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
+  if (p->block
+      && (EXPR_P (t) || GIMPLE_STMT_P (t)))
     TREE_BLOCK (t) = p->block;
 
   if (OMP_DIRECTIVE_P (t)
@@ -4734,6 +4793,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	{
 	  add_stmt_to_eh_region_fn (dest_cfun, stmt, region + eh_offset);
 	  remove_stmt_from_eh_region (stmt);
+	  gimple_duplicate_stmt_histograms (dest_cfun, stmt, cfun, stmt);
+          gimple_remove_stmt_histograms (cfun, stmt);
 	}
     }
 }
@@ -5361,6 +5422,41 @@ tree_flow_call_edges_add (sbitmap blocks)
   return blocks_split;
 }
 
+/* Purge dead abnormal call edges from basic block BB.  */
+
+bool
+tree_purge_dead_abnormal_call_edges (basic_block bb)
+{
+  bool changed = tree_purge_dead_eh_edges (bb);
+
+  if (current_function_has_nonlocal_label)
+    {
+      tree stmt = last_stmt (bb);
+      edge_iterator ei;
+      edge e;
+
+      if (!(stmt && tree_can_make_abnormal_goto (stmt)))
+	for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+	  {
+	    if (e->flags & EDGE_ABNORMAL)
+	      {
+		remove_edge (e);
+		changed = true;
+	      }
+	    else
+	      ei_next (&ei);
+	  }
+
+      /* See tree_purge_dead_eh_edges below.  */
+      if (changed)
+	free_dominance_info (CDI_DOMINATORS);
+    }
+
+  return changed;
+}
+
+/* Purge dead EH edges from basic block BB.  */
+
 bool
 tree_purge_dead_eh_edges (basic_block bb)
 {
@@ -5597,15 +5693,15 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build2 (MODIFY_EXPR, type, t, exp);
+  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));
   TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
 
   bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-  if (in_ssa_p)
-    mark_new_vars_to_rename (new_stmt);
+  if (gimple_in_ssa_p (cfun))
+    mark_symbols_for_renaming (new_stmt);
 
   return t;
 }

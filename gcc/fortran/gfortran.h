@@ -33,7 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "intl.h"
 #include "coretypes.h"
 #include "input.h"
-
+#include "splay-tree.h"
 /* The following ifdefs are recommended by the autoconf documentation
    for any code using alloca.  */
 
@@ -55,10 +55,12 @@ char *alloca ();
 
 /* Major control parameters.  */
 
-#define GFC_MAX_SYMBOL_LEN 63
-#define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
+#define GFC_MAX_SYMBOL_LEN 63   /* Must be at least 63 for F2003.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
+
+#define MAX_SUBRECORD_LENGTH 2147483639   /* 2**31-9 */
+
 
 #define free(x) Use_gfc_free_instead_of_free()
 #define gfc_is_whitespace(c) ((c==' ') || (c=='\t'))
@@ -222,7 +224,7 @@ typedef enum
   ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
   ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
   ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION, ST_GOTO,
-  ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_INQUIRE, ST_INTERFACE,
+  ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_IMPORT, ST_INQUIRE, ST_INTERFACE,
   ST_PARAMETER, ST_MODULE, ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN,
   ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND,
   ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE,
@@ -477,14 +479,16 @@ typedef struct
 {
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
-    optional:1, pointer:1, save:1, target:1,
+    optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
     dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
-    use_assoc:1;		/* Symbol has been use-associated.  */
+    protected:1,		/* Symbol has been marked as protected.  */
+    use_assoc:1,		/* Symbol has been use-associated.  */
+    use_only:1;			/* Symbol has been use-associated, with ONLY.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
-  unsigned function:1, subroutine:1, generic:1;
+  unsigned function:1, subroutine:1, generic:1, generic_copy:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
 
@@ -516,6 +520,9 @@ typedef struct
      modification of type or type parameters is permitted.  */
   unsigned referenced:1;
 
+  /* Set if the symbol has ambiguous interfaces.  */
+  unsigned ambiguous_interfaces:1;
+
   /* Set if the is the symbol for the main program.  This is the least
      cumbersome way to communicate this function property without
      strcmp'ing with __MAIN everywhere.  */
@@ -532,6 +539,9 @@ typedef struct
   /* Special attributes for Cray pointers, pointees.  */
   unsigned cray_pointer:1, cray_pointee:1;
 
+  /* The symbol is a derived type with allocatable components, possibly nested.
+   */
+  unsigned alloc_comp:1;
 }
 symbol_attribute;
 
@@ -649,7 +659,7 @@ typedef struct gfc_component
   const char *name;
   gfc_typespec ts;
 
-  int pointer, dimension;
+  int pointer, allocatable, dimension;
   gfc_array_spec *as;
 
   tree backend_decl;
@@ -1005,6 +1015,9 @@ typedef struct gfc_namespace
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
+
+  /* Set to 1 if namespace is an interface body with "IMPORT" used.  */
+  int has_import_set;
 }
 gfc_namespace;
 
@@ -1243,6 +1256,8 @@ typedef struct gfc_expr
   /* True if the expression is a call to a function that returns an array,
      and if we have decided not to allocate temporary data for that array.  */
   unsigned int inline_noncopying_intrinsic : 1;
+  /* Used to quickly find a given constructor by it's offset.  */
+  splay_tree con_by_offset;
 
   union
   {
@@ -1299,7 +1314,7 @@ gfc_expr;
 typedef struct
 {
   /* Values really representable by the target.  */
-  mpz_t huge, pedantic_min_int, min_int, max_int;
+  mpz_t huge, pedantic_min_int, min_int;
 
   int kind, radix, digits, bit_size, range;
 
@@ -1465,7 +1480,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert, *strm_pos;
 
   gfc_st_label *err;
 
@@ -1500,7 +1515,7 @@ typedef enum
 {
   EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
   EXEC_GOTO, EXEC_CALL, EXEC_ASSIGN_CALL, EXEC_RETURN, EXEC_ENTRY,
-  EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
+  EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE, EXEC_INIT_ASSIGN,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
   EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
@@ -1599,20 +1614,18 @@ typedef struct
 {
   char *module_dir;
   gfc_source_form source_form;
-  /* When fixed_line_length or free_line_length are 0, the whole line is used.
-
-     Default is -1, the maximum line length mandated by the respective source
-     form is used:
-     for FORM_FREE GFC_MAX_LINE (132)
-     else 72.
-
-     If fixed_line_length or free_line_length is not 0 nor -1 then the user has
-     requested a specific line-length.
+  /* Maximum line lengths in fixed- and free-form source, respectively.
+     When fixed_line_length or free_line_length are 0, the whole line is used,
+     regardless of length.
 
      If the user requests a fixed_line_length <7 then gfc_init_options()
      emits a fatal error.  */
-  int fixed_line_length; /* maximum line length in fixed-form.  */
-  int free_line_length; /* maximum line length in free-form.  */
+  int fixed_line_length;
+  int free_line_length;
+  /* Maximum number of continuation lines in fixed- and free-form source,
+     respectively.  */
+  int max_continue_fixed;
+  int max_continue_free;
   int max_identifier_length;
   int verbose;
 
@@ -1624,7 +1637,7 @@ typedef struct
   int warn_surprising;
   int warn_tabs;
   int warn_underflow;
-  int warn_unused_labels;
+  int max_errors;
 
   int flag_all_intrinsics;
   int flag_default_double;
@@ -1635,8 +1648,6 @@ typedef struct
   int flag_second_underscore;
   int flag_implicit_none;
   int flag_max_stack_var_size;
-  int flag_module_access_private;
-  int flag_no_backend;
   int flag_range_check;
   int flag_pack_derived;
   int flag_repack_arrays;
@@ -1644,11 +1655,11 @@ typedef struct
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
+  int flag_external_blas;
+  int blas_matmul_limit;
   int flag_cray_pointer;
   int flag_d_lines;
   int flag_openmp;
-
-  int q_kind;
 
   int fpe;
 
@@ -1658,11 +1669,11 @@ typedef struct
   int fshort_enums;
   int convert;
   int record_marker;
+  int max_subrecord_length;
 }
 gfc_option_t;
 
 extern gfc_option_t gfc_option;
-
 
 /* Constructor nodes for array and structure constructors.  */
 typedef struct gfc_constructor
@@ -1706,9 +1717,11 @@ void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 void gfc_scanner_done_1 (void);
 void gfc_scanner_init_1 (void);
 
-void gfc_add_include_path (const char *);
+void gfc_add_include_path (const char *, bool);
+void gfc_add_intrinsic_modules_path (const char *);
 void gfc_release_include_path (void);
-FILE *gfc_open_included_file (const char *, bool);
+FILE *gfc_open_included_file (const char *, bool, bool);
+FILE *gfc_open_intrinsic_module (const char *);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -1782,6 +1795,7 @@ void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_clear_error (void);
 int gfc_error_check (void);
+int gfc_error_flag_test (void);
 
 notification gfc_notification_std (int);
 try gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
@@ -1816,7 +1830,9 @@ extern int gfc_default_character_kind;
 extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
 extern int gfc_c_int_kind;
-extern int gfc_large_io_int_kind;
+extern int gfc_intio_kind;
+extern int gfc_numeric_storage_size;
+extern int gfc_character_storage_size;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
@@ -1832,7 +1848,7 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
-try gfc_add_attribute (symbol_attribute *, locus *, unsigned int);
+try gfc_add_attribute (symbol_attribute *, locus *);
 try gfc_add_allocatable (symbol_attribute *, locus *);
 try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
@@ -1842,6 +1858,7 @@ try gfc_add_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointee (symbol_attribute *, locus *);
 try gfc_mod_pointee_as (gfc_array_spec *as);
+try gfc_add_protected (symbol_attribute *, const char *, locus *);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
@@ -1860,6 +1877,8 @@ try gfc_add_pure (symbol_attribute *, locus *);
 try gfc_add_recursive (symbol_attribute *, locus *);
 try gfc_add_function (symbol_attribute *, const char *, locus *);
 try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
+try gfc_add_value (symbol_attribute *, const char *, locus *);
+try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
 try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
@@ -1938,6 +1957,7 @@ try gfc_convert_type_warn (gfc_expr *, gfc_typespec *, int, int);
 int gfc_generic_intrinsic (const char *);
 int gfc_specific_intrinsic (const char *);
 int gfc_intrinsic_name (const char *, int);
+int gfc_intrinsic_actual_ok (const char *, const bool);
 gfc_intrinsic_sym *gfc_find_function (const char *);
 
 match gfc_intrinsic_func_interface (gfc_expr *, int);
@@ -1969,6 +1989,7 @@ void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
 void gfc_free_actual_arglist (gfc_actual_arglist *);
 gfc_actual_arglist *gfc_copy_actual_arglist (gfc_actual_arglist *);
 const char *gfc_extract_int (gfc_expr *, int *);
+gfc_expr *gfc_expr_to_initialize (gfc_expr *);
 
 gfc_expr *gfc_build_conversion (gfc_expr *);
 void gfc_free_ref_list (gfc_ref *);
@@ -2103,7 +2124,20 @@ void gfc_insert_bbt (void *, void *, compare_fn);
 void gfc_delete_bbt (void *, void *, compare_fn);
 
 /* dump-parse-tree.c */
+void gfc_show_actual_arglist (gfc_actual_arglist *);
+void gfc_show_array_ref (gfc_array_ref *);
+void gfc_show_array_spec (gfc_array_spec *);
+void gfc_show_attr (symbol_attribute *);
+void gfc_show_code (int, gfc_code *);
+void gfc_show_components (gfc_symbol *);
+void gfc_show_constructor (gfc_constructor *);
+void gfc_show_equiv (gfc_equiv *);
+void gfc_show_expr (gfc_expr *);
+void gfc_show_namelist (gfc_namelist *);
 void gfc_show_namespace (gfc_namespace *);
+void gfc_show_ref (gfc_ref *);
+void gfc_show_symbol (gfc_symbol *);
+void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */
 try gfc_parse_file (void);

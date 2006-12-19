@@ -1,3 +1,68 @@
+2006-11-12  Jan Hubicka  <jh@suse.cz>
+
+	* resource.c (compile_resource_data): Update for new varpool names.
+	* java/class.c (build_utf8_ref): Likewise.
+
+2006-11-12  David Daney  <ddaney@avtrex.com>
+
+	PR java/29805
+	* typeck.c (build_java_array_type): Increase buffer sizes.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* check-init.c (check_init): Remove handling of FIX_CEIL_EXPR,
+	FIX_FLOOR_EXPR and FIX_ROUND_EXPR.
+
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* decl.c: Include langhooks.h.
+	(builtin_function): Remove.
+	(java_init_decl_processing): Replace calls to builtin_function
+	with add_builtin_function.
+	* Make-lang.in (jc1$(exeext)): Depend on and link with attribs.o.
+	(java/decl.o): Depend on langhooks.h.
+	* java-tree.h (builtin_function): Remove.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "java.pdf", "gcj.pdf" target support.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (push_value): Always flush quick stack.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/29013:
+	* jcf-write.c (generate_bytecode_insns) <CALL_EXPR>: Always note
+	the push of the called method's return result.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (lang_specific_driver): Read spec file even if
+	-fsyntax-only.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28754:
+	* expr.c (expand_java_field_op): Initialize field's declaring
+	interface if necessary.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28892:
+	* expr.c (expand_java_field_op): No error for assignments not in
+	class initializer or constructor.
+
+2006-08-22  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (java_add_stmt): Give the statement list a type.
+
+2006-08-16  Jakub Jelinek  <jakub@redhat.com>
+	    Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* jvspec.c (lang_specific_driver): Add -s-bc-abi when needed.
+
 2006-08-10  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR java/8923
@@ -38,8 +103,8 @@
 
 2006-06-19  Andrew Haley  <aph@redhat.com>
 
-        PR java/1305
-        PR java/27908
+	PR java/1305
+	PR java/27908
 	* expr.c (java_modify_addr_for_volatile): New function.
 	(expand_java_field_op): Handle volatile fields.
 	* java-gimplify.c (java_gimplify_component_ref): Call
@@ -352,7 +417,7 @@
 	PR java/25535
 	* constants.c (build_constants_constructor): move initializer into
 	first halfword on a 64-bit big-endian machine.
- 
+
 2006-02-04  Tom Tromey  <tromey@redhat.com>
 
 	PR java/25676:
@@ -511,7 +576,7 @@
 
 2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
 
-        * gcj.texi (gij options): Add -Xss documentation.
+	* gcj.texi (gij options): Add -Xss documentation.
 
 2005-11-08  Wil Mahan  <wmahan@gmail.com>
 
@@ -760,7 +825,7 @@
 
 2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
 
-        PR java/21045
+	PR java/21045
 	* parse.y (add_exception_to_throws): New function.
 	(purge_unchecked_exceptions): Removed.
 	(get_constructor_super): Renamed from verify_constructor_super. Now
@@ -772,9 +837,9 @@
 
 2005-07-05  Bryce McKinlay  <mckinlay@redhat.com>
 
-        PR java/19674
-        * parse.y (interface_member_declaration): Allow empty statements in
-        interface declarations.
+	PR java/19674
+	* parse.y (interface_member_declaration): Allow empty statements in
+	interface declarations.
 
 2005-07-05  Paolo Bonzini  <bonzini@gnu.org>
 
@@ -3480,7 +3545,7 @@
 2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* check-init.c (check_init): Handle binops UNLT_EXPR, UNLE_EXPR,
-    	UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, and LTGT_EXPR.
+	UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, and LTGT_EXPR.
 
 2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
 
@@ -9764,8 +9829,8 @@
 
 2000-10-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
-       * parse.h (INNER_ENCLOSING_SCOPE_CHECK): Check inherited type in
-       scope.
+	* parse.h (INNER_ENCLOSING_SCOPE_CHECK): Check inherited type in
+	scope.
 
 2000-10-24  Tom Tromey  <tromey@cygnus.com>
 
@@ -10971,8 +11036,8 @@
 
 2000-05-23  Bryce McKinlay  <bryce@albatross.co.nz>
 
-       * parse.y (patch_method_invocation): Don't try to lookup methods
-       in primitive types.
+	* parse.y (patch_method_invocation): Don't try to lookup methods
+	in primitive types.
 
 2000-05-02  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
@@ -14544,7 +14609,7 @@
 
 	* jcf-write.c (generate_bytecode_insns):  Handle __builtin_fmod, for %.
 
-  Tue Mar  9 11:52:08 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+Tue Mar  9 11:52:08 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (method_header): Don't set ACC_ABSTRACT flags on
 	interfaces.

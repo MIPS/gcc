@@ -1985,7 +1985,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    /* For variable-sized objects, we must be called with a target
 	       specified.  If we were to allocate space on the stack here,
 	       we would have no way of knowing when to free it.  */
-	    rtx d = assign_temp (TREE_TYPE (exp), 1, 1, 1);
+	    rtx d = assign_temp (TREE_TYPE (exp), 0, 1, 1);
 
 	    mark_temp_addr_taken (d);
 	    structure_value_addr = XEXP (d, 0);
@@ -2477,9 +2477,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Make a new map for the new argument list.  */
 		  if (stack_usage_map_buf)
 		    free (stack_usage_map_buf);
-		  stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
+		  stack_usage_map_buf = XCNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
-		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
 		}
 	      allocate_dynamic_stack_space (push_size, NULL_RTX,

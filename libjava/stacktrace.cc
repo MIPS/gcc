@@ -23,7 +23,7 @@ details.  */
 #include <java/lang/Long.h>
 #include <java/security/AccessController.h>
 #include <java/util/ArrayList.h>
-#include <java/util/IdentityHashMap.h>
+#include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/java/lang/MainThread.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 #include <gnu/gcj/runtime/StringBuffer.h>
@@ -40,7 +40,7 @@ using namespace gnu::gcj::runtime;
 // NOTE: Currently this Map contradicts class GC for native classes. This map
 // (and the "new class stack") will need to use WeakReferences in order to 
 // enable native class GC.
-static java::util::IdentityHashMap *ncodeMap;
+java::util::IdentityHashMap *_Jv_StackTrace::ncodeMap;
 
 // Check the "class stack" for any classes initialized since we were last 
 // called, and add them to ncodeMap.
@@ -55,21 +55,20 @@ _Jv_StackTrace::UpdateNCodeMap ()
   
   jclass klass;
   while ((klass = _Jv_PopClass ()))
-    if (!_Jv_IsInterpretedClass (klass))
-      {
-	//printf ("got %s\n", klass->name->data);
-	for (int i = 0; i < klass->method_count; i++)
-	  {
-	    _Jv_Method *method = &klass->methods[i];
-	    void *ncode = method->ncode;
-	    // Add non-abstract methods to ncodeMap.
-	    if (ncode)
-	      {
-		ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
-		ncodeMap->put ((java::lang::Object *) ncode, klass);
-	      }
-	  }
-      }
+    {
+      //printf ("got %s\n", klass->name->data);
+      for (int i = 0; i < klass->method_count; i++)
+	{
+	  _Jv_Method *method = &klass->methods[i];
+	  void *ncode = method->ncode;
+	  // Add non-abstract methods to ncodeMap.
+	  if (ncode)
+	    {
+	      ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
+	      ncodeMap->put ((java::lang::Object *) ncode, klass);
+	    }
+	}
+    }
 }
 
 // Given a native frame, return the class which this code belongs 
@@ -84,7 +83,13 @@ _Jv_StackTrace::ClassForFrame (_Jv_StackFrame *frame)
 
   // look it up in ncodeMap
   if (frame->start_ip)
-    klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+    {
+      klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+
+      // Exclude interpreted classes
+      if (klass != NULL && _Jv_IsInterpretedClass (klass))
+	klass = NULL;
+    }
 
   return klass;
 }
@@ -113,7 +118,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  void *interp_run = (void *) &_Jv_InterpMethod::run;
+  void *interp_run = NULL;
+  
+  if (::gnu::classpath::jdwp::Jdwp::isDebugging)
+  	interp_run = (void *) &_Jv_InterpMethod::run_debug;
+  else
+    interp_run = (void *) &_Jv_InterpMethod::run;
+  	
   if (func_addr == UNWRAP_FUNCTION_DESCRIPTOR (interp_run))
     {
       state->frames[pos].type = frame_interpreter;
@@ -124,6 +135,7 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   else
 #endif
     {
+#ifdef HAVE_GETIPINFO
       _Unwind_Ptr ip;
       int ip_before_insn = 0;
       ip = _Unwind_GetIPInfo (context, &ip_before_insn);
@@ -132,9 +144,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
       // to ensure we get the correct line number for the call itself.
       if (! ip_before_insn)
 	--ip;
-
+#endif
       state->frames[pos].type = frame_native;
+#ifdef HAVE_GETIPINFO
       state->frames[pos].ip = (void *) ip;
+#else
+      state->frames[pos].ip = (void *) _Unwind_GetIP (context);
+#endif
       state->frames[pos].start_ip = func_addr;
     }
 
@@ -209,6 +225,12 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
         offset = (_Unwind_Ptr) ip;
       else
         offset = (_Unwind_Ptr) ip - (_Unwind_Ptr) info.base;
+
+#ifndef HAVE_GETIPINFO
+      // The unwinder gives us the return address. In order to get the right
+      // line number for the stack trace, roll it back a little.
+      offset -= 1;
+#endif
 
       finder->lookup (binaryName, (jlong) offset);
       *sourceFileName = finder->getSourceFile();

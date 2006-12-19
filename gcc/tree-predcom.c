@@ -776,12 +776,14 @@ determine_offset (struct loop *loop, tree a, tree b, double_int *off)
 static basic_block
 last_always_executed_block (struct loop *loop)
 {
-  unsigned i, n_exits;
-  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  unsigned i;
+  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  edge ex;
   basic_block last = loop->latch;
 
-  for (i = 0; i < n_exits; i++)
-    last = nearest_common_dominator (CDI_DOMINATORS, last, exits[i]->src);
+  for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
+    last = nearest_common_dominator (CDI_DOMINATORS, last, ex->src);
+  VEC_free (edge, heap, exits);
 
   return last;
 }
@@ -1097,12 +1099,12 @@ name_for_ref (dref ref)
 {
   tree name;
 
-  if (TREE_CODE (ref->stmt) == MODIFY_EXPR)
+  if (TREE_CODE (ref->stmt) == GIMPLE_MODIFY_STMT)
     {
       if (!ref->ref || DR_IS_READ (ref->ref))
-	name = TREE_OPERAND (ref->stmt, 0);
+	name = GIMPLE_STMT_OPERAND (ref->stmt, 0);
       else
-	name = TREE_OPERAND (ref->stmt, 1);
+	name = GIMPLE_STMT_OPERAND (ref->stmt, 1);
     }
   else
     name = PHI_RESULT (ref->stmt);
@@ -1167,12 +1169,12 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   tree name, phi, init, init_stmt, init_ref;
   edge latch = loop_latch_edge (loop);
 
-  if (TREE_CODE (ref->stmt) == MODIFY_EXPR)
+  if (TREE_CODE (ref->stmt) == GIMPLE_MODIFY_STMT)
     {
       if (DR_IS_READ (ref->ref))
-	name = TREE_OPERAND (ref->stmt, 0);
+	name = GIMPLE_STMT_OPERAND (ref->stmt, 0);
       else
-	name = TREE_OPERAND (ref->stmt, 1);
+	name = GIMPLE_STMT_OPERAND (ref->stmt, 1);
     }
   else
     name = PHI_RESULT (ref->stmt);
@@ -1190,11 +1192,11 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   if (TREE_CODE (init) != SSA_NAME)
     return NULL_TREE;
   init_stmt = SSA_NAME_DEF_STMT (init);
-  if (TREE_CODE (init_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (init_stmt) != GIMPLE_MODIFY_STMT)
     return NULL_TREE;
-  gcc_assert (TREE_OPERAND (init_stmt, 0) == init);
+  gcc_assert (GIMPLE_STMT_OPERAND (init_stmt, 0) == init);
 
-  init_ref = TREE_OPERAND (init_stmt, 1);
+  init_ref = GIMPLE_STMT_OPERAND (init_stmt, 1);
   if (!valid_initializer_p (loop, init_ref, ref->distance + 1, DR_REF (root->ref)))
     return NULL_TREE;
 
@@ -1325,13 +1327,11 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
       gcc_assert (!in_lhs && !set);
 
       val = PHI_RESULT (stmt);
-      SET_PHI_RESULT (stmt, NULL_TREE);
       bsi = bsi_after_labels (bb_for_stmt (stmt));
-      remove_phi_node (stmt, NULL_TREE);
+      remove_phi_node (stmt, NULL_TREE, false);
 
-      /* Turn the phi node into MODIFY_EXPR.  */
-      new_stmt = build2 (MODIFY_EXPR, void_type_node,
-			 val, new);
+      /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
+      new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, val, new);
       SSA_NAME_DEF_STMT (val) = new_stmt;
       bsi_insert_before (&bsi, new_stmt, BSI_NEW_STMT);
       return;
@@ -1339,13 +1339,13 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
       
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
 
   /* If we do not need to initialize NEW, just replace the use of OLD.  */
   if (!set)
     {
       gcc_assert (!in_lhs);
-      TREE_OPERAND (stmt, 1) = new;
+      GIMPLE_STMT_OPERAND (stmt, 1) = new;
       update_stmt (stmt);
       return;
     }
@@ -1353,7 +1353,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
   bsi = bsi_for_stmt (stmt);
   if (in_lhs)
     {
-      val = TREE_OPERAND (stmt, 1);
+      val = GIMPLE_STMT_OPERAND (stmt, 1);
 
       /* OLD = VAL
 
@@ -1367,7 +1367,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
     }
   else
     {
-      val = TREE_OPERAND (stmt, 0);
+      val = GIMPLE_STMT_OPERAND (stmt, 0);
 
       /* VAL = OLD
 
@@ -1377,7 +1377,7 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
 	 NEW = VAL  */
     }
 
-  new_stmt = build2 (MODIFY_EXPR, void_type_node, new, unshare_expr (val));
+  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, new, unshare_expr (val));
   bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
   SSA_NAME_DEF_STMT (new) = new_stmt;
 }
@@ -1488,7 +1488,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
   chain->vars = VEC_alloc (tree, heap, n + 1);
 
   if (chain->type == CT_COMBINATION)
-    ref = TREE_OPERAND (root->stmt, 0);
+    ref = GIMPLE_STMT_OPERAND (root->stmt, 0);
   else
     ref = DR_REF (root->ref);
 
@@ -1515,7 +1515,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
       if (stmts)
 	{
 	  mark_virtual_ops_for_renaming_list (stmts);
-	  bsi_insert_on_edge_immediate_loop (entry, stmts);
+	  bsi_insert_on_edge_immediate (entry, stmts);
 	}
 
       phi = create_phi_node (var, loop->header);
@@ -1580,7 +1580,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
   if (stmts)
     {
       mark_virtual_ops_for_renaming_list (stmts);
-      bsi_insert_on_edge_immediate_loop (entry, stmts);
+      bsi_insert_on_edge_immediate (entry, stmts);
     }
 
   if (written)
@@ -1593,10 +1593,10 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     }
   else
     {
-      init = build2 (MODIFY_EXPR, void_type_node, var, init);
+      init = build2_gimple (GIMPLE_MODIFY_STMT, var, init);
       SSA_NAME_DEF_STMT (var) = init;
       mark_virtual_ops_for_renaming (init);
-      bsi_insert_on_edge_immediate_loop (entry, init);
+      bsi_insert_on_edge_immediate (entry, init);
     }
 }
 
@@ -1697,11 +1697,11 @@ remove_stmt (tree stmt)
     {
       name = PHI_RESULT (stmt);
       next = single_nonlooparound_use (name);
-      remove_phi_node (stmt, NULL_TREE);
+      remove_phi_node (stmt, NULL_TREE, true);
 
       if (!next
-	  || TREE_CODE (next) != MODIFY_EXPR
-	  || TREE_OPERAND (next, 1) != name)
+	  || TREE_CODE (next) != GIMPLE_MODIFY_STMT
+	  || GIMPLE_STMT_OPERAND (next, 1) != name)
 	return;
 
       stmt = next;
@@ -1713,7 +1713,7 @@ remove_stmt (tree stmt)
     
       bsi = bsi_for_stmt (stmt);
 
-      name = TREE_OPERAND (stmt, 0);
+      name = GIMPLE_STMT_OPERAND (stmt, 0);
       gcc_assert (TREE_CODE (name) == SSA_NAME);
 
       next = single_nonlooparound_use (name);
@@ -1722,8 +1722,8 @@ remove_stmt (tree stmt)
       bsi_remove (&bsi, true);
 
       if (!next
-	  || TREE_CODE (next) != MODIFY_EXPR
-	  || TREE_OPERAND (next, 1) != name)
+	  || TREE_CODE (next) != GIMPLE_MODIFY_STMT
+	  || GIMPLE_STMT_OPERAND (next, 1) != name)
 	return;
 
       stmt = next;
@@ -1956,14 +1956,14 @@ find_use_stmt (tree *name)
       if (!stmt)
 	return NULL_TREE;
 
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
+      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	return NULL_TREE;
 
-      lhs = TREE_OPERAND (stmt, 0);
+      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       if (TREE_CODE (lhs) != SSA_NAME)
 	return NULL_TREE;
 
-      rhs = TREE_OPERAND (stmt, 1);
+      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       if (rhs != *name)
 	break;
 
@@ -1998,7 +1998,7 @@ may_reassociate_p (tree type, enum tree_code code)
 static tree
 find_associative_operation_root (tree stmt, unsigned *distance)
 {
-  tree rhs = TREE_OPERAND (stmt, 1), lhs, next;
+  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), lhs, next;
   enum tree_code code = TREE_CODE (rhs);
   unsigned dist = 0;
 
@@ -2007,14 +2007,14 @@ find_associative_operation_root (tree stmt, unsigned *distance)
 
   while (1)
     {
-      lhs = TREE_OPERAND (stmt, 0);
+      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       gcc_assert (TREE_CODE (lhs) == SSA_NAME);
 
       next = find_use_stmt (&lhs);
       if (!next)
 	break;
 
-      rhs = TREE_OPERAND (next, 1);
+      rhs = GIMPLE_STMT_OPERAND (next, 1);
       if (TREE_CODE (rhs) != code)
 	break;
 
@@ -2081,7 +2081,7 @@ combinable_refs_p (dref r1, dref r2,
   if (!stmt)
     return false;
 
-  rhs = TREE_OPERAND (stmt, 1);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
   acode = TREE_CODE (rhs);
   aswap = (!commutative_tree_code (acode)
 	   && TREE_OPERAND (rhs, 0) != name1);
@@ -2108,9 +2108,9 @@ remove_name_from_operation (tree stmt, tree op)
 {
   tree *rhs;
 
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
 
-  rhs = &TREE_OPERAND (stmt, 1);
+  rhs = &GIMPLE_STMT_OPERAND (stmt, 1);
   if (TREE_OPERAND (*rhs, 0) == op)
     *rhs = TREE_OPERAND (*rhs, 1);
   else if (TREE_OPERAND (*rhs, 1) == op)
@@ -2137,10 +2137,10 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   stmt2 = find_use_stmt (&name2);
   root1 = find_associative_operation_root (stmt1, &dist1);
   root2 = find_associative_operation_root (stmt2, &dist2);
-  code = TREE_CODE (TREE_OPERAND (stmt1, 1));
+  code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt1, 1));
 
   gcc_assert (root1 && root2 && root1 == root2
-	      && code == TREE_CODE (TREE_OPERAND (stmt2, 1)));
+	      && code == TREE_CODE (GIMPLE_STMT_OPERAND (stmt2, 1)));
 
   /* Find the root of the nearest expression in that both NAME1 and NAME2
      are used.  */
@@ -2152,22 +2152,22 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   while (dist1 > dist2)
     {
       s1 = find_use_stmt (&r1);
-      r1 = TREE_OPERAND (s1, 0);
+      r1 = GIMPLE_STMT_OPERAND (s1, 0);
       dist1--;
     }
   while (dist2 > dist1)
     {
       s2 = find_use_stmt (&r2);
-      r2 = TREE_OPERAND (s2, 0);
+      r2 = GIMPLE_STMT_OPERAND (s2, 0);
       dist2--;
     }
 
   while (s1 != s2)
     {
       s1 = find_use_stmt (&r1);
-      r1 = TREE_OPERAND (s1, 0);
+      r1 = GIMPLE_STMT_OPERAND (s1, 0);
       s2 = find_use_stmt (&r2);
-      r2 = TREE_OPERAND (s2, 0);
+      r2 = GIMPLE_STMT_OPERAND (s2, 0);
     }
 
   /* Remove NAME1 and NAME2 from the statements in that they are used
@@ -2180,18 +2180,17 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   new_name = make_ssa_name (var, NULL_TREE);
-  new_stmt = fold_build2 (MODIFY_EXPR, void_type_node, new_name,
-			  fold_build2 (code, type, name1, name2));
+  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, new_name,
+			    fold_build2 (code, type, name1, name2));
   SSA_NAME_DEF_STMT (new_name) = new_stmt;
 
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
   tmp_name = make_ssa_name (var, NULL_TREE);
-  tmp_stmt = fold_build2 (MODIFY_EXPR, void_type_node, tmp_name,
-			  TREE_OPERAND (s1, 1));
+  tmp_stmt = build2_gimple (GIMPLE_MODIFY_STMT, tmp_name, GIMPLE_STMT_OPERAND (s1, 1));
   SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;
 
-  TREE_OPERAND (s1, 1) = fold_build2 (code, type, new_name, tmp_name);
+  GIMPLE_STMT_OPERAND (s1, 1) = fold_build2 (code, type, new_name, tmp_name);
   update_stmt (s1);
 
   bsi = bsi_for_stmt (s1);
@@ -2402,7 +2401,7 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
       if (stmts)
 	{
 	  mark_virtual_ops_for_renaming_list (stmts);
-	  bsi_insert_on_edge_immediate_loop (entry, stmts);
+	  bsi_insert_on_edge_immediate (entry, stmts);
 	}
       set_alias_info (init, data_ref);
 
@@ -2438,7 +2437,7 @@ prepare_initializers (struct loop *loop, VEC (chain_p, heap) *chains)
    unrolled.  */
 
 static bool
-tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
+tree_predictive_commoning_loop (struct loop *loop)
 {
   VEC (data_reference_p, heap) *datarefs;
   VEC (ddr_p, heap) *dependences;
@@ -2503,7 +2502,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
 	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
       
       update_ssa (TODO_update_ssa_only_virtuals);
-      tree_unroll_loop_prepare (loops, loop, unroll_factor, &exit, &desc);
+      tree_unroll_loop_prepare (loop, unroll_factor, &exit, &desc);
     }
 
   /* Execute the predictive commoning transformations, and possibly unroll the
@@ -2511,7 +2510,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   execute_pred_commoning (loop, chains, tmp_vars);
   if (unroll)
     {
-      tree_unroll_loop_finish (loops, loop, unroll_factor, exit);
+      tree_unroll_loop_finish (loop, unroll_factor, exit);
       eliminate_temp_copies (loop, tmp_vars);
     }
 
@@ -2522,21 +2521,19 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   return unroll;
 }
 
-/* Runs predictive commoning over LOOPS.  */
+/* Runs predictive commoning.  */
 
 void
-tree_predictive_commoning (struct loops *loops)
+tree_predictive_commoning (void)
 {
   bool unrolled = false;
   struct loop *loop;
-  unsigned i, n = loops->num;
+  loop_iterator li;
 
   initialize_original_copy_tables ();
-  for (i = 1; i < n; i++)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD | LI_ONLY_INNERMOST)
     {
-      loop = loops->parray[i];
-      if (loop && !loop->inner)
-	unrolled |= tree_predictive_commoning_loop (loops, loop);
+      unrolled |= tree_predictive_commoning_loop (loop);
     }
 
   if (unrolled)

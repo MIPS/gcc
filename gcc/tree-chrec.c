@@ -939,8 +939,7 @@ evolution_function_is_invariant_rec_p (tree chrec, int loopnum)
     return true;
 
   if (TREE_CODE (chrec) == SSA_NAME 
-      && expr_invariant_in_loop_p (current_loops->parray[loopnum],
-				   chrec))
+      && expr_invariant_in_loop_p (get_loop (loopnum), chrec))
     return true;
 
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
@@ -1162,7 +1161,10 @@ convert_affine_scev (struct loop *loop, tree type,
 	 -- must_check_src_overflow is true, and the range of TYPE is superset
 	    of the range of CT -- i.e., in all cases except if CT signed and
 	    TYPE unsigned.
-         -- both CT and TYPE have the same precision and signedness.  */
+         -- both CT and TYPE have the same precision and signedness, and we
+	    verify instead that the source does not overflow (this may be
+	    easier than verifying it for the result, as we may use the
+	    information about the semantics of overflow in CT).  */
       if (must_check_src_overflow)
 	{
 	  if (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (ct))
@@ -1172,7 +1174,10 @@ convert_affine_scev (struct loop *loop, tree type,
 	}
       else if (TYPE_UNSIGNED (ct) == TYPE_UNSIGNED (type)
 	       && TYPE_PRECISION (ct) == TYPE_PRECISION (type))
-	must_check_rslt_overflow = false;
+	{
+	  must_check_rslt_overflow = false;
+	  must_check_src_overflow = true;
+	}
       else
 	must_check_rslt_overflow = true;
     }
@@ -1274,7 +1279,7 @@ chrec_convert_1 (tree type, tree chrec, tree at_stmt,
   if (!evolution_function_is_affine_p (chrec))
     goto keep_cast;
 
-  loop = current_loops->parray[CHREC_VARIABLE (chrec)];
+  loop = get_chrec_loop (chrec);
   base = CHREC_LEFT (chrec);
   step = CHREC_RIGHT (chrec);
 

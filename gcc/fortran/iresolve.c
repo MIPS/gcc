@@ -877,6 +877,29 @@ gfc_resolve_ior (gfc_expr * f, gfc_expr * i, gfc_expr * j)
 
 
 void
+gfc_resolve_index_func (gfc_expr * f, gfc_expr * str,
+			ATTRIBUTE_UNUSED gfc_expr * sub_str, gfc_expr * back)
+{
+  gfc_typespec ts;
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+
+  if (back && back->ts.kind != gfc_default_integer_kind)
+    {
+      ts.type = BT_LOGICAL;
+      ts.kind = gfc_default_integer_kind;
+      ts.derived = NULL;
+      ts.cl = NULL;
+      gfc_convert_type (back, &ts, 2);
+    }
+
+  f->value.function.name =
+    gfc_get_string ("__index_%d_i%d", str->ts.kind, f->ts.kind);
+}
+
+
+void
 gfc_resolve_int (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 {
   f->ts.type = BT_INTEGER;
@@ -1022,7 +1045,8 @@ gfc_resolve_len (gfc_expr * f, gfc_expr * string)
 {
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
-  f->value.function.name = gfc_get_string ("__len_%d", string->ts.kind);
+  f->value.function.name = gfc_get_string ("__len_%d_i%d", string->ts.kind,
+					   gfc_default_integer_kind);
 }
 
 
@@ -1730,8 +1754,19 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
 void
 gfc_resolve_rrspacing (gfc_expr * f, gfc_expr * x)
 {
+  int k;
+  gfc_actual_arglist *prec;
+
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("__rrspacing_%d", x->ts.kind);
+
+  /* Create a hidden argument to the library routines for rrspacing.  This
+     hidden argument is the precision of x.  */
+  k = gfc_validate_kind (BT_REAL, x->ts.kind, false);
+  prec = gfc_get_actual_arglist ();
+  prec->name = "p";
+  prec->expr = gfc_int_expr (gfc_real_kinds[k].digits);
+  f->value.function.actual->next = prec;
 }
 
 
@@ -1861,8 +1896,40 @@ gfc_resolve_sinh (gfc_expr * f, gfc_expr * x)
 void
 gfc_resolve_spacing (gfc_expr * f, gfc_expr * x)
 {
+  int k; 
+  gfc_actual_arglist *prec, *tiny, *emin_1;
+ 
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("__spacing_%d", x->ts.kind);
+
+  /* Create hidden arguments to the library routine for spacing.  These
+     hidden arguments are tiny(x), min_exponent - 1,  and the precision
+     of x.  */
+
+  k = gfc_validate_kind (BT_REAL, x->ts.kind, false);
+
+  tiny = gfc_get_actual_arglist ();
+  tiny->name = "tiny";
+  tiny->expr = gfc_get_expr ();
+  tiny->expr->expr_type = EXPR_CONSTANT;
+  tiny->expr->where = gfc_current_locus;
+  tiny->expr->ts.type = x->ts.type;
+  tiny->expr->ts.kind = x->ts.kind;
+  mpfr_init (tiny->expr->value.real);
+  mpfr_set (tiny->expr->value.real, gfc_real_kinds[k].tiny, GFC_RND_MODE);
+
+  emin_1 = gfc_get_actual_arglist ();
+  emin_1->name = "emin";
+  emin_1->expr = gfc_int_expr (gfc_real_kinds[k].min_exponent - 1);
+  emin_1->next = tiny;
+
+  prec = gfc_get_actual_arglist ();
+  prec->name = "prec";
+  prec->expr = gfc_int_expr (gfc_real_kinds[k].digits);
+  prec->next = emin_1;
+
+  f->value.function.actual->next = prec;
+
 }
 
 
@@ -1884,6 +1951,23 @@ gfc_resolve_spread (gfc_expr * f, gfc_expr * source,
     f->value.function.name = (source->ts.type == BT_CHARACTER
 			      ? PREFIX("spread_char")
 			      : PREFIX("spread"));
+
+  if (dim && gfc_is_constant_expr (dim)
+	&& ncopies && gfc_is_constant_expr (ncopies)
+	&& source->shape[0])
+    {
+      int i, idim;
+      idim = mpz_get_ui (dim->value.integer);
+      f->shape = gfc_get_shape (f->rank);
+      for (i = 0; i < (idim - 1); i++)
+	mpz_init_set (f->shape[i], source->shape[i]);
+
+      mpz_init_set (f->shape[idim - 1], ncopies->value.integer);
+
+      for (i = idim; i < f->rank ; i++)
+	mpz_init_set (f->shape[i], source->shape[i-1]);
+    }
+
 
   gfc_resolve_dim_arg (dim);
   gfc_resolve_index (ncopies, 1);

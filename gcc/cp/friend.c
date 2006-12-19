@@ -171,7 +171,7 @@ add_friend (tree type, tree decl, bool complain)
 
   ctx = DECL_CONTEXT (decl);
   if (ctx && CLASS_TYPE_P (ctx) && !uses_template_parms (ctx))
-    perform_or_defer_access_check (TYPE_BINFO (ctx), decl);
+    perform_or_defer_access_check (TYPE_BINFO (ctx), decl, decl);
 
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
@@ -396,21 +396,21 @@ make_friend_class (tree type, tree friend_type, bool complain)
     }
 }
 
-/* Main friend processor.
-
-   CTYPE is the class this friend belongs to.
-
-   DECLARATOR is the name of the friend.
-
-   DECL is the FUNCTION_DECL that the friend is.
-
-   FLAGS is just used for `grokclassfn'.  */
+/* Record DECL (a FUNCTION_DECL) as a friend of the
+   CURRENT_CLASS_TYPE.  If DECL is a member function, CTYPE is the
+   class of which it is a member, as named in the friend declaration.
+   DECLARATOR is the name of the friend.  FUNCDEF_FLAG is true if the
+   friend declaration is a definition of the function.  FLAGS is as
+   for grokclass fn.  */
 
 tree
 do_friend (tree ctype, tree declarator, tree decl,
 	   tree attrlist, enum overload_flags flags,
 	   bool funcdef_flag)
 {
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+  gcc_assert (!ctype || IS_AGGR_TYPE (ctype));
+
   /* Every decl that gets here is a friend of something.  */
   DECL_FRIEND_P (decl) = 1;
 
@@ -420,8 +420,6 @@ do_friend (tree ctype, tree declarator, tree decl,
       if (is_overloaded_fn (declarator))
 	declarator = DECL_NAME (get_first_fn (declarator));
     }
-
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
 
   if (ctype)
     {

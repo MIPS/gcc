@@ -401,6 +401,11 @@ int flag_access_control = 1;
 
 int flag_check_new;
 
+/* Nonzero if we want to allow the use of experimental features that
+   are likely to become part of C++0x. */
+
+int flag_cpp0x = 0;
+
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
    0: Old rules, set by -fno-for-scope.
@@ -494,7 +499,6 @@ const struct fname_var_t fname_vars[] =
   {NULL, 0, 0},
 };
 
-static int constant_fits_type_p (tree, tree);
 static tree check_case_value (tree);
 static bool check_case_bounds (tree, tree, tree *, tree *);
 
@@ -505,6 +509,8 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_gnu_inline_attribute (tree *, tree, tree, int,
+					 bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
@@ -573,6 +579,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "gnu_inline",             0, 0, true,  false, false,
+			      handle_gnu_inline_attribute },
   { "flatten",                0, 0, true,  false, false,
 			      handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
@@ -948,32 +956,6 @@ overflow_warning (tree value)
     }
 }
 
-/* Print a warning if a large constant is truncated to unsigned,
-   or if -Wconversion is used and a constant < 0 is converted to unsigned.
-   Invoke this function on every expression that might be implicitly
-   converted to an unsigned type.  */
-
-static void
-unsigned_conversion_warning (tree result, tree operand)
-{
-  tree type = TREE_TYPE (result);
-
-  if (TREE_CODE (operand) == INTEGER_CST
-      && TREE_CODE (type) == INTEGER_TYPE
-      && TYPE_UNSIGNED (type)
-      && skip_evaluation == 0
-      && !int_fits_type_p (operand, type))
-    {
-      if (!int_fits_type_p (operand, c_common_signed_type (type)))
-	/* This detects cases like converting -129 or 256 to unsigned char.  */
-	warning (OPT_Woverflow,
-		 "large integer implicitly truncated to unsigned type");
-      else
-	warning (OPT_Wconversion,
-		 "negative integer implicitly converted to unsigned type");
-    }
-}
-
 /* Print a warning about casts that might indicate violation
    of strict aliasing rules if -Wstrict-aliasing is used and
    strict aliasing mode is in effect. OTYPE is the original
@@ -1010,7 +992,6 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
     }
 }
 
-
 /* Print a warning about if (); or if () .. else; constructs
    via the special empty statement node that we create.  INNER_THEN
    and INNER_ELSE are the statement lists of the if and the else
@@ -1019,7 +1000,7 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
 void
 empty_body_warning (tree inner_then, tree inner_else)
 {
-  if (extra_warnings)
+  if (warn_empty_body)
     {
       if (TREE_CODE (inner_then) == STATEMENT_LIST
 	  && STATEMENT_LIST_TAIL (inner_then))
@@ -1030,29 +1011,68 @@ empty_body_warning (tree inner_then, tree inner_else)
 	inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
 
       if (IS_EMPTY_STMT (inner_then) && !inner_else)
-	warning (OPT_Wextra, "%Hempty body in an if-statement",
+	warning (OPT_Wempty_body, "%Hempty body in an if-statement",
 		 EXPR_LOCUS (inner_then));
 
       if (inner_else && IS_EMPTY_STMT (inner_else))
-	warning (OPT_Wextra, "%Hempty body in an else-statement",
+	warning (OPT_Wempty_body, "%Hempty body in an else-statement",
 		 EXPR_LOCUS (inner_else));
    }
 }
 
-  
-/* Nonzero if constant C has a value that is permissible
-   for type TYPE (an INTEGER_TYPE).  */
+/* Warn for unlikely, improbable, or stupid DECL declarations
+   of `main'.  */
 
-static int
-constant_fits_type_p (tree c, tree type)
+void
+check_main_parameter_types (tree decl)
 {
-  if (TREE_CODE (c) == INTEGER_CST)
-    return int_fits_type_p (c, type);
+  tree args;
+  int argct = 0;
 
-  c = convert (type, c);
-  return !TREE_OVERFLOW (c);
+  for (args = TYPE_ARG_TYPES (TREE_TYPE (decl)); args;
+      args = TREE_CHAIN (args))
+   {
+     tree type = args ? TREE_VALUE (args) : 0;
+
+     if (type == void_type_node || type == error_mark_node )
+       break;
+
+     ++argct;
+     switch (argct)
+       {
+       case 1:
+         if (TYPE_MAIN_VARIANT (type) != integer_type_node)
+           pedwarn ("first argument of %q+D should be %<int%>", decl);
+         break;
+
+       case 2:
+         if (TREE_CODE (type) != POINTER_TYPE
+             || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+             || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
+                 != char_type_node))
+           pedwarn ("second argument of %q+D should be %<char **%>",
+                    decl);
+         break;
+
+       case 3:
+         if (TREE_CODE (type) != POINTER_TYPE
+             || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+             || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
+                 != char_type_node))
+           pedwarn ("third argument of %q+D should probably be "
+                    "%<char **%>", decl);
+         break;
+       }
+   }
+
+  /* It is intentional that this message does not mention the third
+    argument because it's only mentioned in an appendix of the
+    standard.  */
+  if (argct > 0 && (argct < 2 || argct > 3))
+   pedwarn ("%q+D takes only zero or two arguments", decl);
 }
 
+ 
 /* Nonzero if vector types T1 and T2 can be converted to each other
    without an explicit cast.  */
 int
@@ -1067,6 +1087,115 @@ vector_types_convertible_p (tree t1, tree t2)
 		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
 }
 
+/* Warns if the conversion of EXPR to TYPE may alter a value.
+   This function is called from convert_and_check.  */
+
+static void
+conversion_warning (tree type, tree expr)
+{
+  bool give_warning = false;
+
+  unsigned int formal_prec = TYPE_PRECISION (type);
+
+  if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
+    {
+      /* Warn for real constant that is not an exact integer converted
+         to integer type.  */
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+          && TREE_CODE (type) == INTEGER_TYPE)
+        {
+          if (!real_isinteger (TREE_REAL_CST_PTR (expr), TYPE_MODE (TREE_TYPE (expr))))
+            give_warning = true;
+        }
+      /* Warn for an integer constant that does not fit into integer type.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == INTEGER_TYPE
+               && !int_fits_type_p (expr, type))
+        {
+          if (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr)))
+            warning (OPT_Wconversion,
+                     "negative integer implicitly converted to unsigned type");
+          else
+            give_warning = true;
+        }
+      else if (TREE_CODE (type) == REAL_TYPE)
+        {
+          /* Warn for an integer constant that does not fit into real type.  */
+          if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE)
+            {
+              REAL_VALUE_TYPE a = real_value_from_int_cst (0, expr);
+              if (!exact_real_truncate (TYPE_MODE (type), &a))
+                give_warning = true;
+            }
+          /* Warn for a real constant that does not fit into a smaller
+             real type.  */
+          else if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+                   && formal_prec < TYPE_PRECISION (TREE_TYPE (expr)))
+            {
+              REAL_VALUE_TYPE a = TREE_REAL_CST (expr);
+              if (!exact_real_truncate (TYPE_MODE (type), &a))
+                give_warning = true;
+            }
+        }
+
+      if (give_warning)
+        warning (OPT_Wconversion,
+                 "conversion to %qT alters %qT constant value",
+                 type, TREE_TYPE (expr));
+    }
+  else /* 'expr' is not a constant.  */
+    {
+      /* Warn for real types converted to integer types.  */
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+          && TREE_CODE (type) == INTEGER_TYPE)
+        give_warning = true;
+
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == INTEGER_TYPE)
+        {
+          /* Warn for integer types converted to smaller integer types.  */
+          if (formal_prec < TYPE_PRECISION (TREE_TYPE (expr))
+              /* When they are the same width but different signedness,
+                 then the value may change.  */
+              || (formal_prec == TYPE_PRECISION (TREE_TYPE (expr))
+                  && TYPE_UNSIGNED (TREE_TYPE (expr)) != TYPE_UNSIGNED (type))
+              /* Even when converted to a bigger type, if the type is
+                 unsigned but expr is signed, then negative values
+                 will be changed.  */
+              || (TYPE_UNSIGNED (type) && !TYPE_UNSIGNED (TREE_TYPE (expr))))
+            give_warning = true;
+        }
+
+      /* Warn for integer types converted to real types if and only if
+         all the range of values of the integer type cannot be
+         represented by the real type.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
+               && TREE_CODE (type) == REAL_TYPE)
+        {
+          tree type_low_bound = TYPE_MIN_VALUE (TREE_TYPE (expr));
+          tree type_high_bound = TYPE_MAX_VALUE (TREE_TYPE (expr));
+          REAL_VALUE_TYPE real_low_bound = real_value_from_int_cst (0, type_low_bound);
+          REAL_VALUE_TYPE real_high_bound = real_value_from_int_cst (0, type_high_bound);
+
+          if (!exact_real_truncate (TYPE_MODE (type), &real_low_bound)
+              || !exact_real_truncate (TYPE_MODE (type), &real_high_bound))
+            give_warning = true;
+        }
+
+      /* Warn for real types converted to smaller real types.  */
+      else if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+               && TREE_CODE (type) == REAL_TYPE
+               && formal_prec < TYPE_PRECISION (TREE_TYPE (expr)))
+        give_warning = true;
+
+
+      if (give_warning)
+        warning (OPT_Wconversion,
+                 "conversion to %qT from %qT may alter its value",
+                 type, TREE_TYPE (expr));
+    }
+}
+
 /* Convert EXPR to TYPE, warning about conversion problems with constants.
    Invoke this function on every expression that is converted implicitly,
    i.e. because of language rules and not because of an explicit cast.  */
@@ -1074,36 +1203,63 @@ vector_types_convertible_p (tree t1, tree t2)
 tree
 convert_and_check (tree type, tree expr)
 {
-  tree t = convert (type, expr);
-  if (TREE_CODE (t) == INTEGER_CST)
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
+  
+  result = convert (type, expr);
+
+  if (skip_evaluation)
+    return result;
+
+
+  if (TREE_CODE (expr) == INTEGER_CST
+      && (TREE_CODE (type) == INTEGER_TYPE
+          || TREE_CODE (type) == ENUMERAL_TYPE)
+      && !int_fits_type_p (expr, type))
     {
-      if (TREE_OVERFLOW (t))
-	{
-	  TREE_OVERFLOW (t) = 0;
-
-	  /* Do not diagnose overflow in a constant expression merely
-	     because a conversion overflowed.  */
-	  TREE_CONSTANT_OVERFLOW (t) = CONSTANT_CLASS_P (expr)
-                                       && TREE_CONSTANT_OVERFLOW (expr);
-
-	  /* No warning for converting 0x80000000 to int.  */
-	  if (!(TYPE_UNSIGNED (type) < TYPE_UNSIGNED (TREE_TYPE (expr))
-		&& TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
-		&& TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (expr))))
-	    /* If EXPR fits in the unsigned version of TYPE,
-	       don't warn unless pedantic.  */
-	    if ((pedantic
-		 || TYPE_UNSIGNED (type)
-		 || !constant_fits_type_p (expr,
-					   c_common_unsigned_type (type)))
-		&& skip_evaluation == 0)
-	      warning (OPT_Woverflow,
-                       "overflow in implicit constant conversion");
-	}
+      /* Do not diagnose overflow in a constant expression merely
+         because a conversion overflowed.  */
+      if (TREE_OVERFLOW (result))
+        {
+          TREE_CONSTANT_OVERFLOW (result) = TREE_CONSTANT_OVERFLOW (expr);
+          TREE_OVERFLOW (result) = TREE_OVERFLOW (expr);
+        }
+      
+      if (TYPE_UNSIGNED (type))
+        {
+          /* This detects cases like converting -129 or 256 to
+             unsigned char.  */
+          if (!int_fits_type_p (expr, c_common_signed_type (type)))
+            warning (OPT_Woverflow,
+                     "large integer implicitly truncated to unsigned type");
+          else if (warn_conversion)
+            conversion_warning (type, expr);
+        }
       else
-	unsigned_conversion_warning (t, expr);
+        {
+          if (!int_fits_type_p (expr, c_common_unsigned_type (type)))
+            warning (OPT_Woverflow,
+                     "overflow in implicit constant conversion");
+          /* No warning for converting 0x80000000 to int.  */
+          else if (pedantic
+                   && (TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE
+                       || TYPE_PRECISION (TREE_TYPE (expr))
+                       != TYPE_PRECISION (type)))
+            warning (OPT_Woverflow,
+                     "overflow in implicit constant conversion");
+          else if (warn_conversion)
+            conversion_warning (type, expr);
+        }
     }
-  return t;
+  else if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result)) 
+    warning (OPT_Woverflow,
+             "overflow in implicit constant conversion");
+  else if (warn_conversion)
+    conversion_warning (type, expr);
+  
+  return result;
 }
 
 /* A node in a list that describes references to variables (EXPR), which are
@@ -3495,14 +3651,14 @@ def_builtin_1 (enum built_in_function fncode,
 			   strlen ("__builtin_")));
 
   libname = name + strlen ("__builtin_");
-  decl = lang_hooks.builtin_function (name, fntype, fncode, fnclass,
-				      (fallback_p ? libname : NULL),
-				      fnattrs);
+  decl = add_builtin_function (name, fntype, fncode, fnclass,
+			       (fallback_p ? libname : NULL),
+			       fnattrs);
   if (both_p
       && !flag_no_builtin && !builtin_function_disabled_p (libname)
       && !(nonansi_p && flag_no_nonansi_builtin))
-    lang_hooks.builtin_function (libname, libtype, fncode, fnclass,
-				 NULL, fnattrs);
+    add_builtin_function (libname, libtype, fncode, fnclass,
+			  NULL, fnattrs);
 
   built_in_decls[(int) fncode] = decl;
   if (implicit_p)
@@ -3797,6 +3953,9 @@ match_case_to_enum_1 (tree key, tree type, tree label)
 	     CASE_LABEL (label), buf, type);
 }
 
+/* Subroutine of c_do_switch_warnings, called via splay_tree_foreach.
+   Used to verify that case values match up with enumerator values.  */
+
 static int
 match_case_to_enum (splay_tree_node node, void *data)
 {
@@ -3807,26 +3966,22 @@ match_case_to_enum (splay_tree_node node, void *data)
   if (!CASE_LOW (label))
     return 0;
 
-  /* If TREE_ADDRESSABLE is not set, that means CASE_LOW did not appear
+  /* If CASE_LOW_SEEN is not set, that means CASE_LOW did not appear
      when we did our enum->case scan.  Reset our scratch bit after.  */
-  if (!TREE_ADDRESSABLE (label))
+  if (!CASE_LOW_SEEN (label))
     match_case_to_enum_1 (CASE_LOW (label), type, label);
   else
-    TREE_ADDRESSABLE (label) = 0;
+    CASE_LOW_SEEN (label) = 0;
 
-  /* If CASE_HIGH is non-null, we have a range.  Here we must search.
-     Note that the old code in stmt.c did not check for the values in
-     the range either, just the endpoints.  */
+  /* If CASE_HIGH is non-null, we have a range.  If CASE_HIGH_SEEN is
+     not set, that means that CASE_HIGH did not appear when we did our
+     enum->case scan.  Reset our scratch bit after.  */
   if (CASE_HIGH (label))
     {
-      tree chain, key = CASE_HIGH (label);
-
-      for (chain = TYPE_VALUES (type);
-	   chain && !tree_int_cst_equal (key, TREE_VALUE (chain));
-	   chain = TREE_CHAIN (chain))
-	continue;
-      if (!chain)
-	match_case_to_enum_1 (key, type, label);
+      if (!CASE_HIGH_SEEN (label))
+	match_case_to_enum_1 (CASE_HIGH (label), type, label);
+      else
+	CASE_HIGH_SEEN (label) = 0;
     }
 
   return 0;
@@ -3844,6 +3999,8 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 		      tree type, tree cond)
 {
   splay_tree_node default_node;
+  splay_tree_node node;
+  tree chain;
 
   if (!warn_switch && !warn_switch_enum && !warn_switch_default)
     return;
@@ -3853,79 +4010,79 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
     warning (OPT_Wswitch_default, "%Hswitch missing default case",
 	     &switch_location);
 
+  /* From here on, we only care about about enumerated types.  */
+  if (!type || TREE_CODE (type) != ENUMERAL_TYPE)
+    return;
+
   /* If the switch expression was an enumerated type, check that
      exactly all enumeration literals are covered by the cases.
      The check is made when -Wswitch was specified and there is no
      default case, or when -Wswitch-enum was specified.  */
-  if (((warn_switch && !default_node) || warn_switch_enum)
-      && type && TREE_CODE (type) == ENUMERAL_TYPE
-      && TREE_CODE (cond) != INTEGER_CST)
+
+  if (!warn_switch_enum
+      && !(warn_switch && !default_node))
+    return;
+
+  /* Clearing COND if it is not an integer constant simplifies
+     the tests inside the loop below.  */
+  if (TREE_CODE (cond) != INTEGER_CST)
+    cond = NULL_TREE;
+
+  /* The time complexity here is O(N*lg(N)) worst case, but for the
+      common case of monotonically increasing enumerators, it is
+      O(N), since the nature of the splay tree will keep the next
+      element adjacent to the root at all times.  */
+
+  for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
     {
-      tree chain;
-
-      /* The time complexity here is O(N*lg(N)) worst case, but for the
-	 common case of monotonically increasing enumerators, it is
-	 O(N), since the nature of the splay tree will keep the next
-	 element adjacent to the root at all times.  */
-
-      for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
+      tree value = TREE_VALUE (chain);
+      node = splay_tree_lookup (cases, (splay_tree_key) value);
+      if (node)
 	{
-	  splay_tree_node node
-	    = splay_tree_lookup (cases, (splay_tree_key) TREE_VALUE (chain));
-	  if (!node)
-	    {
-	      tree low_value = TREE_VALUE (chain);
-	      splay_tree_node low_bound;
-	      splay_tree_node high_bound;
-	      /* Even though there wasn't an exact match, there might be a
-		 case range which includes the enumator's value.  */
-	      low_bound = splay_tree_predecessor (cases,
-						  (splay_tree_key) low_value);
-	      high_bound = splay_tree_successor (cases,
-						 (splay_tree_key) low_value);
+	  /* Mark the CASE_LOW part of the case entry as seen.  */
+	  tree label = (tree) node->value;
+	  CASE_LOW_SEEN (label) = 1;
+	  continue;
+	}
 
-	      /* It is smaller than the LOW_VALUE, so there is no need to check
-		 unless the LOW_BOUND is in fact itself a case range.  */
-	      if (low_bound
-		  && CASE_HIGH ((tree) low_bound->value)
-		  && tree_int_cst_compare (CASE_HIGH ((tree) low_bound->value),
-					    low_value) >= 0)
-		node = low_bound;
-	      /* The low end of that range is bigger than the current value. */
-	      else if (high_bound
-		       && (tree_int_cst_compare ((tree) high_bound->key,
-						 low_value)
-			   <= 0))
-		node = high_bound;
-	    }
-	  if (node)
+      /* Even though there wasn't an exact match, there might be a
+	 case range which includes the enumator's value.  */
+      node = splay_tree_predecessor (cases, (splay_tree_key) value);
+      if (node && CASE_HIGH ((tree) node->value))
+	{
+	  tree label = (tree) node->value;
+	  int cmp = tree_int_cst_compare (CASE_HIGH (label), value);
+	  if (cmp >= 0)
 	    {
-	      /* Mark the CASE_LOW part of the case entry as seen, so
-		 that we save time later.  Choose TREE_ADDRESSABLE
-		 randomly as a bit that won't have been set to-date.  */
-	      tree label = (tree) node->value;
-	      TREE_ADDRESSABLE (label) = 1;
-	    }
-	  else
-	    {
-	      /* Warn if there are enumerators that don't correspond to
-		 case expressions.  */
-	      warning (0, "%Henumeration value %qE not handled in switch",
-		       &switch_location, TREE_PURPOSE (chain));
+	      /* If we match the upper bound exactly, mark the CASE_HIGH
+		 part of the case entry as seen.  */
+	      if (cmp == 0)
+		CASE_HIGH_SEEN (label) = 1;
+	      continue;
 	    }
 	}
 
-      /* Warn if there are case expressions that don't correspond to
-	 enumerators.  This can occur since C and C++ don't enforce
-	 type-checking of assignments to enumeration variables.
+      /* We've now determined that this enumerated literal isn't
+	 handled by the case labels of the switch statement.  */
 
-	 The time complexity here is O(N**2) worst case, since we've
-	 not sorted the enumeration values.  However, in the absence
-	 of case ranges this is O(N), since all single cases that
-	 corresponded to enumerations have been marked above.  */
+      /* If the switch expression is a constant, we only really care
+	 about whether that constant is handled by the switch.  */
+      if (cond && tree_int_cst_compare (cond, value))
+	continue;
 
-      splay_tree_foreach (cases, match_case_to_enum, type);
+      warning (0, "%Henumeration value %qE not handled in switch",
+	       &switch_location, TREE_PURPOSE (chain));
     }
+
+  /* Warn if there are case expressions that don't correspond to
+     enumerators.  This can occur since C and C++ don't enforce
+     type-checking of assignments to enumeration variables.
+
+     The time complexity here is now always O(N) worst case, since
+     we should have marked both the lower bound and upper bound of
+     every disjoint case label, with CASE_LOW_SEEN and CASE_HIGH_SEEN
+     above.  This scan also resets those fields.  */
+  splay_tree_foreach (cases, match_case_to_enum, type);
 }
 
 /* Finish an expression taking the address of LABEL (an
@@ -4211,6 +4368,29 @@ handle_always_inline_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "gnu_inline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_gnu_inline_attribute (tree *node, tree name,
+			     tree ARG_UNUSED (args),
+			     int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (*node))
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "flatten" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -4301,16 +4481,16 @@ handle_externally_visible_attribute (tree *pnode, tree name,
 {
   tree node = *pnode;
 
-  if ((!TREE_STATIC (node) && TREE_CODE (node) != FUNCTION_DECL)
-      || !TREE_PUBLIC (node))
+  if (TREE_CODE (node) == FUNCTION_DECL || TREE_CODE (node) == VAR_DECL)
     {
-      warning (OPT_Wattributes,
-	       "%qE attribute have effect only on public objects", name);
-      *no_add_attrs = true;
+      if ((!TREE_STATIC (node) && TREE_CODE (node) != FUNCTION_DECL
+	   && !DECL_EXTERNAL (node)) || !TREE_PUBLIC (node))
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute have effect only on public objects", name);
+	  *no_add_attrs = true;
+	}
     }
-  else if (TREE_CODE (node) == FUNCTION_DECL
-	   || TREE_CODE (node) == VAR_DECL)
-    ;
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -4737,12 +4917,17 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
    struct attribute_spec.handler.  */
 
 static tree
-handle_weak_attribute (tree *node, tree ARG_UNUSED (name),
+handle_weak_attribute (tree *node, tree name,
 		       tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags),
 		       bool * ARG_UNUSED (no_add_attrs))
 {
-  declare_weak (*node);
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      || TREE_CODE (*node) == VAR_DECL)
+    declare_weak (*node);
+  else
+    warning (OPT_Wattributes, "%qE attribute ignored", name);
+    	
 
   return NULL_TREE;
 }
@@ -5248,6 +5433,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   orig_mode = TYPE_MODE (type);
 
   if (TREE_CODE (type) == RECORD_TYPE
+      || TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))
@@ -5977,15 +6164,18 @@ c_common_to_target_charset (HOST_WIDE_INT c)
 }
 
 /* Build the result of __builtin_offsetof.  EXPR is a nested sequence of
-   component references, with an INDIRECT_REF at the bottom; much like
-   the traditional rendering of offsetof as a macro.  Returns the folded
-   and properly cast result.  */
+   component references, with STOP_REF, or alternatively an INDIRECT_REF of
+   NULL, at the bottom; much like the traditional rendering of offsetof as a
+   macro.  Returns the folded and properly cast result.  */
 
 static tree
-fold_offsetof_1 (tree expr)
+fold_offsetof_1 (tree expr, tree stop_ref)
 {
   enum tree_code code = PLUS_EXPR;
   tree base, off, t;
+
+  if (expr == stop_ref && TREE_CODE (expr) != ERROR_MARK)
+    return size_zero_node;
 
   switch (TREE_CODE (expr))
     {
@@ -5996,11 +6186,22 @@ fold_offsetof_1 (tree expr)
       error ("cannot apply %<offsetof%> to static data member %qD", expr);
       return error_mark_node;
 
-    case INDIRECT_REF:
+    case CALL_EXPR:
+      error ("cannot apply %<offsetof%> when %<operator[]%> is overloaded");
+      return error_mark_node;
+
+    case INTEGER_CST:
+      gcc_assert (integer_zerop (expr));
       return size_zero_node;
 
+    case NOP_EXPR:
+    case INDIRECT_REF:
+      base = fold_offsetof_1 (TREE_OPERAND (expr, 0), stop_ref);
+      gcc_assert (base == error_mark_node || base == size_zero_node);
+      return base;
+
     case COMPONENT_REF:
-      base = fold_offsetof_1 (TREE_OPERAND (expr, 0));
+      base = fold_offsetof_1 (TREE_OPERAND (expr, 0), stop_ref);
       if (base == error_mark_node)
 	return base;
 
@@ -6017,7 +6218,7 @@ fold_offsetof_1 (tree expr)
       break;
 
     case ARRAY_REF:
-      base = fold_offsetof_1 (TREE_OPERAND (expr, 0));
+      base = fold_offsetof_1 (TREE_OPERAND (expr, 0), stop_ref);
       if (base == error_mark_node)
 	return base;
 
@@ -6039,10 +6240,10 @@ fold_offsetof_1 (tree expr)
 }
 
 tree
-fold_offsetof (tree expr)
+fold_offsetof (tree expr, tree stop_ref)
 {
   /* Convert back from the internal sizetype to size_t.  */
-  return convert (size_type_node, fold_offsetof_1 (expr));
+  return convert (size_type_node, fold_offsetof_1 (expr, stop_ref));
 }
 
 /* Print an error message for an invalid lvalue.  USE says
@@ -6403,6 +6604,88 @@ warn_array_subscript_with_type_char (tree index)
   if (TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node
       && TREE_CODE (index) != INTEGER_CST)
     warning (OPT_Wchar_subscripts, "array subscript has type %<char%>");
+}
+
+/* Implement -Wparentheses for the unexpected C precedence rules, to
+   cover cases like x + y << z which readers are likely to
+   misinterpret.  We have seen an expression in which CODE is a binary
+   operator used to combine expressions headed by CODE_LEFT and
+   CODE_RIGHT.  CODE_LEFT and CODE_RIGHT may be ERROR_MARK, which
+   means that that side of the expression was not formed using a
+   binary operator, or it was enclosed in parentheses.  */
+
+void
+warn_about_parentheses (enum tree_code code, enum tree_code code_left,
+			enum tree_code code_right)
+{
+  if (!warn_parentheses)
+    return;
+
+  if (code == LSHIFT_EXPR || code == RSHIFT_EXPR)
+    {
+      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
+	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around + or - inside shift");
+    }
+
+  if (code == TRUTH_ORIF_EXPR)
+    {
+      if (code_left == TRUTH_ANDIF_EXPR
+	  || code_right == TRUTH_ANDIF_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around && within ||");
+    }
+
+  if (code == BIT_IOR_EXPR)
+    {
+      if (code_left == BIT_AND_EXPR || code_left == BIT_XOR_EXPR
+	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
+	  || code_right == BIT_AND_EXPR || code_right == BIT_XOR_EXPR
+	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around arithmetic in operand of |");
+      /* Check cases like x|y==z */
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of |");
+    }
+
+  if (code == BIT_XOR_EXPR)
+    {
+      if (code_left == BIT_AND_EXPR
+	  || code_left == PLUS_EXPR || code_left == MINUS_EXPR
+	  || code_right == BIT_AND_EXPR
+	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around arithmetic in operand of ^");
+      /* Check cases like x^y==z */
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of ^");
+    }
+
+  if (code == BIT_AND_EXPR)
+    {
+      if (code_left == PLUS_EXPR || code_left == MINUS_EXPR
+	  || code_right == PLUS_EXPR || code_right == MINUS_EXPR)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around + or - in operand of &");
+      /* Check cases like x&y==z */
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+	  || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of &");
+    }
+
+  /* Similarly, check for cases like 1<=i<=10 that are probably errors.  */
+  if (TREE_CODE_CLASS (code) == tcc_comparison
+      && (TREE_CODE_CLASS (code_left) == tcc_comparison
+	  || TREE_CODE_CLASS (code_right) == tcc_comparison))
+    warning (OPT_Wparentheses, "comparisons like X<=Y<=Z do not "
+	     "have their mathematical meaning");
 }
 
 

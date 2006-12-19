@@ -145,7 +145,7 @@ begin_schedule_ready (rtx insn, rtx last)
       gcc_assert (!e || !(e->flags & EDGE_COMPLEX));	    
 
       gcc_assert (BLOCK_FOR_INSN (insn) == last_bb
-		  && !RECOVERY_BLOCK (insn)
+		  && !IS_SPECULATION_CHECK_P (insn)
 		  && BB_HEAD (last_bb) != insn
 		  && BB_END (last_bb) == insn);
 
@@ -166,7 +166,8 @@ begin_schedule_ready (rtx insn, rtx last)
 	  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_END (bb)));
 	}
       else
-	bb = create_basic_block (insn, 0, last_bb);
+	/* Create an empty unreachable block after the INSN.  */
+	bb = create_basic_block (NEXT_INSN (insn), NULL_RTX, last_bb);
       
       /* split_edge () creates BB before E->DEST.  Keep in mind, that
 	 this operation extends scheduling region till the end of BB.
@@ -478,12 +479,6 @@ schedule_ebb (rtx head, rtx tail)
   current_sched_info->prev_head = PREV_INSN (head);
   current_sched_info->next_tail = NEXT_INSN (tail);
 
-  if (write_symbols != NO_DEBUG)
-    {
-      save_line_notes (first_bb->index, head, tail);
-      rm_line_notes (head, tail);
-    }
-
   /* rm_other_notes only removes notes which are _inside_ the
      block---that is, it won't remove notes before the first real insn
      or after the last real insn of the block.  So if the first insn
@@ -518,9 +513,6 @@ schedule_ebb (rtx head, rtx tail)
   gcc_assert (sched_n_insns == n_insns);
   head = current_sched_info->head;
   tail = current_sched_info->tail;
-
-  if (write_symbols != NO_DEBUG)
-    restore_line_notes (head, tail);
 
   if (EDGE_COUNT (last_bb->preds) == 0)
     /* LAST_BB is unreachable.  */
@@ -680,9 +672,6 @@ schedule_ebbs (void)
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
 
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
-
   sched_finish ();
 }
 
@@ -718,9 +707,13 @@ advance_target_bb (basic_block bb, rtx insn)
     {
       if (BLOCK_FOR_INSN (insn) != bb
 	  && control_flow_insn_p (insn)
-	  && !RECOVERY_BLOCK (insn)
-	  && !RECOVERY_BLOCK (BB_END (bb)))
+	  /* We handle interblock movement of the speculation check
+	     or over a speculation check in
+	     haifa-sched.c: move_block_after_check ().  */
+	  && !IS_SPECULATION_BRANCHY_CHECK_P (insn)
+	  && !IS_SPECULATION_BRANCHY_CHECK_P (BB_END (bb)))
 	{
+	  /* Assert that we don't move jumps across blocks.  */
 	  gcc_assert (!control_flow_insn_p (BB_END (bb))
 		      && NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (bb->next_bb)));
 	  return bb;
@@ -728,10 +721,19 @@ advance_target_bb (basic_block bb, rtx insn)
       else
 	return 0;
     }
-  else if (bb != last_bb)
-    return bb->next_bb;
   else
-    gcc_unreachable ();
+    /* Return next non empty block.  */
+    {
+      do
+	{
+	  gcc_assert (bb != last_bb);
+
+	  bb = bb->next_bb;
+	}
+      while (bb_note (bb) == BB_END (bb));
+
+      return bb;
+    }
 }
 
 /* Fix internal data after interblock movement of jump instruction.

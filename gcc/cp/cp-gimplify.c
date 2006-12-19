@@ -391,18 +391,15 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   tree to = TREE_OPERAND (*expr_p, 0);
   tree sub;
 
-  /* If we are initializing something from a TARGET_EXPR, strip the
-     TARGET_EXPR and initialize it directly.  */
   /* What about code that pulls out the temp and uses it elsewhere?  I
      think that such code never uses the TARGET_EXPR as an initializer.  If
      I'm wrong, we'll abort because the temp won't have any RTL.  In that
      case, I guess we'll need to replace references somehow.  */
   if (TREE_CODE (from) == TARGET_EXPR)
     from = TARGET_EXPR_INITIAL (from);
-  if (TREE_CODE (from) == CLEANUP_POINT_EXPR)
-    from = TREE_OPERAND (from, 0);
 
-  /* Look through any COMPOUND_EXPRs.  */
+  /* Look through any COMPOUND_EXPRs, since build_compound_expr pushes them
+     inside the TARGET_EXPR.  */
   sub = expr_last (from);
 
   /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
@@ -486,7 +483,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_OK;
       break;
 
-      /* We used to do this for MODIFY_EXPR as well, but that's unsafe; the
+      /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's unsafe; the
 	 LHS of an assignment might also be involved in the RHS, as in bug
 	 25979.  */
     case INIT_EXPR:
@@ -787,13 +784,13 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
 
       p1 = create_tmp_var (TREE_TYPE (start1), NULL);
-      t = build2 (MODIFY_EXPR, void_type_node, p1, start1);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, start1);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  p2 = create_tmp_var (TREE_TYPE (start2), NULL);
-	  t = build2 (MODIFY_EXPR, void_type_node, p2, start2);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, start2);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -815,14 +812,14 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 
       t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
       t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
-      t = build2 (MODIFY_EXPR, void_type_node, p1, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, t);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
 	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
-	  t = build2 (MODIFY_EXPR, void_type_node, p2, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, t);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -873,7 +870,7 @@ cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), dst, src);
   if (ret == NULL)
-    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
 
   return ret;
 }
@@ -889,7 +886,7 @@ cxx_omp_clause_assign_op (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 2), dst, src);
   if (ret == NULL)
-    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
 
   return ret;
 }

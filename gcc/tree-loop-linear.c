@@ -236,22 +236,22 @@ try_interchange_loops (lambda_trans_matrix trans,
   return trans;
 }
 
-/* Perform a set of linear transforms on LOOPS.  */
+/* Perform a set of linear transforms on loops.  */
 
 void
-linear_transform_loops (struct loops *loops)
+linear_transform_loops (void)
 {
   bool modified = false;
-  unsigned int i;
+  loop_iterator li;
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
+  struct loop *loop_nest;
   
-  for (i = 1; i < loops->num; i++)
+  FOR_EACH_LOOP (li, loop_nest, 0)
     {
       unsigned int depth = 0;
       VEC (ddr_p, heap) *dependence_relations;
       VEC (data_reference_p, heap) *datarefs;
-      struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
@@ -265,12 +265,12 @@ linear_transform_loops (struct loops *loops)
                {
 	        ...
                }
-           for (j = 0; j < 50; j++)
+             for (j = 0; j < 50; j++)
                {
                 ...
                }
            } */
-      if (!loop_nest || !loop_nest->inner)
+      if (!loop_nest->inner || !single_exit (loop_nest))
 	continue;
       VEC_truncate (tree, oldivs, 0);
       VEC_truncate (tree, invariants, 0);
@@ -278,7 +278,7 @@ linear_transform_loops (struct loops *loops)
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || !temp->single_exit)
+	  if (temp->next || !single_exit (temp))
 	    {
 	      problem = true;
 	      break;
@@ -308,7 +308,7 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	   fprintf (dump_file, "Won't transform loop. Optimal transform is the identity transform\n");
-	  continue;
+	  goto free_and_continue;
 	}
 
       /* Check whether the transformation is legal.  */
@@ -316,15 +316,15 @@ linear_transform_loops (struct loops *loops)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
-	  continue;
+	  goto free_and_continue;
 	}
 
-      before = gcc_loopnest_to_lambda_loopnest (loops, loop_nest, &oldivs,
+      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs,
 						&invariants);
 
       if (!before)
-	continue;
-            
+	goto free_and_continue;
+
       if (dump_file)
 	{
 	  fprintf (dump_file, "Before:\n");
@@ -346,6 +346,7 @@ linear_transform_loops (struct loops *loops)
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
 
+    free_and_continue:
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }

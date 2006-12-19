@@ -49,6 +49,15 @@
 # else
 #  error can not work out how to access fields of i386_thread_state_t
 # endif
+#elif defined(__x86_64__)
+# define THREAD_STATE i386_thread_state_t
+# if defined (HAS_I386_THREAD_STATE_EAX)
+#  define THREAD_FLD(x) x
+# elif defined (HAS_I386_THREAD_STATE___EAX)
+#  define THREAD_FLD(x) __ ## x
+# else
+#  error can not work out how to access fields of i386_thread_state_t
+# endif
 #else
 # error unknown architecture
 #endif
@@ -61,7 +70,7 @@ typedef struct StackFrame {
   unsigned long	savedRTOC;
 } StackFrame;
 
-unsigned long FindTopOfStack(unsigned int stack_start) {
+unsigned long FindTopOfStack(unsigned long stack_start) {
   StackFrame	*frame;
   
   if (stack_start == 0) {
@@ -125,7 +134,18 @@ void GC_push_all_stacks() {
 			     (natural_t*)&state,
 			     &thread_state_count);
 	if(r != KERN_SUCCESS) ABORT("thread_get_state failed");
-	
+
+#if defined(I386)
+	lo = (void*)state . THREAD_FLD (esp);
+
+	GC_push_one(state . THREAD_FLD (eax)); 
+	GC_push_one(state . THREAD_FLD (ebx)); 
+	GC_push_one(state . THREAD_FLD (ecx)); 
+	GC_push_one(state . THREAD_FLD (edx)); 
+	GC_push_one(state . THREAD_FLD (edi)); 
+	GC_push_one(state . THREAD_FLD (esi)); 
+	GC_push_one(state . THREAD_FLD (ebp)); 
+#elif defined(POWERPC)
 	lo = (void*)(state . THREAD_FLD (r1) - PPC_RED_ZONE_SIZE);
         
 	GC_push_one(state . THREAD_FLD (r0)); 
@@ -159,6 +179,9 @@ void GC_push_all_stacks() {
 	GC_push_one(state . THREAD_FLD (r29)); 
 	GC_push_one(state . THREAD_FLD (r30)); 
 	GC_push_one(state . THREAD_FLD (r31));
+#else
+# error FIXME for non-x86 || ppc architectures
+#endif
       } /* p != me */
       if(p->flags & MAIN_THREAD)
 	hi = GC_stackbottom;

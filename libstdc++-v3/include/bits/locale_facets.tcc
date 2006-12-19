@@ -41,6 +41,7 @@
 #include <limits>		// For numeric_limits
 #include <typeinfo>		// For bad_cast.
 #include <bits/streambuf_iterator.h>
+#include <ext/type_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -313,7 +314,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       int __sep_pos = 0;
       while (!__testeof)
 	{
-	  if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
+	  if ((__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
 	      || __c == __lc->_M_decimal_point)
 	    break;
 	  else if (__c == __lit[__num_base::_S_izero])
@@ -503,20 +504,6 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 _GLIBCXX_END_LDBL_NAMESPACE
 
-  template<typename _ValueT>
-    struct __to_unsigned_type
-    { typedef _ValueT __type; };
-
-  template<>
-    struct __to_unsigned_type<long>
-    { typedef unsigned long __type; };
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<>
-    struct __to_unsigned_type<long long>
-    { typedef unsigned long long __type; };
-#endif
-
 _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _InIter>
@@ -527,7 +514,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 		     ios_base::iostate& __err, _ValueT& __v) const
       {
         typedef char_traits<_CharT>			     __traits_type;
-	typedef typename __to_unsigned_type<_ValueT>::__type __unsigned_type;
+	using __gnu_cxx::__add_unsigned;
+	typedef typename __add_unsigned<_ValueT>::__type __unsigned_type;
 	typedef __numpunct_cache<_CharT>                     __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
@@ -568,7 +556,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	int __sep_pos = 0;
 	while (!__testeof)
 	  {
-	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
+	    if ((__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
 		|| __c == __lc->_M_decimal_point)
 	      break;
 	    else if (__c == __lit[__num_base::_S_izero] 
@@ -895,7 +883,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       // Prepare for hex formatted input.
       typedef ios_base::fmtflags        fmtflags;
       const fmtflags __fmt = __io.flags();
-      __io.flags(__fmt & ~ios_base::basefield | ios_base::hex);
+      __io.flags((__fmt & ~ios_base::basefield) | ios_base::hex);
 
       unsigned long __ul;
       __beg = _M_extract_int(__beg, __end, __io, __err, __ul);
@@ -987,7 +975,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       _M_insert_int(_OutIter __s, ios_base& __io, _CharT __fill,
 		    _ValueT __v) const
       {
-	typedef typename __to_unsigned_type<_ValueT>::__type __unsigned_type;
+	using __gnu_cxx::__add_unsigned;
+	typedef typename __add_unsigned<_ValueT>::__type __unsigned_type;
 	typedef __numpunct_cache<_CharT>	             __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
@@ -1316,7 +1305,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       const ios_base::fmtflags __fmt = ~(ios_base::basefield
 					 | ios_base::uppercase
 					 | ios_base::internal);
-      __io.flags(__flags & __fmt | (ios_base::hex | ios_base::showbase));
+      __io.flags((__flags & __fmt) | (ios_base::hex | ios_base::showbase));
 
       __s = _M_insert_int(__s, __io, __fill,
 			  reinterpret_cast<unsigned long>(__v));
@@ -1388,9 +1377,9 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 					 == money_base::space)))
 		    || (__i == 2 && ((static_cast<part>(__p.field[3])
 				      == money_base::value)
-				     || __mandatory_sign
-				     && (static_cast<part>(__p.field[3])
-					 == money_base::sign))))
+				     || (__mandatory_sign
+					 && (static_cast<part>(__p.field[3])
+					     == money_base::sign)))))
 		  {
 		    const size_type __len = __lc->_M_curr_symbol_size;
 		    size_type __j = 0;
@@ -1548,10 +1537,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	     ios_base::iostate& __err, double& __units) const
     {
       string __str;
-      if (__intl)
-	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
-      else
-	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+                     : _M_extract<false>(__beg, __end, __io, __err, __str);
       std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
       return __beg;
     }
@@ -1564,10 +1551,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	   ios_base::iostate& __err, long double& __units) const
     {
       string __str;
-      if (__intl)
-	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
-      else
-	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+	             : _M_extract<false>(__beg, __end, __io, __err, __str);
       std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
       return __beg;
     }
@@ -1576,7 +1561,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
     _InIter
     money_get<_CharT, _InIter>::
     do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io,
-	   ios_base::iostate& __err, string_type& __units) const
+	   ios_base::iostate& __err, string_type& __digits) const
     {
       typedef typename string::size_type                  size_type;
 
@@ -1584,20 +1569,15 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
 
       string __str;
-      const iter_type __ret = __intl ? _M_extract<true>(__beg, __end, __io,
-							__err, __str)
-	                             : _M_extract<false>(__beg, __end, __io,
-							 __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+	             : _M_extract<false>(__beg, __end, __io, __err, __str);
       const size_type __len = __str.size();
       if (__len)
 	{
-	  _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							       * __len));
-	  __ctype.widen(__str.data(), __str.data() + __len, __ws);
-	  __units.assign(__ws, __len);
+	  __digits.resize(__len);
+	  __ctype.widen(__str.data(), __str.data() + __len, &__digits[0]);
 	}
-
-      return __ret;
+      return __beg;
     }
 
   template<typename _CharT, typename _OutIter>
@@ -1653,22 +1633,20 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 	    // Add thousands separators to non-decimal digits, per
 	    // grouping rules.
-	    int __paddec = __len - __lc->_M_frac_digits;
+	    long __paddec = __len - __lc->_M_frac_digits;
 	    if (__paddec > 0)
   	      {
 		if (__lc->_M_frac_digits < 0)
 		  __paddec = __len;
   		if (__lc->_M_grouping_size)
   		  {
-		    _CharT* __ws =
-  		      static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-  							    * 2 * __len));
-  		    _CharT* __ws_end =
-		      std::__add_grouping(__ws, __lc->_M_thousands_sep,
+		    __value.assign(2 * __paddec, char_type());
+ 		    _CharT* __vend = 
+		      std::__add_grouping(&__value[0], __lc->_M_thousands_sep,
 					  __lc->_M_grouping,
 					  __lc->_M_grouping_size,
 					  __beg, __beg + __paddec);
-		    __value.assign(__ws, __ws_end - __ws);
+		    __value.erase(__vend - &__value[0]);
   		  }
   		else
 		  __value.assign(__beg, __paddec);
@@ -1768,9 +1746,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
     money_put<_CharT, _OutIter>::
     __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	     double __units) const
-    {
-      return this->do_put(__s, __intl, __io, __fill, (long double) __units);
-    }
+    { return this->do_put(__s, __intl, __io, __fill, (long double) __units); }
 #endif
 
   template<typename _CharT, typename _OutIter>
@@ -1804,10 +1780,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       int __len = std::__convert_from_v(_S_get_c_locale(), __cs, 0, "%.*Lf", 
 					0, __units);
 #endif
-      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							   * __cs_size));
-      __ctype.widen(__cs, __cs + __len, __ws);
-      const string_type __digits(__ws, __len);
+      string_type __digits(__len, char_type());
+      __ctype.widen(__cs, __cs + __len, &__digits[0]);
       return __intl ? _M_insert<true>(__s, __io, __fill, __digits)
 	            : _M_insert<false>(__s, __io, __fill, __digits);
     }
@@ -2609,19 +2583,33 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		   const char* __gbeg, size_t __gsize,
 		   const _CharT* __first, const _CharT* __last)
     {
-      if (__last - __first > *__gbeg
-	  && static_cast<signed char>(*__gbeg) > 0)
+      size_t __idx = 0;
+      size_t __ctr = 0;
+
+      while (__last - __first > __gbeg[__idx]
+	     && static_cast<signed char>(__gbeg[__idx]) > 0)
 	{
-	  const bool __bump = __gsize != 1;
-	  __s = std::__add_grouping(__s,  __sep, __gbeg + __bump,
-				    __gsize - __bump, __first,
-				    __last - *__gbeg);
-	  __first = __last - *__gbeg;
-	  *__s++ = __sep;
+	  __last -= __gbeg[__idx];
+	  __idx < __gsize - 1 ? ++__idx : ++__ctr;
 	}
-      do
+
+      while (__first != __last)
 	*__s++ = *__first++;
-      while (__first != __last);
+
+      while (__ctr--)
+	{
+	  *__s++ = __sep;	  
+	  for (char __i = __gbeg[__idx]; __i > 0; --__i)
+	    *__s++ = *__first++;
+	}
+
+      while (__idx--)
+	{
+	  *__s++ = __sep;	  
+	  for (char __i = __gbeg[__idx]; __i > 0; --__i)
+	    *__s++ = *__first++;
+	}
+
       return __s;
     }
 

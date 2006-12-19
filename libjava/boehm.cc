@@ -695,3 +695,22 @@ _Jv_ResumeThread (_Jv_Thread_t *thread)
   GC_resume_thread (_Jv_GetPlatformThreadID (thread));
 #endif
 }
+
+void
+_Jv_GCAttachThread ()
+{
+  // The registration interface is only defined on posixy systems and
+  // only actually works if pthread_getattr_np is defined.
+  // FIXME: until gc7 it is simpler to disable this on solaris.
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
+  GC_register_my_thread ();
+#endif
+}
+
+void
+_Jv_GCDetachThread ()
+{
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
+  GC_unregister_my_thread ();
+#endif
+}
