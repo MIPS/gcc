@@ -1,5 +1,10 @@
 2006-12-18  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/libjava.jvmti/jvmti.exp (gcj_jvmti_build_headers):
+	Don't use jv-scan.
+
+2006-12-18  Tom Tromey  <tromey@redhat.com>
+
 	* HACKING: Updated.
 	* gnu/classpath/Configuration.java (CLASSPATH_VERSION): Now 0.93.
 
