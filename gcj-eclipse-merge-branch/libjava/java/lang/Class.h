@@ -479,6 +479,20 @@ public:
   // types. See prims.cc.
   Class ();
 
+  // Given the BC ABI version, return the size of an Class initializer.
+  static jlong initializerSize (jlong ABI)
+  {
+    unsigned long version = ABI & 0xfffff;
+    int abi_rev = version % 100;
+    
+    // The reflection_data field was added by abi_rev 1.
+    if (abi_rev == 0)
+      return ((char*)(&::java::lang::Class::class$.reflection_data)
+	      - (char*)&::java::lang::Class::class$);
+    
+    return sizeof (::java::lang::Class);
+  }
+
   static java::lang::Class class$;
 
 private:   

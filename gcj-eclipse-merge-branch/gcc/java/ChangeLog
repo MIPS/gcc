@@ -1,3 +1,7 @@
+2006-12-19  Andrew Haley  <aph@redhat.com>
+
+	* decl.c: Bump minor BC ABI version.
+
 2006-12-13  Gary Benson  <gbenson@redhat.com>
 
 	* jcf-depend.c (jcf_dependency_add_file): Mark filename unused.

@@ -1,3 +1,17 @@
+2006-12-19  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_CheckABIVersion): Move here
+	from include/jvm.h.
+	Add BC ABI Version 1.
+	Throw a ClassFormatError if we're not ABI-compatible.
+	(_Jv_RegisterClasses): Throw a ClassFormatError if we're not
+	ABI-compatible.
+	(_Jv_RegisterClasses_Counted): Likewise.
+	(_Jv_NewClassFromInitializer): Likewise.
+	Call Class::initializerSize to get size of initializer struct.
+	* include/jvm.h (_Jv_CheckABIVersion): Move to natClassLoader.cc.
+	* java/lang/Class.h (Class::initializerSize): New function.
+
 2006-12-18  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.jvmti/jvmti.exp (gcj_jvmti_build_headers):

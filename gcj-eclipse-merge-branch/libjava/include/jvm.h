@@ -658,30 +658,8 @@ extern void _Jv_RegisterBootstrapPackages ();
 // New style version IDs used by GCJ 4.0.1 and later.
 #define GCJ_40_BC_ABI_VERSION (4 * 100000 + 0 * 1000)
 
-inline bool
-_Jv_CheckABIVersion (unsigned long value)
-{
-  // We are compatible with GCJ 4.0.0 BC-ABI classes. This release used a
-  // different format for the version ID string.
-   if (value == OLD_GCJ_40_BC_ABI_VERSION)
-     return true;
-     
-  // The 20 low-end bits are used for the version number.
-  unsigned long version = value & 0xfffff;
+void _Jv_CheckABIVersion (unsigned long value);
 
-  if (value & FLAG_BINARYCOMPAT_ABI)
-    {
-      int abi_rev = version % 100;
-      int abi_ver = version - abi_rev;
-      if (abi_ver == GCJ_40_BC_ABI_VERSION && abi_rev <= 0)
-        return true;
-    }
-  else
-    // C++ ABI
-    return version == GCJ_CXX_ABI_VERSION;
-  
-  return false;
-}
 
 inline bool
 _Jv_ClassForBootstrapLoader (unsigned long value)
