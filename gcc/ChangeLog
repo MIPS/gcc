@@ -1,3 +1,98 @@
+2006-12-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/30040
+	* config/i386/driver-i386.c: Include "coretypes.h" and "tm.h".
+	(bit_SSSE3): New.
+	(host_detect_local_cpu): Check -mtune= vs. -march=. Rewrite
+	processor detection.
+
+	* config/i386/i386.h (CC1_CPU_SPEC): Add -mtune=native for
+	-march=native if there is no -mtune=*.
+
+	* config/i386/x-i386 (driver-i386.o): Also depend on $(TM_H)
+	coretypes.h.
+
+2006-12-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi: Update recommended MPFR version.  Remove
+	obsolete reference to cumulative patch.
+
+2006-12-02  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c/27953
+	* c-decl.c (store_parm_decls_oldstyle): Robustify.
+	
+2006-11-30  Jan Hubicka  <jh@suse.cz>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (pentium4_cost, nocona_cost): Update
+	32bit memcpy/memset decriptors.
+	(decide_alg): With -minline-all-stringops and sizes that are best
+	to be copied via libcall still work hard enough to pick non-libcall
+	strategy.
+
+2006-12-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	* doc/extend.texi, doc/invoke.texi, doc/md.texi: Fix typos.
+
+	* builtins.c, cfgloop.h, cgraph.h, config/arm/arm.c,
+	config/i386/i386.c, config/i386/i386.h, config/mips/mips.h,
+	config/rs6000/cell.md, config/rs6000/rs6000.c, config/sh/sh.c,
+	config/sh/sh4-300.md, config/spu/spu-builtins.def,
+	config/spu/spu-c.c, config/spu/spu-modes.def,
+	config/spu/spu.c, config/spu/spu.md,
+	config/spu/spu_internals.h, config/spu/vmx2spu.h,
+	fold-const.c, fwprop.c, predict.c, tree-data-ref.h,
+	tree-flow.h, tree-ssa-loop-manip.c, tree-ssa-loop-niter.c,
+	tree-ssa-pre.c, tree-vect-analyze.c, tree-vect-transform.c,
+	tree-vectorizer.c, tree-vrp.c: Fix comment typos.  Follow
+	spelling conventions.
+
+	* config/i386/i386.c: Fix a comment typo.
+
+2006-12-01  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+
+	* config/spu/spu.c (spu_immediate): Remove trailing comma.
+	(reloc_diagnostic): Call warning when -mwarn-reloc is specified.
+	* config/spu/spu.md: (zero_extendhisi2): Expand instead of split for
+	better optimization.
+	(floatv4siv4sf2): New.
+	(fix_truncv4sfv4si2): New.
+	(floatunsv4siv4sf2): New.
+	(fixuns_truncv4sfv4si2): New.
+	(addv16qi3): New.
+	(subv16qi3): New.
+	(negv16qi2): New.
+	(mulv8hi3): New.
+	(mulsi3): Remove.
+	(mul<mode>3): New.
+	(_mulv4si3): New.
+	(cmp<mode>): Don't accept constant arguments for DI, TI and SF.
+	* config/spu/spu_internals.h: Handle overloaded intrinsics in C++ with
+	spu_resolve_overloaded_builtin instead of static inline functions.
+
+2006-12-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (fold_binary) <LT_EXPR>: Use the precision of the
+	type instead of the size of its mode to compute the highest and
+	lowest possible values.  Still check the size of the mode before
+	flipping the signedness of the comparison.
+
+2006-12-01  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+
+	* config/spu/predicates.md (spu_mov_operand): Add.
+	* config/spu/spu.c (spu_expand_extv): Remove unused code.
+	(print_operand_address, print_operand): Handle addresses containing AND.
+	(spu_split_load, spu_split_store): Use updated movti pattern.
+	* config/spu/spu.md: (_mov<mode>, _movdi, _movti): Handle loads and
+	stores in mov patterns for correct operation of reload.
+	(lq, lq_<mode>, stq, stq_<mode>): Remove.
+
+2006-12-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/30021
+	* c-common.c (check_main_parameter_types): Check for error_mark_node.
+
 2006-12-01  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt (ftree-combine-temps): Remove.

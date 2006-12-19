@@ -530,7 +530,7 @@ struct processor_costs athlon_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
   /* For some reason, Athlon deals better with REP prefix (relative to loops)
-     comopared to K8. Alignment becomes important after 8 bytes for mempcy and
+     compared to K8. Alignment becomes important after 8 bytes for memcpy and
      128 bytes for memset.  */
   {{libcall, {{2048, rep_prefix_4_byte}, {-1, libcall}}},
    DUMMY_STRINGOP_ALGS},
@@ -655,10 +655,11 @@ struct processor_costs pentium4_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (43),			/* cost of FSQRT instruction.  */
-  {{libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}},
-   {libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}}},
-  {{libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}},
-   {libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}}}
+  {{libcall, {{12, loop_1_byte}, {64, loop}, {-1, rep_prefix_4_byte}}},
+   DUMMY_STRINGOP_ALGS},
+  {{libcall, {{6, loop_1_byte}, {64, loop}, {20480, rep_prefix_4_byte},
+   {-1, libcall}}},
+   DUMMY_STRINGOP_ALGS},
 };
 
 static const
@@ -712,10 +713,11 @@ struct processor_costs nocona_cost = {
   COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (44),			/* cost of FSQRT instruction.  */
-  {{libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}},
+  {{libcall, {{12, loop_1_byte}, {64, loop}, {-1, rep_prefix_4_byte}}},
    {libcall, {{32, loop}, {20000, rep_prefix_8_byte},
 	      {100000, unrolled_loop}, {-1, libcall}}}},
-  {{libcall, {{256, rep_prefix_4_byte}, {-1, libcall}}},
+  {{libcall, {{6, loop_1_byte}, {64, loop}, {20480, rep_prefix_4_byte},
+   {-1, libcall}}},
    {libcall, {{24, loop}, {64, unrolled_loop},
 	      {8192, rep_prefix_8_byte}, {-1, libcall}}}}
 };
@@ -13171,7 +13173,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 
   /* When there are stringops, we can cheaply increase dest and src pointers.
      Otherwise we save code size by maintaining offset (zero is readily
-     available from preceeding rep operation) and using x86 addressing modes.
+     available from preceding rep operation) and using x86 addressing modes.
    */
   if (TARGET_SINGLE_STRINGOP)
     {
@@ -13507,14 +13509,18 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 	         last non-libcall inline algorithm.  */
 	      if (TARGET_INLINE_ALL_STRINGOPS)
 		{
-		  gcc_assert (alg != libcall);
-		  return alg;
+		  /* When the current size is best to be copied by a libcall,
+		     but we are still forced to inline, run the heuristic bellow
+		     that will pick code for medium sized blocks.  */
+		  if (alg != libcall)
+		    return alg;
+		  break;
 		}
 	      else
 		return algs->size[i].alg;
 	    }
 	}
-      gcc_unreachable ();
+      gcc_assert (TARGET_INLINE_ALL_STRINGOPS);
     }
   /* When asked to inline the call anyway, try to pick meaningful choice.
      We look for maximal size of block that is faster to copy by hand and
@@ -13621,7 +13627,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 
   if (GET_CODE (align_exp) == CONST_INT)
     align = INTVAL (align_exp);
-  /* i386 can do missaligned access on resonably increased cost.  */
+  /* i386 can do misaligned access on reasonably increased cost.  */
   if (GET_CODE (expected_align_exp) == CONST_INT
       && INTVAL (expected_align_exp) > align)
     align = INTVAL (expected_align_exp);
@@ -13783,7 +13789,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       dst = change_address (dst, BLKmode, destreg);
     }
 
-  /* Epologue to copy the remaining bytes.  */
+  /* Epilogue to copy the remaining bytes.  */
   if (label)
     {
       if (size_needed < desired_align - align)
@@ -13909,7 +13915,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
 
   if (GET_CODE (align_exp) == CONST_INT)
     align = INTVAL (align_exp);
-  /* i386 can do missaligned access on resonably increased cost.  */
+  /* i386 can do misaligned access on reasonably increased cost.  */
   if (GET_CODE (expected_align_exp) == CONST_INT
       && INTVAL (expected_align_exp) > align)
     align = INTVAL (expected_align_exp);
