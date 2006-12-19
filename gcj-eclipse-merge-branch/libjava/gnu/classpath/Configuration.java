@@ -64,7 +64,7 @@ public final class Configuration
    * It is set according to the value of 'version' in the configure[.in] file
    * and used to set the System property gnu.classpath.version.
    */
-  public static final String CLASSPATH_VERSION = "0.92";
+  public static final String CLASSPATH_VERSION = "0.93";
 
   /**
    * The value of DEBUG is substituted according to whether the
