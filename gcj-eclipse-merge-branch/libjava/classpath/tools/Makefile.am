@@ -2,7 +2,8 @@
 
 ## GCJ LOCAL: use srcdir to find core classes.
 GLIBJ_BOOTCLASSPATH='$(top_srcdir)/lib'
-GLIBJ_CLASSPATH=asm
+GLIBJ_CLASSPATH=$(srcdir)/asm
+## END GCJ LOCAL
 
 # Setup the compiler to use the GNU Classpath library we just build
 if FOUND_GCJ

@@ -1,6 +1,11 @@
 2006-12-18  Tom Tromey  <tromey@redhat.com>
 
 	* tools/Makefile.in: Rebuilt.
+	* tools/Makefile.am (GLIBJ_CLASSPATH): Look in srcdir.
+
+2006-12-18  Tom Tromey  <tromey@redhat.com>
+
+	* tools/Makefile.in: Rebuilt.
 	* tools/Makefile.am ($(TOOLS_ZIP)): Put classes in srcdir.
 	* tools/asm, tools/classes: Check in .class files.
 
