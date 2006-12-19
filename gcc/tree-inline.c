@@ -49,6 +49,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "pointer-set.h"
 #include "ipa-prop.h"
+#include "value-prof.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -707,6 +708,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	{
 	  tree call, decl;
 
+	  gimple_duplicate_stmt_histograms (cfun, stmt, id->src_cfun, orig_stmt);
+
 	  /* With return slot optimization we can end up with
 	     non-gimple (foo *)&this->m, fix that here.  */
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
@@ -1103,9 +1106,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	 at the end.  Note that is_gimple_cast only checks the outer
 	 tree code, not its operand.  Thus the explicit check that its
 	 operand is a gimple value.  */
-      if (!is_gimple_val (rhs)
+      if ((!is_gimple_val (rhs)
 	  && (!is_gimple_cast (rhs)
 	      || !is_gimple_val (TREE_OPERAND (rhs, 0))))
+	  || !is_gimple_reg (var))
 	gimplify_stmt (&init_stmt);
 
       /* If VAR represents a zero-sized variable, it's possible that the
@@ -1204,10 +1208,11 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	var = return_slot_addr;
       else
 	var = build_fold_indirect_ref (return_slot_addr);
-      if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
-	  && !DECL_COMPLEX_GIMPLE_REG_P (result)
+      if ((TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+           || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
+	  && !DECL_GIMPLE_REG_P (result)
 	  && DECL_P (var))
-	DECL_COMPLEX_GIMPLE_REG_P (var) = 0;
+	DECL_GIMPLE_REG_P (var) = 0;
       use = NULL;
       goto done;
     }
@@ -1245,9 +1250,10 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	    use_it = false;
 	  else if (is_global_var (base_m))
 	    use_it = false;
-	  else if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
-		   && !DECL_COMPLEX_GIMPLE_REG_P (result)
-		   && DECL_COMPLEX_GIMPLE_REG_P (base_m))
+	  else if ((TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+		    || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
+		   && !DECL_GIMPLE_REG_P (result)
+		   && DECL_GIMPLE_REG_P (base_m))
 	    use_it = false;
 	  else if (!TREE_ADDRESSABLE (base_m))
 	    use_it = true;
@@ -2648,7 +2654,7 @@ copy_decl_to_var (tree decl, copy_body_data *id)
   TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
   TREE_READONLY (copy) = TREE_READONLY (decl);
   TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
-  DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (decl);
+  DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
 
   return copy_decl_for_dup_finish (id, decl, copy);
 }
@@ -2674,7 +2680,7 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
   if (!DECL_BY_REFERENCE (decl))
     {
       TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
-      DECL_COMPLEX_GIMPLE_REG_P (copy) = DECL_COMPLEX_GIMPLE_REG_P (decl);
+      DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (decl);
     }
 
   return copy_decl_for_dup_finish (id, decl, copy);

@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 #include "fixed-value.h"
+#include "value-prof.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (tree);
@@ -2701,8 +2702,8 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  struct vdef_optype_d *vdefs;
-  struct vuse_optype_d *vuses;
+  struct voptype_d *vdefs;
+  struct voptype_d *vuses;
   int i, n;
 
   if (!ssa_operands_active () || !stmt_references_memory_p (stmt))
@@ -3010,6 +3011,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
       INDENT (curr_indent);
       dump_generic_node (buffer, stmt, curr_indent, flags, true);
       pp_newline (buffer);
+      dump_histograms_for_stmt (cfun, buffer->buffer->stream, stmt);
     }
 
   dump_implicit_edges (buffer, bb, indent, flags);

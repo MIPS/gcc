@@ -195,6 +195,9 @@ struct function GTY(())
   /* The loops in this function.  */
   struct loops * GTY((skip)) x_current_loops;
 
+  /* Value histograms attached to particular statements.  */
+  htab_t GTY((skip)) value_histograms;
+
   /* For function.c.  */
 
   /* Points to the FUNCTION_DECL of this function.  */
@@ -370,6 +373,10 @@ struct function GTY(())
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
+  /* Properties used by the pass manager.  */
+  unsigned int curr_properties;
+  unsigned int last_verified;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -532,6 +539,7 @@ extern int trampolines_created;
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 #define current_loops (cfun->x_current_loops)
+#define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */

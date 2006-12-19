@@ -269,17 +269,13 @@ struct change_cc_mode_args
    table since its use is guaranteed to be the insn immediately following
    its definition and any other insn is presumed to invalidate it.
 
-   Instead, we store below the value last assigned to CC0.  If it should
-   happen to be a constant, it is stored in preference to the actual
-   assigned value.  In case it is a constant, we store the mode in which
-   the constant should be interpreted.  */
+   Instead, we store below the current and last value assigned to CC0.
+   If it should happen to be a constant, it is stored in preference
+   to the actual assigned value.  In case it is a constant, we store
+   the mode in which the constant should be interpreted.  */
 
-static rtx prev_insn_cc0;
-static enum machine_mode prev_insn_cc0_mode;
-
-/* Previous actual insn.  0 if at first insn of basic block.  */
-
-static rtx prev_insn;
+static rtx this_insn_cc0, prev_insn_cc0;
+static enum machine_mode this_insn_cc0_mode, prev_insn_cc0_mode;
 #endif
 
 /* Insn being scanned.  */
@@ -900,7 +896,6 @@ new_basic_block (void)
     }
 
 #ifdef HAVE_cc0
-  prev_insn = 0;
   prev_insn_cc0 = 0;
 #endif
 }
@@ -4031,8 +4026,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 #ifdef HAVE_cc0
   /* Records what this insn does to set CC0.  */
-  rtx this_insn_cc0 = 0;
-  enum machine_mode this_insn_cc0_mode = VOIDmode;
+  this_insn_cc0 = 0;
+  this_insn_cc0_mode = VOIDmode;
 #endif
 
   rtx src_eqv = 0;
@@ -4513,8 +4508,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   const_elt; const_elt = const_elt->next_same_value)
 		if (REG_P (const_elt->exp))
 		  {
-		    src_related = gen_lowpart (mode,
-							   const_elt->exp);
+		    src_related = gen_lowpart (mode, const_elt->exp);
 		    break;
 		  }
 	    }
@@ -4601,8 +4595,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   larger_elt; larger_elt = larger_elt->next_same_value)
 		if (REG_P (larger_elt->exp))
 		  {
-		    src_related = gen_lowpart (mode,
-							   larger_elt->exp);
+		    src_related = gen_lowpart (mode, larger_elt->exp);
 		    break;
 		  }
 
@@ -4871,13 +4864,6 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	      validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
 	      apply_change_group ();
-
-	      /* With non-call exceptions, if this was an insn that could
-		 trap, we may have made it non-throwing now.  For example
-		 we may have replaced a load with a register.  */
-	      if (flag_non_call_exceptions
-		  && insn == BB_END (BLOCK_FOR_INSN (insn)))
-		purge_dead_edges (BLOCK_FOR_INSN (insn));
 
 	      break;
 	    }
@@ -5653,20 +5639,6 @@ cse_insn (rtx insn, rtx libcall_insn)
     }
 
 done:;
-#ifdef HAVE_cc0
-  /* If the previous insn set CC0 and this insn no longer references CC0,
-     delete the previous insn.  Here we use the fact that nothing expects CC0
-     to be valid over an insn, which is true until the final pass.  */
-  if (prev_insn && NONJUMP_INSN_P (prev_insn)
-      && (tem = single_set (prev_insn)) != 0
-      && SET_DEST (tem) == cc0_rtx
-      && ! reg_mentioned_p (cc0_rtx, x))
-    delete_insn_and_edges (prev_insn);
-
-  prev_insn_cc0 = this_insn_cc0;
-  prev_insn_cc0_mode = this_insn_cc0_mode;
-  prev_insn = insn;
-#endif
 }
 
 /* Remove from the hash table all expressions that reference memory.  */
@@ -5934,11 +5906,10 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	    {
 	      basic_block bb2 = e->dest;
 
-#if ENABLE_CHECKING
 	      /* We should only see blocks here that we have not
 		 visited yet.  */
 	      gcc_assert (!TEST_BIT (cse_visited_basic_blocks, bb2->index));
-#endif
+
 	      SET_BIT (cse_visited_basic_blocks, bb2->index);
 	      data->path[path_size++].bb = bb2;
 	      bb = bb2;
@@ -5966,6 +5937,22 @@ cse_dump_path (struct cse_basic_block_data *data, int nsets, FILE *f)
     fprintf (f, "%d ", (data->path[path_entry].bb)->index);
   fputc ('\n', dump_file);
   fflush (f);
+}
+
+
+/* Return true if BB has exception handling successor edges.  */
+
+static bool
+have_eh_succ_edges (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_EH)
+      return true;
+
+  return false;
 }
 
 
@@ -6106,18 +6093,44 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		  && for_each_rtx (&PATTERN (insn), check_for_label_ref,
 				   (void *) insn))
 		recorded_label_ref = 1;
+
+#ifdef HAVE_cc0
+	      /* If the previous insn set CC0 and this insn no longer
+		 references CC0, delete the previous insn.  Here we use
+		 fact that nothing expects CC0 to be valid over an insn,
+		 which is true until the final pass.  */
+	      {
+		rtx prev_insn, tem;
+
+		prev_insn = PREV_INSN (insn);
+		if (prev_insn && NONJUMP_INSN_P (prev_insn)
+		    && (tem = single_set (prev_insn)) != 0
+		    && SET_DEST (tem) == cc0_rtx
+		    && ! reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+		  delete_insn (prev_insn);
+	      }
+
+	      /* If this insn is not the last insn in the basic block,
+		 it will be PREV_INSN(insn) in the next iteration.  If
+		 we recorded any CC0-related information for this insn,
+		 remember it.  */
+	      if (insn != BB_END (bb))
+		{
+		  prev_insn_cc0 = this_insn_cc0;
+		  prev_insn_cc0_mode = this_insn_cc0_mode;
+		}
+#endif
 	    }
 	}
 
       /* Make sure that libcalls don't span multiple basic blocks.  */
       gcc_assert (libcall_insn == NULL_RTX);
 
-#ifdef HAVE_cc0
-      /* Clear the CC0-tracking related insns, they can't provide
-	 useful information across basic block boundaries.  */
-      prev_insn_cc0 = 0;
-      prev_insn = 0;
-#endif
+      /* With non-call exceptions, we are not always able to update
+	 the CFG properly inside cse_insn.  So clean up possibly
+	 redundant EH edges here.  */
+      if (flag_non_call_exceptions && have_eh_succ_edges (bb))
+	purge_dead_edges (bb);
 
       /* If we changed a conditional jump, we may have terminated
 	 the path we are following.  Check that by verifying that
@@ -6128,7 +6141,21 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	{
 	  basic_block next_bb = ebb_data->path[path_entry + 1].bb;
 	  if (!find_edge (bb, next_bb))
-	    ebb_data->path_size = path_entry + 1;
+	    {
+	      do
+		{
+		  path_size--;
+
+		  /* If we truncate the path, we must also reset the
+		     visited bit on the remaining blocks in the path,
+		     or we will never visit them at all.  */
+		  RESET_BIT (cse_visited_basic_blocks,
+			     ebb_data->path[path_size].bb->index);
+		  ebb_data->path[path_size].bb = NULL;
+		}
+	      while (path_size - 1 != path_entry);
+	      ebb_data->path_size = path_size;
+	    }
 	}
 
       /* If this is a conditional jump insn, record any known
@@ -6143,6 +6170,12 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	  bool taken = (next_bb == BRANCH_EDGE (bb)->dest);
 	  record_jump_equiv (insn, taken);
 	}
+
+#ifdef HAVE_cc0
+      /* Clear the CC0-tracking related insns, they can't provide
+	 useful information across basic block boundaries.  */
+      prev_insn_cc0 = 0;
+#endif
     }
 
   gcc_assert (next_qty <= max_qty);
@@ -6162,7 +6195,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 {
   struct cse_basic_block_data ebb_data;
   basic_block bb;
-  int *dfs_order = XNEWVEC (int, last_basic_block);
+  int *rc_order = XNEWVEC (int, last_basic_block);
   int i, n_blocks;
 
   init_cse_reg_info (nregs);
@@ -6200,17 +6233,17 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 	INSN_CUID (insn) = ++i;
     }
 
-  /* Loop over basic blocks in DFS order,
+  /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
-  n_blocks = pre_and_rev_post_order_compute (dfs_order, NULL, false);
+  n_blocks = pre_and_rev_post_order_compute (NULL, rc_order, false);
   i = 0;
   while (i < n_blocks)
     {
-      /* Find the first block in the DFS queue that we have not yet
+      /* Find the first block in the RPO queue that we have not yet
 	 processed before.  */
       do
 	{
-	  bb = BASIC_BLOCK (dfs_order[i++]);
+	  bb = BASIC_BLOCK (rc_order[i++]);
 	}
       while (TEST_BIT (cse_visited_basic_blocks, bb->index)
 	     && i < n_blocks);
@@ -6246,7 +6279,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   free (reg_eqv_table);
   free (ebb_data.path);
   sbitmap_free (cse_visited_basic_blocks);
-  free (dfs_order);
+  free (rc_order);
   rtl_hooks = general_rtl_hooks;
 
   return cse_jumps_altered || recorded_label_ref;
@@ -6967,9 +7000,7 @@ gate_handle_cse (void)
 static unsigned int
 rest_of_handle_cse (void)
 {
-static int counter = 0;
   int tem;
-counter++;
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
@@ -6980,10 +7011,6 @@ counter++;
   /* If we are not running more CSE passes, then we are no longer
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
   cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
-
-  /* If there are dead edges to purge, we haven't properly updated
-     the CFG incrementally.  */
-  gcc_assert (!purge_all_dead_edges ());
 
   if (tem)
     rebuild_jump_labels (get_insns ());
@@ -7036,10 +7063,6 @@ rest_of_handle_cse2 (void)
      makes it harder for that pass to determine whether a jump can be
      bypassed safely.  */
   cse_condition_code_reg ();
-
-  /* If there are dead edges to purge, we haven't properly updated
-     the CFG incrementally.  */
-  gcc_assert (!purge_all_dead_edges ());
 
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 

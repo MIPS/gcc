@@ -106,6 +106,10 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   else
     new_vect_var = create_tmp_var (type, prefix);
 
+  /* Mark vector typed variable as a gimple register variable.  */
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    DECL_GIMPLE_REG_P (new_vect_var) = true;
+
   return new_vect_var;
 }
 
@@ -2592,23 +2596,43 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
 	  vect1 = VEC_index (tree, dr_chain, j);
 	  vect2 = VEC_index (tree, dr_chain, j+length/2);
 
-	  /* high = interleave_high (vect1, vect2);  */
+	  /* Create interleaving stmt:
+	     in the case of big endian: 
+                                high = interleave_high (vect1, vect2) 
+             and in the case of little endian: 
+                                high = interleave_low (vect1, vect2).  */
 	  perm_dest = create_tmp_var (vectype, "vect_inter_high");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
-	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
-			      build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, vect1, 
-				      vect2));
+          if (BYTES_BIG_ENDIAN)
+	    perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+	        		build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, 
+                                        vect1, vect2)); 
+	  else
+            perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+                                build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, 
+                                        vect1, vect2));
 	  high = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = high;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
 	  VEC_replace (tree, *result_chain, 2*j, high);
 
-	  /* low = interleave_low (vect1, vect2);  */
+	  /* Create interleaving stmt:
+             in the case of big endian:
+                               low  = interleave_low (vect1, vect2) 
+             and in the case of little endian:
+                               low  = interleave_high (vect1, vect2).  */     
 	  perm_dest = create_tmp_var (vectype, "vect_inter_low");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
-	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
-			      build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, vect1, 
-				      vect2));
+	  if (BYTES_BIG_ENDIAN)
+	    perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+	               	        build2 (VEC_INTERLEAVE_LOW_EXPR, vectype, 
+ 					vect1, vect2));
+	  else
+            perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
+                                build2 (VEC_INTERLEAVE_HIGH_EXPR, vectype, 
+                                        vect1, vect2));
 	  low = make_ssa_name (perm_dest, perm_stmt);
 	  GIMPLE_STMT_OPERAND (perm_stmt, 0) = low;
 	  vect_finish_stmt_generation (stmt, perm_stmt, bsi);
@@ -3153,6 +3177,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 
 	  /* data_ref = permute_even (first_data_ref, second_data_ref);  */
 	  perm_dest = create_tmp_var (vectype, "vect_perm_even");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 	 
 	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,
@@ -3168,6 +3193,7 @@ vect_permute_load_chain (VEC(tree,heap) *dr_chain,
 	      
 	  /* data_ref = permute_odd (first_data_ref, second_data_ref);  */
 	  perm_dest = create_tmp_var (vectype, "vect_perm_odd");
+	  DECL_GIMPLE_REG_P (perm_dest) = 1;
 	  add_referenced_var (perm_dest);
 
 	  perm_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, perm_dest,

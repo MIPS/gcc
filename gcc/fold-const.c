@@ -7783,6 +7783,19 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	  tem = fold_build1 (REALPART_EXPR, itype, TREE_OPERAND (arg0, 0));
 	  return fold_convert (type, tem);
 	}
+      if (TREE_CODE (arg0) == CALL_EXPR)
+	{
+	  tree fn = get_callee_fndecl (arg0);
+	  if (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL)
+	    switch (DECL_FUNCTION_CODE (fn))
+	      {
+	      CASE_FLT_FN (BUILT_IN_CEXPI):
+	        fn = mathfn_built_in (type, BUILT_IN_COS);
+	        return build_function_call_expr (fn, TREE_OPERAND (arg0, 1));
+
+	      default:;
+	      }
+	}
       return NULL_TREE;
 
     case IMAGPART_EXPR:
@@ -7808,6 +7821,19 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	  tree itype = TREE_TYPE (TREE_TYPE (arg0));
 	  tem = fold_build1 (IMAGPART_EXPR, itype, TREE_OPERAND (arg0, 0));
 	  return fold_convert (type, negate_expr (tem));
+	}
+      if (TREE_CODE (arg0) == CALL_EXPR)
+	{
+	  tree fn = get_callee_fndecl (arg0);
+	  if (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL)
+	    switch (DECL_FUNCTION_CODE (fn))
+	      {
+	      CASE_FLT_FN (BUILT_IN_CEXPI):
+	        fn = mathfn_built_in (type, BUILT_IN_SIN);
+	        return build_function_call_expr (fn, TREE_OPERAND (arg0, 1));
+
+	      default:;
+	      }
 	}
       return NULL_TREE;
 
@@ -8799,6 +8825,41 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				    fold_convert (type, tem));
 	    }
 
+	  /* Fold __complex__ ( x, 0 ) + __complex__ ( 0, y )
+	     to __complex__ ( x, y ).  This is not the same for SNaNs or
+	     if singed zeros are involved.  */
+	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+              && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
+	      && COMPLEX_FLOAT_TYPE_P (TREE_TYPE (arg0)))
+	    {
+	      tree rtype = TREE_TYPE (TREE_TYPE (arg0));
+	      tree arg0r = fold_unary (REALPART_EXPR, rtype, arg0);
+	      tree arg0i = fold_unary (IMAGPART_EXPR, rtype, arg0);
+	      bool arg0rz = false, arg0iz = false;
+	      if ((arg0r && (arg0rz = real_zerop (arg0r)))
+		  || (arg0i && (arg0iz = real_zerop (arg0i))))
+		{
+		  tree arg1r = fold_unary (REALPART_EXPR, rtype, arg1);
+		  tree arg1i = fold_unary (IMAGPART_EXPR, rtype, arg1);
+		  if (arg0rz && arg1i && real_zerop (arg1i))
+		    {
+		      tree rp = arg1r ? arg1r
+				  : build1 (REALPART_EXPR, rtype, arg1);
+		      tree ip = arg0i ? arg0i
+				  : build1 (IMAGPART_EXPR, rtype, arg0);
+		      return fold_build2 (COMPLEX_EXPR, type, rp, ip);
+		    }
+		  else if (arg0iz && arg1r && real_zerop (arg1r))
+		    {
+		      tree rp = arg0r ? arg0r
+				  : build1 (REALPART_EXPR, rtype, arg0);
+		      tree ip = arg1i ? arg1i
+				  : build1 (IMAGPART_EXPR, rtype, arg1);
+		      return fold_build2 (COMPLEX_EXPR, type, rp, ip);
+		    }
+		}
+	    }
+
           if (flag_unsafe_math_optimizations
 	      && (TREE_CODE (arg0) == RDIV_EXPR || TREE_CODE (arg0) == MULT_EXPR)
 	      && (TREE_CODE (arg1) == RDIV_EXPR || TREE_CODE (arg1) == MULT_EXPR)
@@ -9249,6 +9310,28 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  tem = fold_convert (type, tem);
 		  return fold_build2 (MULT_EXPR, type, tem, tem);
 		}
+	    }
+
+	  /* Fold z * +-I to __complex__ (-+__imag z, +-__real z).
+	     This is not the same for NaNs or if singed zeros are
+	     involved.  */
+	  if (!HONOR_NANS (TYPE_MODE (TREE_TYPE (arg0)))
+              && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
+	      && COMPLEX_FLOAT_TYPE_P (TREE_TYPE (arg0))
+	      && TREE_CODE (arg1) == COMPLEX_CST
+	      && real_zerop (TREE_REALPART (arg1)))
+	    {
+	      tree rtype = TREE_TYPE (TREE_TYPE (arg0));
+	      if (real_onep (TREE_IMAGPART (arg1)))
+		return fold_build2 (COMPLEX_EXPR, type,
+				    negate_expr (fold_build1 (IMAGPART_EXPR,
+							      rtype, arg0)),
+				    fold_build1 (REALPART_EXPR, rtype, arg0));
+	      else if (real_minus_onep (TREE_IMAGPART (arg1)))
+		return fold_build2 (COMPLEX_EXPR, type,
+				    fold_build1 (IMAGPART_EXPR, rtype, arg0),
+				    negate_expr (fold_build1 (REALPART_EXPR,
+							      rtype, arg0)));
 	    }
 
 	  /* Optimize z * conj(z) for floating point complex numbers.
@@ -12796,7 +12879,9 @@ fold_unary_to_constant (enum tree_code code, tree type, tree op0)
 tree
 fold_read_from_constant_string (tree exp)
 {
-  if (TREE_CODE (exp) == INDIRECT_REF || TREE_CODE (exp) == ARRAY_REF)
+  if ((TREE_CODE (exp) == INDIRECT_REF
+       || TREE_CODE (exp) == ARRAY_REF)
+      && TREE_CODE (TREE_TYPE (exp)) == INTEGER_TYPE)
     {
       tree exp1 = TREE_OPERAND (exp, 0);
       tree index;
@@ -13173,6 +13258,14 @@ fold_indirect_ref_1 (tree type, tree op0)
       else if (TREE_CODE (optype) == COMPLEX_TYPE
 	       && type == TREE_TYPE (optype))
 	return fold_build1 (REALPART_EXPR, type, op);
+      /* *(foo *)&vectorfoo => BIT_FIELD_REF<vectorfoo,...> */
+      else if (TREE_CODE (optype) == VECTOR_TYPE
+	       && type == TREE_TYPE (optype))
+	{
+	  tree part_width = TYPE_SIZE (type);
+	  tree index = bitsize_int (0);
+	  return fold_build3 (BIT_FIELD_REF, type, op, part_width, index);
+	}
     }
 
   /* ((foo*)&complexfoo)[1] => __imag__ complexfoo */

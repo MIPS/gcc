@@ -356,6 +356,24 @@ struct stmt_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
+  /* Basic block that contains this statement.  */
+  basic_block bb;
+
+  /* Operand cache for stmt.  */
+  struct stmt_operands_d GTY ((skip (""))) operands;
+
+  /* Set of variables that have had their address taken in the statement.  */
+  bitmap addresses_taken;
+
+  /* Nonzero if the statement references memory (at least one of its
+     expressions contains a non-register operand).  */
+  unsigned references_memory : 1;
+
+  /* Unique identifier for this statement.  These ID's are to be created
+     by each pass on an as-needed basis in any order convenient for the
+     pass which needs statement UIDs.  */
+  unsigned int uid;
+
   /* Nonzero if the statement has been modified (meaning that the operands
      need to be scanned again).  */
   unsigned modified : 1;
@@ -366,30 +384,6 @@ struct stmt_ann_d GTY(())
   /* Nonzero if the statement makes a function call that may clobber global
      and local addressable variables.  */
   unsigned makes_clobbering_call : 1;
-
-  /* Nonzero if the statement references memory (at least one of its
-     expressions contains a non-register operand).  */
-  unsigned references_memory : 1;
-
-  /* Basic block that contains this statement.  */
-  basic_block bb;
-
-  /* Operand cache for stmt.  */
-  struct stmt_operands_d GTY ((skip (""))) operands;
-
-  /* Set of variables that have had their address taken in the statement.  */
-  bitmap addresses_taken;
-
-  /* Unique identifier for this statement.  These ID's are to be created
-     by each pass on an as-needed basis in any order convenient for the
-     pass which needs statement UIDs.  */
-  unsigned int uid;
-
-  /* Linked list of histograms for value-based profiling.  This is really a
-     struct histogram_value*.  We use void* to avoid having to export that
-     everywhere, and to avoid having to put it in GC memory.  */
-  
-  void * GTY ((skip (""))) histograms;
 };
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
@@ -1008,33 +1002,6 @@ extern void remove_unused_locals (void);
 
 /* In tree-ssa-address.c  */
 
-/* Affine combination of trees.  We keep track of at most MAX_AFF_ELTS elements
-   to make things simpler; this is sufficient in most cases.  */
-
-#define MAX_AFF_ELTS 8
-
-struct affine_tree_combination
-{
-  /* Type of the result of the combination.  */
-  tree type;
-
-  /* Mask modulo that the operations are performed.  */
-  unsigned HOST_WIDE_INT mask;
-
-  /* Constant offset.  */
-  unsigned HOST_WIDE_INT offset;
-
-  /* Number of elements of the combination.  */
-  unsigned n;
-
-  /* Elements and their coefficients.  */
-  tree elts[MAX_AFF_ELTS];
-  unsigned HOST_WIDE_INT coefs[MAX_AFF_ELTS];
-
-  /* Remainder of the expression.  */
-  tree rest;
-};
-
 /* Description of a memory address.  */
 
 struct mem_address
@@ -1042,6 +1009,7 @@ struct mem_address
   tree symbol, base, index, step, offset;
 };
 
+struct affine_tree_combination;
 tree create_mem_ref (block_stmt_iterator *, tree, 
 		     struct affine_tree_combination *);
 rtx addr_for_mem_ref (struct mem_address *, bool);
