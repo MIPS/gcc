@@ -1,3 +1,10 @@
+2006-12-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	CSL bug #1150
+	* config/m68k/m68k-cores.def: m5249 and m5250 need their own
+	multilib.
+
 2006-12-15  Kazu Hirata  <kazu@codesourcery.com>
 
 	Backport from mainline:
