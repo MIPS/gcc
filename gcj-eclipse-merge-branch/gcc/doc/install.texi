@@ -1422,6 +1422,14 @@ The following options apply to building @samp{libgcj}.
 @subsubheading General Options
 
 @table @code
+@item --enable-java-maintainer-mode
+By default the @samp{libjava} build will not attempt to compile the
+@file{.java} source files to @file{.class}.  Instead, it will use the
+@file{.class} files from the source tree.  If you use this option you
+must have executables named @samp{ecj1} and @samp{gjavah} in your path
+for use by the build.  You must use this option if you intend to
+modify any @file{.java} files in @samp{libjava}.
+
 @item --with-java-home=@var{dirname}
 This @samp{libjava} option overrides the default value of the
 @samp{java.home} system property.  It is also used to set
