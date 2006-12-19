@@ -97,19 +97,19 @@ AC_SUBST(decimal_float)
 
 
 # Collect host-machine-specific information.
-. ${srcdir}/config.gcc
+. ${srcdir}/config.host
 
 # Conditionalize the makefile for this target machine.
-hmake_file_=
-for f in ${hmake_file}
+tmake_file_=
+for f in ${tmake_file}
 do
 	if test -f ${srcdir}/config/$f
 	then
-		hmake_file_="${hmake_file_} \$(srcdir)/config/$f"
+		tmake_file_="${tmake_file_} \$(srcdir)/config/$f"
 	fi
 done
-hmake_file="${hmake_file_}"
-AC_SUBST(hmake_file)
+tmake_file="${tmake_file_}"
+AC_SUBST(tmake_file)
 
 # We need multilib support.
 AC_CONFIG_FILES([Makefile])

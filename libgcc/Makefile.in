@@ -209,8 +209,8 @@ gcc_s_compile = $(gcc_compile) -DSHARED
 objects = $(filter %$(objext),$^)
 
 # Collect any host-specific information from Makefile fragments.
-hmake_file = @hmake_file@
-include $(srcdir)/empty.mk $(hmake_file)
+tmake_file = @tmake_file@
+include $(srcdir)/empty.mk $(tmake_file)
 
 # Only handle shared libraries if both:
 #   - the user requested them
