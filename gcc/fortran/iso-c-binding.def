@@ -24,7 +24,23 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 # define NAMED_INTCST(a,b,c) 
 #endif
 
-/* The arguments to NAMED_INTCST are:
+#ifndef NAMED_REALCST
+# define NAMED_REALCST(a,b,c) 
+#endif
+
+#ifndef NAMED_CMPXCST
+# define NAMED_CMPXCST(a,b,c) 
+#endif
+
+#ifndef NAMED_LOGCST
+# define NAMED_LOGCST(a,b,c) 
+#endif
+
+#ifndef NAMED_CHARKNDCST
+# define NAMED_CHARKNDCST(a,b,c) 
+#endif
+
+/* The arguments to NAMED_*CST are:
      -- an internal name
      -- the symbol name in the module, as seen by Fortran code
      -- the value it has, for use in trans-types.c  */
@@ -65,22 +81,23 @@ NAMED_INTCST (ISOCBINDING_INT_FAST16_T, "c_int_fast16_t", -2)
 NAMED_INTCST (ISOCBINDING_INT_FAST32_T, "c_int_fast32_t", -2)
 NAMED_INTCST (ISOCBINDING_INT_FAST64_T, "c_int_fast64_t", -2)
 
-NAMED_INTCST (ISOCBINDING_FLOAT, "c_float", \
-              get_real_kind_from_node (float_type_node))
-NAMED_INTCST (ISOCBINDING_DOUBLE, "c_double", \
-              get_real_kind_from_node (double_type_node))
-NAMED_INTCST (ISOCBINDING_LONG_DOUBLE, "c_long_double", \
-              get_real_kind_from_node (long_double_type_node))
-NAMED_INTCST (ISOCBINDING_FLOAT_COMPLEX, "c_float_complex", \
-              get_real_kind_from_node (float_type_node))
-NAMED_INTCST (ISOCBINDING_DOUBLE_COMPLEX, "c_double_complex", \
-              get_real_kind_from_node (double_type_node))
-NAMED_INTCST (ISOCBINDING_LONG_DOUBLE_COMPLEX, "c_long_double_complex", \
-              get_real_kind_from_node (long_double_type_node))
+NAMED_REALCST (ISOCBINDING_FLOAT, "c_float", \
+               get_real_kind_from_node (float_type_node))
+NAMED_REALCST (ISOCBINDING_DOUBLE, "c_double", \
+               get_real_kind_from_node (double_type_node))
+NAMED_REALCST (ISOCBINDING_LONG_DOUBLE, "c_long_double", \
+               get_real_kind_from_node (long_double_type_node))
+NAMED_CMPXCST (ISOCBINDING_FLOAT_COMPLEX, "c_float_complex", \
+               get_real_kind_from_node (float_type_node))
+NAMED_CMPXCST (ISOCBINDING_DOUBLE_COMPLEX, "c_double_complex", \
+               get_real_kind_from_node (double_type_node))
+NAMED_CMPXCST (ISOCBINDING_LONG_DOUBLE_COMPLEX, "c_long_double_complex", \
+               get_real_kind_from_node (long_double_type_node))
 
-NAMED_INTCST (ISOCBINDING_BOOL, "c_bool", \
+NAMED_LOGCST (ISOCBINDING_BOOL, "c_bool", \
               get_int_kind_from_width (BOOL_TYPE_SIZE))
-NAMED_INTCST (ISOCBINDING_CHAR, "c_char", gfc_default_character_kind)
+
+NAMED_CHARKNDCST (ISOCBINDING_CHAR, "c_char", gfc_default_character_kind)
 
 #ifndef NAMED_CHARCST
 # define NAMED_CHARCST(a,b,c) 
@@ -116,6 +133,10 @@ PROCEDURE (ISOCBINDING_LOC, "c_loc")
 PROCEDURE (ISOCBINDING_F_PROCPOINTER, "c_f_procpointer")
 
 #undef NAMED_INTCST
+#undef NAMED_REALCST
+#undef NAMED_CMPXCST
+#undef NAMED_LOGCST
 #undef NAMED_CHARCST
+#undef NAMED_CHARKNDCST
 #undef DERIVED_TYPE
 #undef PROCEDURE

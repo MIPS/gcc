@@ -205,6 +205,22 @@ void init_c_interop_kinds(void)
   strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
   c_interop_kinds_table[a].f90_type = BT_INTEGER; \
   c_interop_kinds_table[a].value = c;
+#define NAMED_REALCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_REAL; \
+  c_interop_kinds_table[a].value = c;
+#define NAMED_CMPXCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_COMPLEX; \
+  c_interop_kinds_table[a].value = c;
+#define NAMED_LOGCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_LOGICAL; \
+  c_interop_kinds_table[a].value = c;
+#define NAMED_CHARKNDCST(a,b,c) \
+  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].f90_type = BT_CHARACTER; \
+  c_interop_kinds_table[a].value = c;
 #define NAMED_CHARCST(a,b,c) \
   strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
   c_interop_kinds_table[a].f90_type = BT_CHARACTER; \

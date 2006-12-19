@@ -480,6 +480,10 @@ typedef enum gfc_generic_isym_id gfc_generic_isym_id;
 #define BBT_HEADER(self) int priority; struct self *left, *right
 
 #define NAMED_INTCST(a,b,c) a,
+#define NAMED_REALCST(a,b,c) a,
+#define NAMED_CMPXCST(a,b,c) a,
+#define NAMED_LOGCST(a,b,c) a,
+#define NAMED_CHARKNDCST(a,b,c) a,
 #define NAMED_CHARCST(a,b,c) a,
 #define DERIVED_TYPE(a,b,c) a,
 #define PROCEDURE(a,b) a,
