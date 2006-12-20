@@ -34,6 +34,9 @@ void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, b
 class java::lang::ClassLoader : public ::java::lang::Object
 {
 
+public: // actually package-private
+  virtual JArray< ::java::lang::Object * > * getDeclaredAnnotations(::java::lang::Class *, jint, jint, jint);
+  virtual JArray< ::java::lang::Object * > * putDeclaredAnnotations(::java::lang::Class *, jint, jint, jint, JArray< ::java::lang::Object * > *);
 public: // actually protected
   ClassLoader();
   ClassLoader(::java::lang::ClassLoader *);
@@ -86,6 +89,10 @@ private:
   jboolean initialized;
 public: // actually package-private
   static ::java::lang::ClassLoader * systemClassLoader;
+private:
+  ::java::util::concurrent::ConcurrentHashMap * declaredAnnotations;
+  static JArray< ::java::lang::Object * > * nil;
+public: // actually package-private
   static ::java::security::ProtectionDomain * defaultProtectionDomain;
   jboolean defaultAssertionStatus;
   static ::java::util::Map * systemPackageAssertionStatus;

@@ -1311,13 +1311,23 @@ java::lang::Class::getDeclaredAnnotations(jint /* jv_attr_type */ member_type,
 					  jint member_index,
 					  jint /* jv_attr_kind */ kind_req)
 {
-  // FIXME: could cache the value here...
+  using namespace java::lang::annotation;
+  jobjectArray result;
 
   unsigned char *bytes = reflection_data;
   if (bytes == NULL)
     return 0;
 
-  while (true)
+  ClassLoader *trueLoader = loader;
+  if (trueLoader == NULL)
+    trueLoader = (ClassLoader *)VMClassLoader::bootLoader;
+
+  result = (loader->getDeclaredAnnotations
+	    (this, member_type, member_index, kind_req));
+  if (result)
+    return result;
+
+  for (;;)
     {
       int type = read_u1 (bytes);
       if (type == JV_DONE_ATTR)
@@ -1345,12 +1355,16 @@ java::lang::Class::getDeclaredAnnotations(jint /* jv_attr_type */ member_type,
 	    }
 	}
 
-      // FIXME: could cache here.  If we do then we have to clone any
-      // array result.
       if (kind_req == JV_PARAMETER_ANNOTATIONS_KIND)
-	return parseParameterAnnotations (this, &this->constants, bytes, next);
-      return parseAnnotations (this, &this->constants, bytes, next);
+	result = ((parseParameterAnnotations 
+		   (this, &this->constants, bytes, next)));
+      else
+	result = ((parseAnnotations (this, &this->constants, bytes, next)));
+      break;
     }
+
+  return (loader->putDeclaredAnnotations
+	  (this, member_type, member_index, kind_req, result));
 }
 
 jobjectArray

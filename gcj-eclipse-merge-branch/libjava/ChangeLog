@@ -1,3 +1,11 @@
+2006-12-20  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (getDeclaredAnnotations): Call
+	ClassLoader.getDeclaredAnnotations and
+	ClassLoader.putDeclaredAnnotations.
+	* java/lang/ClassLoader.java (AnnotationsKey): New class.
+	(getDeclaredAnnotations, putDeclaredAnnotations): New.
+
 2006-12-19  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_CheckABIVersion): Move here

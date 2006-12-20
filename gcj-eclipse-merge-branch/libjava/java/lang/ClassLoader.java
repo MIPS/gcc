@@ -55,6 +55,9 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.lang.annotation.Annotation;
+
 /**
  * The ClassLoader is a way of customizing the way Java gets its classes
  * and loads them into memory.  The verifier and other standard Java things
@@ -158,6 +161,85 @@ public abstract class ClassLoader
    */
   static final ClassLoader systemClassLoader =
     VMClassLoader.getSystemClassLoader();
+
+  /**
+   * This cache maps from a Class to its associated annotations.  It's
+   * declared here so that when this class loader becomes unreachable,
+   * so will the corresponding cache.
+   */
+
+  private final ConcurrentHashMap<AnnotationsKey,Object[]> 
+    declaredAnnotations 
+      = new ConcurrentHashMap<AnnotationsKey,Object[]>();
+  
+  static final class AnnotationsKey
+  {
+    final int /* jv_attr_type */ member_type;
+    final int member_index;
+    final int /* jv_attr_kind */ kind_req;
+    final Class declaringClass;
+    final int hashCode;
+
+    public AnnotationsKey (Class declaringClass,
+			   int member_type,
+			   int member_index,
+			   int kind_req)
+    {
+      this.member_type = member_type;
+      this.member_index = member_index;
+      this.kind_req = kind_req;
+      this.declaringClass = declaringClass;
+      hashCode = (member_type ^ member_index ^ kind_req
+		  ^ declaringClass.hashCode());
+    }
+
+    public boolean equals(Object obj)
+    {
+      AnnotationsKey other = (AnnotationsKey)obj;
+      return (this.member_type == other.member_type
+	      && this.member_index == other.member_index
+	      && this.kind_req == other.kind_req
+	      && this.declaringClass == other.declaringClass);
+    }
+
+    public int hashCode()
+    {
+      return hashCode;
+    }
+
+    public static final Annotation[] NIL = new Annotation[0];
+  }
+  
+  final Object[] getDeclaredAnnotations(Class declaringClass,
+					int member_type,
+					int member_index,
+					int kind_req)
+  {
+    Object[] result 
+      = declaredAnnotations.get (new AnnotationsKey
+				 (declaringClass,
+				  member_type,
+				  member_index,
+				  kind_req));
+    if (result != AnnotationsKey.NIL && result != null)
+      return (Object[])result.clone();
+    return null;
+  }
+
+  final Object[] putDeclaredAnnotations(Class declaringClass,
+					int member_type,
+					int member_index,
+					int kind_req,
+					Object[] annotations)
+  {
+    declaredAnnotations.put 
+      (new AnnotationsKey
+       (declaringClass,	member_type,
+	member_index, kind_req), 
+       annotations == null ? AnnotationsKey.NIL : annotations);
+
+    return annotations == null ? null : (Object[])annotations.clone();
+  }
 
   static
   {
