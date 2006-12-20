@@ -3766,9 +3766,7 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    case PRE_INC:
-    case PRE_DEC:
-      return TARGET_UPDATE;
+    /* Auto-increment cases are now treated generically in recog.c.  */
 
     default:
       break;
@@ -3938,11 +3936,11 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
     case SImode:
       result = no_new_pseudos ? dest : gen_reg_rtx (SImode);
 
-      emit_insn (gen_rtx_SET (VOIDmode, result,
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (result),
 			      GEN_INT (INTVAL (source)
 				       & (~ (HOST_WIDE_INT) 0xffff))));
       emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_IOR (SImode, result,
+			      gen_rtx_IOR (SImode, copy_rtx (result),
 					   GEN_INT (INTVAL (source) & 0xffff))));
       result = dest;
       break;
@@ -3997,7 +3995,7 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 
       operand1 = operand_subword_force (dest, WORDS_BIG_ENDIAN == 0,
 					DImode);
-      operand2 = operand_subword_force (dest, WORDS_BIG_ENDIAN != 0,
+      operand2 = operand_subword_force (copy_rtx (dest), WORDS_BIG_ENDIAN != 0,
 					DImode);
       emit_move_insn (operand1, GEN_INT (c1));
       emit_move_insn (operand2, GEN_INT (c2));
@@ -4032,7 +4030,9 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 	  else
 	    emit_move_insn (dest, GEN_INT (ud2 << 16));
 	  if (ud1 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest),
+					 GEN_INT (ud1)));
 	}
       else if ((ud4 == 0xffff && (ud3 & 0x8000))
 	       || (ud4 == 0 && ! (ud3 & 0x8000)))
@@ -4044,10 +4044,16 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 	    emit_move_insn (dest, GEN_INT (ud3 << 16));
 
 	  if (ud2 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud2)));
-	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (16)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest),
+					 GEN_INT (ud2)));
+	  emit_move_insn (copy_rtx (dest),
+			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
+					  GEN_INT (16)));
 	  if (ud1 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest),
+					 GEN_INT (ud1)));
 	}
       else
 	{
@@ -4058,14 +4064,20 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 	    emit_move_insn (dest, GEN_INT (ud4 << 16));
 
 	  if (ud3 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud3)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest),
+					 GEN_INT (ud3)));
 
-	  emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (32)));
+	  emit_move_insn (copy_rtx (dest),
+			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
+					  GEN_INT (32)));
 	  if (ud2 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest,
-					       GEN_INT (ud2 << 16)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest),
+					 GEN_INT (ud2 << 16)));
 	  if (ud1 != 0)
-	    emit_move_insn (dest, gen_rtx_IOR (DImode, dest, GEN_INT (ud1)));
+	    emit_move_insn (copy_rtx (dest),
+			    gen_rtx_IOR (DImode, copy_rtx (dest), GEN_INT (ud1)));
 	}
     }
   return dest;
@@ -4136,8 +4148,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     {
       emit_move_insn (adjust_address (operands[0], SImode, 0),
 		      adjust_address (operands[1], SImode, 0));
-      emit_move_insn (adjust_address (operands[0], SImode, 4),
-		      adjust_address (operands[1], SImode, 4));
+      emit_move_insn (adjust_address (copy_rtx (operands[0]), SImode, 4),
+		      adjust_address (copy_rtx (operands[1]), SImode, 4));
       return;
     }
 
@@ -4164,7 +4176,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       if (FP_REGNO_P (regnum) || regnum >= FIRST_PSEUDO_REGISTER)
 	{
 	  rtx newreg;
-	  newreg = (no_new_pseudos ? operands[1] : gen_reg_rtx (mode));
+	  newreg = (no_new_pseudos ? copy_rtx (operands[1])
+		    : gen_reg_rtx (mode));
 	  emit_insn (gen_aux_truncdfsf2 (newreg, operands[1]));
 	  operands[1] = newreg;
 	}
@@ -6013,7 +6026,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 		  build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6021,7 +6034,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6032,7 +6045,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
 	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -6049,7 +6062,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (cfun->machine->varargs_save_offset)
     t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -6182,7 +6195,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
       t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -6195,7 +6208,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 gpr case.  */
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -6212,11 +6225,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
   if (lab_over)
@@ -8789,9 +8802,8 @@ altivec_init_builtins (void)
       decl = add_builtin_function ("__builtin_altivec_mask_for_load",
 				   v16qi_ftype_long_pcvoid,
 				   ALTIVEC_BUILTIN_MASK_FOR_LOAD,
-				   BUILT_IN_MD, NULL,
-				   tree_cons (get_identifier ("const"),
-					      NULL_TREE, NULL_TREE));
+				   BUILT_IN_MD, NULL, NULL_TREE);
+      TREE_READONLY (decl) = 1;
       /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
       altivec_builtin_mask_for_load = decl;
     }

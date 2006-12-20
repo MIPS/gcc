@@ -387,7 +387,7 @@
         <em>operator&gt;&gt;(istream&amp;, string&amp;) doesn't set failbit</em>
     </dt>
     <dd>If nothing is extracted into the string, <code>op&gt;&gt;</code> now
-        sets <code>failbit</code> (which can cause an exception, etc, etc).
+        sets <code>failbit</code> (which can cause an exception, etc., etc.).
     </dd>
 
     <dt><a href="lwg-defects.html#214">214</a>:
@@ -592,6 +592,12 @@
     </dt>
     <dd>In case of input_iterator/output_iterator rely on Assignability of
         input_iterator' value_type.
+    </dd>
+
+    <dt><a href="lwg-active.html#543">543</a>:
+        <em>valarray slice default constructor</em>
+    </dt>
+    <dd>Follow the straightforward proposed resolution.
     </dd>
 
     <dt><a href="lwg-active.html#586">586</a>:

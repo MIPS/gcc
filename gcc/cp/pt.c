@@ -1316,6 +1316,17 @@ register_local_specialization (tree spec, tree tmpl)
   *slot = build_tree_list (spec, tmpl);
 }
 
+/* TYPE is a class type.  Returns true if TYPE is an explicitly
+   specialized class.  */
+
+bool
+explicit_class_specialization_p (tree type)
+{
+  if (!CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
+    return false;
+  return !uses_template_parms (CLASSTYPE_TI_ARGS (type));
+}
+
 /* Print the list of candidate FNS in an error message.  */
 
 void
@@ -4958,6 +4969,14 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 	return error_mark_node;
       break;
 
+    case INTEGER_TYPE:
+      if (for_each_template_parm (TYPE_MIN_VALUE (t),
+				  fn, data, pfd->visited)
+	  || for_each_template_parm (TYPE_MAX_VALUE (t),
+				     fn, data, pfd->visited))
+	return error_mark_node;
+      break;
+
     case METHOD_TYPE:
       /* Since we're not going to walk subtrees, we have to do this
 	 explicitly here.  */
@@ -6946,6 +6965,27 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	    if (type == error_mark_node)
 	      return error_mark_node;
+	    if (TREE_CODE (type) == FUNCTION_TYPE)
+	      {
+		/* It may seem that this case cannot occur, since:
+
+		     typedef void f();
+		     void g() { f x; }
+
+		   declares a function, not a variable.  However:
+      
+		     typedef void f();
+		     template <typename T> void g() { T t; }
+		     template void g<f>();
+
+		   is an attempt to declare a variable with function
+		   type.  */
+		error ("variable %qD has function type",
+		       /* R is not yet sufficiently initialized, so we
+			  just use its name.  */
+		       DECL_NAME (r));
+		return error_mark_node;
+	      }
 	    type = complete_type (type);
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 	      = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t);
@@ -9065,7 +9105,13 @@ tsubst_copy_and_build (tree t,
       return build_x_binary_op
 	(TREE_CODE (t),
 	 RECUR (TREE_OPERAND (t, 0)),
+	 (TREE_NO_WARNING (TREE_OPERAND (t, 0))
+	  ? ERROR_MARK
+	  : TREE_CODE (TREE_OPERAND (t, 0))),
 	 RECUR (TREE_OPERAND (t, 1)),
+	 (TREE_NO_WARNING (TREE_OPERAND (t, 1))
+	  ? ERROR_MARK
+	  : TREE_CODE (TREE_OPERAND (t, 1))),
 	 /*overloaded_p=*/NULL);
 
     case SCOPE_REF:
@@ -9074,7 +9120,14 @@ tsubst_copy_and_build (tree t,
     case ARRAY_REF:
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
-      return build_x_binary_op (ARRAY_REF, op1, RECUR (TREE_OPERAND (t, 1)),
+      return build_x_binary_op (ARRAY_REF, op1,
+				(TREE_NO_WARNING (TREE_OPERAND (t, 0))
+				 ? ERROR_MARK
+				 : TREE_CODE (TREE_OPERAND (t, 0))),
+				RECUR (TREE_OPERAND (t, 1)),
+				(TREE_NO_WARNING (TREE_OPERAND (t, 1))
+				 ? ERROR_MARK
+				 : TREE_CODE (TREE_OPERAND (t, 1))),
 				/*overloaded_p=*/NULL);
 
     case SIZEOF_EXPR:

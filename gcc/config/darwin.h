@@ -1,6 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -230,9 +230,8 @@ extern GTY(()) int darwin_ms_struct;
    linkers, and for positional arguments like libraries.  */
 #define LINK_COMMAND_SPEC "\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
-    %l %X %{d} %{s} %{t} %{Z} \
-    %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
+    %(linker) %l %X %{d} %{s} %{t} %{Z} \
+    %{A} %{e*} %{m} %{r} %{x} \
     %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
     %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
@@ -241,7 +240,7 @@ extern GTY(()) int darwin_ms_struct;
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{.c|.cc|.C|.cpp|.c++|.CPP|.m|.mm: \
-    %{gdwarf-2:%{!gstabs*:%{!gnone: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+    %{gdwarf-2:%{!gstabs*:%{!g0: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
 
 #ifdef TARGET_SYSTEM_ROOT
 #define LINK_SYSROOT_SPEC \
@@ -251,12 +250,9 @@ extern GTY(()) int darwin_ms_struct;
 #endif
 
 /* Please keep the random linker options in alphabetical order (modulo
-   'Z' and 'no' prefixes).  Options that can only go to one of libtool
-   or ld must be listed twice, under both !Zdynamiclib and
-   Zdynamiclib, with one of the cases reporting an error.  */
-/* Note that options taking arguments may appear multiple times on a
-   command line with different arguments each time, so put a * after
-   their names so all of them get passed.  */
+   'Z' and 'no' prefixes). Note that options taking arguments may appear
+   multiple times on a command line with different arguments each time,
+   so put a * after their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
@@ -274,20 +270,20 @@ extern GTY(()) int darwin_ms_struct;
      %{keep_private_externs} \
      %{private_bundle} \
     } \
-   %{Zdynamiclib: \
+   %{Zdynamiclib: -dylib \
      %{Zbundle:%e-bundle not allowed with -dynamiclib} \
      %{Zbundle_loader*:%e-bundle_loader not allowed with -dynamiclib} \
      %{client_name*:%e-client_name not allowed with -dynamiclib} \
-     %{compatibility_version*} \
-     %{current_version*} \
-     %{Zforce_cpusubtype_ALL:-arch_only %(darwin_arch)} \
-     %{!Zforce_cpusubtype_ALL: -arch_only %(darwin_subarch)} \
+     %{compatibility_version*:-dylib_compatibility_version %*} \
+     %{current_version*:-dylib_current_version %*} \
+     %{Zforce_cpusubtype_ALL:-arch %(darwin_arch)} \
+     %{!Zforce_cpusubtype_ALL: -arch %(darwin_subarch)} \
      %{Zforce_flat_namespace:%e-force_flat_namespace not allowed with -dynamiclib} \
-     %{Zinstall_name*:-install_name %*} \
+     %{Zinstall_name*:-dylib_install_name %*} \
      %{keep_private_externs:%e-keep_private_externs not allowed with -dynamiclib} \
      %{private_bundle:%e-private_bundle not allowed with -dynamiclib} \
     } \
-   %{Zall_load:-all_load}%{Zdynamiclib:%{!Zall_load:-noall_load}} \
+   %{Zall_load:-all_load} \
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
@@ -371,7 +367,8 @@ extern GTY(()) int darwin_ms_struct;
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC							    \
-  "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}}			    \
+  "%{Zdynamiclib: %(darwin_dylib1) }					    \
+   %{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}}			    \
      %{!Zbundle:%{pg:%{static:-lgcrt0.o}				    \
                      %{!static:%{object:-lgcrt0.o}			    \
                                %{!object:%{preload:-lgcrt0.o}		    \
@@ -379,13 +376,25 @@ extern GTY(()) int darwin_ms_struct;
                 %{!pg:%{static:-lcrt0.o}				    \
                       %{!static:%{object:-lcrt0.o}			    \
                                 %{!object:%{preload:-lcrt0.o}		    \
-                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}  \
+                                  %{!preload: %(darwin_crt1)  %(darwin_crt2)}}}}}}  \
   %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
+
+#define DARWIN_EXTRA_SPECS     \
+  { "darwin_crt1", DARWIN_CRT1_SPEC },                                 \
+  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },
+
+#define DARWIN_DYLIB1_SPEC                                             \
+  "%:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)          \
+   %:version-compare(>= 10.5 mmacosx-version-min= -ldylib1.10.5.o)"
+
+#define DARWIN_CRT1_SPEC                                               \
+  "%:version-compare(!> 10.5 mmacosx-version-min= -lcrt1.o)            \
+   %:version-compare(>= 10.5 mmacosx-version-min= -lcrt1.10.5.o)"
 
 /* Default Darwin ASM_SPEC, very simple.  */
 #define ASM_SPEC "-arch %(darwin_arch) \

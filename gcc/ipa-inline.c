@@ -558,7 +558,7 @@ cgraph_find_cycles (struct cgraph_node *node, htab_t cycles)
   node->aux = 0;
 }
 
-/* Leafify the cgraph node.  We have to be careful in recursing
+/* Flatten the cgraph node.  We have to be careful in recursing
    as to not run endlessly in circles of the callgraph.
    We do so by using a hashtab of cycle entering nodes as generated
    by cgraph_find_cycles.  */
@@ -983,7 +983,7 @@ cgraph_decide_inlining (void)
 	  htab_t cycles;
   	  if (dump_file)
     	    fprintf (dump_file,
-	     	     "Leafifying %s\n", cgraph_node_name (node));
+	     	     "Flattening %s\n", cgraph_node_name (node));
 	  cycles = htab_create (7, htab_hash_pointer, htab_eq_pointer, NULL);
 	  cgraph_find_cycles (node, cycles);
 	  cgraph_flatten_node (node, cycles);
@@ -1041,48 +1041,36 @@ cgraph_decide_inlining (void)
 	      && node->local.inlinable && node->callers->inline_failed
 	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
 	    {
-	      bool ok = true;
-	      struct cgraph_node *node1;
+	      if (dump_file)
+		{
+		  fprintf (dump_file,
+			   "\nConsidering %s %i insns.\n",
+			   cgraph_node_name (node), node->global.insns);
+		  fprintf (dump_file,
+			   " Called once from %s %i insns.\n",
+			   cgraph_node_name (node->callers->caller),
+			   node->callers->caller->global.insns);
+		}
 
-	      /* Verify that we won't duplicate the caller.  */
-	      for (node1 = node->callers->caller;
-		   node1->callers && !node1->callers->inline_failed
-		   && ok; node1 = node1->callers->caller)
-		if (node1->callers->next_caller || node1->needed)
-		  ok = false;
-	      if (ok)
+	      old_insns = overall_insns;
+
+	      if (cgraph_check_inline_limits (node->callers->caller, node,
+					      NULL, false))
+		{
+		  cgraph_mark_inline (node->callers);
+		  if (dump_file)
+		    fprintf (dump_file,
+			     " Inlined into %s which now has %i insns"
+			     " for a net change of %+i insns.\n",
+			     cgraph_node_name (node->callers->caller),
+			     node->callers->caller->global.insns,
+			     overall_insns - old_insns);
+		}
+	      else
 		{
 		  if (dump_file)
-		    {
-		      fprintf (dump_file,
-			       "\nConsidering %s %i insns.\n",
-			       cgraph_node_name (node), node->global.insns);
-		      fprintf (dump_file,
-			       " Called once from %s %i insns.\n",
-			       cgraph_node_name (node->callers->caller),
-			       node->callers->caller->global.insns);
-		    }
-
-		  old_insns = overall_insns;
-
-		  if (cgraph_check_inline_limits (node->callers->caller, node,
-					  	  NULL, false))
-		    {
-		      cgraph_mark_inline (node->callers);
-		      if (dump_file)
-			fprintf (dump_file,
-				 " Inlined into %s which now has %i insns"
-				 " for a net change of %+i insns.\n",
-				 cgraph_node_name (node->callers->caller),
-				 node->callers->caller->global.insns,
-				 overall_insns - old_insns);
-		    }
-		  else
-		    {
-		      if (dump_file)
-			fprintf (dump_file,
-				 " Inline limit reached, not inlined.\n");
-		    }
+		    fprintf (dump_file,
+			     " Inline limit reached, not inlined.\n");
 		}
 	    }
 	}

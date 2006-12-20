@@ -138,22 +138,13 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
 void
 unswitch_loops (void)
 {
-  int i, num;
+  loop_iterator li;
   struct loop *loop;
 
   /* Go through inner loops (only original ones).  */
-  num = current_loops->num;
 
-  for (i = 1; i < num; i++)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD | LI_ONLY_INNERMOST)
     {
-      /* Removed loop?  */
-      loop = current_loops->parray[i];
-      if (!loop)
-	continue;
-
-      if (loop->inner)
-	continue;
-
       unswitch_single_loop (loop, NULL_RTX, 0);
 #ifdef ENABLE_CHECKING
       verify_dominators (CDI_DOMINATORS);
@@ -419,14 +410,9 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
   entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   zero_bitmap = sbitmap_alloc (2);
-  sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, 1,
-	zero_bitmap, NULL, NULL, NULL, 0))
-    {
-      sbitmap_free (zero_bitmap);
-      return NULL;
-    }
-  sbitmap_free (zero_bitmap);
+			      	      NULL, NULL, NULL, 0))
+    return NULL;
   entry->flags |= irred_flag;
 
   /* Record the block with condition we unswitch on.  */

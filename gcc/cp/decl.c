@@ -4092,6 +4092,30 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
   return NULL_TREE;
 }
 
+/* Designated initializers in arrays are not supported in GNU C++.
+   The parser cannot detect this error since it does not know whether
+   a given brace-enclosed initializer is for a class type or for an
+   array.  This function checks that CE does not use a designated
+   initializer.  If it does, an error is issued.  Returns true if CE
+   is valid, i.e., does not have a designated initializer.  */
+
+static bool
+check_array_designated_initializer (const constructor_elt *ce)
+{
+  /* Designated initializers for array elements arenot supported.  */
+  if (ce->index)
+    {
+      /* The parser only allows identifiers as designated
+	 intializers.  */
+      gcc_assert (TREE_CODE (ce->index) == IDENTIFIER_NODE);
+      error ("name %qD used in a GNU-style designated "
+	     "initializer for an array", ce->index);
+      return false;
+    }
+
+  return true;
+}
+
 /* When parsing `int a[] = {1, 2};' we don't know the size of the
    array until we finish parsing the initializer.  If that's the
    situation we're in, update DECL accordingly.  */
@@ -4109,32 +4133,52 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	 But let's leave it here to ease the eventual merge.  */
       int do_default = !DECL_EXTERNAL (decl);
       tree initializer = init ? init : DECL_INITIAL (decl);
-      int failure = cp_complete_array_type (&TREE_TYPE (decl), initializer,
-					    do_default);
+      int failure = 0;
 
-      if (failure == 1)
+      /* Check that there are no designated initializers in INIT, as
+	 those are not supported in GNU C++, and as the middle-end
+	 will crash if presented with a non-numeric designated
+	 initializer.  */
+      if (initializer && TREE_CODE (initializer) == CONSTRUCTOR)
 	{
-	  error ("initializer fails to determine size of %qD", decl);
-	  TREE_TYPE (decl) = error_mark_node;
+	  VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (initializer);
+	  constructor_elt *ce;
+	  HOST_WIDE_INT i;
+	  for (i = 0; 
+	       VEC_iterate (constructor_elt, v, i, ce);
+	       ++i)
+	    if (!check_array_designated_initializer (ce))
+	      failure = 1;
 	}
-      else if (failure == 2)
+
+      if (!failure)
 	{
-	  if (do_default)
+	  failure = cp_complete_array_type (&TREE_TYPE (decl), initializer,
+					    do_default);
+	  if (failure == 1)
 	    {
-	      error ("array size missing in %qD", decl);
+	      error ("initializer fails to determine size of %qD", decl);
 	      TREE_TYPE (decl) = error_mark_node;
 	    }
-	  /* If a `static' var's size isn't known, make it extern as
-	     well as static, so it does not get allocated.  If it's not
-	     `static', then don't mark it extern; finish_incomplete_decl
-	     will give it a default size and it will get allocated.  */
-	  else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
-	    DECL_EXTERNAL (decl) = 1;
-	}
-      else if (failure == 3)
-	{
-	  error ("zero-size array %qD", decl);
-	  TREE_TYPE (decl) = error_mark_node;
+	  else if (failure == 2)
+	    {
+	      if (do_default)
+		{
+		  error ("array size missing in %qD", decl);
+		  TREE_TYPE (decl) = error_mark_node;
+		}
+	      /* If a `static' var's size isn't known, make it extern as
+		 well as static, so it does not get allocated.  If it's not
+		 `static', then don't mark it extern; finish_incomplete_decl
+		 will give it a default size and it will get allocated.  */
+	      else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
+		DECL_EXTERNAL (decl) = 1;
+	    }
+	  else if (failure == 3)
+	    {
+	      error ("zero-size array %qD", decl);
+	      TREE_TYPE (decl) = error_mark_node;
+	    }
 	}
 
       cp_apply_type_quals_to_decl (cp_type_quals (TREE_TYPE (decl)), decl);
@@ -4346,18 +4390,7 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d)
     {
       tree elt_init;
 
-      if (d->cur->index)
-	{
-	  /* Handle array designated initializers (GNU extension).  */
-	  if (TREE_CODE (d->cur->index) == IDENTIFIER_NODE)
-	    {
-	      error ("name %qD used in a GNU-style designated "
-		     "initializer for an array", d->cur->index);
-	    }
-	  else
-	    gcc_unreachable ();
-	}
-
+      check_array_designated_initializer (d->cur);
       elt_init = reshape_init_r (elt_type, d, /*first_initializer_p=*/false);
       if (elt_init == error_mark_node)
 	return error_mark_node;
@@ -10245,7 +10278,7 @@ build_enumerator (tree name, tree value, tree enumtype)
 	    }
 	  else
 	    {
-	      error ("enumerator value for %qD not integer constant", name);
+	      error ("enumerator value for %qD is not an integer constant", name);
 	      value = NULL_TREE;
 	    }
 	}
@@ -10537,9 +10570,36 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	       parsing the body of the function.  */
 	    ;
 	  else
-	    /* Otherwise, OLDDECL is either a previous declaration of
-	       the same function or DECL1 itself.  */
-	    decl1 = olddecl;
+	    {
+	      /* Otherwise, OLDDECL is either a previous declaration
+		 of the same function or DECL1 itself.  */
+
+	      if (warn_missing_declarations
+		  && olddecl == decl1
+		  && !DECL_MAIN_P (decl1)
+		  && TREE_PUBLIC (decl1)
+		  && !DECL_DECLARED_INLINE_P (decl1))
+		{
+		  tree context;
+
+		  /* Check whether DECL1 is in an anonymous
+		     namespace.  */
+		  for (context = DECL_CONTEXT (decl1);
+		       context;
+		       context = DECL_CONTEXT (context))
+		    {
+		      if (TREE_CODE (context) == NAMESPACE_DECL
+			  && DECL_NAME (context) == NULL_TREE)
+			break;
+		    }
+
+		  if (context == NULL)
+		    warning (OPT_Wmissing_declarations,
+			     "no previous declaration for %q+D", decl1);
+		}
+
+	      decl1 = olddecl;
+	    }
 	}
       else
 	{

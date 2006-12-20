@@ -52,6 +52,8 @@ if [istarget "powerpc*-*-*"] {
 	}
 	set dg-do-what-default compile
     }
+} elseif { [istarget  "spu-*-*"] } {
+   set dg-do-what-default run
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
     set dg-do-what-default run
@@ -98,6 +100,12 @@ set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-ffast-math"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-vect*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-math-errno tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-math-errno"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-math-errno-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # -fwrapv tests

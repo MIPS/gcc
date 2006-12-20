@@ -1491,12 +1491,12 @@ mio_internal_string (char *string)
 
 typedef enum
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
-  AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT,
-  AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
-  AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
-  AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
-  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP, AB_VOLATILE,
-  AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_VALUE
+  AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT, AB_DATA,
+  AB_IN_NAMELIST, AB_IN_COMMON, AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE,
+  AB_ELEMENTAL, AB_PURE, AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT,
+  AB_CRAY_POINTER, AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP,
+  AB_VALUE, AB_VOLATILE, AB_PROTECTED, AB_IS_BIND_C, AB_IS_C_INTEROP,
+  AB_IS_ISO_C
 }
 ab_attribute;
 
@@ -1532,6 +1532,7 @@ static const mstring attr_bits[] =
     minit ("IS_ISO_C", AB_IS_ISO_C),
     minit ("VALUE", AB_VALUE),
     minit ("ALLOC_COMP", AB_ALLOC_COMP),
+    minit ("PROTECTED", AB_PROTECTED),
     minit (NULL, -1)
 };
 
@@ -1582,6 +1583,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_OPTIONAL, attr_bits);
       if (attr->pointer)
 	MIO_NAME(ab_attribute) (AB_POINTER, attr_bits);
+      if (attr->protected)
+	MIO_NAME(ab_attribute) (AB_PROTECTED, attr_bits);
       if (attr->save)
 	MIO_NAME(ab_attribute) (AB_SAVE, attr_bits);
       if (attr->volatile_)
@@ -1668,6 +1671,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_POINTER:
 	      attr->pointer = 1;
+	      break;
+	    case AB_PROTECTED:
+	      attr->protected = 1;
 	      break;
 	    case AB_SAVE:
 	      attr->save = 1;
@@ -3056,6 +3062,8 @@ load_generic_interfaces (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
+  gfc_interface *generic = NULL;
+  int n, i;
 
   mio_lparen ();
 
@@ -3066,25 +3074,39 @@ load_generic_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      /* Decide if we need to load this one or not.  */
-      p = find_use_name (name);
+      n = number_use_names (name);
+      n = n ? n : 1;
 
-      if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
+      for (i = 1; i <= n; i++)
 	{
-	  while (parse_atom () != ATOM_RPAREN);
-	  continue;
+	  /* Decide if we need to load this one or not.  */
+	  p = find_use_name_n (name, &i);
+
+	  if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
+	    {
+	      while (parse_atom () != ATOM_RPAREN);
+	        continue;
+	    }
+
+	  if (sym == NULL)
+	    {
+	      gfc_get_symbol (p, NULL, &sym);
+
+	      sym->attr.flavor = FL_PROCEDURE;
+	      sym->attr.generic = 1;
+	      sym->attr.use_assoc = 1;
+	    }
+	  if (i == 1)
+	    {
+	      mio_interface_rest (&sym->generic);
+	      generic = sym->generic;
+	    }
+	  else
+	    {
+	      sym->generic = generic;
+	      sym->attr.generic_copy = 1;
+	    }
 	}
-
-      if (sym == NULL)
-	{
-	  gfc_get_symbol (p, NULL, &sym);
-
-	  sym->attr.flavor = FL_PROCEDURE;
-	  sym->attr.generic = 1;
-	  sym->attr.use_assoc = 1;
-	}
-
-      mio_interface_rest (&sym->generic);
     }
 
   mio_rparen ();
@@ -3249,6 +3271,8 @@ load_needed (pointer_info * p)
 
   mio_symbol (sym);
   sym->attr.use_assoc = 1;
+  if (only_flag)
+    sym->attr.use_only = 1;
 
   return 1;
 }

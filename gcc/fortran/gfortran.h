@@ -523,10 +523,12 @@ typedef struct
     dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
-    use_assoc:1;		/* Symbol has been use-associated.  */
+    protected:1,		/* Symbol has been marked as protected.  */
+    use_assoc:1,		/* Symbol has been use-associated.  */
+    use_only:1;			/* Symbol has been use-associated, with ONLY.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
-  unsigned function:1, subroutine:1, generic:1;
+  unsigned function:1, subroutine:1, generic:1, generic_copy:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
 
@@ -542,7 +544,7 @@ typedef struct
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
-  unsigned unmaskable:1, masked:1, contained:1;
+  unsigned unmaskable:1, masked:1, contained:1, mod_proc:1;
 
   /* This is set if the subroutine doesn't return.  Currently, this
      is only possible for intrinsic subroutines.  */
@@ -567,6 +569,9 @@ typedef struct
   /* Set if the symbol has been referenced in an expression.  No further
      modification of type or type parameters is permitted.  */
   unsigned referenced:1;
+
+  /* Set if the symbol has ambiguous interfaces.  */
+  unsigned ambiguous_interfaces:1;
 
   /* Set if the is the symbol for the main program.  This is the least
      cumbersome way to communicate this function property without
@@ -1917,6 +1922,7 @@ try gfc_add_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointer (symbol_attribute *, locus *);
 try gfc_add_cray_pointee (symbol_attribute *, locus *);
 try gfc_mod_pointee_as (gfc_array_spec *as);
+try gfc_add_protected (symbol_attribute *, const char *, locus *);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
 try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);

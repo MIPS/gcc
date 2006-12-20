@@ -68,6 +68,8 @@ enum tree_dump_index
 #define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
 
 #define TDF_GRAPH	(1 << 13)	/* a graph dump is being emitted */
+#define TDF_MEMSYMS	(1 << 14)	/* display memory symbols in expr.
+                                           Implies TDF_VOPS.  */
 
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
@@ -151,8 +153,6 @@ struct dump_file_info
 #define PROP_rtl		(1 << 8)
 #define PROP_alias		(1 << 9)
 #define PROP_gimple_lomp	(1 << 10)	/* lowered OpenMP directives */
-#define PROP_smt_usage          (1 << 11)       /* which SMT's are
-						   used alone.  */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -285,7 +285,6 @@ extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_warn_function_noreturn;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
-extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_mark_used_blocks;
@@ -353,7 +352,6 @@ extern struct tree_opt_pass pass_cse2;
 extern struct tree_opt_pass pass_life;
 extern struct tree_opt_pass pass_combine;
 extern struct tree_opt_pass pass_if_after_combine;
-extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;

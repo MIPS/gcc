@@ -552,9 +552,7 @@ unloop (struct loop *loop, bool *irred_invalidated)
     }
 
   /* Remove the loop and free its data.  */
-  flow_loop_tree_node_remove (loop);
-  current_loops->parray[loop->num] = NULL;
-  flow_loop_free (loop);
+  delete_loop (loop);
 
   remove_edge (single_succ_edge (latch));
 
@@ -634,11 +632,8 @@ fix_loop_placements (struct loop *loop, bool *irred_invalidated)
 static void
 place_new_loop (struct loop *loop)
 {
-  current_loops->parray =
-    xrealloc (current_loops->parray, (current_loops->num + 1) * sizeof (struct loop *));
-  current_loops->parray[current_loops->num] = loop;
-
-  loop->num = current_loops->num++;
+  loop->num = number_of_loops ();
+  VEC_safe_push (loop_p, heap, current_loops->larray, loop);
 }
 
 /* Copies copy of LOOP as subloop of TARGET loop, placing newly
@@ -819,11 +814,12 @@ update_single_exit_for_duplicated_loops (struct loop *orig_loops[], unsigned n)
    original LOOP body, the other copies are numbered in order given by control
    flow through them) into TO_REMOVE array.  Returns false if duplication is
    impossible.  */
+
 bool
 duplicate_loop_to_header_edge (struct loop *loop, edge e,
 			       unsigned int ndupl, sbitmap wont_exit,
-			       edge orig, edge *to_remove,
-			       unsigned int *n_to_remove, int flags)
+			       edge orig, VEC (edge, heap) **to_remove,
+			       int flags)
 {
   struct loop *target, *aloop;
   struct loop **orig_loops;
@@ -971,10 +967,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
     update_single_exits_after_duplication (bbs, n, target);
 
-  /* Record exit edge in original loop body.  */
-  if (orig && TEST_BIT (wont_exit, 0))
-    to_remove[(*n_to_remove)++] = orig;
-
   spec_edges[SE_ORIG] = orig;
   spec_edges[SE_LATCH] = latch_edge;
 
@@ -1048,7 +1040,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
       /* Record exit edge in this copy.  */
       if (orig && TEST_BIT (wont_exit, j + 1))
-	to_remove[(*n_to_remove)++] = new_spec_edges[SE_ORIG];
+	{
+	  if (to_remove)
+	    VEC_safe_push (edge, heap, *to_remove, new_spec_edges[SE_ORIG]);
+	}
 
       /* Record the first copy in the control flow order if it is not
 	 the original loop (i.e. in case of peeling).  */
@@ -1067,6 +1062,13 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     }
   free (new_bbs);
   free (orig_loops);
+
+  /* Record the exit edge in the original loop body, and update the frequencies.  */
+  if (orig && TEST_BIT (wont_exit, 0))
+    {
+      if (to_remove)
+	VEC_safe_push (edge, heap, *to_remove, orig);
+    }
 
   /* Update the original loop.  */
   if (!is_latch)
@@ -1195,9 +1197,11 @@ create_preheader (struct loop *loop, int flags)
 void
 create_preheaders (int flags)
 {
-  unsigned i;
-  for (i = 1; i < current_loops->num; i++)
-    create_preheader (current_loops->parray[i], flags);
+  loop_iterator li;
+  struct loop *loop;
+
+  FOR_EACH_LOOP (li, loop, 0)
+    create_preheader (loop, flags);
   current_loops->state |= LOOPS_HAVE_PREHEADERS;
 }
 
@@ -1206,13 +1210,12 @@ create_preheaders (int flags)
 void
 force_single_succ_latches (void)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   edge e;
 
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
       if (loop->latch != loop->header && single_succ_p (loop->latch))
 	continue;
 
@@ -1306,7 +1309,7 @@ loop_version (struct loop *loop,
 
   /* Duplicate loop.  */
   if (!cfg_hook_duplicate_loop_to_header_edge (loop, entry, 1,
-					       NULL, NULL, NULL, NULL, 0))
+					       NULL, NULL, NULL, 0))
     return NULL;
 
   /* After duplication entry edge now points to new loop head block.
@@ -1392,7 +1395,7 @@ fix_loop_structure (bitmap changed_bbs)
 {
   basic_block bb;
   struct loop *loop, *ploop;
-  unsigned i;
+  loop_iterator li;
 
   /* Remove the old bb -> loop mapping.  */
   FOR_EACH_BB (bb)
@@ -1403,12 +1406,8 @@ fix_loop_structure (bitmap changed_bbs)
 
   /* Remove the dead loops from structures.  */
   current_loops->tree_root->num_nodes = n_basic_blocks;
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-      if (!loop)
-	continue;
-
       loop->num_nodes = 0;
       if (loop->header)
 	continue;
@@ -1421,38 +1420,18 @@ fix_loop_structure (bitmap changed_bbs)
 	}
 
       /* Remove the loop and free its data.  */
-      flow_loop_tree_node_remove (loop);
-      current_loops->parray[loop->num] = NULL;
-      flow_loop_free (loop);
+      delete_loop (loop);
     }
 
   /* Rescan the bodies of loops, starting from the outermost.  */
-  loop = current_loops->tree_root;
-  while (1)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      if (loop->inner)
-	loop = loop->inner;
-      else
-	{
-	  while (!loop->next
-		 && loop != current_loops->tree_root)
-	    loop = loop->outer;
-	  if (loop == current_loops->tree_root)
-	    break;
-
-	  loop = loop->next;
-	}
-
       loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
     }
 
   /* Now fix the loop nesting.  */
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-      if (!loop)
-	continue;
-
       bb = loop_preheader_edge (loop)->src;
       if (bb->loop_father != loop->outer)
 	{

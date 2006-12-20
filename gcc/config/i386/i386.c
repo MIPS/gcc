@@ -655,9 +655,9 @@ struct processor_costs pentium4_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (43),			/* cost of FSQRT instruction.  */
-  {{libcall, {{12, loop_1_byte}, {64, loop}, {-1, rep_prefix_4_byte}}},
+  {{libcall, {{12, loop_1_byte}, {-1, rep_prefix_4_byte}}},
    DUMMY_STRINGOP_ALGS},
-  {{libcall, {{6, loop_1_byte}, {64, loop}, {20480, rep_prefix_4_byte},
+  {{libcall, {{6, loop_1_byte}, {48, loop}, {20480, rep_prefix_4_byte},
    {-1, libcall}}},
    DUMMY_STRINGOP_ALGS},
 };
@@ -713,10 +713,10 @@ struct processor_costs nocona_cost = {
   COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (44),			/* cost of FSQRT instruction.  */
-  {{libcall, {{12, loop_1_byte}, {64, loop}, {-1, rep_prefix_4_byte}}},
+  {{libcall, {{12, loop_1_byte}, {-1, rep_prefix_4_byte}}},
    {libcall, {{32, loop}, {20000, rep_prefix_8_byte},
 	      {100000, unrolled_loop}, {-1, libcall}}}},
-  {{libcall, {{6, loop_1_byte}, {64, loop}, {20480, rep_prefix_4_byte},
+  {{libcall, {{6, loop_1_byte}, {48, loop}, {20480, rep_prefix_4_byte},
    {-1, libcall}}},
    {libcall, {{24, loop}, {64, unrolled_loop},
 	      {8192, rep_prefix_8_byte}, {-1, libcall}}}}
@@ -1052,8 +1052,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,
   /* arg pointer */
   NON_Q_REGS,
-  /* flags, fpsr, fpcr, dirflag, frame */
-  NO_REGS, NO_REGS, NO_REGS, NO_REGS, NON_Q_REGS,
+  /* flags, fpsr, fpcr, frame */
+  NO_REGS, NO_REGS, NO_REGS, NON_Q_REGS,
   SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS,
   SSE_REGS, SSE_REGS,
   MMX_REGS, MMX_REGS, MMX_REGS, MMX_REGS, MMX_REGS, MMX_REGS,
@@ -1070,7 +1070,7 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
 {
   0, 2, 1, 3, 6, 7, 4, 5,		/* general regs */
   12, 13, 14, 15, 16, 17, 18, 19,	/* fp regs */
-  -1, -1, -1, -1, -1, -1,		/* arg, flags, fpsr, fpcr, dir, frame */
+  -1, -1, -1, -1, -1,			/* arg, flags, fpsr, fpcr, frame */
   21, 22, 23, 24, 25, 26, 27, 28,	/* SSE */
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
@@ -1093,7 +1093,7 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 {
   0, 1, 2, 3, 4, 5, 6, 7,		/* general regs */
   33, 34, 35, 36, 37, 38, 39, 40,	/* fp regs */
-  -1, -1, -1, -1, -1, -1,		/* arg, flags, fpsr, fpcr, dir, frame */
+  -1, -1, -1, -1, -1,			/* arg, flags, fpsr, fpcr, frame */
   17, 18, 19, 20, 21, 22, 23, 24,	/* SSE */
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
@@ -1158,7 +1158,7 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 {
   0, 2, 1, 3, 6, 7, 5, 4,		/* general regs */
   11, 12, 13, 14, 15, 16, 17, 18,	/* fp regs */
-  -1, 9, -1, -1, -1, -1,		/* arg, flags, fpsr, fpcr, dir, frame */
+  -1, 9, -1, -1, -1,			/* arg, flags, fpsr, fpcr, frame */
   21, 22, 23, 24, 25, 26, 27, 28,	/* SSE registers */
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
@@ -1354,6 +1354,7 @@ static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+static tree ix86_builtin_vectorized_function (enum built_in_function, tree);
 static const char *ix86_mangle_fundamental_type (tree);
 static tree ix86_stack_protect_fail (void);
 static rtx ix86_internal_arg_pointer (void);
@@ -1418,6 +1419,8 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 #define TARGET_INIT_BUILTINS ix86_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION ix86_builtin_vectorized_function
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
@@ -2146,11 +2149,6 @@ override_options (void)
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
-  /* Accept -mx87regparm only if 80387 support is enabled.  */
-  if (TARGET_X87REGPARM
-      && ! TARGET_80387)
-    error ("-mx87regparm used without 80387 enabled");
-
   /* Accept -msseregparm only if at least SSE support is enabled.  */
   if (TARGET_SSEREGPARM
       && ! TARGET_SSE)
@@ -2389,7 +2387,7 @@ x86_elf_aligned_common (FILE *file,
   fprintf (file, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
 	   size, align / BITS_PER_UNIT);
 }
-
+#endif
 /* Utility function for targets to use in implementing
    ASM_OUTPUT_ALIGNED_BSS.  */
 
@@ -2413,7 +2411,6 @@ x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 #endif /* ASM_DECLARE_OBJECT_NAME */
   ASM_OUTPUT_SKIP (file, size ? size : 1);
 }
-#endif
 
 void
 optimization_options (int level, int size ATTRIBUTE_UNUSED)
@@ -2458,9 +2455,6 @@ const struct attribute_spec ix86_attribute_table[] =
   /* Regparm attribute specifies how many integer arguments are to be
      passed in registers.  */
   { "regparm",   1, 1, false, true,  true,  ix86_handle_cconv_attribute },
-  /* X87regparm attribute says we are passing floating point arguments
-     in 80387 registers.  */
-  { "x87regparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
   /* Sseregparm attribute says we are using x86_64 calling conventions
      for FP arguments.  */
   { "sseregparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
@@ -2563,8 +2557,8 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   return true;
 }
 
-/* Handle "cdecl", "stdcall", "fastcall", "regparm", "x87regparm"
-   and "sseregparm" calling convention attributes;
+/* Handle "cdecl", "stdcall", "fastcall", "regparm" and "sseregparm"
+   calling convention attributes;
    arguments as in struct attribute_spec.handler.  */
 
 static tree
@@ -2629,8 +2623,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
       return NULL_TREE;
     }
 
-  /* Can combine fastcall with stdcall (redundant), x87regparm
-     and sseregparm.  */
+  /* Can combine fastcall with stdcall (redundant) and sseregparm.  */
   if (is_attribute_p ("fastcall", name))
     {
       if (lookup_attribute ("cdecl", TYPE_ATTRIBUTES (*node)))
@@ -2647,8 +2640,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 	}
     }
 
-  /* Can combine stdcall with fastcall (redundant), regparm,
-     x87regparm and sseregparm.  */
+  /* Can combine stdcall with fastcall (redundant), regparm and
+     sseregparm.  */
   else if (is_attribute_p ("stdcall", name))
     {
       if (lookup_attribute ("cdecl", TYPE_ATTRIBUTES (*node)))
@@ -2661,7 +2654,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 	}
     }
 
-  /* Can combine cdecl with regparm, x87regparm and sseregparm.  */
+  /* Can combine cdecl with regparm and sseregparm.  */
   else if (is_attribute_p ("cdecl", name))
     {
       if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (*node)))
@@ -2674,7 +2667,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 	}
     }
 
-  /* Can combine x87regparm or sseregparm with all attributes.  */
+  /* Can combine sseregparm with all attributes.  */
 
   return NULL_TREE;
 }
@@ -2697,11 +2690,6 @@ ix86_comp_type_attributes (tree type1, tree type2)
        != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
       || (ix86_function_regparm (type1, NULL)
 	  != ix86_function_regparm (type2, NULL)))
-    return 0;
-
-  /* Check for mismatched x87regparm types.  */
-  if (!lookup_attribute ("x87regparm", TYPE_ATTRIBUTES (type1))
-      != !lookup_attribute ("x87regparm", TYPE_ATTRIBUTES (type2)))
     return 0;
 
   /* Check for mismatched sseregparm types.  */
@@ -2790,48 +2778,6 @@ ix86_function_regparm (tree type, tree decl)
 	}
     }
   return regparm;
-}
-
-/* Return 1 if we can pass up to X87_REGPARM_MAX floating point
-   arguments in x87 registers for a function with the indicated
-   TYPE and DECL.  DECL may be NULL when calling function indirectly
-   or considering a libcall.  For local functions, return 2.
-   Otherwise return 0.  */
-
-static int
-ix86_function_x87regparm (tree type, tree decl)
-{
-  /* Use x87 registers to pass floating point arguments if requested
-     by the x87regparm attribute.  */
-  if (TARGET_X87REGPARM
-      || (type
-	  && lookup_attribute ("x87regparm", TYPE_ATTRIBUTES (type))))
-    {
-      if (!TARGET_80387)
-	{
-	  if (decl)
-	    error ("Calling %qD with attribute x87regparm without "
-		   "80387 enabled", decl);
-	  else
-	    error ("Calling %qT with attribute x87regparm without "
-		   "80387 enabled", type);
-	  return 0;
-	}
-
-      return 1;
-    }
-
-  /* For local functions, pass up to X87_REGPARM_MAX floating point
-     arguments in x87 registers.  */
-  if (!TARGET_64BIT && decl
-      && flag_unit_at_a_time && !profile_flag)
-    {
-      struct cgraph_local_info *i = cgraph_local_info (decl);
-      if (i && i->local)
-	return 2;
-    }
-
-  return 0;
 }
 
 /* Return 1 or 2, if we can pass up to SSE_REGPARM_MAX SFmode (1) and
@@ -2953,8 +2899,6 @@ ix86_function_arg_regno_p (int regno)
   int i;
   if (!TARGET_64BIT)
     return (regno < REGPARM_MAX
-	    || (TARGET_80387 && FP_REGNO_P (regno)
-		&& (regno < FIRST_FLOAT_REG + X87_REGPARM_MAX))
 	    || (TARGET_MMX && MMX_REGNO_P (regno)
 		&& (regno < FIRST_MMX_REG + MMX_REGPARM_MAX))
 	    || (TARGET_SSE && SSE_REGNO_P (regno)
@@ -3018,8 +2962,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
   /* Set up the number of registers to use for passing arguments.  */
   cum->nregs = ix86_regparm;
-  if (TARGET_80387)
-    cum->x87_nregs = X87_REGPARM_MAX;
   if (TARGET_SSE)
     cum->sse_nregs = SSE_REGPARM_MAX;
   if (TARGET_MMX)
@@ -3041,10 +2983,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	cum->nregs = ix86_function_regparm (fntype, fndecl);
     }
 
-  /* Set up the number of 80387 registers used for passing
-     floating point arguments.  Warn for mismatching ABI.  */
-  cum->float_in_x87 = ix86_function_x87regparm (fntype, fndecl);
-
   /* Set up the number of SSE registers used for passing SFmode
      and DFmode arguments.  Warn for mismatching ABI.  */
   cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl);
@@ -3054,8 +2992,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
      are no variable arguments.  If there are variable arguments, then
      we won't pass anything in registers in 32-bit mode. */
 
-  if (cum->nregs || cum->mmx_nregs
-      || cum->x87_nregs || cum->sse_nregs)
+  if (cum->nregs || cum->mmx_nregs || cum->sse_nregs)
     {
       for (param = (fntype) ? TYPE_ARG_TYPES (fntype) : 0;
 	   param != 0; param = next_param)
@@ -3066,13 +3003,11 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	      if (!TARGET_64BIT)
 		{
 		  cum->nregs = 0;
-		  cum->x87_nregs = 0;
 		  cum->sse_nregs = 0;
 		  cum->mmx_nregs = 0;
 		  cum->warn_sse = 0;
 		  cum->warn_mmx = 0;
 		  cum->fastcall = 0;
-		  cum->float_in_x87 = 0;
 		  cum->float_in_sse = 0;
 		}
 	      cum->maybe_vaarg = true;
@@ -3769,40 +3704,13 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    }
 	  break;
 
-	case SFmode:
-	  if (cum->float_in_sse > 0)
-	    goto skip_80387;
-
 	case DFmode:
-	  if (cum->float_in_sse > 1)
-	    goto skip_80387;
-
-	  /* Because no inherent XFmode->DFmode and XFmode->SFmode
-	     rounding takes place when values are passed in x87
-	     registers, pass DFmode and SFmode types to local functions
-	     only when flag_unsafe_math_optimizations is set.  */
-	  if (!cum->float_in_x87
-	      || (cum->float_in_x87 == 2
-		  && !flag_unsafe_math_optimizations))
+	  if (cum->float_in_sse < 2)
 	    break;
-
-	case XFmode:
-	  if (!cum->float_in_x87)
+	case SFmode:
+	  if (cum->float_in_sse < 1)
 	    break;
-
-	  if (!type || !AGGREGATE_TYPE_P (type))
-	    {
-	      cum->x87_nregs -= 1;
-	      cum->x87_regno += 1;
-	      if (cum->x87_nregs <= 0)
-		{
-		  cum->x87_nregs = 0;
-		  cum->x87_regno = 0;
-		}
-	    }
-	  break;
-
- skip_80387:
+	  /* FALLTHRU */
 
 	case TImode:
 	case V16QImode:
@@ -3813,6 +3721,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	case V2DFmode:
 	  if (!type || !AGGREGATE_TYPE_P (type))
 	    {
+	      cum->sse_words += words;
 	      cum->sse_nregs -= 1;
 	      cum->sse_regno += 1;
 	      if (cum->sse_nregs <= 0)
@@ -3829,6 +3738,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	case V2SFmode:
 	  if (!type || !AGGREGATE_TYPE_P (type))
 	    {
+	      cum->mmx_words += words;
 	      cum->mmx_nregs -= 1;
 	      cum->mmx_regno += 1;
 	      if (cum->mmx_nregs <= 0)
@@ -3893,6 +3803,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
   else
     switch (mode)
       {
+	/* For now, pass fp/complex values on the stack.  */
       default:
 	break;
 
@@ -3922,35 +3833,13 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
 	    ret = gen_rtx_REG (mode, regno);
 	  }
 	break;
-
-	case SFmode:
-	  if (cum->float_in_sse > 0)
-	    goto skip_80387;
-
-	case DFmode:
-	  if (cum->float_in_sse > 1)
-	    goto skip_80387;
-
-	  /* Because no inherent XFmode->DFmode and XFmode->SFmode
-	     rounding takes place when values are passed in x87
-	     registers, pass DFmode and SFmode types to local functions
-	     only when flag_unsafe_math_optimizations is set.  */
-	  if (!cum->float_in_x87
-	      || (cum->float_in_x87 == 2
-		  && !flag_unsafe_math_optimizations))
-	    break;
-
-	case XFmode:
-	  if (!cum->float_in_x87)
-	    break;
-
-	  if (!type || !AGGREGATE_TYPE_P (type))
-	    if (cum->x87_nregs)
-	      ret = gen_rtx_REG (mode, cum->x87_regno + FIRST_FLOAT_REG);
+      case DFmode:
+	if (cum->float_in_sse < 2)
 	  break;
-
- skip_80387:
-
+      case SFmode:
+	if (cum->float_in_sse < 1)
+	  break;
+	/* FALLTHRU */
       case TImode:
       case V16QImode:
       case V8HImode:
@@ -4519,7 +4408,7 @@ ix86_va_start (tree valist, rtx nextarg)
   if (cfun->va_list_gpr_size)
     {
       type = TREE_TYPE (gpr);
-      t = build2 (MODIFY_EXPR, type, gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, type, gpr,
 		  build_int_cst (type, n_gpr * 8));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4528,7 +4417,7 @@ ix86_va_start (tree valist, rtx nextarg)
   if (cfun->va_list_fpr_size)
     {
       type = TREE_TYPE (fpr);
-      t = build2 (MODIFY_EXPR, type, fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, type, fpr,
 		  build_int_cst (type, n_fpr * 16 + 8*REGPARM_MAX));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4540,7 +4429,7 @@ ix86_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (PLUS_EXPR, type, t,
 	        build_int_cst (type, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, type, ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -4550,7 +4439,7 @@ ix86_va_start (tree valist, rtx nextarg)
 	 Prologue of the function save it right above stack frame.  */
       type = TREE_TYPE (sav);
       t = make_tree (type, frame_pointer_rtx);
-      t = build2 (MODIFY_EXPR, type, sav, t);
+      t = build2 (GIMPLE_MODIFY_STMT, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -4687,7 +4576,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  /* int_addr = gpr + sav; */
 	  t = fold_convert (ptr_type_node, gpr);
 	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
-	  t = build2 (MODIFY_EXPR, void_type_node, int_addr, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, int_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
@@ -4695,7 +4584,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  /* sse_addr = fpr + sav; */
 	  t = fold_convert (ptr_type_node, fpr);
 	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
-	  t = build2 (MODIFY_EXPR, void_type_node, sse_addr, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, sse_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (need_temp)
@@ -4705,7 +4594,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
 	  /* addr = &temp; */
 	  t = build1 (ADDR_EXPR, build_pointer_type (type), temp);
-	  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
 	  gimplify_and_add (t, pre_p);
 
 	  for (i = 0; i < XVECLEN (container, 0); i++)
@@ -4739,7 +4628,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 					size_int (INTVAL (XEXP (slot, 1)))));
 	      dest = build_va_arg_indirect_ref (dest_addr);
 
-	      t = build2 (MODIFY_EXPR, void_type_node, dest, src);
+	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, src);
 	      gimplify_and_add (t, pre_p);
 	    }
 	}
@@ -4748,14 +4637,14 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
 		      build_int_cst (TREE_TYPE (gpr), needed_intregs * 8));
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
 		      build_int_cst (TREE_TYPE (fpr), needed_sseregs * 16));
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
 
@@ -4782,12 +4671,12 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  t2 = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  t2 = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t2, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
 	      build_int_cst (TREE_TYPE (t), rsize * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
   if (container)
@@ -13620,10 +13509,6 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
   int desired_align = 0;
   enum stringop_alg alg;
   int dynamic_check;
-  /* Precise placement on cld depends whether stringops will be emit in
-     prologue, main copying body or epilogue.  This variable keeps track
-     if cld was already needed.  */
-  bool cld_done = false;
 
   if (GET_CODE (align_exp) == CONST_INT)
     align = INTVAL (align_exp);
@@ -13688,8 +13573,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       && !count)
     {
       int size = MAX (size_needed - 1, desired_align - align);
-      if (TARGET_SINGLE_STRINGOP)
-	emit_insn (gen_cld ()), cld_done = true;
+
       label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp,
 			       GEN_INT (size),
@@ -13723,8 +13607,6 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 	 the info early.  */
       src = change_address (src, BLKmode, srcreg);
       dst = change_address (dst, BLKmode, destreg);
-      if (TARGET_SINGLE_STRINGOP && !cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_movmem_prologue (dst, src, destreg, srcreg, count_exp, align,
 			      desired_align);
     }
@@ -13757,20 +13639,14 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 				     expected_size);
       break;
     case rep_prefix_8_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
 				 DImode);
       break;
     case rep_prefix_4_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
 				 SImode);
       break;
     case rep_prefix_1_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
 				 QImode);
       break;
@@ -13806,12 +13682,8 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       LABEL_NUSES (label) = 1;
     }
   if (count_exp != const0_rtx && size_needed > 1)
-    {
-      if (TARGET_SINGLE_STRINGOP && !cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
-      expand_movmem_epilogue (dst, src, destreg, srcreg, count_exp,
-			      size_needed);
-    }
+    expand_movmem_epilogue (dst, src, destreg, srcreg, count_exp,
+			    size_needed);
   if (jump_around_label)
     emit_label (jump_around_label);
   return 1;
@@ -13905,10 +13777,6 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
   int size_needed = 0;
   int desired_align = 0;
   enum stringop_alg alg;
-  /* Precise placement on cld depends whether stringops will be emit in
-     prologue, main copying body or epilogue.  This variable keeps track
-     if cld was already needed.  */
-  bool cld_done = false;
   rtx promoted_val = val_exp;
   bool force_loopy_epilogue = false;
   int dynamic_check;
@@ -13975,8 +13843,6 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
          code, so we need to use QImode accesses in epilogue.  */
       if (GET_CODE (val_exp) != CONST_INT && size_needed > 1)
 	force_loopy_epilogue = true;
-      else if (TARGET_SINGLE_STRINGOP)
-	emit_insn (gen_cld ()), cld_done = true;
       label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp,
 			       GEN_INT (size),
@@ -14011,8 +13877,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       && !count && !label)
     {
       int size = MAX (size_needed - 1, desired_align - align);
-      if (TARGET_SINGLE_STRINGOP)
-	emit_insn (gen_cld ()), cld_done = true;
+
       label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp,
 			       GEN_INT (size),
@@ -14029,8 +13894,6 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
 	 the pain to maintain it for the first move, so throw away
 	 the info early.  */
       dst = change_address (dst, BLKmode, destreg);
-      if (TARGET_SINGLE_STRINGOP && !cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_setmem_prologue (dst, destreg, promoted_val, count_exp, align,
 			      desired_align);
     }
@@ -14058,20 +13921,14 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
 				     count_exp, Pmode, 4, expected_size);
       break;
     case rep_prefix_8_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_setmem_via_rep_stos (dst, destreg, promoted_val, count_exp,
 				  DImode);
       break;
     case rep_prefix_4_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_setmem_via_rep_stos (dst, destreg, promoted_val, count_exp,
 				  SImode);
       break;
     case rep_prefix_1_byte:
-      if (!cld_done)
-	emit_insn (gen_cld ()), cld_done = true;
       expand_setmem_via_rep_stos (dst, destreg, promoted_val, count_exp,
 				  QImode);
       break;
@@ -14104,12 +13961,8 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
 	expand_setmem_epilogue_via_loop (dst, destreg, val_exp, count_exp,
 					 size_needed);
       else
-	{
-	  if (TARGET_SINGLE_STRINGOP && !cld_done)
-	    emit_insn (gen_cld ()), cld_done = true;
-	  expand_setmem_epilogue (dst, destreg, promoted_val, count_exp,
-				  size_needed);
-	}
+	expand_setmem_epilogue (dst, destreg, promoted_val, count_exp,
+				size_needed);
     }
   if (jump_around_label)
     emit_label (jump_around_label);
@@ -14167,7 +14020,6 @@ ix86_expand_strlen (rtx out, rtx src, rtx eoschar, rtx align)
       emit_move_insn (scratch3, addr);
       eoschar = force_reg (QImode, eoschar);
 
-      emit_insn (gen_cld ());
       src = replace_equiv_address_nv (src, scratch3);
 
       /* If .md starts supporting :P, this can be done in .md.  */
@@ -17639,6 +17491,41 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* Returns a function decl for a vectorized version of the builtin function
+   with builtin function code FN and the result vector type TYPE, or NULL_TREE
+   if it is not available.  */
+
+static tree
+ix86_builtin_vectorized_function (enum built_in_function fn, tree type)
+{
+  enum machine_mode el_mode;
+  int n;
+
+  if (TREE_CODE (type) != VECTOR_TYPE)
+    return NULL_TREE;
+
+  el_mode = TYPE_MODE (TREE_TYPE (type));
+  n = TYPE_VECTOR_SUBPARTS (type);
+
+  switch (fn)
+    {
+    case BUILT_IN_SQRT:
+      if (el_mode == DFmode && n == 2)
+	return ix86_builtins[IX86_BUILTIN_SQRTPD];
+      return NULL_TREE;
+
+    case BUILT_IN_SQRTF:
+      if (el_mode == SFmode && n == 4)
+	return ix86_builtins[IX86_BUILTIN_SQRTPS];
+      return NULL_TREE;
+
+    default:
+      ;
+    }
+
+  return NULL_TREE;
+}
+
 /* Store OPERAND to the memory after reload is completed.  This means
    that we can't easily use assign_stack_local.  */
 rtx
@@ -20039,8 +19926,6 @@ ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
   clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
 			clobbers);
   clobbers = tree_cons (NULL_TREE, build_string (4, "fpsr"),
-			clobbers);
-  clobbers = tree_cons (NULL_TREE, build_string (7, "dirflag"),
 			clobbers);
   return clobbers;
 }

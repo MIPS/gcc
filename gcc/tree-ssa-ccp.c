@@ -132,13 +132,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    We should be able to deduce that the predicate 'a.a != B' is always
    false.  To achieve this, we associate constant values to the SSA
-   names in the V_MAY_DEF and V_MUST_DEF operands for each store.
-   Additionally, since we also glob partial loads/stores with the base
-   symbol, we also keep track of the memory reference where the
-   constant value was stored (in the MEM_REF field of PROP_VALUE_T).
-   For instance,
+   names in the VDEF operands for each store.  Additionally,
+   since we also glob partial loads/stores with the base symbol, we
+   also keep track of the memory reference where the constant value
+   was stored (in the MEM_REF field of PROP_VALUE_T).  For instance,
 
-        # a_5 = V_MAY_DEF <a_4>
+        # a_5 = VDEF <a_4>
         a.a = 2;
 
         # VUSE <a_5>
@@ -222,9 +221,9 @@ typedef enum
 /* Array of propagated constant values.  After propagation,
    CONST_VAL[I].VALUE holds the constant value for SSA_NAME(I).  If
    the constant is held in an SSA name representing a memory store
-   (i.e., a V_MAY_DEF or V_MUST_DEF), CONST_VAL[I].MEM_REF will
-   contain the actual memory reference used to store (i.e., the LHS of
-   the assignment doing the store).  */
+   (i.e., a VDEF), CONST_VAL[I].MEM_REF will contain the actual
+   memory reference used to store (i.e., the LHS of the assignment
+   doing the store).  */
 static prop_value_t *const_val;
 
 /* True if we are also propagating constants in stores and loads.  */
@@ -375,7 +374,7 @@ get_default_value (tree var)
 	  else
 	    val.lattice_val = VARYING;
 	}
-      else if (TREE_CODE (stmt) == MODIFY_EXPR
+      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	       || TREE_CODE (stmt) == PHI_NODE)
 	{
 	  /* Any other variable defined by an assignment or a PHI node
@@ -543,7 +542,7 @@ likely_value (tree stmt)
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != MODIFY_EXPR
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
       && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
       && TREE_CODE (stmt) != COND_EXPR
       && TREE_CODE (stmt) != SWITCH_EXPR)
@@ -601,7 +600,7 @@ surely_varying_stmt_p (tree stmt)
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != MODIFY_EXPR
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
       && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
       && TREE_CODE (stmt) != COND_EXPR
       && TREE_CODE (stmt) != SWITCH_EXPR)
@@ -1184,8 +1183,8 @@ visit_assignment (tree stmt, tree *output_p)
   tree lhs, rhs;
   enum ssa_prop_result retval;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (rhs) == SSA_NAME)
     {
@@ -1219,7 +1218,7 @@ visit_assignment (tree stmt, tree *output_p)
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree orig_lhs = TREE_OPERAND (stmt, 0);
+    tree orig_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
@@ -1274,9 +1273,9 @@ visit_assignment (tree stmt, tree *output_p)
     }
   else if (do_store_ccp && stmt_makes_single_store (stmt))
     {
-      /* Otherwise, set the names in V_MAY_DEF/V_MUST_DEF operands
-	 to the new constant value and mark the LHS as the memory
-	 reference associated with VAL.  */
+      /* Otherwise, set the names in VDEF operands to the new
+	 constant value and mark the LHS as the memory reference
+	 associated with VAL.  */
       ssa_op_iter i;
       tree vdef;
       bool changed;
@@ -1364,7 +1363,7 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
       /* If the statement is an assignment that produces a single
 	 output value, evaluate its RHS to see if the lattice value of
@@ -1434,11 +1433,15 @@ struct tree_opt_pass pass_ccp =
   TV_TREE_CCP,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+  TODO_cleanup_cfg
+    | TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1472,12 +1475,15 @@ struct tree_opt_pass pass_store_ccp =
   TV_TREE_STORE_CCP,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
+  TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2145,14 +2151,14 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 
   switch (TREE_CODE (def_stmt))
     {
-      case MODIFY_EXPR:
+      case GIMPLE_MODIFY_STMT:
 	{
 	  tree rhs;
 
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
-	  rhs = TREE_OPERAND (def_stmt, 1);
+	  rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
 	  return get_maxval_strlen (rhs, length, visited, type);
 	}
@@ -2204,7 +2210,7 @@ ccp_fold_builtin (tree stmt, tree fn)
   bitmap visited;
   bool ignore;
 
-  ignore = TREE_CODE (stmt) != MODIFY_EXPR;
+  ignore = TREE_CODE (stmt) != GIMPLE_MODIFY_STMT;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
@@ -2308,13 +2314,13 @@ ccp_fold_builtin (tree stmt, tree fn)
 
     case BUILT_IN_FPUTS:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 1,
 				   val[0]);
       break;
 
@@ -2512,7 +2518,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr, bool ignore)
       tree new_stmt = tsi_stmt (ti);
       find_new_referenced_vars (tsi_stmt_ptr (ti));
       bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
-      mark_new_vars_to_rename (bsi_stmt (*si_p));
+      mark_symbols_for_renaming (new_stmt);
       bsi_next (si_p);
     }
 
@@ -2574,19 +2580,22 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
+	  push_stmt_changes (stmtp);
+
 	  if (!set_rhs (stmtp, result))
 	    {
 	      result = convert_to_gimple_builtin (&i, result,
 			      			  TREE_CODE (old_stmt)
-						  != MODIFY_EXPR);
+						  != GIMPLE_MODIFY_STMT);
 	      if (result)
 		{
 		  bool ok = set_rhs (stmtp, result);
-		  
 		  gcc_assert (ok);
 		}
 	    }
-	  mark_new_vars_to_rename (*stmtp);
+
+	  pop_stmt_changes (stmtp);
+
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;

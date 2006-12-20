@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "params.h"
 #include "tree-inline.h"
+#include "value-prof.h"
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
@@ -787,7 +788,8 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     add_stack_var (var);
   else
     {
-      expand_one_stack_var (var);
+      if (really_expand)
+        expand_one_stack_var (var);
       return tree_low_cst (DECL_SIZE_UNIT (var), 1);
     }
   return 0;
@@ -1859,6 +1861,7 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
+  free_histograms ();
   return 0;
 }
 
