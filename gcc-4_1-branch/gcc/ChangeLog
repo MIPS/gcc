@@ -1,3 +1,10 @@
+2006-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30262
+	PR middle-end/30263
+	* tree-nested.c (walk_asm_expr): New function.
+	(walk_stmts): Use it for ASM_EXPR.
+
 2006-12-17  Matthias Klose  <doko@debian.org>
 
 	PR libstdc++/11953
