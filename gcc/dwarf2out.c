@@ -2610,8 +2610,7 @@ void
 dwarf2out_frame_init (void)
 {
   /* Allocate the initial hunk of the fde_table.  */
-  fde_table = ggc_alloc_vec_atomic (sizeof (dw_fde_node),
-					   FDE_TABLE_INCREMENT);
+  fde_table = ggc_alloc_vec_dw_fde_node (FDE_TABLE_INCREMENT);
   fde_table_allocated = FDE_TABLE_INCREMENT;
   fde_table_in_use = 0;
 
@@ -13754,8 +13753,9 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   decl_scope_table = VEC_alloc (tree, gc, 256);
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
-  abbrev_die_table = ggc_alloc_cleared_vec_atomic (sizeof(dw_die_ref),
-						   ABBREV_DIE_TABLE_INCREMENT);
+  abbrev_die_table = //ggc_alloc_cleared_vec_atomic (sizeof(dw_die_ref),
+    //			   ABBREV_DIE_TABLE_INCREMENT); TODO!!!
+    ggc_alloc_conservative (sizeof (dw_die_ref) * ABBREV_DIE_TABLE_INCREMENT);
   abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
   /* Zero-th entry is allocated, but unused.  */
   abbrev_die_table_in_use = 1;

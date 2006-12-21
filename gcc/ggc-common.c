@@ -136,8 +136,7 @@ ggc_mark_roots (void)
 void *
 ggc_internal_alloc_cleared_stat (size_t size MEM_STAT_DECL)
 {
-  void *buf = ggc_internal_alloc_stat (size PASS_MEM_STAT);
-  memset (buf, 0, size);
+  void *buf = ggc_alloc_cleared_atomic_stat (size);
   return buf;
 }
 

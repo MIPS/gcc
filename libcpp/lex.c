@@ -63,6 +63,17 @@ static tokenrun *next_tokenrun (tokenrun *);
 
 static _cpp_buff *new_buff (size_t);
 
+bool
+_cpp_valid_token_p (cpp_reader * pfile, const cpp_token * const token)
+{
+  if (token->type >= sizeof(token_spellings) / sizeof(struct token_spelling))
+    {
+      cpp_error (pfile, CPP_DL_ICE, "unknown type of token %s",
+		 TOKEN_NAME (token));
+      return 0;
+    }
+  return 1;
+}
 
 /* Utility routine:
 
@@ -595,6 +606,8 @@ create_literal (cpp_reader *pfile, cpp_token *token, const uchar *base,
   token->type = type;
   token->val.str.len = len;
   token->val.str.text = dest;
+
+  _cpp_valid_token_p (pfile, token);
 }
 
 /* Lexes a string, character constant, or angle-bracketed header file
@@ -979,6 +992,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	{
 	  result->flags |= NAMED_OP;
 	  result->type = (enum cpp_ttype) result->val.node->directive_index;
+	  _cpp_valid_token_p (pfile, result);
 	}
       break;
 
@@ -1338,6 +1352,11 @@ cpp_spell_token (cpp_reader *pfile, const cpp_token *token,
       cpp_error (pfile, CPP_DL_ICE,
 		 "unspellable token %s", TOKEN_NAME (token));
       break;
+    default:
+      _cpp_valid_token_p (pfile, token);
+      /*      cpp_error (pfile, CPP_DL_ICE,
+	      "unknown type of token %s", TOKEN_NAME (token)); */
+      break;
     }
 
   return buffer;
@@ -1347,7 +1366,7 @@ cpp_spell_token (cpp_reader *pfile, const cpp_token *token,
    freed when the reader is destroyed.  Useful for diagnostics.  */
 unsigned char *
 cpp_token_as_text (cpp_reader *pfile, const cpp_token *token)
-{ 
+{
   unsigned int len = cpp_token_len (token) + 1;
   unsigned char *start = _cpp_unaligned_alloc (pfile, len), *end;
 

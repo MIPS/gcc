@@ -801,7 +801,8 @@ update_equiv_regs (void)
 
   reg_equiv = XCNEWVEC (struct equivalence, max_regno);
   INIT_REG_SET (&cleared_regs);
-  reg_equiv_init = ggc_alloc_cleared_vec_atomic (sizeof (rtx), max_regno);
+  reg_equiv_init = // ggc_alloc_cleared_vec_atomic (sizeof (rtx), max_regno); TODO!!!
+    ggc_alloc_conservative (sizeof (rtx) * max_regno);
   reg_equiv_init_size = max_regno;
 
   init_alias_analysis ();

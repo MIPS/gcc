@@ -612,7 +612,7 @@ htab_find_slot_with_hash (htab_t htab, const PTR element,
     first_deleted_slot = &htab->entries[index];
   else if ((*htab->eq_f) (entry, element))
     return &htab->entries[index];
-      
+
   hash2 = htab_mod_m2 (hash, htab);
   for (;;)
     {
@@ -620,7 +620,7 @@ htab_find_slot_with_hash (htab_t htab, const PTR element,
       index += hash2;
       if (index >= size)
 	index -= size;
-      
+
       entry = htab->entries[index];
       if (entry == HTAB_EMPTY_ENTRY)
 	goto empty_entry;
@@ -717,7 +717,7 @@ htab_traverse_noresize (htab_t htab, htab_trav callback, PTR info)
 {
   PTR *slot;
   PTR *limit;
-  
+
   slot = htab->entries;
   limit = slot + htab_size (htab);
 
@@ -739,7 +739,7 @@ void
 htab_traverse (htab_t htab, htab_trav callback, PTR info)
 {
   if (htab_elements (htab) * 8 < htab_size (htab))
-    htab_expand (htab);
+      htab_expand (htab);
 
   htab_traverse_noresize (htab, callback, info);
 }

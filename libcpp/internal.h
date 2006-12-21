@@ -535,6 +535,7 @@ extern bool _cpp_parse_expr (cpp_reader *);
 extern struct op *_cpp_expand_op_stack (cpp_reader *);
 
 /* In lex.c */
+extern bool _cpp_valid_token_p (cpp_reader *, const cpp_token * const);
 extern void _cpp_process_line_notes (cpp_reader *, int);
 extern void _cpp_clean_line (cpp_reader *);
 extern bool _cpp_get_fresh_line (cpp_reader *);

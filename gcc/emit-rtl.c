@@ -4983,8 +4983,9 @@ init_emit (void)
     = ggc_alloc_cleared_vec_atomic (f->emit->regno_pointer_align_length,
 				    sizeof (unsigned char));
 
-  regno_reg_rtx
-    = ggc_alloc_vec_atomic (f->emit->regno_pointer_align_length, sizeof(rtx));
+  regno_reg_rtx // TODO !!!
+    // = ggc_alloc_vec_atomic (f->emit->regno_pointer_align_length, sizeof(rtx));
+    = ggc_alloc_conservative (f->emit->regno_pointer_align_length * sizeof(rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,

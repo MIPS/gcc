@@ -32,18 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "params.h"
 #include "tree-flow.h"
-#ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include <valgrind/memcheck.h>
-# elif defined HAVE_MEMCHECK_H
-#  include <memcheck.h>
-# else
-#  include <valgrind.h>
-# endif
-#else
-/* Avoid #ifdef:s when we can help it.  */
-#define VALGRIND_DISCARD(x)
-#endif
+#include "valgrind-support.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -434,16 +423,16 @@ static struct globals
     /* Total allocations and overhead for sizes less than 32, 64 and 128.
        These sizes are interesting because they are typical cache line
        sizes.  */
-   
+
     unsigned long long total_allocated_under32;
     unsigned long long total_overhead_under32;
-  
+
     unsigned long long total_allocated_under64;
     unsigned long long total_overhead_under64;
-  
+
     unsigned long long total_allocated_under128;
     unsigned long long total_overhead_under128;
-  
+
     /* The allocations for each of the allocation orders.  */
     unsigned long long total_allocated_per_order[NUM_ORDERS];
 

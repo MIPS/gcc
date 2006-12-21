@@ -2421,8 +2421,9 @@ init_alias_analysis (void)
   timevar_push (TV_ALIAS_ANALYSIS);
 
   reg_known_value_size = maxreg - FIRST_PSEUDO_REGISTER;
-  reg_known_value = ggc_alloc_cleared_vec_atomic (reg_known_value_size,
-						  sizeof (rtx));
+  reg_known_value = //ggc_alloc_cleared_vec_atomic (reg_known_value_size, // TODO !!!
+    ///				  sizeof (rtx));
+    ggc_alloc_conservative (reg_known_value_size * sizeof (rtx));
   reg_known_equiv_p = xcalloc (reg_known_value_size, sizeof (bool));
 
   /* If we have memory allocated from the previous run, use it.  */

@@ -18,7 +18,7 @@
  * clients that provide detailed heap layout information to the collector.
  * This interface should not be used by normal C or C++ clients.
  * It will be useful to runtimes for other languages.
- * 
+ *
  * This is an experts-only interface!  There are many ways to break the
  * collector in subtle ways by using this functionality.
  */

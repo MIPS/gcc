@@ -927,7 +927,7 @@ set_gc_used_type (type_p t, enum gc_used_enum level, type_p param[NUM_PARAM])
 				&length, &nested_ptr);
 
 	    if (nested_ptr && f->type->kind == TYPE_POINTER)
-	      set_gc_used_type (nested_ptr, GC_POINTED_TO, 
+	      set_gc_used_type (nested_ptr, GC_POINTED_TO,
 				pass_param ? param : NULL);
 	    else if (length && f->type->kind == TYPE_POINTER)
 	      set_gc_used_type (f->type->u.p, GC_USED, NULL);
@@ -1168,8 +1168,8 @@ get_base_file_bitmap (const char *input_file)
   const char *slashpos = strchr (basename, '/');
   unsigned j;
   unsigned k;
-  unsigned bitmap;
-
+  unsigned bitmap = 0;
+#if 0
   /* If the file resides in a language subdirectory (e.g., 'cp'), assume that
      it belongs to the corresponding language.  The file may belong to other
      languages as well (which is checked for below).  */
@@ -1190,7 +1190,7 @@ get_base_file_bitmap (const char *input_file)
      specified.  */
 
   bitmap = 0;
-
+#endif
   for (j = 0; j < NUM_LANG_FILES; j++)
     {
       if (!strcmp(input_file, lang_files[j]))
@@ -1267,12 +1267,13 @@ get_output_file_with_visibility (const char *input_file)
   else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
 	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
-  else 
+  else
     {
       size_t i;
 
       for (i = 0; i < NUM_BASE_FILES; i++)
-	if (memcmp (basename, lang_dir_names[i], strlen (lang_dir_names[i])) == 0
+	if (memcmp (basename, lang_dir_names[i], strlen (lang_dir_names[i]))
+	    == 0
 	    && basename[strlen(lang_dir_names[i])] == '/')
 	  return base_files[i];
 
@@ -1360,6 +1361,7 @@ struct flist {
 };
 
 struct walk_type_data;
+struct write_types_data;
 
 /* For scalars and strings, given the item in 'val'.
    For structures, given a pointer to the item in 'val'.
@@ -1369,6 +1371,11 @@ typedef void (*process_field_fn)
      (type_p f, const struct walk_type_data *p);
 typedef void (*func_name_fn)
      (type_p s, const struct walk_type_data *p);
+typedef void (*process_struct_fn)
+     (type_p f, const struct walk_type_data *p);
+typedef void (*prewrite_struct_fn)
+     (type_p s, const struct write_types_data *wtd);
+
 
 /* Parameters for write_types.  */
 
@@ -1378,7 +1385,15 @@ struct write_types_data
   const char *param_prefix;
   const char *subfield_marker_routine;
   const char *marker_routine;
+  const char *marker_routine_signature;
   const char *reorder_note_routine;
+  const process_struct_fn struct_field_processor;
+  const prewrite_struct_fn prewrite_struct;
+  const char *return_type;
+  const char *return_expression;
+  const char *marker_args;
+  const int   separate_test_and_mark;
+  const char *test_routine;
   const char *comment;
 };
 
@@ -1400,7 +1415,7 @@ static void write_local_func_for_structure
      (type_p orig_s, type_p s, type_p * param);
 static void write_local (type_p structures,
 			 type_p param_structs);
-static void write_enum_defn (type_p structures, type_p param_structs);
+static void write_gt_types_enum (type_p structures, type_p param_structs);
 static int contains_scalar_p (type_p t);
 static void put_mangled_filename (outf_p , const char *);
 static void finish_root_table (struct flist *flp, const char *pfx,
@@ -1669,9 +1684,9 @@ walk_type (type_p t, struct walk_type_data *d)
 		d->indent += 2;
 		d->val = xasprintf ("x%d", d->counter++);
 		oprintf (d->of, "%*s%s %s * %s%s =\n", d->indent, "",
-			 (nested_ptr_d->type->kind == TYPE_UNION 
-			  ? "union" : "struct"), 
-			 nested_ptr_d->type->u.s.tag, 
+			 (nested_ptr_d->type->kind == TYPE_UNION
+			  ? "union" : "struct"),
+			 nested_ptr_d->type->u.s.tag,
 			 d->fn_wants_lvalue ? "" : "const ",
 			 d->val);
 		oprintf (d->of, "%*s", d->indent + 2, "");
@@ -1932,6 +1947,39 @@ walk_type (type_p t, struct walk_type_data *d)
     }
 }
 
+static void
+write_types_process_struct (type_p f, const struct walk_type_data *d)
+{
+  const struct write_types_data *wtd =
+    (const struct write_types_data *) d->cookie;
+  const char *cast = d->needs_cast_p ? "(void *)" : "";
+  oprintf (d->of, "%*sgt_%s_", d->indent, "", wtd->prefix);
+  output_mangled_typename (d->of, f);
+  oprintf (d->of, " (%s%s);\n", cast, d->val);
+}
+
+static void
+prewrite_structure (type_p s, const struct write_types_data *wtd)
+{
+  oprintf (header_file, "#define gt_%s_", wtd->prefix);
+  output_mangled_typename (header_file, s);
+  oprintf (header_file, "(X) do { \\\n");
+  oprintf (header_file, "  if (X != NULL) gt_%sx_%s (X);\\\n", wtd->prefix,
+	   s->u.s.tag);
+  oprintf (header_file, "  } while (0)\n");
+}
+
+static void
+write_tagged_types_process_struct (type_p f ATTRIBUTE_UNUSED,
+				   const struct walk_type_data *d)
+{
+  const char *cast = d->needs_cast_p ? "(void *)" : "";
+  oprintf (d->of, "%*sMAYBE_MARK", d->indent, "");
+  oprintf (d->of, " (%s%s);\n", cast,
+	   d->val);
+}
+
+
 /* process_field routine for marking routines.  */
 
 static void
@@ -1987,9 +2035,7 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
     case TYPE_UNION:
     case TYPE_LANG_STRUCT:
     case TYPE_PARAM_STRUCT:
-      oprintf (d->of, "%*sgt_%s_", d->indent, "", wtd->prefix);
-      output_mangled_typename (d->of, f);
-      oprintf (d->of, " (%s%s);\n", cast, d->val);
+      (wtd->struct_field_processor) (f, d);
       if (d->reorder_fn && wtd->reorder_note_routine)
 	oprintf (d->of, "%*s%s (%s%s, %s%s, %s);\n", d->indent, "",
 		 wtd->reorder_note_routine, cast, d->val, cast, d->val,
@@ -2023,6 +2069,19 @@ output_type_enum (outf_p of, type_p s)
     oprintf (of, ", gt_types_enum_last");
 }
 
+/* Finds a real source location for a param struct. */
+static const char *
+find_source_for_param_struct (type_p *param, const char * fn)
+{
+  int i;
+  /* This is a hack, and not the good kind either.  */
+  for (i = NUM_PARAM - 1; i >= 0; i--)
+    if (param && param[i] && param[i]->kind == TYPE_POINTER
+	&& UNION_OR_STRUCT_P (param[i]->u.p))
+      fn = param[i]->u.p->u.s.line.file;
+  return fn;
+}
+
 /* For S, a structure that's part of ORIG_S, and using parameters
    PARAM, write out a routine that:
    - Takes a parameter, a void * but actually of type *S
@@ -2035,19 +2094,11 @@ static void
 write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 			  const struct write_types_data *wtd)
 {
-  const char *fn = s->u.s.line.file;
-  int i;
+  const char *fn = find_source_for_param_struct (param, s->u.s.line.file);
   const char *chain_next = NULL;
   const char *chain_prev = NULL;
   options_p opt;
   struct walk_type_data d;
-
-  /* This is a hack, and not the good kind either.  */
-  for (i = NUM_PARAM - 1; i >= 0; i--)
-    if (param && param[i] && param[i]->kind == TYPE_POINTER
-	&& UNION_OR_STRUCT_P (param[i]->u.p))
-      fn = param[i]->u.p->u.s.line.file;
-
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_with_visibility (fn);
 
@@ -2073,7 +2124,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   d.val = "(*x)";
 
   oprintf (d.of, "\n");
-  oprintf (d.of, "void\n");
+  oprintf (d.of, "%s\n", wtd->return_type);
   if (param == NULL)
     oprintf (d.of, "gt_%sx_%s", wtd->prefix, orig_s->u.s.tag);
   else
@@ -2081,7 +2132,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       oprintf (d.of, "gt_%s_", wtd->prefix);
       output_mangled_typename (d.of, orig_s);
     }
-  oprintf (d.of, " (void *x_p)\n");
+  oprintf (d.of, wtd->marker_routine_signature);
+  oprintf (d.of, "\n");
   oprintf (d.of, "{\n");
   oprintf (d.of, "  %s %s * %sx = (%s %s *)x_p;\n",
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
@@ -2092,26 +2144,40 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	     s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
   if (chain_next == NULL)
     {
-      oprintf (d.of, "  if (%s (x", wtd->marker_routine);
-      if (wtd->param_prefix)
+      if (wtd->separate_test_and_mark)
 	{
-	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
-	  output_mangled_typename (d.of, orig_s);
-	  output_type_enum (d.of, orig_s);
+	  oprintf (d.of, "  if (%s (x))\n", wtd->test_routine);
 	}
-      oprintf (d.of, "))\n");
+      else
+	{
+	  oprintf (d.of, "  if (%s (x %s", wtd->marker_routine, wtd->marker_args);
+	  if (wtd->param_prefix)
+	    {
+	      oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
+	      output_mangled_typename (d.of, orig_s);
+	      output_type_enum (d.of, orig_s);
+	    }
+	  oprintf (d.of, "))\n");
+	}
     }
   else
     {
-      oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
-      if (wtd->param_prefix)
+      if (wtd->separate_test_and_mark)
 	{
-	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
-	  output_mangled_typename (d.of, orig_s);
-	  output_type_enum (d.of, orig_s);
+	  oprintf (d.of, "  while (%s (xlimit))\n", wtd->test_routine);
 	}
-      oprintf (d.of, "))\n");
-      oprintf (d.of, "   xlimit = (");
+      else
+	{
+	  oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
+	  if (wtd->param_prefix)
+	    {
+	      oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
+	      output_mangled_typename (d.of, orig_s);
+	      output_type_enum (d.of, orig_s);
+	    }
+	  oprintf (d.of, "))\n");
+	}
+      oprintf (d.of, "    xlimit = (");
       d.prev_val[2] = "*xlimit";
       output_escaped_param (&d, chain_next, "chain_next");
       oprintf (d.of, ");\n");
@@ -2128,8 +2194,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "        if (xprev == NULL) break;\n");
 	  oprintf (d.of, "        x = xprev;\n");
-	  oprintf (d.of, "        (void) %s (xprev",
-		   wtd->marker_routine);
+	  oprintf (d.of, "        %s (xprev",
+		   wtd->marker_routine); /* TODO: Result cast to void */
 	  if (wtd->param_prefix)
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
@@ -2142,6 +2208,10 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       oprintf (d.of, "  while (x != xlimit)\n");
     }
   oprintf (d.of, "    {\n");
+  if (wtd->separate_test_and_mark)
+    {
+      oprintf(d.of, "      %s (x %s);\n", wtd->marker_routine, wtd->marker_args);
+    }
 
   d.prev_val[2] = "*x";
   d.indent = 6;
@@ -2155,6 +2225,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
     }
 
   oprintf (d.of, "    }\n");
+  if (strcmp (wtd->return_type, "void"))
+    oprintf (d.of, "  %s\n", wtd->return_expression);
   oprintf (d.of, "}\n");
 }
 
@@ -2177,14 +2249,8 @@ write_types (type_p structures, type_p param_structs,
 	    && s->u.s.line.file == NULL)
 	  continue;
 
-	oprintf (header_file, "#define gt_%s_", wtd->prefix);
-	output_mangled_typename (header_file, s);
-	oprintf (header_file, "(X) do { \\\n");
-	oprintf (header_file,
-		 "  if (X != NULL) gt_%sx_%s (X);\\\n", wtd->prefix,
-		 s->u.s.tag);
-	oprintf (header_file,
-		 "  } while (0)\n");
+	if (wtd->prewrite_struct)
+	  (wtd->prewrite_struct) (s, wtd);
 
 	for (opt = s->u.s.opt; opt; opt = opt->next)
 	  if (strcmp (opt->name, "ptr_alias") == 0)
@@ -2205,9 +2271,8 @@ write_types (type_p structures, type_p param_structs,
 	  continue;
 
 	/* Declare the marker procedure only once.  */
-	oprintf (header_file,
-		 "extern void gt_%sx_%s (void *);\n",
-		 wtd->prefix, s->u.s.tag);
+	oprintf (header_file, "extern %s gt_%sx_%s %s;\n", wtd->return_type,
+		 wtd->prefix, s->u.s.tag, wtd->marker_routine_signature);
 
 	if (s->u.s.line.file == NULL)
 	  {
@@ -2233,9 +2298,10 @@ write_types (type_p structures, type_p param_structs,
 	type_p stru = s->u.param_struct.stru;
 
 	/* Declare the marker procedure.  */
-	oprintf (header_file, "extern void gt_%s_", wtd->prefix);
+	oprintf (header_file, "extern %s gt_%s_", wtd->return_type,
+		 wtd->prefix);
 	output_mangled_typename (header_file, s);
-	oprintf (header_file, " (void *);\n");
+	oprintf (header_file, " %s;\n", wtd->marker_routine_signature);
 
 	if (stru->u.s.line.file == NULL)
 	  {
@@ -2256,17 +2322,30 @@ write_types (type_p structures, type_p param_structs,
 }
 
 static const struct write_types_data ggc_wtd =
-{
-  "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
-  "GC marker procedures.  "
-};
+  {
+    "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", " (void *x_p)", NULL,
+    write_types_process_struct, prewrite_structure, "void", NULL, "", 0, "",
+    "GC marker procedures.  "
+  };
+
+static const struct write_types_data typed_ggc_wtd =
+  {
+    "tggc_m", NULL, "MAYBE_MARK", "MAYBE_MARK",
+    " (GC_word *x_p, struct GC_ms_entry * mark_stack_ptr,"
+       " struct GC_ms_entry * mark_stack_limit)",
+    NULL, write_tagged_types_process_struct, NULL, "struct GC_ms_entry *",
+    "return mark_stack_ptr;",
+    "", 1, "ggc_consider_for_marking", /* , mark_stack_ptr, mark_stack_limit, x */
+    "Typed GC marker procedures.  "
+  };
 
 static const struct write_types_data pch_wtd =
-{
-  "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
-  "gt_pch_note_reorder",
-  "PCH type-walking procedures.  "
-};
+  {
+    "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
+    " (void *x_p)\n", "gt_pch_note_reorder", write_types_process_struct,
+    prewrite_structure, "void", NULL,
+    "", 0, NULL, "PCH type-walking procedures.  "
+  };
 
 /* Write out the local pointer-walking routines.  */
 
@@ -2305,16 +2384,8 @@ write_types_local_process_field (type_p f, const struct walk_type_data *d)
 static void
 write_local_func_for_structure (type_p orig_s, type_p s, type_p *param)
 {
-  const char *fn = s->u.s.line.file;
-  int i;
+  const char *fn = find_source_for_param_struct (param, s->u.s.line.file);
   struct walk_type_data d;
-
-  /* This is a hack, and not the good kind either.  */
-  for (i = NUM_PARAM - 1; i >= 0; i--)
-    if (param && param[i] && param[i]->kind == TYPE_POINTER
-	&& UNION_OR_STRUCT_P (param[i]->u.p))
-      fn = param[i]->u.p->u.s.line.file;
-
   memset (&d, 0, sizeof (d));
   d.of = get_output_file_with_visibility (fn);
 
@@ -2432,27 +2503,36 @@ write_local (type_p structures, type_p param_structs)
 }
 
 /* Write out the 'enum' definition for gt_types_enum.  */
-
 static void
-write_enum_defn (type_p structures, type_p param_structs)
+write_gt_types_enum (type_p structures, type_p param_structs)
 {
   type_p s;
 
   oprintf (header_file, "\n/* Enumeration of known types.  */\n");
   oprintf (header_file, "enum gt_types_enum {\n");
-  for (s = structures; s; s = s->next)
-    {
-      if (s->gc_used == GC_MAYBE_POINTED_TO
-	  && s->u.s.line.file == NULL)
-	continue;
+  oprintf (header_file, " gt_types_enum_free_list_obj = 0,\n");
 
-      oprintf (header_file, " gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      oprintf (header_file, ",\n");
-    }
+  for (s = structures; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO || s->gc_used == GC_MAYBE_POINTED_TO)
+      {
+	if (s->gc_used == GC_MAYBE_POINTED_TO
+	    && s->u.s.line.file == NULL)
+	  continue;
+
+	if (s->u.s.line.file == NULL)
+	  continue;
+
+	oprintf (header_file, " gt_ggc_e_");
+	output_mangled_typename (header_file, s);
+	oprintf (header_file, ",\n");
+      }
 
   for (s = param_structs; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO)
     {
+      type_p stru = s->u.param_struct.stru;
+      if (stru->u.s.line.file == NULL)
+	continue;
       oprintf (header_file, " gt_e_");
       output_mangled_typename (header_file, s);
       oprintf (header_file, ",\n");
@@ -2493,7 +2573,7 @@ write_typecast_to_ptr (const type_p s)
 
 static void
 write_typed_struct_alloc_def (const type_p s, const char * const fn_type,
-			      int is_vector)
+			      const char * const tag_prefix, int is_vector)
 {
   int have_size = has_size_p (s);
   const char *type_kind = get_tag_string (s);
@@ -2503,7 +2583,7 @@ write_typed_struct_alloc_def (const type_p s, const char * const fn_type,
 	   ((have_size && is_vector) ? ", " : ""), (is_vector ? "n" : ""));
   oprintf (header_file, "  ");
   write_typecast_to_ptr (s);
-  oprintf (header_file, " ggc_alloc_%styped(gt_ggc_e_", fn_type);
+  oprintf (header_file, " ggc_alloc_%styped(%s", fn_type, tag_prefix);
   output_mangled_typename (header_file, s);
   if (have_size)
     oprintf (header_file, ", SIZE%s)\n", (is_vector ? " * (n)" : ""));
@@ -2542,12 +2622,25 @@ write_typed_alloc_defns (type_p structures)
   oprintf (header_file,
 	   "\n/* Typed allocation for known structs and unions.  */\n");
   for (s = structures; s; s = s->next)
-    {
-      write_typed_struct_alloc_def (s, "", NON_VECTOR_DEF);
-      write_typed_struct_alloc_def (s, "cleared_", NON_VECTOR_DEF);
-      write_typed_struct_alloc_def (s, "vec_", VECTOR_DEF);
-      write_typed_struct_alloc_def (s, "cleared_vec_", VECTOR_DEF);
-    }
+    if (s->gc_used == GC_POINTED_TO || s->gc_used == GC_MAYBE_POINTED_TO)
+      {
+	write_typed_struct_alloc_def (s, "", "gt_ggc_e_", NON_VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "cleared_", "gt_ggc_e_",
+				      NON_VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "vec_", "gt_ggc_e_", VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "cleared_vec_", "gt_ggc_e_",
+				      VECTOR_DEF);
+      }
+  /* TODO! Not clear at this stage if this is needed or not.
+  for (s = param_structs; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO)
+      {
+	write_typed_struct_alloc_def (s, "", "gt_e_", NON_VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "cleared_", "gt_e_", NON_VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "vec_", "gt_e_", VECTOR_DEF);
+	write_typed_struct_alloc_def (s, "cleared_vec_", "gt_e_", VECTOR_DEF);
+      }
+  */
   oprintf (header_file, "\n/* Typed allocation for known typedefs.  */\n");
   for (p = typedefs; p != NULL; p = p->next)
     {
@@ -2565,6 +2658,134 @@ write_typed_alloc_defns (type_p structures)
       write_typed_typedef_alloc_def (p, "cleared_vec_", VECTOR_DEF);
     }
 }
+
+static int base_file_has_markers[NUM_BASE_FILES];
+
+static void
+prepare_marker_output(outf_p file)
+{
+  size_t i;
+  for (i = 0; i < NUM_BASE_FILES; i++)
+    {
+      if (file == base_files[i])
+	{
+	  if (base_file_has_markers[i])
+	    break;
+	  base_file_has_markers[i] = 1;
+	  oprintf (file,
+		   "\n"
+		   "const typed_marker_fn typed_markers[gt_types_enum_last + 1] =\n"
+		   "{\n"
+		   "  &gt_tggc_m_free_list_obj,\n");
+	  break;
+	}
+    }
+  if (i == NUM_BASE_FILES)
+    gcc_unreachable();
+}
+
+static void
+finish_marker_outputs(void)
+{
+  size_t i;
+  for (i = 0; i < NUM_BASE_FILES; i++)
+    {
+      if (base_file_has_markers[i])
+	{
+	  oprintf (base_files[i],
+		   "  &gt_tggc_m_atomic_obj,\n"
+		   "  &gt_tggc_m_nonexistent_obj\n"
+		   "};\n"
+		   "\n");
+	}
+    }
+}
+
+/* Write marker routines */
+static void
+write_typed_markers (type_p structures)
+{
+  unsigned bitmap;
+  size_t fnum;
+  type_p s;
+
+  size_t i;
+  for (i = 0; i < NUM_BASE_FILES; i++)
+    {
+      base_file_has_markers[i] = 0;
+    }
+
+  oprintf (header_file,
+	   "#include <gc.h>\n"
+	   "#include <gc_mark.h>\n"
+	   "#define MAYBE_MARK(Obj)"
+	   " mark_stack_ptr=GC_MARK_AND_PUSH((GC_PTR) (Obj), mark_stack_ptr, mark_stack_limit, NULL)\n");
+
+  write_types (structures, param_structs, &typed_ggc_wtd);
+
+  oprintf (header_file,
+	   "\n"
+	   "typedef struct GC_ms_entry * (*typed_marker_fn)("
+	   "GC_word * object,"
+	   " struct GC_ms_entry * mark_stack_ptr,"
+	   " struct GC_ms_entry * mark_stack_limit);\n"
+	   "extern const typed_marker_fn"
+	   " typed_markers[gt_types_enum_last + 1];\n");
+
+  for (s = structures; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO || s->gc_used == GC_MAYBE_POINTED_TO)
+      {
+	if (s->gc_used == GC_MAYBE_POINTED_TO
+	    && s->u.s.line.file == NULL)
+	  continue;
+
+	if (s->u.s.line.file == NULL)
+	  continue;
+
+	bitmap = get_base_file_bitmap (s->u.s.line.file);
+	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      prepare_marker_output (base_files[fnum]);
+	      oprintf (base_files[fnum], "  &gt_%sx_%s,\n",
+		       typed_ggc_wtd.prefix, s->u.s.tag);
+	    }
+	  else
+	    {
+	      prepare_marker_output (base_files[fnum]);
+	      oprintf (base_files[fnum], "  NULL,\n");
+	    }
+      }
+
+  for (s = param_structs; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO)
+      {
+	type_p * param = s->u.param_struct.param;
+
+	type_p stru = s->u.param_struct.stru;
+	if (stru->u.s.line.file == NULL)
+	  continue;
+	const char *fn = find_source_for_param_struct (param,
+						       stru->u.s.line.file);
+
+	bitmap = get_base_file_bitmap (fn);
+	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      prepare_marker_output (base_files[fnum]);
+	      oprintf (base_files[fnum], "  &gt_%s_", typed_ggc_wtd.prefix);
+	      output_mangled_typename (base_files[fnum], s);
+	      oprintf (base_files[fnum], ",\n");
+	    }
+	  else
+	    {
+	      prepare_marker_output (base_files[fnum]);
+	      oprintf (base_files[fnum], "  NULL,\n");
+	    }
+      }
+  finish_marker_outputs();
+}
+
 
 /* Might T contain any non-pointer elements?  */
 
@@ -3187,8 +3408,9 @@ main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
   set_gc_used (variables);
 
   open_base_files ();
-  write_enum_defn (structures, param_structs);
+  write_gt_types_enum (structures, param_structs);
   write_typed_alloc_defns (structures);
+  write_typed_markers (structures);
   write_types (structures, param_structs, &ggc_wtd);
   write_types (structures, param_structs, &pch_wtd);
   write_local (structures, param_structs);
