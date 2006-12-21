@@ -119,7 +119,7 @@ struct data_reference
           a[j].b[5][j] = 0; 
 
      Here the offset expression (j * C_j + C) will not contain variables after
-     subsitution of j=3 (3*C_j + C).
+     substitution of j=3 (3*C_j + C).
 
      Misalignment can be calculated only if all the variables can be 
      substituted with constants, otherwise, we record maximum possible alignment
@@ -223,10 +223,6 @@ DEF_VEC_ALLOC_P (subscript_p, heap);
 #define SUB_CONFLICTS_IN_B(SUB) SUB->conflicting_iterations_in_b
 #define SUB_LAST_CONFLICT(SUB) SUB->last_conflict
 #define SUB_DISTANCE(SUB) SUB->distance
-
-typedef struct loop *loop_p;
-DEF_VEC_P(loop_p);
-DEF_VEC_ALLOC_P (loop_p, heap);
 
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */

@@ -5661,10 +5661,11 @@ choose_reload_regs (struct insn_chain *chain)
 	      else if (GET_CODE (rld[r].in_reg) == SUBREG
 		       && REG_P (SUBREG_REG (rld[r].in_reg)))
 		{
-		  byte = SUBREG_BYTE (rld[r].in_reg);
 		  regno = REGNO (SUBREG_REG (rld[r].in_reg));
 		  if (regno < FIRST_PSEUDO_REGISTER)
 		    regno = subreg_regno (rld[r].in_reg);
+		  else
+		    byte = SUBREG_BYTE (rld[r].in_reg);
 		  mode = GET_MODE (rld[r].in_reg);
 		}
 #ifdef AUTO_INC_DEC
@@ -8011,6 +8012,9 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
 	}
     }
   n_occurrences = count_occurrences (PATTERN (insn), reg, 0);
+  if (CALL_P (insn) && CALL_INSN_FUNCTION_USAGE (insn))
+    n_occurrences += count_occurrences (CALL_INSN_FUNCTION_USAGE (insn),
+					reg, 0);
   if (substed)
     n_occurrences += count_occurrences (PATTERN (insn),
 					eliminate_regs (substed, 0,

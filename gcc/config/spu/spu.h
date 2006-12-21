@@ -22,8 +22,10 @@
 #define TARGET_VERSION fprintf (stderr, " (spu %s)", __DATE__);
 
 #define OVERRIDE_OPTIONS spu_override_options()
+#define C_COMMON_OVERRIDE_OPTIONS spu_c_common_override_options()
 
 extern int target_flags;
+extern const char *spu_fixed_range_string;
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
@@ -86,6 +88,7 @@ extern int target_flags;
 /* symbol_ref's of functions are not aligned to 16 byte boundary. */
 #define ALIGNED_SYMBOL_REF_P(X) \
 	(GET_CODE (X) == SYMBOL_REF \
+          && (SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_ALIGN1) == 0 \
 	  && (! SYMBOL_REF_FUNCTION_P (X) \
 	      || align_functions >= 16))
 
@@ -238,6 +241,10 @@ enum reg_class {
         ((GET_MODE_SIZE (FROM) > 4 || GET_MODE_SIZE (TO) > 4) \
 	 && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
 
+#define REGISTER_TARGET_PRAGMAS() do {					\
+targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
+}while (0);
+
 
 /* Frame Layout */
 
@@ -365,6 +372,9 @@ enum reg_class {
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) >= (FIRST_RETURN_REGNUM) && (N) <= (LAST_RETURN_REGNUM))
 
+
+/* Machine-specific symbol_ref flags.  */
+#define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)
 
 /* Aggregate Return */
 
@@ -541,6 +551,7 @@ enum reg_class {
 
 #define NO_IMPLICIT_EXTERN_C 1
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 
 /* These are set by the cmp patterns and used while expanding

@@ -69,34 +69,35 @@ loop_optimizer_init (unsigned flags)
   flow_loops_find (loops);
   current_loops = loops;
 
-  if (current_loops->num <= 1)
+  if (number_of_loops () <= 1)
     {
-      /* No loops.  */
+      /* No loops (the 1 returned by number_of_loops corresponds to the fake
+	 loop that we put as a root of the loop tree).  */
       loop_optimizer_finalize ();
       return;
     }
 
   /* Create pre-headers.  */
   if (flags & LOOPS_HAVE_PREHEADERS)
-    create_preheaders (current_loops, CP_SIMPLE_PREHEADERS);
+    create_preheaders (CP_SIMPLE_PREHEADERS);
 
   /* Force all latches to have only single successor.  */
   if (flags & LOOPS_HAVE_SIMPLE_LATCHES)
-    force_single_succ_latches (current_loops);
+    force_single_succ_latches ();
 
   /* Mark irreducible loops.  */
   if (flags & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
-    mark_irreducible_loops (current_loops);
+    mark_irreducible_loops ();
 
   if (flags & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-    mark_single_exit_loops (current_loops);
+    mark_single_exit_loops ();
 
   /* Dump loops.  */
-  flow_loops_dump (current_loops, dump_file, NULL, 1);
+  flow_loops_dump (dump_file, NULL, 1);
 
 #ifdef ENABLE_CHECKING
   verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (current_loops);
+  verify_loop_structure ();
 #endif
 }
 
@@ -105,15 +106,17 @@ loop_optimizer_init (unsigned flags)
 void
 loop_optimizer_finalize (void)
 {
-  unsigned i;
+  loop_iterator li;
+  struct loop *loop;
   basic_block bb;
 
   if (!current_loops)
     return;
 
-  for (i = 1; i < current_loops->num; i++)
-    if (current_loops->parray[i])
-      free_simple_loop_desc (current_loops->parray[i]);
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      free_simple_loop_desc (loop);
+    }
 
   /* Clean up.  */
   flow_loops_free (current_loops);
@@ -254,7 +257,7 @@ static unsigned int
 rtl_move_loop_invariants (void)
 {
   if (current_loops)
-    move_loop_invariants (current_loops);
+    move_loop_invariants ();
   return 0;
 }
 
@@ -288,7 +291,7 @@ static unsigned int
 rtl_unswitch (void)
 {
   if (current_loops)
-    unswitch_loops (current_loops);
+    unswitch_loops ();
   return 0;
 }
 
@@ -333,7 +336,7 @@ rtl_unroll_and_peel_loops (void)
       if (flag_unroll_all_loops)
 	flags |= UAP_UNROLL_ALL;
 
-      unroll_and_peel_loops (current_loops, flags);
+      unroll_and_peel_loops (flags);
     }
   return 0;
 }
@@ -372,7 +375,7 @@ rtl_doloop (void)
 {
 #ifdef HAVE_doloop_end
   if (current_loops)
-    doloop_optimize_loops (current_loops);
+    doloop_optimize_loops ();
 #endif
   return 0;
 }

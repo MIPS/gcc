@@ -814,7 +814,11 @@ loop_canon_p (struct loop *loop)
     {
       if (dump_file)
 	{
+	  rtx insn = BB_END (loop->header);
+ 
 	  fprintf (dump_file, "SMS loop many exits ");
+	  	  fprintf (dump_file, " %s %d (file, line)\n",
+			   insn_file (insn), insn_line (insn));
 	}
       return false;
     }
@@ -823,7 +827,11 @@ loop_canon_p (struct loop *loop)
     {
       if (dump_file)
 	{
+	  rtx insn = BB_END (loop->header);
+ 
 	  fprintf (dump_file, "SMS loop many BBs. ");
+	  fprintf (dump_file, " %s %d (file, line)\n",
+		   insn_file (insn), insn_line (insn));
 	}
       return false;
     }
@@ -866,11 +874,10 @@ sms_schedule (void)
   ddg_ptr *g_arr, g;
   int * node_order;
   int maxii;
-  unsigned i,num_loops;
+  loop_iterator li;
   partial_schedule_ptr ps;
   basic_block bb = NULL;
-  /* vars to the versioning only if needed*/
-  struct loop * nloop;
+  struct loop *loop, *nloop;
   basic_block condition_bb = NULL;
   edge latch_edge;
   gcov_type trip_count = 0;
@@ -906,16 +913,14 @@ sms_schedule (void)
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
-  g_arr = XCNEWVEC (ddg_ptr, current_loops->num);
-
+  g_arr = XCNEWVEC (ddg_ptr, number_of_loops ());
 
   /* Build DDGs for all the relevant loops and hold them in G_ARR
      indexed by the loop index.  */
-  for (i = 0; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       rtx head, tail;
       rtx count_reg;
-      struct loop *loop = current_loops->parray[i];
 
       /* For debugging.  */
       if ((passes++ > MAX_SMS_LOOP_NUMBER) && (MAX_SMS_LOOP_NUMBER != -1))
@@ -947,6 +952,8 @@ sms_schedule (void)
 	{
 	  if (dump_file)
 	    {
+	      fprintf (dump_file, " %s %d (file, line)\n",
+		       insn_file (tail), insn_line (tail));
 	      fprintf (dump_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
@@ -1002,22 +1009,19 @@ sms_schedule (void)
 	  continue;
         }
 
-      g_arr[i] = g;
+      g_arr[loop->num] = g;
     }
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
-  num_loops = current_loops->num;
-  /* Go over the built DDGs and perfrom SMS for each one of them.  */
-  for (i = 0; i < num_loops; i++)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD)
     {
       rtx head, tail;
       rtx count_reg, count_init;
       int mii, rec_mii;
       unsigned stage_count = 0;
       HOST_WIDEST_INT loop_count = 0;
-      struct loop *loop = current_loops->parray[i];
 
-      if (! (g = g_arr[i]))
+      if (! (g = g_arr[loop->num]))
         continue;
 
       if (dump_file)
@@ -1032,6 +1036,8 @@ sms_schedule (void)
 
       if (dump_file)
 	{
+	  fprintf (dump_file, " %s %d (file, line)\n",
+		   insn_file (tail), insn_line (tail));
 	  fprintf (dump_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
@@ -1165,8 +1171,7 @@ sms_schedule (void)
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
 
-		  nloop = loop_version (current_loops, loop, comp_rtx,
-					&condition_bb, true);
+		  nloop = loop_version (loop, comp_rtx, &condition_bb, true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */

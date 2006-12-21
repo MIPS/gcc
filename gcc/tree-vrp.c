@@ -102,6 +102,10 @@ nonnull_arg_p (tree arg)
 
   gcc_assert (TREE_CODE (arg) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (arg)));
 
+  /* The static chain decl is always non null.  */
+  if (arg == cfun->static_chain_decl)
+    return true;
+
   fntype = TREE_TYPE (current_function_decl);
   attrs = lookup_attribute ("nonnull", TYPE_ATTRIBUTES (fntype));
 
@@ -273,7 +277,7 @@ get_value_range (tree var)
   /* If VAR is a default definition, the variable can take any value
      in VAR's type.  */
   sym = SSA_NAME_VAR (var);
-  if (var == default_def (sym))
+  if (SSA_NAME_IS_DEFAULT_DEF (var))
     {
       /* Try to use the "nonnull" attribute to create ~[0, 0]
 	 anti-ranges for pointers.  Note that this is only valid with
@@ -442,6 +446,29 @@ valid_value_p (tree expr)
   return is_gimple_min_invariant (expr);
 }
 
+/* Return 
+   1 if VAL < VAL2
+   0 if !(VAL < VAL2)
+   -2 if those are incomparable.  */
+static inline int
+operand_less_p (tree val, tree val2)
+{
+  tree tcmp;
+  /* LT is folded faster than GE and others.  Inline the common case.  */
+  if (TREE_CODE (val) == INTEGER_CST && TREE_CODE (val2) == INTEGER_CST)
+    {
+      if (TYPE_UNSIGNED (TREE_TYPE (val)))
+	return INT_CST_LT_UNSIGNED (val, val2);
+      else
+	return INT_CST_LT (val, val2);
+    }
+  else
+    tcmp = fold_binary_to_constant (LT_EXPR, boolean_type_node, val, val2);
+  if (!tcmp)
+    return -2;
+  return !integer_zerop (tcmp);
+}
+
 /* Compare two values VAL1 and VAL2.  Return
    
    	-2 if VAL1 and VAL2 cannot be compared at compile-time,
@@ -590,19 +617,24 @@ compare_values (tree val1, tree val2)
 	return 0;
       
       /* If VAL1 is a lower address than VAL2, return -1.  */
-      t = fold_binary (LT_EXPR, boolean_type_node, val1, val2);
-      if (t == boolean_true_node)
+      if (operand_less_p (val1, val2) == 1)
 	return -1;
 
       /* If VAL1 is a higher address than VAL2, return +1.  */
-      t = fold_binary (GT_EXPR, boolean_type_node, val1, val2);
-      if (t == boolean_true_node)
+      if (operand_less_p (val2, val1) == 1)
 	return 1;
 
-      /* If VAL1 is different than VAL2, return +2.  */
-      t = fold_binary (NE_EXPR, boolean_type_node, val1, val2);
-      if (t == boolean_true_node)
-	return 2;
+      /* If VAL1 is different than VAL2, return +2.
+	 For integer constants we either have already returned -1 or 1
+	 or they are equivalent.  We still might suceed prove something
+	 about non-trivial operands.  */
+      if (TREE_CODE (val1) != INTEGER_CST
+	  || TREE_CODE (val2) != INTEGER_CST)
+	{
+          t = fold_binary_to_constant (NE_EXPR, boolean_type_node, val1, val2);
+	  if (t && tree_expr_nonzero_p (t))
+	    return 2;
+	}
 
       return -2;
     }
@@ -627,35 +659,48 @@ compare_values (tree val1, tree val2)
 	  This also applies to value_ranges_intersect_p and
 	  range_includes_zero_p.  The semantics of VR_RANGE and
 	  VR_ANTI_RANGE should be encoded here, but that also means
-	  adapting the users of these functions to the new semantics.  */
+	  adapting the users of these functions to the new semantics.  
+
+   Benchmark compile/20001226-1.c compilation time after changing this
+   function.  */
 
 static inline int
-value_inside_range (tree val, value_range_t *vr)
+value_inside_range (tree val, value_range_t * vr)
 {
-  tree cmp1, cmp2;
+  int cmp1, cmp2;
 
-  cmp1 = fold_binary_to_constant (GE_EXPR, boolean_type_node, val, vr->min);
-  if (!cmp1)
+  cmp1 = operand_less_p (val, vr->min);
+  if (cmp1 == -2)
+    return -2;
+  if (cmp1 == 1)
+    return 0;
+
+  cmp2 = operand_less_p (vr->max, val);
+  if (cmp2 == -2)
     return -2;
 
-  cmp2 = fold_binary_to_constant (LE_EXPR, boolean_type_node, val, vr->max);
-  if (!cmp2)
-    return -2;
-
-  return cmp1 == boolean_true_node && cmp2 == boolean_true_node;
+  return !cmp2;
 }
 
 
 /* Return true if value ranges VR0 and VR1 have a non-empty
-   intersection.  */
+   intersection.  
+   
+   Benchmark compile/20001226-1.c compilation time after changing this
+   function.
+   */
 
 static inline bool
 value_ranges_intersect_p (value_range_t *vr0, value_range_t *vr1)
 {
-  return (value_inside_range (vr1->min, vr0) == 1
-	  || value_inside_range (vr1->max, vr0) == 1
-	  || value_inside_range (vr0->min, vr1) == 1
-	  || value_inside_range (vr0->max, vr1) == 1);
+  /* The value ranges do not intersect if the maximum of the first range is
+     less than the minimum of the second range or vice versa.
+     When those relations are unknown, we can't do any better.  */
+  if (operand_less_p (vr0->max, vr1->min) != 0)
+    return false;
+  if (operand_less_p (vr1->max, vr0->min) != 0)
+    return false;
+  return true;
 }
 
 
@@ -1957,8 +2002,7 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
 	 or decreases,  ... */
       dir == EV_DIR_UNKNOWN
       /* ... or if it may wrap.  */
-      || scev_probably_wraps_p (init, step, stmt,
-				current_loops->parray[CHREC_VARIABLE (chrec)],
+      || scev_probably_wraps_p (init, step, stmt, get_chrec_loop (chrec),
 				true))
     return;
 
@@ -2399,20 +2443,22 @@ build_assert_expr_for (tree cond, tree v)
   if (COMPARISON_CLASS_P (cond))
     {
       tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, a);
+      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n, a);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
       /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
+      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n,
+			  boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
       /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
-      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
+      assertion = build2 (GIMPLE_MODIFY_STMT,
+	  		  TREE_TYPE (v), n, boolean_true_node);
     }
   else
     gcc_unreachable ();
@@ -2797,10 +2843,10 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
      a truth operation or some bit operations, then we may be able
      to register information about the operands of that assignment.  */
   op_def = SSA_NAME_DEF_STMT (op);
-  if (TREE_CODE (op_def) != MODIFY_EXPR)
+  if (TREE_CODE (op_def) != GIMPLE_MODIFY_STMT)
     return retval;
 
-  rhs = TREE_OPERAND (op_def, 1);
+  rhs = GIMPLE_STMT_OPERAND (op_def, 1);
 
   if (COMPARISON_CLASS_P (rhs))
     {
@@ -2902,18 +2948,18 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
 
   /* In the case of NAME == 1 or NAME != 0, for TRUTH_AND_EXPR defining
      statement of NAME we can assert both operands of the TRUTH_AND_EXPR
-     have non-zero value.  */
+     have nonzero value.  */
   if (((comp_code == EQ_EXPR && integer_onep (val))
        || (comp_code == NE_EXPR && integer_zerop (val))))
     {
       tree def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (TREE_CODE (def_stmt) == MODIFY_EXPR
-	  && (TREE_CODE (TREE_OPERAND (def_stmt, 1)) == TRUTH_AND_EXPR
-	      || TREE_CODE (TREE_OPERAND (def_stmt, 1)) == BIT_AND_EXPR))
+      if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_AND_EXPR
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_AND_EXPR))
 	{
-	  tree op0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
-	  tree op1 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 1);
+	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
+	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
 	  retval |= register_edge_assert_for_1 (op0, NE_EXPR, e, si);
 	  retval |= register_edge_assert_for_1 (op1, NE_EXPR, e, si);
 	}
@@ -2927,12 +2973,12 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
     {
       tree def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (TREE_CODE (def_stmt) == MODIFY_EXPR
-	  && (TREE_CODE (TREE_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
-	      || TREE_CODE (TREE_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
+      if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
 	{
-	  tree op0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
-	  tree op1 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 1);
+	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
+	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
 	  retval |= register_edge_assert_for_1 (op0, EQ_EXPR, e, si);
 	  retval |= register_edge_assert_for_1 (op1, EQ_EXPR, e, si);
 	}
@@ -3156,12 +3202,18 @@ find_assert_locations (basic_block bb)
 		  tree t = op;
 		  tree def_stmt = SSA_NAME_DEF_STMT (t);
 	
-		  while (TREE_CODE (def_stmt) == MODIFY_EXPR
-			 && TREE_CODE (TREE_OPERAND (def_stmt, 1)) == NOP_EXPR
-			 && TREE_CODE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0)) == SSA_NAME
-			 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0))))
+		  while (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
+			 && TREE_CODE
+			     (GIMPLE_STMT_OPERAND (def_stmt, 1)) == NOP_EXPR
+			 && TREE_CODE
+			     (TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1),
+					    0)) == SSA_NAME
+			 && POINTER_TYPE_P
+			     (TREE_TYPE (TREE_OPERAND
+					  (GIMPLE_STMT_OPERAND (def_stmt,
+								1), 0))))
 		    {
-		      t = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+		      t = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
 		      def_stmt = SSA_NAME_DEF_STMT (t);
 
 		      /* Note we want to register the assert for the
@@ -3412,10 +3464,10 @@ remove_range_assertions (void)
 	tree stmt = bsi_stmt (si);
 	tree use_stmt;
 
-	if (TREE_CODE (stmt) == MODIFY_EXPR
-	    && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
+	if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	    && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ASSERT_EXPR)
 	  {
-	    tree rhs = TREE_OPERAND (stmt, 1), var;
+	    tree rhs = GIMPLE_STMT_OPERAND (stmt, 1), var;
 	    tree cond = fold (ASSERT_EXPR_COND (rhs));
 	    use_operand_p use_p;
 	    imm_use_iterator iter;
@@ -3424,7 +3476,8 @@ remove_range_assertions (void)
 
 	    /* Propagate the RHS into every use of the LHS.  */
 	    var = ASSERT_EXPR_VAR (rhs);
-	    FOR_EACH_IMM_USE_STMT (use_stmt, iter, TREE_OPERAND (stmt, 0))
+	    FOR_EACH_IMM_USE_STMT (use_stmt, iter,
+				   GIMPLE_STMT_OPERAND (stmt, 0))
 	      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		{
 		  SET_USE (use_p, var);
@@ -3452,10 +3505,10 @@ stmt_interesting_for_vrp (tree stmt)
       && (INTEGRAL_TYPE_P (TREE_TYPE (PHI_RESULT (stmt)))
 	  || POINTER_TYPE_P (TREE_TYPE (PHI_RESULT (stmt)))))
     return true;
-  else if (TREE_CODE (stmt) == MODIFY_EXPR)
+  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree lhs = TREE_OPERAND (stmt, 0);
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to
@@ -3533,8 +3586,8 @@ vrp_visit_assignment (tree stmt, tree *output_p)
   tree lhs, rhs, def;
   ssa_op_iter iter;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   /* We only keep track of ranges in integral and pointer types.  */
   if (TREE_CODE (lhs) == SSA_NAME
@@ -3951,9 +4004,9 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
     }
 
   ann = stmt_ann (stmt);
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to
@@ -3978,14 +4031,8 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
 
 /* Meet operation for value ranges.  Given two value ranges VR0 and
-   VR1, store in VR0 the result of meeting VR0 and VR1.
-   
-   The meeting rules are as follows:
-
-   1- If VR0 and VR1 have an empty intersection, set VR0 to VR_VARYING.
-
-   2- If VR0 and VR1 have a non-empty intersection, set VR0 to the
-      union of VR0 and VR1.  */
+   VR1, store in VR0 a range that contains both VR0 and VR1.  This
+   may not be the smallest possible such range.  */
 
 static void
 vrp_meet (value_range_t *vr0, value_range_t *vr1)
@@ -4016,56 +4063,44 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 
   if (vr0->type == VR_RANGE && vr1->type == VR_RANGE)
     {
-      /* If VR0 and VR1 have a non-empty intersection, compute the
-	 union of both ranges.  */
-      if (value_ranges_intersect_p (vr0, vr1))
-	{
-	  int cmp;
-	  tree min, max;
+      int cmp;
+      tree min, max;
 
-	  /* The lower limit of the new range is the minimum of the
-	     two ranges.  If they cannot be compared, the result is
-	     VARYING.  */
-	  cmp = compare_values (vr0->min, vr1->min);
-	  if (cmp == 0 || cmp == 1)
-	    min = vr1->min;
-	  else if (cmp == -1)
-	    min = vr0->min;
-	  else
-	    {
-	      set_value_range_to_varying (vr0);
-	      return;
-	    }
-
-	  /* Similarly, the upper limit of the new range is the
-	     maximum of the two ranges.  If they cannot be compared,
-	     the result is VARYING.  */
-	  cmp = compare_values (vr0->max, vr1->max);
-	  if (cmp == 0 || cmp == -1)
-	    max = vr1->max;
-	  else if (cmp == 1)
-	    max = vr0->max;
-	  else
-	    {
-	      set_value_range_to_varying (vr0);
-	      return;
-	    }
-
-	  /* The resulting set of equivalences is the intersection of
-	     the two sets.  */
-	  if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
-	    bitmap_and_into (vr0->equiv, vr1->equiv);
-	  else if (vr0->equiv && !vr1->equiv)
-	    bitmap_clear (vr0->equiv);
-
-	  set_value_range (vr0, vr0->type, min, max, vr0->equiv);
-	}
+      /* Compute the convex hull of the ranges.  The lower limit of
+         the new range is the minimum of the two ranges.  If they
+	 cannot be compared, then give up.  */
+      cmp = compare_values (vr0->min, vr1->min);
+      if (cmp == 0 || cmp == 1)
+        min = vr1->min;
+      else if (cmp == -1)
+        min = vr0->min;
       else
-	goto no_meet;
+	goto give_up;
+
+      /* Similarly, the upper limit of the new range is the maximum
+         of the two ranges.  If they cannot be compared, then
+	 give up.  */
+      cmp = compare_values (vr0->max, vr1->max);
+      if (cmp == 0 || cmp == -1)
+        max = vr1->max;
+      else if (cmp == 1)
+        max = vr0->max;
+      else
+	goto give_up;
+
+      /* The resulting set of equivalences is the intersection of
+	 the two sets.  */
+      if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
+        bitmap_and_into (vr0->equiv, vr1->equiv);
+      else if (vr0->equiv && !vr1->equiv)
+        bitmap_clear (vr0->equiv);
+
+      set_value_range (vr0, vr0->type, min, max, vr0->equiv);
     }
   else if (vr0->type == VR_ANTI_RANGE && vr1->type == VR_ANTI_RANGE)
     {
-      /* Two anti-ranges meet only if they are both identical.  */
+      /* Two anti-ranges meet only if their complements intersect.
+         Only handle the case of identical ranges.  */
       if (compare_values (vr0->min, vr1->min) == 0
 	  && compare_values (vr0->max, vr1->max) == 0
 	  && compare_values (vr0->min, vr0->max) == 0)
@@ -4078,13 +4113,13 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	    bitmap_clear (vr0->equiv);
 	}
       else
-	goto no_meet;
+	goto give_up;
     }
   else if (vr0->type == VR_ANTI_RANGE || vr1->type == VR_ANTI_RANGE)
     {
-      /* A numeric range [VAL1, VAL2] and an anti-range ~[VAL3, VAL4]
-	 meet only if the ranges have an empty intersection.  The
-	 result of the meet operation is the anti-range.  */
+      /* For a numeric range [VAL1, VAL2] and an anti-range ~[VAL3, VAL4],
+         only handle the case where the ranges have an empty intersection.
+	 The result of the meet operation is the anti-range.  */
       if (!symbolic_range_p (vr0)
 	  && !symbolic_range_p (vr1)
 	  && !value_ranges_intersect_p (vr0, vr1))
@@ -4103,17 +4138,17 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	    bitmap_clear (vr0->equiv);
 	}
       else
-	goto no_meet;
+	goto give_up;
     }
   else
     gcc_unreachable ();
 
   return;
 
-no_meet:
-  /* The two range VR0 and VR1 do not meet.  Before giving up and
-     setting the result to VARYING, see if we can at least derive a
-     useful anti-range.  FIXME, all this nonsense about distinguishing
+give_up:
+  /* Failed to find an efficient meet.  Before giving up and setting
+     the result to VARYING, see if we can at least derive a useful
+     anti-range.  FIXME, all this nonsense about distinguishing
      anti-ranges from ranges is necessary because of the odd
      semantics of range_includes_zero_p and friends.  */
   if (!symbolic_range_p (vr0)
@@ -4285,7 +4320,7 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
 	  t = build2 (BIT_AND_EXPR, TREE_TYPE (op0), op0, t);
 	}
 
-      TREE_OPERAND (stmt, 1) = t;
+      GIMPLE_STMT_OPERAND (stmt, 1) = t;
       update_stmt (stmt);
     }
 }
@@ -4332,7 +4367,7 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
 	  else
 	    t = op;
 
-	  TREE_OPERAND (stmt, 1) = t;
+	  GIMPLE_STMT_OPERAND (stmt, 1) = t;
 	  update_stmt (stmt);
 	}
     }
@@ -4482,9 +4517,9 @@ simplify_cond_using_ranges (tree stmt)
 void
 simplify_stmt_using_ranges (tree stmt)
 {
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       enum tree_code rhs_code = TREE_CODE (rhs);
 
       /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
@@ -4774,7 +4809,7 @@ execute_vrp (void)
 
   loop_optimizer_init (LOOPS_NORMAL);
   if (current_loops)
-    scev_initialize (current_loops);
+    scev_initialize ();
 
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
@@ -4819,7 +4854,7 @@ struct tree_opt_pass pass_vrp =
   TV_TREE_VRP,				/* tv_id */
   PROP_ssa | PROP_alias,		/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg
     | TODO_ggc_collect

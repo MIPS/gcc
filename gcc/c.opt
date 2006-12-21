@@ -151,7 +151,7 @@ Synonym for -Wcomment
 
 Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
-Warn about possibly confusing type conversions
+Warn for implicit type conversions that may change a value
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -172,6 +172,10 @@ Warn about compile-time integer division by zero
 Weffc++
 C++ ObjC++ Var(warn_ecpp)
 Warn about violations of Effective C++ style rules
+
+Wempty-body
+C ObjC C++ ObjC++ Var(warn_empty_body) Init(-1)
+Warn about an empty body in an if or else statement
 
 Wendif-labels
 C ObjC C++ ObjC++
@@ -260,7 +264,7 @@ C ObjC C++ ObjC++ Var(warn_missing_braces)
 Warn about possibly missing braces around initializers
 
 Wmissing-declarations
-C ObjC Var(warn_missing_declarations)
+C ObjC C++ ObjC++ Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
 Wmissing-field-initializers
@@ -399,6 +403,10 @@ Wtraditional
 C ObjC Var(warn_traditional)
 Warn about features not present in traditional C
 
+Wtraditional-conversion
+C ObjC Var(warn_traditional_conversion)
+Warn of prototypes causing type conversions different from what would happen in the absence of prototype
+
 Wtrigraphs
 C ObjC C++ ObjC++
 Warn if trigraphs are encountered that might affect the meaning of the program
@@ -510,15 +518,6 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 fexternal-templates
 C++ ObjC++
-
-ffixed-form
-C ObjC
-
-ffixed-line-length-none
-C ObjC
-
-ffixed-line-length-
-C ObjC Joined
 
 ffor-scope
 C++ ObjC++

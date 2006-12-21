@@ -37,8 +37,8 @@ __extension__
 #endif
 typedef struct mfc_list_element {
   uint64_t notify       :  1;   /** Stall-and-notify bit  */
-  uint64_t reserved     : 15;
-  uint64_t size         : 16;   /** Transfer size */
+  uint64_t reserved     : 16;
+  uint64_t size         : 15;   /** Transfer size */
   uint64_t eal          : 32;   /** Lower word of effective address */
 } mfc_list_element_t;
  
@@ -260,7 +260,7 @@ typedef struct mfc_list_element {
 #define spu_stat_event_status()       spu_readchcnt(SPU_RdEventStat)
 #define spu_write_event_mask(mask)    spu_writech(SPU_WrEventMask,(mask))
 #define spu_write_event_ack(ack)      spu_writech(SPU_WrEventAck,(ack))
-#define spu_read_event_mask()         spu_readch(SPU_RdEventStatMask)
+#define spu_read_event_mask()         spu_readch(SPU_RdEventMask)
 
 /* SPU State Management */
 #define spu_read_machine_status()     spu_readch(SPU_MachStat)

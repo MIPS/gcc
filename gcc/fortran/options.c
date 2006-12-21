@@ -29,6 +29,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "intl.h"
 #include "opts.h"
 #include "options.h"
+#include "params.h"
 #include "tree-inline.h"
 
 #include "gfortran.h"
@@ -51,6 +52,9 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.max_continue_fixed = 19;
   gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
+  gfc_option.max_subrecord_length = 0;
+  gfc_option.convert = CONVERT_NATIVE;
+  gfc_option.record_marker = 0;
   gfc_option.verbose = 0;
 
   gfc_option.warn_aliasing = 0;
@@ -103,6 +107,10 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   /* -fshort-enums can be default on some targets.  */
   gfc_option.fshort_enums = targetm.default_short_enums ();
+
+  /* Increase MAX_ALIASED_VOPS to account for different characteristics
+     of fortran regarding VOPs.  */
+  MAX_ALIASED_VOPS = 50;
 
   return CL_Fortran;
 }
@@ -636,6 +644,12 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_frecord_marker_8:
       gfc_option.record_marker = 8;
       break;
+
+    case OPT_fmax_subrecord_length_:
+      if (value > MAX_SUBRECORD_LENGTH)
+	gfc_fatal_error ("Maximum subrecord length cannot exceed %d", MAX_SUBRECORD_LENGTH);
+
+      gfc_option.max_subrecord_length = value;
     }
 
   return result;

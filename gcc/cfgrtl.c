@@ -1467,7 +1467,8 @@ commit_one_edge_insertion (edge e, int watch_calls)
     gcc_assert (!JUMP_P (last));
 
   /* Mark the basic block for find_many_sub_basic_blocks.  */
-  bb->aux = &bb->aux;
+  if (current_ir_type () != IR_RTL_CFGLAYOUT)
+    bb->aux = &bb->aux;
 }
 
 /* Update the CFG for all queued instructions.  */
@@ -1497,6 +1498,13 @@ commit_edge_insertions (void)
     }
 
   if (!changed)
+    return;
+
+  /* In the old rtl CFG API, it was OK to insert control flow on an
+     edge, apparently?  In cfglayout mode, this will *not* work, and
+     the caller is responsible for making sure that control flow is
+     valid at all times.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
     return;
 
   blocks = sbitmap_alloc (last_basic_block);
@@ -1636,7 +1644,6 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
       for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
 	{
 	  int did_output;
-	  
 	  if ((bb = start[INSN_UID (tmp_rtx)]) != NULL)
 	    {
 	      edge e;
@@ -1651,6 +1658,12 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 		{
 		  df_dump_top (bb, outf);
 		  putc ('\n', outf);
+		}
+	      FOR_EACH_EDGE (e, ei, bb->preds)
+		{
+		  fputs (";; Pred edge ", outf);
+		  dump_edge_info (outf, e, 0);
+		  fputc ('\n', outf);
 		}
 	    }
 
@@ -1679,6 +1692,12 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 		  putc ('\n', outf);
 		}
 	      putc ('\n', outf);
+	      FOR_EACH_EDGE (e, ei, bb->succs)
+		{
+		  fputs (";; Succ edge ", outf);
+		  dump_edge_info (outf, e, 1);
+		  fputc ('\n', outf);
+		}
 	    }
 	  if (did_output)
 	    putc ('\n', outf);

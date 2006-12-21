@@ -74,12 +74,12 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 
 static void combine_predictions_for_insn (rtx, basic_block);
 static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
-static void estimate_bb_frequencies (struct loops *);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
 static void compute_function_frequency (void);
 static void choose_function_section (void);
 static bool can_predict_insn_p (rtx);
+static void estimate_bb_frequencies (void);
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -625,23 +625,22 @@ combine_predictions_for_bb (basic_block bb)
     }
 }
 
-/* Predict edge probabilities by exploiting loop structure.
-   When RTLSIMPLELOOPS is set, attempt to count number of iterations by analyzing
-   RTL otherwise use tree based approach.  */
-static void
-predict_loops (struct loops *loops_info)
-{
-  unsigned i;
+/* Predict edge probabilities by exploiting loop structure.  */
 
-  scev_initialize (loops_info);
+static void
+predict_loops (void)
+{
+  loop_iterator li;
+  struct loop *loop;
+
+  scev_initialize ();
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
-  for (i = 1; i < loops_info->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       basic_block bb, *bbs;
       unsigned j, n_exits;
-      struct loop *loop = loops_info->parray[i];
       VEC (edge, heap) *exits;
       struct tree_niter_desc niter_desc;
       edge ex;
@@ -903,9 +902,10 @@ expr_expected_value (tree expr, bitmap visited)
 	    }
 	  return val;
 	}
-      if (TREE_CODE (def) != MODIFY_EXPR || TREE_OPERAND (def, 0) != expr)
+      if (TREE_CODE (def) != GIMPLE_MODIFY_STMT
+	  || GIMPLE_STMT_OPERAND (def, 0) != expr)
 	return NULL;
-      return expr_expected_value (TREE_OPERAND (def, 1), visited);
+      return expr_expected_value (GIMPLE_STMT_OPERAND (def, 1), visited);
     }
   else if (TREE_CODE (expr) == CALL_EXPR)
     {
@@ -969,15 +969,15 @@ strip_builtin_expect (void)
 	  tree fndecl;
 	  tree arglist;
 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
-	      && (fndecl = get_callee_fndecl (TREE_OPERAND (stmt, 1)))
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CALL_EXPR
+	      && (fndecl = get_callee_fndecl (GIMPLE_STMT_OPERAND (stmt, 1)))
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
-	      && (arglist = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1))
+	      && (arglist = TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 1))
 	      && TREE_CHAIN (arglist))
 	    {
-	      TREE_OPERAND (stmt, 1) = TREE_VALUE (arglist);
+	      GIMPLE_STMT_OPERAND (stmt, 1) = TREE_VALUE (arglist);
 	      update_stmt (stmt);
 	    }
 	}
@@ -1168,8 +1168,8 @@ apply_return_prediction (int *heads)
   return_val = TREE_OPERAND (return_stmt, 0);
   if (!return_val)
     return;
-  if (TREE_CODE (return_val) == MODIFY_EXPR)
-    return_val = TREE_OPERAND (return_val, 1);
+  if (TREE_CODE (return_val) == GIMPLE_MODIFY_STMT)
+    return_val = GIMPLE_STMT_OPERAND (return_val, 1);
   if (TREE_CODE (return_val) != SSA_NAME
       || !SSA_NAME_DEF_STMT (return_val)
       || TREE_CODE (SSA_NAME_DEF_STMT (return_val)) != PHI_NODE)
@@ -1222,10 +1222,10 @@ tree_bb_level_predictions (void)
 	  tree stmt = bsi_stmt (bsi);
 	  switch (TREE_CODE (stmt))
 	    {
-	      case MODIFY_EXPR:
-		if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	      case GIMPLE_MODIFY_STMT:
+		if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CALL_EXPR)
 		  {
-		    stmt = TREE_OPERAND (stmt, 1);
+		    stmt = GIMPLE_STMT_OPERAND (stmt, 1);
 		    goto call_expr;
 		  }
 		break;
@@ -1251,8 +1251,8 @@ tree_estimate_probability (void)
   basic_block bb;
 
   loop_optimizer_init (0);
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    flow_loops_dump (current_loops, dump_file, NULL, 0);
+  if (current_loops && dump_file && (dump_flags & TDF_DETAILS))
+    flow_loops_dump (dump_file, NULL, 0);
 
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
@@ -1261,9 +1261,9 @@ tree_estimate_probability (void)
 
   tree_bb_level_predictions ();
 
-  mark_irreducible_loops (current_loops);
+  mark_irreducible_loops ();
   if (current_loops)
-    predict_loops (current_loops);
+    predict_loops ();
 
   FOR_EACH_BB (bb)
     {
@@ -1307,8 +1307,9 @@ tree_estimate_probability (void)
 		{
 		  tree stmt = bsi_stmt (bi);
 		  if ((TREE_CODE (stmt) == CALL_EXPR
-		       || (TREE_CODE (stmt) == MODIFY_EXPR
-			   && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+		       || (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+			   && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1))
+			      == CALL_EXPR))
 		      /* Constant and pure calls are hardly used to signalize
 			 something exceptional.  */
 		      && TREE_SIDE_EFFECTS (stmt))
@@ -1325,7 +1326,7 @@ tree_estimate_probability (void)
     combine_predictions_for_bb (bb);
 
   strip_builtin_expect ();
-  estimate_bb_frequencies (current_loops);
+  estimate_bb_frequencies ();
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
   loop_optimizer_finalize ();
@@ -1602,17 +1603,17 @@ estimate_loops_at_level (struct loop *first_loop)
     }
 }
 
-/* Propates frequencies through structure of LOOPS.  */
+/* Propagates frequencies through structure of loops.  */
 
 static void
-estimate_loops (struct loops *loops)
+estimate_loops (void)
 {
   bitmap tovisit = BITMAP_ALLOC (NULL);
   basic_block bb;
 
   /* Start by estimating the frequencies in the loops.  */
-  if (loops)
-    estimate_loops_at_level (loops->tree_root->inner);
+  if (current_loops)
+    estimate_loops_at_level (current_loops->tree_root->inner);
 
   /* Now propagate the frequencies through all the blocks.  */
   FOR_ALL_BB (bb)
@@ -1685,7 +1686,7 @@ expensive_function_p (int threshold)
 /* Estimate basic blocks frequency by given branch probabilities.  */
 
 static void
-estimate_bb_frequencies (struct loops *loops)
+estimate_bb_frequencies (void)
 {
   basic_block bb;
   sreal freq_max;
@@ -1729,7 +1730,7 @@ estimate_bb_frequencies (struct loops *loops)
 
       /* First compute probabilities locally for each loop from innermost
          to outermost to examine probabilities for back edges.  */
-      estimate_loops (loops);
+      estimate_loops ();
 
       memcpy (&freq_max, &real_zero, sizeof (real_zero));
       FOR_EACH_BB (bb)

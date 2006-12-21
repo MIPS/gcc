@@ -3756,7 +3756,7 @@ die_node;
 typedef struct pubname_struct GTY(())
 {
   dw_die_ref die;
-  char *name;
+  const char *name;
 }
 pubname_entry;
 
@@ -7358,12 +7358,10 @@ add_pubtype (tree decl, dw_die_ref die)
 	  if (TYPE_NAME (decl))
 	    {
 	      if (TREE_CODE (TYPE_NAME (decl)) == IDENTIFIER_NODE)
-		e.name = xstrdup ((const char *) IDENTIFIER_POINTER 
-				                              (TYPE_NAME (decl)));
+		e.name = IDENTIFIER_POINTER (TYPE_NAME (decl));
 	      else if (TREE_CODE (TYPE_NAME (decl)) == TYPE_DECL
 		       && DECL_NAME (TYPE_NAME (decl)))
-		e.name = xstrdup ((const char *) IDENTIFIER_POINTER 
-				                  (DECL_NAME (TYPE_NAME (decl))));
+		e.name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (decl)));
              else
 	       e.name = xstrdup ((const char *) get_AT_string (die, DW_AT_name));
 	    }
@@ -9268,8 +9266,9 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
-    case MODIFY_EXPR:
-      return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), want_address);
+    case GIMPLE_MODIFY_STMT:
+      return loc_descriptor_from_tree_1 (GENERIC_TREE_OPERAND (loc, 0),
+					 want_address);
 
     case COMPONENT_REF:
     case BIT_FIELD_REF:
@@ -10042,7 +10041,7 @@ static tree
 reference_to_unused (tree * tp, int * walk_subtrees,
 		     void * data ATTRIBUTE_UNUSED)
 {
-  if (! EXPR_P (*tp) && ! CONSTANT_CLASS_P (*tp))
+  if (! EXPR_P (*tp) && ! GIMPLE_STMT_P (*tp) && ! CONSTANT_CLASS_P (*tp))
     *walk_subtrees = 0;
   
   if (DECL_P (*tp) && ! TREE_PUBLIC (*tp) && ! TREE_USED (*tp)
@@ -12927,7 +12926,7 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
 	    add_child_die (context_die, die);
 	  /* Do not produce debug information for static variables since
 	     these might be optimized out.  We are called for these later
-	     in cgraph_varpool_analyze_pending_decls. */
+	     in varpool_analyze_pending_decls. */
 	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
 	    ;
 	  else

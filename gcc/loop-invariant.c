@@ -1364,39 +1364,30 @@ free_loop_data (struct loop *loop)
   loop->aux = NULL;
 }
 
-/* Move the invariants out of the LOOPS.  */
+/* Move the invariants out of the loops.  */
 
 void
-move_loop_invariants (struct loops *loops)
+move_loop_invariants (void)
 {
   struct loop *loop;
-  unsigned i;
+  loop_iterator li;
   unsigned int count = 0;
 
   df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
   /* Process the loops, innermost first.  */
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       move_single_loop_invariants (loop);
+<<<<<<< .working
       count++;
-
-      if (loop->next)
-	{
-	  loop = loop->next;
-	  while (loop->inner)
-	    loop = loop->inner;
-	}
-      else
-	loop = loop->outer;
+=======
     }
+>>>>>>> .merge-right.r120097
 
-  for (i = 1; i < loops->num; i++)
-    if (loops->parray[i])
-      free_loop_data (loops->parray[i]);
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      free_loop_data (loop);
+    }
 
   free (invariant_table);
   invariant_table = NULL;

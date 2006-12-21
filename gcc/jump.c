@@ -202,6 +202,31 @@ mark_all_labels (rtx f)
 	      }
 	  }
       }
+  
+  /* If we are in cfglayout mode, there may be non-insns between the
+     basic blocks.  If those non-insns represent tablejump data, they
+     contain label references that we must record.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
+    {
+      basic_block bb;
+      rtx insn;
+      FOR_EACH_BB (bb)
+	{
+	  for (insn = bb->il.rtl->header; insn; insn = NEXT_INSN (insn))
+	    if (INSN_P (insn))
+	      {
+		gcc_assert (JUMP_TABLE_DATA_P (insn));
+		mark_jump_label (PATTERN (insn), insn, 0);
+	      }
+
+	  for (insn = bb->il.rtl->footer; insn; insn = NEXT_INSN (insn))
+	    if (INSN_P (insn))
+	      {
+		gcc_assert (JUMP_TABLE_DATA_P (insn));
+		mark_jump_label (PATTERN (insn), insn, 0);
+	      }
+	}
+    }
 }
 
 /* Move all block-beg, block-end and loop-beg notes between START and END out
@@ -1441,8 +1466,7 @@ delete_related_insns (rtx insn)
       while (next)
 	{
 	  code = GET_CODE (next);
-	  if (code == NOTE
-	      && NOTE_LINE_NUMBER (next) != NOTE_INSN_FUNCTION_END)
+	  if (code == NOTE)
 	    next = NEXT_INSN (next);
 	  /* Keep going past other deleted labels to delete what follows.  */
 	  else if (code == CODE_LABEL && INSN_DELETED_P (next))
@@ -1605,8 +1629,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
 }
 
 /* Fix up JUMP_LABEL and label ref counts after OLABEL has been replaced with
-   NLABEL in JUMP.  If DELETE_UNUSED is non-negative, copy a
-   NOTE_INSN_FUNCTION_END found after OLABEL to the place after NLABEL.
+   NLABEL in JUMP.  
    If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
    count has dropped to zero.  */
 void
@@ -1615,6 +1638,10 @@ redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
 {
   rtx note;
 
+  /* negative DELETE_UNUSED used to be used to signalize behaviour on
+     moving FUNCTION_END note.  Just sanity check that no user still worry
+     about this.  */
+  gcc_assert (delete_unused >= 0);
   JUMP_LABEL (jump) = nlabel;
   if (nlabel)
     ++LABEL_NUSES (nlabel);
@@ -1630,15 +1657,6 @@ redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
 	  confirm_change_group ();
 	}
     }
-
-  /* If we're eliding the jump over exception cleanups at the end of a
-     function, move the function end note so that -Wreturn-type works.  */
-  if (olabel && nlabel
-      && NEXT_INSN (olabel)
-      && NOTE_P (NEXT_INSN (olabel))
-      && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END
-      && delete_unused >= 0)
-    emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
   if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused > 0
       /* Undefined labels will remain outside the insn stream.  */
@@ -1932,7 +1950,11 @@ true_regnum (rtx x)
   if (GET_CODE (x) == SUBREG)
     {
       int base = true_regnum (SUBREG_REG (x));
-      if (base >= 0 && base < FIRST_PSEUDO_REGISTER)
+      if (base >= 0
+	  && base < FIRST_PSEUDO_REGISTER
+	  && subreg_offset_representable_p (REGNO (SUBREG_REG (x)),
+					    GET_MODE (SUBREG_REG (x)),
+					    SUBREG_BYTE (x), GET_MODE (x)))
 	return base + subreg_regno_offset (REGNO (SUBREG_REG (x)),
 					   GET_MODE (SUBREG_REG (x)),
 					   SUBREG_BYTE (x), GET_MODE (x));

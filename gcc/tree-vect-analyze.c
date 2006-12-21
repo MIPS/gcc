@@ -130,7 +130,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
               continue;
             }
 
-          if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
+          if (!GIMPLE_STMT_P (stmt)
+	      && VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
             {
               if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
                 {
@@ -150,8 +151,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      if (STMT_VINFO_DATA_REF (stmt_info))
 		scalar_type = 
 			TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (stmt_info)));
-	      else if (TREE_CODE (stmt) == MODIFY_EXPR)
-		scalar_type = TREE_TYPE (TREE_OPERAND (stmt, 0));
+	      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+		scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
 	      else
 		scalar_type = TREE_TYPE (stmt);
 
@@ -293,7 +294,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
           if (STMT_VINFO_RELEVANT_P (stmt_info))
             {
-              gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
+              gcc_assert (GIMPLE_STMT_P (stmt)
+		  	  || !VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
               gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
 
 	      ok = (vectorizable_type_promotion (stmt, NULL, NULL)
@@ -301,6 +303,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 		    || vectorizable_operation (stmt, NULL, NULL)
 		    || vectorizable_assignment (stmt, NULL, NULL)
 		    || vectorizable_load (stmt, NULL, NULL)
+		    || vectorizable_call (stmt, NULL, NULL)
 		    || vectorizable_store (stmt, NULL, NULL)
 		    || vectorizable_condition (stmt, NULL, NULL));
 
@@ -428,10 +431,10 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
      Therefore, all we need to check is if STMT falls into the
      first case, and whether var corresponds to USE.  */
  
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME)
     return false;
 
-  operand = TREE_OPERAND (stmt, 1);
+  operand = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (operand) != SSA_NAME)
     return false;
@@ -1427,7 +1430,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	    {
 	      /* For interleaved access we peel only if number of iterations in
 		 the prolog loop ({VF - misalignment}), is a multiple of the
-		 number of the interelaved accesses.  */
+		 number of the interleaved accesses.  */
 	      int elem_size, mis_in_elements;
 	      int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 
@@ -1801,7 +1804,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       /* COUNT is the number of accesses found, we multiply it by the size of 
 	 the type to get COUNT_IN_BYTES.  */
       count_in_bytes = type_size * count;
-      /* Check the size of the interleaving is not greater than STEP.  */
+
+      /* Check that the size of the interleaving is not greater than STEP.  */
       if (dr_step < count_in_bytes) 
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
@@ -1809,6 +1813,15 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	      fprintf (vect_dump, "interleaving size is greater than step for ");
 	      print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM); 
 	    }
+	  return false;
+	}
+
+      /* Check that the size of the interleaving is equal to STEP for stores, 
+         i.e., that there are no gaps.  */ 
+      if (!DR_IS_READ (dr) && dr_step != count_in_bytes) 
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "interleaved store with gaps");
 	  return false;
 	}
 
@@ -2227,7 +2240,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
              is not used inside the loop), it will be vectorized, and therefore
              the corresponding DEF_STMTs need to marked as relevant.
 	     We distinguish between two kinds of relevant stmts - those that are
-	     used by a reduction conputation, and those that are (also) used by 	     a regular computation. This allows us later on to identify stmts 
+	     used by a reduction computation, and those that are (also) used by
+ 	     a regular computation. This allows us later on to identify stmts
 	     that are used solely by a reduction, and therefore the order of 
 	     the results that they produce does not have to be kept.
        */
@@ -2389,7 +2403,7 @@ vect_get_loop_niters (struct loop *loop, tree *number_of_iterations)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== get_loop_niters ===");
 
-  niters = number_of_iterations_in_loop (loop);
+  niters = number_of_exit_cond_executions (loop);
 
   if (niters != NULL_TREE
       && niters != chrec_dont_know)

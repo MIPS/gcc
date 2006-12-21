@@ -675,7 +675,7 @@ was_declared (gfc_symbol * sym)
     return 1;
 
   if (a.allocatable || a.dimension || a.dummy || a.external || a.intrinsic
-      || a.optional || a.pointer || a.save || a.target || a.volatile_
+      || a.optional || a.pointer || a.save || a.target || a.volatile_ || a.value
       || a.access != ACCESS_UNKNOWN || a.intent != INTENT_UNKNOWN)
     return 1;
 
@@ -881,12 +881,6 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	      gfc_error ("Intrinsic '%s' at %L is not allowed as an "
 			 "actual argument", sym->name, &e->where);
 	    }
-	  else if (sym->attr.intrinsic && actual_ok == 2)
-	  /* We need a special case for CHAR, which is the only intrinsic
-	     function allowed as actual argument in F2003 and not allowed
-	     in F95.  */
-	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: CHAR intrinsic "
-			    "as actual argument at %L", &e->where);
 
 	  if (sym->attr.contained && !sym->attr.use_assoc
 	      && sym->ns->proc_name->attr.flavor != FL_MODULE)
@@ -1221,9 +1215,9 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
-
-  if (!gfc_generic_intrinsic (expr->symtree->n.sym->name))
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
+  if (!gfc_intrinsic_name (sym->name, 0))
     {
       gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
@@ -1520,19 +1514,21 @@ resolve_function (gfc_expr * expr)
       t = FAILURE;
     }
 
+#define GENERIC_ID expr->value.function.isym->generic_id
   else if (expr->value.function.actual != NULL
 	     && expr->value.function.isym != NULL
-	     && expr->value.function.isym->generic_id != GFC_ISYM_LBOUND
-	     && expr->value.function.isym->generic_id != GFC_ISYM_LOC
-	     && expr->value.function.isym->generic_id != GFC_ISYM_PRESENT)
+	     && GENERIC_ID != GFC_ISYM_LBOUND
+	     && GENERIC_ID != GFC_ISYM_LEN
+	     && GENERIC_ID != GFC_ISYM_LOC
+	     && GENERIC_ID != GFC_ISYM_PRESENT)
     {
       /* Array intrinsics must also have the last upper bound of an
 	 assumed size array argument.  UBOUND and SIZE have to be
 	 excluded from the check if the second argument is anything
 	 than a constant.  */
       int inquiry;
-      inquiry = expr->value.function.isym->generic_id == GFC_ISYM_UBOUND
-		  || expr->value.function.isym->generic_id == GFC_ISYM_SIZE;
+      inquiry = GENERIC_ID == GFC_ISYM_UBOUND
+		  || GENERIC_ID == GFC_ISYM_SIZE;
 
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
@@ -1546,6 +1542,7 @@ resolve_function (gfc_expr * expr)
 	    return FAILURE;
 	}
     }
+#undef GENERIC_ID
 
   need_full_assumed_size = temp;
 
@@ -1678,9 +1675,11 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
   sym = c->symtree->n.sym;
-  if (!gfc_generic_intrinsic (sym->name))
+
+  if (!gfc_intrinsic_name (sym->name, 1))
     {
       gfc_error
 	("There is no specific subroutine for the generic '%s' at %L",
@@ -2197,7 +2196,14 @@ resolve_operator (gfc_expr * e)
 
   /* Attempt to simplify the expression.  */
   if (t == SUCCESS)
-    t = gfc_simplify_expr (e, 0);
+    {
+      t = gfc_simplify_expr (e, 0);
+      /* Some calls do not succeed in simplification and return FAILURE
+	 even though there is no error; eg. variable references to
+	 PARAMETER arrays.  */
+      if (!gfc_is_constant_expr (e))
+	t = SUCCESS;
+    }
   return t;
 
 bad_op:
@@ -5522,10 +5528,25 @@ static try
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
+  gfc_symtree *st;
+
+  if (sym->attr.ambiguous_interfaces && !sym->attr.referenced)
+    gfc_warning ("Although not referenced, '%s' at %L has ambiguous "
+		 "interfaces", sym->name, &sym->declared_at);
 
   if (sym->attr.function
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
+
+  st = gfc_find_symtree (gfc_current_ns->sym_root, sym->name);
+  if (st && st->ambiguous
+	 && sym->attr.referenced
+	 && !sym->attr.generic)
+    {
+      gfc_error ("Procedure %s at %L is ambiguous",
+		 sym->name, &sym->declared_at);
+      return FAILURE;
+    }
 
   if (sym->ts.type == BT_CHARACTER)
     {
@@ -5956,6 +5977,14 @@ resolve_symbol (gfc_symbol * sym)
       return;
     }
 
+  if (sym->attr.value && !sym->attr.dummy)
+    {
+      gfc_error ("'%s' at %L cannot have the VALUE attribute because "
+		 "it is not a dummy", sym->name, &sym->declared_at);
+      return;
+    }
+
+
   /* If a derived type symbol has reached this point, without its
      type being declared, we have an error.  Notice that most
      conditions that produce undefined derived types have already
@@ -6030,7 +6059,16 @@ resolve_symbol (gfc_symbol * sym)
      on COMMON blocks.  */
 
   check_constant = sym->attr.in_common && !sym->attr.pointer;
+
+  /* Set the formal_arg_flag so that check_conflict will not throw
+     an error for host associated variables in the specification
+     expression for an array_valued function.  */
+  if (sym->attr.function && sym->as)
+    formal_arg_flag = 1;
+
   gfc_resolve_array_spec (sym->as, check_constant);
+
+  formal_arg_flag = 0;
 
   /* Resolve formal namespaces.  */
 
@@ -6596,6 +6634,7 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
    the preceding objects.  A substring shall not have length zero.  A
    derived type shall not have components with default initialization nor
    shall two objects of an equivalence group be initialized.
+   Either all or none of the objects shall have an protected attribute.
    The simple constraints are done in symbol.c(check_conflict) and the rest
    are implemented here.  */
 
@@ -6610,7 +6649,7 @@ resolve_equivalence (gfc_equiv *eq)
   locus *last_where = NULL;
   seq_type eq_type, last_eq_type;
   gfc_typespec *last_ts;
-  int object;
+  int object, cnt_protected;
   const char *value_name;
   const char *msg;
 
@@ -6618,6 +6657,8 @@ resolve_equivalence (gfc_equiv *eq)
   last_ts = &eq->expr->symtree->n.sym->ts;
 
   first_sym = eq->expr->symtree->n.sym;
+
+  cnt_protected = 0;
 
   for (object = 1; eq; eq = eq->eq, object++)
     {
@@ -6689,6 +6730,17 @@ resolve_equivalence (gfc_equiv *eq)
         continue;
 
       sym = e->symtree->n.sym;
+
+      if (sym->attr.protected)
+	cnt_protected++;
+      if (cnt_protected > 0 && cnt_protected != object)
+       	{
+	      gfc_error ("Either all or none of the objects in the "
+			 "EQUIVALENCE set at %L shall have the "
+			 "PROTECTED attribute",
+			 &e->where);
+	      break;
+        }
 
       /* An equivalence statement cannot have more than one initialized
 	 object.  */

@@ -149,7 +149,7 @@ ptr_decl_may_alias_p (tree ptr, tree decl,
   if (pi)
     tag = pi->name_mem_tag;
   if (!tag)
-    tag = get_var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
+    tag = symbol_mem_tag (SSA_NAME_VAR (ptr));
   if (!tag)
     tag = DR_MEMTAG (ptr_dr);
   if (!tag)
@@ -180,13 +180,13 @@ ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
     }
   else
     {
-      tag_a = get_var_ann (SSA_NAME_VAR (ptr_a))->symbol_mem_tag;
+      tag_a = symbol_mem_tag (SSA_NAME_VAR (ptr_a));
       if (!tag_a)
 	tag_a = DR_MEMTAG (dra);
       if (!tag_a)
 	return false;
       
-      tag_b = get_var_ann (SSA_NAME_VAR (ptr_b))->symbol_mem_tag;
+      tag_b = symbol_mem_tag (SSA_NAME_VAR (ptr_b));
       if (!tag_b)
 	tag_b = DR_MEMTAG (drb);
       if (!tag_b)
@@ -1729,10 +1729,9 @@ object_analysis (tree memref, tree stmt, bool is_read,
       switch (TREE_CODE (base_address))
 	{
 	case SSA_NAME:
-	  *memtag = get_var_ann (SSA_NAME_VAR (base_address))->symbol_mem_tag;
+	  *memtag = symbol_mem_tag (SSA_NAME_VAR (base_address));
 	  if (!(*memtag) && TREE_CODE (TREE_OPERAND (memref, 0)) == SSA_NAME)
-	    *memtag = get_var_ann (
-		      SSA_NAME_VAR (TREE_OPERAND (memref, 0)))->symbol_mem_tag;
+	    *memtag = symbol_mem_tag (SSA_NAME_VAR (TREE_OPERAND (memref, 0)));
 	  break;
 	case ADDR_EXPR:
 	  *memtag = TREE_OPERAND (base_address, 0);
@@ -2304,8 +2303,8 @@ analyze_ziv_subscript (tree chrec_a,
 static tree
 get_number_of_iters_for_loop (int loopnum)
 {
-  struct loop *loop = current_loops->parray[loopnum];
-  tree numiter = number_of_iterations_in_loop (loop);
+  struct loop *loop = get_loop (loopnum);
+  tree numiter = number_of_exit_cond_executions (loop);
 
   if (TREE_CODE (numiter) == INTEGER_CST)
     return numiter;
@@ -4019,10 +4018,10 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return clobbers_memory;
 
-  if (TREE_CODE (stmt) ==  MODIFY_EXPR)
+  if (TREE_CODE (stmt) ==  GIMPLE_MODIFY_STMT)
     {
-      op0 = &TREE_OPERAND (stmt, 0);
-      op1 = &TREE_OPERAND (stmt, 1);
+      op0 = &GIMPLE_STMT_OPERAND (stmt, 0);
+      op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
 		
       if (DECL_P (*op1)
 	  || REFERENCE_CLASS_P (*op1))
@@ -4109,7 +4108,6 @@ find_data_references_in_loop (struct loop *loop,
   block_stmt_iterator bsi;
 
   bbs = get_loop_body (loop);
-  loop->parallel_p = true;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -4137,16 +4135,11 @@ find_data_references_in_loop (struct loop *loop,
 	      DR_OFFSET_MISALIGNMENT (res) = NULL_TREE;
 	      DR_MEMTAG (res) = NULL_TREE;
 	      DR_PTR_INFO (res) = NULL;
-	      loop->parallel_p = false;
 	      VEC_safe_push (data_reference_p, heap, *datarefs, res);
 
 	      free (bbs);
 	      return chrec_dont_know;
 	    }
-
-	  /* When there are no defs in the loop, the loop is parallel.  */
-	  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
-	    loop->parallel_p = false;
 	}
     }
   free (bbs);

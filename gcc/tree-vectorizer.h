@@ -163,6 +163,7 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
+  call_vec_info_type,
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
@@ -326,11 +327,8 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 extern FILE *vect_dump;
 extern enum verbosity_levels vect_verbosity_level;
 
-/* Number of loops, at the beginning of vectorization.  */
-extern unsigned int vect_loops_num;
-
 /* Bitmap of virtual variables to be renamed.  */
-extern bitmap vect_vnames_to_rename;
+extern bitmap vect_memsyms_to_rename;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
@@ -347,7 +345,7 @@ extern bitmap vect_vnames_to_rename;
    divide by the vectorization factor, and to peel the first few iterations
    to force the alignment of data references in the loop.  */
 extern struct loop *slpeel_tree_peel_loop_to_edge 
-  (struct loop *, struct loops *, edge, tree, tree, bool);
+  (struct loop *, edge, tree, tree, bool);
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
 extern bool slpeel_can_duplicate_loop_p (struct loop *, edge);
 #ifdef ENABLE_CHECKING
@@ -397,11 +395,13 @@ extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_function (tree, tree);
+extern bool vectorizable_call (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_live_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_reduction (tree, block_stmt_iterator *, tree *);
 /* Driver for transformation stage.  */
-extern void vect_transform_loop (loop_vec_info, struct loops *);
+extern void vect_transform_loop (loop_vec_info);
 
 /*************************************************************************
   Vectorization Debug Information - in tree-vectorizer.c

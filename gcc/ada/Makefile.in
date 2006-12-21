@@ -228,7 +228,8 @@ all.indirect: Makefile ../gnat1$(exeext)
 
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
-# autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
+# autoconf inserts -DCROSS_DIRECTORY_STRUCTURE if we are building a cross
+# compiler which does not use the native libraries and headers.
 INTERNAL_CFLAGS = @CROSS@ -DIN_GCC
 
 # This is the variable actually used when we compile.
@@ -1428,7 +1429,7 @@ ifneq ($(EH_MECHANISM),)
 endif
 
 # Use the Ada 2005 version of Ada.Exceptions by default, unless specified
-# explicitely already. The base files (a-except.ad?) are used only for building
+# explicitly already. The base files (a-except.ad?) are used only for building
 # the compiler and other basic tools.
 # These base versions lack Ada 2005 additions which would cause bootstrap
 # problems if included in the compiler and other basic tools.
