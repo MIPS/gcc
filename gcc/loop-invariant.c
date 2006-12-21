@@ -1371,18 +1371,13 @@ move_loop_invariants (void)
 {
   struct loop *loop;
   loop_iterator li;
-  unsigned int count = 0;
 
   df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
   /* Process the loops, innermost first.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       move_single_loop_invariants (loop);
-<<<<<<< .working
-      count++;
-=======
     }
->>>>>>> .merge-right.r120097
 
   FOR_EACH_LOOP (li, loop, 0)
     {
