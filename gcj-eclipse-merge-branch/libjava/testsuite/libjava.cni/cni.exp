@@ -33,18 +33,25 @@ proc gcj_cni_build_headers {file} {
   set gcjh [find_gcjh]
 
   # Currently we only build a header file for the main class from the
-  # .java file.  If we need more than this, we'll have to figure
-  # something out.
+  # .java file, and then others on an ad hoc basis.
+  set list {}
   set main [file rootname [file tail $file]]
+  lappend list $main
+  # ... for instance, an obvious hack.
+  if {$main == "shortfield"} {
+    lappend list shortfieldbase
+  }
 
-  set cmd "$gcjh -cni -force -classpath .:$libgcj_jar $main"
-  verbose $cmd
-  set x [string trim [libjava_prune_warnings \
-			[lindex [local_exec $cmd "" "" 300] 1]]]
-  if {$x != ""} {
-    verbose "local_exec failed: $x" 2
-    fail "$main header generation"
-    return 0
+  foreach file $list {
+    set cmd "$gcjh -cni -force -classpath .:$libgcj_jar $file"
+    verbose $cmd
+    set x [string trim [libjava_prune_warnings \
+			  [lindex [local_exec $cmd "" "" 300] 1]]]
+    if {$x != ""} {
+      verbose "local_exec failed: $x" 2
+      fail "$main header generation"
+      return 0
+    }
   }
 
   pass "$main header generation"
