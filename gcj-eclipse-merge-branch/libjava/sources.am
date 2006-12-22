@@ -4521,7 +4521,7 @@ classpath/java/io/LineNumberReader.java \
 classpath/java/io/NotActiveException.java \
 classpath/java/io/NotSerializableException.java \
 classpath/java/io/ObjectInput.java \
-java/io/ObjectInputStream.java \
+classpath/java/io/ObjectInputStream.java \
 classpath/java/io/ObjectInputValidation.java \
 classpath/java/io/ObjectOutput.java \
 classpath/java/io/ObjectOutputStream.java \
@@ -4553,6 +4553,7 @@ classpath/java/io/StringWriter.java \
 classpath/java/io/SyncFailedException.java \
 classpath/java/io/UTFDataFormatException.java \
 classpath/java/io/UnsupportedEncodingException.java \
+java/io/VMObjectInputStream.java \
 java/io/VMObjectStreamClass.java \
 classpath/java/io/WriteAbortedException.java \
 classpath/java/io/Writer.java

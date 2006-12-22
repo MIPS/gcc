@@ -17,6 +17,7 @@ public:
   ObjectInputStream(::java::io::InputStream *);
   virtual ::java::lang::Object * readObject();
 private:
+  ::java::lang::Object * parseContent(jbyte);
   void checkTypeConsistency(::java::lang::String *, JArray< ::java::io::ObjectStreamField * > *, JArray< ::java::io::ObjectStreamField * > *);
 public: // actually protected
   virtual ::java::io::ObjectStreamClass * readClassDescriptor();
@@ -28,7 +29,7 @@ public: // actually protected
 private:
   ::java::lang::ClassLoader * currentLoader();
   ::java::io::ObjectStreamClass * lookupClass(::java::lang::Class *);
-  JArray< ::java::io::ObjectStreamClass * > * inputGetObjectStreamClasses(::java::lang::Class *);
+  JArray< ::java::io::ObjectStreamClass * > * hierarchy(::java::lang::Class *);
 public: // actually protected
   virtual ::java::lang::Object * resolveObject(::java::lang::Object *);
   virtual ::java::lang::Class * resolveProxyClass(JArray< ::java::lang::String * > *);
@@ -60,6 +61,8 @@ public: // actually protected
   virtual ::java::lang::Object * readObjectOverride();
 private:
   jint assignNewHandle(::java::lang::Object *);
+  void rememberHandle(::java::lang::Object *, jint);
+  ::java::lang::Object * lookupHandle(jint);
   ::java::lang::Object * processResolution(::java::io::ObjectStreamClass *, ::java::lang::Object *, jint);
   void clearHandles();
   void readNextBlock();
@@ -70,7 +73,6 @@ private:
   ::java::lang::Object * newObject(::java::lang::Class *, ::java::lang::reflect::Constructor *);
   void invokeValidators();
   void callReadMethod(::java::lang::reflect::Method *, ::java::lang::Class *, ::java::lang::Object *);
-  ::java::lang::Object * allocateObject(::java::lang::Class *, ::java::lang::Class *, ::java::lang::reflect::Constructor *);
   void dumpElement(::java::lang::String *);
   void dumpElementln(::java::lang::String *);
   static const jint BUFFER_SIZE = 1024;
@@ -83,18 +85,17 @@ private:
   jboolean useSubclassMethod;
   jint nextOID;
   jboolean resolveEnabled;
-  ::java::util::Hashtable * objectLookupTable;
+  ::java::util::Vector * objectLookupTable;
   ::java::lang::Object * currentObject;
   ::java::io::ObjectStreamClass * currentObjectStreamClass;
+  ::java::util::TreeSet * currentObjectValidators;
   jboolean readDataFromBlock;
-  jboolean isDeserializing;
   jboolean fieldsAlreadyRead;
-  ::java::util::Vector * validators;
   ::java::util::Hashtable * classLookupTable;
   ::java::io::ObjectInputStream$GetField * prereadFields;
-  ::java::lang::ClassLoader * callersClassLoader;
   static jboolean dump;
   jint depth;
+  static const jboolean DEBUG = 0;
 public:
   static ::java::lang::Class class$;
 };

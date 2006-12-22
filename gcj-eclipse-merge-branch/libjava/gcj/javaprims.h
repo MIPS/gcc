@@ -133,6 +133,7 @@ extern "Java"
       class SyncFailedException;
       class UTFDataFormatException;
       class UnsupportedEncodingException;
+      class VMObjectInputStream;
       class VMObjectStreamClass;
       class WriteAbortedException;
       class Writer;
@@ -157,6 +158,7 @@ extern "Java"
       class ClassCircularityError;
       class ClassFormatError;
       class ClassLoader;
+      class ClassLoader$AnnotationsKey;
       class ClassNotFoundException;
       class CloneNotSupportedException;
       class Cloneable;
@@ -212,9 +214,9 @@ extern "Java"
       class Runtime;
       class RuntimeException;
       class RuntimePermission;
-      class SecurityContext;
       class SecurityException;
       class SecurityManager;
+      class SecurityManager$1;
       class Short;
       class StackOverflowError;
       class StackTraceElement;
@@ -504,6 +506,7 @@ extern "Java"
       class Random;
       class RandomAccess;
       class ResourceBundle;
+      class ResourceBundle$1;
       class ResourceBundle$BundleKey;
       class Set;
       class SimpleTimeZone;
@@ -746,6 +749,7 @@ extern "Java"
         class Handler;
         class Level;
         class LogManager;
+        class LogManager$1;
         class LogRecord;
         class Logger;
         class Logger$1;

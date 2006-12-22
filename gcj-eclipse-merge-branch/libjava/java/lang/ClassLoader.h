@@ -91,7 +91,6 @@ public: // actually package-private
   static ::java::lang::ClassLoader * systemClassLoader;
 private:
   ::java::util::concurrent::ConcurrentHashMap * declaredAnnotations;
-  static JArray< ::java::lang::Object * > * nil;
 public: // actually package-private
   static ::java::security::ProtectionDomain * defaultProtectionDomain;
   jboolean defaultAssertionStatus;
