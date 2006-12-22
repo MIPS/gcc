@@ -1,4 +1,12 @@
 2006-12-21  Janis Johnson  <janis187@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (function_arg_advance): Pass _Decimal128
+	in even/odd fpr pairs.
+	(function_arg): Ditto.
+	(rs6000_gimplify_va_arg): Ditto.
+
+2006-12-21  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/dfp-bit.c (dfp_compare_op): Return separate value for NaN.
 	(DFP_NE, DFP_LE, DFP_GE): Return false for NaN.

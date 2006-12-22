@@ -4762,8 +4762,8 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
-	  /* Must use an odd/even register pair.  */
-	  if (mode == TDmode && !(cum->fregno % 2))
+	  /* Must use an even/odd register pair.  */
+	  if (mode == TDmode && cum->fregno % 2)
 	    cum->fregno++;
 
 	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
@@ -5298,9 +5298,14 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && (mode == SFmode || mode == DFmode || mode == DDmode || mode == TDmode
+	  && (mode == SFmode || mode == DFmode || mode == DDmode
+	      || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
+	  /* Must use an even/odd register pair.  */
+	  if (mode == TDmode && cum->fregno % 2)
+	    cum->fregno++;
+
 	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
@@ -5903,6 +5908,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   tree lab_false, lab_over, addr;
   int align;
   tree ptrtype = build_pointer_type (type);
+  int regalign = 0;
 
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
@@ -6002,8 +6008,21 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = reg;
       if (n_reg == 2 && reg == gpr)
 	{
+	  regalign = 1;
 	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
 		     size_int (n_reg - 1));
+	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
+	}
+      /* _Decimal128 is passed in even/odd fpr pairs; the stored
+	 reg number is 0 for f1, so we want to make it odd.  */
+      if (reg == fpr && TYPE_MODE (type) == TDmode)
+	{
+	  regalign = 1;
+	  /* FIXME: this is just doing "reg |= 0x1"; find a more efficient
+	     way to do that.  */
+	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg, size_int (1));
+	  u = build1 (BIT_NOT_EXPR, TREE_TYPE (reg), u);
+	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), u, size_int (1));
 	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
 	}
 
@@ -6031,10 +6050,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build1 (LABEL_EXPR, void_type_node, lab_false);
       append_to_statement_list (t, pre_p);
 
-      if ((n_reg == 2 && reg != gpr) || n_reg > 2)
+      if ((n_reg == 2 && !regalign) || n_reg > 2)
 	{
 	  /* Ensure that we don't find any more args in regs.
-	     Alignment has taken care of the n_reg == 2 gpr case.  */
+	     Alignment has taken care of for special cases.  */
 	  t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
