@@ -1,3 +1,11 @@
+2006-12-22  Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config.gcc: Add mips-none-linux-gnu tmake_file, tm_file.
+	* config/mips/cs-linux.h: New file. Set MULTILIB_DEFAULTS and
+	SYSROOT_SUFFIX_SPEC.
+	* config/mips/t-none-linux: New file. Set multilib options.
+
 2006-12-21  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/
