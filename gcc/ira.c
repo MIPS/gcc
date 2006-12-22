@@ -116,6 +116,8 @@ static void fix_reg_equiv_init (void);
 #ifdef ENABLE_IRA_CHECKING
 static void print_redundant_copies (void);
 #endif
+static void setup_preferred_alternate_classes (void);
+
 static bool gate_ira (void);
 static unsigned int rest_of_handle_ira (void);
 
@@ -1030,13 +1032,32 @@ print_redundant_copies (void)
 }
 #endif
 
+/* Setup preferred and alternative classes for pseudo-registers for
+   other passes.  */
+static void
+setup_preferred_alternate_classes (void)
+{
+  int i;
+  enum reg_class cover_class;
+  pseudo_t p;
+
+  for (i = 0; i < pseudos_num; i++)
+    {
+      p = pseudos [i];
+      cover_class = PSEUDO_COVER_CLASS (p);
+      if (cover_class == NO_REGS)
+	cover_class = GENERAL_REGS;
+      setup_reg_classes (PSEUDO_REGNO (p), cover_class, NO_REGS);
+    }
+}
+
 
 
 /* This is the main entry of IRA.  */
 void
 ira (FILE *f)
 {
-  int overall_cost_before;
+  int overall_cost_before, loops_p;
   int rebuild_p;
 
   ira_dump_file = f;
@@ -1066,8 +1087,7 @@ ira (FILE *f)
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
   move_loops_num = additional_jumps_num = 0;
-  ira_build (flag_ira_algorithm != IRA_ALGORITHM_CB
-	     && flag_ira_algorithm != IRA_ALGORITHM_PRIORITY);
+  loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL);
   ira_color ();
 
   ira_emit ();
@@ -1080,7 +1100,7 @@ ira (FILE *f)
   setup_reg_renumber ();
   no_new_pseudos = 1;
 
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL)
+  if (loops_p)
     {
       /* Even if new registers are not created rebuild IRA internal
 	 representation to use correct regno pseudo map.  */
@@ -1118,9 +1138,7 @@ ira (FILE *f)
   
   fix_reg_equiv_init ();
 
-  /* ??? We need it only because subsequent optimization like
-     post-reload needs it.  */
-  regclass (get_insns (), max_regno);
+  setup_preferred_alternate_classes ();
 
 #ifdef ENABLE_IRA_CHECKING
   print_redundant_copies ();

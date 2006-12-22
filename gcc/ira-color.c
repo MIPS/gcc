@@ -1,5 +1,3 @@
-/* conflict costs for conflict hard regs ??? */
-
 /* IRA allocation based on graph coloring.
    Contributed by Vladimir Makarov.
    Copyright (C) 2006 Free Software Foundation, Inc.
@@ -46,6 +44,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static void update_copy_costs (pseudo_t, int);
 static int assign_hard_reg (pseudo_t, int);
+
 static void add_pseudo_to_bucket (pseudo_t, pseudo_t *);
 static void add_pseudo_to_ordered_bucket (pseudo_t, pseudo_t *);
 static void delete_pseudo_from_bucket (pseudo_t, pseudo_t *);
@@ -62,7 +61,7 @@ static void color_pseudos (void);
 
 static void print_loop_title (struct ira_loop_tree_node *);
 static void color_pass (struct ira_loop_tree_node *);
-static int pseudo_compare_func (const void *, const void *);
+static int pseudo_priority_compare_func (const void *, const void *);
 static void priority_coloring (void);
 static void do_coloring (void);
 
@@ -926,7 +925,7 @@ color_pass (struct ira_loop_tree_node *loop_tree_node)
 /* The function is used to sort pseudos according to their priorities
    which are calculated analogous to ones in file `global.c'.  */
 static int
-pseudo_compare_func (const void *v1p, const void *v2p)
+pseudo_priority_compare_func (const void *v1p, const void *v2p)
 {
   pseudo_t p1 = *(const pseudo_t *) v1p, p2 = *(const pseudo_t *) v2p;
   int pri1, pri2;
@@ -969,11 +968,28 @@ priority_coloring (void)
 	      sizeof (int) * hard_regs_num);
     }
   bitmap_copy (consideration_pseudo_bitmap, coloring_pseudo_bitmap);
-  qsort (sorted_pseudos, pseudos_num, sizeof (pseudo_t), pseudo_compare_func);
+  qsort (sorted_pseudos, pseudos_num, sizeof (pseudo_t),
+	 pseudo_priority_compare_func);
   for (i = 0; i < pseudos_num; i++)
     {
       p = sorted_pseudos [i];
-      assign_hard_reg (p, FALSE);
+      if (ira_dump_file != NULL)
+	{
+	  fprintf (ira_dump_file, "  ");
+	  print_expanded_pseudo (p);
+	  fprintf (ira_dump_file, "  -- ");
+	}
+      if (assign_hard_reg (p, FALSE))
+	{
+	  if (ira_dump_file != NULL)
+	    fprintf (ira_dump_file, "assign reg %d\n",
+		     PSEUDO_HARD_REGNO (p));
+	}
+      else
+	{
+	  if (ira_dump_file != NULL)
+	    fprintf (ira_dump_file, "spill\n");
+	}
       PSEUDO_IN_GRAPH_P (p) = TRUE;
     }
 }

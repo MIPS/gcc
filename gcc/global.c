@@ -606,10 +606,22 @@ global_alloc (void)
 	      {
 		find_reg (allocno_order[i], 0, 0, 0, 0);
 		if (reg_renumber[allocno[allocno_order[i]].reg] >= 0)
-		  continue;
+		  {
+		    if (dump_file)
+		      fprintf (dump_file, "Assign %d to %d\n",
+			       reg_renumber[allocno[allocno_order[i]].reg],
+			       allocno[allocno_order[i]].reg);
+		    continue;
+		  }
 	      }
 	    if (reg_alternate_class (allocno[allocno_order[i]].reg) != NO_REGS)
-	      find_reg (allocno_order[i], 0, 1, 0, 0);
+	      {
+		find_reg (allocno_order[i], 0, 1, 0, 0);
+		if (dump_file)
+		  fprintf (dump_file, "Assign %d to %d\n",
+			   reg_renumber[allocno[allocno_order[i]].reg],
+			   allocno[allocno_order[i]].reg);
+	      }
 	  }
 
       free (allocno_order);

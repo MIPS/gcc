@@ -838,14 +838,19 @@ create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 
 
 /* This entry function creates internal representation for IRA
-   (pseudos, copies, loop tree nodes).  If LOOP_P is zero the nodes
+   (pseudos, copies, loop tree nodes).  If LOOPS_P is zero the nodes
    corresponding to the loops (except the root which corresponds the
    all function) and correspondingly pseudos for the loops will be not
    created (it will be done only for basic blocks).  Such value is
-   used for Chaitin-Briggs and Chow's priority coloring.  */
-void
-ira_build (int loop_p)
+   used for Chaitin-Briggs and Chow's priority coloring.  The function
+   returns nonzero if we generates loop structure (besides node
+   representing all function) for regional allocation.  */
+int
+ira_build (int loops_p)
 {
+  unsigned int i;
+  loop_p loop;
+
   build_df = df_init (DF_HARD_REGS);
   df_lr_add_problem (build_df, 0);
   df_ri_add_problem (build_df, DF_RI_LIFE);
@@ -856,7 +861,7 @@ ira_build (int loop_p)
   ira_assert (current_loops == NULL);
   flow_loops_find (&ira_loops);
   current_loops = &ira_loops;
-  create_loop_tree_nodes (loop_p);
+  create_loop_tree_nodes (loops_p);
   form_loop_tree ();
   free_dominance_info (CDI_DOMINATORS);
   create_pseudos ();
@@ -869,7 +874,12 @@ ira_build (int loop_p)
       traverse_loop_tree (ira_loop_tree_root, NULL,
 			  create_loop_tree_node_caps);
       ira_free_bitmap (local_pseudos_bitmap);
+      for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
+	if (ira_loop_nodes [i].regno_pseudo_map != NULL
+	    && ira_loop_tree_root != &ira_loop_nodes [i])
+	  return TRUE;
     }
+  return FALSE;
 }
 
 /* The function releases data created by function ira_build.  */

@@ -442,7 +442,7 @@ extern void allocate_pseudo_conflicts (pseudo_t, int);
 extern void print_expanded_pseudo (pseudo_t);
 extern copy_t create_copy (pseudo_t, pseudo_t, int, rtx);
 
-extern void ira_build (int);
+extern int ira_build (int);
 extern void ira_destroy (void);
 
 /* ira-costs.c */

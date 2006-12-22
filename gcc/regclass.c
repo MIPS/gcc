@@ -893,6 +893,7 @@ reg_preferred_class (int regno)
 {
   if (reg_pref == 0)
     return GENERAL_REGS;
+
   return (enum reg_class) reg_pref[regno].prefclass;
 }
 
@@ -2296,6 +2297,22 @@ free_reg_info (void)
   regno_allocated = 0;
   reg_n_max = 0;
 }
+
+
+
+/* Set up preferred and alternate classes for REGNO as PREFCLASS and
+   ALTCLASS.  */
+void
+setup_reg_classes (int regno,
+		   enum reg_class prefclass, enum reg_class altclass)
+{
+  gcc_assert (reg_pref_buffer != NULL && (size_t) regno < regno_allocated);
+  if (reg_pref == NULL)
+    reg_pref = reg_pref_buffer;
+  reg_pref[regno].prefclass = prefclass;
+  reg_pref[regno].altclass = altclass;
+}
+
 
 /* This is the `regscan' pass of the compiler, run just before cse
    and again just before loop.

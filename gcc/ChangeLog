@@ -1,3 +1,25 @@
+2006-12-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* rtl.h (setup_reg_classes): New function prototype.
+	
+	* regclass.c (setup_reg_classes): New function.
+
+	* global.c (global_alloc): Dump information about register
+	assigning.
+
+	* ira-int.h (ira_build): Change prototype signature.
+
+	* ira-color.c (pseudo_compare_func): Rename to
+	pseudo_priority_compare_func.
+	(priority_coloring): Dump information about register
+	assigning.
+
+	* ira-build.c (ira_build): Return true if we have loops for the
+	allocation.
+
+	* ira.c (setup_preferred_alternate_classes): New function.
+	(ira): Use it instead of regclass.  Rebuild only if we have loops.
+
 2006-12-15  Vladimir Makarov  <vmakarov@redhat.com>
 
         * ira.h, ira-int.h, ira.c, ira-build.c, ira-costs.c
