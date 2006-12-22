@@ -1,3 +1,10 @@
+2006-12-22	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c (update_caller_nodes, remove_con_node): New
+	functions.
+	* congraph.c (update_nodes): New function.
+
+
 2006-11-24	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c (is_class_type): New function

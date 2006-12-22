@@ -95,7 +95,7 @@ enum ea_escape_state
 extern bool flow_sensisitive;
 extern bool interprocedural;
 
-
+/* Declare types */
 struct _con_graph;
 typedef struct _con_graph *con_graph;
 
@@ -107,6 +107,11 @@ typedef struct _con_edge *con_edge;
 
 struct _stmt_type_container;
 typedef struct _stmt_type_container *stmt_type_container;
+
+/* set up vectors */
+DEF_VEC_P(con_node);
+DEF_VEC_ALLOC_P(con_node,heap);
+typedef VEC(con_node,heap) *con_node_vec;
 
 struct _stmt_type_container
 {
@@ -187,6 +192,8 @@ struct _con_node
 
   int dump_index;
 
+  con_node_vec maps_to_obj;
+
 };
 
 
@@ -206,10 +213,6 @@ struct _con_edge
   enum con_edge_type type;
 };
 
-/* set up vectors */
-DEF_VEC_P(con_node);
-DEF_VEC_ALLOC_P(con_node,heap);
-typedef VEC(con_node,heap) *con_node_vec;
 
 
 
@@ -247,10 +250,9 @@ con_node add_object_node (con_graph cg, tree id, tree class_id);
 /* add a new field node representing a field id */
 con_node add_field_node (con_graph cg, tree id);
 
-/* add a new actual node representing a parameter _id_. It represents be the
- * _i_th paramater in _function_. */
-con_node add_callee_actual_node (con_graph cg,
-				 tree id, int index, tree function);
+/* add a new actual node representing a parameter _id_. It represents be
+ * the _i_th parameter in the function. */
+con_node add_callee_actual_node (con_graph cg, tree id, int index);
 
 
 /* add a new actual node representing an argument _id_. It should be the
@@ -313,7 +315,7 @@ bool is_reference_node (con_node node);
  * Precondition:	All object nodes pointed to by node will have
  * empty next_link fields
  */
-con_node get_points_to (con_node node);
+con_node_vec get_points_to (con_node node, con_node_vec vector);
 
 /* Returns a list of reference nodes, pointed to by node, which are
  * each the last node in a path which does not end in an object
@@ -360,7 +362,7 @@ con_node get_callee_actual_node (con_graph cg,
 
 void set_escape_state (con_node node, enum ea_escape_state);
 /* ---------------------------------------------------
- *							edges
+ *			edges
  * --------------------------------------------------- */
 /* Returns the existing edge from source to target, or NULL if none
  * exists */
@@ -382,21 +384,29 @@ con_edge add_edge (con_node source, con_node target);
 
 /* removes an edge from the graph */
 void remove_con_edge (con_edge edge);
+void remove_con_node (con_node node);
 
 /* analysis */
-void update_nodes (con_node fee, con_node maps_to_f);
+/* This could be called multiple times with the same caller and callee, in
+ * which case, the call_id will differentiate between the nodes creates in
+ * each instance */
+void update_nodes (con_node f, con_node mapped_field, tree call_id);
 
 
+/* Get the field node of the passed object, with the specified field_id.
+ * Return NULL if not found. */
 con_node get_single_named_field_node (con_node node, tree field_id);
 
-
-con_node *get_field_nodes_vec (con_node node);
+/* Pushes the object's field node into the passed vector, and returns the
+ * vector. */
+con_node_vec get_field_nodes_vec (con_node object, con_node_vec fields);
 
 bool in_maps_to_obj (con_node source, con_node target);
 void add_to_maps_to_obj (con_node source, con_node target);
 void update_escape_state (con_node source, con_node target);
 
 void d (con_node node);
+void l (con_graph cg);
 void t (tree id);
 
 /* Copy the constructor graph into cg, using call_id to resolve actual

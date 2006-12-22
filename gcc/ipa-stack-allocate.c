@@ -91,7 +91,7 @@ is_constructor (tree stmt)
       && TREE_CODE (arguments) == TREE_LIST;
 }
 
-
+/*
 static tree
 get_constructor_function (tree stmt)
 {
@@ -101,7 +101,7 @@ get_constructor_function (tree stmt)
   result = LHS (LHS (stmt));
   gcc_assert (result);
   return result;
-}
+}*/
 
 static bool
 is_suitable_decl (tree decl)
@@ -141,7 +141,7 @@ is_class_type (tree stmt)
 static bool
 is_memory_allocation (tree stmt)
 {
-	return TREE_CODE (stmt) == CALL_EXPR && (call_expr_flags(stmt) & (ECF_MALLOC || ECF_MAY_BE_ALLOCA));
+	return TREE_CODE (stmt) == CALL_EXPR && (call_expr_flags (stmt) & (ECF_MALLOC || ECF_MAY_BE_ALLOCA));
 }
 */
 
@@ -367,31 +367,106 @@ insert_indirect_function_call (con_graph cg, tree func_var, tree argument_list)
   return first_link;
 }
 
+static void
+update_caller_nodes (con_graph cg, con_graph constructor_graph, tree stmt_id)
+{
+  int i = 1, j, k;
+  tree parameters = DECL_ARGUMENTS (constructor_graph->function);
+  con_node f, node;
+  /* TODO, I should allocate and deallocate the maps_to_obj here */
 
+  while (parameters)
+    {
+      if (is_pointer_type (parameters))
+	{
+	  /* a0_ (actual) mapsTo a0 (argument) except this argument is in the
+	   * callee */
+
+	  con_node caller_node = get_caller_actual_node (cg, i, stmt_id);
+	  con_node callee_node = get_callee_actual_node
+	    (constructor_graph, i, parameters);
+	  gcc_assert (caller_node && callee_node);
+
+	  update_nodes (callee_node, caller_node, stmt_id);
+
+	  /* if it's caller state has been updates, then removing the node
+	   * will remove the new escape state, so propegate it before
+	   * removing it */
+	  if (caller_node->escape == EA_GLOBAL_ESCAPE)
+	    caller_node->out->target->escape = EA_GLOBAL_ESCAPE;
+	  /* remove the caller nodes now */
+	  remove_con_node (caller_node);
+	  i++;
+	}
+      parameters = TREE_CHAIN (parameters);
+    }
+
+  /* This bit comes from section 4.4, "Updating Caller Edges": for any
+   * pattern p -> f -> q, where p and q are objects, add a points to edge
+   * f_bar -> q_bar, where f_bar and q_bar are in the set of mapsTo nodes
+   * for f and q, respectively */
+  for(f = constructor_graph->root; f; f = f->next)
+    {
+      if (f->type == FIELD_NODE && !VEC_empty (con_node, f->maps_to_obj))
+	{
+	  /*con_node p = f->in->source;*/
+	  con_node_vec qs = get_points_to (f, VEC_alloc (con_node, heap,
+							 10));
+	  con_node q;
+	  for (i = 0; VEC_iterate (con_node, qs, i, q); i++)
+	    {
+	      con_node f_bar;
+	      for (j = 0; VEC_iterate (con_node, f->maps_to_obj, j,
+				       f_bar); j++)
+		{
+		  con_node q_bar;
+		  for (k = 0; VEC_iterate (con_node, q->maps_to_obj, k,
+					   q_bar); k++)
+		    {
+		      if (get_edge (f_bar, q_bar) == NULL)
+			add_edge (f_bar, q_bar);
+		    }
+		}
+	    }
+	}
+    }
+  for(node = constructor_graph->root; node; node = node->next)
+    {
+      if (node->maps_to_obj)
+	{
+	  /* TODO dealloc */
+	  node->maps_to_obj = NULL;
+	}
+    }
+}
 
 /* returns each actual and argument node. Argument list can be null */
-static con_node
+static void
 insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt_id)
 {
-  con_node first_link = NULL;
-  con_node last_link = NULL;
   int i = 1;
-  bool method_in_jv_object;
   gcc_assert (cg && function && stmt_id);
-  
-  method_in_jv_object = (DECL_CONTEXT (function) == object_type_node);
+
+  /* Check the function doesnt belong to java.lang.Object */
+  if (DECL_CONTEXT (function) == object_type_node)
+    {
+      /* TODO not sure why - revisit */
+      return;
+    }
 
   /* Choi99 4.4 */
   /* For the call T(u0, u1, ...) each argument is modelled with the
    * assignments u0_ = u0; u1_ = u1; etc, and the function call 
    * T(u0_, u1_, ...). u0_ we call "actual nodes" and u0 "argument nodes"
    * */
-  while (!method_in_jv_object && argument_list)
+  while (argument_list)
     {
       tree argument = TREE_VALUE (argument_list);
+
+      /* model the assignments */
       if (is_pointer_type (argument))
 	{
-	  /* check it doesnt exist already */
+	  /* check the actual node doesnt already exist */
 	  con_node actual_node, argument_node;
 	  actual_node = get_caller_actual_node (cg, i, stmt_id);
 	  if (actual_node == NULL)
@@ -401,8 +476,6 @@ insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt
 	    }
 	  gcc_assert (actual_node);
 
-	  /* this is moved out for readability, but it is contingent of
-	   * actual_node == NULL above */
 	  argument_node = existing_local_node (cg, argument);
 
 	  /* this can be an ADDR_EXPR, which means &a, so we
@@ -420,23 +493,18 @@ insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt
 	  if (get_edge (actual_node, argument_node) == NULL)
 	    add_edge (actual_node, argument_node);
 
-	  /* link them for returning */
-	  if (last_link == NULL)
-	    {
-	      last_link = actual_node;
-	      first_link = actual_node;
-	    }
-	  else
-	    last_link->next_link = actual_node;
-
-	  actual_node->next_link = argument_node;
-	  last_link = argument_node;
-
 	  i++;
 	}
       argument_list = TREE_CHAIN (argument_list);
     }
-  return first_link;
+
+  /* update caller nodes for the constructors (at a minimum) */
+  /* TODO do this for other function calls */
+  con_graph callee_cg = get_cg_for_function (cg, function);
+  if (callee_cg)
+    {
+      update_caller_nodes (cg, callee_cg, stmt_id);
+    }
 }
 
 
@@ -502,7 +570,7 @@ check_array_allocation (con_graph cg, tree modify_expr)
 static bool
 check_memory_allocation (con_graph cg, tree modify_expr)
 {
-  /* p = jv_AllocNoFinalizer(type):
+  /* p = jv_AllocNoFinalizer (type):
    * modify_expr
    *   var_decl - p
    *   call_expr
@@ -730,7 +798,7 @@ check_function_call_with_return_value (con_graph cg, tree modify_expr)
   /* any special calls have been taken care of already */
   tree r_name, func_decl, arguments = NULL;
   tree call_expr, addr_expr;
-  con_node arg_nodes, r;
+  con_node r;
 
   if (!(TREE_CODE (modify_expr) == MODIFY_EXPR 
 	&& is_pointer_type (modify_expr) 
@@ -755,9 +823,9 @@ check_function_call_with_return_value (con_graph cg, tree modify_expr)
   r->escape = EA_ARG_ESCAPE;
 
 
-  arg_nodes = insert_function_call (cg, func_decl, arguments, modify_expr);
-  if (arg_nodes)
-    clear_links (arg_nodes); /* we dont need these for anything */
+  insert_function_call (cg, func_decl, arguments, modify_expr);
+
+  assert_all_next_link_free (cg);
   return true;
 }
 
@@ -773,7 +841,6 @@ check_function_call (con_graph cg, tree call_expr)
   /* any special calls have been taken care of already */
   tree func_decl, arguments = NULL;
   tree addr_expr;
-  con_node arg_nodes;
 
   if (!(TREE_CODE (call_expr) == CALL_EXPR
 	&& TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
@@ -783,17 +850,17 @@ check_function_call (con_graph cg, tree call_expr)
     }
 
   if (TREE_OPERAND (call_expr, 1))
-    {
-      arguments = TREE_OPERAND (call_expr, 1);
-    }
+    arguments = TREE_OPERAND (call_expr, 1);
+
+
   if (is_constructor (call_expr))
     set_statement_type (cg, call_expr, CONSTRUCTOR_STMT);
   else
     set_statement_type (cg, call_expr, FUNCTION_CALL);
 
-  arg_nodes = insert_function_call (cg, func_decl, arguments, call_expr);
-  if (arg_nodes)
-    clear_links (arg_nodes); /* we dont need these for anything */
+  insert_function_call (cg, func_decl, arguments, call_expr);
+
+  assert_all_next_link_free (cg);
   return true;
 }
 
@@ -1284,7 +1351,7 @@ replace_array_with_alloca (con_node node)
   bsi_insert_before (&bsi, total_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, new_alloca_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT); 
-  bsi_remove(&bsi, true);
+  bsi_remove (&bsi, true);
 
 }
 #endif
@@ -1293,7 +1360,7 @@ static void
 replace_with_alloca (con_node node, tree function)
 {
   tree stmt, call_expr, addr_expr;
-  gcc_assert(node);
+  gcc_assert (node);
 
   stmt = node->id;
   call_expr = RHS (stmt);
@@ -1340,7 +1407,7 @@ replace_with_alloca (con_node node)
 
   block_stmt_iterator bsi;
 
-  gcc_assert(node);
+  gcc_assert (node);
 
   stmt = node->id;
   bsi = bsi_for_stmt (stmt);
@@ -1392,29 +1459,27 @@ replace_with_alloca (con_node node)
   bsi_insert_before (&bsi, new_size_stmt, BSI_SAME_STMT);
   bsi_insert_before (&bsi, new_alloca_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT);
-  bsi_remove(&bsi, true);
+  bsi_remove (&bsi, true);
 }
 
 #endif
 
-static void add_actual_parameters (con_graph cg, tree function)
+/* Choi 99, Section 4.1 "Connection Graph at Method Entry" */
+static void 
+add_actual_parameters (con_graph cg, tree function)
 {
   tree arg_list;
   int i = 1;
-  con_node arg_node;
-  con_node actual_node;
 
-  gcc_assert (cg);
-  gcc_assert (function);
+  gcc_assert (cg && function);
 
   arg_list = DECL_ARGUMENTS (function);
   while (arg_list)
     {
       if (is_pointer_type (arg_list))
 	{
-	  actual_node = add_callee_actual_node (cg, arg_list, i,
-						function);
-	  arg_node = add_local_node (cg, arg_list);
+	  con_node actual_node = add_callee_actual_node (cg, arg_list, i);
+	  con_node arg_node = add_local_node (cg, arg_list);
 
 	  /* without this, we would match the parameter to the node
 	   * which parameter_node points at, at the end of this
@@ -1427,6 +1492,9 @@ static void add_actual_parameters (con_graph cg, tree function)
       arg_list = TREE_CHAIN (arg_list);
     }
 }
+
+/* TODO when doing more than the constructor, you need to pass the reutnr
+ * node aswell */
 
 
 /* -------------------------------------------------------------*
@@ -1523,6 +1591,8 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 	}
 
     }
+
+  assert_all_next_link_free (cg);
 }
 
 static void
@@ -1561,7 +1631,7 @@ process_function (con_graph cg, tree function)
         /*
         fprintf (stderr, "\n\n----------------------------\n");
         fprintf (stderr, "Basic block %d (iteration %d) \n", 
-            bb->index, get_iteration_count(cg, bb->index));
+            bb->index, get_iteration_count (cg, bb->index));
         */
 
 	gcc_assert (bb->index < n_basic_blocks);
@@ -1578,6 +1648,7 @@ process_function (con_graph cg, tree function)
   assert_all_next_link_free (cg);
 
   /* inline the constructors */
+#if 0
   FOR_EACH_BB (bb)
   {
     /* process the statements */
@@ -1604,6 +1675,7 @@ process_function (con_graph cg, tree function)
 	  }
       }
   }
+#endif
 
 
   assert_all_next_link_free (cg);
@@ -1628,6 +1700,8 @@ process_function (con_graph cg, tree function)
     {
       /* if noEscape, there's no value to propagate */
       /* TODO limit when this is run */
+      /* TODO move into a function which incorporates the
+       * get_nodes_reachable_from */
       con_node reachable = get_nodes_reachable_from (node);
       while (reachable)
 	{
@@ -1833,9 +1907,6 @@ struct tree_opt_pass pass_ipa_stack_allocate = {
 static unsigned int
 execute_instrument_stack_allocate (void)
 {
-  int order_pos;
-  int i;
-
 #ifdef UNHIDE_IT
   basic_block bb;
   block_stmt_iterator bsi;
