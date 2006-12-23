@@ -1,4 +1,10 @@
+2006-12-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/spu/spu.c (immediate_load_p): Change usage of
+	flow2_completed over to epilogue_completed.
+
 2006-12-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-problems.c (df_ru_start_dump, df_ru_top_dump,
 	df_ru_bottom_dump, df_rd_start_dump, df_rd_top_dump,
 	df_rd_bottom_dump, df_lr_top_dump, df_lr_bottom_dump,
@@ -9,10 +15,11 @@
 	* dce.c (marked_libcalls, delete_unmarked_insns): Removed.
 	(prescan_insns_for_dce, mark_libcall, dce_process_block,
 	prescan_insns_for_dse): Replaced libcall marking mechanism.
-      	(init_dce, end_dce, end_fast_dce, run_fast_df_dce): Removed
+	(init_dce, end_dce, end_fast_dce, run_fast_df_dce): Removed
 	marked_libcalls.
 
 2006-12-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* regrename.c (mrege_overlapping_regs): Removed df parameter
 	and changed calls to df_ routines to support new incremental
 	scanning.

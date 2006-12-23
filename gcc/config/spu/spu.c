@@ -2330,7 +2330,7 @@ immediate_load_p (rtx op, enum machine_mode mode)
   if (CONSTANT_P (op))
     {
       enum immediate_class c = classify_immediate (op, mode);
-      return c == IC_IL1 || (!flow2_completed && c == IC_IL2);
+      return c == IC_IL1 || (!epilogue_completed && c == IC_IL2);
     }
   return 0;
 }
