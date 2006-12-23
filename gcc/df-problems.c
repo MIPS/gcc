@@ -687,11 +687,11 @@ df_ru_start_dump (FILE *file)
   if (!df_ru->block_info) 
     return;
 
-  fprintf (file, "Reaching uses:\n");
+  fprintf (file, ";; Reaching uses:\n");
 
-  fprintf (file, "  sparse invalidated \t");
+  fprintf (file, ";;   sparse invalidated \t");
   dump_bitmap (file, problem_data->sparse_invalidated_by_call);
-  fprintf (file, "  dense invalidated \t");
+  fprintf (file, " dense invalidated \t");
   dump_bitmap (file, problem_data->dense_invalidated_by_call);
   
   for (regno = 0; regno < m; regno++)
@@ -712,11 +712,11 @@ df_ru_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
   
-  fprintf (file, "ru  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
+  fprintf (file, ";; ru  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
   dump_bitmap (file, bb_info->in);
-  fprintf (file, "ru  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
+  fprintf (file, ";; ru  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
   dump_bitmap (file, bb_info->gen);
-  fprintf (file, "ru  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
+  fprintf (file, ";; ru  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
   dump_bitmap (file, bb_info->kill);
 }  
 
@@ -730,7 +730,7 @@ df_ru_bottom_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
   
-  fprintf (file, "ru  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
+  fprintf (file, ";; ru  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
   dump_bitmap (file, bb_info->out);
 }  
 
@@ -1228,7 +1228,7 @@ df_rd_start_dump (FILE *file)
   if (!df_rd->block_info) 
     return;
 
-  fprintf (file, "Reaching defs:\n\n");
+  fprintf (file, ";; Reaching defs:\n\n");
 
   fprintf (file, "  sparse invalidated \t");
   dump_bitmap (file, problem_data->sparse_invalidated_by_call);
@@ -1254,11 +1254,11 @@ df_rd_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
   
-  fprintf (file, "rd  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
+  fprintf (file, ";; rd  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
   dump_bitmap (file, bb_info->in);
-  fprintf (file, "rd  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
+  fprintf (file, ";; rd  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
   dump_bitmap (file, bb_info->gen);
-  fprintf (file, "rd  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
+  fprintf (file, ";; rd  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
   dump_bitmap (file, bb_info->kill);
 }
 
@@ -1272,7 +1272,7 @@ df_rd_bottom_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
   
-  fprintf (file, "rd  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
+  fprintf (file, ";; rd  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
   dump_bitmap (file, bb_info->out);
 }
 
@@ -1812,11 +1812,11 @@ df_lr_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
       
-  fprintf (file, "lr  in  \t");
+  fprintf (file, ";; lr  in  \t");
   df_print_regset (file, bb_info->in);
-  fprintf (file, "lr  use \t");
+  fprintf (file, ";; lr  use \t");
   df_print_regset (file, bb_info->use);
-  fprintf (file, "lr  def \t");
+  fprintf (file, ";; lr  def \t");
   df_print_regset (file, bb_info->def);
 }  
 
@@ -1830,7 +1830,7 @@ df_lr_bottom_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
   
-  fprintf (file, "lr  out \t");
+  fprintf (file, ";; lr  out \t");
   df_print_regset (file, bb_info->out);
 }  
 
@@ -2141,11 +2141,11 @@ df_ur_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
       
-  fprintf (file, "ur  in  \t");
+  fprintf (file, ";; ur  in  \t");
   df_print_regset (file, bb_info->in);
-  fprintf (file, "ur  gen \t");
+  fprintf (file, ";; ur  gen \t");
   df_print_regset (file, bb_info->gen);
-  fprintf (file, "ur  kill\t");
+  fprintf (file, ";; ur  kill\t");
   df_print_regset (file, bb_info->kill);
 }
 
@@ -2159,7 +2159,7 @@ df_ur_bottom_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
       
-  fprintf (file, "ur  out \t");
+  fprintf (file, ";; ur  out \t");
   df_print_regset (file, bb_info->out);
 }
 
@@ -2338,7 +2338,7 @@ df_live_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
   
-  fprintf (file, "live  in  \t");
+  fprintf (file, ";; live  in  \t");
   df_print_regset (file, bb_info->in);
 }
 
@@ -2352,7 +2352,7 @@ df_live_bottom_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
   
-  fprintf (file, "live  out  \t");
+  fprintf (file, ";; live  out  \t");
   df_print_regset (file, bb_info->out);
 }
 
@@ -2949,13 +2949,13 @@ df_urec_top_dump (basic_block bb, FILE *file)
   if (!bb_info || !bb_info->in)
     return;
       
-  fprintf (file, "urec  in  \t");
+  fprintf (file, ";; urec  in  \t");
   df_print_regset (file, bb_info->in);
-  fprintf (file, "urec  gen \t");
+  fprintf (file, ";; urec  gen \t");
   df_print_regset (file, bb_info->gen);
-  fprintf (file, "urec  kill\t");
+  fprintf (file, ";; urec  kill\t");
   df_print_regset (file, bb_info->kill);
-  fprintf (file, "urec  ec\t");
+  fprintf (file, ";; urec  ec\t");
   df_print_regset (file, bb_info->earlyclobber);
 }
 
@@ -2968,7 +2968,7 @@ df_urec_bottom_dump (basic_block bb, FILE *file)
   struct df_urec_bb_info *bb_info = df_urec_get_bb_info (bb->index);
   if (!bb_info || !bb_info->out)
     return;
-  fprintf (file, "urec  out \t");
+  fprintf (file, ";; urec  out \t");
   df_print_regset (file, bb_info->out);
 }
 
@@ -3334,13 +3334,13 @@ df_chain_start_dump (FILE *file)
 
   if (df_chain_problem_p (DF_DU_CHAIN))
     {
-      fprintf (file, "Def-use chains:\n");
+      fprintf (file, ";; Def-use chains:\n");
       for (j = 0; j < DF_DEFS_TABLE_SIZE (); j++)
 	{
 	  struct df_ref *def = DF_DEFS_GET (j);
 	  if (def)
 	    {
-	      fprintf (file, "d%d bb %d luid %d insn %d reg %d ",
+	      fprintf (file, ";;   d%d bb %d luid %d insn %d reg %d ",
 		       j, DF_REF_BBNO (def),
 		       DF_REF_INSN (def) ? 
 		       DF_INSN_LUID (DF_REF_INSN (def)):
@@ -3357,13 +3357,13 @@ df_chain_start_dump (FILE *file)
 
   if (df_chain_problem_p (DF_UD_CHAIN))
     {
-      fprintf (file, "Use-def chains:\n");
+      fprintf (file, ";; Use-def chains:\n");
       for (j = 0; j < DF_USES_TABLE_SIZE (); j++)
 	{
 	  struct df_ref *use = DF_USES_GET (j);
 	  if (use)
 	    {
-	      fprintf (file, "u%d bb %d luid %d insn %d reg %d ",
+	      fprintf (file, ";;   u%d bb %d luid %d insn %d reg %d ",
 		       j, DF_REF_BBNO (use),
 		       DF_REF_INSN (use) ? 
 		       DF_INSN_LUID (DF_REF_INSN (use))
@@ -4127,7 +4127,7 @@ df_ri_start_dump (FILE *file)
 {
   if (df_ri_problem_p (DF_RI_LIFE))
     {
-      fprintf (file, "Register info:\n");
+      fprintf (file, ";; Register info:\n");
       dump_reg_info (file);
     }
 }

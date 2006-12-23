@@ -54,7 +54,6 @@ static bool something_changed;
 static VEC(rtx,heap) *worklist;
 
 static bitmap marked = NULL;
-static bitmap marked_libcalls = NULL;
 
 /* Return true if INSN a normal instruction that can be deleted by the
    DCE pass.  */
@@ -165,31 +164,6 @@ mark_nonreg_stores (rtx body, rtx insn, bool fast)
 }
 
 
-/* Go through the instructions and mark those whose necessity is not
-   dependent on inter-instruction information.  Make sure all other
-   instructions are not marked.  */
-
-static void
-prescan_insns_for_dce (void)
-{
-  basic_block bb;
-  rtx insn;
-  
-  if (dump_file)
-    fprintf (dump_file, "Finding needed instructions:\n");
-  
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
-      {
-	if (deletable_insn_p (insn))
-	  mark_nonreg_stores (PATTERN (insn), insn, true);
-	else
-	  mark_insn (insn, true);
-      }
-}
-
-
 /* Initialize global variables for a new DCE pass.  */
 
 static void
@@ -206,7 +180,6 @@ init_dce (bool fast)
     df_dump (dump_file);
 
   marked = BITMAP_ALLOC (NULL);
-  marked_libcalls = BITMAP_ALLOC (NULL);
 }
 
 
@@ -269,18 +242,6 @@ delete_unmarked_insns (void)
 }
 
 
-/* Return true if INSN has libcall id ID.  */
-static bool
-libcall_matches_p (rtx insn, int id)
-{
-  rtx note;
-  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-    return id == INTVAL (XEXP (note, 0));
-  else 
-    return false;
-}
-
-
 /* Mark all insns using DELETE_PARM in the libcall that contains
    START_INSN.  */
 static void 
@@ -293,12 +254,24 @@ mark_libcall (rtx start_insn, bool delete_parm)
   mark_insn (start_insn, delete_parm);
   insn = NEXT_INSN (start_insn);
 
+  /* There are tales, long ago and far away, of the mystical nested
+     libcall.  No one alive has actually seen one, but other parts of
+     the compiler support them so we will here.  */
   for (insn = NEXT_INSN (start_insn); insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
-	  if (libcall_matches_p (insn, id))
-	    mark_insn (insn, delete_parm);
+	  /* Stay in the loop as long as we are in any libcall.  */
+	  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	    {
+	      if (id == INTVAL (XEXP (note, 0)))
+		{
+		  mark_insn (insn, delete_parm);
+		  if (dump_file)
+		    fprintf (dump_file, "matching forward libcall %d[%d]\n",
+			     INSN_UID (insn), id);
+		}
+	    }
 	  else 
 	    break;
 	}
@@ -308,12 +281,55 @@ mark_libcall (rtx start_insn, bool delete_parm)
     {
       if (INSN_P (insn))
 	{
-	  if (libcall_matches_p (insn, id))
-	    mark_insn (insn, delete_parm);
+	  /* Stay in the loop as long as we are in any libcall.  */
+	  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	    {
+	      if (id == INTVAL (XEXP (note, 0)))
+		{
+		  mark_insn (insn, delete_parm);
+		  if (dump_file)
+		    fprintf (dump_file, "matching backward libcall %d[%d]\n",
+			     INSN_UID (insn), id);
+		}
+	    }
 	  else 
 	    break;
 	}
     }
+}
+
+
+/* Go through the instructions and mark those whose necessity is not
+   dependent on inter-instruction information.  Make sure all other
+   instructions are not marked.  */
+
+static void
+prescan_insns_for_dce (void)
+{
+  basic_block bb;
+  rtx insn;
+  
+  if (dump_file)
+    fprintf (dump_file, "Finding needed instructions:\n");
+  
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	if (deletable_insn_p (insn))
+	  mark_nonreg_stores (PATTERN (insn), insn, true);
+	else
+	  {
+	    rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+	    if (note)
+	      mark_libcall (insn, true);
+	    else
+	      mark_insn (insn, true);
+	  }
+      }
+
+  if (dump_file)
+    fprintf (dump_file, "Finished finding needed instructions:\n");
 }
 
 
@@ -323,7 +339,6 @@ static void
 end_dce (void)
 {
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
   df_in_progress = false;
 }
 
@@ -388,7 +403,6 @@ static void
 end_fast_dce (void)
 {
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
   df_in_progress = false;
 }
 
@@ -404,8 +418,6 @@ dce_process_block (basic_block bb, bool redo_out)
   bool block_changed;
   struct df_ref *def, *use;
   unsigned int bb_index = bb->index;
-  rtx libcall_start = NULL;
-  int libcall_id = -1;
 
   if (redo_out)
     {
@@ -441,29 +453,7 @@ dce_process_block (basic_block bb, bool redo_out)
 	if (!marked_insn_p (insn))
 	  {	
 	    bool needed = false;
-	    rtx note;
-	    if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-	      {
-		int new_id = INTVAL (XEXP (note, 0));
-		if (libcall_start)
-		  {
-		    if (libcall_id != new_id)
-		      {
-			libcall_start = insn;
-			libcall_id = new_id;
-		      }
-		  }
-		else
-		  {
-		    libcall_start = insn;
-		    libcall_id = new_id;
-		  }
-	      }
-	    else 
-	      {
-		libcall_start = NULL;
-		libcall_id = -1;
-	      }
+
 	    for (def = DF_INSN_DEFS (insn); 
 		 def; def = def->next_ref)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
@@ -474,14 +464,18 @@ dce_process_block (basic_block bb, bool redo_out)
 	    
 	    if (needed)
 	      {
+		rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+
 		/* If we need to mark an insn in the middle of a
 		   libcall, we need to back up to mark the entire
 		   libcall.  Given that libcalls are rare, rescanning
 		   the block should be a reasonable solution to trying
 		   to figure out how to back up.  */
- 		if (libcall_start)
+		if (note)
 		  {
-		    mark_libcall (libcall_start, true);
+		    if (dump_file)
+		      fprintf (dump_file, "needed libcall %d\n", INSN_UID (insn));
+		    mark_libcall (insn, true);
 		    BITMAP_FREE (local_live);
 		    return dce_process_block (bb, false);
 		  }
@@ -654,7 +648,6 @@ run_fast_df_dce (void)
   init_dce (true);
   fast_dce ();
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
   df_in_progress = false;
 }
 
@@ -1619,7 +1612,13 @@ prescan_insns_for_dse (void)
 	  if (INSN_P (insn))
 	    {
 	      if (!deletable_insn_p (insn))
-		mark_insn (insn, false);
+		{
+		  rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+		  if (note)
+		    mark_libcall (insn, false);
+		  else
+		    mark_insn (insn, false);
+		}
 	      else
 		record_stores (insn);
 	    }
