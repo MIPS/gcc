@@ -1,3 +1,9 @@
+2006-12-23  Andreas Tobler <a.tobler@schweiz.org>
+
+	* classpath/tools/Makefile.am: Replace cp -a with a more portable
+	cp -pR.
+	* classpath/tools/Makefile.in: Regenerate.
+
 2006-12-18  Tom Tromey  <tromey@redhat.com>
 
 	* tools/Makefile.in: Rebuilt.

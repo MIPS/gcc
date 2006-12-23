@@ -168,8 +168,8 @@ if JAVA_MAINTAINER_MODE
 	  cp $(top_srcdir)/resource/$$p classes/$$p; \
 	done
 endif
-	cp -a $(srcdir)/asm .
-	cp -a $(srcdir)/classes .
+	cp -pR $(srcdir)/asm .
+	cp -pR $(srcdir)/classes .
 ## END GCJ LOCAL
 ## First add classpath tools stuff.
 	(cd classes; \

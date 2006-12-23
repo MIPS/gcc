@@ -1112,8 +1112,8 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 @JAVA_MAINTAINER_MODE_TRUE@	  echo "  cp $(top_srcdir)/resource/$$p classes/$$p"; \
 @JAVA_MAINTAINER_MODE_TRUE@	  cp $(top_srcdir)/resource/$$p classes/$$p; \
 @JAVA_MAINTAINER_MODE_TRUE@	done
-	cp -a $(srcdir)/asm .
-	cp -a $(srcdir)/classes .
+	cp -pR $(srcdir)/asm .
+	cp -pR $(srcdir)/classes .
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
