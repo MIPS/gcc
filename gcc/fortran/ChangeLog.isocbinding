@@ -3,7 +3,33 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
-2006-12-23  Steven G. Kargll  <kargl@gcc.gnu.org>
+2006-12-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* expr.c (gfc_copy_shape_excluding, gfc_type_convert_binary,
+	simplify_parameter_variable, check_intrinsic_op, check_inquiry,
+	gfc_match_init_expr, gfc_expr_set_symbols_reference):
+	Whitespace and convert spaces to tab. 
+	* expr.c (gfc_copy_expr): Ditto.  Reformat and delete comments.
+ 	* expr.c (gfc_copy_shape, gfc_simplify_expr, check_restricted,
+	gfc_check_assign, gfc_check_pointer_assign):
+	Whitespace and reformat comment.
+	* expr.c (gfc_free_actual_arglist, gfc_copy_actual_arglist,
+	gfc_free_ref_list, free_expr0, gfc_free_expr, gfc_replace_expr,
+	gfc_extract_int, gfc_kind_max, gfc_numeric_ts, gfc_logical_expr,
+	gfc_build_conversion, gfc_is_constant_expr, simplify_intrinsic_op,
+	simplify_constructor, find_array_element, find_component_ref,
+	remove_subobject_ref, simplify_ref_chain, et0, check_intrinsic_op,
+	restricted_args external_spec_function, restricted_intrinsic,
+	gfc_specification_expr, gfc_check_conformance, gfc_check_assign_symbol,
+	gfc_get_variable_expr): Change "func (type * x)" to "func (type *x)"
+	* expr.c (find_array_section, find_substring_ref
+	gfc_default_initializer ): Convert spaces
+	to tabs.
+	* expr.c (simplify_const_ref): Align logical comparisons.
+	* expr.c (check_init_expr): Whitespace and align multiline gcc_error
+	args
+
+2006-12-23  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* symbol.c (verify_bind_c_derived_type): Use gfc_verify_c_interop().
 	* decl.c: Reformat comments.  Add forward declarations.
