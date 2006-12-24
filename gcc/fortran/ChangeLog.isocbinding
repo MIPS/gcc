@@ -3,6 +3,88 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2006-12-23  Steven G. Kargll  <kargl@gcc.gnu.org>
+
+	* symbol.c (verify_bind_c_derived_type): Use gfc_verify_c_interop().
+	* decl.c: Reformat comments.  Add forward declarations.
+	(free_variable): Remove whitespace.
+	(free_value): Ditto.
+	(gfc_free_data): Ditto.
+	(gfc_free_data_all): Ditto.
+	(var_list): Ditto.
+	(var_element): Ditto.  Wrap long lines.
+	(top_var_list): Remove whitespace.
+	(match_data_constant): Ditto.
+	(top_val_list): Ditto.
+	(match_old_style_init): Unwrap comment.
+	(gfc_match_data):  Reformat comment.
+	(char_len_param_value): Remove whitespace.
+	(match_char_length): Ditto.
+	(find_special): Add/remove whitespace.
+	(get_proc_name): Remove whitespace.
+ 	(verify_c_interop_param): Make static.  Reformat comments.  Whitespace.
+	(build_sym): Remove whitespace.  Reformat comments.
+	(gfc_set_constant_character_len): Add/remove whitespace.
+	(create_enum_history): Ditto.
+	(gfc_free_enum_history): Add whitespace.
+	(add_init_expr_to_sym): Add/remove whitespace.  Reformat comments.
+	(build_struct): Remove whitespace.
+	(gfc_match_null): Add/remove whitespace.  Reformat comments.
+	(variable_decl): Unwrap function call.  Whitespace.  Wrap long line.
+	(gfc_match_old_kind_spec): Add/remove whitespace.
+	(gfc_match_kind_spec): Add/remove whitespace. Reformat/remove comments.
+	(match_char_spec): Remove whitespace.  Reformat/remove comments.
+	(match_type_spec): Reformat comments. Add/remove whitespace.
+	( match_implicit_range): Reformat comments.
+	(gfc_match_import): Whitespace.
+	(match_attr_spec): Add/remove whitespace. Reformat/remove comments.
+	Put DECL_IS_BIND_C in alphabetical order.
+	(set_binding_label): Make static.  Add/remove whitespace.
+	Reformat/remove comments.
+	(set_com_block_bind_c): Ditto.
+	(verify_c_interop): Add/remove whitespace. Reformat/remove comments.
+	(verify_com_block_vars_c_interop):  Make static. Add/remove whitespace.
+	Reformat/remove comments.
+	(verify_bind_c_sym): Ditto.
+	(set_verify_bind_c_sym): Ditto.
+	(set_verify_bind_c_com_block): Ditto.
+	(get_bind_c_idents): Ditto.
+	(verify_proc_decl_attrs): Ditto.
+	(match_proc_decl): Ditto.
+	(match_attr_spec_stmt): Ditto.
+	(gfc_match_data_decl): Add/remove whitespace. Reformat/remove comments.
+	(match_prefix): Remove whitespace.
+	(copy_prefix): Ditto.
+	(gfc_match_formal_arglist): Ditto.
+	(match_result): Add/remove whitespace. Reformat/remove comments.
+	(match_suffix): Make static.  Add/remove whitespace.
+	Reformat/remove comments.
+	(gfc_match_function_decl): Add/remove whitespace. Reformat/remove
+	comments.
+	(add_global_entry): Add/remove whitespace.
+	(gfc_match_entry): Add/remove whitespace.
+	(gfc_match_subroutine): Add/remove whitespace. Reformat/remove
+	comments.
+	(gfc_match_bind_c): Make static.  Add/remove whitespace.
+	Reformat/remove comments.
+	(contained_procedure): Add/remove whitespace.
+	(set_enum_kind): Add/remove whitespace.
+	(gfc_match_end): Add/remove whitespace. Reformat/remove comments.
+	(attr_decl1): Reformat comments.
+	(gfc_match_save): Add/remove whitespace.
+	(gfc_match_volatile): Ditto.
+	(gfc_get_type_attr_spec): Make static.  Add/remove whitespace.
+	Reformat/remove comments.
+	(gfc_match_derived_decl): Add/remove whitespace.
+	Reformat/remove comments.
+ 	* gfortran.h: Rename prototype to gfc_verify_c_interop
+	* match.h: Remove prototytpes for verify_c_interop_param,
+	verify_com_block_vars_c_interop, set_com_block_bind_c,
+	set_binding_label, verify_bind_c_sym, set_verify_bind_c_sym,
+	set_verify_bind_c_com_block, get_bind_c_idents, 
+	gfc_match_attr_spec_stmt, gfc_match_suffix, gfc_match_bind_c,
+	gfc_get_type_attr_spec
+
 2006-12-19  Tobias Burnus  <burnus@net-b.de>
 
 	* gcc/fortran/iso-c-binding.def: Use NAMED_REALCST, NAMED_CMPXCST,
