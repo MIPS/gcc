@@ -204,6 +204,10 @@ delete_corresponding_reg_eq_notes (rtx insn)
 	  rtx note = find_reg_note (noted_insn, REG_EQUAL, NULL_RTX);
 	  if (!note)
 	    note = find_reg_note (noted_insn, REG_EQUIV, NULL_RTX);
+
+	  /* This assert is generally triggered when someone deletes a
+	     REG_EQUAL or REG_EQUIV note by hacking the list manually
+	     rather than calling remove_note.  */
 	  gcc_assert (note);
 	  remove_note (noted_insn, note);
 	}
@@ -223,10 +227,34 @@ delete_unmarked_insns (void)
   something_changed = false;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, next)
-      if (INSN_P (insn) 
-	&& ((!marked_insn_p (insn)) || noop_move_p (insn))
-        && dbg_cnt (new_dce))
+      if (INSN_P (insn))
 	{
+	  if (noop_move_p (insn))
+	    {
+	      /* Note that this code does not handle the case where
+		 the last insn of libcall is deleted.  As it turns out
+		 this case is excluded in the call to noop_move_p.  */
+	      rtx note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+	      if (note && (XEXP (note, 0) != insn))
+		{
+		  rtx new_libcall_insn = next_real_insn (insn);
+		  rtx retval_note = find_reg_note (XEXP (note, 0),
+						   REG_RETVAL, NULL_RTX);
+		  REG_NOTES (new_libcall_insn)
+		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
+					 REG_NOTES (new_libcall_insn));
+		  XEXP (retval_note, 0) = new_libcall_insn;
+		}
+	    }
+	  else if (marked_insn_p (insn))
+	    continue;
+
+	  /* WARNING, this debugging can itself cause problems if the
+	     edge of the counter causes part of a libcall to be
+	     deleted but not all of it.  */
+	  if (!dbg_cnt (new_dce))
+	    continue;
+
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
 
@@ -235,8 +263,7 @@ delete_unmarked_insns (void)
              to prevent dangling REG_EQUAL. */
           delete_corresponding_reg_eq_notes (insn);
 
-	  /* XXX: This may need to be changed to delete_insn_and_edges */
-	  delete_insn (insn);
+	  delete_insn_and_edges (insn);
 	  something_changed = true;
 	}
 }
