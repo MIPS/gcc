@@ -3,6 +3,11 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2006-12-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.h: Whitespace.  Use consistent formatting of enums and
+	structs.  Reformat/delete comments.  Wrap long lines.
+
 2006-12-24  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* expr.c (gfc_copy_shape_excluding, gfc_type_convert_binary,
