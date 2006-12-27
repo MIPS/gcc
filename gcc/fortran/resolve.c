@@ -342,6 +342,33 @@ merge_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
 }
 
 
+/* Flag the arguments that are not present in all entries.  */
+
+static void
+check_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
+{
+  gfc_formal_arglist *f, *head;
+  head = new_args;
+
+  for (f = proc->formal; f; f = f->next)
+    {
+      if (f->sym == NULL)
+	continue;
+
+      for (new_args = head; new_args; new_args = new_args->next)
+	{
+	  if (new_args->sym == f->sym)
+	    break;
+	}
+
+      if (new_args)
+	continue;
+
+      f->sym->attr.not_always_present = 1;
+    }
+}
+
+
 /* Resolve alternate entry points.  If a symbol has multiple entry points we
    create a new master symbol for the main routine, and turn the existing
    symbol into an entry point.  */
@@ -540,6 +567,11 @@ resolve_entries (gfc_namespace * ns)
   /* Merge all the entry point arguments.  */
   for (el = ns->entries; el; el = el->next)
     merge_argument_lists (proc, el->sym->formal);
+
+  /* Check the master formal arguments for any that are not
+     present in all entry points.  */
+  for (el = ns->entries; el; el = el->next)
+    check_argument_lists (proc, el->sym->formal);
 
   /* Use the master function for the function body.  */
   ns->proc_name = proc;
@@ -1124,7 +1156,7 @@ find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
    reference.  The corresponding code that is called in creating
    global entities is parse.c.  */
 
-static void
+void
 resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
 {
   gfc_gsymbol * gsym;
@@ -5528,7 +5560,6 @@ static try
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
-  gfc_symtree *st;
 
   if (sym->attr.ambiguous_interfaces && !sym->attr.referenced)
     gfc_warning ("Although not referenced, '%s' at %L has ambiguous "
@@ -5537,16 +5568,6 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->attr.function
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
-
-  st = gfc_find_symtree (gfc_current_ns->sym_root, sym->name);
-  if (st && st->ambiguous
-	 && sym->attr.referenced
-	 && !sym->attr.generic)
-    {
-      gfc_error ("Procedure %s at %L is ambiguous",
-		 sym->name, &sym->declared_at);
-      return FAILURE;
-    }
 
   if (sym->ts.type == BT_CHARACTER)
     {

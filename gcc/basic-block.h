@@ -497,7 +497,6 @@ extern void insert_insn_on_edge (rtx, edge);
 basic_block split_edge_and_insert (edge, rtx);
 
 extern void commit_edge_insertions (void);
-extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
 extern void remove_fake_exit_edges (void);
@@ -827,7 +826,6 @@ extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
-extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
 extern bool probably_never_executed_bb_p (basic_block);

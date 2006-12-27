@@ -148,7 +148,8 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
   DECL_CONTEXT (tmp_var) = info->context;
   TREE_CHAIN (tmp_var) = info->new_local_var_chain;
   DECL_SEEN_IN_BIND_EXPR_P (tmp_var) = 1;
-  if (TREE_CODE (type) == COMPLEX_TYPE)
+  if (TREE_CODE (type) == COMPLEX_TYPE
+      || TREE_CODE (type) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (tmp_var) = 1;
 
   info->new_local_var_chain = tmp_var;
@@ -546,6 +547,47 @@ get_nl_goto_field (struct nesting_info *info)
   return field;
 }
 
+/* Helper function for walk_stmts.  Walk output operands of an ASM_EXPR.  */
+
+static void
+walk_asm_expr (struct walk_stmt_info *wi, tree stmt)
+{
+  int noutputs = list_length (ASM_OUTPUTS (stmt));
+  const char **oconstraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  int i;
+  tree link;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
+
+  wi->is_lhs = true;
+  for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
+    {
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      oconstraints[i] = constraint;
+      parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
+			       &allows_reg, &is_inout);
+
+      wi->val_only = (allows_reg || !allows_mem);
+      walk_tree (&TREE_VALUE (link), wi->callback, wi, NULL);
+    }
+
+  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+    {
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+			      oconstraints, &allows_mem, &allows_reg);
+
+      wi->val_only = (allows_reg || !allows_mem);
+      /* Although input "m" is not really a LHS, we need a lvalue.  */
+      wi->is_lhs = !wi->val_only;
+      walk_tree (&TREE_VALUE (link), wi->callback, wi, NULL);
+    }
+
+  wi->is_lhs = false;
+  wi->val_only = true;
+}
+
 /* Iterate over all sub-statements of *TP calling walk_tree with
    WI->CALLBACK for every sub-expression in each statement found.  */
 
@@ -626,6 +668,10 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
 
       wi->val_only = true;
       wi->is_lhs = false;
+      break;
+
+    case ASM_EXPR:
+      walk_asm_expr (wi, *tp);
       break;
 
     default:

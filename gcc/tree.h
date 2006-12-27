@@ -4075,7 +4075,6 @@ extern int integer_pow2p (tree);
 
 extern int integer_nonzerop (tree);
 
-extern bool zero_p (tree);
 extern bool cst_and_fits_in_hwi (tree);
 extern tree num_ending_zeros (tree);
 
