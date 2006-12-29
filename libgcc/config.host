@@ -39,6 +39,10 @@
 # This file sets the following shell variables for use by the
 # autoconf-generated configure script:
 #
+#  asm_hidden_op	The assembler pseudo-op to use for hide
+#			lists for object files implemented in
+#			assembly (with -fvisibility=hidden for C).
+#			The default is ".hidden".
 #  cpu_type		The name of the cpu, if different from the first
 #			chunk of the canonical host name.
 #  extra_parts		List of extra object files that should be compiled
@@ -51,6 +55,7 @@
 #			makefile-fragments, if different from
 #			"$cpu_type/t-$cpu_type".
 
+asm_hidden_op=.hidden
 extra_parts=
 tmake_file=
 
@@ -137,6 +142,7 @@ esac
 # Common parts for widely ported systems.
 case ${host} in
 *-*-darwin*)
+  asm_hidden_op=.private_extern
   tmake_file="t-darwin ${cpu_type}/t-darwin t-slibgcc-darwin"
   ;;
 *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)

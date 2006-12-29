@@ -1457,7 +1457,6 @@ libgcc.mvars: config.status Makefile $(LIB2ADD) $(LIB2ADD_ST) specs \
 	echo SHLIB_MKMAP_OPTS = '$(SHLIB_MKMAP_OPTS)' >> tmp-libgcc.mvars
 	echo SHLIB_MAPFILES = '$(call srcdirify,$(SHLIB_MAPFILES))' >> tmp-libgcc.mvars
 	echo SHLIB_NM_FLAGS = '$(SHLIB_NM_FLAGS)' >> tmp-libgcc.mvars
-	echo ASM_HIDDEN_OP = '$(ASM_HIDDEN_OP)' >> tmp-libgcc.mvars
 	echo LIBGCC2_CFLAGS = '$(LIBGCC2_CFLAGS)' >> tmp-libgcc.mvars
 	echo CRTSTUFF_CFLAGS = '$(CRTSTUFF_CFLAGS)' >> tmp-libgcc.mvars
 	echo CRTSTUFF_T_CFLAGS = '$(CRTSTUFF_T_CFLAGS)' >> tmp-libgcc.mvars

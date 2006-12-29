@@ -107,8 +107,8 @@ all-multi:
 	@: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
 
 .PHONY: check installcheck
-check: check-subdir
-installcheck: installcheck-subdir
+check:
+installcheck:
 
 .PHONY: all clean
 
@@ -233,30 +233,16 @@ ifeq ($(enable_shared),yes)
     install-libunwind = install-libunwind
   endif
 
-# Test -fvisibility=hidden.  We need both a -fvisibility=hidden on
+# For -fvisibility=hidden.  We need both a -fvisibility=hidden on
 # the command line, and a #define to prevent libgcc2.h etc from
-# overriding that with #pragmas.  The dance with @ is to prevent
-# echo from seeing anything it might take for an option.
-# echo turns the \$\$\$\$ into $$$$ and when make sees it it
-# becomes $$ and the shell substitutes the pid. Makes for a
-# slightly safer temp file.
-vis_hide := $(strip $(subst @,-,\
-    $(shell if echo 'void foo(void); void foo(void) {}' | \
-          $(gcc_compile_bare) -fvisibility=hidden -Werror \
-          -c -xc - -o vis_temp_file$$$$.o 2> /dev/null; \
-          then echo @fvisibility=hidden @DHIDE_EXPORTS; \
-          rm vis_temp_file$$$$.o 2> /dev/null; \
-          fi)))
+# overriding that with #pragmas.
+vis_hide = @vis_hide@
 
 ifneq (,$(vis_hide))
 
 # If we have -fvisibility=hidden, then we need to generate hide
-# lists for object files implemented in assembly.  The default
-# pseudo-op for this is ".hidden", but can be overridden with
-# ASM_HIDDEN_OP.
-ifeq ($(ASM_HIDDEN_OP),)
-ASM_HIDDEN_OP = .hidden
-endif
+# lists for object files implemented in assembly.
+ASM_HIDDEN_OP = @asm_hidden_op@
 
 define gen-hide-list
 $(NM) -pg $< | \
@@ -275,10 +261,12 @@ gen-hide-list = echo > \$@
 endif
 
 ifneq ($(EXTRA_PARTS),)
-  extra-parts = extra-parts
+  extra-parts = libgcc-extra-parts
+  INSTALL_PARTS = $(EXTRA_PARTS)
 else
 ifneq ($(GCC_EXTRA_PARTS),)
   extra-parts = gcc-extra-parts
+  INSTALL_PARTS = $(GCC_EXTRA_PARTS)
 endif
 endif
 
@@ -311,10 +299,6 @@ endif
 # unwinder info.
 LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
-
-all: $(HOST_EXTRA)
-install: $(HOST_EXTRA_INSTALL)
-
 # Remove any objects from lib2funcs and LIB2_DIVMOD_FUNCS that are
 # defined as optimized assembly code in LIB1ASMFUNCS or as C code
 # in LIB2FUNCS_EXCLUDE.
@@ -329,7 +313,7 @@ lib1asmfuncs-o = $(patsubst %,%$(objext),$(LIB1ASMFUNCS))
 $(lib1asmfuncs-o): %$(objext): $(gcc_srcdir)/config/$(LIB1ASMSRC) %.vis
 	$(gcc_compile) -DL$* -xassembler-with-cpp \
 	  -c $(gcc_srcdir)/config/$(LIB1ASMSRC) -include $*.vis
-$(patsubst %,%.vis,$(LIB1ASMFUNCS)): %.vis: %_s.o
+$(patsubst %,%.vis,$(LIB1ASMFUNCS)): %.vis: %_s$(objext)
 	$(gen-hide-list)
 libgcc-objects += $(lib1asmfuncs-o)
 
@@ -658,20 +642,20 @@ ALL_CRT_CFLAGS = $(CFLAGS) $(CRTSTUFF_CFLAGS) $(INCLUDES)
 crt_compile = $(CC) $(ALL_CRT_CFLAGS) -o $@ $(compile_deps)
 
 ifeq ($(CUSTOM_CRTSTUFF),)
-crtbegin.o: $(gcc_srcdir)/crtstuff.c
+crtbegin$(objext): $(gcc_srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
 	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN
 
-crtend.o: $(gcc_srcdir)/crtstuff.c
+crtend$(objext): $(gcc_srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
 	  -c $(gcc_srcdir)/crtstuff.c -DCRT_END
 
 # These are versions of crtbegin and crtend for shared libraries.
-crtbeginS.o: $(gcc_srcdir)/crtstuff.c
+crtbeginS$(objext): $(gcc_srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
 	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O
 
-crtendS.o: $(gcc_srcdir)/crtstuff.c
+crtendS$(objext): $(gcc_srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
 	  -c $(gcc_srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O
 
@@ -682,7 +666,8 @@ crtbeginT.o: $(gcc_srcdir)/crtstuff.c
 endif
 
 # Build extra startfiles in the libgcc directory.
-extra-parts: $(EXTRA_PARTS)
+.PHONY: libgcc-extra-parts
+libgcc-extra-parts: $(EXTRA_PARTS)
 ifneq ($(GCC_EXTRA_PARTS),)
 ifneq ($(sort $(EXTRA_PARTS)),$(GCC_EXTRA_PARTS))
 	# If the gcc directory specifies which extra parts to
@@ -709,6 +694,7 @@ endif
 
 # Build extra startfiles in the gcc directory, for unconverted
 # targets.
+.PHONY: gcc-extra-parts
 gcc-extra-parts:
 	# Recursively invoke make in the GCC directory to build any
 	# startfiles (for now).  We must do this just once, passing
@@ -766,12 +752,6 @@ install-shared:
 	$(subst @multilib_dir@,$(MULTIDIR),$(subst \
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_INSTALL))))
-
-ifneq ($(EXTRA_PARTS),)
-  INSTALL_PARTS = $(EXTRA_PARTS)
-else
-  INSTALL_PARTS = $(GCC_EXTRA_PARTS)
-endif
 
 install: $(install-shared) $(install-libunwind)
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)

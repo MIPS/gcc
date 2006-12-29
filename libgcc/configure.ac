@@ -95,9 +95,29 @@ AC_CACHE_CHECK([whether decimal floating point is supported], [libgcc_cv_dfp],
 decimal_float=$libgcc_cv_dfp
 AC_SUBST(decimal_float)
 
-
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
+
+# Check for visibility support.  This is after config.host so that
+# we can check for asm_hidden_op.
+AC_CACHE_CHECK([for __attribute__((visibility("hidden")))],
+    libgcc_cv_hidden_visibility_attribute, [
+	echo 'int __attribute__ ((visibility ("hidden"))) foo (void) { return 1; }' > conftest.c
+	libgcc_cv_hidden_visibility_attribute=no
+	if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
+	    if grep "\\$asm_hidden_op.*foo" conftest.s >/dev/null; then
+		libgcc_cv_hidden_visibility_attribute=yes
+	    fi
+	fi
+	rm -f conftest.*
+    ])
+
+if test $libgcc_cv_hidden_visibility_attribute = yes; then
+    vis_hide='-fvisibility=hidden -DHIDE_EXPORTS'
+else
+    vis_hide=
+fi
+AC_SUBST(vis_hide)
 
 # Conditionalize the makefile for this target machine.
 tmake_file_=
@@ -113,6 +133,7 @@ AC_SUBST(tmake_file)
 
 # Substitute configuration variables
 AC_SUBST(extra_parts)
+AC_SUBST(asm_hidden_op)
 
 # We need multilib support.
 AC_CONFIG_FILES([Makefile])

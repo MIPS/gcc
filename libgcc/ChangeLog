@@ -1,3 +1,20 @@
+2006-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (check, installcheck): Remove dependencies.
+	(vis_hide, ASM_HIDDEN_OP): Move to configure script.
+	(libgcc-extra-parts): Rename from extra-parts.  Add .PHONY.
+	(INSTALL_PARTS): Move higher.
+	(all, install): Remove HOST_EXTRA and HOST_EXTRA_INSTALL
+	dependencies.
+	(LIB1ASMFUNCS, crtbegin.o, crtend.o, crtbeginS.o, crtendS.o)
+	(crtbeginT.o): Use $(objext).
+	(gcc-extra-parts): Add .PHONY.
+	* config/t-slibgcc-darwin (ASM_HIDDEN_OP): Deleted.
+	(HOST_EXTRA, HOST_EXTRA_INSTALL): Replace with dependencies.
+	* config.host: Add asm_hidden_op.
+	* configure.ac: Check for visibility.  Substitute asm_hidden_op.
+	* configure: Regenerated.
+
 2006-12-28  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.in (EXTRA_PARTS, compile_deps): New.

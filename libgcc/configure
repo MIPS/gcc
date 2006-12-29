@@ -272,7 +272,7 @@ PACKAGE_STRING='GNU C Runtime Library 1.0'
 PACKAGE_BUGREPORT=''
 
 ac_unique_file="static-object.mk"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libgcc_topdir enable_shared slibdir INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AWK build build_cpu build_vendor build_os host host_cpu host_vendor host_os host_noncanonical AR ac_ct_AR LIPO ac_ct_LIPO NM ac_ct_NM RANLIB ac_ct_RANLIB STRIP ac_ct_STRIP LN_S CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP decimal_float tmake_file extra_parts LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libgcc_topdir enable_shared slibdir INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AWK build build_cpu build_vendor build_os host host_cpu host_vendor host_os host_noncanonical AR ac_ct_AR LIPO ac_ct_LIPO NM ac_ct_NM RANLIB ac_ct_RANLIB STRIP ac_ct_STRIP LN_S CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP decimal_float vis_hide tmake_file extra_parts asm_hidden_op LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -3231,9 +3231,41 @@ echo "${ECHO_T}$libgcc_cv_dfp" >&6
 decimal_float=$libgcc_cv_dfp
 
 
-
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
+
+# Check for visibility support.  This is after config.host so that
+# we can check for asm_hidden_op.
+echo "$as_me:$LINENO: checking for __attribute__((visibility(\"hidden\")))" >&5
+echo $ECHO_N "checking for __attribute__((visibility(\"hidden\")))... $ECHO_C" >&6
+if test "${libgcc_cv_hidden_visibility_attribute+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+	echo 'int __attribute__ ((visibility ("hidden"))) foo (void) { return 1; }' > conftest.c
+	libgcc_cv_hidden_visibility_attribute=no
+	if { ac_try='${CC-cc} -Werror -S conftest.c -o conftest.s 1>&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+	    if grep "\\$asm_hidden_op.*foo" conftest.s >/dev/null; then
+		libgcc_cv_hidden_visibility_attribute=yes
+	    fi
+	fi
+	rm -f conftest.*
+
+fi
+echo "$as_me:$LINENO: result: $libgcc_cv_hidden_visibility_attribute" >&5
+echo "${ECHO_T}$libgcc_cv_hidden_visibility_attribute" >&6
+
+if test $libgcc_cv_hidden_visibility_attribute = yes; then
+    vis_hide='-fvisibility=hidden -DHIDE_EXPORTS'
+else
+    vis_hide=
+fi
+
 
 # Conditionalize the makefile for this target machine.
 tmake_file_=
@@ -3248,6 +3280,7 @@ tmake_file="${tmake_file_}"
 
 
 # Substitute configuration variables
+
 
 
 # We need multilib support.
@@ -3947,8 +3980,10 @@ s,@EXEEXT@,$EXEEXT,;t t
 s,@OBJEXT@,$OBJEXT,;t t
 s,@CPP@,$CPP,;t t
 s,@decimal_float@,$decimal_float,;t t
+s,@vis_hide@,$vis_hide,;t t
 s,@tmake_file@,$tmake_file,;t t
 s,@extra_parts@,$extra_parts,;t t
+s,@asm_hidden_op@,$asm_hidden_op,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
