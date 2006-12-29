@@ -462,7 +462,7 @@ pdp11-*-bsd)
 pdp11-*-*)
 	;;
 powerpc64-*-linux*)
-	tmake_file="${tmake_file} rs6000/t-ldbl128"
+	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-ldbl128"
 	;;
 powerpc64-*-gnu*)
 	tmake_file="${tmake_file} rs6000/t-ldbl128"
@@ -494,13 +494,13 @@ powerpc-*-eabi*)
 powerpc-*-rtems*)
 	;;
 powerpc-*-linux*altivec*)
-	tmake_file="${tmake_file} rs6000/t-ldbl128"
+	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-ldbl128"
 	;;
 powerpc-*-linux*spe*)
-	tmake_file="${tmake_file} rs6000/t-ldbl128"
+	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-ldbl128"
 	;;
 powerpc-*-linux*)
-	tmake_file="${tmake_file} rs6000/t-ldbl128"
+	tmake_file="${tmake_file} rs6000/t-ppccomm rs6000/t-ldbl128"
 	;;
 powerpc-*-gnu-gnualtivec*)
 	tmake_file="${tmake_file} rs6000/t-ldbl128"

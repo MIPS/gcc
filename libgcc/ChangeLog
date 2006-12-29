@@ -1,5 +1,12 @@
 2006-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
 
+	* config.host (powerpc64-*-linux*): Use rs6000/t-ppccomm.
+	(powerpc-*-linux*altivec*, powerpc-*-linux*spe*, powerpc-*-linux*):
+	Likewise.
+	* config/rs6000/t-ppccomm: New file.
+
+2006-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+
 	* Makefile.in (check, installcheck): Remove dependencies.
 	(vis_hide, ASM_HIDDEN_OP): Move to configure script.
 	(libgcc-extra-parts): Rename from extra-parts.  Add .PHONY.
