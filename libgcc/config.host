@@ -41,10 +41,17 @@
 #
 #  cpu_type		The name of the cpu, if different from the first
 #			chunk of the canonical host name.
+#  extra_parts		List of extra object files that should be compiled
+#			for this target machine.  This may be overridden
+#			by setting EXTRA_PARTS in a tmake_file fragment.
+#			If either is set, EXTRA_PARTS and
+#			EXTRA_MULTILIB_PARTS inherited from the GCC
+#			subdirectory will be ignored.
 #  tmake_file		A list of machine-description-specific
 #			makefile-fragments, if different from
 #			"$cpu_type/t-$cpu_type".
 
+extra_parts=
 tmake_file=
 
 # Set default cpu_type so it can be updated in each machine entry.
@@ -151,6 +158,7 @@ case ${host} in
   ;;
 *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
   # Must come before *-*-gnu* (because of *-*-linux-gnu* systems).
+  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
   ;;
 *-*-gnu*)
   ;;
@@ -177,6 +185,7 @@ case ${host} in
 alpha*-*-unicosmk*)
 	;;
 alpha*-*-linux*)
+	tmake_file="${tmake_file} alpha/t-crtfm"
 	;;
 alpha*-*-gnu*)
 	;;
@@ -306,8 +315,12 @@ i[34567]86-*-openbsd*)
 i[34567]86-*-coff*)
 	;;
 i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} i386/t-crtfm"
 	;;
 x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} i386/t-crtfm"
 	;;
 i[34567]86-*-gnu*)
 	;;
@@ -351,6 +364,7 @@ ia64*-*-elf*)
 ia64*-*-freebsd*)
 	;;
 ia64*-*-linux*)
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-hpux*)
 	;;
@@ -543,6 +557,8 @@ sparc64-*-openbsd*)
 sparc-*-elf*)
 	;;
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} sparc/t-crtfm"
 	;;
 sparc-*-rtems*)
 	;;
@@ -557,6 +573,8 @@ sparc64-*-elf*)
 sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 	;;
 sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} sparc/t-crtfm"
 	;;
 sparc64-*-netbsd*)
 	;;
@@ -597,6 +615,7 @@ xtensa-*-elf*)
 xtensa-*-linux*)
 	;;
 am33_2.0-*-linux*)
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	;;
 m32c-*-elf*)
  	;;

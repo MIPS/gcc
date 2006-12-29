@@ -111,6 +111,9 @@ done
 tmake_file="${tmake_file_}"
 AC_SUBST(tmake_file)
 
+# Substitute configuration variables
+AC_SUBST(extra_parts)
+
 # We need multilib support.
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_COMMANDS([default],

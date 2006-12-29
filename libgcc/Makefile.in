@@ -38,6 +38,10 @@ decimal_float = @decimal_float@
 
 host_noncanonical = @host_noncanonical@
 
+# List of extra object files that should be compiled for this target machine.
+# The rules for compiling them should be in the t-* file for the machine.
+EXTRA_PARTS = @extra_parts@
+
 # Multilib support variables.
 MULTISRCTOP =
 MULTIBUILDTOP =
@@ -203,7 +207,8 @@ inst_libdir = $(libsubdir)$(MULTISUBDIR)
 inst_slibdir = $(slibdir)$(MULTIOSSUBDIR)
 
 gcc_compile_bare = $(CC) $(INTERNAL_CFLAGS)
-gcc_compile = $(gcc_compile_bare) -o $@ -MT $@ -MD -MP -MF $(basename $@).dep
+compile_deps = -MT $@ -MD -MP -MF $(basename $@).dep
+gcc_compile = $(gcc_compile_bare) -o $@ $(compile_deps)
 gcc_s_compile = $(gcc_compile) -DSHARED
 
 objects = $(filter %$(objext),$^)
@@ -269,11 +274,12 @@ vis_hide =
 gen-hide-list = echo > \$@
 endif
 
-# The distinction between these two variables is no longer relevant.
-EXTRA_MULTILIB_PARTS := $(sort $(EXTRA_MULTILIB_PARTS) $(EXTRA_PARTS))
-
-ifneq ($(EXTRA_MULTILIB_PARTS),)
+ifneq ($(EXTRA_PARTS),)
   extra-parts = extra-parts
+else
+ifneq ($(GCC_EXTRA_PARTS),)
+  extra-parts = gcc-extra-parts
+endif
 endif
 
 # Library members defined in libgcc2.c.
@@ -647,10 +653,66 @@ libunwind$(SHLIB_EXT): $(libunwind-s-objects) $(extra-parts)
 
 endif
 
-extra-parts:
+# Build the standard GCC startfiles and endfiles.
+ALL_CRT_CFLAGS = $(CFLAGS) $(CRTSTUFF_CFLAGS) $(INCLUDES)
+crt_compile = $(CC) $(ALL_CRT_CFLAGS) -o $@ $(compile_deps)
+
+ifeq ($(CUSTOM_CRTSTUFF),)
+crtbegin.o: $(gcc_srcdir)/crtstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
+	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN
+
+crtend.o: $(gcc_srcdir)/crtstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
+	  -c $(gcc_srcdir)/crtstuff.c -DCRT_END
+
+# These are versions of crtbegin and crtend for shared libraries.
+crtbeginS.o: $(gcc_srcdir)/crtstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
+	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O
+
+crtendS.o: $(gcc_srcdir)/crtstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
+	  -c $(gcc_srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O
+
+# This is a version of crtbegin for -static links.
+crtbeginT.o: $(gcc_srcdir)/crtstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
+	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O
+endif
+
+# Build extra startfiles in the libgcc directory.
+extra-parts: $(EXTRA_PARTS)
+ifneq ($(GCC_EXTRA_PARTS),)
+ifneq ($(sort $(EXTRA_PARTS)),$(GCC_EXTRA_PARTS))
+	# If the gcc directory specifies which extra parts to
+	# build for this target, and the libgcc configuration also
+	# specifies, make sure they match.  This can be removed
+	# when the gcc directory no longer holds libgcc configuration;
+	# it is useful when migrating a target.
+	@echo "Configuration mismatch!"
+	@echo "Extra parts from gcc directory: $(GCC_EXTRA_PARTS)"
+	@echo "Extra parts from libgcc: $(EXTRA_PARTS)"
+	exit 1
+endif
+endif
+
+	# Early copyback; see "all" above for the rationale.  The
+	# early copy is necessary so that the gcc -B options find
+	# the right startup files when linking shared libgcc.
+	$(mkinstalldirs) $(gcc_objdir)$(MULTISUBDIR)
+	parts="$(EXTRA_PARTS)";					\
+	for file in $$parts; do					\
+	  rm -f $(gcc_objdir)$(MULTISUBDIR)/$$file;		\
+	  $(INSTALL_DATA) $$file $(gcc_objdir)$(MULTISUBDIR)/;	\
+	done
+
+# Build extra startfiles in the gcc directory, for unconverted
+# targets.
+gcc-extra-parts:
 	# Recursively invoke make in the GCC directory to build any
 	# startfiles (for now).  We must do this just once, passing
-	# it all the EXTRA_MULTILIB_PARTS as simultaneous goal targets,
+	# it all the GCC_EXTRA_PARTS as simultaneous goal targets,
 	# so that rules which cannot execute simultaneously are properly
 	# serialized.  We indirect through T_TARGET in case any multilib
 	# directories contain an equals sign, to prevent make from
@@ -664,18 +726,17 @@ extra-parts:
 	&& $(MAKE) GCC_FOR_TARGET="$(CC)" \
 	  MULTILIB_CFLAGS="$(CFLAGS)" \
 	  T=$$T \
-	  T_TARGET="$(patsubst %,$${T}%,$(EXTRA_MULTILIB_PARTS))" \
+	  T_TARGET="$(patsubst %,$${T}%,$(GCC_EXTRA_PARTS))" \
 	  T_TARGET
 
 	# Early copyback; see "all" above for the rationale.  The
 	# early copy is necessary so that the gcc -B options find
 	# the right startup files when linking shared libgcc.
 	$(mkinstalldirs) $(gcc_objdir)$(MULTISUBDIR)
-	for file in dummy $(EXTRA_MULTILIB_PARTS); do		\
-	  if test $$file != dummy; then				\
-	    rm -f $(gcc_objdir)$(MULTISUBDIR)/$$file;		\
-	    $(INSTALL_DATA) $$file $(gcc_objdir)$(MULTISUBDIR)/;\
-	  fi;							\
+	parts="$(GCC_EXTRA_PARTS)";				\
+	for file in $$parts; do					\
+	  rm -f $(gcc_objdir)$(MULTISUBDIR)/$$file;		\
+	  $(INSTALL_DATA) $$file $(gcc_objdir)$(MULTISUBDIR)/;	\
 	done
 
 all: $(extra-parts)
@@ -706,6 +767,12 @@ install-shared:
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_INSTALL))))
 
+ifneq ($(EXTRA_PARTS),)
+  INSTALL_PARTS = $(EXTRA_PARTS)
+else
+  INSTALL_PARTS = $(GCC_EXTRA_PARTS)
+endif
+
 install: $(install-shared) $(install-libunwind)
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)
 
@@ -716,11 +783,10 @@ install: $(install-shared) $(install-libunwind)
 	chmod 644 $(DESTDIR)$(inst_libdir)/libgcov.a
 	$(RANLIB) $(DESTDIR)$(inst_libdir)/libgcov.a
 
-	for file in dummy $(EXTRA_MULTILIB_PARTS); do		\
-	  if test $$file != dummy; then				\
-	    rm -f $(DESTDIR)$(inst_libdir)/$$file;		\
-	    $(INSTALL_DATA) $$file $(DESTDIR)$(inst_libdir)/;	\
-	  fi;							\
+	parts="$(INSTALL_PARTS)";				\
+	for file in $$parts; do					\
+	  rm -f $(DESTDIR)$(inst_libdir)/$$file;		\
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(inst_libdir)/;	\
 	done
 
 .PHONY: install install-shared install-libunwind

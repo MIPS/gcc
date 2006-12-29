@@ -1,5 +1,22 @@
 2006-12-28  Daniel Jacobowitz  <dan@codesourcery.com>
 
+	* Makefile.in (EXTRA_PARTS, compile_deps): New.
+	(GCC_EXTRA_PARTS): Renamed from EXTRA_MULTILIB_PARTS.
+	(gcc_compile): Use compile_deps.
+	(ALL_CRT_CFLAGS, crt_compile, INSTALL_PARTS): New.
+	(gcc-extra-parts): Renamed from extra-parts.
+	(extra-parts, crtbegin.o, crtbeginS.o, crtbeginT.o, crtend.o)
+	(crtendS.o): New rules.
+	(intstall): Use INSTALL_PARTS.
+	* config/i386/t-crtfm, config/alpha/t-crtfm, config/ia64/t-ia64,
+	libgcc/config/sparc/t-crtfm: New files.
+	* config.host (extra_parts): New variable.  Set it and tmake_file in
+	various GNU/Linux configurations.
+	* configure.ac: Substitute extra_parts.
+	* configure: Regenerated.
+
+2006-12-28  Daniel Jacobowitz  <dan@codesourcery.com>
+
 	* config.host: Add missed targets.
 
 2006-12-19  Daniel Jacobowitz  <dan@codesourcery.com>
