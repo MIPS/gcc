@@ -443,6 +443,8 @@ static int compare_interfaces (gfc_symbol *, gfc_symbol *, int);
 static int
 compare_type_rank_if (gfc_symbol * s1, gfc_symbol * s2)
 {
+  if (s1 == NULL || s2 == NULL)
+    return s1 == s2 ? 1 : 0;
 
   if (s1->attr.flavor != FL_PROCEDURE && s2->attr.flavor != FL_PROCEDURE)
     return compare_type_rank (s1, s2);
@@ -731,14 +733,14 @@ count_types_test (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
       if (arg[i].flag != -1)
 	continue;
 
-      if (arg[i].sym->attr.optional)
+      if (arg[i].sym && arg[i].sym->attr.optional)
 	continue;		/* Skip optional arguments */
 
       arg[i].flag = k;
 
       /* Find other nonoptional arguments of the same type/rank.  */
       for (j = i + 1; j < n1; j++)
-	if (!arg[j].sym->attr.optional
+	if ((arg[j].sym == NULL || !arg[j].sym->attr.optional)
 	    && compare_type_rank_if (arg[i].sym, arg[j].sym))
 	  arg[j].flag = k;
 
@@ -968,7 +970,7 @@ check_interface0 (gfc_interface * p, const char *interface_name)
 static int
 check_interface1 (gfc_interface * p, gfc_interface * q0,
 		  int generic_flag, const char *interface_name,
-		  int referenced)
+		  bool referenced)
 {
   gfc_interface * q;
   for (; p; p = p->next)
@@ -1008,10 +1010,16 @@ static void
 check_sym_interfaces (gfc_symbol * sym)
 {
   char interface_name[100];
-  int k;
+  bool k;
+  gfc_interface *p;
 
   if (sym->ns != gfc_current_ns)
     return;
+
+  if (sym->attr.if_source == IFSRC_IFBODY
+	&& sym->attr.flavor == FL_PROCEDURE
+	&& !sym->attr.mod_proc)
+    resolve_global_procedure (sym, &sym->declared_at, sym->attr.subroutine);
 
   if (sym->generic != NULL)
     {
@@ -1019,7 +1027,19 @@ check_sym_interfaces (gfc_symbol * sym)
       if (check_interface0 (sym->generic, interface_name))
 	return;
 
-      /* Originally, this test was aplied to host interfaces too;
+      for (p = sym->generic; p; p = p->next)
+	{
+	  if (!p->sym->attr.use_assoc
+		&& p->sym->attr.mod_proc
+		&& p->sym->attr.if_source != IFSRC_DECL)
+	    {
+	      gfc_error ("MODULE PROCEDURE '%s' at %L does not come "
+			 "from a module", p->sym->name, &p->where);
+	      return;
+	    }
+	}
+
+      /* Originally, this test was applied to host interfaces too;
 	 this is incorrect since host associated symbols, from any
 	 source, cannot be ambiguous with local symbols.  */
       k = sym->attr.referenced || !sym->attr.use_assoc;
@@ -1048,7 +1068,7 @@ check_uop_interfaces (gfc_user_op * uop)
 	continue;
 
       check_interface1 (uop->operator, uop2->operator, 0,
-			interface_name, 1);
+			interface_name, true);
     }
 }
 
@@ -1090,7 +1110,7 @@ gfc_check_interfaces (gfc_namespace * ns)
 
       for (ns2 = ns->parent; ns2; ns2 = ns2->parent)
 	if (check_interface1 (ns->operator[i], ns2->operator[i], 0,
-			      interface_name, 1))
+			      interface_name, true))
 	  break;
     }
 
@@ -1250,7 +1270,6 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 {
   gfc_actual_arglist **new, *a, *actual, temp;
   gfc_formal_arglist *f;
-  gfc_gsymbol *gsym;
   int i, n, na;
   bool rank_check;
 
@@ -1356,16 +1375,10 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	  && a->expr->expr_type == EXPR_VARIABLE
 	  && f->sym->attr.flavor == FL_PROCEDURE)
 	{
-	  gsym = gfc_find_gsymbol (gfc_gsym_root,
-				   a->expr->symtree->n.sym->name);
-	  if (gsym == NULL || (gsym->type != GSYM_FUNCTION
-		&& gsym->type != GSYM_SUBROUTINE))
-	    {
-	      if (where)
-		gfc_error ("Expected a procedure for argument '%s' at %L",
-			   f->sym->name, &a->expr->where);
-	      return 0;
-	    }
+	  if (where)
+	    gfc_error ("Expected a procedure for argument '%s' at %L",
+		       f->sym->name, &a->expr->where);
+	  return 0;
 	}
 
       if (f->sym->attr.flavor == FL_PROCEDURE

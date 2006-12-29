@@ -265,6 +265,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
 
+#define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
+
 
 /* Stack Checking */
 
@@ -551,6 +553,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define NO_IMPLICIT_EXTERN_C 1
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 
 /* These are set by the cmp patterns and used while expanding

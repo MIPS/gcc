@@ -58,6 +58,9 @@ ac_help="$ac_help
   --enable-maintainer-mode enable make rules and dependencies not useful
                           (and sometimes confusing) to the casual installer"
 ac_help="$ac_help
+  --enable-stage1-checking[=all]   choose additional checking for stage1
+                          of the compiler."
+ac_help="$ac_help
   --enable-werror         enable -Werror in bootstrap stage2 and later"
 ac_help="$ac_help
   --with-datarootdir	Use datarootdir as the data root directory."
@@ -623,7 +626,7 @@ else { echo "configure: error: can not run $ac_config_sub" 1>&2; exit 1; }
 fi
 
 echo $ac_n "checking host system type""... $ac_c" 1>&6
-echo "configure:627: checking host system type" >&5
+echo "configure:630: checking host system type" >&5
 
 host_alias=$host
 case "$host_alias" in
@@ -644,7 +647,7 @@ host_os=`echo $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 echo "$ac_t""$host" 1>&6
 
 echo $ac_n "checking target system type""... $ac_c" 1>&6
-echo "configure:648: checking target system type" >&5
+echo "configure:651: checking target system type" >&5
 
 target_alias=$target
 case "$target_alias" in
@@ -662,7 +665,7 @@ target_os=`echo $target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 echo "$ac_t""$target" 1>&6
 
 echo $ac_n "checking build system type""... $ac_c" 1>&6
-echo "configure:666: checking build system type" >&5
+echo "configure:669: checking build system type" >&5
 
 build_alias=$build
 case "$build_alias" in
@@ -717,7 +720,7 @@ test "$program_transform_name" = "" && program_transform_name="s,x,x,"
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
 # ./install, which can be erroneously created by make from ./install.sh.
 echo $ac_n "checking for a BSD compatible install""... $ac_c" 1>&6
-echo "configure:721: checking for a BSD compatible install" >&5
+echo "configure:724: checking for a BSD compatible install" >&5
 if test -z "$INSTALL"; then
 if eval "test \"`echo '$''{'ac_cv_path_install'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -770,7 +773,7 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL_PROGRAM}'
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 echo $ac_n "checking whether ln works""... $ac_c" 1>&6
-echo "configure:774: checking whether ln works" >&5
+echo "configure:777: checking whether ln works" >&5
 if eval "test \"`echo '$''{'acx_cv_prog_LN'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -794,7 +797,7 @@ else
 fi
 
 echo $ac_n "checking whether ln -s works""... $ac_c" 1>&6
-echo "configure:798: checking whether ln -s works" >&5
+echo "configure:801: checking whether ln -s works" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_LN_S'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -2371,7 +2374,7 @@ echo "configure:2367: checking for correct version of mpfr.h" >&5
 #include <mpfr.h>
 int main() {
 
-#if MPFR_VERSION_MAJOR < 2 || (MPFR_VERSION_MAJOR == 2 && MPFR_VERSION_MINOR < 2)
+#if MPFR_VERSION < MPFR_VERSION_NUM(2,2,0)
   choke me
 #endif
   mpfr_t n; mpfr_init(n);
@@ -2380,7 +2383,30 @@ int main() {
 EOF
 if { (eval echo configure:2382: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   rm -rf conftest*
+  cat > conftest.$ac_ext <<EOF
+#line 2387 "configure"
+#include "confdefs.h"
+#include <gmp.h>
+#include <mpfr.h>
+int main() {
+
+#if MPFR_VERSION < MPFR_VERSION_NUM(2,2,1)
+  choke me
+#endif
+  mpfr_t n; mpfr_init(n);
+
+; return 0; }
+EOF
+if { (eval echo configure:2400: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+  rm -rf conftest*
   echo "$ac_t""yes" 1>&6
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -rf conftest*
+  echo "$ac_t""buggy but acceptable" 1>&6
+fi
+rm -f conftest*
 else
   echo "configure: failed program was:" >&5
   cat conftest.$ac_ext >&5
@@ -3169,7 +3195,7 @@ for module in ${build_configdirs} ; do
 done
 for module in ${configdirs} ; do
   if test -z "${no_recursion}"; then
-    for file in stage*-${module}/Makefile ${module}/Makefile; do
+    for file in stage*-${module}/Makefile prev-${module}/Makefile ${module}/Makefile; do
       if test -f ${file}; then
 	echo 1>&2 "*** removing ${file} to force reconfigure"
 	rm -f ${file}
@@ -6738,6 +6764,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target as""... $ac_c" 1>&6
 echo "configure:6743: checking where to find the target as" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6771,6 +6798,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target cc""... $ac_c" 1>&6
 echo "configure:6776: checking where to find the target cc" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6804,6 +6832,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target c++""... $ac_c" 1>&6
 echo "configure:6809: checking where to find the target c++" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6840,6 +6869,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target c++ for libstdc++""... $ac_c" 1>&6
 echo "configure:6845: checking where to find the target c++ for libstdc++" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6876,6 +6906,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target dlltool""... $ac_c" 1>&6
 echo "configure:6881: checking where to find the target dlltool" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6909,6 +6940,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target gcc""... $ac_c" 1>&6
 echo "configure:6914: checking where to find the target gcc" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6942,6 +6974,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target gcj""... $ac_c" 1>&6
 echo "configure:6947: checking where to find the target gcj" >&5
 if test "x${build}" != "x${host}" ; then
@@ -6978,6 +7011,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target gfortran""... $ac_c" 1>&6
 echo "configure:6983: checking where to find the target gfortran" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7014,6 +7048,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target ld""... $ac_c" 1>&6
 echo "configure:7019: checking where to find the target ld" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7047,6 +7082,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target lipo""... $ac_c" 1>&6
 echo "configure:7052: checking where to find the target lipo" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7070,6 +7106,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target nm""... $ac_c" 1>&6
 echo "configure:7075: checking where to find the target nm" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7103,6 +7140,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target objdump""... $ac_c" 1>&6
 echo "configure:7108: checking where to find the target objdump" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7136,6 +7174,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target ranlib""... $ac_c" 1>&6
 echo "configure:7141: checking where to find the target ranlib" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7169,6 +7208,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target strip""... $ac_c" 1>&6
 echo "configure:7174: checking where to find the target strip" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7202,6 +7242,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 echo $ac_n "checking where to find the target windres""... $ac_c" 1>&6
 echo "configure:7207: checking where to find the target windres" >&5
 if test "x${build}" != "x${host}" ; then
@@ -7235,6 +7276,7 @@ else
     echo "$ac_t""pre-installed" 1>&6
   fi
 fi
+
 
 
 
@@ -7297,13 +7339,6 @@ case $build in
       yes) stage1_cflags="-g -Wa,-J" ;;
       *) stage1_cflags="-g -J" ;;
     esac ;;
-  powerpc-*-darwin*)
-    # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
-    # sources; use -no-cpp-precomp to get to GNU cpp.
-    # Apple's GCC has bugs in designated initializer handling, so disable
-    # that too.
-    stage1_cflags="-g -no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
-    ;;
 esac
 
 # This is aimed to mimic bootstrap with a non-GCC compiler to catch problems.
@@ -7334,6 +7369,21 @@ fi
 rm -f conftest*
 
   CFLAGS="$saved_CFLAGS"
+fi
+
+
+
+# Enable --enable-checking in stage1 of the compiler.
+# Check whether --enable-stage1-checking or --disable-stage1-checking was given.
+if test "${enable_stage1_checking+set}" = set; then
+  enableval="$enable_stage1_checking"
+  stage1_checking=--enable-checking=${enable_stage1_checking}
+else
+  if test "x$enable_checking" = xno; then
+  stage1_checking=--enable-checking
+else
+  stage1_checking=--enable-checking${enable_checking+=}$enable_checking
+fi
 fi
 
 
@@ -7622,8 +7672,8 @@ s%@OBJDUMP_FOR_TARGET@%$OBJDUMP_FOR_TARGET%g
 s%@RANLIB_FOR_TARGET@%$RANLIB_FOR_TARGET%g
 s%@STRIP_FOR_TARGET@%$STRIP_FOR_TARGET%g
 s%@WINDRES_FOR_TARGET@%$WINDRES_FOR_TARGET%g
-s%@FLAGS_FOR_TARGET@%$FLAGS_FOR_TARGET%g
 s%@RAW_CXX_FOR_TARGET@%$RAW_CXX_FOR_TARGET%g
+s%@FLAGS_FOR_TARGET@%$FLAGS_FOR_TARGET%g
 s%@COMPILER_AS_FOR_TARGET@%$COMPILER_AS_FOR_TARGET%g
 s%@COMPILER_LD_FOR_TARGET@%$COMPILER_LD_FOR_TARGET%g
 s%@COMPILER_NM_FOR_TARGET@%$COMPILER_NM_FOR_TARGET%g
@@ -7631,6 +7681,7 @@ s%@MAINTAINER_MODE_TRUE@%$MAINTAINER_MODE_TRUE%g
 s%@MAINTAINER_MODE_FALSE@%$MAINTAINER_MODE_FALSE%g
 s%@MAINT@%$MAINT%g
 s%@stage1_cflags@%$stage1_cflags%g
+s%@stage1_checking@%$stage1_checking%g
 s%@stage2_werror_flag@%$stage2_werror_flag%g
 s%@datarootdir@%$datarootdir%g
 s%@docdir@%$docdir%g

@@ -141,6 +141,10 @@ Wchar-subscripts
 C ObjC C++ ObjC++ Var(warn_char_subscripts)
 Warn about subscripts whose type is \"char\"
 
+Wclobbered
+C ObjC C++ ObjC++ Var(warn_clobbered) Init(-1)
+Warn about variables that might be changed by \"longjmp\" or \"vfork\"
+
 Wcomment
 C ObjC C++ ObjC++
 Warn about possibly nested block comments, and C++ comments spanning more than one physical line
@@ -264,7 +268,7 @@ C ObjC C++ ObjC++ Var(warn_missing_braces)
 Warn about possibly missing braces around initializers
 
 Wmissing-declarations
-C ObjC Var(warn_missing_declarations)
+C ObjC C++ ObjC++ Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
 Wmissing-field-initializers
@@ -278,6 +282,10 @@ Warn about functions which might be candidates for format attributes
 Wmissing-include-dirs
 C ObjC C++ ObjC++
 Warn about user-specified include directories that do not exist
+
+Wmissing-parameter-type
+C ObjC Var(warn_missing_parameter_type) Init(-1)
+Warn about function parameters declared without a type specifier in K&R-style functions
 
 Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)

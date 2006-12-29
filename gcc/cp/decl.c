@@ -3402,17 +3402,17 @@ cxx_builtin_function (tree decl)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
-  tree       decl2 = copy_node(decl);
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
     {
+      tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl, std_node);
+      builtin_function_1 (decl2, std_node);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl2, NULL_TREE);
+  return builtin_function_1 (decl, NULL_TREE);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -4102,7 +4102,7 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
 static bool
 check_array_designated_initializer (const constructor_elt *ce)
 {
-  /* Designated initializers for array elements arenot supported.  */
+  /* Designated initializers for array elements are not supported.  */
   if (ce->index)
     {
       /* The parser only allows identifiers as designated
@@ -10570,9 +10570,36 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	       parsing the body of the function.  */
 	    ;
 	  else
-	    /* Otherwise, OLDDECL is either a previous declaration of
-	       the same function or DECL1 itself.  */
-	    decl1 = olddecl;
+	    {
+	      /* Otherwise, OLDDECL is either a previous declaration
+		 of the same function or DECL1 itself.  */
+
+	      if (warn_missing_declarations
+		  && olddecl == decl1
+		  && !DECL_MAIN_P (decl1)
+		  && TREE_PUBLIC (decl1)
+		  && !DECL_DECLARED_INLINE_P (decl1))
+		{
+		  tree context;
+
+		  /* Check whether DECL1 is in an anonymous
+		     namespace.  */
+		  for (context = DECL_CONTEXT (decl1);
+		       context;
+		       context = DECL_CONTEXT (context))
+		    {
+		      if (TREE_CODE (context) == NAMESPACE_DECL
+			  && DECL_NAME (context) == NULL_TREE)
+			break;
+		    }
+
+		  if (context == NULL)
+		    warning (OPT_Wmissing_declarations,
+			     "no previous declaration for %q+D", decl1);
+		}
+
+	      decl1 = olddecl;
+	    }
 	}
       else
 	{

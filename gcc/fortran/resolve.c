@@ -173,25 +173,19 @@ resolve_formal_arglist (gfc_symbol * proc)
       if (sym->attr.flavor == FL_UNKNOWN)
 	gfc_add_flavor (&sym->attr, FL_VARIABLE, sym->name, &sym->declared_at);
 
-      if (gfc_pure (proc))
+      if (gfc_pure (proc) && !sym->attr.pointer
+            && sym->attr.flavor != FL_PROCEDURE)
 	{
-	  if (proc->attr.function && !sym->attr.pointer
-              && sym->attr.flavor != FL_PROCEDURE
-	      && sym->attr.intent != INTENT_IN)
-
+	  if (proc->attr.function && sym->attr.intent != INTENT_IN)
 	    gfc_error ("Argument '%s' of pure function '%s' at %L must be "
 		       "INTENT(IN)", sym->name, proc->name,
 		       &sym->declared_at);
 
-	  if (proc->attr.subroutine && !sym->attr.pointer
-	      && sym->attr.intent == INTENT_UNKNOWN)
-
-	    gfc_error
-	      ("Argument '%s' of pure subroutine '%s' at %L must have "
-	       "its INTENT specified", sym->name, proc->name,
-	       &sym->declared_at);
+	  if (proc->attr.subroutine && sym->attr.intent == INTENT_UNKNOWN)
+	    gfc_error ("Argument '%s' of pure subroutine '%s' at %L must "
+		       "have its INTENT specified", sym->name, proc->name,
+		       &sym->declared_at);
 	}
-
 
       if (gfc_elemental (proc))
 	{
@@ -338,6 +332,33 @@ merge_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
       new_arglist->sym = new_sym;
       new_arglist->next = proc->formal;
       proc->formal  = new_arglist;
+    }
+}
+
+
+/* Flag the arguments that are not present in all entries.  */
+
+static void
+check_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
+{
+  gfc_formal_arglist *f, *head;
+  head = new_args;
+
+  for (f = proc->formal; f; f = f->next)
+    {
+      if (f->sym == NULL)
+	continue;
+
+      for (new_args = head; new_args; new_args = new_args->next)
+	{
+	  if (new_args->sym == f->sym)
+	    break;
+	}
+
+      if (new_args)
+	continue;
+
+      f->sym->attr.not_always_present = 1;
     }
 }
 
@@ -540,6 +561,11 @@ resolve_entries (gfc_namespace * ns)
   /* Merge all the entry point arguments.  */
   for (el = ns->entries; el; el = el->next)
     merge_argument_lists (proc, el->sym->formal);
+
+  /* Check the master formal arguments for any that are not
+     present in all entry points.  */
+  for (el = ns->entries; el; el = el->next)
+    check_argument_lists (proc, el->sym->formal);
 
   /* Use the master function for the function body.  */
   ns->proc_name = proc;
@@ -1124,7 +1150,7 @@ find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
    reference.  The corresponding code that is called in creating
    global entities is parse.c.  */
 
-static void
+void
 resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
 {
   gfc_gsymbol * gsym;
@@ -1215,9 +1241,9 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
-
-  if (!gfc_generic_intrinsic (expr->symtree->n.sym->name))
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
+  if (!gfc_intrinsic_name (sym->name, 0))
     {
       gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
@@ -1675,9 +1701,11 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
   sym = c->symtree->n.sym;
-  if (!gfc_generic_intrinsic (sym->name))
+
+  if (!gfc_intrinsic_name (sym->name, 1))
     {
       gfc_error
 	("There is no specific subroutine for the generic '%s' at %L",
@@ -5526,7 +5554,6 @@ static try
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
-  gfc_symtree *st;
 
   if (sym->attr.ambiguous_interfaces && !sym->attr.referenced)
     gfc_warning ("Although not referenced, '%s' at %L has ambiguous "
@@ -5535,16 +5562,6 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->attr.function
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
-
-  st = gfc_find_symtree (gfc_current_ns->sym_root, sym->name);
-  if (st && st->ambiguous
-	 && sym->attr.referenced
-	 && !sym->attr.generic)
-    {
-      gfc_error ("Procedure %s at %L is ambiguous",
-		 sym->name, &sym->declared_at);
-      return FAILURE;
-    }
 
   if (sym->ts.type == BT_CHARACTER)
     {
