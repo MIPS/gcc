@@ -2504,7 +2504,7 @@ rest_of_handle_local_alloc (void)
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed
      to generate these warnings.  */
-  if (extra_warnings)
+  if (warn_clobbered)
     generate_setjmp_warnings ();
 
   /* Determine if the current function is a leaf before running reload
