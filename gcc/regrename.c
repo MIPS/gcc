@@ -302,7 +302,7 @@ regrename_optimize (void)
 		    || fixed_regs[new_reg + i]
 		    || global_regs[new_reg + i]
 		    /* Can't use regs which aren't saved by the prologue.  */
-		    || (! regs_ever_live[new_reg + i]
+		    || (! df_regs_ever_live_p (new_reg + i)
 			&& ! call_used_regs[new_reg + i])
 #ifdef LEAF_REGISTERS
 		    /* We can't use a non-leaf register if we're in a
@@ -353,7 +353,7 @@ regrename_optimize (void)
 
 	  do_replace (this, best_new_reg);
 	  tick[best_new_reg] = ++this_tick;
-	  regs_ever_live[best_new_reg] = 1;
+	  df_set_regs_ever_live (best_new_reg, true);
 
 	  if (dump_file)
 	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);

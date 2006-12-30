@@ -3510,7 +3510,7 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
 
 void set_insn_deleted (rtx insn)
 {
-  df_insn_delete (INSN_UID (insn));
+  df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
   PUT_CODE (insn, NOTE);
 #ifndef USE_MAPPED_LOCATION
   NOTE_SOURCE_FILE (insn) = 0;
@@ -3528,7 +3528,8 @@ remove_insn (rtx insn)
   rtx prev = PREV_INSN (insn);
   basic_block bb;
 
-  df_insn_delete (INSN_UID (insn));
+  /* Later in the code, the block will be marked dirty.  */
+  df_insn_delete (NULL, INSN_UID (insn));
 
   if (prev)
     {

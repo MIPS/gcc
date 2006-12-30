@@ -2301,7 +2301,7 @@ find_gr_spill (enum ia64_frame_regs r, int try_locals)
   if (current_function_is_leaf)
     {
       for (regno = GR_REG (1); regno <= GR_REG (31); regno++)
-	if (! regs_ever_live[regno]
+	if (! df_regs_ever_live_p (regno)
 	    && call_used_regs[regno]
 	    && ! fixed_regs[regno]
 	    && ! global_regs[regno]
@@ -2420,7 +2420,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      since we'll be adjusting that down later.  */
   regno = LOC_REG (78) + ! frame_pointer_needed;
   for (; regno >= LOC_REG (0); regno--)
-    if (regs_ever_live[regno] && !is_emitted (regno))
+    if (df_regs_ever_live_p (regno) && !is_emitted (regno))
       break;
   current_frame_info.n_local_regs = regno - LOC_REG (0) + 1;
 
@@ -2435,13 +2435,13 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   else
     {
       for (regno = IN_REG (7); regno >= IN_REG (0); regno--)
-	if (regs_ever_live[regno])
+	if (df_regs_ever_live_p (regno))
 	  break;
       current_frame_info.n_input_regs = regno - IN_REG (0) + 1;
     }
 
   for (regno = OUT_REG (7); regno >= OUT_REG (0); regno--)
-    if (regs_ever_live[regno])
+    if (df_regs_ever_live_p (regno))
       break;
   i = regno - OUT_REG (0) + 1;
 
@@ -2463,7 +2463,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      which will always wind up on the stack.  */
 
   for (regno = FR_REG (2); regno <= FR_REG (127); regno++)
-    if (regs_ever_live[regno] && ! call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
       {
 	SET_HARD_REG_BIT (mask, regno);
 	spill_size += 16;
@@ -2472,7 +2472,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       }
 
   for (regno = GR_REG (1); regno <= GR_REG (31); regno++)
-    if (regs_ever_live[regno] && ! call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
       {
 	SET_HARD_REG_BIT (mask, regno);
 	spill_size += 8;
@@ -2481,7 +2481,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       }
 
   for (regno = BR_REG (1); regno <= BR_REG (7); regno++)
-    if (regs_ever_live[regno] && ! call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
       {
 	SET_HARD_REG_BIT (mask, regno);
 	spill_size += 8;
@@ -2543,14 +2543,14 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
     }
   else
     {
-      if (regs_ever_live[BR_REG (0)] && ! call_used_regs[BR_REG (0)])
+      if (df_regs_ever_live_p (BR_REG (0)) && ! call_used_regs[BR_REG (0)])
 	{
 	  SET_HARD_REG_BIT (mask, BR_REG (0));
 	  spill_size += 8;
 	  n_spilled += 1;
 	}
 
-      if (regs_ever_live[AR_PFS_REGNUM])
+      if (df_regs_ever_live_p (AR_PFS_REGNUM))
 	{
 	  SET_HARD_REG_BIT (mask, AR_PFS_REGNUM);
  	  current_frame_info.r[reg_save_ar_pfs] 
@@ -2587,7 +2587,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 
   /* See if we need to store the predicate register block.  */
   for (regno = PR_REG (0); regno <= PR_REG (63); regno++)
-    if (regs_ever_live[regno] && ! call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
       break;
   if (regno <= PR_REG (63))
     {
@@ -2603,16 +2603,16 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       /* ??? Mark them all as used so that register renaming and such
 	 are free to use them.  */
       for (regno = PR_REG (0); regno <= PR_REG (63); regno++)
-	regs_ever_live[regno] = 1;
+	df_set_regs_ever_live (regno, true);
     }
 
   /* If we're forced to use st8.spill, we're forced to save and restore
      ar.unat as well.  The check for existing liveness allows inline asm
      to touch ar.unat.  */
   if (spilled_gr_p || cfun->machine->n_varargs
-      || regs_ever_live[AR_UNAT_REGNUM])
+      || df_regs_ever_live_p (AR_UNAT_REGNUM))
     {
-      regs_ever_live[AR_UNAT_REGNUM] = 1;
+      df_set_regs_ever_live (AR_UNAT_REGNUM, true);
       SET_HARD_REG_BIT (mask, AR_UNAT_REGNUM);
       current_frame_info.r[reg_save_ar_unat] 
         = find_gr_spill (reg_save_ar_unat, spill_size == 0);
@@ -2624,7 +2624,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 	}
     }
 
-  if (regs_ever_live[AR_LC_REGNUM])
+  if (df_regs_ever_live_p (AR_LC_REGNUM))
     {
       SET_HARD_REG_BIT (mask, AR_LC_REGNUM);
       current_frame_info.r[reg_save_ar_lc] 

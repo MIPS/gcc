@@ -272,7 +272,7 @@ crx_compute_save_regs (void)
 	     * for the sake of its sons.  */
 	    save_regs[regno] = 1;
 
-	  else if (regs_ever_live[regno])
+	  else if (df_regs_ever_live_p (regno))
 	    /* This reg is used - save it.  */
 	    save_regs[regno] = 1;
 	  else
@@ -282,7 +282,7 @@ crx_compute_save_regs (void)
       else
 	{
 	  /* If this reg is used and not call-used (except RA), save it. */
-	  if (regs_ever_live[regno]
+	  if (df_regs_ever_live_p (regno)
 	      && (!call_used_regs[regno] || regno == RETURN_ADDRESS_REGNUM))
 	    save_regs[regno] = 1;
 	  else

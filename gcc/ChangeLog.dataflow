@@ -1,4 +1,216 @@
 2006-12-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regs.h: (regs_ever_live, regs_asm_clobbered): Removed.
+	* final.c (regs_ever_live, regs_asm_clobbered):	Removed.
+	(only_leaf_regs_used, leaf_renumber_regs_insn): Encapsulated
+	references to regs_ever_live.  
+	* global.c (insn_contains_asm_1, insn_contains_asm, 
+	compute_regs_asm_clobbered): New functions.
+	(global_alloc): Added call to compute_regs_asm_clobbered and
+	encapsulated references to regs_ever_live.
+	(dump_global_regs): Encapsulated references to regs_ever_live.
+	(rest_of_handle_global_alloc): Changed call to df_scan_alloc.
+	* regrename.c (regrename_optimize, regrename_optimize): Encapsulated
+	references to regs_ever_live.  
+	* recog.c (peep2_find_free_register): Ditto.
+	* rtl-factoring (recompute_gain_for_pattern_seq,
+	abstract_best_seq): Ditto.
+	* bt-load.c (move_btr_def, migrate_btr_defs): Ditto.
+	* reg_stack.c (reg_to_stack): Ditto.
+	* config/alpha/alpha.c (alpha_ra_ever_killed, alpha_sa_mask,
+	alpha_sa_size): Ditto.
+	* config/frv/frv.c (frv_stack_info, frv_function_prologue): Ditto.
+	* config/s390/390.c (legitimize_pic_address,
+	legitimize_tls_address, find_unused_clobbered_reg,
+	s390_regs_ever_clobbered, s390_register_info,
+	s390_init_frame_layout, s390_update_frame_layout,
+	s390_emit_prologue): Ditto.
+	* config/m32c/m32.c (need_to_save): Ditto.
+	* config/spu/spu.c (spu_split_immediate): Ditto.
+	* config/sparc/sparc.c (sparc_compute_frame_size,
+	sparc_output_scratch_registers, save_or_restore_regs,
+	order_regs_for_local_alloc): Ditto.
+	* config/m32r/m32r.c (MUST_SAVE_FRAME_POINTER,
+	MUST_SAVE_RETURN_ADDR, m32r_hard_regno_rename_ok): Ditto.
+	* config/i386/i386.h (ix86_current_function_calls_tls_descriptor):
+	Ditto.
+	* config/i386/i386.c (ix86_select_alt_pic_regnum, ix86_save_reg,
+	ix86_expand_prologue, legitimize_pic_address,
+	legitimize_tls_address): Ditto.
+	* config/sh/sh.c (calc_live_regs, sh_media_register_for_return,
+	sh_expand_prologue, sh_hard_regno_rename_ok): Ditto.
+	* config/pdp11/pdp11.c (pdp11_output_function_prologue,
+	pdp11_output_function_epilogue): Ditto.
+	* config/pdp11/pdp11.h (may_call_alloca): Ditto.
+	* config/avr/avr.c (avr_regs_to_save, sequent_regs_live,
+	avr_peep2_scratch_safe): Ditto.
+	* config/crx/crx.h (HARD_REGNO_RENAME_OK): Ditto.
+	* config/crx/crx.c (crx_compute_save_regs): Ditto.
+	* config/c4x/c4x.c (c4x_isr_reg_used_p, c4x_expand_prologue,
+	c4x_null_epilogue_p): Ditto.
+	* config/c4x/c4x.h (reg_class): Ditto.
+	* config/stormy16/stormy16.c (REG_NEEDS_SAVE): Ditto.
+	* config/fr30/fr30.c (MUST_SAVE_FRAME_POINTER,
+	MUST_SAVE_RETURN_POINTER): Ditto.
+	* config/m68hc11/m68hc11.c (m68hc11_initial_elimination_offset, 
+	m68hc11_total_frame_size, expand_prologue): Ditto.
+	* config/cris/cris.c (cris_reg_saved_in_regsave_area, 
+	cris_return_addr_rtx): Ditto.
+	* config/iq2000/iq2000.h (MUST_SAVE_REGISTER): Ditto.
+	* config/iq2000/iq2000.c (iq2000_can_use_return_insn): Ditto.
+	* config/mt/mt.c (mt_compute_frame_size): Ditto.
+	* config/mt/mt.h (save_direction): Ditto.
+	* config/mn10300/mn10300.c (REG_SAVE_BYTES, can_use_return_insn,
+	mn10300_get_live_callee_saved_regs, expand_prologue,
+	initial_offset): Ditto.
+	* config/ia64/ia64.c (find_gr_spill, ia64_compute_frame_size):
+	Ditto.
+	* config/m68k/m68k.c (m68k_save_reg, m68k_hard_regno_rename_ok):
+	Ditto.
+	* config/rs6000/rs6000.c (rs6000_got_register, first_reg_to_save,
+	first_fp_reg_to_save, first_altivec_reg_to_save,
+	compute_vrsave_mask, rs6000_stack_info, create_TOC_reference,
+	rs6000_emit_prologue): Ditto.
+	* config/rs6000/rs6000.h (HARD_REGNO_RENAME_OK): Ditto.
+	* config/arc/arc.c (MUST_SAVE_REGISTER, MUST_SAVE_RETURN_ADDR):
+	Ditto.
+	* config/mcore/mcore.c (calc_live_regs): Ditto.
+	* config/score/score-mdaux.c (score_save_reg_p): Ditto.
+	* config/arm/arm.c (use_return_insn, thumb_find_work_register,
+	arm_compute_save_reg0_reg12_mask, arm_compute_save_reg_mask,
+	arm_get_vfp_saved_size, arm_output_epilogue, thumb_force_lr_save,
+	arm_get_frame_offsets, arm_expand_prologue, thumb_far_jump_used_p,
+	thumb_unexpanded_epilogue, thumb_expand_epilogue): Ditto.
+	* config/arm/arm.h (HARD_REGNO_RENAME_OK): Ditto.
+	* config/pa/pa.c (compute_frame_size, pa_output_function_prologue,
+	hppa_expand_prologue, hppa_expand_epilogue,
+	hppa_can_use_return_insn_p, output_lbranch): Ditto.
+	* config/pa/pa.h (HARD_REGNO_RENAME_OK): Ditto.
+	* config/mips/mips.c (mips_global_pointer, mips_save_reg_p,
+	mips_can_use_return_insn, build_mips16_call_stub): Ditto.
+	* config/vax/vax.c (vax_output_function_prologue): Ditto.
+	* config/v850/v850.c (substitute_ep_register,
+	compute_register_save_size): Ditto.
+	* config/h8300/h8300.c (byte_reg, h8300_hard_regno_rename_ok):
+	Ditto.
+	* config/mmix/mmix.c (MMIX_CFUN_NEEDS_SAVED_EH_RETURN_ADDRESS, 
+	mmix_initial_elimination_offset, mmix_reorg,
+	mmix_use_simple_return, mmix_expand_prologue,
+	mmix_expand_epilogue): Ditto.
+	* config/bfin/bfin.c (n_dregs_to_save, n_pregs_to_save,
+	n_regs_saved_by_prologue, expand_interrupt_handler_prologue,
+	expand_interrupt_handler_epilogue, bfin_hard_regno_rename_ok):
+	Ditto.
+	* reload1.c (reload, mark_home_live, spill_hard_reg,
+	finish_spills): Ditto.
+	* df-scan.c (regs_ever_live): Added as local var.
+	(df_scan_free_internal): Delete bitmap.
+	(df_scan_free_bb_info): Inlined code from removed df_bb_delete.
+	(df_scan_alloc): Removed blocks_to_rescan param and reference to 
+	out_of_date_transfer_functions and added insns_to_notes_rescan.
+	(df_scan_free): Removed reference to
+	out_of_date_transfer_functions.
+	(df_scan_start_dump, df_scan_start_block): Added ";;" in front of
+	debugging lines.
+	(problem_SCAN): Added extra null fields.
+	(df_scan_blocks): Added code to set entry and exit blocks as
+	dirty.
+	(df_insn_delete): Added basic block parameter and support for
+	insns_to_notes_rescan.
+	(df_bb_delete): Removed.
+	(df_insn_rescan, df_insn_rescan_all, df_process_deferred_rescans,
+	df_notes_rescan): Added support for insns_to_notes_rescan.
+	(df_insn_rescan, df_insn_rescan_all, df_process_deferred_rescans):
+	Added extra parameter to df_insn_delete.
+	(df_process_deferred_rescans): Added support to fixup entry and
+	exit blocks if regs_ever_live changes.  
+	(df_insn_change_bb): Added debugging.
+	(df_ref_change_reg_with_loc_1): Added code to dirty the block.
+	(df_insn_contains_asm_1, df_insn_contains_asm): Function moved to
+	global.c.
+	(df_insn_refs_record): Removed code to set insn_contains_asm.
+	(df_bb_refs_record): Now sets itself dirty.
+	(df_get_entry_block_def_set, df_get_exit_block_use_set):
+	Encapsulated references to regs_ever_live.
+	(df_update_entry_block_defs, df_update_exit_block_uses): Added
+	finer grained control on dirtying the block.
+	(df_regs_ever_live_p, df_set_regs_ever_live): New functions.
+	(df_compute_regs_ever_live): New reset parameter.
+	(df_verify_blocks): Renamed to df_scan_verify and added more
+	checking code.
+	* df-core.c (df_add_problem): Initialized solutions_dirty.
+	(df_finish_pass): Added calls to verify transfer functions.
+	(rest_of_handle_df_initialize): Added more initialization for 
+	persistent structures.
+	* (df_hybrid_search_forward, df_hybrid_search_backward,
+	df_iterative_dataflow, df_analyze_problem): Removed single_pass parameter.
+	(df_analyze_problem): Added checking for results of dataflow.
+	(df_analyze): Added more debugging and removed changing
+	out_of_date_transfer functions.
+	(df_get_bb_dirty, df_set_bb_dirty, df_compact_blocks): Supports
+	each problem having it own incremental
+	status bits.
+	(df_clear_bb_dirty, df_verify, df_compute_cfg_image, 
+	df_check_cfg_clean, df_set_clean_cfg): New function.
+	(df_compact_blocks, df_bb_replace): More debugging.
+	*df.h (df_alloc_function, df_local_compute_function): Removed 
+	blocks_to_scan parameter.
+	(df_dataflow_function): Removed single_pass parameter.
+	(df_verify_solution_start, df_verify_solution_end): New function
+	types.
+	(dataflow.out_of_date_transfer_functions,
+	dataflow.solutions_dirty): Moved from df structure so each problem
+	could have its own copy.
+	(df_insn_info.contains_asm, DF_INSN_CONTAINS_ASM): Functionality
+	moved into global.c.
+	(df.solutions.dirty, out_of_date_transfer_functions): Moved to
+	struct dataflow.
+	(df.redo_entry_and_exit, df.insns_to_notes_rescan): New fields.
+	(DF_DEBUG_CFG): Flag to control code to check if cfg modifications
+	are being reported to df.
+	* df-problems.c (df_print_bb_index, df_lr_top_dump,
+	df_lr_bottom_dump, df_ur_top_dump, df_ur_bottom_dump): Cleanup
+	more dump info.
+	(df_ru_alloc, df_ru_local_compute, df_rd_alloc,
+	df_rd_local_compute, df_lr_alloc, df_lr_local_compute,
+	df_ur_alloc, df_ur_local_compute, df_live_alloc, df_urec_alloc,
+	df_urec_local_compute, df_chain_alloc, df_ri_alloc,
+	df_ri_compute): Removed blocks_to_rescan parameter.
+	(problem_RU, problem_RD, problem_LR, problem_UR, problem_LIVE, 
+	problem_UREC, problem_RI): Added two new fields.
+	(df_lr_problem_data, df_ur_problem_data): New data structure to
+	support checking of dataflow solutions.
+	(df_lr_alloc, df_lr_local_compute, df_ur_alloc, 
+	df_ur_local_compute, df_ur_free): Now processes only out of date blocks.
+	(df_lr_reset, df_lr_verify_solution_start,
+	df_lr_verify_solution_end, df_lr_verify_transfer_functions,
+	df_ur_reset, df_ur_local_finalize, df_ur_verify_solution_start,
+	df_ur_verify_solution_end, df_ur_verify_transfer_functions): New function.
+	(df_lr_bb_local_compute, df_lr_local_compute): Moved asm scanning to global.c.
+	(df_lr_local_finalize, df_lr_free, df_live_local_finalize): Added
+	code to support incremental checking of dataflow solution.
+	* passes.c (pass_free_cfg): Moved to before machine_reorg.
+	* cfgrtl.c (rtl_delete_block, rtl_merge_blocks,
+	cfg_layout_merge_blocks): Changed df_delete_basic_blocks to
+	df_bb_delete.
+	(update_bb_for_insn): Changed df_insn_rescan to df_insn_change_bb.
+	(force_nonfallthru_and_redirect): Added call to
+	df_mark_solutions_dirty.
+	* dce.c (dce_process_block): Added more checking code and made the
+	code closer to the functionality in df_lr.
+	(fast_dce): Now skips entry and exit blocks.  Deleted last parm to
+	df_analyze_problem and removed changed bitmap.
+	* fwprop.c (update_df, try_fwprop_subst): Added calls to df_set_bb_dirty.
+	* cfg.c (connect_src, connect_dest, disconnect_src,
+	disconnect_dest): Added calls to df_mark_solutions_dirty.
+	* haifa-sched.c	(move_succs): Ditto.
+	* ifcvt.c (find_cond_trap): Moved calls to df_set_bb_dirty to
+	before deletion of basic block.  
+	* emit-rtl.c (set_insn_deleted, remove_insn): Added basic block
+	parm.
+	* regclass.c (regclass_init): Added reset parm to df_compute_res_ever_live.
+	
+	
+2006-12-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* local_alloc.c (rest_of_handle_local_alloc): changed
 	extra_warnings to warn_clobbered.
 

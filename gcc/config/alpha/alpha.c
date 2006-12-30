@@ -4884,7 +4884,7 @@ alpha_ra_ever_killed (void)
   rtx top;
 
   if (!has_hard_reg_initial_val (Pmode, REG_RA))
-    return regs_ever_live[REG_RA];
+    return (int)df_regs_ever_live_p (REG_RA);
 
   push_topmost_sequence ();
   top = get_insns ();
@@ -7174,7 +7174,7 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
   /* One for every register we have to save.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (! fixed_regs[i] && ! call_used_regs[i]
-	&& regs_ever_live[i] && i != REG_RA
+	&& df_regs_ever_live_p (i) && i != REG_RA
 	&& (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
       {
 	if (i < 32)
@@ -7282,7 +7282,7 @@ alpha_sa_size (void)
       vms_save_fp_regno = -1;
       if (vms_base_regno == HARD_FRAME_POINTER_REGNUM)
 	for (i = 0; i < 32; i++)
-	  if (! fixed_regs[i] && call_used_regs[i] && ! regs_ever_live[i])
+	  if (! fixed_regs[i] && call_used_regs[i] && ! df_regs_ever_live_p (i))
 	    vms_save_fp_regno = i;
 
       if (vms_save_fp_regno == -1 && alpha_procedure_type == PT_REGISTER)

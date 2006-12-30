@@ -145,7 +145,7 @@ enum df_ref_flags
 /* Function prototypes added to df_problem instance.  */
 
 /* Allocate the problem specific data.  */
-typedef void (*df_alloc_function) (bitmap, bitmap);
+typedef void (*df_alloc_function) (bitmap);
 
 /* This function is called if the problem has global data that needs
    to be cleared when ever the set of blocks changes.  The bitmap
@@ -160,13 +160,13 @@ typedef void (*df_reset_function) (bitmap);
 typedef void (*df_free_bb_function) (basic_block, void *);
 
 /* Local compute function.  */
-typedef void (*df_local_compute_function) (bitmap, bitmap);
+typedef void (*df_local_compute_function) (bitmap);
 
 /* Init the solution specific data.  */
 typedef void (*df_init_function) (bitmap);
 
 /* Iterative dataflow function.  */
-typedef void (*df_dataflow_function) (struct dataflow *, bitmap, int *, int, bool);
+typedef void (*df_dataflow_function) (struct dataflow *, bitmap, int *, int);
 
 /* Confluence operator for blocks with 0 out (or in) edges.  */
 typedef void (*df_confluence_function_0) (basic_block);
@@ -194,6 +194,12 @@ typedef void (*df_dump_problem_function) (FILE *);
 /* Function to dump top or bottom of basic block results to FILE.  */
 typedef void (*df_dump_bb_problem_function) (basic_block, FILE *);
 
+/* Function to dump top or bottom of basic block results to FILE.  */
+typedef void (*df_verify_solution_start) (void);
+
+/* Function to dump top or bottom of basic block results to FILE.  */
+typedef void (*df_verify_solution_end) (void);
+
 /* The static description of a dataflow problem to solve.  See above
    typedefs for doc for the function fields.  */
 
@@ -217,6 +223,8 @@ struct df_problem {
   df_dump_problem_function dump_start_fun;
   df_dump_bb_problem_function dump_top_fun;
   df_dump_bb_problem_function dump_bottom_fun;
+  df_verify_solution_start verify_start_fun;
+  df_verify_solution_end verify_end_fun;
   struct df_problem *dependent_problem;
 };
 
@@ -237,6 +245,13 @@ struct dataflow
   /* The pool to allocate the block_info from. */
   alloc_pool block_pool;                
 
+  /* The lr and ur problems have their transfer functions recomputed
+     only if necessary.  This is possible for them because, the
+     problems are kept active for the entire backend and their
+     transfer functions are indexed by the REGNO.  These are not
+     defined for any other problem.  */
+  bitmap out_of_date_transfer_functions;
+
   /* Other problem specific data that is not on a per basic block
      basis.  The structure is generally defined privately for the
      problem.  The exception being the scanning problem where it is
@@ -246,8 +261,18 @@ struct dataflow
   /* Local flags for some of the problems. */
   unsigned int local_flags;
   
-  /* True if this problem of this instance has been initialized.  */
+  /* True if this problem of this instance has been initialized.  This
+     is used by the dumpers to keep garbage out of the dumps if, for
+     debugging a dump is produced before the first call to
+     df_analyze after a new problem is added.  */
   bool computed;
+
+  /* True if the something has changed which invalidates the dataflow
+     solutions.  Note that this bit is always true for all problems except 
+     lr, ur, and live.  */
+  bool solutions_dirty;
+
+
 };
 
 
@@ -278,7 +303,6 @@ struct df_insn_info
   /* ???? The following luid field should be considered private so that
      we can change it on the fly to accommodate new insns?  */
   int luid;			/* Logical UID.  */
-  bool contains_asm;            /* Contains an asm instruction.  */
 };
 
 
@@ -423,12 +447,9 @@ struct df
      for analysis.  */ 
   bitmap blocks_to_analyze;
 
-  /* The set of blocks whose transfer functions are out of date.  */
-  bitmap out_of_date_transfer_functions;
-
-  /* True if the something has changed which invalidates the dataflow
-     solutions.  */
-  bool solutions_dirty;
+  /* True if someone added or deleted something from regs_ever_live so
+     that the entry and exit blocks need be reprocessed.  */
+  bool redo_entry_and_exit;
 
   /* The following information is really the problem data for the
      scanning instance but it is used too often by the other problems
@@ -457,10 +478,12 @@ struct df
   /* The set of hardware registers live on entry to the function.  */
   bitmap entry_block_defs;
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
-  /* Insns to delete at next df_rescan_all or df_process_deferred_rescans. */
+
+  /* Insns to delete, rescan or reprocess the notes at next
+     df_rescan_all or df_process_deferred_rescans. */
   bitmap insns_to_delete;
-  /* Insns to rescan at next df_rescan_all or df_process_deferred_rescans. */
   bitmap insns_to_rescan;
+  bitmap insns_to_notes_rescan;
   int *postorder;                /* The current set of basic blocks in postorder.  */
   int n_blocks;                  /* The number of blocks in postorder.  */
 
@@ -587,7 +610,6 @@ struct df
 #define DF_INSN_SIZE() ((df)->insns_size)
 #define DF_INSN_GET(INSN) (df->insns[(INSN_UID(INSN))])
 #define DF_INSN_SET(INSN,VAL) (df->insns[(INSN_UID (INSN))]=(VAL))
-#define DF_INSN_CONTAINS_ASM(INSN) (DF_INSN_GET(INSN)->contains_asm)
 #define DF_INSN_LUID(INSN) (DF_INSN_GET(INSN)->luid)
 #define DF_INSN_DEFS(INSN) (DF_INSN_GET(INSN)->defs)
 #define DF_INSN_USES(INSN) (DF_INSN_GET(INSN)->uses)
@@ -750,16 +772,26 @@ extern struct df *df;
 #define df_chain (df->problems_by_index[DF_CHAIN])
 #define df_ri    (df->problems_by_index[DF_RI])
 
+/* This symbol turns on checking that each modfication of the cfg has
+  been identified to the appropriate df routines.  It is not part of
+  verification per se because the check that the final solution has
+  not changed covers this.  However, if the solution is not being
+  properly recomputed because the cfg is being modified, adding in
+  calls to df_check_cfg_clean can be used to find the source of that
+  kind of problem.  */
+#if 0
+#define DF_DEBUG_CFG
+#endif
+
 /* Functions defined in df-core.c.  */
 
 extern void df_add_problem (struct df_problem *);
 extern enum df_changeable_flags df_set_flags (enum df_changeable_flags);
 extern enum df_changeable_flags df_clear_flags (enum df_changeable_flags);
 extern void df_set_blocks (bitmap);
-extern void df_delete_basic_block (int);
 extern void df_remove_problem (struct dataflow *);
 extern void df_finish_pass (void);
-extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, int *, int, bool);
+extern void df_analyze_problem (struct dataflow *, bitmap, int *, int);
 extern void df_analyze (void);
 extern int df_get_n_blocks (void);
 extern int *df_get_postorder (void);
@@ -771,6 +803,11 @@ extern bool df_get_bb_dirty (basic_block);
 extern void df_set_bb_dirty (basic_block);
 extern void df_compact_blocks (void);
 extern void df_bb_replace (int, basic_block);
+extern void df_bb_delete (int);
+extern void df_verify (void);
+#ifdef DF_DEBUG_CFG
+extern void df_check_cfg_clean (void);
+#endif
 extern struct df_ref *df_bb_regno_last_use_find (basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_first_def_find (basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_last_def_find (basic_block, unsigned int);
@@ -779,7 +816,7 @@ extern struct df_ref *df_find_def (rtx, rtx);
 extern bool df_reg_defined (rtx, rtx);
 extern struct df_ref *df_find_use (rtx, rtx);
 extern bool df_reg_used (rtx, rtx);
-extern void df_iterative_dataflow (struct dataflow *,bitmap, int *, int, bool);
+extern void df_iterative_dataflow (struct dataflow *,bitmap, int *, int);
 extern void df_print_regset (FILE *file, bitmap r);
 extern void df_dump (FILE *);
 extern void df_dump_start (FILE *);
@@ -813,11 +850,13 @@ extern void df_ru_add_problem (void);
 extern struct df_ru_bb_info *df_ru_get_bb_info (unsigned int);
 extern void df_rd_add_problem (void);
 extern struct df_rd_bb_info *df_rd_get_bb_info (unsigned int);
-extern void df_lr_add_problem (void);
 extern struct df_lr_bb_info *df_lr_get_bb_info (unsigned int);
 extern void df_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
 extern void df_lr_simulate_one_insn (basic_block, rtx, bitmap);
+extern void df_lr_add_problem (void);
+extern void df_lr_verify_transfer_functions (void);
 extern void df_ur_add_problem (void);
+extern void df_ur_verify_transfer_functions (void);
 extern struct df_ur_bb_info *df_ur_get_bb_info (unsigned int);
 extern void df_live_add_problem (void);
 extern struct df_live_bb_info *df_live_get_bb_info (unsigned int);
@@ -829,7 +868,7 @@ extern bitmap df_ri_get_setjmp_crosses (void);
 
 /* Functions defined in df-scan.c.  */
 
-extern void df_scan_alloc (bitmap, bitmap);
+extern void df_scan_alloc (bitmap);
 extern struct df_scan_bb_info *df_scan_get_bb_info (unsigned int);
 extern void df_scan_add_problem (void);
 extern void df_grow_reg_info (void);
@@ -842,9 +881,8 @@ extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
 extern struct df_ref *df_reg_chain_unlink (struct df_ref *);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
-extern void df_insn_delete (unsigned int);
+extern void df_insn_delete (basic_block, unsigned int);
 extern void df_bb_refs_record (int, bool);
-extern void df_bb_delete (unsigned int);
 extern bool df_insn_rescan (rtx);
 extern void df_insn_rescan_all (void);
 extern void df_process_deferred_rescans (void);
@@ -861,9 +899,11 @@ extern void df_update_entry_block_defs (void);
 extern void df_update_exit_block_uses (void);
 extern void df_update_entry_exit_and_calls (void);
 extern bool df_hard_reg_used_p (unsigned int);
-extern void df_compute_regs_ever_live (void);
+extern bool df_regs_ever_live_p (unsigned int);
+extern void df_set_regs_ever_live (unsigned int, bool);
+extern void df_compute_regs_ever_live (bool);
 extern bool df_read_modify_subreg_p (rtx);
-extern void df_verify_blocks (void);
+extern void df_scan_verify (void);
 
 /* web */
 

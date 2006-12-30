@@ -367,7 +367,7 @@ typedef struct machine_function GTY(())
    is already live or already being saved (due to eh).  */
 
 #define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
-  ((NEW_REG) != 2 || regs_ever_live[2] || current_function_calls_eh_return)
+  ((NEW_REG) != 2 || df_regs_ever_live_p (2) || current_function_calls_eh_return)
 
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.

@@ -952,7 +952,7 @@ extern int arm_structure_size_boundary;
    call-clobbered.  */
 #define HARD_REGNO_RENAME_OK(SRC, DST)					\
 	(! IS_INTERRUPT (cfun->machine->func_type) ||			\
-		regs_ever_live[DST])
+	 df_regs_ever_live_p (DST))
 
 /* Register and constant classes.  */
 

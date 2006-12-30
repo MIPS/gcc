@@ -443,6 +443,9 @@ dce_process_block (basic_block bb, bool redo_out)
   bitmap local_live = BITMAP_ALLOC (NULL);
   rtx insn;
   bool block_changed;
+#ifdef ENABLE_CHECKING
+  bool insns_deleted = false;
+#endif
   struct df_ref *def, *use;
   unsigned int bb_index = bb->index;
 
@@ -481,6 +484,8 @@ dce_process_block (basic_block bb, bool redo_out)
 	  {	
 	    bool needed = false;
 
+
+	    /* The insn is needed if there is someone who uses the output.  */
 	    for (def = DF_INSN_DEFS (insn); 
 		 def; def = def->next_ref)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
@@ -509,16 +514,56 @@ dce_process_block (basic_block bb, bool redo_out)
 		else
 		  mark_insn (insn, true);
 	      }
+#ifdef ENABLE_CHECKING
+	    else
+	      insns_deleted = true;
+#endif
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
-	   any regno in the defs from the live set.  */
-	for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	   any regno in the defs from the live set.  This code is a
+	   hacked up version of the regular scanning code in
+	   df-problems.c:df_lr_bb_local_compute.  It must stay in sync.
+	*/
+	if (CALL_P (insn))
 	  {
-	    unsigned int regno = DF_REF_REGNO (def);
-	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	      bitmap_clear_bit (local_live, regno);
+	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	      {
+		unsigned int dregno = DF_REF_REGNO (def);
+		
+		if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
+		  {
+		    if (dregno >= FIRST_PSEUDO_REGISTER
+			|| !(SIBLING_CALL_P (insn)
+			     && bitmap_bit_p (df->exit_block_uses, dregno)
+			     && !refers_to_regno_p (dregno, dregno+1,
+						    current_function_return_rtx,
+						    (rtx *)0)))
+		      {
+			/* If the def is to only part of the reg, it does
+			   not kill the other defs that reach here.  */
+			if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+			  bitmap_clear_bit (local_live, dregno);
+		      }
+		  }
+		else
+		  /* This is the return value.  */
+		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		    bitmap_clear_bit (local_live, dregno);
+	      }
 	  }
+	else
+	  {
+	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	      {
+		unsigned int dregno = DF_REF_REGNO (def);
+		/* If the def is to only part of the reg, it does
+		   not kill the other defs that reach here.  */
+		if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		  bitmap_clear_bit (local_live, dregno);
+	      }
+	  }
+
 	if (marked_insn_p (insn))
 	  for (use = DF_INSN_USES (insn); 
 	       use; use = use->next_ref)
@@ -544,6 +589,9 @@ dce_process_block (basic_block bb, bool redo_out)
   block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
   if (block_changed)
     {
+#ifdef ENABLE_CHECKING
+      gcc_assert (insns_deleted);
+#endif
       BITMAP_FREE (DF_LR_IN (bb));
       DF_LR_IN (bb) = local_live;
     }
@@ -561,9 +609,6 @@ fast_dce (void)
   int i;
   /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
-  /* The set of blocks that will have to be rescaned because some
-     instructions were deleted.  */
-  bitmap changed = BITMAP_ALLOC (NULL);
   /* The set of blocks that need to have the out vectors reset because
      the in of one of their successors has changed.  */
   bitmap redo_out = BITMAP_ALLOC (NULL);
@@ -584,7 +629,15 @@ fast_dce (void)
 	{
 	  int index = postorder [i];
 	  basic_block bb = BASIC_BLOCK (index);
-	  bool local_changed 
+	  bool local_changed;
+
+	  if (index < NUM_FIXED_BLOCKS)
+	    {
+	      bitmap_set_bit (processed, index);
+	      continue;
+	    }
+
+	  local_changed 
 	    = dce_process_block (bb, bitmap_bit_p (redo_out, index));
 	  bitmap_set_bit (processed, index);
 	  
@@ -592,7 +645,6 @@ fast_dce (void)
 	    {
 	      edge e;
 	      edge_iterator ei;
-	      bitmap_set_bit (changed, index);
 	      FOR_EACH_EDGE (e, ei, bb->preds)
 		if (bitmap_bit_p (processed, e->src->index))
 		  /* Be very tricky about when we need to iterate the
@@ -627,11 +679,10 @@ fast_dce (void)
 	     to redo the dataflow equations for the blocks that had a
 	     change at the top of the block.  Then we need to redo the
 	     iteration.  */ 
-	  df_analyze_problem (df_lr, all_blocks, changed, postorder, n_blocks, false);
+	  df_analyze_problem (df_lr, all_blocks, postorder, n_blocks);
 
 	  if (old_flag & DF_LR_RUN_DCE)
 	    df_set_flags (DF_LR_RUN_DCE);
-	  bitmap_clear (changed);
 	  prescan_insns_for_dce ();
 	}
       loop_count++;
@@ -640,7 +691,6 @@ fast_dce (void)
   delete_unmarked_insns ();
 
   BITMAP_FREE (processed);
-  BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);
   BITMAP_FREE (all_blocks);
 }

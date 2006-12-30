@@ -165,7 +165,7 @@ do {								\
 /* Interrupt functions can only use registers that have already been saved by
  * the prologue, even if they would normally be call-clobbered. */
 #define HARD_REGNO_RENAME_OK(SRC, DEST)	\
-	(!crx_interrupt_function_p () || regs_ever_live[DEST])
+  (!crx_interrupt_function_p () || df_regs_ever_live_p (DEST))
 
 #define MODES_TIEABLE_P(MODE1, MODE2)  1
 

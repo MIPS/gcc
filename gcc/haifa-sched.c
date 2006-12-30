@@ -4075,6 +4075,7 @@ move_succs (VEC(edge,gc) **succsp, basic_block to)
   FOR_EACH_EDGE (e, ei, to->succs)
     e->src = to;
 
+  df_mark_solutions_dirty ();
   *succsp = 0;
 }
 

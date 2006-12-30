@@ -414,11 +414,11 @@ enum save_direction
    && (regno) != GPR_FP		  				\
    && (regno) != GPR_SP		  				\
    && (regno) != GPR_R0		  				\
-   &&   (( regs_ever_live [regno] && ! call_used_regs [regno] ) \
+      &&   (( df_regs_ever_live_p (regno) && ! call_used_regs [regno] ) \
        /* Save ira register in an interrupt handler.  */	\
 	|| (interrupt_handler && (regno) == GPR_INTERRUPT_LINK)	\
        /* Save any register used in an interrupt handler.  */	\
-	|| (interrupt_handler && regs_ever_live [regno])	\
+	|| (interrupt_handler && df_regs_ever_live_p (regno))	\
        /* Save call clobbered registers in non-leaf interrupt	\
 	  handlers.  */						\
 	|| (interrupt_handler && call_used_regs[regno] 		\

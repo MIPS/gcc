@@ -166,14 +166,6 @@ extern VEC(reg_info_p,heap) *reg_n_info;
 
 extern short *reg_renumber;
 
-/* Vector indexed by hardware reg saying whether that reg is ever used.  */
-
-extern char regs_ever_live[FIRST_PSEUDO_REGISTER];
-
-/* Like regs_ever_live, but saying whether reg is set by asm statements.  */
-
-extern char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
-
 /* Vector indexed by machine mode saying whether there are regs of that mode.  */
 
 extern bool have_regs_of_mode [MAX_MACHINE_MODE];

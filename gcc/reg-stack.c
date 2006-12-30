@@ -3105,7 +3105,7 @@ reg_to_stack (void)
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       break;
   if (i > LAST_STACK_REG)
     return false;

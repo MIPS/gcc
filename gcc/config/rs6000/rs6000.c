@@ -10302,8 +10302,8 @@ rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
   /* The second flow pass currently (June 1999) can't update
      regs_ever_live without disturbing other parts of the compiler, so
      update it here to make the prolog/epilogue code happy.  */
-  if (no_new_pseudos && ! regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM])
-    regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+  if (no_new_pseudos && ! df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
+    df_set_regs_ever_live (RS6000_PIC_OFFSET_TABLE_REGNUM, true);
 
   current_function_uses_pic_offset_table = 1;
 
@@ -12925,7 +12925,7 @@ first_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 13; first_reg <= 31; first_reg++)
-    if (regs_ever_live[first_reg]
+    if (df_regs_ever_live_p (first_reg)
 	&& (! call_used_regs[first_reg]
 	    || (first_reg == RS6000_PIC_OFFSET_TABLE_REGNUM
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
@@ -12952,7 +12952,7 @@ first_fp_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 14 + 32; first_reg <= 63; first_reg++)
-    if (regs_ever_live[first_reg])
+    if (df_regs_ever_live_p (first_reg))
       break;
 
   return first_reg;
@@ -12971,7 +12971,7 @@ first_altivec_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (i = FIRST_ALTIVEC_REGNO + 20; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       break;
 
   return i;
@@ -12988,7 +12988,7 @@ compute_vrsave_mask (void)
 
   /* First, find out if we use _any_ altivec registers.  */
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
 
   if (mask == 0)
@@ -13249,13 +13249,13 @@ rs6000_stack_info (void)
       || rs6000_ra_ever_killed ())
     {
       info_ptr->lr_save_p = 1;
-      regs_ever_live[LINK_REGISTER_REGNUM] = 1;
+      df_set_regs_ever_live (LINK_REGISTER_REGNUM, true);
     }
 
   /* Determine if we need to save the condition code registers.  */
-  if (regs_ever_live[CR2_REGNO]
-      || regs_ever_live[CR3_REGNO]
-      || regs_ever_live[CR4_REGNO])
+  if (df_regs_ever_live_p (CR2_REGNO)
+      || df_regs_ever_live_p (CR3_REGNO)
+      || df_regs_ever_live_p (CR4_REGNO))
     {
       info_ptr->cr_save_p = 1;
       if (DEFAULT_ABI == ABI_V4)
@@ -13992,7 +13992,7 @@ rtx
 create_TOC_reference (rtx symbol)
 {
   if (no_new_pseudos)
-    regs_ever_live[TOC_REGISTER] = 1;
+    df_set_regs_ever_live (TOC_REGISTER, true);
   return gen_rtx_PLUS (Pmode,
 	   gen_rtx_REG (Pmode, TOC_REGISTER),
 	     gen_rtx_CONST (Pmode,
@@ -14719,7 +14719,7 @@ rs6000_emit_prologue (void)
     {
       int i;
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-	if ((regs_ever_live[info->first_fp_reg_save+i]
+	if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
 	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, DFmode,
 			   info->first_fp_reg_save + i,
@@ -14786,7 +14786,7 @@ rs6000_emit_prologue (void)
     {
       int i;
       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-	if ((regs_ever_live[info->first_gp_reg_save + i]
+	if ((df_regs_ever_live_p (info->first_gp_reg_save + i)
 	     && (!call_used_regs[info->first_gp_reg_save + i]
 		 || (i + info->first_gp_reg_save
 		     == RS6000_PIC_OFFSET_TABLE_REGNUM
@@ -14935,7 +14935,7 @@ rs6000_emit_prologue (void)
   if ((TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
       || (DEFAULT_ABI == ABI_V4
 	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
-	  && regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM]))
+	  && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM)))
     {
       /* If emit_load_toc_table will use the link register, we need to save
 	 it.  We use R12 for this purpose because emit_load_toc_table
@@ -15332,7 +15332,7 @@ rs6000_emit_epilogue (int sibcall)
     }
   else
     for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-      if ((regs_ever_live[info->first_gp_reg_save + i]
+      if ((df_regs_ever_live_p (info->first_gp_reg_save + i)
 	   && (!call_used_regs[info->first_gp_reg_save + i]
 	       || (i + info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
 		   && TARGET_TOC && TARGET_MINIMAL_TOC)))
@@ -15371,7 +15371,7 @@ rs6000_emit_epilogue (int sibcall)
   /* Restore fpr's if we need to do it without calling a function.  */
   if (restoring_FPRs_inline)
     for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-      if ((regs_ever_live[info->first_fp_reg_save+i]
+      if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	   && ! call_used_regs[info->first_fp_reg_save+i]))
 	{
 	  rtx addr, mem;
@@ -15395,7 +15395,7 @@ rs6000_emit_epilogue (int sibcall)
       if (using_mtcr_multiple)
 	{
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      count++;
 	  gcc_assert (count);
 	}
@@ -15409,7 +15409,7 @@ rs6000_emit_epilogue (int sibcall)
 
 	  ndx = 0;
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      {
 		rtvec r = rtvec_alloc (2);
 		RTVEC_ELT (r, 0) = r12_rtx;
@@ -15424,7 +15424,7 @@ rs6000_emit_epilogue (int sibcall)
 	}
       else
 	for (i = 0; i < 8; i++)
-	  if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	  if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	    {
 	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode,
 							   CR0_REGNO+i),

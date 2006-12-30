@@ -5166,7 +5166,7 @@ ix86_select_alt_pic_regnum (void)
     {
       int i;
       for (i = 2; i >= 0; --i)
-        if (!regs_ever_live[i])
+        if (!df_regs_ever_live_p (i))
 	  return i;
     }
 
@@ -5179,7 +5179,7 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 {
   if (pic_offset_table_rtx
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
-      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+      && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || current_function_profile
 	  || current_function_calls_eh_return
 	  || current_function_uses_const_pool))
@@ -5206,7 +5206,7 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
       && regno == REGNO (cfun->machine->force_align_arg_pointer))
     return 1;
 
-  return (regs_ever_live[regno]
+  return (df_regs_ever_live_p (regno)
 	  && !call_used_regs[regno]
 	  && !fixed_regs[regno]
 	  && (regno != HARD_FRAME_POINTER_REGNUM || !frame_pointer_needed));
@@ -5679,7 +5679,7 @@ ix86_expand_prologue (void)
 
   pic_reg_used = false;
   if (pic_offset_table_rtx
-      && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
+      && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || current_function_profile))
     {
       unsigned int alt_pic_reg_used = ix86_select_alt_pic_regnum ();
@@ -6787,7 +6787,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	 base address (@GOTOFF).  */
 
       if (reload_in_progress)
-	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -6818,7 +6818,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	 base address (@GOTOFF).  */
 
       if (reload_in_progress)
-	regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -6860,7 +6860,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	     Global Offset Table (@GOT).  */
 
 	  if (reload_in_progress)
-	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -6911,7 +6911,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	      if (!TARGET_64BIT)
 		{
 		  if (reload_in_progress)
-		    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+		    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 		  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					UNSPEC_GOTOFF);
 		  new = gen_rtx_PLUS (Pmode, new, op1);
@@ -7069,7 +7069,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
       else if (flag_pic)
 	{
 	  if (reload_in_progress)
-	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 	  pic = pic_offset_table_rtx;
 	  type = TARGET_ANY_GNU_TLS ? UNSPEC_GOTNTPOFF : UNSPEC_GOTTPOFF;
 	}

@@ -2841,7 +2841,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
       if (! HARD_REGNO_MODE_OK (regno, mode))
 	continue;
       /* And that we don't create an extra save/restore.  */
-      if (! call_used_regs[regno] && ! regs_ever_live[regno])
+      if (! call_used_regs[regno] && ! df_regs_ever_live_p (regno))
 	continue;
       /* And we don't clobber traceback for noreturn functions.  */
       if ((regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM)

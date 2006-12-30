@@ -127,7 +127,7 @@ static int
 score_save_reg_p (unsigned int regno)
 {
   /* Check call-saved registers.  */
-  if (regs_ever_live[regno] && !call_used_regs[regno])
+  if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
     return 1;
 
   /* We need to save the old frame pointer before setting up a new one.  */
@@ -136,7 +136,7 @@ score_save_reg_p (unsigned int regno)
 
   /* We need to save the incoming return address if it is ever clobbered
      within the function.  */
-  if (regno == RA_REGNUM && regs_ever_live[regno])
+  if (regno == RA_REGNUM && df_regs_ever_live_p (regno))
     return 1;
 
   return 0;

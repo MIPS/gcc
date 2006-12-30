@@ -6287,7 +6287,7 @@ mips_global_pointer (void)
 
      In cases like these, reload will have added the constant to the pool
      but no instruction will yet refer to it.  */
-  if (!regs_ever_live[GLOBAL_POINTER_REGNUM]
+  if (!df_regs_ever_live_p (GLOBAL_POINTER_REGNUM)
       && !current_function_uses_const_pool
       && !mips_function_has_gp_insn ())
     return 0;
@@ -6296,7 +6296,7 @@ mips_global_pointer (void)
      register instead of $gp.  */
   if (TARGET_NEWABI && current_function_is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
-      if (!regs_ever_live[regno]
+      if (!df_regs_ever_live_p (regno)
 	  && call_used_regs[regno]
 	  && !fixed_regs[regno]
 	  && regno != PIC_FUNCTION_ADDR_REGNUM)
@@ -6317,7 +6317,7 @@ mips_save_reg_p (unsigned int regno)
 	    && cfun->machine->global_pointer == regno);
 
   /* Check call-saved registers.  */
-  if (regs_ever_live[regno] && !call_used_regs[regno])
+  if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
     return true;
 
   /* We need to save the old frame pointer before setting up a new one.  */
@@ -6326,7 +6326,7 @@ mips_save_reg_p (unsigned int regno)
 
   /* We need to save the incoming return address if it is ever clobbered
      within the function.  */
-  if (regno == GP_REG_FIRST + 31 && regs_ever_live[regno])
+  if (regno == GP_REG_FIRST + 31 && df_regs_ever_live_p (regno))
     return true;
 
   if (TARGET_MIPS16)
@@ -6338,7 +6338,7 @@ mips_save_reg_p (unsigned int regno)
       /* $18 is a special case in mips16 code.  It may be used to call
 	 a function which returns a floating point value, but it is
 	 marked in call_used_regs.  */
-      if (regno == GP_REG_FIRST + 18 && regs_ever_live[regno])
+      if (regno == GP_REG_FIRST + 18 && df_regs_ever_live_p (regno))
 	return true;
 
       /* $31 is also a special case.  It will be used to copy a return
@@ -7162,7 +7162,7 @@ mips_can_use_return_insn (void)
   if (! reload_completed)
     return 0;
 
-  if (regs_ever_live[31] || current_function_profile)
+  if (df_regs_ever_live_p (31) || current_function_profile)
     return 0;
 
   return_type = DECL_RESULT (current_function_decl);
@@ -8210,7 +8210,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 
       /* If we are handling a floating point return value, we need to
          save $18 in the function prologue.  Putting a note on the
-         call will mean that regs_ever_live[$18] will be true if the
+         call will mean that df_regs_ever_live_p ($18) will be true if the
          call is not eliminated, and we can check that in the prologue
          code.  */
       if (fpret)

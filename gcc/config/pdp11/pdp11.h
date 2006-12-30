@@ -566,10 +566,10 @@ extern int may_call_alloca;
   int offset, regno;		      				\
   offset = get_frame_size();					\
   for (regno = 0; regno < 8; regno++)				\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	\
       offset += 2;						\
   for (regno = 8; regno < 14; regno++)				\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	\
       offset += 8;						\
   /* offset -= 2;   no fp on stack frame */			\
   (DEPTH_VAR) = offset;						\

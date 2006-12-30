@@ -697,7 +697,7 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 				 base_reg_class (VOIDmode, MEM, SCRATCH)))
 #endif
         || (hascall && call_used_regs[i])
-        || (!call_used_regs[i] && !regs_ever_live[i]))
+        || (!call_used_regs[i] && !df_regs_ever_live_p (i)))
       CLEAR_HARD_REG_BIT (linkregs, i);
 
   /* Find an appropriate register to be used as the link register.  */
@@ -1132,7 +1132,7 @@ abstract_best_seq (void)
   free_seq_blocks ();
 
   /* Record the usage of the link register.  */
-  regs_ever_live[REGNO (pattern_seqs->link_reg)] = 1;
+  df_set_regs_ever_live (REGNO (pattern_seqs->link_reg), true);
 
   /* Remove the best pattern sequence.  */
   bestpseq = pattern_seqs;

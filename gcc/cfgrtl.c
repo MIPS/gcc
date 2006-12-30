@@ -308,7 +308,6 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   update_bb_for_insn (bb);
   BB_SET_PARTITION (bb, BB_UNPARTITIONED);
 
-
   /* Tag the block so that we know it has been used when considering
      other basic block notes.  */
   bb->aux = bb;
@@ -381,7 +380,7 @@ rtl_delete_block (basic_block b)
 
   if (dump_file)
     fprintf (dump_file, "deleting block %d\n", b->index);
-  df_delete_basic_block (b->index);
+  df_bb_delete (b->index);
 }
 
 /* Records the basic block struct in BLOCK_FOR_INSN for every insn.  */
@@ -467,7 +466,7 @@ update_bb_for_insn (basic_block bb)
       if (!BARRIER_P (insn))
 	{
 	  set_block_for_insn (insn, bb);
-	  df_insn_rescan (insn);
+	  df_insn_change_bb (insn);
 	}
       if (insn == BB_END (bb))
 	break;
@@ -633,9 +632,8 @@ rtl_merge_blocks (basic_block a, basic_block b)
       a_end = b_end;
     }
 
-  df_delete_basic_block (b->index);
+  df_bb_delete (b->index);
   BB_END (a) = a_end;
-
 }
 
 
@@ -868,7 +866,6 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 
   if (e->dest != target)
     redirect_edge_succ (e, target);
-
   return e;
 }
 
@@ -952,6 +949,7 @@ redirect_branch_edge (edge e, basic_block target)
 
   if (e->dest != target)
     e = redirect_edge_succ_nodup (e, target);
+
   return e;
 }
 
@@ -1147,6 +1145,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
   if (abnormal_edge_flags)
     make_edge (src, target, abnormal_edge_flags);
 
+  df_mark_solutions_dirty (); 
   return new_bb;
 }
 
@@ -2600,7 +2599,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
       delete_insn (insn);
     }
 
-  df_delete_basic_block (b->index);
+  df_bb_delete (b->index);
 
   /* Possible tablejumps and barriers should appear after the block.  */
   if (b->il.rtl->footer)

@@ -285,6 +285,61 @@ static struct { int allocno1, allocno2;}
 static rtx *regs_set;
 static int n_regs_set;
 
+
+/* Return true if *LOC contains an asm.  */
+
+static int
+insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
+{
+  if ( !*loc)
+    return 0;
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    return 1;
+  return 0;
+}
+
+
+/* Return true if INSN contains an ASM.  */
+
+static int
+insn_contains_asm (rtx insn)
+{
+  return for_each_rtx (&insn, insn_contains_asm_1, NULL);
+}
+
+
+static void
+compute_regs_asm_clobbered (char *regs_asm_clobbered)
+{
+  basic_block bb;
+
+  memset (regs_asm_clobbered, 0, sizeof (char) * FIRST_PSEUDO_REGISTER);
+  
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      FOR_BB_INSNS_REVERSE (bb, insn)
+	{
+	  struct df_ref *def;
+	  if (insn_contains_asm (insn))
+	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	      {
+		unsigned int dregno = DF_REF_REGNO (def);
+		if (dregno < FIRST_PSEUDO_REGISTER)
+		  {
+		    unsigned int i;
+		    enum machine_mode mode = GET_MODE (DF_REF_REAL_REG (def));
+		    unsigned int end = dregno 
+		      + hard_regno_nregs[dregno][mode] - 1;
+		    for (i = dregno; i <= end; ++i)
+		      regs_asm_clobbered[i] = 1;
+		  }
+	      }
+	}
+    }
+}
+
+
 /* All registers that can be eliminated.  */
 
 static HARD_REG_SET eliminable_regset;
@@ -319,6 +374,12 @@ static int
 global_alloc (void)
 {
   int retval;
+
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
+
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
@@ -344,6 +405,7 @@ global_alloc (void)
 
   CLEAR_HARD_REG_SET (no_global_alloc_regs);
 
+  compute_regs_asm_clobbered (regs_asm_clobbered);
   /* Build the regset of all eliminable registers and show we can't use those
      that we already know won't be eliminated.  */
 #ifdef ELIMINABLE_REGS
@@ -364,7 +426,7 @@ global_alloc (void)
 	error ("%s cannot be used in asm here",
 	       reg_names[eliminables[i].from]);
       else
-	regs_ever_live[eliminables[i].from] = 1;
+	df_set_regs_ever_live (eliminables[i].from, true);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
@@ -377,7 +439,7 @@ global_alloc (void)
     error ("%s cannot be used in asm here",
 	   reg_names[HARD_FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
 #endif
 
 #else
@@ -390,7 +452,7 @@ global_alloc (void)
   else if (need_fp)
     error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (FRAME_POINTER_REGNUM, true);
 #endif
 
   /* Track which registers have already been used.  Start with registers
@@ -412,14 +474,14 @@ global_alloc (void)
     else
       cheap_regs = call_used_regs;
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      if (regs_ever_live[i] || cheap_regs[i])
+      if (df_regs_ever_live_p (i) || cheap_regs[i])
 	SET_HARD_REG_BIT (regs_used_so_far, i);
   }
 #else
   /* We consider registers that do not have to be saved over calls as if
      they were already used since there is no cost in using them.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i] || call_used_regs[i])
+    if (df_regs_ever_live_p (i) || call_used_regs[i])
       SET_HARD_REG_BIT (regs_used_so_far, i);
 #endif
 
@@ -491,7 +553,7 @@ global_alloc (void)
 
   /* We can't override local-alloc for a reg used not just by local-alloc.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       local_reg_n_refs[i] = 0, local_reg_freq[i] = 0;
 
   if (dump_file)
@@ -503,7 +565,8 @@ global_alloc (void)
 	}
       fprintf (dump_file, "regs_ever_live =");
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	fprintf (dump_file, " %d", (int)i);
+	if (df_regs_ever_live_p (i))
+	  fprintf (dump_file, " %d", (int)i);
       fprintf (dump_file, "\n");
     }
   allocno_row_words = (max_allocno + INT_BITS - 1) / INT_BITS;
@@ -1994,7 +2057,7 @@ dump_global_regs (FILE *file)
 
   fprintf (file, "\n\n;; Hard regs used: ");
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       fprintf (file, " %d", i);
   fprintf (file, "\n\n");
 }
@@ -2038,7 +2101,7 @@ rest_of_handle_global_alloc (void)
      going to help here because it does not touch the artificial uses
      and defs.  */
   df_finish_pass ();
-  df_scan_alloc (NULL, NULL);
+  df_scan_alloc (NULL);
   df_scan_blocks ();
   return 0;
 }

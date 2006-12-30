@@ -172,22 +172,6 @@ CC_STATUS cc_status;
 CC_STATUS cc_prev_status;
 #endif
 
-/* Indexed by hardware reg number, is 1 if that register is ever
-   used in the current function.
-
-   In df-scan.c, this is set up to record the hard regs used
-   explicitly.  Reload adds in the hard regs used for holding pseudo
-   regs.  Final uses it to generate the code in the function prologue
-   and epilogue to save and restore registers as needed.  */
-
-char regs_ever_live[FIRST_PSEUDO_REGISTER];
-
-/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
-   Unlike regs_ever_live, elements of this array corresponding to
-   eliminable regs like the frame pointer are set if an asm sets them.  */
-
-char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
-
 /* Nonzero means current function must be given a frame pointer.
    Initialized in function.c to 0.  Set only in reload1.c as per
    the needs of the function.  */
@@ -3708,7 +3692,7 @@ only_leaf_regs_used (void)
   const char *const permitted_reg_in_leaf_functions = LEAF_REGISTERS;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if ((regs_ever_live[i] || global_regs[i])
+    if ((df_regs_ever_live_p (i) || global_regs[i])
 	&& ! permitted_reg_in_leaf_functions[i])
       return 0;
 
@@ -3776,8 +3760,8 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	}
       newreg = LEAF_REG_REMAP (newreg);
       gcc_assert (newreg >= 0);
-      regs_ever_live[REGNO (in_rtx)] = 0;
-      regs_ever_live[newreg] = 1;
+      df_set_regs_ever_live (REGNO (in_rtx), false);
+      df_set_regs_ever_live (newreg, true);
       REGNO (in_rtx) = newreg;
       in_rtx->used = 1;
     }

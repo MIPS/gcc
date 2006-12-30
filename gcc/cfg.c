@@ -209,6 +209,7 @@ static inline void
 connect_src (edge e)
 {
   VEC_safe_push (edge, gc, e->src->succs, e);
+  df_mark_solutions_dirty ();
 }
 
 /* Connect E to E->dest.  */
@@ -219,6 +220,7 @@ connect_dest (edge e)
   basic_block dest = e->dest;
   VEC_safe_push (edge, gc, dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
+  df_mark_solutions_dirty ();
 }
 
 /* Disconnect edge E from E->src.  */
@@ -241,6 +243,7 @@ disconnect_src (edge e)
 	ei_next (&ei);
     }
 
+  df_mark_solutions_dirty ();
   gcc_unreachable ();
 }
 
@@ -258,6 +261,7 @@ disconnect_dest (edge e)
      to update dest_idx of the edge that moved into the "hole".  */
   if (dest_idx < EDGE_COUNT (dest->preds))
     EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+  df_mark_solutions_dirty ();
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -279,7 +283,6 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   connect_dest (e);
 
   execute_on_growing_pred (e);
-
   return e;
 }
 

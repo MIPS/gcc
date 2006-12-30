@@ -3213,12 +3213,12 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
-  if (EDGE_COUNT (trap_bb->preds) == 0)
-    delete_basic_block (trap_bb);
-
   df_set_bb_dirty (test_bb);
   df_set_bb_dirty (then_bb);
   df_set_bb_dirty (else_bb);
+
+  if (EDGE_COUNT (trap_bb->preds) == 0)
+    delete_basic_block (trap_bb);
 
   /* If the non-trap block and the test are now adjacent, merge them.
      Otherwise we must insert a direct branch.  */

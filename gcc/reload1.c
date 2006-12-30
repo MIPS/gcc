@@ -694,7 +694,7 @@ reload (rtx first, int global)
   if (current_function_has_nonlocal_label)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
-	regs_ever_live[i] = 1;
+	df_set_regs_ever_live (i, true);
 
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
@@ -1260,7 +1260,7 @@ reload (rtx first, int global)
       static int verbose_warned = 0;
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (regs_ever_live[i] && ! fixed_regs[i] && call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! fixed_regs[i] && call_used_regs[i])
 	  size += UNITS_PER_WORD;
 
       if (size > STACK_CHECK_MAX_FRAME_SIZE)
@@ -2141,7 +2141,7 @@ mark_home_live (int regno)
     return;
   lim = i + hard_regno_nregs[i][PSEUDO_REGNO_MODE (regno)];
   while (i < lim)
-    regs_ever_live[i++] = 1;
+    df_set_regs_ever_live(i++, true);
 }
 
 /* This function handles the tracking of elimination offsets around branches.
@@ -3691,7 +3691,7 @@ spill_hard_reg (unsigned int regno, int cant_eliminate)
   if (cant_eliminate)
     {
       SET_HARD_REG_BIT (bad_spill_regs_global, regno);
-      regs_ever_live[regno] = 1;
+      df_set_regs_ever_live (regno, true);
     }
 
   /* Spill every pseudo reg that was allocated to this reg
@@ -3738,9 +3738,9 @@ finish_spills (int global)
       {
 	spill_reg_order[i] = n_spills;
 	spill_regs[n_spills++] = i;
-	if (num_eliminable && ! regs_ever_live[i])
+	if (num_eliminable && ! df_regs_ever_live_p (i))
 	  something_changed = 1;
-	regs_ever_live[i] = 1;
+	df_set_regs_ever_live (i, true);
       }
     else
       spill_reg_order[i] = -1;

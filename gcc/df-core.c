@@ -138,7 +138,7 @@ INCREMENTAL SCANNING
 There are four ways of doing the incremental scanning:
 
 1) Immediate rescanning - Calls to df_insn_rescan, df_notes_rescan,
-   df_delete_basic_block, df_insn_change_bb have been added to most of
+   df_bb_delete, df_insn_change_bb have been added to most of
    the low level service functions that maintain the cfg and change
    rtl.  Calling and of these routines many cause some number of insns
    to be rescanned.
@@ -404,6 +404,10 @@ are write-only operations.
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
+#ifdef DF_DEBUG_CFG
+static void df_set_clean_cfg (void);
+#endif
+
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
@@ -432,6 +436,7 @@ df_add_problem (struct df_problem *problem)
   dflow = XCNEW (struct dataflow);
   dflow->problem = problem;
   dflow->computed = false;
+  dflow->solutions_dirty = true;
   df->problems_in_order[df->num_problems_defined++] = dflow;
   df->problems_by_index[dflow->problem->id] = dflow;
 }
@@ -552,35 +557,7 @@ df_set_blocks (bitmap blocks)
   df->use_info.add_refs_inline = false;
   df->use_info.refs_organized_with_eq_uses = false;
   df->use_info.refs_organized_alone = false;
-}
-
-
-/* Free all of the per basic block dataflow from all of the problems.
-   This is typically called before a basic block is deleted and the
-   problem will be reanalyzed.  */
-
-void
-df_delete_basic_block (int bb_index)
-{
-  basic_block bb = BASIC_BLOCK (bb_index);
-  int i;
-
-  if (!df)
-    return;
-  
-  for (i = 0; i < df->num_problems_defined; i++)
-    {
-      struct dataflow *dflow = df->problems_in_order[i];
-      if (dflow->problem->free_bb_fun)
-	{
-	  void *bb_info = df_get_bb_info (dflow, bb_index);
-	  if (bb_info)
-	    {
-	      dflow->problem->free_bb_fun (bb, bb_info); 
-	      df_set_bb_info (dflow, bb_index, NULL);
-	    }
-	}
-    }
+  df_mark_solutions_dirty ();
 }
 
 
@@ -629,8 +606,17 @@ df_finish_pass (void)
 {
   int i;
   int removed = 0;
+
+#ifdef ENABLE_CHECKING
+  enum df_changeable_flags saved_flags;
+#endif
+
   if (!df)
     return;
+
+#ifdef ENABLE_CHECKING
+  saved_flags = df->changeable_flags;
+#endif
 
   for (i = DF_FIRST_OPTIONAL_PROBLEM; i < df->num_problems_defined; i++)
     {
@@ -650,6 +636,7 @@ df_finish_pass (void)
     {
       BITMAP_FREE (df->blocks_to_analyze);
       df->blocks_to_analyze = NULL;
+      df_mark_solutions_dirty ();
     }
 
   /* Clear all of the flags.  */
@@ -662,6 +649,19 @@ df_finish_pass (void)
   df->use_info.add_refs_inline = false;
   df->use_info.refs_organized_with_eq_uses = false;
   df->use_info.refs_organized_alone = false;
+
+#ifdef ENABLE_CHECKING
+  /* Verification will fail in DF_NO_INSN_RESCAN.  */
+  if (!(saved_flags & DF_NO_INSN_RESCAN))
+    {
+      df_lr_verify_transfer_functions ();
+      df_ur_verify_transfer_functions ();
+    }
+
+#ifdef DF_DEBUG_CFG
+  df_set_clean_cfg ();
+#endif
+#endif
 }
 
 
@@ -679,7 +679,7 @@ rest_of_handle_df_initialize (void)
   current_function_sp_is_unchanging = 0;
 
   df_scan_add_problem ();
-  df_scan_alloc (NULL, NULL);
+  df_scan_alloc (NULL);
 
   /* These three problems are permanent.  */
   df_lr_add_problem ();
@@ -689,12 +689,17 @@ rest_of_handle_df_initialize (void)
   df->postorder = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
 
+  /* These will be initialized when df_scan_blocks processes each
+     block.  */
+  df_lr->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
+  df_ur->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
+  
+  df_hard_reg_init ();
   /* After reload, some ports add certain bits to regs_ever_live so
      this cannot be reset.  */
-  memset (regs_ever_live, 0, sizeof (regs_ever_live));
-  df_hard_reg_init ();
+  df_compute_regs_ever_live (true);
   df_scan_blocks ();
-  df_compute_regs_ever_live ();
+  df_compute_regs_ever_live (false);
   return 0;
 }
 
@@ -773,8 +778,7 @@ struct tree_opt_pass pass_df_finish =
 
 static void
 df_hybrid_search_forward (basic_block bb, 
-			  struct dataflow *dataflow,
-			  bool single_pass)
+			  struct dataflow *dataflow)
 {
   int result_changed;
   int i = bb->index;
@@ -799,7 +803,7 @@ df_hybrid_search_forward (basic_block bb,
   
   result_changed = dataflow->problem->trans_fun (i);
   
-  if (!result_changed || single_pass)
+  if (!result_changed)
     return;
   
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -819,14 +823,13 @@ df_hybrid_search_forward (basic_block bb,
       if (!TEST_BIT (dataflow->considered, e->dest->index))
 	continue;
       if (!TEST_BIT (dataflow->visited, e->dest->index))
-	df_hybrid_search_forward (e->dest, dataflow, single_pass);
+	df_hybrid_search_forward (e->dest, dataflow);
     }
 }
 
 static void
 df_hybrid_search_backward (basic_block bb,
-			   struct dataflow *dataflow,
-			   bool single_pass)
+			   struct dataflow *dataflow)
 {
   int result_changed;
   int i = bb->index;
@@ -851,7 +854,7 @@ df_hybrid_search_backward (basic_block bb,
 
   result_changed = dataflow->problem->trans_fun (i);
   
-  if (!result_changed || single_pass)
+  if (!result_changed)
     return;
   
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -874,23 +877,19 @@ df_hybrid_search_backward (basic_block bb,
 	continue;
       
       if (!TEST_BIT (dataflow->visited, e->src->index))
-	df_hybrid_search_backward (e->src, dataflow, single_pass);
+	df_hybrid_search_backward (e->src, dataflow);
     }
 }
 
 
 /* This function will perform iterative bitvector dataflow described
    by DATAFLOW, producing the in and out sets.  Only the part of the
-   cfg induced by blocks in DATAFLOW->order is taken into account.
-
-   SINGLE_PASS is true if you just want to make one pass over the
-   blocks.  */
+   cfg induced by blocks in DATAFLOW->order is taken into account.  */
 
 void
 df_iterative_dataflow (struct dataflow *dataflow,
 		       bitmap blocks_to_consider,  
-		       int *blocks_in_postorder, int n_blocks, 
-		       bool single_pass)
+		       int *blocks_in_postorder, int n_blocks)
 {
   unsigned int idx;
   int i;
@@ -939,7 +938,7 @@ df_iterative_dataflow (struct dataflow *dataflow,
 	      idx = blocks_in_postorder[i];
 	      
 	      if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
-		df_hybrid_search_forward (BASIC_BLOCK (idx), dataflow, single_pass);
+		df_hybrid_search_forward (BASIC_BLOCK (idx), dataflow);
 	    }
 	}
       else
@@ -949,7 +948,7 @@ df_iterative_dataflow (struct dataflow *dataflow,
 	      idx = blocks_in_postorder[i];
 	      
 	      if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
-		df_hybrid_search_backward (BASIC_BLOCK (idx), dataflow, single_pass);
+		df_hybrid_search_backward (BASIC_BLOCK (idx), dataflow);
 	    }
 	}
 
@@ -984,49 +983,42 @@ df_prune_to_subcfg (int list[], unsigned len, bitmap blocks)
 
 /* Execute dataflow analysis on a single dataflow problem. 
 
-   There are three sets of blocks passed in: 
-
    BLOCKS_TO_CONSIDER are the blocks whose solution can either be
    examined or will be computed.  For calls from DF_ANALYZE, this is
    the set of blocks that has been passed to DF_SET_BLOCKS.  
-
-   BLOCKS_TO_SCAN are the set of blocks that need to be rescanned.
-   For calls from DF_ANALYZE, this is the accumulated set of blocks
-   that has been passed to DF_RESCAN_BLOCKS since the last call to
-   DF_ANALYZE.  For calls from DF_ANALYZE_SIMPLE_CHANGE_SOME_BLOCKS,
-   this is the set of blocks passed in.
- 
-                   blocks_to_consider    blocks_to_scan
-   full redo       all                   all
-   partial redo    all                   sub
-   small fixup     fringe                sub
 */
 
 void
 df_analyze_problem (struct dataflow *dflow, 
 		    bitmap blocks_to_consider, 
-		    bitmap blocks_to_scan,
-		    int *postorder, int n_blocks, bool single_pass)
+		    int *postorder, int n_blocks)
 {
+#ifdef ENABLE_CHECKING
+  if (dflow->problem->verify_start_fun)
+    dflow->problem->verify_start_fun ();
+#endif
+
   /* (Re)Allocate the datastructures necessary to solve the problem.  */ 
   if (dflow->problem->alloc_fun)
-    dflow->problem->alloc_fun (blocks_to_scan, blocks_to_consider);
+    dflow->problem->alloc_fun (blocks_to_consider);
 
-  /* Set up the problem and compute the local information.  This
-     function is passed both the blocks_to_consider and the
-     blocks_to_scan because the RD and RU problems require the entire
-     function to be rescanned if they are going to be updated.  */
+  /* Set up the problem and compute the local information.  */
   if (dflow->problem->local_compute_fun)
-    dflow->problem->local_compute_fun (blocks_to_consider, blocks_to_scan);
+    dflow->problem->local_compute_fun (blocks_to_consider);
 
   /* Solve the equations.  */
   if (dflow->problem->dataflow_fun)
     dflow->problem->dataflow_fun (dflow, blocks_to_consider,
-				  postorder, n_blocks, single_pass);
+				  postorder, n_blocks);
 
   /* Massage the solution.  */
   if (dflow->problem->finalize_fun)
     dflow->problem->finalize_fun (blocks_to_consider);
+
+#ifdef ENABLE_CHECKING
+  if (dflow->problem->verify_end_fun)
+    dflow->problem->verify_end_fun ();
+#endif
 
   dflow->computed = true;
 }
@@ -1047,13 +1039,15 @@ df_analyze (void)
   df->postorder = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
 
-  /* We need to do this before the df_verify_blocks because this is
+  /* We need to do this before the df_verify_all because this is
      not kept incrementally up to date.  */
-  df_compute_regs_ever_live ();
+  df_compute_regs_ever_live (false);
   df_process_deferred_rescans ();
 
 #ifdef ENABLE_CHECKING
-  df_verify_blocks ();
+  if (dump_file)
+    fprintf (dump_file, "df_analyze called\n");
+  df_verify ();
 #endif 
 
   for (i = 0; i < df->n_blocks; i++)
@@ -1078,22 +1072,23 @@ df_analyze (void)
 
   /* Skip over the DF_SCAN problem. */
   for (i = 1; i < df->num_problems_defined; i++)
-    df_analyze_problem (df->problems_in_order[i], 
-			df->blocks_to_analyze,  
-			df->blocks_to_analyze,
-			df->postorder, df->n_blocks, false);
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->solutions_dirty)
+	df_analyze_problem (dflow, 
+			    df->blocks_to_analyze,
+			    df->postorder, df->n_blocks);
+    }
 
   if (everything)
     {
       BITMAP_FREE (df->blocks_to_analyze);
       df->blocks_to_analyze = NULL;
-      bitmap_clear (df->out_of_date_transfer_functions);
     }
-  else
-    bitmap_and_compl_into (df->out_of_date_transfer_functions,
-			   df->blocks_to_analyze);
 
-  df->solutions_dirty = false;
+#ifdef DF_DEBUG_CFG
+  df_set_clean_cfg ();
+#endif
 }
 
 
@@ -1141,8 +1136,7 @@ df_simple_iterative_dataflow (enum df_flow_dir dir,
   user_problem.con_fun_n = con_fun_n;
   user_problem.trans_fun = trans_fun;
   user_dflow.problem = &user_problem;
-  df_iterative_dataflow (&user_dflow, blocks,  
-			 postorder, n_blocks, false);
+  df_iterative_dataflow (&user_dflow, blocks, postorder, n_blocks);
 }
 
 			      
@@ -1181,7 +1175,12 @@ df_set_bb_info (struct dataflow *dflow, unsigned int index,
 void 
 df_mark_solutions_dirty (void)
 {
-  df->solutions_dirty = true;
+  if (df)
+    {
+      int p; 
+      for (p = 1; p < df->num_problems_defined; p++)
+	df->problems_in_order[p]->solutions_dirty = true;
+    }
 }
 
 
@@ -1191,7 +1190,7 @@ bool
 df_get_bb_dirty (basic_block bb)
 {
   if (df)
-    return bitmap_bit_p (df->out_of_date_transfer_functions, bb->index);
+    return bitmap_bit_p (df_ur->out_of_date_transfer_functions, bb->index);
   else 
     return false;
 }
@@ -1206,11 +1205,20 @@ df_set_bb_dirty (basic_block bb)
   if (df)
     {
       df_mark_solutions_dirty ();
-      bitmap_set_bit (df->out_of_date_transfer_functions, bb->index);
+      bitmap_set_bit (df_lr->out_of_date_transfer_functions, bb->index);
+      bitmap_set_bit (df_ur->out_of_date_transfer_functions, bb->index);
     }
 }
 
 
+/* Clear the dirty bits.  This is called from places that delete
+   blocks.  */
+static void
+df_clear_bb_dirty (basic_block bb)
+{
+  bitmap_clear_bit (df_lr->out_of_date_transfer_functions, bb->index);
+  bitmap_clear_bit (df_ur->out_of_date_transfer_functions, bb->index);
+}
 /* Called from the rtl_compact_blocks to reorganize the problems basic
    block info.  */
 
@@ -1221,7 +1229,8 @@ df_compact_blocks (void)
   basic_block bb;
   void **problem_temps;
   int size = last_basic_block *sizeof (void *);
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap tmp1 = BITMAP_ALLOC (NULL);
+  bitmap tmp2 = BITMAP_ALLOC (NULL);
   problem_temps = xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)
@@ -1234,7 +1243,7 @@ df_compact_blocks (void)
 
 	  /* Copy the bb info from the problem tmps to the proper
 	     place in the block_info vector.  Null out the copied
-	     item.  */
+	     item.  The entry and exit blocks never move.  */
 	  i = NUM_FIXED_BLOCKS;
 	  FOR_EACH_BB (bb) 
 	    {
@@ -1259,30 +1268,48 @@ df_compact_blocks (void)
 
   /* Shuffle the bits in the basic_block indexed arrays.  */
 
-  bitmap_copy (tmp, df->out_of_date_transfer_functions);
-  bitmap_clear (df->out_of_date_transfer_functions);
+  bitmap_copy (tmp1, df_lr->out_of_date_transfer_functions);
+  bitmap_clear (df_lr->out_of_date_transfer_functions);
+  if (bitmap_bit_p (tmp1, ENTRY_BLOCK))
+    bitmap_set_bit (df_lr->out_of_date_transfer_functions, ENTRY_BLOCK);
+  if (bitmap_bit_p (tmp1, EXIT_BLOCK))
+    bitmap_set_bit (df_lr->out_of_date_transfer_functions, EXIT_BLOCK);
+  bitmap_copy (tmp2, df_ur->out_of_date_transfer_functions);
+  bitmap_clear (df_ur->out_of_date_transfer_functions);
+  if (bitmap_bit_p (tmp2, ENTRY_BLOCK))
+    bitmap_set_bit (df_ur->out_of_date_transfer_functions, ENTRY_BLOCK);
+  if (bitmap_bit_p (tmp2, EXIT_BLOCK))
+    bitmap_set_bit (df_ur->out_of_date_transfer_functions, EXIT_BLOCK);
+
   i = NUM_FIXED_BLOCKS;
   FOR_EACH_BB (bb) 
     {
-      if (bitmap_bit_p (tmp, bb->index))
-	bitmap_set_bit (df->out_of_date_transfer_functions, i);
+      if (bitmap_bit_p (tmp1, bb->index))
+	bitmap_set_bit (df_lr->out_of_date_transfer_functions, i);
+      if (bitmap_bit_p (tmp2, bb->index))
+	bitmap_set_bit (df_ur->out_of_date_transfer_functions, i);
       i++;
     }
 
   if (df->blocks_to_analyze)
     {
-      bitmap_copy (tmp, df->blocks_to_analyze);
+      if (bitmap_bit_p (tmp1, ENTRY_BLOCK))
+	bitmap_set_bit (df->blocks_to_analyze, ENTRY_BLOCK);
+      if (bitmap_bit_p (tmp1, EXIT_BLOCK))
+	bitmap_set_bit (df->blocks_to_analyze, EXIT_BLOCK);
+      bitmap_copy (tmp1, df->blocks_to_analyze);
       bitmap_clear (df->blocks_to_analyze);
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB (bb) 
 	{
-	  if (bitmap_bit_p (tmp, bb->index))
+	  if (bitmap_bit_p (tmp1, bb->index))
 	    bitmap_set_bit (df->blocks_to_analyze, i);
 	  i++;
 	}
     }
 
-  BITMAP_FREE (tmp);
+  BITMAP_FREE (tmp1);
+  BITMAP_FREE (tmp2);
 
   free (problem_temps);
 
@@ -1298,6 +1325,11 @@ df_compact_blocks (void)
 
   for (; i < last_basic_block; i++)
     SET_BASIC_BLOCK (i, NULL);
+
+#ifdef DF_DEBUG_CFG
+  if (!df_lr->solutions_dirty)
+    df_set_clean_cfg ();
+#endif
 }
 
 
@@ -1309,6 +1341,9 @@ df_bb_replace (int old_index, basic_block new_block)
 {
   int new_block_index = new_block->index;
   int p;
+
+  if (dump_file)
+    fprintf (dump_file, "shoving block %d into %d\n", new_block_index, old_index);
 
   gcc_assert (df);
   gcc_assert (BASIC_BLOCK (old_index) == NULL);
@@ -1325,13 +1360,139 @@ df_bb_replace (int old_index, basic_block new_block)
 	}
     }
 
+  df_clear_bb_dirty (new_block);
   SET_BASIC_BLOCK (old_index, new_block);
-  df_set_bb_dirty (BASIC_BLOCK (old_index));
   new_block->index = old_index;
+  df_set_bb_dirty (BASIC_BLOCK (old_index));
   SET_BASIC_BLOCK (new_block_index, NULL);
 }
 
 
+/* Free all of the per basic block dataflow from all of the problems.
+   This is typically called before a basic block is deleted and the
+   problem will be reanalyzed.  */
+
+void
+df_bb_delete (int bb_index)
+{
+  basic_block bb = BASIC_BLOCK (bb_index);
+  int i;
+
+  if (!df)
+    return;
+  
+  for (i = 0; i < df->num_problems_defined; i++)
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->problem->free_bb_fun)
+	{
+	  void *bb_info = df_get_bb_info (dflow, bb_index);
+	  if (bb_info)
+	    {
+	      dflow->problem->free_bb_fun (bb, bb_info); 
+	      df_set_bb_info (dflow, bb_index, NULL);
+	    }
+	}
+    }
+  df_clear_bb_dirty (bb);
+  df_mark_solutions_dirty ();
+}
+
+
+/* Verify that there is a place for everything and everything is in
+   its place.  This is too expensive to run after every pass in the
+   mainline.  However this is an excellent debugging tool if the
+   dataflow infomation is not being updated properly.  You can just
+   sprinkle calls in until you find the place that is changing an
+   underlying structure without calling the proper updating
+   rountine.  */
+
+void
+df_verify (void)
+{
+  df_scan_verify ();
+  df_lr_verify_transfer_functions ();
+  df_ur_verify_transfer_functions ();
+}
+
+#ifdef DF_DEBUG_CFG
+
+/* Compute an array of ints that describes the cfg.  This can be used
+   to discover places where the cfg is modified by the appropriate
+   calls have not been made to the keep df informed.  The internals of
+   this are unexciting, the key is that two instances of this can be
+   compared to see if any changes have been made to the cfg.  */
+
+static int *
+df_compute_cfg_image (void)
+{
+  basic_block bb;
+  int size = 2 + (2 * n_basic_blocks);
+  int i;
+  int * map;
+
+  FOR_ALL_BB (bb)
+    {
+      size += EDGE_COUNT (bb->succs);
+    }
+
+  map = XNEWVEC (int, size);
+  map[0] = size;
+  i = 1;
+  FOR_ALL_BB (bb)
+    {
+      edge_iterator ei;
+      edge e;
+
+      map[i++] = bb->index;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	map[i++] = e->dest->index;
+      map[i++] = -1;
+    }
+  map[i] = -1;
+  return map;
+}
+
+static int *saved_cfg = NULL;
+
+
+/* This function compares the saved version of the cfg with the
+   current cfg and aborts if the two are identical.  The function
+   silently returns if the cfg has been marked as dirty or the two are
+   the same.  */
+
+void
+df_check_cfg_clean (void)
+{
+  int *new_map;
+
+  if (!df)
+    return;
+
+  if (df_lr->solutions_dirty)
+    return;
+
+  if (saved_cfg == NULL) 
+    return;
+
+  new_map = df_compute_cfg_image ();
+  gcc_assert (memcmp (saved_cfg, new_map, saved_cfg[0] * sizeof (int)) == 0);
+  free (new_map);
+}
+
+
+/* This function builds a cfg fingerprint and squirrels it away in
+   saved_cfg.  */
+
+static void
+df_set_clean_cfg (void)
+{
+  if (saved_cfg)
+    free (saved_cfg);
+  saved_cfg = df_compute_cfg_image ();
+}
+
+#endif /* DF_DEBUG_CFG  */
 /*----------------------------------------------------------------------------
    PUBLIC INTERFACES TO QUERY INFORMATION.
 ----------------------------------------------------------------------------*/

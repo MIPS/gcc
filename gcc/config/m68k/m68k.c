@@ -503,7 +503,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
      if they are live or when calling nested functions.  */
   if (interrupt_handler)
     {
-      if (regs_ever_live[regno])
+      if (df_regs_ever_live_p (regno))
 	return true;
 
       if (!current_function_is_leaf && call_used_regs[regno])
@@ -511,7 +511,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
     }
 
   /* Never need to save registers that aren't touched.  */
-  if (!regs_ever_live[regno])
+  if (!df_regs_ever_live_p (regno))
     return false;
 
   /* Otherwise save everything that isn't call-clobbered.  */
@@ -3605,7 +3605,7 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      call-clobbered.  */
 
   if (m68k_interrupt_function_p (current_function_decl)
-      && !regs_ever_live[new_reg])
+      && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;

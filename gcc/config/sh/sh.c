@@ -5856,12 +5856,12 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 
   CLEAR_HARD_REG_SET (*live_regs_mask);
   if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && interrupt_handler
-      && regs_ever_live[FPSCR_REG])
+      && df_regs_ever_live_p (FPSCR_REG))
     target_flags &= ~MASK_FPU_SINGLE;
   /* If we can save a lot of saves by switching to double mode, do that.  */
   else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && TARGET_FPU_SINGLE)
     for (count = 0, reg = FIRST_FP_REG; reg <= LAST_FP_REG; reg += 2)
-      if (regs_ever_live[reg] && regs_ever_live[reg+1]
+      if (df_regs_ever_live_p (reg) && regs_ever_live[reg+1]
 	  && (! call_really_used_regs[reg]
 	      || interrupt_handler)
 	  && ++count > 2)
@@ -5883,11 +5883,11 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
       pr_live = (pr_initial
 		 ? (GET_CODE (pr_initial) != REG
 		    || REGNO (pr_initial) != (PR_REG))
-		 : regs_ever_live[PR_REG]);
+		 : df_regs_ever_live_p (PR_REG));
       /* For Shcompact, if not optimizing, we end up with a memory reference
 	 using the return address pointer for __builtin_return_address even
 	 though there is no actual need to put the PR register on the stack.  */
-      pr_live |= regs_ever_live[RETURN_ADDRESS_POINTER_REGNUM];
+      pr_live |= df_regs_ever_live_p (RETURN_ADDRESS_POINTER_REGNUM);
     }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
@@ -5903,7 +5903,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  ? pr_live
 	  : interrupt_handler
 	  ? (/* Need to save all the regs ever live.  */
-	     (regs_ever_live[reg]
+	     (df_regs_ever_live_p (reg)
 	      || (call_really_used_regs[reg]
 		  && (! fixed_regs[reg] || reg == MACH_REG || reg == MACL_REG
 		      || reg == PIC_OFFSET_TABLE_REGNUM)
@@ -5921,7 +5921,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	      && flag_pic
 	      && current_function_args_info.call_cookie
 	      && reg == PIC_OFFSET_TABLE_REGNUM)
-	     || (regs_ever_live[reg]
+	     || (df_regs_ever_live_p (reg)
 		 && (!call_really_used_regs[reg]
 		     || (trapa_handler && reg == FPSCR_REG && TARGET_FPU_ANY)))
 	     || (current_function_calls_eh_return
@@ -5930,7 +5930,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 		     || reg == EH_RETURN_DATA_REGNO (2)
 		     || reg == EH_RETURN_DATA_REGNO (3)))
 	     || ((reg == MACL_REG || reg == MACH_REG)
-		 && regs_ever_live[reg]
+		 && df_regs_ever_live_p (reg)
 		 && sh_cfun_attr_renesas_p ())
 	     ))
 	{
@@ -5942,7 +5942,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	    {
 	      if (FP_REGISTER_P (reg))
 		{
-		  if (! TARGET_FPU_SINGLE && ! regs_ever_live[reg ^ 1])
+		  if (! TARGET_FPU_SINGLE && ! df_regs_ever_live_p (reg ^ 1))
 		    {
 		      SET_HARD_REG_BIT (*live_regs_mask, (reg ^ 1));
 		      count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg ^ 1));
@@ -6019,10 +6019,10 @@ sh_media_register_for_return (void)
   if (sh_cfun_interrupt_handler_p ())
     return -1;
 
-  tr0_used = flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
+  tr0_used = flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM);
 
   for (regno = FIRST_TARGET_REG + tr0_used; regno <= LAST_TARGET_REG; regno++)
-    if (call_really_used_regs[regno] && ! regs_ever_live[regno])
+    if (call_really_used_regs[regno] && ! df_regs_ever_live_p (regno))
       return regno;
 
   return -1;
@@ -6181,7 +6181,7 @@ sh_expand_prologue (void)
        incoming-argument decoder and/or of the return trampoline from
        the GOT, so make sure the PIC register is preserved and
        initialized.  */
-    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
+    df_set_regs_ever_live ([PIC_OFFSET_TABLE_REGNUM], true);
 
   if (TARGET_SHCOMPACT
       && (current_function_args_info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
@@ -6474,7 +6474,7 @@ sh_expand_prologue (void)
   else
     push_regs (&live_regs_mask, current_function_interrupt);
 
-  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+  if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
     {
       rtx insn = get_last_insn ();
       rtx last = emit_insn (gen_GOTaddr2picreg ());
@@ -8805,7 +8805,7 @@ sh_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      saved by the prologue, even if they would normally be
      call-clobbered.  */
 
-  if (sh_cfun_interrupt_handler_p () && !regs_ever_live[new_reg])
+  if (sh_cfun_interrupt_handler_p () && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;

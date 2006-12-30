@@ -1564,7 +1564,7 @@ use_return_insn (int iscond, rtx sibling)
 
       if (flag_pic 
 	  && arm_pic_register != INVALID_REGNUM
-	  && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+	  && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
 	return 0;
     }
 
@@ -1577,18 +1577,18 @@ use_return_insn (int iscond, rtx sibling)
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT && TARGET_FPA)
     for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   /* Likewise VFP regs.  */
   if (TARGET_HARD_FLOAT && TARGET_VFP)
     for (regno = FIRST_VFP_REGNUM; regno <= LAST_VFP_REGNUM; regno++)
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	return 0;
 
   if (TARGET_REALLY_IWMMXT)
     for (regno = FIRST_IWMMXT_REGNUM; regno <= LAST_IWMMXT_REGNUM; regno++)
-      if (regs_ever_live[regno] && ! call_used_regs [regno])
+      if (df_regs_ever_live_p (regno) && ! call_used_regs [regno])
 	return 0;
 
   return 1;
@@ -3363,7 +3363,7 @@ thumb_find_work_register (unsigned long pushed_regs_mask)
      register allocation order means that sometimes r3 might be used
      but earlier argument registers might not, so check them all.  */
   for (reg = LAST_ARG_REGNUM; reg >= 0; reg --)
-    if (!regs_ever_live[reg])
+    if (!df_regs_ever_live_p (reg))
       return reg;
 
   /* Before going on to check the call-saved registers we can try a couple
@@ -9246,7 +9246,7 @@ arm_compute_save_reg0_reg12_mask (void)
 	max_reg = 12;
 
       for (reg = 0; reg <= max_reg; reg++)
-	if (regs_ever_live[reg]
+	if (df_regs_ever_live_p (reg)
 	    || (! current_function_is_leaf && call_used_regs [reg]))
 	  save_reg_mask |= (1 << reg);
 
@@ -9262,13 +9262,13 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= 10; reg++)
-	if (regs_ever_live[reg] && ! call_used_regs [reg])
+	if (df_regs_ever_live_p (reg) && ! call_used_regs [reg])
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
       if (! TARGET_APCS_FRAME
 	  && ! frame_pointer_needed
-	  && regs_ever_live[HARD_FRAME_POINTER_REGNUM]
+	  && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
 	  && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
 
@@ -9277,7 +9277,7 @@ arm_compute_save_reg0_reg12_mask (void)
       if (flag_pic
 	  && !TARGET_SINGLE_PIC_BASE
 	  && arm_pic_register != INVALID_REGNUM
-	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
+	  && (df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM)
 	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
     }
@@ -9337,11 +9337,11 @@ arm_compute_save_reg_mask (void)
      now and then popping it back into the PC.  This incurs extra memory
      accesses though, so we only do it when optimizing for size, and only
      if we know that we will not need a fancy return sequence.  */
-  if (regs_ever_live [LR_REGNUM]
-	  || (save_reg_mask
-	      && optimize_size
-	      && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
-	      && !current_function_calls_eh_return))
+  if (df_regs_ever_live_p (LR_REGNUM)
+      || (save_reg_mask
+	  && optimize_size
+	  && ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	  && !current_function_calls_eh_return))
     save_reg_mask |= 1 << LR_REGNUM;
 
   if (cfun->machine->lr_save_eliminated)
@@ -9389,7 +9389,7 @@ thumb_compute_save_reg_mask (void)
 
   mask = 0;
   for (reg = 0; reg < 12; reg ++)
-    if (regs_ever_live[reg] && !call_used_regs[reg])
+    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
       mask |= 1 << reg;
 
   if (flag_pic
@@ -9443,8 +9443,8 @@ arm_get_vfp_saved_size (void)
 	   regno < LAST_VFP_REGNUM;
 	   regno += 2)
 	{
-	  if ((!regs_ever_live[regno] || call_used_regs[regno])
-	      && (!regs_ever_live[regno + 1] || call_used_regs[regno + 1]))
+	  if ((!df_regs_ever_live_p (regno) || call_used_regs[regno])
+	      && (!df_regs_ever_live_p (regno + 1) || call_used_regs[regno + 1]))
 	    {
 	      if (count > 0)
 		{
@@ -9842,7 +9842,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		floats_offset += 12;
 		asm_fprintf (f, "\tldfe\t%r, [%r, #-%d]\n",
@@ -9855,7 +9855,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  floats_offset += 12;
 
@@ -9901,8 +9901,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, IP_REGNUM,
@@ -9929,7 +9929,7 @@ arm_output_epilogue (rtx sibling)
 	  lrm_count += (lrm_count % 2 ? 2 : 1);
 
 	  for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		asm_fprintf (f, "\twldrd\t%r, [%r, #-%d]\n",
 			     reg, FP_REGNUM, lrm_count * 4);
@@ -9991,7 +9991,7 @@ arm_output_epilogue (rtx sibling)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      asm_fprintf (f, "\tldfe\t%r, [%r], #12\n",
 			   reg, SP_REGNUM);
 	}
@@ -10001,7 +10001,7 @@ arm_output_epilogue (rtx sibling)
 
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  if (reg - start_reg == 3)
 		    {
@@ -10032,8 +10032,8 @@ arm_output_epilogue (rtx sibling)
 	  start_reg = FIRST_VFP_REGNUM;
 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    vfp_output_fldmd (f, SP_REGNUM,
@@ -10049,7 +10049,7 @@ arm_output_epilogue (rtx sibling)
 	}
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
-	  if (regs_ever_live[reg] && !call_used_regs[reg])
+	  if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	    asm_fprintf (f, "\twldrd\t%r, [%r], #8\n", reg, SP_REGNUM);
 
       /* If we can, restore the LR into the PC.  */
@@ -10375,7 +10375,7 @@ thumb_force_lr_save (void)
   return !cfun->machine->lr_save_eliminated
 	 && (!leaf_function_p ()
 	     || thumb_far_jump_used_p ()
-	     || regs_ever_live [LR_REGNUM]);
+	     || df_regs_ever_live_p (LR_REGNUM));
 }
 
 
@@ -10482,7 +10482,7 @@ arm_get_frame_offsets (void)
 	  for (regno = FIRST_IWMMXT_REGNUM;
 	       regno <= LAST_IWMMXT_REGNUM;
 	       regno++)
-	    if (regs_ever_live [regno] && ! call_used_regs [regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs [regno])
 	      saved += 8;
 	}
 
@@ -10491,7 +10491,7 @@ arm_get_frame_offsets (void)
 	{
 	  /* Space for saved FPA registers.  */
 	  for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
-	  if (regs_ever_live[regno] && ! call_used_regs[regno])
+	    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	    saved += 12;
 
 	  /* Space for saved VFP registers.  */
@@ -10688,7 +10688,7 @@ arm_expand_prologue (void)
 	     doesn't need to be unwound, as it doesn't contain a value
 	     inherited from the caller.  */
 
-	  if (regs_ever_live[3] == 0)
+	  if (df_regs_ever_live_p (3) == false)
 	    insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
 	  else if (args_to_push == 0)
 	    {
@@ -10769,7 +10769,7 @@ arm_expand_prologue (void)
 
   if (TARGET_IWMMXT)
     for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
-      if (regs_ever_live[reg] && ! call_used_regs [reg])
+      if (df_regs_ever_live_p (reg) && ! call_used_regs [reg])
 	{
 	  insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
 	  insn = gen_frame_mem (V2SImode, insn);
@@ -10787,7 +10787,7 @@ arm_expand_prologue (void)
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
-	    if (regs_ever_live[reg] && !call_used_regs[reg])
+	    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 	      {
 		insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
 		insn = gen_frame_mem (XFmode, insn);
@@ -10802,7 +10802,7 @@ arm_expand_prologue (void)
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
-	      if (regs_ever_live[reg] && !call_used_regs[reg])
+	      if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
 		{
 		  if (start_reg - reg == 3)
 		    {
@@ -10837,8 +10837,8 @@ arm_expand_prologue (void)
 
  	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
 	    {
-	      if ((!regs_ever_live[reg] || call_used_regs[reg])
-		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+	      if ((!df_regs_ever_live_p (reg) || call_used_regs[reg])
+		  && (!df_regs_ever_live_p (reg + 1) || call_used_regs[reg + 1]))
 		{
 		  if (start_reg != reg)
 		    saved_regs += vfp_emit_fstmd (start_reg,
@@ -10862,7 +10862,7 @@ arm_expand_prologue (void)
       if (IS_NESTED (func_type))
 	{
 	  /* Recover the static chain register.  */
-	  if (regs_ever_live [3] == 0
+	  if (df_regs_ever_live_p (3) == false
 	      || saved_pretend_args)
 	    insn = gen_rtx_REG (SImode, 3);
 	  else /* if (current_function_pretend_args_size == 0) */
@@ -13079,7 +13079,7 @@ thumb_exit (FILE *f, int reg_containing_return_addr)
     {
       /* If we can deduce the registers used from the function's
 	 return value.  This is more reliable that examining
-	 regs_ever_live[] because that will be set if the register is
+	 df_regs_ever_live_p () because that will be set if the register is
 	 ever used in the function, not just if the register is used
 	 to hold a return value.  */
 
@@ -13360,7 +13360,7 @@ thumb_far_jump_used_p (void)
 
 	 If we need doubleword stack alignment this could affect the other
 	 elimination offsets so we can't risk getting it wrong.  */
-      if (regs_ever_live [ARG_POINTER_REGNUM])
+      if (df_regs_ever_live_p (ARG_POINTER_REGNUM))
 	cfun->machine->arg_pointer_live = 1;
       else if (!cfun->machine->arg_pointer_live)
 	return 0;
@@ -13424,7 +13424,7 @@ thumb_unexpanded_epilogue (void)
   high_regs_pushed = bit_count (live_regs_mask & 0x0f00);
 
   /* If we can deduce the registers used from the function's return value.
-     This is more reliable that examining regs_ever_live[] because that
+     This is more reliable that examining df_regs_ever_live_p () because that
      will be set if the register is ever used in the function, not just if
      the register is used to hold a return value.  */
   size = arm_size_return_regs ();
@@ -13869,10 +13869,10 @@ thumb_expand_epilogue (void)
   /* Emit a clobber for each insn that will be restored in the epilogue,
      so that flow2 will get register lifetimes correct.  */
   for (regno = 0; regno < 13; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, regno)));
 
-  if (! regs_ever_live[LR_REGNUM])
+  if (! df_regs_ever_live_p (LR_REGNUM))
     emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)));
 }
 

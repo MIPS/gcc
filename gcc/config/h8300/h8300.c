@@ -494,12 +494,12 @@ byte_reg (rtx x, int b)
    && ! TREE_THIS_VOLATILE (current_function_decl)			\
    && (h8300_saveall_function_p (current_function_decl)			\
        /* Save any call saved register that was used.  */		\
-       || (regs_ever_live[regno] && !call_used_regs[regno])		\
+       || (df_regs_ever_live_p (regno) && !call_used_regs[regno])	\
        /* Save the frame pointer if it was used.  */			\
-       || (regno == HARD_FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
+       || (regno == HARD_FRAME_POINTER_REGNUM && df_regs_ever_live_p (regno)) \
        /* Save any register used in an interrupt handler.  */		\
        || (h8300_current_function_interrupt_function_p ()		\
-	   && regs_ever_live[regno])					\
+	   && df_regs_ever_live_p (regno))				\
        /* Save call clobbered registers in non-leaf interrupt		\
 	  handlers.  */							\
        || (h8300_current_function_interrupt_function_p ()		\
@@ -5607,7 +5607,7 @@ h8300_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      call-clobbered.  */
 
   if (h8300_current_function_interrupt_function_p ()
-      && !regs_ever_live[new_reg])
+      && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;

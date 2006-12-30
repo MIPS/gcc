@@ -1325,7 +1325,6 @@ print_operand (FILE * file, rtx x, int code)
 }
 
 extern char call_used_regs[];
-extern char regs_ever_live[];
 
 /* For PIC mode we've reserved PIC_OFFSET_TABLE_REGNUM, which is a
    caller saved register.  For leaf functions it is more efficient to
@@ -1424,13 +1423,13 @@ spu_split_immediate (rtx * ops)
 static int
 need_to_save_reg (int regno, int saving)
 {
-  if (regs_ever_live[regno] && !call_used_regs[regno])
+  if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
     return 1;
   if (flag_pic
       && regno == PIC_OFFSET_TABLE_REGNUM
       && (!saving || current_function_uses_pic_offset_table)
       && (!saving
-	  || !current_function_is_leaf || regs_ever_live[LAST_ARG_REGNUM]))
+	  || !current_function_is_leaf || df_regs_ever_live_p (LAST_ARG_REGNUM)))
     return 1;
   return 0;
 }

@@ -1208,7 +1208,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   /* Insert target register initialization at head of basic block.  */
   def->insn = emit_insn_after (new_insn, insp);
 
-  regs_ever_live[btr] = 1;
+  df_set_regs_ever_live (btr, true);
 
   if (dump_file)
     fprintf (dump_file, "New pt is insn %d, inserted after insn %d\n",
@@ -1423,7 +1423,8 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
   CLEAR_HARD_REG_SET (all_btrs);
   for (first_btr = -1, reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
     if (TEST_HARD_REG_BIT (reg_class_contents[(int) btr_class], reg)
-	&& (allow_callee_save || call_used_regs[reg] || regs_ever_live[reg]))
+	&& (allow_callee_save || call_used_regs[reg] 
+	    || df_regs_ever_live_p (reg)))
       {
 	SET_HARD_REG_BIT (all_btrs, reg);
 	last_btr = reg;

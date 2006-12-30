@@ -3701,20 +3701,20 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
   if (TARGET_ARCH64)
     {
       for (i = 0; i < 8; i++)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  n_regs += 2;
     }
   else
     {
       for (i = 0; i < 8; i += 2)
-	if ((regs_ever_live[i] && ! call_used_regs[i])
-	    || (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+	if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	    || (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
 	  n_regs += 2;
     }
 
   for (i = 32; i < (TARGET_V9 ? 96 : 64); i += 2)
-    if ((regs_ever_live[i] && ! call_used_regs[i])
-	|| (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+    if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	|| (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
       n_regs += 2;
 
   /* Set up values for use in prologue and epilogue.  */
@@ -3757,7 +3757,7 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
      .register being printed for them already.  */
   for (i = 2; i < 8; i++)
     {
-      if (regs_ever_live [i]
+      if (df_regs_ever_live_p (i)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
@@ -3788,7 +3788,7 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i++)
 	{
-	  if (regs_ever_live[i] && ! call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	    {
 	      mem = gen_rtx_MEM (DImode, plus_constant (base, offset));
 	      set_mem_alias_set (mem, sparc_sr_alias_set);
@@ -3807,8 +3807,8 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i += 2)
 	{
-	  bool reg0 = regs_ever_live[i] && ! call_used_regs[i];
-	  bool reg1 = regs_ever_live[i+1] && ! call_used_regs[i+1];
+	  bool reg0 = df_regs_ever_live_p (i) && ! call_used_regs[i];
+	  bool reg1 = df_regs_ever_live_p (i+1) && ! call_used_regs[i+1];
 	  enum machine_mode mode;
 	  int regno;
 
@@ -6470,7 +6470,7 @@ order_regs_for_local_alloc (void)
 {
   static int last_order_nonleaf = 1;
 
-  if (regs_ever_live[15] != last_order_nonleaf)
+  if (df_regs_ever_live_p (15) != last_order_nonleaf)
     {
       last_order_nonleaf = !last_order_nonleaf;
       memcpy ((char *) reg_alloc_order,

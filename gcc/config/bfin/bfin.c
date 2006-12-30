@@ -246,7 +246,7 @@ n_dregs_to_save (bool is_inthandler)
 
   for (i = REG_R0; i <= REG_R7; i++)
     {
-      if (regs_ever_live[i] && (is_inthandler || ! call_used_regs[i]))
+      if (df_regs_ever_live_p (i) && (is_inthandler || ! call_used_regs[i]))
 	return REG_R7 - i + 1;
 
       if (current_function_calls_eh_return)
@@ -274,7 +274,7 @@ n_pregs_to_save (bool is_inthandler)
   unsigned i;
 
   for (i = REG_P0; i <= REG_P5; i++)
-    if ((regs_ever_live[i] && (is_inthandler || ! call_used_regs[i]))
+    if ((df_regs_ever_live_p (i) && (is_inthandler || ! call_used_regs[i]))
 	|| (!TARGET_FDPIC
 	    && i == PIC_OFFSET_TABLE_REGNUM
 	    && (current_function_uses_pic_offset_table
@@ -288,7 +288,7 @@ n_pregs_to_save (bool is_inthandler)
 static bool
 must_save_fp_p (void)
 {
-  return frame_pointer_needed || regs_ever_live[REG_FP];
+  return frame_pointer_needed || df_regs_ever_live_p (REG_FP);
 }
 
 static bool
@@ -509,7 +509,7 @@ n_regs_saved_by_prologue (void)
 
       for (i = REG_P7 + 1; i < REG_CC; i++)
 	if (all 
-	    || regs_ever_live[i]
+	    || df_regs_ever_live_p (i)
 	    || (!leaf_function_p () && call_used_regs[i]))
 	  n += i == REG_A0 || i == REG_A1 ? 2 : 1;
     }
@@ -771,7 +771,7 @@ expand_interrupt_handler_prologue (rtx spreg, e_funkind fkind)
 
   for (i = REG_P7 + 1; i < REG_CC; i++)
     if (all 
-	|| regs_ever_live[i]
+	|| df_regs_ever_live_p (i)
 	|| (!leaf_function_p () && call_used_regs[i]))
       {
 	if (i == REG_A0 || i == REG_A1)
@@ -855,7 +855,7 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
 
   for (i = REG_CC - 1; i > REG_P7; i--)
     if (all
-	|| regs_ever_live[i]
+	|| df_regs_ever_live_p (i)
 	|| (!leaf_function_p () && call_used_regs[i]))
       {
 	if (i == REG_A0 || i == REG_A1)
@@ -1024,7 +1024,7 @@ bfin_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
      call-clobbered.  */
 
   if (funkind (TREE_TYPE (current_function_decl)) != SUBROUTINE
-      && !regs_ever_live[new_reg])
+      && !df_regs_ever_live_p (new_reg))
     return 0;
 
   return 1;

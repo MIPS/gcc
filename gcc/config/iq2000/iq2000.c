@@ -2119,7 +2119,7 @@ iq2000_can_use_return_insn (void)
   if (! reload_completed)
     return 0;
 
-  if (regs_ever_live[31] || profile_flag)
+  if (df_regs_ever_live_p (31) || profile_flag)
     return 0;
 
   if (cfun->machine->initialized)

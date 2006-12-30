@@ -105,6 +105,8 @@ static void df_get_exit_block_use_set (bitmap);
 static void df_get_entry_block_def_set (bitmap);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
 static void df_grow_insn_info (void);
+static void df_ref_chain_delete_du_chain (struct df_ref *);
+static void df_ref_chain_delete (struct df_ref *);
 
 /* A structure to hold multiple return values from df_ref_find_chains. */
 struct df_chains
@@ -125,6 +127,16 @@ static bool df_insn_refs_verify (basic_block,
 				 bool);
 static struct df_ref * df_entry_block_defs_collect (bitmap);
 static struct df_ref * df_exit_block_uses_collect (bitmap);
+
+/* Indexed by hardware reg number, is true if that register is ever
+   used in the current function.
+
+   In df-scan.c, this is set up to record the hard regs used
+   explicitly.  Reload adds in the hard regs used for holding pseudo
+   regs.  Final uses it to generate the code in the function prologue
+   and epilogue to save and restore registers as needed.  */
+
+static bool regs_ever_live[FIRST_PSEUDO_REGISTER];
 
 #define DEBUG_DF_RESCAN
 #ifdef DEBUG_DF_RESCAN
@@ -200,6 +212,7 @@ df_scan_free_internal (void)
   BITMAP_FREE (df->exit_block_uses);
   BITMAP_FREE (df->insns_to_delete);
   BITMAP_FREE (df->insns_to_rescan);
+  BITMAP_FREE (df->insns_to_notes_rescan);
 
   free_alloc_pool (df_scan->block_pool);
   free_alloc_pool (problem_data->ref_pool);
@@ -240,9 +253,27 @@ static void
 df_scan_free_bb_info (basic_block bb, void *vbb_info)
 {
   struct df_scan_bb_info *bb_info = (struct df_scan_bb_info *) vbb_info;
+  unsigned int bb_index = bb->index;
   if (bb_info)
     {
-      df_bb_delete (bb->index);
+      rtx insn;
+      FOR_BB_INSNS (bb, insn)
+	{
+	  if (INSN_P (insn))
+	    /* Record defs within INSN.  */
+	    df_insn_delete (bb, INSN_UID (insn));
+	}
+      
+      if (bb_index < df_scan->block_info_size)
+	bb_info = df_scan_get_bb_info (bb_index);
+      
+      /* Get rid of any artificial uses or defs.  */
+      df_ref_chain_delete_du_chain (bb_info->artificial_defs);
+      df_ref_chain_delete_du_chain (bb_info->artificial_uses);
+      df_ref_chain_delete (bb_info->artificial_defs);
+      df_ref_chain_delete (bb_info->artificial_uses);
+      bb_info->artificial_defs = NULL;
+      bb_info->artificial_uses = NULL;
       pool_free (df_scan->block_pool, bb_info);
     }
 }
@@ -252,8 +283,7 @@ df_scan_free_bb_info (basic_block bb, void *vbb_info)
    called when the problem is created or when the entire function is to
    be rescanned.  */
 void 
-df_scan_alloc (bitmap blocks_to_rescan ATTRIBUTE_UNUSED, 
-	       bitmap all_blocks ATTRIBUTE_UNUSED)
+df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   struct df_scan_problem_data *problem_data;
   unsigned int insn_num = get_max_uid () + 1;
@@ -311,7 +341,6 @@ df_scan_alloc (bitmap blocks_to_rescan ATTRIBUTE_UNUSED,
       bb_info->artificial_uses = NULL;
     }
 
-  df->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
   df->hardware_regs_used = BITMAP_ALLOC (NULL);
   df->regular_block_artificial_uses = BITMAP_ALLOC (NULL);
   df->eh_block_artificial_uses = BITMAP_ALLOC (NULL);
@@ -319,6 +348,7 @@ df_scan_alloc (bitmap blocks_to_rescan ATTRIBUTE_UNUSED,
   df->exit_block_uses = BITMAP_ALLOC (NULL);
   df->insns_to_delete = BITMAP_ALLOC (NULL);
   df->insns_to_rescan = BITMAP_ALLOC (NULL);
+  df->insns_to_notes_rescan = BITMAP_ALLOC (NULL);
 }
 
 
@@ -333,8 +363,6 @@ df_scan_free (void)
   if (df->blocks_to_analyze)
     BITMAP_FREE (df->blocks_to_analyze);
 
-  BITMAP_FREE (df->out_of_date_transfer_functions);
-
   free (df_scan);
 }
 
@@ -344,26 +372,22 @@ df_scan_start_dump (FILE *file ATTRIBUTE_UNUSED)
 {
   int i;
 
-  fprintf (file, "  invalidated by call \t");
+  fprintf (file, ";;  invalidated by call \t");
   df_print_regset (file, df_invalidated_by_call);
-  fprintf (file, "  hardware regs used \t");
+  fprintf (file, ";;  hardware regs used \t");
   df_print_regset (file, df->hardware_regs_used);
-  fprintf (file, "  regular block artificial uses \t");
+  fprintf (file, ";;  regular block artificial uses \t");
   df_print_regset (file, df->regular_block_artificial_uses);
-  fprintf (file, "  eh block artificial uses \t");
+  fprintf (file, ";;  eh block artificial uses \t");
   df_print_regset (file, df->eh_block_artificial_uses);
-  fprintf (file, "  entry block defs \t");
+  fprintf (file, ";;  entry block defs \t");
   df_print_regset (file, df->entry_block_defs);
-  fprintf (file, "  exit block uses \t");
+  fprintf (file, ";;  exit block uses \t");
   df_print_regset (file, df->exit_block_uses);
-  fprintf (file, "  regs ever live \t");
+  fprintf (file, ";;  regs ever live \t");
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i])
-      {
-	fprintf (file, " %d", i);
-	if (i < FIRST_PSEUDO_REGISTER)
-	  fprintf (file, " [%s]", reg_names[i]);
-      }
+    if (df_regs_ever_live_p (i))
+      fprintf (file, " %d[%s]", i, reg_names[i]);
 
   fprintf (file, "\n");
 }
@@ -377,9 +401,9 @@ df_scan_start_block (basic_block bb, FILE *file)
 
   if (bb_info)
     {
-      fprintf (file, "bb %d artificial_defs: ", bb->index);
+      fprintf (file, ";; bb %d artificial_defs: ", bb->index);
       df_refs_chain_dump (bb_info->artificial_defs, true, file);
-      fprintf (file, "\nbb %d artificial_uses: ", bb->index);
+      fprintf (file, "\n;; bb %d artificial_uses: ", bb->index);
       df_refs_chain_dump (bb_info->artificial_uses, true, file);
       fprintf (file, "\n");
     }
@@ -404,6 +428,8 @@ static struct df_problem problem_SCAN =
   df_scan_start_dump,         /* Debugging.  */
   df_scan_start_block,        /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
+  NULL,                       /* Incremental solution verify start.  */
+  NULL,                       /* Incremental solution verfiy end.  */
   NULL                        /* Dependent problem.  */
 };
 
@@ -569,11 +595,14 @@ df_scan_blocks (void)
   df_record_entry_block_defs (df->entry_block_defs);
   df_get_exit_block_use_set (df->exit_block_uses);
   df_record_exit_block_uses (df->exit_block_uses);
+  df_set_bb_dirty (BASIC_BLOCK (ENTRY_BLOCK));
+  df_set_bb_dirty (BASIC_BLOCK (EXIT_BLOCK));
 
   /* Regular blocks */
   FOR_EACH_BB (bb)
     {
-      df_bb_refs_record (bb->index, true);
+      unsigned int bb_index = bb->index;
+      df_bb_refs_record (bb_index, true);
     }
 }
 
@@ -881,18 +910,25 @@ df_mw_hardreg_chain_delete (struct df_mw_hardreg *hardregs)
 }
 
 
-/* Delete all of the refs information from INSN.  */
+/* Delete all of the refs information from INSN.  BB must be passed in
+   except when called from df_process_deferred_rescans to mark the block
+   as dirty.  */
 
 void 
-df_insn_delete (unsigned int uid)
+df_insn_delete (basic_block bb, unsigned int uid)
 {
   struct df_insn_info *insn_info = NULL;
-
   if (!df)
     return;
 
   df_grow_bb_info (df_scan);
   df_grow_reg_info ();
+
+  /* The block must be marked as dirty now, rather than later as in
+     df_insn_rescan and df_notes_rescan because it may not be there at
+     rescanning time and the mark would blow up.  */
+  if (bb)
+    df_set_bb_dirty (bb);
 
   insn_info = DF_INSN_UID_SAFE_GET (uid);
 
@@ -902,6 +938,7 @@ df_insn_delete (unsigned int uid)
       if (insn_info)
 	{
 	  bitmap_clear_bit (df->insns_to_rescan, uid);
+	  bitmap_clear_bit (df->insns_to_notes_rescan, uid);
 	  bitmap_set_bit (df->insns_to_delete, uid);
 	}
       if (dump_file)
@@ -914,6 +951,7 @@ df_insn_delete (unsigned int uid)
 
   bitmap_clear_bit (df->insns_to_delete, uid);
   bitmap_clear_bit (df->insns_to_rescan, uid);
+  bitmap_clear_bit (df->insns_to_notes_rescan, uid);
   if (insn_info)
     {
       struct df_scan_problem_data *problem_data;
@@ -922,7 +960,7 @@ df_insn_delete (unsigned int uid)
       df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
 
       df_ref_chain_delete_du_chain (insn_info->defs);
-      df_ref_chain_delete_du_chain (insn_info->uses);
+      df_ref_chain_delete_du_chain (insn_info->uses);  
       df_ref_chain_delete_du_chain (insn_info->eq_uses);
 
       df_ref_chain_delete (insn_info->defs);
@@ -931,41 +969,6 @@ df_insn_delete (unsigned int uid)
 
       pool_free (problem_data->insn_pool, insn_info);
       DF_INSN_UID_SET (uid, NULL);
-    }
-}
-
-
-/* Delete all of the refs information from basic_block with BB_INDEX.  */
-
-void
-df_bb_delete (unsigned int bb_index)
-{
-  struct df_scan_bb_info *bb_info = NULL; 
-  rtx insn;
-  basic_block bb = BASIC_BLOCK (bb_index);
-
-  if (!df)
-    return;
-
-  FOR_BB_INSNS (bb, insn)
-    {
-      if (INSN_P (insn))
-	/* Record defs within INSN.  */
-	df_insn_delete (INSN_UID (insn));
-    }
-
-  if (bb_index < df_scan->block_info_size)
-    bb_info = df_scan_get_bb_info (bb_index);
-  
-  /* Get rid of any artificial uses or defs.  */
-  if (bb_info)
-    {
-      df_ref_chain_delete_du_chain (bb_info->artificial_defs);
-      df_ref_chain_delete_du_chain (bb_info->artificial_uses);
-      df_ref_chain_delete (bb_info->artificial_defs);
-      df_ref_chain_delete (bb_info->artificial_uses);
-      bb_info->artificial_defs = NULL;
-      bb_info->artificial_uses = NULL;
     }
 }
 
@@ -1008,12 +1011,14 @@ df_insn_rescan (rtx insn)
 	fprintf (dump_file, "defering resscan insn with uid = %d.\n", uid);
     
       bitmap_clear_bit (df->insns_to_delete, uid);
+      bitmap_clear_bit (df->insns_to_notes_rescan, uid);
       bitmap_set_bit (df->insns_to_rescan, INSN_UID (insn));
       return false;
     }
 
   bitmap_clear_bit (df->insns_to_delete, uid);
   bitmap_clear_bit (df->insns_to_rescan, uid);
+  bitmap_clear_bit (df->insns_to_notes_rescan, uid);
   if (insn_info)
     {
       bool the_same = df_insn_refs_verify (bb, insn, &refs, false);
@@ -1028,7 +1033,7 @@ df_insn_rescan (rtx insn)
 	fprintf (dump_file, "rescanning insn with uid = %d.\n", uid);
 
       /* There's change - we need to delete the existing info. */
-      df_insn_delete (uid);
+      df_insn_delete (NULL, uid);
       df_insn_create_insn_record (insn);
     }
   else
@@ -1076,12 +1081,13 @@ df_insn_rescan_all (void)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
-	df_insn_delete (uid);
+	df_insn_delete (NULL, uid);
     }
 
   BITMAP_FREE (tmp);
   bitmap_clear (df->insns_to_delete);
   bitmap_clear (df->insns_to_rescan);
+  bitmap_clear (df->insns_to_notes_rescan);
 
   FOR_EACH_BB (bb) 
     {
@@ -1130,7 +1136,7 @@ df_process_deferred_rescans (void)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
-	df_insn_delete (uid);
+	df_insn_delete (NULL, uid);
     }
 
   bitmap_copy (tmp, df->insns_to_rescan);
@@ -1141,17 +1147,34 @@ df_process_deferred_rescans (void)
 	df_insn_rescan (insn_info->insn);
     }
 
+  bitmap_copy (tmp, df->insns_to_notes_rescan);
+  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
+    {
+      struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
+      if (insn_info)
+	df_notes_rescan (insn_info->insn);
+    }
+
   if (dump_file)
     fprintf (dump_file, "ending the processing of defered insns\n");
 
   BITMAP_FREE (tmp);
   bitmap_clear (df->insns_to_delete);
   bitmap_clear (df->insns_to_rescan);
+  bitmap_clear (df->insns_to_notes_rescan);
 
   if (no_insn_rescan)
     df_set_flags (DF_NO_INSN_RESCAN);
   if (defer_insn_rescan)
     df_set_flags (DF_DEFER_INSN_RESCAN);
+
+  /* If someone changed regs_ever_live during this pass, fix up the
+     entry and exit blocks.  */
+  if (df->redo_entry_and_exit)
+    {
+      df_update_entry_exit_and_calls ();
+      df->redo_entry_and_exit = false;
+    }
 }
 
 
@@ -1278,10 +1301,14 @@ df_insn_change_bb (rtx insn)
   if (!df)
     return;
 
+  if (dump_file)
+    fprintf (dump_file, "changing bb of uid %d\n", uid);
+
   insn_info = DF_INSN_UID_SAFE_GET (uid);
   if (insn_info == NULL)
     {
-      /* Should we mark the bb as dirty here ?  */
+      if (dump_file)
+	fprintf (dump_file, "  unscanned insn\n");
       df_insn_rescan (insn);
       return;
     }
@@ -1298,10 +1325,17 @@ df_insn_change_bb (rtx insn)
   if (old_bb == new_bb) 
     return;
 
-  if (old_bb)
-    df_set_bb_dirty (old_bb);
-
   df_set_bb_dirty (new_bb);
+  if (old_bb)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  from %d to %d\n", 
+		 old_bb->index, new_bb->index);
+      df_set_bb_dirty (old_bb);
+    }
+  else
+    if (dump_file)
+      fprintf (dump_file, "  to %d\n", new_bb->index);
 }
 
 
@@ -1490,6 +1524,7 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old, struct df_reg_info *new,
 	    new->reg_chain->prev_reg = the_ref;
 	  new->reg_chain = the_ref;
 	  new->n_refs++;
+	  df_set_bb_dirty (DF_REF_BB (the_ref));
 
 	  the_ref = next_ref;
 	}
@@ -1566,6 +1601,8 @@ void
 df_notes_rescan (rtx insn)
 {
   struct df_insn_info *insn_info;
+  unsigned int uid = INSN_UID (insn);
+
   if (!df)
     return;
 
@@ -1584,9 +1621,16 @@ df_notes_rescan (rtx insn)
       if (!insn_info)
 	insn_info = df_insn_create_insn_record (insn);
       
-      bitmap_set_bit (df->insns_to_rescan, INSN_UID (insn));
+      bitmap_clear_bit (df->insns_to_delete, uid);
+      /* If the insn is set to be rescanned, it does not need to also
+	 be notes rescanned.  */
+      if (!bitmap_bit_p (df->insns_to_rescan, uid))
+	bitmap_set_bit (df->insns_to_notes_rescan, INSN_UID (insn));
       return;
     }
+
+  bitmap_clear_bit (df->insns_to_delete, uid);
+  bitmap_clear_bit (df->insns_to_notes_rescan, uid);
 
   if (insn_info)
     {
@@ -2173,9 +2217,8 @@ df_uses_record (struct df_ref *insn_refs,
 
 	   In order to maintain the status quo with regard to liveness
 	   and uses, we do what flow.c did and just mark any regs we
-	   can find in ASM_OPERANDS as used.  Later on, when liveness
-	   is computed, asm insns are scanned and regs_asm_clobbered
-	   is filled out.  
+	   can find in ASM_OPERANDS as used.  In global asm insns are
+	   scanned and regs_asm_clobbered is filled out.
 
 	   For all ASM_OPERANDS, we must traverse the vector of input
 	   operands.  We can not just fall through here since then we
@@ -2243,27 +2286,6 @@ df_uses_record (struct df_ref *insn_refs,
   }
 
   return insn_refs;
-}
-
-/* Return true if *LOC contains an asm.  */
-
-static int
-df_insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
-{
-  if ( !*loc)
-    return 0;
-  if (GET_CODE (*loc) == ASM_OPERANDS)
-    return 1;
-  return 0;
-}
-
-
-/* Return true if INSN contains an ASM.  */
-
-static int
-df_insn_contains_asm (rtx insn)
-{
-  return for_each_rtx (&insn, df_insn_contains_asm_1, NULL);
 }
 
 
@@ -2450,9 +2472,6 @@ df_insn_refs_record (rtx insn, struct df_ref *insn_refs)
 
   /* Process the collected insn_refs chain here */
   df_refs_add_to_chains (insn, insn_refs);
-
-  if (df_insn_contains_asm (insn))
-    DF_INSN_CONTAINS_ASM (insn) = true;
 }
 
 
@@ -2637,6 +2656,10 @@ df_bb_refs_record (int bb_index, bool scan_insns)
 
   if (bb_refs)
     df_refs_add_to_chains (NULL, bb_refs);
+
+  /* Now that the block has been processed, set the block as dirty so
+     lr and ur will get it processed.  */
+  df_set_bb_dirty (bb);
 }
 
 
@@ -2759,7 +2782,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
       /* Defs for the callee saved registers are inserted so that the
 	 pushes have some defining location.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if ((call_used_regs[i] == 0) && (regs_ever_live[i]))
+	if ((call_used_regs[i] == 0) && (df_regs_ever_live_p (i)))
 	  bitmap_set_bit (entry_block_defs, i);
     }
   else
@@ -2891,6 +2914,7 @@ void
 df_update_entry_block_defs (void)
 {
   bitmap refs = BITMAP_ALLOC (NULL);
+  bool changed = false;
 
   df_get_entry_block_def_set (refs);
   if (df->entry_block_defs)
@@ -2900,27 +2924,38 @@ df_update_entry_block_defs (void)
       unsigned int regno;
 
       bitmap_and_compl (diff, df->entry_block_defs, refs);
-      EXECUTE_IF_SET_IN_BITMAP (diff, 0, regno, bi)
+      if (!bitmap_empty_p (diff))
 	{
-	  struct df_ref *ref 
-	    = df_ref_chain_find_ref_by_regno (df_get_artificial_defs (ENTRY_BLOCK), 
-					      regno);
-	  gcc_assert (ref);
-	  df_ref_remove (ref);
+	  EXECUTE_IF_SET_IN_BITMAP (diff, 0, regno, bi)
+	    {
+	      struct df_ref *ref 
+		= df_ref_chain_find_ref_by_regno (df_get_artificial_defs (ENTRY_BLOCK), 
+						  regno);
+	      gcc_assert (ref);
+	      df_ref_remove (ref);
+	    }
+	  changed = true;
 	}
 
       bitmap_and_compl (diff, refs, df->entry_block_defs);
-      df_record_entry_block_defs (diff);
+      if (!bitmap_empty_p (diff))
+	{
+	  df_record_entry_block_defs (diff);
+	  changed = true;
+	}
       BITMAP_FREE (diff);
     }
   else
     {
       df->entry_block_defs = BITMAP_ALLOC (NULL);
       df_record_entry_block_defs (refs);
+      changed = true;
     }
 
   bitmap_copy (df->entry_block_defs, refs);
   BITMAP_FREE (refs);
+  if (changed)
+    df_set_bb_dirty (BASIC_BLOCK (ENTRY_BLOCK));
 }
 
 
@@ -2979,7 +3014,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
     {
       /* Mark all call-saved registers that we actually used.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (regs_ever_live[i] && !LOCAL_REGNO (i)
+	if (df_regs_ever_live_p (i) && !LOCAL_REGNO (i)
 	    && !TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	  bitmap_set_bit (exit_block_uses, i);
     }
@@ -3074,6 +3109,7 @@ void
 df_update_exit_block_uses (void)
 {
   bitmap refs = BITMAP_ALLOC (NULL);
+  bool changed = false;
 
   df_get_exit_block_use_set (refs);
   if (df->exit_block_uses)
@@ -3083,27 +3119,38 @@ df_update_exit_block_uses (void)
       unsigned int regno;
 
       bitmap_and_compl (diff, df->exit_block_uses, refs);
-      EXECUTE_IF_SET_IN_BITMAP (diff, 0, regno, bi)
+      if (!bitmap_empty_p (diff))
 	{
-	  struct df_ref *ref 
-	    = df_ref_chain_find_ref_by_regno (df_get_artificial_uses (EXIT_BLOCK), 
-					      regno);
-	  gcc_assert (ref);
-	  df_ref_remove (ref);
+	  EXECUTE_IF_SET_IN_BITMAP (diff, 0, regno, bi)
+	    {
+	      struct df_ref *ref 
+		= df_ref_chain_find_ref_by_regno (df_get_artificial_uses (EXIT_BLOCK), 
+						  regno);
+	      gcc_assert (ref);
+	      df_ref_remove (ref);
+	    }
+	  changed = true;
 	}
 
       bitmap_and_compl (diff, refs, df->exit_block_uses);
-      df_record_exit_block_uses (diff);
+      if (!bitmap_empty_p (diff))
+	{
+	  df_record_exit_block_uses (diff);
+	  changed = true;
+	}
       BITMAP_FREE (diff);
     }
   else
     {
       df->exit_block_uses = BITMAP_ALLOC (NULL);
       df_record_exit_block_uses (refs);
+      changed = true;
     }
 
   bitmap_copy (df->exit_block_uses, refs);
   BITMAP_FREE (refs);
+  if (changed)
+    df_set_bb_dirty (BASIC_BLOCK (EXIT_BLOCK));
 }
 
 static bool initialized = false;
@@ -3188,22 +3235,51 @@ df_hard_reg_used_p (unsigned int i)
 }
 
 
-/* Compute "regs_ever_live" information.  */
+/* Get the value of regs_ever_live[REGNO].  */
+
+bool 
+df_regs_ever_live_p (unsigned int regno)
+{
+  return regs_ever_live[regno];
+}
+
+
+/* Set regs_ever_live[REGNO] to VALUE.  If this cause regs_ever_live
+   to change, schedule that change for the next update.  */
+
+void 
+df_set_regs_ever_live (unsigned int regno, bool value)
+{
+  if (regs_ever_live[regno] == value)
+    return;
+
+  regs_ever_live[regno] = value;
+  if (df)
+    df->redo_entry_and_exit = true;
+}
+
+
+/* Compute "regs_ever_live" information from the underlying df
+   information.  Set the vector to all false if RESET.  */
 
 void
-df_compute_regs_ever_live (void)
+df_compute_regs_ever_live (bool reset)
 {
   unsigned int i;
-  bool changed = false;
+  bool changed = df->redo_entry_and_exit;
+  
+  if (reset)
+    memset (regs_ever_live, 0, sizeof (regs_ever_live));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (df_hard_reg_used_p (i) & (regs_ever_live[i] == 0))
+    if (df_hard_reg_used_p (i) & (!regs_ever_live[i]))
       {
-	regs_ever_live[i] = 1;
+	regs_ever_live[i] = true;
 	changed = true;
       }
   if (changed)
     df_update_entry_exit_and_calls ();
+  df->redo_entry_and_exit = false;
 }
 
 
@@ -3220,7 +3296,7 @@ df_compute_regs_ever_live (void)
   df_bb_verify (bb)
   df_exit_block_bitmap_verify (bool)
   df_entry_block_bitmap_verify (bool)
-  df_verify_blocks ()
+  df_scan_verify ()
 ----------------------------------------------------------------------------*/
 
 
@@ -3581,12 +3657,13 @@ df_exit_block_bitmap_verify (bool abort_if_fail)
    checked.  */
 
 void
-df_verify_blocks (void)
+df_scan_verify (void)
 {
   unsigned int i;
   basic_block bb;
   bitmap regular_block_artificial_uses;
   bitmap eh_block_artificial_uses;
+  bitmap all_blocks;
 
   if (!df)
     return;
@@ -3609,6 +3686,7 @@ df_verify_blocks (void)
 
   regular_block_artificial_uses = BITMAP_ALLOC (NULL);
   eh_block_artificial_uses = BITMAP_ALLOC (NULL);
+  all_blocks = BITMAP_ALLOC (NULL);
 
   df_get_regular_block_artificial_uses (regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (eh_block_artificial_uses);
@@ -3632,8 +3710,16 @@ df_verify_blocks (void)
   FOR_ALL_BB (bb)
     {
       df_bb_verify (bb);
+      bitmap_set_bit (all_blocks, bb->index);
     }
 
+  /* Make sure there are no dirty bits in blocks that have been deleted.  */
+  gcc_assert (!bitmap_intersect_compl_p (df_lr->out_of_date_transfer_functions, 
+					 all_blocks)); 
+  gcc_assert (!bitmap_intersect_compl_p (df_ur->out_of_date_transfer_functions, 
+					 all_blocks)); 
+  BITMAP_FREE (all_blocks);
+  
   /* See if all reg chains are verified,
      and also clear the DF_REF_MARKED bit. */
 
