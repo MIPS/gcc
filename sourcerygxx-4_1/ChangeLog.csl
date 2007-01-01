@@ -1,3 +1,10 @@
+2007-01-01  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_powerpc_spe):
+	New.
+	(check_effective_target_vect_cmdline_needed): Use it.
+
 2006-12-22  Julian Brown  <julian@codesourcery.com>
 
 	gcc/
