@@ -113,7 +113,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = xcalloc (argc, sizeof (int));
+  args = XCNEWVEC (int, argc);
 
   for (i = 1; i < argc; i++)
     {
@@ -149,19 +149,19 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	    saw_verbose_flag = 1;
 	  else if (strncmp (argv[i], "-x", 2) == 0)
 	    {
-	      if (library == 0)
-		{
-		  const char * arg;
-		  if (argv[i][2] != '\0')
-		    arg = argv[i]+2;
-		  else if (argv[i+1] != NULL)
-		    arg = argv[i+1];
-		  else  /* Error condition, message will be printed later.  */
-		    arg = "";
-		  if (strcmp (arg, "c++") == 0
-		      || strcmp (arg, "c++-cpp-output") == 0)
-		    library = 1;
-		}
+	      const char * arg;
+	      if (argv[i][2] != '\0')
+		arg = argv[i]+2;
+	      else if ((argv[i+1]) != NULL)
+		/* We need to swallow arg on next loop.  */
+		quote = arg = argv[i+1];
+  	      else  /* Error condition, message will be printed later.  */
+		arg = "";
+	      if (library == 0
+		  && (strcmp (arg, "c++") == 0
+		      || strcmp (arg, "c++-cpp-output") == 0))
+		library = 1;
+		
 	      saw_speclang = 1;
 	    }
 	  /* Arguments that go directly to the linker might be .o files,
@@ -343,9 +343,3 @@ int lang_specific_pre_link (void)  /* Not used for C++.  */
 
 /* Number of extra output files that lang_specific_pre_link may generate.  */
 int lang_specific_extra_outfiles = 0;  /* Not used for C++.  */
-
-/* Table of language-specific spec functions.  */
-const struct spec_function lang_specific_spec_functions[] =
-{
-  { 0, 0 }
-};

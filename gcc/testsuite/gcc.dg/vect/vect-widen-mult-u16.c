@@ -15,7 +15,7 @@ foo1(int len) {
   int i;
 
   /* Not vectorized because X[i] and Y[i] are casted to 'int'
-     instead of 'unsigned int'.  */
+     so the widening multiplication pattern is not recognized.  */
   for (i=0; i<len; i++) {
     result[i] = (unsigned int)(X[i] * Y[i]);
   }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -558,6 +558,8 @@ package body Sem_Case is
          Raises_CE      : out Boolean;
          Others_Present : out Boolean)
       is
+         pragma Assert (Choice_Table'First = 1);
+
          E : Entity_Id;
 
          Enode : Node_Id;
@@ -904,7 +906,7 @@ package body Sem_Case is
          Count  : Nat := 0;
 
       begin
-         if not Present (Get_Alternatives (N)) then
+         if No (Get_Alternatives (N)) then
             return 0;
          end if;
 

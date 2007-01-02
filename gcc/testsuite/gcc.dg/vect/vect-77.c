@@ -49,4 +49,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning." 1 "vect" { target vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
-

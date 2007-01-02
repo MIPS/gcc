@@ -100,6 +100,8 @@ extern void check_global_declarations (tree *, int);
 extern void emit_debug_global_declarations (tree *, int);
 extern void write_global_declarations (void);
 
+extern void dump_memory_report (bool);
+
 /* A unique local time stamp, might be zero if none is available.  */
 extern unsigned local_tick;
 
@@ -118,7 +120,6 @@ extern int target_flags_explicit;
 extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
-extern int flag_loop_optimize;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;

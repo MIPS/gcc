@@ -376,8 +376,11 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"recog.h\"\n");
-  printf ("#include \"except.h\"\n\n");
-  printf ("#include \"function.h\"\n\n");
+  printf ("#include \"except.h\"\n");
+  printf ("#include \"function.h\"\n");
+  printf ("#include \"toplev.h\"\n");
+  printf ("#include \"flags.h\"\n");
+  printf ("#include \"tm-constrs.h\"\n\n");
 
   printf ("#ifdef HAVE_peephole\n");
   printf ("extern rtx peep_operand[];\n\n");
@@ -425,11 +428,4 @@ from the machine description file `md'.  */\n\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
-{
-  return NULL;
 }

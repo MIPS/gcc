@@ -1,6 +1,6 @@
 // Short-string-optimized versatile string base -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,8 +36,8 @@
 #ifndef _SSO_STRING_BASE_H
 #define _SSO_STRING_BASE_H 1
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     class __sso_string_base
     : protected __vstring_utility<_CharT, _Traits, _Alloc>
@@ -45,29 +45,15 @@ namespace __gnu_cxx
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
-      typedef _Alloc					    allocator_type;
 
       typedef __vstring_utility<_CharT, _Traits, _Alloc>    _Util_Base;
       typedef typename _Util_Base::_CharT_alloc_type        _CharT_alloc_type;
       typedef typename _CharT_alloc_type::size_type	    size_type;
       
     private:
-      // The maximum number of individual char_type elements of an
-      // individual string is determined by _S_max_size. This is the
-      // value that will be returned by max_size().  (Whereas npos
-      // is the maximum number of bytes the allocator can allocate.)
-      // If one was to divvy up the theoretical largest size string,
-      // with a terminating character and m _CharT elements, it'd
-      // look like this:
-      // npos = m * sizeof(_CharT) + sizeof(_CharT)
-      // Solving for m:
-      // m = npos / sizeof(_CharT) - 1
-      // In addition, this implementation quarters this amount.
-      enum { _S_max_size = (((static_cast<size_type>(-1)
-			      / sizeof(_CharT)) - 1) / 4) };
-
-      // Data Members (private):
-      typename _Util_Base::template _Alloc_hider<_Alloc>    _M_dataplus;
+      // Data Members:
+      typename _Util_Base::template _Alloc_hider<_CharT_alloc_type>
+                                                            _M_dataplus;
       size_type                                             _M_string_length;
 
       enum { _S_local_capacity = 15 };
@@ -106,13 +92,15 @@ namespace __gnu_cxx
       }
 
       void
-      _M_destroy(size_type) throw();
+      _M_destroy(size_type __size) throw()
+      { _M_get_allocator().deallocate(_M_data(), __size + 1); }
 
       // _M_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIterator is an integral type
       template<typename _InIterator>
         void
-        _M_construct_aux(_InIterator __beg, _InIterator __end, __false_type)
+        _M_construct_aux(_InIterator __beg, _InIterator __end, 
+			 std::__false_type)
 	{
           typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
           _M_construct(__beg, __end, _Tag());
@@ -120,7 +108,8 @@ namespace __gnu_cxx
 
       template<typename _InIterator>
         void
-        _M_construct_aux(_InIterator __beg, _InIterator __end, __true_type)
+        _M_construct_aux(_InIterator __beg, _InIterator __end, 
+			 std::__true_type)
 	{ _M_construct(static_cast<size_type>(__beg),
 		       static_cast<value_type>(__end)); }
 
@@ -151,7 +140,7 @@ namespace __gnu_cxx
     public:
       size_type
       _M_max_size() const
-      { return size_type(_S_max_size); }
+      { return (_M_get_allocator().max_size() - 1) / 2; }
 
       _CharT*
       _M_data() const
@@ -202,11 +191,11 @@ namespace __gnu_cxx
       ~__sso_string_base()
       { _M_dispose(); }
 
-      allocator_type&
+      _CharT_alloc_type&
       _M_get_allocator()
       { return _M_dataplus; }
 
-      const allocator_type&
+      const _CharT_alloc_type&
       _M_get_allocator() const
       { return _M_dataplus; }
 
@@ -226,6 +215,10 @@ namespace __gnu_cxx
       void
       _M_erase(size_type __pos, size_type __n);
 
+      void
+      _M_clear()
+      { _M_set_length(0); }
+
       bool
       _M_compare(const __sso_string_base&) const
       { return false; }
@@ -234,16 +227,12 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __sso_string_base<_CharT, _Traits, _Alloc>::
-    _M_destroy(size_type __size) throw()
-    { _CharT_alloc_type(_M_get_allocator()).deallocate(_M_data(), __size + 1); }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    __sso_string_base<_CharT, _Traits, _Alloc>::
     _M_swap(__sso_string_base& __rcs)
     {
-      // NB: Implement Option 3 of DR 431 (see N1599).
-      _M_dataplus._M_alloc_swap(__rcs._M_dataplus);
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 431. Swapping containers with unequal allocators.
+      std::__alloc_swap<_CharT_alloc_type>::_S_do_it(_M_get_allocator(),
+						     __rcs._M_get_allocator());
 
       if (_M_is_local())
 	if (__rcs._M_is_local())
@@ -316,18 +305,23 @@ namespace __gnu_cxx
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 83.  String::npos vs. string::max_size()
-      if (__capacity > size_type(_S_max_size))
+      if (__capacity > _M_max_size())
 	std::__throw_length_error(__N("__sso_string_base::_M_create"));
 
       // The below implements an exponential growth policy, necessary to
       // meet amortized linear time requirements of the library: see
       // http://gcc.gnu.org/ml/libstdc++/2001-07/msg00085.html.
       if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
-	__capacity = 2 * __old_capacity;
+	{
+	  __capacity = 2 * __old_capacity;
+	  // Never allocate a string bigger than max_size.
+	  if (__capacity > _M_max_size())
+	    __capacity = _M_max_size();
+	}
 
       // NB: Need an array of char_type[__capacity], plus a terminating
       // null char_type() element.
-      return _CharT_alloc_type(_M_get_allocator()).allocate(__capacity + 1);
+      return _M_get_allocator().allocate(__capacity + 1);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -557,6 +551,7 @@ namespace __gnu_cxx
       return false;
     }
 
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     inline bool
     __sso_string_base<wchar_t, std::char_traits<wchar_t>,
@@ -567,6 +562,8 @@ namespace __gnu_cxx
 	return true;
       return false;
     }
-} // namespace __gnu_cxx
+#endif
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _SSO_STRING_BASE_H */

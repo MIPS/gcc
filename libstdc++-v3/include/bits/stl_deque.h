@@ -1,6 +1,7 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -65,8 +66,8 @@
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @if maint
    *  @brief This function controls the size of memory nodes.
@@ -321,6 +322,17 @@ namespace _GLIBCXX_STD
   // According to the resolution of DR179 not only the various comparison
   // operators but also operator- must accept mixed iterator/const_iterator
   // parameters.
+  template<typename _Tp, typename _Ref, typename _Ptr>
+    inline typename _Deque_iterator<_Tp, _Ref, _Ptr>::difference_type
+    operator-(const _Deque_iterator<_Tp, _Ref, _Ptr>& __x,
+	      const _Deque_iterator<_Tp, _Ref, _Ptr>& __y)
+    {
+      return typename _Deque_iterator<_Tp, _Ref, _Ptr>::difference_type
+	(_Deque_iterator<_Tp, _Ref, _Ptr>::_S_buffer_size())
+	* (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first)
+	+ (__y._M_last - __y._M_cur);
+    }
+
   template<typename _Tp, typename _RefL, typename _PtrL,
 	   typename _RefR, typename _PtrR>
     inline typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
@@ -337,6 +349,11 @@ namespace _GLIBCXX_STD
     inline _Deque_iterator<_Tp, _Ref, _Ptr>
     operator+(ptrdiff_t __n, const _Deque_iterator<_Tp, _Ref, _Ptr>& __x)
     { return __x + __n; }
+
+  template<typename _Tp>
+    void
+    fill(const _Deque_iterator<_Tp, _Tp&, _Tp*>& __first,
+	 const _Deque_iterator<_Tp, _Tp&, _Tp*>& __last, const _Tp& __value);
 
   /**
    *  @if maint
@@ -358,7 +375,7 @@ namespace _GLIBCXX_STD
 
       allocator_type
       get_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return allocator_type(_M_get_Tp_allocator()); }
 
       typedef _Deque_iterator<_Tp, _Tp&, _Tp*>             iterator;
       typedef _Deque_iterator<_Tp, const _Tp&, const _Tp*> const_iterator;
@@ -405,7 +422,7 @@ namespace _GLIBCXX_STD
 
       _Map_alloc_type
       _M_get_map_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return _Map_alloc_type(_M_get_Tp_allocator()); }
 
       _Tp*
       _M_allocate_node()
@@ -853,7 +870,7 @@ namespace _GLIBCXX_STD
       /**  Returns the size() of the largest possible %deque.  */
       size_type
       max_size() const
-      { return size_type(-1); }
+      { return _M_get_Tp_allocator().max_size(); }
 
       /**
        *  @brief  Resizes the %deque to the specified number of elements.
@@ -871,7 +888,7 @@ namespace _GLIBCXX_STD
       {
 	const size_type __len = size();
 	if (__new_size < __len)
-	  _M_erase_at_end(this->_M_impl._M_start + __new_size);
+	  _M_erase_at_end(this->_M_impl._M_start + difference_type(__new_size));
 	else
 	  insert(this->_M_impl._M_finish, __new_size - __len, __x);
       }
@@ -1097,7 +1114,7 @@ namespace _GLIBCXX_STD
        *  specified location.
        */
       iterator
-      insert(iterator position, const value_type& __x);
+      insert(iterator __position, const value_type& __x);
 
       /**
        *  @brief  Inserts a number of copies of given data into the %deque.
@@ -1183,6 +1200,11 @@ namespace _GLIBCXX_STD
 	std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
 	std::swap(this->_M_impl._M_map, __x._M_impl._M_map);
 	std::swap(this->_M_impl._M_map_size, __x._M_impl._M_map_size);
+
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 431. Swapping containers with unequal allocators.
+	std::__alloc_swap<_Tp_alloc_type>::_S_do_it(_M_get_Tp_allocator(),
+						    __x._M_get_Tp_allocator());
       }
 
       /**
@@ -1318,7 +1340,7 @@ namespace _GLIBCXX_STD
 	  }
 	else
 	  {
-	    _M_erase_at_end(begin() + __n);
+	    _M_erase_at_end(begin() + difference_type(__n));
 	    std::fill(begin(), end(), __val);
 	  }
       }
@@ -1491,7 +1513,7 @@ namespace _GLIBCXX_STD
        *  @endif
        */
       void
-      _M_reserve_map_at_back (size_type __nodes_to_add = 1)
+      _M_reserve_map_at_back(size_type __nodes_to_add = 1)
       {
 	if (__nodes_to_add + 1 > this->_M_impl._M_map_size
 	    - (this->_M_impl._M_finish._M_node - this->_M_impl._M_map))
@@ -1499,7 +1521,7 @@ namespace _GLIBCXX_STD
       }
 
       void
-      _M_reserve_map_at_front (size_type __nodes_to_add = 1)
+      _M_reserve_map_at_front(size_type __nodes_to_add = 1)
       {
 	if (__nodes_to_add > size_type(this->_M_impl._M_start._M_node
 				       - this->_M_impl._M_map))
@@ -1580,6 +1602,7 @@ namespace _GLIBCXX_STD
     inline void
     swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
+
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif /* _DEQUE_H */

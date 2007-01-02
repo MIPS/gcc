@@ -69,6 +69,22 @@ hook_bool_mode_false (enum machine_mode mode ATTRIBUTE_UNUSED)
   return false;
 }
 
+/* Generic hook that takes (enum machine_mode, rtx) and returns false.  */
+bool
+hook_bool_mode_rtx_false (enum machine_mode mode ATTRIBUTE_UNUSED,
+			  rtx value ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* Generic hook that takes (enum machine_mode, rtx) and returns true.  */
+bool
+hook_bool_mode_rtx_true (enum machine_mode mode ATTRIBUTE_UNUSED,
+			 rtx value ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 /* Generic hook that takes (FILE *, const char *) and does nothing.  */
 void
 hook_void_FILEptr_constcharptr (FILE *a ATTRIBUTE_UNUSED, const char *b ATTRIBUTE_UNUSED)
@@ -186,13 +202,13 @@ hook_bool_tree_tree_false (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
 }
 
 bool
-hook_bool_rtx_false (rtx a ATTRIBUTE_UNUSED)
+hook_bool_tree_bool_false (tree a ATTRIBUTE_UNUSED, bool b ATTRIBUTE_UNUSED)
 {
   return false;
 }
 
 bool
-hook_bool_rtx_int_false (rtx a ATTRIBUTE_UNUSED, int code ATTRIBUTE_UNUSED)
+hook_bool_rtx_false (rtx a ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -252,6 +268,12 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 tree
 hook_tree_tree_tree_bool_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED,
 			       bool ignore ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+tree
+hook_tree_tree_tree_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

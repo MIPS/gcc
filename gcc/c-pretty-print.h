@@ -30,7 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 typedef enum
   {
      pp_c_flag_abstract = 1 << 1,
-     pp_c_flag_last_bit = 2    
+     pp_c_flag_last_bit = 2
   } pp_c_pretty_print_flags;
 
 
@@ -60,7 +60,7 @@ struct c_pretty_print_info
   int *offset_list;
 
   pp_flags flags;
-   
+
   /* These must be overridden by each of the C and C++ front-end to
      reflect their understanding of syntactic productions when they differ.  */
   c_pretty_print_fn declaration;
@@ -80,6 +80,7 @@ struct c_pretty_print_info
 
   c_pretty_print_fn statement;
 
+  c_pretty_print_fn constant;
   c_pretty_print_fn id_expression;
   c_pretty_print_fn primary_expression;
   c_pretty_print_fn postfix_expression;
@@ -129,6 +130,8 @@ struct c_pretty_print_info
 #define pp_statement(PPI, S)                      \
   pp_c_base (PPI)->statement (pp_c_base (PPI), S)
 
+#define pp_constant(PP, E) \
+  pp_c_base (PP)->constant (pp_c_base (PP), E)
 #define pp_id_expression(PP, E)  \
   pp_c_base (PP)->id_expression (pp_c_base (PP), E)
 #define pp_primary_expression(PPI, E)             \

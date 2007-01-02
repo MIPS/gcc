@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -113,9 +113,9 @@ package body Exp_Ch9 is
    --  select statements. Astat is the accept statement.
 
    function Build_Barrier_Function
-     (N    : Node_Id;
-      Ent  : Entity_Id;
-      Pid  : Node_Id) return Node_Id;
+     (N   : Node_Id;
+      Ent : Entity_Id;
+      Pid : Node_Id) return Node_Id;
    --  Build the function body returning the value of the barrier expression
    --  for the specified entry body.
 
@@ -902,21 +902,23 @@ package body Exp_Ch9 is
    ----------------------------
 
    function Build_Barrier_Function
-     (N    : Node_Id;
-      Ent  : Entity_Id;
-      Pid  : Node_Id) return Node_Id
+     (N   : Node_Id;
+      Ent : Entity_Id;
+      Pid : Node_Id) return Node_Id
    is
       Loc         : constant Source_Ptr := Sloc (N);
       Ent_Formals : constant Node_Id    := Entry_Body_Formal_Part (N);
       Index_Spec  : constant Node_Id    := Entry_Index_Specification
                                                            (Ent_Formals);
-      Op_Decls    : constant List_Id    := New_List;
-      Bdef        : Entity_Id;
-      Bspec       : Node_Id;
+      Op_Decls : constant List_Id := New_List;
+      Bdef     : Entity_Id;
+      Bspec    : Node_Id;
+      EBF      : Node_Id;
 
    begin
       Bdef :=
-        Make_Defining_Identifier (Loc, Chars (Barrier_Function (Ent)));
+        Make_Defining_Identifier (Loc,
+          Chars => Chars (Barrier_Function (Ent)));
       Bspec := Build_Barrier_Function_Specification (Bdef, Loc);
 
       --  <object pointer declaration>
@@ -944,7 +946,6 @@ package body Exp_Ch9 is
             Index_Con : constant Entity_Id :=
                           Make_Defining_Identifier (Loc,
                             Chars => New_Internal_Name ('J'));
-
          begin
             Set_Entry_Index_Constant (Index_Id, Index_Con);
             Append_List_To (Op_Decls,
@@ -956,7 +957,7 @@ package body Exp_Ch9 is
       --  processed for the C/Fortran boolean possibility, but this happens
       --  automatically since the return statement does this normalization.
 
-      return
+      EBF :=
         Make_Subprogram_Body (Loc,
           Specification => Bspec,
           Declarations => Op_Decls,
@@ -965,6 +966,8 @@ package body Exp_Ch9 is
               Statements => New_List (
                 Make_Return_Statement (Loc,
                   Expression => Condition (Ent_Formals)))));
+      Set_Is_Entry_Barrier_Function (EBF);
+      return EBF;
    end Build_Barrier_Function;
 
    ------------------------------------------
@@ -1580,7 +1583,7 @@ package body Exp_Ch9 is
 
       --  Return if no interface primitive can be overriden
 
-      if not Present (First_Param) then
+      if No (First_Param) then
          return Empty;
       end if;
 
@@ -2696,6 +2699,12 @@ package body Exp_Ch9 is
    is
    begin
       Expand_Call (N);
+
+      --  If call has been inlined, nothing left to do
+
+      if Nkind (N) = N_Block_Statement then
+         return;
+      end if;
 
       --  Convert entry call to Call_Simple call
 
@@ -3815,7 +3824,7 @@ package body Exp_Ch9 is
          --  allowed to modify queue orders for a given priority at will!
 
          if Opt.Task_Dispatching_Policy = 'F' and then
-           not Present (Handled_Statement_Sequence (N))
+           No (Handled_Statement_Sequence (N))
          then
             Set_Handled_Statement_Sequence (N,
               Make_Handled_Sequence_Of_Statements (Loc,
@@ -4161,7 +4170,6 @@ package body Exp_Ch9 is
       --  scope.
 
       if Is_Entity_Name (Cond) then
-
          if Entity (Cond) = Standard_False
               or else
             Entity (Cond) = Standard_True
@@ -4858,9 +4866,11 @@ package body Exp_Ch9 is
       if Nkind (Ecall) = N_Procedure_Call_Statement then
          if Ada_Version >= Ada_05
            and then
-             (not Present (Original_Node (Ecall))
+             (No (Original_Node (Ecall))
                 or else
-              Nkind (Original_Node (Ecall)) /= N_Delay_Relative_Statement)
+                  (Nkind (Original_Node (Ecall)) /= N_Delay_Relative_Statement
+                     and then
+                   Nkind (Original_Node (Ecall)) /= N_Delay_Until_Statement))
          then
             Extract_Dispatching_Call (Ecall, Call_Ent, Obj, Actuals, Formals);
 
@@ -6818,7 +6828,6 @@ package body Exp_Ch9 is
       Cdecls       : List_Id;
       Discr_Map    : constant Elist_Id := New_Elmt_List;
       Priv         : Node_Id;
-      Pent         : Entity_Id;
       New_Priv     : Node_Id;
       Comp         : Node_Id;
       Comp_Id      : Entity_Id;
@@ -7024,21 +7033,42 @@ package body Exp_Ch9 is
          while Present (Priv) loop
 
             if Nkind (Priv) = N_Component_Declaration then
-               Pent := Defining_Identifier (Priv);
-               New_Priv :=
-                 Make_Component_Declaration (Loc,
-                   Defining_Identifier =>
-                     Make_Defining_Identifier (Sloc (Pent), Chars (Pent)),
-                   Component_Definition =>
-                     Make_Component_Definition (Sloc (Pent),
-                       Aliased_Present    => False,
-                       Subtype_Indication =>
-                         New_Copy_Tree (Subtype_Indication
-                                         (Component_Definition (Priv)),
-                                        Discr_Map)),
-                   Expression => Expression (Priv));
 
-               Append_To (Cdecls, New_Priv);
+               --  The component definition consists of a subtype indication,
+               --  or (in Ada 2005) an access definition. Make a copy of the
+               --  proper definition.
+
+               declare
+                  Old_Comp : constant Node_Id   := Component_Definition (Priv);
+                  Pent     : constant Entity_Id := Defining_Identifier (Priv);
+                  New_Comp : Node_Id;
+
+               begin
+                  if Present (Subtype_Indication (Old_Comp)) then
+                     New_Comp :=
+                       Make_Component_Definition (Sloc (Pent),
+                         Aliased_Present    => False,
+                         Subtype_Indication =>
+                           New_Copy_Tree (Subtype_Indication (Old_Comp),
+                                           Discr_Map));
+                  else
+                     New_Comp :=
+                       Make_Component_Definition (Sloc (Pent),
+                         Aliased_Present    => False,
+                         Access_Definition  =>
+                           New_Copy_Tree (Access_Definition (Old_Comp),
+                                           Discr_Map));
+                  end if;
+
+                  New_Priv :=
+                    Make_Component_Declaration (Loc,
+                      Defining_Identifier =>
+                        Make_Defining_Identifier (Sloc (Pent), Chars (Pent)),
+                      Component_Definition => New_Comp,
+                      Expression => Expression (Priv));
+
+                  Append_To (Cdecls, New_Priv);
+               end;
 
             elsif Nkind (Priv) = N_Subprogram_Declaration then
 
@@ -7131,7 +7161,7 @@ package body Exp_Ch9 is
                Wrap_Spec := Empty;
 
                if Nkind (Vis_Decl) = N_Entry_Declaration
-                 and then not Present (Discrete_Subtype_Definition (Vis_Decl))
+                 and then No (Discrete_Subtype_Definition (Vis_Decl))
                then
                   Wrap_Spec :=
                     Build_Wrapper_Spec (Loc,
@@ -10472,27 +10502,71 @@ package body Exp_Ch9 is
       if Present (Pdef)
         and then Has_Priority_Pragma (Pdef)
       then
-         Append_To (Args,
-           Duplicate_Subexpr_No_Checks
-             (Expression
-               (First
-                 (Pragma_Argument_Associations
-                   (Find_Task_Or_Protected_Pragma (Pdef, Name_Priority))))));
+         declare
+            Prio : constant Node_Id :=
+                     Expression
+                       (First
+                          (Pragma_Argument_Associations
+                             (Find_Task_Or_Protected_Pragma
+                                (Pdef, Name_Priority))));
+            Temp : Entity_Id;
+
+         begin
+            --  If priority is a static expression, then we can duplicate it
+            --  with no problem and simply append it to the argument list.
+
+            if Is_Static_Expression (Prio) then
+               Append_To (Args,
+                          Duplicate_Subexpr_No_Checks (Prio));
+
+            --  Otherwise, the priority may be a per-object expression, if it
+            --  depends on a discriminant of the type. In this case, create
+            --  local variable to capture the expression. Note that it is
+            --  really necessary to create this variable explicitly. It might
+            --  be thought that removing side effects would the appropriate
+            --  approach, but that could generate declarations improperly
+            --  placed in the enclosing scope.
+
+            --  Note: Use System.Any_Priority as the expected type for the
+            --  non-static priority expression, in case the expression has not
+            --  been analyzed yet (as occurs for example with pragma
+            --  Interrupt_Priority).
+
+            else
+               Temp :=
+                 Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
+
+               Append_To (L,
+                  Make_Object_Declaration (Loc,
+                     Defining_Identifier => Temp,
+                     Object_Definition   =>
+                       New_Occurrence_Of (RTE (RE_Any_Priority), Loc),
+                     Expression          => Relocate_Node (Prio)));
+
+                  Append_To (Args, New_Occurrence_Of (Temp, Loc));
+            end if;
+         end;
+
+      --  When no priority is specified but an xx_Handler pragma is, we default
+      --  to System.Interrupts.Default_Interrupt_Priority, see D.3(10).
 
       elsif Has_Interrupt_Handler (Ptyp)
         or else Has_Attach_Handler (Ptyp)
       then
-         --  When no priority is specified but an xx_Handler pragma is,
-         --  we default to System.Interrupts.Default_Interrupt_Priority,
-         --  see D.3(10).
-
          Append_To (Args,
            New_Reference_To (RTE (RE_Default_Interrupt_Priority), Loc));
+
+      --  Normal case, no priority or xx_Handler specified, default priority
 
       else
          Append_To (Args,
            New_Reference_To (RTE (RE_Unspecified_Priority), Loc));
       end if;
+
+      --  Test for Compiler_Info parameter. This parameter allows entry body
+      --  procedures and barrier functions to be called from the runtime. It
+      --  is a pointer to the record generated by the compiler to represent
+      --  the protected object.
 
       if Has_Entry
         or else Has_Interrupt_Handler (Ptyp)
@@ -10500,11 +10574,6 @@ package body Exp_Ch9 is
         or else (Ada_Version >= Ada_05
                    and then Present (Interface_List (Parent (Ptyp))))
       then
-         --  Compiler_Info parameter. This parameter allows entry body
-         --  procedures and barrier functions to be called from the runtime.
-         --  It is a pointer to the record generated by the compiler to
-         --  represent the protected object.
-
          if Has_Entry or else not Restricted then
             Append_To (Args,
                Make_Attribute_Reference (Loc,
@@ -10512,13 +10581,12 @@ package body Exp_Ch9 is
                  Attribute_Name => Name_Address));
          end if;
 
+         --  Entry_Bodies parameter. This is a pointer to an array of pointers
+         --  to the entry body procedures and barrier functions of the object.
+         --  If the protected type has no entries this object will not exist;
+         --  in this case, pass a null.
+
          if Has_Entry then
-
-            --  Entry_Bodies parameter. This is a pointer to an array of
-            --  pointers to the entry body procedures and barrier functions of
-            --  the object. If the protected type has no entries this object
-            --  will not exist; in this case, pass a null.
-
             P_Arr := Entry_Bodies_Array (Ptyp);
 
             Append_To (Args,
@@ -11238,7 +11306,11 @@ package body Exp_Ch9 is
                  and then not Is_Scalar_Type (Etype (E))
                  and then Etype (N) /= Etype (E)
                then
-                  Set_Etype (N, Etype (Entity (Original_Node (N))));
+
+                  --  Ensure that reference and entity have the same Etype,
+                  --  to prevent back-end inconsistencies.
+
+                  Set_Etype (N, Etype (E));
                   Update_Index_Types (N);
 
                elsif Present (E)
@@ -11354,7 +11426,7 @@ package body Exp_Ch9 is
          end if;
       end Update_Index_Types;
 
-      procedure Traverse is new Traverse_Proc;
+      procedure Traverse is new Traverse_Proc (Process);
 
    --  Start of processing for Update_Prival_Subtypes
 

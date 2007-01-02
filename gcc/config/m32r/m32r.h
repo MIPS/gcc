@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, Renesas M32R cpu.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005 Free Software Foundation, Inc.
+   2005, 2006 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -339,7 +339,6 @@ extern enum m32r_sdata m32r_sdata;
       if (SIZE)					\
 	{					\
 	  flag_omit_frame_pointer = TRUE;	\
-	  flag_strength_reduce = FALSE;		\
 	}					\
       						\
       SUBTARGET_OPTIMIZATION_OPTIONS		\
@@ -1268,10 +1267,7 @@ L2:     .word STATIC
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)		\
   do								\
     {						 		\
-      if (   GET_CODE (ADDR) == PRE_DEC		 		\
-	  || GET_CODE (ADDR) == PRE_INC		 		\
-	  || GET_CODE (ADDR) == POST_INC		 	\
-	  || GET_CODE (ADDR) == LO_SUM)		 		\
+      if (GET_CODE (ADDR) == LO_SUM)		 		\
 	goto LABEL;					 	\
     }								\
   while (0)
@@ -1373,7 +1369,8 @@ L2:     .word STATIC
 #define DBX_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
-      rtx begin_label = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);\
+      const char * begin_label =					\
+	XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
       char label[64];							\
       ASM_GENERATE_INTERNAL_LABEL (label, "LM", counter);		\
 									\

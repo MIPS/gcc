@@ -65,9 +65,12 @@ int main (void)
   return 0;
 }
 
-/* These are not yet vectorized on targets that do not model alignment-handling
-   mechanisms.  */
+/* in main1 */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 2 "vect" { target vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 3 "vect" { xfail vect_no_align } } } */
+
+/* in main */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 1 "vect" { xfail vect_no_align } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -20,22 +20,11 @@
    the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
    MA 02110-1301, USA.  */
 
-/* This file is compiled twice: once for the generator programs
-   once for the compiler.  */
-#ifdef GENERATOR_FILE
-#include "bconfig.h"
-#else
 #include "config.h"
-#endif
-
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#ifdef GENERATOR_FILE
-# include "errors.h"
-#else
-# include "toplev.h"
-#endif
+#include "toplev.h"
 #include "varray.h"
 #include "ggc.h"
 #include "hashtab.h"
@@ -251,19 +240,23 @@ print_statistics (void **slot, void *b)
 #endif
 
 /* Output per-varray memory usage statistics.  */
-void dump_varray_statistics (void)
+void
+dump_varray_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   struct output_info info;
 
-  fprintf (stderr, "\nVARRAY Kind            Count      Bytes  Resized copied\n");
-  fprintf (stderr, "-------------------------------------------------------\n");
-  info.count = 0;
-  info.size = 0;
-  htab_traverse (varray_hash, print_statistics, &info);
-  fprintf (stderr, "-------------------------------------------------------\n");
-  fprintf (stderr, "%-20s %7d %10d\n",
-	   "Total", info.count, info.size);
-  fprintf (stderr, "-------------------------------------------------------\n");
+  if (varray_hash)
+    {
+      fprintf (stderr, "\nVARRAY Kind            Count      Bytes  Resized copied\n");
+      fprintf (stderr, "-------------------------------------------------------\n");
+      info.count = 0;
+      info.size = 0;
+      htab_traverse (varray_hash, print_statistics, &info);
+      fprintf (stderr, "-------------------------------------------------------\n");
+      fprintf (stderr, "%-20s %7d %10d\n",
+	       "Total", info.count, info.size);
+      fprintf (stderr, "-------------------------------------------------------\n");
+   }
 #endif
 }

@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128 
+#define N 128
 
 typedef struct {
    unsigned int a;
@@ -27,14 +27,14 @@ main1 (unsigned short *arr, ii *iarr)
       iptr++;
       ptr++;
     }
-  
+
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (res[i] != arr[i] 
+      if (res[i] != arr[i]
           || ires[i].a != iarr[i].b - iarr[i].a
           || ires[i].b != iarr[i].b +  iarr[i].a)
-	abort ();
+        abort ();
     }
 
   return 0;
@@ -45,7 +45,7 @@ int main (void)
   int i;
   unsigned short arr[N];
   ii iarr[N];
-  
+
   check_vect ();
 
   for (i = 0; i < N; i++)
@@ -56,11 +56,11 @@ int main (void)
       if (arr[i] == 178)
          abort();
     }
-
-  main1 (arr, iarr);
-
+  main1 (arr, iarr); 
+    
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target vect_strided } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  { target { vect_interleave && vect_extract_even_odd } } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
+

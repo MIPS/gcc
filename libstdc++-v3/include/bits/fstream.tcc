@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -42,8 +42,8 @@
 
 #pragma GCC system_header
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _CharT, typename _Traits>
     void
     basic_filebuf<_CharT, _Traits>::
@@ -740,12 +740,15 @@ namespace std
 	{
 	  // Returns pos_type(off_type(-1)) in case of failure.
 	  __ret = pos_type(_M_file.seekoff(__off, __way));
-	  _M_reading = false;
-	  _M_writing = false;
-	  _M_ext_next = _M_ext_end = _M_ext_buf;
-	  _M_set_buffer(-1);
-	  _M_state_cur = __state;
-	  __ret.state(_M_state_cur);
+	  if (__ret != pos_type(off_type(-1)))
+	    {
+	      _M_reading = false;
+	      _M_writing = false;
+	      _M_ext_next = _M_ext_end = _M_ext_buf;
+	      _M_set_buffer(-1);
+	      _M_state_cur = __state;
+	      __ret.state(_M_state_cur);
+	    }
 	}
       return __ret;
     }
@@ -899,6 +902,7 @@ namespace std
   extern template class basic_fstream<wchar_t>;
 #endif
 #endif
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

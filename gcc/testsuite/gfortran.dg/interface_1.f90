@@ -27,7 +27,7 @@ module z
   use y
 
   interface ambiguous
-    module procedure f    ! { dg-error "in generic interface" "" }
+    module procedure f    ! { dg-warning "in generic interface" "" }
   end interface
 
   contains
@@ -38,3 +38,5 @@ module z
     end function
 
 end module z
+
+! { dg-final { cleanup-modules "y z" } }

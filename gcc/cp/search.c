@@ -97,7 +97,7 @@ struct lookup_base_data_s
 static tree
 dfs_lookup_base (tree binfo, void *data_)
 {
-  struct lookup_base_data_s *data = data_;
+  struct lookup_base_data_s *data = (struct lookup_base_data_s *) data_;
 
   if (SAME_BINFO_TYPE_P (BINFO_TYPE (binfo), data->base))
     {
@@ -306,7 +306,7 @@ struct dcast_data_s
 static tree
 dfs_dcast_hint_pre (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth++;
@@ -334,7 +334,7 @@ dfs_dcast_hint_pre (tree binfo, void *data_)
 static tree
 dfs_dcast_hint_post (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth--;
@@ -792,8 +792,8 @@ friend_accessible_p (tree scope, tree decl, tree binfo)
     if (protected_accessible_p (decl, TREE_VALUE (t), binfo))
       return 1;
 
-  /* Nested classes are implicitly friends of their enclosing types, as
-     per core issue 45 (this is a change from the standard).  */
+  /* Nested classes have the same access as their enclosing types, as
+     per DR 45 (this is a change from the standard).  */
   if (TYPE_P (scope))
     for (t = TYPE_CONTEXT (scope); t && TYPE_P (t); t = TYPE_CONTEXT (t))
       if (protected_accessible_p (decl, t, binfo))
@@ -875,8 +875,8 @@ accessible_p (tree type, tree decl, bool consider_local_p)
      instantiation.  However, PROCESSING_TEMPLATE_DECL is set in the
      parameter list for a template (because we may see dependent types
      in default arguments for template parameters), and access
-     checking should be performed in the outermost parameter list.  */ 
-  if (processing_template_decl 
+     checking should be performed in the outermost parameter list.  */
+  if (processing_template_decl
       && (!processing_template_parmlist || processing_template_decl > 1))
     return 1;
 
@@ -1209,7 +1209,8 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
-      gcc_assert (IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)));
+      if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)))
+	return NULL_TREE;
       type = xbasetype;
       xbasetype = NULL_TREE;
     }
@@ -1252,9 +1253,27 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
   /* [class.access]
 
      In the case of overloaded function names, access control is
-     applied to the function selected by overloaded resolution.  */
-  if (rval && protect && !is_overloaded_fn (rval))
-    perform_or_defer_access_check (basetype_path, rval);
+     applied to the function selected by overloaded resolution.  
+
+     We cannot check here, even if RVAL is only a single non-static
+     member function, since we do not know what the "this" pointer
+     will be.  For:
+
+        class A { protected: void f(); };
+        class B : public A { 
+          void g(A *p) {
+            f(); // OK
+            p->f(); // Not OK.
+          }
+        };
+
+    only the first call to "f" is valid.  However, if the function is
+    static, we can check.  */
+  if (rval && protect 
+      && !really_overloaded_fn (rval)
+      && !(TREE_CODE (rval) == FUNCTION_DECL
+	   && DECL_NONSTATIC_MEMBER_FUNCTION_P (rval)))
+    perform_or_defer_access_check (basetype_path, rval, rval);
 
   if (errstr && protect)
     {
@@ -1479,13 +1498,13 @@ adjust_result_of_qualified_name_lookup (tree decl,
 					tree qualifying_scope,
 					tree context_class)
 {
-  if (context_class && CLASS_TYPE_P (qualifying_scope)
+  if (context_class && context_class != error_mark_node
+      && CLASS_TYPE_P (context_class)
+      && CLASS_TYPE_P (qualifying_scope)
       && DERIVED_FROM_P (qualifying_scope, context_class)
       && BASELINK_P (decl))
     {
       tree base;
-
-      gcc_assert (CLASS_TYPE_P (context_class));
 
       /* Look for the QUALIFYING_SCOPE as a base of the CONTEXT_CLASS.
 	 Because we do not yet know which function will be chosen by
@@ -2042,6 +2061,10 @@ maybe_suppress_debug_info (tree t)
   /* We might have set this earlier in cp_finish_decl.  */
   TYPE_DECL_SUPPRESS_DEBUG (TYPE_MAIN_DECL (t)) = 0;
 
+  /* Always emit the information for each class every time. */
+  if (flag_emit_class_debug_always)
+    return;
+
   /* If we already know how we're handling this class, handle debug info
      the same way.  */
   if (CLASSTYPE_INTERFACE_KNOWN (t))
@@ -2355,7 +2378,7 @@ lookup_conversions_r (tree binfo,
     {
       parent_tpl_convs = tree_cons (binfo, my_tpl_convs, parent_tpl_convs);
       if (virtual_depth)
-	TREE_STATIC (parent_convs) = 1;
+	TREE_STATIC (parent_tpl_convs) = 1;
     }
 
   child_convs = other_convs;

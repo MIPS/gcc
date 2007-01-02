@@ -155,12 +155,13 @@ extern struct reload rld[MAX_RELOADS];
 extern int n_reloads;
 #endif
 
-extern GTY (()) struct varray_head_tag *reg_equiv_memory_loc_varray;
+extern GTY (()) VEC(rtx,gc) *reg_equiv_memory_loc_vec;
 extern rtx *reg_equiv_constant;
 extern rtx *reg_equiv_invariant;
 extern rtx *reg_equiv_memory_loc;
 extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
+extern rtx *reg_equiv_alt_mem_list;
 
 /* Element N is the list of insns that initialized reg N from its equivalent
    constant or memory slot.  */

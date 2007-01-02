@@ -82,29 +82,29 @@ cp_expr_size (tree exp)
       /* The backend should not be interested in the size of an expression
 	 of a type with both of these set; all copies of such types must go
 	 through a constructor or assignment op.  */
-      gcc_assert (!TYPE_HAS_COMPLEX_INIT_REF (type)
-		  || !TYPE_HAS_COMPLEX_ASSIGN_REF (type)
-		  /* But storing a CONSTRUCTOR isn't a copy.  */
-		  || TREE_CODE (exp) == CONSTRUCTOR
-		  /* And, the gimplifier will sometimes make a copy of
-		     an aggregate.  In particular, for a case like:
+      if (!TYPE_HAS_COMPLEX_INIT_REF (type)
+	  || !TYPE_HAS_COMPLEX_ASSIGN_REF (type)
+	  /* But storing a CONSTRUCTOR isn't a copy.  */
+	  || TREE_CODE (exp) == CONSTRUCTOR
+	  /* And, the gimplifier will sometimes make a copy of
+	     an aggregate.  In particular, for a case like:
 
-			struct S { S(); };
-			struct X { int a; S s; };
-			X x = { 0 };
+		struct S { S(); };
+		struct X { int a; S s; };
+		X x = { 0 };
 
-		     the gimplifier will create a temporary with
-		     static storage duration, perform static
-		     initialization of the temporary, and then copy
-		     the result.  Since the "s" subobject is never
-		     constructed, this is a valid transformation.  */
-		  || CP_AGGREGATE_TYPE_P (type));
-
-      /* This would be wrong for a type with virtual bases, but they are
-	 caught by the assert above.  */
-      return (is_empty_class (type)
-	      ? size_zero_node
-	      : CLASSTYPE_SIZE_UNIT (type));
+	     the gimplifier will create a temporary with
+	     static storage duration, perform static
+	     initialization of the temporary, and then copy
+	     the result.  Since the "s" subobject is never
+	     constructed, this is a valid transformation.  */
+	  || CP_AGGREGATE_TYPE_P (type))
+	/* This would be wrong for a type with virtual bases.  */
+	return (is_empty_class (type)
+		? size_zero_node
+		: CLASSTYPE_SIZE_UNIT (type));
+      else
+	return NULL_TREE;
     }
   else
     /* Use the default code.  */
@@ -123,6 +123,7 @@ cp_tree_size (enum tree_code code)
     case TEMPLATE_PARM_INDEX:	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
+    case STATIC_ASSERT:         return sizeof (struct tree_static_assert);
     default:
       gcc_unreachable ();
     }
@@ -185,6 +186,21 @@ cxx_types_compatible_p (tree x, tree y)
   return 0;
 }
 
+tree
+cxx_staticp (tree arg)
+{
+  switch (TREE_CODE (arg))
+    {
+    case BASELINK:
+      return staticp (BASELINK_FUNCTIONS (arg));
+
+    default:
+      break;
+    }
+  
+  return NULL_TREE;
+}
+
 /* Stubs to keep c-opts.c happy.  */
 void
 push_file_scope (void)
@@ -203,19 +219,19 @@ has_c_linkage (tree decl)
   return DECL_EXTERN_C_P (decl);
 }
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t shadowed_var_for_decl;
 
 /* Lookup a shadowed var for FROM, and return it if we find one.  */
 
-tree 
+tree
 decl_shadowed_for_var_lookup (tree from)
 {
   struct tree_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (shadowed_var_for_decl, &in, 
-			   htab_hash_pointer (from));
+  h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in,
+					       htab_hash_pointer (from));
   if (h)
     return h->to;
   return NULL_TREE;

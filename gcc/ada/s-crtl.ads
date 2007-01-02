@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2003-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2003-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -63,9 +63,6 @@ package System.CRTL is
    procedure clearerr (stream : FILEs);
    pragma Import (C, clearerr, "clearerr");
 
-   function closedir (directory : DIRs) return Integer;
-   pragma Import (C, closedir, "closedir");
-
    function dup  (handle : int) return int;
    pragma Import (C, dup, "dup");
 
@@ -88,7 +85,7 @@ package System.CRTL is
    pragma Import (C, fgets, "fgets");
 
    function fopen (filename : chars; Mode : chars) return FILEs;
-   pragma Import (C, fopen, "fopen");
+   pragma Import (C, fopen, "__gnat_fopen");
 
    function fputc (C : int; stream : FILEs) return int;
    pragma Import (C, fputc, "fputc");
@@ -104,7 +101,7 @@ package System.CRTL is
       mode     : chars;
       stream   : FILEs)
       return     FILEs;
-   pragma Import (C, freopen, "freopen");
+   pragma Import (C, freopen, "__gnat_freopen");
 
    function fseek
      (stream : FILEs;
@@ -136,9 +133,6 @@ package System.CRTL is
 
    procedure mktemp (template : chars);
    pragma Import (C, mktemp, "mktemp");
-
-   function opendir (file_name : String) return DIRs;
-   pragma Import (C, opendir, "opendir");
 
    function pclose (stream : System.Address) return int;
    pragma Import (C, pclose, "pclose");

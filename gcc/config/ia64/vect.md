@@ -212,64 +212,6 @@
   "pmpyshr2 %0 = %1, %2, 0"
   [(set_attr "itanium_class" "mmmul")])
 
-(define_insn "smulv4hi3_highpart"
-  [(set (match_operand:V4HI 0 "gr_register_operand" "")
-	(truncate:V4HI
-	  (lshiftrt:V4SI
-	    (mult:V4SI
-	      (sign_extend:V4SI
-		(match_operand:V4HI 1 "gr_register_operand" ""))
-	      (sign_extend:V4SI
-		(match_operand:V4HI 2 "gr_register_operand" "")))
-	    (const_int 16))))]
-  ""
-  "pmpyshr2 %0 = %1, %2, 16"
-  [(set_attr "itanium_class" "mmmul")])
-
-(define_insn "umulv4hi3_highpart"
-  [(set (match_operand:V4HI 0 "gr_register_operand" "")
-	(truncate:V4HI
-	  (lshiftrt:V4SI
-	    (mult:V4SI
-	      (zero_extend:V4SI
-		(match_operand:V4HI 1 "gr_register_operand" ""))
-	      (zero_extend:V4SI
-		(match_operand:V4HI 2 "gr_register_operand" "")))
-	    (const_int 16))))]
-  ""
-  "pmpyshr2.u %0 = %1, %2, 16"
-  [(set_attr "itanium_class" "mmmul")])
-
-(define_insn "pmpy2_r"
-  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
-	(mult:V2SI
-	  (vec_select:V2SI
-	    (sign_extend:V4SI
-	      (match_operand:V4HI 1 "gr_register_operand" "r"))
-	    (parallel [(const_int 0) (const_int 2)]))
-	  (vec_select:V2SI
-	    (sign_extend:V4SI
-	      (match_operand:V4HI 2 "gr_register_operand" "r"))
-	    (parallel [(const_int 0) (const_int 2)]))))]
-  ""
-  "pmpy2.r %0 = %1, %2"
-  [(set_attr "itanium_class" "mmshf")])
-
-(define_insn "pmpy2_l"
-  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
-	(mult:V2SI
-	  (vec_select:V2SI
-	    (sign_extend:V4SI
-	      (match_operand:V4HI 1 "gr_register_operand" "r"))
-	    (parallel [(const_int 1) (const_int 3)]))
-	  (vec_select:V2SI
-	    (sign_extend:V4SI
-	      (match_operand:V4HI 2 "gr_register_operand" "r"))
-	    (parallel [(const_int 1) (const_int 3)]))))]
-  ""
-  "pmpy2.l %0 = %1, %2"
-  [(set_attr "itanium_class" "mmshf")])
-
 (define_insn "pmpy2_r"
   [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
 	(mult:V2SI
@@ -545,7 +487,7 @@
   "pcmp<vecsize>.gt %0 = %r1, %r2"
   [(set_attr "itanium_class" "mmalua")])
 
-(define_insn "vec_pack_ssat_v4hi"
+(define_insn "pack2_sss"
   [(set (match_operand:V8QI 0 "gr_register_operand" "=r")
 	(vec_concat:V8QI
 	  (ss_truncate:V4QI
@@ -556,7 +498,7 @@
   "pack2.sss %0 = %r1, %r2"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_insn "vec_pack_usat_v4hi"
+(define_insn "*pack2_uss"
   [(set (match_operand:V8QI 0 "gr_register_operand" "=r")
 	(vec_concat:V8QI
 	  (us_truncate:V4QI
@@ -567,7 +509,7 @@
   "pack2.uss %0 = %r1, %r2"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_insn "vec_pack_ssat_v2si"
+(define_insn "pack4_sss"
   [(set (match_operand:V4HI 0 "gr_register_operand" "=r")
 	(vec_concat:V4HI
 	  (ss_truncate:V2HI
@@ -578,49 +520,7 @@
   "pack4.sss %0 = %r1, %r2"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_expand "vec_pack_mod_v4hi"
-  [(match_operand:V8QI 0 "register_operand" "")
-   (match_operand:V4HI 1 "register_operand" "")
-   (match_operand:V4HI 2 "register_operand" "")]
-  ""
-{
-  rtx op1, op2, h1, l1, h2, l2;
-
-  op1 = gen_lowpart (V8QImode, operands[1]);
-  op2 = gen_lowpart (V8QImode, operands[2]);
-  h1 = gen_reg_rtx (V8QImode);
-  l1 = gen_reg_rtx (V8QImode);
-  h2 = gen_reg_rtx (V8QImode);
-  l2 = gen_reg_rtx (V8QImode);
-
-  emit_insn (gen_vec_interleave_highv8qi (h1, op1, op2));
-  emit_insn (gen_vec_interleave_lowv8qi (l1, op1, op2));
-  emit_insn (gen_vec_interleave_highv8qi (h2, l1, h1));
-  emit_insn (gen_vec_interleave_lowv8qi (l2, l1, h1));
-  emit_insn (gen_vec_interleave_lowv8qi (operands[0], l2, h2));
-  DONE;
-})
-
-(define_expand "vec_pack_mod_v2si"
-  [(match_operand:V4HI 0 "register_operand" "")
-   (match_operand:V2SI 1 "register_operand" "")
-   (match_operand:V2SI 2 "register_operand" "")]
-  ""
-{
-  rtx op1, op2, h1, l1;
-
-  op1 = gen_lowpart (V4HImode, operands[1]);
-  op2 = gen_lowpart (V4HImode, operands[2]);
-  h1 = gen_reg_rtx (V4HImode);
-  l1 = gen_reg_rtx (V4HImode);
-
-  emit_insn (gen_vec_interleave_highv4hi (h1, op1, op2));
-  emit_insn (gen_vec_interleave_lowv4hi (l1, op1, op2));
-  emit_insn (gen_vec_interleave_lowv4hi (operands[0], l1, h1));
-  DONE;
-})
-
-(define_insn "vec_interleave_lowv8qi"
+(define_insn "unpack1_l"
   [(set (match_operand:V8QI 0 "gr_register_operand" "=r")
 	(vec_select:V8QI
 	  (vec_concat:V16QI
@@ -638,7 +538,7 @@
   "unpack1.l %0 = %r2, %r1"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_insn "vec_interleave_highv8qi"
+(define_insn "unpack1_h"
   [(set (match_operand:V8QI 0 "gr_register_operand" "=r")
 	(vec_select:V8QI
 	  (vec_concat:V16QI
@@ -780,7 +680,7 @@
   "mux1 %0 = %1, @brcst"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_insn "vec_interleave_lowv4hi"
+(define_insn "unpack2_l"
   [(set (match_operand:V4HI 0 "gr_register_operand" "=r")
 	(vec_select:V4HI
 	  (vec_concat:V8HI
@@ -794,7 +694,7 @@
   "unpack2.l %0 = %r2, %r1"
   [(set_attr "itanium_class" "mmshf")])
 
-(define_insn "vec_interleave_highv4hi"
+(define_insn "unpack2_h"
   [(set (match_operand:V4HI 0 "gr_register_operand" "=r")
 	(vec_select:V4HI
 	  (vec_concat:V8HI
@@ -865,7 +765,7 @@
   [(set_attr "itanium_class" "mmshf")])
 
 ;; Note that mix4.r performs the exact same operation.
-(define_insn "vec_interleave_lowv2si"
+(define_insn "*unpack4_l"
   [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
 	(vec_select:V2SI
 	  (vec_concat:V4SI
@@ -878,7 +778,7 @@
   [(set_attr "itanium_class" "mmshf")])
 
 ;; Note that mix4.l performs the exact same operation.
-(define_insn "vec_interleave_highv2si"
+(define_insn "*unpack4_h"
   [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
 	(vec_select:V2SI
 	  (vec_concat:V4SI
@@ -930,78 +830,6 @@
   ""
   "unpack4.l %0 = %r2, %r1"
   [(set_attr "itanium_class" "mmshf")])
-
-(define_expand "vec_unpacku_hi_v8qi"
-  [(match_operand:V4HI 0 "register_operand" "")
-   (match_operand:V8QI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, true, true);
-  DONE;
-})
-
-(define_expand "vec_unpacks_hi_v8qi"
-  [(match_operand:V4HI 0 "register_operand" "")
-   (match_operand:V8QI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, false, true);
-  DONE;
-})
-
-(define_expand "vec_unpacku_lo_v8qi"
-  [(match_operand:V4HI 0 "register_operand" "")
-   (match_operand:V8QI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, true, false);
-  DONE;
-})
-
-(define_expand "vec_unpacks_lo_v8qi"
-  [(match_operand:V4HI 0 "register_operand" "")
-   (match_operand:V8QI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, false, false);
-  DONE;
-})
-
-(define_expand "vec_unpacku_hi_v4hi"
-  [(match_operand:V2SI 0 "register_operand" "")
-   (match_operand:V4HI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, true, true);
-  DONE;
-})
-
-(define_expand "vec_unpacks_hi_v4hi"
-  [(match_operand:V2SI 0 "register_operand" "")
-   (match_operand:V4HI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, false, true);
-  DONE;
-})
-
-(define_expand "vec_unpacku_lo_v4hi"
-  [(match_operand:V2SI 0 "register_operand" "")
-   (match_operand:V4HI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, true, false);
-  DONE;
-})
-
-(define_expand "vec_unpacks_lo_v4hi"
-  [(match_operand:V2SI 0 "register_operand" "")
-   (match_operand:V4HI 1 "register_operand" "")]
-  ""
-{
-  ia64_expand_unpack (operands, false, false);
-  DONE;
-})
 
 ;; Missing operations
 ;; padd.uus

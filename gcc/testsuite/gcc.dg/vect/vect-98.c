@@ -36,7 +36,7 @@ int main (void)
   return main1 (ia);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { xfail vect_strided } } } */
+/* Needs interleaving support.  */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_interleave && vect_extract_even_odd } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { xfail  { vect_interleave && vect_extract_even_odd } } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
-

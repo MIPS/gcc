@@ -289,6 +289,11 @@ typedef struct machine_function GTY(())
    conventions for TImode variables.  */
 #define MIN_UNITS_PER_WORD 4
 
+/* The widest floating point format supported by the hardware.  Note that
+   setting this influences some Ada floating point type sizes, currently
+   required for GNAT to operate properly.  */
+#define WIDEST_HARDWARE_FP_SIZE 64
+
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
 
@@ -531,14 +536,15 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
   reg_classes_intersect_p ((CLASS), FP_REGS)
 
 /* On the PA it is not possible to directly move data between
-   GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
-  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
-   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
-
-/* Return the stack location to use for secondary memory needed reloads.  */
-#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
-  gen_rtx_MEM (MODE, gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (-16)))
+   GENERAL_REGS and FP_REGS.  On the 32-bit port, we use the
+   location at SP-16.  We don't expose this location in the RTL to
+   avoid scheduling related problems.  For example, the store and
+   load could be separated by a call to a pure or const function
+   which has no frame and uses SP-16.  */
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
+  (TARGET_64BIT								\
+   && (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)		\
+       || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1)))
 
 
 /* Stack layout; function entry, exit and calling.  */
@@ -1113,13 +1119,18 @@ extern int may_call_alloca;
 #define LEGITIMATE_CONSTANT_P(X)				\
   ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT			\
     || (X) == CONST0_RTX (GET_MODE (X)))			\
-   && (NEW_HP_ASSEMBLER || TARGET_GAS || GET_CODE (X) != LABEL_REF)	\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE)		\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_INT		\
-	&& !(HOST_BITS_PER_WIDE_INT <= 32			\
-	     || (reload_in_progress || reload_completed)	\
-	     || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))	\
-	     || cint_ok_for_move (INTVAL (X))))			\
+   && (NEW_HP_ASSEMBLER						\
+       || TARGET_GAS						\
+       || GET_CODE (X) != LABEL_REF)				\
+   && (!TARGET_64BIT						\
+       || GET_CODE (X) != CONST_DOUBLE)				\
+   && (!TARGET_64BIT						\
+       || HOST_BITS_PER_WIDE_INT <= 32				\
+       || GET_CODE (X) != CONST_INT				\
+       || reload_in_progress					\
+       || reload_completed					\
+       || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))		\
+       || cint_ok_for_move (INTVAL (X)))			\
    && !function_label_operand (X, VOIDmode))
 
 /* Target flags set on a symbol_ref.  */
@@ -1554,12 +1565,7 @@ do { 									\
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)	\
-  if (GET_CODE (ADDR) == PRE_DEC	\
-      || GET_CODE (ADDR) == POST_DEC	\
-      || GET_CODE (ADDR) == PRE_INC	\
-      || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define TARGET_ASM_SELECT_SECTION  pa_select_section
 

@@ -1,7 +1,7 @@
-/* APPLE LOCAL file  AV */
 /* Test compiler crash when dependence analyzer can not represent
    dependence relation by distance vector.  */
 /* { dg-do compile } */
+/* { dg-require-effective-target vect_int } */
 
 int x[199];
 

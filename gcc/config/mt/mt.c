@@ -55,9 +55,6 @@
 /* Link register mask.  */
 #define LINK_MASK	 	 (1 << (GPR_LINK))
 
-/* First GPR.  */
-#define MT_INT_ARG_FIRST 1
-
 /* Given a SIZE in bytes, advance to the next word.  */
 #define ROUND_ADVANCE(SIZE) (((SIZE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -122,7 +119,7 @@ mt_asm_output_opcode (FILE *f ATTRIBUTE_UNUSED, const char *ptr)
   
   while (mt_nops_required)
     {
-      fprintf (f, "or r0, r0, r0\n\t");
+      fprintf (f, "nop\n\t");
       -- mt_nops_required;
     }
   
@@ -421,7 +418,7 @@ mt_print_operand (FILE * file, rtx x, int code)
     case '#':
       /* Output a nop if there's nothing for the delay slot.  */
       if (dbr_sequence_length () == 0)
-	fputs ("\n\tor r0, r0, r0", file);
+	fputs ("\n\tnop", file);
       return;
       
     case 'H': 
@@ -538,7 +535,7 @@ mt_function_arg_slotno (const CUMULATIVE_ARGS * cum,
 			int incoming_p ATTRIBUTE_UNUSED,
 			int * pregno)
 {
-  int regbase = MT_INT_ARG_FIRST;
+  int regbase = FIRST_ARG_REGNUM;
   int slotno  = * cum;
 
   if (mode == VOIDmode || targetm.calls.must_pass_in_stack (mode, type))
@@ -686,7 +683,7 @@ mt_legitimate_simple_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 
-/* Helper function of GO_IF_LEGITIMATE_ADDRESS.  Return non-zero if
+/* Helper function of GO_IF_LEGITIMATE_ADDRESS.  Return nonzero if
    XINSN is a legitimate address on MT.  */
 int
 mt_legitimate_address_p (enum machine_mode mode, rtx xinsn, int strict)
@@ -827,35 +824,29 @@ mt_override_options (void)
    to determine if stdarg or varargs is used and return the address of the
    first unnamed parameter.  */
 
-static rtx
-mt_builtin_saveregs (void)
+static void
+mt_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
+			   enum machine_mode mode ATTRIBUTE_UNUSED,
+			   tree type ATTRIBUTE_UNUSED,
+			   int *pretend_size, int no_rtl)
 {
-  int first_reg = 0;
-  rtx address;
   int regno;
-
-  for (regno = first_reg; regno < MT_NUM_ARG_REGS; regno ++)
-    emit_move_insn
-      (gen_rtx_MEM (word_mode,
-		    gen_rtx_PLUS (Pmode,
-				  gen_rtx_REG (SImode, ARG_POINTER_REGNUM),
-				  GEN_INT (UNITS_PER_WORD * regno))),
-       gen_rtx_REG (word_mode,
-		    MT_INT_ARG_FIRST + regno));
-
-  address = gen_rtx_PLUS (Pmode,
-			  gen_rtx_REG (SImode, ARG_POINTER_REGNUM),
-			  GEN_INT (UNITS_PER_WORD * first_reg));
-  return address;
-}
-
-/* Implement `va_start'.  */
-
-void
-mt_va_start (tree valist, rtx nextarg)
-{
-  mt_builtin_saveregs ();
-  std_expand_builtin_va_start (valist, nextarg);
+  int regs = MT_NUM_ARG_REGS - *cum;
+  
+  *pretend_size = regs < 0 ? 0 : GET_MODE_SIZE (SImode) * regs;
+  
+  if (no_rtl)
+    return;
+  
+  for (regno = *cum; regno < MT_NUM_ARG_REGS; regno++)
+    {
+      rtx reg = gen_rtx_REG (SImode, FIRST_ARG_REGNUM + regno);
+      rtx slot = gen_rtx_PLUS (Pmode,
+			       gen_rtx_REG (SImode, ARG_POINTER_REGNUM),
+			       GEN_INT (UNITS_PER_WORD * regno));
+      
+      emit_move_insn (gen_rtx_MEM (SImode, slot), reg);
+    }
 }
 
 /* Returns the number of bytes offset between the frame pointer and the stack
@@ -1657,17 +1648,13 @@ void mt_add_loop (void)
 }
 
 
-/* Maxium loop nesting depth.  */
+/* Maximum loop nesting depth.  */
 #define MAX_LOOP_DEPTH 4
-/* Maxium size of a loop (allows some headroom for delayed branch slot
+/* Maximum size of a loop (allows some headroom for delayed branch slot
    filling.  */
 #define MAX_LOOP_LENGTH (200 * 4)
 
-/* We need to keep a vector of basic blocks */
-DEF_VEC_P (basic_block);
-DEF_VEC_ALLOC_P (basic_block,heap);
-
-/* And a vector of loops */
+/* We need to keep a vector of loops */
 typedef struct loop_info *loop_info;
 DEF_VEC_P (loop_info);
 DEF_VEC_ALLOC_P (loop_info,heap);
@@ -1863,7 +1850,7 @@ mt_scan_loop (loop_info loop, rtx reg, rtx dbnz)
    loop iterations.  It can be nested with an automatically maintained
    stack of counter and end address registers.  It's an ideal
    candidate for doloop.  Unfortunately, gcc presumes that loops
-   always end with an explicit instriction, and the doloop_begin
+   always end with an explicit instruction, and the doloop_begin
    instruction is not a flow control instruction so it can be
    scheduled earlier than just before the start of the loop.  To make
    matters worse, the optimization pipeline can duplicate loop exit
@@ -2312,9 +2299,14 @@ mt_reorg_hazard (void)
       
       gcc_assert (INSN_P (insn) && !INSN_DELETED_P (insn));
       for (next = NEXT_INSN (insn);
-	   next && !INSN_P (next);
+	   next;
 	   next = NEXT_INSN (next))
-	continue;
+	{
+	  if (!INSN_P (next))
+	    continue;
+	  if (GET_CODE (PATTERN (next)) != USE)
+	    break;
+	}
 
       jmp = insn;
       if (GET_CODE (PATTERN (insn)) == SEQUENCE)
@@ -2390,7 +2382,7 @@ mt_reorg_hazard (void)
 		      }
 		  continue;
 		}
-	      if (!INSN_P (prev))
+	      if (!INSN_P (prev) || GET_CODE (PATTERN (prev)) == USE)
 		continue;
 	      
 	      if (GET_CODE (PATTERN (prev)) == SEQUENCE)
@@ -2421,14 +2413,7 @@ mt_reorg_hazard (void)
 		}
 
 	      if (INSN_CODE (prev) >= 0)
-		{
-		  rtx set = single_set (prev);
-
-		  /* A noop set will get deleted in a later split pass,
-	     	     so we can't count on it for hazard avoidance.  */
-		  if (!set || !set_noop_p (set))
-		    count--;
-		}
+		count--;
 	    }
 
 	  if (rescan)
@@ -2467,10 +2452,14 @@ mt_machine_reorg (void)
     mt_reorg_loops (dump_file);
 
   if (mt_flag_delayed_branch)
-    dbr_schedule (get_insns (), dump_file);
+    dbr_schedule (get_insns ());
   
   if (TARGET_MS2)
-    mt_reorg_hazard ();
+    {
+      /* Force all instructions to be split into their final form.  */
+      split_all_insns_noflow ();
+      mt_reorg_hazard ();
+    }
 }
 
 /* Initialize the GCC target structure.  */
@@ -2488,6 +2477,8 @@ const struct attribute_spec mt_attribute_table[];
 #define TARGET_MUST_PASS_IN_STACK       mt_pass_in_stack
 #undef  TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES	mt_arg_partial_bytes
+#undef  TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS 	mt_setup_incoming_varargs
 #undef  TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG  mt_machine_reorg
 

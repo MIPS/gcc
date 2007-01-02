@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -51,8 +51,10 @@ package Ada.Containers.Hashed_Sets is
    pragma Preelaborate;
 
    type Set is tagged private;
+   pragma Preelaborable_Initialization (Set);
 
    type Cursor is private;
+   pragma Preelaborable_Initialization (Cursor);
 
    Empty_Set : constant Set;
 
@@ -179,7 +181,7 @@ package Ada.Containers.Hashed_Sets is
 
       function Element (Container : Set; Key : Key_Type) return Element_Type;
 
-      procedure Replace          --  TODO: ask Randy why this wasn't removed
+      procedure Replace
         (Container : in out Set;
          Key       : Key_Type;
          New_Item  : Element_Type);

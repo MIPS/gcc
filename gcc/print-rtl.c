@@ -283,12 +283,9 @@ print_rtx (rtx in_rtx)
 
 	      case NOTE_INSN_BLOCK_BEG:
 	      case NOTE_INSN_BLOCK_END:
-		fprintf (outfile, " ");
-		if (flag_dump_unnumbered)
-		  fprintf (outfile, "#");
-		else
-		  fprintf (outfile, "%p",
-			   (char *) NOTE_BLOCK (in_rtx));
+#ifndef GENERATOR_FILE
+		dump_addr (outfile, " ", NOTE_BLOCK (in_rtx));
+#endif
 		sawclose = 1;
 		break;
 
@@ -301,14 +298,6 @@ print_rtx (rtx in_rtx)
 #endif
 		  break;
 	        }
-
-	      case NOTE_INSN_EXPECTED_VALUE:
-		indent += 2;
-		if (!sawclose)
-		  fprintf (outfile, " ");
-		print_rtx (NOTE_EXPECTED_VALUE (in_rtx));
-		indent -= 2;
-		break;
 
 	      case NOTE_INSN_DELETED_LABEL:
 		{
@@ -539,7 +528,9 @@ print_rtx (rtx in_rtx)
 	break;
 
       case 't':
-	fprintf (outfile, " %p", (void *) XTREE (in_rtx, i));
+#ifndef GENERATOR_FILE
+	dump_addr (outfile, " ", XTREE (in_rtx, i));
+#endif
 	break;
 
       case '*':

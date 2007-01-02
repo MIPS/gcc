@@ -1,6 +1,7 @@
 /* Prototypes for exported functions defined in avr.c
    
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
    This file is part of GCC.
@@ -35,7 +36,6 @@ extern void asm_globalize_label (FILE *file, const char *name);
 extern void order_regs_for_local_alloc (void);
 extern int initial_elimination_offset (int from, int to);
 extern int avr_simple_epilogue (void);
-extern int mask_one_bit_p (HOST_WIDE_INT mask);
 extern void gas_output_limited_string (FILE *file, const char *str);
 extern void gas_output_ascii (FILE *file, const char *str, size_t length);
 
@@ -92,7 +92,7 @@ extern void avr_output_addr_vec_elt (FILE *stream, int value);
 extern const char *avr_out_sbxx_branch (rtx insn, rtx operands[]);
 
 extern enum reg_class preferred_reload_class (rtx x, enum reg_class class);
-extern int extra_constraint (rtx x, int c);
+extern int extra_constraint_Q (rtx x);
 extern rtx legitimize_address (rtx x, rtx oldx, enum machine_mode mode);
 extern int adjust_insn_length (rtx insn, int len);
 extern rtx avr_libcall_value (enum machine_mode mode);
@@ -121,7 +121,6 @@ extern int compare_eq_p (rtx insn);
 extern void out_shift_with_cnt (const char *template, rtx insn,
 				rtx operands[], int *len, int t_len);
 extern int avr_io_address_p (rtx x, int size);
-extern int const_int_pow2_p (rtx x);
 extern int avr_peep2_scratch_safe (rtx reg_rtx);
 #endif /* RTX_CODE */
 

@@ -1,6 +1,6 @@
 // strstream definitions -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,8 +53,8 @@
 #include <string.h>
 #include <limits.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   strstreambuf::strstreambuf(streamsize initial_capacity)
   : _Base(), _M_alloc_fun(0), _M_free_fun(0), _M_dynamic(true), 
     _M_frozen(false), _M_constant(false)
@@ -311,10 +311,12 @@ namespace std
   strstreambuf::_M_free(char* p)
   {
     if (p)
-      if (_M_free_fun)
-	_M_free_fun(p);
-      else
-	delete[] p;
+      {
+	if (_M_free_fun)
+	  _M_free_fun(p);
+	else
+	  delete[] p;
+      }
   }
 
   void 
@@ -413,4 +415,5 @@ namespace std
   char* 
   strstream::str()
   { return _M_buf.str(); }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE

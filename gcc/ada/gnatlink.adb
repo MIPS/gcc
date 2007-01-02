@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -52,6 +52,16 @@ with System.CRTL;
 procedure Gnatlink is
    pragma Ident (Gnatvsn.Gnat_Static_Version_String);
 
+   Shared_Libgcc_String : constant String := "-shared-libgcc";
+   Shared_Libgcc        : constant String_Access :=
+                            new String'(Shared_Libgcc_String);
+   --  Used to invoke gcc when the binder is invoked with -shared
+
+   Static_Libgcc_String : constant String := "-static-libgcc";
+   Static_Libgcc        : constant String_Access :=
+                            new String'(Static_Libgcc_String);
+   --  Used to invoke gcc when shared libs are not used
+
    package Gcc_Linker_Options is new Table.Table (
      Table_Component_Type => String_Access,
      Table_Index_Type     => Integer,
@@ -66,7 +76,7 @@ procedure Gnatlink is
      Table_Index_Type     => Integer,
      Table_Low_Bound      => 1,
      Table_Initial        => 4096,
-     Table_Increment      => 2,
+     Table_Increment      => 100,
      Table_Name           => "Gnatlink.Libpath");
    --  Comments needed ???
 
@@ -174,22 +184,22 @@ procedure Gnatlink is
    Object_List_File_Required : Boolean := False;
    --  Set to True to force generation of a response file
 
-   function Base_Name (File_Name : in String) return String;
+   function Base_Name (File_Name : String) return String;
    --  Return just the file name part without the extension (if present)
 
-   procedure Delete (Name : in String);
+   procedure Delete (Name : String);
    --  Wrapper to unlink as status is ignored by this application
 
-   procedure Error_Msg (Message : in String);
+   procedure Error_Msg (Message : String);
    --  Output the error or warning Message
 
-   procedure Exit_With_Error (Error : in String);
+   procedure Exit_With_Error (Error : String);
    --  Output Error and exit program with a fatal condition
 
    procedure Process_Args;
    --  Go through all the arguments and build option tables
 
-   procedure Process_Binder_File (Name : in String);
+   procedure Process_Binder_File (Name : String);
    --  Reads the binder file and extracts linker arguments
 
    procedure Write_Header;
@@ -202,7 +212,7 @@ procedure Gnatlink is
    -- Base_Name --
    ---------------
 
-   function Base_Name (File_Name : in String) return String is
+   function Base_Name (File_Name : String) return String is
       Findex1 : Natural;
       Findex2 : Natural;
 
@@ -237,7 +247,7 @@ procedure Gnatlink is
    -- Delete --
    ------------
 
-   procedure Delete (Name : in String) is
+   procedure Delete (Name : String) is
       Status : int;
       pragma Unreferenced (Status);
    begin
@@ -249,7 +259,7 @@ procedure Gnatlink is
    -- Error_Msg --
    ---------------
 
-   procedure Error_Msg (Message : in String) is
+   procedure Error_Msg (Message : String) is
    begin
       Write_Str (Base_Name (Command_Name));
       Write_Str (": ");
@@ -261,7 +271,7 @@ procedure Gnatlink is
    -- Exit_With_Error --
    ---------------------
 
-   procedure Exit_With_Error (Error : in String) is
+   procedure Exit_With_Error (Error : String) is
    begin
       Error_Msg (Error);
       Exit_Program (E_Fatal);
@@ -626,7 +636,7 @@ procedure Gnatlink is
    -- Process_Binder_File --
    -------------------------
 
-   procedure Process_Binder_File (Name : in String) is
+   procedure Process_Binder_File (Name : String) is
       Fd : FILEs;
       --  Binder file's descriptor
 
@@ -656,6 +666,7 @@ procedure Gnatlink is
       --  Last object file index in Linker_Objects table
 
       Status : int;
+      pragma Warnings (Off, Status);
       --  Used for various Interfaces.C_Streams calls
 
       Closing_Status : Boolean;
@@ -729,7 +740,7 @@ procedure Gnatlink is
       function Index (S, Pattern : String) return Natural;
       --  Return the last occurrence of Pattern in S, or 0 if none
 
-      function Is_Option_Present (Opt : in String) return Boolean;
+      function Is_Option_Present (Opt : String) return Boolean;
       --  Return true if the option Opt is already present in
       --  Linker_Options table.
 
@@ -791,7 +802,7 @@ procedure Gnatlink is
       -- Is_Option_Present --
       -----------------------
 
-      function Is_Option_Present (Opt : in String) return Boolean is
+      function Is_Option_Present (Opt : String) return Boolean is
       begin
          for I in 1 .. Linker_Options.Last loop
 
@@ -931,7 +942,9 @@ procedure Gnatlink is
 
          --  If target is using the GNU linker we must add a special header
          --  and footer in the response file.
+
          --  The syntax is : INPUT (object1.o object2.o ... )
+
          --  Because the GNU linker does not like name with characters such
          --  as '!', we must put the object paths between double quotes.
 
@@ -999,6 +1012,7 @@ procedure Gnatlink is
 
          declare
             N : Integer;
+
          begin
             N := Objs_End - Objs_Begin + 1;
 
@@ -1288,6 +1302,13 @@ procedure Gnatlink is
          end loop;
       end if;
 
+      --  If -shared was specified, invoke gcc with -shared-libgcc
+
+      if GNAT_Shared then
+         Linker_Options.Increment_Last;
+         Linker_Options.Table (Linker_Options.Last) := Shared_Libgcc;
+      end if;
+
       Status := fclose (Fd);
    end Process_Binder_File;
 
@@ -1302,7 +1323,9 @@ procedure Gnatlink is
          Write_Str ("GNATLINK ");
          Write_Str (Gnat_Version_String);
          Write_Eol;
-         Write_Str ("Copyright 1995-2005 Free Software Foundation, Inc");
+         Write_Str ("Copyright 1995-" &
+                    Current_Year &
+                    ", Free Software Foundation, Inc");
          Write_Eol;
       end if;
    end Write_Header;
@@ -1710,6 +1733,7 @@ begin
 
          Clean_Link_Option_Set : declare
             J : Natural := Linker_Options.First;
+            Shared_Libgcc_Seen : Boolean := False;
 
          begin
             while J <= Linker_Options.Last loop
@@ -1728,6 +1752,20 @@ begin
 
                   else
                      Stack_Op := True;
+                  end if;
+               end if;
+
+               --  Remove duplicate -shared-libgcc switch
+
+               if Linker_Options.Table (J).all = Shared_Libgcc_String then
+                  if Shared_Libgcc_Seen then
+                     Linker_Options.Table (J .. Linker_Options.Last - 1) :=
+                       Linker_Options.Table (J + 1 .. Linker_Options.Last);
+                     Linker_Options.Decrement_Last;
+                     Num_Args := Num_Args - 1;
+
+                  else
+                     Shared_Libgcc_Seen := True;
                   end if;
                end if;
 
@@ -1771,6 +1809,17 @@ begin
 
                J := J + 1;
             end loop;
+
+            --  If gcc is not called with -shared-libgcc, call it with
+            --  -static-libgcc, as there are some platforms where one of these
+            --  two switches is compulsory to link.
+
+            if not Shared_Libgcc_Seen then
+               Linker_Options.Increment_Last;
+               Linker_Options.Table (Linker_Options.Last) := Static_Libgcc;
+               Num_Args := Num_Args + 1;
+            end if;
+
          end Clean_Link_Option_Set;
 
          --  Prepare arguments for call to linker

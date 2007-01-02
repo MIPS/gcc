@@ -249,7 +249,8 @@ struct_equiv_improve_checkpoint (struct struct_equiv_checkpoint *p,
 				 struct equiv_info *info)
 {
 #ifdef HAVE_cc0
-  if (reg_mentioned_p (cc0_rtx, p->x_start) && !sets_cc0_p (p->x_start))
+  if (reg_mentioned_p (cc0_rtx, info->cur.x_start)
+      && !sets_cc0_p (info->cur.x_start))
     return;
 #endif
   if (info->cur.input_count >= IMPOSSIBLE_MOVE_FACTOR)
@@ -482,7 +483,7 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
 		   pair, use the old one.  If the width is the same, use the
 		   old one if the modes match, but the new if they don't.
 		   We don't want to get too fancy with subreg_regno_offset
-		   here, so we just test two straightforwad cases each.  */
+		   here, so we just test two straightforward cases each.  */
 		if (info->live_update
 		    && (x_mode != GET_MODE (info->x_local[i])
 			? size >= size_i : size > size_i))
@@ -569,17 +570,13 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
 	  return false;
 	x_dest1 = XEXP (x, 0);
 	/* validate_change might have changed the destination.  Put it back
-	   so that we can do a valid source match.  */
+	   so that we can do a proper match for its role a an input.  */
 	XEXP (x, 0) = x_dest0;
-	if (!rtx_equiv_p (&XEXP (x, 1), XEXP (y, 1), 0, info))
+	if (!rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 1, info))
 	  return false;
 	gcc_assert (x_dest1 == XEXP (x, 0));
 	/* Process source.  */
 	return rtx_equiv_p (&XEXP (x, 1), XEXP (y, 1), 1, info);
-      if (!rtx_equiv_p (&XEXP(x, 0), XEXP (y, 0), 0, info))
-	return false;
-      /* Process both subexpressions as inputs.  */
-      break;
       }
     case CLOBBER:
       gcc_assert (rvalue < 0);
@@ -1279,7 +1276,7 @@ find_dying_inputs (struct equiv_info *info)
       int nregs = (regno >= FIRST_PSEUDO_REGISTER
 		   ? 1 : hard_regno_nregs[regno][GET_MODE (x)]);
 
-      for (info->local_rvalue[i] = false; nregs >= 0; regno++, --nregs)
+      for (info->local_rvalue[i] = false; nregs > 0; regno++, --nregs)
 	if (REGNO_REG_SET_P (info->x_local_live, regno))
 	  {
 	    info->dying_inputs++;

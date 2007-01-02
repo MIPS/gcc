@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for SH Linux.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -94,9 +94,9 @@ shmedia_fallback_frame_state (struct _Unwind_Context *context,
     return _URC_END_OF_STACK;
 
   new_cfa = sc->sc_regs[15];
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = 15;
-  fs->cfa_offset = new_cfa - (long) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = 15;
+  fs->regs.cfa_offset = new_cfa - (long) context->cfa;
 
   for (i = 0; i < 63; i++)
     {
@@ -137,6 +137,7 @@ shmedia_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[63].loc.offset
     = (long)&(sc->sc_pc) - new_cfa;
   fs->retaddr_column = 63;
+  fs->signal_frame = 1;
   return _URC_NO_REASON;
 }
 
@@ -190,9 +191,9 @@ sh_fallback_frame_state (struct _Unwind_Context *context,
     return _URC_END_OF_STACK;
 
   new_cfa = sc->sc_regs[15];
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = 15;
-  fs->cfa_offset = new_cfa - (long) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = 15;
+  fs->regs.cfa_offset = new_cfa - (long) context->cfa;
 
   for (i = 0; i < 15; i++)
     {
@@ -246,6 +247,7 @@ sh_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[SH_DWARF_FRAME_PC].loc.offset
     = (long)&(sc->sc_pc) - new_cfa;
   fs->retaddr_column = SH_DWARF_FRAME_PC;
+  fs->signal_frame = 1;
   return _URC_NO_REASON;
 }
 #endif /* defined (__SH5__) */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -380,7 +380,7 @@ package body Exp_Ch7 is
           Typ   => Typ,
           Stmts => Make_Deep_Array_Body (Initialize_Case, Typ)));
 
-      if not Is_Return_By_Reference_Type (Typ) then
+      if not Is_Inherently_Limited_Type (Typ) then
          Set_TSS (Typ,
            Make_Deep_Proc (
              Prim  => Adjust_Case,
@@ -475,7 +475,7 @@ package body Exp_Ch7 is
           Typ   => Typ,
           Stmts => Make_Deep_Record_Body (Initialize_Case, Typ)));
 
-      if not Is_Return_By_Reference_Type (Typ) then
+      if not Is_Inherently_Limited_Type (Typ) then
          Set_TSS (Typ,
            Make_Deep_Proc (
              Prim  => Adjust_Case,
@@ -1248,6 +1248,12 @@ package body Exp_Ch7 is
          Set_End_Label (Handled_Statement_Sequence (N), End_Lab);
          Wrapped := True;
 
+         --  Comment needed here, see RH for 1.306 ???
+
+         if Nkind (N) = N_Subprogram_Body then
+            Set_Has_Nested_Block_With_Handler (Current_Scope);
+         end if;
+
       --  Otherwise we do not wrap
 
       else
@@ -1819,11 +1825,18 @@ package body Exp_Ch7 is
             --  itself needs wrapping at the outer-level
 
             when N_Return_Statement            =>
-               if Requires_Transient_Scope (Return_Type (The_Parent)) then
-                  return Empty;
-               else
-                  return The_Parent;
-               end if;
+               declare
+                  Applies_To : constant Entity_Id :=
+                                 Return_Applies_To
+                                   (Return_Statement_Entity (The_Parent));
+                  Return_Type : constant Entity_Id := Etype (Applies_To);
+               begin
+                  if Requires_Transient_Scope (Return_Type) then
+                     return Empty;
+                  else
+                     return The_Parent;
+                  end if;
+               end;
 
             --  If we leave a scope without having been able to find a node to
             --  wrap, something is going wrong but this can happen in error
@@ -1957,10 +1970,11 @@ package body Exp_Ch7 is
    -----------------------
 
    function Make_Adjust_Call
-     (Ref          : Node_Id;
-      Typ          : Entity_Id;
-      Flist_Ref    : Node_Id;
-      With_Attach  : Node_Id) return List_Id
+     (Ref         : Node_Id;
+      Typ         : Entity_Id;
+      Flist_Ref   : Node_Id;
+      With_Attach : Node_Id;
+      Allocator   : Boolean := False) return List_Id
    is
       Loc    : constant Source_Ptr := Sloc (Ref);
       Res    : constant List_Id    := New_List;
@@ -2018,8 +2032,19 @@ package body Exp_Ch7 is
          Attach := Make_Integer_Literal (Loc, 0);
       end if;
 
+      --  Special case for allocators: need initialization of the chain
+      --  pointers. For the 0 case, reset them to null.
+
+      if Allocator then
+         pragma Assert (Nkind (Attach) = N_Integer_Literal);
+
+         if Intval (Attach) = 0 then
+            Set_Intval (Attach, Uint_4);
+         end if;
+      end if;
+
       --  Generate:
-      --    Deep_Adjust (Flist_Ref, Ref, With_Attach);
+      --    Deep_Adjust (Flist_Ref, Ref, Attach);
 
       if Has_Controlled_Component (Utyp)
         or else Is_Class_Wide_Type (Typ)
@@ -2158,7 +2183,7 @@ package body Exp_Ch7 is
                Pid := Corresponding_Concurrent_Type (Param_Type);
             end if;
 
-            exit when not Present (Param) or else Present (Pid);
+            exit when No (Param) or else Present (Pid);
             Next (Param);
          end loop;
 
@@ -2614,7 +2639,7 @@ package body Exp_Ch7 is
       Res            : constant List_Id := New_List;
 
    begin
-      if Is_Return_By_Reference_Type (Typ) then
+      if Is_Inherently_Limited_Type (Typ) then
          Controller_Typ := RTE (RE_Limited_Record_Controller);
       else
          Controller_Typ := RTE (RE_Record_Controller);

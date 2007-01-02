@@ -93,7 +93,7 @@ compile_resource_data (const char *name, const char *buffer, int length)
   layout_decl (decl, 0);
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
-  cgraph_varpool_finalize_decl (decl);
+  varpool_finalize_decl (decl);
 
   resources = tree_cons (NULL_TREE, decl, resources);
 }
@@ -145,7 +145,7 @@ compile_resource_file (const char *name, const char *filename)
       perror ("Could not figure length of resource file");
       return;
     }
-  buffer = xmalloc (strlen (name) + stat_buf.st_size);
+  buffer = XNEWVEC (char, strlen (name) + stat_buf.st_size);
   strcpy (buffer, name);
   read (fd, buffer + strlen (name), stat_buf.st_size);
   close (fd);

@@ -1,6 +1,6 @@
 // RB tree utilities implementation -*- C++ -*-
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -57,8 +57,8 @@
 
 #include <bits/stl_tree.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   _Rb_tree_node_base*
   _Rb_tree_increment(_Rb_tree_node_base* __x)
   {
@@ -316,17 +316,21 @@ namespace std
 	  else
 	    __z->_M_parent->_M_right = __x;
 	if (__leftmost == __z) 
-	  if (__z->_M_right == 0)        // __z->_M_left must be null also
-	    __leftmost = __z->_M_parent;
-	// makes __leftmost == _M_header if __z == __root
-	  else
-	    __leftmost = _Rb_tree_node_base::_S_minimum(__x);
+	  {
+	    if (__z->_M_right == 0)        // __z->_M_left must be null also
+	      __leftmost = __z->_M_parent;
+	    // makes __leftmost == _M_header if __z == __root
+	    else
+	      __leftmost = _Rb_tree_node_base::_S_minimum(__x);
+	  }
 	if (__rightmost == __z)  
-	  if (__z->_M_left == 0)         // __z->_M_right must be null also
-	    __rightmost = __z->_M_parent;  
-	// makes __rightmost == _M_header if __z == __root
-	  else                      // __x == __z->_M_left
-	    __rightmost = _Rb_tree_node_base::_S_maximum(__x);
+	  {
+	    if (__z->_M_left == 0)         // __z->_M_right must be null also
+	      __rightmost = __z->_M_parent;  
+	    // makes __rightmost == _M_header if __z == __root
+	    else                      // __x == __z->_M_left
+	      __rightmost = _Rb_tree_node_base::_S_maximum(__x);
+	  }
       }
     if (__y->_M_color != _S_red) 
       { 
@@ -428,4 +432,5 @@ namespace std
     while (1);
     return __sum;
   }
-} // namespace std 
+
+_GLIBCXX_END_NAMESPACE

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2001-2005 Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Gnatvsn;
+with Gnatvsn;  use Gnatvsn;
 with Hostparm;
 with Opt;
 with Osint;    use Osint;
@@ -66,7 +66,7 @@ procedure Gnatname is
       Table_Index_Type     => Natural,
       Table_Low_Bound      => 0,
       Table_Initial        => 10,
-      Table_Increment      => 10,
+      Table_Increment      => 100,
       Table_Name           => "Gnatname.Excluded_Patterns");
    --  Table to accumulate the negative patterns
 
@@ -75,7 +75,7 @@ procedure Gnatname is
       Table_Index_Type     => Natural,
       Table_Low_Bound      => 0,
       Table_Initial        => 10,
-      Table_Increment      => 10,
+      Table_Increment      => 100,
       Table_Name           => "Gnatname.Foreign_Patterns");
    --  Table to accumulate the foreign patterns
 
@@ -84,7 +84,7 @@ procedure Gnatname is
       Table_Index_Type     => Natural,
       Table_Low_Bound      => 0,
       Table_Initial        => 10,
-      Table_Increment      => 10,
+      Table_Increment      => 100,
       Table_Name           => "Gnatname.Patterns");
    --  Table to accumulate the name patterns
 
@@ -93,7 +93,7 @@ procedure Gnatname is
       Table_Index_Type     => Natural,
       Table_Low_Bound      => 0,
       Table_Initial        => 10,
-      Table_Increment      => 10,
+      Table_Increment      => 100,
       Table_Name           => "Gnatname.Source_Directories");
    --  Table to accumulate the source directories specified directly with -d
    --  or indirectly with -D.
@@ -102,8 +102,8 @@ procedure Gnatname is
      (Table_Component_Type => String_Access,
       Table_Index_Type     => Natural,
       Table_Low_Bound      => 0,
-      Table_Initial        => 2,
-      Table_Increment      => 50,
+      Table_Initial        => 10,
+      Table_Increment      => 100,
       Table_Name           => "Gnatname.Preprocessor_Switches");
    --  Table to store the preprocessor switches to be used in the call
    --  to the compiler.
@@ -172,7 +172,9 @@ procedure Gnatname is
          Output.Write_Str ("GNATNAME ");
          Output.Write_Line (Gnatvsn.Gnat_Version_String);
          Output.Write_Line
-           ("Copyright 2001-2005 Free Software Foundation, Inc.");
+           ("Copyright 2001-" &
+            Current_Year &
+            ", Free Software Foundation, Inc.");
       end if;
    end Output_Version;
 

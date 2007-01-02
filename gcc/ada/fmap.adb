@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2001-2005, Free Software Foundation, Inc.       --
+--            Copyright (C) 2001-2006, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -200,6 +200,20 @@ package body Fmap is
          Last_In_Table := 0;
       end Empty_Tables;
 
+      ---------------
+      -- Find_Name --
+      ---------------
+
+      function Find_Name return Name_Id is
+      begin
+         if Name_Buffer (1 .. Name_Len) = "/" then
+            return Error_Name;
+
+         else
+            return Name_Find;
+         end if;
+      end Find_Name;
+
       --------------
       -- Get_Line --
       --------------
@@ -214,8 +228,8 @@ package body Fmap is
 
          while First < SP'Last
            and then (SP (First) = CR
-                     or else SP (First) = LF
-                     or else SP (First) = EOF)
+                      or else SP (First) = LF
+                      or else SP (First) = EOF)
          loop
             First := First + 1;
          end loop;
@@ -235,20 +249,6 @@ package body Fmap is
 
          end if;
       end Get_Line;
-
-      ---------------
-      -- Find_Name --
-      ---------------
-
-      function Find_Name return Name_Id is
-      begin
-         if Name_Buffer (1 .. Name_Len) = "/" then
-            return Error_Name;
-
-         else
-            return Name_Find;
-         end if;
-      end Find_Name;
 
       ----------------------
       -- Report_Truncated --

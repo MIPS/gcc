@@ -292,12 +292,9 @@ public class WeakHashMap extends AbstractMap implements Map
         /**
          * Checks if there are more entries.
          * @return true, iff there are more elements.
-         * @throws ConcurrentModificationException if the hash map was
-         *         modified.
          */
         public boolean hasNext()
         {
-          checkMod();
           return nextEntry != null;
         }
 
@@ -475,7 +472,7 @@ public class WeakHashMap extends AbstractMap implements Map
         if (o instanceof Map.Entry)
           {
             Map.Entry e = (Map.Entry) o;
-            return key.equals(e.getKey())
+            return WeakHashMap.equals(getKey(), e.getKey())
               && WeakHashMap.equals(value, e.getValue());
           }
         return false;
@@ -483,7 +480,7 @@ public class WeakHashMap extends AbstractMap implements Map
 
       public String toString()
       {
-        return key + "=" + value;
+        return getKey() + "=" + value;
       }
     }
 
@@ -657,7 +654,7 @@ public class WeakHashMap extends AbstractMap implements Map
     while (bucket != null)
       {
         WeakBucket.WeakEntry entry = bucket.getEntry();
-        if (entry != null && key.equals(entry.key))
+        if (entry != null && equals(key, entry.key))
           return entry;
 
         bucket = bucket.next;

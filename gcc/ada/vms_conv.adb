@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Gnatvsn;
+with Gnatvsn;  use Gnatvsn;
 with Hostparm;
 with Opt;
 with Osint;    use Osint;
@@ -78,7 +78,7 @@ package body VMS_Conv is
       Table_Index_Type     => Integer,
       Table_Low_Bound      => 1,
       Table_Initial        => 4096,
-      Table_Increment      => 2,
+      Table_Increment      => 100,
       Table_Name           => "Buffer");
 
    function Init_Object_Dirs return Argument_List;
@@ -662,7 +662,9 @@ package body VMS_Conv is
    begin
       Put ("GNAT ");
       Put_Line (Gnatvsn.Gnat_Version_String);
-      Put_Line ("Copyright 1996-2005, Free Software Foundation, Inc.");
+      Put_Line ("Copyright 1996-" &
+                Current_Year &
+                ", Free Software Foundation, Inc.");
    end Output_Version;
 
    -----------

@@ -50,7 +50,6 @@ extern bool ia64_expand_movxf_movrf (enum machine_mode, rtx[]);
 extern rtx ia64_expand_compare (enum rtx_code, enum machine_mode);
 extern void ia64_expand_vecint_cmov (rtx[]);
 extern bool ia64_expand_vecint_minmax (enum rtx_code, enum machine_mode, rtx[]);
-extern void ia64_expand_unpack (rtx [], bool, bool);
 extern void ia64_expand_widen_sum (rtx[], bool);
 extern void ia64_expand_dot_prod_v8qi (rtx[], bool);
 extern void ia64_expand_call (rtx, rtx, rtx, int);
@@ -111,3 +110,5 @@ extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, tree);
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);
 extern void ia64_output_function_profiler (FILE *, int);
 extern void ia64_profile_hook (int);
+
+extern void ia64_optimization_options (int, int);

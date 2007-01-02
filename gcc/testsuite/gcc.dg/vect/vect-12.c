@@ -15,8 +15,7 @@ int main1 ()
   short sc[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   short sb[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
-  /* Multiple types with different sizes, used in independent
-     cmputations. Vectorizable.  */
+  /* Not vectorizable yet (multiple types with different nunits in vector).  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] + ic[i];
@@ -40,6 +39,5 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
-

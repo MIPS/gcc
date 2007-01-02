@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -7,12 +7,12 @@
 ; the terms of the GNU General Public License as published by the Free
 ; Software Foundation; either version 2, or (at your option) any later
 ; version.
-; 
+;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 ; WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 ; for more details.
-; 
+;
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
 ; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
@@ -141,6 +141,10 @@ Wchar-subscripts
 C ObjC C++ ObjC++ Var(warn_char_subscripts)
 Warn about subscripts whose type is \"char\"
 
+Wclobbered
+C ObjC C++ ObjC++ Var(warn_clobbered) Init(-1)
+Warn about variables that might be changed by \"longjmp\" or \"vfork\"
+
 Wcomment
 C ObjC C++ ObjC++
 Warn about possibly nested block comments, and C++ comments spanning more than one physical line
@@ -151,7 +155,7 @@ Synonym for -Wcomment
 
 Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
-Warn about possibly confusing type conversions
+Warn for implicit type conversions that may change a value
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -166,12 +170,16 @@ C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
 Wdiv-by-zero
-C ObjC Var(warn_div_by_zero) Init(1)
+C ObjC C++ Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero
 
 Weffc++
 C++ ObjC++ Var(warn_ecpp)
 Warn about violations of Effective C++ style rules
+
+Wempty-body
+C ObjC C++ ObjC++ Var(warn_empty_body) Init(-1)
+Warn about an empty body in an if or else statement
 
 Wendif-labels
 C ObjC C++ ObjC++
@@ -260,7 +268,7 @@ C ObjC C++ ObjC++ Var(warn_missing_braces)
 Warn about possibly missing braces around initializers
 
 Wmissing-declarations
-C ObjC Var(warn_missing_declarations)
+C ObjC C++ ObjC++ Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
 Wmissing-field-initializers
@@ -274,6 +282,10 @@ Warn about functions which might be candidates for format attributes
 Wmissing-include-dirs
 C ObjC C++ ObjC++
 Warn about user-specified include directories that do not exist
+
+Wmissing-parameter-type
+C ObjC Var(warn_missing_parameter_type) Init(-1)
+Warn about function parameters declared without a type specifier in K&R-style functions
 
 Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)
@@ -307,13 +319,25 @@ Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
 Warn if a C-style cast is used in a program
 
+Wold-style-declaration
+C ObjC Var(warn_old_style_declaration) Init(-1)
+Warn for obsolescent usage in a declaration
+
 Wold-style-definition
 C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
 
+Woverlength-strings
+C ObjC C++ ObjC++ Var(warn_overlength_strings) Init(-1)
+Warn if a string is longer than the maximum portable length specified by the standard
+
 Woverloaded-virtual
 C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
+
+Woverride-init
+C ObjC Var(warn_override_init) Init(-1)
+Warn about overriding initializers without side effects
 
 Wparentheses
 C ObjC C++ ObjC++ Var(warn_parentheses)
@@ -391,6 +415,10 @@ Wtraditional
 C ObjC Var(warn_traditional)
 Warn about features not present in traditional C
 
+Wtraditional-conversion
+C ObjC Var(warn_traditional_conversion)
+Warn of prototypes causing type conversions different from what would happen in the absence of prototype
+
 Wtrigraphs
 C ObjC C++ ObjC++
 Warn if trigraphs are encountered that might affect the meaning of the program
@@ -416,11 +444,11 @@ C ObjC C++ ObjC++
 Do not warn about using variadic macros when -pedantic
 
 Wwrite-strings
-C ObjC C++ ObjC++
-Give strings the type \"array of char\"
+C ObjC C++ ObjC++ Var(warn_write_strings)
+In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
 
 Wpointer-sign
-C ObjC Var(warn_pointer_sign) Init(1)
+C ObjC Var(warn_pointer_sign) Init(-1)
 Warn when a pointer differs in signedness in an assignment
 
 ansi
@@ -465,10 +493,6 @@ fconserve-space
 C++ ObjC++
 Reduce the size of object files
 
-fconst-strings
-C++ ObjC++
-Make string literals \"const char[]\" not \"char[]\"
-
 fconstant-string-class=
 ObjC ObjC++ Joined
 -fconst-string-class=<name>	Use class <name> for constant strings
@@ -506,15 +530,6 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 fexternal-templates
 C++ ObjC++
-
-ffixed-form
-C ObjC
-
-ffixed-line-length-none
-C ObjC
-
-ffixed-line-length-
-C ObjC Joined
 
 ffor-scope
 C++ ObjC++
@@ -617,6 +632,10 @@ fobjc-sjlj-exceptions
 ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
 
+fopenmp
+C ObjC C++ ObjC++ Var(flag_openmp)
+Enable OpenMP
+
 foperator-names
 C++ ObjC++
 Recognize C++ kewords like \"compl\" and \"xor\"
@@ -687,7 +706,7 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger
 -ftabstop=<number>	Distance between tab stops for column reporting
 
 ftemplate-depth-
-C++ ObjC++ Joined RejectNegative UInteger 
+C++ ObjC++ Joined RejectNegative UInteger
 -ftemplate-depth-<number>	Specify maximum template instantiation depth
 
 fthis-is-variable
@@ -708,6 +727,10 @@ Make \"char\" unsigned by default
 fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
+
+fuse-cxa-get-exception-ptr
+C++ ObjC++
+Use __cxa_get_exception_ptr in exception handling
 
 fvisibility-inlines-hidden
 C++ ObjC++
@@ -752,6 +775,10 @@ C ObjC C++ ObjC++ Joined Separate
 imacros
 C ObjC C++ ObjC++ Joined Separate
 -imacros <file>	Accept definition of macros in <file>
+
+imultilib
+C ObjC C++ ObjC++ Joined Separate
+-imultilib <dir> Set <dir> to be the multilib include subdirectory
 
 include
 C ObjC C++ ObjC++ Joined Separate
@@ -826,6 +853,13 @@ std=c++98
 C++ ObjC++
 Conform to the ISO 1998 C++ standard
 
+std=c++0x
+C++ ObjC++
+Conform to the ISO 1998 C++ standard, with extensions that are likely to
+become a part of the upcoming ISO C++ standard, dubbed C++0x. Note that the
+extensions enabled by this mode are experimental and may be removed in
+future releases of GCC.
+
 std=c89
 C ObjC
 Conform to the ISO 1990 C standard
@@ -841,6 +875,13 @@ Deprecated in favor of -std=c99
 std=gnu++98
 C++ ObjC++
 Conform to the ISO 1998 C++ standard with GNU extensions
+
+std=gnu++0x
+C++ ObjC++
+Conform to the ISO 1998 C++ standard, with GNU extensions and
+extensions that are likely to become a part of the upcoming ISO C++
+standard, dubbed C++0x. Note that the extensions enabled by this mode
+are experimental and may be removed in future releases of GCC.
 
 std=gnu89
 C ObjC

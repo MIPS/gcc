@@ -1,6 +1,6 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -40,8 +40,8 @@
 #include <langinfo.h>
 #include <bits/c++locale_internal.h>
 
-namespace std 
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<>
     void
     __convert_to_v(const char* __s, float& __v, ios_base::iostate& __err, 
@@ -77,7 +77,13 @@ namespace std
     {
       char* __sanity;
       errno = 0;
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+      // Prefer strtold_l, as __strtold_l isn't prototyped in more recent
+      // glibc versions.
+      long double __ld = strtold_l(__s, &__sanity, __cloc);
+#else
       long double __ld = __strtold_l(__s, &__sanity, __cloc);
+#endif
       if (__sanity != __s && errno != ERANGE)
 	__v = __ld;
       else
@@ -107,10 +113,11 @@ namespace std
   __c_locale
   locale::facet::_S_clone_c_locale(__c_locale& __cloc)
   { return __duplocale(__cloc); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   const char* const category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
@@ -126,9 +133,18 @@ namespace __gnu_cxx
       "LC_MEASUREMENT", 
       "LC_IDENTIFICATION" 
     };
-}
 
-namespace std
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   const char* const* const locale::_S_categories = __gnu_cxx::category_names;
-}  // namespace std
+
+_GLIBCXX_END_NAMESPACE
+
+// XXX GLIBCXX_ABI Deprecated
+#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+#define _GLIBCXX_LDBL_COMPAT(dbl, ldbl) \
+  extern "C" void ldbl (void) __attribute__ ((alias (#dbl)))
+_GLIBCXX_LDBL_COMPAT(_ZSt14__convert_to_vIdEvPKcRT_RSt12_Ios_IostateRKP15__locale_struct, _ZSt14__convert_to_vIeEvPKcRT_RSt12_Ios_IostateRKP15__locale_struct);
+#endif // _GLIBCXX_LONG_DOUBLE_COMPAT

@@ -1065,14 +1065,9 @@ struct cum_args {int regs;};
   while (0)
 
 /* In CRIS, only the postincrement address mode depends thus,
-   since the increment depends on the size of the operand.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-  do							\
-    {							\
-      if (GET_CODE (ADDR) == POST_INC)			\
-	goto LABEL;					\
-    }							\
-  while (0)
+   since the increment depends on the size of the operand.  This is now
+   treated generically within recog.c.  */
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 #define LEGITIMATE_CONSTANT_P(X) 1
 
@@ -1242,9 +1237,6 @@ enum cris_pic_symbol_type
 #undef ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
  CRIS_ASM_OUTPUT_ALIGNED_DECL_COMMON(FILE, DECL, NAME, SIZE, ALIGN, 1)
-
-/* FIXME: define ASM_OUTPUT_SHARED_COMMON and emit an error when it is
-   used with -melinux and a.out.  */
 
 /* Node: Label Output */
 

@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2006 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -36,7 +36,8 @@ enum gnat_tree_code {
 /* Ada uses the lang_decl and lang_type fields to hold a tree.  */
 union lang_tree_node
   GTY((desc ("0"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.t)")))
+       chain_next ("(GIMPLE_STMT_P (&%h.t) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.t))")))
+
 {
   union tree_node GTY((tag ("0"))) t;
 };
@@ -160,9 +161,6 @@ struct lang_type GTY(()) {tree t; };
    padding or alignment.  */
 #define TYPE_IS_PADDING_P(NODE) TYPE_LANG_FLAG_5 (RECORD_TYPE_CHECK (NODE))
 
-/* For a UNION_TYPE, nonzero if this is an unchecked union.  */
-#define TYPE_UNCHECKED_UNION_P(NODE) TYPE_LANG_FLAG_6 (UNION_TYPE_CHECK (NODE))
-
 /* This field is only defined for FUNCTION_TYPE nodes. If the Ada
    subprogram contains no parameters passed by copy in/copy out then this
    field is 0. Otherwise it points to a list of nodes used to specify the
@@ -234,6 +232,10 @@ struct lang_type GTY(()) {tree t; };
 /* Nonzero in a FUNCTION_DECL that represents a stubbed function
    discriminant.  */
 #define DECL_STUBBED_P(NODE) DECL_LANG_FLAG_0 (FUNCTION_DECL_CHECK (NODE))
+
+/* Nonzero in a VAR_DECL if it is guaranteed to be constant after having
+   been elaborated and TREE_READONLY is not set on it.  */
+#define DECL_READONLY_ONCE_ELAB(NODE) DECL_LANG_FLAG_0 (VAR_DECL_CHECK (NODE))
 
 /* Nonzero if this decl is always used by reference; i.e., an INDIRECT_REF
    is needed to access the object.  */

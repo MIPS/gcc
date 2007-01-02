@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,15 +61,22 @@ with Interfaces.C;
 --  used for int
 --           size_t
 
-with System.Parameters;
---  used for Size_Type
-
 with System.Task_Info;
 --  to initialize Task_Info for a C thread, in function Self
+
+with System.Soft_Links;
+--  used for Defer/Undefer_Abort
+
+--  We use System.Soft_Links instead of System.Tasking.Initialization
+--  because the later is a higher level package that we shouldn't depend on.
+--  For example when using the restricted run time, it is replaced by
+--  System.Tasking.Restricted.Stages.
 
 with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
+
+   package SSL renames System.Soft_Links;
 
    use System.Tasking.Debug;
    use System.Tasking;
@@ -134,7 +141,7 @@ package body System.Task_Primitives.Operations is
    -- External Configuration Values --
    -----------------------------------
 
-   Time_Slice_Val : Interfaces.C.long;
+   Time_Slice_Val : Integer;
    pragma Import (C, Time_Slice_Val, "__gl_time_slice_val");
 
    Locking_Policy : Character;
@@ -144,7 +151,7 @@ package body System.Task_Primitives.Operations is
    pragma Import (C, Dispatching_Policy, "__gl_task_dispatching_policy");
 
    Foreign_Task_Elaborated : aliased Boolean := True;
-   --  Used to identified fake tasks (i.e., non-Ada Threads).
+   --  Used to identified fake tasks (i.e., non-Ada Threads)
 
    -----------------------
    -- Local Subprograms --
@@ -209,7 +216,7 @@ package body System.Task_Primitives.Operations is
 
       procedure Initialize (Environment_Task : Task_Id);
       pragma Inline (Initialize);
-      --  Initialize various data needed by this package.
+      --  Initialize various data needed by this package
 
       function Is_Valid_Task return Boolean;
       pragma Inline (Is_Valid_Task);
@@ -217,23 +224,23 @@ package body System.Task_Primitives.Operations is
 
       procedure Set (Self_Id : Task_Id);
       pragma Inline (Set);
-      --  Set the self id for the current task.
+      --  Set the self id for the current task
 
       function Self return Task_Id;
       pragma Inline (Self);
-      --  Return a pointer to the Ada Task Control Block of the calling task.
+      --  Return a pointer to the Ada Task Control Block of the calling task
 
    end Specific;
 
    package body Specific is separate;
-   --  The body of this package is target specific.
+   --  The body of this package is target specific
 
    ---------------------------------
    -- Support for foreign threads --
    ---------------------------------
 
    function Register_Foreign_Thread (Thread : Thread_Id) return Task_Id;
-   --  Allocate and Initialize a new ATCB for the current Thread.
+   --  Allocate and Initialize a new ATCB for the current Thread
 
    function Register_Foreign_Thread
      (Thread : Thread_Id) return Task_Id is separate;
@@ -346,6 +353,7 @@ package body System.Task_Primitives.Operations is
 
       begin
          if Proc_Acc.all'Length /= 0 then
+
             --  Environment variable is defined
 
             Last_Proc := Num_Procs - 1;
@@ -431,11 +439,13 @@ package body System.Task_Primitives.Operations is
             --  If a pragma Time_Slice is specified, takes the value in account
 
             if Time_Slice_Val > 0 then
+
                --  Convert Time_Slice_Val (microseconds) into seconds and
                --  nanoseconds
 
-               Secs := Time_Slice_Val / 1_000_000;
-               Nsecs := (Time_Slice_Val rem 1_000_000) * 1_000;
+               Secs := Interfaces.C.long (Time_Slice_Val / 1_000_000);
+               Nsecs :=
+                 Interfaces.C.long ((Time_Slice_Val rem 1_000_000) * 1_000);
 
             --  Otherwise, default to no time slicing (i.e run until blocked)
 
@@ -444,7 +454,7 @@ package body System.Task_Primitives.Operations is
                Nsecs := RT_TQINF;
             end if;
 
-            --  Get the real time class id.
+            --  Get the real time class id
 
             Class_Info.pc_clname (1) := 'R';
             Class_Info.pc_clname (2) := 'T';
@@ -475,7 +485,7 @@ package body System.Task_Primitives.Operations is
 
       Specific.Set (Environment_Task);
 
-      --  Initialize the lock used to synchronize chain of all ATCBs.
+      --  Initialize the lock used to synchronize chain of all ATCBs
 
       Initialize_Lock (Single_RTS_Lock'Access, RTS_Lock_Level);
 
@@ -692,7 +702,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Unlock (L : access RTS_Lock; Global_Lock : Boolean := False) is
       Result : Interfaces.C.int;
-
    begin
       if not Single_Lock or else Global_Lock then
          pragma Assert (Check_Unlock (To_Lock_Ptr (RTS_Lock_Ptr (L))));
@@ -703,7 +712,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Unlock (T : Task_Id) is
       Result : Interfaces.C.int;
-
    begin
       if not Single_Lock then
          pragma Assert (Check_Unlock (To_Lock_Ptr (T.Common.LL.L'Access)));
@@ -813,7 +821,6 @@ package body System.Task_Primitives.Operations is
               thr_setprio (T.Common.LL.Thread, Interfaces.C.int (Prio));
 
          else
-
             --  The task is bound to a LWP, use priocntl
             --  ??? TBD
 
@@ -935,7 +942,7 @@ package body System.Task_Primitives.Operations is
       Result : Interfaces.C.int := 0;
 
    begin
-      --  Give the task a unique serial number.
+      --  Give the task a unique serial number
 
       Self_ID.Serial_Number := Next_Serial_Number;
       Next_Serial_Number := Next_Serial_Number + 1;
@@ -981,11 +988,11 @@ package body System.Task_Primitives.Operations is
    is
       pragma Unreferenced (Priority);
 
-      Result     : Interfaces.C.int;
+      Result              : Interfaces.C.int;
       Adjusted_Stack_Size : Interfaces.C.size_t;
-      Opts       : Interfaces.C.int := THR_DETACHED;
+      Opts                : Interfaces.C.int := THR_DETACHED;
 
-      Page_Size  : constant System.Parameters.Size_Type := 4096;
+      Page_Size           : constant System.Parameters.Size_Type := 4096;
       --  This constant is for reserving extra space at the
       --  end of the stack, which can be used by the stack
       --  checking as guard page. The idea is that we need
@@ -995,18 +1002,7 @@ package body System.Task_Primitives.Operations is
       use System.Task_Info;
 
    begin
-      if Stack_Size = System.Parameters.Unspecified_Size then
-         Adjusted_Stack_Size :=
-           Interfaces.C.size_t (Default_Stack_Size + Page_Size);
-
-      elsif Stack_Size < Minimum_Stack_Size then
-         Adjusted_Stack_Size :=
-           Interfaces.C.size_t (Minimum_Stack_Size + Page_Size);
-
-      else
-         Adjusted_Stack_Size :=
-           Interfaces.C.size_t (Stack_Size + Page_Size);
-      end if;
+      Adjusted_Stack_Size := Interfaces.C.size_t (Stack_Size + Page_Size);
 
       --  Since the initial signal mask of a thread is inherited from the
       --  creator, and the Environment task has all its signals masked, we
@@ -1136,21 +1132,19 @@ package body System.Task_Primitives.Operations is
       pragma Assert (Result = 0 or else Result = EINTR);
    end Sleep;
 
-   --  Note that we are relying heaviliy here on the GNAT feature
-   --  that Calendar.Time, System.Real_Time.Time, Duration, and
-   --  System.Real_Time.Time_Span are all represented in the same
+   --  Note that we are relying heaviliy here on GNAT represting Calendar.Time,
+   --  System.Real_Time.Time, Duration, System.Real_Time.Time_Span in the same
    --  way, i.e., as a 64-bit count of nanoseconds.
 
-   --  This allows us to always pass the timeout value as a Duration.
+   --  This allows us to always pass the timeout value as a Duration
 
    --  ???
-   --  We are taking liberties here with the semantics of the delays.
-   --  That is, we make no distinction between delays on the Calendar clock
-   --  and delays on the Real_Time clock. That is technically incorrect, if
-   --  the Calendar clock happens to be reset or adjusted.
-   --  To solve this defect will require modification to the compiler
-   --  interface, so that it can pass through more information, to tell
-   --  us here which clock to use!
+   --  We are taking liberties here with the semantics of the delays. That is,
+   --  we make no distinction between delays on the Calendar clock and delays
+   --  on the Real_Time clock. That is technically incorrect, if the Calendar
+   --  clock happens to be reset or adjusted. To solve this defect will require
+   --  modification to the compiler interface, so that it can pass through more
+   --  information, to tell us here which clock to use!
 
    --  cond_timedwait will return if any of the following happens:
    --  1) some other task did cond_signal on this condition variable
@@ -1165,47 +1159,42 @@ package body System.Task_Primitives.Operations is
    --     UNIX calls this an "interrupted" system call.
    --     In this case, the return value is EINTR
 
-   --  If the cond_timedwait returns 0 or EINTR, it is still
-   --  possible that the time has actually expired, and by chance
-   --  a signal or cond_signal occurred at around the same time.
+   --  If the cond_timedwait returns 0 or EINTR, it is still possible that the
+   --  time has actually expired, and by chance a signal or cond_signal
+   --  occurred at around the same time.
 
-   --  We have also observed that on some OS's the value ETIME
-   --  will be returned, but the clock will show that the full delay
-   --  has not yet expired.
+   --  We have also observed that on some OS's the value ETIME will be
+   --  returned, but the clock will show that the full delay has not yet
+   --  expired.
 
-   --  For these reasons, we need to check the clock after return
-   --  from cond_timedwait.  If the time has expired, we will set
-   --  Timedout = True.
+   --  For these reasons, we need to check the clock after return from
+   --  cond_timedwait. If the time has expired, we will set Timedout = True.
 
-   --  This check might be omitted for systems on which the
-   --  cond_timedwait() never returns early or wakes up spuriously.
+   --  This check might be omitted for systems on which the cond_timedwait()
+   --  never returns early or wakes up spuriously.
 
-   --  Annex D requires that completion of a delay cause the task
-   --  to go to the end of its priority queue, regardless of whether
-   --  the task actually was suspended by the delay. Since
-   --  cond_timedwait does not do this on Solaris, we add a call
-   --  to thr_yield at the end. We might do this at the beginning,
-   --  instead, but then the round-robin effect would not be the
-   --  same; the delayed task would be ahead of other tasks of the
-   --  same priority that awoke while it was sleeping.
+   --  Annex D requires that completion of a delay cause the task to go to the
+   --  end of its priority queue, regardless of whether the task actually was
+   --  suspended by the delay. Since cond_timedwait does not do this on
+   --  Solaris, we add a call to thr_yield at the end. We might do this at the
+   --  beginning, instead, but then the round-robin effect would not be the
+   --  same; the delayed task would be ahead of other tasks of the same
+   --  priority that awoke while it was sleeping.
 
-   --  For Timed_Sleep, we are expecting possible cond_signals
-   --  to indicate other events (e.g., completion of a RV or
-   --  completion of the abortable part of an async. select),
-   --  we want to always return if interrupted. The caller will
-   --  be responsible for checking the task state to see whether
-   --  the wakeup was spurious, and to go back to sleep again
-   --  in that case.  We don't need to check for pending abort
-   --  or priority change on the way in our out; that is the
-   --  caller's responsibility.
+   --  For Timed_Sleep, we are expecting possible cond_signals to indicate
+   --  other events (e.g., completion of a RV or completion of the abortable
+   --  part of an async. select), we want to always return if interrupted. The
+   --  caller will be responsible for checking the task state to see whether
+   --  the wakeup was spurious, and to go back to sleep again in that case. We
+   --  don't need to check for pending abort or priority change on the way in
+   --  our out; that is the caller's responsibility.
 
-   --  For Timed_Delay, we are not expecting any cond_signals or
-   --  other interruptions, except for priority changes and aborts.
-   --  Therefore, we don't want to return unless the delay has
-   --  actually expired, or the call has been aborted. In this
-   --  case, since we want to implement the entire delay statement
-   --  semantics, we do need to check for pending abort and priority
-   --  changes. We can quietly handle priority changes inside the
+   --  For Timed_Delay, we are not expecting any cond_signals or other
+   --  interruptions, except for priority changes and aborts. Therefore, we
+   --  don't want to return unless the delay has actually expired, or the call
+   --  has been aborted. In this case, since we want to implement the entire
+   --  delay statement semantics, we do need to check for pending abort and
+   --  priority changes. We can quietly handle priority changes inside the
    --  procedure, since there is no entry-queue reordering involved.
 
    -----------------
@@ -1277,9 +1266,9 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    procedure Timed_Delay
-     (Self_ID  : Task_Id;
-      Time     : Duration;
-      Mode     : ST.Delay_Modes)
+     (Self_ID : Task_Id;
+      Time    : Duration;
+      Mode    : ST.Delay_Modes)
    is
       Check_Time : constant Duration := Monotonic_Clock;
       Abs_Time   : Duration;
@@ -1317,11 +1306,15 @@ package body System.Task_Primitives.Operations is
             exit when Self_ID.Pending_ATC_Level < Self_ID.ATC_Nesting_Level;
 
             if Single_Lock then
-               Result := cond_timedwait (Self_ID.Common.LL.CV'Access,
-                 Single_RTS_Lock.L'Access, Request'Access);
+               Result := cond_timedwait
+                           (Self_ID.Common.LL.CV'Access,
+                            Single_RTS_Lock.L'Access,
+                            Request'Access);
             else
-               Result := cond_timedwait (Self_ID.Common.LL.CV'Access,
-                 Self_ID.Common.LL.L.L'Access, Request'Access);
+               Result := cond_timedwait
+                           (Self_ID.Common.LL.CV'Access,
+                            Self_ID.Common.LL.L.L'Access,
+                            Request'Access);
             end if;
 
             Yielded := True;
@@ -1734,6 +1727,8 @@ package body System.Task_Primitives.Operations is
    procedure Set_False (S : in out Suspension_Object) is
       Result  : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1741,6 +1736,8 @@ package body System.Task_Primitives.Operations is
 
       Result := mutex_unlock (S.L'Access);
       pragma Assert (Result = 0);
+
+      SSL.Abort_Undefer.all;
    end Set_False;
 
    --------------
@@ -1750,6 +1747,8 @@ package body System.Task_Primitives.Operations is
    procedure Set_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1770,6 +1769,8 @@ package body System.Task_Primitives.Operations is
 
       Result := mutex_unlock (S.L'Access);
       pragma Assert (Result = 0);
+
+      SSL.Abort_Undefer.all;
    end Set_True;
 
    ------------------------
@@ -1779,6 +1780,8 @@ package body System.Task_Primitives.Operations is
    procedure Suspend_Until_True (S : in out Suspension_Object) is
       Result : Interfaces.C.int;
    begin
+      SSL.Abort_Defer.all;
+
       Result := mutex_lock (S.L'Access);
       pragma Assert (Result = 0);
 
@@ -1789,6 +1792,8 @@ package body System.Task_Primitives.Operations is
 
          Result := mutex_unlock (S.L'Access);
          pragma Assert (Result = 0);
+
+         SSL.Abort_Undefer.all;
 
          raise Program_Error;
       else
@@ -1802,10 +1807,12 @@ package body System.Task_Primitives.Operations is
             S.Waiting := True;
             Result := cond_wait (S.CV'Access, S.L'Access);
          end if;
-      end if;
 
-      Result := mutex_unlock (S.L'Access);
-      pragma Assert (Result = 0);
+         Result := mutex_unlock (S.L'Access);
+         pragma Assert (Result = 0);
+
+         SSL.Abort_Undefer.all;
+      end if;
    end Suspend_Until_True;
 
    ----------------
@@ -1814,8 +1821,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : Task_Id) return Boolean is
    begin
-      --  Check that caller is just holding Global_Task_Lock
-      --  and no other locks
+      --  Check that caller is just holding Global_Task_Lock and no other locks
 
       if Self_ID.Common.LL.Locks = null then
          return False;

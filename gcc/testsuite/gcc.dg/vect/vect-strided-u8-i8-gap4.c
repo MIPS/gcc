@@ -49,8 +49,26 @@ main1 (s *arr)
           || res[i].e != arr[i].b + arr[i].e
           || res[i].h != arr[i].c
           || res[i].g != arr[i].b + arr[i].c)
-          abort();
+          abort ();
    }
+
+  ptr = arr;
+  /* Not vectorizable: gap in store. */
+  for (i = 0; i < N; i++)
+    { 
+      res[i].a = ptr->b;
+      res[i].b = ptr->c;
+      ptr++; 
+    }
+  
+  /* Check results.  */
+  for (i = 0; i < N; i++)
+    {
+      if (res[i].a != arr[i].b 
+	  || res[i].b != arr[i].c)
+          abort ();
+    }
+
 }
 
 
@@ -80,5 +98,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_interleave && vect_extract_even_odd } } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
+  

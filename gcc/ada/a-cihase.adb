@@ -7,11 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,15 +38,18 @@ pragma Elaborate_All (Ada.Containers.Hash_Tables.Generic_Operations);
 with Ada.Containers.Hash_Tables.Generic_Keys;
 pragma Elaborate_All (Ada.Containers.Hash_Tables.Generic_Keys);
 
-with System;  use type System.Address;
-
 with Ada.Containers.Prime_Numbers;
+
+with System;  use type System.Address;
 
 package body Ada.Containers.Indefinite_Hashed_Sets is
 
    -----------------------
    -- Local Subprograms --
    -----------------------
+
+   procedure Assign (Node : Node_Access; Item : Element_Type);
+   pragma Inline (Assign);
 
    function Copy_Node (Source : Node_Access) return Node_Access;
    pragma Inline (Copy_Node);
@@ -88,11 +87,6 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Read_Node (Stream : access Root_Stream_Type'Class)
      return Node_Access;
    pragma Inline (Read_Node);
-
-   procedure Replace_Element
-     (HT       : in out Hash_Table_Type;
-      Node     : Node_Access;
-      New_Item : Element_Type);
 
    procedure Set_Next (Node : Node_Access; Next : Node_Access);
    pragma Inline (Set_Next);
@@ -138,6 +132,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    procedure Read_Nodes is
       new HT_Ops.Generic_Read (Read_Node);
 
+   procedure Replace_Element is
+      new Element_Keys.Generic_Replace_Element (Hash_Node, Assign);
+
    procedure Write_Nodes is
      new HT_Ops.Generic_Write (Write_Node);
 
@@ -158,6 +155,17 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    begin
       HT_Ops.Adjust (Container.HT);
    end Adjust;
+
+   ------------
+   -- Assign --
+   ------------
+
+   procedure Assign (Node : Node_Access; Item : Element_Type) is
+      X : Element_Access := Node.Element;
+   begin
+      Node.Element := new Element_Type'(Item);
+      Free_Element (X);
+   end Assign;
 
    --------------
    -- Capacity --
@@ -214,7 +222,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Element_Keys.Delete_Key_Sans_Free (Container.HT, Item, X);
 
       if X = null then
-         raise Constraint_Error;
+         raise Constraint_Error with "attempt to delete element not in set";
       end if;
 
       Free (X);
@@ -225,23 +233,24 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Position  : in out Cursor)
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Delete");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with "Position cursor equals No_Element";
       end if;
 
       if Position.Node.Element = null then
-         raise Program_Error;
+         raise Program_Error with "Position cursor is bad";
       end if;
 
       if Position.Container /= Container'Unrestricted_Access then
-         raise Program_Error;
+         raise Program_Error with "Position cursor designates wrong set";
       end if;
 
       if Container.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with elements (set is busy)";
       end if;
+
+      pragma Assert (Vet (Position), "Position cursor is bad");
 
       HT_Ops.Delete_Node_Sans_Free (Container.HT, Position.Node);
 
@@ -265,32 +274,50 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          return;
       end if;
 
-      if Source.Length = 0 then
+      if Source.HT.Length = 0 then
          return;
       end if;
 
       if Target.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with elements (set is busy)";
       end if;
 
-      --  TODO: This can be written in terms of a loop instead as
-      --  active-iterator style, sort of like a passive iterator.
+      if Source.HT.Length < Target.HT.Length then
+         declare
+            Src_Node : Node_Access;
 
-      Tgt_Node := HT_Ops.First (Target.HT);
-      while Tgt_Node /= null loop
-         if Is_In (Source.HT, Tgt_Node) then
-            declare
-               X : Node_Access := Tgt_Node;
-            begin
+         begin
+            Src_Node := HT_Ops.First (Source.HT);
+            while Src_Node /= null loop
+               Tgt_Node := Element_Keys.Find (Target.HT, Src_Node.Element.all);
+
+               if Tgt_Node /= null then
+                  HT_Ops.Delete_Node_Sans_Free (Target.HT, Tgt_Node);
+                  Free (Tgt_Node);
+               end if;
+
+               Src_Node := HT_Ops.Next (Source.HT, Src_Node);
+            end loop;
+         end;
+
+      else
+         Tgt_Node := HT_Ops.First (Target.HT);
+         while Tgt_Node /= null loop
+            if Is_In (Source.HT, Tgt_Node) then
+               declare
+                  X : Node_Access := Tgt_Node;
+               begin
+                  Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
+                  HT_Ops.Delete_Node_Sans_Free (Target.HT, X);
+                  Free (X);
+               end;
+
+            else
                Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
-               HT_Ops.Delete_Node_Sans_Free (Target.HT, X);
-               Free (X);
-            end;
-
-         else
-            Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
-         end if;
-      end loop;
+            end if;
+         end loop;
+      end if;
    end Difference;
 
    function Difference (Left, Right : Set) return Set is
@@ -367,15 +394,15 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
    function Element (Position : Cursor) return Element_Type is
    begin
-      pragma Assert (Vet (Position), "bad cursor in function Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with "Position cursor of equals No_Element";
       end if;
 
       if Position.Node.Element = null then  --  handle dangling reference
-         raise Program_Error;
+         raise Program_Error with "Position cursor is bad";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in function Element");
 
       return Position.Node.Element.all;
    end Element;
@@ -396,20 +423,28 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Equivalent_Elements (Left, Right : Cursor)
      return Boolean is
    begin
-      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
-      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
-
-      if Left.Node = null
-        or else Right.Node = null
-      then
-         raise Constraint_Error;
+      if Left.Node = null then
+         raise Constraint_Error with
+           "Left cursor of Equivalent_Elements equals No_Element";
       end if;
 
-      if Left.Node.Element = null  --  handle dangling cursor reference
-        or else Right.Node.Element = null
-      then
-         raise Program_Error;
+      if Right.Node = null then
+         raise Constraint_Error with
+           "Right cursor of Equivalent_Elements equals No_Element";
       end if;
+
+      if Left.Node.Element = null then
+         raise Program_Error with
+           "Left cursor of Equivalent_Elements is bad";
+      end if;
+
+      if Right.Node.Element = null then
+         raise Program_Error with
+           "Right cursor of Equivalent_Elements is bad";
+      end if;
+
+      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Elements");
+      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Elements");
 
       return Equivalent_Elements
                (Left.Node.Element.all,
@@ -419,15 +454,17 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Equivalent_Elements (Left : Cursor; Right : Element_Type)
      return Boolean is
    begin
-      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Keys");
-
       if Left.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Left cursor of Equivalent_Elements equals No_Element";
       end if;
 
-      if Left.Node.Element = null then  --  handling dangling reference
-         raise Program_Error;
+      if Left.Node.Element = null then
+         raise Program_Error with
+           "Left cursor of Equivalent_Elements is bad";
       end if;
+
+      pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Elements");
 
       return Equivalent_Elements (Left.Node.Element.all, Right);
    end Equivalent_Elements;
@@ -435,15 +472,17 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Equivalent_Elements (Left : Element_Type; Right : Cursor)
      return Boolean is
    begin
-      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Keys");
-
       if Right.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Right cursor of Equivalent_Elements equals No_Element";
       end if;
 
-      if Right.Node.Element = null then  --  handle dangling cursor reference
-         raise Program_Error;
+      if Right.Node.Element = null then
+         raise Program_Error with
+           "Right cursor of Equivalent_Elements is bad";
       end if;
+
+      pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Elements");
 
       return Equivalent_Elements (Left, Right.Node.Element.all);
    end Equivalent_Elements;
@@ -632,7 +671,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       if not Inserted then
          if Container.HT.Lock > 0 then
-            raise Program_Error;
+            raise Program_Error with
+              "attempt to tamper with cursors (set is locked)";
          end if;
 
          X := Position.Node.Element;
@@ -669,7 +709,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Insert (Container, New_Item, Position, Inserted);
 
       if not Inserted then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "attempt to insert element already in set";
       end if;
    end Insert;
 
@@ -737,17 +778,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       end if;
 
       if Target.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with elements (set is busy)";
       end if;
-
-      --  TODO: optimize this to use an explicit
-      --  loop instead of an active iterator
-      --  (similar to how a passive iterator is
-      --  implemented).
-      --
-      --  Another possibility is to test which
-      --  set is smaller, and iterate over the
-      --  smaller set.
 
       Tgt_Node := HT_Ops.First (Target.HT);
       while Tgt_Node /= null loop
@@ -873,9 +906,6 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          return False;
       end if;
 
-      --  TODO: rewrite this to loop in the
-      --  style of a passive iterator.
-
       Subset_Node := HT_Ops.First (Subset.HT);
       while Subset_Node /= null loop
          if not Is_In (Of_Set.HT, Subset_Node) then
@@ -911,15 +941,22 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Process (Cursor'(Container'Unrestricted_Access, Node));
       end Process_Node;
 
-      HT : Hash_Table_Type renames Container'Unrestricted_Access.all.HT;
+      B : Natural renames Container'Unrestricted_Access.HT.Busy;
 
    --  Start of processing for Iterate
 
    begin
-      --  TODO: resolve whether HT_Ops.Generic_Iteration should
-      --  manipulate busy bit.
+      B := B + 1;
 
-      Iterate (HT);
+      begin
+         Iterate (Container.HT);
+      exception
+         when others =>
+            B := B - 1;
+            raise;
+      end;
+
+      B := B - 1;
    end Iterate;
 
    ------------
@@ -951,15 +988,15 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
    function Next (Position : Cursor) return Cursor is
    begin
-      pragma Assert (Vet (Position), "bad cursor in function Next");
-
       if Position.Node = null then
          return No_Element;
       end if;
 
       if Position.Node.Element = null then
-         raise Program_Error;
+         raise Program_Error with "bad cursor in Next";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Next");
 
       declare
          HT   : Hash_Table_Type renames Position.Container.HT;
@@ -1016,15 +1053,16 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Process  : not null access procedure (Element : Element_Type))
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Query_Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "Position cursor of Query_Element equals No_Element";
       end if;
 
       if Position.Node.Element = null then
-         raise Program_Error;
+         raise Program_Error with "bad cursor in Query_Element";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Query_Element");
 
       declare
          HT : Hash_Table_Type renames
@@ -1068,7 +1106,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Item   : out Cursor)
    is
    begin
-      raise Program_Error;
+      raise Program_Error with "attempt to stream set cursor";
    end Read;
 
    ---------------
@@ -1103,11 +1141,13 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
    begin
       if Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with
+           "attempt to replace element not in set";
       end if;
 
       if Container.HT.Lock > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (set is locked)";
       end if;
 
       X := Node.Element;
@@ -1122,133 +1162,25 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    ---------------------
 
    procedure Replace_Element
-     (HT       : in out Hash_Table_Type;
-      Node     : Node_Access;
-      New_Item : Element_Type)
-   is
-   begin
-      if Equivalent_Elements (Node.Element.all, New_Item) then
-         pragma Assert (Hash (Node.Element.all) = Hash (New_Item));
-
-         if HT.Lock > 0 then
-            raise Program_Error;
-         end if;
-
-         declare
-            X : Element_Access := Node.Element;
-         begin
-            Node.Element := new Element_Type'(New_Item);  --  OK if fails
-            Free_Element (X);
-         end;
-
-         return;
-      end if;
-
-      if HT.Busy > 0 then
-         raise Program_Error;
-      end if;
-
-      HT_Ops.Delete_Node_Sans_Free (HT, Node);
-
-      Insert_New_Element : declare
-         function New_Node (Next : Node_Access) return Node_Access;
-         pragma Inline (New_Node);
-
-         procedure Insert is
-            new Element_Keys.Generic_Conditional_Insert (New_Node);
-
-         ------------------------
-         -- Insert_New_Element --
-         ------------------------
-
-         function New_Node (Next : Node_Access) return Node_Access is
-         begin
-            Node.Element := new Element_Type'(New_Item);  -- OK if fails
-            Node.Next := Next;
-            return Node;
-         end New_Node;
-
-         Result   : Node_Access;
-         Inserted : Boolean;
-
-         X : Element_Access := Node.Element;
-
-      --  Start of processing for Insert_New_Element
-
-      begin
-         Attempt_Insert : begin
-            Insert
-              (HT       => HT,
-               Key      => New_Item,
-               Node     => Result,
-               Inserted => Inserted);
-         exception
-            when others =>
-               Inserted := False;  -- Assignment failed
-         end Attempt_Insert;
-
-         if Inserted then
-            Free_Element (X);  -- Just propagate if fails
-            return;
-         end if;
-      end Insert_New_Element;
-
-      Reinsert_Old_Element :
-      declare
-         function New_Node (Next : Node_Access) return Node_Access;
-         pragma Inline (New_Node);
-
-         procedure Insert is
-            new Element_Keys.Generic_Conditional_Insert (New_Node);
-
-         --------------
-         -- New_Node --
-         --------------
-
-         function New_Node (Next : Node_Access) return Node_Access is
-         begin
-            Node.Next := Next;
-            return Node;
-         end New_Node;
-
-         Result   : Node_Access;
-         Inserted : Boolean;
-
-      --  Start of processing for Reinsert_Old_Element
-
-      begin
-         Insert
-           (HT       => HT,
-            Key      => Node.Element.all,
-            Node     => Result,
-            Inserted => Inserted);
-      exception
-         when others =>
-            null;
-      end Reinsert_Old_Element;
-
-      raise Program_Error;
-   end Replace_Element;
-
-   procedure Replace_Element
      (Container : in out Set;
       Position  : Cursor;
       New_Item  : Element_Type)
    is
    begin
-      pragma Assert (Vet (Position), "bad cursor in Replace_Element");
-
       if Position.Node = null then
-         raise Constraint_Error;
+         raise Constraint_Error with "Position cursor equals No_Element";
       end if;
 
       if Position.Node.Element = null then
-         raise Program_Error;
+         raise Program_Error with "bad cursor in Replace_Element";
       end if;
 
       if Position.Container /= Container'Unrestricted_Access then
-         raise Program_Error;
+         raise Program_Error with
+           "Position cursor designates wrong set";
       end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Replace_Element");
 
       Replace_Element (Container.HT, Position.Node, New_Item);
    end Replace_Element;
@@ -1289,7 +1221,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       end if;
 
       if Target.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with elements (set is busy)";
       end if;
 
       declare
@@ -1605,7 +1538,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       end if;
 
       if Target.HT.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with elements (set is busy)";
       end if;
 
       declare
@@ -1808,7 +1742,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Item   : Cursor)
    is
    begin
-      raise Program_Error;
+      raise Program_Error with "attempt to stream set cursor";
    end Write;
 
    ----------------
@@ -1873,7 +1807,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Key_Keys.Delete_Key_Sans_Free (Container.HT, Key, X);
 
          if X = null then
-            raise Constraint_Error;
+            raise Constraint_Error with "key not in map";
          end if;
 
          Free (X);
@@ -1888,7 +1822,12 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Key       : Key_Type) return Element_Type
       is
          Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
+
       begin
+         if Node = null then
+            raise Constraint_Error with "key not in map";
+         end if;
+
          return Node.Element.all;
       end Element;
 
@@ -1941,15 +1880,16 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       function Key (Position : Cursor) return Key_Type is
       begin
-         pragma Assert (Vet (Position), "bad cursor in function Key");
-
          if Position.Node = null then
-            raise Constraint_Error;
+            raise Constraint_Error with
+              "Position cursor equals No_Element";
          end if;
 
          if Position.Node.Element = null then
-            raise Program_Error;
+            raise Program_Error with "Position cursor is bad";
          end if;
+
+         pragma Assert (Vet (Position), "bad cursor in function Key");
 
          return Key (Position.Node.Element.all);
       end Key;
@@ -1968,7 +1908,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       begin
          if Node = null then
-            raise Constraint_Error;
+            raise Constraint_Error with
+              "attempt to replace key not in set";
          end if;
 
          Replace_Element (Container.HT, Node, New_Item);
@@ -1976,7 +1917,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       procedure Update_Element_Preserving_Key
         (Container : in out Set;
-         Position  : in     Cursor;
+         Position  : Cursor;
          Process   : not null access
            procedure (Element : in out Element_Type))
       is
@@ -1984,30 +1925,32 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Indx : Hash_Type;
 
       begin
-         pragma Assert
-           (Vet (Position),
-            "bad cursor in Update_Element_Preserving_Key");
-
          if Position.Node = null then
-            raise Constraint_Error;
+            raise Constraint_Error with
+              "Position cursor equals No_Element";
          end if;
 
          if Position.Node.Element = null
            or else Position.Node.Next = Position.Node
          then
-            raise Program_Error;
+            raise Program_Error with "Position cursor is bad";
          end if;
 
          if Position.Container /= Container'Unrestricted_Access then
-            raise Program_Error;
+            raise Program_Error with
+              "Position cursor designates wrong set";
          end if;
 
          if HT.Buckets = null
            or else HT.Buckets'Length = 0
            or else HT.Length = 0
          then
-            raise Program_Error;
+            raise Program_Error with "Position cursor is bad (set is empty)";
          end if;
+
+         pragma Assert
+           (Vet (Position),
+            "bad cursor in Update_Element_Preserving_Key");
 
          Indx := HT_Ops.Index (HT, Position.Node);
 
@@ -2052,7 +1995,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
                   Prev := Prev.Next;
 
                   if Prev = null then
-                     raise Program_Error;
+                     raise Program_Error with
+                       "Position cursor is bad (node not found)";
                   end if;
                end loop;
 
@@ -2069,7 +2013,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
             Free (X);
          end;
 
-         raise Program_Error;
+         raise Program_Error with "key was modified";
       end Update_Element_Preserving_Key;
 
    end Generic_Keys;

@@ -1,6 +1,6 @@
 /* Read and manage MIPS symbol tables from object modules.
-   Copyright (C) 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2003, 2004
-   Free Software Foundation, Inc.
+   Copyright (C) 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2003, 2004,
+   2006 Free Software Foundation, Inc.
    Contributed by hartzell@boulder.colorado.edu,
    Rewritten by meissner@osf.org.
 
@@ -29,11 +29,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifdef index
 #undef index
 #endif
-#ifndef CROSS_COMPILE
+#ifndef CROSS_DIRECTORY_STRUCTURE
 #include <a.out.h>
 #else
 #include "mips/a.out.h"
-#endif /* CROSS_COMPILE */
+#endif /* CROSS_DIRECTORY_STRUCTURE */
 
 /* Include getopt.h for the sake of getopt_long.  */
 #include "getopt.h"
@@ -1412,7 +1412,7 @@ main (int argc, char **argv)
   if (version)
     {
       printf ("mips-tdump (GCC) %s\n", version_string);
-      fputs ("Copyright (C) 2003 Free Software Foundation, Inc.\n", stdout);
+      fputs ("Copyright (C) 2006 Free Software Foundation, Inc.\n", stdout);
       fputs ("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
              stdout);

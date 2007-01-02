@@ -56,6 +56,11 @@
 
 #define DOLLARS_IN_IDENTIFIERS 0
 
+/* AIX .align pseudo-op accept value from 0 to 12, corresponding to
+   log base 2 of the alignment in bytes; 12 = 4096 bytes = 32768 bits.  */
+
+#define MAX_OFILE_ALIGNMENT 32768
+
 /* Return nonzero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
    or a CONST containing one of them.  If -mfp-in-toc (the default),
@@ -80,6 +85,7 @@
 	       || (SCALAR_FLOAT_MODE_P (GET_MODE (X))			\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
+#define TARGET_ASM_OUTPUT_ANCHOR  rs6000_xcoff_asm_output_anchor
 #define TARGET_ASM_GLOBALIZE_LABEL  rs6000_xcoff_asm_globalize_label
 #define TARGET_ASM_INIT_SECTIONS  rs6000_xcoff_asm_init_sections
 #define TARGET_ASM_NAMED_SECTION  rs6000_xcoff_asm_named_section

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004, 2005
+   1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -145,7 +145,8 @@ struct pending_abstract_type GTY((chain_next ("%h.next")))
 static hashval_t
 pat_calc_hash (const void* val)
 {
-  const struct pending_abstract_type* pat = val;
+  const struct pending_abstract_type *pat =
+     (const struct pending_abstract_type *) val;
   return (hashval_t) TYPE_UID (pat->type);
 }
 
@@ -156,7 +157,8 @@ pat_calc_hash (const void* val)
 static int
 pat_compare (const void* val1, const void* val2)
 {
-  const struct pending_abstract_type* pat1 = val1;
+  const struct pending_abstract_type *pat1 =
+     (const struct pending_abstract_type *) val1;
   tree type2 = (tree)val2;
 
   return (pat1->type == type2);
@@ -270,7 +272,7 @@ abstract_virtuals_error (tree decl, tree type)
 		    ? DECL_SOURCE_LOCATION (decl)
 		    : input_location);
 
-      pat->next = *slot;
+      pat->next = (struct pending_abstract_type *) *slot;
       *slot = pat;
 
       return 0;
@@ -375,7 +377,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
       if (!decl)
-	p_msg ("invalid use of undefined type %q#T", type);
+	p_msg ("invalid use of incomplete type %q#T", type);
       if (!TYPE_TEMPLATE_INFO (type))
 	p_msg ("forward declaration of %q+#T", type);
       else
@@ -401,7 +403,16 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       break;
 
     case TEMPLATE_TYPE_PARM:
-      p_msg ("invalid use of template type parameter");
+      p_msg ("invalid use of template type parameter %qT", type);
+      break;
+
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      p_msg ("invalid use of template template parameter %qT",
+            TYPE_NAME (type));
+      break;
+
+    case TYPENAME_TYPE:
+      p_msg ("invalid use of dependent type %qT", type);
       break;
 
     case UNKNOWN_TYPE:
@@ -500,7 +511,7 @@ split_nonconstant_init_1 (tree dest, tree init)
 		sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
 			      NULL_TREE);
 
-	      code = build2 (MODIFY_EXPR, inner_type, sub, value);
+	      code = build2 (INIT_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
 	      add_stmt (code);
 	      continue;
@@ -523,6 +534,9 @@ split_nonconstant_init_1 (tree dest, tree init)
     default:
       gcc_unreachable ();
     }
+
+  /* The rest of the initializer is now a constant. */
+  TREE_CONSTANT (init) = 1;
 }
 
 /* A subroutine of store_init_value.  Splits non-constant static
@@ -712,14 +726,22 @@ digest_init (tree type, tree init)
       return process_init_constructor (type, init);
   else
     {
-      if (TREE_HAS_CONSTRUCTOR (init)
-	  && TREE_CODE (type) == ARRAY_TYPE)
+      if (COMPOUND_LITERAL_P (init) && TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  error ("cannot initialize aggregate of type %qT with "
 		 "a compound literal", type);
 
 	  return error_mark_node;
 	}
+
+      if (TREE_CODE (type) == ARRAY_TYPE
+	  && TREE_CODE (init) != CONSTRUCTOR)
+	{
+	  error ("array must be initialized with a brace-enclosed"
+		 " initializer");
+	  return error_mark_node;
+	}
+
       return convert_for_initialization (NULL_TREE, type, init,
 					 LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING,
 					 "initialization", NULL_TREE, 0);
@@ -778,8 +800,8 @@ process_init_constructor_array (tree type, tree init)
     /* Vectors are like simple fixed-size arrays.  */
     len = TYPE_VECTOR_SUBPARTS (type);
 
-  /* There cannot be more initializers than needed (or reshape_init would
-     detect this before we do.  */
+  /* There cannot be more initializers than needed as otherwise
+     reshape_init would have already rejected the initializer.  */
   if (!unbounded)
     gcc_assert (VEC_length (constructor_elt, v) <= len);
 
@@ -789,7 +811,10 @@ process_init_constructor_array (tree type, tree init)
 	{
 	  gcc_assert (TREE_CODE (ce->index) == INTEGER_CST);
 	  if (compare_tree_int (ce->index, i) != 0)
-	    sorry ("non-trivial designated initializers not supported");
+	    {
+	      ce->value = error_mark_node;
+	      sorry ("non-trivial designated initializers not supported");
+	    }
 	}
       else
 	ce->index = size_int (i);
@@ -831,7 +856,7 @@ process_init_constructor_array (tree type, tree init)
 	     add anything to the CONSTRUCTOR.  */
 	  break;
 
-	flags |= picflag_from_initializer (next);    
+	flags |= picflag_from_initializer (next);
 	CONSTRUCTOR_APPEND_ELT (v, size_int (i), next);
       }
 
@@ -886,8 +911,11 @@ process_init_constructor_record (tree type, tree init)
 	      gcc_assert (TREE_CODE (ce->index) == FIELD_DECL
 			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
 	      if (ce->index != field
-	          && ce->index != DECL_NAME (field))
-		sorry ("non-trivial designated initializers not supported");
+		  && ce->index != DECL_NAME (field))
+		{
+		  ce->value = error_mark_node;
+		  sorry ("non-trivial designated initializers not supported");
+		}
 	    }
 
 	  gcc_assert (ce->value);
@@ -1013,7 +1041,7 @@ process_init_constructor_union (tree type, tree init)
    After the execution, the initializer will have TREE_CONSTANT if all elts are
    constant, and TREE_STATIC set if, in addition, all elts are simple enough
    constants that the assembler and linker can compute them.
-   
+
    The function returns the initializer itself, or error_mark_node in case
    of error.  */
 
@@ -1192,9 +1220,7 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  datum = decay_conversion (datum);
-
-  if (datum == error_mark_node || component == error_mark_node)
+  if (error_operand_p (datum) || error_operand_p (component))
     return error_mark_node;
 
   ptrmem_type = TREE_TYPE (component);
@@ -1210,7 +1236,7 @@ build_m_component_ref (tree datum, tree component)
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer %qE to %qE, which is of "
-	     "non-aggregate type %qT",
+	     "non-class type %qT",
 	     component, datum, objtype);
       return error_mark_node;
     }
@@ -1293,12 +1319,11 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* This must build a C cast.  */
       if (parms == NULL_TREE)
-	parms = integer_zero_node;
-      else
-	parms = build_x_compound_expr_from_list (parms, "functional cast");
+	return cp_convert (type, integer_zero_node);
 
+      /* This must build a C cast.  */
+      parms = build_x_compound_expr_from_list (parms, "functional cast");
       return build_c_cast (type, parms);
     }
 
@@ -1317,9 +1342,9 @@ build_functional_cast (tree exp, tree parms)
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
     return build_c_cast (type, TREE_VALUE (parms));
 
-  /* We need to zero-initialize POD types.  Let's do that for everything
-     that doesn't need a constructor.  */
-  if (parms == NULL_TREE && !TYPE_NEEDS_CONSTRUCTING (type)
+  /* We need to zero-initialize POD types.  */
+  if (parms == NULL_TREE 
+      && !CLASSTYPE_NON_POD_P (type)
       && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
     {
       exp = build_constructor (type, NULL);

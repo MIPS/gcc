@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -137,6 +137,7 @@ package body ALI.Util is
    function Get_File_Checksum (Fname : Name_Id) return Word is
       Full_Name    : Name_Id;
       Source_Index : Source_File_Index;
+
    begin
       Full_Name := Find_File (Fname, Osint.Source);
 
@@ -154,7 +155,7 @@ package body ALI.Util is
          return Checksum_Error;
       end if;
 
-      Scanner.Initialize_Scanner (Types.No_Unit, Source_Index);
+      Scanner.Initialize_Scanner (Source_Index);
 
       --  Make sure that the project language reserved words are not
       --  recognized as reserved words, but as identifiers. The byte info for

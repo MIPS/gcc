@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,8 +40,8 @@
 #include <ext/rc_string_base.h>
 #include <ext/sso_string_base.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /**
    *  @class __versa_string vstring.h
    *  @brief  Managing sequences of characters and character-like objects.
@@ -74,8 +74,6 @@ namespace __gnu_cxx
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
       // Data Member (public):
-      // NB: This is an unsigned type, and thus represents the maximum
-      // size that the allocator can hold.
       ///  Value returned by various member functions when they fail.
       static const size_type	npos = static_cast<size_type>(-1);
 
@@ -409,7 +407,7 @@ namespace __gnu_cxx
        */
       void
       clear()
-      { this->_M_erase(size_type(0), this->size()); }
+      { this->_M_clear(); }
 
       /**
        *  Returns true if the %string is empty.  Equivalent to *this == "".
@@ -449,7 +447,10 @@ namespace __gnu_cxx
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < this->size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < this->size());
 	this->_M_leak();
 	return this->_M_data()[__pos];
       }
@@ -1199,13 +1200,13 @@ namespace __gnu_cxx
       template<class _Integer>
 	__versa_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n,
-			    _Integer __val, __true_type)
+			    _Integer __val, std::__true_type)
         { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
 
       template<class _InputIterator>
 	__versa_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _InputIterator __k1,
-			    _InputIterator __k2, __false_type);
+			    _InputIterator __k2, std::__false_type);
 
       __versa_string&
       _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
@@ -1271,7 +1272,7 @@ namespace __gnu_cxx
       */
       allocator_type
       get_allocator() const
-      { return this->_M_get_allocator(); }
+      { return allocator_type(this->_M_get_allocator()); }
 
       /**
        *  @brief  Find position of a C substring.
@@ -1362,7 +1363,7 @@ namespace __gnu_cxx
       /**
        *  @brief  Find last position of a C string.
        *  @param s  C string to locate.
-       *  @param pos  Index of character to start search at (default 0).
+       *  @param pos  Index of character to start search at (default end).
        *  @return  Index of start of  last occurrence.
        *
        *  Starting from @a pos, searches backward for the value of @a s within
@@ -1379,7 +1380,7 @@ namespace __gnu_cxx
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.
@@ -2106,10 +2107,10 @@ namespace __gnu_cxx
 	 __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
     { __lhs.swap(__rhs); }
 
-} // namespace __gnu_cxx
+_GLIBCXX_END_NAMESPACE
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /**
    *  @brief  Read stream into a string.
    *  @param is  Input stream.
@@ -2183,7 +2184,7 @@ namespace std
 	    __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc, _Base>& __str)
     { return getline(__is, __str, __is.widen('\n')); }      
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include "vstring.tcc" 

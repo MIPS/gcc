@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -152,7 +152,7 @@ procedure Gnatdll is
    -- Check --
    -----------
 
-   procedure Check (Filename : in String) is
+   procedure Check (Filename : String) is
    begin
       if not Is_Regular_File (Filename) then
          Raise_Exception
@@ -166,10 +166,10 @@ procedure Gnatdll is
 
    procedure Parse_Command_Line is
 
-      procedure Add_File (Filename : in String);
+      procedure Add_File (Filename : String);
       --  Add one file to the list of file to handle
 
-      procedure Add_Files_From_List (List_Filename : in String);
+      procedure Add_Files_From_List (List_Filename : String);
       --  Add the files listed in List_Filename (one by line) to the list
       --  of file to handle
 
@@ -207,7 +207,7 @@ procedure Gnatdll is
       -- Add_File --
       --------------
 
-      procedure Add_File (Filename : in String) is
+      procedure Add_File (Filename : String) is
       begin
          if Is_Ali (Filename) then
             Check (Filename);
@@ -239,7 +239,7 @@ procedure Gnatdll is
       -- Add_Files_From_List --
       -------------------------
 
-      procedure Add_Files_From_List (List_Filename : in String) is
+      procedure Add_Files_From_List (List_Filename : String) is
          File   : File_Type;
          Buffer : String (1 .. 500);
          Last   : Natural;
@@ -253,6 +253,12 @@ procedure Gnatdll is
          end loop;
 
          Close (File);
+
+      exception
+         when Name_Error =>
+            Raise_Exception
+              (Syntax_Error'Identity,
+               "list-of-files file " & List_Filename & " not found.");
       end Add_Files_From_List;
 
    --  Start of processing for Parse_Command_Line

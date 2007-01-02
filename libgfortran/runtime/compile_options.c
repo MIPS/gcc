@@ -37,13 +37,15 @@ compile_options_t compile_options;
 
 
 /* Prototypes */
-extern void set_std (GFC_INTEGER_4, GFC_INTEGER_4);
+extern void set_std (GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
 export_proto(set_std);
 
 
 void
-set_std (GFC_INTEGER_4 warn_std, GFC_INTEGER_4 allow_std)
+set_std (GFC_INTEGER_4 warn_std, GFC_INTEGER_4 allow_std,
+	 GFC_INTEGER_4 pedantic)
 {
+  compile_options.pedantic = pedantic;
   compile_options.warn_std = warn_std;
   compile_options.allow_std = allow_std;
 }
@@ -58,4 +60,55 @@ init_compile_options (void)
     | GFC_STD_F2003 | GFC_STD_LEGACY;
   compile_options.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
     | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU | GFC_STD_LEGACY;
+  compile_options.pedantic = 0;
+}
+
+/* Function called by the front-end to tell us the
+   default for unformatted data conversion.  */
+
+extern void set_convert (int);
+export_proto (set_convert);
+
+void
+set_convert (int conv)
+{
+  compile_options.convert = conv;
+}
+
+extern void set_record_marker (int);
+export_proto (set_record_marker);
+
+
+void
+set_record_marker (int val)
+{
+
+  switch(val)
+    {
+    case 4:
+      compile_options.record_marker = sizeof (GFC_INTEGER_4);
+      break;
+
+    case 8:
+      compile_options.record_marker = sizeof (GFC_INTEGER_8);
+      break;
+
+    default:
+      runtime_error ("Invalid value for record marker");
+      break;
+    }
+}
+
+extern void set_max_subrecord_length (int);
+export_proto (set_max_subrecord_length);
+
+void set_max_subrecord_length(int val)
+{
+  if (val > GFC_MAX_SUBRECORD_LENGTH || val < 1)
+    {
+      runtime_error ("Invalid value for maximum subrecord length");
+      return;
+    }
+
+  compile_options.max_subrecord_length = val;
 }

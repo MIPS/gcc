@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O -ftree-vectorize -funroll-loops -fno-tree-vect-loop-version" } */
+/* { dg-options "-O -ftree-vectorize -funroll-loops" } */
 void foo();
 
 void bar(int j)
@@ -11,3 +11,4 @@ void bar(int j)
   if (k) foo();
 }
 
+/* { dg-final { cleanup-tree-dump "vect" } } */

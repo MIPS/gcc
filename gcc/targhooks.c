@@ -58,8 +58,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "toplev.h"
 #include "function.h"
-#include "tree-flow.h"
-#include "optabs.h"
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
@@ -148,6 +146,23 @@ unsigned HOST_WIDE_INT
 default_shift_truncation_mask (enum machine_mode mode)
 {
   return SHIFT_COUNT_TRUNCATED ? GET_MODE_BITSIZE (mode) - 1 : 0;
+}
+
+/* The default implementation of TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.  */
+
+unsigned int
+default_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return have_insn_for (DIV, mode) ? 3 : 2;
+}
+
+/* The default implementation of TARGET_MODE_REP_EXTENDED.  */
+
+int
+default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
+			   enum machine_mode mode_rep ATTRIBUTE_UNUSED)
+{
+  return UNKNOWN;
 }
 
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
@@ -272,6 +287,14 @@ default_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* True if the target supports decimal floating point.  */
+
+bool
+default_decimal_float_supported_p (void)
+{
+  return ENABLE_DECIMAL_FLOAT;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
   
@@ -294,6 +317,15 @@ default_invalid_within_doloop (rtx insn)
     return "Computed branch in the loop.";
   
   return NULL;
+}
+
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
 }
 
 bool
@@ -321,6 +353,11 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+void 
+hook_void_bitmap (bitmap regs ATTRIBUTE_UNUSED)
+{
 }
 
 const char *
@@ -379,6 +416,8 @@ default_external_stack_protect_fail (void)
       TREE_NOTHROW (t) = 1;
       DECL_ARTIFICIAL (t) = 1;
       DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
 
       stack_chk_fail_decl = t;
     }
@@ -446,96 +485,6 @@ default_function_value (tree ret_type ATTRIBUTE_UNUSED,
 #else
   return NULL_RTX;
 #endif
-}
-
-static tree
-interleave_vectorize_builtin_extract_evenodd (tree dest, tree vec1,
-					      tree vec2, tree stmt, bool odd_p)
-{
-  tree type;
-  enum machine_mode mode;
-  block_stmt_iterator bsi;
-  tree th, tl, result, x;
-  int scalar_type_size, i, tmp;
-
-  /* If the first argument is a type, just check if support
-     is available. Return a non NULL value if supported, NULL_TREE otherwise.
-   */
-  if (TYPE_P (dest))
-    {
-      mode = TYPE_MODE (dest);
-      if (vec_interleave_high_optab->handlers[mode].insn_code == CODE_FOR_nothing
-          || vec_interleave_low_optab->handlers[mode].insn_code == CODE_FOR_nothing)
-        return NULL;
-      else
-        return dest;
-    }
-
-  type = TREE_TYPE (dest);
-  mode = TYPE_MODE (type);
-
-  /* We require both high and low interleaves for the mode.  */
-  if (vec_interleave_high_optab->handlers[mode].insn_code == CODE_FOR_nothing
-      || vec_interleave_low_optab->handlers[mode].insn_code == CODE_FOR_nothing)
-    return NULL;
-
-  bsi = bsi_for_stmt (stmt);
- 
-  scalar_type_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (stmt)));
-  tmp = exact_log2 (UNITS_PER_SIMD_WORD / scalar_type_size) - 1;
-
-  th = vec1;
-  tl = vec2;
-  for (i = 0; i < tmp; i++)
-    {
-      th = make_rename_temp (type, NULL);
-      x = build2 (VEC_INTERLEAVE_HIGH_EXPR, type, vec1, vec2);
-      x = build2 (MODIFY_EXPR, type, th, x);
-      th = make_ssa_name (th, x);
-      TREE_OPERAND (x, 0) = th;
-      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
-      mark_new_vars_to_rename (x);
-
-      tl = make_rename_temp (type, NULL);
-      x = build2 (VEC_INTERLEAVE_LOW_EXPR, type, vec1, vec2);
-      x = build2 (MODIFY_EXPR, type, tl, x);
-      tl = make_ssa_name (tl, x);
-      TREE_OPERAND (x, 0) = tl;
-      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
-      mark_new_vars_to_rename (x);
-
-      vec1 = BYTES_BIG_ENDIAN ? th : tl;
-      vec2 = BYTES_BIG_ENDIAN ? tl : th;
-    }
-  result = make_rename_temp (type, NULL);
-  
-  if (BYTES_BIG_ENDIAN)
-    x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
-                type, th, tl);
-  else
-    x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
-                type, tl, th);
-  x = build2 (MODIFY_EXPR, type, result, x);
-  result = make_ssa_name (result, x);
-  TREE_OPERAND (x, 0) = result;
-
-  return x;
-}
-
-tree
-interleave_vectorize_builtin_extract_even (tree dest, tree vec1,
-					tree vec2, tree stmt)
-{
-  return interleave_vectorize_builtin_extract_evenodd (dest, vec1, vec2,
-						       stmt, false);
-}
-
-tree
-interleave_vectorize_builtin_extract_odd (tree dest, tree vec1,
-				       tree vec2, tree stmt)
-{
-  return interleave_vectorize_builtin_extract_evenodd (dest, vec1, vec2,
-						       stmt, true);
 }
 
 rtx
@@ -639,6 +588,20 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 	sri->t_icode = icode;
     }
   return class;
+}
+
+
+/* If STRICT_ALIGNMENT is true we use the container type for accessing
+   volatile bitfields.  This is generally the preferred behavior for memory
+   mapped peripherals on RISC architectures.
+   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
+   is typically used to avoid spurious page faults and extra memory accesses
+   due to unaligned accesses on CISC architectures.  */
+
+bool
+default_narrow_bitfield (void)
+{
+  return !STRICT_ALIGNMENT;
 }
 
 #include "gt-targhooks.h"

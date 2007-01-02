@@ -4,11 +4,11 @@
 
 program main
   implicit none
-  enum, bind (c)  ! { dg-warning "New in Fortran 2003" }
-    enumerator :: pp , qq = 4294967295, rr  ! { dg-error "not initialized with integer" }
+  enum, bind (c)
+    enumerator :: pp, qq = 4294967295, rr ! { dg-error "too big for its kind" }
   end enum  ! { dg-error "has no ENUMERATORS" }
 
-  enum, bind (c)  ! { dg-warning "New in Fortran 2003" }
+  enum, bind (c)
     enumerator :: p , q = 4294967299_8, r  ! { dg-error "Arithmetic overflow" }
   end enum  ! { dg-error "has no ENUMERATORS" }
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2004, 2005 Free Software Foundation
+/* Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -133,6 +133,15 @@ gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
   ::java::net::InetAddress *host = tmp->getAddress();
   jint rport = tmp->getPort();
 
+  // Set the SocketImpl's address and port fields before we try to
+  // connect.  Note that the fact that these are set doesn't imply
+  // that we're actually connected to anything.  We need to record
+  // this data before we attempt the connect, since non-blocking
+  // SocketChannels will use this and almost certainly throw timeout
+  // exceptions.
+  address = host;
+  port = rport;
+
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
   jbyteArray haddress = host->addr;
@@ -207,9 +216,6 @@ gnu::java::net::PlainSocketImpl::connect (::java::net::SocketAddress *addr,
       if (::connect (native_fd, ptr, len) == SOCKET_ERROR)
         throwConnectException();
     }
-
-  address = host;
-  port = rport;
 
   // A bind may not have been done on this socket; if so, set localport now.
   if (localport == 0)
@@ -322,7 +328,7 @@ gnu::java::net::PlainSocketImpl::accept (gnu::java::net::PlainSocketImpl *s)
 
   s->native_fd = (jint) hSocket;
   s->localport = localport;
-  s->address = new ::java::net::InetAddress (raddr, NULL);
+  s->address = ::java::net::InetAddress::getByAddress (raddr);
   s->port = rport;
   return;
 
@@ -729,7 +735,7 @@ gnu::java::net::PlainSocketImpl::getOption (jint optID)
           else
             throw new ::java::net::SocketException
               (JvNewStringUTF ("invalid family"));
-          localAddress = new ::java::net::InetAddress (laddr, NULL);
+          localAddress = ::java::net::InetAddress::getByAddress (laddr);
         }
 
       return localAddress;

@@ -1,6 +1,7 @@
 // Deque implementation (out of line) -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -61,8 +62,8 @@
 #ifndef _DEQUE_TCC
 #define _DEQUE_TCC 1
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   template <typename _Tp, typename _Alloc>
     deque<_Tp, _Alloc>&
     deque<_Tp, _Alloc>::
@@ -87,14 +88,14 @@ namespace _GLIBCXX_STD
   template <typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
-    insert(iterator position, const value_type& __x)
+    insert(iterator __position, const value_type& __x)
     {
-      if (position._M_cur == this->_M_impl._M_start._M_cur)
+      if (__position._M_cur == this->_M_impl._M_start._M_cur)
 	{
 	  push_front(__x);
 	  return this->_M_impl._M_start;
 	}
-      else if (position._M_cur == this->_M_impl._M_finish._M_cur)
+      else if (__position._M_cur == this->_M_impl._M_finish._M_cur)
 	{
 	  push_back(__x);
 	  iterator __tmp = this->_M_impl._M_finish;
@@ -102,7 +103,7 @@ namespace _GLIBCXX_STD
 	  return __tmp;
 	}
       else
-        return _M_insert_aux(position, __x);
+        return _M_insert_aux(__position, __x);
     }
 
   template <typename _Tp, typename _Alloc>
@@ -112,8 +113,8 @@ namespace _GLIBCXX_STD
     {
       iterator __next = __position;
       ++__next;
-      const size_type __index = __position - begin();
-      if (__index < (size() >> 1))
+      const difference_type __index = __position - begin();
+      if (static_cast<size_type>(__index) < (size() >> 1))
 	{
 	  if (__position != begin())
 	    std::copy_backward(begin(), __position, __next);
@@ -185,8 +186,7 @@ namespace _GLIBCXX_STD
 	  try
 	    {
 	      std::__uninitialized_fill_a(__new_start, this->_M_impl._M_start,
-					  __x,
-					  _M_get_Tp_allocator());
+					  __x, _M_get_Tp_allocator());
 	      this->_M_impl._M_start = __new_start;
 	    }
 	  catch(...)
@@ -278,13 +278,13 @@ namespace _GLIBCXX_STD
             for (__cur_node = this->_M_impl._M_start._M_node;
                  __cur_node < this->_M_impl._M_finish._M_node;
                  ++__cur_node)
-            {
-              _ForwardIterator __mid = __first;
-              std::advance(__mid, _S_buffer_size());
-              std::__uninitialized_copy_a(__first, __mid, *__cur_node,
-					  _M_get_Tp_allocator());
-              __first = __mid;
-            }
+	      {
+		_ForwardIterator __mid = __first;
+		std::advance(__mid, _S_buffer_size());
+		std::__uninitialized_copy_a(__first, __mid, *__cur_node,
+					    _M_get_Tp_allocator());
+		__first = __mid;
+	      }
             std::__uninitialized_copy_a(__first, __last,
 					this->_M_impl._M_finish._M_first,
 					_M_get_Tp_allocator());
@@ -483,7 +483,7 @@ namespace _GLIBCXX_STD
 					      _M_get_Tp_allocator());
 		  this->_M_impl._M_start = __new_start;
 		  std::copy(__start_n, __pos, __old_start);
-		  fill(__pos - difference_type(__n), __pos, __x_copy);
+		  std::fill(__pos - difference_type(__n), __pos, __x_copy);
 		}
 	      else
 		{
@@ -660,8 +660,11 @@ namespace _GLIBCXX_STD
     deque<_Tp, _Alloc>::
     _M_new_elements_at_front(size_type __new_elems)
     {
-      const size_type __new_nodes
-	= (__new_elems + _S_buffer_size() - 1) / _S_buffer_size();
+      if (this->max_size() - this->size() < __new_elems)
+	__throw_length_error(__N("deque::_M_new_elements_at_front"));
+
+      const size_type __new_nodes = ((__new_elems + _S_buffer_size() - 1)
+				     / _S_buffer_size());
       _M_reserve_map_at_front(__new_nodes);
       size_type __i;
       try
@@ -682,8 +685,11 @@ namespace _GLIBCXX_STD
     deque<_Tp, _Alloc>::
     _M_new_elements_at_back(size_type __new_elems)
     {
-      const size_type __new_nodes
-	= (__new_elems + _S_buffer_size() - 1) / _S_buffer_size();
+      if (this->max_size() - this->size() < __new_elems)
+	__throw_length_error(__N("deque::_M_new_elements_at_back"));
+
+      const size_type __new_nodes = ((__new_elems + _S_buffer_size() - 1)
+				     / _S_buffer_size());
       _M_reserve_map_at_back(__new_nodes);
       size_type __i;
       try
@@ -716,8 +722,8 @@ namespace _GLIBCXX_STD
 	                 + (__add_at_front ? __nodes_to_add : 0);
 	  if (__new_nstart < this->_M_impl._M_start._M_node)
 	    std::copy(this->_M_impl._M_start._M_node,
-		    this->_M_impl._M_finish._M_node + 1,
-		    __new_nstart);
+		      this->_M_impl._M_finish._M_node + 1,
+		      __new_nstart);
 	  else
 	    std::copy_backward(this->_M_impl._M_start._M_node,
 			       this->_M_impl._M_finish._M_node + 1,
@@ -744,6 +750,29 @@ namespace _GLIBCXX_STD
       this->_M_impl._M_start._M_set_node(__new_nstart);
       this->_M_impl._M_finish._M_set_node(__new_nstart + __old_num_nodes - 1);
     }
-} // namespace std
+
+  // Overload for deque::iterators, exploiting the "segmented-iterator
+  // optimization".  NB: leave const_iterators alone!
+  template<typename _Tp>
+    void
+    fill(const _Deque_iterator<_Tp, _Tp&, _Tp*>& __first,
+	 const _Deque_iterator<_Tp, _Tp&, _Tp*>& __last, const _Tp& __value)
+    {
+      typedef typename _Deque_iterator<_Tp, _Tp&, _Tp*>::_Self _Self;
+
+      for (typename _Self::_Map_pointer __node = __first._M_node + 1;
+           __node < __last._M_node; ++__node)
+	std::fill(*__node, *__node + _Self::_S_buffer_size(), __value);
+
+      if (__first._M_node != __last._M_node)
+	{
+	  std::fill(__first._M_cur, __first._M_last, __value);
+	  std::fill(__last._M_first, __last._M_cur, __value);
+	}
+      else
+	std::fill(__first._M_cur, __last._M_cur, __value);
+    }
+
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif

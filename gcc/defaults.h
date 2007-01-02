@@ -114,6 +114,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #endif
 
+#if defined (HAVE_AS_TLS) && !defined (ASM_OUTPUT_TLS_COMMON)
+#define ASM_OUTPUT_TLS_COMMON(FILE, DECL, NAME, SIZE)			\
+  do									\
+    {									\
+      fprintf ((FILE), "\t.tls_common\t");				\
+      assemble_name ((FILE), (NAME));					\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), DECL_ALIGN (DECL) / BITS_PER_UNIT);		\
+    }									\
+  while (0)
+#endif
+
 /* Decide whether to defer emitting the assembler output for an equate
    of two values.  The default is to not defer output.  */
 #ifndef TARGET_DEFERRED_OUTPUT_DEFS
@@ -619,40 +631,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
 #endif
 
-/* Some macros can be defined by the backend in either a mode-dependent
-   or mode-independent form.  The compiler proper should only use the
-   mode-dependent form, providing VOIDmode when the mode is unknown.
-   We can't poison the macros because the backend may reference them.  */
-
-#ifndef REGNO_MODE_OK_FOR_BASE_P
-#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
-#endif
-
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REG, MODE) REG_OK_FOR_BASE_P (REG)
-#endif
-
-/* Determine the register class for registers suitable to be the base
-   address register in a MEM.  Allow the choice to be dependent upon
-   the mode of the memory access.  */
-#ifndef MODE_BASE_REG_CLASS
-#define MODE_BASE_REG_CLASS(MODE) BASE_REG_CLASS
-#endif
-
-/* Some machines require a different base register class if the index
-   is a register.  By default, assume that a base register is acceptable.  */
-#ifndef MODE_BASE_REG_REG_CLASS
-#define MODE_BASE_REG_REG_CLASS(MODE) MODE_BASE_REG_CLASS(MODE)
-#endif
-
-#ifndef REGNO_MODE_OK_FOR_REG_BASE_P
-#define REGNO_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)
-#endif
-
-#ifndef REG_MODE_OK_FOR_REG_BASE_P
-#define REG_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REG_MODE_OK_FOR_BASE_P (REGNO, MODE)
-#endif
-
 #ifndef LARGEST_EXPONENT_IS_NORMAL
 #define LARGEST_EXPONENT_IS_NORMAL(SIZE) 0
 #endif
@@ -734,15 +712,38 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define UNITS_PER_SIMD_WORD UNITS_PER_WORD
 #endif
 
-#ifndef TARGET_VECT_NUM_PATTERNS
-#define TARGET_VECT_NUM_PATTERNS 0 
-#endif
-
 /* Determine whether __cxa_atexit, rather than atexit, is used to
    register C++ destructors for local statics and global objects.  */
 #ifndef DEFAULT_USE_CXA_ATEXIT
 #define DEFAULT_USE_CXA_ATEXIT 0
 #endif
+
+/* If none of these macros are defined, the port must use the new
+   technique of defining constraints in the machine description.
+   tm_p.h will define those macros that machine-independent code
+   still uses.  */
+#if  !defined CONSTRAINT_LEN			\
+  && !defined REG_CLASS_FROM_LETTER		\
+  && !defined REG_CLASS_FROM_CONSTRAINT		\
+  && !defined CONST_OK_FOR_LETTER_P		\
+  && !defined CONST_OK_FOR_CONSTRAINT_P		\
+  && !defined CONST_DOUBLE_OK_FOR_LETTER_P	\
+  && !defined CONST_DOUBLE_OK_FOR_CONSTRAINT_P  \
+  && !defined EXTRA_CONSTRAINT			\
+  && !defined EXTRA_CONSTRAINT_STR		\
+  && !defined EXTRA_MEMORY_CONSTRAINT		\
+  && !defined EXTRA_ADDRESS_CONSTRAINT
+
+#define USE_MD_CONSTRAINTS
+
+#if GCC_VERSION >= 3000 && defined IN_GCC
+/* These old constraint macros shouldn't appear anywhere in a
+   configuration using MD constraint definitions.  */
+#pragma GCC poison REG_CLASS_FROM_LETTER CONST_OK_FOR_LETTER_P \
+                   CONST_DOUBLE_OK_FOR_LETTER_P EXTRA_CONSTRAINT
+#endif
+
+#else /* old constraint mechanism in use */
 
 /* Determine whether extra constraint letter should be handled
    via address reload (like 'o').  */
@@ -782,6 +783,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #if defined (EXTRA_CONSTRAINT) && ! defined (EXTRA_CONSTRAINT_STR)
 #define EXTRA_CONSTRAINT_STR(OP, C,STR) EXTRA_CONSTRAINT (OP, C)
 #endif
+
+#endif /* old constraint mechanism in use */
 
 #ifndef REGISTER_MOVE_COST
 #define REGISTER_MOVE_COST(m, x, y) 2
@@ -881,10 +884,20 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
 #endif
 
+/* On most machines, we use the CFA as DW_AT_frame_base.  */
+#ifndef CFA_FRAME_BASE_OFFSET
+#define CFA_FRAME_BASE_OFFSET(FNDECL) 0
+#endif
+
 /* The offset from the incoming value of %sp to the top of the stack frame
    for the current function.  */
 #ifndef INCOMING_FRAME_SP_OFFSET
 #define INCOMING_FRAME_SP_OFFSET 0
+#endif
+
+#ifndef HARD_REGNO_NREGS_HAS_PADDING
+#define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE) 0
+#define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) -1
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -23,7 +23,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
-#include "varray.h"
 #include "tree.h"
 #include "lambda.h"
 
@@ -192,6 +191,18 @@ lambda_matrix_delete_rows (lambda_matrix mat, int rows, int from, int to)
 
   for (i = rows - dist; i < rows; i++)
     mat[i] = NULL;
+}
+
+/* Swap rows R1 and R2 in matrix MAT.  */
+
+void
+lambda_matrix_row_exchange (lambda_matrix mat, int r1, int r2)
+{
+  lambda_vector row;
+
+  row = mat[r1];
+  mat[r1] = mat[r2];
+  mat[r2] = row;
 }
 
 /* Add a multiple of row R1 of matrix MAT with N columns to row R2:

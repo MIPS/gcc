@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Eval_Fat;
+with Exp_Dist; use Exp_Dist;
 with Exp_Util; use Exp_Util;
 with Expander; use Expander;
 with Freeze;   use Freeze;
@@ -56,7 +57,6 @@ with Sem_Util; use Sem_Util;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
-with Stand;
 with Stringt;  use Stringt;
 with Targparm; use Targparm;
 with Ttypes;   use Ttypes;
@@ -343,6 +343,11 @@ package body Sem_Attr is
          --  the type of the prefix. If prefix is overloaded, so it the
          --  node itself. The result is stored in Acc_Type.
 
+         function OK_Self_Reference return Boolean;
+         --  An access reference whose prefix is a type can legally appear
+         --  within an aggregate, where it is obtained by expansion of
+         --  a defaulted aggregate;
+
          ------------------------------
          -- Build_Access_Object_Type --
          ------------------------------
@@ -433,6 +438,36 @@ package body Sem_Attr is
             end if;
          end Build_Access_Subprogram_Type;
 
+         ----------------------
+         -- OK_Self_Reference --
+         ----------------------
+
+         function OK_Self_Reference return Boolean is
+            Par : Node_Id;
+
+         begin
+            Par := Parent (N);
+            while Present (Par)
+              and then Nkind (Par) in N_Subexpr
+            loop
+               exit when Nkind (Par) = N_Aggregate
+                 or else Nkind (Par) = N_Extension_Aggregate;
+               Par := Parent (Par);
+            end loop;
+
+            if Present (Par)
+              and then
+                (Nkind (Par) = N_Aggregate
+                   or else Nkind (Par) = N_Extension_Aggregate)
+              and then Etype (Par) = Typ
+            then
+               Set_Has_Self_Reference (Par);
+               return True;
+            else
+               return False;
+            end if;
+         end OK_Self_Reference;
+
       --  Start of processing for Analyze_Access_Attribute
 
       begin
@@ -459,6 +494,10 @@ package body Sem_Attr is
                Error_Attr
                  ("prefix of % attribute cannot be Inline_Always subprogram",
                   P);
+            end if;
+
+            if Aname = Name_Unchecked_Access then
+               Error_Attr ("attribute% cannot be applied to a subprogram", P);
             end if;
 
             --  Build the appropriate subprogram type
@@ -489,7 +528,9 @@ package body Sem_Attr is
          end if;
 
          --  Deal with incorrect reference to a type, but note that some
-         --  accesses are allowed (references to the current type instance).
+         --  accesses are allowed: references to the current type instance,
+         --  or in Ada 2005 self-referential pointer in a default-initialized
+         --  aggregate.
 
          if Is_Entity_Name (P) then
             Typ := Entity (P);
@@ -569,6 +610,15 @@ package body Sem_Attr is
                --  OK if a task type, this test needs sharpening up ???
 
                elsif Is_Task_Type (Typ) then
+                  null;
+
+               --  OK if self-reference in an aggregate in Ada 2005, and
+               --  the reference comes from a copied default expression.
+
+               elsif Ada_Version >= Ada_05
+                 and then not Comes_From_Source (N)
+                 and then OK_Self_Reference
+               then
                   null;
 
                --  Otherwise we have an error case
@@ -986,7 +1036,6 @@ package body Sem_Attr is
 
       procedure Check_Enum_Image is
          Lit : Entity_Id;
-
       begin
          if Is_Enumeration_Type (P_Base_Type) then
             Lit := First_Literal (P_Base_Type);
@@ -1151,7 +1200,7 @@ package body Sem_Attr is
                end if;
 
                if Ekind (Typ) = E_Incomplete_Type
-                 and then not Present (Full_View (Typ))
+                 and then No (Full_View (Typ))
                then
                   Error_Attr
                     ("prefix of % attribute cannot be an incomplete type", P);
@@ -1278,6 +1327,7 @@ package body Sem_Attr is
       procedure Check_Stream_Attribute (Nam : TSS_Name_Type) is
          Etyp : Entity_Id;
          Btyp : Entity_Id;
+
       begin
          Validate_Non_Static_Attribute_Function_Call;
 
@@ -1562,6 +1612,8 @@ package body Sem_Attr is
                return False;
             end On_X86;
 
+         --  Start of processing for Alignment_Kludge
+
          begin
             if Aname = Name_Maximum_Alignment and then On_X86 then
                P := Parent (N);
@@ -1665,11 +1717,44 @@ package body Sem_Attr is
          if Is_Entity_Name (P)
            and then Present (Entity (P))
            and then Is_Type (Entity (P))
-           and then Ekind (Entity (P)) = E_Incomplete_Type
          then
-            P_Type := Get_Full_View (P_Type);
-            Set_Entity (P, P_Type);
-            Set_Etype  (P, P_Type);
+            if Ekind (Entity (P)) = E_Incomplete_Type then
+               P_Type := Get_Full_View (P_Type);
+               Set_Entity (P, P_Type);
+               Set_Etype  (P, P_Type);
+
+            elsif Entity (P) = Current_Scope
+              and then Is_Record_Type (Entity (P))
+            then
+               --  Use of current instance within the type. Verify that if the
+               --  attribute appears within a constraint, it  yields an access
+               --  type, other uses are illegal.
+
+               declare
+                  Par : Node_Id;
+
+               begin
+                  Par := Parent (N);
+                  while Present (Par)
+                    and then Nkind (Parent (Par)) /= N_Component_Definition
+                  loop
+                     Par := Parent (Par);
+                  end loop;
+
+                  if Present (Par)
+                    and then Nkind (Par) = N_Subtype_Indication
+                  then
+                     if Attr_Id /= Attribute_Access
+                       and then Attr_Id /= Attribute_Unchecked_Access
+                       and then Attr_Id /= Attribute_Unrestricted_Access
+                     then
+                        Error_Msg_N
+                          ("in a constraint the current instance can only"
+                             & " be used with an access attribute", N);
+                     end if;
+                  end if;
+               end;
+            end if;
          end if;
 
          if P_Type = Any_Type then
@@ -1746,7 +1831,6 @@ package body Sem_Attr is
 
             begin
                Get_First_Interp (P, I, It);
-
                while Present (It.Nam) loop
                   if Comes_From_Source (It.Nam) then
                      Count := Count + 1;
@@ -2274,6 +2358,8 @@ package body Sem_Attr is
       -----------
 
       when Attribute_Class => Class : declare
+         P : constant Entity_Id := Prefix (N);
+
       begin
          Check_Restriction (No_Dispatch, N);
          Check_Either_E0_Or_E1;
@@ -2288,12 +2374,23 @@ package body Sem_Attr is
               Make_Type_Conversion (Loc,
                 Subtype_Mark =>
                   Make_Attribute_Reference (Loc,
-                    Prefix => Prefix (N),
+                    Prefix => P,
                     Attribute_Name => Name_Class),
                 Expression => Relocate_Node (E1)));
 
             Save_Interps (E1, Expression (N));
-            Analyze (N);
+
+            --  Ada 2005 (AI-251): In case of abstract interfaces we have to
+            --  analyze and resolve the type conversion to generate the code
+            --  that displaces the reference to the base of the object.
+
+            if Is_Interface (Etype (P))
+              or else Is_Interface (Etype (E1))
+            then
+               Analyze_And_Resolve (N, Etype (P));
+            else
+               Analyze (N);
+            end if;
 
          --  Otherwise we just need to find the proper type
 
@@ -3365,6 +3462,56 @@ package body Sem_Attr is
             end if;
          end if;
 
+      --------------
+      -- Priority --
+      --------------
+
+      --  Ada 2005 (AI-327): Dynamic ceiling priorities
+
+      when Attribute_Priority =>
+         if Ada_Version < Ada_05 then
+            Error_Attr ("% attribute is allowed only in Ada 2005 mode", P);
+         end if;
+
+         Check_E0;
+
+         --  The prefix must be a protected object (AARM D.5.2 (2/2))
+
+         Analyze (P);
+
+         if Is_Protected_Type (Etype (P))
+           or else (Is_Access_Type (Etype (P))
+                      and then Is_Protected_Type (Designated_Type (Etype (P))))
+         then
+            Resolve (P, Etype (P));
+         else
+            Error_Attr ("prefix of % attribute must be a protected object", P);
+         end if;
+
+         Set_Etype (N, Standard_Integer);
+
+         --  Must be called from within a protected procedure or entry of the
+         --  protected object.
+
+         declare
+            S : Entity_Id;
+
+         begin
+            S := Current_Scope;
+            while S /= Etype (P)
+               and then S /= Standard_Standard
+            loop
+               S := Scope (S);
+            end loop;
+
+            if S = Standard_Standard then
+               Error_Attr ("the attribute % is only allowed inside protected "
+                           & "operations", P);
+            end if;
+         end;
+
+         Validate_Non_Static_Attribute_Function_Call;
+
       -----------
       -- Range --
       -----------
@@ -3574,6 +3721,11 @@ package body Sem_Attr is
          if Is_Access_Type (P_Type) then
             Check_E0;
 
+            if Ekind (P_Type) = E_Access_Subprogram_Type then
+               Error_Attr
+                 ("cannot use % attribute for access-to-subprogram type", P);
+            end if;
+
             --  Set appropriate entity
 
             if Present (Associated_Storage_Pool (Root_Type (P_Type))) then
@@ -3599,12 +3751,16 @@ package body Sem_Attr is
       ------------------
 
       when Attribute_Storage_Size =>
-
          if Is_Task_Type (P_Type) then
             Check_E0;
             Set_Etype (N, Universal_Integer);
 
          elsif Is_Access_Type (P_Type) then
+            if Ekind (P_Type) = E_Access_Subprogram_Type then
+               Error_Attr
+                 ("cannot use % attribute for access-to-subprogram type", P);
+            end if;
+
             if Is_Entity_Name (P)
               and then Is_Type (Entity (P))
             then
@@ -3653,6 +3809,22 @@ package body Sem_Attr is
             Set_Etype (N, Universal_Integer);
          else
             Error_Attr ("invalid prefix for % attribute", P);
+         end if;
+
+      ---------------
+      -- Stub_Type --
+      ---------------
+
+      when Attribute_Stub_Type =>
+         Check_Type;
+         Check_E0;
+
+         if Is_Remote_Access_To_Class_Wide_Type (P_Type) then
+            Rewrite (N,
+              New_Occurrence_Of (Corresponding_Stub_Type (P_Type), Loc));
+         else
+            Error_Attr
+              ("prefix of% attribute must be remote access to classwide", P);
          end if;
 
       ----------
@@ -4725,10 +4897,10 @@ package body Sem_Attr is
       then
          P_Type := Etype (P_Entity);
 
-         --  If the entity is an array constant with an unconstrained
-         --  nominal subtype then get the type from the initial value.
-         --  If the value has been expanded into assignments, the expression
-         --  is not present and the attribute reference remains dynamic.
+         --  If the entity is an array constant with an unconstrained nominal
+         --  subtype then get the type from the initial value. If the value has
+         --  been expanded into assignments, there is no expression and the
+         --  attribute reference remains dynamic.
          --  We could do better here and retrieve the type ???
 
          if Ekind (P_Entity) = E_Constant
@@ -6447,7 +6619,8 @@ package body Sem_Attr is
 
                   --  nnn is set to 2 for Short_Float and Float (32 bit
                   --  floats), and 3 for Long_Float and Long_Long_Float.
-                  --  This is not quite right, but is good enough.
+                  --  For machines where Long_Long_Float is the IEEE
+                  --  extended precision type, the exponent takes 4 digits.
 
                   declare
                      Len : Int :=
@@ -6456,8 +6629,10 @@ package body Sem_Attr is
                   begin
                      if Esize (P_Type) <= 32 then
                         Len := Len + 6;
-                     else
+                     elsif Esize (P_Type) = 64 then
                         Len := Len + 7;
+                     else
+                        Len := Len + 8;
                      end if;
 
                      Fold_Uint (N, UI_From_Int (Len), True);
@@ -6677,10 +6852,12 @@ package body Sem_Attr is
            Attribute_Partition_ID             |
            Attribute_Pool_Address             |
            Attribute_Position                 |
+           Attribute_Priority                 |
            Attribute_Read                     |
            Attribute_Storage_Pool             |
            Attribute_Storage_Size             |
            Attribute_Storage_Unit             |
+           Attribute_Stub_Type                |
            Attribute_Tag                      |
            Attribute_Target_Name              |
            Attribute_Terminated               |
@@ -6759,6 +6936,7 @@ package body Sem_Attr is
       Aname    : constant Name_Id      := Attribute_Name (N);
       Attr_Id  : constant Attribute_Id := Get_Attribute_Id (Aname);
       Btyp     : constant Entity_Id    := Base_Type (Typ);
+      Des_Btyp : Entity_Id;
       Index    : Interp_Index;
       It       : Interp;
       Nom_Subt : Entity_Id;
@@ -6782,7 +6960,7 @@ package body Sem_Attr is
             Error_Msg_N
               ("?non-local pointer cannot point to local object", P);
             Error_Msg_N
-              ("?Program_Error will be raised at run time", P);
+              ("\?Program_Error will be raised at run time", P);
             Rewrite (N,
               Make_Raise_Program_Error (Loc,
                 Reason => PE_Accessibility_Check_Failed));
@@ -6953,12 +7131,13 @@ package body Sem_Attr is
                   elsif Aname = Name_Unrestricted_Access then
                      null;  --  Nothing to check
 
-                  --  Check the static accessibility rule of 3.10.2(32)
-                  --  In an instance body, if subprogram and type are both
-                  --  local, other rules prevent dangling references, and no
-                  --  warning  is needed.
+                  --  Check the static accessibility rule of 3.10.2(32).
+                  --  This rule also applies within the private part of an
+                  --  instantiation. This rule does not apply to anonymous
+                  --  access-to-subprogram types (Ada 2005).
 
                   elsif Attr_Id = Attribute_Access
+                    and then not In_Instance_Body
                     and then Subprogram_Access_Level (Entity (P)) >
                                Type_Access_Level (Btyp)
                     and then Ekind (Btyp) /=
@@ -6966,36 +7145,101 @@ package body Sem_Attr is
                     and then Ekind (Btyp) /=
                                E_Anonymous_Access_Protected_Subprogram_Type
                   then
-                     if not In_Instance_Body then
-                        Error_Msg_N
-                          ("subprogram must not be deeper than access type",
-                            P);
-
-                     elsif Scope (Entity (P)) /= Scope (Btyp) then
-                        Error_Msg_N
-                          ("subprogram must not be deeper than access type?",
-                             P);
-                        Error_Msg_N
-                          ("Constraint_Error will be raised ?", P);
-                        Set_Raises_Constraint_Error (N);
-                     end if;
-
-                  --  Check the restriction of 3.10.2(32) that disallows
-                  --  the type of the access attribute to be declared
-                  --  outside a generic body when the subprogram is declared
-                  --  within that generic body.
-
-                  --  Ada2005: If the expected type is for an access
-                  --  parameter, this clause does not apply.
-
-                  elsif Present (Enclosing_Generic_Body (Entity (P)))
-                    and then Enclosing_Generic_Body (Entity (P)) /=
-                             Enclosing_Generic_Body (Btyp)
-                    and then
-                      Ekind (Btyp) /= E_Anonymous_Access_Subprogram_Type
-                  then
                      Error_Msg_N
-                       ("access type must not be outside generic body", P);
+                       ("subprogram must not be deeper than access type", P);
+
+                  --  Check the restriction of 3.10.2(32) that disallows the
+                  --  access attribute within a generic body when the ultimate
+                  --  ancestor of the type of the attribute is declared outside
+                  --  of the generic unit and the subprogram is declared within
+                  --  that generic unit. This includes any such attribute that
+                  --  occurs within the body of a generic unit that is a child
+                  --  of the generic unit where the subprogram is declared.
+                  --  The rule also prohibits applying the attibute when the
+                  --  access type is a generic formal access type (since the
+                  --  level of the actual type is not known). This restriction
+                  --  does not apply when the attribute type is an anonymous
+                  --  access-to-subprogram type. Note that this check was
+                  --  revised by AI-229, because the originally Ada 95 rule
+                  --  was too lax. The original rule only applied when the
+                  --  subprogram was declared within the body of the generic,
+                  --  which allowed the possibility of dangling references).
+                  --  The rule was also too strict in some case, in that it
+                  --  didn't permit the access to be declared in the generic
+                  --  spec, whereas the revised rule does (as long as it's not
+                  --  a formal type).
+
+                  --  There are a couple of subtleties of the test for applying
+                  --  the check that are worth noting. First, we only apply it
+                  --  when the levels of the subprogram and access type are the
+                  --  same (the case where the subprogram is statically deeper
+                  --  was applied above, and the case where the type is deeper
+                  --  is always safe). Second, we want the check to apply
+                  --  within nested generic bodies and generic child unit
+                  --  bodies, but not to apply to an attribute that appears in
+                  --  the generic unit's specification. This is done by testing
+                  --  that the attribute's innermost enclosing generic body is
+                  --  not the same as the innermost generic body enclosing the
+                  --  generic unit where the subprogram is declared (we don't
+                  --  want the check to apply when the access attribute is in
+                  --  the spec and there's some other generic body enclosing
+                  --  generic). Finally, there's no point applying the check
+                  --  when within an instance, because any violations will
+                  --  have been caught by the compilation of the generic unit.
+
+                  elsif Attr_Id = Attribute_Access
+                    and then not In_Instance
+                    and then Present (Enclosing_Generic_Unit (Entity (P)))
+                    and then Present (Enclosing_Generic_Body (N))
+                    and then Enclosing_Generic_Body (N) /=
+                               Enclosing_Generic_Body
+                                 (Enclosing_Generic_Unit (Entity (P)))
+                    and then Subprogram_Access_Level (Entity (P)) =
+                               Type_Access_Level (Btyp)
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Subprogram_Type
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Protected_Subprogram_Type
+                  then
+                     --  The attribute type's ultimate ancestor must be
+                     --  declared within the same generic unit as the
+                     --  subprogram is declared. The error message is
+                     --  specialized to say "ancestor" for the case where
+                     --  the access type is not its own ancestor, since
+                     --  saying simply "access type" would be very confusing.
+
+                     if Enclosing_Generic_Unit (Entity (P)) /=
+                          Enclosing_Generic_Unit (Root_Type (Btyp))
+                     then
+                        if Root_Type (Btyp) = Btyp then
+                           Error_Msg_N
+                             ("access type must not be outside generic unit",
+                              N);
+                        else
+                           Error_Msg_N
+                             ("ancestor access type must not be outside " &
+                              "generic unit", N);
+                        end if;
+
+                     --  If the ultimate ancestor of the attribute's type is
+                     --  a formal type, then the attribute is illegal because
+                     --  the actual type might be declared at a higher level.
+                     --  The error message is specialized to say "ancestor"
+                     --  for the case where the access type is not its own
+                     --  ancestor, since saying simply "access type" would be
+                     --  very confusing.
+
+                     elsif Is_Generic_Type (Root_Type (Btyp)) then
+                        if Root_Type (Btyp) = Btyp then
+                           Error_Msg_N
+                             ("access type must not be a generic formal type",
+                              N);
+                        else
+                           Error_Msg_N
+                             ("ancestor access type must not be a generic " &
+                              "formal type", N);
+                        end if;
+                     end if;
                   end if;
                end if;
 
@@ -7056,6 +7300,8 @@ package body Sem_Attr is
             --  X'Access is illegal if X denotes a constant and the access
             --  type is access-to-variable. Same for 'Unchecked_Access.
             --  The rule does not apply to 'Unrestricted_Access.
+            --  If the reference is a default-initialized aggregate component
+            --  for a self-referential type the reference is legal.
 
             if not (Ekind (Btyp) = E_Access_Subprogram_Type
                      or else Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type
@@ -7068,7 +7314,15 @@ package body Sem_Attr is
                      or else Is_Variable (P)
                      or else Attr_Id = Attribute_Unrestricted_Access)
             then
-               if Comes_From_Source (N) then
+               if Is_Entity_Name (P)
+                 and then Is_Type (Entity (P))
+               then
+                  --  Legality of a self-reference through an access
+                  --  attribute has been verified in Analyze_Access_Attribute.
+
+                  null;
+
+               elsif Comes_From_Source (N) then
                   Error_Msg_N ("access-to-variable designates constant", P);
                end if;
             end if;
@@ -7085,8 +7339,11 @@ package body Sem_Attr is
                --  enclosing composite type.
 
                if Ada_Version >= Ada_05
-                 and then Is_Local_Anonymous_Access (Btyp)
+                 and then
+                   (Is_Local_Anonymous_Access (Btyp)
+                      or else Ekind (Scope (Btyp)) = E_Return_Statement)
                  and then Object_Access_Level (P) > Type_Access_Level (Btyp)
+                 and then Attr_Id = Attribute_Access
                then
                   --  In an instance, this is a runtime check, but one we
                   --  know will fail, so generate an appropriate warning.
@@ -7095,7 +7352,7 @@ package body Sem_Attr is
                      Error_Msg_N
                        ("?non-local pointer cannot point to local object", P);
                      Error_Msg_N
-                       ("?Program_Error will be raised at run time", P);
+                       ("\?Program_Error will be raised at run time", P);
                      Rewrite (N,
                        Make_Raise_Program_Error (Loc,
                          Reason => PE_Accessibility_Check_Failed));
@@ -7120,6 +7377,23 @@ package body Sem_Attr is
 
                if Is_Constr_Subt_For_U_Nominal (Nom_Subt) then
                   Nom_Subt := Etype (Nom_Subt);
+               end if;
+
+               Des_Btyp := Designated_Type (Btyp);
+
+               if Ekind (Des_Btyp) = E_Incomplete_Subtype then
+
+                  --  Ada 2005 (AI-412): Subtypes of incomplete types visible
+                  --  through a limited with clause or regular incomplete
+                  --  subtypes.
+
+                  if From_With_Type (Des_Btyp)
+                    and then Present (Non_Limited_View (Des_Btyp))
+                  then
+                     Des_Btyp := Non_Limited_View (Des_Btyp);
+                  else
+                     Des_Btyp := Etype (Des_Btyp);
+                  end if;
                end if;
 
                if Is_Tagged_Type (Designated_Type (Typ)) then
@@ -7177,13 +7451,22 @@ package body Sem_Attr is
                        (N, Etype (Designated_Type (Typ)));
                   end if;
 
-               elsif not Subtypes_Statically_Match
-                           (Designated_Type (Base_Type (Typ)), Nom_Subt)
+               --  Ada 2005 (AI-363): Require static matching when designated
+               --  type has discriminants and a constrained partial view, since
+               --  in general objects of such types are mutable, so we can't
+               --  allow the access value to designate a constrained object
+               --  (because access values must be assumed to designate mutable
+               --  objects when designated type does not impose a constraint).
+
+               elsif not Subtypes_Statically_Match (Des_Btyp, Nom_Subt)
                  and then
                    not (Has_Discriminants (Designated_Type (Typ))
+                          and then not Is_Constrained (Des_Btyp)
                           and then
-                            not Is_Constrained
-                                  (Designated_Type (Base_Type (Typ))))
+                            (Ada_Version < Ada_05
+                              or else
+                                not Has_Constrained_Partial_View
+                                      (Designated_Type (Base_Type (Typ)))))
                then
                   Error_Msg_N
                     ("object subtype must statically match "
@@ -7192,7 +7475,6 @@ package body Sem_Attr is
                   if Is_Entity_Name (P)
                     and then Is_Array_Type (Designated_Type (Typ))
                   then
-
                      declare
                         D : constant Node_Id := Declaration_Node (Entity (P));
 
@@ -7681,42 +7963,12 @@ package body Sem_Attr is
    is
       Etyp : Entity_Id := Typ;
 
-      function Has_Specified_Stream_Attribute
-        (Typ : Entity_Id;
-         Nam : TSS_Name_Type) return Boolean;
-      --  True iff there is a visible attribute definition clause specifying
-      --  attribute Nam for Typ.
-
-      ------------------------------------
-      -- Has_Specified_Stream_Attribute --
-      ------------------------------------
-
-      function Has_Specified_Stream_Attribute
-        (Typ : Entity_Id;
-         Nam : TSS_Name_Type) return Boolean
-      is
-      begin
-         return False
-           or else
-             (Nam = TSS_Stream_Input
-               and then Has_Specified_Stream_Input (Typ))
-           or else
-             (Nam = TSS_Stream_Output
-               and then Has_Specified_Stream_Output (Typ))
-           or else
-             (Nam = TSS_Stream_Read
-               and then Has_Specified_Stream_Read (Typ))
-           or else
-             (Nam = TSS_Stream_Write
-               and then Has_Specified_Stream_Write (Typ));
-      end Has_Specified_Stream_Attribute;
-
    --  Start of processing for Stream_Attribute_Available
 
    begin
       --  We need some comments in this body ???
 
-      if Has_Specified_Stream_Attribute (Typ, Nam) then
+      if Has_Stream_Attribute_Definition (Typ, Nam) then
          return True;
       end if;
 
@@ -7760,7 +8012,7 @@ package body Sem_Attr is
       while Etype (Etyp) /= Etyp loop
          Etyp := Etype (Etyp);
 
-         if Has_Specified_Stream_Attribute (Etyp, Nam) then
+         if Has_Stream_Attribute_Definition (Etyp, Nam) then
             return True;
          end if;
       end loop;

@@ -1,5 +1,6 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -44,6 +45,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    gfc_get_*	get a backend tree representation of a decl or type  */
 
 static gfc_file *gfc_current_backend_file;
+
+char gfc_msg_bounds[] = N_("Array bound mismatch");
+char gfc_msg_fault[] = N_("Array reference out of bounds");
+char gfc_msg_wrong_return[] = N_("Incorrect function return value");
 
 
 /* Advance along TREE_CHAIN n times.  */
@@ -135,11 +140,13 @@ gfc_evaluate_now (tree expr, stmtblock_t * pblock)
 }
 
 
-/* Build a MODIFY_EXPR node and add it to a given statement block PBLOCK.
-   A MODIFY_EXPR is an assignment: LHS <- RHS.  */
+/* Build a MODIFY_EXPR (or GIMPLE_MODIFY_STMT) node and add it to a
+   given statement block PBLOCK.  A MODIFY_EXPR is an assignment:
+   LHS <- RHS.  */
 
 void
-gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
+gfc_add_modify (stmtblock_t * pblock, tree lhs, tree rhs,
+		bool tuples_p)
 {
   tree tmp;
 
@@ -152,7 +159,8 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhs)));
 #endif
 
-  tmp = fold_build2 (MODIFY_EXPR, void_type_node, lhs, rhs);
+  tmp = fold_build2 (tuples_p ? GIMPLE_MODIFY_STMT : MODIFY_EXPR,
+		     void_type_node, lhs, rhs);
   gfc_add_expr_to_block (pblock, tmp);
 }
 
@@ -301,14 +309,15 @@ gfc_build_array_ref (tree base, tree offset)
 /* Generate a runtime error if COND is true.  */
 
 void
-gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
+gfc_trans_runtime_check (tree cond, const char * msgid, stmtblock_t * pblock,
+			 locus * where)
 {
   stmtblock_t block;
   tree body;
   tree tmp;
   tree args;
-
-  cond = fold (cond);
+  char * message;
+  int line;
 
   if (integer_zerop (cond))
     return;
@@ -316,18 +325,23 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   /* The code to generate the error.  */
   gfc_start_block (&block);
 
-  gcc_assert (TREE_CODE (msg) == STRING_CST);
+  if (where)
+    {
+#ifdef USE_MAPPED_LOCATION
+      line = LOCATION_LINE (where->lb->location);
+#else 
+      line = where->lb->linenum;
+#endif
+      asprintf (&message, "%s (in file '%s', at line %d)", _(msgid),
+		where->lb->file->filename, line);
+    }
+  else
+    asprintf (&message, "%s (in file '%s', around line %d)", _(msgid),
+	      gfc_source_file, input_line + 1);
 
-  TREE_USED (msg) = 1;
-
-  tmp = gfc_build_addr_expr (pchar_type_node, msg);
+  tmp = gfc_build_addr_expr (pchar_type_node, gfc_build_cstring_const(message));
+  gfc_free(message);
   args = gfc_chainon_list (NULL_TREE, tmp);
-
-  tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
-  args = gfc_chainon_list (args, tmp);
-
-  tmp = build_int_cst (NULL_TREE, input_line);
-  args = gfc_chainon_list (args, tmp);
 
   tmp = build_function_call_expr (gfor_fndecl_runtime_error, args);
   gfc_add_expr_to_block (&block, tmp);
@@ -341,9 +355,11 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   else
     {
       /* Tell the compiler that this isn't likely.  */
+      cond = fold_convert (long_integer_type_node, cond);
       tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, integer_zero_node);
+      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
       cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
+      cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
@@ -360,9 +376,6 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
 
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
-
-  if (TREE_CODE (expr) != STATEMENT_LIST)
-    expr = fold (expr);
 
   if (block->head)
     {
@@ -467,6 +480,10 @@ gfc_trans_code (gfc_code * code)
 	  res = gfc_trans_pointer_assign (code);
 	  break;
 
+	case EXEC_INIT_ASSIGN:
+	  res = gfc_trans_init_assign (code);
+	  break;
+
 	case EXEC_CONTINUE:
 	  res = NULL_TREE;
 	  break;
@@ -496,7 +513,11 @@ gfc_trans_code (gfc_code * code)
 	  break;
 
 	case EXEC_CALL:
-	  res = gfc_trans_call (code);
+	  res = gfc_trans_call (code, false);
+	  break;
+
+	case EXEC_ASSIGN_CALL:
+	  res = gfc_trans_call (code, true);
 	  break;
 
 	case EXEC_RETURN:
@@ -585,6 +606,23 @@ gfc_trans_code (gfc_code * code)
 
 	case EXEC_DT_END:
 	  res = gfc_trans_dt_end (code);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  res = gfc_trans_omp_directive (code);
 	  break;
 
 	default:

@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 16
+#define N 12
 
 struct s{
   int m;
@@ -65,4 +65,3 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
-  

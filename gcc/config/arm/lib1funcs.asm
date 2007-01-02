@@ -27,6 +27,13 @@ You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
+
+/* An executable stack is *not* required for these functions.  */
+#if defined(__ELF__) && defined(__linux__)
+.section .note.GNU-stack,"",%progbits
+.previous
+#endif
+
 /* ------------------------------------------------------------------------ */
 
 /* We need to know what prefix to add to function names.  */
@@ -1020,6 +1027,9 @@ LSYM(Lover12):
 #define ah	r1
 #endif
 
+/* Prevent __aeabi double-word shifts from being produced on SymbianOS.  */
+#ifndef __symbian__
+
 #ifdef L_lshrdi3
 
 	FUNC_START lshrdi3
@@ -1120,6 +1130,8 @@ LSYM(Lover12):
 	FUNC_END ashldi3
 
 #endif
+
+#endif /* __symbian__ */
 
 /* ------------------------------------------------------------------------ */
 /* These next two sections are here despite the fact that they contain Thumb 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -128,7 +128,7 @@ package body Ada.Text_IO.Enumeration_Aux is
       Actual_Width : constant Count := Count'Max (Count (Width), Item'Length);
 
    begin
-      if Set = Lower_Case and then Item (1) /= ''' then
+      if Set = Lower_Case and then Item (Item'First) /= ''' then
          declare
             Iteml : String (Item'First .. Item'Last);
 
@@ -154,9 +154,9 @@ package body Ada.Text_IO.Enumeration_Aux is
    ----------
 
    procedure Puts
-     (To    : out String;
-      Item  : in String;
-      Set   : Type_Set)
+     (To   : out String;
+      Item : String;
+      Set  : Type_Set)
    is
       Ptr : Natural;
 
@@ -167,7 +167,7 @@ package body Ada.Text_IO.Enumeration_Aux is
       else
          Ptr := To'First;
          for J in Item'Range loop
-            if Set = Lower_Case and then Item (1) /= ''' then
+            if Set = Lower_Case and then Item (Item'First) /= ''' then
                To (Ptr) := To_Lower (Item (J));
             else
                To (Ptr) := Item (J);

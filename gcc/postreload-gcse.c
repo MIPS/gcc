@@ -224,7 +224,7 @@ alloc_mem (void)
   rtx insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.  */
-  uid_cuid = xcalloc (get_max_uid () + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, get_max_uid () + 1);
   i = 1;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
@@ -671,10 +671,18 @@ record_last_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
 
   if (REG_P (dest))
     record_last_reg_set_info (last_set_insn, REGNO (dest));
-  else if (MEM_P (dest)
-	   /* Ignore pushes, they clobber nothing.  */
-	   && ! push_operand (dest, GET_MODE (dest)))
-    record_last_mem_set_info (last_set_insn);
+  else if (MEM_P (dest))
+    {
+      /* Ignore pushes, they don't clobber memory.  They may still
+	 clobber the stack pointer though.  Some targets do argument
+	 pushes without adding REG_INC notes.  See e.g. PR25196,
+	 where a pushsi2 on i386 doesn't have REG_INC notes.  Note
+	 such changes here too.  */
+      if (! push_operand (dest, GET_MODE (dest)))
+	record_last_mem_set_info (last_set_insn);
+      else
+	record_last_reg_set_info (last_set_insn, STACK_POINTER_REGNUM);
+    }
 }
 
 
@@ -1310,7 +1318,7 @@ delete_redundant_insns (void)
 /* Main entry point of the GCSE after reload - clean some redundant loads
    due to spilling.  */
 
-void
+static void
 gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
 {
 
@@ -1357,12 +1365,13 @@ gate_handle_gcse2 (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_gcse2 (void)
 {
   gcse_after_reload_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  return 0;
 }
 
 struct tree_opt_pass pass_gcse2 =

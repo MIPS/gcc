@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -49,8 +49,10 @@ package Ada.Containers.Ordered_Multisets is
    function Equivalent_Elements (Left, Right : Element_Type) return Boolean;
 
    type Set is tagged private;
+   pragma Preelaborable_Initialization (Set);
 
    type Cursor is private;
+   pragma Preelaborable_Initialization (Cursor);
 
    Empty_Set : constant Set;
 
@@ -223,7 +225,7 @@ package Ada.Containers.Ordered_Multisets is
 
       function Contains (Container : Set; Key : Key_Type) return Boolean;
 
-      procedure Update_Element_Preserving_Key
+      procedure Update_Element
         (Container : in out Set;
          Position  : Cursor;
          Process   : not null access

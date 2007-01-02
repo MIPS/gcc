@@ -56,7 +56,7 @@ caddr_t v_addr;			/* { dg-error "expected" } */
 {
      register prec_t bucket;
      register caddr_t p_addr;	/* { dg-error "expected|undeclared" } */
-     bucket = mem_hash+((((v_addr)>>ITEMBITS))&hash_mask);
+     bucket = mem_hash+((((v_addr)>>ITEMBITS))&hash_mask);  /* { dg-error "undeclared" } */
      do {
 	  if (bucket->v_addr == ((v_addr)>>ITEMBITS) {	/* { dg-error "expected|undeclared|no member" } */
 	       if(!(bucket->perm_set&va_op))
@@ -115,7 +115,7 @@ init_mem()
 			  "mem_hash != (prec_t)0", 370, "b.c"),
 		0)));
      flush_hash(mem_hash, 32);
-     build_ptables(mem_base, 1024*(1<<13)); /* { dg-bogus "integer overflow" "int smaller than 32 bits" } */
+     build_ptables(mem_base, 1024*(1<<13)); /* { dg-bogus "integer overflow" "int smaller than 32 bits" { xfail int16 } } */
 }
 
 struct tm {

@@ -121,8 +121,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   gcc_assert (TREE_CODE (var1) == SSA_NAME);
   gcc_assert (TREE_CODE (var2) == SSA_NAME);
 
-  register_ssa_partition (map, var1, false);
-  register_ssa_partition (map, var2, true);
+  register_ssa_partition (map, var1);
+  register_ssa_partition (map, var2);
 
   p1 = partition_find (map->var_partition, SSA_NAME_VERSION (var1));
   p2 = partition_find (map->var_partition, SSA_NAME_VERSION (var2));
@@ -208,8 +208,9 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     }
 
   /* Don't coalesce if there are two different memory tags.  */
-  if (ann1->type_mem_tag && ann2->type_mem_tag
-      && ann1->type_mem_tag != ann2->type_mem_tag)
+  if (ann1->symbol_mem_tag
+      && ann2->symbol_mem_tag
+      && ann1->symbol_mem_tag != ann2->symbol_mem_tag)
     {
       if (debug)
 	fprintf (debug, " : 2 memory tags. No coalesce.\n");
@@ -218,9 +219,9 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   /* If both values have default defs, we can't coalesce.  If only one has a 
      tag, make sure that variable is the new root partition.  */
-  if (default_def (root1))
+  if (gimple_default_def (cfun, root1))
     {
-      if (default_def (root2))
+      if (gimple_default_def (cfun, root2))
 	{
 	  if (debug)
 	    fprintf (debug, " : 2 default defs. No coalesce.\n");
@@ -232,7 +233,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 	  ign1 = false;
 	}
     }
-  else if (default_def (root2))
+  else if (gimple_default_def (cfun, root2))
     {
       ign1 = true;
       ign2 = false;
@@ -270,10 +271,10 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   /* Update the various flag widgitry of the current base representative.  */
   ann3 = var_ann (SSA_NAME_VAR (partition_to_var (map, p3)));
-  if (ann1->type_mem_tag)
-    ann3->type_mem_tag = ann1->type_mem_tag;
+  if (ann1->symbol_mem_tag)
+    ann3->symbol_mem_tag = ann1->symbol_mem_tag;
   else
-    ann3->type_mem_tag = ann2->type_mem_tag;
+    ann3->symbol_mem_tag = ann2->symbol_mem_tag;
 
   if (debug)
     {
@@ -291,7 +292,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
    then cause the SSA->normal pass to attempt to coalesce them all to the same 
    variable.  */
 
-static void
+static unsigned int
 rename_ssa_copies (void)
 {
   var_map map;
@@ -314,10 +315,10 @@ rename_ssa_copies (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  stmt = bsi_stmt (bsi); 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 	    {
-	      tree lhs = TREE_OPERAND (stmt, 0);
-	      tree rhs = TREE_OPERAND (stmt, 1);
+	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
               if (TREE_CODE (lhs) == SSA_NAME && TREE_CODE (rhs) == SSA_NAME)
 		copy_rename_partition_coalesce (map, lhs, rhs, debug);
@@ -373,6 +374,7 @@ rename_ssa_copies (void)
     }
 
   delete_var_map (map);
+  return 0;
 }
 
 /* Return true if copy rename is to be performed.  */

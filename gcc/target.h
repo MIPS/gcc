@@ -1,5 +1,6 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -50,7 +51,24 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "tm.h"
 #include "insn-modes.h"
 
+/* Types used by the record_gcc_switches() target function.  */
+typedef enum
+{
+  SWITCH_TYPE_PASSED,		/* A switch passed on the command line.  */
+  SWITCH_TYPE_ENABLED,		/* An option that is currently enabled.  */
+  SWITCH_TYPE_DESCRIPTIVE,	/* Descriptive text, not a switch or option.  */
+  SWITCH_TYPE_LINE_START,	/* Please emit any necessary text at the start of a line.  */
+  SWITCH_TYPE_LINE_END		/* Please emit a line terminator.  */
+}
+print_switch_type;
+
+typedef int (* print_switch_fn_type) (print_switch_type, const char *);
+
+/* An example implementation for ELF targets.  Defined in varasm.c  */
+extern int elf_record_gcc_switches (print_switch_type type, const char *);
+
 struct stdarg_info;
+struct spec_info_def;
 
 /* The struct used by the secondary_reload target hook.  */
 typedef struct secondary_reload_info
@@ -101,6 +119,10 @@ struct gcc_target
        this is for exception handling, fourth is a boolean: true if
        this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
+
+    /* Output code that will emit a label to divide up the exception
+       table.  */
+    void (* except_table_label) (FILE *);
 
     /* Emit any directives required to unwind this instruction.  */
     void (* unwind_emit) (FILE *, rtx);
@@ -190,9 +212,20 @@ struct gcc_target
        external.  */
     void (*external_libcall) (rtx);
 
-     /* Output an assembler directive to mark decl live. This instructs
+    /* Output an assembler directive to mark decl live. This instructs
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
+
+    /* Output a record of the command line switches that have been passed.  */
+    print_switch_fn_type record_gcc_switches;
+    /* The name of the section that the example ELF implementation of
+       record_gcc_switches will use to store the information.  Target
+       specific versions of record_gcc_switches may or may not use
+       this information.  */
+    const char * record_gcc_switches_section;
+
+    /* Output the definition of a section anchor.  */
+    void (*output_anchor) (rtx);
 
     /* Output a DTP-relative reference to a TLS symbol.  */
     void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
@@ -299,21 +332,78 @@ struct gcc_target
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
+
+    /* Given the current cost, COST, of an insn, INSN, calculate and
+       return a new cost based on its relationship to DEP_INSN through the
+       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
+    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler. This hook is called to notify the backend
+       that new instructions were emitted.  */
+    void (* h_i_d_extended) (void);
+    
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.
+       The first parameter is an instruction, the second parameter is the type
+       of the requested speculation, and the third parameter is a pointer to the
+       speculative pattern of the corresponding type (set if return value == 1).
+       It should return
+       -1, if there is no pattern, that will satisfy the requested speculation
+       type,
+       0, if current pattern satisfies the requested speculation type,
+       1, if pattern of the instruction should be changed to the newly
+       generated one.  */
+    int (* speculate_insn) (rtx, int, rtx *);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return true if the check instruction
+       corresponding to the instruction passed as the parameter needs a
+       recovery block.  */
+    bool (* needs_block_p) (rtx);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return a pattern for the check
+       instruction.
+       The first parameter is a speculative instruction, the second parameter
+       is the label of the corresponding recovery block (or null, if it is a
+       simple check).  If the mutation of the check is requested (e.g. from
+       ld.c to chk.a), the third parameter is true - in this case the first
+       parameter is the previous check.  */
+    rtx (* gen_check) (rtx, rtx, bool);
+
+    /* The following member value is a pointer to a function controlling
+       what insns from the ready insn queue will be considered for the
+       multipass insn scheduling.  If the hook returns zero for the insn
+       passed as the parameter, the insn will not be chosen to be
+       issued.  This hook is used to discard speculative instructions,
+       that stand at the first position of the ready list.  */
+    bool (* first_cycle_multipass_dfa_lookahead_guard_spec) (rtx);
+
+    /* The following member value is a pointer to a function that provides
+       information about the speculation capabilities of the target.
+       The parameter is a pointer to spec_info variable.  */
+    void (* set_sched_flags) (struct spec_info_def *);
   } sched;
 
   /* Functions relating to vectorization.  */
   struct vectorize
   {
     /* The following member value is a pointer to a function called
-       by the vectorizer, and returns the decl of the target builtin
+       by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
 
+    /* Returns a code for builtin that realizes vectorized version of
+       function, or NULL_TREE if not available.  */
+    tree (* builtin_vectorized_function) (unsigned, tree);
+
+    /* Target builtin that implements vector widening multiplication.
+       builtin_mul_widen_eve computes the element-by-element products 
+       for the even elements, and builtin_mul_widen_odd computes the
+       element-by-element products for the odd elements.  */
     tree (* builtin_mul_widen_even) (tree);
     tree (* builtin_mul_widen_odd) (tree);
-
-    tree (* builtin_extract_even) (tree, tree, tree, tree);
-    tree (* builtin_extract_odd) (tree, tree, tree, tree);
   } vectorize;
 
   /* The initial value of target_flags.  */
@@ -364,6 +454,10 @@ struct gcc_target
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
 
+  /* Return true if volatile bitfields should use the narrowest type possible.
+     Return false if they should use the container type.  */
+  bool (* narrow_volatile_bitfield) (void);
+
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) (void);
 
@@ -379,7 +473,7 @@ struct gcc_target
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
-  
+
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -419,6 +513,16 @@ struct gcc_target
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
 
+  /* True if the given constant can be put into an object_block.  */
+  bool (* use_blocks_for_constant_p) (enum machine_mode, rtx);
+
+  /* The minimum and maximum byte offsets for anchored addresses.  */
+  HOST_WIDE_INT min_anchor_offset;
+  HOST_WIDE_INT max_anchor_offset;
+
+  /* True if section anchors can be used to access the given symbol.  */
+  bool (* use_anchors_for_symbol_p) (rtx);
+
   /* True if it is OK to do sibling call optimization for the specified
      call expression EXP.  DECL will be the called function, or NULL if
      this is an indirect call.  */
@@ -441,6 +545,19 @@ struct gcc_target
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */
   unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
+
+  /* Return the number of divisions in the given MODE that should be present,
+     so that it is profitable to turn the division into a multiplication by
+     the reciprocal.  */
+  unsigned int (* min_divisions_for_recip_mul) (enum machine_mode mode);
+
+  /* If the representation of integral MODE is such that values are
+     always sign-extended to a wider mode MODE_REP then return
+     SIGN_EXTEND.  Return UNKNOWN otherwise.  */
+  /* Note that the return type ought to be RTX_CODE, but that's not
+     necessarily defined at this point.  */
+  int (* mode_rep_extended) (enum machine_mode mode,
+			     enum machine_mode mode_rep);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -575,7 +692,7 @@ struct gcc_target
      specified.  Use this hook if the target needs to add extra validation
      checks to  handle_dll_attribute ().  */
   bool (* valid_dllimport_attribute_p) (tree decl);
-    
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -626,7 +743,7 @@ struct gcc_target
 
     /* Return the diagnostic message string if function without a prototype
        is not allowed for this 'val' argument; NULL otherwise. */
-    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
 					     	    tree funcdecl, tree val);
 
     /* Return an rtx for the return value location of the function
@@ -683,7 +800,7 @@ struct gcc_target
        visibility has been explicitly specified.  If the target needs
        to specify a visibility other than that of the containing class,
        use this hook to set DECL_VISIBILITY and
-       DECL_VISIBILITY_SPECIFIED.  */ 
+       DECL_VISIBILITY_SPECIFIED.  */
     void (*determine_class_data_visibility) (tree decl);
     /* Returns true (the default) if virtual tables and other
        similar implicit class data objects are always COMDAT if they
@@ -694,12 +811,20 @@ struct gcc_target
     /* Returns true if __aeabi_atexit should be used to register static
        destructors.  */
     bool (*use_aeabi_atexit) (void);
+    /* Returns true if target may use atexit in the same manner as
+    __cxa_atexit  to register static destructors.  */
+    bool (*use_atexit_for_cxa_atexit) (void);
     /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
        has just been defined.  Use this hook to make adjustments to the
        class  (eg, tweak visibility or perform any other required
-       target modifications).  */  
+       target modifications).  */
     void (*adjust_class_at_definition) (tree type);
   } cxx;
+
+  /* For targets that need to mark extra registers as live on entry to
+     the function, they should define this target hook and set their
+     bits in the bitmap passed in. */  
+  void (*live_on_entry) (bitmap); 
 
   /* True if unwinding tables should be generated by default.  */
   bool unwind_tables_default;
@@ -708,6 +833,10 @@ struct gcc_target
 
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
+
+  /* True if we can create zeroed data by switching to a BSS section
+     and then using ASM_OUTPUT_SKIP to allocate the space.  */
+  bool have_switchable_bss_sections;
 
   /* True if "native" constructors and destructors are supported,
      false if we're using collect2 for the job.  */

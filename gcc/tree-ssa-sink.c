@@ -131,7 +131,7 @@ all_immediate_uses_same_place (tree stmt)
   return true;
 }
 
-/* Some global stores don't necessarily have V_MAY_DEF's of global variables,
+/* Some global stores don't necessarily have VDEF's of global variables,
    but we still must avoid moving them around.  */
 
 bool
@@ -144,7 +144,7 @@ is_hidden_global_store (tree stmt)
     {
       tree lhs;
 
-      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+      gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
 
       /* Note that we must not check the individual virtual operands
 	 here.  In particular, if this is an aliased store, we could
@@ -156,7 +156,7 @@ is_hidden_global_store (tree stmt)
 		  int x;
 		  p_1 = (i_2 > 3) ? &x : p;
 
-		  # x_4 = V_MAY_DEF <x_3>
+		  # x_4 = VDEF <x_3>
 		  *p_1 = 5;
 
 		  return 2;
@@ -168,10 +168,10 @@ is_hidden_global_store (tree stmt)
 	 variable.
 
 	 Therefore, we check the base address of the LHS.  If the
-	 address is a pointer, we check if its name tag or type tag is
+	 address is a pointer, we check if its name tag or symbol tag is
 	 a global variable.  Otherwise, we check if the base variable
 	 is a global.  */
-      lhs = TREE_OPERAND (stmt, 0);
+      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       if (REFERENCE_CLASS_P (lhs))
 	lhs = get_base_address (lhs);
 
@@ -194,12 +194,12 @@ is_hidden_global_store (tree stmt)
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 	  tree nmt = (pi) ? pi->name_mem_tag : NULL_TREE;
-	  tree tmt = var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+	  tree smt = symbol_mem_tag (SSA_NAME_VAR (ptr));
 
-	  /* If either the name tag or the type tag for PTR is a
+	  /* If either the name tag or the symbol tag for PTR is a
 	     global variable, then the store is necessary.  */
 	  if ((nmt && is_global_var (nmt))
-	      || (tmt && is_global_var (tmt)))
+	      || (smt && is_global_var (smt)))
 	    {
 	      return true;
 	    }
@@ -207,6 +207,7 @@ is_hidden_global_store (tree stmt)
       else
 	gcc_unreachable ();
     }
+
   return false;
 }
 
@@ -292,9 +293,9 @@ statement_sink_location (tree stmt, basic_block frombb)
   if (one_use == NULL_USE_OPERAND_P)
     return NULL;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return NULL;
-  rhs = TREE_OPERAND (stmt, 1);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   /* There are a few classes of things we can't or don't move, some because we
      don't have code to handle it, some because it's not profitable and some
@@ -402,7 +403,7 @@ statement_sink_location (tree stmt, basic_block frombb)
   /* This will happen when you have
      a_3 = PHI <a_13, a_26>
        
-     a_26 = V_MAY_DEF <a_3> 
+     a_26 = VDEF <a_3> 
 
      If the use is a phi, and is in the same bb as the def, 
      we can't sink it.  */
@@ -522,7 +523,8 @@ sink_code_in_bb (basic_block bb)
 static void
 execute_sink_code (void)
 {
-  struct loops *loops = loop_optimizer_init (dump_file);
+  loop_optimizer_init (LOOPS_NORMAL);
+
   connect_infinite_loops_to_exit ();
   memset (&sink_stats, 0, sizeof (sink_stats));
   calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
@@ -531,15 +533,16 @@ execute_sink_code (void)
     fprintf (dump_file, "Sunk statements:%d\n", sink_stats.sunk);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
-  loop_optimizer_finalize (loops, dump_file);
+  loop_optimizer_finalize ();
 }
 
 /* Gate and execute functions for PRE.  */
 
-static void
+static unsigned int
 do_sink (void)
 {
   execute_sink_code ();
+  return 0;
 }
 
 static bool
