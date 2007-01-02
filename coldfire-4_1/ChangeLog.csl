@@ -1,5 +1,10 @@
 2007-01-02  Richard Sandiford  <richard@codesourcery.com>
 
+	gcc/
+	* config/m68k/t-rtems (M68K_MLIB_CPU): Use MLIB instead of MLIB_NAME.
+
+2007-01-02  Richard Sandiford  <richard@codesourcery.com>
+
 	Merge from sourcerygxx-4_1 branch:
 
 	2007-01-01  Joseph Myers  <joseph@codesourcery.com>
