@@ -1,3 +1,8 @@
+2007-01-02  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.exp: Removed.
+	* testsuite/libjava.jacks/jacks.xfail: Removed.
+
 2006-12-22  Tom Tromey  <tromey@redhat.com>
 
 	* sources.am, Makefile.in: Rebuilt.

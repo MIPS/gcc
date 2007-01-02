@@ -1,3 +1,8 @@
+2007-01-02  Tom Tromey  <tromey@redhat.com>
+
+	* doc/sourcebuild.texi (libgcj Tests): Don't mention jacks.
+	* doc/install.texi (Testing): Don't mention jacks.
+
 2006-12-19  Tom Tromey  <tromey@redhat.com>
 
 	* doc/install.texi (Configuration): Document
