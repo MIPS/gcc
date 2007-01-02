@@ -54,6 +54,8 @@ void dump_escape_function (con_graph cg, FILE*, FILE*);
 static FILE* debug;
 static FILE* dump;
 
+static bool interprocedural;
+
 /* -------------------------------------------------------------*
  *		 general use function here			*
  * -------------------------------------------------------------*/
@@ -389,11 +391,14 @@ update_caller_nodes (con_graph cg, con_graph constructor_graph, tree stmt_id)
 
 	  update_nodes (callee_node, caller_node, stmt_id);
 
-	  /* if it's caller state has been updates, then removing the node
+	  /* if it's caller state has been updated, then removing the node
 	   * will remove the new escape state, so propegate it before
 	   * removing it */
 	  if (caller_node->escape == EA_GLOBAL_ESCAPE)
-	    caller_node->out->target->escape = EA_GLOBAL_ESCAPE;
+	    {
+	      gcc_assert (caller_node->out->next_out == NULL);
+	      caller_node->out->target->escape = EA_GLOBAL_ESCAPE;
+	    }
 	  /* remove the caller nodes now */
 	  remove_con_node (caller_node);
 	  i++;
@@ -503,7 +508,11 @@ insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt
   con_graph callee_cg = get_cg_for_function (cg, function);
   if (callee_cg)
     {
-      update_caller_nodes (cg, callee_cg, stmt_id);
+      /* you must always inline the constructor */
+      if (interprocedural || is_constructor (callee_cg))
+	{
+	  update_caller_nodes (cg, callee_cg, stmt_id);
+	}
     }
 }
 
@@ -1647,39 +1656,6 @@ process_function (con_graph cg, tree function)
 
   assert_all_next_link_free (cg);
 
-  /* inline the constructors */
-#if 0
-  FOR_EACH_BB (bb)
-  {
-    /* process the statements */
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-
-	/* inline constructors. this only needs to be
-	 * done once per BB */
-	if (is_constructor (stmt))
-	  {
-	    con_graph callee_cg = get_cg_for_function (cg,
-						       get_constructor_function
-						       (stmt));
-
-	    if (callee_cg)
-	      {
-		assert_all_next_link_free (callee_cg);
-		gcc_assert (get_caller_actual_node (cg, 1, stmt));
-		/* the caller nodes should alredy be added (we need them
-		 * to inline) */
-		inline_constructor_graph (cg, callee_cg, stmt);
-	      }
-	  }
-      }
-  }
-#endif
-
-
-  assert_all_next_link_free (cg);
-
   /* do the bypassing */
   for (node = cg->root; node; node = node->next)
     {
@@ -1691,9 +1667,6 @@ process_function (con_graph cg, tree function)
 	}
     }
   assert_all_next_link_free (cg);
-
-
-
 
   /* propagate the escape state - Choi99 Sect. 4.2 */
   for (node = cg->root; node; node = node->next)
@@ -1884,7 +1857,17 @@ execute_ipa_stack_allocate (void)
 static bool
 gate_ipa_stack_allocate (void)
 {
-  return flag_ipa_stack_allocate == 1;
+  switch (flag_ipa_stack_allocate)
+    {
+    case 1:
+      interprocedural = false;
+      return true;
+    case 3:
+      interprocedural = true;
+      return true;
+    default:
+      return false;
+    }
 }
 
 struct tree_opt_pass pass_ipa_stack_allocate = {

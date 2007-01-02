@@ -411,7 +411,7 @@ Do not suppress C++ class debug information.
 
 fipa-stack-allocate=
 Common RejectNegative Joined Report Var(flag_ipa_stack_allocate) UInteger
-fipa-stack-allocate=<number> Perform stack allocation (0: None; 1: Flow-insensitive; 2: Test)
+fipa-stack-allocate=<number> Perform stack allocation (0: None; 1: Intra-procedural, flow-insensitive; 2: Test; 3: Inter-procedural, flow-insensitive)
 
 fexceptions
 Common Report Var(flag_exceptions)

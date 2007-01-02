@@ -49,8 +49,8 @@ htab_con_node_eq (const void *p1, const void *p2)
 void
 init_con_node_hashtable (void)
 {
-  /* 9 was the average for the data I had on hand */
-  con_node_hashtable = htab_create (20, con_node_id_hash, htab_con_node_eq, free);
+  con_node_hashtable = htab_create (20, con_node_id_hash,
+				    htab_con_node_eq, free);
 }
 
 static htab_t statement_type_hashtable;
@@ -122,43 +122,36 @@ con_graph_dump (con_graph cg)
   gcc_assert (cg->function);
   gcc_assert (cg->filename);
 
-  /* occasionally want to dump graphs that arent complete */
-
   out = fopen (cg->filename, "w");
   if (out == NULL)
       fprintf (stderr, "%s\n", strerror (errno));
   gcc_assert (out);
 
-  /* step 1 - print the nodes and attributes */
-  for (node = cg->root; node != NULL; node = node->next)
-    {
-      con_graph_dump_node (node, out);
-    }
-
-  /* step 2 - put them in groups */
+  /* this needs to be done first */
+  /* step 1 - put them in groups */
   /* do the localgraph */
-  fprintf (out, " ( LocalGraph: \n");
+  fprintf (out, "(LocalGraph\n"); /* an empty node to avoid a bug */
   for (node = cg->root; node != NULL; node = node->next)
     {
       if (node->escape == EA_NO_ESCAPE)
 	{
-	  fprintf (out, " [ %d ]\n", node->dump_index);
+      con_graph_dump_node (node, out);
 	}
     }
-  fprintf (out, ") { background: yellow; }\n\n");
+  fprintf (out, ") { fill: yellow; }\n\n");
 
   /* do the nonlocalgraph */
-  fprintf (out, "( NonLocalGraph: \n");
+  fprintf (out, "( NonLocalGraph\n");
   for (node = cg->root; node != NULL; node = node->next)
     {
       if (node->escape != EA_NO_ESCAPE)
 	{
-	  fprintf (out, " [ %d ]\n", node->dump_index);
+      con_graph_dump_node (node, out);
 	}
     }
-  fprintf (out, ") { background: lightblue; }\n\n");
+  fprintf (out, ") { fill: lightblue; }\n\n");
 
-  /* step 3 - add the edges */
+  /* step 2 - add the edges */
   for (node = cg->root; node != NULL; node = node->next)
     {
       for (edge = node->out; edge != NULL; edge = edge->next_out)
@@ -187,7 +180,7 @@ con_graph_dump_node (con_node node, FILE * out)
   fprintf (out, "size: 1,1; ");
 
   /* print the label */
-  fprintf (out, "label: ");
+  fprintf (out, "label: \"");
 
   if (node->phantom)
     fprintf (out, "[");
@@ -220,7 +213,7 @@ con_graph_dump_node (con_node node, FILE * out)
     }
   if (node->phantom)
     fprintf (out, "]");
-  fprintf (out, "; ");
+  fprintf (out, "\"; ");
 
   /* color the border and assign groups based on the nodes escape-ness
    * */
