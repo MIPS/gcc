@@ -1,0 +1,569 @@
+2006-09-28  Ira Rosen  <irar@il.ibm.com>
+
+	* lib/target-supports.exp (vect_strided): Define. 	
+	* gcc.dg/vect/vect-strided-a-mult.c: Vectorizable on targets
+	that support vectorization of strided accesses.
+	* gcc.dg/vect/vect-strided-mult.c, 
+        gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+        gcc.dg/vect/vect-strided-u8-i2.c,
+        gcc.dg/vect/vect-strided-a-u16-mult.c,
+        gcc.dg/vect/vect-strided-a-u8-i2-gap.c,
+        gcc.dg/vect/vect-strided-a-u16-i2.c, gcc.dg/vect/vect-1.c,
+        gcc.dg/vect/noreasoc-vect-strided-reduc-u8-i2.c,
+        gcc.dg/vect/vect-strided-u32-i4.c,
+        gcc.dg/vect/vect-strided-u16-i4.c,
+        gcc.dg/vect/vect-strided-u32-i8.c,
+        gcc.dg/vect/vect-strided-u8-i8-gap7.c,
+        gcc.dg/vect/vect-107.c, gcc.dg/vect/vect-98.c, 
+        gcc.dg/vect/vect-strided-mult-char.c,
+        gcc.dg/vect/vect-strided-float.c,
+        gcc.dg/vect/vect-strided-u8-i2-gap.c,
+        gcc.dg/vect/vect-strided-a-u8-i8-gap2.c,
+        gcc.dg/vect/vect-strided-u8-i8-gap4.c,
+        gcc.dg/vect/vect-strided-a-u32-mult.c,
+        gcc.dg/vect/vect-strided-u8-i8.c,
+        gcc.dg/vect/vect-strided-u32-mult.c,
+        gcc.dg/vect/vect-strided-a-u16-i4.c,
+        gcc.dg/vect/vect-strided-u16-i2.c,
+        gcc.dg/vect/vect-strided-a-u8-i8-gap7.c: Likewise.
+
+2006-05-07  Victor Kaplansky  <victork@il.ibm.com>
+
+	Merge from mainline (110552:110553)
+	2006-02-03  Jeff Law  <law@redhat.com>
+        * lib/gcc-dg.exp (cleanup-rtl-dump): Fix dump file regexp to
+        handle more than 100 dump files.
+        (cleanup-tree-dump, cleanup-ipa-dump): Likewise.
+        * lib/scantree.exp (scan-tree-dump): Likewise.
+        (scan-tree-dump-times, scan-tree-dump-not): Likewise.
+        (scan-tree-dump-dem, scan-tree-dump-dem-not): Likewise.
+        * lib/scanipa.exp (scan-ipa-dump): Likewise.
+        (scan-ipa-dump-times, scan-ipa-dump-not): Likewise.
+        (scan-ipa-dump-dem, scan-ipa-dump-dem-not): Likewise.
+
+2006-02-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-pattern-1.c: 3 loops now vectorizable on ppc.
+	* gcc.dg/vect/vect-cast-1.c: 2 loops now vectorizable on ppc.
+
+2006-02-14  Ira Rosen  <irar@il.ibm.com>
+
+        * gcc.dg/vect/vect-strided-mult-char.c: New.
+ 
+2006-02-09  Victor Kaplansky <victork@il.ibm.com>
+
+	* gcc.dg/vect/vect-ivs-after-loop-1.c: New test.
+
+2006-02-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-119.c: Fix typo.
+	* gcc.dg/vect/vect-120.c: Fix typo.
+
+2006-02-06  Ira Rosen  <irar@il.ibm.com>
+
+	* lib/target-supports.exp (vect_short_mult): Define.
+	* gcc.dg/vect/vect-10.c: Vectorizable on targets that support 
+	vect_short_mult.
+
+2006-01-26  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-strided-a-mult.c: New.
+	* gcc.dg/vect/vect-strided-a-u16-mult.c, 
+	gcc.dg/vect/vect-strided-a-u32-mult.c, 
+	gcc.dg/vect/vect-strided-a-u8-i2-gap.c,
+	gcc.dg/vect/vect-strided-a-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-a-u8-i8-gap7.c,
+	gcc.dg/vect/vect-strided-mult.c, gcc.dg/vect/vect-strided-u32-mult.c:
+	Likewise.
+
+2006-01-12  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-106.c: New test.
+
+2005-12-18  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-121.c: Is vectorizable on vect_no_align_targets. 
+
+2005-12-13  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-widen-mult-sum.c: Prevent reading past the end of 
+	the array.
+
+2005-12-05  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: Rename the structure.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c, 
+	gcc.dg/vect/vect-strided-u16-i2.c, gcc.dg/vect/vect-strided-u16-i4.c,
+	gcc.dg/vect/vect-strided-u32-i4.c, gcc.dg/vect/vect-strided-u32-i8.c,
+	gcc.dg/vect/vect-strided-u8-i2.c, gcc.dg/vect/vect-strided-u8-i2-gap.c, 
+	gcc.dg/vect/vect-strided-u8-i8.c, gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap7.c, 
+	gcc.dg/vect/vect-strided-u8-i8-gap4.c: Likewise.
+
+2005-12-05  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-strided-float.c: New.
+
+2005-12-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-noreduc.c: Broaden expected not-vectorized text.
+
+2005-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-117.c (main1): Fix follow-on int/size_t
+	mismatches.
+	* gcc.dg/vect/vect-reduc-dot-u16.c: Update comments.
+
+2005-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/vect-117.c (main1): Avoid pointer to integer
+	cast warning.
+
+2005-11-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-latch.c: New.
+
+2005-11-24  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/noreasoc-vect-strided-reduc-u8-i2.c: New.
+	* gcc.dg/vect/vect.exp: Compile tests prefixed with noreasoc
+	with -ftree-no-reassoc.
+
+2005-11-23  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-6.c: Add dump cleanup.
+	* gcc.dg/vect/vect-reduc-7.c, gcc.dg/vect/vect-dv-1.c,
+	gcc.dg/vect/vect-reduc-pattern-1.c,
+	gcc.dg/vect/vect-reduc-8.c, gcc.dg/vect/vect-116.c, 
+	gcc.dg/vect/vect-reduc-pattern-2.c, gcc.dg/vect/pr22506.c,
+	gcc.dg/vect/vect-reduc-9.c, gfortran.dg/vect/pr18716.f90: Likewise.
+	* gcc.dg/vect/vect-1.c: Additional loop is now vectorizable on ppc.
+	* gcc.dg/vect/vect-107.c, gcc.dg/vect/vect-98.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: New testcase.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c, 
+	gcc.dg/vect/vect-strided-u16-i2.c, gcc.dg/vect/vect-strided-u16-i4.c,
+	gcc.dg/vect/vect-strided-u32-i4.c, gcc.dg/vect/vect-strided-u32-i8.c,
+	gcc.dg/vect/vect-strided-u8-i2.c, gcc.dg/vect/vect-strided-u8-i2-gap.c,
+	gcc.dg/vect/vect-strided-u8-i8.c, gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap4.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap7.c: Likewise. 	
+
+2005-10-31  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/gcc.dg/vect/vect-reduc-pattern-2.c: Another loop gets
+	vectorized.
+
+2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-mult-hi-and-dot.c: New.
+	* gcc.dg/vect/vect-sad-s8.c: New.
+
+2005-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-mult-hi.c: New.
+
+2005-10-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-widen-mult-sum.c: New.
+
+2005-10-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-cast-1.c: Added signed case. Unsigned case not
+	vectorized on powerpc.
+	* gcc.dg/vect/vect-reduc-pattern-1.c: Third loop no longer vectorized
+	on powerpc.
+	* gcc.dg/vect/vect-cast-2.c: New testcase.
+
+2005-10-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-106.c: Removed (duplicate of vect-9.c).
+	* gcc.dg/vect/vect-9.c: Now vectorizable.
+	* gcc.dg/vect/vect-reduc-dot-s8.c: 2 loops now vectorizable.
+	* gcc.dg/vect/vect-reduc-dot-u8.c: 2 loops now vectorizable.
+	* gcc.dg/vect/vect-reduc-pattern-1.c: 3 loops now vectorizable.
+	* gcc.dg/vect/vect-cast-1.c: New test.
+	* testsuite/gcc.dg/vect/vect-widen-mult-s16.c: New test.
+	* testsuite/gcc.dg/vect/vect-widen-mult-u16.c: New test.
+	* testsuite/gcc.dg/vect/vect-widen-mult-s8.c: New test.
+	* testsuite/gcc.dg/vect/vect-widen-mult-u8.c: New test.
+
+2005-10-06  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-120.c: Change to also test constant operands.
+	* gcc.dg/vect/vect-reduc-dot-s8.c: Not vectorized on ppc.
+	* gcc.dg/vect/vect-reduc-dot-u16.c: Remove unused variable.
+	* gcc.dg/vect/vect-reduc-dot-s8s16.c: Removed.
+	* gcc.dg/vect/vect-reduc-dot-u8s16: New.
+
+2005-09-29  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-1.c: Remove loop (appears in other tests).
+	* gcc.dg/vect/vect-12.c: Now vectorizable.
+	* gcc.dg/vect/vect-109.c: Now vectorizable. Change to unknown loop 
+	bound.
+	* gcc.dg/vect/vect-118.c: New.	
+	* gcc.dg/vect/vect-119.c: New.	
+	* gcc.dg/vect/vect-120.c: New.	
+	* gcc.dg/vect/vect-121.c: New.	
+	* gcc.dg/vect/vect-reduc-dot-s8s16.c: New.	
+	* gcc.dg/vect/vect-96.c: Fix comment.
+
+2005-09-23  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-ifcvt-8.c: Enable.
+	* gcc.dg/vect/vect-subsat.c: Enable.
+
+2005-09-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-dot-s8.c: New.
+	* gcc.dg/vect/vect-reduc-dot-u8.c: New.
+	* gcc.dg/vect/vect-reduc-dot-s16.c: New.
+	* gcc.dg/vect/vect-reduc-dot-u16.c: New.
+
+2005-09-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/fast-math-vect-reduc-5.c: Fix merge from mainline.
+	* gcc.dg/vect/fast-math-vect-reduc-7.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1char.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2char.c: Likewise.
+	* gcc.dg/vect/vect-reduc-2short.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-2.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-3.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-4.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-5.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-6.c: Likewise.
+	* gcc.dg/vect/vect-ifcvt-7.c: Likewise.
+
+	* gcc.dg/vect/vect-ifcvt-8.c: Enable for vect_condition targets.
+	* gcc.dg/vect/vect-ifcvt-9.c: Likewise.
+
+	* gcc.dg/vect/vect-reduc-pattern-1.c: Fix test (missing abort/return 0)
+	* gcc.dg/vect/vect-reduc-pattern-2.c: Likewise.
+
+2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-pattern-1.c: New.
+	* gcc.dg/vect/vect-reduc-pattern-2.c: New.
+
+2005-09-21  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-4.f90: Fix expected message for vect_no_align 
+	targets.
+	* gfortran.dg/vect/vect-6.f90: Fix expected message.
+	* gfortran.dg/vect/vect-7.f90: Fix expected message.
+
+2005-09-20  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-dv-2.c: Fix loop bound.
+	* gcc.dg/vect/vect-noreduc.c: Fix test according to new representation
+	after mainline merge.
+	* gcc.dg/vect/vect-ifcvt-8.c: Temporarily xfail (due to disabling
+	of eliminate_unnecessary_casts).
+	* gcc.dg/vect/vect-subsat.c: Likewise.
+
+2005-08-25  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/: Remove directory. Move the tests
+	to gcc.dg/vect/
+	* gcc.dg/vect/vect.exp: Remove run of no_version/
+	* gcc.dg/vect/vect-29v.c: Rename to vect-29.c.
+	* gcc.dg/vect/vect-30v.c, gcc.dg/vect/vect-44v.c,
+	gcc.dg/vect/vect-48v.c, gcc.dg/vect/vect-50v.c, 
+	gcc.dg/vect/vect-52v.c, gcc.dg/vect/vect-77v.c,
+	gcc.dg/vect/vect-78v.c, gcc.dg/vect/vect-80v.c,
+	gcc.dg/vect/vect-8v.c, gcc.dg/vect/vect-96v.c,
+	gcc.dg/vect/vect-ifcvt-1v.c, gcc.dg/vect/vect-ifcvt-9v.c:
+	Likewise.
+	* gcc.dg/vect/vect-subsat.c: Remove xfail for vect_no_align.
+	* gfortran.dg/vect/vect-6.f90: Two loops now vectorizable on
+	vect_no_align targets.
+	* gfortran.dg/vect/vect-7.f90: Likewise.
+
+2005-07-05  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-117.c: New test.
+
+2005-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-115.c: Fix: allocate struct.
+
+2005-06-15  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-reduc-1.c: Vectorizable on all
+	relevant platforms - remove "target powerpc*-*-*" restriction.
+	* gcc.dg/vect/no_version/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-2short.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-2char.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-3short.c: New test.
+	* gcc.dg/vect/no_version/vect-reduc-3char.c: New test.
+
+2005-06-12  Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/vect-7.f90: New testcase.
+	* gcc.dg/vect/no_version/vect-115.c: New testcase.
+
+2005-06-10  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-103.c: Update scan-tree-dump-times string.
+	* gcc.dg/vect/no_version/vect-99.c: Likewise.
+	* gcc.dg/vect/no_version/vect-reduc-3.c: Now vectorizable.
+	* gfortran.dg/vect/vect-4.f90: Added comment.
+	* gcc.dg/vect/no_version/vect-noreduc.c: New test.
+
+2005-06-06  Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/vect-6.f90: New testcase.
+
+2005-05-30  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-100.c: Add a vectorizable version of the tested loop.
+	* gcc.dg/vect/no_version/pr20122.c, gcc.dg/vect/no_version/vect-43.c:
+	Likewise.
+	* gcc.dg/vect/vect-77v.c: Vectorizable.
+	* gcc.dg/vect/vect-78.c, gcc.dg/vect/vect-96v.c, 
+	gcc.dg/vect/no_version/vect-75.c, gcc.dg/vect/no_version/vect-76.c, 
+	gcc.dg/vect/no_version/vect-77.c, gcc.dg/vect/no_version/vect-78.c, 
+	gcc.dg/vect/no_version/vect-96.c: Likewise.
+
+2005-05-25  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-62.c: Update comment. Check that we don't
+	vectorize the second loop cause we chose not to.
+	* gcc.dg/vect/no_version/vect-91.c: Duplicate of vect-71.c. Changed to 
+	check a different functionality.
+	* gcc.dg/vect/vect-reduc-1.c: Remove include of stdio.h.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Likewise. Remove option
+	-fno-tree-vect-loop-version.
+	* gcc.dg/vect/vect-reduc-5.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Remove include of stdio.h. Change
+	effective_target to vect_float.
+
+2005-05-23  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-100.c: Fail to vectorize because of aliasing.
+	* gcc.dg/vect/vect-77v.c, gcc.dg/vect/vect-78.c, 
+	gcc.dg/vect/vect-96v.c, gcc.dg/vect/no_version/pr20122.c,
+	gcc.dg/vect/no_version/vect-43.c, gcc.dg/vect/no_version/vect-75.c,
+	gcc.dg/vect/no_version/vect-76.c, gcc.dg/vect/no_version/vect-77.c,
+	gcc.dg/vect/no_version/vect-78.c, gcc.dg/vect/no_version/vect-96.c:
+	Likewise.
+
+2005-05-23  Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/vect-4.f90: Only one unaligned access.
+
+2005-04-19  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-100.c: New test.
+	* gcc.dg/vect/vect-101.c: New test.
+	* gcc.dg/vect/vect-102.c: New test.
+	* gcc.dg/vect/vect-103.c: New test.
+	* gcc.dg/vect/vect-104.c: New test.
+	* gcc.dg/vect/vect-105.c: New test.
+
+2005-04-14  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version/vect-95a.c: Move to gcc.dg/vect/.
+	* gcc.dg/vect/no_version/vect-92.c: Pass N-1 rather than N to main3.
+
+2005-04-12  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-2.c: xfail for vect_no_align.
+	* gfortran.dg/vect/vect-4.c: xfail for vect_no_align.
+	* gfortran.dg/vect/vect-5.c: New.
+	* gfortran.dg/vect/vect.exp: Add -fno-tree-vect-loop-version.
+	
+2005-04-05  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/no_version: New directory. Move all the tests 
+	(except vect-95.c and vect-85.c) here. 
+	* gcc.dg/vect/vect.exp: Compile tests in no_version directory
+	with -fno-tree-vect-loop-version. Define 86_and_vect_no_align
+	keyword.
+	* gcc.dg/vect/vect-29v.c: Renamed vect-29.c Fix test directives.
+	* gcc.dg/vect/vect-30v.c, gcc.dg/vect/vect-44v.c, 
+	gcc.dg/vect/vect-48v.c, gcc.dg/vect/vect-50v.c, gcc.dg/vect/vect-52v.c,
+	gcc.dg/vect/vect-77v.c, gcc.dg/vect/vect-78v.c, gcc.dg/vect/vect-8v.c,
+	gcc.dg/vect/vect-80v.c, gcc.dg/vect/vect-96v.c, 
+	gcc.dg/vect/vect-ifcvt-1v.c, gcc.dg/vect/vect-ifcvt-9v.c: Likewise.
+	* gcc.dg/vect/no_version/vect-subsat.c: Fail on targets that do not model
+	alignment-handling mechanisms.
+	* gcc.dg/vect/no_version/vect-ifcvt-1.c: Remove fail on targets that do 
+	not model alignment-handling mechanisms.
+	* gcc.dg/vect/no_version/vect-ifcvt-9.c: Add fail on targets that do not 
+	model alignment-handling mechanisms.
+	* gcc.dg/vect/no_version/vect-95a.c: New test.
+
+2005-04-03  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-pattern-1.c: New.
+
+2005-03-16  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-5.c: Use -ffast-math. Now vectorized.
+	* gcc.dg/vect/vect-reduc-6.c: Add comment.
+
+2005-03-16  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Fix verbosity level to 4.
+	* gcc.dg/vect/vect-reduc-4.c: Apply only on powerpc.
+	* gcc.dg/vect/vect-reduc-5.c: Apply only on powerpc.
+
+2005-03-13  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Change verbosity level to 5.
+
+2005-03-10  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-99.c: Fail only on powerpc. Check dependence dist.
+	* gcc.dg/vect/vect-93.c: Fail on targets that do not model 
+	alignment-handling mechanisms.
+	* gcc.dg/vect/vect-ifcvt-1.c: Likewise.
+	* gcc.dg/vect/vect-reduc-1.c: Succeed only on powerpc.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-3.c: Remove options. Add type check for target
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Add type check.
+	* gcc.dg/vect/vect-reduc-5.c: Succeed only on powerpc.
+	
+2005-03-09  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-99.c: New.
+
+2005-03-09  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-96.c: Bring from mainline.
+	* gcc.dg/vect/vect-97.c: Bring from mainline.
+	* gcc.dg/vect/vect-98.c: Bring from mainline.
+	* gcc.dg/vect/pr20122.c: Bring from mainline.
+
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect/vect-2.f90: New.
+	* gfortran.dg/vect/vect-3.f90: New.
+	* gfortran.dg/vect/vect-4.f90: New.
+
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-1.c: Also test min/max reduction. Initialize
+	the reduction variable to nonzero value to test for correct handling of
+	initial value.
+	* gcc.dg/vect/vect-reduc-2.c: Likewise.
+	* gcc.dg/vect/vect-reduc-4.c: Likewise.
+	* gcc.dg/vect/vect-reduc-5.c: Likewise.
+	* gcc.dg/vect/vect-reduc-6.c: Likewise.
+	
+	* gcc.dg/vect/vect-reduc-2.c: Remove -fwrap.
+	* gcc.dg/vect/vect-reduc-3.c: Add -ftrapv. Changed to compile test.
+	
+2005-03-01  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gfortran.dg/vect: New.
+	* gfortran.dg/vect/pr18716.f90: New.
+	* gfortran.dg/vect/vect-1.f90: New.
+	* gfortran.dg/vect/vect.exp: New.
+
+2005-03-01  Janis Johnson  <janis187@us.ibm.com>
+            Dorit Naishlos  <dorit@il.ibm.com>
+
+	* lib/target-supports.exp (check_vmx_hw_available): Add -maltivec
+	option for darwin.
+
+2005-02-22  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-reduc-1.c: New.
+	* gcc.dg/vect/vect-reduc-2.c: New.
+	* gcc.dg/vect/vect-reduc-3.c: New.
+	* gcc.dg/vect/vect-reduc-4.c: New.
+	* gcc.dg/vect/vect-reduc-5.c: New.
+	* gcc.dg/vect/vect-reduc-6.c: New.
+
+2005-02-22  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-39.c: Pass loop bound as a parameter.
+
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-dv-1.c: New test.
+
+2005-02-16  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Add flag -ftree-vectorizer-verbose=3.
+
+2005-02-12  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-62.c: Only one loop should be vectorized.
+	* gcc.dg/vect/vect-85.c: Remove xfail.
+
+2005-02-10  Devang Patel  <dpatel@apple.com>
+
+        * lib/target-supports.exp (check_effective_target_vect_shif): New.
+        * gcc.dg/vect/vect-shift-1.c: New test.
+
+2005-02-02  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-95.c: New test.
+
+2005-01-31  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-39.c: New test.
+	* gcc.dg/vect/vect-81.c: New test.
+	* gcc.dg/vect/vect-84.c: New test.
+	* gcc.dg/vect/vect-94.c: New test.
+
+2004-12-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* gcc.dg/tree-ssa/pr17100.c: New test.
+
+2004-12-15  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-92.c: New test.
+	* gcc.dg/vect/vect-93.c: New test.
+	* gcc.dg/vect/vect-subsat.c: New test.
+	* gcc.dg/vect/pr18557.c: New test.
+	* gcc.dg/vect/vect-54.c: Now vectorizable on targets that don't support
+	misaligned accesses.
+	* gcc.dg/vect/vect-58.c: Likewise.
+
+2004-12-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/18179
+	* gcc.dg/vect/vect-90.c: New test.
+	* gcc.dg/vect/vect-91.c: New test.
+
+2004-11-15  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-none.c: Now two tests are vectorized.
+	* gcc.dg/vect/vect-20040915-1.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-1.c: ... new name.
+	* gcc.dg/vect/vect-20040915-2.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-2.c: ... new name.
+	* gcc.dg/vect/vect-20040915-3.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-3.c: ... new name.
+	* gcc.dg/vect/vect-20040915-4.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-4.c: ... new name.
+	* gcc.dg/vect/vect-20040915-5.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-5.c: ... new name.
+	* gcc.dg/vect/vect-20040915-6.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-6.c: ... new name.
+	* gcc.dg/vect/vect-20040915-7.c: Rename to ...
+	* gcc.dg/vect/vect-ifcvt-7.c: ... new name.
+
+2004-11-12  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/vect/vect-20040915-1.c: New test.
+	* gcc.dg/vect/vect-20040915-2.c: New test.
+	* gcc.dg/vect/vect-20040915-3.c: New test.
+	* gcc.dg/vect/vect-20040915-4.c: New test.
+	* gcc.dg/vect/vect-20040915-5.c: New test.
+	* gcc.dg/vect/vect-20040915-6.c: New test.
+	* gcc.dg/vect/vect-20040915-7.c: New test.
+

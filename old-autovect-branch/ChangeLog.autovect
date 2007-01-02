@@ -1,0 +1,13 @@
+2006-02-06  Dorit Nuzman  <dorit@il.ibm.com>
+
+        Bring over from mainline part of
+        2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+        * Makefile.def (flags_to_pass): Add ADAFLAGS, BOOT_ADAFLAGS,
+        BOOT_CFLAGS, BOOT_LDFLAGS.
+        * Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Handle BOOT_ADAFLAGS,
+        BOOT_CFLAGS, BOOT_LDFLAGS.
+        (TARGET_FLAGS_TO_PASS): Handle ADAFLAGS_FOR_TARGET.
+        (stage[+id+]-bubble): Pass flags recursively to the comparison target.
+        (stage): Fail if we cannot complete the work.
+        * Makefile.in: Regenerate.
