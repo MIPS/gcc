@@ -78,8 +78,6 @@ M68K_DEVICE ("68332", m68332,   "68332", "cpu32", cpu32,    isa_cpu32, FL_MMU)
 M68K_DEVICE ("cpu32", cpu32,    "cpu32", "cpu32", cpu32,    isa_cpu32, FL_MMU)
 
 /* Coldfire CFV2 processors.  */
-/* FIXME: This information was extracted from several different processor
-   manuals, and may be inaccurate.  */
 M68K_DEVICE ("5202",  mcf5202,  "5206",  "5206",  cfv2,     isa_a,     0)
 M68K_DEVICE ("5204",  mcf5204,  "5206",  "5206",  cfv2,     isa_a,     0)
 M68K_DEVICE ("5206",  mcf5206,  "5206",  "5206",  cfv2,     isa_a,     0)
