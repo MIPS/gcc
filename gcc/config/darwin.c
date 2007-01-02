@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tm_p.h"
 #include "toplev.h"
 #include "hashtab.h"
+#include "df.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -778,7 +779,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #endif
 
 	      if (reload_in_progress)
-		regs_ever_live[REGNO (pic)] = 1;
+		df_set_regs_ever_live (REGNO (pic), true);
 	      pic_ref = gen_rtx_PLUS (Pmode, pic,
 				      gen_pic_offset (XEXP (orig, 0),
 						      pic_base));
@@ -849,7 +850,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 					  pic_offset_table_rtx));
 #endif
 		  if (reload_in_progress)
-		    regs_ever_live[REGNO (pic)] = 1;
+		    df_set_regs_ever_live (REGNO (pic), true);
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
 					  gen_pic_offset (orig, pic_base));

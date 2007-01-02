@@ -1,16 +1,22 @@
+2007-01-01  Eric Christopher  <echristo@apple.com>
+
+        * config/darwin.c: Include df.h.
+        (machopic_legitimize_pic_address): Use
+        df_set_regs_ever_live.
+
 2006-12-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* regs.h: (regs_ever_live, regs_asm_clobbered): Removed.
 	* final.c (regs_ever_live, regs_asm_clobbered):	Removed.
 	(only_leaf_regs_used, leaf_renumber_regs_insn): Encapsulated
-	references to regs_ever_live.  
-	* global.c (insn_contains_asm_1, insn_contains_asm, 
+	references to regs_ever_live.
+	* global.c (insn_contains_asm_1, insn_contains_asm,
 	compute_regs_asm_clobbered): New functions.
 	(global_alloc): Added call to compute_regs_asm_clobbered and
 	encapsulated references to regs_ever_live.
 	(dump_global_regs): Encapsulated references to regs_ever_live.
 	(rest_of_handle_global_alloc): Changed call to df_scan_alloc.
 	* regrename.c (regrename_optimize, regrename_optimize): Encapsulated
-	references to regs_ever_live.  
+	references to regs_ever_live.
 	* recog.c (peep2_find_free_register): Ditto.
 	* rtl-factoring (recompute_gain_for_pattern_seq,
 	abstract_best_seq): Ditto.
@@ -51,9 +57,9 @@
 	* config/stormy16/stormy16.c (REG_NEEDS_SAVE): Ditto.
 	* config/fr30/fr30.c (MUST_SAVE_FRAME_POINTER,
 	MUST_SAVE_RETURN_POINTER): Ditto.
-	* config/m68hc11/m68hc11.c (m68hc11_initial_elimination_offset, 
+	* config/m68hc11/m68hc11.c (m68hc11_initial_elimination_offset,
 	m68hc11_total_frame_size, expand_prologue): Ditto.
-	* config/cris/cris.c (cris_reg_saved_in_regsave_area, 
+	* config/cris/cris.c (cris_reg_saved_in_regsave_area,
 	cris_return_addr_rtx): Ditto.
 	* config/iq2000/iq2000.h (MUST_SAVE_REGISTER): Ditto.
 	* config/iq2000/iq2000.c (iq2000_can_use_return_insn): Ditto.
@@ -92,7 +98,7 @@
 	compute_register_save_size): Ditto.
 	* config/h8300/h8300.c (byte_reg, h8300_hard_regno_rename_ok):
 	Ditto.
-	* config/mmix/mmix.c (MMIX_CFUN_NEEDS_SAVED_EH_RETURN_ADDRESS, 
+	* config/mmix/mmix.c (MMIX_CFUN_NEEDS_SAVED_EH_RETURN_ADDRESS,
 	mmix_initial_elimination_offset, mmix_reorg,
 	mmix_use_simple_return, mmix_expand_prologue,
 	mmix_expand_epilogue): Ditto.
@@ -105,7 +111,7 @@
 	* df-scan.c (regs_ever_live): Added as local var.
 	(df_scan_free_internal): Delete bitmap.
 	(df_scan_free_bb_info): Inlined code from removed df_bb_delete.
-	(df_scan_alloc): Removed blocks_to_rescan param and reference to 
+	(df_scan_alloc): Removed blocks_to_rescan param and reference to
 	out_of_date_transfer_functions and added insns_to_notes_rescan.
 	(df_scan_free): Removed reference to
 	out_of_date_transfer_functions.
@@ -122,7 +128,7 @@
 	(df_insn_rescan, df_insn_rescan_all, df_process_deferred_rescans):
 	Added extra parameter to df_insn_delete.
 	(df_process_deferred_rescans): Added support to fixup entry and
-	exit blocks if regs_ever_live changes.  
+	exit blocks if regs_ever_live changes.
 	(df_insn_change_bb): Added debugging.
 	(df_ref_change_reg_with_loc_1): Added code to dirty the block.
 	(df_insn_contains_asm_1, df_insn_contains_asm): Function moved to
@@ -139,7 +145,7 @@
 	checking code.
 	* df-core.c (df_add_problem): Initialized solutions_dirty.
 	(df_finish_pass): Added calls to verify transfer functions.
-	(rest_of_handle_df_initialize): Added more initialization for 
+	(rest_of_handle_df_initialize): Added more initialization for
 	persistent structures.
 	* (df_hybrid_search_forward, df_hybrid_search_backward,
 	df_iterative_dataflow, df_analyze_problem): Removed single_pass parameter.
@@ -149,10 +155,10 @@
 	(df_get_bb_dirty, df_set_bb_dirty, df_compact_blocks): Supports
 	each problem having it own incremental
 	status bits.
-	(df_clear_bb_dirty, df_verify, df_compute_cfg_image, 
+	(df_clear_bb_dirty, df_verify, df_compute_cfg_image,
 	df_check_cfg_clean, df_set_clean_cfg): New function.
 	(df_compact_blocks, df_bb_replace): More debugging.
-	*df.h (df_alloc_function, df_local_compute_function): Removed 
+	*df.h (df_alloc_function, df_local_compute_function): Removed
 	blocks_to_scan parameter.
 	(df_dataflow_function): Removed single_pass parameter.
 	(df_verify_solution_start, df_verify_solution_end): New function
@@ -175,11 +181,11 @@
 	df_ur_alloc, df_ur_local_compute, df_live_alloc, df_urec_alloc,
 	df_urec_local_compute, df_chain_alloc, df_ri_alloc,
 	df_ri_compute): Removed blocks_to_rescan parameter.
-	(problem_RU, problem_RD, problem_LR, problem_UR, problem_LIVE, 
+	(problem_RU, problem_RD, problem_LR, problem_UR, problem_LIVE,
 	problem_UREC, problem_RI): Added two new fields.
 	(df_lr_problem_data, df_ur_problem_data): New data structure to
 	support checking of dataflow solutions.
-	(df_lr_alloc, df_lr_local_compute, df_ur_alloc, 
+	(df_lr_alloc, df_lr_local_compute, df_ur_alloc,
 	df_ur_local_compute, df_ur_free): Now processes only out of date blocks.
 	(df_lr_reset, df_lr_verify_solution_start,
 	df_lr_verify_solution_end, df_lr_verify_transfer_functions,
@@ -204,12 +210,12 @@
 	disconnect_dest): Added calls to df_mark_solutions_dirty.
 	* haifa-sched.c	(move_succs): Ditto.
 	* ifcvt.c (find_cond_trap): Moved calls to df_set_bb_dirty to
-	before deletion of basic block.  
+	before deletion of basic block.
 	* emit-rtl.c (set_insn_deleted, remove_insn): Added basic block
 	parm.
 	* regclass.c (regclass_init): Added reset parm to df_compute_res_ever_live.
-	
-	
+
+
 2006-12-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* local_alloc.c (rest_of_handle_local_alloc): changed
 	extra_warnings to warn_clobbered.
@@ -281,7 +287,7 @@
 	(walk_alter_subreg): Added changed parameter to track changes.
 	(output_address): Added changed parameter to walk_alter_subreg.
 	* cfg.c (compact_blocks, dump_bb_info): Removed df parameter to df_
-	calls. 
+	calls.
 	* auto_inc_dec.c (attempt_changed): Moved call to
 	df_recompute_luids so that it is only called when moves are added.
 	(find_inc, merge_in_block, rest_of_handle_auto_inc_dec): Removed
@@ -332,7 +338,7 @@
 	df_mw_hardreg_chain_delete_eq_uses, df_notes_rescan,
 	df_update_entry_exit_and_calls, df_hard_reg_used_p,
 	df_mw_hardreg_find_hardreg): New function.
-	(df_ref_is_pointer_equal, df_bb_refs_verify): Deleted function.	
+	(df_ref_is_pointer_equal, df_bb_refs_verify): Deleted function.
 	* haifa_sched.c (move_insn): Removed df parameter and changed calls to
 	df_ routines to support new incremental scanning.
 	* df-core.c (df_init): Deleted function.
@@ -350,8 +356,8 @@
 	df_insn_debug_regno, df_regno_debug, debug_df_insn, debug_df_reg,
 	debug_df_defno, debug_df_useno): Removed df parameter and
 	changed calls to df_ routines to support new incremental scanning.
-	(df_finish1): Deleted function.	
-	(df_remove_problem, df_finish_pass, rest_of_handle_df_initialize, 
+	(df_finish1): Deleted function.
+	(df_remove_problem, df_finish_pass, rest_of_handle_df_initialize,
 	rest_of_handle_df_finish): New function.
 	(pass_df_finish, pass_df_initialize): New passes.
 	* mode-switching.c (optimize_mode_switching):  Removed df parameter and
@@ -400,7 +406,7 @@
 	(DF_FIRST_OPTIONAL_PROBLEM): New symbol.
 	(df_ref_flags.DF_REF_REF_MARKER, df_ref_flags.DF_REF_REG_MARKER): New flag.
 	(df_ref_flags.DF_REF_ARTIFICIAL, df_ref_flags.DF_REF_MARKER):
-	Deleted flag. 
+	Deleted flag.
 	(df_alloc_function, df_reset_function, df_free_bb_function,
 	df_local_compute_function, df_init_function, df_dataflow_function,
 	df_confluence_function_0, df_confluence_function_n,
@@ -423,7 +429,7 @@
 	DF_INSN_UID_EQ_USES, DF_INSN_UID_MWS): Removed df or dflow
 	parameter and changed calls to df_ routines to support new
 	incremental scanning.
-	(DF_DEFS_SIZE, DF_USES_SIZE): Renamed to DF_DEFS_TABLE_SIZE and 
+	(DF_DEFS_SIZE, DF_USES_SIZE): Renamed to DF_DEFS_TABLE_SIZE and
 	DF_USES_TABLE_SIZE.
 	(DF_DEFS_TOTAL_SIZE, DF_USES_TOTAL_SIZE, df_scan, df_ru, df_rd,
 	df_lr, df_ur, df_live, df_urec, df_chain, df_ri,
@@ -449,7 +455,7 @@
 	calls to df_ routines to support new incremental scanning.
 	* expmed.c (init_expmed): Changed REGNO to SET_REGNO.
 	* bt-load.c (, compute_defs_uses_and_gen, build_btr_def_use_webs,
-	migrate_btr_defs, branch_target_load_optimize, 
+	migrate_btr_defs, branch_target_load_optimize,
 	pass_branch_target_load_optimize1,
 	pass_branch_target_load_optimize1): Removed df parameter and changed
 	calls to df_ routines to support new incremental scanning.
@@ -459,16 +465,16 @@
 	it to subcalls.
 	(emit_jump_insn_before_noloc,
 	emit_call_insn_before_noloc, emit_barrier_before,
-	emit_label_before, emit_note_before, emit_call_insn_after_noloc, 
+	emit_label_before, emit_note_before, emit_call_insn_after_noloc,
 	emit_jump_insn_after_noloc, emit_label_after, emit_note_after,
 	emit_insn_after_setloc, emit_insn_before_setloc): Add NULL basic
-	block parameter to certain subcalls.  
+	block parameter to certain subcalls.
 	(set_unique_reg_note): Now calls df_notes_rescan if REG_EQUAL or
 	REG_EQUIV notes change.
 	* loop-invariant.c (check_invariant_table_size,
 	hash_invariant_expr_1, invariant_expr_equal_p, find_defs,
 	check_dependencies, record_uses, find_invariants_to_move,
-	move_invariant_reg, fail, free_inv_motion_data, 
+	move_invariant_reg, fail, free_inv_motion_data,
 	move_loop_invariants):	Removed df parameter and changed
 	calls to df_ routines to support new incremental scanning.
 	* subregs_init (initialize_uninitialized_subregs): Removed df
@@ -480,7 +486,7 @@
 	iv_analyze, iv_analyze_result, biv_p, iv_analysis_done): Removed df
 	parameter and changed calls to df_ routines to support new
 	incremental scanning.
-	* regclass.c (regclass_init): Insert call to recalculate the 
+	* regclass.c (regclass_init): Insert call to recalculate the
 	effects of changing regs_ever_live.
 	(init_reg_autoinc):  Changed REGNO to SET_REGNO.
 	* rtl.h (REGNO): Changed so that it cannot appear on lhs.
@@ -596,8 +602,8 @@
 	and changed calls to df_ routines to support new incremental
 	scanning.
 	(alter_reg): Changed REGNO to SET_REGNO.
-	
-	
+
+
 2006-12-07  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/predicates.md (lwa_operand): Allow PRE_MODIFY
@@ -661,7 +667,7 @@
 	(df_urec_get_live_at_top): Removed.
 	* Makefile.in (auto-inc-dec.o, local-alloc.o, sched-rgn.o,
 	sched-ebb.o, recog.o): Added dependency on DBGCNT_H.
-	* sched-rgn.c (schedule_insns, gate_handle_sched, gate_handle_sched2): 
+	* sched-rgn.c (schedule_insns, gate_handle_sched, gate_handle_sched2):
 	Added debug counter.
 	* config/ia64/ia64.c (enum ia64_frame_regs): New enum.
 	(struct ia64_frame_info): Changed register fields to use an array
@@ -727,8 +733,8 @@
 	Deleted function.
 	(df_chain_alloc): New function.
 	(df_chain_reset): Now just calls df_chain_remove_problem.
-	* df.h: (DF_NO_REGS_EVER_LIVE): New flag.	
-	
+	* df.h: (DF_NO_REGS_EVER_LIVE): New flag.
+
 2006-11-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* fwprop.c Removed bad version.
@@ -757,7 +763,7 @@
 	* dbgcnt.def: New file.
 
 2006-11-14  Seongbae Park <seongbae.park@gmail.com>
-	
+
 	* tree-tailcall.c (execute_tail_recursion): Added dbg_cnt().
 	* df-scan.c (df_mw_hardreg_find_hardreg, df_get_conditional_uses,
 	df_get_call_refs):
@@ -776,7 +782,7 @@
 
 
 2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
-	
+
 	Merge from mainline:
 
 	2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
@@ -795,15 +801,15 @@
 	* auto-inc-def.c (find_inc): Added code to check for case where
 	output of inc is not overwritten by mem to be combined.
 	* df-scan.c (df_scan_set_bb_info): Now increases the size of the
-	array if necessary. 
+	array if necessary.
 	(df_scan_blocks): Added flag to avoid recomputing regs_ever_live.
 	(df_insn_rescan): Fixed missing case for rescanning.
 	(df_insn_refs_collect): Special case for sibling calls.  Changed
 	to not set up loc field with address of regno_reg_rtx element.
 	(df_entry_block_defs_collect, df_exit_block_uses_collect,
-	df_bb_refs_collect): Changed to not set up loc field with address 
+	df_bb_refs_collect): Changed to not set up loc field with address
 	of regno_reg_rtx element.
-	(df_bb_refs_record): Removed dflow parameter and added scan_insn 
+	(df_bb_refs_record): Removed dflow parameter and added scan_insn
 	parameter. Changed call to df_bb_refs_record.
 	(df_compute_regs_ever_live): New function.
 	(df_reg_chain_unmark): Made to accept NULL blocks parameter.
@@ -813,7 +819,7 @@
 	parameter and changed function to return bool.  Added code to
 	unmark chains.
 	(df_bb_refs_verify): Added abort_if_fail parameter and now returns
-	nothing. 
+	nothing.
 	(df_bb_verify): Changed to expect subroutines to abort.
 	(df_verify_blocks): Now accepts NULL blocks parameter.
 	* ifcvt.c (if_convert): Added more to dump_files.
@@ -840,7 +846,7 @@
 	* cfgrtl.c (rtl_delete_block, rtl_merge_blocks,
 	cfg_layout_merge_blocks): Added debugging.
 	* dbgcnt.c, dbgcnt.h: New files
-	* dce.c (delete_unmarked_insns): Use dbg_cnt. 
+	* dce.c (delete_unmarked_insns): Use dbg_cnt.
 	(delete_insn_p): Do not delete unspecs.
 
 2006-11-10  Seongbae Park <seongbae.park@gmail.com>
@@ -851,7 +857,7 @@
 	(df_get_exit_block_use_set, df_get_entry_block_def_set):
 	Renamed from df_get_{exit_block_uses,entry_block_defs}.
 	(df_compute_regs_ever_live, df_ref_chain_change_bb,
-	df_ref_is_record_live, df_reg_chain_unmark, df_ref_chain_free): 
+	df_ref_is_record_live, df_reg_chain_unmark, df_ref_chain_free):
 	New functions.
 	(df_reg_chains): New structure
 	(df_ref_add_to_chains):
@@ -872,7 +878,7 @@
 	(df_bb_refs_record): Handles entry and exit block cases.
 	(df_bb_refs_collect): Removed DF_REF_ARTIFICIAL.
 	(df_refs_record): Scan entry and exit blocks first.
-	(df_ref_verify): Takes reg_chain cache as an argument, 
+	(df_ref_verify): Takes reg_chain cache as an argument,
 	verifies hardreg chain.
 	(df_exit_block_bitmap_verify): Renamed from df_exit_block_verify
 	(df_entry-block_bitmap_verify): Renamed from df_entry_block_verify
@@ -890,7 +896,7 @@
 	reg_next_inc_use when inc insns are deleted.
 	(merge_in_block): Added debugging and changed to skip deleted
 	instructions.
-	(scan_dflow): Removed variable.	
+	(scan_dflow): Removed variable.
 	* df-scan.c (df_scan_alloc): Always processes entire function.
 	(df_scan_free): Removed df->blocks_to_scan.
 	(df_scan_blocks): Removed blocks_parameter.  Now scan entire
@@ -907,11 +913,11 @@
 	old_index and fixed updating bugs.
 	* ifcvt.c (cond_exec_process_if_block,
 	noce_process_if_block, cond_move_process_if_block,
-	process_if_block, merge_if_block, find_if_header, 
+	process_if_block, merge_if_block, find_if_header,
 	find_cond_trap, find_if_case_1, find_if_case_2, if_convert):
 	Removed modified variable.
 	(find_if_header, find_cond_trap, find_if_case_1, find_if_case_2,
-	if_convert): Replaced BB_DIRTY with df_set_bb_dirty and 
+	if_convert): Replaced BB_DIRTY with df_set_bb_dirty and
 	df_get_bb_dirty.
 	* recog.c (confirm_change_group): Ditto.
 	* emit_rtl (remove_insn,, reorder_insns, emit_insn_after_1): Ditto.
@@ -919,14 +925,14 @@
 	merge_blocks_move_predecessor_nojumps, try_crossjump_bb): Ditto.
       	* modulo-sched.c (sms_schedule): Ditto.
 	* cfgrtl.c (rtl_split_block, rtl_redirect_edge_and_branch,
-	rtl_redirect_edge_and_branch_force, purge_dead_edges, 
+	rtl_redirect_edge_and_branch_force, purge_dead_edges,
 	cfg_layout_redirect_edge_and_branch): Ditto.
 	* basic_block.h (BB_DIRTY): Removed.
 
-	
+
 2006-11-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* cfg.c (compact_blocks): Make df aware when blocks are moved around. 
+	* cfg.c (compact_blocks): Make df aware when blocks are moved around.
 	* auto-inc-dec.c (attempt_change): Removed explicit df updating.
 	* ifcvt.c (cond_exec_process_if_block,
 	noce_mem_write_may_trap_or_fault_p, noce_process_if_block,
@@ -988,7 +994,7 @@
 	block already had infomation.
 	(df_get_bb_info): Returns NULL if no info was there.
 	(df_set_bb_info): Checks to make sure problem block information.
-	(df_mark_solutions_dirty, df_mark_bb_dirty, df_compact_blocks, 
+	(df_mark_solutions_dirty, df_mark_bb_dirty, df_compact_blocks,
 	df_bb_replace): New functions.
 	* df.h (df_remove_problem_function): New typedef.
 	(df_dependent_problem_function): Deleted typedef.
@@ -997,11 +1003,11 @@
 	(df_ref.data): Removed.
 	(df.out_of_date_transfer_functions, df.solutions_dirty): New
 	variables.
-	(DF_REF_DATA): Deleted macro.  
+	(DF_REF_DATA): Deleted macro.
 	* df-problems.c (problem_RU, problem_RD, problem_LR, problem_UR,
 	problem_LIVE, problem_UREC, problem_CHAIN, problem_RI): Added
 	problem removal function and changed dependent_function.
-	
+
 2006-11-04  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_scan_start_dump): Changed print routine to print
@@ -1009,16 +1015,16 @@
 	* df-core.c (df_print_regset): New function.
 	* global.c (global_alloc): Do not recompute register infomation
 	when recomputing dataflow.
-	* df.h (DF_RI_NO_UPDATE): New flag.  
+	* df.h (DF_RI_NO_UPDATE): New flag.
 	* df-problems.c (df_lr_top_dump, df_lr_bottom_dump,
 	df_ur_top_dump, df_ur_bottom_dump, df_live_top_dump,
-	df_live_bottom_dump, df_urec_top_dump, df_urec_bottom_dump): 
+	df_live_bottom_dump, df_urec_top_dump, df_urec_bottom_dump):
 	Changed to use df_print_regset.
 	(df_ri_alloc, df_ri_compute): Changed to not update if
 	DF_RI_NO_UPDATE flag.
 	* cfgrtl.c (print_rtl_with_bb): Changed to print preds and
 	successor blocks in dump file.
-	
+
 2006-11-03  Seongbae Park <seongbae.park@gmail.com>
 
 	* global.c (global_conflicts): Use df_urec_get_live_at_top ()
@@ -1035,7 +1041,7 @@
 	* df.h (df_rescan_blocks): Renamed to df_scan_blocks.
 	* df-core.c (df_analyze): Use df_scan_blocks() instead.
 	* ifcvt.c (if_convert): Use df_scan_blocks() instead.
-	* df-scan.c 
+	* df-scan.c
 	(df_ref_record, df_def_record_1, df_defs_record, df_uses_record):
 	They are made side-effect free.
 	(df_ref_find_chains, df_ref_add_to_chains, df_refs_add_to_chains,
@@ -1044,7 +1050,7 @@
 	df_insn_refs_collect, df_bb_refs_collect,
 	df_get_entry_block_defs, df_get_exit_block_uses,
 	df_ref_verify, df_refs_verified, df_ref_chain_verify,
-	df_reg_chain_clear_verified, df_bb_refs_verify, 
+	df_reg_chain_clear_verified, df_bb_refs_verify,
 	df_exit_block_verify, df_entry_block_verify, df_verify_blocks):
 	New functions.
 	(df_ref_create_structure): Initializes the fields
@@ -1114,8 +1120,8 @@
 	(DF_REG_SIZE, DF_REG_DEF_GET, DF_REG_DEF_CHAIN, DF_REG_DEF_COUNT,
 	DF_REG_USE_GET, DF_REG_USE_CHAIN, DF_REG_USE_COUNT): Redefined.
 	(df_reorganize_refs): Split into df_maybe_reorganize_use_refs and
-	df_maybe_reorganize_def_refs.  
-	(df_ref_info.refs_organized): Split into refs_organized_alone and 
+	df_maybe_reorganize_def_refs.
+	(df_ref_info.refs_organized): Split into refs_organized_alone and
 	refs_organized_with_eq_uses.
 	* df-problems.c (df_ru_bb_local_compute_process_def,
 	df_ru_local_compute, df_ru_confluence_n, df_ru_transfer_function,
@@ -1152,7 +1158,7 @@
 	df_insn_debug_regno, df_insn_debug_regno): Added support for
 	separated reg_equiv/equal df_refs.
 
-	
+
 2006-10-18  Paolo Bonzini  <bonzini@gnu.org>
 
 	* stack-ptr-mod.c (pass_stack_ptr_mod): Don't set pass name.
@@ -1212,8 +1218,8 @@
  	* haifa-sched.c (glat_start, glat_end, glat_size, init_glat,
 	init_glat1, free_glat): Removed.
 	(generate_recovery_code, begin_speculative_block,
-	add_to_speculative_block, init_before_recovery, 
-	create_recovery_block, create_check_block_twin, 
+	add_to_speculative_block, init_before_recovery,
+	create_recovery_block, create_check_block_twin,
 	schedule_block, sched_init, add_block): Remove
 	unnecessary argument, update all callers.
  	* modulo-sched.c (sms_sched_info): Update initializer.
@@ -1272,7 +1278,7 @@
 	to skip over hard regs.
 	* reorg.c (dbr_schedule): Removed extra flags from
 	df_*_add_problems calls.
-	
+
 2006-09-30  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (problem_SCAN): Removed flags.
@@ -1328,17 +1334,17 @@
 	* subregs-init.c (initialize_uninitialized_subregs): Ditto.
 	* loop-iv.c (iv_analysis_loop_init): Ditto.
 	* combine.c (rest_of_handle_combine): Ditto.
-	
+
 2006-08-04  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_rtl_dse): Split into pass_rtl_dse1,
 	pass_rtl_dse2, pass_rtl_dse3.
-	* passes.c (init_optimization_passes): Ditto.  
+	* passes.c (init_optimization_passes): Ditto.
 	* timevar.def (TV_DSE): Split into TV_DSE1, TV_DSE2, and TV_DSE3.
 	(TV_THREAD_PROLOGUE_AND_EPILOGUE): Made text shorter to improve
 	readability.
 	* df.core.c (df_init, df_finish1, df_analyze_problem, df_analyze):
-	Made postorder and instance variable of df.  
+	Made postorder and instance variable of df.
 	(df_finish1): Made tolerant of being passed NULL instance.
 	(df_get_n_blocks, df_get_postorder): New functions.
 	* cfganal (post_order_compute): Added delete_unreachable
@@ -1355,7 +1361,7 @@
 	pass_rtl_dse2, pass_rtl_dse3.
 	* sched-ebb.c (schedule-ebbs): Added return value.
 	* haifa-sched.c (add_block): Made df parameter unused and fixed
-	incorrect assert.  
+	incorrect assert.
 
 2006-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -1421,12 +1427,12 @@
 	code.
 	* ifcvt.c (if_convert):  Renamed df_clrur to df_live
 	and removed df_finish call.
-	(pass_rtl_ifcvt, pass_if_after_combine, pass_if_after_reload): 
+	(pass_rtl_ifcvt, pass_if_after_combine, pass_if_after_reload):
 	Added TODO_df_finish flag.
 	* recog.c (peephole2_optimize): Renamed df_clrur to df_live and
 	removed df_finish call.
 	(pass_peephole2): Added TODO_df_finish flag.
-	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments): 
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments):
 	Renamed df_clrur to df_live and removed df_finish call.
 	(pass_regmove, pass_stack_adjustments): Added TODO_df_finish flag.
 	* function.c (epilogue_done): Removed df_finish call.
@@ -1459,7 +1465,7 @@
 	(pass_combine): Added TODO_df_finish flag.
 	* df-problems.c (df_get_live_in, df_get_live_out): Renamed
 	DF_CLRUR to DF_LIVE.
-	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_clrur_dump, 
+	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_clrur_dump,
 	df_urec_dump, df_ri_dump): Deleted function.
 	(df_ru_start_dump, df_ru_top_dump, df_ru_bottom_dump,
 	df_rd_start_dump, df_rd_top_dump, df_rd_bottom_dump,
@@ -1480,7 +1486,7 @@
 	(df_clrur_add_problem): Renamed to df_live_add_problem.
 	(df_chains_dump): Renamed to df_chain_start_dump.
 	(df_chain_add_problem, df_ri_alloc, df_ri_compute): Removed
-	problem_data->computed.	
+	problem_data->computed.
 	* Makefile.in (passes.o): Added DF_H.
 	* sched-rgn.c (schedule_insns): Renamed df_clrur to df_live
 	and removed df_finish call.
@@ -1510,7 +1516,7 @@
 	* jump.c: Ditto.
 	* alias.c: Ditto.
 	* calls.c: Ditto.
-	* cfgloop.c: Ditto. 
+	* cfgloop.c: Ditto.
 	(establish_preds, flow_loops_find): Removed ref to cfun->max_loop_depth.
 	* final.c: (rest_of_no_new_pseudos, pass_no_new_pseudos): Added.
 	* cfg.c (dump_regset, debug_regset): Moved from flow.c.
@@ -1535,13 +1541,13 @@
 	* function.h (max_loop_depth): Removed.
 	* cfgcleanup.c (delete_dead_jumptables): Moved from flow.c.
 	* subregs-init.c (initialize_uninitialized_subregs): Added call to
-	allocate_reg_life_data if new regs were added.  
-	* regclass.c (max_regno, reg_set_to_hard_reg_set, 
+	allocate_reg_life_data if new regs were added.
+	* regclass.c (max_regno, reg_set_to_hard_reg_set,
 	allocate_reg_life_data): Moved from flow.c.
 	(regclass_init): Now static and returns unsigned int.
 	(pass_regclass_init, find_subregs_of_mode): New.
 	(init_subregs_of_mode): Now fills the hash table.
-	* rtl.h (find_use_as_address, split_all_insns, 
+	* rtl.h (find_use_as_address, split_all_insns,
 	split_all_insns_noflow, regclass_init): Deleted.
 	* combine.c (find_single_use_1, find_single_use): Moved from recog
 	and made static.
@@ -1555,15 +1561,15 @@
 	(df_ri_alloc, df_ri_compute, df_ri_free, df_ri_dump): Added
 	support for computed flag.
 	* Makefile.in: (flow.c flow.o): Removed.
-	* sched-rgn.c (check_dead_notes1, deaths_in_region): Removed. 
+	* sched-rgn.c (check_dead_notes1, deaths_in_region): Removed.
 	(init_regions, add_block1): Removed last of note counting code.
 	(rest_of_handle_sched2): Moved call to split_all_insns to separate
 	pass.
-	* basic_block.h (first_insn_after_basic_block_note, 
+	* basic_block.h (first_insn_after_basic_block_note,
 	update_life_extent, PROP_* flags, life_analysis, update_life_info
 	update_life_info_in_dirty_blocks, count_or_remove_death_notes,
-	propagate_block, clear_reg_deaths, propagate_block_info, 
-	propagate_one_insn, init_propagate_block_info, 
+	propagate_block, clear_reg_deaths, propagate_block_info,
+	propagate_one_insn, init_propagate_block_info,
 	free_propagate_block_info): Removed.
 	(CLEANUP_*): Renumbered.
 	sched_vis.c: (print_exp): Added proper printing for PRE and
@@ -1577,7 +1583,7 @@
 	* config/rs6000/rs6000.md ("*movdf_hardfloat32",
 	"*movdf_softfloat32"): Ditto.
 	* cfgrtl (first_insn_after_basic_block_note): Moved from flow.c
-	and made static.	
+	and made static.
 
 
 2006-07-16  Zdenek Dvorak <dvorakz@suse.cz>
@@ -1595,7 +1601,7 @@
 	duplicate_block_end): Removed.
 	* cfgrtl.c (rtl_split_block_end, rtl_merge_blocks_end): Removed.
 	(rtl_create_basic_block, force_nonfallthru_and_redirect,
-	rtl_split_edge, cfg_layout_merge_blocks, cfg_layout_split_edge): 
+	rtl_split_edge, cfg_layout_merge_blocks, cfg_layout_split_edge):
 	Removed old calls to incremental dataflow.
 	(dump_regset_in, dump_regset_out): Removed call to dump_regset.
 	(rtl_dump_bb, print_rtl_with_bb): Rearranged dataflow printing.
@@ -1611,7 +1617,7 @@
 	(df_insn_refs_record): Added code to set DF_REF_CALL_STACK_FRAME.
 	* df-core.c (df_analyze_simple_change_some_blocks,
 	df_analyze_simple_change_one_block, df_compact_blocks,
-	df_bb_replace, reset_df, pass_reset_df, clear_df, pass_clear_df): 
+	df_bb_replace, reset_df, pass_reset_df, clear_df, pass_clear_df):
 	Deleted.
 	* recog.c (peephole2_optimize): Deleted some rotted code.
 	* df.h (DF_REF_PRE_POST_MODIFY, DF_REF_CALL_STACK_USAGE): New
@@ -1627,13 +1633,13 @@
 	* cfglayout.c (cfg_layout_duplicate_bb_end): Deleted.
 	* combine.c (combine_instructions): Removed call to
 	update_life_info.
-	(set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine, 
+	(set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine,
 	reg_num_sign_bit_copies_for_combine, get_last_value_validate,
 	get_last_value, reg_dead_at_p): Changed to use local df instance.
 	(create_log_links, clear_log_links): New function.
 	(rest_of_handle_combine): Added new version of df, create and
 	destroy log links locally.
-	* bb-reorder.c (rest_of_handle_partition_blocks): Removed call to 
+	* bb-reorder.c (rest_of_handle_partition_blocks): Removed call to
 	update_life_info.
 	* basic-block.h (PROP_LOG_LINKS): Removed and renumbered other
 	PROP_*.
@@ -1644,7 +1650,7 @@
 	update_life_in_dirty_blocks.
 	* dce.c (init_dce, end_dce, end_fast_dce): Removed code to service
 	rtl_df.
-	
+
 2006-07-12  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* auto-inc-dec.c (parse_add_or_inc): Moved test to merge_in_block.
@@ -1652,7 +1658,7 @@
 	(find_mem): Ditto.
 	(merge_in_block): Restructed to loop if any merges were made.
 	Added max_reg parameter.  Added test from parse_add_or_inc.
-	
+
 2006-07-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regrename.c (regrename_optimize): Changed df problem
@@ -1682,7 +1688,7 @@
 	* reg-stack.c (reg_to_stack): Changed df problem
 	initialization. Changed DF_LIVE_IN to DF_LR_IN. str
 	* struct-equiv.c (struct_equiv_init): Renamed UPWARD_LIVE
-	to LR. 
+	to LR.
 	* dce.c (dce_process_block): Changed DF_UPWARD_LIVE_* to DF_LR_*.
 	* df.h: (DF_CLRUR) Added symbol and renamed others in block.
 	(DF_CLRUR_BB_INFO): New macro.
@@ -1691,7 +1697,7 @@
 	(DF_UPWARD_LIVE_OUT): Renamed to DF_LR_OUT.
 	(df_clrur_bb_info): New structure.
 	(df_clrur_add_problem, df_clrur_get_bb_info): New functions.
-	* df-problems: (df_get_live_in, df_get_live_out, 
+	* df-problems: (df_get_live_in, df_get_live_out,
 	df_lr_simulate_artificial_refs_at_end): Reworked to
 	to be consistent with new dataflow problems and naming.
 	(df_ur_local_finalize): Deleted function.
@@ -1710,7 +1716,7 @@
 	correctness tests.
 	(rest_of_handle_auto_inc_dec): Changed df problem initialization
 	and added code to support reg_next_inc_use.
-	
+
 2006-07-05  Richard Sandiford  <richard@codesourcery.com>
 
 	* passes.c (init_optimization_passes): Move the final RTL DSE pass
@@ -1742,7 +1748,7 @@
 	gcse.c (extract_mentioned_regs_helper): Added PRE/POST_MODIFY
 	cases.
 	common.opt (fauto-inc-dec): New flag.
-	rtl.h (AUTO_INC_DEC): Made this symbol dependent on 
+	rtl.h (AUTO_INC_DEC): Made this symbol dependent on
 	HAVE_(PRE/POST)_MODIFY_(REG/DISP).  Made other symbols dependent
 	on AUTO_INC_DEC rather than components that defined AUTO_INC_DEC.
 	df-problems.c (df_ru_bb_local_compute_process_def,
@@ -1761,9 +1767,9 @@
 	HAVE_PRE_MODIFY_REG): Added flags.
 	reload1 (eliminate_regs_1, elimination_effects): Added cases for
 	PRE/POST_MODIFY.
-	
-	
-	
+
+
+
 2006-05-27  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* reorg.c (dbr_schedule): Fix df_ur_add_problem calls.
@@ -1773,13 +1779,13 @@
 	* df-scan.c (df_scan_free_internal, df_grow_reg_info,
 	df_reg_chain_unlink, df_ref_remove,
 	df_insn_create_insn_record, df_insn_refs_delete,
-	df_ref_create_structure, df_ref_record, df_mark_reg, 
-	df_record_entry_block_defs, df_record_exit_block_uses): 
+	df_ref_create_structure, df_ref_record, df_mark_reg,
+	df_record_entry_block_defs, df_record_exit_block_uses):
 	Formatting fixes.
 	(df_get_artificial_defs): Spelling fixes.
-	(df_ref_record, df_def_record_1, df_uses_record): 
+	(df_ref_record, df_def_record_1, df_uses_record):
 	Fix the way that subregs are processed.
-	(df_defs_record, df_def_record_1, df_insn_refs_record): 
+	(df_defs_record, df_def_record_1, df_insn_refs_record):
 	Split DF_REF_CLOBBER into two cases.
 	* df-core.c (df_analyze): Added comments
 	(df_simple_iterative_dataflow): New function.
@@ -1794,8 +1800,8 @@
 	(df_ru_alloc, df_ru_local_compute, df_ru_confluence_n,
 	df_ru_free, df_ru_dump, df_rd_alloc,
 	df_rd_bb_local_compute_process_def, df_rd_bb_local_compute,
-	df_rd_local_compute, df_rd_confluence_n, df_rd_free, 
-	df_rd_dump, df_lr_bb_local_compute, df_lr_bb_local_compute, 
+	df_rd_local_compute, df_rd_confluence_n, df_rd_free,
+	df_rd_dump, df_lr_bb_local_compute, df_lr_bb_local_compute,
 	df_lr_local_compute, df_ur_alloc, df_ur_dump, df_urec_alloc,
 	df_urec_bb_local_compute, df_urec_local_compute,
 	df_urec_local_finalize, df_urec_dump, df_chain_create_bb,
@@ -1804,14 +1810,14 @@
 	(df_ru_bb_local_compute): Reorder processing insn.
 	(df_ru_transfer_function): Fixed incorrect use of bitmaps.
 	(df_ru_dump, df_rd_dump, df_chains_dump): Added debugging code.
-	(df_lr_bb_local_compute, df_lr_simulate_one_insn, 
-	df_ur_bb_local_compute, df_chain_create_bb, 
-	df_create_unused_note, df_ri_bb_compute): Split 
+	(df_lr_bb_local_compute, df_lr_simulate_one_insn,
+	df_ur_bb_local_compute, df_chain_create_bb,
+	df_create_unused_note, df_ri_bb_compute): Split
 	DF_REF_CLOBBER into two cases.
 	* ddg.c (add_deps_for_def): Changed to use ru info.
 	* modulo-sched.c (sms_schedule): Added debugging.
 	* dce.c (rs_dflow, df_problem reaching_stores_problem): Deleted.
-	(init_rs_dflow, calculate_reaching_stores): Move dataflow to new 
+	(init_rs_dflow, calculate_reaching_stores): Move dataflow to new
 	df function.
 
 2006-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -1839,7 +1845,7 @@
 
 2006-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* regclass.c (init_subregs_of_mode): Created dummy version 
+	* regclass.c (init_subregs_of_mode): Created dummy version
 	when CANNOT_CHANGE_MODE_CLASS is undefined.
 
 2006-05-13  Steven Bosscher  <stevenb.gcc@gmail.com>
@@ -1856,10 +1862,10 @@
 	(free_glat): Fixed double free of bitmaps.
 	* df-scan.c (df_scan_get_bb_info, df_scan_set_bb_info): Added
 	assertions.
-	* df-problems.c (df_ru_get_bb_info, df_ru_set_bb_info, 
-	df_rd_get_bb_info, df_rd_set_bb_info, df_lr_get_bb_info, 
-	df_lr_set_bb_info, df_ur_get_bb_info, df_ur_set_bb_info, 
-	df_urec_get_bb_info, df_urec_set_bb_info): Ditto. 
+	* df-problems.c (df_ru_get_bb_info, df_ru_set_bb_info,
+	df_rd_get_bb_info, df_rd_set_bb_info, df_lr_get_bb_info,
+	df_lr_set_bb_info, df_ur_get_bb_info, df_ur_set_bb_info,
+	df_urec_get_bb_info, df_urec_set_bb_info): Ditto.
 
 2006-04-25  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -1869,7 +1875,7 @@
 	* df-core.c (df_delete_basic_block): Removed dangling pointer.
 	* mode-switching.c (optimize_move_switching): Moved creation of df
 	instance to avoid storage leak.
-	* ifcvt.c (if_convert): Fixed storage leak.  
+	* ifcvt.c (if_convert): Fixed storage leak.
 	* dce.c (mark_insn,
 	rest_of_handle_dce): Removed old way of processing libcalls.
 	(libcall_matches_p, mark_libcall_insns): Removed.
@@ -1877,7 +1883,7 @@
 	(mark_reg_dependencies, dce_process_block): New code to check for
 	libcalls.
 	(fast_dce): Fixed storage leak.
-	
+
 2006-04-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* sched-ebb.c (schedule_ebbs): Updated register lifetime info.
@@ -1892,12 +1898,12 @@
 	(rest_of_handle_life): Ditto.
 	* df-scan.c (df_ref_record): Reformatted comment.
 	* ifcvt.c (rest_of_handle_if_conversion): Removed last bit of
-	rtl_df scafolding.  
+	rtl_df scafolding.
 	* local-alloc.c (local_alloc, no_equiv, block_alloc): Changed to
 	use same instance of df as global_alloc,
 	(rest_of_handle_local_alloc): Now also produces setjmp warnings.
 	* function.c (regno_clobbered_at_setjmp): Moved from flow.
-	(setjmp_vars_warning, setjmp_args_warning): Added parms to use 
+	(setjmp_vars_warning, setjmp_args_warning): Added parms to use
 	passed in df instance.
 	(generate_setjmp_warnings): New function.
 	* df.h (DF_RI_SETJMP): New constant.
@@ -1920,11 +1926,11 @@
 	pass_subregs_of_mode_init.
 	* cfgrtl.c (mark_killed_regs, safe_insert_insn_on_edge): Deleted.
 	* rtl-profile.c: Removed.
-	
+
 2006-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_stack_ptr_mod, pass_initialize_subregs,
-	pass_reset_df): New.  
+	pass_reset_df): New.
 	* flow.c (notice_stack_pointer_modification_1,
 	notice_stack_pointer_modification, find_regno_partial_param,
 	find_regno_partial, initialize_uninitialized_subregs): Moved to
@@ -1933,13 +1939,13 @@
 	(rest_of_handle_life): Removed call to initialize_uninitialized_subargs.
 	* df-core.c (reset_df, pass_reset_df): New.
 	* Makefile.in (stack-ptr-mod.o, subregs-init.o): New.
-	* passes.c (pass_stack_ptr_mod, pass_initialize_subregs, 
+	* passes.c (pass_stack_ptr_mod, pass_initialize_subregs,
 	pass_reset_df): New passes.
 	* subregs-init.c: New file that contains separate pass for
-	initialize_uninitialized_subargs.   
-	* stack-pointer-mod.c: New file that contains separate pass for 
+	initialize_uninitialized_subargs.
+	* stack-pointer-mod.c: New file that contains separate pass for
 	notice_stack_pointer_modification.
-		
+
 2006-04-19  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* ifcvt.c (rest_of_handle_if_after_combine): Removed flow
@@ -1947,22 +1953,22 @@
 	* passes.c (init_optimization_passes): Moved clear_df to after
 	combine and changed two expensive dce passes into a dse and fast
 	dce pass.
-	
+
 2006-04-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* mode-switching.c (optimize_mode_switching): Created local
 	instance of df and removed references to flow.
 	* regmove.c (mark_flags_life_zones, regmove_optimize): Ditto.
-	* global.c (global_alloc, rest_of_handle_global_alloc): Reused 
+	* global.c (global_alloc, rest_of_handle_global_alloc): Reused
 	instance of df created in local alloc.
-	* local-alloc.c (rest_of_handle_local_alloc): Create instance of 
+	* local-alloc.c (rest_of_handle_local_alloc): Create instance of
 	ra_df used by all register allocation.
 	* bb-reorder.c (fix_crossing_conditional_branches): Removed code
 	to keep dataflow up to date.
 	* Makefile.in (bb-reorder.o): Removed ref to DF_H.
 	* passes.c (init_optimization_passes): Meved clear_df to before
 	partition_blocks.
-		
+
 2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
@@ -1970,7 +1976,7 @@
 	sched-ebb.c (begin_schedule_ready, schedule_ebb,
 	begin_schedule_ready, schedule_ebb, schedule_block): Threaded
 	local instance of df.
-	(schedule_ebbs): Created local instance of df.  
+	(schedule_ebbs): Created local instance of df.
 	* haifa-sched.c (schedule_block, sched_init, sched_finish,
 	generate_recovery_code, begin_speculative_block,
 	add_to_speculative_block, init_before_recovery,
@@ -1985,14 +1991,14 @@
 	schedule_insns): Threaded local instance of df.
 	(schedule_insns): Removed unnecessary update of flow info.
 	* Makefile.in (SCHED_INT_H): Added DF_H.
-	(ddg.o, modulo-sched.o, haifa-sched.o, sched-deps.o, sched-rgn.o, 
+	(ddg.o, modulo-sched.o, haifa-sched.o, sched-deps.o, sched-rgn.o,
 	sched-ebb.o): Removed DF_H.
 	* ddg.c (build_inter_loop_deps): Swapped parms.
 	(create_ddg): Swapped parms for call.
 	* passes.c (init_optimization_passes): Removed dce and
 	recompute_reg_use pass and moved clear_df to before first
 	schedulers.
-	
+
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df.h (shared_df): Removed.
@@ -2001,20 +2007,20 @@
 	(ra_df): New.
 	* postreload.c (reload_combine): Changed to use ra_df.
 	* reload.c (push_reload, find_dummy_reload): Ditto.
-	* global.c (global_alloc, global_conflicts, mark_elimination, 
+	* global.c (global_alloc, global_conflicts, mark_elimination,
 	build_insn_chain, rest_of_handle_global_alloc): Ditto.
 	* reload1.c (compute_use_by_pseudos, reload): Ditto.
 	* local-alloc.c (local_alloc, block_alloc): Created local instance
 	of df.
 	* passes.c (init_optimization_passes): Moved clear_df to before
 	register allocators.
-	* tree-pass.h (pass_partition_blocks): Removed redundant 
+	* tree-pass.h (pass_partition_blocks): Removed redundant
 	copy.
-	
+
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_reset_df_after_reload): Removed.
-	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload): 
+	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload):
 	Removed.
 	* function.c (prologue_epilogue_df): New global.
 	(rtx keep_stack_depressed, thread_prologue_and_epilogue_insns):
@@ -2025,7 +2031,7 @@
 	after register allocation.
 	* config/i386/i386.c (ix86_eax_live_at_start_p): Replaced use of
 	flow with prologue_epilogue_df.
-	
+
 2006-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_flow2): Renamed to
@@ -2037,7 +2043,7 @@
 	* config/mips/mips.md: Ditto.
 	* config/h8300/h8300.md: Ditto.
 	* flow.c: Ditto.
-	(rest_of_handle_flow2): Moved to function.c as 
+	(rest_of_handle_flow2): Moved to function.c as
 	rest_of_handle_thread_prologue_and_epilogue.
 	* timevar.def (TV_FLOW2): Renamed to
 	TV_THREAD_PROLOGUE_AND_EPILOGUE.
@@ -2046,33 +2052,33 @@
 	removed unused parameter.  Added local instance of df.
 	(rest_of_handle_thread_prologue_and_epilogue): New function
 	renamed from flow.c.
-	(pass_thread_prologue_and_epilogue): New pass.  
-	* rtl.h	(flow2_completed, thread_prologue_and_epilogue_insns): 
+	(pass_thread_prologue_and_epilogue): New pass.
+	* rtl.h	(flow2_completed, thread_prologue_and_epilogue_insns):
 	Removed.
 	* df-problems.c (df_ru_get_bb_info, df_rd_get_bb_info,
 	df_lr_get_bb_info, df_ur_get_bb_info, df_urec_get_bb_info): Added
 	check.
 	* Makefile.in (function.o): Added timevar.h.
-	
+
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* rtl-factoring (collect_pattern_seqs, clear_regs_live_in_seq,
 	recompute_gain_for_pattern_seq, clear_regs_live_in_seq,
-	recompute_gain, split_blocks_after_seqs, split_pattern_seq, 
+	recompute_gain, split_blocks_after_seqs, split_pattern_seq,
 	erase_matching_seqs, abstract_best_seq, rtl_seqabstr): Threaded
 	local instance of df to replace all references to flow.
-	(gate_rtl_seqabstr): Removed unnecessary calls. 
+	(gate_rtl_seqabstr): Removed unnecessary calls.
 	* passes.c (init_optimization_passes): Moved clear_df before
 	rtl_seqabstr.  Removed some expensive calls to dce.
 	* tree-pass.h (pass_fast_rtl_dce): New.
 	* regrename.c (gate_handle_regrename): Update call to pass.
 	* sched-rgn.c (rest_of_handle_sched2): Remove outdated calls.
-	
+
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regmove.c (rest_of_handle_stack_adjustments): Removed all
 	references to flow.c and replaced with df.
-	* passes.c (init_optimization_passes): Moved clear_df before 
+	* passes.c (init_optimization_passes): Moved clear_df before
 	pass_stack_adjustments.
 
 2006-04-12  Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -2081,7 +2087,7 @@
 	(peephole2_optimize): Replaced all flow references with df.  Added
 	local instance of df.
 	* passes.c (init_optimization_passes): Moved clear_df before peephole2.
-	
+
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* ifcvt.c (cond_exec_process_if_block, merge_if_block,
@@ -2101,11 +2107,11 @@
 	* regrename.c (rest_of_handle_cprop): Renamed pass_cprop to
 	pass_cprop_hardreg.
 	* tree-pass.h: Renamed cprop to cprop_hardreg.
-	
+
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* sched-ebb.c (schedule_ebbs): Removed code to update dataflow
-	after scheduling and removed unused parm from 
+	after scheduling and removed unused parm from
 	reposition_prologue_and_epilogue_notes.
 	* sched-rgn.c (schedule_insns): Ditto.
 	(rest_of_handle_sched): Added temp hack to rebuild flow based dataflow
@@ -2135,30 +2141,30 @@
 	(regrename_optimize): Created private instance of df, removed
 	all references or flow.
 	(copyprop_hardreg_forward): Removed all references to flow.
-	(gate_handle_regrename): Split reg rename and cprop into separate 
+	(gate_handle_regrename): Split reg rename and cprop into separate
 	passes.
 	(gate_handle_cprop): New function.
 	(pass_cprop): New pass structure.
 	* tree-pass.h (pass_cprop): New pass structure.
-	* passes.c (init_optimization_passes): Added cprop pass and 
-	moved clear_df pass closer to beginning.	
+	* passes.c (init_optimization_passes): Added cprop pass and
+	moved clear_df pass closer to beginning.
 
 2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_split_after_reload, pass_branch_target_load_optimize1
 	pass_branch_target_load_optimize2): Added.
 	(pass_branch_target_load_optimize): Deleted.
-	* flow.c (rest_of_handle_flow2): Split the calls to split_all_insns and 
+	* flow.c (rest_of_handle_flow2): Split the calls to split_all_insns and
 	branch_target_load_optimize into their own passes.
 	* passes.c (init_optimization_passes): Ditto.
-	(init_optimization_passes): Moved clear_df pass to before 
+	(init_optimization_passes): Moved clear_df pass to before
 	second branch_target_load_optimize pass.
-	* bt-load (compute_defs_uses_and_gen, build_btr_def_use_webs, 
+	* bt-load (compute_defs_uses_and_gen, build_btr_def_use_webs,
 	migrate_btr_defs): Threaded private copy of df into these functions.
 	(branch_target_load_optimize): Made private and add local
 	instance of df.  Removed all references to flow.
 	(rest_of_handle_branch_target_load_optimize1): New function.
-	(rest_of_handle_branch_target_load_optimize): Renamed to 
+	(rest_of_handle_branch_target_load_optimize): Renamed to
 	rest_of_handle_branch_target_load_optimize2.
 	rtl.h (branch_target_load_optimize): Removed.
 
@@ -2179,10 +2185,10 @@
 	* sched-deps.c (sched_analyze_insn, sched_analyze):
 	Changed to pass instance of df.
 	* rtl.h (schedule_insns, schedule_ebbs): Ditto.
-	* sched-int.h (init_ready_list, can_schedule_ready_p, new_ready, 
+	* sched-int.h (init_ready_list, can_schedule_ready_p, new_ready,
 	compute_jump_reg_dependencies, sched_analyze, schedule_block):
 	Ditto.
-	* sched-rgn.c (check_live_1, update_live_1, check_live, 
+	* sched-rgn.c (check_live_1, update_live_1, check_live,
 	update_live, init_ready_list, can_schedule_ready_p, new_ready,
 	compute_jump_reg_dependencies, compute_block_backward_dependences,
 	schedule_region, schedule_insns): Ditto.
@@ -2193,7 +2199,7 @@
 	earlier.
 	* Makefile.in (df-core.o): Added except.h and dce.h
 	(modulo-sched.o): Added DF_H.
-	* recog.c (split_all_insns): Removed old code that was used to 
+	* recog.c (split_all_insns): Removed old code that was used to
 	update dataflow.
 	* reg-stack.c (rest_of_handle_stack_regs): Removed ifdefed out code.
 
@@ -2201,7 +2207,7 @@
 
 	* recog.c (split_all_insns): Removed parameter and code to
 	update dataflow.
-	* sched-rgn.c (rest_of_handle_sched2): Removed parm to 
+	* sched-rgn.c (rest_of_handle_sched2): Removed parm to
 	split_all_insns.
 	* flow.c (rest_of_handle_flow2): Ditto.
 	(rest_of_handle_split_all_insns): Added call to update old
@@ -2210,9 +2216,9 @@
 	rest_of_handle_split_before_regstack): New function.
 	(pass_split_after_reload): New structure.
 	* rtl.h (split_all_insns): Removed param.
-	* bb-reorder.c (rest_of_handle_reorder_blocks): Removed 
+	* bb-reorder.c (rest_of_handle_reorder_blocks): Removed
 	references to flow.
-	* reg-stack.c (subst_stack_regs_pat): Removed unnecessary 
+	* reg-stack.c (subst_stack_regs_pat): Removed unnecessary
 	assertion.
 
 2006-04-07  Daniel Berlin  <dberlin@dberlin.org>
@@ -2241,7 +2247,7 @@
 	(df_set_state): Removed function.
 	(df_ref_record, df_bb_refs_record, df_record_entry_block_defs,
 	df_record_exit_block_uses): Changed the way flags are processed.
-	(df_bb_refs_record, df_refs_record, df_record_exit_block_uses): 
+	(df_bb_refs_record, df_refs_record, df_record_exit_block_uses):
 	Restructured scanning to fixed hard regs so bitmaps could be
 	recorded for later use.
 	(df_has_eh_preds): Now public.
@@ -2264,7 +2270,7 @@
 	(df_refs_chain_dump, df_ref_debug, df_chain_dump): Removed df
 	parameter.
 	(df_add_problem, df_ru_add_problem, df_rd_add_problem,
-	df_lr_add_problem, df_ur_add_problem, df_urec_add_problem, 
+	df_lr_add_problem, df_ur_add_problem, df_urec_add_problem,
 	df_ri_add_problem, df_scan_add_problem): Added flags parameter.
 	(df_set_state): Removed function.
 	(df_set_flags, df_clear_flags, df_delete_basic_block, df_has_eh_preds) New functions.
@@ -2275,7 +2281,7 @@
 	(df_ru_alloc, df_rd_alloc): Now resets all blocks.
 	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_urec_dump,
 	df_chains_dump): Fixed crash if problem was never run.
-	(df_ru_add_problem, df_rd_add_problem, df_lr_add_problem, 
+	(df_ru_add_problem, df_rd_add_problem, df_lr_add_problem,
 	df_ur_add_problem, df_urec_add_problem, df_chain_add_problem,
 	df_ri_add_problem): Processes flags in uniform manner.
 	(df_lr_bb_local_compute): Fixed case to account for return value
@@ -2287,13 +2293,13 @@
 	(df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn,
 	df_kill_notes, df_set_unused_notes_for_mw, df_set_dead_notes_for_mw):
 	New function.
-	(df_ri_alloc, df_ri_bb_compute, df_create_unused_note, 
+	(df_ri_alloc, df_ri_bb_compute, df_create_unused_note,
 	df_ri_bb_compute, df_ri_compute, df_ri_free, df_ri_add_problem):
-	Added functionality to compute register information. 
+	Added functionality to compute register information.
 	dce.c (deletable_insn_p): Cannot delete PREFETCHes.
 	(delete_unmarked_insns): Also delete noop moves as well as support for
 	calling dce from df.
-	(prescan_insns_for_dce, rest_of_handle_dce, end_fast_dce, 
+	(prescan_insns_for_dce, rest_of_handle_dce, end_fast_dce,
 	dce_process_block, rest_of_handle_fast_dce,
 	rest_of_handle_dse): Restructured to handle being directly called from
 	df.
@@ -2312,7 +2318,7 @@
 	* df-scan.c (df_scan_free_internal, df_insn_refs_delete, df_ref_record): Added
 	code to properly handle multiword hard registers.
 	(df_ref_create_structure, df_ref_record): Added code to properly handle subregs.
-	(df_ref_create_structure): Changed switching structure. 
+	(df_ref_create_structure): Changed switching structure.
 	(df_bb_refs_record): Fixed case where duplicate artificial refs
 	were created.
 	(df_record_entry_block_defs): Added code to make stack pointer
@@ -2360,7 +2366,7 @@
 	(prescan_insns_for_dse): Removed useless code.
 
 2006-02-06  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* doc/rtl.texi: Document REG_LIBCALL_ID.
 	* optabs.c (libcall_id): New variable.
 	(emit_no_conflict_block): Use it to emit
@@ -2376,7 +2382,7 @@
 	(end_dce): Free marked_libcalls.
 	(init_dce): Allocate marked_libcalls.
 	Call mark_libcall_insns.
-	
+
 2006-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-core.c (df_iterative_dataflow): Added debugging assert.
 	(df_insn_uid_debug): New debugging function.
@@ -2384,7 +2390,7 @@
 	(df_analyze_problem): Made public.
 	* df.h (df_analyze_problem): Ditto.
 	* cfgcleanup.c (cleanup_cfg): Now calls run_fsst_dce.
-	* flow.c (update_life_info): Ditto.  
+	* flow.c (update_life_info): Ditto.
 	* dce.c (init_dce, mark_insn,
 	mark_nonreg_stores, prescan_insns_for_dce): Added parameter so
 	that they could be called from both handle_rest_of_dce and
@@ -2401,13 +2407,13 @@
 	run_fast_dce): New functions to do dce faster.
 	(rest_of_handle_dse) Added parameter to init_dce.
 	* dce.h (run_fast_dce): Added declaration.
-	
+
 2006-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_hard_reg_init): Moved declaration of i outside macro.
 
 2006-01-17  Ian Lance Taylor <ian@airs.com>
-	
+
 	* combine.c (combine_instructions): Pass instruction
         to note_stores and set_nonzero_bits_and_sign_copies.
 	(set_nonzero_bits_and_sign_copies): We can't assume
@@ -2422,7 +2428,7 @@
 	Corrected confluence operator to remove bits from op2 before oring
 	with op1 rather than removing bits from op1.
 	* (df_ru_transfer_function): Corrected test on wrong bitmap which
-	caused infinite loop.    
+	caused infinite loop.
 
 
 2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -2468,21 +2474,21 @@
 	* df-core.c (df_find_def, df_find_use):  Added subreg aware code.
 	(df_reg_defined, df_reg_used): New function.
 	* df.h (df_reg_defined, df_reg_used): New function.
-	* loop-invariant.c (struct invariant, hash_invariant_expr, 
+	* loop-invariant.c (struct invariant, hash_invariant_expr,
 	eq_invariant_expr, find_or_insert_inv, find_or_insert_inv,
-	find_identical_invariants, merge_identical_invariants, 
+	find_identical_invariants, merge_identical_invariants,
 	find_defs, create_new_invariant, check_dependencies,
 	find_invariant_insn, find_invariants, get_inv_cost,
-	best_gain_for_invariant, set_move_mark, move_invariants, 
+	best_gain_for_invariant, set_move_mark, move_invariants,
 	free_inv_motion_data): Functions added from mainline patch.
 	(invariant_for_use, hash_invariant_expr_1, invariant_expr_equal_p,
-	check_dependencies, create_new_invariant, find_invariant_insn 
-	move_invariant_reg): Functions modified from mainline patch to be 
+	check_dependencies, create_new_invariant, find_invariant_insn
+	move_invariant_reg): Functions modified from mainline patch to be
 	consistent with latest df.
 
 2005-12-22  Paolo Bonzini  <bonzini@gnu.org>
 
-	* df-scan.c (df_ref_unlink): Fix thinko when REF == CHAIN. 
+	* df-scan.c (df_ref_unlink): Fix thinko when REF == CHAIN.
 
 2005-12-22  Danny Berlin <dberlin@dberlin.org>
     	    Richard Sandiford  <richard@codesourcery.com>
@@ -2500,17 +2506,17 @@
 	store elimination based on df.
 
 2005-12-19  Kenneth Zadeck <zadeck@naturalbridge.com>
-	
+
         * flow.c (update_life_info, count_or_remove_death_notes): Fixed
 	latent bug that could happen if update_life_info was called with a
 	blocks parameter and the call to cleanup_cfg actually deleted one
-	of those blocks. 
+	of those blocks.
 	* loop-invariant.c (move_loop_invariants): Fixed df
 	initialization.
 	* struct-equiv.c (struct_equiv_init): Made dataflow compatible with
 	df.
 
-	
+
 2005-12-18  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -2524,7 +2530,7 @@
 	* flow.c (verify_local_live_at_start, update_life_info,
 	update_life_info, initialize_uninitialized_subregs,
 	propagate_one_insn, init_propagate_block_info,
-	init_propagate_block_info, regno_clobbered_at_setjmp, 
+	init_propagate_block_info, regno_clobbered_at_setjmp,
 	rest_of_handle_life): Ditto.
 	* modulo-sched.c (sms_schedule): Ditto.
 	* web.c (union_defs, entry_register, web_main): Ditto.
@@ -2534,7 +2540,7 @@
 	* loop_invariant.c (find_defs, record_use, find_invariant_insn,
 	find_invariants_to_move, move_invariant_reg, move_invariant_reg,
 	free_inv_motion_data, move_loop_invariants):
-     	* bb-reorder.c (rest_of_handle_reorder_blocks): Ditto. 
+     	* bb-reorder.c (rest_of_handle_reorder_blocks): Ditto.
 	* reg-stack.c (reg_to_stack): Ditto.
 	* postreload.c (reload_combine): Changed set reference to
 	reflect different dataflow problem.
@@ -2580,7 +2586,7 @@
 	df_insn_debug_regno, df_regno_debug, df_ref_debug,
 	debug_df_insn, debug_df_reg, debug_df_regno, debug_df_ref
 	debug_df_defno, debug_df_useno, reset_df_after_reload): New functions.
-	* df-problems.c: Seven concrete dataflow problems that use the scanning 
+	* df-problems.c: Seven concrete dataflow problems that use the scanning
 	in df-scan.c and are solved by the engine in df-core.c.
 	(df_get_dependent_problem, df_chain_create,
 	df_chain_unlink, df_chain_copy, df_get_live_in,
@@ -2620,12 +2626,12 @@
 	df_chain_add_problem, df_ri_alloc, df_ri_bb_compute,
 	df_ri_compute, df_ri_free, df_ri_dump, df_ri_add_problem,
 	df_reg_lifetime) New functions.
-	df.h: Complete rewrite to support new df-problems.c, df-scan.c and 
+	df.h: Complete rewrite to support new df-problems.c, df-scan.c and
 	df-core.c.
 
 2005-12-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* bitmap.c (bitmap_clear_range): Removed extra debugging. 
+	* bitmap.c (bitmap_clear_range): Removed extra debugging.
 
 2005-12-12  Paolo Bonzini  <bonzini@gnu.org>
 
@@ -2663,41 +2669,41 @@
             Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* bitmap.c (bitmap_element_free, bitmap_element_link, bitmap_and,
-	bitmap_and_compl, bitmap_ior, bitmap_ior_into, bitmap_xor, 
+	bitmap_and_compl, bitmap_ior, bitmap_ior_into, bitmap_xor,
 	bitmap_xor_into): Fixed latent performance issue where current
 	was being properly kept up to date.
-	(bitmap_clear_range, bitmap_compl_and_into): New functions to support 
+	(bitmap_clear_range, bitmap_compl_and_into): New functions to support
 	dataflow analysis.
-	* df.c (df_rd_confluence_n, df_alloc_reach_bitmaps, df_free_reach_bitmaps, 
-	df_clear_reach_bitmaps, df_ru_confluence_n, df_lr_confluence_0, 
+	* df.c (df_rd_confluence_n, df_alloc_reach_bitmaps, df_free_reach_bitmaps,
+	df_clear_reach_bitmaps, df_ru_confluence_n, df_lr_confluence_0,
 	df_lr_confluence_n, df_init, df_dump): Changed the way EH_USES is processed.
        	(df_bitmaps_alloc, df_bitmaps_free,
 	df_bb_reg_def_chain_create, df_bb_reg_def_chain_create,
 	df_reg_use_chain_create, df_rd_transfer_function,
 	df_alloc_reach_bitmaps, df_ref_bitmap, df_bb_rd_local_compute,
-	df_rd_local_compute, df_bb_ru_local_compute, df_analyze, 
+	df_rd_local_compute, df_bb_ru_local_compute, df_analyze,
 	df_analyze_subcfg, df_analyze_simple_change_some_blocks): Fixed
 	performance problems by grouping all defs and uses
 	for the same pseudo into contigious ranges.
 	(df_bb_du_chain_create, df_bb_ud_chain_create): Combined in
 	new function df_bb_chain_create.
-	(df_chain_create, df_alloc_reach_bitmaps, df_free_reach_bitmaps, 
+	(df_chain_create, df_alloc_reach_bitmaps, df_free_reach_bitmaps,
 	df_clear_reach_bitmaps, df_ref_bitmap): New function.
 	(df_rd_init, df_rd_confluence_n, df_rd_transfer_function,
-	df_rd_set_dflow, df_ru_transfer_function, df_ru_confluence_n, 
-	df_ru_transfer_function, df_ru_set_dflow, df_lr_transfer_function, 
-	df_lr_set_dflow, df_lr_confluence_n, df_ur_transfer_function, 
+	df_rd_set_dflow, df_ru_transfer_function, df_ru_confluence_n,
+	df_ru_transfer_function, df_ru_set_dflow, df_lr_transfer_function,
+	df_lr_set_dflow, df_lr_confluence_n, df_ur_transfer_function,
 	df_ur_set_dflow, df_ur_init, df_ur_transfer_function, df_ur_set_dflow
 	df_ur_confluence_n, hybrid_search_forward, hybrid_search_backward
 	iterative_dataflow): Changed interface for dataflow callback
 	functions to hide where the source of bitmaps.
-       	(df_rd_set_bitmaps, df_ru_set_bitmaps, df_lr_set_bitmaps, 
+       	(df_rd_set_bitmaps, df_ru_set_bitmaps, df_lr_set_bitmaps,
 	df_ur_set_bitmaps, df_bitmap_ior_edge):	Removed as part of
 	changing dataflow callback interface.
 	(df_free, df_ref_create, df_ref_record_1,
 	df_record_exit_block_uses, df_refs_record, df_exit_lr_local_compute,
-	df_insn_move_before, df_local_ref_killed_between_p, 
-	df_bb_regno_last_def_find, df_chain_dump, df_dump): 
+	df_insn_move_before, df_local_ref_killed_between_p,
+	df_bb_regno_last_def_find, df_chain_dump, df_dump):
 	Added chains that go to artifical uses in exit block.
 	(df_exit_bb_reg_use_chain_create, df_exit_bb_chain_create):
 	New functions to support artifical uses in exit block.
@@ -2729,7 +2735,7 @@
 	liveness.
 	(change_stack): Initialize partially dead registers.
 	(convert_regs_1): Handle dead return values.
-	(reg_to_stack): Switch to partial liveness. 
+	(reg_to_stack): Switch to partial liveness.
 	(propagate_stack): Push in partially live stuff.
 
 2005-10-25  Daniel Berlin  <dberlin@dberlin.org>
@@ -2739,50 +2745,50 @@
 	output of bitmaps.
 	* df.c (mark_reg_change): Fixed problem computing sizes of hard regs.
 	* reload1.c (reload): Fixed over agressive updating of bitmaps.
-	* sched-rgn.c (schedule_insns): Cleaned away some useless verification 
+	* sched-rgn.c (schedule_insns): Cleaned away some useless verification
 	code.
 	(rest_of_handle_sched2): Removed debugging.
 
 
 2005-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* sched-rgn.c (check_live_1, update_live_1, rest_of_handle_sched): 
+	* sched-rgn.c (check_live_1, update_live_1, rest_of_handle_sched):
 	Converted to use partially available liveness.
-	(init_regions, schedule_insns, rest_of_handle_sched): 
+	(init_regions, schedule_insns, rest_of_handle_sched):
 	Removed assertion checking based on death notes.
 
 
 2005-10-23  Daniel Berlin  <dberlin@dberlin.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* df.c (df_bitmaps_alloc, df_lr_local_compute, df_compute_all_blocks): 
+	* df.c (df_bitmaps_alloc, df_lr_local_compute, df_compute_all_blocks):
 	Removed df->all_blocks.
-	(df_lr_local_compute): Added flag to indicate that 
+	(df_lr_local_compute): Added flag to indicate that
 	blocks was really the whole function.
 	(df_ref_record): Fixed missing case for memory refs.
 	(df_insn_refs_record): Fixed regs ever live processing.
 	(df_bb_refs_record): Removed debugging code.
-	(df_bb_lr_local_compute, notice_stack_pointer_modification, 
-	df_bb_lr_local_compute): Moved stack pointer modification 
+	(df_bb_lr_local_compute, notice_stack_pointer_modification,
+	df_bb_lr_local_compute): Moved stack pointer modification
 	detection code back to flow.c.
-	(df_bb_lr_local_compute, hybrid_search_forward, 
+	(df_bb_lr_local_compute, hybrid_search_forward,
 	hybrid_search_backward): Formatting cleanup.
 	(df_compute_all_blocks, notice_stack_pointer_modification):
 	Removed.
-	(df_analyze):  Changed the definition of whole program to be all 
+	(df_analyze):  Changed the definition of whole program to be all
 	reachable blocks rather than all blocks.
-	(df_analyze_subcfg, df_analyze_simple_change_some_blocks): Added 
-	parameter to df_lr_local_compute. 
-	(df_rtx_reg_replace): Fixed way it decided it was processing 
+	(df_analyze_subcfg, df_analyze_simple_change_some_blocks): Added
+	parameter to df_lr_local_compute.
+	(df_rtx_reg_replace): Fixed way it decided it was processing
 	entire function.
 	* df.h: Removed all_blocks from struct df definition.
-	* flow.c (notice_stack_pointer_modification_1, 
+	* flow.c (notice_stack_pointer_modification_1,
 	notice_stack_pointer_modification): Added back.
-	(life_analysis): Added back call to 
+	(life_analysis): Added back call to
 	notice_stack_pointer_modification.
-	(struct tree_opt_pass pass_life, rest_of_handle_flow2): 
+	(struct tree_opt_pass pass_life, rest_of_handle_flow2):
 	Added debugging.
-	* gcse.c (gcse_main, bypass_jumps): Additional places where we had missed 
+	* gcse.c (gcse_main, bypass_jumps): Additional places where we had missed
 	in renumbering entry and exit blocks.
 	* global.c (global_alloc): Additional debugging code.
 
@@ -2795,40 +2801,40 @@
 2005-10-19  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df.c (df_bitmap_ior_edge, df_lr_confluence_0
-	df_lr_confluence_n, df_ur_confluence_n, df_ur_set_bitmaps): New 
+	df_lr_confluence_n, df_ur_confluence_n, df_ur_set_bitmaps): New
 	functions.
-	(df_exit_lr_local_compute, dataflow_set_a_op_b): Removed 
+	(df_exit_lr_local_compute, dataflow_set_a_op_b): Removed
 	functions.
 	(df_ur_set_bitmaps, mark_reg_change, df_ur_local_finalize,
-	mark_reg_use_for_earlyclobber, df_ur_local_compute, 
+	mark_reg_use_for_earlyclobber, df_ur_local_compute,
 	df_bb_reg_live_start, df_bb_reg_live_end, df_bb_reg_live_start_p,
-	df_bb_reg_live_end_p): Renamed "reaching registers" 
-	problem (rr) to "uninitialized registers" problem. 
+	df_bb_reg_live_end_p): Renamed "reaching registers"
+	problem (rr) to "uninitialized registers" problem.
 	(df_free): Changed variables freed.
 	(df_ref_record): Added more sophisticated hard register scan.
-	(df_insn_refs_record): Changed way invalidated_by_call is 
+	(df_insn_refs_record): Changed way invalidated_by_call is
 	processed.
-	(df_bb_refs_record, df_exit_lr_local_compute, 
-	df_bb_lr_local_compute): Removed bad way to simulate edge functions.  
+	(df_bb_refs_record, df_exit_lr_local_compute,
+	df_bb_lr_local_compute): Removed bad way to simulate edge functions.
 	There are now real confluence functions.
 	(notice_stack_pointer_modification): Disabled.
-	(df_bb_lr_local_compute): Disabled call to 
-	notice_stack_pointer_modification. Added code to properly handle hard 
+	(df_bb_lr_local_compute): Disabled call to
+	notice_stack_pointer_modification. Added code to properly handle hard
 	regs at call site.
-	(df_lr_local_compute): Added more hard reg processing. 
+	(df_lr_local_compute): Added more hard reg processing.
 	Changed order exit block is processed.
 	(df_init): Added some invariant hard regs initialization.
-	(df_refs_process): Removed artifical special case. 
+	(df_refs_process): Removed artifical special case.
 	(df_print_bb_index, df_dump): Removed parameter to df_dump.
-	(hybrid_search_forward, hybrid_search_backward): Added 
+	(hybrid_search_forward, hybrid_search_backward): Added
 	confluence function calls.
-	(iterative_dataflow): Added hack to initialize in and out sets 
-	with hard registers.  This will be removed later.  
-	* df.h: Removed DF_ARTIFICIAL_DEFS.  Renamed "reaching registers". 
-	problem (rr) to "uninitialized registers" problem. Changed confluence 
+	(iterative_dataflow): Added hack to initialize in and out sets
+	with hard registers.  This will be removed later.
+	* df.h: Removed DF_ARTIFICIAL_DEFS.  Renamed "reaching registers".
+	problem (rr) to "uninitialized registers" problem. Changed confluence
 	operator to general confluence functions.
-	* flow.c (verify_wide_reg, verify_local_live_at_start): Removed 
-	parameter to df_dump. 
+	* flow.c (verify_wide_reg, verify_local_live_at_start): Removed
+	parameter to df_dump.
 	* reg_stack.c (reg_to_stack): Ditto.
 	* sched_rgn.c (init_regions, schedule_insns): Ditto.
 	* web.c (web_main): Ditto.
