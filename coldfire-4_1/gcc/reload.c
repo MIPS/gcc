@@ -6432,6 +6432,10 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	  gcc_assert (reg_equiv_constant[regno]);
 	  return 0;
 	}
+
+      endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
+
+      return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }
   else if (MEM_P (x))
     return refers_to_mem_for_reload_p (in);
@@ -6458,10 +6462,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
     }
 
-  endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
-
-  return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
+  gcc_unreachable ();
 }
 
 /* Return nonzero if anything in X contains a MEM.  Look also for pseudo

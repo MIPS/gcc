@@ -1579,6 +1579,10 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 		tm_file="$tm_file mips/wrs-linux.h"
 		tm_defines="$tm_defines TARGET_FLEXLM"
 		;;
+	mips-none-linux-gnu)
+		tmake_file="$tmake_file mips/t-none-linux"
+		tm_file="$tm_file mips/cs-linux.h"
+		;;
         esac
 	;;
 mips*-*-openbsd*)

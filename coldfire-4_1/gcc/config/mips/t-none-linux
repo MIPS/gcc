@@ -1,0 +1,5 @@
+MULTILIB_OPTIONS = msoft-float EL/EB
+MULTILIB_DIRNAMES = soft-float el eb
+MULTILIB_MATCHES = EL=mel EB=meb
+EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
+
