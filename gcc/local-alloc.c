@@ -953,10 +953,12 @@ update_equiv_regs (void)
 	  if (note == 0 && REG_BASIC_BLOCK (regno) >= 0
 	      && MEM_P (SET_SRC (set))
 	      && validate_equiv_mem (insn, dest, SET_SRC (set)))
-	    REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV,
-			    				 copy_rtx (SET_SRC (set)),
-							 REG_NOTES (insn));
-
+	    {
+	      REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV,
+							   copy_rtx (SET_SRC (set)),
+							   REG_NOTES (insn));
+	      df_notes_rescan (insn);
+	    }
 	  if (note)
 	    {
 	      int regno = REGNO (dest);
@@ -1068,6 +1070,7 @@ update_equiv_regs (void)
 		 the register.  */
 	      reg_equiv_init[regno]
 		= gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX);
+	      df_notes_rescan (init_insn);
 	    }
 	}
     }
@@ -1274,7 +1277,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_TOP (BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_LR_TOP (BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -2491,14 +2494,12 @@ rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
 
-  /* Create a new version of df that has the special version of UR.  */
-  df_urec_add_problem ();
   df_ri_add_problem (DF_RI_LIFE + DF_RI_SETJMP);
   /* There is just too much going on in the register allocators to
      keep things up to date.  At the end we have to rescan anyway
      because things change when the reload_completed flag is set.  
      So we just turn off scanning and we will rescan by hand.  */
-  df_set_flags (DF_NO_INSN_RESCAN);
+  df_set_flags (DF_DEFER_INSN_RESCAN);
   df_analyze ();
 
   /* If we are not optimizing, then this is the only place before

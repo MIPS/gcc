@@ -1103,8 +1103,8 @@ reload (rtx first, int global)
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
       {
-	CLEAR_REGNO_REG_SET (DF_RA_LIVE_IN (bb), HARD_FRAME_POINTER_REGNUM);
-	/*	CLEAR_REGNO_REG_SET (DF_RA_LIVE_OUT (bb), HARD_FRAME_POINTER_REGNUM); */
+	bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
+	bitmap_clear_bit (df_get_live_top (bb), HARD_FRAME_POINTER_REGNUM);
       }
 	
   /* Come here (with failure set nonzero) if we can't get enough spill

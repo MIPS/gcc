@@ -693,7 +693,11 @@ rest_of_handle_df_initialize (void)
      block.  */
   df_lr->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
   df_ur->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
-  
+
+  df->hard_regs_live_count = XNEWVEC (unsigned int, FIRST_PSEUDO_REGISTER);
+  memset (df->hard_regs_live_count, 0, 
+	  sizeof (unsigned int) * FIRST_PSEUDO_REGISTER);
+
   df_hard_reg_init ();
   /* After reload, some ports add certain bits to regs_ever_live so
      this cannot be reset.  */
@@ -740,6 +744,7 @@ rest_of_handle_df_finish (void)
 
   if (df->postorder)
     free (df->postorder);
+  free (df->hard_regs_live_count);
   free (df);
   df = NULL;
   return 0;

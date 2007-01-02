@@ -133,12 +133,15 @@ enum df_ref_flags
        the hardregs. */
     DF_REF_MW_HARDREG_GROUP = 1 << 10,
 
+    /* This bit is true if this ref can make regs_ever_live true for
+       this regno.  */
+    DF_REGS_EVER_LIVE = 1 << 11,
+
+
     /* These two flags are markers for general purpose use.
        Used for verification of existing refs. */
-    DF_REF_REF_MARKER = 1 << 11,
-
-
-    DF_REF_REG_MARKER = 1 << 12
+    DF_REF_REF_MARKER = 1 << 12,
+    DF_REF_REG_MARKER = 1 << 13
   };
 
 
@@ -487,6 +490,10 @@ struct df
   int *postorder;                /* The current set of basic blocks in postorder.  */
   int n_blocks;                  /* The number of blocks in postorder.  */
 
+  /* An array [FIRST_PSEUDO_REGISTER], indexed by regno, of the number of
+     refs that qualify as being in regs_ever_live.  */
+  unsigned int *hard_regs_live_count;
+
   /* Problem specific control infomation.  */
   enum df_changeable_flags changeable_flags;
 };
@@ -507,13 +514,14 @@ struct df
 
 /* Live in for register allocation also takes into account several other factors.  */
 #define DF_RA_LIVE_IN(BB) (DF_UREC_BB_INFO(BB)->in) 
-#define DF_RA_LIVE_OUT(BB) (DF_UREC_BB_INFO(BB)->out) 
 #define DF_RA_LIVE_TOP(BB) (DF_UREC_BB_INFO(BB)->top) 
+#define DF_RA_LIVE_OUT(BB) (DF_UREC_BB_INFO(BB)->out) 
 
 /* These macros are currently used by only reg-stack since it is not
    tolerant of uninitialized variables.  This intolerance should be
    fixed because it causes other problems.  */ 
 #define DF_LR_IN(BB) (DF_LR_BB_INFO(BB)->in) 
+#define DF_LR_TOP(BB) (DF_LR_BB_INFO(BB)->top) 
 #define DF_LR_OUT(BB) (DF_LR_BB_INFO(BB)->out) 
 
 /* These macros are currently used by only combine which needs to know
@@ -597,6 +605,7 @@ struct df
 #define DF_REG_EQ_USE_GET(REG) (df->eq_use_regs[(REG)])
 #define DF_REG_EQ_USE_CHAIN(REG) (df->eq_use_regs[(REG)]->reg_chain)
 #define DF_REG_EQ_USE_COUNT(REG) (df->eq_use_regs[(REG)]->n_refs)
+#define DF_REG_EVER_LIVE_P(REG) (df->hard_regs_live_count[REG] != 0)
 
 /* Macros to access the elements within the reg_info structure table.  */
 
@@ -842,7 +851,7 @@ extern struct df_link *df_chain_create (struct df_ref *, struct df_ref *);
 extern void df_chain_unlink (struct df_ref *);
 extern void df_chain_copy (struct df_ref *, struct df_link *);
 extern bitmap df_get_live_in (basic_block);
-extern bitmap df_get_live_out (basic_block);
+extern bitmap df_get_live_top (basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);

@@ -145,9 +145,6 @@ static bool df_ref_is_equal (struct df_ref *, struct df_ref *);
 static struct df_ref *df_ref_chain_find_ref (struct df_ref *, 
                                              struct df_ref *, 
                                              df_ref_compare_func_t);
-static struct df_ref *df_reg_chain_find_ref (struct df_ref *, 
-                                             struct df_ref *,
-                                             df_ref_compare_func_t);
 #endif /* DEBUG_DF_RESCAN */
 
 
@@ -681,6 +678,12 @@ df_reg_chain_create (struct df_reg_info *reg_info,
   reg_info->reg_chain = ref;
   reg_info->n_refs++;
 
+  if (DF_REF_FLAGS_IS_SET (ref, DF_REGS_EVER_LIVE))
+    {
+      gcc_assert (DF_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER);
+      df->hard_regs_live_count[DF_REF_REGNO (ref)]++;
+    }
+
   gcc_assert (DF_REF_NEXT_REG (ref) == NULL);
   gcc_assert (DF_REF_PREV_REG (ref) == NULL);
 
@@ -773,6 +776,11 @@ df_reg_chain_unlink (struct df_ref *ref)
     df_chain_unlink (ref);
   
   reg_info->n_refs--;
+  if (DF_REF_FLAGS_IS_SET (ref, DF_REGS_EVER_LIVE))
+    {
+      gcc_assert (DF_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER);
+      df->hard_regs_live_count[DF_REF_REGNO (ref)]--;
+    }
 
   /* Unlink from the reg chain.  If there is no prev, this is the
      first of the list.  If not, just join the next and prev.  */
@@ -1404,29 +1412,6 @@ df_ref_is_equal (struct df_ref *ref1, struct df_ref *ref2)
 }
 
 
-/* Return true if the first ref should be recorded in regs_ever_live .  */
-
-static bool
-df_ref_is_record_live (struct df_ref *ref1, 
-                       struct df_ref *ref2  __attribute__ ((__unused__)))
-{
-  unsigned int regno;
-
-  /* If this ref is a def.  */
-  if (DF_REF_TYPE (ref1) == DF_REF_REG_DEF)
-    return !DF_REF_FLAGS_IS_SET (ref1, DF_REF_MAY_CLOBBER)
-        && !DF_REF_IS_ARTIFICIAL (ref1);
-
-  /* If this ref is not a def.  */
-  regno = DF_REF_REGNO (ref1);
-
-  return !DF_REF_IS_ARTIFICIAL (ref1) 
-    && !(TEST_HARD_REG_BIT (elim_reg_set, regno)
-         && (regno == FRAME_POINTER_REGNUM
-             || regno == ARG_POINTER_REGNUM));
-}
-
-
 /* Find a matching df_ref in the ref chain. */
 
 static struct df_ref *
@@ -1460,22 +1445,6 @@ df_ref_chain_find_ref_by_regno (struct df_ref *chain,
   return NULL;
 }
 
-/* Find a matching df_ref in the ref chain */
-
-static struct df_ref *
-df_reg_chain_find_ref (struct df_ref *chain, 
-                       struct df_ref *this_ref, 
-                       df_ref_compare_func_t func)
-{
-  while (chain) 
-    {
-      if (func (chain, this_ref))
-        return chain;
-      chain = chain->next_reg;
-    }
-
-  return NULL;
-}
 #endif /* DEBUG_DF_RESCAN */
 
 
@@ -1800,10 +1769,6 @@ df_refs_add_to_chains (rtx insn,
           /* A beginning of a group of mw hardregs */
           struct df_insn_info *insn_info = DF_INSN_GET (insn);
 
-#if 0
-          hardreg = df_mw_hardreg_find_hardreg (insn_info->mw_hardregs, ref);
-	  /* Matching hardreg group not found. Create one. */
-#endif
 	  hardreg = pool_alloc (problem_data->mw_reg_pool);
 	  hardreg->next = insn_info->mw_hardregs;
 	  insn_info->mw_hardregs = hardreg;
@@ -1857,6 +1822,26 @@ df_ref_create_structure (rtx reg, rtx *loc,
   DF_REF_NEXT_REG (this_ref) = NULL;
   DF_REF_PREV_REG (this_ref) = NULL;
   
+  /* We need to clear this bit because fwprop, and in the future
+     possibly other optimizations sometimes create new refs using ond
+     refs as the model.  */
+  DF_REF_FLAGS_CLEAR (this_ref, DF_REGS_EVER_LIVE);
+
+  /* See if this ref needs to have DF_REGS_EVER_LIVE bit set.  */
+  if ((regno < FIRST_PSEUDO_REGISTER) 
+      && (!DF_REF_IS_ARTIFICIAL (this_ref)))
+    {
+      if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF)
+	{
+	  if (!DF_REF_FLAGS_IS_SET (this_ref, DF_REF_MAY_CLOBBER))
+	    DF_REF_FLAGS_SET (this_ref, DF_REGS_EVER_LIVE);
+	}
+      else if (!(TEST_HARD_REG_BIT (elim_reg_set, regno)
+		 && (regno == FRAME_POINTER_REGNUM
+		     || regno == ARG_POINTER_REGNUM)))
+	DF_REF_FLAGS_SET (this_ref, DF_REGS_EVER_LIVE);
+    }
+
   return this_ref;
 }
 
@@ -3225,13 +3210,7 @@ bool
 df_hard_reg_used_p (unsigned int i)
 {
   gcc_assert (df);
-
-  return (df_reg_chain_find_ref (DF_REG_DEF_CHAIN (i), NULL,
-				 df_ref_is_record_live) != NULL
-	  || df_reg_chain_find_ref (DF_REG_USE_CHAIN (i), NULL,
-				    df_ref_is_record_live) != NULL
-	  || df_reg_chain_find_ref (DF_REG_EQ_USE_CHAIN (i), NULL,
-				    df_ref_is_record_live) != NULL);
+  return DF_REG_EVER_LIVE_P (i);
 }
 
 
@@ -3272,7 +3251,7 @@ df_compute_regs_ever_live (bool reset)
     memset (regs_ever_live, 0, sizeof (regs_ever_live));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (df_hard_reg_used_p (i) & (!regs_ever_live[i]))
+    if ((!regs_ever_live[i]) && df_hard_reg_used_p (i))
       {
 	regs_ever_live[i] = true;
 	changed = true;

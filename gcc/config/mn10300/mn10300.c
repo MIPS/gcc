@@ -537,7 +537,7 @@ fp_regs_to_save (void)
     return 0;
 
   for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-    if (regs_ever_live[i] && ! call_used_regs[i])
+    if (df_regs_ever_live_p (i) && ! call_used_regs[i])
       ++n;
 
   return n;

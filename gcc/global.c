@@ -396,9 +396,11 @@ global_alloc (void)
   max_allocno = 0;
   /* Do not recompute the register info.  Local_alloc has played with
      this in a way that global expects.  */
-  df_insn_rescan_all ();
+  /* Create a new version of df that has the special version of UR.  */
+  df_urec_add_problem ();
   df_set_flags (DF_RI_NO_UPDATE);
   df_analyze ();
+  df_set_flags (DF_NO_INSN_RESCAN);
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
@@ -1899,7 +1901,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_TOP (b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (df_get_live_top (b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -2076,7 +2078,7 @@ rest_of_handle_global_alloc (void)
   else
     {
       build_insn_chain (get_insns ());
-      df_analyze ();
+      df_set_flags (DF_NO_INSN_RESCAN);
       failure = reload (get_insns (), 0);
     }
 
