@@ -1127,7 +1127,7 @@ expand_java_arraystore (tree rhs_type_node)
 				 && TYPE_PRECISION (rhs_type_node) <= 32) ? 
 				 int_type_node : rhs_type_node);
   tree index = pop_value (int_type_node);
-  tree array_type, array;
+  tree array_type, array, temp, access;
 
   /* If we're processing an `aaload' we might as well just pick
      `Object'.  */
@@ -1149,14 +1149,31 @@ expand_java_arraystore (tree rhs_type_node)
   index = save_expr (index);
   array = save_expr (array);
 
+  /* We want to perform the bounds check (done by
+     build_java_arrayaccess) before the type check (done by
+     build_java_arraystore_check).  So, we call build_java_arrayaccess
+     -- which returns an ARRAY_REF lvalue -- and we then generate code
+     to stash the address of that lvalue in a temp.  Then we call
+     build_java_arraystore_check, and finally we generate a
+     MODIFY_EXPR to set the array element.  */
+
+  access = build_java_arrayaccess (array, rhs_type_node, index);
+  temp = build_decl (VAR_DECL, NULL_TREE, 
+		     build_pointer_type (TREE_TYPE (access)));
+  java_add_local_var (temp);
+  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (temp),
+			 temp, 
+			 build_address_of (access)));
+
   if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
     {
       tree check = build_java_arraystore_check (array, rhs_node);
       java_add_stmt (check);
     }
   
-  array = build_java_arrayaccess (array, rhs_type_node, index);
-  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (array), array, rhs_node));  
+  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (access), 
+			 build1 (INDIRECT_REF, TREE_TYPE (access), temp),
+			 rhs_node));  
 }
 
 /* Expand the evaluation of ARRAY[INDEX]. build_java_check_indexed_type makes 

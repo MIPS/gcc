@@ -1,3 +1,8 @@
+2007-01-02  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_java_arraystore): Make sure we perform a bounds
+	check at runtime before we perform a type check.
+
 2006-12-19  Andrew Haley  <aph@redhat.com>
 
 	* decl.c: Bump minor BC ABI version.
