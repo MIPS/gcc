@@ -222,7 +222,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waggregate-return -Walways-true -Wno-attributes @gol
--Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
+-Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts @gol
+-Wclobbered  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  @gol
 -Wempty-body  -Wno-endif-labels @gol
@@ -255,7 +256,8 @@ Objective-C and Objective-C++ Dialects}.
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
--Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
+-Wmissing-parameter-type  -Wmissing-prototypes @gol
+-Wnested-externs  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional  -Wtraditional-conversion @gol
 -Wdeclaration-after-statement -Wpointer-sign}
 
@@ -289,7 +291,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
--fmem-report -fprofile-arcs @gol
+-fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
@@ -2907,13 +2909,10 @@ designated initializers (@pxref{Designated Inits, , Designated
 Initializers}).  This warning can be independently controlled by
 @option{-Woverride-init}.
 
-@item
+@item @r{(C only)}
 A function parameter is declared without a type specifier in K&R-style
-functions:
-
-@smallexample
-void foo(bar) @{ @}
-@end smallexample
+functions.  This warning can be independently controlled by
+@option{-Wmissing-parameter-type}.
 
 @item
 An empty body occurs in an @samp{if} or @samp{else} statement. This
@@ -2925,6 +2924,7 @@ A pointer is compared against integer zero with @samp{<}, @samp{<=},
 
 @item
 A variable might be changed by @samp{longjmp} or @samp{vfork}.
+This warning can be independently controlled by @option{-Wclobbered}.
 
 @item
 Any of several floating-point events that often indicate errors, such as
@@ -3157,6 +3157,11 @@ only if you have been very careful about using @code{const} in
 declarations and prototypes.  Otherwise, it will just be a nuisance;
 this is why we did not make @option{-Wall} request these warnings.
 
+@item -Wclobbered
+@opindex Wclobbered
+Warn for variables that might be changed by @samp{longjmp} or
+@samp{vfork}.  This warning is also enabled by @option{-Wextra}.
+
 @item -Wconversion
 @opindex Wconversion
 Warn for implicit conversions that may alter a value. This includes
@@ -3213,6 +3218,17 @@ types.)
 @opindex Wold-style-definition
 Warn if an old-style function definition is used.  A warning is given
 even if there is a previous prototype.
+
+@item -Wmissing-parameter-type @r{(C only)}
+@opindex Wmissing-parameter-type
+A function parameter is declared without a type specifier in K&R-style
+functions:
+
+@smallexample
+void foo(bar) @{ @}
+@end smallexample
+
+This warning is also enabled by @option{-Wextra}.
 
 @item -Wmissing-prototypes @r{(C only)}
 @opindex Wmissing-prototypes
@@ -3720,6 +3736,13 @@ pass when it finishes.
 @opindex fmem-report
 Makes the compiler print some statistics about permanent memory
 allocation when it finishes.
+
+@item -fpre-ipa-mem-report
+@opindex fpre-ipa-mem-report
+@item -fpost-ipa-mem-report
+@opindex fpost-ipa-mem-report
+Makes the compiler print some statistics about permanent memory
+allocation before or after interprocedural optimization.
 
 @item -fprofile-arcs
 @opindex fprofile-arcs
@@ -4630,14 +4653,6 @@ the compiler normally lets arguments accumulate on the stack for several
 function calls and pops them all at once.
 
 Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
-
-@item -fforce-mem
-@opindex fforce-mem
-Force memory operands to be copied into registers before doing
-arithmetic on them.  This produces better code by making all memory
-references potential common subexpressions.  When they are not common
-subexpressions, instruction combination should eliminate the separate
-register-load. This option is now a nop and will be removed in 4.2.
 
 @item -fforce-addr
 @opindex fforce-addr
@@ -5735,7 +5750,7 @@ After running a program compiled with @option{-fprofile-arcs}
 the number of times each branch was taken.  When the program
 compiled with @option{-fprofile-arcs} exits it saves arc execution
 counts to a file called @file{@var{sourcename}.gcda} for each source
-file  The information in this data file is very dependent on the
+file.  The information in this data file is very dependent on the
 structure of the generated code, so you must use the same source code
 and the same optimization options for both compilations.
 

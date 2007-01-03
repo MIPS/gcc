@@ -91,6 +91,15 @@ gimple_nonlocal_all (struct function *fun)
   gcc_assert (fun && fun->gimple_df);
   return fun->gimple_df->nonlocal_all;
 }
+
+/* Hashtable of variables annotations.  Used for static variables only;
+   local variables have direct pointer in the tree node.  */
+static inline htab_t
+gimple_var_anns (struct function *fun)
+{
+  return fun->gimple_df->var_anns;
+}
+
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -194,6 +203,16 @@ var_ann (tree t)
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
+  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+    {
+      struct static_var_ann_d *sann
+        = ((struct static_var_ann_d *)
+	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
+      if (!sann)
+	return NULL;
+      gcc_assert (sann->ann.common.type = VAR_ANN);
+      return &sann->ann;
+    }
   gcc_assert (!t->base.ann
 	      || t->base.ann->common.type == VAR_ANN);
 
@@ -933,6 +952,9 @@ clear_call_clobbered (tree var)
 static inline tree_ann_common_t
 tree_common_ann (tree t)
 {
+  /* Watch out static variables with unshared annotations.  */
+  if (DECL_P (t) && TREE_CODE (t) == VAR_DECL)
+    return &var_ann (t)->common;
   return &t->base.ann->common;
 }
 
