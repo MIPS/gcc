@@ -1,3 +1,24 @@
+2007-01-03  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/*: Added many .jar and .h files.
+	* testsuite/libjava.special/special.exp
+	(gcj_special_try_compiler): New proc.
+	* testsuite/libjava.loader/loader.exp (gcj_loader_run): Don't
+	bytecompile source.  Search for .jar files.
+	(gcj_loader_test_one): Don't look for MyLoader.java.
+	* testsuite/libjava.jvmti/jvmti.exp (gcj_jvmti_test_one): Don't
+	bytecompile sources or build headers.
+	(gcj_jvmti_run): Look for .jar files.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_run): Compile .jar
+	files.
+	(gcj_jni_test_one): Don't bytecompile sources or build headers.
+	Set classpath when invoking gij.
+	(gcj_jni_invocation_test_one): Likewise.
+	* testsuite/libjava.cni/cni.exp (gcj_cni_test_one): Don't build
+	headers or bytecompile sources.
+	(gcj_cni_run): Use .jar files, not .java files.
+	* testsuite/libjava.lang/lang.exp: Compile .jar files.
+
 2007-01-02  Tom Tromey  <tromey@redhat.com>
 
 	* configure: Rebuilt.

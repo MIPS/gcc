@@ -63,18 +63,18 @@ proc gcj_jvmti_test_one {file} {
     return 1
   }
 
-  if {! [bytecompile_file $file [pwd]]} {
-    fail "bytecompile $file"
-    # FIXME - should use `untested' on all remaining tests.
-    # But that is hard.
-    return 0
-  }
-  pass "bytecompile $file"
+#   if {! [bytecompile_file $file [pwd]]} {
+#     fail "bytecompile $file"
+#     # FIXME - should use `untested' on all remaining tests.
+#     # But that is hard.
+#     return 0
+#   }
+#   pass "bytecompile $file"
 
-  if {! [gcj_jvmti_build_headers $file]} {
-    # FIXME
-    return 0
-  }
+#   if {! [gcj_jvmti_build_headers $file]} {
+#     # FIXME
+#     return 0
+#   }
 
   set cfile [file join [file dirname $file] nat$main.cc]
   if {! [gcj_jvmti_compile_cxx_to_o $cfile]} {
@@ -105,7 +105,7 @@ proc gcj_jvmti_run {} {
 
   # For now we only test JVMTI on native builds.
   if {$build_triplet == $host_triplet} {
-    catch { lsort [glob -nocomplain ${srcdir}/${subdir}/*.java] } srcfiles
+    catch { lsort [glob -nocomplain ${srcdir}/${subdir}/*.jar] } srcfiles
 
     foreach x $srcfiles {
       gcj_jvmti_test_one $x
