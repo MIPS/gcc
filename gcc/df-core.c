@@ -475,6 +475,8 @@ df_set_blocks (bitmap blocks)
 {
   if (blocks)
     {
+      if (dump_file)
+	bitmap_print (dump_file, blocks, "setting blocks to analyze ", "\n");
       if (df->blocks_to_analyze)
 	{
 	  int p;
@@ -542,6 +544,8 @@ df_set_blocks (bitmap blocks)
     }
   else
     {
+      if (dump_file)
+	fprintf (dump_file, "clearing blocks to analyze\n");
       if (df->blocks_to_analyze)
 	{
 	  BITMAP_FREE (df->blocks_to_analyze);
@@ -631,6 +635,10 @@ df_finish_pass (void)
     }
   df->num_problems_defined -= removed;
 
+  /* Clear all of the flags.  */
+  df->changeable_flags = 0;
+  df_process_deferred_rescans ();
+
   /* Set the focus back to the whole function.  */
   if (df->blocks_to_analyze)
     {
@@ -638,10 +646,6 @@ df_finish_pass (void)
       df->blocks_to_analyze = NULL;
       df_mark_solutions_dirty ();
     }
-
-  /* Clear all of the flags.  */
-  df->changeable_flags = 0;
-  df_process_deferred_rescans ();
 
   df->def_info.add_refs_inline = false;
   df->def_info.refs_organized_with_eq_uses = false;
@@ -688,11 +692,6 @@ rest_of_handle_df_initialize (void)
   
   df->postorder = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
-
-  /* These will be initialized when df_scan_blocks processes each
-     block.  */
-  df_lr->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
-  df_ur->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 
   df->hard_regs_live_count = XNEWVEC (unsigned int, FIRST_PSEUDO_REGISTER);
   memset (df->hard_regs_live_count, 0, 
@@ -1209,9 +1208,14 @@ df_set_bb_dirty (basic_block bb)
 {
   if (df)
     {
+      int p; 
+      for (p = 1; p < df->num_problems_defined; p++)
+	{
+	  struct dataflow *dflow = df->problems_in_order[p];
+	  if (dflow->out_of_date_transfer_functions)
+	    bitmap_set_bit (dflow->out_of_date_transfer_functions, bb->index);
+	}
       df_mark_solutions_dirty ();
-      bitmap_set_bit (df_lr->out_of_date_transfer_functions, bb->index);
-      bitmap_set_bit (df_ur->out_of_date_transfer_functions, bb->index);
     }
 }
 
@@ -1221,8 +1225,13 @@ df_set_bb_dirty (basic_block bb)
 static void
 df_clear_bb_dirty (basic_block bb)
 {
-  bitmap_clear_bit (df_lr->out_of_date_transfer_functions, bb->index);
-  bitmap_clear_bit (df_ur->out_of_date_transfer_functions, bb->index);
+  int p; 
+  for (p = 1; p < df->num_problems_defined; p++)
+    {
+      struct dataflow *dflow = df->problems_in_order[p];
+      if (dflow->out_of_date_transfer_functions)
+	bitmap_clear_bit (dflow->out_of_date_transfer_functions, bb->index);
+    }
 }
 /* Called from the rtl_compact_blocks to reorganize the problems basic
    block info.  */
@@ -1234,13 +1243,34 @@ df_compact_blocks (void)
   basic_block bb;
   void **problem_temps;
   int size = last_basic_block *sizeof (void *);
-  bitmap tmp1 = BITMAP_ALLOC (NULL);
-  bitmap tmp2 = BITMAP_ALLOC (NULL);
+  bitmap tmp = BITMAP_ALLOC (NULL);
   problem_temps = xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)
     {
       struct dataflow *dflow = df->problems_in_order[p];
+
+      /* Need to reorganize the out_of_date_transfer_functions for the
+	 dflow problem.  */
+      if (dflow->out_of_date_transfer_functions)
+	{
+	  bitmap_copy (tmp, dflow->out_of_date_transfer_functions);
+	  bitmap_clear (dflow->out_of_date_transfer_functions);
+	  if (bitmap_bit_p (tmp, ENTRY_BLOCK))
+	    bitmap_set_bit (dflow->out_of_date_transfer_functions, ENTRY_BLOCK);
+	  if (bitmap_bit_p (tmp, EXIT_BLOCK))
+	    bitmap_set_bit (dflow->out_of_date_transfer_functions, EXIT_BLOCK);
+
+	  i = NUM_FIXED_BLOCKS;
+	  FOR_EACH_BB (bb) 
+	    {
+	      if (bitmap_bit_p (tmp, bb->index))
+		bitmap_set_bit (dflow->out_of_date_transfer_functions, i);
+	      i++;
+	    }
+	}
+
+      /* Now shuffle the block info for the problem.  */
       if (dflow->problem->free_bb_fun)
 	{
 	  df_grow_bb_info (dflow);
@@ -1273,48 +1303,24 @@ df_compact_blocks (void)
 
   /* Shuffle the bits in the basic_block indexed arrays.  */
 
-  bitmap_copy (tmp1, df_lr->out_of_date_transfer_functions);
-  bitmap_clear (df_lr->out_of_date_transfer_functions);
-  if (bitmap_bit_p (tmp1, ENTRY_BLOCK))
-    bitmap_set_bit (df_lr->out_of_date_transfer_functions, ENTRY_BLOCK);
-  if (bitmap_bit_p (tmp1, EXIT_BLOCK))
-    bitmap_set_bit (df_lr->out_of_date_transfer_functions, EXIT_BLOCK);
-  bitmap_copy (tmp2, df_ur->out_of_date_transfer_functions);
-  bitmap_clear (df_ur->out_of_date_transfer_functions);
-  if (bitmap_bit_p (tmp2, ENTRY_BLOCK))
-    bitmap_set_bit (df_ur->out_of_date_transfer_functions, ENTRY_BLOCK);
-  if (bitmap_bit_p (tmp2, EXIT_BLOCK))
-    bitmap_set_bit (df_ur->out_of_date_transfer_functions, EXIT_BLOCK);
-
-  i = NUM_FIXED_BLOCKS;
-  FOR_EACH_BB (bb) 
-    {
-      if (bitmap_bit_p (tmp1, bb->index))
-	bitmap_set_bit (df_lr->out_of_date_transfer_functions, i);
-      if (bitmap_bit_p (tmp2, bb->index))
-	bitmap_set_bit (df_ur->out_of_date_transfer_functions, i);
-      i++;
-    }
-
   if (df->blocks_to_analyze)
     {
-      if (bitmap_bit_p (tmp1, ENTRY_BLOCK))
+      if (bitmap_bit_p (tmp, ENTRY_BLOCK))
 	bitmap_set_bit (df->blocks_to_analyze, ENTRY_BLOCK);
-      if (bitmap_bit_p (tmp1, EXIT_BLOCK))
+      if (bitmap_bit_p (tmp, EXIT_BLOCK))
 	bitmap_set_bit (df->blocks_to_analyze, EXIT_BLOCK);
-      bitmap_copy (tmp1, df->blocks_to_analyze);
+      bitmap_copy (tmp, df->blocks_to_analyze);
       bitmap_clear (df->blocks_to_analyze);
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB (bb) 
 	{
-	  if (bitmap_bit_p (tmp1, bb->index))
+	  if (bitmap_bit_p (tmp, bb->index))
 	    bitmap_set_bit (df->blocks_to_analyze, i);
 	  i++;
 	}
     }
 
-  BITMAP_FREE (tmp1);
-  BITMAP_FREE (tmp2);
+  BITMAP_FREE (tmp);
 
   free (problem_temps);
 

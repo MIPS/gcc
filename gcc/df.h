@@ -395,7 +395,7 @@ struct df_ref_info
 
   /* Table_size is the number of elements in the refs table.  This
      will also be the width of the bitvectors in the rd and ru
-     problems.  Total size is the number of refs.  These will be the
+     problems.  Total_size is the number of refs.  These will be the
      same if the focus has not been reduced by df_set_blocks.  If the
      focus has been reduced, table_size will be smaller since it only
      contains the refs in the set blocks.  */
@@ -578,7 +578,13 @@ struct df
 /* Macros to get the refs out of def_info or use_info refs table.  If
    the focus of the dataflow has been set to some subset of blocks
    with df_set_blocks, these macros will only find the uses and defs
-   in that subset of blocks.  */
+   in that subset of blocks.  
+
+   These macros should be used with care.  The def macros are only
+   usable after a call to df_maybe_reorganize_def_refs and the use
+   macros are only usable after a call to
+   df_maybe_reorganize_use_refs.  HOWEVER, BUILDING AND USING THESE
+   ARRAYS ARE A CACHE LOCALITY KILLER.  */
 
 #define DF_DEFS_TABLE_SIZE() (df->def_info.table_size)
 #define DF_DEFS_TOTAL_SIZE() (df->def_info.total_size)

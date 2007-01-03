@@ -1990,6 +1990,9 @@ void
 df_lr_add_problem (void)
 {
   df_add_problem (&problem_LR);
+  /* These will be initialized when df_scan_blocks processes each
+     block.  */
+  df_lr->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 }
 
 
@@ -2004,6 +2007,7 @@ df_lr_verify_transfer_functions (void)
   bitmap saved_use;
   bitmap saved_adef;
   bitmap saved_ause;
+  bitmap all_blocks;
   bool need_as;
 
   if (!df)
@@ -2013,10 +2017,13 @@ df_lr_verify_transfer_functions (void)
   saved_use = BITMAP_ALLOC (NULL);
   saved_adef = BITMAP_ALLOC (NULL);
   saved_ause = BITMAP_ALLOC (NULL);
+  all_blocks = BITMAP_ALLOC (NULL);
 
   FOR_ALL_BB (bb)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb->index);
+      bitmap_set_bit (all_blocks, bb->index);
+
       if (bb_info)
 	{
 	  /* Make a copy of the transfer functions and then compute
@@ -2072,10 +2079,15 @@ df_lr_verify_transfer_functions (void)
       gcc_assert (df_scan_get_bb_info (bb->index));
     }
 
+  /* Make sure there are no dirty bits in blocks that have been deleted.  */
+  gcc_assert (!bitmap_intersect_compl_p (df_lr->out_of_date_transfer_functions, 
+					 all_blocks)); 
+
   BITMAP_FREE (saved_def);
   BITMAP_FREE (saved_use);
   BITMAP_FREE (saved_adef);
   BITMAP_FREE (saved_ause);
+  BITMAP_FREE (all_blocks);
 }
 
 
@@ -2529,6 +2541,9 @@ void
 df_ur_add_problem (void)
 {
   df_add_problem (&problem_UR);
+  /* These will be initialized when df_scan_blocks processes each
+     block.  */
+  df_ur->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 }
 
 
@@ -2541,18 +2556,22 @@ df_ur_verify_transfer_functions (void)
   basic_block bb;
   bitmap saved_gen;
   bitmap saved_kill;
+  bitmap all_blocks;
 
   if (!df)
     return;
 
   saved_gen = BITMAP_ALLOC (NULL);
   saved_kill = BITMAP_ALLOC (NULL);
+  all_blocks = BITMAP_ALLOC (NULL);
 
   df_set_seen ();
 
   FOR_ALL_BB (bb)
     {
       struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb->index);
+      bitmap_set_bit (all_blocks, bb->index);
+
       if (bb_info)
 	{
 	  /* Make a copy of the transfer functions and then compute
@@ -2584,10 +2603,14 @@ df_ur_verify_transfer_functions (void)
       gcc_assert (df_scan_get_bb_info (bb->index));
     }
 
+  /* Make sure there are no dirty bits in blocks that have been deleted.  */
+  gcc_assert (!bitmap_intersect_compl_p (df_ur->out_of_date_transfer_functions, 
+					 all_blocks)); 
   df_unset_seen ();
 
   BITMAP_FREE (saved_gen);
   BITMAP_FREE (saved_kill);
+  BITMAP_FREE (all_blocks);
 }
 
 
@@ -3486,43 +3509,53 @@ df_chain_copy (struct df_ref *to_ref,
     }
 }
 
+
 /* Remove this problem from the stack of dataflow problems.  */
 
 static void
 df_chain_remove_problem (void)
 {
+  bitmap_iterator bi;
+  unsigned int bb_index;
+
   /* Wholesale destruction of the old chains.  */ 
   if (df_chain->block_pool)
     free_alloc_pool (df_chain->block_pool);
 
-  if (df_chain_problem_p (DF_DU_CHAIN))
+  EXECUTE_IF_SET_IN_BITMAP (df_chain->out_of_date_transfer_functions, 0, bb_index, bi)
     {
-      unsigned int i;
+      rtx insn;
+      struct df_ref *ref;
+      basic_block bb = BASIC_BLOCK (bb_index);
 
-      df_maybe_reorganize_def_refs ();
-      /* Clear out the pointers from the refs.  */
-      for (i = 0; i < DF_DEFS_TABLE_SIZE (); i++)
+      if (df_chain_problem_p (DF_DU_CHAIN))
+	for (ref = df_get_artificial_defs (bb->index); ref; ref = ref->next_ref)
+	  DF_REF_CHAIN (ref) = NULL;
+      if (df_chain_problem_p (DF_UD_CHAIN))
+	for (ref = df_get_artificial_uses (bb->index); ref; ref = ref->next_ref)
+	  DF_REF_CHAIN (ref) = NULL;
+      
+      FOR_BB_INSNS (bb, insn)
 	{
-	  struct df_ref *ref = DF_DEFS_GET(i);
-	  if (ref)
-	    DF_REF_CHAIN (ref) = NULL;
+	  unsigned int uid = INSN_UID (insn);
+	  
+	  if (INSN_P (insn))
+	    {
+	      if (df_chain_problem_p (DF_DU_CHAIN))
+		for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+		  DF_REF_CHAIN (ref) = NULL;
+	      if (df_chain_problem_p (DF_UD_CHAIN))
+		{
+		  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+		    DF_REF_CHAIN (ref) = NULL;
+		  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+		    DF_REF_CHAIN (ref) = NULL;
+		}
+	    }
 	}
     }
-  
-  if (df_chain_problem_p (DF_UD_CHAIN))
-    {
-      unsigned int i;
 
-      df_maybe_reorganize_use_refs ();
-      /* Clear out the pointers from the refs.  */
-      for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
-	{
-	  struct df_ref *ref = DF_USES_GET (i);
-	  if (ref)
-	    DF_REF_CHAIN (ref) = NULL;
-	}
-    }
-
+  bitmap_clear (df_chain->out_of_date_transfer_functions);
   df_chain->block_pool = NULL;
 }
 
@@ -3533,6 +3566,7 @@ static void
 df_chain_fully_remove_problem (void)
 {
   df_chain_remove_problem ();
+  BITMAP_FREE (df_chain->out_of_date_transfer_functions);
   free (df_chain);
 }
 
@@ -3616,6 +3650,7 @@ df_chain_create_bb (unsigned int bb_index)
   struct df_ref *def;
 
   bitmap_copy (cpy, bb_info->in);
+  bitmap_set_bit (df_chain->out_of_date_transfer_functions, bb_index);
 
   /* Since we are going forwards, process the artificial uses first
      then the artificial defs second.  */
@@ -3711,6 +3746,7 @@ static void
 df_chain_free (void)
 {
   free_alloc_pool (df_chain->block_pool);
+  BITMAP_FREE (df_chain->out_of_date_transfer_functions);
   free (df_chain);
 }
 
@@ -3812,6 +3848,7 @@ df_chain_add_problem (enum df_chain_flags chain_flags)
 {
   df_add_problem (&problem_CHAIN);
   df_chain->local_flags = (unsigned int)chain_flags;
+  df_chain->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
 }
 
 #undef df_chain_problem_p

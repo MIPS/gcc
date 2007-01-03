@@ -1,3 +1,38 @@
+2007-01-03  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* see.c (see_initialize_data_structures): Does not use
+	DF_USES_TABLE_SIZE or DF_DEFS_TABLE_SIZE.
+	(see_handle_relevant_defs, see_handle_relevant_uses): Removed
+	outer loop.  Now a subrouting of see_handle_relevant_refs.
+	(see_handle_relevant_refs, see_update_relevancy): New functions
+	that now loops over insns.
+	(see_update_uses_relevancy, see_update_defs_relevancy): Removed
+	outer loop.  Now a subroutine of see_update_relevancy.
+	(see_analyze_one_def): Removed unnecessary tests.
+	(see_propagate_extensions_to_uses): Now iterates over insns and
+	calls see_handle_relevant_refs and see_update_relevancy.
+	* df-scan.c (df_reg_chain_unlink, df_insn_delete): Added code to
+	skip the chain field of refs if the chain problem is not active.
+	(df_scan_verify): Moved verification of the
+	out_of_date_transfer_functions fields into the problem verifiers.
+	* df-core.c (df_set_blocks): More logging.
+	(df_finish_pass): Moved around when recanning is done.
+	(rest_of_handle_df_initialize): Moved creation of 
+	handles out_of_date_transfer_functions to the problems.
+	(df_set_bb_dirty, df_clear_bb_dirty, df_compact_blocks): Now
+	handles out_of_date_transfer_functions in any problem.
+	* df.h: Added comments.
+	* df-problems.c (df_lr_add_problem, df_ur_add_problem,
+	df_chain_add_problem): Allocates out_of_date_transfer_functions.
+	(df_lr_verify_transfer_functions,
+	df_ur_verify_transfer_functions): Now verifies
+	out_of_date_transfer_functions.
+	(df_chain_remove_problem): Tears down problem by looping over
+	insns.
+	(df_chain_fully_remove_problem, df_chain_free): Frees
+	out_of_date_transfer_functions.
+	(df_chain_create_bb): Sets out_of_date_transfer_functions.
+	
+
 2007-01-02  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-scan.c (df_reg_chain_create, df_reg_chain_unlink,
 	df_ref_create_structure, df_hard_reg_used_p): Added code to

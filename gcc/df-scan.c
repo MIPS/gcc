@@ -771,8 +771,12 @@ df_reg_chain_unlink (struct df_ref *ref)
 	}
     }
   
-  /* Delete any def-use or use-def chains that start here.  */
-  if (DF_REF_CHAIN (ref))
+  /* Delete any def-use or use-def chains that start here. It is
+     possible that there is trash in this field.  This happens for
+     insns that have been deleted when rescanning has been deferred
+     and the chain problem has also been deleted.  The chain tear down
+     code skips deleted insns.  */
+  if (df_chain && DF_REF_CHAIN (ref))
     df_chain_unlink (ref);
   
   reg_info->n_refs--;
@@ -967,9 +971,12 @@ df_insn_delete (basic_block bb, unsigned int uid)
       problem_data = (struct df_scan_problem_data *) df_scan->problem_data;
       df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
 
-      df_ref_chain_delete_du_chain (insn_info->defs);
-      df_ref_chain_delete_du_chain (insn_info->uses);  
-      df_ref_chain_delete_du_chain (insn_info->eq_uses);
+      if (df_chain)
+	{
+	  df_ref_chain_delete_du_chain (insn_info->defs);
+	  df_ref_chain_delete_du_chain (insn_info->uses);  
+	  df_ref_chain_delete_du_chain (insn_info->eq_uses);
+	}
 
       df_ref_chain_delete (insn_info->defs);
       df_ref_chain_delete (insn_info->uses);
@@ -3642,7 +3649,6 @@ df_scan_verify (void)
   basic_block bb;
   bitmap regular_block_artificial_uses;
   bitmap eh_block_artificial_uses;
-  bitmap all_blocks;
 
   if (!df)
     return;
@@ -3665,7 +3671,6 @@ df_scan_verify (void)
 
   regular_block_artificial_uses = BITMAP_ALLOC (NULL);
   eh_block_artificial_uses = BITMAP_ALLOC (NULL);
-  all_blocks = BITMAP_ALLOC (NULL);
 
   df_get_regular_block_artificial_uses (regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (eh_block_artificial_uses);
@@ -3687,18 +3692,8 @@ df_scan_verify (void)
   df_exit_block_bitmap_verify (true);
     
   FOR_ALL_BB (bb)
-    {
-      df_bb_verify (bb);
-      bitmap_set_bit (all_blocks, bb->index);
-    }
+    df_bb_verify (bb);
 
-  /* Make sure there are no dirty bits in blocks that have been deleted.  */
-  gcc_assert (!bitmap_intersect_compl_p (df_lr->out_of_date_transfer_functions, 
-					 all_blocks)); 
-  gcc_assert (!bitmap_intersect_compl_p (df_ur->out_of_date_transfer_functions, 
-					 all_blocks)); 
-  BITMAP_FREE (all_blocks);
-  
   /* See if all reg chains are verified,
      and also clear the DF_REF_MARKED bit. */
 

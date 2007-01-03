@@ -1328,6 +1328,8 @@ static void
 see_initialize_data_structures (void)
 {
   basic_block bb;
+  unsigned int max_reg = max_reg_num ();
+  unsigned int i;
 
   /* Build the df object. */
   df_set_flags (DF_EQ_NOTES);
@@ -1342,10 +1344,15 @@ see_initialize_data_structures (void)
 
   /* Record the last basic block at the beginning of the optimization.  */
   last_bb = last_basic_block;
-  /* Record the number of uses at the beginning of the optimization.  */
-  uses_num = DF_USES_TABLE_SIZE ();
-  /* Record the number of definitions at the beginning of the optimization.  */
-  defs_num = DF_DEFS_TABLE_SIZE ();
+
+  /* Record the number of uses and defs at the beginning of the optimization.  */
+  uses_num = 0;
+  defs_num = 0;
+  for (i = 0; i < max_reg; i++) 
+    {
+      uses_num += DF_REG_USE_COUNT (i) + DF_REG_EQ_USE_COUNT (i);
+      defs_num += DF_REG_DEF_COUNT (i);
+    }
 
   /*  Allocate web entries array for the union-find data structure.  */
   def_entry = xcalloc (defs_num, sizeof (struct web_entry));
@@ -3171,84 +3178,67 @@ see_store_reference_and_extension (rtx ref_insn, rtx se_insn,
    happened and the optimization should be aborted.  */
 
 static int
-see_handle_relevant_defs (void)
+see_handle_relevant_defs (struct df_ref *ref, rtx insn)
 {
-  rtx insn = NULL;
-  rtx se_insn = NULL;
-  rtx reg = NULL;
-  rtx ref_insn = NULL;
   struct web_entry *root_entry = NULL;
-  unsigned int i;
-  int num_relevant_defs = 0;
+  rtx se_insn = NULL;
   enum rtx_code extension_code;
+  rtx reg = DF_REF_REAL_REG (ref);
+  rtx ref_insn = NULL;
+  unsigned int i = DF_REF_ID (ref);
 
-  for (i = 0; i < defs_num; i++)
+  root_entry = unionfind_root (&def_entry[DF_REF_ID (ref)]);
+
+  if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
+      && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
+    /* The current web is not relevant.  Continue to the next def.  */
+    return 0;
+  
+  if (root_entry->reg)
+    /* It isn't possible to have two different register for the same
+       web.  */
+    gcc_assert (rtx_equal_p (root_entry->reg, reg));
+  else
+    root_entry->reg = reg;
+  
+  /* The current definition is an EXTENDED_DEF or a definition that its
+     source_mode is narrower then its web's source_mode.
+     This means that we need to generate the implicit extension explicitly
+     and store it in the current reference's merged_def_se_hash.  */
+  if (ENTRY_EI (&def_entry[i])->local_relevancy == EXTENDED_DEF
+      || (ENTRY_EI (&def_entry[i])->local_source_mode <
+	  ENTRY_EI (root_entry)->source_mode))
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (i));
-
-      if (!insn)
-	continue;
-
-      if (!INSN_P (insn))
-	continue;
-
-      root_entry = unionfind_root (&def_entry[i]);
-
-      if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
-	  && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
-	/* The current web is not relevant.  Continue to the next def.  */
-	continue;
-
-      if (root_entry->reg)
-	/* It isn't possible to have two different register for the same
-	   web.  */
-	gcc_assert (rtx_equal_p (root_entry->reg, reg));
+      
+      if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
+	extension_code = SIGN_EXTEND;
       else
-	root_entry->reg = reg;
-
-      /* The current definition is an EXTENDED_DEF or a definition that its
-	 source_mode is narrower then its web's source_mode.
-	 This means that we need to generate the implicit extension explicitly
-	 and store it in the current reference's merged_def_se_hash.  */
-      if (ENTRY_EI (&def_entry[i])->local_relevancy == EXTENDED_DEF
-	  || (ENTRY_EI (&def_entry[i])->local_source_mode <
-	      ENTRY_EI (root_entry)->source_mode))
-	{
-	  num_relevant_defs++;
-
-	  if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
-	    extension_code = SIGN_EXTEND;
-	  else
-	    extension_code = ZERO_EXTEND;
-
-	  se_insn =
-	    see_gen_normalized_extension (reg, extension_code,
-	    				  ENTRY_EI (root_entry)->source_mode);
-
-	  /* This is a dummy extension, mark it as deleted.  */
-	  INSN_DELETED_P (se_insn) = 1;
-
-	  if (!see_store_reference_and_extension (insn, se_insn,
-	  					  IMPLICIT_DEF_EXTENSION))
-	    /* Something bad happened.  Abort the optimization.  */
-	    return -1;
-	  continue;
-	}
-
-      ref_insn = PREV_INSN (insn);
-      gcc_assert (BLOCK_NUM (ref_insn) == BLOCK_NUM (insn));
-
-      num_relevant_defs++;
-
-      if (!see_store_reference_and_extension (ref_insn, insn,
-      					      EXPLICIT_DEF_EXTENSION))
+	extension_code = ZERO_EXTEND;
+      
+      se_insn =
+	see_gen_normalized_extension (reg, extension_code,
+				      ENTRY_EI (root_entry)->source_mode);
+      
+      /* This is a dummy extension, mark it as deleted.  */
+      INSN_DELETED_P (se_insn) = 1;
+      
+      if (!see_store_reference_and_extension (insn, se_insn,
+					      IMPLICIT_DEF_EXTENSION))
 	/* Something bad happened.  Abort the optimization.  */
 	return -1;
+      return 1;
     }
-   return num_relevant_defs;
-}
+  
+  ref_insn = PREV_INSN (insn);
+  gcc_assert (BLOCK_NUM (ref_insn) == BLOCK_NUM (insn));
+  
+  if (!see_store_reference_and_extension (ref_insn, insn,
+					  EXPLICIT_DEF_EXTENSION))
+    /* Something bad happened.  Abort the optimization.  */
+    return -1;
 
+  return 0;
+}
 
 /* Go over all the uses, for each use in relevant web store its instruction as
    a reference and generate an extension before it.
@@ -3257,119 +3247,117 @@ see_handle_relevant_defs (void)
    happened and the optimization should be aborted.  */
 
 static int
-see_handle_relevant_uses (void)
+see_handle_relevant_uses (struct df_ref *ref, rtx insn)
 {
-  rtx insn = NULL;
-  rtx reg = NULL;
   struct web_entry *root_entry = NULL;
   rtx se_insn = NULL;
-  unsigned int i;
-  int num_relevant_uses = 0;
   enum rtx_code extension_code;
+  rtx reg = DF_REF_REAL_REG (ref);
 
-  for (i = 0; i < uses_num; i++)
+  root_entry = unionfind_root (&use_entry [DF_REF_ID (ref)]);
+  
+  if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
+      && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
+    /* The current web is not relevant.  Continue to the next use.  */
+    return 0;
+  
+  if (root_entry->reg)
+    /* It isn't possible to have two different register for the same
+       web.  */
+    gcc_assert (rtx_equal_p (root_entry->reg, reg));
+  else
+    root_entry->reg = reg;
+  
+  /* Generate the use extension.  */
+  if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
+    extension_code = SIGN_EXTEND;
+  else
+    extension_code = ZERO_EXTEND;
+  
+  se_insn =
+    see_gen_normalized_extension (reg, extension_code,
+				  ENTRY_EI (root_entry)->source_mode);
+  if (!se_insn)
+    /* This is very bad, abort the transformation.  */
+    return -1;
+  
+  if (!see_store_reference_and_extension (insn, se_insn,
+					  USE_EXTENSION))
+    /* Something bad happened.  Abort the optimization.  */
+    return -1;
+  return 1;
+}
+
+static int
+see_handle_relevant_refs (void)
+{
+  int num_relevant_refs = 0;
+  basic_block bb;
+
+  FOR_ALL_BB (bb)
     {
-      insn = DF_REF_INSN (DF_USES_GET (i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (i));
+      rtx insn;
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  struct df_ref *ref;
 
-      if (!insn)
-	continue;
-
-      if (!INSN_P (insn))
-	continue;
-
-      root_entry = unionfind_root (&use_entry[i]);
-
-      if (ENTRY_EI (root_entry)->relevancy != SIGN_EXTENDED_DEF
-	  && ENTRY_EI (root_entry)->relevancy != ZERO_EXTENDED_DEF)
-	/* The current web is not relevant.  Continue to the next use.  */
-	continue;
-
-      if (root_entry->reg)
-	/* It isn't possible to have two different register for the same
-	   web.  */
-	gcc_assert (rtx_equal_p (root_entry->reg, reg));
-      else
-	root_entry->reg = reg;
-
-      /* Generate the use extension.  */
-      if (ENTRY_EI (root_entry)->relevancy == SIGN_EXTENDED_DEF)
-	extension_code = SIGN_EXTEND;
-      else
-	extension_code = ZERO_EXTEND;
-
-      se_insn =
-	see_gen_normalized_extension (reg, extension_code,
-				      ENTRY_EI (root_entry)->source_mode);
-      if (!se_insn)
-	/* This is very bad, abort the transformation.  */
-	return -1;
-
-      num_relevant_uses++;
-
-      if (!see_store_reference_and_extension (insn, se_insn,
-      					      USE_EXTENSION))
-	/* Something bad happened.  Abort the optimization.  */
-	return -1;
+	  if (INSN_P (insn))
+	    {
+	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+		{
+		  int result = see_handle_relevant_uses (ref, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+		{
+		  int result = see_handle_relevant_uses (ref, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	      for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+		{
+		  int result = see_handle_relevant_defs (ref, insn);
+		  if (result == -1)
+		    return -1;
+		  num_relevant_refs += result;
+		}
+	    }
+	}
     }
-
-  return num_relevant_uses;
+   return num_relevant_refs;
 }
 
 
-/* Updates the relevancy of all the uses.
-   The information of the i'th use is stored in use_entry[i].
-   Currently all the uses are relevant for the optimization except for uses that
-   are in LIBCALL or RETVAL instructions.  */
+/* Initialized the use_entry field for REF in INSN at INDEX with ET.  */
 
 static void
-see_update_uses_relevancy (void)
+see_update_uses_relevancy (rtx insn, struct df_ref *ref, 
+			   enum entry_type et, unsigned int index)
 {
-  rtx insn = NULL;
-  rtx reg = NULL;
   struct see_entry_extra_info *curr_entry_extra_info;
-  enum entry_type et;
-  unsigned int i;
 
-  if (!use_entry)
-    return;
-
-  for (i = 0; i < uses_num; i++)
+  if (dump_file)
     {
-      insn = DF_REF_INSN (DF_USES_GET (i));
-      reg = DF_REF_REAL_REG (DF_USES_GET (i));
-
-      et = RELEVANT_USE;
-
-      if (insn) 
-	{
-	  if (!INSN_P (insn))
-	    et = NOT_RELEVANT;
-	  if (insn && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	    et = NOT_RELEVANT;
-	  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	    et = NOT_RELEVANT;
-	}
+      rtx reg = DF_REF_REAL_REG (ref);
+      fprintf (dump_file, "u%i insn %i reg %i ", 
+	       index, (insn ? INSN_UID (insn) : -1), REGNO (reg));
+      if (et == NOT_RELEVANT)
+	fprintf (dump_file, "NOT RELEVANT \n");
       else
-	et = NOT_RELEVANT;
-
-      if (dump_file)
-	{
-	  fprintf (dump_file, "u%i insn %i reg %i ", 
-          i, (insn ? INSN_UID (insn) : -1), REGNO (reg));
-	  if (et == NOT_RELEVANT)
-	    fprintf (dump_file, "NOT RELEVANT \n");
-	  else
-	    fprintf (dump_file, "RELEVANT USE \n");
-	}
-
-      curr_entry_extra_info = xmalloc (sizeof (struct see_entry_extra_info));
-      curr_entry_extra_info->relevancy = et;
-      curr_entry_extra_info->local_relevancy = et;
-      use_entry[i].extra_info = curr_entry_extra_info;
-      use_entry[i].reg = NULL;
-      use_entry[i].pred = NULL;
+	fprintf (dump_file, "RELEVANT USE \n");
     }
+
+  DF_REF_ID (ref) = index;
+  curr_entry_extra_info = xmalloc (sizeof (struct see_entry_extra_info));
+  curr_entry_extra_info->relevancy = et;
+  curr_entry_extra_info->local_relevancy = et;
+  use_entry[index].extra_info = curr_entry_extra_info;
+  use_entry[index].reg = NULL;
+  use_entry[index].pred = NULL;
 }
 
 
@@ -3427,12 +3415,6 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 
   *source_mode = MAX_MACHINE_MODE;
   *source_mode_unsigned = MAX_MACHINE_MODE;
-
-  if (!insn)
-    return NOT_RELEVANT;
-
-  if (!INSN_P (insn))
-    return NOT_RELEVANT;
 
   extension_code = see_get_extension_data (insn, source_mode);
   switch (extension_code)
@@ -3540,92 +3522,155 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 }
 
 
-/* Updates the relevancy and source_mode of all the definitions.
-   The information of the i'th definition is stored in def_entry[i].  */
+/* Initialized the def_entry field for REF in INSN at INDEX with ET.  */
 
 static void
-see_update_defs_relevancy (void)
+see_update_defs_relevancy (rtx insn, struct df_ref *ref,
+			   enum entry_type et,
+			   enum machine_mode source_mode,
+			   enum machine_mode source_mode_unsigned,
+			   unsigned int index)
 {
-  struct see_entry_extra_info *curr_entry_extra_info;
-  unsigned int i;
-  rtx insn = NULL;
-  rtx reg = NULL;
+  struct see_entry_extra_info *curr_entry_extra_info 
+    = xmalloc (sizeof (struct see_entry_extra_info));
+  curr_entry_extra_info->relevancy = et;
+  curr_entry_extra_info->local_relevancy = et;
+
+  DF_REF_ID(ref) = index;
+
+  if (et != EXTENDED_DEF)
+    {
+      curr_entry_extra_info->source_mode = source_mode;
+      curr_entry_extra_info->local_source_mode = source_mode;
+    }
+  else
+    {
+      curr_entry_extra_info->source_mode_signed = source_mode;
+      curr_entry_extra_info->source_mode_unsigned = source_mode_unsigned;
+    }
+  def_entry[index].extra_info = curr_entry_extra_info;
+  def_entry[index].reg = NULL;
+  def_entry[index].pred = NULL;
+  
+  if (dump_file)
+    {
+      rtx reg = DF_REF_REAL_REG (ref);
+      if (et == NOT_RELEVANT)
+	{
+	  fprintf (dump_file, "d%i insn %i reg %i ",
+		   index, (insn ? INSN_UID (insn) : -1), REGNO (reg));
+	  fprintf (dump_file, "NOT RELEVANT \n");
+	}
+      else
+	{
+	  fprintf (dump_file, "d%i insn %i reg %i ",
+		   index, INSN_UID (insn), REGNO (reg));
+	  fprintf (dump_file, "RELEVANT - ");
+	  switch (et)
+	    {
+	    case SIGN_EXTENDED_DEF :
+	      fprintf (dump_file, "SIGN_EXTENDED_DEF, source_mode = %s\n",
+		       GET_MODE_NAME (source_mode));
+	      break;
+	    case ZERO_EXTENDED_DEF :
+	      fprintf (dump_file, "ZERO_EXTENDED_DEF, source_mode = %s\n",
+		       GET_MODE_NAME (source_mode));
+	      break;
+	    case EXTENDED_DEF :
+	      fprintf (dump_file, "EXTENDED_DEF, ");
+	      if (source_mode != MAX_MACHINE_MODE
+		  && source_mode_unsigned != MAX_MACHINE_MODE)
+		{
+		  fprintf (dump_file, "positive const, ");
+		  fprintf (dump_file, "source_mode_signed = %s, ",
+			   GET_MODE_NAME (source_mode));
+		  fprintf (dump_file, "source_mode_unsigned = %s\n",
+			   GET_MODE_NAME (source_mode_unsigned));
+		}
+	      else if (source_mode != MAX_MACHINE_MODE)
+		fprintf (dump_file, "source_mode_signed = %s\n",
+			 GET_MODE_NAME (source_mode));
+	      else
+		fprintf (dump_file, "source_mode_unsigned = %s\n",
+			 GET_MODE_NAME (source_mode_unsigned));
+	      break;
+	    default :
+	      gcc_unreachable ();
+	    }
+	}
+    }
+}
+
+
+/* Updates the relevancy of all the uses and all defs.  
+
+   The information of the u'th use is stored in use_entry[u] and the
+   information of the d'th definition is stored in def_entry[d].
+   
+   Currently all the uses are relevant for the optimization except for
+   uses that are in LIBCALL instructions.  */
+
+static void
+see_update_relevancy (void)
+{
+  unsigned int d = 0;
+  unsigned int u = 0;
   enum entry_type et;
   enum machine_mode source_mode;
   enum machine_mode source_mode_unsigned;
+  basic_block bb;
 
   if (!def_entry)
     return;
 
-  for (i = 0; i < defs_num; i++)
+  FOR_ALL_BB (bb)
     {
-      insn = DF_REF_INSN (DF_DEFS_GET (i));
-      reg = DF_REF_REAL_REG (DF_DEFS_GET (i));
-
-      et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
-
-      curr_entry_extra_info = xmalloc (sizeof (struct see_entry_extra_info));
-      curr_entry_extra_info->relevancy = et;
-      curr_entry_extra_info->local_relevancy = et;
-      if (et != EXTENDED_DEF)
+      rtx insn;
+      struct df_ref *ref;
+      FOR_BB_INSNS (bb, insn)
 	{
-	  curr_entry_extra_info->source_mode = source_mode;
-	  curr_entry_extra_info->local_source_mode = source_mode;
-	}
-      else
-	{
-	  curr_entry_extra_info->source_mode_signed = source_mode;
-	  curr_entry_extra_info->source_mode_unsigned = source_mode_unsigned;
-	}
-      def_entry[i].extra_info = curr_entry_extra_info;
-      def_entry[i].reg = NULL;
-      def_entry[i].pred = NULL;
-
-      if (dump_file)
-	{
-	  if (et == NOT_RELEVANT)
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
 	    {
-	      fprintf (dump_file, "d%i insn %i reg %i ",
-              i, (insn ? INSN_UID (insn) : -1), REGNO (reg));
-	      fprintf (dump_file, "NOT RELEVANT \n");
-	    }
-	  else
-	    {
-	      fprintf (dump_file, "d%i insn %i reg %i ",
-		       i ,INSN_UID (insn), REGNO (reg));
-	      fprintf (dump_file, "RELEVANT - ");
-	      switch (et)
+	      /* If this is an insn in a libcall, do not touch the uses.  */
+	      if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
+		et = NOT_RELEVANT;
+	      else
+		et = RELEVANT_USE;
+	      
+	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
 		{
-		case SIGN_EXTENDED_DEF :
-		  fprintf (dump_file, "SIGN_EXTENDED_DEF, source_mode = %s\n",
-			   GET_MODE_NAME (source_mode));
-		  break;
-		case ZERO_EXTENDED_DEF :
-		  fprintf (dump_file, "ZERO_EXTENDED_DEF, source_mode = %s\n",
-			   GET_MODE_NAME (source_mode));
-		  break;
-		case EXTENDED_DEF :
-		  fprintf (dump_file, "EXTENDED_DEF, ");
-		  if (source_mode != MAX_MACHINE_MODE
-		      && source_mode_unsigned != MAX_MACHINE_MODE)
-		    {
-		      fprintf (dump_file, "positive const, ");
-		      fprintf (dump_file, "source_mode_signed = %s, ",
-			       GET_MODE_NAME (source_mode));
-		      fprintf (dump_file, "source_mode_unsigned = %s\n",
-			       GET_MODE_NAME (source_mode_unsigned));
-		    }
-		  else if (source_mode != MAX_MACHINE_MODE)
-		    fprintf (dump_file, "source_mode_signed = %s\n",
-			     GET_MODE_NAME (source_mode));
-		  else
-		    fprintf (dump_file, "source_mode_unsigned = %s\n",
-			     GET_MODE_NAME (source_mode_unsigned));
-		  break;
-		default :
-		  gcc_unreachable ();
+		  see_update_uses_relevancy (insn, ref, et, u);
+		  u++;
+		}
+	      
+	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+		{
+		  see_update_uses_relevancy (insn, ref, et, u);
+		  u++;
+		}
+
+	      et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
+	      for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+		{
+		  see_update_defs_relevancy (insn, ref, et, source_mode, 
+					       source_mode_unsigned, d);
+		  d++;
 		}
 	    }
+	}
+      
+      for (ref = df_get_artificial_uses (bb->index); ref; ref = ref->next_ref)
+	{
+	  see_update_uses_relevancy (NULL, ref, NOT_RELEVANT, u);
+	  u++;
+	}
+
+      for (ref = df_get_artificial_defs (bb->index); ref; ref = ref->next_ref)
+	{
+	  see_update_defs_relevancy (NULL, ref, NOT_RELEVANT, 
+				       MAX_MACHINE_MODE, MAX_MACHINE_MODE, d);
+	  d++;
 	}
     }
 }
@@ -3642,41 +3687,47 @@ see_update_defs_relevancy (void)
 static bool
 see_propagate_extensions_to_uses (void)
 {
-  unsigned int i = 0;
-  int num_relevant_uses;
-  int num_relevant_defs;
+  int num_relevant_refs;
+  basic_block bb;
 
   if (dump_file)
     fprintf (dump_file,
       "* Phase 1: Propagate extensions to uses.  *\n");
 
   /* Update the relevancy of references using the DF object.  */
-  see_update_defs_relevancy ();
-  see_update_uses_relevancy ();
+  see_update_relevancy ();
 
   /* Produce the webs and update the extra_info of the root.
      In general, a web is relevant if all its definitions and uses are relevant
      and there is at least one definition that was marked as SIGN_EXTENDED_DEF
      or ZERO_EXTENDED_DEF.  */
-  for (i = 0; i < uses_num; i++)
-    union_defs (DF_USES_GET (i), def_entry, use_entry,
-		see_update_leader_extra_info);
+  FOR_ALL_BB (bb)
+    {
+      rtx insn;
+      struct df_ref *ref;
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
+	    {
+	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+		union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+	      
+	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+		union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+	    }
+	}
+
+      for (ref = df_get_artificial_uses (bb->index); ref; ref = ref->next_ref)
+	union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+    }
 
   /* Generate use extensions for references and insert these
      references to see_bb_splay_ar data structure.    */
-  num_relevant_uses = see_handle_relevant_uses ();
+  num_relevant_refs = see_handle_relevant_refs ();
 
-  if (num_relevant_uses < 0)
-    return false;
-
-  /* Store the def extensions in their references structures and insert these
-     references to see_bb_splay_ar data structure.    */
-  num_relevant_defs = see_handle_relevant_defs ();
-
-  if (num_relevant_defs < 0)
-    return false;
-
- return num_relevant_uses > 0 || num_relevant_defs > 0;
+  return num_relevant_refs > 0;
 }
 
 
