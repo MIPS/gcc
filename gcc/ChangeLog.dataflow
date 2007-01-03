@@ -1,3 +1,38 @@
+2007-01-02  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-scan.c (df_reg_chain_create, df_reg_chain_unlink,
+	df_ref_create_structure, df_hard_reg_used_p): Added code to
+	process df->hard_regs_live_count.
+	(df_ref_is_record_live, df_reg_chain_find_ref): Deleted.
+	(df_refs_add_to_chains): Removed ifdefed code.
+	(df_compute_regs_ever_live): Fixed "&" vs "&&" problem.
+ 	* df-core (rest_of_handle_df_initialize,
+	rest_of_handle_df_finish): Added code to
+	process df->hard_regs_live_count.
+	* global.c (global_alloc): Repositioned use of urec problem.
+	(build_insn_chain): Changed use of DF_RA_LIVE_TOP to df_get_live_top.
+	(rest_of_handle_global_alloc): Removed call to df_analyze for no
+	optimize case.  
+	* local-alloc.c (update_equiv_regs): Added calls to
+	df_notes_rescan where eq notes are hacked.
+	(block_alloc): Changed DF_RA_LIVE_TOP to DF_LR_TOP.
+	(rest_of_handle_local_alloc): Removed addition of urec problem.
+	* function.c (regno_clobbered_at_setjmp): Changed df_get_live_out
+	to DF_LIVE_OUT.
+	* (df_ref_flags.DF_REGS_EVER_LIVE): New flag.
+	(df.hard_regs_live_count): New bitmap.
+	(DF_LR_TOP, DF_REG_EVER_LIVE_P): New macro.
+	(df_get_live_out): Removed.
+	(df_get_live_top): Added.
+	* df-problems.c (df_get_live_in): Does not look at DF_LIVE.
+	(df_get_live_out): Deleted.
+	(df_get_live_top): Added.
+	* config/sh/sh.c (calc_live_regs): Changed regs_ever_live to 
+	df_regs_ever_live_p.
+	* config/mn10300/mn10300.c (fp_regs_to_save): Ditto.
+	* reload1.c (reload): Corrected the set of bitmaps to modify after
+	reloading.
+	
+	
 2007-01-01  Eric Christopher  <echristo@apple.com>
 
         * config/darwin.c: Include df.h.
