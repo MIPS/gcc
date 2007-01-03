@@ -2686,16 +2686,6 @@ last_stmt (basic_block bb)
 }
 
 
-/* Return a pointer to the last statement in block BB.  */
-
-tree *
-last_stmt_ptr (basic_block bb)
-{
-  block_stmt_iterator last = bsi_last (bb);
-  return !bsi_end_p (last) ? bsi_stmt_ptr (last) : NULL;
-}
-
-
 /* Return the last statement of an otherwise empty block.  Return NULL
    if the block is totally empty, or if it contains more than one
    statement.  */
@@ -2813,6 +2803,8 @@ bsi_for_stmt (tree stmt)
 static inline void
 update_modified_stmts (tree t)
 {
+  if (!ssa_operands_active ())
+    return;
   if (TREE_CODE (t) == STATEMENT_LIST)
     {
       tree_stmt_iterator i;

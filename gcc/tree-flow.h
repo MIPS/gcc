@@ -251,6 +251,9 @@ struct var_ann_d GTY(())
   /* True for HEAP and PARM_NOALIAS artificial variables.  */
   unsigned is_heapvar : 1;
 
+  /* True if the variable is call clobbered.  */
+  unsigned int call_clobbered : 1;
+
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
 
@@ -637,7 +640,6 @@ extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
-extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);

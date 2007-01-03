@@ -1000,13 +1000,6 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
-powerpc*-*-darwin*)
-  # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
-  # sources; use -no-cpp-precomp to get to GNU cpp.
-  # Apple's GCC has bugs in designated initializer handling, so disable
-  # that too.
-  stage1_cflags="-no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
-  ;;
 esac
 AC_SUBST(stage1_cflags)
 
@@ -2067,6 +2060,12 @@ gcc_GAS_CHECK_FEATURE([.p2align with maximum skip], gcc_cv_as_max_skip_p2align,
 [AC_DEFINE(HAVE_GAS_MAX_SKIP_P2ALIGN, 1,
   [Define if your assembler supports specifying the maximum number
    of bytes to skip when using the GAS .p2align command.])])
+
+gcc_GAS_CHECK_FEATURE([.literal16], gcc_cv_as_literal16,
+ [2,8,0],,
+ [.literal16],,
+[AC_DEFINE(HAVE_GAS_LITERAL16, 1,
+  [Define if your assembler supports .literal16.])])
 
 gcc_GAS_CHECK_FEATURE([working .subsection -1], gcc_cv_as_subsection_m1,
  [elf,2,9,0],,
