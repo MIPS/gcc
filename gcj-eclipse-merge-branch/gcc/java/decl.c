@@ -1,7 +1,7 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -755,15 +755,9 @@ java_init_decl_processing (void)
   TYPE_identifier_node = get_identifier ("TYPE");
   init_identifier_node = get_identifier ("<init>");
   clinit_identifier_node = get_identifier ("<clinit>");
-  finit_identifier_node = get_identifier ("finit$");
-  instinit_identifier_node = get_identifier ("instinit$");
   void_signature_node = get_identifier ("()V");
-  length_identifier_node = get_identifier ("length");
   finalize_identifier_node = get_identifier ("finalize");
   this_identifier_node = get_identifier ("this");
-  super_identifier_node = get_identifier ("super");
-  continue_identifier_node = get_identifier ("continue");
-  access0_identifier_node = get_identifier ("access$0");
   classdollar_identifier_node = get_identifier ("class$");
 
   java_lang_cloneable_identifier_node = get_identifier ("java.lang.Cloneable");
@@ -1110,8 +1104,6 @@ java_init_decl_processing (void)
 
   lang_eh_runtime_type = do_nothing;
 
-  init_jcf_parse ();
-    
   initialize_builtins ();
   soft_fmod_node = built_in_decls[BUILT_IN_FMOD];
 #if 0

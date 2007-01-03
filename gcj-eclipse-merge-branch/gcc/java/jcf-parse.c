@@ -1,6 +1,6 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -110,15 +110,13 @@ static char *compute_class_name (struct ZipDirectory *zdir);
 static int classify_zip_file (struct ZipDirectory *zdir);
 static void parse_zip_file_entries (void);
 static void process_zip_dir (FILE *);
-static void parse_source_file_1 (tree, const char *, FILE *);
-static void parse_source_file_2 (void);
-static void parse_source_file_3 (void);
 static void parse_class_file (void);
 static void handle_deprecated (void);
 static void set_source_filename (JCF *, int);
 static void jcf_parse (struct JCF*);
 static void load_inner_classes (tree);
 static void handle_annotation (JCF *jcf, int level);
+static void java_layout_seen_class_methods (void);
 
 /* Handle "Deprecated" attribute.  */
 static void
@@ -1309,6 +1307,8 @@ read_class (tree name)
 
   if (current_jcf->java_source)
     {
+      gcc_unreachable ();
+#if 0
       const char *filename = current_jcf->filename;
       char *real_path;
       tree given_file, real_file;
@@ -1346,15 +1346,16 @@ read_class (tree name)
       JCF_FINISH (current_jcf);
       java_pop_parser_context (generate);
       java_parser_context_restore_global ();
+#endif
     }
   else
     {
       if (class == NULL_TREE || ! CLASS_PARSED_P (class))
 	{
-	  java_parser_context_save_global ();
-	  java_push_parser_context ();
+/* 	  java_parser_context_save_global (); */
+/* 	  java_push_parser_context (); */
 	  output_class = current_class = class;
-	  ctxp->save_location = input_location;
+/* 	  ctxp->save_location = input_location; */
 	  if (JCF_SEEN_IN_ZIP (current_jcf))
 	    read_zip_member(current_jcf,
 			    current_jcf->zipd, current_jcf->zipd->zipf);
@@ -1364,8 +1365,8 @@ read_class (tree name)
 	  if (current_class != class && icv != NULL_TREE)
 	    TREE_TYPE (icv) = current_class;
 	  class = current_class;
-	  java_pop_parser_context (0);
-	  java_parser_context_restore_global ();
+/* 	  java_pop_parser_context (0); */
+/* 	  java_parser_context_restore_global (); */
 	}
       layout_class (class);
       load_inner_classes (class);
@@ -1606,6 +1607,42 @@ duplicate_class_warning (const char *filename)
 }
 
 static void
+java_layout_seen_class_methods (void)
+{
+  tree previous_list = all_class_list;
+  tree end = NULL_TREE;
+  tree current;
+
+  while (1)
+    {
+      for (current = previous_list;
+	   current != end; current = TREE_CHAIN (current))
+        {
+	  tree decl = TREE_VALUE (current);
+          tree cls = TREE_TYPE (decl);
+
+	  input_location = DECL_SOURCE_LOCATION (decl);
+
+          if (! CLASS_LOADED_P (cls))
+            load_class (cls, 0);
+
+          layout_class_methods (cls);
+        }
+
+      /* Note that new classes might have been added while laying out
+         methods, changing the value of all_class_list.  */
+
+      if (previous_list != all_class_list)
+	{
+	  end = previous_list;
+	  previous_list = all_class_list;
+	}
+      else
+	break;
+    }
+}
+
+static void
 parse_class_file (void)
 {
   tree method;
@@ -1721,71 +1758,6 @@ parse_class_file (void)
 
   (*debug_hooks->end_source_file) (LOCATION_LINE (save_location));
   input_location = save_location;
-}
-
-/* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
-
-static void
-parse_source_file_1 (tree real_file, const char *filename, FILE *finput)
-{
-  int save_error_count = java_error_count;
-
-  /* Mark the file as parsed.  */
-  HAS_BEEN_ALREADY_PARSED_P (real_file) = 1;
-
-  lang_init_source (1);		    /* Error msgs have no method prototypes */
-
-  /* There's no point in trying to find the current encoding unless we
-     are going to do something intelligent with it -- hence the test
-     for iconv.  */
-#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_LANGINFO_CODESET)
-  setlocale (LC_CTYPE, "");
-  if (current_encoding == NULL)
-    current_encoding = nl_langinfo (CODESET);
-#endif 
-  if (current_encoding == NULL || *current_encoding == '\0')
-    current_encoding = DEFAULT_ENCODING;
-
-#ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, filename, 0);
-  input_location = linemap_line_start (&line_table, 0, 125);
-#else
-  input_filename = filename;
-  input_line = 0;
-#endif
-  ctxp->file_start_location = input_location;
-  ctxp->filename = filename;
-
-  jcf_dependency_add_file (input_filename, 0);
-
-  /* Initialize the parser */
-  java_init_lex (finput, current_encoding);
-  java_parse_abort_on_error ();
-
-  java_parse ();		    /* Parse and build partial tree nodes. */
-  java_parse_abort_on_error ();
-}
-
-/* Process a parsed source file, resolving names etc. */
-
-static void
-parse_source_file_2 (void)
-{
-  int save_error_count = java_error_count;
-  flag_verify_invocations = true;
-  java_complete_class ();	    /* Parse unsatisfied class decl. */
-  java_parse_abort_on_error ();
-}
-
-static void
-parse_source_file_3 (void)
-{
-  int save_error_count = java_error_count;
-  java_check_circular_reference (); /* Check on circular references */
-  java_parse_abort_on_error ();
-  java_fix_constructors ();	    /* Fix the constructors */
-  java_parse_abort_on_error ();
-  java_reorder_fields ();	    /* Reorder the fields */
 }
 
 void
@@ -2034,6 +2006,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	}
       else
 	{
+	  gcc_unreachable ();
+#if 0
 	  java_push_parser_context ();
 	  java_parser_context_save_global ();
 
@@ -2043,19 +2017,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 #ifdef USE_MAPPED_LOCATION
 	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
 #endif
+#endif
 	}
-    }
-
-  for (ctxp = ctxp_for_generation;  ctxp;  ctxp = ctxp->next)
-    {
-      input_location = ctxp->file_start_location;
-      parse_source_file_2 ();
-    }
-
-  for (ctxp = ctxp_for_generation; ctxp; ctxp = ctxp->next)
-    {
-      input_location = ctxp->file_start_location;
-      parse_source_file_3 ();
     }
 
   /* Do this before lowering any code.  */
@@ -2087,12 +2050,12 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 
   bitmap_obstack_release (&bit_obstack);
 
-  java_expand_classes ();
-  if (java_report_errors () || flag_syntax_only)
-    return;
+/*   java_expand_classes (); */
+/*   if (java_report_errors () || flag_syntax_only) */
+/*     return; */
     
   /* Expand all classes compiled from source.  */
-  java_finish_classes ();
+/*   java_finish_classes (); */
 
  finish:
   /* Arrange for any necessary initialization to happen.  */
@@ -2318,12 +2281,5 @@ process_zip_dir (FILE *finput)
     }
 }
 
-/* Initialization.  */
-
-void
-init_jcf_parse (void)
-{
-  init_src_parse ();
-}
-
 #include "gt-java-jcf-parse.h"
+#include "gtype-java.h"

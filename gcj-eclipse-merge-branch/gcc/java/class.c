@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,6 +68,8 @@ static tree emit_assertion_table (tree);
 static void register_class (void);
 
 struct obstack temporary_obstack;
+
+static const char *cyclic_inheritance_report;
 
 /* The compiler generates different code depending on whether or not
    it can assume certain classes have been compiled down to native
@@ -722,9 +724,6 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
   if (access_flags & ACC_STATIC)
     DECL_FUNCTION_INITIALIZED_CLASS_TABLE (fndecl) =
       htab_create_ggc (50, htab_hash_pointer, htab_eq_pointer, NULL);
-
-  /* Initialize the static method invocation compound list */
-  DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl) = NULL_TREE;
 
   TREE_CHAIN (fndecl) = TYPE_METHODS (this_class);
   TYPE_METHODS (this_class) = fndecl;
@@ -2314,7 +2313,7 @@ push_super_field (tree this_class, tree super_class)
 /* Handle the different manners we may have to lay out a super class.  */
 
 static tree
-maybe_layout_super_class (tree super_class, tree this_class)
+maybe_layout_super_class (tree super_class, tree this_class ATTRIBUTE_UNUSED)
 {
   if (!super_class)
     return NULL_TREE;
@@ -2333,6 +2332,7 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	super_class = TREE_TYPE (super_class);
       else
 	{
+#if 0
 	  /* do_resolve_class expects an EXPR_WITH_FILE_LOCATION, so
 	     we give it one.  */
 	  tree this_wrap = NULL_TREE;
@@ -2358,12 +2358,30 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	  if (!super_class)
 	    return NULL_TREE;	/* FIXME, NULL_TREE not checked by caller. */
 	  super_class = TREE_TYPE (super_class);
+#endif
+	  gcc_unreachable ();
 	}
     }
   if (!TYPE_SIZE (super_class))
     safe_layout_class (super_class);
 
   return super_class;
+}
+
+/* safe_layout_class just makes sure that we can load a class without
+   disrupting the current_class, input_file, input_line, etc, information
+   about the class processed currently.  */
+
+void
+safe_layout_class (tree class)
+{
+  tree save_current_class = current_class;
+  location_t save_location = input_location;
+
+  layout_class (class);
+
+  current_class = save_current_class;
+  input_location = save_location;
 }
 
 void

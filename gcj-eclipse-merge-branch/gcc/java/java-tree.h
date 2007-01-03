@@ -1,7 +1,7 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,37 +43,15 @@ enum java_tree_code {
 struct JCF;
 
 /* Usage of TREE_LANG_FLAG_?:
-   0: IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P (in IDENTIFIER_NODE)
-      FOR_LOOP_P (in LOOP_EXPR)
-      SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
-      ANONYMOUS_CLASS_P (in RECORD_TYPE)
-      ARG_FINAL_P (in TREE_LIST)
-   1: IS_A_CLASSFILE_NAME (in IDENTIFIER_NODE)
-      COMPOUND_ASSIGN_P (in EXPR (binop_*))
-      LOCAL_CLASS_P (in RECORD_TYPE)
-      BLOCK_IS_IMPLICIT (in BLOCK)
    2: QUALIFIED_P (in IDENTIFIER_NODE)
-      PRIMARY_P (in EXPR_WITH_FILE_LOCATION)
-      MODIFY_EXPR_FROM_INITIALIZATION_P (in MODIFY_EXPR)
-      CLASS_METHOD_CHECKED_P (in RECORD_TYPE) 
       CLASS_FILE_P (in a TRANSLATION_UNIT_DECL in current_file_list)
-   3: IS_AN_IMPORT_ON_DEMAND_P (in IDENTIFIER_NODE)
-      RESOLVE_PACKAGE_NAME_P (in EXPR_WITH_FILE_LOCATION)
-      SWITCH_HAS_DEFAULT (in SWITCH_EXPR)
-      HAS_FINALIZER (in RECORD_TYPE)
+   3: HAS_FINALIZER (in RECORD_TYPE)
    4: IS_A_COMMAND_LINE_FILENAME_P (in IDENTIFIER_NODE)
-      RESOLVE_TYPE_NAME_P (in EXPR_WITH_FILE_LOCATION)
-      CALL_USING_SUPER (in CALL_EXPR)
       IS_ARRAY_LENGTH_ACCESS (in INDIRECT_REF)
    5: HAS_BEEN_ALREADY_PARSED_P (in IDENTIFIER_NODE)
-      IS_BREAK_STMT_P (in EXPR_WITH_FILE_LOCATION)
-      IS_CRAFTED_STRING_BUFFER_P (in CALL_EXPR)
-      IS_INIT_CHECKED (in SAVE_EXPR)
    6: CAN_COMPLETE_NORMALLY (in statement nodes)
-      NESTED_FIELD_ACCESS_IDENTIFIER_P (in IDENTIFIER_NODE)
 
    Usage of TYPE_LANG_FLAG_?:
-   0: CLASS_ACCESS0_GENERATED_P (in RECORD_TYPE)
    1: TYPE_ARRAY_P (in RECORD_TYPE).
    2: CLASS_PARSED_P (in RECORD_TYPE).
    3: CLASS_FROM_SOURCE_P (in RECORD_TYPE).
@@ -123,10 +101,6 @@ struct JCF;
 #define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) \
   ? BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (TYPE), 0)) \
   : NULL_TREE)
-
-/* True if the class we are compiling is a .java source file;
-   false if it is a .class bytecode file. */
-extern int compiling_from_source;
 
 /* The class defined by the actual (main) file we are compiling. */
 #define main_class \
@@ -220,9 +194,6 @@ extern int flag_store_check;
 
 /* When nonzero, generate only a limited set of class meta-data. */
 extern int flag_reduced_reflection;
-
-/* Encoding used for source files.  */
-extern const char *current_encoding;
 
 /* The Java .class file that provides main_class;  the main input file. */
 extern GTY(()) struct JCF * current_jcf;
@@ -337,15 +308,9 @@ enum java_tree_index
   JTI_TYPE_IDENTIFIER_NODE,      
   JTI_INIT_IDENTIFIER_NODE,      
   JTI_CLINIT_IDENTIFIER_NODE,      
-  JTI_FINIT_IDENTIFIER_NODE,      
-  JTI_INSTINIT_IDENTIFIER_NODE,
   JTI_VOID_SIGNATURE_NODE,       
-  JTI_LENGTH_IDENTIFIER_NODE,  
   JTI_FINALIZE_IDENTIFIER_NODE,
   JTI_THIS_IDENTIFIER_NODE,  
-  JTI_SUPER_IDENTIFIER_NODE,  
-  JTI_CONTINUE_IDENTIFIER_NODE,  
-  JTI_ACCESS0_IDENTIFIER_NODE, 
   JTI_CLASSDOLLAR_IDENTIFIER_NODE,
   JTI_ONE_ELT_ARRAY_DOMAIN_TYPE,
 
@@ -422,8 +387,6 @@ enum java_tree_index
   JTI_ACCESS_FLAGS_TYPE_NODE,
 
   JTI_NATIVECODE_PTR_ARRAY_TYPE_NODE,
-
-  JTI_WFL_OPERATOR,
 
   JTI_MAIN_CLASS,
   JTI_CURRENT_CLASS,
@@ -537,25 +500,12 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_INIT_IDENTIFIER_NODE]      /* "<init>" */
 #define clinit_identifier_node \
   java_global_trees[JTI_CLINIT_IDENTIFIER_NODE]      /* "<clinit>" */
-#define finit_identifier_node \
-  java_global_trees[JTI_FINIT_IDENTIFIER_NODE]      /* "finit$" */
-/* FIXME "instinit$" and "finit$" should be merged  */
-#define instinit_identifier_node \
-  java_global_trees[JTI_INSTINIT_IDENTIFIER_NODE]  /* "instinit$" */
 #define void_signature_node \
   java_global_trees[JTI_VOID_SIGNATURE_NODE]       /* "()V" */
-#define length_identifier_node \
-  java_global_trees[JTI_LENGTH_IDENTIFIER_NODE]  /* "length" */
 #define finalize_identifier_node \
   java_global_trees[JTI_FINALIZE_IDENTIFIER_NODE]  /* "finalize" */
 #define this_identifier_node \
   java_global_trees[JTI_THIS_IDENTIFIER_NODE]  /* "this" */
-#define super_identifier_node \
-  java_global_trees[JTI_SUPER_IDENTIFIER_NODE]  /* "super" */
-#define continue_identifier_node \
-  java_global_trees[JTI_CONTINUE_IDENTIFIER_NODE]  /* "continue" */
-#define access0_identifier_node \
-  java_global_trees[JTI_ACCESS0_IDENTIFIER_NODE] /* "access$0" */
 #define classdollar_identifier_node \
   java_global_trees[JTI_CLASSDOLLAR_IDENTIFIER_NODE] /* "class$" */
 #define one_elt_array_domain_type \
@@ -708,13 +658,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 
 #define nativecode_ptr_type_node ptr_type_node
 
-#define wfl_operator \
-  java_global_trees[JTI_WFL_OPERATOR]
-
 /* The decl for "_Jv_ResolvePoolEntry".  */
 extern GTY(()) tree soft_resolvepoolentry_node;
-
-extern const char *cyclic_inheritance_report;
 
 struct lang_identifier GTY(())
 {
@@ -828,20 +773,6 @@ union lang_tree_node
    in DECL.  */
 #define DECL_FUNCTION_INITIALIZED_CLASS_TABLE(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.ict)
-/* A list of all the static method calls in the method DECL (if optimizing).
-   Actually each TREE_VALUE points to a COMPONT_EXPR that wraps the
-   invocation so we can later patch it.  */
-#define DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->u.f.smic)
-/* The Number of Artificial Parameters (NAP) DECL contains. this$<n>
-   is excluded, because sometimes created as a parameter before the
-   function decl exists. */
-#define DECL_FUNCTION_NAP(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.nap)
-/* True if DECL is a synthetic ctor.  */
-#define DECL_FUNCTION_SYNTHETIC_CTOR(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->u.f.synthetic_ctor)
-#define DECL_FIXED_CONSTRUCTOR_P(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->u.f.fixed_ctor)
 
 #define DECL_LOCAL_CNI_METHOD_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE)->u.f.local_cni)
@@ -976,14 +907,10 @@ struct lang_decl_func GTY(())
   /* Initialized (static) Class Table */
   htab_t GTY ((param_is (union tree_node))) ict;
 
-  tree smic;			/* Static method invocation compound */
   tree inner_access;		/* The identifier of the access method
 				   used for invocation from inner classes */
-  int nap;			/* Number of artificial parameters */
   unsigned int native : 1;	/* Nonzero if this is a native method  */
-  unsigned int synthetic_ctor : 1; /* Nonzero if this is a synthetic ctor */
   unsigned int init_final : 1;	/* Nonzero all finals are initialized */
-  unsigned int fixed_ctor : 1;
   unsigned int init_calls_this : 1;
   unsigned int strictfp : 1;
   unsigned int invisible : 1;	/* Set for methods we generate
@@ -1088,10 +1015,6 @@ struct lang_decl GTY(())
      TYPE_LANG_SPECIFIC ((T))			\
      = ggc_alloc_cleared (sizeof (struct lang_type));
 
-#define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC (T)->finit_stmt_list)
-#define TYPE_CLINIT_STMT_LIST(T) (TYPE_LANG_SPECIFIC (T)->clinit_stmt_list)
-#define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC (T)->ii_block)
-
 #define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
 
 /* The decl of the synthetic method `class$' used to handle `.class'
@@ -1099,8 +1022,6 @@ struct lang_decl GTY(())
 
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC (T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC (T)->package_list)
-#define TYPE_IMPORT_LIST(T)      (TYPE_LANG_SPECIFIC (T)->import_list)
-#define TYPE_IMPORT_DEMAND_LIST(T) (TYPE_LANG_SPECIFIC (T)->import_demand_list)
 #define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC (T)->pic)
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC (T)->poic)
 #define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC (T)->strictfp)
@@ -1140,16 +1061,11 @@ struct lang_type GTY(())
   struct JCF *jcf;
   struct CPool *cpool;
   tree cpool_data_ref;		/* Cached */
-  tree finit_stmt_list;		/* List of statements finit$ will use */
-  tree clinit_stmt_list;	/* List of statements <clinit> will use  */
-  tree ii_block;		/* Instance initializer block */
   tree dot_class;		/* The decl of the `class$' function that
 				   needs to be invoked and generated when
 				   compiling to bytecode to implement
 				   <non_primitive_type>.class */
   tree package_list;		/* List of package names, progressive */
-  tree import_list;		/* Imported types, in the CU of this class */
-  tree import_demand_list;	/* Imported types, in the CU of this class */
 
   tree otable_methods;          /* List of static decls referred to by this
 				   class.  */
@@ -1341,7 +1257,6 @@ extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
 extern void finish_class (void);
-extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
 extern struct CPool *cpool_for_class (tree);
 extern int find_class_or_string_constant (struct CPool *, int, tree);
@@ -1411,10 +1326,7 @@ extern tree get_boehm_type_descriptor (tree);
 extern bool uses_jv_markobj_p (tree);
 extern bool class_has_finalize_method (tree);
 extern void java_check_methods (tree);
-extern void init_jcf_parse (void);
-extern void init_src_parse (void);
 
-extern int cxx_keyword_p (const char *, int);
 extern void java_mangle_decl (tree);
 extern tree java_mangle_class_field (struct obstack *, tree);
 extern tree java_mangle_vtable (struct obstack *, tree);
@@ -1487,17 +1399,13 @@ extern void rewrite_reflection_indexes (void *);
 #define DECL_CONSTRUCTOR_P(DECL) DECL_LANG_FLAG_7 (FUNCTION_DECL_CHECK (DECL))
 
 #define DECL_INIT_P(DECL)   (ID_INIT_P (DECL_NAME (DECL)))
-#define DECL_FINIT_P(DECL)  (ID_FINIT_P (DECL_NAME (DECL)))
 #define DECL_CLINIT_P(DECL) (ID_CLINIT_P (DECL_NAME (DECL)))
-#define DECL_INSTINIT_P(DECL) (ID_INSTINIT_P (DECL_NAME (DECL)))
 
 /* Predicates on method identifiers. Kept close to other macros using
    them  */
 #define ID_INIT_P(ID)   ((ID) == init_identifier_node)
-#define ID_FINIT_P(ID)  ((ID) == finit_identifier_node)
 #define ID_CLINIT_P(ID) ((ID) == clinit_identifier_node)
 #define ID_CLASSDOLLAR_P(ID) ((ID) == classdollar_identifier_node)
-#define ID_INSTINIT_P(ID) ((ID) == instinit_identifier_node)
 
 /* Access flags etc for variable/field (FIELD_DECL, VAR_DECL, or PARM_DECL): */
 
@@ -1587,16 +1495,6 @@ extern int linenumber_count;
 /* In a type map means the type the address subroutine return address. */
 #define TYPE_RETURN_ADDR return_address_type_node
 
-/* In a subroutine's return type map, indicates that the slot was neither
-   used nor set in the subroutine. */
-#define TYPE_UNUSED error_mark_node
-
-/* When returned from pop_type_0, indicates stack underflow. */
-#define TYPE_UNDERFLOW integer_zero_node
-
-/* When returned from pop_type_0, indicates a type mismatch. */
-#define TYPE_UNEXPECTED NULL_TREE
-
 /* A array mapping variable/stack slot index to the type current
    in that variable/stack slot.
    TYPE_UNKNOWN, TYPE_SECOND, and TYPE_NULL are special cases. */
@@ -1608,9 +1506,6 @@ extern tree *type_map;
 /* True iff TYPE takes two variable/stack slots. */
 #define TYPE_IS_WIDE(TYPE) \
   ((TYPE) == double_type_node || (TYPE) == long_type_node)
-
-/* True iif CLASS has it's access$0 method generated.  */
-#define CLASS_ACCESS0_GENERATED_P(CLASS) TYPE_LANG_FLAG_0 (CLASS)
 
 /* True iff TYPE is a Java array type. */
 #define TYPE_ARRAY_P(TYPE) TYPE_LANG_FLAG_1 (TYPE)
@@ -1648,20 +1543,8 @@ extern tree *type_map;
    layout of a class.  */
 #define CLASS_BEING_LAIDOUT(TYPE) TYPE_LANG_FLAG_6 (TYPE)
 
-/* True if class TYPE has a field initializer finit$ function */
-#define CLASS_HAS_FINIT_P(TYPE) TYPE_FINIT_STMT_LIST (TYPE)
-
-/* True if identifier ID was seen while processing a single type import stmt */
-#define IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P(ID) TREE_LANG_FLAG_0 (ID)
-
-/* True if identifier ID was seen while processing an import statement */
-#define IS_A_CLASSFILE_NAME(ID) TREE_LANG_FLAG_1 (ID)
-
 /* True if ID is a qualified named (contains . or /) */
 #define QUALIFIED_P(ID) TREE_LANG_FLAG_2 (ID)
-
-/* True if ID is an already processed import on demand */
-#define IS_AN_IMPORT_ON_DEMAND_P(ID) TREE_LANG_FLAG_3 (ID)
 
 /* True if ID is a command-line specified filename */
 #define IS_A_COMMAND_LINE_FILENAME_P(ID) TREE_LANG_FLAG_4 (ID)
@@ -1669,97 +1552,22 @@ extern tree *type_map;
 /* True if filename ID has already been parsed */
 #define HAS_BEEN_ALREADY_PARSED_P(ID) TREE_LANG_FLAG_5 (ID)
 
-/* True if EXPR is RHS sub-tree of a compound assign expression */
-#define COMPOUND_ASSIGN_P(EXPR) TREE_LANG_FLAG_1 (EXPR)
-
-/* True if a SWITCH_EXPR has a DEFAULT_EXPR. */
-#define SWITCH_HAS_DEFAULT(NODE) TREE_LANG_FLAG_3 (SWITCH_EXPR_CHECK (NODE))
-
-/* True if EXPR (a WFL in that case) was created after the
-   reduction of PRIMARY . XXX */
-#define PRIMARY_P(EXPR) TREE_LANG_FLAG_2 (EXPR_CHECK (EXPR))
-
-/* True if EXPR (a MODIFY_EXPR in that case) is the result of variable
-   initialization during its declaration */
-#define MODIFY_EXPR_FROM_INITIALIZATION_P(EXPR) \
-  TREE_LANG_FLAG_2 (MODIFY_EXPR_CHECK (EXPR))
-
-/* True if EXPR (a TREE_TYPE denoting a class type) has its methods
-   already checked (for redefinitions, etc, see java_check_regular_methods.) */
-#define CLASS_METHOD_CHECKED_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
-
 /* True if TYPE (a TREE_TYPE denoting a class type) was found to
    feature a finalizer method. */
 #define HAS_FINALIZER_P(EXPR) TREE_LANG_FLAG_3 (EXPR)
 
-/* True if EXPR (a LOOP_EXPR in that case) is part of a for statement */
-#define FOR_LOOP_P(EXPR) TREE_LANG_FLAG_0 (EXPR_CHECK (EXPR))
-
-/* True if NODE (a RECORD_TYPE in that case) is an anonymous class.  */
-#define ANONYMOUS_CLASS_P(NODE) TREE_LANG_FLAG_0 (RECORD_TYPE_CHECK (NODE))
-
-/* True if NODE (a RECORD_TYPE in that case) is a block local class.  */
-#define LOCAL_CLASS_P(NODE) TREE_LANG_FLAG_1 (RECORD_TYPE_CHECK (NODE))
-
-/* True if NODE (a TREE_LIST) hold a pair of argument name/type
-   declared with the final modifier */
-#define ARG_FINAL_P(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
-
-/* True if NODE (some kind of EXPR, but not a WFL) should not give an
-   error if it is found to be unreachable.  This can only be applied
-   to those EXPRs which can be used as the update expression of a
-   `for' loop.  In particular it can't be set on a LOOP_EXPR.  */
-#define SUPPRESS_UNREACHABLE_ERROR(NODE) TREE_LANG_FLAG_0 (EXPR_CHECK (NODE))
-
-/* True if EXPR (a WFL in that case) resolves into a package name */
-#define RESOLVE_PACKAGE_NAME_P(WFL) TREE_LANG_FLAG_3 (EXPR_CHECK (WFL))
-
-/* True if EXPR (a WFL in that case) resolves into a type name */
-#define RESOLVE_TYPE_NAME_P(WFL) TREE_LANG_FLAG_4 (EXPR_CHECK (WFL))
-
-/* True if STMT (a WFL in that case) holds a BREAK statement */
-#define IS_BREAK_STMT_P(WFL) TREE_LANG_FLAG_5 (WFL)
-
-/* True if EXPR (a CALL_EXPR in that case) is a crafted StringBuffer */
-#define IS_CRAFTED_STRING_BUFFER_P(EXPR) TREE_LANG_FLAG_5 (EXPR)
-
-/* True if EXPR (a SAVE_EXPR in that case) had its content already
-   checked for (un)initialized local variables.  */
-#define IS_INIT_CHECKED(EXPR) TREE_LANG_FLAG_5 (SAVE_EXPR_CHECK (EXPR))
-
-/* If set in CALL_EXPR, the receiver is 'super'. */
-#define CALL_USING_SUPER(EXPR) TREE_LANG_FLAG_4 (EXPR_CHECK (EXPR))
-
 /* True if NODE (a statement) can complete normally. */
 #define CAN_COMPLETE_NORMALLY(NODE) TREE_LANG_FLAG_6 (NODE)
-
-/* True if NODE (an IDENTIFIER) bears the name of an outer field from
-   inner class (or vice versa) access function.  */
-#define NESTED_FIELD_ACCESS_IDENTIFIER_P(NODE) \
-  TREE_LANG_FLAG_6 (IDENTIFIER_NODE_CHECK (NODE))
 
 /* True if NODE belongs to an inner class TYPE_DECL node.
    Verifies that NODE as the attributes of a decl.  */
 #define INNER_CLASS_DECL_P(NODE) (TYPE_NAME (TREE_TYPE (NODE)) == NODE	\
 				  && DECL_CONTEXT (NODE))
 
-/* True if NODE is a top level class TYPE_DECL node: NODE isn't
-   an inner class or NODE is a static class.  */
-#define TOPLEVEL_CLASS_DECL_P(NODE) (!INNER_CLASS_DECL_P (NODE) 	\
-				     || CLASS_STATIC (NODE))
-
-/* True if the class decl NODE was declared in an inner scope and is
-   not a toplevel class */
-#define PURE_INNER_CLASS_DECL_P(NODE) \
-  (INNER_CLASS_DECL_P (NODE) && !CLASS_STATIC (NODE))
-
 /* True if NODE belongs to an inner class RECORD_TYPE node. Checks
    that TYPE_NAME bears a decl. An array type wouldn't.  */
 #define INNER_CLASS_TYPE_P(NODE) (TREE_CODE (TYPE_NAME (NODE)) == TYPE_DECL \
 				  && DECL_CONTEXT (TYPE_NAME (NODE)))
-
-#define TOPLEVEL_CLASS_TYPE_P(NODE) (!INNER_CLASS_TYPE_P (NODE) 	\
-				     || CLASS_STATIC (TYPE_NAME (NODE)))
 
 /* True if the class type NODE was declared in an inner scope and is
    not a toplevel class */
@@ -1842,32 +1650,8 @@ extern tree *type_map;
 #define FINISH_RECORD_CONSTRUCTOR(CONS) \
   VEC_pop (constructor_elt, CONSTRUCTOR_ELTS (CONS))
 
-/* Macros on constructors invocations.  */
-#define CALL_CONSTRUCTOR_P(NODE)		\
-  (TREE_CODE (NODE) == NEW_CLASS_EXPR || CALL_EXPLICIT_CONSTRUCTOR_P (NODE))
-
-#define CALL_EXPLICIT_CONSTRUCTOR_P(NODE)				\
-  (CALL_THIS_CONSTRUCTOR_P (NODE) || CALL_SUPER_CONSTRUCTOR_P (NODE))
-
-#define CALL_THIS_CONSTRUCTOR_P(NODE)					\
-  (TREE_CODE (NODE) == CALL_EXPR					\
-   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == this_identifier_node)
-
-#define CALL_SUPER_CONSTRUCTOR_P(NODE)					\
-  (TREE_CODE (NODE) == CALL_EXPR					\
-   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == super_identifier_node)
-
-/* Using a FINALLY_EXPR node */
-#define FINALLY_EXPR_LABEL(NODE) TREE_OPERAND (FINALLY_EXPR_CHECK (NODE), 0)
-#define FINALLY_EXPR_BLOCK(NODE) TREE_OPERAND (FINALLY_EXPR_CHECK (NODE), 1)
-
 #define BLOCK_EXPR_DECLS(NODE)  BLOCK_VARS(NODE)
 #define BLOCK_EXPR_BODY(NODE)   BLOCK_SUBBLOCKS(NODE)
-
-/* True for an implicit block surrounding declaration not at start of {...}. */
-#define BLOCK_IS_IMPLICIT(NODE) TREE_LANG_FLAG_1 (BLOCK_CHECK (NODE))
-#define BLOCK_EMPTY_P(NODE) \
-  (TREE_CODE (NODE) == BLOCK && BLOCK_EXPR_BODY (NODE) == empty_stmt_node)
 
 #define BUILD_MONITOR_ENTER(WHERE, ARG)					\
   {									\
@@ -1887,24 +1671,9 @@ extern tree *type_map;
     TREE_SIDE_EFFECTS (WHERE) = 1;				\
   }
 
-/* Nonzero if TYPE is an unchecked exception */
-#define IS_UNCHECKED_EXCEPTION_P(TYPE)				\
-  (inherits_from_p ((TYPE), runtime_exception_type_node)	\
-   || inherits_from_p ((TYPE), error_exception_type_node))
-
 /* True when we can perform static class initialization optimization */
 #define STATIC_CLASS_INIT_OPT_P() \
   (flag_optimize_sci && (optimize >= 2) && ! flag_emit_class_files)
-
-extern int java_error_count;
-
-/* Make the current function where this macro is invoked report error
-   messages and and return, if any */
-#define java_parse_abort_on_error()					\
-  {									\
-     if (java_error_count > save_error_count)				\
-       return;								\
-   }
 
 /* These are the possible values for the `state' field of the class
    structure.  This must be kept in sync with libgcj.  */
@@ -1973,6 +1742,6 @@ extern tree build_expr_wfl (tree, const char *, int, int);
 extern void java_genericize (tree);
 extern int java_gimplify_expr (tree *, tree *, tree *);
 
-extern tree extract_field_decl (tree);
+extern FILE *finput;
 
 #endif /* ! GCC_JAVA_TREE_H */

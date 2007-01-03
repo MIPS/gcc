@@ -1,3 +1,158 @@
+2007-01-02  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (compiling_from_source, current_encoding,
+	JTI_FINIT_IDENTIFIER_NODE, JTI_INSTINIT_IDENTIFIER_NODE,
+	JTI_LENGTH_IDENTIFIER_NODE, JTI_SUPER_IDENTIFIER_NODE,
+	JTI_CONTINUE_IDENTIFIER_NODE, JTI_ACCESS0_IDENTIFIER_NODE,
+	JTI_WFL_OPERATOR): Removed
+	(finit_identifier_node, instinit_identifier_node,
+	length_identifier_node, super_identifier_node,
+	continue_identifier_node, access0_identifier_node, wfl_operator):
+	Removed.
+	(cyclic_inheritance_report,
+	DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND,
+	DECL_FUNCTION_NAP, DECL_FUNCTION_SYNTHETIC_CTOR,
+	DECL_FIXED_CONSTRUCTOR_P): Removed.
+	(struct lang_decl_func) <smic, nap, synthetic_ctor, fixed_ctor>:
+	Removed.
+	(TYPE_FINIT_STMT_LIST, TYPE_CLINIT_STMT_LIST, TYPE_II_STMT_LIST,
+	TYPE_IMPORT_LIST, TYPE_IMPORT_DEMAND_LIST): Removed.
+	(struct lang_type) <finit_stmt_list, clinit_stmt_list, ii_block,
+	import_list, import_demand_list>: Removed.
+	(java_layout_seen_class_methods, init_jcf_parse, init_src_parse,
+	cxx_keyword_p): Removed.
+	(DECL_FINIT_P, DECL_INSTINIT_P, ID_FINIT_P, ID_INSTINIT_P,
+	TYPE_UNUSED, TYPE_UNDERFLOW, TYPE_UNEXPECTED,
+	CLASS_ACCESS0_GENERATED_P, CLASS_HAS_FINIT_P,
+	IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P, IS_A_CLASSFILE_NAME,
+	IS_AN_IMPORT_ON_DEMAND_P, COMPOUND_ASSIGN_P, SWITCH_HAS_DEFAULT,
+	PRIMARY_P, MODIFY_EXPR_FROM_INITIALIZATION_P,
+	CLASS_METHOD_CHECKED_P, FOR_LOOP_P, ANONYMOUS_CLASS_P,
+	LOCAL_CLASS_P, ARG_FINAL_P, SUPPRESS_UNREACHABLE_ERROR,
+	RESOLVE_PACKAGE_NAME_P, RESOLVE_TYPE_NAME_P, IS_BREAK_STMT_P,
+	IS_CRAFTED_STRING_BUFFER_P, IS_INIT_CHECKED, CALL_USING_SUPER,
+	NESTED_FIELD_ACCESS_IDENTIFIER_P, TOPLEVEL_CLASS_DECL_P,
+	PURE_INNER_CLASS_TYPE_P, TOPLEVEL_CLASS_TYPE_P,
+	CALL_CONSTRUCTOR_P, CALL_EXPLICIT_CONSTRUCTOR_P,
+	CALL_THIS_CONSTRUCTOR_P, CALL_SUPER_CONSTRUCTOR_P,
+	FINALLY_EXPR_LABEL, FINALLY_EXPR_BLOCK, BLOCK_IS_IMPLICIT,
+	BLOCK_EMPTY_P, IS_UNCHECKED_EXCEPTION_P, java_error_count,
+	java_parse_abort_on_error, extract_field_decl): Removed.
+	(finput): Declare.
+	* lang.c: (compiling_from_source, current_encoding): Removed.
+	(java_handle_option): Ignore -fencoding.
+	* parse.h: Don't include lex.h.
+	(java_error_count, int_fits_type_p, stabilize_reference, RULE,
+	RECOVERED, DRECOVERED, RECOVER, DRECOVER, YYERROR_NOW,
+	YYNOT_TWICE, CLASS_MODIFIERS, FIELD_MODIFIERS, METHOD_MODIFIERS,
+	INTERFACE_MODIFIERS, INTERFACE_INNER_MODIFIERS,
+	INTERFACE_METHOD_MODIFIERS, INTERFACE_FIELD_MODIFIERS,
+	MODIFIER_WFL, THIS_MODIFIER_ONLY, parse_error_context,
+	ABSTRACT_CHECK, JCONSTRUCTOR_CHECK, exit_java_complete_class,
+	CLASS_OR_INTERFACE, GET_REAL_TYPE, GET_TYPE_NAME,
+	OBSOLETE_MODIFIER_WARNING, OBSOLETE_MODIFIER_WARNING2,
+	BUILD_PTR_FROM_NAME, INCOMPLETE_TYPE_P,
+	JAVA_MAYBE_GENERATE_DEBUG_INFO, JBSC_TYPE_P, JSTRING_P,
+	JNULLP_TYPE_P, JDECL_P, TYPE_INTERFACE_P, TYPE_CLASS_P,
+	IDENTIFIER_INNER_CLASS_OUTER_FIELD_ACCESS,
+	MANGLE_OUTER_LOCAL_VARIABLE_NAME,
+	MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_ID,
+	MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_STRING,
+	SKIP_THIS_AND_ARTIFICIAL_PARMS, MARK_FINAL_PARMS,
+	UNMARK_FINAL_PARMS, CRAFTED_PARAM_LIST_FIXUP,
+	AIPL_FUNCTION_CREATION, AIPL_FUNCTION_DECLARATION,
+	AIPL_FUNCTION_CTOR_INVOCATION, AIPL_FUNCTION_FINIT_INVOCATION,
+	ERROR_CANT_CONVERT_TO_BOOLEAN, ERROR_CANT_CONVERT_TO_NUMERIC,
+	ERROR_CAST_NEEDED_TO_INTEGRAL, ERROR_VARIABLE_NOT_INITIALIZED,
+	LOOP_EXPR_BODY_MAIN_BLOCK, LOOP_EXPR_BODY_UPDATE_BLOCK,
+	LOOP_EXPR_BODY_CONDITION_EXPR, LOOP_EXPR_BODY_LABELED_BODY,
+	LOOP_EXPR_BODY_BODY_EXPR, PUSH_LABELED_BLOCK, POP_LABELED_BLOCK,
+	PUSH_LOOP, POP_LOOP, PUSH_EXCEPTIONS, POP_EXCEPTIONS,
+	IN_TRY_BLOCK_P, EXCEPTIONS_P, ANONYMOUS_ARRAY_BASE_TYPE,
+	ANONYMOUS_ARRAY_DIMS_SIG, ANONYMOUS_ARRAY_INITIALIZER,
+	INVOKE_STATIC, INVOKE_NONVIRTUAL, INVOKE_SUPER, INVOKE_INTERFACE,
+	INVOKE_VIRTUAL, jdep_code, struct _jdep, JDEP_DECL, JDEP_DECL_WFL,
+	JDEP_KIND, JDEP_WFL, JDEP_MISC, JDEP_ENCLOSING, JDEP_CLASS,
+	JDEP_APPLY_PATCH, JDEP_GET_PATCH, JDEP_CHAIN, JDEP_TO_RESOLVE,
+	JDEP_RESOLVED_DECL, JDEP_RESOLVED, JDEP_RESOLVED_P, struct
+	jdeplist_s, jdeplists, CLASSD_FIRST, CLASSD_LAST, CLASSD_CHAIN,
+	JDEP_INSERT, SET_TYPE_FOR_RESOLUTION, WFL_STRIP_BRACKET,
+	STRING_STRIP_BRACKETS, PROMOTE_RECORD_IF_COMPLETE,
+	BLOCK_CHAIN_DECL, GET_CURRENT_BLOCK, EXPR_WFL_GET_LINECOL,
+	EXPR_WFL_QUALIFICATION, QUAL_WFL, QUAL_RESOLUTION, QUAL_DECL_TYPE,
+	GET_SKIP_TYPE, COMPLETE_CHECK_OP, COMPLETE_CHECK_OP_0,
+	COMPLETE_CHECK_OP_1, COMPLETE_CHECK_OP_2, BUILD_APPEND,
+	BUILD_STRING_BUFFER, BUILD_THROW, SET_WFL_OPERATOR,
+	PATCH_METHOD_RETURN_ERROR, CHECK_METHODS, CLEAR_DEPRECATED,
+	CHECK_DEPRECATED_NO_RESET, CHECK_DEPRECATED, REGISTER_IMPORT,
+	CURRENT_OSB, struct parser_ctxt, GET_CPC_LIST, CPC_INNER_P,
+	GET_CPC, GET_CPC_UN, GET_CPC_UN_MODE, GET_CPC_DECL_NODE,
+	GET_ENCLOSING_CPC, GET_NEXT_ENCLOSING_CPC,
+	GET_ENCLOSING_CPC_CONTEXT, INNER_ENCLOSING_SCOPE_CHECK, PUSH_CPC,
+	PUSH_ERROR, POP_CPC, DEBUG_CPC, CPC_INITIALIZER_LIST,
+	CPC_STATIC_INITIALIZER_LIST, CPC_INSTANCE_INITIALIZER_LIST,
+	CPC_INITIALIZER_STMT, CPC_STATIC_INITIALIZER_STMT,
+	CPC_INSTANCE_INITIALIZER_STMT, SET_CPC_INITIALIZER_STMT,
+	SET_CPC_STATIC_INITIALIZER_STMT,
+	SET_CPC_INSTANCE_INITIALIZER_STMT, JAVA_NOT_RADIX10_FLAG,
+	java_complete_class, java_check_circular_reference,
+	java_fix_constructors, java_layout_classes, java_reorder_fields,
+	java_method_add_stmt, java_get_line_col, reset_report,
+	java_init_lex, yyparse, java_parse, yyerror, java_expand_classes,
+	java_finish_classes, ctxp, ctxp_for_generation,
+	ctxp_for_generation_last): Removed.
+	* expr.c (force_evaluation_order): Don't mention NEW_CLASS_EXPR.
+	* mangle.c (utf8_cmp): New function.
+	(cxx_keywords): New global.
+	(cxx_keyword_p): New function.
+	* jvspec.c (JAVA_START_CHAR): Removed obsolete comment.
+	* java-tree.def (UNARY_PLUS_EXPR, NEW_ARRAY_EXPR,
+	NEW_ANONYMOUS_ARRAY_EXPR, NEW_CLASS_EXPR, THIS_EXPR,
+	CASE_EXPR, DEFAULT_EXPR, JAVA_CATCH_EXPR, SYNCHRONIZED_EXPR,
+	THROW_EXPR, CONDITIONAL_EXPR, INSTANCEOF_EXPR, NEW_ARRAY_INIT,
+	CLASS_LITERAL, JAVA_EXC_OBJ_EXPR): Removed.
+	* Make-lang.in (java.srcextra): Do nothing.
+	(parse.c, keyword.h, gt-java-parse.h): Removed targets.
+	(JAVA_OBJS): Don't mention deleted files.
+	(java.mostlyclean): Likewise.
+	(java.clean): Likewise.
+	(JAVA_LEX_C): Removed.
+	(buffer.o, check-init.o, parse.o): Remove unused targets.
+	(typeck.o): Updated.
+	* jcf-parse.c (read_class): Comment out unused code.
+	(java_layout_seen_class_methods): New function.
+	(parse_source_file_1, parse_source_file_2, parse_source_file_3):
+	Removed.
+	(java_parse_file): Comment out unused code.  Don't use 'ctxp'.
+	(init_jcf_parse): Removed.
+	* config-lang.in (gtfiles): Remove deleted files.
+	* decl.c (java_init_decl_processing): Don't initialize
+	finit_identifier_node, instinit_identifier_node,
+	length_identifier_node, super_identifier_node,
+	continue_identifier_node, access0_identifier_node.  Don't call
+	init_jcf_parse.
+	* class.c (cyclic_inheritance_report): New global.
+	(add_method_1): Don't use
+	DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND.
+	(maybe_layout_super_class): Comment out code.
+	(safe_layout_class): New function.
+	* java-gimplify.c (java_gimplify_expr): Removed CASE_EXPR,
+	DEFAULT_EXPR, NEW_ARRAY_INIT, JAVA_CATCH_EXPR, JAVA_EXC_OBJ_EXPR,
+	UNARY_PLUS_EXPR, NEW_ARRAY_EXPR, NEW_ANONYMOUS_ARRAY_EXPR,
+	NEW_CLASS_EXPR, SYNCHRONIZED_EXPR, CONDITIONAL_EXPR,
+	INSTANCEOF_EXPR, CLASS_LITERAL, THIS_EXPR.
+	(java_gimplify_case_expr): Removed.
+	(java_gimplify_default_expr): Likewise.
+	(java_gimplify_new_array_init): Likewise.
+	* parse.y: Removed.
+	* keyword.gperf, keyword.h: Removed.
+	* chartables.h: Removed.
+	* check-init.c: Removed.
+	* buffer.c, buffer.h: Removed.
+	* convert.h: Removed.
+	* gen-table.pl: Removed.
+	* lex.c, lex.h: Removed.
+
 2007-01-02  Andrew Haley  <aph@redhat.com>
 
 	* expr.c (expand_java_arraystore): Make sure we perform a bounds
