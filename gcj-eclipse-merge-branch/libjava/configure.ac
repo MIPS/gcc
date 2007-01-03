@@ -143,7 +143,7 @@ AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_AWK
-AC_CHECK_PROGS([JAR], [jar fastjar], no)
+AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
 AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)

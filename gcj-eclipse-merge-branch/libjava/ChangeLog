@@ -1,5 +1,10 @@
 2007-01-02  Tom Tromey  <tromey@redhat.com>
 
+	* configure: Rebuilt.
+	* configure.ac: Check for gjar.
+
+2007-01-02  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.jacks/jacks.exp: Removed.
 	* testsuite/libjava.jacks/jacks.xfail: Removed.
 
