@@ -1,5 +1,10 @@
 2007-01-03  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/libjava.cni/cni.exp (gcj_cni_compile_cxx_to_o): Add -I
+	for srcdir.
+
+2007-01-03  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/*: Added many .jar and .h files.
 	* testsuite/libjava.special/special.exp
 	(gcj_special_try_compiler): New proc.

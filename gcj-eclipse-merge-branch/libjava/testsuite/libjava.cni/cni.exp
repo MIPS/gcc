@@ -4,13 +4,13 @@
 # of options to pass to the compiler.  Returns 0 on failure, 1 on
 # success.
 proc gcj_cni_compile_cxx_to_o {file {options {}}} {
-  global srcdir
+  global srcdir subdir
 
   set name [file rootname [file tail $file]]
   set oname ${name}.o
 
   # Find the generated header.
-  lappend options "additional_flags=-I. -I.."
+  lappend options "additional_flags=-I. -I.. -I$srcdir/$subdir"
   # Find libgcj headers.
   lappend options "additional_flags=-I$srcdir/.."
 
