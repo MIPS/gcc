@@ -1,3 +1,30 @@
+2007-01-02  Chao-ying Fu  <fu@mips.com>
+
+	* fold-const.c (const_binop): Add satp for saturating types.
+	Pass satp to fixed_arithmetic.
+	(fold_negate_const): Pass saturating info to negate a fixed value.
+	* double-int.c (double_int_scmp): We should use unsigned compare
+	for a.low and b.low.
+	* fixed-value.c (get_fixed_sign_bit): Declare.
+	(do_fixed_add, do_fixed_multiply, do_fixed_divide, do_fixed_shift):
+	Add satp as the last parameter.
+	(do_fixed_neg, fixed_saturate1, fixed_saturate2): Declare.
+	(fixed_saturate1, fixed_saturate2): New functions to saturate the
+	results.
+	(get_fixed_sign_bit): New function to return the sign bit.
+	(do_fixed_add): Saturate the result if satp is true.
+	(do_fixed_multiply): Saturate the result if satp is true.  Support all
+	modes now.
+	(do_fixed_divide): Likewise.
+	(do_fixed_shift): Saturate the result if satp is true.
+	(do_fixed_neg): New function.
+	(fixed_arithmetic): Add a parameter of satp.  Call do_fixed_neg
+	for negation.  Pass satp to do_fixed_*.
+	(fixed_arithmetic2): Add a parameter of satp.
+	* fixed-value.h (fixed_arithmetic, fixed_arithmetic2): Add a parameter
+	of satp.
+	(FIXED_VALUE_NEGATE): Likewise.
+	
 2006-12-19  Ben Elliston  <bje@au.ibm.com>
 
 	* config/spu/spu.h (HANDLE_PRAGMA_PACK_PUSH_POP): Define.

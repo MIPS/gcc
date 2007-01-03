@@ -63,16 +63,16 @@ extern void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *, size_t);
 
 /* Binary or unary arithmetic on tree_code.  */
 extern void fixed_arithmetic (FIXED_VALUE_TYPE *, int, const FIXED_VALUE_TYPE *,
-			      const FIXED_VALUE_TYPE *);
+			      const FIXED_VALUE_TYPE *, int);
 
 /* Compare fixed-point values by tree_code.  */
 extern bool fixed_compare (int, const FIXED_VALUE_TYPE *,
 			   const FIXED_VALUE_TYPE *);
 
 extern FIXED_VALUE_TYPE fixed_arithmetic2 (int, const FIXED_VALUE_TYPE *,
-					   const FIXED_VALUE_TYPE *);
+					   const FIXED_VALUE_TYPE *, int);
 
-#define FIXED_VALUE_NEGATE(X) \
-  fixed_arithmetic2 (NEGATE_EXPR, &(X), NULL)
+#define FIXED_VALUE_NEGATE(X, satp) \
+  fixed_arithmetic2 (NEGATE_EXPR, &(X), NULL, satp)
 
 #endif /* GCC_FIXED_VALUE_H */

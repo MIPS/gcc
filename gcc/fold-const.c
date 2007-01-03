@@ -1714,6 +1714,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       FIXED_VALUE_TYPE f2;
       FIXED_VALUE_TYPE result;
       tree t, type;
+      int satp;
 
       /* The following codes are handled by fixed_arithmetic.  */
       switch (code)
@@ -1738,7 +1739,8 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 
       f1 = TREE_FIXED_CST (arg1);
       type = TREE_TYPE (arg1);
-      fixed_arithmetic (&result, code, &f1, &f2);
+      satp = TYPE_SATURATING (type);
+      fixed_arithmetic (&result, code, &f1, &f2, satp);
       t = build_fixed (type, result);
       return t;
     }
@@ -12955,7 +12957,8 @@ fold_negate_const (tree arg0, tree type)
       break;
 
     case FIXED_CST:
-      t = build_fixed (type, FIXED_VALUE_NEGATE (TREE_FIXED_CST (arg0)));
+      t = build_fixed (type, FIXED_VALUE_NEGATE (TREE_FIXED_CST (arg0),
+						 TYPE_SATURATING (type)));
       break;
 
     default:
