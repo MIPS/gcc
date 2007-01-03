@@ -2892,7 +2892,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       tree context = DECL_CONTEXT (field_ref);
       if (context != self_type && CLASS_INTERFACE (TYPE_NAME (context)))
 	field_ref = build_class_init (context, field_ref);
-      field_ref = build_class_init (self_type, field_ref);
+      else
+	field_ref = build_class_init (self_type, field_ref);
     }
   if (is_putting)
     {
