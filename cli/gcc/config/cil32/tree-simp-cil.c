@@ -1,6 +1,6 @@
 /* Simplify GENERIC trees before CIL emission.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -193,6 +193,7 @@ static bool is_copy_required (tree);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void simp_cond_stmt (block_stmt_iterator, tree);
+static void rescale_out_edge_probabilities (basic_block, int);
 static void simp_switch (block_stmt_iterator *, tree *);
 static void simp_trivial_switch (block_stmt_iterator *, tree *);
 static void simp_builtin_call (block_stmt_iterator, tree);
@@ -304,7 +305,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
   tree node = *node_ptr;
 
   if (node == NULL_TREE)
-    return;  /* ER: was spc */
+    return;
 
   switch (TREE_CODE (node))
     {
@@ -604,7 +605,7 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
 {
   basic_block bb = bb_for_stmt (bsi_stmt (bsi));
   tree cond_expr, then_expr;
-  enum tree_code cond_code;
+  enum tree_code cond_code, rev_code;
   tree cond_type;
 
   /* The condition targets are lowered in gimplify.c, we should never have
@@ -616,27 +617,19 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
 
   cond_expr = COND_EXPR_COND (node);
   then_expr = COND_EXPR_THEN (node);
-  cond_code = TREE_CODE (cond_expr);
 
-  /* Do something only for a set of handled conditions */
-  if (cond_code != LE_EXPR
-      && cond_code != LT_EXPR
-      && cond_code != GE_EXPR
-      && cond_code != GT_EXPR
-      && cond_code != EQ_EXPR
-      && cond_code != NE_EXPR
-      && cond_code != UNORDERED_EXPR
-      && cond_code != ORDERED_EXPR)
+  /* Nothing to do if the condition is not a comparison */
+  if (! COMPARISON_CLASS_P (cond_expr))
     return;
 
+  /* Do something only when the condition can be inverted */
+  cond_code = TREE_CODE (cond_expr);
   cond_type = TREE_TYPE (TREE_OPERAND (cond_expr, 0));
-  if ((INTEGRAL_TYPE_P (cond_type) || POINTER_TYPE_P  (cond_type))
+  rev_code = invert_tree_comparison (cond_code, FLOAT_TYPE_P (cond_type));
+  if (rev_code != ERROR_MARK
       && label_to_block (GOTO_DESTINATION (then_expr)) == bb->next_bb)
     {
-      enum tree_code rev_code = invert_tree_comparison (cond_code, false);
       edge e;
-
-      gcc_assert (rev_code != ERROR_MARK);
 
       /* Invert the targets of the COND_EXPR */
       TREE_SET_CODE (COND_EXPR_COND (node), rev_code);
@@ -648,6 +641,35 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
       e->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
       e = EDGE_SUCC (bb, 1);
       e->flags ^= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+    }
+}
+
+/* Rescale the probabilities of the out-edge of basic block BB
+   by assuming TOT_PROB as the sum of the current probabilities.   */
+
+static void
+rescale_out_edge_probabilities (basic_block bb, int tot_prob)
+{
+  edge e;
+  edge_iterator ei;
+
+  if (tot_prob <= 0)
+    {
+      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+      ei = ei_start (bb->succs);
+      ei_next (&ei);
+      for (; (e = ei_safe_edge (ei)); ei_next (&ei))
+        e->probability = 0;
+    }
+  else if (tot_prob != REG_BR_PROB_BASE)
+    {
+      int scale = (65536 * REG_BR_PROB_BASE) / tot_prob;
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        {
+          e->probability = (e->probability * scale) / 65536;
+          gcc_assert (e->probability <= REG_BR_PROB_BASE);
+        }
     }
 }
 
@@ -681,6 +703,7 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
   tree label1_decl, label2_decl, label1, label2;
   edge_iterator ei;
   edge e1, e2, tmp_edge;
+  int bb1_probs, bb2_probs;
 
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
@@ -688,8 +711,8 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
 
   vec_len = TREE_VEC_LENGTH (vec);
 
-  /* Switches made of one case are always separately (they are always
-     transformed into if ... then ... else ...    */
+  /* Switches made of one case are always separately handled
+     (they are transformed into if ... then ... else ...).   */
   if (vec_len == 2)
     {
       simp_trivial_switch (bsi, node_ptr);
@@ -796,8 +819,41 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
   if (! sw1_last_int_cst)
     sw1_last_int_cst = CASE_LOW (TREE_VEC_ELT (vec, sw1_last));
 
-  /* Build a COND_EXPR, replace the switch with the COND_EXPR */
+  /* For each out-going edge of the original switch basic block,
+     mark whether it is going to be replicated in the first newly
+     created switch block, in the second, or in both.
+     This is needed in order to update counts, frequencies and
+     probabilities.
+     In order to do that, use the following edge flags:
+     EDGE_FALSE_VALUE: 1st block
+     EDGE_TRUE_VALUE:  2nd block
+     This is fine because these edges are removed later on.   */
   bb_orig_sw = bb_for_stmt (bsi_stmt (*bsi));
+  for (i = 0; i < vec_len; ++i)
+    {
+      tree elt = TREE_VEC_ELT (vec, i);
+      basic_block target_bb = label_to_block (CASE_LABEL (elt));
+      edge e = find_edge (bb_orig_sw, target_bb);
+
+      gcc_assert (e);
+      e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+    }
+  for (i = 0; i < vec_len; ++i)
+    {
+      tree elt = TREE_VEC_ELT (vec, i);
+      basic_block target_bb = label_to_block (CASE_LABEL (elt));
+      edge e = find_edge (bb_orig_sw, target_bb);
+
+      gcc_assert (e);
+      if (i <= sw1_last)
+        e->flags |= EDGE_FALSE_VALUE;
+      else if (i != vec_len - 1)
+        e->flags |= EDGE_TRUE_VALUE;
+      else
+        e->flags |= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+    }
+
+  /* Build a COND_EXPR, replace the switch with the COND_EXPR */
   label1_decl = create_artificial_label ();
   label2_decl = create_artificial_label ();
   cmp_stmt = build3 (COND_EXPR, void_type_node,
@@ -817,7 +873,6 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Generate a basic block with the first switch */
   bb1 = create_empty_bb (bb_orig_sw);
-  bb1->count = bb_orig_sw->count / 2;
   label1 = build1 (LABEL_EXPR, void_type_node, label1_decl);
   vec1 = make_tree_vec (sw1_last + 2);
   sw1_stmt = build3 (SWITCH_EXPR, TREE_TYPE (node),
@@ -829,7 +884,6 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Generate a basic block with the second switch */
   bb2 = create_empty_bb (bb1);
-  bb2->count = bb_orig_sw->count - bb1->count;
   label2 = build1 (LABEL_EXPR, void_type_node, label2_decl);
   vec2 = make_tree_vec (vec_len - sw1_last - 1);
   sw2_stmt = build3 (SWITCH_EXPR, TREE_TYPE (node),
@@ -845,28 +899,28 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
     {
       tree elt = TREE_VEC_ELT (vec, i);
       basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = make_edge (bb1, target_bb, 0);
+      edge e = find_edge (bb1, target_bb);
 
       if (!e)
-        e = find_edge (bb1, target_bb);
+        {
+          edge old_e = find_edge (bb_orig_sw, target_bb);
 
-      e->count = 0;
-      e->probability = 0;
+          e = make_edge (bb1, target_bb, 0);
+          gcc_assert (e);
+          gcc_assert (old_e && (old_e->flags & EDGE_FALSE_VALUE) != 0);
+          if (old_e->flags & EDGE_TRUE_VALUE)
+            {
+              e->count = old_e->count / 2;
+              e->probability = old_e->probability / 2;
+            }
+          else
+            {
+              e->count = old_e->count;
+              e->probability = old_e->probability;
+            }
+        }
 
       TREE_VEC_ELT (vec1, i) = elt;
-    }
-    {
-      tree elt = TREE_VEC_ELT (vec, vec_len - 1);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = make_edge (bb1, target_bb, 0);
-
-      if (!e)
-        e = find_edge (bb1, target_bb);
-
-      e->count = bb1->count;
-      e->probability = REG_BR_PROB_BASE;
-
-      TREE_VEC_ELT (vec1, sw1_last + 1) = elt;
     }
 
   /* Build the case labels for the 2nd new switch and the out-edges
@@ -875,35 +929,93 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
     {
       tree elt = TREE_VEC_ELT (vec, i);
       basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = make_edge (bb2, target_bb, 0);
+      edge e = find_edge (bb2, target_bb);
 
       if (!e)
-        e = find_edge (bb2, target_bb);
+        {
+          edge old_e = find_edge (bb_orig_sw, target_bb);
 
-      e->count = 0;
-      e->probability = 0;
+          e = make_edge (bb2, target_bb, 0);
+          gcc_assert (e);
+          gcc_assert (old_e && (old_e->flags & EDGE_TRUE_VALUE) != 0);
+          if (old_e->flags & EDGE_FALSE_VALUE)
+            {
+              e->count = old_e->count - old_e->count / 2;
+              e->probability = old_e->probability - old_e->probability / 2;
+            }
+          else
+            {
+              e->count = old_e->count;
+              e->probability = old_e->probability;
+            }
+        }
 
       TREE_VEC_ELT (vec2, i - sw1_last - 1) = elt;
     }
+
+  /* Build the default labels for both new switches and the out-edges
+     of their basic blocks.   */
     {
       tree elt = TREE_VEC_ELT (vec, vec_len - 1);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = make_edge (bb2, target_bb, 0);
       tree new_elt;
+      basic_block target_bb = label_to_block (CASE_LABEL (elt));
+      edge e1 = find_edge (bb1, target_bb);
+      edge e2 = find_edge (bb2, target_bb);
+      edge old_e = NULL;
 
-      if (!e)
-        e = find_edge (bb2, target_bb);
+      if (!e1 || !e2)
+        {
+          old_e = find_edge (bb_orig_sw, target_bb);
+          gcc_assert (old_e
+                      && (old_e->flags & EDGE_TRUE_VALUE) != 0
+                      && (old_e->flags & EDGE_FALSE_VALUE) != 0);
+        }
 
-      e->count = bb2->count;
-      e->probability = REG_BR_PROB_BASE;
+      if (!e1)
+        {
+          e1 = make_edge (bb1, target_bb, 0);
+          gcc_assert (e1);
+          e1->count = old_e->count / 2;
+          e1->probability = old_e->probability / 2;
+        }
+
+      if (!e2)
+        {
+          e2 = make_edge (bb2, target_bb, 0);
+          gcc_assert (e2);
+          e2->count = old_e->count - old_e->count / 2;
+          e2->probability = old_e->probability - old_e->probability / 2;
+        }
+
+      TREE_VEC_ELT (vec1, sw1_last + 1) = elt;
 
       /* Duplicate this case label expression, since it is used
          in the first switch.   */
       new_elt = build3 (CASE_LABEL_EXPR, TREE_TYPE (elt),
                         CASE_LOW (elt), CASE_HIGH (elt), CASE_LABEL (elt));
-
       TREE_VEC_ELT (vec2, vec_len - sw1_last - 2) = new_elt;
     }
+
+  /* Re-scale probabilities of the out-going edges of the new blocks
+     and compute counts of such blocks.   */
+  bb1_probs = 0;
+  bb1->count = 0;
+  FOR_EACH_EDGE (tmp_edge, ei, bb1->succs)
+    {
+      bb1->count += tmp_edge->count;
+      bb1_probs += tmp_edge->probability;
+    }
+  rescale_out_edge_probabilities (bb1, bb1_probs);
+
+  bb2_probs = 0;
+  bb2->count = 0;
+  FOR_EACH_EDGE (tmp_edge, ei, bb2->succs)
+    {
+      bb2->count += tmp_edge->count;
+      bb2_probs += tmp_edge->probability;
+    }
+  rescale_out_edge_probabilities (bb2, bb2_probs);
+  gcc_assert (bb1->count + bb2->count == bb_orig_sw->count);
 
   /* Update out-edges of original switch basic block */
   for (ei = ei_start (bb_orig_sw->succs); (tmp_edge = ei_safe_edge (ei)); )
@@ -912,19 +1024,16 @@ simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
     }
   e1 = unchecked_make_edge (bb_orig_sw, bb1, EDGE_FALSE_VALUE);
   e2 = unchecked_make_edge (bb_orig_sw, bb2, EDGE_TRUE_VALUE);
-  e1->probability = REG_BR_PROB_BASE / 2;
+  if (bb1_probs + bb2_probs > 0)
+    e1->probability = ((bb1_probs * 256 * REG_BR_PROB_BASE) /
+                       (bb1_probs + bb2_probs)) / 256;
+  else
+    e1->probability = REG_BR_PROB_BASE / 2;
   e1->count = bb1->count;
   e2->probability = REG_BR_PROB_BASE - e1->probability;
   e2->count = bb2->count;
-
-  /* TODO: probabilities of the out-edges of the new basic blocks
-           currently do not reflect those of the out-edges of the
-           original switch basic block.
-           In order to "preserve" them, the new edges should be given
-           probabilities based on the original edges, but normalized.   */
-
-  /* TODO: basic block frequencies are not updated, this makes
-           the profile information sanity check to fail.   */
+  bb1->frequency = EDGE_FREQUENCY (e1);
+  bb2->frequency = EDGE_FREQUENCY (e2);
 }
 
 /* Expand the SWITCH_EXPR pointed by NODE_PTR, composed of just
@@ -1188,7 +1297,7 @@ simp_abs (block_stmt_iterator *bsi, tree *node_ptr)
   tree sel_var;
   tree orig_stmt, cmp_stmt, asn_op_stmt, asn_neg_stmt;
   basic_block bb_comp, bb_neg, bb_sel;
-  edge tmp_edge;
+  edge tmp_edge, edge_comp_neg, edge_comp_sel;
   block_stmt_iterator tmp_bsi;
   gcov_type count;
 
@@ -1219,11 +1328,16 @@ simp_abs (block_stmt_iterator *bsi, tree *node_ptr)
   tmp_edge = split_block (bb_comp, cmp_stmt);
   bb_sel = tmp_edge->dest;
   bb_sel->count = count;
+  bb_sel->frequency = bb_comp->frequency;
   remove_edge (tmp_edge);
   bb_neg = create_empty_bb (bb_comp);
   bb_neg->count = count / 2;
-  unchecked_make_edge (bb_comp, bb_neg, EDGE_FALSE_VALUE);
+  edge_comp_neg = unchecked_make_edge (bb_comp, bb_neg, EDGE_FALSE_VALUE);
+  edge_comp_neg->probability = REG_BR_PROB_BASE / 2;
+  edge_comp_sel = unchecked_make_edge (bb_comp, bb_sel, EDGE_TRUE_VALUE);
+  edge_comp_sel->probability = REG_BR_PROB_BASE - edge_comp_neg->probability;
   make_single_succ_edge (bb_neg, bb_sel, EDGE_FALLTHRU);
+  bb_neg->frequency = EDGE_FREQUENCY (edge_comp_neg);
 
   /* Insert labels and statements into neg bb */
   label_neg = build1 (LABEL_EXPR, void_type_node, label_decl_neg);
@@ -1270,7 +1384,7 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
   tree sel_var;
   tree orig_stmt, cmp_stmt, asn_op0_stmt, asn_op1_stmt;
   basic_block bb_comp, bb_op0, bb_op1, bb_sel;
-  edge tmp_edge;
+  edge tmp_edge, edge_comp_op0, edge_comp_op1;
   block_stmt_iterator tmp_bsi;
   gcov_type count;
 
@@ -1317,15 +1431,20 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
   tmp_edge = split_block (bb_comp, cmp_stmt);
   bb_sel = tmp_edge->dest;
   bb_sel->count = count;
+  bb_sel->frequency = bb_comp->frequency;
   remove_edge (tmp_edge);
   bb_op0 = create_empty_bb (bb_comp);
   bb_op1 = create_empty_bb (bb_op0);
   bb_op0->count = count / 2;
   bb_op1->count = count - bb_op0->count;
-  unchecked_make_edge (bb_comp, bb_op0, EDGE_TRUE_VALUE);
+  edge_comp_op0 = unchecked_make_edge (bb_comp, bb_op0, EDGE_TRUE_VALUE);
+  edge_comp_op0->probability = REG_BR_PROB_BASE / 2;
   make_single_succ_edge (bb_op0, bb_sel, EDGE_FALLTHRU);
-  unchecked_make_edge (bb_comp, bb_op1, EDGE_FALSE_VALUE);
+  edge_comp_op1 = unchecked_make_edge (bb_comp, bb_op1, EDGE_FALSE_VALUE);
+  edge_comp_op1->probability = REG_BR_PROB_BASE - edge_comp_op0->probability;
   make_single_succ_edge (bb_op1, bb_sel, EDGE_FALLTHRU);
+  bb_op0->frequency = EDGE_FREQUENCY (edge_comp_op0);
+  bb_op1->frequency = EDGE_FREQUENCY (edge_comp_op1);
 
   /* Insert labels and statements into op0 bb */
   sel_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
@@ -1373,7 +1492,7 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   tree sel_var;
   tree orig_stmt, cmp_stmt, asn_then_stmt, asn_else_stmt;
   basic_block bb_comp, bb_then, bb_else, bb_sel;
-  edge tmp_edge;
+  edge tmp_edge, edge_comp_then, edge_comp_else;
   block_stmt_iterator tmp_bsi;
   gcov_type count;
 
@@ -1419,15 +1538,20 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   tmp_edge = split_block (bb_comp, cmp_stmt);
   bb_sel = tmp_edge->dest;
   bb_sel->count = count;
+  bb_sel->frequency = bb_comp->frequency;
   remove_edge (tmp_edge);
   bb_then = create_empty_bb (bb_comp);
   bb_else = create_empty_bb (bb_then);
   bb_then->count = count / 2;
   bb_else->count = count - bb_then->count;
-  unchecked_make_edge (bb_comp, bb_then, EDGE_TRUE_VALUE);
+  edge_comp_then = unchecked_make_edge (bb_comp, bb_then, EDGE_TRUE_VALUE);
+  edge_comp_then->probability = REG_BR_PROB_BASE / 2;
   make_single_succ_edge (bb_then, bb_sel, EDGE_FALLTHRU);
-  unchecked_make_edge (bb_comp, bb_else, EDGE_FALSE_VALUE);
+  edge_comp_else = unchecked_make_edge (bb_comp, bb_else, EDGE_FALSE_VALUE);
+  edge_comp_else->probability = REG_BR_PROB_BASE - edge_comp_then->probability;
   make_single_succ_edge (bb_else, bb_sel, EDGE_FALLTHRU);
+  bb_then->frequency = EDGE_FREQUENCY (edge_comp_then);
+  bb_else->frequency = EDGE_FREQUENCY (edge_comp_else);
 
   /* Insert labels and statements into then bb */
   sel_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
@@ -1584,8 +1708,7 @@ simp_ltgt_expr (block_stmt_iterator *bsi, tree *node_ptr)
    by inserting shifts and bit operations.
    BSI points to the iterator of the statement that contains *NODE_PTR
    (in order to allow insertion of new statements).
-   BSI is passed by reference because instructions are inserted,
-   new basic blocks created...
+   BSI is passed by reference because instructions are inserted.
    NODE is passed by reference because simplification requires
    replacing the node.   */
 
@@ -2950,13 +3073,6 @@ simp_cil (void)
         }
     }
 
-#if 0
-  FOR_EACH_BB (bb)
-    {
-      dump_generic_bb (stdout, bb, 4, 0);
-    }
-#endif
-
   return 0;
 }
 
@@ -2984,7 +3100,7 @@ struct tree_opt_pass pass_simp_cil =
   /* ??? If TER is enabled, we also kill gimple.  */
   0,    				/* properties_destroyed */
   0,
-  0,
+  TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
 

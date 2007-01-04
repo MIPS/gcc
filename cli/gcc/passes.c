@@ -481,6 +481,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
 #if defined(DISABLE_RTL_PASSES)
+  NEXT_PASS (pass_bb_layout);
   NEXT_PASS (pass_simp_cil);
   NEXT_PASS (pass_gen_cil);   /*   <--- CIL   */
   NEXT_PASS (pass_free_datastructures);

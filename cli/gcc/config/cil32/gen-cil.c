@@ -1,6 +1,6 @@
 /* Dump of the GENERIC trees in CIL.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -94,6 +94,7 @@ static unsigned int get_string_cst_id (tree);
 static void dump_decl_name (FILE *, tree);
 static void dump_string_name (FILE *, tree);
 static void dump_label_name (FILE *, tree);
+static void dump_entry_label_name (FILE *, basic_block);
 static void dump_fun_type (FILE *, tree, tree, const char *, bool);
 static void dump_valuetype_name (FILE *, tree);
 static void compute_addr_expr (FILE *, tree);
@@ -2990,7 +2991,7 @@ gen_cil_node (FILE *file, tree node)
         gcc_assert (! DECL_BIT_FIELD (fld));
 
         compute_addr_expr (file, obj);
-        if (TREE_THIS_VOLATILE (fld))
+        if (TREE_THIS_VOLATILE (node))
           fputs ("\n\tvolatile.", file);
         fputs ("\n\tldfld\t", file);
         dump_type (file, fld_type, true, false);
@@ -3182,7 +3183,7 @@ gen_cil_modify_expr (FILE *file, tree node)
         compute_addr_expr (file, obj);
         gen_cil_node (file, rhs);
         mark_referenced_type (obj_type);
-        if (TREE_THIS_VOLATILE (fld))
+        if (TREE_THIS_VOLATILE (lhs))
           fputs ("\n\tvolatile.", file);
         fputs ("\n\tstfld\t", file);
         dump_type (file, fld_type, true, false);
@@ -3776,7 +3777,7 @@ gen_cil_vcg (FILE *vcg_stream)
            fun_name, EXIT_BLOCK);
   fprintf (vcg_stream, "edge:{sourcename: \"%sBB%d\" targetname: \"%sBB%d\"}\n",
            fun_name, ENTRY_BLOCK,
-           fun_name, single_succ (BASIC_BLOCK (ENTRY_BLOCK))->index);
+           fun_name, single_succ (ENTRY_BLOCK_PTR)->index);
 
   FOR_EACH_BB (bb)
     {
@@ -3838,11 +3839,18 @@ gen_cil_vcg (FILE *vcg_stream)
       for (ei = ei_start (bb->succs); ei_cond (ei, &e); ei_next (&ei))
         {
           if (e->flags & EDGE_DFS_BACK)
-            fprintf (vcg_stream, "backedge: { color: red ");
+            fprintf (vcg_stream, "backedge: { color: red");
+          else if (e->flags & EDGE_LOOP_EXIT)
+            fprintf (vcg_stream, "edge: { color: blue");
           else
-            fprintf (vcg_stream, "edge: { ");
+            fprintf (vcg_stream, "edge: {");
+
+          fprintf (vcg_stream, " label:\"%d", e->probability);
+
           if (e->flags & EDGE_LOOP_EXIT)
-            fprintf (vcg_stream, "color: blue label:\"loop_exit\"");
+            fprintf (vcg_stream, " loop_exit");
+
+          fprintf (vcg_stream, "\"");
 
           fprintf (vcg_stream,
                    " sourcename: \"%sBB%d\" targetname: \"%sBB%d\" }\n",
@@ -4025,7 +4033,7 @@ gen_cil_1 (FILE *stream)
 
       if (TARGET_EMIT_GIMPLE_COMMENTS)
         {
-          fprintf (stream, "\n\t/* Basic block frequency: %d */\n",
+          fprintf (stream, "\n\n\t/* Basic block frequency: %d */",
                    bb->frequency * 100 / BB_FREQ_MAX);
         }
 
@@ -4064,8 +4072,7 @@ gen_cil_1 (FILE *stream)
           /* The last part of the test (succ != bb->next_bb) is a HACK.  It
              avoids generating a branch to the successor in case of a
              fallthrough. To be fixed when we have a proper layout of basic
-             blocks.  Note that branches from COND_EXPR are still generated,
-             even to a fallthrough. */
+             blocks.   */
           if ((succ->index != EXIT_BLOCK) && (succ != bb->next_bb))
             {
               tree label = tree_block_label (succ);
@@ -4077,15 +4084,16 @@ gen_cil_1 (FILE *stream)
 
       if (TARGET_EMIT_GIMPLE_COMMENTS)
         {
-          fprintf (stream, "\n\t/* Edge probabilities: ");
-          edge_iterator ei;
           edge e;
+          edge_iterator ei;
+
+          fputs ("\n\t/* Edge probabilities: ", stream);
           FOR_EACH_EDGE (e, ei, bb->succs)
             {
               dump_entry_label_name (stream, e->dest);
               fprintf (stream, ": %d ", e->probability * 100 / REG_BR_PROB_BASE);
             }
-          fprintf (stream, "*/");
+          fputs ("*/", stream);
         }
     }
 
@@ -4190,10 +4198,6 @@ gen_cil_init (void)
     fputs ("\n.assembly '_C_MONO_ASSEMBLY' {}", stream);
   fputs ("\n.module '<Module>'", stream);
 
-  if (TARGET_EMIT_EXTERNAL_ASSEMBLY)
-    fputs ("\n.class public '_C_MONO_MODULE'"
-           "\n{", stream);
-
   if (TARGET_OPENSYSTEMC)
     fputs ("\n.custom instance "
            "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
@@ -4246,9 +4250,6 @@ gen_cil_fini (void)
     }
   VARRAY_CLEAR (referenced_strings);
   pointer_set_destroy (referenced_string_ptrs);
-
-  if (TARGET_EMIT_EXTERNAL_ASSEMBLY)
-    fputs ("\n} // _C_MONO_MODULE\n", stream);
 
   /* There may be distinct tree types that correspond to identical types.
      In order not to slow down mark_referenced_type(...) function (which

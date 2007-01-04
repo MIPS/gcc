@@ -1,6 +1,6 @@
 # Hi emacs, use Makefile syntax mode. -*-mode: Makefile; -*-
 
-#    Copyright (C) 2006 Free Software Foundation, Inc.
+#    Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -30,7 +30,7 @@
 
 
 gen-cil.o: $(srcdir)/config/cil32/gen-cil.c $(srcdir)/config/cil32/gen-cil.h \
-   $(srcdir)/config/cil32/tree-simp-cil.h gt-gen-cil.h\
+   $(srcdir)/config/cil32/tree-simp-cil.h gt-gen-cil.h \
    $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h

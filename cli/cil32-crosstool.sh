@@ -42,12 +42,17 @@ _prepare_dirs()
 # Install Binutils
 _binutils()
 {
-    CIL_AS=${CIL_AS-`which ilasm`}
+    CIL_AS=${CIL_AS-`which ilasm.pnet`}
     CIL_LD=${CIL_LD-`which ilalink`}
 
     echo "Tools:"
     echo "  CIL ASSEMBLER: " ${CIL_AS}
     echo "  CIL LINKER:    " ${CIL_LD}
+
+    if [ "x$CIL_AS" == x ] ; then
+        echo "Error I cannot find DotGnu ilasm, you can specify it by defining an env variable called CIL_AS"
+        exit 1
+    fi
 
     echo ""
     echo "Installing Bin Utils"
