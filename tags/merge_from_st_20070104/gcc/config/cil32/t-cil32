@@ -1,0 +1,60 @@
+# Hi emacs, use Makefile syntax mode. -*-mode: Makefile; -*-
+
+#    Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+#
+# This file is part of GCC.
+#
+# GCC is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free
+# Software Foundation; either version 2, or (at your option) any later
+# version.
+#
+# GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING.  If not, write to the Free
+# Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+#
+# Authors:
+#    Andrea Bona
+#    Andrea Ornstein
+#    Erven Rohou
+#    Roberto Costa
+#
+# Contact information at STMicroelectronics:
+# Roberto Costa <roberto.costa@st.com>
+
+
+gen-cil.o: $(srcdir)/config/cil32/gen-cil.c $(srcdir)/config/cil32/gen-cil.h \
+   $(srcdir)/config/cil32/tree-simp-cil.h gt-gen-cil.h \
+   $(CONFIG_H) $(SYSTEM_H) \
+   $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) \
+   $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+tree-simp-cil.o: $(srcdir)/config/cil32/tree-simp-cil.c \
+   $(srcdir)/config/cil32/tree-simp-cil.h \
+   $(CONFIG_H) $(SYSTEM_H) \
+   $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) \
+   $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
+$(out_object_file): gt-gen-cil.h
+gt-gen-cil.h : s-gtype ; @true
+
+
+LIBGCC =
+INSTALL_LIBGCC =  install-gcc4net
+
+install-gcc4net: gcc4net.dll installdirs
+	$(INSTALL_DATA) gcc4net.dll $(DESTDIR)$(libdir)/
+	$(INSTALL_DATA) gcc4net.dll $(DESTDIR)$(libsubdir)/
+
+MCS=mcs
+
+gcc4net.dll: $(srcdir)/config/cil32/gcc4net.cs
+	$(MCS) $< -unsafe -target:library -out:$@
