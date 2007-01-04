@@ -461,23 +461,32 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_warn_function_return);
-  NEXT_PASS (pass_early_tree_profile);
   *p = NULL;
 
   p = &pass_early_local_passes.sub;
   NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_cleanup_cfg);
+  NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_expand_omp);
+  NEXT_PASS (pass_all_early_optimizations);
   NEXT_PASS (pass_rebuild_cgraph_edges);
+  *p = NULL;
+
+  p = &pass_all_early_optimizations.sub;
+  NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_reset_cc_flags);
+  NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_early_warn_uninitialized);
+  NEXT_PASS (pass_cleanup_cfg);
+
   *p = NULL;
 
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
-  NEXT_PASS (pass_init_datastructures);
-  NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
-  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_datastructures);
+  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
@@ -485,10 +494,7 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
-  NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_reset_cc_flags);
   NEXT_PASS (pass_create_structure_vars);
-  NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -950,6 +956,9 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after | pass->todo_flags_finish);
 
+  if (!current_function_decl)
+    cgraph_process_new_functions ();
+
   /* Flush and close dump file.  */
   if (dump_file_name)
     {
@@ -989,6 +998,8 @@ execute_ipa_pass_list (struct tree_opt_pass *pass)
       gcc_assert (!cfun);
       if (execute_one_pass (pass) && pass->sub)
 	do_per_function ((void (*)(void *))execute_pass_list, pass->sub);
+      if (!current_function_decl)
+	cgraph_process_new_functions ();
       pass = pass->next;
     }
   while (pass);

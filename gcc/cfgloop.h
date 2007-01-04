@@ -251,14 +251,15 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 
 extern struct loop * duplicate_loop (struct loop *, struct loop *);
 extern bool duplicate_loop_to_header_edge (struct loop *, edge, 
-					   unsigned, sbitmap, edge, edge *,
-					   unsigned *, int);
+					   unsigned, sbitmap, edge,
+ 					   VEC (edge, heap) **, int);
 extern struct loop *loopify (edge, edge,
 			     basic_block, edge, edge, bool,
 			     unsigned, unsigned);
 struct loop * loop_version (struct loop *, void *,
 			    basic_block *, unsigned, unsigned, unsigned, bool);
 extern bool remove_path (edge);
+void scale_loop_frequencies (struct loop *, int, int);
 
 /* Induction variable analysis.  */
 

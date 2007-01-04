@@ -141,6 +141,10 @@ Wchar-subscripts
 C ObjC C++ ObjC++ Var(warn_char_subscripts)
 Warn about subscripts whose type is \"char\"
 
+Wclobbered
+C ObjC C++ ObjC++ Var(warn_clobbered) Init(-1)
+Warn about variables that might be changed by \"longjmp\" or \"vfork\"
+
 Wcomment
 C ObjC C++ ObjC++
 Warn about possibly nested block comments, and C++ comments spanning more than one physical line
@@ -279,6 +283,10 @@ Wmissing-include-dirs
 C ObjC C++ ObjC++
 Warn about user-specified include directories that do not exist
 
+Wmissing-parameter-type
+C ObjC Var(warn_missing_parameter_type) Init(-1)
+Warn about function parameters declared without a type specifier in K&R-style functions
+
 Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)
 Warn about global functions without prototypes
@@ -310,6 +318,10 @@ C ObjC C++ ObjC++ Joined
 Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
 Warn if a C-style cast is used in a program
+
+Wold-style-declaration
+C ObjC Var(warn_old_style_declaration) Init(-1)
+Warn for obsolescent usage in a declaration
 
 Wold-style-definition
 C ObjC Var(warn_old_style_definition)

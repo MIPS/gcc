@@ -44,7 +44,6 @@ static void fix_loop_placements (struct loop *, bool *);
 static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *);
 static void place_new_loop (struct loop *);
-static void scale_loop_frequencies (struct loop *, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void unloop (struct loop *, bool *);
 
@@ -396,7 +395,7 @@ add_loop (struct loop *loop, struct loop *outer)
 }
 
 /* Multiply all frequencies in LOOP by NUM/DEN.  */
-static void
+void
 scale_loop_frequencies (struct loop *loop, int num, int den)
 {
   basic_block *bbs;
@@ -414,12 +413,12 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    FALSE_EDGE of SWITCH_BB to original destination of HEADER_EDGE and
    TRUE_EDGE of SWITCH_BB to original destination of LATCH_EDGE.
    Returns the newly created loop.  Frequencies and counts in the new loop
-   are scaled by NEW_SCALE and in the old one by OLD_SCALE.  */
+   are scaled by FALSE_SCALE and in the old one by TRUE_SCALE.  */
 
 struct loop *
 loopify (edge latch_edge, edge header_edge,
 	 basic_block switch_bb, edge true_edge, edge false_edge,
-	 bool redirect_all_edges, unsigned old_scale, unsigned new_scale)
+	 bool redirect_all_edges, unsigned true_scale, unsigned false_scale)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
@@ -475,8 +474,8 @@ loopify (edge latch_edge, edge header_edge,
 	  e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
 	}
     }
-  scale_loop_frequencies (loop, old_scale, REG_BR_PROB_BASE);
-  scale_loop_frequencies (succ_bb->loop_father, new_scale, REG_BR_PROB_BASE);
+  scale_loop_frequencies (loop, false_scale, REG_BR_PROB_BASE);
+  scale_loop_frequencies (succ_bb->loop_father, true_scale, REG_BR_PROB_BASE);
 
   /* Update dominators of blocks outside of LOOP.  */
   dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
@@ -806,6 +805,41 @@ update_single_exit_for_duplicated_loops (struct loop *orig_loops[], unsigned n)
     update_single_exit_for_duplicated_loop (orig_loops[i]);
 }
 
+/* Sets probability and count of edge E to zero.  The probability and count
+   is redistributed evenly to the remaining edges coming from E->src.  */
+
+static void
+set_zero_probability (edge e)
+{
+  basic_block bb = e->src;
+  edge_iterator ei;
+  edge ae, last = NULL;
+  unsigned n = EDGE_COUNT (bb->succs);
+  gcov_type cnt = e->count, cnt1;
+  unsigned prob = e->probability, prob1;
+
+  gcc_assert (n > 1);
+  cnt1 = cnt / (n - 1);
+  prob1 = prob / (n - 1);
+
+  FOR_EACH_EDGE (ae, ei, bb->succs)
+    {
+      if (ae == e)
+	continue;
+
+      ae->probability += prob1;
+      ae->count += cnt1;
+      last = ae;
+    }
+
+  /* Move the rest to one of the edges.  */
+  last->probability += prob % (n - 1);
+  last->count += cnt % (n - 1);
+
+  e->probability = 0;
+  e->count = 0;
+}
+
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
    loop structure and dominators.  E's destination must be LOOP header for
    this to work, i.e. it must be entry or latch edge of this loop; these are
@@ -816,11 +850,12 @@ update_single_exit_for_duplicated_loops (struct loop *orig_loops[], unsigned n)
    original LOOP body, the other copies are numbered in order given by control
    flow through them) into TO_REMOVE array.  Returns false if duplication is
    impossible.  */
+
 bool
 duplicate_loop_to_header_edge (struct loop *loop, edge e,
 			       unsigned int ndupl, sbitmap wont_exit,
-			       edge orig, edge *to_remove,
-			       unsigned int *n_to_remove, int flags)
+			       edge orig, VEC (edge, heap) **to_remove,
+			       int flags)
 {
   struct loop *target, *aloop;
   struct loop **orig_loops;
@@ -835,10 +870,13 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   unsigned i, j, n;
   int is_latch = (latch == e->src);
   int scale_act = 0, *scale_step = NULL, scale_main = 0;
+  int scale_after_exit = 0;
   int p, freq_in, freq_le, freq_out_orig;
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
   basic_block place_after;
+  bitmap bbs_to_scale = NULL;
+  bitmap_iterator bi;
 
   gcc_assert (e->dest == loop->header);
   gcc_assert (ndupl > 0);
@@ -888,10 +926,26 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       prob_pass_wont_exit =
 	      RDIV (REG_BR_PROB_BASE * (freq_le + freq_out_orig), freq_in);
 
+      if (orig
+	  && REG_BR_PROB_BASE - orig->probability != 0)
+	{
+	  /* The blocks that are dominated by a removed exit edge ORIG have
+	     frequencies scaled by this.  */
+	  scale_after_exit = RDIV (REG_BR_PROB_BASE * REG_BR_PROB_BASE,
+				   REG_BR_PROB_BASE - orig->probability);
+	  bbs_to_scale = BITMAP_ALLOC (NULL);
+	  for (i = 0; i < n; i++)
+	    {
+	      if (bbs[i] != orig->src
+		  && dominated_by_p (CDI_DOMINATORS, bbs[i], orig->src))
+		bitmap_set_bit (bbs_to_scale, i);
+	    }
+	}
+
       scale_step = XNEWVEC (int, ndupl);
 
-	for (i = 1; i <= ndupl; i++)
-	  scale_step[i - 1] = TEST_BIT (wont_exit, i)
+      for (i = 1; i <= ndupl; i++)
+	scale_step[i - 1] = TEST_BIT (wont_exit, i)
 				? prob_pass_wont_exit
 				: prob_pass_thru;
 
@@ -968,10 +1022,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
     update_single_exits_after_duplication (bbs, n, target);
 
-  /* Record exit edge in original loop body.  */
-  if (orig && TEST_BIT (wont_exit, 0))
-    to_remove[(*n_to_remove)++] = orig;
-
   spec_edges[SE_ORIG] = orig;
   spec_edges[SE_LATCH] = latch_edge;
 
@@ -1045,7 +1095,21 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
       /* Record exit edge in this copy.  */
       if (orig && TEST_BIT (wont_exit, j + 1))
-	to_remove[(*n_to_remove)++] = new_spec_edges[SE_ORIG];
+	{
+	  if (to_remove)
+	    VEC_safe_push (edge, heap, *to_remove, new_spec_edges[SE_ORIG]);
+	  set_zero_probability (new_spec_edges[SE_ORIG]);
+
+	  /* Scale the frequencies of the blocks dominated by the exit.  */
+	  if (bbs_to_scale)
+	    {
+	      EXECUTE_IF_SET_IN_BITMAP (bbs_to_scale, 0, i, bi)
+		{
+		  scale_bbs_frequencies_int (new_bbs + i, 1, scale_after_exit,
+					     REG_BR_PROB_BASE);
+		}
+	    }
+	}
 
       /* Record the first copy in the control flow order if it is not
 	 the original loop (i.e. in case of peeling).  */
@@ -1064,6 +1128,24 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     }
   free (new_bbs);
   free (orig_loops);
+
+  /* Record the exit edge in the original loop body, and update the frequencies.  */
+  if (orig && TEST_BIT (wont_exit, 0))
+    {
+      if (to_remove)
+	VEC_safe_push (edge, heap, *to_remove, orig);
+      set_zero_probability (orig);
+
+      /* Scale the frequencies of the blocks dominated by the exit.  */
+      if (bbs_to_scale)
+	{
+	  EXECUTE_IF_SET_IN_BITMAP (bbs_to_scale, 0, i, bi)
+	    {
+	      scale_bbs_frequencies_int (bbs + i, 1, scale_after_exit,
+					 REG_BR_PROB_BASE);
+	    }
+	}
+    }
 
   /* Update the original loop.  */
   if (!is_latch)
@@ -1098,6 +1180,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (first_active);
 
   free (bbs);
+  BITMAP_FREE (bbs_to_scale);
 
   return true;
 }
@@ -1314,7 +1397,7 @@ loop_version (struct loop *loop,
 
   /* Duplicate loop.  */
   if (!cfg_hook_duplicate_loop_to_header_edge (loop, entry, 1,
-					       NULL, NULL, NULL, NULL, 0))
+					       NULL, NULL, NULL, 0))
     return NULL;
 
   /* After duplication entry edge now points to new loop head block.

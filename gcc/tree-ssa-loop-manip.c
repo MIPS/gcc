@@ -562,8 +562,8 @@ copy_phi_node_args (unsigned first_new_block)
 bool
 tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 				    unsigned int ndupl, sbitmap wont_exit,
-				    edge orig, edge *to_remove,
-				    unsigned int *n_to_remove, int flags)
+				    edge orig, VEC (edge, heap) **to_remove,
+				    int flags)
 {
   unsigned first_new_block;
 
@@ -578,7 +578,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   first_new_block = last_basic_block;
   if (!duplicate_loop_to_header_edge (loop, e, ndupl, wont_exit,
-				      orig, to_remove, n_to_remove, flags))
+				      orig, to_remove, flags))
     return false;
 
   /* Readd the removed phi args for e.  */
@@ -664,7 +664,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
   tree step = desc->control.step;
   tree bound = desc->bound;
   tree type = TREE_TYPE (base);
-  tree delta;
+  tree bigstep, delta;
   tree min = lower_bound_in_type (type, type);
   tree max = upper_bound_in_type (type, type);
   enum tree_code cmp = desc->cmp;
@@ -706,13 +706,14 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
 	of the loop, i.e., BOUND - step * FACTOR does not overflow.
      3) # of iterations is at least FACTOR  */
 
-  if (!zero_p (desc->may_be_zero))
+  if (!integer_zerop (desc->may_be_zero))
     cond = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
 			invert_truthvalue (desc->may_be_zero),
 			cond);
 
-  delta = fold_build2 (MULT_EXPR, type, step,
-		       build_int_cst_type (type, factor - 1));
+  bigstep = fold_build2 (MULT_EXPR, type, step,
+			 build_int_cst_type (type, factor));
+  delta = fold_build2 (MINUS_EXPR, type, bigstep, step);
   if (cmp == LT_EXPR)
     assum = fold_build2 (GE_EXPR, boolean_type_node,
 			 bound,
@@ -749,31 +750,17 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
     bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
 
   *exit_base = base;
-  *exit_step = step;
+  *exit_step = bigstep;
   *exit_cmp = cmp;
   *exit_bound = bound;
 }
 
-/* Splits LOOP into two.  The exit condition of the original loop is changed
-   to imply that if it is satisfied, there are at least FACTOR more iterations
-   remaining, the remaining iterations are performed in the newly created
-   loop.  Current number of iterations is stored in DESC.  EXIT is the exit of
-   the loop to that DESC corresponds (it must dominate loop latch).
-   The new exit of the main loop is stored to *EXIT.
+/* Unroll LOOP FACTOR times.  DESC describes number of iterations of LOOP.
+   EXIT is the exit of the loop to that DESC corresponds.
 
-   This function should be used in conjunction with tree_unroll_loop_finish,
-   in case where we want to perform some transformation on the unrolled loop,
-   but not on the loop that executes the iterations of the loop that remain
-   after the main loop is unrolled:
-
-   tree_unroll_loop_prepare (loops, loop, factor, exit, desc);
-   transformation (loop);
-   tree_unroll_loop_finish (loops, loop, factor);
-
-   The exact transformation performed by this function:  If N is the number of
-   iterations and MAY_BE_ZERO is the condition under that loop exits in
-   the first iteration even if N != 0,
- 
+   If N is number of iterations of the loop and MAY_BE_ZERO is the condition
+   under that loop exits in the first iteration even if N != 0,
+   
    while (1)
      {
        x = phi (init, next);
@@ -784,19 +771,24 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
        post;
      }
 
-   becomes (with possibly the exit condition formulated a bit differently,
-   avoiding the need to create a new iv)
-
+   becomes (with possibly the exit conditions formulated a bit differently,
+   avoiding the need to create a new iv):
+   
    if (MAY_BE_ZERO || N < FACTOR)
      goto rest;
 
-   while (1)
+   do
      {
        x = phi (init, next);
 
        pre;
        post;
-       N--;
+       pre;
+       post;
+       ...
+       pre;
+       post;
+       N -= FACTOR;
        
      } while (N >= FACTOR);
 
@@ -812,15 +804,19 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
          break;
        post;
      }
- */
+ 
+   Before the loop is unrolled, TRANSFORM is called for it (only for the
+   unrolled loop, but not for its versioned copy).  DATA is passed to
+   TRANSFORM.  */
 
 /* Probability in % that the unrolled loop is entered.  Just a guess.  */
 #define PROB_UNROLLED_LOOP_ENTERED 90
 
 void
-tree_unroll_loop_prepare (struct loop *loop,
-			  unsigned factor, edge *exit,
-			  struct tree_niter_desc *desc)
+tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
+				edge exit, struct tree_niter_desc *desc,
+				transform_callback transform,
+				void *data)
 {
   tree dont_exit, exit_if, ctr_before, ctr_after;
   tree enter_main_cond, exit_base, exit_step, exit_bound;
@@ -832,8 +828,11 @@ tree_unroll_loop_prepare (struct loop *loop,
   edge new_nonexit;
   block_stmt_iterator bsi;
   use_operand_p op;
-  unsigned est_niter, prob_entry, scale_unrolled, scale_rest;
+  bool ok;
+  unsigned est_niter, prob_entry, scale_unrolled, scale_rest, freq_e, freq_h;
+  unsigned new_est_niter;
   unsigned irr = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
+  sbitmap wont_exit;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
@@ -841,13 +840,23 @@ tree_unroll_loop_prepare (struct loop *loop,
 			     &exit_cmp, &exit_bound);
 
   /* Let us assume that the unrolled loop is quite likely to be entered.  */
-  if (nonzero_p (enter_main_cond))
+  if (integer_nonzerop (enter_main_cond))
     prob_entry = REG_BR_PROB_BASE;
   else
     prob_entry = PROB_UNROLLED_LOOP_ENTERED * REG_BR_PROB_BASE / 100;
 
-  /* Getting the profile right is nontrivial.  These values should at least
-     keep it consistent, and somewhat close to correct.  */
+  /* The values for scales should keep profile consistent, and somewhat close
+     to correct.
+
+     TODO: The current value of SCALE_REST makes it appear that the loop that
+     is created by splitting the remaining iterations of the unrolled loop is
+     executed the same number of times as the original loop, and with the same
+     frequencies, which is obviously wrong.  This does not appear to cause
+     problems, so we do not bother with fixing it for now.  To make the profile
+     correct, we would need to change the probability of the exit edge of the
+     loop, and recompute the distribution of frequencies in its body because
+     of this change (scale the frequencies of blocks before and after the exit
+     by appropriate factors).  */
   scale_unrolled = prob_entry;
   scale_rest = REG_BR_PROB_BASE;
 
@@ -856,28 +865,40 @@ tree_unroll_loop_prepare (struct loop *loop,
   gcc_assert (new_loop != NULL);
   update_ssa (TODO_update_ssa);
 
-  /* Remove the old exit of the main loop.  */
-  dont_exit = (((*exit)->flags & EDGE_TRUE_VALUE)
-	       ? boolean_false_node
-	       : boolean_true_node);
-  exit_if = last_stmt ((*exit)->src);
-  COND_EXPR_COND (exit_if) = dont_exit;
-  update_stmt (exit_if);
+  /* Determine the probability of the exit edge of the unrolled loop.  */
+  new_est_niter = est_niter / factor;
 
-  /* Create the new exit and update the phi nodes.  */
+  /* Without profile feedback, loops for that we do not know a better estimate
+     are assumed to roll 10 times.  When we unroll such loop, it appears to
+     roll too little, and it may even seem to be cold.  To avoid this, we
+     ensure that the created loop appears to roll at least 5 times (but at
+     most as many times as before unrolling).  */
+  if (new_est_niter < 5)
+    {
+      if (est_niter < 5)
+	new_est_niter = est_niter;
+      else
+	new_est_niter = 5;
+    }
+
+  /* Prepare the cfg and update the phi nodes.  */
   rest = loop_preheader_edge (new_loop)->src;
   precond_edge = single_pred_edge (rest);
   split_edge (loop_latch_edge (loop));
   exit_bb = single_pred (loop->latch);
 
+  /* For the moment, make it appear that the new exit edge cannot
+     be taken.  */
+  bsi = bsi_last (exit_bb);
+  exit_if = build_if_stmt (boolean_true_node,
+			   tree_block_label (loop->latch),
+			   tree_block_label (rest));
+  bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
   new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
-  new_exit->count = loop_preheader_edge (loop)->count;
-  est_niter = est_niter / factor + 1;
-  new_exit->probability = REG_BR_PROB_BASE / est_niter;
-
+  new_exit->count = 0;
+  new_exit->probability = 0;
   new_nonexit = single_pred_edge (loop->latch);
   new_nonexit->flags = EDGE_TRUE_VALUE;
-  new_nonexit->probability = REG_BR_PROB_BASE - new_exit->probability;
 
   old_entry = loop_preheader_edge (loop);
   new_entry = loop_preheader_edge (new_loop);
@@ -915,91 +936,57 @@ tree_unroll_loop_prepare (struct loop *loop,
       SET_USE (op, new_init);
     }
 
+  /* Transform the loop.  */
+  if (transform)
+    (*transform) (loop, data);
+
+  /* Unroll the loop and remove the old exits.  */
+  dont_exit = ((exit->flags & EDGE_TRUE_VALUE)
+	       ? boolean_false_node
+	       : boolean_true_node);
+  exit_if = last_stmt (exit->src);
+  COND_EXPR_COND (exit_if) = dont_exit;
+  update_stmt (exit_if);
+      
+  wont_exit = sbitmap_alloc (factor);
+  sbitmap_ones (wont_exit);
+  ok = tree_duplicate_loop_to_header_edge
+	  (loop, loop_latch_edge (loop), factor - 1,
+	   wont_exit, exit, NULL, DLTHE_FLAG_UPDATE_FREQ);
+  free (wont_exit);
+  gcc_assert (ok);
+  update_ssa (TODO_update_ssa);
+
+  /* Ensure that the frequencies in the loop match the new estimated
+     number of iterations, and change the probability of the new
+     exit edge.  */
+  freq_h = loop->header->frequency;
+  freq_e = EDGE_FREQUENCY (loop_preheader_edge (loop));
+  if (freq_h != 0)
+    scale_loop_frequencies (loop, freq_e * (new_est_niter + 1), freq_h);
+
+  exit_bb = single_pred (loop->latch);
+  new_exit = find_edge (exit_bb, rest);
+  new_exit->count = loop_preheader_edge (loop)->count;
+  new_exit->probability = REG_BR_PROB_BASE / (new_est_niter + 1);
+
+  rest->count += new_exit->count;
+  rest->frequency += EDGE_FREQUENCY (new_exit);
+
+  new_nonexit = single_pred_edge (loop->latch);
+  new_nonexit->probability = REG_BR_PROB_BASE - new_exit->probability;
+  scale_bbs_frequencies_int (&loop->latch, 1, new_nonexit->probability,
+			     REG_BR_PROB_BASE);
+
   /* Finally create the new counter for number of iterations and add the new
      exit instruction.  */
   bsi = bsi_last (exit_bb);
+  exit_if = bsi_stmt (bsi);
   create_iv (exit_base, exit_step, NULL_TREE, loop,
-	     &bsi, true, &ctr_before, &ctr_after);
-  exit_if = build_if_stmt (build2 (exit_cmp, boolean_type_node, ctr_after,
-				   exit_bound),
-			   tree_block_label (loop->latch),
-			   tree_block_label (rest));
-  bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
-
-  *exit = new_exit;
-}
-
-/* Finish the unrolling of the LOOP prepared by tree_unroll_loop_prepare,
-   FACTOR times.  EXIT is the exit of the loop.
- 
-   The main loop of the result of tree_unroll_loop_prepare becomes
- 
-   while (1)
-     {
-       x = phi (init, next);
-
-       pre;
-       post;
-       pre;
-       post;
-       ...
-       pre;
-       post;
-       N -= FACTOR;
-       
-     } while (N >= FACTOR);
-
-   In case you do some transformation of the loop between these calls,
-   you must make sure that it does not make this unrolling incorrect
-   (a different number of iterations may now be executed in the body
-   of the main loop).
- */
-
-void
-tree_unroll_loop_finish (struct loop *loop, unsigned factor, edge exit)
-{
-  unsigned i, n_to_remove = 0;
-  edge *to_remove = XNEWVEC (edge, factor);
-  tree dont_exit, exit_if;
-  edge aexit, nonexit;
-  sbitmap wont_exit;
-  bool ok;
-  
-  /* Unroll the loop and remove the exits except for the one in the
-     last iteration.  */
-
-  wont_exit = sbitmap_alloc (factor);
-  sbitmap_ones (wont_exit);
-  RESET_BIT (wont_exit, factor - 1);
-  ok = tree_duplicate_loop_to_header_edge
-	  (loop, loop_latch_edge (loop), factor - 1,
-	   wont_exit, exit, to_remove, &n_to_remove, DLTHE_FLAG_UPDATE_FREQ);
-  sbitmap_free (wont_exit);
-  gcc_assert (ok);
-
-  for (i = 0; i < n_to_remove; i++)
-    {
-      aexit = to_remove[i];
-      dont_exit = ((aexit->flags & EDGE_TRUE_VALUE)
-		   ? boolean_false_node
-		   : boolean_true_node);
-      if (aexit == EDGE_SUCC (aexit->src, 0))
-	nonexit = EDGE_SUCC (aexit->src, 1);
-      else
-	nonexit = EDGE_SUCC (aexit->src, 0);
-      nonexit->probability = REG_BR_PROB_BASE;
-      aexit->probability = 0;
-      nonexit->count += aexit->count;
-      aexit->count = 0;
-
-      exit_if = last_stmt (aexit->src);
-      COND_EXPR_COND (exit_if) = dont_exit;
-      update_stmt (exit_if);
-    }
-  
-  free (to_remove);
-
-  update_ssa (TODO_update_ssa);
+	     &bsi, false, &ctr_before, &ctr_after);
+  COND_EXPR_COND (exit_if) = build2 (exit_cmp, boolean_type_node, ctr_after,
+				     exit_bound);
+  update_stmt (exit_if);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -1009,15 +996,14 @@ tree_unroll_loop_finish (struct loop *loop, unsigned factor, edge exit)
 #endif
 }
 
-/* Unroll LOOP FACTOR times.  DESC describes
-   number of iterations of LOOP.  EXIT is the exit of the loop to that
-   DESC corresponds.  The effect is composition of tree_unroll_loop_prepare
-   and tree_unroll_loop_finish.  */
+/* Wrapper over tree_transform_and_unroll_loop for case we do not
+   want to transform the loop before unrolling.  The meaning
+   of the arguments is the same as for tree_transform_and_unroll_loop.  */
 
 void
 tree_unroll_loop (struct loop *loop, unsigned factor,
 		  edge exit, struct tree_niter_desc *desc)
 {
-  tree_unroll_loop_prepare (loop, factor, &exit, desc);
-  tree_unroll_loop_finish (loop, factor, exit);
+  tree_transform_and_unroll_loop (loop, factor, exit, desc,
+				  NULL, NULL);
 }

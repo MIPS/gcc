@@ -7988,6 +7988,110 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	return fold_build2 (code, type, variable, lhs);
     }
 
+  /* For comparisons of pointers we can decompose it to a compile time
+     comparison of the base objects and the offsets into the object.
+     This requires at least one operand being an ADDR_EXPR to do more
+     than the operand_equal_p test below.  */
+  if (POINTER_TYPE_P (TREE_TYPE (arg0))
+      && (TREE_CODE (arg0) == ADDR_EXPR
+	  || TREE_CODE (arg1) == ADDR_EXPR))
+    {
+      tree base0, base1, offset0 = NULL_TREE, offset1 = NULL_TREE;
+      HOST_WIDE_INT bitsize, bitpos0 = 0, bitpos1 = 0;
+      enum machine_mode mode;
+      int volatilep, unsignedp;
+      bool indirect_base0 = false;
+
+      /* Get base and offset for the access.  Strip ADDR_EXPR for
+	 get_inner_reference, but put it back by stripping INDIRECT_REF
+	 off the base object if possible.  */
+      base0 = arg0;
+      if (TREE_CODE (arg0) == ADDR_EXPR)
+	{
+	  base0 = get_inner_reference (TREE_OPERAND (arg0, 0),
+				       &bitsize, &bitpos0, &offset0, &mode,
+				       &unsignedp, &volatilep, false);
+	  if (TREE_CODE (base0) == INDIRECT_REF)
+	    base0 = TREE_OPERAND (base0, 0);
+	  else
+	    indirect_base0 = true;
+	}
+
+      base1 = arg1;
+      if (TREE_CODE (arg1) == ADDR_EXPR)
+	{
+	  base1 = get_inner_reference (TREE_OPERAND (arg1, 0),
+				       &bitsize, &bitpos1, &offset1, &mode,
+				       &unsignedp, &volatilep, false);
+	  /* We have to make sure to have an indirect/non-indirect base1
+	     just the same as we did for base0.  */
+	  if (TREE_CODE (base1) == INDIRECT_REF
+	      && !indirect_base0)
+	    base1 = TREE_OPERAND (base1, 0);
+	  else if (!indirect_base0)
+	    base1 = NULL_TREE;
+	}
+      else if (indirect_base0)
+	base1 = NULL_TREE;
+
+      /* If we have equivalent bases we might be able to simplify.  */
+      if (base0 && base1
+	  && operand_equal_p (base0, base1, 0))
+	{
+	  /* We can fold this expression to a constant if the non-constant
+	     offset parts are equal.  */
+	  if (offset0 == offset1
+	      || (offset0 && offset1
+		  && operand_equal_p (offset0, offset1, 0)))
+	    {
+	      switch (code)
+		{
+		case EQ_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 == bitpos1);
+		case NE_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 != bitpos1);
+		case LT_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 < bitpos1);
+		case LE_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 <= bitpos1);
+		case GE_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 >= bitpos1);
+		case GT_EXPR:
+		  return build_int_cst (boolean_type_node, bitpos0 > bitpos1);
+		default:;
+		}
+	    }
+	  /* We can simplify the comparison to a comparison of the variable
+	     offset parts if the constant offset parts are equal.
+	     Be careful to use signed size type here because otherwise we
+	     mess with array offsets in the wrong way.  This is possible
+	     because pointer arithmetic is restricted to retain within an
+	     object and overflow on pointer differences is undefined as of
+	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
+	  else if (bitpos0 == bitpos1)
+	    {
+	      tree signed_size_type_node;
+	      signed_size_type_node = signed_type_for (size_type_node);
+
+	      /* By converting to signed size type we cover middle-end pointer
+	         arithmetic which operates on unsigned pointer types of size
+	         type size and ARRAY_REF offsets which are properly sign or
+	         zero extended from their type in case it is narrower than
+	         size type.  */
+	      if (offset0 == NULL_TREE)
+		offset0 = build_int_cst (signed_size_type_node, 0);
+	      else
+		offset0 = fold_convert (signed_size_type_node, offset0);
+	      if (offset1 == NULL_TREE)
+		offset1 = build_int_cst (signed_size_type_node, 0);
+	      else
+		offset1 = fold_convert (signed_size_type_node, offset1);
+
+	      return fold_build2 (code, type, offset0, offset1);
+	    }
+	}
+    }
+
   /* If this is a comparison of two exprs that look like an ARRAY_REF of the
      same object, then we can fold this to a comparison of the two offsets in
      signed size type.  This is possible because pointer arithmetic is
@@ -8662,6 +8766,26 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  if (integer_zerop (arg1))
 	    return non_lvalue (fold_convert (type, arg0));
 
+	  /* ~X + X is -1.  */
+	  if (TREE_CODE (arg0) == BIT_NOT_EXPR
+	      && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0)
+	      && !TYPE_TRAP_SIGNED (type))
+	    {
+	      t1 = build_int_cst (type, -1);
+	      t1 = force_fit_type (t1, 0, false, false);
+	      return omit_one_operand (type, t1, arg1);
+	    }
+
+	  /* X + ~X is -1.  */
+	  if (TREE_CODE (arg1) == BIT_NOT_EXPR
+	      && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0)
+	      && !TYPE_TRAP_SIGNED (type))
+	    {
+	      t1 = build_int_cst (type, -1);
+	      t1 = force_fit_type (t1, 0, false, false);
+	      return omit_one_operand (type, t1, arg0);
+	  }
+
 	  /* If we are adding two BIT_AND_EXPR's, both of which are and'ing
 	     with a constant, and the two constants have no bits in common,
 	     we should treat this as a BIT_IOR_EXPR since this may produce more
@@ -9002,14 +9126,15 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* Convert -A - 1 to ~A.  */
       if (INTEGRAL_TYPE_P (type)
 	  && TREE_CODE (arg0) == NEGATE_EXPR
-	  && integer_onep (arg1))
+	  && integer_onep (arg1)
+	  && !TYPE_TRAP_SIGNED (type))
 	return fold_build1 (BIT_NOT_EXPR, type,
 			    fold_convert (type, TREE_OPERAND (arg0, 0)));
 
       /* Convert -1 - A to ~A.  */
       if (INTEGRAL_TYPE_P (type)
 	  && integer_all_onesp (arg0))
-	return fold_build1 (BIT_NOT_EXPR, type, arg1);
+	return fold_build1 (BIT_NOT_EXPR, type, op1);
 
       if (! FLOAT_TYPE_P (type))
 	{
@@ -10628,6 +10753,15 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && ! TREE_CONSTANT_OVERFLOW (tem))
 	return fold_build2 (code, type, TREE_OPERAND (arg0, 0), tem);
 
+      /* Similarly for a BIT_XOR_EXPR;  X ^ C1 == C2 is X == (C1 ^ C2).  */
+      if (TREE_CODE (arg0) == BIT_XOR_EXPR
+	  && TREE_CODE (arg1) == INTEGER_CST
+	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
+	return fold_build2 (code, type, TREE_OPERAND (arg0, 0),
+			    fold_build2 (BIT_XOR_EXPR, TREE_TYPE (arg0),
+					 fold_convert (TREE_TYPE (arg0), arg1),
+					 TREE_OPERAND (arg0, 1)));
+
       /* If we have X - Y == 0, we can convert that to X == Y and similarly
 	 for !=.  Don't do this for ordered comparisons due to overflow.  */
       if (TREE_CODE (arg0) == MINUS_EXPR
@@ -10981,6 +11115,36 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				build_int_cst (itype, 0));
 	}
 
+      if (TREE_CODE (arg0) == BIT_XOR_EXPR
+	  && TREE_CODE (arg1) == BIT_XOR_EXPR)
+	{
+	  tree arg00 = TREE_OPERAND (arg0, 0);
+	  tree arg01 = TREE_OPERAND (arg0, 1);
+	  tree arg10 = TREE_OPERAND (arg1, 0);
+	  tree arg11 = TREE_OPERAND (arg1, 1);
+	  tree itype = TREE_TYPE (arg0);
+
+	  /* Optimize (X ^ Z) op (Y ^ Z) as X op Y, and symmetries.
+	     operand_equal_p guarantees no side-effects so we don't need
+	     to use omit_one_operand on Z.  */
+	  if (operand_equal_p (arg01, arg11, 0))
+	    return fold_build2 (code, type, arg00, arg10);
+	  if (operand_equal_p (arg01, arg10, 0))
+	    return fold_build2 (code, type, arg00, arg11);
+	  if (operand_equal_p (arg00, arg11, 0))
+	    return fold_build2 (code, type, arg01, arg10);
+	  if (operand_equal_p (arg00, arg10, 0))
+	    return fold_build2 (code, type, arg01, arg11);
+
+	  /* Optimize (X ^ C1) op (Y ^ C2) as (X ^ (C1 ^ C2)) op Y.  */
+	  if (TREE_CODE (arg01) == INTEGER_CST
+	      && TREE_CODE (arg11) == INTEGER_CST)
+	    return fold_build2 (code, type,
+				fold_build2 (BIT_XOR_EXPR, itype, arg00,
+					     fold_build2 (BIT_XOR_EXPR, itype,
+							  arg01, arg11)),
+				arg10);
+	}
       return NULL_TREE;
 
     case LT_EXPR:

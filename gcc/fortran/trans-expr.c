@@ -1906,6 +1906,57 @@ is_aliased_array (gfc_expr * e)
   return false;
 }
 
+/* Generate the code for argument list functions.  */
+
+static void
+conv_arglist_function (gfc_se *se, gfc_expr *expr, const char *name)
+{
+  tree type = NULL_TREE;
+  /* Pass by value for g77 %VAL(arg), pass the address
+     indirectly for %LOC, else by reference.  Thus %REF
+     is a "do-nothing" and %LOC is the same as an F95
+     pointer.  */
+  if (strncmp (name, "%VAL", 4) == 0)
+    {
+      gfc_conv_expr (se, expr);
+      /* %VAL converts argument to default kind.  */
+      switch (expr->ts.type)
+	{
+	  case BT_REAL:
+	    type = gfc_get_real_type (gfc_default_real_kind);
+	    se->expr = fold_convert (type, se->expr);
+	    break;
+	  case BT_COMPLEX:
+	    type = gfc_get_complex_type (gfc_default_complex_kind);
+	    se->expr = fold_convert (type, se->expr);
+	    break;
+	  case BT_INTEGER:
+	    type = gfc_get_int_type (gfc_default_integer_kind);
+	    se->expr = fold_convert (type, se->expr);
+	    break;
+	  case BT_LOGICAL:
+	    type = gfc_get_logical_type (gfc_default_logical_kind);
+	    se->expr = fold_convert (type, se->expr);
+	    break;
+	  /* This should have been resolved away.  */
+	  case BT_UNKNOWN: case BT_CHARACTER: case BT_DERIVED:
+	  case BT_PROCEDURE: case BT_HOLLERITH:
+	    gfc_internal_error ("Bad type in conv_arglist_function");
+	}
+	  
+    }
+  else if (strncmp (name, "%LOC", 4) == 0)
+    {
+      gfc_conv_expr_reference (se, expr);
+      se->expr = gfc_build_addr_expr (NULL, se->expr);
+    }
+  else if (strncmp (name, "%REF", 4) == 0)
+    gfc_conv_expr_reference (se, expr);
+  else
+    gfc_error ("Unknown argument list function at %L", &expr->where);
+}
+
+
 /* Generate code for a procedure call.  Note can return se->post != NULL.
    If se->direct_byref is set then se->expr contains the return parameter.
    Return nonzero, if the call has alternate specifiers.  */
@@ -2024,6 +2075,10 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  gfc_conv_expr (&parmse, e);
 		}
+	      else if (arg->name && arg->name[0] == '%')
+		/* Argument list functions %VAL, %LOC and %REF are signalled
+		   through arg->name.  */
+		conv_arglist_function (&parmse, arg->expr, arg->name);
 	      else
 		{
 		  gfc_conv_expr_reference (&parmse, e);
@@ -2068,9 +2123,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
               if (fsym && fsym->attr.allocatable
                   && fsym->attr.intent == INTENT_OUT)
                 {
-		  tmp = e->symtree->n.sym->backend_decl;
-		  if (e->symtree->n.sym->attr.dummy)
-                    tmp = build_fold_indirect_ref (tmp);
+                  tmp = build_fold_indirect_ref (parmse.expr);
                   tmp = gfc_trans_dealloc_allocated (tmp);
                   gfc_add_expr_to_block (&se->pre, tmp);
                 }
@@ -3449,6 +3502,82 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   return gfc_finish_block (&se.pre);
 }
 
+/* Determine whether the given EXPR_CONSTANT is a zero initializer.  */
+
+static bool
+is_zero_initializer_p (gfc_expr * expr)
+{
+  if (expr->expr_type != EXPR_CONSTANT)
+    return false;
+  /* We ignore Hollerith constants for the time being.  */
+  if (expr->from_H)
+    return false;
+
+  switch (expr->ts.type)
+    {
+    case BT_INTEGER:
+      return mpz_cmp_si (expr->value.integer, 0) == 0;
+
+    case BT_REAL:
+      return mpfr_zero_p (expr->value.real)
+	     && MPFR_SIGN (expr->value.real) >= 0;
+
+    case BT_LOGICAL:
+      return expr->value.logical == 0;
+
+    case BT_COMPLEX:
+      return mpfr_zero_p (expr->value.complex.r)
+	     && MPFR_SIGN (expr->value.complex.r) >= 0
+             && mpfr_zero_p (expr->value.complex.i)
+	     && MPFR_SIGN (expr->value.complex.i) >= 0;
+
+    default:
+      break;
+    }
+  return false;
+}
+
+/* Try to efficiently translate array(:) = 0.  Return NULL if this
+   can't be done.  */
+
+static tree
+gfc_trans_zero_assign (gfc_expr * expr)
+{
+  tree dest, len, type;
+  tree tmp, args;
+  gfc_symbol *sym;
+
+  sym = expr->symtree->n.sym;
+  dest = gfc_get_symbol_decl (sym);
+
+  type = TREE_TYPE (dest);
+  if (POINTER_TYPE_P (type))
+    type = TREE_TYPE (type);
+  if (!GFC_ARRAY_TYPE_P (type))
+    return NULL_TREE;
+
+  /* Determine the length of the array.  */
+  len = GFC_TYPE_ARRAY_SIZE (type);
+  if (!len || TREE_CODE (len) != INTEGER_CST)
+    return NULL_TREE;
+
+  len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
+                     TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+
+  /* Convert arguments to the correct types.  */
+  if (!POINTER_TYPE_P (TREE_TYPE (dest)))
+    dest = gfc_build_addr_expr (pvoid_type_node, dest);
+  else
+    dest = fold_convert (pvoid_type_node, dest);
+  len = fold_convert (size_type_node, len);
+
+  /* Construct call to __builtin_memset.  */
+  args = build_tree_list (NULL_TREE, len);
+  args = tree_cons (NULL_TREE, integer_zero_node, args);
+  args = tree_cons (NULL_TREE, dest, args);
+  tmp = build_function_call_expr (built_in_decls[BUILT_IN_MEMSET], args);
+  return fold_convert (void_type_node, tmp);
+}
 
 /* Translate an assignment.  Most of the code is concerned with
    setting up the scalarizer.  */
@@ -3473,6 +3602,18 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag)
       tmp = gfc_trans_arrayfunc_assign (expr1, expr2);
       if (tmp)
 	return tmp;
+    }
+
+  /* Special case assigning an array to zero.  */
+  if (expr1->expr_type == EXPR_VARIABLE
+      && expr1->rank > 0
+      && expr1->ref
+      && gfc_full_array_ref_p (expr1->ref)
+      && is_zero_initializer_p (expr2))
+    {
+      tmp = gfc_trans_zero_assign (expr1);
+      if (tmp)
+        return tmp;
     }
 
   /* Assignment of the form lhs = rhs.  */

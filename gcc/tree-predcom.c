@@ -620,9 +620,9 @@ suitable_reference_p_1 (struct loop *loop, tree a, enum ref_step_type *ref_step)
   if (!simple_iv (loop, first_stmt (loop->header), a, &iv, true))
     return false;
 
-  if (zero_p (iv.step))
+  if (integer_zerop (iv.step))
     *ref_step = sub_step;
-  else if (nonzero_p (iv.step))
+  else if (integer_nonzerop (iv.step))
     *ref_step = RS_NONZERO;
   else
     *ref_step = RS_ANY;
@@ -750,7 +750,7 @@ determine_offset (struct loop *loop, tree a, tree b, double_int *off)
     return false;
   if (operand_equal_p (iva.base, ivb.base, 0))
     return true;
-  if (zero_p (iva.step))
+  if (integer_zerop (iva.step))
     return false;
 
   type = TREE_TYPE (iva.base);
@@ -1137,7 +1137,7 @@ valid_initializer_p (struct loop *loop, tree ref, unsigned distance, tree root)
   ok = simple_iv (loop, first_stmt (loop->header), idxr, &ivr, true);
   gcc_assert (ok);
 
-  if (zero_p (ivr.step))
+  if (integer_zerop (ivr.step))
     return operand_equal_p (ivr.base, idx, 0);
 
   /* Verify that this index of REF is equal to the root's index at
@@ -1404,7 +1404,7 @@ ref_at_iteration (struct loop *loop, tree ref, int iter)
   ok = simple_iv (loop, first_stmt (loop->header), *idx, &iv, true);
   iv.base = expand_simple_operations (iv.base);
   gcc_assert (ok);
-  if (zero_p (iv.step))
+  if (integer_zerop (iv.step))
     {
       *idx = unshare_expr (iv.base);
       return;
@@ -1815,6 +1815,23 @@ execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
     }
   
   update_ssa (TODO_update_ssa_only_virtuals);
+}
+
+/* Wrapper over execute_pred_commoning, to pass it as a callback
+   to tree_transform_and_unroll_loop.  */
+
+struct epcc_data
+{
+  VEC (chain_p, heap) *chains;
+  bitmap tmp_vars;
+};
+
+static void
+execute_pred_commoning_cbck (struct loop *loop, void *data)
+{
+  struct epcc_data *dta = data;
+
+  execute_pred_commoning (loop, dta->chains, dta->tmp_vars);
 }
 
 /* Returns true if we can and should unroll LOOP FACTOR times.  Number
@@ -2496,23 +2513,25 @@ tree_predictive_commoning_loop (struct loop *loop)
   unroll = should_unroll_loop_p (loop, unroll_factor, &desc);
   exit = single_dom_exit (loop);
 
-  if (unroll)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
-      
-      update_ssa (TODO_update_ssa_only_virtuals);
-      tree_unroll_loop_prepare (loop, unroll_factor, &exit, &desc);
-    }
-
   /* Execute the predictive commoning transformations, and possibly unroll the
      loop.  */
-  execute_pred_commoning (loop, chains, tmp_vars);
   if (unroll)
     {
-      tree_unroll_loop_finish (loop, unroll_factor, exit);
+      struct epcc_data dta;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
+
+      dta.chains = chains;
+      dta.tmp_vars = tmp_vars;
+      
+      update_ssa (TODO_update_ssa_only_virtuals);
+      tree_transform_and_unroll_loop (loop, unroll_factor, exit, &desc,
+				      execute_pred_commoning_cbck, &dta);
       eliminate_temp_copies (loop, tmp_vars);
     }
+  else
+    execute_pred_commoning (loop, chains, tmp_vars);
 
   release_chains (chains);
   free_data_refs (datarefs);

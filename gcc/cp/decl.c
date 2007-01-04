@@ -2695,7 +2695,8 @@ typedef struct typename_info {
   bool class_p;
 } typename_info;
 
-/* Compare two TYPENAME_TYPEs.  K1 and K2 are really of type `tree'.  */
+/* Compare two TYPENAME_TYPEs.  K1 is really of type `tree', K2 is
+   really of type `typename_info*'  */
 
 static int
 typename_compare (const void * k1, const void * k2)
@@ -2766,6 +2767,11 @@ build_typename_type (tree context, tree name, tree fullname,
 
       /* Store it in the hash table.  */
       *e = t;
+
+      /* TYPENAME_TYPEs must always be compared structurally, because
+	 they may or may not resolve down to another type depending on
+	 the currently open classes. */
+      SET_TYPE_STRUCTURAL_EQUALITY (t);
     }
 
   return t;
@@ -2937,6 +2943,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
   t = make_aggr_type (UNBOUND_CLASS_TEMPLATE);
   TYPE_CONTEXT (t) = FROB_CONTEXT (context);
   TREE_TYPE (t) = NULL_TREE;
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
 
   /* Build the corresponding TEMPLATE_DECL.  */
   d = build_decl (TEMPLATE_DECL, name, t);
@@ -3402,17 +3409,17 @@ cxx_builtin_function (tree decl)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
-  tree       decl2 = copy_node(decl);
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
     {
+      tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl, std_node);
+      builtin_function_1 (decl2, std_node);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl2, NULL_TREE);
+  return builtin_function_1 (decl, NULL_TREE);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -4102,7 +4109,7 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
 static bool
 check_array_designated_initializer (const constructor_elt *ce)
 {
-  /* Designated initializers for array elements arenot supported.  */
+  /* Designated initializers for array elements are not supported.  */
   if (ce->index)
     {
       /* The parser only allows identifiers as designated
@@ -6461,6 +6468,11 @@ build_ptrmemfunc_type (tree type)
      later.  */
   TYPE_SET_PTRMEMFUNC_TYPE (type, t);
 
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (type) != type)
+    TYPE_CANONICAL (t) = build_ptrmemfunc_type (TYPE_CANONICAL (type));
+
   return t;
 }
 
@@ -6535,6 +6547,7 @@ compute_array_index_type (tree name, tree size)
 {
   tree type;
   tree itype;
+  tree abi_1_itype = NULL_TREE;
 
   if (error_operand_p (size))
     return error_mark_node;
@@ -6551,14 +6564,26 @@ compute_array_index_type (tree name, tree size)
       type = TREE_TYPE (size);
     }
 
-  if (abi_version_at_least (2)
-      /* We should only handle value dependent expressions specially.  */
-      ? value_dependent_expression_p (size)
-      /* But for abi-1, we handled all instances in templates. This
-	 effects the manglings produced.  */
-      : processing_template_decl)
-    return build_index_type (build_min (MINUS_EXPR, sizetype,
-					size, integer_one_node));
+  if (value_dependent_expression_p (size))
+    {
+      /* We cannot do any checking for a value-dependent SIZE. Just
+	 build the index type and mark that it requires structural
+	 equality checks.  */
+      itype = build_index_type (build_min (MINUS_EXPR, sizetype,
+					   size, integer_one_node));
+      SET_TYPE_STRUCTURAL_EQUALITY (itype);
+      return itype;
+    }
+  
+  if (!abi_version_at_least (2) && processing_template_decl)
+    /* For abi-1, we handled all instances in templates the same way,
+       even when they were non-dependent. This effects the manglings
+       produced.  So, we do the normal checking for non-dependent
+       sizes, but at the end we'll return the same type that abi-1
+       would have, but with TYPE_CANONICAL set to the "right"
+       value that the current ABI would provide. */
+    abi_1_itype = build_index_type (build_min (MINUS_EXPR, sizetype,
+					       size, integer_one_node));
 
   /* The size might be the result of a cast.  */
   STRIP_TYPE_NOPS (size);
@@ -6649,7 +6674,14 @@ compute_array_index_type (tree name, tree size)
     }
 
   /* Create and return the appropriate index type.  */
-  return build_index_type (itype);
+  if (abi_1_itype)
+    {
+      tree t = build_index_type (itype);
+      TYPE_CANONICAL (abi_1_itype) = TYPE_CANONICAL (t);
+      return abi_1_itype;
+    }
+  else
+    return build_index_type (itype);
 }
 
 /* Returns the scope (if any) in which the entity declared by

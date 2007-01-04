@@ -38,6 +38,7 @@ typedef struct edge_def *edge;
 struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
+struct static_var_ann_d;
 
 /* Gimple dataflow datastructure. All publicly available fields shall have
    gimple_ accessor defined in tree-flow-inline.h, all publicly modifiable
@@ -92,6 +93,10 @@ struct gimple_df GTY(()) {
   unsigned int in_ssa_p : 1;
 
   struct ssa_operands ssa_operands;
+
+  /* Hashtable of variables annotations.  Used for static variables only;
+     local variables have direct pointer in the tree node.  */
+  htab_t GTY((param_is (struct static_var_ann_d))) var_anns;
 };
 
 /* Accessors for internal use only.  Generic code should use abstraction
@@ -246,6 +251,9 @@ struct var_ann_d GTY(())
   /* True for HEAP and PARM_NOALIAS artificial variables.  */
   unsigned is_heapvar : 1;
 
+  /* True if the variable is call clobbered.  */
+  unsigned int call_clobbered : 1;
+
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
 
@@ -281,6 +289,14 @@ struct var_ann_d GTY(())
   /* Mask of values saying the reasons why this variable has escaped
      the function.  */
   unsigned int escape_mask;
+};
+
+/* Container for variable annotation used by hashtable for annotations for
+   static variables.  */
+struct static_var_ann_d GTY(())
+{
+  struct var_ann_d ann;
+  unsigned int uid;
 };
 
 struct function_ann_d GTY(())
@@ -624,7 +640,6 @@ extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
-extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -884,8 +899,8 @@ basic_block ip_end_pos (struct loop *);
 basic_block ip_normal_pos (struct loop *);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
-					 edge, edge *,
-					 unsigned int *, int);
+					 edge, VEC (edge, heap) **,
+					 int);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
@@ -895,9 +910,10 @@ bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 			struct tree_niter_desc *niter);
 void tree_unroll_loop (struct loop *, unsigned,
 		       edge, struct tree_niter_desc *);
-void tree_unroll_loop_prepare (struct loop *, unsigned,
-			       edge *, struct tree_niter_desc *);
-void tree_unroll_loop_finish (struct loop *, unsigned, edge);
+typedef void (*transform_callback)(struct loop *, void *);
+void tree_transform_and_unroll_loop (struct loop *, unsigned,
+				     edge, struct tree_niter_desc *,
+				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
 bool stmt_dominates_stmt_p (tree, tree);
 

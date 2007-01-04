@@ -2331,7 +2331,7 @@ gfc_conv_intrinsic_ibits (gfc_se * se, gfc_expr * expr)
   arg2 = TREE_VALUE (arg2);
   type = TREE_TYPE (arg);
 
-  mask = build_int_cst (NULL_TREE, -1);
+  mask = build_int_cst (type, -1);
   mask = build2 (LSHIFT_EXPR, type, mask, arg3);
   mask = build1 (BIT_NOT_EXPR, type, mask);
 
@@ -3142,7 +3142,9 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
 	  gfc_add_block_to_block (&se->post, &arg1se.post);
           tmp = build2 (EQ_EXPR, boolean_type_node, arg1se.expr, arg2se.expr);
-          se->expr = tmp;
+          tmp2 = build2 (NE_EXPR, boolean_type_node, arg1se.expr,
+                         null_pointer_node);
+          se->expr = build2 (TRUTH_AND_EXPR, boolean_type_node, tmp, tmp2);
         }
       else
         {
