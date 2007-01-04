@@ -1,4 +1,64 @@
 2007-01-02  Tobias Burnus  <burnus@net-b.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/30276
+	* scanner.c (open_included_file): Revert patch.
+	  (gfc_open_included_file): Support absolute pathnames.
+	  (gfc_open_intrinsic_module): Support absolute pathnames.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (GNU Fortran and GCC): Rewrite
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Introduction): Lower "Part I:
+	Introduction" to a chapter, renumber Parts II and III to
+	Parts I and II.
+	* intrinsic.texi (Introduction): Rename to "Introduction
+	to Intrinsics" to avoid conflict with the new chapter.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (Introduction): Rewrite first paragraph.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* invoke.texi (OpenMP): Added index entry.
+	* gfortran.texi (title page): Removed erroneous '*'.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (GFORTRAN_DEFAULT_RECL): Added units
+	to description.
+	(Extensions): Miscellaneous minor rewriting and copyediting.
+	(BOZ-literal constants): Renamed from Hexadecimal constants.
+	(Hollerith constants support): Added explanation and 
+	suggestions for standard-conforming modern equivalents.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Improvements to index entries; change
+	@findex entries to @cindex entries.
+	* invoke.texi: Standardize and improve index entries.
+	* gfortran.texi: Fix @code in one index entry.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* invoke.texi: Change @code-type macros to appropriate
+	variants (@command, @option, etc.)
+	* gfortran.texi: Same.
+
+2007-01-03  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Various minor cleanups.
+
+2007-01-02  Steven G. Kargl  <kargls@comcast.net>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_ibits): Fix call to
+	build_int_cst.
+
+2007-01-02  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/30276
 	* scanner.c (open_included_file): Support full-path filenames.

@@ -1,3 +1,50 @@
+2007-01-03  Josh Conner  <jconner@apple.com>
+
+	PR middle-end/29683
+	* gcc.dg/pr29683.c: New.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28217
+	* g++.dg/pch/template-1.C: New test.
+	* g++.dg/pch/template-1.Hs: New file.
+
+2007-01-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30353
+	* gcc.c-torture/compile/complex-4.c: New test.
+
+2007-01-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.dg/vect/vect.exp: Skip PowerPC targets not supporting
+	-maltivec.
+	* gcc.target/powerpc/altivec-20.c: Use powerpc_altivec_ok.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30286
+	* gcc.dg/pr30286.c: New test.
+
+	PR c++/29535
+	* g++.dg/template/crash66.C: New test.
+
+	PR c++/29054
+	* g++.dg/template/friend49.C: New test.
+
+2007-01-03  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/ibits.f90: New test.
+
+2007-01-03  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/update-unroll-1.c: New test.
+	* gcc.dg/tree-ssa/update-unswitch-1.c: New test.
+
+2007-01-02  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/pr16194.c: We now output error on all three functions, not just
+	first one.
+
 2007-01-02  Manuel Lopez-Ibanez <manu@gcc.gnu.org>
 
 	PR c/19977
