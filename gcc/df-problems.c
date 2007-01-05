@@ -3754,56 +3754,101 @@ df_chain_free (void)
 /* Debugging info.  */
 
 static void
-df_chain_start_dump (FILE *file)
+df_chain_top_dump (basic_block bb, FILE *file)
 {
-  unsigned int j;
-
   if (df_chain_problem_p (DF_DU_CHAIN))
     {
-      fprintf (file, ";; Def-use chains:\n");
-      for (j = 0; j < DF_DEFS_TABLE_SIZE (); j++)
+      rtx insn;
+      struct df_ref *ref = df_get_artificial_defs (bb->index);
+      if (ref)
 	{
-	  struct df_ref *def = DF_DEFS_GET (j);
-	  if (def)
+	  fprintf (file, ";;  DU chains for artificial defs\n");
+	  while (ref)
 	    {
-	      fprintf (file, ";;   d%d bb %d luid %d insn %d reg %d ",
-		       j, DF_REF_BBNO (def),
-		       DF_REF_INSN (def) ? 
-		       DF_INSN_LUID (DF_REF_INSN (def)):
-		       -1,
-		       DF_REF_INSN (def) ? DF_REF_INSN_UID (def) : -1,
-		       DF_REF_REGNO (def));
-	      if (def->flags & DF_REF_READ_WRITE)
-		fprintf (file, "read/write ");
-	      df_chain_dump (DF_REF_CHAIN (def), file);
+	      fprintf (file, ";;   reg %d ", DF_REF_REGNO (ref));
+	      df_chain_dump (DF_REF_CHAIN (ref), file);
 	      fprintf (file, "\n");
+	      ref = ref->next_ref;
+	    }
+	}      
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
+	    {
+	      ref = DF_INSN_UID_DEFS (uid);
+	      if (ref)
+		{
+		  fprintf (file, ";;   DU chains for insn luid %d uid %d\n", 
+			   DF_INSN_LUID (insn), uid);
+		  
+		  while (ref)
+		    {
+		      fprintf (file, ";;      reg %d ", DF_REF_REGNO (ref));
+		      if (ref->flags & DF_REF_READ_WRITE)
+			fprintf (file, "read/write ");
+		      df_chain_dump (DF_REF_CHAIN (ref), file);
+		      fprintf (file, "\n");
+		      ref = ref->next_ref;
+		    }
+		}
 	    }
 	}
     }
+}
 
+
+static void
+df_chain_bottom_dump (basic_block bb, FILE *file)
+{
   if (df_chain_problem_p (DF_UD_CHAIN))
     {
-      fprintf (file, ";; Use-def chains:\n");
-      for (j = 0; j < DF_USES_TABLE_SIZE (); j++)
+      rtx insn;
+      struct df_ref *ref = df_get_artificial_uses (bb->index);
+
+      if (ref)
 	{
-	  struct df_ref *use = DF_USES_GET (j);
-	  if (use)
+	  fprintf (file, ";;  UD chains for artificial uses\n");
+	  while (ref)
 	    {
-	      fprintf (file, ";;   u%d bb %d luid %d insn %d reg %d ",
-		       j, DF_REF_BBNO (use),
-		       DF_REF_INSN (use) ? 
-		       DF_INSN_LUID (DF_REF_INSN (use))
-		       : -1,
-		       DF_REF_INSN (DF_USES_GET (j)) ?
-		       DF_REF_INSN_UID (DF_USES_GET (j))
-		       : -1,
-		       DF_REF_REGNO (use));
-	      if (use->flags & DF_REF_READ_WRITE)
-		fprintf (file, "read/write ");
-	      if (use->flags & DF_REF_IN_NOTE)
-		fprintf (file, "note ");
-	      df_chain_dump (DF_REF_CHAIN (use), file);
+	      fprintf (file, ";;   reg %d ", DF_REF_REGNO (ref));
+	      df_chain_dump (DF_REF_CHAIN (ref), file);
 	      fprintf (file, "\n");
+	      ref = ref->next_ref;
+	    }
+	}      
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  unsigned int uid = INSN_UID (insn);
+	  if (INSN_P (insn))
+	    {
+	      struct df_ref *refn = DF_INSN_UID_EQ_USES (uid);
+	      ref = DF_INSN_UID_USES (uid);
+	      if (ref || refn)
+		{
+		  fprintf (file, ";;   UD chains for insn luid %d uid %d\n", 
+			   DF_INSN_LUID (insn), uid);
+		  
+		  while (ref)
+		    {
+		      fprintf (file, ";;      reg %d ", DF_REF_REGNO (ref));
+		      if (ref->flags & DF_REF_READ_WRITE)
+			fprintf (file, "read/write ");
+		      df_chain_dump (DF_REF_CHAIN (ref), file);
+		      fprintf (file, "\n");
+		      ref = ref->next_ref;
+		    }
+		  ref = refn;
+		  while (ref)
+		    {
+		      fprintf (file, ";;   eq_note reg %d ", DF_REF_REGNO (ref));
+		      df_chain_dump (DF_REF_CHAIN (ref), file);
+		      fprintf (file, "\n");
+		      ref = ref->next_ref;
+		    }
+		}
 	    }
 	}
     }
@@ -3826,9 +3871,9 @@ static struct df_problem problem_CHAIN =
   df_chain_finalize,          /* Finalize function.  */
   df_chain_free,              /* Free all of the problem information.  */
   df_chain_fully_remove_problem,/* Remove this problem from the stack of dataflow problems.  */
-  df_chain_start_dump,        /* Debugging.  */
-  NULL,                       /* Debugging start block.  */
-  NULL,                       /* Debugging end block.  */
+  NULL,                       /* Debugging.  */
+  df_chain_top_dump,          /* Debugging start block.  */
+  df_chain_bottom_dump,       /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
   NULL,                       /* Incremental solution verfiy end.  */
   &problem_RD                 /* Dependent problem.  */

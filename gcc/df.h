@@ -907,6 +907,7 @@ extern void df_recompute_luids (basic_block);
 extern void df_insn_change_bb (rtx);
 extern void df_maybe_reorganize_use_refs (void);
 extern void df_maybe_reorganize_def_refs (void);
+extern void df_drop_organized_tables (void);
 extern void df_ref_change_reg_with_loc (int, int, rtx);
 extern void df_notes_rescan (rtx);
 extern void df_hard_reg_init (void);

@@ -262,41 +262,74 @@ web_main (void)
 {
   struct web_entry *def_entry;
   struct web_entry *use_entry;
-  unsigned int i;
-  int max = max_reg_num ();
+  unsigned int max = max_reg_num ();
   char *used;
+  basic_block bb;
+  unsigned int uses_num = 0;
+  rtx insn;
+  struct df_ref *ref;
+  
 
   df_set_flags (DF_NO_HARD_REGS + DF_EQ_NOTES);
   df_chain_add_problem (DF_UD_CHAIN);
   df_analyze ();
-  df_maybe_reorganize_use_refs ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
-  def_entry = XCNEWVEC (struct web_entry, DF_DEFS_TABLE_SIZE ());
-  use_entry = XCNEWVEC (struct web_entry, DF_USES_TABLE_SIZE ());
+  /* Assign ids to the uses.  */
+  FOR_ALL_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+    {
+      unsigned int uid = INSN_UID (insn);
+      if (INSN_P (insn))
+	{
+	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      DF_REF_ID (ref) = uses_num++;
+	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      DF_REF_ID (ref) = uses_num++;
+	}
+    }
+
+  /* Record the number of uses and defs at the beginning of the optimization.  */
+  def_entry = XCNEWVEC (struct web_entry, DF_DEFS_TABLE_SIZE());
   used = XCNEWVEC (char, max);
+  use_entry = XCNEWVEC (struct web_entry, uses_num);
 
   /* Produce the web.  */
-  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
+  FOR_ALL_BB (bb)
+    FOR_BB_INSNS (bb, insn)
     {
-      struct df_ref *use = DF_USES_GET (i);
-      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
-	union_defs (use, def_entry, use_entry, unionfind_union);
+      unsigned int uid = INSN_UID (insn);
+      if (INSN_P (insn))
+	{
+	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      union_defs (ref, def_entry, use_entry, unionfind_union);
+	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      union_defs (ref, def_entry, use_entry, unionfind_union);
+	}
     }
 
   /* Update the instruction stream, allocating new registers for split pseudos
      in progress.  */
-  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
+  FOR_ALL_BB (bb)
+    FOR_BB_INSNS (bb, insn)
     {
-      struct df_ref *use = DF_USES_GET (i);
-      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
-	replace_ref (use, entry_register (use_entry + i, use, used));
-    }
-  for (i = 0; i < DF_DEFS_TABLE_SIZE (); i++)
-    {
-      struct df_ref *def = DF_DEFS_GET (i);
-      if (DF_REF_REGNO (def) >= FIRST_PSEUDO_REGISTER)
-	replace_ref (def, entry_register (def_entry + i, def, used));
+      unsigned int uid = INSN_UID (insn);
+      if (INSN_P (insn))
+	{
+	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      replace_ref (ref, entry_register (use_entry + DF_REF_ID (ref), ref, used));
+	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      replace_ref (ref, entry_register (use_entry + DF_REF_ID (ref), ref, used));
+	  for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
+	      replace_ref (ref, entry_register (def_entry + DF_REF_ID (ref), ref, used));
+	}
     }
 
   free (def_entry);

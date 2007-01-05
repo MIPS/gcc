@@ -752,7 +752,7 @@ df_reg_chain_unlink (struct df_ref *ref)
   if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
     {
       reg_info = DF_REG_DEF_GET (DF_REF_REGNO (ref));
-      if (id >= 0)
+      if (id >= 0 && df->def_info.refs)
 	{
 	  gcc_assert (id < (int)df->def_info.table_size);
 	  DF_DEFS_SET (id, NULL);
@@ -764,7 +764,7 @@ df_reg_chain_unlink (struct df_ref *ref)
 	reg_info = DF_REG_EQ_USE_GET (DF_REF_REGNO (ref));
       else
 	reg_info = DF_REG_USE_GET (DF_REF_REGNO (ref));
-      if (id >= 0)
+      if (id >= 0 && df->use_info.refs)
 	{
 	  gcc_assert (id < (int)df->use_info.table_size);
 	  DF_USES_SET (id, NULL);
@@ -1397,6 +1397,33 @@ df_maybe_reorganize_def_refs (void)
 {
   if (!df->def_info.refs_organized_alone)
     df_reorganize_refs (&df->def_info, df->def_regs, NULL);
+}
+
+
+/* Discard the organized tables of refs and uses.  */
+
+void
+df_drop_organized_tables (void)
+{
+  df->def_info.add_refs_inline = false;
+  df->def_info.refs_organized_with_eq_uses = false;
+  df->def_info.refs_organized_alone = false;
+  df->use_info.add_refs_inline = false;
+  df->use_info.refs_organized_with_eq_uses = false;
+  df->use_info.refs_organized_alone = false;
+
+  if (df->def_info.refs)
+    {
+      free (df->def_info.refs);
+      df->def_info.refs = NULL;
+      df->def_info.refs_size = 0;
+    }
+  if (df->use_info.refs)
+    {
+      free (df->use_info.refs);
+      df->use_info.refs = NULL;
+      df->use_info.refs_size = 0;
+    }
 }
 
 #ifdef DEBUG_DF_RESCAN
@@ -3273,7 +3300,7 @@ df_compute_regs_ever_live (bool reset)
   Dataflow ref information verification functions.
 
   df_reg_chain_mark (refs, regno, is_def, is_eq_use)
-  df_ref_chain_verify_and_clear_marks (refs, mask)
+  df_ref_chain_verify_and_unmark (refs, mask)
   df_ref_verify (ref, bool)
   df_ref_chain_mark_duplicate (src_refs, dest_refs)
   df_ref_chain_free (refs)
@@ -3405,7 +3432,7 @@ df_ref_verify (struct df_ref *this_ref,
     }
 
   /* Verify ref_info->refs array.  */
-  if ((DF_REF_ID (old_ref) >= 0)
+  if ((DF_REF_ID (old_ref) >= 0 && ref_info->refs)
       && (ref_info->refs[DF_REF_ID (old_ref)] != old_ref))
     {
       if (abort_if_fail)

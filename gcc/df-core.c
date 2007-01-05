@@ -618,6 +618,8 @@ df_finish_pass (void)
   if (!df)
     return;
 
+  df_drop_organized_tables ();
+
 #ifdef ENABLE_CHECKING
   saved_flags = df->changeable_flags;
 #endif
@@ -646,13 +648,6 @@ df_finish_pass (void)
       df->blocks_to_analyze = NULL;
       df_mark_solutions_dirty ();
     }
-
-  df->def_info.add_refs_inline = false;
-  df->def_info.refs_organized_with_eq_uses = false;
-  df->def_info.refs_organized_alone = false;
-  df->use_info.add_refs_inline = false;
-  df->use_info.refs_organized_with_eq_uses = false;
-  df->use_info.refs_organized_alone = false;
 
 #ifdef ENABLE_CHECKING
   /* Verification will fail in DF_NO_INSN_RESCAN.  */

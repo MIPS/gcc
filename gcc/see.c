@@ -3536,7 +3536,7 @@ see_update_defs_relevancy (rtx insn, struct df_ref *ref,
   curr_entry_extra_info->relevancy = et;
   curr_entry_extra_info->local_relevancy = et;
 
-  DF_REF_ID(ref) = index;
+  DF_REF_ID (ref) = index;
 
   if (et != EXTENDED_DEF)
     {

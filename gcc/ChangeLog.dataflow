@@ -1,3 +1,15 @@
+2007-01-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* see.c (see_update_defs_relevancy): Type fixed.
+	* df-scan.c (df_reg_chain_unlink, df_ref_verify): Made tolerant of 
+	refs table not being there.
+	(df_drop_organized_tables): New function.
+	* df-core.c (df_finish_pass): Drop refs tables after each pass.  
+	* web.c (web_main): Reorganized access to not use ref tables and
+	go in order of insns.
+	* df.h (df_drop_organized_tables): New function.
+	* df-problems.c (df_chain_start_dump): Deleted function.
+	(df_chain_top_dump, df_chain_bottom_dump): New functions.
+
 2007-01-03  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* see.c (see_initialize_data_structures): Does not use
 	DF_USES_TABLE_SIZE or DF_DEFS_TABLE_SIZE.
