@@ -1,3 +1,64 @@
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27826
+	* g++.dg/opt/pr27826.C: New testcase.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-06-24  Jan Hubicka  <jh@suse.cz>
+
+	PR c/25795
+	PR c++/27369
+	* gcc.dg/pr25795.c: New testcase.
+	* gcc.dg/pr25795-1.c: Likewise.
+
+2007-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30360
+	* gcc.dg/pr30360.c: New test.
+
+	Backported from mainline
+	2006-10-13  Eric Christopher  <echristo@apple.com>
+	* gcc.dg/pr25993.c: Skip for darwin.
+
+	2006-09-16  Steven Bosscher  <steven@gcc.gnu.org>
+	PR c/25993
+	* gcc.dg/pr25993.c: New test.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28116
+	* g++.dg/opt/pr28116.C: New testcase.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-15  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/29241
+	* gcc.c-torture/compile/pr29241.c: New testcase.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28217
+	* g++.dg/pch/template-1.C: New test.
+	* g++.dg/pch/template-1.Hs: New file.
+
+	PR middle-end/30286
+	* gcc.dg/pr30286.c: New test.
+
+	PR c++/29535
+	* g++.dg/template/crash66.C: New test.
+
+	PR c++/29054
+	* g++.dg/template/friend49.C: New test.
+
+	Backported from mainline
+	2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/28261
+	* g++.dg/parse/enum3.C: New test.
+
 2006-12-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR preprocessor/29612

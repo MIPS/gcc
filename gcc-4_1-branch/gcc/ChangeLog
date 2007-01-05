@@ -1,3 +1,65 @@
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27826
+	* tree.c (get_narrower): Do not construct COMPONENT_REFs
+	with mismatched types.  Instead explicitly build a
+	conversion NOP_EXPR.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-06-24  Jan Hubicka  <jh@suse.cz>
+
+	PR c/25795
+	PR c++/27369
+	* craph.c (cgraph_varpool_nodes): Export.
+	(decide_is_variable_needed): Do not worry about "used" attribute.
+	* cgraph.h (cgraph_varpool_nodes): Declare.
+	* cgraphunit.c (decide_is_function_needed): Do not worry about "used"
+	attribute.
+	(process_function_and_variable_attributes): New function.
+	(cgraph_finalize_compilation_unit): Call it.
+	* c-decl.c (finish_decl): Do not worry about used attribute.
+	* c-common.c (handle_externally_visible_attribute): Only validate.	
+
+2007-01-05  Joel Brobecker  <brobecker@adacore.com>
+
+	* doc/install.texi (Final install): Document the fact that
+	the GNAT runtime should not be stripped.
+
+2007-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30360
+	* libgcc2.c (__divdc3): Compare c and d against 0.0 instead of
+	denom against 0.0.
+
+	Backported from mainline
+	2006-09-17  Steven Bosscher  <steven@gcc.gnu.org>
+	PR c/25993
+	* c-opts.c (c_common_handle_option): Ignore the -std options
+	if the input language is assembly.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28116
+	* tree-inline.c (copy_body_r): Mark argument of ADDR_EXPR
+	addressable.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-15  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/29241
+	* cgraphunit.c (cgraph_preserve_function_body_p): Preserve functions
+	declared always_inline even when not inlining.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30286
+	* fold-const.c (negate_expr): Don't call fold_build1
+	for INTEGER_CST or REAL_CST.
+
 2006-12-27  Ian Lance Taylor  <iant@google.com>
 
 	PR debug/26964
