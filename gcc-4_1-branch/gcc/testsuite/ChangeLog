@@ -1,5 +1,9 @@
-2007-01-05  Richard Guenther  <rguenther@suse.de>
+2007-01-01  Andreas Schwab  <schwab@suse.de>
 
+	PR target/29166
+	* g++.dg/eh/pr29166.C: New test.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
 	PR middle-end/27826
 	* g++.dg/opt/pr27826.C: New testcase.
 
