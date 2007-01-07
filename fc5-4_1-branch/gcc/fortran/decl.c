@@ -385,14 +385,17 @@ match_old_style_init (const char *name)
 {
   match m;
   gfc_symtree *st;
+  gfc_symbol *sym;
   gfc_data *newdata;
 
   /* Set up data structure to hold initializers.  */
   gfc_find_sym_tree (name, NULL, 0, &st);
-	  
+  sym = st->n.sym;
+
   newdata = gfc_get_data ();
   newdata->var = gfc_get_data_variable ();
   newdata->var->expr = gfc_get_variable_expr (st);
+  newdata->where = gfc_current_locus;
 
   /* Match initial value list. This also eats the terminal
      '/'.  */
@@ -406,6 +409,13 @@ match_old_style_init (const char *name)
   if (gfc_pure (NULL))
     {
       gfc_error ("Initialization at %C is not allowed in a PURE procedure");
+      gfc_free (newdata);
+      return MATCH_ERROR;
+    }
+
+  /* Mark the variable as having appeared in a data statement.  */
+  if (gfc_add_data (&sym->attr, sym->name, &sym->declared_at) == FAILURE)
+    {
       gfc_free (newdata);
       return MATCH_ERROR;
     }
@@ -626,7 +636,8 @@ get_proc_name (const char *name, gfc_symbol ** result,
 	 accessible names.  */
       if (sym->attr.flavor != 0
 	    && sym->attr.proc != 0
-	    && sym->formal)
+	    && (sym->attr.subroutine || sym->attr.function)
+	    && sym->attr.if_source != IFSRC_UNKNOWN)
 	gfc_error_now ("Procedure '%s' at %C is already defined at %L",
 		       name, &sym->declared_at);
 
@@ -634,6 +645,7 @@ get_proc_name (const char *name, gfc_symbol ** result,
 	 signature for this is that ts.kind is set.  Legitimate
 	 references only set ts.type.  */
       if (sym->ts.kind != 0
+	    && !sym->attr.implicit_type
 	    && sym->attr.proc == 0
 	    && gfc_current_ns->parent != NULL
 	    && sym->attr.access == 0
@@ -725,10 +737,11 @@ gfc_set_constant_character_len (int len, gfc_expr * expr)
   slen = expr->value.character.length;
   if (len != slen)
     {
-      s = gfc_getmem (len);
+      s = gfc_getmem (len + 1);
       memcpy (s, expr->value.character.string, MIN (len, slen));
       if (len > slen)
 	memset (&s[slen], ' ', len - slen);
+      s[len] = '\0';
       gfc_free (expr->value.character.string);
       expr->value.character.string = s;
       expr->value.character.length = len;
@@ -868,10 +881,8 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	      sym->ts.cl->next = gfc_current_ns->cl_list;
 	      gfc_current_ns->cl_list = sym->ts.cl;
 
-	      if (init->expr_type == EXPR_CONSTANT)
-		sym->ts.cl->length =
-			gfc_int_expr (init->value.character.length);
-	      else if (init->expr_type == EXPR_ARRAY)
+	      if (sym->attr.flavor == FL_PARAMETER
+		    && init->expr_type == EXPR_ARRAY)
 		sym->ts.cl->length = gfc_copy_expr (init->ts.cl->length);
 	    }
 	  /* Update initializer character length according symbol.  */
@@ -2629,7 +2640,9 @@ gfc_match_function_decl (void)
       || copy_prefix (&sym->attr, &sym->declared_at) == FAILURE)
     goto cleanup;
 
-  if (current_ts.type != BT_UNKNOWN && sym->ts.type != BT_UNKNOWN)
+  if (current_ts.type != BT_UNKNOWN
+	&& sym->ts.type != BT_UNKNOWN
+	&& !sym->attr.implicit_type)
     {
       gfc_error ("Function '%s' at %C already has a type of %s", name,
 		 gfc_basic_typename (sym->ts.type));

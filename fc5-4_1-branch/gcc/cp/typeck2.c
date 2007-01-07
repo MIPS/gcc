@@ -401,7 +401,12 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       break;
 
     case TEMPLATE_TYPE_PARM:
-      p_msg ("invalid use of template type parameter");
+      p_msg ("invalid use of template type parameter %qT", type);
+      break;
+
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      p_msg ("invalid use of template template parameter %qT",
+            TYPE_NAME (type));
       break;
 
     case UNKNOWN_TYPE:
@@ -719,6 +724,15 @@ digest_init (tree type, tree init)
 
 	  return error_mark_node;
 	}
+
+      if (TREE_CODE (type) == ARRAY_TYPE
+	  && TREE_CODE (init) != CONSTRUCTOR)
+	{
+	  error ("array must be initialized with a brace-enclosed"
+		 " initializer");
+	  return error_mark_node;
+	}
+
       return convert_for_initialization (NULL_TREE, type, init,
 					 LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING,
 					 "initialization", NULL_TREE, 0);

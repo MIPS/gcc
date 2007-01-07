@@ -164,6 +164,7 @@ extern const int x86_use_bt;
 extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
 extern const int x86_use_incdec;
 extern const int x86_pad_returns;
+extern const int x86_partial_flag_reg_stall;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -182,6 +183,7 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_SAHF ((x86_use_sahf & TUNEMASK) && !TARGET_64BIT)
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
+#define TARGET_PARTIAL_FLAG_REG_STALL (x86_partial_flag_reg_stall & TUNEMASK)
 #define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
 #define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
@@ -832,6 +834,15 @@ do {									\
       : (MODE) == XCmode						\
       ? (TARGET_64BIT ? 4 : 6)						\
       : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
+
+#define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE)			\
+  ((TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT)				\
+   ? (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
+      ? 0								\
+      : ((MODE) == XFmode || (MODE) == XCmode))				\
+   : 0)
+
+#define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \

@@ -1058,6 +1058,12 @@ gfc_match_if (gfc_statement * if_type)
   gfc_undo_symbols ();
   gfc_current_locus = old_loc;
 
+  /* m can be MATCH_NO or MATCH_ERROR, here.  For MATCH_NO, continue to
+     call the various matchers.  For MATCH_ERROR, a mangled assignment
+     was found.  */
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
   gfc_match (" if ( %e ) ", &expr);	/* Guaranteed to match */
 
   m = gfc_match_pointer_assignment ();
@@ -1788,6 +1794,9 @@ gfc_match_allocate (void)
 		     "PURE procedure");
 	  goto cleanup;
 	}
+
+      if (tail->expr->ts.type == BT_DERIVED)
+	tail->expr->ts.derived = gfc_use_derived (tail->expr->ts.derived);
 
       if (gfc_match_char (',') != MATCH_YES)
 	break;
@@ -3030,6 +3039,15 @@ match_case_eos (void)
 
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
+
+
+  /* If the case construct doesn't have a case-construct-name, we
+     should have matched the EOS.  */
+  if (!gfc_current_block ())
+    {
+      gfc_error ("Expected the name of the select case construct at %C");
+      return MATCH_ERROR;
+    }
 
   gfc_gobble_whitespace ();
 

@@ -86,6 +86,7 @@ compilation is specified by a string called a "spec".  */
 #include "prefix.h"
 #include "gcc.h"
 #include "flags.h"
+#include "opts.h"
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -3659,7 +3660,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switch (c)
 	    {
 	    case 'b':
-	      if (NULL == strchr(argv[i] + 2, '-')) break;
+	      if (NULL == strchr(argv[i] + 2, '-'))
+		goto normal_switch;
+
+	      /* Fall through.  */
 	    case 'V':
 	      fatal ("'-%c' must come at the start of the command line", c);
 	      break;
@@ -6074,6 +6078,8 @@ main (int argc, const char **argv)
   programname = p;
 
   xmalloc_set_program_name (programname);
+
+  prune_options (&argc, &argv);
 
 #ifdef GCC_DRIVER_HOST_INITIALIZATION
   /* Perform host dependent initialization when needed.  */

@@ -3454,6 +3454,8 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  last_stmt = true;
 	  c_parser_statement_after_labels (parser);
 	}
+
+      parser->error = false;
     }
   if (last_label)
     error ("label at end of compound statement");
@@ -5390,7 +5392,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
   struct c_expr expr;
   start_init (NULL_TREE, NULL, 0);
   type = groktypename (type_name);
-  if (C_TYPE_VARIABLE_SIZE (type))
+  if (type != error_mark_node && C_TYPE_VARIABLE_SIZE (type))
     {
       error ("compound literal has variable size");
       type = error_mark_node;
@@ -7693,6 +7695,12 @@ c_parser_omp_construct (c_parser *parser)
   loc = c_parser_peek_token (parser)->location;
   p_kind = c_parser_peek_token (parser)->pragma_kind;
   c_parser_consume_pragma (parser);
+
+  /* For all constructs below except #pragma omp atomic
+     MUST_NOT_THROW catch handlers are needed when exceptions
+     are enabled.  */
+  if (p_kind != PRAGMA_OMP_ATOMIC)
+    c_maybe_initialize_eh ();
 
   switch (p_kind)
     {

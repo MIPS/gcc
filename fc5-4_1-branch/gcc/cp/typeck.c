@@ -227,6 +227,7 @@ commonparms (tree p1, tree p2)
 tree
 original_type (tree t)
 {
+  int quals = cp_type_quals (t);
   while (t != error_mark_node
 	 && TYPE_NAME (t) != NULL_TREE)
     {
@@ -238,7 +239,7 @@ original_type (tree t)
 	break;
       t = x;
     }
-  return t;
+  return cp_build_qualified_type (t, quals);
 }
 
 /* T1 and T2 are arithmetic or enumeration types.  Return the type
@@ -259,7 +260,7 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 	      || TREE_CODE (t1) == ENUMERAL_TYPE);
   gcc_assert (ARITHMETIC_TYPE_P (t2)
 	      || TREE_CODE (t2) == COMPLEX_TYPE
-	      || TREE_CODE (t1) == VECTOR_TYPE
+	      || TREE_CODE (t2) == VECTOR_TYPE
 	      || TREE_CODE (t2) == ENUMERAL_TYPE);
 
   /* In what follows, we slightly generalize the rules given in [expr] so
@@ -729,7 +730,13 @@ merge_types (tree t1, tree t2)
 
     default:;
     }
-  return cp_build_type_attribute_variant (t1, attributes);
+
+  if (attribute_list_equal (TYPE_ATTRIBUTES (t1), attributes))
+    return t1;
+  else if (attribute_list_equal (TYPE_ATTRIBUTES (t2), attributes))
+    return t2;
+  else
+    return cp_build_type_attribute_variant (t1, attributes);
 }
 
 /* Return the common type of two types.
@@ -1233,38 +1240,44 @@ compparms (tree parms1, tree parms2)
 tree
 cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
 {
-  enum tree_code type_code;
   tree value;
-  const char *op_name;
+  bool dependent_p;
 
   gcc_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR);
   if (type == error_mark_node)
     return error_mark_node;
 
-  if (dependent_type_p (type))
+  type = non_reference (type);
+  if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      if (complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of %qs to a member function", 
+		 operator_name_info[(int) op].name);
+      value = size_one_node;
+    }
+
+  dependent_p = dependent_type_p (type);
+  if (!dependent_p)
+    complete_type (type);
+  if (dependent_p
+      /* VLA types will have a non-constant size.  In the body of an
+	 uninstantiated template, we don't need to try to compute the
+	 value, because the sizeof expression is not an integral
+	 constant expression in that case.  And, if we do try to
+	 compute the value, we'll likely end up with SAVE_EXPRs, which
+	 the template substitution machinery does not expect to see.  */
+      || (processing_template_decl 
+	  && COMPLETE_TYPE_P (type)
+	  && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
     {
       value = build_min (op, size_type_node, type);
       TREE_READONLY (value) = 1;
       return value;
     }
 
-  op_name = operator_name_info[(int) op].name;
-
-  type = non_reference (type);
-  type_code = TREE_CODE (type);
-
-  if (type_code == METHOD_TYPE)
-    {
-      if (complain && (pedantic || warn_pointer_arith))
-	pedwarn ("invalid application of %qs to a member function", op_name);
-      value = size_one_node;
-    }
-  else
-    value = c_sizeof_or_alignof_type (complete_type (type),
-				      op == SIZEOF_EXPR,
-				      complain);
-
-  return value;
+  return c_sizeof_or_alignof_type (complete_type (type),
+				   op == SIZEOF_EXPR,
+				   complain);
 }
 
 /* Process a sizeof or alignof expression where the operand is an
@@ -2972,17 +2985,19 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
 	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
+	  enum tree_code tcode0 = code0, tcode1 = code1;
+
 	  if (TREE_CODE (op1) == INTEGER_CST && integer_zerop (op1))
 	    warning (0, "division by zero in %<%E / 0%>", op0);
 	  else if (TREE_CODE (op1) == REAL_CST && real_zerop (op1))
 	    warning (0, "division by zero in %<%E / 0.%>", op0);
 
-	  if (code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
-	    code0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
-	  if (code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE)
-	    code1 = TREE_CODE (TREE_TYPE (TREE_TYPE (op1)));
+	  if (tcode0 == COMPLEX_TYPE || tcode0 == VECTOR_TYPE)
+	    tcode0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
+	  if (tcode1 == COMPLEX_TYPE || tcode1 == VECTOR_TYPE)
+	    tcode1 = TREE_CODE (TREE_TYPE (TREE_TYPE (op1)));
 
-	  if (!(code0 == INTEGER_TYPE && code1 == INTEGER_TYPE))
+	  if (!(tcode0 == INTEGER_TYPE && tcode1 == INTEGER_TYPE))
 	    resultcode = RDIV_EXPR;
 	  else
 	    /* When dividing two signed integers, we have to promote to int.
@@ -3862,10 +3877,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
-      else if (!(arg = build_expr_type_conversion (WANT_INT | WANT_ENUM,
+      else if (!(arg = build_expr_type_conversion (WANT_INT | WANT_ENUM
+						   | WANT_VECTOR,
 						   arg, true)))
 	errstring = "wrong type argument to bit-complement";
-      else if (!noconvert)
+      else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
 	arg = perform_integral_promotions (arg);
       break;
 
@@ -6233,6 +6249,10 @@ maybe_warn_about_returning_address_of_local (tree retval)
 	  return;
 	}
     }
+
+  while (TREE_CODE (whats_returned) == COMPONENT_REF
+	 || TREE_CODE (whats_returned) == ARRAY_REF)
+    whats_returned = TREE_OPERAND (whats_returned, 0);
 
   if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)

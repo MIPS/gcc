@@ -1797,14 +1797,19 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	break;
       if (TYPE_PTR_P (type1) && TYPE_PTR_P (type2))
 	break;
-      if (TREE_CODE (type1) == ENUMERAL_TYPE && TREE_CODE (type2) == ENUMERAL_TYPE)
+      if (TREE_CODE (type1) == ENUMERAL_TYPE 
+	  && TREE_CODE (type2) == ENUMERAL_TYPE)
 	break;
-      if (TYPE_PTR_P (type1) && null_ptr_cst_p (args[1]))
+      if (TYPE_PTR_P (type1) 
+	  && null_ptr_cst_p (args[1])
+	  && !uses_template_parms (type1))
 	{
 	  type2 = type1;
 	  break;
 	}
-      if (null_ptr_cst_p (args[0]) && TYPE_PTR_P (type2))
+      if (null_ptr_cst_p (args[0]) 
+	  && TYPE_PTR_P (type2)
+	  && !uses_template_parms (type2))
 	{
 	  type1 = type2;
 	  break;
@@ -4518,10 +4523,12 @@ build_x_va_arg (tree expr, tree type)
 
   if (! pod_type_p (type))
     {
+      /* Remove reference types so we don't ICE later on.  */
+      tree type1 = non_reference (type);
       /* Undefined behavior [expr.call] 5.2.2/7.  */
       warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
 	       "call will abort at runtime", type);
-      expr = convert (build_pointer_type (type), null_node);
+      expr = convert (build_pointer_type (type1), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
 		     call_builtin_trap (), expr);
       expr = build_indirect_ref (expr, NULL);
@@ -4821,6 +4828,12 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_VALUE (parm);
 
       conv = convs[i];
+
+      /* Don't make a copy here if build_call is going to.  */
+      if (conv->kind == ck_rvalue
+	  && !TREE_ADDRESSABLE (complete_type (type)))
+	conv = conv->u.next;
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 

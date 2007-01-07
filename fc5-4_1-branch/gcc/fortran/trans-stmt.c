@@ -664,6 +664,7 @@ gfc_trans_arithmetic_if (gfc_code * code)
 
   /* Pre-evaluate COND.  */
   gfc_conv_expr_val (&se, code->expr);
+  se.expr = gfc_evaluate_now (se.expr, &se.pre);
 
   /* Build something to compare with.  */
   zero = gfc_build_const (TREE_TYPE (se.expr), integer_zero_node);
@@ -1302,6 +1303,7 @@ static tree
 gfc_trans_character_select (gfc_code *code)
 {
   tree init, node, end_label, tmp, type, args, *labels;
+  tree case_label;
   stmtblock_t block, body;
   gfc_case *cp, *d;
   gfc_code *c;
@@ -1458,10 +1460,15 @@ gfc_trans_character_select (gfc_code *code)
 
   gfc_add_block_to_block (&block, &se.pre);
 
-  tmp = gfc_build_function_call (gfor_fndecl_select_string, args);
-  tmp = build1 (GOTO_EXPR, void_type_node, tmp);
-  gfc_add_expr_to_block (&block, tmp);
+  tmp = build_function_call_expr (gfor_fndecl_select_string, args);
+  case_label = gfc_create_var (TREE_TYPE (tmp), "case_label");
+  gfc_add_modify_expr (&block, case_label, tmp);
 
+  gfc_add_block_to_block (&block, &se.post);
+
+  tmp = build1 (GOTO_EXPR, void_type_node, case_label);
+  gfc_add_expr_to_block (&block, tmp);
+  
   tmp = gfc_finish_block (&body);
   gfc_add_expr_to_block (&block, tmp);
   tmp = build1_v (LABEL_EXPR, end_label);
@@ -1789,6 +1796,7 @@ generate_loop_for_temp_to_lhs (gfc_expr *expr, tree tmp1, tree count3,
       gfc_conv_expr (&lse, expr);
 
       /* Use the scalar assignment.  */
+      rse.string_length = lse.string_length;
       tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts.type);
 
      /* Form the mask expression according to the mask tree list.  */
@@ -1886,6 +1894,7 @@ generate_loop_for_rhs_to_temp (gfc_expr *expr2, tree tmp1, tree count3,
     }
 
   /* Use the scalar assignment.  */
+  lse.string_length = rse.string_length;
   tmp = gfc_trans_scalar_assign (&lse, &rse, expr2->ts.type);
 
   /* Form the mask expression according to the mask tree list.  */
@@ -1956,6 +1965,7 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
   gfc_loopinfo loop;
   tree size;
   int i;
+  int save_flag;
   tree tmp;
 
   *lss = gfc_walk_expr (expr1);
@@ -1988,7 +1998,10 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
       loop.array_parameter = 1;
 
       /* Calculate the bounds of the scalarization.  */
+      save_flag = flag_bounds_check;
+      flag_bounds_check = 0;
       gfc_conv_ss_startstride (&loop);
+      flag_bounds_check = save_flag;
       gfc_conv_loop_setup (&loop);
 
       /* Figure out how many elements we need.  */

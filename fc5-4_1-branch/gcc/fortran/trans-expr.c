@@ -1274,10 +1274,17 @@ gfc_set_interface_mapping_bounds (stmtblock_t * block, tree type, tree desc)
   offset = gfc_index_zero_node;
   for (n = 0; n < GFC_TYPE_ARRAY_RANK (type); n++)
     {
+      dim = gfc_rank_cst[n];
       GFC_TYPE_ARRAY_STRIDE (type, n) = gfc_conv_array_stride (desc, n);
-      if (GFC_TYPE_ARRAY_UBOUND (type, n) == NULL_TREE)
+      if (GFC_TYPE_ARRAY_LBOUND (type, n) == NULL_TREE)
 	{
-	  dim = gfc_rank_cst[n];
+	  GFC_TYPE_ARRAY_LBOUND (type, n)
+		= gfc_conv_descriptor_lbound (desc, dim);
+	  GFC_TYPE_ARRAY_UBOUND (type, n)
+		= gfc_conv_descriptor_ubound (desc, dim);
+	}
+      else if (GFC_TYPE_ARRAY_UBOUND (type, n) == NULL_TREE)
+	{
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			     gfc_conv_descriptor_ubound (desc, dim),
 			     gfc_conv_descriptor_lbound (desc, dim));
@@ -1683,6 +1690,17 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr,
       gcc_assert (rse.ss == gfc_ss_terminator);
       gfc_trans_scalarizing_loops (&loop, &body);
     }
+  else
+    {
+      /* Make sure that the temporary declaration survives by merging
+       all the loop declarations into the current context.  */
+      for (n = 0; n < loop.dimen; n++)
+	{
+	  gfc_merge_block_scope (&body);
+	  body = loop.code[loop.order[n]];
+	}
+      gfc_merge_block_scope (&body);
+    }
 
   /* Add the post block after the second loop, so that any
      freeing of allocated memory is done at the right time.  */
@@ -1965,15 +1983,46 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    } 
 	}
 
-      /* If an optional argument is itself an optional dummy argument,
-	 check its presence and substitute a null if absent.  */
-      if (e && e->expr_type == EXPR_VARIABLE
-	    && e->symtree->n.sym->attr.optional
-	    && fsym && fsym->attr.optional)
-	gfc_conv_missing_dummy (&parmse, e, fsym->ts);
+      if (fsym)
+	{
+	  if (e)
+	    {
+	      /* If an optional argument is itself an optional dummy
+		 argument, check its presence and substitute a null
+		 if absent.  */
+	      if (e->expr_type == EXPR_VARIABLE
+		    && e->symtree->n.sym->attr.optional
+		    && fsym->attr.optional)
+		gfc_conv_missing_dummy (&parmse, e, fsym->ts);
 
-      if (fsym && need_interface_mapping)
-	gfc_add_interface_mapping (&mapping, fsym, &parmse);
+	      /* If an INTENT(OUT) dummy of derived type has a default
+		 initializer, it must be (re)initialized here.  */
+	      if (fsym->attr.intent == INTENT_OUT
+		    && fsym->ts.type == BT_DERIVED
+		    && fsym->value)
+		{
+		  gcc_assert (!fsym->attr.allocatable);
+		  tmp = gfc_trans_assignment (e, fsym->value);
+		  gfc_add_expr_to_block (&se->pre, tmp);
+		}
+
+	      /* Obtain the character length of an assumed character
+		 length procedure from the typespec.  */
+	      if (fsym->ts.type == BT_CHARACTER
+		    && parmse.string_length == NULL_TREE
+		    && e->ts.type == BT_PROCEDURE
+		    && e->symtree->n.sym->ts.type == BT_CHARACTER
+		    && e->symtree->n.sym->ts.cl->length != NULL)
+		{
+		  gfc_conv_const_charlen (e->symtree->n.sym->ts.cl);
+		  parmse.string_length
+			= e->symtree->n.sym->ts.cl->backend_decl;
+		}
+	    }
+
+	  if (need_interface_mapping)
+	    gfc_add_interface_mapping (&mapping, fsym, &parmse);
+	}
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
       gfc_add_block_to_block (&post, &parmse.post);
@@ -1994,12 +2043,22 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	{
 	  /* Assumed character length results are not allowed by 5.1.1.5 of the
 	     standard and are trapped in resolve.c; except in the case of SPREAD
-	     (and other intrinsics?).  In this case, we take the character length
-	     of the first argument for the result.  */
-	  cl.backend_decl = TREE_VALUE (stringargs);
-	}
-      else
-	{
+	     (and other intrinsics?) and dummy functions.  In the case of SPREAD,
+	     we take the character length of the first argument for the result.
+	     For dummies, we have to look through the formal argument list for
+	     this function and use the character length found there.*/
+	  if (!sym->attr.dummy)
+	    cl.backend_decl = TREE_VALUE (stringargs);
+	  else
+	    {
+	      formal = sym->ns->proc_name->formal;
+	      for (; formal; formal = formal->next)
+		if (strcmp (formal->sym->name, sym->name) == 0)
+		  cl.backend_decl = formal->sym->ts.cl->backend_decl;
+	    }
+        }
+        else
+        {
 	  /* Calculate the length of the returned string.  */
 	  gfc_init_se (&parmse, NULL);
 	  if (need_interface_mapping)
@@ -2564,9 +2623,19 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
     }
   else if (expr->ts.type == BT_DERIVED)
     {
-      /* Nested derived type.  */
-      tmp = gfc_trans_structure_assign (dest, expr);
-      gfc_add_expr_to_block (&block, tmp);
+      if (expr->expr_type != EXPR_STRUCTURE)
+	{
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, expr);
+	  gfc_add_modify_expr (&block, dest,
+			       fold_convert (TREE_TYPE (dest), se.expr));
+	}
+      else
+	{
+	  /* Nested constructors.  */
+	  tmp = gfc_trans_structure_assign (dest, expr);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
     }
   else
     {
@@ -2816,8 +2885,10 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
   /* Create a temporary var to hold the value.  */
   if (TREE_CONSTANT (se->expr))
     {
-      var = build_decl (CONST_DECL, NULL, TREE_TYPE (se->expr));
-      DECL_INITIAL (var) = se->expr;
+      tree tmp = se->expr;
+      STRIP_TYPE_NOPS (tmp);
+      var = build_decl (CONST_DECL, NULL, TREE_TYPE (tmp));
+      DECL_INITIAL (var) = tmp;
       pushdecl (var);
     }
   else
@@ -2882,7 +2953,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	{
 	case EXPR_NULL:
 	  /* Just set the data pointer to null.  */
-	  gfc_conv_descriptor_data_set (&block, lse.expr, null_pointer_node);
+	  gfc_conv_descriptor_data_set (&lse.pre, lse.expr, null_pointer_node);
 	  break;
 
 	case EXPR_VARIABLE:
@@ -3201,6 +3272,12 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
     }
 
   return gfc_finish_block (&block);
+}
+
+tree
+gfc_trans_init_assign (gfc_code * code)
+{
+  return gfc_trans_assignment (code->expr, code->expr2);
 }
 
 tree

@@ -1461,19 +1461,27 @@ gfc_get_derived_type (gfc_symbol * derived)
     }
   else
     {
-      /* In a module, if an equal derived type is already available in the
-	 specification block, use its backend declaration and those of its
-	 components, rather than building anew so that potential dummy and
-	 actual arguments use the same TREE_TYPE.  Non-module structures,
-	 need to be built, if found, because the order of visits to the 
-	 namespaces is different.  */
+      /* If an equal derived type is already available in the parent namespace,
+	 use its backend declaration and those of its components, rather than
+	 building anew so that potential dummy and actual arguments use the
+	 same TREE_TYPE.  If an equal type is found without a backend_decl,
+	 build the parent version and use it in the current namespace.  */
+      if (derived->ns->parent)
+	ns = derived->ns->parent;
+      else if (derived->ns->proc_name
+		 && derived->ns->proc_name->ns != derived->ns)
+	/* Derived types in an interface body obtain their parent reference
+	   through the proc_name symbol.  */
+	ns = derived->ns->proc_name->ns;
+      else
+	/* Sometimes there isn't a parent reference!  */
+	ns = NULL;
 
-      for (ns = derived->ns->parent; ns; ns = ns->parent)
+      for (; ns; ns = ns->parent)
 	{
 	  for (dt = ns->derived_types; dt; dt = dt->next)
 	    {
-	      if (derived->module == NULL
-		    && dt->derived->backend_decl == NULL
+	      if (dt->derived->backend_decl == NULL
 		    && gfc_compare_derived_types (dt->derived, derived))
 		gfc_get_derived_type (dt->derived);
 
@@ -1564,9 +1572,14 @@ gfc_get_derived_type (gfc_symbol * derived)
 
 other_equal_dts:
   /* Add this backend_decl to all the other, equal derived types and
-     their components in this namespace.  */
+     their components in this and sibling namespaces.  */
+
   for (dt = derived->ns->derived_types; dt; dt = dt->next)
     copy_dt_decls_ifequal (derived, dt->derived);
+
+  for (ns = derived->ns->sibling; ns; ns = ns->sibling)
+    for (dt = ns->derived_types; dt; dt = dt->next)
+      copy_dt_decls_ifequal (derived, dt->derived);
 
   return derived->backend_decl;
 }

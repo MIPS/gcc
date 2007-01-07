@@ -1,3 +1,185 @@
+2006-12-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/30145
+	* io/transfer.c (transfer_array):  Check for negative extent.
+
+2006-12-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/29810
+	* intrinsics/c99_functions.c (fmodf, fmodl, floorl): New functions.
+	* c99_protos.h (fmodf, fmodl, floorl): New prototypes.
+	* configure.ac: Check for fmodf, fmod and fmodl.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* aclocal.m4: Regenerate with correct autoconf version (1.9.6).
+	* Makefile.in: Likewise.
+
+2006-11-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/29936
+	* io/io.h (unit_flags): Add new flag has_recl.
+	* io.open.c (new_unit): Set flag if RECL= was specified.
+	* io/transfer.c (us_write): If flag set, leave recl as initialized by
+	new_unit.
+
+2006-11-13  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/27895
+	* intrinsics/cshift0.c: Special cases for zero-sized arrays.
+	* intrinsics/pack_generic.c: Likewise.
+	* intrinsics/spread_generic.c: Likewise.
+	* intrinsics/reshape_generic.c (reshape_internal): Fix so that it
+	works correctly for zero-sized arrays.
+	* m4/reshape.m4: Likewise.
+	* generated/reshape_r16.c: Regenerate.
+	* generated/reshape_c4.c: Regenerate.
+	* generated/reshape_i4.c: Regenerate.
+	* generated/reshape_c16.c: Regenerate.
+	* generated/reshape_r10.c: Regenerate.
+	* generated/reshape_r8.c: Regenerate.
+	* generated/reshape_c10.c: Regenerate.
+	* generated/reshape_c8.c: Regenerate.
+	* generated/reshape_i8.c: Regenerate.
+	* generated/reshape_i16.c: Regenerate.
+	* generated/reshape_r4.c: Regenerate.
+
+2006-11-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/29627
+	Backport from trunk
+	* libgfortran.h: Add ERROR_SHORT_RECORD
+	* runtime/error.c (translate_error): Add case
+	for ERROR_SHORT_RECORD.
+	* io/transfer.c (read_block_direct):  Remove unneeded
+	tests for standard input, padding and formatted I/O.
+	If the record is short, read in as much data as possible,
+	then raise the error.
+
+2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/29563
+	* io/io.h (st_parameter_dt): Add new flag at_eof.
+	* io/list_read.c (next_char): Set flag when EOF and return '\n' to
+	signal EOR.  Check flag on next call and jump out.
+	* io/unit.c (get_internal_unit): Initialize new flag.
+
+2006-10-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/18791
+	* m4/specific.m4: Special-case cabs so that its return type is
+	real. Special-case conjg so that their suffices are _4, _8, _10 and
+	_16 instead of _c4, _c8, _c10 and _c16.
+	* intrinsics/f2c_specifics.F90: Special-case conjg functions so
+	that their suffices are _4 and _8 instead of _c4 and _c8.
+	* generated/_conjg_c4.F90: Regenerate.
+	* generated/_conjg_c8.F90: Regenerate.
+	* generated/_conjg_c10.F90: Regenerate.
+	* generated/_conjg_c16.F90: Regenerate.
+	* generated/_abs_c4.F90: Regenerate.
+	* generated/_abs_c8.F90: Regenerate.
+	* generated/_abs_c10.F90: Regenerate.
+	* generated/_abs_c16.F90: Regenerate.
+
+2006-09-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* intrinsics/cpu_time.c:  Add cpu_time_10 and cpu_time_16 routines.
+
+2006-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28947
+	* m4/matmul.m4: For the case where the second input argument is
+	transposed, ensure that the case with rank (a) == 1 is
+	correctly calculated.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-08-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28005
+	* m4/matmul.m4: Working part of function ported from
+	trunk.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-08-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/28542
+	* Makefile.am:  Remove normalize.c.
+	* aclocal.m4:  Regenerate.
+	* Makefile.in:  Regenerate.
+	* libgfortran.h:  #include <float.h>.
+	Define GFC_REAL_*_DIGITS and GFC_REAL_*_RADIX.
+	Remove prototypes for normalize_r4_i4 and normalize_r8_i8.
+	* intrinsics/random.c (top level): Add prototypes for
+	random_r10, arandom_r10, random_r16 and arandom_r16.
+	(rnumber_4):  New static function.
+	(rnumber_8):  New static function.
+	(rnumber_10): New static function.
+	(rnumber_16): New static function.
+	(top level):  Set to kiss_size to 12 if we have
+	REAL(KIND=16), to 8 otherwise.
+	Define KISS_DEFAULT_SEED_1, KISS_DEFAULT_SEED_2 and
+	KISS_DEFAULT_SEED_3.
+	(kiss_random_kernel):  Take argument to differentiate
+	between different random number generators.
+	(random_r4):  Add argument to call to kiss_random_kernel,
+	use rnumber_*.
+	(random_r8):  Likewise.
+	(random_r10):  New function.
+	(random_r16):  New function.
+	(arandom_r4):  Add argument to call to kiss_random_kernel,
+	use_rnumber_*.
+	(arandom_r8):  Likewise.
+	(arandom_r10):  New function.
+	(arandom_r16):  New function.
+	* intrinsics/rand.c (rand):  Use shift and mask.
+	* runtime/normalize.c:  Remove.
+
+2006-07-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* close.c (st_close): Revert error when UNIT does not exist.
+	Add comment to reference standard.
+	* file_position.c (st_flush): Improve error message.
+	Add comment to reference standard.
+
+2006-07-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28339
+	* io/transfer.c (next_record_w): Use next_array_record result to set
+	END_FILE. (write_block): Test for END_FILE before the next write occurs.
+	* io/unit.c (get_internal_unit): Initialize iunit->endfile for internal
+	unit.
+
+2006-07-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* close.c (st_close): Add error when UNIT does not exist.
+	* file_position.c (st_flush): Add error when UNIT does not exist.
+
+2006-07-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/date_and_time.c (itime0,idate0,itime_i4,itime_i8,
+	idate_i4,idate_i8): New functions.
+
 2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/28094

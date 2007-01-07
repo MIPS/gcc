@@ -2000,7 +2000,7 @@ changequote(,)dnl
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -2807,6 +2807,21 @@ foo:	nop
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_FPRND, 1,
 	  [Define if your assembler supports fprnd.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	mffgpr 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	mffgpr 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([move fp gpr support],
+      gcc_cv_as_powerpc_mfpgpr, [9,99,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_MFPGPR, 1,
+	  [Define if your assembler supports mffgpr and mftgpr.])])
 
     case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]

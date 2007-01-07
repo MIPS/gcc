@@ -3290,6 +3290,23 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   return tem;
 }
 
+/* Initialize EH if not initialized yet and exceptions are enabled.  */
+
+void
+c_maybe_initialize_eh (void)
+{
+  if (!flag_exceptions || c_eh_initialized_p)
+    return;
+
+  c_eh_initialized_p = true;
+  eh_personality_libfunc
+    = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+			? "__gcc_personality_sj0"
+			: "__gcc_personality_v0");
+  default_init_unwind_resume_libfunc ();
+  using_eh_for_cleanups ();
+}
+
 /* Finish processing of a declaration;
    install its initial value.
    If the length of an array type is not known before,
@@ -3545,7 +3562,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 
   /* If this was marked 'used', be sure it will be output.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (!flag_unit_at_a_time && lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
     mark_decl_referenced (decl);
 
   if (TREE_CODE (decl) == TYPE_DECL)
@@ -3583,16 +3600,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  TREE_USED (cleanup_decl) = 1;
 
 	  /* Initialize EH, if we've been told to do so.  */
-	  if (flag_exceptions && !c_eh_initialized_p)
-	    {
-	      c_eh_initialized_p = true;
-	      eh_personality_libfunc
-		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
-				    ? "__gcc_personality_sj0"
-				    : "__gcc_personality_v0");
-	      default_init_unwind_resume_libfunc ();
-	      using_eh_for_cleanups ();
-	    }
+	  c_maybe_initialize_eh ();
 
 	  push_cleanup (decl, cleanup, false);
 	}
@@ -4304,12 +4312,23 @@ grokdeclarator (const struct c_declarator *declarator,
 	        type = error_mark_node;
 	      }
 	    else
+	    /* When itype is NULL, a shared incomplete array type is
+	       returned for all array of a given type.  Elsewhere we
+	       make sure we don't complete that type before copying
+	       it, but here we want to make sure we don't ever
+	       modify the shared type, so we gcc_assert (itype)
+	       below.  */
 	      type = build_array_type (type, itype);
 
 	    if (type != error_mark_node)
 	      {
 		if (size_varies)
 		  {
+		    /* It is ok to modify type here even if itype is
+		       NULL: if size_varies, we're in a
+		       multi-dimentional array and the inner type has
+		       variable size, so the enclosing shared array type
+		       must too.  */
 		    if (size && TREE_CODE (size) == INTEGER_CST)
 		      type
 			= build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
@@ -4321,6 +4340,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		   zero.  */
 		if (size && integer_zerop (size))
 		  {
+		    gcc_assert (itype);
 		    TYPE_SIZE (type) = bitsize_zero_node;
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
 		  }
@@ -4476,21 +4496,6 @@ grokdeclarator (const struct c_declarator *declarator,
       if (declspecs->inline_p)
 	pedwarn ("typedef %q+D declared %<inline%>", decl);
       return decl;
-    }
-
-  /* Detect the case of an array type of unspecified size
-     which came, as such, direct from a typedef name.
-     We must copy the type, so that each identifier gets
-     a distinct type, so that each identifier's size can be
-     controlled separately by its own initializer.  */
-
-  if (type != 0 && typedef_type != 0
-      && TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == 0
-      && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (typedef_type))
-    {
-      type = build_array_type (TREE_TYPE (type), 0);
-      if (size_varies)
-	C_TYPE_VARIABLE_SIZE (type) = 1;
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -5942,6 +5947,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this definition isn't a prototype and we had a prototype declaration
      before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
+  if (old_decl && TREE_CODE (old_decl) != FUNCTION_DECL)
+    old_decl = 0;
   current_function_prototype_locus = UNKNOWN_LOCATION;
   current_function_prototype_built_in = false;
   current_function_prototype_arg_types = NULL_TREE;

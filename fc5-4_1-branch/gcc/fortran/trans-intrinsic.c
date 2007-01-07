@@ -702,10 +702,13 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   tree type;
   tree bound;
   tree tmp;
-  tree cond;
+  tree cond, cond1, cond2, cond3, cond4, size;
+  tree ubound;
+  tree lbound;
   gfc_se argse;
   gfc_ss *ss;
-  int i;
+  gfc_array_spec * as;
+  gfc_ref *ref;
 
   arg = expr->value.function.actual;
   arg2 = arg->next;
@@ -747,9 +750,14 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 
   if (INTEGER_CST_P (bound))
     {
-      gcc_assert (TREE_INT_CST_HIGH (bound) == 0);
-      i = TREE_INT_CST_LOW (bound);
-      gcc_assert (i >= 0 && i < GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)));
+      int hi, low;
+
+      hi = TREE_INT_CST_HIGH (bound);
+      low = TREE_INT_CST_LOW (bound);
+      if (hi || low < 0 || low >= GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)))
+	gfc_error ("'dim' argument of %s intrinsic at %L is not a valid "
+		   "dimension index", upper ? "UBOUND" : "LBOUND",
+		   &expr->where);
     }
   else
     {
@@ -765,10 +773,115 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
         }
     }
 
-  if (upper)
-    se->expr = gfc_conv_descriptor_ubound(desc, bound);
+  ubound = gfc_conv_descriptor_ubound (desc, bound);
+  lbound = gfc_conv_descriptor_lbound (desc, bound);
+  
+  /* Follow any component references.  */
+  if (arg->expr->expr_type == EXPR_VARIABLE
+      || arg->expr->expr_type == EXPR_CONSTANT)
+    {
+      as = arg->expr->symtree->n.sym->as;
+      for (ref = arg->expr->ref; ref; ref = ref->next)
+	{
+	  switch (ref->type)
+	    {
+	    case REF_COMPONENT:
+	      as = ref->u.c.component->as;
+	      continue;
+
+	    case REF_SUBSTRING:
+	      continue;
+
+	    case REF_ARRAY:
+	      {
+		switch (ref->u.ar.type)
+		  {
+		  case AR_ELEMENT:
+		  case AR_SECTION:
+		  case AR_UNKNOWN:
+		    as = NULL;
+		    continue;
+
+		  case AR_FULL:
+		    break;
+		  }
+	      }
+	    }
+	}
+    }
   else
-    se->expr = gfc_conv_descriptor_lbound(desc, bound);
+    as = NULL;
+
+  /* 13.14.53: Result value for LBOUND
+
+     Case (i): For an array section or for an array expression other than a
+               whole array or array structure component, LBOUND(ARRAY, DIM)
+               has the value 1.  For a whole array or array structure
+               component, LBOUND(ARRAY, DIM) has the value:
+                 (a) equal to the lower bound for subscript DIM of ARRAY if
+                     dimension DIM of ARRAY does not have extent zero
+                     or if ARRAY is an assumed-size array of rank DIM,
+              or (b) 1 otherwise.
+
+     13.14.113: Result value for UBOUND
+
+     Case (i): For an array section or for an array expression other than a
+               whole array or array structure component, UBOUND(ARRAY, DIM)
+               has the value equal to the number of elements in the given
+               dimension; otherwise, it has a value equal to the upper bound
+               for subscript DIM of ARRAY if dimension DIM of ARRAY does
+               not have size zero and has value zero if dimension DIM has
+               size zero.  */
+
+  if (as)
+    {
+      tree stride = gfc_conv_descriptor_stride (desc, bound);
+
+      cond1 = fold_build2 (GE_EXPR, boolean_type_node, ubound, lbound);
+      cond2 = fold_build2 (LE_EXPR, boolean_type_node, ubound, lbound);
+
+      cond3 = fold_build2 (GE_EXPR, boolean_type_node, stride,
+			   gfc_index_zero_node);
+      cond3 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
+
+      cond4 = fold_build2 (LT_EXPR, boolean_type_node, stride,
+			   gfc_index_zero_node);
+      cond4 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond4, cond2);
+
+      if (upper)
+	{
+	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond3, cond4);
+
+	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
+				  ubound, gfc_index_zero_node);
+	}
+      else
+	{
+	  if (as->type == AS_ASSUMED_SIZE)
+	    cond = fold_build2 (EQ_EXPR, boolean_type_node, bound,
+				build_int_cst (TREE_TYPE (bound),
+					       arg->expr->rank - 1));
+	  else
+	    cond = boolean_false_node;
+
+	  cond1 = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond3, cond4);
+	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond, cond1);
+
+	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
+				  lbound, gfc_index_one_node);
+	}
+    }
+  else
+    {
+      if (upper)
+        {
+	  size = fold_build2 (MINUS_EXPR, gfc_array_index_type, ubound, lbound);
+	  se->expr = fold_build2 (PLUS_EXPR, gfc_array_index_type, size,
+				  gfc_index_one_node);
+	}
+      else
+	se->expr = gfc_index_one_node;
+    }
 
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = convert (type, se->expr);
@@ -863,14 +976,15 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
   int n, ikind;
 
   arg = gfc_conv_intrinsic_function_args (se, expr);
-  arg2 = TREE_VALUE (TREE_CHAIN (arg));
-  arg = TREE_VALUE (arg);
-  type = TREE_TYPE (arg);
 
   switch (expr->ts.type)
     {
     case BT_INTEGER:
       /* Integer case is easy, we've got a builtin op.  */
+      arg2 = TREE_VALUE (TREE_CHAIN (arg));
+      arg = TREE_VALUE (arg);
+      type = TREE_TYPE (arg);
+
       if (modulo)
        se->expr = build2 (FLOOR_MOD_EXPR, type, arg, arg2);
       else
@@ -878,11 +992,69 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       break;
 
     case BT_REAL:
-      /* Real values we have to do the hard way.  */
+      n = END_BUILTINS;
+      /* Check if we have a builtin fmod.  */
+      switch (expr->ts.kind)
+	{
+	case 4:
+	  n = BUILT_IN_FMODF;
+	  break;
+
+	case 8:
+	  n = BUILT_IN_FMOD;
+	  break;
+
+	case 10:
+	case 16:
+	  n = BUILT_IN_FMODL;
+	  break;
+
+	default:
+	  break;
+	}
+
+      /* Use it if it exists.  */
+      if (n != END_BUILTINS)
+	{
+	  tmp = built_in_decls[n];
+	  se->expr = build_function_call_expr (tmp, arg);
+	  if (modulo == 0)
+	    return;
+	}
+
+      arg2 = TREE_VALUE (TREE_CHAIN (arg));
+      arg = TREE_VALUE (arg);
+      type = TREE_TYPE (arg);
+
       arg = gfc_evaluate_now (arg, &se->pre);
       arg2 = gfc_evaluate_now (arg2, &se->pre);
 
+      /* Definition:
+	 modulo = arg - floor (arg/arg2) * arg2, so
+		= test ? fmod (arg, arg2) : fmod (arg, arg2) + arg2, 
+	 where
+	  test  = (fmod (arg, arg2) != 0) && ((arg < 0) xor (arg2 < 0))
+	 thereby avoiding another division and retaining the accuracy
+	 of the builtin function.  */
+      if (n != END_BUILTINS && modulo)
+	{
+	  tree zero = gfc_build_const (type, integer_zero_node);
+	  tmp = gfc_evaluate_now (se->expr, &se->pre);
+	  test = build2 (LT_EXPR, boolean_type_node, arg, zero);
+	  test2 = build2 (LT_EXPR, boolean_type_node, arg2, zero);
+	  test2 = build2 (TRUTH_XOR_EXPR, boolean_type_node, test, test2);
+	  test = build2 (NE_EXPR, boolean_type_node, tmp, zero);
+	  test = build2 (TRUTH_AND_EXPR, boolean_type_node, test, test2);
+	  test = gfc_evaluate_now (test, &se->pre);
+	  se->expr = build3 (COND_EXPR, type, test,
+			     build2 (PLUS_EXPR, type, tmp, arg2), tmp);
+	  return;
+	}
+
+      /* If we do not have a built_in fmod, the calculation is going to
+	 have to be done longhand.  */
       tmp = build2 (RDIV_EXPR, type, arg, arg2);
+
       /* Test if the value is too large to handle sensibly.  */
       gfc_set_model_kind (expr->ts.kind);
       mpfr_init (huge);
@@ -2252,6 +2424,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
   gfc_symbol *sym;
   gfc_se argse;
   gfc_expr *arg;
+  gfc_ss *ss;
 
   gcc_assert (!se->ss);
 
@@ -2271,36 +2444,42 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
       get_array_ctor_strlen (arg->value.constructor, &len);
       break;
 
-    default:
-	if (arg->expr_type == EXPR_VARIABLE
-	    && (arg->ref == NULL || (arg->ref->next == NULL
-				     && arg->ref->type == REF_ARRAY)))
-	  {
-	    /* This doesn't catch all cases.
-	       See http://gcc.gnu.org/ml/fortran/2004-06/msg00165.html
-	       and the surrounding thread.  */
-	    sym = arg->symtree->n.sym;
-	    decl = gfc_get_symbol_decl (sym);
-	    if (decl == current_function_decl && sym->attr.function
+    case EXPR_VARIABLE:
+      if (arg->ref == NULL
+	    || (arg->ref->next == NULL && arg->ref->type == REF_ARRAY))
+	{
+	  /* This doesn't catch all cases.
+	     See http://gcc.gnu.org/ml/fortran/2004-06/msg00165.html
+	     and the surrounding thread.  */
+	  sym = arg->symtree->n.sym;
+	  decl = gfc_get_symbol_decl (sym);
+	  if (decl == current_function_decl && sym->attr.function
 		&& (sym->result == sym))
-	      decl = gfc_get_fake_result_decl (sym);
+	    decl = gfc_get_fake_result_decl (sym);
 
-	    len = sym->ts.cl->backend_decl;
-	    gcc_assert (len);
-	  }
-	else
-	  {
-	    /* Anybody stupid enough to do this deserves inefficient code.  */
-	    gfc_init_se (&argse, se);
-	    gfc_conv_expr (&argse, arg);
-	    gfc_add_block_to_block (&se->pre, &argse.pre);
-	    gfc_add_block_to_block (&se->post, &argse.post);
-	    len = argse.string_length;
+	  len = sym->ts.cl->backend_decl;
+	  gcc_assert (len);
+	  break;
 	}
+
+      /* Otherwise fall through.  */
+
+    default:
+      /* Anybody stupid enough to do this deserves inefficient code.  */
+      ss = gfc_walk_expr (arg);
+      gfc_init_se (&argse, se);
+      if (ss == gfc_ss_terminator)
+	gfc_conv_expr (&argse, arg);
+      else
+	gfc_conv_expr_descriptor (&argse, arg, ss);
+      gfc_add_block_to_block (&se->pre, &argse.pre);
+      gfc_add_block_to_block (&se->post, &argse.post);
+      len = argse.string_length;
       break;
     }
   se->expr = convert (type, len);
 }
+
 
 /* The length of a character string not including trailing blanks.  */
 static void
@@ -2841,8 +3020,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
       else
         {
           /* A pointer to an array.  */
-          arg1se.descriptor_only = 1;
-          gfc_conv_expr_lhs (&arg1se, arg1->expr);
+          gfc_conv_expr_descriptor (&arg1se, arg1->expr, ss1);
           tmp2 = gfc_conv_descriptor_data_get (arg1se.expr);
         }
       gfc_add_block_to_block (&se->pre, &arg1se.pre);

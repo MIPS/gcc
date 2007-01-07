@@ -307,61 +307,50 @@ read_block (st_parameter_dt *dtp, int *length)
 static void
 read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 {
-  int *length;
-  void *data;
   size_t nread;
+  int short_record;
 
-  if (dtp->u.p.current_unit->bytes_left < *nbytes)
+  if (dtp->u.p.current_unit->bytes_left < (gfc_offset) *nbytes)
     {
-      /* For preconnected units with default record length, set bytes left
-	 to unit record length and proceed, otherwise error.  */
-      if (dtp->u.p.current_unit->unit_number == options.stdin_unit
-	  && dtp->u.p.current_unit->recl == DEFAULT_RECL)
-        dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
-      else
+      short_record = 1;
+      nread = (size_t) dtp->u.p.current_unit->bytes_left;
+      *nbytes = nread;
+
+      if (dtp->u.p.current_unit->bytes_left == 0)
 	{
-	  if (dtp->u.p.current_unit->flags.pad == PAD_NO)
-	    {
-	      /* Not enough data left.  */
-	      generate_error (&dtp->common, ERROR_EOR, NULL);
-	      return;
-	    }
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	  generate_error (&dtp->common, ERROR_END, NULL);
+	  return;
 	}
-
-      *nbytes = dtp->u.p.current_unit->bytes_left;
     }
 
-  if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
-      dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+  else
     {
-      length = (int *) nbytes;
-      data = read_sf (dtp, length, 0);	/* Special case.  */
-      memcpy (buf, data, (size_t) *length);
-      return;
+      short_record = 0;
+      nread = *nbytes;
     }
 
-  dtp->u.p.current_unit->bytes_left -= *nbytes;
+  dtp->u.p.current_unit->bytes_left -= nread;
 
-  nread = *nbytes;
   if (sread (dtp->u.p.current_unit->s, buf, &nread) != 0)
     {
       generate_error (&dtp->common, ERROR_OS, NULL);
       return;
     }
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (gfc_offset) nread;
-
-  if (nread != *nbytes)
-    {				/* Short read, e.g. if we hit EOF.  */
-      if (dtp->u.p.current_unit->flags.pad == PAD_YES)
-	{
-	  memset (((char *) buf) + nread, ' ', *nbytes - nread);
-	  *nbytes = nread;
-	}
-      else
-	generate_error (&dtp->common, ERROR_EOR, NULL);
+  if (nread != *nbytes)  /* Short read, e.g. if we hit EOF.  */
+    {
+      *nbytes = nread;
+      generate_error (&dtp->common, ERROR_END, NULL);
+      return;
     }
+
+  if (short_record)
+    {
+      generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
+      return;
+    }
+
 }
 
 
@@ -398,6 +387,9 @@ write_block (st_parameter_dt *dtp, int length)
       generate_error (&dtp->common, ERROR_END, NULL);
       return NULL;
     }
+
+  if (is_internal_unit (dtp) && dtp->u.p.current_unit->endfile == AT_ENDFILE)
+    generate_error (&dtp->common, ERROR_END, NULL);
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
     dtp->u.p.size_used += (gfc_offset) length;
@@ -475,7 +467,8 @@ unformatted_read (st_parameter_dt *dtp, bt type,
       /* By now, all complex variables have been split into their
 	 constituent reals.  For types with padding, we only need to
 	 read kind bytes.  We don't care about the contents
-	 of the padding.  */
+	 of the padding.  If we hit a short record, then sz is
+	 adjusted accordingly, making later reads no-ops.  */
       
       sz = kind;
       for (i=0; i<nelems; i++)
@@ -1223,7 +1216,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 
       /* If the extent of even one dimension is zero, then the entire
 	 array section contains zero elements, so we return.  */
-      if (extent[n] == 0)
+      if (extent[n] <= 0)
 	return;
     }
 
@@ -1369,10 +1362,11 @@ us_write (st_parameter_dt *dtp)
   if (swrite (dtp->u.p.current_unit->s, &dummy, &nbytes) != 0)
     generate_error (&dtp->common, ERROR_OS, NULL);
 
-  /* For sequential unformatted, we write until we have more bytes
-     than can fit in the record markers. If disk space runs out first,
-     it will error on the write.  */
-  dtp->u.p.current_unit->recl = max_offset;
+  /* For sequential unformatted, if RECL= was not specified in the OPEN
+     we write until we have more bytes than can fit in the record markers.
+     If disk space runs out first, it will error on the write.   */
+  if (dtp->u.p.current_unit->flags.has_recl == 0)
+    dtp->u.p.current_unit->recl = max_offset;
 
   dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
 }
@@ -2037,9 +2031,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 
     case FORMATTED_SEQUENTIAL:
 
-      if (dtp->u.p.current_unit->bytes_left == 0)
-	break;
-	
       if (is_internal_unit (dtp))
 	{
 	  if (is_array_io (dtp))
@@ -2068,7 +2059,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 	      /* Now that the current record has been padded out,
 		 determine where the next record in the array is. */
 	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
-
+	      if (record == 0)
+		dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	      
 	      /* Now seek to this record */
 	      record = record * dtp->u.p.current_unit->recl;
 
@@ -2109,6 +2102,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
+	  if (dtp->u.p.current_unit->bytes_left == 0)
+	    break;
+
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
 	  (for file unit) */

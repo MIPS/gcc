@@ -721,6 +721,15 @@ struct saved_scope GTY(())
 
 extern GTY(()) struct saved_scope *scope_chain;
 
+struct cxx_int_tree_map GTY(())
+{
+  unsigned int uid;
+  tree to;
+};
+
+extern unsigned int cxx_int_tree_map_hash (const void *);
+extern int cxx_int_tree_map_eq (const void *, const void *);
+
 /* Global state pertinent to the current function.  */
 
 struct language_function GTY(())
@@ -747,6 +756,7 @@ struct language_function GTY(())
   htab_t GTY((param_is(struct named_label_entry))) x_named_labels;
   struct cp_binding_level *bindings;
   VEC(tree,gc) *x_local_names;
+  htab_t GTY((param_is (struct cxx_int_tree_map))) extern_decl_map;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -2832,8 +2842,14 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    indicates the type of specializations:
 
      1=implicit instantiation
-     2=explicit specialization, e.g. int min<int> (int, int);
-     3=explicit instantiation, e.g. template int min<int> (int, int);
+
+     2=partial or explicit specialization, e.g.:
+
+        template <> int min<int> (int, int),
+
+     3=explicit instantiation, e.g.:
+  
+        template int min<int> (int, int);
 
    Note that NODE will be marked as a specialization even if the
    template it is instantiating is not a primary template.  For
@@ -3365,46 +3381,51 @@ extern GTY(()) tree static_dtors;
 
 enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 
-/* These are uses as bits in flags passed to build_new_method_call
-   to control its error reporting behavior.
-
-   LOOKUP_PROTECT means flag access violations.
-   LOOKUP_COMPLAIN mean complain if no suitable member function
-     matching the arguments is found.
-   LOOKUP_NORMAL is just a combination of these two.
-   LOOKUP_NONVIRTUAL means make a direct call to the member function found
-   LOOKUP_ONLYCONVERTING means that non-conversion constructors are not tried.
-   DIRECT_BIND means that if a temporary is created, it should be created so
-     that it lives as long as the current variable bindings; otherwise it
-     only lives until the end of the complete-expression.  It also forces
-     direct-initialization in cases where other parts of the compiler have
-     already generated a temporary, such as reference initialization and the
-     catch parameter.
-   LOOKUP_NO_CONVERSION means that user-defined conversions are not
-     permitted.  Built-in conversions are permitted.
-   LOOKUP_DESTRUCTOR means explicit call to destructor.
-   LOOKUP_NO_TEMP_BIND means temporaries will not be bound to references.
-
-   These are used in global lookup to support elaborated types and
-   qualifiers.
-
-   LOOKUP_PREFER_TYPES means not to accept objects, and possibly namespaces.
-   LOOKUP_PREFER_NAMESPACES means not to accept objects, and possibly types.
-   LOOKUP_PREFER_BOTH means class-or-namespace-name.  */
-
+/* These are uses as bits in flags passed to various functions to
+   control their behavior.  Despite the LOOKUP_ prefix, many of these
+   do not control name lookup.  ??? Functions using these flags should
+   probably be modified to accept explicit boolean flags for the
+   behaviors relevant to them.  */
+/* Check for access violations.  */
 #define LOOKUP_PROTECT (1 << 0)
+/* Complain if no suitable member function matching the arguments is
+   found.  */
 #define LOOKUP_COMPLAIN (1 << 1)
 #define LOOKUP_NORMAL (LOOKUP_PROTECT | LOOKUP_COMPLAIN)
+/* Even if the function found by lookup is a virtual function, it
+   should be called directly.  */
 #define LOOKUP_NONVIRTUAL (1 << 2)
+/* Non-converting (i.e., "explicit") constructors are not tried.  */
 #define LOOKUP_ONLYCONVERTING (1 << 3)
+/* If a temporary is created, it should be created so that it lives
+   as long as the current variable bindings; otherwise it only lives
+   until the end of the complete-expression.  It also forces
+   direct-initialization in cases where other parts of the compiler
+   have already generated a temporary, such as reference
+   initialization and the catch parameter.  */
 #define DIRECT_BIND (1 << 4)
+/* User-defined conversions are not permitted.  (Built-in conversions
+   are permitted.)  */
 #define LOOKUP_NO_CONVERSION (1 << 5)
+/* The user has explicitly called a destructor.  (Therefore, we do
+   not need to check that the object is non-NULL before calling the
+   destructor.)  */
 #define LOOKUP_DESTRUCTOR (1 << 6)
+/* Do not permit references to bind to temporaries.  */
 #define LOOKUP_NO_TEMP_BIND (1 << 7)
+/* Do not accept objects, and possibly namespaces.  */
 #define LOOKUP_PREFER_TYPES (1 << 8)
+/* Do not accept objects, and possibly types.   */
 #define LOOKUP_PREFER_NAMESPACES (1 << 9)
+/* Accept types or namespaces.  */
 #define LOOKUP_PREFER_BOTH (LOOKUP_PREFER_TYPES | LOOKUP_PREFER_NAMESPACES)
+/* We are checking that a constructor can be called -- but we do not
+   actually plan to call it.  */
 #define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 10)
+/* Return friend decarations and un-declared builtin functions.
+   (Normally, these entities are registered in the symbol table, but
+   not found by lookup.)  */
+#define LOOKUP_HIDDEN (LOOKUP_CONSTRUCTOR_CALLABLE << 1)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -3442,7 +3463,8 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define WANT_ENUM	4 /* enumerated types */
 #define WANT_POINTER	8 /* pointer types */
 #define WANT_NULL      16 /* null pointer constant */
-#define WANT_ARITH	(WANT_INT | WANT_FLOAT)
+#define WANT_VECTOR    32 /* vector types */
+#define WANT_ARITH	(WANT_INT | WANT_FLOAT | WANT_VECTOR)
 
 /* Used with comptypes, and related functions, to guide type
    comparison.  */
@@ -4104,7 +4126,7 @@ extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);
 extern int comp_template_args			(tree, tree);
-extern void maybe_process_partial_specialization (tree);
+extern tree maybe_process_partial_specialization (tree);
 extern tree most_specialized_instantiation	(tree);
 extern void print_candidates			(tree);
 extern void instantiate_pending_templates	(int);
@@ -4132,6 +4154,7 @@ extern tree build_non_dependent_args		(tree);
 extern bool reregister_specialization		(tree, tree, tree);
 extern tree fold_non_dependent_expr		(tree);
 extern tree fold_decl_constant_value		(tree);
+extern bool explicit_class_specialization_p     (tree);
 
 /* in repo.c */
 extern void init_repo				(void);

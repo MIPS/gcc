@@ -745,6 +745,7 @@ const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC32; /*m_G
    with partial reg. dependencies used by Athlon/P4 based chips, it is better
    to leave it off for generic32 for now.  */
 const int x86_partial_reg_stall = m_PPRO;
+const int x86_partial_flag_reg_stall = m_GENERIC;
 const int x86_use_himode_fiop = m_386 | m_486 | m_K6;
 const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT | m_GENERIC);
 const int x86_use_mov0 = m_K6;
@@ -1769,12 +1770,10 @@ override_options (void)
     }
 
   /* Validate -mpreferred-stack-boundary= value, or provide default.
-     The default of 128 bits is for Pentium III's SSE __m128, but we
-     don't want additional code to keep the stack aligned when
-     optimizing for code size.  */
-  ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 128 : 32
-				   : 128);
+     The default of 128 bits is for Pentium III's SSE __m128, We can't
+     change it because of optimize_size.  Otherwise, we can't mix object
+     files compiled with -Os and -On.  */
+  ix86_preferred_stack_boundary = 128;
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
@@ -2481,10 +2480,10 @@ ix86_function_regparm (tree type, tree decl)
   return regparm;
 }
 
-/* Return 1 or 2, if we can pass up to 8 SFmode (1) and DFmode (2) arguments
-   in SSE registers for a function with the indicated TYPE and DECL.
-   DECL may be NULL when calling function indirectly
-   or considering a libcall.  Otherwise return 0.  */
+/* Return 1 or 2, if we can pass up to SSE_REGPARM_MAX SFmode (1) and
+   DFmode (2) arguments in SSE registers for a function with the
+   indicated TYPE and DECL.  DECL may be NULL when calling function
+   indirectly or considering a libcall.  Otherwise return 0.  */
 
 static int
 ix86_function_sseregparm (tree type, tree decl)
@@ -2509,9 +2508,9 @@ ix86_function_sseregparm (tree type, tree decl)
       return 2;
     }
 
-  /* For local functions, pass SFmode (and DFmode for SSE2) arguments
-     in SSE registers even for 32-bit mode and not just 3, but up to
-     8 SSE arguments in registers.  */
+  /* For local functions, pass up to SSE_REGPARM_MAX SFmode
+     (and DFmode for SSE2) arguments in SSE registers,
+     even for 32-bit targets.  */
   if (!TARGET_64BIT && decl
       && TARGET_SSE_MATH && flag_unit_at_a_time && !profile_flag)
     {
@@ -6420,7 +6419,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new = reg;
 	}
     }
-  else if (GET_CODE (addr) == SYMBOL_REF)
+  else if (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (addr) == 0)
     {
       if (TARGET_64BIT)
 	{
@@ -10040,6 +10039,12 @@ void
 ix86_expand_branch (enum rtx_code code, rtx label)
 {
   rtx tmp;
+
+  /* If we have emitted a compare insn, go straight to simple.
+     ix86_expand_compare won't emit anything if ix86_compare_emitted
+     is non NULL.  */
+  if (ix86_compare_emitted)
+    goto simple;
 
   switch (GET_MODE (ix86_compare_op0))
     {
@@ -17584,7 +17589,7 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
     {
     case V2SImode:
     case V2SFmode:
-      if (!mmx_ok && !TARGET_SSE)
+      if (!mmx_ok)
 	return false;
       /* FALLTHRU */
 
@@ -17667,7 +17672,7 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
     {
     case V2SFmode:
     case V2SImode:
-      if (!mmx_ok && !TARGET_SSE)
+      if (!mmx_ok)
 	return false;
       /* FALLTHRU */
 

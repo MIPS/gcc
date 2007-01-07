@@ -2205,7 +2205,7 @@ begin_class_definition (tree t)
      before.  */
   if (! TYPE_ANONYMOUS_P (t))
     {
-      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X
 	(t, finfo->interface_unknown);
@@ -2322,8 +2322,9 @@ note_decl_for_pch (tree decl)
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      || TREE_CODE (decl) == FUNCTION_DECL)
+  if ((TREE_CODE (decl) == VAR_DECL
+       || TREE_CODE (decl) == FUNCTION_DECL)
+      && !processing_template_decl)
     mangle_decl (decl);
 }
 

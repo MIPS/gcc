@@ -1,3 +1,126 @@
+2006-12-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/28265
+        * crossconfig.m4: Remove GLIBCXX_CHECK_ICONV_SUPPORT call for
+        mingw crosses.
+        * configure: Regenerate.
+
+2006-12-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/26497
+	* crossconfig.m4: Add GLIBCXX_CHECK_LINKER_FEATURES for Solaris.
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Set
+	glibcxx_gnu_ld_version only when with GNU ld confirmed.	
+	* configure: Regenerate.
+
+2006-12-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/28125
+	* acinclude.m4 (GLIBCXX_CHECK_ICONV_SUPPORT): Remove link test, ie
+	AC_CHECK_LIB for libiconv. Instead, use bits of AM_ICONV.
+        * configure: Regenerate.
+        * scripts/testsuite_flags.in (cxxflags): Add LIBICONV bits.
+
+2006-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29732
+	* testsuite/ext/pb_assoc/example/mapping_level_neg.cc: Tweak error
+	markers. 
+
+2006-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/testsuite_hooks.cc (set_memory_limits): Don't set
+	RLIMIT_AS below 16MB on x86_64-linux.
+
+2006-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_WRITE_MEM_BARRIER):
+	Use plain sync if __NO_LWSYNC__.
+
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/complex/13450.cc: Do not test long double
+	in IBM long double case.
+
+2006-11-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/debug.cc (_Safe_sequence_base::_M_revalidate_singular): Fix
+	pasto, advance __iter only once per iteration.
+
+2006-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Prefer
+	strtold_l over __strtold_l if available.
+
+2006-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/array/capacity/max_size.cc: Actually
+	do test max_size().
+
+2006-10-28  Paolo Carlini  <pcarlini@suse.de>
+	
+	* include/tr1/array (array<>::_M_at): New.
+	(array<>::at): Fix off-by-one bug, use the above.
+	* testsuite/tr1/6_containers/array/element_access/
+	at_out_of_range.cc: Adjust.
+
+	* include/tr1/array (class array<>): Remove non-conforming default
+	for the second parameter.
+	* include/ext/array_allocator.h: Adjust.
+
+	* include/tr1/array (array<>::front, array<>::back): Do not return
+	a reference to memory not belonging to the array when _Nm == 0.
+
+2006-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create): Call
+	_M_set_sharable() for backwards compatibility.
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/29095
+        * libsupc++/cxxabi.h (__cxa_cdtor_type): Explicit "C" linkage.
+        * config/cpu/arm/cxxabi_tweaks.h: Same.
+        * config/cpu/generic/cxxabi_tweaks.h: Same.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29368
+	* include/bits/basic_string.h: Adjust rfind documentation.
+	* include/ext/vstring.h: Likewise.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29354
+	* include/bits/sstream.tcc (basic_stringbuf<>::seekpos(pos_type,
+	ios_base::openmode)): Allow for seek to pos_type(off_type(0))
+	when the stream is empty.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/29354.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekpos/wchar_t/29354.cc: New.
+
+2006-09-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* acinclude.m4 (enable_symvers): Default to no if unable to link.
+	* configure: Regenerate.
+
+2006-09-25  Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/29224
+	* include/tr1/functional_iterate.h: Avoid -Wshadow warnings.
+
+2006-09-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29179
+	* include/ext/mt_allocator.h (__pool_base): Adjust/extend
+	documentation in comments.
+
+2006-08-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28765
+	* include/ext/rc_string_base.h (_M_clear): New.
+	* include/ext/sso_string_base.h (_M_clear): Likewise.
+	* include/ext/vstring.h (clear): Use it.
+
 2006-07-03  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/rc_string_base.h (__rc_string_base::_S_max_size):

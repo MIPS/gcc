@@ -1,5 +1,5 @@
 /* Nested function decomposition for trees.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -104,6 +104,7 @@ struct nesting_info GTY ((chain_next ("%h.next")))
 
   bool any_parm_remapped;
   bool any_tramp_created;
+  char static_chain_added;
 };
 
 
@@ -545,6 +546,47 @@ get_nl_goto_field (struct nesting_info *info)
   return field;
 }
 
+/* Helper function for walk_stmts.  Walk output operands of an ASM_EXPR.  */
+
+static void
+walk_asm_expr (struct walk_stmt_info *wi, tree stmt)
+{
+  int noutputs = list_length (ASM_OUTPUTS (stmt));
+  const char **oconstraints
+    = (const char **) alloca ((noutputs) * sizeof (const char *));
+  int i;
+  tree link;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
+
+  wi->is_lhs = true;
+  for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
+    {
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      oconstraints[i] = constraint;
+      parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
+			       &allows_reg, &is_inout);
+
+      wi->val_only = (allows_reg || !allows_mem);
+      walk_tree (&TREE_VALUE (link), wi->callback, wi, NULL);
+    }
+
+  for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+    {
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+			      oconstraints, &allows_mem, &allows_reg);
+
+      wi->val_only = (allows_reg || !allows_mem);
+      /* Although input "m" is not really a LHS, we need a lvalue.  */
+      wi->is_lhs = !wi->val_only;
+      walk_tree (&TREE_VALUE (link), wi->callback, wi, NULL);
+    }
+
+  wi->is_lhs = false;
+  wi->val_only = true;
+}
+
 /* Iterate over all sub-statements of *TP calling walk_tree with
    WI->CALLBACK for every sub-expression in each statement found.  */
 
@@ -625,6 +667,10 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
 
       wi->val_only = true;
       wi->is_lhs = false;
+      break;
+
+    case ASM_EXPR:
+      walk_asm_expr (wi, *tp);
       break;
 
     default:
@@ -1623,6 +1669,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
   tree t = *tp, decl, target_context;
+  char save_static_chain_added;
+  int i;
 
   *walk_subtrees = 0;
   switch (TREE_CODE (t))
@@ -1633,8 +1681,12 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	break;
       target_context = decl_function_context (decl);
       if (target_context && !DECL_NO_STATIC_CHAIN (decl))
-	TREE_OPERAND (t, 2)
-	  = get_static_chain (info, target_context, &wi->tsi);
+	{
+	  TREE_OPERAND (t, 2)
+	    = get_static_chain (info, target_context, &wi->tsi);
+	  info->static_chain_added
+	    |= (1 << (info->context != target_context));
+	}
       break;
 
     case RETURN_EXPR:
@@ -1644,8 +1696,36 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 1;
       break;
 
+    case OMP_PARALLEL:
+      save_static_chain_added = info->static_chain_added;
+      info->static_chain_added = 0;
+      walk_body (convert_call_expr, info, &OMP_PARALLEL_BODY (t));
+      for (i = 0; i < 2; i++)
+	{
+	  tree c, decl;
+	  if ((info->static_chain_added & (1 << i)) == 0)
+	    continue;
+	  decl = i ? get_chain_decl (info) : info->frame_decl;
+	  /* Don't add CHAIN.* or FRAME.* twice.  */
+	  for (c = OMP_PARALLEL_CLAUSES (t); c; c = OMP_CLAUSE_CHAIN (c))
+	    if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		 || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
+		&& OMP_CLAUSE_DECL (c) == decl)
+	      break;
+	  if (c == NULL)
+	    {
+	      c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
+	      OMP_CLAUSE_DECL (c) = decl;
+	      OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
+	      OMP_PARALLEL_CLAUSES (t) = c;
+	    }
+	}
+      info->static_chain_added |= save_static_chain_added;
+      break;
+
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
     case OMP_ORDERED:

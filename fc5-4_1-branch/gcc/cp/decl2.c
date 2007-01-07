@@ -476,13 +476,8 @@ check_member_template (tree tmpl)
       || (TREE_CODE (decl) == TYPE_DECL
 	  && IS_AGGR_TYPE (TREE_TYPE (decl))))
     {
-      if (current_function_decl)
-	/* 14.5.2.2 [temp.mem]
-
-	   A local class shall not have member templates.  */
-	error ("invalid declaration of member template %q#D in local class",
-	       decl);
-
+      /* The parser rejects template declarations in local classes.  */
+      gcc_assert (!current_function_decl);
       if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
 	{
 	  /* 14.5.2.3 [temp.mem]
@@ -587,7 +582,8 @@ check_classfn (tree ctype, tree function, tree template_parms)
 {
   int ix;
   bool is_template;
-
+  tree pushed_scope;
+  
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
 	   && DECL_TEMPLATE_SPECIALIZATION (function))
@@ -617,16 +613,18 @@ check_classfn (tree ctype, tree function, tree template_parms)
   /* OK, is this a definition of a member template?  */
   is_template = (template_parms != NULL_TREE);
 
+  /* We must enter the scope here, because conversion operators are
+     named by target type, and type equivalence relies on typenames
+     resolving within the scope of CTYPE.  */
+  pushed_scope = push_scope (ctype);
   ix = class_method_index_for_fn (complete_type (ctype), function);
   if (ix >= 0)
     {
       VEC(tree,gc) *methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
-      tree pushed_scope;
       const char *format = NULL;
 
-      pushed_scope = push_scope (ctype);
       for (fndecls = VEC_index (tree, methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
@@ -665,10 +663,13 @@ check_classfn (tree ctype, tree function, tree template_parms)
 		      == DECL_TI_TEMPLATE (fndecl))))
 	    break;
 	}
-      if (pushed_scope)
-	pop_scope (pushed_scope);
       if (fndecls)
-	return OVL_CURRENT (fndecls);
+	{
+	  if (pushed_scope)
+	    pop_scope (pushed_scope);
+	  return OVL_CURRENT (fndecls);
+	}
+      
       error ("prototype for %q#D does not match any in class %qT",
 	     function, ctype);
       is_conv_op = DECL_CONV_FN_P (fndecl);
@@ -710,7 +711,6 @@ check_classfn (tree ctype, tree function, tree template_parms)
     {
       error ("no %q#D member function declared in class %qT",
 	     function, ctype);
-      return NULL_TREE;
     }
 
   /* If we did not find the method in the class, add it to avoid
@@ -719,6 +719,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
      properly within the class.  */
   if (COMPLETE_TYPE_P (ctype))
     add_method (ctype, function, NULL_TREE);
+  
+  if (pushed_scope)
+    pop_scope (pushed_scope);
   return NULL_TREE;
 }
 
@@ -809,16 +812,6 @@ grokfield (const cp_declarator *declarator,
   tree value;
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
-
-  if (!declspecs->any_specifiers_p
-      && declarator->kind == cdk_id
-      && declarator->u.id.qualifying_scope
-      && TYPE_P (declarator->u.id.qualifying_scope)
-      && IS_AGGR_TYPE (declarator->u.id.qualifying_scope)
-      && TREE_CODE (declarator->u.id.unqualified_name) == IDENTIFIER_NODE)
-    /* Access declaration */
-    return do_class_using_decl (declarator->u.id.qualifying_scope,
-				declarator->u.id.unqualified_name);
 
   if (init
       && TREE_CODE (init) == TREE_LIST
@@ -3257,6 +3250,8 @@ mark_used (tree decl)
     }
 
   TREE_USED (decl) = 1;
+  if (DECL_CLONED_FUNCTION_P (decl))
+    TREE_USED (DECL_CLONED_FUNCTION (decl)) = 1;
   /* If we don't need a value, then we don't need to synthesize DECL.  */ 
   if (skip_evaluation)
     return;

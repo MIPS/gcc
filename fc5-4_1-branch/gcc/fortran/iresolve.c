@@ -1781,6 +1781,23 @@ gfc_resolve_spread (gfc_expr * f, gfc_expr * source,
 			      ? PREFIX("spread_char")
 			      : PREFIX("spread"));
 
+  if (dim && gfc_is_constant_expr (dim)
+	&& ncopies && gfc_is_constant_expr (ncopies)
+	&& source->shape[0])
+    {
+      int i, idim;
+      idim = mpz_get_ui (dim->value.integer);
+      f->shape = gfc_get_shape (f->rank);
+      for (i = 0; i < (idim - 1); i++)
+	mpz_init_set (f->shape[i], source->shape[i]);
+
+      mpz_init_set (f->shape[idim - 1], ncopies->value.integer);
+
+      for (i = idim; i < f->rank ; i++)
+	mpz_init_set (f->shape[i], source->shape[i-1]);
+    }
+
+
   gfc_resolve_dim_arg (dim);
   gfc_resolve_index (ncopies, 1);
 }
@@ -2349,6 +2366,26 @@ gfc_resolve_etime_sub (gfc_code * c)
 
   name = gfc_get_string (PREFIX("etime_sub"));
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* G77 compatibility subroutines itime() and idate().  */
+
+void
+gfc_resolve_itime (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("itime_i%d"),
+				       gfc_default_integer_kind));
+}
+
+
+void
+gfc_resolve_idate (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("idate_i%d"),
+				       gfc_default_integer_kind));
 }
 
 

@@ -343,6 +343,19 @@ composite_type (tree t1, tree t2)
 	return build_type_attribute_variant (t1, attributes);
       }
 
+    case ENUMERAL_TYPE:
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      if (attributes != NULL)
+	{
+	  /* Try harder not to create a new aggregate type.  */
+	  if (attribute_list_equal (TYPE_ATTRIBUTES (t1), attributes))
+	    return t1;
+	  if (attribute_list_equal (TYPE_ATTRIBUTES (t2), attributes))
+	    return t2;
+	}
+      return build_type_attribute_variant (t1, attributes);
+
     case FUNCTION_TYPE:
       /* Function types: prefer the one that specified arg types.
 	 If both do, merge the arg types.  Also merge the return types.  */
@@ -817,6 +830,13 @@ comptypes_internal (tree type1, tree type2)
     case UNION_TYPE:
       if (val != 1 && !same_translation_unit_p (t1, t2))
         {
+	  tree a1 = TYPE_ATTRIBUTES (t1);
+	  tree a2 = TYPE_ATTRIBUTES (t2);
+
+	  if (! attribute_list_contained (a1, a2)
+	      && ! attribute_list_contained (a2, a1))
+	    break;
+
 	  if (attrval != 2)
 	    return tagged_types_tu_compatible_p (t1, t2);
 	  val = tagged_types_tu_compatible_p (t1, t2);
@@ -1734,11 +1754,17 @@ build_component_ref (tree datum, tree component)
       do
 	{
 	  tree subdatum = TREE_VALUE (field);
+	  int quals;
+	  tree subtype;
 
 	  if (TREE_TYPE (subdatum) == error_mark_node)
 	    return error_mark_node;
 
-	  ref = build3 (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum,
+	  quals = TYPE_QUALS (strip_array_types (TREE_TYPE (subdatum)));
+	  quals |= TYPE_QUALS (TREE_TYPE (datum));
+	  subtype = c_build_qualified_type (TREE_TYPE (subdatum), quals);
+
+	  ref = build3 (COMPONENT_REF, subtype, datum, subdatum,
 			NULL_TREE);
 	  if (TREE_READONLY (datum) || TREE_READONLY (subdatum))
 	    TREE_READONLY (ref) = 1;
@@ -3302,6 +3328,9 @@ build_compound_expr (tree expr1, tree expr2)
   else if (warn_unused_value)
     warn_if_unused_value (expr1, input_location);
 
+  if (expr2 == error_mark_node)
+    return error_mark_node;
+
   return build2 (COMPOUND_EXPR, TREE_TYPE (expr2), expr1, expr2);
 }
 
@@ -3543,6 +3572,9 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (TREE_CODE (lhs) == ERROR_MARK || TREE_CODE (rhs) == ERROR_MARK)
     return error_mark_node;
 
+  if (!lvalue_or_else (lhs, lv_assign))
+    return error_mark_node;
+
   STRIP_TYPE_NOPS (rhs);
 
   newrhs = rhs;
@@ -3555,9 +3587,6 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       lhs = stabilize_reference (lhs);
       newrhs = build_binary_op (modifycode, lhs, rhs, 1);
     }
-
-  if (!lvalue_or_else (lhs, lv_assign))
-    return error_mark_node;
 
   /* Give an error for storing in something that is 'const'.  */
 
@@ -4210,16 +4239,18 @@ store_init_value (tree decl, tree init)
 
       if (TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
-	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
+	  tree cldecl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 
-	  if (TYPE_DOMAIN (TREE_TYPE (decl)))
+	  if (TYPE_DOMAIN (TREE_TYPE (cldecl)))
 	    {
 	      /* For int foo[] = (int [3]){1}; we need to set array size
 		 now since later on array initializer will be just the
 		 brace enclosed list of the compound literal.  */
-	      TYPE_DOMAIN (type) = TYPE_DOMAIN (TREE_TYPE (decl));
+	      type = build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+	      TREE_TYPE (decl) = type;
+	      TYPE_DOMAIN (type) = TYPE_DOMAIN (TREE_TYPE (cldecl));
 	      layout_type (type);
-	      layout_decl (decl, 0);
+	      layout_decl (cldecl, 0);
 	    }
 	}
     }
@@ -4566,12 +4597,14 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	   conversion.  */
 	inside_init = convert (type, inside_init);
 
-      if (require_constant && !flag_isoc99
+      if (require_constant
+	  && (code == VECTOR_TYPE || !flag_isoc99)
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
 	  /* As an extension, allow initializing objects with static storage
 	     duration with compound literals (which are then treated just as
-	     the brace enclosed list they contain).  */
+	     the brace enclosed list they contain).  Also allow this for
+	     vectors, as we can only assign them with compound literals.  */
 	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 	  inside_init = DECL_INITIAL (decl);
 	}

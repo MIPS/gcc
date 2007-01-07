@@ -8,7 +8,7 @@
    in parentheses.  You may also wish to include a number indicating
    the revision of your modified compiler.  */
 
-#define VERSUFFIX " (Red Hat 4.1.1-11)"
+#define VERSUFFIX " (Red Hat 4.1.1-52)"
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
