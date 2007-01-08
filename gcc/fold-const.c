@@ -2032,7 +2032,8 @@ fold_convert_const_fixed_from_fixed (tree type, tree arg1)
   FIXED_VALUE_TYPE value;
   tree t;
 
-  fixed_convert (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1));
+  fixed_convert (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1),
+		 TYPE_SATURATING (type));
   t = build_fixed (type, value);
 
   return t;

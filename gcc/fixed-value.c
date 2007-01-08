@@ -668,30 +668,132 @@ fixed_compare (int icode, const FIXED_VALUE_TYPE *op0,
     }
 }
 
-/* Extend or truncate to a new mode.  */
+/* Extend or truncate to a new mode.
+   If SATP, saturate the result to the max or the min.  */
 
 void
 fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
-               const FIXED_VALUE_TYPE *a)
+               const FIXED_VALUE_TYPE *a, int satp)
 {
   if (mode == a->mode)
-    *f = *a;
+    {
+      *f = *a;
+      return;
+    }
+    
+  if (GET_MODE_FBIT (mode) > GET_MODE_FBIT (a->mode))
+    {
+      /* Left shift a to temp_high, temp_low based on a->mode.  */
+      double_int temp_high, temp_low;
+      int amount = GET_MODE_FBIT (mode) - GET_MODE_FBIT (a->mode);
+      lshift_double (a->data.low, a->data.high,
+		     amount,
+		     2 * HOST_BITS_PER_WIDE_INT,
+		     &temp_low.low, &temp_low.high,
+		     SIGNED_FIXED_POINT_MODE_P (a->mode));
+      /* Logical shift right to temp_high.  */
+      lshift_double (a->data.low, a->data.high,
+		     amount - 2 * HOST_BITS_PER_WIDE_INT,
+		     2 * HOST_BITS_PER_WIDE_INT,
+		     &temp_high.low, &temp_high.high, 0);
+      if (SIGNED_FIXED_POINT_MODE_P (a->mode)
+	  && a->data.high < 0) /* Signed-extend temp_high.  */
+	temp_high = double_int_ext (temp_high, amount, 0);
+      f->mode = mode;
+      f->data = temp_low;
+      if (satp)
+	{
+	  if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
+	      SIGNED_FIXED_POINT_MODE_P (f->mode))
+	    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+	  else
+	    {
+	      /* Take care of the cases when converting between
+		 signed and unsigned.  */
+	      if (SIGNED_FIXED_POINT_MODE_P (a->mode))
+		{
+		  /* Signed -> Unsigned.  */
+		  if (a->data.high < 0)
+		    {
+		      f->data.low = 0;  /* Set to zero.  */
+		      f->data.high = 0;  /* Set to zero.  */
+		    }
+		  else
+		    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+		}
+	      else
+		{
+		  /* Unsigned -> Signed.  */
+		  if (temp_high.high < 0)
+		    {
+		      /* Set to maximum.  */
+		      f->data.low = -1;  /* Set to all ones.  */
+		      f->data.high = -1;  /* Set to all ones.  */
+		      f->data = double_int_ext (f->data,
+						GET_MODE_FBIT (f->mode) +
+						GET_MODE_IBIT (f->mode),
+						1); /* Clear the sign.  */
+		    }
+		  else
+		    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+		}
+	    }
+	}
+    }
   else
     {
+      /* Right shift a to temp based on a->mode.  */
+      double_int temp;
+      lshift_double (a->data.low, a->data.high,
+		     GET_MODE_FBIT (mode) - GET_MODE_FBIT (a->mode),
+		     2 * HOST_BITS_PER_WIDE_INT,
+		     &temp.low, &temp.high,
+		     SIGNED_FIXED_POINT_MODE_P (a->mode));
       f->mode = mode;
-      /* If fbit is not the same, we need to left or right shift data.  */
-      if (GET_MODE_FBIT (f->mode) != GET_MODE_FBIT (a->mode))
-	lshift_double (a->data.low, a->data.high,
-		       GET_MODE_FBIT (f->mode) - GET_MODE_FBIT (a->mode),
-		       2 * HOST_BITS_PER_WIDE_INT,
-		       &f->data.low, &f->data.high,
-		       SIGNED_FIXED_POINT_MODE_P (f->mode));
-      else
-	f->data = a->data;
-      f->data = double_int_ext (f->data,
-				SIGNED_FIXED_POINT_MODE_P (f->mode)
-				+ GET_MODE_FBIT (f->mode)
-				+ GET_MODE_IBIT (f->mode),
-				UNSIGNED_FIXED_POINT_MODE_P (f->mode));
+      f->data = temp;
+      if (satp)
+	{
+	  if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
+	      SIGNED_FIXED_POINT_MODE_P (f->mode))
+	    fixed_saturate1 (f->mode, f->data, &f->data);
+	  else
+	    {
+	      /* Take care of the cases when converting between
+		 signed and unsigned.  */
+	      if (SIGNED_FIXED_POINT_MODE_P (a->mode))
+		{
+		  /* Signed -> Unsigned.  */
+		  if (a->data.high < 0)
+		    {
+		      f->data.low = 0;  /* Set to zero.  */
+		      f->data.high = 0;  /* Set to zero.  */
+		    }
+		  else
+		    fixed_saturate1 (f->mode, f->data, &f->data);
+		}
+	      else
+		{
+		  /* Unsigned -> Signed.  */
+		  if (temp.high < 0)
+		    {
+		      /* Set to maximum.  */
+		      f->data.low = -1;  /* Set to all ones.  */
+		      f->data.high = -1;  /* Set to all ones.  */
+		      f->data = double_int_ext (f->data,
+						GET_MODE_FBIT (f->mode) +
+						GET_MODE_IBIT (f->mode),
+						1); /* Clear the sign.  */
+		    }
+		  else
+		    fixed_saturate1 (f->mode, f->data, &f->data);
+		}
+	    }
+	}
     }
+
+  f->data = double_int_ext (f->data,
+			    SIGNED_FIXED_POINT_MODE_P (f->mode)
+			    + GET_MODE_FBIT (f->mode)
+			    + GET_MODE_IBIT (f->mode),
+			    UNSIGNED_FIXED_POINT_MODE_P (f->mode));
 }

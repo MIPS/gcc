@@ -151,10 +151,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      ADJUST_BYTESIZE (MODE, EXPR);
      ADJUST_ALIGNMENT (MODE, EXPR);
      ADJUST_FLOAT_FORMAT (MODE, EXPR);
-        Arrange for the byte size, alignment, or floating point format
-	of MODE to be adjustable at run time.  EXPR will be executed
+     ADJUST_IBIT (MODE, EXPR);
+     ADJUST_FBIT (MODE, EXPR);
+        Arrange for the byte size, alignment, floating point format, ibit,
+	or fbit of MODE to be adjustable at run time.  EXPR will be executed
 	once after processing all command line options, and should
-	evaluate to the desired byte size, alignment, or format.
+	evaluate to the desired byte size, alignment, format, ibit or fbit.
 
 	Unlike a FORMAT argument, if you are adjusting a float format
 	you must put an & in front of the name of each format structure.

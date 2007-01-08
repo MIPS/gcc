@@ -1,3 +1,15 @@
+2007-01-08  Chao-ying Fu  <fu@mips.com>
+
+	* fixed-value.h (fixed_convert): Add one parameter of satp.
+	* fixed-value.c (fixed_convert): Saturate the result when satp is true.
+	* fold-const.c (fold_convert_const_fixed_from_fixed): Add one parameter
+	in fixed_convert for saturating types.
+	* machmode.def (ADJUST_IBIT, ADJUST_FBIT): Document.
+	* doc/tm.texi (SHORT_FRACT_TYPE_SIZE, FRACT_TYPE_SIZE,
+	LONG_FRACT_TYPE_SIZE, LONG_LONG_FRACT_TYPE_SIZE, SHORT_ACCUM_TYPE_SIZE,
+	ACCUM_TYPE_SIZE, LONG_ACCUM_TYPE_SIZE, LONG_LONG_ACCUM_TYPE_SIZE):
+	Document.
+
 2007-01-02  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c: Include tree-flow.h

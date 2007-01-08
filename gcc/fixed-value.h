@@ -48,7 +48,7 @@ extern tree build_fixed (tree, FIXED_VALUE_TYPE);
 
 /* Extend or truncate to a new mode.  */
 extern void fixed_convert (FIXED_VALUE_TYPE *, enum machine_mode,
-			   const FIXED_VALUE_TYPE *);
+			   const FIXED_VALUE_TYPE *, int);
 
 /* Compare two fixed-point objects for bitwise identity.  */
 extern bool fixed_identical (const FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *);
