@@ -1,3 +1,182 @@
+2007-01-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* g++.dg/warn/overflow-warn-1.C: Fix testcase.
+	* g++.dg/warn/overflow-warn-3.C: Likewise.
+	* g++.dg/warn/overflow-warn-4.C: Likewise.
+	* g++.dg/warn/overflow-warn-5.C: Likewise.
+	* g++.dg/warn/overflow-warn-6.C: Likewise.
+	* g++.dg/warn/Woverflow-1.C: Likewise.
+	* g++.dg/warn/Woverflow-2.C: Likewise.
+	* g++.dg/warn/Woverflow-3.C: Likewise.
+	* g++.dg/warn/multiple-overflow-warn-2.C: Likewise.
+
+2007-01-08  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/array_constructor_14.f90: New test case.
+	* gfortran.dg/vect/vect-5.f90: Update test for improved alignment.
+
+2007-01-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/23603
+	* gcc.dg/tree-ssa/vrp31.c: New testcase.
+	* gcc.dg/tree-ssa/vrp32.c: Likewise.
+
+2007-01-08  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc.target/i386/20020531-1.c: Use "char" not "unsigned char"
+	in __v8qi typedef.
+	* gcc.target/powerpc/altivec-vec-merge.c (foo): Add casts.
+	* gcc.dg/simd-1.c: Update dg-error directives to reflect new
+	compiler behaviour.
+	* gcc.dg/simd-5.c: Likewise.
+	* gcc.dg/simd-6.c: Likewise.
+	* g++.dg/conversion/simd1.C: Likewise.
+	* g++.dg/conversion/simd3.C: Likewise.
+	* g++.dg/ext/attribute-test-2.C (data): Add "vs" member.
+	(main): Use it.
+
+2007-01-08  Mark Shinwell  <shinwell@codesourcery.com>
+
+	PR tree-optimization/29877
+	* gcc.dg/pr16194.c: Skip test entirely if we don't know the
+	name of a hard register for the target concerned.  Adjust dg-error
+	directives to cope with new behaviour of TER.
+
+2007-01-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/28986
+	* g++.dg/conversion/nullptr1.C: Added overflow warning.
+	* g++.dg/warn/overflow-warn-1.C: New.
+	* g++.dg/warn/overflow-warn-3.C: New.
+	* g++.dg/warn/overflow-warn-4.C: New.
+	* g++.dg/warn/overflow-warn-5.C: New.
+	* g++.dg/warn/overflow-warn-6.C: New.
+	* g++.dg/warn/Woverflow-1.C: New.
+	* g++.dg/warn/Woverflow-2.C: New.
+	* g++.dg/warn/Woverflow-3.C: New.
+	* g++.dg/warn/multiple-overflow-warn-2.C: New.
+	
+2007-01-07  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR fortran/27698
+	* gfortran.dg/invalid_name.f90: New test.
+	* gfortran.dg/do_iterator.f90: Adjust pattern for expected error.
+	* gfortran.dg/gomp/pr29759.f90: Ditto.
+
+2007-01-06  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/present_1.f90:  Update error message.
+
+2007-01-06  Lee Millward  <lee.millward@codesourcery.com>
+
+       PR c++/19439
+       * g++.dg/template/duplicate1.C: New test
+       * g++.dg/template/memfriend6.C: Adjust error markers.
+	
+2007-01-05  Andrew Pinski  <Andrew_Pinski@playstation.sony.com>
+
+	PR tree-opt/30385
+	* gcc.dg/torture/inline-1.c: New test.
+
+2007-01-05  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/19978
+	* gcc.dg/multiple-overflow-warn-1.c: New.
+	* gcc.dg/multiple-overflow-warn-2.c: New.
+	* gcc.dg/overflow-warn-6.c: New.
+	* g++.dg/warn/multiple-overflow-warn-1.C: New.
+	
+2007-01-05  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/array_memcpy_1.f90: New test case.
+	* gfortran.dg/array_memcpy_2.f90: Likewise.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27826
+	* g++.dg/opt/pr27826.C: New testcase.
+
+2007-01-05  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Walways-true-1.c: New test.
+	* gcc.dg/Walways-true-2.c: New test.
+	* g++.dg/warn/Walways-true-1.C: New test.
+	* g++.dg/warn/Walways-true-2.C: New test.
+
+2007-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30360
+	* gcc.dg/pr30360.c: New test.
+
+2007-01-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23232
+	* gfortran.dg/data_implied_do_1.f90: New test.
+
+	PR fortran/27996
+	PR fortran/27998
+	* gfortran.dg/char_length_1.f90: New test.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28116
+	* g++.dg/opt/pr28116.C: New testcase.
+
+2007-01-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29624
+	* gfortran.dg/alloc_alloc_expr_1.f90: Add check for
+	  invalid deallocate.
+	* gfortran.dg/allocatable_dummy_2.f90: Update dg-error.
+	* gfortran.dg/protected_4.f90: Add pointer intent check.
+	* gfortran.dg/protected_6.f90: Add pointer intent check.
+	* gfortran.dg/pointer_intent_1.f90: New test.
+	* gfortran.dg/pointer_intent_2.f90: New test.
+	* gfortran.dg/pointer_intent_3.f90: New test.
+
+2007-01-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 30235
+	* gfortran.dg/altreturn_2.f90: new test.
+
+2007-01-04  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28165:
+	* gcc.dg/cpp/pr28165.c: New file.
+
+2007-01-03  Josh Conner  <jconner@apple.com>
+
+	PR middle-end/29683
+	* gcc.dg/pr29683.c: New.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28217
+	* g++.dg/pch/template-1.C: New test.
+	* g++.dg/pch/template-1.Hs: New file.
+
+2007-01-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30353
+	* gcc.c-torture/compile/complex-4.c: New test.
+
+2007-01-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* g++.dg/vect/vect.exp: Skip PowerPC targets not supporting
+	-maltivec.
+	* gcc.target/powerpc/altivec-20.c: Use powerpc_altivec_ok.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30286
+	* gcc.dg/pr30286.c: New test.
+
+	PR c++/29535
+	* g++.dg/template/crash66.C: New test.
+
+	PR c++/29054
+	* g++.dg/template/friend49.C: New test.
+
 2007-01-03  Steven G. Kargl  <kargls@comcast.net>
 
 	* gfortran.dg/ibits.f90: New test.

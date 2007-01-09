@@ -142,6 +142,7 @@ libgcj="target-libffi \
 # the host libraries and the host tools (which may be a cross compiler)
 #
 target_libraries="target-libiberty \
+		target-libgcc \
 		target-libgloss \
 		target-newlib \
 		target-libstdc++-v3 \
@@ -276,6 +277,9 @@ case "${host}" in
     ;;
   i[[3456789]]86-*-go32* | i[[3456789]]86-*-msdosdjgpp*)
     noconfigdirs="$noconfigdirs tcl tk expect dejagnu send-pr uudecode guile itcl gnuserv libffi"
+    ;;
+  x86_64-*-mingw*)
+    noconfigdirs="$noconfigdirs expect dejagnu autoconf automake send-pr rcs guile perl texinfo libtool newlib"
     ;;
   i[[3456789]]86-*-mingw32*)
     # noconfigdirs="tcl tk expect dejagnu make texinfo bison patch flex byacc send-pr uudecode dejagnu diff guile perl itcl gnuserv"
@@ -618,6 +622,10 @@ case "${target}" in
     target_configdirs="$target_configdirs target-winsup"
     noconfigdirs="$noconfigdirs expect target-libgloss target-newlib ${libgcj}"
     ;;    
+  x86_64-*-mingw*)
+    target_configdirs="$target_configdirs target-winsup"
+    noconfigdirs="$noconfigdirs expect target-libgloss target-newlib ${libgcj}"
+    ;;    
   *-*-cygwin*)
     target_configdirs="$target_configdirs target-libtermcap target-winsup"
     noconfigdirs="$noconfigdirs target-gperf target-libgloss ${libgcj}"
@@ -932,6 +940,8 @@ case "${host}" in
     host_makefile_frag="config/mh-cygwin"
     ;;
   *-mingw32*)
+    ;;
+  *-mingw64*)
     ;;
   *-interix*)
     host_makefile_frag="config/mh-interix"
@@ -1438,10 +1448,14 @@ done
 
 # Sometimes the tools are distributed with libiberty but with no other
 # libraries.  In that case, we don't want to build target-libiberty.
+# Don't let libgcc imply libiberty either.
 if test -n "${target_configdirs}" ; then
+  libgcc=
   others=
   for i in `echo ${target_configdirs} | sed -e s/target-//g` ; do
-    if test "$i" != "libiberty" ; then
+    if test "$i" = "libgcc"; then
+      libgcc=target-libgcc
+    elif test "$i" != "libiberty" ; then
       if test -r $srcdir/$i/configure ; then
 	others=yes;
 	break;
@@ -1449,7 +1463,7 @@ if test -n "${target_configdirs}" ; then
     fi
   done
   if test -z "${others}" ; then
-    target_configdirs=
+    target_configdirs=$libgcc
   fi
 fi
 
@@ -2487,10 +2501,13 @@ fi])
 AC_SUBST(stage1_checking)
 
 # Enable -Werror in bootstrap stage2 and later.
-# Change the default to "no" on release branches.
 AC_ARG_ENABLE(werror,
 [  --enable-werror         enable -Werror in bootstrap stage2 and later], [],
-[enable_werror=yes])
+[if test -d gcc && test x"`cat $srcdir/gcc/DEV-PHASE`" = xexperimental; then
+  enable_werror=yes
+else
+  enable_werror=no
+fi])
 case ${enable_werror} in
   yes) stage2_werror_flag="--enable-werror-always" ;;
   *) stage2_werror_flag="" ;;
