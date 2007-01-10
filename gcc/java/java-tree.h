@@ -740,7 +740,8 @@ struct lang_identifier GTY(())
 /* The resulting tree type.  */
 union lang_tree_node 
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+       chain_next ("(GIMPLE_STMT_P (&%h.generic) ? (union lang_tree_node *) 0 : (union lang_tree_node *)TREE_CHAIN (&%h.generic))")))
+
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -1259,8 +1260,8 @@ extern void maybe_rewrite_invocation (tree *, tree *, tree *, tree *);
 extern tree build_known_method_ref (tree, tree, tree, tree, tree, tree);
 extern tree build_class_init (tree, tree);
 extern int attach_init_test_initialization_flags (void **, void *);
-extern tree build_invokevirtual (tree, tree, tree);
-extern tree build_invokeinterface (tree, tree);
+extern tree build_invokevirtual (tree, tree, tree, tree);
+extern tree build_invokeinterface (tree, tree, tree);
 extern tree build_jni_stub (tree);
 extern tree invoke_build_dtable (int, tree);
 extern tree build_field_ref (tree, tree, tree);
@@ -1416,9 +1417,6 @@ extern tree emit_catch_table (tree);
 extern void gen_indirect_dispatch_tables (tree type);
 extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
-
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1899,12 +1897,12 @@ enum
 
 /* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
-  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
+  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->base.public_flag)
 #undef EXPR_WFL_NODE
 #define EXPR_WFL_NODE(NODE) \
   TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
 #ifdef USE_MAPPED_LOCATION
-#define EXPR_WFL_LINECOL(NODE) ((NODE)->exp.locus)
+#define EXPR_WFL_LINECOL(NODE) EXPR_LOCUS(NODE)
 #define EXPR_WFL_FILENAME(NODE) EXPR_FILENAME (NODE)
 #define EXPR_WFL_LINENO(NODE) EXPR_LINENO (NODE)
 extern tree build_expr_wfl (tree, source_location);

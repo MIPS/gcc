@@ -1430,6 +1430,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 
   switch (TREE_CODE (exp))
     {
+    case OBJ_TYPE_REF:
+      generate_bytecode_insns (OBJ_TYPE_REF_EXPR (exp), target, state);
+      break;
     case BLOCK:
       if (BLOCK_EXPR_BODY (exp))
 	{

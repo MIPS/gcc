@@ -492,6 +492,30 @@ __ashrdi3 (DWtype u, word_type b)
 }
 #endif
 
+#ifdef L_bswapsi2
+SItype
+__bswapsi2 (SItype u)
+{
+  return ((((u) & 0xff000000) >> 24)
+	  | (((u) & 0x00ff0000) >>  8)
+	  | (((u) & 0x0000ff00) <<  8)
+	  | (((u) & 0x000000ff) << 24));
+}
+#endif
+#ifdef L_bswapdi2
+DItype
+__bswapdi2 (DItype u)
+{
+  return ((((u) & 0xff00000000000000ull) >> 56)
+	  | (((u) & 0x00ff000000000000ull) >> 40)
+	  | (((u) & 0x0000ff0000000000ull) >> 24)
+	  | (((u) & 0x000000ff00000000ull) >>  8)
+	  | (((u) & 0x00000000ff000000ull) <<  8)
+	  | (((u) & 0x0000000000ff0000ull) << 24)
+	  | (((u) & 0x000000000000ff00ull) << 40)
+	  | (((u) & 0x00000000000000ffull) << 56));
+}
+#endif
 #ifdef L_ffssi2
 #undef int
 int
@@ -1862,7 +1886,7 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 {
   MTYPE denom, ratio, x, y;
 
-  /* ??? We can get better behavior from logarithmic scaling instead of 
+  /* ??? We can get better behavior from logarithmic scaling instead of
      the division.  But that would mean starting to link libgcc against
      libm.  We could implement something akin to ldexp/frexp as gcc builtins
      fairly easily...  */
@@ -1885,7 +1909,7 @@ CONCAT3(__div,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
      are nonzero/zero, infinite/finite, and finite/infinite.  */
   if (isnan (x) && isnan (y))
     {
-      if (denom == 0.0 && (!isnan (a) || !isnan (b)))
+      if (c == 0.0 && d == 0.0 && (!isnan (a) || !isnan (b)))
 	{
 	  x = COPYSIGN (INFINITY, c) * a;
 	  y = COPYSIGN (INFINITY, c) * b;

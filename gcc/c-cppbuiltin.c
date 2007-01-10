@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -409,6 +409,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	cpp_define (pfile, "__GXX_WEAK__=0");
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
+      if (flag_cpp0x)
+        cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */

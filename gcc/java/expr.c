@@ -2251,7 +2251,7 @@ get_symbol_table_index (tree t, tree special, tree *symbol_table)
 }
 
 tree 
-build_invokevirtual (tree dtable, tree method, tree special)
+build_invokevirtual (tree dtable, tree method, tree this_value, tree special)
 {
   tree func;
   tree nativecode_ptr_ptr_type_node
@@ -2275,7 +2275,7 @@ build_invokevirtual (tree dtable, tree method, tree special)
     {
       /* We fetch the DECL_VINDEX field directly here, rather than
 	 using get_method_index().  DECL_VINDEX is the true offset
-	 from the vtable base to a method, regrdless of any extra
+	 from the vtable base to a method, regardless of any extra
 	 words inserted at the start of the vtable.  */
       method_index = DECL_VINDEX (method);
       method_index = size_binop (MULT_EXPR, method_index,
@@ -2293,16 +2293,21 @@ build_invokevirtual (tree dtable, tree method, tree special)
   else
     func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
 
+  if (!flag_emit_class_files && !flag_indirect_dispatch)
+    func = build3 (OBJ_TYPE_REF, TREE_TYPE (func), func, this_value, method);
+
   return func;
 }
 
 static GTY(()) tree class_ident;
+
 tree
-build_invokeinterface (tree dtable, tree method)
+build_invokeinterface (tree dtable, tree method, tree this_value)
 {
   tree lookup_arg;
   tree interface;
   tree idx;
+  tree result;
 
   /* We expand invokeinterface here.  */
 	    
@@ -2349,9 +2354,13 @@ build_invokeinterface (tree dtable, tree method)
 			  tree_cons (NULL_TREE, interface,
 				     build_tree_list (NULL_TREE, idx)));
 
-  return build3 (CALL_EXPR, ptr_type_node, 
-		 build_address_of (soft_lookupinterfacemethod_node),
-		 lookup_arg, NULL_TREE);
+  result = build3 (CALL_EXPR, ptr_type_node, 
+		   build_address_of (soft_lookupinterfacemethod_node),
+		   lookup_arg, NULL_TREE);
+  if (!flag_emit_class_files && !flag_indirect_dispatch)
+    result = build3 (OBJ_TYPE_REF, TREE_TYPE (result), result,
+		     this_value, method);
+  return result;
 }
   
 /* Expand one of the invoke_* opcodes.
@@ -2524,9 +2533,9 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       tree dtable = invoke_build_dtable (opcode == OPCODE_invokeinterface, 
 					 arg_list);
       if (opcode == OPCODE_invokevirtual)
-	func = build_invokevirtual (dtable, method, special);
+	func = build_invokevirtual (dtable, method, TREE_VALUE (arg_list), special);
       else
-	func = build_invokeinterface (dtable, method);
+	func = build_invokeinterface (dtable, method, TREE_VALUE (arg_list));
     }
       
   if (TREE_CODE (func) == ADDR_EXPR)

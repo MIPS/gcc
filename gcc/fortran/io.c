@@ -510,8 +510,8 @@ format_item_1:
         return FAILURE;
       if (t != FMT_RPAREN || level > 0)
 	{
-	  error = _("$ must be the last specifier");
-	  goto syntax;
+	  gfc_warning ("$ should be the last specifier in format at %C");
+	  goto optional_comma_1;
 	}
 
       goto finished;
@@ -755,8 +755,9 @@ between_desc:
 
 optional_comma:
   /* Optional comma is a weird between state where we've just finished
-     reading a colon, slash or P descriptor.  */
+     reading a colon, slash, dollar or P descriptor.  */
   t = format_lex ();
+optional_comma_1:
   switch (t)
     {
     case FMT_COMMA:
@@ -858,7 +859,7 @@ gfc_match_format (void)
   if (gfc_current_ns->proc_name
 	&& gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
     {
-      gfc_error ("Format statement in module main block at %C.");
+      gfc_error ("Format statement in module main block at %C");
       return MATCH_ERROR;
     }
 
@@ -1121,7 +1122,7 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 
       if (tag == &tag_size && e->ts.kind != gfc_default_integer_kind)
 	{
-	  if (gfc_notify_std (GFC_STD_GNU, "Fortran 95 requires default "
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
 			      "INTEGER in SIZE tag at %L",
 			      &e->where) == FAILURE)
 	    return FAILURE;
@@ -1130,6 +1131,14 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       if (tag == &tag_convert)
 	{
 	  if (gfc_notify_std (GFC_STD_GNU, "Extension: CONVERT tag at %L",
+			      &e->where) == FAILURE)
+	    return FAILURE;
+	}
+    
+      if (tag == &tag_iolength && e->ts.kind != gfc_default_integer_kind)
+	{
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
+			      "INTEGER in IOLENGTH tag at %L",
 			      &e->where) == FAILURE)
 	    return FAILURE;
 	}
@@ -1745,7 +1754,7 @@ gfc_match_close (void)
   /* Checks on the STATUS specifier.  */
   if (close->status && close->status->expr_type == EXPR_CONSTANT)
     {
-      static const char * status[] = { "KEEP", "DELETE" };
+      static const char * status[] = { "KEEP", "DELETE", NULL };
 
       if (!compare_to_allowed_values ("STATUS", status, NULL, NULL,
 				      close->status->value.character.string,
@@ -2596,9 +2605,13 @@ if (condition) \
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
 
-      io_constraint (dt->namelist != NULL,
-		     "Internal file at %L is incompatible with namelist",
-		     &expr->where);
+      if (dt->namelist != NULL)
+        {
+          if (gfc_notify_std(GFC_STD_F2003,
+                         "Fortran 2003: Internal file at %L with namelist",
+                         &expr->where) == FAILURE)
+            m = MATCH_ERROR;
+        }
 
       io_constraint (dt->advance != NULL,
 		     "ADVANCE tag at %L is incompatible with internal file",
@@ -2697,8 +2710,8 @@ if (condition) \
       if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_CHARACTER)
 	{
 	  const char * advance = expr->value.character.string;
-	  not_no = strncasecmp (advance, "no", 2) != 0;
-	  not_yes = strncasecmp (advance, "yes", 2) != 0;
+	  not_no = strcasecmp (advance, "no") != 0;
+	  not_yes = strcasecmp (advance, "yes") != 0;
 	}
       else
 	{
@@ -2744,7 +2757,8 @@ match_io (io_kind k)
   where = gfc_current_locus;
   comma_flag = 0;
   current_dt = dt = gfc_getmem (sizeof (gfc_dt));
-  if (gfc_match_char ('(') == MATCH_NO)
+  m = gfc_match_char ('(');
+  if (m == MATCH_NO)
     {
       where = gfc_current_locus;
       if (k == M_WRITE)
@@ -2796,9 +2810,25 @@ match_io (io_kind k)
     }
   else
     {
-      /* Error for constructs like print (1,*).   */
-      if (k == M_PRINT)
-	goto  syntax;
+      /* Before issuing an error for a malformed 'print (1,*)' type of
+	 error, check for a default-char-expr of the form ('(I0)').  */
+
+      if (k == M_PRINT && m == MATCH_YES)
+	{
+	  /* Reset current locus to get the initial '(' in an expression.  */
+	  gfc_current_locus = where;
+	  dt->format_expr = NULL;
+	  m = match_dt_format (dt);
+
+	  if (m == MATCH_ERROR)
+	    goto cleanup;
+	  if (m == MATCH_NO || dt->format_expr == NULL)
+	    goto syntax;
+
+	  comma_flag = 1;
+	  dt->io_unit = default_unit (k);
+	  goto get_io_list;
+	}
     }
 
   /* Match a control list */

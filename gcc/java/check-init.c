@@ -536,6 +536,7 @@ check_init (tree exp, words before)
       break;
       
     case MODIFY_EXPR:
+    case OBJ_TYPE_REF:
       tmp = TREE_OPERAND (exp, 0);
       /* We're interested in variable declaration and parameter
          declaration when they're declared with the `final' modifier. */
@@ -814,9 +815,6 @@ check_init (tree exp, words before)
     case ADDR_EXPR:
     case NON_LVALUE_EXPR:
     case INSTANCEOF_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
     case ABS_EXPR:
       /* Avoid needless recursion. */
       exp = TREE_OPERAND (exp, 0);

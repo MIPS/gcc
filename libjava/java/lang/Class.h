@@ -235,6 +235,7 @@ jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);
 jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);
 jint JvNumMethods (jclass);
 jmethodID JvGetFirstMethod (jclass);
+_Jv_Utf8Const *_Jv_GetClassNameUtf8 (jclass);
 
 #ifdef INTERPRETER
 // Finds a desired interpreter method in the given class or NULL if not found
@@ -293,6 +294,10 @@ class java::io::VMObjectStreamClass;
 
 void _Jv_sharedlib_register_hook (jclass klass);
 
+/* Find the class that defines the given method. Returns NULL
+   if it cannot be found. Searches both interpreted and native
+   classes. */
+jclass _Jv_GetMethodDeclaringClass (jmethodID method);
 
 class java::lang::Class : public java::lang::Object
 {
@@ -483,6 +488,7 @@ private:
   friend jmethodID (::_Jv_FromReflectedConstructor) (java::lang::reflect::Constructor *);
   friend jint (::JvNumMethods) (jclass);
   friend jmethodID (::JvGetFirstMethod) (jclass);
+  friend _Jv_Utf8Const *::_Jv_GetClassNameUtf8 (jclass);
 #ifdef INTERPRETER
   friend _Jv_MethodBase *(::_Jv_FindInterpreterMethod) (jclass klass,
 							jmethodID desired_method);

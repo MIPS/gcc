@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -46,6 +46,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree-dump.h"
 #include "opts.h"
 #include "options.h"
+
+extern void init_gcj_devirt (void);
+extern void init_gcj_stack_allocate (void);
+extern void init_gcj_invariant (void);
 
 static bool java_init (void);
 static void java_finish (void);
@@ -593,6 +597,9 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   no_unit_at_a_time_default = 1;
 
   jcf_path_init ();
+  init_gcj_devirt ();
+  init_gcj_invariant ();
+  init_gcj_stack_allocate ();
 
   return CL_Java;
 }

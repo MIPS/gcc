@@ -62,41 +62,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(__ostream_type& (*__pf)(__ostream_type&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      return __pf(*this);
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(__ios_type& (*__pf)(__ios_type&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(ios_base& (*__pf)(ios_base&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     template<typename _ValueT>
       basic_ostream<_CharT, _Traits>&
       basic_ostream<_CharT, _Traits>::
@@ -355,19 +320,33 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	__out.setstate(ios_base::badbit);
       else
 	{
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 167.  Improper use of traits_type::length()
+	  const size_t __clen = char_traits<char>::length(__s);      
+	  _CharT* __ws = 0;
 	  try
-	    {
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 167.  Improper use of traits_type::length()
-	      const size_t __clen = char_traits<char>::length(__s);      
-	      _CharT* __ws = new _CharT[__clen];
+	    { 
+	      __ws = new _CharT[__clen];
 	      for (size_t  __i = 0; __i < __clen; ++__i)
 		__ws[__i] = __out.widen(__s[__i]);
+	    }
+	  catch(...)
+	    {
+	      delete [] __ws;
+	      __out._M_setstate(ios_base::badbit);
+	      return __out;
+	    }
+
+	  try
+	    {
 	      __out._M_insert(__ws, __clen);
 	      delete [] __ws;
 	    }
 	  catch(...)
-	    { __out._M_setstate(ios_base::badbit); }
+	    {
+	      delete [] __ws;
+	      __throw_exception_again;
+	    }
 	}
       return __out;
     }

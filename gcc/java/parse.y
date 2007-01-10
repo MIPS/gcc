@@ -11049,7 +11049,7 @@ patch_invoke (tree patch, tree method, tree args)
 	    maybe_rewrite_invocation (&method, &args, &signature, &special);
 
 	    dtable = invoke_build_dtable (0, args);
-	    func = build_invokevirtual (dtable, method, special);
+	    func = build_invokevirtual (dtable, method, TREE_VALUE (args), special);
 	  }
 	  break;
 
@@ -11082,7 +11082,7 @@ patch_invoke (tree patch, tree method, tree args)
 
 	case INVOKE_INTERFACE:
 	  dtable = invoke_build_dtable (1, args);
-	  func = build_invokeinterface (dtable, method);
+	  func = build_invokeinterface (dtable, method, TREE_VALUE (args));
 	  break;
 
 	default:

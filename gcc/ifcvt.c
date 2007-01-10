@@ -1329,15 +1329,14 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	return FALSE;
     }
   else
-    {
-      insn_cost = 0;
-    }
+    insn_cost = 0;
 
-  if (insn_b) {
-    insn_cost += insn_rtx_cost (PATTERN (insn_b));
-    if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
-      return FALSE;
-  }
+  if (insn_b)
+    {
+      insn_cost += insn_rtx_cost (PATTERN (insn_b));
+      if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
+        return FALSE;
+    }
 
   /* Possibly rearrange operands to make things come out more natural.  */
   if (reversed_comparison_code (if_info->cond, if_info->jump) != UNKNOWN)
@@ -1944,7 +1943,9 @@ noce_try_bitop (struct noce_if_info *if_info)
 	return FALSE;
       bitnum = INTVAL (XEXP (cond, 2));
       mode = GET_MODE (x);
-      if (bitnum >= HOST_BITS_PER_WIDE_INT)
+      if (BITS_BIG_ENDIAN)
+	bitnum = GET_MODE_BITSIZE (mode) - 1 - bitnum;
+      if (bitnum < 0 || bitnum >= HOST_BITS_PER_WIDE_INT)
 	return FALSE;
     }
   else
@@ -2465,6 +2466,70 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
   return TRUE;
 }
 
+/* Given a basic block BB suitable for conditional move conversion,
+   a condition COND, and arrays THEN_VALS and ELSE_VALS containing the
+   register values depending on COND, emit the insns in the block as
+   conditional moves.  If ELSE_BLOCK is true, THEN_BB was already
+   processed.  The caller has started a sequence for the conversion.
+   Return true if successful, false if something goes wrong.  */
+
+static bool
+cond_move_convert_if_block (struct noce_if_info *if_infop,
+			    basic_block bb, rtx cond,
+			    rtx *then_vals, rtx *else_vals,
+			    bool else_block_p)
+{
+  enum rtx_code code;
+  rtx insn, cond_arg0, cond_arg1;
+
+  code = GET_CODE (cond);
+  cond_arg0 = XEXP (cond, 0);
+  cond_arg1 = XEXP (cond, 1);
+
+  FOR_BB_INSNS (bb, insn)
+    {
+      rtx set, target, dest, t, e;
+      unsigned int regno;
+
+      if (!INSN_P (insn) || JUMP_P (insn))
+	continue;
+      set = single_set (insn);
+      gcc_assert (set && REG_P (SET_DEST (set)));
+
+      dest = SET_DEST (set);
+      regno = REGNO (dest);
+
+      t = then_vals[regno];
+      e = else_vals[regno];
+
+      if (else_block_p)
+	{
+	  /* If this register was set in the then block, we already
+	     handled this case there.  */
+	  if (t)
+	    continue;
+	  t = dest;
+	  gcc_assert (e);
+	}
+      else
+	{
+	  gcc_assert (t);
+	  if (!e)
+	    e = dest;
+	}
+
+      target = noce_emit_cmove (if_infop, dest, code, cond_arg0, cond_arg1,
+				t, e);
+      if (!target)
+	return false;
+
+      if (target != dest)
+	noce_emit_move_insn (dest, target);
+    }
+
+  return true;
+}
+
 /* Given a simple IF-THEN or IF-THEN-ELSE block, attempt to convert it
    using only conditional moves.  Return TRUE if we were successful at
    converting the block.  */
@@ -2475,11 +2540,10 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
   struct noce_if_info if_info;
-  rtx jump, cond, insn, seq, cond_arg0, cond_arg1, loc_insn;
+  rtx jump, cond, insn, seq, loc_insn;
   int max_reg, size, c, i;
   rtx *then_vals;
   rtx *else_vals;
-  enum rtx_code code;
 
   if (!HAVE_conditional_move || no_new_pseudos)
     return FALSE;
@@ -2536,78 +2600,18 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
   if (c > MAX_CONDITIONAL_EXECUTE)
     return FALSE;
 
-  /* Emit the conditional moves.  First do the then block, then do
-     anything left in the else blocks.  */
-
-  code = GET_CODE (cond);
-  cond_arg0 = XEXP (cond, 0);
-  cond_arg1 = XEXP (cond, 1);
-
+  /* Try to emit the conditional moves.  First do the then block,
+     then do anything left in the else blocks.  */
   start_sequence ();
-
-  FOR_BB_INSNS (then_bb, insn)
+  if (!cond_move_convert_if_block (&if_info, then_bb, cond,
+				   then_vals, else_vals, false)
+      || (else_bb
+	  && !cond_move_convert_if_block (&if_info, else_bb, cond,
+					  then_vals, else_vals, true)))
     {
-      rtx set, target, dest, t, e;
-      unsigned int regno;
-
-      if (!INSN_P (insn) || JUMP_P (insn))
-	continue;
-      set = single_set (insn);
-      gcc_assert (set && REG_P (SET_DEST (set)));
-
-      dest = SET_DEST (set);
-      regno = REGNO (dest);
-      t = then_vals[regno];
-      e = else_vals[regno];
-      gcc_assert (t);
-      if (!e)
-	e = dest;
-      target = noce_emit_cmove (&if_info, dest, code, cond_arg0, cond_arg1,
-				t, e);
-      if (!target)
-	{
-	  end_sequence ();
-	  return FALSE;
-	}
-
-      if (target != dest)
-	noce_emit_move_insn (dest, target);
+      end_sequence ();
+      return FALSE;
     }
-
-  if (else_bb)
-    {
-      FOR_BB_INSNS (else_bb, insn)
-	{
-	  rtx set, target, dest;
-	  unsigned int regno;
-
-	  if (!INSN_P (insn) || JUMP_P (insn))
-	    continue;
-	  set = single_set (insn);
-	  gcc_assert (set && REG_P (SET_DEST (set)));
-
-	  dest = SET_DEST (set);
-	  regno = REGNO (dest);
-
-	  /* If this register was set in the then block, we already
-	     handled this case above.  */
-	  if (then_vals[regno])
-	    continue;
-	  gcc_assert (else_vals[regno]);
-
-	  target = noce_emit_cmove (&if_info, dest, code, cond_arg0, cond_arg1,
-				    dest, else_vals[regno]);
-	  if (!target)
-	    {
-	      end_sequence ();
-	      return FALSE;
-	    }
-
-	  if (target != dest)
-	    noce_emit_move_insn (dest, target);
-	}
-    }
-
   seq = end_ifcvt_sequence (&if_info);
   if (!seq)
     return FALSE;
@@ -2710,9 +2714,6 @@ merge_if_block (struct ce_if_block * ce_info)
 
   if (then_bb)
     {
-      if (combo_bb->il.rtl->global_live_at_end)
-	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
-		      then_bb->il.rtl->global_live_at_end);
       merge_blocks (combo_bb, then_bb);
       num_true_changes++;
     }
@@ -2763,10 +2764,6 @@ merge_if_block (struct ce_if_block * ce_info)
 	   && join_bb != EXIT_BLOCK_PTR)
     {
       /* We can merge the JOIN.  */
-      if (combo_bb->il.rtl->global_live_at_end)
-	COPY_REG_SET (combo_bb->il.rtl->global_live_at_end,
-		      join_bb->il.rtl->global_live_at_end);
-
       merge_blocks (combo_bb, join_bb);
       num_true_changes++;
     }
@@ -3772,7 +3769,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      redirect_jump_2 (jump, old_dest, new_label, -1, reversep);
+      redirect_jump_2 (jump, old_dest, new_label, 0, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
@@ -3853,11 +3850,12 @@ if_convert (int x_life_data_ok)
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
     {
-      struct loops loops;
-
-      flow_loops_find (&loops);
-      mark_loop_exit_edges (&loops);
-      flow_loops_free (&loops);
+      loop_optimizer_init (0);
+      if (current_loops)
+	{
+	  mark_loop_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
       free_dominance_info (CDI_DOMINATORS);
     }
 
