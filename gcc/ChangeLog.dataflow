@@ -1,3 +1,34 @@
+2007-01-09  Seongbae Park <seongbae.park@gmail.com>
+	* df-core.c (rest_of_handle_df_initialize): Allocate and free new
+	fields struct dataflow::{postorder_inverted,n_blocks_inverted}.
+	(df_hybrid_search_forward, df_hybrid_search_backward): Pass visited,
+	pending, considered as parameters instead of fields of struct df.
+	(df_worklist_propagate_forward, df_worklist_propagate_backward,
+	df_worklist_dataflow): New functions.
+	(df_iterative_dataflow): Remove visited, pending, considered
+	fields from struct dataflow.
+	(df_analyze): Allocate and free new fields
+	df::{postorder_inverted,n_blocks_inverted}.
+	(df_get_n_blocks, df_get_postorder): Make them return
+	different values depending on the direction of the dataflow problem.
+	(df_simple_dataflow): Renamed from df_simple_iterative_dataflow.
+	Call df_worklist_dataflow instead of df_iterative_dataflow.
+	* cfganal.c (dfs_find_deadend, inverted_post_order_compute):
+	New functions.
+	* df.h (struct dataflow): Remove fields visited, pending, considered.
+	Add new fields postorder_inverted, n_blocks_inverted.
+	(df_get_nblocks, df_get_postorder): Prototype change.
+	(df_simple_dataflow): Renamed from df_simple_iterative_dataflow.
+	(df_worklist_dataflow): New function prototype.
+	* df-problems.c: Use df_worklist_dataflow instead of
+	df_iterative_dataflow for solver.
+	* basic-block.h (inverted_post_order_compute): New function prototype.
+	* dce.c (dce_process_block): Pass extra parameter to df_get_n_blocks
+	and df_get_postorder.
+	(calculate_reaching_stores): Call df_simple_dataflow,
+	renamed from df_simple_iterative_dataflow.
+
+
 2007-01-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* see.c (see_update_defs_relevancy): Type fixed.
 	* df-scan.c (df_reg_chain_unlink, df_ref_verify): Made tolerant of 

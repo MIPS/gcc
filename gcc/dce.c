@@ -604,8 +604,8 @@ dce_process_block (basic_block bb, bool redo_out)
 static void
 fast_dce (void)
 {
-  int *postorder = df_get_postorder ();
-  int n_blocks = df_get_n_blocks ();
+  int *postorder = df_get_postorder (DF_BACKWARD);
+  int n_blocks = df_get_n_blocks (DF_BACKWARD);
   int i;
   /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
@@ -1043,8 +1043,8 @@ init_rs_dflow (void)
   out_vec = XNEWVEC (bitmap, last_basic_block);
   gen_vec = XNEWVEC (bitmap, last_basic_block);
   kill_vec = XNEWVEC (bitmap, last_basic_block);
-  n_blocks = df_get_n_blocks ();
-  postorder = df_get_postorder ();
+  n_blocks = df_get_n_blocks (DF_FORWARD);
+  postorder = df_get_postorder (DF_FORWARD);
   iterating = BITMAP_ALLOC (NULL);
 
   num_stores = VEC_length (store_info, stores.stores);
@@ -1492,9 +1492,9 @@ static void
 calculate_reaching_stores (void)
 {
   htab_traverse (stores.bases, store_base_global, NULL);
-  df_simple_iterative_dataflow (DF_FORWARD, rs_init, NULL, 
-				rs_confluence, rs_transfer_function, 
-				iterating, postorder, n_blocks);
+  df_simple_dataflow (DF_FORWARD, rs_init, NULL, 
+		      rs_confluence, rs_transfer_function, 
+	   	      iterating, postorder, n_blocks);
   finish_max_in_luid ();
   if (dump_file)
     dump_stores (dump_file);

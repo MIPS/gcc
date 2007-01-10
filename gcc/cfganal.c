@@ -742,6 +742,209 @@ post_order_compute (int *post_order, bool include_entry_exit,
   return post_order_num;
 }
 
+
+/* Helper routine for inverted_post_order_compute. 
+   BB has to belong to an region of CFG
+   unreachable by inverted traversal of the CFG from the exit.
+   i.e. there's no control flow path from ENTRY to EXIT
+   that contains this BB.
+   This can happen in two cases - if there's an infinite loop
+   or if there's a block that has no successor
+   (call to a function with no return).
+   Other part of the RTL passes deal with this by 
+   calling connect_infinite_loops_to_exit () or 
+   add_noreturn_fake_exit_edges (), 
+   but this function is used for the dataflow computation
+   which might be used by a pass that requires 
+   not to change the CFG. Hence, we deal with 
+   the infinite loop/no return cases by identifying
+   a unique basic block that can reach all blocks
+   in the region when traversed in inverted CFG.
+   This function returns a basic block that satisfies:
+   1) the block has no successor
+   or
+   2) the block that is at the bottom of the infinite loop
+   in a DFS search.
+
+   It's guaranteed that all blocks in the region 
+   that BB belongs to are reachable
+   by an inverted traversal on the returned basic block.
+   */
+
+static basic_block
+dfs_find_deadend (basic_block bb)
+{
+  sbitmap visited = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (visited);
+
+  for (;;)
+    {
+      SET_BIT (visited, bb->index);
+      if (EDGE_COUNT (bb->succs) == 0
+          || TEST_BIT (visited, EDGE_SUCC (bb, 0)->dest->index))
+        {
+          sbitmap_free (visited);
+          return bb;
+        }
+
+      bb = EDGE_SUCC (bb, 0)->dest;
+    }
+
+  sbitmap_free (visited);
+  return NULL;
+}
+
+
+/* Compute reverse top sort order with the inverted CFG
+   i.e. starting from the exit block and following the edges backward
+   (from successors to predecessors.
+   This is mainly used for getting the reverse post-order 
+   for forward dataflow problems.
+
+   This function assumes that all blocks in the CFG are reachable
+   from the entry (but not necessarily from EXIT by traversal of inverted CFG).
+
+   The problematic condition occurs when there's an infinite loop
+   or a non-exit block with no successor in the CFG, 
+   which means a simple inverted traversal starting from the exit 
+   can't assign the order for all reachable blocks.
+   To solve this problem, we first start with the exit block
+   and do the usual traversal from the exit.
+   If there are any block left that's not visited by this method,
+   those blocks are in such problematic region.
+   Among those, we find one block that has 
+   any visited predecessor (which is an entry into such a region),
+   and start looking for a "dead end" from that block 
+   and do another inverted traversal from that block.  */
+
+int
+inverted_post_order_compute (int *post_order)
+{
+  basic_block bb;
+  edge_iterator *stack;
+  int sp;
+  int post_order_num = 0;
+  sbitmap visited;
+
+  /* Allocate stack for back-tracking up CFG.  */
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
+  sp = 0;
+
+  /* Allocate bitmap to track nodes that have been visited.  */
+  visited = sbitmap_alloc (last_basic_block);
+
+  /* None of the nodes in the CFG have been visited yet.  */
+  sbitmap_zero (visited);
+
+  /* Put all blocks that have no successor into the initial work list.  */
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    if (EDGE_COUNT (bb->succs) == 0)
+      {
+        /* Push the initial edge on to the stack.  */
+        if (EDGE_COUNT (bb->preds) > 0) 
+          {
+            stack[sp++] = ei_start (bb->preds);
+            SET_BIT (visited, bb->index);
+          }
+      }
+
+  do 
+    {
+      bool has_unvisited_bb = false;
+
+      /* The inverted traversal loop. */
+      while (sp)
+        {
+          edge_iterator ei;
+          basic_block src;
+          basic_block dest;
+
+          /* Look at the edge on the top of the stack.  */
+          ei = stack[sp - 1];
+          src = ei_edge (ei)->dest;
+          dest = ei_edge (ei)->src;
+
+          /* Check if the edge destination has been visited yet.  */
+          if (! TEST_BIT (visited, dest->index))
+            {
+              /* Mark that we have visited the destination.  */
+              SET_BIT (visited, dest->index);
+
+              if (EDGE_COUNT (dest->preds) > 0)
+                /* Since the DEST node has been visited for the first
+                   time, check its successors.  */
+                stack[sp++] = ei_start (dest->preds);
+              else
+                post_order[post_order_num++] = dest->index;
+            }
+          else
+            {
+              if (src != EXIT_BLOCK_PTR && ei_one_before_end_p (ei))
+                post_order[post_order_num++] = src->index;
+
+              if (!ei_one_before_end_p (ei))
+                ei_next (&stack[sp - 1]);
+              else
+                sp--;
+            }
+        }
+
+      /* Detect inifinite loop and activate the kludge. 
+         Note that this loop doesn't check EXIT_BLOCK itself.
+         It is always added after the outer do-while loop below.  */
+      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+        if (!TEST_BIT (visited, bb->index))
+          {
+            has_unvisited_bb = true;
+
+            if (EDGE_COUNT (bb->preds) > 0)
+              {
+                edge_iterator ei;
+                edge e;
+                basic_block visited_pred = NULL;
+
+
+                /* Find an already visited predecessor.  */
+                FOR_EACH_EDGE (e, ei, bb->preds)
+                  {
+                    if (TEST_BIT (visited, e->src->index))
+                      visited_pred = e->src;
+                  }
+
+                if (visited_pred)
+                  {
+                    basic_block be = dfs_find_deadend (bb);
+                    gcc_assert (be != NULL);
+                    SET_BIT (visited, be->index);
+                    stack[sp++] = ei_start (be->preds);
+                    break;
+                  }
+              }
+          }
+
+      if (has_unvisited_bb == true && sp == 0)
+        {
+          /* No blocks are reachable from EXIT at all. 
+             Find a dead-end from the ENTRY, and restart the iteration. */
+          basic_block be = dfs_find_deadend (ENTRY_BLOCK_PTR);
+          gcc_assert (be != NULL);
+          SET_BIT (visited, be->index);
+          stack[sp++] = ei_start (be->preds);
+        }
+
+      /* The only case the below while fires is 
+         when there's an infinite loop.  */
+    }
+  while (sp);
+
+  /* EXIT_BLOCK is always included.  */
+  post_order[post_order_num++] = EXIT_BLOCK;
+
+  free (stack);
+  sbitmap_free (visited);
+  return post_order_num;
+}
+
 /* Compute the depth first search order and store in the array
   PRE_ORDER if nonzero, marking the nodes visited in VISITED.  If
   REV_POST_ORDER is nonzero, return the reverse completion number for each
@@ -1102,4 +1305,3 @@ compute_dominance_frontiers (bitmap *frontiers)
 
   timevar_pop (TV_DOM_FRONTIERS);
 }
-

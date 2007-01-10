@@ -237,9 +237,6 @@ struct dataflow
 {
   struct df_problem *problem;           /* The problem to be solved.  */
 
-  /* Communication between iterative_dataflow and hybrid_search. */
-  sbitmap visited, pending, considered; 
-
   /* Array indexed by bb->index, that contains basic block problem and
      solution specific information.  */
   void **block_info;
@@ -487,8 +484,13 @@ struct df
   bitmap insns_to_delete;
   bitmap insns_to_rescan;
   bitmap insns_to_notes_rescan;
-  int *postorder;                /* The current set of basic blocks in postorder.  */
-  int n_blocks;                  /* The number of blocks in postorder.  */
+  int *postorder;                /* The current set of basic blocks 
+                                    in reverse postorder.  */
+  int *postorder_inverted;       /* The current set of basic blocks 
+                                    in reverse postorder of inverted CFG.  */
+  int n_blocks;                  /* The number of blocks in reverse postorder.  */
+  int n_blocks_inverted;         /* The number of blocks 
+                                    in reverse postorder of inverted CFG.  */
 
   /* An array [FIRST_PSEUDO_REGISTER], indexed by regno, of the number of
      refs that qualify as being in regs_ever_live.  */
@@ -808,11 +810,11 @@ extern void df_remove_problem (struct dataflow *);
 extern void df_finish_pass (void);
 extern void df_analyze_problem (struct dataflow *, bitmap, int *, int);
 extern void df_analyze (void);
-extern int df_get_n_blocks (void);
-extern int *df_get_postorder (void);
-extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
-					  df_confluence_function_0, df_confluence_function_n,
-					  df_transfer_function, bitmap, int *, int);
+extern int df_get_n_blocks (enum df_flow_dir);
+extern int *df_get_postorder (enum df_flow_dir);
+extern void df_simple_dataflow (enum df_flow_dir, df_init_function,
+				df_confluence_function_0, df_confluence_function_n,
+				df_transfer_function, bitmap, int *, int);
 extern void df_mark_solutions_dirty (void);
 extern bool df_get_bb_dirty (basic_block);
 extern void df_set_bb_dirty (basic_block);
@@ -832,6 +834,7 @@ extern bool df_reg_defined (rtx, rtx);
 extern struct df_ref *df_find_use (rtx, rtx);
 extern bool df_reg_used (rtx, rtx);
 extern void df_iterative_dataflow (struct dataflow *,bitmap, int *, int);
+extern void df_worklist_dataflow (struct dataflow *,bitmap, int *, int);
 extern void df_print_regset (FILE *file, bitmap r);
 extern void df_dump (FILE *);
 extern void df_dump_start (FILE *);

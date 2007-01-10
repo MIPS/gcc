@@ -686,7 +686,10 @@ rest_of_handle_df_initialize (void)
   df_live_add_problem ();
   
   df->postorder = XNEWVEC (int, last_basic_block);
+  df->postorder_inverted = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
+  df->n_blocks_inverted = inverted_post_order_compute (df->postorder_inverted);
+  gcc_assert (df->n_blocks == df->n_blocks_inverted);
 
   df->hard_regs_live_count = XNEWVEC (unsigned int, FIRST_PSEUDO_REGISTER);
   memset (df->hard_regs_live_count, 0, 
@@ -738,6 +741,8 @@ rest_of_handle_df_finish (void)
 
   if (df->postorder)
     free (df->postorder);
+  if (df->postorder_inverted)
+    free (df->postorder_inverted);
   free (df->hard_regs_live_count);
   free (df);
   df = NULL;
@@ -777,6 +782,9 @@ struct tree_opt_pass pass_df_finish =
 
 static void
 df_hybrid_search_forward (basic_block bb, 
+                          sbitmap pending,
+                          sbitmap visited,
+                          sbitmap considered,
 			  struct dataflow *dataflow)
 {
   int result_changed;
@@ -784,15 +792,15 @@ df_hybrid_search_forward (basic_block bb,
   edge e;
   edge_iterator ei;
 
-  SET_BIT (dataflow->visited, bb->index);
-  gcc_assert (TEST_BIT (dataflow->pending, bb->index));
-  RESET_BIT (dataflow->pending, i);
+  SET_BIT (visited, bb->index);
+  gcc_assert (TEST_BIT (pending, bb->index));
+  RESET_BIT (pending, i);
 
   /*  Calculate <conf_op> of predecessor_outs.  */
   if (EDGE_COUNT (bb->preds) > 0)
     FOR_EACH_EDGE (e, ei, bb->preds)
       {
-	if (!TEST_BIT (dataflow->considered, e->src->index))
+	if (!TEST_BIT (considered, e->src->index))
 	  continue;
 	
 	dataflow->problem->con_fun_n (e);
@@ -809,25 +817,37 @@ df_hybrid_search_forward (basic_block bb,
     {
       if (e->dest->index == i)
 	continue;
-      if (!TEST_BIT (dataflow->considered, e->dest->index))
+      if (!TEST_BIT (considered, e->dest->index))
 	continue;
-      SET_BIT (dataflow->pending, e->dest->index);
+      SET_BIT (pending, e->dest->index);
     }
-  
+
+  /* This loop below defeats the reverse postorder traversal completely,
+     because on the first block of the CFG,
+     this code visits the block by the DFS order 
+     all the way down to the bottom.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest->index == i)
 	continue;
       
-      if (!TEST_BIT (dataflow->considered, e->dest->index))
+      if (!TEST_BIT (considered, e->dest->index))
 	continue;
-      if (!TEST_BIT (dataflow->visited, e->dest->index))
-	df_hybrid_search_forward (e->dest, dataflow);
+
+      if (!TEST_BIT (visited, e->dest->index))
+	df_hybrid_search_forward (e->dest, 
+                                  pending,
+                                  visited,
+                                  considered,
+                                  dataflow);
     }
 }
 
 static void
 df_hybrid_search_backward (basic_block bb,
+                           sbitmap pending,
+                           sbitmap visited,
+                           sbitmap considered,
 			   struct dataflow *dataflow)
 {
   int result_changed;
@@ -835,15 +855,15 @@ df_hybrid_search_backward (basic_block bb,
   edge e;
   edge_iterator ei;
   
-  SET_BIT (dataflow->visited, bb->index);
-  gcc_assert (TEST_BIT (dataflow->pending, bb->index));
-  RESET_BIT (dataflow->pending, i);
+  SET_BIT (visited, bb->index);
+  gcc_assert (TEST_BIT (pending, bb->index));
+  RESET_BIT (pending, i);
 
   /*  Calculate <conf_op> of predecessor_outs.  */
   if (EDGE_COUNT (bb->succs) > 0)
     FOR_EACH_EDGE (e, ei, bb->succs)					
       {								
-	if (!TEST_BIT (dataflow->considered, e->dest->index))		
+	if (!TEST_BIT (considered, e->dest->index))		
 	  continue;							
 	
 	dataflow->problem->con_fun_n (e);
@@ -861,23 +881,186 @@ df_hybrid_search_backward (basic_block bb,
       if (e->src->index == i)
 	continue;
       
-      if (!TEST_BIT (dataflow->considered, e->src->index))
+      if (!TEST_BIT (considered, e->src->index))
 	continue;
 
-      SET_BIT (dataflow->pending, e->src->index);
+      SET_BIT (pending, e->src->index);
     }								
   
+  /* This loop below defeats the reverse postorder traversal completely,
+     because on the first block of the CFG,
+     this code visits the block by the DFS order 
+     all the way down to the bottom.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (e->src->index == i)
 	continue;
 
-      if (!TEST_BIT (dataflow->considered, e->src->index))
+      if (!TEST_BIT (considered, e->src->index))
 	continue;
-      
-      if (!TEST_BIT (dataflow->visited, e->src->index))
-	df_hybrid_search_backward (e->src, dataflow);
+
+      if (!TEST_BIT (visited, e->src->index))
+	df_hybrid_search_backward (e->src, 
+                                   pending,
+                                   visited,
+                                   considered,
+                                   dataflow);
     }
+}
+
+
+/* Helper function for df_worklist_dataflow.
+   Propagate the dataflow forward. 
+   Given a BB_INDEX, do the dataflow propagation
+   and set bits on for successors in PENDING
+   if the out set of the dataflow has changed. */
+
+static void
+df_worklist_propagate_forward (struct dataflow *dataflow,
+                               unsigned bb_index,
+                               unsigned *bbindex_to_postorder,
+                               bitmap pending,
+                               sbitmap considered)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block bb = BASIC_BLOCK (bb_index);
+
+  /*  Calculate <conf_op> of incoming edges.  */
+  if (EDGE_COUNT (bb->preds) > 0)
+    FOR_EACH_EDGE (e, ei, bb->preds)
+      {								
+        if (TEST_BIT (considered, e->src->index))		
+          dataflow->problem->con_fun_n (e);
+      }								
+  else if (dataflow->problem->con_fun_0)
+    dataflow->problem->con_fun_0 (bb);
+
+  if (dataflow->problem->trans_fun (bb_index))
+    {
+      /* The out set of this block has changed. 
+         Propagate to the outgoing blocks.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        {
+          unsigned ob_index = e->dest->index;
+
+          if (TEST_BIT (considered, ob_index))
+            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+        }
+    }
+}
+
+
+/* Helper function for df_worklist_dataflow.
+   Propagate the dataflow backward.  */
+
+static void
+df_worklist_propagate_backward (struct dataflow *dataflow,
+                                unsigned bb_index,
+                                unsigned *bbindex_to_postorder,
+                                bitmap pending,
+                                sbitmap considered)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block bb = BASIC_BLOCK (bb_index);
+
+  /*  Calculate <conf_op> of incoming edges.  */
+  if (EDGE_COUNT (bb->succs) > 0)
+    FOR_EACH_EDGE (e, ei, bb->succs)
+      {								
+        if (TEST_BIT (considered, e->dest->index))		
+          dataflow->problem->con_fun_n (e);
+      }								
+  else if (dataflow->problem->con_fun_0)
+    dataflow->problem->con_fun_0 (bb);
+
+  if (dataflow->problem->trans_fun (bb_index))
+    {
+      /* The out set of this block has changed. 
+         Propagate to the outgoing blocks.  */
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          unsigned ob_index = e->src->index;
+
+          if (TEST_BIT (considered, ob_index))
+            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+        }
+    }
+}
+
+
+/* Worklist-based dataflow solver. It uses sbitmap as a worklist,
+   with "n"-th bit representing the n-th block in the reverse-postorder order. 
+   This is so-called over-eager algorithm where it propagates
+   changes on demand. This algorithm may visit blocks more than
+   iterative method if there are deeply nested loops. 
+   Worklist algorithm works better than iterative algorithm
+   for CFGs with no nested loops.
+   In practice, the measurement shows worklist algorithm beats 
+   iterative algorithm by some margin overall.  */
+
+void 
+df_worklist_dataflow (struct dataflow *dataflow,
+                      bitmap blocks_to_consider,
+                      int *blocks_in_postorder,
+                      int n_blocks)
+{
+  bitmap pending = BITMAP_ALLOC (NULL);
+  sbitmap considered = sbitmap_alloc (last_basic_block);
+  bitmap_iterator bi;
+  unsigned int *bbindex_to_postorder;
+  int i;
+  unsigned int index;
+  enum df_flow_dir dir = dataflow->problem->dir;
+
+  gcc_assert (dir);
+
+  /* BBINDEX_TO_POSTORDER maps the bb->index to the reverse postorder.  */
+  bbindex_to_postorder = (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
+
+  /* Initialize the array to an out-of-bound value. */
+  for (i = 0; i < last_basic_block; i++)
+    bbindex_to_postorder[i] = last_basic_block;
+
+  sbitmap_zero (considered);
+
+  EXECUTE_IF_SET_IN_BITMAP (blocks_to_consider, 0, index, bi)
+    {
+      SET_BIT (considered, index);
+    }
+
+  for (i = 0; i < n_blocks; i++)
+    {
+      bbindex_to_postorder[blocks_in_postorder[i]] = i;
+      /* Add all blocks to the worklist.  */
+      bitmap_set_bit (pending, i);
+    }
+
+  dataflow->problem->init_fun (blocks_to_consider);
+
+  while (!bitmap_empty_p (pending))
+    {
+      unsigned bb_index;
+
+      index = bitmap_first_set_bit (pending);
+      bitmap_clear_bit (pending, index);
+
+      bb_index = blocks_in_postorder[index];
+
+      if (dir == DF_FORWARD)
+        df_worklist_propagate_forward (dataflow, bb_index,
+                                       bbindex_to_postorder,
+                                       pending, considered);
+      else 
+        df_worklist_propagate_backward (dataflow, bb_index,
+                                        bbindex_to_postorder,
+                                        pending, considered);
+    }
+
+  BITMAP_FREE (pending);
+  sbitmap_free (considered);
+  free (bbindex_to_postorder);
 }
 
 
@@ -896,10 +1079,6 @@ df_iterative_dataflow (struct dataflow *dataflow,
   sbitmap pending = sbitmap_alloc (last_basic_block);
   sbitmap considered = sbitmap_alloc (last_basic_block);
   bitmap_iterator bi;
-
-  dataflow->visited = visited;
-  dataflow->pending = pending;
-  dataflow->considered = considered;
 
   sbitmap_zero (visited);
   sbitmap_zero (pending);
@@ -930,27 +1109,26 @@ df_iterative_dataflow (struct dataflow *dataflow,
 
 	 The nodes are passed into this function in postorder.  */
 
-      if (dataflow->problem->dir == DF_FORWARD)
-	{
-	  for (i = n_blocks - 1 ; i >= 0 ; i--)
-	    {
-	      idx = blocks_in_postorder[i];
-	      
-	      if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
-		df_hybrid_search_forward (BASIC_BLOCK (idx), dataflow);
-	    }
-	}
-      else
-	{
-	  for (i = 0; i < n_blocks; i++)
-	    {
-	      idx = blocks_in_postorder[i];
-	      
-	      if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
-		df_hybrid_search_backward (BASIC_BLOCK (idx), dataflow);
-	    }
-	}
-
+      for (i = 0; i < n_blocks; i++)
+        {
+          idx = blocks_in_postorder[i];
+          
+          if (TEST_BIT (pending, idx) && !TEST_BIT (visited, idx))
+            {
+              if (dataflow->problem->dir == DF_FORWARD)
+                df_hybrid_search_forward (BASIC_BLOCK (idx), 
+                                          pending,
+                                          visited,
+                                          considered,
+                                          dataflow);
+              else
+                df_hybrid_search_backward (BASIC_BLOCK (idx), 
+                                           pending,
+                                           visited,
+                                           considered,
+                                           dataflow);
+            }
+        }
       if (sbitmap_first_set_bit (pending) == -1)
 	break;
 
@@ -1035,8 +1213,12 @@ df_analyze (void)
   
   if (df->postorder)
     free (df->postorder);
+  if (df->postorder_inverted)
+    free (df->postorder_inverted);
   df->postorder = XNEWVEC (int, last_basic_block);
+  df->postorder_inverted = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
+  df->n_blocks_inverted = inverted_post_order_compute (df->postorder_inverted);
 
   /* We need to do this before the df_verify_all because this is
      not kept incrementally up to date.  */
@@ -1051,6 +1233,8 @@ df_analyze (void)
 
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
+  for (i = 0; i < df->n_blocks_inverted; i++)
+    gcc_assert (bitmap_bit_p (current_all_blocks, df->postorder_inverted[i]));
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
@@ -1060,6 +1244,9 @@ df_analyze (void)
       bitmap_and_into (df->blocks_to_analyze, current_all_blocks);
       df->n_blocks = df_prune_to_subcfg (df->postorder, 
 					 df->n_blocks, df->blocks_to_analyze);
+      df->n_blocks_inverted = df_prune_to_subcfg (df->postorder_inverted, 
+			                          df->n_blocks_inverted, 
+                                                  df->blocks_to_analyze);
       BITMAP_FREE (current_all_blocks);
     }
   else
@@ -1074,9 +1261,18 @@ df_analyze (void)
     {
       struct dataflow *dflow = df->problems_in_order[i];
       if (dflow->solutions_dirty)
-	df_analyze_problem (dflow, 
-			    df->blocks_to_analyze,
-			    df->postorder, df->n_blocks);
+        {
+          if (dflow->problem->dir == DF_FORWARD)
+            df_analyze_problem (dflow,
+                                df->blocks_to_analyze,
+                                df->postorder_inverted,
+                                df->n_blocks_inverted);
+          else
+            df_analyze_problem (dflow,
+                                df->blocks_to_analyze,
+                                df->postorder,
+                                df->n_blocks);
+        }
     }
 
   if (everything)
@@ -1094,17 +1290,35 @@ df_analyze (void)
 /* Return the number of basic blocks from the last call to df_analyze.  */
 
 int 
-df_get_n_blocks (void)
+df_get_n_blocks (enum df_flow_dir dir)
 {
+  gcc_assert (dir != DF_NONE);
+
+  if (dir == DF_FORWARD)
+    {
+      gcc_assert (df->postorder_inverted);
+      return df->n_blocks_inverted;
+    }
+
   gcc_assert (df->postorder);
   return df->n_blocks;
 }
 
 
-/* Return a pointer to the array of basic blocks from the last call to df_analyze.  */
+/* Return a pointer to the array of basic blocks in the reverse postorder. 
+   Depending on the direction of the dataflow problem,
+   it returns either the usual reverse postorder array
+   or the reverse postorder of inverted traversal. */
 int *
-df_get_postorder (void)
+df_get_postorder (enum df_flow_dir dir)
 {
+  gcc_assert (dir != DF_NONE);
+
+  if (dir == DF_FORWARD)
+    {
+      gcc_assert (df->postorder_inverted);
+      return df->postorder_inverted;
+    }
   gcc_assert (df->postorder);
   return df->postorder;
 }
@@ -1121,12 +1335,12 @@ static struct dataflow user_dflow;
    postorder, and N_BLOCKS, the number of blocks in POSTORDER. */
 
 void
-df_simple_iterative_dataflow (enum df_flow_dir dir,
-			      df_init_function init_fun,
-			      df_confluence_function_0 con_fun_0,
-			      df_confluence_function_n con_fun_n,
-			      df_transfer_function trans_fun,
-			      bitmap blocks, int * postorder, int n_blocks)
+df_simple_dataflow (enum df_flow_dir dir,
+		    df_init_function init_fun,
+		    df_confluence_function_0 con_fun_0,
+		    df_confluence_function_n con_fun_n,
+		    df_transfer_function trans_fun,
+		    bitmap blocks, int * postorder, int n_blocks)
 {
   memset (&user_problem, 0, sizeof (struct df_problem));
   user_problem.dir = dir;
@@ -1135,7 +1349,7 @@ df_simple_iterative_dataflow (enum df_flow_dir dir,
   user_problem.con_fun_n = con_fun_n;
   user_problem.trans_fun = trans_fun;
   user_dflow.problem = &user_problem;
-  df_iterative_dataflow (&user_dflow, blocks, postorder, n_blocks);
+  df_worklist_dataflow (&user_dflow, blocks, postorder, n_blocks);
 }
 
 			      
@@ -2005,4 +2219,3 @@ debug_df_chain (struct df_link *link)
   df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
-

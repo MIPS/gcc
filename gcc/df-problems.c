@@ -743,7 +743,7 @@ static struct df_problem problem_RU =
   df_ru_free_bb_info,         /* Free basic block info.  */
   df_ru_local_compute,        /* Local compute function.  */
   df_ru_init_solution,        /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
+  df_worklist_dataflow,       /* Worklist solver.  */
   NULL,                       /* Confluence operator 0.  */ 
   df_ru_confluence_n,         /* Confluence operator n.  */ 
   df_ru_transfer_function,    /* Transfer function.  */
@@ -1285,7 +1285,7 @@ static struct df_problem problem_RD =
   df_rd_free_bb_info,         /* Free basic block info.  */
   df_rd_local_compute,        /* Local compute function.  */
   df_rd_init_solution,        /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
+  df_worklist_dataflow,       /* Worklist solver.  */
   NULL,                       /* Confluence operator 0.  */ 
   df_rd_confluence_n,         /* Confluence operator n.  */ 
   df_rd_transfer_function,    /* Transfer function.  */
@@ -1966,7 +1966,7 @@ static struct df_problem problem_LR =
   df_lr_free_bb_info,         /* Free basic block info.  */
   df_lr_local_compute,        /* Local compute function.  */
   df_lr_init,                 /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
+  df_worklist_dataflow,       /* Worklist solver.  */
   df_lr_confluence_0,         /* Confluence operator 0.  */ 
   df_lr_confluence_n,         /* Confluence operator n.  */ 
   df_lr_transfer_function,    /* Transfer function.  */
@@ -2517,7 +2517,7 @@ static struct df_problem problem_UR =
   df_ur_free_bb_info,         /* Free basic block info.  */
   df_ur_local_compute,        /* Local compute function.  */
   df_ur_init,                 /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
+  df_worklist_dataflow,       /* Worklist solver.  */
   NULL,                       /* Confluence operator 0.  */ 
   df_ur_confluence_n,         /* Confluence operator n.  */ 
   df_ur_transfer_function,    /* Transfer function.  */
@@ -3396,7 +3396,7 @@ static struct df_problem problem_UREC =
   df_urec_free_bb_info,       /* Free basic block info.  */
   df_urec_local_compute,      /* Local compute function.  */
   df_urec_init,               /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
+  df_worklist_dataflow,       /* Worklist solver.  */
   NULL,                       /* Confluence operator 0.  */ 
   df_urec_confluence_n,       /* Confluence operator n.  */ 
   df_urec_transfer_function,  /* Transfer function.  */
