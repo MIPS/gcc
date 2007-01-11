@@ -744,32 +744,24 @@ post_order_compute (int *post_order, bool include_entry_exit,
 
 
 /* Helper routine for inverted_post_order_compute. 
-   BB has to belong to an region of CFG
-   unreachable by inverted traversal of the CFG from the exit.
+   BB has to belong to a region of CFG
+   unreachable by inverted traversal from the exit.
    i.e. there's no control flow path from ENTRY to EXIT
    that contains this BB.
    This can happen in two cases - if there's an infinite loop
    or if there's a block that has no successor
    (call to a function with no return).
-   Other part of the RTL passes deal with this by 
-   calling connect_infinite_loops_to_exit () or 
-   add_noreturn_fake_exit_edges (), 
-   but this function is used for the dataflow computation
-   which might be used by a pass that requires 
-   not to change the CFG. Hence, we deal with 
-   the infinite loop/no return cases by identifying
-   a unique basic block that can reach all blocks
-   in the region when traversed in inverted CFG.
-   This function returns a basic block that satisfies:
-   1) the block has no successor
-   or
-   2) the block that is at the bottom of the infinite loop
-   in a DFS search.
-
-   It's guaranteed that all blocks in the region 
-   that BB belongs to are reachable
-   by an inverted traversal on the returned basic block.
-   */
+   Some RTL passes deal with this condition by 
+   calling connect_infinite_loops_to_exit () and/or 
+   add_noreturn_fake_exit_edges ().
+   However, those methods involve modifying the CFG itself
+   which may not be desirable.
+   Hence, we deal with the infinite loop/no return cases
+   by identifying a unique basic block that can reach all blocks
+   in such a region by inverted traversal.
+   This function returns a basic block that guarantees
+   that all blocks in the region are reachable
+   by starting an inverted traversal from the returned block.  */
 
 static basic_block
 dfs_find_deadend (basic_block bb)
@@ -790,27 +782,25 @@ dfs_find_deadend (basic_block bb)
       bb = EDGE_SUCC (bb, 0)->dest;
     }
 
-  sbitmap_free (visited);
-  return NULL;
+  gcc_unreachable ();
 }
 
 
-/* Compute reverse top sort order with the inverted CFG
+/* Compute the reverse top sort order of the inverted CFG
    i.e. starting from the exit block and following the edges backward
-   (from successors to predecessors.
-   This is mainly used for getting the reverse post-order 
-   for forward dataflow problems.
+   (from successors to predecessors).
+   This ordering can be used for forward dataflow problems among others.
 
    This function assumes that all blocks in the CFG are reachable
-   from the entry (but not necessarily from EXIT by traversal of inverted CFG).
+   from the ENTRY (but not necessarily from EXIT).
 
-   The problematic condition occurs when there's an infinite loop
-   or a non-exit block with no successor in the CFG, 
-   which means a simple inverted traversal starting from the exit 
-   can't assign the order for all reachable blocks.
-   To solve this problem, we first start with the exit block
-   and do the usual traversal from the exit.
-   If there are any block left that's not visited by this method,
+   If there's an infinite loop,
+   a simple inverted traversal starting from the blocks
+   with no successors can't visit all blocks.
+   To solve this problem, we first do inverted traversal
+   starting from the blocks with no successor.
+   And if there's any block left that's not visited by the regular 
+   inverted traversal from EXIT,
    those blocks are in such problematic region.
    Among those, we find one block that has 
    any visited predecessor (which is an entry into such a region),
@@ -856,31 +846,30 @@ inverted_post_order_compute (int *post_order)
       while (sp)
         {
           edge_iterator ei;
-          basic_block src;
-          basic_block dest;
+          basic_block pred;
 
           /* Look at the edge on the top of the stack.  */
           ei = stack[sp - 1];
-          src = ei_edge (ei)->dest;
-          dest = ei_edge (ei)->src;
+          bb = ei_edge (ei)->dest;
+          pred = ei_edge (ei)->src;
 
-          /* Check if the edge destination has been visited yet.  */
-          if (! TEST_BIT (visited, dest->index))
+          /* Check if the predecessor has been visited yet.  */
+          if (! TEST_BIT (visited, pred->index))
             {
               /* Mark that we have visited the destination.  */
-              SET_BIT (visited, dest->index);
+              SET_BIT (visited, pred->index);
 
-              if (EDGE_COUNT (dest->preds) > 0)
-                /* Since the DEST node has been visited for the first
-                   time, check its successors.  */
-                stack[sp++] = ei_start (dest->preds);
+              if (EDGE_COUNT (pred->preds) > 0)
+                /* Since the predecessor node has been visited for the first
+                   time, check its predecessors.  */
+                stack[sp++] = ei_start (pred->preds);
               else
-                post_order[post_order_num++] = dest->index;
+                post_order[post_order_num++] = pred->index;
             }
           else
             {
-              if (src != EXIT_BLOCK_PTR && ei_one_before_end_p (ei))
-                post_order[post_order_num++] = src->index;
+              if (bb != EXIT_BLOCK_PTR && ei_one_before_end_p (ei))
+                post_order[post_order_num++] = bb->index;
 
               if (!ei_one_before_end_p (ei))
                 ei_next (&stack[sp - 1]);
@@ -889,9 +878,9 @@ inverted_post_order_compute (int *post_order)
             }
         }
 
-      /* Detect inifinite loop and activate the kludge. 
-         Note that this loop doesn't check EXIT_BLOCK itself.
-         It is always added after the outer do-while loop below.  */
+      /* Detect any inifinite loop and activate the kludge. 
+         Note that this doesn't check EXIT_BLOCK itself
+         since EXIT_BLOCK is always added after the outer do-while loop.  */
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
         if (!TEST_BIT (visited, bb->index))
           {
@@ -902,7 +891,6 @@ inverted_post_order_compute (int *post_order)
                 edge_iterator ei;
                 edge e;
                 basic_block visited_pred = NULL;
-
 
                 /* Find an already visited predecessor.  */
                 FOR_EACH_EDGE (e, ei, bb->preds)

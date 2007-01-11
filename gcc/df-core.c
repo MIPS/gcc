@@ -998,7 +998,10 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
    Worklist algorithm works better than iterative algorithm
    for CFGs with no nested loops.
    In practice, the measurement shows worklist algorithm beats 
-   iterative algorithm by some margin overall.  */
+   iterative algorithm by some margin overall.  
+   Note that this is slightly different from the traditional textbook worklist solver,
+   in that the worklist is effectively sorted by the reverse postorder.
+   For CFGs with no nested loops, this is optimal.  */
 
 void 
 df_worklist_dataflow (struct dataflow *dataflow,
@@ -1019,17 +1022,18 @@ df_worklist_dataflow (struct dataflow *dataflow,
   /* BBINDEX_TO_POSTORDER maps the bb->index to the reverse postorder.  */
   bbindex_to_postorder = (unsigned int *)xmalloc (last_basic_block * sizeof (unsigned int));
 
-  /* Initialize the array to an out-of-bound value. */
+  /* Initialize the array to an out-of-bound value.  */
   for (i = 0; i < last_basic_block; i++)
     bbindex_to_postorder[i] = last_basic_block;
 
+  /* Initialize the considered map.  */
   sbitmap_zero (considered);
-
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_consider, 0, index, bi)
     {
       SET_BIT (considered, index);
     }
 
+  /* Initialize the mapping of block index to postorder.  */
   for (i = 0; i < n_blocks; i++)
     {
       bbindex_to_postorder[blocks_in_postorder[i]] = i;
@@ -1095,13 +1099,12 @@ df_iterative_dataflow (struct dataflow *dataflow,
     {
       idx = blocks_in_postorder[i];
       SET_BIT (pending, idx);
-    };
+    }
 
   dataflow->problem->init_fun (blocks_to_consider);
 
   while (1)
     {
-
       /* For forward problems, you want to pass in reverse postorder
          and for backward problems you want postorder.  This has been
          shown to be as good as you can do by several people, the

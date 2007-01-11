@@ -1,3 +1,11 @@
+2007-01-10  Seongbae Park <seongbae.park@gmail.com>
+	* df-core.c (df_worklist_propagate_backward,
+	df_worklist_dataflow)): More comments.
+	(df_iterative_dataflow): Whitespace fixup.
+	* cfganal.c (inverted_post_order_compute):
+	More comments and rename a local variable DEST to PRED.
+	(df_find_deadend): More comments. Use gcc_unreachable().
+
 2007-01-09  Seongbae Park <seongbae.park@gmail.com>
 	* df-core.c (rest_of_handle_df_initialize): Allocate and free new
 	fields struct dataflow::{postorder_inverted,n_blocks_inverted}.
