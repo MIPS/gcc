@@ -437,16 +437,15 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
-      struct df_ref * def;
+      struct df_ref **def_rec;
       if (!INSN_P (insn))
 	continue;
 
-      def = DF_INSN_DEFS (insn);
-      while (def)
+      for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	{
+	  struct df_ref *def = *def_rec;
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
 	    return true;
-	  def = def->next_ref;
 	}
     }
   return false;
@@ -533,7 +532,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
-  struct df_ref * use;
+  struct df_ref **use_rec;
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -547,23 +546,35 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (use = DF_INSN_USES (def_insn); use; use = use->next_ref)
-        if (rtx_equal_p (DF_REF_REG (use), def_reg))
-          return false;
-      for (use = DF_INSN_EQ_USES (def_insn); use; use = use->next_ref)
-        if (rtx_equal_p (use->reg, def_reg))
-          return false;
+      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
+	    return false;
+	}
+      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (rtx_equal_p (use->reg, def_reg))
+	    return false;
+	}
     }
   else
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (use = DF_INSN_USES (def_insn); use; use = use->next_ref)
-	if (use_killed_between (use, def_insn, target_insn))
-	  return false;
-      for (use = DF_INSN_EQ_USES (def_insn); use; use = use->next_ref)
-	if (use_killed_between (use, def_insn, target_insn))
-	  return false;
+      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (use_killed_between (use, def_insn, target_insn))
+	    return false;
+	}
+      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (use_killed_between (use, def_insn, target_insn))
+	    return false;
+	}
     }
 
   /* We don't do any analysis of memories or aliasing.  Reject any
@@ -617,21 +628,22 @@ find_occurrence (rtx *px, rtx find)
 
 
 /* Inside INSN, the expression rooted at *LOC has been changed, moving some
-   uses from ORIG_USES.  Find those that are present, and create new items
+   uses from USE_VEC.  Find those that are present, and create new items
    in the data flow object of the pass.  Mark any new uses as having the
    given TYPE.  */
 static void
-update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
+update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
 	   int new_flags)
 {
-  struct df_ref *use;
   bool changed = false;
 
   /* Add a use for the registers that were propagated.  */
-  for (use = orig_uses; use; use = use->next_ref)
+  while (*use_rec)
     {
+      struct df_ref *use = *use_rec;
       struct df_ref *orig_use = use, *new_use;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
+      use_rec++;
 
       if (!new_loc)
 	continue;
@@ -646,10 +658,13 @@ update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
       df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
       changed = true;
     }
-  df_insn_rescan (insn);
-  /* By adding the ref directly above, df_insn_rescan my not find any
-     differences.  So we need to mark the block dirty ourselves.  */  
-  df_set_bb_dirty (BLOCK_FOR_INSN (insn));
+  if (changed)
+    {
+      df_insn_rescan (insn);
+      /* By adding the ref directly above, df_insn_rescan my not find any
+	 differences.  So we need to mark the block dirty ourselves.  */  
+      df_set_bb_dirty (BLOCK_FOR_INSN (insn));
+    }
 }
 
 
@@ -708,6 +723,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 
 	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (new),
 						REG_NOTES (insn));
+	  df_notes_rescan (insn);
 
           if (!CONSTANT_P (new))
 	    {

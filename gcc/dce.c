@@ -189,9 +189,10 @@ init_dce (bool fast)
 static void
 delete_corresponding_reg_eq_notes (rtx insn)
 {
-  struct df_ref *def;
-  for (def = DF_INSN_DEFS (insn); def; def = DF_REF_NEXT_REF (def))
+  struct df_ref **def_rec;
+  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
     {
+      struct df_ref *def = *def_rec;
       unsigned int regno = DF_REF_REGNO (def);
       /* This loop is a little tricky.  We cannot just go down the
 	 chain because it is being modified by the actions in the
@@ -383,13 +384,13 @@ mark_artificial_uses (void)
 {
   basic_block bb;
   struct df_link *defs;
-  struct df_ref *use;
+  struct df_ref **use_rec;
 
   FOR_ALL_BB (bb)
     {
-      for (use = df_get_artificial_uses (bb->index); 
-	   use; use = use->next_ref)
-	for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
+      for (use_rec = df_get_artificial_uses (bb->index); 
+	   *use_rec; use_rec++)
+	for (defs = DF_REF_CHAIN (*use_rec); defs; defs = defs->next)
 	  mark_insn (DF_REF_INSN (defs->ref), false);
     }
 }
@@ -400,14 +401,15 @@ static void
 mark_reg_dependencies (rtx insn)
 {
   struct df_link *defs;
-  struct df_ref *use;
+  struct df_ref **use_rec;
 
   /* If this is part of a libcall, mark the entire libcall.  */
   if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
     mark_libcall (insn, false);
 
-  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
     {
+      struct df_ref *use = *use_rec;
       if (dump_file)
 	{
 	  fprintf (dump_file, "Processing use of ");
@@ -446,7 +448,7 @@ dce_process_block (basic_block bb, bool redo_out)
 #ifdef ENABLE_CHECKING
   bool insns_deleted = false;
 #endif
-  struct df_ref *def, *use;
+  struct df_ref **def_rec, **use_rec;
   unsigned int bb_index = bb->index;
 
   if (redo_out)
@@ -464,16 +466,20 @@ dce_process_block (basic_block bb, bool redo_out)
   bitmap_copy (local_live, DF_LR_OUT (bb));
 
   /* Process the artificial defs and uses at the bottom of the block.  */
-  for (def = df_get_artificial_defs (bb_index); 
-       def; def = def->next_ref)
-    if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
-      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
+	bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+    }
 
-  for (use = df_get_artificial_uses (bb_index); 
-       use; use = use->next_ref)
-    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
+	bitmap_set_bit (local_live, DF_REF_REGNO (use));
+    }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (INSN_P (insn))
@@ -486,9 +492,8 @@ dce_process_block (basic_block bb, bool redo_out)
 
 
 	    /* The insn is needed if there is someone who uses the output.  */
-	    for (def = DF_INSN_DEFS (insn); 
-		 def; def = def->next_ref)
-	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
 		{
 		  needed = true;
 		  break;
@@ -527,8 +532,9 @@ dce_process_block (basic_block bb, bool redo_out)
 	*/
 	if (CALL_P (insn))
 	  {
-	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      {
+		struct df_ref *def = *def_rec;
 		unsigned int dregno = DF_REF_REGNO (def);
 		
 		if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
@@ -554,8 +560,9 @@ dce_process_block (basic_block bb, bool redo_out)
 	  }
 	else
 	  {
-	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      {
+		struct df_ref *def = *def_rec;
 		unsigned int dregno = DF_REF_REGNO (def);
 		/* If the def is to only part of the reg, it does
 		   not kill the other defs that reach here.  */
@@ -565,25 +572,29 @@ dce_process_block (basic_block bb, bool redo_out)
 	  }
 
 	if (marked_insn_p (insn))
-	  for (use = DF_INSN_USES (insn); 
-	       use; use = use->next_ref)
+	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
 	    {
-	      unsigned int regno = DF_REF_REGNO (use);
+	      unsigned int regno = DF_REF_REGNO (*use_rec);
 	      bitmap_set_bit (local_live, regno);
 	    }
       }
   
-  for (def = df_get_artificial_defs (bb_index); def; def = def->next_ref)
-    if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
-      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
-
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
+	bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+    }
 #ifdef EH_USES
   /* Process the uses that are live into an exception handler.  */
-  for (use = df_get_artificial_uses (bb_index); use; use = use->next_ref)
-    /* Add use to set of uses in this BB.  */
-    if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
-      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      /* Add use to set of uses in this BB.  */
+      struct df_ref *use = *use_rec;
+      if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
+	bitmap_set_bit (local_live, DF_REF_REGNO (use));
+    }
 #endif
 
   block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));

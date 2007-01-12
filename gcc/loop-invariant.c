@@ -641,7 +641,11 @@ find_defs (struct loop *loop, basic_block *body)
   df_analyze ();
 
   if (dump_file)
-    df_dump (dump_file);
+    {
+      fprintf (dump_file, "*****starting processing of loop  ******\n");
+      print_rtl_with_bb (dump_file, get_insns ());
+      fprintf (dump_file, "*****ending processing of loop  ******\n");
+    }
   check_invariant_table_size ();
 
   BITMAP_FREE (blocks);
@@ -760,14 +764,14 @@ check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
 static bool
 check_dependencies (rtx insn, bitmap depends_on)
 {
-  struct df_ref *use;
+  struct df_ref **use_rec;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
-  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
-    if (!check_dependency (bb, use, depends_on))
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+    if (!check_dependency (bb, *use_rec, depends_on))
       return false;
-  for (use = DF_INSN_EQ_USES (insn); use; use = use->next_ref)
-    if (!check_dependency (bb, use, depends_on))
+  for (use_rec = DF_INSN_EQ_USES (insn); *use_rec; use_rec++)
+    if (!check_dependency (bb, *use_rec, depends_on))
       return false;
 	
   return true;
@@ -848,17 +852,19 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
 static void
 record_uses (rtx insn)
 {
-  struct df_ref *use;
+  struct df_ref **use_rec;
   struct invariant *inv;
 
-  for (use = DF_INSN_USES (insn); use; use = use->next_ref)
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
     {
+      struct df_ref *use = *use_rec;
       inv = invariant_for_use (use);
       if (inv)
 	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
     }
-  for (use = DF_INSN_EQ_USES (insn); use; use = use->next_ref)
+  for (use_rec = DF_INSN_EQ_USES (insn); *use_rec; use_rec++)
     {
+      struct df_ref *use = *use_rec;
       inv = invariant_for_use (use);
       if (inv)
 	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));

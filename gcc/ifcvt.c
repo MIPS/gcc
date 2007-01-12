@@ -3704,9 +3704,12 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref *def;
-	      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-		bitmap_set_bit (merge_set, DF_REF_REGNO (def));
+	      struct df_ref **def_rec;
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+		{
+		  struct df_ref *def = *def_rec;
+		  bitmap_set_bit (merge_set, DF_REF_REGNO (def));
+		}
 	    }
 	}
 
@@ -3733,9 +3736,12 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  if (INSN_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
-	      struct df_ref *def;
-	      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-		bitmap_set_bit (test_set, DF_REF_REGNO (def));
+	      struct df_ref **def_rec;
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+		{
+		  struct df_ref *def = *def_rec;
+		  bitmap_set_bit (test_set, DF_REF_REGNO (def));
+		}
 	    }
 	  prev = PREV_INSN (insn);
 	  if (insn == earliest)

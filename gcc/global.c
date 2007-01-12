@@ -320,10 +320,11 @@ compute_regs_asm_clobbered (char *regs_asm_clobbered)
       rtx insn;
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
-	  struct df_ref *def;
+	  struct df_ref **def_rec;
 	  if (insn_contains_asm (insn))
-	    for (def = DF_INSN_DEFS (insn); def; def = def->next_ref)
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      {
+		struct df_ref *def = *def_rec;
 		unsigned int dregno = DF_REF_REGNO (def);
 		if (dregno < FIRST_PSEUDO_REGISTER)
 		  {

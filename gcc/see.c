@@ -3300,27 +3300,32 @@ see_handle_relevant_refs (void)
       FOR_BB_INSNS (bb, insn)
 	{
 	  unsigned int uid = INSN_UID (insn);
-	  struct df_ref *ref;
 
 	  if (INSN_P (insn))
 	    {
-	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+	      struct df_ref **use_rec;
+	      struct df_ref **def_rec;
+	      
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 		{
-		  int result = see_handle_relevant_uses (ref, insn);
+		  struct df_ref *use = *use_rec;
+		  int result = see_handle_relevant_uses (use, insn);
 		  if (result == -1)
 		    return -1;
 		  num_relevant_refs += result;
 		}
-	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 		{
-		  int result = see_handle_relevant_uses (ref, insn);
+		  struct df_ref *use = *use_rec;
+		  int result = see_handle_relevant_uses (use, insn);
 		  if (result == -1)
 		    return -1;
 		  num_relevant_refs += result;
 		}
-	      for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
 		{
-		  int result = see_handle_relevant_defs (ref, insn);
+		  struct df_ref *def = *def_rec;
+		  int result = see_handle_relevant_defs (def, insn);
 		  if (result == -1)
 		    return -1;
 		  num_relevant_refs += result;
@@ -3625,50 +3630,57 @@ see_update_relevancy (void)
 
   FOR_ALL_BB (bb)
     {
+      struct df_ref **use_rec;
+      struct df_ref **def_rec;
       rtx insn;
-      struct df_ref *ref;
       FOR_BB_INSNS (bb, insn)
 	{
 	  unsigned int uid = INSN_UID (insn);
 	  if (INSN_P (insn))
 	    {
+	      
 	      /* If this is an insn in a libcall, do not touch the uses.  */
 	      if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
 		et = NOT_RELEVANT;
 	      else
 		et = RELEVANT_USE;
 	      
-	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 		{
-		  see_update_uses_relevancy (insn, ref, et, u);
+		  struct df_ref *use = *use_rec;
+		  see_update_uses_relevancy (insn, use, et, u);
 		  u++;
 		}
 	      
-	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
 		{
-		  see_update_uses_relevancy (insn, ref, et, u);
+		  struct df_ref *use = *use_rec;
+		  see_update_uses_relevancy (insn, use, et, u);
 		  u++;
 		}
 
 	      et = see_analyze_one_def (insn, &source_mode, &source_mode_unsigned);
-	      for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
+	      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
 		{
-		  see_update_defs_relevancy (insn, ref, et, source_mode, 
+		  struct df_ref *def = *def_rec;
+		  see_update_defs_relevancy (insn, def, et, source_mode, 
 					       source_mode_unsigned, d);
 		  d++;
 		}
 	    }
 	}
       
-      for (ref = df_get_artificial_uses (bb->index); ref; ref = ref->next_ref)
+      for (use_rec = df_get_artificial_uses (bb->index); *use_rec; use_rec++)
 	{
-	  see_update_uses_relevancy (NULL, ref, NOT_RELEVANT, u);
+	  struct df_ref *use = *use_rec;
+	  see_update_uses_relevancy (NULL, use, NOT_RELEVANT, u);
 	  u++;
 	}
 
-      for (ref = df_get_artificial_defs (bb->index); ref; ref = ref->next_ref)
+      for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
 	{
-	  see_update_defs_relevancy (NULL, ref, NOT_RELEVANT, 
+	  struct df_ref *def = *def_rec;
+	  see_update_defs_relevancy (NULL, def, NOT_RELEVANT, 
 				       MAX_MACHINE_MODE, MAX_MACHINE_MODE, d);
 	  d++;
 	}
@@ -3704,23 +3716,32 @@ see_propagate_extensions_to_uses (void)
   FOR_ALL_BB (bb)
     {
       rtx insn;
-      struct df_ref *ref;
+      struct df_ref **use_rec;
 
       FOR_BB_INSNS (bb, insn)
 	{
 	  unsigned int uid = INSN_UID (insn);
 	  if (INSN_P (insn))
 	    {
-	      for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
-		union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+	      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+		{
+		  struct df_ref *use = *use_rec;
+		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		}
 	      
-	      for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
-		union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+	      for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+		{
+		  struct df_ref *use = *use_rec;
+		  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+		}
 	    }
 	}
 
-      for (ref = df_get_artificial_uses (bb->index); ref; ref = ref->next_ref)
-	union_defs (ref, def_entry, use_entry, see_update_leader_extra_info);
+      for (use_rec = df_get_artificial_uses (bb->index); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  union_defs (use, def_entry, use_entry, see_update_leader_extra_info);
+	}
     }
 
   /* Generate use extensions for references and insert these

@@ -1,3 +1,87 @@
+2007-01-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-scan.c (df_collection_rec): New structure.
+	(df_chains): Deleted structure.
+	(DEBUG_DF_RESCAN): Removed conditional compilation of rescanning.
+	(df_scan_start_block): Added ifdefed out code that prints the
+	scanning of insns.
+
+	(df_ref_create, df_get_artificial_defs, df_get_artificial_uses,
+	df_reg_chain_unlink, df_ref_remove, df_ref_chain_delete_du_chain,
+	df_ref_chain_delete, df_mw_hardreg_chain_delete, df_insn_rescan,
+	df_ref_chain_change_bb, df_insn_change_bb,
+	df_ref_change_reg_with_loc_1, df_mw_hardreg_chain_delete_eq_uses,
+	df_notes_rescan, df_refs_add_to_chains, df_ref_create_structure,
+	df_ref_record, df_def_record_1, df_defs_record, df_uses_record,
+	df_get_conditional_uses, df_insn_refs_collect, df_recompute_luids,
+	df_bb_refs_collect, df_entry_block_defs_collect,
+	df_update_entry_block_defs, df_exit_block_uses_collect,
+	df_record_exit_block_uses, df_update_exit_block_uses,
+	df_compute_regs_ever_live, df_reg_chain_mark,
+	df_reg_chain_verify_unmarked, df_insn_refs_verify, df_bb_verify,
+	df_scan_verify): Changed to use vector rep for refs.
+	(df_get_call_refs) Ditto plus fixed bug where clobber ref was 
+	generated for same ref as result of call.
+	(df_reg_chain_create, df_ref_unlink, df_ref_chain_find_ref,
+	df_ref_chain_find_ref_by_regno, df_ref_chain_append,
+	df_ref_find_chains, df_ref_add_to_chains, df_insn_refs_record,
+	df_ref_chain_verify_and_unmark, df_ref_chain_free, df_ref_verify,
+	df_mw_hardreg_find_hardreg): Deleted function.
+	(df_ref_compress_rec, df_free_collection_rec, df_ref_compare,
+	df_sort_and_compress_refs, df_mw_compare, df_sort_and_compress_mws
+	df_canonize_collection_rec, df_install_ref, df_install_refs,
+	df_refs_verify, df_mws_verify): New function.
+	(df_ref_is_equal): Renamed to df_ref_equal_p and changed to use
+	vector rep for refs.
+	(df_mw_is_equal): Renamed to df_mw_equal_p and changed to use
+	vector rep for refs.  
+	* df.h (df_ref_flags.(DF_REF_MW_HARDREG_GROUP, DF_REF_REF_MARKER):
+	Removed.
+	(df_ref_flags.(DF_REF_REG_MARKER, DF_REGS_EVER_LIVE)): Renumbered.
+	(df_mw_hardreg.(loc, start_regno, end_regno, mw_order)): New
+	fields.
+	(df_insn_info.(defs, uses, eq_uses, mw_hardregs): Made into arrays
+	of pointers.
+	(df_scan_bb_info.(artificial_defs, artificial_uses): Ditto.
+	(df_ref.ref_order): New field.
+	(df_ref.next): Removed.
+	(df.ref_order): New field.
+	(DF_REF_REF_MARK, DF_REF_REF_UNMARK, DF_REF_IS_REF_MARKED,
+	DF_REF_NEXT_REF): Removed macro.
+	(DF_REF_ORDER): New macro.  
+	* df-core.c (df_bb_regno_last_use_find, df_bb_regno_last_use_find,
+	df_bb_regno_first_def_find, df_bb_regno_last_def_find,
+	df_insn_regno_def_p, df_find_def, df_find_use, df_refs_chain_dump,
+	df_mws_dump, df_insn_uid_debug, df_insn_debug): Ditto.
+	* fwprop.c (update_df): Do not call df_insn_rescan unless insn has
+	changed.  
+	(local_ref_killed_between_p, all_uses_available_at,
+	find_occurrence, update_df): Changed to use
+	vector rep for refs.
+	* see.c (see_handle_relevant_refs, see_update_relevancy,
+	see_propagate_extensions_to_uses): Ditto.
+	* auto-inc-dec.c (find_inc, merge_in_block): Ditto.
+	* web.c (union_defs, web_main): Ditto.
+	* global.c (compute_regs_asm_clobbered): Ditto.
+	* ifcvt.c (dead_or_predicable): Ditto.
+	* loop-invariant.c (find_defs, check_dependency,
+	find_invariant_insn): Ditto.
+	* combine.c (create_log_links): Ditto.
+	* df-problems.c (df_ru_alloc, df_ru_bb_local_compute_process_def,
+	df_ru_bb_local_compute_process_use, df_rd_alloc,
+	df_rd_bb_local_compute_process_def, df_lr_bb_local_compute,
+        df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn,
+	df_ur_bb_local_compute, df_urec_bb_local_compute,
+	df_urec_bb_local_compute, df_chain_remove_problem,
+	df_chain_remove_problem, df_chain_reset,
+	df_chain_create_bb_process_use, df_chain_create_bb,
+	df_chain_top_dump, df_chain_top_dump, df_chain_bottom_dump,
+	df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_ri_bb_compute): Ditto.
+	* dce.c (delete_corresponding_reg_eq_notes, mark_artificial_uses,
+	mark_reg_dependencies, dce_process_block): Ditto.
+
+
+
 2007-01-10  Seongbae Park <seongbae.park@gmail.com>
 	* df-core.c (df_worklist_propagate_backward,
 	df_worklist_dataflow)): More comments.

@@ -1727,7 +1727,7 @@ struct df_ref *
 df_bb_regno_last_use_find (basic_block bb, unsigned int regno)
 {
   rtx insn;
-  struct df_ref *use;
+  struct df_ref **use_rec;
   unsigned int uid;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -1736,14 +1736,20 @@ df_bb_regno_last_use_find (basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (use = DF_INSN_UID_USES (uid); use; use = use->next_ref)
-	if (DF_REF_REGNO (use) == regno)
-	  return use;
-
-      if (df->changeable_flags & DF_EQ_NOTES)
-	for (use = DF_INSN_UID_EQ_USES (uid); use; use = use->next_ref)
+      for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
 	  if (DF_REF_REGNO (use) == regno)
 	    return use;
+	}
+
+      if (df->changeable_flags & DF_EQ_NOTES)
+	for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+	  {
+	    struct df_ref *use = *use_rec;
+	    if (DF_REF_REGNO (use) == regno)
+	      return use;
+	  }
     }
   return NULL;
 }
@@ -1755,7 +1761,7 @@ struct df_ref *
 df_bb_regno_first_def_find (basic_block bb, unsigned int regno)
 {
   rtx insn;
-  struct df_ref *def;
+  struct df_ref **def_rec;
   unsigned int uid;
 
   FOR_BB_INSNS (bb, insn)
@@ -1764,9 +1770,12 @@ df_bb_regno_first_def_find (basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-	if (DF_REF_REGNO (def) == regno)
-	  return def;
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  if (DF_REF_REGNO (def) == regno)
+	    return def;
+	}
     }
   return NULL;
 }
@@ -1778,7 +1787,7 @@ struct df_ref *
 df_bb_regno_last_def_find (basic_block bb, unsigned int regno)
 {
   rtx insn;
-  struct df_ref *def;
+  struct df_ref **def_rec;
   unsigned int uid;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -1787,9 +1796,12 @@ df_bb_regno_last_def_find (basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-	if (DF_REF_REGNO (def) == regno)
-	  return def;
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  if (DF_REF_REGNO (def) == regno)
+	    return def;
+	}
     }
 
   return NULL;
@@ -1801,12 +1813,15 @@ bool
 df_insn_regno_def_p (rtx insn, unsigned int regno)
 {
   unsigned int uid;
-  struct df_ref *def;
+  struct df_ref **def_rec;
 
   uid = INSN_UID (insn);
-  for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-    if (DF_REF_REGNO (def) == regno)
-      return true;
+  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if (DF_REF_REGNO (def) == regno)
+	return true;
+    }
   
   return false;
 }
@@ -1819,16 +1834,19 @@ struct df_ref *
 df_find_def (rtx insn, rtx reg)
 {
   unsigned int uid;
-  struct df_ref *def;
+  struct df_ref **def_rec;
 
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
   gcc_assert (REG_P (reg));
 
   uid = INSN_UID (insn);
-  for (def = DF_INSN_UID_DEFS (uid); def; def = def->next_ref)
-    if (rtx_equal_p (DF_REF_REAL_REG (def), reg))
-      return def;
+  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if (rtx_equal_p (DF_REF_REAL_REG (def), reg))
+	return def;
+    }
 
   return NULL;
 }
@@ -1850,21 +1868,26 @@ struct df_ref *
 df_find_use (rtx insn, rtx reg)
 {
   unsigned int uid;
-  struct df_ref *use;
+  struct df_ref **use_rec;
 
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
   gcc_assert (REG_P (reg));
 
   uid = INSN_UID (insn);
-  for (use = DF_INSN_UID_USES (uid); use; use = use->next_ref)
-    if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
-      return use; 
-  if (df->changeable_flags & DF_EQ_NOTES)
-    for (use = DF_INSN_UID_EQ_USES (uid); use; use = use->next_ref)
+  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
       if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
-	return use; 
-
+	return use;
+    } 
+  if (df->changeable_flags & DF_EQ_NOTES)
+    for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+      {
+	struct df_ref *use = *use_rec;
+	if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
+	  return use; 
+      }
   return NULL;
 }
 
@@ -2003,18 +2026,19 @@ df_dump_bottom (basic_block bb, FILE *file)
 
 
 void
-df_refs_chain_dump (struct df_ref *ref, bool follow_chain, FILE *file)
+df_refs_chain_dump (struct df_ref **ref_rec, bool follow_chain, FILE *file)
 {
   fprintf (file, "{ ");
-  while (ref)
+  while (*ref_rec)
     {
+      struct df_ref *ref = *ref_rec;
       fprintf (file, "%c%d(%d)",
 	       DF_REF_REG_DEF_P (ref) ? 'd' : (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE) ? 'e' : 'u',
 	       DF_REF_ID (ref),
 	       DF_REF_REGNO (ref));
       if (follow_chain)
 	df_chain_dump (DF_REF_CHAIN (ref), file);
-      ref = ref->next_ref;
+      ref_rec++;
     }
   fprintf (file, "}");
 }
@@ -2039,22 +2063,14 @@ df_regs_chain_dump (struct df_ref *ref,  FILE *file)
 
 
 static void
-df_mws_dump (struct df_mw_hardreg *mws, FILE *file)
+df_mws_dump (struct df_mw_hardreg **mws, FILE *file)
 {
-  while (mws)
+  while (*mws)
     {
-      struct df_link *regs = mws->regs;
-      fprintf (file, "%c%d(", 
-	       (mws->type == DF_REF_REG_DEF) ? 'd' : 'u',
-	       DF_REF_REGNO (regs->ref));
-      while (regs)
-	{
-	  fprintf (file, "%d ", DF_REF_REGNO (regs->ref));
-	  regs = regs->next;
-	}
-
-      fprintf (file, ") "); 
-      mws = mws->next;
+      fprintf (file, "mw %c r[%d..%d]\n", 
+	       ((*mws)->type == DF_REF_REG_DEF) ? 'd' : 'u',
+	       (*mws)->start_regno, (*mws)->end_regno);
+      mws++;
     }
 }
 
@@ -2063,19 +2079,8 @@ static void
 df_insn_uid_debug (unsigned int uid, 
 		   bool follow_chain, FILE *file)
 {
-  int bbi;
-
-  if (DF_INSN_UID_DEFS (uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (uid));
-  else if (DF_INSN_UID_USES(uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_USES (uid));
-  else if (DF_INSN_UID_EQ_USES(uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_EQ_USES (uid));
-  else
-    bbi = -1;
-
-  fprintf (file, "insn %d bb %d luid %d",
-	   uid, bbi, DF_INSN_UID_LUID (uid));
+  fprintf (file, "insn %d luid %d",
+	   uid, DF_INSN_UID_LUID (uid));
 
   if (DF_INSN_UID_DEFS (uid))
     {
@@ -2113,28 +2118,17 @@ df_insn_debug (rtx insn, bool follow_chain, FILE *file)
 void
 df_insn_debug_regno (rtx insn, FILE *file)
 {
-  unsigned int uid;
-  int bbi;
-
-  uid = INSN_UID (insn);
-  if (DF_INSN_UID_DEFS (uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (uid));
-  else if (DF_INSN_UID_USES (uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_USES (uid));
-  else if (DF_INSN_UID_EQ_USES (uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_EQ_USES (uid));
-  else
-    bbi = -1;
+  unsigned int uid = INSN_UID(insn);
 
   fprintf (file, "insn %d bb %d luid %d defs ",
-	   uid, bbi, DF_INSN_LUID (insn));
-  df_regs_chain_dump (DF_INSN_UID_DEFS (uid), file);
+	   uid, BLOCK_FOR_INSN (insn)->index, DF_INSN_LUID (insn));
+  df_refs_chain_dump (DF_INSN_UID_DEFS (uid), false, file);
     
   fprintf (file, " uses ");
-  df_regs_chain_dump (DF_INSN_UID_USES (uid), file);
+  df_refs_chain_dump (DF_INSN_UID_USES (uid), false, file);
 
   fprintf (file, " eq_uses ");
-  df_regs_chain_dump (DF_INSN_UID_EQ_USES (uid), file);
+  df_refs_chain_dump (DF_INSN_UID_EQ_USES (uid), false, file);
   fprintf (file, "\n");
 }
 

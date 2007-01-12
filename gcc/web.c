@@ -108,9 +108,9 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 {
   rtx insn = DF_REF_INSN (use);
   struct df_link *link = DF_REF_CHAIN (use);
-  struct df_ref *use_link;
-  struct df_ref *eq_use_link;
-  struct df_ref *def_link;
+  struct df_ref **use_link;
+  struct df_ref **eq_use_link;
+  struct df_ref **def_link;
   rtx set;
 
   if (insn)
@@ -133,22 +133,24 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
      invalid instructions, so union all uses of the same operand for each
      insn.  */
 
-  while (use_link)
-    {
-      if (use != use_link
-	  && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (use_link))
- 	(*fun) (use_entry + DF_REF_ID (use),
- 		use_entry + DF_REF_ID (use_link));
-      use_link = use_link->next_ref;
-    }
+  if (use_link)
+    while (*use_link)
+      {
+	if (use != *use_link
+	    && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (*use_link))
+	  (*fun) (use_entry + DF_REF_ID (use),
+		  use_entry + DF_REF_ID (*use_link));
+	use_link++;
+      }
 
-  while (eq_use_link)
-    {
-      if (use != eq_use_link
-	  && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (eq_use_link))
- 	(*fun) (use_entry + DF_REF_ID (use),
- 		use_entry + DF_REF_ID (eq_use_link));
-      eq_use_link = eq_use_link->next_ref;
+  if (eq_use_link)
+    while (*eq_use_link)
+      {
+	if (use != *eq_use_link
+	    && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (*eq_use_link))
+	  (*fun) (use_entry + DF_REF_ID (use),
+		  use_entry + DF_REF_ID (*eq_use_link));
+	eq_use_link++;
     }
 
   /* Recognize trivial noop moves and attempt to keep them as noop.
@@ -159,13 +161,14 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
       && SET_SRC (set) == DF_REF_REG (use)
       && SET_SRC (set) == SET_DEST (set))
     {
-      while (def_link)
-	{
-	  if (DF_REF_REAL_REG (use) == DF_REF_REAL_REG (def_link))
- 	    (*fun) (use_entry + DF_REF_ID (use),
- 		    def_entry + DF_REF_ID (def_link));
-	  def_link = def_link->next_ref;
-	}
+      if (def_link)
+	while (*def_link)
+	  {
+	    if (DF_REF_REAL_REG (use) == DF_REF_REAL_REG (*def_link))
+	      (*fun) (use_entry + DF_REF_ID (use),
+		      def_entry + DF_REF_ID (*def_link));
+	    def_link++;
+	  }
     }
   while (link)
     {
@@ -178,20 +181,21 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
      register.  Find it and union.  */
   if (use->flags & DF_REF_READ_WRITE)
     {
-      struct df_ref *link;
+      struct df_ref **link;
 
       if (DF_REF_INSN (use))
 	link = DF_INSN_DEFS (DF_REF_INSN (use));
       else
 	link = NULL;
 
-      while (link)
-	{
-	  if (DF_REF_REAL_REG (link) == DF_REF_REAL_REG (use))
- 	    (*fun) (use_entry + DF_REF_ID (use),
- 		    def_entry + DF_REF_ID (link));
-	  link = link->next_ref;
-	}
+      if (link)
+	while (*link)
+	  {
+	    if (DF_REF_REAL_REG (*link) == DF_REF_REAL_REG (use))
+	      (*fun) (use_entry + DF_REF_ID (use),
+		      def_entry + DF_REF_ID (*link));
+	    link++;
+	  }
     }
 }
 
@@ -267,8 +271,6 @@ web_main (void)
   basic_block bb;
   unsigned int uses_num = 0;
   rtx insn;
-  struct df_ref *ref;
-  
 
   df_set_flags (DF_NO_HARD_REGS + DF_EQ_NOTES);
   df_chain_add_problem (DF_UD_CHAIN);
@@ -282,12 +284,19 @@ web_main (void)
       unsigned int uid = INSN_UID (insn);
       if (INSN_P (insn))
 	{
-	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      DF_REF_ID (ref) = uses_num++;
-	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      DF_REF_ID (ref) = uses_num++;
+	  struct df_ref **use_rec;
+	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		DF_REF_ID (use) = uses_num++;
+	    }
+	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		DF_REF_ID (use) = uses_num++;
+	    }
 	}
     }
 
@@ -303,12 +312,19 @@ web_main (void)
       unsigned int uid = INSN_UID (insn);
       if (INSN_P (insn))
 	{
-	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      union_defs (ref, def_entry, use_entry, unionfind_union);
-	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      union_defs (ref, def_entry, use_entry, unionfind_union);
+	  struct df_ref **use_rec;
+	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		union_defs (use, def_entry, use_entry, unionfind_union);
+	    }
+	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		union_defs (use, def_entry, use_entry, unionfind_union);
+	    }
 	}
     }
 
@@ -320,15 +336,26 @@ web_main (void)
       unsigned int uid = INSN_UID (insn);
       if (INSN_P (insn))
 	{
-	  for (ref = DF_INSN_UID_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      replace_ref (ref, entry_register (use_entry + DF_REF_ID (ref), ref, used));
-	  for (ref = DF_INSN_UID_EQ_USES (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      replace_ref (ref, entry_register (use_entry + DF_REF_ID (ref), ref, used));
-	  for (ref = DF_INSN_UID_DEFS (uid); ref; ref = ref->next_ref)
-	    if (DF_REF_REGNO (ref) >= FIRST_PSEUDO_REGISTER)
-	      replace_ref (ref, entry_register (def_entry + DF_REF_ID (ref), ref, used));
+	  struct df_ref **use_rec;
+	  struct df_ref **def_rec;
+	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		replace_ref (use, entry_register (use_entry + DF_REF_ID (use), use, used));
+	    }
+	  for (use_rec = DF_INSN_UID_EQ_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+		replace_ref (use, entry_register (use_entry + DF_REF_ID (use), use, used));
+	    }
+	  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      if (DF_REF_REGNO (def) >= FIRST_PSEUDO_REGISTER)
+		replace_ref (def, entry_register (def_entry + DF_REF_ID (def), def, used));
+	    }
 	}
     }
 

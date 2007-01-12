@@ -129,19 +129,12 @@ enum df_ref_flags
        a function call.  */
     DF_REF_CALL_STACK_USAGE = 1 << 9,
 
-    /* This flag is used internally to group
-       the hardregs. */
-    DF_REF_MW_HARDREG_GROUP = 1 << 10,
+    /* This flag is used for verification of existing refs. */
+    DF_REF_REG_MARKER = 1 << 10,
 
     /* This bit is true if this ref can make regs_ever_live true for
        this regno.  */
-    DF_REGS_EVER_LIVE = 1 << 11,
-
-
-    /* These two flags are markers for general purpose use.
-       Used for verification of existing refs. */
-    DF_REF_REF_MARKER = 1 << 12,
-    DF_REF_REG_MARKER = 1 << 13
+    DF_REGS_EVER_LIVE = 1 << 11
   };
 
 
@@ -271,8 +264,6 @@ struct dataflow
      solutions.  Note that this bit is always true for all problems except 
      lr, ur, and live.  */
   bool solutions_dirty;
-
-
 };
 
 
@@ -283,11 +274,12 @@ struct dataflow
 struct df_mw_hardreg
 {
   rtx mw_reg;                   /* The multiword hardreg.  */ 
+  rtx *loc;			/* The location of the reg.  */
   enum df_ref_type type;        /* Used to see if the ref is read or write.  */
   enum df_ref_flags flags;	/* Various flags.  */
-  struct df_link *regs;         /* The individual regs that make up
-				   this hardreg.  */
-  struct df_mw_hardreg *next;   /* The next mw_hardreg in this insn.  */
+  unsigned int start_regno;     /* First word of the multi word subreg.  */
+  unsigned int end_regno;       /* Last word of the multi word subreg.  */
+  unsigned int mw_order;        /* Same as df_ref.ref_order.  */
 };
  
 
@@ -295,14 +287,15 @@ struct df_mw_hardreg
 struct df_insn_info
 {
   rtx insn;                     /* The insn this info comes from.  */
-  struct df_ref *defs;	        /* Head of insn-def chain.  */
-  struct df_ref *uses;	        /* Head of insn-use chain.  */
-  struct df_mw_hardreg *mw_hardregs;   
+  struct df_ref **defs;	        /* Head of insn-def chain.  */
+  struct df_ref **uses;	        /* Head of insn-use chain.  */
   /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
-  struct df_ref *eq_uses;       
-  /* ???? The following luid field should be considered private so that
-     we can change it on the fly to accommodate new insns?  */
-  int luid;			/* Logical UID.  */
+  struct df_ref **eq_uses;       
+  struct df_mw_hardreg **mw_hardregs;
+  /* The logical uid of the insn in the basic block.  This is only
+     valid after df_recompute_luids has been run on the basic block
+     containing the insn. */
+  int luid; 
 };
 
 
@@ -320,7 +313,13 @@ struct df_ref
   rtx insn;
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
-  int id;	          	/* Location in table.  */
+  /* Location in the ref table.  This is only valid after a call to 
+     df_maybe_reorganize_[use,def]_refs which is an expensive operation.  */
+  int id;
+  /* The index at which the operand was scanned in the insn.  This is
+     used to totally order the refs in an insn.  */
+  unsigned int ref_order;
+
   enum df_ref_type type;	/* Type of ref.  */
   enum df_ref_flags flags;	/* Various flags.  */
 
@@ -329,10 +328,6 @@ struct df_ref
      themselves rather than using an external structure.  */
   struct df_ref *next_reg;     /* Next ref with same regno and type.  */
   struct df_ref *prev_reg;     /* Prev ref with same regno and type.  */
-
-  /* Each insn has three lists, one for the uses, the eq_uses and the
-     defs. This is the next field in either of these chains. */
-  struct df_ref *next_ref; 
 };
 
 /* These links are used for two purposes:
@@ -496,6 +491,10 @@ struct df
      refs that qualify as being in regs_ever_live.  */
   unsigned int *hard_regs_live_count;
 
+  /* This counter provides a way to totally order refs without using
+     addresses.  It is incremented whenever a ref is created.  */
+  unsigned int ref_order;
+
   /* Problem specific control infomation.  */
   enum df_changeable_flags changeable_flags;
 };
@@ -553,20 +552,17 @@ struct df
 #define DF_REF_FLAGS_IS_SET(REF, v) ((DF_REF_FLAGS (REF) & (v)) != 0)
 #define DF_REF_FLAGS_SET(REF, v) (DF_REF_FLAGS (REF) |= (v))
 #define DF_REF_FLAGS_CLEAR(REF, v) (DF_REF_FLAGS (REF) &= ~(v))
+#define DF_REF_ORDER(REF) ((REF)->ref_order)
 /* If DF_REF_IS_ARTIFICIAL () is true, this is not a real definition/use, 
    but an artificial one created to model 
    always live registers, eh uses, etc.  
    ARTIFICIAL refs has NULL insn.  */
 #define DF_REF_IS_ARTIFICIAL(REF) ((REF)->insn == NULL)
-#define DF_REF_REF_MARK(REF) (DF_REF_FLAGS_SET ((REF),DF_REF_REF_MARKER))
 #define DF_REF_REG_MARK(REF) (DF_REF_FLAGS_SET ((REF),DF_REF_REG_MARKER))
-#define DF_REF_REF_UNMARK(REF) (DF_REF_FLAGS_CLEAR ((REF),DF_REF_REF_MARKER))
 #define DF_REF_REG_UNMARK(REF) (DF_REF_FLAGS_CLEAR ((REF),DF_REF_REG_MARKER))
-#define DF_REF_IS_REF_MARKED(REF) (DF_REF_FLAGS_IS_SET ((REF),DF_REF_REF_MARKER))
 #define DF_REF_IS_REG_MARKED(REF) (DF_REF_FLAGS_IS_SET ((REF),DF_REF_REG_MARKER))
 #define DF_REF_NEXT_REG(REF) ((REF)->next_reg)
 #define DF_REF_PREV_REG(REF) ((REF)->prev_reg)
-#define DF_REF_NEXT_REF(REF) ((REF)->next_ref)
 
 /* Macros to determine the reference type.  */
 
@@ -654,10 +650,10 @@ struct df_scan_bb_info
 {
   /* Defs at the start of a basic block that is the target of an
      exception edge.  */
-  struct df_ref *artificial_defs;
+  struct df_ref **artificial_defs;
 
   /* Uses of hard registers that are live at every block.  */
-  struct df_ref *artificial_uses;
+  struct df_ref **artificial_uses;
 };
 
 
@@ -840,7 +836,7 @@ extern void df_dump (FILE *);
 extern void df_dump_start (FILE *);
 extern void df_dump_top (basic_block, FILE *);
 extern void df_dump_bottom (basic_block, FILE *);
-extern void df_refs_chain_dump (struct df_ref *, bool, FILE *);
+extern void df_refs_chain_dump (struct df_ref **, bool, FILE *);
 extern void df_regs_chain_dump (struct df_ref *,  FILE *);
 extern void df_insn_debug (rtx, bool, FILE *);
 extern void df_insn_debug_regno (rtx, FILE *);
@@ -893,10 +889,8 @@ extern void df_grow_reg_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
 				     enum df_ref_type, enum df_ref_flags);
-extern struct df_ref *df_get_artificial_defs (unsigned int);
-extern struct df_ref *df_get_artificial_uses (unsigned int);
-extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
-extern struct df_ref *df_reg_chain_unlink (struct df_ref *);
+extern struct df_ref **df_get_artificial_defs (unsigned int);
+extern struct df_ref **df_get_artificial_uses (unsigned int);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);
@@ -904,7 +898,6 @@ extern void df_bb_refs_record (int, bool);
 extern bool df_insn_rescan (rtx);
 extern void df_insn_rescan_all (void);
 extern void df_process_deferred_rescans (void);
-extern void df_insn_refs_record (rtx, struct df_ref *);
 extern bool df_has_eh_preds (basic_block);
 extern void df_recompute_luids (basic_block);
 extern void df_insn_change_bb (rtx);
