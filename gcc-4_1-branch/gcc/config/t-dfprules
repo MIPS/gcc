@@ -8,3 +8,7 @@ DFP_ENABLE = true
 # dfp-bit.c.  This is useful for overriding the definition of macros.
 #
 # DFP_CFLAGS = -DFOO=bar
+
+# Export decimal float support functions in libgcc.
+
+SHLIB_MAPFILES += $(srcdir)/config/libgcc-dfp.ver

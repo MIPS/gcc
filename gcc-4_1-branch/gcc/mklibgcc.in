@@ -1,6 +1,6 @@
 #!/bin/sh
 # Construct makefile for libgcc.
-#   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+#   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 
@@ -462,7 +462,7 @@ for ml in $MULTILIBS; do
     done
   fi
 
-  if [ "@enable_decimal_float@" = "yes" -a -z "$libgcc_so" ]; then
+  if [ "@enable_decimal_float@" = "yes" ]; then
     # If $DFP_ENABLE is set, then we want all data type sizes.
     if [ "$DFP_ENABLE" ] ; then
 	D32PBIT=1; D64PBIT=1; D128PBIT=1
@@ -485,10 +485,30 @@ for ml in $MULTILIBS; do
     fi
 
     for name in $dec_filenames ; do
-      out="libgcc/${dir}/${name}${objext}"
-      echo $out: "\$(srcdir)/../libdecnumber/${name}.c" $decnumber_dep
-      echo "	$gcc_compile" $flags -c "\$(srcdir)/../libdecnumber/${name}.c" -o $out
-      echo $libgcc_a: $out
+      if [ "$libgcc_s_so" ]; then
+	out="libgcc/${dir}/${name}${objext}"
+	outS="libgcc/${dir}/${name}_s${objext}"
+
+	echo $outS: "\$(srcdir)/../libdecnumber/${name}.c" $decnumber_dep
+	echo "	$gcc_s_compile" $flags \
+	  -c "\$(srcdir)/../libdecnumber/${name}.c" -o $outS
+
+	echo $out: "\$(srcdir)/../libdecnumber/${name}.c" $decnumber_dep
+	echo "	$gcc_compile" $flags '$(vis_hide)' \
+	  -c "\$(srcdir)/../libdecnumber/${name}.c" -o $out
+
+	echo $libgcc_a: $out
+	echo $libgcc_s_so: $outS
+	if [ "$SHLIB_MKMAP" ]; then
+	  echo libgcc/${dir}/libgcc.map: $outS
+	fi
+      else
+	out="libgcc/${dir}/${name}${objext}"
+	echo $out: "\$(srcdir)/../libdecnumber/${name}.c" $decnumber_dep
+	echo "	$gcc_compile" $flags \
+	  -c "\$(srcdir)/../libdecnumber/${name}.c" -o $out
+	echo $libgcc_a: $out
+      fi
     done
 
     # For individual functions, loop over each variable by name.
@@ -503,13 +523,35 @@ for ml in $MULTILIBS; do
       esac
 
       if [ "$dpbit" ]; then
-        for name in $dpfuncs; do
-          out="libgcc/${dir}/${name}${objext}"
-	  echo $out: config/dfp-bit.h config/dfp-bit.c $dfpbit_c_dep
-	  echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags -DL$name -DWIDTH=$dpwidth \
-	      $DFP_CFLAGS -c $\(srcdir\)/config/dfp-bit.c -o $out
-	  echo $libgcc_a: $out
-        done
+	for name in $dpfuncs; do
+	  if [ "$libgcc_s_so" ]; then
+	    out="libgcc/${dir}/${name}${objext}"
+	    outS="libgcc/${dir}/${name}_s${objext}"
+
+	    echo $outS: config/dfp-bit.h config/dfp-bit.c $dfpbit_c_dep
+	    echo "	$gcc_s_compile" -DFINE_GRAINED_LIBRARIES $flags \
+	      -DL$name -DWIDTH=$dpwidth $DFP_CFLAGS \
+	      -c '$(srcdir)/config/dfp-bit.c' -o $outS
+
+	    echo $out: config/dfp-bit.h config/dfp-bit.c $dfpbit_c_dep
+	    echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags \
+	      -DL$name -DWIDTH=$dpwidth $DFP_CFLAGS '$(vis_hide)' \
+	      -c '$(srcdir)/config/dfp-bit.c' -o $out
+
+	    echo $libgcc_a: $out
+	    echo $libgcc_s_so: $outS
+	    if [ "$SHLIB_MKMAP" ]; then
+	      echo libgcc/${dir}/libgcc.map: $outS
+	    fi
+	  else
+	    out="libgcc/${dir}/${name}${objext}"
+	    echo $out: config/dfp-bit.h config/dfp-bit.c $dfpbit_c_dep
+	    echo "	$gcc_compile" -DFINE_GRAINED_LIBRARIES $flags \
+	      -DL$name -DWIDTH=$dpwidth $DFP_CFLAGS \
+	      -c '$(srcdir)/config/dfp-bit.c' -o $out
+	    echo $libgcc_a: $out
+	  fi
+	done
       fi
     done
   fi

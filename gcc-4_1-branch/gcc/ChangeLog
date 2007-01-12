@@ -1,3 +1,11 @@
+2007-01-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* mklibgcc.in: Add DFP support to shared libgcc.
+	* config.gcc (powerpc64-*-linux*, powerpc-*-linux*): In tmake_files,
+	move t-dfprules to the end of the list.
+	* config/t-dfprules (SHLIB_MAPFILES): Add config/libgcc-dfp.ver.
+	* config/libgcc-dfp.ver: New file.
+
 2006-12-21  Janis Johnson  <janis187@us.ibm.com>
 	    Peter Bergner <bergner@vnet.ibm.com>
 
