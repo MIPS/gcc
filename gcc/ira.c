@@ -99,8 +99,10 @@ static void setup_class_hard_regs (void);
 static void setup_available_class_regs (void);
 static void setup_alloc_regs (int);
 static void setup_reg_subclasses (void);
+#ifdef IRA_COVER_CLASSES
 static void setup_cover_classes (void);
 static void setup_class_translate (void);
+#endif
 static void print_class_cover (FILE *);
 static void find_reg_class_closure (void);
 static void setup_reg_class_nregs (void);
@@ -240,6 +242,10 @@ setup_class_subset_and_move_costs (void)
 
 
 
+/* Hard registers can not be used for the register allocator for all
+   functions of the current compile unit.  */
+static HARD_REG_SET no_unit_alloc_regs;
+
 /* Hard registers which can be used for the allocation of given
    register class.  The order is defined by the allocation order.  */
 short class_hard_regs [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
@@ -266,7 +272,7 @@ setup_class_hard_regs (void)
   for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
     {
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_alloc_regs);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       CLEAR_HARD_REG_SET (processed_hard_reg_set);
       for (n = 0, i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
@@ -304,15 +310,12 @@ setup_available_class_regs (void)
   for (i = 0; i < N_REG_CLASSES; i++)
     {
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [i]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_alloc_regs);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (TEST_HARD_REG_BIT (temp_hard_regset, j))
 	  available_class_regs [i]++;
     }
 }
-
-/* Hard registers can not be used for the register allocator.  */
-HARD_REG_SET no_alloc_regs;
 
 /* The function setting up different global variables defining hard
    registers for the allocation.  It depends on USE_HARD_FRAME_P whose
@@ -321,9 +324,9 @@ HARD_REG_SET no_alloc_regs;
 static void
 setup_alloc_regs (int use_hard_frame_p)
 {
-  COPY_HARD_REG_SET (no_alloc_regs, fixed_reg_set);
+  COPY_HARD_REG_SET (no_unit_alloc_regs, fixed_reg_set);
   if (! use_hard_frame_p)
-    SET_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+    SET_HARD_REG_BIT (no_unit_alloc_regs, HARD_FRAME_POINTER_REGNUM);
   setup_class_hard_regs ();
   setup_available_class_regs ();
 }
@@ -512,6 +515,8 @@ int reg_class_cover_size;
 enum reg_class reg_class_cover [N_REG_CLASSES];
 
 
+#ifdef IRA_COVER_CLASSES
+
 /* The function checks IRA_COVER_CLASSES and sets the two global
    variables defined above.  */
 static void
@@ -535,11 +540,14 @@ setup_cover_classes (void)
       ;
     }
 }
+#endif
 
 /* Map of register classes to corresponding cover class containing the
    given class.  If given class is not a subset of a cover class, we
    translate it into the cheapest cover class.  */
 enum reg_class class_translate [N_REG_CLASSES];
+
+#ifdef IRA_COVER_CLASSES
 
 /* The function sets up array CLASS_TRANSLATE.  */
 static void
@@ -610,6 +618,7 @@ setup_class_translate (void)
       class_translate [cl] = best_class;
     }
 }
+#endif
 
 /* The function outputs all cover classes and the translation map into
    file F.  */
@@ -642,8 +651,10 @@ static void
 find_reg_class_closure (void)
 {
   setup_reg_subclasses ();
+#ifdef IRA_COVER_CLASSES
   setup_cover_classes ();
   setup_class_translate ();
+#endif
 }
 
 
@@ -728,7 +739,11 @@ init_ira_once (void)
 
 
 
-/* The function sets up ELIMINABLE_REGSET and REGS_EVER_LIVE.  */
+/* Function specific hard registers excluded from the allocation.  */
+HARD_REG_SET no_alloc_regs;
+
+/* The function sets up ELIMINABLE_REGSET, NO_ALLOC_REGS, and
+   REGS_EVER_LIVE.  */
 static void
 setup_eliminable_regset (void)
 {
@@ -741,6 +756,7 @@ setup_eliminable_regset (void)
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED);
 
+  COPY_HARD_REG_SET (no_alloc_regs, no_unit_alloc_regs);
   CLEAR_HARD_REG_SET (eliminable_regset);
   /* Build the regset of all eliminable registers and show we can't
      use those that we already know won't be eliminated.  */
@@ -753,8 +769,10 @@ setup_eliminable_regset (void)
 
       if (! regs_asm_clobbered [eliminables [i].from])
 	{
-	  if (! cannot_elim)
 	    SET_HARD_REG_BIT (eliminable_regset, eliminables [i].from);
+
+	    if (cannot_elim)
+	      SET_HARD_REG_BIT (no_alloc_regs, eliminables[i].from);
 	}
       else if (cannot_elim)
 	error ("%s cannot be used in asm here",
@@ -765,8 +783,9 @@ setup_eliminable_regset (void)
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (! regs_asm_clobbered [HARD_FRAME_POINTER_REGNUM])
     {
-      if (! need_fp)
-	SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here",
@@ -778,8 +797,9 @@ setup_eliminable_regset (void)
 #else
   if (! regs_asm_clobbered [FRAME_POINTER_REGNUM])
     {
-      if (! need_fp)
-	SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_alloc_regs, FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here", reg_names [FRAME_POINTER_REGNUM]);

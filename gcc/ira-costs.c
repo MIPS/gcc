@@ -1370,6 +1370,11 @@ tune_pseudo_costs_and_cover_classes (void)
 	      cost += (PSEUDO_CALL_FREQ (p)
 		       * (memory_move_cost [mode] [class] [0]
 			  + memory_move_cost [mode] [class] [1]));
+#ifdef IRA_HARD_REGNO_ADD_COST_MULTIPLIER
+	    cost += ((memory_move_cost [mode] [class] [0]
+		      + memory_move_cost [mode] [class] [1]) * PSEUDO_FREQ (p)
+		     * IRA_HARD_REGNO_ADD_COST_MULTIPLIER (regno) / 2);
+#endif
 	    reg_costs [j] += cost;
 	    if (min_cost > reg_costs [j])
 	      min_cost = reg_costs [j];

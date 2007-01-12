@@ -1956,6 +1956,16 @@ The macro body should not assume anything about the contents of
 On most machines, it is not necessary to define this macro.
 @end defmac
 
+@defmac IRA_HARD_REGNO_ADD_COST_MULTIPLIER (@var{regno})
+In some case register allocation order is not enough for the
+Integrated Register Allocator (@acronym{IRA}) to generate a good code.
+The following macro (if defined) increases cost of @var{regno} for a
+pseudo approximately by pseudo usage frequency multiplied by the macro
+value.
+
+On most machines, it is not necessary to define this macro.
+@end defmac
+
 @node Values in Registers
 @subsection How Values Fit in Registers
 

@@ -1,3 +1,21 @@
+2007-01-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/tm.texi (IRA_HARD_REGNO_ADD_COST_MULTIPLIER): New macro.
+
+	* ira-conflicts.c (add_pseudo_copies): Add copy between output and
+	died operand pseudos.
+
+	* ira.c (setup_cover_classes, setup_class_translate): Define and
+	call only when IRA_COVER_CLASSES is defined.
+	(no_alloc_regs): Rename to no_unit_alloc_regs.
+	(setup_eliminable_regset): Set up no_alloc_regs.
+
+	* ira-costs.c (tune_pseudo_costs_and_cover_classes): Modify cost
+	if IRA_HARD_REGNO_ADD_COST_MULTIPLIER is defined.
+
+	* config/s390/s390.h (IRA_COVER_CLASSES,
+	IRA_HARD_REGNO_ADD_COST_MULTIPLIER(regno)): Define.
+	
 2006-12-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* rtl.h (setup_reg_classes): New function prototype.

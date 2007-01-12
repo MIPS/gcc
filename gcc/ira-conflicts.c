@@ -660,7 +660,7 @@ add_pseudo_copies (rtx insn)
 {
   rtx set, operand, dup;
   const char *str;
-  int commut_p;
+  int commut_p, bound_p;
   int i, j, freq, hard_regno, cost, index;
   copy_t cp;
   pseudo_t p;
@@ -729,6 +729,7 @@ add_pseudo_copies (rtx insn)
 	      str = recog_data.constraints [i];
 	      while (*str == ' ' && *str == '\t')
 		str++;
+	      bound_p = FALSE;
 	      for (j = 0, commut_p = FALSE; j < 2; j++, commut_p = TRUE)
 		if ((dup = get_dup (i, commut_p)) != NULL_RTX
 		    && REG_P (dup) && GET_MODE (operand) == GET_MODE (dup))
@@ -758,16 +759,19 @@ add_pseudo_copies (rtx insn)
 			if (index < 0)
 			  continue;
 			if (HARD_REGISTER_P (operand))
-			  cost = (register_move_cost
-				  [mode] [cover_class] [class] * freq);
+			  cost
+			    = register_move_cost [mode] [cover_class] [class];
 			else
-			  cost = (register_move_cost
-				  [mode] [class] [cover_class] * freq);
+			  cost
+			    = register_move_cost [mode] [class] [cover_class];
+			cost *= freq;
 			PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
 			PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
+			bound_p = TRUE;
 		      }
 		    else
 		      {
+			bound_p = TRUE;
 			cp = add_pseudo_copy
 			     (curr_regno_pseudo_map [REGNO (dup)],
 			      curr_regno_pseudo_map [REGNO (operand)],
@@ -776,6 +780,63 @@ add_pseudo_copies (rtx insn)
 			  (ira_curr_loop_tree_node->local_copies, cp->num);
 		      }
 		  }
+	      if (bound_p)
+		continue;
+	      /* If an operand dies, prefer its hard register for the
+		 output operands by decreasing the hard register cost
+		 or creating the corresponding pseudo copies.  */
+	      for (j = 0; j < recog_data.n_operands; j++)
+		{
+		  dup = recog_data.operand [j];
+
+		  if (i == j || recog_data.operand_type [j] != OP_OUT
+		      || !REG_P (dup))
+		    continue;
+		  
+		  if (HARD_REGISTER_NUM_P (REGNO (operand))
+		      || HARD_REGISTER_NUM_P (REGNO (dup)))
+		    {
+			if (HARD_REGISTER_P (operand))
+			  {
+			    if (HARD_REGISTER_P (dup))
+			      continue;
+			    hard_regno = REGNO (operand);
+			    p = curr_regno_pseudo_map [REGNO (dup)];
+			  }
+			else
+			  {
+			    hard_regno = REGNO (dup);
+			    p = curr_regno_pseudo_map [REGNO (operand)];
+			  }
+			class = REGNO_REG_CLASS (hard_regno);
+			mode = PSEUDO_MODE (p);
+			cover_class = PSEUDO_COVER_CLASS (p);
+			if (! class_subset_p [class] [cover_class])
+			  continue;
+			index
+			  = class_hard_reg_index [cover_class] [hard_regno];
+			if (index < 0)
+			  continue;
+			if (HARD_REGISTER_P (operand))
+			  cost
+			    = register_move_cost [mode] [cover_class] [class];
+			else
+			  cost
+			    = register_move_cost [mode] [class] [cover_class];
+			cost *= (freq < 4 ? 1 : freq / 4);
+			PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
+			PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
+		      }
+		    else
+		      {
+			cp = add_pseudo_copy
+			     (curr_regno_pseudo_map [REGNO (dup)],
+			      curr_regno_pseudo_map [REGNO (operand)],
+			      (freq < 4 ? 1 : freq / 4), NULL_RTX);
+			bitmap_set_bit
+			  (ira_curr_loop_tree_node->local_copies, cp->num);
+		      }
+		}
 	    }
 	}
     }
