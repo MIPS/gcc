@@ -555,12 +555,8 @@ df_set_blocks (bitmap blocks)
 
   /* Setting the blocks causes the refs to be unorganized since only
      the refs in the blocks are seen.  */
-  df->def_info.add_refs_inline = false;
-  df->def_info.refs_organized_with_eq_uses = false;
-  df->def_info.refs_organized_alone = false;
-  df->use_info.add_refs_inline = false;
-  df->use_info.refs_organized_with_eq_uses = false;
-  df->use_info.refs_organized_alone = false;
+  df_maybe_reorganize_def_refs (DF_REF_ORDER_NO_TABLE);
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_NO_TABLE);
   df_mark_solutions_dirty ();
 }
 
@@ -618,7 +614,8 @@ df_finish_pass (void)
   if (!df)
     return;
 
-  df_drop_organized_tables ();
+  df_maybe_reorganize_def_refs (DF_REF_ORDER_NO_TABLE);
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_NO_TABLE);
 
 #ifdef ENABLE_CHECKING
   saved_flags = df->changeable_flags;

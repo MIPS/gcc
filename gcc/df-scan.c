@@ -135,7 +135,7 @@ static bool df_insn_refs_verify (struct df_collection_rec *, basic_block, rtx, b
 static void df_entry_block_defs_collect (struct df_collection_rec *, bitmap);
 static void df_exit_block_uses_collect (struct df_collection_rec *, bitmap);
 static void df_install_ref (struct df_ref *, struct df_reg_info *, 
-			    struct df_ref_info *);
+			    struct df_ref_info *, bool);
 
 static int df_ref_compare (const void *, const void *);
 static int df_mw_compare (const void *, const void *);
@@ -321,8 +321,6 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 
   insn_num += insn_num / 4; 
   df_grow_reg_info ();
-  df_grow_ref_info (&df->def_info, insn_num);
-  df_grow_ref_info (&df->use_info, insn_num *2);
 
   df_grow_insn_info ();
   df_grow_bb_info (df_scan);
@@ -583,13 +581,8 @@ df_scan_blocks (void)
 {
   basic_block bb;
 
-  df->def_info.refs_organized_with_eq_uses = false;
-  df->def_info.refs_organized_alone = false;
-  df->use_info.refs_organized_with_eq_uses = false;
-  df->use_info.refs_organized_alone = false;
-
-  df->def_info.add_refs_inline = false;
-  df->use_info.add_refs_inline = false;
+  df->def_info.ref_order = DF_REF_ORDER_NO_TABLE;
+  df->use_info.ref_order = DF_REF_ORDER_NO_TABLE;
 
   df_get_regular_block_artificial_uses (df->regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (df->eh_block_artificial_uses);
@@ -629,6 +622,7 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
   struct df_ref **ref_rec;
   struct df_ref ***ref_rec_ptr;
   unsigned int count = 0;
+  bool add_to_table;
 
   df_grow_reg_info ();
 
@@ -642,22 +636,52 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
       reg_info = df->def_regs;
       ref_info = &df->def_info;
       ref_rec_ptr = &DF_INSN_DEFS (insn);
+      add_to_table = ref_info->ref_order != DF_REF_ORDER_NO_TABLE;
     }
   else if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
     {
       reg_info = df->eq_use_regs;
       ref_info = &df->use_info;
       ref_rec_ptr = &DF_INSN_EQ_USES (insn);
+      switch (ref_info->ref_order)
+	{
+	case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+	case DF_REF_ORDER_BY_REG_WITH_NOTES:
+	case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+	  add_to_table = true;
+	  break;
+	default:
+	  add_to_table = false;
+	  break;
+	}
     }
   else
     {
       reg_info = df->use_regs;
       ref_info = &df->use_info;
       ref_rec_ptr = &DF_INSN_USES (insn);
+      add_to_table = ref_info->ref_order != DF_REF_ORDER_NO_TABLE;
     }
 
-  df_install_ref (ref, reg_info[DF_REF_REGNO (ref)], ref_info);
+  /* Do not add if ref is not in the right blocks.  */
+  if (add_to_table && df->blocks_to_analyze)
+    add_to_table = bitmap_bit_p (df->blocks_to_analyze, bb->index);
+
+  df_install_ref (ref, reg_info[DF_REF_REGNO (ref)], ref_info, add_to_table);
   
+  if (add_to_table)
+    switch (ref_info->ref_order)
+      {
+      case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+      case DF_REF_ORDER_BY_REG_WITH_NOTES:
+      case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+	ref_info->ref_order = DF_REF_ORDER_UNORDERED_WITH_NOTES;
+	break;
+      default:
+	ref_info->ref_order = DF_REF_ORDER_UNORDERED;
+	break;
+      }
+
   ref_rec = *ref_rec_ptr;
   while (*ref_rec)
     {
@@ -689,6 +713,11 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
       df_ref_debug (ref, dump_file);
     }
 #endif
+  /* By adding the ref directly, df_insn_rescan my not find any
+     differences even though the block will have changed.  So we need
+     to mark the block dirty ourselves.  */  
+  df_set_bb_dirty (bb);
+
   return ref;
 }
 
@@ -729,27 +758,45 @@ df_reg_chain_unlink (struct df_ref *ref)
     = (struct df_scan_problem_data *) df_scan->problem_data;
   int id = DF_REF_ID (ref);
   struct df_reg_info *reg_info;
+  struct df_ref **refs = NULL;
 
   if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
     {
       reg_info = DF_REG_DEF_GET (DF_REF_REGNO (ref));
-      if (id >= 0 && df->def_info.refs)
-	{
-	  gcc_assert (id < (int)df->def_info.table_size);
-	  DF_DEFS_SET (id, NULL);
-	}
+      refs = df->def_info.refs;
     }
   else 
     {
       if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
-	reg_info = DF_REG_EQ_USE_GET (DF_REF_REGNO (ref));
-      else
-	reg_info = DF_REG_USE_GET (DF_REF_REGNO (ref));
-      if (id >= 0 && df->use_info.refs)
 	{
-	  gcc_assert (id < (int)df->use_info.table_size);
-	  DF_USES_SET (id, NULL);
+	  reg_info = DF_REG_EQ_USE_GET (DF_REF_REGNO (ref));
+	  switch (df->use_info.ref_order)
+	    {
+	    case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+	    case DF_REF_ORDER_BY_REG_WITH_NOTES:
+	    case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+	      refs = df->use_info.refs;
+	      break;
+	    default:
+	      break;
+	    }
 	}
+      else
+	{
+	  reg_info = DF_REG_USE_GET (DF_REF_REGNO (ref));
+	  refs = df->use_info.refs;
+	}
+    }
+
+  if (refs)
+    {
+      if (df->blocks_to_analyze)
+	{
+	  if (bitmap_bit_p (df->blocks_to_analyze, DF_REF_BB (ref)->index))
+	    refs[id] = NULL;
+	}
+      else
+	refs[id] = NULL;
     }
   
   /* Delete any def-use or use-def chains that start here. It is
@@ -761,7 +808,7 @@ df_reg_chain_unlink (struct df_ref *ref)
     df_chain_unlink (ref);
   
   reg_info->n_refs--;
-  if (DF_REF_FLAGS_IS_SET (ref, DF_REGS_EVER_LIVE))
+  if (DF_REF_FLAGS_IS_SET (ref, DF_HARD_REG_LIVE))
     {
       gcc_assert (DF_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER);
       df->hard_regs_live_count[DF_REF_REGNO (ref)]--;
@@ -857,6 +904,10 @@ df_ref_remove (struct df_ref *ref)
 	}
     }
 
+  /* By deleting the ref directly, df_insn_rescan my not find any
+     differences even though the block will have changed.  So we need
+     to mark the block dirty ourselves.  */  
+  df_set_bb_dirty (DF_REF_BB (ref));
   df_reg_chain_unlink (ref);
 }
 
@@ -1120,7 +1171,7 @@ df_insn_rescan (rtx insn)
 	fprintf (dump_file, "scanning new insn with uid = %d.\n", uid);
     }
 
-  df_refs_add_to_chains (&collection_rec, NULL, insn);
+  df_refs_add_to_chains (&collection_rec, bb, insn);
   df_set_bb_dirty (bb);
   return true;
 }
@@ -1258,9 +1309,9 @@ df_process_deferred_rescans (void)
    or reg-def chains.  */
 
 static void 
-df_reorganize_refs (struct df_ref_info *ref_info,
-		    struct df_reg_info **reg1_info,
-		    struct df_reg_info **reg2_info)
+df_reorganize_refs_by_reg (struct df_ref_info *ref_info,
+			   struct df_reg_info **reg1_info,
+			   struct df_reg_info **reg2_info)
 {
   unsigned int m = df->regs_inited;
   unsigned int regno;
@@ -1322,19 +1373,122 @@ df_reorganize_refs (struct df_ref_info *ref_info,
 
   ref_info->table_size = offset;
   ref_info->total_size = size;
-  if (reg2_info)
+}
+
+
+/* Count the number of refs. Include the defs if INCLUDE_DEFS. Include
+   the uses if INCLUDE_USES. Include the eq_uses if
+   INCLUDE_EQ_USES.  */
+
+static unsigned int
+df_count_refs (bool include_defs, bool include_uses, 
+	       bool include_eq_uses)
+{
+  unsigned int regno;
+  int size = 0;
+  unsigned int m = df->regs_inited;
+  
+  /* The eq_uses do not go into the table but we must account for
+     them and reset their ids.  */
+  for (regno = 0; regno < m; regno++)
     {
-      ref_info->refs_organized_with_eq_uses = true;
-      ref_info->refs_organized_alone = false;
+      if (include_defs)
+	size += DF_REG_DEF_COUNT (regno);
+      if (include_uses)
+	size += DF_REG_USE_COUNT (regno);
+      if (include_eq_uses)
+	size += DF_REG_EQ_USE_COUNT (regno);
+    }
+  return size;
+}
+
+
+/* Add the refs in REF_VEC to the table in REF_INFO starting at OFFSET.  */
+static unsigned int 
+df_add_refs_to_table (unsigned int offset, struct df_ref_info *ref_info, struct df_ref **ref_vec)
+{
+  while (*ref_vec)
+    {
+      ref_info->refs[offset] = *ref_vec;
+      DF_REF_ID (*ref_vec) = offset++;
+      ref_vec++;
+    }
+  return offset;
+}
+
+
+/* Count the number of refs in all of the insns of BB. Include the
+   defs if INCLUDE_DEFS. Include the uses if INCLUDE_USES. Include the
+   eq_uses if INCLUDE_EQ_USES.  */
+
+static unsigned int
+df_reorganize_refs_by_insn_bb (basic_block bb, unsigned int offset, 
+			       struct df_ref_info *ref_info,
+			       bool include_defs, bool include_uses, 
+			       bool include_eq_uses)
+{
+  rtx insn;
+
+  if (include_defs)
+    offset = df_add_refs_to_table (offset, ref_info, df_get_artificial_defs (bb->index));
+  if (include_uses)
+    offset = df_add_refs_to_table (offset, ref_info, df_get_artificial_uses (bb->index));
+
+  FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	unsigned int uid = INSN_UID (insn);
+	if (include_defs)
+	  offset = df_add_refs_to_table (offset, ref_info, DF_INSN_UID_DEFS (uid));
+	if (include_uses)
+	  offset = df_add_refs_to_table (offset, ref_info, DF_INSN_UID_USES (uid));
+	if (include_eq_uses)
+	  offset = df_add_refs_to_table (offset, ref_info, DF_INSN_UID_EQ_USES (uid));
+      }
+  return offset;
+}
+
+
+/* Organinze the refs by insn into the table in REF_INFO.  If
+   blocks_to_analyze is defined, use that set, otherwise the entire
+   program.  Include the defs if INCLUDE_DEFS. Include the uses if
+   INCLUDE_USES. Include the eq_uses if INCLUDE_EQ_USES.  */
+
+static void
+df_reorganize_refs_by_insn (struct df_ref_info *ref_info,
+			    bool include_defs, bool include_uses, 
+			    bool include_eq_uses)
+{
+  basic_block bb;
+  unsigned int offset = 0;
+
+  df_check_and_grow_ref_info (ref_info, 1);
+  if (df->blocks_to_analyze)
+    {
+      bitmap_iterator bi;
+      unsigned int index;
+
+      EXECUTE_IF_SET_IN_BITMAP (df->blocks_to_analyze, 0, index, bi)
+	{
+	  offset = df_reorganize_refs_by_insn_bb (BASIC_BLOCK (index), offset, ref_info, 
+						  include_defs, include_uses, 
+						  include_eq_uses);
+	}
+
+      ref_info->table_size = offset;
+      ref_info->total_size = df_count_refs (include_defs, include_uses, 
+					    include_eq_uses);
     }
   else
     {
-      ref_info->refs_organized_with_eq_uses = false;
-      ref_info->refs_organized_alone = true;
+      FOR_ALL_BB (bb)
+	offset = df_reorganize_refs_by_insn_bb (bb, offset, ref_info, 
+						include_defs, include_uses, 
+						include_eq_uses);
+      ref_info->table_size = offset;
+      ref_info->total_size = offset;
     }
-  ref_info->add_refs_inline = true;
 }
-
 
 /* Change the BB of all refs in the ref chain to NEW_BB.
    Assumes that all refs in the chain have the same BB.
@@ -1426,73 +1580,81 @@ df_insn_change_bb (rtx insn)
 /* If the use refs in DF are not organized, reorganize them.  */
 
 void 
-df_maybe_reorganize_use_refs (void)
+df_maybe_reorganize_use_refs (enum df_ref_order order)
 {
-  if (df->changeable_flags & DF_EQ_NOTES)
-    {
-      if (!df->use_info.refs_organized_with_eq_uses)
-	df_reorganize_refs (&df->use_info, 
-			    df->use_regs, df->eq_use_regs);
-    }
-  else if (!df->use_info.refs_organized_alone)
-    {
-      unsigned int regno;
-      int size;
-      unsigned int m = df->regs_inited;
-      df_reorganize_refs (&df->use_info, df->use_regs, NULL);
+  if (order == df->use_info.ref_order)
+    return;
 
-      /* The eq_uses do not go into the table but we must account for
-	 them and reset their ids.  */
-      size = df->use_info.total_size;
-      for (regno = 0; regno < m; regno++)
-	{
-	  struct df_ref * ref = DF_REG_EQ_USE_CHAIN (regno);
-	  while (ref) 
-	    {
-	      DF_REF_ID (ref) = -1;
-	      size++;
-	      ref = DF_REF_NEXT_REG (ref);
-	    }
-	}
-      df->use_info.total_size = size;
+  switch (order)
+    {
+    case DF_REF_ORDER_BY_REG:
+      df_reorganize_refs_by_reg (&df->use_info, df->use_regs, NULL);
+      df->use_info.total_size += df_count_refs (false, false, true);
+      break;
+
+    case DF_REF_ORDER_BY_REG_WITH_NOTES:
+      df_reorganize_refs_by_reg (&df->use_info, 
+				 df->use_regs, df->eq_use_regs);
+      break;
+
+    case DF_REF_ORDER_BY_INSN:
+      df_reorganize_refs_by_insn (&df->use_info, false, true, false);
+      df->use_info.total_size += df_count_refs (false, false, true);
+      break;
+
+    case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+      df_reorganize_refs_by_insn (&df->use_info, false, true, true);
+      break;
+
+    case DF_REF_ORDER_NO_TABLE:
+      free (df->use_info.refs);
+      df->use_info.refs = NULL;
+      df->use_info.refs_size = 0;
+      break;
+
+    case DF_REF_ORDER_UNORDERED:
+    case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+      gcc_unreachable ();
+      break;
     }
+      
+  df->use_info.ref_order = order;
 }
 
 
 /* If the def refs in DF are not organized, reorganize them.  */
 
 void 
-df_maybe_reorganize_def_refs (void)
+df_maybe_reorganize_def_refs (enum df_ref_order order)
 {
-  if (!df->def_info.refs_organized_alone)
-    df_reorganize_refs (&df->def_info, df->def_regs, NULL);
-}
+  if (order == df->def_info.ref_order)
+    return;
 
-
-/* Discard the organized tables of refs and uses.  */
-
-void
-df_drop_organized_tables (void)
-{
-  df->def_info.add_refs_inline = false;
-  df->def_info.refs_organized_with_eq_uses = false;
-  df->def_info.refs_organized_alone = false;
-  df->use_info.add_refs_inline = false;
-  df->use_info.refs_organized_with_eq_uses = false;
-  df->use_info.refs_organized_alone = false;
-
-  if (df->def_info.refs)
+  switch (order)
     {
+    case DF_REF_ORDER_BY_REG:
+      df_reorganize_refs_by_reg (&df->def_info, df->def_regs, NULL);
+      break;
+
+    case DF_REF_ORDER_BY_INSN:
+      df_reorganize_refs_by_insn (&df->def_info, true, false, false);
+      break;
+
+    case DF_REF_ORDER_NO_TABLE:
       free (df->def_info.refs);
       df->def_info.refs = NULL;
       df->def_info.refs_size = 0;
+      break;
+
+    case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+    case DF_REF_ORDER_BY_REG_WITH_NOTES:
+    case DF_REF_ORDER_UNORDERED:
+    case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+      gcc_unreachable ();
+      break;
     }
-  if (df->use_info.refs)
-    {
-      free (df->use_info.refs);
-      df->use_info.refs = NULL;
-      df->use_info.refs_size = 0;
-    }
+      
+  df->def_info.ref_order = order;
 }
 
 
@@ -1762,7 +1924,7 @@ df_notes_rescan (rtx insn)
 	 ignore it.  */
       collection_rec.mw_vec = NULL;
       collection_rec.next_mw = 0;
-      df_refs_add_to_chains (&collection_rec, NULL, insn);
+      df_refs_add_to_chains (&collection_rec, bb, insn);
     }
   else
     df_insn_rescan (insn);
@@ -1978,7 +2140,8 @@ df_canonize_collection_rec (struct df_collection_rec *collection_rec)
 static void
 df_install_ref (struct df_ref *this_ref, 
 		struct df_reg_info *reg_info, 
-		struct df_ref_info *ref_info)
+		struct df_ref_info *ref_info,
+		bool add_to_table)
 {
   unsigned int regno = DF_REF_REGNO (this_ref);
   /* Add the ref to the reg_{def,use,eq_use} chain.  */
@@ -1987,7 +2150,7 @@ df_install_ref (struct df_ref *this_ref,
   reg_info->reg_chain = this_ref;
   reg_info->n_refs++;
 
-  if (DF_REF_FLAGS_IS_SET (this_ref, DF_REGS_EVER_LIVE))
+  if (DF_REF_FLAGS_IS_SET (this_ref, DF_HARD_REG_LIVE))
     {
       gcc_assert (regno < FIRST_PSEUDO_REGISTER);
       df->hard_regs_live_count[regno]++;
@@ -2004,18 +2167,15 @@ df_install_ref (struct df_ref *this_ref,
   if (head)
     DF_REF_PREV_REG (head) = this_ref;
   
-  /* Do not add the notes in eq_refs unless they are asked for.  */
-  if (ref_info->add_refs_inline
-      && ((!DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
-	  || ((DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
-	      && (df->changeable_flags & DF_EQ_NOTES))))
+  if (add_to_table)
     {
+      gcc_assert (ref_info->ref_order != DF_REF_ORDER_NO_TABLE);
       df_check_and_grow_ref_info (ref_info, 1);
       DF_REF_ID (this_ref) = ref_info->table_size;
       /* Add the ref to the big array of defs.  */
       ref_info->refs[ref_info->table_size] = this_ref;
       ref_info->table_size++;
-    }
+    }    
   else
     DF_REF_ID (this_ref) = -1;
   
@@ -2028,26 +2188,50 @@ df_install_ref (struct df_ref *this_ref,
    each of these refs into the appropriate chains.  */
 
 static struct df_ref **
-df_install_refs (struct df_ref **old_vec, unsigned int count, 
+df_install_refs (basic_block bb,
+		 struct df_ref **old_vec, unsigned int count, 
 		 struct df_reg_info **reg_info, 
-		 struct df_ref_info *ref_info)
+		 struct df_ref_info *ref_info,
+		 bool is_notes)
 {
   if (count)
     {
       unsigned int i;
       struct df_ref **new_vec = XNEWVEC (struct df_ref*, count + 1);
+      bool add_to_table;
+
+      switch (ref_info->ref_order)
+	{
+	case DF_REF_ORDER_UNORDERED_WITH_NOTES:
+	case DF_REF_ORDER_BY_REG_WITH_NOTES:
+	case DF_REF_ORDER_BY_INSN_WITH_NOTES:
+	  ref_info->ref_order = DF_REF_ORDER_UNORDERED_WITH_NOTES;
+	  add_to_table = true;
+	  break;
+	case DF_REF_ORDER_UNORDERED:
+	case DF_REF_ORDER_BY_REG:
+	case DF_REF_ORDER_BY_INSN:
+	  ref_info->ref_order = DF_REF_ORDER_UNORDERED;
+	  add_to_table = !is_notes;
+	  break;
+	default:
+	  add_to_table = false;
+	  break;
+	}
+
+      /* Do not add if ref is not in the right blocks.  */
+      if (add_to_table && df->blocks_to_analyze)
+	add_to_table = bitmap_bit_p (df->blocks_to_analyze, bb->index);
 
       for (i = 0; i < count; i++)
 	{
 	  struct df_ref *this_ref = old_vec[i];
 	  new_vec[i] = this_ref;
 	  df_install_ref (this_ref, reg_info[DF_REF_REGNO (this_ref)], 
-			  ref_info);
+			  ref_info, add_to_table);
 	}
-
+      
       new_vec[count] = NULL;
-      ref_info->refs_organized_alone = false;
-      ref_info->refs_organized_with_eq_uses = false;
       return new_vec;
     }
   else
@@ -2074,28 +2258,14 @@ df_install_mws (struct df_mw_hardreg **old_vec, unsigned int count)
 }
 
 
-/* Add a chain of df_refs to appropriate ref chain/reg_info/ref_info chains
-   and update other necessary information */
+/* Add a chain of df_refs to appropriate ref chain/reg_info/ref_info
+   chains and update other necessary information.  */
 
 static void
 df_refs_add_to_chains (struct df_collection_rec *collection_rec, 
 		       basic_block bb, rtx insn)
 {
-  if (bb)
-    {
-      struct df_scan_bb_info *bb_info = df_scan_get_bb_info (bb->index);
-      bb_info->artificial_defs 
-	= df_install_refs (collection_rec->def_vec, 
-			   collection_rec->next_def,
-			   df->def_regs,
-			   &df->def_info);
-      bb_info->artificial_uses 
-	= df_install_refs (collection_rec->use_vec, 
-			   collection_rec->next_use,
-			   df->use_regs,
-			   &df->use_info);
-    }
-  else
+  if (insn)
     {
       struct df_insn_info *insn_rec = DF_INSN_GET (insn);
       /* If there is a vector in the collection rec, add it to the
@@ -2103,26 +2273,40 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	 chain specially.  */
       if (collection_rec->def_vec)
 	insn_rec->defs 
-	  = df_install_refs (collection_rec->def_vec, 
+	  = df_install_refs (bb, collection_rec->def_vec, 
 			     collection_rec->next_def,
 			     df->def_regs,
-			     &df->def_info);
+			     &df->def_info, false);
       if (collection_rec->use_vec)
 	insn_rec->uses 
-	  = df_install_refs (collection_rec->use_vec, 
+	  = df_install_refs (bb, collection_rec->use_vec, 
 			     collection_rec->next_use,
 			     df->use_regs,
-			     &df->use_info);
+			     &df->use_info, false);
       if (collection_rec->eq_use_vec)
 	insn_rec->eq_uses 
-	  = df_install_refs (collection_rec->eq_use_vec, 
+	  = df_install_refs (bb, collection_rec->eq_use_vec, 
 			     collection_rec->next_eq_use,
 			     df->eq_use_regs,
-			     &df->use_info);
+			     &df->use_info, true);
       if (collection_rec->mw_vec)
 	insn_rec->mw_hardregs 
 	  = df_install_mws (collection_rec->mw_vec, 
 			    collection_rec->next_mw);
+    }
+  else
+    {
+      struct df_scan_bb_info *bb_info = df_scan_get_bb_info (bb->index);
+      bb_info->artificial_defs 
+	= df_install_refs (bb, collection_rec->def_vec, 
+			   collection_rec->next_def,
+			   df->def_regs,
+			   &df->def_info, false);
+      bb_info->artificial_uses 
+	= df_install_refs (bb, collection_rec->use_vec, 
+			   collection_rec->next_use,
+			   df->use_regs,
+			   &df->use_info, false);
     }
 }
 
@@ -2158,21 +2342,21 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
   /* We need to clear this bit because fwprop, and in the future
      possibly other optimizations sometimes create new refs using ond
      refs as the model.  */
-  DF_REF_FLAGS_CLEAR (this_ref, DF_REGS_EVER_LIVE);
+  DF_REF_FLAGS_CLEAR (this_ref, DF_HARD_REG_LIVE);
 
-  /* See if this ref needs to have DF_REGS_EVER_LIVE bit set.  */
+  /* See if this ref needs to have DF_HARD_REG_LIVE bit set.  */
   if ((regno < FIRST_PSEUDO_REGISTER) 
       && (!DF_REF_IS_ARTIFICIAL (this_ref)))
     {
       if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF)
 	{
 	  if (!DF_REF_FLAGS_IS_SET (this_ref, DF_REF_MAY_CLOBBER))
-	    DF_REF_FLAGS_SET (this_ref, DF_REGS_EVER_LIVE);
+	    DF_REF_FLAGS_SET (this_ref, DF_HARD_REG_LIVE);
 	}
       else if (!(TEST_HARD_REG_BIT (elim_reg_set, regno)
 		 && (regno == FRAME_POINTER_REGNUM
 		     || regno == ARG_POINTER_REGNUM)))
-	DF_REF_FLAGS_SET (this_ref, DF_REGS_EVER_LIVE);
+	DF_REF_FLAGS_SET (this_ref, DF_HARD_REG_LIVE);
     }
 
   if (collection_rec)
@@ -2920,7 +3104,7 @@ df_bb_refs_record (int bb_index, bool scan_insns)
 	    /* Record refs within INSN.  */
 	    DF_INSN_LUID (insn) = luid++;
 	    df_insn_refs_collect (&collection_rec, bb, insn);
-	    df_refs_add_to_chains (&collection_rec, NULL, insn);
+	    df_refs_add_to_chains (&collection_rec, bb, insn);
 	  }
 	DF_INSN_LUID (insn) = luid;
       }
@@ -3457,14 +3641,31 @@ df_update_entry_exit_and_calls (void)
 }
 
 
-/* Return true if hard reg I is actually used in the some
-   instruction.  */
+/* Return true if hard REG is actually used in the some instruction.
+   There are a fair number of conditions that affect the setting of
+   this array.  See the comment in df.h for df->hard_regs_live_count
+   for the conditions that this array is set. */
 
 bool 
-df_hard_reg_used_p (unsigned int i)
+df_hard_reg_used_p (unsigned int reg)
 {
   gcc_assert (df);
-  return DF_REG_EVER_LIVE_P (i);
+  return df->hard_regs_live_count[reg] != 0;
+}
+
+
+/* A count of the number of times REG is actually used in the some
+   instruction.  There are a fair number of conditions that affect the
+   setting of this array.  See the comment in df.h for
+   df->hard_regs_live_count for the conditions that this array is
+   set. */
+
+
+unsigned int
+df_hard_reg_used_count (unsigned int reg)
+{
+  gcc_assert (df);
+  return df->hard_regs_live_count[reg];
 }
 
 

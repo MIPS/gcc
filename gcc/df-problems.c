@@ -509,7 +509,8 @@ df_ru_local_compute (bitmap all_blocks)
 
   df_set_seen ();
 
-  df_maybe_reorganize_use_refs ();
+  df_maybe_reorganize_use_refs (df->changeable_flags & DF_EQ_NOTES ? 
+				DF_REF_ORDER_BY_REG_WITH_NOTES : DF_REF_ORDER_BY_REG);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
@@ -1053,7 +1054,7 @@ df_rd_local_compute (bitmap all_blocks)
 
   df_set_seen ();
 
-  df_maybe_reorganize_def_refs ();
+  df_maybe_reorganize_def_refs (DF_REF_ORDER_BY_REG);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {

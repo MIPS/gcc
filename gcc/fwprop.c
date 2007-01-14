@@ -659,12 +659,7 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
       changed = true;
     }
   if (changed)
-    {
-      df_insn_rescan (insn);
-      /* By adding the ref directly above, df_insn_rescan my not find any
-	 differences.  So we need to mark the block dirty ourselves.  */  
-      df_set_bb_dirty (BLOCK_FOR_INSN (insn));
-    }
+    df_insn_rescan (insn);
 }
 
 
@@ -696,11 +691,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       if (dump_file)
 	fprintf (dump_file, "Changed insn %d\n", INSN_UID (insn));
 
-      /* Unlink the use that we changed.  By deleting the ref here,
-	 df_insn_rescan my not find any differences.  So we need to
-	 mark the block dirty ourselves.  */
       df_ref_remove (use);
-      df_set_bb_dirty (BLOCK_FOR_INSN (insn));
       if (!CONSTANT_P (new))
 	{
 	  update_df (insn, loc, DF_INSN_USES (def_insn), type, flags);
@@ -945,7 +936,7 @@ fwprop_init (void)
   FOR_EACH_BB (bb)
     df_recompute_luids (bb);
   df_analyze ();
-  df_maybe_reorganize_use_refs ();
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
   df_set_flags (DF_DEFER_INSN_RESCAN);
 }
 

@@ -134,9 +134,37 @@ enum df_ref_flags
 
     /* This bit is true if this ref can make regs_ever_live true for
        this regno.  */
-    DF_REGS_EVER_LIVE = 1 << 11
+    DF_HARD_REG_LIVE = 1 << 11
   };
 
+/* The possible ordering of refs within the df_ref_info.  */
+enum df_ref_order
+  {
+    /* There is not table.  */ 
+    DF_REF_ORDER_NO_TABLE,
+
+    /* There is a table of refs but it is not (or no longer) organized
+       by one of the following methods.  */
+    DF_REF_ORDER_UNORDERED,
+    DF_REF_ORDER_UNORDERED_WITH_NOTES,
+  
+    /* Organize the table by reg order, all of the refs with regno 0
+       followed by all of the refs with regno 1 ... .  Within all of
+       the regs for a particular regno, the refs are unordered.  */
+    DF_REF_ORDER_BY_REG,
+
+    /* For uses, the refs within eq notes may be added for
+       DF_REF_ORDER_BY_REG.  */
+    DF_REF_ORDER_BY_REG_WITH_NOTES,
+
+    /* Organize the refs in insn order.  The insns are ordered within a
+       block, and the blocks are ordered by FOR_ALL_BB.  */  
+    DF_REF_ORDER_BY_INSN,
+
+    /* For uses, the refs within eq notes may be added for
+       DF_REF_ORDER_BY_INSN.  */
+    DF_REF_ORDER_BY_INSN_WITH_NOTES
+  };
 
 /* Function prototypes added to df_problem instance.  */
 
@@ -394,16 +422,7 @@ struct df_ref_info
   unsigned int table_size;
   unsigned int total_size;
 
-  /* True if refs table is organized so that every reference for a
-     particular pseudo is contiguous.  This allows the use of an
-     efficient bitmap operator to clear ranges of bits.  */
-  bool refs_organized_alone;
-  /* This is true if the organization of uses should include the
-     eq_uses also.  */
-  bool refs_organized_with_eq_uses;
-  /* True if the next refs should be added immediately or false to
-     defer to later to reorganize the table.  */
-  bool add_refs_inline; 
+  enum df_ref_order ref_order;
 };
 
 /* Three of these structures are allocated for every pseudo reg. One
@@ -487,8 +506,16 @@ struct df
   int n_blocks_inverted;         /* The number of blocks 
                                     in reverse postorder of inverted CFG.  */
 
-  /* An array [FIRST_PSEUDO_REGISTER], indexed by regno, of the number of
-     refs that qualify as being in regs_ever_live.  */
+  /* An array [FIRST_PSEUDO_REGISTER], indexed by regno, of the number
+     of refs that qualify as being real hard regs uses.  Artificial
+     uses and defs as well as refs in eq notes are ignored.  If the
+     ref is a def, it cannot be a MAY_CLOBBER def.  If the ref is a
+     use, it cannot be the emim_reg_set or be the frame or arg pointer
+     register.
+
+     IT IS NOT ACCEPTABLE TO MANUALLY CHANGE THIS ARRAY.  This array
+     always reflects the actual number of refs in the insn stream that
+     satisfy the above criteria.  */
   unsigned int *hard_regs_live_count;
 
   /* This counter provides a way to totally order refs without using
@@ -609,7 +636,6 @@ struct df
 #define DF_REG_EQ_USE_GET(REG) (df->eq_use_regs[(REG)])
 #define DF_REG_EQ_USE_CHAIN(REG) (df->eq_use_regs[(REG)]->reg_chain)
 #define DF_REG_EQ_USE_COUNT(REG) (df->eq_use_regs[(REG)]->n_refs)
-#define DF_REG_EVER_LIVE_P(REG) (df->hard_regs_live_count[REG] != 0)
 
 /* Macros to access the elements within the reg_info structure table.  */
 
@@ -901,9 +927,8 @@ extern void df_process_deferred_rescans (void);
 extern bool df_has_eh_preds (basic_block);
 extern void df_recompute_luids (basic_block);
 extern void df_insn_change_bb (rtx);
-extern void df_maybe_reorganize_use_refs (void);
-extern void df_maybe_reorganize_def_refs (void);
-extern void df_drop_organized_tables (void);
+extern void df_maybe_reorganize_use_refs (enum df_ref_order);
+extern void df_maybe_reorganize_def_refs (enum df_ref_order);
 extern void df_ref_change_reg_with_loc (int, int, rtx);
 extern void df_notes_rescan (rtx);
 extern void df_hard_reg_init (void);
@@ -911,6 +936,7 @@ extern void df_update_entry_block_defs (void);
 extern void df_update_exit_block_uses (void);
 extern void df_update_entry_exit_and_calls (void);
 extern bool df_hard_reg_used_p (unsigned int);
+extern unsigned int df_hard_reg_used_count (unsigned int);
 extern bool df_regs_ever_live_p (unsigned int);
 extern void df_set_regs_ever_live (unsigned int, bool);
 extern void df_compute_regs_ever_live (bool);
