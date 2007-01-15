@@ -2664,7 +2664,7 @@ split_all_insns (void)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-static unsigned int
+unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
