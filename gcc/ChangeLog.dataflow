@@ -1,5 +1,11 @@
 2007-01-15  Andreas Krebbel  <krebbel1@de.ibm.com>
 
+	* config/s390/s390.c: Include df.h.
+	(s390_emit_prologue): Call df_insn_rescan when annotating constant
+	pool references.
+
+2007-01-15  Andreas Krebbel  <krebbel1@de.ibm.com>
+
 	* rtl.h (split_all_insns_noflow): Add prototype.
 	* recog.c (split_all_insns_noflow): Remove static.
 

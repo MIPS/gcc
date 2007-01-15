@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "optabs.h"
 #include "tree-gimple.h"
+#include "df.h"
 
 
 /* Define the specific costs for a given cpu.  */
@@ -7155,7 +7156,10 @@ s390_emit_prologue (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
-      annotate_constant_pool_refs (&PATTERN (insn));
+      {
+	annotate_constant_pool_refs (&PATTERN (insn));
+	df_insn_rescan (insn);
+      }
 
   pop_topmost_sequence ();
 
