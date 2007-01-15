@@ -1966,6 +1966,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	  p = emit_insn_after_setloc (pat, PREV_INSN (p), INSN_LOCATOR (insn));
 	  delete_insn (insn);
 	  REG_NOTES (p) = notes;
+	  df_notes_rescan (p);
 	}
     }
   /* Sometimes we'd generate src = const; src += n;
