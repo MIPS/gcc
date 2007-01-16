@@ -252,7 +252,7 @@ typedef struct _stmt_vec_info {
   /* In case that two or more stmts share data-ref, this is the pointer to the
      previously detected stmt with the same dr.  */
   tree same_dr_stmt;
-
+  /* TRUE, if there is no need in data permutation.  */
   bool interleaving_not_needed;
 } *stmt_vec_info;
 

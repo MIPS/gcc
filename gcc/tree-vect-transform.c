@@ -2712,8 +2712,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (DR_GROUP_FIRST_DR (stmt_info))
     {
       strided_store = true;
-      if (DR_GROUP_NOT_INTERLEAVING (
-                  vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)))
+      if (!DR_GROUP_NOT_INTERLEAVING (
+		     vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)))
           && !vect_strided_store_supported (vectype))
 	return false;      
     }
