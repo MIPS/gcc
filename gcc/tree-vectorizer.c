@@ -1372,7 +1372,7 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   DR_GROUP_STORE_COUNT (res) = 0;
   DR_GROUP_GAP (res) = 0;
   DR_GROUP_SAME_DR_STMT (res) = NULL_TREE;
-
+  DR_GROUP_NOT_INTERLEAVING (res) = false;
   return res;
 }
 

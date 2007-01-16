@@ -1,0 +1,3 @@
+2007-01-16  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-strided-same-const.c: New test.

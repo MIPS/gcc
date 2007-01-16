@@ -252,6 +252,8 @@ typedef struct _stmt_vec_info {
   /* In case that two or more stmts share data-ref, this is the pointer to the
      previously detected stmt with the same dr.  */
   tree same_dr_stmt;
+
+  bool interleaving_not_needed;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -273,6 +275,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_DR_GROUP_STORE_COUNT(S) (S)->store_count
 #define STMT_VINFO_DR_GROUP_GAP(S)         (S)->gap
 #define STMT_VINFO_DR_GROUP_SAME_DR_STMT(S)(S)->same_dr_stmt
+#define STMT_VINFO_DR_GROUP_NOT_INTERLEAVING(S)         (S)->interleaving_not_needed
 
 #define DR_GROUP_FIRST_DR(S)               (S)->first_dr
 #define DR_GROUP_NEXT_DR(S)                (S)->next_dr
@@ -280,6 +283,7 @@ typedef struct _stmt_vec_info {
 #define DR_GROUP_STORE_COUNT(S)            (S)->store_count
 #define DR_GROUP_GAP(S)                    (S)->gap
 #define DR_GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
+#define DR_GROUP_NOT_INTERLEAVING(S)       (S)->interleaving_not_needed
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
 

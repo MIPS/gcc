@@ -1750,6 +1750,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       tree prev_init = DR_INIT (data_ref);
       tree prev = stmt;
       HOST_WIDE_INT diff, count_in_bytes;
+      bool rhs_equal = true;
+      tree next_op = NULL_TREE, prev_op = GIMPLE_STMT_OPERAND (stmt, 1);
 
       while (next)
 	{
@@ -1795,6 +1797,15 @@ vect_analyze_data_ref_access (struct data_reference *dr)
              gap in the access, DR_GROUP_GAP is always 1.  */
 	  DR_GROUP_GAP (vinfo_for_stmt (next)) = diff;
 
+	  if (!DR_IS_READ (data_ref))
+	    {
+	      next_op = GIMPLE_STMT_OPERAND (next, 1);
+	      if ((TREE_CODE (next_op) != INTEGER_CST 
+		   && TREE_CODE (next_op) != REAL_CST)
+		  || tree_int_cst_compare (next_op, prev_op))
+	         rhs_equal = false;
+	    }
+	  prev_op = next_op;
 	  prev_init = DR_INIT (data_ref);
 	  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
 	  /* Count the number of data-refs in the chain.  */
@@ -1847,6 +1858,13 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	  return false;
 	}
       DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = stride;
+
+      if (!DR_IS_READ (dr) && rhs_equal)
+        { 
+	  DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (stmt)) = true;
+          if (vect_print_dump_info (REPORT_DR_DETAILS))
+            fprintf (vect_dump, "Same constant store in interleaving.");
+        }
     }
   return true;
 }

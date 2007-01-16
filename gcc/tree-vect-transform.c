@@ -2712,7 +2712,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (DR_GROUP_FIRST_DR (stmt_info))
     {
       strided_store = true;
-      if (!vect_strided_store_supported (vectype))
+      if (DR_GROUP_NOT_INTERLEAVING (
+                  vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)))
+          && !vect_strided_store_supported (vectype))
 	return false;      
     }
 
@@ -2827,6 +2829,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	      VEC_quick_push(tree, dr_chain, vec_oprnd); 
 	      VEC_quick_push(tree, oprnds, vec_oprnd); 
 	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+
+	      if (DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
+		break;
 	    }
 	  dataref_ptr = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
 						  &dummy, &ptr_incr, false,
@@ -2848,11 +2853,15 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 						   VEC_index (tree, oprnds, i));
 	      VEC_replace(tree, dr_chain, i, vec_oprnd);
 	      VEC_replace(tree, oprnds, i, vec_oprnd);
+	      
+	      if (DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
+		break;
 	    }
 	  dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
 	}
 
-      if (strided_store)
+      if (strided_store 
+	  && !DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
 	{
 	  result_chain = VEC_alloc (tree, heap, group_size);     
 	  /* Permute.  */
@@ -2866,7 +2875,8 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	{
 	  /* For strided stores vectorized defs are interleaved in 
 	     vect_permute_store_chain().  */
-	  if (strided_store)
+	  if (strided_store
+	      && !DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
 	    vec_oprnd = VEC_index(tree, result_chain, i);
 
 	  data_ref = build_fold_indirect_ref (dataref_ptr);
