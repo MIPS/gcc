@@ -2068,8 +2068,7 @@ fold_convert_const_int_from_fixed (tree type, tree arg1)
 			     (temp.high < 0
 		 	      && (TYPE_UNSIGNED (type)
 				  < TYPE_UNSIGNED (TREE_TYPE (arg1))))
-			     | TREE_OVERFLOW (arg1),
-			     TREE_CONSTANT_OVERFLOW (arg1));
+			     | TREE_OVERFLOW (arg1));
 
   return t;
 }
