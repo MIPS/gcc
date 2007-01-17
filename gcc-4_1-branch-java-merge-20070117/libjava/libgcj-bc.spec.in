@@ -1,0 +1,10 @@
+#
+# This spec file is read by gcj when linking.
+# It is used to specify the standard libraries we need in order
+# to link with libgcj.
+# This must be kept in parallel with libgcj.spec.
+#
+%rename lib liborig
+*lib: @LD_START_STATIC_SPEC@ -lgcj-bc @LD_FINISH_STATIC_SPEC@ -lm @LIBICONV@ @GCSPEC@ @THREADSPEC@ @ZLIBSPEC@ @SYSTEMSPEC@ %(libgcc) %(liborig)
+
+*jc1: @HASH_SYNC_SPEC@ @DIVIDESPEC@ @CHECKREFSPEC@ @JC1GCSPEC@ @EXCEPTIONSPEC@ @BACKTRACESPEC@ @IEEESPEC@ -fkeep-inline-functions
