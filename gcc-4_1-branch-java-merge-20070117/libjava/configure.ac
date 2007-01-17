@@ -106,6 +106,11 @@ AC_ARG_ENABLE(gconf-peer,
     [gconf_enabled=no]
 )
 
+AC_ARG_ENABLE(java-maintainer-mode,
+	AS_HELP_STRING([--enable-java-maintainer-mode],
+	[allow rebuilding of .class and .h files]))
+AM_CONDITIONAL(JAVA_MAINTAINER_MODE, test "$enable_java_maintainer_mode" = yes)
+
 # It may not be safe to run linking tests in AC_PROG_CC/AC_PROG_CXX.
 GCC_NO_EXECUTABLES
 
@@ -119,7 +124,6 @@ GCC_NO_EXECUTABLES
 # (5) For libstdc++-v3, -fno-builtin must be present here so that a
 # non-conflicting form of std::exit can be guessed by AC_PROG_CXX, and
 # used in later tests.  This may not be necessary in libjava; I don't know.
-m4_define([ac_cv_prog_CXX],[glibcxx_cv_prog_CXX])
 m4_rename([_AC_ARG_VAR_PRECIOUS],[glibcxx_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 save_CXXFLAGS="$CXXFLAGS"
@@ -139,7 +143,7 @@ AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_AWK
-AC_CHECK_PROGS([JAR], [jar fastjar], no)
+AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
 AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
@@ -147,7 +151,7 @@ if test "$ZIP" = no; then
   if test "$JAR" = no; then
     AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
   fi
-elif test "$JAR" = no; then
+else
   # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
   JAR=`pwd`/scripts/jar
 fi
@@ -169,14 +173,22 @@ libgcj_javaflags=
 
 . ${srcdir}/configure.host
 
+ACX_PROG_LD_GNU_SYMBOLIC
+libgcj_ld_symbolic_functions=$SYMBOLIC_LDFLAGS
+if test -z "$libgcj_ld_symbolic"; then
+  libgcj_ld_symbolic=$SYMBOLIC_LDFLAGS
+fi
+
 LIBGCJ_CFLAGS="${libgcj_cflags}"
 LIBGCJ_CXXFLAGS="${libgcj_cxxflags}"
 LIBGCJ_JAVAFLAGS="${libgcj_javaflags}"
 LIBGCJ_LD_SYMBOLIC="${libgcj_ld_symbolic}"
+LIBGCJ_LD_SYMBOLIC_FUNCTIONS="${libgcj_ld_symbolic_functions}"
 AC_SUBST(LIBGCJ_CFLAGS)
 AC_SUBST(LIBGCJ_CXXFLAGS)
 AC_SUBST(LIBGCJ_JAVAFLAGS)
 AC_SUBST(LIBGCJ_LD_SYMBOLIC)
+AC_SUBST(LIBGCJ_LD_SYMBOLIC_FUNCTIONS)
 
 # Only use libltdl for non-newlib builds.
 if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
@@ -196,6 +208,24 @@ AC_ARG_ENABLE(libgcj-debug,
     LIBGCJDEBUG="enable"
   fi])
 
+AC_ARG_WITH([escher],
+         AS_HELP_STRING([--with-escher=ABS.PATH],
+                        [specify path to escher dir or JAR for X peers]))
+case "$with_escher" in
+"")
+        use_escher=false
+        ;;
+"no")
+        use_escher=false
+        ;;
+"yes")
+        AC_MSG_ERROR([Please supply an absolute path to Escher library])
+        ;;
+*)
+        use_escher=true
+        ;;
+esac
+
 # Determine which AWT peer libraries to build
 AC_ARG_ENABLE(java-awt,
   AS_HELP_STRING([--enable-java-awt],
@@ -205,6 +235,7 @@ peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
 use_xlib_awt=""
 use_gtk_awt=""
 use_qt_awt=""
+use_x_awt=""
 # The default toolkit to use is the first one specified.
 TOOLKIT=
 AC_SUBST(TOOLKIT)
@@ -245,10 +276,17 @@ for peer in $peerlibs ; do
 	 fi
       fi
       ;;
+    x)
+      use_x_awt=yes
+      if test -z "$TOOLKIT"; then
+	 TOOLKIT=gnu.java.awt.peer.x.XToolkit
+      fi
+      ;;
     no)
       use_xlib_awt=
       use_gtk_awt=
       use_qt_awt=
+      use_x_awt=
       break
       ;;
     *)
@@ -258,12 +296,20 @@ for peer in $peerlibs ; do
 done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
+AM_CONDITIONAL(X_AWT, test "$use_x_awt" = yes)
+
+AC_DEFINE_UNQUOTED(AWT_TOOLKIT, "$TOOLKIT", [Name of default AWT toolkit])
+
+AC_DEFINE_UNQUOTED(LIBGCJ_PREFIX, "$prefix", [Installation prefix])
 
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then
    echo gnu/awt/xlib >> standard.omit
    echo gnu/gcj/xlib >> standard.omit
+fi
+if test "$use_x_awt" != yes; then
+   echo gnu/java/awt/peer/x >> standard.omit
 fi
 
 if test -z "${with_multisubdir}"; then
@@ -274,19 +320,23 @@ fi
 
 NATIVE=yes
 
-# Which gcj do we use?
+# Which gcj and host gcj (for ecjx) do we use?
 which_gcj=default
+host_exeext=${ac_exeext}
+GCJ_FOR_ECJX=
 built_gcc_dir="`cd ${builddotdot}/../../${host_subdir}/gcc && ${PWDCMD-pwd}`"
 if test -n "${with_cross_host}"; then
   # We are being configured with a cross compiler. We can't
   # use ac_exeext, because that is for the target platform.
   NATIVE=no
   cross_host_exeext=
+  GCJ_FOR_ECJX="${with_cross_host}-gcj"
   case "${with_cross_host}" in
      *mingw* | *cygwin*)
          cross_host_exeext=.exe
      ;;
   esac
+  host_exeext=${cross_host_exeext}
   if test -x "${built_gcc_dir}/gcj${cross_host_exeext}"; then
      if test x"$build_noncanonical" = x"$with_cross_host"; then
         # Ordinary cross (host!=target and host=build)
@@ -323,9 +373,9 @@ case "${which_gcj}" in
          GCC_UNWIND_INCLUDE=
          GCJ="${target_noncanonical}-gcj"
       else
-         GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
+         GCJ="$built_gcc_dir/gcj -B$built_gcc_dir/"
       fi
-      GCJH='$(target_noncanonical)-gcjh'
+      GCJH="$built_gcc_dir/gcjh"
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
@@ -333,7 +383,9 @@ case "${which_gcj}" in
    ;;
 esac
 
+AC_SUBST(GCJ_FOR_ECJX)
 AC_SUBST(GCJH)
+AC_SUBST(host_exeext)
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec
@@ -343,7 +395,8 @@ test -f libgcj.spec || touch libgcj.spec
 # Set up to configure Classpath.
 # FIXME: no supported way to pass args in autoconf.
 ac_configure_args="$ac_configure_args --with-fastjar=$JAR"
-ac_configure_args="$ac_configure_args --enable-tool-wrappers"
+# Disable tool wrappers to avoid ltdl.h configure check.
+ac_configure_args="$ac_configure_args --disable-tool-wrappers"
 ac_configure_args="$ac_configure_args --disable-load-library"
 ac_configure_args="$ac_configure_args --${LIBGCJDEBUG}-debug"
 ac_configure_args="$ac_configure_args --enable-default-toolkit=$TOOLKIT"
@@ -362,7 +415,7 @@ if test "$gconf_enabled" != yes; then
   ac_configure_args="$ac_configure_args --enable-default-preferences-peer=gnu.java.util.prefs.FileBasedFactory"
 fi
 if test "$use_gtk_awt" != yes; then
-  ac_configure_args="$ac_configure_args --disable-gtk-peer"
+  ac_configure_args="$ac_configure_args --disable-gtk-peer --disable-plugin"
 fi
 if test "$use_qt_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-qt-peer"
@@ -370,6 +423,18 @@ else
   # We need this as qt is disabled by default in classpath.
   ac_configure_args="$ac_configure_args --enable-qt-peer"
 fi
+if test "$use_x_awt" != yes; then
+  ac_configure_args="$ac_configure_args --without-escher"
+else
+  # We need this as escher is disabled by default in classpath.
+  if test "$use_escher" != true; then
+    AC_MSG_ERROR([Please supply an absolute path to the Escher library])
+  else
+    ac_configure_args="$ac_configure_args --with-escher=$with_escher"
+  fi
+fi
+# -Werror causes unavoidable problems in code using alsa.
+ac_configure_args="$ac_configure_args --disable-Werror"
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
 dnl gjdoc?
@@ -434,6 +499,23 @@ AC_ARG_ENABLE(hash-synchronization,
 if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
+
+
+install_ecj_jar=no
+ECJ_BUILD_JAR=
+ECJ_JAR=
+AC_ARG_WITH(ecj-jar,
+	AS_HELP_STRING([--with-ecj-jar=FILE], [use preinstalled ecj jar]),
+	[ECJ_JAR=$withval],
+	[if test -f $libgcj_basedir/../ecj.jar; then
+	   ECJ_BUILD_JAR=$libgcj_basedir/../ecj.jar
+	   ECJ_JAR='$(jardir)/ecj.jar'
+	   install_ecj_jar=yes
+	 fi])
+AC_SUBST(ECJ_BUILD_JAR)
+AC_SUBST(ECJ_JAR)
+AM_CONDITIONAL(BUILD_ECJ1, test "$ECJ_JAR" != "")
+AM_CONDITIONAL(INSTALL_ECJ_JAR, test $install_ecj_jar = yes)
 
 AC_ARG_WITH(java-home,
   AS_HELP_STRING([--with-java-home=DIRECTORY],
@@ -599,7 +681,6 @@ AC_ARG_WITH(ecos,
 TARGET_ECOS="$with_ecos"
 )
 
-PLATFORM_INNER_NAT_HDRS=
 case "$TARGET_ECOS" in
    no) case "$host" in
       *mingw*)
@@ -612,7 +693,6 @@ case "$TARGET_ECOS" in
             PLATFORM=Posix
 	    PLATFORMNET=Posix
 	    PLATFORMH=posix.h
-	    PLATFORM_INNER_NAT_HDRS='java/lang/ConcreteProcess$$ProcessManager.h'
       ;;
       esac
       ;;
@@ -623,7 +703,7 @@ case "$TARGET_ECOS" in
       PLATFORMH=posix.h
       ;;
 esac
-AC_SUBST(PLATFORM_INNER_NAT_HDRS)
+AC_SUBST(PLATFORM)
 AC_CONFIG_LINKS(include/platform.h:include/$PLATFORMH)
 
 AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1,
@@ -658,12 +738,11 @@ test -d java/io || mkdir java/io
 test -d gnu || mkdir gnu
 AC_CONFIG_LINKS(java/io/natFile.cc:java/io/natFile${FILE-${PLATFORM}}.cc)
 
-# Likewise for ConcreteProcess.java and natConcreteProcess.cc.
+# Likewise for natConcreteProcess.cc.
 test -d java/lang || mkdir java/lang
-AC_CONFIG_LINKS(java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java)
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
-# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
+# Likewise for natVMInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
 AC_CONFIG_LINKS(java/net/natVMInetAddress.cc:java/net/natVMInetAddress${PLATFORMNET}.cc)
 AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
@@ -1157,6 +1236,12 @@ else
       AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=)
    fi
 
+   LIBMAGIC=
+   AC_CHECK_LIB(magic, magic_open, [
+      AC_DEFINE([HAVE_MAGIC_OPEN], 1, [Define if you have magic_open().])
+      LIBMAGIC="-lmagic"])
+   AC_SUBST(LIBMAGIC)
+
    # Test for Gtk stuff, if asked for.
    if test "$use_gtk_awt" = yes; then
       PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.4)
@@ -1253,6 +1338,7 @@ AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
+AM_CONDITIONAL(ENABLE_SHARED, test "$enable_shared" = yes)
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
@@ -1308,8 +1394,8 @@ GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 
-AC_DEFINE(JV_VERSION, "1.4.2", [Compatibility version string])
-AC_DEFINE(JV_API_VERSION, "1.4", [API compatibility version string])
+AC_DEFINE(JV_VERSION, "1.5.0", [Compatibility version string])
+AC_DEFINE(JV_API_VERSION, "1.5", [API compatibility version string])
 
 TL_AC_GXX_INCLUDE_DIR
 
@@ -1322,7 +1408,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h sys/rw_lock.h ifaddrs.h])
+		  dirent.h sys/rw_lock.h magic.h ifaddrs.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1448,7 +1534,7 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- *-*-darwin*)
+ powerpc*-*-darwin*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -1479,6 +1565,9 @@ fi
 
 # See if we support thread-local storage.
 GCC_CHECK_TLS
+
+# For _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=

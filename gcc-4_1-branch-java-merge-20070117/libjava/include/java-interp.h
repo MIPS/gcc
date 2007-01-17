@@ -45,6 +45,12 @@ int  _Jv_count_arguments (_Jv_Utf8Const *signature,
 			  jboolean staticp = true);
 void _Jv_VerifyMethod (_Jv_InterpMethod *method);
 void _Jv_CompileMethod (_Jv_InterpMethod* method);
+int _Jv_init_cif (_Jv_Utf8Const* signature,
+		  int arg_count,
+		  jboolean staticp,
+		  ffi_cif *cif,
+		  ffi_type **arg_types,
+		  ffi_type **rtype_p);
 
 /* the interpreter is written in C++, primarily because it makes it easy for
  * the entire thing to be "friend" with class Class. */
@@ -133,6 +139,14 @@ struct  _Jv_LineTableEntry
 
 class _Jv_InterpMethod : public _Jv_MethodBase
 {
+  // Breakpoint instruction
+  static pc_t breakpoint_insn;
+#ifdef DIRECT_THREADED
+  static insn_slot bp_insn_slot;
+#else
+  static unsigned char bp_insn_opcode;
+#endif
+
   _Jv_ushort       max_stack;
   _Jv_ushort       max_locals;
   int              code_length;
@@ -144,7 +158,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   int line_table_len;  
   _Jv_LineTableEntry *line_table;
 
-  void *prepared;
+  pc_t prepared;
   int number_insn_slots;
 
   unsigned char* bytecode () 
@@ -191,13 +205,9 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   // number info is unavailable.
   int get_source_line(pc_t mpc);
 
-
-
-#ifdef DIRECT_THREADED
   // Convenience function for indexing bytecode PC/insn slots in
   // line tables for JDWP
   jlong insn_index (pc_t pc);
-#endif
   
    public:
    
@@ -209,6 +219,17 @@ class _Jv_InterpMethod : public _Jv_MethodBase
    */
   void get_line_table (jlong& start, jlong& end, jintArray& line_numbers,
 		       jlongArray& code_indices);
+
+  /* Installs a break instruction at the given code index. Returns
+     the pc_t of the breakpoint or NULL if index is invalid. */
+  pc_t install_break (jlong index);
+
+  // Gets the instruction at the given index
+  pc_t get_insn (jlong index);
+
+  /* Writes the given instruction at the given code index. Returns
+     the insn or NULL if index is invalid. */
+  pc_t set_insn (jlong index, pc_t insn);
 
 #ifdef DIRECT_THREADED
   friend void _Jv_CompileMethod (_Jv_InterpMethod*);
@@ -297,18 +318,27 @@ public:
 // The interpreted call stack, represented by a linked list of frames.
 struct _Jv_InterpFrame
 {
-  _Jv_InterpMethod *self;
+  union
+  {
+    void *meth;
+    _Jv_InterpMethod *self;
+    _Jv_Method *proxyMethod;
+  };
   java::lang::Thread *thread;
   _Jv_InterpFrame *next;
-  pc_t pc;
-
-  _Jv_InterpFrame (_Jv_InterpMethod *s, java::lang::Thread *thr)
+  union
   {
-    self = s;
+    pc_t pc;
+    jclass proxyClass;
+  };
+  
+  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyClass = NULL)
+  {
+    this->meth = meth;
     thread = thr;
     next = (_Jv_InterpFrame *) thr->interp_frame;
     thr->interp_frame = (gnu::gcj::RawData *) this;
-    pc = NULL;
+    this->proxyClass = proxyClass;
   }
 
   ~_Jv_InterpFrame ()

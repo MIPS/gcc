@@ -1,7 +1,8 @@
 # Qt AWT backend for Classpath
 #
 
-nativeexeclib_LTLIBRARIES = libqtpeer.la
+## GCJ LOCAL: don't install this library
+noinst_LTLIBRARIES = libqtpeer.la
 
 AM_LDFLAGS = @CLASSPATH_MODULE@ @QT_LIBS@
 AM_CPPFLAGS = @CLASSPATH_INCLUDES@
@@ -72,7 +73,6 @@ libqtpeer_la_SOURCES = \
         qtwindowpeer.cpp \
         slotcallbacks.cpp \
         slotcallbacks.h 
-
 libqtpeer_la_LDFLAGS = -avoid-version
 
 BUILT_SOURCES = $(libqtpeer_la_MOC)
