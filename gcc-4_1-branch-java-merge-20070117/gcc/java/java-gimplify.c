@@ -1,5 +1,5 @@
 /* Java(TM) language-specific gimplification routines.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,10 +34,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 static tree java_gimplify_labeled_block_expr (tree);
 static tree java_gimplify_exit_block_expr (tree);
-static tree java_gimplify_case_expr (tree);
-static tree java_gimplify_default_expr (tree);
 static tree java_gimplify_block (tree);
-static tree java_gimplify_new_array_init (tree);
 static tree java_gimplify_try_expr (tree);
 static enum gimplify_status java_gimplify_modify_expr (tree*, tree*, tree *);
 static enum gimplify_status java_gimplify_component_ref (tree*, tree*, tree *);
@@ -72,18 +69,6 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       *expr_p = java_gimplify_block (*expr_p);
       break;
 
-    case EXPR_WITH_FILE_LOCATION:
-#ifdef USE_MAPPED_LOCATION
-      input_location = EXPR_LOCATION (*expr_p);
-#else
-      input_location.file = EXPR_WFL_FILENAME (*expr_p);
-      input_location.line = EXPR_WFL_LINENO (*expr_p);
-#endif
-      *expr_p = EXPR_WFL_NODE (*expr_p);
-      if (EXPR_P (*expr_p))
-	SET_EXPR_LOCATION (*expr_p, input_location);
-      break;
-
     case LABELED_BLOCK_EXPR:
       *expr_p = java_gimplify_labeled_block_expr (*expr_p);
       break;
@@ -92,28 +77,8 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       *expr_p = java_gimplify_exit_block_expr (*expr_p);
       break;
 
-    case CASE_EXPR:
-      *expr_p = java_gimplify_case_expr (*expr_p);
-      break;
-
-    case DEFAULT_EXPR:
-      *expr_p = java_gimplify_default_expr (*expr_p);
-      break;
-
-    case NEW_ARRAY_INIT:
-      *expr_p = java_gimplify_new_array_init (*expr_p);
-      break;
-
     case TRY_EXPR:
       *expr_p = java_gimplify_try_expr (*expr_p);
-      break;
-
-    case JAVA_CATCH_EXPR:
-      *expr_p = TREE_OPERAND (*expr_p, 0);
-      break;
-
-    case JAVA_EXC_OBJ_EXPR:
-      *expr_p = build_exception_object_ref (TREE_TYPE (*expr_p));
       break;
 
     case VAR_DECL:
@@ -144,15 +109,6 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
     case COMPARE_EXPR:
     case COMPARE_L_EXPR:
     case COMPARE_G_EXPR:
-    case UNARY_PLUS_EXPR:
-    case NEW_ARRAY_EXPR:
-    case NEW_ANONYMOUS_ARRAY_EXPR:
-    case NEW_CLASS_EXPR:
-    case THIS_EXPR:
-    case SYNCHRONIZED_EXPR:
-    case CONDITIONAL_EXPR:
-    case INSTANCEOF_EXPR:
-    case CLASS_LITERAL:
       gcc_unreachable ();
 
     case COMPONENT_REF:
@@ -357,21 +313,6 @@ java_gimplify_self_mod_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 }
 
     
-static tree
-java_gimplify_case_expr (tree expr)
-{
-  tree label = create_artificial_label ();
-  return build3 (CASE_LABEL_EXPR, void_type_node,
-		 TREE_OPERAND (expr, 0), NULL_TREE, label);
-}
-
-static tree
-java_gimplify_default_expr (tree expr ATTRIBUTE_UNUSED)
-{
-  tree label = create_artificial_label ();
-  return build3 (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
-}
-
 /* Gimplify BLOCK into a BIND_EXPR.  */
 
 static tree
@@ -407,8 +348,6 @@ java_gimplify_block (tree java_block)
 
   return build3 (BIND_EXPR, TREE_TYPE (java_block), decls, body, block);
 }
-
-/* Gimplify a NEW_ARRAY_INIT node into array/element assignments.  */
 
 static tree
 java_gimplify_new_array_init (tree exp)
