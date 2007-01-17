@@ -1,3 +1,21 @@
+2007-01-17  Ian Lance Taylor  <iant@google.com>
+
+	* class.c (add_method): Call VEC_reserve_exact rather than passing
+	a negative size to VEC_reserve.
+
+2007-01-11  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29573
+	* tree.c (cp_tree_equal): Properly handle MODOP_EXPR trees.
+
+2007-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28999
+	* decl.c (make_typename_type): If the qualified name is not a
+	type, issue an error.
+	* parser.c (cp_parser_elaborated_type_specifier): Fix comment
+	formatting.
+
 2007-01-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* rtti.c: Include target.h.

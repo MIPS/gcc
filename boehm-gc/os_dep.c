@@ -84,7 +84,7 @@
 #   define NEED_FIND_LIMIT
 # endif
 
-#if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__))
+#if defined(FREEBSD) && (defined(I386) || defined(X86_64) || defined(powerpc) || defined(__powerpc__))
 #  include <machine/trap.h>
 #  if !defined(PCR)
 #    define NEED_FIND_LIMIT
@@ -1392,7 +1392,7 @@ int * etext_addr;
 }
 # endif
 
-# if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__)) && !defined(PCR)
+# if defined(FREEBSD) && (defined(I386) || defined(X86_64) || defined(powerpc) || defined(__powerpc__)) && !defined(PCR)
 /* Its unclear whether this should be identical to the above, or 	*/
 /* whether it should apply to non-X86 architectures.			*/
 /* For now we don't assume that there is always an empty page after	*/
@@ -3371,7 +3371,7 @@ GC_bool is_ptrfree;
       1. Apple's mach/xnu documentation
       2. Timothy J. Wood's "Mach Exception Handlers 101" post to the
          omnigroup's macosx-dev list. 
-         www.omnigroup.com/mailman/archive/macosx-dev/2000-June/002030.html
+         www.omnigroup.com/mailman/archive/macosx-dev/2000-June/014178.html
       3. macosx-nat.c from Apple's GDB source code.
 */
    
@@ -3683,7 +3683,7 @@ void GC_dirty_init() {
         mask,
         GC_ports.exception,
         EXCEPTION_DEFAULT,
-        MACHINE_THREAD_STATE
+        GC_MACH_THREAD_STATE
     );
     if(r != KERN_SUCCESS) ABORT("task_set_exception_ports failed");
 
@@ -3802,10 +3802,16 @@ catch_exception_raise(
         mach_msg_type_number_t exc_state_count = PPC_EXCEPTION_STATE64_COUNT;
         ppc_exception_state64_t exc_state;
 #     endif
-#   elif defined(I386)
-        thread_state_flavor_t flavor = i386_EXCEPTION_STATE;
-        mach_msg_type_number_t exc_state_count = i386_EXCEPTION_STATE_COUNT;
-        i386_exception_state_t exc_state;
+#   elif defined(I386) || defined(X86_64)
+#     if CPP_WORDSZ == 32
+	thread_state_flavor_t flavor = x86_EXCEPTION_STATE32;
+	mach_msg_type_number_t exc_state_count = x86_EXCEPTION_STATE32_COUNT;
+	x86_exception_state32_t exc_state;
+#     else
+	thread_state_flavor_t flavor = x86_EXCEPTION_STATE64;
+	mach_msg_type_number_t exc_state_count = x86_EXCEPTION_STATE64_COUNT;
+	x86_exception_state64_t exc_state;
+#     endif
 #   else
 #	error FIXME for non-ppc darwin
 #   endif
@@ -3839,7 +3845,7 @@ catch_exception_raise(
     /* This is the address that caused the fault */
 #if defined(POWERPC)
     addr = (char*) exc_state.dar;
-#elif defined (I386)
+#elif defined (I386) || defined (X86_64)
     addr = (char*) exc_state.faultvaddr;
 #else
 #   error FIXME for non POWERPC/I386

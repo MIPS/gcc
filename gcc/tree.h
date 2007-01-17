@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -427,8 +427,6 @@ struct gimple_stmt GTY(())
            VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, ADDR_EXPR
        BINFO_VIRTUAL_P in
            TREE_BINFO
-       TREE_CONSTANT_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
        CLEANUP_EH_ONLY in
@@ -1139,12 +1137,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    emitted.  */
 #define TREE_NO_WARNING(NODE) ((NODE)->base.nowarning_flag)
 
-/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
-   there was an overflow in folding.  This is distinct from
-   TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
-   occur in constant expressions.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) (CST_CHECK (NODE)->base.static_flag)
-
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
    this string as an argument.  */
 #define TREE_SYMBOL_REFERENCED(NODE) \
@@ -1156,11 +1148,12 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
-   there was an overflow in folding, and no warning has been issued
-   for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
-   but not vice versa.  */
+   there was an overflow in folding.  */
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
+
+/* ??? This is an obsolete synonym for TREE_OVERFLOW.  */
+#define TREE_CONSTANT_OVERFLOW(NODE) TREE_OVERFLOW(NODE)
 
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
@@ -4529,7 +4522,7 @@ extern tree fold_abs_const (tree, tree);
 extern tree fold_indirect_ref_1 (tree, tree);
 
 extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				   int, bool, bool);
+				   int, bool);
 
 extern int fit_double_type (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 			    unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, tree);

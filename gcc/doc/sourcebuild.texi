@@ -1,4 +1,4 @@
-@c Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -640,14 +640,6 @@ Users, standards, GNU Coding Standards}, for details of the standard
 targets.  For GCC, @code{maintainer-clean} should delete
 all generated files in the source directory that are not checked into
 CVS, but should not delete anything checked into CVS@.
-@item stage1
-@itemx stage2
-@itemx stage3
-@itemx stage4
-@itemx stageprofile
-@itemx stagefeedback
-Move to the stage directory files not included in @code{stagestuff} in
-@file{config-lang.in} or otherwise moved by the main @file{Makefile}.
 @end table
 
 @item lang.opt
@@ -707,9 +699,6 @@ languages.
 If defined, a space-separated list of compiler executables that will
 be run by the driver.  The names here will each end
 with @samp{\$(exeext)}.
-@item stagestuff
-If defined, a space-separated list of files that should be moved to
-the @file{stage@var{n}} directories in each stage of bootstrap.
 @item outputs
 If defined, a space-separated list of files that should be generated
 by @file{configure} substituting values in them.  This mechanism can
@@ -1299,13 +1288,7 @@ failures for a test run against the list of expected failures in
 Update this file when adding new failing tests to Mauve, or when fixing
 bugs in libgcj that had caused Mauve test failures.
 
-The @uref{http://sources.redhat.com/mauve/jacks.html,,
-Jacks} project provides a testsuite for Java compilers that can be used
-to test changes that affect the GCJ front end.  This testsuite is run as
-part of Java testing by placing the Jacks tree within the libjava
-testsuite sources at @file{libjava/testsuite/libjava.jacks/jacks}.
-
-We encourage developers to contribute test cases to Mauve and Jacks.
+We encourage developers to contribute test cases to Mauve.
 
 @node gcov Testing
 @subsection Support for testing @command{gcov}

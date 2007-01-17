@@ -300,6 +300,21 @@ vinfo_for_stmt (tree stmt)
   return ann ? (stmt_vec_info) ann->common.aux : NULL;
 }
 
+static inline bool
+is_pattern_stmt_p (stmt_vec_info stmt_info)
+{
+  tree related_stmt;
+  stmt_vec_info related_stmt_info;
+
+  related_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+  if (related_stmt
+      && (related_stmt_info = vinfo_for_stmt (related_stmt))
+      && STMT_VINFO_IN_PATTERN_P (related_stmt_info))
+    return true;
+
+  return false;
+}
+
 /*-----------------------------------------------------------------*/
 /* Info on data references alignment.                              */
 /*-----------------------------------------------------------------*/
@@ -342,7 +357,7 @@ extern bitmap vect_memsyms_to_rename;
    divide by the vectorization factor, and to peel the first few iterations
    to force the alignment of data references in the loop.  */
 extern struct loop *slpeel_tree_peel_loop_to_edge 
-  (struct loop *, edge, tree, tree, bool);
+  (struct loop *, edge, tree, tree, bool, unsigned int);
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
 extern bool slpeel_can_duplicate_loop_p (struct loop *, edge);
 #ifdef ENABLE_CHECKING

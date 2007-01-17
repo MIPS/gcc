@@ -1,8 +1,128 @@
+2007-01-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30476
+	* module.c (load_generic_interfaces): Make the marking of the
+	symbol as ambiguous conditional on the module names being
+	different.
+	(write_generic): Ensure that the generic interface has a
+	non-NULL module field.
+
+2007-01-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/30404
+	* trans-stmt.c (forall_info): Remove pmask field.
+	(gfc_trans_forall_loop): Remove NVAR argument, instead assume that
+	NVAR covers all the interation variables in the current forall_info.
+	Add an extra OUTER parameter, which specified the loop header in
+	which to place mask index initializations.
+	(gfc_trans_nested_forall_loop): Remove NEST_FLAG argument.
+	Change the semantics of MASK_FLAG to only control the mask in the
+	innermost loop.
+	(compute_overall_iter_number): Optimize the trivial case of a
+	top-level loop having a constant number of iterations.  Update
+	call to gfc_trans_nested_forall_loop.  Calculate the number of
+	times the inner loop will be executed, not to size of the 
+	iteration space.
+	(allocate_temp_for_forall_nest_1): Reuse SIZE as BYTESIZE when
+	sizeof(type) == 1.  Tidy up.
+	(gfc_trans_assign_need_temp): Remove NEST_FLAG argument from calls
+	to gfc_trans_nested_forall_loop.
+	(gfc_trans_pointer_assign_need_temp): Likewise.
+	(gfc_trans_forall_1): Remove unused BYTESIZE, TMPVAR, SIZEVAR and
+	LENVAR local variables.  Split mask allocation into a separate
+	hunk/pass from mask population.  Use allocate_temp_for_forall_nest
+	to allocate the FORALL mask with the correct size.  Update calls
+	to gfc_trans_nested_forall_loop.
+	(gfc_evaluate_where_mask): Update call to
+	gfc_trans_nested_forall_loop.
+	(gfc_trans_where_2): Likewise.
+
+2007-01-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28172
+	* trans-stmt.c (gfc_trans_call): If it does not have one, get
+	a backend_decl for an alternate return.
+
+	PR fortran/29389
+	* resolve.c (pure_function): Statement functions are pure. Note
+	that this will have to recurse to comply fully with F95.
+
+	PR fortran/29712
+	* resolve.c (resolve_function): Only a reference to the final
+	dimension of an assumed size array is an error in an inquiry
+	function.
+
+	PR fortran/30283
+	* resolve.c (resolve_function): Make sure that the function
+	expression has a type.
+
+2007-01-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30410
+	* trans-decl.c (gfc_sym_mangled_function_id): Module, external
+	symbols must not have the module name prepended.
+
+2007-01-11  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30415
+	* iresolve.c (gfc_resolve_maxloc):  If the rank
+	of the return array is nonzero and we process an
+	integer array smaller than default kind, coerce
+	the array to default integer.
+	* iresolve.c (gfc_resolve_minloc):  Likewise.
+
+2007-01-11  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* simplify.c: Update copyright to 2007.
+	* scanner.c: Same.
+
+2007-01-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30430
+	* scanner.c (gfc_release_include_path): Free gfc_option.module_dir
+	only once!
+
+2007-01-09  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* simplify.c (gfc_simplify_ibclr): Fix POS comparison.
+	(gfc_simplify_ibset): Same.
+
+2007-01-09  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 30381
+	PR 30420
+	* simplify.c (convert_mpz_to_unsigned): New function.
+	(convert_mpz_to_signed): New function, largely based on
+	twos_complement().
+	(twos_complement): Removed.
+	(gfc_simplify_ibclr): Add conversions to and from an
+	unsigned representation before bit-twiddling.
+	(gfc_simplify_ibset): Same.
+	(gfc_simplify_ishftc): Add checks for overly large
+	constant arguments, only check the third argument if
+	it's present, carry over high bits into	the result as
+	appropriate, and perform the final conversion back to
+	a signed representation using the correct sign bit.
+	(gfc_simplify_not): Removed unnecessary masking.
+
+2007-01-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30408
+	* resolve.c (resolve_code): Use the code->expr character length
+	directly to set length of llen.
+
+2007-01-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30408
+	* lang.opt: Add Wcharacter_truncation option.
+	* options.c (gfc_init_options): Initialize
+	gfc_option.warn_character_truncation to zero.
+	(gfc_handle_option): Add case for OPT_Wcharacter_truncation.
+
 2007-01-08  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* interface.c, intrinsic.c, gfortranspec.c, io.c, f95-lang.c,
 	iresolve.c, match.c:  Update Copyright years.  Whitespace.
-
 
 2007-01-08  Richard Guenther  <rguenther@suse.de>
 

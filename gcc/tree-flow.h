@@ -698,6 +698,7 @@ extern void dump_subvars_for (FILE *, tree);
 extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
+extern void remove_referenced_var (tree);
 extern void mark_symbols_for_renaming (tree);
 extern void find_new_referenced_vars (tree *);
 
@@ -908,6 +909,10 @@ bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 			struct tree_niter_desc *niter);
 void tree_unroll_loop (struct loop *, unsigned,
 		       edge, struct tree_niter_desc *);
+typedef void (*transform_callback)(struct loop *, void *);
+void tree_transform_and_unroll_loop (struct loop *, unsigned,
+				     edge, struct tree_niter_desc *,
+				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
 
 /* In tree-ssa-threadedge.c */
@@ -1053,6 +1058,7 @@ void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);
+unsigned int execute_fixup_cfg (void);
 
 #include "tree-flow-inline.h"
 

@@ -1080,6 +1080,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
   *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
+  new_cfun->funcdef_no = get_next_funcdef_no ();
   VALUE_HISTOGRAMS (new_cfun) = NULL;
   new_cfun->unexpanded_var_list = NULL;
   new_cfun->cfg = NULL;
@@ -1339,7 +1340,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      represent multiple variables for purposes of debugging. */
   if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
       && (TREE_CODE (rhs) == SSA_NAME
-	  || is_gimple_min_invariant (rhs)))
+	  || is_gimple_min_invariant (rhs))
+      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
     {
       insert_decl_map (id, def, rhs);
       return;
@@ -2612,7 +2614,7 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 
 /* Expand calls to inline functions in the body of FN.  */
 
-void
+unsigned int
 optimize_inline_calls (tree fn)
 {
   copy_body_data id;
@@ -2623,7 +2625,7 @@ optimize_inline_calls (tree fn)
      occurred -- and we might crash if we try to inline invalid
      code.  */
   if (errorcount || sorrycount)
-    return;
+    return 0;
 
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
@@ -2678,25 +2680,22 @@ optimize_inline_calls (tree fn)
   if (ENTRY_BLOCK_PTR->count)
     counts_to_freqs ();
 
+  /* We are not going to maintain the cgraph edges up to date.
+     Kill it so it won't confuse us.  */
+  cgraph_node_remove_callees (id.dst_node);
+
   fold_marked_statements (last, id.statements_to_fold);
   pointer_set_destroy (id.statements_to_fold);
-  if (gimple_in_ssa_p (cfun))
-    {
-      /* We make no attempts to keep dominance info up-to-date.  */
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
-      delete_unreachable_blocks ();
-      update_ssa (TODO_update_ssa);
-      fold_cond_expr_cond ();
-      if (need_ssa_update_p ())
-        update_ssa (TODO_update_ssa);
-    }
-  else
-    fold_cond_expr_cond ();
+  fold_cond_expr_cond ();
+  /* We make no attempts to keep dominance info up-to-date.  */
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
      throw and they don't care to proactively update local EH info.  This is
      done later in fixup_cfg pass that also execute the verification.  */
+  return (TODO_update_ssa | TODO_cleanup_cfg
+	  | (gimple_in_ssa_p (cfun) ? TODO_remove_unused_locals : 0));
 }
 
 /* FN is a function that has a complete body, and CLONE is a function whose
@@ -3193,6 +3192,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   struct ipa_replace_map *replace_info;
   basic_block old_entry_block;
   tree t_step;
+  tree old_current_function_decl = current_function_decl;
 
   gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL
 	      && TREE_CODE (new_decl) == FUNCTION_DECL);
@@ -3201,12 +3201,11 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   old_version_node = cgraph_node (old_decl);
   new_version_node = cgraph_node (new_decl);
 
-  allocate_struct_function (new_decl);
-  /* Cfun points to the new allocated function struct at this point.  */
-  cfun->function_end_locus = DECL_SOURCE_LOCATION (new_decl);
-
   DECL_ARTIFICIAL (new_decl) = 1;
   DECL_ABSTRACT_ORIGIN (new_decl) = DECL_ORIGIN (old_decl);
+
+  /* Prepare the data structures for the tree copy.  */
+  memset (&id, 0, sizeof (id));
 
   /* Generate a new name for the new version. */
   if (!update_clones)
@@ -3214,10 +3213,8 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
       DECL_NAME (new_decl) =  create_tmp_var_name (NULL);
       SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
       SET_DECL_RTL (new_decl, NULL_RTX);
+      id.statements_to_fold = pointer_set_create ();
     }
-
-  /* Prepare the data structures for the tree copy.  */
-  memset (&id, 0, sizeof (id));
   
   id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   id.src_fn = old_decl;
@@ -3232,7 +3229,6 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
   id.transform_new_cfg = true;
   id.transform_return_to_modify = false;
   id.transform_lang_insert_block = false;
-  id.statements_to_fold = pointer_set_create ();
 
   current_function_decl = new_decl;
   old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION
@@ -3298,17 +3294,32 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   /* Clean up.  */
   splay_tree_delete (id.decl_map);
-  fold_marked_statements (0, id.statements_to_fold);
-  pointer_set_destroy (id.statements_to_fold);
-  fold_cond_expr_cond ();
+  if (!update_clones)
+    {
+      fold_marked_statements (0, id.statements_to_fold);
+      pointer_set_destroy (id.statements_to_fold);
+      fold_cond_expr_cond ();
+    }
   if (gimple_in_ssa_p (cfun))
     {
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+      if (!update_clones)
+        delete_unreachable_blocks ();
       update_ssa (TODO_update_ssa);
+      if (!update_clones)
+	{
+	  fold_cond_expr_cond ();
+	  if (need_ssa_update_p ())
+	    update_ssa (TODO_update_ssa);
+	}
     }
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
   pop_cfun ();
-  current_function_decl = NULL;
+  current_function_decl = old_current_function_decl;
+  gcc_assert (!current_function_decl
+	      || DECL_STRUCT_FUNCTION (current_function_decl) == cfun);
   return;
 }
 

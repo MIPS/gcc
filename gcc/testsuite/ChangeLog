@@ -1,3 +1,161 @@
+2007-01-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30476
+	* gfortran.dg/generic_12.f90: New test.
+
+2007-01-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.target/i386/vectorize1.c: Add cleanup-tree-dump.
+	* gcc.dg/tree-ssa/ssa-dse-9.c: Add cleanup-tree-dump.
+
+2007-01-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/compare-special.h: New file.
+	* gcc.dg/dfp/compare-special-32.c: New test.
+	* gcc.dg/dfp/compare-special-64.c: New test.
+	* gcc.dg/dfp/compare-special-128.c: New test.
+
+2007-01-16  Roger Sayle  <roger@eyesopen.com>
+	    Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30404
+	* gfortran.dg/forall_6.f90: New test case.
+	* gfortran.dg/dependency_8.f90: Update test to find "temp" array.
+	* gfortran.dg/dependency_13.f90: Likewise.
+
+2007-01-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/12325
+	* gcc.dg/torture/builtin-attr-1.c: Handle warnings from
+	targets that don't support Inf.
+
+2007-01-15  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/tree-ssa/loop-3.c:  Disable with -fpic or -fPIC.
+
+2007-01-15  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* gfortran.dg/string_0xfe_0xff_1.f90:  Use char instead
+	of achar for 0xff to avoid the "Extended ASCII not
+	implemented" error message.
+
+2007-01-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28172
+	* gfortran.dg/altreturn_4.f90: New test.
+
+	PR fortran/29389
+	* gfortran.dg/stfunc_4.f90: New test.
+
+	PR fortran/29712
+	* gfortran.dg/bound_2.f90: Reinstate commented out line.
+	* gfortran.dg/initialization_1.f90: Change warning.
+
+	PR fortran/30283
+	* gfortran.dg/specification_type_resolution_2.f90: New test.
+
+2007-01-14  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-prof/stringop-1.c: Update pattern for memcpy folding.
+	* gcc.dg/tree-ssa/vrp11.c: Fix thinkos in my last patch.
+	* gcc.dg/always_inline3.c: Update for pre-inline tail recursion
+	elimination.
+
+2007-01-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30410
+	* gfortran.dg/external_procedures_2.f90: New test.
+
+2007-01-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/30413
+	* gcc.target/i386/pr30413.c: New test.
+
+2007-01-14  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/30452
+	* gfortran.dg/string_0xfe_0xff_1.f90:  New test.
+
+2007-01-13  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/20070112-1.c: New test.
+
+2007-01-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30435
+	* gfortran.dg/list_read_6.f90: New test.
+
+2007-01-12  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* gcc.dg/torture/pr24750-1.c:  Add prototype of free.
+
+2007-01-12  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28227:
+	* gcc.dg/cpp/pr28227.c: New file.
+
+2007-01-11  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-22.c: New test.
+
+2007-01-11  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29516
+	* gcc.dg/tree-ssa/loop-20.c: New test.
+
+2007-01-11  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30415
+	* minmaxloc_integer_kinds_1.f90:  New test.
+
+2007-01-11  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29573
+	* g++.dg/template/sizeof-template-argument.C: New test.
+
+2007-01-11  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/tailrecursion-4.c: Update dump file.
+	* gcc.dg/tree-ssa/tailrecursion-1.c: Update dump file.
+	* gcc.dg/tree-ssa/tailrecursion-2.c: Update dump file.
+	* gcc.dg/tree-ssa/tailrecursion-3.c: Update dump file.
+	* gcc.dg/tree-ssa/pr21658.c: Likewise.
+	* gcc.dg/tree-ssa/pr15349.c: Likewise.
+	* gcc.dg/tree-ssa/pr25501.c: Likewise.
+	* gcc.dg/tree-ssa/vrp11.c: Make more complex so it still test
+	transformation in question.
+	* gcc.dg/tree-ssa/vrp05.c: Likewise.
+	* gcc.dg/tree-ssa/pr20701.c: Likewise.
+	* gcc.dg/always_inline3.c: Likewise.
+
+2007-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28999
+	* g++.dg/template/typename11.C: New test.
+
+2007-01-10  Robert Kennedy <jimbob@google.com>
+
+	* gcc.dg/fold-compare-2.c: New test case for fold_comparison.
+
+2007-01-09  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/chkbits.f90: Added IBCLR tests; test calls
+	for different integer kinds.
+	* gfortran.dg/ishft.f90: Renamed to ishft_1.f90...
+	* gfortran.dg/ishft_1.f90: ...Renamed from ishft.f90.
+	* gfortran.dg/ishft_2.f90: New test.
+	* gfortran.dg/ishft_3.f90: New test.
+
+2007-01-09  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/altreturn_2.f90: Removed executable bit.
+
+2007-01-09  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/30322
+	* gcc.dg/tree-ssa/loop-21.c: New test.
+
 2007-01-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* g++.dg/rtti/darwin-builtin-linkage.C: New.

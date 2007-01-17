@@ -120,6 +120,46 @@ fix_bb_placement (basic_block bb)
   return true;
 }
 
+/* Fix placement of LOOP inside loop tree, i.e. find the innermost superloop
+   of LOOP to that leads at least one exit edge of LOOP, and set it
+   as the immediate superloop of LOOP.  Return true if the immediate superloop
+   of LOOP changed.  */
+
+static bool
+fix_loop_placement (struct loop *loop)
+{
+  unsigned i;
+  edge e;
+  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  struct loop *father = current_loops->tree_root, *act;
+  bool ret = false;
+
+  for (i = 0; VEC_iterate (edge, exits, i, e); i++)
+    {
+      act = find_common_loop (loop, e->dest->loop_father);
+      if (flow_loop_nested_p (father, act))
+	father = act;
+    }
+
+  if (father != loop->outer)
+    {
+      for (act = loop->outer; act != father; act = act->outer)
+	act->num_nodes -= loop->num_nodes;
+      flow_loop_tree_node_remove (loop);
+      flow_loop_tree_node_add (father, loop);
+
+      /* The exit edges of LOOP no longer exits its original immediate
+	 superloops; remove them from the appropriate exit lists.  */
+      for (i = 0; VEC_iterate (edge, exits, i, e); i++)
+	rescan_loop_exit (e, false, false);
+
+      ret = true;
+    }
+
+  VEC_free (edge, heap, exits);
+  return ret;
+}
+
 /* Fix placements of basic blocks inside loop hierarchy stored in loops; i.e.
    enforce condition condition stated in description of fix_bb_placement. We
    start from basic block FROM that had some of its successors removed, so that
@@ -425,7 +465,7 @@ loopify (edge latch_edge, edge header_edge,
   basic_block *dom_bbs, *body;
   unsigned n_dom_bbs, i;
   sbitmap seen;
-  struct loop *loop = XCNEW (struct loop);
+  struct loop *loop = alloc_loop ();
   struct loop *outer = succ_bb->loop_father->outer;
   int freq;
   gcov_type cnt;
@@ -563,42 +603,6 @@ unloop (struct loop *loop, bool *irred_invalidated)
   fix_bb_placements (latch, &dummy);
 }
 
-/* Fix placement of LOOP inside loop tree, i.e. find the innermost superloop
-   FATHER of LOOP such that all of the edges coming out of LOOP belong to
-   FATHER, and set it as outer loop of LOOP.  Return true if placement of
-   LOOP changed.  */
-
-int
-fix_loop_placement (struct loop *loop)
-{
-  basic_block *body;
-  unsigned i;
-  edge e;
-  edge_iterator ei;
-  struct loop *father = loop->pred[0], *act;
-
-  body = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    FOR_EACH_EDGE (e, ei, body[i]->succs)
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	{
-	  act = find_common_loop (loop, e->dest->loop_father);
-	  if (flow_loop_nested_p (father, act))
-	    father = act;
-	}
-  free (body);
-
-  if (father != loop->outer)
-    {
-      for (act = loop->outer; act != father; act = act->outer)
-	act->num_nodes -= loop->num_nodes;
-      flow_loop_tree_node_remove (loop);
-      flow_loop_tree_node_add (father, loop);
-      return 1;
-    }
-  return 0;
-}
-
 /* Fix placement of superloops of LOOP inside loop tree, i.e. ensure that
    condition stated in description of fix_loop_placement holds for them.
    It is used in case when we removed some edges coming out of LOOP, which
@@ -643,7 +647,7 @@ struct loop *
 duplicate_loop (struct loop *loop, struct loop *target)
 {
   struct loop *cloop;
-  cloop = XCNEW (struct loop);
+  cloop = alloc_loop ();
   place_new_loop (cloop);
 
   /* Mark the new loop as copy of LOOP.  */
@@ -744,65 +748,6 @@ can_duplicate_loop_p (struct loop *loop)
   free (bbs);
 
   return ret;
-}
-
-/* The NBBS blocks in BBS will get duplicated and the copies will be placed
-   to LOOP.  Update the single_exit information in superloops of LOOP.  */
-
-static void
-update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
-				       struct loop *loop)
-{
-  unsigned i;
-
-  for (i = 0; i < nbbs; i++)
-    bbs[i]->flags |= BB_DUPLICATED;
-
-  for (; loop->outer; loop = loop->outer)
-    {
-      if (!single_exit (loop))
-	continue;
-
-      if (single_exit (loop)->src->flags & BB_DUPLICATED)
-	set_single_exit (loop, NULL);
-    }
-
-  for (i = 0; i < nbbs; i++)
-    bbs[i]->flags &= ~BB_DUPLICATED;
-}
-
-/* Updates single exit information for the copy of LOOP.  */
-
-static void
-update_single_exit_for_duplicated_loop (struct loop *loop)
-{
-  struct loop *copy = loop->copy;
-  basic_block src, dest;
-  edge exit = single_exit (loop);
-
-  if (!exit)
-    return;
-
-  src = get_bb_copy (exit->src);
-  dest = exit->dest;
-  if (dest->flags & BB_DUPLICATED)
-    dest = get_bb_copy (dest);
-
-  exit = find_edge (src, dest);
-  gcc_assert (exit != NULL);
-  set_single_exit (copy, exit);
-}
-
-/* Updates single exit information for copies of ORIG_LOOPS and their subloops.
-   N is the number of the loops in the ORIG_LOOPS array.  */
-
-static void
-update_single_exit_for_duplicated_loops (struct loop *orig_loops[], unsigned n)
-{
-  unsigned i;
-
-  for (i = 0; i < n; i++)
-    update_single_exit_for_duplicated_loop (orig_loops[i]);
 }
 
 /* Sets probability and count of edge E to zero.  The probability and count
@@ -1018,10 +963,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       first_active_latch = latch;
     }
 
-  /* Update the information about single exits.  */
-  if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-    update_single_exits_after_duplication (bbs, n, target);
-
   spec_edges[SE_ORIG] = orig;
   spec_edges[SE_LATCH] = latch_edge;
 
@@ -1035,15 +976,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop,
 		place_after);
       place_after = new_spec_edges[SE_LATCH]->src;
-
-      if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-	{
-	  for (i = 0; i < n; i++)
-	    bbs[i]->flags |= BB_DUPLICATED;
-	  update_single_exit_for_duplicated_loops (orig_loops, n_orig_loops);
-	  for (i = 0; i < n; i++)
-	    bbs[i]->flags &= ~BB_DUPLICATED;
-	}
 
       if (flags & DLTHE_RECORD_COPY_NUMBER)
 	for (i = 0; i < n; i++)
@@ -1378,7 +1310,7 @@ loop_version (struct loop *loop,
 	      bool place_after)
 {
   basic_block first_head, second_head;
-  edge entry, latch_edge, exit, true_edge, false_edge;
+  edge entry, latch_edge, true_edge, false_edge;
   int irred_flag;
   struct loop *nloop;
   basic_block cond_bb;
@@ -1424,10 +1356,6 @@ loop_version (struct loop *loop,
 		   cond_bb, true_edge, false_edge,
 		   false /* Do not redirect all edges.  */,
 		   then_scale, else_scale);
-
-  exit = single_exit (loop);
-  if (exit)
-    set_single_exit (nloop, find_edge (get_bb_copy (exit->src), exit->dest));
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */
   lv_flush_pending_stmts (latch_edge);
@@ -1539,8 +1467,12 @@ fix_loop_structure (bitmap changed_bbs)
       bb->aux = NULL;
     }
 
-  if (current_loops->state & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-    mark_single_exit_loops ();
   if (current_loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
     mark_irreducible_loops ();
+
+  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+    {
+      release_recorded_exits ();
+      record_loop_exits ();
+    }
 }

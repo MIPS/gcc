@@ -862,7 +862,6 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
   copy_bbs (bbs, loop->num_nodes, new_bbs,
 	    &exit, 1, &new_exit, NULL,
 	    e->src);
-  set_single_exit (new_loop, new_exit);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
@@ -1065,7 +1064,8 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
 struct loop*
 slpeel_tree_peel_loop_to_edge (struct loop *loop, 
 			       edge e, tree first_niters, 
-			       tree niters, bool update_first_loop_count)
+			       tree niters, bool update_first_loop_count,
+			       unsigned int th)
 {
   struct loop *new_loop = NULL, *first_loop, *second_loop;
   edge skip_e;
@@ -1158,7 +1158,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
 
   pre_condition =
     fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
-                 build_int_cst (TREE_TYPE (first_niters), 0));
+	build_int_cst (TREE_TYPE (first_niters), th));
+
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
