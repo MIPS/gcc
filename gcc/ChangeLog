@@ -1,4 +1,21 @@
-2007-01-16  Chao-ying Fur  <fu@mips.com>
+2007-01-09  Nicolas Pitre  <nico@cam.org>
+
+	PR target/30173
+	* arm/ieee754-df.S (Lad_s): Also test the low word of X for zero.
+
+2007-01-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* target.h (struct gcc_target): New field library_rtti_comdat.
+	* target-def.h (TARGET_CXX_LIBRARY_RTTI_COMDAT): New.
+	(TARGET_CXX): Add TARGET_CXX_LIBRARY_RTTI_COMDAT.
+	* doc/tm.texi (C++ ABI): Document TARGET_CXX_LIBRARY_RTTI_COMDAT.
+	* config/darwin.h (TARGET_CXX_LIBRARY_RTTI_COMDAT): Define.
+
+2007-01-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/invoke.texi (Optimize Options): Correct description of -O0.
+
+2007-01-16  Chao-ying Fu  <fu@mips.com>
 
 	* optabs.c (expand_fixed_convert): New function.
 	* optabs.h (expand_fixed_convert): Declare.
