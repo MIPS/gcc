@@ -732,6 +732,11 @@ DEFTREECODE (RANGE_EXPR, "range_expr", tcc_binary, 2)
    represented by CONVERT_EXPR or NOP_EXPR nodes.  */
 DEFTREECODE (CONVERT_EXPR, "convert_expr", tcc_unary, 1)
 
+/* Conversion of a fixed-point value to an integer, a real, or a fixed-point
+   value.  Or conversion of a fixed-point value from an integer, a real, or
+   a fixed-point value.  */
+DEFTREECODE (FIXED_CONVERT_EXPR, "fixed_convert_expr", tcc_unary, 1)
+
 /* Represents a conversion expected to require no code to be generated.  */
 DEFTREECODE (NOP_EXPR, "nop_expr", tcc_unary, 1)
 

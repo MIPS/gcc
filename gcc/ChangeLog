@@ -1,3 +1,62 @@
+2007-01-16  Chao-ying Fur  <fu@mips.com>
+
+	* optabs.c (expand_fixed_convert): New function.
+	* optabs.h (expand_fixed_convert): Declare.
+	* fold-const.c (negate_expr_p): Return true for FIXED_CST.
+	(const_binop): Add a variable of overflow.  Process TREE_OVERFLOW and
+	TREE_CONSTANT_OVERFLOW.
+	(fold_convert_const_int_from_fixed,
+	fold_convert_const_real_from_fixed): New functions to convert from
+	fixed to int, and from fixed to real.
+	(fold_convert_const_fixed_from_fixed): Add a variable of overflow.
+	Process TREE_OVERFLOW and TREE_CONSTANT_OVERFLOW..
+	(fold_convert_const_fixed_from_int,
+	fold_convert_const_fixed_from_real): New functions to convert from
+	int to fixed, and from real to fixed.
+	(fold_convert_const): Support conversions from fixed to int, from
+	fixed to real, from int to fixed, and from real to fixed.
+	(fold_unary): Support FIXED_CONVERT_EXPR.
+	(fold_negate_const): Update comments.  Process TREE_OVERFLOW and
+	TREE_CONSTANT_OVERFLOW for FIXED_CST.
+	* expr.c (expand_expr_real_1): Support FIXED_CONVERT_EXPR.
+	* tree.def (FIXED_CONVERT_EXPR): New tree code.
+	* tree-inline.c (estimate_num_insns_1): Support FIXED_CONVERT_EXPR.
+	* fixed-value.c (real.h): Remove this include.
+	(check_real_for_fixed_mode): New declare.
+	(do_fixed_add, do_fixed_multiply, do_fixed_divide, do_fixed_shift,
+	do_fixed_neg, fixed_saturate1, fixed_saturate2): Return a bool value
+	for overflow.
+	(check_real_for_fixed_mode): New function.
+	(fixed_from_string): Check boundary and warn when overflow.  Convert
+	1.0 to the maximum value.
+	(fixed_to_decimal): Increase the array size from 10 to 20.
+	(fixed_saturate1): Return true when overflow.
+	(fixed_saturate2): Likewise.
+	(do_fixed_add): Likewise.
+	(do_fixed_multiply): Likewise.
+	(do_fixed_divide): Likewise.
+	(do_fixed_shift): Likewise.
+	(do_fixed_neg): Likewise.
+	(fixed_arithmetic): Likewise.
+	(fixed_arithmetic2): Remove.
+	(fixed_convert): Return true when overflow.
+	(fixed_convert_from_int, fixed_convert_from_real,
+	real_convert_from_fixed): New functions.
+	* fixed-value.h (real.h): New include.
+	(fixed_convert): Return a bool value for overflow.
+	(fixed_convert_from_int, fixed_convert_from_real,
+	real_convert_from_fixed): Declare.
+	(fixed_arithmetic): Return a bool value for overflow.
+	(fixed_arithmetic2): Remove.
+	(FIXED_VALUE_NEGATE): Remove.
+	* c-common.c (overflow_warning): Support FIXED_CST.
+	(convert_and_check): Warn overflow for FIXED_CST.
+	* Makefile.in (fixed_value.o): Add REAL_H and toplev.h.
+	* convert.c (convert_to_real): Support FIXED_POINT_TYPE.
+	(convert_to_integer): Support FIXED_POINT_TYPE.
+	(convert_to_fixed): Use FIXED_CONVERT_EXPR for conversion among
+	FIXED_POINT_TYPE, and from integer or real. 
+	
 2007-01-08  Richard Guenther  <rguenther@suse.de>
 
 	* tree.h (force_fit_type_double): Export.

@@ -4928,6 +4928,15 @@ expand_fix (rtx to, rtx from, int unsignedp)
     }
 }
 
+/* Generate code to convert FROM or TO a fixed-point.
+   If SATP is true, we need to saturate the result.  */
+
+void
+expand_fixed_convert (rtx to, rtx from, int satp)
+{
+  error ("fix me");
+}
+
 /* Generate code to convert FROM to fixed point and store in TO.  FROM
    must be floating point, TO must be signed.  Use the conversion optab
    TAB to do the conversion.  */

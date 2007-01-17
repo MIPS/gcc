@@ -2247,7 +2247,7 @@ real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 dfp.o : dfp.c dfp.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	$(TREE_H) \
    toplev.h $(TM_P_H) $(REAL_H) $(DECNUM_H)
 fixed-value.o: fixed-value.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TREE_H) fixed-value.h
+   $(TREE_H) fixed-value.h $(REAL_H) toplev.h
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) $(FLAGS_H) debug.h $(INTEGRATE_H) insn-config.h \
    $(EXPR_H) $(REAL_H) $(REGS_H) intl.h $(FUNCTION_H) output.h $(RECOG_H) \

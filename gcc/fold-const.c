@@ -1010,6 +1010,7 @@ negate_expr_p (tree t)
        	      && (TYPE_UNSIGNED (type)
 	      	  || (flag_wrapv && !flag_trapv));
 
+    case FIXED_CST:
     case REAL_CST:
     case NEGATE_EXPR:
       return true;
@@ -1749,6 +1750,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       FIXED_VALUE_TYPE result;
       tree t, type;
       int satp;
+      bool overflow;
 
       /* The following codes are handled by fixed_arithmetic.  */
       switch (code)
@@ -1774,8 +1776,16 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       f1 = TREE_FIXED_CST (arg1);
       type = TREE_TYPE (arg1);
       satp = TYPE_SATURATING (type);
-      fixed_arithmetic (&result, code, &f1, &f2, satp);
+      overflow = fixed_arithmetic (&result, code, &f1, &f2, satp);
       t = build_fixed (type, result);
+      /* Propagate overflow flags.  */
+      if (overflow | TREE_OVERFLOW (arg1) | TREE_OVERFLOW (arg2))
+	{
+	  TREE_OVERFLOW (t) = 1;
+	  TREE_CONSTANT_OVERFLOW (t) = 1;
+	}
+      else if (TREE_CONSTANT_OVERFLOW (arg1) | TREE_CONSTANT_OVERFLOW (arg2))
+	TREE_CONSTANT_OVERFLOW (t) = 1;
       return t;
     }
 
@@ -2036,6 +2046,62 @@ fold_convert_const_int_from_real (enum tree_code code, tree type, tree arg1)
   return t;
 }
 
+/* A subroutine of fold_convert_const handling conversions of a
+   FIXED_CST to an integer type.  */
+
+static tree
+fold_convert_const_int_from_fixed (tree type, tree arg1)
+{
+  tree t;
+  double_int temp, temp_trunc;
+  unsigned int mode;
+
+  /* Right shift FIXED_CST to temp by fbit.  */
+  temp = TREE_FIXED_CST (arg1).data;
+  mode = TREE_FIXED_CST (arg1).mode;
+  if (GET_MODE_FBIT (mode) < 2 * HOST_BITS_PER_WIDE_INT)
+    {
+      lshift_double (temp.low, temp.high,
+		     - GET_MODE_FBIT (mode), 2 * HOST_BITS_PER_WIDE_INT,
+		     &temp.low, &temp.high, SIGNED_FIXED_POINT_MODE_P (mode));
+
+      /* Left shift temp to temp_trunc by fbit.  */
+      lshift_double (temp.low, temp.high,
+		     GET_MODE_FBIT (mode), 2 * HOST_BITS_PER_WIDE_INT,
+		     &temp_trunc.low, &temp_trunc.high,
+		     SIGNED_FIXED_POINT_MODE_P (mode));
+    }
+  else
+    {
+      temp.low = 0;
+      temp.high = 0;
+      temp_trunc.low = 0;
+      temp_trunc.high = 0;
+    }
+
+  /* If FIXED_CST is negative, we need to round the value toward 0.
+     By checking if the fractional bits are not zero to add 1 to temp.  */
+  if (SIGNED_FIXED_POINT_MODE_P (mode) && temp_trunc.high < 0
+      && !double_int_equal_p (TREE_FIXED_CST (arg1).data, temp_trunc))
+    {
+      double_int one;
+      one.low = 1;
+      one.high = 0;
+      temp = double_int_add (temp, one);
+    }
+
+  /* Given a fixed-point constant, make new constant with new type,
+     appropriately sign-extended or truncated.  */
+  t = force_fit_type_double (type, temp.low, temp.high, -1,
+			     (temp.high < 0
+		 	      && (TYPE_UNSIGNED (type)
+				  < TYPE_UNSIGNED (TREE_TYPE (arg1))))
+			     | TREE_OVERFLOW (arg1),
+			     TREE_CONSTANT_OVERFLOW (arg1));
+
+  return t;
+}
+
 /* A subroutine of fold_convert_const handling conversions a REAL_CST
    to another floating point type.  */
 
@@ -2055,6 +2121,24 @@ fold_convert_const_real_from_real (tree type, tree arg1)
 }
 
 /* A subroutine of fold_convert_const handling conversions a FIXED_CST
+   to a floating point type.  */
+
+static tree
+fold_convert_const_real_from_fixed (tree type, tree arg1)
+{
+  REAL_VALUE_TYPE value;
+  tree t;
+
+  real_convert_from_fixed (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1));
+  t = build_real (type, value);
+
+  TREE_OVERFLOW (t) = TREE_OVERFLOW (arg1);
+  TREE_CONSTANT_OVERFLOW (t)
+    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1);
+  return t;
+}
+
+/* A subroutine of fold_convert_const handling conversions a FIXED_CST
    to another fixed-point type.  */
 
 static tree
@@ -2062,11 +2146,73 @@ fold_convert_const_fixed_from_fixed (tree type, tree arg1)
 {
   FIXED_VALUE_TYPE value;
   tree t;
+  bool overflow;
 
-  fixed_convert (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1),
-		 TYPE_SATURATING (type));
+  overflow = fixed_convert (&value, TYPE_MODE (type), &TREE_FIXED_CST (arg1),
+			    TYPE_SATURATING (type));
   t = build_fixed (type, value);
 
+  /* Propagate overflow flags.  */
+  if (overflow | TREE_OVERFLOW (arg1))
+    {
+      TREE_OVERFLOW (t) = 1;
+      TREE_CONSTANT_OVERFLOW (t) = 1;
+    }
+  else if (TREE_CONSTANT_OVERFLOW (arg1))
+    TREE_CONSTANT_OVERFLOW (t) = 1;
+  return t;
+}
+
+/* A subroutine of fold_convert_const handling conversions an INTEGER_CST
+   to a fixed-point type.  */
+
+static tree
+fold_convert_const_fixed_from_int (tree type, tree arg1)
+{
+  FIXED_VALUE_TYPE value;
+  tree t;
+  bool overflow;
+
+  overflow = fixed_convert_from_int (&value, TYPE_MODE (type),
+				     TREE_INT_CST (arg1),
+				     TYPE_UNSIGNED (TREE_TYPE (arg1)),
+				     TYPE_SATURATING (type));
+  t = build_fixed (type, value);
+
+  /* Propagate overflow flags.  */
+  if (overflow | TREE_OVERFLOW (arg1))
+    {
+      TREE_OVERFLOW (t) = 1;
+      TREE_CONSTANT_OVERFLOW (t) = 1;
+    }
+  else if (TREE_CONSTANT_OVERFLOW (arg1))
+    TREE_CONSTANT_OVERFLOW (t) = 1;
+  return t;
+}
+
+/* A subroutine of fold_convert_const handling conversions a REAL_CST
+   to a fixed-point type.  */
+
+static tree
+fold_convert_const_fixed_from_real (tree type, tree arg1)
+{
+  FIXED_VALUE_TYPE value;
+  tree t;
+  bool overflow;
+
+  overflow = fixed_convert_from_real (&value, TYPE_MODE (type),
+				      &TREE_REAL_CST (arg1),
+				      TYPE_SATURATING (type));
+  t = build_fixed (type, value);
+
+  /* Propagate overflow flags.  */
+  if (overflow | TREE_OVERFLOW (arg1))
+    {
+      TREE_OVERFLOW (t) = 1;
+      TREE_CONSTANT_OVERFLOW (t) = 1;
+    }
+  else if (TREE_CONSTANT_OVERFLOW (arg1))
+    TREE_CONSTANT_OVERFLOW (t) = 1;
   return t;
 }
 
@@ -2085,18 +2231,26 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 	return fold_convert_const_int_from_int (type, arg1);
       else if (TREE_CODE (arg1) == REAL_CST)
 	return fold_convert_const_int_from_real (code, type, arg1);
+      else if (TREE_CODE (arg1) == FIXED_CST)
+	return fold_convert_const_int_from_fixed (type, arg1);
     }
   else if (TREE_CODE (type) == REAL_TYPE)
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
 	return build_real_from_int_cst (type, arg1);
-      if (TREE_CODE (arg1) == REAL_CST)
+      else if (TREE_CODE (arg1) == REAL_CST)
 	return fold_convert_const_real_from_real (type, arg1);
+      else if (TREE_CODE (arg1) == FIXED_CST)
+	return fold_convert_const_real_from_fixed (type, arg1);
     }
   else if (TREE_CODE (type) == FIXED_POINT_TYPE)
     {
       if (TREE_CODE (arg1) == FIXED_CST)
 	return fold_convert_const_fixed_from_fixed (type, arg1);
+      else if (TREE_CODE (arg1) == INTEGER_CST)
+	return fold_convert_const_fixed_from_int (type, arg1);
+      else if (TREE_CODE (arg1) == REAL_CST)
+	return fold_convert_const_fixed_from_real (type, arg1);
     }
   return NULL_TREE;
 }
@@ -7681,6 +7835,10 @@ fold_unary (enum tree_code code, tree type, tree op0)
       tem = fold_convert_const (code, type, arg0);
       return tem ? tem : NULL_TREE;
 
+    case FIXED_CONVERT_EXPR:
+      tem = fold_convert_const (code, type, arg0);
+      return tem ? tem : NULL_TREE;
+
     case VIEW_CONVERT_EXPR:
       if (TREE_CODE (op0) == VIEW_CONVERT_EXPR)
 	return fold_build1 (VIEW_CONVERT_EXPR, type, TREE_OPERAND (op0, 0));
@@ -13110,7 +13268,7 @@ fold_read_from_constant_string (tree exp)
 }
 
 /* Return the tree for neg (ARG0) when ARG0 is known to be either
-   an integer constant or real constant.
+   an integer constant, real, or fixed-point constant.
 
    TYPE is the type of the result.  */
 
@@ -13140,9 +13298,22 @@ fold_negate_const (tree arg0, tree type)
       break;
 
     case FIXED_CST:
-      t = build_fixed (type, FIXED_VALUE_NEGATE (TREE_FIXED_CST (arg0),
-						 TYPE_SATURATING (type)));
-      break;
+      {
+        FIXED_VALUE_TYPE f;
+        bool overflow = fixed_arithmetic (&f, NEGATE_EXPR,
+					  &(TREE_FIXED_CST (arg0)), NULL,
+					  TYPE_SATURATING (type));
+	t = build_fixed (type, f);
+	/* Propagate overflow flags.  */
+	if (overflow | TREE_OVERFLOW (arg0))
+	  {
+	    TREE_OVERFLOW (t) = 1;
+	    TREE_CONSTANT_OVERFLOW (t) = 1;
+	  }
+	else if (TREE_CONSTANT_OVERFLOW (arg0))
+	  TREE_CONSTANT_OVERFLOW (t) = 1;
+	break;
+      }
 
     default:
       gcc_unreachable ();

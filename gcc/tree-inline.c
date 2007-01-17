@@ -2036,6 +2036,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MINUS_EXPR:
     case MULT_EXPR:
 
+    case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
 
     case NEGATE_EXPR:

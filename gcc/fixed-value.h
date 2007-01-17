@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define GCC_FIXED_VALUE_H
 
 #include "machmode.h"
+#include "real.h"
 
 struct fixed_value GTY(())
 {
@@ -47,8 +48,20 @@ extern void fixed_from_string (FIXED_VALUE_TYPE *, const char *, tree);
 extern tree build_fixed (tree, FIXED_VALUE_TYPE);
 
 /* Extend or truncate to a new mode.  */
-extern void fixed_convert (FIXED_VALUE_TYPE *, enum machine_mode,
+extern bool fixed_convert (FIXED_VALUE_TYPE *, enum machine_mode,
 			   const FIXED_VALUE_TYPE *, int);
+
+/* Convert to a fixed-point mode from an integer.  */
+extern bool fixed_convert_from_int (FIXED_VALUE_TYPE *, enum machine_mode,
+				    double_int, int, int);
+
+/* Convert to a fixed-point mode from a real.  */
+extern bool fixed_convert_from_real (FIXED_VALUE_TYPE *, enum machine_mode,
+				     const REAL_VALUE_TYPE *, int);
+
+/* Convert to a real mode from a fixed-point.  */
+extern void real_convert_from_fixed (REAL_VALUE_TYPE *, enum machine_mode,
+				     const FIXED_VALUE_TYPE *);
 
 /* Compare two fixed-point objects for bitwise identity.  */
 extern bool fixed_identical (const FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *);
@@ -62,17 +75,11 @@ extern unsigned int fixed_hash (const FIXED_VALUE_TYPE *);
 extern void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *, size_t);
 
 /* Binary or unary arithmetic on tree_code.  */
-extern void fixed_arithmetic (FIXED_VALUE_TYPE *, int, const FIXED_VALUE_TYPE *,
+extern bool fixed_arithmetic (FIXED_VALUE_TYPE *, int, const FIXED_VALUE_TYPE *,
 			      const FIXED_VALUE_TYPE *, int);
 
 /* Compare fixed-point values by tree_code.  */
 extern bool fixed_compare (int, const FIXED_VALUE_TYPE *,
 			   const FIXED_VALUE_TYPE *);
-
-extern FIXED_VALUE_TYPE fixed_arithmetic2 (int, const FIXED_VALUE_TYPE *,
-					   const FIXED_VALUE_TYPE *, int);
-
-#define FIXED_VALUE_NEGATE(X, satp) \
-  fixed_arithmetic2 (NEGATE_EXPR, &(X), NULL, satp)
 
 #endif /* GCC_FIXED_VALUE_H */

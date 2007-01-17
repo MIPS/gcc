@@ -119,7 +119,7 @@ strip_float_extensions (tree exp)
 
 /* Convert EXPR to some floating-point type TYPE.
 
-   EXPR must be float, integer, or enumeral;
+   EXPR must be float, fixed-point, integer, or enumeral;
    in other cases error is called.  */
 
 tree
@@ -326,6 +326,9 @@ convert_to_real (tree type, tree expr)
     case BOOLEAN_TYPE:
       return build1 (FLOAT_EXPR, type, expr);
 
+    case FIXED_POINT_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
+
     case COMPLEX_TYPE:
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
@@ -344,8 +347,8 @@ convert_to_real (tree type, tree expr)
 
 /* Convert EXPR to some integer (or enum) type TYPE.
 
-   EXPR must be pointer, integer, discrete (enum, char, or bool), float, or
-   vector; in other cases error is called.
+   EXPR must be pointer, integer, discrete (enum, char, or bool), float,
+   fixed-point or vector; in other cases error is called.
 
    The result of this is always supposed to be a newly created tree node
    not in use in any existing structure.  */
@@ -725,6 +728,9 @@ convert_to_integer (tree type, tree expr)
     case REAL_TYPE:
       return build1 (FIX_TRUNC_EXPR, type, expr);
 
+    case FIXED_POINT_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
+
     case COMPLEX_TYPE:
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
@@ -838,9 +844,19 @@ convert_to_fixed (tree type, tree expr)
     case FIXED_POINT_TYPE:
       {
 	enum tree_code code;
-	code = CONVERT_EXPR;
-	return fold_build1 (code, type, expr);
+	tree intype = TREE_TYPE (expr);
+	if (TYPE_MODE (type) == TYPE_MODE (intype))
+	  code = NOP_EXPR;
+	else
+	  code = FIXED_CONVERT_EXPR;
+	return build1 (code, type, expr);
       }
+
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+    case REAL_TYPE:
+      return build1 (FIXED_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where a fixed-point was expected");

@@ -662,6 +662,9 @@ extern void set_optab_libfunc (optab, enum machine_mode, const char *);
 extern void set_conv_libfunc (convert_optab, enum machine_mode,
 			      enum machine_mode, const char *);
 
+/* Generate code for a FIXED_CONVERT_EXPR.  */
+extern void expand_fixed_convert (rtx, rtx, int);
+
 /* Generate code for a FLOAT_EXPR.  */
 extern void expand_float (rtx, rtx, int);
 

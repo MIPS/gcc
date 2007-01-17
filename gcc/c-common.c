@@ -950,6 +950,10 @@ overflow_warning (tree value)
       warning (OPT_Woverflow, "floating point overflow in expression");
       break;
       
+    case FIXED_CST:
+      warning (OPT_Woverflow, "fixed-point overflow in expression");
+      break;
+      
     case VECTOR_CST:
       warning (OPT_Woverflow, "vector overflow in expression");
       break;
@@ -1284,7 +1288,8 @@ convert_and_check (tree type, tree expr)
             conversion_warning (type, expr);
         }
     }
-  else if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result)) 
+  else if ((TREE_CODE (result) == INTEGER_CST
+	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result)) 
     warning (OPT_Woverflow,
              "overflow in implicit constant conversion");
   else if (warn_conversion)

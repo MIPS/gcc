@@ -8222,6 +8222,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		       subtarget, &op0, &op1, 0);
       return expand_divmod (1, code, mode, op0, op1, target, unsignedp);
 
+    case FIXED_CONVERT_EXPR:
+      op0 = expand_normal (TREE_OPERAND (exp, 0));
+      if (target == 0 || modifier == EXPAND_STACK_PARM)
+	target = gen_reg_rtx (mode);
+      expand_fixed_convert (target, op0, TYPE_SATURATING (type));
+      return target;
+
     case FIX_TRUNC_EXPR:
       op0 = expand_normal (TREE_OPERAND (exp, 0));
       if (target == 0 || modifier == EXPAND_STACK_PARM)

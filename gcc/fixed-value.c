@@ -25,21 +25,21 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "toplev.h"
 #include "fixed-value.h"
-#include "real.h"
 
+static int check_real_for_fixed_mode (REAL_VALUE_TYPE *, unsigned int);
 static int get_fixed_sign_bit (double_int, int);
-static void do_fixed_add (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
+static bool do_fixed_add (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
 			  const FIXED_VALUE_TYPE *, int, int);
-static void do_fixed_multiply (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
+static bool do_fixed_multiply (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
 			       const FIXED_VALUE_TYPE *, int);
-static void do_fixed_divide (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
+static bool do_fixed_divide (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
 			     const FIXED_VALUE_TYPE *, int);
-static void do_fixed_shift (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
+static bool do_fixed_shift (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *,
 			    const FIXED_VALUE_TYPE *, int, int);
-static void do_fixed_neg (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *, int);
-static void fixed_saturate1 (unsigned int, double_int, double_int *);
-static void fixed_saturate2 (unsigned int, double_int, double_int,
-			     double_int *);
+static bool do_fixed_neg (FIXED_VALUE_TYPE *, const FIXED_VALUE_TYPE *, int);
+static bool fixed_saturate1 (unsigned int, double_int, double_int *, int);
+static bool fixed_saturate2 (unsigned int, double_int, double_int,
+			     double_int *, int);
 
 /* Compare two fixed objects for bitwise identity.  */
 
@@ -58,28 +58,80 @@ fixed_hash (const FIXED_VALUE_TYPE *f)
   return (unsigned int) (f->data.low ^ f->data.high);
 }
 
+/* Check REAL_VALUE against the range of the fixed-point mode.
+   Return 0, if it is within the range.
+          1, if it is less than the minimum.
+          2, if it is greater than the maximum + 1.
+          3, if it is equal to the maximum + 1.  */
+
+int
+check_real_for_fixed_mode (REAL_VALUE_TYPE *real_value, unsigned int mode)
+{
+  REAL_VALUE_TYPE max_value, min_value;
+  char max_string[20], min_string[20];
+
+  if (SIGNED_FIXED_POINT_MODE_P (mode))
+    {
+      sprintf (max_string, "0x1.0p%d", GET_MODE_IBIT (mode));
+      sprintf (min_string, "-0x1.0p%d", GET_MODE_IBIT (mode));
+      real_from_string (&max_value, max_string);
+      real_from_string (&min_value, min_string);
+    }
+  else
+    {
+      sprintf (max_string, "0x1.0p%d", GET_MODE_IBIT (mode));
+      real_from_string (&max_value, max_string);
+      real_from_string (&min_value, "0.0");
+    }
+
+  if (real_compare (LT_EXPR, real_value, &min_value))
+    return 1; 
+  if (real_compare (GT_EXPR, real_value, &max_value))
+    return 2; 
+  if (real_compare (EQ_EXPR, real_value, &max_value))
+    return 3; 
+  return 0;
+}
+
 /* Initialize from a decimal or hexadecimal string.  */
 
 void
 fixed_from_string (FIXED_VALUE_TYPE *f, const char *str, tree type)
 {
   REAL_VALUE_TYPE real_value, fixed_value, base_value;
-  char base_string[10];
+  char base_string[20];
   unsigned int fbit;
+  int temp;
 
   f->mode = TYPE_MODE (type);
   fbit = TYPE_FBIT (type);
 
   sprintf (base_string, "0x1.0p%d", fbit);
   real_from_string (&real_value, str);
+  temp = check_real_for_fixed_mode (&real_value, f->mode);
+  /* We don't want to warn the case when the _Fract value is 1.0.  */
+  if (temp == 1 || temp == 2 || (temp == 3 && ALL_ACCUM_MODE_P (f->mode)))
+    warning (OPT_Woverflow,
+	     "large fixed-point constant implicitly truncated to fixed-point type");
   real_from_string (&base_value, base_string);
   real_arithmetic (&fixed_value, MULT_EXPR, &real_value, &base_value);
   real_to_integer2 (&f->data.low, &f->data.high,  &fixed_value);
-  f->data = double_int_ext (f->data,
-			    SIGNED_FIXED_POINT_MODE_P (f->mode)
-			    + GET_MODE_FBIT (f->mode)
-			    + GET_MODE_IBIT (f->mode),
-			    UNSIGNED_FIXED_POINT_MODE_P (f->mode));
+
+  if (temp == 3 && ALL_FRACT_MODE_P (f->mode))
+    {
+      /* From the spec, we need to evaluate 1 to the maximal value.  */
+      f->data.low = -1;
+      f->data.high = -1;
+      f->data = double_int_ext (f->data,
+				GET_MODE_FBIT (f->mode)
+				+ GET_MODE_IBIT (f->mode), 1);
+    }
+  else
+    f->data = double_int_ext (f->data,
+			      SIGNED_FIXED_POINT_MODE_P (f->mode)
+			      + GET_MODE_FBIT (f->mode)
+			      + GET_MODE_IBIT (f->mode),
+			      UNSIGNED_FIXED_POINT_MODE_P (f->mode));
 }
 
 /* Render F as a decimal floating point constant.  */
@@ -87,7 +139,7 @@ fixed_from_string (FIXED_VALUE_TYPE *f, const char *str, tree type)
 void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *f_orig,
 		       size_t buf_size)
 {
-  char base_string[10];
+  char base_string[20];
   REAL_VALUE_TYPE real_value, base_value, fixed_value;
 
   sprintf (base_string, "0x1.0p%d", GET_MODE_FBIT (f_orig->mode));
@@ -98,14 +150,16 @@ void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *f_orig,
   real_to_decimal (str, &fixed_value, buf_size, 0, 1);
 }
 
-/* Saturate A to the maximum or the minimum to *F based on
+/* If SATP, saturate A to the maximum or the minimum, and save to *F based on
    the machine mode MODE.
    This function assumes the width of double_int is greater than the width
-   of the fixed-point value at the fixed-point mode.  */
+   of the fixed-point value at the fixed-point mode.
+   Return true, if !SATP and overflow.  */
 
-static void
-fixed_saturate1 (unsigned int mode, double_int a, double_int *f)
+static bool
+fixed_saturate1 (unsigned int mode, double_int a, double_int *f, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (mode);
   int i_f_bits = GET_MODE_IBIT (mode) + GET_MODE_FBIT (mode);
 
@@ -116,7 +170,12 @@ fixed_saturate1 (unsigned int mode, double_int a, double_int *f)
       max.high = -1;
       max = double_int_ext (max, i_f_bits, 1);
       if (double_int_cmp (a, max, 1) == 1)
-	*f = max;
+	{
+	  if (satp)
+	    *f = max;
+	  else
+	    overflow = true;
+	}
     }
   else /* Signed type.  */
     {
@@ -131,21 +190,34 @@ fixed_saturate1 (unsigned int mode, double_int a, double_int *f)
 		     &min.low, &min.high, 1);
       min = double_int_ext (min, 1 + i_f_bits, 0);
       if (double_int_cmp (a, max, 0) == 1)
-	*f = max;
+	{
+	  if (satp)
+	    *f = max;
+	  else
+	    overflow = true;
+	}
       else if (double_int_cmp (a, min, 0) == -1)
-	*f = min;
+	{
+	  if (satp)
+	    *f = min;
+	  else
+	    overflow = true;
+	}
     }
+  return overflow;
 }
 
-/* Saturate {A_HIGH, A_LOW} to the maximum or the minimum to *F
-   based on the machine mode MODE.
+/* If SATP, saturate {A_HIGH, A_LOW} to the maximum or the minimum, and
+   save to *F based on the machine mode MODE.
    This function assumes the width of two double_int is greater than the width
-   of the fixed-point value at the fixed-point mode.  */
+   of the fixed-point value at the fixed-point mode.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 fixed_saturate2 (unsigned int mode, double_int a_high, double_int a_low,
-		 double_int *f)
+		 double_int *f, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (mode);
   int i_f_bits = GET_MODE_IBIT (mode) + GET_MODE_FBIT (mode);
 
@@ -160,7 +232,12 @@ fixed_saturate2 (unsigned int mode, double_int a_high, double_int a_low,
       if (double_int_cmp (a_high, max_r, 1) == 1
 	  || (double_int_equal_p (a_high, max_r) &&
 	      double_int_cmp (a_low, max_s, 1) == 1))
-	*f = max_s;
+	{
+	  if (satp)
+	    *f = max_s;
+	  else
+	    overflow = true;
+	}
     }
   else /* Signed type.  */
     {
@@ -181,12 +258,23 @@ fixed_saturate2 (unsigned int mode, double_int a_high, double_int a_low,
       if (double_int_cmp (a_high, max_r, 0) == 1
 	  || (double_int_equal_p (a_high, max_r) &&
 	      double_int_cmp (a_low, max_s, 1) == 1))
-	*f = max_s;
+	{
+	  if (satp)
+	    *f = max_s;
+	  else
+	    overflow = true;
+	}
       else if (double_int_cmp (a_high, min_r, 0) == -1
 	       || (double_int_equal_p (a_high, min_r) &&
 		   double_int_cmp (a_low, min_s, 1) == -1))
-	*f = min_s;
+	{
+	  if (satp)
+	    *f = min_s;
+	  else
+	    overflow = true;
+	}
     }
+  return overflow;
 }
 
 /* Return the sign bit based on I_F_BITS.  */
@@ -200,46 +288,58 @@ inline int get_fixed_sign_bit (double_int a, int i_f_bits)
 }
 
 /* Calculate F = A + (SUBTRACT_P ? -B : B).
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 do_fixed_add (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 	      const FIXED_VALUE_TYPE *b, int subtract_p, int satp)
 {
+  bool overflow = false;
   double_int temp = subtract_p ? double_int_neg (b->data) : b->data;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (a->mode);
   int i_f_bits = GET_MODE_IBIT (a->mode) + GET_MODE_FBIT (a->mode);
   f->mode = a->mode;
   f->data = double_int_add (a->data, temp);
-  if (satp)
+  if (unsignedp) /* Unsigned type.  */
     {
-      if (unsignedp) /* Unsigned type.  */
+      if (subtract_p) /* Unsigned subtraction.  */
 	{
-	  if (subtract_p) /* Unsigned subtraction.  */
+	  if (double_int_cmp (a->data, b->data, 1) == -1)
 	    {
-	       if (double_int_cmp (a->data, b->data, 1) == -1)
-		 {
-		    f->data.high = 0;
-		    f->data.low = 0;
+	      if (satp)
+		{
+		  f->data.high = 0;
+		  f->data.low = 0;
 		 }
+	      else
+		overflow = true;
 	    }
-	  else /* Unsigned addition.  */
+	}
+      else /* Unsigned addition.  */
+	{
+	  f->data = double_int_ext (f->data, i_f_bits, 1);
+	  if (double_int_cmp (f->data, a->data, 1) == -1
+	      || double_int_cmp (f->data, b->data, 1) == -1)
 	    {
-	      f->data = double_int_ext (f->data, i_f_bits, 1);
-	      if (double_int_cmp (f->data, a->data, 1) == -1
-		  || double_int_cmp (f->data, b->data, 1) == -1)
+	      if (satp)
 		{
 		  f->data.high = -1;
 		  f->data.low = -1;
 		}
+	      else
+		overflow = true;
 	    }
 	}
-      else /* Signed type.  */
+    }
+  else /* Signed type.  */
+    {
+      if (get_fixed_sign_bit (a->data, i_f_bits)
+	  == get_fixed_sign_bit (temp, i_f_bits)
+	  && get_fixed_sign_bit (a->data, i_f_bits)
+	     != get_fixed_sign_bit (f->data, i_f_bits))
 	{
-	  if (get_fixed_sign_bit (a->data, i_f_bits)
-	      == get_fixed_sign_bit (temp, i_f_bits)
-	      && get_fixed_sign_bit (a->data, i_f_bits)
-		 != get_fixed_sign_bit (f->data, i_f_bits))
+	  if (satp)
 	    {
 	      f->data.low = 1;
 	      f->data.high = 0;
@@ -254,18 +354,23 @@ do_fixed_add (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		  f->data = double_int_add (f->data, double_int_neg (one));
 		}
 	    }
+	  else
+	    overflow = true;
 	}
     }
   f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
+  return overflow;
 }
 
 /* Calculate F = A * B.
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 do_fixed_multiply (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		   const FIXED_VALUE_TYPE *b, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (a->mode);
   int i_f_bits = GET_MODE_IBIT (a->mode) + GET_MODE_FBIT (a->mode);
   f->mode = a->mode;
@@ -276,8 +381,7 @@ do_fixed_multiply (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		     (-GET_MODE_FBIT (f->mode)),
 		     2 * HOST_BITS_PER_WIDE_INT,
 		     &f->data.low, &f->data.high, !unsignedp);
-      if (satp)
-	fixed_saturate1 (f->mode, f->data, &f->data);
+      overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
     }
   else
     {
@@ -374,20 +478,22 @@ do_fixed_multiply (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 			 &r.low, &r.high, !unsignedp);
 	}
 
-      if (satp)
-	fixed_saturate2 (f->mode, r, s, &f->data);
+      overflow = fixed_saturate2 (f->mode, r, s, &f->data, satp);
     }
 
   f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
+  return false;
 }
 
 /* Calculate F = A / B.
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 do_fixed_divide (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		 const FIXED_VALUE_TYPE *b, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (a->mode);
   int i_f_bits = GET_MODE_IBIT (a->mode) + GET_MODE_FBIT (a->mode);
   f->mode = a->mode;
@@ -398,8 +504,7 @@ do_fixed_divide (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		     2 * HOST_BITS_PER_WIDE_INT,
 		     &f->data.low, &f->data.high, !unsignedp);
       f->data = double_int_div (f->data, b->data, unsignedp, TRUNC_DIV_EXPR);
-      if (satp)
-	fixed_saturate1 (f->mode, f->data, &f->data);
+      overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
     }
   else
     {
@@ -489,27 +594,30 @@ do_fixed_divide (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 	}
 
       f->data = quo_s;
-      if (satp)
-	fixed_saturate2 (f->mode, quo_r, quo_s, &f->data);
+      overflow = fixed_saturate2 (f->mode, quo_r, quo_s, &f->data, satp);
     }
 
   f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
+  return overflow;
 }
 
 /* Calculate F = A << B if LEFT_P.  Otherwies, F = A >> B.
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 do_fixed_shift (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 	      const FIXED_VALUE_TYPE *b, int left_p, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (a->mode);
   int i_f_bits = GET_MODE_IBIT (a->mode) + GET_MODE_FBIT (a->mode);
   f->mode = a->mode;
+
   if (b->data.low == 0)
     {
       f->data = a->data;
-      return;
+      return overflow;
     }
 
   if (GET_MODE_PRECISION (f->mode) <= HOST_BITS_PER_WIDE_INT || (!left_p))
@@ -518,8 +626,8 @@ do_fixed_shift (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 		     left_p ? b->data.low : (-b->data.low),
 		     2 * HOST_BITS_PER_WIDE_INT,
 		     &f->data.low, &f->data.high, !unsignedp);
-      if (satp && left_p) /* Only left shift saturates.  */
-	fixed_saturate1 (f->mode, f->data, &f->data);
+      if (left_p) /* Only left shift saturates.  */
+	overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
     }
   else /* We need two double_int to store the left-shift result.  */
     {
@@ -536,93 +644,100 @@ do_fixed_shift (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
       if (!unsignedp && a->data.high < 0) /* Signed-extend temp_high.  */
 	temp_high = double_int_ext (temp_high, b->data.low, unsignedp);
       f->data = temp_low;
-      if (satp)
-	fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+      overflow = fixed_saturate2 (f->mode, temp_high, temp_low, &f->data, satp);
     }
   f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
+  return overflow;
 }
 
 /* Calculate F = -A.
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-static void
+static bool
 do_fixed_neg (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a, int satp)
 {
+  bool overflow = false;
   int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (a->mode);
   int i_f_bits = GET_MODE_IBIT (a->mode) + GET_MODE_FBIT (a->mode);
   f->mode = a->mode;
   f->data = double_int_neg (a->data);
   f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
-  if (satp)
+
+  if (unsignedp) /* Unsigned type.  */
     {
-      if (unsignedp) /* Unsigned type.  */
+      if (f->data.low != 0 || f->data.high != 0)
 	{
-	  f->data.low = 0;
-	  f->data.high = 0;
+	  if (satp)
+	    {
+	      f->data.low = 0;
+	      f->data.high = 0;
+	    }
+	  else
+	    overflow = true;
 	}
-      else /* Signed type.  */
-	{
-	  if (!(f->data.high == 0 && f->data.low == 0)
-	      && f->data.high == a->data.high && f->data.low == a->data.low )
+    }
+  else /* Signed type.  */
+    {
+      if (!(f->data.high == 0 && f->data.low == 0)
+	  && f->data.high == a->data.high && f->data.low == a->data.low )
+	{ 
+	  if (satp)
 	    {
 	      /* Saturate to the maximum by subtracting f->data by one.  */
 	      f->data.low = -1;
 	      f->data.high = -1;
 	      f->data = double_int_ext (f->data, i_f_bits, 1);
 	    }
+	  else
+	    overflow = true;
 	}
-     }
+    }
+  return overflow;
 }
 
 /* Perform the binary or unary operation described by CODE.
-   For a unary operation, leave OP1 NULL.  */
+   For a unary operation, leave OP1 NULL.
+   Return true, if !SATP and overflow.  */
 
-void
+bool
 fixed_arithmetic (FIXED_VALUE_TYPE *f, int icode, const FIXED_VALUE_TYPE *op0,
 		  const FIXED_VALUE_TYPE *op1, int satp)
 {
   switch (icode)
     {
     case NEGATE_EXPR:
-      do_fixed_neg (f, op0, satp);
+      return do_fixed_neg (f, op0, satp);
       break;
 
     case PLUS_EXPR:
-      do_fixed_add (f, op0, op1, 0, satp);
+      return do_fixed_add (f, op0, op1, 0, satp);
       break;
 
     case MINUS_EXPR:
-      do_fixed_add (f, op0, op1, 1, satp);
+      return do_fixed_add (f, op0, op1, 1, satp);
       break;
 
     case MULT_EXPR:
-      do_fixed_multiply (f, op0, op1, satp);
+      return do_fixed_multiply (f, op0, op1, satp);
       break;
 
     case TRUNC_DIV_EXPR:
-      do_fixed_divide (f, op0, op1, satp);
+      return do_fixed_divide (f, op0, op1, satp);
       break;
 
     case LSHIFT_EXPR:
-      do_fixed_shift (f, op0, op1, 1, satp);
+      return do_fixed_shift (f, op0, op1, 1, satp);
       break;
 
     case RSHIFT_EXPR:
-      do_fixed_shift (f, op0, op1, 0, satp);
+      return do_fixed_shift (f, op0, op1, 0, satp);
       break;
 
     default:
       gcc_unreachable ();
     }
-}
-
-FIXED_VALUE_TYPE
-fixed_arithmetic2 (int icode, const FIXED_VALUE_TYPE *op0,
-		   const FIXED_VALUE_TYPE *op1, int satp)
-{
-  FIXED_VALUE_TYPE f;
-  fixed_arithmetic (&f, icode, op0, op1, satp);
-  return f;
+  return false;
 }
 
 /* Compare fixed-point values by tree_code.  */
@@ -669,16 +784,18 @@ fixed_compare (int icode, const FIXED_VALUE_TYPE *op0,
 }
 
 /* Extend or truncate to a new mode.
-   If SATP, saturate the result to the max or the min.  */
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
 
-void
+bool
 fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
                const FIXED_VALUE_TYPE *a, int satp)
 {
+  bool overflow = false;
   if (mode == a->mode)
     {
       *f = *a;
-      return;
+      return overflow;
     }
     
   if (GET_MODE_FBIT (mode) > GET_MODE_FBIT (a->mode))
@@ -701,30 +818,37 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 	temp_high = double_int_ext (temp_high, amount, 0);
       f->mode = mode;
       f->data = temp_low;
-      if (satp)
+      if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
+	  SIGNED_FIXED_POINT_MODE_P (f->mode))
+	overflow = fixed_saturate2 (f->mode, temp_high, temp_low, &f->data,
+				    satp);
+      else
 	{
-	  if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
-	      SIGNED_FIXED_POINT_MODE_P (f->mode))
-	    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
-	  else
+	  /* Take care of the cases when converting between signed and
+	     unsigned.  */
+	  if (SIGNED_FIXED_POINT_MODE_P (a->mode))
 	    {
-	      /* Take care of the cases when converting between
-		 signed and unsigned.  */
-	      if (SIGNED_FIXED_POINT_MODE_P (a->mode))
+	      /* Signed -> Unsigned.  */
+	      if (a->data.high < 0)
 		{
-		  /* Signed -> Unsigned.  */
-		  if (a->data.high < 0)
+		  if (satp)
 		    {
 		      f->data.low = 0;  /* Set to zero.  */
 		      f->data.high = 0;  /* Set to zero.  */
 		    }
 		  else
-		    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+		    overflow = true;
 		}
-	      else
+	      else	
+		overflow = fixed_saturate2 (f->mode, temp_high, temp_low,
+					    &f->data, satp);
+	    }
+	  else
+	    {
+	      /* Unsigned -> Signed.  */
+	      if (temp_high.high < 0)
 		{
-		  /* Unsigned -> Signed.  */
-		  if (temp_high.high < 0)
+		  if (satp)
 		    {
 		      /* Set to maximum.  */
 		      f->data.low = -1;  /* Set to all ones.  */
@@ -735,8 +859,11 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 						1); /* Clear the sign.  */
 		    }
 		  else
-		    fixed_saturate2 (f->mode, temp_high, temp_low, &f->data);
+		    overflow = true;
 		}
+	      else
+		overflow = fixed_saturate2 (f->mode, temp_high, temp_low,
+					    &f->data, satp);
 	    }
 	}
     }
@@ -751,30 +878,35 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 		     SIGNED_FIXED_POINT_MODE_P (a->mode));
       f->mode = mode;
       f->data = temp;
-      if (satp)
+      if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
+	  SIGNED_FIXED_POINT_MODE_P (f->mode))
+	overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
+      else
 	{
-	  if (SIGNED_FIXED_POINT_MODE_P (a->mode) ==
-	      SIGNED_FIXED_POINT_MODE_P (f->mode))
-	    fixed_saturate1 (f->mode, f->data, &f->data);
-	  else
+	  /* Take care of the cases when converting between signed and
+	     unsigned.  */
+	  if (SIGNED_FIXED_POINT_MODE_P (a->mode))
 	    {
-	      /* Take care of the cases when converting between
-		 signed and unsigned.  */
-	      if (SIGNED_FIXED_POINT_MODE_P (a->mode))
+	      /* Signed -> Unsigned.  */
+	      if (a->data.high < 0)
 		{
-		  /* Signed -> Unsigned.  */
-		  if (a->data.high < 0)
+		  if (satp)
 		    {
 		      f->data.low = 0;  /* Set to zero.  */
 		      f->data.high = 0;  /* Set to zero.  */
 		    }
 		  else
-		    fixed_saturate1 (f->mode, f->data, &f->data);
+		    overflow = true;
 		}
 	      else
+		overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
+	    }
+	  else
+	    {
+	      /* Unsigned -> Signed.  */
+	      if (temp.high < 0)
 		{
-		  /* Unsigned -> Signed.  */
-		  if (temp.high < 0)
+		  if (satp)
 		    {
 		      /* Set to maximum.  */
 		      f->data.low = -1;  /* Set to all ones.  */
@@ -785,8 +917,10 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 						1); /* Clear the sign.  */
 		    }
 		  else
-		    fixed_saturate1 (f->mode, f->data, &f->data);
+		    overflow = true;
 		}
+	      else
+		overflow = fixed_saturate1 (f->mode, f->data, &f->data, satp);
 	    }
 	}
     }
@@ -796,4 +930,164 @@ fixed_convert (FIXED_VALUE_TYPE *f, enum machine_mode mode,
 			    + GET_MODE_FBIT (f->mode)
 			    + GET_MODE_IBIT (f->mode),
 			    UNSIGNED_FIXED_POINT_MODE_P (f->mode));
+  return overflow;
+}
+
+/* Convert to a new fixed-point mode from an integer.
+   If UNSIGNEDP, this integer is unsigned.
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
+
+bool
+fixed_convert_from_int (FIXED_VALUE_TYPE *f, enum machine_mode mode,
+			double_int a, int unsignedp, int satp)
+{
+  bool overflow = false;
+  /* Left shift a to temp_high, temp_low.  */
+  double_int temp_high, temp_low;
+  int amount = GET_MODE_FBIT (mode);
+  lshift_double (a.low, a.high,
+		 amount,
+		 2 * HOST_BITS_PER_WIDE_INT,
+		 &temp_low.low, &temp_low.high, 0);
+
+  /* Logical shift right to temp_high.  */
+  lshift_double (a.low, a.high,
+		 amount - 2 * HOST_BITS_PER_WIDE_INT,
+		 2 * HOST_BITS_PER_WIDE_INT,
+		 &temp_high.low, &temp_high.high, 0);
+  if (!unsignedp && a.high < 0) /* Signed-extend temp_high.  */
+    temp_high = double_int_ext (temp_high, amount, 0);
+
+  f->mode = mode;
+  f->data = temp_low;
+
+  if (unsignedp == UNSIGNED_FIXED_POINT_MODE_P (f->mode))
+    overflow = fixed_saturate2 (f->mode, temp_high, temp_low, &f->data, satp);
+  else
+    {
+      /* Take care of the cases when converting between signed and unsigned.  */
+      if (!unsignedp)
+	{
+	  /* Signed -> Unsigned.  */
+	  if (a.high < 0)
+	    {
+	      if (satp)
+		{
+		  f->data.low = 0;  /* Set to zero.  */
+		  f->data.high = 0;  /* Set to zero.  */
+		}
+	      else
+		overflow = true;
+	    }
+	  else
+	    overflow = fixed_saturate2 (f->mode, temp_high, temp_low, &f->data,
+					satp);
+	}
+      else
+	{
+	  /* Unsigned -> Signed.  */
+	  if (temp_high.high < 0)
+	    {
+	      if (satp)
+		{
+		  /* Set to maximum.  */
+		  f->data.low = -1;  /* Set to all ones.  */
+		  f->data.high = -1;  /* Set to all ones.  */
+		  f->data = double_int_ext (f->data,
+					    GET_MODE_FBIT (f->mode) +
+					    GET_MODE_IBIT (f->mode),
+					    1); /* Clear the sign.  */
+		}
+	      else
+		overflow = true;
+	    }
+	  else
+	    overflow = fixed_saturate2 (f->mode, temp_high, temp_low,
+					&f->data, satp);
+	}
+    }
+  f->data = double_int_ext (f->data,
+			    SIGNED_FIXED_POINT_MODE_P (f->mode)
+			    + GET_MODE_FBIT (f->mode)
+			    + GET_MODE_IBIT (f->mode),
+			    UNSIGNED_FIXED_POINT_MODE_P (f->mode));
+  return overflow;
+}
+
+/* Convert to a new fixed-point mode from a real.
+   If SATP, saturate the result to the max or the min.
+   Return true, if !SATP and overflow.  */
+
+bool
+fixed_convert_from_real (FIXED_VALUE_TYPE *f, enum machine_mode mode,
+			 const REAL_VALUE_TYPE *a, int satp)
+{
+  bool overflow = false;
+  REAL_VALUE_TYPE real_value, fixed_value, base_value;
+  char base_string[20];
+  int unsignedp = UNSIGNED_FIXED_POINT_MODE_P (mode);
+  int i_f_bits = GET_MODE_IBIT (mode) + GET_MODE_FBIT (mode);
+  unsigned int fbit = GET_MODE_FBIT (mode);
+  int temp;
+
+  real_value = *a;
+  f->mode = mode;
+  sprintf (base_string, "0x1.0p%d", fbit);
+  real_from_string (&base_value, base_string);
+  real_arithmetic (&fixed_value, MULT_EXPR, &real_value, &base_value);
+  real_to_integer2 (&f->data.low, &f->data.high,  &fixed_value);
+  temp = check_real_for_fixed_mode (&real_value, mode);
+  if (temp == 1) /* Minimum.  */
+    {
+      if (satp)
+	{
+	  if (unsignedp)
+	    {
+	      f->data.low = 0;
+	      f->data.high = 0;
+	    }
+	  else
+	    {
+	      f->data.low = 1;
+	      f->data.high = 0;
+	      lshift_double (f->data.low, f->data.high, i_f_bits,
+			     2 * HOST_BITS_PER_WIDE_INT,
+			     &f->data.low, &f->data.high, 1);
+	      f->data = double_int_ext (f->data, 1 + i_f_bits, 0);
+	    }
+	}
+      else
+	overflow = true;
+    }
+  else if (temp == 2 || temp == 3) /* Maximum.  */
+    {
+      if (satp)
+	{
+	  f->data.low = -1;
+	  f->data.high = -1;
+	  f->data = double_int_ext (f->data, i_f_bits, 1);
+	}
+      else
+	overflow = true;
+    }
+  f->data = double_int_ext (f->data, (!unsignedp) + i_f_bits, unsignedp);
+  return overflow;
+}
+
+/* Convert to a new real mode from a fixed-point.  */
+
+void
+real_convert_from_fixed (REAL_VALUE_TYPE *r, enum machine_mode mode,
+			 const FIXED_VALUE_TYPE *f)
+{
+  char base_string[20];
+  REAL_VALUE_TYPE base_value, fixed_value, real_value;
+
+  sprintf (base_string, "0x1.0p%d", GET_MODE_FBIT (f->mode));
+  real_from_string (&base_value, base_string);
+  real_from_integer (&fixed_value, VOIDmode, f->data.low, f->data.high,
+		     UNSIGNED_FIXED_POINT_MODE_P (f->mode));
+  real_arithmetic (&real_value, RDIV_EXPR, &fixed_value, &base_value);
+  real_convert (r, mode, &real_value);
 }
