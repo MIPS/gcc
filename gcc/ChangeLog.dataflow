@@ -1,3 +1,7 @@
+2007-01-17  Eric Christopher  <echristo@apple.com>
+
+	* reorg.c (fill_simple_delay_slots): Fix prototype.
+
 2007-01-15  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* regmove.c: (fixup_match_1): Call df_notes_rescan after

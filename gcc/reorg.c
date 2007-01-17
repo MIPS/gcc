@@ -210,8 +210,8 @@ static int reorg_redirect_jump (rtx, rtx);
 static void update_reg_dead_notes (rtx, rtx);
 static void fix_reg_dead_note (rtx, rtx);
 static void update_reg_unused_notes (rtx, rtx);
-static void fill_simple_delay_slots (,int);
-static rtx fill_slots_from_thread (rtx, rtx, rtx, rtx, 
+static void fill_simple_delay_slots (int);
+static rtx fill_slots_from_thread (rtx, rtx, rtx, rtx,
 				   int, int, int, int,
 				   int *, rtx);
 static void fill_eager_delay_slots (void);
@@ -3773,7 +3773,7 @@ gate_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
   return flag_delayed_branch;
-#else 
+#else
   return 0;
 #endif
 }
@@ -3786,7 +3786,7 @@ rest_of_handle_delay_slots (void)
   dbr_schedule (get_insns ());
 #endif
   return 0;
-}   
+}
 
 struct tree_opt_pass pass_delay_slots =
 {
@@ -3838,4 +3838,3 @@ struct tree_opt_pass pass_machine_reorg =
   TODO_ggc_collect,                     /* todo_flags_finish */
   'M'                                   /* letter */
 };
-
