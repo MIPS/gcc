@@ -1,5 +1,11 @@
 2007-01-17  Eric Christopher  <echristo@apple.com>
 
+	* config/mips/mips.c (mips_output_function_epilogue): Use SET_REGNO
+	instead of REGNO.
+	(mips_output_mi_thunk): Ditto.
+
+2007-01-17  Eric Christopher  <echristo@apple.com>
+
 	* reorg.c (fill_simple_delay_slots): Fix prototype.
 
 2007-01-15  Andreas Krebbel  <krebbel1@de.ibm.com>

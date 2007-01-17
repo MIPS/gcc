@@ -3103,17 +3103,17 @@ mips_relational_operand_ok_p (enum rtx_code code, rtx cmp1)
    comparison.  */
 
 static bool
-mips_canonicalize_comparison (enum rtx_code *code, rtx *cmp1, 
+mips_canonicalize_comparison (enum rtx_code *code, rtx *cmp1,
 			      enum machine_mode mode)
 {
   HOST_WIDE_INT original, plus_one;
 
   if (GET_CODE (*cmp1) != CONST_INT)
     return false;
-  
+
   original = INTVAL (*cmp1);
   plus_one = trunc_int_for_mode ((unsigned HOST_WIDE_INT) original + 1, mode);
-  
+
   switch (*code)
     {
     case LE:
@@ -3124,7 +3124,7 @@ mips_canonicalize_comparison (enum rtx_code *code, rtx *cmp1,
 	  return true;
 	}
       break;
-      
+
     case LEU:
       if (plus_one != 0)
 	{
@@ -3133,11 +3133,11 @@ mips_canonicalize_comparison (enum rtx_code *code, rtx *cmp1,
 	  return true;
 	}
       break;
-      
+
     default:
       return false;
    }
-  
+
   return false;
 
 }
@@ -4667,8 +4667,8 @@ mips_use_ins_ext_p (rtx op, rtx size, rtx position)
 
   len = INTVAL (size);
   pos = INTVAL (position);
-  
-  if (len <= 0 || len >= GET_MODE_BITSIZE (GET_MODE (op)) 
+
+  if (len <= 0 || len >= GET_MODE_BITSIZE (GET_MODE (op))
       || pos < 0 || pos + len > GET_MODE_BITSIZE (GET_MODE (op)))
     return false;
 
@@ -4824,7 +4824,7 @@ override_options (void)
 	 only one right answer here.  */
       if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
-      else if (!TARGET_64BIT && TARGET_FLOAT64 
+      else if (!TARGET_64BIT && TARGET_FLOAT64
 	       && !(ISA_HAS_MXHC1 && mips_abi == ABI_32))
 	error ("-mgp32 and -mfp64 can only be combined if the target"
 	       " supports the mfhc1 and mthc1 instructions");
@@ -6945,7 +6945,7 @@ mips_expand_prologue (void)
 	{
 	  rtx offset = GEN_INT (cfun->machine->frame.args_size);
 	  if (SMALL_OPERAND (cfun->machine->frame.args_size))
-	    RTX_FRAME_RELATED_P 
+	    RTX_FRAME_RELATED_P
 	      (emit_insn (gen_add3_insn (hard_frame_pointer_rtx,
 					 stack_pointer_rtx,
 					 offset))) = 1;
@@ -6958,7 +6958,7 @@ mips_expand_prologue (void)
 					MIPS_PROLOGUE_TEMP (Pmode)));
 	      mips_set_frame_expr
 		(gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
-			      plus_constant (stack_pointer_rtx, 
+			      plus_constant (stack_pointer_rtx,
 					     cfun->machine->frame.args_size)));
 	    }
 	}
@@ -6990,7 +6990,7 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   /* Reinstate the normal $gp.  */
-  REGNO (pic_offset_table_rtx) = GLOBAL_POINTER_REGNUM;
+  SET_REGNO (pic_offset_table_rtx, GLOBAL_POINTER_REGNUM);
   mips_output_cplocal ();
 
   if (cfun->machine->all_noreorder_p)
@@ -7201,9 +7201,10 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Pick a global pointer for -mabicalls.  Use $15 rather than $28
      for TARGET_NEWABI since the latter is a call-saved register.  */
   if (TARGET_ABICALLS)
-    cfun->machine->global_pointer
-      = REGNO (pic_offset_table_rtx)
-      = TARGET_NEWABI ? 15 : GLOBAL_POINTER_REGNUM;
+    {
+      SET_REGNO (pic_offset_table_rtx, TARGET_NEWABI ? 15 : GLOBAL_POINTER_REGNUM);
+      cfun->machine->global_pointer = REGNO (pic_offset_table_rtx);
+    }
 
   /* Set up the global pointer for n32 or n64 abicalls.  */
   mips_emit_loadgp ();
@@ -7685,7 +7686,7 @@ mips_cannot_change_mode_class (enum machine_mode from,
 
   /* gcc assumes that each word of a multiword register can be accessed
      individually using SUBREGs.  This is not true for floating-point
-     registers if they are bigger than a word.  */  
+     registers if they are bigger than a word.  */
   if (UNITS_PER_FPREG > UNITS_PER_WORD
       && GET_MODE_SIZE (from) > UNITS_PER_WORD
       && GET_MODE_SIZE (to) < UNITS_PER_FPREG
