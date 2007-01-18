@@ -1,15 +1,7 @@
-<<<<<<< .working
-<<<<<<< .working
-<<<<<<< .working
-<<<<<<< .working
-<<<<<<< .working
-<<<<<<< .working
 2007-01-16  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.def: Added copyright header.
 
-=======
->>>>>>> .merge-right.r109760
 2007-01-15  Tom Tromey  <tromey@redhat.com>
 
 	* lang.c (dump_compound_expr) <EXPR_WITH_FILE_LOCATION>: Removed
@@ -338,8 +330,6 @@
 	* resource.c (compile_resource_data): Update for new varpool names.
 	* java/class.c (build_utf8_ref): Likewise.
 
-=======
->>>>>>> .merge-right.r119730
 2006-11-12  David Daney  <ddaney@avtrex.com>
 
 	PR java/29805
@@ -700,8 +690,6 @@
 	(java/decl.o): Depend on langhooks.h.
 	* java-tree.h (builtin_function): Remove.
 
-=======
->>>>>>> .merge-right.r117980
 2006-10-10  Brooks Moses  <bmoses@stanford.edu>
 
 	* Make-lang.in: Added "java.pdf", "gcj.pdf" target support.
@@ -1007,8 +995,6 @@
 
 	* Make-lang.in: Rename docdir to gcc_docdir.
 
-=======
->>>>>>> .merge-right.r112544
 2006-03-30  Tom Tromey  <tromey@redhat.com>
 
 	PR java/26042:
@@ -1151,8 +1137,6 @@
 	* decl.c (end_java_method): Kill hack disabling unit-at-a-time.
 	* lang.c (java_init_options): Set no_unit_at_a_time_default.
 
-=======
->>>>>>> .merge-right.r110478
 2006-01-30  Andrew Haley  <aph@redhat.com>
 
 	PR java/21428
@@ -1230,8 +1214,6 @@
 	* class.c (build_utf8_ref, emit_register_classes): Use
 	switch_to_section and get_section.
 
-=======
->>>>>>> .merge-right.r108151
 2005-12-06  Tom Tromey  <tromey@redhat.com>
 
 	PR java/25283:
