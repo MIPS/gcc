@@ -1,3 +1,7 @@
+2007-01-18  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java.install-normal): New target.
+
 2007-01-16  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.def: Added copyright header.

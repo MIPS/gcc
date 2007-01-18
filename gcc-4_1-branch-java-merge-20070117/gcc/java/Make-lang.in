@@ -150,6 +150,9 @@ check-java :
 # jc1, gcj, and jvgenmain are installed elsewhere as part
 # of $(COMPILERS).
 
+# Nothing to do here.
+java.install-normal:
+
 # Install gcj as well as the target-independent tools.
 java.install-common: installdirs
 	-if [ -f $(GCJ)$(exeext) ]; then \
