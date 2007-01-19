@@ -2120,27 +2120,9 @@ mio_symtree_ref (gfc_symtree ** stp)
 {
   pointer_info *p;
   fixup_t *f;
-  gfc_symtree * ns_st = NULL;
 
   if (iomode == IO_OUTPUT)
-    {
-      /* If this is a symtree for a symbol that came from a contained module
-	 namespace, it has a unique name and we should look in the current
-	 namespace to see if the required, non-contained symbol is available
-	 yet. If so, the latter should be written.  */
-      if ((*stp)->n.sym && check_unique_name((*stp)->name))
-	ns_st = gfc_find_symtree (gfc_current_ns->sym_root,
-				    (*stp)->n.sym->name);
-
-      /* On the other hand, if the existing symbol is the module name or the
-	 new symbol is a dummy argument, do not do the promotion.  */
-      if (ns_st && ns_st->n.sym
-	    && ns_st->n.sym->attr.flavor != FL_MODULE
-	    && !(*stp)->n.sym->attr.dummy)
-	mio_symbol_ref (&ns_st->n.sym);
-      else
-	mio_symbol_ref (&(*stp)->n.sym);
-    }
+    mio_symbol_ref (&(*stp)->n.sym);
   else
     {
       require_atom (ATOM_INTEGER);
@@ -2480,6 +2462,48 @@ static const mstring intrinsics[] =
     minit (NULL, -1)
 };
 
+
+/* Remedy a couple of situations where the gfc_expr's can be defective.  */
+ 
+static void
+fix_mio_expr (gfc_expr *e)
+{
+  gfc_symtree *ns_st = NULL;
+  const char *fname;
+
+  if (iomode != IO_OUTPUT)
+    return;
+
+  if (e->symtree)
+    {
+      /* If this is a symtree for a symbol that came from a contained module
+	 namespace, it has a unique name and we should look in the current
+	 namespace to see if the required, non-contained symbol is available
+	 yet. If so, the latter should be written.  */
+      if (e->symtree->n.sym && check_unique_name(e->symtree->name))
+	ns_st = gfc_find_symtree (gfc_current_ns->sym_root,
+				    e->symtree->n.sym->name);
+
+      /* On the other hand, if the existing symbol is the module name or the
+	 new symbol is a dummy argument, do not do the promotion.  */
+      if (ns_st && ns_st->n.sym
+	    && ns_st->n.sym->attr.flavor != FL_MODULE
+	    && !e->symtree->n.sym->attr.dummy)
+	e->symtree = ns_st;
+    }
+  else if (e->expr_type == EXPR_FUNCTION && e->value.function.name)
+    {
+      /* In some circumstances, a function used in an initialization
+	 expression, in one use associated module, can fail to be
+	 coupled to its symtree when used in a specification
+	 expression in another module.  */
+      fname = e->value.function.esym ? e->value.function.esym->name :
+				       e->value.function.isym->name;
+      e->symtree = gfc_find_symtree (gfc_current_ns->sym_root, fname);
+    }
+}
+
+
 /* Read and write expressions.  The form "()" is allowed to indicate a
    NULL expression.  */
 
@@ -2523,6 +2547,8 @@ mio_expr (gfc_expr ** ep)
 
   mio_typespec (&e->ts);
   mio_integer (&e->rank);
+
+  fix_mio_expr (e);
 
   switch (e->expr_type)
     {
@@ -2956,6 +2982,8 @@ load_generic_interfaces (void)
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
+  gfc_interface *generic = NULL;
+  int n, i;
 
   mio_lparen ();
 
@@ -2966,25 +2994,51 @@ load_generic_interfaces (void)
       mio_internal_string (name);
       mio_internal_string (module);
 
-      /* Decide if we need to load this one or not.  */
-      p = find_use_name (name);
+      n = number_use_names (name);
+      n = n ? n : 1;
 
-      if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
+      for (i = 1; i <= n; i++)
 	{
-	  while (parse_atom () != ATOM_RPAREN);
-	  continue;
+	  /* Decide if we need to load this one or not.  */
+	  p = find_use_name_n (name, &i);
+
+	  if (p == NULL || gfc_find_symbol (p, NULL, 0, &sym))
+	    {
+	      while (parse_atom () != ATOM_RPAREN);
+	        continue;
+	    }
+
+	  if (sym == NULL)
+	    {
+	      gfc_get_symbol (p, NULL, &sym);
+
+	      sym->attr.flavor = FL_PROCEDURE;
+	      sym->attr.generic = 1;
+	      sym->attr.use_assoc = 1;
+	    }
+	  else
+	    {
+	      /* Unless sym is a generic interface, this reference
+		 is ambiguous.  */
+	      gfc_symtree *st;
+	      p = p ? p : name;
+	      st = gfc_find_symtree (gfc_current_ns->sym_root, p);
+	      if (!sym->attr.generic
+		    && sym->module != NULL
+		    && strcmp(module, sym->module) != 0)
+		st->ambiguous = 1;
+	    }
+	  if (i == 1)
+	    {
+	      mio_interface_rest (&sym->generic);
+	      generic = sym->generic;
+	    }
+	  else
+	    {
+	      sym->generic = generic;
+	      sym->attr.generic_copy = 1;
+	    }
 	}
-
-      if (sym == NULL)
-	{
-	  gfc_get_symbol (p, NULL, &sym);
-
-	  sym->attr.flavor = FL_PROCEDURE;
-	  sym->attr.generic = 1;
-	  sym->attr.use_assoc = 1;
-	}
-
-      mio_interface_rest (&sym->generic);
     }
 
   mio_rparen ();
@@ -3144,6 +3198,8 @@ load_needed (pointer_info * p)
 
   mio_symbol (sym);
   sym->attr.use_assoc = 1;
+  if (only_flag)
+    sym->attr.use_only = 1;
 
   return 1;
 }
@@ -3621,6 +3677,9 @@ write_generic (gfc_symbol * sym)
   if (sym->generic == NULL
       || !gfc_check_access (sym->attr.access, sym->ns->default_access))
     return;
+
+  if (sym->module == NULL)
+    sym->module = gfc_get_string (module_name);
 
   mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
 }

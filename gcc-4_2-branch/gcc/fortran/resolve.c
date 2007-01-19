@@ -140,6 +140,21 @@ resolve_formal_arglist (gfc_symbol * proc)
 	      continue;
 	    }
 
+	  if (sym->attr.function
+		&& sym->ts.type == BT_UNKNOWN
+		&& sym->attr.intrinsic)
+	    {
+	      gfc_intrinsic_sym *isym;
+	      isym = gfc_find_function (sym->name);
+	      if (isym == NULL || !isym->specific)
+		{
+		  gfc_error ("Unable to find a specific INTRINSIC procedure "
+			     "for the reference '%s' at %L", sym->name,
+			     &sym->declared_at);
+		}
+	      sym->ts = isym->ts;
+	    }
+
 	  continue;
 	}
 
@@ -173,25 +188,19 @@ resolve_formal_arglist (gfc_symbol * proc)
       if (sym->attr.flavor == FL_UNKNOWN)
 	gfc_add_flavor (&sym->attr, FL_VARIABLE, sym->name, &sym->declared_at);
 
-      if (gfc_pure (proc))
+      if (gfc_pure (proc) && !sym->attr.pointer
+            && sym->attr.flavor != FL_PROCEDURE)
 	{
-	  if (proc->attr.function && !sym->attr.pointer
-              && sym->attr.flavor != FL_PROCEDURE
-	      && sym->attr.intent != INTENT_IN)
-
+	  if (proc->attr.function && sym->attr.intent != INTENT_IN)
 	    gfc_error ("Argument '%s' of pure function '%s' at %L must be "
 		       "INTENT(IN)", sym->name, proc->name,
 		       &sym->declared_at);
 
-	  if (proc->attr.subroutine && !sym->attr.pointer
-	      && sym->attr.intent == INTENT_UNKNOWN)
-
-	    gfc_error
-	      ("Argument '%s' of pure subroutine '%s' at %L must have "
-	       "its INTENT specified", sym->name, proc->name,
-	       &sym->declared_at);
+	  if (proc->attr.subroutine && sym->attr.intent == INTENT_UNKNOWN)
+	    gfc_error ("Argument '%s' of pure subroutine '%s' at %L must "
+		       "have its INTENT specified", sym->name, proc->name,
+		       &sym->declared_at);
 	}
-
 
       if (gfc_elemental (proc))
 	{
@@ -338,6 +347,33 @@ merge_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
       new_arglist->sym = new_sym;
       new_arglist->next = proc->formal;
       proc->formal  = new_arglist;
+    }
+}
+
+
+/* Flag the arguments that are not present in all entries.  */
+
+static void
+check_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
+{
+  gfc_formal_arglist *f, *head;
+  head = new_args;
+
+  for (f = proc->formal; f; f = f->next)
+    {
+      if (f->sym == NULL)
+	continue;
+
+      for (new_args = head; new_args; new_args = new_args->next)
+	{
+	  if (new_args->sym == f->sym)
+	    break;
+	}
+
+      if (new_args)
+	continue;
+
+      f->sym->attr.not_always_present = 1;
     }
 }
 
@@ -540,6 +576,11 @@ resolve_entries (gfc_namespace * ns)
   /* Merge all the entry point arguments.  */
   for (el = ns->entries; el; el = el->next)
     merge_argument_lists (proc, el->sym->formal);
+
+  /* Check the master formal arguments for any that are not
+     present in all entry points.  */
+  for (el = ns->entries; el; el = el->next)
+    check_argument_lists (proc, el->sym->formal);
 
   /* Use the master function for the function body.  */
   ns->proc_name = proc;
@@ -818,7 +859,7 @@ resolve_assumed_size_actual (gfc_expr *e)
    references.  */
 
 static try
-resolve_actual_arglist (gfc_actual_arglist * arg)
+resolve_actual_arglist (gfc_actual_arglist * arg, procedure_type ptype)
 {
   gfc_symbol *sym;
   gfc_symtree *parent_st;
@@ -826,7 +867,6 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 
   for (; arg; arg = arg->next)
     {
-
       e = arg->expr;
       if (e == NULL)
         {
@@ -847,7 +887,7 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	{
 	  if (gfc_resolve_expr (e) != SUCCESS)
 	    return FAILURE;
-	  continue;
+	  goto argument_list;
 	}
 
       /* See if the expression node should really be a variable
@@ -881,12 +921,6 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	      gfc_error ("Intrinsic '%s' at %L is not allowed as an "
 			 "actual argument", sym->name, &e->where);
 	    }
-	  else if (sym->attr.intrinsic && actual_ok == 2)
-	  /* We need a special case for CHAR, which is the only intrinsic
-	     function allowed as actual argument in F2003 and not allowed
-	     in F95.  */
-	    gfc_notify_std (GFC_STD_F2003, "Fortran 2003: CHAR intrinsic "
-			    "allowed as actual argument at %L", &e->where);
 
 	  if (sym->attr.contained && !sym->attr.use_assoc
 	      && sym->ns->proc_name->attr.flavor != FL_MODULE)
@@ -918,7 +952,22 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 		      && sym->ns->parent->proc_name == sym)))
 	    goto got_variable;
 
-	  continue;
+	  /* If all else fails, see if we have a specific intrinsic.  */
+	  if (sym->attr.function
+		&& sym->ts.type == BT_UNKNOWN
+		&& sym->attr.intrinsic)
+	    {
+	      gfc_intrinsic_sym *isym;
+	      isym = gfc_find_function (sym->name);
+	      if (isym == NULL || !isym->specific)
+		{
+		  gfc_error ("Unable to find a specific INTRINSIC procedure "
+			     "for the reference '%s' at %L", sym->name,
+			     &e->where);
+		}
+	      sym->ts = isym->ts;
+	    }
+	  goto argument_list;
 	}
 
       /* See if the name is a module procedure in a parent unit.  */
@@ -942,7 +991,7 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  || sym->attr.intrinsic
 	  || sym->attr.external)
 	{
-	  continue;
+	  goto argument_list;
 	}
 
     got_variable:
@@ -955,6 +1004,62 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  e->ref->type = REF_ARRAY;
 	  e->ref->u.ar.type = AR_FULL;
 	  e->ref->u.ar.as = sym->as;
+	}
+
+    argument_list:
+      /* Check argument list functions %VAL, %LOC and %REF.  There is
+	 nothing to do for %REF.  */
+      if (arg->name && arg->name[0] == '%')
+	{
+	  if (strncmp ("%VAL", arg->name, 4) == 0)
+	    {
+	      if (e->ts.type == BT_CHARACTER || e->ts.type == BT_DERIVED)
+		{
+		  gfc_error ("By-value argument at %L is not of numeric "
+			     "type", &e->where);
+		  return FAILURE;
+		}
+
+	      if (e->rank)
+		{
+		  gfc_error ("By-value argument at %L cannot be an array or "
+			     "an array section", &e->where);
+		return FAILURE;
+		}
+
+	      /* Intrinsics are still PROC_UNKNOWN here.  However,
+		 since same file external procedures are not resolvable
+		 in gfortran, it is a good deal easier to leave them to
+		 intrinsic.c.  */
+	      if (ptype != PROC_UNKNOWN && ptype != PROC_EXTERNAL)
+		{
+		  gfc_error ("By-value argument at %L is not allowed "
+			     "in this context", &e->where);
+		  return FAILURE;
+		}
+
+	      if (((e->ts.type == BT_REAL || e->ts.type == BT_COMPLEX)
+		    && e->ts.kind > gfc_default_real_kind)
+		      || (e->ts.kind > gfc_default_integer_kind))
+		{
+		  gfc_error ("Kind of by-value argument at %L is larger "
+			     "than default kind", &e->where);
+		  return FAILURE;
+		}
+
+	    }
+
+	  /* Statement functions have already been excluded above.  */
+	  else if (strncmp ("%LOC", arg->name, 4) == 0
+		     && e->ts.type == BT_PROCEDURE)
+	    {
+	      if (e->symtree->n.sym->attr.proc == PROC_INTERNAL)
+		{
+		  gfc_error ("Passing internal procedure at %L by location "
+			     "not allowed", &e->where);
+		  return FAILURE;
+		}
+	    }
 	}
     }
 
@@ -1221,9 +1326,9 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
-
-  if (!gfc_generic_intrinsic (expr->symtree->n.sym->name))
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
+  if (!gfc_intrinsic_name (sym->name, 0))
     {
       gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
@@ -1431,10 +1536,18 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
   int temp;
+  procedure_type p = PROC_INTRINSIC;
 
   sym = NULL;
   if (expr->symtree)
     sym = expr->symtree->n.sym;
+
+  if (sym && sym->attr.flavor == FL_VARIABLE)
+    {
+      gfc_error ("'%s' at %L is not a function",
+		 sym->name, &expr->where);
+      return FAILURE;
+    }
 
   /* If the procedure is not internal, a statement function or a module
      procedure,it must be external and should be checked for usage.  */
@@ -1447,8 +1560,11 @@ resolve_function (gfc_expr * expr)
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
 
-  if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
-    return FAILURE;
+  if (expr->symtree && expr->symtree->n.sym)
+    p = expr->symtree->n.sym->attr.proc;
+
+  if (resolve_actual_arglist (expr->value.function.actual, p) == FAILURE)
+      return FAILURE;
 
   /* Resume assumed_size checking. */
   need_full_assumed_size--;
@@ -1520,19 +1636,21 @@ resolve_function (gfc_expr * expr)
       t = FAILURE;
     }
 
+#define GENERIC_ID expr->value.function.isym->generic_id
   else if (expr->value.function.actual != NULL
 	     && expr->value.function.isym != NULL
-	     && expr->value.function.isym->generic_id != GFC_ISYM_LBOUND
-	     && expr->value.function.isym->generic_id != GFC_ISYM_LOC
-	     && expr->value.function.isym->generic_id != GFC_ISYM_PRESENT)
+	     && GENERIC_ID != GFC_ISYM_LBOUND
+	     && GENERIC_ID != GFC_ISYM_LEN
+	     && GENERIC_ID != GFC_ISYM_LOC
+	     && GENERIC_ID != GFC_ISYM_PRESENT)
     {
       /* Array intrinsics must also have the last upper bound of an
 	 assumed size array argument.  UBOUND and SIZE have to be
 	 excluded from the check if the second argument is anything
 	 than a constant.  */
       int inquiry;
-      inquiry = expr->value.function.isym->generic_id == GFC_ISYM_UBOUND
-		  || expr->value.function.isym->generic_id == GFC_ISYM_SIZE;
+      inquiry = GENERIC_ID == GFC_ISYM_UBOUND
+		  || GENERIC_ID == GFC_ISYM_SIZE;
 
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
@@ -1546,6 +1664,7 @@ resolve_function (gfc_expr * expr)
 	    return FAILURE;
 	}
     }
+#undef GENERIC_ID
 
   need_full_assumed_size = temp;
 
@@ -1678,9 +1797,11 @@ generic:
 	goto generic;
     }
 
-  /* Last ditch attempt.  */
+  /* Last ditch attempt.  See if the reference is to an intrinsic
+     that possesses a matching interface.  14.1.2.4  */
   sym = c->symtree->n.sym;
-  if (!gfc_generic_intrinsic (sym->name))
+
+  if (!gfc_intrinsic_name (sym->name, 1))
     {
       gfc_error
 	("There is no specific subroutine for the generic '%s' at %L",
@@ -1823,6 +1944,7 @@ static try
 resolve_call (gfc_code * c)
 {
   try t;
+  procedure_type ptype = PROC_INTRINSIC;
 
   if (c->symtree && c->symtree->n.sym
 	&& c->symtree->n.sym->ts.type != BT_UNKNOWN)
@@ -1869,7 +1991,10 @@ resolve_call (gfc_code * c)
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
 
-  if (resolve_actual_arglist (c->ext.actual) == FAILURE)
+  if (c->symtree && c->symtree->n.sym)
+    ptype = c->symtree->n.sym->attr.proc;
+
+  if (resolve_actual_arglist (c->ext.actual, ptype) == FAILURE)
     return FAILURE;
 
   /* Resume assumed_size checking. */
@@ -4941,6 +5066,29 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	      goto call;
 	    }
 
+	  if (code->expr->ts.type == BT_CHARACTER
+		&& gfc_option.warn_character_truncation)
+	    {
+	      int llen = 0, rlen = 0;
+
+	      if (code->expr->ts.cl != NULL
+		    && code->expr->ts.cl->length != NULL
+		    && code->expr->ts.cl->length->expr_type == EXPR_CONSTANT)
+		llen = mpz_get_si (code->expr->ts.cl->length->value.integer);
+
+	      if (code->expr2->expr_type == EXPR_CONSTANT)
+		rlen = code->expr2->value.character.length;
+
+	      else if (code->expr2->ts.cl != NULL
+		    && code->expr2->ts.cl->length != NULL
+		    && code->expr2->ts.cl->length->expr_type == EXPR_CONSTANT)
+		rlen = mpz_get_si (code->expr2->ts.cl->length->value.integer);
+
+	      if (rlen && llen && rlen > llen)
+		gfc_warning_now ("rhs of CHARACTER assignment at %L will "
+				 "be truncated (%d/%d)", &code->loc, rlen, llen);
+	    }
+
 	  if (gfc_pure (NULL))
 	    {
 	      if (gfc_impure_variable (code->expr->symtree->n.sym))
@@ -5529,21 +5677,14 @@ static try
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
-  gfc_symtree *st;
+
+  if (sym->attr.ambiguous_interfaces && !sym->attr.referenced)
+    gfc_warning ("Although not referenced, '%s' at %L has ambiguous "
+		 "interfaces", sym->name, &sym->declared_at);
 
   if (sym->attr.function
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
-
-  st = gfc_find_symtree (gfc_current_ns->sym_root, sym->name);
-  if (st && st->ambiguous
-	 && sym->attr.referenced
-	 && !sym->attr.generic)
-    {
-      gfc_error ("Procedure %s at %L is ambiguous",
-		 sym->name, &sym->declared_at);
-      return FAILURE;
-    }
 
   if (sym->ts.type == BT_CHARACTER)
     {
@@ -6293,17 +6434,47 @@ traverse_data_list (gfc_data_variable * var, locus * where)
 {
   mpz_t trip;
   iterator_stack frame;
-  gfc_expr *e;
+  gfc_expr *e, *start, *end, *step;
+  try retval = SUCCESS;
 
   mpz_init (frame.value);
 
-  mpz_init_set (trip, var->iter.end->value.integer);
-  mpz_sub (trip, trip, var->iter.start->value.integer);
-  mpz_add (trip, trip, var->iter.step->value.integer);
+  start = gfc_copy_expr (var->iter.start);
+  end = gfc_copy_expr (var->iter.end);
+  step = gfc_copy_expr (var->iter.step);
 
-  mpz_div (trip, trip, var->iter.step->value.integer);
+  if (gfc_simplify_expr (start, 1) == FAILURE
+	|| start->expr_type != EXPR_CONSTANT)
+    {
+      gfc_error ("iterator start at %L does not simplify",
+		 &start->where);
+      retval = FAILURE;
+      goto cleanup;
+    }
+  if (gfc_simplify_expr (end, 1) == FAILURE
+	||  end->expr_type != EXPR_CONSTANT)
+    {
+      gfc_error ("iterator end at %L does not simplify",
+		 &end->where);
+      retval = FAILURE;
+      goto cleanup;
+    }
+  if (gfc_simplify_expr (step, 1) == FAILURE
+	||  step->expr_type != EXPR_CONSTANT)
+    {
+      gfc_error ("iterator step at %L does not simplify",
+		 &step->where);
+      retval = FAILURE;
+      goto cleanup;
+    }
 
-  mpz_set (frame.value, var->iter.start->value.integer);
+  mpz_init_set (trip, end->value.integer);
+  mpz_sub (trip, trip, start->value.integer);
+  mpz_add (trip, trip, step->value.integer);
+
+  mpz_div (trip, trip, step->value.integer);
+
+  mpz_set (frame.value, start->value.integer);
 
   frame.prev = iter_stack;
   frame.variable = var->iter.var->symtree;
@@ -6314,26 +6485,34 @@ traverse_data_list (gfc_data_variable * var, locus * where)
       if (traverse_data_var (var->list, where) == FAILURE)
 	{
 	  mpz_clear (trip);
-	  return FAILURE;
+	  retval = FAILURE;
+	  goto cleanup;
 	}
 
       e = gfc_copy_expr (var->expr);
       if (gfc_simplify_expr (e, 1) == FAILURE)
-        {
-          gfc_free_expr (e);
-          return FAILURE;
-        }
+	{
+	  gfc_free_expr (e);
+	  mpz_clear (trip);
+	  retval = FAILURE;
+	  goto cleanup;
+	}
 
-      mpz_add (frame.value, frame.value, var->iter.step->value.integer);
+      mpz_add (frame.value, frame.value, step->value.integer);
 
       mpz_sub_ui (trip, trip, 1);
     }
 
   mpz_clear (trip);
+cleanup:
   mpz_clear (frame.value);
 
+  gfc_free_expr (start);
+  gfc_free_expr (end);
+  gfc_free_expr (step);
+
   iter_stack = frame.prev;
-  return SUCCESS;
+  return retval;
 }
 
 
@@ -6377,11 +6556,6 @@ resolve_data_variables (gfc_data_variable * d)
 	{
 	  if (gfc_resolve_iterator (&d->iter, false) == FAILURE)
 	    return FAILURE;
-
-	  if (d->iter.start->expr_type != EXPR_CONSTANT
-	      || d->iter.end->expr_type != EXPR_CONSTANT
-	      || d->iter.step->expr_type != EXPR_CONSTANT)
-	    gfc_internal_error ("resolve_data_variables(): Bad iterator");
 
 	  if (resolve_data_variables (d->list) == FAILURE)
 	    return FAILURE;

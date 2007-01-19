@@ -478,19 +478,20 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1,
-    dummy:1, result:1, assign:1, threadprivate:1;
+    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
-    use_assoc:1;		/* Symbol has been use-associated.  */
+    use_assoc:1,		/* Symbol has been use-associated.  */
+    use_only:1;			/* Symbol has been use-associated, with ONLY.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
-  unsigned function:1, subroutine:1, generic:1;
+  unsigned function:1, subroutine:1, generic:1, generic_copy:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules.  */
   unsigned untyped:1;           /* No implicit type could be found.  */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
-  unsigned unmaskable:1, masked:1, contained:1;
+  unsigned unmaskable:1, masked:1, contained:1, mod_proc:1;
 
   /* This is set if the subroutine doesn't return.  Currently, this
      is only possible for intrinsic subroutines.  */
@@ -515,6 +516,9 @@ typedef struct
   /* Set if the symbol has been referenced in an expression.  No further
      modification of type or type parameters is permitted.  */
   unsigned referenced:1;
+
+  /* Set if the symbol has ambiguous interfaces.  */
+  unsigned ambiguous_interfaces:1;
 
   /* Set if the is the symbol for the main program.  This is the least
      cumbersome way to communicate this function property without
@@ -1633,6 +1637,7 @@ typedef struct
   int warn_surprising;
   int warn_tabs;
   int warn_underflow;
+  int warn_character_truncation;
 
   int flag_all_intrinsics;
   int flag_default_double;
@@ -1709,6 +1714,10 @@ void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
 void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
 void gfc_assign_data_value_range (gfc_expr *, gfc_expr *, mpz_t, mpz_t);
 void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
+
+/* decl.c */
+bool gfc_in_match_data (void);
+void gfc_set_in_match_data (bool);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);

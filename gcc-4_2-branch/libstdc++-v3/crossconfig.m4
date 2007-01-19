@@ -157,13 +157,7 @@ case "${host}" in
 
     # For LFS.
     AC_DEFINE(HAVE_INT64_T)
-    case "$target" in
-      *-uclinux*)
-        # Don't enable LFS with uClibc
-        ;;
-      *)
-        AC_DEFINE(_GLIBCXX_USE_LFS)
-    esac
+    GLIBCXX_CHECK_LFS
 
     # For showmanyc_helper().
     AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h)
@@ -178,7 +172,6 @@ case "${host}" in
     AC_CHECK_HEADERS([sys/types.h locale.h float.h])
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     ;;
   *-netbsd*)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
@@ -254,6 +247,7 @@ case "${host}" in
     #    os_include_dir="os/solaris/solaris2.6"
     #    ;;
       *-solaris2.7 | *-solaris2.8 | *-solaris2.9 | *-solaris2.10)
+         GLIBCXX_CHECK_LINKER_FEATURES
          AC_DEFINE(HAVE_GETPAGESIZE)
          AC_DEFINE(HAVE_SIGSETJMP)
          AC_DEFINE(HAVE_MBSTATE_T)
