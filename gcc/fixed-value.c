@@ -1062,7 +1062,7 @@ fixed_convert_from_real (FIXED_VALUE_TYPE *f, enum machine_mode mode,
     }
   else if (temp == 2 || temp == 3) /* Maximum.  */
     {
-      if (satp)
+      if (satp || (temp == 3 && ALL_FRACT_MODE_P (f->mode)))
 	{
 	  f->data.low = -1;
 	  f->data.high = -1;

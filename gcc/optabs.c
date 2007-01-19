@@ -4929,11 +4929,35 @@ expand_fix (rtx to, rtx from, int unsignedp)
 }
 
 /* Generate code to convert FROM or TO a fixed-point.
+   If UINTP is true, either to or from is an unsigned integer.
    If SATP is true, we need to saturate the result.  */
 
 void
-expand_fixed_convert (rtx to, rtx from, int satp)
+expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
 {
+  enum machine_mode to_mode = GET_MODE (to);
+  enum machine_mode from_mode = GET_MODE (from);
+  convert_optab tab;
+  enum rtx_code this_code;
+  enum insn_code code;
+
+  if (uintp)
+    {
+      tab = satp ? sat_fixed_uint_optab : fixed_uint_optab;
+      this_code = satp ? SAT_FIXED_UINT : FIXED_UINT;
+    }
+  else
+    {
+      tab = satp ? sat_fixed_all_optab : fixed_all_optab;
+      this_code = satp ? SAT_FIXED_ALL : FIXED_ALL;
+    }
+  code = tab->handlers[to_mode][from_mode].insn_code;
+  if (code != CODE_FOR_nothing)
+    {
+      emit_unop_insn (code, to, from, this_code);
+      return;
+    }
+
   error ("fix me");
 }
 
@@ -5469,6 +5493,11 @@ init_optabs (void)
   lround_optab = init_convert_optab (UNKNOWN);
   lfloor_optab = init_convert_optab (UNKNOWN);
   lceil_optab = init_convert_optab (UNKNOWN);
+
+  fixed_all_optab = init_convert_optab (FIXED_ALL);
+  fixed_uint_optab = init_convert_optab (FIXED_UINT);
+  sat_fixed_all_optab = init_convert_optab (SAT_FIXED_ALL);
+  sat_fixed_uint_optab = init_convert_optab (SAT_FIXED_UINT);
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {

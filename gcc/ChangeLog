@@ -1,3 +1,30 @@
+2007-01-19  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.c (expand_fixed_convert): Expand FIXED_CONVERT to four kinds
+	of instructions based on UINTP and SATP.
+	(init_optabs): Initialize fixed_all_optab, fixed_uint_optab,
+	sat_fixed_all_optab, sat_fixed_uint_optab.
+	* optabs.h (enum convert_optab_index): Add COI_fixed_all,
+	COI_fixed_uint, COI_sat_fixed_all, COI_sat_fixed_uint.
+	(fixed_all_optab, fixed_uint_optab, sat_fixed_all_optab,
+	sat_fixed_uint_optab): Define.
+	(expand_fixed_convert): Add one more parameter.
+	* genopinit.c (optabs): Add fixed_all_optab, fixed_uint_optab,
+	sat_fixed_all_optab, sat_fixed_uint_optab.
+	* c-cppbuiltin.c (builtin_define_fixed_point_constants): New function
+	to define fixed-point constants.
+	(c_cpp_builtins): Define fixed-point constants.
+	* rtl.def (FIXED_ALL, FIXED_UINT, SAT_FIXED_ALL, SAT_FIXED_UINT):
+	New codes. 
+	* expr.c (expand_expr_real_1): Add one parameter to deal with
+	unsigned integer for FIXED_CONVERT_EXPR.
+	* fixed-value.c (fixed_convert_from_real): Allow 1.0 for fract data
+	types to denote the maximum value.
+	* config/mips/mips-fixed.md (FIXED2, MYSCALARF, MYSCALARI): New mode
+	macros for fixed-point, floating-point and integer modes.
+	(fixed_all*, fixed_uint*, sat_fixed_all*, sat_fixed_uint*): New
+	instructions.
+
 2007-01-17  Chao-ying Fu  <fu@mips.com>
 
 	* fold-const.c (fold_convert_const_int_from_fixed): Remove the last

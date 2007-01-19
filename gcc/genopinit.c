@@ -62,6 +62,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static const char * const optabs[] =
 { "sext_optab->handlers[$B][$A].insn_code = CODE_FOR_$(extend$a$b2$)",
   "zext_optab->handlers[$B][$A].insn_code = CODE_FOR_$(zero_extend$a$b2$)",
+  "fixed_all_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fixed_all$a$b2$)",
+  "fixed_uint_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fixed_uint$I$a$Q$b2$)",
+  "fixed_uint_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fixed_uint$Q$a$I$b2$)",
+  "sat_fixed_all_optab->handlers[$B][$A].insn_code = CODE_FOR_$(sat_fixed_all$a$Q$b2$)",
+  "sat_fixed_uint_optab->handlers[$B][$A].insn_code = CODE_FOR_$(sat_fixed_uint$I$a$Q$b2$)",
   "sfix_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fix$F$a$I$b2$)",
   "ufix_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fixuns$F$a$b2$)",
   "sfixtrunc_optab->handlers[$B][$A].insn_code = CODE_FOR_$(fix_trunc$F$a$I$b2$)",

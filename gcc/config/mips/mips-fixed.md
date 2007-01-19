@@ -3,11 +3,20 @@
 ; All fixed-point modes
 (define_mode_macro FIXED [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (HA "") (SA "") (DA "") (TA "") (UHA "") (USA "") (UDA "") (UTA "")])
 
+; Same as above, but I need this to iterate amon fixed-point modes.
+(define_mode_macro FIXED2 [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (HA "") (SA "") (DA "") (TA "") (UHA "") (USA "") (UDA "") (UTA "")])
+
 ; All signed fixed-point modes
 (define_mode_macro S_FIXED [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (HA "") (SA "") (DA "") (TA "")])
 
 ; All unsigned fixed-point modes
 (define_mode_macro U_FIXED [(UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (UHA "") (USA "") (UDA "") (UTA "")])
+
+; All scalar floating-point modes
+(define_mode_macro MYSCALARF [(SF "") (DF "")])
+
+; All scalar integer modes
+(define_mode_macro MYSCALARI [(QI "") (HI "") (SI "") (DI "")])
 
 ; All signed and unsigned operators
 (define_code_macro bin_op [plus minus mult])
@@ -172,4 +181,81 @@
   "%*fpbranch\t%1%/"
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
+
+(define_insn "fixed_all<FIXED2:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(fixed_all:FIXED (match_operand:FIXED2 1 "register_operand" "d")))]
+  ""
+  "fixed_all<FIXED2:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_all<MYSCALARI:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(fixed_all:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
+  ""
+  "fixed_all<MYSCALARI:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_all<MYSCALARF:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(fixed_all:FIXED (match_operand:MYSCALARF 1 "register_operand" "f")))]
+  ""
+  "fixed_all<MYSCALARF:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_all<FIXED:mode><MYSCALARI:mode>2"
+  [(set (match_operand:MYSCALARI 0 "register_operand" "=d")
+	(fixed_all:MYSCALARI (match_operand:FIXED 1 "register_operand" "d")))]
+  ""
+  "fixed_all<FIXED:mode><MYSCALARI:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_all<FIXED:mode><MYSCALARF:mode>2"
+  [(set (match_operand:MYSCALARF 0 "register_operand" "=f")
+	(fixed_all:MYSCALARF (match_operand:FIXED 1 "register_operand" "d")))]
+  ""
+  "fixed_all<FIXED:mode><MYSCALARF:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_uint<MYSCALARI:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(fixed_uint:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
+  ""
+  "fixed_uint<MYSCALARI:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "fixed_uint<FIXED:mode><MYSCALARI:mode>2"
+  [(set (match_operand:MYSCALARI 0 "register_operand" "=d")
+	(fixed_uint:MYSCALARI (match_operand:FIXED 1 "register_operand" "d")))]
+  ""
+  "fixed_uint<FIXED:mode><MYSCALARI:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "sat_fixed_all<FIXED2:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(sat_fixed_all:FIXED (match_operand:FIXED2 1 "register_operand" "d")))]
+  ""
+  "sat_fixed_all<FIXED2:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "sat_fixed_all<MYSCALARI:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(sat_fixed_all:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
+  ""
+  "sat_fixed_all<MYSCALARI:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "sat_fixed_all<MYSCALARF:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(sat_fixed_all:FIXED (match_operand:MYSCALARF 1 "register_operand" "f")))]
+  ""
+  "sat_fixed_all<MYSCALARF:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "sat_fixed_uint<MYSCALARI:mode><FIXED:mode>2"
+  [(set (match_operand:FIXED 0 "register_operand" "=d")
+	(sat_fixed_uint:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
+  ""
+  "sat_fixed_uint<MYSCALARI:mode><FIXED:mode>\t%0,%1"
+  [(set_attr "type" "arith")])
 

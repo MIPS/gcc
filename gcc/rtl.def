@@ -574,6 +574,30 @@ DEF_RTL_EXPR(UNSIGNED_FLOAT, "unsigned_float", "e", RTX_UNARY)
    Value is defined only when the operand's value is an integer.  */
 DEF_RTL_EXPR(UNSIGNED_FIX, "unsigned_fix", "e", RTX_UNARY)
 
+/* Conversions involve fixed-point types without saturation, including
+   fixed-point <- fixed-point,
+   fixed-point <- signed integer,
+   fixed-point <- real,
+   signed integer <- fixed-point,
+   real <- fixed-point.  */
+DEF_RTL_EXPR(FIXED_ALL, "fixed_all", "e", RTX_UNARY)
+
+/* Conversions involve fixed-point types and unsigned integer without
+   saturation, including
+   fixed-point <- unsigned integer,
+   unsigned integer <- fixed-point.  */
+DEF_RTL_EXPR(FIXED_UINT, "fixed_uint", "e", RTX_UNARY)
+
+/* Conversions involve fixed-point types with saturation, including
+   fixed-point <- fixed-point,
+   fixed-point <- signed integer,
+   fixed-point <- real.  */
+DEF_RTL_EXPR(SAT_FIXED_ALL, "sat_fixed_all", "e", RTX_UNARY)
+
+/* Conversions involve fixed-point types and unsigned integer with saturation,
+   including fixed-point <- unsigned integer.  */
+DEF_RTL_EXPR(SAT_FIXED_UINT, "sat_fixed_uint", "e", RTX_UNARY)
+
 /* Absolute value */
 DEF_RTL_EXPR(ABS, "abs", "e", RTX_UNARY)
 

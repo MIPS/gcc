@@ -474,6 +474,11 @@ enum convert_optab_index
   COI_lfloor,
   COI_lceil,
 
+  COI_fixed_all,
+  COI_fixed_uint,
+  COI_sat_fixed_all,
+  COI_sat_fixed_uint,
+
   COI_MAX
 };
 
@@ -492,6 +497,10 @@ extern GTY(()) convert_optab convert_optab_table[COI_MAX];
 #define lround_optab (convert_optab_table[COI_lround])
 #define lfloor_optab (convert_optab_table[COI_lfloor])
 #define lceil_optab (convert_optab_table[COI_lceil])
+#define fixed_all_optab (convert_optab_table[COI_fixed_all])
+#define fixed_uint_optab (convert_optab_table[COI_fixed_uint])
+#define sat_fixed_all_optab (convert_optab_table[COI_sat_fixed_all])
+#define sat_fixed_uint_optab (convert_optab_table[COI_sat_fixed_uint])
 
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a
@@ -663,7 +672,7 @@ extern void set_conv_libfunc (convert_optab, enum machine_mode,
 			      enum machine_mode, const char *);
 
 /* Generate code for a FIXED_CONVERT_EXPR.  */
-extern void expand_fixed_convert (rtx, rtx, int);
+extern void expand_fixed_convert (rtx, rtx, int, int);
 
 /* Generate code for a FLOAT_EXPR.  */
 extern void expand_float (rtx, rtx, int);
