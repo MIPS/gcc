@@ -2063,8 +2063,11 @@ compute_hash_table_work (struct hash_table *table)
 
 	  if (CALL_P (insn))
 	    {
+	      HARD_REG_SET clobbered_regs;
+
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 		  record_last_reg_set_info (insn, regno);
 
 	      mark_call (insn);
@@ -5765,8 +5768,11 @@ compute_store_table (void)
 
 	  if (CALL_P (insn))
 	    {
+	      HARD_REG_SET clobbered_regs;
+
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 		  {
 		    last_set_in[regno] = INSN_UID (insn);
 		    SET_BIT (reg_set_in_block[bb->index], regno);
@@ -5788,8 +5794,11 @@ compute_store_table (void)
 
 	  if (CALL_P (insn))
 	    {
+	      HARD_REG_SET clobbered_regs;
+
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+		if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 		  already_set[regno] = 1;
 	    }
 
@@ -5804,8 +5813,11 @@ compute_store_table (void)
 	  note_stores (pat, reg_clear_last_set, last_set_in);
 	  if (CALL_P (insn))
 	    {
+	      HARD_REG_SET clobbered_regs;
+
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
+		if (TEST_HARD_REG_BIT (clobbered_regs, regno)
 		    && last_set_in[regno] == INSN_UID (insn))
 		  last_set_in[regno] = 0;
 	    }

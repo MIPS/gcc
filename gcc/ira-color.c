@@ -1278,6 +1278,30 @@ mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
 
 
 
+/* The function returns (through CALL_CLOBBERED_REGS) hard registers
+   changed by all function calls in REGNO live range.  */
+void
+collect_pseudo_call_clobbered_regs (int regno,
+				    HARD_REG_SET (*call_clobbered_regs))
+{
+  int i;
+  pseudo_t p;
+  HARD_REG_SET clobbered_regs;
+  rtx call, *pseudo_calls;
+
+  p = regno_pseudo_map [regno];
+  CLEAR_HARD_REG_SET (*call_clobbered_regs);
+  pseudo_calls = PSEUDO_CALLS_CROSSED (p);
+  for (i = PSEUDO_CALLS_CROSSED_NUM (p) - 1; i >= 0; i--)
+    {
+      call = pseudo_calls [i];
+      get_call_invalidated_used_regs (call, &clobbered_regs, FALSE);
+      IOR_HARD_REG_SET (*call_clobbered_regs, clobbered_regs);
+    }
+}
+
+
+
 /* Update avaliable hard registers for each pseudo.  */
 static void
 update_pseudo_avaialable_regs (void)

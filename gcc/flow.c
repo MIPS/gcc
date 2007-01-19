@@ -1869,6 +1869,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	  bool sibcall_p;
 	  rtx note, cond;
 	  int i;
+	  HARD_REG_SET clobbered_regs;
 
 	  cond = NULL_RTX;
 	  if (GET_CODE (PATTERN (insn)) == COND_EXEC)
@@ -1899,8 +1900,9 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 
 	  sibcall_p = SIBLING_CALL_P (insn);
 	  live_at_end = EXIT_BLOCK_PTR->il.rtl->global_live_at_start;
+	  get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i)
+	    if (TEST_HARD_REG_BIT (clobbered_regs, i)
 		&& ! (sibcall_p
 		      && REGNO_REG_SET_P (live_at_end, i)
 		      && ! refers_to_regno_p (i, i+1,

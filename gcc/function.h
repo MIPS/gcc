@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "tree.h"
 #include "hashtab.h"
+#include "hard-reg-set.h"
 
 struct var_refs_queue GTY(())
 {
@@ -102,6 +103,10 @@ struct emit_status GTY(())
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
      Allocated in parallel with regno_pointer_align.  */
   rtx * GTY ((length ("%h.x_reg_rtx_no"))) x_regno_reg_rtx;
+
+  /* Call unsaved hard registers really used by given function
+     (including ones used by functions called by given function).  */
+  HARD_REG_SET call_used_regs;
 };
 
 /* For backward compatibility... eventually these should all go away.  */
@@ -585,6 +590,8 @@ extern rtx get_arg_pointer_save_area (struct function *);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
+
+extern void get_call_invalidated_used_regs (rtx, HARD_REG_SET *, bool);
 
 extern void do_warn_unused_parameter (tree);
 

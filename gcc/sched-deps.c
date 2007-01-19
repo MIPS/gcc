@@ -1509,6 +1509,9 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	    }
 	  else
 	    {
+	      HARD_REG_SET clobbered_regs;
+	      
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 		/* A call may read and modify global register variables.  */
 		if (global_regs[i])
@@ -1521,7 +1524,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 		   and 'definitely not clobbered', we must include all
 		   partly call-clobbered registers here.  */
 		else if (HARD_REGNO_CALL_PART_CLOBBERED (i, reg_raw_mode[i])
-			 || TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+			 || TEST_HARD_REG_BIT (clobbered_regs, i))
 		  SET_REGNO_REG_SET (reg_pending_clobbers, i);
 		/* We don't know what set of fixed registers might be used
 		   by the function, but it is certain that the stack pointer

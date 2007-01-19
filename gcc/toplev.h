@@ -132,6 +132,7 @@ extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
+extern int flag_ipra;
 extern int flag_ira;
 extern int flag_ira_biased_coloring;
 

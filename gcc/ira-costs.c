@@ -1344,10 +1344,12 @@ ira_costs (void)
 void
 tune_pseudo_costs_and_cover_classes (void)
 {
-  int i, j, n, regno, cost, min_cost, *reg_costs;
+  int i, j, k, n, regno, cost, min_cost, *reg_costs, freq;
   enum reg_class cover_class, class;
   enum machine_mode mode;
   pseudo_t p;
+  rtx call, *pseudo_calls;
+  HARD_REG_SET clobbered_regs;
 
   for (i = 0; i < pseudos_num; i++)
     {
@@ -1365,11 +1367,32 @@ tune_pseudo_costs_and_cover_classes (void)
 	    regno = class_hard_regs [cover_class] [j];
 	    class = REGNO_REG_CLASS (regno);
 	    cost = 0;
-	    /* ??? If only part is call clobbered.  */
-	    if (! hard_reg_not_in_set_p (regno, mode, call_used_reg_set))
-	      cost += (PSEUDO_CALL_FREQ (p)
-		       * (memory_move_cost [mode] [class] [0]
-			  + memory_move_cost [mode] [class] [1]));
+	    if (! flag_ipra)
+	      {
+		/* ??? If only part is call clobbered.  */
+		if (! hard_reg_not_in_set_p (regno, mode, call_used_reg_set))
+		  cost += (PSEUDO_CALL_FREQ (p)
+			   * (memory_move_cost [mode] [class] [0]
+			      + memory_move_cost [mode] [class] [1]));
+	      }
+	    else
+	      {
+		pseudo_calls = PSEUDO_CALLS_CROSSED (p);
+		ira_assert (pseudo_calls != NULL); 
+		for (k = PSEUDO_CALLS_CROSSED_NUM (p) - 1; k >= 0; k--)
+		  {
+		    call = pseudo_calls [k];
+		    freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (call));
+		    if (freq == 0)
+		      freq = 1;
+		    get_call_invalidated_used_regs (call, &clobbered_regs,
+						    FALSE);
+		    /* ??? If only part is call clobbered.  */
+		    if (! hard_reg_not_in_set_p (regno, mode, clobbered_regs))
+		      cost += freq * (memory_move_cost [mode] [class] [0]
+				      + memory_move_cost [mode] [class] [1]);
+		  }
+	      }
 #ifdef IRA_HARD_REGNO_ADD_COST_MULTIPLIER
 	    cost += ((memory_move_cost [mode] [class] [0]
 		      + memory_move_cost [mode] [class] [1]) * PSEUDO_FREQ (p)

@@ -718,9 +718,11 @@ record_opr_changes (rtx insn)
   if (CALL_P (insn))
     {
       unsigned int regno;
-
+      HARD_REG_SET clobbered_regs;
+      
+      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+	if (TEST_HARD_REG_BIT (clobbered_regs, regno))
 	  record_last_reg_set_info (insn, regno);
 
       if (! CONST_OR_PURE_CALL_P (insn))
@@ -879,9 +881,15 @@ reg_set_between_after_reload_p (rtx reg, rtx from_insn, rtx to_insn)
       {
 	if (set_of (reg, insn) != NULL_RTX)
 	  return insn;
-	if ((CALL_P (insn)
-	      && call_used_regs[REGNO (reg)])
-	    || find_reg_fusage (insn, CLOBBER, reg))
+	if (CALL_P (insn))
+	  {
+	    HARD_REG_SET used_regs;
+	    
+	    get_call_invalidated_used_regs (insn, &used_regs, false);
+	    if (TEST_HARD_REG_BIT (used_regs, REGNO (reg)))
+	      return insn;
+	  }
+	if (find_reg_fusage (insn, CLOBBER, reg))
 	  return insn;
 
 	if (FIND_REG_INC_NOTE (insn, reg))
@@ -911,10 +919,17 @@ reg_used_between_after_reload_p (rtx reg, rtx from_insn, rtx to_insn)
        insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
-	if (reg_overlap_mentioned_p (reg, PATTERN (insn))
-	    || (CALL_P (insn)
-		&& call_used_regs[REGNO (reg)])
-	    || find_reg_fusage (insn, USE, reg)
+	if (reg_overlap_mentioned_p (reg, PATTERN (insn)))
+	  return insn;
+	if (CALL_P (insn))
+	  {
+	    HARD_REG_SET used_regs;
+	    
+	    get_call_invalidated_used_regs (insn, &used_regs, false);
+	    if (TEST_HARD_REG_BIT (used_regs, REGNO (reg)))
+	      return insn;
+	  }
+	if (find_reg_fusage (insn, USE, reg)
 	    || find_reg_fusage (insn, CLOBBER, reg))
 	  return insn;
 

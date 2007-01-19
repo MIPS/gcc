@@ -1418,8 +1418,11 @@ cselib_process_insn (rtx insn)
      memory.  */
   if (CALL_P (insn))
     {
+      HARD_REG_SET used_regs;
+      
+      get_call_invalidated_used_regs (insn, &used_regs, false);
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (call_used_regs[i]
+	if (TEST_HARD_REG_BIT (used_regs, i)
 	    || (REG_VALUES (i) && REG_VALUES (i)->elt
 		&& HARD_REGNO_CALL_PART_CLOBBERED (i, 
 		      GET_MODE (REG_VALUES (i)->elt->u.val_rtx))))

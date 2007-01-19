@@ -57,7 +57,7 @@ extern rtx ira_eliminate_regs (rtx, enum machine_mode);
 
 extern void ira (FILE *);
 extern void mark_allocation_change (int);
-extern void try_to_migrate (int, HARD_REG_SET, void *, HARD_REG_SET *);
 extern void retry_ira_color (int, HARD_REG_SET);
 extern rtx reuse_stack_slot (int, unsigned int, unsigned int);
 extern void mark_new_stack_slot (rtx, int, unsigned int);
+extern void collect_pseudo_call_clobbered_regs (int, HARD_REG_SET *);

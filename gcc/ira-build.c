@@ -856,6 +856,8 @@ ira_build (int loops_p)
   df_ri_add_problem (build_df, DF_RI_LIFE);
   df_analyze (build_df);
 
+  CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
+
   initiate_pseudos ();
   initiate_copies ();
   ira_assert (current_loops == NULL);

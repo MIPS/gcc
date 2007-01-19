@@ -1,3 +1,84 @@
+2007-01-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* toplev.h (flag_ipra): New external definition.
+
+	* common.opt (fipra): New option.
+
+	* doc/invoke.texi (-fipra); Document the option.
+
+	* cgraph.h (cgraph_node): New member function_used_regs.
+
+	* cgraph.c (cgraph_create_node): Initialize function_used_regs.
+
+	* final.c (update_regs_ever_live): New function.
+	(rest_of_handle_final): Set up function_used_regs and
+	call_used_regs.
+
+	* ira-build.c (ira_build): Clear function call_used_regs.
+
+	* function.h: Add hard-reg-set.h header.
+	(emit_status): New member call_used_regs.
+	(get_call_invalidated_used_regs): New definition.
+
+	* function.c (get_call, get_call_invalidated_used_regs): New
+	functions.
+
+	* Makefile.in (FUNCTION_H): Add hard-reg-set.h.
+	(caller-save.o): Add dependence on output.h and ira.h
+
+	* regrename.c (copyprop_hardreg_forward_1): Use function
+	get_call_invalidated_used_regs.
+
+	* ira-conflicts.c (process_bb_node_for_conflicts): Ditto.
+
+	* postreload-gcse.c (record_opr_changes,
+	reg_set_between_after_reload_p, reg_used_between_after_reload_p):
+	Ditto.
+
+	* postreload.c (reload_combine, reload_cse_move2add): Ditto.
+
+	* rtlanal.c (reg_set_between_p): Ditto.
+
+	* flow.c (propagate_one_insn): Ditto.
+
+	* df-scan.c (df_insn_refs_record): Ditto.
+
+	* gcse.c (compute_hash_table_work, compute_store_table): Ditto.
+
+	* cselib.c (cselib_process_insn): Ditto.
+
+        * loop-iv.c (simplify_using_assignment): Ditto.
+
+	* sched-deps.c (sched_analyze): Ditto.
+
+	* combine.c (record_dead_and_set_regs): Ditto.
+
+	* resource.c (mark_set_resources, mark_set_resources): Ditto.
+
+	* var-tracking.c (var-tracking.c): Ditto.
+
+	* reload1.c (reload): Ditto.
+
+	* cse.c (invalidate_for_call): Ditto.  Add parameter.
+	(cse_insn): Pass the parameter.
+
+	* ira.h (try_to_migrate): Remove the definition.
+	(collect_pseudo_call_clobbered_regs): New external definition.
+
+	* ira-color.c (collect_pseudo_call_clobbered_regs): New function.
+
+	* ira-costs.c (tune_pseudo_costs_and_cover_classes): Add cost
+	calculation when IPRA is used.
+
+	* caller-save.c: Include headers output.h and ira.h.
+	(saved_hard_reg): New structure.
+	(hard_reg_map, hard_reg_map, all_saved_regs): New variables.
+	(all_saved_regs, new_saved_hard_reg, finish_saved_hard_regs,
+	saved_hard_reg_compare_func): New functions.
+	(setup_save_areas): Add code for sharing stack slots.
+	(save_call_clobbered_regs): Use function
+	get_call_invalidated_used_regs.
+	
 2007-01-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/tm.texi (IRA_HARD_REGNO_ADD_COST_MULTIPLIER): New macro.

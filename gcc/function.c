@@ -64,6 +64,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "predict.h"
 #include "vecprim.h"
+#include "cgraph.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -5452,6 +5453,83 @@ current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
 }
+
+
+
+/* This recursive function finds and returns CALL expression in X.  */
+static rtx
+get_call (rtx x)
+{
+  int i;
+  rtx call_rtx;
+  const char *fmt;
+  enum rtx_code code = GET_CODE (x);
+
+  /* Ignore registers in memory.  */
+  if (code == CALL)
+    return x;
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt [i] == 'e')
+	{
+	  if ((call_rtx = get_call (XEXP (x, i))) != NULL_RTX)
+	    return call_rtx;
+	}
+      else if (fmt [i] == 'E')
+	{
+	  int j;
+
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    if ((call_rtx = get_call (XVECEXP (x, i, j))) != NULL_RTX)
+	      return call_rtx;
+	}
+    }
+  return NULL_RTX;
+}
+
+/* This function returns call unsaved registers invalidated (if
+   CLOBBERED_P) or used by function called by INSN through REGS.  */
+void
+get_call_invalidated_used_regs (rtx insn, HARD_REG_SET *regs, bool clobbered_p)
+{
+  rtx x;
+  struct cgraph_node *node;
+  tree decl = NULL;
+
+  gcc_assert (CALL_P (insn));
+  
+  x = get_call (PATTERN (insn));
+  if (x != NULL_RTX)
+    {
+      x = XEXP (x, 0);
+      gcc_assert (GET_CODE (x) == MEM);
+      x = XEXP (x, 0);
+      if (GET_CODE (x) == SYMBOL_REF)
+	decl = SYMBOL_REF_DECL (x);
+      if (decl != NULL && TREE_CODE (decl) != FUNCTION_DECL)
+	decl = NULL;
+    }
+  node = decl == NULL ? NULL : cgraph_node (decl);
+  if (! flag_ira || ! flag_ipra || node == NULL
+      /* This is a call of the function itself.  We don't know used
+	 register yet.  So take the worst case.  */
+      || node->decl == cfun->decl)
+    {
+      if (clobbered_p)
+	COPY_HARD_REG_SET (*regs, regs_invalidated_by_call);
+      else
+	COPY_HARD_REG_SET (*regs, call_used_reg_set);
+    }
+  else
+    {
+      COPY_HARD_REG_SET (*regs, node->function_used_regs);
+      if (clobbered_p)
+	AND_HARD_REG_SET (*regs, regs_invalidated_by_call);
+    }
+}
+
 
 
 static unsigned int

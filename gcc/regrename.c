@@ -1789,9 +1789,14 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
     did_replacement:
       /* Clobber call-clobbered registers.  */
       if (CALL_P (insn))
-	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	  if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
-	    kill_value_regno (i, 1, vd);
+	{
+	  HARD_REG_SET clobbered_regs;
+	  
+	  get_call_invalidated_used_regs (insn, &clobbered_regs, true);
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    if (TEST_HARD_REG_BIT (clobbered_regs, i))
+	      kill_value_regno (i, 1, vd);
+	}
 
       /* Notice stores.  */
       note_stores (PATTERN (insn), kill_set_value, vd);

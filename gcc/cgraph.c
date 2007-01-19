@@ -171,6 +171,7 @@ cgraph_create_node (void)
   node->global.estimated_growth = INT_MIN;
   cgraph_nodes = node;
   cgraph_n_nodes++;
+  COPY_HARD_REG_SET (node->function_used_regs, call_used_reg_set);
   return node;
 }
 

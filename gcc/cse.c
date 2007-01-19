@@ -586,7 +586,7 @@ static void remove_invalid_subreg_refs (unsigned int, unsigned int,
 					enum machine_mode);
 static void rehash_using_reg (rtx);
 static void invalidate_memory (void);
-static void invalidate_for_call (void);
+static void invalidate_for_call (rtx);
 static rtx use_related_value (rtx, struct table_elt *);
 
 static inline unsigned canon_hash (rtx, enum machine_mode);
@@ -1941,21 +1941,23 @@ rehash_using_reg (rtx x)
    register.  Also update their TICK values.  */
 
 static void
-invalidate_for_call (void)
+invalidate_for_call (rtx call_insn)
 {
   unsigned int regno, endregno;
   unsigned int i;
   unsigned hash;
   struct table_elt *p, *next;
   int in_table = 0;
+  HARD_REG_SET clobbered_regs;
 
   /* Go through all the hard registers.  For each that is clobbered in
      a CALL_INSN, remove the register from quantity chains and update
      reg_tick if defined.  Also see if any of these registers is currently
      in the table.  */
 
+  get_call_invalidated_used_regs (call_insn, &clobbered_regs, true);
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+    if (TEST_HARD_REG_BIT (clobbered_regs, regno))
       {
 	delete_reg_equiv (regno);
 	if (REG_TICK (regno) >= 0)
@@ -1985,7 +1987,7 @@ invalidate_for_call (void)
 	  endregno = regno + hard_regno_nregs[regno][GET_MODE (p->exp)];
 
 	  for (i = regno; i < endregno; i++)
-	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	    if (TEST_HARD_REG_BIT (clobbered_regs, i))
 	      {
 		remove_from_table (p, hash);
 		break;
@@ -5291,7 +5293,7 @@ cse_insn (rtx insn, rtx libcall_insn)
     {
       if (! CONST_OR_PURE_CALL_P (insn))
 	invalidate_memory ();
-      invalidate_for_call ();
+      invalidate_for_call (insn);
     }
 
   /* Now invalidate everything set by this instruction.

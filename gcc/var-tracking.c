@@ -1724,9 +1724,15 @@ compute_bb_dataflow (basic_block bb)
       switch (VTI (bb)->mos[i].type)
 	{
 	  case MO_CALL:
-	    for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	      if (TEST_HARD_REG_BIT (call_used_reg_set, r))
-		var_regno_delete (out, r);
+	    {
+	      HARD_REG_SET used_regs;
+
+	      get_call_invalidated_used_regs (VTI (bb)->mos[i].insn,
+					      &used_regs, false);
+	      for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
+		if (TEST_HARD_REG_BIT (used_regs, r))
+		  var_regno_delete (out, r);
+	    }
 	    break;
 
 	  case MO_USE:
@@ -2589,9 +2595,11 @@ emit_notes_in_bb (basic_block bb)
 	  case MO_CALL:
 	    {
 	      int r;
+	      HARD_REG_SET used_regs;
 
+	      get_call_invalidated_used_regs (insn, &used_regs, false);
 	      for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-		if (TEST_HARD_REG_BIT (call_used_reg_set, r))
+		if (TEST_HARD_REG_BIT (used_regs, r))
 		  {
 		    var_regno_delete (&set, r);
 		  }

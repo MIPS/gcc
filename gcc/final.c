@@ -3893,12 +3893,78 @@ debug_free_queue (void)
     }
 }
 
+
+/* Update REGS_EVER_LIVE which might be changed after the register
+   allocator.  */
+static void
+update_regs_ever_live (rtx x)
+{
+  int i;
+  const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+
+  if (code == REG)
+    {
+      if (HARD_REGISTER_P (x))
+	regs_ever_live [REGNO (x)] = 1;
+      return;
+    }
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    if (fmt[i] == 'e')
+      update_regs_ever_live (XEXP (x, i));
+    else if (fmt[i] == 'E')
+      {
+	int j;
+
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  update_regs_ever_live (XVECEXP (x, i, j));
+      }
+}
+
 /* Turn the RTL into assembly.  */
 static unsigned int
 rest_of_handle_final (void)
 {
+  int i;
   rtx x;
   const char *fnname;
+  struct cgraph_node *node;
+
+  gcc_assert (cfun->decl != NULL);
+  node = cgraph_node (cfun->decl);
+  if (node != NULL)
+    {
+      rtx insn;
+
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  update_regs_ever_live (PATTERN (insn));
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (fixed_regs [i])
+	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
+	else if (call_used_regs [i]
+		 && (regs_ever_live [i]
+#ifdef STACK_REGS
+		     || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
+#endif
+		     ))
+	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
+      COPY_HARD_REG_SET (node->function_used_regs, cfun->emit->call_used_regs);
+      if (dump_file != NULL)
+	{
+	  GO_IF_HARD_REG_EQUAL (cfun->emit->call_used_regs,
+				call_used_reg_set, ok);
+	  fprintf (dump_file, "unused unsaved registers: ");
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    if (TEST_HARD_REG_BIT (call_used_reg_set, i)
+		&& ! TEST_HARD_REG_BIT (cfun->emit->call_used_regs, i))
+	      fprintf (dump_file, "%s ", reg_names [i]);
+	  fprintf (dump_file, "\n");
+	ok:
+	  ;
+	}
+    }
 
   /* Get the function's name, as described by its RTL.  This may be
      different from the DECL_NAME name used in the source file.  */

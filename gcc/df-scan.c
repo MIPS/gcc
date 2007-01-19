@@ -1582,6 +1582,8 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	    {
 	      bitmap_iterator bi;
 	      unsigned int ui;
+	      HARD_REG_SET clobbered_regs;
+
 	      /* Calls may also reference any of the global registers,
 		 so they are recorded as used.  */
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1589,9 +1591,13 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 		  df_uses_record (dflow, &regno_reg_rtx[i],
 				  DF_REF_REG_USE, bb, insn, 
 				  0);
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
-	        df_ref_record (dflow, regno_reg_rtx[ui], &regno_reg_rtx[ui], bb, 
-			       insn, DF_REF_REG_DEF, DF_REF_MAY_CLOBBER, false);
+		if (ui >= FIRST_PSEUDO_REGISTER
+		    || TEST_HARD_REG_BIT (clobbered_regs, ui))
+		  df_ref_record (dflow, regno_reg_rtx[ui], &regno_reg_rtx[ui],
+				 bb, insn, DF_REF_REG_DEF, DF_REF_MAY_CLOBBER,
+				 false);
 	    }
 	}
 

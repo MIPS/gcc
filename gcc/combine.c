@@ -11035,8 +11035,11 @@ record_dead_and_set_regs (rtx insn)
 
   if (CALL_P (insn))
     {
+      HARD_REG_SET clobbered_regs;
+
+      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	if (TEST_HARD_REG_BIT (clobbered_regs, i))
 	  {
 	    reg_stat[i].last_set_value = 0;
 	    reg_stat[i].last_set_mode = 0;

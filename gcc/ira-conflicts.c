@@ -1156,6 +1156,10 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
       
       if (CALL_P (insn))
 	{
+	  HARD_REG_SET clobbered_regs;
+	  
+	  get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
+	  IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
 	  EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, i,
 	    {
 	      int freq;

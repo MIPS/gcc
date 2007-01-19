@@ -747,18 +747,24 @@ reg_set_between_p (rtx reg, rtx from_insn, rtx to_insn)
 int
 reg_set_p (rtx reg, rtx insn)
 {
-  /* We can be passed an insn or part of one.  If we are passed an insn,
-     check if a side-effect of the insn clobbers REG.  */
-  if (INSN_P (insn)
-      && (FIND_REG_INC_NOTE (insn, reg)
-	  || (CALL_P (insn)
-	      && ((REG_P (reg)
-		   && REGNO (reg) < FIRST_PSEUDO_REGISTER
-		   && TEST_HARD_REG_BIT (regs_invalidated_by_call,
-					 REGNO (reg)))
-		  || MEM_P (reg)
-		  || find_reg_fusage (insn, CLOBBER, reg)))))
-    return 1;
+  if (INSN_P (insn))
+    {
+      if (FIND_REG_INC_NOTE (insn, reg))
+	return 1;
+      if (CALL_P (insn))
+	{
+	  if (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER)
+	    {
+	      HARD_REG_SET clobbered_regs;
+	    
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
+	      if (TEST_HARD_REG_BIT (clobbered_regs, REGNO (reg)))
+		return 1;
+	    }
+	  if (MEM_P (reg) || find_reg_fusage (insn, CLOBBER, reg))
+	    return 1;
+	}
+    }
 
   return set_of (reg, insn) != NULL_RTX;
 }

@@ -313,7 +313,7 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
--finline-limit=@var{n} -fira -fira-alogirthm=@var{algorithm} @gol
+-finline-limit=@var{n} -fipra -fira -fira-alogirthm=@var{algorithm} @gol
 -fira-biased-coloring -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
@@ -5022,6 +5022,11 @@ generated code quality especially for machines with small or moderate
 size register set, the second one is faster and generates decent code
 and the smallest size code, and the priority-based one is the fastest
 one.
+
+@item -fipra
+@opindex fipra
+Switch on a simple form of inter-procedural register allocation when
+the integrated register allocator (@acronym{IRA}) is used.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
