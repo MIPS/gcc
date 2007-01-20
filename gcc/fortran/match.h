@@ -161,25 +161,24 @@ match gfc_match_target (void);
 match gfc_match_volatile (void);
 
 /* F03 c interop */
-/* --Rickett, 09.27.05 */
 /* some of these should be moved to another file rather than decl.c */
 /* decl.c */
-void verify_c_interop_param(gfc_symbol *sym);
-void verify_com_block_vars_c_interop(gfc_common_head *com_block);
-void set_com_block_bind_c(gfc_common_head *com_block, int is_bind_c);
-try set_binding_label(char *dest_label, const char *sym_name,
-                      int num_idents);
-void verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
+void verify_c_interop_param (gfc_symbol *sym);
+try verify_com_block_vars_c_interop (gfc_common_head *com_block);
+void set_com_block_bind_c (gfc_common_head *com_block, int is_bind_c);
+try set_binding_label (char *dest_label, const char *sym_name,
+                       int num_idents);
+try verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
                        int is_in_common, gfc_common_head *com_block);
-try set_verify_bind_c_sym(gfc_symbol *tmp_sym, gfc_typespec *ts,
-                          int num_idents);
-try set_verify_bind_c_com_block(gfc_common_head *com_block,
-                                int num_idents);
-try get_bind_c_idents(gfc_typespec *ts);
-match gfc_match_attr_spec_stmt(gfc_typespec *ts);
-match gfc_match_suffix(gfc_symbol *sym, gfc_symbol **result);
-match gfc_match_bind_c(gfc_symbol *sym);
-match gfc_get_type_attr_spec(symbol_attribute *attr);
+try set_verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
+                           int num_idents);
+try set_verify_bind_c_com_block (gfc_common_head *com_block,
+                                 int num_idents);
+try get_bind_c_idents (gfc_typespec *ts);
+match gfc_match_attr_spec_stmt (gfc_typespec *ts);
+match gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result);
+match gfc_match_bind_c (gfc_symbol *sym);
+match gfc_get_type_attr_spec (symbol_attribute *attr);
 
 /* primary.c */
 match gfc_match_structure_constructor (gfc_symbol *, gfc_expr **);

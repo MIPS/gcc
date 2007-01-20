@@ -1412,73 +1412,65 @@ pure_function (gfc_expr * e, const char **name)
 }
 
 
-static gfc_symbol *gfc_iso_c_func_interface(gfc_symbol *sym,
-                                            gfc_actual_arglist *args)
+static gfc_symbol *gfc_iso_c_func_interface (gfc_symbol *sym,
+                                             gfc_actual_arglist *args)
 {
-   char name[GFC_MAX_SYMBOL_LEN + 1];
-   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-   gfc_symbol *new_sym = NULL;
-   int optional_arg = 0;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
+  gfc_symbol *new_sym = NULL;
+  int optional_arg = 0;
    
-   /* if we weren't given args, we're in trouble.  this should not be
-    * reached because parameter verification should have happened already.
-    */
-   if(args == NULL)
-      gfc_internal_error("gfc_iso_c_func_interface(): Missing args!\n");
+  /* if we weren't given args, we're in trouble.  this should not be
+   * reached because parameter verification should have happened already.
+   */
+  if (args == NULL)
+    gfc_internal_error ("gfc_iso_c_func_interface(): Missing args!\n");
 
-   if(strcmp(sym->name, "c_associated") == 0)
-   {
-      /* if the user gave two args then they are providing something for
-       * the optional arg (the second cptr).  therefore, set the name and
-       * binding label to the c_associated for two cptrs.  otherwise,
-       * set c_associated to expect one cptr.
-       */
-      if(args->next)
-      {
-         /* two args */
-         /* do we really need to change the name?? --Rickett, 08.15.06 */
-         sprintf(name, "%s_2", sym->name);
-         sprintf(binding_label, "%s_2", sym->binding_label);
-         optional_arg = 1;
-      }/* end if(two args given) */
+  if (strcmp (sym->name, "c_associated") == 0)
+    {
+      /* If the user gave two args then they are providing something for
+	 the optional arg (the second cptr).  Therefore, set the name and
+	 binding label to the c_associated for two cptrs.  Otherwise,
+	 set c_associated to expect one cptr.  */
+      if (args->next)
+	{
+	  /* two args */
+	  sprintf (name, "%s_2", sym->name);
+	  sprintf (binding_label, "%s_2", sym->binding_label);
+	  optional_arg = 1;
+	}
       else
-      {
-         /* one arg */
-         sprintf(name, "%s_1", sym->name);
-         sprintf(binding_label, "%s_1", sym->binding_label);
-         optional_arg = 0;
-      }/* end else(one arg given) */
+	{
+	  /* one arg */
+	  sprintf (name, "%s_1", sym->name);
+	  sprintf (binding_label, "%s_1", sym->binding_label);
+	  optional_arg = 0;
+	}
 
-      /* get a new symbol for the version of c_associated that
-       * will get called.
-       */
-      new_sym = get_iso_c_sym(sym, name, binding_label, optional_arg);
-   }/* end if(c_associated) */
-   else if(strcmp(sym->name, "c_loc") == 0)
-   {
-      /* for now, don't change anything for c_loc til figure out
-       * what versions of c_loc i actually need in the library.
-       * --Rickett, 08.23.06
-       */
-      sprintf(name, "%s", sym->name);
-      sprintf(binding_label, "%s", sym->binding_label);
-      if(args->next != NULL)
-         gfc_error_now("More actual than formal arguments in 'C_LOC' "
-                       "call at %C");
+      /* Get a new symbol for the version of c_associated that
+	 will get called.  */
+      new_sym = get_iso_c_sym (sym, name, binding_label, optional_arg);
+    }
+  else if (strcmp (sym->name, "c_loc") == 0)
+    {
+      sprintf (name, "%s", sym->name);
+      sprintf (binding_label, "%s", sym->binding_label);
+      if (args->next != NULL)
+	gfc_error_now ("More actual than formal arguments in 'C_LOC' "
+		       "call at %C");
       /* for c_loc, the new symbol is the same as the old one */
       new_sym = sym;
-   }/* end else if(c_loc) */
-   else
-   {
-      gfc_internal_error("gfc_iso_c_func_interface(): Unhandled "
-                         "iso_c_binding function!\n");
-   }
+    }
+  else
+    {
+      gfc_internal_error ("gfc_iso_c_func_interface(): Unhandled "
+			  "iso_c_binding function!\n");
+    }
 
-   /* return the new_sym, which is either a resolved c_associated or
-    * the same sym for c_loc we were given
-    */
-   return new_sym;
-}/* end gfc_iso_c_func_interface() */
+  /* Return the new_sym, which is either a resolved c_associated or
+     the same sym for c_loc we were given.  */
+  return new_sym;
+}
 
 
 /* Resolve a function call, which means resolving the arguments, then figuring
@@ -1499,17 +1491,15 @@ resolve_function (gfc_expr * expr)
   if (expr->symtree)
     sym = expr->symtree->n.sym;
 
-  /* need to setup the call to the correct c_associated, depending on
-   * the number of cptrs to user gives to compare.
-   */
-  if(sym->attr.is_iso_c == 1)
-  {
-     sym = gfc_iso_c_func_interface(sym, expr->value.function.actual);
-     /* get the symtree for the new symbol (resolved func).
-      * the old one will be freed later, when it's no longer used.
-      */
-     gfc_find_sym_tree(sym->name, sym->ns, 1, &(expr->symtree));
-  }/* end if(is an iso_c_binding function) */
+  /* Need to setup the call to the correct c_associated, depending on
+     the number of cptrs to user gives to compare.  */
+  if (sym->attr.is_iso_c == 1)
+    {
+      sym = gfc_iso_c_func_interface (sym, expr->value.function.actual);
+      /* Get the symtree for the new symbol (resolved func).
+         the old one will be freed later, when it's no longer used.  */
+      gfc_find_sym_tree (sym->name, sym->ns, 1, &(expr->symtree));
+    }
   
   /* If the procedure is not internal, a statement function or a module
      procedure,it must be external and should be checked for usage.  */
@@ -1797,102 +1787,48 @@ generic:
  * @param binding_lable Output buffer to store the new binding label to.
  * @return None
  */
-static void set_name_and_label(gfc_code *c, gfc_symbol *sym,
-                               char *name, char *binding_label)
+static void set_name_and_label (gfc_code *c, gfc_symbol *sym,
+                                char *name, char *binding_label)
 {
-   gfc_expr *arg = NULL;
-   char type;
-   int kind;
+  gfc_expr *arg = NULL;
+  char type;
+  int kind;
 
-   /* the second arg of c_f_pointer and c_f_procpointer determines
-    * the type and kind for the procedure name
-    */
-   arg = c->ext.actual->next->expr;
+  /* The second arg of c_f_pointer and c_f_procpointer determines
+     the type and kind for the procedure name.  */
+  arg = c->ext.actual->next->expr;
 
-   if(arg != NULL)
-   {
-      /* set up the name to have the given symbol's name,
-       * plus the type and kind
-       */
+  if (arg != NULL)
+    {
+      /* Set up the name to have the given symbol's name,
+         plus the type and kind.  */
       /* a derived type is marked with the type letter 'u' */
-      if(arg->ts.type == BT_DERIVED)
-      {
-         type = 'd';
-         kind = 0; /* set the kind as 0 for now */
-      }
+      if (arg->ts.type == BT_DERIVED)
+        {
+          type = 'd';
+          kind = 0; /* set the kind as 0 for now */
+        }
       else
-      {
-         type = gfc_type_letter(arg->ts.type);
-         kind = arg->ts.kind;
-      }
-      sprintf(name, "%s_%c%d", sym->name, type, kind);
-      /* set up the binding label as the given symbol's label plus
-       * the type and kind
-       */
-      sprintf(binding_label, "%s_%c%d", sym->binding_label, type, kind);
-   }
-   else
-   {
-      /* if the second arg is missing, set the name and label as
-       * was, cause it should at least be found, and the missing
-       * arg error will be caught by compare_parameters()
-       */
-      sprintf(name, "%s", sym->name);
-      sprintf(binding_label, "%s", sym->binding_label);
-   }
+        {
+          type = gfc_type_letter (arg->ts.type);
+          kind = arg->ts.kind;
+        }
+      sprintf (name, "%s_%c%d", sym->name, type, kind);
+      /* Set up the binding label as the given symbol's label plus
+         the type and kind.  */
+      sprintf (binding_label, "%s_%c%d", sym->binding_label, type, kind);
+    }
+  else
+    {
+      /* If the second arg is missing, set the name and label as
+         was, cause it should at least be found, and the missing
+         arg error will be caught by compare_parameters().  */
+      sprintf (name, "%s", sym->name);
+      sprintf (binding_label, "%s", sym->binding_label);
+    }
    
-   return;
-}/* end set_name_and_label() */
-
-
-/* #ifdef F03_ENABLED */
-/* static void verify_iso_c_sub_args(gfc_code *c, gfc_symbol *sym) */
-/* { */
-/*    gfc_symbol *tmp_sym; */
-   
-/*    /\* must have at least 2 args, and this should have already */
-/*     * been tested, so assume we have them here. */
-/*     *\/ */
-/*    tmp_sym = c->ext.actual->next->expr->symtree->n.sym; */
-      
-/*    if(strcmp(sym->name, "c_f_pointer") == 0) */
-/*    { */
-/*       if(tmp_sym->ts.type == BT_DERIVED) */
-/*       { */
-/*          /\* it should already have been handled so we can be assured */
-/*           * that tmp_sym->ts.derived isn't NULL, but check anyway. */
-/*           *\/ */
-/*          if(tmp_sym->ts.derived != NULL && */
-/*             tmp_sym->ts.derived->ts.is_c_interop == 1) */
-/*             /\* already checked it *\/ */
-/*             return; */
-         
-/*          /\* errors reported in this function, though they're not */
-/*           * really accurate because it's testing what they're */
-/*           * assuming is a bind(c) derived type...need to change this. */
-/*           * --Rickett, 06.07.06 */
-/*           *\/ */
-/*          verify_bind_c_derived_type(tmp_sym->ts.derived); */
-/*       } */
-/*       else */
-/*       { */
-/*          if(tmp_sym->ts.is_c_interop != 1) */
-/*             gfc_error("Parameter %s at %L must be a C interoperable type", */
-/*                       tmp_sym->name, &(c->loc)); */
-/*          return; */
-/*       } */
-/*    }/\* end if(looking at args to c_f_pointer) *\/ */
-   
-/*    /\* need to have tests for c_f_procpointer and c_associated also. */
-/*     * the test for c_f_pointer needs to be modified also to handle */
-/*     * the second condition for FPTR according to the draft, */
-/*     * J3/04-007, section 15.1.2.2. */
-/*     *\/ */
-
-/*    /\* if reach here, no failures *\/ */
-/*    return; */
-/* }/\* end verify_iso_c_sub_args() *\/ */
-/* #endif */
+  return;
+}
 
 
 /**
@@ -1910,102 +1846,85 @@ static void set_name_and_label(gfc_code *c, gfc_symbol *sym,
  * not technically marked as generic within the compiler).
  * @return MATCH_ERROR if an error occurred; MATCH_YES otherwise.  
  */
-match gfc_iso_c_sub_interface(gfc_code *c, gfc_symbol *sym)
+match gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 {
-/*    gfc_symtree *symTree; */
-   gfc_symbol *new_sym;
-   /* this is fine, since we know the names won't use the max */
-   char name[GFC_MAX_SYMBOL_LEN + 1];
-   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-   /* default to success; will override if find error */
-   match m = MATCH_YES;
+  gfc_symbol *new_sym;
+  /* this is fine, since we know the names won't use the max */
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
+  /* default to success; will override if find error */
+  match m = MATCH_YES;
 
-   if(strcmp(sym->name, "c_f_pointer") == 0 ||
-      strcmp(sym->name, "c_f_procpointer") == 0)
-   {
-      set_name_and_label(c, sym, name, binding_label);
+  if (strcmp (sym->name, "c_f_pointer") == 0 ||
+      strcmp (sym->name, "c_f_procpointer") == 0)
+    {
+      set_name_and_label (c, sym, name, binding_label);
       
-      if(strcmp(sym->name, "c_f_pointer") == 0)
-      {
-         if(c->ext.actual != NULL && c->ext.actual->next != NULL)
-         {
-            /* make sure we got a third arg.  type/rank of it will
-             * be checked later if it's there (gfc_procedure_use()) 
-             */
-            if(c->ext.actual->next->expr->rank != 0 &&
-               c->ext.actual->next->next == NULL)
-            {
-               m = MATCH_ERROR;
-               gfc_error("Missing SHAPE parameter for call to %s "
-                         "at %L", sym->name, &(c->loc));
-            }
-         }/* end if(user gave us at least 2 args) */
-      }/* end if(working on call to c_f_pointer) */
+      if (strcmp (sym->name, "c_f_pointer") == 0)
+	{
+	  if (c->ext.actual != NULL && c->ext.actual->next != NULL)
+	    {
+	      /* Make sure we got a third arg.	The type/rank of it will
+		 be checked later if it's there (gfc_procedure_use()).	*/
+	      if (c->ext.actual->next->expr->rank != 0 &&
+		  c->ext.actual->next->next == NULL)
+		{
+		  m = MATCH_ERROR;
+		  gfc_error ("Missing SHAPE parameter for call to %s "
+			     "at %L", sym->name, &(c->loc));
+		}
+	    }
+	}
       
-      if(m != MATCH_ERROR)
-      {
-         /* the 1 means to add the optional arg to formal list */
-         new_sym = get_iso_c_sym(sym, name, binding_label, 1);
-         
-         /* for error reporting, say it's declared where the original was */
-         new_sym->declared_at = sym->declared_at;
-      }/* end if(wasn't a missing arg) */
-   }/* end if(was c_f_pointer or c_f_procpointer) */
-   else if(strcmp(sym->name, "c_associated") == 0)
-   {
+      if (m != MATCH_ERROR)
+	{
+	  /* the 1 means to add the optional arg to formal list */
+	  new_sym = get_iso_c_sym (sym, name, binding_label, 1);
+	 
+	  /* for error reporting, say it's declared where the original was */
+	  new_sym->declared_at = sym->declared_at;
+	}
+    }
+  else if (strcmp (sym->name, "c_associated") == 0)
+    {
       int num_args = 0;
-      if(c->ext.actual->next == NULL)
-      {
-         /* the user did not give two args, so resolve to the version
-          * of c_associated expecting one arg.
-          */
-         num_args = 1;
-         /* get rid of the second arg */
-         /* TODO!! F03_ENABLED  this should free up the memory!!!!
-          * --Rickett, 08.10.06
-          */
-         sym->formal->next = NULL;
-      }/* end if(one arg given) */
+      if (c->ext.actual->next == NULL)
+	{
+	  /* The user did not give two args, so resolve to the version
+	     of c_associated expecting one arg.	 */
+	  num_args = 1;
+	  /* get rid of the second arg */
+	  /* TODO!! Should free up the memory here!  */
+	  sym->formal->next = NULL;
+	}
       else
-      {
-         num_args = 2;
-      }/* end if(two args given) */
+	{
+	  num_args = 2;
+	}
 
       new_sym = sym;
-      sprintf(name, "%s_%d", sym->name, num_args);
-      sprintf(binding_label, "%s_%d", sym->binding_label, num_args);
-/*       sprintf(sym->name, "%s", name); */
-/*       sprintf(sym->binding_label, "%s", binding_label); */
-      sym->name = gfc_get_string(name);
-      strcpy(sym->binding_label, binding_label);
-   }/* end if(c_associated) */
-   else
-   {
+      sprintf (name, "%s_%d", sym->name, num_args);
+      sprintf (binding_label, "%s_%d", sym->binding_label, num_args);
+      sym->name = gfc_get_string (name);
+      strcpy (sym->binding_label, binding_label);
+    }
+  else
+    {
       /* no differences for c_loc or c_funloc */
       new_sym = sym;
-   }/* end else(c_loc or c_funloc) */
+    }
 
-   /* we can't really check the fortran ptr (second arg of c_f_pointer),
-    * because it may or may not be interoperable.  the draft doesn't
-    * require it.  (J3/04-007, section 15.1.2.2).  the cptr arg can't
-    * be checked either.  --Rickett, 06.08.06
-    */
-/*    /\* check the args *\/ */
-/*    if(m != MATCH_ERROR) */
-/*       /\* this function will report any errors for us *\/ */
-/*       verify_iso_c_sub_args(c, sym);       */
-   
-   /* set the resolved symbol */
-   if(m != MATCH_ERROR)
-   {
-      gfc_procedure_use(new_sym, &c->ext.actual, &c->loc);
+  /* set the resolved symbol */
+  if (m != MATCH_ERROR)
+    {
+      gfc_procedure_use (new_sym, &c->ext.actual, &c->loc);
       c->resolved_sym = new_sym;
-   }
-   else
-      c->resolved_sym = sym;
-   
-   return m;
-}/* end gfc_iso_c_sub_interface() */
+    }
+  else
+    c->resolved_sym = sym;
+  
+  return m;
+}
 
 
 /* Resolve a subroutine call known to be specific.  */
@@ -2016,10 +1935,10 @@ resolve_specific_s0 (gfc_code * c, gfc_symbol * sym)
   match m;
 
   if(sym->attr.is_iso_c)
-  {
-     m = gfc_iso_c_sub_interface(c,sym);
-     return m;
-  }/* end if(sub from iso_c_binding module) */
+    {
+      m = gfc_iso_c_sub_interface (c,sym);
+      return m;
+    }
   
   if (sym->attr.external || sym->attr.if_source == IFSRC_IFBODY)
     {

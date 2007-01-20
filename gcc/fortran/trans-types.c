@@ -118,10 +118,10 @@ int gfc_character_storage_size;
  * @return FAILURE if a mismatch occurs between <code>ts->f90_type</code>
  * and <code>ts->type</code>; SUCCESS if they match.
  */
-try gfc_validate_c_kind(gfc_typespec *ts)
+try gfc_validate_c_kind (gfc_typespec *ts)
 {
    return ((ts->type == ts->f90_type) ? SUCCESS : FAILURE);
-}/* end gfc_validate_c_kind() */
+}
 
 
 static int
@@ -183,7 +183,7 @@ get_int_kind_from_minimal_width (int size)
  * @return None
  */
 static
-void init_c_interop_kinds(void)
+void init_c_interop_kinds (void)
 {
   int i;
   tree intmax_type_node = INT_TYPE_SIZE == LONG_LONG_TYPE_SIZE ?
@@ -1581,11 +1581,11 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
  * @param derived Derived type symbol to test.
  * @return 1 if is from the iso_c_binding module; 0 if not.
  */
-static int check_iso_c_derived(gfc_symbol *derived)
+static int check_iso_c_derived (gfc_symbol *derived)
 {
-   /* this should only be 1 for c_ptr and c_funptr; 0 otherwise */
-   return derived->attr.is_iso_c;
-}/* end check_iso_c_derived() */
+  /* this should only be 1 for c_ptr and c_funptr; 0 otherwise */
+  return derived->attr.is_iso_c;
+}
 
 
 /**
@@ -1605,13 +1605,13 @@ static int check_iso_c_derived(gfc_symbol *derived)
  * derived types we need the tree for.
  * @return The tree that was created for the given ISO C derived type.
  */
-static tree get_iso_c_derived(gfc_symbol *derived)
+static tree get_iso_c_derived (gfc_symbol *derived)
 {
-   if(strcmp(derived->name, "c_ptr") == 0)
-      return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];
-   else
-      return gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX];
-}/* end get_iso_c_derived() */
+  if (strcmp (derived->name, "c_ptr") == 0)
+    return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];
+  else
+    return gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX];
+}
 
 
 /* Copy the backend_decl and component backend_decls if
@@ -1671,11 +1671,11 @@ gfc_get_derived_type (gfc_symbol * derived)
 
   /* see if it's one of the iso_c_binding derived types */
   if(check_iso_c_derived(derived) == 1)
-  {
-     iso_c_tree = get_iso_c_derived(derived);
-     if(iso_c_tree != NULL && derived->backend_decl == NULL)
+    {
+      iso_c_tree = get_iso_c_derived (derived);
+      if (iso_c_tree != NULL && derived->backend_decl == NULL)
         derived->backend_decl = iso_c_tree;
-  }
+    }
   
   /* derived->backend_decl != 0 means we saw it before, but its
      components' backend_decl may have not been built.  */
@@ -1683,19 +1683,18 @@ gfc_get_derived_type (gfc_symbol * derived)
     {
       /* Its components' backend_decl have been built.  */
       if (TYPE_FIELDS (derived->backend_decl))
-          if(iso_c_tree != NULL)
-          {
-             if(!(derived->components->backend_decl))
-                /* if we're working on building this for an iso c
-                 * type in a different ns than when we started, this
-                 * may not have been set yet.  --Rickett, 03.02.06
-                 */
+          if (iso_c_tree != NULL)
+            {
+              if (!(derived->components->backend_decl))
+                /* If we're working on building this for an iso c
+                   type in a different ns than when we started, this
+                   may not have been set yet.  */
                 derived->components->backend_decl =
-                   iso_c_tree->type.values;
-             return iso_c_tree;
-          }
+                  iso_c_tree->type.values;
+              return iso_c_tree;
+            }
           else
-        return derived->backend_decl;
+            return derived->backend_decl;
       else
         typenode = derived->backend_decl;
     }
@@ -1737,26 +1736,26 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       /* We see this derived type first time, so build the type node.  */
       if(iso_c_tree != NULL)
-      {
-         derived->backend_decl = iso_c_tree;
-      }
+        {
+          derived->backend_decl = iso_c_tree;
+        }
       else
-      {
-      typenode = make_node (RECORD_TYPE);
-      TYPE_NAME (typenode) = get_identifier (derived->name);
-      TYPE_PACKED (typenode) = gfc_option.flag_pack_derived;
-      derived->backend_decl = typenode;
+        {
+          typenode = make_node (RECORD_TYPE);
+          TYPE_NAME (typenode) = get_identifier (derived->name);
+          TYPE_PACKED (typenode) = gfc_option.flag_pack_derived;
+          derived->backend_decl = typenode;
 
-         /* there should be a cleaner way to do this..
-          * --Rickett, 06.12.06
-          */
-         if(strcmp(derived->name, "c_ptr") == 0 &&
-            gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] == NULL)
+          /* there should be a cleaner way to do this..
+           * --Rickett, 06.12.06
+           */
+          if (strcmp (derived->name, "c_ptr") == 0 &&
+              gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] == NULL)
             gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] = typenode;
-         else if(strcmp(derived->name, "c_funptr") == 0 &&
-                 gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] == NULL)
+          else if (strcmp (derived->name, "c_funptr") == 0 &&
+                   gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] == NULL)
             gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] = typenode;
-      }
+        }
     }
 
   /* Go through the derived type components, building them as

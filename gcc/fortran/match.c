@@ -477,56 +477,52 @@ gfc_match_name (char *buffer)
  * self-imposed limit), MATCH_NO if what we're seeing isn't a name,
  * and MATCH_YES if we successfully match a C name.
  */
-match gfc_match_name_C(char *buffer)
+match gfc_match_name_C (char *buffer)
 {
-   locus old_loc;
-   int i = 0;
-   int c;
+  locus old_loc;
+  int i = 0;
+  int c;
 
-   old_loc = gfc_current_locus;
-   gfc_gobble_whitespace ();
+  old_loc = gfc_current_locus;
+  gfc_gobble_whitespace ();
 
-   /* get the next char (first possible char of name) and see if
-    * it's valid for C (either a letter or an underscore)
-    */
-/*    c = gfc_next_char_C(); */
-   /* get the next literal char; param means we're w/in a string */
-   c = gfc_next_char_literal(1);
-   if(!ISALPHA(c) && c != '_')
-   {
+  /* Get the next char (first possible char of name) and see if
+     it's valid for C (either a letter or an underscore).  */
+  c = gfc_next_char_literal(1);
+  if (!ISALPHA (c) && c != '_')
+    {
       gfc_current_locus = old_loc;
       return MATCH_NO;
-   }/* end if(c not a char or underscore) */
+    }
 
-   /* continue to read valid variable name characters */
-   do
-   {
+  /* continue to read valid variable name characters */
+  do
+    {
       buffer[i++] = c;
       
-      /* C does not define a maximum length of variable names, to my
-       * knowledge, but the compiler typically places a limit on them.
-       * for now, i'll use the same as the fortran limit for simplicity,
-       * but this may need to be changed to a dynamic buffer that can
-       * be realloc'ed here if necessary, or more likely, a larger
-       * upper-bound set.  --Rickett, 09.29.05
-       */
-      if(i > gfc_option.max_identifier_length)
-      {
-         gfc_error ("Name at %C is too long");
-         return MATCH_ERROR;
-      }
+    /* C does not define a maximum length of variable names, to my
+       knowledge, but the compiler typically places a limit on them.
+       For now, i'll use the same as the fortran limit for simplicity,
+       but this may need to be changed to a dynamic buffer that can
+       be realloc'ed here if necessary, or more likely, a larger
+       upper-bound set.  */
+      if (i > gfc_option.max_identifier_length)
+        {
+          gfc_error ("Name at %C is too long");
+          return MATCH_ERROR;
+        }
       
       old_loc = gfc_current_locus;
-/*       c = gfc_next_char_C(); */
+      
       /* get next char; param means we're in a string */
-      c = gfc_next_char_literal(1);
-   } while(ISALNUM (c) || c == '_');
+      c = gfc_next_char_literal (1);
+    } while (ISALNUM (c) || c == '_');
 
-   buffer[i] = '\0';
-   gfc_current_locus = old_loc;
+  buffer[i] = '\0';
+  gfc_current_locus = old_loc;
    
-   return MATCH_YES;
-}/* end gfc_match_name_C() */
+  return MATCH_YES;
+}
 
 
 /* Match a symbol on the input.  Modifies the pointer to the symbol
@@ -2482,33 +2478,31 @@ gfc_match_common (void)
           /* store a ref to the common block for error checking */
           sym->common_block = t;
           
-          /* see if we know the current common block is bind(c), and if
-           * so, then see if we can check if the symbol is (which it'll
-           * need to be).  this can happen if the bind(c) attr stmt was
-           * applied to the common block, and the variable(s) already
-           * defined, before declaring the common block.
-           * --Rickett, 10.27.05
-           */
-          if(t->is_bind_c == 1)
-          {
-             if(sym->ts.type != BT_UNKNOWN && sym->ts.is_c_interop != 1)
-             {
-                /* if we find an error, just print it and continue,
-                 * cause it's just semantic, and we can see if there
-                 * are more errors.
-                 */
-                gfc_error_now("Variable \"%s\" at %L in common block \"%s\" "
-                              "at %C must be declared with a C "
-                              "interoperable kind since common block "
-                              "\"%s\" is bind(c)",
-                              sym->name, &(sym->declared_at), t->name,
-                              t->name);
-             }/* end if(sym isn't of a C interop kind) */
-             if(sym->attr.is_bind_c == 1)
-                gfc_error_now("Variable \"%s\" in common block "
-                              "\"%s\" at %C can not be bind(c) since "
-                              "it is not global", sym->name, t->name);
-          }/* end if(com block is bind(c) and sym type is known) */
+          /* See if we know the current common block is bind(c), and if
+             so, then see if we can check if the symbol is (which it'll
+             need to be).  This can happen if the bind(c) attr stmt was
+             applied to the common block, and the variable(s) already
+             defined, before declaring the common block.  */
+          if (t->is_bind_c == 1)
+            {
+              if (sym->ts.type != BT_UNKNOWN && sym->ts.is_c_interop != 1)
+                {
+                  /* If we find an error, just print it and continue,
+                     cause it's just semantic, and we can see if there
+                     are more errors.  */
+                  gfc_error_now ("Variable '%s' at %L in common block '%s' "
+                                 "at %C must be declared with a C "
+                                 "interoperable kind since common block "
+                                 "'%s' is bind(c)",
+                                 sym->name, &(sym->declared_at), t->name,
+                                 t->name);
+                }
+              
+              if (sym->attr.is_bind_c == 1)
+                gfc_error_now ("Variable '%s' in common block "
+                               "'%s' at %C can not be bind(c) since "
+                               "it is not global", sym->name, t->name);
+            }
           
 	  if (sym->attr.in_common)
 	    {

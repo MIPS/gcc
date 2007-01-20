@@ -296,11 +296,10 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  /* prevent the mangling of identifiers that have an assigned
-   * binding label (mainly those that are bind(c))
-   */
-  if(sym->attr.is_bind_c == 1)
-     return get_identifier(sym->binding_label);
+  /* Prevent the mangling of identifiers that have an assigned
+     binding label (mainly those that are bind(c)).  */
+  if (sym->attr.is_bind_c == 1)
+    return get_identifier(sym->binding_label);
   
   if (sym->module == NULL)
     return gfc_sym_identifier (sym);
@@ -320,14 +319,13 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   int has_underscore;
   char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
-  /* it may be possible to simply use the binding label if it's
-   * provided, and remove the other checks.  then we could use it
-   * for other things if we wished.
-   */
-  if((sym->attr.is_bind_c == 1 || sym->attr.is_iso_c == 1) &&
-     sym->binding_label[0] != '\0')
-     /* use the binding label rather than the mangled name */
-     return get_identifier(sym->binding_label);
+  /* It may be possible to simply use the binding label if it's
+     provided, and remove the other checks.  Then we could use it
+     for other things if we wished.  */
+  if ((sym->attr.is_bind_c == 1 || sym->attr.is_iso_c == 1) &&
+      sym->binding_label[0] != '\0')
+    /* use the binding label rather than the mangled name */
+    return get_identifier (sym->binding_label);
 
   if (sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
       || (sym->module != NULL && sym->attr.if_source == IFSRC_IFBODY))
@@ -512,21 +510,19 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
     return;
 
   if(sym->attr.is_bind_c == 1)
-  {
-     /* we need to put variables that are bind(c) into the common
-      * segment of the object file, because this is what C would do.
-      * gfortran would typically put them in either the BSS or
-      * initialized data segments, and only mark them as common if
-      * they were part of common blocks.  however, if they are not put
-      * into common space, then C cannot initialize global fortran
-      * variables that it interoperates with and the draft says that
-      * either Fortran or C should be able to initialize it (but not
-      * both, of course.) (J3/04-007, section 15.3).  
-      * --Rickett, 09.07.06
-      */
-     TREE_PUBLIC(decl) = 1;
-     DECL_COMMON(decl) = 1;
-  }/* end if(is bind(c)) */
+    {
+      /* We need to put variables that are bind(c) into the common
+	 segment of the object file, because this is what C would do.
+	 gfortran would typically put them in either the BSS or
+	 initialized data segments, and only mark them as common if
+	 they were part of common blocks.  However, if they are not put
+	 into common space, then C cannot initialize global fortran
+	 variables that it interoperates with and the draft says that
+	 either Fortran or C should be able to initialize it (but not
+	 both, of course.) (J3/04-007, section 15.3).  */
+      TREE_PUBLIC(decl) = 1;
+      DECL_COMMON(decl) = 1;
+    }
   
   /* If a variable is USE associated, it's always external.  */
   if (sym->attr.use_assoc)
@@ -2900,29 +2896,27 @@ gfc_generate_contained_functions (gfc_namespace * parent)
  * @note The idea for this was based on what was seen when running
  * the C compiler through the debugger.  --Rickett, 06.12.06
  */
-static void set_tree_decl_type_code(gfc_symbol *sym)
+static void set_tree_decl_type_code (gfc_symbol *sym)
 {
-   /* this should not happen.  during the gfc_sym_type function,
-    * when the backend_decl is being built for a dummy arg, if the arg
-    * is pass-by-value then no reference type is wrapped around the
-    * true type (e.g., REAL_TYPE).  --Rickett, 09.18.06
-    */
-   if(TREE_CODE(TREE_TYPE(sym->backend_decl)) == POINTER_TYPE ||
-      TREE_CODE(TREE_TYPE(sym->backend_decl)) == REFERENCE_TYPE)
-      TREE_TYPE(sym->backend_decl) = gfc_typenode_for_spec (&sym->ts);
-   DECL_BY_REFERENCE(sym->backend_decl) = 0;
-   /* the tree can't be addressable if it's pass-by-value..?
-    *
-    */
+   /* This should not happen.  during the gfc_sym_type function,
+      when the backend_decl is being built for a dummy arg, if the arg
+      is pass-by-value then no reference type is wrapped around the
+      true type (e.g., REAL_TYPE).  */
+  if (TREE_CODE (TREE_TYPE (sym->backend_decl)) == POINTER_TYPE ||
+      TREE_CODE (TREE_TYPE (sym->backend_decl)) == REFERENCE_TYPE)
+    TREE_TYPE (sym->backend_decl) = gfc_typenode_for_spec (&sym->ts);
+  DECL_BY_REFERENCE (sym->backend_decl) = 0;
+  
+   /* the tree can't be addressable if it's pass-by-value..?  x*/
 /*    TREE_TYPE(sym->backend_decl)->common.addressable_flag = 0; */
 
-   DECL_ARG_TYPE(sym->backend_decl) = TREE_TYPE(sym->backend_decl);
+   DECL_ARG_TYPE (sym->backend_decl) = TREE_TYPE (sym->backend_decl);
 
-   DECL_MODE(sym->backend_decl) =
-      TYPE_MODE(TREE_TYPE(sym->backend_decl));
+   DECL_MODE (sym->backend_decl) =
+      TYPE_MODE (TREE_TYPE (sym->backend_decl));
 
    return;
-}/* end set_tree_decl_type_code() */
+}
 
 
 /* Drill down through expressions for the array specification bounds and
@@ -3074,18 +3068,14 @@ generate_local_decl (gfc_symbol * sym)
 	}
     }
 
-  if(sym->attr.dummy == 1)
-  {
-     /* the sym->backend_decl can be NULL if this is one of the
-      * intrinsic types, such as the symbol of type c_ptr for the
-      * c_f_pointer function, so don't set up the tree code for it
-      *
-      * this should be done sooner, so the POINTER_TYPE node isn't
-      * even built for by-value params...  --Rickett, 09.15.06
-      */
-     if(sym->attr.value == 1 && sym->backend_decl != NULL)
-        set_tree_decl_type_code(sym);
-  }/* end if(local sym is a dummy (argument)) */
+  if (sym->attr.dummy == 1)
+    {
+      /* The sym->backend_decl can be NULL if this is one of the
+	 intrinsic types, such as the symbol of type c_ptr for the
+	 c_f_pointer function, so don't set up the tree code for it.  */
+      if (sym->attr.value == 1 && sym->backend_decl != NULL)
+	set_tree_decl_type_code (sym);
+    }
 }
 
 static void

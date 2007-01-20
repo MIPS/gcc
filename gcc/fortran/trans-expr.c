@@ -2019,19 +2019,19 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
              if(formal && formal->sym->attr.value == 1)
                 gfc_conv_expr (&parmse, arg->expr);
              else
-             {
-	      gfc_conv_expr_reference (&parmse, e);
-	      parm_kind = SCALAR;
-              if (fsym && fsym->attr.pointer
-		  && e->expr_type != EXPR_NULL)
-                {
-                  /* Scalar pointer dummy args require an extra level of
-		  indirection. The null pointer already contains
-		  this level of indirection.  */
-		  parm_kind = SCALAR_POINTER;
-                  parmse.expr = build_fold_addr_expr (parmse.expr);
-                }
-             }/* end else(formal sym not by value) */
+               {
+                 gfc_conv_expr_reference (&parmse, e);
+                 parm_kind = SCALAR;
+                 if (fsym && fsym->attr.pointer
+                     && e->expr_type != EXPR_NULL)
+                 {
+                   /* Scalar pointer dummy args require an extra level of
+                      indirection. The null pointer already contains
+                      this level of indirection.  */
+                   parm_kind = SCALAR_POINTER;
+                   parmse.expr = build_fold_addr_expr (parmse.expr);
+                 }
+               }
             }
 	  else
 	    {

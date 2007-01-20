@@ -1,3 +1,5 @@
+/* this is the driver for c_ptr_test.f03 */
+
 typedef struct services
 {
    int compId;
@@ -11,36 +13,22 @@ typedef struct comp
    void *myPort;
 }comp_t;
 
-
 /* prototypes for f90 functions */
-extern void ptr_test(comp_t *self, services_t *myServices, double myDouble);
-
-/* c function prototypes */
-void test(double myDouble);
+void sub0(comp_t *self, services_t *myServices);
 
 int main(int argc, char **argv)
 {
    services_t servicesObj;
    comp_t myComp;
-   double myDouble;
 
    servicesObj.compId = 17;
-/*    servicesObj.globalServices = NULL; */
-   /* nullify the ptr */
-   servicesObj.globalServices = 0;
+   servicesObj.globalServices = 0; /* NULL; */
    myComp.myServices = &servicesObj;
-/*    myComp.setServices = NULL; */
-   myComp.setServices = 0;
-/*    myComp.myPort = NULL; */
-   myComp.myPort = 0;
-   myDouble = 1.23456;
+   myComp.setServices = 0; /* NULL; */
+   myComp.myPort = 0; /* NULL; */
    
-   ptr_test(&myComp, &servicesObj, myDouble);
+   sub0(&myComp, &servicesObj);
    
    return 0;
 }/* end main() */
 
-void test(double myDouble)
-{
-   return;
-}/* end test() */

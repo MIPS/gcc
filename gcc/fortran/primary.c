@@ -2084,33 +2084,33 @@ gfc_match_rvalue (gfc_expr ** result)
 	  break;
 	}
 
-      if(sym->attr.is_iso_c == 1 &&
-         strcmp(sym->name, "c_loc") == 0)
-      {
-         /* make sure we were given a param */
-         if(actual_arglist == NULL)
-         {
-            gfc_error("Missing argument to 'C_LOC' at %C");
-            m = MATCH_ERROR;
-            break;
-         }/* end if(we were not given a param for C_LOC) */
-         else if(actual_arglist->next != NULL)
-         {
-            gfc_error("More actual than formal args to procedure "
-                      "'C_LOC' at %C");
-            m = MATCH_ERROR;
-            break;
-         }/* end if(too many params to C_LOC) */
-         else if(!(actual_arglist->expr->symtree->n.sym->attr.target) &&
-                 !(actual_arglist->expr->symtree->n.sym->attr.pointer))
-         {
-            gfc_error("Parameter '%s' to 'C_LOC' at %C must be either "
-                      "a TARGET or an associated pointer",
-                      actual_arglist->expr->symtree->n.sym->name);
-            m = MATCH_ERROR;
-            break;
-         }/* end if(no TARGET or POINTER attribute) */
-      }/* end if(was C_LOC) */
+      if (sym->attr.is_iso_c == 1 &&
+          strcmp (sym->name, "c_loc") == 0)
+        {
+          /* make sure we were given a param */
+          if (actual_arglist == NULL)
+            {
+              gfc_error ("Missing argument to 'C_LOC' at %C");
+              m = MATCH_ERROR;
+              break;
+            }
+          else if (actual_arglist->next != NULL)
+            {
+              gfc_error ("More actual than formal args to procedure "
+                         "'C_LOC' at %C");
+              m = MATCH_ERROR;
+              break;
+            }
+          else if (!(actual_arglist->expr->symtree->n.sym->attr.target) &&
+                  !(actual_arglist->expr->symtree->n.sym->attr.pointer))
+            {
+              gfc_error ("Parameter '%s' to 'C_LOC' at %C must be either "
+                         "a TARGET or an associated pointer",
+                         actual_arglist->expr->symtree->n.sym->name);
+              m = MATCH_ERROR;
+              break;
+            }
+        }
 
       if (sym->result == NULL)
 	sym->result = sym;

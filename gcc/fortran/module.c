@@ -1826,7 +1826,6 @@ check_unique_name (const char *name)
 static void
 mio_typespec (gfc_typespec * ts)
 {
-
   mio_lparen ();
 
   ts->type = MIO_NAME(bt) (ts->type, bt_types);
@@ -1836,13 +1835,18 @@ mio_typespec (gfc_typespec * ts)
   else
     mio_symbol_ref (&ts->derived);
 
-  /* add info for C interop and iso_c.  --Rickett, 06.29.06 */
-  /* in the case of the iso_c_binding named constants, this field
-   * says what fortran types it can work with.
-   */
-  ts->f90_type = ts->type;
-  mio_integer(&ts->is_c_interop);
-  mio_integer(&ts->is_iso_c);
+  /* Add info for C interop and is_iso_c. */
+  mio_integer (&ts->is_c_interop);
+  mio_integer (&ts->is_iso_c);
+  
+  /* If the typespec is for an identifier either from iso_c_binding, or
+     a constant that was initialized to an identifier from it, use the
+     f90_type.  Otherwise, use the ts->type, since it shouldn't matter.  */
+  if (ts->is_iso_c)
+    ts->f90_type = MIO_NAME (bt) (ts->f90_type, bt_types);
+  else
+    ts->f90_type = MIO_NAME (bt) (ts->type, bt_types);
+
   
   mio_charlen (&ts->cl);
 

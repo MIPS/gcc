@@ -3,6 +3,28 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-01-19  Christopher D. Rickett
+	* decl.c: Fixed bugs in verifying BIND(C) variables
+	and C interoperable kinds.  Modified the way errors for each are
+	handled in some cases.
+	* gfortran.h: Changed the return type of verify_bind_c_derived_type(). 
+	* module.c: Added the ts.f90_type field to the module file. 
+	* match.h: Changed the return types of
+	verify_com_block_vars_c_interop() and verify_bind_c_sym().
+	* libgfortran/intrinsics/iso_c_binding.h: Removed the declarations
+	of c_null_ptr and c_null_funptr.
+	* symbol.c (generate_isocbinding_symbol): Added function calls for
+	generating c_null_ptr and c_null_funptr.
+	* gcc/fortran/symbol.c: Fixed bugs in c_null_ptr/c_null_funptr.
+	Changed the way errors were handled for checking BIND(C) variables. 
+	* gcc/fortran/lang-specs.h: Added options for .f03/.F03 extensions. 
+	* options.c (form_from_filename): Added entry for .f03/.F03 extensions.
+	* trans-expr.c (gfc_conv_function_call): Whitespace.
+	* gfortran.dg/bind_c_usage_2.f03: New test.
+	* gfortran.dg/c_ptr_tests.f03: Ditto.
+	* gfortran.dg/kind_tests_2.f03: Ditto.
+	* gfortran.dg/kind_tests_3.f03: Ditto.
+
 2006-12-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* Revert revision 120187, 120190, and 120209.
