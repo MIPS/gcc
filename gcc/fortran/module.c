@@ -85,6 +85,15 @@ typedef struct
 }
 module_locus;
 
+/* Structure for list of symbols of intrinsic modules.  */
+typedef struct
+{
+  int id;
+  const char *name;
+  int value;
+}
+intmod_sym;
+
 
 typedef enum
 {
@@ -3988,7 +3997,9 @@ import_iso_c_binding_module (void)
 			    "create symbol for %s", iso_c_module_name);
 
       mod_sym->attr.flavor = FL_MODULE;
-      mod_sym->module = gfc_get_string(iso_c_module_name);
+      mod_sym->attr.intrinsic = 1;
+      mod_sym->module = gfc_get_string (iso_c_module_name);
+      mod_sym->from_intmod = INTMOD_ISO_C_BINDING;
     }
 
   /* Generate the symbols for the named constants representing
@@ -4039,7 +4050,8 @@ import_iso_c_binding_module (void)
 
 /* Add an integer named constant from a given module.  */
 static void
-create_int_parameter (const char *name, int value, const char *modname)
+create_int_parameter (const char *name, int value, const char *modname,
+		      intmod_id module, int id)
 {
   gfc_symtree * tmp_symtree;
   gfc_symbol * sym;
@@ -4062,6 +4074,8 @@ create_int_parameter (const char *name, int value, const char *modname)
   sym->ts.kind = gfc_default_integer_kind;
   sym->value = gfc_int_expr (value);
   sym->attr.use_assoc = 1;
+  sym->from_intmod = module;
+  sym->intmod_sym_id = id;
 }
 
 /* USE the ISO_FORTRAN_ENV intrinsic module.  */
@@ -4075,14 +4089,14 @@ use_iso_fortran_env_module (void)
   gfc_symtree *mod_symtree;
   int i;
 
-  mstring symbol[] = {
-#define NAMED_INTCST(a,b,c) minit(b,0),
+  intmod_sym symbol[] = {
+#define NAMED_INTCST(a,b,c) { a, b, 0 },
 #include "iso-fortran-env.def"
 #undef NAMED_INTCST
-    minit (NULL, -1234) };
+    { ISOFORTRANENV_INVALID, NULL, -1234 } };
 
   i = 0;
-#define NAMED_INTCST(a,b,c) symbol[i++].tag = c;
+#define NAMED_INTCST(a,b,c) symbol[i++].value = c;
 #include "iso-fortran-env.def"
 #undef NAMED_INTCST
 
@@ -4097,6 +4111,7 @@ use_iso_fortran_env_module (void)
       mod_sym->attr.flavor = FL_MODULE;
       mod_sym->attr.intrinsic = 1;
       mod_sym->module = gfc_get_string (mod);
+      mod_sym->from_intmod = INTMOD_ISO_FORTRAN_ENV;
     }
   else
     if (!mod_symtree->n.sym->attr.intrinsic)
@@ -4107,11 +4122,11 @@ use_iso_fortran_env_module (void)
   if (only_flag)
     for (u = gfc_rename_list; u; u = u->next)
       {
-	for (i = 0; symbol[i].string; i++)
-	  if (strcmp (symbol[i].string, u->use_name) == 0)
+	for (i = 0; symbol[i].name; i++)
+	  if (strcmp (symbol[i].name, u->use_name) == 0)
 	    break;
 
-	if (symbol[i].string == NULL)
+	if (symbol[i].name == NULL)
 	  {
 	    gfc_error ("Symbol '%s' referenced at %L does not exist in "
 		       "intrinsic module ISO_FORTRAN_ENV", u->use_name,
@@ -4120,7 +4135,7 @@ use_iso_fortran_env_module (void)
 	  }
 
 	if ((gfc_option.flag_default_integer || gfc_option.flag_default_real)
-	    && strcmp (symbol[i].string, "numeric_storage_size") == 0)
+	    && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
 	  gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named constant "
 			   "from intrinsic module ISO_FORTRAN_ENV at %L is "
 			   "incompatible with option %s", &u->where,
@@ -4128,17 +4143,18 @@ use_iso_fortran_env_module (void)
 			     ? "-fdefault-integer-8" : "-fdefault-real-8");
 
 	create_int_parameter (u->local_name[0] ? u->local_name
-					       : symbol[i].string,
-			      symbol[i].tag, mod);
+					       : symbol[i].name,
+			      symbol[i].value, mod, INTMOD_ISO_FORTRAN_ENV,
+			      symbol[i].id);
       }
   else
     {
-      for (i = 0; symbol[i].string; i++)
+      for (i = 0; symbol[i].name; i++)
 	{
 	  local_name = NULL;
 	  for (u = gfc_rename_list; u; u = u->next)
 	    {
-	      if (strcmp (symbol[i].string, u->use_name) == 0)
+	      if (strcmp (symbol[i].name, u->use_name) == 0)
 		{
 		  local_name = u->local_name;
 		  u->found = 1;
@@ -4147,15 +4163,16 @@ use_iso_fortran_env_module (void)
 	    }
 
 	  if ((gfc_option.flag_default_integer || gfc_option.flag_default_real)
-	      && strcmp (symbol[i].string, "numeric_storage_size") == 0)
+	      && symbol[i].id == ISOFORTRANENV_NUMERIC_STORAGE_SIZE)
 	    gfc_warning_now ("Use of the NUMERIC_STORAGE_SIZE named constant "
 			     "from intrinsic module ISO_FORTRAN_ENV at %C is "
 			     "incompatible with option %s",
 			     gfc_option.flag_default_integer
 				? "-fdefault-integer-8" : "-fdefault-real-8");
 
-	  create_int_parameter (local_name ? local_name : symbol[i].string,
-				symbol[i].tag, mod);
+	  create_int_parameter (local_name ? local_name : symbol[i].name,
+				symbol[i].value, mod, INTMOD_ISO_FORTRAN_ENV,
+				symbol[i].id);
 	}
 
       for (u = gfc_rename_list; u; u = u->next)

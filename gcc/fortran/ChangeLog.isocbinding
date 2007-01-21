@@ -3,7 +3,19 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+
+2007-01-21  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h: Add new fields from_intmod and intmod_sym_id to the
+	gfc_symbol structure, to keep track of symbols coming from
+	intrinsic modules so we can special-case them when needed.
+	* symbol.c (generate_isocbinding_symbol): Set these new fields.
+	* module.c: Set these new fields, and use the fact that we know
+	have a symbolic id per symbol to rework the code dealing with
+	ISO_FORTRAN_ENV.
+
 2007-01-19  Christopher D. Rickett
+
 	* decl.c: Fixed bugs in verifying BIND(C) variables
 	and C interoperable kinds.  Modified the way errors for each are
 	handled in some cases.

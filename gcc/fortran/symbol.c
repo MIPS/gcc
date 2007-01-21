@@ -4002,6 +4002,8 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 
   /* say what module this symbol belongs to */
   tmp_sym->module = gfc_get_string (mod_name);
+  tmp_sym->from_intmod = INTMOD_ISO_C_BINDING;
+  tmp_sym->intmod_sym_id = s;
 
   switch (s)
     {

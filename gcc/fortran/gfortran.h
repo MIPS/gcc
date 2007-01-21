@@ -483,6 +483,16 @@ typedef enum gfc_generic_isym_id gfc_generic_isym_id;
 #define BBT_HEADER(self) int priority; struct self *left, *right
 
 #define NAMED_INTCST(a,b,c) a,
+typedef enum
+{
+  ISOFORTRANENV_INVALID = -1,
+#include "iso-fortran-env.def"
+  ISOFORTRANENV_LAST, ISOFORTRANENV_NUMBER = ISOFORTRANENV_LAST
+}
+iso_fortran_env_symbol;
+#undef NAMED_INTCST
+
+#define NAMED_INTCST(a,b,c) a,
 #define NAMED_REALCST(a,b,c) a,
 #define NAMED_CMPXCST(a,b,c) a,
 #define NAMED_LOGCST(a,b,c) a,
@@ -498,6 +508,20 @@ typedef enum
   ISOCBINDING_NUMBER = ISOCBINDING_LAST
 }
 iso_c_binding_symbol;
+#undef NAMED_INTCST
+#undef NAMED_REALCST
+#undef NAMED_CMPXCST
+#undef NAMED_LOGCST
+#undef NAMED_CHARKNDCST
+#undef NAMED_CHARCST
+#undef DERIVED_TYPE
+#undef PROCEDURE
+
+typedef enum
+{
+  INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING
+}
+intmod_id;
 
 typedef struct
 {
@@ -934,6 +958,14 @@ typedef struct gfc_symbol
 
   tree backend_decl;
    
+  /* Identity of the intrinsic module the symbol comes from, or
+     INTMOD_NONE if it's not imported from a intrinsic module.  */
+  intmod_id from_intmod;
+  /* Identity of the symbol from intrinsic modules, from enums maintained
+     separately by each intrinsic module.  Used together with from_intmod,
+     it uniquely identifies a symbol from an intrinsic module.  */
+  int intmod_sym_id;
+
    /* this may be repetitive, since the typespec now has a binding
     * label field.  --Rickett, 10.17.05
     */
