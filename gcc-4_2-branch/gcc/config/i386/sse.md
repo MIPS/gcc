@@ -733,6 +733,16 @@
   [(set_attr "type" "ssecmp")
    (set_attr "mode" "V4SF")])
 
+(define_insn "sse_maskcmpsf3"
+  [(set (match_operand:SF 0 "register_operand" "=x")
+	(match_operator:SF 3 "sse_comparison_operator"
+		[(match_operand:SF 1 "register_operand" "0")
+		 (match_operand:SF 2 "nonimmediate_operand" "xm")]))]
+  "TARGET_SSE"
+  "cmp%D3ss\t{%2, %0|%0, %2}"
+  [(set_attr "type" "ssecmp")
+   (set_attr "mode" "SF")])
+
 (define_insn "sse_vmmaskcmpv4sf3"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_merge:V4SF
@@ -974,6 +984,16 @@
    (set_attr "athlon_decode" "double,vector")
    (set_attr "mode" "SI")])
 
+(define_insn "sse_cvtss2si_2"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(unspec:SI [(match_operand:SF 1 "nonimmediate_operand" "x,m")]
+	 UNSPEC_FIX_NOTRUNC))]
+  "TARGET_SSE"
+  "cvtss2si\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sseicvt")
+   (set_attr "athlon_decode" "double,vector")
+   (set_attr "mode" "SI")])
+
 (define_insn "sse_cvtss2siq"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
 	(unspec:DI
@@ -981,6 +1001,16 @@
 	     (match_operand:V4SF 1 "nonimmediate_operand" "x,m")
 	     (parallel [(const_int 0)]))]
 	  UNSPEC_FIX_NOTRUNC))]
+  "TARGET_SSE && TARGET_64BIT"
+  "cvtss2siq\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sseicvt")
+   (set_attr "athlon_decode" "double,vector")
+   (set_attr "mode" "DI")])
+
+(define_insn "sse_cvtss2siq_2"
+  [(set (match_operand:DI 0 "register_operand" "=r,r")
+	(unspec:DI [(match_operand:SF 1 "nonimmediate_operand" "x,m")]
+	 UNSPEC_FIX_NOTRUNC))]
   "TARGET_SSE && TARGET_64BIT"
   "cvtss2siq\t{%1, %0|%0, %1}"
   [(set_attr "type" "sseicvt")
@@ -1698,6 +1728,16 @@
   [(set_attr "type" "ssecmp")
    (set_attr "mode" "V2DF")])
 
+(define_insn "sse2_maskcmpdf3"
+  [(set (match_operand:DF 0 "register_operand" "=x")
+	(match_operator:DF 3 "sse_comparison_operator"
+		[(match_operand:DF 1 "register_operand" "0")
+		 (match_operand:DF 2 "nonimmediate_operand" "xm")]))]
+  "TARGET_SSE2"
+  "cmp%D3sd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "ssecmp")
+   (set_attr "mode" "DF")])
+
 (define_insn "sse2_vmmaskcmpv2df3"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
 	(vec_merge:V2DF
@@ -1932,6 +1972,16 @@
    (set_attr "athlon_decode" "double,vector")
    (set_attr "mode" "SI")])
 
+(define_insn "sse2_cvtsd2si_2"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(unspec:SI [(match_operand:DF 1 "nonimmediate_operand" "x,m")]
+	 UNSPEC_FIX_NOTRUNC))]
+  "TARGET_SSE2"
+  "cvtsd2si\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sseicvt")
+   (set_attr "athlon_decode" "double,vector")
+   (set_attr "mode" "SI")])
+
 (define_insn "sse2_cvtsd2siq"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
 	(unspec:DI
@@ -1939,6 +1989,16 @@
 	     (match_operand:V2DF 1 "nonimmediate_operand" "x,m")
 	     (parallel [(const_int 0)]))]
 	  UNSPEC_FIX_NOTRUNC))]
+  "TARGET_SSE2 && TARGET_64BIT"
+  "cvtsd2siq\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sseicvt")
+   (set_attr "athlon_decode" "double,vector")
+   (set_attr "mode" "DI")])
+
+(define_insn "sse2_cvtsd2siq_2"
+  [(set (match_operand:DI 0 "register_operand" "=r,r")
+	(unspec:DI [(match_operand:DF 1 "nonimmediate_operand" "x,m")]
+	 UNSPEC_FIX_NOTRUNC))]
   "TARGET_SSE2 && TARGET_64BIT"
   "cvtsd2siq\t{%1, %0|%0, %1}"
   [(set_attr "type" "sseicvt")
