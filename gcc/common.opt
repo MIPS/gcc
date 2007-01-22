@@ -61,6 +61,10 @@ Walways-true
 Common Var(warn_always_true)
 Warn about comparisons that always evaluate to true
 
+Warray-bounds
+Common Var(warn_array_bounds)
+Warn if an array is accessed out of bounds
+
 Wattributes
 Common Var(warn_attributes) Init(1)
 Warn about inappropriate attribute usage
@@ -840,6 +844,10 @@ Show column numbers in diagnostics, when available.  Default on
 fsignaling-nans
 Common Report Var(flag_signaling_nans)
 Disable optimizations observable by IEEE signaling NaNs
+
+fsigned-zeros
+Common Report Var(flag_signed_zeros) Init(1)
+Disable floating point optimizations that ignore the IEEE signedness of zero
 
 fsingle-precision-constant
 Common Report Var(flag_single_precision_constant)

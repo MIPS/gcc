@@ -521,7 +521,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
-  NEXT_PASS (pass_early_warn_uninitialized);
 
   /* Initial scalar cleanups.  */
   NEXT_PASS (pass_ccp);
@@ -573,6 +572,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_store_ccp);
   NEXT_PASS (pass_store_copy_prop);
   NEXT_PASS (pass_fold_builtins);
+  NEXT_PASS (pass_cse_sincos);
   /* FIXME: May alias should a TODO but for 4.0.0,
      we add may_alias right after fold builtins
      which can create arbitrary GIMPLE.  */
@@ -818,14 +818,19 @@ execute_function_todo (void *data)
   if (!flags)
     return;
   
-  /* Always cleanup the CFG before trying to update SSA .  */
+  /* Always cleanup the CFG before trying to update SSA.  */
   if (flags & TODO_cleanup_cfg)
     {
-      if (current_loops)
-	cleanup_tree_cfg_loop ();
-      else
-	cleanup_tree_cfg ();
+      bool cleanup;
 
+      if (current_loops)
+	cleanup = cleanup_tree_cfg_loop ();
+      else
+	cleanup = cleanup_tree_cfg ();
+
+      if (cleanup && (cfun->curr_properties & PROP_ssa))
+	flags |= TODO_remove_unused_locals;
+	
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single
 	 valued PHI nodes.  This propagation may, in turn, cause the

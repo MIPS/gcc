@@ -1,3 +1,109 @@
+2007-01-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30038
+	* gcc.dg/builtins-62.c: New testcase.
+
+2007-01-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20070121.c: New test.
+
+2007-01-21  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30525
+	* gfortran.dg/char_comparison_1.f:  New test.
+
+2007-01-21  Ira Rosen  <irar@il.ibm.com> 
+
+	* gcc.dg/vect/vect-strided-same-dr.c: New test. 
+
+2007-01-20  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/30479
+	* objc.dg/pch: New directory.
+	* objc.dg/pch/pch.exp: New file.
+	* objc.dg/pch/interface-1.m: New test.
+	* objc.dg/pch/interface-1.hs: New include file.
+	* lib/objc.exp (objc_target_compile): Add
+	"-x objective-c-header" in front of the sources if this is
+	a precompiled header being compiled.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/array_memcpy_3.f90: New test case.
+	* gfortran.dg/vect/vect-5.f90: Update vectorized loop count.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/intrinsic_sign_1.f90: New test case.
+	* gfortran.dg/intrinsic_sign_2.f90: Likewise.
+
+2007-01-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-3.c: Test fdim.
+
+2007-01-19  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/darwin-ld-6.c: Remove, tests a linker flag that is going
+	away.
+
+2007-01-19  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/pr30172-1.c: Specify the -fno-signed-zeros command line
+	option instead of -funsafe-math-optimizations.
+
+2007-01-19  Tomas Bily  <tbily@suse.cz>
+
+	gcc.dg/tree-prof/indir-call-prof.c: New.
+	g++.dg/dg.exp: Add tree-prof subdirectory.
+	g++.dg/tree-prof/indir-call-prof.C: New.
+	g++.dg/tree-prof/tree-prof.exp: New.
+
+2007-01-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/17947
+	* g++.dg/warn/deprecated.C: Update warning output.
+	* g++.dg/warn/deprecated-2.C: Likewise.
+	* g++.dg/warn/deprecated-3.C: New.
+	
+2007-01-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.c-torture/execute/nestfunc-7.c: New.
+
+2007-01-18  Hui-May Chang  <hm.chang@apple.com>
+
+	* gcc.c-torture/compile/pr27528.c: Add -fno-pic option.
+
+2007-01-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/m68k-pic-1.c: New.
+
+2007-01-18  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/array_memcpy_4.f90: New test case.
+
+2007-01-18  Josh Conner  <jconner@apple.com>
+
+	PR target/30485
+	* gcc.dg/vect/vect.exp: Add support for no-trapping-math tests.
+	* gcc.dg/vect/no-trapping-math-1: New.
+	* gcc.dg/vect/no-trapping-math-2: New.
+
+2007-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/387-8.c: Update comment about optimizing
+	inherent load of 1.0 of fptan instruction.
+
+2007-01-18  Dirk Mueller  <dmueller@suse.de>
+	    Richard Guenther <rguenther@suse.de>
+
+	PR diagnostic/8268
+	* gcc.dg/Warray-bounds.c: New testcase.
+	* gcc.dg/Warray-bounds-2.c: New testcase.
+	* g++.dg/warn/Warray-bounds.C: New testcase.
+	* g++.dg/warn/Warray-bounds-2.C: New testcase.
+
 2007-01-17  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/30476

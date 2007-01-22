@@ -447,10 +447,10 @@ if USE_LIBGCJ_BC
 endif
 if BUILD_ECJ1
 if NATIVE
-	mv $(DESTDIR)$(libexecsubdir)/ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
+	mv $(DESTDIR)$(libexecsubdir)/`echo ecjx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
 else !NATIVE
 ## Undo the prepending of the target prefix
-	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
+	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-`echo ecjx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
 endif !NATIVE
 endif BUILD_ECJ1
 
@@ -673,7 +673,7 @@ if ENABLE_SHARED
 ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) -Djava.class.path=$(ECJ_JAR)
 else !ENABLE_SHARED
 ## Use ecj.jar at compile time.
-ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR) -fbootclasspath=$(BOOTCLASSPATH)
 endif !ENABLE_SHARED
 
 ecjx_LDADD = -L$(here)/.libs libgcj.la
@@ -835,21 +835,21 @@ gnu/java/lang/management/natVMThreadMXBeanImpl.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \
-gnu/java/nio/natPipeImpl.cc \
-gnu/java/nio/natSelectorImpl.cc \
+gnu/java/nio/natVMPipe.cc \
+gnu/java/nio/natVMSelector.cc \
 gnu/java/nio/natNIOServerSocket.cc \
 gnu/java/nio/natVMChannel.cc \
 gnu/java/nio/channels/natFileChannelImpl.cc \
 java/io/natFile.cc \
-java/io/natObjectInputStream.cc \
+java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
 java/lang/management/natVMManagementFactory.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \
 java/lang/natConcreteProcess.cc \
-java/lang/natDouble.cc \
-java/lang/natFloat.cc \
+java/lang/natVMDouble.cc \
+java/lang/natVMFloat.cc \
 java/lang/natMath.cc \
 java/lang/natObject.cc \
 java/lang/natRuntime.cc	\

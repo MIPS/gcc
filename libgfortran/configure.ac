@@ -42,16 +42,15 @@ target_alias=${target_alias-$host_alias}
 
 # Sets up automake.  Must come after AC_CANONICAL_SYSTEM.  Each of the
 # following is magically included in AUTOMAKE_OPTIONS in each Makefile.am.
-#  1.8.2:  minimum required version
+#  1.9.6:  minimum required version
 #  no-define:  PACKAGE and VERSION will not be #define'd in config.h (a bunch
 #              of other PACKAGE_* variables will, however, and there's nothing
 #              we can do about that; they come from AC_INIT).
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
-#  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is required.
-AM_INIT_AUTOMAKE([1.8.2 no-define foreign no-dependencies -Wall -Wno-portability])
+AM_INIT_AUTOMAKE([1.9.6 no-define foreign -Wall -Wno-portability])
 
 AM_MAINTAINER_MODE
 AM_ENABLE_MULTILIB(, ..)
@@ -152,11 +151,16 @@ case "${host}" in
 esac
 AC_SUBST(extra_ldflags_libgfortran)
 
+# We need a working compiler at that point, otherwise give a clear
+# error message and bail out.
+LIBGFOR_WORKING_GFORTRAN
+
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
 # check header files
 AC_STDC_HEADERS
+AC_HEADER_TIME
 AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
 AC_CHECK_HEADERS(sys/types.h sys/stat.h sys/wait.h floatingpoint.h ieeefp.h)
@@ -172,7 +176,7 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_FUNCS(getrusage times mkstemp strtof strtold snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
-AC_CHECK_FUNCS(wait setmode)
+AC_CHECK_FUNCS(wait setmode getrlimit gettimeofday)
 
 # Check for types
 AC_CHECK_TYPES([intptr_t])
@@ -373,11 +377,6 @@ AC_CHECK_FUNC([fp_enable],[have_fp_enable=yes AC_DEFINE([HAVE_FP_ENABLE],[1],[fp
 AC_MSG_NOTICE([FPU dependent file will be ${fpu_host}.h])
 FPU_HOST_HEADER=config/${fpu_host}.h
 AC_SUBST(FPU_HOST_HEADER)
-
-# The standard autoconf HAVE_STRUCT_TIMEZONE doesn't actually check
-# for struct timezone, as you might think.  We also need to check how
-# to call gettimeofday if we have it.
-LIBGFOR_GETTIMEOFDAY
 
 # Attempt to assert that the target is of common type in case we don't
 # have C99 integer types at all.

@@ -1,3 +1,849 @@
+2007-01-22  Jan Hubicka  <jh@suse.cz>
+
+	* passes.c (init_optimization_passes): Do not rerun
+	pass_early_warn_uninitialized.
+
+2007-01-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30038
+	* tree-ssa-math-opts.c (maybe_record_sincos): New static helper
+	function.
+	(execute_cse_sincos_1): Likewise.
+	(execute_cse_sincos): Likewise.
+	(gate_cse_sincos): Likewise.
+	(pass_cse_sincos): New pass CSEing sin() and cos() calls using
+	the cexpi() canonicalization of sincos().
+	* tree-pass.h (pass_cse_sincos): Declare.
+	* passes.c (init_optimization_passes): New pass pas_cse_sincos.
+
+2007-01-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/29329
+	* combine.c (replaced_rhs_insn): Rename to i2mod.
+	(replaced_rhs_value): Rename to i2mod_new_rhs.
+	(i2mod_old_rhs): New global variable.
+	(combine_instructions): Adjust for above change.  Save a copy of
+	the old RHS into i2mod_old_rhs when the contents of a REG_EQUAL
+	note are substituted in the second instruction.
+	(distribute_notes) <REG_DEAD>: Adjust for above change.  Do not
+	ditch the note if it pertains to the second eliminated register
+	and this register is mentioned in i2mod_old_rhs.
+
+	Revert:
+	2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* combine.c (distribute_notes) <REG_DEAD>: Do not consider SETs past
+	the insn to which the note was originally attached.
+
+2007-01-21  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (inlining_mode): Comment, move up.
+	(cgraph_decide_inlining_incrementally): Do not perform inlining itself;
+	fix handling of flattening of self recursive functions.
+	(cgraph_find_cycles): Remove.
+	(cgraph_flatten_node): Remove.
+	(cgraph_decide_inlining): Use incremental inliner to handle flattening.
+	(try_inline): New function.
+	(cgraph_early_inlining): Update call of
+	cgraph_decide_inlining_incrementally.  Apply inlining here.
+	(apply_inline): Update call of cgraph_decide_inlining_incrementally.
+
+2007-01-21  Dirk Mueller  <dmueller@suse.de>
+
+	PR bootstrap/30511
+	* tree-vrp.c (check_array_bounds): do not warn
+	about ADDR_EXPR's of ARRAY_REF's which are immediately
+	used in binary expressions.
+
+2007-01-21  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h (struct _stmt_vec_info): Add new field 
+	read_write_dep and macros for its access.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize the new field.
+	* tree-vect-analyze.c (vect_analyze_data_ref_dependence): Remove 
+	argument, call vect_check_interleaving for every independent pair of
+	data-refs. Mark loads that access the same memory location as a store
+	in the loop.
+	(vect_check_dependences): Remove.
+	(vect_analyze_data_ref_dependences): Remove  vect_check_dependences 
+	call, fix the call to vect_analyze_data_ref_dependence.
+	(vect_analyze_data_ref_access): For statements that access the same 
+	data-ref, check that they are not stores; for loads, check that there
+	is no store that access the same location.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (-fdump-rtl-combine): Fix under/overfull hbox.
+	(-fdump-rtl-stack): Likewise.
+	(-fno-signed-zeros): Use @minus{} for a minus sign.  Correct typo.
+	(-mcheck-zero-division, -mcpu): Fix under/overfull hbox.
+	(-mpt-fixed): Use @minus{} for minus sign.
+	(Using Precompiled Headers): Fix under/overfull hbox.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+	* tree-flow.h (struct stmt_ann_d): Move references_memory to proper
+	place within annotation.
+
+2007-01-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_move_double): Change array size of xoperands to 4.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+	* tree-tailcall.c (adjust_return_value): Do not use RESULT_DECL
+	as temporary.
+
+2007-01-19  Ian Lance Taylor  <iant@google.com>
+
+	* expmed.c (expand_divmod) [TRUNC_MOD_EXPR, TRUNC_DIV_EXPR]: Cast
+	constant to unsigned HOST_WIDE_INT before negating.
+
+2007-01-19  Ian Lance Taylor  <iant@google.com>
+
+	* tree-ssa-operands.h (struct vuse_vec_d): Change num_vuse field
+	to unsigned.
+	(VUSE_VECT_ELEMENT) [ENABLE_CHECKING]: Use unsigned comparison.
+	(VUSE_ELEMENT_PTR) [ENABLE_CHECKING]: Likewise.
+	(SET_VUSE_VECT_ELEMENT) [ENABLE_CHECKING]: Likewise.
+	(SET_VUSE_ELEMENT_VAR) [ENABLE_CHECKING]: Likewise.
+	(SET_VUSE_ELEMENT_PTR) [ENABLE_CHECKING]: Likewise.
+	(realloc_vdef, realloc_vuse): Change second parameter to
+	unsigned.
+	(ssa_operand_iterator_d): Change vuse_index and mayuse_index
+	fields to unsigned.
+	* tree-ssa-operands.c (realloc_vop): Change num_elem parameter to
+	unsigned. Change x and lim locals to unsigned.
+	(realloc_vdef, realloc_vuse): Change num_elem parameter to
+	unsigned.
+	(finalize_ssa_vuse_ops): Change old_i local to unsigned.
+	(copy_virtual_operands): Change i and n locals to unsigned.
+
+2007-01-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/29335
+	* builtins.c (fold_builtin_1): Handle builtin fdim.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+        * tree-ssa.c (init_tree_ssa): Do not call init_alias_heapvars.
+        * tree-ssa-structalias.c (compute_points_to_sets): Do call
+        init_alias_heapvars.
+        (init_alias_heapvars): Initialize only when not already initialized.
+        (delete_alias_heapvars): Set heapvar_for_stmt to NULL.
+
+2007-01-19  Roger Sayle  <roger@eyesopen.com>
+
+	* common.opt (fsigned-zeros): New command line option.
+	* flags.h (HONOR_SIGNED_ZEROS): Control via flag_signed_zeros instead
+	of flag_unsafe_math_optimizations.
+	* opts.c (set_fast_math_flags): The -ffast-math command line option
+	implies -fno-signed-zeros.
+	(fast_math_flags_set_p): Likewise.
+
+	* doc/invoke.texi: Document new -fno-signed-zeros option, and update
+	the documentation of -ffast-math appropriately.  Wrap long lines.
+
+2007-01-19  Steve Ellcey  <sje@cup.hp.com>
+
+	* system.h (ASM_MAKE_LABEL_LINKONCE): Poison.
+	* varasm.c (globalize_decl): Remove ASM_MAKE_LABEL_LINKONCE ifdef.
+
+2007-01-19  Tomas Bily  <tbily@suse.cz>
+
+        * cgraphunit.c (cgraph_finalize_function): Updating of pid
+        * tree-profile.c:
+        (tree_init_ic_make_global_vars): New function
+        (tree_init_edge_profiler): call of tree_init_ic_make_global_vars
+        (tree_gen_ic_profiler): New function
+        (tree_gen_ic_func_profiler): New function
+        (tree_profiling): Added calling of tree_gen_ic_func_profiler
+        (tree_profile_hooks): Added hook for indirec/virtual calls
+        * value-prof.c (tree_find_values_to_profile): New case for
+        indirect calls
+        (tree_values_to_profile): Call for determining indirect/virtual
+        counters
+        (tree_indirect_call_to_profile): New function
+        (tree_ic_transform): New function
+        (tree_ic): New function
+        (find_func_by_pid): New function
+        (init_pid_map): New function
+        (tree_value_profile_transformations): Added check for
+        indirect/virtual call transformation
+        * value-prof.h (enum hist_type): New counter type for
+        indirect/virtual calls
+        (profile_hooks): Added new hook for profiling indirect/virtual
+        calls
+        * profile.c (instrument_values): New case for indirect/virtual
+        call added
+        * gcov-io.h (GCOV_LAST_VALUE_COUNTER): Changed to 6
+        (GCOV_COUNTER_V_INDIR): New counter type
+        (GCOV_COUNTER_NAMES): New name of counter "indirect" added
+        (GCOV_MERGE_FUNCTIONS): New merge function for indirect/virtual
+        call added
+        * cgraph.c: Definition of cgraph_max_pid
+        (cgraph_create_node): Default init of pid attribute
+        * cgraph.h: Declaration of cgraph_max_pid
+        (struct cgraph_node): Added pid attribute
+        * libgcov.c (__gcov_indirect_call_profiler): New function
+	(__gcov_one_value_profiler_body): New function
+	(__gcov_one_value_profiler): Body was moved to
+	__gcov_one_value_profiler_body and calls it
+
+2007-01-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	
+	* doc/gty.texi (Options): Document the mark_hook option to GTY.
+        * gengtype.c (write_types_data, write_func_for_structure,
+        write_types, ggc_wtd, pch_wtd): Add skip_hooks to
+        write_types_data, ggc_wtd, pch_wtd for processing mark_hook.
+        (walk_type, write_func_for_structure): Generate the mark_hook if
+        needed.
+
+2007-01-19  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_decide_inlining_incrementally): Instead of
+	'early' argument take inlining mode argument specifying whether to
+	inline for size/speeed or all functions; add support for flattening;
+	improve dumpting.
+	(cgraph_early_inlining): Update call of decide_inlining_incrementally.
+
+2007-01-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/17947
+	* toplev.c (warn_deprecated_use): Use %qD instead of %qs to print
+	the name of the declared identifier.
+		
+2007-01-19  Dirk Mueller  <dmueller@suse.de>
+
+	* config/i386.h (CONDITIONAL_REGISTER_USAGE): Store
+	result of PIC_OFFSET_TABLE_REGNUM in temporary variable to avoid
+	duplicate evaluation.
+
+2007-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (acos<mode>2): Rename from acossf2 and acosdf2.
+	Macroize expander using X87MODEF12 mode macro.  Extend operand 1
+	to XFMode, use acosxf2 and truncate result to requested mode.
+	Use SSE_FLOAT_MODE_P to disable patterns for SSE math.
+	(asin<mode>2): Similarly, with asin expanders.
+	(*fscalexf4_i387): Rename from *fscalexf4.
+	(expNcorexf3): New expander.
+	(expxf2, exp10xf2, exp2xf2): Use expNcorexf3 expander.
+	(exp<mode>2): Rename from expsf2 and expdf2. Macroize expander using
+	X87MODEF12 mode macro.  Extend operand 1 to XFMode, use expxf2 and
+	truncate result to requested mode. Use SSE_FLOAT_MODE_P to disable
+	patterns for SSE math.
+	(exp10<mode>2): Similarly, with exp10 expanders.
+	(exp2<mode>2): Similarly, with exp2 expanders.
+	(expm1<mode>2): Similarly, with expm1 expanders.
+	(ldexp<mode>3): Similarly, with ldexp expanders.
+	(log<mode>2, log10<mode>2, log2<mode>2, log1p<mode>2, logb<mode>2):
+	Use gen_truncxf<mode>2_i387_noop to truncate result.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.h (PREFERRED_STACK_BOUNDARY): Define to 32
+	for ColdFire targets.
+
+2007-01-19  Nathan Sidwell  <nathan@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.h (M68K_STATIC_CHAIN_REG_NAME): New macro.
+	(INITIALIZE_TRAMPOLINE): Use STATIC_CHAIN_REGNUM.
+	(__transfer_from_trampoline): Use M68K_STATIC_CHAIN_REG_NAME.
+	* config/m68k/m68kelf.h (STATIC_CHAIN_REGNUM): Override.
+	(M68K_STATIC_CHAIN_REG_NAME): Likewise.
+	* config/m68k/netbsd-elf.h (M68K_STATIC_CHAIN_REG_NAME): Likewise.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.md (adddi_dilshr32): Rename to...
+	(*adddi_dilshr32): ...this.  Fix formatting.  Remove commented-out
+	non-canonical pattern.  Restrict to !TARGET_COLDFIRE.
+	(*adddi_dilshr32_cf): New pattern.
+	(adddi3, subdi3): Remove first alternatives.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.c (notice_update_cc): If an SFmode move is
+	implemented using move.l, do not use its cc result for floating-point
+	comparisons.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Stop the 'T' constraint
+	from accepting 's' constraints if flag_pic.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.md (bordered, bunordered, buneq, bunge, bungt)
+	(bunle, bunlt, bltgt, bordered_rev, bunordered_rev, buneq_rev)
+	(bunge_rev, bungt_rev, bunle_rev, bunlt_rev, bltgt_rev): Change
+	condition from TARGET_68881 to TARGET_HARD_FLOAT.
+
+2007-01-19  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* longlong.h (count_leading_zeros, COUNT_LEADING_ZEROS_0): Add
+	ColdFire alternatives.
+	* config/m68k/m68k.h (CLZ_DEFINED_VALUE_AT_ZERO): New macro.
+	* config/m68k/m68k.md (clzsi2):  Define for ColdFire
+	architectures that support ff1 instruction.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Add an 'R' case.
+	* config/m68k/m68k.md (*movsi_cfv4): Fold into...
+	(*movsi_cf): ...here.  Remove unnecessary 'R' from 'Rg'.
+	Add commentary.
+
+2007-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k-protos.h (valid_mov3q_const): Take a HOST_WIDE_INT
+	and return a bool.
+	(output_move_const_into_data_reg, output_move_simode_const): Delete.
+	* config/m68k/m68k.c (const_method, const_int_cost): Take a
+	HOST_WIDE_INT instead of an rtx.
+	(m68k_rtx_costs): Update call accordingly.
+	(output_move_const_into_data_reg): Likewise.  Fix formatting.
+	(valid_mov3q_const): Take a HOST_WIDE_INT instead of an rtx.
+	Return a bool.
+	(output_move_simode_const): Update calls after above changes.
+	Rework to use automatic variables and predicates like MEM_P.
+	* config/m68k/m68k.md (pushexthisi_const): Update call to
+	valid_mov3q_const.
+
+2007-01-19  Dirk Mueller  <dmueller@suse.de>
+
+	* tree-ssa-alias.c (perform_var_substitution): Fix typo
+	in dump_flags test.
+
+2007-01-19  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (expand_builtin_cexpi): Fall back to expanding
+	via cexp in case sincos is not available.
+
+2007-01-19  Richard Guenther  <rguenther@suse.de>
+
+	* doc/tm.texi (TARGET_HAS_SINCOS): Document new target macro.
+	* defaults.h (TARGET_HAS_SINCOS): Default to off.
+	* config/linux.h (TARGET_HAS_SINCOS): Set to on if we have glibc.
+	* config/alpha/linux.h (TARGET_HAS_SINCOS): Likewise.
+	* config/sparc/linux.h (TARGET_HAS_SINCOS): Likewise.
+	* config/sparc/linux64.h (TARGET_HAS_SINCOS): Likewise.
+	* config/rs6000/linux.h (TARGET_HAS_SINCOS): Likewise.
+	* config/rs6000/linux64.h (TARGET_HAS_SINCOS): Likewise.
+
+2007-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*fpatanxf3_i387, fpatan_extend<mode>xf3_i387):
+	New insn patterns.
+	(atan2sf3_1, atan2df3_1, atan2xf3_1): Remove insn patterns.
+	(atan2xf3): Directly generate RTL pattern.
+	(atan2<mode>3): Rename from atan2sf3 and atan2df3 and macroize insn
+	patterns using X87MODEF12 mode macro.  Use fpatan_extend<mode>xf3_i387
+	and truncate result to requested mode.  Use SSE_FLOAT_MODE_P to
+	disable patterns for SSE math.
+	(atan<mode>2): Rename from atansf2 and atandf2 and macroize insn
+	patterns using X87MODEF12 mode macro.  Use fpatan_extend<mode>xf3_i387
+	and truncate result to requested mode.  Use SSE_FLOAT_MODE_P to
+	disable patterns for SSE math.
+
+2007-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* libgcc-std.ver: Fix typo in %inherit for GCC_4.3.0.
+
+2007-01-18  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold_unary) <VIEW_CONVERT_EXPR>: Optimize away a
+	VIEW_CONVERT_EXPR to the same type as it's operand.
+
+2007-01-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/darwin-ldouble.c: Only build _SOFT_FLOAT if
+	configured for long double 128.
+
+2007-01-18  Mike Stump  <mrs@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_vector_compare): Fix build
+	error.
+
+2007-01-18  Michael Meissner  <michael.meissner@amd.com>
+
+	* i386.c (ix86_compute_frame_layout): Make fprintf's in #if 0 code
+	type correct.
+
+2007-01-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-operands.c (vop_free_bucket_size): Never return value
+	greater than NUM_VOP_FREE_BUCKETS.
+
+2007-01-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c: Update comments.
+	(ptabitmap_obstack): Removed.
+	(pta_obstack): New.
+	(oldpta_obstack): Ditto.
+	(stats): Add a few members.
+	(struct variable_info): Remove node, complex, address_taken, and
+	indirect_target members. Add oldsolution member.
+	(new_var_info): Do not initialize removed members.
+	(constraint_expr_type): Remove INCLUDES.
+	(constraint_graph): Add size, implicit_preds, rep,
+	indirect_cycles, eq_rep, label, direct_nodes, and complex members.
+	(FIRST_REF_NODE): New macro.
+	(LAST_REF_NODE): Ditto.
+	(FIRST_ADDR_NODE): Ditto.
+	(find): New function.
+	(unite): Ditto.
+	(dump_constraint): Do not handle INCLUDES.
+	(insert_into_complex): Do not insert duplicate constraints.
+	(condense_varmap_nodes): Renamed and rewritten into ...
+	(merge_node_constraints): This. Also fix bug in handling of
+	offseted copy constraints.
+	(clear_edges_for_node): No longer need to deal with preds at all,
+	or removing associated preds/succs. 
+	(merge_graph_nodes): Deal with indirect_cycles.
+	Don't deal with predecessors.
+	(add_implicit_graph_edge): New function.
+	(add_pred_graph_edge): Ditto.
+	(add_graph_edge): Don't deal with predecessors.
+	(build_constraint_graph): Removed.
+	(build_pred_graph): New function.
+	(build_succ_graph): Ditto.
+	(struct scc_info): Removed in_component. Added roots, dfs, and
+	node_mapping. Remove visited_index, unification_queue.
+	(scc_visit): Deal with union-find we do now.
+	Deal with cycles with REF nodes.
+	(collapse_nodes): Renamed and rewritten to ...
+	(unify_nodes): This.
+	(process_unification_queue): Removed.
+	(topo_visit): Cleanup
+	(do_da_constraint): Use find.
+	(do_sd_constraint): Ditto.
+	(do_ds_constraint): Ditto.
+	(do_complex_constraint): Ditto.
+	(init_scc_info): Update for removed and added members.
+	(find_and_collapse_graph_cycles): Renamed and rewritten into ...
+	(find_indirect_cycles): This.
+	(equivalence_class): New variable.
+	(label_visit): New function.
+	(perform_variable_substitution): Rewritten.
+	(free_var_substitution_info): New function.
+	(find_equivalent_node): Ditto.
+	(move_complex_constraints): Ditto.
+	(eliminate_indirect_cycles): Ditto.
+	(solve_graph): Only propagate changed bits.
+	Use indirect cycle elimination.
+	Use find.
+	(tree_id_t): Rename to tree_vi_t, delete id member, add vi member.
+	(tree_id_eq): Renamed to ...
+	(tree_vi_eq): This. Update for member change
+	(insert_id_for_tree): Renamed and rewritten to ...
+	(insert_vi_for_tree): This.
+	(lookup_id_for_tree): Renamed and rewritten to ...
+	(lookup_vi_for_tree): This.
+	(get_id_for_tree): Renamed and rewritten to ...
+	(get_vi_for_tree): Ditto.
+	(get_constraint_exp_from_ssa_var): Update to use get_vi_for_tree.
+	(process_constraint): Don't handle INCLUDES.
+	Remove special ADDRESSOF case.
+	(find_func_aliases): Rewrite to use vi functions instead of id
+	ones.
+	(create_function_info_for): Ditto.
+	(create_variable_info_for): Ditto.
+	(intra_create_variable_infos): Ditto.
+	(merge_smts_into): Ditto.
+	(find_what_p_points_to): Ditto.
+	(init_base_vars): Ditto.
+	(init_alias_vars): Ditto.
+	(remove_preds_and_fake_succs): New function.
+	(dump_sa_points_to_info): Dump new stats.
+	(dump_solution_for_var): Use find.
+	(set_used_smts): Fix formatting.
+	(compute_points_to_sets): Updated for new functions.
+	(ipa_pta_execute): Ditto.
+
+2007-01-18  Kazu Hirata  <kazu@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* doc/tm.texi (TARGET_FUNCTION_VALUE): Expand documentation of
+	parallels.
+	* calls.c (expand_call): If the return value is a PARALLEL,
+	extract its first member.
+	* config/m68k/linux.h (FUNCTION_EXTRA_EPILOGUE): Remove.
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	use FUNCTION_EXTRA_EPILOGUE.
+	(m68k_function_value): Return a PARALLEL if the return value
+	is of a pointer type.
+	* config/m68k/netbsd-elf.h (current_function_returns_pointer)
+	(FUNCTION_EXTRA_EPILOGUE): Remove.
+	* config/m68k/m68k.md (D0_REG): New constant.
+
+2007-01-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	output a NOP for empty epilogues.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_use_return_insn): Update comments
+	before function.  Extend register save check to include all
+	registers, not just integer ones.
+
+2007-01-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k-protos.h (use_return_insn): Rename to...
+	(m68k_use_return_insn): ...this.
+	* config/m68k/m68k.h (USE_RETURN_INSN): Delete.
+	* config/m68k/m68k.c (use_return_insn): Rename to...
+	(m68k_use_return_insn): ...this.
+	* config/m68k/m68k.md (return): Use m68k_use_return_insn instead
+	of USE_RETURN_INSN.
+
+2007-01-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__truncdfsf2): Implement round to
+	nearest even, fix denormal rounding overflow.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.md (movsf_cf_hard): Use fsmove instead of
+	f%$smove and f%$move.
+	(movdf_cf_hard): Use fdmove for cases 0 and 3 and fmove for case 1.
+	(extendsfdf2_cf): Use fdmove instead of f%&move.
+	(truncdfsf2_cf): Use fsmove instead of f%$smove.
+	(add<mode>3_cf, sub<mode>3_cf): Use <FP:prec> instead of <FP:round>.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.md (movdf_cf_hard): Use output_move_double for
+	GPR<-GPR moves.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* real.h (real_format): Add a canonical_nan_lsbs_set field.
+	(coldfire_single_format): Declare.
+	(coldfire_double_format): Likewise.
+	* real.c (encode_ieee_single): Use canonical_nan_lsbs_set instead
+	of qnan_msb_set to determine the lower bits of a canonical
+	NaN significand.
+	(encode_ieee_double): Likewise.
+	(encode_ieee_quad): Likewise.
+	(ieee_single_format): Initialize canonical_nan_lsbs_set.
+	(mips_single_format): Likewise.
+	(ieee_double_format): Likewise.
+	(mips_double_format): Likewise.
+	(ieee_extended_motorola_format): Likewise.
+	(ieee_extended_intel_96_format): Likewise.
+	(ieee_extended_intel_128_format): Likewise.
+	(ieee_extended_intel_96_round_53_format): Likewise.
+	(ibm_extended_format): Likewise.
+	(mips_extended_format): Likewise.
+	(ieee_quad_format): Likewise.
+	(mips_quad_format): Likewise.
+	(vax_f_format): Likewise.
+	(vax_d_format): Likewise.
+	(vax_g_format): Likewise.
+	(i370_single_format): Likewise.
+	(i370_double_format): Likewise.
+	(decimal_single_format): Likewise.
+	(decimal_double_format): Likewise.
+	(decimal_quad_format): Likewise.
+	(c4x_single_format): Likewise.
+	(c4x_extended_format): Likewise.
+	(real_internal_format): Likewise.
+	(coldfire_single_format): New real_format.
+	(coldfire_double_format): Likewise.
+	* config/pdp11/pdp11.c (pdp11_f_format): Initialize
+	canonical_nan_lsbs_set.
+	(pdp11_d_format): Likewise.
+	* config/m68k/m68k.c (override_options): Override REAL_FORMAT_MODE
+	if TARGET_COLDFIRE_CPU.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k-protos.h (m68k_output_pic_call): Delete.
+	(output_call, m68k_legitimize_call_address): Declare.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Remove unnecessary
+	parenthesees.  Add support for a 'W' constraint.
+	(LEGITIMATE_PIC_OPERAND_P): Remove SYMBOL_REF_FLAG handling.
+	(PRINT_OPERAND_PUNCT_VALID_P): Remove comment about 'o'.
+	(m68k_symbolic_call, m68k_symbolic_jump): Declare.
+	* config/m68k/m68k.c (m68k_symbolic_call, m68k_symbolic_jump): New
+	variables.
+	(override_options): Initialize them.  Do not set flag_no_function_cse
+	for TARGET_ID_SHARED_LIBRARY.
+	(m68k_output_pic_call): Delete.
+	(m68k_legitimize_call_address): New function.
+	(print_operand): Remove the %o prefix.  Handle the %p prefix.
+	(output_call): New function.
+	(m68k_output_mi_thunk): Use m68k_symbolic_jump.  Always load the
+	target address from the GOT if symbolic jumps are not allowed.
+	* config/m68k/m68k.md (call, general_operand): Do not set
+	SYMBOL_REF_FLAG.  Use m68k_legitimize_call_address instead.
+	Merge separate flag_pic and !flag_pic define_insns into...
+	(*call, *call_value): ...these new patterns.  Match the address
+	rather than the containing MEM and require it to be a call_operand.
+	Use output_call to generate the asm template.
+	* config/m68k/predicates.md (const_call_operand): New predicate.
+	(call_operand): Likewise.
+
+2007-01-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/m68k.h (REGISTER_MOVE_COST): Simplify definition.
+	(STACK_GROWS_DOWNWARD): Define to 1.
+	(FUNCTION_VALUE, LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P): Equivocate
+	comments, emphasizing that these values are only defaults.
+	* config/m68k/linux.h (LINK_SPEC): Fix formatting in #undef.
+	* config/m68k/m68k.c (const_method): Remove trailing whitespace.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.md (cmpsi): Remove outdated flag_pic handling.
+
+2007-01-18  Kazu Hirata  <kazu@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.h (DATA_REGNO_P, ADDRESS_REGNO_P, INT_REGNO_P)
+	(FP_REGNO_P): New macros.
+	(REGNO_OK_FOR_INDEX_P, REGNO_OK_FOR_BASE_P, REGNO_OK_FOR_DATA_P)
+	(REGNO_OK_FOR_FP_P, REG_OK_FOR_INDEX_P, REG_OK_FOR_BASE_P): Use them.
+	(EH_RETURN_STACKADJ_RTX): Use A0_REG.
+	* config/m68k/m68k.c (m68k_regno_mode_ok): Use the new REGNO macros.
+
+2007-01-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*, m68k-*-elf*)
+	(m68k-*-uclinuxoldabi, m68k-*-uclinux*, m68k-*-rtems*): Add t-floatlib
+	to $tmake_file.
+	* config/m68k/t-floatlib: New file, extracting common code from...
+	* config/m68k/t-m68kbare, config/m68k/t-m68kelf,
+	* config/m68k/t-uclinux: Here.
+	* config/m68k/fpgnulib.c: Do not compile extendeed precision
+	routines on ColdFire targets.
+
+2007-01-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*, m68k-*-elf*)
+	(m68010-*-netbsdelf*, m68k*-*-netbsdelf*, m68k*-*-openbsd*)
+	(m68k-*-uclinuxoldabi, m68k-*-uclinux*, m68k-*-linux*)
+	(m68k-*-rtems*): Use tm_file rather than m68k/m68k.h and
+	explicitly set MOTOROLA to 1.
+	* config/m68k/m68k.h (MOTOROLA): Simplify definition accordingly.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/m68k.h (PCC_STATIC_STRUCT_RETURN): Delete.
+	(ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Add MOTOROLA cases.
+	* config/m68k/coff.h (REGISTER_PREFIX_MD): Delete.
+	* config/m68k/m68020-elf.h (LIB_SPEC): Delete.
+	* config/m68k/m68k-none.h (CC1_SPEC, CPP_SUBTARGET_SPEC): Delete.
+	* config/m68k/m68kelf.h (IMMEDIATE_PREFIX, REGISTER_PREFIX_MD)
+	(ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Delete.
+	(NO_DOLLAR_IN_LABEL, PCC_STATIC_STRUCT_RETURN): Don't undefine.
+	(BSS_ASM_OP, ASM_OUTPUT_SKIP, ASM_OUTPUT_ASCII): Delete.
+	* config/m68k/m68kemb.h (PCC_STATIC_STRUCT_RETURN): Don't undefine.
+	* config/m68k/linux.h (SIZE_TYPE, PTRDIFF_TYPE, WCHAR_TYPE)
+	(WCHAR_TYPE_SIZE, TARGET_OBJFMT_CPP_BUILTINS): Delete.
+	(TARGET_OS_CPP_BUILTINS): Don't define mc68000 and mc68020 here.
+	(DBX_REGISTER_NUMBER): Delete.
+	* config/m68k/netbsd-elf.h (IMMEDIATE_PREFIX): Delete.
+	(PCC_STATIC_STRUCT_RETURN): Don't undefine.
+	* config/m68k/openbsd.h (PCC_STATIC_STRUCT_RETURN): Define.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (m68k-*-uclinux*): Add flat.h to $tm_file.
+	* config/flat.h: New file.
+	* crtstuff.c (USE_PT_GNU_EH_FRAME): Don't define if
+	OBJECT_FORMAT_FLAT.
+	* config/m68k/m68k.h (ASM_PREFERRED_EH_DATA_FORMAT): Do not use
+	indirect references for -msep-data or -mid-shared-library.
+	Do not use PC-relative code addresses either.
+	* config/m68k/m68k.c (override_options): Restrict -fPIC error
+	to -mpcrel.
+	* config/m68k/uclinux.h (STARTFILE_SPEC): Define.  Use Scrt1.o
+	for shared libraries and crt1.o for executables.  Use crti.o and
+	crtbegin.o.
+	(ENDFILE_SPEC): Use crtend.o and crtn.o.
+	(LIB_SPEC): Suppress -Rlibc.gdb if -static-libc is given.
+	Do not add -elf2flt or -shared-lib-id options here.
+	(LINK_SPEC): Define.  Pass -elf2flt if no -elf2flt option is given.
+	Pass -shared-lib-id if -mid-shared-library, taking the library
+	identifier from -mshared-library-id if given, otherwise
+	defaulting to 0.
+	(EH_FRAME_IN_DATA_SECTION): Do not undefine.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP): Likewise.
+	(TARGET_OS_CPP_BUILTINS): Define __GXX_MERGED_TYPEINFO_NAMES=0
+	and __GXX_TYPEINFO_EQUALITY_INLINE=0 if -mid-shared-library.
+	(DRIVER_SELF_SPECS): Map unadorned PIC options to -msep-data.
+	* config/m68k/t-uclinux (EXTRA_MULTILIB_PARTS): Add crtbegin.o
+	and crtend.o.
+	* config/m68k/lb1sf68.asm (PICCALL): Use an lea and pc-relative
+	jump sequence for ISA A and ISA A+.
+	(PICJUMP): Likewise.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (m68k-*-uclinux*): Base the port on the common
+	and m68k GNU/Linux files rather than on the generic ELF ones.
+	* config/m68k/uclinux.h (TARGET_VERSION): Override.
+	(TARGET_OS_CPP_BUILTINS): Use LINUX_TARGET_OS_CPP_BUILTINS.
+
+2007-01-18  Julian Brown  <julian@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* config/m68k/m68k.h (LONG_DOUBLE_TYPE_SIZE): Make 64-bit on ColdFire.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Likewise.
+	* config/m68k/netbsd-elf.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Undefine
+	before redefining.
+	* config/m68k/uclinux-oldabi.h (LONG_DOUBLE_TYPE_SIZE): Redefine to
+	80 unconditionally.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Likewise.
+
+2007-01-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* doc/install.texi: Document m68k-uclinuxoldabi.
+	* config.gcc (m68k-*-uclinuxoldabi): New configuration.
+	* config/m68k/uclinux-oldabi.h: New file, copied from
+	config/m68k/uclinux.h.
+
+2007-01-18  Kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* config/m32r/m32r-protos.h (m32r_expand_epilogue): Declare it.
+	* config/m32r/m32r.c (m32r_setup_incoming_varargs): Use gen_frame_mem.
+	(m32r_compute_frame_size): Use unsigned for regno.
+	(m32r_reload_lr): Use gen_frame_mem.
+	(pop): New.
+	(m32r_output_function_epilogue): Don't output the function epilogue
+	textually here.
+	(m32r_expand_epilogue): New.
+	(direct_return): Return false if the function has the interrupt
+	attribute.
+	(m32r_hard_regno_rename_ok): Remove code for the textual epilogue.
+	* config/m32r/m32r.md (epilogue): New expander.
+	(return_lr, return_rte): New insns.
+	(return): Make it expander.
+	(return_normal): New expander.
+
+2007-01-18  Josh Conner  <jconner@apple.com>
+
+	PR target/30485
+	* config/rs6000/rs6000.c (rs6000_emit_vector_compare): Add
+	support for UNLE, UNLT, UNGE, and UNGT.
+
+2007-01-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-vrp.c (finalize_jump_threads): Do not call cleanup_cfg by hand.
+	* tree-tailcall (add_virtual_phis): Likewise.
+	(optimize_tail_call): Return TODOs.
+	(execute_tail_calls): Return TODOs.
+	* tree-ssa-ccp (execute_fold_all_builtins): Do cleanup_cfg via TODO.
+	* tree-cfgcleanup.c (cleanup_tree_cfg_loop): Return if something
+	changed.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_value):
+	Cleanup cfg using TODO.
+	* tree-flow.h (cleanup_tree_cfg_loop): Update prototype.
+	* passes.c (execute_function_todo): When cleanup did something, remove
+	unused locals.
+	* tree-cfg.c (pass_build_cfg): Add cleanup_cfg TODO.
+	(make_edges): Don't cleanup_cfg.
+
+2007-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* reg-stack.c (subst_stack_regs_pat) [UNSPEC_SINCOS_COS,
+	UNSPEC_XTRACT_FRACT]: Use generic code for instructions that
+	operate on the top of stack.
+	[UNSPEC_SINCOS_SIN, UNSPEC_XTRACT_EXP, UNSPEC_TAN]: Rewrite
+	register handling of instructions that output to the second
+	stack slot.
+	[UNSPEC_TAN_ONE, UNSPEC_TAN_TAN]: Remove.
+	(move_for_stack_reg): Special-case check for dead destination
+	stack slot for constant load of 1.0 inside UNSPEC_TAN.
+
+	* config/i386/i386.md (UNSPEC_TAN): New constant.
+	(UNSPEC_TAN_ONE, UNSPEC_TAN_TAN): Remove.
+	(fptanxf4_i387, fptan_extend<mode>xf4_i387): New patterns
+	to correctly model move of constant 1.0 to top stack slot.
+	(*tandf3_1, *tansf3_1, *tanxf3_1): Remove insn patterns.
+	(unnamed peephole2 pattern): Remove corresponding peephole2
+	pattern that optimizes tan insn and loading of constant 1.0.
+	(tanxf2): Use fptanxf4_i387.
+	(tan<mode>2): Rename from tansf2 and tandf2 and macroize insn
+	patterns using X87MODEF12 mode macro.  Use fptan_extend<mode>xf4_i387
+	and truncate result to requested mode.  Use SSE_FLOAT_MODE_P to
+	disable patterns for SSE math.
+	(sincos<mode>3): Use truncxf<mode>2_i387_noop for truncation.
+	(fyl2x_extend<mode>xf3_i387): Use X87MODEF12 for operand 1.
+
+2007-01-18  Dirk Mueller  <dmueller@suse.de>
+	    Richard Guenther <rguenther@suse.de>
+
+	PR diagnostic/8268
+	* doc/invoke.texi (Warray-bounds): Document -Warray-bounds.
+	* common.opt (Warray-bounds): Add new warning option.
+	* c-opts.c (c_common_handle_option): Define -Warray-bounds
+	if -Wall is given.
+	* Makefile.in: make tree-vrp.o depend on toplev.h
+	* tree-vrp.c (vrp_finalize): Call check_array_refs if -Warray-bounds
+	is enabled.
+	(check_array_refs, check_array_bounds, check_array_ref): New.
+
+2007-01-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ccp.c (ccp_finalize): Return if something changed.
+	(execute_ssa_ccp): Return flags conditionally.
+	* tree-ssa-propagate.c (substitue_and_fold): Return if something was
+	changed.
+	* tree-ssa-propagate.h (substitute_and_fold): Update prototype.
+
+2007-01-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cfgcleanup.c (cleanup_cfg): Detect cfglayout mode and set
+	the CLEANUP_CFGLAYOUT flag when in cfglayout mode.
+
+	* Makefile.c (GTFILES): Add cfglayout.h.
+	* gengtype.c (open_base_files): Likewise.
+	* cfglayout.c (cfg_layout_function_footer,
+	cfg_layout_function_header) Reindent to make gengtype happy.
+	* cfglayout.h (cfg_layout_function_footer,
+	cfg_layout_function_header): Add GTY(()) marker.
+
+	* ifcvt.c (noce_try_sign_mask): Make sure INSN_B is non-null.
+
+2007-01-18  Ben Elliston  <bje@au.ibm.com>
+
+	* genautomata.c (write_automata): Include xstrerror output in the
+	error message if writing the DFA description file fails.
+
+2007-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/mips/mips-protos.h (mips_output_external): Make it
+	return void.
+	* config/mips/iris.h (TARGET_ASM_EXTERNAL_LIBCALL): Removed.
+	* config/mips/mips.c (irix_output_external_libcall): Likewise.
+	(extern_list): Likewise.
+	(extern_head): Likewise.
+	(TARGET_ASM_FILE_END): Likewise.
+	(mips_file_end): Likewise.
+	(mips_output_external): Rewritten.
+
+2007-01-18  Ben Elliston  <bje@au.ibm.com>
+
+	* genpreds.c (write_insn_preds_c): Only write out the function
+	body for regclass_for_constraint if we have register constraints.
+
+2007-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* doc/sourcebuild.texi (libgcj Tests): Use sourceware.org.
+	* doc/install.texi (Testing): Use sourceware.org.
+	(Binaries): Likewise.
+	(Specific): Likewise.
+	* doc/contrib.texi (Contributors): Use sourceware.org.
+
 2007-01-17  Anatoly Sokolov <aesok@post.ru>
 
 	* config/avr/avr.h (AVR_HAVE_LPMX): New macro.
@@ -223,7 +1069,7 @@
 	* config/i386/i386.md (fyl2xxf3_i387): Rename from fyl2x_xf3.
 	(fyl2x_extend<mode>xf3_i387): New insn pattern.
 	(log<mode>2): Rename from logsf2 and logdf2 and macroize insn
-	insn patterns using X87MODEF12 mode macro.  Extend operand 1
+	patterns using X87MODEF12 mode macro.  Extend operand 1
 	to XFmode. Use SSE_FLOAT_MODE_P to disable patterns for SSE math.
 	(log10<mode>2): Ditto.
 	(log2<mode>2): Ditto.
@@ -234,7 +1080,6 @@
 	(*fxtractxf3_i387): Rename from *fxtractxf3.
 	(fxtract_extend<mode>xf3_i387): New insn pattern.
 	(ilogbsi2): Use match_dup 3, not match_operand:XF 3.
-
 	* config/i386/i386.c (ix86_emit_i387_log1p): Use gen_fyl2xp1xf3_i387()
 	and gen_fyl2xxf3_i387().
 

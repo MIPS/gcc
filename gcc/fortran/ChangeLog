@@ -1,3 +1,162 @@
+2007-01-21  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (ACHAR): Added cross-references.
+	(CHAR): Put cross-references in alphabetical order.
+	(IACHAR): Added cross-references.
+	(ICHAR): Added cross-references.
+
+2007-01-20  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Edited all "Syntax" examples to a consistent form.
+	(MAXVAL): Corrected description of result characteristics.
+	(MINVAL): Same.
+	(UMASK): Added documentation.
+
+2007-01-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* openmp.c, matchexp.c, module.c, scanner.c, resolve.c, st.c,
+	parse.c, primary.c, options.c, misc.c, simplify.c:  Next installment
+	in the massive whitespace patch.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+
+	* module.c (mio_array_ref): The dimen_type fields of an array ref
+	are an enumerated type and can't be read/written directly with a
+	call to mio_integer.  Instead loop over and cast each element.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_full_array_ref_p): Check that ref->next is NULL,
+	i.e. that the ARRAY_REF doesn't mention components.
+	* trans-array.c (gfc_constant_array_constructor_p): Export external
+	function renamed from constant_array_constructor_p.
+	(gfc_build_constant_array_constructor): Export.
+	(gfc_trans_array_constructor): Update call to the renamed function
+	constant_array_constructor_p.
+	* trans-array.h (gfc_constant_array_constructor_p): Prototype here.
+	(gfc_build_constant_array_constructor): Likewise.
+	* trans-expr.c (gfc_build_memcpy_call): New helper function split
+	out from gfc_trans_array_copy.
+	(gfc_trans_array_copy): Use gfc_build_memcpy_call.
+	(gfc_trans_array_constructor_copy): New function to optimize
+	assigning an entire array from a constant array constructor.
+	(gfc_trans_assignment): Call gfc_trans_array_constructor_copy
+	when appropriate.
+
+2007-01-20  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_sign): New branchless
+	implementation for the SIGN intrinsic with integral operands.
+	(gfc_conv_intrinsic_minmax): Fix whitespace.
+
+2007-01-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h (gfc_options_t): Add flag_allow_leading_underscore.
+	* lang.opt: Add -fallow-leading-underscore.
+	* match.c (gfc_match_name): Allow leading underscore in symbol
+	name if -fallow-leading-underscore is used.
+	* symbol.c (gfc_get_default_type): Add special case for symbol
+	names beginning with an underscore.
+	* trans-decl.c (gfc_get_extern_function_decl,
+	gfc_build_intrinsic_function_decls): Add _gfortran prefix to
+	library symbols selected_int_kind, selected_real_kind and 
+	all specifics.
+	* options.c (gfc_init_options, gfc_handle_option): Handle the
+	new -fallow-leading-underscore option.
+
+2007-01-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30446
+	* options.c (gfc_handle_module_path_options): Path used in -J
+	option is now added to the module search path.
+
+2007-01-20  Richard Guenther  <rguenther@suse.de>
+
+	PR fortran/30223
+	* f95-lang.c (gfc_init_builtin_functions): Provide cbrt and
+	cexpi builtins if we have TARGET_C99_FUNCTIONS.  Provide
+	sincos builtins if the target has sincos.
+
+2007-01-19  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (MATMUL): Corrected a typo.
+	(MAX): Separated @var arguments.
+	(MIN): Separated @var arguments.
+
+2007-01-19  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: general whitespace cleanup.
+	(menu): Added TIME8, removed UNMASK.
+	(AINT): Clarified argument requirement.
+	(ANINT): Clarified argument requirement.
+	(CEILING): Clarified argument requirement.
+	(CHAR): Clarified argument requirement.
+	(CMPLX): Clarified argument requirement.
+	(DCMPLX): Clarified argument requirement.
+	(FGET): Line rewrapping.
+	(FLOOR): Clarified argument requirement.
+	(GMTIME): Added documentation.
+	(IAND): Added cross-reference.
+	(IBCLR): Added cross-reference.
+	(IBSET): Added cross-reference.
+	(IEOR): Added cross-reference.
+	(INT): Collapsed examples, clarified argument requirement.
+	(IOR): Added cross-references.
+	(LEN_TRIM): Corrected result kind.
+	(LINK): Added cross-reference.
+	(LLT): Removed "documentation pending".
+	(LOGICAL): Added documentation.
+	(LSHIFT): Added documentation.
+	(LTIME): Added documentation.
+	(MATMUL): Added documentation.
+	(MAX): Added documentation.
+	(MAXLOC): Added documentation.
+	(MAXVAL): Added documentation.
+	(MERGE): Added documentation.
+	(MIN): Added documentation.
+	(MINLOC): Added documentation.
+	(MINVAL): Added documentation.
+	(MVBITS): Moved to correct place, added documentation.
+	(NOT): Added documentation.
+	(PERROR): Added documentation.
+	(RAN): Moved to correct place, added documentation.
+	(REAL): Clarified argument requirement.
+	(RENAME): Added documentation.
+	(RSHIFT): Clarified argument requirement.
+	(SIGN): Corrected table specification.
+	(SYMLNK): Added documentation.
+	(SYSTEM): Added documentation.
+	(TIME): Added documentation.
+	(TIME8): Added section and documentation.
+	(UNMASK): Removed erroneous section.
+
+2007-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* trans-stmt.c (compute_overall_iter_number): Fix a typo.
+
+2007-01-18  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-expr.c (copyable_array_p): Consider user derived types without
+	allocatable components to be copyable.
+
+2007-01-18  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (compute_overall_iter_number): Enhance to precompute
+	the number of interations in unconditional FORALL nests with constant
+	bounds.
+
+2007-01-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR libfortran/29649
+	* gfortran.h (gfc_option_t): Add flag_dump_core.
+	* lang.opt: Add -fdump-core option.
+	* invoke.texi: Document the new options.
+	* trans-decl.c (gfc_build_builtin_function_decls): Add new
+	  options to the call to set_std.
+	* options.c (gfc_init_options, gfc_handle_option): Set the
+	  new options.
+
 2007-01-17  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/30476

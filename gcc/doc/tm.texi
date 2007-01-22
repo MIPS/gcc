@@ -4159,7 +4159,12 @@ place regardless of mode.)  The value of the expression is usually a
 @code{reg} RTX for the hard register where the return value is stored.
 The value can also be a @code{parallel} RTX, if the return value is in
 multiple places.  See @code{FUNCTION_ARG} for an explanation of the
-@code{parallel} form.
+@code{parallel} form.   Note that the callee will populate every
+location specified in the @code{parallel}, but if the first element of
+the @code{parallel} contains the whole return value, callers will use
+that element as the canonical location and ignore the others.  The m68k
+port uses this type of @code{parallel} to return pointers in both
+@samp{%a0} (the canonical location) and @samp{%d0}.
 
 If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply
 the same promotion rules specified in @code{PROMOTE_MODE} if
@@ -5106,6 +5111,18 @@ When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
 default is nonzero that should be proper value for most modern systems, however
 number of existing systems lacks support for these functions in the runtime so
 they needs this macro to be redefined to 0.
+@end defmac
+
+@cindex sincos math function, implicit usage
+@defmac TARGET_HAS_SINCOS
+When this macro is nonzero, GCC will implicitly optimize calls to @code{sin}
+and @code{cos} with the same argument to a call to @code{sincos}.  The
+default is zero.  The target has to provide the following functions:
+@smallexample
+void sincos(double x, double *sin, double *cos);
+void sincosf(float x, float *sin, float *cos);
+void sincosl(long double x, long double *sin, long double *cos);
+@end smallexample
 @end defmac
 
 @defmac NEXT_OBJC_RUNTIME

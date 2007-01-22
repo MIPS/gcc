@@ -1,3 +1,45 @@
+2007-01-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__fill_aux(unsigned char*,
+	unsigned char*, const unsigned char&), __fill_aux(signed char*,
+	signed char*, const signed char&), __fill_aux(char*, char*,
+	const char&), __fill_aux(wchar_t*, wchar_t*, const wchar_t&)):
+	Take the character by value.
+	(__fill_n_aux): Likewise.
+
+2007-01-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30449 (fill, fill_n)
+	* include/bits/stl_algobase.h (__fill_aux(wchar_t*, wchar_t*,
+	const wchar_t&), __fill_n_aux(wchar_t*, _Size, const wchar_t&)): New.
+	(fill(signed char*, signed char*, const signed char&),
+	fill(unsigned char*, unsigned char*, const unsigned char&),
+	fill(char*, char*, char&), fill_n(signed char*, _Size,
+	const signed char&), fill_n(unsigned char*, _Size,
+	const unsigned char&), fill_n(char*, _Size, char&)): Rename to
+	__*_aux.
+	(__fill_normal, __fill_n_normal): New, call the latter.
+	(fill, fill_n): Adjust, call the latter.	
+	* testsuite/25_algorithms/fill/4.cc: New.
+	* testsuite/25_algorithms/fill/5.cc: New.
+
+2007-01-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (basic_string<>::_S_compare): Add.
+	(compare(const basic_string&)): Use it.
+	* include/bits/basic_string.tcc (compare(size_type, size_type,
+	const basic_string&), compare(size_type, size_type,
+	const basic_string&, size_type, size_type), compare(const _CharT*),
+	compare(size_type, size_type, const _CharT*), compare(size_type,
+	size_type, const _CharT*, size_type)): Likewise.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare): Add.
+	* include/ext/vstring.h (compare(const __versa_string&)): Use it.
+	* include/ext/vstring.tcc (compare(size_type, size_type,
+	const __versa_string&), compare(size_type, size_type,
+	const __versa_string&, size_type, size_type), compare(const _CharT*),
+	compare(size_type, size_type, const _CharT*), compare(size_type,
+	size_type, const _CharT*, size_type)): Likewise.
+
 2007-01-15  Ian Lance Taylor  <iant@google.com>
 	    Paolo Carlini  <pcarlini@suse.de>
 

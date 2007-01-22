@@ -120,7 +120,6 @@ static tree m68k_handle_fndecl_attribute (tree *node, tree name,
 					  bool *no_add_attrs);
 static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
-static int const_int_cost (rtx);
 static bool m68k_rtx_costs (rtx, int, int, int *);
 
 
@@ -327,6 +326,12 @@ enum fpu_type m68k_fpu;
 
 /* The set of FL_* flags that apply to the target processor.  */
 unsigned int m68k_cpu_flags;
+
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+const char *m68k_symbolic_call;
+const char *m68k_symbolic_jump;
 
 /* See whether TABLE has an entry with name NAME.  Return true and
    store the entry in *ENTRY if so, otherwise return false and
@@ -506,6 +511,12 @@ override_options (void)
 	      : (m68k_cpu_flags & FL_COLDFIRE) != 0 ? FPUTYPE_COLDFIRE
 	      : FPUTYPE_68881);
 
+  if (TARGET_COLDFIRE_FPU)
+    {
+      REAL_MODE_FORMAT (SFmode) = &coldfire_single_format;
+      REAL_MODE_FORMAT (DFmode) = &coldfire_double_format;
+    }
+
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */
@@ -519,10 +530,10 @@ override_options (void)
   if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
     flag_pic = 2;
 
-  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
-     until the 68020.  */
-  if (!TARGET_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
-    error ("-fPIC is not currently supported on the 68000 or 68010");
+  /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
+     error if the target does not support them.  */
+  if (TARGET_PCREL && !TARGET_68020 && flag_pic == 2)
+    error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
@@ -530,13 +541,42 @@ override_options (void)
   if (TARGET_PCREL && flag_pic == 0)
     flag_pic = 1;
 
-  /* Turn off function cse if we are doing PIC.  We always want function call
-     to be done as `bsr foo@PLTPC', so it will force the assembler to create
-     the PLT entry for `foo'. Doing function cse will cause the address of
-     `foo' to be loaded into a register, which is exactly what we want to
-     avoid when we are doing PIC on svr4 m68k.  */
-  if (flag_pic)
-    flag_no_function_cse = 1;
+  if (!flag_pic)
+    {
+#if MOTOROLA && !defined (USE_GAS)
+      m68k_symbolic_call = "jsr %a0";
+      m68k_symbolic_jump = "jmp %a0";
+#else
+      m68k_symbolic_call = "jbsr %a0";
+      m68k_symbolic_jump = "jra %a0";
+#endif
+    }
+  else if (TARGET_ID_SHARED_LIBRARY)
+    /* All addresses must be loaded from the GOT.  */
+    ;
+  else if (TARGET_68020 || TARGET_ISAB)
+    {
+      if (TARGET_PCREL)
+	{
+	  m68k_symbolic_call = "bsr.l %c0";
+	  m68k_symbolic_jump = "bra.l %c0";
+	}
+      else
+	{
+#if defined(USE_GAS)
+	  m68k_symbolic_call = "bsr.l %p0";
+	  m68k_symbolic_jump = "bra.l %p0";
+#else
+	  m68k_symbolic_call = "bsr %p0";
+	  m68k_symbolic_jump = "bra %p0";
+#endif
+	}
+      /* Turn off function cse if we are doing PIC.  We always want
+	 function call to be done as `bsr foo@PLTPC'.  */
+      /* ??? It's traditional to do this for -mpcrel too, but it isn't
+	 clear how intentional that is.  */
+      flag_no_function_cse = 1;
+    }
 
   SUBTARGET_OVERRIDE_OPTIONS;
 }
@@ -978,18 +1018,17 @@ m68k_output_function_prologue (FILE *stream,
     }
 }
 
-/* Return true if this function's epilogue can be output as RTL.  */
+/* Return true if a simple (return) instruction is sufficient for this
+   instruction (i.e. if no epilogue is needed).  */
 
 bool
-use_return_insn (void)
+m68k_use_return_insn (void)
 {
   if (!reload_completed || frame_pointer_needed || get_frame_size () != 0)
     return false;
 
-  /* We can output the epilogue as RTL only if no registers need to be
-     restored.  */
   m68k_compute_frame_layout ();
-  return current_frame.reg_no ? false : true;
+  return current_frame.offset == 0;
 }
 
 /* This function generates the assembly code for function exit,
@@ -1015,16 +1054,7 @@ m68k_output_function_epilogue (FILE *stream,
   if (GET_CODE (insn) == NOTE)
     insn = prev_nonnote_insn (insn);
   if (insn && GET_CODE (insn) == BARRIER)
-    {
-      /* Output just a no-op so that debuggers don't get confused
-	 about which function the pc is in at this address.  */
-      fprintf (stream, "\tnop\n");
-      return;
-    }
-
-#ifdef FUNCTION_EXTRA_EPILOGUE
-  FUNCTION_EXTRA_EPILOGUE (stream, size);
-#endif
+    return;
 
   fsize = current_frame.size;
 
@@ -1332,33 +1362,16 @@ flags_in_68881 (void)
   return cc_status.flags & CC_IN_68881;
 }
 
-/* Output a BSR instruction suitable for PIC code.  */
-void
-m68k_output_pic_call (rtx dest)
+/* Convert X to a legitimate function call memory reference and return the
+   result.  */
+
+rtx
+m68k_legitimize_call_address (rtx x)
 {
-  const char *out;
-
-  if (!(GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == SYMBOL_REF))
-    out = "jsr %0";
-      /* We output a BSR instruction if we're building for a target that
-	 supports long branches.  Otherwise we generate one of two sequences:
-	 a shorter one that uses a GOT entry or a longer one that doesn't.
-	 We'll use the -Os command-line flag to decide which to generate.
-	 Both sequences take the same time to execute on the ColdFire.  */
-  else if (TARGET_PCREL)
-    out = "bsr.l %o0";
-  else if (TARGET_68020)
-#if defined(USE_GAS)
-    out = "bsr.l %0@PLTPC";
-#else
-    out = "bsr %0@PLTPC";
-#endif
-  else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-    out = "move.l %0@GOT(%%a5), %%a1\n\tjsr (%%a1)";
-  else
-    out = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
-
-  output_asm_insn (out, &dest);
+  gcc_assert (MEM_P (x));
+  if (call_operand (XEXP (x, 0), VOIDmode))
+    return x;
+  return replace_equiv_address (x, force_reg (Pmode, XEXP (x, 0)));
 }
 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
@@ -1738,23 +1751,21 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 
 typedef enum { MOVL, SWAP, NEGW, NOTW, NOTB, MOVQ, MVS, MVZ } CONST_METHOD;
 
-static CONST_METHOD const_method (rtx);
-
 #define USE_MOVQ(i)	((unsigned) ((i) + 128) <= 255)
 
+/* Return the type of move that should be used for integer I.  */
+
 static CONST_METHOD
-const_method (rtx constant)
+const_method (HOST_WIDE_INT i)
 {
-  int i;
   unsigned u;
 
-  i = INTVAL (constant);
   if (USE_MOVQ (i))
     return MOVQ;
 
   /* The ColdFire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either.  */
-  if (!TARGET_COLDFIRE) 
+  if (!TARGET_COLDFIRE)
     {
       /* if -256 < N < 256 but N is not in range for a moveq
 	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg.  */
@@ -1786,10 +1797,12 @@ const_method (rtx constant)
   return MOVL;
 }
 
+/* Return the cost of moving constant I into a data register.  */
+
 static int
-const_int_cost (rtx constant)
+const_int_cost (HOST_WIDE_INT i)
 {
-  switch (const_method (constant))
+  switch (const_method (i))
     {
     case MOVQ:
       /* Constants between -128 and 127 are cheap due to moveq.  */
@@ -1819,7 +1832,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (x == const0_rtx)
 	*total = 0;
       else
-        *total = const_int_cost (x);
+        *total = const_int_cost (INTVAL (x));
       return true;
 
     case CONST:
@@ -1944,13 +1957,16 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
-const char *
+/* Return an instruction to move CONST_INT OPERANDS[1] into data regsiter
+   OPERANDS[0].  */
+
+static const char *
 output_move_const_into_data_reg (rtx *operands)
 {
-  int i;
+  HOST_WIDE_INT i;
 
   i = INTVAL (operands[1]);
-  switch (const_method (operands[1]))
+  switch (const_method (i))
     {
     case MVZ:
       return "mvzw %1,%0";
@@ -1977,63 +1993,55 @@ output_move_const_into_data_reg (rtx *operands)
 	return "moveq %1,%0\n\tswap %0";
       }
     case MOVL:
-	return "move%.l %1,%0";
+      return "move%.l %1,%0";
     default:
-	gcc_unreachable ();
+      gcc_unreachable ();
     }
 }
 
-/* Return 1 if 'constant' can be represented by
-   mov3q on a ColdFire V4 core.  */
-int
-valid_mov3q_const (rtx constant)
+/* Return true if I can be handled by ISA B's mov3q instruction.  */
+
+bool
+valid_mov3q_const (HOST_WIDE_INT i)
 {
-  int i;
-
-  if (TARGET_ISAB && GET_CODE (constant) == CONST_INT)
-    {
-      i = INTVAL (constant);
-      if (i == -1 || (i >= 1 && i <= 7))
-	return 1;
-    }
-  return 0;
+  return TARGET_ISAB && (i == -1 || IN_RANGE (i, 1, 7));
 }
 
+/* Return an instruction to move CONST_INT OPERANDS[1] into OPERANDS[0].
+   I is the value of OPERANDS[1].  */
 
-const char *
+static const char *
 output_move_simode_const (rtx *operands)
 {
-  if (operands[1] == const0_rtx
-      && (DATA_REG_P (operands[0])
-	  || GET_CODE (operands[0]) == MEM)
+  rtx dest;
+  HOST_WIDE_INT src;
+
+  dest = operands[0];
+  src = INTVAL (operands[1]);
+  if (src == 0
+      && (DATA_REG_P (dest) || MEM_P (dest))
       /* clr insns on 68000 read before writing.  */
       && ((TARGET_68010 || TARGET_COLDFIRE)
-	  || !(GET_CODE (operands[0]) == MEM
-	       && MEM_VOLATILE_P (operands[0]))))
+	  || !(MEM_P (dest) && MEM_VOLATILE_P (dest))))
     return "clr%.l %0";
-  else if ((GET_MODE (operands[0]) == SImode)
-           && valid_mov3q_const (operands[1]))
+  else if (GET_MODE (dest) == SImode && valid_mov3q_const (src))
     return "mov3q%.l %1,%0";
-  else if (operands[1] == const0_rtx
-	   && ADDRESS_REG_P (operands[0]))
+  else if (src == 0 && ADDRESS_REG_P (dest))
     return "sub%.l %0,%0";
-  else if (DATA_REG_P (operands[0]))
+  else if (DATA_REG_P (dest))
     return output_move_const_into_data_reg (operands);
-  else if (ADDRESS_REG_P (operands[0])
-	   && INTVAL (operands[1]) < 0x8000
-	   && INTVAL (operands[1]) >= -0x8000)
+  else if (ADDRESS_REG_P (dest) && IN_RANGE (src, -0x8000, 0x7fff))
     {
-      if (valid_mov3q_const (operands[1]))
+      if (valid_mov3q_const (src))
         return "mov3q%.l %1,%0";
       return "move%.w %1,%0";
     }
-  else if (GET_CODE (operands[0]) == MEM
-	   && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
-	   && REGNO (XEXP (XEXP (operands[0], 0), 0)) == STACK_POINTER_REGNUM
-	   && INTVAL (operands[1]) < 0x8000
-	   && INTVAL (operands[1]) >= -0x8000)
+  else if (MEM_P (dest)
+	   && GET_CODE (XEXP (dest, 0)) == PRE_DEC
+	   && REGNO (XEXP (XEXP (dest, 0), 0)) == STACK_POINTER_REGNUM
+	   && IN_RANGE (src, -0x8000, 0x7fff))
     {
-      if (valid_mov3q_const (operands[1]))
+      if (valid_mov3q_const (src))
         return "mov3q%.l %1,%-";
       return "pea %a1";
     }
@@ -2826,12 +2834,18 @@ notice_update_cc (rtx exp, rtx insn)
 	  if (cc_status.value2 && modified_in_p (cc_status.value2, insn))
 	    cc_status.value2 = 0; 
 	}
+      /* fmoves to memory or data registers do not set the condition
+	 codes.  Normal moves _do_ set the condition codes, but not in
+	 a way that is appropriate for comparison with 0, because -0.0
+	 would be treated as a negative nonzero number.  Note that it
+	 isn't appropriate to conditionalize this restiction on
+	 HONOR_SIGNED_ZEROS because that macro merely indicates whether
+	 we care about the difference between -0.0 and +0.0.  */
       else if (!FP_REG_P (SET_DEST (exp))
 	       && SET_DEST (exp) != cc0_rtx
 	       && (FP_REG_P (SET_SRC (exp))
 		   || GET_CODE (SET_SRC (exp)) == FIX
-		   || GET_CODE (SET_SRC (exp)) == FLOAT_TRUNCATE
-		   || GET_CODE (SET_SRC (exp)) == FLOAT_EXTEND))
+		   || FLOAT_MODE_P (GET_MODE (SET_DEST (exp)))))
 	CC_STATUS_INIT; 
       /* A pair of move insns doesn't produce a useful overall cc.  */
       else if (!FP_REG_P (SET_DEST (exp))
@@ -3083,12 +3097,10 @@ floating_exact_log2 (rtx x)
    'b' for byte insn (no effect, on the Sun; this is for the ISI).
    'd' to force memory addressing to be absolute, not relative.
    'f' for float insn (print a CONST_DOUBLE as a float rather than in hex)
-   'o' for operands to go directly to output_operand_address (bypassing
-       print_operand_address--used only for SYMBOL_REFs under TARGET_PCREL)
    'x' for float insn (print a CONST_DOUBLE as a float rather than in hex),
        or print pair of registers as rx:ry.
-
-   */
+   'p' print an address with @PLTPC attached, but only if the operand
+       is not locally-bound.  */
 
 void
 print_operand (FILE *file, rtx op, int letter)
@@ -3120,13 +3132,11 @@ print_operand (FILE *file, rtx op, int letter)
     }
   else if (letter == '/')
     asm_fprintf (file, "%R");
-  else if (letter == 'o')
+  else if (letter == 'p')
     {
-      /* This is only for direct addresses with TARGET_PCREL */
-      gcc_assert (GET_CODE (op) == MEM
-		  && GET_CODE (XEXP (op, 0)) == SYMBOL_REF
-		  && TARGET_PCREL);
-      output_addr_const (file, XEXP (op, 0));
+      output_addr_const (file, op);
+      if (!(GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op)))
+	fprintf (file, "@PLTPC");
     }
   else if (GET_CODE (op) == REG)
     {
@@ -3693,6 +3703,18 @@ output_xorsi3 (rtx *operands)
   return "eor%.l %2,%0";
 }
 
+/* Return the instruction that should be used for a call to address X,
+   which is known to be in operand 0.  */
+
+const char *
+output_call (rtx x)
+{
+  if (symbolic_operand (x, VOIDmode))
+    return m68k_symbolic_call;
+  else
+    return "jsr %a0";
+}
+
 #ifdef M68K_TARGET_COFF
 
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
@@ -3759,43 +3781,13 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
   xops[0] = DECL_RTL (function);
 
-  /* Logic taken from call patterns in m68k.md.  */
-  if (flag_pic)
-    {
-      if (TARGET_PCREL)
-	fmt = "bra.l %o0";
-      else if (flag_pic == 1 || TARGET_68020)
-	{
-	  if (MOTOROLA)
-	    {
-#if defined (USE_GAS)
-	      fmt = "bra.l %0@PLTPC";
-#else
-	      fmt = "bra %0@PLTPC";
-#endif
-	    }
-	  else /* !MOTOROLA */
-	    {
-#ifdef USE_GAS
-	      fmt = "bra.l %0";
-#else
-	      fmt = "jra %0,a1";
-#endif
-	    }
-	}
-      else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-        fmt = "move.l %0@GOT(%%a5), %%a1\n\tjmp (%%a1)";
-      else
-        fmt = "lea %0-.-8,%%a1\n\tjmp 0(%%pc,%%a1)";
-    }
-  else
-    {
-#if MOTOROLA && !defined (USE_GAS)
-      fmt = "jmp %0";
-#else
-      fmt = "jra %0";
-#endif
-    }
+  gcc_assert (MEM_P (xops[0])
+	      && symbolic_operand (XEXP (xops[0], 0), VOIDmode));
+  xops[0] = XEXP (xops[0], 0);
+
+  fmt = m68k_symbolic_jump;
+  if (m68k_symbolic_jump == NULL)
+    fmt = "move.l %%a1@GOT(%%a5), %%a1\n\tjmp (%%a1)";
 
   output_asm_insn (fmt, xops);
 }
@@ -3832,13 +3824,13 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 bool
 m68k_regno_mode_ok (int regno, enum machine_mode mode)
 {
-  if (regno < 8)
+  if (DATA_REGNO_P (regno))
     {
       /* Data Registers, can hold aggregate if fits in.  */
       if (regno + GET_MODE_SIZE (mode) / 4 <= 8)
 	return true;
     }
-  else if (regno < 16)
+  else if (ADDRESS_REGNO_P (regno))
     {
       /* Address Registers, can't hold bytes, can hold aggregate if
 	 fits in.  */
@@ -3847,7 +3839,7 @@ m68k_regno_mode_ok (int regno, enum machine_mode mode)
       if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
 	return true;
     }
-  else if (regno < 24)
+  else if (FP_REGNO_P (regno))
     {
       /* FPU registers, hold float or complex float of long double or
 	 smaller.  */
@@ -3898,9 +3890,26 @@ m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     break;
   }
 
-  /* If the function returns a pointer, push that into %a0 */
-  if (POINTER_TYPE_P (valtype))
-    return gen_rtx_REG (mode, 8);
+  /* If the function returns a pointer, push that into %a0.  */
+  if (func && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (func))))
+    /* For compatibility with the large body of existing code which
+       does not always properly declare external functions returning
+       pointer types, the m68k/SVR4 convention is to copy the value
+       returned for pointer functions from a0 to d0 in the function
+       epilogue, so that callers that have neglected to properly
+       declare the callee can still find the correct return value in
+       d0.  */
+    return gen_rtx_PARALLEL
+      (mode,
+       gen_rtvec (2,
+		  gen_rtx_EXPR_LIST (VOIDmode,
+				     gen_rtx_REG (mode, A0_REG),
+				     const0_rtx),
+		  gen_rtx_EXPR_LIST (VOIDmode,
+				     gen_rtx_REG (mode, D0_REG),
+				     const0_rtx)));
+  else if (POINTER_TYPE_P (valtype))
+    return gen_rtx_REG (mode, A0_REG);
   else
-    return gen_rtx_REG (mode, 0);
+    return gen_rtx_REG (mode, D0_REG);
 }

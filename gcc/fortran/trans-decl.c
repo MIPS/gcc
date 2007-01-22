@@ -1060,7 +1060,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   gfc_expr e;
   gfc_intrinsic_sym *isym;
   gfc_expr argexpr;
-  char s[GFC_MAX_SYMBOL_LEN + 13]; /* "f2c_specific" and '\0'.  */
+  char s[GFC_MAX_SYMBOL_LEN + 23]; /* "_gfortran_f2c_specific" and '\0'.  */
   tree name;
   tree mangled_name;
 
@@ -1108,10 +1108,10 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	{
 	  /* Specific which needs a different implementation if f2c
 	     calling conventions are used.  */
-	  sprintf (s, "f2c_specific%s", e.value.function.name);
+	  sprintf (s, "_gfortran_f2c_specific%s", e.value.function.name);
 	}
       else
-	sprintf (s, "specific%s", e.value.function.name);
+	sprintf (s, "_gfortran_specific%s", e.value.function.name);
 
       name = get_identifier (s);
       mangled_name = name;
@@ -2082,13 +2082,15 @@ gfc_build_intrinsic_function_decls (void)
 				     gfc_charlen_type_node, pchar_type_node);
 
   gfor_fndecl_si_kind =
-    gfc_build_library_function_decl (get_identifier ("selected_int_kind"),
+    gfc_build_library_function_decl (get_identifier
+					(PREFIX("selected_int_kind")),
                                      gfc_int4_type_node,
                                      1,
                                      pvoid_type_node);
 
   gfor_fndecl_sr_kind =
-    gfc_build_library_function_decl (get_identifier ("selected_real_kind"),
+    gfc_build_library_function_decl (get_identifier 
+					(PREFIX("selected_real_kind")),
                                      gfc_int4_type_node,
                                      2, pvoid_type_node,
                                      pvoid_type_node);
@@ -2375,7 +2377,8 @@ gfc_build_builtin_function_decls (void)
   gfor_fndecl_set_std =
     gfc_build_library_function_decl (get_identifier (PREFIX("set_std")),
 				    void_type_node,
-				    3,
+				    4,
+				    gfc_int4_type_node,
 				    gfc_int4_type_node,
 				    gfc_int4_type_node,
 				    gfc_int4_type_node);
@@ -3143,6 +3146,10 @@ gfc_generate_function_code (gfc_namespace * ns)
       arglist = gfc_chainon_list (arglist,
 				  build_int_cst (gfc_int4_type_node,
 						 pedantic));
+      arglist = gfc_chainon_list (arglist,
+				  build_int_cst (gfc_int4_type_node,
+						 gfc_option.flag_dump_core));
+
       tmp = build_function_call_expr (gfor_fndecl_set_std, arglist);
       gfc_add_expr_to_block (&body, tmp);
     }

@@ -22,9 +22,7 @@ Boston, MA 02110-1301, USA.  */
 
 #ifdef RTX_CODE
 extern HOST_WIDE_INT m68k_initial_elimination_offset (int from, int to);
-extern const char *output_move_const_into_data_reg (rtx *);
-extern int valid_mov3q_const (rtx);
-extern const char *output_move_simode_const (rtx *);
+extern bool valid_mov3q_const (HOST_WIDE_INT);
 extern const char *output_move_simode (rtx *);
 extern const char *output_move_himode (rtx *);
 extern const char *output_move_qimode (rtx *);
@@ -39,7 +37,7 @@ extern const char *output_addsi3 (rtx *);
 extern const char *output_andsi3 (rtx *);
 extern const char *output_iorsi3 (rtx *);
 extern const char *output_xorsi3 (rtx *);
-extern void m68k_output_pic_call (rtx dest);
+extern const char *output_call (rtx);
 extern void output_dbcc_and_branch (rtx *);
 extern int floating_exact_log2 (rtx);
 extern bool strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn, rtx target);
@@ -59,9 +57,10 @@ extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 
 extern bool m68k_regno_mode_ok (int, enum machine_mode);
 extern int flags_in_68881 (void);
-extern bool use_return_insn (void);
+extern bool m68k_use_return_insn (void);
 extern void override_options (void);
 extern const char *m68k_cpp_cpu_ident (const char *);
 extern const char *m68k_cpp_cpu_family (const char *);
 extern void init_68881_table (void);
+extern rtx m68k_legitimize_call_address (rtx);
 extern int m68k_hard_regno_rename_ok(unsigned int, unsigned int);
