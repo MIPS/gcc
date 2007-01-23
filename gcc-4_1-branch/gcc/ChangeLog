@@ -1,3 +1,70 @@
+2007-01-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/29329
+	* combine.c (replaced_rhs_insn): Rename to i2mod.
+	(replaced_rhs_value): Rename to i2mod_new_rhs.
+	(i2mod_old_rhs): New global variable.
+	(combine_instructions): Adjust for above change.  Save a copy of
+	the old RHS into i2mod_old_rhs when the contents of a REG_EQUAL
+	note are substituted in the second instruction.
+	(distribute_notes) <REG_DEAD>: Adjust for above change.  Do not
+	ditch the note if it pertains to the second eliminated register
+	and this register is mentioned in i2mod_old_rhs.
+
+	Revert:
+	2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* combine.c (distribute_notes) <REG_DEAD>: Do not consider SETs past
+	the insn to which the note was originally attached.
+
+2007-01-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_move_double): Change array size of xoperands to 4.
+
+2007-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* doc/sourcebuild.texi (libgcj Tests): Use sourceware.org.
+	* doc/install.texi (Testing): Use sourceware.org.
+	(Binaries): Likewise.
+	(Specific): Likewise.
+	* doc/contrib.texi (Contributors): Use sourceware.org.
+
+2007-01-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa-linux.h (ASM_OUTPUT_INTERNAL_LABEL): Undefine.
+	* pa.h (ASM_OUTPUT_LABEL): Output colon when using GAS.
+	(ASM_OUTPUT_INTERNAL_LABEL): Define.
+
+2007-01-09  Nicolas Pitre  <nico@cam.org>
+
+	PR target/30173
+	* arm/ieee754-df.S (Lad_s): Also test the low word of X for zero.
+
+2007-01-08  Nick Clifton  <nickc@redhat.com>
+
+	* config/frv/predicates.md (reg_or_0_operand): Accept
+	CONST_DOUBLEs.
+
+2007-01-06  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/27736
+	* combine.c (replaced_rhs_value): New variable.
+	(combine_instructions): Set it.
+	(distribute_notes): When distributing a note in replaced_rhs_insn,
+	check whether the value was used in replaced_rhs_value.
+
+	2006-05-22  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/25514
+	* combine.c (replaced_rhs_insn): New variable.
+	(combine_instructions): Set replaced_rhs_insn when trying to replace
+	a SET_SRC with a REG_EQUAL note.
+	(distribute_notes): Use replaced_rhs_insn when determining the live
+	range of a REG_DEAD register.
+
 2007-01-05  Richard Guenther  <rguenther@suse.de>
 
         PR tree-optimization/30212
@@ -59,7 +126,7 @@
 	(process_function_and_variable_attributes): New function.
 	(cgraph_finalize_compilation_unit): Call it.
 	* c-decl.c (finish_decl): Do not worry about used attribute.
-	* c-common.c (handle_externally_visible_attribute): Only validate.	
+	* c-common.c (handle_externally_visible_attribute): Only validate.
 
 2007-01-05  Joel Brobecker  <brobecker@adacore.com>
 
@@ -72,8 +139,9 @@
 	* libgcc2.c (__divdc3): Compare c and d against 0.0 instead of
 	denom against 0.0.
 
-	Backported from mainline
+	Backport from mainline:
 	2006-09-17  Steven Bosscher  <steven@gcc.gnu.org>
+
 	PR c/25993
 	* c-opts.c (c_common_handle_option): Ignore the -std options
 	if the input language is assembly.
