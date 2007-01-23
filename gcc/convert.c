@@ -760,6 +760,7 @@ convert_to_complex (tree type, tree expr)
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -857,6 +858,11 @@ convert_to_fixed (tree type, tree expr)
     case BOOLEAN_TYPE:
     case REAL_TYPE:
       return build1 (FIXED_CONVERT_EXPR, type, expr);
+
+    case COMPLEX_TYPE:
+      return convert (type,
+		      fold_build1 (REALPART_EXPR,
+				   TREE_TYPE (TREE_TYPE (expr)), expr));
 
     default:
       error ("aggregate value used where a fixed-point was expected");
