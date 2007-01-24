@@ -301,18 +301,9 @@ gfc_done_2 (void)
 }
 
 
-/**
- * Returns the index into the table of C interoperable kinds where
- * the kind with the given name (<code>c_kind_name</code>) was found.
- *
- * @param c_kind_name Name constant to find the <code>#CInteropKind_t</code>
- * object for.
- * @param kinds_table Table holding the C interoperable kinds.
- * @param table_length Length of the table.
- * @return Index into the table where the requested
- * <code>CInteropKind_t</code> object exists, if it exists.  -1 is
- * returned if it does not exist.  
- */
+/* Returns the index into the table of C interoperable kinds where the
+   kind with the given name (c_kind_name) was found.  */
+
 int
 get_c_kind(const char *c_kind_name, CInteropKind_t kinds_table[])
 {

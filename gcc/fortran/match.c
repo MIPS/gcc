@@ -220,19 +220,13 @@ gfc_match_small_int (int *value)
   return m;
 }
 
-/**
- * This function is the same as the gfc_match_small_int, except that
- * we're keeping the pointer to the expr.  This function could just be
- * removed and the previously mentioned one modified, though all calls
- * to it would have to be modified then (and there were a number of
- * them..).  --Rickett, 04.11.06
- *
- * @param value Value of the expression (output).
- * @param expr The matched expression (output).
- * @return MATCH_ERROR if fail to extract the int; otherwise, return
- * the result of gfc_match_expr().  The expr (if any) that was
- * matched is returned in the parameter <code>expr</code>.
- */
+/* This function is the same as the gfc_match_small_int, except that
+   we're keeping the pointer to the expr.  This function could just be
+   removed and the previously mentioned one modified, though all calls
+   to it would have to be modified then (and there were a number of
+   them).  Return MATCH_ERROR if fail to extract the int; otherwise,
+   return the result of gfc_match_expr().  The expr (if any) that was
+   matched is returned in the parameter expr.  */
 match
 gfc_match_small_int_expr (int *value, gfc_expr **expr)
 {
@@ -462,22 +456,21 @@ gfc_match_name (char *buffer)
 }
 
 
-/**
- * Match a valid name for C, which is almost the same as for Fortran,
- * except that you can start with an underscore, etc..  It could have
- * been done by modifying the <code>#gfc_match_name</code>, but this way
- * other things C allows can be added, such as no limits on the length.
- * Right now, the length is limited to the same thing as Fortran..
- * Also, by rewriting it, we use the <code>#gfc_next_char_C()</code> to
- * prevent the input characters from being automatically lower cased,
- * since C is case sensitive.
- *
- * @param buffer Output buffer for the name that is matched.
- * @return MATCH_ERROR if the name is too long (though this is a
- * self-imposed limit), MATCH_NO if what we're seeing isn't a name,
- * and MATCH_YES if we successfully match a C name.
- */
-match gfc_match_name_C (char *buffer)
+/* Match a valid name for C, which is almost the same as for Fortran,
+   except that you can start with an underscore, etc..  It could have
+   been done by modifying the gfc_match_name, but this way other
+   things C allows can be added, such as no limits on the length.
+   Right now, the length is limited to the same thing as Fortran..
+   Also, by rewriting it, we use the gfc_next_char_C() to prevent the
+   input characters from being automatically lower cased, since C is
+   case sensitive.  The parameter, buffer, is used to return the name
+   that is matched.  Return MATCH_ERROR if the name is too long
+   (though this is a self-imposed limit), MATCH_NO if what we're
+   seeing isn't a name, and MATCH_YES if we successfully match a C
+   name.  */
+
+match
+gfc_match_name_C (char *buffer)
 {
   locus old_loc;
   int i = 0;
@@ -488,7 +481,7 @@ match gfc_match_name_C (char *buffer)
 
   /* Get the next char (first possible char of name) and see if
      it's valid for C (either a letter or an underscore).  */
-  c = gfc_next_char_literal(1);
+  c = gfc_next_char_literal (1);
   if (!ISALPHA (c) && c != '_')
     {
       gfc_current_locus = old_loc;

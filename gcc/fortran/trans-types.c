@@ -110,15 +110,15 @@ int gfc_numeric_storage_size;
 int gfc_character_storage_size;
 
 
-/**
- * Validate that the <code>f90_type</code> of the given
- * <code>gfc_typespec</code> is valid for the type it represents.
- *
- * @param ts <code>gfc_typespec</code> representing the type being tested.
- * @return FAILURE if a mismatch occurs between <code>ts->f90_type</code>
- * and <code>ts->type</code>; SUCCESS if they match.
- */
-try gfc_validate_c_kind (gfc_typespec *ts)
+/* Validate that the f90_type of the given gfc_typespec is valid for
+   the type it represents.  The f90_type represents the Fortran types
+   this C kind can be used with.  For example, c_int has a f90_type of
+   BT_INTEGER and c_float has a f90_type of BT_REAL.  Returns FAILURE
+   if a mismatch occurs between ts->f90_type and ts->type; SUCCESS if
+   they match.  */
+
+try
+gfc_validate_c_kind (gfc_typespec *ts)
 {
    return ((ts->type == ts->f90_type) ? SUCCESS : FAILURE);
 }
@@ -176,12 +176,9 @@ get_int_kind_from_minimal_width (int size)
 }
 
 
-/**
- * Generate the <code>CInteropKind_t</code> objects for the C
- * interoperable kinds.  
- *
- * @return None
- */
+/* Generate the CInteropKind_t objects for the C interoperable
+   kinds.  */
+
 static
 void init_c_interop_kinds (void)
 {
@@ -1574,38 +1571,33 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
 }
 
 
-/**
- * Check whether the given derived type is from the
- * <code>iso_c_binding</code> intrinsic module.
- *
- * @param derived Derived type symbol to test.
- * @return 1 if is from the iso_c_binding module; 0 if not.
- */
-static int check_iso_c_derived (gfc_symbol *derived)
+/* Check whether the given derived type is from the iso_c_binding
+   intrinsic module.  Returns 1 if is from the iso_c_binding module; 0
+   if not.  */
+
+static int
+check_iso_c_derived (gfc_symbol *derived)
 {
   /* this should only be 1 for c_ptr and c_funptr; 0 otherwise */
   return derived->attr.is_iso_c;
 }
 
 
-/**
- * Get the stored <code>iso_c_binding</code> derived type for either
- * <code>c_ptr</code> or <code>c_funptr</code>.  A reference is stored
- * to the first of these created for a given namespace because when
- * the expressions they are used in are being generated, the types are
- * checked to see if they are the same.  The checks are limited to if
- * they point to the same object.  Even if the fields are all identical
- * in type, the derived types could not be used in expressions for each
- * other, such as assigning one to the other.  Therefore, to allow this
- * to work, they will share an underlying derived type definition, so
- * the definitions for these are stored to be used for all variables
- * declared of type <code>c_ptr</code> or <code>c_funptr</code>.
- *
- * @param derived Derived symbol used to determine which of the ISO C
- * derived types we need the tree for.
- * @return The tree that was created for the given ISO C derived type.
- */
-static tree get_iso_c_derived (gfc_symbol *derived)
+/* Get the stored iso_c_binding derived type for either c_ptr or
+   c_funptr.  A reference is stored to the first of these created for
+   a given namespace because when the expressions they are used in are
+   being generated, the types are checked to see if they are the same.
+   The checks are limited to if they point to the same object.  Even
+   if the fields are all identical in type, the derived types could
+   not be used in expressions for each other, such as assigning one to
+   the other.  Therefore, to allow this to work, they will share an
+   underlying derived type definition, so the definitions for these
+   are stored to be used for all variables declared of type c_ptr or
+   c_funptr.  Returns the tree that was created for the given ISO C
+   derived type.  */
+
+static tree
+get_iso_c_derived (gfc_symbol *derived)
 {
   if (strcmp (derived->name, "c_ptr") == 0)
     return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];

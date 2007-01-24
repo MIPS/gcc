@@ -1209,15 +1209,10 @@ gfc_add_access (symbol_attribute * attr, gfc_access access,
   return FAILURE;
 }
 
-/**
- * Set the <code>is_bind_c</code> field for the given <code>#symbol_attribute</code>.
- *
- * @param attr <code>#symbol_attribute</code> object to set <code>is_bind_c</code>
- * field in.
- * @param where Location where this <code>BIND(C)</code> attribute was encountered.
- * @return SUCCESS if no errors encountered; FAILURE otherwise.
- */
-try gfc_add_is_bind_c (symbol_attribute *attr, locus *where)
+/* Set the is_bind_c field for the given symbol_attribute.  */
+
+try
+gfc_add_is_bind_c (symbol_attribute *attr, locus *where)
 {
   attr->is_bind_c = 1;
   
@@ -1233,15 +1228,10 @@ try gfc_add_is_bind_c (symbol_attribute *attr, locus *where)
 }
 
 
-/**
- * Set the <code>value</code> field for the given <code>#symbol_attribute</code>.
- *
- * @param attr <code>#symbol_attribute</code> object to set <code>value</code>
- * field in.
- * @param where Location where this <code>value</code> attribute was encountered.
- * @return SUCCESS if no errors encountered; FAILURE otherwise.
- */
-try gfc_add_value (symbol_attribute *attr, locus *where)
+/* Set the value field for the given symbol_attribute.  */
+
+try
+gfc_add_value (symbol_attribute *attr, locus *where)
 {
   if (where == NULL)
     where = &gfc_current_locus;
@@ -2886,28 +2876,35 @@ gfc_get_gsymbol (const char *name)
 }
 
 
-/**
- * Verifies that the given derived type symbol, <code>derived_sym</code>,
- * is interoperable with C.  This is necessary for any derived type that is
- * <code>BIND(C)</code> and for derived types that are parameters to
- * functions that are <code>BIND(C)</code>.  All fields of the derived
- * type are required to be interoperable, and are tested for such.  If
- * an error occurs, the errors are reported here, allowing for multiple
- * errors to be handled for a single derived type.
- *
- * @param derived_sym <code>#gfc_symbol</code> representing the derived type
- * to test for C interoperability.
- * @return SUCCESS or FAILURE
- */
-try verify_bind_c_derived_type (gfc_symbol *derived_sym)
+/* Verifies that the given derived type symbol, derived_sym,
+   is interoperable with C.  This is necessary for any derived type that is
+   BIND(C) and for derived types that are parameters to
+   functions that are BIND(C).  All fields of the derived
+   type are required to be interoperable, and are tested for such.  If
+   an error occurs, the errors are reported here, allowing for multiple
+   errors to be handled for a single derived type.  */
+
+try
+verify_bind_c_derived_type (gfc_symbol *derived_sym)
 {
   gfc_component *curr_comp = NULL;
   try is_c_interop = FAILURE;
   try retval = SUCCESS;
    
   if (derived_sym == NULL)
-    gfc_internal_error("verify_bind_c_derived_type(): Given symbol is "
-		       "unexpectedly NULL");
+    gfc_internal_error ("verify_bind_c_derived_type(): Given symbol is "
+                        "unexpectedly NULL");
+
+  /* The derived type must have the BIND attribute to be interoperable
+     J3/04-007, Section 15.2.3. */
+  if (derived_sym->attr.is_bind_c != 1)
+    {
+      derived_sym->ts.is_c_interop = 0;
+      gfc_error ("Derived type '%s' declared at %L must have the BIND "
+                 "attribute to be C interoperable", derived_sym->name,
+                 &(derived_sym->declared_at));
+      retval = FAILURE;
+    }
   
   curr_comp = derived_sym->components;
   /* is this really an error??	 --Rickett, 10.24.05 */
@@ -2968,9 +2965,6 @@ try verify_bind_c_derived_type (gfc_symbol *derived_sym)
 				 "may not be C interoperable",
 				 curr_comp->name, derived_sym->name,
 				 &(curr_comp->loc));
-	      
-	      /* mark the derived type as not being C interoperable */
-	      derived_sym->ts.is_c_interop = 0;
 	    }
 	  
 	  /* The components can not be pointers (fortran sense).  
@@ -3017,23 +3011,24 @@ try verify_bind_c_derived_type (gfc_symbol *derived_sym)
 		     &(derived_sym->declared_at));
       retval = FAILURE;
     }
+
+  /* Mark the derived type as not being C interoperable if we found an
+     error.  If there were only warnings, proceed with the assumption
+     it's interoperable.  */
+  if (retval == FAILURE)
+    derived_sym->ts.is_c_interop = 0;
   
   return retval;
 }
 
 
-/**
- * Generate a symbol for the given named constant that represents a
- * C interoperable kind.
- *
- * @param kind_obj <code>#CInteropKind_t</code> representing the C
- * interoperable kind.
- * @param module_name Name of the module that owns the symbol that
- * will be created: <code>iso_c_binding</code> (plus mangling).
- * @return None
- */
-static void gen_c_interop_kind_sym (CInteropKind_t *kind_obj,
-				    const char *module_name)
+
+/* Generate a symbol for the given named constant that represents a
+   C interoperable kind.  */
+
+static void
+gen_c_interop_kind_sym (CInteropKind_t *kind_obj,
+                        const char *module_name)
 {
   gfc_symbol *tmp_sym = NULL;
   gfc_symtree *tmp_symtree = NULL;
@@ -3092,17 +3087,11 @@ static void gen_c_interop_kind_sym (CInteropKind_t *kind_obj,
 }
 
 
-/**
- * Generate symbol(s) for the given list of kind objects.  
- *
- * @param kinds_list List of names for the kinds that need symbols
- * generated for them.
- * @param module_name Name of the module that owns the symbols representing
- * the kind objects.
- * @return None
- */
-static void gen_given_kinds (const char *kinds_list[],
-			     const char *module_name)
+/* Generate symbol(s) for the given list of kind objects.  */
+
+static void
+gen_given_kinds (const char *kinds_list[],
+                 const char *module_name)
 {
   int i = 0;	 /* loop variable */
   int index = 0;
@@ -3121,16 +3110,11 @@ static void gen_given_kinds (const char *kinds_list[],
 }
 
 
-/**
- * Generate symbols for the C interoperable integer kinds.  Currently,
- * these include:
- * <code>c_int, c_short, c_long, c_long_long, c_size_t</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_c_interop_int_kinds (const char *module_name)
+/* Generate symbols for the C interoperable integer kinds.  Currently,
+   these include: c_int, c_short, c_long, c_long_long, c_size_t.  */
+
+static void
+gen_c_interop_int_kinds (const char *module_name)
 {
   /* array of the valid C kinds constant names */
   const char *int_kinds[] = {"c_int",
@@ -3161,16 +3145,11 @@ static void gen_c_interop_int_kinds (const char *module_name)
 }
 
 
-/**
- * Generate a symbol for the C interoperable logical kind.  Currently,
- * it is:
- * <code>c_bool</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_c_interop_logical_kinds (const char *module_name)
+/* Generate a symbol for the C interoperable logical kind.  Currently,
+   it is: c_bool.  */
+
+static void
+gen_c_interop_logical_kinds (const char *module_name)
 {
   /* array of the valid C logicalkinds constant names */
   const char *logical_kinds[] = {"c_bool",
@@ -3182,16 +3161,11 @@ static void gen_c_interop_logical_kinds (const char *module_name)
 }
 
 
-/**
- * Generate symbols for the C interoperable real kinds.	 Currently, these
- * include:
- * <code>c_float, c_double, c_long_double</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_c_interop_real_kinds (const char *module_name)
+/* Generate symbols for the C interoperable real kinds.	 Currently, these
+   include: c_float, c_double, c_long_double.  */
+
+static void
+gen_c_interop_real_kinds (const char *module_name)
 {
   /* array of the valid kinds for C reals */
   const char *real_kinds[] = {"c_float",
@@ -3208,16 +3182,12 @@ static void gen_c_interop_real_kinds (const char *module_name)
 }
 
 
-/**
- * Generate symbols for kinds representing special characters, such
- * as <code>C_NULL_CHAR</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_special_c_chars (const char *char_names[],
-				 const char *module_name)
+/* Generate symbols for kinds representing special characters, such
+   as C_NULL_CHAR.  */
+
+static void
+gen_special_c_chars (const char *char_names[],
+                     const char *module_name)
 {
   int i = 0;   /* loop variable */
    
@@ -3233,16 +3203,11 @@ static void gen_special_c_chars (const char *char_names[],
 }
 
 
-/**
- * Generate symbols for the C interoperable character kinds.  Currently,
- * these include:
- * <code>c_char, c_null_char</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_c_interop_char_kinds (const char *module_name)
+/* Generate symbols for the C interoperable character kinds.  Currently,
+   these include: c_char, c_null_char.  */
+
+static void
+gen_c_interop_char_kinds (const char *module_name)
 {
   const char *char_kinds[] = {"c_char", NULL};
   const char *special_c_chars[] = {"c_null_char", NULL};
@@ -3256,16 +3221,11 @@ static void gen_c_interop_char_kinds (const char *module_name)
 }
 
 
-/**
- * Generate symbols for the given list of C interoperable pointer kinds.  
- *
- * @param ptr_kinds Names of the pointer kinds to generate symbols for.
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @return None
- */
-static void gen_c_interop_ptr_syms (const char *ptr_kinds[],
-				    const char *module_name)
+/* Generate symbols for the given list of C interoperable pointer kinds.  */
+
+static void
+gen_c_interop_ptr_syms (const char *ptr_kinds[],
+                        const char *module_name)
 {
   gfc_symbol *tmp_sym = NULL;	    /* tmp sym for creating ptr sym */
   gfc_component *tmp_comp = NULL;   /* component for c_address field */
@@ -3312,6 +3272,11 @@ static void gen_c_interop_ptr_syms (const char *ptr_kinds[],
 	  
 	  /* say it's from the iso_c_binding module. */
 	  tmp_sym->attr.is_iso_c = 1;
+
+          /* A derived type must have the bind attribute to be
+             interoperable (J3/04-007, Section 15.2.3), even though
+             the binding label is not used.  */
+          tmp_sym->attr.is_bind_c = 1;
 	  
 	  /* Set up the component of the derived type, which will be
 	     an integer with kind equal to c_ptr_size.	Mangle the name of
@@ -3346,18 +3311,11 @@ static void gen_c_interop_ptr_syms (const char *ptr_kinds[],
 }
 
 
-/**
- * Generate symbols for the named constants <code>c_null_ptr</code> and
- * <code>c_null_funptr</code>.	
- *
- * @param kinds List of pointer names provided either by the user with
- * an 'only' clause, or the default of both <code>c_ptr</code> and
- * <code>c_funptr</code>.  The name(s) given determine with NULL types
- * to generate.	 If <code>c_ptr</code> is given, then <code>c_null_ptr</code>
- * is created; same idea for <code>c_funptr</code>.
- */
-static void gen_special_c_interop_ptrs (const char *kinds[],
-					const char *module_name)
+/* Generate symbols for the named constants c_null_ptr and c_null_funptr.  */
+
+static void
+gen_special_c_interop_ptrs (const char *kinds[],
+                            const char *module_name)
 {
   int i;
   gfc_symtree *tmp_symtree;
@@ -3448,18 +3406,13 @@ static void gen_special_c_interop_ptrs (const char *kinds[],
 }
 
 
-/**
- * Generate symbols for all C interoperable pointer kinds, or the
- * given ones, if a list is provided.  Currently, these include:
- * <code>c_ptr, c_funptr</code>.
- *
- * @param module_name Name of the module that the created symbols are
- * from (<code>iso_c_binding</code> plus mangling).
- * @param given_kinds Names of the pointer kinds to generate symbols for.
- * @return None
- */
-static void gen_c_interop_ptr_kinds (const char *module_name,
-				     const char *given_kinds[])
+/* Generate symbols for all C interoperable pointer kinds, or the
+   given ones, if a list is provided.  Currently, these include:
+   c_ptr, c_funptr.  */
+
+static void
+gen_c_interop_ptr_kinds (const char *module_name,
+                         const char *given_kinds[])
 {
   const char *ptr_kinds[] = {"c_ptr",
 			     "c_funptr",
@@ -3483,22 +3436,15 @@ static void gen_c_interop_ptr_kinds (const char *module_name,
 }
 
 
-/**
- * Add a formal argument, <code>#gfc_formal_arglist</code>, to the
- * end of the given list of arguments.	Set the reference to the
- * provided symbol, <code>param_sym</code>, in the argument.
- *
- * @param head Head of the list of arguments.
- * @param tail Tail of the list of arguments.
- * @param formal_arg Argument to add to the tail of the list.
- * @param param_sym Symbol that this argument represents.  Reference to
- * this symbol is stored in <code>formal_arg</code>.
- * @return None
- */
-static void add_formal_arg (gfc_formal_arglist **head,
-			    gfc_formal_arglist **tail,
-			    gfc_formal_arglist *formal_arg,
-			    gfc_symbol *param_sym)
+/* Add a formal argument, gfc_formal_arglist, to the
+   end of the given list of arguments.	Set the reference to the
+   provided symbol, param_sym, in the argument.  */
+
+static void
+add_formal_arg (gfc_formal_arglist **head,
+                gfc_formal_arglist **tail,
+                gfc_formal_arglist *formal_arg,
+                gfc_symbol *param_sym)
 {
   /* put in list, either as first arg or at the tail (curr arg) */
   if (*head == NULL)
@@ -3516,24 +3462,15 @@ static void add_formal_arg (gfc_formal_arglist **head,
 }
 
 
-/**
- * Generates a symbol representing the <code>CPTR</code> argument to
- * an <code>iso_c_binding</code> procedure.  Also, create a
- * <code>#gfc_formal_arglist</code> for the <code>CPTR</code> and add
- * it to the provided argument list.
- *
- * @param head Head of the list of arguments to add the <code>CPTR</code>
- * argument to.
- * @param tail Tail of the list of arguments to add the <code>CPTR</code>
- * argument to.
- * @param module_name Name of the module that <code>CPTR</code> belongs to.
- * @param ns Namespace to add the argument to.
- * @return None
- */
-static void gen_cptr_param (gfc_formal_arglist **head,
-			    gfc_formal_arglist **tail,
-			    const char *module_name,
-			    gfc_namespace *ns, const char *c_ptr_name)
+/* Generates a symbol representing the CPTR argument to an
+   iso_c_binding procedure.  Also, create a gfc_formal_arglist for the
+   CPTR and add it to the provided argument list.  */
+
+static void
+gen_cptr_param (gfc_formal_arglist **head,
+                gfc_formal_arglist **tail,
+                const char *module_name,
+                gfc_namespace *ns, const char *c_ptr_name)
 {
   gfc_symbol *param_sym = NULL;
   gfc_symbol *c_ptr_sym = NULL;
@@ -3583,24 +3520,15 @@ static void gen_cptr_param (gfc_formal_arglist **head,
 }
 
 
-/**
- * Generates a symbol representing the <code>FPTR</code> argument to
- * an <code>iso_c_binding</code> procedure.  Also, create a
- * <code>#gfc_formal_arglist</code> for the <code>FPTR</code> and add
- * it to the provided argument list.
- *
- * @param head Head of the list of arguments to add the <code>FPTR</code>
- * argument to.
- * @param tail Tail of the list of arguments to add the <code>FPTR</code>
- * argument to.
- * @param module_name Name of the module that <code>FPTR</code> belongs to.
- * @param ns Namespace to add the argument to.
- * @return None
- */
-static void gen_fptr_param (gfc_formal_arglist **head,
-			    gfc_formal_arglist **tail,
-			    const char *module_name,
-			    gfc_namespace *ns)
+/* Generates a symbol representing the FPTR argument to an
+   iso_c_binding procedure.  Also, create a gfc_formal_arglist for the
+   FPTR and add it to the provided argument list.  */
+
+static void
+gen_fptr_param (gfc_formal_arglist **head,
+                gfc_formal_arglist **tail,
+                const char *module_name,
+                gfc_namespace *ns)
 {
   gfc_symbol *param_sym = NULL;
   gfc_symtree *param_symtree = NULL;
@@ -3631,24 +3559,16 @@ static void gen_fptr_param (gfc_formal_arglist **head,
 }
 
 
-/**
- * Generates a symbol representing the optional <code>SHAPE</code>
- * argument for the <code>iso_c_binding</code> <code>c_f_pointer()</code>
- * procedure.  Also, create a <code>#gfc_formal_arglist</code> for
- * the <code>SHAPE</code> and add it to the provided argument list.
- *
- * @param head Head of the list of arguments to add the <code>SHAPE</code>
- * argument to.
- * @param tail Tail of the list of arguments to add the <code>SHAPE</code>
- * argument to.
- * @param module_name Name of the module that <code>SHAPE</code> belongs to.
- * @param ns Namespace to add the argument to.
- * @return None
- */
-static void gen_shape_param (gfc_formal_arglist **head,
-			     gfc_formal_arglist **tail,
-			     const char *module_name,
-			     gfc_namespace *ns)
+/* Generates a symbol representing the optional SHAPE argument for the
+   iso_c_binding c_f_pointer() procedure.  Also, create a
+   gfc_formal_arglist for the SHAPE and add it to the provided
+   argument list.  */
+
+static void
+gen_shape_param (gfc_formal_arglist **head,
+                 gfc_formal_arglist **tail,
+                 const char *module_name,
+                 gfc_namespace *ns)
 {
   gfc_symbol *param_sym = NULL;
   gfc_symtree *param_symtree = NULL;
@@ -3697,17 +3617,12 @@ static void gen_shape_param (gfc_formal_arglist **head,
   return;
 }
 
-/**
- * Add a procedure interface to the given symbol (i.e., store a
- * reference to the list of formal arguments).
- *
- * @param sym Symbol to add the procedure interface to.
- * @param source
- * @param formal Argument list to add to the symbol.
- * @return None
- */
-static void add_proc_interface (gfc_symbol * sym, ifsrc source,
-				gfc_formal_arglist * formal)
+/* Add a procedure interface to the given symbol (i.e., store a
+   reference to the list of formal arguments).  */
+
+static void
+add_proc_interface (gfc_symbol * sym, ifsrc source,
+                    gfc_formal_arglist * formal)
 {
   sym->formal = formal;
   sym->attr.if_source = source;
@@ -3716,27 +3631,20 @@ static void add_proc_interface (gfc_symbol * sym, ifsrc source,
 }
 
 
-/**
- * Builds the parameter list for the <code>iso_c_binding</code> procedure 
- * c_f_pointer or c_f_procpointer.  
- *
- * @param new_proc_sym The symbol the parameter list is being created for.
- * @param old_sym The symbol that the new procedure symbol is based on.
- * @note The <code>old_sym</code> typically refers to a generic version of either the
- * <code>c_f_pointer</code> or <code>c_f_procpointer</code> functions.	The
- * <code>new_proc_sym</code> represents a "resolved" version of the symbol.
- * The functions are resolved to match the types of their parameters; for
- * example, <code>c_f_pointer(cptr, fptr)</code> would resolve to something
- * similar to <code>c_f_pointer_i4</code> if the type of data object
- * <code>fptr</code> pointed to was a default integer.	The actual name
- * of the resolved procedure symbol is further mangled with the module
- * name, etc., but the idea holds true.	 
- * @note This function can ONLY be called if the procedure represented 
- * by new_proc_sym is derived from c_f_pointer or c_f_procpointer!
- * @return None
- */
-static void build_formal_args (gfc_symbol *new_proc_sym,
-			       gfc_symbol *old_sym, int add_optional_arg)
+/* Builds the parameter list for the iso_c_binding procedure
+   c_f_pointer or c_f_procpointer.  The old_sym typically refers to a
+   generic version of either the c_f_pointer or c_f_procpointer
+   functions.  The new_proc_sym represents a "resolved" version of the
+   symbol.  The functions are resolved to match the types of their
+   parameters; for example, c_f_pointer(cptr, fptr) would resolve to
+   something similar to c_f_pointer_i4 if the type of data object fptr
+   pointed to was a default integer.  The actual name of the resolved
+   procedure symbol is further mangled with the module name, etc., but
+   the idea holds true.  */
+
+static void
+build_formal_args (gfc_symbol *new_proc_sym,
+                   gfc_symbol *old_sym, int add_optional_arg)
 {
   gfc_formal_arglist *head = NULL, *tail = NULL;
   gfc_namespace *parent_ns = NULL;
@@ -3792,25 +3700,18 @@ static void build_formal_args (gfc_symbol *new_proc_sym,
 }
 
 
-/**
- * Generate a symbol for a given <code>iso_c_binding</code> subroutine 
- * in the current namespace.  The interface will be created to the
- * given subroutine (argument list will be set up).
- *
- * @param module_name Name of the module that the subroutine is a part of
- * (<code>iso_c_binding</code> plus mangling).
- * @param proc_sym_name Name of the subroutine to generate a symbol for.
- * @param ns Namespace to place the subroutine symbol into.
- * @return None
- * @note This function is for the subroutines
- * <code>c_f_pointer</code> and <code>c_f_procpointer</code> only, because
- * it also handles generating the various parameters.  It could be used
- * to generate other <code>iso_c_binding procedures</code>, such as
- * <code>c_associated</code> but it currently is not.
- */
-static void gen_iso_c_proc (const char *module_name,
-			    const char *proc_sym_name,
-			    gfc_namespace *ns)
+/* Generate a symbol for a given iso_c_binding subroutine in the
+   current namespace.  The interface will be created to the given
+   subroutine (argument list will be set up).  This function is for
+   the subroutines c_f_pointer and c_f_procpointer only, because it
+   also handles generating the various parameters.  It could be used
+   to generate other iso_c_binding procedures, such as c_associated
+   but it currently is not.  */
+
+static void
+gen_iso_c_proc (const char *module_name,
+                const char *proc_sym_name,
+                gfc_namespace *ns)
 {
   gfc_symbol *proc_sym = NULL;
   gfc_symtree *proc_symtree = NULL;
@@ -3909,19 +3810,14 @@ static void gen_iso_c_proc (const char *module_name,
 }
 
 
-/**
- * Generate symbols for all procedures provided by the intrinsic module
- * <code>iso_c_binding</code>, or the given one (<code>given_proc</code>),
- * if provided.	 Currently, the following are created:
- * <code>c_f_pointer, c_f_procpointer</code>.
- *
- * @param module_name Name of the module the procedures belong to
- * (<code>iso_c_binding</code> plus mangling).
- * @param given_proc Name of the specific procedure to create a symbol for.
- * @return None
- */
-static void gen_c_interop_int_funcs (const char *module_name,
-				     const char *given_proc)
+/* Generate symbols for all procedures provided by the intrinsic
+   module iso_c_binding, or the given one (given_proc), if provided.
+   Currently, the following are created: c_f_pointer,
+   c_f_procpointer.  */
+
+static void
+gen_c_interop_int_funcs (const char *module_name,
+                         const char *given_proc)
 {
   const char *proc_names[] = {"c_f_pointer",
 			      "c_f_procpointer",
@@ -3950,23 +3846,15 @@ static void gen_c_interop_int_funcs (const char *module_name,
 }
 
 
-/**
- * Generate the given set of C interoperable kind objects, or all
- * interoperable kinds.  This function will only be given kind objects
- * for valid <code>iso_c_binding</code> defined types because this is
- * verified when the 'use' statement is parsed.  If the user gives an
- * 'only' clause, the specific kinds are looked up; if they don't exist,
- * an error is reported.  If the user does not give an 'only' clause, all
- * iso_c_binding symbols are generated.  If a list of specific kinds is
- * given, it must have a <code>NULL</code> in the first empty spot to
- * mark the end of the list.  
- *
- * @param mod_name Module that the kind objects (named constants)
- * belong to.
- * @param kinds List of <code>CInteropKind_t</code> objects to use
- * in generating symbols for specific kinds only.
- * @return None
- */
+/* Generate the given set of C interoperable kind objects, or all
+   interoperable kinds.  This function will only be given kind objects
+   for valid iso_c_binding defined types because this is verified when
+   the 'use' statement is parsed.  If the user gives an 'only' clause,
+   the specific kinds are looked up; if they don't exist, an error is
+   reported.  If the user does not give an 'only' clause, all
+   iso_c_binding symbols are generated.  If a list of specific kinds
+   is given, it must have a NULL in the first empty spot to mark the
+   end of the list.  */
 
 
 void
@@ -4092,6 +3980,10 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 	tmp_sym->attr.is_iso_c = 1;
 	tmp_sym->ts.is_iso_c = 1;
 	tmp_sym->ts.type = BT_DERIVED;
+        /* A derived type must have the bind attribute to be
+           interoperable (J3/04-007, Section 15.2.3), even though
+           the binding label is not used.  */
+        tmp_sym->attr.is_bind_c = 1;
 
 	tmp_sym->ts.derived = tmp_sym;
 
@@ -4221,8 +4113,8 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
     }
 }
 
-void gen_c_interop_kinds (const char *mod_name,
-			  CInteropKind_t *kinds[])
+void
+gen_c_interop_kinds (const char *mod_name, CInteropKind_t *kinds[])
 {
   int i = 0;
   const char *given_ptr_kinds[3] = { NULL };
@@ -4292,26 +4184,18 @@ void gen_c_interop_kinds (const char *mod_name,
 }
 
 
-/**
- * Creates a new symbol based off of an old iso_c symbol, with a new
- * binding label.  This function can be used to create a new, resolved,
- * version of a procedure symbol for <code>c_f_pointer</code> or
- * <code>c_f_procpointer</code> that is based on the generic symbols.  A
- * new parameter list is created for the new symbol using
- * <code>#build_formal_args()</code>.
- *
- * @param old_sym Old symbol to use in setting fields of the new one.
- * @param new_name Name of the new symbol.
- * @param new_binding_label Binding label for the new symbol.  This
- * @param add_optional_arg Flag specifying whether the symbol being
- * created should have it's optional arg included in the arg list (if
- * applicable).	 Example is for <code>c_associated</code> and whether
- * the arg for the second pointer should be added or not.
- * should represent the resolved version of the generic symbol.
- * @return The new <code>gfc_symbol</code>.
- */
-gfc_symbol *get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
-			   char *new_binding_label, int add_optional_arg)
+/* Creates a new symbol based off of an old iso_c symbol, with a new
+   binding label.  This function can be used to create a new,
+   resolved, version of a procedure symbol for c_f_pointer or
+   c_f_procpointer that is based on the generic symbols.  A new
+   parameter list is created for the new symbol using
+   build_formal_args().  The add_optional_flag specifies whether the
+   to add the optional SHAPE argument.  The new symbol is
+   returned.  */
+
+gfc_symbol *
+get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
+               char *new_binding_label, int add_optional_arg)
 {
   gfc_symtree *new_symtree = NULL;
 
@@ -4342,20 +4226,15 @@ gfc_symbol *get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
 }
 
 
-/**
- * Copy the formal args from an existing symbol (<code>src</code>) into
- * a new symbol (<code>dest</code>).  New formal args are created, and
- * the description of each arg is set according to the existing ones.
- * This function is used when creating procedure declaration variables
- * from a procedure declaration statement
- * (see <code>#match_proc_decl()</code>) to create the formal args based
- * on the args of a given named interface.  
- *
- * @param dest Symbol to create the new formal args for.
- * @param src Symbol to use in creating the new args.
- * @return None
- */
-void copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
+/* Copy the formal args from an existing symbol, src, into a new
+   symbol, dest.  New formal args are created, and the description of
+   each arg is set according to the existing ones.  This function is
+   used when creating procedure declaration variables from a procedure
+   declaration statement (see match_proc_decl()) to create the formal
+   args based on the args of a given named interface.  */
+
+void
+copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
 {
   gfc_formal_arglist *head = NULL;
   gfc_formal_arglist *tail = NULL;

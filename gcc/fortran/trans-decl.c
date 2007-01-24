@@ -2878,25 +2878,19 @@ gfc_generate_contained_functions (gfc_namespace * parent)
 }
 
 
-/**
- * Set up the tree type for the given symbol to allow the dummy
- * variable (parameter) to be passed by-value.  To do this, the main
- * idea is to simply remove the extra layer added by Fortran
- * automatically (the POINTER_TYPE node).  This pointer type node
- * would normally just contain the real type underneath, but we
- * remove it here and later we change the way the argument is 
- * converted for a function call (trans-expr.c:gfc_conv_function_call).
- * This is the approach the C compiler takes (or it appears to be this
- * way).  When the middle-end is given the typed node rather than the
- * POINTER_TYPE node, it knows to pass the value.
- *
- * @param sym Symbol to modify to be passed by-value.
- * @return None
- * @see <code>#gfc_conv_function_call()</code>
- * @note The idea for this was based on what was seen when running
- * the C compiler through the debugger.  --Rickett, 06.12.06
- */
-static void set_tree_decl_type_code (gfc_symbol *sym)
+/* Set up the tree type for the given symbol to allow the dummy
+   variable (parameter) to be passed by-value.  To do this, the main
+   idea is to simply remove the extra layer added by Fortran
+   automatically (the POINTER_TYPE node).  This pointer type node
+   would normally just contain the real type underneath, but we remove
+   it here and later we change the way the argument is converted for a
+   function call (trans-expr.c:gfc_conv_function_call).  This is the
+   approach the C compiler takes (or it appears to be this way).  When
+   the middle-end is given the typed node rather than the POINTER_TYPE
+   node, it knows to pass the value.  */
+
+static void
+set_tree_decl_type_code (gfc_symbol *sym)
 {
    /* This should not happen.  during the gfc_sym_type function,
       when the backend_decl is being built for a dummy arg, if the arg

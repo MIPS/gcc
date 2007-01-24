@@ -3,6 +3,23 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-01-24  Christoper D. Rickett  <crickett@lanl.gov>
+
+	* fortran/symbol.c: Removed javadoc style comment blocks and
+	converted to GNU style.  Also, put the function type and name on
+	separate lines.  Removed commented out return in
+	verify_bind_c_derived_type.
+	* fortran/decl.c: Converted javadoc to GNU style for functions
+	and put the function return type and name on separate lines.
+	* fortran/trans-types.c: Ditto on commenting style.
+	* fortran/resolve.c: Ditto on commenting style.  Also,
+	combined two if statements in gfc_iso_c_sub_interface.
+	* fortran/match.c: Ditto on commenting style.
+	* fortran/trans-decl.c: Ditto on commenting style.
+	* fortran/misc.c: Ditto on commenting style.
+	* gfortran.dg/bind_c_usage_3.f03: New test.
+	* gfortran.dg/c_ptr_tests_5.f03: Ditto.
+
 
 2007-01-21  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 

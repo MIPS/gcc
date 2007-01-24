@@ -1412,8 +1412,12 @@ pure_function (gfc_expr * e, const char **name)
 }
 
 
-static gfc_symbol *gfc_iso_c_func_interface (gfc_symbol *sym,
-                                             gfc_actual_arglist *args)
+/* Match one of the iso_c_binding functions (c_associated or c_loc)
+   and, in the case of c_associated, set the binding label based on
+   the arguments.  */
+
+static gfc_symbol *
+gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
@@ -1769,26 +1773,18 @@ generic:
 }
 
 
-/**
- * Set the name and binding label of the subroutine symbol in the
- * call expression represented by <code>c</code> to include the type
- * and kind of the second parameter.  This function is for resolving
- * the appropriate version of <code>c_f_pointer()</code> and
- * <code>c_f_procpointer()</code>.  For example, a call to
- * <code>c_f_pointer()</code> for a default integer pointer could
- * have a name of <code>c_f_pointer_i4</code>.  If no second arg exists,
- * which is an error for these two functions, it defaults to the
- * generic symbol's name and binding label.
- *
- * @param c <code>gfc_code</code> object for the call expression.
- * @param sym Symbol representing the generic subroutine.  Technically,
- * the symbol is not marked as a generic.
- * @param name Output buffer to store the new name to.
- * @param binding_lable Output buffer to store the new binding label to.
- * @return None
- */
-static void set_name_and_label (gfc_code *c, gfc_symbol *sym,
-                                char *name, char *binding_label)
+/* Set the name and binding label of the subroutine symbol in the call
+   expression represented by 'c' to include the type and kind of the
+   second parameter.  This function is for resolving the appropriate
+   version of c_f_pointer() and c_f_procpointer().  For example, a
+   call to c_f_pointer() for a default integer pointer could have a
+   name of c_f_pointer_i4.  If no second arg exists, which is an error
+   for these two functions, it defaults to the generic symbol's name
+   and binding label.  */
+
+static void
+set_name_and_label (gfc_code *c, gfc_symbol *sym,
+                    char *name, char *binding_label)
 {
   gfc_expr *arg = NULL;
   char type;
@@ -1831,22 +1827,17 @@ static void set_name_and_label (gfc_code *c, gfc_symbol *sym,
 }
 
 
-/**
- * Resolve a generic version of the <code>iso_c_binding</code>
- * procedure given (<code>sym</code>) to the specific one based on the
- * type and kind of the argument(s).  Currently, this function resolves
- * <code>c_f_pointer()</code> and <code>c_f_procpointer</code> based on
- * the type and kind of the second argument (the <code>FPTR</code>).
- * Other <code>iso_c_binding</code> procedures aren't specially handled.
- * Upon successfully exiting, <code>c->resolved_sym</code> will hold
- * the resolved symbol.
- *
- * @param c <code>gfc_code</code> object representing the call expression.
- * @param sym Symbol for the generic version of the subroutine (though it's
- * not technically marked as generic within the compiler).
- * @return MATCH_ERROR if an error occurred; MATCH_YES otherwise.  
- */
-match gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
+/* Resolve a generic version of the iso_c_binding procedure given
+   (sym) to the specific one based on the type and kind of the
+   argument(s).  Currently, this function resolves c_f_pointer() and
+   c_f_procpointer based on the type and kind of the second argument
+   (FPTR).  Other iso_c_binding procedures aren't specially handled.
+   Upon successfully exiting, c->resolved_sym will hold the resolved
+   symbol.  Returns MATCH_ERROR if an error occurred; MATCH_YES
+   otherwise.  */
+
+match
+gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 {
   gfc_symbol *new_sym;
   /* this is fine, since we know the names won't use the max */
@@ -1854,6 +1845,7 @@ match gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
   /* default to success; will override if find error */
   match m = MATCH_YES;
+  gfc_symbol *tmp_sym;
 
   if (strcmp (sym->name, "c_f_pointer") == 0 ||
       strcmp (sym->name, "c_f_procpointer") == 0)
@@ -1873,6 +1865,16 @@ match gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 		  gfc_error ("Missing SHAPE parameter for call to %s "
 			     "at %L", sym->name, &(c->loc));
 		}
+              /* Make sure the param is a POINTER.  No need to make sure
+                 it does not have INTENT(IN) since it is a POINTER.  */
+              tmp_sym = c->ext.actual->next->expr->symtree->n.sym;
+              if (tmp_sym != NULL && tmp_sym->attr.pointer != 1)
+                {
+                  gfc_error ("Argument '%s' to C_F_POINTER at %L "
+                             "must have the POINTER attribute",
+                             tmp_sym->name, &(c->loc));
+                  m = MATCH_ERROR;
+                }
 	    }
 	}
       
