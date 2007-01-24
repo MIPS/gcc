@@ -1,5 +1,11 @@
 2007-01-24  Andrew Haley  <aph@redhat.com>
 
+	* gnu/classpath/natVMStackWalker.cc: Call InitClass everywhere.
+	(getClassContext) Add a barrier to prevent GetStackWalkerStack()
+	from being sibcalled.
+
+2007-01-24  Andrew Haley  <aph@redhat.com>
+
 	* scripts/makemake.tcl (emit_bc_rule): Set the source filename.
 	* sources.am: Rebuild.
 
