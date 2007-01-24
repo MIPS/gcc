@@ -27,8 +27,8 @@
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
 #
-# foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-common, foo.install-man,
+# foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.install-normal, foo.install-common, foo.install-man,
 # foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
@@ -78,6 +78,10 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 
 java.srcextra:
 
+gt-java-builtins.h gt-java-class.h gt-java-constants.h : s-gtype; @true
+gt-java-decl.h gt-java-expr.h gt-java-jcf-parse.h : s-gtype; @true
+gt-java-lang.h gt-java-mangle.h gt-java-resource.h : s-gtype; @true
+
 # Executables built by this Makefile:
 JAVA_OBJS = java/class.o java/decl.o java/expr.o \
   java/constants.o java/lang.o java/typeck.o java/except.o \
@@ -118,6 +122,7 @@ jvgenmain$(exeext): $(JVGENMAIN_OBJS) $(LIBDEPS)
 #
 # Build hooks:
 
+java.all.build: $(GCJ)$(exeext)
 java.all.cross: $(GCJ)-cross$(exeext)
 java.start.encap: $(GCJ)$(exeext)
 java.rest.encap:
@@ -313,7 +318,7 @@ doc/gcj.dvi: $(TEXI_JAVA_FILES)
 doc/gcj.pdf: $(TEXI_JAVA_FILES)
 	$(TEXI2PDF) -I $(abs_docdir)/include -o $@ $<
 
-$(build_htmldir)/java/index.html: $(TEXI_JAVA_FILES)
+$(htmldir)/java/index.html: $(TEXI_JAVA_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/java -o $(@D) $<
