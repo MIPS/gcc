@@ -1,3 +1,12 @@
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (generic_header_files): Add $(inner_nat_headers).
+	* Makefile.in: Rebuilt.
+	* testsuite/Makefile.am (check-dejaGNU): Depend on compile-tests.
+	(MYGCJH): New variable.
+	(compile-tests): New goal.
+	* testsuite/Makefile.in: Rebuilt.
+
 2007-01-24  Andrew Haley  <aph@redhat.com>
 
 	* gnu/classpath/natVMStackWalker.cc: Call InitClass everywhere.
