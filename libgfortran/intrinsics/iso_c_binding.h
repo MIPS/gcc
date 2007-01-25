@@ -15,20 +15,13 @@ typedef struct c_funptr
 
 #define ISO_C_BINDING_PREFIX(a) __iso_c_binding_##a
 
-
-/* define variables for c_null_ptr and c_null_funptr.  found at
- * link time.
- */
-c_ptr_t ISO_C_BINDING_PREFIX(c_null_ptr);
-c_funptr_t ISO_C_BINDING_PREFIX(c_null_funptr);
-
 void ISO_C_BINDING_PREFIX(c_f_pointer)(c_ptr_t c_ptr_in,
                                        gfc_array_void *f_ptr_out,
                                        const array_t *shape,
                                        int type, int elemSize);
-/* the second param here may change, once i create the f90
- * proc pointer.  --Rickett, 01.04.06
- */
+
+/* The second param here may change, once procedure pointers are
+   implemented.  */
 void ISO_C_BINDING_PREFIX(c_f_procpointer)(c_ptr_t c_ptr_in,
                                            gfc_array_void *f_ptr_out);
 

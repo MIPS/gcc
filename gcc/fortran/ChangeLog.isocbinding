@@ -3,6 +3,11 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-01-24  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* libgfortran/intrincsics/iso_c_binding.h: Fix comments.
+	Remove c_null_ptr and c_null_funptr prototypes.
+
 2007-01-24  Christoper D. Rickett  <crickett@lanl.gov>
 
 	* fortran/symbol.c: Removed javadoc style comment blocks and
