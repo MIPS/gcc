@@ -252,6 +252,23 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 	}
     }
 
+  /* The suffix may be for decimal fixed-point constants without exponent.  */
+  if (radix != 16 && float_flag == NOT_FLOAT)
+    {
+      result = interpret_float_suffix (str, limit - str);
+      if ((result & CPP_N_FRACT) || (result & CPP_N_ACCUM))
+	{
+	  result |= CPP_N_FLOATING;
+	  /* We need to restore the radix to 10, if the radix is 8.  */
+	  if (radix == 8)
+	    radix = 10;
+
+	  goto syntax_ok;
+	}
+      else
+	result = 0;
+    }
+
   if (float_flag != NOT_FLOAT && radix == 8)
     radix = 10;
 
@@ -341,6 +358,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
       result |= CPP_N_INTEGER;
     }
 
+ syntax_ok:
   if ((result & CPP_N_IMAGINARY) && CPP_PEDANTIC (pfile))
     cpp_error (pfile, CPP_DL_PEDWARN,
 	       "imaginary constants are a GCC extension");
