@@ -1,3 +1,14 @@
+2007-01-25  Chao-ying Fu  <fu@mips.com>
+
+	* lib/target-supports.exp (check_effective_target_fixed_point_nocache,
+	check_effective_target_fixed_point): New to check if targets have
+	fixed-point supports.
+	* gcc.dg/fixed-ponit/fixed-point.exp: New file.
+	* gcc.dg/fixed-ponit/allconv.c, gcc.dg/fixed-ponit/allop.c,
+	gcc.dg/fixed-ponit/allop-const.c, gcc.dg/fixed-ponit/const-1.c,
+	gcc.dg/fixed-ponit/constant.c, gcc.dg/fixed-ponit/define.c,
+	gcc.dg/fixed-ponit/types.c: New tests.
+
 2007-01-22  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/30038
