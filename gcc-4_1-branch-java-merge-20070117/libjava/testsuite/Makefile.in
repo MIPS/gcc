@@ -522,7 +522,7 @@ uninstall-am: uninstall-info-am
 
 .PHONY: compile-tests
 
-check-dejaGNU: compile-tests
+check-am: compile-tests
 
 compile-tests:
 @JAVA_MAINTAINER_MODE_TRUE@	for test in `cd $(srcdir) > /dev/null; \
@@ -574,7 +574,7 @@ compile-tests:
 @JAVA_MAINTAINER_MODE_TRUE@	    $(MYGCJH) $$genheader $$testtmpdir/*.class \
 @JAVA_MAINTAINER_MODE_TRUE@	      -bootclasspath $(top_builddir)/libgcj-$(gcc_version).jar \
 @JAVA_MAINTAINER_MODE_TRUE@	      -d $$testtmpdir/ || exit; \
-@JAVA_MAINTAINER_MODE_TRUE@	    mv $$testtmpdir/*.h $(srcdir)/`dirname $$test`/; \
+@JAVA_MAINTAINER_MODE_TRUE@	    mv $$testtmpdir/*.h $(srcdir)/`dirname $$test`/ 2>/dev/null; \
 @JAVA_MAINTAINER_MODE_TRUE@	  fi; \
 @JAVA_MAINTAINER_MODE_TRUE@	  rm -rf $$testtmpdir; \
 @JAVA_MAINTAINER_MODE_TRUE@	done

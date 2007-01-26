@@ -24,7 +24,7 @@ MYGCJH = gjavah
 
 .PHONY: compile-tests
 
-check-dejaGNU: compile-tests
+check-am: compile-tests
 
 compile-tests:
 if JAVA_MAINTAINER_MODE
@@ -77,7 +77,7 @@ if JAVA_MAINTAINER_MODE
 	    $(MYGCJH) $$genheader $$testtmpdir/*.class \
 	      -bootclasspath $(top_builddir)/libgcj-$(gcc_version).jar \
 	      -d $$testtmpdir/ || exit; \
-	    mv $$testtmpdir/*.h $(srcdir)/`dirname $$test`/; \
+	    mv $$testtmpdir/*.h $(srcdir)/`dirname $$test`/ 2>/dev/null; \
 	  fi; \
 	  rm -rf $$testtmpdir; \
 	done
