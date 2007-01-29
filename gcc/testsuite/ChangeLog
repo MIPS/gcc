@@ -1,3 +1,8 @@
+2007-01-29  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/addsub.c: New test to check if GCC warns when
+	overflows happen.
+
 2007-01-25  Chao-ying Fu  <fu@mips.com>
 
 	* lib/target-supports.exp (check_effective_target_fixed_point_nocache,
