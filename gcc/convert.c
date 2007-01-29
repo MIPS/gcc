@@ -834,7 +834,12 @@ convert_to_vector (tree type, tree expr)
 tree
 convert_to_fixed (tree type, tree expr)
 {
-  if (expr == integer_one_node)
+  if (expr == integer_zero_node)
+    {
+      tree fixed_zero_node = build_fixed (type, fconst0[TYPE_MODE (type)]);
+      return fixed_zero_node; 
+    }
+  else if (expr == integer_one_node)
     {
       tree fixed_one_node = build_fixed (type, fconst1[TYPE_MODE (type)]);
       return fixed_one_node; 

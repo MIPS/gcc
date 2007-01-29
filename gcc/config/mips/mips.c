@@ -390,6 +390,7 @@ static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
 				   tree, bool);
 static bool mips_valid_pointer_mode (enum machine_mode);
+static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -1174,6 +1175,9 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -7847,6 +7851,18 @@ mips_vector_mode_supported_p (enum machine_mode mode)
     default:
       return false;
     }
+}
+
+/* Target hook for scalar_mode_supported_p.  */
+
+static bool
+mips_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (ALL_FIXED_POINT_MODE_P (mode)
+      && GET_MODE_PRECISION (mode) <=  2 * BITS_PER_WORD)
+    return true;
+
+  return default_scalar_mode_supported_p (mode);
 }
 
 /* If we can access small data directly (using gp-relative relocation

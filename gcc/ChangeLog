@@ -1,3 +1,15 @@
+2007-01-29  Chao-ying Fu  <fu@mips.com>
+
+	* convert.c (convert_to_fixed): Handle integer_zero_node at first.
+	* fixed-value.c (check_real_for_fixed_mode): Return 2 if the real
+	value is greater than the maximum, but not equal to the maximum +
+	the epsilon.
+	(do_fixed_add): Fix the overflow checking when subtract_p is true.
+	* config/mips/mips.c (mips_scalar_mode_supported_p): Declare.
+	(TARGET_SCALAR_MODE_SUPPORTED_P): Define.
+	(mips_scalar_mode_supported_p): New function to accept fixed-point
+	modes if the width is not greater than two BITS_PER_WORD.
+
 2007-01-22  Chao-ying Fu  <fu@mips.com>
 
 	* convert.c (convert_to_complex): Support FIXED_POINT_TYPE.

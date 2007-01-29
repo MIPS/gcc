@@ -61,35 +61,36 @@ fixed_hash (const FIXED_VALUE_TYPE *f)
 /* Check REAL_VALUE against the range of the fixed-point mode.
    Return 0, if it is within the range.
           1, if it is less than the minimum.
-          2, if it is greater than the maximum + 1.
-          3, if it is equal to the maximum + 1.  */
+          2, if it is greater than the maximum, but not equal to
+	     the maximum + the epsilon.
+          3, if it is equal to the maximum + the epsilon.  */
 
 int
 check_real_for_fixed_mode (REAL_VALUE_TYPE *real_value, unsigned int mode)
 {
-  REAL_VALUE_TYPE max_value, min_value;
-  char max_string[20], min_string[20];
+  REAL_VALUE_TYPE max_value, min_value, epsilon_value;
+  char max_string[20], min_string[20], epsilon_string[20];
+
+  sprintf (max_string, "0x1.0p%d", GET_MODE_IBIT (mode));
+  sprintf (epsilon_string, "0x1.0p-%d", GET_MODE_FBIT (mode));
+  real_from_string (&max_value, max_string);
+  real_from_string (&epsilon_value, epsilon_string);
 
   if (SIGNED_FIXED_POINT_MODE_P (mode))
     {
-      sprintf (max_string, "0x1.0p%d", GET_MODE_IBIT (mode));
       sprintf (min_string, "-0x1.0p%d", GET_MODE_IBIT (mode));
-      real_from_string (&max_value, max_string);
       real_from_string (&min_value, min_string);
     }
   else
-    {
-      sprintf (max_string, "0x1.0p%d", GET_MODE_IBIT (mode));
-      real_from_string (&max_value, max_string);
-      real_from_string (&min_value, "0.0");
-    }
+    real_from_string (&min_value, "0.0");
 
   if (real_compare (LT_EXPR, real_value, &min_value))
     return 1; 
-  if (real_compare (GT_EXPR, real_value, &max_value))
-    return 2; 
   if (real_compare (EQ_EXPR, real_value, &max_value))
     return 3; 
+  real_arithmetic (&max_value, MINUS_EXPR, &max_value, &epsilon_value);
+  if (real_compare (GT_EXPR, real_value, &max_value))
+    return 2; 
   return 0;
 }
 
@@ -334,10 +335,16 @@ do_fixed_add (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
     }
   else /* Signed type.  */
     {
-      if (get_fixed_sign_bit (a->data, i_f_bits)
-	  == get_fixed_sign_bit (temp, i_f_bits)
-	  && get_fixed_sign_bit (a->data, i_f_bits)
-	     != get_fixed_sign_bit (f->data, i_f_bits))
+      if (((!subtract_p)
+	   && get_fixed_sign_bit (a->data, i_f_bits)
+	      == get_fixed_sign_bit (b->data, i_f_bits)
+	   && get_fixed_sign_bit (a->data, i_f_bits)
+	      != get_fixed_sign_bit (f->data, i_f_bits))
+	  || (subtract_p
+	      && get_fixed_sign_bit (a->data, i_f_bits)
+		 != get_fixed_sign_bit (b->data, i_f_bits)
+	      && get_fixed_sign_bit (a->data, i_f_bits)
+		 != get_fixed_sign_bit (f->data, i_f_bits)))
 	{
 	  if (satp)
 	    {
