@@ -1,3 +1,10 @@
+2007-01-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (USER_H): Remove decfloat.h.
+	* ginclude/decfloat.h: Delete, moving contents to ...
+	* ginclude/float.h: Add support for decimal floating point,
+	guarded by __STDC_WANT_DEC_FP__.
+
 2007-01-28  Ralf Wildenhalf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* doc/sourcebuild.texi: Add comma for clarity.
