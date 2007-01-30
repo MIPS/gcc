@@ -1,3 +1,9 @@
+2007-01-29  Kaloian Doganov  <kaloian@doganov.org>
+
+	PR libgcj/30600:
+	* gnu/gcj/convert/BytesToCharsetAdaptor.java (read): Fix call to
+	'limit'.
+
 2007-01-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (generic_header_files): Add $(inner_nat_headers).
