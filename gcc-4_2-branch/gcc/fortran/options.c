@@ -132,6 +132,9 @@ form_from_filename (const char *filename)
     ".f95", FORM_FREE}
     ,
     {
+    ".f03", FORM_FREE}
+    ,
+    {
     ".f", FORM_FIXED}
     ,
     {
@@ -338,6 +341,8 @@ gfc_handle_module_path_options (const char *arg)
   gfc_option.module_dir = (char *) gfc_getmem (strlen (arg) + 2);
   strcpy (gfc_option.module_dir, arg);
   strcat (gfc_option.module_dir, "/");
+
+  gfc_add_include_path (gfc_option.module_dir);
 }
 
 static void

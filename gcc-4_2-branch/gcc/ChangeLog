@@ -1,3 +1,114 @@
+2007-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30313
+	* passes.c (execute_one_pass): Reset in_gimple_form to not
+	confuse non-unit-at-a-time mode.
+
+2007-01-27  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (TARGET_CPU_CPP_BUILTINS): Define __AVR_HAVE_MUL__.
+
+2007-01-29  Mike Stump  <mrs@apple.com>
+
+	* doc/gccint.texi (Top): Rename Loop Representation to Loop
+	Analysis and Representation to resolve case insensitive conflict.
+	* doc/loop.texi (Loop Analysis and Representation): Likewise.
+
+2007-01-29  Josh Conner  <jconner@apple.com>
+
+        PR middle-end/29683
+        * calls.c (compute_argument_addresses): Set stack and stack_slot
+        for partial args, too.
+        (store_one_arg): Use locate.size.constant for the size when
+        generating a save_area.
+
+2007-01-28  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/sourcebuild.texi: Add comma for clarity.
+	* doc/extend.texi: Fix some typos.
+	* doc/passes.texi: Likewise.
+	* doc/cppinternals.texi: Likewise.
+	* doc/c-tree.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+	* doc/install.texi: Likewise.
+
+2007-01-26  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29516
+	* tree-ssa-address.c (tree_mem_ref_addr, add_to_parts,
+	most_expensive_mult_to_index, addr_to_parts,
+	create_mem_ref, maybe_fold_tmr): Make the type of
+	fields of TARGET_MEM_REF sizetype.
+	(move_fixed_address_to_symbol, move_pointer_to_base,
+	aff_combination_remove_elt): New functions.
+	* tree.def (TARGET_MEM_REF): Add comment on types of
+	the operands.
+	* gcc.dg/tree-ssa/loop-20.c: New test.
+
+2007-01-25  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 25127
+	* config/rs6000/rs6000.c (first_altivec_reg_to_save): On Darwin,
+	save Altivec registers in an eh_return function.
+	(compute_vrsave_mask): Likewise.
+	(rs6000_stack_info): Correct AIX/Darwin stack alignment computation
+	for saving Altivec registers.
+	(rs6000_emit_prologue): Don't allocate stack twice in
+	eh_return function.  Correct expected value of altivec_save_offset
+	when using save_world.  Describe save of R0 to stack when using
+	save_world.  Describe stack pointer adjustment when using
+	save_world.  Remove duplicated eh_return parameter register saving.
+	Update sp_offset variable after save_world.
+	* config/rs6000/t-darwin (LIB2FUNCS_STATIC_EXTRA): Remove
+	darwin-world.asm.
+	(LIB2FUNCS_EXTRA): Add darwin-world.asm.
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): -m64
+	implies Altivec.
+
+2007-01-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* unwind-dw2.c (execute_stack_op): Handle DW_OP_swap.
+
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27416
+	* gimplify.c (omp_check_private): New function.
+	(gimplify_scan_omp_clauses): Use it for
+	firstprivate/lastprivate/reduction.
+
+	PR middle-end/30494
+	* gimplify.c (omp_add_variable): Don't call omp_notice_variable
+	on TYPE_SIZE_UNIT for GOVD_LOCAL VLAs.
+
+	PR middle-end/30421
+	* omp-low.c (lower_omp_for_lastprivate): Add dlist argument.
+	If lower_lastprivate_clauses emits some statements, append them
+	to dlist rather than body_p and to body_p append an initializer.
+	(lower_omp_for): Adjust caller.
+
+2007-01-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/29329
+	* combine.c (replaced_rhs_insn): Rename to i2mod.
+	(replaced_rhs_value): Rename to i2mod_new_rhs.
+	(i2mod_old_rhs): New global variable.
+	(combine_instructions): Adjust for above change.  Save a copy of
+	the old RHS into i2mod_old_rhs when the contents of a REG_EQUAL
+	note are substituted in the second instruction.
+	(distribute_notes) <REG_DEAD>: Adjust for above change.  Do not
+	ditch the note if it pertains to the second eliminated register
+	and this register is mentioned in i2mod_old_rhs.
+
+	Revert:
+	2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* combine.c (distribute_notes) <REG_DEAD>: Do not consider SETs past
+	the insn to which the note was originally attached.
+
+2007-01-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_move_double): Change array size of xoperands to 4.
+
 2007-01-17  Eric Christopher  <echristo@apple.com>
 
 	Backport from mainline:

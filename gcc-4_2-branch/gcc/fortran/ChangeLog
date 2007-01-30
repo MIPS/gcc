@@ -1,3 +1,212 @@
+2007-01-30  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline.
+	* lang-specs.h: Add support for .f03 and .F03 extensions.
+	* gfortran.texi: Document .f03 extension.
+	* options.c (form_from_filename): Recognize .f03.
+
+2007-01-29  Roger Sayle  <roger@eyesopen.com>
+
+	Backport from mainline.
+	* trans-stmt.c (forall_info): Replace the next_nest and outer
+	fields that previously implemented a doubly-linked list with a
+	single prev_nest field (singly-linked list).
+	(gfc_trans_nested_forall_loop): The nested_forall_info argument
+	now denotes the innermost FORALL in the loop nest.
+	(gfc_trans_forall_1): Link/cons the new "info" to the head of the
+	nested_forall_info linked list.  Free the current "info" when done.
+
+	* dependency.c (gfc_full_array_ref_p): Check that ref->next is NULL,
+	i.e. that the ARRAY_REF doesn't mention components.
+
+2007-01-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/30404
+	* trans-stmt.c (forall_info): Remove pmask field.
+	(gfc_trans_forall_loop): Remove NVAR argument, instead assume that
+	NVAR covers all the interation variables in the current forall_info.
+	Add an extra OUTER parameter, which specified the loop header in
+	which to place mask index initializations.
+	(gfc_trans_nested_forall_loop): Remove NEST_FLAG argument.
+	Change the semantics of MASK_FLAG to only control the mask in the
+	innermost loop.
+	(compute_overall_iter_number): Optimize the trivial case of a
+	top-level loop having a constant number of iterations.  Update
+	call to gfc_trans_nested_forall_loop.  Calculate the number of
+	times the inner loop will be executed, not to size of the 
+	iteration space.
+	(allocate_temp_for_forall_nest_1): Reuse SIZE as BYTESIZE when
+	sizeof(type) == 1.  Tidy up.
+	(gfc_trans_assign_need_temp): Remove NEST_FLAG argument from calls
+	to gfc_trans_nested_forall_loop.
+	(gfc_trans_pointer_assign_need_temp): Likewise.
+	(gfc_trans_forall_1): Remove unused BYTESIZE, TMPVAR, SIZEVAR and
+	LENVAR local variables.  Split mask allocation into a separate
+	hunk/pass from mask population.  Use allocate_temp_for_forall_nest
+	to allocate the FORALL mask with the correct size.  Update calls
+	to gfc_trans_nested_forall_loop.
+	(gfc_evaluate_where_mask): Update call to
+	gfc_trans_nested_forall_loop.
+	(gfc_trans_where_2): Likewise.
+
+2007-01-26  Steven Bosscher  <stevenb.gcc@gmail.com>
+	    Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30278
+	* fortran/io.c (next_char): Deal with backslash escaped characters.
+	Issue warnings in non -std=gnu cases.
+	* fortran/primary.c (next_string_char): Issue warnings in non
+
+2007-01-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30532
+	* scanner.c (load_line): Remove check fot ctrl-z and don't gobble.
+	
+2007-01-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30481
+	* match.c (gfc_match_namelist): Add check for assumed size character
+	in namelist and provide error if found.
+
+2007-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30549
+	* resolve.c (pure_function): Add return of name for state-
+	ment functions..
+
+2007-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28172
+	* trans-stmt.c (gfc_trans_call): If it does not have one, get
+	a backend_decl for an alternate return.
+
+	PR fortran/29389
+	* resolve.c (pure_function): Statement functions are pure. Note
+	that this will have to recurse to comply fully with F95.
+
+	PR fortran/29712
+	* resolve.c (resolve_function): Only a reference to the final
+	dimension of an assumed size array is an error in an inquiry
+	function.
+
+	PR fortran/30283
+	* resolve.c (resolve_function): Make sure that the function
+	expression has a type.
+
+2007-01-22 Andrew Pinski  <pinskia@gmail.com>
+
+	PR fortran/29951
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Change to
+	call memcpy instead of creating a VIEW_CONVERT_EXRP.
+
+	PR fortran/29410
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer):
+	Change over to create VIEW_CONVERT_EXPR instead of using an
+	ADDR_EXPR, a cast and then an indirect reference.
+
+2007-01-21  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi (ACHAR): Added cross-references.
+	(CHAR): Put cross-references in alphabetical order.
+	(IACHAR): Added cross-references.
+	(ICHAR): Added cross-references.
+
+2007-01-21  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_sign): New branchless
+	implementation for the SIGN intrinsic with integral operands.
+	(gfc_conv_intrinsic_minmax): Fix whitespace.
+
+2007-01-20  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	Merge documentation from mainline:
+        
+	* gfortran.texi: Update copyright to include 2007, change
+	@code-type macros to appropriate variants (@command, @option,
+	etc.)
+	(title page): Removed erroneous '*'.
+ 	(Introduction): Lower "Part I: Introduction" to a chapter,
+	renumber Parts II and III to Parts I and II.
+ 	(GNU Fortran and GCC): Rewrite
+	(GFORTRAN_DEFAULT_RECL): Added units to description.
+ 	(Extensions): Miscellaneous minor rewriting and copyediting.
+ 	(BOZ-literal constants): Renamed from Hexadecimal constants.
+ 	(Hollerith constants support): Added explanation and 
+ 	suggestions for standard-conforming modern equivalents.
+
+	* intrinsic.texi: General whitespace cleanup, edited all
+	"Syntax" examples to a consistent form, update copyright
+	to include 2007, change @findex entries to @cindex entries.
+	(menu): Added TIME8, removed UNMASK.
+ 	(Introduction): Rename to "Introduction to Intrinsics" to
+	avoid conflict with the new chapter, rewrite first paragraph.
+	(AINT): Clarified argument requirement.
+	(ANINT): Clarified argument requirement.
+	(CEILING): Clarified argument requirement.
+	(CHAR): Clarified argument requirement.
+	(CMPLX): Clarified argument requirement.
+	(DCMPLX): Clarified argument requirement.
+	(FGET): Line rewrapping.
+	(FLOOR): Clarified argument requirement.
+	(GMTIME): Added documentation.
+	(IAND): Added cross-reference.
+	(IBCLR): Add documentation.
+	(IBITS): Add documentation.
+	(IBSET): Add documentation.
+	(IEOR): Add documentation.
+	(IERRNO): Add documentation.
+	(INDEX): Add documentation.
+	(INT): Collapsed examples, clarified argument requirement.
+	(IOR): Add documentation.
+	(ISHFT): Add documentation.
+	(ISHFTC): Add documentation.
+	(KILL): Add documentation.
+	(LEN_TRIM): Add documentation.
+	(LGE): Add documentation.
+	(LGT): Add documentation.
+	(LINK): Add documentation.
+	(LLE): Add documentation.
+	(LLT): Add documentation.
+	(LNBLNK): Add documentation.
+	(LOGICAL): Added documentation.
+	(LSHIFT): Added documentation.
+	(LTIME): Added documentation.
+	(MATMUL): Added documentation.
+	(MAX): Added documentation.
+	(MAXLOC): Added documentation.
+	(MAXVAL): Added documentation.
+	(MERGE): Added documentation.
+	(MIN): Added documentation.
+	(MINLOC): Added documentation.
+	(MINVAL): Added documentation.
+	(MVBITS): Moved to correct place, added documentation.
+	(NOT): Added documentation.
+	(PERROR): Added documentation.
+	(RAN): Moved to correct place, added documentation.
+	(REAL): Clarified argument requirement.
+	(RENAME): Added documentation.
+	(RSHIFT): Clarified argument requirement.
+	(SIGN): Corrected table specification.
+	(SYMLNK): Added documentation.
+	(SYSTEM): Added documentation.
+	(TIME): Added documentation.
+	(TIME8): Added section and documentation.
+	(UBOUND): Add documentation.
+	(UMASK): Added documentation.
+	(UNLINK): Add documentation.
+	(UNMASK): Removed erroneous section.
+
+	* invoke.texi: Update copyrights to include 2007, 
+ 	standardize and improve index entries, change @code-type
+	macros to appropriate variants (@command, @option, etc.).
+ 	(OpenMP): Added index entry.
+
+2007-01-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30446
+	* options.c (gfc_handle_module_path_options): Path used in -J
+	option is now added to the module search path.
+
 2007-01-18  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	Backport from trunk
