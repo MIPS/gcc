@@ -142,7 +142,7 @@ decnumber_dep='stmp-dirs $(srcdir)/../libdecnumber/decContext.h $(srcdir)/../lib
        $(srcdir)/../libdecnumber/decimal128.h $(srcdir)/../libdecnumber/decDPD.h $(srcdir)/../libdecnumber/decUtility.h'
 
 # Dependencies for dfp-bit.c
-dfpbit_c_dep='$(srcdir)/../libdecnumber/decRound.h'" $libgcc_dep $decnumber_dep"
+dfpbit_c_dep='$(srcdir)/../libdecnumber/decRound.h $(srcdir)/../libdecnumber/decExcept.h'" $libgcc_dep $decnumber_dep"
 
 # Flag whether we need eh_dummy.c
 need_eh_dummy=
@@ -470,7 +470,7 @@ for ml in $MULTILIBS; do
 
     # Bring in the DFP support code if D32PBIT, D64PBIT or D128PBIT are set.
     if [ -n "$D32PBIT" -o -n "$D64PBIT" -o -n "$D128PBIT" ] ; then
-      dec_filenames="decContext decNumber decRound decLibrary decUtility"
+      dec_filenames="decContext decNumber decRound decExcept decLibrary decUtility"
     fi
 
     # Only bring in decimal*.c files for types we support.

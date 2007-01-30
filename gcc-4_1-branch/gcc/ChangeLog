@@ -1,5 +1,10 @@
 2007-01-30  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline:
+	* config/dfp-bit.c: Add parameterized support for fp exceptions.
+	* config/dfp-bit.h: Ditto.
+	* mklibgcc.in: Use decExcept.c.
+
 	* Makefile.in (USER_H): Remove decfloat.h.
 	* ginclude/decfloat.h: Delete, moving contents to ...
 	* ginclude/float.h: Add support for decimal floating point,
