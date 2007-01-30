@@ -1,3 +1,7 @@
+2007-01-22  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.h: Fix comment.
+
 2007-01-29  Chao-ying Fu  <fu@mips.com>
 
 	* convert.c (convert_to_fixed): Handle integer_zero_node at first.
