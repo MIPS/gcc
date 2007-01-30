@@ -501,6 +501,49 @@ cp_lexer_next_token_is_keyword (cp_lexer* lexer, enum rid keyword)
   return token->keyword == keyword;
 }
 
+static bool
+cp_lexer_next_token_is_decl_specifier_keyword (cp_lexer *lexer)
+{
+  cp_token *token;
+
+  token = cp_lexer_peek_token (lexer);
+  switch (token->keyword) 
+    {
+      /* Storage classes.  */
+    case RID_AUTO:
+    case RID_REGISTER:
+    case RID_STATIC:
+    case RID_EXTERN:
+    case RID_MUTABLE:
+    case RID_THREAD:
+      /* Elaborated type specifiers.  */
+    case RID_ENUM:
+    case RID_CLASS:
+    case RID_STRUCT:
+    case RID_UNION:
+    case RID_TYPENAME:
+      /* Simple type specifiers.  */
+    case RID_CHAR:
+    case RID_WCHAR:
+    case RID_BOOL:
+    case RID_SHORT:
+    case RID_INT:
+    case RID_LONG:
+    case RID_SIGNED:
+    case RID_UNSIGNED:
+    case RID_FLOAT:
+    case RID_DOUBLE:
+    case RID_VOID:
+      /* GNU extensions.  */ 
+    case RID_ATTRIBUTE:
+    case RID_TYPEOF:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Return a pointer to the Nth token in the token stream.  If N is 1,
    then this is precisely equivalent to cp_lexer_peek_token (except
    that it is not inline).  One would like to disallow that case, but
@@ -1828,7 +1871,7 @@ static void cp_parser_name_lookup_error
   (cp_parser *, tree, tree, const char *);
 static bool cp_parser_simulate_error
   (cp_parser *);
-static void cp_parser_check_type_definition
+static bool cp_parser_check_type_definition
   (cp_parser *);
 static void cp_parser_check_for_definition_in_return_type
   (cp_declarator *, tree);
@@ -2027,14 +2070,18 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs)
    definitions are forbidden at this point, an error message is
    issued.  */
 
-static void
+static bool
 cp_parser_check_type_definition (cp_parser* parser)
 {
   /* If types are forbidden here, issue a message.  */
   if (parser->type_definition_forbidden_message)
-    /* Use `%s' to print the string in case there are any escape
-       characters in the message.  */
-    error ("%s", parser->type_definition_forbidden_message);
+    {
+      /* Use `%s' to print the string in case there are any escape
+	 characters in the message.  */
+      error ("%s", parser->type_definition_forbidden_message);
+      return false;
+    }
+  return true;
 }
 
 /* This function is called when the DECLARATOR is processed.  The TYPE
@@ -10256,15 +10303,22 @@ cp_parser_enum_specifier (cp_parser* parser)
     identifier = make_anon_name ();
 
   /* Issue an error message if type-definitions are forbidden here.  */
-  cp_parser_check_type_definition (parser);
-
-  /* Create the new type.  We do this before consuming the opening brace
-     so the enum will be recorded as being on the line of its tag (or the
-     'enum' keyword, if there is no tag).  */
-  type = start_enum (identifier);
-
+  if (!cp_parser_check_type_definition (parser))
+    type = error_mark_node;
+  else
+    /* Create the new type.  We do this before consuming the opening
+       brace so the enum will be recorded as being on the line of its
+       tag (or the 'enum' keyword, if there is no tag).  */
+    type = start_enum (identifier);
+  
   /* Consume the opening brace.  */
   cp_lexer_consume_token (parser->lexer);
+
+  if (type == error_mark_node)
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
 
   /* If the next token is not '}', then there are some enumerators.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
@@ -10920,6 +10974,10 @@ cp_parser_init_declarator (cp_parser* parser,
   if (declarator == cp_error_declarator)
     return error_mark_node;
 
+  /* Check that the number of template-parameter-lists is OK.  */
+  if (!cp_parser_check_declarator_template_parameters (parser, declarator))
+    return error_mark_node;
+
   if (declares_class_or_enum & 2)
     cp_parser_check_for_definition_in_return_type (declarator,
 						   decl_specifiers->type);
@@ -11039,10 +11097,6 @@ cp_parser_init_declarator (cp_parser* parser,
   /* Check to see whether or not this declaration is a friend.  */
   friend_p = cp_parser_friend_p (decl_specifiers);
 
-  /* Check that the number of template-parameter-lists is OK.  */
-  if (!cp_parser_check_declarator_template_parameters (parser, declarator))
-    return error_mark_node;
-
   /* Enter the newly declared entry in the symbol table.  If we're
      processing a declaration in a class-specifier, we wait until
      after processing the initializer.  */
@@ -11092,9 +11146,23 @@ cp_parser_init_declarator (cp_parser* parser,
   is_non_constant_init = true;
   if (is_initialized)
     {
-      if (function_declarator_p (declarator)
-	  && initialization_kind == CPP_EQ)
-	initializer = cp_parser_pure_specifier (parser);
+      if (function_declarator_p (declarator))
+	{
+	   if (initialization_kind == CPP_EQ)
+	     initializer = cp_parser_pure_specifier (parser);
+	   else
+	     {
+	       /* If the declaration was erroneous, we don't really
+		  know what the user intended, so just silently
+		  consume the initializer.  */
+	       if (decl != error_mark_node)
+		 error ("initializer provided for function");
+	       cp_parser_skip_to_closing_parenthesis (parser,
+						      /*recovering=*/true,
+						      /*or_comma=*/false,
+						      /*consume_paren=*/true);
+	     }
+	}
       else
 	initializer = cp_parser_initializer (parser,
 					     &is_parenthesized_init,
@@ -15043,10 +15111,14 @@ cp_parser_check_declarator_template_parameters (cp_parser* parser,
 
 		 is correct; there shouldn't be a `template <>' for
 		 the definition of `S<int>::f'.  */
-	      if (CLASSTYPE_TEMPLATE_INFO (scope)
-		  && (CLASSTYPE_TEMPLATE_INSTANTIATION (scope)
-		      || uses_template_parms (CLASSTYPE_TI_ARGS (scope)))
-		  && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
+	      if (!CLASSTYPE_TEMPLATE_INFO (scope))
+		/* If SCOPE does not have template information of any
+		   kind, then it is not a template, nor is it nested
+		   within a template.  */
+		break;
+	      if (explicit_class_specialization_p (scope))
+		break;
+	      if (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
 		++num_templates;
 
 	      scope = TYPE_CONTEXT (scope);
@@ -15240,8 +15312,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 	  /* A parameter declaration begins with a decl-specifier,
 	     which is either the "attribute" keyword, a storage class
 	     specifier, or (usually) a type-specifier.  */
-	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_ATTRIBUTE)
-	  && !cp_parser_storage_class_specifier_opt (parser))
+	  && !cp_lexer_next_token_is_decl_specifier_keyword (parser->lexer))
 	{
 	  tree type;
 	  tree pushed_scope = NULL_TREE;
@@ -15432,6 +15503,15 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   /* And the `<'.  */
   if (!cp_parser_require (parser, CPP_LESS, "`<'"))
     return;
+  if (at_class_scope_p () && current_function_decl)
+    {
+      /* 14.5.2.2 [temp.mem]
+
+         A local class shall not have member templates.  */
+      error ("invalid declaration of member template in local class");
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return;
+    }
   /* [temp]
    
      A template ... shall not have C linkage.  */

@@ -1,3 +1,254 @@
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* g++.dg/expr/dtor4.C: New test.
+
+2007-01-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30278
+	* gfortran.dg/backslash_3.f: New test.
+
+2007-01-24  Roger Sayle  <roger@eyesopen.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/intrinsic_sign_1.f90: New test case.
+	* gfortran.dg/intrinsic_sign_2.f90: Likewise.
+
+2007-01-23  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/27438
+	* objc.dg/const-str-12.m: New test.
+
+2007-01-21 Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/30479
+	* objc.dg/pch: New directory.
+	* objc.dg/pch/pch.exp: New file.
+	* objc.dg/pch/interface-1.m: New test.
+	* objc.dg/pch/interface-1.hs: New include file.
+	* lib/objc.exp (objc_target_compile): Add
+	"-x objective-c-header" in front of the sources if this is
+	a precompiled header being compiled.
+
+2007-01-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20070121.c: New test.
+
+2007-01-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/12325
+	* gcc.dg/torture/builtin-attr-1.c: Handle warnings from
+	targets that don't support Inf.
+
+2007-01-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30435
+	* gfortran.dg/list_read_6.f90: New test.
+
+2007-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28999
+	* g++.dg/template/typename11.C: New test.
+
+2006-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29732
+	* g++.dg/template/crash65.C: New test.
+	* g++.dg/template/spec16.C: Tweak error markers.
+
+2007-01-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* lib/target-supports.exp (check_effective_target_sync_int_long):
+	Always return 0 for SPARC targets.
+	(check_effective_target_sync_char_short): Likewise.
+
+2007-01-06  Richard Sandiford  <richard@codesourcery.com>
+
+	2006-05-22  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/25514
+	* gcc.c-torture/compile/pr25514.c: New test.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+        PR tree-optimization/30212
+        * gcc.dg/torture/pr30212.c: New testcase.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27826
+	* g++.dg/opt/pr27826.C: New testcase.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-06-24  Jan Hubicka  <jh@suse.cz>
+
+	PR c/25795
+	PR c++/27369
+	* gcc.dg/pr25795.c: New testcase.
+	* gcc.dg/pr25795-1.c: Likewise.
+
+2007-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30360
+	* gcc.dg/pr30360.c: New test.
+
+	Backported from mainline
+	2006-10-13  Eric Christopher  <echristo@apple.com>
+	* gcc.dg/pr25993.c: Skip for darwin.
+
+	2006-09-16  Steven Bosscher  <steven@gcc.gnu.org>
+	PR c/25993
+	* gcc.dg/pr25993.c: New test.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28116
+	* g++.dg/opt/pr28116.C: New testcase.
+
+2007-01-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-15  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/29241
+	* gcc.c-torture/compile/pr29241.c: New testcase.
+
+2007-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28217
+	* g++.dg/pch/template-1.C: New test.
+	* g++.dg/pch/template-1.Hs: New file.
+
+	PR middle-end/30286
+	* gcc.dg/pr30286.c: New test.
+
+	PR c++/29535
+	* g++.dg/template/crash66.C: New test.
+
+	PR c++/29054
+	* g++.dg/template/friend49.C: New test.
+
+	Backported from mainline
+	2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/28261
+	* g++.dg/parse/enum3.C: New test.
+
+2006-12-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/29612
+	* gcc.dg/cpp/pr29612-1.c: New test.
+	* gcc.dg/cpp/pr29612-2.c: New test.
+
+2006-12-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/30145
+	* gfortran.dg/write_zero_array.f90: New test.
+
+2006-12-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30200
+	* gfortran.dg/write_fmt_trim.f90: New test.
+
+2006-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/30230
+	* g++.dg/eh/ia64-2.C: New test.
+
+2006-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/30185
+	* gcc.c-torture/execute/pr30185.c: New test.
+
+2006-12-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Revert Paul Thomas' commit from 2006-12-09
+	* gfortran.dg/parameter_array_section_1.f90: Deleted.
+	* gfortran.dg/char_result_12.f90: Ditto.
+	* gfortran.dg/array_section_1.f90: Ditto.
+	* gfortran.dg/used_types_13.f90: Ditto.
+	* gfortran.dg/host_dummy_index_1.f90: Revert to previous version.
+
+2006-12-13  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++27316
+	* g++.dg/inherit/error3.C: New test.
+
+	PR c++/28740
+	* g++.dg/inherit/error4.C: New test. 
+	
+2006-12-12  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/gcc-dg.exp (${tool}_load): Fix invocation of
+	saved_${tool}_load.
+
+2006-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29821
+	* gfortran.dg/parameter_array_section_1.f90: New test.
+
+	PR fortran/29912
+	* gfortran.dg/char_result_12.f90: New test.
+
+	PR fortran/29916
+	* gfortran.dg/host_dummy_index_1.f90: Added additional test.
+
+	PR fortran/30003
+	* gfortran.dg/allocatable_function_1.f90: Increase the number
+	of expected calls of free to 10; the lhs section reference is
+	now evaluated so there is another call to bar.  Change the
+	comment appropriately.
+	* gfortran.dg/array_section_1.f90: New test.
+
+	PR fortran/29820
+	* gfortran.dg/used_types_13.f90: New test.
+
+2006-12-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29730
+	* g++.dg/template/crash64.C: New test.
+	* g++.dg/parse/crash27.C: Adjust error markers.
+
+2006-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29729
+	* g++.dg/template/crash63.C: New test.
+
+2006-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29728
+	* g++.dg/template/crash62.C: New test.
+	* g++.dg/ext/complit3.C: Tweak error markers.
+
+2006-12-05  Richard Henderson  <rth@redhat.com>
+            Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/14329
+	* g++.dg/warn/unit-1.C: New test.
+
+2006-12-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29632
+	* g++.dg/template/error23.C: New test.
+
+	PR c++/29733
+	* g++.dg/template/crash61.C: New test. 
+
+2006-12-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2006-08-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/28284
+	* g++.dg/template/pr28284.C: New test.
+
+2006-12-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/30022
+	* g++.dg/ext/vector5.C: New test.
+
 2006-12-21  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/func-vararg-alternate.h: New file.

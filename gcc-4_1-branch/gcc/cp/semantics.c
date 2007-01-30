@@ -1972,6 +1972,13 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  error ("invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
+      if (scope && TYPE_P (scope) && !check_dtor_name (scope, destructor))
+	{
+	  error ("qualified type %qT does not match destructor name ~%qT",
+		 scope, destructor);
+	  return error_mark_node;
+	}
+
 
       /* [expr.pseudo] says both:
 
@@ -2319,8 +2326,9 @@ note_decl_for_pch (tree decl)
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      || TREE_CODE (decl) == FUNCTION_DECL)
+  if ((TREE_CODE (decl) == VAR_DECL
+       || TREE_CODE (decl) == FUNCTION_DECL)
+      && !processing_template_decl)
     mangle_decl (decl);
 }
 

@@ -123,6 +123,22 @@ static int combine_successes;
 
 static int total_attempts, total_merges, total_extras, total_successes;
 
+/* combine_instructions may try to replace the right hand side of the
+   second instruction with the value of an associated REG_EQUAL note
+   before throwing it at try_combine.  That is problematic when there
+   is a REG_DEAD note for a register used in the old right hand side
+   and can cause distribute_notes to do wrong things.  This is the
+   second instruction if it has been so modified, null otherwise.  */
+
+static rtx i2mod;
+
+/* When I2MOD is nonnull, this is a copy of the old right hand side.  */
+
+static rtx i2mod_old_rhs;
+
+/* When I2MOD is nonnull, this is a copy of the new right hand side.  */
+
+static rtx i2mod_new_rhs;
 
 /* Vector mapping INSN_UIDs to cuids.
    The cuids are like uids but increase monotonically always.
@@ -877,8 +893,12 @@ combine_instructions (rtx f, unsigned int nregs)
 			 be deleted or recognized by try_combine.  */
 		      rtx orig = SET_SRC (set);
 		      SET_SRC (set) = note;
-		      next = try_combine (insn, temp, NULL_RTX,
+		      i2mod = temp;
+		      i2mod_old_rhs = copy_rtx (orig);
+		      i2mod_new_rhs = copy_rtx (note);
+		      next = try_combine (insn, i2mod, NULL_RTX,
 					  &new_direct_jump_p);
+		      i2mod = NULL_RTX;
 		      if (next)
 			goto retry;
 		      SET_SRC (set) = orig;
@@ -1739,8 +1759,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
   rtx i2dest, i2src, i1dest = 0, i1src = 0;
-  /* PATTERN (I2), or a copy of it in certain cases.  */
-  rtx i2pat;
+  /* PATTERN (I1) and PATTERN (I2), or a copy of it in certain cases.  */
+  rtx i1pat = 0, i2pat = 0;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
   int i2dest_in_i2src = 0, i1dest_in_i1src = 0, i2dest_in_i1src = 0;
   int i2dest_killed = 0, i1dest_killed = 0;
@@ -2074,12 +2094,21 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      rtx.  If I2 is a PARALLEL, we just need the piece that assigns I2SRC to
      I2DEST.  */
 
-  i2pat = (GET_CODE (PATTERN (i2)) == PARALLEL
-	   ? gen_rtx_SET (VOIDmode, i2dest, i2src)
-	   : PATTERN (i2));
-
   if (added_sets_2)
-    i2pat = copy_rtx (i2pat);
+    {
+      if (GET_CODE (PATTERN (i2)) == PARALLEL)
+	i2pat = gen_rtx_SET (VOIDmode, i2dest, copy_rtx (i2src));
+      else
+	i2pat = copy_rtx (PATTERN (i2));
+    }
+
+  if (added_sets_1)
+    {
+      if (GET_CODE (PATTERN (i1)) == PARALLEL)
+	i1pat = gen_rtx_SET (VOIDmode, i1dest, copy_rtx (i1src));
+      else
+	i1pat = copy_rtx (PATTERN (i1));
+    }
 
   combine_merges++;
 
@@ -2263,9 +2292,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	}
 
       if (added_sets_1)
-	XVECEXP (newpat, 0, --total_sets)
-	  = (GET_CODE (PATTERN (i1)) == PARALLEL
-	     ? gen_rtx_SET (VOIDmode, i1dest, i1src) : PATTERN (i1));
+	XVECEXP (newpat, 0, --total_sets) = i1pat;
 
       if (added_sets_2)
 	{
@@ -12217,7 +12244,15 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	  break;
 
 	case REG_DEAD:
-	  /* If the register is used as an input in I3, it dies there.
+	  /* If we replaced the right hand side of FROM_INSN with a
+	     REG_EQUAL note, the original use of the dying register
+	     will not have been combined into I3 and I2.  In such cases,
+	     FROM_INSN is guaranteed to be the first of the combined
+	     instructions, so we simply need to search back before
+	     FROM_INSN for the previous use or set of this register,
+	     then alter the notes there appropriately.
+
+	     If the register is used as an input in I3, it dies there.
 	     Similarly for I2, if it is nonzero and adjacent to I3.
 
 	     If the register is not used as an input in either I3 or I2
@@ -12232,29 +12267,34 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	     use of A and put the death note there.  */
 
 	  if (from_insn
-	      && CALL_P (from_insn)
-	      && find_reg_fusage (from_insn, USE, XEXP (note, 0)))
-	    place = from_insn;
-	  else if (reg_referenced_p (XEXP (note, 0), PATTERN (i3)))
-	    place = i3;
-	  else if (i2 != 0 && next_nonnote_insn (i2) == i3
-		   && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
-	    place = i2;
-
-	  if (place == 0
-	      && (rtx_equal_p (XEXP (note, 0), elim_i2)
-		  || rtx_equal_p (XEXP (note, 0), elim_i1)))
-	    break;
+	      && from_insn == i2mod
+	      && !reg_overlap_mentioned_p (XEXP (note, 0), i2mod_new_rhs))
+	    tem = from_insn;
+	  else
+	    {
+	      if (from_insn
+		  && CALL_P (from_insn)
+		  && find_reg_fusage (from_insn, USE, XEXP (note, 0)))
+		place = from_insn;
+	      else if (reg_referenced_p (XEXP (note, 0), PATTERN (i3)))
+		place = i3;
+	      else if (i2 != 0 && next_nonnote_insn (i2) == i3
+		       && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
+		place = i2;
+	      else if ((rtx_equal_p (XEXP (note, 0), elim_i2)
+			&& !(i2mod
+			     && reg_overlap_mentioned_p (XEXP (note, 0),
+							 i2mod_old_rhs)))
+		       || rtx_equal_p (XEXP (note, 0), elim_i1))
+		break;
+	      tem = i3;
+	    }
 
 	  if (place == 0)
 	    {
 	      basic_block bb = this_basic_block;
 
-	      /* You might think you could search back from FROM_INSN
-		 rather than from I3, but combine tries to split invalid
-		 combined instructions.  This can result in the old I2
-		 or I1 moving later in the insn sequence.  */
-	      for (tem = PREV_INSN (i3); place == 0; tem = PREV_INSN (tem))
+	      for (tem = PREV_INSN (tem); place == 0; tem = PREV_INSN (tem))
 		{
 		  if (! INSN_P (tem))
 		    {
@@ -12263,14 +12303,12 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		      continue;
 		    }
 
-		  /* If TEM is a (reaching) definition of the use to which the
-		     note was attached, see if that is all TEM is doing.  If so,
-		     delete TEM.  Otherwise, make this into a REG_UNUSED note
-		     instead.  Don't delete sets to global register vars.  */
-		  if ((!from_insn
-		       || INSN_CUID (tem) < INSN_CUID (from_insn))
-		      && (REGNO (XEXP (note, 0)) >= FIRST_PSEUDO_REGISTER
-			  || !global_regs[REGNO (XEXP (note, 0))])
+		  /* If the register is being set at TEM, see if that is all
+		     TEM is doing.  If so, delete TEM.  Otherwise, make this
+		     into a REG_UNUSED note instead. Don't delete sets to
+		     global register vars.  */
+		  if ((REGNO (XEXP (note, 0)) >= FIRST_PSEUDO_REGISTER
+		       || !global_regs[REGNO (XEXP (note, 0))])
 		      && reg_set_p (XEXP (note, 0), PATTERN (tem)))
 		    {
 		      rtx set = single_set (tem);
@@ -12356,22 +12394,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			   || (CALL_P (tem)
 			       && find_reg_fusage (tem, USE, XEXP (note, 0))))
 		    {
-		      /* This may not be the correct place for the death
-			 note if FROM_INSN is before TEM, and the reg is
-			 set between FROM_INSN and TEM.  The reg might
-			 die two or more times.  An existing death note
-			 means we are looking at the wrong live range.  */
-		      if (from_insn
-			  && INSN_CUID (from_insn) < INSN_CUID (tem)
-			  && find_regno_note (tem, REG_DEAD,
-					      REGNO (XEXP (note, 0))))
-			{
-			  tem = from_insn;
-			  if (tem == BB_HEAD (bb))
-			    break;
-			  continue;
-			}
-
 		      place = tem;
 
 		      /* If we are doing a 3->2 combination, and we have a
