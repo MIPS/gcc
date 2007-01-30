@@ -1129,6 +1129,7 @@ do {						\
    MEM_NOTRAP_P (LHS) = MEM_NOTRAP_P (RHS),			\
    MEM_READONLY_P (LHS) = MEM_READONLY_P (RHS),			\
    MEM_KEEP_ALIAS_SET_P (LHS) = MEM_KEEP_ALIAS_SET_P (RHS),	\
+   MEM_POINTER (LHS) = MEM_POINTER (RHS),			\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* 1 if RTX is a label_ref to a label outside the loop containing the
