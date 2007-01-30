@@ -1,3 +1,18 @@
+2007-01-28  David Edelsohn  <edelsohn@gnu.org>
+
+        * MAINTAINERS (spu port): Add myself.
+
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/30541
+	* Makefile.def (flags_to_pass): Add GNATBIND and GNATMAKE.
+	* Makefile.tpl (GNATBIND): Substitute it.
+	(GNATMAKE): Likewise.
+	(POSTSTAGE1_FLAGS_TO_PASS): Pass staged GNATBIND instead
+	of STAGE_PREFIX.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
 2007-01-18  Mike Stump  <mrs@apple.com>
 
 	* configure.in: Re-enable -Werror for gcc builds.
@@ -2600,7 +2615,7 @@
 	of libf2c.
 	* configure, Makefile.in: Regenerate.
 
-2004-05-13  Tobias SchlÃƒÂƒÃ‚Â¼ter  <tobi@gcc.gnu.org>
+2004-05-13  Tobias SchlÃÂÃÂ¼ter  <tobi@gcc.gnu.org>
 
 	* MAINTAINERS (Write After Approval): Add myself.
 

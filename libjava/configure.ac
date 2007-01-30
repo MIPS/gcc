@@ -117,14 +117,14 @@ AC_PROG_AWK
 AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
-AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
-if test "$ZIP" = no; then
-  if test "$JAR" = no; then
+# Prefer the jar we found, but fall back to our jar script.
+if test "$JAR" = no; then
+  if test "$ZIP" = no; then
     AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
+  else
+    # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
+    JAR=`pwd`/scripts/jar
   fi
-else
-  # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
-  JAR=`pwd`/scripts/jar
 fi
 
 AC_PROG_INSTALL
@@ -344,7 +344,7 @@ case "${which_gcj}" in
          GCC_UNWIND_INCLUDE=
          GCJ="${target_noncanonical}-gcj"
       else
-         GCJ="$built_gcc_dir/gcj -B$built_gcc_dir/"
+         GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
       GCJH="$built_gcc_dir/gcjh"
    ;;
@@ -1208,12 +1208,6 @@ else
    if test "$with_system_zlib" = yes; then
       AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=)
    fi
-
-   LIBMAGIC=
-   AC_CHECK_LIB(magic, magic_open, [
-      AC_DEFINE([HAVE_MAGIC_OPEN], 1, [Define if you have magic_open().])
-      LIBMAGIC="-lmagic"])
-   AC_SUBST(LIBMAGIC)
 
    # Test for Gtk stuff, if asked for.
    if test "$use_gtk_awt" = yes; then

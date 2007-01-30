@@ -223,9 +223,9 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waggregate-return -Walways-true -Warray-bounds @gol
--Wno-attributes -Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts @gol
--Wclobbered  -Wcomment @gol
--Wconversion  -Wno-deprecated-declarations @gol
+-Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
+-Wchar-subscripts -Wclobbered  -Wcomment @gol
+-Wconversion -Wcoverage-mismatch -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  @gol
 -Wempty-body  -Wno-endif-labels @gol
 -Werror  -Werror-* -Werror-implicit-function-declaration @gol
@@ -341,7 +341,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
 -fstack-protector  -fstack-protector-all @gol
--fstrict-aliasing  -ftracer  -fthread-jumps @gol
+-fstrict-aliasing  -fstrict-overflow  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
 -fvariable-expansion-in-unroller @gol
@@ -2282,6 +2282,20 @@ diagnostic emitted, which indicates which command line option directly
 controls that diagnostic, when such an option is known to the
 diagnostic machinery.
 
+@item -Wcoverage-mismatch
+@opindex Wcoverage-mismatch
+Warn if feedback profiles do not match when using the
+@option{-fprofile-use} option.
+If a source file was changed between @option{-fprofile-gen} and
+@option{-fprofile-use}, the files with the profile feedback can fail
+to match the source file and GCC can not use the profile feedback
+information.  By default, GCC emits an error message in this case.
+The option @option{-Wcoverage-mismatch} emits a warning instead of an
+error.  GCC does not use appropriate feedback profiles, so using this
+option can result in poorly optimized code.  This option is useful
+only in the case of very minor changes such as bugfixes to an
+existing code-base.
+
 @end table
 
 @node Warning Options
@@ -3148,6 +3162,11 @@ For example, warn if @code{int malloc()} is cast to @code{anything *}.
 Warn about ISO C constructs that are outside of the common subset of
 ISO C and ISO C++, e.g.@: request for implicit conversion from
 @code{void *} to a pointer to non-@code{void} type.
+
+@item -Wc++0x-compat @r{(C++ and Objective-C++ only)}
+Warn about C++ constructs whose meaning differs between ISO C++ 1998 and
+ISO C++ 200x, e.g., identifiers in ISO C++ 1998 that will become keywords 
+in ISO C++ 200x.  This warning is enabled by @option{-Wall}.
 
 @item -Wcast-qual
 @opindex Wcast-qual
@@ -4616,7 +4635,7 @@ also turns on the following optimization flags:
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
 -fregmove @gol
--fstrict-aliasing @gol
+-fstrict-aliasing -fstrict-overflow @gol
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
 -falign-functions  -falign-jumps @gol
@@ -5446,6 +5465,32 @@ int f() @{
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
+@item -fstrict-overflow
+@opindex fstrict-overflow
+Allow the compiler to assume strict signed overflow rules, depending
+on the language being compiled.  For C (and C++) this means that
+overflow when doing arithmetic with signed numbers is undefined, which
+means that the compiler may assume that it will not happen.  This
+permits various optimizations.  For example, the compiler will assume
+that an expression like @code{i + 10 > i} will always be true for
+signed @code{i}.  This assumption is only valid if signed overflow is
+undefined, as the expression is false if @code{i + 10} overflows when
+using twos complement arithmetic.  When this option is in effect any
+attempt to determine whether an operation on signed numbers will
+overflow must be written carefully to not actually involve overflow.
+
+See also the @option{-fwrapv} option.  Using @option{-fwrapv} means
+that signed overflow is fully defined: it wraps.  When
+@option{-fwrapv} is used, there is no difference between
+@option{-fstrict-overflow} and @option{-fno-strict-overflow}.  With
+@option{-fwrapv} certain types of overflow are permitted.  For
+example, if the compiler gets an overflow when doing arithmetic on
+constants, the overflowed value can still be used with
+@option{-fwrapv}, but not otherwise.
+
+The @option{-fstrict-overflow} option is enabled at levels
+@option{-O2}, @option{-O3}, @option{-Os}.
+
 @item -falign-functions
 @itemx -falign-functions=@var{n}
 @opindex falign-functions
@@ -5608,6 +5653,10 @@ generally profitable only with profile feedback available.
 The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
 @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}
 
+By default, GCC emits an error message if the feedback profiles do not
+match the source code.  This error can be turned into a warning by using
+@option{-Wcoverage-mismatch}.  Note this may result in poorly optimized
+code.
 @end table
 
 The following options control compiler behavior regarding floating
@@ -6096,7 +6145,7 @@ before applying @option{--param inline-unit-growth}.  The default is 10000
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 50 which limits unit growth to 1.5 times the original
+The default value is 60 which limits unit growth to 1.6 times the original
 size.
 
 @item large-stack-frame

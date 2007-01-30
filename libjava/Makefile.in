@@ -53,16 +53,15 @@ target_triplet = @target@
 @NATIVE_TRUE@	grmid$(EXEEXT) gserialver$(EXEEXT) \
 @NATIVE_TRUE@	gtnameserv$(EXEEXT)
 @BUILD_ECJ1_TRUE@libexecsub_PROGRAMS = ecjx$(EXEEXT)
-@BASH_JAR_TRUE@am__append_5 = scripts/jar
-@USING_GCC_TRUE@am__append_6 = $(WARNINGS)
-@USING_BOEHMGC_TRUE@am__append_7 = boehm.cc
-@USING_NOGC_TRUE@am__append_8 = nogc.cc
-@USING_POSIX_PLATFORM_TRUE@am__append_9 = posix.cc
-@USING_WIN32_PLATFORM_TRUE@am__append_10 = win32.cc
-@USING_DARWIN_CRT_TRUE@am__append_11 = darwin.cc
-@USING_POSIX_THREADS_TRUE@am__append_12 = posix-threads.cc
-@USING_WIN32_THREADS_TRUE@am__append_13 = win32-threads.cc
-@USING_NO_THREADS_TRUE@am__append_14 = no-threads.cc
+@USING_GCC_TRUE@am__append_5 = $(WARNINGS)
+@USING_BOEHMGC_TRUE@am__append_6 = boehm.cc
+@USING_NOGC_TRUE@am__append_7 = nogc.cc
+@USING_POSIX_PLATFORM_TRUE@am__append_8 = posix.cc
+@USING_WIN32_PLATFORM_TRUE@am__append_9 = win32.cc
+@USING_DARWIN_CRT_TRUE@am__append_10 = darwin.cc
+@USING_POSIX_THREADS_TRUE@am__append_11 = posix-threads.cc
+@USING_WIN32_THREADS_TRUE@am__append_12 = win32-threads.cc
+@USING_NO_THREADS_TRUE@am__append_13 = no-threads.cc
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../config.guess $(srcdir)/../config.sub \
 	$(srcdir)/../depcomp $(srcdir)/../install-sh \
@@ -74,6 +73,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(top_srcdir)/scripts/jar.in COPYING ChangeLog NEWS THANKS
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@noinst_PROGRAMS =  \
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@	gen-from-JIS$(EXEEXT)
+@NATIVE_TRUE@@USE_LIBGCJ_BC_TRUE@am__append_14 = libgcj_bc.la
 @XLIB_AWT_TRUE@am__append_15 = $(xlib_nat_headers)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -544,8 +544,6 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
-BASH_JAR_FALSE = @BASH_JAR_FALSE@
-BASH_JAR_TRUE = @BASH_JAR_TRUE@
 BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
 BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
 CC = @CC@
@@ -625,7 +623,6 @@ LIBGCJ_LD_SYMBOLIC_FUNCTIONS = @LIBGCJ_LD_SYMBOLIC_FUNCTIONS@
 LIBGCJ_SPEC = @LIBGCJ_SPEC@
 LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
-LIBMAGIC = @LIBMAGIC@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -807,7 +804,7 @@ jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar \
 db_name = classmap.db
 db_pathtail = gcj-$(gcc_version)/$(db_name)
 @NATIVE_TRUE@dbexec_DATA = $(db_name)
-bin_SCRIPTS = addr2name.awk $(am__append_5)
+bin_SCRIPTS = addr2name.awk
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -844,7 +841,7 @@ AM_GCJFLAGS = \
 	--encoding=UTF-8 \
 	-Wno-deprecated -fbootstrap-classes
 
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_6)
+AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_5)
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -865,9 +862,9 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc jvmti.cc exception.cc \
 	stacktrace.cc link.cc defineclass.cc interpret.cc verify.cc \
-	$(nat_source_files) $(am__append_7) $(am__append_8) \
-	$(am__append_9) $(am__append_10) $(am__append_11) \
-	$(am__append_12) $(am__append_13) $(am__append_14)
+	$(nat_source_files) $(am__append_6) $(am__append_7) \
+	$(am__append_8) $(am__append_9) $(am__append_10) \
+	$(am__append_11) $(am__append_12) $(am__append_13)
 nat_files = $(nat_source_files:.cc=.lo)
 xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 
@@ -886,7 +883,7 @@ libgcj_la_LIBADD = \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
-	$(LIBMAGIC) $(LIBFFI) $(ZLIBS) $(GCLIBS)
+	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/lang/Object.lo \
@@ -7736,8 +7733,6 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
-MYGCJH = gjavah
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
@@ -7750,6 +7745,10 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
 	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
 
+generic_header_files = $(ordinary_header_files) $(inner_nat_headers) \
+	$(xlib_nat_headers)
+
+MYGCJH = gjavah
 nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
 xlib_nat_headers = $(gnu_awt_xlib_header_files) $(gnu_gcj_xlib_header_files)
@@ -7799,7 +7798,8 @@ ECJX_BASE_FLAGS = -findirect-dispatch \
 @NATIVE_FALSE@ecjx_LDADD = 
 @NATIVE_TRUE@ecjx_LDADD = -L$(here)/.libs libgcj.la
 @NATIVE_FALSE@ecjx_DEPENDENCIES = 
-@NATIVE_TRUE@ecjx_DEPENDENCIES = libgcj.la libgcj.spec
+@NATIVE_TRUE@ecjx_DEPENDENCIES = libgcj.la libgcj.spec \
+@NATIVE_TRUE@	$(am__append_14)
 gappletviewer_SOURCES = 
 gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
@@ -9880,6 +9880,8 @@ uninstall-info: uninstall-info-recursive
 	uninstall-toolexecmainlibDATA
 
 
+interpret.lo:  AM_CXXFLAGS += -fwrapv
+
 $(db_name): gcj-dbtool$(EXEEXT)
 	@rm -f $(db_name)
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
@@ -9932,7 +9934,7 @@ java/lang/Class.lo: classpath/lib/java/lang/Class.class
 
 gnu-CORBA.lo: $(gnu_CORBA_source_files)
 	@find $(srcdir)/classpath/lib/gnu/CORBA -name '*.class' > gnu-CORBA.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-CORBA.lo @gnu-CORBA.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-CORBA.lo @gnu-CORBA.list
 	@rm -f gnu-CORBA.list
 
 gnu/awt.list: $(gnu_awt_source_files)
@@ -10081,7 +10083,7 @@ gnu/java/awt/dnd.list: $(gnu_java_awt_dnd_source_files)
 
 gnu-java-awt-dnd-peer-gtk.lo: $(gnu_java_awt_dnd_peer_gtk_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/awt/dnd/peer/gtk -name '*.class' > gnu-java-awt-dnd-peer-gtk.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-dnd-peer-gtk.lo @gnu-java-awt-dnd-peer-gtk.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-dnd-peer-gtk.lo @gnu-java-awt-dnd-peer-gtk.list
 	@rm -f gnu-java-awt-dnd-peer-gtk.list
 
 gnu/java/awt/font.list: $(gnu_java_awt_font_source_files)
@@ -10128,7 +10130,7 @@ gnu/java/awt/peer.list: $(gnu_java_awt_peer_source_files)
 
 gnu-java-awt-peer-gtk.lo: $(gnu_java_awt_peer_gtk_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/awt/peer/gtk -name '*.class' > gnu-java-awt-peer-gtk.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-gtk.lo @gnu-java-awt-peer-gtk.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-gtk.lo @gnu-java-awt-peer-gtk.list
 	@rm -f gnu-java-awt-peer-gtk.list
 
 gnu/java/awt/peer/headless.list: $(gnu_java_awt_peer_headless_source_files)
@@ -10139,17 +10141,17 @@ gnu/java/awt/peer/headless.list: $(gnu_java_awt_peer_headless_source_files)
 
 gnu-java-awt-peer-qt.lo: $(gnu_java_awt_peer_qt_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/awt/peer/qt -name '*.class' > gnu-java-awt-peer-qt.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-qt.lo @gnu-java-awt-peer-qt.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-qt.lo @gnu-java-awt-peer-qt.list
 	@rm -f gnu-java-awt-peer-qt.list
 
 gnu-java-awt-peer-swing.lo: $(gnu_java_awt_peer_swing_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/awt/peer/swing -name '*.class' > gnu-java-awt-peer-swing.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
 	@rm -f gnu-java-awt-peer-swing.list
 
 gnu-java-awt-peer-x.lo: $(gnu_java_awt_peer_x_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/awt/peer/x -name '*.class' > gnu-java-awt-peer-x.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-x.lo @gnu-java-awt-peer-x.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-x.lo @gnu-java-awt-peer-x.list
 	@rm -f gnu-java-awt-peer-x.list
 
 gnu/java/awt/print.list: $(gnu_java_awt_print_source_files)
@@ -10160,7 +10162,7 @@ gnu/java/awt/print.list: $(gnu_java_awt_print_source_files)
 
 gnu-java-beans.lo: $(gnu_java_beans_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/beans -name '*.class' > gnu-java-beans.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-beans.lo @gnu-java-beans.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-beans.lo @gnu-java-beans.list
 	@rm -f gnu-java-beans.list
 
 gnu/java/io.list: $(gnu_java_io_source_files)
@@ -10453,7 +10455,7 @@ gnu/java/util/prefs.list: $(gnu_java_util_prefs_source_files)
 
 gnu-java-util-prefs-gconf.lo: $(gnu_java_util_prefs_gconf_source_files)
 	@find $(srcdir)/classpath/lib/gnu/java/util/prefs/gconf -name '*.class' > gnu-java-util-prefs-gconf.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-util-prefs-gconf.lo @gnu-java-util-prefs-gconf.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-util-prefs-gconf.lo @gnu-java-util-prefs-gconf.list
 	@rm -f gnu-java-util-prefs-gconf.list
 
 gnu/java/util/regex.list: $(gnu_java_util_regex_source_files)
@@ -10734,7 +10736,7 @@ gnu/javax/print/ipp/attribute/supported.list: $(gnu_javax_print_ipp_attribute_su
 
 gnu-javax-rmi.lo: $(gnu_javax_rmi_source_files)
 	@find $(srcdir)/classpath/lib/gnu/javax/rmi -name '*.class' > gnu-javax-rmi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-rmi.lo @gnu-javax-rmi.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-rmi.lo @gnu-javax-rmi.list
 	@rm -f gnu-javax-rmi.list
 
 gnu/javax/security/auth.list: $(gnu_javax_security_auth_source_files)
@@ -10757,7 +10759,7 @@ gnu/javax/security/auth/login.list: $(gnu_javax_security_auth_login_source_files
 
 gnu-javax-sound-midi.lo: $(gnu_javax_sound_midi_source_files)
 	@find $(srcdir)/classpath/lib/gnu/javax/sound/midi -name '*.class' > gnu-javax-sound-midi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-sound-midi.lo @gnu-javax-sound-midi.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-javax-sound-midi.lo @gnu-javax-sound-midi.list
 	@rm -f gnu-javax-sound-midi.list
 
 gnu/javax/sound/sampled/AU.list: $(gnu_javax_sound_sampled_AU_source_files)
@@ -10828,7 +10830,7 @@ gnu/javax/swing/tree.list: $(gnu_javax_swing_tree_source_files)
 
 gnu-xml.lo: $(gnu_xml_source_files)
 	@find $(srcdir)/classpath/lib/gnu/xml -name '*.class' > gnu-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-xml.lo @gnu-xml.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-xml.lo @gnu-xml.list
 	@rm -f gnu-xml.list
 
 java/applet.list: $(java_applet_source_files)
@@ -11169,7 +11171,7 @@ javax/crypto/spec.list: $(javax_crypto_spec_source_files)
 
 javax-imageio.lo: $(javax_imageio_source_files)
 	@find $(srcdir)/classpath/lib/javax/imageio -name '*.class' > javax-imageio.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-imageio.lo @javax-imageio.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-imageio.lo @javax-imageio.list
 	@rm -f javax-imageio.list
 
 javax/management.list: $(javax_management_source_files)
@@ -11258,7 +11260,7 @@ javax/print/event.list: $(javax_print_event_source_files)
 
 javax-rmi.lo: $(javax_rmi_source_files)
 	@find $(srcdir)/classpath/lib/javax/rmi -name '*.class' > javax-rmi.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-rmi.lo @javax-rmi.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-rmi.lo @javax-rmi.list
 	@rm -f javax-rmi.list
 
 javax/security/auth.list: $(javax_security_auth_source_files)
@@ -11455,7 +11457,7 @@ javax/transaction/xa.list: $(javax_transaction_xa_source_files)
 
 javax-xml.lo: $(javax_xml_source_files)
 	@find $(srcdir)/classpath/lib/javax/xml -name '*.class' > javax-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-xml.lo @javax-xml.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o javax-xml.lo @javax-xml.list
 	@rm -f javax-xml.list
 
 org/ietf/jgss.list: $(org_ietf_jgss_source_files)
@@ -11466,22 +11468,22 @@ org/ietf/jgss.list: $(org_ietf_jgss_source_files)
 
 org-omg.lo: $(org_omg_source_files)
 	@find $(srcdir)/classpath/lib/org/omg -name '*.class' > org-omg.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-omg.lo @org-omg.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o org-omg.lo @org-omg.list
 	@rm -f org-omg.list
 
 org-relaxng.lo: $(org_relaxng_source_files)
 	@find $(srcdir)/classpath/lib/org/relaxng -name '*.class' > org-relaxng.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-relaxng.lo @org-relaxng.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o org-relaxng.lo @org-relaxng.list
 	@rm -f org-relaxng.list
 
 org-w3c.lo: $(org_w3c_source_files)
 	@find $(srcdir)/classpath/lib/org/w3c -name '*.class' > org-w3c.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-w3c.lo @org-w3c.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o org-w3c.lo @org-w3c.list
 	@rm -f org-w3c.list
 
 org-xml.lo: $(org_xml_source_files)
 	@find $(srcdir)/classpath/lib/org/xml -name '*.class' > org-xml.list
-	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-xml.lo @org-xml.list
+	$(LTGCJCOMPILE) -fsource-filename=$(here)/classpath/lib/classes -fjni -findirect-dispatch -fno-indirect-classes -c -o org-xml.lo @org-xml.list
 	@rm -f org-xml.list
 
 sun/misc.list: $(sun_misc_source_files)

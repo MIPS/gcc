@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "tree-mudflap.h"
 #include "tree-flow.h"
+#include "value-prof.h"
 
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
@@ -2283,13 +2284,18 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
     }
   else
     {
-      tree call, fn, narg;
+      tree call, fn = NULL_TREE, narg;
       tree ctype = build_complex_type (type);
 
       /* We can expand via the C99 cexp function.  */
       gcc_assert (TARGET_C99_FUNCTIONS);
 
-      fn = mathfn_built_in (ctype, BUILT_IN_CEXP);
+      if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPIF)
+	fn = built_in_decls[BUILT_IN_CEXPF];
+      else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPI)
+	fn = built_in_decls[BUILT_IN_CEXP];
+      else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CEXPIL)
+	fn = built_in_decls[BUILT_IN_CEXPL];
       narg = fold_build2 (COMPLEX_EXPR, ctype,
 			  build_real (type, dconst0), arg);
 
@@ -3094,6 +3100,8 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
       rtx dest_mem, src_mem, dest_addr, len_rtx;
       tree result = fold_builtin_memory_op (arglist, TREE_TYPE (TREE_TYPE (fndecl)),
 					    false, /*endp=*/0);
+      HOST_WIDE_INT expected_size = -1;
+      unsigned int expected_align = 0;
 
       if (result)
 	{
@@ -3114,7 +3122,10 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	 operation in-line.  */
       if (src_align == 0)
 	return 0;
-
+ 
+      stringop_block_profile (exp, &expected_align, &expected_size);
+      if (expected_align < dest_align)
+	expected_align = dest_align;
       dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
       len_rtx = expand_normal (len);
@@ -3141,9 +3152,10 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
       set_mem_align (src_mem, src_align);
 
       /* Copy word part most expediently.  */
-      dest_addr = emit_block_move (dest_mem, src_mem, len_rtx,
-				   CALL_EXPR_TAILCALL (exp)
-				   ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL);
+      dest_addr = emit_block_move_hints (dest_mem, src_mem, len_rtx,
+				         CALL_EXPR_TAILCALL (exp)
+				         ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL,
+					 expected_align, expected_size);
 
       if (dest_addr == 0)
 	{
@@ -3635,6 +3647,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
       char c;
       unsigned int dest_align;
       rtx dest_mem, dest_addr, len_rtx;
+      HOST_WIDE_INT expected_size = -1;
+      unsigned int expected_align = 0;
 
       dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
 
@@ -3642,6 +3656,10 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	 operation in-line.  */
       if (dest_align == 0)
 	return 0;
+
+      stringop_block_profile (orig_exp, &expected_align, &expected_size);
+      if (expected_align < dest_align)
+	expected_align = dest_align;
 
       /* If the LEN parameter is zero, return DEST.  */
       if (integer_zerop (len))
@@ -3682,7 +3700,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 			       builtin_memset_gen_str, val_rtx, dest_align, 0);
 	    }
 	  else if (!set_storage_via_setmem (dest_mem, len_rtx, val_rtx,
-					    dest_align))
+					    dest_align, expected_align,
+					    expected_size))
 	    goto do_libcall;
 
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
@@ -3702,7 +3721,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	    store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			     builtin_memset_read_str, &c, dest_align, 0);
 	  else if (!set_storage_via_setmem (dest_mem, len_rtx, GEN_INT (c),
-					    dest_align))
+					    dest_align, expected_align,
+					    expected_size))
 	    goto do_libcall;
 
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
@@ -3711,9 +3731,10 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	}
 
       set_mem_align (dest_mem, dest_align);
-      dest_addr = clear_storage (dest_mem, len_rtx,
-				 CALL_EXPR_TAILCALL (orig_exp)
-				 ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL);
+      dest_addr = clear_storage_hints (dest_mem, len_rtx,
+				       CALL_EXPR_TAILCALL (orig_exp)
+				       ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL,
+				       expected_align, expected_size);
 
       if (dest_addr == 0)
 	{
@@ -7016,7 +7037,7 @@ fold_fixed_mathfn (tree fndecl, tree arglist)
 static tree
 fold_builtin_cabs (tree arglist, tree type, tree fndecl)
 {
-  tree arg;
+  tree arg, res;
 
   if (!arglist || TREE_CHAIN (arglist))
     return NULL_TREE;
@@ -7026,27 +7047,12 @@ fold_builtin_cabs (tree arglist, tree type, tree fndecl)
       || TREE_CODE (TREE_TYPE (TREE_TYPE (arg))) != REAL_TYPE)
     return NULL_TREE;
 
-  /* Evaluate cabs of a constant at compile-time.  */
-  if (flag_unsafe_math_optimizations
-      && TREE_CODE (arg) == COMPLEX_CST
-      && TREE_CODE (TREE_REALPART (arg)) == REAL_CST
-      && TREE_CODE (TREE_IMAGPART (arg)) == REAL_CST
-      && !TREE_OVERFLOW (TREE_REALPART (arg))
-      && !TREE_OVERFLOW (TREE_IMAGPART (arg)))
-    {
-      REAL_VALUE_TYPE r, i;
-
-      r = TREE_REAL_CST (TREE_REALPART (arg));
-      i = TREE_REAL_CST (TREE_IMAGPART (arg));
-
-      real_arithmetic (&r, MULT_EXPR, &r, &r);
-      real_arithmetic (&i, MULT_EXPR, &i, &i);
-      real_arithmetic (&r, PLUS_EXPR, &r, &i);
-      if (real_sqrt (&r, TYPE_MODE (type), &r)
-	  || ! flag_trapping_math)
-	return build_real (type, r);
-    }
-
+  /* Calculate the result when the argument is a constant.  */
+  if (TREE_CODE (arg) == COMPLEX_CST
+      && (res = do_mpfr_arg2 (TREE_REALPART (arg), TREE_IMAGPART (arg),
+			      type, mpfr_hypot)))
+    return res;
+  
   /* If either part is zero, cabs is fabs of the other.  */
   if (TREE_CODE (arg) == COMPLEX_EXPR
       && real_zerop (TREE_OPERAND (arg, 0)))
@@ -9053,6 +9059,29 @@ fold_builtin_fmin_fmax (tree arglist, tree type, bool max)
   return NULL_TREE;
 }
 
+/* Fold a call to builtin carg(a+bi) -> atan2(b,a).  */
+
+static tree
+fold_builtin_carg(tree arglist, tree type)
+{
+  if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
+    {
+      tree atan2_fn = mathfn_built_in (type, BUILT_IN_ATAN2);
+      
+      if (atan2_fn)
+        {
+	  tree arg = builtin_save_expr (TREE_VALUE (arglist));
+	  tree r_arg = fold_build1 (REALPART_EXPR, type, arg);
+	  tree i_arg = fold_build1 (IMAGPART_EXPR, type, arg);
+	  tree newarglist = tree_cons (NULL_TREE, i_arg,
+				       build_tree_list (NULL_TREE, r_arg));
+	  return build_function_call_expr (atan2_fn, newarglist);
+	}
+    }
+  
+  return NULL_TREE;
+}
+
 /* Fold a call to __builtin_isnan(), __builtin_isinf, __builtin_finite.
    EXP is the CALL_EXPR for the call.  */
 
@@ -9331,8 +9360,23 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
 					TREE_VALUE (arglist)));
       break;
 
+    CASE_FLT_FN (BUILT_IN_CCOS):
+    CASE_FLT_FN (BUILT_IN_CCOSH):
+      /* These functions are "even", i.e. f(x) == f(-x).  */
+      if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
+        {
+	  tree narg = fold_strip_sign_ops (TREE_VALUE (arglist));
+	  if (narg)
+	    return build_function_call_expr (fndecl,
+					     build_tree_list (NULL_TREE, narg));
+	}
+      break;
+
     CASE_FLT_FN (BUILT_IN_CABS):
       return fold_builtin_cabs (arglist, type, fndecl);
+
+    CASE_FLT_FN (BUILT_IN_CARG):
+      return fold_builtin_carg (arglist, type);
 
     CASE_FLT_FN (BUILT_IN_SQRT):
       return fold_builtin_sqrt (arglist, type);

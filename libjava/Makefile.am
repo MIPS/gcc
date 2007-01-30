@@ -95,10 +95,6 @@ endif
 ## Compilers and compilation flags.
 ##
 
-if BASH_JAR
-bin_SCRIPTS += scripts/jar
-endif
-
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
@@ -189,6 +185,9 @@ libgcj_la_SOURCES = prims.cc jni.cc jvmti.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files)
 
+## We need to compile at least the interpreter this way.
+interpret.lo:  AM_CXXFLAGS += -fwrapv
+
 if USING_BOEHMGC
 libgcj_la_SOURCES += boehm.cc
 endif
@@ -240,7 +239,7 @@ libgcj_la_LIBADD = \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
-	$(LIBMAGIC) $(LIBFFI) $(ZLIBS) $(GCLIBS)
+	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/lang/Object.lo \
 	java/lang/Class.lo \
@@ -394,19 +393,6 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
-
-MYGCJH = gjavah
-
-$(generic_header_files): gcjh.stamp
-
-gcjh.stamp: classpath/lib/compile-classes
-if JAVA_MAINTAINER_MODE
-	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
-	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
-endif
-	echo > gcjh.stamp
-
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
@@ -418,6 +404,20 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
 	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
+
+generic_header_files = $(ordinary_header_files) $(inner_nat_headers) \
+	$(xlib_nat_headers)
+
+MYGCJH = gjavah
+
+$(generic_header_files): gcjh.stamp
+
+gcjh.stamp: classpath/lib/compile-classes
+if JAVA_MAINTAINER_MODE
+	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
+	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
+endif
+	echo > gcjh.stamp
 
 nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
@@ -678,6 +678,9 @@ endif !ENABLE_SHARED
 
 ecjx_LDADD = -L$(here)/.libs libgcj.la
 ecjx_DEPENDENCIES = libgcj.la libgcj.spec
+if USE_LIBGCJ_BC
+ecjx_DEPENDENCIES += libgcj_bc.la
+endif
 
 else !NATIVE
 

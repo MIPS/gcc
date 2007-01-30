@@ -1,3 +1,41 @@
+2007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* decl.c (pop_label): Replace warning with call to
+	warn_for_unused_label.
+
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* semantics.c (finish_pseudo_destructor_expr): Check the
+	destrutor name by calling check_dtor_name.
+
+2007-01-24  Douglas Gregor  <dgregor@osl.iu.edu>
+
+	* lex.c (D_CPP0X): Rename.
+	(D_CXX0X): To this.
+	(reswords): D_CPP0X -> D_CXX0X.
+	(init_reswords): Ditto.
+	* parser.c (cp_lexer_get_preprocessor_token): Warn about the use
+	of C++0x keywords as identifiers.
+
+2007-01-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* decl.c (duplicate_decls): Don't reset DECL_INVALID_OVERRIDER_P for
+	function decls.
+
+2007-01-23  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (convert_for_assignment): Only warn about a = b = c
+	when converting to bool.
+
+2007-01-23  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (null_ptr_cst_p): Replace use of TREE_CONSTANT_OVERFLOW with
+	TREE_OVERFLOW.
+	* typeck.c (ignore_overflows): Remove the remaining uses of
+	TREE_CONSTANT_OVERFLOW.
+
 2007-01-20  Jan Hubicka  <jh@suse.cz>
 
 	* decl2.c (start_objects, start_static_storage_duration_function):

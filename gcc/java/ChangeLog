@@ -1,3 +1,33 @@
+2007-01-30  Ben Elliston  <bje@au.ibm.com>
+
+	* jvspec.c (lang_specific_driver): Remove unused classpath_args.
+
+2007-01-29  Tom Tromey  <tromey@redhat.com>
+
+	PR java/30607:
+	* jvspec.c (lang_specific_driver): Handle separate -I argument.
+	* lang.opt (-I): Add 'Separate'.
+
+2007-01-29  Andrew Haley  <aph@redhat.com>
+
+	* class.c (add_method_1): Mark fndecl as external unless we are
+	compiling it into this object file.
+
+2007-01-24  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (HANDLE_SYNTHETIC_ATTRIBUTE): current_class is a
+	type node, not a decl, so use TYPE_SYNTHETIC not CLASS_SYNTHETIC.
+
+2007-01-22  Andrew Haley  <aph@redhat.com>
+
+	* builtins.c (VMSupportsCS8_builtin): New function.
+
+2007-01-23  Andrew Pinski  <pinskia@gmail.com>
+
+	PR java/30454
+	* jcf-io.c (opendir_in_zip): Close the file
+	and free zipf before returning after an error.
+
 2007-01-16  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.def: Added copyright header.

@@ -109,6 +109,8 @@ enum rid
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
+  RID_FIRST_CXX0X = RID_STATIC_ASSERT,
+  RID_LAST_CXX0X = RID_STATIC_ASSERT,
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
   RID_FIRST_PQ = RID_IN,
@@ -869,6 +871,7 @@ extern tree builtin_type_for_size (int, bool);
 extern void warn_array_subscript_with_type_char (tree);
 extern void warn_about_parentheses (enum tree_code, enum tree_code,
 				    enum tree_code);
+extern void warn_for_unused_label (tree label);
 
 
 /* In c-gimplify.c  */

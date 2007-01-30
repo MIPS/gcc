@@ -1243,9 +1243,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->base.unsigned_flag)
 
-#define TYPE_TRAP_SIGNED(NODE) \
-  (flag_trapv && ! TYPE_UNSIGNED (NODE))
-
 /* Nonzero in a VAR_DECL means assembler code has been written.
    Nonzero in a FUNCTION_DECL means that the function has been compiled.
    This is interesting in an inline function, since it might not need
@@ -2465,10 +2462,14 @@ struct tree_decl_minimal GTY(())
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
+
+  bitmap GTY ((skip)) aliases;
+
   unsigned int is_global:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+#define MTAG_ALIASES(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.aliases)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -4661,7 +4662,6 @@ extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
-extern tree tree_fold_gcd (tree, tree);
 extern tree build_addr (tree, tree);
 
 extern bool fields_compatible_p (tree, tree);
@@ -4951,5 +4951,9 @@ extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
 /* In expr.c.  */
 extern unsigned HOST_WIDE_INT highest_pow2_factor (tree);
+
+/* In tree-inline.c.  */
+
+void init_inline_once (void);
 
 #endif  /* GCC_TREE_H  */

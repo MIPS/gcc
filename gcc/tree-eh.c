@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1308,7 +1308,7 @@ decide_copy_try_finally (int ndests, tree finally)
     return false;
 
   /* Finally estimate N times, plus N gotos.  */
-  f_estimate = estimate_num_insns (finally);
+  f_estimate = estimate_num_insns (finally, &eni_size_weights);
   f_estimate = (f_estimate + 1) * ndests;
 
   /* Switch statement (cost 10), N variable assignments, N gotos.  */
@@ -1853,7 +1853,7 @@ tree_could_trap_p (tree expr)
 	  honor_nans = flag_trapping_math && !flag_finite_math_only;
 	  honor_snans = flag_signaling_nans != 0;
 	}
-      else if (INTEGRAL_TYPE_P (t) && TYPE_TRAP_SIGNED (t))
+      else if (INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t))
 	honor_trapv = true;
     }
 

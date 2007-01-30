@@ -1,3 +1,21 @@
+2007-01-24  Roger Sayle  <roger@eyesopen.com>
+
+	* decl.c (gnat_to_gnu_entity): Use TREE_OVERFLOW instead of
+	TREE_CONSTANT_OVERFLOW.
+	(allocatable_size_p, annotate_value): Likewise.
+	* trans.c (gnat_to_gnu): Likewise.
+	* utils.c (unchecked_convert): Likewise.
+	* utils2.c (build_simple_component_ref): Likewise.
+
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/30541
+	* Make-lang.in: Replace invocations of gnatmake with $(GNATMAKE).
+	(gnatboot2): Pass staged GNATMAKE instead of STAGE_PREFIX.
+	(gnatboot3): Likewise.
+	(GNATBIND): Do not define.
+	* Makefile.in (GNATBIND): Do not define.
+
 2007-01-08  Richard Guenther  <rguenther@suse.de>
 
 	* cuintp.c (build_cst_from_int): Use built_int_cst_type.

@@ -57,8 +57,7 @@ typedef struct forall_info
   tree maskindex;
   int nvar;
   tree size;
-  struct forall_info  *outer;
-  struct forall_info  *next_nest;
+  struct forall_info  *prev_nest;
 }
 forall_info;
 
@@ -1653,8 +1652,6 @@ gfc_trans_nested_forall_loop (forall_info * nested_forall_info, tree body,
   gfc_start_block (&header);
 
   forall_tmp = nested_forall_info;
-  while (forall_tmp->next_nest != NULL)
-    forall_tmp = forall_tmp->next_nest;
   while (forall_tmp != NULL)
     {
       /* Generate body with masks' control.  */
@@ -1671,7 +1668,7 @@ gfc_trans_nested_forall_loop (forall_info * nested_forall_info, tree body,
             }
         }
       body = gfc_trans_forall_loop (forall_tmp, body, mask_flag, &header);
-      forall_tmp = forall_tmp->outer;
+      forall_tmp = forall_tmp->prev_nest;
       mask_flag = 1;
     }
 
@@ -2043,7 +2040,7 @@ compute_overall_iter_number (forall_info *nested_forall_info, tree inner_size,
       /* First check whether all the bounds are constant.  */
       for (forall_tmp = nested_forall_info;
 	   forall_tmp;
-	   forall_tmp = forall_tmp->next_nest)
+	   forall_tmp = forall_tmp->prev_nest)
 	if (forall_tmp->mask || !INTEGER_CST_P (forall_tmp->size))
 	  {
 	    all_const_p = false;
@@ -2055,7 +2052,7 @@ compute_overall_iter_number (forall_info *nested_forall_info, tree inner_size,
 	  tree tmp = inner_size;
 	  for (forall_tmp = nested_forall_info;
 	       forall_tmp;
-	       forall_tmp = forall_tmp->next_nest)
+	       forall_tmp = forall_tmp->prev_nest)
 	    tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
 			       tmp, forall_tmp->size);
 	  return tmp;
@@ -2584,16 +2581,8 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
     }
 
   /* Link the current forall level to nested_forall_info.  */
-  if (nested_forall_info)
-    {
-      forall_info *forall_tmp = nested_forall_info;
-      while (forall_tmp->next_nest != NULL)
-        forall_tmp = forall_tmp->next_nest;
-      info->outer = forall_tmp;
-      forall_tmp->next_nest = info;
-    }
-  else
-    nested_forall_info = info;
+  info->prev_nest = nested_forall_info;
+  nested_forall_info = info;
 
   /* Copy the mask into a temporary variable if required.
      For now we assume a mask temporary is needed.  */
@@ -2712,6 +2701,9 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
   gfc_free (step);
   gfc_free (varexpr);
   gfc_free (saved_vars);
+
+  /* Free the space for this forall_info.  */
+  gfc_free (info);
 
   if (pmask)
     {
@@ -2878,7 +2870,8 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
 static tree
 gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2,
 			tree mask, bool invert,
-                        tree count1, tree count2)
+                        tree count1, tree count2,
+			gfc_symbol *sym)
 {
   gfc_se lse;
   gfc_se rse;
@@ -2992,8 +2985,12 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2,
     maskexpr = fold_build1 (TRUTH_NOT_EXPR, TREE_TYPE (maskexpr), maskexpr);
 
   /* Use the scalar assignment as is.  */
-  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
-				 loop.temp_ss != NULL, false);
+  if (sym == NULL)
+    tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
+				   loop.temp_ss != NULL, false);
+  else
+    tmp = gfc_conv_operator_assign (&lse, &rse, sym);
+
   tmp = build3_v (COND_EXPR, maskexpr, tmp, build_empty_stmt ());
 
   gfc_add_expr_to_block (&body, tmp);
@@ -3102,6 +3099,7 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
   tree ppmask = NULL_TREE;
   tree cmask = NULL_TREE;
   tree pmask = NULL_TREE;
+  gfc_actual_arglist *arg;
 
   /* the WHERE statement or the WHERE construct statement.  */
   cblock = code->block;
@@ -3213,13 +3211,29 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
           switch (cnext->op)
             {
             /* WHERE assignment statement.  */
+	    case EXEC_ASSIGN_CALL:
+
+	      arg = cnext->ext.actual;
+	      expr1 = expr2 = NULL;
+	      for (; arg; arg = arg->next)
+		{
+		  if (!arg->expr)
+		    continue;
+		  if (expr1 == NULL)
+		    expr1 = arg->expr;
+		  else
+		    expr2 = arg->expr;
+		}
+	      goto evaluate;
+
             case EXEC_ASSIGN:
               expr1 = cnext->expr;
               expr2 = cnext->expr2;
+    evaluate:
               if (nested_forall_info != NULL)
                 {
                   need_temp = gfc_check_dependency (expr1, expr2, 0);
-                  if (need_temp)
+                  if (need_temp && cnext->op != EXEC_ASSIGN_CALL)
                     gfc_trans_assign_need_temp (expr1, expr2,
 						cmask, invert,
                                                 nested_forall_info, block);
@@ -3233,7 +3247,8 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
 
                       tmp = gfc_trans_where_assign (expr1, expr2,
 						    cmask, invert,
-						    count1, count2);
+						    count1, count2,
+						    cnext->resolved_sym);
 
                       tmp = gfc_trans_nested_forall_loop (nested_forall_info,
                                                           tmp, 1);
@@ -3250,7 +3265,8 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
 
                   tmp = gfc_trans_where_assign (expr1, expr2,
 						cmask, invert,
-						count1, count2);
+						count1, count2,
+						cnext->resolved_sym);
                   gfc_add_expr_to_block (block, tmp);
 
                 }

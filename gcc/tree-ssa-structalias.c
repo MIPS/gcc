@@ -1538,9 +1538,9 @@ do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
       if (flag)
 	{
 	  get_varinfo (t)->solution = tmp;
-	  if (!TEST_BIT (changed, c->lhs.var))
+	  if (!TEST_BIT (changed, t))
 	    {
-	      SET_BIT (changed, c->lhs.var);
+	      SET_BIT (changed, t);
 	      changed_count++;
 	    }
 	}
@@ -2051,9 +2051,10 @@ solve_graph (constraint_graph_t graph)
 	  if (find (i) != i)
 	    continue;
 
-	  eliminate_indirect_cycles (i);
-
-	  gcc_assert (find (i) == i);
+	  /* In certain indirect cycle cases, we may merge this
+	     variable to another.  */
+	  if (eliminate_indirect_cycles (i) && find(i) != i)
+	    continue;
 
 	  /* If the node has changed, we need to process the
 	     complex constraints and outgoing edges again.  */
@@ -2064,6 +2065,7 @@ solve_graph (constraint_graph_t graph)
 	      bitmap solution;
 	      VEC(constraint_t,heap) *complex = graph->complex[i];
 	      bool solution_empty;
+
 	      RESET_BIT (changed, i);
 	      changed_count--;
 
@@ -4324,7 +4326,7 @@ merge_smts_into (tree p, varinfo_t vi)
   unsigned int i;
   bitmap_iterator bi;
   tree smt;
-  VEC(tree, gc) *aliases;
+  bitmap aliases;
   tree var = p;
 
   if (TREE_CODE (p) == SSA_NAME)
@@ -4348,15 +4350,9 @@ merge_smts_into (tree p, varinfo_t vi)
 	    bitmap_set_bit (vi->finished_solution, i);
 	}
 
-      aliases = var_ann (smt)->may_aliases;
+      aliases = MTAG_ALIASES (smt);
       if (aliases)
-	{
-	  size_t k;
-	  tree al;
-	  for (k = 0; VEC_iterate (tree, aliases, k, al); k++)
-	    bitmap_set_bit (vi->finished_solution,
-			    DECL_UID (al));
-	}
+        bitmap_ior_into (vi->finished_solution, aliases);
     }
 }
 

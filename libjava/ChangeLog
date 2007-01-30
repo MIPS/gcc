@@ -1,3 +1,217 @@
+2007-01-29  Kyle Galloway  <kgallowa@redhat.com>
+
+	* include/java-interp.h:  Added _Jv_Frame class and its two
+	subclasses _Jv_InterpFrame and _Jv_NativeFrame.  Also moved
+	_Jv_FrameType from java-stack.h.
+	* include/java-stack.h: Removed _Jv_FrameType.
+	* java/lang/Thread.java: Added frame member to hold new
+	composite frame stack.
+	* java/lang/Thread.h: Regenerated.
+	* java/lang/Thread.class: Rebuilt.
+	* jni.cc (_Jv_JNIMethod::call): Push a frame onto the stack when
+	calling a JNI method.
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): New Method.
+	(_Jv_JVMTI_GetFrameCount): New method.
+	* stacktrace.cc (UnwindTraceFn): Modified to use new _Jv_Frame
+	classes.
+	* testsuite/libjava.jvmti/interp/getstacktrace.jar: New test.
+	* testsuite/libjava.jvmti/interp/natgetstacktrace.cc: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.h: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.jar: New test.
+	* testsuite/libjava.jvmti/interp/getstacktrace.out: Output file
+	for test. 
+
+2007-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (run_debug): Remove comment.
+	(STOREA): Reformat.
+	(STOREI): Likewise.
+	(STOREF): Likewise.
+	(STOREL): Likewise.
+	(STORED): Likewise.
+	(POKEI): Likewise.
+	(run_normal_debug): Likewise.
+	(run_synch_object_debug): Likewise.
+	(run_class_debug): Likewise.
+	(run_synch_class_debug): Likewise.
+	(get1s): Likewise.
+	(get1u): Likewise.
+	(get2u): Likewise.
+	(get4): Likewise.
+	(NULLARRAYCHECK): Likewise.
+	(ARRAYBOUNDSCHECK): Likewise.
+	* interpret-run.cc (insn_target) <breakpoint>: Tidy.
+
+2007-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* configure, Makefile.in: Rebuilt.
+	* Makefile.am (bin_SCRIPTS): Never install scripts/jar.
+	* configure.ac (BASH_JAR): Removed conditional.
+	(JAR): Prefer the jar found by AC_CHECK_PROGS.
+
+2007-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (interpret.lo): New target.  Add -fwrap to
+	AM_CXXFLAGS.
+
+2007-01-29  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti_md.h (_CLASSPATH_VM_JVMTI_TYPES_DEFINED):
+	Define.
+	[__GCJ_JNI_IMPL__]: Define our own JVMTI types when building
+	gcj. All jvmti object types now are defined to be their
+	corresponding java classes.
+	* jvmti.cc (_Jv_JVMTI_SuspendThread): Remove casting from
+	jthread to Thread*.
+	(_Jv_JVMTI_ResumeThread): Likewise.
+	(_Jv_JVMTI_InterruptThread): Likewise.
+	(_Jv_JVMTI_SetEventNotificationMode): Likewise.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpClassPrepareCB): Likewise.
+	(jdwpThreadEndCB): Likewise.
+	(jdwpThreadStartCB): Likewise.
+	(jdwpVMInitCB): Likewise.
+ 
+2007-01-28  Michele Sandri  <gpointorama@gmail.com>
+
+	* gnu/java/nio/channels/natFileChannelWin32.cc
+	(lock): Implemented.
+	(unlock): Implemented.
+
+2007-01-27  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/30513
+	* configure.host: Add forgottten sysdep_dir to sparc. Add a flag to
+	libgcj_flags to undefine 'sun' at compile time.
+	* sysdep/sparc/locks.h (read_barrier): New functions for 32 and 64 bit
+	Sparc.
+	(write_barrier): Likewise.
+
+2007-01-27  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getAllClassMethods): Move error handling to ...
+	(throw_jvmti_error): ... here.
+	(jdwpClassPrepareCB): New function.
+	(jdwpThreadEndCB): New function.
+	(jdwpThreadStartCB): New function.
+	(jdwpVMDeathCB): New function.
+	(jdwpVMInitCB): Define and enable callbacks for
+	ClassPrepare, ThreadEnd, ThreadStart, and VMDeath.
+
+2007-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (generic_header_files): Add $(inner_nat_headers).
+	* testsuite/Makefile.am (check-dejaGNU): Depend on compile-tests.
+	(MYGCJH): New variable.
+	(compile-tests): New goal.
+	* Makefile.in: Rebuilt.
+	* testsuite/Makefile.in: Rebuilt.
+
+2007-01-26  Tom Tromey  <tromey@redhat.com>
+
+	* Updated headers.
+
+2007-01-25  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29594:
+	* gnu/gcj/convert/Convert.java (main): Correctly handle missing
+	input or output encodings.  Removed unused local variables.
+
+2007-01-25  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti-int.h (_Jv_GetJDWP_JVMTIEnv): Declare.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(_Jv_GetJDWP_JVMTIEnv): New function.
+	* gnu/classpath/jdwp/natVMMethod.cc (getName): Implement.
+	(getSignature): Implement.
+	(getModifiers): Implement.
+
+2007-01-25  Andrew Haley  <aph@redhat.com>
+
+	* configure, Makefile.in, include/config.h.in: Rebuilt.
+	* Makefile.am (libgcj_la_LIBADD): Removed $(LIBMAGIC).
+	* configure.ac: Don't check for libmagic.
+	* java/net/natVMURLConnection.cc (p_magic_open, p_magic_load,
+	p_magic_close, p_magic_buffer): New globals.
+	(init): Look up 'magic' functions.
+	(guessContentTypeFromBuffer): Updated.
+
+2007-01-25  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetMethodName): New function.
+	(_Jv_JVMTI_Interface): Define GetMethodName.
+	* testsuite/libjava.jvmti/getmethodname.java: New file.
+	* testsuite/libjava.jvmti/natgetmethodname.cc: New file.
+	* testsuite/libjava.jvmti/getmethodname.out: New file. 
+
+2007-01-24  Kyle Galloway  <kgallowa@redhat.com>
+
+    * libjava/testsuite/libjava.jvmti/jvmti-interp.exp: New file.
+    * libjava/testsuite/libjava.jvmti/interp: New folder.
+    * libjava/testsuite/lib/libjava.exp (exec_gij): New Method.
+
+2007-01-24  Keith Seitz  <keiths@redhat.com>
+
+	* link.cc (_Jv_Linker::wait_for_state): Add JVMTI
+	CLASS_PREPARE notification.
+
+2007-01-24  Keith Seitz  <keiths@redhat.com>
+
+	* interpret.cc: Include gnu/gcj/jvmti/Breakpoint.h,
+	gnu/gcj/jvmti/BreakpointManager.h, jvmti.h, and jvmti-int.h
+	* interpret-run.cc: Implement insn_breakpoint.
+
+2007-01-24  Keith Seitz  <keiths@redhat.com>
+
+	* prims.cc (_Jv_RunMain): Send JVMTI event notifications
+	for VM_INIT and VM_DEATH instead of the JDWP notifications.
+
+2007-01-24  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getAllClassMethods): Implement.
+
+2007-01-24  Andrew Haley  <aph@redhat.com>
+
+	* gnu/classpath/natVMStackWalker.cc: Call InitClass everywhere.
+	(getClassContext) Add a barrier to prevent GetStackWalkerStack()
+	from being sibcalled.
+
+2007-01-24  Andrew Haley  <aph@redhat.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Set the source filename.
+	* sources.am: Rebuild.
+
+2007-01-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* exception.cc (parse_lsda_header, PERSONALITY_FUNCTION): Replaced
+	_Unwind_Word with _uleb128_t and _Unwind_SWord with _sleb128_t.
+
+2007-01-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/30550
+	* Makefile.am (ecjx_DEPENDENCIES): Add libgcj_bc.la if needed.
+	* Makefile.in: Regenerated.
+
+2007-01-22  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getClassMethod): Implement.
+
+2007-01-22  Keith  Seitz  <keiths@redhat.com>
+
+	* java/lang/Class.h (_Jv_GetClassStatus): Declare.
+	* java/lang/natClass.cc (_Jv_GetClassStatus): New function.
+	* jvmti.cc (_Jv_JVMTI_GetClassStatus): New function.
+	(_Jv_JVMTI_Interface): Define GetClassStatus.
+
+2007-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac (GCJ): Reverted patch of 2006-12-20.
+
 2007-01-22  Tom Tromey  <tromey@redhat.com>
 
 	PR java/29812:

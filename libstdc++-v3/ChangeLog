@@ -1,3 +1,99 @@
+2007-01-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_uninitialized.h (uninitialized_copy(const char*,
+	const char*, char*), uninitialized_copy(const wchar_t*, const wchar_t*,
+	wchar_t*)): Remove, just forward to std::copy.
+
+2007-01-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/enc_filebuf.h: Resurrect, update.
+	* include/ext/codecvt_specializations.h: Remove
+        _GLIBCXX_USE_ICONV, _GLIBCXX_USE_ENCODING_STATE.
+	* include/bits/localefwd.h: Remove declaration for __enc_traits.
+	* docs/html/22_locale/codecvt.html: Change __enc_traits to
+	encoding_state.
+	* scripts/testsuite_flags.in: Remove ICONV.
+
+	* configure.ac: Remove GLIBCXX_CHECK_ICONV_SUPPORT.
+	* acinclude.m4 (GLIBCXX_CHECK_ICONV_SUPPORT): Remove.
+	* crossconfig.m4: Remove use of GLIBCXX_CHECK_ICONV_SUPPORT.
+	* config.h.in: Remove HAVE_ICONV_CLOSE, HAVE_ICONV_OPEN,
+	HAVE_NL_LANGINFO, _GLIBCXX_USE_ICONV.
+	* include/Makefile.am: Uglify ICONV_CONST.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Use
+	dg-require-iconv, fix up for encoding_state changes.
+	* testsuite/ext/enc_filebuf/char/13189.cc: Same.
+	* testsuite/ext/enc_filebuf/char/13598.cc: Same.
+	* testsuite/22_locale/codecvt/unicode: Move...
+	* testsuite/22_locale/codecvt/unicode/char.cc: Move...
+	* testsuite/22_locale/codecvt/unicode/1.cc: Move...
+	* testsuite/22_locale/codecvt/unicode/wchar_t.cc: Move...
+	* testsuite/ext/codecvt: New.
+	* testsuite/ext/codecvt/char-1.cc: ...here. Also, use dg-require-iconv.
+	* testsuite/ext/codecvt/char-2.cc: ...here. Same.
+	* testsuite/ext/codecvt/1.cc: ...here. Same.
+	* testsuite/ext/codecvt/wchar_t.cc: ...here. Same.
+	* testsuite/22_locale/locale/cons/unicode: Delete directory.
+	* testsuite/22_locale/locale/cons/unicode/1.cc: Move...
+	* testsuite/22_locale/locale/cons/unicode.cc: ...here.
+
+2007-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(iter_type,
+	iter_type, ios_base&, ios_base::iostate&, bool&),
+	num_put<>::_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT)):
+	-Wconversion and -Woverflow fixes.
+	* include/bits/istream.tcc (operator>>(int&), operator>>(short&)):
+	Likewise.
+	* include/std/valarray (valarray<>::shift, cshift): Likewise.
+
+2007-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30586
+	* config/cpu/ia64/atomic_word.h: Just include <bits/cxxabi_tweaks.h>.
+	* testsuite/abi/30586.cc: New.
+
+2007-01-25  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/streambuf_iterator.h (istreambuf_iterator<>::equal):
+	Simplify.
+
+2007-01-24   Steve LoBasso <slobasso@yahoo.com>
+	     Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc (deque<>::erase(iterator, iterator)):
+	Fix condition.
+	* testsuite/23_containers/deque/modifiers/erase/3.cc: New.
+
+2007-01-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* libsupc++/eh_personality.cc  (PERSONALITY_FUNCTION): Replace
+	_Unwind_Word with _uleb128_t in the SJLJ context.
+
+2007-01-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29722 continued
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Add
+	libsupc++ library directory.
+	* testsuite/abi/cxx_runtime_only_linkage.cc: Remove hard-coded
+	path specification.
+	
+2007-01-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* libsupc++/eh_personality.cc (parse_lsda_header, check_exception_spec,
+	get_ttype_entry, empty_exception_spec, PERSONALITY_FUNCTION): Replaced
+	_Unwind_Word with _uleb128_t and _Unwind_SWord with _sleb128_t.
+
 2007-01-22  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algobase.h (__fill_aux(unsigned char*,

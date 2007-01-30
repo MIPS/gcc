@@ -1,3 +1,225 @@
+2007-01-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/dfp-except.h: New file.
+	* gcc.dg/dfp/fe-check.h: New file.
+	* gcc.dg/dfp/fe-binop.c: New test.
+	* gcc.dg/dfp/fe-convert-1.c: New test.
+	* gcc.dg/dfp/fe-convert-2.c: New test.
+	* gcc.dg/dfp/fe-convert-3.c: New test.
+
+	* gcc.dg/dfp/dec-eval-method.c: Replace decfloat.h with float.h.
+	* gcc.dg/dfp/decfloat-constants.c: Ditto.
+	* gcc.dg/dfp/convert-dfp.c: Ditto.
+	* gcc.dg/dfp/convert-int-saturate.c: Ditto.
+
+2007-01-29  Josh Conner  <jconner@apple.com>
+
+	* gcc.target/powerpc/altivec-24.c: New test.
+
+2007-01-29  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/28266
+	* g++.dg/parse/defarg12.C: New test.
+
+2007-01-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30554
+	* gfortran.dg/used_dummy_types_6.f90: New test.
+
+2007-01-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-prof/val-prof-6.c: New test.
+
+2007-01-28  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/large-size-array-3.c: Correct test case (portability).
+
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* g++.dg/expr/dtor4.C: New test.
+
+2007-01-28  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-23.c: New test.
+
+2007-01-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30389
+	* gfortran.dg/achar_2.f90:  New test.
+	* gfortran.dg/achar_3.f90:  New test.
+
+2007-01-27  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/strict-overflow-1.c: New test.
+	* gcc.dg/no-strict-overflow-1.c: New test.
+	* gcc.dg/strict-overflow-2.c: New test.
+	* gcc.dg/no-strict-overflow-2.c: New test.
+	* gcc.dg/strict-overflow-3.c: New test.
+	* gcc.dg/no-strict-overflow-3.c: New test.
+	* gcc.dg/strict-overflow-4.c: New test.
+	* gcc.dg/no-strict-overflow-4.c: New test.
+	* gcc.dg/fold-mod-1.c: Add -fstrict-overflow option.
+	* gcc.dg/pr15784-1.c: Likewise.
+	* gcc.dg/pr20922-1.c: Likewise.
+	* gcc.dg/pr20922-3.c: Likewise.
+	* gcc.dg/pr20922-4.c: Likewise.
+	* gcc.dg/pr20922-6.c: Likewise.
+	* gcc.dg/compare-4.c: Likewise.
+	* gcc.dg/torture/pr26898-1.c: Likewise.
+	* gcc.dg/tree-ssa/divide-1.c: Likewise.
+	* gcc.dg/tree-ssa/divide-2.c: Likewise.
+	* gcc.dg/tree-ssa/divide-3.c: Likewise.
+	* gcc.dg/tree-ssa/divide-4.c: Likewise.
+	* gcc.dg/tree-ssa/pr14490-1.c: Likewise.
+	* gcc.dg/tree-ssa/pr14490-3.c: Likewise.
+	* gcc.dg/tree-ssa/pr21082.c: Likewise.
+	* gcc.dg/tree-ssa/pr26899.c: Likewise.
+	* g++.dg/tree-ssa/pr21082.C: Likewise.
+
+2007-01-27  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc-dg/large-size-array-3.c: New test case.
+
+2007-01-27  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/forall_7.f90: New test case.
+
+2007-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30407
+	* gfortran.dg/where_operator_assign_1.f90: New test.
+	* gfortran.dg/where_operator_assign_2.f90: New test.
+	* gfortran.dg/where_operator_assign_3.f90: New test.
+
+2007-01-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_powerpc_altivec): New.
+	(check_effective_target_vect_cmdline_needed): Use it.
+
+2007-01-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30278
+	* gfortran.dg/backslash_3.f: New test.
+
+2007-01-26  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr23382.c: Fix typo.
+
+2007-01-26  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/gomp/gomp.exp: Support .f03 extension.
+	* gfortran.dg/vect/vect.exp: Ditto.
+	* gfortran.dg/dg.exp: Ditto.
+	* gfortran.fortran-torture/execute/execute.exp: Ditto.
+	* gfortran.fortran-torture/compile/compile.exp: Ditto.
+
+2007-01-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases.
+	* gcc.dg/torture/builtin-symmetric-1.c: Likewise.
+
+2007-01-25  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR fortran/30437
+	* gcc.dg/Wall.c: New.
+	* gcc.dg/Wno-all.c: New.
+	* gfortran.dg/Wall.f90: New.
+	* gfortran.dg/Wno-all.f90: New.
+	
+2007-01-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.target/powerpc/darwin-ehreturn-1.c: New.
+	* g++.dg/eh/simd-2.C: Also run on Darwin.
+	* g++.dg/eh/simd-3.C: New.
+	* g++.dg/eh/simd-4.C: New.
+
+2007-01-25  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-prof/tree-prof.exp: Define _PROFILE_GENERATE
+	and _PROFILE_USE.
+	* gcc.dg/tree-prof/wcoverage-mismatch.c: New testcase.
+
+2007-01-25  Razya Ladelsky  <razya@il.ibm.com>
+
+	* gcc.dg/ipa/ipa-1.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-2.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-3.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-4.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-5.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-6.c: Update scan tree dump.
+	* gcc.dg/ipa/ipa-7.c: New testcase.
+
+2007-01-24  Douglas Gregor  <dgregor@osl.iu.edu>
+
+	* g++.dg/cpp0x/warn_cxx0x.C: New.
+
+2007-01-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Test builtin carg.
+
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27416
+	* gcc.dg/gomp/pr27416.c: New test.
+
+	PR middle-end/30494
+	* gcc.dg/gomp/pr30494.c: New test.
+	* g++.dg/gomp/pr30494.C: New test.
+
+	PR middle-end/30421
+	* gcc.dg/gomp/pr30421.c: New test.
+
+2007-01-24  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.target/ia64/versionid-1.c: New test.
+	* gcc.target/ia64/versionid-2.c: New test.
+
+2007-01-24  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/30181
+	* gcc.dg/builtins-57.c: Change to a link-time testcase
+	to support non-C99 targets.
+
+2007-01-24  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/pr23382.c: Avoid DCE from eliminating dead variable.
+
+2007-01-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.c-torture/compile/sizeof-macros-1.c: New testcase.
+
+2007-01-23  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/27438
+	* objc.dg/const-str-12.m: New test.
+
+2007-01-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30532
+	* gfortran.dg/ctrl-z.f90:  New test.
+	
+2007-01-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30481
+	* gfortran.dg/namelist_assumed_char.f90:  New test.
+
+2007-01-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* g++.dg/inherit/covariant15.C: New test.
+
+2007-01-23  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/warn/Wparentheses-24.C: New test.
+
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/30560
+	* ada/acats/run_acats: Do not call gnatmake or gnatchop
+	with full path.
+
 2007-01-29  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-ponit/addsub.c: New test to check if GCC warns when

@@ -1,3 +1,23 @@
+2007-01-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (dec-filenames): Add decExcept.
+
+2007-01-28  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	PR bootstrap/30469
+	* Makefile.in (CFLAGS): Forcibly remove -fprofile-generate and
+	-fprofile-use.
+
+2007-01-25  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure.ac: Add --enable-version-specific-runtime-libs.
+	Correct $slibdir default.
+	* configure: Regenerated.
+
+2007-01-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/t-ldbl128: Always use -mlong-double-128.
+
 2007-01-21  Andrew Pinski  <pinskia@gmail.com>
 
 	PR target/30519
