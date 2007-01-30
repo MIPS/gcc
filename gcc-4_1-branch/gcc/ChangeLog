@@ -1,6 +1,9 @@
 2007-01-30  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline:
+	* doc/extend.texi (Decimal Floating Types): Remove decfloat.h from
+	the list of discrepancies from the draft TR.
+
 	* config/dfp-bit.c: Add parameterized support for fp exceptions.
 	* config/dfp-bit.h: Ditto.
 	* mklibgcc.in: Use decExcept.c.
