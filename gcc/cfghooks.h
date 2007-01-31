@@ -174,6 +174,8 @@ extern void lv_adjust_loop_header_phi (basic_block, basic_block, basic_block,
 extern void lv_add_condition_to_bb (basic_block, basic_block, basic_block,
 				    void *);
 
+extern void rtl_delete_block_not_barriers (basic_block);
+
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;
 extern struct cfg_hooks rtl_cfg_hooks;

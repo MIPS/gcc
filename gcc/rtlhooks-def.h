@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #define RTL_HOOKS_REG_NONZERO_REG_BITS reg_nonzero_bits_general
 #define RTL_HOOKS_REG_NUM_SIGN_BIT_COPIES reg_num_sign_bit_copies_general
 #define RTL_HOOKS_REG_TRUNCATED_TO_MODE reg_truncated_to_mode_general
+#define RTL_HOOKS_INSN_ADDED NULL
 
 /* The structure is defined in rtl.h.  */
 #define RTL_HOOKS_INITIALIZER {			\
@@ -36,6 +37,7 @@ Boston, MA 02110-1301, USA.  */
   RTL_HOOKS_REG_NONZERO_REG_BITS,		\
   RTL_HOOKS_REG_NUM_SIGN_BIT_COPIES,		\
   RTL_HOOKS_REG_TRUNCATED_TO_MODE,		\
+  RTL_HOOKS_INSN_ADDED                          \
 }
 
 extern rtx gen_lowpart_general (enum machine_mode, rtx);

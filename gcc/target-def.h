@@ -310,6 +310,11 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SCHED_IS_COSTLY_DEPENDENCE 0
 #define TARGET_SCHED_ADJUST_COST_2 0
 #define TARGET_SCHED_H_I_D_EXTENDED 0
+#define TARGET_SCHED_ALLOC_SCHED_CONTEXT 0
+#define TARGET_SCHED_INIT_SCHED_CONTEXT 0
+#define TARGET_SCHED_SET_SCHED_CONTEXT 0
+#define TARGET_SCHED_CLEAR_SCHED_CONTEXT 0
+#define TARGET_SCHED_FREE_SCHED_CONTEXT 0
 #define TARGET_SCHED_SPECULATE_INSN 0
 #define TARGET_SCHED_NEEDS_BLOCK_P 0
 #define TARGET_SCHED_GEN_CHECK 0
@@ -339,6 +344,11 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_IS_COSTLY_DEPENDENCE,                           \
    TARGET_SCHED_ADJUST_COST_2,                                  \
    TARGET_SCHED_H_I_D_EXTENDED,					\
+   TARGET_SCHED_ALLOC_SCHED_CONTEXT,                            \
+   TARGET_SCHED_INIT_SCHED_CONTEXT,                             \
+   TARGET_SCHED_SET_SCHED_CONTEXT,                              \
+   TARGET_SCHED_CLEAR_SCHED_CONTEXT,                            \
+   TARGET_SCHED_FREE_SCHED_CONTEXT,                             \
    TARGET_SCHED_SPECULATE_INSN,                                 \
    TARGET_SCHED_NEEDS_BLOCK_P,                                  \
    TARGET_SCHED_GEN_CHECK,                                      \

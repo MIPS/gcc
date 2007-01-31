@@ -527,6 +527,51 @@ DEFPARAM(PARAM_SCHED_SPEC_PROB_CUTOFF,
          "The minimal probability of speculation success (in percents), so that speculative insn will be scheduled.",
          40, 0, 100)
 
+DEFPARAM(PARAM_SELSCHED_VERBOSE,
+         "selsched-verbose",
+         "Override sched-verbose for sel-sched pass",
+         0, 0, 0)
+
+DEFPARAM(PARAM_SELSCHED_DUMP_CFG_FLAGS,
+         "selsched-dump-cfg-flags",
+         "Override sel_dump_cfg_flags",
+         0, 0, 0)
+
+DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
+         "selsched-max-lookahead",
+         "The maximum size of the lookahead window of selective scheduling",
+         32, 0, 0)
+
+DEFPARAM(PARAM_ALLOW_START,
+         "allow_start",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_ALLOW_STOP,
+         "allow_stop",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_ALLOW_P,
+         "allow_p",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_REGION_START,
+         "region-start",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_REGION_STOP,
+         "region-stop",
+         "Allow something",
+         0, 0, 0)
+
+DEFPARAM(PARAM_REGION_P,
+         "region-p",
+         "Allow something",
+         0, 0, 0)
+
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
 	 "The maximum number of RTL nodes that can be recorded as combiner's last value",

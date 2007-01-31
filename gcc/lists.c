@@ -265,4 +265,17 @@ copy_DEPS_LIST_list (rtx list)
   return res;
 }
 
+/* Remove and free the first node in the INSN_LIST pointed to by LISTP.  */
+rtx
+remove_free_INSN_LIST_node (rtx *listp)
+{
+  rtx node = *listp;
+  rtx elem = XEXP (node, 0);
+
+  remove_list_node (listp);
+  free_INSN_LIST_node (node);
+
+  return elem;
+}
+
 #include "gt-lists.h"

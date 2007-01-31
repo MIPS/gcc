@@ -807,6 +807,53 @@ fschedule-insns2
 Common Report Var(flag_schedule_insns_after_reload)
 Reschedule instructions after register allocation
 
+; This flag should be on when a target implements non-trivial
+; scheduling hooks, maybe saving some information for its own sake.
+; On IA64, for example, this is used for correct bundling. 
+fsel-sched-emulate-haifa
+Common Report Var(flag_schedule_emulate_haifa) Init(1)
+Emulate Haifa scheduler for better cooperation with the target 
+
+fselective-scheduling
+Common Report Var(flag_selective_scheduling)
+Schedule instructions using selective scheduling algorithm
+
+fsel-sched-bookkeeping
+Common Report Var(flag_sel_sched_bookkeeping) Init(1)
+Schedule instructions that are below join point
+
+fsel-sched-pipelining
+Common Report Var(flag_sel_sched_pipelining) Init(1)
+Perform software pipelining during selective scheduling
+
+fsel-sched-pipelining-verbose
+Common Report Var(flag_sel_sched_pipelining_verbose) Init(0)
+Be verbose when doing software pipelining
+
+fsel-sched-renaming
+Common Report Var(flag_sel_sched_renaming) Init(0)
+Do register renaming in selective scheduling
+
+fsel-sched-substitution
+Common Report Var(flag_sel_sched_substitution) Init(0)
+Perform substitution in selective scheduling
+
+fsel-sched-verbose
+Common Report Var(flag_sel_sched_verbose) Init(0)
+Be verbose when running selective scheduling
+
+fsel-sched-dump-cfg
+Common Report Var(flag_sel_sched_dump_cfg) Init(0)
+Dump CFG information during selective scheduling pass.
+
+fsel-sched-single-block-regions
+Common Report Var(flag_sel_sched_single_block_regions) Init(0)
+Run selective scheduling on single-block regions
+
+fsel-sched-ebb-regions
+Common Report Var(flag_sel_sched_ebb_regions) Init(0)
+Run selective scheduling on extended basic block regions.
+
 ; sched_stalled_insns means that insns can be moved prematurely from the queue
 ; of stalled insns into the ready list.
 fsched-stalled-insns

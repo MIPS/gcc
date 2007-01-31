@@ -144,4 +144,12 @@ msched-count-spec-in-critical-path
 Common Report Var(mflag_sched_count_spec_in_critical_path) Init(0)
 Count speculative dependencies while calculating priority of instructions
 
+msel-sched-renaming
+Common Report Var(mflag_sel_sched_renaming) Init(1)
+Do register renaming in selective scheduling
+
+msel-sched-substitution
+Common Report Var(mflag_sel_sched_substitution) Init(0)
+Perform substitution in selective scheduling
+
 ; This comment is to ensure we retain the blank line above.

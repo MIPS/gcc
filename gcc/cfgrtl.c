@@ -78,6 +78,7 @@ static basic_block rtl_split_block (basic_block, void *);
 static void rtl_dump_bb (basic_block, FILE *, int);
 static int rtl_verify_flow_info_1 (void);
 static void rtl_make_forwarder_block (edge);
+static rtx get_last_bb_insn_1 (basic_block, bool);
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
@@ -346,16 +347,17 @@ cfg_layout_create_basic_block (void *head, void *end, basic_block after)
   return newbb;
 }
 
+
 /* Delete the insns in a (non-live) block.  We physically delete every
    non-deleted-note insn, and update the flow graph appropriately.
-
+   If INCLUDE_BARRIERS_P is true, also delete barriers after the block.
    Return nonzero if we deleted an exception handler.  */
 
 /* ??? Preserving all such notes strikes me as wrong.  It would be nice
    to post-process the stream to remove empty blocks, loops, ranges, etc.  */
 
 static void
-rtl_delete_block (basic_block b)
+rtl_delete_block_1 (basic_block b, bool include_barriers_p)
 {
   rtx insn, end;
 
@@ -366,7 +368,7 @@ rtl_delete_block (basic_block b)
   if (LABEL_P (insn))
     maybe_remove_eh_handler (insn);
 
-  end = get_last_bb_insn (b);
+  end = get_last_bb_insn_1 (b, include_barriers_p);
 
   /* Selectively delete the entire chain.  */
   BB_HEAD (b) = NULL;
@@ -378,6 +380,20 @@ rtl_delete_block (basic_block b)
       b->il.rtl->global_live_at_start = NULL;
       b->il.rtl->global_live_at_end = NULL;
     }
+}
+
+/* Delete the insns in a block B together with any barriers after it.  */
+static void
+rtl_delete_block (basic_block b)
+{
+  rtl_delete_block_1 (b, true);
+}
+
+/* The same as above, but after-block barriers are left untouched.  */
+void
+rtl_delete_block_not_barriers (basic_block b)
+{
+  rtl_delete_block_1 (b, false);
 }
 
 /* Records the basic block struct in BLOCK_FOR_INSN for every insn.  */
@@ -1649,10 +1665,10 @@ update_br_prob_note (basic_block bb)
   XEXP (note, 0) = GEN_INT (BRANCH_EDGE (bb)->probability);
 }
 
-/* Get the last insn associated with block BB (that includes barriers and
-   tablejumps after BB).  */
-rtx
-get_last_bb_insn (basic_block bb)
+/* Get the last insn associated with block BB (that includes tablejumps and, if
+   INCLUDE_BARRIERS_P, barriers after BB).  */
+static rtx
+get_last_bb_insn_1 (basic_block bb, bool include_barriers_p)
 {
   rtx tmp;
   rtx end = BB_END (bb);
@@ -1661,16 +1677,29 @@ get_last_bb_insn (basic_block bb)
   if (tablejump_p (end, NULL, &tmp))
     end = tmp;
 
-  /* Include any barriers that may follow the basic block.  */
-  tmp = next_nonnote_insn (end);
-  while (tmp && BARRIER_P (tmp))
+  if (include_barriers_p)
+    /* Include any barriers that may follow the basic block.  */
     {
-      end = tmp;
       tmp = next_nonnote_insn (end);
+
+      while (tmp != NULL_RTX && BARRIER_P (tmp))
+	{
+	  end = tmp;
+	  tmp = next_nonnote_insn (end);
+	}
     }
 
   return end;
 }
+
+/* Get the last insn associated with block BB (that includes barriers and
+   tablejumps after BB).  */
+rtx
+get_last_bb_insn (basic_block bb)
+{
+  return get_last_bb_insn_1 (bb, true);
+}
+
 
 /* Verify the CFG and RTL consistency common for both underlying RTL and
    cfglayout RTL.

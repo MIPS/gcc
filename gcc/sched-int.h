@@ -23,12 +23,286 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_SCHED_INT_H
 #define GCC_SCHED_INT_H
 
+#include "basic-block.h"
+
 /* For state_t.  */
 #include "insn-attr.h"
-/* For regset_head.  */
-#include "basic-block.h"
-/* For reg_note.  */
-#include "rtl.h"
+
+extern int sched_verbose_param;
+
+/* Identificator of a scheduler pass.  */
+enum sched_pass_id_t { SCHED_PASS_UNKNOWN, SCHED_RGN_PASS, SCHED_EBB_PASS,
+		       SCHED_SMS_PASS, SCHED_SEL_PASS };
+
+/* Hooks that are common to all the schedulers.  */
+struct common_sched_info_def
+{
+  /* Called after blocks were rearranged due to movement of jump instruction.
+     The first parameter - index of basic block, in which jump currently is.
+     The second parameter - index of basic block, in which jump used
+     to be.
+     The third parameter - index of basic block, that follows the second
+     parameter.  */
+  void (*fix_recovery_cfg) (int, int, int);
+
+  /* Called to notify frontend, that new basic block is being added.
+     The first parameter - new basic block.
+     The second parameter - block, after which new basic block is being added,
+     or EXIT_BLOCK_PTR, if recovery block is being added,
+     or NULL, if standalone block is being added.  */
+  void (*add_block) (basic_block, basic_block);
+
+  /* Estimate number of insns in the basic block.  */
+  int (*estimate_number_of_insns) (basic_block);
+
+  /* Given a non-insn (!INSN_P (x)) return
+     -1 - if this rtx don't need a luid.
+     0 - if it should have the same luid as the previous insn.
+     1 - if it needs a separate luid.  */
+  int (*which_luid) (rtx);
+
+  /* Remove unneccesary notes from the given basic block.  */
+  void (*remove_notes) (basic_block);
+
+  /* This hook notifies scheduler frontend to extend its internal per basic
+     block data structures.  This hook should be called once before a series of
+     calls to bb_init ().  */
+  void (*bb_extend) (void);
+
+  /* This hook makes scheduler frontend to initialize its internal data
+     structures for the passed basic block.  */
+  void (*bb_init) (basic_block);
+
+  /* This hook notifies scheduler frontend that it should finalize its internal
+     per basic block data structures.  */
+  void (*bb_finish) (void);
+
+  /* This hook notifies scheduler frontend to extend its internal per insn data
+     structures.  This hook should be called once before a series of calls to
+     insn_init ().  */
+  void (*insn_extend) (void);
+
+  /* This hook makes scheduler frontend to initialize its internal data
+     structures for the passed insn.  */
+  void (*insn_init) (rtx);
+
+  /* This hook notifies scheduler frontend that it should finalize its internal
+     per insn data structures.  */
+  void (*insn_finish) (void);
+
+#ifdef ENABLE_CHECKING
+  /* If the second parameter is zero, return nonzero, if block is head of the
+     region.
+     If the second parameter is nonzero, return nonzero, if block is leaf of
+     the region.
+     global_live_at_start should not change in region heads and
+     global_live_at_end should not change in region leafs during
+     scheduling.  */
+  int (*region_head_or_leaf_p) (basic_block, int);
+#endif
+
+  /* Save register live information from basic block headers to
+     glat_{start, end} arrays.  */
+  unsigned int use_glat : 1;
+
+  /* Detach register live information from basic block headers.
+     This is necessary to invoke functions, that change CFG (e.g. split_edge).
+     Requires USE_GLAT.  */
+  unsigned int detach_life_info : 1;
+
+  /* Scheduler pass identifier.  It is preferably used in assertions.  */
+  enum sched_pass_id_t sched_pass_id;
+};
+
+extern struct common_sched_info_def *common_sched_info;
+
+/* Return true if INSN should have a separate luid.  */
+#define INSN_NEED_LUID_P(INSN) (INSN_P (INSN) \
+|| ((NOTE_P (INSN) || LABEL_P (INSN)) \
+&& common_sched_info->which_luid (INSN) == 1))
+
+/* Return true if selective scheduling pass is working.  */
+#define SEL_SCHED_P (common_sched_info->sched_pass_id == SCHED_SEL_PASS)
+
+/* True if during selective scheduling we need to emulate some of haifa
+   scheduler behaviour.  */
+extern int sched_emulate_haifa_p;
+
+/* Used only if (current_sched_info->flags & USE_GLAT) != 0.
+   These regsets store global_live_at_{start, end} information
+   for each basic block.  */
+extern regset *glat_start, *glat_end;
+
+/* The highest INSN_UID scheduler knows of.  All insns with uids greater than
+   this don't have their scheduler data structures initialized.  */
+extern int sched_max_uid;
+
+/* The highest basic block index scheduler knows of.  All basic block with
+   indecies greater than this don't have their scheduler data structures
+   initialized.  */
+extern int sched_last_basic_block;
+
+/* Mapping from INSN_UID to INSN_LUID.  In the end all other per insn data
+   structures should be indexed by luid.  */
+extern int *uid_to_luid;
+#define INSN_LUID(INSN) (uid_to_luid[INSN_UID (INSN)])
+
+/* The highest INSN_LUID.  */
+extern int max_luid;
+
+/* An array to hold register weights for each insn.  Indexed by luid.  */
+extern short *reg_weights;
+#define INSN_REG_WEIGHT(INSN) (reg_weights[INSN_LUID (INSN)])
+
+/* Return true if NOTE is a note but not a basic block one.  */
+#define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_LINE_NUMBER (NOTE)	\
+					       != NOTE_INSN_BASIC_BLOCK))
+
+extern FILE *sched_dump;
+extern int sched_verbose;
+
+/* This list holds ripped off notes from the current block.  These notes will
+   be attached to the beginning of the block when its scheduling is
+   finished.  */
+extern rtx note_list;
+
+/* A set of basic blocks that are in current scheduling region.  */
+extern sbitmap sched_blocks;
+
+/* A set of instructions that are in current scheduling region.  */
+extern sbitmap sched_insns;
+
+extern void attach_life_info (void);
+extern void sched_bbs_init (sbitmap);
+extern void sched_bbs_finish (void);
+
+extern void remove_notes (rtx, rtx);
+extern rtx restore_other_notes (rtx, basic_block);
+extern void sched_insns_init (rtx);
+extern void sched_insns_finish (void);
+
+extern void *xrecalloc (void *, size_t, size_t, size_t);
+extern rtx bb_note (basic_block);
+extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
+
+extern void move_insn (rtx, rtx, rtx);
+extern void reemit_notes (rtx);
+
+/* Functions in sched-vis.c.  */
+extern void print_insn (char *, rtx, int);
+extern void print_pattern (char *, rtx, int);
+extern void print_value (char *, rtx, int);
+
+/* Functions in haifa-sched.c.  */
+extern int haifa_classify_insn (rtx);
+
+/* Exception Free Loads:
+
+   We define five classes of speculative loads: IFREE, IRISKY,
+   PFREE, PRISKY, and MFREE.
+
+   IFREE loads are loads that are proved to be exception-free, just
+   by examining the load insn.  Examples for such loads are loads
+   from TOC and loads of global data.
+
+   IRISKY loads are loads that are proved to be exception-risky,
+   just by examining the load insn.  Examples for such loads are
+   volatile loads and loads from shared memory.
+
+   PFREE loads are loads for which we can prove, by examining other
+   insns, that they are exception-free.  Currently, this class consists
+   of loads for which we are able to find a "similar load", either in
+   the target block, or, if only one split-block exists, in that split
+   block.  Load2 is similar to load1 if both have same single base
+   register.  We identify only part of the similar loads, by finding
+   an insn upon which both load1 and load2 have a DEF-USE dependence.
+
+   PRISKY loads are loads for which we can prove, by examining other
+   insns, that they are exception-risky.  Currently we have two proofs for
+   such loads.  The first proof detects loads that are probably guarded by a
+   test on the memory address.  This proof is based on the
+   backward and forward data dependence information for the region.
+   Let load-insn be the examined load.
+   Load-insn is PRISKY iff ALL the following hold:
+
+   - insn1 is not in the same block as load-insn
+   - there is a DEF-USE dependence chain (insn1, ..., load-insn)
+   - test-insn is either a compare or a branch, not in the same block
+     as load-insn
+   - load-insn is reachable from test-insn
+   - there is a DEF-USE dependence chain (insn1, ..., test-insn)
+
+   This proof might fail when the compare and the load are fed
+   by an insn not in the region.  To solve this, we will add to this
+   group all loads that have no input DEF-USE dependence.
+
+   The second proof detects loads that are directly or indirectly
+   fed by a speculative load.  This proof is affected by the
+   scheduling process.  We will use the flag  fed_by_spec_load.
+   Initially, all insns have this flag reset.  After a speculative
+   motion of an insn, if insn is either a load, or marked as
+   fed_by_spec_load, we will also mark as fed_by_spec_load every
+   insn1 for which a DEF-USE dependence (insn, insn1) exists.  A
+   load which is fed_by_spec_load is also PRISKY.
+
+   MFREE (maybe-free) loads are all the remaining loads. They may be
+   exception-free, but we cannot prove it.
+
+   Now, all loads in IFREE and PFREE classes are considered
+   exception-free, while all loads in IRISKY and PRISKY classes are
+   considered exception-risky.  As for loads in the MFREE class,
+   these are considered either exception-free or exception-risky,
+   depending on whether we are pessimistic or optimistic.  We have
+   to take the pessimistic approach to assure the safety of
+   speculative scheduling, but we can take the optimistic approach
+   by invoking the -fsched_spec_load_dangerous option.  */
+
+enum INSN_TRAP_CLASS
+{
+  TRAP_FREE = 0, IFREE = 1, PFREE_CANDIDATE = 2,
+  PRISKY_CANDIDATE = 3, IRISKY = 4, TRAP_RISKY = 5
+};
+
+#define WORST_CLASS(class1, class2) \
+((class1 > class2) ? class1 : class2)
+
+extern size_t dfa_state_size;
+
+extern void advance_state (state_t);
+extern int dep_cost (rtx, enum reg_note, rtx);
+
+extern void sched_init (void);
+extern void sched_finish (void);
+
+/* Describe the ready list of the scheduler.
+   VEC holds space enough for all insns in the current region.  VECLEN
+   says how many exactly.
+   FIRST is the index of the element with the highest priority; i.e. the
+   last one in the ready list, since elements are ordered by ascending
+   priority.
+   N_READY determines how many insns are on the ready list.  */
+struct ready_list
+{
+  rtx *vec;
+  int veclen;
+  int first;
+  int n_ready;
+};
+
+extern char *ready_try;
+extern struct ready_list ready;
+
+extern int max_issue (struct ready_list *, int, state_t, int *);
+
+extern void sched_local_init (int);
+extern void sched_local_finish (void);
+extern void sched_data_update (sbitmap, basic_block, rtx);
+extern void sched_data_finish (void);
+
+extern void ebb_compute_jump_reg_dependencies (rtx, regset, regset, regset);
+
+extern edge find_fallthru_edge (basic_block);
+extern void dump_insn_slim_1 (FILE *, rtx);
 
 /* Pointer to data describing the current DFA state.  */
 extern state_t curr_state;
@@ -36,6 +310,7 @@ extern state_t curr_state;
 /* Forward declaration.  */
 struct ready_list;
 
+/* sched-deps.h: START  */
 /* Type to represent status of a dependence.  */
 typedef int ds_t;
 
@@ -133,12 +408,14 @@ struct deps
   regset_head reg_conditional_sets;
 };
 
+typedef struct deps *deps_t;
+
 /* This structure holds some state of the current scheduling pass, and
    contains some function pointers that abstract out some of the non-generic
    functionality from functions such as schedule_block or schedule_insn.
    There is one global variable, current_sched_info, which points to the
    sched_info structure currently in use.  */
-struct sched_info
+struct haifa_sched_info
 {
   /* Add all insns that are initially ready to the ready list.  Called once
      before scheduling a set of insns.  */
@@ -166,10 +443,6 @@ struct sched_info
   /* Return nonzero if an insn should be included in priority
      calculations.  */
   int (*contributes_to_priority) (rtx, rtx);
-  /* Called when computing dependencies for a JUMP_INSN.  This function
-     should store the set of registers that must be considered as set by
-     the jump in the regset.  */
-  void (*compute_jump_reg_dependencies) (rtx, regset, regset, regset);
 
   /* The boundaries of the set of insns to be scheduled.  */
   rtx prev_head, next_tail;
@@ -180,11 +453,6 @@ struct sched_info
 
   /* If nonzero, enables an additional sanity check in schedule_block.  */
   unsigned int queue_must_finish_empty:1;
-  /* Nonzero if we should use cselib for better alias analysis.  This
-     must be 0 if the dependency information is used after sched_analyze
-     has completed, e.g. if we're using it to initialize state for successor
-     blocks in region scheduling.  */
-  unsigned int use_cselib:1;
 
   /* Maximum priority that has been assigned to an insn.  */
   int sched_max_insns_priority;
@@ -200,40 +468,11 @@ struct sched_info
      last scheduled instruction.  */
   void (*begin_schedule_ready) (rtx, rtx);
 
-  /* Called to notify frontend, that new basic block is being added.
-     The first parameter - new basic block.
-     The second parameter - block, after which new basic block is being added,
-     or EXIT_BLOCK_PTR, if recovery block is being added,
-     or NULL, if standalone block is being added.  */
-  void (*add_block) (basic_block, basic_block);
-
   /* If the second parameter is not NULL, return nonnull value, if the
      basic block should be advanced.
      If the second parameter is NULL, return the next basic block in EBB.
      The first parameter is the current basic block in EBB.  */
   basic_block (*advance_target_bb) (basic_block, rtx);
-
-  /* Called after blocks were rearranged due to movement of jump instruction.
-     The first parameter - index of basic block, in which jump currently is.
-     The second parameter - index of basic block, in which jump used
-     to be.
-     The third parameter - index of basic block, that follows the second
-     parameter.  */
-  void (*fix_recovery_cfg) (int, int, int);
-
-#ifdef ENABLE_CHECKING
-  /* If the second parameter is zero, return nonzero, if block is head of the
-     region.
-     If the second parameter is nonzero, return nonzero, if block is leaf of
-     the region.
-     global_live_at_start should not change in region heads and
-     global_live_at_end should not change in region leafs due to scheduling.  */
-  int (*region_head_or_leaf_p) (basic_block, int);
-#endif
-
-  /* ??? FIXME: should use straight bitfields inside sched_info instead of
-     this flag field.  */
-  unsigned int flags;
 };
 
 /* This structure holds description of the properties for speculative
@@ -256,34 +495,16 @@ struct spec_info_def
 };
 typedef struct spec_info_def *spec_info_t;
 
-extern struct sched_info *current_sched_info;
+extern struct haifa_sched_info *current_sched_info;
 
 /* Indexed by INSN_UID, the collection of all data associated with
    a single instruction.  */
 
 struct haifa_insn_data
 {
-  /* A list of insns which depend on the instruction.  Unlike LOG_LINKS,
-     it represents forward dependencies.  */
-  rtx depend;
-
   /* A list of scheduled producers of the instruction.  Links are being moved
      from LOG_LINKS to RESOLVED_DEPS during scheduling.  */
   rtx resolved_deps;
- 
-  /* Logical uid gives the original ordering of the insns.  */
-  int luid;
-
-  /* A priority for each insn.  */
-  int priority;
-
-  /* The number of incoming edges in the forward dependency graph.
-     As scheduling proceeds, counts are decreased.  An insn moves to
-     the ready queue when its counter reaches zero.  */
-  int dep_count;
-
-  /* Number of instructions referring to this insn.  */
-  int ref_count;
 
   /* The minimum clock tick at which the insn becomes ready.  This is
      used to note timing constraints for the insns in the pending list.  */
@@ -298,25 +519,11 @@ struct haifa_insn_data
 
   short cost;
 
-  /* This weight is an estimation of the insn's contribution to
-     register pressure.  */
-  short reg_weight;
-
-  /* Some insns (e.g. call) are not allowed to move across blocks.  */
-  unsigned int cant_move : 1;
-
   /* Set if there's DEF-USE dependence between some speculatively
      moved load insn and this one.  */
   unsigned int fed_by_spec_load : 1;
   unsigned int is_load_insn : 1;
 
-  /* Nonzero if priority has been computed already.  */
-  unsigned int priority_known : 1;
-
-  /* Nonzero if instruction has internal dependence
-     (e.g. add_dependence was invoked with (insn == elem)).  */
-  unsigned int has_internal_dep : 1;
-  
   /* What speculations are necessary to apply to schedule the instruction.  */
   ds_t todo_spec;
   /* What speculations were already applied.  */
@@ -332,23 +539,10 @@ struct haifa_insn_data
 };
 
 extern struct haifa_insn_data *h_i_d;
-/* Used only if (current_sched_info->flags & USE_GLAT) != 0.
-   These regsets store global_live_at_{start, end} information
-   for each basic block.  */
-extern regset *glat_start, *glat_end;
 
 /* Accessor macros for h_i_d.  There are more in haifa-sched.c and
    sched-rgn.c.  */
-#define INSN_DEPEND(INSN)	(h_i_d[INSN_UID (INSN)].depend)
 #define RESOLVED_DEPS(INSN)     (h_i_d[INSN_UID (INSN)].resolved_deps)
-#define INSN_LUID(INSN)		(h_i_d[INSN_UID (INSN)].luid)
-#define CANT_MOVE(insn)		(h_i_d[INSN_UID (insn)].cant_move)
-#define INSN_DEP_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].dep_count)
-#define INSN_PRIORITY(INSN)	(h_i_d[INSN_UID (INSN)].priority)
-#define INSN_PRIORITY_KNOWN(INSN) (h_i_d[INSN_UID (INSN)].priority_known)
-#define INSN_COST(INSN)		(h_i_d[INSN_UID (INSN)].cost)
-#define INSN_REG_WEIGHT(INSN)	(h_i_d[INSN_UID (INSN)].reg_weight)
-#define HAS_INTERNAL_DEP(INSN)  (h_i_d[INSN_UID (INSN)].has_internal_dep)
 #define TODO_SPEC(INSN)         (h_i_d[INSN_UID (INSN)].todo_spec)
 #define DONE_SPEC(INSN)         (h_i_d[INSN_UID (INSN)].done_spec)
 #define CHECK_SPEC(INSN)        (h_i_d[INSN_UID (INSN)].check_spec)
@@ -370,6 +564,19 @@ extern regset *glat_start, *glat_end;
 #define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
   (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
 
+#define INSN_PRIORITY(INSN)	(d_i_d[INSN_LUID (INSN)].priority)
+#define INSN_PRIORITY_KNOWN(INSN) (d_i_d[INSN_LUID (INSN)].priority_known)
+
+/* !!! FIXME: Move this logic to haifa-sched.c: insn_cost ().  */
+#define INSN_COST(INSN)         __extension__       \
+(*({ short * _cost;                                 \
+     rtx const _insn = (INSN);                      \
+     if (SEL_SCHED_P)                               \
+       _cost = &(d_i_d[INSN_LUID (_insn)].cost);    \
+     else                                           \
+       _cost = &(h_i_d[INSN_UID (_insn)].cost);     \
+     _cost; }))
+                                 
 /* DEP_STATUS of the link encapsulates information, that is needed for
    speculative scheduling.  Namely, it is 4 integers in the range
    [0, MAX_DEP_WEAK] and 3 bits.
@@ -487,6 +694,7 @@ enum DEPS_ADJUST_RESULT {
   DEP_CHANGED = 2,
   DEP_CREATED = 3
 };
+/* sched-deps.h: END  */
 
 /* Represents the bits that can be set in the flags field of the 
    sched_info structure.  */
@@ -515,82 +723,6 @@ enum SPEC_SCHED_FLAGS {
   PREFER_NON_CONTROL_SPEC = PREFER_NON_DATA_SPEC << 1
 };
 
-#define NOTE_NOT_BB_P(NOTE) (NOTE_P (NOTE) && (NOTE_LINE_NUMBER (NOTE)	\
-					       != NOTE_INSN_BASIC_BLOCK))
-
-extern FILE *sched_dump;
-extern int sched_verbose;
-
-/* Exception Free Loads:
-
-   We define five classes of speculative loads: IFREE, IRISKY,
-   PFREE, PRISKY, and MFREE.
-
-   IFREE loads are loads that are proved to be exception-free, just
-   by examining the load insn.  Examples for such loads are loads
-   from TOC and loads of global data.
-
-   IRISKY loads are loads that are proved to be exception-risky,
-   just by examining the load insn.  Examples for such loads are
-   volatile loads and loads from shared memory.
-
-   PFREE loads are loads for which we can prove, by examining other
-   insns, that they are exception-free.  Currently, this class consists
-   of loads for which we are able to find a "similar load", either in
-   the target block, or, if only one split-block exists, in that split
-   block.  Load2 is similar to load1 if both have same single base
-   register.  We identify only part of the similar loads, by finding
-   an insn upon which both load1 and load2 have a DEF-USE dependence.
-
-   PRISKY loads are loads for which we can prove, by examining other
-   insns, that they are exception-risky.  Currently we have two proofs for
-   such loads.  The first proof detects loads that are probably guarded by a
-   test on the memory address.  This proof is based on the
-   backward and forward data dependence information for the region.
-   Let load-insn be the examined load.
-   Load-insn is PRISKY iff ALL the following hold:
-
-   - insn1 is not in the same block as load-insn
-   - there is a DEF-USE dependence chain (insn1, ..., load-insn)
-   - test-insn is either a compare or a branch, not in the same block
-     as load-insn
-   - load-insn is reachable from test-insn
-   - there is a DEF-USE dependence chain (insn1, ..., test-insn)
-
-   This proof might fail when the compare and the load are fed
-   by an insn not in the region.  To solve this, we will add to this
-   group all loads that have no input DEF-USE dependence.
-
-   The second proof detects loads that are directly or indirectly
-   fed by a speculative load.  This proof is affected by the
-   scheduling process.  We will use the flag  fed_by_spec_load.
-   Initially, all insns have this flag reset.  After a speculative
-   motion of an insn, if insn is either a load, or marked as
-   fed_by_spec_load, we will also mark as fed_by_spec_load every
-   insn1 for which a DEF-USE dependence (insn, insn1) exists.  A
-   load which is fed_by_spec_load is also PRISKY.
-
-   MFREE (maybe-free) loads are all the remaining loads. They may be
-   exception-free, but we cannot prove it.
-
-   Now, all loads in IFREE and PFREE classes are considered
-   exception-free, while all loads in IRISKY and PRISKY classes are
-   considered exception-risky.  As for loads in the MFREE class,
-   these are considered either exception-free or exception-risky,
-   depending on whether we are pessimistic or optimistic.  We have
-   to take the pessimistic approach to assure the safety of
-   speculative scheduling, but we can take the optimistic approach
-   by invoking the -fsched_spec_load_dangerous option.  */
-
-enum INSN_TRAP_CLASS
-{
-  TRAP_FREE = 0, IFREE = 1, PFREE_CANDIDATE = 2,
-  PRISKY_CANDIDATE = 3, IRISKY = 4, TRAP_RISKY = 5
-};
-
-#define WORST_CLASS(class1, class2) \
-((class1 > class2) ? class1 : class2)
-
 #ifndef __GNUC__
 #define __inline
 #endif
@@ -599,55 +731,41 @@ enum INSN_TRAP_CLASS
 #define HAIFA_INLINE __inline
 #endif
 
-/* Functions in sched-vis.c.  */
-extern void print_insn (char *, rtx, int);
-
-/* Functions in sched-deps.c.  */
-extern bool sched_insns_conditions_mutex_p (rtx, rtx);
-extern void add_dependence (rtx, rtx, enum reg_note);
-extern void sched_analyze (struct deps *, rtx, rtx);
-extern void init_deps (struct deps *);
-extern void free_deps (struct deps *);
-extern void init_deps_global (void);
-extern void finish_deps_global (void);
-extern void add_forw_dep (rtx, rtx);
-extern void compute_forward_dependences (rtx, rtx);
-extern rtx find_insn_list (rtx, rtx);
-extern void init_dependency_caches (int);
-extern void free_dependency_caches (void);
-extern void extend_dependency_caches (int, bool);
-extern enum DEPS_ADJUST_RESULT add_or_update_back_dep (rtx, rtx, 
-						       enum reg_note, ds_t);
-extern void add_or_update_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
-extern void add_back_forw_dep (rtx, rtx, enum reg_note, ds_t);
-extern void delete_back_forw_dep (rtx, rtx);
-extern dw_t get_dep_weak (ds_t, ds_t);
-extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
-extern ds_t ds_merge (ds_t, ds_t);
-
 /* Functions in haifa-sched.c.  */
-extern int haifa_classify_insn (rtx);
-extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
 extern int no_real_insns_p (rtx, rtx);
-
-extern void rm_other_notes (rtx, rtx);
 
 extern int insn_cost (rtx, rtx, rtx);
 extern int set_priorities (rtx, rtx);
 
-extern void schedule_block (basic_block *, int);
-extern void sched_init (void);
-extern void sched_finish (void);
+extern void schedule_block (basic_block *);
+
+extern int cycle_issued_insns;
+extern int issue_rate;
+extern int dfa_lookahead;
+
+extern void ready_sort (struct ready_list *);
+extern rtx ready_element (struct ready_list *, int);
+extern rtx *ready_lastpos (struct ready_list *);
 
 extern int try_ready (rtx);
-extern void * xrecalloc (void *, size_t, size_t, size_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
-extern void attach_life_info (void);
 extern rtx bb_note (basic_block);
+extern void concat_note_lists (rtx, rtx *);
 
 #ifdef ENABLE_CHECKING
 extern void check_reg_live (bool);
 #endif
+
+extern void haifa_sched_init (void);
+extern void haifa_sched_finish (void);
+
+extern void haifa_local_init (int);
+
+/* Functions in sched-rgn.c.  */
+extern void compute_priorities (void);
+extern void debug_dependencies (void);
+extern int contributes_to_priority (rtx, rtx);
+extern void free_rgn_deps (bool);
 
 #endif /* GCC_SCHED_INT_H */

@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "recog.h"
 #include "sched-int.h"
+#include "sched-deps.h"
 #include "target.h"
 #include "cfglayout.h"
 #include "cfgloop.h"

@@ -44,6 +44,7 @@ Boston, MA 02110-1301, USA.  */
 #include "basic-block.h"
 #include "toplev.h"
 #include "sched-int.h"
+#include "sched-deps.h"
 #include "timevar.h"
 #include "target.h"
 #include "target-def.h"
@@ -55,6 +56,7 @@ Boston, MA 02110-1301, USA.  */
 #include "intl.h"
 #include "debug.h"
 #include "params.h"
+#include "sel-sched.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -162,6 +164,11 @@ static int ia64_first_cycle_multipass_dfa_lookahead_guard (rtx);
 static bool ia64_first_cycle_multipass_dfa_lookahead_guard_spec (rtx);
 static int ia64_dfa_new_cycle (FILE *, int, rtx, int, int, int *);
 static void ia64_h_i_d_extended (void);
+static void * ia64_alloc_sched_context (void);
+static void ia64_init_sched_context (void *, bool);
+static void ia64_set_sched_context (void *);
+static void ia64_clear_sched_context (void *);
+static void ia64_free_sched_context (void *);
 static int ia64_mode_to_int (enum machine_mode);
 static void ia64_set_sched_flags (spec_info_t);
 static int ia64_speculate_insn (rtx, ds_t, rtx *);
@@ -365,6 +372,21 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_SCHED_H_I_D_EXTENDED
 #define TARGET_SCHED_H_I_D_EXTENDED ia64_h_i_d_extended
+
+#undef TARGET_SCHED_ALLOC_SCHED_CONTEXT
+#define TARGET_SCHED_ALLOC_SCHED_CONTEXT ia64_alloc_sched_context
+
+#undef TARGET_SCHED_INIT_SCHED_CONTEXT
+#define TARGET_SCHED_INIT_SCHED_CONTEXT ia64_init_sched_context
+
+#undef TARGET_SCHED_SET_SCHED_CONTEXT
+#define TARGET_SCHED_SET_SCHED_CONTEXT ia64_set_sched_context
+
+#undef TARGET_SCHED_CLEAR_SCHED_CONTEXT
+#define TARGET_SCHED_CLEAR_SCHED_CONTEXT ia64_clear_sched_context
+
+#undef TARGET_SCHED_FREE_SCHED_CONTEXT
+#define TARGET_SCHED_FREE_SCHED_CONTEXT ia64_free_sched_context
 
 #undef TARGET_SCHED_SET_SCHED_FLAGS
 #define TARGET_SCHED_SET_SCHED_FLAGS ia64_set_sched_flags
@@ -5176,6 +5198,9 @@ ia64_override_options (void)
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
+
+  flag_sel_sched_renaming = mflag_sel_sched_renaming;
+  flag_sel_sched_substitution = mflag_sel_sched_substitution;
 }
 
 static struct machine_function *
@@ -6166,10 +6191,6 @@ static rtx dfa_stop_insn;
 
 static rtx last_scheduled_insn;
 
-/* The following variable value is size of the DFA state.  */
-
-static size_t dfa_state_size;
-
 /* The following variable value is pointer to a DFA state used as
    temporary variable.  */
 
@@ -6353,10 +6374,10 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 #ifdef ENABLE_CHECKING
   rtx insn;
 
-  if (reload_completed)
+  if (0 && reload_completed)
     for (insn = NEXT_INSN (current_sched_info->prev_head);
-	 insn != current_sched_info->next_tail;
-	 insn = NEXT_INSN (insn))
+       insn != current_sched_info->next_tail;
+       insn = NEXT_INSN (insn))
       gcc_assert (!SCHED_GROUP_P (insn));
 #endif
   last_scheduled_insn = NULL_RTX;
@@ -6505,9 +6526,9 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 		     rtx insn ATTRIBUTE_UNUSED,
 		     int can_issue_more ATTRIBUTE_UNUSED)
 {
-  if (current_sched_info->flags & DO_SPECULATION)
+  if (sched_deps_info->generate_spec_deps)
     /* Modulo scheduling does not extend h_i_d when emitting
-       new instructions.  Deal with it.  */
+       new instructions.  Don't use h_i_d, if we don't have to.  */
     {
       if (DONE_SPEC (insn) & BEGIN_DATA)
 	pending_data_specs++;
@@ -6572,6 +6593,11 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
   int setup_clocks_p = FALSE;
 
   gcc_assert (insn && INSN_P (insn));
+  /* When a group barrier is needed for insn, last_scheduled_insn 
+     should be set.  */
+  gcc_assert (!(reload_completed && safe_group_barrier_needed (insn))
+              || last_scheduled_insn);
+
   if ((reload_completed && safe_group_barrier_needed (insn))
       || (last_scheduled_insn
 	  && (GET_CODE (last_scheduled_insn) == CALL_INSN
@@ -6579,10 +6605,13 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	      || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)))
     {
       init_insn_group_barriers ();
+
       if (verbose && dump)
 	fprintf (dump, "//    Stop should be before %d%s\n", INSN_UID (insn),
 		 last_clock == clock ? " + cycle advance" : "");
+
       stop_before_p = 1;
+
       if (last_clock == clock)
 	{
 	  state_transition (curr_state, dfa_stop_insn);
@@ -6595,19 +6624,24 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	}
       else if (reload_completed)
 	setup_clocks_p = TRUE;
-      if (GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
-	  || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)
-	state_reset (curr_state);
-      else
-	{
-	  memcpy (curr_state, prev_cycle_state, dfa_state_size);
-	  state_transition (curr_state, dfa_stop_insn);
-	  state_transition (curr_state, dfa_pre_cycle_insn);
-	  state_transition (curr_state, NULL);
-	}
+
+      if (last_scheduled_insn)
+        {
+          if (GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
+              || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)
+            state_reset (curr_state);
+          else
+            {
+              memcpy (curr_state, prev_cycle_state, dfa_state_size);
+              state_transition (curr_state, dfa_stop_insn);
+              state_transition (curr_state, dfa_pre_cycle_insn);
+              state_transition (curr_state, NULL);
+            }
+        }
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
+
   if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
       && GET_CODE (PATTERN (insn)) != ASM_INPUT
       && asm_noperands (PATTERN (insn)) < 0)
@@ -6637,6 +6671,7 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	    add_cycles [INSN_UID (insn)] = 3 - d;
 	}
     }
+
   return 0;
 }
 
@@ -6645,7 +6680,7 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 static void
 ia64_h_i_d_extended (void)
 {
-  if (current_sched_info->flags & DO_SPECULATION)
+  if (sched_deps_info->generate_spec_deps)
     {
       int new_max_uid = get_max_uid () + 1;
 
@@ -6670,6 +6705,99 @@ ia64_h_i_d_extended (void)
       
       clocks_length = new_clocks_length;
     }
+}
+
+
+/* This structure describes the data used by the backend to guide scheduling.
+   When the current scheduling point is switched, this data should be saved
+   and restored later, if the scheduler returns to this point.  */
+struct _ia64_sched_context
+{
+  state_t prev_cycle_state;
+  rtx last_scheduled_insn;
+  struct reg_write_state rws_sum[NUM_REGS];
+  struct reg_write_state rws_insn[NUM_REGS];
+  int first_instruction;
+};
+typedef struct _ia64_sched_context *ia64_sched_context_t;
+
+/* Allocates a scheduling context.  */
+static void *
+ia64_alloc_sched_context (void)
+{
+  return xmalloc (sizeof (struct _ia64_sched_context));
+}
+
+/* Initializes the _SC context with clean data, if CLEAN_P, and from 
+   the global context otherwise.  */
+static void
+ia64_init_sched_context (void *_sc, bool clean_p)
+{
+  ia64_sched_context_t sc = (ia64_sched_context_t) _sc;
+
+  sc->prev_cycle_state = xmalloc (dfa_state_size);
+  if (clean_p)
+    {
+      state_reset (sc->prev_cycle_state);
+      sc->last_scheduled_insn = NULL_RTX;
+      memset (sc->rws_sum, 0, sizeof (rws_sum));
+      memset (sc->rws_insn, 0, sizeof (rws_insn));
+      sc->first_instruction = 1;
+    }
+  else
+    {
+      memcpy (sc->prev_cycle_state, prev_cycle_state, dfa_state_size);
+      sc->last_scheduled_insn = last_scheduled_insn;
+      memcpy (sc->rws_sum, rws_sum, sizeof (rws_sum));
+      memcpy (sc->rws_insn, rws_insn, sizeof (rws_insn));
+      sc->first_instruction = first_instruction;
+    }
+}
+
+/* Resets the global scheduling context.  */
+static void
+ia64_reset_main_sched_context (void)
+{
+  state_reset (prev_cycle_state);
+  last_scheduled_insn = NULL_RTX;
+  memset (rws_sum, 0, sizeof (rws_sum));
+  memset (rws_insn, 0, sizeof (rws_insn));
+  first_instruction = 1;
+}
+
+/* Sets the global scheduling context to the one pointed to by _SC.  */
+static void
+ia64_set_sched_context (void *_sc)
+{
+  if (_sc)
+    {
+      ia64_sched_context_t sc = (ia64_sched_context_t) _sc;
+
+      memcpy (prev_cycle_state, sc->prev_cycle_state, dfa_state_size);
+      last_scheduled_insn = sc->last_scheduled_insn;
+      memcpy (rws_sum, sc->rws_sum, sizeof (rws_sum));
+      memcpy (rws_insn, sc->rws_insn, sizeof (rws_insn));
+      first_instruction = sc->first_instruction;
+    }
+  else
+    {
+      gcc_unreachable ();
+      ia64_reset_main_sched_context ();
+    }
+}
+
+/* Clears the data in the _SC scheduling context.  */
+static void
+ia64_clear_sched_context (void *_sc)
+{
+  free (((ia64_sched_context_t) _sc)->prev_cycle_state);
+}
+
+/* Frees the _SC scheduling context.  */
+static void
+ia64_free_sched_context (void *_sc)
+{
+  free (_sc);
 }
 
 /* Constants that help mapping 'enum machine_mode' to int.  */
@@ -6709,10 +6837,8 @@ ia64_mode_to_int (enum machine_mode mode)
 static void
 ia64_set_sched_flags (spec_info_t spec_info)
 {
-  unsigned int *flags = &(current_sched_info->flags);
-
-  if (*flags & SCHED_RGN
-      || *flags & SCHED_EBB)  
+  if (common_sched_info->sched_pass_id == SCHED_RGN_PASS
+      || common_sched_info->sched_pass_id == SCHED_EBB_PASS)
     {
       int mask = 0;
 
@@ -6734,11 +6860,13 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	    mask |= BE_IN_CONTROL;
 	}
 
-      gcc_assert (*flags & USE_GLAT);
+      gcc_assert (common_sched_info->use_glat);
 
       if (mask)
 	{
-	  *flags |= USE_DEPS_LIST | DETACH_LIFE_INFO | DO_SPECULATION;
+	  common_sched_info->detach_life_info = 1;
+	  sched_deps_info->use_deps_list = 1;
+	  sched_deps_info->generate_spec_deps = 1;
 	  
 	  spec_info->mask = mask;
 	  spec_info->flags = 0;
@@ -7813,7 +7941,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 	  if (INSN_P (next_insn)
 	      && ia64_safe_itanium_class (next_insn) != ITANIUM_CLASS_IGNORE
 	      && GET_CODE (PATTERN (next_insn)) != USE
-	      && GET_CODE (PATTERN (next_insn)) != CLOBBER)
+	      && GET_CODE (PATTERN (next_insn)) != CLOBBER
+              && INSN_CODE (next_insn) != CODE_FOR_insn_group_barrier)
 	    {
 	      PUT_MODE (next_insn, TImode);
 	      break;
@@ -7924,6 +8053,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 			< best_state->branch_deviation)))))
       best_state = curr_state;
   /* Second (backward) pass: adding nops and templates.  */
+  gcc_assert (best_state);
   insn_num = best_state->before_nops_num;
   template0 = template1 = -1;
   for (curr_state = best_state;
@@ -8171,11 +8301,11 @@ ia64_sched_finish (FILE *dump, int sched_verbose)
     {
       final_emit_insn_group_barriers (dump);
       bundling (dump, sched_verbose, current_sched_info->prev_head,
-		current_sched_info->next_tail);
+              current_sched_info->next_tail);
       if (sched_verbose && dump)
-	fprintf (dump, "//    finishing %d-%d\n",
-		 INSN_UID (NEXT_INSN (current_sched_info->prev_head)),
-		 INSN_UID (PREV_INSN (current_sched_info->next_tail)));
+        fprintf (dump, "//    finishing %d-%d\n",
+                 INSN_UID (NEXT_INSN (current_sched_info->prev_head)),
+                 INSN_UID (PREV_INSN (current_sched_info->next_tail)));
 
       return;
     }
@@ -8252,7 +8382,7 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 				    insn);
 		  init_insn_group_barriers ();
 		}
-	      group_barrier_needed (insn);
+              group_barrier_needed (insn);
 	      prev_insn = NULL_RTX;
 	    }
 	  else if (recog_memoized (insn) >= 0)
@@ -8467,7 +8597,8 @@ ia64_reorg (void)
      non-optimizing bootstrap.  */
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 
-  if (optimize && ia64_flag_schedule_insns2)
+  if (optimize && ia64_flag_schedule_insns2
+      && (!flag_selective_scheduling || flag_schedule_emulate_haifa))
     {
       timevar_push (TV_SCHED2);
       ia64_final_schedule = 1;
@@ -8541,7 +8672,10 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      schedule_ebbs ();
+      if (flag_selective_scheduling)
+        selective_scheduling_run ();
+      else
+        schedule_ebbs ();
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
@@ -8556,7 +8690,15 @@ ia64_reorg (void)
       timevar_pop (TV_SCHED2);
     }
   else
-    emit_all_insn_group_barriers (dump_file);
+    {
+      if (flag_selective_scheduling && optimize)
+        {
+          gcc_assert (!flag_schedule_emulate_haifa);
+          selective_scheduling_run ();
+        }
+
+      emit_all_insn_group_barriers (dump_file);
+    }
 
   /* A call must not be the last instruction in a function, so that the
      return address is still within the function, so that unwinding works

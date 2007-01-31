@@ -3375,6 +3375,9 @@ add_insn (rtx insn)
     first_insn = insn;
 
   last_insn = insn;
+
+  if (insn_added)
+    insn_added (insn);
 }
 
 /* Add INSN into the doubly-linked list after insn AFTER.  This and
@@ -3438,6 +3441,9 @@ add_insn_after (rtx insn, rtx after)
       rtx sequence = PATTERN (after);
       NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = insn;
     }
+
+  if (insn_added)
+    insn_added (insn);  
 }
 
 /* Add INSN into the doubly-linked list before insn BEFORE.  This and
@@ -3500,6 +3506,9 @@ add_insn_before (rtx insn, rtx before)
   PREV_INSN (before) = insn;
   if (NONJUMP_INSN_P (before) && GET_CODE (PATTERN (before)) == SEQUENCE)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
+
+  if (insn_added)
+    insn_added (insn);
 }
 
 /* Remove an insn from its doubly-linked list.  This function knows how

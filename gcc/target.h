@@ -262,7 +262,7 @@ struct gcc_target
     /* Finalize machine-dependent scheduling code.  */
     void (* md_finish) (FILE *, int);
 
-    /* Initialize machine-dependent function while scheduling code.  */
+    /* Initialize machine-dependent function wide scheduling code.  */
     void (* md_init_global) (FILE *, int, int);
 
     /* Finalize machine-dependent function wide scheduling code.  */
@@ -345,7 +345,21 @@ struct gcc_target
        by the insn scheduler. This hook is called to notify the backend
        that new instructions were emitted.  */
     void (* h_i_d_extended) (void);
-    
+
+    /* Next 6 functions are for multi-point scheduling.  */
+
+    void *(* alloc_sched_context) (void);
+
+    /* Fills the context from the local machine scheduler context.  */
+    void (* init_sched_context) (void *, bool);
+
+    /* Sets local machine scheduler context to a saved value.  */
+    void (* set_sched_context) (void *);
+
+    void (* clear_sched_context) (void *);
+
+    void (* free_sched_context) (void *);
+
     /* The following member value is a pointer to a function called
        by the insn scheduler.
        The first parameter is an instruction, the second parameter is the type

@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "sched-int.h"
+#include "sched-deps.h"
 #include "target.h"
 #include "cfglayout.h"
 #include "cfgloop.h"
@@ -174,12 +175,14 @@ static bool ps_unschedule_node (partial_schedule_ptr, ddg_node_ptr );
 /* This page defines constants and structures for the modulo scheduling
    driver.  */
 
+#if 0
 /* As in haifa-sched.c:  */
 /* issue_rate is the number of insns that can be scheduled in the same
    machine cycle.  It can be defined in the config/mach/mach.h file,
    otherwise we set it to 1.  */
 
 static int issue_rate;
+#endif
 
 static int sms_order_nodes (ddg_ptr, int, int * result);
 static void set_node_sched_params (ddg_ptr);
@@ -245,7 +248,24 @@ compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 {
 }
 
-static struct sched_info sms_sched_info =
+static struct common_sched_info_def sms_common_sched_info =
+  {
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+#ifdef ENABLE_CHECKING
+    NULL,
+#endif
+    0, 0, SCHED_SMS_PASS
+  };
+
+static struct sched_deps_info_def sms_sched_deps_info =
+  {
+    compute_jump_reg_dependencies,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL,
+    0, 0, 0
+  };
+
+static struct haifa_sched_info sms_sched_info =
 {
   NULL,
   NULL,
@@ -254,18 +274,12 @@ static struct sched_info sms_sched_info =
   NULL,
   sms_print_insn,
   NULL,
-  compute_jump_reg_dependencies,
   NULL, NULL,
   NULL, NULL,
-  0, 0, 0,
+  0, 0,
 
-  NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-  NULL,
-#endif
-  0
+  NULL, NULL, /*NULL, */NULL
 };
-
 
 /* Return the register decremented and tested in INSN,
    or zero if it is not a decrement-and-branch insn.  */
@@ -909,8 +923,11 @@ sms_schedule (void)
     issue_rate = 1;
 
   /* Initialize the scheduler.  */
+  common_sched_info = &sms_common_sched_info;
+  sched_deps_info = &sms_sched_deps_info;
   current_sched_info = &sms_sched_info;
-  sched_init ();
+
+  haifa_sched_init ();
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
@@ -1229,7 +1246,7 @@ sms_schedule (void)
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
-  sched_finish ();
+  haifa_sched_finish ();
   loop_optimizer_finalize ();
 }
 

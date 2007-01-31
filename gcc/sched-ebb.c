@@ -40,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfglayout.h"
 #include "params.h"
 #include "sched-int.h"
+#include "sched-deps.h"
 #include "target.h"
 #include "output.h"
 
@@ -63,11 +64,11 @@ static void begin_schedule_ready (rtx, rtx);
 static int schedule_more_p (void);
 static const char *ebb_print_insn (rtx, int);
 static int rank (rtx, rtx);
-static int contributes_to_priority (rtx, rtx);
-static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
+static int ebb_contributes_to_priority (rtx, rtx);
 static basic_block earliest_block_with_similiar_load (basic_block, rtx);
 static void add_deps_for_risky_insns (rtx, rtx);
 static basic_block schedule_ebb (rtx, rtx);
+static void debug_ebb_dependencies (rtx, rtx);
 
 static void add_remove_insn (rtx, int);
 static void add_block1 (basic_block, basic_block);
@@ -86,6 +87,80 @@ schedule_more_p (void)
   return sched_n_insns < n_insns;
 }
 
+/* Debug dependencies between HEAD and TAIL.  
+   FIXME: this should be a common function with debug_dependencies.  */
+
+static void
+debug_ebb_dependencies (rtx head, rtx tail)
+{
+  rtx next_tail;
+  rtx insn;
+
+  fprintf (sched_dump, ";;   --------------- forward dependences: ------------ \n");
+
+  next_tail = NEXT_INSN (tail);
+
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+           "insn", "code", "bb", "dep", "prio", "cost",
+           "reservation");
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+           "----", "----", "--", "---", "----", "----",
+           "-----------");
+
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
+    {
+      rtx link;
+
+      if (! INSN_P (insn))
+        {
+          int n;
+          fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
+          if (NOTE_P (insn))
+            {
+              n = NOTE_LINE_NUMBER (insn);
+              if (n < 0)
+                fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
+              else
+                {
+                  expanded_location xloc;
+                  NOTE_EXPANDED_LOCATION (xloc, insn);
+                  fprintf (sched_dump, "line %d, file %s\n",
+                           xloc.line, xloc.file);
+                }
+            }
+          else
+            fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
+          continue;
+        }
+
+      fprintf (sched_dump,
+               ";;   %s%5d%6d%6d%6d%6d%6d   ",
+               (SCHED_GROUP_P (insn) ? "+" : " "),
+               INSN_UID (insn),
+               INSN_CODE (insn),
+               BLOCK_NUM (insn),
+#if 0
+               INSN_BB (insn),
+#endif
+               sched_emulate_haifa_p ? -1 : INSN_DEP_COUNT (insn),
+               SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : INSN_PRIORITY (insn))
+               : INSN_PRIORITY (insn),
+               SEL_SCHED_P ? (sched_emulate_haifa_p ? -1 : insn_cost (insn, 0, 0))
+               : insn_cost (insn, 0, 0));
+
+      if (recog_memoized (insn) < 0)
+        fprintf (sched_dump, "nothing");
+      else
+        print_reservation (sched_dump, insn);
+
+      fprintf (sched_dump, "\t: ");
+      for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+        fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
+      fprintf (sched_dump, "\n");
+    }
+  fprintf (sched_dump, "\n");
+}
+
 /* Add all insns that are initially ready to the ready list READY.  Called
    once before scheduling a set of insns.  */
 
@@ -99,10 +174,10 @@ init_ready_list (void)
 
   sched_n_insns = 0;
 
-#if 0
+#if 1
   /* Print debugging information.  */
   if (sched_verbose >= 5)
-    debug_dependencies ();
+    debug_ebb_dependencies (NEXT_INSN (prev_head), PREV_INSN (next_tail));
 #endif
 
   /* Initialize ready list with all 'ready' insns in target block.
@@ -191,7 +266,12 @@ ebb_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 {
   static char tmp[80];
 
-  sprintf (tmp, "%4d", INSN_UID (insn));
+  /* '+' before insn means it is a new cycle start.  */
+  if (GET_MODE (insn) == TImode)
+    sprintf (tmp, "+ %4d", INSN_UID (insn));
+  else
+    sprintf (tmp, "  %4d", INSN_UID (insn));
+
   return tmp;
 }
 
@@ -219,8 +299,8 @@ rank (rtx insn1, rtx insn2)
    calculations.  */
 
 static int
-contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
-			 rtx insn ATTRIBUTE_UNUSED)
+ebb_contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
+                             rtx insn ATTRIBUTE_UNUSED)
 {
   return 1;
 }
@@ -230,9 +310,9 @@ contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
     must be considered as used by this jump in USED and that of
     registers that must be considered as set in SET.  */
 
-static void
-compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
-			       regset set)
+void
+ebb_compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
+				   regset set)
 {
   basic_block b = BLOCK_FOR_INSN (insn);
   edge e;
@@ -253,7 +333,25 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 /* Used in schedule_insns to initialize current_sched_info for scheduling
    regions (or single basic blocks).  */
 
-static struct sched_info ebb_sched_info =
+static struct common_sched_info_def ebb_common_sched_info =
+  {
+    fix_recovery_cfg, add_block1,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+#ifdef ENABLE_CHECKING
+    ebb_head_or_leaf_p,
+#endif
+    1, 1, SCHED_EBB_PASS
+  };
+
+static struct sched_deps_info_def ebb_sched_deps_info =
+  {
+    ebb_compute_jump_reg_dependencies,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL,
+    0, 0, 0
+  };
+
+static struct haifa_sched_info ebb_sched_info =
 {
   init_ready_list,
   NULL,
@@ -261,24 +359,16 @@ static struct sched_info ebb_sched_info =
   NULL,
   rank,
   ebb_print_insn,
-  contributes_to_priority,
-  compute_jump_reg_dependencies,
+  ebb_contributes_to_priority,
 
   NULL, NULL,
   NULL, NULL,
-  0, 1, 0,
+  1, 0,
 
   add_remove_insn,
   begin_schedule_ready,
-  add_block1,
-  advance_target_bb,
-  fix_recovery_cfg,
-#ifdef ENABLE_CHECKING
-  ebb_head_or_leaf_p,
-#endif
-  /* We need to DETACH_LIVE_INFO to be able to create new basic blocks.
-     See begin_schedule_ready ().  */
-  SCHED_EBB | USE_GLAT | DETACH_LIFE_INFO
+  /*add_block1,*/
+  advance_target_bb
 };
 
 /* Returns the earliest block in EBB currently being processed where a
@@ -396,7 +486,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
 	       rank.  */
 	    if (! sched_insns_conditions_mutex_p (insn, prev))
 	      {
-		if (!(current_sched_info->flags & DO_SPECULATION))
+		if (!sched_deps_info->generate_spec_deps)
 		  {
 		    enum DEPS_ADJUST_RESULT res;
 		    
@@ -479,32 +569,15 @@ schedule_ebb (rtx head, rtx tail)
   current_sched_info->prev_head = PREV_INSN (head);
   current_sched_info->next_tail = NEXT_INSN (tail);
 
-  /* rm_other_notes only removes notes which are _inside_ the
-     block---that is, it won't remove notes before the first real insn
-     or after the last real insn of the block.  So if the first insn
-     has a REG_SAVE_NOTE which would otherwise be emitted before the
-     insn, it is redundant with the note before the start of the
-     block, and so we have to take it out.  */
-  if (INSN_P (head))
-    {
-      rtx note;
-
-      for (note = REG_NOTES (head); note; note = XEXP (note, 1))
-	if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
-	  remove_note (head, note);
-    }
-
-  /* Remove remaining note insns from the block, save them in
-     note_list.  These notes are restored at the end of
-     schedule_block ().  */
-  rm_other_notes (head, tail);
+  remove_notes (head, tail);
 
   unlink_bb_notes (first_bb, last_bb);
 
-  current_sched_info->queue_must_finish_empty = 1;
-
   target_bb = first_bb;
-  schedule_block (&target_bb, n_insns);
+
+  haifa_local_init (n_insns);
+  schedule_block (&target_bb);
+  sched_local_finish ();
 
   /* We might pack all instructions into fewer blocks,
      so we may made some of them empty.  Can't assert (b == last_bb).  */
@@ -548,11 +621,11 @@ schedule_ebbs (void)
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
-  /* We need current_sched_info in init_dependency_caches, which is
-     invoked via sched_init.  */
+  common_sched_info = &ebb_common_sched_info;
+  sched_deps_info = &ebb_sched_deps_info;
   current_sched_info = &ebb_sched_info;
 
-  sched_init ();
+  haifa_sched_init ();
 
   compute_bb_for_insn ();
 
@@ -607,7 +680,7 @@ schedule_ebbs (void)
     }
   bitmap_clear (&dont_calc_deps);
 
-  gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO);
+  gcc_assert (common_sched_info->detach_life_info);
   /* We can create new basic blocks during scheduling, and
      attach_life_info () will create regsets for them
      (along with attaching existing info back).  */
@@ -672,7 +745,7 @@ schedule_ebbs (void)
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
 
-  sched_finish ();
+  haifa_sched_finish ();
 }
 
 /* INSN has been added to/removed from current ebb.  */

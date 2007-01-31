@@ -35,8 +35,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static char *safe_concat (char *, char *, const char *);
 static void print_exp (char *, rtx, int);
-static void print_value (char *, rtx, int);
-static void print_pattern (char *, rtx, int);
 
 #define BUF_LEN 2048
 
@@ -414,7 +412,7 @@ print_exp (char *buf, rtx x, int verbose)
 /* Prints rtxes, I customarily classified as values.  They're constants,
    registers, labels, symbols and memory accesses.  */
 
-static void
+void
 print_value (char *buf, rtx x, int verbose)
 {
   char t[BUF_LEN];
@@ -513,7 +511,7 @@ print_value (char *buf, rtx x, int verbose)
 
 /* The next step in insn detalization, its pattern recognition.  */
 
-static void
+void
 print_pattern (char *buf, rtx x, int verbose)
 {
   char t1[BUF_LEN], t2[BUF_LEN], t3[BUF_LEN];
@@ -662,7 +660,7 @@ print_insn (char *buf, rtx x, int verbose)
 	strcpy (t, "call <...>");
 #ifdef INSN_SCHEDULING
       if (verbose && current_sched_info)
-	sprintf (buf, "%s: %s", (*current_sched_info->print_insn) (x, 1), t);
+	sprintf (buf, "%s: %s", (*current_sched_info->print_insn) (insn, 1), t);
       else
 #endif
 	sprintf (buf, " %4d %s", INSN_UID (insn), t);
@@ -691,6 +689,14 @@ print_insn (char *buf, rtx x, int verbose)
     }
 }				/* print_insn */
 
+void
+dump_insn_slim_1 (FILE *f, rtx x)
+{
+  char t[BUF_LEN + 32];
+
+  print_insn (t, x, 1);
+  fputs (t, f);
+}
 
 /* Emit a slim dump of X (an insn) to the file F, including any register
    note attached to the instruction.  */
@@ -700,9 +706,9 @@ dump_insn_slim (FILE *f, rtx x)
   char t[BUF_LEN + 32];
   rtx note;
 
-  print_insn (t, x, 1);
-  fputs (t, f);
+  dump_insn_slim_1 (f, x);
   putc ('\n', f);
+
   if (INSN_P (x) && REG_NOTES (x))
     for (note = REG_NOTES (x); note; note = XEXP (note, 1))
       {
@@ -725,10 +731,21 @@ debug_insn_slim (rtx x)
 void
 print_rtl_slim_with_bb (FILE *f, rtx first, int flags)
 {
-  basic_block current_bb = NULL;
-  rtx insn;
+  print_rtl_slim (f, first, NULL, -1, flags);
+}
 
-  for (insn = first; NULL != insn; insn = NEXT_INSN (insn))
+/* Same as above, but stop at LAST or when COUNT == 0.  
+   If COUNT < 0 it will stop only at LAST or NULL rtx.  */
+void
+print_rtl_slim (FILE *f, rtx first, rtx last, int count, int flags)
+{
+  basic_block current_bb = NULL;
+  rtx insn, tail;
+
+  tail = last ? NEXT_INSN (last) : NULL_RTX;
+  for (insn = first; 
+       (insn != NULL) && (insn != tail) && (count != 0); 
+       insn = NEXT_INSN (insn))
     {
       if ((flags & TDF_BLOCKS)
 	  && (INSN_P (insn) || GET_CODE (insn) == NOTE)
@@ -748,6 +765,21 @@ print_rtl_slim_with_bb (FILE *f, rtx first, int flags)
 	  dump_bb_info (current_bb, false, true, flags, ";; ", f);
 	  current_bb = NULL;
 	}
+      if (count > 0)
+        count--;
     }
+}
+
+void 
+debug_bb_slim (struct basic_block_def *bb)
+{
+  print_rtl_slim (stderr, BB_HEAD (bb), BB_END (bb), -1, 32);
+}
+
+void
+debug_bb_n_slim (int n)
+{
+  struct basic_block_def *bb = BASIC_BLOCK (n);
+  debug_bb_slim (bb);
 }
 

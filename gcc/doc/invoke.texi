@@ -294,6 +294,7 @@ Objective-C and Objective-C++ Dialects}.
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
+-fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
@@ -339,6 +340,9 @@ Objective-C and Objective-C++ Dialects}.
 -fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
+-fselective-scheduling -fsel-sched-emulate-haifa -fsel-sched-bookkeeping @gol
+-fsel-sched-pipelining -fsel-sched-renaming -fsel-sched-substitution @gol
+-fsel-sched-single-block-regions -fsel-sched-ebb-regions @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
 -fstack-protector  -fstack-protector-all @gol
 -fstrict-aliasing  -fstrict-overflow  -ftracer  -fthread-jumps @gol
@@ -4432,6 +4436,14 @@ and unit/insn info.  For @var{n} greater than two, it includes RTL
 at abort point, control-flow and regions info.  And for @var{n} over
 four, @option{-fsched-verbose} also includes dependence info.
 
+@item -fsel-sched-verbose
+@opindex sel-sched-verbose
+Be verbose when running selective scheduling.
+
+@item -fsel-sched-dump-cfg
+@opindex sel-sched-dump-cfg
+Dump CFG information during selective scheduling pass.
+
 @item -save-temps
 @opindex save-temps
 Store the usual ``temporary'' intermediate files permanently; place them
@@ -5173,6 +5185,51 @@ ones to optimal placement using LCM.
 The modulo scheduling comes before the traditional scheduling, if a loop was modulo scheduled
 we may want to prevent the later scheduling passes from changing its schedule, we use this
 option to control that.
+
+@item -fselective-scheduling
+@opindex fselective-scheduling
+Schedule instructions using selective scheduling algorithm.  Selective
+scheduling runs instead of second haifa scheduler pass.
+
+@item -fsel-sched-emulate-haifa
+@opindex fsel-sched-emulate-haifa
+Emulate Haifa scheduler for better cooperation with the target.  With this
+option selective scheduling will call target hooks the same way haifa scheduler
+does before finishing scheduling.
+
+@item -fsel-sched-bookkeeping
+@opindex fsel-sched-bookkeeping
+Enable generation of bookkeeping code during selective scheduling.  This option
+allows insns to be moved through join point.
+
+@item -fsel-sched-pipelining
+@opindex fsel-sched-pipelining
+Enable software pipelining of loops during selective scheduling.  This option
+requires @option{-fsel-sched-bookkeeping}.
+
+@item -fsel-sched-renaming
+@opindex fsel-sched-renaming
+Enable register renaming during selective scheduling.  This option allows the
+scheduler to split insns into rhs and lhs, and choose a different register
+for lhs, if instruction can not be scheduled at given point with the original
+one.
+
+@item -fsel-sched-substitution
+@opindex fsel-sched-substitution
+Enable register substitution during selective scheduling.  This option allows
+to overcome true dependencies, while scheduling insns before assignments.
+E.g.: scheduling 'z = x*2' before 'x = y' will yield 'z = y*2'.
+This option is useful in combination with @option{-fsel-sched-pipelining} to
+move instructions through back loop edges, though
+@option{-fsel-sched-pipelining} is not required for substitution to work.
+
+@item -fsel-sched-single-block-regions
+@opindex fsel-sched-single-block-regions
+Run selective scheduling on single basic block regions.
+
+@item -fsel-sched-ebb-regions
+@opindex fsel-sched-ebb-regions
+Run selective scheduling on extended basic block regions.
 
 @item -fcaller-saves
 @opindex fcaller-saves
@@ -6429,6 +6486,11 @@ The default value is 3.
 The minimal probability of speculation success (in percents), so that
 speculative insn will be scheduled.
 The default value is 40.
+
+@item selsched-max-lookahead
+The maximum size of the lookahead window of selective scheduling.  It is a
+depth of search for available instructions.
+The default value is 32.
 
 @item max-last-value-rtl
 

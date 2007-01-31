@@ -1,0 +1,246 @@
+2007-01-31  Andrey Belevantsev  <abel@ispras.ru>
+	    Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+	    Dmitry Melnik  <dm@ispras.ru>
+
+	* sel-sched.h, sel-sched-dump.h, sel-sched-ir.h, sel-sched.c,
+	sel-sched-dump.c, sel-sched-ir.c, sched-deps.h, 
+	sched-rgn.h: New files.
+
+	* cfghooks.h (rtl_delete_block_not_barriers): New prototype.
+	* cfgrtl.c (get_last_bb_insn_1): New forward declaration.
+	(rtl_delete_block_1): New static function.  Move logic from ...
+	(rtl_delete_block): ... here.
+	(rtl_delete_block_not_barriers): New function.
+	(get_last_bb_insn_1): New static function.  Move logic from ... 
+	(get_last_bb_insn): .. here.
+	* common.opt (fsel-sched-emulate-haifa, fsel-sched-bookkeeping,
+	fsel-sched-pipelining, fsel-sched-pipelining-verbose,
+	fsel-sched-renaming, fsel-sched-substitution, fsel-sched-verbose,
+	fsel-sched-dump-cfg, fsel-sched-single-block-regions,
+	fsel-sched-ebb-regions, fselective-scheduling): New flags.
+	* ddg.c: Include sched-deps.h.
+	* emit-rtl.c (add_insn, add_insn_after, add_insn_before): Call
+	insn_added hook.
+	* haifa-sched.c: Include sched-deps.h.
+	(issue_rate, sched_verbose_param, note_list, dfa_state_size,
+	ready_try, cycle_issued_insns, dfa_lookahead, max_luid): Make global.
+	(sched_max_uid, common_sched_info, uid_to_luid, reg_weights,
+	sched_bbs, sched_insns, ready): New global variables.
+	(glat_start, glat_end): Initialize with NULL.
+	(struct ready_list): Move declaration to sched-int.h.
+	(ready_p, rgn_n_insns): Initialize.
+	(current_sched_info_var): Change type to struct haifa_sched_info.
+	(dep_cost_1): New static function.  Prototype it.  Move logic from ... 
+	(insn_cost1): ... here. 
+	(dep_cost): New static function.
+	(priority): Adjust to work with selective scheduling.  Use 
+	sched_deps_info instead of current_sched_info.  Process the corner
+	case when all dependencies don't contribute to priority.
+	(ready_lastpos, ready_element, ready_sort, reemit_notes, move_insn,
+	find_fallthru_edge): Make global, remove static prototypes.
+	(advance_state): New function.  Move logic from ... 
+	(advance_one_cycle): ... here.
+	(schedule_insn): Use sched_deps_info instead of current_sched_info.
+	(add_to_note_list, concat_note_lists): New functions. 
+	(unlink_other_notes): Move logic to add_to_note_list.  Handle
+	selective scheduler.
+	(rm_other_notes): Make static.  Adjust for selective scheduling.
+	(remove_notes, restore_other_notes): New functions.
+	(find_insn_reg_weight1): Rename to find_insn_reg_weight.
+	(find_insn_reg_weight): Remove.
+	(max_issue): Add privileged_n and state parameters.  Use them.
+	Add comments.  Move debug dumping to choose_ready.
+	(choose_ready): Remove lookahead variable, use dfa_lookahead.
+	Remove more_issue, max_points.  Move the code to initialize 
+	max_lookahead_tries to max_issue.
+	(schedule_block): Remove rgn_n_insns1 parameter.  Don't allocate
+	ready.  Adjust uses of move_insn.  Call restore_other_notes.
+	(sched_init, sched_finish): Move Haifa-specific initialization/
+	finalization to ... 
+	(haifa_sched_init, haifa_sched_finish): ... respectively.  
+	New functions.
+	(extend_h_i_d, init_h_i_d): Remove.
+	(haifa_local_init, haifa_local_finish, sched_local_init, 
+	sched_local_finish, sched_insns_init, sched_insns_finish): 
+	New functions.
+	(extend_all, add_to_speculative_block, init_before_recovery,
+	create_check_block_twin): Use haifa_insns_init 
+	instead of extend_global.
+	(sched_bbs_init): New function.  Move logic from ... 
+	(extend_bb): ... here.
+	(add_block): Use common_sched_info instead of current_sched_info.
+	Use sched_bbs_init.  Add stricter asserts.
+	(fix_jump_moves, move_block_after_check, attach_life_info1): 
+	Use common_sched_info.
+	(init_glat): Remove.
+	(init_glat_1): Rename to glat_init_1.
+	(glat_init, sched_bbs_finish): New functions.
+	(check_sched_flags): Use sched_deps_info.
+	(sched_luid_extend, sched_luid_init, sched_luid_finish, 
+	sched_insn_extend, sched_insn_init, sched_insns_finish,
+	sched_bb_extend, sched_bb_init, sched_bb_finish, 
+	sched_data_update, sched_data_finish): New functions.
+	* lists.c (remove_free_INSN_LIST_node): New function.
+	* modulo-sched.c: Include sched-deps.h.
+	(issue_rate): Guard with #if 0.
+	(sms_sched_info): Rename to sms_common_sched_info.
+	(sms_sched_deps_info, sms_sched_info): New.
+	(sms_schedule): Initialize them.  Call haifa_sched_init/finish.
+	* opts.c (decode_options).  If optimize >=2, turn on selective
+	scheduling.
+	* params.def (PARAM_SELSCHED_VERBOSE, PARAM_SELSCHED_DUMP_CFG_FLAGS,
+	PARAM_SELSCHED_MAX_LOOKAHEAD, PARAM_ALLOW_START, PARAM_ALLOW_STOP,
+	PARAM_ALLOW_P, PARAM_REGION_START, PARAM_REGION_STOP, 
+	PARAM_REGION_P): New parameters.
+	* passes.c (init_optimization_passes): Add sel_sched pass.
+	* recog.c (validate_replace_rtx_part): New function.
+	* recog.h: Prototype it.
+	* rtl.h (remove_free_INSN_LIST_NODE, debug_bb_n_slim, debug_bb_slim,
+	print_rtl_slim): Add prototypes.
+	(struct rtl_hooks <insn_added>): New RTL hook.
+	(insn_added): New macro.
+	* rtlhooks-def.h (RTL_HOOKS_INSN_ADDED): Define to NULL.
+	Add to RTL_HOOKS_INITIALIZER.
+	* sched-deps.c: Include sched-deps.h.
+	(sched_deps_info): New.  Update all relevant uses of current_sched_info
+	to use it.
+	(d_i_d, h_d_i_d): New variables.
+	({true, output, anti, spec, forward}_dependency_cache): Initialize 
+	to NULL.
+	(cur_max_luid, cur_insn, can_start_lhs_rhs_p): New static variables.
+	(add_or_update_back_dep_1): Initialize present_dep_type.
+	(fixup_sched_groups): Use add_dependence instead of 
+	maybe_add_or_update_back_dep.
+	(haifa_start_insn, haifa_finish_insn, haifa_note_reg_set,
+	haifa_note_reg_clobber, haifa_note_reg_use, haifa_note_mem_dep,
+	haifa_note_dep): New functions implementing dependence hooks for 
+	the Haifa scheduler.
+	(note_reg_use, note_reg_set, note_reg_clobber, note_mem_dep,
+	note_dep): New macros.
+	(ds_to_dt): New function.
+	(sched_analyze_reg, sched_analyze_1, sched_analyze_2, 
+	sched_analyze_insn): Update to use dependency hooks infrastructure.
+	(deps_analyze_insn): New function.  Move part of logic from ... 
+	(sched_analyze): ... here.  Also move some logic to ... 
+	(deps_start_bb): ... here.  New function.  
+	(add_forw_dep, delete_forw_dep): Guard use of INSN_DEP_COUNT with
+	!SEL_SCHED_P.
+	(sched_deps_local_init): New function.  Move code from ... 
+	(init_dependency_caches): ... here.  
+	(sched_deps_local_finish): New function.  Move code from ... 
+	(free_dependency_caches): ... here.
+	(init_deps_global, finish_deps_global): Adjust for use with 
+	selective scheduling.
+	(add_dependence): Make static.  Adjust for use of dependency hooks.
+	(maybe_add_or_update_back_dep): New.
+	(add_or_update_back_dep, add_or_update_back_forw_dep, 
+	add_back_forw_dep): Adjust to use with selective scheduling.
+	* sched-ebb.c: Include sched-deps.h.
+	(debug_ebb_dependencies): New function.
+	(init_ready_list): Use it.
+	(ebb_print_insn): Indicate when an insn starts a new cycle.
+	(contributes_to_priority, compute_jump_reg_dependencies): Add 
+	ebb_ prefix to function names.
+	(ebb_sched_deps_info, ebb_common_sched_info): New variables.
+	(schedule_ebb): Initialize them.  Use remove_notes instead of 
+	rm_other_notes.  Use haifa_local_init/finish.  
+	(schedule_ebbs): Use haifa_sched_init/finish.
+	* sched-int.h: Include basic-block.h.
+	(sched_verbose_param, common_sched_info, sched_emulate_haifa_p,
+	glat_start, glat_end, sched_max_uid, sched_last_basic_block,
+	uid_to_luid, max_luid, sched_blocks, sched_insns): New prototypes.
+	Prototype new functions in haifa-sched.c, sched-ebb.c, 
+	and sched-vis.c.
+	(enum sched_pass_id_t): New enumeration.
+	(struct common_sched_info_def): New structure.
+	(INSN_NEED_LUID_P, SEL_SCHED_P, INSN_LUID): New macros.
+	(deps_t): New typedef.
+	(current_sched_info): Change type to ... 
+	(struct haifa_sched_info): ... this.  New structure.  Move 
+	Haifa-specific fields from struct sched_info.
+	(struct haifa_insn_data): Move dependency-related fields to 
+	struct deps_insn_data.
+	(INSN_PRIORITY, INSN_PRIORITY_KNOWN): Change to use d_i_d.
+	(INSN_COST): Adjust for selective scheduling.
+	Move sched-deps.c functions to sched-deps.h.
+	* sched-rgn.c: Include cselib.h and sched-deps.h.
+	(region, candidate, BB_TO_BLOCK, EBB_{FIRST,LAST}_BB, IS_VALID,
+	IS_SPECULATIVE): Move to sched-rgn.h.
+	(nr_regions, rgn_table, rgn_bb_table, block_to_bb, containing_rgn,
+	current_nr_blocks, current_blocks, candidate_table, extend_rgns): 
+	Make global.
+	(debug_region, bb_in_region_p, dump_region_dot, 
+	dump_region_dot_file, sched_rgn_estimate_number_of_insns): 
+	New functions.	
+	(find_single_block_region): Add ebbs_p parameter.
+	(too_large, find_rgns, new_ready): Use comon_sched_info.
+	(compute_trg_info): Make global.  Move initialization of 
+	candidate_table, bblst_table, and edgelst_table from ... 
+	(init_ready_list): ... here.
+	(free_trg_info): New function.
+	(check_live, update_live, contributes_to_priority): Make global.
+	(rgn_common_sched_info, rgn_sched_deps_info,
+	rgn_after_reload_sched_deps_info): New variables.
+	(region_sched_info): Change type to struct haifa_sched_info.
+	(ref_counts): New static variable. 	
+	(add_branch_dependences): Use maybe_add_or_update_back_dep instead
+	of add_dependence.
+	(deps_join): New function.
+	(propagate_deps): Use it.  New function.
+	(free_rgn_deps, compute_priorities): New function.
+	(sched_rgn_init, sched_rgn_finish): New functions.
+	(schedule_region): Use them.
+	(sched_rgn_local_preinit, sched_rgn_local_init, 
+	sched_rgn_local_free, sched_rgn_local_finish): New functions.
+	* sched-vis.c (print_value, print_pattern): Make global.
+	(dump_insn_slim_1, print_rtl_slim, debug_bb_slim, 
+	debug_bb_n_slim): New functions.
+	* target-def.h (TARGET_SCHED_ALLOC_SCHED_CONTEXT, 
+	TARGET_SCHED_INIT_SCHED_CONTEXT, TARGET_SCHED_SET_SCHED_CONTEXT, 
+	TARGET_SCHED_CLEAR_SCHED_CONTEXT, TARGET_SCHED_FREE_SCHED_CONTEXT):
+	New target hooks.  Initialize them to 0.
+	* target.h (struct gcc_target): Add them.
+	* timevar.def (TV_SEL_SCHED): New timevar.
+	* tree-pass.h (pass_sel_sched): Prototype it.
+	
+	* Makefile.in (OBJS-common): Add selective scheduling object
+	files. 
+	(sel-sched.o, sel-sched-dump.o, sel-sched-ir.o): New entries.
+	(SEL_SCHED_IR_H, SEL_SCHED_DUMP_H): New entries.
+	(SCHED_INT_H): Add dependency on sched-deps.h.
+	(sched-deps.o): Add sched-deps.h.
+	(sched-rgn.o): Add $(SCHED_RGN_H).
+
+	* config/ia64/ia64.opt (msel-sched-renaming, 
+	msel-sched-substitution): New target-dependent flags.
+	* config/ia64/ia64.c: Include sched-deps.h and sel-sched.h.
+	(TARGET_SCHED_ALLOC_SCHED_CONTEXT, TARGET_SCHED_INIT_SCHED_CONTEXT,
+	TARGET_SCHED_SET_SCHED_CONTEXT, TARGET_SCHED_CLEAR_SCHED_CONTEXT,
+	TARGET_SCHED_FREE_SCHED_CONTEXT): Define new target hooks.
+	(struct _ia64_sched_context): New structure.
+	(ia64_sched_context_t): New typedef.
+	(ia64_alloc_sched_context, ia64_init_sched_context, 
+	ia64_set_sched_context, ia64_clear_sched_context,
+	ia64_free_sched_context): New static functions.  Prototype them.
+	(ia64_override_options): Set global selective scheduling flags 
+	according to target-dependent flags.
+	(dfa_state_size): Remove static declaration.
+	(ia64_sched_init): Remove checks for !SCHED_GROUP_P after reload.
+	(ia64_dfa_new_cycle): Assert that last_scheduled_insn is set when
+	a group barrier is needed.  Fix vertical spacing.  Guard the code
+	doing state transition with last_scheduled_insn check.
+	(ia64_variable_issue): Change use of current_sched_info to 
+	sched_deps_info.  Update comment.
+	(ia64_h_i_d_extended): Ditto.	
+	(ia64_mode_to_int): Check common_sched_info instead of *flags.
+	(ia64_set_sched_flags): Ditto.
+	(bundling): When shifting TImode from unimportant insns, ignore 
+	also group barriers.  Assert that best state is found before 
+	the backward bundling pass.
+	(ia64_sched_finish, final_emit_insn_group_barriers): Fix formatting.
+	(ia64_reorg): Wen flag_selective_scheduling, run the selective 
+	scheduling pass instead of schedule_ebbs.
+	* config/ia64/t-ia64 (ia64.o): Add dependency on sel-sched.h.
+
+	* doc/invoke.texi: Document new flags and parameters.
+	* doc/tm.texi: Document new target hooks.

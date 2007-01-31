@@ -1755,6 +1755,7 @@ void remove_free_DEPS_LIST_elem (rtx, rtx *);
 void remove_free_INSN_LIST_elem (rtx, rtx *);
 rtx remove_list_elem (rtx, rtx *);
 rtx copy_DEPS_LIST_list (rtx);
+rtx remove_free_INSN_LIST_node (rtx *);
 
 /* regclass.c */
 
@@ -2083,6 +2084,9 @@ extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
 
 /* In sched-vis.c.  */
+extern void debug_bb_n_slim (int);
+extern void debug_bb_slim (struct basic_block_def *);
+extern void print_rtl_slim (FILE *, rtx, rtx, int, int);
 extern void print_rtl_slim_with_bb (FILE *, rtx, int);
 extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);
@@ -2276,6 +2280,8 @@ struct rtl_hooks
 				  unsigned int, unsigned int *);
   bool (*reg_truncated_to_mode) (enum machine_mode, rtx);
 
+  void (*insn_added) (rtx insn);
+
   /* Whenever you add entries here, make sure you adjust rtlhooks-def.h.  */
 };
 
@@ -2287,5 +2293,7 @@ extern const struct rtl_hooks general_rtl_hooks;
 
 /* Keep this for the nonce.  */
 #define gen_lowpart rtl_hooks.gen_lowpart
+
+#define insn_added (rtl_hooks.insn_added)
 
 #endif /* ! GCC_RTL_H */

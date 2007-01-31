@@ -682,6 +682,20 @@ validate_replace_rtx (rtx from, rtx to, rtx insn)
   return apply_change_group ();
 }
 
+/* Try replacing every occurrence of FROM in WHERE with TO.  Assume that WHERE
+   is a part of INSN.  After all changes have been made, validate by seeing if 
+   INSN is still valid.  
+   validate_replace_rtx (from, to, insn) is equivalent to 
+   validate_replace_rtx_part (from, to, &PATTERN (insn), insn).  */
+
+int
+validate_replace_rtx_part (rtx from, rtx to, rtx *where, rtx insn)
+{
+  validate_replace_rtx_1 (where, from, to, insn);
+  return apply_change_group ();
+}
+
+
 /* Try replacing every occurrence of FROM in INSN with TO.  */
 
 void
