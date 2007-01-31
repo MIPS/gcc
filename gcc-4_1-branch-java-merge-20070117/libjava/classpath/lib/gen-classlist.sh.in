@@ -117,6 +117,7 @@ if test "$new" = "true"; then
   cp ${top_builddir}/lib/classes.1 ${top_builddir}/lib/classes.2
   # Strip the package part.
   sed -e 's/^[^ ]* //' -e 's, ,/,' < ${top_builddir}/lib/classes.1 \
+     -e "s|^\.\./|${abs_top_builddir}/|" \
      > ${top_builddir}/lib/classes
   echo "JAVA_SRCS = \\" > ${top_builddir}/lib/java.dep
   for i in `cat ${top_builddir}/lib/classes` ; do
