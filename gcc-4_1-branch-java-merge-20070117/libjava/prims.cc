@@ -457,6 +457,7 @@ _Jv_Abort (const char *, const char *, int, const char *message)
 #else
   fprintf (stderr, "libgcj failure: %s\n", message);
 #endif
+  fflush (stderr);
   abort ();
 }
 
