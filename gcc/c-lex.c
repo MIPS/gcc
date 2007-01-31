@@ -769,22 +769,22 @@ interpret_fixed (const cpp_token *token, unsigned int flags)
 	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
 	    {
 	      type = unsigned_long_long_accum_type_node;
-	      copylen -= 3;
+	      copylen -= 4;
 	    }
 	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
 	    {
 	      type = unsigned_long_accum_type_node;
-	      copylen -= 2;
+	      copylen -= 3;
 	    }
 	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
 	    {
 	      type = unsigned_short_accum_type_node;
-	      copylen -= 2;
+	      copylen -= 3;
 	     }
 	  else
 	    {
 	      type = unsigned_accum_type_node;
-	      copylen --;
+	      copylen -= 2;
 	    }
 	}
       else /* Signed _Accum.  */

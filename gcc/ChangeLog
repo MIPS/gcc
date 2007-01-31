@@ -1,3 +1,8 @@
+2007-01-31  Chao-ying Fu  <fu@mips.com>
+
+	* c-lex.c (interpret_fixed): Fix a bug of copylen for unsigned accum
+	types.
+
 2007-01-29  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/dfp-bit.c: Add parameterized support for fp exceptions.
