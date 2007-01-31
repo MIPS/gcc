@@ -1100,8 +1100,9 @@ dist-hook:
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
-	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
-	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
+	abs_srcdir=`cd $(srcdir) && pwd` ; \
+	find $$abs_srcdir/external/asm -name '*.java' -print > asm.lst; \
+	find $$abs_srcdir/gnu/classpath/tools -name '*.java' -print > classes.lst
 	cat classes.lst asm.lst > all-classes.lst
 @JAVA_MAINTAINER_MODE_TRUE@	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 @JAVA_MAINTAINER_MODE_TRUE@	  $$AC -g -w -d $(srcdir)/asm @asm.lst

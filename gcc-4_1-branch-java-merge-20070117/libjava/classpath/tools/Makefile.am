@@ -151,8 +151,9 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 ## GCJ LOCAL: put classes in srcdir
 ##	@rm -rf classes asm
 ##	mkdir classes asm
-	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
-	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
+	abs_srcdir=`cd $(srcdir) && pwd` ; \
+	find $$abs_srcdir/external/asm -name '*.java' -print > asm.lst; \
+	find $$abs_srcdir/gnu/classpath/tools -name '*.java' -print > classes.lst
 	cat classes.lst asm.lst > all-classes.lst
 if JAVA_MAINTAINER_MODE
 ## Compile ASM separately as it is latin-1 encoded.
