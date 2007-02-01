@@ -1,3 +1,8 @@
+2007-02-01  Chao-ying Fu  <fu@mips.com>
+
+	* c-lex.c (build_binary_op): Fix a bug when checking code1 is
+	FIXED_POINT_TYPE.
+
 2007-01-31  Chao-ying Fu  <fu@mips.com>
 
 	* c-lex.c (interpret_fixed): Fix a bug of copylen for unsigned accum
