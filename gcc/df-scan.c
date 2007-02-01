@@ -1997,6 +1997,13 @@ df_ref_compare (const void *r1, const void *r2)
   return 0;
 }
 
+static void
+df_swap_refs (struct df_ref **ref_vec, int i, int j)
+{
+  struct df_ref *tmp = ref_vec[i];
+  ref_vec[i] = ref_vec[j];
+  ref_vec[j] = tmp;
+}
 
 /* Sort and compress a set of refs.  */
 
@@ -2012,7 +2019,28 @@ df_sort_and_compress_refs (struct df_ref **ref_vec, unsigned int count)
   /* If there are 1 or 0 elements, there is nothing to do.  */
   if (count < 2)
     return count;
-  qsort (ref_vec, count, sizeof (struct df_ref *), df_ref_compare);
+
+  if (count == 2)
+    {
+      if (df_ref_compare (&ref_vec[0], &ref_vec[1]) > 0)
+        df_swap_refs (ref_vec, 0, 1);
+    }
+  else
+    {
+      for (i = 0; i < count - 1; i++)
+        if (df_ref_compare (&ref_vec[i], &ref_vec[i+1]) >= 0)
+          break;
+      /* If the array is already strictly ordered,
+         which is the most common case for large COUNT case
+         (which happens for CALL INSNs),
+         no need to sort and filter out duplicate.
+         Simply return the count.  
+         Make sure DF_GET_ADD_REFS adds refs in the increasing order
+         of DF_REF_COMPARE.  */
+      if (i == count - 1)
+        return count;
+      qsort (ref_vec, count, sizeof (struct df_ref *), df_ref_compare);
+    }
 
   for (i=0; i<count-dist; i++)
     {
@@ -2090,7 +2118,21 @@ df_sort_and_compress_mws (struct df_mw_hardreg **mw_vec, unsigned int count)
   unsigned int i;
   unsigned int dist = 0;
   mw_vec[count] = NULL;
-  qsort (mw_vec, count, sizeof (struct df_mw_hardreg *), df_mw_compare);
+
+  if (count < 2)
+    return count;
+
+  if (count == 2)
+    {
+      if (df_mw_compare (mw_vec[0], mw_vec[1]) > 0)
+        {
+          struct df_mw_hardreg *tmp = mw_vec[0];
+          mw_vec[0] = mw_vec[1];
+          mw_vec[1] = tmp;
+        }
+    }
+  else
+    qsort (mw_vec, count, sizeof (struct df_mw_hardreg *), df_mw_compare);
 
   for (i=0; i<count-dist; i++)
     {
