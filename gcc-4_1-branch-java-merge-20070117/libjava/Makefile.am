@@ -95,10 +95,6 @@ endif
 ## Compilers and compilation flags.
 ##
 
-if BASH_JAR
-bin_SCRIPTS += scripts/jar
-endif
-
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
@@ -333,8 +329,9 @@ $(propertyo_files): %.lo: classpath/resource/%
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 ## Note that this now omits the property files.
 ## It doesn't matter since we don't use the jar at runtime.
-	here=`pwd`; cd $(srcdir)/classpath/lib; $(JAR) -cfM \
-	    $$here/libgcj-$(gcc_version).jar gnu java javax org sun
+	here=`pwd`; cd $(srcdir)/classpath/lib; \
+	find gnu java javax org sun -name .svn -prune -o -name '*.class' -print | \
+	$(JAR) -cfM@ $$here/libgcj-$(gcc_version).jar
 
 libgcj-tools-$(gcc_version).jar: classpath/tools/tools.zip
 	cp $< $@

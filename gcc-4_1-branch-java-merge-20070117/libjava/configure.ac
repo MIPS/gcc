@@ -146,14 +146,26 @@ AC_PROG_AWK
 AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
-AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
-if test "$ZIP" = no; then
-  if test "$JAR" = no; then
+
+# We need a jar that supports -@.  This is a GNU extension.
+if test "$JAR" != no; then
+   rm -f config-test.jar
+   echo $srcdir/configure.ac | $JAR -cf@ config-test.jar
+   if test -f config-test.jar; then
+     rm -f config-test.jar
+   else
+     JAR=no
+   fi
+fi
+
+# Prefer the jar we found, but fall back to our jar script.
+if test "$JAR" = no; then
+  if test "$ZIP" = no; then
     AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
+  else
+    # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
+    JAR=`pwd`/scripts/jar
   fi
-else
-  # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
-  JAR=`pwd`/scripts/jar
 fi
 
 AC_PROG_INSTALL

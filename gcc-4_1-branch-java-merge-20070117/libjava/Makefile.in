@@ -53,16 +53,15 @@ target_triplet = @target@
 @NATIVE_TRUE@	grmid$(EXEEXT) gserialver$(EXEEXT) \
 @NATIVE_TRUE@	gtnameserv$(EXEEXT)
 @BUILD_ECJ1_TRUE@libexecsub_PROGRAMS = ecjx$(EXEEXT)
-@BASH_JAR_TRUE@am__append_5 = scripts/jar
-@USING_GCC_TRUE@am__append_6 = $(WARNINGS)
-@USING_BOEHMGC_TRUE@am__append_7 = boehm.cc
-@USING_NOGC_TRUE@am__append_8 = nogc.cc
-@USING_POSIX_PLATFORM_TRUE@am__append_9 = posix.cc
-@USING_WIN32_PLATFORM_TRUE@am__append_10 = win32.cc
-@USING_DARWIN_CRT_TRUE@am__append_11 = darwin.cc
-@USING_POSIX_THREADS_TRUE@am__append_12 = posix-threads.cc
-@USING_WIN32_THREADS_TRUE@am__append_13 = win32-threads.cc
-@USING_NO_THREADS_TRUE@am__append_14 = no-threads.cc
+@USING_GCC_TRUE@am__append_5 = $(WARNINGS)
+@USING_BOEHMGC_TRUE@am__append_6 = boehm.cc
+@USING_NOGC_TRUE@am__append_7 = nogc.cc
+@USING_POSIX_PLATFORM_TRUE@am__append_8 = posix.cc
+@USING_WIN32_PLATFORM_TRUE@am__append_9 = win32.cc
+@USING_DARWIN_CRT_TRUE@am__append_10 = darwin.cc
+@USING_POSIX_THREADS_TRUE@am__append_11 = posix-threads.cc
+@USING_WIN32_THREADS_TRUE@am__append_12 = win32-threads.cc
+@USING_NO_THREADS_TRUE@am__append_13 = no-threads.cc
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../config.guess $(srcdir)/../config.sub \
 	$(srcdir)/../depcomp $(srcdir)/../install-sh \
@@ -74,7 +73,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(top_srcdir)/scripts/jar.in COPYING ChangeLog NEWS THANKS
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@noinst_PROGRAMS =  \
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@	gen-from-JIS$(EXEEXT)
-@XLIB_AWT_TRUE@am__append_15 = $(xlib_nat_headers)
+@XLIB_AWT_TRUE@am__append_14 = $(xlib_nat_headers)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
@@ -542,8 +541,6 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
-BASH_JAR_FALSE = @BASH_JAR_FALSE@
-BASH_JAR_TRUE = @BASH_JAR_TRUE@
 BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
 BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
 CC = @CC@
@@ -723,7 +720,6 @@ bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
-build_libsubdir = @build_libsubdir@
 build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
@@ -804,7 +800,7 @@ jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar \
 db_name = classmap.db
 db_pathtail = gcj-$(gcc_version)/$(db_name)
 @NATIVE_TRUE@dbexec_DATA = $(db_name)
-bin_SCRIPTS = addr2name.awk $(am__append_5)
+bin_SCRIPTS = addr2name.awk
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -841,7 +837,7 @@ AM_GCJFLAGS = \
 	--encoding=UTF-8 \
 	-Wno-deprecated -fbootstrap-classes
 
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_6)
+AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_5)
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -862,9 +858,9 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc jvmti.cc exception.cc \
 	stacktrace.cc link.cc defineclass.cc interpret.cc verify.cc \
-	$(nat_source_files) $(am__append_7) $(am__append_8) \
-	$(am__append_9) $(am__append_10) $(am__append_11) \
-	$(am__append_12) $(am__append_13) $(am__append_14)
+	$(nat_source_files) $(am__append_6) $(am__append_7) \
+	$(am__append_8) $(am__append_9) $(am__append_10) \
+	$(am__append_11) $(am__append_12) $(am__append_13)
 nat_files = $(nat_source_files:.cc=.lo)
 xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 
@@ -7985,7 +7981,7 @@ gnu/gcj/xlib/natXImage.cc \
 gnu/gcj/xlib/natXUnmapEvent.cc
 
 sourcesdir = $(jardir)
-headers_to_make = $(nat_headers) $(am__append_15)
+headers_to_make = $(nat_headers) $(am__append_14)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -9893,8 +9889,9 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
-	here=`pwd`; cd $(srcdir)/classpath/lib; $(JAR) -cfM \
-	    $$here/libgcj-$(gcc_version).jar gnu java javax org sun
+	here=`pwd`; cd $(srcdir)/classpath/lib; \
+	find gnu java javax org sun -name .svn -prune -o -name '*.class' -print | \
+	$(JAR) -cfM@ $$here/libgcj-$(gcc_version).jar
 
 libgcj-tools-$(gcc_version).jar: classpath/tools/tools.zip
 	cp $< $@
