@@ -2900,7 +2900,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   if (derived_sym->attr.is_bind_c != 1)
     {
       derived_sym->ts.is_c_interop = 0;
-      gfc_error ("Derived type '%s' declared at %L must have the BIND "
+      gfc_error_now ("Derived type '%s' declared at %L must have the BIND "
                  "attribute to be C interoperable", derived_sym->name,
                  &(derived_sym->declared_at));
       retval = FAILURE;
@@ -2937,7 +2937,8 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
       else
 	{
 	  /* grab the typespec for the given component and test the kind */ 
-	  is_c_interop = verify_c_interop (&(curr_comp->ts));
+	  is_c_interop = verify_c_interop (&(curr_comp->ts), curr_comp->name,
+                                           &(curr_comp->loc));
 	  
 	  if (is_c_interop != SUCCESS)
 	    {

@@ -3,6 +3,28 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-02-02  Christopher D. Rickett  <crickett@lanl.gov>
+	* gfortran.dg/c_kind_tests_2.f03: New test case for
+	verifying C interoperable kinds for BIND(C) variables.
+	* gfortran.dg/interop_params.f03: New test case for verifying
+	C interoperable kinds for dummy args to BIND(C) routines.
+	* fortran/symbol.c: Modified call to verify_c_interop in
+	verify_bind_c_derived_type to give args for component name and
+	location.
+	* fortran/decl.c: Modified calls to verify_c_interop to give
+	args for symbol name and location.  Slightly changed a couple
+	warning messages.  Removed validation of C kind from
+	gfc_match_kind_spec.  Added validation of C kind to
+	verify_c_interop.  Removed the verification of C interoperability in  
+	build_sym since it is done in variable_decl.  Modified checks on
+	BIND(C) derived types to include errors for the definition and any
+	variable declared with it.
+	* fortran/gfortran.h: Changed the prototype for
+	verify_c_interop to take args for the symbol/component name and
+	location.  These are used for an error message if the validation
+	of the C kind fails.
+
+
 2007-01-24  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* libgfortran/intrincsics/iso_c_binding.h: Fix comments.

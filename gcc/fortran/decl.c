@@ -727,38 +727,29 @@ verify_c_interop_param (gfc_symbol *sym)
   /* see if we've stored a reference to a procedure that owns sym */
   if (sym->ns != NULL && sym->ns->proc_name != NULL)
     {
-      /* If we're dealing with a derived type, then we have to
-	 look up if it's defn is bind(c).  If it is, then it should've
-	 passed inspection of the fields being interoperable.  */
-      if (sym->ts.type == BT_DERIVED)
-	/* get the is_c_interop from the derived type defn. */
-	is_c_interop = (sym->ts.derived->ts.is_c_interop ||
-			sym->ts.derived->attr.is_c_interop);
-      else
-	is_c_interop = (sym->ts.is_c_interop ||
-			sym->attr.is_c_interop);
-	 
       if (sym->ns->proc_name->attr.is_bind_c == 1)
 	{
+          is_c_interop =
+            (verify_c_interop (&(sym->ts), sym->name, &gfc_current_locus)
+             == SUCCESS ? 1 : 0);
+
 	  if (is_c_interop != 1)
 	    {
 	      /* make personalized messages to give better feedback */
 	      if (sym->ts.type == BT_DERIVED)
-		gfc_warning_now ("Type '%s' at %L "
+		gfc_warning_now ("Type '%s' at %C "
 				 "is a parameter to the BIND(C) procedure"
 				 "'%s' but may not be C interoperable "
 				 "because derived type '%s' is not C "
 				 "interoperable",
-				 sym->name, &(sym->declared_at),
-				 sym->ns->proc_name->name, 
+				 sym->name, sym->ns->proc_name->name, 
 				 sym->ts.derived->name);
 	      else
-		gfc_warning_now ("Variable '%s' at %L "
+		gfc_warning_now ("Variable '%s' at %C "
 				 "is a parameter to the BIND(C) procedure "
 				 "'%s' but "
 				 "may not be C interoperable",
-				 sym->name, &(sym->declared_at),
-				 sym->ns->proc_name->name);
+				 sym->name, sym->ns->proc_name->name);
 	    }
 	 
 	  /* We have to make sure that any param to a bind(c) routine does
@@ -838,21 +829,12 @@ build_sym (const char *name, gfc_charlen * cl,
      with a bind(c) and make sure the binding label is set correctly.  */
   if (sym->attr.is_bind_c == 1)
     {
-      try retval;
-    
       if (sym->binding_label[0] == '\0')
         {
           /* Here, we're not checking the numIdents (the last param).
              This could be an error we're letting slip through!  */
           set_binding_label (sym->binding_label, sym->name, 1);
         }
-
-      /* Verify that the decl is semantically ok for a bind(c).
-         Ignore whether this func returns FAILURE or SUCCESS so we
-         can continue the compilation since this isn't fatal.
-         The 0 param means it's not in a common (or not that we care).
-         The NULL is for the non-existent common_head.  */
-      retval = verify_bind_c_sym (sym, &current_ts, 0, NULL);
     }
 
   /* See if we know we're in a common block, and if it's a bind(c)
@@ -1579,15 +1561,14 @@ variable_decl (int elem)
 	  if (current_ts.type == BT_DERIVED)
 	    t = verify_bind_c_derived_type (current_ts.derived);
 	  
-	  /* Now, verify the variable itself as C interoperable, etc.  */
-	  if (t == SUCCESS)
-	    {
-	      /* Verify that the symbol is C interoperable if it's bind(c).  */
+	  /* Verify the variable itself as C interoperable if it
+             is BIND(C).  It is not possible for this to succeed if
+             the verify_bind_c_derived_type failed, so don't have to handle
+             any error returned by verify_bind_c_derived_type.  */
 	      t = verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
 				     sym->common_block);
 	    }
 	}
-    }
   
   m = (t == SUCCESS) ? MATCH_YES : MATCH_ERROR;
 
@@ -1697,21 +1678,6 @@ gfc_match_kind_spec (gfc_typespec * ts)
 	 of the named constants from iso_c_binding.  */
       ts->is_c_interop = e->ts.is_iso_c;
       ts->f90_type = e->ts.f90_type;
-     /* We need to verify that if it's a c interop kind, and that the
-	kind makes sense for the given fortran type (i.e., the user
-	can NOT do the following for example: real(c_int) :: x).
-	Can't do this with the function gfc_validate_kind, but need to
-	do something similar.  */
-      if (gfc_validate_c_kind(ts) != SUCCESS)
-	{
-	  /* print error, but continue parsing line */
-	  /* This should maybe be made into a gfc_error_now and forget
-	     the m=match_error since we'll ignore it later and
-	     continue parsing.	*/
-	  gfc_error_now ("C kind param '%s' at %C not valid for %s",
-			 e->symtree->name, gfc_basic_typename (ts->type));
-	  m = MATCH_ERROR;
-	}
     }
   
   gfc_free_expr (e);
@@ -2807,9 +2773,29 @@ set_com_block_bind_c (gfc_common_head *com_block, int is_bind_c)
    type.  */
 
 try
-verify_c_interop (gfc_typespec *ts)
+verify_c_interop (gfc_typespec *ts, const char *name, locus *where)
 {
-  /* make sure the symbol is C interoperable */
+  try t;
+
+  /* Make sure the kind used is appropriate for the type.
+     The f90_type is unknown if an integer constant was
+     used (e.g., real(4), bind(c) :: myFloat).  */
+  if (ts->f90_type != BT_UNKNOWN)
+    {
+      t = gfc_validate_c_kind(ts);
+      if (t != SUCCESS)
+{
+          /* print error, but continue parsing line */
+          gfc_error_now ("C kind parameter is for type %s but "
+                         "symbol '%s' at %L is of type %s",
+                         gfc_basic_typename (ts->f90_type),
+                         name, where, 
+                         gfc_basic_typename (ts->type));
+        }
+    }
+
+  /* Make sure the kind is C interoperable.  This does not care about the
+     possible error above.  */
   if(ts->type == BT_DERIVED && ts->derived != NULL)
     return (ts->derived->ts.is_c_interop ? SUCCESS : FAILURE);
   else if(ts->is_c_interop != 1)
@@ -2864,8 +2850,8 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
      the given ts (current_ts), so look in both.  */
   if (tmp_sym->ts.type != BT_UNKNOWN || ts->type != BT_UNKNOWN) 
     {
-      if (verify_c_interop (&(tmp_sym->ts)) != SUCCESS &&
-	  verify_c_interop (ts) != SUCCESS)
+      if (verify_c_interop (&(tmp_sym->ts), tmp_sym->name,
+                            &(tmp_sym->declared_at)) != SUCCESS)
 	{
 	  /* See if we're dealing with a sym in a common block or not.	*/
 	  if (is_in_common == 1)
@@ -2883,7 +2869,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
                                "interoperable but it is BIND(C)",
                                tmp_sym->name, &(tmp_sym->declared_at));
               else
-                gfc_warning_now ("Variable '%s' at %L "
+                gfc_warning ("Variable '%s' at %L "
                                  "may not be a C interoperable "
                                  "kind but it is bind(c)",
                                  tmp_sym->name, &(tmp_sym->declared_at));

@@ -2011,7 +2011,7 @@ gfc_symbol *gfc_new_symbol (const char *, gfc_namespace *);
 int gfc_find_symbol (const char *, gfc_namespace *, int, gfc_symbol **);
 int gfc_find_sym_tree (const char *, gfc_namespace *, int, gfc_symtree **);
 int gfc_get_symbol (const char *, gfc_namespace *, gfc_symbol **);
-try verify_c_interop (gfc_typespec *ts);
+try verify_c_interop (gfc_typespec *ts, const char *name, locus *where);
 try verify_bind_c_derived_type (gfc_symbol *derived_sym);
 void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, char *);
 void gen_c_interop_kinds (const char *mod_name, CInteropKind_t *kinds[]);
