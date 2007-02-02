@@ -1,5 +1,12 @@
 2007-02-01  Seongbae Park <seongbae.park@gmail.com>
 
+	* df-scan.c (df_sort_and_compress_refs):
+	Style fix.
+	(df_sort_and_compress_mws):
+	Style fix. Fix missing & in parameters for df_mw_compare call.
+
+2007-02-01  Seongbae Park <seongbae.park@gmail.com>
+
 	* df-scan.c (df_swap_refs): New function.
 	(df_sort_and_compress_refs, df_sort_and_compress_mws):
 	Avoid qsort call overhead if the array has only 2 elements

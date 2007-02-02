@@ -2019,8 +2019,7 @@ df_sort_and_compress_refs (struct df_ref **ref_vec, unsigned int count)
   /* If there are 1 or 0 elements, there is nothing to do.  */
   if (count < 2)
     return count;
-
-  if (count == 2)
+  else if (count == 2)
     {
       if (df_ref_compare (&ref_vec[0], &ref_vec[1]) > 0)
         df_swap_refs (ref_vec, 0, 1);
@@ -2121,10 +2120,9 @@ df_sort_and_compress_mws (struct df_mw_hardreg **mw_vec, unsigned int count)
 
   if (count < 2)
     return count;
-
-  if (count == 2)
+  else if (count == 2)
     {
-      if (df_mw_compare (mw_vec[0], mw_vec[1]) > 0)
+      if (df_mw_compare (&mw_vec[0], &mw_vec[1]) > 0)
         {
           struct df_mw_hardreg *tmp = mw_vec[0];
           mw_vec[0] = mw_vec[1];
