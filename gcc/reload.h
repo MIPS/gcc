@@ -360,6 +360,9 @@ extern void setup_save_areas (void);
 /* Find the places where hard regs are live across calls and save them.  */
 extern void save_call_clobbered_regs (void);
 
+/* Print global save info.  */
+extern void debug_save_data (void);
+
 /* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
 extern void cleanup_subreg_operands (rtx);
 

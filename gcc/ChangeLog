@@ -1,3 +1,18 @@
+2007-02-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* reload.h (debug_save_data): New definition.
+	
+	* caller-save.c (struct bb_info): New.
+	(BB_INFO, BB_INFO_BY_INDEX): New macros.
+	(calculate_local_save_info, set_up_bb_rts_numbers, rpost_cmp,
+	calculate_save_in_out, calculate_save_here,
+	make_global_save_analysis, print_hard_reg_set_and_mode,
+	print_hard_reg_set, print_save_data, debug_save_data,
+	set_hard_reg_saved): New functions.
+	(save_call_clobbered_regs): Make global save analysis and use it
+	to put save/restore code.
+	(insert_one_insn): Check CODE_LABEL.
+
 2007-01-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* toplev.h (flag_ipra): New external definition.

@@ -678,6 +678,460 @@ setup_save_areas (void)
 }
 
 
+/* The following structure contains basic block data flow information
+   used to calculate hard registers to save at BB ends.  Data flow
+   equation is bidirectional because we don't want to put save/restore
+   code on CFG edges.  */
+struct bb_info
+{
+  /* The basic block reverse post-order number.  */
+  int rts_number;
+  /* True if save_in should empty for this block.  */
+  int empty_save_in_p;
+  /* Hard registers correspondingly used (or set) and should be saved but
+     not used (or used) afterward in the basic block.  */
+  HARD_REG_SET kill, gen;
+  /* Registers needed to be saved at the start and end of the basic
+     block.  */
+  HARD_REG_SET save_in, save_out;
+  /* Hard registers living at the start of the basic block.  */
+  HARD_REG_SET live_at_start;
+  /* We don't want to generate save/restore insns on edges because it
+     changes CFG during reload.  To prevent this we use the following
+     set.  This set defines what hard registers should be saved at the
+     end of basic block. */
+  HARD_REG_SET save_here;
+  /* Saving modes at the start and end of the basic block.  */
+  unsigned char save_in_mode [FIRST_PSEUDO_REGISTER];
+  /* It corresponds to set GEN right after the call of
+     calculate_local_save_info.  */
+  unsigned char save_out_mode [FIRST_PSEUDO_REGISTER];
+};
+
+/* Macros for accessing data flow information of basic blocks.  */
+#define BB_INFO(BB) ((struct bb_info *) (BB)->aux)
+#define BB_INFO_BY_INDEX(N) BB_INFO (BASIC_BLOCK(N))
+
+/* The function calculates sets KILL, GEN, LIVE_AT_START and
+   SAVE_OUT_MODES corresponding to GEN for basic blocks.  */
+static void
+calculate_local_save_info (void)
+{
+  int i, empty_save_in_p;
+  struct insn_chain *chain, *next;
+  struct bb_info *bb_info;
+  /* Computed in mark_set_regs, holds all registers set by the current
+     instruction.  */
+  HARD_REG_SET this_insn_sets, gen, kill;
+  unsigned regno;
+  reg_set_iterator rsi;
+  enum machine_mode save_mode [FIRST_PSEUDO_REGISTER];
+
+  CLEAR_HARD_REG_SET (gen);
+  CLEAR_HARD_REG_SET (kill);
+  empty_save_in_p = FALSE;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    save_mode [i] = VOIDmode;
+
+  for (chain = reload_insn_chain; chain != 0; chain = next)
+    {
+      rtx insn = chain->insn;
+      enum rtx_code code = GET_CODE (insn);
+
+      next = chain->next;
+
+      gcc_assert (!chain->is_caller_save_insn);
+
+      bb_info = BB_INFO_BY_INDEX (chain->block);
+      if (INSN_P (insn))
+	{
+	  if (JUMP_P (insn)
+	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+	    empty_save_in_p = TRUE;
+	  
+	  CLEAR_HARD_REG_SET (referenced_regs);
+	  mark_referenced_regs (PATTERN (insn));
+	  IOR_HARD_REG_SET (kill, referenced_regs);
+	  AND_COMPL_HARD_REG_SET (gen, referenced_regs);
+	  
+	  if (code == CALL_INSN && find_reg_note (insn, REG_NORETURN, NULL))
+	    SET_HARD_REG_SET (kill);
+	  else if (code == CALL_INSN)
+	    {
+	      HARD_REG_SET hard_regs_to_save, used_regs;
+	      
+	      /* Use the register life information in CHAIN to compute
+		 which regs are live during the call.  */
+	      REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
+				       &chain->live_throughout);
+	      /* Look through all live pseudos, mark their hard registers
+		 and choose proper mode for saving.  */
+	      EXECUTE_IF_SET_IN_REG_SET
+		(&chain->live_throughout, FIRST_PSEUDO_REGISTER, regno, rsi)
+		{
+		  int r = reg_renumber[regno];
+		  int nregs;
+		  enum machine_mode mode;
+		  
+		  gcc_assert (r >= 0);
+		  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
+		  mode = HARD_REGNO_CALLER_SAVE_MODE
+		    (r, nregs, PSEUDO_REGNO_MODE (regno));
+		  if (nregs == 1)
+		    {
+		      SET_HARD_REG_BIT (hard_regs_to_save, r);
+		      save_mode[r] = mode;
+		    }
+		  else
+		    {
+		      while (nregs-- > 0)
+			{
+			  SET_HARD_REG_BIT (hard_regs_to_save, r + nregs);
+			  save_mode [r + nregs]
+			    = regno_save_mode [r + nregs] [1];
+			}
+		    }
+		}
+	      
+	      /* Record all registers set in this call insn.  These
+		 don't need to be saved.  N.B. the call insn might set
+		 a subreg of a multi-hard-reg pseudo; then the pseudo
+		 is considered live during the call, but the subreg
+		 that is set isn't.  */
+	      CLEAR_HARD_REG_SET (this_insn_sets);
+	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
+	      /* Sibcalls are considered to set the return value,
+		 compare flow.c:propagate_one_insn.  */
+	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
+		mark_set_regs (current_function_return_rtx, NULL_RTX,
+			       &this_insn_sets);
+	      
+	      /* Compute which hard regs must be saved before this call.  */
+	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
+	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
+	      get_call_invalidated_used_regs (insn, &used_regs, false);
+	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
+	      IOR_HARD_REG_SET (gen, hard_regs_to_save);
+	    }
+	}
+
+      if (chain->next == 0 || chain->next->block != chain->block)
+	{
+	  basic_block bb = BASIC_BLOCK (chain->block);
+
+	  bb_info->empty_save_in_p = empty_save_in_p;
+	  empty_save_in_p = FALSE;
+	  CLEAR_HARD_REG_SET (bb_info->save_in);
+	  COPY_HARD_REG_SET (bb_info->gen, gen);
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    {
+	      bb_info->save_in_mode [i] = VOIDmode;
+	      if (TEST_HARD_REG_BIT (gen, i))
+		bb_info->save_out_mode [i] = save_mode [i];
+	      else
+		bb_info->save_out_mode [i] = VOIDmode;
+	    }
+	  COPY_HARD_REG_SET (bb_info->kill, kill);
+	  SET_HARD_REG_SET (bb_info->save_out);
+	  REG_SET_TO_HARD_REG_SET (bb_info->live_at_start,
+				   bb->il.rtl->global_live_at_start);
+	  EXECUTE_IF_SET_IN_REG_SET
+	    (bb->il.rtl->global_live_at_start,
+	     FIRST_PSEUDO_REGISTER, regno, rsi)
+	    {
+	      int r = reg_renumber[regno];
+	      int nregs;
+	      
+	      if (r < 0)
+		continue;
+	      nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
+	      while (nregs-- > 0)
+		SET_HARD_REG_BIT (bb_info->live_at_start, r + nregs);
+	    }
+	  CLEAR_HARD_REG_SET (bb_info->save_here);
+	  CLEAR_HARD_REG_SET (gen);
+	  CLEAR_HARD_REG_SET (kill);
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    save_mode [i] = VOIDmode;
+	}
+    }
+}
+
+/* The function sets up reverse post-order number of each basic
+   block.  */
+static void
+set_up_bb_rts_numbers (void)
+{
+  int i;
+  int *rts_order;
+  
+  rts_order = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  post_order_compute (rts_order, false);
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
+    BB_INFO_BY_INDEX (rts_order [i])->rts_number = i;
+  free (rts_order);
+}
+
+/* Compare function for sorting blocks in reverse postorder.  */
+static int
+rpost_cmp (const void *bb1, const void *bb2)
+{
+  basic_block b1 = *(basic_block *) bb1, b2 = *(basic_block *) bb2;
+
+  return BB_INFO (b2)->rts_number - BB_INFO (b1)->rts_number;
+}
+
+/* The function calculates global save information according
+   to the following equations:
+
+     bb.save_in  = empty for entry block or one with empty_save_in_p
+                 | ^ (pred.save_out - pred.save_here) ^ bb.live_at_start
+     bb.save_out = (bb.save_in - bb.kill) U bb.gen.
+
+   See function calculate_save_here to know how SAVE_HERE is
+   calculated  */
+static void
+calculate_save_in_out (void)
+{
+  basic_block bb, succ;
+  edge e;
+  int i, j, nel;
+  VEC(basic_block,heap) *bbs, *new_bbs, *temp;
+  basic_block *bb_array;
+  HARD_REG_SET temp_set;
+  sbitmap wset;
+
+  bbs = VEC_alloc (basic_block, heap, last_basic_block);
+  new_bbs = VEC_alloc (basic_block, heap, last_basic_block);
+  FOR_EACH_BB (bb)
+    {
+      VEC_quick_push (basic_block, bbs, bb);
+    }
+  wset = sbitmap_alloc (last_basic_block);
+  while (VEC_length (basic_block, bbs))
+    {
+      bb_array = VEC_address (basic_block, bbs);
+      nel = VEC_length (basic_block, bbs);
+      qsort (bb_array, nel, sizeof (basic_block), rpost_cmp);
+      sbitmap_zero (wset);
+      for (i = 0; i < nel; i++)
+	{
+	  int first_p;
+	  edge_iterator ei;
+	  struct bb_info *bb_info;
+	      
+	  bb = bb_array [i];
+	  bb_info = BB_INFO (bb);
+	  first_p = TRUE;
+	  if (! bb_info->empty_save_in_p)
+	    FOR_EACH_EDGE (e, ei, bb->preds)
+	      {
+		basic_block pred = e->src;
+		
+		if (e->flags & EDGE_ABNORMAL)
+		  {
+		    CLEAR_HARD_REG_SET (bb_info->save_in);
+		    break;
+		  }
+		if (pred->index != ENTRY_BLOCK)
+		  {
+		    COPY_HARD_REG_SET (temp_set, BB_INFO (pred)->save_out);
+		    AND_COMPL_HARD_REG_SET (temp_set,
+					    BB_INFO (pred)->save_here);
+		    AND_HARD_REG_SET (temp_set, bb_info->live_at_start);
+		    if (first_p)
+		      COPY_HARD_REG_SET (bb_info->save_in, temp_set);
+		    else
+		      AND_HARD_REG_SET (bb_info->save_in, temp_set);
+		    for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+		      if (TEST_HARD_REG_BIT (temp_set, j))
+			{
+			  gcc_assert
+			    (bb_info->save_in_mode [j] == VOIDmode
+			     || BB_INFO (pred)->save_out_mode [j] == VOIDmode
+			     || (bb_info->save_in_mode [j]
+				 == BB_INFO (pred)->save_out_mode [j]));
+			  if (BB_INFO (pred)->save_out_mode [j] != VOIDmode)
+			    bb_info->save_in_mode [j]
+			      = BB_INFO (pred)->save_out_mode [j];
+			}
+		    first_p = FALSE;
+		  }
+	      }
+	  COPY_HARD_REG_SET (temp_set, bb_info->save_in);
+	  AND_COMPL_HARD_REG_SET (temp_set, bb_info->kill);
+	  for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+	    if (TEST_HARD_REG_BIT (temp_set, j)
+		&& ! TEST_HARD_REG_BIT (bb_info->gen, j))
+	      {
+		gcc_assert (bb_info->save_out_mode [j] == VOIDmode
+			    || (bb_info->save_out_mode [j]
+				== bb_info->save_in_mode [j]));
+		bb_info->save_out_mode [j] = bb_info->save_in_mode [j];
+	      }
+	  IOR_HARD_REG_SET (temp_set, bb_info->gen);
+
+	  GO_IF_HARD_REG_EQUAL (temp_set, bb_info->save_out, cont);
+	  COPY_HARD_REG_SET (bb_info->save_out, temp_set);
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    {
+	      succ = e->dest;
+	      if (succ->index != EXIT_BLOCK && ! TEST_BIT (wset, succ->index))
+		{
+		  SET_BIT (wset, succ->index);
+		  VEC_quick_push (basic_block, new_bbs, succ);
+		}
+	    }
+	cont:
+	  ;
+	}
+      temp = bbs;
+      bbs = new_bbs;
+      new_bbs = temp;
+      VEC_truncate (basic_block, new_bbs, 0);
+    }
+  sbitmap_free (wset);
+  VEC_free (basic_block, heap, new_bbs);
+  VEC_free (basic_block, heap, bbs);
+}
+
+/* The function calculates SAVE_HERE according to the equation
+   bb.save_here = U ((bb.save_out - succ.save_in) ^ succ.live_at_start).  */
+static int
+calculate_save_here (void)
+{
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+  HARD_REG_SET save_here, temp_set;
+  int changed_p = FALSE;
+
+  FOR_EACH_BB (bb)
+    {
+      CLEAR_HARD_REG_SET (save_here);
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  basic_block dest = e->dest;
+
+	  COPY_HARD_REG_SET (temp_set, BB_INFO (bb)->save_out);
+	  AND_COMPL_HARD_REG_SET (temp_set, BB_INFO (dest)->save_in);
+	  AND_HARD_REG_SET (temp_set, BB_INFO (dest)->live_at_start);
+	  IOR_HARD_REG_SET (save_here, temp_set);
+	}
+
+      GO_IF_HARD_REG_EQUAL (save_here, BB_INFO (bb)->save_here, cont);
+      COPY_HARD_REG_SET (BB_INFO (bb)->save_here, save_here);
+      changed_p = TRUE;
+    cont:
+      ;
+    }
+  return changed_p;
+}
+
+/* The function calculates global save information used to put
+   save/restore code without generating new blocks.  This is a
+   bidirectional data flow problem (calculation of SAVE_IN and
+   SAVE_OUT is a forward data flow problem and SAVE_HERE is a backward
+   one).  It is complicated by calculation of modes for
+   saving/restoring call used hard registers.  */
+static void
+make_global_save_analysis (void)
+{
+  int iter, changed_p;
+
+  calculate_local_save_info ();
+  set_up_bb_rts_numbers ();
+  for (iter = 1;; iter++)
+    {
+      calculate_save_in_out ();
+      changed_p = calculate_save_here ();
+      if (! changed_p)
+	break;
+    }
+  if (dump_file != NULL)
+    fprintf (dump_file, " Number of global save analysis iterations %d\n",
+	     iter);
+}
+
+/* Print hard registers in SET to file F.  The registers are printed
+   with its mode given in MODES.  */  
+static void
+print_hard_reg_set_and_mode (FILE *f, HARD_REG_SET set, unsigned char *modes)
+{
+  int i;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (set, i))
+      fprintf (f, " %d:%s %s", i, GET_MODE_NAME (modes [i]), reg_names [i]);
+}
+
+/* Print hard registers in SET to file F.  */  
+static void
+print_hard_reg_set (FILE *f, HARD_REG_SET set)
+{
+  int i;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (set, i))
+      fprintf (f, " %d %s", i, reg_names [i]);
+}
+
+/* Print save information for each block to file F.  */  
+static void
+print_save_data (FILE *f)
+{
+  basic_block bb;
+  struct bb_info *bb_info;
+
+  FOR_EACH_BB (bb)
+    {
+      bb_info = BB_INFO (bb);
+      fprintf (f, "bb %d:\n  save_in:", bb->index);
+      print_hard_reg_set_and_mode (f, bb_info->save_in,
+				   bb_info->save_in_mode);
+      fprintf (f, "\n  save_out:");
+      print_hard_reg_set_and_mode (f, bb_info->save_out,
+				   bb_info->save_out_mode);
+      fprintf (f, "\n  live_at_start:");
+      print_hard_reg_set (f, bb_info->live_at_start);
+      fprintf (f, "\n  save_here:");
+      print_hard_reg_set (f, bb_info->save_here);
+      fprintf (f, "\n  kill:");
+      print_hard_reg_set (f, bb_info->kill);
+      fprintf (f, "\n  gen:");
+      print_hard_reg_set (f, bb_info->gen);
+      fprintf (f, "\n\n");
+    }
+}
+
+/* Print save information for each block to stderr.  */  
+void
+debug_save_data (void)
+{
+  print_save_data (stderr);
+}
+
+/* Setup hard registers in SET to save.  Setup also their save modes
+   in SAVE_MODE from FROM_SAVE_MODE.  */  
+static void
+set_hard_reg_saved (HARD_REG_SET set, unsigned char *from_saved_mode,
+		    enum machine_mode *save_mode)
+{
+  int regno;
+
+  n_regs_saved = 0;
+  COPY_HARD_REG_SET (hard_regs_saved, set);
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (TEST_HARD_REG_BIT (set, regno))
+      {
+	n_regs_saved++;
+	save_mode [regno] = from_saved_mode [regno];
+      }
+    else
+      save_mode [regno] = VOIDmode;
+}
+
 /* Find the places where hard regs are live across calls and save them.  */
 
 void
@@ -685,6 +1139,12 @@ save_call_clobbered_regs (void)
 {
   struct insn_chain *chain, *next;
   enum machine_mode save_mode [FIRST_PSEUDO_REGISTER];
+
+  if (flag_ira)
+    {
+      alloc_aux_for_blocks (sizeof (struct bb_info));
+      make_global_save_analysis ();
+    }
 
   /* Computed in mark_set_regs, holds all registers set by the current
      instruction.  */
@@ -723,8 +1183,17 @@ save_call_clobbered_regs (void)
 
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 		if (TEST_HARD_REG_BIT (referenced_regs, regno))
-		  regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS,
-					   save_mode);
+		  {
+		    int before = regno;
+
+		    regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS,
+					     save_mode);
+		    if (flag_ira)
+		      {
+			gcc_assert (before == regno);
+			save_mode [before] = VOIDmode;
+		      }
+		  }
 	    }
 
 	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
@@ -740,7 +1209,12 @@ save_call_clobbered_regs (void)
 	      /* Save hard registers always in the widest mode available.  */
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 		if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))
-		  save_mode [regno] = regno_save_mode [regno][1];
+		  {
+		    CLEAR_HARD_REG_SET (this_insn_sets);
+		    note_stores (PATTERN (insn), mark_set_regs,
+				 &this_insn_sets);
+		    save_mode [regno] = regno_save_mode [regno] [1];
+		  }
 		else
 		  save_mode [regno] = VOIDmode;
 
@@ -796,20 +1270,47 @@ save_call_clobbered_regs (void)
 	    }
 	}
 
-      if (chain->next == 0 || chain->next->block > chain->block)
+      if (chain->next == 0 || chain->next->block != chain->block)
 	{
 	  int regno;
+	  struct bb_info *next_bb_info;
+
+	  next_bb_info = (chain->next != NULL
+			  ? BB_INFO_BY_INDEX (chain->next->block) : NULL);
+
 	  /* At the end of the basic block, we must restore any registers that
 	     remain saved.  If the last insn in the block is a JUMP_INSN, put
 	     the restore before the insn, otherwise, put it after the insn.  */
 
+	  if (flag_ira)
+	    set_hard_reg_saved (BB_INFO_BY_INDEX (chain->block)->save_here,
+				BB_INFO_BY_INDEX (chain->block)->save_out_mode,
+				save_mode);
+
 	  if (n_regs_saved)
 	    for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	      if (TEST_HARD_REG_BIT (hard_regs_saved, regno))
-		regno += insert_restore (chain, JUMP_P (insn),
-					 regno, MOVE_MAX_WORDS, save_mode);
+		{
+		  int before = regno;
+
+		  regno += insert_restore (chain, JUMP_P (insn),
+					   regno, MOVE_MAX_WORDS, save_mode);
+		  if (flag_ira)
+		    {
+		      gcc_assert (before == regno);
+		      save_mode [before] = VOIDmode;
+		    }
+		}
+
+	  if (flag_ira && next_bb_info != NULL)
+	    set_hard_reg_saved (next_bb_info->save_in,
+				next_bb_info->save_in_mode, save_mode);
+
 	}
     }
+
+  if (flag_ira)
+    free_aux_for_blocks ();
 }
 
 /* Here from note_stores, or directly from save_call_clobbered_regs, when
@@ -1164,15 +1665,23 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 	new->next->prev = new;
       chain->next = new;
       new->prev = chain;
-      new->insn = emit_insn_after (pat, insn);
+      if (GET_CODE (insn) != CODE_LABEL)
+	new->insn = emit_insn_after (pat, insn);
+      else
+	{
+	  /* Put the insn after bb note in a empty basic block.  */
+	  gcc_assert (NEXT_INSN (insn) && NOTE_P (NEXT_INSN (insn)));
+	  new->insn = emit_insn_after (pat, NEXT_INSN (insn));
+	}
       /* ??? It would be nice if we could exclude the already / still saved
 	 registers from the live sets, and observe REG_UNUSED notes.  */
       COPY_REG_SET (&new->live_throughout, &chain->live_throughout);
       /* Registers that are set in CHAIN->INSN live in the new insn.
 	 (Unless there is a REG_UNUSED note for them, but we don't
 	  look for them here.) */
-      note_stores (PATTERN (chain->insn), add_stored_regs,
-		   &new->live_throughout);
+      if (INSN_P (chain->insn))
+	note_stores (PATTERN (chain->insn), add_stored_regs,
+		     &new->live_throughout);
       CLEAR_REG_SET (&new->dead_or_set);
       if (chain->insn == BB_END (BASIC_BLOCK (chain->block)))
 	BB_END (BASIC_BLOCK (chain->block)) = new->insn;
