@@ -1,3 +1,69 @@
+2007-01-29  Josh Conner  <jconner@apple.com>
+
+        PR middle-end/29683
+        * calls.c (compute_argument_addresses): Set stack and stack_slot
+        for partial args, too.
+        (store_one_arg): Use locate.size.constant for the size when
+        generating a save_area.
+
+2007-01-28  Ralf Wildenhalf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/sourcebuild.texi: Add comma for clarity.
+	* doc/extend.texi: Fix some typos.
+	* doc/passes.texi: Likewise.
+	* doc/cppinternals.texi: Likewise.
+	* doc/c-tree.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+	* doc/install.texi: Likewise.
+
+2006-08-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/i386.h (TARGET_GEODE):
+	(TARGET_CPU_CPP_BUILTINS): Add code for geode.
+	(TARGET_CPU_DEFAULT_geode): New macro.
+	(TARGET_CPU_DEFAULT_k6, TARGET_CPU_DEFAULT_k6_2,
+	TARGET_CPU_DEFAULT_k6_3, TARGET_CPU_DEFAULT_athlon,
+	TARGET_CPU_DEFAULT_athlon_sse, TARGET_CPU_DEFAULT_k8,
+	TARGET_CPU_DEFAULT_pentium_m, TARGET_CPU_DEFAULT_prescott,
+	TARGET_CPU_DEFAULT_nocona, TARGET_CPU_DEFAULT_generic): Increase
+	the macro values.
+	(TARGET_CPU_DEFAULT_NAMES): Add geode.
+	(processor_type): Add PROCESSOR_GEODE.
+
+	* config/i386/i386.md: Include geode.md.
+	(cpu): Add geode.
+
+	* config/i386/i386.c (geode_cost): New initialized global
+	variable.
+	(m_GEODE, m_K6_GEODE): New macros.
+	(x86_use_leave, x86_push_memory, x86_deep_branch, x86_use_sahf,
+	x86_use_himode_fiop, x86_promote_QImode, x86_add_esp_4,
+	x86_add_esp_8, x86_rep_movl_optimal, x86_ext_80387_constants,
+	x86_schedule): Use m_K6_GEODE instead of m_K6.
+	(x86_movx, x86_cmove): Set up m_GEODE.
+	(x86_integer_DFmode_moves): Clear m_GEODE.
+	(processor_target_table): Add entry for geode.
+	(processor_alias_table): Ditto.
+
+	* config/i386/geode.md: New file.
+
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27416
+	* gimplify.c (omp_check_private): New function.
+	(gimplify_scan_omp_clauses): Use it for
+	firstprivate/lastprivate/reduction.
+
+	PR middle-end/30494
+	* gimplify.c (omp_add_variable): Don't call omp_notice_variable
+	on TYPE_SIZE_UNIT for GOVD_LOCAL VLAs.
+
+	PR middle-end/30421
+	* omp-low.c (lower_omp_for_lastprivate): Add dlist argument.
+	If lower_lastprivate_clauses emits some statements, append them
+	to dlist rather than body_p and to body_p append an initializer.
+	(lower_omp_for): Adjust caller.
+
 2005-11-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc.c (main): Change type of argv to "char **".
