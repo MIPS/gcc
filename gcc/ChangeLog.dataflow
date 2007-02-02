@@ -1,3 +1,44 @@
+2007-01-02  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* optabs.c (emit_no_conflict_block): Removed redundant code to
+	number libcalls.
+	* tree-pass.h (pass_initialize_subregs): Renamed to
+	pass_initialize_regs.
+	* passes.c (init_optimization_passes): Ditto.
+	* builtins.c (expand_builtin_setjmp_receiver): Changed
+	gen_rtx_ASM_INPUT to gen_blockage.
+	* function.c (expand_function_end): Ditto.
+	* stmt.c (gen_non_local_got_receiver): Ditto.
+	* config/i386.md (blockage): Don't take an operand.
+	(prologue_use): New.
+	* config/i386.c (ix86_expand_prologue): Don't build a blockage
+	insn with an operand.  If the PIC reg is used, use a prologue_use
+	insn to protect it from being removed.
+	* df-scan.c (df_get_entry_block_def_set): Generate ref for 
+	INCOMING_RETURN_ADDR_RTX after reload_completed.
+	* df-core.c (df_ref_debug): Fixed formatting.
+	* init-regs.c: Renamed from subregs_init.c and changed to
+	initialize all fully uninitialized registers.
+	* bt-load.c (compute_defs_uses_and_gen): Changed check for
+	ASM_INPUT to UNSPEC_VOLATILE.
+	* df-problems.c (df_set_unused_notes_for_mw, 
+	df_set_dead_notes_for_mw, df_ri_bb_compute): Cleaned up reg_notes
+	debugging info.
+	(df_set_dead_notes_for_mw): Added do_not_gen to test of all notes
+	dead.
+	* Makefile.in (subregs-init.*): Renamed to init-regs.*.
+	* config/arm/arm.c (arm_expand_prologue, thumb_expand_prologue):
+	Removed code to generate explicit uses of LR_REGNUM from prologue.
+	* config/arm/arm.h (EPILOGUE_USES): Made LR_REGNUM unconditionally
+	added.
+	* dce.c (deletable_insn_p): Made clobbers always live for use-def
+	based dce.
+	(prescan_insns_for_dce, prescan_insns_for_dse): Added fast
+	parameter to deletable_insn_p.
+	(run_fast_df_dce): Temporarily turn off DF_DEFER_INSN_RESCAN
+	during this subphase.
+	
+	
 2007-02-01  Seongbae Park <seongbae.park@gmail.com>
 
 	* df-scan.c (df_sort_and_compress_refs):

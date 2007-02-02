@@ -3437,13 +3437,6 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
 
   maybe_encapsulate_block (first, last, equiv);
 
-  next = NEXT_INSN (last);
-  for (insn = first; insn != next; insn = NEXT_INSN (insn))
-    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LIBCALL_ID,
-					  GEN_INT (libcall_id),
-					  REG_NOTES (insn));
-  libcall_id++;
-
   return last;
 }
 

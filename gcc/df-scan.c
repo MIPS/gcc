@@ -3286,11 +3286,6 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
       /* The always important stack pointer.  */
       bitmap_set_bit (entry_block_defs, STACK_POINTER_REGNUM);
 
-#ifdef INCOMING_RETURN_ADDR_RTX
-      if (REG_P (INCOMING_RETURN_ADDR_RTX))
-	bitmap_set_bit (entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
-#endif
-            
       /* If STATIC_CHAIN_INCOMING_REGNUM == STATIC_CHAIN_REGNUM
 	 only STATIC_CHAIN_REGNUM is defined.  If they are different,
 	 we only care about the STATIC_CHAIN_INCOMING_REGNUM.  */
@@ -3348,6 +3343,11 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 #endif
     }
 
+#ifdef INCOMING_RETURN_ADDR_RTX
+  if (REG_P (INCOMING_RETURN_ADDR_RTX))
+    bitmap_set_bit (entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
+#endif
+            
   targetm.live_on_entry (entry_block_defs);
 
   /* If the function has an incoming STATIC_CHAIN,

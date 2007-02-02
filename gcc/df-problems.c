@@ -1,5 +1,5 @@
 /* Standard problems for dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -44,11 +44,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "except.h"
 #include "dce.h"
+#include "vecprim.h"
 
 #if 0
 #define REG_DEAD_DEBUGGING
 #endif
-#include "vecprim.h"
 
 #define DF_SPARSE_THRESHOLD 32
 
@@ -4111,10 +4111,8 @@ df_set_unused_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   
 #ifdef REG_DEAD_DEBUGGING
   if (dump_file)
-    {
-      fprintf (dump_file, "mw unused looking at %d\n", DF_REF_REGNO (regs->ref));
-      df_ref_debug (regs->ref, dump_file);
-    }
+    fprintf (dump_file, "mw_set_unused looking at mws[%d..%d]\n", 
+	     mws->start_regno, mws->end_regno);
 #endif
   for (r=mws->start_regno; r <= mws->end_regno; r++)
     if ((bitmap_bit_p (live, r))
@@ -4171,19 +4169,25 @@ df_set_dead_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
 			  bitmap artificial_uses, enum df_ri_flags flags)
 {
   bool all_dead = true;
-  unsigned int r = mws->start_regno;
+  unsigned int r;
   
 #ifdef REG_DEAD_DEBUGGING
   if (dump_file)
     {
-      fprintf (dump_file, "mw looking at %d\n", regno);
-      df_ref_debug (regs->ref, dump_file);
+      fprintf (dump_file, "mw_set_dead looking at mws[%d..%d]\n  do_not_gen =", 
+	       mws->start_regno, mws->end_regno);
+      df_print_regset (dump_file, do_not_gen);
+      fprintf (dump_file, "  live =");
+      df_print_regset (dump_file, live);
+      fprintf (dump_file, "  artificial uses =");
+      df_print_regset (dump_file, artificial_uses);
     }
 #endif
 
   for (r = mws->start_regno; r <= mws->end_regno; r++)
     if ((bitmap_bit_p (live, r))
-	|| bitmap_bit_p (artificial_uses, r))
+	|| bitmap_bit_p (artificial_uses, r)
+	|| bitmap_bit_p (do_not_gen, r))
       {
 	all_dead = false;
 	break;
@@ -4209,19 +4213,21 @@ df_set_dead_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   else
     {
       for (r = mws->start_regno; r <= mws->end_regno; r++)
-	if ((!bitmap_bit_p (live, r))
-	    && (!bitmap_bit_p (artificial_uses, r))
-	    && (!bitmap_bit_p (do_not_gen, r)))
-	  {
-	    rtx note = alloc_EXPR_LIST (REG_DEAD, regno_reg_rtx[r], 
-					REG_NOTES (insn));
-	    REG_NOTES (insn) = note;
-	    if (flags & DF_RI_LIFE)
-	      REG_N_DEATHS (r)++;
+	{
+	  if ((!bitmap_bit_p (live, r))
+	      && (!bitmap_bit_p (artificial_uses, r))
+	      && (!bitmap_bit_p (do_not_gen, r)))
+	    {
+	      rtx note = alloc_EXPR_LIST (REG_DEAD, regno_reg_rtx[r], 
+					  REG_NOTES (insn));
+	      REG_NOTES (insn) = note;
+	      if (flags & DF_RI_LIFE)
+		REG_N_DEATHS (r)++;
 #ifdef REG_DEAD_DEBUGGING
-	    print_note ("adding 2: ", insn, note);
+	      print_note ("adding 2: ", insn, note);
 #endif
-	  }
+	    }
+	}
     }
 }
 
@@ -4320,6 +4326,14 @@ df_ri_bb_compute (unsigned int bb_index,
   bitmap_copy (live, DF_LIVE_OUT (bb));
   bitmap_clear (artificial_uses);
 
+#ifdef REG_DEAD_DEBUGGING
+  if (dump_file)
+    {
+      fprintf (dump_file, "live at bottom ");
+      df_print_regset (dump_file, live);
+    }
+#endif
+
   if (df_ri_problem_p (DF_RI_LIFE))
     {
       /* Process the regs live at the end of the block.  Mark them as
@@ -4335,6 +4349,9 @@ df_ri_bb_compute (unsigned int bb_index,
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
     {
       struct df_ref *def = *def_rec;
+      if (dump_file)
+	fprintf (dump_file, "artificial def %d\n", DF_REF_REGNO (def));
+
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
 	bitmap_clear_bit (live, DF_REF_REGNO (def));
     }
@@ -4353,6 +4370,14 @@ df_ri_bb_compute (unsigned int bb_index,
 	}
     }
   
+#ifdef REG_DEAD_DEBUGGING
+  if (dump_file)
+    {
+      fprintf (dump_file, "live before artificials out ");
+      df_print_regset (dump_file, live);
+    }
+#endif
+
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
@@ -4383,6 +4408,13 @@ df_ri_bb_compute (unsigned int bb_index,
       /* Process the defs.  */
       if (CALL_P (insn))
 	{
+#ifdef REG_DEAD_DEBUGGING
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "processing call %d\n  live =", INSN_UID (insn));
+	      df_print_regset (dump_file, live);
+	    }
+#endif
 	  if (df_ri_problem_p (DF_RI_LIFE | DF_RI_SETJMP))
 	    {
 	      bool can_throw = can_throw_internal (insn); 
@@ -4412,7 +4444,7 @@ df_ri_bb_compute (unsigned int bb_index,
 	    }
 	  
 	  /* We only care about real sets for calls.  Clobbers only
-	     may clobber and cannot be depended on.  */
+	     may clobbers cannot be depended on.  */
 	  mws_rec = DF_INSN_UID_MWS (uid);
 	  while (*mws_rec)
 	    {

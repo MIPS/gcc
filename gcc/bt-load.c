@@ -512,7 +512,7 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 		}
 	      /* Check for the blockage emitted by expand_nl_goto_receiver.  */
 	      else if (current_function_has_nonlocal_label
-		       && GET_CODE (PATTERN (insn)) == ASM_INPUT)
+		       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE)
 		{
 		  btr_user user;
 

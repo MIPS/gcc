@@ -10920,10 +10920,7 @@ arm_expand_prologue (void)
   /* If the link register is being kept alive, with the return address in it,
      then make sure that it does not get reused by the ce2 pass.  */
   if ((live_regs_mask & (1 << LR_REGNUM)) == 0)
-    {
-      emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
-      cfun->machine->lr_save_eliminated = 1;
-    }
+    cfun->machine->lr_save_eliminated = 1;
 }
 
 /* If CODE is 'd', then the X is a condition operand and the instruction
@@ -13816,11 +13813,6 @@ thumb_expand_prologue (void)
   cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
   if (live_regs_mask & 0xff)
     cfun->machine->lr_save_eliminated = 0;
-
-  /* If the link register is being kept alive, with the return address in it,
-     then make sure that it does not get reused by the ce2 pass.  */
-  if (cfun->machine->lr_save_eliminated)
-    emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 

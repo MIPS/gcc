@@ -5709,7 +5709,11 @@ ix86_expand_prologue (void)
   /* Prevent function calls from be scheduled before the call to mcount.
      In the pic_reg_used case, make sure that the got load isn't deleted.  */
   if (current_function_profile)
-    emit_insn (gen_blockage (pic_reg_used ? pic_offset_table_rtx : const0_rtx));
+    {
+      if (pic_reg_used)
+	emit_insn (gen_prologue_use (pic_offset_table_rtx));
+      emit_insn (gen_blockage ());
+    }
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register

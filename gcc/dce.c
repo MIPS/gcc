@@ -59,7 +59,7 @@ static bitmap marked = NULL;
    DCE pass.  */
 
 static bool
-deletable_insn_p (rtx insn)
+deletable_insn_p (rtx insn, bool fast)
 {
   rtx x;
 
@@ -78,11 +78,19 @@ deletable_insn_p (rtx insn)
       return false;
 
     case CLOBBER:
-      /* A CLOBBER of a dead pseudo register serves no purpose.
-	 That is not necessarily true for hard registers until
-	 after reload.  */
-      x = XEXP (PATTERN (insn), 0);
-      return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
+      if (fast)
+	{
+	  /* A CLOBBER of a dead pseudo register serves no purpose.
+	     That is not necessarily true for hard registers until
+	     after reload.  */
+	  x = XEXP (PATTERN (insn), 0);
+	  return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
+	}
+      else 
+	/* Because of the way that use-def chains are built, it is not
+	   possible to tell if the clobber is dead because it can
+	   never be the target of a use-def chain.  */
+	return false;
 
     default:
       if (!NONJUMP_INSN_P (insn))
@@ -344,7 +352,7 @@ prescan_insns_for_dce (void)
     FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
       {
-	if (deletable_insn_p (insn))
+	if (deletable_insn_p (insn, true))
 	  mark_nonreg_stores (PATTERN (insn), insn, true);
 	else
 	  {
@@ -732,11 +740,16 @@ rest_of_handle_fast_dce (void)
 void
 run_fast_df_dce (void)
 {
+  /* If dce is able to delete something, it has to happen immediately.
+     Otherwise there will be problems handling the eq_notes.  */
+  enum df_changeable_flags old_flags = df_clear_flags (DF_DEFER_INSN_RESCAN);
+
   df_in_progress = true;
   init_dce (true);
   fast_dce ();
   BITMAP_FREE (marked);
   df_in_progress = false;
+  df_set_flags (old_flags);
 }
 
 
@@ -1699,7 +1712,7 @@ prescan_insns_for_dse (void)
 	{
 	  if (INSN_P (insn))
 	    {
-	      if (!deletable_insn_p (insn))
+	      if (!deletable_insn_p (insn, false))
 		{
 		  rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
 		  if (note)

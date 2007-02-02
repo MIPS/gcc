@@ -365,7 +365,7 @@ extern struct tree_opt_pass pass_subregs_of_mode_init;
 extern struct tree_opt_pass pass_inc_dec;
 extern struct tree_opt_pass pass_no_new_pseudos;
 extern struct tree_opt_pass pass_stack_ptr_mod;
-extern struct tree_opt_pass pass_initialize_subregs;
+extern struct tree_opt_pass pass_initialize_regs;
 extern struct tree_opt_pass pass_combine;
 extern struct tree_opt_pass pass_if_after_combine;
 extern struct tree_opt_pass pass_partition_blocks;
