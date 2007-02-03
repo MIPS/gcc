@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -3297,7 +3297,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 #endif
 #endif
       
-      r = TARGET_STRUCT_VALUE_RTX (current_function_decl, true);
+      r = targetm.calls.struct_value_rtx (current_function_decl, true);
       if (r && REG_P (r))
 	bitmap_set_bit (entry_block_defs, REGNO (r));
     }
