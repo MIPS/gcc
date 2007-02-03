@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006
+   Copyright (C) 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -906,7 +906,7 @@ sms_schedule (void)
   df_set_flags (DF_LR_RUN_DCE);
   df_rd_add_problem ();
   df_ru_add_problem ();
-  df_ri_add_problem (0);
+  df_ri_add_problem (DF_RI_LIFE);
   df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
   df_analyze ();
   sched_init ();

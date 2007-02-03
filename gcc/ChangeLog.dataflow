@@ -1,5 +1,10 @@
 2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
 
+	* modulo-sched.c (sms_schedule): Call df_ri_add_problem
+	with DF_RI_LIFE.
+
+2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
 	* df-scan.c (df_get_entry_block_def_set): Use struct_value_rtx
 	hook instead of TARGET_STRUCT_VALUE_RTX.
 
