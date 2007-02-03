@@ -1,5 +1,20 @@
 2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
 
+	* config/sh/sh.c (sh_expand_prologue): Remove unneeded brackets.
+	(sh_expand_epilogue): Add blockage insn when not
+	frame_pointer_needed.
+	(sh_output_mi_thunk): Don't use flow analysis here.
+	* config/sh/sh.md (UNSPEC_EH_RETURN): Remove.
+	(UNSPECV_EH_RETURN): New macro.
+	(sibcall_valuei): New.
+	(sibcall_valuei_pcrel, sibcall_value_pcrel): Likewise.
+	(sibcall_value_compact, sibcall_value_media): Likewise.
+	(sibcall_value): Use new sibcall_value* patterns.
+	(eh_set_ra_si): Use unspec_volatile and UNSPECV_EH_RETURN.
+	(eh_set_ra_di, eh_set_ra_di+1): Likewise.
+
+2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
 	* mode-switching.c (create_pre_exit): Skip CLOBBER of pseudo
 	register for the result when not optimizing.
 	(optimize_mode_switching): Move	df_ri_add_problem and df_analyze

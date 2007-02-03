@@ -6181,7 +6181,7 @@ sh_expand_prologue (void)
        incoming-argument decoder and/or of the return trampoline from
        the GOT, so make sure the PIC register is preserved and
        initialized.  */
-    df_set_regs_ever_live ([PIC_OFFSET_TABLE_REGNUM], true);
+    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 
   if (TARGET_SHCOMPACT
       && (current_function_args_info.call_cookie & ~ CALL_COOKIE_RET_TRAMP(1)))
@@ -6749,7 +6749,11 @@ sh_expand_epilogue (bool sibcall_p)
     {
       save_size = 0;
       if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
-	pop (PR_REG);
+	{
+	  if (!frame_pointer_needed)
+	    emit_insn (gen_blockage ());
+	  pop (PR_REG);
+	}
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
 	  int j = (FIRST_PSEUDO_REGISTER - 1) - i;
@@ -10308,6 +10312,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_initialize ();
   insns = get_insns ();
 
+#if 0
   if (optimize > 0)
     {
       /* Initialize the bitmap obstacks.  */
@@ -10334,6 +10339,14 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       else if (flag_pic)
 	split_all_insns_noflow ();
     }
+#else
+  if (optimize > 0)
+    {
+      if (! cfun->cfg)
+	init_flow ();
+      split_all_insns_noflow ();
+    }
+#endif
 
   sh_reorg ();
 
@@ -10345,6 +10358,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final (insns, file, 1);
   final_end_function ();
 
+#if 0
   if (optimize > 0)
     {
       /* Release all memory allocated by df.  */
@@ -10358,6 +10372,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       bitmap_obstack_release (&reg_obstack);
       bitmap_obstack_release (NULL);
     }
+#endif
 
   reload_completed = 0;
   epilogue_completed = 0;
