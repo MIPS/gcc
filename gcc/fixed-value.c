@@ -539,14 +539,23 @@ do_fixed_divide (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
 	pos_b = b->data;
 
       /* Left shift pos_a to {r, s} by FBIT.  */
-      lshift_double (pos_a.low, pos_a.high,
-		     GET_MODE_FBIT (f->mode),
-		     2 * HOST_BITS_PER_WIDE_INT,
-		     &s.low, &s.high, 0);
-      lshift_double (pos_a.low, pos_a.high,
-		     - (2 * HOST_BITS_PER_WIDE_INT - GET_MODE_FBIT (f->mode)),
-		     2 * HOST_BITS_PER_WIDE_INT,
-		     &r.low, &r.high, 0);
+      if (GET_MODE_FBIT (f->mode) == 2 * HOST_BITS_PER_WIDE_INT)
+	{
+	  r = pos_a;
+	  s.high = 0;
+	  s.low = 0;
+	}
+      else
+ 	{
+	  lshift_double (pos_a.low, pos_a.high,
+			 GET_MODE_FBIT (f->mode),
+			 2 * HOST_BITS_PER_WIDE_INT,
+			 &s.low, &s.high, 0);
+	  lshift_double (pos_a.low, pos_a.high,
+			 - (2 * HOST_BITS_PER_WIDE_INT - GET_MODE_FBIT (f->mode)),
+			 2 * HOST_BITS_PER_WIDE_INT,
+			 &r.low, &r.high, 0);
+ 	}
 
       /* Divide r by pos_b to quo_r.  The remanider is in mod.  */
       div_and_round_double (TRUNC_DIV_EXPR, 1, r.low, r.high, pos_b.low,
@@ -639,15 +648,24 @@ do_fixed_shift (FIXED_VALUE_TYPE *f, const FIXED_VALUE_TYPE *a,
   else /* We need two double_int to store the left-shift result.  */
     {
       double_int temp_high, temp_low;
-      lshift_double (a->data.low, a->data.high,
-		     b->data.low,
-		     2 * HOST_BITS_PER_WIDE_INT,
-		     &temp_low.low, &temp_low.high, !unsignedp);
-      /* Logical shift right to temp_high.  */
-      lshift_double (a->data.low, a->data.high,
-		     b->data.low - 2 * HOST_BITS_PER_WIDE_INT,
-		     2 * HOST_BITS_PER_WIDE_INT,
-		     &temp_high.low, &temp_high.high, 0);
+      if (b->data.low == 2 * HOST_BITS_PER_WIDE_INT)
+	{
+	  temp_high = a->data;
+	  temp_low.high = 0;
+	  temp_low.low = 0;
+	}
+      else
+	{
+	  lshift_double (a->data.low, a->data.high,
+			 b->data.low,
+			 2 * HOST_BITS_PER_WIDE_INT,
+			 &temp_low.low, &temp_low.high, !unsignedp);
+	  /* Logical shift right to temp_high.  */
+	  lshift_double (a->data.low, a->data.high,
+			 b->data.low - 2 * HOST_BITS_PER_WIDE_INT,
+			 2 * HOST_BITS_PER_WIDE_INT,
+			 &temp_high.low, &temp_high.high, 0);
+	}
       if (!unsignedp && a->data.high < 0) /* Signed-extend temp_high.  */
 	temp_high = double_int_ext (temp_high, b->data.low, unsignedp);
       f->data = temp_low;
@@ -953,16 +971,25 @@ fixed_convert_from_int (FIXED_VALUE_TYPE *f, enum machine_mode mode,
   /* Left shift a to temp_high, temp_low.  */
   double_int temp_high, temp_low;
   int amount = GET_MODE_FBIT (mode);
-  lshift_double (a.low, a.high,
-		 amount,
-		 2 * HOST_BITS_PER_WIDE_INT,
-		 &temp_low.low, &temp_low.high, 0);
+  if (amount == 2 * HOST_BITS_PER_WIDE_INT)
+    {
+       temp_high = a;
+       temp_low.low = 0;
+       temp_low.high = 0;
+    }
+  else
+    {
+      lshift_double (a.low, a.high,
+		     amount,
+		     2 * HOST_BITS_PER_WIDE_INT,
+		     &temp_low.low, &temp_low.high, 0);
 
-  /* Logical shift right to temp_high.  */
-  lshift_double (a.low, a.high,
-		 amount - 2 * HOST_BITS_PER_WIDE_INT,
-		 2 * HOST_BITS_PER_WIDE_INT,
-		 &temp_high.low, &temp_high.high, 0);
+      /* Logical shift right to temp_high.  */
+      lshift_double (a.low, a.high,
+		     amount - 2 * HOST_BITS_PER_WIDE_INT,
+		     2 * HOST_BITS_PER_WIDE_INT,
+		     &temp_high.low, &temp_high.high, 0);
+    }
   if (!unsignedp && a.high < 0) /* Signed-extend temp_high.  */
     temp_high = double_int_ext (temp_high, amount, 0);
 

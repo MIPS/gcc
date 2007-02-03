@@ -1,3 +1,11 @@
+2007-02-02  Chao-ying Fu  <fu@mips.com>
+
+	* fixed-value.c (do_fixed_divide): Check the left shift amount to
+	just copy data directly when it is the same as the width.
+	This hits a corner case for the 128-bit unsigned fract type.
+	(do_fixed_shift): Likewise.
+	(fixed_convert_from_int): Likewise.
+
 2007-02-01  Chao-ying Fu  <fu@mips.com>
 
 	* c-lex.c (build_binary_op): Fix a bug when checking code1 is
