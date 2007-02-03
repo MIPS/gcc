@@ -1,5 +1,12 @@
 2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
 
+	* mode-switching.c (create_pre_exit): Skip CLOBBER of pseudo
+	register for the result when not optimizing.
+	(optimize_mode_switching): Move	df_ri_add_problem and df_analyze
+	calls after create_pre_exit call.
+
+2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
 	* modulo-sched.c (sms_schedule): Call df_ri_add_problem
 	with DF_RI_LIFE.
 

@@ -1,5 +1,5 @@
 /* CPU mode switching
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -268,6 +268,25 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			return_copy_pat = PATTERN (return_copy);
 			if (GET_CODE (return_copy_pat) != CLOBBER)
 			  break;
+			else if (!optimize)
+			  {
+			    /* This might be (clobber (reg [<result>]))
+			       when not optimizing.  Then check if
+			       the previous insn is the clobber for
+			       the return register.  */
+			    copy_reg = SET_DEST (return_copy_pat);
+			    if (GET_CODE (copy_reg) == REG
+				&& !HARD_REGISTER_NUM_P (REGNO (copy_reg)))
+			      {
+				if (INSN_P (PREV_INSN (return_copy)))
+				  {
+				    return_copy = PREV_INSN (return_copy);
+				    return_copy_pat = PATTERN (return_copy);
+				    if (GET_CODE (return_copy_pat) != CLOBBER)
+				      break;
+				  }
+			      }
+			  }
 		      }
 		    copy_reg = SET_DEST (return_copy_pat);
 		    if (GET_CODE (copy_reg) == REG)
@@ -420,15 +439,15 @@ optimize_mode_switching (void)
   if (! n_entities)
     return 0;
 
-  df_ri_add_problem (0);
-  df_analyze ();
-
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that
      there NORMAL_MODE is supplied.  */
   post_entry = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
   pre_exit = create_pre_exit (n_entities, entity_map, num_modes);
 #endif
+
+  df_ri_add_problem (0);
+  df_analyze ();
 
   /* Create the bitmap vectors.  */
 
