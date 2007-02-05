@@ -113,6 +113,9 @@ static inline convert_optab init_convert_optab (enum rtx_code);
 static void init_libfuncs (optab, int, int, const char *, int);
 static void init_integral_libfuncs (optab, const char *, int);
 static void init_floating_libfuncs (optab, const char *, int);
+static void init_fixed_point_libfuncs (optab, const char *, int);
+static void init_signed_fixed_point_libfuncs (optab, const char *, int);
+static void init_unsigned_fixed_point_libfuncs (optab, const char *, int);
 static void init_interclass_conv_libfuncs (convert_optab, const char *,
 					   enum mode_class, enum mode_class);
 static void init_intraclass_conv_libfuncs (convert_optab, const char *,
@@ -5148,6 +5151,45 @@ init_floating_libfuncs (optab optable, const char *opname, int suffix)
 		 opname, suffix);
 }
 
+/* Initialize the libfunc fields of an entire group of entries in some
+   optab which correspond to all fixed-point mode operations.  The parameters
+   have the same meaning as similarly named ones for the `init_libfuncs'
+   routine.  */
+
+static void
+init_fixed_point_libfuncs (optab optable, const char *opname, int suffix)
+{
+  init_libfuncs (optable, QQmode, TQmode, opname, suffix);
+  init_libfuncs (optable, UQQmode, UTQmode, opname, suffix);
+  init_libfuncs (optable, HAmode, TAmode, opname, suffix);
+  init_libfuncs (optable, UHAmode, UTAmode, opname, suffix);
+}
+
+/* Initialize the libfunc fields of an entire group of entries in some
+   optab which correspond to signed fixed-point mode operations.  The
+   parameters have the same meaning as similarly named ones for the
+   `init_libfuncs' routine.  */
+
+static void
+init_signed_fixed_point_libfuncs (optab optable, const char *opname, int suffix)
+{
+  init_libfuncs (optable, QQmode, TQmode, opname, suffix);
+  init_libfuncs (optable, HAmode, TAmode, opname, suffix);
+}
+
+/* Initialize the libfunc fields of an entire group of entries in some
+   optab which correspond to unsigned fixed-point mode operations.  The
+   parameters have the same meaning as similarly named ones for the
+   `init_libfuncs' routine.  */
+
+static void
+init_unsigned_fixed_point_libfuncs (optab optable, const char *opname,
+                                    int suffix)
+{
+  init_libfuncs (optable, UQQmode, UTQmode, opname, suffix);
+  init_libfuncs (optable, UHAmode, UTAmode, opname, suffix);
+}
+
 /* Initialize the libfunc fields of an entire group of entries of an
    inter-mode-class conversion optab.  The string formation rules are
    similar to the ones for init_libfuncs, above, but instead of having
@@ -5540,20 +5582,33 @@ init_optabs (void)
   /* Initialize the optabs with the names of the library functions.  */
   init_integral_libfuncs (add_optab, "add", '3');
   init_floating_libfuncs (add_optab, "add", '3');
+  init_fixed_point_libfuncs (add_optab, "add", '3');
+  init_signed_fixed_point_libfuncs (ssadd_optab, "ssadd", '3');
+  init_unsigned_fixed_point_libfuncs (usadd_optab, "usadd", '3');
   init_integral_libfuncs (addv_optab, "addv", '3');
   init_floating_libfuncs (addv_optab, "add", '3');
   init_integral_libfuncs (sub_optab, "sub", '3');
   init_floating_libfuncs (sub_optab, "sub", '3');
+  init_fixed_point_libfuncs (sub_optab, "sub", '3');
+  init_signed_fixed_point_libfuncs (sssub_optab, "sssub", '3');
+  init_unsigned_fixed_point_libfuncs (ussub_optab, "ussub", '3');
   init_integral_libfuncs (subv_optab, "subv", '3');
   init_floating_libfuncs (subv_optab, "sub", '3');
   init_integral_libfuncs (smul_optab, "mul", '3');
   init_floating_libfuncs (smul_optab, "mul", '3');
+  init_fixed_point_libfuncs (smul_optab, "mul", '3');
+  init_signed_fixed_point_libfuncs (ssmul_optab, "ssmul", '3');
+  init_unsigned_fixed_point_libfuncs (usmul_optab, "usmul", '3');
   init_integral_libfuncs (smulv_optab, "mulv", '3');
   init_floating_libfuncs (smulv_optab, "mul", '3');
   init_integral_libfuncs (sdiv_optab, "div", '3');
   init_floating_libfuncs (sdiv_optab, "div", '3');
+  init_signed_fixed_point_libfuncs (sdiv_optab, "div", '3');
+  init_signed_fixed_point_libfuncs (ssdiv_optab, "ssdiv", '3');
   init_integral_libfuncs (sdivv_optab, "divv", '3');
   init_integral_libfuncs (udiv_optab, "udiv", '3');
+  init_unsigned_fixed_point_libfuncs (udiv_optab, "udiv", '3');
+  init_unsigned_fixed_point_libfuncs (usdiv_optab, "usdiv", '3');
   init_integral_libfuncs (sdivmod_optab, "divmod", '4');
   init_integral_libfuncs (udivmod_optab, "udivmod", '4');
   init_integral_libfuncs (smod_optab, "mod", '3');
@@ -5563,8 +5618,13 @@ init_optabs (void)
   init_integral_libfuncs (ior_optab, "ior", '3');
   init_integral_libfuncs (xor_optab, "xor", '3');
   init_integral_libfuncs (ashl_optab, "ashl", '3');
+  init_fixed_point_libfuncs (ashl_optab, "ashl", '3');
+  init_signed_fixed_point_libfuncs (ssashl_optab, "ssashl", '3');
+  init_unsigned_fixed_point_libfuncs (usashl_optab, "usashl", '3');
   init_integral_libfuncs (ashr_optab, "ashr", '3');
+  init_signed_fixed_point_libfuncs (ashr_optab, "ashr", '3');
   init_integral_libfuncs (lshr_optab, "lshr", '3');
+  init_unsigned_fixed_point_libfuncs (lshr_optab, "lshr", '3');
   init_integral_libfuncs (smin_optab, "min", '3');
   init_floating_libfuncs (smin_optab, "min", '3');
   init_integral_libfuncs (smax_optab, "max", '3');
@@ -5573,6 +5633,9 @@ init_optabs (void)
   init_integral_libfuncs (umax_optab, "umax", '3');
   init_integral_libfuncs (neg_optab, "neg", '2');
   init_floating_libfuncs (neg_optab, "neg", '2');
+  init_fixed_point_libfuncs (neg_optab, "neg", '2');
+  init_signed_fixed_point_libfuncs (ssneg_optab, "ssneg", '2');
+  init_unsigned_fixed_point_libfuncs (usneg_optab, "usneg", '2');
   init_integral_libfuncs (negv_optab, "negv", '2');
   init_floating_libfuncs (negv_optab, "neg", '2');
   init_integral_libfuncs (one_cmpl_optab, "one_cmpl", '2');
@@ -5586,6 +5649,7 @@ init_optabs (void)
      signed/unsigned.  */
   init_integral_libfuncs (cmp_optab, "cmp", '2');
   init_integral_libfuncs (ucmp_optab, "ucmp", '2');
+  init_fixed_point_libfuncs (cmp_optab, "cmp", '2');
   init_floating_libfuncs (cmp_optab, "cmp", '2');
 
   /* EQ etc are floating point only.  */

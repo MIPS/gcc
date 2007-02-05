@@ -1,3 +1,15 @@
+2007-02-05  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.c (init_fixed_point_libfuncs, init_signed_fixed_point_libfuncs,
+	init_unsigned_fixed_point_libfuncs): Declare.
+	(init_fixed_point_libfuncs, init_signed_fixed_point_libfuncs,
+	init_unsigned_fixed_point_libfuncs): New functions.
+	(init_optabs): Initialize fixed-point libraries, including add, ssadd,
+	usadd, sub, sssub, ussub, mul, ssmul, usmul, div, ssdiv, udiv, usdiv,
+	ashl, ssashl, usashl, ashr, lshr, neg, ssneg, usneg, cmp.
+	* config/fixed-bit.h: New file.
+	* config/fixed-bit.c: New file.
+
 2007-02-02  Chao-ying Fu  <fu@mips.com>
 
 	* fixed-value.c (do_fixed_divide): Check the left shift amount to
