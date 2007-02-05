@@ -1512,6 +1512,16 @@ expand_gimple_basic_block (basic_block bb)
       else
 	{
 	  tree call = get_call_expr_in (stmt);
+	  int region;
+	  /* For the benefit of calls.c, converting all this to rtl,
+	     we need to record the call expression, not just the outer
+	     modify statement.  */
+	  if (call && call != stmt)
+	    {
+	      if ((region = lookup_stmt_eh_region (stmt)) > 0)
+	        add_stmt_to_eh_region (call, region);
+	      gimple_duplicate_stmt_histograms (cfun, call, cfun, stmt);
+	    }
 	  if (call && CALL_EXPR_TAILCALL (call))
 	    {
 	      bool can_fallthru;

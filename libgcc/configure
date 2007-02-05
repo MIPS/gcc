@@ -272,7 +272,7 @@ PACKAGE_STRING='GNU C Runtime Library 1.0'
 PACKAGE_BUGREPORT=''
 
 ac_unique_file="static-object.mk"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libgcc_topdir enable_shared slibdir INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AWK build build_cpu build_vendor build_os host host_cpu host_vendor host_os host_noncanonical AR ac_ct_AR LIPO ac_ct_LIPO NM ac_ct_NM RANLIB ac_ct_RANLIB STRIP ac_ct_STRIP LN_S CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP decimal_float vis_hide tmake_file extra_parts asm_hidden_op LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libgcc_topdir enable_shared slibdir INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AWK build build_cpu build_vendor build_os host host_cpu host_vendor host_os host_noncanonical build_libsubdir build_subdir host_subdir target_subdir AR ac_ct_AR LIPO ac_ct_LIPO NM ac_ct_NM RANLIB ac_ct_RANLIB STRIP ac_ct_STRIP LN_S CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP decimal_float vis_hide tmake_file extra_parts asm_hidden_op LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -810,6 +810,7 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --disable-shared        don't provide a shared libgcc
+  --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -818,6 +819,7 @@ Optional Packages:
   --with-cross-host=HOST           Configuring with a cross compiler
   --with-ld               arrange to use the specified ld (full pathname)
   --with-slibdir=DIR      shared libraries in DIR LIBDIR
+  --with-build-libsubdir=DIR  Directory where to find libraries for build system
 
 Some influential environment variables:
   CC          C compiler command
@@ -1363,16 +1365,34 @@ else
 fi;
 
 
+echo "$as_me:$LINENO: checking for --enable-version-specific-runtime-libs" >&5
+echo $ECHO_N "checking for --enable-version-specific-runtime-libs... $ECHO_C" >&6
+# Check whether --enable-version-specific-runtime-libs or --disable-version-specific-runtime-libs was given.
+if test "${enable_version_specific_runtime_libs+set}" = set; then
+  enableval="$enable_version_specific_runtime_libs"
+  case "$enableval" in
+ yes) version_specific_libs=yes ;;
+ no)  version_specific_libs=no ;;
+ *)   { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable version-specific libs" >&5
+echo "$as_me: error: Unknown argument to enable/disable version-specific libs" >&2;}
+   { (exit 1); exit 1; }; };;
+ esac
+else
+  version_specific_libs=no
+fi;
+echo "$as_me:$LINENO: result: $version_specific_libs" >&5
+echo "${ECHO_T}$version_specific_libs" >&6
+
 
 # Check whether --with-slibdir or --without-slibdir was given.
 if test "${with_slibdir+set}" = set; then
   withval="$with_slibdir"
   slibdir="$with_slibdir"
 else
-  if test "${enable_version_specific_runtime_libs+set}" = set; then
+  if test "${version_specific_libs}" = yes; then
   slibdir='$(libsubdir)'
-elif test "$host" != "$target"; then
-  slibdir='$(build_tooldir)/lib'
+elif test -n "$with_cross_host" && test x"$with_cross_host" != x"no"; then
+  slibdir='$(exec_prefix)/$(host_noncanonical)/lib'
 else
   slibdir='$(libdir)'
 fi
@@ -1571,6 +1591,41 @@ esac
 esac
 
 
+
+ case ${target_alias} in
+  "") target_noncanonical=${host_noncanonical} ;;
+  *) target_noncanonical=${target_alias} ;;
+esac
+
+
+# post-stage1 host modules use a different CC_FOR_BUILD so, in order to
+# have matching libraries, they should use host libraries: Makefile.tpl
+# arranges to pass --with-build-libsubdir=$(HOST_SUBDIR).
+# However, they still use the build modules, because the corresponding
+# host modules (e.g. bison) are only built for the host when bootstrap
+# finishes. So:
+# - build_subdir is where we find build modules, and never changes.
+# - build_libsubdir is where we find build libraries, and can be overridden.
+
+# Prefix 'build-' so this never conflicts with target_subdir.
+build_subdir="build-${build_noncanonical}"
+
+# Check whether --with-build-libsubdir or --without-build-libsubdir was given.
+if test "${with_build_libsubdir+set}" = set; then
+  withval="$with_build_libsubdir"
+  build_libsubdir="$withval"
+else
+  build_libsubdir="$build_subdir"
+fi;
+# --srcdir=. covers the toplevel, while "test -d" covers the subdirectories
+if ( test $srcdir = . && test -d gcc ) \
+   || test -d $srcdir/../host-${host_noncanonical}; then
+  host_subdir="host-${host_noncanonical}"
+else
+  host_subdir=.
+fi
+# No prefix.
+target_subdir=${target_noncanonical}
 
 
 if test -n "$ac_tool_prefix"; then
@@ -3960,6 +4015,10 @@ s,@host_cpu@,$host_cpu,;t t
 s,@host_vendor@,$host_vendor,;t t
 s,@host_os@,$host_os,;t t
 s,@host_noncanonical@,$host_noncanonical,;t t
+s,@build_libsubdir@,$build_libsubdir,;t t
+s,@build_subdir@,$build_subdir,;t t
+s,@host_subdir@,$host_subdir,;t t
+s,@target_subdir@,$target_subdir,;t t
 s,@AR@,$AR,;t t
 s,@ac_ct_AR@,$ac_ct_AR,;t t
 s,@LIPO@,$LIPO,;t t

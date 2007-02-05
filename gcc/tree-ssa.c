@@ -380,17 +380,20 @@ verify_flow_insensitive_alias_info (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      size_t j;
-      var_ann_t ann;
-      VEC(tree,gc) *may_aliases;
+      unsigned int j;
+      bitmap aliases;
       tree alias;
+      bitmap_iterator bi;
 
-      ann = var_ann (var);
-      may_aliases = ann->may_aliases;
+      if (!MTAG_P (var) || !MTAG_ALIASES (var))
+	continue;
+      
+      aliases = MTAG_ALIASES (var);
 
-      for (j = 0; VEC_iterate (tree, may_aliases, j, alias); j++)
+      EXECUTE_IF_SET_IN_BITMAP (aliases, 0, j, bi)
 	{
-	  bitmap_set_bit (visited, DECL_UID (alias));
+	  alias = referenced_var (j);
+	  bitmap_set_bit (visited, j);
 
 	  if (TREE_CODE (alias) != MEMORY_PARTITION_TAG
 	      && !may_be_aliased (alias))
@@ -778,7 +781,6 @@ init_tree_ssa (void)
 					       var_ann_eq, NULL);
   cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
-  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
 }
@@ -846,10 +848,13 @@ delete_tree_ssa (void)
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
+  if (gimple_aliases_computed_p (cfun))
+    {
+      delete_alias_heapvars ();
+      gcc_assert (!need_ssa_update_p ());
+    }
   cfun->gimple_df->aliases_computed_p = false;
 
-  delete_alias_heapvars ();
-  gcc_assert (!need_ssa_update_p ());
   cfun->gimple_df = NULL;
 }
 

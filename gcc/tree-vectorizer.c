@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -862,7 +862,6 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
   copy_bbs (bbs, loop->num_nodes, new_bbs,
 	    &exit, 1, &new_exit, NULL,
 	    e->src);
-  set_single_exit (new_loop, new_exit);
 
   /* Duplicating phi args at exit bbs as coming 
      also from exit of duplicated loop.  */
@@ -1065,7 +1064,8 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
 struct loop*
 slpeel_tree_peel_loop_to_edge (struct loop *loop, 
 			       edge e, tree first_niters, 
-			       tree niters, bool update_first_loop_count)
+			       tree niters, bool update_first_loop_count,
+			       unsigned int th)
 {
   struct loop *new_loop = NULL, *first_loop, *second_loop;
   edge skip_e;
@@ -1158,7 +1158,8 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
 
   pre_condition =
     fold_build2 (LE_EXPR, boolean_type_node, first_niters, 
-                 build_int_cst (TREE_TYPE (first_niters), 0));
+	build_int_cst (TREE_TYPE (first_niters), th));
+
   skip_e = slpeel_add_loop_guard (bb_before_first_loop, pre_condition,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
@@ -1373,6 +1374,8 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   DR_GROUP_GAP (res) = 0;
   DR_GROUP_SAME_DR_STMT (res) = NULL_TREE;
   DR_GROUP_NOT_INTERLEAVING (res) = false;
+  DR_GROUP_READ_WRITE_DEPENDENCE (res) = false;
+
   return res;
 }
 
@@ -2031,7 +2034,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
         }
       return NULL_TREE;
     }
-  else if (INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type) && flag_trapv)
+  else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type))
     {
       /* Changing the order of operations changes the semantics.  */
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2211,3 +2214,69 @@ vectorize_loops (void)
 
   return num_vectorized_loops > 0 ? TODO_cleanup_cfg : 0;
 }
+
+/* Increase alignment of global arrays to improve vectorization potential.
+   TODO:
+   - Consider also structs that have an array field.
+   - Use ipa analysis to prune arrays that can't be vectorized?
+     This should involve global alignment analysis and in the future also
+     array padding.  */
+
+static unsigned int
+increase_alignment (void)
+{
+  struct varpool_node *vnode;
+
+  /* Increase the alignment of all global arrays for vectorization.  */
+  for (vnode = varpool_nodes_queue;
+       vnode;
+       vnode = vnode->next_needed)
+    {
+      tree vectype, decl = vnode->decl;
+      unsigned int alignment;
+
+      if (TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE)
+	continue;
+      vectype = get_vectype_for_scalar_type (TREE_TYPE (TREE_TYPE (decl)));
+      if (!vectype)
+	continue;
+      alignment = TYPE_ALIGN (vectype);
+      if (DECL_ALIGN (decl) >= alignment)
+	continue;
+
+      if (vect_can_force_dr_alignment_p (decl, alignment))
+	{ 
+	  DECL_ALIGN (decl) = TYPE_ALIGN (vectype);
+	  DECL_USER_ALIGN (decl) = 1;
+	  if (dump_file)
+	    { 
+	      fprintf (dump_file, "Increasing alignment of decl: ");
+	      print_generic_expr (dump_file, decl, TDF_SLIM);
+	    }
+	}
+    }
+  return 0;
+}
+
+static bool
+gate_increase_alignment (void)
+{
+  return flag_section_anchors && flag_tree_vectorize;
+}
+
+struct tree_opt_pass pass_ipa_increase_alignment = 
+{
+  "increase_alignment",			/* name */
+  gate_increase_alignment,		/* gate */
+  increase_alignment,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0, 					/* todo_flags_finish */
+  0					/* letter */
+};

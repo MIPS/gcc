@@ -1,6 +1,6 @@
 // jvmti.cc - JVMTI implementation
 
-/* Copyright (C) 2006 Free Software Foundation
+/* Copyright (C) 2006, 2007 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -28,7 +28,9 @@ details.  */
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Object.h>
+#include <java/lang/OutOfMemoryError.h>
 #include <java/lang/Thread.h>
+#include <java/lang/ThreadGroup.h>
 #include <java/lang/Throwable.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Field.h>
@@ -153,12 +155,10 @@ _Jv_JVMTI_SuspendThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
   using namespace java::lang;
 
   THREAD_DEFAULT_TO_CURRENT (thread);
- 
-  Thread *t = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (t);
-  THREAD_CHECK_IS_ALIVE (t);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
 
-  _Jv_Thread_t *data = _Jv_ThreadGetData (t);
+  _Jv_Thread_t *data = _Jv_ThreadGetData (thread);
   _Jv_SuspendThread (data);
   return JVMTI_ERROR_NONE;
 }
@@ -169,12 +169,10 @@ _Jv_JVMTI_ResumeThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
   using namespace java::lang;
 
   THREAD_DEFAULT_TO_CURRENT (thread);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
 
-  Thread *t = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (t);
-  THREAD_CHECK_IS_ALIVE (t);
-
-  _Jv_Thread_t *data = _Jv_ThreadGetData (t);
+  _Jv_Thread_t *data = _Jv_ThreadGetData (thread);
   _Jv_ResumeThread (data);
   return JVMTI_ERROR_NONE;
 }
@@ -189,10 +187,80 @@ _Jv_JVMTI_InterruptThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
   if (thread == NULL)
     return JVMTI_ERROR_INVALID_THREAD;
 
-  Thread *real_thread = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (real_thread);
-  THREAD_CHECK_IS_ALIVE (real_thread);
-  real_thread->interrupt();
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
+  thread->interrupt();
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetAllThreads(MAYBE_UNUSED jvmtiEnv *env, jint *thread_cnt,
+                        jthread **threads)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+  NULL_CHECK (thread_cnt);
+  NULL_CHECK (threads);
+   
+  using namespace java::lang;
+   
+  ThreadGroup *root_grp = ThreadGroup::root;
+  jint estimate = root_grp->activeCount ();
+
+  JArray<Thread *> *thr_arr;
+
+  // Allocate some extra space since threads can be created between calls
+  try
+    { 
+      thr_arr = reinterpret_cast<JArray<Thread *> *> (JvNewObjectArray 
+						      ((estimate * 2),
+						       &Thread::class$, NULL));
+    }
+  catch (java::lang::OutOfMemoryError *err)
+    {
+      return JVMTI_ERROR_OUT_OF_MEMORY;
+    }
+    
+  *thread_cnt = root_grp->enumerate (thr_arr);
+   
+  jvmtiError jerr = env->Allocate ((jlong) ((*thread_cnt) * sizeof (jthread)),
+                                   (unsigned char **) threads);
+ 
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+   
+  // Transfer the threads to the result array
+  jthread *tmp_arr = reinterpret_cast<jthread *> (elements (thr_arr));
+ 
+  memcpy ((*threads), tmp_arr, (*thread_cnt));
+   
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
+                         jint* frame_count)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+  
+  NULL_CHECK (frame_count);
+	
+  using namespace java::lang;
+  
+  THREAD_DEFAULT_TO_CURRENT (thread);
+  
+  Thread *thr = reinterpret_cast<Thread *> (thread);
+  THREAD_CHECK_VALID (thr);
+  THREAD_CHECK_IS_ALIVE (thr);
+   
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
+  (*frame_count) = 0;
+  
+  while (frame != NULL)
+    {
+      (*frame_count)++;
+      frame = frame->next;
+    }
+  
   return JVMTI_ERROR_NONE;
 }
 
@@ -375,6 +443,36 @@ _Jv_JVMTI_Deallocate (MAYBE_UNUSED jvmtiEnv *env, unsigned char *mem)
 }
 
 static jvmtiError JNICALL
+_Jv_JVMTI_GetClassStatus (MAYBE_UNUSED jvmtiEnv *env, jclass klass,
+			  jint *status_ptr)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+  NULL_CHECK (status_ptr);
+  if (klass == NULL)
+    return JVMTI_ERROR_INVALID_CLASS;
+
+  if (klass->isArray ())
+    *status_ptr = JVMTI_CLASS_STATUS_ARRAY;
+  else if (klass->isPrimitive ())
+    *status_ptr  = JVMTI_CLASS_STATUS_PRIMITIVE;
+  else
+    {
+      jbyte state = _Jv_GetClassState (klass);
+      *status_ptr = 0;
+      if (state >= JV_STATE_LINKED)
+	(*status_ptr) |= JVMTI_CLASS_STATUS_VERIFIED;
+      if (state >= JV_STATE_PREPARED)
+	(*status_ptr) |= JVMTI_CLASS_STATUS_PREPARED;
+      if (state == JV_STATE_ERROR || state == JV_STATE_PHANTOM)
+	(*status_ptr) |= JVMTI_CLASS_STATUS_ERROR;
+      else if (state == JV_STATE_DONE)
+	(*status_ptr) |= JVMTI_CLASS_STATUS_INITIALIZED;
+    }
+
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
 _Jv_JVMTI_GetClassModifiers (MAYBE_UNUSED jvmtiEnv *env, jclass klass,
 			     jint *mods)
 {
@@ -489,6 +587,48 @@ _Jv_JVMTI_IsFieldSynthetic (MAYBE_UNUSED jvmtiEnv *env, jclass klass,
   // FIXME: capability can_get_synthetic_attribute
   *result = ((field->getModifiers() & java::lang::reflect::Modifier::SYNTHETIC)
 	     != 0);
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetMethodName (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
+			 char **name_ptr, char **signature_ptr,
+			 char **generic_ptr)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+
+  if (method == NULL)
+    return JVMTI_ERROR_INVALID_METHODID;
+
+  if (name_ptr != NULL)
+    {
+      int len = static_cast<int> (method->name->len ());
+      *name_ptr = (char *) _Jv_MallocUnchecked (len + 1);
+      if (*name_ptr == NULL)
+	return JVMTI_ERROR_OUT_OF_MEMORY;
+      strncpy (*name_ptr, method->name->chars (), len);
+      (*name_ptr)[len] = '\0';
+    }
+
+  if (signature_ptr != NULL)
+    {
+      int len = static_cast<int> (method->signature->len ());
+      *signature_ptr = (char *) _Jv_MallocUnchecked (len + 1);
+      if (*signature_ptr == NULL)
+	{
+	  if (name_ptr != NULL)
+	    _Jv_Free (*name_ptr);
+	  return JVMTI_ERROR_OUT_OF_MEMORY;
+	}
+      strncpy (*signature_ptr, method->signature->chars (), len);
+      (*signature_ptr)[len] = '\0';
+    }
+
+  if (generic_ptr != NULL)
+    {
+      *generic_ptr = NULL;
+    }
+
   return JVMTI_ERROR_NONE;
 }
 
@@ -632,6 +772,82 @@ _Jv_JVMTI_GetClassLoaderClasses (MAYBE_UNUSED jvmtiEnv *env,
 
   *result_ptr = result;
 
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
+                         jint start_depth, jint max_frames,
+                         jvmtiFrameInfo *frames, jint *frame_count)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+
+  ILLEGAL_ARGUMENT (max_frames < 0);
+  
+  NULL_CHECK (frames);
+  NULL_CHECK (frame_count);
+	
+  using namespace java::lang;
+  
+  THREAD_DEFAULT_TO_CURRENT (thread);
+  
+  Thread *thr = reinterpret_cast<Thread *> (thread);
+  THREAD_CHECK_VALID (thr);
+  THREAD_CHECK_IS_ALIVE (thr);
+    
+  jvmtiError jerr = env->GetFrameCount (thread, frame_count);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+  
+  // start_depth can be either a positive number, indicating the depth of the
+  // stack at which to begin the trace, or a negative number indicating the
+  // number of frames at the bottom of the stack to exclude.  These checks
+  // ensure that it is a valid value in either case
+  
+  ILLEGAL_ARGUMENT (start_depth >= (*frame_count));
+  ILLEGAL_ARGUMENT (start_depth < (-(*frame_count)));
+  
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
+
+  // If start_depth is negative use this to determine at what depth to start
+  // the trace by adding it to the length of the call stack.  This allows the
+  // use of the same frame "discarding" mechanism as for a positive start_depth
+  if (start_depth < 0)
+    start_depth = *frame_count + start_depth;
+  
+  // If start_depth > 0 "remove" start_depth frames from the beginning
+  // of the stack before beginning the trace by moving along the frame list.
+  while (start_depth > 0)
+    {
+      frame = frame->next;
+      start_depth--;
+      (*frame_count)--;
+    }
+  
+  // Now check to see if the array supplied by the agent is large enough to
+  // hold frame_count frames, after adjustment for start_depth.
+  if ((*frame_count) > max_frames)
+    (*frame_count) = max_frames;
+  
+  for (int i = 0; i < (*frame_count); i++)
+    {
+      frames[i].method = frame->self->get_method ();
+      
+      // Set the location in the frame, native frames have location = -1
+      if (frame->frame_type == frame_interpreter)
+        {
+          _Jv_InterpMethod *imeth 
+            = static_cast<_Jv_InterpMethod *> (frame->self);
+          _Jv_InterpFrame *interp_frame 
+            = static_cast<_Jv_InterpFrame *> (frame);
+          frames[i].location = imeth->insn_index (interp_frame->pc);
+        }
+      else
+        frames[i].location = -1;
+        
+      frame = frame->next;
+    }
+    
   return JVMTI_ERROR_NONE;
 }
 
@@ -1055,10 +1271,8 @@ _Jv_JVMTI_SetEventNotificationMode (jvmtiEnv *env, jvmtiEventMode mode,
 
   if (event_thread != NULL)
     {
-      using namespace java::lang;
-      Thread *t = reinterpret_cast<Thread *> (event_thread);
-      THREAD_CHECK_VALID (t);
-      THREAD_CHECK_IS_ALIVE (t);
+      THREAD_CHECK_VALID (event_thread);
+      THREAD_CHECK_IS_ALIVE (event_thread);
     }
 
   bool enabled;
@@ -1362,7 +1576,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   RESERVED,			// reserved1
   _Jv_JVMTI_SetEventNotificationMode, // SetEventNotificationMode
   RESERVED,			// reserved3
-  UNIMPLEMENTED,		// GetAllThreads
+  _Jv_JVMTI_GetAllThreads,		// GetAllThreads
   _Jv_JVMTI_SuspendThread,	// SuspendThread
   _Jv_JVMTI_ResumeThread,	// ResumeThread
   UNIMPLEMENTED,		// StopThread
@@ -1374,7 +1588,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   UNIMPLEMENTED,		// GetTopThreadGroups
   UNIMPLEMENTED,		// GetThreadGroupInfo
   UNIMPLEMENTED,		// GetThreadGroupChildren
-  UNIMPLEMENTED,		// GetFrameCount
+  _Jv_JVMTI_GetFrameCount,		// GetFrameCount
   UNIMPLEMENTED,		// GetThreadState
   RESERVED,			// reserved18
   UNIMPLEMENTED,		// GetFrameLocation
@@ -1407,7 +1621,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   _Jv_JVMTI_Allocate,		// Allocate
   _Jv_JVMTI_Deallocate,		// Deallocate
   UNIMPLEMENTED,		// GetClassSignature
-  UNIMPLEMENTED,		// GetClassStatus
+  _Jv_JVMTI_GetClassStatus,	// GetClassStatus
   UNIMPLEMENTED,		// GetSourceFileName
   _Jv_JVMTI_GetClassModifiers,	// GetClassModifiers
   _Jv_JVMTI_GetClassMethods,	// GetClassMethods
@@ -1422,7 +1636,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   UNIMPLEMENTED,		// GetFieldDeclaringClass
   _Jv_JVMTI_GetFieldModifiers,	// GetFieldModifiers
   _Jv_JVMTI_IsFieldSynthetic,	// IsFieldSynthetic
-  UNIMPLEMENTED,		// GetMethodName
+  _Jv_JVMTI_GetMethodName,	// GetMethodName
   _Jv_JVMTI_GetMethodDeclaringClass,  // GetMethodDeclaringClass
   _Jv_JVMTI_GetMethodModifiers,	// GetMethodModifers
   RESERVED,			// reserved67
@@ -1462,7 +1676,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   UNIMPLEMENTED,		// GetThreadListStackTraces
   UNIMPLEMENTED,		// GetThreadLocalStorage
   UNIMPLEMENTED,		// SetThreadLocalStorage
-  UNIMPLEMENTED,		// GetStackTrace
+  _Jv_JVMTI_GetStackTrace,		// GetStackTrace
   RESERVED,			// reserved105
   UNIMPLEMENTED,		// GetTag
   UNIMPLEMENTED,		// SetTag

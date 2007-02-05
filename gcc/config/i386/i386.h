@@ -199,12 +199,12 @@ extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
 extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
-extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
+extern const int x86_cmpxchg, x86_cmpxchg8b, x86_xadd;
 extern const int x86_use_incdec;
 extern const int x86_pad_returns;
 extern const int x86_bswap;
 extern const int x86_partial_flag_reg_stall;
-extern int x86_prefetch_sse;
+extern int x86_prefetch_sse, x86_cmpxchg16b;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & TUNEMASK)
@@ -273,7 +273,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_CMPXCHG (x86_cmpxchg & (1 << ix86_arch))
 #define TARGET_CMPXCHG8B (x86_cmpxchg8b & (1 << ix86_arch))
-#define TARGET_CMPXCHG16B (x86_cmpxchg16b & (1 << ix86_arch))
+#define TARGET_CMPXCHG16B (x86_cmpxchg16b)
 #define TARGET_XADD (x86_xadd & (1 << ix86_arch))
 #define TARGET_BSWAP (x86_bswap & (1 << ix86_arch))
 
@@ -854,6 +854,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CONDITIONAL_REGISTER_USAGE					\
 do {									\
     int i;								\
+    unsigned int j;							\
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)				\
       {									\
 	if (fixed_regs[i] > 1)						\
@@ -862,10 +863,11 @@ do {									\
 	  call_used_regs[i] = (call_used_regs[i]			\
 			       == (TARGET_64BIT ? 3 : 2));		\
       }									\
-    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
+    j = PIC_OFFSET_TABLE_REGNUM;					\
+    if (j != INVALID_REGNUM)			\
       {									\
-	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
-	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+	fixed_regs[j] = 1;			\
+	call_used_regs[j] = 1;			\
       }									\
     if (! TARGET_MMX)							\
       {									\

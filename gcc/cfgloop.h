@@ -74,6 +74,21 @@ struct nb_iter_bound
   struct nb_iter_bound *next;
 };
 
+/* Description of the loop exit.  */
+
+struct loop_exit
+{
+  /* The exit edge.  */
+  edge e;
+
+  /* Previous and next exit in the list of the exits of the loop.  */
+  struct loop_exit *prev;
+  struct loop_exit *next;
+
+  /* Next element in the list of loops from that E exits.  */
+  struct loop_exit *next_e;
+};
+
 /* Structure to hold information for each natural loop.  */
 struct loop
 {
@@ -142,10 +157,8 @@ struct loop
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
-  /* If not NULL, loop has just single exit edge stored here (edges to the
-     EXIT_BLOCK_PTR do not count.  Do not use directly; this field should
-     only be accessed via single_exit/set_single_exit functions.  */
-  edge single_exit_;
+  /* Head of the cyclic list of the exits of the loop.  */
+  struct loop_exit exits;
 };
 
 /* Flags for state of loop structure.  */
@@ -154,7 +167,7 @@ enum
   LOOPS_HAVE_PREHEADERS = 1,
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
   LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
-  LOOPS_HAVE_MARKED_SINGLE_EXITS = 8
+  LOOPS_HAVE_RECORDED_EXITS = 8
 };
 
 #define LOOPS_NORMAL (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES \
@@ -173,6 +186,11 @@ struct loops
   /* Array of the loops.  */
   VEC (loop_p, heap) *larray;
 
+  /* Maps edges to the list of their descriptions as loop exits.  Edges
+     whose sources or destinations have loop_father == NULL (which may
+     happen during the cfg manipulations) should not appear in EXITS.  */
+  htab_t exits;
+
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
 };
@@ -184,11 +202,14 @@ extern void flow_loops_dump (FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
+struct loop *alloc_loop (void);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (bitmap changed_bbs);
 void mark_irreducible_loops (void);
-void mark_single_exit_loops (void);
+void release_recorded_exits (void);
+void record_loop_exits (void);
+void rescan_loop_exit (edge, bool, bool);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
@@ -197,7 +218,8 @@ extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
-extern unsigned tree_num_loop_insns (struct loop *);
+struct eni_weights_d;
+extern unsigned tree_num_loop_insns (struct loop *, struct eni_weights_d *);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
@@ -210,7 +232,6 @@ extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
 extern VEC (edge, heap) *get_loop_exit_edges (const struct loop *);
 edge single_exit (const struct loop *);
-void set_single_exit (struct loop *, edge);
 extern unsigned num_loop_branches (const struct loop *);
 
 extern edge loop_preheader_edge (const struct loop *);
@@ -221,8 +242,6 @@ extern void remove_bb_from_loops (basic_block);
 
 extern void cancel_loop_tree (struct loop *);
 extern void delete_loop (struct loop *);
-
-extern int fix_loop_placement (struct loop *);
 
 enum
 {
@@ -406,11 +425,11 @@ number_of_loops (void)
 
 enum li_flags
 {
-  LI_INCLUDE_ROOT,	/* Include the fake root of the loop tree.  */
-  LI_FROM_INNERMOST,	/* Iterate over the loops in the reverse order,
+  LI_INCLUDE_ROOT = 1,	/* Include the fake root of the loop tree.  */
+  LI_FROM_INNERMOST = 2,/* Iterate over the loops in the reverse order,
 			   starting from innermost ones.  */
-  LI_ONLY_INNERMOST,	/* Iterate only over innermost loops.  */
-  LI_ONLY_OLD		/* Do not traverse the loops created during the
+  LI_ONLY_INNERMOST = 4,/* Iterate only over innermost loops.  */
+  LI_ONLY_OLD = 8	/* Do not traverse the loops created during the
 			   traversal (this is the default behavior with
 			   LI_FROM_INNERMOST).  */
 };

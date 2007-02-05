@@ -1,3 +1,27 @@
+2007-01-29  Daniel Franke <franke.daniel@gmail.com>
+
+	PR libgomp/30540
+	* libgomp.texi: More about implementation-dependent settings.
+
+2007-01-26  Tobias Burnus  <burnus@net-b.de>
+
+	* testsuite/libgomp.fortran/fortran.exp: Support .f03 extension.
+
+2007-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30494
+	* testsuite/libgomp.c/pr30494.c: New test.
+
+2007-01-15  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac: Fixed comment.
+
+2007-01-14  Daniel Franke  <franke.daniel@gmail.com>
+
+	* libgomp.texi: Document implementation specific default values of
+	environment variables.
+
 2006-12-21  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR libgomp/28209

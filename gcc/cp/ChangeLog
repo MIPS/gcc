@@ -1,3 +1,126 @@
+2007-01-30  Roger Sayle  <roger@eyesopen.com>
+
+	* error.c (dump_type_suffix): Avoid use of cp_build_binary_op when
+	calculating the size of an array (to avoid recursive errors).
+
+2007-01-30  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24745
+	* typeck.c (build_binary_op): Fix logic for warning. Move warning
+	to -Wpointer-arith.
+	* call.c (convert_like_real): Don't warn when converting to
+	boolean type.
+	
+2007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* decl.c (pop_label): Replace warning with call to
+	warn_for_unused_label.
+
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* semantics.c (finish_pseudo_destructor_expr): Check the
+	destrutor name by calling check_dtor_name.
+
+2007-01-24  Douglas Gregor  <dgregor@osl.iu.edu>
+
+	* lex.c (D_CPP0X): Rename.
+	(D_CXX0X): To this.
+	(reswords): D_CPP0X -> D_CXX0X.
+	(init_reswords): Ditto.
+	* parser.c (cp_lexer_get_preprocessor_token): Warn about the use
+	of C++0x keywords as identifiers.
+
+2007-01-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* decl.c (duplicate_decls): Don't reset DECL_INVALID_OVERRIDER_P for
+	function decls.
+
+2007-01-23  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (convert_for_assignment): Only warn about a = b = c
+	when converting to bool.
+
+2007-01-23  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (null_ptr_cst_p): Replace use of TREE_CONSTANT_OVERFLOW with
+	TREE_OVERFLOW.
+	* typeck.c (ignore_overflows): Remove the remaining uses of
+	TREE_CONSTANT_OVERFLOW.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (start_objects, start_static_storage_duration_function):
+	Do not make the functions uninlinable.
+
+2007-01-17  Ian Lance Taylor  <iant@google.com>
+
+	* class.c (add_method): Call VEC_reserve_exact rather than passing
+	a negative size to VEC_reserve.
+
+2007-01-11  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29573
+	* tree.c (cp_tree_equal): Properly handle MODOP_EXPR trees.
+
+2007-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28999
+	* decl.c (make_typename_type): If the qualified name is not a
+	type, issue an error.
+	* parser.c (cp_parser_elaborated_type_specifier): Fix comment
+	formatting.
+
+2007-01-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* rtti.c: Include target.h.
+	(emit_support_tinfos): If ! targetm.cxx.library_rtti_comdat (),
+	don't emit typeinfo for fundamental types as weak.
+	* Make-lang.in (cp/rtti.o): Update and correct dependencies.
+
+2007-01-08  Richard Guenther  <rguenther@suse.de>
+
+	* cvt.c (cp_convert_to_pointer): Use build_int_cst_type.
+
+2007-01-08  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* call.c (standard_conversion): Pass flag to
+	vector_types_convertible_p to disallow emission of note.
+	* typeck.c (convert_for_assignment): Pass flag to
+	vector_types_convertible_p to allow emission of note.
+	(ptr_reasonably_similar): Pass flag to vector_types_convertible_p
+	to disallow emission of note.
+
+2007-01-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/28986
+	* typeck.c (build_binary_op): Call overflow_warning if
+	TREE_OVERFLOW_P is true for the result and not for any of the
+	operands.
+	
+2007-01-06  Lee Millward  <lee.millward@codesourcery.com>
+
+       PR c++/19439
+       * class.c (add_method): Don't wait until template
+       instantiation time to complain about duplicate methods.
+	
+2007-01-05  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/19978
+	* semantics.c (finish_unary_op_expr): Warn only if result
+	overflowed and operands did not.
+
+2007-01-05  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (build_binary_op): Warn about comparing a non-weak
+	address to NULL.
+
+2007-01-05  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* pt.c (tsubst): Propagate the need for structural equality checks
+	when reducing the level of template parameters.
+
 2007-01-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* pt.c: Fix a comment typo.

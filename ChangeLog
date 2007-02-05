@@ -1,3 +1,82 @@
+2007-01-30 Andrey Belevantsev <abel@ispras.ru>
+
+        * MAINTAINERS (Write After Approval): Add myself.
+
+2007-01-28  David Edelsohn  <edelsohn@gnu.org>
+
+        * MAINTAINERS (spu port): Add myself.
+
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/30541
+	* Makefile.def (flags_to_pass): Add GNATBIND and GNATMAKE.
+	* Makefile.tpl (GNATBIND): Substitute it.
+	(GNATMAKE): Likewise.
+	(POSTSTAGE1_FLAGS_TO_PASS): Pass staged GNATBIND instead
+	of STAGE_PREFIX.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2007-01-18  Mike Stump  <mrs@apple.com>
+
+	* configure.in: Re-enable -Werror for gcc builds.
+
+2007-01-11 Harsha Jagasia <harsha.jagasia@amd.com>
+
+        * MAINTAINERS (Write After Approval): Add myself.
+
+2007-01-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Change == to = in test command.
+        * configure: Regenerate.
+
+2007-01-11  Paolo Bonzini  <bonzini@gnu.org>
+            Nick Clifton  <nickc@redhat.com>
+            Kaveh R. Ghazi  <ghazi@caip.rutgets.edu>
+
+        * configure.in (build_configargs, host_configargs, target_configargs):
+        Remove build/host/target parameters.
+        (host_libs): Add gmp and mpfr.
+        (GMP tests): Reorganize to allow in-tree GMP/MPFR.
+        * Makefile.def (gmp, mpfr): New.
+        (gcc): Remove target.
+        * Makefile.tpl (build_os, build_vendor, host_os, host_vendor,
+        target_os, target_vendor): New.
+        (configure): Add host_alias/target_alias arguments.  Adjust invocations.
+        * configure: Regenerate.
+        * Makefile.in: Regenerate.
+
+2007-01-11  Matt Fago  <fago@earthlink.net>
+
+	* configure.in: Try to link to functions only in mpfr 2.2.x
+        to improve robustness of configure tests.
+	* configure: Regenerate.
+	
+2007-01-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* MAINTAINERS: Add myself as i386 maintainer.
+
+2007-01-08  Jan Hubicka  <jh@suse.cz>
+
+	* MAINTAINERS: Add myself as i386 maintainer.
+
+2007-01-08  Kai Tietz	<kai.tietz@onevision.com>
+
+	* configure.in: Add support for an x86_64-mingw* target.
+	* configure: Regenerate.
+
+2007-01-05  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.tpl (all-target): Correct @if conditional for target
+	modules.
+	* configure.in: Omit libiberty if building only target libgcc.
+	* configure, Makefile.in: Regenerated.
+
+2007-01-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Use DEV-PHASE to detect the default for --enable-werror.
+	* configure: Regenerate.
+
 2007-01-03  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* Makefile.def (target_modules): Add libgcc.
@@ -2540,7 +2619,7 @@
 	of libf2c.
 	* configure, Makefile.in: Regenerate.
 
-2004-05-13  Tobias SchlÃƒÂƒÃ‚Â¼ter  <tobi@gcc.gnu.org>
+2004-05-13  Tobias SchlÃÂÃÂ¼ter  <tobi@gcc.gnu.org>
 
 	* MAINTAINERS (Write After Approval): Add myself.
 

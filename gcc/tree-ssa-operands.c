@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -305,15 +305,17 @@ vop_free_bucket_size (int bucket)
 static inline int 
 vop_free_bucket_index (int num)
 {
-  gcc_assert (num > 0);
+  gcc_assert (num > 0 && NUM_VOP_FREE_BUCKETS > 16);
 
   /* Sizes 1 through 16 use buckets 0-15.  */
   if (num <= 16)
     return num - 1;
-  /* Buckets 16 - 45  represent 17 through 256 in 8 unit chunks.  */
-  if (num < 256)
-    return 14 + (num - 1) / 8;
-  return -1;
+  /* Buckets 16 - NUM_VOP_FREE_BUCKETS represent 8 unit chunks.  */
+  num = 14 + (num - 1) / 8;
+  if (num >= NUM_VOP_FREE_BUCKETS)
+    return -1;
+  else
+    return num;
 }
 
 
@@ -669,9 +671,10 @@ add_vdef_op (tree stmt, tree op, int num, voptype_p last)
    is the head of the operand list it belongs to.  */
 
 static inline struct voptype_d *
-realloc_vop (struct voptype_d *ptr, int num_elem, struct voptype_d **root)
+realloc_vop (struct voptype_d *ptr, unsigned int num_elem,
+	     struct voptype_d **root)
 {
-  int x, lim;
+  unsigned int x, lim;
   tree stmt, val;
   struct voptype_d *ret, *tmp;
 
@@ -730,7 +733,7 @@ realloc_vop (struct voptype_d *ptr, int num_elem, struct voptype_d **root)
 /* Reallocate the PTR vdef so that it has NUM_ELEM use slots.  */
 
 struct voptype_d *
-realloc_vdef (struct voptype_d *ptr, int num_elem)
+realloc_vdef (struct voptype_d *ptr, unsigned int num_elem)
 {
   tree val, stmt;
   struct voptype_d *ret;
@@ -746,7 +749,7 @@ realloc_vdef (struct voptype_d *ptr, int num_elem)
 /* Reallocate the PTR vuse so that it has NUM_ELEM use slots.  */
 
 struct voptype_d *
-realloc_vuse (struct voptype_d *ptr, int num_elem)
+realloc_vuse (struct voptype_d *ptr, unsigned int num_elem)
 {
   tree stmt;
   struct voptype_d *ret;
@@ -980,8 +983,7 @@ finalize_ssa_vdefs (tree stmt)
 static inline void
 finalize_ssa_vuse_ops (tree stmt)
 {
-  unsigned new_i;
-  int old_i;
+  unsigned new_i, old_i;
   voptype_p old_ops, last;
   VEC(tree,heap) *new_ops;
   stmt_ann_t ann;
@@ -1439,7 +1441,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		     tree full_ref, HOST_WIDE_INT offset,
 		     HOST_WIDE_INT size, bool for_clobber)
 {
-  VEC(tree,gc) *aliases;
+  bitmap aliases = NULL;
   tree sym;
   var_ann_t v_ann;
   
@@ -1477,9 +1479,12 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
   if (flags & opf_no_vops)
     return;
   
-  aliases = v_ann->may_aliases;
+  if (MTAG_P (var))
+    aliases = MTAG_ALIASES (var);
   if (aliases == NULL)
     {
+      if (s_ann && !gimple_aliases_computed_p (cfun))
+        s_ann->has_volatile_ops = true;
       /* The variable is not aliased or it is an alias tag.  */
       if (flags & opf_def)
 	append_vdef (var);
@@ -1488,19 +1493,20 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
     }
   else
     {
-      unsigned i;
+      bitmap_iterator bi;
+      unsigned int i;
       tree al;
       
       /* The variable is aliased.  Add its aliases to the virtual
 	 operands.  */
-      gcc_assert (VEC_length (tree, aliases) != 0);
+      gcc_assert (!bitmap_empty_p (aliases));
       
       if (flags & opf_def)
 	{
 	  bool none_added = true;
-
-	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	  EXECUTE_IF_SET_IN_BITMAP (aliases, 0, i, bi)
 	    {
+	      al = referenced_var (i);
 	      if (!access_can_touch_variable (full_ref, al, offset, size))
 		continue;
 	      
@@ -1530,14 +1536,15 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
       else
 	{
 	  bool none_added = true;
-	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	  EXECUTE_IF_SET_IN_BITMAP (aliases, 0, i, bi)
 	    {
+	      al = referenced_var (i);
 	      if (!access_can_touch_variable (full_ref, al, offset, size))
 		continue;
 	      none_added = false;
 	      append_vuse (al);
 	    }
-
+	  
 	  /* Similarly, append a virtual uses for VAR itself, when
 	     it is an alias tag.  */
 	  if (v_ann->is_aliased || none_added)
@@ -1610,6 +1617,8 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
   stmt_ann_t s_ann = stmt_ann (stmt);
 
   s_ann->references_memory = true;
+  if (s_ann && TREE_THIS_VOLATILE (expr))
+    s_ann->has_volatile_ops = true; 
 
   if (SSA_VAR_P (ptr))
     {
@@ -1652,6 +1661,11 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 	  if (v_ann->symbol_mem_tag)
 	    add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
 				 full_ref, offset, size, false);
+          /* Aliasing information is missing; mark statement as volatile so we
+             won't optimize it out too actively.  */
+          else if (s_ann && !gimple_aliases_computed_p (cfun)
+                   && (flags & opf_def))
+            s_ann->has_volatile_ops = true;
 	}
     }
   else if (TREE_CODE (ptr) == INTEGER_CST)
@@ -2401,7 +2415,7 @@ update_stmt_operands (tree stmt)
 void
 copy_virtual_operands (tree dest, tree src)
 {
-  int i, n;
+  unsigned int i, n;
   voptype_p src_vuses, dest_vuses;
   voptype_p src_vdefs, dest_vdefs;
   struct voptype_d vuse;

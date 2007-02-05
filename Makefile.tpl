@@ -29,10 +29,16 @@ in
 VPATH=@srcdir@
 
 build_alias=@build_alias@
+build_vendor=@build_vendor@
+build_os=@build_os@
 build=@build@
 host_alias=@host_alias@
+host_vendor=@host_vendor@
+host_os=@host_os@
 host=@host@
 target_alias=@target_alias@
+target_vendor=@target_vendor@
+target_os=@target_os@
 target=@target@
 
 program_transform_name = @program_transform_name@
@@ -293,6 +299,9 @@ RANLIB = @RANLIB@
 STRIP = @STRIP@
 WINDRES = @WINDRES@
 
+GNATBIND = @GNATBIND@
+GNATMAKE = @GNATMAKE@
+
 CFLAGS = @CFLAGS@
 LDFLAGS = 
 LIBCFLAGS = $(CFLAGS)
@@ -445,7 +454,7 @@ X11_FLAGS_TO_PASS = \
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
-	STAGE_PREFIX="$$r/$(HOST_SUBDIR)/prev-gcc/" \
+	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
@@ -531,9 +540,10 @@ all-host: maybe-all-[+module+][+ IF bootstrap +]
 
 .PHONY: all-target
 [+ FOR target_modules +][+ IF bootstrap +]
-@if [+module+]-no-bootstrap[+ ENDIF bootstrap +]
+@if target-[+module+]-no-bootstrap[+ ENDIF bootstrap +]
 all-target: maybe-all-target-[+module+][+ IF bootstrap +]
-@endif [+module+]-no-bootstrap[+ ENDIF bootstrap +][+ ENDFOR target_modules +]
+@endif target-[+module+]-no-bootstrap[+
+  ENDIF bootstrap +][+ ENDFOR target_modules +]
 
 # Do a target for all the subdirectories.  A ``make do-X'' will do a
 # ``make X'' in all subdirectories (because, in general, there is a
@@ -778,7 +788,8 @@ configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	libsrcdir="$$s/[+module+]"; \
 	[+ IF no-config-site +]rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file [+ ENDIF +]$(SHELL) $${libsrcdir}/configure \
-	  [+args+] $${srcdiroption} [+extra_configure_flags+] \
+	  [+args+] --build=${build_alias} --host=[+host_alias+] \
+	  --target=[+target_alias+] $${srcdiroption} [+extra_configure_flags+] \
 	  || exit 1
 @endif [+prefix+][+module+]
 
@@ -820,7 +831,8 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	libsrcdir="$$s/[+module+]"; \
 	$(SHELL) $${libsrcdir}/configure \
-	  [+args+] $${srcdiroption} \
+	  [+args+] --build=${build_alias} --host=[+host_alias+] \
+	  --target=[+target_alias+] $${srcdiroption} \
 	  [+ IF prev +]--with-build-libsubdir=$(HOST_SUBDIR)[+ ENDIF prev +] \
 	  [+stage_configure_flags+] [+extra_configure_flags+]
 @endif [+prefix+][+module+]-bootstrap
@@ -836,7 +848,7 @@ all-[+prefix+][+module+]: stage_current
 @endif gcc-bootstrap
 @if [+prefix+][+module+]
 TARGET-[+prefix+][+module+]=[+
-  IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
+  IF all_target +][+all_target+][+ ELSE +]all[+ ENDIF all_target +]
 maybe-all-[+prefix+][+module+]: all-[+prefix+][+module+]
 all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +][+ ELSE +]
 	@: $(MAKE); $(unstage)[+ ENDIF bootstrap +]
@@ -893,6 +905,8 @@ clean-stage[+id+]-[+prefix+][+module+]:
 # --------------------------------------
 [+ FOR build_modules +]
 [+ configure prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)"
+	     host_alias=(get "host" "${build_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(BUILD_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)" +]
@@ -905,6 +919,8 @@ clean-stage[+id+]-[+prefix+][+module+]:
 [+ configure prefix="" subdir="$(HOST_SUBDIR)"
 	     exports="$(HOST_EXPORTS)"
 	     poststage1_exports="$(POSTSTAGE1_HOST_EXPORTS)"
+	     host_alias=(get "host" "${host_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(HOST_CONFIGARGS)" +]
 
 [+ all prefix="" subdir="$(HOST_SUBDIR)"
@@ -1002,6 +1018,8 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 [+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
 	     check_multilibs=true
 	     exports="$(RAW_CXX_TARGET_EXPORTS)"
+	     host_alias=(get "host" "${target_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
@@ -1011,6 +1029,8 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 [+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
 	     check_multilibs=true
 	     exports="$(NORMAL_TARGET_EXPORTS)"
+	     host_alias=(get "host" "${target_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"

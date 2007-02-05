@@ -396,6 +396,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_strict_aliasing = value;
       warn_string_literal_comparison = value;
       warn_always_true = value;
+      warn_array_bounds = value;
 
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */
@@ -416,6 +417,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	  /* C++-specific warnings.  */
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
+          warn_cxx0x_compat = value;
           if (value > 0)
             warn_write_strings = true;
 	}
@@ -703,6 +705,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fimplicit_templates:
       flag_implicit_templates = value;
+      break;
+
+    case OPT_flax_vector_conversions:
+      flag_lax_vector_conversions = value;
       break;
 
     case OPT_fms_extensions:

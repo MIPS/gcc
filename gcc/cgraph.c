@@ -109,6 +109,9 @@ int cgraph_n_nodes;
 /* Maximal uid used in cgraph nodes.  */
 int cgraph_max_uid;
 
+/* Maximal pid used for profiling */
+int cgraph_max_pid;
+
 /* Set when whole unit has been analyzed so we can access global info.  */
 bool cgraph_global_info_ready = false;
 
@@ -161,6 +164,7 @@ cgraph_create_node (void)
   node = GGC_CNEW (struct cgraph_node);
   node->next = cgraph_nodes;
   node->uid = cgraph_max_uid++;
+  node->pid = -1;
   node->order = cgraph_order++;
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
@@ -468,6 +472,28 @@ cgraph_node_remove_callers (struct cgraph_node *node)
   node->callers = NULL;
 }
 
+/* Release memory used to represent body of function NODE.  */
+
+void
+cgraph_release_function_body (struct cgraph_node *node)
+{
+  if (DECL_STRUCT_FUNCTION (node->decl)
+      && DECL_STRUCT_FUNCTION (node->decl)->gimple_df)
+    {
+      tree old_decl = current_function_decl;
+      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+      current_function_decl = node->decl;
+      delete_tree_ssa ();
+      delete_tree_cfg_annotations ();
+      cfun->eh = NULL;
+      current_function_decl = old_decl;
+      pop_cfun();
+    }
+  DECL_SAVED_TREE (node->decl) = NULL;
+  DECL_STRUCT_FUNCTION (node->decl) = NULL;
+  DECL_INITIAL (node->decl) = error_mark_node;
+}
+
 /* Remove the node from cgraph.  */
 
 void
@@ -541,11 +567,7 @@ cgraph_remove_node (struct cgraph_node *node)
     }
 
   if (kill_body && flag_unit_at_a_time)
-    {
-      DECL_SAVED_TREE (node->decl) = NULL;
-      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-      DECL_INITIAL (node->decl) = error_mark_node;
-    }
+    cgraph_release_function_body (node);
   node->decl = NULL;
   if (node->call_site_hash)
     {
@@ -637,7 +659,7 @@ void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
   struct cgraph_edge *edge;
-  fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
+  fprintf (f, "%s/%i(%i):", cgraph_node_name (node), node->uid, node->pid);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),

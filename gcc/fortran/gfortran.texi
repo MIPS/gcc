@@ -1,7 +1,7 @@
 \input texinfo  @c -*-texinfo-*-
 @c %**start of header
 @setfilename gfortran.info
-@set copyrights-gfortran 1999-2006
+@set copyrights-gfortran 1999-2007
 
 @include gcc-common.texi
 
@@ -367,8 +367,8 @@ the relevant compiler front-end program (e.g., @command{f951} for
 Fortran) for each file in the source code, and then calls the assembler
 and linker as appropriate to produce the compiled output. In a copy of
 GCC which has been compiled with Fortran language support enabled,
-@command{gcc} will recognize files with @file{.f}, @file{.f90}, and
-@file{.f95} extensions as Fortran source code, and compile it
+@command{gcc} will recognize files with @file{.f}, @file{.f90}, @file{.f95},
+and @file{.f03} extensions as Fortran source code, and compile it
 accordingly.  A @command{gfortran} driver program is also provided,
 which is identical to @command{gcc} except that it automatically links
 the Fortran runtime libraries into the compiled program.
@@ -867,7 +867,7 @@ variable immediately preceding the initialization.  In other words,
 something like @code{INTEGER I,J/2,3/} is not valid.  This style of
 initialization is only allowed in declarations without double colons
 (@code{::}); the double colons were introduced in Fortran 90, which also
-introduced a standard syntax for initializating variables in type
+introduced a standard syntax for initializing variables in type
 declarations.
 
 Examples of standard-conforming code equivalent to the above example
@@ -1076,7 +1076,7 @@ zero, and @code{.TRUE.} is interpreted as one.  When converting from
 
 GNU Fortran supports Hollerith constants in assignments, function
 arguments, and @code{DATA} and @code{ASSIGN} statements.  A Hollerith
-constant is written as a string of characters preceeded by an integer
+constant is written as a string of characters preceded by an integer
 constant indicating the character count, and the letter @code{H} or
 @code{h}, and stored in bytewise fashion in a numeric (@code{INTEGER},
 @code{REAL}, or @code{complex}) or @code{LOGICAL} variable.  The

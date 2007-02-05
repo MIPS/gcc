@@ -1,3 +1,8 @@
+2007-02-05  Victor Kaplansky <victork@il.ibm.com>
+	
+	Merged revisions 120432-121374 via svnmerge from 
+	svn+ssh://gcc.gnu.org/svn/gcc/trunk
+
 2007-01-16  Ira Rosen  <irar@il.ibm.com>
 
         * tree-vectorizer.h (struct _stmt_vec_info): Add comment. 

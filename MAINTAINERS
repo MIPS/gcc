@@ -53,6 +53,8 @@ h8 port			Kazu Hirata		kazu@codesourcery.com
 hppa port		Jeff Law		law@redhat.com
 hppa port		Dave Anglin		dave.anglin@nrc.ca
 i386 port		Richard Henderson	rth@redhat.com
+i386 port		Jan Hubicka		jh@suse.cz
+i386 port		Uros Bizjak		ubizjak@gmail.com
 ia64 port		Jim Wilson		wilson@specifixinc.com
 iq2000 port		Nick Clifton		nickc@redhat.com
 m32c port		DJ Delorie		dj@redhat.com
@@ -83,6 +85,7 @@ sparc port		Jakub Jelinek		jakub@redhat.com
 sparc port		Eric Botcazou		ebotcazou@libertysurf.fr
 spu port		Trevor Smigiel		trevor_smigiel@playstation.sony.com
 spu port		Andrew Pinski		andrew_pinski@playstation.sony.com
+spu port		David Edelsohn		dje@watson.ibm.com
 v850 port		Nick Clifton		nickc@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
 vax port		Matt Thomas		matt@3am-software.com
@@ -151,6 +154,7 @@ libgcc-math		Richard Guenther	rguenther@suse.de
 libgcj			Tom Tromey		tromey@redhat.com
 libgcj			Bryce McKinlay		mckinlay@redhat.com
 libgomp                 Richard Henderson       rth@redhat.com
+libgomp			Jakub Jelinek		jakub@redhat.com
 libiberty		DJ Delorie		dj@redhat.com
 libiberty		Ian Lance Taylor	ian@airs.com
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
@@ -238,11 +242,11 @@ David Ayers                                     d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
+Andrey Belevantsev                              abel@ispras.ru
 Peter Bergner					bergner@vnet.ibm.com
 Jan Beulich					jbeulich@novell.com
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@gmail.com
-Uros Bizjak					ubizjak@gmail.com
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@codesourcery.com
 Phil Blundell					pb@futuretv.com
@@ -371,6 +375,7 @@ Mark Shinwell					shinwell@codesourcery.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
+Basile Starynkevitch				basile@starynkevitch.net
 Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
@@ -393,6 +398,7 @@ Jie Zhang					jie.zhang@analog.com
 Jon Ziegler					jonz@apple.com
 Josef Zlomek					josef.zlomek@email.cz
 Chao-ying Fu					fu@mips.com
+Harsha Jagasia					harsha.jagasia@amd.com
 
 Waiting for paperwork:
 

@@ -21,8 +21,10 @@
 #
 
 libgcc_topdir = @libgcc_topdir@
+host_subdir = @host_subdir@
+
 gcc_srcdir = $(libgcc_topdir)/gcc
-gcc_objdir = $(MULTIBUILDTOP)../../gcc
+gcc_objdir = $(MULTIBUILDTOP)../../$(host_subdir)/gcc
 
 srcdir = @srcdir@
 
@@ -63,9 +65,7 @@ AR_FLAGS = rc
 CC = @CC@
 CFLAGS = @CFLAGS@
 RANLIB = @RANLIB@
-MAKEINFO = @MAKEINFO@
 LN_S = @LN_S@
-PERL = @PERL@
 
 PWD_COMMAND = $${PWDCMD-pwd}
 
@@ -181,6 +181,8 @@ export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
 
+version := $(shell $(CC) -dumpversion)
+
 DECNUMINC = -I$(srcdir)/../libdecnumber -I$(MULTIBUILDTOP)../../libdecnumber
 
 # Specify the directories to be searched for header files.
@@ -192,6 +194,10 @@ DECNUMINC = -I$(srcdir)/../libdecnumber -I$(MULTIBUILDTOP)../../libdecnumber
 INCLUDES = -I. -I$(@D) -I$(gcc_objdir) \
 	   -I$(srcdir) -I$(srcdir)/$(@D) -I$(srcdir)/../gcc \
 	   -I$(srcdir)/../include $(DECNUMINC)
+
+# Forcibly remove any profiling-related flags.  There is no point
+# in supporting profiled bootstrap in this library.
+override CFLAGS := $(filter-out -fprofile-generate -fprofile-use,$(CFLAGS))
 
 # CFLAGS first is not perfect; normally setting CFLAGS should override any
 # options in LIBGCC2_CFLAGS.  But LIBGCC2_CFLAGS may contain -g0, and CFLAGS
@@ -458,7 +464,7 @@ endif
 
 dec-filenames =
 ifneq ($(D32PBIT)$(D64PBIT)$(D128PBIT),)
-dec-filenames += decContext decNumber decRound decLibrary decUtility
+dec-filenames += decContext decNumber decExcept decRound decLibrary decUtility
 endif
 
 ifneq ($(D32PBIT),)
@@ -727,6 +733,17 @@ gcc-extra-parts:
 
 all: $(extra-parts)
 
+# Documentation targets (empty).
+.PHONY: info html dvi pdf
+
+info:
+
+html:
+
+dvi:
+
+pdf:
+
 # Install rules.  These do not depend on "all", so that they can be invoked
 # recursively from it.
 install-libunwind:
@@ -768,6 +785,8 @@ install: $(install-shared) $(install-libunwind)
 	  rm -f $(DESTDIR)$(inst_libdir)/$$file;		\
 	  $(INSTALL_DATA) $$file $(DESTDIR)$(inst_libdir)/;	\
 	done
+
+	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 .PHONY: install install-shared install-libunwind
 

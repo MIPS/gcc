@@ -192,6 +192,7 @@ alpha*-*-unicosmk*)
 	;;
 alpha*-*-linux*)
 	tmake_file="${tmake_file} alpha/t-crtfm"
+	extra_parts="$extra_parts crtfastmath.o"
 	;;
 alpha*-*-gnu*)
 	;;
@@ -371,6 +372,7 @@ ia64*-*-freebsd*)
 	;;
 ia64*-*-linux*)
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
+	tmake_file="ia64/t-ia64"
 	;;
 ia64*-*-hpux*)
 	;;
@@ -547,6 +549,11 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
   sh-*-linux* | sh[346lbe]*-*-linux* | \
   sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
    sh64-*-netbsd* | sh64l*-*-netbsd*)
+	case ${host} in
+	sh*-*-linux*)
+		tmake_file="${tmake_file} sh/t-linux"
+		;;
+	esac
 	;;
 sh-*-rtemscoff*)
 	;;
