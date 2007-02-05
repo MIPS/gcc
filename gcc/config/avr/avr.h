@@ -725,7 +725,7 @@ extern int avr_case_values_threshold;
 #define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
     %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
     %{!fexceptions:-fno-exceptions}"
-/* A C string constant that tells the GCC drvier program options to
+/* A C string constant that tells the GCC driver program options to
    pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;\
@@ -921,5 +921,7 @@ mmcu=*:-mmcu=%*}"
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DWARF2_DEBUGGING_INFO 1
+
+#define DWARF2_ADDR_SIZE 4
 
 #define OBJECT_FORMAT_ELF

@@ -1608,7 +1608,7 @@ determine_specialization (tree template_id,
 	 This extension can only serve to make invalid programs valid,
 	 so it's safe.  And, there is strong anecdotal evidence that
 	 the committee intended the partial ordering rules to apply;
-	 the EDG front-end has that behavior, and John Spicer claims
+	 the EDG front end has that behavior, and John Spicer claims
 	 that the committee simply forgot to delete the wording in
 	 [temp.expl.spec].  */
       tree tmpl = most_specialized_instantiation (templates);
@@ -8917,12 +8917,13 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_ATOMIC:
-      {
-	tree op0, op1;
-	op0 = RECUR (TREE_OPERAND (t, 0));
-	op1 = RECUR (TREE_OPERAND (t, 1));
-	finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
-      }
+      if (OMP_ATOMIC_DEPENDENT_P (t))
+        {
+	  tree op1 = TREE_OPERAND (t, 1);
+	  tree lhs = RECUR (TREE_OPERAND (op1, 0));
+	  tree rhs = RECUR (TREE_OPERAND (op1, 1));
+	  finish_omp_atomic (TREE_CODE (op1), lhs, rhs);
+        }
       break;
 
     default:

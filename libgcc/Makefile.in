@@ -601,6 +601,7 @@ all: libgcc.a libgcov.a
 
 ifneq ($(LIBUNWIND),)
 all: libunwind.a
+libgcc_s$(SHLIB_EXT): libunwind$(SHLIB_EXT)
 endif
 
 ifeq ($(enable_shared),yes)
@@ -632,7 +633,7 @@ libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts)
 	# @multilib_dir@ is not really necessary, but sometimes it has
 	# more uses than just a directory name.
 	$(mkinstalldirs) $(MULTIDIR)
-	$(subst @multilib_flags@,$(CFLAGS),$(subst \
+	$(subst @multilib_flags@,$(CFLAGS) -B./,$(subst \
 		@multilib_dir@,$(MULTIDIR),$(subst \
 		@shlib_objs@,$(objects),$(subst \
 		@shlib_base_name@,libgcc_s,$(subst \
@@ -645,7 +646,7 @@ libunwind$(SHLIB_EXT): $(libunwind-s-objects) $(extra-parts)
 	# @multilib_dir@ is not really necessary, but sometimes it has
 	# more uses than just a directory name.
 	$(mkinstalldirs) $(MULTIDIR)
-	$(subst @multilib_flags@,$(CFLAGS),$(subst \
+	$(subst @multilib_flags@,$(CFLAGS) -B./,$(subst \
 		@multilib_dir@,$(MULTIDIR),$(subst \
 		@shlib_objs@,$(objects),$(subst \
 		@shlib_base_name@,libunwind,$(subst \

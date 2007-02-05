@@ -2438,8 +2438,9 @@ that expression may examine the mode of the memory reference in
 @var{mode}.  You should define this macro if the mode of the memory
 reference affects whether a register may be used as a base register.  If
 you define this macro, the compiler will use it instead of
-@code{REGNO_OK_FOR_BASE_P}.  The mode may be @code{VOIDmode} for addresses
-that appear outside a @code{MEM}, i.e. as an @code{address_operand}.
+@code{REGNO_OK_FOR_BASE_P}.  The mode may be @code{VOIDmode} for
+addresses that appear outside a @code{MEM}, i.e., as an
+@code{address_operand}.
 
 @end defmac
 
@@ -2456,14 +2457,15 @@ Use of this macro is deprecated; please use the more general
 @end defmac
 
 @defmac REGNO_MODE_CODE_OK_FOR_BASE_P (@var{num}, @var{mode}, @var{outer_code}, @var{index_code})
-A C expression that is just like @code{REGNO_MODE_OK_FOR_BASE_P}, except that
-that expression may examine the context in which the register appears in the
-memory reference.  @var{outer_code} is the code of the immediately enclosing
-expression (@code{MEM} if at the top level of the address, @code{ADDRESS} for
-something that occurs in an @code{address_operand}).  @var{index_code} is the
-code of the corresponding index expression if @var{outer_code} is @code{PLUS};
+A C expression that is just like @code{REGNO_MODE_OK_FOR_BASE_P}, except
+that that expression may examine the context in which the register
+appears in the memory reference.  @var{outer_code} is the code of the
+immediately enclosing expression (@code{MEM} if at the top level of the
+address, @code{ADDRESS} for something that occurs in an
+@code{address_operand}).  @var{index_code} is the code of the
+corresponding index expression if @var{outer_code} is @code{PLUS};
 @code{SCRATCH} otherwise.  The mode may be @code{VOIDmode} for addresses
-that appear outside a @code{MEM}, i.e. as an @code{address_operand}.
+that appear outside a @code{MEM}, i.e., as an @code{address_operand}.
 @end defmac
 
 @defmac REGNO_OK_FOR_INDEX_P (@var{num})
@@ -3142,10 +3144,14 @@ If this RTL is a @code{REG}, you should also define
 
 @defmac DWARF_ALT_FRAME_RETURN_COLUMN
 A C expression whose value is an integer giving a DWARF 2 column
-number that may be used as an alternate return column.  This should
-be defined only if @code{DWARF_FRAME_RETURN_COLUMN} is set to a
-general register, but an alternate column needs to be used for
-signal frames.
+number that may be used as an alternative return column.  The column
+must not correspond to any gcc hard register (that is, it must not
+be in the range of @code{DWARF_FRAME_REGNUM}).
+
+This macro can be useful if @code{DWARF_FRAME_RETURN_COLUMN} is set to a
+general register, but an alternative column needs to be used for signal
+frames.  Some targets have also used different frame return columns
+over time.
 @end defmac
 
 @defmac DWARF_ZERO_REG
@@ -5319,7 +5325,7 @@ the address has become legitimate.
 
 @findex copy_rtx
 If you want to change only a part of @var{x}, one standard way of doing
-this is to use @code{copy_rtx}.  Note, however, that is unshares only a
+this is to use @code{copy_rtx}.  Note, however, that it unshares only a
 single level of rtl.  Thus, if the part to be changed is not at the
 top level, you'll need to replace first the top level.
 It is not necessary for this macro to come up with a legitimate
@@ -5385,7 +5391,7 @@ address @var{addr} as an argument returns a mask @var{m} that can be
 used to extract from two vectors the relevant data that resides in
 @var{addr} in case @var{addr} is not properly aligned.
 
-The autovectrizer, when vectorizing a load operation from an address
+The autovectorizer, when vectorizing a load operation from an address
 @var{addr} that may be unaligned, will generate two vector loads from
 the two aligned addresses around @var{addr}. It then generates a
 @code{REALIGN_LOAD} operation to extract the relevant data from the
@@ -5430,11 +5436,12 @@ preserved (e.g. used only by a reduction computation). Otherwise, the
 @code{widen_mult_hi/lo} idioms will be used.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION (enum built_in_function @var{code}, tree @var{vec_type})
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION (enum built_in_function @var{code}, tree @var{vec_type_out}, tree @var{vec_type_in})
 This hook should return the decl of a function that implements the vectorized
 variant of the builtin function with builtin function code @var{code} or
 @code{NULL_TREE} if such a function is not available.  The return type of
-the vectorized function shall be of vector type @var{vec_type}.
+the vectorized function shall be of vector type @var{vec_type_out} and the
+argument types should be @var{vec_type_in}.
 @end deftypefn
 
 @node Anchored Addresses
@@ -6162,14 +6169,13 @@ correspondingly processor cycle on which the previous insn has been
 issued and the current processor cycle.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_SCHED_IS_COSTLY_DEPENDENCE (rtx @var{insn1}, rtx @var{insn2}, rtx @var{dep_link}, int @var{dep_cost}, int @var{distance})
+@deftypefn {Target Hook} bool TARGET_SCHED_IS_COSTLY_DEPENDENCE (struct dep_def *@var{_dep}, int @var{cost}, int @var{distance})
 This hook is used to define which dependences are considered costly by
 the target, so costly that it is not advisable to schedule the insns that
 are involved in the dependence too close to one another.  The parameters
-to this hook are as follows:  The second parameter @var{insn2} is dependent
-upon the first parameter @var{insn1}.  The dependence between @var{insn1}
-and @var{insn2} is represented by the third parameter @var{dep_link}.  The
-fourth parameter @var{cost} is the cost of the dependence, and the fifth
+to this hook are as follows:  The first parameter @var{_dep} is the dependence
+being evaluated.  The second parameter @var{cost} is the cost of the
+dependence, and the third
 parameter @var{distance} is the distance in cycles between the two insns.
 The hook returns @code{true} if considering the distance between the two
 insns the dependence between them is considered costly by the target,
@@ -6182,14 +6188,6 @@ that will be formed, and (c) correctly emulating the grouping can be very
 important.  In such targets one may want to allow issuing dependent insns
 closer to one another---i.e., closer than the dependence distance;  however,
 not in cases of "costly dependences", which this hooks allows to define.
-@end deftypefn
-
-@deftypefn {Target Hook} int TARGET_SCHED_ADJUST_COST_2 (rtx @var{insn}, int @var{dep_type}, rtx @var{dep_insn}, int @var{cost})
-This hook is a modified version of @samp{TARGET_SCHED_ADJUST_COST}.  Instead
-of passing dependence as a second parameter, it passes a type of that
-dependence.  This is useful to calculate cost of dependence between insns
-not having the corresponding link.  If @samp{TARGET_SCHED_ADJUST_COST_2} is
-defined it is used instead of @samp{TARGET_SCHED_ADJUST_COST}.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_H_I_D_EXTENDED (void)
@@ -8838,7 +8836,7 @@ Returns the absolute value of @var{x}.
 @deftypefn Macro REAL_VALUE_TYPE REAL_VALUE_TRUNCATE (REAL_VALUE_TYPE @var{mode}, enum machine_mode @var{x})
 Truncates the floating point value @var{x} to fit in @var{mode}.  The
 return value is still a full-size @code{REAL_VALUE_TYPE}, but it has an
-appropriate bit pattern to be output asa floating constant whose
+appropriate bit pattern to be output as a floating constant whose
 precision accords with mode @var{mode}.
 @end deftypefn
 

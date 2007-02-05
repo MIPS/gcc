@@ -747,7 +747,7 @@ required native methods.
 gcjh [@option{-stubs}] [@option{-jni}]
     [@option{-force}] [@option{-old}] [@option{-trace}] [@option{-J} @var{option}]
     [@option{-add} @var{text}] [@option{-append} @var{text}] [@option{-friend} @var{text}]
-    [@option{-preprend} @var{text}]
+    [@option{-prepend} @var{text}]
     [@option{--classpath}=@var{path}] [@option{--CLASSPATH}=@var{path}]
     [@option{--bootclasspath}=@var{path}]
     [@option{-I}@var{dir}@dots{}] [@option{-d} @var{dir}@dots{}]
@@ -861,7 +861,7 @@ files.  Running it is equivalent to running @code{gcjh -jni}.
 gjnih [@option{-stubs}] [@option{-jni}]
     [@option{-force}] [@option{-old}] [@option{-trace}] [@option{-J} @var{option}]
     [@option{-add} @var{text}] [@option{-append} @var{text}] [@option{-friend} @var{text}]
-    [@option{-preprend} @var{text}]
+    [@option{-prepend} @var{text}]
     [@option{--classpath}=@var{path}] [@option{--CLASSPATH}=@var{path}]
     [@option{--bootclasspath}=@var{path}]
     [@option{-I}@var{dir}@dots{}] [@option{-d} @var{dir}@dots{}]
@@ -1962,7 +1962,7 @@ JvNewBooleanArray
 @noindent The following function definition is the template for all such functions:
 
 @deftypefun jbooleanArray JvNewBooleanArray (jint @var{length})
-Create's an array @var{length} indices long.
+Creates an array @var{length} indices long.
 @end deftypefun
 
 @deftypefun jsize JvGetArrayLength (jarray @var{array})
@@ -2083,9 +2083,9 @@ working with Java Java @code{String} objects.
 The names and interfaces are analogous to those of @acronym{JNI}.
 
 
-@deftypefun jstring JvNewString (const char* @var{chars}, jsize @var{len})
-Returns a Java @code{String} object with characters from the C string
-@var{chars} up to the index @var{len} in that array.
+@deftypefun jstring JvNewString (const jchar* @var{chars}, jsize @var{len})
+Returns a Java @code{String} object with characters from the array of 
+Unicode characters @var{chars} up to the index @var{len} in that array.
 @end deftypefun
 
 @deftypefun jstring JvNewStringLatin1 (const char* @var{bytes}, jsize @var{len})

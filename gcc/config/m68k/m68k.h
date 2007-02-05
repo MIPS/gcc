@@ -288,7 +288,7 @@ Boston, MA 02110-1301, USA.  */
 #define PREFERRED_STACK_BOUNDARY (TARGET_COLDFIRE ? 32 : 16)
 
 /* No data type wants to be aligned rounder than this.
-   Most published ABIs say that ints should be aligned on 16 bit
+   Most published ABIs say that ints should be aligned on 16-bit
    boundaries, but CPUs with 32-bit busses get better performance
    aligned on 32-bit boundaries.  ColdFires without a misalignment
    module require 32-bit alignment.  */
@@ -918,7 +918,7 @@ __transfer_from_trampoline ()					\
 	    || (INTVAL (XEXP (X, 1)) == 8		\
 		&& (TARGET_COLDFIRE_FPU || !TARGET_COLDFIRE)))))
 
-/* Coldfire FPU only accepts addressing modes 2-5 */
+/* ColdFire FPU only accepts addressing modes 2-5.  */
 #define GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
 { if (LEGITIMATE_BASE_REG_P (X)						\
       || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
@@ -1092,7 +1092,15 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* We must not use the DBX register numbers for the DWARF 2 CFA column
    numbers because that maps to numbers beyond FIRST_PSEUDO_REGISTER.
    Instead use the identity mapping.  */
-#define DWARF_FRAME_REGNUM(REG) REG
+#define DWARF_FRAME_REGNUM(REG) \
+  (INT_REGNO_P (REG) || FP_REGNO_P (REG) ? (REG) : INVALID_REGNUM)
+
+/* The return column was originally 24, but gcc used 25 for a while too.
+   Define both registers 24 and 25 as Pmode ones and use 24 in our own
+   unwind information.  */
+#define DWARF_FRAME_REGISTERS 25
+#define DWARF_FRAME_RETURN_COLUMN 24
+#define DWARF_ALT_FRAME_RETURN_COLUMN 25
 
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4

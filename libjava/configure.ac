@@ -117,6 +117,18 @@ AC_PROG_AWK
 AC_CHECK_PROGS([JAR], [jar fastjar gjar], no)
 AC_PATH_PROG([ZIP], [zip], no)
 AC_PATH_PROG([UNZIP], [unzip], unzip)
+
+# We need a jar that supports -@.  This is a GNU extension.
+if test "$JAR" != no; then
+   rm -f config-test.jar
+   echo $srcdir/configure.ac | $JAR -cf@ config-test.jar
+   if test -f config-test.jar; then
+     rm -f config-test.jar
+   else
+     JAR=no
+   fi
+fi
+
 # Prefer the jar we found, but fall back to our jar script.
 if test "$JAR" = no; then
   if test "$ZIP" = no; then
@@ -1383,6 +1395,11 @@ AC_CHECK_HEADERS(inttypes.h, [
 AC_HEADER_SYS_WAIT
 
 AC_CHECK_TYPE([ssize_t], [int])
+AC_CHECK_TYPE([magic_t], [
+    AC_DEFINE(HAVE_MAGIC_T, 1, [Define if magic.h declares magic_t])], [], [
+#ifdef HAVE_MAGIC_H
+#include <magic.h>
+#endif])
 
 AC_MSG_CHECKING([for in_addr_t])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
@@ -1535,6 +1552,19 @@ GCC_CHECK_TLS
 
 # For _Unwind_GetIPInfo.
 GCC_CHECK_UNWIND_GETIPINFO
+
+# See if linker supports anonymous version scripts.
+AC_CACHE_CHECK([whether ld supports anonymous version scripts],
+  [libjava_cv_anon_version_script],
+  [save_CFLAGS="$CFLAGS"; save_LDFLAGS="$LDFLAGS"
+   libjava_cv_anon_version_script=no
+   CFLAGS="$CFLAGS -fPIC"; LDFLAGS="$LDFLAGS -shared -Wl,--version-script,conftest.map"
+   echo '{ global: globalsymb*; local: *; };' > conftest.map
+   AC_TRY_LINK(void globalsymbol (void) {} void localsymbol (void) {},,
+	       [libjava_cv_anon_version_script=yes], [])
+   CFLAGS="$save_CFLAGS"; LDFLAGS="$save_LDFLAGS"
+  ])
+AM_CONDITIONAL(ANONVERSCRIPT, test "$libjava_cv_anon_version_script" = yes)
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=

@@ -1,6 +1,6 @@
 /* Array translation routines
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1516,7 +1516,7 @@ gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
       nelem++;
     }
 
-  /* Next detemine the tree type for the array.  We use the gfortran
+  /* Next determine the tree type for the array.  We use the gfortran
      front-end's gfc_get_nodesc_array_type in order to create a suitable
      GFC_ARRAY_TYPE_P that may be used by the scalarizer.  */
 
@@ -4306,7 +4306,6 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
   gcc_assert (ss != gfc_ss_terminator);
 
-  /* TODO: Pass constant array constructors without a temporary.  */
   /* Special case things we know we can pass easily.  */
   switch (expr->expr_type)
     {
@@ -4399,6 +4398,24 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  /* Transformational function.  */
 	  info = &secss->data.info;
 	  need_tmp = 0;
+	}
+      break;
+
+    case EXPR_ARRAY:
+      /* Constant array constructors don't need a temporary.  */
+      if (ss->type == GFC_SS_CONSTRUCTOR
+	  && expr->ts.type != BT_CHARACTER
+	  && gfc_constant_array_constructor_p (expr->value.constructor))
+	{
+	  need_tmp = 0;
+	  info = &ss->data.info;
+	  secss = ss;
+	}
+      else
+	{
+	  need_tmp = 1;
+	  secss = NULL;
+	  info = NULL;
 	}
       break;
 
@@ -4553,7 +4570,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	 limits will be the limits of the section.
 	 A function may decide to repack the array to speed up access, but
 	 we're not bothered about that here.  */
-      int dim;
+      int dim, ndim;
       tree parm;
       tree parmtype;
       tree stride;
@@ -4603,12 +4620,14 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       else
 	base = NULL_TREE;
 
-      for (n = 0; n < info->ref->u.ar.dimen; n++)
+      ndim = info->ref ? info->ref->u.ar.dimen : info->dimen;
+      for (n = 0; n < ndim; n++)
 	{
 	  stride = gfc_conv_array_stride (desc, n);
 
 	  /* Work out the offset.  */
-	  if (info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
+	  if (info->ref
+	      && info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
 	    {
 	      gcc_assert (info->subscript[n]
 		      && info->subscript[n]->type == GFC_SS_SCALAR);
@@ -4630,14 +4649,16 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  tmp = fold_build2 (MULT_EXPR, TREE_TYPE (tmp), tmp, stride);
 	  offset = fold_build2 (PLUS_EXPR, TREE_TYPE (tmp), offset, tmp);
 
-	  if (info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
+	  if (info->ref
+	      && info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
 	    {
 	      /* For elemental dimensions, we only need the offset.  */
 	      continue;
 	    }
 
 	  /* Vector subscripts need copying and are handled elsewhere.  */
-	  gcc_assert (info->ref->u.ar.dimen_type[n] == DIMEN_RANGE);
+	  if (info->ref)
+	    gcc_assert (info->ref->u.ar.dimen_type[n] == DIMEN_RANGE);
 
 	  /* Set the new lower bound.  */
 	  from = loop.from[dim];
@@ -4646,7 +4667,9 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  /* If we have an array section or are assigning to a pointer,
 	     make sure that the lower bound is 1.  References to the full
 	     array should otherwise keep the original bounds.  */
-	  if ((info->ref->u.ar.type != AR_FULL || se->direct_byref)
+	  if ((!info->ref
+	       || info->ref->u.ar.type != AR_FULL
+	       || se->direct_byref)
 	      && !integer_onep (from))
 	    {
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
@@ -5265,7 +5288,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
     forall (i=..., j=...)
       x(i,j) = foo%a(j)%b(i)
     end forall
-   This adds a fair amout of complexity because you need to deal with more
+   This adds a fair amount of complexity because you need to deal with more
    than one ref.  Maybe handle in a similar manner to vector subscripts.
    Maybe not worth the effort.  */
 

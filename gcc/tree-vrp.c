@@ -3481,7 +3481,7 @@ insert_range_assertions (void)
 
 /* Checks one ARRAY_REF in REF, located at LOCUS. Ignores flexible arrays
    and "struct" hacks. If VRP can determine that the
-   array subscript is a contant, check if it is outside valid
+   array subscript is a constant, check if it is outside valid
    range. If the array subscript is a RANGE, warn if it is
    non-overlapping with valid range.
    IGNORE_OFF_BY_ONE is true if the ARRAY_REF is inside a ADDR_EXPR.  */
@@ -4960,7 +4960,7 @@ vrp_finalize (void)
   substitute_and_fold (single_val_range, true);
 
   if (warn_array_bounds)
-      check_all_array_refs();
+      check_all_array_refs ();
 
   /* We must identify jump threading opportunities before we release
      the datastructures built by VRP.  */

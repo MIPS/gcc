@@ -1315,7 +1315,7 @@ generic:
 
   /* Last ditch attempt.  See if the reference is to an intrinsic
      that possesses a matching interface.  14.1.2.4  */
-  if (!gfc_intrinsic_name (sym->name, 0))
+  if (sym && !gfc_intrinsic_name (sym->name, 0))
     {
       gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
@@ -1486,6 +1486,8 @@ static int
 pure_function (gfc_expr *e, const char **name)
 {
   int pure;
+
+  *name = NULL;
 
   if (e->symtree != NULL
         && e->symtree->n.sym != NULL
@@ -1663,6 +1665,7 @@ resolve_function (gfc_expr *expr)
 #undef GENERIC_ID
 
   need_full_assumed_size = temp;
+  name = NULL;
 
   if (!pure_function (expr, &name) && name)
     {
@@ -5534,7 +5537,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
   int flag;
   int i;
   gfc_expr *e;
-  gfc_expr *constructor_expr;
+  gfc_component *c;
   const char *auto_save_msg;
 
   auto_save_msg = "automatic object '%s' at %L cannot have the "
@@ -5668,18 +5671,21 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	}
     }
 
+  /* Do not use gfc_default_initializer to test for a default initializer
+     in the fortran because it generates a hidden default for allocatable
+     components.  */
+  c = NULL;
+  if (sym->ts.type == BT_DERIVED && !(sym->value || flag))
+    for (c = sym->ts.derived->components; c; c = c->next)
+      if (c->initializer)
+      break;
+
   /* 4th constraint in section 11.3:  "If an object of a type for which
      component-initialization is specified (R429) appears in the
      specification-part of a module and does not have the ALLOCATABLE
      or POINTER attribute, the object shall have the SAVE attribute."  */
-
-  constructor_expr = NULL;
-  if (sym->ts.type == BT_DERIVED && !(sym->value || flag))
-    constructor_expr = gfc_default_initializer (&sym->ts);
-
-  if (sym->ns->proc_name
+  if (c && sym->ns->proc_name
       && sym->ns->proc_name->attr.flavor == FL_MODULE
-      && constructor_expr
       && !sym->ns->save_all && !sym->attr.save
       && !sym->attr.pointer && !sym->attr.allocatable)
     {

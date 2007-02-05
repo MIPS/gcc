@@ -91,7 +91,7 @@ static location_t file_start_location;
 /* The Java archive that provides main_class;  the main input file. */
 static GTY(()) struct JCF * main_jcf;
 
-/* The number of source files passd to us by -fsource-filename and an
+/* The number of source files passed to us by -fsource-filename and an
    array of pointers to each name.  Used by find_sourcefile().  */
 static int num_files = 0;
 static char **filenames;
@@ -259,7 +259,7 @@ java_read_sourcefilenames (const char *fsource_filename)
 /* Given a relative pathname such as foo/bar.java, attempt to find a
    longer pathname with the same suffix.  
 
-   This is a best guess heuristic; with some weird class hierarcies we
+   This is a best guess heuristic; with some weird class hierarchies we
    may fail to pick the correct source file.  For example, if we have
    the filenames foo/bar.java and also foo/foo/bar.java, we do not
    have enough information to know which one is the right match for
@@ -381,15 +381,15 @@ set_source_filename (JCF *jcf, int index)
 /* Annotation handling.  
 
    The technique we use here is to copy the annotation data directly
-   from the input class file into the ouput file.  We don't decode the
+   from the input class file into the output file.  We don't decode the
    data at all, merely rewriting constant indexes whenever we come
-   across them: this is necessary becasue the constant pool in the
+   across them: this is necessary because the constant pool in the
    output file isn't the same as the constant pool in in the input.
 
    The main advantage of this technique is that the resulting
    annotation data is pointer-free, so it doesn't have to be relocated
    at startup time.  As a consequence of this, annotations have no
-   peformance impact unless they are used.  Also, this representation
+   performance impact unless they are used.  Also, this representation
    is very dense.  */
 
 
@@ -723,7 +723,7 @@ handle_annotation (JCF *jcf, int level)
 }
 
 /* Read an annotation count from JCF, and write the following
-   annotatons to the reflection_data field of the outgoing class.  */
+   annotations to the reflection_data field of the outgoing class.  */
 
 static void
 handle_annotations (JCF *jcf, int level)
@@ -1448,6 +1448,8 @@ static void
 jcf_parse (JCF* jcf)
 {
   int i, code;
+
+  bitmap_clear (field_offsets);
 
   if (jcf_parse_preamble (jcf) != 0)
     fatal_error ("not a valid Java .class file");

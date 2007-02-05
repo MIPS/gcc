@@ -449,7 +449,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
             {
               /* Warn about the C++0x keyword (but still treat it as
                  an identifier).  */
-              warning (0, "identifier %<%s%> will become a keyword in C++0x",
+              warning (OPT_Wc__0x_compat, 
+                       "identifier %<%s%> will become a keyword in C++0x",
                        IDENTIFIER_POINTER (token->u.value));
 
               /* Clear out the C_RID_CODE so we don't warn about this
@@ -13397,6 +13398,10 @@ cp_parser_class_specifier (cp_parser* parser)
      class-key attributes nested-name-specifier [opt] template-id
        base-clause [opt]
 
+   Upon return BASES is initialized to the list of base classes (or
+   NULL, if there are none) in the same form returned by
+   cp_parser_base_clause.
+
    Returns the TYPE of the indicated class.  Sets
    *NESTED_NAME_SPECIFIER_P to TRUE iff one of the productions
    involving a nested-name-specifier was used, and FALSE otherwise.
@@ -13430,6 +13435,8 @@ cp_parser_class_head (cp_parser* parser,
   /* Assume no template parameter lists will be used in defining the
      type.  */
   num_templates = 0;
+
+  *bases = NULL_TREE;
 
   /* Look for the class-key.  */
   class_key = cp_parser_class_key (parser);
@@ -13721,7 +13728,6 @@ cp_parser_class_head (cp_parser* parser,
        struct A::C : B {};
 
      is valid.  */
-  *bases = NULL_TREE;
 
   /* Get the list of base-classes, if there is one.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
@@ -14608,7 +14614,7 @@ cp_parser_function_try_block (cp_parser* parser)
   /* Look for the `try' keyword.  */
   if (!cp_parser_require_keyword (parser, RID_TRY, "`try'"))
     return false;
-  /* Let the rest of the front-end know where we are.  */
+  /* Let the rest of the front end know where we are.  */
   try_block = begin_function_try_block (&compound_stmt);
   /* Parse the function-body.  */
   ctor_initializer_p
@@ -17417,7 +17423,7 @@ cp_parser_objc_identifier_list (cp_parser* parser)
    objc-alias-declaration:
      @compatibility_alias identifier identifier ;
 
-   This function registers the alias mapping with the Objective-C front-end.
+   This function registers the alias mapping with the Objective-C front end.
    It returns nothing.  */
 
 static void
@@ -17438,7 +17444,7 @@ cp_parser_objc_alias_declaration (cp_parser* parser)
      @class objc-identifier-list ;
 
    The function registers the forward declarations with the Objective-C
-   front-end.  It returns nothing.  */
+   front end.  It returns nothing.  */
 
 static void
 cp_parser_objc_class_declaration (cp_parser* parser)

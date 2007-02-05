@@ -1,3 +1,103 @@
+2007-02-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30611
+	* trans-intrinsic.c (gfc_conv_intrinsic_repeat): Evaluate
+	arguments only once. Generate check that NCOPIES argument is not
+	negative.
+
+2007-02-04  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	* fortran/invoke.texi: Update documentation.
+	* fortran/options.c (gfc_post_options): Deal with tabs with -std=f2003
+	and -pedantic.
+
+
+2007-02-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* trans-array.c: Fix a comment typo.
+
+2007-02-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30514
+	* array.c (match_array_element_spec): If the length of an array is
+	negative, adjust the upper limit to make it zero length.
+
+	PR fortran/30660
+	* resolve.c (pure_function, resolve_function): Initialize name to
+	null to clear up build warnings.
+	(resolve_fl_variable): Look at components explicitly to check for
+	default initializer, rather than using gfc_default_initializer.
+
+2007-02-02  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30683
+	* resolve.c (resolve_generic_f): Check for non-NULL sym.
+
+2007-02-02  Roger Sayle  <roger@eyesopen.com>
+
+	* trans.c (gfc_build_array_ref): Use STRIP_TYPE_NOPS to eliminate
+	NON_LVALUE_EXPR nodes and useless type conversions.
+
+2007-02-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30284
+	PR fortran/30626
+	* trans-expr.c (gfc_conv_aliased_arg): Remove static attribute
+	from function and make sure that substring lengths are
+	translated.
+	(is_aliased_array): Remove static attribute.
+	* trans.c : Add prototypes for gfc_conv_aliased_arg and
+	is_aliased_array.
+	* trans-io.c (set_internal_unit): Add the post block to the
+	arguments of the function.  Use is_aliased_array to check if
+	temporary is needed; if so call gfc_conv_aliased_arg.
+	(build_dt): Pass the post block to set_internal_unit and
+	add to the block after all io activiy is done.
+
+2007-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-array.c (gfc_conv_expr_descriptor): We don't need to use
+	a temporary array to pass a constant non-character array constructor.
+	Generalize the descriptor generation code to handle scalarizer
+	"info" without an array reference.
+
+2007-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_check_dependency) <EXPR_ARRAY>: Implement
+	dependency checking for array constructors.
+
+2007-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (compute_overall_iter_number): Document function
+	arguments.  Generalize "unconditional forall nest with constant
+	bounds" optimization to eliminate unconditional inner loops with
+	constant bounds.
+
+2007-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30520
+	* interface.c (compare_actual_formal): Check conformance between
+	  actual and VOLATILE dummy arguments.
+	* symbol.c (gfc_add_volatile): Allow setting of VOLATILE
+	  multiple times in different scopes.
+	* decl.c (gfc_match_volatile): Search symbol in host association.
+
+2007-01-31  Kazu Hirata  <kazu@codesourcery.com>
+
+	* simplify.c, trans-array.c: Fix comment typos.
+
+2007-01-30  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* invoke.texi (Code Gen Options): Fix abbreviation typo.
+	* intrinsic.texi (ACCESS, LSHIFT, RSHIFT): Fix typos.
+
+2007-01-30  Steve Ellcey  <sje@cup.hp.com>
+
+	PR fortran/30432
+	* trans-types.c (gfc_get_function_type):  Do not add void_type_node
+	to empty arg list.
+	* trans-decl.c (create_function_arglist): Change assert.
+
 2007-01-29  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/30554

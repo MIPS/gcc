@@ -749,7 +749,7 @@ RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h $(VARRAY_H)
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
-CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
+CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H) vecprim.h
 IPA_UTILS_H = ipa-utils.h $(TREE_H) $(CGRAPH_H) 
 IPA_REFERENCE_H = ipa-reference.h bitmap.h $(TREE_H)  
 IPA_TYPE_ESCAPE_H = ipa-type-escape.h $(TREE_H)  
@@ -1024,6 +1024,7 @@ OBJS-common = \
 	loop-iv.o \
 	loop-unroll.o \
 	loop-unswitch.o \
+	lower-subreg.o \
 	mode-switching.o \
 	modulo-sched.o \
 	omp-low.o \
@@ -2775,6 +2776,10 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
+lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(MACHMODE_H) $(TM_H) $(RTL_H) $(TM_P_H) $(TIMEVAR_H) $(FLAGS_H) \
+   insn-config.h $(BASIC_BLOCK_H) $(RECOG_H) $(OBSTACK_H) bitmap.h \
+   $(EXPR_H) $(REGS_H) tree-pass.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \
