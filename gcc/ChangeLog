@@ -1,3 +1,36 @@
+2007-01-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* builtins.c (expand_builtin_int_interclass_roundingfn): New function
+	to handle optabs that operate on floating point input argument and
+	output to integer output.
+	(expand_builtin_mathfn) [BUILT_IN_ILOGB]: Move from here ...
+	(expand_builtin_interclass_mathfn) [BUILT_IN_ILOGB]: ... to here.
+	(expand_builtin): Expand BUILT_IN_ILOGB{,F,L} using
+	expand_builtin_interclass_mathfn ().
+	* config/i386/i386.md (fxtractxf3_i387): Rename from *fxtractxf3_i387.
+	(ilogbsi2): Remove.
+	(ilogbxf2, ilogb<mode>2): New expanders to implement ilogb, ilogbf and
+	ilogbl built-in functions as x87 intrinsics.
+
+2007-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27657
+	* dwarf2out.c (reference_to_unused): Query varpool if the
+	variable was output.
+
+2007-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30313
+	* passes.c (execute_one_pass): Reset in_gimple_form to not
+	confuse non-unit-at-a-time mode.
+
+2007-01-29  Roger Sayle  <roger@eyesopen.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (round_up): Make HIGH an unsigned HOST_WIDE_INT to
+	avoid undefined behaviour on overflow.  Use force_fit_type_double
+	to construct the constant with the specified TREE_OVERFLOW.
+
 2007-02-05  Chao-ying Fu  <fu@mips.com>
 
 	* optabs.c (init_fixed_point_libfuncs, init_signed_fixed_point_libfuncs,
@@ -33,7 +66,7 @@
 	* config/dfp-bit.c: Add parameterized support for fp exceptions.
 	* config/dfp-bit.h: Ditto.
 
-007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+2007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* c-decl.c (pop_scope): Replace warnings with call to
 	warn_for_unused_label.
