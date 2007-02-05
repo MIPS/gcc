@@ -37,6 +37,7 @@ SHELL = @SHELL@
 
 enable_shared = @enable_shared@
 decimal_float = @decimal_float@
+fixed_point = @fixed_point@
 
 host_noncanonical = @host_noncanonical@
 
@@ -506,6 +507,15 @@ $(d128pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
 libgcc-objects += $(d128pbit-o)
 endif
 
+endif
+
+# Build fixed-point support.
+ifeq ($(fixed_point),yes)
+FIXED_MODE = QQ UQQ HQ UHQ SQ USQ DQ UDQ TQ UTQ HA UHA SA USA DA UDA TA UTA
+fixed-objects = $(patsubst %,%$(objext),$(FIXED_MODE))
+$(fixed-objects): %$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -D$*_MODE -c $<
+libgcc-objects += $(fixed-objects)
 endif
 
 # Build LIB2ADD and LIB2ADD_ST.
