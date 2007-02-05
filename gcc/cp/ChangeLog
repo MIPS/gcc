@@ -1,3 +1,244 @@
+2007-02-05  Dirk Mueller  <dmueller@suse.de>
+
+	PR bootstrap/30510
+	* parser.c (cp_parser_class_specifier): Always initialize bases.
+
+2007-02-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* cp-tree.h (OMP_ATOMIC_CODE): Delete.
+	(OMP_ATOMIC_DEPENDENT_P): Rewrite.
+	* pt.c (tsubst_expr): Adjust for new format of dependent OMP_ATOMIC
+	expressions.
+	* semantics.c (finish_omp_atomic): Store a whole expression node
+	in operand 1, and integer_zero_node in operand 0, for dependent
+	OMP_ATOMIC.  Rewrite to make flow easier to understand.
+
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Use OPT_Wreturn_type instead of 0.
+
+2007-02-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, cp-tree.h, decl.c, decl2.c, g++spec.c, init.c,
+	parser.c, pt.c, tree.c, typeck.c: Follow spelling conventions.
+
+2007-02-03  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * parser.c (cp_lexer_get_preprocessor_token): Attach the C++0x
+       keyword warning to -Wc++0x-compat.
+	
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Update documentation.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30536
+	* decl.c (grokdeclarator): If __thread is used together with
+	a storage class other than extern and static, clear thread_p
+	after issuing diagnostics and fall through to checking the
+	storage class.
+
+2007-01-30  Roger Sayle  <roger@eyesopen.com>
+
+	* error.c (dump_type_suffix): Avoid use of cp_build_binary_op when
+	calculating the size of an array (to avoid recursive errors).
+
+2007-01-30  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24745
+	* typeck.c (build_binary_op): Fix logic for warning. Move warning
+	to -Wpointer-arith.
+	* call.c (convert_like_real): Don't warn when converting to
+	boolean type.
+	
+2007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* decl.c (pop_label): Replace warning with call to
+	warn_for_unused_label.
+
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* semantics.c (finish_pseudo_destructor_expr): Check the
+	destrutor name by calling check_dtor_name.
+
+2007-01-24  Douglas Gregor  <dgregor@osl.iu.edu>
+
+	* lex.c (D_CPP0X): Rename.
+	(D_CXX0X): To this.
+	(reswords): D_CPP0X -> D_CXX0X.
+	(init_reswords): Ditto.
+	* parser.c (cp_lexer_get_preprocessor_token): Warn about the use
+	of C++0x keywords as identifiers.
+
+2007-01-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* decl.c (duplicate_decls): Don't reset DECL_INVALID_OVERRIDER_P for
+	function decls.
+
+2007-01-23  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (convert_for_assignment): Only warn about a = b = c
+	when converting to bool.
+
+2007-01-23  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (null_ptr_cst_p): Replace use of TREE_CONSTANT_OVERFLOW with
+	TREE_OVERFLOW.
+	* typeck.c (ignore_overflows): Remove the remaining uses of
+	TREE_CONSTANT_OVERFLOW.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (start_objects, start_static_storage_duration_function):
+	Do not make the functions uninlinable.
+
+2007-01-17  Ian Lance Taylor  <iant@google.com>
+
+	* class.c (add_method): Call VEC_reserve_exact rather than passing
+	a negative size to VEC_reserve.
+
+2007-01-11  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29573
+	* tree.c (cp_tree_equal): Properly handle MODOP_EXPR trees.
+
+2007-01-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28999
+	* decl.c (make_typename_type): If the qualified name is not a
+	type, issue an error.
+	* parser.c (cp_parser_elaborated_type_specifier): Fix comment
+	formatting.
+
+2007-01-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* rtti.c: Include target.h.
+	(emit_support_tinfos): If ! targetm.cxx.library_rtti_comdat (),
+	don't emit typeinfo for fundamental types as weak.
+	* Make-lang.in (cp/rtti.o): Update and correct dependencies.
+
+2007-01-08  Richard Guenther  <rguenther@suse.de>
+
+	* cvt.c (cp_convert_to_pointer): Use build_int_cst_type.
+
+2007-01-08  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* call.c (standard_conversion): Pass flag to
+	vector_types_convertible_p to disallow emission of note.
+	* typeck.c (convert_for_assignment): Pass flag to
+	vector_types_convertible_p to allow emission of note.
+	(ptr_reasonably_similar): Pass flag to vector_types_convertible_p
+	to disallow emission of note.
+
+2007-01-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/28986
+	* typeck.c (build_binary_op): Call overflow_warning if
+	TREE_OVERFLOW_P is true for the result and not for any of the
+	operands.
+	
+2007-01-06  Lee Millward  <lee.millward@codesourcery.com>
+
+       PR c++/19439
+       * class.c (add_method): Don't wait until template
+       instantiation time to complain about duplicate methods.
+	
+2007-01-05  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/19978
+	* semantics.c (finish_unary_op_expr): Warn only if result
+	overflowed and operands did not.
+
+2007-01-05  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (build_binary_op): Warn about comparing a non-weak
+	address to NULL.
+
+2007-01-05  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* pt.c (tsubst): Propagate the need for structural equality checks
+	when reducing the level of template parameters.
+
+2007-01-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* pt.c: Fix a comment typo.
+
+2006-01-02  Ian Lance Taylor  <iant@google.com>
+
+	* semantics.c (maybe_convert_cond): Optionally warn when using an
+	assignment as a condition.
+	* typeck.c (convert_for_assignment): Optionally warn about
+	assigning the result of an assignment to a bool.
+
+2007-01-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* pt.c (canonical_template_parms): Correct typo in comment.
+	
+2007-01-02  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* typeck.c (structural_comptypes): Renamed from "comptypes".
+	(comptypes): Use canonical type information to perform fast type
+	comparison. When VERIFY_CANONICAL_TYPES, verify that the
+	canonical type comparison returns the same results as we would see
+	from the current, structural check. Support COMPARE_STRUCTURAL
+	when we need structural checks.
+	* decl.c (typename_compare): Fix comment.
+	(build_typename_type): TYPENAME_TYPE nodes require structural
+	equality checks, because they resolve different based on the
+	current class type.
+	(make_unbound_class_template): UNBOUND_CLASS_TEMPLATE nodes
+	require structural equality checks (for now).
+	(build_ptrmemfunc_type): Build the canonical pointer to member
+	function type.
+	(compute_array_index_type): Whenever we build a new index type
+	to represent the size of an array in a template, we need to mark
+	this index type as requiring structural equality. This goes for
+	arrays with value-dependent sizes with the current ABI, or all
+	arrays with ABI-1.
+	* tree.c (cplus_array_hash): New.
+	(struct cplus_array_info): New.
+	(cplus_array_compare): New.
+	(cplus_array_htab): New.
+	(build_cplus_array_type_1): Use a hash table to cache the array
+	types we build. Build the canonical array type for each array
+	type.
+	(cp_build_qualified_type_real): When building a cv-qualified array
+	type, use the hash table of array types and build canonical array
+	types as necessary.
+	(bind_template_template_parm): BOUND_TEMPLATE_TEMPLATE_PARM nodes
+	use structural equality (for now).
+	* cp-tree.h (COMPARE_STRUCTURAL): New.
+	* pt.c (canonical_template_parms): New.
+	(canonical_type_parameter): New.
+	(process_template_parm): Find the canonical type parameter.
+	(lookup_template_class): When we have named the primary template
+	type, set the canonical type for our template class to the primary
+	template type. If any of the template arguments need structural
+	equality checks, the template class needs structural equality
+	checks.
+	(tsubst): When reducing the level of a template template
+	parameter, we require structural equality tests for the resulting
+	parameter because its template parameters have not had their types
+	canonicalized. When reducing a template type parameter, find the
+	canonical reduced type parameter.
+	(any_template_arguments_need_structural_equality_p): New.
+
+2006-12-31  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29731
+	* parser.c (cp_parser_primary_expression): Return error_mark_node when
+	a statement-expression is found outside of a function body.
+
+2006-12-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cp-tree.h (TYPE_NAMESPACE_SCOPE_P, TYPE_FUNCTION_SCOPE_P):
+	Remove.
+
+	* decl2.c: Fix a comment typo.
+
 2006-12-21  Andrew Pinski  <pinskia@gmail.com>
 
 	PR C++/30225

@@ -1,5 +1,6 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -445,6 +446,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_if_conversion2 = 1;
       flag_ipa_pure_const = 1;
       flag_ipa_reference = 1;
+      flag_split_wide_types = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
@@ -488,6 +490,7 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;
+      flag_strict_overflow = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
@@ -1081,6 +1084,7 @@ set_fast_math_flags (int set)
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
   flag_finite_math_only = set;
+  flag_signed_zeros = !set;
   flag_errno_math = !set;
   if (set)
     {
@@ -1097,6 +1101,7 @@ fast_math_flags_set_p (void)
   return (!flag_trapping_math
 	  && flag_unsafe_math_optimizations
 	  && flag_finite_math_only
+	  && !flag_signed_zeros
 	  && !flag_errno_math);
 }
 

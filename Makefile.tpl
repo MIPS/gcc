@@ -29,10 +29,16 @@ in
 VPATH=@srcdir@
 
 build_alias=@build_alias@
+build_vendor=@build_vendor@
+build_os=@build_os@
 build=@build@
 host_alias=@host_alias@
+host_vendor=@host_vendor@
+host_os=@host_os@
 host=@host@
 target_alias=@target_alias@
+target_vendor=@target_vendor@
+target_os=@target_os@
 target=@target@
 
 program_transform_name = @program_transform_name@
@@ -293,8 +299,11 @@ RANLIB = @RANLIB@
 STRIP = @STRIP@
 WINDRES = @WINDRES@
 
+GNATBIND = @GNATBIND@
+GNATMAKE = @GNATMAKE@
+
 CFLAGS = @CFLAGS@
-LDFLAGS = 
+LDFLAGS = @LDFLAGS@
 LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
@@ -445,7 +454,7 @@ X11_FLAGS_TO_PASS = \
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
-	STAGE_PREFIX="$$r/$(HOST_SUBDIR)/prev-gcc/" \
+	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
@@ -531,9 +540,10 @@ all-host: maybe-all-[+module+][+ IF bootstrap +]
 
 .PHONY: all-target
 [+ FOR target_modules +][+ IF bootstrap +]
-@if [+module+]-no-bootstrap[+ ENDIF bootstrap +]
+@if target-[+module+]-no-bootstrap[+ ENDIF bootstrap +]
 all-target: maybe-all-target-[+module+][+ IF bootstrap +]
-@endif [+module+]-no-bootstrap[+ ENDIF bootstrap +][+ ENDFOR target_modules +]
+@endif target-[+module+]-no-bootstrap[+
+  ENDIF bootstrap +][+ ENDFOR target_modules +]
 
 # Do a target for all the subdirectories.  A ``make do-X'' will do a
 # ``make X'' in all subdirectories (because, in general, there is a
@@ -610,11 +620,6 @@ distclean: do-distclean local-clean local-distclean
 maintainer-clean: local-maintainer-clean do-maintainer-clean local-clean 
 maintainer-clean: local-distclean
 realclean: maintainer-clean
-
-# Extra dependency for clean-target, owing to the mixed nature of gcc.
-clean-target: clean-target-libgcc
-clean-target-libgcc:
-	if test -f gcc/Makefile; then cd gcc && $(MAKE) $@; else :; fi
 
 # Check target.
 
@@ -783,7 +788,8 @@ configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	libsrcdir="$$s/[+module+]"; \
 	[+ IF no-config-site +]rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file [+ ENDIF +]$(SHELL) $${libsrcdir}/configure \
-	  [+args+] $${srcdiroption} [+extra_configure_flags+] \
+	  [+args+] --build=${build_alias} --host=[+host_alias+] \
+	  --target=[+target_alias+] $${srcdiroption} [+extra_configure_flags+] \
 	  || exit 1
 @endif [+prefix+][+module+]
 
@@ -825,7 +831,8 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	libsrcdir="$$s/[+module+]"; \
 	$(SHELL) $${libsrcdir}/configure \
-	  [+args+] $${srcdiroption} \
+	  [+args+] --build=${build_alias} --host=[+host_alias+] \
+	  --target=[+target_alias+] $${srcdiroption} \
 	  [+ IF prev +]--with-build-libsubdir=$(HOST_SUBDIR)[+ ENDIF prev +] \
 	  [+stage_configure_flags+] [+extra_configure_flags+]
 @endif [+prefix+][+module+]-bootstrap
@@ -841,7 +848,7 @@ all-[+prefix+][+module+]: stage_current
 @endif gcc-bootstrap
 @if [+prefix+][+module+]
 TARGET-[+prefix+][+module+]=[+
-  IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
+  IF all_target +][+all_target+][+ ELSE +]all[+ ENDIF all_target +]
 maybe-all-[+prefix+][+module+]: all-[+prefix+][+module+]
 all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +][+ ELSE +]
 	@: $(MAKE); $(unstage)[+ ENDIF bootstrap +]
@@ -898,6 +905,8 @@ clean-stage[+id+]-[+prefix+][+module+]:
 # --------------------------------------
 [+ FOR build_modules +]
 [+ configure prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)"
+	     host_alias=(get "host" "${build_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(BUILD_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)" +]
@@ -910,6 +919,8 @@ clean-stage[+id+]-[+prefix+][+module+]:
 [+ configure prefix="" subdir="$(HOST_SUBDIR)"
 	     exports="$(HOST_EXPORTS)"
 	     poststage1_exports="$(POSTSTAGE1_HOST_EXPORTS)"
+	     host_alias=(get "host" "${host_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(HOST_CONFIGARGS)" +]
 
 [+ all prefix="" subdir="$(HOST_SUBDIR)"
@@ -1007,6 +1018,8 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 [+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
 	     check_multilibs=true
 	     exports="$(RAW_CXX_TARGET_EXPORTS)"
+	     host_alias=(get "host" "${target_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
@@ -1016,6 +1029,8 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 [+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
 	     check_multilibs=true
 	     exports="$(NORMAL_TARGET_EXPORTS)"
+	     host_alias=(get "host" "${target_alias}")
+	     target_alias=(get "target" "${target_alias}")
 	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
@@ -1115,60 +1130,6 @@ ENDIF raw_cxx +]
 # ----------
 
 @if gcc-no-bootstrap
-# GCC has some more recursive targets, which trigger the old
-# (but still current, until the toplevel bootstrap project
-# is finished) compiler bootstrapping rules.
-
-GCC_STRAP_TARGETS = bootstrap bootstrap-lean bootstrap2 bootstrap2-lean bootstrap3 bootstrap3-lean bootstrap4 bootstrap4-lean bubblestrap quickstrap cleanstrap restrap
-.PHONY: $(GCC_STRAP_TARGETS)
-$(GCC_STRAP_TARGETS): all-prebootstrap configure-gcc
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	echo "Bootstrapping the compiler"; \
-	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,:[ :]*,:,g;s,^[ :]*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $@
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	case "$@" in \
-	  *bootstrap4-lean ) \
-	    msg="Comparing stage3 and stage4 of the compiler"; \
-	    compare=compare3-lean ;; \
-	  *bootstrap4 ) \
-	    msg="Comparing stage3 and stage4 of the compiler"; \
-	    compare=compare3 ;; \
-	  *-lean ) \
-	    msg="Comparing stage2 and stage3 of the compiler"; \
-	    compare=compare-lean ;; \
-	  * ) \
-	    msg="Comparing stage2 and stage3 of the compiler"; \
-	    compare=compare ;; \
-	esac; \
-	$(HOST_EXPORTS) \
-	echo "$$msg"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $$compare
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	echo "Building runtime libraries"; \
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
-
-profiledbootstrap: all-prebootstrap configure-gcc
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,:[ :]*,:,g;s,^[ :]*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
-	echo "Bootstrapping training compiler"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	echo "Building feedback based compiler"; \
-	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	echo "Building runtime libraries"; \
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
-
 .PHONY: cross
 cross: all-build all-gas all-ld
 	@r=`${PWD_COMMAND}`; export r; \
@@ -1454,17 +1415,11 @@ configure-target-[+module+]: stage_last[+
   ENDIF bootstrap +][+ ENDFOR target_modules +]
 @endif gcc-bootstrap
 
-@if gcc-no-bootstrap[+ FOR target_modules +][+ IF bootstrap
-  +][+ ELSE +]
+@if gcc-no-bootstrap[+ FOR target_modules +]
 configure-target-[+module+]: maybe-all-gcc[+
-  ENDIF bootstrap +][+ ENDFOR target_modules +]
+  ENDFOR target_modules +]
 @endif gcc-no-bootstrap
 
-
-[+ FOR lang_env_dependencies +]
-configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
-[+ IF cxx +]configure-target-[+module+]: maybe-all-target-libstdc++-v3
-[+ ENDIF cxx +][+ ENDFOR lang_env_dependencies +]
 
 # There are two types of dependencies here: 'hard' dependencies, where one
 # module simply won't build without the other; and 'soft' dependencies, where
@@ -1554,7 +1509,6 @@ configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
      +][+ FOR bootstrap_stage +]
 [+ (make-dep (dep-stage) "") +][+
        ENDFOR bootstrap_stage +]
-all-prebootstrap: [+ (dep-target "" "on" (exist? "hard")) +]
 [+ == "bootstrap"
      +][+ FOR bootstrap_stage +]
 [+ (make-dep (dep-stage) (dep-stage)) +][+
@@ -1562,16 +1516,47 @@ all-prebootstrap: [+ (dep-target "" "on" (exist? "hard")) +]
 [+ ESAC +][+
 ENDFOR dependencies +]
 
-# Non-toplevel bootstrap rules must depend on several packages, to be built
-# before gcc.  Another wart that will go away, hopefully soon.
-@if gcc-no-bootstrap
-[+ FOR host_modules +][+
-   IF (and (not (= (get "module") "gcc"))
-	   (hash-ref boot-modules (get "module"))) +]
-all-prebootstrap: maybe-all-[+module+][+
-   ENDIF +][+
-ENDFOR host_modules +]
+# Dependencies for target modules on other target modules are
+# described by lang_env_dependencies; the defaults apply to anything
+# not mentioned there.
+[+
+   ;; Predicate for whether LANG was specified in lang_env_dependencies.
+   (define lang-dep (lambda (lang)
+      (hash-ref lang-env-deps (string-append (get "module") "-" lang))))
+
+   ;; Build the hash table we will need.
+   (define lang-env-deps (make-hash-table 7))
++][+ FOR lang_env_dependencies +][+
+   (if (exist? "cxx")
+       (hash-create-handle! lang-env-deps
+	  (string-append (get "module") "-" "cxx") #t))
+
+   (if (exist? "no_c")
+       (hash-create-handle! lang-env-deps
+	  (string-append (get "module") "-" "no_c") #t))
+
+   (if (exist? "no_gcc")
+       (hash-create-handle! lang-env-deps
+	  (string-append (get "module") "-" "no_gcc") #t))
+   "" +][+ ENDFOR lang_env_dependencies +]
+
+@if gcc-bootstrap[+ FOR target_modules +][+ IF (not (lang-dep "no_gcc"))
+  +][+ IF bootstrap +][+ FOR bootstrap_stage +]
+configure-stage[+id+]-target-[+module+]: maybe-all-stage[+id+]-target-libgcc[+
+  ENDFOR +][+ ENDIF bootstrap +][+ ENDIF +][+ ENDFOR target_modules +]
+@endif gcc-bootstrap
+
+@if gcc-no-bootstrap[+ FOR target_modules +][+ IF (not (lang-dep "no_gcc")) +]
+configure-target-[+module+]: maybe-all-target-libgcc[+
+  ENDIF +][+ ENDFOR target_modules +]
 @endif gcc-no-bootstrap
+
+[+ FOR target_modules +][+ IF (not (lang-dep "no_c")) +]
+configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss[+
+  ENDIF +][+ IF (lang-dep "cxx") +]
+configure-target-[+module+]: maybe-all-target-libstdc++-v3[+
+  ENDIF +]
+[+ ENDFOR target_modules +]
 
 CONFIGURE_GDB_TK = @CONFIGURE_GDB_TK@
 GDB_TK = @GDB_TK@

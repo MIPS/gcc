@@ -365,8 +365,8 @@ pop_label (tree label, tree old_value)
 	  /* Avoid crashing later.  */
 	  define_label (location, DECL_NAME (label));
 	}
-      else if (!TREE_USED (label))
-	warning (OPT_Wunused_label, "label %q+D defined but not used", label);
+      else 
+	warn_for_unused_label (label);
     }
 
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
@@ -713,7 +713,7 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* There may be OVERLOADs (wrapped in TREE_LISTs) on the BLOCK_VARs
      list if a `using' declaration put them there.  The debugging
-     back-ends won't understand OVERLOAD, so we remove them here.
+     back ends won't understand OVERLOAD, so we remove them here.
      Because the BLOCK_VARS are (temporarily) shared with
      CURRENT_BINDING_LEVEL->NAMES we must do this fixup after we have
      popped all the bindings.  */
@@ -1576,6 +1576,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
+      DECL_INVALID_OVERRIDER_P (newdecl) |= DECL_INVALID_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -2695,7 +2696,8 @@ typedef struct typename_info {
   bool class_p;
 } typename_info;
 
-/* Compare two TYPENAME_TYPEs.  K1 and K2 are really of type `tree'.  */
+/* Compare two TYPENAME_TYPEs.  K1 is really of type `tree', K2 is
+   really of type `typename_info*'  */
 
 static int
 typename_compare (const void * k1, const void * k2)
@@ -2766,6 +2768,11 @@ build_typename_type (tree context, tree name, tree fullname,
 
       /* Store it in the hash table.  */
       *e = t;
+
+      /* TYPENAME_TYPEs must always be compared structurally, because
+	 they may or may not resolve down to another type depending on
+	 the currently open classes. */
+      SET_TYPE_STRUCTURAL_EQUALITY (t);
     }
 
   return t;
@@ -2814,6 +2821,11 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
       name = TREE_OPERAND (name, 0);
       if (TREE_CODE (name) == TEMPLATE_DECL)
 	name = TREE_OPERAND (fullname, 0) = DECL_NAME (name);
+      else if (TREE_CODE (name) == OVERLOAD)
+	{
+	  error ("%qD is not a type", name);
+	  return error_mark_node;
+	}
     }
   if (TREE_CODE (name) == TEMPLATE_DECL)
     {
@@ -2937,6 +2949,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
   t = make_aggr_type (UNBOUND_CLASS_TEMPLATE);
   TYPE_CONTEXT (t) = FROB_CONTEXT (context);
   TREE_TYPE (t) = NULL_TREE;
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
 
   /* Build the corresponding TEMPLATE_DECL.  */
   d = build_decl (TEMPLATE_DECL, name, t);
@@ -3031,7 +3044,7 @@ record_builtin_java_type (const char* name, int size)
   return type;
 }
 
-/* Push a type into the namespace so that the back-ends ignore it.  */
+/* Push a type into the namespace so that the back ends ignore it.  */
 
 static void
 record_unknown_type (tree type, const char* name)
@@ -3942,7 +3955,7 @@ start_decl (const cp_declarator *declarator,
   if (tem == error_mark_node)
     return error_mark_node;
 
-  /* Tell the back-end to use or not use .common as appropriate.  If we say
+  /* Tell the back end to use or not use .common as appropriate.  If we say
      -fconserve-space, we want this to save .data space, at the expense of
      wrong semantics.  If we say -fno-conserve-space, we want this to
      produce errors about redefs; to do this we force variables into the
@@ -5569,7 +5582,7 @@ register_dtor_fn (tree decl)
 
   /* Now, recompute the cleanup.  It may contain SAVE_EXPRs that refer
      to the original function, rather than the anonymous one.  That
-     will make the back-end think that nested functions are in use,
+     will make the back end think that nested functions are in use,
      which causes confusion.  */
 
   push_deferring_access_checks (dk_no_check);
@@ -6427,7 +6440,7 @@ build_ptrmemfunc_type (tree type)
   t = make_aggr_type (RECORD_TYPE);
   xref_basetypes (t, NULL_TREE);
 
-  /* Let the front-end know this is a pointer to member function...  */
+  /* Let the front end know this is a pointer to member function...  */
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
@@ -6441,7 +6454,7 @@ build_ptrmemfunc_type (tree type)
 
   finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
 
-  /* Zap out the name so that the back-end will give us the debugging
+  /* Zap out the name so that the back end will give us the debugging
      information for this anonymous RECORD_TYPE.  */
   TYPE_NAME (t) = NULL_TREE;
 
@@ -6460,6 +6473,11 @@ build_ptrmemfunc_type (tree type)
   /* Cache this pointer-to-member type so that we can find it again
      later.  */
   TYPE_SET_PTRMEMFUNC_TYPE (type, t);
+
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (type) != type)
+    TYPE_CANONICAL (t) = build_ptrmemfunc_type (TYPE_CANONICAL (type));
 
   return t;
 }
@@ -6535,6 +6553,7 @@ compute_array_index_type (tree name, tree size)
 {
   tree type;
   tree itype;
+  tree abi_1_itype = NULL_TREE;
 
   if (error_operand_p (size))
     return error_mark_node;
@@ -6551,14 +6570,26 @@ compute_array_index_type (tree name, tree size)
       type = TREE_TYPE (size);
     }
 
-  if (abi_version_at_least (2)
-      /* We should only handle value dependent expressions specially.  */
-      ? value_dependent_expression_p (size)
-      /* But for abi-1, we handled all instances in templates. This
-	 effects the manglings produced.  */
-      : processing_template_decl)
-    return build_index_type (build_min (MINUS_EXPR, sizetype,
-					size, integer_one_node));
+  if (value_dependent_expression_p (size))
+    {
+      /* We cannot do any checking for a value-dependent SIZE. Just
+	 build the index type and mark that it requires structural
+	 equality checks.  */
+      itype = build_index_type (build_min (MINUS_EXPR, sizetype,
+					   size, integer_one_node));
+      SET_TYPE_STRUCTURAL_EQUALITY (itype);
+      return itype;
+    }
+  
+  if (!abi_version_at_least (2) && processing_template_decl)
+    /* For abi-1, we handled all instances in templates the same way,
+       even when they were non-dependent. This effects the manglings
+       produced.  So, we do the normal checking for non-dependent
+       sizes, but at the end we'll return the same type that abi-1
+       would have, but with TYPE_CANONICAL set to the "right"
+       value that the current ABI would provide. */
+    abi_1_itype = build_index_type (build_min (MINUS_EXPR, sizetype,
+					       size, integer_one_node));
 
   /* The size might be the result of a cast.  */
   STRIP_TYPE_NOPS (size);
@@ -6649,7 +6680,14 @@ compute_array_index_type (tree name, tree size)
     }
 
   /* Create and return the appropriate index type.  */
-  return build_index_type (itype);
+  if (abi_1_itype)
+    {
+      tree t = build_index_type (itype);
+      TYPE_CANONICAL (abi_1_itype) = TYPE_CANONICAL (t);
+      return abi_1_itype;
+    }
+  else
+    return build_index_type (itype);
 }
 
 /* Returns the scope (if any) in which the entity declared by
@@ -6835,8 +6873,8 @@ check_var_type (tree identifier, tree type)
    the name and type of the object declared and construct a DECL node
    for it.
 
-   DECLSPECS is a chain of tree_list nodes whose value fields
-    are the storage classes and type specifiers.
+   DECLSPECS points to the representation of declaration-specifier
+   sequence that precedes declarator.
 
    DECL_CONTEXT says which syntactic context this declaration is in:
      NORMAL for most contexts.  Make a VAR_DECL or FUNCTION_DECL or TYPE_DECL.
@@ -7216,8 +7254,9 @@ grokdeclarator (const cp_declarator *declarator,
 	/* Allow it, sigh.  */;
       else if (pedantic || ! is_main)
 	pedwarn ("ISO C++ forbids declaration of %qs with no type", name);
-      else if (warn_return_type)
-	warning (0, "ISO C++ forbids declaration of %qs with no type", name);
+      else
+	warning (OPT_Wreturn_type,
+                 "ISO C++ forbids declaration of %qs with no type", name);
 
       type = integer_type_node;
     }
@@ -7432,19 +7471,19 @@ grokdeclarator (const cp_declarator *declarator,
 
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
+  if (thread_p
+      && ((storage_class
+	   && storage_class != sc_extern
+	   && storage_class != sc_static)
+	  || declspecs->specs[(int)ds_typedef]))
+    {
+      error ("multiple storage classes in declaration of %qs", name);
+      thread_p = false;
+    }
   if (declspecs->conflicting_specifiers_p)
     {
       error ("conflicting specifiers in declaration of %qs", name);
       storage_class = sc_none;
-    }
-  else if (thread_p
-	   && ((storage_class
-		&& storage_class != sc_extern
-		&& storage_class != sc_static)
-	       || declspecs->specs[(int)ds_typedef]))
-    {
-      error ("multiple storage classes in declaration of %qs", name);
-      thread_p = false;
     }
   else if (decl_context != NORMAL
 	   && ((storage_class != sc_none
@@ -10728,7 +10767,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
       /* If this function is in an interface implemented in this file,
-	 make sure that the backend knows to emit this function
+	 make sure that the back end knows to emit this function
 	 here.  */
       if (!DECL_EXTERNAL (decl1))
 	mark_needed (decl1);

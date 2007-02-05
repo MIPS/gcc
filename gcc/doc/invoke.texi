@@ -1,5 +1,6 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+@c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -168,7 +169,7 @@ in the following sections.
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding -fopenmp -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
--fallow-single-precision  -fcond-mismatch @gol
+-fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char}
 
@@ -221,10 +222,10 @@ Objective-C and Objective-C++ Dialects}.
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
--w  -Wextra  -Wall  -Waggregate-return -Walways-true -Wno-attributes @gol
--Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts @gol
--Wclobbered  -Wcomment @gol
--Wconversion  -Wno-deprecated-declarations @gol
+-w  -Wextra  -Wall  -Waggregate-return -Walways-true -Warray-bounds @gol
+-Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
+-Wchar-subscripts -Wclobbered  -Wcomment @gol
+-Wconversion -Wcoverage-mismatch -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  @gol
 -Wempty-body  -Wno-endif-labels @gol
 -Werror  -Werror-* -Werror-implicit-function-declaration @gol
@@ -256,8 +257,8 @@ Objective-C and Objective-C++ Dialects}.
 
 @item C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
--Wmissing-parameter-type  -Wmissing-prototypes @gol
--Wnested-externs  -Wold-style-definition @gol
+-Wmissing-parameter-type  -Wmissing-prototypes  -Wnested-externs @gol
+-Wold-style-declaration  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional  -Wtraditional-conversion @gol
 -Wdeclaration-after-statement -Wpointer-sign}
 
@@ -322,7 +323,8 @@ Objective-C and Objective-C++ Dialects}.
 -fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
--funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
+-funsafe-math-optimizations  -funsafe-loop-optimizations @gol
+-ffinite-math-only  -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
@@ -338,8 +340,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
--fstack-protector  -fstack-protector-all @gol
--fstrict-aliasing  -ftracer  -fthread-jumps @gol
+-fno-split-wide-types -fstack-protector  -fstack-protector-all @gol
+-fstrict-aliasing  -fstrict-overflow  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
 -fvariable-expansion-in-unroller @gol
@@ -579,10 +581,12 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mcpu=@var{cpu} -msim -memregs=@var{number}}
 
 @emph{M680x0 Options}
-@gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
--m68060  -mcpu32  -m5200  -mcfv4e -m68881  -mbitfield  @gol
--mc68000  -mc68020   @gol
--mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
+@gccoptlist{-march=@var{arch}  -mcpu=@var{cpu}  -mtune=@var{tune}
+-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
+-m68060  -mcpu32  -m5200  -m5206e  -m528x  -m5307  -m5407 @gol
+-mcfv4e  -mbitfield  -mno-bitfield  -mc68000  -mc68020 @gol
+-mnobitfield  -mrtd  -mno-rtd  -mdiv  -mno-div  -mshort @gol
+-mno-short  -mhard-float  -m68881  -msoft-float  -mpcrel @gol
 -malign-int  -mstrict-align  -msep-data  -mno-sep-data @gol
 -mshared-library-id=n  -mid-shared-library  -mno-id-shared-library}
 
@@ -1380,6 +1384,12 @@ Allow conditional expressions with mismatched types in the second and
 third arguments.  The value of such an expression is void.  This option
 is not supported for C++.
 
+@item -flax-vector-conversions
+@opindex flax-vector-conversions
+Allow implicit conversions between vectors with differing numbers of
+elements and/or incompatible element types.  This option should not be
+used for new code.
+
 @item -funsigned-char
 @opindex funsigned-char
 Let the type @code{char} be unsigned, like @code{unsigned char}.
@@ -1648,7 +1658,7 @@ when used within the DSO@.  Enabling this option can have a dramatic effect
 on load and link times of a DSO as it massively reduces the size of the
 dynamic export table when the library makes heavy use of templates.
 
-The behaviour of this switch is not quite the same as marking the
+The behavior of this switch is not quite the same as marking the
 methods as hidden directly, because it does not affect static variables
 local to the function or cause the compiler to deduce that
 the function is defined in only one shared object.
@@ -2272,6 +2282,20 @@ diagnostic emitted, which indicates which command line option directly
 controls that diagnostic, when such an option is known to the
 diagnostic machinery.
 
+@item -Wcoverage-mismatch
+@opindex Wcoverage-mismatch
+Warn if feedback profiles do not match when using the
+@option{-fprofile-use} option.
+If a source file was changed between @option{-fprofile-gen} and
+@option{-fprofile-use}, the files with the profile feedback can fail
+to match the source file and GCC can not use the profile feedback
+information.  By default, GCC emits an error message in this case.
+The option @option{-Wcoverage-mismatch} emits a warning instead of an
+error.  GCC does not use appropriate feedback profiles, so using this
+option can result in poorly optimized code.  This option is useful
+only in the case of very minor changes such as bug fixes to an
+existing code-base.
+
 @end table
 
 @node Warning Options
@@ -2633,11 +2657,13 @@ Warn whenever a function is defined with a return-type that defaults to
 @code{int}.  Also warn about any @code{return} statement with no
 return-value in a function whose return-type is not @code{void}.
 
-For C, also warn if the return type of a function has a type qualifier
-such as @code{const}.  Such a type qualifier has no effect, since the
-value returned by a function is not an lvalue.  ISO C prohibits
-qualified @code{void} return types on function definitions, so such
-return types always receive a warning even without this option.
+Also warn if the return type of a function has a type qualifier
+such as @code{const}.  For ISO C such a type qualifier has no effect,
+since the value returned by a function is not an lvalue.
+For C++, the warning is only emitted for scalar types or @code{void}.
+ISO C prohibits qualified @code{void} return types on function
+definitions, so such return types always receive a warning
+even without this option.
 
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
@@ -2833,6 +2859,13 @@ compiler is using for optimization.  This warning catches more cases than
 @option{-Wstrict-aliasing}, but it will also give a warning for some ambiguous
 cases that are safe.
 
+@item -Warray-bounds
+@opindex Wno-array-bounds
+@opindex Warray-bounds
+This option is only active when @option{-ftree-vrp} is active
+(default for -O2 and above). It warns about subscripts to arrays
+that are always out of bounds. This warning is enabled by @option{-Wall}.
+
 @item -Wall
 @opindex Wall
 All of the above @samp{-W} options combined.  This enables all the
@@ -2885,9 +2918,11 @@ but @samp{x[(void)i,j]} will not.
 @item
 An unsigned value is compared against zero with @samp{<} or @samp{>=}.
 
-@item
-Storage-class specifiers like @code{static} are not the first things in
-a declaration.  According to the C Standard, this usage is obsolescent.
+@item @r{(C only)}
+Storage-class specifiers like @code{static} are not the first things
+in a declaration.  According to the C Standard, this usage is
+obsolescent.  This warning can be independently controlled by
+@option{-Wold-style-declaration}.
 
 @item
 If @option{-Wall} or @option{-Wunused} is also specified, warn about unused
@@ -3118,7 +3153,8 @@ such assumptions.
 Warn about anything that depends on the ``size of'' a function type or
 of @code{void}.  GNU C assigns these types a size of 1, for
 convenience in calculations with @code{void *} pointers and pointers
-to functions.
+to functions.  In C++, warn also when an arithmetic operation involves
+@code{NULL}.  This warning is also enabled by @option{-pedantic}.
 
 @item -Wbad-function-cast @r{(C only)}
 @opindex Wbad-function-cast
@@ -3129,6 +3165,11 @@ For example, warn if @code{int malloc()} is cast to @code{anything *}.
 Warn about ISO C constructs that are outside of the common subset of
 ISO C and ISO C++, e.g.@: request for implicit conversion from
 @code{void *} to a pointer to non-@code{void} type.
+
+@item -Wc++0x-compat @r{(C++ and Objective-C++ only)}
+Warn about C++ constructs whose meaning differs between ISO C++ 1998 and
+ISO C++ 200x, e.g., identifiers in ISO C++ 1998 that will become keywords 
+in ISO C++ 200x.  This warning is enabled by @option{-Wall}.
 
 @item -Wcast-qual
 @opindex Wcast-qual
@@ -3213,6 +3254,13 @@ Warn if a function is declared or defined without specifying the
 argument types.  (An old-style function definition is permitted without
 a warning if preceded by a declaration which specifies the argument
 types.)
+
+@item -Wold-style-declaration @r{(C only)}
+@opindex Wold-style-declaration
+Warn for obsolescent usages, according to the C Standard, in a
+declaration. For example, warn if storage-class specifiers like
+@code{static} are not the first things in a declaration.  This warning
+is also enabled by @option{-Wextra}.
 
 @item -Wold-style-definition @r{(C only)}
 @opindex Wold-style-definition
@@ -3850,7 +3898,8 @@ Dump after block reordering, to @file{@var{file}.148r.bbro}.
 @itemx -fdump-rtl-combine
 @opindex dc
 @opindex fdump-rtl-combine
-Dump after instruction combination, to the file @file{@var{file}.129r.combine}.
+Dump after the RTL instruction combination pass, to the file
+@file{@var{file}.129r.combine}.
 
 @item -dC
 @itemx -fdump-rtl-ce1
@@ -3935,7 +3984,8 @@ Dump after the first jump optimization, to @file{@var{file}.112r.jump}.
 @itemx -fdump-rtl-stack
 @opindex dk
 @opindex fdump-rtl-stack
-Dump after conversion from registers to stack, to @file{@var{file}.152r.stack}.
+Dump after conversion from GCC's "flat register file" registers to the
+x87's stack-like registers, to @file{@var{file}.152r.stack}.
 
 @item -dl
 @itemx -fdump-rtl-lreg
@@ -4550,6 +4600,7 @@ compilation time.
 -fcprop-registers @gol
 -fif-conversion @gol
 -fif-conversion2 @gol
+-fsplit-wide-types @gol
 -ftree-ccp @gol
 -ftree-dce @gol
 -ftree-dominator-opts @gol
@@ -4588,7 +4639,7 @@ also turns on the following optimization flags:
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
 -fregmove @gol
--fstrict-aliasing @gol
+-fstrict-aliasing -fstrict-overflow @gol
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
 -falign-functions  -falign-jumps @gol
@@ -4607,7 +4658,8 @@ Optimize yet more.  @option{-O3} turns on all optimizations specified by
 
 @item -O0
 @opindex O0
-Do not optimize.  This is the default.
+Reduce compilation time and make debugging produce the expected
+results.  This is the default.
 
 @item -Os
 @opindex Os
@@ -4886,6 +4938,16 @@ second branch or a point immediately following it, depending on whether
 the condition is known to be true or false.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fsplit-wide-types
+@opindex -fsplit-wide-types
+When using a type that occupies multiple registers, such as @code{long
+long} on a 32-bit system, split the registers apart and allocate them
+independently.  This normally generates better code for those types,
+but may make debugging more difficult.
+
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3},
+@option{-Os}.
 
 @item -fcse-follow-jumps
 @opindex fcse-follow-jumps
@@ -5417,6 +5479,32 @@ int f() @{
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
+@item -fstrict-overflow
+@opindex fstrict-overflow
+Allow the compiler to assume strict signed overflow rules, depending
+on the language being compiled.  For C (and C++) this means that
+overflow when doing arithmetic with signed numbers is undefined, which
+means that the compiler may assume that it will not happen.  This
+permits various optimizations.  For example, the compiler will assume
+that an expression like @code{i + 10 > i} will always be true for
+signed @code{i}.  This assumption is only valid if signed overflow is
+undefined, as the expression is false if @code{i + 10} overflows when
+using twos complement arithmetic.  When this option is in effect any
+attempt to determine whether an operation on signed numbers will
+overflow must be written carefully to not actually involve overflow.
+
+See also the @option{-fwrapv} option.  Using @option{-fwrapv} means
+that signed overflow is fully defined: it wraps.  When
+@option{-fwrapv} is used, there is no difference between
+@option{-fstrict-overflow} and @option{-fno-strict-overflow}.  With
+@option{-fwrapv} certain types of overflow are permitted.  For
+example, if the compiler gets an overflow when doing arithmetic on
+constants, the overflowed value can still be used with
+@option{-fwrapv}, but not otherwise.
+
+The @option{-fstrict-overflow} option is enabled at levels
+@option{-O2}, @option{-O3}, @option{-Os}.
+
 @item -falign-functions
 @itemx -falign-functions=@var{n}
 @opindex falign-functions
@@ -5579,6 +5667,10 @@ generally profitable only with profile feedback available.
 The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
 @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}
 
+By default, GCC emits an error message if the feedback profiles do not
+match the source code.  This error can be turned into a warning by using
+@option{-Wcoverage-mismatch}.  Note this may result in poorly optimized
+code.
 @end table
 
 The following options control compiler behavior regarding floating
@@ -5605,8 +5697,8 @@ them to store all pertinent intermediate computations into variables.
 @opindex ffast-math
 Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations}, @*
 @option{-fno-trapping-math}, @option{-ffinite-math-only},
-@option{-fno-rounding-math}, @option{-fno-signaling-nans}
-and @option{fcx-limited-range}.
+@option{-fno-rounding-math}, @option{-fno-signaling-nans},
+@option{-fno-signed-zeros} and @option{fcx-limited-range}.
 
 This option causes the preprocessor macro @code{__FAST_MATH__} to be defined.
 
@@ -5629,9 +5721,9 @@ math functions.
 
 The default is @option{-fmath-errno}.
 
-On Darwin systems, the math library never sets @code{errno}.  There is therefore
-no reason for the compiler to consider the possibility that it might,
-and @option{-fno-math-errno} is the default.
+On Darwin systems, the math library never sets @code{errno}.  There is
+therefore no reason for the compiler to consider the possibility that
+it might, and @option{-fno-math-errno} is the default.
 
 @item -funsafe-math-optimizations
 @opindex funsafe-math-optimizations
@@ -5658,6 +5750,16 @@ it can result in incorrect output for programs which depend on
 an exact implementation of IEEE or ISO rules/specifications.
 
 The default is @option{-fno-finite-math-only}.
+
+@item -fno-signed-zeros
+@opindex fno-signed-zeros
+Allow optimizations for floating point arithmetic that ignore the
+signedness of zero.  IEEE arithmetic specifies the behavior of
+distinct +0.0 and @minus{}0.0 values, which then prohibits simplification
+of expressions such as x+0.0 or 0.0*x (even with @option{-ffinite-math-only}).
+This option implies that the sign of a zero result isn't significant.
+
+The default is @option{-fsigned-zeros}.
 
 @item -fno-trapping-math
 @opindex fno-trapping-math
@@ -6057,7 +6159,7 @@ before applying @option{--param inline-unit-growth}.  The default is 10000
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 50 which limits unit growth to 1.5 times the original
+The default value is 60 which limits unit growth to 1.6 times the original
 size.
 
 @item large-stack-frame
@@ -6110,6 +6212,12 @@ reduce function size by being inlined.  In effect it increases amount of
 inlining for code having large abstraction penalty (many functions that just
 pass the arguments to other functions) and decrease inlining for code with low
 abstraction penalty.  The default value is 16.
+
+@item min-vect-loop-bound
+The minimum number of iterations under which a loop will not get vectorized 
+when @option{-ftree-vectorize} is used.  The number of iterations after 
+vectorization needs to be greater than the value specified by this option
+to allow vectorization.  The default value is 0.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -6382,6 +6490,13 @@ The size of cache line in L1 cache, in bytes.
 
 @item l1-cache-size
 The number of cache lines in L1 cache.
+
+@item verify-canonical-types
+Whether the compiler should verify the ``canonical'' types used for
+type equality comparisons within the C++ and Objective-C++ front
+ends. Set to 1 (the default when GCC is configured with
+--enable-checking) to enable verification, 0 to disable verification
+(the default when GCC is configured with --disable-checking).
 
 @end table
 @end table
@@ -7589,8 +7704,9 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm10tdmi}, @samp{arm1020t}, @samp{arm1026ej-s},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
-@samp{arm1176jz-s}, @samp{arm1176jzf-s}, @samp{xscale}, @samp{iwmmxt},
-@samp{ep9312}.
+@samp{arm1156t2-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
+@samp{cortex-a8}, @samp{cortex-r4}, @samp{cortex-m3},
+@samp{xscale}, @samp{iwmmxt}, @samp{ep9312}.
 
 @itemx -mtune=@var{name}
 @opindex mtune
@@ -7611,7 +7727,8 @@ assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
 @samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6}, @samp{armv6j},
-@samp{iwmmxt}, @samp{ep9312}.
+@samp{armv6t2}, @samp{armv6z}, @samp{armv6zk}, @samp{armv7}, @samp{armv7-a},
+@samp{armv7-r}, @samp{armv7-m}, @samp{iwmmxt}, @samp{ep9312}.
 
 @item -mfpu=@var{name}
 @itemx -mfpe=@var{number}
@@ -7729,8 +7846,11 @@ and has length @code{((pc[-3]) & 0xff000000)}.
 
 @item -mthumb
 @opindex mthumb
-Generate code for the 16-bit Thumb instruction set.  The default is to
+Generate code for the Thumb instruction set.  The default is to
 use the 32-bit ARM instruction set.
+This option automatically enables either 16-bit Thumb-1 or
+mixed 16/32-bit Thumb-2 instructions based on the @option{-mcpu=@var{name}}
+and @option{-march=@var{name}} options.
 
 @item -mtpcs-frame
 @opindex mtpcs-frame
@@ -10237,21 +10357,112 @@ Indicates that there is no OS function for flushing the cache.
 @subsection M680x0 Options
 @cindex M680x0 options
 
-These are the @samp{-m} options defined for the 68000 series.  The default
-values for these options depends on which style of 68000 was selected when
-the compiler was configured; the defaults for the most common choices are
-given below.
+These are the @samp{-m} options defined for M680x0 and ColdFire processors.
+The default settings depend on which architecture was selected when
+the compiler was configured; the defaults for the most common choices
+are given below.
 
 @table @gcctabopt
+@item -march=@var{arch}
+@opindex march
+Generate code for a specific M680x0 or ColdFire instruction set
+architecture.  Permissible values of @var{arch} for M680x0
+architectures are: @samp{68000}, @samp{68010}, @samp{68020},
+@samp{68030}, @samp{68040}, @samp{68060} and @samp{cpu32}.  ColdFire
+architectures are selected according to Freescale's ISA classification
+and the permissible values are: @samp{isaa}, @samp{isaaplus},
+@samp{isab} and @samp{isac}.
+
+gcc defines a macro @samp{__mcf@var{arch}__} whenever it is generating
+code for a ColdFire target.  The @var{arch} in this macro is one of the
+@option{-march} arguments given above.
+
+When used together, @option{-march} and @option{-mtune} select code
+that runs on a family of similar processors but that is optimized
+for a particular microarchitecture.
+
+@item -mcpu=@var{cpu}
+@opindex mcpu
+Generate code for a specific M680x0 or ColdFire processor.
+The M680x0 @var{cpu}s are: @samp{68000}, @samp{68010}, @samp{68020},
+@samp{68030}, @samp{68040}, @samp{68060}, @samp{68302}, @samp{68332}
+and @samp{cpu32}.  The ColdFire @var{cpu}s are given by the table
+below, which also classifies the CPUs into families:
+
+@multitable @columnfractions 0.20 0.80
+@item @strong{Family} @tab @strong{@samp{-mcpu} arguments}
+@item @samp{5206} @tab @samp{5202} @samp{5204} @samp{5206}
+@item @samp{5206e} @tab @samp{5206e}
+@item @samp{5208} @tab @samp{5207} @samp{5208}
+@item @samp{5211a} @tab @samp{5210a} @samp{5211a}
+@item @samp{5213} @tab @samp{5211} @samp{5212} @samp{5213}
+@item @samp{5216} @tab @samp{5214} @samp{5216}
+@item @samp{52235} @tab @samp{52230} @samp{52231} @samp{52232} @samp{52233} @samp{52234} @samp{52235}
+@item @samp{5225} @tab @samp{5224} @samp{5225}
+@item @samp{5235} @tab @samp{5232} @samp{5233} @samp{5234} @samp{5235} @samp{523x}
+@item @samp{5249} @tab @samp{5249}
+@item @samp{5250} @tab @samp{5250}
+@item @samp{5271} @tab @samp{5270} @samp{5271}
+@item @samp{5272} @tab @samp{5272}
+@item @samp{5275} @tab @samp{5274} @samp{5275}
+@item @samp{5282} @tab @samp{5280} @samp{5281} @samp{5282} @samp{528x}
+@item @samp{5307} @tab @samp{5307}
+@item @samp{5329} @tab @samp{5327} @samp{5328} @samp{5329} @samp{532x}
+@item @samp{5373} @tab @samp{5372} @samp{5373} @samp{537x}
+@item @samp{5407} @tab @samp{5407}
+@item @samp{5475} @tab @samp{5470} @samp{5471} @samp{5472} @samp{5473} @samp{5474} @samp{5475} @samp{547x} @samp{5480} @samp{5481} @samp{5482} @samp{5483} @samp{5484} @samp{5485}
+@end multitable
+
+@option{-mcpu=@var{cpu}} overrides @option{-march=@var{arch}} if
+@var{arch} is compatible with @var{cpu}.  Other combinations of
+@option{-mcpu} and @option{-march} are rejected.
+
+gcc defines the macro @samp{__mcf_cpu_@var{cpu}} when ColdFire target
+@var{cpu} is selected.  It also defines @samp{__mcf_family_@var{family}},
+where the value of @var{family} is given by the table above.
+
+@item -mtune=@var{tune}
+@opindex mtune
+Tune the code for a particular microarchitecture, within the
+constraints set by @option{-march} and @option{-mcpu}.
+The M680x0 microarchitectures are: @samp{68000}, @samp{68010},
+@samp{68020}, @samp{68030}, @samp{68040}, @samp{68060}
+and @samp{cpu32}.  The ColdFire microarchitectures
+are: @samp{cfv2}, @samp{cfv3}, @samp{cfv4} and @samp{cfv4e}.
+
+You can also use @option{-mtune=68020-40} for code that needs
+to run relatively well on 68020, 68030 and 68040 targets.
+@option{-mtune=68020-60} is similar but includes 68060 targets
+as well.  These two options select the same tuning decisions as
+@option{-m68020-40} and @option{-m68020-60} respectively.
+
+gcc defines the macros @samp{__mc@var{arch}} and @samp{__mc@var{arch}__}
+when tuning for 680x0 architecture @var{arch}.  It also defines
+@samp{mc@var{arch}} unless either @option{-ansi} or a non-GNU @option{-std}
+option is used.  If gcc is tuning for a range of architectures,
+as selected by @option{-mtune=68020-40} or @option{-mtune=68020-60},
+it defines the macros for every architecture in the range.
+
+gcc also defines the macro @samp{__m@var{uarch}__} when tuning for
+ColdFire microarchitecture @var{uarch}, where @var{uarch} is one
+of the arguments given above.
+
 @item -m68000
 @itemx -mc68000
 @opindex m68000
 @opindex mc68000
 Generate output for a 68000.  This is the default
 when the compiler is configured for 68000-based systems.
+It is equivalent to @option{-march=68000}.
 
 Use this option for microcontrollers with a 68000 or EC000 core,
 including the 68008, 68302, 68306, 68307, 68322, 68328 and 68356.
+
+@item -m68010
+@opindex m68010
+Generate output for a 68010.  This is the default
+when the compiler is configured for 68010-based systems.
+It is equivalent to @option{-march=68010}.
 
 @item -m68020
 @itemx -mc68020
@@ -10259,22 +10470,19 @@ including the 68008, 68302, 68306, 68307, 68322, 68328 and 68356.
 @opindex mc68020
 Generate output for a 68020.  This is the default
 when the compiler is configured for 68020-based systems.
-
-@item -m68881
-@opindex m68881
-Generate output containing 68881 instructions for floating point.
-This is the default for most 68020 systems unless @option{--nfp} was
-specified when the compiler was configured.
+It is equivalent to @option{-march=68020}.
 
 @item -m68030
 @opindex m68030
 Generate output for a 68030.  This is the default when the compiler is
-configured for 68030-based systems.
+configured for 68030-based systems.  It is equivalent to
+@option{-march=68030}.
 
 @item -m68040
 @opindex m68040
 Generate output for a 68040.  This is the default when the compiler is
-configured for 68040-based systems.
+configured for 68040-based systems.  It is equivalent to
+@option{-march=68040}.
 
 This option inhibits the use of 68881/68882 instructions that have to be
 emulated by software on the 68040.  Use this option if your 68040 does not
@@ -10283,7 +10491,8 @@ have code to emulate those instructions.
 @item -m68060
 @opindex m68060
 Generate output for a 68060.  This is the default when the compiler is
-configured for 68060-based systems.
+configured for 68060-based systems.  It is equivalent to
+@option{-march=68060}.
 
 This option inhibits the use of 68020 and 68881/68882 instructions that
 have to be emulated by software on the 68060.  Use this option if your 68060
@@ -10293,6 +10502,7 @@ does not have code to emulate those instructions.
 @opindex mcpu32
 Generate output for a CPU32.  This is the default
 when the compiler is configured for CPU32-based systems.
+It is equivalent to @option{-march=cpu32}.
 
 Use this option for microcontrollers with a
 CPU32 or CPU32+ core, including the 68330, 68331, 68332, 68333, 68334,
@@ -10300,16 +10510,41 @@ CPU32 or CPU32+ core, including the 68330, 68331, 68332, 68333, 68334,
 
 @item -m5200
 @opindex m5200
-Generate output for a 520X ``coldfire'' family cpu.  This is the default
+Generate output for a 520X ColdFire CPU.  This is the default
 when the compiler is configured for 520X-based systems.
+It is equivalent to @option{-mcpu=5206}, and is now deprecated
+in favor of that option.
 
 Use this option for microcontroller with a 5200 core, including
-the MCF5202, MCF5203, MCF5204 and MCF5202.
+the MCF5202, MCF5203, MCF5204 and MCF5206.
+
+@item -m5206e
+@opindex m5206e
+Generate output for a 5206e ColdFire CPU.  The option is now
+deprecated in favor of the equivalent @option{-mcpu=5206e}.
+
+@item -m528x
+@opindex m528x
+Generate output for a member of the ColdFire 528X family.
+The option is now deprecated in favor of the equivalent
+@option{-mcpu=528x}.
+
+@item -m5307
+@opindex m5307
+Generate output for a ColdFire 5307 CPU.  The option is now deprecated
+in favor of the equivalent @option{-mcpu=5307}.
+
+@item -m5407
+@opindex m5407
+Generate output for a ColdFire 5407 CPU.  The option is now deprecated
+in favor of the equivalent @option{-mcpu=5407}.
 
 @item -mcfv4e
 @opindex mcfv4e
-Generate output for a ColdFire V4e family cpu (e.g.@: 547x/548x).
+Generate output for a ColdFire V4e family CPU (e.g.@: 547x/548x).
 This includes use of hardware floating point instructions.
+The option is equivalent to @option{-mcpu=547x}, and is now
+deprecated in favor of that option.
 
 @item -m68020-40
 @opindex m68020-40
@@ -10318,6 +10553,8 @@ This results in code which can run relatively efficiently on either a
 68020/68881 or a 68030 or a 68040.  The generated code does use the
 68881 instructions that are emulated on the 68040.
 
+The option is equivalent to @option{-march=68020} @option{-mtune=68020-40}.
+
 @item -m68020-60
 @opindex m68020-60
 Generate output for a 68060, without using any of the new instructions.
@@ -10325,15 +10562,36 @@ This results in code which can run relatively efficiently on either a
 68020/68881 or a 68030 or a 68040.  The generated code does use the
 68881 instructions that are emulated on the 68060.
 
+The option is equivalent to @option{-march=68020} @option{-mtune=68020-60}.
+
+@item -mhard-float
+@itemx -m68881
+@opindex mhard-float
+@opindex m68881
+Generate floating-point instructions.  This is the default for 68020
+and above, and for ColdFire devices that have an FPU.  It defines the
+macro @samp{__HAVE_68881__} on M680x0 targets and @samp{__mcffpu__}
+on ColdFire targets.
+
 @item -msoft-float
 @opindex msoft-float
-Generate output containing library calls for floating point.
-@strong{Warning:} the requisite libraries are not available for all m68k
-targets.  Normally the facilities of the machine's usual C compiler are
-used, but this can't be done directly in cross-compilation.  You must
-make your own arrangements to provide suitable library functions for
-cross-compilation.  The embedded targets @samp{m68k-*-aout} and
-@samp{m68k-*-coff} do provide software floating point support.
+Do not generate floating-point instructions; use library calls instead.
+This is the default for 68000, 68010, and 68832 targets.  It is also
+the default for ColdFire devices that have no FPU.
+
+@item -mdiv
+@itemx -mno-div
+@opindex mdiv
+@opindex mno-div
+Generate (do not generate) ColdFire hardware divide and remainder
+instructions.  If @option{-march} is used without @option{-mcpu},
+the default is ``on'' for ColdFire architectures and ``off'' for M680x0
+architectures.  Otherwise, the default is taken from the target CPU
+(either the default CPU, or the one specified by @option{-mcpu}).  For
+example, the default is ``off'' for @option{-mcpu=5206} and ``on'' for
+@option{-mcpu=5206e}.
+
+gcc defines the macro @samp{__mcfhwdiv__} when this option is enabled.
 
 @item -mshort
 @opindex mshort
@@ -10341,8 +10599,14 @@ Consider type @code{int} to be 16 bits wide, like @code{short int}.
 Additionally, parameters passed on the stack are also aligned to a
 16-bit boundary even on targets whose API mandates promotion to 32-bit.
 
+@item -mno-short
+@opindex -mno-short
+Do not consider type @code{int} to be 16 bits wide.  This is the default.
+
 @item -mnobitfield
+@itemx -mno-bitfield
 @opindex mnobitfield
+@opindex mno-bitfield
 Do not use the bit-field instructions.  The @option{-m68000}, @option{-mcpu32}
 and @option{-m5200} options imply @w{@option{-mnobitfield}}.
 
@@ -10375,6 +10639,11 @@ harmlessly ignored.)
 
 The @code{rtd} instruction is supported by the 68010, 68020, 68030,
 68040, 68060 and CPU32 processors, but not by the 68000 or 5200.
+
+@item -mno-rtd
+@opindex mno-rtd
+Do not use the calling conventions selected by @option{-mrtd}.
+This is the default.
 
 @item -malign-int
 @itemx -mno-align-int
@@ -10894,8 +11163,9 @@ to use an assembler that supports relocation operators.
 @itemx -mno-check-zero-division
 @opindex mcheck-zero-division
 @opindex mno-check-zero-division
-Trap (do not trap) on integer division by zero.  The default is
-@option{-mcheck-zero-division}.
+Trap (do not trap) on integer division by zero.
+
+The default is @option{-mcheck-zero-division}.
 
 @item -mdivide-traps
 @itemx -mdivide-breaks
@@ -11505,12 +11775,12 @@ those options will run best on that processor, and may not run at all on
 others.
 
 The @option{-mcpu} options automatically enable or disable the
-following options: @option{-maltivec}, @option{-mfprnd},
-@option{-mhard-float}, @option{-mmfcrf}, @option{-mmultiple},
-@option{-mnew-mnemonics}, @option{-mpopcntb}, @option{-mpower},
-@option{-mpower2}, @option{-mpowerpc64}, @option{-mpowerpc-gpopt},
-@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw},
-@option{-mdlmzb}, @option{-mmfpgpr}.
+following options:
+
+@gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
+-mnew-mnemonics  -mpopcntb  -mpower  -mpower2  -mpowerpc64 @gol
+-mpowerpc-gpopt  -mpowerpc-gfxopt  -mstring  -mmulhw  -mdlmzb  -mmfpgpr}
+
 The particular options set for any particular CPU will vary between
 compiler versions, depending on what setting seems to produce optimal
 code for that CPU; it doesn't necessarily reflect the actual hardware's
@@ -12582,11 +12852,11 @@ definition says that ptabs and ptrel trap when the target anded with 3 is 3.
 This has the unintentional effect of making it unsafe to schedule ptabs /
 ptrel before a branch, or hoist it out of a loop.  For example,
 __do_global_ctors, a part of libgcc that runs constructors at program
-startup, calls functions in a list which is delimited by -1.  With the
--mpt-fixed option, the ptabs will be done before testing against -1.
+startup, calls functions in a list which is delimited by @minus{}1.  With the
+-mpt-fixed option, the ptabs will be done before testing against @minus{}1.
 That means that all the constructors will be run a bit quicker, but when
 the loop comes to the end of the list, the program crashes because ptabs
-loads -1 into a target register.  Since this option is unsafe for any
+loads @minus{}1 into a target register.  Since this option is unsafe for any
 hardware implementing the current architecture specification, the default
 is -mno-pt-fixed.  Unless the user specifies a specific cost with
 @option{-mgettrcost}, -mno-pt-fixed also implies @option{-mgettrcost=100};
@@ -13918,7 +14188,8 @@ If GCC cannot find the subprogram using the specified prefix, it
 tries looking in the usual places for the subprogram.
 
 The default value of @env{GCC_EXEC_PREFIX} is
-@file{@var{prefix}/lib/gcc/} where @var{prefix} is the value
+@file{@var{prefix}/lib/gcc/} where @var{prefix} is the prefix to
+the installed compiler. In many cases @var{prefix} is the value
 of @code{prefix} when you ran the @file{configure} script.
 
 Other prefixes specified with @option{-B} take precedence over this prefix.
@@ -13934,7 +14205,9 @@ replacing that beginning with the specified prefix to produce an
 alternate directory name.  Thus, with @option{-Bfoo/}, GCC will search
 @file{foo/bar} where it would normally search @file{/usr/local/lib/bar}.
 These alternate directories are searched first; the standard directories
-come next.
+come next. If a standard directory begins with the configured 
+@var{prefix} then the value of @var{prefix} is replaced by 
+@env{GCC_EXEC_PREFIX} when looking for header files.
 
 @item COMPILER_PATH
 @findex COMPILER_PATH
@@ -14098,9 +14371,9 @@ which options are safe to change and which are not; the safest choice
 is to use exactly the same options when generating and using the
 precompiled header.  The following are known to be safe:
 
-@gccoptlist{-fmessage-length= -fpreprocessed
--fsched-interblock -fsched-spec -fsched-spec-load -fsched-spec-load-dangerous
--fsched-verbose=<number> -fschedule-insns -fvisibility=
+@gccoptlist{-fmessage-length=  -fpreprocessed  -fsched-interblock @gol
+-fsched-spec  -fsched-spec-load  -fsched-spec-load-dangerous @gol
+-fsched-verbose=<number>  -fschedule-insns  -fvisibility= @gol
 -pedantic-errors}
 
 @end itemize

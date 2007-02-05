@@ -1,6 +1,6 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -2452,9 +2452,7 @@ init_alias_analysis (void)
   if (reg_base_value)
     VEC_truncate (rtx, reg_base_value, 0);
 
-  VEC_safe_grow (rtx, gc, reg_base_value, maxreg);
-  memset (VEC_address (rtx, reg_base_value), 0,
-	  sizeof (rtx) * VEC_length (rtx, reg_base_value));
+  VEC_safe_grow_cleared (rtx, gc, reg_base_value, maxreg);
 
   new_reg_base_value = XNEWVEC (rtx, maxreg);
   reg_seen = XNEWVEC (char, maxreg);
@@ -2584,7 +2582,7 @@ init_alias_analysis (void)
 	}
 
       /* Now propagate values from new_reg_base_value to reg_base_value.  */
-      gcc_assert (maxreg == (unsigned int) max_reg_num());
+      gcc_assert (maxreg == (unsigned int) max_reg_num ());
 
       for (ui = 0; ui < maxreg; ui++)
 	{

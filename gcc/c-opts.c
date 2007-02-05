@@ -396,6 +396,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_strict_aliasing = value;
       warn_string_literal_comparison = value;
       warn_always_true = value;
+      warn_array_bounds = value;
 
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */
@@ -416,6 +417,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	  /* C++-specific warnings.  */
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
+          warn_cxx0x_compat = value;
           if (value > 0)
             warn_write_strings = true;
 	}
@@ -703,6 +705,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fimplicit_templates:
       flag_implicit_templates = value;
+      break;
+
+    case OPT_flax_vector_conversions:
+      flag_lax_vector_conversions = value;
       break;
 
     case OPT_fms_extensions:
@@ -1026,7 +1032,8 @@ c_common_post_options (const char **pfilename)
     flag_exceptions = 1;
 
   /* -Wextra implies -Wclobbered, -Wempty-body, -Wsign-compare, 
-     -Wmissing-field-initializers, -Wmissing-parameter-type and -Woverride-init, 
+     -Wmissing-field-initializers, -Wmissing-parameter-type
+     -Wold-style-declaration, and -Woverride-init, 
      but not if explicitly overridden.  */
   if (warn_clobbered == -1)
     warn_clobbered = extra_warnings;
@@ -1038,6 +1045,8 @@ c_common_post_options (const char **pfilename)
     warn_missing_field_initializers = extra_warnings;
   if (warn_missing_parameter_type == -1)
     warn_missing_parameter_type = extra_warnings;
+  if (warn_old_style_declaration == -1)
+    warn_old_style_declaration = extra_warnings;
   if (warn_override_init == -1)
     warn_override_init = extra_warnings;
 
@@ -1072,6 +1081,11 @@ c_common_post_options (const char **pfilename)
      -ffast-math and -fcx-limited-range are handled in process_options.  */
   if (flag_isoc99)
     flag_complex_method = 2;
+
+  /* If we're allowing C++0x constructs, don't warn about C++0x
+     compatibility problems.  */
+  if (flag_cpp0x)
+    warn_cxx0x_compat = 0;
 
   if (flag_preprocess_only)
     {

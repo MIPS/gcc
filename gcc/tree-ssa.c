@@ -380,17 +380,20 @@ verify_flow_insensitive_alias_info (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      size_t j;
-      var_ann_t ann;
-      VEC(tree,gc) *may_aliases;
+      unsigned int j;
+      bitmap aliases;
       tree alias;
+      bitmap_iterator bi;
 
-      ann = var_ann (var);
-      may_aliases = ann->may_aliases;
+      if (!MTAG_P (var) || !MTAG_ALIASES (var))
+	continue;
+      
+      aliases = MTAG_ALIASES (var);
 
-      for (j = 0; VEC_iterate (tree, may_aliases, j, alias); j++)
+      EXECUTE_IF_SET_IN_BITMAP (aliases, 0, j, bi)
 	{
-	  bitmap_set_bit (visited, DECL_UID (alias));
+	  alias = referenced_var (j);
+	  bitmap_set_bit (visited, j);
 
 	  if (TREE_CODE (alias) != MEMORY_PARTITION_TAG
 	      && !may_be_aliased (alias))
@@ -508,11 +511,11 @@ verify_call_clobbering (void)
   tree var;
   referenced_var_iterator rvi;
 
-  /* At all times, the result of the DECL_CALL_CLOBBERED flag should
+  /* At all times, the result of the call_clobbered flag should
      match the result of the call_clobbered_vars bitmap.  Verify both
      that everything in call_clobbered_vars is marked
-     DECL_CALL_CLOBBERED, and that everything marked
-     DECL_CALL_CLOBBERED is in call_clobbered_vars.  */
+     call_clobbered, and that everything marked
+     call_clobbered is in call_clobbered_vars.  */
   EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       var = referenced_var (i);
@@ -520,10 +523,10 @@ verify_call_clobbering (void)
       if (memory_partition (var))
 	var = memory_partition (var);
 
-      if (!MTAG_P (var) && !DECL_CALL_CLOBBERED (var))
+      if (!MTAG_P (var) && !var_ann (var)->call_clobbered)
 	{
 	  error ("variable in call_clobbered_vars but not marked "
-	         "DECL_CALL_CLOBBERED");
+	         "call_clobbered");
 	  debug_variable (var);
 	  goto err;
 	}
@@ -538,10 +541,10 @@ verify_call_clobbering (void)
 	var = memory_partition (var);
 
       if (!MTAG_P (var)
-	  && DECL_CALL_CLOBBERED (var)
+	  && var_ann (var)->call_clobbered
 	  && !bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)))
 	{
-	  error ("variable marked DECL_CALL_CLOBBERED but not in "
+	  error ("variable marked call_clobbered but not in "
 	         "call_clobbered_vars bitmap.");
 	  debug_variable (var);
 	  goto err;
@@ -778,7 +781,6 @@ init_tree_ssa (void)
 					       var_ann_eq, NULL);
   cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
-  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
 }
@@ -846,10 +848,13 @@ delete_tree_ssa (void)
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
+  if (gimple_aliases_computed_p (cfun))
+    {
+      delete_alias_heapvars ();
+      gcc_assert (!need_ssa_update_p ());
+    }
   cfun->gimple_df->aliases_computed_p = false;
 
-  delete_alias_heapvars ();
-  gcc_assert (!need_ssa_update_p ());
   cfun->gimple_df = NULL;
 }
 

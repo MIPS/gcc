@@ -64,7 +64,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Set this to 1 if you want the standard ISO C99 semantics of 'inline'
    when you specify -std=c99 or -std=gnu99, and to 0 if you want
-   behaviour compatible with the nonstandard semantics implemented by
+   behavior compatible with the nonstandard semantics implemented by
    GCC 2.95 through 4.2.  */
 #define WANT_C99_INLINE_SEMANTICS 1
 
@@ -761,13 +761,9 @@ pop_scope (void)
 	      error ("label %q+D used but not defined", p);
 	      DECL_INITIAL (p) = error_mark_node;
 	    }
-	  else if (!TREE_USED (p) && warn_unused_label)
-	    {
-	      if (DECL_INITIAL (p))
-		warning (0, "label %q+D defined but not used", p);
-	      else
-		warning (0, "label %q+D declared but not defined", p);
-	    }
+	  else 
+	    warn_for_unused_label (p);
+
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
@@ -7613,8 +7609,9 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
   gcc_assert (TREE_CODE (scspec) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (scspec));
   i = C_RID_CODE (scspec);
-  if (extra_warnings && specs->non_sc_seen_p)
-    warning (OPT_Wextra, "%qE is not at beginning of declaration", scspec);
+  if (specs->non_sc_seen_p)
+    warning (OPT_Wold_style_declaration, 
+             "%qE is not at beginning of declaration", scspec);
   switch (i)
     {
     case RID_INLINE:

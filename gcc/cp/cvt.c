@@ -251,9 +251,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	{
 	  /* A NULL pointer-to-member is represented by -1, not by
 	     zero.  */
-	  expr = build_int_cst (type, -1);
-	  /* Fix up the representation of -1 if appropriate.  */
-	  expr = force_fit_type (expr, 0, false, false);
+	  expr = build_int_cst_type (type, -1);
 	}
       else
 	expr = build_int_cst (type, 0);
@@ -996,7 +994,7 @@ convert_to_void (tree expr, const char *implicit)
 
    Most of this routine is from build_reinterpret_cast.
 
-   The backend cannot call cp_convert (what was convert) because
+   The back end cannot call cp_convert (what was convert) because
    conversions to/from basetypes may involve memory references
    (vbases) and adding or subtracting small values (multiple
    inheritance), but it calls convert from the constant folding code

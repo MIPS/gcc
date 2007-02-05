@@ -310,7 +310,54 @@ redirect_edge_and_branch (edge e, basic_block dest)
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
 
+  /* If RET != E, then the edge E was removed since RET already lead to the
+     same destination.  */
+  if (ret != NULL && current_loops != NULL)
+    rescan_loop_exit (e, false, ret != e);
+
   return ret;
+}
+
+/* Returns true if it is possible to remove the edge E by redirecting it
+   to the destination of the other edge going from its source.  */
+
+bool
+can_remove_branch_p (edge e)
+{
+  if (!cfg_hooks->can_remove_branch_p)
+    internal_error ("%s does not support can_remove_branch_p",
+		    cfg_hooks->name);
+
+  if (EDGE_COUNT (e->src->succs) != 2)
+    return false;
+
+  return cfg_hooks->can_remove_branch_p (e);
+}
+
+/* Removes E, by redirecting it to the destination of the other edge going
+   from its source.  Can_remove_branch_p must be true for E, hence this
+   operation cannot fail.  */
+
+void
+remove_branch (edge e)
+{
+  edge other;
+  basic_block src = e->src;
+  int irr;
+
+  gcc_assert (EDGE_COUNT (e->src->succs) == 2);
+
+  other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
+  irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
+
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  e = redirect_edge_and_branch (e, other->dest);
+  gcc_assert (e != NULL);
+
+  e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  e->flags |= irr;
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -320,19 +367,27 @@ redirect_edge_and_branch (edge e, basic_block dest)
 basic_block
 redirect_edge_and_branch_force (edge e, basic_block dest)
 {
-  basic_block ret;
+  basic_block ret, src = e->src;
   struct loop *loop;
 
   if (!cfg_hooks->redirect_edge_and_branch_force)
     internal_error ("%s does not support redirect_edge_and_branch_force",
 		    cfg_hooks->name);
 
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
   ret = cfg_hooks->redirect_edge_and_branch_force (e, dest);
-  if (current_loops != NULL && ret != NULL)
+  if (current_loops != NULL)
     {
-      loop = find_common_loop (single_pred (ret)->loop_father,
-			       single_succ (ret)->loop_father);
-      add_bb_to_loop (ret, loop);
+      if (ret != NULL)
+	{
+	  loop = find_common_loop (single_pred (ret)->loop_father,
+				   single_succ (ret)->loop_father);
+	  add_bb_to_loop (ret, loop);
+	}
+      else if (find_edge (src, dest) == e)
+	rescan_loop_exit (e, true, false);
     }
 
   return ret;
@@ -451,6 +506,9 @@ split_edge (edge e)
 
   if (!cfg_hooks->split_edge)
     internal_error ("%s does not support split_edge", cfg_hooks->name);
+
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
 
   ret = cfg_hooks->split_edge (e);
   ret->count = count;
@@ -595,11 +653,19 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   while (EDGE_COUNT (a->succs) != 0)
-   remove_edge (EDGE_SUCC (a, 0));
+    {
+      if (current_loops != NULL)
+	rescan_loop_exit (EDGE_SUCC (a, 0), false, true);
+      remove_edge (EDGE_SUCC (a, 0));
+    }
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
-    e->src = a;
+    {
+      e->src = a;
+      if (current_loops != NULL)
+	rescan_loop_exit (e, true, false);
+    }
   a->succs = b->succs;
   a->flags |= b->flags;
 

@@ -303,13 +303,12 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
-/* Return the may_aliases varray for variable VAR, or NULL if it has
+/* Return the may_aliases bitmap for variable VAR, or NULL if it has
    no may aliases.  */
-static inline VEC(tree, gc) *
+static inline bitmap
 may_aliases (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->may_aliases : NULL;
+  return MTAG_ALIASES (var);
 }
 
 /* Return the line number for EXPR, or return -1 if we have no line
@@ -919,7 +918,7 @@ static inline bool
 is_call_clobbered (tree var)
 {
   if (!MTAG_P (var))
-    return DECL_CALL_CLOBBERED (var);
+    return var_ann (var)->call_clobbered;
   else
     return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
 }
@@ -930,7 +929,7 @@ mark_call_clobbered (tree var, unsigned int escape_type)
 {
   var_ann (var)->escape_mask |= escape_type;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = true;
+    var_ann (var)->call_clobbered = true;
   bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -943,7 +942,7 @@ clear_call_clobbered (tree var)
   if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
     MTAG_GLOBAL (var) = 0;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = false;
+    var_ann (var)->call_clobbered = false;
   bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 

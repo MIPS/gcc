@@ -345,7 +345,7 @@ struct tree_overload GTY(())
    requested.  */
 #define BASELINK_OPTYPE(NODE) \
   (TREE_CHAIN (BASELINK_CHECK (NODE)))
-/* Non-zero if this baselink was from a qualified lookup.  */
+/* Nonzero if this baselink was from a qualified lookup.  */
 #define BASELINK_QUALIFIED_P(NODE) \
   TREE_LANG_FLAG_0 (BASELINK_CHECK (NODE))
 
@@ -2002,9 +2002,6 @@ struct lang_decl GTY(())
   (!DECL_TEMPLATE_PARM_P (NODE)					\
    && TREE_CODE (CP_DECL_CONTEXT (NODE)) == NAMESPACE_DECL)
 
-#define TYPE_NAMESPACE_SCOPE_P(NODE)				\
-  (TREE_CODE (CP_TYPE_CONTEXT (NODE)) == NAMESPACE_DECL)
-
 /* 1 iff NODE is a class member.  */
 #define DECL_CLASS_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) && TYPE_P (DECL_CONTEXT (NODE)))
@@ -2016,10 +2013,6 @@ struct lang_decl GTY(())
 #define DECL_FUNCTION_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) \
    && TREE_CODE (DECL_CONTEXT (NODE)) == FUNCTION_DECL)
-
-#define TYPE_FUNCTION_SCOPE_P(NODE) \
-  (TYPE_CONTEXT (NODE) \
-   && TREE_CODE (TYPE_CONTEXT (NODE)) == FUNCTION_DECL)
 
 /* 1 iff VAR_DECL node NODE is a type-info decl.  This flag is set for
    both the primary typeinfo object and the associated NTBS name.  */
@@ -2116,7 +2109,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
 /* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
    TEMPLATE_DECL, the entity is either a template specialization (if
-   DECL_USE_TEMPLATE is non-zero) or the abstract instance of the
+   DECL_USE_TEMPLATE is nonzero) or the abstract instance of the
    template itself.
 
    In either case, DECL_TEMPLATE_INFO is a TREE_LIST, whose
@@ -2875,7 +2868,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* Returns nonzero if NODE is a primary template.  */
 #define PRIMARY_TEMPLATE_P(NODE) (DECL_PRIMARY_TEMPLATE (NODE) == (NODE))
 
-/* Non-zero iff NODE is a specialization of a template.  The value
+/* Nonzero iff NODE is a specialization of a template.  The value
    indicates the type of specializations:
 
      1=implicit instantiation
@@ -2899,7 +2892,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
     
    both O<int>::f and O<int>::I will be marked as instantiations.
 
-   If DECL_USE_TEMPLATE is non-zero, then DECL_TEMPLATE_INFO will also
+   If DECL_USE_TEMPLATE is nonzero, then DECL_TEMPLATE_INFO will also
    be non-NULL.  */
 #define DECL_USE_TEMPLATE(NODE) (DECL_LANG_SPECIFIC (NODE)->decl_flags.use_template)
 
@@ -3047,13 +3040,9 @@ extern void decl_shadowed_for_var_insert (tree, tree);
   (TREE_LANG_FLAG_0 (SCOPE_REF_CHECK (NODE)))
 
 /* True for an OMP_ATOMIC that has dependent parameters.  These are stored
-   as bare LHS/RHS, and not as ADDR/RHS, as in the generic statement.  */
+   as an expr in operand 1, and integer_zero_node in operand 0.  */
 #define OMP_ATOMIC_DEPENDENT_P(NODE) \
-  (TREE_LANG_FLAG_0 (OMP_ATOMIC_CHECK (NODE)))
-
-/* Used to store the operation code when OMP_ATOMIC_DEPENDENT_P is set.  */
-#define OMP_ATOMIC_CODE(NODE) \
-  (OMP_ATOMIC_CHECK (NODE)->exp.complexity)
+  (TREE_CODE (TREE_OPERAND (OMP_ATOMIC_CHECK (NODE), 0)) == INTEGER_CST)
 
 /* Used while gimplifying continue statements bound to OMP_FOR nodes.  */
 #define OMP_FOR_GIMPLIFYING_P(NODE) \
@@ -3515,6 +3504,10 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define COMPARE_REDECLARATION 4 /* The comparison is being done when
 				   another declaration of an existing
 				   entity is seen.  */
+#define COMPARE_STRUCTURAL    8 /* The comparison is intended to be
+				   structural. The actual comparison
+				   will be identical to
+				   COMPARE_STRICT.  */
 
 /* Used with push_overloaded_decl.  */
 #define PUSH_GLOBAL	     0  /* Push the DECL into namespace scope,
@@ -4576,7 +4569,7 @@ extern void cp_genericize			(tree);
 
 /* -- end of C++ */
 
-/* In order for the format checking to accept the C++ frontend
+/* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
    toplev.h, not after.  We override the definition of GCC_DIAG_STYLE
    in c-common.h.  */

@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -115,7 +115,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
   /* We might as well always print the value of an integer or real.  */
   if (TREE_CODE (node) == INTEGER_CST)
     {
-      if (TREE_CONSTANT_OVERFLOW (node))
+      if (TREE_OVERFLOW (node))
 	fprintf (file, " overflow");
 
       fprintf (file, " ");
@@ -604,6 +604,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
 	       TYPE_ALIAS_SET (node));
 
+      if (TYPE_STRUCTURAL_EQUALITY_P (node))
+	fprintf (file, " structural equality");
+      else
+	dump_addr (file, " canonical type ", TYPE_CANONICAL (node));
+      
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 
       if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE)
@@ -696,7 +701,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       switch (TREE_CODE (node))
 	{
 	case INTEGER_CST:
-	  if (TREE_CONSTANT_OVERFLOW (node))
+	  if (TREE_OVERFLOW (node))
 	    fprintf (file, " overflow");
 
 	  fprintf (file, " ");

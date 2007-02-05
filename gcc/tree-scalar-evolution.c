@@ -1,5 +1,5 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -465,9 +465,11 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 
   else if (TREE_CODE (evolution_fn) == POLYNOMIAL_CHREC)
     {
-      if (CHREC_VARIABLE (evolution_fn) >= (unsigned) loop->num)
+      struct loop *inner_loop = get_chrec_loop (evolution_fn);
+
+      if (inner_loop == loop
+	  || flow_loop_nested_p (loop, inner_loop))
 	{
-	  struct loop *inner_loop = get_chrec_loop (evolution_fn);
 	  tree nb_iter = number_of_latch_executions (inner_loop);
 
 	  if (nb_iter == chrec_dont_know)
@@ -646,18 +648,21 @@ add_to_evolution_1 (unsigned loop_nb, tree chrec_before, tree to_add,
 		    tree at_stmt)
 {
   tree type, left, right;
+  struct loop *loop = get_loop (loop_nb), *chloop;
 
   switch (TREE_CODE (chrec_before))
     {
     case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) <= loop_nb)
+      chloop = get_chrec_loop (chrec_before);
+      if (chloop == loop
+	  || flow_loop_nested_p (chloop, loop))
 	{
 	  unsigned var;
 
 	  type = chrec_type (chrec_before);
 	  
 	  /* When there is no evolution part in this loop, build it.  */
-	  if (CHREC_VARIABLE (chrec_before) < loop_nb)
+	  if (chloop != loop)
 	    {
 	      var = loop_nb;
 	      left = chrec_before;
@@ -679,6 +684,8 @@ add_to_evolution_1 (unsigned loop_nb, tree chrec_before, tree to_add,
 	}
       else
 	{
+	  gcc_assert (flow_loop_nested_p (loop, chloop));
+
 	  /* Search the evolution in LOOP_NB.  */
 	  left = add_to_evolution_1 (loop_nb, CHREC_LEFT (chrec_before),
 				     to_add, at_stmt);
@@ -2837,9 +2844,8 @@ simple_iv (struct loop *loop, tree stmt, tree op, affine_iv *iv,
       || chrec_contains_symbols_defined_in_loop (iv->base, loop->num))
     return false;
 
-  iv->no_overflow = (!folded_casts
-		     && !flag_wrapv
-		     && !TYPE_UNSIGNED (type));
+  iv->no_overflow = !folded_casts && TYPE_OVERFLOW_UNDEFINED (type);
+
   return true;
 }
 

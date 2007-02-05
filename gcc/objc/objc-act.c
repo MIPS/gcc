@@ -908,6 +908,14 @@ objc_build_volatilized_type (tree type)
   t = build_variant_type_copy (type);
   TYPE_VOLATILE (t) = 1;
 
+  /* Set up the canonical type information. */
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (type) != type)
+    TYPE_CANONICAL (t) = objc_build_volatilized_type (TYPE_CANONICAL (type));
+  else
+    TYPE_CANONICAL (t) = t;
+
   return t;
 }
 
@@ -1370,7 +1378,13 @@ objc_get_protocol_qualified_type (tree interface, tree protocols)
 	 to the pointee.  */
       if (is_ptr)
 	{
-	  TREE_TYPE (type) = build_variant_type_copy (TREE_TYPE (type));
+	  tree orig_pointee_type = TREE_TYPE (type);
+	  TREE_TYPE (type) = build_variant_type_copy (orig_pointee_type);
+
+	  /* Set up the canonical type information. */
+	  TYPE_CANONICAL (type) 
+	    = TYPE_CANONICAL (TYPE_POINTER_TO (orig_pointee_type));
+
 	  TYPE_POINTER_TO (TREE_TYPE (type)) = type;
 	  type = TREE_TYPE (type);
 	}
@@ -1993,6 +2007,7 @@ objc_add_static_instance (tree constructor, tree class_decl)
   DECL_COMMON (decl) = 1;
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
+  TREE_USED (decl) = 1;
   DECL_INITIAL (decl) = constructor;
 
   /* We may be writing something else just now.
@@ -3284,7 +3299,7 @@ static hashval_t
 hash_interface (const void *p)
 {
   const struct interface_tuple *d = p;
-  return htab_hash_pointer (d->id);
+  return IDENTIFIER_HASH_VALUE (d->id);
 }
 
 static int
@@ -3313,7 +3328,7 @@ lookup_interface (tree ident)
       {
 	slot = (struct interface_tuple **)
 	  htab_find_slot_with_hash (interface_htab, ident,
-				    htab_hash_pointer (ident),
+				    IDENTIFIER_HASH_VALUE (ident),
 				    NO_INSERT);
 	if (slot && *slot)
 	  i = (*slot)->class_name;
@@ -6983,7 +6998,7 @@ add_class (tree class_name, tree name)
     interface_htab = htab_create_ggc (31, hash_interface, eq_interface, NULL);
   slot = (struct interface_tuple **)
     htab_find_slot_with_hash (interface_htab, name,
-			      htab_hash_pointer (name),
+			      IDENTIFIER_HASH_VALUE (name),
 			      INSERT);
   if (!*slot)
     {

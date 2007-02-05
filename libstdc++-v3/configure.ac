@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:10:0
+libtool_VERSION=6:9:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -86,6 +86,7 @@ AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
+AM_ICONV
 
 # Possibly disable most of the library.
 ## TODO: Consider skipping unncessary tests altogether in this case, rather
@@ -140,7 +141,6 @@ if $GLIBCXX_IS_NATIVE; then
   GLIBCXX_CHECK_MATH_SUPPORT
   GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-  GLIBCXX_CHECK_ICONV_SUPPORT
   GLIBCXX_CHECK_STDLIB_SUPPORT
 
   # For showmanyc_helper().

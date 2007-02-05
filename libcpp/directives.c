@@ -1,6 +1,7 @@
 /* CPP Library. (Directive handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -102,7 +103,7 @@ static void push_conditional (cpp_reader *, int, int, const cpp_hashnode *);
 static unsigned int read_flag (cpp_reader *, unsigned int);
 static int strtoul_for_line (const uchar *, unsigned int, unsigned long *);
 static void do_diagnostic (cpp_reader *, int, int);
-static cpp_hashnode *lex_macro_node (cpp_reader *);
+static cpp_hashnode *lex_macro_node (cpp_reader *, bool);
 static int undefine_macros (cpp_reader *, cpp_hashnode *, void *);
 static void do_include_common (cpp_reader *, enum include_type);
 static struct pragma_entry *lookup_pragma_entry (struct pragma_entry *,
@@ -502,9 +503,11 @@ run_directive (cpp_reader *pfile, int dir_no, const char *buf, size_t count)
 }
 
 /* Checks for validity the macro name in #define, #undef, #ifdef and
-   #ifndef directives.  */
+   #ifndef directives.  IS_DEF_OR_UNDEF is true if this call is
+   processing a #define or #undefine directive, and false
+   otherwise.  */
 static cpp_hashnode *
-lex_macro_node (cpp_reader *pfile)
+lex_macro_node (cpp_reader *pfile, bool is_def_or_undef)
 {
   const cpp_token *token = _cpp_lex_token (pfile);
 
@@ -519,7 +522,7 @@ lex_macro_node (cpp_reader *pfile)
     {
       cpp_hashnode *node = token->val.node;
 
-      if (node == pfile->spec_nodes.n_defined)
+      if (is_def_or_undef && node == pfile->spec_nodes.n_defined)
 	cpp_error (pfile, CPP_DL_ERROR,
 		   "\"defined\" cannot be used as a macro name");
       else if (! (node->flags & NODE_POISONED))
@@ -542,7 +545,7 @@ lex_macro_node (cpp_reader *pfile)
 static void
 do_define (cpp_reader *pfile)
 {
-  cpp_hashnode *node = lex_macro_node (pfile);
+  cpp_hashnode *node = lex_macro_node (pfile, true);
 
   if (node)
     {
@@ -561,7 +564,7 @@ do_define (cpp_reader *pfile)
 static void
 do_undef (cpp_reader *pfile)
 {
-  cpp_hashnode *node = lex_macro_node (pfile);
+  cpp_hashnode *node = lex_macro_node (pfile, true);
 
   if (node)
     {
@@ -772,7 +775,7 @@ do_include_next (cpp_reader *pfile)
 
   /* If this is the primary source file, warn and use the normal
      search logic.  */
-  if (! pfile->buffer->prev)
+  if (cpp_in_primary_file (pfile))
     {
       cpp_error (pfile, CPP_DL_WARNING,
 		 "#include_next in primary source file");
@@ -942,8 +945,8 @@ do_linemarker (cpp_reader *pfile)
 	  flag = read_flag (pfile, flag);
 	  if (flag == 4)
 	    new_sysp = 2;
-	  pfile->buffer->sysp = new_sysp;
 	}
+      pfile->buffer->sysp = new_sysp;
 
       check_eol (pfile);
     }
@@ -1346,7 +1349,7 @@ do_pragma (cpp_reader *pfile)
 static void
 do_pragma_once (cpp_reader *pfile)
 {
-  if (pfile->buffer->prev == NULL)
+  if (cpp_in_primary_file (pfile))
     cpp_error (pfile, CPP_DL_WARNING, "#pragma once in main file");
 
   check_eol (pfile);
@@ -1396,9 +1399,7 @@ do_pragma_poison (cpp_reader *pfile)
 static void
 do_pragma_system_header (cpp_reader *pfile)
 {
-  cpp_buffer *buffer = pfile->buffer;
-
-  if (buffer->prev == 0)
+  if (cpp_in_primary_file (pfile))
     cpp_error (pfile, CPP_DL_WARNING,
 	       "#pragma system_header ignored outside include file");
   else
@@ -1607,7 +1608,7 @@ do_ifdef (cpp_reader *pfile)
 
   if (! pfile->state.skipping)
     {
-      const cpp_hashnode *node = lex_macro_node (pfile);
+      const cpp_hashnode *node = lex_macro_node (pfile, false);
 
       if (node)
 	{
@@ -1629,7 +1630,7 @@ do_ifndef (cpp_reader *pfile)
 
   if (! pfile->state.skipping)
     {
-      node = lex_macro_node (pfile);
+      node = lex_macro_node (pfile, false);
 
       if (node)
 	{

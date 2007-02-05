@@ -407,6 +407,7 @@ global_alloc (void)
      are safe to use only within a basic block.  */
 
   CLEAR_HARD_REG_SET (no_global_alloc_regs);
+  CLEAR_HARD_REG_SET (eliminable_regset);
 
   compute_regs_asm_clobbered (regs_asm_clobbered);
   /* Build the regset of all eliminable registers and show we can't use those

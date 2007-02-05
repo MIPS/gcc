@@ -743,8 +743,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				  gen_rtx_LO_SUM (Pmode,
 						  hi_sum_reg, offset));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, pic_ref,
-						    REG_NOTES (insn));
+	      set_unique_reg_note (insn, REG_EQUAL, pic_ref);
 
 	      pic_ref = reg;
 #else
@@ -1132,6 +1131,10 @@ darwin_mergeable_string_section (tree exp,
   return readonly_data_section;
 }
 
+#ifndef HAVE_GAS_LITERAL16
+#define HAVE_GAS_LITERAL16 0
+#endif
+
 static section *
 darwin_mergeable_constant_section (tree exp,
 				   unsigned HOST_WIDE_INT align)
@@ -1157,7 +1160,8 @@ darwin_mergeable_constant_section (tree exp,
 	       && TREE_INT_CST_LOW (size) == 8
 	       && TREE_INT_CST_HIGH (size) == 0)
         return darwin_sections[literal8_section];
-      else if (TARGET_64BIT
+      else if (HAVE_GAS_LITERAL16
+	       && TARGET_64BIT
                && TREE_CODE (size) == INTEGER_CST
                && TREE_INT_CST_LOW (size) == 16
                && TREE_INT_CST_HIGH (size) == 0)
@@ -1322,7 +1326,8 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal4_section];
-  else if (TARGET_64BIT
+  else if (HAVE_GAS_LITERAL16
+	   && TARGET_64BIT
 	   && GET_MODE_SIZE (mode) == 16
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE

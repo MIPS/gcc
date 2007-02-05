@@ -665,15 +665,18 @@ ccp_initialize (void)
 
 
 /* Do final substitution of propagated values, cleanup the flowgraph and
-   free allocated storage.  */
+   free allocated storage.  
 
-static void
+   Return TRUE when something was optimized.  */
+
+static bool
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  substitute_and_fold (const_val, false);
+  bool something_changed = substitute_and_fold (const_val, false);
 
   free (const_val);
+  return something_changed;;
 }
 
 
@@ -1397,21 +1400,24 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
 /* Main entry point for SSA Conditional Constant Propagation.  */
 
-static void
+static unsigned int
 execute_ssa_ccp (bool store_ccp)
 {
   do_store_ccp = store_ccp;
   ccp_initialize ();
   ssa_propagate (ccp_visit_stmt, ccp_visit_phi_node);
-  ccp_finalize ();
+  if (ccp_finalize ())
+    return (TODO_cleanup_cfg | TODO_update_ssa | TODO_update_smt_usage
+	    | TODO_remove_unused_locals);
+  else
+    return 0;
 }
 
 
 static unsigned int
 do_ssa_ccp (void)
 {
-  execute_ssa_ccp (false);
-  return 0;
+  return execute_ssa_ccp (false);
 }
 
 
@@ -1431,17 +1437,12 @@ struct tree_opt_pass pass_ccp =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CCP,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg
-    | TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1450,8 +1451,7 @@ static unsigned int
 do_ssa_store_ccp (void)
 {
   /* If STORE-CCP is not enabled, we just run regular CCP.  */
-  execute_ssa_ccp (flag_tree_store_ccp != 0);
-  return 0;
+  return execute_ssa_ccp (flag_tree_store_ccp != 0);
 }
 
 static bool
@@ -1477,13 +1477,8 @@ struct tree_opt_pass pass_store_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_cleanup_cfg
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1608,7 +1603,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 	  || lrem || hrem)
 	return NULL_TREE;
 
-      idx = build_int_cst_wide (NULL_TREE, lquo, hquo);
+      idx = build_int_cst_wide (TREE_TYPE (offset), lquo, hquo);
     }
 
   /* Assume the low bound is zero.  If there is a domain type, get the
@@ -2109,6 +2104,10 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
   
   if (TREE_CODE (arg) != SSA_NAME)
     {
+      if (TREE_CODE (arg) == COND_EXPR)
+        return get_maxval_strlen (COND_EXPR_THEN (arg), length, visited, type)
+               && get_maxval_strlen (COND_EXPR_ELSE (arg), length, visited, type);
+
       if (type == 2)
 	{
 	  val = arg;
@@ -2438,6 +2437,13 @@ fold_stmt (tree *stmt_p)
 	    }
 	}
     }
+  else if (TREE_CODE (rhs) == COND_EXPR)
+    {
+      tree temp = fold (COND_EXPR_COND (rhs));
+      if (temp != COND_EXPR_COND (rhs))
+        result = fold_build3 (COND_EXPR, TREE_TYPE (rhs), temp,
+                              COND_EXPR_THEN (rhs), COND_EXPR_ELSE (rhs));
+    }
 
   /* If we couldn't fold the RHS, hand over to the generic fold routines.  */
   if (result == NULL_TREE)
@@ -2624,9 +2630,7 @@ execute_fold_all_builtins (void)
     }
 
   /* Delete unreachable blocks.  */
-  if (cfg_changed)
-    cleanup_tree_cfg ();
-  return 0;
+  return cfg_changed ? TODO_cleanup_cfg : 0;
 }
 
 
@@ -2639,7 +2643,7 @@ struct tree_opt_pass pass_fold_builtins =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

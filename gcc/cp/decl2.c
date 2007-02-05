@@ -1394,7 +1394,7 @@ import_export_class (tree ctype)
   if (MULTIPLE_SYMBOL_SPACES && import_export == -1)
     import_export = 0;
 
-  /* Allow backends the chance to overrule the decision.  */
+  /* Allow back ends the chance to overrule the decision.  */
   if (targetm.cxx.import_export_class)
     import_export = targetm.cxx.import_export_class (ctype, import_export);
 
@@ -1446,7 +1446,7 @@ decl_needed_p (tree decl)
      emitted; they may be referred to from other object files.  */
   if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
     return true;
-  /* If this entity was used, let the back-end see it; it will decide
+  /* If this entity was used, let the back end see it; it will decide
      whether or not to emit it into the object file.  */
   if (TREE_USED (decl)
       || (DECL_ASSEMBLER_NAME_SET_P (decl)
@@ -2340,13 +2340,6 @@ start_objects (int method_type, int initp)
 
   body = begin_compound_stmt (BCS_FN_BODY);
 
-  /* We cannot allow these functions to be elided, even if they do not
-     have external linkage.  And, there's no point in deferring
-     compilation of these functions; they're all going to have to be
-     out anyhow.  */
-  DECL_INLINE (current_function_decl) = 0;
-  DECL_UNINLINABLE (current_function_decl) = 1;
-
   return body;
 }
 
@@ -2444,6 +2437,7 @@ start_static_storage_duration_function (unsigned count)
 			       type);
   TREE_PUBLIC (ssdf_decl) = 0;
   DECL_ARTIFICIAL (ssdf_decl) = 1;
+  DECL_INLINE (ssdf_decl) = 1;
 
   /* Put this function in the list of functions to be called from the
      static constructors and destructors.  */
@@ -2496,11 +2490,6 @@ start_static_storage_duration_function (unsigned count)
 
   /* Set up the scope of the outermost block in the function.  */
   body = begin_compound_stmt (BCS_FN_BODY);
-
-  /* This function must not be deferred because we are depending on
-     its compilation to tell us what is TREE_SYMBOL_REFERENCED.  */
-  DECL_INLINE (ssdf_decl) = 0;
-  DECL_UNINLINABLE (ssdf_decl) = 1;
 
   return body;
 }
@@ -2824,7 +2813,7 @@ write_out_vars (tree vars)
 }
 
 /* Generate a static constructor (if CONSTRUCTOR_P) or destructor
-   (otherwise) that will initialize all gobal objects with static
+   (otherwise) that will initialize all global objects with static
    storage duration having the indicated PRIORITY.  */
 
 static void
@@ -2933,7 +2922,7 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 }
 
 /* Called via LANGHOOK_CALLGRAPH_ANALYZE_EXPR.  It is supposed to mark
-   decls referenced from frontend specific constructs; it will be called
+   decls referenced from front-end specific constructs; it will be called
    only for language-specific tree nodes.
 
    Here we must deal with member pointers.  */
@@ -3146,7 +3135,7 @@ cp_write_global_declarations (void)
 	     through the loop.  That's because we need to know which
 	     vtables have been referenced, and TREE_SYMBOL_REFERENCED
 	     isn't computed until a function is finished, and written
-	     out.  That's a deficiency in the back-end.  When this is
+	     out.  That's a deficiency in the back end.  When this is
 	     fixed, these initialization functions could all become
 	     inline, with resulting performance improvements.  */
 	  tree ssdf_body;
@@ -3221,7 +3210,7 @@ cp_write_global_declarations (void)
 	  if (!DECL_SAVED_TREE (decl))
 	    continue;
 
-	  /* We lie to the back-end, pretending that some functions
+	  /* We lie to the back end, pretending that some functions
 	     are not defined when they really are.  This keeps these
 	     functions from being put out unnecessarily.  But, we must
 	     stop lying when the functions are referenced, or if they

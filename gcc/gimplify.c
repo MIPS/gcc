@@ -1,6 +1,7 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -1013,8 +1014,9 @@ voidify_wrapper_expr (tree wrapper, tree temp)
 	  /* The wrapper is on the RHS of an assignment that we're pushing
 	     down.  */
 	  gcc_assert (TREE_CODE (temp) == INIT_EXPR
+		      || TREE_CODE (temp) == GIMPLE_MODIFY_STMT
 		      || TREE_CODE (temp) == MODIFY_EXPR);
-	  TREE_OPERAND (temp, 1) = *p;
+	  GENERIC_TREE_OPERAND (temp, 1) = *p;
 	  *p = temp;
 	}
       else
@@ -1171,6 +1173,9 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   else
     {
       result = create_tmp_var (TREE_TYPE (result_decl), NULL);
+      if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+          || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
+        DECL_GIMPLE_REG_P (result) = 1;
 
       /* ??? With complex control flow (usually involving abnormal edges),
 	 we can wind up warning about an uninitialized value for this.  Due
@@ -3186,6 +3191,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    if (tret == GS_ERROR)
 	      ret = GS_ERROR;
 	  }
+	if (!is_gimple_reg (GENERIC_TREE_OPERAND (*expr_p, 0)))
+	  GENERIC_TREE_OPERAND (*expr_p, 1) = get_formal_tmp_var (ctor, pre_p);
       }
       break;
 
@@ -3460,46 +3467,6 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
   return ret;
 }
 
-/* Promote partial stores to COMPLEX variables to total stores.  *EXPR_P is
-   a MODIFY_EXPR with a lhs of a REAL/IMAGPART_EXPR of a variable with
-   DECL_GIMPLE_REG_P set.  */
-
-static enum gimplify_status
-gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
-{
-  enum tree_code code, ocode;
-  tree lhs, rhs, new_rhs, other, realpart, imagpart;
-
-  lhs = GENERIC_TREE_OPERAND (*expr_p, 0);
-  rhs = GENERIC_TREE_OPERAND (*expr_p, 1);
-  code = TREE_CODE (lhs);
-  lhs = TREE_OPERAND (lhs, 0);
-
-  ocode = code == REALPART_EXPR ? IMAGPART_EXPR : REALPART_EXPR;
-  other = build1 (ocode, TREE_TYPE (rhs), lhs);
-  other = get_formal_tmp_var (other, pre_p);
-
-  realpart = code == REALPART_EXPR ? rhs : other;
-  imagpart = code == REALPART_EXPR ? other : rhs;
-
-  if (TREE_CONSTANT (realpart) && TREE_CONSTANT (imagpart))
-    new_rhs = build_complex (TREE_TYPE (lhs), realpart, imagpart);
-  else
-    new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
-
-  GENERIC_TREE_OPERAND (*expr_p, 0) = lhs;
-  GENERIC_TREE_OPERAND (*expr_p, 1) = new_rhs;
-
-  if (want_value)
-    {
-      append_to_statement_list (*expr_p, pre_p);
-      *expr_p = rhs;
-    }
-
-  return GS_ALL_DONE;
-}
-
-
 /* Destructively convert the TREE pointer in TP into a gimple tuple if
    appropriate.  */
 
@@ -3544,6 +3511,47 @@ tree_to_gimple_tuple (tree *tp)
     default:
       break;
     }
+}
+
+/* Promote partial stores to COMPLEX variables to total stores.  *EXPR_P is
+   a MODIFY_EXPR with a lhs of a REAL/IMAGPART_EXPR of a variable with
+   DECL_GIMPLE_REG_P set.  */
+
+static enum gimplify_status
+gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
+{
+  enum tree_code code, ocode;
+  tree lhs, rhs, new_rhs, other, realpart, imagpart;
+
+  lhs = GENERIC_TREE_OPERAND (*expr_p, 0);
+  rhs = GENERIC_TREE_OPERAND (*expr_p, 1);
+  code = TREE_CODE (lhs);
+  lhs = TREE_OPERAND (lhs, 0);
+
+  ocode = code == REALPART_EXPR ? IMAGPART_EXPR : REALPART_EXPR;
+  other = build1 (ocode, TREE_TYPE (rhs), lhs);
+  other = get_formal_tmp_var (other, pre_p);
+
+  realpart = code == REALPART_EXPR ? rhs : other;
+  imagpart = code == REALPART_EXPR ? other : rhs;
+
+  if (TREE_CONSTANT (realpart) && TREE_CONSTANT (imagpart))
+    new_rhs = build_complex (TREE_TYPE (lhs), realpart, imagpart);
+  else
+    new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
+
+  GENERIC_TREE_OPERAND (*expr_p, 0) = lhs;
+  GENERIC_TREE_OPERAND (*expr_p, 1) = new_rhs;
+
+  if (want_value)
+    {
+      tree_to_gimple_tuple (expr_p);
+
+      append_to_statement_list (*expr_p, pre_p);
+      *expr_p = rhs;
+    }
+
+  return GS_ALL_DONE;
 }
 
 /* Gimplify the MODIFY_EXPR node pointed to by EXPR_P.
@@ -4292,7 +4300,11 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       fb_none);
 	}
       if (ret == GS_ERROR)
-	return GS_ERROR;
+	{
+	  /* PR c++/28266 Make sure this is expanded only once. */
+	  TARGET_EXPR_INITIAL (targ) = NULL_TREE;
+	  return GS_ERROR;
+	}
       append_to_statement_list (init, pre_p);
 
       /* If needed, push the cleanup for the temp.  */
@@ -4497,8 +4509,11 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
       /* We're going to make use of the TYPE_SIZE_UNIT at least in the 
 	 alloca statement we generate for the variable, so make sure it
 	 is available.  This isn't automatically needed for the SHARED
-	 case, since we won't be allocating local storage then.  */
-      else
+	 case, since we won't be allocating local storage then.
+	 For local variables TYPE_SIZE_UNIT might not be gimplified yet,
+	 in this case omp_notice_variable will be called later
+	 on when it is gimplified.  */
+      else if (! (flags & GOVD_LOCAL))
 	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
     }
   else if (lang_hooks.decls.omp_privatize_by_reference (decl))
@@ -4656,6 +4671,31 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
     return !is_global_var (decl);
 }
 
+/* Return true if DECL is private within a parallel region
+   that binds to the current construct's context or in parallel
+   region's REDUCTION clause.  */
+
+static bool
+omp_check_private (struct gimplify_omp_ctx *ctx, tree decl)
+{
+  splay_tree_node n;
+
+  do
+    {
+      ctx = ctx->outer_context;
+      if (ctx == NULL)
+	return !(is_global_var (decl)
+		 /* References might be private, but might be shared too.  */
+		 || lang_hooks.decls.omp_privatize_by_reference (decl));
+
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+      if (n != NULL)
+	return (n->value & GOVD_SHARED) == 0;
+    }
+  while (!ctx->is_parallel);
+  return false;
+}
+
 /* Scan the OpenMP clauses in *LIST_P, installing mappings into a new
    and previous omp contexts.  */
 
@@ -4674,6 +4714,7 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
       enum gimplify_status gs;
       bool remove = false;
       bool notice_outer = true;
+      const char *check_non_private = NULL;
       unsigned int flags;
       tree decl;
 
@@ -4688,12 +4729,15 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	  goto do_add;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  flags = GOVD_FIRSTPRIVATE | GOVD_EXPLICIT;
+	  check_non_private = "firstprivate";
 	  goto do_add;
 	case OMP_CLAUSE_LASTPRIVATE:
 	  flags = GOVD_LASTPRIVATE | GOVD_SEEN | GOVD_EXPLICIT;
+	  check_non_private = "lastprivate";
 	  goto do_add;
 	case OMP_CLAUSE_REDUCTION:
 	  flags = GOVD_REDUCTION | GOVD_SEEN | GOVD_EXPLICIT;
+	  check_non_private = "reduction";
 	  goto do_add;
 
 	do_add:
@@ -4743,6 +4787,14 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	do_notice:
 	  if (outer_ctx)
 	    omp_notice_variable (outer_ctx, decl, true);
+	  if (check_non_private
+	      && !in_parallel
+	      && omp_check_private (ctx, decl))
+	    {
+	      error ("%s variable %qs is private in outer context",
+		     check_non_private, IDENTIFIER_POINTER (DECL_NAME (decl)));
+	      remove = true;
+	    }
 	  break;
 
 	case OMP_CLAUSE_IF:

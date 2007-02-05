@@ -1,3 +1,23 @@
+2007-01-23  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/27438
+	* objc-act.c (objc_add_static_instance): Mark the decl as
+	TREE_USED.
+
+2007-01-20  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/30479
+	* objc-act.c (hash_interface): Use IDENTIFIER_HASH_VALUE instead
+	of htab_hash_pointer.
+	(lookup_interface): Likewise.
+	(add_class): Likewise.
+
+2007-01-02  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* objc-act.c (objc_build_volatilized_type): Keep track of
+	canonical types.
+	(objc_get_protocol_qualified_type): Ditto.
+	
 2006-11-02  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* objc-act.c (objc_finish_file): Remove ifdef clause for OBJCPLUS and

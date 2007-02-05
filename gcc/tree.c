@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -605,6 +605,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       TYPE_ALIGN (t) = BITS_PER_UNIT;
       TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
+      TYPE_CANONICAL (t) = t;
 
       /* Default to no attributes for type, but let target change that.  */
       TYPE_ATTRIBUTES (t) = NULL_TREE;
@@ -751,6 +752,10 @@ copy_list (tree list)
 tree
 build_int_cst (tree type, HOST_WIDE_INT low)
 {
+  /* Support legacy code.  */
+  if (!type)
+    type = integer_type_node;
+
   return build_int_cst_wide (type, low, low < 0 ? -1 : 0);
 }
 
@@ -774,53 +779,25 @@ build_int_cstu (tree type, unsigned HOST_WIDE_INT low)
 tree
 build_int_cst_type (tree type, HOST_WIDE_INT low)
 {
-  unsigned HOST_WIDE_INT val = (unsigned HOST_WIDE_INT) low;
-  unsigned HOST_WIDE_INT hi, mask;
-  unsigned bits;
-  bool signed_p;
-  bool negative;
+  unsigned HOST_WIDE_INT low1;
+  HOST_WIDE_INT hi;
 
-  if (!type)
-    type = integer_type_node;
+  gcc_assert (type);
 
-  bits = TYPE_PRECISION (type);
-  signed_p = !TYPE_UNSIGNED (type);
+  fit_double_type (low, low < 0 ? -1 : 0, &low1, &hi, type);
 
-  if (bits >= HOST_BITS_PER_WIDE_INT)
-    negative = (low < 0);
-  else
-    {
-      /* If the sign bit is inside precision of LOW, use it to determine
-	 the sign of the constant.  */
-      negative = ((val >> (bits - 1)) & 1) != 0;
+  return build_int_cst_wide (type, low1, hi);
+}
 
-      /* Mask out the bits outside of the precision of the constant.  */
-      mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
+/* Create an INT_CST node of TYPE and value HI:LOW.  The value is truncated
+   and sign extended according to the value range of TYPE.  */
 
-      if (signed_p && negative)
-	val |= ~mask;
-      else
-	val &= mask;
-    }
-
-  /* Determine the high bits.  */
-  hi = (negative ? ~(unsigned HOST_WIDE_INT) 0 : 0);
-
-  /* For unsigned type we need to mask out the bits outside of the type
-     precision.  */
-  if (!signed_p)
-    {
-      if (bits <= HOST_BITS_PER_WIDE_INT)
-	hi = 0;
-      else
-	{
-	  bits -= HOST_BITS_PER_WIDE_INT;
-	  mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
-	  hi &= mask;
-	}
-    }
-
-  return build_int_cst_wide (type, val, hi);
+tree
+build_int_cst_wide_type (tree type,
+			 unsigned HOST_WIDE_INT low, HOST_WIDE_INT high)
+{
+  fit_double_type (low, high, &low, &high, type);
+  return build_int_cst_wide (type, low, high);
 }
 
 /* These are the hash table functions for the hash table of INTEGER_CST
@@ -851,10 +828,9 @@ int_cst_hash_eq (const void *x, const void *y)
 	  && TREE_INT_CST_LOW (xt) == TREE_INT_CST_LOW (yt));
 }
 
-/* Create an INT_CST node of TYPE and value HI:LOW.  If TYPE is NULL,
-   integer_type_node is used.  The returned node is always shared.
-   For small integers we use a per-type vector cache, for larger ones
-   we use a single hash table.  */
+/* Create an INT_CST node of TYPE and value HI:LOW.
+   The returned node is always shared.  For small integers we use a
+   per-type vector cache, for larger ones we use a single hash table.  */
 
 tree
 build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
@@ -863,8 +839,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
   int ix = -1;
   int limit = 0;
 
-  if (!type)
-    type = integer_type_node;
+  gcc_assert (type);
 
   switch (TREE_CODE (type))
     {
@@ -1022,7 +997,7 @@ tree
 build_vector (tree type, tree vals)
 {
   tree v = make_node (VECTOR_CST);
-  int over1 = 0, over2 = 0;
+  int over = 0;
   tree link;
 
   TREE_VECTOR_CST_ELTS (v) = vals;
@@ -1037,13 +1012,10 @@ build_vector (tree type, tree vals)
       if (!CONSTANT_CLASS_P (value))
 	continue;
 
-      over1 |= TREE_OVERFLOW (value);
-      over2 |= TREE_CONSTANT_OVERFLOW (value);
+      over |= TREE_OVERFLOW (value);
     }
 
-  TREE_OVERFLOW (v) = over1;
-  TREE_CONSTANT_OVERFLOW (v) = over2;
-
+  TREE_OVERFLOW (v) = over;
   return v;
 }
 
@@ -1140,7 +1112,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
 
   TREE_TYPE (v) = type;
   TREE_REAL_CST_PTR (v) = dp;
-  TREE_OVERFLOW (v) = TREE_CONSTANT_OVERFLOW (v) = overflow;
+  TREE_OVERFLOW (v) = overflow;
   return v;
 }
 
@@ -1174,7 +1146,6 @@ build_real_from_int_cst (tree type, tree i)
   v = build_real (type, real_value_from_int_cst (type, i));
 
   TREE_OVERFLOW (v) |= overflow;
-  TREE_CONSTANT_OVERFLOW (v) |= overflow;
   return v;
 }
 
@@ -1223,8 +1194,6 @@ build_complex (tree type, tree real, tree imag)
   TREE_IMAGPART (t) = imag;
   TREE_TYPE (t) = type ? type : build_complex_type (TREE_TYPE (real));
   TREE_OVERFLOW (t) = TREE_OVERFLOW (real) | TREE_OVERFLOW (imag);
-  TREE_CONSTANT_OVERFLOW (t)
-    = TREE_CONSTANT_OVERFLOW (real) | TREE_CONSTANT_OVERFLOW (imag);
   return t;
 }
 
@@ -1813,9 +1782,6 @@ size_in_bytes (tree type)
       lang_hooks.types.incomplete_type_error (NULL_TREE, type);
       return size_zero_node;
     }
-
-  if (TREE_CODE (t) == INTEGER_CST)
-    t = force_fit_type (t, 0, false, false);
 
   return t;
 }
@@ -3620,6 +3586,12 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       TYPE_REFERENCE_TO (ntype) = 0;
       TYPE_ATTRIBUTES (ntype) = attribute;
 
+      if (TYPE_STRUCTURAL_EQUALITY_P (ttype))
+	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
+      else
+	TYPE_CANONICAL (ntype)
+	  = build_qualified_type (TYPE_CANONICAL (ttype), quals);
+
       /* Create a new main variant of TYPE.  */
       TYPE_MAIN_VARIANT (ntype) = ntype;
       TYPE_NEXT_VARIANT (ntype) = 0;
@@ -3657,6 +3629,13 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	}
 
       ntype = type_hash_canon (hashcode, ntype);
+
+      /* If the target-dependent attributes make NTYPE different from
+	 its canonical type, we will need to use structural equality
+	 checks for this qualified type. */
+      if (!targetm.comp_type_attributes (ntype, ttype))
+	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
+
       ttype = build_qualified_type (ntype, quals);
     }
 
@@ -4104,13 +4083,28 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      if (TYPE_STRUCTURAL_EQUALITY_P (type))
+	/* Propagate structural equality. */
+	SET_TYPE_STRUCTURAL_EQUALITY (t);
+      else if (TYPE_CANONICAL (type) != type)
+	/* Build the underlying canonical type, since it is different
+	   from TYPE. */
+	TYPE_CANONICAL (t) = build_qualified_type (TYPE_CANONICAL (type),
+						   type_quals);
+      else
+	/* T is its own canonical type. */
+	TYPE_CANONICAL (t) = t;
+      
     }
 
   return t;
 }
 
 /* Create a new distinct copy of TYPE.  The new type is made its own
-   MAIN_VARIANT.  */
+   MAIN_VARIANT. If TYPE requires structural equality checks, the
+   resulting type requires structural equality checks; otherwise, its
+   TYPE_CANONICAL points to itself. */
 
 tree
 build_distinct_type_copy (tree type)
@@ -4120,6 +4114,13 @@ build_distinct_type_copy (tree type)
   TYPE_POINTER_TO (t) = 0;
   TYPE_REFERENCE_TO (t) = 0;
 
+  /* Set the canonical type either to a new equivalence class, or
+     propagate the need for structural equality checks. */
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else
+    TYPE_CANONICAL (t) = t;
+
   /* Make it its own variant.  */
   TYPE_MAIN_VARIANT (t) = t;
   TYPE_NEXT_VARIANT (t) = 0;
@@ -4127,8 +4128,11 @@ build_distinct_type_copy (tree type)
   return t;
 }
 
-/* Create a new variant of TYPE, equivalent but distinct.
-   This is so the caller can modify it.  */
+/* Create a new variant of TYPE, equivalent but distinct.  This is so
+   the caller can modify it. TYPE_CANONICAL for the return type will
+   be equivalent to TYPE_CANONICAL of TYPE, indicating that the types
+   are considered equal by the language itself (or that both types
+   require structural equality checks). */
 
 tree
 build_variant_type_copy (tree type)
@@ -4136,6 +4140,10 @@ build_variant_type_copy (tree type)
   tree t, m = TYPE_MAIN_VARIANT (type);
 
   t = build_distinct_type_copy (type);
+
+  /* Since we're building a variant, assume that it is a non-semantic
+     variant. This also propagates TYPE_STRUCTURAL_EQUALITY_P. */
+  TYPE_CANONICAL (t) = TYPE_CANONICAL (type);
   
   /* Add the new type to the chain of variants of TYPE.  */
   TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
@@ -5237,6 +5245,13 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
   TYPE_NEXT_PTR_TO (t) = TYPE_POINTER_TO (to_type);
   TYPE_POINTER_TO (to_type) = t;
 
+  if (TYPE_STRUCTURAL_EQUALITY_P (to_type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (to_type) != to_type)
+    TYPE_CANONICAL (t)
+      = build_pointer_type_for_mode (TYPE_CANONICAL (to_type),
+				     mode, can_alias_all);
+
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.  */
   layout_type (t);
@@ -5285,6 +5300,13 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
   TYPE_NEXT_REF_TO (t) = TYPE_REFERENCE_TO (to_type);
   TYPE_REFERENCE_TO (to_type) = t;
+
+  if (TYPE_STRUCTURAL_EQUALITY_P (to_type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (to_type) != to_type)
+    TYPE_CANONICAL (t) 
+      = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
+				       mode, can_alias_all);
 
   layout_type (t);
 
@@ -5352,7 +5374,12 @@ build_index_type (tree maxval)
   if (host_integerp (maxval, 1))
     return type_hash_canon (tree_low_cst (maxval, 1), itype);
   else
-    return itype;
+    {
+      /* Since we cannot hash this type, we need to compare it using
+	 structural equality checks. */
+      SET_TYPE_STRUCTURAL_EQUALITY (itype);
+      return itype;
+    }
 }
 
 /* Builds a signed or unsigned integer type of precision PRECISION.
@@ -5444,6 +5471,16 @@ build_array_type (tree elt_type, tree index_type)
       t = type_hash_canon (hashcode, t);
       if (save == t)
 	layout_type (t);
+
+      if (TYPE_CANONICAL (t) == t)
+	{
+	  if (TYPE_STRUCTURAL_EQUALITY_P (elt_type))
+	    SET_TYPE_STRUCTURAL_EQUALITY (t);
+	  else if (TYPE_CANONICAL (elt_type) != elt_type)
+	    TYPE_CANONICAL (t) 
+	      = build_array_type (TYPE_CANONICAL (elt_type), index_type);
+	}
+
       return t;
     }
 
@@ -5453,6 +5490,19 @@ build_array_type (tree elt_type, tree index_type)
 
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
+
+  if (TYPE_CANONICAL (t) == t)
+    {
+      if (TYPE_STRUCTURAL_EQUALITY_P (elt_type)
+	  || TYPE_STRUCTURAL_EQUALITY_P (index_type))
+	SET_TYPE_STRUCTURAL_EQUALITY (t);
+      else if (TYPE_CANONICAL (elt_type) != elt_type
+	       || TYPE_CANONICAL (index_type) != index_type)
+	TYPE_CANONICAL (t) 
+	  = build_array_type (TYPE_CANONICAL (elt_type),
+			      TYPE_CANONICAL (index_type));
+    }
+
   return t;
 }
 
@@ -5493,6 +5543,9 @@ build_function_type (tree value_type, tree arg_types)
   t = make_node (FUNCTION_TYPE);
   TREE_TYPE (t) = value_type;
   TYPE_ARG_TYPES (t) = arg_types;
+
+  /* We don't have canonicalization of function types, yet. */
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
 
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (value_type), hashcode);
@@ -5561,6 +5614,9 @@ build_method_type_directly (tree basetype,
   argtypes = tree_cons (NULL_TREE, ptype, argtypes);
   TYPE_ARG_TYPES (t) = argtypes;
 
+  /* We don't have canonicalization of method types yet. */
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
+
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (basetype), hashcode);
   hashcode = iterative_hash_object (TYPE_HASH (rettype), hashcode);
@@ -5612,6 +5668,18 @@ build_offset_type (tree basetype, tree type)
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
 
+  if (TYPE_CANONICAL (t) == t)
+    {
+      if (TYPE_STRUCTURAL_EQUALITY_P (basetype)
+	  || TYPE_STRUCTURAL_EQUALITY_P (type))
+	SET_TYPE_STRUCTURAL_EQUALITY (t);
+      else if (TYPE_CANONICAL (basetype) != basetype
+	       || TYPE_CANONICAL (type) != type)
+	TYPE_CANONICAL (t) 
+	  = build_offset_type (TYPE_CANONICAL (basetype), 
+			       TYPE_CANONICAL (type));
+    }
+
   return t;
 }
 
@@ -5634,6 +5702,15 @@ build_complex_type (tree component_type)
 
   if (!COMPLETE_TYPE_P (t))
     layout_type (t);
+
+  if (TYPE_CANONICAL (t) == t)
+    {
+      if (TYPE_STRUCTURAL_EQUALITY_P (component_type))
+	SET_TYPE_STRUCTURAL_EQUALITY (t);
+      else if (TYPE_CANONICAL (component_type) != component_type)
+	TYPE_CANONICAL (t) 
+	  = build_complex_type (TYPE_CANONICAL (component_type));
+    }
 
   /* If we are writing Dwarf2 output we need to create a name,
      since complex is a fundamental type.  */
@@ -5877,12 +5954,10 @@ get_narrower (tree op, int *unsignedp_ptr)
 	{
 	  if (first)
 	    uns = DECL_UNSIGNED (TREE_OPERAND (op, 1));
-	  win = build3 (COMPONENT_REF, type, TREE_OPERAND (op, 0),
-			TREE_OPERAND (op, 1), NULL_TREE);
-	  TREE_SIDE_EFFECTS (win) = TREE_SIDE_EFFECTS (op);
-	  TREE_THIS_VOLATILE (win) = TREE_THIS_VOLATILE (op);
+	  win = fold_convert (type, op);
 	}
     }
+
   *unsignedp_ptr = uns;
   return win;
 }
@@ -5896,12 +5971,13 @@ int_fits_type_p (tree c, tree type)
   tree type_low_bound = TYPE_MIN_VALUE (type);
   tree type_high_bound = TYPE_MAX_VALUE (type);
   bool ok_for_low_bound, ok_for_high_bound;
-  tree tmp;
+  unsigned HOST_WIDE_INT low;
+  HOST_WIDE_INT high;
 
   /* If at least one bound of the type is a constant integer, we can check
      ourselves and maybe make a decision. If no such decision is possible, but
      this type is a subtype, try checking against that.  Otherwise, use
-     force_fit_type, which checks against the precision.
+     fit_double_type, which checks against the precision.
 
      Compute the status for each possibly constant bound, and return if we see
      one does not match. Use ok_for_xxx_bound for this purpose, assigning -1
@@ -5956,12 +6032,10 @@ int_fits_type_p (tree c, tree type)
       && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
     return int_fits_type_p (c, TREE_TYPE (type));
 
-  /* Or to force_fit_type, if nothing else.  */
-  tmp = copy_node (c);
-  TREE_TYPE (tmp) = type;
-  tmp = force_fit_type (tmp, -1, false, false);
-  return TREE_INT_CST_HIGH (tmp) == TREE_INT_CST_HIGH (c)
-         && TREE_INT_CST_LOW (tmp) == TREE_INT_CST_LOW (c);
+  /* Or to fit_double_type, if nothing else.  */
+  low = TREE_INT_CST_LOW (c);
+  high = TREE_INT_CST_HIGH (c);
+  return !fit_double_type (low, high, &low, &high, type);
 }
 
 /* Subprogram of following function.  Called by walk_tree.
@@ -6653,6 +6727,13 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   TYPE_READONLY (t) = TYPE_READONLY (innertype);
   TYPE_VOLATILE (t) = TYPE_VOLATILE (innertype);
 
+  if (TYPE_STRUCTURAL_EQUALITY_P (innertype))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (innertype) != innertype
+	   || mode != VOIDmode)
+    TYPE_CANONICAL (t) 
+      = make_vector_type (TYPE_CANONICAL (innertype), nunits, VOIDmode);
+
   layout_type (t);
 
   {
@@ -6866,7 +6947,7 @@ build_common_tree_nodes_2 (int short_double)
        declare the type to be __builtin_va_list.  */
     if (TREE_CODE (t) != RECORD_TYPE)
       t = build_variant_type_copy (t);
-
+    
     va_list_type_node = t;
   }
 }
@@ -7384,44 +7465,6 @@ int_cst_value (tree x)
   return val;
 }
 
-/* Returns the greatest common divisor of A and B, which must be
-   INTEGER_CSTs.  */
-
-tree
-tree_fold_gcd (tree a, tree b)
-{
-  tree a_mod_b;
-  tree type = TREE_TYPE (a);
-
-  gcc_assert (TREE_CODE (a) == INTEGER_CST);
-  gcc_assert (TREE_CODE (b) == INTEGER_CST);
-
-  if (integer_zerop (a))
-    return b;
-
-  if (integer_zerop (b))
-    return a;
-
-  if (tree_int_cst_sgn (a) == -1)
-    a = fold_build2 (MULT_EXPR, type, a,
-		     build_int_cst (type, -1));
-
-  if (tree_int_cst_sgn (b) == -1)
-    b = fold_build2 (MULT_EXPR, type, b,
-		     build_int_cst (type, -1));
-
-  while (1)
-    {
-      a_mod_b = fold_build2 (FLOOR_MOD_EXPR, type, a, b);
-
-      if (!TREE_INT_CST_LOW (a_mod_b)
-	  && !TREE_INT_CST_HIGH (a_mod_b))
-	return b;
-
-      a = b;
-      b = a_mod_b;
-    }
-}
 
 /* Returns unsigned variant of TYPE.  */
 

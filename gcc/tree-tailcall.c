@@ -144,10 +144,10 @@ suitable_for_tail_opt_p (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-
       if (!is_global_var (var)
 	  && (!MTAG_P (var) || TREE_CODE (var) == STRUCT_FIELD_TAG)
-	  && is_call_clobbered (var))
+	  && (gimple_aliases_computed_p (cfun) ? is_call_clobbered (var)
+	      : TREE_ADDRESSABLE (var)))
 	return false;
     }
 
@@ -618,6 +618,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 {
   tree ret_stmt = last_stmt (bb), ret_var, var, stmt, tmp;
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
+  tree *ret_op;
   block_stmt_iterator bsi = bsi_last (bb);
 
   gcc_assert (TREE_CODE (ret_stmt) == RETURN_EXPR);
@@ -628,13 +629,11 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (TREE_CODE (ret_var) == GIMPLE_MODIFY_STMT)
     {
-      ret_var->base.ann = (tree_ann_t) stmt_ann (ret_stmt);
-      bsi_replace (&bsi, ret_var, true);
-      SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (ret_var, 0)) = ret_var;
-      ret_var = GIMPLE_STMT_OPERAND (ret_var, 0);
-      ret_stmt = build1 (RETURN_EXPR, TREE_TYPE (ret_stmt), ret_var);
-      bsi_insert_after (&bsi, ret_stmt, BSI_NEW_STMT);
+      ret_op = &GIMPLE_STMT_OPERAND (ret_var, 1);
+      ret_var = *ret_op;
     }
+  else
+    ret_op = &TREE_OPERAND (ret_stmt, 0);
 
   if (m)
     {
@@ -664,7 +663,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
 
-  TREE_OPERAND (ret_stmt, 0) = var;
+  *ret_op = var;
   update_stmt (ret_stmt);
 }
 
@@ -830,8 +829,6 @@ add_virtual_phis (void)
       if (!is_gimple_reg (var) && gimple_default_def (cfun, var) != NULL_TREE)
 	mark_sym_for_renaming (var);
     }
-
-  update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 /* Optimizes the tailcall described by T.  If OPT_TAILCALLS is true, also
@@ -866,7 +863,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
 /* Optimizes tail calls in the function, turning the tail recursion
    into iteration.  */
 
-static void
+static unsigned int
 tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
@@ -878,7 +875,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   edge_iterator ei;
 
   if (!suitable_for_tail_opt_p ())
-    return;
+    return 0;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
@@ -986,20 +983,19 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
     }
 
   if (changed)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      cleanup_tree_cfg ();
-    }
+    free_dominance_info (CDI_DOMINATORS);
 
   if (phis_constructed)
     add_virtual_phis ();
+  if (changed)
+    return TODO_cleanup_cfg | TODO_update_ssa_only_virtuals;
+  return 0;
 }
 
 static unsigned int
 execute_tail_recursion (void)
 {
-  tree_optimize_tail_calls_1 (false);
-  return 0;
+  return tree_optimize_tail_calls_1 (false);
 }
 
 static bool
@@ -1011,8 +1007,7 @@ gate_tail_calls (void)
 static unsigned int
 execute_tail_calls (void)
 {
-  tree_optimize_tail_calls_1 (true);
-  return 0;
+  return tree_optimize_tail_calls_1 (true);
 }
 
 struct tree_opt_pass pass_tail_recursion = 
@@ -1024,7 +1019,7 @@ struct tree_opt_pass pass_tail_recursion =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

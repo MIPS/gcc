@@ -26,8 +26,12 @@ details.  */
 #include <java/util/TimeZone.h>
 #include <java/lang/StringBuffer.h>
 #include <java/lang/Process.h>
-#include <java/lang/ConcreteProcess.h>
 #include <java/lang/ClassLoader.h>
+
+// It is convenient and safe to simply include all of these.
+#include <java/lang/Win32Process.h>
+#include <java/lang/EcosProcess.h>
+#include <java/lang/PosixProcess.h>
 
 #include <jni.h>
 
@@ -203,7 +207,14 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 	  // FIXME: what?
 	  return;
 	}
+
+      // Push a new frame so that JNI_OnLoad will get the right class
+      // loader if it calls FindClass.
+      ::java::lang::ClassLoader *loader
+	  = _Jv_StackTrace::GetFirstNonSystemClassLoader();
+      JNIEnv *env = _Jv_GetJNIEnvNewFrameWithLoader (loader);
       jint vers = ((jint (JNICALL *) (JavaVM *, void *)) onload) (vm, NULL);
+      _Jv_JNI_PopSystemFrame (env);
       if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2
 	  && vers != JNI_VERSION_1_4)
 	{
@@ -286,7 +297,7 @@ java::lang::Runtime::execInternal (jstringArray cmd,
 				   jstringArray env,
 				   java::io::File *dir)
 {
-  return new java::lang::ConcreteProcess (cmd, env, dir);
+  return new _Jv_platform_process (cmd, env, dir);
 }
 
 jint

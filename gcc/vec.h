@@ -66,8 +66,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    least as many elements as you ask for, it will exponentially
    increase if there are too few spare slots.  If you want reserve a
    specific number of slots, but do not want the exponential increase
-   (for instance, you know this is the last allocation), use a
-   negative number for reservation.  You can also create a vector of a
+   (for instance, you know this is the last allocation), use the
+   reserve_exact operation.  You can also create a vector of a
    specific size from the get go.
 
    You should prefer the push and pop operations, as they append and
@@ -238,15 +238,24 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Reserve space.
    int VEC_T_A_reserve(VEC(T,A) *&v, int reserve);
 
-   Ensure that V has at least abs(RESERVE) slots available.  The
-   signedness of RESERVE determines the reallocation behavior.  A
-   negative value will not create additional headroom beyond that
-   requested.  A positive value will create additional headroom.  Note
-   this can cause V to be reallocated.  Returns nonzero iff
-   reallocation actually occurred.  */
+   Ensure that V has at least RESERVE slots available.  This will
+   create additional headroom.  Note this can cause V to be
+   reallocated.  Returns nonzero iff reallocation actually
+   occurred.  */
 
 #define VEC_reserve(T,A,V,R)	\
 	(VEC_OP(T,A,reserve)(&(V),R VEC_CHECK_INFO MEM_STAT_INFO))
+
+/* Reserve space exactly.
+   int VEC_T_A_reserve_exact(VEC(T,A) *&v, int reserve);
+
+   Ensure that V has at least RESERVE slots available.  This will not
+   create additional headroom.  Note this can cause V to be
+   reallocated.  Returns nonzero iff reallocation actually
+   occurred.  */
+
+#define VEC_reserve_exact(T,A,V,R)	\
+	(VEC_OP(T,A,reserve_exact)(&(V),R VEC_CHECK_INFO MEM_STAT_INFO))
 
 /* Push object with no reallocation
    T *VEC_T_quick_push (VEC(T) *v, T obj); // Integer
@@ -301,6 +310,16 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #define VEC_safe_grow(T,A,V,I)		\
 	(VEC_OP(T,A,safe_grow)(&(V),I VEC_CHECK_INFO MEM_STAT_INFO))
+
+/* Grow to a specific length.
+   void VEC_T_A_safe_grow_cleared (VEC(T,A) *&v, int len);
+
+   Grow the vector to a specific length.  The LEN must be as
+   long or longer than the current length.  The new elements are
+   initialized to zero.  */
+
+#define VEC_safe_grow_cleared(T,A,V,I)		\
+	(VEC_OP(T,A,safe_grow_cleared)(&(V),I VEC_CHECK_INFO MEM_STAT_INFO))
 
 /* Replace element
    T VEC_T_replace (VEC(T) *v, unsigned ix, T val); // Integer
@@ -401,11 +420,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #if !IN_GENGTYPE
 /* Reallocate an array of elements with prefix.  */
 extern void *vec_gc_p_reserve (void *, int MEM_STAT_DECL);
+extern void *vec_gc_p_reserve_exact (void *, int MEM_STAT_DECL);
 extern void *vec_gc_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
+extern void *vec_gc_o_reserve_exact (void *, int, size_t, size_t
+				     MEM_STAT_DECL);
 extern void ggc_free (void *);
 #define vec_gc_free(V) ggc_free (V)
 extern void *vec_heap_p_reserve (void *, int MEM_STAT_DECL);
+extern void *vec_heap_p_reserve_exact (void *, int MEM_STAT_DECL);
 extern void *vec_heap_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
+extern void *vec_heap_o_reserve_exact (void *, int, size_t, size_t
+				       MEM_STAT_DECL);
 #define vec_heap_free(V) free (V)
 
 #if ENABLE_CHECKING
@@ -692,8 +717,8 @@ static inline unsigned VEC_OP (T,base,lower_bound)			  \
 static inline VEC(T,A) *VEC_OP (T,A,alloc)				  \
      (int alloc_ MEM_STAT_DECL)						  \
 {									  \
-  /* We must request exact size allocation, hence the negation.  */	  \
-  return (VEC(T,A) *) vec_##A##_p_reserve (NULL, -alloc_ PASS_MEM_STAT);  \
+  return (VEC(T,A) *) vec_##A##_p_reserve_exact (NULL, alloc_		  \
+						 PASS_MEM_STAT);	  \
 }									  \
 									  \
 static inline void VEC_OP (T,A,free)					  \
@@ -711,9 +736,8 @@ static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
 									  \
   if (len_)								  \
     {									  \
-      /* We must request exact size allocation, hence the negation. */	  \
-      new_vec_ = (VEC (T,A) *)(vec_##A##_p_reserve			  \
-			       (NULL, -len_ PASS_MEM_STAT));		  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_p_reserve_exact		  \
+			       (NULL, len_ PASS_MEM_STAT));		  \
 									  \
       new_vec_->base.num = len_;					  \
       memcpy (new_vec_->base.vec, vec_->vec, sizeof (T) * len_);	  \
@@ -724,12 +748,24 @@ static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
 static inline int VEC_OP (T,A,reserve)	       				  \
      (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
 {									  \
-  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_),			  \
-				       alloc_ < 0 ? -alloc_ : alloc_	  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
 				       VEC_CHECK_PASS);			  \
 		  							  \
   if (extend)	  							  \
     *vec_ = (VEC(T,A) *) vec_##A##_p_reserve (*vec_, alloc_ PASS_MEM_STAT); \
+		  							  \
+  return extend;							  \
+}									  \
+									  \
+static inline int VEC_OP (T,A,reserve_exact)  				  \
+     (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
+				       VEC_CHECK_PASS);			  \
+		  							  \
+  if (extend)	  							  \
+    *vec_ = (VEC(T,A) *) vec_##A##_p_reserve_exact (*vec_, alloc_	  \
+						    PASS_MEM_STAT);	  \
 		  							  \
   return extend;							  \
 }									  \
@@ -740,9 +776,19 @@ static inline void VEC_OP (T,A,safe_grow)				  \
   VEC_ASSERT (size_ >= 0						  \
 	      && VEC_OP(T,base,length) VEC_BASE(*vec_) <= (unsigned)size_, \
 						 "grow", T, A);		  \
-  VEC_OP (T,A,reserve) (vec_, (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) - size_ \
-			VEC_CHECK_PASS PASS_MEM_STAT);			  \
+  VEC_OP (T,A,reserve_exact) (vec_,					  \
+			      size_ - (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) \
+			      VEC_CHECK_PASS PASS_MEM_STAT);		  \
   VEC_BASE (*vec_)->num = size_;					  \
+}									  \
+									  \
+static inline void VEC_OP (T,A,safe_grow_cleared)			  \
+     (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int oldsize = VEC_OP(T,base,length) VEC_BASE(*vec_);			  \
+  VEC_OP (T,A,safe_grow) (vec_, size_ VEC_CHECK_PASS PASS_MEM_STAT);	  \
+  memset (&(VEC_OP (T,base,address) VEC_BASE(*vec_))[oldsize], 0,	  \
+	  sizeof (T) * (size_ - oldsize));				  \
 }									  \
 									  \
 static inline T *VEC_OP (T,A,safe_push)					  \
@@ -953,11 +999,10 @@ static inline unsigned VEC_OP (T,base,lower_bound)			  \
 static inline VEC(T,A) *VEC_OP (T,A,alloc)      			  \
      (int alloc_ MEM_STAT_DECL)						  \
 {									  \
-  /* We must request exact size allocation, hence the negation.  */	  \
-  return (VEC(T,A) *) vec_##A##_o_reserve (NULL, -alloc_,		  \
-                                           offsetof (VEC(T,A),base.vec),  \
-					   sizeof (T)			  \
-                                           PASS_MEM_STAT);		  \
+  return (VEC(T,A) *) vec_##A##_o_reserve_exact (NULL, alloc_,		  \
+						 offsetof (VEC(T,A),base.vec), \
+						 sizeof (T)		  \
+						 PASS_MEM_STAT);	  \
 }									  \
 									  \
 static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
@@ -967,9 +1012,8 @@ static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
 									  \
   if (len_)								  \
     {									  \
-      /* We must request exact size allocation, hence the negation. */	  \
-      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve			  \
-			       (NULL, -len_,				  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve_exact		  \
+			       (NULL, len_,				  \
 				offsetof (VEC(T,A),base.vec), sizeof (T)  \
 				PASS_MEM_STAT));			  \
 									  \
@@ -990,8 +1034,7 @@ static inline void VEC_OP (T,A,free)					  \
 static inline int VEC_OP (T,A,reserve)	   	    			  \
      (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
 {									  \
-  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_),			  \
-				       alloc_ < 0 ? -alloc_ : alloc_	  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
 				       VEC_CHECK_PASS);			  \
 									  \
   if (extend)								  \
@@ -1003,15 +1046,40 @@ static inline int VEC_OP (T,A,reserve)	   	    			  \
   return extend;							  \
 }									  \
 									  \
+static inline int VEC_OP (T,A,reserve_exact)   	    			  \
+     (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
+				       VEC_CHECK_PASS);			  \
+									  \
+  if (extend)								  \
+    *vec_ = (VEC(T,A) *) vec_##A##_o_reserve_exact			  \
+			 (*vec_, alloc_,				  \
+			  offsetof (VEC(T,A),base.vec),			  \
+			  sizeof (T) PASS_MEM_STAT);			  \
+									  \
+  return extend;							  \
+}									  \
+									  \
 static inline void VEC_OP (T,A,safe_grow)				  \
      (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
 {									  \
   VEC_ASSERT (size_ >= 0						  \
 	      && VEC_OP(T,base,length) VEC_BASE(*vec_) <= (unsigned)size_, \
 						 "grow", T, A);		  \
-  VEC_OP (T,A,reserve) (vec_, (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) - size_ \
-			VEC_CHECK_PASS PASS_MEM_STAT);			  \
+  VEC_OP (T,A,reserve_exact) (vec_,					  \
+			      size_ - (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) \
+			      VEC_CHECK_PASS PASS_MEM_STAT);		  \
   VEC_BASE (*vec_)->num = size_;					  \
+}									  \
+									  \
+static inline void VEC_OP (T,A,safe_grow_cleared)			  \
+     (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int oldsize = VEC_OP(T,base,length) VEC_BASE(*vec_);			  \
+  VEC_OP (T,A,safe_grow) (vec_, size_ VEC_CHECK_PASS PASS_MEM_STAT);	  \
+  memset (&(VEC_OP (T,base,address) VEC_BASE(*vec_))[oldsize], 0,	  \
+	  sizeof (T) * (size_ - oldsize));				  \
 }									  \
 									  \
 static inline T *VEC_OP (T,A,safe_push)					  \
@@ -1036,11 +1104,9 @@ static inline T *VEC_OP (T,A,safe_insert)		     	  	  \
 static inline VEC(T,A) *VEC_OP (T,A,alloc)      			  \
      (int alloc_ MEM_STAT_DECL)						  \
 {									  \
-  /* We must request exact size allocation, hence the negation.  */	  \
-  return (VEC(T,A) *) vec_##A##_o_reserve (NULL, -alloc_,		  \
-                                           offsetof (VEC(T,A),base.vec),  \
-					   sizeof (T)			  \
-                                           PASS_MEM_STAT);		  \
+  return (VEC(T,A) *) vec_##A##_o_reserve_exact				  \
+		      (NULL, alloc_, offsetof (VEC(T,A),base.vec),	  \
+		       sizeof (T) PASS_MEM_STAT);			  \
 }									  \
 									  \
 static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
@@ -1050,9 +1116,8 @@ static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
 									  \
   if (len_)								  \
     {									  \
-      /* We must request exact size allocation, hence the negation. */	  \
-      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve			  \
-			       (NULL, -len_,				  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve_exact		  \
+			       (NULL, len_,				  \
 				offsetof (VEC(T,A),base.vec), sizeof (T)  \
 				PASS_MEM_STAT));			  \
 									  \
@@ -1073,8 +1138,7 @@ static inline void VEC_OP (T,A,free)					  \
 static inline int VEC_OP (T,A,reserve)	   	    			  \
      (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
 {									  \
-  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_),			  \
-				       alloc_ < 0 ? -alloc_ : alloc_	  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
 				       VEC_CHECK_PASS);			  \
 									  \
   if (extend)								  \
@@ -1086,15 +1150,39 @@ static inline int VEC_OP (T,A,reserve)	   	    			  \
   return extend;							  \
 }									  \
 									  \
+static inline int VEC_OP (T,A,reserve_exact)   	    			  \
+     (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_), alloc_		  \
+				       VEC_CHECK_PASS);			  \
+									  \
+  if (extend)								  \
+    *vec_ = (VEC(T,A) *) vec_##A##_o_reserve_exact			  \
+			 (*vec_, alloc_, offsetof (VEC(T,A),base.vec),	  \
+			  sizeof (T) PASS_MEM_STAT);			  \
+									  \
+  return extend;							  \
+}									  \
+									  \
 static inline void VEC_OP (T,A,safe_grow)				  \
      (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
 {									  \
   VEC_ASSERT (size_ >= 0						  \
 	      && VEC_OP(T,base,length) VEC_BASE(*vec_) <= (unsigned)size_, \
 						 "grow", T, A);		  \
-  VEC_OP (T,A,reserve) (vec_, (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) - size_ \
-			VEC_CHECK_PASS PASS_MEM_STAT);			  \
+  VEC_OP (T,A,reserve_exact) (vec_,					  \
+			      size_ - (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) \
+			      VEC_CHECK_PASS PASS_MEM_STAT);		  \
   VEC_BASE (*vec_)->num = size_;					  \
+}									  \
+									  \
+static inline void VEC_OP (T,A,safe_grow_cleared)			  \
+     (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int oldsize = VEC_OP(T,base,length) VEC_BASE(*vec_);			  \
+  VEC_OP (T,A,safe_grow) (vec_, size_ VEC_CHECK_PASS PASS_MEM_STAT);	  \
+  memset (&(VEC_OP (T,base,address) VEC_BASE(*vec_))[oldsize], 0,	  \
+	  sizeof (T) * (size_ - oldsize));				  \
 }									  \
 									  \
 static inline T *VEC_OP (T,A,safe_push)					  \

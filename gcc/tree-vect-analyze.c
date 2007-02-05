@@ -57,7 +57,7 @@ static bool vect_determine_vectorization_factor (loop_vec_info);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_analyze_data_ref_dependence
-  (struct data_dependence_relation *, loop_vec_info, bool);
+  (struct data_dependence_relation *, loop_vec_info);
 static bool vect_compute_data_ref_alignment (struct data_reference *); 
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
@@ -109,52 +109,67 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
         {
-          tree stmt = bsi_stmt (si);
-          unsigned int nunits;
-          stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-          tree vectype;
+	  tree stmt = bsi_stmt (si);
+	  unsigned int nunits;
+	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+	  tree vectype;
 
-          if (vect_print_dump_info (REPORT_DETAILS))
-            {
-              fprintf (vect_dump, "==> examining statement: ");
-              print_generic_expr (vect_dump, stmt, TDF_SLIM);
-            }
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "==> examining statement: ");
+	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	    }
 
-          gcc_assert (stmt_info);
-          /* skip stmts which do not need to be vectorized.  */
-          if (!STMT_VINFO_RELEVANT_P (stmt_info)
+	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	    continue;
+
+	  gcc_assert (stmt_info);
+
+	  /* skip stmts which do not need to be vectorized.  */
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
 	      && !STMT_VINFO_LIVE_P (stmt_info))
-            {
-              if (vect_print_dump_info (REPORT_DETAILS))
-                fprintf (vect_dump, "skip.");
-              continue;
-            }
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "skip.");
+	      continue;
+	    }
 
-          if (!GIMPLE_STMT_P (stmt)
+	  if (!GIMPLE_STMT_P (stmt)
 	      && VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
-            {
-              if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-                {
-                  fprintf (vect_dump, "not vectorized: vector stmt in loop:");
-                  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-                }
-              return false;
-            }
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+	        {
+	          fprintf (vect_dump, "not vectorized: vector stmt in loop:");
+	          print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	        }
+	      return false;
+	    }
 
 	  if (STMT_VINFO_VECTYPE (stmt_info))
 	    {
+	      /* The only case when a vectype had been already set is for stmts 
+	         that contain a dataref, or for "pattern-stmts" (stmts generated
+		 by the vectorizer to represent/replace a certain idiom).  */
+	      gcc_assert (STMT_VINFO_DATA_REF (stmt_info) 
+			  || is_pattern_stmt_p (stmt_info));
 	      vectype = STMT_VINFO_VECTYPE (stmt_info);
-	      scalar_type = TREE_TYPE (vectype);
 	    }
 	  else
 	    {
-	      if (STMT_VINFO_DATA_REF (stmt_info))
-		scalar_type = 
-			TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (stmt_info)));
-	      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
-		scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
-	      else
-		scalar_type = TREE_TYPE (stmt);
+	      gcc_assert (! STMT_VINFO_DATA_REF (stmt_info)
+			  && !is_pattern_stmt_p (stmt_info));
+
+	      /* We set the vectype according to the type of the result (lhs).
+		 For stmts whose result-type is different than the type of the
+		 arguments (e.g. demotion, promotion), vectype will be reset 
+		 appropriately (later).  Note that we have to visit the smallest 
+		 datatype in this function, because that determines the VF.  
+		 If the smallest datatype in the loop is present only as the 
+		 rhs of a promotion operation - we'd miss it here.
+		 However, in such a case, that a variable of this datatype
+		 does not appear in the lhs anywhere in the loop, it shouldn't
+		 affect the vectorization factor.   */
+	      scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
 
 	      if (vect_print_dump_info (REPORT_DETAILS))
 		{
@@ -176,17 +191,17 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      STMT_VINFO_VECTYPE (stmt_info) = vectype;
             }
 
-          if (vect_print_dump_info (REPORT_DETAILS))
-            {
-              fprintf (vect_dump, "vectype: ");
-              print_generic_expr (vect_dump, vectype, TDF_SLIM);
-            }
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "vectype: ");
+	      print_generic_expr (vect_dump, vectype, TDF_SLIM);
+	    }
 
-          nunits = TYPE_VECTOR_SUBPARTS (vectype);
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "nunits = %d", nunits);
+	  nunits = TYPE_VECTOR_SUBPARTS (vectype);
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "nunits = %d", nunits);
 
-          if (!vectorization_factor
+	  if (!vectorization_factor
 	      || (nunits > vectorization_factor))
 	    vectorization_factor = nunits;
 
@@ -368,7 +383,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
         vectorization_factor, LOOP_VINFO_INT_NITERS (loop_vinfo));
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor)
+      && ((LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor)
+	  || (LOOP_VINFO_INT_NITERS (loop_vinfo) <=
+		((unsigned) (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND)) 
+					   * vectorization_factor))))
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 	fprintf (vect_dump, "not vectorized: iteration count too small.");
@@ -859,8 +877,7 @@ vect_check_interleaving (struct data_reference *dra,
       
 static bool
 vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
-                                  loop_vec_info loop_vinfo,
-				  bool check_interleaving)
+                                  loop_vec_info loop_vinfo)
 {
   unsigned int i;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -877,8 +894,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     {
       /* Independent data accesses.  */
-      if (check_interleaving)
-	vect_check_interleaving (dra, drb);
+      vect_check_interleaving (dra, drb);
       return false;
     }
 
@@ -933,7 +949,18 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      fprintf (vect_dump, " and ");
 	      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
 	    }
-	  continue;
+
+          /* For interleaving, mark that there is a read-write dependency if
+             necessary. We check before that one of the data-refs is store.  */ 
+          if (DR_IS_READ (dra))
+            DR_GROUP_READ_WRITE_DEPENDENCE (stmtinfo_a) = true;
+	  else
+            {
+              if (DR_IS_READ (drb))
+                DR_GROUP_READ_WRITE_DEPENDENCE (stmtinfo_b) = true;
+	    }
+	  
+          continue;
 	}
 
       if (abs (dist) >= vectorization_factor)
@@ -961,36 +988,6 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 }
 
 
-/* Function vect_check_dependences.
-
-    Return TRUE if there is a store-store or load-store dependence between
-    data-refs in DDR, otherwise return FALSE.  */
-
-static bool
-vect_check_dependences (struct data_dependence_relation *ddr)
-{
-  struct data_reference *dra = DDR_A (ddr);
-  struct data_reference *drb = DDR_B (ddr);
-
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_known || dra == drb)
-    /* Independent or same data accesses.  */
-    return false;
-
-  if (DR_IS_READ (dra) == DR_IS_READ (drb) && DR_IS_READ (dra))
-    /* Two loads.  */
-    return false;
-
-  if (vect_print_dump_info (REPORT_DR_DETAILS))
-    {
-      fprintf (vect_dump, "possible store or store/load dependence between ");
-      print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
-      fprintf (vect_dump, " and ");
-      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
-    }
-  return true;
-}
-
-
 /* Function vect_analyze_data_ref_dependences.
           
    Examine all the data references in the loop, and make sure there do not
@@ -1002,24 +999,12 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
   unsigned int i;
   VEC (ddr_p, heap) *ddrs = LOOP_VINFO_DDRS (loop_vinfo);
   struct data_dependence_relation *ddr;
-  bool check_interleaving = true;
 
   if (vect_print_dump_info (REPORT_DETAILS)) 
     fprintf (vect_dump, "=== vect_analyze_dependences ===");
      
-  /* We allow interleaving only if there are no store-store and load-store
-      dependencies in the loop.  */
   for (i = 0; VEC_iterate (ddr_p, ddrs, i, ddr); i++)
-    {
-      if (vect_check_dependences (ddr))
-	{
-	  check_interleaving = false;
-	  break;
-	}
-    }
-
-  for (i = 0; VEC_iterate (ddr_p, ddrs, i, ddr); i++)
-    if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, check_interleaving))
+    if (vect_analyze_data_ref_dependence (ddr, loop_vinfo))
       return false;
 
   return true;
@@ -1760,9 +1745,25 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 				     DR_INIT (STMT_VINFO_DATA_REF (
 						      vinfo_for_stmt (next)))))
 	    {
-	      /* For load use the same data-ref load. (We check in
-		 vect_check_dependences() that there are no two stores to the
-		 same location).  */
+              if (!DR_IS_READ (data_ref))
+                { 
+                  if (vect_print_dump_info (REPORT_DETAILS))
+                    fprintf (vect_dump, "Two store stmts share the same dr.");
+                  return false; 
+                }
+
+              /* Check that there is no load-store dependencies for this loads 
+                 to prevent a case of load-store-load to the same location.  */
+              if (DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (next))
+                  || DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (prev)))
+                {
+                  if (vect_print_dump_info (REPORT_DETAILS))
+                    fprintf (vect_dump, 
+                             "READ_WRITE dependence in interleaving.");
+                  return false;
+                }
+
+	      /* For load use the same data-ref load.  */
 	      DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
 
 	      prev = next;

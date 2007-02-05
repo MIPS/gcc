@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -1701,8 +1701,6 @@ spu_expand_epilogue (bool sibcall_p)
   if (total_size > 0)
     {
       if (current_function_calls_alloca)
-	/* Load it from the back chain because our save_stack_block and
-	   restore_stack_block do nothing. */
 	frame_emit_load (STACK_POINTER_REGNUM, sp_reg, 0);
       else
 	frame_emit_add_imm (sp_reg, sp_reg, total_size, scratch_reg_0);
@@ -2261,7 +2259,7 @@ spu_sched_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED,
      jump_insn.  We adjust here so higher cost insns will get scheduled
      earlier. */
   if (GET_CODE (insn) == JUMP_INSN && REG_NOTE_KIND (link) == REG_DEP_ANTI)
-    return INSN_COST (dep_insn) - 3;
+    return insn_cost (dep_insn) - 3;
   return cost;
 }
 
@@ -2793,7 +2791,7 @@ spu_handle_vector_attribute (tree * node, tree name,
   return NULL_TREE;
 }
 
-/* Return non-zero if FUNC is a naked function.  */
+/* Return nonzero if FUNC is a naked function.  */
 static int
 spu_naked_function_p (tree func)
 {
@@ -4303,6 +4301,32 @@ spu_init_builtins (void)
       if (d->fcode == SPU_MASK_FOR_LOAD)
 	TREE_READONLY (d->fndecl) = 1;	
     }
+}
+
+void
+spu_restore_stack_block (rtx op0 ATTRIBUTE_UNUSED, rtx op1)
+{
+  static unsigned char arr[16] =
+    { 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3 };
+
+  rtx temp = gen_reg_rtx (Pmode);
+  rtx temp2 = gen_reg_rtx (V4SImode);
+  rtx temp3 = gen_reg_rtx (V4SImode);
+  rtx pat = gen_reg_rtx (TImode);
+  rtx sp = gen_rtx_REG (V4SImode, STACK_POINTER_REGNUM);
+
+  emit_move_insn (pat, array_to_constant (TImode, arr));
+
+  /* Restore the sp.  */
+  emit_move_insn (temp, op1);
+  emit_move_insn (temp2, gen_frame_mem (V4SImode, stack_pointer_rtx));
+
+  /* Compute available stack size for sp.  */
+  emit_insn (gen_subsi3 (temp, temp, stack_pointer_rtx));
+  emit_insn (gen_shufb (temp3, temp, temp, pat));
+
+  emit_insn (gen_addv4si3 (sp, sp, temp3));
+  emit_move_insn (gen_frame_mem (V4SImode, stack_pointer_rtx), temp2);
 }
 
 int

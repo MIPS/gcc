@@ -123,7 +123,7 @@ build_tools="build-texinfo build-byacc build-flex build-bison build-m4 build-fix
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber"
+host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber gmp mpfr"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -142,6 +142,7 @@ libgcj="target-libffi \
 # the host libraries and the host tools (which may be a cross compiler)
 #
 target_libraries="target-libiberty \
+		target-libgcc \
 		target-libgloss \
 		target-newlib \
 		target-libstdc++-v3 \
@@ -276,6 +277,9 @@ case "${host}" in
     ;;
   i[[3456789]]86-*-go32* | i[[3456789]]86-*-msdosdjgpp*)
     noconfigdirs="$noconfigdirs tcl tk expect dejagnu send-pr uudecode guile itcl gnuserv libffi"
+    ;;
+  x86_64-*-mingw*)
+    noconfigdirs="$noconfigdirs expect dejagnu autoconf automake send-pr rcs guile perl texinfo libtool newlib"
     ;;
   i[[3456789]]86-*-mingw32*)
     # noconfigdirs="tcl tk expect dejagnu make texinfo bison patch flex byacc send-pr uudecode dejagnu diff guile perl itcl gnuserv"
@@ -618,6 +622,10 @@ case "${target}" in
     target_configdirs="$target_configdirs target-winsup"
     noconfigdirs="$noconfigdirs expect target-libgloss target-newlib ${libgcj}"
     ;;    
+  x86_64-*-mingw*)
+    target_configdirs="$target_configdirs target-winsup"
+    noconfigdirs="$noconfigdirs expect target-libgloss target-newlib ${libgcj}"
+    ;;    
   *-*-cygwin*)
     target_configdirs="$target_configdirs target-libtermcap target-winsup"
     noconfigdirs="$noconfigdirs target-gperf target-libgloss ${libgcj}"
@@ -933,6 +941,8 @@ case "${host}" in
     ;;
   *-mingw32*)
     ;;
+  *-mingw64*)
+    ;;
   *-interix*)
     host_makefile_frag="config/mh-interix"
     ;;
@@ -1052,9 +1062,10 @@ ACX_PROG_GNAT
 ACX_PROG_CMP_IGNORE_INITIAL
 
 # Check for GMP and MPFR
-gmplibs="-lmpfr"
+gmplibs="-lmpfr -lgmp"
 gmpinc=
-have_gmp=yes
+have_gmp=no
+
 # Specify a location for mpfr
 # check for this first so it ends up on the link line before gmp.
 AC_ARG_WITH(mpfr-dir, [  --with-mpfr-dir=PATH    This option has been REMOVED],
@@ -1078,13 +1089,20 @@ fi
 if test "x$with_mpfr_lib" != x; then
   gmplibs="-L$with_mpfr_lib $gmplibs"
 fi
+if test "x$with_mpfr$with_mpfr_include$with_mpfr_lib" = x && test -d ${srcdir}/mpfr; then
+  gmplibs='-L$$r/$(HOST_SUBDIR)/mpfr/.libs -L$$r/$(HOST_SUBDIR)/mpfr/_libs '"$gmplibs"
+  gmpinc='-I$$r/$(HOST_SUBDIR)/mpfr -I$$s/mpfr '"$gmpinc"
+  # Do not test the mpfr version.  Assume that it is sufficient, since
+  # it is in the source tree, and the library has not been built yet
+  # but it would be included on the link line in the version check below
+  # hence making the test fail.
+  have_gmp=yes
+fi
 
 # Specify a location for gmp
 AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     This option has been REMOVED],
   AC_MSG_ERROR([The --with-gmp-dir=PATH option has been removed.
 Use --with-gmp=PATH or --with-gmp-include=PATH plus --with-gmp-lib=PATH]))
-
-gmplibs="$gmplibs -lgmp"
 
 AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify prefix directory for the installed GMP package
                           Equivalent to --with-gmp-include=PATH/include
@@ -1103,34 +1121,58 @@ fi
 if test "x$with_gmp_lib" != x; then
   gmplibs="-L$with_gmp_lib $gmplibs"
 fi
-
-saved_CFLAGS="$CFLAGS"
-CFLAGS="$CFLAGS $gmpinc"
-# Check GMP actually works
-AC_MSG_CHECKING([for correct version of gmp.h])
-AC_TRY_COMPILE([#include "gmp.h"],[
-#if __GNU_MP_VERSION < 4 || (__GNU_MP_VERSION == 4 && __GNU_MP_VERSION_MINOR < 1)
-choke me
-#endif
-], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no]); have_gmp=no])
-
-if test x"$have_gmp" = xyes; then
-  saved_LIBS="$LIBS"
-  LIBS="$LIBS $gmplibs"
-  AC_MSG_CHECKING([for correct version of mpfr.h])
-  AC_TRY_LINK([#include <gmp.h>
-#include <mpfr.h>],[
-#if MPFR_VERSION_MAJOR < 2 || (MPFR_VERSION_MAJOR == 2 && MPFR_VERSION_MINOR < 2)
-  choke me
-#endif
-  mpfr_t n; mpfr_init(n);
-], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no]); have_gmp=no])
-  LIBS="$saved_LIBS"
+if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
+  gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
+  gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+  # Do not test the gmp version.  Assume that it is sufficient, since
+  # it is in the source tree, and the library has not been built yet
+  # but it would be included on the link line in the version check below
+  # hence making the test fail.
+  have_gmp=yes
 fi
-CFLAGS="$saved_CFLAGS"
 
-if test -d ${srcdir}/gcc && test x$have_gmp != xyes; then
-  AC_MSG_ERROR([Building GCC requires GMP 4.1+ and MPFR 2.2.1+.
+if test -d ${srcdir}/gcc && test "x$have_gmp" = xno; then
+  have_gmp=yes
+  saved_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $gmpinc"
+  # Check GMP actually works
+  AC_MSG_CHECKING([for correct version of gmp.h])
+  AC_TRY_COMPILE([#include "gmp.h"],[
+  #if __GNU_MP_VERSION < 4 || (__GNU_MP_VERSION == 4 && __GNU_MP_VERSION_MINOR < 1)
+  choke me
+  #endif
+  ], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no]); have_gmp=no])
+
+  if test x"$have_gmp" = xyes; then
+    saved_LIBS="$LIBS"
+    LIBS="$LIBS $gmplibs"
+    dnl MPFR 2.2.0 is acceptable but buggy, MPFR 2.2.1 is better.
+    AC_MSG_CHECKING([for correct version of mpfr.h])
+    AC_TRY_LINK([#include <gmp.h>
+    #include <mpfr.h>],[
+    #if MPFR_VERSION < MPFR_VERSION_NUM(2,2,0)
+    choke me
+    #endif
+    mpfr_t n; mpfr_init(n);
+    mpfr_t x; mpfr_init(x);
+    int t;
+    mpfr_atan2 (n, n, x, GMP_RNDN);
+    mpfr_erfc (n, x, GMP_RNDN);
+    mpfr_subnormalize (x, t, GMP_RNDN);
+    ], [AC_TRY_LINK([#include <gmp.h>
+    #include <mpfr.h>],[
+    #if MPFR_VERSION < MPFR_VERSION_NUM(2,2,1)
+    choke me
+    #endif
+    mpfr_t n; mpfr_init(n);
+    ], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([buggy but acceptable])])],
+     [AC_MSG_RESULT([no]); have_gmp=no])
+      LIBS="$saved_LIBS"
+  fi
+  CFLAGS="$saved_CFLAGS"
+
+  if test x$have_gmp != xyes; then
+    AC_MSG_ERROR([Building GCC requires GMP 4.1+ and MPFR 2.2.1+.
 Try the --with-gmp and/or --with-mpfr options to specify their locations.
 Copies of these libraries' source code can be found at their respective
 hosting sites as well as at ftp://gcc.gnu.org/pub/gcc/infrastructure/.
@@ -1138,6 +1180,7 @@ See also http://gcc.gnu.org/install/prerequisites.html for additional info.
 If you obtained GMP and/or MPFR from a vendor distribution package, make
 sure that you have installed both the libraries and the header files.
 They may be located in separate packages.])
+  fi
 fi
 
 # Flags needed for both GMP and/or MPFR
@@ -1145,8 +1188,7 @@ AC_SUBST(gmplibs)
 AC_SUBST(gmpinc)
 
 # By default, C is the only stage 1 language.
-stage1_languages=c
-AC_SUBST(stage1_languages)
+stage1_languages=,c,
 
 # Figure out what language subdirectories are present.
 # Look if the user specified --enable-languages="..."; if not, use
@@ -1208,9 +1250,9 @@ if test -d ${srcdir}/gcc; then
     esac
   done
 
-  new_enable_languages=c
+  new_enable_languages=,c,
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
-  potential_languages=c
+  potential_languages=,c,
 
   for lang_frag in ${srcdir}/gcc/*/config-lang.in .. ; do
     case ${lang_frag} in
@@ -1225,32 +1267,22 @@ if test -d ${srcdir}/gcc; then
         target_libs=
         lang_dirs=
         subdir_requires=
-        boot_language=
-        build_by_default=
+        boot_language=no
+        build_by_default=yes
         . ${lang_frag}
-        potential_languages="${potential_languages},${language}"
-        # This is quite sensitive to the ordering of the case statement arms.
-        case ,${enable_languages},:${language}:${have_gnat}:${build_by_default} in
-          *::*:*)
-            echo "${lang_frag} doesn't set \$language." 1>&2
-            exit 1
-            ;;
-          *:ada:no:*)
-            # Ada was requested with no preexisting GNAT.  Disable unconditionally.
-            add_this_lang=no
-            ;;
-          *,${language},*:*:*:*)
+        if test x${language} = x; then
+          echo "${lang_frag} doesn't set \$language." 1>&2
+          exit 1
+        fi
+
+        case ,${enable_languages}, in
+          *,${language},*)
             # Language was explicitly selected; include it.
             add_this_lang=yes
             ;;
-          *,all,*:*:*:no)
-            # 'all' was selected, but this is not a default language
-            # so do not include it.
-            add_this_lang=no
-            ;;
-          *,all,*:*:*:*)
-            # 'all' was selected and this is a default language; include it.
-            add_this_lang=yes
+          *,all,*)
+            # 'all' was selected, select it if it is a default language
+            add_this_lang=${build_by_default}
             ;;
           *)
             add_this_lang=no
@@ -1267,30 +1299,48 @@ if test -d ${srcdir}/gcc; then
               ;;
             *)
               # Silently disable.
-              add_this_lang=no
+              add_this_lang=unsupported
               ;;
           esac
 	done
 
+        # Disable Ada if no preexisting GNAT is available.
+        case ,${enable_languages},:${language}:${have_gnat} in
+          *,${language},*:ada:no)
+            # Specifically requested language; tell them.
+            AC_MSG_ERROR([GNAT is required to build $language])
+            ;;
+          *:ada:no)
+            # Silently disable.
+            add_this_lang=unsupported
+            ;;
+        esac
+
 	# Disable a language that is unsupported by the target.
 	case " $unsupported_languages " in
 	  *" $language "*)
-	    add_this_lang=no
+	    add_this_lang=unsupported
 	    ;;
 	esac
 
 	case $add_this_lang in
-	  no)
+	  unsupported)
             # Remove language-dependent dirs.
             eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"
 	    ;;
-          *)
-	    new_enable_languages="$new_enable_languages,$language"
+	  no)
+            # Remove language-dependent dirs; still show language as supported.
+            eval noconfigdirs='"$noconfigdirs "'\"$target_libs $lang_dirs\"
+            potential_languages="${potential_languages}${language},"
+	    ;;
+          yes)
+	    new_enable_languages="${new_enable_languages}${language},"
+            potential_languages="${potential_languages}${language},"
 	    missing_languages=`echo "$missing_languages" | sed "s/,$language,/,/"`
 	    case ${boot_language} in
 	      yes)
 		# Add to (comma-separated) list of stage 1 languages.
-		stage1_languages="${stage1_languages},${language}"
+		stage1_languages="${stage1_languages}${language},"
 		;;
 	    esac
 	    ;;
@@ -1299,17 +1349,55 @@ if test -d ${srcdir}/gcc; then
     esac
   done
 
+  AC_ARG_ENABLE(stage1-languages,
+[  --enable-stage1-languages[=all]   choose additional languages to build during
+                          stage1.  Mostly useful for compiler development.],
+  [case ,${enable_stage1_languages}, in
+    ,no,|,,)
+      # Set it to something that will have no effect in the loop below
+      enable_stage1_languages=c ;;
+    ,yes,)
+      enable_stage1_languages=`echo $new_enable_languages | \
+	sed -e "s/^,//" -e "s/,$//" ` ;;
+    *,all,*)
+      enable_stage1_languages=`echo ,$enable_stage1_languages, | \
+	sed -e "s/,all,/$new_enable_languages/" -e "s/^,//" -e "s/,$//" ` ;;
+  esac
+
+  # Add "good" languages from enable_stage1_languages to stage1_languages,
+  # while "bad" languages go in missing_languages.  Leave no duplicates.
+  for i in `echo $enable_stage1_languages | sed 's/,/ /g' `; do
+    case $potential_languages in
+      *,$i,*)
+        case $stage1_languages in
+          *,$i,*) ;;
+          *) stage1_languages="$stage1_languages$i," ;;
+        esac ;;
+      *)
+        case $missing_languages in
+          *,$i,*) ;;
+          *) missing_languages="$missing_languages$i," ;;
+        esac ;;
+     esac
+  done])
+
+  # Remove leading/trailing commas that were added for simplicity
+  potential_languages=`echo "$potential_languages" | sed -e "s/^,//" -e "s/,$//"`
   missing_languages=`echo "$missing_languages" | sed -e "s/^,//" -e "s/,$//"`
+  stage1_languages=`echo "$stage1_languages" | sed -e "s/^,//" -e "s/,$//"`
+  new_enable_languages=`echo "$new_enable_languages" | sed -e "s/^,//" -e "s/,$//"`
+
   if test "x$missing_languages" != x; then
     AC_MSG_ERROR([
 The following requested languages could not be built: ${missing_languages}
-Recognised languages are: ${potential_languages}])
+Supported languages are: ${potential_languages}])
   fi
-
   if test "x$new_enable_languages" != "x$enable_languages"; then
     echo The following languages will be built: ${new_enable_languages}
+    enable_languages="$new_enable_languages"
   fi
-  enable_languages="$new_enable_languages"
+
+  AC_SUBST(stage1_languages)
   ac_configure_args=`echo " $ac_configure_args" | sed -e 's/ --enable-languages=[[^ ]]*//' -e 's/$/ --enable-languages='"$enable_languages"/ `
 fi
 
@@ -1385,10 +1473,14 @@ done
 
 # Sometimes the tools are distributed with libiberty but with no other
 # libraries.  In that case, we don't want to build target-libiberty.
+# Don't let libgcc imply libiberty either.
 if test -n "${target_configdirs}" ; then
+  libgcc=
   others=
   for i in `echo ${target_configdirs} | sed -e s/target-//g` ; do
-    if test "$i" != "libiberty" ; then
+    if test "$i" = "libgcc"; then
+      libgcc=target-libgcc
+    elif test "$i" != "libiberty" ; then
       if test -r $srcdir/$i/configure ; then
 	others=yes;
 	break;
@@ -1396,7 +1488,7 @@ if test -n "${target_configdirs}" ; then
     fi
   done
   if test -z "${others}" ; then
-    target_configdirs=
+    target_configdirs=$libgcc
   fi
 fi
 
@@ -1896,7 +1988,7 @@ for module in ${build_configdirs} ; do
 done
 for module in ${configdirs} ; do
   if test -z "${no_recursion}"; then
-    for file in stage*-${module}/Makefile ${module}/Makefile; do
+    for file in stage*-${module}/Makefile prev-${module}/Makefile ${module}/Makefile; do
       if test -f ${file}; then
 	echo 1>&2 "*** removing ${file} to force reconfigure"
 	rm -f ${file}
@@ -2028,7 +2120,7 @@ baseargs="$baseargs --program-transform-name='${gcc_transform_name}'"
 # For the build-side libraries, we just need to pretend we're native,
 # and not use the same cache file.  Multilibs are neither needed nor
 # desired.
-build_configargs="--cache-file=../config.cache --build=${build_alias} --host=${build_alias} --target=${target_alias} ${baseargs}"
+build_configargs="--cache-file=../config.cache ${baseargs}"
 
 # For host modules, accept cache file option, or specification as blank.
 case "${cache_file}" in
@@ -2042,7 +2134,7 @@ esac
 
 # Host dirs don't like to share a cache file either, horribly enough.
 # This seems to be due to autoconf 2.5x stupidity.
-host_configargs="--cache-file=./config.cache --build=${build_alias} --host=${host_alias} --target=${target_alias} ${extra_host_args} ${baseargs}"
+host_configargs="--cache-file=./config.cache ${extra_host_args} ${baseargs}"
 
 target_configargs=${baseargs}
 
@@ -2078,7 +2170,7 @@ fi
 # Pass the appropriate --build, --host, --target and --cache-file arguments.
 # We need to pass --target, as newer autoconf's requires consistency
 # for target_alias and gcc doesn't manage it consistently.
-target_configargs="--cache-file=./config.cache --build=${build_alias} --host=${target_alias} --target=${target_alias} ${target_configargs}"
+target_configargs="--cache-file=./config.cache ${target_configargs}"
 
 FLAGS_FOR_TARGET=
 case " $target_configdirs " in
@@ -2434,10 +2526,13 @@ fi])
 AC_SUBST(stage1_checking)
 
 # Enable -Werror in bootstrap stage2 and later.
-# Change the default to "no" on release branches.
 AC_ARG_ENABLE(werror,
 [  --enable-werror         enable -Werror in bootstrap stage2 and later], [],
-[enable_werror=yes])
+[if test -d ${srcdir}/gcc && test x"`cat $srcdir/gcc/DEV-PHASE`" = xexperimental; then
+  enable_werror=yes
+else
+  enable_werror=no
+fi])
 case ${enable_werror} in
   yes) stage2_werror_flag="--enable-werror-always" ;;
   *) stage2_werror_flag="" ;;

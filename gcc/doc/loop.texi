@@ -7,7 +7,7 @@
 @c Loop Representation
 @c ---------------------------------------------------------------------
 
-@node Loop Representation
+@node Loop Analysis and Representation
 @chapter Analysis and Representation of Loops
 
 GCC provides extensive infrastructure for work with natural loops, i.e.,
@@ -64,17 +64,24 @@ function.  Each of the loops is represented in a @code{struct loop}
 structure.  Each loop is assigned an index (@code{num} field of the
 @code{struct loop} structure), and the pointer to the loop is stored in
 the corresponding field of the @code{larray} vector in the loops
-structure.  Index of a sub-loop is always greater than the index of its
-super-loop.  The indices do not have to be continuous, there may be
+structure.  The indices do not have to be continuous, there may be
 empty (@code{NULL}) entries in the @code{larray} created by deleting
-loops.  The index of a loop never changes.
+loops.  Also, there is no guarantee on the relative order of a loop
+and its subloops in the numbering.  The index of a loop never changes.
 
 The entries of the @code{larray} field should not be accessed directly.
 The function @code{get_loop} returns the loop description for a loop with
 the given index.  @code{number_of_loops} function returns number of
 loops in the function.  To traverse all loops, use @code{FOR_EACH_LOOP}
 macro.  The @code{flags} argument of the macro is used to determine
-the direction of traversal and the set of loops visited.
+the direction of traversal and the set of loops visited.  Each loop is
+guaranteed to be visited exactly once, regardless of the changes to the
+loop tree, and the loops may be removed during the traversal.  The newly
+created loops are never traversed, if they need to be visited, this
+must be done separately after their creation.  The @code{FOR_EACH_LOOP}
+macro allocates temporary variables.  If the @code{FOR_EACH_LOOP} loop
+were ended using break or goto, they would not be released;
+@code{FOR_EACH_LOOP_BREAK} macro must be used instead.
 
 Each basic block contains the reference to the innermost loop it belongs
 to (@code{loop_father}).  For this reason, it is only possible to have
@@ -108,14 +115,16 @@ edges in the strongly connected components that are not natural loops
 flag is not set for blocks and edges that belong to natural loops that
 are in such an irreducible region (but it is set for the entry and exit
 edges of such a loop, if they lead to/from this region).
-@item @code{LOOPS_HAVE_MARKED_SINGLE_EXITS}: If a loop has exactly one
-exit edge, this edge is recorded in the loop structure.  @code{single_exit}
-function can be used to retrieve this edge.
+@item @code{LOOPS_HAVE_RECORDED_EXITS}: The lists of exits are recorded
+and updated for each loop.  This makes some functions (e.g.,
+@code{get_loop_exit_edges}) more efficient.  Some functions (e.g.,
+@code{single_exit}) can be used only if the lists of exits are
+recorded.
 @end itemize
 
 These properties may also be computed/enforced later, using functions
 @code{create_preheaders}, @code{force_single_succ_latches},
-@code{mark_irreducible_loops} and @code{mark_single_exit_loops}.
+@code{mark_irreducible_loops} and @code{record_loop_exits}.
 
 The memory occupied by the loops structures should be freed with
 @code{loop_optimizer_finalize} function.

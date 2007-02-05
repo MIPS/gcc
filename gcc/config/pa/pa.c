@@ -512,6 +512,12 @@ pa_init_builtins (void)
   implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED]
     = implicit_built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
 #endif
+#if TARGET_HPUX_11
+  if (built_in_decls [BUILT_IN_FINITE])
+    set_user_assembler_name (built_in_decls [BUILT_IN_FINITE], "_Isfinite");
+  if (built_in_decls [BUILT_IN_FINITEF])
+    set_user_assembler_name (built_in_decls [BUILT_IN_FINITEF], "_Isfinitef");
+#endif
 }
 
 /* Function to init struct machine_function.
@@ -662,7 +668,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       insn = emit_move_insn (reg, pic_ref);
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, orig);
 
       return reg;
     }
@@ -1978,8 +1984,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 		}
 	    }
 
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUAL, op1, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, op1);
 
 	  return 1;
 	}
@@ -2338,12 +2343,11 @@ output_move_double (rtx *operands)
       else if (GET_CODE (addr) == PLUS
 	       && GET_CODE (XEXP (addr, 0)) == MULT)
 	{
+	  rtx xoperands[4];
 	  rtx high_reg = gen_rtx_SUBREG (SImode, operands[0], 0);
 
 	  if (!reg_overlap_mentioned_p (high_reg, addr))
 	    {
-	      rtx xoperands[3];
-
 	      xoperands[0] = high_reg;
 	      xoperands[1] = XEXP (addr, 1);
 	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
@@ -2354,8 +2358,6 @@ output_move_double (rtx *operands)
 	    }
 	  else
 	    {
-	      rtx xoperands[3];
-
 	      xoperands[0] = high_reg;
 	      xoperands[1] = XEXP (addr, 1);
 	      xoperands[2] = XEXP (XEXP (addr, 0), 0);

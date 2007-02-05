@@ -91,11 +91,19 @@ do {									\
       target_flags |= MASK_POWERPC64;					\
       warning (0, "-m64 requires PowerPC64 architecture, enabling");	\
     }									\
-  if (flag_mkernel)                                                     \
+  if (flag_mkernel)							\
     {									\
       rs6000_default_long_calls = 1;					\
       target_flags |= MASK_SOFT_FLOAT;					\
     }									\
+									\
+  /* Make -m64 imply -maltivec.  Darwin's 64-bit ABI includes		\
+     Altivec.  */							\
+  if (!flag_mkernel && !flag_apple_kext					\
+      && TARGET_64BIT							\
+      && ! (target_flags_explicit & MASK_ALTIVEC))			\
+    target_flags |= MASK_ALTIVEC;					\
+									\
   /* Unless the user (not the configurer) has explicitly overridden	\
      it with -mcpu=G3 or -mno-altivec, then 10.5+ targets default to	\
      G4 unless targetting the kernel.  */				\
@@ -393,7 +401,7 @@ do {									\
    macro in the Apple version of GCC, except that version supports
    'mac68k' alignment, and that version uses the computed alignment
    always for the first field of a structure.  The first-field
-   behaviour is dealt with by
+   behavior is dealt with by
    darwin_rs6000_special_round_type_align.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)	\
   (TARGET_ALIGN_NATURAL ? (COMPUTED)		\
@@ -441,7 +449,9 @@ do {									\
 #include <stdbool.h>
 #endif
 
+#ifndef __LP64__
 #define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
+#endif
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 

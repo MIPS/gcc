@@ -1,6 +1,7 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1988,7 +1989,7 @@ try_optimize_cfg (int mode)
 	      bool changed_here = false;
 
 	      /* Delete trivially dead basic blocks.  */
-	      while (EDGE_COUNT (b->preds) == 0)
+	      if (EDGE_COUNT (b->preds) == 0)
 		{
 		  c = b->prev_bb;
 		  if (dump_file)
@@ -1998,7 +1999,9 @@ try_optimize_cfg (int mode)
 		  delete_basic_block (b);
 		  if (!(mode & CLEANUP_CFGLAYOUT))
 		    changed = true;
-		  b = c;
+		  /* Avoid trying to remove ENTRY_BLOCK_PTR.  */
+		  b = (c == ENTRY_BLOCK_PTR ? c->next_bb : c);
+		  continue;
 		}
 
 	      /* Remove code labels no longer used.  */
@@ -2258,6 +2261,12 @@ cleanup_cfg (int mode)
 {
   bool changed = false;
 
+  /* Set the cfglayout mode flag here.  We could update all the callers
+     but that is just inconvenient, especially given that we eventually
+     want to have cfglayout mode as the default.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
+    mode |= CLEANUP_CFGLAYOUT;
+
   timevar_push (TV_CLEANUP_CFG);
   if (delete_unreachable_blocks ())
     {
@@ -2266,7 +2275,7 @@ cleanup_cfg (int mode)
 	 now to introduce more opportunities for try_optimize_cfg.  */
       if (!(mode & (CLEANUP_NO_INSN_DEL))
 	  && !reload_completed)
-	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+	delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
 
   compact_blocks ();
@@ -2278,7 +2287,7 @@ cleanup_cfg (int mode)
 	  && (mode & CLEANUP_EXPENSIVE)
 	  && !reload_completed)
 	{
-	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	  if (!delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
 	}
       else
@@ -2337,16 +2346,6 @@ rest_of_handle_jump2 (void)
     dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  /* Jump optimization, and the removal of NULL pointer checks, may
-     have reduced the number of instructions substantially.  CSE, and
-     future passes, allocate arrays whose dimensions involve the
-     maximum instruction UID, so if we can reduce the maximum UID
-     we'll save big on memory.  */
-  renumber_insns ();
   return 0;
 }
 

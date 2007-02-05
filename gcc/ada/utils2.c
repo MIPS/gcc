@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1526,7 +1526,7 @@ gnat_build_constructor (tree type, tree list)
 
       /* Propagate an NULL_EXPR from the size of the type.  We won't ever
 	 be executing the code we generate here in that case, but handle it
-	 specially to avoid the cmpiler blowing up.  */
+	 specially to avoid the compiler blowing up.  */
       if (TREE_CODE (type) == RECORD_TYPE
 	  && (0 != (result
 		    = contains_null_expr (DECL_SIZE (TREE_PURPOSE (elmt))))))
@@ -1649,7 +1649,7 @@ build_simple_component_ref (tree record_variable, tree component,
      Note that we don't need to warn since this will be done on trying
      to declare the object.  */
   if (TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST
-      && TREE_CONSTANT_OVERFLOW (DECL_FIELD_OFFSET (field)))
+      && TREE_OVERFLOW (DECL_FIELD_OFFSET (field)))
     return NULL_TREE;
 
   /* It would be nice to call "fold" here, but that can lose a type

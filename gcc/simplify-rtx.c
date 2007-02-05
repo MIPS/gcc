@@ -1,6 +1,7 @@
 /* RTL simplification functions for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3594,28 +3595,68 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
 {
   enum rtx_code op0code = GET_CODE (op0);
 
-  if (GET_CODE (op1) == CONST_INT)
+  if (op1 == const0_rtx && COMPARISON_P (op0))
     {
-      if (INTVAL (op1) == 0 && COMPARISON_P (op0))
+      /* If op0 is a comparison, extract the comparison arguments
+         from it.  */
+      if (code == NE)
 	{
-	  /* If op0 is a comparison, extract the comparison arguments
-	     from it.  */
-	  if (code == NE)
-	    {
-	      if (GET_MODE (op0) == mode)
-		return simplify_rtx (op0);
-	      else
-		return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,
-					        XEXP (op0, 0), XEXP (op0, 1));
-	    }
-	  else if (code == EQ)
-	    {
-	      enum rtx_code new_code = reversed_comparison_code (op0, NULL_RTX);
-	      if (new_code != UNKNOWN)
-	        return simplify_gen_relational (new_code, mode, VOIDmode,
-					        XEXP (op0, 0), XEXP (op0, 1));
-	    }
+	  if (GET_MODE (op0) == mode)
+	    return simplify_rtx (op0);
+	  else
+	    return simplify_gen_relational (GET_CODE (op0), mode, VOIDmode,
+					    XEXP (op0, 0), XEXP (op0, 1));
 	}
+      else if (code == EQ)
+	{
+	  enum rtx_code new_code = reversed_comparison_code (op0, NULL_RTX);
+	  if (new_code != UNKNOWN)
+	    return simplify_gen_relational (new_code, mode, VOIDmode,
+					    XEXP (op0, 0), XEXP (op0, 1));
+	}
+    }
+
+  if (op1 == const0_rtx)
+    {
+      /* Canonicalize (GTU x 0) as (NE x 0).  */
+      if (code == GTU)
+        return simplify_gen_relational (NE, mode, cmp_mode, op0, op1);
+      /* Canonicalize (LEU x 0) as (EQ x 0).  */
+      if (code == LEU)
+        return simplify_gen_relational (EQ, mode, cmp_mode, op0, op1);
+    }
+  else if (op1 == const1_rtx)
+    {
+      switch (code)
+        {
+        case GE:
+	  /* Canonicalize (GE x 1) as (GT x 0).  */
+	  return simplify_gen_relational (GT, mode, cmp_mode,
+					  op0, const0_rtx);
+	case GEU:
+	  /* Canonicalize (GEU x 1) as (NE x 0).  */
+	  return simplify_gen_relational (NE, mode, cmp_mode,
+					  op0, const0_rtx);
+	case LT:
+	  /* Canonicalize (LT x 1) as (LE x 0).  */
+	  return simplify_gen_relational (LE, mode, cmp_mode,
+					  op0, const0_rtx);
+	case LTU:
+	  /* Canonicalize (LTU x 1) as (EQ x 0).  */
+	  return simplify_gen_relational (EQ, mode, cmp_mode,
+					  op0, const0_rtx);
+	default:
+	  break;
+	}
+    }
+  else if (op1 == constm1_rtx)
+    {
+      /* Canonicalize (LE x -1) as (LT x 0).  */
+      if (code == LE)
+        return simplify_gen_relational (LT, mode, cmp_mode, op0, const0_rtx);
+      /* Canonicalize (GT x -1) as (GE x 0).  */
+      if (code == GT)
+        return simplify_gen_relational (GE, mode, cmp_mode, op0, const0_rtx);
     }
 
   /* (eq/ne (plus x cst1) cst2) simplifies to (eq/ne x (cst2 - cst1))  */
@@ -3939,7 +3980,8 @@ simplify_const_relational_operation (enum rtx_code code,
 	  /* Optimize abs(x) < 0.0.  */
 	  if (trueop1 == CONST0_RTX (mode)
 	      && !HONOR_SNANS (mode)
-	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
+	      && (!INTEGRAL_MODE_P (mode)
+		  || (!flag_wrapv && !flag_trapv && flag_strict_overflow)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;
@@ -3952,7 +3994,8 @@ simplify_const_relational_operation (enum rtx_code code,
 	  /* Optimize abs(x) >= 0.0.  */
 	  if (trueop1 == CONST0_RTX (mode)
 	      && !HONOR_NANS (mode)
-	      && !(flag_wrapv && INTEGRAL_MODE_P (mode)))
+	      && (!INTEGRAL_MODE_P (mode)
+		  || (!flag_wrapv && !flag_trapv && flag_strict_overflow)))
 	    {
 	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
 						       : trueop0;

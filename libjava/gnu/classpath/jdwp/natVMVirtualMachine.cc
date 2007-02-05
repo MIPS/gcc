@@ -1,6 +1,6 @@
 // natVMVirtualMachine.cc - native support for VMVirtualMachine
 
-/* Copyright (C) 2006 Free Software Foundation
+/* Copyright (C) 2006, 2007 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -17,17 +17,24 @@ details. */
 #include <java/lang/ClassLoader.h>
 #include <java/lang/Integer.h>
 #include <java/lang/String.h>
-#include <java/lang/StringBuffer.h>
+#include <java/lang/StringBuilder.h>
 #include <java/lang/Thread.h>
 #include <java/nio/ByteBuffer.h>
 #include <java/util/ArrayList.h>
 #include <java/util/Hashtable.h>
 #include <java/util/Iterator.h>
 
+#include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/classpath/jdwp/VMFrame.h>
 #include <gnu/classpath/jdwp/VMMethod.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
+#include <gnu/classpath/jdwp/event/ClassPrepareEvent.h>
 #include <gnu/classpath/jdwp/event/EventRequest.h>
+#include <gnu/classpath/jdwp/event/ThreadEndEvent.h>
+#include <gnu/classpath/jdwp/event/ThreadStartEvent.h>
+#include <gnu/classpath/jdwp/event/VmDeathEvent.h>
+#include <gnu/classpath/jdwp/event/VmInitEvent.h>
+#include <gnu/classpath/jdwp/exception/InvalidMethodException.h>
 #include <gnu/classpath/jdwp/exception/JdwpInternalErrorException.h>
 #include <gnu/classpath/jdwp/util/MethodResult.h>
 
@@ -35,8 +42,26 @@ using namespace java::lang;
 using namespace gnu::classpath::jdwp::event;
 using namespace gnu::classpath::jdwp::util;
 
+// Forward declarations
+static void JNICALL jdwpClassPrepareCB (jvmtiEnv *, JNIEnv *, jthread, jclass);
+static void JNICALL jdwpThreadEndCB (jvmtiEnv *, JNIEnv *, jthread);
+static void JNICALL jdwpThreadStartCB (jvmtiEnv *, JNIEnv *, jthread);
+static void JNICALL jdwpVMDeathCB (jvmtiEnv *, JNIEnv *);
+static void JNICALL jdwpVMInitCB (jvmtiEnv *, JNIEnv *, jthread);
+static void throw_jvmti_error (jvmtiError);
+
+#define DEFINE_CALLBACK(Cb,Event) Cb.Event = jdwp ## Event ## CB
+#define ENABLE_EVENT(Event,Thread)					\
+  _jdwp_jvmtiEnv->SetEventNotificationMode (JVMTI_ENABLE,		\
+					    JVMTI_EVENT_ ## Event, Thread)
 // JVMTI environment
 static jvmtiEnv *_jdwp_jvmtiEnv;
+
+jvmtiEnv *
+_Jv_GetJDWP_JVMTIEnv (void)
+{
+  return _jdwp_jvmtiEnv;
+}
 
 void
 gnu::classpath::jdwp::VMVirtualMachine::initialize ()
@@ -44,10 +69,16 @@ gnu::classpath::jdwp::VMVirtualMachine::initialize ()
   _jdwp_suspend_counts = new ::java::util::Hashtable ();
   JavaVM *vm = _Jv_GetJavaVM ();
   vm->GetEnv (reinterpret_cast<void **> (&_jdwp_jvmtiEnv), JVMTI_VERSION_1_0);
+
+  // Wait for VM_INIT to do more initialization
+  jvmtiEventCallbacks callbacks;
+  DEFINE_CALLBACK (callbacks, VMInit);
+  _jdwp_jvmtiEnv->SetEventCallbacks (&callbacks, sizeof (callbacks));
+  ENABLE_EVENT (VM_INIT, NULL);
 }
 
 void
-gnu::classpath::jdwp::VMVirtualMachine ::suspendThread (Thread *thread)
+gnu::classpath::jdwp::VMVirtualMachine::suspendThread (Thread *thread)
 {
   jint value;
   Integer *count;
@@ -75,13 +106,12 @@ gnu::classpath::jdwp::VMVirtualMachine ::suspendThread (Thread *thread)
       jvmtiError err = _jdwp_jvmtiEnv->SuspendThread (thread);
       if (err != JVMTI_ERROR_NONE)
 	{
+	  using namespace gnu::gcj::runtime;
 	  using namespace gnu::classpath::jdwp::exception;
 	  char *reason;
 	  _jdwp_jvmtiEnv->GetErrorName (err, &reason);
-	  ::java::lang::String *txt
-	      = JvNewStringLatin1 ("could not suspend thread: ");
-	  ::java::lang::StringBuffer *msg
-	      = new ::java::lang::StringBuffer (txt);
+	  String *txt = JvNewStringLatin1 ("could not suspend thread: ");
+	  StringBuilder *msg = new StringBuilder (txt);
 	  msg->append (JvNewStringLatin1 (reason));
 	  _jdwp_jvmtiEnv->Deallocate ((unsigned char *) reason);
 	  throw new JdwpInternalErrorException (msg->toString ());
@@ -126,13 +156,12 @@ gnu::classpath::jdwp::VMVirtualMachine::resumeThread (Thread *thread)
       jvmtiError err = _jdwp_jvmtiEnv->ResumeThread (thread);
       if (err != JVMTI_ERROR_NONE)
 	{
+	  using namespace gnu::gcj::runtime;
 	  using namespace gnu::classpath::jdwp::exception;
 	  char *reason;
 	  _jdwp_jvmtiEnv->GetErrorName (err, &reason);
-	  ::java::lang::String *txt 
-	      = JvNewStringLatin1 ("could not resume thread: ");
-	  ::java::lang::StringBuffer *msg
-	      = new ::java::lang::StringBuffer (txt);
+	  String *txt = JvNewStringLatin1 ("could not resume thread: ");
+	  StringBuilder *msg = new StringBuilder (txt);
 	  msg->append (JvNewStringLatin1 (reason));
 	  _jdwp_jvmtiEnv->Deallocate ((unsigned char *) reason);
 	  throw new JdwpInternalErrorException (msg->toString ());
@@ -200,7 +229,7 @@ gnu::classpath::jdwp::VMVirtualMachine::registerEvent (EventRequest *request)
 
     case EventRequest::EVENT_VM_INIT:
       break;
-      
+
     case EventRequest::EVENT_VM_DEATH:
       break;
     }
@@ -231,7 +260,7 @@ gnu::classpath::jdwp::VMVirtualMachine::unregisterEvent (EventRequest *request)
 
     case EventRequest::EVENT_THREAD_END:
       break;
-	
+
     case EventRequest::EVENT_CLASS_PREPARE:
       break;
 
@@ -255,14 +284,14 @@ gnu::classpath::jdwp::VMVirtualMachine::unregisterEvent (EventRequest *request)
 
     case EventRequest::EVENT_VM_INIT:
       break;
-      
+
     case EventRequest::EVENT_VM_DEATH:
       break;
     }
 }
 
 void
-gnu::classpath::jdwp::VMVirtualMachine::clearEvents (jbyte kind)
+gnu::classpath::jdwp::VMVirtualMachine::clearEvents (MAYBE_UNUSED jbyte kind)
 {
 }
 
@@ -279,69 +308,198 @@ gnu::classpath::jdwp::VMVirtualMachine::getAllLoadedClasses (void)
 }
 
 jint
-gnu::classpath::jdwp::VMVirtualMachine::getClassStatus (jclass klass)
+gnu::classpath::jdwp::VMVirtualMachine::
+getClassStatus (MAYBE_UNUSED jclass klass)
 {
   return 0;
 }
 
 JArray<gnu::classpath::jdwp::VMMethod *> *
-gnu::classpath::jdwp::VMVirtualMachine::getAllClassMethods (jclass klass)
+gnu::classpath::jdwp::VMVirtualMachine::
+getAllClassMethods (jclass klass)
 {
-  return NULL;
+  jint count;
+  jmethodID *methods;
+  jvmtiError err = _jdwp_jvmtiEnv->GetClassMethods (klass, &count, &methods);
+  if (err != JVMTI_ERROR_NONE)
+    throw_jvmti_error (err);
+
+  JArray<VMMethod *> *result
+    = (JArray<VMMethod *> *) JvNewObjectArray (count,
+					       &VMMethod::class$, NULL);
+  VMMethod **rmeth = elements (result);
+  for (int i = 0; i < count; ++i)
+    {
+      jlong id = reinterpret_cast<jlong> (methods[i]);
+      rmeth[i] = getClassMethod (klass, id);
+    }
+
+  _jdwp_jvmtiEnv->Deallocate ((unsigned char *) methods);
+  return result;
 }
 
 gnu::classpath::jdwp::VMMethod *
-gnu::classpath::jdwp::VMVirtualMachine::getClassMethod (jclass klass, jlong id)
+gnu::classpath::jdwp::VMVirtualMachine::
+getClassMethod (jclass klass, jlong id)
 {
-  return NULL;
+  jmethodID method = reinterpret_cast<jmethodID> (id);
+  _Jv_MethodBase *bmeth = _Jv_FindInterpreterMethod (klass, method);
+  if (bmeth != NULL)
+    return new gnu::classpath::jdwp::VMMethod (klass, id);
+
+  throw new gnu::classpath::jdwp::exception::InvalidMethodException (id);
 }
 
 java::util::ArrayList *
-gnu::classpath::jdwp::VMVirtualMachine::getFrames (Thread *thread,
-						   jint start,
-						   jint length)
+gnu::classpath::jdwp::VMVirtualMachine::getFrames (MAYBE_UNUSED Thread *thread,
+						   MAYBE_UNUSED jint start,
+						   MAYBE_UNUSED jint length)
 {
   return NULL;
 }
 
 gnu::classpath::jdwp::VMFrame *
-gnu::classpath::jdwp::VMVirtualMachine::getFrame (Thread *thread,
-						  ::java::nio::ByteBuffer *bb)
+gnu::classpath::jdwp::VMVirtualMachine::
+getFrame (MAYBE_UNUSED Thread *thread, MAYBE_UNUSED::java::nio::ByteBuffer *bb)
 {
   return NULL;
 }
 
 jint
-gnu::classpath::jdwp::VMVirtualMachine::getFrameCount (Thread *thread)
+gnu::classpath::jdwp::VMVirtualMachine::
+getFrameCount (Thread *thread)
 {
-  return 0;
+  jint frame_count;
+  
+  jvmtiError jerr = _jdwp_jvmtiEnv->GetFrameCount (thread, &frame_count);
+  
+  if (jerr != JVMTI_ERROR_NONE)
+    throw_jvmti_error (jerr);
+  
+  return frame_count;
 }
 
 jint
-gnu::classpath::jdwp::VMVirtualMachine::getThreadStatus (Thread *thread)
+gnu::classpath::jdwp::VMVirtualMachine::
+getThreadStatus (MAYBE_UNUSED Thread *thread)
 {
   return 0;
 }
 
 java::util::ArrayList *
-gnu::classpath::jdwp::VMVirtualMachine::getLoadRequests (ClassLoader *cl)
+gnu::classpath::jdwp::VMVirtualMachine::
+getLoadRequests (MAYBE_UNUSED ClassLoader *cl)
 {
   return NULL;
 }
 
 MethodResult *
-gnu::classpath::jdwp::VMVirtualMachine::executeMethod (jobject obj,
-						       Thread *thread,
-						       jclass clazz,
-						       reflect::Method *method,
-						       jobjectArray values,
-						       jboolean nonVirtual)
+gnu::classpath::jdwp::VMVirtualMachine::
+executeMethod (MAYBE_UNUSED jobject obj, MAYBE_UNUSED Thread *thread,
+	       MAYBE_UNUSED jclass clazz, MAYBE_UNUSED reflect::Method *method,
+	       MAYBE_UNUSED jobjectArray values,
+	       MAYBE_UNUSED jboolean nonVirtual)
 {
   return NULL;
 }
 
 jstring
-gnu::classpath::jdwp::VMVirtualMachine::getSourceFile (jclass clazz)
+gnu::classpath::jdwp::VMVirtualMachine::
+getSourceFile (MAYBE_UNUSED jclass clazz)
 {
   return NULL;
+}
+
+static void
+throw_jvmti_error (jvmtiError err)
+{
+  char *error;
+  jstring msg;
+  if (_jdwp_jvmtiEnv->GetErrorName (err, &error) == JVMTI_ERROR_NONE)
+    {
+      msg = JvNewStringLatin1 (error);
+      _jdwp_jvmtiEnv->Deallocate ((unsigned char *) error);
+    }
+  else
+    msg = JvNewStringLatin1 ("out of memory");
+
+  using namespace gnu::classpath::jdwp::exception;
+  throw new JdwpInternalErrorException (msg);
+}
+
+static void JNICALL
+jdwpClassPrepareCB (jvmtiEnv *env, MAYBE_UNUSED JNIEnv *jni_env,
+		    jthread thread, jclass klass)
+{
+  using namespace gnu::classpath::jdwp;
+
+  jint flags = 0;
+  jvmtiError err = env->GetClassStatus (klass, &flags);
+  if (err != JVMTI_ERROR_NONE)
+    throw_jvmti_error (err);
+
+  using namespace gnu::classpath::jdwp::event;
+  jint status = 0;
+  if (flags & JVMTI_CLASS_STATUS_VERIFIED)
+    status |= ClassPrepareEvent::STATUS_VERIFIED;
+  if (flags & JVMTI_CLASS_STATUS_PREPARED)
+    status |= ClassPrepareEvent::STATUS_PREPARED;
+  if (flags & JVMTI_CLASS_STATUS_ERROR)
+    status |= ClassPrepareEvent::STATUS_ERROR;
+  if (flags & JVMTI_CLASS_STATUS_INITIALIZED)
+    status |= ClassPrepareEvent::STATUS_INITIALIZED;
+
+  event::ClassPrepareEvent *event
+    = new event::ClassPrepareEvent (thread, klass, status);
+  Jdwp::notify (event);
+}
+
+static void JNICALL
+jdwpThreadEndCB (MAYBE_UNUSED jvmtiEnv *env, MAYBE_UNUSED JNIEnv *jni_env,
+		 jthread thread)
+{
+  using namespace gnu::classpath::jdwp::event;
+
+  ThreadEndEvent *e = new ThreadEndEvent (thread);
+  gnu::classpath::jdwp::Jdwp::notify (e);
+}
+
+static void JNICALL
+jdwpThreadStartCB (MAYBE_UNUSED jvmtiEnv *env, MAYBE_UNUSED JNIEnv *jni_env,
+		   jthread thread)
+{
+  using namespace gnu::classpath::jdwp::event;
+
+  ThreadStartEvent *e = new ThreadStartEvent (thread);
+  gnu::classpath::jdwp::Jdwp::notify (e);
+}
+
+static void JNICALL
+jdwpVMDeathCB (MAYBE_UNUSED jvmtiEnv *env, MAYBE_UNUSED JNIEnv *jni_env)
+{
+  using namespace gnu::classpath::jdwp::event;
+  gnu::classpath::jdwp::Jdwp::notify (new VmDeathEvent ());
+}
+
+static void JNICALL
+jdwpVMInitCB (MAYBE_UNUSED jvmtiEnv *env, MAYBE_UNUSED JNIEnv *jni_env,
+	      jthread thread)
+{
+  // The VM is now initialized, add our callbacks
+  jvmtiEventCallbacks callbacks;
+  DEFINE_CALLBACK (callbacks, ClassPrepare);
+  DEFINE_CALLBACK (callbacks, ThreadEnd);
+  DEFINE_CALLBACK (callbacks, ThreadStart);
+  DEFINE_CALLBACK (callbacks, VMDeath);
+  _jdwp_jvmtiEnv->SetEventCallbacks (&callbacks, sizeof (callbacks));
+
+  // Enable callbacks
+  ENABLE_EVENT (CLASS_PREPARE, NULL);
+  ENABLE_EVENT (THREAD_END, NULL);
+  ENABLE_EVENT (THREAD_START, NULL);
+  ENABLE_EVENT (VM_DEATH, NULL);
+
+  // Send JDWP VMInit
+  using namespace gnu::classpath::jdwp::event;
+  gnu::classpath::jdwp::Jdwp::notify (new VmInitEvent (thread));
 }

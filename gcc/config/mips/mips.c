@@ -3,7 +3,7 @@
    1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
-   64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
+   64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
    Brendan Eich, brendan@microunity.com.
 
 This file is part of GCC.
@@ -303,11 +303,7 @@ static void mips_set_tune (const struct mips_cpu_info *);
 static bool mips_handle_option (size_t, const char *, int);
 static struct machine_function *mips_init_machine_status (void);
 static void print_operand_reloc (FILE *, rtx, const char **);
-#if TARGET_IRIX
-static void irix_output_external_libcall (rtx);
-#endif
 static void mips_file_start (void);
-static void mips_file_end (void);
 static bool mips_rewrite_small_data_p (rtx);
 static int mips_small_data_pattern_1 (rtx *, void *);
 static int mips_rewrite_small_data_1 (rtx *, void *);
@@ -551,19 +547,6 @@ int sdb_label_count = 0;
 
 /* Next label # for each statement for Silicon Graphics IRIS systems.  */
 int sym_lineno = 0;
-
-/* Linked list of all externals that are to be emitted when optimizing
-   for the global pointer if they haven't been declared by the end of
-   the program with an appropriate .comm or initialization.  */
-
-struct extern_list GTY (())
-{
-  struct extern_list *next;	/* next external */
-  const char *name;		/* name of the external */
-  int size;			/* size in bytes */
-};
-
-static GTY (()) struct extern_list *extern_head = 0;
 
 /* Name of the file containing the current function.  */
 const char *current_function_file = "";
@@ -1144,9 +1127,7 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 #define TARGET_MACHINE_DEPENDENT_REORG mips_reorg
 
 #undef TARGET_ASM_FILE_START
-#undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_START mips_file_start
-#define TARGET_ASM_FILE_END mips_file_end
 #undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
@@ -1447,7 +1428,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 int
 mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode, int strict)
 {
-  if (regno >= FIRST_PSEUDO_REGISTER)
+  if (!HARD_REGISTER_NUM_P (regno))
     {
       if (!strict)
 	return true;
@@ -2541,7 +2522,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      return true;
 	    }
 
-	  /* We can use cmpi for an xor with an unsigned 16 bit value.  */
+	  /* We can use cmpi for an xor with an unsigned 16-bit value.  */
 	  if ((outer_code) == XOR
 	      && INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
 	    {
@@ -2550,7 +2531,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    }
 
 	  /* We may be able to use slt or sltu for a comparison with a
-	     signed 16 bit value.  (The boundary conditions aren't quite
+	     signed 16-bit value.  (The boundary conditions aren't quite
 	     right, but this is just a heuristic anyhow.)  */
 	  if (((outer_code) == LT || (outer_code) == LE
 	       || (outer_code) == GE || (outer_code) == GT
@@ -2725,7 +2706,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
       return true;
 
     case SIGN_EXTEND:
-      /* A sign extend from SImode to DImode in 64 bit mode is often
+      /* A sign extend from SImode to DImode in 64-bit mode is often
          zero instructions, because the result can often be used
          directly by another instruction; we'll call it one.  */
       if (TARGET_64BIT && mode == DImode
@@ -2979,7 +2960,7 @@ mips_output_move (rtx dest, rtx src)
       if (src_code == CONST_INT)
 	{
 	  /* Don't use the X format, because that will give out of
-	     range numbers for 64 bit hosts and 32 bit targets.  */
+	     range numbers for 64-bit hosts and 32-bit targets.  */
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
@@ -3907,8 +3888,8 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       && host_integerp (TYPE_SIZE_UNIT (type), 1)
       && named)
     {
-      /* The Irix 6 n32/n64 ABIs say that if any 64 bit chunk of the
-	 structure contains a double in its entirety, then that 64 bit
+      /* The Irix 6 n32/n64 ABIs say that if any 64-bit chunk of the
+	 structure contains a double in its entirety, then that 64-bit
 	 chunk is passed in a floating point register.  */
       tree field;
 
@@ -3924,7 +3905,7 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       if (field != 0)
 	{
 	  /* Now handle the special case by returning a PARALLEL
-	     indicating where each 64 bit chunk goes.  INFO.REG_WORDS
+	     indicating where each 64-bit chunk goes.  INFO.REG_WORDS
 	     chunks are passed in registers.  */
 	  unsigned int i;
 	  HOST_WIDE_INT bitpos;
@@ -5786,48 +5767,38 @@ print_operand_address (FILE *file, rtx x)
    the -G limit but declared by the user to be in a section other
    than .sbss or .sdata.  */
 
-int
-mips_output_external (FILE *file ATTRIBUTE_UNUSED, tree decl, const char *name)
+void
+mips_output_external (FILE *file, tree decl, const char *name)
 {
-  register struct extern_list *p;
+  default_elf_asm_output_external (file, decl, name);
 
-  if (!TARGET_EXPLICIT_RELOCS && mips_in_small_data_p (decl))
+  /* We output the name if and only if TREE_SYMBOL_REFERENCED is
+     set in order to avoid putting out names that are never really
+     used. */
+  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
-      p->next = extern_head;
-      p->name = name;
-      p->size = int_size_in_bytes (TREE_TYPE (decl));
-      extern_head = p;
-    }
-
-  if (TARGET_IRIX && mips_abi == ABI_32 && TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
-      p->next = extern_head;
-      p->name = name;
-      p->size = -1;
-      extern_head = p;
-    }
-
-  return 0;
-}
-
-#if TARGET_IRIX
-static void
-irix_output_external_libcall (rtx fun)
-{
-  register struct extern_list *p;
-
-  if (mips_abi == ABI_32)
-    {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
-      p->next = extern_head;
-      p->name = XSTR (fun, 0);
-      p->size = -1;
-      extern_head = p;
+      if (!TARGET_EXPLICIT_RELOCS && mips_in_small_data_p (decl))
+	{
+	  fputs ("\t.extern\t", file);
+	  assemble_name (file, name);
+	  fprintf (file, ", " HOST_WIDE_INT_PRINT_DEC "\n",
+		   int_size_in_bytes (TREE_TYPE (decl)));
+	}
+      else if (TARGET_IRIX
+	       && mips_abi == ABI_32
+	       && TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  /* In IRIX 5 or IRIX 6 for the O32 ABI, we must output a
+	     `.global name .text' directive for every used but
+	     undefined function.  If we don't, the linker may perform
+	     an optimization (skipping over the insns that set $gp)
+	     when it is unsafe.  */
+	  fputs ("\t.globl ", file);
+	  assemble_name (file, name);
+	  fputs (" .text\n", file);
+	}
     }
 }
-#endif
 
 /* Emit a new filename to a stream.  If we are smuggling stabs, try to
    put out a MIPS ECOFF file and a stab.  */
@@ -5989,50 +5960,6 @@ mips_output_aligned_bss (FILE *stream, tree decl, const char *name,
 }
 #endif
 
-/* Implement TARGET_ASM_FILE_END.  When using assembler macros, emit
-   .externs for any small-data variables that turned out to be external.  */
-
-static void
-mips_file_end (void)
-{
-  tree name_tree;
-  struct extern_list *p;
-
-  if (extern_head)
-    {
-      fputs ("\n", asm_out_file);
-
-      for (p = extern_head; p != 0; p = p->next)
-	{
-	  name_tree = get_identifier (p->name);
-
-	  /* Positively ensure only one .extern for any given symbol.  */
-	  if (!TREE_ASM_WRITTEN (name_tree)
-	      && TREE_SYMBOL_REFERENCED (name_tree))
-	    {
-	      TREE_ASM_WRITTEN (name_tree) = 1;
-	      /* In IRIX 5 or IRIX 6 for the O32 ABI, we must output a
-		 `.global name .text' directive for every used but
-		 undefined function.  If we don't, the linker may perform
-		 an optimization (skipping over the insns that set $gp)
-		 when it is unsafe.  */
-	      if (TARGET_IRIX && mips_abi == ABI_32 && p->size == -1)
-		{
-		  fputs ("\t.globl ", asm_out_file);
-		  assemble_name (asm_out_file, p->name);
-		  fputs (" .text\n", asm_out_file);
-		}
-	      else
-		{
-		  fputs ("\t.extern\t", asm_out_file);
-		  assemble_name (asm_out_file, p->name);
-		  fprintf (asm_out_file, ", %d\n", p->size);
-		}
-	    }
-	}
-    }
-}
-
 /* Implement ASM_OUTPUT_ALIGNED_DECL_COMMON.  This is usually the same as the
    elfos.h version, but we also need to handle -muninit-const-in-rodata.  */
 
@@ -6614,7 +6541,7 @@ mips_for_each_saved_reg (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
-     need a nop in the epilog if at least one register is reloaded in
+     need a nop in the epilogue if at least one register is reloaded in
      addition to return address.  */
   offset = cfun->machine->frame.gp_sp_offset - sp_offset;
   for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
@@ -6718,8 +6645,8 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 #endif
 
   /* In mips16 mode, we may need to generate a 32 bit to handle
-     floating point arguments.  The linker will arrange for any 32 bit
-     functions to call this stub, which will then jump to the 16 bit
+     floating point arguments.  The linker will arrange for any 32-bit
+     functions to call this stub, which will then jump to the 16-bit
      function proper.  */
   if (TARGET_MIPS16 && !TARGET_SOFT_FLOAT
       && current_function_args_info.fp_code != 0)
@@ -7969,7 +7896,7 @@ mips16_fp_args (FILE *file, int fp_code, int from_fp_p)
   int gparg, fparg;
   unsigned int f;
 
-  /* This code only works for the original 32 bit ABI and the O64 ABI.  */
+  /* This code only works for the original 32-bit ABI and the O64 ABI.  */
   gcc_assert (TARGET_OLDABI);
 
   if (from_fp_p)
@@ -8017,9 +7944,9 @@ mips16_fp_args (FILE *file, int fp_code, int from_fp_p)
 }
 
 /* Build a mips16 function stub.  This is used for functions which
-   take arguments in the floating point registers.  It is 32 bit code
+   take arguments in the floating point registers.  It is 32-bit code
    that moves the floating point args into the general registers, and
-   then jumps to the 16 bit code.  */
+   then jumps to the 16-bit code.  */
 
 static void
 build_mips16_function_stub (FILE *file)
@@ -8114,11 +8041,11 @@ static struct mips16_stub *mips16_stubs;
 
 /* Build a call stub for a mips16 call.  A stub is needed if we are
    passing any floating point values which should go into the floating
-   point registers.  If we are, and the call turns out to be to a 32
-   bit function, the stub will be used to move the values into the
-   floating point registers before calling the 32 bit function.  The
-   linker will magically adjust the function call to either the 16 bit
-   function or the 32 bit stub, depending upon where the function call
+   point registers.  If we are, and the call turns out to be to a
+   32-bit function, the stub will be used to move the values into the
+   floating point registers before calling the 32-bit function.  The
+   linker will magically adjust the function call to either the 16-bit
+   function or the 32-bit stub, depending upon where the function call
    is actually defined.
 
    Similarly, we need a stub if the return value might come back in a
@@ -8238,7 +8165,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
     {
       /* Build a special purpose stub.  When the linker sees a
 	 function call in mips16 code, it will check where the target
-	 is defined.  If the target is a 32 bit call, the linker will
+	 is defined.  If the target is a 32-bit call, the linker will
 	 search for the section defined here.  It can tell which
 	 symbol this section is associated with by looking at the
 	 relocation information (the name is unreliable, since this
@@ -8297,7 +8224,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 	}
 
       /* We build the stub code by hand.  That's the only way we can
-	 do it, since we can't generate 32 bit code during a 16 bit
+	 do it, since we can't generate 32-bit code during a 16-bit
 	 compilation.  */
 
       /* We don't want the assembler to insert any nops here.  */
@@ -9880,7 +9807,7 @@ vr4130_true_reg_dependence_p (rtx insn)
 static bool
 vr4130_swap_insns_p (rtx insn1, rtx insn2)
 {
-  rtx dep;
+  dep_link_t dep;
 
   /* Check for the following case:
 
@@ -9890,11 +9817,11 @@ vr4130_swap_insns_p (rtx insn1, rtx insn2)
 
      If INSN1 is the last instruction blocking X, it would better to
      choose (INSN1, X) over (INSN2, INSN1).  */
-  for (dep = INSN_DEPEND (insn1); dep != 0; dep = XEXP (dep, 1))
-    if (REG_NOTE_KIND (dep) == REG_DEP_ANTI
-	&& INSN_PRIORITY (XEXP (dep, 0)) > INSN_PRIORITY (insn2)
-	&& recog_memoized (XEXP (dep, 0)) >= 0
-	&& get_attr_vr4130_class (XEXP (dep, 0)) == VR4130_CLASS_ALU)
+  FOR_EACH_DEP_LINK (dep, INSN_FORW_DEPS (insn1))
+    if (DEP_LINK_KIND (dep) == REG_DEP_ANTI
+	&& INSN_PRIORITY (DEP_LINK_CON (dep)) > INSN_PRIORITY (insn2)
+	&& recog_memoized (DEP_LINK_CON (dep)) >= 0
+	&& get_attr_vr4130_class (DEP_LINK_CON (dep)) == VR4130_CLASS_ALU)
       return false;
 
   if (vr4130_last_insn != 0

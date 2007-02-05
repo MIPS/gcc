@@ -1,6 +1,6 @@
 // interpret-run.cc - Code to interpret bytecode
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -217,7 +217,7 @@ details.  */
     INSN_LABEL(invokespecial),
     INSN_LABEL(invokestatic),
     INSN_LABEL(invokeinterface),
-    INSN_LABEL (breakpoint),
+    INSN_LABEL(breakpoint),
     INSN_LABEL(new),
     INSN_LABEL(newarray),
     INSN_LABEL(anewarray),
@@ -248,7 +248,27 @@ details.  */
 
 #ifdef DIRECT_THREADED
 
+#ifdef DEBUG
+#undef NEXT_INSN
+#define NEXT_INSN							\
+  do									\
+    {									\
+      if (JVMTI_REQUESTED_EVENT (SingleStep))				\
+	{								\
+	  JNIEnv *env = _Jv_GetCurrentJNIEnv ();			\
+	  jmethodID method = meth->self;				\
+	  jlocation loc = meth->insn_index (pc);			\
+	  _Jv_JVMTI_PostEvent (JVMTI_EVENT_SINGLE_STEP, thread,		\
+			       env, method, loc);			\
+	}								\
+      goto *((pc++)->insn);						\
+    }									\
+  while (0)
+#else
+#undef NEXT_INSN
 #define NEXT_INSN goto *((pc++)->insn)
+#endif
+
 #define INTVAL() ((pc++)->int_val)
 #define AVAL() ((pc++)->datum)
 
@@ -281,7 +301,22 @@ details.  */
 
 #else
 
+#ifdef DEBUG
+#define NEXT_INSN							\
+  do									\
+    {									\
+      if (JVMTI_REQUESTED_EVENT (SingleStep))				\
+	{								\
+	  JNIEnv *env = _Jv_GetCurrentJNIEnv ();			\
+	  jmethodID method = meth->self;				\
+	  jlocation loc = meth->insn_index (pc);			\
+	  _Jv_JVMTI_PostEvent (JVMTI_EVENT_SINGLE_STEP, thread,		\
+			       env, method, loc);			\
+	}								\
+      goto *(insn_target[*pc++])
+#else
 #define NEXT_INSN goto *(insn_target[*pc++])
+#endif
 
 #define GET1S() get1s (pc++)
 #define GET2S() (pc += 2, get2s (pc- 2))
@@ -2466,7 +2501,32 @@ details.  */
 
     insn_breakpoint:
       {
-	// nothing just yet
+	JvAssert (JVMTI_REQUESTED_EVENT (Breakpoint));
+
+	// Send JVMTI notification
+	using namespace ::java::lang;
+	jmethodID method = meth->self;
+	jlocation location = meth->insn_index (pc - 1);
+	Thread *thread = Thread::currentThread ();
+	JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
+
+	_Jv_JVMTI_PostEvent (JVMTI_EVENT_BREAKPOINT, thread, jni_env,
+			     method, location);
+
+	// Continue execution
+	using namespace gnu::gcj::jvmti;
+	Breakpoint *bp
+	  = BreakpointManager::getBreakpoint (reinterpret_cast<jlong> (method),
+					      location);
+	JvAssert (bp != NULL);
+
+	pc_t opc = reinterpret_cast<pc_t> (bp->getInsn ());
+
+#ifdef DIRECT_THREADED
+	goto *(opc->insn);
+#else
+	goto *(insn_target[*opc]);
+#endif
       }
     }
   catch (java::lang::Throwable *ex)

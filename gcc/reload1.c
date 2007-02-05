@@ -5692,7 +5692,16 @@ choose_reload_regs (struct insn_chain *chain)
 		regno = subreg_regno (rld[r].in);
 #endif
 
-	      if (regno >= 0 && reg_last_reload_reg[regno] != 0)
+	      if (regno >= 0
+		  && reg_last_reload_reg[regno] != 0
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		  /* Verify that the register it's in can be used in
+		     mode MODE.  */
+		  && !REG_CANNOT_CHANGE_MODE_P (REGNO (reg_last_reload_reg[regno]),
+						GET_MODE (reg_last_reload_reg[regno]),
+						mode)
+#endif
+		  )
 		{
 		  enum reg_class class = rld[r].class, last_class;
 		  rtx last_reg = reg_last_reload_reg[regno];
@@ -5712,13 +5721,6 @@ choose_reload_regs (struct insn_chain *chain)
 
 		  if ((GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
-#ifdef CANNOT_CHANGE_MODE_CLASS
-		      /* Verify that the register in "i" can be obtained
-			 from LAST_REG.  */
-		      && !REG_CANNOT_CHANGE_MODE_P (REGNO (last_reg),
-						    GET_MODE (last_reg),
-						    mode)
-#endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)
 		      && HARD_REGNO_MODE_OK (i, rld[r].mode)
@@ -7600,6 +7602,23 @@ emit_reload_insns (struct insn_chain *chain)
 	  rtx out = ((rld[r].out && REG_P (rld[r].out))
 		     ? rld[r].out : rld[r].out_reg);
 	  int nregno = REGNO (out);
+
+	  /* REG_RTX is now set or clobbered by the main instruction.
+	     As the comment above explains, forget_old_reloads_1 only
+	     sees the original instruction, and there is no guarantee
+	     that the original instruction also clobbered REG_RTX.
+	     For example, if find_reloads sees that the input side of
+	     a matched operand pair dies in this instruction, it may
+	     use the input register as the reload register.
+
+	     Calling forget_old_reloads_1 is a waste of effort if
+	     REG_RTX is also the output register.
+
+	     If we know that REG_RTX holds the value of a pseudo
+	     register, the code after the call will record that fact.  */
+	  if (rld[r].reg_rtx && rld[r].reg_rtx != out)
+	    forget_old_reloads_1 (rld[r].reg_rtx, NULL_RTX, NULL);
+
 	  if (nregno >= FIRST_PSEUDO_REGISTER)
 	    {
 	      rtx src_reg, store_insn = NULL_RTX;

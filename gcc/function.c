@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -546,15 +546,7 @@ static struct temp_slot **
 temp_slots_at_level (int level)
 {
   if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
-    {
-      size_t old_length = VEC_length (temp_slot_p, used_temp_slots);
-      temp_slot_p *p;
-
-      VEC_safe_grow (temp_slot_p, gc, used_temp_slots, level + 1);
-      p = VEC_address (temp_slot_p, used_temp_slots);
-      memset (&p[old_length], 0,
-	      sizeof (temp_slot_p) * (level + 1 - old_length));
-    }
+    VEC_safe_grow_cleared (temp_slot_p, gc, used_temp_slots, level + 1);
 
   return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
 }
@@ -3811,6 +3803,14 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
+
+/* Return value of funcdef and increase it.  */
+int
+get_next_funcdef_no (void) 
+{
+  return funcdef_no++;
+}
+
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  */
 
@@ -3825,7 +3825,7 @@ allocate_struct_function (tree fndecl)
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
-  current_function_funcdef_no = funcdef_no++;
+  current_function_funcdef_no = get_next_funcdef_no ();
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
