@@ -687,6 +687,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_jump2);
       NEXT_PASS (pass_lower_subreg);
       NEXT_PASS (pass_cse);
+      NEXT_PASS (pass_df_initialize);
       NEXT_PASS (pass_rtl_fwprop);
       NEXT_PASS (pass_gcse);
       NEXT_PASS (pass_jump_bypass);
@@ -708,9 +709,16 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_cse2);
+      NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
-      NEXT_PASS (pass_life);
+      NEXT_PASS (pass_regclass_init);
+      NEXT_PASS (pass_subregs_of_mode_init);
+      NEXT_PASS (pass_inc_dec);
+      NEXT_PASS (pass_stack_ptr_mod);
+      NEXT_PASS (pass_initialize_regs);
+      NEXT_PASS (pass_no_new_pseudos);
       NEXT_PASS (pass_combine);
+      NEXT_PASS (pass_rtl_dse2);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
@@ -718,7 +726,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_mode_switching);
       NEXT_PASS (pass_see);
-      NEXT_PASS (pass_recompute_reg_usage);
       NEXT_PASS (pass_sms);
       NEXT_PASS (pass_sched);
       NEXT_PASS (pass_local_alloc);
@@ -728,15 +735,21 @@ init_optimization_passes (void)
 	  struct tree_opt_pass **p = &pass_postreload.sub;
 	  NEXT_PASS (pass_postreload_cse);
 	  NEXT_PASS (pass_gcse2);
-	  NEXT_PASS (pass_flow2);
+	  NEXT_PASS (pass_split_after_reload);
+	  NEXT_PASS (pass_branch_target_load_optimize1);
+	  NEXT_PASS (pass_thread_prologue_and_epilogue);
+	  NEXT_PASS (pass_rtl_dse3);
 	  NEXT_PASS (pass_rtl_seqabstr);
 	  NEXT_PASS (pass_stack_adjustments);
 	  NEXT_PASS (pass_peephole2);
 	  NEXT_PASS (pass_if_after_reload);
 	  NEXT_PASS (pass_regrename);
+	  NEXT_PASS (pass_cprop_hardreg);
+	  NEXT_PASS (pass_fast_rtl_dce);
 	  NEXT_PASS (pass_reorder_blocks);
-	  NEXT_PASS (pass_branch_target_load_optimize);
+	  NEXT_PASS (pass_branch_target_load_optimize2);
 	  NEXT_PASS (pass_leaf_regs);
+	  NEXT_PASS (pass_split_before_sched2);
 	  NEXT_PASS (pass_sched2);
 	  NEXT_PASS (pass_split_before_regstack);
 	  NEXT_PASS (pass_stack_regs);
@@ -747,6 +760,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_machine_reorg);
 	  NEXT_PASS (pass_cleanup_barriers);
 	  NEXT_PASS (pass_delay_slots);
+	  NEXT_PASS (pass_df_finish);
 	  NEXT_PASS (pass_split_for_shorten_branches);
 	  NEXT_PASS (pass_convert_to_eh_region_ranges);
 	  NEXT_PASS (pass_shorten_branches);
@@ -757,126 +771,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_clean_state);
   *p = NULL;
 
-<<<<<<< .working
-  p = &pass_tree_loop.sub;
-  NEXT_PASS (pass_tree_loop_init);
-  NEXT_PASS (pass_copy_prop);
-  NEXT_PASS (pass_lim);
-  NEXT_PASS (pass_tree_unswitch);
-  NEXT_PASS (pass_scev_cprop);
-  NEXT_PASS (pass_empty_loop);
-  NEXT_PASS (pass_record_bounds);
-  NEXT_PASS (pass_linear_transform);
-  NEXT_PASS (pass_iv_canon);
-  NEXT_PASS (pass_if_conversion);
-  NEXT_PASS (pass_vectorize);
-  /* NEXT_PASS (pass_may_alias) cannot be done again because the
-     vectorizer creates alias relations that are not supported by
-     pass_may_alias.  */
-  NEXT_PASS (pass_complete_unroll);
-  NEXT_PASS (pass_loop_prefetch);
-  NEXT_PASS (pass_iv_optimize);
-  NEXT_PASS (pass_tree_loop_done);
-  *p = NULL;
-
-  p = &pass_vectorize.sub;
-  NEXT_PASS (pass_lower_vector_ssa);
-  NEXT_PASS (pass_dce_loop);
-  *p = NULL;
-
-  p = &pass_loop2.sub;
-  NEXT_PASS (pass_rtl_loop_init);
-  NEXT_PASS (pass_rtl_move_loop_invariants);
-  NEXT_PASS (pass_rtl_unswitch);
-  NEXT_PASS (pass_rtl_unroll_and_peel_loops);
-  NEXT_PASS (pass_rtl_doloop);
-  NEXT_PASS (pass_rtl_loop_done);
-  *p = NULL;
-  
-  p = &pass_rest_of_compilation.sub;
-  NEXT_PASS (pass_init_function);
-  NEXT_PASS (pass_jump);
-  NEXT_PASS (pass_insn_locators_initialize);
-  NEXT_PASS (pass_rtl_eh);
-  NEXT_PASS (pass_initial_value_sets);
-  NEXT_PASS (pass_unshare_all_rtl);
-  NEXT_PASS (pass_instantiate_virtual_regs);
-  NEXT_PASS (pass_jump2);
-  NEXT_PASS (pass_cse);
-  NEXT_PASS (pass_df_initialize);
-  NEXT_PASS (pass_rtl_fwprop);
-  NEXT_PASS (pass_gcse);
-  NEXT_PASS (pass_jump_bypass);
-  NEXT_PASS (pass_rtl_ifcvt);
-  NEXT_PASS (pass_tracer);
-  /* Perform loop optimizations.  It might be better to do them a bit
-     sooner, but we want the profile feedback to work more
-     efficiently.  */
-  NEXT_PASS (pass_loop2);
-  NEXT_PASS (pass_web);
-  NEXT_PASS (pass_cse2);
-  NEXT_PASS (pass_rtl_dse1);
-  NEXT_PASS (pass_rtl_fwprop_addr);
-  NEXT_PASS (pass_regclass_init);
-  NEXT_PASS (pass_subregs_of_mode_init);
-  NEXT_PASS (pass_inc_dec);
-  NEXT_PASS (pass_stack_ptr_mod);
-  NEXT_PASS (pass_initialize_regs);
-  NEXT_PASS (pass_no_new_pseudos);
-  NEXT_PASS (pass_combine);
-  NEXT_PASS (pass_rtl_dse2);
-  NEXT_PASS (pass_if_after_combine);
-  NEXT_PASS (pass_fast_rtl_dce);
-  NEXT_PASS (pass_partition_blocks);
-  NEXT_PASS (pass_regmove);
-  NEXT_PASS (pass_split_all_insns);
-  NEXT_PASS (pass_mode_switching);
-  NEXT_PASS (pass_see);
-  NEXT_PASS (pass_sms);
-  NEXT_PASS (pass_sched);
-  NEXT_PASS (pass_local_alloc);
-  NEXT_PASS (pass_global_alloc);
-  NEXT_PASS (pass_postreload);
-  *p = NULL;
-
-  p = &pass_postreload.sub;
-  NEXT_PASS (pass_postreload_cse);
-  NEXT_PASS (pass_gcse2);
-  NEXT_PASS (pass_split_after_reload);
-  NEXT_PASS (pass_branch_target_load_optimize1);
-  NEXT_PASS (pass_thread_prologue_and_epilogue);
-  NEXT_PASS (pass_rtl_dse3);
-  NEXT_PASS (pass_rtl_seqabstr);
-  NEXT_PASS (pass_stack_adjustments);
-  NEXT_PASS (pass_peephole2);
-  NEXT_PASS (pass_if_after_reload);
-  NEXT_PASS (pass_regrename);
-  NEXT_PASS (pass_cprop_hardreg);
-  NEXT_PASS (pass_fast_rtl_dce);
-  NEXT_PASS (pass_reorder_blocks);
-  NEXT_PASS (pass_branch_target_load_optimize2);
-  NEXT_PASS (pass_leaf_regs);
-  NEXT_PASS (pass_split_before_sched2);
-  NEXT_PASS (pass_sched2);
-  NEXT_PASS (pass_split_before_regstack);
-  NEXT_PASS (pass_stack_regs);
-  NEXT_PASS (pass_compute_alignments);
-  NEXT_PASS (pass_duplicate_computed_gotos);
-  NEXT_PASS (pass_variable_tracking);
-  NEXT_PASS (pass_free_cfg);
-  NEXT_PASS (pass_machine_reorg);
-  NEXT_PASS (pass_cleanup_barriers);
-  NEXT_PASS (pass_delay_slots);
-  NEXT_PASS (pass_df_finish);
-  NEXT_PASS (pass_split_for_shorten_branches);
-  NEXT_PASS (pass_convert_to_eh_region_ranges);
-  NEXT_PASS (pass_shorten_branches);
-  NEXT_PASS (pass_set_nothrow_function_flags);
-  NEXT_PASS (pass_final);
-  *p = NULL;
-
-=======
->>>>>>> .merge-right.r121603
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
@@ -1216,14 +1110,10 @@ execute_one_pass (struct tree_opt_pass *pass)
       dump_file = NULL;
     }
 
-<<<<<<< .working
   current_pass = NULL;
-
-=======
   /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
   in_gimple_form = false;
 
->>>>>>> .merge-right.r121603
   return true;
 }
 

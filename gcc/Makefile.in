@@ -951,6 +951,7 @@ OBJS-common = \
 	$(GGC) \
 	alias.o \
 	alloc-pool.o \
+	auto-inc-dec.o \
 	bb-reorder.o \
 	bitmap.o \
 	bt-load.o \
@@ -974,7 +975,8 @@ OBJS-common = \
 	cse.o \
 	cselib.o \
 	dbxout.o \
-	dbgcount.o \
+	dbgcnt.o \
+	dce.o \
 	ddg.o \
 	debug.o \
 	df-core.o \
@@ -995,7 +997,6 @@ OBJS-common = \
 	expmed.o \
 	expr.o \
 	final.o \
-	flow.o \
 	fold-const.o \
 	function.o \
 	fwprop.o \
@@ -1010,6 +1011,7 @@ OBJS-common = \
 	haifa-sched.o \
 	hooks.o \
 	ifcvt.o \
+	init-regs.o \
 	integrate.o \
 	intl.o \
 	jump.o \
@@ -1068,6 +1070,7 @@ OBJS-common = \
 	see.o \
 	simplify-rtx.o \
 	sreal.o \
+	stack-ptr-mod.o \
 	stmt.o \
 	stor-layout.o \
 	stringpool.o \
@@ -2792,7 +2795,7 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
-dbgcnt.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(DBGCNT_H)
+dbgcnt.o: dbgcnt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(DBGCNT_H)
 lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(MACHMODE_H) $(TM_H) $(RTL_H) $(TM_P_H) $(TIMEVAR_H) $(FLAGS_H) \
    insn-config.h $(BASIC_BLOCK_H) $(RECOG_H) $(OBSTACK_H) bitmap.h \

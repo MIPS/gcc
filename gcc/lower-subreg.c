@@ -874,7 +874,7 @@ resolve_use (rtx pat, rtx insn)
    pseudo-registers.  */
 
 static void
-decompose_multiword_subregs (bool update_life)
+decompose_multiword_subregs (void)
 {
   unsigned int max;
   basic_block bb;
@@ -988,6 +988,8 @@ decompose_multiword_subregs (bool update_life)
 	}
     }
 
+  df_verify ();
+
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
   if (!bitmap_empty_p (decomposable_context))
     {
@@ -1090,12 +1092,10 @@ decompose_multiword_subregs (bool update_life)
 
       no_new_pseudos = hold_no_new_pseudos;
 
-      if (update_life)
-	update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			  PROP_DEATH_NOTES);
-
       sbitmap_free (blocks);
     }
+
+  df_verify ();
 
   {
     unsigned int i;
@@ -1125,7 +1125,7 @@ gate_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg (void)
 {
-  decompose_multiword_subregs (false);
+  decompose_multiword_subregs ();
   return 0;
 }
 
@@ -1134,7 +1134,9 @@ rest_of_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg2 (void)
 {
-  decompose_multiword_subregs (true);
+  df_verify ();
+  decompose_multiword_subregs ();
+  df_verify ();
   return 0;
 }
 
