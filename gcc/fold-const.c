@@ -1011,6 +1011,13 @@ negate_expr_p (tree t)
       return negate_expr_p (TREE_REALPART (t))
 	     && negate_expr_p (TREE_IMAGPART (t));
 
+    case COMPLEX_EXPR:
+      return negate_expr_p (TREE_OPERAND (t, 0))
+	     && negate_expr_p (TREE_OPERAND (t, 1));
+
+    case CONJ_EXPR:
+      return negate_expr_p (TREE_OPERAND (t, 0));
+
     case PLUS_EXPR:
       if (HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type))
 	  || HONOR_SIGNED_ZEROS (TYPE_MODE (type)))
@@ -1109,7 +1116,7 @@ fold_negate_expr (tree t)
       
     case INTEGER_CST:
       tem = fold_negate_const (t, type);
-      if (!TREE_OVERFLOW (tem)
+      if (TREE_OVERFLOW (tem) == TREE_OVERFLOW (t)
 	  || !TYPE_OVERFLOW_TRAPS (type))
 	return tem;
       break;
@@ -1132,6 +1139,19 @@ fold_negate_expr (tree t)
 		&& TREE_CODE (ipart) == INTEGER_CST))
 	  return build_complex (type, rpart, ipart);
       }
+      break;
+
+    case COMPLEX_EXPR:
+      if (negate_expr_p (t))
+	return fold_build2 (COMPLEX_EXPR, type,
+			    fold_negate_expr (TREE_OPERAND (t, 0)),
+			    fold_negate_expr (TREE_OPERAND (t, 1)));
+      break;
+      
+    case CONJ_EXPR:
+      if (negate_expr_p (t))
+	return fold_build1 (CONJ_EXPR, type,
+			    fold_negate_expr (TREE_OPERAND (t, 0)));
       break;
 
     case NEGATE_EXPR:
@@ -6631,6 +6651,7 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
   tree ref = TREE_OPERAND (addr, 0), pref;
   tree ret, pos;
   tree itype;
+  bool mdim = false;
 
   /* Canonicalize op1 into a possibly non-constant delta
      and an INTEGER_CST s.  */
@@ -6670,6 +6691,10 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
     {
       if (TREE_CODE (ref) == ARRAY_REF)
 	{
+	  /* Remember if this was a multi-dimensional array.  */
+	  if (TREE_CODE (TREE_OPERAND (ref, 0)) == ARRAY_REF)
+	    mdim = true;
+
 	  itype = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (ref, 0)));
 	  if (! itype)
 	    continue;
@@ -6692,8 +6717,32 @@ try_move_mult_to_index (enum tree_code code, tree addr, tree op1)
 	      delta = tmp;
 	    }
 
+	  /* Only fold here if we can verify we do not overflow one
+	     dimension of a multi-dimensional array.  */
+	  if (mdim)
+	    {
+	      tree tmp;
+
+	      if (TREE_CODE (TREE_OPERAND (ref, 1)) != INTEGER_CST
+		  || !INTEGRAL_TYPE_P (itype)
+		  || !TYPE_MAX_VALUE (itype)
+		  || TREE_CODE (TYPE_MAX_VALUE (itype)) != INTEGER_CST)
+		continue;
+
+	      tmp = fold_binary (code, itype,
+				 fold_convert (itype,
+					       TREE_OPERAND (ref, 1)),
+				 fold_convert (itype, delta));
+	      if (!tmp
+		  || TREE_CODE (tmp) != INTEGER_CST
+		  || tree_int_cst_lt (TYPE_MAX_VALUE (itype), tmp))
+		continue;
+	    }
+
 	  break;
 	}
+      else
+	mdim = false;
 
       if (!handled_component_p (ref))
 	return NULL_TREE;
@@ -7729,9 +7778,13 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      {
 	      CASE_FLT_FN (BUILT_IN_CEXPI):
 	        fn = mathfn_built_in (type, BUILT_IN_COS);
-	        return build_function_call_expr (fn, TREE_OPERAND (arg0, 1));
+		if (fn)
+	          return build_function_call_expr (fn,
+						   TREE_OPERAND (arg0, 1));
+		break;
 
-	      default:;
+	      default:
+		break;
 	      }
 	}
       return NULL_TREE;
@@ -7768,9 +7821,13 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      {
 	      CASE_FLT_FN (BUILT_IN_CEXPI):
 	        fn = mathfn_built_in (type, BUILT_IN_SIN);
-	        return build_function_call_expr (fn, TREE_OPERAND (arg0, 1));
+		if (fn)
+		  return build_function_call_expr (fn,
+						   TREE_OPERAND (arg0, 1));
+		break;
 
-	      default:;
+	      default:
+		break;
 	      }
 	}
       return NULL_TREE;
@@ -8912,7 +8969,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
 	  /* Fold __complex__ ( x, 0 ) + __complex__ ( 0, y )
 	     to __complex__ ( x, y ).  This is not the same for SNaNs or
-	     if singed zeros are involved.  */
+	     if signed zeros are involved.  */
 	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
               && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
 	      && COMPLEX_FLOAT_TYPE_P (TREE_TYPE (arg0)))
@@ -9220,6 +9277,43 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       else if (fold_real_zero_addition_p (TREE_TYPE (arg1), arg0, 0))
 	return negate_expr (fold_convert (type, arg1));
 
+      /* Fold __complex__ ( x, 0 ) - __complex__ ( 0, y ) to
+	 __complex__ ( x, -y ).  This is not the same for SNaNs or if
+	 signed zeros are involved.  */
+      if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	  && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
+	  && COMPLEX_FLOAT_TYPE_P (TREE_TYPE (arg0)))
+        {
+	  tree rtype = TREE_TYPE (TREE_TYPE (arg0));
+	  tree arg0r = fold_unary (REALPART_EXPR, rtype, arg0);
+	  tree arg0i = fold_unary (IMAGPART_EXPR, rtype, arg0);
+	  bool arg0rz = false, arg0iz = false;
+	  if ((arg0r && (arg0rz = real_zerop (arg0r)))
+	      || (arg0i && (arg0iz = real_zerop (arg0i))))
+	    {
+	      tree arg1r = fold_unary (REALPART_EXPR, rtype, arg1);
+	      tree arg1i = fold_unary (IMAGPART_EXPR, rtype, arg1);
+	      if (arg0rz && arg1i && real_zerop (arg1i))
+	        {
+		  tree rp = fold_build1 (NEGATE_EXPR, rtype,
+					 arg1r ? arg1r
+					 : build1 (REALPART_EXPR, rtype, arg1));
+		  tree ip = arg0i ? arg0i
+		    : build1 (IMAGPART_EXPR, rtype, arg0);
+		  return fold_build2 (COMPLEX_EXPR, type, rp, ip);
+		}
+	      else if (arg0iz && arg1r && real_zerop (arg1r))
+	        {
+		  tree rp = arg0r ? arg0r
+		    : build1 (REALPART_EXPR, rtype, arg0);
+		  tree ip = fold_build1 (NEGATE_EXPR, rtype,
+					 arg1i ? arg1i
+					 : build1 (IMAGPART_EXPR, rtype, arg1));
+		  return fold_build2 (COMPLEX_EXPR, type, rp, ip);
+		}
+	    }
+	}
+
       /* Fold &x - &x.  This can happen from &x.foo - &x.
 	 This is unsafe for certain floats even in non-IEEE formats.
 	 In IEEE, it is unsafe because it does wrong for NaNs.
@@ -9399,7 +9493,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    }
 
 	  /* Fold z * +-I to __complex__ (-+__imag z, +-__real z).
-	     This is not the same for NaNs or if singed zeros are
+	     This is not the same for NaNs or if signed zeros are
 	     involved.  */
 	  if (!HONOR_NANS (TYPE_MODE (TREE_TYPE (arg0)))
               && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
@@ -10232,8 +10326,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
 	      tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1, 1)));
 	      tree neg11 = fold_convert (type, negate_expr (arg11));
-	      tree arglist = tree_cons(NULL_TREE, arg10,
-				       build_tree_list (NULL_TREE, neg11));
+	      tree arglist = tree_cons (NULL_TREE, arg10,
+					build_tree_list (NULL_TREE, neg11));
 	      arg1 = build_function_call_expr (powfn, arglist);
 	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
 	    }

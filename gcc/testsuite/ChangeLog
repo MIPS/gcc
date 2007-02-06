@@ -1,3 +1,148 @@
+2007-02-06  Ira Rosen  <irar@il.ibm.com> 
+
+	* gcc.dg/vect/fast-math-vect-pow-2.c: New test.
+
+2007-02-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases.
+
+2007-02-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/30189
+	* gcc.dg/pr30189.c: New test.
+
+2007-02-05      Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+        * gcc.dg/i386-cpuid.h: Test whether SSE4A is supported
+        for running tests.
+        * gcc.target/i386/sse4a-extract.c: New test.
+        * gcc.target/i386/sse4a-insert.c: New test.
+        * gcc.target/i386/sse4a-montsd.c: New test.
+        * gcc.target/i386/sse4a-montss.c: New test.
+
+2007-02-05  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/vectorize3.c: New testcase.
+
+2007-02-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/30665
+	* gcc.dg/torture/pr30665-1.c, gcc.dg/torture/pr30665-2.c: New tests.
+
+2007-02-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30611
+	* gcc/testsuite/gfortran.dg/repeat_1.f90: New test.
+
+2007-02-04  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30605
+	* gfortran.dg/spread_shape_1.f90: Remove tabs.
+	* gfortran.dg/derived_init_2.f90: Ditto.
+	* gfortran.dg/elemental_subroutine_3.f90: Ditto.
+	* gfortran.dg/array_initializer_1.f90: Ditto.
+	* gfortran.dg/do_2.f90: Ditto.
+	* gfortran.dg/proc_assign_1.f90: Ditto.
+
+2007-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30636
+	* g++.dg/warn/pr30636.C: New testcase.
+	* g++.dg/tree-ssa/tmmti-2.C: XFAIL parts.
+
+2007-02-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/30667
+	* gfortran.dg/pr30667.f: New test.
+
+2007-02-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-54.c: Add more cases.
+
+2007-02-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30514
+	* gfortran.dg/zero_sized_2.f90: New test.
+
+	PR fortran/30660
+	* gfortran.dg/alloc_comp_basics_4.f90: New test.
+
+	PR fortran/29820
+	* gfortran.dg/actual_array_interface_1.f90: Copy source to empty
+	file.
+
+2007-02-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30683
+	* gfortran.dg/interface_10.f90: New test.
+
+2007-02-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases.
+
+2007-02-02  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR target/29682
+	* gcc-target/ia64/pr29682.c: New test.
+
+2007-02-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30284
+	* gfortran.dg/arrayio_11.f90.f90: New test.
+
+	PR fortran/30626
+	* gfortran.dg/arrayio_12.f90.f90: New test.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30536
+	* g++.dg/tls/diag-5.C: New test.
+
+	PR middle-end/30473
+	* gcc.dg/pr30473.c: New test.
+	* gcc.c-torture/execute/20070201-1.c: New test.
+
+2007-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/dependency_20.f90: New test case.
+
+2007-01-31  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/lower-subreg-1.c (test): New test.
+
+2007-01-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/eh/simd-4.C (main): Also catch SIGSEGV.
+
+2007-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-2.c: Add sqrt cases.
+	* gcc.dg/torture/builtin-math-3.c: Likewise.
+
+2007-01-31  Dirk Mueller  <dmueller@suse.de>
+
+	gcc.dg/Wparentheses-2.c: Update and add new tests.
+
+2007-01-31  Ira Rosen  <irar@il.ibm.com> 
+
+	* gcc.dg/vect/vect-37.c: Restore the original behaivior - xfail to
+	vectorize.
+
+2007-01-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/builtins-63.c: New test.
+
+2007-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27588
+	* gfortran.dg/char_bounds_check_fail_1.f90: Add test.
+
+2007-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30520
+	* gfortran.dg/volatile8.f90: New argument conformance test.
+	* gfortran.dg/volatile9.f90: New scope test.
+
 2007-01-30  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR c++/24745
@@ -12379,6 +12524,10 @@
 
 	PR c++/21983
 	* g++.dg/warn/pr21983.C: New test.
+
+2005-09-22  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20050922-1.c: Testcase added.
 
 2005-09-21  Mark Mitchell  <mark@codesourcery.com>
 

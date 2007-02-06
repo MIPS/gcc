@@ -764,7 +764,7 @@ union lang_tree_node
 #define FIELD_LOCAL_ALIAS(DECL) DECL_LANG_FLAG_6 (VAR_OR_FIELD_CHECK (DECL))
 
 /* True when DECL, which aliases an outer context local variable is
-   used by the inner classe */
+   used by the inner classes.  */
 #define FIELD_LOCAL_ALIAS_USED(DECL) DECL_LANG_FLAG_7 (VAR_OR_FIELD_CHECK (DECL))
 
 /* True when DECL is a this$<n> field. Note that
@@ -1129,10 +1129,12 @@ extern void layout_class (tree);
 extern int get_interface_method_index (tree, tree);
 extern tree layout_class_method (tree, tree, tree, tree);
 extern void layout_class_methods (tree);
+extern void cache_this_class_ref (tree);
 extern tree build_class_ref (tree);
 extern tree build_dtable_decl (tree);
 extern tree build_internal_class_name (tree);
 extern tree build_constants_constructor (void);
+extern tree build_constant_data_ref (bool);
 extern tree build_ref_from_constant_pool (int);
 extern tree build_utf8_ref (tree);
 extern tree ident_subst (const char *, int, const char *, int, int,

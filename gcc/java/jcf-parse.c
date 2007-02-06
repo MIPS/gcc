@@ -259,7 +259,7 @@ java_read_sourcefilenames (const char *fsource_filename)
 /* Given a relative pathname such as foo/bar.java, attempt to find a
    longer pathname with the same suffix.  
 
-   This is a best guess heuristic; with some weird class hierarcies we
+   This is a best guess heuristic; with some weird class hierarchies we
    may fail to pick the correct source file.  For example, if we have
    the filenames foo/bar.java and also foo/foo/bar.java, we do not
    have enough information to know which one is the right match for
@@ -1448,6 +1448,8 @@ static void
 jcf_parse (JCF* jcf)
 {
   int i, code;
+
+  bitmap_clear (field_offsets);
 
   if (jcf_parse_preamble (jcf) != 0)
     fatal_error ("not a valid Java .class file");

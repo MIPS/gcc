@@ -1,6 +1,6 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,7 +105,7 @@ REAL_VALUE_TYPE dconstm1;
 REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
 REAL_VALUE_TYPE dconstthird;
-REAL_VALUE_TYPE dconstpi;
+REAL_VALUE_TYPE dconstsqrt2;
 REAL_VALUE_TYPE dconste;
 
 /* All references to the following fixed hard registers go through
@@ -812,13 +812,12 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate a register with same attributes as REG, but offsetted by OFFSET.
+/* Update NEW with the same attributes as REG, but offsetted by OFFSET.
    Do the big endian correction if needed.  */
 
-rtx
-gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int offset)
+static void
+update_reg_offset (rtx new, rtx reg, int offset)
 {
-  rtx new = gen_rtx_REG (mode, regno);
   tree decl;
   HOST_WIDE_INT var_size;
 
@@ -860,7 +859,7 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
   if ((BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
       && decl != NULL
       && offset > 0
-      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)
+      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (GET_MODE (new))
       && ((var_size = int_size_in_bytes (TREE_TYPE (decl))) > 0
 	  && var_size < GET_MODE_SIZE (GET_MODE (reg))))
     {
@@ -904,6 +903,30 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
 
   REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
 				   REG_OFFSET (reg) + offset);
+}
+
+/* Generate a register with same attributes as REG, but offsetted by
+   OFFSET.  */
+
+rtx
+gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno,
+		    int offset)
+{
+  rtx new = gen_rtx_REG (mode, regno);
+
+  update_reg_offset (new, reg, offset);
+  return new;
+}
+
+/* Generate a new pseudo-register with the same attributes as REG, but
+   offsetted by OFFSET.  */
+
+rtx
+gen_reg_rtx_offset (rtx reg, enum machine_mode mode, int offset)
+{
+  rtx new = gen_reg_rtx (mode);
+
+  update_reg_offset (new, reg, offset);
   return new;
 }
 
@@ -2782,33 +2805,6 @@ int
 get_max_uid (void)
 {
   return cur_insn_uid;
-}
-
-/* Renumber instructions so that no instruction UIDs are wasted.  */
-
-void
-renumber_insns (void)
-{
-  rtx insn;
-
-  /* If we're not supposed to renumber instructions, don't.  */
-  if (!flag_renumber_insns)
-    return;
-
-  /* If there aren't that many instructions, then it's not really
-     worth renumbering them.  */
-  if (flag_renumber_insns == 1 && get_max_uid () < 25000)
-    return;
-
-  cur_insn_uid = 1;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (dump_file)
-	fprintf (dump_file, "Renumbering insn %d to %d\n",
-		 INSN_UID (insn), cur_insn_uid);
-      INSN_UID (insn) = cur_insn_uid++;
-    }
 }
 
 /* Return the next insn.  If it is a SEQUENCE, return the first insn
@@ -5158,8 +5154,8 @@ init_emit_once (int line_numbers)
 
   /* Initialize mathematical constants for constant folding builtins.
      These constants need to be given to at least 160 bits precision.  */
-  real_from_string (&dconstpi,
-    "3.1415926535897932384626433832795028841971693993751058209749445923078");
+  real_from_string (&dconstsqrt2,
+    "1.4142135623730950488016887242096980785696718753769480731766797379907");
   real_from_string (&dconste,
     "2.7182818284590452353602874713526624977572470936999595749669676277241");
 

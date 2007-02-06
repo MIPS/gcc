@@ -1676,6 +1676,7 @@ mathfn_built_in (tree type, enum built_in_function fn)
       CASE_MATHFN (BUILT_IN_HYPOT)
       CASE_MATHFN (BUILT_IN_ILOGB)
       CASE_MATHFN (BUILT_IN_INF)
+      CASE_MATHFN (BUILT_IN_ISINF)
       CASE_MATHFN (BUILT_IN_J0)
       CASE_MATHFN (BUILT_IN_J1)
       CASE_MATHFN (BUILT_IN_JN)
@@ -2198,6 +2199,8 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
     {
     CASE_FLT_FN (BUILT_IN_ILOGB):
       errno_set = true; builtin_optab = ilogb_optab; break;
+    CASE_FLT_FN (BUILT_IN_ISINF):
+      builtin_optab = isinf_optab; break;
     default:
       gcc_unreachable ();
     }
@@ -5105,7 +5108,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
   if (fmt_str == NULL)
     return 0;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* If the format specifier was "%s\n", call __builtin_puts(arg).  */
@@ -5221,7 +5224,7 @@ expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
   if (fmt_str == NULL)
     return 0;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* If the format specifier was "%s", call __builtin_fputs(arg,fp).  */
@@ -5313,7 +5316,7 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
   if (fmt_str == NULL)
     return 0;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* If the format doesn't contain % args or %%, use strcpy.  */
@@ -5923,6 +5926,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ILOGB):
       if (! flag_unsafe_math_optimizations)
 	break;
+    CASE_FLT_FN (BUILT_IN_ISINF):
       target = expand_builtin_interclass_mathfn (exp, target, subtarget);
       if (target)
 	return target;
@@ -7139,13 +7143,29 @@ fold_builtin_cabs (tree arglist, tree type, tree fndecl)
 			      type, mpfr_hypot)))
     return res;
   
-  /* If either part is zero, cabs is fabs of the other.  */
-  if (TREE_CODE (arg) == COMPLEX_EXPR
-      && real_zerop (TREE_OPERAND (arg, 0)))
-    return fold_build1 (ABS_EXPR, type, TREE_OPERAND (arg, 1));
-  if (TREE_CODE (arg) == COMPLEX_EXPR
-      && real_zerop (TREE_OPERAND (arg, 1)))
-    return fold_build1 (ABS_EXPR, type, TREE_OPERAND (arg, 0));
+  if (TREE_CODE (arg) == COMPLEX_EXPR)
+    {
+      tree real = TREE_OPERAND (arg, 0);
+      tree imag = TREE_OPERAND (arg, 1);
+      
+      /* If either part is zero, cabs is fabs of the other.  */
+      if (real_zerop (real))
+	return fold_build1 (ABS_EXPR, type, imag);
+      if (real_zerop (imag))
+	return fold_build1 (ABS_EXPR, type, real);
+
+      /* cabs(x+xi) -> fabs(x)*sqrt(2).  */
+      if (flag_unsafe_math_optimizations
+	  && operand_equal_p (real, imag, OEP_PURE_SAME))
+        {
+	  const REAL_VALUE_TYPE sqrt2_trunc
+	    = real_value_truncate (TYPE_MODE (type), dconstsqrt2);
+	  STRIP_NOPS (real);
+	  return fold_build2 (MULT_EXPR, type,
+			      fold_build1 (ABS_EXPR, type, real),
+			      build_real (type, sqrt2_trunc));
+	}
+    }
 
   /* Optimize cabs(-z) and cabs(conj(z)) as cabs(z).  */
   if (TREE_CODE (arg) == NEGATE_EXPR
@@ -7196,22 +7216,15 @@ fold_builtin_sqrt (tree arglist, tree type)
 
   enum built_in_function fcode;
   tree arg = TREE_VALUE (arglist);
-
+  tree res;
+  
   if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
     return NULL_TREE;
 
-  /* Optimize sqrt of constant value.  */
-  if (TREE_CODE (arg) == REAL_CST
-      && !TREE_OVERFLOW (arg))
-    {
-      REAL_VALUE_TYPE r, x;
-
-      x = TREE_REAL_CST (arg);
-      if (real_sqrt (&r, TYPE_MODE (type), &x)
-	  || (!flag_trapping_math && !flag_errno_math))
-	return build_real (type, r);
-    }
-
+  /* Calculate the result when the argument is a constant.  */
+  if ((res = do_mpfr_arg1 (arg, type, mpfr_sqrt, &dconst0, NULL, true)))
+    return res;
+  
   /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
   fcode = builtin_mathfn_code (arg);
   if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
@@ -7461,6 +7474,8 @@ fold_builtin_sincos (tree arglist)
     return res;
 
   /* Canonicalize sincos to cexpi.  */
+  if (!TARGET_C99_FUNCTIONS)
+    return NULL_TREE;
   fn = mathfn_built_in (type, BUILT_IN_CEXPI);
   if (!fn)
     return NULL_TREE;
@@ -7494,6 +7509,8 @@ fold_builtin_cexp (tree arglist, tree type)
 
   /* In case we can figure out the real part of arg0 and it is constant zero
      fold to cexpi.  */
+  if (!TARGET_C99_FUNCTIONS)
+    return NULL_TREE;
   ifn = mathfn_built_in (rtype, BUILT_IN_CEXPI);
   if (!ifn)
     return NULL_TREE;
@@ -8045,12 +8062,11 @@ fold_builtin_hypot (tree fndecl, tree arglist, tree type)
   if (flag_unsafe_math_optimizations
       && operand_equal_p (arg0, arg1, OEP_PURE_SAME))
     {
-      REAL_VALUE_TYPE sqrt2;
-
-      real_sqrt (&sqrt2, TYPE_MODE (type), &dconst2);
+      const REAL_VALUE_TYPE sqrt2_trunc
+	= real_value_truncate (TYPE_MODE (type), dconstsqrt2);
       return fold_build2 (MULT_EXPR, type,
 			  fold_build1 (ABS_EXPR, type, arg0),
-			  build_real (type, sqrt2));
+			  build_real (type, sqrt2_trunc));
     }
 
   return NULL_TREE;
@@ -9148,7 +9164,7 @@ fold_builtin_fmin_fmax (tree arglist, tree type, bool max)
 /* Fold a call to builtin carg(a+bi) -> atan2(b,a).  */
 
 static tree
-fold_builtin_carg(tree arglist, tree type)
+fold_builtin_carg (tree arglist, tree type)
 {
   if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
     {
@@ -10556,6 +10572,7 @@ fold_builtin_sprintf (tree arglist, int ignored)
   /* Get the destination string and the format specifier.  */
   dest = TREE_VALUE (arglist);
   fmt = TREE_VALUE (TREE_CHAIN (arglist));
+  arglist = TREE_CHAIN (TREE_CHAIN (arglist));
 
   /* Check whether the format is a literal string constant.  */
   fmt_str = c_getstr (fmt);
@@ -10565,7 +10582,7 @@ fold_builtin_sprintf (tree arglist, int ignored)
   call = NULL_TREE;
   retval = NULL_TREE;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* If the format doesn't contain % args or %%, use strcpy.  */
@@ -10574,6 +10591,10 @@ fold_builtin_sprintf (tree arglist, int ignored)
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
 
       if (!fn)
+	return NULL_TREE;
+
+      /* Don't optimize sprintf (buf, "abc", ptr++).  */
+      if (arglist)
 	return NULL_TREE;
 
       /* Convert sprintf (str, fmt) into strcpy (str, fmt) when
@@ -10594,8 +10615,12 @@ fold_builtin_sprintf (tree arglist, int ignored)
       if (!fn)
 	return NULL_TREE;
 
+      /* Don't crash on sprintf (str1, "%s").  */
+      if (!arglist)
+	return NULL_TREE;
+
       /* Convert sprintf (str1, "%s", str2) into strcpy (str1, str2).  */
-      orig = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      orig = TREE_VALUE (arglist);
       arglist = build_tree_list (NULL_TREE, orig);
       arglist = tree_cons (NULL_TREE, dest, arglist);
       if (!ignored)
@@ -10904,7 +10929,7 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
   if (fmt_str == NULL)
     return;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return;
 
   /* If the format doesn't contain % args or %%, we know its size.  */
@@ -11366,7 +11391,7 @@ fold_builtin_sprintf_chk (tree arglist, enum built_in_function fcode)
 
   len = NULL_TREE;
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* Check whether the format is a literal string constant.  */
@@ -11491,7 +11516,7 @@ fold_builtin_snprintf_chk (tree arglist, tree maxlen,
 	return 0;
     }
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* Only convert __{,v}snprintf_chk to {,v}snprintf if flag is 0
@@ -11575,7 +11600,7 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
       fn_puts = implicit_built_in_decls[BUILT_IN_PUTS];
     }
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   if (strcmp (fmt_str, target_percent_s) == 0 || strchr (fmt_str, target_percent) == NULL)
@@ -11736,7 +11761,7 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
       fn_fputs = implicit_built_in_decls[BUILT_IN_FPUTS];
     }
 
-  if (!init_target_chars())
+  if (!init_target_chars ())
     return 0;
 
   /* If the format doesn't contain % args or %%, use strcpy.  */
@@ -11844,12 +11869,12 @@ init_target_chars (void)
    entering this function.  Return NULL_TREE if any checks fail.  */
 
 static tree
-do_mpfr_ckconv(mpfr_srcptr m, tree type, int inexact)
+do_mpfr_ckconv (mpfr_srcptr m, tree type, int inexact)
 {
   /* Proceed iff we get a normal number, i.e. not NaN or Inf and no
      overflow/underflow occurred.  If -frounding-math, proceed iff the
      result of calling FUNC was exact.  */
-  if (mpfr_number_p (m) && !mpfr_overflow_p() && !mpfr_underflow_p()
+  if (mpfr_number_p (m) && !mpfr_overflow_p () && !mpfr_underflow_p ()
       && (!flag_rounding_math || !inexact))
     {
       REAL_VALUE_TYPE rr;
@@ -11908,7 +11933,7 @@ do_mpfr_arg1 (tree arg, tree type, int (*func)(mpfr_ptr, mpfr_srcptr, mp_rnd_t),
 
 	  mpfr_init2 (m, prec);
 	  mpfr_from_real (m, ra);
-	  mpfr_clear_flags();
+	  mpfr_clear_flags ();
 	  inexact = func (m, m, GMP_RNDN);
 	  result = do_mpfr_ckconv (m, type, inexact);
 	  mpfr_clear (m);
@@ -11952,7 +11977,7 @@ do_mpfr_arg2 (tree arg1, tree arg2, tree type,
 	  mpfr_inits2 (prec, m1, m2, NULL);
 	  mpfr_from_real (m1, ra1);
 	  mpfr_from_real (m2, ra2);
-	  mpfr_clear_flags();
+	  mpfr_clear_flags ();
 	  inexact = func (m1, m1, m2, GMP_RNDN);
 	  result = do_mpfr_ckconv (m1, type, inexact);
 	  mpfr_clears (m1, m2, NULL);
@@ -12001,7 +12026,7 @@ do_mpfr_arg3 (tree arg1, tree arg2, tree arg3, tree type,
 	  mpfr_from_real (m1, ra1);
 	  mpfr_from_real (m2, ra2);
 	  mpfr_from_real (m3, ra3);
-	  mpfr_clear_flags();
+	  mpfr_clear_flags ();
 	  inexact = func (m1, m1, m2, m3, GMP_RNDN);
 	  result = do_mpfr_ckconv (m1, type, inexact);
 	  mpfr_clears (m1, m2, m3, NULL);
@@ -12043,7 +12068,7 @@ do_mpfr_sincos (tree arg, tree arg_sinp, tree arg_cosp)
 
 	  mpfr_inits2 (prec, m, ms, mc, NULL);
 	  mpfr_from_real (m, ra);
-	  mpfr_clear_flags();
+	  mpfr_clear_flags ();
 	  inexact = mpfr_sin_cos (ms, mc, m, GMP_RNDN);
 	  result_s = do_mpfr_ckconv (ms, type, inexact);
 	  result_c = do_mpfr_ckconv (mc, type, inexact);

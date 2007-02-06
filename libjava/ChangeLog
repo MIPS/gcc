@@ -1,3 +1,145 @@
+2007-02-05  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_envListLock): Change type to
+	ReentrantReadWriteLock.
+	(_Jv_JVMTI_DisposeEnvironment): Switch to read/write
+	lock.
+	(check_enabled_event): Likewise.
+	(_Jv_GetJVMTIEnv): Likewise.
+	(_Jv_JVMTI_Init): Likewise.
+	(_Jv_JVMTI_PostEvent): Likewise. 
+
+2007-02-05  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(registerEvent): Implement EVENT_BREAKPOINT.
+	(unregisterEvent): Likewise.
+	(get_request_location): New function.
+
+2007-02-05  Matthias Klose  <doko@debian.org>
+
+	testsuite/Makefile.am (compile-tests): Fix typo.
+	testsuite/Makefile.in: Regenerate.
+
+2007-02-02  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrameCount):
+	Implment.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (libjava_cv_anon_version_script): New test.
+	(ANONVERSCRIPT): New AM_CONDITIONAL.
+	* configure: Rebuilt.
+	* Makefile.am (extra_ldflags_libjava): Link with -Wl,--version-script
+	if ANONVERSCRIPT.
+	* Makefile.in: Rebuilt.
+	(libgcj_la_DEPENDENCIES): Depend on libgcj.ver.
+	* libgcj.ver: New file.
+
+2007-02-01  David Daney  <ddaney@avtrex.com>
+
+	* scripts/makemake.tcl: Replace gnu/xml build with build of all
+	its subpackages.
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+
+2007-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (getResources): No longer final.
+
+2007-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/logging/LogManager.java (loggers): Genericized.
+	(addLogger): Merged.
+	(findAncestor): Likewise.
+	(getLogger): Likewise.
+	(getLoggerNames): Genericized.
+	(reset): Merged.
+	(getLevelProperty): Likewise.
+	* java/lang/reflect/Method.java (getDeclaringClass): Genericized.
+	* java/lang/reflect/Constructor.java (getParameterTypes):
+	Genericized.
+	(getExceptionTypes): Likewise.
+	(newInstance): Likewise.
+	* java/lang/reflect/Array.java (newInstance): Genericized.
+	* java/lang/Object.java (getClass): Genericized.
+	* java/nio/charset/spi/CharsetProvider.java (charsets):
+	Genericized.
+	* java/text/Collator.java: Implement Comparable<Object>.
+
+2007-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/Calendar.java: Implement Comparable<Calendar>.  Update
+	comments.
+	(clear): Call complete.
+	(setTimeZone): Call computeTime, computeFields.
+	(compareTo): New method.
+	* java/nio/charset/Charset.java: Implement Comparable<Charset>.
+	(availableCharsets): Genericized.
+	(aliases): Likewise.
+	(compareTo): Changed argument type.
+	* java/lang/ClassLoader.java (loadClass): Genericized.
+	(findClass): Likewise.
+	(defineClass): Likewise.
+	(resolveClass): Likewise.
+	(findSystemClass): Likewise.
+	(setSigners): Likewise.
+	(findLoadedClass): Likewise.
+	(getResources): Likewise.
+	(findResources): Likewise.
+	(getSystemResources): Likewise.
+	(checkInitialized): New method.
+	* java/lang/Class.java (getCanonicalName): New method.
+
+2007-01-31  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti-int.h (JVMTI): Declare member "enabled".
+	* jvmti.cc (JVMTI): Add member "enabled".
+	(_Jv_GetJVMTIEnv): Mark JVMTI enabled.
+	* interpret.cc (_Jv_InterpMethod::ncode): Use JVMTI::enabled
+	instead of gnu::classpath::jdwp::Jdwp::isDebugging.
+	(_Jv_CompileMethod): If JVMTI is enabled, use run_debug
+	instead of run to compile the method.
+
+	* interpret-run.cc [DEBUG] (NEXT_INSN): Add JVMTI single step
+	notification.
+
+2007-01-31  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jvmti/jvmti-interp.exp (gij_jvmti_test_one): Add
+	-shared-libgcc to the cxxflaglist for Darwin.
+
+2007-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* scripts.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (gnu/javax/swing/text/html/parser): Build
+	as 'ordinary'.
+	(emit_ordinary_rule): New proc.
+
+2007-01-31  Keith Seitz  <keiths@redhat.com>
+
+	* testsuite/libjava.jvmti/getmethodname.h: New file.
+	* testsuite/libjava.jvmti/getmethodname.jar: New file.
+
+2007-01-31  Andrew Haley  <aph@redhat.com>
+
+	* prims.cc (_Jv_Abort): fflush (stderr).
+	* java/lang/natClassLoader.cc (_Jv_CheckABIVersion): Abort.
+
+2007-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* configure, Makefile.in: Rebuilt.
+	* configure.ac (JAR): Check for -@ feature.
+	* Makefile.am (libgcj-$(gcc_version).jar): Use find -prune.
+
+2007-01-31  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/30606:
+	* configure, include/config.h.in: Rebuilt.
+	* configure.ac: Check for magic_t in magic.h.
+	* java/net/natVMURLConnection.cc: Use HAVE_MAGIC_T.
+
 2007-01-30  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.
@@ -124,6 +266,13 @@
 	(compile-tests): New goal.
 	* Makefile.in: Rebuilt.
 	* testsuite/Makefile.in: Rebuilt.
+
+2007-01-26  Andrew Haley  <aph@redhat.com>
+
+        * java/lang/natClass.cc (initializeClass): Re-throw
+        SecurityExceptions.
+        * java/lang/natVMClassLoader.cc (loadClass): checkPackageAccess.
+        * java/lang/ClassLoader.java: (loadClass): Likewise.
 
 2007-01-26  Tom Tromey  <tromey@redhat.com>
 

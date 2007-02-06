@@ -1,3 +1,44 @@
+2007-02-05  Dirk Mueller  <dmueller@suse.de>
+
+	PR bootstrap/30510
+	* parser.c (cp_parser_class_specifier): Always initialize bases.
+
+2007-02-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* cp-tree.h (OMP_ATOMIC_CODE): Delete.
+	(OMP_ATOMIC_DEPENDENT_P): Rewrite.
+	* pt.c (tsubst_expr): Adjust for new format of dependent OMP_ATOMIC
+	expressions.
+	* semantics.c (finish_omp_atomic): Store a whole expression node
+	in operand 1, and integer_zero_node in operand 0, for dependent
+	OMP_ATOMIC.  Rewrite to make flow easier to understand.
+
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Use OPT_Wreturn_type instead of 0.
+
+2007-02-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, cp-tree.h, decl.c, decl2.c, g++spec.c, init.c,
+	parser.c, pt.c, tree.c, typeck.c: Follow spelling conventions.
+
+2007-02-03  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * parser.c (cp_lexer_get_preprocessor_token): Attach the C++0x
+       keyword warning to -Wc++0x-compat.
+	
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Update documentation.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30536
+	* decl.c (grokdeclarator): If __thread is used together with
+	a storage class other than extern and static, clear thread_p
+	after issuing diagnostics and fall through to checking the
+	storage class.
+
 2007-01-30  Roger Sayle  <roger@eyesopen.com>
 
 	* error.c (dump_type_suffix): Avoid use of cp_build_binary_op when
