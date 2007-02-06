@@ -344,8 +344,6 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define HUINT_C_TYPE	USItype
 #endif
 
-#define HINT_C_TYPE	DItype
-#define HUINT_C_TYPE	UDItype
 #define MODE_NAME	DA
 #define MODE_NAME_S	da
 #define MODE_UNSIGNED	0

@@ -348,7 +348,7 @@ FIXED_MULHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
 #endif
 
   if (satp)
-    FIXED_SATURATE2 (&r, &s);
+    FIXED_SATURATE2 (&r.ll, &s.ll);
 
   z = (INT_C_TYPE) s.ll;
 #if HAVE_PADDING_BITS
@@ -579,7 +579,7 @@ FIXED_SSNEG (FIXED_C_TYPE a)
 
 #if defined(FIXED_USNEG)
 FIXED_C_TYPE
-FIXED_USNEG (FIXED_C_TYPE a)
+FIXED_USNEG (FIXED_C_TYPE a __attribute__ ((__unused__)))
 {
   FIXED_C_TYPE c;
   INT_C_TYPE z;
@@ -703,7 +703,7 @@ FIXED_USASHL (FIXED_C_TYPE a, word_type b)
 word_type
 FIXED_CMP (FIXED_C_TYPE a, FIXED_C_TYPE b)
 {
-  INT_C_TYPE x, y, z;
+  INT_C_TYPE x, y;
   memcpy (&x, &a, FIXED_SIZE);
   memcpy (&y, &b, FIXED_SIZE);
 
