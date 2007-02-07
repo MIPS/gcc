@@ -1,3 +1,13 @@
+2007-02-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* ifcvt.c (noce_process_if_block): Removed unnecessary insn deletes.
+	(dead_or_predictable): Removed incorrect bit vector operation.
+	* lower-subregs (simple_move_operand, resolve_clobber): Change from mainline.
+	(resolve_clobber): Added df_insn_rescan of clobber.
+	(decompose_multiword_subregs): Added df setup and removed debugging.
+	(pass_lower_subreg2): Added df cleanup.
+	* Makefile.in (lower-subregs.o): Added df.h dependence. 
+
 2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.c (sh_expand_prologue): Remove unneeded brackets.

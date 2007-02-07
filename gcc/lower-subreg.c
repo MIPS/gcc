@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "regs.h"
 #include "tree-pass.h"
+#include "df.h"
 
 #ifdef STACK_GROWS_DOWNWARD
 # undef STACK_GROWS_DOWNWARD
@@ -80,7 +81,8 @@ simple_move_operand (rtx x)
 
   if (GET_CODE (x) == LABEL_REF
       || GET_CODE (x) == SYMBOL_REF
-      || GET_CODE (x) == HIGH)
+      || GET_CODE (x) == HIGH
+      || GET_CODE (x) == CONST)
     return false;
 
   if (MEM_P (x)
@@ -832,6 +834,7 @@ resolve_clobber (rtx pat, rtx insn)
   rtx reg;
   enum machine_mode orig_mode;
   unsigned int words, i;
+  int ret;
 
   reg = XEXP (pat, 0);
   if (!resolve_reg_p (reg) && !resolve_subreg_p (reg))
@@ -841,7 +844,13 @@ resolve_clobber (rtx pat, rtx insn)
   words = GET_MODE_SIZE (orig_mode);
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-  XEXP (pat, 0) = simplify_gen_subreg_concatn (word_mode, reg, orig_mode, 0);
+  ret = validate_change (NULL_RTX, &XEXP (pat, 0),
+			 simplify_gen_subreg_concatn (word_mode, reg,
+						      orig_mode, 0),
+			 0);
+  df_insn_rescan (insn);
+  gcc_assert (ret != 0);
+
   for (i = words - 1; i > 0; --i)
     {
       rtx x;
@@ -878,6 +887,9 @@ decompose_multiword_subregs (void)
 {
   unsigned int max;
   basic_block bb;
+
+  if (df)
+    df_set_flags (DF_DEFER_INSN_RESCAN);
 
   max = max_reg_num ();
 
@@ -988,8 +1000,6 @@ decompose_multiword_subregs (void)
 	}
     }
 
-  df_verify ();
-
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
   if (!bitmap_empty_p (decomposable_context))
     {
@@ -1095,8 +1105,6 @@ decompose_multiword_subregs (void)
       sbitmap_free (blocks);
     }
 
-  df_verify ();
-
   {
     unsigned int i;
     bitmap b;
@@ -1134,9 +1142,7 @@ rest_of_handle_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg2 (void)
 {
-  df_verify ();
   decompose_multiword_subregs ();
-  df_verify ();
   return 0;
 }
 
@@ -1171,6 +1177,7 @@ struct tree_opt_pass pass_lower_subreg2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'U'                                   /* letter */

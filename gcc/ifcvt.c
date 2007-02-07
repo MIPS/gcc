@@ -44,7 +44,6 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
-#include "dce.h"
 #include "vec.h"
 #include "vecprim.h"
 
@@ -2391,20 +2390,6 @@ noce_process_if_block (struct ce_if_block * ce_info)
 
  success:
 
-  /* Several special cases here: First, we may have reused insn_b above,
-     in which case insn_b is now NULL.  Second, we want to delete insn_b
-     if it came from the ELSE block, because follows the now correct
-     write that appears in the TEST block.  However, if we got insn_b from
-     the TEST block, it may in fact be loading data needed for the comparison.
-     We'll let dead code elimination remove the insn if it's really dead.  */
-  if (insn_b && else_bb)
-    delete_insn (insn_b);
-
-  /* The new insns will have been inserted immediately before the jump.  We
-     should be able to remove the jump with impunity, but the condition itself
-     may have been modified by gcse to be shared across basic blocks.  */
-  delete_insn (jump);
-
   /* If we used a temporary, fix it up now.  */
   if (orig_x != x)
     {
@@ -2943,6 +2928,7 @@ find_if_header (basic_block test_bb, int pass)
  success:
   if (dump_file)
     fprintf (dump_file, "Conversion succeeded on pass %d.\n", pass);
+  /* Set this so we continue looking.  */
   cond_exec_changed_p = TRUE;
   return ce_info.test_bb;
 }
@@ -3809,7 +3795,6 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
       
       bitmap_copy (test_live, DF_LIVE_IN (other_bb));
-      bitmap_copy (test_set, DF_LIVE_IN (other_bb));
       for (insn = jump; ; insn = prev)
 	{
 	  if (INSN_P (insn))
