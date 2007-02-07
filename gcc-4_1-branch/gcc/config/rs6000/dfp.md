@@ -27,6 +27,89 @@
   ""
   "{ rs6000_emit_move (operands[0], operands[1], DDmode); DONE; }")
 
+(define_split
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+        (match_operand:DD 1 "const_int_operand" ""))]
+  "! TARGET_POWERPC64 && reload_completed
+   && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
+       || (GET_CODE (operands[0]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[0])) == REG
+	   && REGNO (SUBREG_REG (operands[0])) <= 31))"
+  [(set (match_dup 2) (match_dup 4))
+   (set (match_dup 3) (match_dup 1))]
+  "
+{
+  int endian = (WORDS_BIG_ENDIAN == 0);
+  HOST_WIDE_INT value = INTVAL (operands[1]);
+
+  operands[2] = operand_subword (operands[0], endian, 0, DDmode);
+  operands[3] = operand_subword (operands[0], 1 - endian, 0, DDmode);
+#if HOST_BITS_PER_WIDE_INT == 32
+  operands[4] = (value & 0x80000000) ? constm1_rtx : const0_rtx;
+#else
+  operands[4] = GEN_INT (value >> 32);
+  operands[1] = GEN_INT (((value & 0xffffffff) ^ 0x80000000) - 0x80000000);
+#endif
+}")
+
+(define_split
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+        (match_operand:DD 1 "const_double_operand" ""))]
+  "! TARGET_POWERPC64 && reload_completed
+   && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
+       || (GET_CODE (operands[0]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[0])) == REG
+	   && REGNO (SUBREG_REG (operands[0])) <= 31))"
+  [(set (match_dup 2) (match_dup 4))
+   (set (match_dup 3) (match_dup 5))]
+  "
+{
+  int endian = (WORDS_BIG_ENDIAN == 0);
+  long l[2];
+  REAL_VALUE_TYPE rv;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (rv, operands[1]);
+  REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+
+  operands[2] = operand_subword (operands[0], endian, 0, DDmode);
+  operands[3] = operand_subword (operands[0], 1 - endian, 0, DDmode);
+  operands[4] = gen_int_mode (l[endian], SImode);
+  operands[5] = gen_int_mode (l[1 - endian], SImode);
+}")
+
+(define_split
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+        (match_operand:DD 1 "const_double_operand" ""))]
+  "TARGET_POWERPC64 && reload_completed
+   && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
+       || (GET_CODE (operands[0]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[0])) == REG
+	   && REGNO (SUBREG_REG (operands[0])) <= 31))"
+  [(set (match_dup 2) (match_dup 3))]
+  "
+{
+  int endian = (WORDS_BIG_ENDIAN == 0);
+  long l[2];
+  REAL_VALUE_TYPE rv;
+#if HOST_BITS_PER_WIDE_INT >= 64
+  HOST_WIDE_INT val;
+#endif
+
+  REAL_VALUE_FROM_CONST_DOUBLE (rv, operands[1]);
+  REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+
+  operands[2] = gen_lowpart (DImode, operands[0]);
+  /* HIGHPART is lower memory address when WORDS_BIG_ENDIAN.  */
+#if HOST_BITS_PER_WIDE_INT >= 64
+  val = ((HOST_WIDE_INT)(unsigned long)l[endian] << 32
+	 | ((HOST_WIDE_INT)(unsigned long)l[1 - endian]));
+
+  operands[3] = gen_int_mode (val, DImode);
+#else
+  operands[3] = immed_double_const (l[1 - endian], l[endian], DImode);
+#endif
+}")
+
 ;; Don't have reload use general registers to load a constant.  First,
 ;; it might not work if the output operand is the equivalent of
 ;; a non-offsettable memref, but also it is less efficient than loading
