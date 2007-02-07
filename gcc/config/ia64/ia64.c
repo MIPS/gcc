@@ -3299,9 +3299,10 @@ ia64_expand_prologue (void)
   if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
     {
       reg = gen_rtx_REG (DImode, BR_REG (0));
-      if (current_frame_info.reg_save_b0 != 0)
+      if (current_frame_info.r[reg_save_b0] != 0)
 	{
-	  alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+          alt_reg = gen_rtx_REG (DImode, current_frame_info.r[reg_save_b0]);
+          reg_emitted (reg_save_b0);
 	  insn = emit_move_insn (alt_reg, reg);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 
@@ -3320,7 +3321,7 @@ ia64_expand_prologue (void)
 	}
     }
 
-  if (current_frame_info.reg_save_gp)
+  if (current_frame_info.r[reg_save_gp])
     {
       reg_emitted (reg_save_gp);
       insn = emit_move_insn (gen_rtx_REG (DImode,
@@ -3493,8 +3494,11 @@ ia64_expand_epilogue (int sibcall_p)
   /* Restore the return pointer.  */
   if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
     {
-      if (current_frame_info.reg_save_b0 != 0)
-	alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+      if (current_frame_info.r[reg_save_b0] != 0)
+        {
+         alt_reg = gen_rtx_REG (DImode, current_frame_info.r[reg_save_b0]);
+         reg_emitted (reg_save_b0);
+        }
       else
 	{
 	  alt_regno = next_scratch_gr_reg ();
