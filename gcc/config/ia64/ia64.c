@@ -3524,30 +3524,7 @@ ia64_expand_epilogue (int sibcall_p)
 	cfa_off -= 8;
       }
 
-<<<<<<< .working
-  /* Restore the branch registers.  Handle B0 specially, as it may
-     have gotten stored in some GR register.  */
-  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
-    {
-      if (current_frame_info.r[reg_save_b0] != 0)
-        {
-	  alt_reg = gen_rtx_REG (DImode, current_frame_info.r[reg_save_b0]);
-	  reg_emitted (reg_save_b0);
-	}
-      else
-	{
-	  alt_regno = next_scratch_gr_reg ();
-	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  do_restore (gen_movdi_x, alt_reg, cfa_off);
-	  cfa_off -= 8;
-	}
-      reg = gen_rtx_REG (DImode, BR_REG (0));
-      emit_move_insn (reg, alt_reg);
-    }
-
-=======
   /* Restore the branch registers.  */
->>>>>>> .merge-right.r121603
   for (regno = BR_REG (1); regno <= BR_REG (7); ++regno)
     if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
       {
