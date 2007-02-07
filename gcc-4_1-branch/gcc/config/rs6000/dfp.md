@@ -29,7 +29,7 @@
 
 (define_split
   [(set (match_operand:DD 0 "gpc_reg_operand" "")
-        (match_operand:DD 1 "const_int_operand" ""))]
+	(match_operand:DD 1 "const_int_operand" ""))]
   "! TARGET_POWERPC64 && reload_completed
    && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
        || (GET_CODE (operands[0]) == SUBREG
@@ -54,7 +54,7 @@
 
 (define_split
   [(set (match_operand:DD 0 "gpc_reg_operand" "")
-        (match_operand:DD 1 "const_double_operand" ""))]
+	(match_operand:DD 1 "const_double_operand" ""))]
   "! TARGET_POWERPC64 && reload_completed
    && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
        || (GET_CODE (operands[0]) == SUBREG
@@ -79,7 +79,7 @@
 
 (define_split
   [(set (match_operand:DD 0 "gpc_reg_operand" "")
-        (match_operand:DD 1 "const_double_operand" ""))]
+	(match_operand:DD 1 "const_double_operand" ""))]
   "TARGET_POWERPC64 && reload_completed
    && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
        || (GET_CODE (operands[0]) == SUBREG
@@ -304,7 +304,7 @@
 ; which doesn't make progress.  Likewise r->Y must be before r->r.
 (define_insn_and_split "*movtd_internal"
   [(set (match_operand:TD 0 "nonimmediate_operand" "=o,f,f,r,Y,r")
-        (match_operand:TD 1 "input_operand"         "f,o,f,YGHF,r,r"))]
+	(match_operand:TD 1 "input_operand"         "f,o,f,YGHF,r,r"))]
   "TARGET_HARD_FLOAT && TARGET_FPRS && ENABLE_DECIMAL_FLOAT
    && (gpc_reg_operand (operands[0], TDmode)
        || gpc_reg_operand (operands[1], TDmode))"

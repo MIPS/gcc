@@ -1,5 +1,9 @@
 2007-02-07  Peter Bergner  <bergner@vnet.ibm.com>
 
+	* config/rs6000/dfp.md: Whitespace cleanup.
+
+2007-02-07  Peter Bergner  <bergner@vnet.ibm.com>
+
 	* config/rs6000/dfp.md (movdd splitters): New define_splits.
 
 2007-01-30  Janis Johnson  <janis187@us.ibm.com>
