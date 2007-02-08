@@ -1,3 +1,12 @@
+2007-01-27  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/30513
+	* configure.host: Add forgottten sysdep_dir to sparc. Add a flag to
+	libgcj_flags to undefine 'sun' at compile time.
+	* sysdep/sparc/locks.h (read_barrier): New functions for 32 and 64 bit
+	Sparc.
+	(write_barrier): Likewise.
+
 2007-02-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (libjava_cv_anon_version_script): New test.
