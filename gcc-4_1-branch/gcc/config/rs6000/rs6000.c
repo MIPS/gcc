@@ -2104,7 +2104,10 @@ num_insns_constant (rtx op, enum machine_mode mode)
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	    REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+	    if (DECIMAL_FLOAT_MODE_P (mode))
+	      REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+	    else
+	      REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
 	    high = l[WORDS_BIG_ENDIAN == 0];
 	    low  = l[WORDS_BIG_ENDIAN != 0];
 	  }
@@ -2802,6 +2805,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
+    case DDmode:
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
@@ -2814,7 +2818,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
-      if (mode == DFmode || !TARGET_POWERPC64)
+      if (mode == DFmode || mode == DDmode || !TARGET_POWERPC64)
 	extra = 4;
       else if (offset & 3)
 	return false;
@@ -2977,7 +2981,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_MODE_NUNITS (mode) == 1
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
-	       || (((mode != DImode && mode != DFmode) || TARGET_E500_DOUBLE)
+	       || (((mode != DImode && mode != DFmode && mode != DDmode)
+		    || TARGET_E500_DOUBLE)
 		   && mode != TFmode && mode != TDmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
@@ -2999,6 +3004,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     }
   else if (SPE_VECTOR_MODE (mode)
 	   || (TARGET_E500_DOUBLE && (mode == DFmode
+				      || mode == DDmode
 				      || mode == DImode)))
     {
       if (mode == DImode)
@@ -5297,14 +5303,15 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (TARGET_SPE_ABI && TARGET_SPE
 	   && (SPE_VECTOR_MODE (mode)
 	       || (TARGET_E500_DOUBLE && (mode == DFmode
+					  || mode == DDmode
 					  || mode == DCmode))))
     return rs6000_spe_function_arg (cum, mode, type);
 
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && (mode == SFmode || mode == DFmode || mode == DDmode
-	      || mode == TDmode
+	  && (mode == SFmode || mode == DFmode
+	      || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
 	  /* Must use an even/odd register pair.  */
