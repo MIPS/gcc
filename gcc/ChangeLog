@@ -1,3 +1,25 @@
+2007-02-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fipra): Rename to fira-ipra.  Make it default.
+	(fira-move-spills, fira-share-save-slots, fira-share-spill-slots):
+	New.
+	* toplev.h (flag_ipra): Rename to flag_ira_ipra.
+	(flag_ira_move_spills, flag_ira_share_save_slots,
+	flag_ira_share_spill_slots): New external definitions.
+	* doc/invoke.texi (-fipra): Rename to -fno-ira-ipra. 
+	(-fno-ira-move-spills, -fno-ira-share-save-slots,
+	-fno-ira-share-spill-slots): New options.
+	* function.c (get_call_invalidated_used_regs): Rename flag_ipra to
+	flag_ira_ipra.
+	* ira-costs.c (tune_pseudo_costs_and_cover_classes): Ditto.
+	* caller-save.c (setup_save_areas): Use flag_ira_share_save_slots.
+	Rename flag_ipra to flag_ira_ipra.
+	(flag_ira_share_save_slots): Use flag_ira_move_spills.
+	* ira-color.c (assign_hard_reg): Skip pseudos with different cover
+	class.
+	(reuse_stack_slot): Use flag_ira_share_spill_slots.
+	* config/arm/arm.h (IRA_COVER_CLASSES): New macro.
+	
 2007-02-31  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* reload.h (debug_save_data): New definition.

@@ -1367,7 +1367,7 @@ tune_pseudo_costs_and_cover_classes (void)
 	    regno = class_hard_regs [cover_class] [j];
 	    class = REGNO_REG_CLASS (regno);
 	    cost = 0;
-	    if (! flag_ipra)
+	    if (! flag_ira_ipra)
 	      {
 		/* ??? If only part is call clobbered.  */
 		if (! hard_reg_not_in_set_p (regno, mode, call_used_reg_set))

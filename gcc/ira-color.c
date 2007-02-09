@@ -216,12 +216,13 @@ assign_hard_reg (pseudo_t pseudo, int retry_p)
 	}
       else
 	gcc_unreachable ();
-      if (PSEUDO_ASSIGNED_P (another_pseudo))
+      if (cover_class != PSEUDO_COVER_CLASS (another_pseudo)
+	  || PSEUDO_ASSIGNED_P (another_pseudo))
 	continue;
       conflict_costs = PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (another_pseudo);
       if (conflict_costs != NULL)
 	for (j = class_size - 1; j >= 0; j--)
-	  full_costs [j] += conflict_costs [j];
+ 	  full_costs [j] += conflict_costs [j];
     }
   IOR_HARD_REG_SET (conflicting_regs, no_alloc_regs);
   IOR_COMPL_HARD_REG_SET (conflicting_regs, reg_class_contents [cover_class]);
@@ -1208,6 +1209,8 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 
   ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
 	      && inherent_size <= total_size);
+  if (! flag_ira_share_spill_slots)
+    return NULL_RTX;
   x = NULL_RTX;
   if (flag_omit_frame_pointer)
     n = spilled_reg_stack_slots_num - 1;

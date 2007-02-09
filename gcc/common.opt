@@ -557,10 +557,6 @@ fipa-type-escape
 Common Report Var(flag_ipa_type_escape) Init(0)
 Type based escape and alias analysis
 
-fipra
-Common Report Var(flag_ipra) Init(0)
-Inter-procedural register allocation for IRA
-
 fira
 Common Report Var(flag_ira)
 Use integrated register allocator.
@@ -572,6 +568,22 @@ Common Joined RejectNegative
 fira-biased-coloring
 Common Report Var(flag_ira_biased_coloring)
 Use biased coloring for the integrated register allocator.
+
+fira-ipra
+Common Report Var(flag_ira_ipra) Init(1)
+Inter-procedural register allocation for IRA
+
+fira-move-spills
+Common Report Var(flag_ira_move_spills) Init(1)
+Increase gap between the corresponding save and restore insns.
+
+fira-share-save-slots
+Common Report Var(flag_ira_share_save_slots) Init(1)
+Share slots for saving different hard registers.
+
+fira-share-spill-slots
+Common Report Var(flag_ira_share_spill_slots) Init(1)
+Share stack slots for spilled pseudo-registers.
 
 fivopts
 Common Report Var(flag_ivopts) Init(1)

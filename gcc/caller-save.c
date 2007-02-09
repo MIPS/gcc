@@ -400,7 +400,7 @@ setup_save_areas (void)
 	unsigned int regno = reg_renumber[i];
 	unsigned int endregno
 	  = regno + hard_regno_nregs[regno][GET_MODE (regno_reg_rtx[i])];
-	if (flag_ira && flag_ipra)
+	if (flag_ira && flag_ira_ipra)
 	  {
 	    HARD_REG_SET clobbered_regs;
 	    
@@ -415,7 +415,7 @@ setup_save_areas (void)
 	      SET_HARD_REG_BIT (hard_regs_used, r);
       }
 
-  if (flag_ira)
+  if (flag_ira && flag_ira_share_save_slots)
     {
       rtx insn, slot;
       struct insn_chain *chain, *next;
@@ -1140,7 +1140,7 @@ save_call_clobbered_regs (void)
   struct insn_chain *chain, *next;
   enum machine_mode save_mode [FIRST_PSEUDO_REGISTER];
 
-  if (flag_ira)
+  if (flag_ira && flag_ira_move_spills)
     {
       alloc_aux_for_blocks (sizeof (struct bb_info));
       make_global_save_analysis ();
@@ -1188,7 +1188,7 @@ save_call_clobbered_regs (void)
 
 		    regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS,
 					     save_mode);
-		    if (flag_ira)
+		    if (flag_ira && flag_ira_move_spills)
 		      {
 			gcc_assert (before == regno);
 			save_mode [before] = VOIDmode;
@@ -1282,7 +1282,7 @@ save_call_clobbered_regs (void)
 	     remain saved.  If the last insn in the block is a JUMP_INSN, put
 	     the restore before the insn, otherwise, put it after the insn.  */
 
-	  if (flag_ira)
+	  if (flag_ira && flag_ira_move_spills)
 	    set_hard_reg_saved (BB_INFO_BY_INDEX (chain->block)->save_here,
 				BB_INFO_BY_INDEX (chain->block)->save_out_mode,
 				save_mode);
@@ -1295,21 +1295,21 @@ save_call_clobbered_regs (void)
 
 		  regno += insert_restore (chain, JUMP_P (insn),
 					   regno, MOVE_MAX_WORDS, save_mode);
-		  if (flag_ira)
+		  if (flag_ira && flag_ira_move_spills)
 		    {
 		      gcc_assert (before == regno);
 		      save_mode [before] = VOIDmode;
 		    }
 		}
 
-	  if (flag_ira && next_bb_info != NULL)
+	  if (flag_ira && flag_ira_move_spills && next_bb_info != NULL)
 	    set_hard_reg_saved (next_bb_info->save_in,
 				next_bb_info->save_in_mode, save_mode);
 
 	}
     }
 
-  if (flag_ira)
+  if (flag_ira && flag_ira_move_spills)
     free_aux_for_blocks ();
 }
 

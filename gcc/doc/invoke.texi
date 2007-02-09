@@ -313,9 +313,11 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
--finline-limit=@var{n} -fipra -fira -fira-alogirthm=@var{algorithm} @gol
--fira-biased-coloring -fkeep-inline-functions @gol
--fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
+-finline-limit=@var{n} -fira -fira-alogirthm=@var{algorithm} @gol
+-fira-biased-coloring -fno-ira-ipra -fno-ira-move-spills @gol
+-fno-ira-share-spill-slots -fno-ira-share-save-slots @gol
+-fkeep-inline-functions -fkeep-static-consts @gol
+-fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
 -fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
@@ -5023,10 +5025,29 @@ size register set, the second one is faster and generates decent code
 and the smallest size code, and the priority-based one is the fastest
 one.
 
-@item -fipra
-@opindex fipra
-Switch on a simple form of inter-procedural register allocation when
+@item -fno-ira-ipra
+@opindex fno-ira-ipra
+Switch off a simple form of inter-procedural register allocation when
 the integrated register allocator (@acronym{IRA}) is used.
+
+@item -fno-ira-move-spills
+@opindex fno-ira-move-spills
+Switch off increasing gap between the corresponding save and restore
+insns.  All saves and the corresponding restores of call used hard
+registers living through a call will be in the same basic block.
+
+@item -fno-ira-share-save-slots
+@opindex fno-ira-share-save-slots
+Switch off sharing stack slots used for saving call used hard
+registers living through a call.  Each hard register will get a
+separate stack slot and as a result function stack frame will be
+bigger.
+
+@item -fno-ira-share-spill-slots
+@opindex fno-ira-share-spill-slots
+Switch off sharing stack slots allocated for pseudo-registers.  Each
+pseudo-register which did not get a hard register will get a separate
+stack slot and as a result function stack frame will be bigger.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
