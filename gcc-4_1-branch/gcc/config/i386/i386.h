@@ -395,6 +395,11 @@ extern int x86_prefetch_sse, x86_cmpxchg16b;
 	builtin_define ("__SSE2__");				\
       if (TARGET_SSE3)						\
 	builtin_define ("__SSE3__");				\
+      if (TARGET_SSSE3)						\
+	{							\
+	  builtin_define ("__SSSE3__");				\
+	  builtin_define ("__MNI__");				\
+	}							\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
