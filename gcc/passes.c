@@ -84,6 +84,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
+#include "predict.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -522,6 +523,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_tail_recursion);
+          NEXT_PASS (pass_profile);
 	  NEXT_PASS (pass_release_ssa_names);
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
@@ -536,8 +538,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_pta);
   *p = NULL;
 
-  /* These passes are run after IPA passes on every function that is being output
-     to the assemlber file.  */
+  /* These passes are run after IPA passes on every function that is being
+     output to the assembler file.  */
   p = &all_passes;
   NEXT_PASS (pass_apply_inline);
   NEXT_PASS (pass_all_optimizations);
@@ -569,7 +571,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_tail_recursion);
-      NEXT_PASS (pass_profile);
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
@@ -927,6 +928,24 @@ execute_function_todo (void *data)
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
+    }
+
+  if (flags & TODO_rebuild_frequencies)
+    {
+      if (profile_status == PROFILE_GUESSED)
+	{
+	  loop_optimizer_init (0);
+	  add_noreturn_fake_exit_edges ();
+	  mark_irreducible_loops ();
+	  connect_infinite_loops_to_exit ();
+	  estimate_bb_frequencies ();
+	  remove_fake_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
+      else if (profile_status == PROFILE_READ)
+	counts_to_freqs ();
+      else
+	gcc_unreachable ();
     }
 
 #if defined ENABLE_CHECKING

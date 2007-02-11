@@ -10,8 +10,12 @@ details. */
 
 #include <config.h>
 #include <gcj/cni.h>
+#include <java-assert.h>
+#include <java-interp.h>
 #include <jvm.h>
 #include <jvmti.h>
+
+#include <java-interp.h>
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
@@ -20,7 +24,9 @@ details. */
 #include <java/lang/StringBuilder.h>
 #include <java/lang/Thread.h>
 #include <java/nio/ByteBuffer.h>
+#include <java/nio/ByteBufferImpl.h>
 #include <java/util/ArrayList.h>
+#include <java/util/Collection.h>
 #include <java/util/Hashtable.h>
 #include <java/util/Iterator.h>
 
@@ -29,20 +35,42 @@ details. */
 #include <gnu/classpath/jdwp/VMMethod.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
 #include <gnu/classpath/jdwp/event/ClassPrepareEvent.h>
+#include <gnu/classpath/jdwp/event/EventManager.h>
 #include <gnu/classpath/jdwp/event/EventRequest.h>
 #include <gnu/classpath/jdwp/event/ThreadEndEvent.h>
 #include <gnu/classpath/jdwp/event/ThreadStartEvent.h>
 #include <gnu/classpath/jdwp/event/VmDeathEvent.h>
 #include <gnu/classpath/jdwp/event/VmInitEvent.h>
+#include <gnu/classpath/jdwp/event/filters/IEventFilter.h>
+#include <gnu/classpath/jdwp/event/filters/LocationOnlyFilter.h>
+#include <gnu/classpath/jdwp/event/filters/StepFilter.h>
+#include <gnu/classpath/jdwp/exception/InvalidFrameException.h>
+#include <gnu/classpath/jdwp/exception/InvalidLocationException.h>
 #include <gnu/classpath/jdwp/exception/InvalidMethodException.h>
 #include <gnu/classpath/jdwp/exception/JdwpInternalErrorException.h>
+#include <gnu/classpath/jdwp/id/ThreadId.h>
+#include <gnu/classpath/jdwp/util/Location.h>
 #include <gnu/classpath/jdwp/util/MethodResult.h>
+#include <gnu/gcj/jvmti/Breakpoint.h>
+#include <gnu/gcj/jvmti/BreakpointManager.h>
 
 using namespace java::lang;
 using namespace gnu::classpath::jdwp::event;
 using namespace gnu::classpath::jdwp::util;
 
+// Stepping information
+struct step_info
+{
+  jint size;   // See gnu.classpath.jdwp.JdwpConstants.StepSize
+  jint depth;  // See gnu.classpath.jdwp.JdwpConstants.StepDepth
+  int stack_depth;  // stack depth at start of stepping
+  jmethodID method; // method in which we are stepping
+};
+
 // Forward declarations
+static Location *get_request_location (EventRequest *);
+static gnu::classpath::jdwp::event::filters::StepFilter *
+get_request_step_filter (EventRequest *);
 static void JNICALL jdwpClassPrepareCB (jvmtiEnv *, JNIEnv *, jthread, jclass);
 static void JNICALL jdwpThreadEndCB (jvmtiEnv *, JNIEnv *, jthread);
 static void JNICALL jdwpThreadStartCB (jvmtiEnv *, JNIEnv *, jthread);
@@ -51,6 +79,9 @@ static void JNICALL jdwpVMInitCB (jvmtiEnv *, JNIEnv *, jthread);
 static void throw_jvmti_error (jvmtiError);
 
 #define DEFINE_CALLBACK(Cb,Event) Cb.Event = jdwp ## Event ## CB
+#define DISABLE_EVENT(Event,Thread)					\
+  _jdwp_jvmtiEnv->SetEventNotificationMode (JVMTI_DISABLE,		\
+					    JVMTI_EVENT_ ## Event, Thread)
 #define ENABLE_EVENT(Event,Thread)					\
   _jdwp_jvmtiEnv->SetEventNotificationMode (JVMTI_ENABLE,		\
 					    JVMTI_EVENT_ ## Event, Thread)
@@ -67,6 +98,8 @@ void
 gnu::classpath::jdwp::VMVirtualMachine::initialize ()
 {
   _jdwp_suspend_counts = new ::java::util::Hashtable ();
+  _stepping_threads = new ::java::util::Hashtable ();
+
   JavaVM *vm = _Jv_GetJavaVM ();
   vm->GetEnv (reinterpret_cast<void **> (&_jdwp_jvmtiEnv), JVMTI_VERSION_1_0);
 
@@ -186,9 +219,57 @@ gnu::classpath::jdwp::VMVirtualMachine::registerEvent (EventRequest *request)
   switch (request->getEventKind ())
     {
     case EventRequest::EVENT_SINGLE_STEP:
+      {
+	Thread *thread;
+	filters::StepFilter *filter = get_request_step_filter (request);
+	if (filter == NULL)
+	  {
+	    // No filter specified: report every step in every
+	    // thread.
+	    thread = NULL;
+	  }
+	else
+	  {
+	    // Add stepping information to list of stepping threads
+	    thread = filter->getThread ()->getThread ();
+	    _Jv_InterpFrame *frame
+	      = reinterpret_cast<_Jv_InterpFrame *> (thread->interp_frame);
+	    struct step_info *sinfo
+	      = (struct step_info *) JvAllocBytes (sizeof (struct step_info));
+	    sinfo->size = filter->getSize ();
+	    sinfo->depth = filter->getDepth ();
+	    sinfo->stack_depth = frame->depth ();
+	    sinfo->method = frame->self->get_method ();
+	    _stepping_threads->put (thread, (jobject) sinfo);
+	  }
+
+	ENABLE_EVENT (SINGLE_STEP, thread);
+      }
       break;
 
     case EventRequest::EVENT_BREAKPOINT:
+      {
+	using namespace ::gnu::gcj::jvmti;
+	Location *loc = get_request_location (request);
+	if (loc == NULL)
+	  {
+	    using namespace gnu::classpath::jdwp::exception;
+	    throw new InvalidLocationException ();
+	  }
+
+	jlong method = loc->getMethod ()->getId ();
+	jlocation index = loc->getIndex ();
+	Breakpoint  *bp = BreakpointManager::getBreakpoint (method, index);
+	if (bp == NULL)
+	  {
+	    // Breakpoint not in interpreter yet
+	    bp = BreakpointManager::newBreakpoint (method, index);
+	  }
+	else
+	  {
+	    // Ignore the duplicate
+	  }
+      }
       break;
 
     case EventRequest::EVENT_FRAME_POP:
@@ -241,9 +322,62 @@ gnu::classpath::jdwp::VMVirtualMachine::unregisterEvent (EventRequest *request)
   switch (request->getEventKind ())
     {
     case EventRequest::EVENT_SINGLE_STEP:
+      {
+	Thread *thread;
+	filters::StepFilter *filter = get_request_step_filter (request);
+	if (filter == NULL)
+	  thread = NULL;
+	else
+	  {
+	    thread = filter->getThread ()->getThread ();
+	    _stepping_threads->remove (thread);
+	  }
+
+	DISABLE_EVENT (SINGLE_STEP, thread);
+      }
       break;
 
     case EventRequest::EVENT_BREAKPOINT:
+      {
+	using namespace gnu::gcj::jvmti;
+	::java::util::Collection *breakpoints;
+	EventManager *em = EventManager::getDefault ();
+	breakpoints = em->getRequests (EventRequest::EVENT_BREAKPOINT);
+
+	// Check for duplicates
+	int matches = 0;
+	Location *the_location = get_request_location (request);
+
+	// This should not be possible: we REQUIRE a Location
+	// to install a breakpoint
+	JvAssert (the_location != NULL);
+
+	::java::util::Iterator *iter = breakpoints->iterator ();
+	while (iter->hasNext ())
+	  {
+	    EventRequest *er
+	      = reinterpret_cast<EventRequest *> (iter->next ());
+	    Location *loc = get_request_location (er);
+	    JvAssert (loc != NULL);
+	    if (loc->equals (the_location) && ++matches == 2)
+	      {
+		// Short-circuit: already more than one breakpoint
+		return;
+	      }
+	  }
+
+	if (matches == 0)
+	  {
+	    using namespace gnu::classpath::jdwp::exception;
+	    jstring msg
+	      = JvNewStringLatin1 ("attempt to remove unknown breakpoint");
+	    throw new JdwpInternalErrorException (msg);
+	  }
+
+	jlong methodId = the_location->getMethod ()->getId ();
+	BreakpointManager::deleteBreakpoint (methodId,
+					     the_location->getIndex ());
+      }
       break;
 
     case EventRequest::EVENT_FRAME_POP:
@@ -360,9 +494,50 @@ gnu::classpath::jdwp::VMVirtualMachine::getFrames (MAYBE_UNUSED Thread *thread,
 
 gnu::classpath::jdwp::VMFrame *
 gnu::classpath::jdwp::VMVirtualMachine::
-getFrame (MAYBE_UNUSED Thread *thread, MAYBE_UNUSED::java::nio::ByteBuffer *bb)
+getFrame (Thread *thread, jlong frameID)
 {
-  return NULL;
+  using namespace gnu::classpath::jdwp::exception;
+  
+  _Jv_Frame *vm_frame = (_Jv_Frame *) thread->frame;
+  jint depth = 0;
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (frameID); 
+  
+  // We need to find the stack depth of the frame, so search through the call
+  // stack to find it.  This also checks for a valid frameID.
+  while (vm_frame != frame)
+    {
+      vm_frame = vm_frame->next;
+      depth++;
+      if (vm_frame == NULL)
+        throw new InvalidFrameException (frameID);
+    }
+  
+  Location *loc = NULL;
+  jvmtiFrameInfo info;
+  jvmtiError jerr;
+  jint num_frames;
+  jclass klass;
+  
+  // Get the info for the frame of interest
+  jerr = _jdwp_jvmtiEnv->GetStackTrace (thread, depth, 1, &info, &num_frames);
+   
+  if (jerr != JVMTI_ERROR_NONE)
+    throw_jvmti_error (jerr);
+  
+  jerr = _jdwp_jvmtiEnv->GetMethodDeclaringClass (info.method, &klass);
+      
+  if (jerr != JVMTI_ERROR_NONE)
+    throw_jvmti_error (jerr);
+
+  VMMethod *meth 
+    = getClassMethod (klass, reinterpret_cast<jlong> (info.method));
+  
+  if (info.location == -1)
+    loc = new Location (meth, 0);
+  else
+    loc = new Location (meth, info.location);
+  
+  return new VMFrame (thread, reinterpret_cast<jlong> (vm_frame), loc); 
 }
 
 jint
@@ -408,6 +583,47 @@ gnu::classpath::jdwp::VMVirtualMachine::
 getSourceFile (MAYBE_UNUSED jclass clazz)
 {
   return NULL;
+}
+
+static gnu::classpath::jdwp::event::filters::StepFilter *
+get_request_step_filter (EventRequest *request)
+{
+  ::java::util::Collection *filters = request->getFilters ();
+  ::java::util::Iterator *iter = filters->iterator ();
+  filters::StepFilter *filter = NULL;
+  while (iter->hasNext ())
+    {
+      using namespace gnu::classpath::jdwp::event::filters;
+      IEventFilter *next = (IEventFilter *) iter->next ();
+      if (next->getClass () == &StepFilter::class$)
+	{
+	  filter = reinterpret_cast<StepFilter *> (next);
+	  break;
+	}
+    }
+
+  return filter;
+}
+
+static Location *
+get_request_location (EventRequest *request)
+{
+  Location *loc = NULL;
+  ::java::util::Collection *filters = request->getFilters ();
+  ::java::util::Iterator *iter = filters->iterator ();
+  while (iter->hasNext ())
+    {
+      using namespace gnu::classpath::jdwp::event::filters;
+      IEventFilter *filter = (IEventFilter *) iter->next ();
+      if (filter->getClass () == &LocationOnlyFilter::class$)
+	{
+	  LocationOnlyFilter *lof
+	    = reinterpret_cast<LocationOnlyFilter *> (filter);
+	  loc = lof->getLocation ();
+	}
+    }
+
+  return loc;
 }
 
 static void

@@ -1,3 +1,141 @@
+2007-02-10  Andrew Haley  <aph@redhat.com>
+
+	PR java/30742
+	* gnu/classpath/natVMStackWalker.cc (GET_CALLING_CLASS): New.
+	(getCallingClass): Call GET_CALLING_CLASS.
+	(getCallingClassLoader): Likewise.
+
+2007-02-10  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* configure: Rebuilt.
+	* configure.ac (GCJH): Reverted second part of patch of 2006-12-20.
+
+2007-02-10  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (BUILD_ECJ1): Unify the command for renaming ecjx to
+	the host's ecj1 executable.
+
+2007-02-09  Richard Henderson  <rth@redhat.com>
+
+	* sysdep/alpha/locks.h (read_barrier): New.
+
+2007-02-09  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java
+	(_stepping_threads): New member.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.h:
+	Regenerated.
+	* gnu/claspath/jdwp/natVMVirtualMachine.cc
+	(get_request_step_filter): New function.
+	(DISABLE_EVENT): New macro.
+	(initialize): Initialize _stepping_threads.
+	(registerEvent): Implement EVENT_SINGLE_STEP.
+	(unregisterEvent): Likewise.
+
+2007-02-08  Keith Seitz  <keiths@redhat.com>
+
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+
+	* classpath/lib/javax/management/MBeanServerFactory.class:
+	Regenerate.
+
+2007-02-08  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/processor/
+	StackFrameCommandSet.java (executeGetValues): Pass jlong instead
+	of ByteBuffer.
+	(executeSetValues): Ditto.
+	(executeThisObject): Ditto.
+	* classpath/gnu/classpath/jdwp/processor/
+	StackFrameCommandSet.class: Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/VMVirtualMachine.class:
+	Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/VMFrame.class: Rebuilt.
+	* classpath/lib/gnu/classpath/jdwp/exception/
+	InvalidFrameException.java: New file.
+	* gnu/classpath/jdwp/VMFrame.java: Added field for thread of
+	frame.
+	(Constructor): New method.
+	* gnu/classpath/jdwp/VMFrame.h: Regenerated.
+	* gnu/classpath/jdwp/VMVirtualMachine.java
+	(getFrame): Changed ByteBuffer to jlong.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getFrame): Implement.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Regenerated.
+
+2007-02-08  Kyle Galloway  <kgallowa@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpFrame): obj_ptr field added
+	to hold "this" pointer for frame.
+	(_Jv_InterpFrame::get_this_ptr): New method.
+	* interpret-run.cc: Copy the "this" pointer into obj_ptr.
+
+2007-02-07  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_Frame::depth):
+	New function.
+	* jvmti.cc (_Jv_JVMTI_GetFrameCount): Use _Jv_Frame::depth.
+
+2007-02-07  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc (CHECK_FOR_NATIVE_METHOD): New macro.
+	(_Jv_JVMTI_GetMaxLocals): New method.
+	* include/java-interp.h
+	(_Jv_InterpMethod::get_max_locals): New method.
+
+2007-02-01 Marco Trudel <mtrudel@gmx.ch>
+
+	* jni.cc (_Jv_JNI_DeleteWeakGlobalRef): Check for NULL objects.
+
+2007-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jni/init.c: New file.
+	* testsuite/libjava.jni/init.java: New file.
+	* testsuite/libjava.jni/init.out: New file.
+	* testsuite/libjava.jni/init.jar: New file.
+	* testsuite/libjava.jni/init.h: New file.
+	* testsuite/libjava.jni/init$NativeClass.h: New file.
+
+2007-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/28468
+	* configure: Regenerate.
+
+2007-02-06  Andrew Haley  <aph@redhat.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Set the source filename.
+	* sources.am: Rebuild.
+
+2007-02-05  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_envListLock): Change type to
+	ReentrantReadWriteLock.
+	(_Jv_JVMTI_DisposeEnvironment): Switch to read/write
+	lock.
+	(check_enabled_event): Likewise.
+	(_Jv_GetJVMTIEnv): Likewise.
+	(_Jv_JVMTI_Init): Likewise.
+	(_Jv_JVMTI_PostEvent): Likewise. 
+
+2007-02-05  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(registerEvent): Implement EVENT_BREAKPOINT.
+	(unregisterEvent): Likewise.
+	(get_request_location): New function.
+
+2007-02-05  Matthias Klose  <doko@debian.org>
+
+	testsuite/Makefile.am (compile-tests): Fix typo.
+	testsuite/Makefile.in: Regenerate.
+
 2007-02-02  Kyle Galloway  <kgallowa@redhat.com>
 
 	* gnu/classpath/jdwp/natVMVirtualMachine.cc (getFrameCount):
@@ -246,10 +384,10 @@
 
 2007-01-26  Andrew Haley  <aph@redhat.com>
 
-        * java/lang/natClass.cc (initializeClass): Re-throw
-        SecurityExceptions.
-        * java/lang/natVMClassLoader.cc (loadClass): checkPackageAccess.
-        * java/lang/ClassLoader.java: (loadClass): Likewise.
+	* java/lang/natClass.cc (initializeClass): Re-throw
+	SecurityExceptions.
+	* java/lang/natVMClassLoader.cc (loadClass): checkPackageAccess.
+	* java/lang/ClassLoader.java: (loadClass): Likewise.
 
 2007-01-26  Tom Tromey  <tromey@redhat.com>
 
@@ -290,9 +428,9 @@
 
 2007-01-24  Kyle Galloway  <kgallowa@redhat.com>
 
-    * libjava/testsuite/libjava.jvmti/jvmti-interp.exp: New file.
-    * libjava/testsuite/libjava.jvmti/interp: New folder.
-    * libjava/testsuite/lib/libjava.exp (exec_gij): New Method.
+	* libjava/testsuite/libjava.jvmti/jvmti-interp.exp: New file.
+	* libjava/testsuite/libjava.jvmti/interp: New folder.
+	* libjava/testsuite/lib/libjava.exp (exec_gij): New Method.
 
 2007-01-24  Keith Seitz  <keiths@redhat.com>
 

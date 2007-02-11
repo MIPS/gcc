@@ -8519,9 +8519,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	  gen_type_die (qualified_type, context_die);
 	  return lookup_type_die (qualified_type);
 	}
-      else if (DECL_ORIGINAL_TYPE (name)
-	       && (is_const_type < TYPE_READONLY (dtype)
-		   || is_volatile_type < TYPE_VOLATILE (dtype)))
+      else if (is_const_type < TYPE_READONLY (dtype)
+	       || is_volatile_type < TYPE_VOLATILE (dtype)
+	       || (is_const_type <= TYPE_READONLY (dtype)
+		   && is_volatile_type <= TYPE_VOLATILE (dtype)
+		   && DECL_ORIGINAL_TYPE (name) != type))
 	/* cv-unqualified version of named type.  Just use the unnamed
 	   type to which it refers.  */
 	return modified_type_die (DECL_ORIGINAL_TYPE (name),
@@ -9224,7 +9226,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  rtx rtl;
 
 	  /* If this is not defined, we have no way to emit the data.  */
-	  if (!targetm.asm_out.output_dwarf_dtprel)
+	  if (!targetm.have_tls || !targetm.asm_out.output_dwarf_dtprel)
 	    return 0;
 
 	  /* The way DW_OP_GNU_push_tls_address is specified, we can only

@@ -3927,18 +3927,13 @@ if_convert (void)
   num_updated_if_blocks = 0;
   num_true_changes = 0;
 
-  if ((! targetm.cannot_modify_jumps_p ())
-      && (!flag_reorder_blocks_and_partition || !no_new_pseudos
-	  || !targetm.have_named_sections))
+  loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
+  if (current_loops)
     {
-      loop_optimizer_init (0);
-      if (current_loops)
-	{
-	  mark_loop_exit_edges ();
-	  loop_optimizer_finalize ();
-	}
-      free_dominance_info (CDI_DOMINATORS);
+      mark_loop_exit_edges ();
+      loop_optimizer_finalize ();
     }
+  free_dominance_info (CDI_DOMINATORS);
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution)

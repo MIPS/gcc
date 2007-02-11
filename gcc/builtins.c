@@ -7472,6 +7472,8 @@ fold_builtin_sincos (tree arglist)
     return res;
 
   /* Canonicalize sincos to cexpi.  */
+  if (!TARGET_C99_FUNCTIONS)
+    return NULL_TREE;
   fn = mathfn_built_in (type, BUILT_IN_CEXPI);
   if (!fn)
     return NULL_TREE;
@@ -7505,6 +7507,8 @@ fold_builtin_cexp (tree arglist, tree type)
 
   /* In case we can figure out the real part of arg0 and it is constant zero
      fold to cexpi.  */
+  if (!TARGET_C99_FUNCTIONS)
+    return NULL_TREE;
   ifn = mathfn_built_in (rtype, BUILT_IN_CEXPI);
   if (!ifn)
     return NULL_TREE;

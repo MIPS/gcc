@@ -215,6 +215,12 @@ void test2(double x, double y)
 
   if (ccos(tan(x)+sin(x-y)*1i) != ccos(-tan(-x)-sin(y-x)*1i))
     link_error ();
+
+  if (-5+x*1i != -~(5+x*1i))
+    link_error ();
+
+  if (tan(x)+tan(y)*1i != -~(tan(-x)+tan(y)*1i))
+    link_error ();
 }
 
 void test3(__complex__ double x, __complex__ double y, int i)
@@ -259,6 +265,18 @@ void test3(__complex__ double x, __complex__ double y, int i)
     link_error();
 
   if (ccos(i ? x : ctan(y/x)) != ccos(i ? -x : -ctan(-y/x)))
+    link_error();
+
+  if (~x != -~-x)
+    link_error();
+
+  if (ccos(~x) != ccos(-~-x))
+    link_error();
+
+  if (ctan(~(x-y)) != -ctan(~(y-x)))
+    link_error();
+
+  if (ctan(~(x/y)) != -ctan(~(x/-y)))
     link_error();
 }
 
@@ -422,6 +440,12 @@ void test2f(float x, float y)
 
   if (ccosf(tanf(x)+sinf(x-y)*1i) != ccosf(-tanf(-x)-sinf(y-x)*1i))
     link_error ();
+
+  if (-5+x*1i != -~(5+x*1i))
+    link_error ();
+
+  if (tanf(x)+tanf(y)*1i != -~(tanf(-x)+tanf(y)*1i))
+    link_error ();
 }
 
 void test3f(__complex__ float x, __complex__ float y, int i)
@@ -466,6 +490,18 @@ void test3f(__complex__ float x, __complex__ float y, int i)
     link_error();
 
   if (ccosf(i ? x : ctanf(y/x)) != ccosf(i ? -x : -ctanf(-y/x)))
+    link_error();
+
+  if (~x != -~-x)
+    link_error();
+
+  if (ccosf(~x) != ccosf(-~-x))
+    link_error();
+
+  if (ctanf(~(x-y)) != -ctanf(~(y-x)))
+    link_error();
+
+  if (ctanf(~(x/y)) != -ctanf(~(x/-y)))
     link_error();
 }
 
@@ -629,6 +665,12 @@ void test2l(long double x, long double y)
 
   if (ccosl(tanl(x)+sinl(x-y)*1i) != ccosl(-tanl(-x)-sinl(y-x)*1i))
     link_error ();
+
+  if (-5+x*1i != -~(5+x*1i))
+    link_error ();
+
+  if (tanl(x)+tanl(y)*1i != -~(tanl(-x)+tanl(y)*1i))
+    link_error ();
 }
 
 void test3l(__complex__ long double x, __complex__ long double y, int i)
@@ -673,6 +715,18 @@ void test3l(__complex__ long double x, __complex__ long double y, int i)
     link_error();
 
   if (ccosl(i ? x : ctanl(y/x)) != ccosl(i ? -x : -ctanl(-y/x)))
+    link_error();
+
+  if (~x != -~-x)
+    link_error();
+
+  if (ccosl(~x) != ccosl(-~-x))
+    link_error();
+
+  if (ctanl(~(x-y)) != -ctanl(~(y-x)))
+    link_error();
+
+  if (ctanl(~(x/y)) != -ctanl(~(x/-y)))
     link_error();
 }
 

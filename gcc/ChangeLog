@@ -1,3 +1,712 @@
+2007-02-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/30634
+	* pa.md (movdf): For 64-bit target, fail if operand 1 is a non-zero
+	CONST_DOUBLE and operand 0 is a hard register.
+	(movdi): For 64-bit target, remove code to force CONST_DOUBLE to
+	memory.  Fail if operand 1 is a non-zero CONST_INT and operand 0
+	is a hard floating-point register.
+
+2007-02-10  Richard Henderson  <rth@redhat.com>, Jakub Jelinek  <jakub@redhat.com>, Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (libgcc-support, libgcc.mvars): Add emutls.c.
+	* builtin-types.def (BT_WORD): Make unsigned.
+	(BT_FN_VOID_PTR_WORD_WORD_PTR): New.
+	* builtins.def (BUILT_IN_EMUTLS_GET_ADDRESS): New.
+	(BUILT_IN_EMUTLS_REGISTER_COMMON): New.
+	* c-decl.c (grokdeclarator): Don't error if !have_tls.
+	* c-parser.c (c_parser_omp_threadprivate): Likewise.
+	* dwarf2out.c (loc_descriptor_from_tree_1): Don't do anything for
+	emulated tls.
+	* expr.c (emutls_var_address): New.
+	(expand_expr_real_1): Expand emulated tls.
+	(expand_expr_addr_expr_1): Likewise.
+	* libgcc-std.ver: Add __emutls_get_address, __emutls_register_common.
+	* output.h (emutls_finish): Declare.
+	* toplev.c (compile_file): Call it.
+	* tree-ssa-address.c (gen_addr_rtx): Check for const-ness of the
+	address before wrapping in CONST.
+	* varasm.c (emutls_htab, emutls_object_type): New.
+	(EMUTLS_VAR_PREFIX, EMUTLS_TMPL_PREFIX): New.
+	(get_emutls_object_name, get_emutls_object_type): New.
+	(get_emutls_init_templ_addr, emutls_decl): New.
+	(emutls_common_1, emutls_finish): New.
+	(assemble_variable): When emulating tls, swap decls; generate
+	constructor for the emutls objects.
+	(do_assemble_alias): When emulating tls, swap decl and target name.
+	(default_encode_section_info): Don't add SYMBOL_FLAG_TLS_SHIFT
+	for emulated tls.
+	* varpool.c (decide_is_variable_needed): Look at force_output.
+	Recurse for emulated tls.
+	(cgraph_varpool_remove_unreferenced_decls): Remove checks redundant
+	with decide_is_variable_needed.
+	* emutls.c: New file.
+	* config/sparc/sol2.h (ASM_DECLARE_OBJECT_NAME): Only emit
+	tls_object for real tls.
+
+2007-02-10  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR rtl-optimization/29599
+	* reload1.c (eliminate_regs_in_insn): Take the destination
+	mode into account when computing the offset.
+
+2007-02-09  Stuart Hastings  <stuart@apple.com>
+	Richard Henderson  <rth@redhat.com>
+
+	* gcc/config/i386/i386.h (TARGET_KEEPS_VECTOR_ALIGNED_STACK): New.
+	* gcc/config/i386/darwin.h: (TARGET_KEEPS_VECTOR_ALIGNED_STACK): New.
+	* gcc/config/i386/i386.md (fixuns_trunc<mode>si2, fixuns_truncsfhi2,
+	fixuns_truncdfhi2): New.
+	(fix_truncsfdi_sse): Call ix86_expand_convert_sign_didf_sse.
+	(floatunsdidf2): Call ix86_expand_convert_uns_didf_sse.
+	(floatunssisf2): Add call to ix86_expand_convert_uns_sisf_sse.
+	(floatunssidf2): Allow nonimmediate source.
+	* gcc/config/i386/sse.md (movdi_to_sse): New.  (vec_concatv2di): Drop '*'.
+	* gcc/config/i386/i386-protos.h (ix86_expand_convert_uns_si_sse,
+	ix86_expand_convert_uns_didf_sse, ix86_expand_convert_uns_sidf_sse,
+	ix86_expand_convert_uns_sisf_sse, ix86_expand_convert_sign_didf_sse): New.
+	* gcc/config/i386/i386.c (ix86_expand_convert_uns_si_sse,
+	ix86_expand_convert_uns_didf_sse, ix86_expand_convert_uns_sidf_sse,
+	ix86_expand_convert_uns_sisf_sse, ix86_expand_convert_sign_didf_sse,
+	ix86_build_const_vector, ix86_expand_vector_init_one_nonzero): New.
+	(ix86_build_signbit_mask): Fix decl of v, refactor to call ix86_build_const_vector.
+	(x86_emit_floatuns): Rewrite.
+
+2007-02-10  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* genautomata.c (longest_path_length): Delete unused function.
+	(struct state): Delete unused longest_path_length.
+	(UNDEFINED_LONGEST_PATH_LENGTH): Delete unused macro.
+	(get_free_state): Delete unused.
+	
+2007-02-09  Jan Hubicka  <jh@suse.cz>
+
+	* params.def (PARAM_INLINE_UNIT_GROWTH): Set to 30.
+	* doc/invoke.texi (inline-unit-growth): Update default value.
+
+	* Makefile.in (passes.o, ipa-inline.o): Add dependencies.
+	* cgraphbuild.c (build_cgraph_edges): Compute frequencies.
+	(rebuild_cgraph_edges): Likewise.
+	* cgraph.c (cgraph_set_call_stmt): Add new argument frequency.
+	(dump_cgraph_node): Dump frequencies.
+	(cgraph_clone_edge): Add frequency scales.
+	(cgraph_clone_node): Add freuqnecy.
+	* cgraph.h (cgraph_edge): Add freuqnecy argument.
+	(CGRAPH_FREQ_BASE, CGRAPH_FREQ_MAX): New constants.
+	(cgraph_create_edge, cgraph_clone_edge, cgraph_clone_node): Update.
+	* tree-pass.h (TODO_rebuild_frequencies): New constant.
+	* cgraphunit.c (verify_cgraph_node): Verify frequencies.
+	(cgraph_copy_node_for_versioning): Update call of cgraph_clone_edge.
+	(save_inline_function_body): Likewise.
+	* ipa-inline.c: inluce rtl.h
+	(cgraph_clone_inlined_nods): Update call of cgraph_clone_node.
+	(cgraph_edge_badness): Use frequencies.
+	(cgraph_decide_recursive_inlining): Update clonning.
+	(cgraph_decide_inlining_of_small_function): Dump frequency.
+	* predict.c (estimate_bb_frequencies): Export.
+	* predict.h (estimate_bb_frequencies): Declare.
+	* tree-inline.c (copy_bb): Watch overflows.
+	(expand_call_inline): Update call of cgraph_create_edge.
+	(optimize_inline_calls): Use TODO flags to update frequnecies.
+	* passes.h: Include predict.h
+	(init_optimization_passes): Move profile ahead.
+	(execute_function_todo): Handle TODO_rebuild_frequencies.
+
+2007-02-09  Roger Sayle  <roger@eyesopen.com>
+
+	* config/alpha/alpha.c (emit_insxl): Force the first operand of
+	the insbl or inswl pattern into a register.
+
+2007-02-09  Roger Sayle  <roger@eyesopen.com>
+
+	* config/ia64/ia64.md (bswapdi2): New define_insn.
+
+2007-02-09  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/constraints.md (Ym): New constraint.
+	* config/i386/i386.md (movsi_1): Change Y2 to Yi constraints.
+	(movdi_1_rex64): Split sse and xmm general register moves from
+	memory move alternatives.  Use conditional register constraints.
+	(movsf_1, movdf_integer): Likewise.
+	(zero_extendsidi2_32, zero_extendsidi2_rex64): Likewise.
+	(movdf_integer_rex64): New.
+	(pushsf_rex64): Fix output constraints.
+	* config/i386/sse.md (sse2_loadld): Split rm alternative, use Yi.
+	(sse2_stored): Likewise.
+	(sse2_storeq_rex64): New.
+	* config/i386/i386.c (x86_inter_unit_moves): Enable for not
+	amd and not generic.
+	(ix86_secondary_memory_needed): Don't bypass TARGET_INTER_UNIT_MOVES
+	for optimize_size.  Remove SF/DFmode hack.
+
+2007-02-09  Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+        * config/i386/driver-i386.c: Turn on -mtune=native for AMDFAM10.
+        (bit_SSE4a): New.
+
+2007-02-09  Nathan Sidwell  <nathan@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (m68010-*-netbsdelf*, m68k*-*-netbsdelf*)
+	(m68k*-*-openbsd*, m68k-*-linux*): Set default_cf_cpu.
+	(m68k-*-aout*, m68k-*-coff*, m68k-*-uclinux*, m68k-*-rtems*): Add
+	m68k/t-mlib to tmake_file.
+	(m68020-*-elf*, m68k-*-elf*): Likewise.  Add t-m68kbare as well.
+	(m68k*-*-*): Use --with-arch to pick a default for --with-cpu.
+	(m680[012]0-*-*, m68k*-*-*): Add support for --with-arch.
+	Allow it to be cf or m68k.  Set m68k_arch_family.  If that
+	variable is not empty, add t-$m68k_arch_family to tmake_file.
+	Add t-mlibs to tmake_file.
+	* doc/install.texi: Document --with-arch=m68k and --with-arch=cf.
+	* config/m68k/t-cf: New file.
+	* config/m68k/t-m68k: Likewise.
+	* config/m68k/t-mlibs: Likewise.
+	* config/m68k/t-m68kbare (MULTILIB_OPTIONS, MULTILIB_DIRNAMES)
+	(MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Delete.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Define.
+	* config/m68k/t-m68kelf (MULTILIB_OPTIONS, MULTILIB_DIRNAMES)
+	(MULTILIB_MATCHES, MULTILIB_EXCEPTIONS, LIBGCC, INSTALL_LIBGCC):
+	Delete.
+	* config/m68k/t-openbsd (MULTILIB_OPTIONS, LIBGCC): Delete.
+	(INSTALL_LIBGCC): Delete.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Define.
+	* config/m68k/t-rtems (MULTILIB_OPTIONS, MULTILIB_DIRNAMES)
+	(MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Delete.
+	(M68K_MLIB_CPU): Define.
+	* config/m68k/t-uclinux (MULTILIB_OPTIONS, MULTILIB_DIRNAMES)
+	(MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Delete.
+	(M68K_MLIB_CPU, M68K_MLIB_OPTIONS, M68K_MLIB_DIRNAMES): Define.
+
+2007-02-09  Zdenek Dvorak  <dvorakz@suse.cz>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/23361
+	* fold-const.c (fold_comparison): Handle obfuscated comparisons
+	against INT_MIN/INT_MAX.
+	* tree-ssa-loop-ivcanon.c (remove_empty_loop): Print to dump
+	file if a loop is removed.
+
+2007-02-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* calls.c (store_one_arg): Pass correct alignment to
+	emit_push_insn for non-BLKmode values.
+	* expr.c (emit_push_insn): If STRICT_ALIGNMENT, copy to an
+	unaligned stack slot via a suitably aligned slot.
+
+2007-02-08  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_unpend_compare): Add default to silence
+	warnings.
+	(legal_subregs): Use unsigned char, make const.
+	(m32c_illegal_subreg_p): Use ARRAY_SIZE.  Delete unused variables.
+
+2007-02-08  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (RETLDM): Pop directly into PC when no
+	special interworking needed.
+
+2007-02-08  Harsha Jagasia  <harsha.jagasia@amd.com>
+
+	* config/i386/xmmintrin.h: Make inclusion of emmintrin.h
+	conditional to __SSE2__.
+	(Entries below should have been added to first ChangeLog
+	entry for amdfam10 dated 2007-02-05)
+	* config/i386/emmintrin.h: Generate #error if __SSE2__ is not
+	defined.
+	* config/i386/pmmintrin.h: Generate #error if __SSE3__ is not
+	defined.
+	* config/i386/tmmintrin.h: Generate #error if __SSSE3__ is not
+	defined.
+
+2007-02-08  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c-protos.h (m32c_illegal_subreg_p): New.
+	* config/m32c/m32c.c (legal_subregs): New.
+	(m32c_illegal_subreg_p): New.
+	* config/m32c/predicates.md (m32c_any_operand): Use it to reject
+	unsupported subregs of hard regs.
+
+2007-02-08  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (bsi_replace): Shortcut when replacing the statement with
+	the same one; always update histograms.
+
+2007-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* passes.c (init_optimization_passes): Tidy comment.
+
+2007-02-08  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_unary_operation_1) <POPCOUNT>: We can
+	strip zero_extend, bswap and rotates from POCOUNT's argument.
+	<PARITY>: Likewise, we can strip not, bswap, sign_extend,
+	zero_extend and rotates from PARITY's argument.
+	<BSWAP>: A byte-swap followed by a byte-swap is an identity.
+	(simplify_const_unary_operation) <BSWAP>: Evaluate the byte-swap
+	of an integer constant at compile-time.
+
+2007-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 30562
+	* tree-flow.h (struct var_ann_d): Remove field 'is_used'.
+	Update all users.
+	* tree-ssa-alias.c (compute_is_aliased): Remove.  Update all
+	users.
+	(init_alias_info):
+	* tree-ssa-live.c (remove_unused_locals): Do not remove
+	TREE_ADDRESSABLE variables.
+	* tree-ssa-structalias.c (compute_points_to_sets): Tidy.
+	* tree-ssa-operands.c (add_virtual_operand): Remove argument
+	FOR_CLOBBER.  Update all users.
+	If VAR has an associated alias set, add a virtual operand for
+	it if no alias is found to conflict with the memory reference.
+
+2007-02-07  Jan Hubicka  <jh@suse.cz>
+	    Robert Kidd <rkidd@crhc.uiuc.edu>
+
+	* value-prof.c (visit_hist, free_hist): Return 1 instead of 0.
+
+2007-02-07  Ian Lance Taylor  <iant@google.com>
+
+	* lower-subreg.c (simple_move): Reject PARTIAL_INT modes.
+
+2007-02-07  Roger Sayle  <roger@eyesopen.com>
+
+	* config/rs6000/rs6000.md (ctz<mode>2, ffs<mode>2, popcount<mode>2,
+	parity<mode>2, smulsi3_highpart, abstf2_internal, allocate_stack,
+	tablejumpdi, movsi_to_cr_one): Remove constraints from
+	define_expand's match_operands.
+
+2007-02-07  Roger Sayle  <roger@eyesopen.com>
+
+	* global.c (compute_regsets): Move declatation of "i" inside of
+	#ifdef ELIMINABLE_REGS to avoid unused variable bootstrap failure.
+
+2007-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30703
+	* gimplify.c (gimplify_scan_omp_clauses): Remove special casing
+	of INDIRECT_REF <RESULT_DECL>.
+
+	* config/i386/i386.c (override_options): Set PTA_SSSE3 for core2.
+
+2007-02-06  J"orn Rennecke  <joern.rennecke@arc.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/29746
+	* config/sh/sh.c (expand_cbranchdi4): Use scratch register
+	properly.
+	(sh_initialize_trampoline): Add parentheses to avoid a warning.
+
+2007-02-06  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* doc/loop.texi: Document possibility not to perform disambiguation
+	of loops with multiple latches.
+	* cfgloopmanip.c (alp_enum_p): Removed.
+	(add_loop): Handle subloops.  Use get_loop_body_with_size.
+	(create_preheader): Do not allow ENTRY_BLOCK_PTR to be preheader.
+	* cfghooks.c (redirect_edge_and_branch_force): Set dominator for
+	the new forwarder block.
+	(make_forwarder_block): Only call new_bb_cbk if it is not NULL.
+	Handle the case latch is NULL.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Avoid cfg modifications
+	when marking loop exits.
+	* ifcvt.c (if_convert): Ditto.  Mark loop exits even if cfg cannot
+	be modified.
+	* loop-init.c (loop_optimizer_init): Do not modify cfg.  Call
+	disambiguate_loops_with_multiple_latches.
+	* tree-cfgcleanup.c (cleanup_tree_cfg_loop): Calculate dominators
+	before fix_loop_structure.
+	* cfgloop.c: Include pointer-set.h and output.h.
+	(canonicalize_loop_headers, HEADER_BLOCK, LATCH_EDGE,
+	update_latch_info, mfb_keep_just, mfb_keep_nonlatch): Removed.
+	(get_loop_latch_edges, find_subloop_latch_edge_by_profile,
+	find_subloop_latch_edge_by_ivs, find_subloop_latch_edge,
+	mfb_redirect_edges_in_set, form_subloop, merge_latch_edges,
+	disambiguate_multiple_latches, get_loop_body_with_size,
+	disambiguate_loops_with_multiple_latches): New functions.
+	(flow_loop_dump): Dump multiple latch edges.
+	(flow_loop_nodes_find): Handle loops with multiple latches.
+	(flow_loops_find): Ditto. Do not call canonicalize_loop_headers.
+	(glb_enum_p): Modified.
+	(get_loop_body): Use get_loop_body_with_size.
+	* cfgloop.h (LOOPS_HAVE_RECORDED_EXITS): New flag.
+	(AVOID_CFG_MODIFICATIONS): New constant.
+	(disambiguate_loops_with_multiple_latches, add_loop,
+	get_loop_body_with_size): Declare.
+	* Makefile.in (cfgloop.o): Add pointer-set.h and output.h.
+
+2007-02-06  Seongbae Park <seongbae.park@gmail.com>
+
+	PR inline-asm/28686
+	* global.c (compute_regsets): New function.
+	(global_alloc): Refactored ELIMINABLE_REGSET
+	and NO_GLOBAL_ALLOC_REGS computation out.
+	(rest_of_handle_global_alloc): Call compute_regsets()
+	for non-optimizing case.
+
+2007-02-06  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/constraints.md (Y2): Rename from Y.
+	(Yi): New constraint.
+	* config/i386/i386.md (movsi_1, movdi_2, pushdf_nointeger,
+	pushdf_integer, movdf_nointeger, movdf_integer, zero_extendsidi2_32,
+	zero_extendsidi2_rex64, truncxfdf2_mixed): Change Y constraints to Y2.
+	(extendsfdf2_mixed, extendsfdf2_sse, truncdfsf_fast_mixed,
+	truncdfsf_fast_sse, truncdfsf_mixed, fix_truncdfdi_sse,
+	fix_truncdfsi_sse, floatsidf2_mixed, floatsidf2_sse,
+	floatdidf2_mixed, floatdidf2_sse, absnegdf2_mixed, 
+	absnegdf2_sse, sse_setccdf, fop_df_comm_mixed, fop_df_comm_sse,
+	fop_df_1_mixed, fop_df_1_sse): Change Y constraints to x.
+	* config/i386/mmx.md (mov<MMXMODEI>_internal_rex64,
+	mov<MMXMODEI>_internal, movv2sf_internal_rex64, movv2sf_internal,
+	vec_extractv2si_1): Change Y constraints to Y2.
+	* config/i386/sse.md (vec_setv4sf_0, vec_concatv2df, vec_dupv4si,
+	vec_dupv2di, sse2_concatv2si, vec_concatv4si_1, vec_concatv2di):
+	Change Y constraints to Y2.
+	(sse2_loadld): Change Y constraints to x.
+
+2007-02-06  Roger Sayle  <roger@eyesopen.com>
+
+	* config/rs6000/rs6000.md (popcount<mode>2): Rewrite.
+	(parity<mode>2): New define_expand using rs6000_emit_parity.
+	* config/rs6000/rs6000.c (rs6000_emit_popcount,
+	rs6000_emit_parity): New functions.
+	* config/rs6000/rs6000-protos.h (rs6000_emit_popcount,
+	rs6000_emit_parity): Prototype here.
+
+2007-02-06  Ian Lance Taylor  <iant@google.com>
+
+	* lower-subreg.c (simple_move_operand): Reject CONST.
+	(resolve_clobber): Call validate_change rather than directly
+	assigning to XEXP (pat, 0).
+
+2006-02-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (tree-ssa-loop-ivopts.o): Add pointer-set.h dependency.
+	(tree-ssa-reassoc.o): Add pointer-set.h dependency.
+	(tree-cfg.o): Remove hashtab.h dependency.
+
+	* tree-ssa-loop-ivopts.c: Include pointer-set.h.
+	(struct ivopts_data): Change niters to pointer_map_t.
+	(struct nfe_cache_elt, nfe_hash, nfe_eq): Delete.
+	(niter_for_exit): Create pointer_map on demand.  Change for
+	pointer_map API.
+	(tree_ssa_iv_optimize_init): Initialize data->niters to NULL.
+	(free_loop_data): Destroy data->niters if created and reset field.
+	(tree_ssa_iv_optimize_finalize): Don't delete data->niters here.
+	(tree_ssa_iv_optimize_loop): Check for presence of stale data.
+
+	* tree-ssa-reassoc.c: Include pointer-set.h.
+	(bb_rank): Change to long *.
+	(operand_rank): Change to pointer_map_t.
+	(find_operand_rank): Return long, -1 if not found.  Declare as inline.
+	(insert_operand_rank): Accept long.
+	(operand_entry_hash, operand_entry_eq): Remove.
+	(get_rank): Return long.  Adjust for changes above.
+	(init_reassoc): Change rank type to long.  Adjust creation of bb_rank
+	and operand_rank.
+	(fini_reassoc): Delete operand_rank with pointer_map_destroy.
+
+	* tree-ssa-structalias.c (vi_for_tree): Change to pointer_map.
+	(struct tree_vi, tree_vi_t, tree_vi_hash, tree_vi_eq): Delete.
+	(insert_vi_for_tree): Rewrite for pointer_map API.  Assert argument
+	is not NULL.
+	(lookup_vi_for_tree): Rewrite for pointer_map API.  Return varinfo_t
+	directly since it cannot be NULL.
+	(get_vi_for_tree): Rewrite for pointer_map API.
+	(find_what_p_points_to): Adjust for change to lookup_vi_for_tree.
+	(init_alias_vars): Create vi_for_tree as pointer_map.
+	(delete_points_to_sets): Delete vi_for_tree using pointer_map_destroy.
+
+	* tree-cfg.c: Don't include hashtab.h.
+	(edge_to_cases): Declare as pointer_map.
+	(struct edge_to_cases_elt, edge_to_cases_hash, edge_to_cases_eq):
+	Delete.
+	(edge_to_cases_cleanup): Rewrite as pointer_map_traverse callback.
+	(start_recording_case_labels): Create edge_to_cases as pointer_map.
+	(end_recoding_case_labels): Cleanup edge_to_cases manually before
+	destroying it.
+	(record_switch_edge): Delete.
+	(get_cases_for_edge): Adjust for pointer_map API, inline
+	record_switch_edge (rewritten for new API), remove goto.
+
+2006-02-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (tree-nested.o): Add pointer-set.h dependency.
+	* tree-nested.c: Include pointer-set.h.
+	(var_map_elt, var_map_eq, var_map_hash): Delete.
+	(struct nesting_info): Remove GTY marker.  Change the two htab_t's
+	to pointer_map_t's.
+	(nesting_info_bitmap_obstack): New.
+	(lookup_field_for_decl): Adjust for pointer_map API.
+	(lookup_tramp_for_decl): Adjust for pointer_map API.
+	(get_nonlocal_debug_decl): Adjust for pointer_map API.
+	(get_local_debug_decl): Adjust for pointer_map API.
+	(convert_nl_goto_reference): Adjust for pointer_map API.
+	(convert_nl_goto_receiver): Adjust for pointer_map API.
+	(create_nesting_tree): Create outside GGC space.  Create bitmap on
+	the new obstack.  Create field_map and var_map as pointer_maps.
+	(free_nesting_tree): Adjust for changes to create_nesting_tree.
+	(root): Delete.	
+	(lower_nested_functions): Move root here, no need to NULL it.
+	Initialize and release the obstack.
+
+2007-02-06  Paolo Bonzini  <bonzini@gnu.org>
+
+        * tree.c (tree_int_map_hash, tree_int_map_eq, tree_int_map_marked_p):
+        Remove prototypes and make them non-static.
+        (struct tree_int_map): Remove.
+        * tree.h (struct tree_int_map): Move here, turning TO into an
+        unsigned int.
+        (tree_int_map_hash, tree_int_map_eq, tree_int_map_marked_p): Declare.
+
+        * tree.h (TREE_COMPLEXITY): Remove.
+        (struct tree_exp): Remove complexity field.
+        * tree.c (build1_stat): Don't set it.
+
+2007-02-06  Dorit Nuzman  <dorit@il.ibm.com>
+	    Victor Kaplansky  <victork@il.ibm.com>
+
+	* tree-vectorizer.c (vect_is_simple_use): Support induction.
+	(vect_is_simple_reduction): Support reduction with induction as
+	one of the operands.
+	(vect_is_simple_iv_evolution): Fix formatting.
+	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix 
+	formatting.  Don't mark induction phis for vectorization.
+	(vect_analyze_scalar_cycles): Analyze all inductions, then reductions.
+	* tree-vect-transform.c (get_initial_def_for_induction): New function.
+	(vect_get_vec_def_for_operand): Support induction.
+	(vect_get_vec_def_for_stmt_copy): Fix formatting and add check for
+	induction case.
+	(vectorizable_reduction): Support reduction with induction as one of 
+	the operands. 
+	(vectorizable_type_demotion): Use def-type of stmt argument rather
+	than dummy def-type.
+
+	* tree-ssa-loop.c (gate_scev_const_prop): Return the value of
+	flag_tree_scev_cprop.
+	* common.opt (tree-scev-cprop): New flag.
+
+	* tree-vect-transform.c (vect_create_destination_var): Use 'kind' in
+	call to vect_get_new_vect_var.
+
+2007-02-06  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-patterns.c (vect_recog_widen_mult_pattern): Check that 
+	vectype is not NULL.
+	(vect_pattern_recog_1): Likewise.
+
+2007-02-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (negate_expr_p): Handle CONJ_EXPR.
+	(fold_negate_expr): Likewise.
+
+2007-02-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/30189
+	* dwarf2out.c (modified_type_die): Follow DECL_ORIGINAL_TYPE
+	even if cv-qualification is the same.
+
+2007-02-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/darwin-tramp.asm (__trampoline_setup): Call
+	__enable_execute_stack on completion.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (athlon_fldxf_k8, athlon_fld_k8,
+	athlon_fstxf_k8, athlon_fst_k8, athlon_fist, athlon_fmov,
+	athlon_fadd_load, athlon_fadd_load_k8, athlon_fadd, athlon_fmul,
+	athlon_fmul_load, athlon_fmul_load_k8, athlon_fsgn,
+	athlon_fdiv_load, athlon_fdiv_load_k8, athlon_fdiv_k8,
+	athlon_fpspc_load, athlon_fpspc, athlon_fcmov_load,
+	athlon_fcmov_load_k8, athlon_fcmov_k8, athlon_fcomi_load_k8,
+	athlon_fcomi, athlon_fcom_load_k8, athlon_fcom): Added amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/i386.md (x86_sahf_1, cmpfp_i_mixed, cmpfp_i_sse,
+	cmpfp_i_i387, cmpfp_iu_mixed, cmpfp_iu_sse, cmpfp_iu_387,
+	swapsi, swaphi_1, swapqi_1, swapdi_rex64, fix_truncsfdi_sse,
+	fix_truncdfdi_sse, fix_truncsfsi_sse, fix_truncdfsi_sse,
+	x86_fldcw_1, floatsisf2_mixed, floatsisf2_sse, floatdisf2_mixed,
+	floatdisf2_sse, floatsidf2_mixed, floatsidf2_sse,
+	floatdidf2_mixed, floatdidf2_sse, muldi3_1_rex64, mulsi3_1,
+	mulsi3_1_zext, mulhi3_1, mulqi3_1, umulqihi3_1, mulqihi3_insn,
+	umulditi3_insn, umulsidi3_insn, mulditi3_insn, mulsidi3_insn,
+	umuldi3_highpart_rex64, umulsi3_highpart_insn,
+	umulsi3_highpart_zext, smuldi3_highpart_rex64,
+	smulsi3_highpart_insn, smulsi3_highpart_zext, x86_64_shld,
+	x86_shld_1, x86_64_shrd, sqrtsf2_mixed, sqrtsf2_sse,
+	sqrtsf2_i387, sqrtdf2_mixed, sqrtdf2_sse, sqrtdf2_i387,
+	sqrtextendsfdf2_i387, sqrtxf2, sqrtextendsfxf2_i387,
+	sqrtextenddfxf2_i387): Added amdfam10_decode.
+	
+	* config/i386/athlon.md (athlon_idirect_amdfam10,
+	athlon_ivector_amdfam10, athlon_idirect_load_amdfam10,
+	athlon_ivector_load_amdfam10, athlon_idirect_both_amdfam10,
+	athlon_ivector_both_amdfam10, athlon_idirect_store_amdfam10,
+	athlon_ivector_store_amdfam10): New define_insn_reservation.
+	(athlon_idirect_loadmov, athlon_idirect_movstore): Added
+	amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (athlon_call_amdfam10,
+	athlon_pop_amdfam10, athlon_lea_amdfam10): New
+	define_insn_reservation.
+	(athlon_branch, athlon_push, athlon_leave_k8, athlon_imul_k8,
+	athlon_imul_k8_DI, athlon_imul_mem_k8, athlon_imul_mem_k8_DI,
+	athlon_idiv, athlon_idiv_mem, athlon_str): Added amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (athlon_sseld_amdfam10,
+	athlon_mmxld_amdfam10, athlon_ssest_amdfam10,
+	athlon_mmxssest_short_amdfam10): New define_insn_reservation.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (athlon_sseins_amdfam10): New
+	define_insn_reservation.
+	* config/i386/i386.md (sseins): Added sseins to define_attr type
+	and define_attr unit.
+	* config/i386/sse.md: Set type attribute to sseins for insertq
+	and insertqi.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (sselog_load_amdfam10, sselog_amdfam10,
+	ssecmpvector_load_amdfam10, ssecmpvector_amdfam10,
+	ssecomi_load_amdfam10, ssecomi_amdfam10,
+	sseaddvector_load_amdfam10, sseaddvector_amdfam10): New
+	define_insn_reservation.
+	(ssecmp_load_k8, ssecmp, sseadd_load_k8, seadd): Added amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (cvtss2sd_load_amdfam10,
+	cvtss2sd_amdfam10, cvtps2pd_load_amdfam10, cvtps2pd_amdfam10,
+	cvtsi2sd_load_amdfam10, cvtsi2ss_load_amdfam10,
+	cvtsi2sd_amdfam10, cvtsi2ss_amdfam10, cvtsd2ss_load_amdfam10,
+	cvtsd2ss_amdfam10, cvtpd2ps_load_amdfam10, cvtpd2ps_amdfam10,
+	cvtsX2si_load_amdfam10, cvtsX2si_amdfam10): New 
+	define_insn_reservation.
+
+	* config/i386/sse.md (cvtsi2ss, cvtsi2ssq, cvtss2si,
+	cvtss2siq, cvttss2si, cvttss2siq, cvtsi2sd, cvtsi2sdq,
+	cvtsd2si, cvtsd2siq, cvttsd2si, cvttsd2siq,
+	cvtpd2dq, cvttpd2dq, cvtsd2ss, cvtss2sd,
+	cvtpd2ps, cvtps2pd): Added amdfam10_decode attribute.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/athlon.md (athlon_ssedivvector_amdfam10,
+	athlon_ssedivvector_load_amdfam10, athlon_ssemulvector_amdfam10,
+	athlon_ssemulvector_load_amdfam10): New define_insn_reservation.
+	(athlon_ssediv, athlon_ssediv_load_k8, athlon_ssemul,
+	athlon_ssemul_load_k8): Added amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/i386.h (TARGET_SSE_UNALIGNED_MOVE_OPTIMAL): New macro.
+	(x86_sse_unaligned_move_optimal): New variable.
+	
+	* config/i386/i386.c (x86_sse_unaligned_move_optimal): Enable for  
+	m_AMDFAM10.
+	(ix86_expand_vector_move_misalign): Add code to generate movupd/movups
+	for unaligned vector SSE double/single precision loads for AMDFAM10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+
+	* config/i386/i386.h (TARGET_AMDFAM10): New macro.
+	(TARGET_CPU_CPP_BUILTINS): Add code for amdfam10.
+	Define TARGET_CPU_DEFAULT_amdfam10.
+	(TARGET_CPU_DEFAULT_NAMES): Add amdfam10.
+	(processor_type): Add PROCESSOR_AMDFAM10.	
+	
+	* config/i386/i386.md: Add amdfam10 as a new cpu attribute to match
+	processor_type in config/i386/i386.h.
+	Enable imul peepholes for TARGET_AMDFAM10.
+	
+	* config.gcc: Add support for --with-cpu option for amdfam10.
+	
+	* config/i386/i386.c (amdfam10_cost): New variable.
+	(m_AMDFAM10): New macro.
+	(m_ATHLON_K8_AMDFAM10): New macro.
+	(x86_use_leave, x86_push_memory, x86_movx, x86_unroll_strlen,
+	x86_cmove, x86_3dnow_a, x86_deep_branch, x86_use_simode_fiop,
+	x86_promote_QImode, x86_integer_DFmode_moves,
+	x86_partial_reg_dependency, x86_memory_mismatch_stall, 
+	x86_accumulate_outgoing_args, x86_arch_always_fancy_math_387,
+	x86_sse_partial_reg_dependency, x86_sse_typeless_stores,
+	x86_use_ffreep, x86_use_incdec, x86_four_jump_limit,
+	x86_schedule, x86_use_bt, x86_cmpxchg16b, x86_pad_returns):
+	Enable/disable for amdfam10.
+	(override_options): Add amdfam10_cost to processor_target_table.
+	Set up PROCESSOR_AMDFAM10 for amdfam10 entry in 
+	processor_alias_table.
+	(ix86_issue_rate): Add PROCESSOR_AMDFAM10.
+	(ix86_adjust_cost): Add code for amdfam10.
+
+2007-02-05	Harsha Jagasia	<harsha.jagasia@amd.com>
+	
+	* config/i386/i386.opt: Add new Advanced Bit Manipulation (-mabm)
+	instruction set feature flag. Add new (-mpopcnt) flag for popcnt 
+	instruction. Add new SSE4A (-msse4a) instruction set feature flag.
+	* config/i386/i386.h: Add builtin definition for SSE4A.
+	* config/i386/i386.md: Add support for ABM instructions 
+	(popcnt and lzcnt).
+	* config/i386/sse.md: Add support for SSE4A instructions
+	(movntss, movntsd, extrq, insertq).
+	* config/i386/i386.c: Add support for ABM and SSE4A builtins.
+	Add -march=amdfam10 flag.
+	* config/i386/ammintrin.h: Add support for SSE4A intrinsics.
+	* doc/invoke.texi: Add documentation on flags for sse4a, abm, popcnt
+	and amdfam10.
+	* doc/extend.texi: Add documentation for SSE4A builtins.
+
+2007-02-05  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (constantpool_mem_p): Skip over SUBREGs.
+
+2007-02-05  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vectorizer.h (vectorizable_function): Add argument type
+	argument, change return type.
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Adjust caller.
+	* tree-vect-transform.c (vectorizable_function): Handle extra
+	argument, return vectorized function decl.
+	(build_vectorized_function_call): Remove.
+	(vectorizable_call): Handle calls with result and argument types
+	differing.  Handle loop vectorization factor correctly.
+	* targhooks.c (default_builtin_vectorized_function): Adjust for
+	extra argument.
+	* targhooks.h (default_builtin_vectorized_function): Likewise.
+	* target.h (builtin_vectorized_function): Add argument type
+        argument.
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Handle
+	extra argument, allow vectorizing of lrintf.
+	* doc/tm.texi (TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION): Adjust
+	documentation of target hook.
+
+2007-02-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/30665
+	* config/cris/cris.md ("*andsi_movu", "*andsi_clear", "*andhi_movu")
+	("*andhi_clear", andu (casesi+45)): For size-changed operand where
+	memory is allowed, require !side_effects_p, not just !MEM_VOLATILE_P.
+
+2007-02-05  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold_unary) <REAL_PART>: Test for availability of
+	BUILT_IN_COS before simplifying REAL_PART(CEXPI)) to COS.
+	<IMAG_PART>: Likewise, check for availability of BUILT_IN_SIN.
+	* builtins.c (fold_builtin_sincos): Check for TARGET_C99_FUNCTIONS
+	before canonicalizing sincos to cexpi.
+	(fold_builtin_cexp): Likewise, for canonicalizing cexp to cexpi.
+
 2007-02-05  Roger Sayle  <roger@eyesopen.com>
 
 	* config/alpha/alpha.c (alpha_add_builtins): New Helper function.

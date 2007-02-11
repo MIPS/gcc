@@ -2749,6 +2749,80 @@ m32c_insert_attributes (tree node ATTRIBUTE_UNUSED,
 
 /* Predicates */
 
+/* This is a list of legal subregs of hard regs.  */
+static const struct {
+  unsigned char outer_mode_size;
+  unsigned char inner_mode_size;
+  unsigned char byte_mask;
+  unsigned char legal_when;
+  unsigned int regno;
+} legal_subregs[] = {
+  {1, 2, 0x03, 1, R0_REGNO}, /* r0h r0l */
+  {1, 2, 0x03, 1, R1_REGNO}, /* r1h r1l */
+  {1, 2, 0x01, 1, A0_REGNO},
+  {1, 2, 0x01, 1, A1_REGNO},
+
+  {1, 4, 0x01, 1, A0_REGNO},
+  {1, 4, 0x01, 1, A1_REGNO},
+
+  {2, 4, 0x05, 1, R0_REGNO}, /* r2 r0 */
+  {2, 4, 0x05, 1, R1_REGNO}, /* r3 r1 */
+  {2, 4, 0x05, 16, A0_REGNO}, /* a1 a0 */
+  {2, 4, 0x01, 24, A0_REGNO}, /* a1 a0 */
+  {2, 4, 0x01, 24, A1_REGNO}, /* a1 a0 */
+
+  {4, 8, 0x55, 1, R0_REGNO}, /* r3 r1 r2 r0 */
+};
+
+/* Returns TRUE if OP is a subreg of a hard reg which we don't
+   support.  */
+bool
+m32c_illegal_subreg_p (rtx op)
+{
+  int offset;
+  unsigned int i;
+  int src_mode, dest_mode;
+
+  if (GET_CODE (op) != SUBREG)
+    return false;
+
+  dest_mode = GET_MODE (op);
+  offset = SUBREG_BYTE (op);
+  op = SUBREG_REG (op);
+  src_mode = GET_MODE (op);
+
+  if (GET_MODE_SIZE (dest_mode) == GET_MODE_SIZE (src_mode))
+    return false;
+  if (GET_CODE (op) != REG)
+    return false;
+  if (REGNO (op) >= MEM0_REGNO)
+    return false;
+
+  offset = (1 << offset);
+
+  for (i = 0; i < ARRAY_SIZE (legal_subregs); i ++)
+    if (legal_subregs[i].outer_mode_size == GET_MODE_SIZE (dest_mode)
+	&& legal_subregs[i].regno == REGNO (op)
+	&& legal_subregs[i].inner_mode_size == GET_MODE_SIZE (src_mode)
+	&& legal_subregs[i].byte_mask & offset)
+      {
+	switch (legal_subregs[i].legal_when)
+	  {
+	  case 1:
+	    return false;
+	  case 16:
+	    if (TARGET_A16)
+	      return false;
+	    break;
+	  case 24:
+	    if (TARGET_A24)
+	      return false;
+	    break;
+	  }
+      }
+  return true;
+}
+
 /* Returns TRUE if we support a move between the first two operands.
    At the moment, we just want to discourage mem to mem moves until
    after reload, because reload has a hard time with our limited
@@ -3509,6 +3583,8 @@ m32c_unpend_compare (void)
       emit_insn (gen_cmphi_op (compare_op0, compare_op1));
     case PSImode:
       emit_insn (gen_cmppsi_op (compare_op0, compare_op1));
+    default:
+      /* Just to silence the "missing case" warnings.  */ ;
     }
 }
 

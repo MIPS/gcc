@@ -1,7 +1,7 @@
 /* VMVirtualMachine.java -- A reference implementation of a JDWP virtual
    machine
 
-   Copyright (C) 2005, 2006 Free Software Foundation
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -61,6 +61,9 @@ public class VMVirtualMachine
   // Thread suspension table. Maps Thread to suspend count (Integer)
   private static Hashtable _jdwp_suspend_counts;
 
+  // List of stepping threads: maps Thread -> stepping info
+  static Hashtable _stepping_threads;
+  
   public static native void initialize ();
 
   /**
@@ -243,7 +246,7 @@ public class VMVirtualMachine
    * @param  bb      buffer containing the frame's ID
    * @return the desired frame
    */
-  public static native VMFrame getFrame (Thread thread, ByteBuffer bb)
+  public static native VMFrame getFrame (Thread thread, long frameID)
     throws JdwpException;
 
   /**

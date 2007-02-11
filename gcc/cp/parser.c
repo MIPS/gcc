@@ -3272,9 +3272,11 @@ cp_parser_primary_expression (cp_parser *parser,
 
       /* Anything else is an error.  */
     default:
-      /* ...unless we have an Objective-C++ message or string literal, that is.  */
+      /* ...unless we have an Objective-C++ message or string literal,
+         that is.  */
       if (c_dialect_objc ()
-	  && (token->type == CPP_OPEN_SQUARE || token->type == CPP_OBJC_STRING))
+	  && (token->type == CPP_OPEN_SQUARE
+              || token->type == CPP_OBJC_STRING))
 	return cp_parser_objc_expression (parser);
 
       cp_parser_error (parser, "expected primary-expression");
@@ -19311,9 +19313,6 @@ cp_parser_omp_threadprivate (cp_parser *parser, cp_token *pragma_tok)
 
   vars = cp_parser_omp_var_list (parser, 0, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
-
-  if (!targetm.have_tls)
-    sorry ("threadprivate variables not supported in this target");
 
   finish_omp_threadprivate (vars);
 }

@@ -27,7 +27,6 @@ details.  */
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
-#include <java/lang/Object.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/Thread.h>
 #include <java/lang/ThreadGroup.h>
@@ -37,6 +36,8 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/util/Collection.h>
 #include <java/util/HashMap.h>
+#include <java/util/concurrent/locks/Lock.h>
+#include <java/util/concurrent/locks/ReentrantReadWriteLock.h>
 #include <java/net/URL.h>
 
 static void check_enabled_events (void);
@@ -103,7 +104,8 @@ struct jvmti_env_list
   struct jvmti_env_list *next;
 };
 static struct jvmti_env_list *_jvmtiEnvironments = NULL;
-static java::lang::Object *_envListLock = NULL;
+static java::util::concurrent::locks::
+ReentrantReadWriteLock *_envListLock = NULL;
 #define FOREACH_ENVIRONMENT(Ele) \
   for (Ele = _jvmtiEnvironments; Ele != NULL; Ele = Ele->next)
 
@@ -151,6 +153,18 @@ static java::lang::Object *_envListLock = NULL;
       if ((Cond))				\
 	return JVMTI_ERROR_ILLEGAL_ARGUMENT;	\
     }						\
+  while (0)
+
+#define CHECK_FOR_NATIVE_METHOD(AjmethodID)	\
+  do					\
+    {					\
+      jboolean is_native;		\
+      jvmtiError jerr = env->IsMethodNative (AjmethodID, &is_native);	\
+      if (jerr != JVMTI_ERROR_NONE)					\
+        return jerr;							\
+      if (is_native)							\
+        return JVMTI_ERROR_NATIVE_METHOD;			        \
+    }									\
   while (0)
 
 static jvmtiError JNICALL
@@ -257,14 +271,7 @@ _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   THREAD_CHECK_IS_ALIVE (thr);
    
   _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
-  (*frame_count) = 0;
-  
-  while (frame != NULL)
-    {
-      (*frame_count)++;
-      frame = frame->next;
-    }
-  
+  (*frame_count) = frame->depth ();
   return JVMTI_ERROR_NONE;
 }
 
@@ -728,6 +735,31 @@ _Jv_JVMTI_IsMethodSynthetic (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
 }
 
 static jvmtiError JNICALL
+_Jv_JVMTI_GetMaxLocals (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
+                        jint *max_locals)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+  NULL_CHECK (max_locals);
+  
+  CHECK_FOR_NATIVE_METHOD (method);
+  
+  jclass klass;
+  jvmtiError jerr = env->GetMethodDeclaringClass (method, &klass);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+  _Jv_InterpMethod *imeth = reinterpret_cast<_Jv_InterpMethod *> 
+                              (_Jv_FindInterpreterMethod (klass, method));
+    
+  if (imeth == NULL)
+    return JVMTI_ERROR_INVALID_METHODID;
+  
+  *max_locals = imeth->get_max_locals ();
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
 _Jv_JVMTI_GetMethodDeclaringClass (MAYBE_UNUSED jvmtiEnv *env,
 				   jmethodID method,
 				   jclass *declaring_class_ptr)
@@ -896,7 +928,7 @@ _Jv_JVMTI_DisposeEnvironment (jvmtiEnv *env)
     return JVMTI_ERROR_INVALID_ENVIRONMENT;
   else
     {
-      JvSynchronize dummy (_envListLock);
+      _envListLock->writeLock ()->lock ();
       if (_jvmtiEnvironments->env == env)
 	{
 	  struct jvmti_env_list *next = _jvmtiEnvironments->next;
@@ -909,12 +941,16 @@ _Jv_JVMTI_DisposeEnvironment (jvmtiEnv *env)
 	  while (e->next != NULL && e->next->env != env)
 	    e = e->next;
 	  if (e->next == NULL)
-	    return JVMTI_ERROR_INVALID_ENVIRONMENT;
+	    {
+	      _envListLock->writeLock ()->unlock ();
+	      return JVMTI_ERROR_INVALID_ENVIRONMENT;
+	    }
 
 	  struct jvmti_env_list *next = e->next->next;
 	  _Jv_Free (e->next);
 	  e->next = next;
 	}
+      _envListLock->writeLock ()->unlock ();
     }
 
   _Jv_Free (env);
@@ -1215,18 +1251,24 @@ check_enabled_event (jvmtiEvent type)
 
   int index = EVENT_INDEX (type); // safe since caller checks this
 
-  JvSynchronize dummy (_envListLock);
-  struct jvmti_env_list *e;
-  FOREACH_ENVIRONMENT (e)
+  if (_jvmtiEnvironments != NULL)
     {
-      char *addr
-	= reinterpret_cast<char *> (&e->env->callbacks) + offset;
-      void **callback = reinterpret_cast<void **> (addr);
-      if (e->env->enabled[index] && *callback != NULL)
+      _envListLock->readLock ()->lock ();
+      struct jvmti_env_list *e;
+      FOREACH_ENVIRONMENT (e)
 	{
-	  *enabled = true;
-	  return;
+	  char *addr
+	    = reinterpret_cast<char *> (&e->env->callbacks) + offset;
+	  void **callback = reinterpret_cast<void **> (addr);
+	  if (e->env->enabled[index] && *callback != NULL)
+	    {
+	      *enabled = true;
+	      _envListLock->readLock ()->unlock ();
+	      return;
+	    }
 	}
+
+      _envListLock->readLock ()->unlock ();
     }
 
   *enabled = false;
@@ -1644,7 +1686,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   _Jv_JVMTI_GetMethodDeclaringClass,  // GetMethodDeclaringClass
   _Jv_JVMTI_GetMethodModifiers,	// GetMethodModifers
   RESERVED,			// reserved67
-  UNIMPLEMENTED,		// GetMaxLocals
+  _Jv_JVMTI_GetMaxLocals,		// GetMaxLocals
   UNIMPLEMENTED,		// GetArgumentsSize
   _Jv_JVMTI_GetLineNumberTable,	// GetLineNumberTable
   UNIMPLEMENTED,		// GetMethodLocation
@@ -1739,24 +1781,22 @@ _Jv_GetJVMTIEnv (void)
   _Jv_JVMTIEnv *env
     = (_Jv_JVMTIEnv *) _Jv_MallocUnchecked (sizeof (_Jv_JVMTIEnv));
   env->p = &_Jv_JVMTI_Interface;
+  struct jvmti_env_list *element
+    = (struct jvmti_env_list *) _Jv_MallocUnchecked (sizeof (struct jvmti_env_list));
+  element->env = env;
+  element->next = NULL;
 
-  {
-    JvSynchronize dummy (_envListLock);
-    struct jvmti_env_list *element
-      = (struct jvmti_env_list *) _Jv_MallocUnchecked (sizeof (struct jvmti_env_list));
-    element->env = env;
-    element->next = NULL;
-
-    if (_jvmtiEnvironments == NULL)
-      _jvmtiEnvironments = element;
-    else
-      {
-	struct jvmti_env_list *e;
-	for (e = _jvmtiEnvironments; e->next != NULL; e = e->next)
-	  ;
-	e->next = element;
-      }
-  }
+  _envListLock->writeLock ()->lock ();
+  if (_jvmtiEnvironments == NULL)
+    _jvmtiEnvironments = element;
+  else
+    {
+      struct jvmti_env_list *e;
+      for (e = _jvmtiEnvironments; e->next != NULL; e = e->next)
+	;
+      e->next = element;
+    }
+  _envListLock->writeLock ()->unlock ();
 
   /* Mark JVMTI active. This is used to force the interpreter
      to use either debugging or non-debugging code. Once JVMTI
@@ -1769,7 +1809,8 @@ void
 _Jv_JVMTI_Init ()
 {
   _jvmtiEnvironments = NULL;
-  _envListLock = new java::lang::Object ();
+  _envListLock
+    = new java::util::concurrent::locks::ReentrantReadWriteLock ();
 
   // No environments, so this should set all JVMTI:: members to false
   check_enabled_events ();
@@ -2133,7 +2174,7 @@ _Jv_JVMTI_PostEvent (jvmtiEvent type, jthread event_thread, ...)
   va_list args;
   va_start (args, event_thread);
 
-  JvSynchronize dummy (_envListLock);
+  _envListLock->readLock ()->lock ();
   struct jvmti_env_list *e;
   FOREACH_ENVIRONMENT (e)
     {
@@ -2149,6 +2190,6 @@ _Jv_JVMTI_PostEvent (jvmtiEvent type, jthread event_thread, ...)
 	  post_event (e->env, type, event_thread, args);
 	}
     }
-
+  _envListLock->readLock ()->unlock ();
   va_end (args);
 }

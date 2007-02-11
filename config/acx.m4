@@ -300,7 +300,7 @@ if test -z "$ac_cv_path_$1" ; then
     ac_cv_path_$1=[$]$1
   fi
 fi
-if test -z "$ac_cv_path_$1" ; then
+if test -z "$ac_cv_path_$1" && test -n "$gcc_cv_tool_dirs"; then
   AC_PATH_PROG([$1], [$2], [], [$gcc_cv_tool_dirs])
 fi
 if test -z "$ac_cv_path_$1" ; then
@@ -517,5 +517,8 @@ AC_DEFUN([ACX_CHECK_PROG_VER],[
                    ])
   else
     gcc_cv_prog_$2_modern=no
+  fi
+  if test $gcc_cv_prog_$2_modern = no; then
+    $1="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing $2"
   fi
 ])
