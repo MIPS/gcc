@@ -371,17 +371,13 @@ static void reg_dies (int, enum machine_mode, struct insn_chain *);
    registers which may be eliminated.  Set NO_GLOBAL_SET to the set of
    registers which may not be used across blocks.
 
-   ASM_CLOBBERED is the set of registers clobbered by some asm statement.
-
    This will normally be called with LIVE_REGS as the global variable
    regs_ever_live, ELIM_SET as the file static variable
    eliminable_regset, and NO_GLOBAL_SET as the file static variable
    NO_GLOBAL_ALLOC_REGS.  */
 
 static void
-compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
-                 char live_regs[FIRST_PSEUDO_REGISTER],
-                 HARD_REG_SET *elim_set, 
+compute_regsets (HARD_REG_SET *elim_set, 
                  HARD_REG_SET *no_global_set)
 {
 
@@ -398,8 +394,6 @@ compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
     = (! flag_omit_frame_pointer
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED);
-
-  size_t i;
 
   max_regno = max_reg_num ();
   compact_blocks ();
@@ -429,7 +423,7 @@ compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
 	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
 	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
 
-      if (!asm_clobbered[eliminables[i].from])
+      if (!regs_asm_clobbered[eliminables[i].from])
 	{
 	  SET_HARD_REG_BIT (*elim_set, eliminables[i].from);
 
@@ -443,7 +437,7 @@ compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
 	df_set_regs_ever_live (eliminables[i].from, true);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-  if (!asm_clobbered[HARD_FRAME_POINTER_REGNUM])
+  if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
     {
       SET_HARD_REG_BIT (*elim_set, HARD_FRAME_POINTER_REGNUM);
       if (need_fp)
@@ -457,7 +451,7 @@ compute_regsets (char asm_clobbered[FIRST_PSEUDO_REGISTER],
 #endif
 
 #else
-  if (!asm_clobbered[FRAME_POINTER_REGNUM])
+  if (!regs_asm_clobbered[FRAME_POINTER_REGNUM])
     {
       SET_HARD_REG_BIT (*elim_set, FRAME_POINTER_REGNUM);
       if (need_fp)
@@ -480,12 +474,8 @@ global_alloc (void)
 {
   int retval;
   size_t i;
-  rtx x;
 
-  make_accurate_live_analysis ();
-
-  compute_regsets (regs_asm_clobbered, regs_ever_live,
-                   &eliminable_regset, &no_global_alloc_regs);
+  compute_regsets (&eliminable_regset, &no_global_alloc_regs);
 
   /* Track which registers have already been used.  Start with registers
      explicitly in the rtl, then registers allocated by local register
@@ -2108,8 +2098,7 @@ rest_of_handle_global_alloc (void)
     failure = global_alloc ();
   else
     {
-      compute_regsets (regs_asm_clobbered, regs_ever_live,
-                       &eliminable_regset, &no_global_alloc_regs);
+      compute_regsets (&eliminable_regset, &no_global_alloc_regs);
       build_insn_chain (get_insns ());
       df_set_flags (DF_NO_INSN_RESCAN);
       failure = reload (get_insns (), 0);
