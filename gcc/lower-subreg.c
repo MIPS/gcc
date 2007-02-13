@@ -587,11 +587,15 @@ resolve_reg_notes (rtx insn)
   note = find_reg_equal_equiv_note (insn);
   if (note)
     {
+      int old_count = num_validated_changes ();
       if (for_each_rtx (&XEXP (note, 0), resolve_subreg_use, NULL))
 	{
 	  remove_note (insn, note);
 	  remove_retval_note (insn);
 	}
+      else
+	if (old_count != num_validated_changes ())
+	  df_notes_rescan (insn);
     }
 
   pnote = &REG_NOTES (insn);
