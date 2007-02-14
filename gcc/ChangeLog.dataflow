@@ -1,3 +1,12 @@
+2007-02-13  Seongbae Park <seongbae.park@gmail.com>
+
+	Merge from mainline.
+
+	2007-02-13  Seongbae Park <seongbae.park@gmail.com>
+
+	* bitmap.c (bitmap_and, bitmap_and_compl, bitmap_xor):
+	Ensure dst->current is valid.
+
 2007-02-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lower-subregs.c (resolve_reg_notes): Added code to call
