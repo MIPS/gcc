@@ -461,13 +461,17 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 		  || sym->attr.function
 		  || sym->attr.result))
 	    se->expr = build_fold_indirect_ref (se->expr);
+
+	  /* A character with VALUE attribute needs an address
+	     expression.  */
+	  if (sym->attr.value)
+	    se->expr = build_fold_addr_expr (se->expr);
+
 	}
-      else
+      else if (!sym->attr.value)
 	{
-         /* if it's not by-value, build the indirect reference */
           /* Dereference non-character scalar dummy arguments.  */
-         if (sym->attr.dummy && !sym->attr.dimension &&
-             !sym->attr.value)
+          if (sym->attr.dummy && !sym->attr.dimension)
 	    se->expr = build_fold_indirect_ref (se->expr);
 
           /* Dereference scalar hidden result.  */
@@ -2015,24 +2019,24 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 	  if (argss == gfc_ss_terminator)
             {
-             /* if it's passed by-value, don't add the reference layer */
-             if(formal && formal->sym->attr.value == 1)
-                gfc_conv_expr (&parmse, arg->expr);
-             else
-               {
-                 gfc_conv_expr_reference (&parmse, e);
-                 parm_kind = SCALAR;
-                 if (fsym && fsym->attr.pointer
-                     && e->expr_type != EXPR_NULL)
-                 {
-                   /* Scalar pointer dummy args require an extra level of
-                      indirection. The null pointer already contains
-                      this level of indirection.  */
-                   parm_kind = SCALAR_POINTER;
-                   parmse.expr = build_fold_addr_expr (parmse.expr);
-                 }
-               }
-            }
+	      if (fsym && fsym->attr.value)
+		{
+		  gfc_conv_expr (&parmse, e);
+		}
+	      else
+		{
+		  gfc_conv_expr_reference (&parmse, e);
+		  if (fsym && fsym->attr.pointer
+			&& e->expr_type != EXPR_NULL)
+		    {
+		      /* Scalar pointer dummy args require an extra level of
+			 indirection. The null pointer already contains
+			 this level of indirection.  */
+		      parm_kind = SCALAR_POINTER;
+		      parmse.expr = build_fold_addr_expr (parmse.expr);
+		    }
+		}
+	    }
 	  else
 	    {
               /* If the procedure requires an explicit interface, the actual

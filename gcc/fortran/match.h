@@ -158,6 +158,7 @@ match gfc_match_public (gfc_statement *);
 match gfc_match_save (void);
 match gfc_match_modproc (void);
 match gfc_match_target (void);
+match gfc_match_value (void);
 match gfc_match_volatile (void);
 
 /* F03 c interop */

@@ -1484,7 +1484,7 @@ gfc_sym_type (gfc_symbol * sym)
       sym->ts.kind = gfc_default_real_kind;
     }
 
-  if (sym->attr.dummy && !sym->attr.function)
+  if (sym->attr.dummy && !sym->attr.function && !sym->attr.value)
     byref = 1;
   else
     byref = 0;
@@ -1525,7 +1525,6 @@ gfc_sym_type (gfc_symbol * sym)
       if (sym->attr.optional || sym->ns->proc_name->attr.entry_master)
 	type = build_pointer_type (type);
       else
-         if(sym->attr.value != 1)
 	type = build_reference_type (type);
     }
 

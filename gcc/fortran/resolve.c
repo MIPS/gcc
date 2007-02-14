@@ -675,7 +675,7 @@ was_declared (gfc_symbol * sym)
     return 1;
 
   if (a.allocatable || a.dimension || a.dummy || a.external || a.intrinsic
-      || a.optional || a.pointer || a.save || a.target || a.volatile_
+      || a.optional || a.pointer || a.save || a.target || a.volatile_ || a.value
       || a.access != ACCESS_UNKNOWN || a.intent != INTENT_UNKNOWN)
     return 1;
 
@@ -6212,6 +6212,34 @@ resolve_symbol (gfc_symbol * sym)
     {
       gfc_error ("Symbol at %L is not a DUMMY variable", &sym->declared_at);
       return;
+    }
+
+  if (sym->attr.value && !sym->attr.dummy)
+    {
+      gfc_error ("'%s' at %L cannot have the VALUE attribute because "
+		 "it is not a dummy argument", sym->name, &sym->declared_at);
+      return;
+    }
+
+  if (sym->attr.value && sym->ts.type == BT_CHARACTER)
+    {
+      gfc_charlen *cl = sym->ts.cl;
+      if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
+	{
+	  gfc_error ("Character dummy variable '%s' at %L with VALUE "
+		     "attribute must have constant length",
+		     sym->name, &sym->declared_at);
+	  return;
+	}
+
+      if (sym->ts.is_c_interop
+	  && mpz_cmp_si (cl->length->value.integer, 1) != 0)
+	{
+	  gfc_error ("C interoperable character dummy variable '%s' at %L "
+		     "with VALUE attribute must have length one",
+		     sym->name, &sym->declared_at);
+	  return;
+	}
     }
 
   /* If a derived type symbol has reached this point, without its

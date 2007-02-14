@@ -274,6 +274,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
     *intent_in = "INTENT(IN)", *intrinsic = "INTRINSIC",
+    *intent_out = "INTENT(OUT)", *intent_inout = "INTENT(INOUT)",
     *allocatable = "ALLOCATABLE", *elemental = "ELEMENTAL",
     *private = "PRIVATE", *recursive = "RECURSIVE",
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
@@ -299,16 +300,6 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       goto conflict;
     }
 
-  if (attr->value)
-    {
-      if (attr->intent != INTENT_UNKNOWN && attr->intent != INTENT_IN)
-        {
-          gfc_error ("Invalid INTENT for symbol with VALUE attribute "
-                     "at %L", where);
-          return FAILURE;
-        }
-    }
-  
   /* Check for attributes not allowed in a BLOCK DATA.  */
   if (gfc_current_state () == COMP_BLOCK_DATA)
     {
@@ -392,15 +383,11 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 
   conf (function, subroutine);
 
-  /* value for intent(inout) or intent(out) is error; caught above */
   conf (is_bind_c, dummy);
   conf (is_bind_c, cray_pointer);
   conf (is_bind_c, cray_pointee);
   conf (is_bind_c, allocatable);
-  conf (value, allocatable);
-  conf (value, external);
-  conf (value, pointer);
-  conf (value, dimension);
+
   /* need to also get volatile attr, according to
    * section 5.1 of f03 draft.  parameter conflict caught below..
    * also, value cannot be specified for a dummy procedure.
@@ -436,6 +423,21 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (data, result);
   conf (data, allocatable);
   conf (data, use_assoc);
+
+  conf (value, pointer)
+  conf (value, allocatable)
+  conf (value, subroutine)
+  conf (value, function)
+  conf (value, volatile_)
+  conf (value, dimension)
+  conf (value, external)
+
+  if (attr->value && (attr->intent == INTENT_OUT || attr->intent == INTENT_INOUT))
+    {
+      a1 = value;
+      a2 = attr->intent == INTENT_OUT ? intent_out : intent_inout;
+      goto conflict;
+    }
 
   conf (protected, intrinsic)
   conf (protected, external)
@@ -565,6 +567,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (dummy);
       conf2 (in_common);
       conf2 (save);
+      conf2 (value);
       conf2 (volatile_);
       conf2 (threadprivate);
       /* hmm, double check this..  --Rickett, 01.24.06 */
@@ -864,6 +867,28 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
   attr->save = 1;
   return check_conflict (attr, name, where);
 }
+
+
+try
+gfc_add_value (symbol_attribute * attr, const char *name, locus * where)
+{
+
+  if (check_used (attr, name, where))
+    return FAILURE;
+
+  if (attr->value)
+    {
+	if (gfc_notify_std (GFC_STD_LEGACY, 
+			    "Duplicate VALUE attribute specified at %L",
+			    where) 
+	    == FAILURE)
+	  return FAILURE;
+    }
+
+  attr->value = 1;
+  return check_conflict (attr, name, where);
+}
+
 
 try
 gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
@@ -1228,31 +1253,6 @@ gfc_add_is_bind_c (symbol_attribute *attr, locus *where)
 }
 
 
-/* Set the value field for the given symbol_attribute.  */
-
-try
-gfc_add_value (symbol_attribute *attr, locus *where)
-{
-  if (where == NULL)
-    where = &gfc_current_locus;
-   
-  if (attr->value)
-    {
-      duplicate_attr ("VALUE", where);
-      return FAILURE;
-    }
-
-  attr->value = 1;
-  
-  if (gfc_notify_std (GFC_STD_F2003,
-		      "New in Fortran 2003: 'value' attribute at %L",
-		      where) == FAILURE)
-    return FAILURE;
-   
-  return check_conflict (attr, NULL, where);
-}
-
-
 try
 gfc_add_explicit_interface (gfc_symbol * sym, ifsrc source,
 			    gfc_formal_arglist * formal, locus * where)
@@ -1363,6 +1363,8 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
   if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
     goto fail;
+  if (src->value && gfc_add_value (dest, NULL, where) == FAILURE)
+    goto fail;
   if (src->volatile_ && gfc_add_volatile (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->threadprivate && gfc_add_threadprivate (dest, NULL, where) == FAILURE)
@@ -1427,8 +1429,6 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     dest->intrinsic = 1;
 
   if(src->is_bind_c && gfc_add_is_bind_c(dest, where) != SUCCESS)
-     return FAILURE;
-  if(src->value && gfc_add_value(dest, where) != SUCCESS)
      return FAILURE;
   if(src->is_c_interop)
      dest->is_c_interop = 1;

@@ -855,32 +855,7 @@ build_sym (const char *name, gfc_charlen * cl,
     }
 
   if (sym->attr.dummy == 1)
-    {
-      verify_c_interop_param (sym);
-
-      /* Character strings are a hassle because they may be length 1,
-         or assumed length (*), etc., so we need to find a way to
-         prevent by-value dummy char args from being anything but
-         length 1 constants, because C will only pass a pointer in
-         any other cases.  However, we can't help the following with the
-         logic being used below:
-         character(c_char), value :: my_char
-         character(kind=c_char, len=1), value :: my_char_str
-         hope the user does the right thing.  */
-     if (sym->attr.value == 1 && sym->ts.type == BT_CHARACTER)
-       /* if we can't verify the length of 1...error */
-       if (sym->ts.cl == NULL || sym->ts.cl->length == NULL 
-           || (sym->ts.cl->length->value.character.length != 1))
-         gfc_error_now ("VALUE attribute at %L cannot be used "
-                        "for character strings", &(sym->declared_at));
-    }
-  else
-    {
-      if (sym->attr.value == 1)
-        /* can not use VALUE attribute if not a dummy */
-        gfc_error_now ("VALUE attribute at %L can only be used for "
-                       "dummy arguments", &(sym->declared_at));
-    }
+    verify_c_interop_param (sym);
 
   return SUCCESS;
 }
@@ -2687,10 +2662,15 @@ match_attr_spec (void)
            t = gfc_add_is_bind_c(&current_attr, &seen_at[d]);
            break;
            
-        case DECL_VALUE:
-           t = gfc_add_value(&current_attr, &seen_at[d]);
-           break;
-           
+	case DECL_VALUE:
+	  if (gfc_notify_std (GFC_STD_F2003,
+                              "Fortran 2003: VALUE attribute at %C")
+	      == FAILURE)
+	    t = FAILURE;
+	  else
+	    t = gfc_add_value (&current_attr, NULL, &seen_at[d]);
+	  break;
+
 	case DECL_VOLATILE:
 	  if (gfc_notify_std (GFC_STD_F2003,
                               "Fortran 2003: VOLATILE attribute at %C")
@@ -5223,6 +5203,57 @@ gfc_match_save (void)
 
 syntax:
   gfc_error ("Syntax error in SAVE statement at %C");
+  return MATCH_ERROR;
+}
+
+match
+gfc_match_value (void)
+{
+  gfc_symbol *sym;
+  match m;
+
+  if (gfc_notify_std (GFC_STD_F2003, 
+		      "Fortran 2003: VALUE statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  if (gfc_match (" ::") == MATCH_NO && gfc_match_space () == MATCH_NO)
+    {
+      return MATCH_ERROR;
+    }
+
+  if (gfc_match_eos () == MATCH_YES)
+    goto syntax;
+
+  for(;;)
+    {
+      m = gfc_match_symbol (&sym, 0);
+      switch (m)
+	{
+	case MATCH_YES:
+	  if (gfc_add_value (&sym->attr, sym->name,
+  			        &gfc_current_locus) == FAILURE)
+	    return MATCH_ERROR;
+	  goto next_item;
+
+	case MATCH_NO:
+	  break;
+
+	case MATCH_ERROR:
+	  return MATCH_ERROR;
+	}
+
+    next_item:
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in VALUE statement at %C");
   return MATCH_ERROR;
 }
 

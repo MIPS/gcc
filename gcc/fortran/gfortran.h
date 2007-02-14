@@ -543,7 +543,7 @@ typedef struct
 {
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
-    optional:1, pointer:1, save:1, target:1, volatile_:1,
+    optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
     dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
@@ -557,7 +557,6 @@ typedef struct
   unsigned untyped:1;           /* No implicit type could be found.  */
 
    unsigned is_bind_c:1;           /* say if is bound to C */
-   unsigned value:1;               /* if dummy arg is by value */
    /* these flags are both in the typespec and attribute.  the
     * attribute list is what gets read from/written to a module file.
     * the typespec is created from a decl being processed.
@@ -1977,7 +1976,7 @@ try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
 try gfc_add_is_bind_c(symbol_attribute *attr, locus *where);
-try gfc_add_value(symbol_attribute *attr, locus *where);
+try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
 try gfc_add_entry (symbol_attribute *, const char *, locus *);
 try gfc_add_procedure (symbol_attribute *, procedure_type,

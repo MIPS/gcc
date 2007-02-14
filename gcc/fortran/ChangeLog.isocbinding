@@ -3,6 +3,12 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-02-14  Tobias Burnus  <burnus@net-b.de>
+
+	* fortran/decl.c (build_sym): Remove VALUE check.
+	* fortran/resolve.c (resolve_symbol): Add VALUE check.
+	* gfortran.dg/value_5: New test.
+
 2007-02-02  Christopher D. Rickett  <crickett@lanl.gov>
 	* gfortran.dg/c_kind_tests_2.f03: New test case for
 	verifying C interoperable kinds for BIND(C) variables.

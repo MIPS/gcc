@@ -1596,6 +1596,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_PROTECTED, attr_bits);
       if (attr->save)
 	MIO_NAME(ab_attribute) (AB_SAVE, attr_bits);
+      if (attr->value)
+	MIO_NAME (ab_attribute) (AB_VALUE, attr_bits);
       if (attr->volatile_)
 	MIO_NAME(ab_attribute) (AB_VOLATILE, attr_bits);
       if (attr->target)
@@ -1637,13 +1639,11 @@ mio_symbol_attribute (symbol_attribute * attr)
       if (attr->cray_pointee)
 	MIO_NAME(ab_attribute) (AB_CRAY_POINTEE, attr_bits);
       if(attr->is_bind_c)
-         MIO_NAME(ab_attribute) (AB_IS_BIND_C, attr_bits);
+        MIO_NAME(ab_attribute) (AB_IS_BIND_C, attr_bits);
       if (attr->is_c_interop)
-         MIO_NAME(ab_attribute) (AB_IS_C_INTEROP, attr_bits);
+        MIO_NAME(ab_attribute) (AB_IS_C_INTEROP, attr_bits);
       if (attr->is_iso_c)
-         MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
-      if (attr->value)
-         MIO_NAME(ab_attribute) (AB_VALUE, attr_bits);
+        MIO_NAME(ab_attribute) (AB_IS_ISO_C, attr_bits);
       if (attr->alloc_comp)
 	MIO_NAME(ab_attribute) (AB_ALLOC_COMP, attr_bits);
 
@@ -1687,6 +1687,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	    case AB_SAVE:
 	      attr->save = 1;
 	      break;
+            case AB_VALUE:
+              attr->value = 1;
+              break;
 	    case AB_VOLATILE:
 	      attr->volatile_ = 1;
 	      break;
@@ -1742,17 +1745,14 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      attr->cray_pointee = 1;
 	      break;
             case AB_IS_BIND_C:
-               attr->is_bind_c = 1;
-               break;
+              attr->is_bind_c = 1;
+              break;
             case AB_IS_C_INTEROP:
-               attr->is_c_interop = 1;
-               break;
+              attr->is_c_interop = 1;
+              break;
             case AB_IS_ISO_C:
-               attr->is_iso_c = 1;
-               break;
-            case AB_VALUE:
-               attr->value = 1;
-               break;
+              attr->is_iso_c = 1;
+              break;
 	    case AB_ALLOC_COMP:
 	      attr->alloc_comp = 1;
 	      break;
