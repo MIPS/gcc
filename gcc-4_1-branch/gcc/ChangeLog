@@ -1,3 +1,27 @@
+2007-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30473
+	* builtins.c (fold_builtin_sprintf): Do not attempt to optimize
+	sprintf (str, "%s").  Do not optimize sprintf (str, "nopercent", p++).
+
+2007-02-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30313
+	* passes.c (execute_one_pass): Reset in_gimple_form to not
+	confuse non-unit-at-a-time mode.
+
+2007-02-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* DEV-PHASE: Set to prerelease.
+	* BASE-VER: Increment.
+
+2007-02-13  Release Manager
+
+	* GCC 4.1.2 released.
+
 2007-02-06  Mark Mitchell  <mark@codesourcery.com>
 
 	PR target/29487
