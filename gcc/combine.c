@@ -611,7 +611,7 @@ find_single_use (rtx dest, rtx insn, rtx *ploc)
     }
 #endif
 
-  if (reload_completed || reload_in_progress || !REG_P (dest))
+  if (!REG_P (dest))
     return 0;
 
   for (next = next_nonnote_insn (insn);
