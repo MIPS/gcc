@@ -1,3 +1,7 @@
+2007-02-13  Release Manager
+
+	* GCC 4.1.2 released.
+
 2007-02-12  Tom Tromey  <tromey@redhat.com>
 
 	* sources.am, Makefile.in: Rebuilt.
