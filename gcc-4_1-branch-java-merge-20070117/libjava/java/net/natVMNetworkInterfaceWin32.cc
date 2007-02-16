@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2005  Free Software Foundation
+/* Copyright (C) 2003, 2005, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -136,7 +136,7 @@ java::net::VMNetworkInterface::getInterfaces ()
   int nNbInterfaces = (*pfn) (arIFName, arpInetAddress);
   for (int i=0; i < nNbInterfaces; ++i) 
     {
-      ht->add (new java::net::NetworkInterface (arIFName[i],
+      ht->add (new java::net::VMNetworkInterface (arIFName[i],
         arpInetAddress[i]));
     }
     

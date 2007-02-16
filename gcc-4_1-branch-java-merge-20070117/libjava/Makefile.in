@@ -4369,9 +4369,9 @@ classpath/java/net/InetSocketAddress.java \
 classpath/java/net/JarURLConnection.java \
 classpath/java/net/MalformedURLException.java \
 classpath/java/net/MimeTypeMapper.java \
-java/net/MulticastSocket.java \
+classpath/java/net/MulticastSocket.java \
 classpath/java/net/NetPermission.java \
-java/net/NetworkInterface.java \
+classpath/java/net/NetworkInterface.java \
 classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
