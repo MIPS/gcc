@@ -319,8 +319,9 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/lang/natString.cc java/lang/natStringBuffer.cc \
 	java/lang/natStringBuilder.cc java/lang/natSystem.cc \
 	java/lang/natThread.cc java/lang/natThreadLocal.cc \
-	java/lang/natVMClassLoader.cc java/lang/natVMThrowable.cc \
-	java/lang/ref/natReference.cc java/lang/reflect/natArray.cc \
+	java/lang/natVMClassLoader.cc java/lang/natVMProcess.cc \
+	java/lang/natVMThrowable.cc java/lang/ref/natReference.cc \
+	java/lang/reflect/natArray.cc \
 	java/lang/reflect/natConstructor.cc \
 	java/lang/reflect/natField.cc java/lang/reflect/natMethod.cc \
 	java/lang/reflect/natVMProxy.cc java/net/natVMInetAddress.cc \
@@ -380,8 +381,9 @@ am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	java/lang/natString.lo java/lang/natStringBuffer.lo \
 	java/lang/natStringBuilder.lo java/lang/natSystem.lo \
 	java/lang/natThread.lo java/lang/natThreadLocal.lo \
-	java/lang/natVMClassLoader.lo java/lang/natVMThrowable.lo \
-	java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
+	java/lang/natVMClassLoader.lo java/lang/natVMProcess.lo \
+	java/lang/natVMThrowable.lo java/lang/ref/natReference.lo \
+	java/lang/reflect/natArray.lo \
 	java/lang/reflect/natConstructor.lo \
 	java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
 	java/lang/reflect/natVMProxy.lo java/net/natVMInetAddress.lo \
@@ -4229,7 +4231,7 @@ classpath/java/lang/Override.java \
 classpath/java/lang/Package.java \
 java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
-java/lang/ProcessBuilder.java \
+classpath/java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
 classpath/java/lang/Runnable.java \
 java/lang/Runtime.java \
@@ -4261,6 +4263,7 @@ java/lang/VMClassLoader.java \
 java/lang/VMCompiler.java \
 java/lang/VMDouble.java \
 java/lang/VMFloat.java \
+java/lang/VMProcess.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
@@ -7723,6 +7726,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
 	java/nio/channels/Pipe$$SinkChannel.h \
 	java/nio/channels/Pipe$$SourceChannel.h \
+	java/lang/VMProcess$ImmediateEOFInputStream.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
 	java/lang/reflect/Proxy$$ProxyType.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
@@ -7928,6 +7932,7 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
+java/lang/natVMProcess.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -8435,6 +8440,8 @@ java/lang/natThreadLocal.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMClassLoader.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
+java/lang/natVMProcess.lo: java/lang/$(am__dirstamp) \
+	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMThrowable.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/ref/$(am__dirstamp):
@@ -8875,6 +8882,8 @@ mostlyclean-compile:
 	-rm -f java/lang/natThreadLocal.lo
 	-rm -f java/lang/natVMClassLoader.$(OBJEXT)
 	-rm -f java/lang/natVMClassLoader.lo
+	-rm -f java/lang/natVMProcess.$(OBJEXT)
+	-rm -f java/lang/natVMProcess.lo
 	-rm -f java/lang/natVMThrowable.$(OBJEXT)
 	-rm -f java/lang/natVMThrowable.lo
 	-rm -f java/lang/ref/natReference.$(OBJEXT)
@@ -9025,6 +9034,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThread.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThreadLocal.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMClassLoader.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMProcess.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMThrowable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/ref/$(DEPDIR)/natReference.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/reflect/$(DEPDIR)/natArray.Plo@am__quote@
@@ -10907,7 +10917,7 @@ java/io.list: $(java_io_source_files)
 
 java/lang.list: $(java_lang_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	echo $(srcdir)/classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | grep -v '[^/]Process' > java/lang.list
+	echo $(srcdir)/classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | egrep -v '(Ecos|Posix|Win32)Process' > java/lang.list
 
 -include java/lang.deps
 
