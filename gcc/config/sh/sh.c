@@ -4784,51 +4784,25 @@ sh_reorg (void)
 	  if (GET_CODE (reg) != REG)
 	    continue;
 
-	  /* This is a function call via REG.  If the only uses of REG
-	     between the time that it is set and the time that it dies
-	     are in function calls, then we can associate all the
-	     function calls with the setting of REG.  */
-
-	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+	  /* Try scanning backward to find where the register is set.  */
+	  link = NULL;
+	  for (scan = PREV_INSN (insn);
+	       scan && GET_CODE (scan) != CODE_LABEL;
+	       scan = PREV_INSN (scan))
 	    {
-	      rtx linked_insn;
+	      if (! INSN_P (scan))
+	        continue;
 
-	      if (REG_NOTE_KIND (link) != 0)
-		continue;
-	      linked_insn = XEXP (link, 0);
-	      set = single_set (linked_insn);
-	      if (set
-		  && rtx_equal_p (reg, SET_DEST (set))
-		  && ! INSN_DELETED_P (linked_insn))
+	      if (! reg_mentioned_p (reg, scan))
+	        continue;
+
+	      if (noncall_uses_reg (reg, scan, &set))
+	        break;
+
+	      if (set)
 		{
-		  link = linked_insn;
+		  link = scan;
 		  break;
-		}
-	    }
-
-	  if (! link)
-	    {
-	      /* ??? Sometimes global register allocation will have
-                 deleted the insn pointed to by LOG_LINKS.  Try
-                 scanning backward to find where the register is set.  */
-	      for (scan = PREV_INSN (insn);
-		   scan && GET_CODE (scan) != CODE_LABEL;
-		   scan = PREV_INSN (scan))
-		{
-		  if (! INSN_P (scan))
-		    continue;
-
-		  if (! reg_mentioned_p (reg, scan))
-		    continue;
-
-		  if (noncall_uses_reg (reg, scan, &set))
-		    break;
-
-		  if (set)
-		    {
-		      link = scan;
-		      break;
-		    }
 		}
 	    }
 
@@ -4860,7 +4834,7 @@ sh_reorg (void)
 
 	      /* Don't try to trace forward past a CODE_LABEL if we haven't
 		 seen INSN yet.  Ordinarily, we will only find the setting insn
-		 in LOG_LINKS if it is in the same basic block.  However,
+		 if it is in the same basic block.  However,
 		 cross-jumping can insert code labels in between the load and
 		 the call, and can result in situations where a single call
 		 insn may have two targets depending on where we came from.  */
@@ -4907,11 +4881,8 @@ sh_reorg (void)
 		 later insn.  */
 
 	      /* ??? We shouldn't have to use FOUNDINSN here.
-		 However, the LOG_LINKS fields are apparently not
-		 entirely reliable around libcalls;
-		 newlib/libm/math/e_pow.c is a test case.  Sometimes
-		 an insn will appear in LOG_LINKS even though it is
-		 not the most recent insn which sets the register.  */
+		 This dates back to when we used LOG_LINKS to find 
+		 the most recent insn which sets the register.  */
 
 	      if (foundinsn
 		  && (scanset
