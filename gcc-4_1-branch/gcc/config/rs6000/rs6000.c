@@ -1670,10 +1670,10 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 				| MASK_PPC_GFXOPT | MASK_POWERPC64);
       break;
     case OPT_mfull_toc:
-      target_flags &= ~(MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
-			| MASK_NO_SUM_IN_TOC);
-      target_flags_explicit |= (MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
-				| MASK_NO_SUM_IN_TOC);
+      target_flags &= ~MASK_MINIMAL_TOC;
+      TARGET_NO_FP_IN_TOC = 0;
+      TARGET_NO_SUM_IN_TOC = 0;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
 #ifdef TARGET_USES_SYSV4_OPT
       /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be
 	 just the same as -mminimal-toc.  */
@@ -1716,8 +1716,8 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mminimal_toc:
       if (value == 1)
 	{
-	  target_flags &= ~(MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
-	  target_flags_explicit |= (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	  TARGET_NO_FP_IN_TOC = 0;
+	  TARGET_NO_SUM_IN_TOC = 0;
 	}
       break;
 
@@ -1788,18 +1788,18 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mrelocatable:
       if (value == 1)
 	{
-	  target_flags |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
-	  target_flags_explicit |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	  target_flags |= MASK_MINIMAL_TOC;
+	  target_flags_explicit |= MASK_MINIMAL_TOC;
+	  TARGET_NO_FP_IN_TOC = 1;
 	}
       break;
 
     case OPT_mrelocatable_lib:
       if (value == 1)
 	{
-	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
-	    | MASK_NO_FP_IN_TOC;
-	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
-	    | MASK_NO_FP_IN_TOC;
+	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC;
+	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC;
+	  TARGET_NO_FP_IN_TOC = 1;
 	}
       else
 	{
