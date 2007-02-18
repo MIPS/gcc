@@ -178,6 +178,14 @@ enum vect_relevant {
   vect_used_in_loop  
 };
 
+/* Indicates what kind of data permutation is needed.  */
+enum vect_permutation_type {
+  no_permutation = 0,
+  equal_constants,
+  different_constants,
+  interleaving
+};
+
 typedef struct data_reference *dr_p;
 DEF_VEC_P(dr_p);
 DEF_VEC_ALLOC_P(dr_p,heap);
@@ -252,8 +260,8 @@ typedef struct _stmt_vec_info {
   /* In case that two or more stmts share data-ref, this is the pointer to the
      previously detected stmt with the same dr.  */
   tree same_dr_stmt;
-  /* TRUE, if there is no need in data permutation.  */
-  bool interleaving_not_needed;
+  /* The type of data permutation.  */
+  enum vect_permutation_type permutation_type; 
   /* For loads only, if there is a store with the same location, this field is
      TRUE.  */
   bool read_write_dep;
@@ -278,7 +286,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_DR_GROUP_STORE_COUNT(S) (S)->store_count
 #define STMT_VINFO_DR_GROUP_GAP(S)         (S)->gap
 #define STMT_VINFO_DR_GROUP_SAME_DR_STMT(S)(S)->same_dr_stmt
-#define STMT_VINFO_DR_GROUP_NOT_INTERLEAVING(S)         (S)->interleaving_not_needed
+#define STMT_VINFO_DR_GROUP_PERMUTATION_TYPE(S)       (S)->permutation_type
 #define STMT_VINFO_DR_GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 
 #define DR_GROUP_FIRST_DR(S)               (S)->first_dr
@@ -287,9 +295,11 @@ typedef struct _stmt_vec_info {
 #define DR_GROUP_STORE_COUNT(S)            (S)->store_count
 #define DR_GROUP_GAP(S)                    (S)->gap
 #define DR_GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
-#define DR_GROUP_NOT_INTERLEAVING(S)       (S)->interleaving_not_needed
+#define DR_GROUP_PERMUTATION_TYPE(S)       (S)->permutation_type
 #define DR_GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 
+#define DR_GROUP_INTERLEAVING(S)          ((S)->first_dr && DR_GROUP_PERMUTATION_TYPE(S) == interleaving)
+#define STMT_VINFO_STRIDED_ACCESS(S)      ((S)->first_dr != NULL)
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_loop)
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);

@@ -645,6 +645,122 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
 }
 
 
+/* Function vect_get_vector_for_operands.
+
+   OPRNDS is a collection of operands in stmts of an isomorphic group. This 
+   function returns (vector) defs (VEC_OPRNDS) that will be used in the
+   vectorized stmts.
+
+   FORNOW: implemented only for constant OPRNDS.  */
+
+static bool
+vect_get_vector_for_operands (VEC(tree,heap) *oprnds, tree stmt, 
+			      VEC(tree,heap) **vec_oprnds)
+{
+  tree def_stmt;
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+  int nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  tree vec_cst;
+  tree t = NULL_TREE;
+  tree def;
+  int i, j, k;
+  enum vect_def_type dt;
+  bool is_simple_use;
+  tree vector_type;
+  tree op;
+  int length = VEC_length (tree, oprnds);
+  int ratio;
+
+  /* If number of operands is less than the number of units in vector, we
+     will put NUNITS / LENGTH copies of each operand. 
+     
+     For example, we have two scalar operands, s1 and s2 (e.g., group of 
+     strided accesses of size two), while NUINTS is four (i.e., four scalars
+     of this type can be packed in a vector). The output vector will contain 
+     two copies of each scalar operand: {s1, s2, s1, s2}.
+     
+     Otherwise, we return LENGTH / NUNITS vectors containing the operands.
+  
+     For example, NUINTS is four as before, and the number of scalar operands
+     is 8 (s1, s2, ..., s8). We will create two vectors {s1, s2, s3, s4} and
+     {s5, s6, s7, s8}.  */ 
+  
+  if (length <= nunits)
+    {
+      ratio = nunits / length;
+      gcc_assert (!(nunits % length));
+    }
+  else
+    {
+      ratio = 1;
+      gcc_assert (!(length % nunits));
+    }
+
+  k = nunits;
+  for (j = 0; j < ratio; j ++)
+    {
+      for (i = length - 1; VEC_iterate (tree, oprnds, i, op) && k > 0; i--)
+	{
+	  vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+	  is_simple_use = vect_is_simple_use (op, loop_vinfo, &def_stmt, 
+					      &def, &dt);
+	  gcc_assert (is_simple_use);
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      if (def)
+		{
+		  fprintf (vect_dump, "def =  ");
+		  print_generic_expr (vect_dump, def, TDF_SLIM);
+		}
+	      if (def_stmt)
+		{
+		  fprintf (vect_dump, "  def_stmt =  ");
+		  print_generic_expr (vect_dump, def_stmt, TDF_SLIM);
+		}
+	    }
+	  
+	  switch (dt)
+	    {
+	      /* Case 1: operand is a constant.  */
+	    case vect_constant_def:
+	      {
+		/* Create 'vect_cst_ = {cst,cst,...,cst}'  */
+		if (vect_print_dump_info (REPORT_DETAILS))
+		  fprintf (vect_dump, "Create vector_cst. nunits = %d", nunits);
+		
+		t = tree_cons (NULL_TREE, op, t);
+		k--;
+
+		/* In case number of operands is greater than number of units in 
+		   vector, we create several vectors.  */
+		if (k == 0)
+		  {
+		    k = nunits;
+		    vec_cst = build_constructor_from_list (vector_type, t);
+		    
+		    if (vect_print_dump_info (REPORT_DETAILS))
+		      {
+			fprintf (vect_dump, "created vec_cst: ");
+			print_generic_expr (vect_dump, vec_cst, TDF_SLIM);
+		      }
+		    VEC_quick_push (tree, *vec_oprnds, 
+				    vect_init_vector (stmt, vec_cst, 
+						      vector_type));
+		    t = NULL_TREE;
+		  }
+		break;
+	      }
+	    default:
+	      return false;
+	    }
+	}
+    }
+  return true;
+}
+
+
 /* Function vect_get_vec_def_for_stmt_copy
 
    Return a vector-def for an operand. This function is used when the 
@@ -2708,6 +2824,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree op;
   tree vec_oprnd = NULL_TREE;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  stmt_vec_info first_stmt_vinfo;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info), *first_dr = NULL;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
@@ -2725,8 +2842,10 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int j;
   tree next_stmt, first_stmt;
   bool strided_store = false;
-  unsigned int group_size, i;
+  unsigned int group_size, i, k, vec_oprnds_num = 1;
   VEC(tree,heap) *dr_chain = NULL, *oprnds = NULL, *result_chain = NULL;
+  VEC(tree,heap) *scalar_oprnds = NULL, *vec_oprnds = NULL;
+
   gcc_assert (ncopies >= 1);
 
   /* Is vectorizable store? */
@@ -2757,10 +2876,12 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (!STMT_VINFO_DATA_REF (stmt_info))
     return false;
 
-  if (DR_GROUP_FIRST_DR (stmt_info))
+  if (STMT_VINFO_STRIDED_ACCESS (stmt_info))
     {
       strided_store = true;
-      if (!DR_GROUP_NOT_INTERLEAVING (
+      /* Interleaved stores are only needed when the permutation type is
+	 INTERLEAVING.  */
+      if (DR_GROUP_INTERLEAVING (
 		     vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)))
           && !vect_strided_store_supported (vectype))
 	return false;      
@@ -2780,15 +2901,16 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (strided_store)
     {
       first_stmt = DR_GROUP_FIRST_DR (stmt_info);
-      first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
-      group_size = DR_GROUP_SIZE (vinfo_for_stmt (first_stmt));
+      first_stmt_vinfo = vinfo_for_stmt (first_stmt);
+      first_dr = STMT_VINFO_DATA_REF (first_stmt_vinfo);
+      group_size = DR_GROUP_SIZE (first_stmt_vinfo);
 
-      DR_GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt))++;
+      DR_GROUP_STORE_COUNT (first_stmt_vinfo)++;
 
       /* We vectorize all the stmts of the interleaving group when we
 	 reach the last stmt in the group.  */
-      if (DR_GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt)) 
-	  < DR_GROUP_SIZE (vinfo_for_stmt (first_stmt)))
+      if (DR_GROUP_STORE_COUNT (first_stmt_vinfo) 
+	  < DR_GROUP_SIZE (first_stmt_vinfo))
 	{
 	  *vec_stmt = NULL_TREE;
 	  return true;
@@ -2799,10 +2921,12 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       first_stmt = stmt;
       first_dr = dr;
       group_size = 1;
+      first_stmt_vinfo = stmt_info;
     }
   
   dr_chain = VEC_alloc (tree, heap, group_size);
   oprnds = VEC_alloc (tree, heap, group_size);
+  scalar_oprnds = VEC_alloc (tree, heap, group_size);
 
   alignment_support_cheme = vect_supportable_dr_alignment (first_dr);
   gcc_assert (alignment_support_cheme);
@@ -2859,6 +2983,19 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	     stores in the group in DR_CHAIN and OPRNDS. DR_CHAIN is then used
 	     as an input to vect_permute_store_chain(), and OPRNDS as an input
 	     to vect_get_vec_def_for_stmt_copy() for the next copy.
+
+	     If the stored values are equal constants, we create a single vector
+	     for the first operand in the group with 
+	     vect_get_vec_def_for_stmt_copy(), vect_permute_store_chain() is 
+	     not called, and this vector is used for all the vector stores in 
+	     the group.
+
+	     In case the stored values are different constants, there is also 
+	     no need in data permutation. We collect operands that are stored
+	     by the group in SCALAR_OPRNDS, and then call
+	     vect_get_vector_for_operands() to create vectors of constants in 
+	     the correct order for the strided stores.
+
 	     If the store is not strided, GROUP_SIZE is 1, and DR_CHAIN and
 	     OPRNDS are of size 1.  */
 	  next_stmt = first_stmt;	  
@@ -2871,14 +3008,58 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		 executed.  */
 	      gcc_assert (next_stmt);
 	      op = GIMPLE_STMT_OPERAND (next_stmt, 1);
-	      vec_oprnd = vect_get_vec_def_for_operand (op, next_stmt, NULL);
-	      VEC_quick_push(tree, dr_chain, vec_oprnd); 
-	      VEC_quick_push(tree, oprnds, vec_oprnd); 
+
+	      if (DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo) == 
+		  different_constants)
+		/* Collect the scalar operands. Vectors are created later in
+		   vect_get_vector_for_operands().  */
+		VEC_quick_push (tree, scalar_oprnds, op);
+	      else 
+		{
+		  /* Create a vector for the scalar operand.  */
+		  vec_oprnd = vect_get_vec_def_for_operand (op, 
+							    next_stmt, NULL);
+		  VEC_quick_push(tree, dr_chain, vec_oprnd); 
+		  VEC_quick_push(tree, oprnds, vec_oprnd); 
+		}
+
 	      next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
 
-	      if (DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
+	      /* For same constant stores we create only one vector, and store 
+		 it several times.  */
+	      if (DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo) == 
+		  equal_constants)
 		break;
 	    }
+
+          /* For strided stores of different constants we create vector 
+	     operands here.  */
+          if (DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo) == 
+	      different_constants)
+            {
+              /* VEC_OPRNDS_NUM is the number of vectors that will be created 
+                 in vect_get_vector_for_operands().
+                 If GROUP_SIZE > NUNITS, we pack the scalar stmts in 
+                 (GROUP_SIZE / NUNITS) vector stmts.  Otherwise, we create
+                 only one vector stmt. See vect_get_vector_for_operands() for
+                 more information.  */
+              if ((int) group_size > nunits)
+                vec_oprnds_num = group_size / nunits;
+              else
+                vec_oprnds_num = 1;
+
+              vec_oprnds = VEC_alloc (tree, heap, vec_oprnds_num);    
+              if (!vect_get_vector_for_operands (scalar_oprnds, first_stmt,
+                                                 &vec_oprnds))
+                return false;
+
+              /* Insert the created vectors into OPRNDS.  */
+              for (k = vec_oprnds_num - 1; 
+                   VEC_iterate (tree, vec_oprnds, k, vec_oprnd); k--)
+                VEC_quick_push(tree, oprnds, vec_oprnd);
+              vec_oprnd = VEC_index (tree, vec_oprnds, vec_oprnds_num - 1);
+            }
+
 	  dataref_ptr = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
 						  &dummy, &ptr_incr, false,
 						  TREE_TYPE (vec_oprnd));
@@ -2891,22 +3072,25 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	     and OPRNDS as an input to vect_get_vec_def_for_stmt_copy() for the 
 	     next copy.
 	     If the store is not strided, GROUP_SIZE is 1, and DR_CHAIN and
-	     OPRNDS are of size 1.  */
-	  for (i = 0; i < group_size; i++)
+	     OPRNDS are of size 1.  
+	     In case of constant stores, we store the same vectors in all the
+	     copies.  */
+	  if (DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo) == interleaving
+	      || DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo) == 
+	      no_permutation) 
 	    {
-	      vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, 
-						   VEC_index (tree, oprnds, i));
-	      VEC_replace(tree, dr_chain, i, vec_oprnd);
-	      VEC_replace(tree, oprnds, i, vec_oprnd);
-	      
-	      if (DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
-		break;
+	      for (i = 0; i < group_size; i++)
+		{
+		  vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, 
+					     VEC_index (tree, oprnds, i));
+		  VEC_replace(tree, dr_chain, i, vec_oprnd);
+		  VEC_replace(tree, oprnds, i, vec_oprnd);
+		}
 	    }
 	  dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
 	}
 
-      if (strided_store 
-	  && !DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
+      if (DR_GROUP_INTERLEAVING (first_stmt_vinfo))
 	{
 	  result_chain = VEC_alloc (tree, heap, group_size);     
 	  /* Permute.  */
@@ -2916,13 +3100,34 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	}
 
       next_stmt = first_stmt;
-      for (i = 0; i < group_size; i++)
+      for (i = 0, k = vec_oprnds_num - 1; i < group_size; i++)
 	{
 	  /* For strided stores vectorized defs are interleaved in 
 	     vect_permute_store_chain().  */
-	  if (strided_store
-	      && !DR_GROUP_NOT_INTERLEAVING (vinfo_for_stmt (first_stmt)))
-	    vec_oprnd = VEC_index(tree, result_chain, i);
+	  if (strided_store)
+	    {
+	      switch (DR_GROUP_PERMUTATION_TYPE (first_stmt_vinfo)) 
+		{
+		case interleaving:
+		  vec_oprnd = VEC_index (tree, result_chain, i);
+		  break;
+
+		case different_constants:
+                  vec_oprnd = VEC_index (tree, vec_oprnds, k - i);
+                  if (vec_oprnds_num == 1)
+                    k++;
+                  else if (k == i)
+                    k += vec_oprnds_num;
+		  break;
+
+                case equal_constants:
+                case no_permutation:
+                  break;
+
+		default:
+		  gcc_unreachable ();
+		}
+	    }
 
 	  data_ref = build_fold_indirect_ref (dataref_ptr);
 	  /* Arguments are ready. Create the new vector stmt.  */

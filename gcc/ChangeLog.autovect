@@ -1,3 +1,17 @@
+2007-02-18  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h (enum vect_permutation_type): Define.
+	(struct _stmt_vec_info): Replace interleaving_not_needed field and 
+	its access macros with a new field permutation_type. Add more macros 
+	for access fields related to strided access.
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize the new field.
+	* tree-vect-analyze.c (vect_analyze_data_ref_access): Detect strided 
+	stores of not equal constants.
+	* tree-vect-transform.c (vect_get_vector_for_operands): New function.
+	(vectorizable_store): Use new macros. Minor clean-ups. In case of 
+	strided store of constant values, call vect_get_vector_for_operands
+	to create vectors with the values to store. 
+
 2007-02-06  Victor Kaplansky <victork@il.ibm.com>
 	
 	Merged revisions 121374-121640 via svnmerge from 
