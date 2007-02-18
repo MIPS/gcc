@@ -1837,9 +1837,6 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 
       if (INSN_P (insn))
 	{
-	  /* Clear out the stale LOG_LINKS from flow.  */
-	  free_INSN_LIST_list (&LOG_LINKS (insn));
-
 	  /* These two lists will be freed in schedule_insn ().  */
 	  INSN_BACK_DEPS (insn) = create_deps_list (false);
 	  INSN_RESOLVED_BACK_DEPS (insn) = create_deps_list (false);

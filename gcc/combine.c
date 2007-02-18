@@ -154,8 +154,7 @@ static int max_uid_cuid;
 
 /* Get the cuid of an insn.  */
 
-#define INSN_CUID(INSN) \
-(INSN_UID (INSN) > max_uid_cuid ? insn_cuid (INSN) : uid_cuid[INSN_UID (INSN)])
+#define INSN_CUID(INSN)		(uid_cuid[INSN_UID (INSN)])
 
 /* Maximum register number, which is the size of the tables below.  */
 
@@ -441,7 +440,6 @@ static int reg_bitfield_target_p (rtx, rtx);
 static void distribute_notes (rtx, rtx, rtx, rtx, rtx, rtx);
 static void distribute_links (rtx);
 static void mark_used_regs_combine (rtx);
-static int insn_cuid (rtx);
 static void record_promoted_value (rtx, rtx);
 static int unmentioned_reg_p_1 (rtx *, void *);
 static bool unmentioned_reg_p (rtx, rtx);
@@ -11933,28 +11931,15 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_cuid, rtx to_insn,
     {
       unsigned int regno = REGNO (x);
       rtx where_dead = reg_stat[regno].last_death;
-      rtx before_dead, after_dead;
 
       /* Don't move the register if it gets killed in between from and to.  */
       if (maybe_kill_insn && reg_set_p (x, maybe_kill_insn)
 	  && ! reg_referenced_p (x, maybe_kill_insn))
 	return;
 
-      /* WHERE_DEAD could be a USE insn made by combine, so first we
-	 make sure that we have insns with valid INSN_CUID values.  */
-      before_dead = where_dead;
-      while (before_dead && INSN_UID (before_dead) > max_uid_cuid)
-	before_dead = PREV_INSN (before_dead);
-
-      after_dead = where_dead;
-      while (after_dead && INSN_UID (after_dead) > max_uid_cuid)
-	after_dead = NEXT_INSN (after_dead);
-
-      if (before_dead && after_dead
-	  && INSN_CUID (before_dead) >= from_cuid
-	  && (INSN_CUID (after_dead) < INSN_CUID (to_insn)
-	      || (where_dead != after_dead
-		  && INSN_CUID (after_dead) == INSN_CUID (to_insn))))
+      if (where_dead
+	  && INSN_CUID (where_dead) >= from_cuid
+	  && INSN_CUID (where_dead) < INSN_CUID (to_insn))
 	{
 	  rtx note = remove_death (regno, where_dead);
 
@@ -12560,8 +12545,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 			 i2 but does not die in i2, and place is between i2
 			 and i3, then we may need to move a link from place to
 			 i2.  */
-		      if (i2 && INSN_UID (place) <= max_uid_cuid
-			  && INSN_CUID (place) > INSN_CUID (i2)
+		      if (i2 && INSN_CUID (place) > INSN_CUID (i2)
 			  && from_insn
 			  && INSN_CUID (from_insn) > INSN_CUID (i2)
 			  && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
@@ -12826,20 +12810,6 @@ static bool
 unmentioned_reg_p (rtx equiv, rtx expr)
 {
   return for_each_rtx (&equiv, unmentioned_reg_p_1, expr);
-}
-
-/* Compute INSN_CUID for INSN, which is an insn made by combine.  */
-
-static int
-insn_cuid (rtx insn)
-{
-  while (insn != 0 && INSN_UID (insn) > max_uid_cuid
-	 && NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE)
-    insn = NEXT_INSN (insn);
-
-  gcc_assert (INSN_UID (insn) <= max_uid_cuid);
-
-  return INSN_CUID (insn);
 }
 
 void

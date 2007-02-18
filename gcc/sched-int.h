@@ -113,8 +113,7 @@ typedef struct _dep_link *dep_link_t;
 
 void debug_dep_links (dep_link_t);
 
-/* A list of dep_links.  Lists of this type are now used instead of rtx
-   LOG_LINKS and alike lists.  */
+/* A list of dep_links.  */
 struct _deps_list
 {
   dep_link_t first;
