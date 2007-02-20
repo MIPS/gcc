@@ -2,6 +2,11 @@
 
 	* GCC 4.1.2 released.
 
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/powerpc/linux64.S (ffi_call_LINUX64): Move restore of r2
+	immediately after bctrl instruction.
+
 2006-06-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	Backport from trunk:

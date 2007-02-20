@@ -1,5 +1,5 @@
 /* VMNetworkInterface.java --
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,9 +38,11 @@ exception statement from your version. */
 
 package java.net;
 
-import gnu.classpath.Configuration;
-
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 /**
@@ -55,12 +57,76 @@ import java.util.Vector;
  */
 final class VMNetworkInterface
 {
-  static
-    {
-      if (Configuration.INIT_LOAD_LIBRARY)
-	System.loadLibrary("javanet");
-    }
+  String name;
+  Set addresses;
 
-  public static native Vector getInterfaces()
+  VMNetworkInterface(String name)
+  {
+    this.name = name;
+    addresses = new HashSet();
+  }
+
+  /**
+   * Creates a dummy instance which represents any network
+   * interface.
+   */
+  public VMNetworkInterface()
+  {
+    addresses = new HashSet();
+    try
+      {
+        addresses.add(InetAddress.getByName("0.0.0.0"));
+      }
+    catch (UnknownHostException _)
+      {
+        // Cannot happen.
+      }
+  }
+
+  public VMNetworkInterface(String name, InetAddress addr)
+  {
+    this.name = name;
+    addresses = new HashSet();
+    addresses.add(addr);
+  }
+
+  /**
+   * Return a list of VM network interface objects.
+   *
+   * @return The list of network interfaces.
+   * @throws SocketException
+   */
+  public static VMNetworkInterface[] getVMInterfaces()
+    throws SocketException
+  {
+    // This is written in a weird way because the API changed, but it
+    // was simpler not to have to change the native code too much.
+    Collection<VMNetworkInterface> vals = condense(getInterfaces());
+    VMNetworkInterface[] result = new VMNetworkInterface[vals.size()];
+    return vals.toArray(result);
+  }
+
+  public static native Vector<VMNetworkInterface> getInterfaces()
     throws SocketException;
+
+  static Collection<VMNetworkInterface>
+  condense(Vector<VMNetworkInterface> interfaces)
+  {
+    final HashMap<String, VMNetworkInterface> condensed
+      = new HashMap<String, VMNetworkInterface>();
+
+    for (VMNetworkInterface face : interfaces)
+      {
+	final String name = face.name;
+	if (condensed.containsKey(name))
+	  {
+	    final VMNetworkInterface conface = condensed.get(name);
+	    conface.addresses.addAll(face.addresses);
+	  }
+	else
+	  condensed.put(name, face);
+      }
+
+    return condensed.values();
+  }
 }

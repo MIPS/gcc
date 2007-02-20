@@ -75,6 +75,18 @@ _Jv_InitInterpreter()
 void _Jv_InitInterpreter() {}
 #endif
 
+// The breakpoint instruction. For the direct threaded case,
+// _Jv_InterpMethod::compile will initialize breakpoint_insn
+// the first time it is called.
+#ifdef DIRECT_THREADED
+insn_slot _Jv_InterpMethod::bp_insn_slot;
+pc_t _Jv_InterpMethod::breakpoint_insn = NULL;
+#else
+unsigned char _Jv_InterpMethod::bp_insn_opcode
+  = static_cast<unsigned char> (op_breakpoint);
+pc_t _Jv_InterpMethod::breakpoint_insn = &_Jv_InterpMethod::bp_insn_opcode;
+#endif
+
 extern "C" double __ieee754_fmod (double,double);
 
 static inline void dupx (_Jv_word *sp, int n, int x)
@@ -200,7 +212,7 @@ do { DEBUG_LOCALS_INSN(I, 'd');	\
 #define PEEKA(I)  (locals+(I))->o
 
 #define POKEI(I,V)  	\
-DEBUG_LOCALS_INSN(I,i)	\
+DEBUG_LOCALS_INSN(I,'i'); \
 ((locals+(I))->i = (V))
 
 
@@ -844,6 +856,7 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 	    case op_getstatic_4:
 	    case op_getstatic_8:
 	    case op_getstatic_a:
+	    case op_breakpoint:
 	    default:
 	      // Fail somehow.
 	      break;
@@ -879,6 +892,12 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
     }  
 
   prepared = insns;
+
+  if (breakpoint_insn == NULL)
+    {
+      bp_insn_slot.insn = const_cast<void *> (insn_targets[op_breakpoint]);
+      breakpoint_insn = &bp_insn_slot;
+    }
 }
 #endif /* DIRECT_THREADED */
 
@@ -1160,13 +1179,13 @@ _Jv_count_arguments (_Jv_Utf8Const *signature,
  * caller.
  */
 
-static int 
-init_cif (_Jv_Utf8Const* signature,
-	  int arg_count,
-	  jboolean staticp,
-	  ffi_cif *cif,
-	  ffi_type **arg_types,
-	  ffi_type **rtype_p)
+int 
+_Jv_init_cif (_Jv_Utf8Const* signature,
+	      int arg_count,
+	      jboolean staticp,
+	      ffi_cif *cif,
+	      ffi_type **arg_types,
+	      ffi_type **rtype_p)
 {
   unsigned char *ptr = (unsigned char*) signature->chars();
 
@@ -1250,12 +1269,12 @@ _Jv_InterpMethod::ncode ()
     (ncode_closure*)_Jv_AllocBytes (sizeof (ncode_closure)
 					+ arg_count * sizeof (ffi_type*));
 
-  init_cif (self->signature,
-	    arg_count,
-	    staticp,
-	    &closure->cif,
-	    &closure->arg_types[0],
-	    NULL);
+  _Jv_init_cif (self->signature,
+		arg_count,
+		staticp,
+		&closure->cif,
+		&closure->arg_types[0],
+		NULL);
 
   ffi_closure_fun fun;
 
@@ -1307,23 +1326,27 @@ _Jv_InterpMethod::ncode ()
   return self->ncode;
 }
 
-#ifdef DIRECT_THREADED
 /* Find the index of the given insn in the array of insn slots
    for this method. Returns -1 if not found. */
 jlong
 _Jv_InterpMethod::insn_index (pc_t pc)
 {
   jlong left = 0;
+#ifdef DIRECT_THREADED
   jlong right = number_insn_slots;
-  insn_slot* slots = reinterpret_cast<insn_slot*> (prepared);
+  pc_t insns = prepared;
+#else
+  jlong right = code_length;
+  pc_t insns = bytecode ();
+#endif
 
   while (right >= 0)
     {
       jlong mid = (left + right) / 2;
-      if (&slots[mid] == pc)
+      if (&insns[mid] == pc)
 	return mid;
 
-      if (pc < &slots[mid])
+      if (pc < &insns[mid])
 	right = mid - 1;
       else
         left = mid + 1;
@@ -1331,7 +1354,6 @@ _Jv_InterpMethod::insn_index (pc_t pc)
 
   return -1;
 }
-#endif // DIRECT_THREADED
 
 void
 _Jv_InterpMethod::get_line_table (jlong& start, jlong& end,
@@ -1381,6 +1403,52 @@ _Jv_InterpMethod::get_line_table (jlong& start, jlong& end,
 #endif // !DIRECT_THREADED
 }
 
+pc_t
+_Jv_InterpMethod::install_break (jlong index)
+{
+  return set_insn (index, breakpoint_insn);
+}
+
+pc_t
+_Jv_InterpMethod::get_insn (jlong index)
+{
+  pc_t code;
+
+#ifdef DIRECT_THREADED
+  if (index >= number_insn_slots || index < 0)
+    return NULL;
+
+  code = prepared;
+#else // !DIRECT_THREADED
+  if (index >= code_length || index < 0)
+    return NULL;
+
+  code = reinterpret_cast<pc_t> (bytecode ());
+#endif // !DIRECT_THREADED
+
+  return &code[index];
+}
+
+pc_t
+_Jv_InterpMethod::set_insn (jlong index, pc_t insn)
+{
+#ifdef DIRECT_THREADED
+  if (index >= number_insn_slots || index < 0)
+    return NULL;
+
+  pc_t code = prepared;
+  code[index].insn = insn->insn;
+#else // !DIRECT_THREADED
+  if (index >= code_length || index < 0)
+    return NULL;
+
+  pc_t code = reinterpret_cast<pc_t> (bytecode ());
+  code[index] = *insn;
+#endif // !DIRECT_THREADED
+
+  return &code[index];
+}
+
 void *
 _Jv_JNIMethod::ncode ()
 {
@@ -1397,12 +1465,12 @@ _Jv_JNIMethod::ncode ()
 				    + arg_count * sizeof (ffi_type*));
 
   ffi_type *rtype;
-  init_cif (self->signature,
-	    arg_count,
-	    staticp,
-	    &closure->cif,
-	    &closure->arg_types[0],
-	    &rtype);
+  _Jv_init_cif (self->signature,
+		arg_count,
+		staticp,
+		&closure->cif,
+		&closure->arg_types[0],
+		&rtype);
 
   ffi_closure_fun fun;
 
@@ -1564,12 +1632,12 @@ _Jv_InterpreterEngine::do_resolve_method (_Jv_Method *method, jclass klass,
 		    + arg_count*sizeof (ffi_type*));
 
   result->stack_item_count
-    = init_cif (method->signature,
-		arg_count,
-		staticp,
-		&result->cif,
-		&result->arg_types[0],
-		NULL);
+    = _Jv_init_cif (method->signature,
+		    arg_count,
+		    staticp,
+		    &result->cif,
+		    &result->arg_types[0],
+		    NULL);
 
   result->method              = method;
   result->klass               = klass;

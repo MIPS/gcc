@@ -1,6 +1,6 @@
 // natPosixProcess.cc - Native side of POSIX process code.
 
-/* Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -27,8 +27,8 @@ details.  */
 #include <gcj/cni.h>
 #include <jvm.h>
 
-#include <java/lang/ConcreteProcess$ProcessManager.h>
-#include <java/lang/ConcreteProcess.h>
+#include <java/lang/PosixProcess$ProcessManager.h>
+#include <java/lang/PosixProcess.h>
 #include <java/lang/IllegalThreadStateException.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/InterruptedException.h>
@@ -41,6 +41,7 @@ details.  */
 #include <java/io/FileOutputStream.h>
 #include <java/io/IOException.h>
 #include <java/lang/OutOfMemoryError.h>
+#include <java/lang/PosixProcess$EOFInputStream.h>
 
 using gnu::java::nio::channels::FileChannelImpl;
 
@@ -98,7 +99,7 @@ sigchld_handler (int)
 
 // Get ready to enter the main reaper thread loop.
 void
-java::lang::ConcreteProcess$ProcessManager::init ()
+java::lang::PosixProcess$ProcessManager::init ()
 {
   using namespace java::lang;
   // Remenber our PID so other threads can kill us.
@@ -124,7 +125,7 @@ error:
 }
 
 void
-java::lang::ConcreteProcess$ProcessManager::waitForSignal ()
+java::lang::PosixProcess$ProcessManager::waitForSignal ()
 {
   // Wait for SIGCHLD
   sigset_t mask;
@@ -145,7 +146,7 @@ java::lang::ConcreteProcess$ProcessManager::waitForSignal ()
   return;
 }
 
-jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
+jboolean java::lang::PosixProcess$ProcessManager::reap ()
 {
   using namespace java::lang;
 
@@ -168,7 +169,7 @@ jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
         return true;   // No children to wait for.
 
       // Look up the process in our pid map.
-      ConcreteProcess * process = removeProcessFromMap ((jlong) pid);
+      PosixProcess * process = removeProcessFromMap ((jlong) pid);
 
       // Note that if process==NULL, then we have an unknown child.
       // This is not common, but can happen, and isn't an error.
@@ -176,7 +177,7 @@ jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
 	{
 	  JvSynchronize sync (process);
 	  process->status = WIFEXITED (status) ? WEXITSTATUS (status) : -1;
-	  process->state = ConcreteProcess::STATE_TERMINATED;
+	  process->state = PosixProcess::STATE_TERMINATED;
           process->processTerminationCleanup();
 	  process->notifyAll ();
 	}
@@ -187,7 +188,7 @@ error:
 }
 
 void
-java::lang::ConcreteProcess$ProcessManager::signalReaper ()
+java::lang::PosixProcess$ProcessManager::signalReaper ()
 {
   int c = pthread_kill ((pthread_t) reaperPID, SIGCHLD);
   if (c == 0)
@@ -197,7 +198,7 @@ java::lang::ConcreteProcess$ProcessManager::signalReaper ()
 }
 
 void
-java::lang::ConcreteProcess::nativeDestroy ()
+java::lang::PosixProcess::nativeDestroy ()
 {
   int c = kill ((pid_t) pid, SIGKILL);
   if (c == 0)
@@ -207,7 +208,7 @@ java::lang::ConcreteProcess::nativeDestroy ()
 }
 
 void
-java::lang::ConcreteProcess::nativeSpawn ()
+java::lang::PosixProcess::nativeSpawn ()
 {
   using namespace java::io;
 
@@ -231,7 +232,7 @@ java::lang::ConcreteProcess::nativeSpawn ()
   try
     {
       // Transform arrays to native form.
-    args = (char **) _Jv_Malloc ((progarray->length + 1) * sizeof (char *));
+      args = (char **) _Jv_Malloc ((progarray->length + 1) * sizeof (char *));
 
       // Initialize so we can gracefully recover.
       jstring *elts = elements (progarray);
@@ -262,23 +263,30 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	path = new_string (dir->getPath ());
 
       // Create pipes for I/O.  MSGP is for communicating exec()
-      // status.
-      if (pipe (inp) || pipe (outp) || pipe (errp) || pipe (msgp)
+      // status.  If redirecting stderr to stdout, we don't need to
+      // create the ERRP pipe.
+      if (pipe (inp) || pipe (outp) || pipe (msgp)
 	  || fcntl (msgp[1], F_SETFD, FD_CLOEXEC))
-      throw new IOException (JvNewStringUTF (strerror (errno)));
+	throw new IOException (JvNewStringUTF (strerror (errno)));
+      if (! redirect && pipe (errp))
+	throw new IOException (JvNewStringUTF (strerror (errno)));
 
       // We create the streams before forking.  Otherwise if we had an
       // error while creating the streams we would have run the child
       // with no way to communicate with it.
-    errorStream =
-      new FileInputStream (new
-                           FileChannelImpl (errp[0], FileChannelImpl::READ));
-    inputStream =
-      new FileInputStream (new
-                           FileChannelImpl (inp[0], FileChannelImpl::READ));
-    outputStream =
-      new FileOutputStream (new FileChannelImpl (outp[1],
-                                             FileChannelImpl::WRITE));
+      if (redirect)
+	errorStream = PosixProcess$EOFInputStream::instance;
+      else
+	errorStream =
+	  new FileInputStream (new
+			       FileChannelImpl (errp[0],
+						FileChannelImpl::READ));
+      inputStream =
+	new FileInputStream (new
+			     FileChannelImpl (inp[0], FileChannelImpl::READ));
+      outputStream =
+	new FileOutputStream (new FileChannelImpl (outp[1],
+						   FileChannelImpl::WRITE));
 
       // We don't use vfork() because that would cause the local
       // environment to be set by the child.
@@ -319,14 +327,17 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	  // We ignore errors from dup2 because they should never occur.
 	  dup2 (outp[0], 0);
 	  dup2 (inp[1], 1);
-	  dup2 (errp[1], 2);
+	  dup2 (redirect ? inp[1] : errp[1], 2);
 
 	  // Use close and not myclose -- we're in the child, and we
 	  // aren't worried about the possible race condition.
 	  close (inp[0]);
 	  close (inp[1]);
-	  close (errp[0]);
-	  close (errp[1]);
+	  if (! redirect)
+	    {
+	      close (errp[0]);
+	      close (errp[1]);
+	    }
 	  close (outp[0]);
 	  close (outp[1]);
 	  close (msgp[0]);
@@ -362,7 +373,8 @@ java::lang::ConcreteProcess::nativeSpawn ()
 
       myclose (outp[0]);
       myclose (inp[1]);
-      myclose (errp[1]);
+      if (! redirect)
+	myclose (errp[1]);
       myclose (msgp[1]);
 
       char c;
@@ -406,7 +418,7 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	{
 	  if (errorStream != NULL)
 	    errorStream->close ();
-	  else
+	  else if (! redirect)
 	    myclose (errp[0]);
 	}
       catch (java::lang::Throwable *ignore)
@@ -417,10 +429,11 @@ java::lang::ConcreteProcess::nativeSpawn ()
       // the use of myclose.
       myclose (outp[0]);
       myclose (inp[1]);
-      myclose (errp[1]);
+      if (! redirect)
+	myclose (errp[1]);
       myclose (msgp[1]);
 
-    exception = thrown;
+      exception = thrown;
     }
 
   myclose (msgp[0]);
@@ -430,6 +443,7 @@ java::lang::ConcreteProcess::nativeSpawn ()
     {
       fcntl (outp[1], F_SETFD, FD_CLOEXEC);
       fcntl (inp[0], F_SETFD, FD_CLOEXEC);
-      fcntl (errp[0], F_SETFD, FD_CLOEXEC);
+      if (! redirect)
+	fcntl (errp[0], F_SETFD, FD_CLOEXEC);
     }
 }

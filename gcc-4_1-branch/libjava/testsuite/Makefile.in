@@ -50,9 +50,11 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
-	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../libtool.m4 \
-	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 \
+	$(top_srcdir)/../config/unwind_ipinfo.m4 \
+	$(top_srcdir)/../libtool.m4 $(top_srcdir)/mingwld.m4 \
+	$(top_srcdir)/pkg.m4 $(top_srcdir)/shlibpath.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/include/config.h \
@@ -75,8 +77,8 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
-BASH_JAR_FALSE = @BASH_JAR_FALSE@
-BASH_JAR_TRUE = @BASH_JAR_TRUE@
+BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
+BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -96,7 +98,11 @@ DIVIDESPEC = @DIVIDESPEC@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
+ECJ_BUILD_JAR = @ECJ_BUILD_JAR@
+ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
+ENABLE_SHARED_FALSE = @ENABLE_SHARED_FALSE@
+ENABLE_SHARED_TRUE = @ENABLE_SHARED_TRUE@
 EXCEPTIONSPEC = @EXCEPTIONSPEC@
 EXEEXT = @EXEEXT@
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
@@ -107,6 +113,7 @@ GCJDEPMODE = @GCJDEPMODE@
 GCJFLAGS = @GCJFLAGS@
 GCJH = @GCJH@
 GCJVERSION = @GCJVERSION@
+GCJ_FOR_ECJX = @GCJ_FOR_ECJX@
 GCLIBS = @GCLIBS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
@@ -118,6 +125,8 @@ HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_ECJ_JAR_FALSE = @INSTALL_ECJ_JAR_FALSE@
+INSTALL_ECJ_JAR_TRUE = @INSTALL_ECJ_JAR_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -126,6 +135,8 @@ JAR = @JAR@
 JAVA_HOME = @JAVA_HOME@
 JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
 JAVA_HOME_SET_TRUE = @JAVA_HOME_SET_TRUE@
+JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
+JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
 JC1GCSPEC = @JC1GCSPEC@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
@@ -144,6 +155,7 @@ LIBGCJ_LD_SYMBOLIC = @LIBGCJ_LD_SYMBOLIC@
 LIBGCJ_SPEC = @LIBGCJ_SPEC@
 LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
+LIBMAGIC = @LIBMAGIC@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -168,7 +180,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
-PLATFORM_INNER_NAT_HDRS = @PLATFORM_INNER_NAT_HDRS@
+PLATFORM = @PLATFORM@
 RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -210,6 +222,8 @@ USING_WIN32_THREADS_TRUE = @USING_WIN32_THREADS_TRUE@
 VERSION = @VERSION@
 XLIB_AWT_FALSE = @XLIB_AWT_FALSE@
 XLIB_AWT_TRUE = @XLIB_AWT_TRUE@
+X_AWT_FALSE = @X_AWT_FALSE@
+X_AWT_TRUE = @X_AWT_TRUE@
 X_CFLAGS = @X_CFLAGS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
@@ -242,6 +256,7 @@ bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
+build_libsubdir = @build_libsubdir@
 build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
@@ -254,6 +269,7 @@ here = @here@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
+host_exeext = @host_exeext@
 host_os = @host_os@
 host_subdir = @host_subdir@
 host_vendor = @host_vendor@
@@ -302,6 +318,7 @@ RUNTEST = "`if [ -f $(top_srcdir)/../dejagnu/runtest ] ; then \
 	    else echo runtest; fi` $(AM_RUNTESTFLAGS)"
 
 AM_RUNTESTFLAGS = INTERPRETER=$(INTERPRETER)
+MYGCJH = gjavah
 all: all-am
 
 .SUFFIXES:
@@ -500,6 +517,65 @@ uninstall-am: uninstall-info-am
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	uninstall uninstall-am uninstall-info-am
 
+
+.PHONY: compile-tests
+
+check-am: compile-tests
+
+compile-tests:
+@JAVA_MAINTAINER_MODE_TRUE@	for test in `cd $(srcdir) > /dev/null; \
+@JAVA_MAINTAINER_MODE_TRUE@		     find libjava.cni libjava.jni libjava.jvmti libjava.lang \
+@JAVA_MAINTAINER_MODE_TRUE@			  libjava.loader libjava.verify -name \*.java`; do \
+@JAVA_MAINTAINER_MODE_TRUE@	  testjar=$(srcdir)/`echo $$test | sed -e 's/\.java$$/\.jar/'`; \
+@JAVA_MAINTAINER_MODE_TRUE@	  testdep=; \
+@JAVA_MAINTAINER_MODE_TRUE@	  genheader=; \
+@JAVA_MAINTAINER_MODE_TRUE@	  case "$$test" in \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.loader/dummy.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      testjar=$(srcdir)/libjava.loader/dummy.class;; \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.loader/MyLoader.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      continue;; \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.loader/*.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      testdep="libjava.loader/MyLoader.java";; \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/register2.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      ;; \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/*.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      genheader=-jni;; \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jvmti/*.java|libjava.cni/*.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      genheader=-cni;; \
+@JAVA_MAINTAINER_MODE_TRUE@	  esac; \
+@JAVA_MAINTAINER_MODE_TRUE@	  if test -f $$testjar; then \
+@JAVA_MAINTAINER_MODE_TRUE@	    if ! test $(srcdir)/$$test -nt $$testjar; then \
+@JAVA_MAINTAINER_MODE_TRUE@	      test -z "$$testdep" && continue; \
+@JAVA_MAINTAINER_MODE_TRUE@	      test $(srcdir)/$$testdep -nt $$testjar || continue; \
+@JAVA_MAINTAINER_MODE_TRUE@	    fi; \
+@JAVA_MAINTAINER_MODE_TRUE@	  fi; \
+@JAVA_MAINTAINER_MODE_TRUE@	  echo Compiling $$test; \
+@JAVA_MAINTAINER_MODE_TRUE@	  testtmpdir=`echo $$test | sed -e 's,/,_,g'`T; \
+@JAVA_MAINTAINER_MODE_TRUE@	  rm -rf $$testtmpdir; $(mkdir_p) $$testtmpdir; \
+@JAVA_MAINTAINER_MODE_TRUE@	  if test -n "$$testdep"; then \
+@JAVA_MAINTAINER_MODE_TRUE@	    $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath \
+@JAVA_MAINTAINER_MODE_TRUE@	      $(top_builddir)/libgcj-$(gcc_version).jar::$testtmpdir \
+@JAVA_MAINTAINER_MODE_TRUE@	      -d $$testtmpdir $(srcdir)/$$testdep || exit; \
+@JAVA_MAINTAINER_MODE_TRUE@	  fi; \
+@JAVA_MAINTAINER_MODE_TRUE@	  $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath \
+@JAVA_MAINTAINER_MODE_TRUE@	    $(top_builddir)/libgcj-$(gcc_version).jar:$$testtmpdir \
+@JAVA_MAINTAINER_MODE_TRUE@	    -d $$testtmpdir $(srcdir)/$$test || exit; \
+@JAVA_MAINTAINER_MODE_TRUE@	  case "$$test" in \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.loader/dummy.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	      cp $$testtmpdir/dummy.class $$testjar;; \
+@JAVA_MAINTAINER_MODE_TRUE@	    *) \
+@JAVA_MAINTAINER_MODE_TRUE@	      $(JAR) cf $$testjar \
+@JAVA_MAINTAINER_MODE_TRUE@		`ls $$testtmpdir/*.class \
+@JAVA_MAINTAINER_MODE_TRUE@		 | sed -e 's,^,-C ,;s,/\([^/]*\.class\)$$, \1,'` || exit ;; \
+@JAVA_MAINTAINER_MODE_TRUE@	  esac; \
+@JAVA_MAINTAINER_MODE_TRUE@	  if test -n "$$genheader"; then \
+@JAVA_MAINTAINER_MODE_TRUE@	    $(MYGCJH) $$genheader $$testtmpdir/*.class \
+@JAVA_MAINTAINER_MODE_TRUE@	      -bootclasspath $(top_builddir)/libgcj-$(gcc_version).jar \
+@JAVA_MAINTAINER_MODE_TRUE@	      -d $$testtmpdir/ || exit; \
+@JAVA_MAINTAINER_MODE_TRUE@	    mv $$testtmpdir/*.h $(srcdir)/`dirname $$test`/ 2>/dev/null; \
+@JAVA_MAINTAINER_MODE_TRUE@	  fi; \
+@JAVA_MAINTAINER_MODE_TRUE@	  rm -rf $$testtmpdir; \
+@JAVA_MAINTAINER_MODE_TRUE@	done
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

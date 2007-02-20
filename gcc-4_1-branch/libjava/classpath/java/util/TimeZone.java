@@ -977,7 +977,14 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 	if (index < idLength)
 	  index--;
 
-	{ // convert the dst string to a millis number
+	if (index == prevIndex && (c == ',' || c == ';'))
+	  {
+	    // Missing dst offset defaults to one hour ahead of standard
+	    // time.  
+	    dstOffs = stdOffs + 60 * 60 * 1000;
+	  }
+	else
+	  { // convert the dst string to a millis number
 	    String offset = sysTimeZoneId.substring(prevIndex, index);
 	    prevIndex = index;
 
@@ -991,7 +998,7 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 
 	    // TZ timezone offsets are positive when WEST of the meridian.
 	    dstOffs = -dstOffs;
-	}
+	  }
 
 	// Done yet? (Format: std offset dst offset)
 	// FIXME: We don't support DST without a rule given. Should we?
@@ -1083,18 +1090,30 @@ public abstract class TimeZone implements java.io.Serializable, Cloneable
 	int day;
 
 	// Month, week of month, day of week
+
+	// "Mm.w.d".  d is between 0 (Sunday) and 6.  Week w is
+	// between 1 and 5; Week 1 is the first week in which day d
+	// occurs and Week 5 specifies the last d day in the month.
+	// Month m is between 1 and 12.
+
 	month = Integer.parseInt(date.substring(1, date.indexOf('.')));
 	int week = Integer.parseInt(date.substring(date.indexOf('.') + 1,
 	                                           date.lastIndexOf('.')));
 	int dayOfWeek = Integer.parseInt(date.substring(date.lastIndexOf('.')
 	                                                + 1));
-	if (week == 5)
-	  day = -1; // last day of month is -1 in java, 5 in TZ
-	else
-	  // first day of week starting on or after.
-	  day = (week - 1) * 7 + 1;
-
 	dayOfWeek++; // Java day of week is one-based, Sunday is first day.
+
+ 	if (week == 5)
+ 	  day = -1; // last day of month is -1 in java, 5 in TZ
+ 	else
+	  {
+	    // First day of week starting on or after.  For example,
+	    // to specify the second Sunday of April, set month to
+	    // APRIL, day-of-month to 8, and day-of-week to -SUNDAY.
+	    day = (week - 1) * 7 + 1;
+	    dayOfWeek = -dayOfWeek;
+	  }
+
 	month--; // Java month is zero-based.
 	return new int[] { month, day, dayOfWeek };
       }

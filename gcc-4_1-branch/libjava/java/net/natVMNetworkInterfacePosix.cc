@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2005, 2006  Free Software Foundation
+/* Copyright (C) 2003, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -46,10 +46,10 @@ details.  */
 #include <java/net/VMNetworkInterface.h>
 #include <java/util/Vector.h>
 
-::java::util::Vector*
+::java::util::Vector *
 java::net::VMNetworkInterface::getInterfaces ()
 {
-  ::java::util::Vector* ht = new ::java::util::Vector ();
+  ::java::util::Vector *ht = new ::java::util::Vector ();
 
 #ifdef HAVE_GETIFADDRS
 
@@ -86,12 +86,11 @@ java::net::VMNetworkInterface::getInterfaces ()
       ::java::net::InetAddress *inaddr
 	  =  ::java::net::InetAddress::getByAddress(laddr);
 
-      // It is ok to make a new NetworkInterface for each struct; the
-      // java code will unify these as necessary; see
-      // NetworkInterface.condense().
+      // It is ok to make a new NetworkInterface for each struct,
+      // since we will use 'condense' to collapse them.
       jstring name = JvNewStringUTF (work->ifa_name);
 
-      ht->add (new NetworkInterface (name, inaddr));
+      ht->add (new VMNetworkInterface (name, inaddr));
     }
 
   freeifaddrs (addrs);
@@ -117,7 +116,7 @@ java::net::VMNetworkInterface::getInterfaces ()
   do
     {
       num_interfaces += 16;
-      
+
       if_data.ifc_len = sizeof (struct ifreq) * num_interfaces;
       if_data.ifc_buf =
         (char*) _Jv_Realloc (if_data.ifc_buf, if_data.ifc_len);
@@ -149,7 +148,7 @@ java::net::VMNetworkInterface::getInterfaces ()
       memcpy (elements (baddr), &(sa.sin_addr), len);
       jstring if_name = JvNewStringLatin1 (if_record->ifr_name);
       InetAddress* address = java::net::InetAddress::getByAddress (baddr);
-      ht->add (new NetworkInterface (if_name, address));
+      ht->add (new VMNetworkInterface (if_name, address));
       if_record++;
     }
 
