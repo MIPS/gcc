@@ -1,3 +1,45 @@
+2007-02-20 Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/vect-2.f90: Xfail to vectorize one of the loops
+	because of aliasing.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/24427
+	PR rtl-optimization/28173
+	* gcc.dg/tree-ssa/andor-1.c: New test case.
+
+2007-02-18 Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-106-alias.c: New test.
+
+2007-02-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20070216-1.c: New test.
+
+2007-02-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30799
+	* gfortran.dg/logical_2.f90: New test.
+
+2007-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/tree-ssa/sra-1.C: New.
+
+2007-02-10  Tobias Schlueter  <tobi@gcc.gnu.org>
+
+	PR fortran/30478
+	* gfortran.dg/enum_4.f90: Update expected error message.
+
+2007-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/30189
+	* gcc.dg/pr30189.c: New test.
+
+2007-02-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/tree-ssa/nothrow-1.C: Skip test if -fpic/-fPIC is used.
+
 2007-02-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/30536

@@ -1,3 +1,96 @@
+2007-02-20 Ira Rosen  <irar@il.ibm.com>
+
+	* tree-ssa-alias.c: Include pointer-set.h. 
+	(may_aliases_intersect): Use the correct type (varray) for
+	may_aliases sets.
+
+2007-02-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline.
+	PR rtl-optimization/29599
+	* reload1.c (eliminate_regs_in_insn): Take the destination
+	mode into account when computing the offset.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	Backport from mainline.
+	PR middle-end/24427
+	PR rtl-optimization/28173
+	* fold-const.c (fold_binary) <BIT_IOR_EXPR>: Transform (X&C1)|C2
+	into (X,C2) if C1 is a subset of the bits of C2.  Transform
+	(X&C1)|C2 into X|C2 if C1|C2 == ~0.  Canonicalize (X&C1)|C2 as
+	(X&(C1&~C2))|C2.
+	<BIT_AND_EXPR>: Canonicalize (X|C1)&C2 as (X&C2)|(C1&C2).
+
+2007-02-18 Ira Rosen  <irar@il.ibm.com>
+
+	* tree-ssa-alias.c (may_aliases_intersect): New function.
+	* tree-data-ref.c (ptr_ptr_may_alias_p): Call may_aliases_intersect 
+	for different tags.
+	* tree-flow.h (may_aliases_intersect): Add function declaration.
+
+2007-02-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/30823
+	* tree-sra.c (sra_build_assignment): Drop type-checking assert.
+
+2007-02-16  Guy Martin  <gmsoft@gentoo.org>
+
+	* pa.md (tp_load): Correct mfctl instruction syntax.
+
+2007-02-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/30787
+	* loop.c (strength_reduce): Don't reduce giv that is not always
+	executed and where add_val or mult_val can trap.
+
+2007-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/27843
+	* Makefile.in (SYSTEM_HEADER_DIR): Use single quotes to avoid
+	nested double- and backquotes.
+
+2007-02-15  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/19087
+	* config/avr/avr.c (DWARF2_ADDR_SIZE): Define.
+	
+2007-02-15  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (constantpool_mem_p): Skip over SUBREGs.
+
+2007-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-sra.c (instantiate_missing_elements): Canonicalize
+	bit-field types.
+	(sra_build_assignment): New.
+	(generate_copy_inout, generate_element_copy,
+	generate_element_zero, generate_one_element_init): Use it.
+
+2007-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/30189
+	* dwarf2out.c (modified_type_die): Follow DECL_ORIGINAL_TYPE
+	even if cv-qualification is the same.
+
+2007-02-14  Eric Botcazou  <ebotcazou@adacore.com>
+            Maxim Kuvyrkov <mkuvyrkov@ispras.ru>
+
+	PR rtl-optimization/28772
+	* Makefile.in (haifa-sched.o): Add dependency on $(PARAMS_H).
+
+	Backport from mainline:
+	2006-04-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* params.def (PARAM_MAX_SCHED_READY_INSNS): New parameter,
+	defaulting to 100.
+	* params.h (MAX_SCHED_READY_INSNS): New macro.
+	* haifa-sched.c: (queue_to_ready): Re-queue insns for the next cycle
+	past MAX_SCHED_READY_INSNS during the first scheduling pass.
+	(schedule_block): Delay insns past MAX_SCHED_READY_INSNS in
+	the ready list for 1 cycle during the first scheduling pass.
+	* doc/invoke.texi (--param): New parameter max-sched-ready-insns.
+
 2007-02-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/30473
@@ -850,7 +943,7 @@
 2006-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* doc/install.texi (sparc-sun-solaris2*): Update GMP/MPFR build
-	instructions.
+
 	(sparc64-sun-solaris2*): Likewise.
 
 2006-11-02  Zdenek Dvorak <dvorakz@suse.cz>
