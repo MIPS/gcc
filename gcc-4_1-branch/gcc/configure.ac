@@ -2847,6 +2847,36 @@ foo:	nop
 	  [Define if your assembler supports mffgpr and mftgpr.])])
 
     case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	cmpb 3,4,5';;
+      *) conftest_s='	.machine power6
+	.text
+	cmpb 3,4,5';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([compare bytes support],
+      gcc_cv_as_powerpc_cmpb, [9,99,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_CMPB, 1,
+	  [Define if your assembler supports cmpb.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	dadd 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	dadd 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([decimal float support],
+      gcc_cv_as_powerpc_dfp, [9,99,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_DFP, 1,
+	  [Define if your assembler supports DFP instructions.])])
+
+    case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 LCF..0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
