@@ -2246,75 +2246,57 @@ df_ur_bb_local_compute (unsigned int bb_index)
   struct df_ur_bb_info *bb_info = df_ur_get_bb_info (bb_index);
   rtx insn;
   struct df_ref **def_rec;
-
-  bitmap_clear (seen_in_block);
-  bitmap_clear (seen_in_insn);
-
-  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
-    {
-      struct df_ref *def = *def_rec;
-      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	{
-	  unsigned int regno = DF_REF_REGNO (def);
-	  if (!bitmap_bit_p (seen_in_block, regno))
-	    {
-	      bitmap_set_bit (seen_in_block, regno);
-	      bitmap_set_bit (bb_info->gen, regno);
-	    }
-	}
-    }
-
-  FOR_BB_INSNS_REVERSE (bb, insn)
-    {
-      unsigned int uid = INSN_UID (insn);
-      if (!INSN_P (insn))
-	continue;
-
-      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
-	{
-	  struct df_ref *def = *def_rec;
-	  unsigned int regno = DF_REF_REGNO (def);
-	  /* Only the last def counts.  */
-	  if (!bitmap_bit_p (seen_in_block, regno))
-	    {
-              if (DF_REF_FLAGS_IS_SET (def,
-                                       DF_REF_PARTIAL
-                                       | DF_REF_CONDITIONAL))
-                {
-                  /* All partial or conditional def
-                     seen are included in the gen set. */
-                  bitmap_set_bit (bb_info->gen, regno);
-                }
-              else if (DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER))
-                {
-		  /* Only must clobbers for the entire reg destroy the
-		     value.  */
-                  bitmap_set_bit (seen_in_insn, regno);
-                  bitmap_set_bit (bb_info->kill, regno);
-		}
-              else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
-		{
-                  bitmap_set_bit (seen_in_insn, regno);
-		  bitmap_set_bit (bb_info->gen, regno);
-                }
-	    }
-	}
-      bitmap_ior_into (seen_in_block, seen_in_insn);
-      bitmap_clear (seen_in_insn);
-    }
+  int luid = 0;
 
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
     {
       struct df_ref *def = *def_rec;
       if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	bitmap_set_bit (bb_info->gen, DF_REF_REGNO (def));
+    }
+
+  FOR_BB_INSNS (bb, insn)
+    {
+      unsigned int uid = INSN_UID (insn);
+      struct df_insn_info *insn_info = DF_INSN_UID_GET (uid);
+
+      /* Inserting labels does not always trigger the incremental
+	 rescanning.  */
+      if (!insn_info)
 	{
-	  unsigned int regno = DF_REF_REGNO (def);
-	  if (!bitmap_bit_p (seen_in_block, regno))
-	    {
-	      bitmap_set_bit (seen_in_block, regno);
-	      bitmap_set_bit (bb_info->gen, regno);
-	    }
+	  gcc_assert (!INSN_P (insn));
+	  df_insn_create_insn_record (insn);
 	}
+
+      DF_INSN_LUID (insn) = luid;
+      if (!INSN_P (insn))
+	continue;
+
+      luid++;
+      for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	{
+	  struct df_ref *def = *def_rec;
+	  unsigned int regno = DF_REF_REGNO (def);
+
+	  if (DF_REF_FLAGS_IS_SET (def,
+				   DF_REF_PARTIAL | DF_REF_CONDITIONAL))
+	    /* All partial or conditional def
+	       seen are included in the gen set. */
+	    bitmap_set_bit (bb_info->gen, regno);
+	  else if (DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER))
+	    /* Only must clobbers for the entire reg destroy the
+	       value.  */
+	    bitmap_set_bit (bb_info->kill, regno);
+	  else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
+	    bitmap_set_bit (bb_info->gen, regno);
+	}
+    }
+
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+	bitmap_set_bit (bb_info->gen, DF_REF_REGNO (def));
     }
 }
 
@@ -2327,15 +2309,15 @@ df_ur_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
   unsigned int bb_index;
   bitmap_iterator bi;
 
-  df_set_seen ();
+  df_grow_insn_info ();
 
-  EXECUTE_IF_SET_IN_BITMAP (df_ur->out_of_date_transfer_functions, 0, bb_index, bi)
+  EXECUTE_IF_SET_IN_BITMAP (df_ur->out_of_date_transfer_functions, 
+			    0, bb_index, bi)
     {
       df_ur_bb_local_compute (bb_index);
     }
 
   bitmap_clear (df_ur->out_of_date_transfer_functions);
-  df_unset_seen ();
 }
 
 
@@ -2603,7 +2585,7 @@ df_ur_verify_transfer_functions (void)
   saved_kill = BITMAP_ALLOC (NULL);
   all_blocks = BITMAP_ALLOC (NULL);
 
-  df_set_seen ();
+  df_grow_insn_info ();
 
   FOR_ALL_BB (bb)
     {
@@ -2644,8 +2626,6 @@ df_ur_verify_transfer_functions (void)
   /* Make sure there are no dirty bits in blocks that have been deleted.  */
   gcc_assert (!bitmap_intersect_compl_p (df_ur->out_of_date_transfer_functions, 
 					 all_blocks)); 
-  df_unset_seen ();
-
   BITMAP_FREE (saved_gen);
   BITMAP_FREE (saved_kill);
   BITMAP_FREE (all_blocks);

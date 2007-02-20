@@ -124,7 +124,6 @@ static void df_record_exit_block_uses (bitmap);
 static void df_get_exit_block_use_set (bitmap);
 static void df_get_entry_block_def_set (bitmap);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
-static void df_grow_insn_info (void);
 static void df_ref_chain_delete_du_chain (struct df_ref **);
 static void df_ref_chain_delete (struct df_ref **);
 
@@ -551,7 +550,7 @@ df_check_and_grow_ref_info (struct df_ref_info *ref_info,
    number of instructions, grow to 25% more than the number of
    instructions.  */
 
-static void 
+void 
 df_grow_insn_info (void)
 {
   unsigned int new_size = get_max_uid () + 1;

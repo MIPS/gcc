@@ -1705,7 +1705,6 @@ prescan_insns_for_dse (void)
   init_value_store_group (&local_value_stores);
   FOR_EACH_BB (bb)
     {
-      df_recompute_luids (bb);
       cselib_clear_table ();
       cselib_discard_hook = remove_useless_values;
       FOR_BB_INSNS (bb, insn)

@@ -320,9 +320,9 @@ struct df_insn_info
   /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
   struct df_ref **eq_uses;       
   struct df_mw_hardreg **mw_hardregs;
-  /* The logical uid of the insn in the basic block.  This is only
-     valid after df_recompute_luids has been run on the basic block
-     containing the insn. */
+  /* The logical uid of the insn in the basic block.  This is valid
+     after any call to df_analyze but may rot after insns are added,
+     deleted or moved. */
   int luid; 
 };
 
@@ -912,6 +912,7 @@ extern void df_scan_alloc (bitmap);
 extern struct df_scan_bb_info *df_scan_get_bb_info (unsigned int);
 extern void df_scan_add_problem (void);
 extern void df_grow_reg_info (void);
+extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
 				     enum df_ref_type, enum df_ref_flags);

@@ -1327,15 +1327,12 @@ see_free_data_structures (void)
 static void
 see_initialize_data_structures (void)
 {
-  basic_block bb;
   unsigned int max_reg = max_reg_num ();
   unsigned int i;
 
   /* Build the df object. */
   df_set_flags (DF_EQ_NOTES);
   df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
-  FOR_EACH_BB (bb)
-    df_recompute_luids (bb);
   df_analyze ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 

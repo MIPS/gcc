@@ -917,8 +917,6 @@ forward_propagate_into (struct df_ref *use)
 static void
 fwprop_init (void)
 {
-  basic_block bb;
-
   num_changes = 0;
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -933,8 +931,6 @@ fwprop_init (void)
      put the dataflow solver to work.  */
   df_set_flags (DF_EQ_NOTES);
   df_chain_add_problem (DF_UD_CHAIN);
-  FOR_EACH_BB (bb)
-    df_recompute_luids (bb);
   df_analyze ();
   df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
   df_set_flags (DF_DEFER_INSN_RESCAN);

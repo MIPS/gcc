@@ -1,3 +1,22 @@
+2007-02-20  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* fwprop.c (forward_propagate_into): Removed call to
+	df_recompute_luids.
+	* see.c (see_free_data_structures): Ditto.
+	* loop-iv.c (iv_analysis_loop_init): Ditto.
+	* dce.c (prescan_insns_for_dse): Ditto.
+	* auto-inc-dec.c (merge_in_block): Moved call to
+	df_recompute_luids so that it only happens on subsequent passes of
+	block.
+	* df-scan.c (df_grow_insn_info): Made public.
+	* df.h (df_grow_insn_info): Made public.
+	* df-core.c: Fixed comments.
+	* df-problems.c (df_ur_bb_local_compute): Reversed order of
+	processing insns.  Removed usage of seen_in_block and
+	seen_in_insn.  Update luid.
+        (df_ur_local_compute, df_ur_verify_transfer_functions): Added call
+	to df_grow_insn_info and deleted calls to df_set_seen, df_unset_seen.
+
 2007-02-16  Paolo Bonzini  <bonzini@gnu.org>
 
 	* combine.c (INSN_CUID): Always look up uid_cuid.

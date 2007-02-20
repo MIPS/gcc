@@ -285,10 +285,10 @@ ACCESSING INSNS:
    to the ordering of the uses or refs in an instruction.
 
 3) Each insn has a logical uid field (LUID).  When properly set, this
-   is an integer that numbers each insn in the basic block, in order
-   from the start of the block.  The numbers are only correct after a
-   call to df_recompute_luid.  They will rot after insns are added
-   deleted or moved around.
+   is an integer that numbers each insn in the basic block, in order from
+   the start of the block.  The numbers are only correct after a call to
+   df_analyse.  They will rot after insns are added deleted or moved
+   around.
 
 ACCESSING REFS:
 
