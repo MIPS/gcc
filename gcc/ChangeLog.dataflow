@@ -1,3 +1,8 @@
+2007-02-20  Seongbae Park <seongbae.park@gmail.com>
+
+	* sched-ebb.c (schedule_ebbs): Clear DF_LR_RUN_DCE flag
+	after df_analyze.
+
 2007-02-20  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* fwprop.c (forward_propagate_into): Removed call to

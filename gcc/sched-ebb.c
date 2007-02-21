@@ -541,6 +541,7 @@ schedule_ebbs (void)
   df_set_flags (DF_LR_RUN_DCE);
   df_ri_add_problem (DF_RI_LIFE);
   df_analyze ();
+  df_clear_flags (DF_LR_RUN_DCE);
   sched_init ();
 
   compute_bb_for_insn ();
