@@ -2011,9 +2011,12 @@ int gfc_find_symbol (const char *, gfc_namespace *, int, gfc_symbol **);
 int gfc_find_sym_tree (const char *, gfc_namespace *, int, gfc_symtree **);
 int gfc_get_symbol (const char *, gfc_namespace *, gfc_symbol **);
 try verify_c_interop (gfc_typespec *ts, const char *name, locus *where);
+try verify_c_interop_param (gfc_symbol *sym);
+try verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
+                       int is_in_common, gfc_common_head *com_block);
 try verify_bind_c_derived_type (gfc_symbol *derived_sym);
+try verify_com_block_vars_c_interop (gfc_common_head *com_block);
 void generate_isocbinding_symbol (const char *, iso_c_binding_symbol, char *);
-void gen_c_interop_kinds (const char *mod_name, CInteropKind_t *kinds[]);
 gfc_symbol *get_iso_c_sym (gfc_symbol *old_sym, char *new_name,
                            char *new_binding_label, int add_optional_arg);
 void copy_formal_args (gfc_symbol *dest, gfc_symbol *src);

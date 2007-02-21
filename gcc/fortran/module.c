@@ -2962,6 +2962,8 @@ mio_namespace_ref (gfc_namespace ** nsp)
 static void
 mio_symbol (gfc_symbol * sym)
 {
+  int intmod = INTMOD_NONE;
+  
   gfc_formal_arglist *formal;
 
   mio_lparen ();
@@ -3017,6 +3019,23 @@ mio_symbol (gfc_symbol * sym)
       MIO_NAME(gfc_access) (sym->component_access, access_types);
 
   mio_namelist (sym);
+
+  /* Add the fields that say whether this is from an intrinsic module,
+     and if so, what symbol it is within the module.  */
+/*   mio_integer (&(sym->from_intmod)); */
+  if (iomode == IO_OUTPUT)
+    {
+      intmod = sym->from_intmod;
+      mio_integer (&intmod);
+    }
+  else
+    {
+      mio_integer (&intmod);
+      sym->from_intmod = intmod;
+    }
+  
+  mio_integer (&(sym->intmod_sym_id));
+  
   mio_rparen ();
 }
 

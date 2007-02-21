@@ -1584,7 +1584,8 @@ check_iso_c_derived (gfc_symbol *derived)
 static tree
 get_iso_c_derived (gfc_symbol *derived)
 {
-  if (strcmp (derived->name, "c_ptr") == 0)
+  if (derived->from_intmod == INTMOD_ISO_C_BINDING &&
+      derived->intmod_sym_id == ISOCBINDING_PTR)
     return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];
   else
     return gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX];
@@ -1726,10 +1727,12 @@ gfc_get_derived_type (gfc_symbol * derived)
           /* there should be a cleaner way to do this..
            * --Rickett, 06.12.06
            */
-          if (strcmp (derived->name, "c_ptr") == 0 &&
+          if ((derived->from_intmod == INTMOD_ISO_C_BINDING &&
+               derived->intmod_sym_id == ISOCBINDING_PTR) &&
               gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] == NULL)
             gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] = typenode;
-          else if (strcmp (derived->name, "c_funptr") == 0 &&
+          else if ((derived->from_intmod == INTMOD_ISO_C_BINDING &&
+                    derived->intmod_sym_id == ISOCBINDING_FUNPTR) &&
                    gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] == NULL)
             gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] = typenode;
         }

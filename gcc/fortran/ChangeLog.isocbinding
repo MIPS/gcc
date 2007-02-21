@@ -3,6 +3,91 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-02-21  Christopher D. Rickett  <crickett@lanl.gov>
+	* testsuite/gfortran.dg/c_loc_tests_2.f03: New test case for
+	the c_loc function.
+	* testsuite/gfortran.dg/bind_c_implicit_vars.f03: New test
+	case for warning user about implicitly typed variables if they
+	need to be C interoperable.
+	* testsuite/gfortran.dg/interop_params.f03: Updated test case
+	to change the expected line of the warning messages.
+	* testsuite/gfortran.dg/bind_c_array_params.f03: New test case
+	to verify that gfortran reports errors if the user declares
+	assumed-shape or deferred-shape dummy arguments for a BIND(C)
+	procedure.  Only assumed-size or explicitly-shaped arrays are
+	allowed.
+	* testsuite/gfortran.dg/bind_c_dts_2.f03: New test case that
+	shows gfortran accepting a BIND(C) derived type that contains
+	another BIND(C) derived type.  This was previously reported as an
+	error.
+	* testsuite/gfortran.dg/binding_label_tests_2.f03: New test
+	case to verify that gfortran reports error messages for invalid
+	binding labels (error in the NAME= specifier).
+	* testsuite/gfortran.dg/binding_label_tests.f03: New test case
+	for verifying that gfortran accepts all valid binding labels.
+	* testsuite/gfortran.dg/bind_c_dts_3.f03: New test case for
+	verifying that gfortran correctly checks BIND(C) derived types
+	that are nested within another BIND(C) derived type for being C
+	interoperable.
+	* testsuite/gfortran.dg/iso_c_binding_rename_1_driver.c: Main
+	program for the iso_c_binding_rename_1 test.
+	* testsuite/gfortran.dg/iso_c_binding_rename_1.f03: New test
+	case to check that gfortran allows the symbols in iso_c_binding to
+	be renamed.
+	* testsuite/gfortran.dg/iso_c_binding_rename_2_driver.c: Main
+	program for the iso_c_binding_rename_2 test.
+	* testsuite/gfortran.dg/iso_c_binding_rename_2.f03: New test
+	case to check that gfortran allows the symbols in iso_c_binding to
+	be renamed.
+	* testsuite/gfortran.dg/bind_c_dts_2_driver.c: Main program
+	for the bind_c_dts_2 test case.
+	* testsuite/gfortran.dg/bind_c_usage_2.f03: Updated test case.
+	* testsuite/gfortran.dg/c_loc_tests_2_funcs.c: C functions
+	that go with c_loc_tests_2.f03.
+	* testsuite/gfortran.dg/bind_c_usage_3.f03: Updated test case.
+	* fortran/symbol.c: Added warnings for implicitly typed
+	variables that need to be C interoperable.  Added
+	get_iso_c_binding_dt() for retrieving derived types from
+	namespace, independent of the type name.  Changed
+	verify_bind_c_derived_type to allow type components.  Updated
+	warning/error messages in many cases to not use the *_now
+	versions.  Removed dead code: gen_c_interop_kind_sym,
+	gen_given_kinds, gen_c_interop_int_kinds,
+	gen_c_interop_logical_kinds, gen_c_interop_real_kinds,
+	gen_special_c_chars, gen_c_interop_char_kinds,
+	gen_c_interop_ptr_syms, gen_c_interop_ptr_kinds, gen_iso_c_proc,
+	gen_c_interop_int_funcs, gen_c_interop_kinds.  These were removed
+	because they have not been necessary since FX added the
+	generate_isocbinding_symbol function.  Updated functions to use
+	the from_intmod and intmod_sym_id instead of the symbol names.
+	This allows the symbols to be renamed by the user.  Added the
+	derived types for c_ptr and c_funptr to the namespace
+	derived_types list.
+	* fortran/decl.c: Updated warning/error messages.  Added test
+	cases for preventing assumed-shape and deferred-shape arrays as
+	parameters to BIND(C) procedures.  Removed verification of C
+	interoperability because it is now done during resolve_sym().
+	Added an error check for binding labels where a name specifier was
+	given with a zero lengthed string.
+	* fortran/gfortran.h: Updated prototypes.
+	* fortran/module.c: Added code to put from_intmod and
+	intmod_sym_id in the module file.  This is needed to correctly
+	recognize renamed iso_c_binding module symbols.
+	* fortran/trans-types.c: Updated to use from_intmod and
+	intmod_sym_id instead of the names for iso_c_binding symbols c_ptr
+	and c_funptr.
+	* fortran/resolve.c: Added test in resolve_contained_functions
+	to verify the return type of functions that are BIND(C).  Use
+	from_intmod and intmod_sym_id to recognize iso_c_binding symbols
+	instead of their names.  Added checks to resolve_symbol to verify
+	C interoperability for symbols that need to be.  This use to be
+	done in decl.c, but it was pointed out that this could be too
+	early to check.
+	* fortran/match.c: Updated gfc_match_name_C to handle leading
+	or trailing spaces in the name specifier.
+	* fortran/match.h: Updated prototypes.  Moved some to
+	gfortran.h.
+
 2007-02-14  Tobias Burnus  <burnus@net-b.de>
 
 	* fortran/decl.c (build_sym): Remove VALUE check.

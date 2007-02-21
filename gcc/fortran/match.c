@@ -482,6 +482,17 @@ gfc_match_name_C (char *buffer)
   /* Get the next char (first possible char of name) and see if
      it's valid for C (either a letter or an underscore).  */
   c = gfc_next_char_literal (1);
+
+  /* If the user put nothing expect spaces between the quotes, it is valid
+     and simply means there is no name= specifier and the name is the fortran
+     symbol name, all lowercase.  */
+  if (c == '"' || c == '\'')
+    {
+      buffer[0] = '\0';
+      gfc_current_locus = old_loc;
+      return MATCH_YES;
+    }
+  
   if (!ISALPHA (c) && c != '_')
     {
       gfc_current_locus = old_loc;
@@ -513,6 +524,18 @@ gfc_match_name_C (char *buffer)
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
+   
+  /* If we stopped because we had an invalid character for a C name, report
+     that to the user by returning MATCH_NO.  */
+  if (!ISALNUM(buffer[i-1]) && buffer[i-1] != '_' &&
+      buffer[i-1] != '"' && buffer[i-1] != '\'')
+    {
+      gfc_error ("Invalid C name in NAME= specifier at %C");
+      return MATCH_NO;
+    }
+
+  /* Drop any trailing blanks */
+  gfc_gobble_whitespace ();
    
   return MATCH_YES;
 }

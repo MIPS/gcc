@@ -719,10 +719,16 @@ get_proc_name (const char *name, gfc_symbol ** result,
    the compiler could have automatically handled the varying sizes
    across platforms.  */
 
-void
+try
 verify_c_interop_param (gfc_symbol *sym)
 {
   int is_c_interop = 0;
+  try retval = SUCCESS;
+
+  /* We check implicitly typed variables in symbol.c:gfc_set_default_type().
+     Don't repeat the checks here.  */
+  if (sym->attr.implicit_type)
+    return SUCCESS;
 
   /* see if we've stored a reference to a procedure that owns sym */
   if (sym->ns != NULL && sym->ns->proc_name != NULL)
@@ -730,26 +736,28 @@ verify_c_interop_param (gfc_symbol *sym)
       if (sym->ns->proc_name->attr.is_bind_c == 1)
 	{
           is_c_interop =
-            (verify_c_interop (&(sym->ts), sym->name, &gfc_current_locus)
+            (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
              == SUCCESS ? 1 : 0);
 
 	  if (is_c_interop != 1)
 	    {
 	      /* make personalized messages to give better feedback */
 	      if (sym->ts.type == BT_DERIVED)
-		gfc_warning_now ("Type '%s' at %C "
+		gfc_warning ("Type '%s' at %L "
 				 "is a parameter to the BIND(C) procedure"
 				 "'%s' but may not be C interoperable "
 				 "because derived type '%s' is not C "
 				 "interoperable",
-				 sym->name, sym->ns->proc_name->name, 
+                             sym->name, &(sym->declared_at),
+                             sym->ns->proc_name->name, 
 				 sym->ts.derived->name);
 	      else
-		gfc_warning_now ("Variable '%s' at %C "
+		gfc_warning ("Variable '%s' at %L "
 				 "is a parameter to the BIND(C) procedure "
 				 "'%s' but "
 				 "may not be C interoperable",
-				 sym->name, sym->ns->proc_name->name);
+                             sym->name, &(sym->declared_at),
+                             sym->ns->proc_name->name);
 	    }
 	 
 	  /* We have to make sure that any param to a bind(c) routine does
@@ -757,29 +765,56 @@ verify_c_interop_param (gfc_symbol *sym)
 	     according to J3/04-007, section 5.1.  */
 	  if (sym->attr.allocatable == 1)
 	    {
-	      gfc_error_now ("Variable '%s' at %L cannot have the "
+	      gfc_error ("Variable '%s' at %L cannot have the "
 			     "ALLOCATABLE attribute because procedure '%s'"
 			     " is BIND(C)", sym->name, &(sym->declared_at),
 			     sym->ns->proc_name->name);
+              retval = FAILURE;
 	    }
 	  if (sym->attr.pointer == 1)
 	    {
-	      gfc_error_now ("Variable '%s' at %L cannot have the "
+	      gfc_error ("Variable '%s' at %L cannot have the "
 			     "POINTER attribute because procedure '%s'"
 			     " is BIND(C)", sym->name, &(sym->declared_at),
 			     sym->ns->proc_name->name);
+              retval = FAILURE;
 	    }
 	  if (sym->attr.optional == 1)
 	    {
-	      gfc_error_now ("Variable '%s' at %L cannot have the "
+	      gfc_error ("Variable '%s' at %L cannot have the "
 			     "OPTIONAL attribute because procedure '%s'"
 			     " is BIND(C)", sym->name, &(sym->declared_at),
 			     sym->ns->proc_name->name);
+              retval = FAILURE;
+	    }
+
+          /* Make sure that if it has the dimension attribute, that it is
+             either assumed size or explicit shape.  */
+          if (sym->as != NULL)
+            {
+              if (sym->as->type == AS_ASSUMED_SHAPE)
+                {
+                  gfc_error ("Assumed-shape array '%s' at %L cannot be an "
+                             "argument to the procedure '%s' at %L because "
+                             "the procedure is BIND(C)", sym->name,
+                             &(sym->declared_at), sym->ns->proc_name->name,
+                             &(sym->ns->proc_name->declared_at));
+                  retval = FAILURE;
+                }
+              if (sym->as->type == AS_DEFERRED)
+                {
+                  gfc_error ("Deferred-shape array '%s' at %L cannot be an "
+                             "argument to the procedure '%s' at %L because "
+                             "the procedure is BIND(C)", sym->name,
+                             &(sym->declared_at), sym->ns->proc_name->name,
+                             &(sym->ns->proc_name->declared_at));
+                  retval = FAILURE;
+                }
 	    }
 	}
     }
 	 
-  return;
+  return retval;
 }
 
 
@@ -847,15 +882,12 @@ build_sym (const char *name, gfc_charlen * cl,
         {
           gfc_error_now ("Variable '%s' in common block '%s' at %C "
                          "must be declared with a C interoperable "
-                         "kind since common block '%s' is bind(c)",
+                         "kind since common block '%s' is BIND(C)",
                          sym->name, sym->common_block->name,
                          sym->common_block->name);
           gfc_clear_error ();
         }
     }
-
-  if (sym->attr.dummy == 1)
-    verify_c_interop_param (sym);
 
   return SUCCESS;
 }
@@ -1511,40 +1543,6 @@ variable_decl (int elem)
       t = build_struct (name, cl, &initializer, &as);
     }
 
-  /* If the symbol is bind(c), we need to verify the attributes.  */
-  if (current_attr.is_bind_c == 1)
-    {
-      /* Get the symbol.  */
-      gfc_find_symbol (name, gfc_current_ns, 1, &sym);
-      if (sym == NULL)
-	gfc_internal_error ("variable_decl(): Missing symbol for '%s'",
-			    name);
-
-      /* First, make sure the variable is declared at the
-	 module-level scope (J3/04-007, Section 15.3).	*/
-      if (sym->ns->proc_name->attr.flavor != FL_MODULE)
-	{
-	  gfc_error ("Variable '%s' at %C cannot be BIND(C) because it "
-		     "is neither a COMMON block nor declared at the "
-		     "module level scope", sym->name);
-	  t = FAILURE;
-	}
-      else
-	{
-	  /* If type() declaration, we need to verify that the components
-	     of the given type are all C interoperable, etc.  */
-	  if (current_ts.type == BT_DERIVED)
-	    t = verify_bind_c_derived_type (current_ts.derived);
-	  
-	  /* Verify the variable itself as C interoperable if it
-             is BIND(C).  It is not possible for this to succeed if
-             the verify_bind_c_derived_type failed, so don't have to handle
-             any error returned by verify_bind_c_derived_type.  */
-	      t = verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
-				     sym->common_block);
-	    }
-	}
-  
   m = (t == SUCCESS) ? MATCH_YES : MATCH_ERROR;
 
 cleanup:
@@ -2836,16 +2834,16 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
 	  /* See if we're dealing with a sym in a common block or not.	*/
 	  if (is_in_common == 1)
 	    {
-	      gfc_warning_now ("Variable '%s' in common block '%s' at %L "
+	      gfc_warning ("Variable '%s' in common block '%s' at %L "
 			       "may not be a C interoperable "
-			       "kind though common block '%s' is bind(c)",
+                           "kind though common block '%s' is BIND(C)",
 			       tmp_sym->name, com_block->name,
 			       &(tmp_sym->declared_at), com_block->name);
 	    }
 	  else
 	    {
               if (tmp_sym->ts.type == BT_DERIVED || ts->type == BT_DERIVED)
-                gfc_error_now ("Type declaration '%s' at %L is not C "
+                gfc_error ("Type declaration '%s' at %L is not C "
                                "interoperable but it is BIND(C)",
                                tmp_sym->name, &(tmp_sym->declared_at));
               else
@@ -2862,7 +2860,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
       if (is_in_common == 1 && tmp_sym->attr.is_bind_c == 1)
 	{
 	  gfc_error ("Variable '%s' in common block '%s' at "
-		     "%L cannot be declared with bind(c) "
+		     "%L cannot be declared with BIND(C) "
 		     "since it is not a global",
 		     tmp_sym->name, com_block->name,
 		     &(tmp_sym->declared_at));
@@ -2900,8 +2898,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
    used to set/test these fields.  */
 
 try
-set_verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
-                       int num_idents)
+set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents)
 {
   try retval = SUCCESS;
   
@@ -2922,10 +2919,6 @@ set_verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
 			 num_idents) != SUCCESS)
     return FAILURE;
 
-  /* Let this function print errors, and return whether it has 
-     success or failure.  */
-  retval = verify_bind_c_sym (tmp_sym, ts, 0, NULL);
-   
   return retval;
 }
 
@@ -2946,11 +2939,6 @@ set_verify_bind_c_com_block (gfc_common_head *com_block, int num_idents)
   /* Set the given common block (com_block) to being bind(c) (1).  */
   set_com_block_bind_c (com_block, 1);
 
-  /* See if we have any variables to verify that they're all c interop.
-     Don't check for failure or success here, because the function
-     will handle printing the appropriate error msg(s).	 */
-  retval = verify_com_block_vars_c_interop (com_block);
-   
   return retval;
 }
 
@@ -2959,7 +2947,7 @@ set_verify_bind_c_com_block (gfc_common_head *com_block, int num_idents)
    attribute applies to.  */
 
 try
-get_bind_c_idents (gfc_typespec *ts)
+get_bind_c_idents (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   int num_idents = 0;
@@ -2997,7 +2985,8 @@ get_bind_c_idents (gfc_typespec *ts)
 	{
 	  if (tmp_sym != NULL)
 	    {
-	      if (set_verify_bind_c_sym (tmp_sym, ts, num_idents)
+/* 	      if (set_verify_bind_c_sym (tmp_sym, ts, num_idents) */
+	      if (set_verify_bind_c_sym (tmp_sym, num_idents)
 		  != SUCCESS)
 		return FAILURE;
 	    }
@@ -3285,7 +3274,7 @@ gfc_match_attr_spec_stmt (gfc_typespec *ts)
 	 specified so all identifiers found can have all appropriate
 	 parts updated (assuming that the same spec stmt can have
 	 multiple attrs, such as both bind(c) and allocatable...).  */
-      if (get_bind_c_idents (ts) != SUCCESS)
+      if (get_bind_c_idents () != SUCCESS)
 	/* error message should have printed already */
 	return MATCH_ERROR;
     }
@@ -3800,6 +3789,10 @@ gfc_match_function_decl (void)
 	{
 	  result->ts = current_ts;
 	  sym->result = result;
+          /* Set the fields for the typespec in the function symbol too so
+             we can verify the type/kind during resolve_contained_functions()
+             if the function is bind(c).  */
+          sym->ts = current_ts;
 	}
       
       return MATCH_YES;
@@ -4155,6 +4148,18 @@ gfc_match_bind_c (gfc_symbol *sym)
 	    /* user started string with ''' char */
 	    return MATCH_ERROR;
 	}
+
+      /* If we have a name="" and the procedure is not a dummy or a pointer,
+         it should be an error.  J3/04-007, 15.4.1  */
+      if (binding_label[0] == '\0')
+        {
+          /* TODO: How do you detect a dummy procedure?  Procedure pointers
+             are not implemented yet, but when they are, this error can be
+             ignored for them.  */
+          gfc_error_now ("NAME= specifier in BIND(C) statement at %C has "
+                         "zero length");
+          return MATCH_ERROR;
+        }
    }
 
   /* get the required right paren */

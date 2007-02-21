@@ -244,11 +244,29 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 
   if(sym->attr.is_bind_c == 1)
   {
-     /* BIND(C) variables can not be implicitly declared.  */
-     gfc_error ("Variable '%s' at %L cannot be implicitly declared "
-                "because it is bind(c)", sym->name, &sym->declared_at);
-  }
+      /* BIND(C) variables should not be implicitly declared.  */
+      gfc_warning_now ("Implicitly declared BIND(C) variable '%s' at %L may "
+                       "not be C interoperable", sym->name, &sym->declared_at);
+      sym->ts.f90_type = sym->ts.type;
+    }
 
+  if (sym->attr.dummy != 0)
+    {
+      if (sym->ns->proc_name != NULL &&
+          (sym->ns->proc_name->attr.subroutine != 0 ||
+           sym->ns->proc_name->attr.function != 0) &&
+          sym->ns->proc_name->attr.is_bind_c != 0)
+        {
+          /* Dummy args to a BIND(C) routine may not be interoperable if
+             they are implicitly typed.  */
+          gfc_warning_now ("Implicity declared variable '%s' at %L may not "
+                           "be C interoperable but it is a dummy argument to "
+                           "the BIND(C) procedure '%s' at %L", sym->name,
+                           &(sym->declared_at), sym->ns->proc_name->name,
+                           &(sym->ns->proc_name->declared_at));
+          sym->ts.f90_type = sym->ts.type;
+        }
+  }
   return SUCCESS;
 }
 
@@ -2876,6 +2894,47 @@ gfc_get_gsymbol (const char *name)
 }
 
 
+static gfc_symbol *
+get_iso_c_binding_dt (int sym_id, int parent_flag)
+{
+  gfc_dt_list *dt_list = NULL;
+  gfc_symbol *mod_sym = NULL;
+
+  /* TODO: __iso_c_binding is also used as a string literal in module.c.
+     It needs to be made a global in case it's changed.  */
+  gfc_find_symbol ("__iso_c_binding", gfc_current_ns, 1, &mod_sym);
+  if (mod_sym == NULL)
+    /* This can happen if we're generating the args for one of the
+       procedures in iso_c_binding.  */
+    dt_list = gfc_current_ns->derived_types;
+  else
+    dt_list = mod_sym->ns->derived_types;
+
+  /* Loop through the derived types in the name list, searching for
+     the desired symbol from iso_c_binding.  Search the parent namespaces
+     if necessary and requested to (parent_flag).  */
+  while (dt_list != NULL)
+    {
+      if (dt_list->derived->from_intmod != INTMOD_NONE &&
+          dt_list->derived->intmod_sym_id == sym_id)
+        return dt_list->derived;
+
+      dt_list = dt_list->next;
+
+      /* If we reached the end of the derived types in the current namespace,
+         we may need to look in the namespace.  */
+      if (dt_list == NULL && (parent_flag != 0 &&
+                              mod_sym->ns->parent != NULL))
+        /* Could not find the derived type in this namespace; look in the
+           parent namespace, if one exists.  */
+        dt_list = mod_sym->ns->parent->derived_types;
+    }
+
+  return NULL;
+}
+
+
+
 /* Verifies that the given derived type symbol, derived_sym,
    is interoperable with C.  This is necessary for any derived type that is
    BIND(C) and for derived types that are parameters to
@@ -2910,8 +2969,8 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   /* is this really an error??	 --Rickett, 10.24.05 */
   if (curr_comp == NULL)
     {
-      gfc_error ("Derived type '%s' at %C is empty",
-		 derived_sym->name);
+      gfc_error ("Derived type '%s' at %L is empty",
+		 derived_sym->name, &(derived_sym->declared_at));
       return FAILURE;
     }
 
@@ -2928,11 +2987,11 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
       if (curr_comp->ts.type == BT_DERIVED &&
 	  curr_comp->ts.derived->ts.is_iso_c != 1)
 	{
-	  gfc_error_now ("BIND(C) derived type '%s' at %L cannot have "
-			 "the TYPE component '%s' at %L",
-			 derived_sym->name, &(derived_sym->declared_at),
-			 curr_comp->name, &(curr_comp->loc));
-	  retval = FAILURE;
+          /* This should be allowed; the draft says a derived-type can not
+             have type parameters if it is has the BIND attribute.  Type
+             parameters seem to be for making parameterized derived types.
+             There's no need to verify the type if it is c_ptr/c_funptr.  */
+          retval = verify_bind_c_derived_type (curr_comp->ts.derived);
 	}
       else
 	{
@@ -2953,7 +3012,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 		 C_LONG).  */
 	      if (derived_sym->attr.is_bind_c == 1)
 		/* If the derived type is bind(c), all fields must be interop.	*/
-		gfc_warning_now ("Component '%s' in derived type '%s' at %L "
+		gfc_warning ("Component '%s' in derived type '%s' at %L "
 				 "may not be C interoperable, even though "
 				 "derived type '%s' is BIND(C)",
 				 curr_comp->name, derived_sym->name,
@@ -2962,7 +3021,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 		/* If derived type is param to bind(c) routine, or to one
 		   of the iso_c_binding procs, it must be interoperable, so
 		   all fields must interop too.	 */
-		gfc_warning_now ("Component '%s' in derived type '%s' at %L "
+		gfc_warning ("Component '%s' in derived type '%s' at %L "
 				 "may not be C interoperable",
 				 curr_comp->name, derived_sym->name,
 				 &(curr_comp->loc));
@@ -2972,11 +3031,11 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 	     J3/04-007, Section 15.2.3, C1505.	*/
 	  if (curr_comp->pointer != 0)
 	    {
-	      gfc_error_now ("Component '%s' at %L cannot have the "
+	      gfc_error ("Component '%s' at %L cannot have the "
 			     "POINTER attribute because it is a member "
-			     "of the BIND(C) derived type '%s' at %C",
+                         "of the BIND(C) derived type '%s' at %L",
 			     curr_comp->name, &(curr_comp->loc),
-			     derived_sym->name);
+                         derived_sym->name, &(derived_sym->declared_at));
 	      retval = FAILURE;
 	    }
 
@@ -2986,9 +3045,9 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 	    {
 	      gfc_error ("Component '%s' at %L cannot have the "
 			 "ALLOCATABLE attribute because it is a member "
-			 "of the BIND(C) derived type '%s' at %C",
+			 "of the BIND(C) derived type '%s' at %L",
 			 curr_comp->name, &(curr_comp->loc),
-			 derived_sym->name);
+			 derived_sym->name, &(derived_sym->declared_at));
 	      retval = FAILURE;
 	    }
 	}
@@ -3000,14 +3059,15 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   /* make sure we don't have conflicts with the attributes */
   if (derived_sym->attr.access == ACCESS_PRIVATE)
     {
-      gfc_error_now ("Derived type '%s' at %C cannot be declared with both "
-		     "PRIVATE and BIND(C) attributes", derived_sym->name);
+      gfc_error ("Derived type '%s' at %L cannot be declared with both "
+                 "PRIVATE and BIND(C) attributes", derived_sym->name,
+                 &(derived_sym->declared_at));
       retval = FAILURE;
     }
 
   if (derived_sym->attr.sequence != 0)
     {
-      gfc_error_now ("Derived type '%s' at %L cannot have the SEQUENCE "
+      gfc_error ("Derived type '%s' at %L cannot have the SEQUENCE "
 		     "attribute because it is BIND(C)", derived_sym->name,
 		     &(derived_sym->declared_at));
       retval = FAILURE;
@@ -3020,295 +3080,6 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
     derived_sym->ts.is_c_interop = 0;
   
   return retval;
-}
-
-
-
-/* Generate a symbol for the given named constant that represents a
-   C interoperable kind.  */
-
-static void
-gen_c_interop_kind_sym (CInteropKind_t *kind_obj,
-                        const char *module_name)
-{
-  gfc_symbol *tmp_sym = NULL;
-  gfc_symtree *tmp_symtree = NULL;
-
-  /* Generate symbols in the current namespace (scope) for the
-     iso_c_binding symbols, or just the symbols from the module
-     the user specifies (i.e., with the "only" clause).
-     Use the function gfc_get_sym_tree to force it to create
-     the symbol in the current namespace without trying to
-     traverse the parent scope(s) first!  */
-  tmp_symtree =
-    gfc_find_symtree (gfc_current_ns->sym_root, kind_obj->name);
-   
-  if (tmp_symtree != NULL)
-    /* already exists in this scope so don't re-add it */
-    return;
-   
-  /* create the sym tree in the current ns */
-  gfc_get_sym_tree (kind_obj->name, gfc_current_ns, &tmp_symtree);
-
-  if (tmp_symtree != NULL)
-    tmp_sym = tmp_symtree->n.sym;
-  else
-    gfc_internal_error ("gen_c_interop_kind_sym(): Unable to "
-			"create symbol");
-
-  /* initialize an integer constant expression node */
-  tmp_sym->value = gfc_int_expr (kind_obj->value);
-   
-  /* make the variable a parameter so we can use it as kind param */
-  tmp_sym->attr.flavor = FL_PARAMETER;
-  /* Have to setup the info in the symbol's typespec to match the
-     expr, otherwise the compiler will error due to the differences.  */
-  tmp_sym->ts.type = BT_INTEGER;
-  tmp_sym->ts.kind = gfc_default_integer_kind; 
-  /* mark this type as a C interoperable one */
-  tmp_sym->ts.is_c_interop = 1;
-  tmp_sym->ts.is_iso_c = 1;
-  tmp_sym->value->ts.is_c_interop = 1;	 
-  tmp_sym->value->ts.is_iso_c = 1;
-  tmp_sym->attr.is_c_interop = 1;
-
-  /* tell what f90 type this c interop kind is valid for */
-  tmp_sym->ts.f90_type = kind_obj->f90_type;
-
-  /* say what module this symbol belongs to */
-  tmp_sym->module = gfc_get_string(module_name);
-
-  /* say it's from the iso_c_binding module */
-  tmp_sym->attr.is_iso_c = 1;
-
-  /* make it use associated */
-  tmp_sym->attr.use_assoc = 1;
-
-  return;
-}
-
-
-/* Generate symbol(s) for the given list of kind objects.  */
-
-static void
-gen_given_kinds (const char *kinds_list[],
-                 const char *module_name)
-{
-  int i = 0;	 /* loop variable */
-  int index = 0;
-
-  /* loop through given list of kinds and generate syms for them */
-  while (kinds_list[i] != NULL)
-    {
-      index = get_c_kind (kinds_list[i], c_interop_kinds_table);
-      gen_c_interop_kind_sym (&(c_interop_kinds_table[index]),
-			      module_name);
-      
-      i++;
-    }
-   
-  return;
-}
-
-
-/* Generate symbols for the C interoperable integer kinds.  Currently,
-   these include: c_int, c_short, c_long, c_long_long, c_size_t.  */
-
-static void
-gen_c_interop_int_kinds (const char *module_name)
-{
-  /* array of the valid C kinds constant names */
-  const char *int_kinds[] = {"c_int",
-			     "c_short",
-			     "c_long",
-			     "c_long_long",
-			     "c_size_t",
-			     "c_int8_t",
-			     "c_int16_t",
-			     "c_int32_t",
-			     "c_int64_t",
-			     "c_int_least8_t",
-			     "c_int_least16_t",
-			     "c_int_least32_t",
-			     "c_int_least64_t",
-			     "c_int_fast8_t",
-			     "c_int_fast16_t",
-			     "c_int_fast32_t",
-			     "c_int_fast64_t",
-			     "c_intmax_t",
-			     "c_intptr_t",
-			     "c_signed_char",
-			     NULL};
-  
-  gen_given_kinds(int_kinds, module_name);
-  
-  return;
-}
-
-
-/* Generate a symbol for the C interoperable logical kind.  Currently,
-   it is: c_bool.  */
-
-static void
-gen_c_interop_logical_kinds (const char *module_name)
-{
-  /* array of the valid C logicalkinds constant names */
-  const char *logical_kinds[] = {"c_bool",
-				 NULL};
-  
-  gen_given_kinds (logical_kinds, module_name);
-  
-  return;
-}
-
-
-/* Generate symbols for the C interoperable real kinds.	 Currently, these
-   include: c_float, c_double, c_long_double.  */
-
-static void
-gen_c_interop_real_kinds (const char *module_name)
-{
-  /* array of the valid kinds for C reals */
-  const char *real_kinds[] = {"c_float",
-			      "c_double",
-			      "c_long_double",
-			      "c_float_complex",
-			      "c_double_complex",
-			      "c_long_double_complex",
-			      NULL};
-  
-  gen_given_kinds (real_kinds, module_name);
-  
-  return;
-}
-
-
-/* Generate symbols for kinds representing special characters, such
-   as C_NULL_CHAR.  */
-
-static void
-gen_special_c_chars (const char *char_names[],
-                     const char *module_name)
-{
-  int i = 0;   /* loop variable */
-   
-  /* Go through the list of special chars.  They all are of type
-     character(C_CHAR), with a length of 1.  */
-  while (char_names[i] != NULL && module_name)
-    {
-      
-      i++;
-    }
-   
-  return;
-}
-
-
-/* Generate symbols for the C interoperable character kinds.  Currently,
-   these include: c_char, c_null_char.  */
-
-static void
-gen_c_interop_char_kinds (const char *module_name)
-{
-  const char *char_kinds[] = {"c_char", NULL};
-  const char *special_c_chars[] = {"c_null_char", NULL};
-
-  gen_given_kinds (char_kinds, module_name);
-
-  /* generate the special characters from C */
-  gen_special_c_chars (special_c_chars, module_name);
-   
-  return;
-}
-
-
-/* Generate symbols for the given list of C interoperable pointer kinds.  */
-
-static void
-gen_c_interop_ptr_syms (const char *ptr_kinds[],
-                        const char *module_name)
-{
-  gfc_symbol *tmp_sym = NULL;	    /* tmp sym for creating ptr sym */
-  gfc_component *tmp_comp = NULL;   /* component for c_address field */
-  int i = 0;			    /* loop variable */
-  gfc_symtree *tmp_symtree = NULL;  /* tmp symtree for ptr symtree */
-  /* component's name, which will be a combination of the derived
-   * type name and field name, so it's twice the size
-   */
-  char comp_name[(GFC_MAX_SYMBOL_LEN * 2) + 1];
-  int index = -1;
-  
-  while (ptr_kinds[i] != NULL)
-    {
-      /* look for symtree in current ns */
-      tmp_symtree =
-	gfc_find_symtree (gfc_current_ns->sym_root, ptr_kinds[i]);
-      if (tmp_symtree == NULL)
-	{
-	  /* use the function gfc_get_sym_tree to force it to create
-	   * the symbol in the current namespace.
-	   */
-	  gfc_get_sym_tree (ptr_kinds[i], gfc_current_ns, &tmp_symtree);
-	  
-	  if (tmp_symtree != NULL)
-	    tmp_sym = tmp_symtree->n.sym;
-	  else
-	    {
-	      tmp_sym = NULL;
-	      gfc_internal_error ("generateCInteropPtrKinds(): Unable to "
-				  "create symbol for %s", ptr_kinds[i]);
-	    }
-	  
-	  /* Set up the symbol's important fields.  */
-	  tmp_sym->attr.flavor = FL_DERIVED;
-	  tmp_sym->ts.is_c_interop = 1;
-	  tmp_sym->attr.is_c_interop = 1;
-	  tmp_sym->ts.is_iso_c = 1;
-	  tmp_sym->ts.type = BT_DERIVED; 
-	  /* C_PTR and C_FUNPTR are derived types and the ts.derived field
-	     will be accessed for the components.  */
-	  tmp_sym->ts.derived = tmp_sym; 
-	  /* module name is some mangled version of iso_c_binding */
-	  tmp_sym->module = gfc_get_string (module_name);
-	  
-	  /* say it's from the iso_c_binding module. */
-	  tmp_sym->attr.is_iso_c = 1;
-
-          /* A derived type must have the bind attribute to be
-             interoperable (J3/04-007, Section 15.2.3), even though
-             the binding label is not used.  */
-          tmp_sym->attr.is_bind_c = 1;
-	  
-	  /* Set up the component of the derived type, which will be
-	     an integer with kind equal to c_ptr_size.	Mangle the name of
-	     the field for the c_address to prevent the curious user from
-	     trying to access it from Fortran.	*/
-	  sprintf (comp_name, "__%s_%s", tmp_sym->name, "c_address");
-	  gfc_add_component (tmp_sym, comp_name, &tmp_comp);
-	  if (tmp_comp == NULL)
-	    gfc_internal_error ("generateCInteropPtrKinds(): Unable to "
-				"create component for c_address");
-	  tmp_comp->ts.type = BT_INTEGER;
-	  /* Set this field because it will be read from and written to
-	     the module file.  */
-	  tmp_comp->ts.f90_type = BT_INTEGER;
-	  /* The kinds for c_ptr and c_funptr are the same.  */
-	  index = get_c_kind ("c_ptr", c_interop_kinds_table);
-	  tmp_comp->ts.kind = c_interop_kinds_table[index].value;
-	  /* Mark the component as C interoperable.  */
-	  tmp_comp->ts.is_c_interop = 1;
-	 
-	  tmp_comp->pointer = 0;
-	  tmp_comp->dimension = 0;
-
-	  /* make it use associated (iso_c_binding module) */
-	  tmp_sym->attr.use_assoc = 1;
-	}
-
-      i++;
-    }
-  
-  return;
 }
 
 
@@ -3364,13 +3135,37 @@ gen_special_c_interop_ptrs (const char *kinds[],
 	  tmp_sym->attr.is_c_interop = 1;
 	  tmp_sym->ts.is_iso_c = 1;
 	  tmp_sym->ts.type = BT_DERIVED;
+          
 	  /* The c_ptr and c_funptr derived types will provide the
 	     definition for c_null_ptr and c_null_funptr, respectively.	 */
-	  gfc_find_symbol (kinds[i], gfc_current_ns, 1,
-			   &(tmp_sym->ts.derived));
+          if (strcmp (kinds[i], "c_ptr") == 0)
+            tmp_sym->ts.derived =
+              get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+          else
+            tmp_sym->ts.derived =
+              get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
 	  if (tmp_sym->ts.derived == NULL)
-	    gfc_error ("'%s' at %C requires '%s' to be defined",
+            {
+              /* This can occur if the user forgot to declare c_ptr or
+                 c_funptr and they're trying to use one of the procedures
+                 that has arg(s) of the missing type.  In this case, a
+                 regular version of the thing should have been put in the
+                 current ns.  */
+              gfc_error_now ("'%s' at %C requires '%s' to be defined",
 		       tmp_sym->name, kinds[i]);
+              if (strcmp (kinds[i], "c_ptr") == 0)
+                {
+                  generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
+                                               (char *)"c_ptr");
+                  gfc_get_ha_symbol ("c_ptr", &(tmp_sym->ts.derived));
+                }
+              else
+                {
+                  generate_isocbinding_symbol (module_name, ISOCBINDING_FUNPTR,
+                                               (char *)"c_funptr");
+                  gfc_get_ha_symbol ("c_funptr", &(tmp_sym->ts.derived));
+                }
+            }
 	    
 	  /* module name is some mangled version of iso_c_binding */
 	  tmp_sym->module = gfc_get_string (module_name);
@@ -3401,36 +3196,6 @@ gen_special_c_interop_ptrs (const char *kinds[],
 
       /* while loop counter */
       i++;
-    }
-   
-  return;
-}
-
-
-/* Generate symbols for all C interoperable pointer kinds, or the
-   given ones, if a list is provided.  Currently, these include:
-   c_ptr, c_funptr.  */
-
-static void
-gen_c_interop_ptr_kinds (const char *module_name,
-                         const char *given_kinds[])
-{
-  const char *ptr_kinds[] = {"c_ptr",
-			     "c_funptr",
-			     NULL};
-
-  /* The ptrs are derived types, and different symbols must be
-     made for them from the named constants for other kinds.
-     Generate the symbols for the ptr derived types.  */
-  if (given_kinds != NULL)
-    {
-      gen_c_interop_ptr_syms (given_kinds, module_name);
-      gen_special_c_interop_ptrs (given_kinds, module_name);
-    }
-  else
-    {
-      gen_c_interop_ptr_syms (ptr_kinds, module_name);
-      gen_special_c_interop_ptrs (ptr_kinds, module_name);
     }
    
   return;
@@ -3476,7 +3241,6 @@ gen_cptr_param (gfc_formal_arglist **head,
   gfc_symbol *param_sym = NULL;
   gfc_symbol *c_ptr_sym = NULL;
   gfc_symtree *param_symtree = NULL;
-  gfc_symtree *c_ptr_symtree = NULL;
   gfc_formal_arglist *formal_arg = NULL;
   const char *c_ptr_in;
   const char *c_ptr_type = "c_ptr";
@@ -3500,15 +3264,19 @@ gen_cptr_param (gfc_formal_arglist **head,
   /* this will pass the ptr to the iso_c routines as a (void *) */
   param_sym->attr.value = 1;
   param_sym->attr.use_assoc = 1;
-  /* get the symbol definition for the c_ptr derived type */
-  c_ptr_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
-				    c_ptr_type);
-  /* If we're in an 'only' clause and the user lists one of the
-     procedures, we may not have the c_ptr (and c_funptr) defn's
-     available to us yet, so make sure they're generated if needed.  */
-  if (c_ptr_symtree == NULL)
-    gen_c_interop_ptr_kinds (module_name, NULL);
+
+  /* Get the symbol for c_ptr, no matter what it's name is (user renamed).  */
+  c_ptr_sym = get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+  if (c_ptr_sym == NULL)
+    {
+      /* This can happen if the user did not define c_ptr but they are
+         trying to use one of the iso_c_binding functions that need it.  */
+      gfc_error_now ("Type 'C_PTR' required for ISO_C_BINDING function at %C");
+      generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
+                                   (char *)"c_ptr");
   gfc_get_ha_symbol (c_ptr_type, &(c_ptr_sym));
+    }
+
   param_sym->ts.derived = c_ptr_sym;
   param_sym->module = gfc_get_string (module_name);
 
@@ -3657,8 +3425,8 @@ build_formal_args (gfc_symbol *new_proc_sym,
   gfc_current_ns->proc_name = new_proc_sym;
 
   /* generate the params */
-  if ((strcmp (old_sym->name, "c_f_pointer") == 0) ||
-      (strcmp (old_sym->name, "c_f_procpointer") == 0))
+  if ((old_sym->intmod_sym_id == ISOCBINDING_F_POINTER) ||
+      (old_sym->intmod_sym_id == ISOCBINDING_F_PROCPOINTER))
     {
       gen_cptr_param (&head, &tail, (const char *)new_proc_sym->module,
 		      gfc_current_ns, NULL);
@@ -3666,14 +3434,14 @@ build_formal_args (gfc_symbol *new_proc_sym,
 		      gfc_current_ns);
 
       /* if we're dealing with c_f_pointer, it has an optional third arg */
-      if (old_sym != NULL && strcmp (old_sym->name, "c_f_pointer") == 0)
+      if (old_sym->intmod_sym_id == ISOCBINDING_F_POINTER)
 	{
 	  gen_shape_param (&head, &tail,
 			   (const char *)new_proc_sym->module,
 			   gfc_current_ns);
 	}
     }
-  else if (strcmp (old_sym->name, "c_associated") == 0)
+  else if (old_sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
       /* c_associated has one required arg and one optional; both
 	 are c_ptrs.  */
@@ -3701,152 +3469,6 @@ build_formal_args (gfc_symbol *new_proc_sym,
 }
 
 
-/* Generate a symbol for a given iso_c_binding subroutine in the
-   current namespace.  The interface will be created to the given
-   subroutine (argument list will be set up).  This function is for
-   the subroutines c_f_pointer and c_f_procpointer only, because it
-   also handles generating the various parameters.  It could be used
-   to generate other iso_c_binding procedures, such as c_associated
-   but it currently is not.  */
-
-static void
-gen_iso_c_proc (const char *module_name,
-                const char *proc_sym_name,
-                gfc_namespace *ns)
-{
-  gfc_symbol *proc_sym = NULL;
-  gfc_symtree *proc_symtree = NULL;
-  gfc_namespace *save_curr_ns = NULL;
-
-  /* look for the iso_c procedure symbol in the current ns */
-  proc_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
-				   proc_sym_name);
-  if (proc_symtree != NULL)
-    /* already has been entered in this scope */
-    return;
-   
-  /* Create the symbol in the current namespace w/o looking in
-     parent namespace for it.  */
-  gfc_get_sym_tree (proc_sym_name, gfc_current_ns, &proc_symtree);
-   
-  if (proc_symtree != NULL)
-    proc_sym = proc_symtree->n.sym;
-  else
-    gfc_internal_error ("generateIsoCProc(): Unable to "
-			"create symbol for %s", proc_sym_name);
-
-  /* set up the fields for the procedure */
-  proc_sym->attr.proc = PROC_MODULE;
-  sprintf (proc_sym->binding_label, "%s_%s", module_name, proc_sym_name);
-  proc_sym->module = gfc_get_string (module_name);
-  /* say it's from the iso_c_binding module for resolving */
-  proc_sym->attr.is_iso_c = 1;
-  if (strcmp (proc_sym->name, "c_f_pointer") == 0 ||
-      strcmp (proc_sym->name, "c_f_procpointer") == 0)
-    {
-      proc_sym->attr.subroutine = 1;
-    }
-  else
-    {
-      /* TODO!!! this needs to be finished more for the expr of the
-	 function, etc.	 */
-      if (strcmp (proc_sym->name, "c_associated") == 0)
-	{
-	  proc_sym->attr.function = 1;
-	  /* return type of c_associated is a logical */
-	  proc_sym->ts.type = BT_LOGICAL;
-	  proc_sym->ts.kind = gfc_default_logical_kind;
-	  proc_sym->result = proc_sym;
-	}
-      else if (strcmp (proc_sym->name, "c_loc") == 0)
-	{
-	  /* Here, we're taking the simple approach.  We're defining
-	     c_loc as an external identifier so the compiler will put
-	     what we expect on the stack for the address we want the
-	     C address of.  */
-	  /* returns a C_PTR derived type */
-	  proc_sym->ts.type = BT_DERIVED;
-	  /* look for a defn of c_ptr, including any parent ns if needed */
-	  gfc_find_symbol ("c_ptr", gfc_current_ns, 1,
-			   &(proc_sym->ts.derived));
-	  if (proc_sym->ts.derived == NULL)
-	    gfc_error_now ("Type 'C_PTR' is not defined but is needed "
-			   "for the return value of 'C_LOC' at %C");
-	  /* the function result is itself (no result clause) */
-	  proc_sym->result = proc_sym;
-	  proc_sym->attr.external = 1;
-	  proc_sym->attr.use_assoc = 0;
-	  proc_sym->attr.if_source = IFSRC_UNKNOWN;
-	  proc_sym->attr.proc = PROC_UNKNOWN;
-	}
-    }
-  
-  proc_sym->attr.flavor = FL_PROCEDURE;
-   
-  proc_sym->attr.contained = 0;
-
-  /* we need to make the curr ns the ns that'll hold the proc sym */
-  save_curr_ns = gfc_current_ns;
-  gfc_current_ns = ns;
-
-  /* Try using this builder routine, with the new and old symbols
-     both being the generic iso_c proc sym being created.
-     This will create the formal args (and the new namespace for them).	 */
-  /* Don't build an arg list for c_loc because we're going to treat c_loc
-     as an external procedure.	*/
-  if (strcmp (proc_sym->name, "c_loc") != 0)
-    /* the 1 says to add any optional args, if applicable */
-    build_formal_args (proc_sym, proc_sym, 1);
-
-  /* restore the current namespace to what it was coming in */
-  gfc_current_ns = save_curr_ns;
-
-  /* set this after setting up the symbol, to prevent error messages */
-  proc_sym->attr.use_assoc = 1;
-  /* This symbol will not be referenced directly.  It will be
-     resolved to the implementation for the given f90 kind.  */
-  proc_sym->attr.referenced = 0;
-
-  return;
-}
-
-
-/* Generate symbols for all procedures provided by the intrinsic
-   module iso_c_binding, or the given one (given_proc), if provided.
-   Currently, the following are created: c_f_pointer,
-   c_f_procpointer.  */
-
-static void
-gen_c_interop_int_funcs (const char *module_name,
-                         const char *given_proc)
-{
-  const char *proc_names[] = {"c_f_pointer",
-			      "c_f_procpointer",
-			      "c_associated",
-			      "c_loc",
-			      NULL};
-  int i;
-
-  /* if we have a specific proc to generate */
-  if (given_proc != NULL)
-    {
-      gen_iso_c_proc (module_name, given_proc, gfc_current_ns);
-    }
-  else
-    {
-      i = 0;
-      while (proc_names[i] != NULL)
-	{
-	  /* generate all supported iso_c procs */
-	  gen_iso_c_proc (module_name, proc_names[i], gfc_current_ns);
-	  i++;
-	}
-    }
-   
-  return;
-}
-
-
 /* Generate the given set of C interoperable kind objects, or all
    interoperable kinds.  This function will only be given kind objects
    for valid iso_c_binding defined types because this is verified when
@@ -3866,6 +3488,7 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 		: c_interop_kinds_table[s].name;
   gfc_symtree * tmp_symtree = NULL;
   gfc_symbol * tmp_sym = NULL;
+  gfc_dt_list ** dt_list_ptr = NULL;
   gfc_component * tmp_comp = NULL;
   char comp_name[(GFC_MAX_SYMBOL_LEN * 2) + 1];
   int index;
@@ -3988,11 +3611,23 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 
 	tmp_sym->ts.derived = tmp_sym;
 
+        /* Add the symbol created for the derived type to the current ns.  */
+        dt_list_ptr = &(gfc_current_ns->derived_types);
+        while (*dt_list_ptr != NULL && (*dt_list_ptr)->next != NULL)
+          dt_list_ptr = &((*dt_list_ptr)->next);
+
+        /* There is already at least one derived type in the list, so append
+           the one we're currently building for c_ptr or c_funptr.  */
+        if (*dt_list_ptr != NULL)
+          dt_list_ptr = &((*dt_list_ptr)->next);
+        (*dt_list_ptr) = gfc_get_dt_list ();
+        (*dt_list_ptr)->derived = tmp_sym;
+        (*dt_list_ptr)->next = NULL;
+
         /* Set up the component of the derived type, which will be
-         * an integer with kind equal to c_ptr_size.
-         *
-         * Mangle the name of the field for the c_address to prevent
-         * the curious user from trying to access it from Fortran.  */
+           an integer with kind equal to c_ptr_size.  Mangle the name of
+           the field for the c_address to prevent the curious user from
+           trying to access it from Fortran.  */
         sprintf (comp_name, "__%s_%s", tmp_sym->name, "c_address");
         gfc_add_component (tmp_sym, comp_name, &tmp_comp);
         if (tmp_comp == NULL)
@@ -4038,7 +3673,10 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
       case ISOCBINDING_F_PROCPOINTER:
 
 	tmp_sym->attr.proc = PROC_MODULE;
-	sprintf (tmp_sym->binding_label, "%s_%s", mod_name, name);
+        /* Use the procedure's name as it is in the iso_c_binding module for
+           setting the binding label in case the user renamed the symbol.  */
+	sprintf (tmp_sym->binding_label, "%s_%s", mod_name,
+                 c_interop_kinds_table[s].name);
 	tmp_sym->attr.is_iso_c = 1;
 	if (s == ISOCBINDING_F_POINTER || s == ISOCBINDING_F_PROCPOINTER)
 	  tmp_sym->attr.subroutine = 1;
@@ -4057,13 +3695,13 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 	      }
 	    else
 	      {
-               /* here, we're taking the simple approach.  we're defining
+               /* Here, we're taking the simple approach.  We're defining
                   c_loc as an external identifier so the compiler will put
                   what we expect on the stack for the address we want the
                   C address of.  */
 		tmp_sym->ts.type = BT_DERIVED;
-		gfc_find_symbol ("c_ptr", gfc_current_ns, 1,
-				 &(tmp_sym->ts.derived));
+                tmp_sym->ts.derived =
+                  get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
 		if (tmp_sym->ts.derived == NULL)
 		  gfc_error_now ("Type C_PTR is not defined but is needed "
 				 "as return type of function C_LOC at %C");
@@ -4112,76 +3750,6 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
       default:
 	gcc_unreachable ();
     }
-}
-
-void
-gen_c_interop_kinds (const char *mod_name, CInteropKind_t *kinds[])
-{
-  int i = 0;
-  const char *given_ptr_kinds[3] = { NULL };
-  int curr_ptr_kind = 0;
-
-  if (kinds != NULL)
-    {
-      /* generate specific symbols, given by the 'only' clause */
-      while (kinds[i] != NULL)
-	{
-	  switch (kinds[i]->f90_type)
-	    {
-	    case BT_INTEGER:
-	      /* fall through */
-	    case BT_REAL:
-	      /* fall through */	    
-	    case BT_COMPLEX:
-	      /* fall through */	    
-	    case BT_LOGICAL:
-	      /* fall through */	    
-	    case BT_CHARACTER:
-	      gen_c_interop_kind_sym (kinds[i], mod_name);
-	      break;
-	    case BT_DERIVED:
-	      given_ptr_kinds[curr_ptr_kind] = kinds[i]->name;
-	      curr_ptr_kind++;
-	      given_ptr_kinds[curr_ptr_kind] = NULL;
-	      break;
-	    case BT_PROCEDURE:
-	      gen_c_interop_int_funcs (mod_name, kinds[i]->name);
-	      break;
-	    default:
-	      gfc_internal_error ("gen_c_interop_kinds(): Invalid kind");
-	    }
-	  
-	  i++;
-	}
-       
-      if (curr_ptr_kind != 0)
-	/* take care of the ptrs kinds given to us */
-	gen_c_interop_ptr_kinds (mod_name, given_ptr_kinds);
-    }
-  else
-    {
-      /* generate all iso_c_binding symbols */
-      
-      /* generate the syms for integer kinds */
-      gen_c_interop_int_kinds (mod_name);
-      
-      /* generate the syms for real kinds */
-      gen_c_interop_real_kinds (mod_name);
-      
-      /* generate the syms for char kinds */
-      gen_c_interop_char_kinds (mod_name);
-      
-      /* generate the syms for ptr kinds */
-      gen_c_interop_ptr_kinds (mod_name, NULL);
-       
-      /* generate the logical sym kind */
-      gen_c_interop_logical_kinds (mod_name);
-      
-      /* generate the syms for the interop intrinsic functions */
-      gen_c_interop_int_funcs (mod_name, NULL);
-    }
-  
-  return;
 }
 
 

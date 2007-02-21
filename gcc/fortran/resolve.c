@@ -619,6 +619,22 @@ resolve_contained_functions (gfc_namespace * ns)
       resolve_contained_fntype (child->proc_name, child);
       for (el = child->entries; el; el = el->next)
 	resolve_contained_fntype (el->sym, child);
+
+      /* The verification of BIND(C) routines is done here, and the params
+         are verified in resolve_symbol.  */
+      if (child->proc_name != NULL && child->proc_name->attr.is_bind_c)
+        {
+          try proc = SUCCESS;
+          if (child->proc_name->attr.function)
+            proc = verify_bind_c_sym (child->proc_name,
+                                      &(child->proc_name->ts), 0, NULL);
+
+          if (proc == FAILURE)
+            /* Clear the is_bind_c flag so we don't try and test the params
+               or the procedure type again if it failed the first time.  This
+               should prevent multiple error messages from being printed.  */
+            child->proc_name->attr.is_bind_c = 0;
+        }
     }
 }
 
@@ -1541,7 +1557,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
   if (args == NULL)
     gfc_internal_error ("gfc_iso_c_func_interface(): Missing args!\n");
 
-  if (strcmp (sym->name, "c_associated") == 0)
+  if (sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
       /* If the user gave two args then they are providing something for
 	 the optional arg (the second cptr).  Therefore, set the name and
@@ -1549,7 +1565,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
 	 set c_associated to expect one cptr.  */
       if (args->next)
 	{
-	  /* two args */
+	  /* two args. */
 	  sprintf (name, "%s_2", sym->name);
 	  sprintf (binding_label, "%s_2", sym->binding_label);
 	  optional_arg = 1;
@@ -1566,20 +1582,20 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
 	 will get called.  */
       new_sym = get_iso_c_sym (sym, name, binding_label, optional_arg);
     }
-  else if (strcmp (sym->name, "c_loc") == 0)
+  else if (sym->intmod_sym_id == ISOCBINDING_LOC)
     {
       sprintf (name, "%s", sym->name);
       sprintf (binding_label, "%s", sym->binding_label);
       if (args->next != NULL)
-	gfc_error_now ("More actual than formal arguments in 'C_LOC' "
-		       "call at %C");
+	gfc_error_now ("More actual than formal arguments in '%s' "
+		       "call at %C", name);
       /* for c_loc, the new symbol is the same as the old one */
       new_sym = sym;
     }
   else
     {
       gfc_internal_error ("gfc_iso_c_func_interface(): Unhandled "
-			  "iso_c_binding function!\n");
+			  "iso_c_binding function: '%s'!\n", sym->name);
     }
 
   /* Return the new_sym, which is either a resolved c_associated or
@@ -1969,12 +1985,12 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
   match m = MATCH_YES;
   gfc_symbol *tmp_sym;
 
-  if (strcmp (sym->name, "c_f_pointer") == 0 ||
-      strcmp (sym->name, "c_f_procpointer") == 0)
+  if ((sym->intmod_sym_id == ISOCBINDING_F_POINTER) ||
+      (sym->intmod_sym_id == ISOCBINDING_F_PROCPOINTER))
     {
       set_name_and_label (c, sym, name, binding_label);
       
-      if (strcmp (sym->name, "c_f_pointer") == 0)
+      if (sym->intmod_sym_id == ISOCBINDING_F_POINTER)
 	{
 	  if (c->ext.actual != NULL && c->ext.actual->next != NULL)
 	    {
@@ -1992,9 +2008,9 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
               tmp_sym = c->ext.actual->next->expr->symtree->n.sym;
               if (tmp_sym != NULL && tmp_sym->attr.pointer != 1)
                 {
-                  gfc_error ("Argument '%s' to C_F_POINTER at %L "
+                  gfc_error ("Argument '%s' to '%s' at %L "
                              "must have the POINTER attribute",
-                             tmp_sym->name, &(c->loc));
+                             tmp_sym->name, sym->name, &(c->loc));
                   m = MATCH_ERROR;
                 }
 	    }
@@ -2009,8 +2025,10 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 	  new_sym->declared_at = sym->declared_at;
 	}
     }
-  else if (strcmp (sym->name, "c_associated") == 0)
+  else if (sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
+      /* TODO: Figure out if this is even reacable; this part of the
+         conditional may not be necessary.  */
       int num_args = 0;
       if (c->ext.actual->next == NULL)
 	{
@@ -6355,6 +6373,73 @@ resolve_symbol (gfc_symbol * sym)
 		     sym->name, &sym->declared_at);
 	  return;
 	}
+    }
+
+  /* If the symbol is marked as bind(c), verify it's type and kind.  Do not
+     do this for something that was implicitly typed because that is handled
+     in gfc_set_default_type.  Handle dummy arguments and procedure
+     definitions separately.  Also, anything that is use associated is not
+     handled here but instead is handled in the module it is declared in.
+     Finally, derived type definitions are allowed to be BIND(C) since that
+     only implies that they're interoperable, and they are checked fully for
+     interoperability when a variable is declared of that type.  */
+  if (sym->attr.is_bind_c && sym->attr.implicit_type == 0 &&
+      sym->attr.use_assoc == 0 && sym->attr.dummy == 0 &&
+      sym->attr.flavor != FL_PROCEDURE && sym->attr.flavor != FL_DERIVED)
+    {
+      try t = SUCCESS;
+      
+      /* First, make sure the variable is declared at the
+	 module-level scope (J3/04-007, Section 15.3).	*/
+      if (sym->ns->proc_name->attr.flavor != FL_MODULE &&
+          sym->attr.in_common == 0)
+	{
+	  gfc_error ("Variable '%s' at %L cannot be BIND(C) because it "
+		     "is neither a COMMON block nor declared at the "
+		     "module level scope", sym->name, &(sym->declared_at));
+	  t = FAILURE;
+	}
+      else if (sym->common_head != NULL)
+        {
+          t = verify_com_block_vars_c_interop (sym->common_head);
+        }
+      else
+	{
+	  /* If type() declaration, we need to verify that the components
+	     of the given type are all C interoperable, etc.  */
+	  if (sym->ts.type == BT_DERIVED)
+            {
+              t = verify_bind_c_derived_type (sym->ts.derived);
+            }
+	  
+	  /* Verify the variable itself as C interoperable if it
+             is BIND(C).  It is not possible for this to succeed if
+             the verify_bind_c_derived_type failed, so don't have to handle
+             any error returned by verify_bind_c_derived_type.  */
+          t = verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
+                                 sym->common_block);
+	}
+
+      if (t == FAILURE)
+        {
+          /* clear the is_bind_c flag to prevent reporting errors more than
+             once if something failed.  */
+          sym->attr.is_bind_c = 0;
+          return;
+        }
+    }
+
+  /* If we're working on a dummy and the containing procedure is BIND(C),
+     we need to verify the params.  */
+  if (sym->attr.dummy == 1 && sym->attr.implicit_type == 0)
+    {
+      /* See if the containing procedure is BIND(C) */
+      if (sym->ns->proc_name->attr.is_bind_c == 1)
+        {
+          /* Verify the params */
+          if (verify_c_interop_param (sym) == FAILURE)
+            return;
+        }
     }
 
   /* If a derived type symbol has reached this point, without its
