@@ -1,5 +1,8 @@
 2007-02-20  Janis Johnson  <janis187@us.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Simplify code to
+	adjust register number for _Decimal128.
+
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -mcmpb and -mdfp.
 	* configure.ac (HAVE_GAS_CMPB): Check for assembler support of the
 	cmpb instruction.

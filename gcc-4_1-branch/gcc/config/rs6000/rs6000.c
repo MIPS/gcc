@@ -6028,15 +6028,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
       /* _Decimal128 is passed in even/odd fpr pairs; the stored
 	 reg number is 0 for f1, so we want to make it odd.  */
-      if (reg == fpr && TYPE_MODE (type) == TDmode)
+      else if (reg == fpr && TYPE_MODE (type) == TDmode)
 	{
 	  regalign = 1;
-	  /* FIXME: this is just doing "reg |= 0x1"; find a more efficient
-	     way to do that.  */
-	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg, size_int (1));
-	  u = build1 (BIT_NOT_EXPR, TREE_TYPE (reg), u);
-	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), u, size_int (1));
-	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
+	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), reg, size_int (1));
+	  u = build2 (MODIFY_EXPR, void_type_node, reg, t);
 	}
 
       t = fold_convert (TREE_TYPE (reg), size_int (8 - n_reg + 1));
