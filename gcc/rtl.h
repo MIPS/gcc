@@ -741,13 +741,6 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
    -1 means this instruction has not been recognized yet.  */
 #define INSN_CODE(INSN) XINT (INSN, 6)
 
-/* This is only used in combine and in the schedulers.  
-   Holds a chain of INSN_LIST rtx's whose first operands point at
-   previous insns with direct data-flow connections to this one.
-   That means that those insns set variables whose next use is in this insn.
-   They are always in the same basic block as this insn.  */
-#define LOG_LINKS(INSN)	XEXP(INSN, 7)
-
 #define RTX_FRAME_RELATED_P(RTX)					\
   (RTL_FLAG_CHECK5("RTX_FRAME_RELATED_P", (RTX), INSN, CALL_INSN,	\
 		   JUMP_INSN, BARRIER, SET)->frame_related)
@@ -790,7 +783,7 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
    chain pointer and the first operand is the REG being described.
    The mode field of the EXPR_LIST contains not a real machine mode
    but a value from enum reg_note.  */
-#define REG_NOTES(INSN)	XEXP(INSN, 8)
+#define REG_NOTES(INSN)	XEXP(INSN, 7)
 
 enum reg_note
 {
@@ -817,7 +810,7 @@ extern const char * const reg_note_name[];
      CLOBBER expressions document the registers explicitly clobbered
    by this CALL_INSN.
      Pseudo registers can not be mentioned in this list.  */
-#define CALL_INSN_FUNCTION_USAGE(INSN)	XEXP(INSN, 9)
+#define CALL_INSN_FUNCTION_USAGE(INSN)	XEXP(INSN, 8)
 
 /* The label-number of a code-label.  The assembler label
    is made from `L' and the label-number printed in decimal.
@@ -952,7 +945,7 @@ enum label_kind
 /* In jump.c, each JUMP_INSN can point to a label that it can jump to,
    so that if the JUMP_INSN is deleted, the label's LABEL_NUSES can
    be decremented and possibly the label can be deleted.  */
-#define JUMP_LABEL(INSN)   XCEXP (INSN, 9, JUMP_INSN)
+#define JUMP_LABEL(INSN)   XCEXP (INSN, 8, JUMP_INSN)
 
 /* Once basic blocks are found, each CODE_LABEL starts a chain that
    goes through all the LABEL_REFs that jump to that label.  The chain

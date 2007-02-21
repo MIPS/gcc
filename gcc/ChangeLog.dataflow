@@ -1,3 +1,60 @@
+2007-02-21  Paolo Bonzini <bonzini@gnu.org>
+
+        * combine.c (uid_cuid, max_uid_cuid): Remove.
+        (INSN_CUID): Replace throughout with DF_INSN_LUID.
+        (last_call_cuid): Rename to last_call_luid.
+        (subst_low_cuid): Rename to subst_low_luid.
+        (last_insn_cost): Rename to max_uid_known.
+        (uid_log_links): New.
+        (INSN_COST, LOG_LINKS): New.
+        (combine_validate_cost): Use INSN_COST instead of accessing
+        uid_insn_cost.
+        (create_log_links, clear_log_links): Move before combine_instructions.
+        (combine_instructions): Don't compute cuids.  Allocate uid_log_links.
+        Call create_log_links and clear_log_links here.  Only initialize
+        data structures for insns within a basic block.  Use INSN_COST
+        instead of accessing uid_insn_cost.  Reset last_call_luid and
+        mem_last_set once for every basic block.  Update label_tick on every
+	basic block, reset label_tick_ebb_start on every label.
+        (can_combine_p, try_combine, reg_nonzero_bits_for_combine,
+        reg_num_sign_bit_copies_for_combine, record_value_for_reg,
+        record_dead_and_set_regs_1, record_dead_and_set_regs,
+        get_last_value_validate, get_last_value, use_crosses_set_p,
+        move_deaths, distribute_notes, distribute_links): Rename stuff
+        as indicated above.  In tests for LUIDs, check that we refer to
+	the same label_tick too.  In tests for label ticks, check that
+	they are > label_tick_ebb_start.
+        (rest_of_handle_combine): Don't create/clear loglinks here.
+
+        * gengtype.c (adjust_field_rtx_def): Adjust index of JUMP_LABEL.
+        * caller-save.c (init_caller_save): Adjust creation of INSNs.
+        * rtl.def (CODE_LABEL): Adjust comment.
+        (INSN, JUMP_INSN, CALL_INSN, BARRIER): Remove penultimate field.
+        * emit-rtl.c (unshare_all_rtl_again, verify_rtl_sharing,
+        unshare_all_rtl_in_chain, make_insn_raw, make_jump_insn_raw,
+        make_call_insn_raw): Remove references to LOG_LINKS.
+        * rtl.h (LOG_LINKS): Remove.
+        (REG_NOTES, CALL_INSN_FUNCTION_USAGE, JUMP_LABEL): Shift index
+        down by one.
+
+        * regs.h (struct reg_info_def): Remove first_uid and last_uid.
+        (REGNO_FIRST_UID, REGNO_LAST_UID): Remove.
+        * cse.c (cse_basic_block_start, cse_basic_block_end, uid_cuid,
+        max_uid, INSN_CUID): Remove.
+        (struct cse_basic_block_data): Remove low_cuid and high_cuid.
+        (reg_used_in_multiple_bb, reg_used_in_bb): New.
+        (make_regs_eqv): Test reg_used_in_multiple_bb instead of cuids.
+        (cse_prescan_path): Remove low_cuid and high_cuid.
+        (mark_reg_use_bb): New.
+        (cse_main): Replace computation of cuids with initialization of
+        reg_used_in_multiple_bb.  Remove references to deleted variables.
+        * regmove.c (copy_src_to_dest): Don't update REGNO_FIRST_UID and
+        REGNO_LAST_UID.
+        * regclass.c (reg_scan_mark_refs): Remove penultimate argument.
+        Don't track REGNO_FIRST_UID and REGNO_LAST_UID.
+        (reg_scan, reg_scan_update): Remove penultimate argument to
+        reg_scan_mark_refs.
+
 2007-02-20  Seongbae Park <seongbae.park@gmail.com>
 
 	* sched-ebb.c (schedule_ebbs): Clear DF_LR_RUN_DCE flag

@@ -2152,7 +2152,6 @@ unshare_all_rtl_again (rtx insn)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
-	reset_used_flags (LOG_LINKS (p));
       }
 
   /* Make sure that virtual stack slots are not shared.  */
@@ -2315,7 +2314,6 @@ verify_rtl_sharing (void)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
-	reset_used_flags (LOG_LINKS (p));
 	if (GET_CODE (PATTERN (p)) == SEQUENCE)
 	  {
 	    int i;
@@ -2327,7 +2325,6 @@ verify_rtl_sharing (void)
 		gcc_assert (INSN_P (q));
 		reset_used_flags (PATTERN (q));
 		reset_used_flags (REG_NOTES (q));
-		reset_used_flags (LOG_LINKS (q));
 	      }
 	  }
       }
@@ -2337,7 +2334,6 @@ verify_rtl_sharing (void)
       {
 	verify_rtx_sharing (PATTERN (p), p);
 	verify_rtx_sharing (REG_NOTES (p), p);
-	verify_rtx_sharing (LOG_LINKS (p), p);
       }
 }
 
@@ -2352,7 +2348,6 @@ unshare_all_rtl_in_chain (rtx insn)
       {
 	PATTERN (insn) = copy_rtx_if_shared (PATTERN (insn));
 	REG_NOTES (insn) = copy_rtx_if_shared (REG_NOTES (insn));
-	LOG_LINKS (insn) = copy_rtx_if_shared (LOG_LINKS (insn));
       }
 }
 
@@ -3294,7 +3289,6 @@ make_insn_raw (rtx pattern)
   INSN_UID (insn) = cur_insn_uid++;
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
-  LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   INSN_LOCATOR (insn) = 0;
   BLOCK_FOR_INSN (insn) = NULL;
@@ -3326,7 +3320,6 @@ make_jump_insn_raw (rtx pattern)
 
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
-  LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
   INSN_LOCATOR (insn) = 0;
@@ -3347,7 +3340,6 @@ make_call_insn_raw (rtx pattern)
 
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
-  LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
   INSN_LOCATOR (insn) = 0;

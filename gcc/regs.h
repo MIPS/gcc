@@ -49,9 +49,6 @@ extern int max_regno;
 /* Register information indexed by register number */
 typedef struct reg_info_def
 {				/* fields set by reg_scan */
-  int first_uid;		/* UID of first insn to use (REG n) */
-  int last_uid;			/* UID of last insn to use (REG n) */
-
 				/* fields set by reg_scan & flow_analysis */
   int sets;			/* # of times (REG n) is set */
 
@@ -176,21 +173,6 @@ extern bool have_regs_of_mode [MAX_MACHINE_MODE];
    register.  */
 
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
-
-/* Vector indexed by regno; gives uid of first insn using that reg.
-   This is computed by reg_scan for use by cse and loop.
-   It is sometimes adjusted for subsequent changes during loop,
-   but not adjusted by cse even if cse invalidates it.  */
-
-#define REGNO_FIRST_UID(N) (VEC_index (reg_info_p, reg_n_info, N)->first_uid)
-
-/* Vector indexed by regno; gives uid of last insn using that reg.
-   This is computed by reg_scan for use by cse and loop.
-   It is sometimes adjusted for subsequent changes during loop,
-   but not adjusted by cse even if cse invalidates it.
-   This is harmless since cse won't scan through a loop end.  */
-
-#define REGNO_LAST_UID(N) (VEC_index (reg_info_p, reg_n_info, N)->last_uid)
 
 /* Flag set by local-alloc or global-alloc if they decide to allocate
    something in a call-clobbered register.  */
