@@ -1842,6 +1842,9 @@ check_init_expr (gfc_expr * e)
 	  break;
 	}
 
+      if (gfc_in_match_data ())
+	break;
+
       gfc_error ("Parameter '%s' at %L has not been declared or is "
 		 "a variable, which does not reduce to a constant "
 		 "expression", e->symtree->n.sym->name, &e->where);
@@ -1925,7 +1928,8 @@ gfc_match_init_expr (gfc_expr ** result)
   /* Not all inquiry functions are simplified to constant expressions
      so it is necessary to call check_inquiry again.  */ 
   if (!gfc_is_constant_expr (expr)
-	&& check_inquiry (expr, 1) == FAILURE)
+	&& check_inquiry (expr, 1) == FAILURE
+	&& !gfc_in_match_data ())
     {
       gfc_error ("Initialization expression didn't reduce %C");
       return MATCH_ERROR;
@@ -2201,12 +2205,25 @@ try
 gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 {
   gfc_symbol *sym;
+  gfc_ref *ref;
+  int has_pointer;
 
   sym = lvalue->symtree->n.sym;
 
-  if (sym->attr.intent == INTENT_IN)
+  /* Check INTENT(IN), unless the object itself is the component or
+     sub-component of a pointer.  */
+  has_pointer = sym->attr.pointer;
+
+  for (ref = lvalue->ref; ref; ref = ref->next)
+    if (ref->type == REF_COMPONENT && ref->u.c.component->pointer)
+      {
+	has_pointer = 1;
+	break;
+      }
+
+  if (!has_pointer && sym->attr.intent == INTENT_IN)
     {
-      gfc_error ("Can't assign to INTENT(IN) variable '%s' at %L",
+      gfc_error ("Cannot assign to INTENT(IN) variable '%s' at %L",
 		 sym->name, &lvalue->where);
       return FAILURE;
     }
@@ -2331,7 +2348,9 @@ try
 gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
 {
   symbol_attribute attr;
+  gfc_ref *ref;
   int is_pure;
+  int pointer, check_intent_in;
 
   if (lvalue->symtree->n.sym->ts.type == BT_UNKNOWN)
     {
@@ -2349,8 +2368,29 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
       return FAILURE;
     }
 
-  attr = gfc_variable_attr (lvalue, NULL);
-  if (!attr.pointer)
+
+  /* Check INTENT(IN), unless the object itself is the component or
+     sub-component of a pointer.  */
+  check_intent_in = 1;
+  pointer = lvalue->symtree->n.sym->attr.pointer;
+
+  for (ref = lvalue->ref; ref; ref = ref->next)
+    {
+      if (pointer)
+        check_intent_in = 0;
+
+      if (ref->type == REF_COMPONENT && ref->u.c.component->pointer)
+        pointer = 1;
+    }
+
+  if (check_intent_in && lvalue->symtree->n.sym->attr.intent == INTENT_IN)
+    {
+      gfc_error ("Cannot assign to INTENT(IN) variable '%s' at %L",
+                 lvalue->symtree->n.sym->name, &lvalue->where);
+      return FAILURE;
+    }
+
+  if (!pointer)
     {
       gfc_error ("Pointer assignment to non-POINTER at %L", &lvalue->where);
       return FAILURE;

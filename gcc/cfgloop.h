@@ -254,10 +254,12 @@ extern bool duplicate_loop_to_header_edge (struct loop *, edge,
 					   unsigned, sbitmap, edge,
  					   VEC (edge, heap) **, int);
 extern struct loop *loopify (edge, edge,
-			     basic_block, edge, edge, bool);
+			     basic_block, edge, edge, bool,
+			     unsigned, unsigned);
 struct loop * loop_version (struct loop *, void *,
-			    basic_block *, bool);
+			    basic_block *, unsigned, unsigned, unsigned, bool);
 extern bool remove_path (edge);
+void scale_loop_frequencies (struct loop *, int, int);
 
 /* Induction variable analysis.  */
 
@@ -404,11 +406,11 @@ number_of_loops (void)
 
 enum li_flags
 {
-  LI_INCLUDE_ROOT,	/* Include the fake root of the loop tree.  */
-  LI_FROM_INNERMOST,	/* Iterate over the loops in the reverse order,
+  LI_INCLUDE_ROOT = 1,	/* Include the fake root of the loop tree.  */
+  LI_FROM_INNERMOST = 2,/* Iterate over the loops in the reverse order,
 			   starting from innermost ones.  */
-  LI_ONLY_INNERMOST,	/* Iterate only over innermost loops.  */
-  LI_ONLY_OLD		/* Do not traverse the loops created during the
+  LI_ONLY_INNERMOST = 4,/* Iterate only over innermost loops.  */
+  LI_ONLY_OLD = 8	/* Do not traverse the loops created during the
 			   traversal (this is the default behavior with
 			   LI_FROM_INNERMOST).  */
 };

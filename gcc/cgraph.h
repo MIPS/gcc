@@ -260,6 +260,8 @@ enum cgraph_state
   CGRAPH_STATE_CONSTRUCTION,
   /* Callgraph is built and IPA passes are being run.  */
   CGRAPH_STATE_IPA,
+  /* Callgraph is built and all functions are transformed to SSA form.  */
+  CGRAPH_STATE_IPA_SSA,
   /* Functions are now ordered and being passed to RTL expanders.  */
   CGRAPH_STATE_EXPANSION,
   /* All cgraph expansion is done.  */
@@ -279,6 +281,7 @@ void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
+void cgraph_release_function_body (struct cgraph_node *);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,

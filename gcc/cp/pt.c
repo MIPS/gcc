@@ -2343,8 +2343,8 @@ build_template_parm_index (int index,
 }
 
 /* Find the canonical type parameter for the given template type
-   parmaeter. Returns the canonical type parameter, which may be TYPE
-   if no such parameter existed. */
+   parameter.  Returns the canonical type parameter, which may be TYPE
+   if no such parameter existed.  */
 static tree
 canonical_type_parameter (tree type)
 {
@@ -7529,6 +7529,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     template parameter for this level. Thus, we
 		     require structural equality checking to compare
 		     TEMPLATE_TEMPLATE_PARMs. */
+		  SET_TYPE_STRUCTURAL_EQUALITY (r);
+		else if (TYPE_STRUCTURAL_EQUALITY_P (t))
 		  SET_TYPE_STRUCTURAL_EQUALITY (r);
 		else
 		  TYPE_CANONICAL (r) = canonical_type_parameter (r);

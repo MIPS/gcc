@@ -315,7 +315,8 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     {
       a1 = pointer;
       a2 = intent;
-      goto conflict;
+      standard = GFC_STD_F2003;
+      goto conflict_std;
     }
 
   /* Check for attributes not allowed in a BLOCK DATA.  */
@@ -611,14 +612,14 @@ conflict:
 conflict_std:
   if (name == NULL)
     {
-      return gfc_notify_std (standard, "In the selected standard, %s attribute "
-                             "conflicts with %s attribute at %L", a1, a2,
+      return gfc_notify_std (standard, "Fortran 2003: %s attribute "
+                             "with %s attribute at %L", a1, a2,
                              where);
     }
   else
     {
-      return gfc_notify_std (standard, "In the selected standard, %s attribute "
-                             "conflicts with %s attribute in '%s' at %L",
+      return gfc_notify_std (standard, "Fortran 2003: %s attribute "
+			     "with %s attribute in '%s' at %L",
                              a1, a2, name, where);
     }
 }
