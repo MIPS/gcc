@@ -2960,8 +2960,8 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
     {
       derived_sym->ts.is_c_interop = 0;
       gfc_error_now ("Derived type '%s' declared at %L must have the BIND "
-                 "attribute to be C interoperable", derived_sym->name,
-                 &(derived_sym->declared_at));
+		     "attribute to be C interoperable", derived_sym->name,
+		     &(derived_sym->declared_at));
       retval = FAILURE;
     }
   

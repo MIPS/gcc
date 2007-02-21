@@ -4,6 +4,11 @@ Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
 2007-02-21  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* fortran/symbol.c: Whitespace fixes.
+	* fortran/decl.c: Ditto.
+
+2007-02-21  Christopher D. Rickett  <crickett@lanl.gov>
 	* testsuite/gfortran.dg/c_loc_tests_2.f03: New test case for
 	the c_loc function.
 	* testsuite/gfortran.dg/bind_c_implicit_vars.f03: New test

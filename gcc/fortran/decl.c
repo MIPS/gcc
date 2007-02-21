@@ -730,34 +730,32 @@ verify_c_interop_param (gfc_symbol *sym)
   if (sym->attr.implicit_type)
     return SUCCESS;
 
-  /* see if we've stored a reference to a procedure that owns sym */
+  /* See if we've stored a reference to a procedure that owns sym.  */
   if (sym->ns != NULL && sym->ns->proc_name != NULL)
     {
       if (sym->ns->proc_name->attr.is_bind_c == 1)
 	{
-          is_c_interop =
-            (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
-             == SUCCESS ? 1 : 0);
+	  is_c_interop =
+	    (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
+	     == SUCCESS ? 1 : 0);
 
 	  if (is_c_interop != 1)
 	    {
-	      /* make personalized messages to give better feedback */
+	      /* Make personalized messages to give better feedback.  */
 	      if (sym->ts.type == BT_DERIVED)
 		gfc_warning ("Type '%s' at %L "
-				 "is a parameter to the BIND(C) procedure"
-				 "'%s' but may not be C interoperable "
-				 "because derived type '%s' is not C "
-				 "interoperable",
-                             sym->name, &(sym->declared_at),
-                             sym->ns->proc_name->name, 
-				 sym->ts.derived->name);
+			     "is a parameter to the BIND(C) procedure '%s' "
+		    	     "but may not be C interoperable because "
+			     "derived type '%s' is not C interoperable",
+			     sym->name, &(sym->declared_at),
+			     sym->ns->proc_name->name, 
+			     sym->ts.derived->name);
 	      else
 		gfc_warning ("Variable '%s' at %L "
-				 "is a parameter to the BIND(C) procedure "
-				 "'%s' but "
-				 "may not be C interoperable",
-                             sym->name, &(sym->declared_at),
-                             sym->ns->proc_name->name);
+			     "is a parameter to the BIND(C) procedure '%s' "
+			     "but may not be C interoperable",
+			     sym->name, &(sym->declared_at),
+			     sym->ns->proc_name->name);
 	    }
 	 
 	  /* We have to make sure that any param to a bind(c) routine does
@@ -2762,14 +2760,14 @@ verify_c_interop (gfc_typespec *ts, const char *name, locus *where)
     {
       t = gfc_validate_c_kind(ts);
       if (t != SUCCESS)
-{
-          /* print error, but continue parsing line */
-          gfc_error_now ("C kind parameter is for type %s but "
-                         "symbol '%s' at %L is of type %s",
-                         gfc_basic_typename (ts->f90_type),
-                         name, where, 
-                         gfc_basic_typename (ts->type));
-        }
+	{
+	  /* Print error, but continue parsing line.  */
+	  gfc_error_now ("C kind parameter is for type %s but "
+			 "symbol '%s' at %L is of type %s",
+			 gfc_basic_typename (ts->f90_type),
+			 name, where, 
+			 gfc_basic_typename (ts->type));
+	}
     }
 
   /* Make sure the kind is C interoperable.  This does not care about the
@@ -2796,7 +2794,7 @@ verify_com_block_vars_c_interop (gfc_common_head *com_block)
 
   curr_sym = com_block->head;
   
-  /* make sure we have at least one symbol */
+  /* Make sure we have at least one symbol.  */
   if (curr_sym == NULL)
     return retval;
 
