@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
    Foundation, Inc.
 
 This file is part of GCC.
@@ -3028,12 +3028,12 @@ subreg_get_info (unsigned int xregno, enum machine_mode xmode,
   /* If registers store different numbers of bits in the different
      modes, we cannot generally form this subreg.  */
   if (!HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode)
-      && !HARD_REGNO_NREGS_HAS_PADDING (xregno, ymode))
+      && !HARD_REGNO_NREGS_HAS_PADDING (xregno, ymode)
+      && (GET_MODE_SIZE (xmode) % nregs_xmode) == 0
+      && (GET_MODE_SIZE (ymode) % nregs_ymode) == 0)
     {
       regsize_xmode = GET_MODE_SIZE (xmode) / nregs_xmode;
-      gcc_assert (regsize_xmode * nregs_xmode == GET_MODE_SIZE (xmode));
       regsize_ymode = GET_MODE_SIZE (ymode) / nregs_ymode;
-      gcc_assert (regsize_ymode * nregs_ymode == GET_MODE_SIZE (ymode));
       if (!rknown && regsize_xmode > regsize_ymode && nregs_ymode > 1)
 	{
 	  info->representable_p = false;
@@ -3057,6 +3057,13 @@ subreg_get_info (unsigned int xregno, enum machine_mode xmode,
     {
       info->representable_p = true;
       rknown = true;
+
+      if (offset == 0 || nregs_xmode == nregs_ymode)
+	{
+	  info->offset = 0;
+	  info->nregs = nregs_ymode;
+	  return;
+	}
     }
 
   /* This should always pass, otherwise we don't know how to verify

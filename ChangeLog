@@ -1,3 +1,41 @@
+2006-12-29  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Reorganize recognition of languages.  Add
+	--enable-stage1-languages.  Show supported languages for the chosen
+	target rather than all recognized languages.
+	* configure: Regenerate.
+
+2006-12-29  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (GCC_STRAP_TARGETS, all-prebootstrap): Remove.
+	* Makefile.in: Regenerate.
+
+2006-12-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Warn that MPFR 2.2.0 is buggy.
+	* configure: Regenerate.
+
+2006-12-27  Ian Lance Taylor  <iant@google.com>
+
+	* configure.in: When removing Makefiles to force a reconfigure, also
+	remove prev-DIR*/Makefile.
+	* configure: Regenerate.
+
+2006-12-22  Andreas Schwab  <schwab@suse.de>
+
+	* configure: Regenerate with correct autoconf version.
+
+2006-12-20  Adam Megacz  <megacz@cs.berkeley.edu>
+
+        * configure.in: add AC_SUBST for *_FOR_TARGET.
+        * configure: Regenerate.
+
+2006-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Simplify logic for rejecting languages that cannot
+	be built.  Separate the case when a language is unsupported,
+	from the case when the user chooses not to build a language.
+
 2006-12-19  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure.in: Remove "$build" case for powerpc-*-darwin* since

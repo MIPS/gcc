@@ -1042,7 +1042,7 @@ check_sym_interfaces (gfc_symbol * sym)
 	    }
 	}
 
-      /* Originally, this test was aplied to host interfaces too;
+      /* Originally, this test was applied to host interfaces too;
 	 this is incorrect since host associated symbols, from any
 	 source, cannot be ambiguous with local symbols.  */
       k = sym->attr.referenced || !sym->attr.use_assoc;
@@ -1280,7 +1280,6 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 {
   gfc_actual_arglist **new, *a, *actual, temp;
   gfc_formal_arglist *f;
-  gfc_gsymbol *gsym;
   int i, n, na;
   bool rank_check;
 
@@ -1304,7 +1303,8 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 
   for (a = actual; a; a = a->next, f = f->next)
     {
-      if (a->name != NULL)
+      /* Look for keywords but ignore g77 extensions like %VAL.  */
+      if (a->name != NULL && a->name[0] != '%')
 	{
 	  i = 0;
 	  for (f = formal; f; f = f->next, i++)
@@ -1386,16 +1386,10 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	  && a->expr->expr_type == EXPR_VARIABLE
 	  && f->sym->attr.flavor == FL_PROCEDURE)
 	{
-	  gsym = gfc_find_gsymbol (gfc_gsym_root,
-				   a->expr->symtree->n.sym->name);
-	  if (gsym == NULL || (gsym->type != GSYM_FUNCTION
-		&& gsym->type != GSYM_SUBROUTINE))
-	    {
-	      if (where)
-		gfc_error ("Expected a procedure for argument '%s' at %L",
-			   f->sym->name, &a->expr->where);
-	      return 0;
-	    }
+	  if (where)
+	    gfc_error ("Expected a procedure for argument '%s' at %L",
+		       f->sym->name, &a->expr->where);
+	  return 0;
 	}
 
       if (f->sym->attr.flavor == FL_PROCEDURE

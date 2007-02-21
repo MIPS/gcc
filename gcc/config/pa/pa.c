@@ -662,7 +662,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       insn = emit_move_insn (reg, pic_ref);
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, orig);
 
       return reg;
     }
@@ -1978,8 +1978,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 		}
 	    }
 
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUAL, op1, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, op1);
 
 	  return 1;
 	}
@@ -4159,9 +4158,6 @@ hppa_pic_save_rtx (void)
 #define NO_DEFERRED_PROFILE_COUNTERS 0
 #endif
 
-/* Define heap vector type for funcdef numbers.  */
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* Vector of funcdef numbers.  */
 static VEC(int,heap) *funcdef_nos;

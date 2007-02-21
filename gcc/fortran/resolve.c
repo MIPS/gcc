@@ -140,6 +140,21 @@ resolve_formal_arglist (gfc_symbol * proc)
 	      continue;
 	    }
 
+	  if (sym->attr.function
+		&& sym->ts.type == BT_UNKNOWN
+		&& sym->attr.intrinsic)
+	    {
+	      gfc_intrinsic_sym *isym;
+	      isym = gfc_find_function (sym->name);
+	      if (isym == NULL || !isym->specific)
+		{
+		  gfc_error ("Unable to find a specific INTRINSIC procedure "
+			     "for the reference '%s' at %L", sym->name,
+			     &sym->declared_at);
+		}
+	      sym->ts = isym->ts;
+	    }
+
 	  continue;
 	}
 
@@ -173,25 +188,19 @@ resolve_formal_arglist (gfc_symbol * proc)
       if (sym->attr.flavor == FL_UNKNOWN)
 	gfc_add_flavor (&sym->attr, FL_VARIABLE, sym->name, &sym->declared_at);
 
-      if (gfc_pure (proc))
+      if (gfc_pure (proc) && !sym->attr.pointer
+            && sym->attr.flavor != FL_PROCEDURE)
 	{
-	  if (proc->attr.function && !sym->attr.pointer
-              && sym->attr.flavor != FL_PROCEDURE
-	      && sym->attr.intent != INTENT_IN)
-
+	  if (proc->attr.function && sym->attr.intent != INTENT_IN)
 	    gfc_error ("Argument '%s' of pure function '%s' at %L must be "
 		       "INTENT(IN)", sym->name, proc->name,
 		       &sym->declared_at);
 
-	  if (proc->attr.subroutine && !sym->attr.pointer
-	      && sym->attr.intent == INTENT_UNKNOWN)
-
-	    gfc_error
-	      ("Argument '%s' of pure subroutine '%s' at %L must have "
-	       "its INTENT specified", sym->name, proc->name,
-	       &sym->declared_at);
+	  if (proc->attr.subroutine && sym->attr.intent == INTENT_UNKNOWN)
+	    gfc_error ("Argument '%s' of pure subroutine '%s' at %L must "
+		       "have its INTENT specified", sym->name, proc->name,
+		       &sym->declared_at);
 	}
-
 
       if (gfc_elemental (proc))
 	{
@@ -338,6 +347,33 @@ merge_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
       new_arglist->sym = new_sym;
       new_arglist->next = proc->formal;
       proc->formal  = new_arglist;
+    }
+}
+
+
+/* Flag the arguments that are not present in all entries.  */
+
+static void
+check_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
+{
+  gfc_formal_arglist *f, *head;
+  head = new_args;
+
+  for (f = proc->formal; f; f = f->next)
+    {
+      if (f->sym == NULL)
+	continue;
+
+      for (new_args = head; new_args; new_args = new_args->next)
+	{
+	  if (new_args->sym == f->sym)
+	    break;
+	}
+
+      if (new_args)
+	continue;
+
+      f->sym->attr.not_always_present = 1;
     }
 }
 
@@ -540,6 +576,11 @@ resolve_entries (gfc_namespace * ns)
   /* Merge all the entry point arguments.  */
   for (el = ns->entries; el; el = el->next)
     merge_argument_lists (proc, el->sym->formal);
+
+  /* Check the master formal arguments for any that are not
+     present in all entry points.  */
+  for (el = ns->entries; el; el = el->next)
+    check_argument_lists (proc, el->sym->formal);
 
   /* Use the master function for the function body.  */
   ns->proc_name = proc;
@@ -818,7 +859,7 @@ resolve_assumed_size_actual (gfc_expr *e)
    references.  */
 
 static try
-resolve_actual_arglist (gfc_actual_arglist * arg)
+resolve_actual_arglist (gfc_actual_arglist * arg, procedure_type ptype)
 {
   gfc_symbol *sym;
   gfc_symtree *parent_st;
@@ -826,7 +867,6 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 
   for (; arg; arg = arg->next)
     {
-
       e = arg->expr;
       if (e == NULL)
         {
@@ -847,7 +887,7 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	{
 	  if (gfc_resolve_expr (e) != SUCCESS)
 	    return FAILURE;
-	  continue;
+	  goto argument_list;
 	}
 
       /* See if the expression node should really be a variable
@@ -912,7 +952,22 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 		      && sym->ns->parent->proc_name == sym)))
 	    goto got_variable;
 
-	  continue;
+	  /* If all else fails, see if we have a specific intrinsic.  */
+	  if (sym->attr.function
+		&& sym->ts.type == BT_UNKNOWN
+		&& sym->attr.intrinsic)
+	    {
+	      gfc_intrinsic_sym *isym;
+	      isym = gfc_find_function (sym->name);
+	      if (isym == NULL || !isym->specific)
+		{
+		  gfc_error ("Unable to find a specific INTRINSIC procedure "
+			     "for the reference '%s' at %L", sym->name,
+			     &e->where);
+		}
+	      sym->ts = isym->ts;
+	    }
+	  goto argument_list;
 	}
 
       /* See if the name is a module procedure in a parent unit.  */
@@ -936,7 +991,7 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  || sym->attr.intrinsic
 	  || sym->attr.external)
 	{
-	  continue;
+	  goto argument_list;
 	}
 
     got_variable:
@@ -949,6 +1004,62 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  e->ref->type = REF_ARRAY;
 	  e->ref->u.ar.type = AR_FULL;
 	  e->ref->u.ar.as = sym->as;
+	}
+
+    argument_list:
+      /* Check argument list functions %VAL, %LOC and %REF.  There is
+	 nothing to do for %REF.  */
+      if (arg->name && arg->name[0] == '%')
+	{
+	  if (strncmp ("%VAL", arg->name, 4) == 0)
+	    {
+	      if (e->ts.type == BT_CHARACTER || e->ts.type == BT_DERIVED)
+		{
+		  gfc_error ("By-value argument at %L is not of numeric "
+			     "type", &e->where);
+		  return FAILURE;
+		}
+
+	      if (e->rank)
+		{
+		  gfc_error ("By-value argument at %L cannot be an array or "
+			     "an array section", &e->where);
+		return FAILURE;
+		}
+
+	      /* Intrinsics are still PROC_UNKNOWN here.  However,
+		 since same file external procedures are not resolvable
+		 in gfortran, it is a good deal easier to leave them to
+		 intrinsic.c.  */
+	      if (ptype != PROC_UNKNOWN && ptype != PROC_EXTERNAL)
+		{
+		  gfc_error ("By-value argument at %L is not allowed "
+			     "in this context", &e->where);
+		  return FAILURE;
+		}
+
+	      if (((e->ts.type == BT_REAL || e->ts.type == BT_COMPLEX)
+		    && e->ts.kind > gfc_default_real_kind)
+		      || (e->ts.kind > gfc_default_integer_kind))
+		{
+		  gfc_error ("Kind of by-value argument at %L is larger "
+			     "than default kind", &e->where);
+		  return FAILURE;
+		}
+
+	    }
+
+	  /* Statement functions have already been excluded above.  */
+	  else if (strncmp ("%LOC", arg->name, 4) == 0
+		     && e->ts.type == BT_PROCEDURE)
+	    {
+	      if (e->symtree->n.sym->attr.proc == PROC_INTERNAL)
+		{
+		  gfc_error ("Passing internal procedure at %L by location "
+			     "not allowed", &e->where);
+		  return FAILURE;
+		}
+	    }
 	}
     }
 
@@ -1490,14 +1601,22 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
   int temp;
+  procedure_type p = PROC_INTRINSIC;
 
   sym = NULL;
   if (expr->symtree)
     sym = expr->symtree->n.sym;
 
+  if (sym && sym->attr.flavor == FL_VARIABLE)
+    {
+      gfc_error ("'%s' at %L is not a function",
+		 sym->name, &expr->where);
+      return FAILURE;
+    }
+
   /* Need to setup the call to the correct c_associated, depending on
      the number of cptrs to user gives to compare.  */
-  if (sym->attr.is_iso_c == 1)
+  if (sym && sym->attr.is_iso_c == 1)
     {
       sym = gfc_iso_c_func_interface (sym, expr->value.function.actual);
       /* Get the symtree for the new symbol (resolved func).
@@ -1516,8 +1635,11 @@ resolve_function (gfc_expr * expr)
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
 
-  if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
-    return FAILURE;
+  if (expr->symtree && expr->symtree->n.sym)
+    p = expr->symtree->n.sym->attr.proc;
+
+  if (resolve_actual_arglist (expr->value.function.actual, p) == FAILURE)
+      return FAILURE;
 
   /* Resume assumed_size checking. */
   need_full_assumed_size--;
@@ -2059,6 +2181,7 @@ static try
 resolve_call (gfc_code * c)
 {
   try t;
+  procedure_type ptype = PROC_INTRINSIC;
 
   if (c->symtree && c->symtree->n.sym
 	&& c->symtree->n.sym->ts.type != BT_UNKNOWN)
@@ -2105,7 +2228,10 @@ resolve_call (gfc_code * c)
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
 
-  if (resolve_actual_arglist (c->ext.actual) == FAILURE)
+  if (c->symtree && c->symtree->n.sym)
+    ptype = c->symtree->n.sym->attr.proc;
+
+  if (resolve_actual_arglist (c->ext.actual, ptype) == FAILURE)
     return FAILURE;
 
   /* Resume assumed_size checking. */
@@ -5765,7 +5891,6 @@ static try
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
-  gfc_symtree *st;
 
   if (sym->attr.ambiguous_interfaces && !sym->attr.referenced)
     gfc_warning ("Although not referenced, '%s' at %L has ambiguous "
@@ -5774,16 +5899,6 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
   if (sym->attr.function
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
-
-  st = gfc_find_symtree (gfc_current_ns->sym_root, sym->name);
-  if (st && st->ambiguous
-	 && sym->attr.referenced
-	 && !sym->attr.generic)
-    {
-      gfc_error ("Procedure %s at %L is ambiguous",
-		 sym->name, &sym->declared_at);
-      return FAILURE;
-    }
 
   if (sym->ts.type == BT_CHARACTER)
     {

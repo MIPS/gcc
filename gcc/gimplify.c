@@ -1,6 +1,7 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -1013,8 +1014,9 @@ voidify_wrapper_expr (tree wrapper, tree temp)
 	  /* The wrapper is on the RHS of an assignment that we're pushing
 	     down.  */
 	  gcc_assert (TREE_CODE (temp) == INIT_EXPR
+		      || TREE_CODE (temp) == GIMPLE_MODIFY_STMT
 		      || TREE_CODE (temp) == MODIFY_EXPR);
-	  TREE_OPERAND (temp, 1) = *p;
+	  GENERIC_TREE_OPERAND (temp, 1) = *p;
 	  *p = temp;
 	}
       else
@@ -1171,6 +1173,9 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   else
     {
       result = create_tmp_var (TREE_TYPE (result_decl), NULL);
+      if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+          || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
+        DECL_GIMPLE_REG_P (result) = 1;
 
       /* ??? With complex control flow (usually involving abnormal edges),
 	 we can wind up warning about an uninitialized value for this.  Due
@@ -3186,6 +3191,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    if (tret == GS_ERROR)
 	      ret = GS_ERROR;
 	  }
+	if (!is_gimple_reg (GENERIC_TREE_OPERAND (*expr_p, 0)))
+	  GENERIC_TREE_OPERAND (*expr_p, 1) = get_formal_tmp_var (ctor, pre_p);
       }
       break;
 

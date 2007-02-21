@@ -476,8 +476,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
-  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_datastructures);
+  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
@@ -947,6 +947,9 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after | pass->todo_flags_finish);
 
+  if (!current_function_decl)
+    cgraph_process_new_functions ();
+
   /* Flush and close dump file.  */
   if (dump_file_name)
     {
@@ -986,6 +989,8 @@ execute_ipa_pass_list (struct tree_opt_pass *pass)
       gcc_assert (!cfun);
       if (execute_one_pass (pass) && pass->sub)
 	do_per_function ((void (*)(void *))execute_pass_list, pass->sub);
+      if (!current_function_decl)
+	cgraph_process_new_functions ();
       pass = pass->next;
     }
   while (pass);

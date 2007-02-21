@@ -108,7 +108,7 @@ struct voptype_d
 typedef struct voptype_d *voptype_p;
 
 /* This structure represents a variable sized buffer which is allocated by the
-   operand memory manager.  Operands are subalocated out of this block.  The
+   operand memory manager.  Operands are suballocated out of this block.  The
    MEM array varies in size.  */
    
 struct ssa_operand_memory_d GTY((chain_next("%h.next")))
@@ -124,6 +124,8 @@ struct ssa_operand_memory_d GTY((chain_next("%h.next")))
 struct ssa_operands GTY(()) {
    struct ssa_operand_memory_d *operand_memory;
    unsigned operand_memory_index;
+   /* Current size of the operand memory buffer.  */
+   unsigned int ssa_operand_mem_size;
 
    bool ops_active;
 

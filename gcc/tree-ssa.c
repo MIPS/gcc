@@ -508,11 +508,11 @@ verify_call_clobbering (void)
   tree var;
   referenced_var_iterator rvi;
 
-  /* At all times, the result of the DECL_CALL_CLOBBERED flag should
+  /* At all times, the result of the call_clobbered flag should
      match the result of the call_clobbered_vars bitmap.  Verify both
      that everything in call_clobbered_vars is marked
-     DECL_CALL_CLOBBERED, and that everything marked
-     DECL_CALL_CLOBBERED is in call_clobbered_vars.  */
+     call_clobbered, and that everything marked
+     call_clobbered is in call_clobbered_vars.  */
   EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       var = referenced_var (i);
@@ -520,10 +520,10 @@ verify_call_clobbering (void)
       if (memory_partition (var))
 	var = memory_partition (var);
 
-      if (!MTAG_P (var) && !DECL_CALL_CLOBBERED (var))
+      if (!MTAG_P (var) && !var_ann (var)->call_clobbered)
 	{
 	  error ("variable in call_clobbered_vars but not marked "
-	         "DECL_CALL_CLOBBERED");
+	         "call_clobbered");
 	  debug_variable (var);
 	  goto err;
 	}
@@ -538,10 +538,10 @@ verify_call_clobbering (void)
 	var = memory_partition (var);
 
       if (!MTAG_P (var)
-	  && DECL_CALL_CLOBBERED (var)
+	  && var_ann (var)->call_clobbered
 	  && !bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)))
 	{
-	  error ("variable marked DECL_CALL_CLOBBERED but not in "
+	  error ("variable marked call_clobbered but not in "
 	         "call_clobbered_vars bitmap.");
 	  debug_variable (var);
 	  goto err;
@@ -745,6 +745,24 @@ int_tree_map_hash (const void *item)
   return ((const struct int_tree_map *)item)->uid;
 }
 
+/* Return true if the uid in both int tree maps are equal.  */
+
+static int
+var_ann_eq (const void *va, const void *vb)
+{
+  const struct static_var_ann_d *a = (const struct static_var_ann_d *) va;
+  tree b = (tree) vb;
+  return (a->uid == DECL_UID (b));
+}
+
+/* Hash a UID in a int_tree_map.  */
+
+static unsigned int
+var_ann_hash (const void *item)
+{
+  return ((const struct static_var_ann_d *)item)->uid;
+}
+
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -756,6 +774,8 @@ init_tree_ssa (void)
 				     		      int_tree_map_eq, NULL);
   cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
 				                   int_tree_map_eq, NULL);
+  cfun->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
+					       var_ann_eq, NULL);
   cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_alias_heapvars ();
@@ -805,7 +825,8 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      ggc_free (var->base.ann);
+      if (var->base.ann)
+        ggc_free (var->base.ann);
       var->base.ann = NULL;
     }
   htab_delete (gimple_referenced_vars (cfun));
@@ -813,10 +834,15 @@ delete_tree_ssa (void)
 
   fini_ssanames ();
   fini_phinodes ();
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
 
   cfun->gimple_df->global_var = NULL_TREE;
   
   htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs = NULL;
+  htab_delete (cfun->gimple_df->var_anns);
+  cfun->gimple_df->var_anns = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
@@ -824,6 +850,7 @@ delete_tree_ssa (void)
 
   delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
+  cfun->gimple_df = NULL;
 }
 
 

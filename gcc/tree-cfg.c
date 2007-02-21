@@ -2153,7 +2153,7 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
   gcc_assert (TREE_CODE (val) == INTEGER_CST);
-  return (zero_p (val) ? false_edge : true_edge);
+  return (integer_zerop (val) ? false_edge : true_edge);
 }
 
 /* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
@@ -2686,16 +2686,6 @@ last_stmt (basic_block bb)
 }
 
 
-/* Return a pointer to the last statement in block BB.  */
-
-tree *
-last_stmt_ptr (basic_block bb)
-{
-  block_stmt_iterator last = bsi_last (bb);
-  return !bsi_end_p (last) ? bsi_stmt_ptr (last) : NULL;
-}
-
-
 /* Return the last statement of an otherwise empty block.  Return NULL
    if the block is totally empty, or if it contains more than one
    statement.  */
@@ -2813,6 +2803,8 @@ bsi_for_stmt (tree stmt)
 static inline void
 update_modified_stmts (tree t)
 {
+  if (!ssa_operands_active ())
+    return;
   if (TREE_CODE (t) == STATEMENT_LIST)
     {
       tree_stmt_iterator i;
