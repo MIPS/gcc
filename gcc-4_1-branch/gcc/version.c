@@ -18,7 +18,7 @@
    not bugs in your modifications.)  */
 
 const char bug_report_url[] =
- "<ftp://linuxpatch.ncsa.uiuc.edu/toolchain/at/at05/at05-release-notes.html>";
+ "<ftp://linuxpatch.ncsa.uiuc.edu/toolchain/at/at-notes.html>";
 
 /* The complete version string, assembled from several pieces.
    BASEVER, DATESTAMP, and DEVPHASE are defined by the Makefile.  */

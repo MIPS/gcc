@@ -1,3 +1,7 @@
+2007-02-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* version.c (bug_report_url): Use release-generic page.
+
 2007-02-20  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Simplify code to
