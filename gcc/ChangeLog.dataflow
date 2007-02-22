@@ -1,3 +1,9 @@
+2007-02-22  Paolo Bonzini <bonzini@gnu.org>
+
+	* combine.c (set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine, 
+	reg_num_sign_bit_copies_for_combine, get_last_value): Look at DF_LR to
+	check if a register is uninitialized.
+
 2007-02-21  Paolo Bonzini <bonzini@gnu.org>
 
         * combine.c (uid_cuid, max_uid_cuid): Remove.
