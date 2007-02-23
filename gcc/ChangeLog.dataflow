@@ -1,3 +1,8 @@
+2007-02-22  Seongbae Park <seongbae.park@gmail.com>
+
+	* global.c (reg_becomes_live): Mark registers not live
+	after CLOBBER.
+
 2007-02-22  Paolo Bonzini <bonzini@gnu.org>
 
 	* combine.c (set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine, 

@@ -1864,15 +1864,22 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *regs_set)
       int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
       while (nregs-- > 0)
 	{
-	  SET_REGNO_REG_SET (live_relevant_regs, regno);
-	  if (! fixed_regs[regno])
+	  if (GET_CODE (setter) == CLOBBER)
+	    CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
+	  else
+	    SET_REGNO_REG_SET (live_relevant_regs, regno);
+
+	  if (!fixed_regs[regno])
 	    SET_REGNO_REG_SET ((regset) regs_set, regno);
 	  regno++;
 	}
     }
   else if (reg_renumber[regno] >= 0)
     {
-      SET_REGNO_REG_SET (live_relevant_regs, regno);
+      if (GET_CODE (setter) == CLOBBER)
+	CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
+      else
+	SET_REGNO_REG_SET (live_relevant_regs, regno);
       SET_REGNO_REG_SET ((regset) regs_set, regno);
     }
 }
