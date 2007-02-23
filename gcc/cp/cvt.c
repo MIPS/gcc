@@ -902,9 +902,11 @@ convert_to_void (tree expr, const char *implicit)
 	  if (TREE_CODE (init) == AGGR_INIT_EXPR
 	      && !AGGR_INIT_VIA_CTOR_P (init))
 	    {
-	      tree fn = TREE_OPERAND (init, 0);
-	      expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-			     fn, TREE_OPERAND (init, 1), NULL_TREE);
+	      tree fn = AGGR_INIT_EXPR_FN (init);
+	      expr = build_call_array (TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+				       fn,
+				       aggr_init_expr_nargs (init),
+				       AGGR_INIT_EXPR_ARGP (init));
 	    }
 	}
       break;
@@ -927,7 +929,7 @@ convert_to_void (tree expr, const char *implicit)
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       {
 	/* Only warn when there is no &.  */
-	warning (0, "%s is a reference, not call, to function %qE",
+	warning (OPT_Waddress, "%s is a reference, not call, to function %qE",
 		 implicit, expr);
 	if (TREE_CODE (expr) == COMPONENT_REF)
 	  expr = TREE_OPERAND (expr, 0);

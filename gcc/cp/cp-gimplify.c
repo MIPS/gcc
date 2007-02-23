@@ -363,16 +363,16 @@ gimplify_expr_stmt (tree *stmt_p)
      In this case we will not want to emit the gimplified statement.
      However, we may still want to emit a warning, so we do that before
      gimplification.  */
-  if (stmt && (extra_warnings || warn_unused_value))
+  if (stmt && warn_unused_value)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
 	  if (!IS_EMPTY_STMT (stmt)
 	      && !VOID_TYPE_P (TREE_TYPE (stmt))
 	      && !TREE_NO_WARNING (stmt))
-	    warning (OPT_Wextra, "statement with no effect");
+	    warning (OPT_Wunused_value, "statement with no effect");
 	}
-      else if (warn_unused_value)
+      else
 	warn_if_unused_value (stmt, input_location);
     }
 
@@ -410,7 +410,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (TREE_CODE (sub) == AGGR_INIT_EXPR)
     {
       gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-      TREE_OPERAND (sub, 2) = to;
+      AGGR_INIT_EXPR_SLOT (sub) = to;
       *expr_p = from;
 
       /* The initialization is now a side-effect, so the container can

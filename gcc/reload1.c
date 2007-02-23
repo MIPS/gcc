@@ -3144,35 +3144,15 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	    if (GET_CODE (XEXP (plus_cst_src, 0)) == SUBREG)
 	      to_rtx = gen_lowpart (GET_MODE (XEXP (plus_cst_src, 0)),
 				    to_rtx);
-	    if (offset == 0)
-	      {
-		int num_clobbers;
-		/* We assume here that if we need a PARALLEL with
-		   CLOBBERs for this assignment, we can do with the
-		   MATCH_SCRATCHes that add_clobbers allocates.
-		   There's not much we can do if that doesn't work.  */
-		PATTERN (insn) = gen_rtx_SET (VOIDmode,
-					      SET_DEST (old_set),
-					      to_rtx);
-		num_clobbers = 0;
-		INSN_CODE (insn) = recog (PATTERN (insn), insn, &num_clobbers);
-		if (num_clobbers)
-		  {
-		    rtvec vec = rtvec_alloc (num_clobbers + 1);
-
-		    vec->elem[0] = PATTERN (insn);
-		    PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode, vec);
-		    add_clobbers (PATTERN (insn), INSN_CODE (insn));
-		  }
-		gcc_assert (INSN_CODE (insn) >= 0);
-	      }
 	    /* If we have a nonzero offset, and the source is already
 	       a simple REG, the following transformation would
 	       increase the cost of the insn by replacing a simple REG
 	       with (plus (reg sp) CST).  So try only when we already
 	       had a PLUS before.  */
-	    else if (plus_src)
+	    if (offset == 0 || plus_src)
 	      {
+		rtx new_src = plus_constant (to_rtx, offset);
+
 		new_body = old_body;
 		if (! replace)
 		  {
@@ -3183,8 +3163,20 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		PATTERN (insn) = new_body;
 		old_set = single_set (insn);
 
-		XEXP (SET_SRC (old_set), 0) = to_rtx;
-		XEXP (SET_SRC (old_set), 1) = GEN_INT (offset);
+		/* First see if this insn remains valid when we make the
+		   change.  If not, try to replace the whole pattern with
+		   a simple set (this may help if the original insn was a
+		   PARALLEL that was only recognized as single_set due to 
+		   REG_UNUSED notes).  If this isn't valid either, keep
+		   the INSN_CODE the same and let reload fix it up.  */
+		if (!validate_change (insn, &SET_SRC (old_set), new_src, 0))
+		  {
+		    rtx new_pat = gen_rtx_SET (VOIDmode,
+					       SET_DEST (old_set), new_src);
+
+		    if (!validate_change (insn, &PATTERN (insn), new_pat, 0))
+		      SET_SRC (old_set) = new_src;
+		  }
 	      }
 	    else
 	      break;
@@ -7871,8 +7863,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       if (insn)
 	{
 	  /* Add a REG_EQUIV note so that find_equiv_reg can find it.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 
@@ -7881,7 +7872,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out, op1, opnum, type);
       insn = emit_insn (gen_add2_insn (out, op0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUIV, in);
     }
 
 #ifdef SECONDARY_MEMORY_NEEDED
@@ -7941,8 +7932,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       insn = emit_insn_if_valid_for_reload (insn);
       if (insn)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 

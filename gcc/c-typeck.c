@@ -2330,17 +2330,17 @@ build_function_call (tree function, tree params)
 
   if (require_constant_value)
     {
-      result = fold_build3_initializer (CALL_EXPR, TREE_TYPE (fntype),
-					function, coerced_params, NULL_TREE);
-
+      result = fold_build_call_list_initializer (TREE_TYPE (fntype),
+						 function,
+						 coerced_params);
       if (TREE_CONSTANT (result)
 	  && (name == NULL_TREE
 	      || strncmp (IDENTIFIER_POINTER (name), "__builtin_", 10) != 0))
 	pedwarn_init ("initializer element is not constant");
     }
   else
-    result = fold_build3 (CALL_EXPR, TREE_TYPE (fntype),
-			  function, coerced_params, NULL_TREE);
+    result = fold_build_call_list (TREE_TYPE (fntype),
+				   function, coerced_params);
 
   if (VOID_TYPE_P (TREE_TYPE (result)))
     return result;
@@ -2640,13 +2640,11 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
     {
       if ((code1 == STRING_CST && !integer_zerop (arg2.value))
 	  || (code2 == STRING_CST && !integer_zerop (arg1.value)))
-	warning (OPT_Wstring_literal_comparison,
-		 "comparison with string literal");
+	warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
     }
   else if (TREE_CODE_CLASS (code) == tcc_comparison
 	   && (code1 == STRING_CST || code2 == STRING_CST))
-    warning (OPT_Wstring_literal_comparison,
-	     "comparison with string literal");
+    warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
 
   if (TREE_OVERFLOW_P (result.value) 
       && !TREE_OVERFLOW_P (arg1.value) 
@@ -3270,6 +3268,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 
 	  if (unsigned_op1 ^ unsigned_op2)
 	    {
+	      bool ovf;
+
 	      /* Do not warn if the result type is signed, since the
 		 signed type will only be chosen if it can represent
 		 all the values of the unsigned type.  */
@@ -3278,8 +3278,10 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2
+			&& tree_expr_nonnegative_warnv_p (op1, &ovf))
+		       || (unsigned_op1
+			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
 		/* OK */;
 	      else
 		warning (0, "signed and unsigned type in conditional expression");
@@ -6935,8 +6937,10 @@ c_finish_return (tree retval)
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
     {
       current_function_returns_null = 1;
-      if (pedantic || TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
+      if (TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
 	pedwarn ("%<return%> with a value, in function returning void");
+      else if (pedantic)
+	pedwarn ("ISO C forbids %<return%> with expression, in function returning void");
     }
   else
     {
@@ -7353,10 +7357,10 @@ emit_side_effect_warnings (tree expr)
   else if (!TREE_SIDE_EFFECTS (expr))
     {
       if (!VOID_TYPE_P (TREE_TYPE (expr)) && !TREE_NO_WARNING (expr))
-	warning (0, "%Hstatement with no effect",
+	warning (OPT_Wunused_value, "%Hstatement with no effect",
 		 EXPR_HAS_LOCATION (expr) ? EXPR_LOCUS (expr) : &input_location);
     }
-  else if (warn_unused_value)
+  else
     warn_if_unused_value (expr, input_location);
 }
 
@@ -7381,7 +7385,7 @@ c_process_expr_stmt (tree expr)
      Warnings for statement expressions will be emitted later, once we figure
      out which is the result.  */
   if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
-      && (extra_warnings || warn_unused_value))
+      && warn_unused_value)
     emit_side_effect_warnings (expr);
 
   /* If the expression is not of a type to which we cannot assign a line
@@ -7497,7 +7501,7 @@ c_finish_stmt_expr (tree body)
 
       /* If we're supposed to generate side effects warnings, process
 	 all of the statements except the last.  */
-      if (extra_warnings || warn_unused_value)
+      if (warn_unused_value)
 	{
 	  for (i = tsi_start (last); !tsi_one_before_end_p (i); tsi_next (&i))
 	    emit_side_effect_warnings (tsi_stmt (i));
@@ -8019,7 +8023,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
-	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+	    warning (OPT_Waddress, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op0, 0));
 	  result_type = type0;
 	}
@@ -8027,7 +8031,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR
 	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
-	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+	    warning (OPT_Waddress, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op1, 0));
 	  result_type = type1;
 	}
@@ -8301,6 +8305,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      else
 		{
 		  tree sop, uop;
+		  bool ovf;
 
 		  if (op0_signed)
 		    sop = xop0, uop = xop1;
@@ -8312,7 +8317,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (tree_expr_nonnegative_p (sop))
+		  if (tree_expr_nonnegative_warnv_p (sop, &ovf))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it

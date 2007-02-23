@@ -1,3 +1,299 @@
+2007-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/17002
+	PR classpath/28550
+	* java/util/VMTimeZone.java (getDefaultTimeZoneId): To read
+	/etc/localtime, use ZoneInfo.readTZFile instead of
+	VMTimeZone.readtzFile.  Get better timezone name for /etc/localtime,
+	either if it is a symlink or through /etc/sysconfig/clock.
+	(readSysconfigClockFile): New static method.
+	(readtzFile): Removed.
+	* java/lang/System.java: Add gnu.java.util.zoneinfo.dir to comments.
+	* posix.cc (_Jv_platform_initProperties): Set
+	gnu.java.util.zoneinfo.dir.
+	* sources.am (gnu_java_util_source_files): Add
+	classpath/gnu/java/util/ZoneInfo.java.
+	* Makefile.in: Regenerated.
+	* java/util/VMTimeZone.h: Regenerated.
+	* java/util/TimeZone.h: Regenerated.
+	* gnu/java/util/ZoneInfo.h: Generated.
+
+2007-02-22  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/win32-threads.h: Added #undef OUT.
+
+2007-02-21  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetArgumentsSize): New function.
+	* testsuite/libjava.jvmti/interp/getargssize.java: New test.
+	* testsuite/libjava.jvmti/interp/getargssize.h: Ditto.
+	* testsuite/libjava.jvmti/interp/getargssize.jar: Ditto.
+	* testsuite/libjava.jvmti/interp/getargssize.out: Ditto.
+	* testsuite/libjava.jvmti/interp/natgetargssize.cc: Ditto.
+
+2007-02-21  Gary Benson  <gbenson@redhat.com>
+
+	* java/util/GregorianCalendar.java: Removed.
+	* sources.am, Makefile.in: Rebuilt.
+
+2007-02-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpClassPrepareCB): Move class status stuff to ...
+	(getClassStatus): ... here.
+
+2007-02-20  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/awt/xlib/XEventLoop.h: Regenerated.
+	* gnu/java/awt/peer/gtk/GThreadMutex.h: Likewise.
+	* gnu/java/rmi/server/ConnectionRunnerPool$ConnectionRunner.h:
+	Likewise.
+	* gnu/java/rmi/server/UnicastConnectionManager.h: Likewise.
+	* java/lang/SecurityManager.h: Likewise.
+	* java/lang/Thread.h: Likewise.
+	* java/security/VMSecureRandom$Spinner.h: Likewise.
+	* java/util/concurrent/atomic/AtomicBoolean.h: Likewise.
+	* java/util/concurrent/atomic/AtomicInteger.h: Likewise.
+	* java/util/concurrent/atomic/AtomicLong.h: Likewise.
+	* java/util/concurrent/atomic/AtomicReference.h: Likewise.
+	* java/util/concurrent/ConcurrentHashMap$HashEntry.h: Likewise.
+	* java/util/concurrent/ConcurrentHashMap$Segment.h: Likewise.
+	* java/util/concurrent/ConcurrentLinkedQueue.h: Likewise.
+	* java/util/concurrent/ConcurrentLinkedQueue$Node.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap$Index.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap$Node.h: Likewise.
+	* java/util/concurrent/Exchanger.h: Likewise.
+	* java/util/concurrent/Exchanger$Node.h: Likewise.
+	* java/util/concurrent/FutureTask$Sync.h: Likewise.
+	* java/util/concurrent/LinkedBlockingQueue$Node.h: Likewise.
+	* java/util/concurrent/locks/AbstractQueuedLongSynchronizer.h:
+	Likewise.
+	* java/util/concurrent/locks/AbstractQueuedLongSynchronizer$Node.h: 
+	Likewise.
+	* java/util/concurrent/locks/AbstractQueuedSynchronizer.h: Likewise.
+	* java/util/concurrent/locks/AbstractQueuedSynchronizer$Node.h:
+	Likewise.
+	* java/util/concurrent/ScheduledThreadPoolExecutor.h: Likewise.
+	* java/util/concurrent/SynchronousQueue.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferQueue.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferQueue$QNode.h:
+	Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferStack.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferStack$SNode.h:
+	Likewise.
+	* java/util/concurrent/ThreadPoolExecutor.h: Likewise.
+	* java/util/concurrent/ThreadPoolExecutor$Worker.h: Likewise.
+	* java/util/logging/ErrorManager.h: Likewise.
+	* javax/swing/plaf/basic/BasicSpinnerUI$2.h: Likewise.
+	* javax/swing/plaf/basic/BasicSpinnerUI$4.h: Likewise.
+
+2007-02-16  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(get_line_table): New function.
+	(handle_single_step): New function.
+	(jdwpSingleStepCB): New function.
+	(jdwpVMInitCB): Define a JVMTI single step
+	callback, but don't enable it until needed.
+
+2007-02-16  David Daney  <ddaney@avtrex.com>
+
+	* java/lang/Thread.java (Thread(ThreadGroup, Runnable, String)): Pass
+	new parameter constructor.
+	(Thread(ThreadGroup, Runnable, String, long)): Same.
+	(Thread(String, boolean)): New constructor.
+	(Thread(Thread, ThreadGroup, Runnable, String): Add parameter
+	noInheritableThreadLocal, don't call
+	InheritableThreadLocal.newChildThread if set.
+	* java/lang/PosixProcess.java(ProcessManager()): Set
+	noInheritableThreadLocal in super.
+	* java/lang/natThread.cc (_Jv_AttachCurrentThread): Pass new
+	parameter to Thread constructor.
+	(_Jv_AttachCurrentThreadAsDaemon): Same.
+	* java/lang/Thread.h: Regenerate.
+	* classpath/lib/java/lang/Thread.class: Same.
+	* classpath/lib/java/lang/PosixProcess$EOFInputStream.class: Same.
+	* classpath/lib/java/lang/PosixProcess.class: Same.
+	* classpath/lib/java/lang/Thread$State.class: Same.
+	* classpath/lib/java/lang/PosixProcess$ProcessManager.class: Same.
+
+2007-02-16  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret.cc: Add extra DEBUG_LOCALS_INSN calls for multi-slot
+	variables to maintain type info.
+	* interpret-run.cc: Add local variable info to frame in the debug
+	interpreter.
+	* jvmti.cc (getLocalFrame): New method.
+	(_Jv_JVMTI_GetLocalObject): New method.
+	(_Jv_JVMTI_GetLocallInt): New method.
+	(_Jv_JVMTI_GetLocalFloat): New method.
+	(_Jv_JVMTI_GetLocalLong): New method.
+	(_Jv_JVMTI_GetLocalDouble): New method.
+	(_Jv_JVMTI_SetLocalObject): New method.
+	(_Jv_JVMTI_SetLocalInt): New method.
+	(_Jv_JVMTI_SetLocalFloat): New method.
+	(_Jv_JVMTI_SetLocalLong): New method.
+	(_Jv_JVMTI_SetLocalDouble): New method.
+
+2007-02-16  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java
+	(bytesToString): Don't lose zeros from within the digest.
+
+2007-02-15  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am (nat_source_files): Remove
+	java/lang/management/natVMManagementFactory.cc.
+	* java/lang/Thread.java (getStackTrace): Use reflection to call
+	the ManagementFactory.
+	* java/lang/management/VMManagementFactory.java: Remove native
+	methods.
+	* java/lang/management/natVMManagementFactory.cc: Deleted.
+	* sources.am: Regnerate.
+	* scripts/makemake.tcl: Add new "bcheaders" type.
+	Move java/lang/management and gnu/classpath/management to "bc".
+	Move gnu/java/lang/management to "bcheaders".
+	
+2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+	
+	* interpret.cc (_Jv_InterpMethod::check_handler): New method.
+	* interpret-run.cc: Change the catch section to report exception
+	events and to use the new check_handler method.
+	* include/java-interp.h (_Jv_InterpMethod): Add check_handler.
+	* gnu/gcj/jvmti/ExceptionEvent.java: New file.
+	* gnu/gcj/jvmti/ExceptionEvent.h: New file.
+	* gnu/gcj/jvmti/natExceptionEvent.cc: New file.
+	* libjava/classpath/lib/gnu/gcj/jvmti/ExceptionEvent.class: New
+	file.
+	* sources.am: Added ExceptionEvent.java.
+	* Makefile.am: Added natExceptionEvent.cc
+	* Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+
+2007-02-15  Johannes Schmidt  <jschmidt@avtrex.com>
+	David Daney  <ddaney@avtrex.com>
+
+	* configure.ac: Create vm-tools-packages file.  Add 
+	gnu/gcj/tools/gc_analyze to standard.omit and vm-tools-packages.
+	Check for /proc/self/maps.
+	* Makefile.am (bin_PROGRAMS): Added gc-analyze.
+	(gc_analyze_SOURCES): New.
+	(gc_analyze_LDFLAGS): New.
+	(gc_analyze_LINK): New.
+	(gc_analyze_LDADD): New.
+	(gc_analyze_DEPENDENCIES): New.
+	(nat_source_files): Add gnu/gcj/util/natGCInfo.cc.
+	* Makefile.in: Regenerated.
+	* configure: Regenerated.
+	* include/config.h.in: Regenerated.
+	* sources.am: Regenerated.
+	* scripts/makemake.tcl: Don't include gc-analyze classes in libgcj.
+	* gnu/gcj/tools/gc_analyze/SymbolLookup.java: New.
+	* gnu/gcj/tools/gc_analyze/ObjectMap.java: New.
+	* gnu/gcj/tools/gc_analyze/MemoryMap.java: New.
+	* gnu/gcj/tools/gc_analyze/SymbolTable.java: New.
+	* gnu/gcj/tools/gc_analyze/BlockMap.java: New.
+	* gnu/gcj/tools/gc_analyze/BytePtr.java: New.
+	* gnu/gcj/tools/gc_analyze/ItemList.java: New.
+	* gnu/gcj/tools/gc_analyze/ToolPrefix.java: New.
+	* gnu/gcj/tools/gc_analyze/MemoryAnalyze.java: New.
+	* gnu/gcj/util/GCInfo.java: New.
+	* gnu/gcj/util/GCInfo.h: New.
+	* gnu/gcj/util/natGCInfo.cc: New.
+	* gnu/gcj/util/UtilPermission.java: New.
+	* gnu/gcj/util/UtilPermission.h: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/SymbolTable.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/ObjectMap$ObjectItem.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryMap$RangeComparator.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/BlockMap$PtrMarks.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryMap$Range.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/BlockMap.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/BytePtr.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$SubstringComparator.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/ItemList.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/ToolPrefix.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$1$Info.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$1.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$2.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$3.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$4.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryAnalyze$OptionParser.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/BlockMap$SizeKind.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/SymbolLookup.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/ObjectMap.class: New.
+	* classpath/tools/gnu/gcj/tools/gc_analyze/MemoryMap.class: New.
+	* classpath/lib/gnu/gcj/util/GCInfo.class: New.
+	* classpath/lib/gnu/gcj/util/UtilPermission.class: New.
+
+2007-02-15  David Daney  <ddaney@avtrex.com>
+
+	* gnu/java/net/PlainSocketImpl.h: Regenerate.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Same.
+	* gnu/classpath/jdwp/VMFrame.h: Same.
+	* java/net/Socket.h: Same.
+	* java/util/Collections$UnmodifiableMap$UnmodifiableEntrySet.h: Same.
+
+2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+
+	* defineclass.cc (_Jv_ClassReader::read_one_code_attribute):
+	Added LocalVariableTable attribute handling.
+	(_Jv_ClassReader::pool_Utf8_to_char_arr): New method.
+	* jvmti.cc (_Jv_JVMTI_GetLocalVariableTable): New method.
+	* include/java-interp.h: Added local_var_table and 
+	local_var_table_len fields to _Jv_InterpMethod.
+	(_Jv_InterpMethod::get_local_var_table): New method.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.java: New test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.jar: New test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.out: Output
+	for new test.
+	* testsuite/libjava.jvmti/interp/getlocalvartable.h: New test.
+	* testsuite/libjava.jvmti/interp/natgetlocalvartable.cc: New test.
+
+2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine (getFrames): Implement.
+
+2007-02-13  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpBreakpointCB): New function.
+	(jdwpVMInitCB): Define and enable the breakpoint
+	callback.
+
+2007-02-13  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/Divide_2.out
+	* testsuite/libjava.lang/Divide_2.java: New test.
+
+2007-02-12  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetStackTrace): Remove cast
+	from jthread to Thread *; it is no longer needed.
+	(_Jv_JVMTI_GetFrameCount): Likewise.
+	Fix small formatting typo.
+
+2007-02-12  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* java/lang/Socket.java: Removed override.
+	* java/lang/DatagramSocket.java: Removed override.
+	* gnu/java/net/PlainSocketImpl.java (localSocketAddress): New
+	field.
+	(getLocalAddress): New method.
+	* gnu/java/net/PlainDatagramSocketImpl.java
+	(PlainDatagramSocketImpl): Throws IOException.
+	* gnu/java/net/natPlainSocketImplPosix.cc (write): Remove
+	'sizeof'.
+	(read): Likewise.
+
+2007-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* java/util/VMTimeZone.java: Rewrite to handle both the old
+	'TZif\0' format and the new one.
+	
 2007-02-10  Andrew Haley  <aph@redhat.com>
 
 	PR java/30742

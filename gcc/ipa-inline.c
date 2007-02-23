@@ -496,7 +496,7 @@ cgraph_edge_badness (struct cgraph_edge *edge)
 
   /* When profiling is available, base priorities -(#calls / growth).
      So we optimize for overall number of "executed" inlined calls.  */
-  if (max_count)
+  else if (max_count)
     badness = ((int)((double)edge->count * INT_MIN / max_count)) / growth;
 
   /* When function local profile is available, base priorities on
@@ -1345,7 +1345,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    continue;
 	  }
 	/* When the function body would grow and inlining the function won't
-	   elliminate the need for offline copy of the function, don't inline.
+	   eliminate the need for offline copy of the function, don't inline.
 	 */
 	if (mode == INLINE_SIZE
 	    && (cgraph_estimate_size_after_inlining (1, e->caller, e->callee)

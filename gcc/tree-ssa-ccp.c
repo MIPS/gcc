@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -207,6 +207,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "target.h"
+#include "toplev.h"
 
 
 /* Possible lattice values.  */
@@ -938,15 +939,13 @@ ccp_fold (tree stmt)
   /* We may be able to fold away calls to builtin functions if their
      arguments are constants.  */
   else if (code == CALL_EXPR
-	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-	   && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-	       == FUNCTION_DECL)
-	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	   && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
+ 	   && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)) == FUNCTION_DECL
+ 	   && DECL_BUILT_IN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
     {
       if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
 	  tree *orig, var;
-	  tree fndecl, arglist;
 	  size_t i = 0;
 	  ssa_op_iter iter;
 	  use_operand_p var_p;
@@ -958,9 +957,7 @@ ccp_fold (tree stmt)
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL, const_val);
-	  fndecl = get_callee_fndecl (rhs);
-	  arglist = TREE_OPERAND (rhs, 1);
-	  retval = fold_builtin (fndecl, arglist, false);
+	  retval = fold_call_expr (rhs, false);
 
 	  /* Restore operands to their original form.  */
 	  i = 0;
@@ -1132,8 +1129,11 @@ evaluate_stmt (tree stmt)
   prop_value_t val;
   tree simplified = NULL_TREE;
   ccp_lattice_t likelyvalue = likely_value (stmt);
+  bool is_constant;
 
   val.mem_ref = NULL_TREE;
+
+  fold_defer_overflow_warnings ();
 
   /* If the statement is likely to have a CONSTANT result, then try
      to fold the statement to determine the constant value.  */
@@ -1151,7 +1151,11 @@ evaluate_stmt (tree stmt)
   else if (!simplified)
     simplified = fold_const_aggregate_ref (get_rhs (stmt));
 
-  if (simplified && is_gimple_min_invariant (simplified))
+  is_constant = simplified && is_gimple_min_invariant (simplified);
+
+  fold_undefer_overflow_warnings (is_constant, stmt, 0);
+
+  if (is_constant)
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
@@ -1966,8 +1970,9 @@ maybe_fold_stmt_addition (tree expr)
 
 struct fold_stmt_r_data
 {
-    bool *changed_p;
-    bool *inside_addr_expr_p;
+  tree stmt;
+  bool *changed_p;
+  bool *inside_addr_expr_p;
 };
 
 /* Subroutine of fold_stmt called via walk_tree.  We perform several
@@ -2063,10 +2068,16 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);
-          tree tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
-				  TREE_OPERAND (op0, 0),
-				  TREE_OPERAND (op0, 1));
-	  if (tem && set_rhs (expr_p, tem))
+          tree tem;
+	  bool set;
+
+	  fold_defer_overflow_warnings ();
+	  tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
+			     TREE_OPERAND (op0, 0),
+			     TREE_OPERAND (op0, 1));
+	  set = tem && set_rhs (expr_p, tem);
+	  fold_undefer_overflow_warnings (set, fold_stmt_r_data->stmt, 0);
+	  if (set)
 	    {
 	      t = *expr_p;
 	      break;
@@ -2204,18 +2215,18 @@ static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
   tree result, val[3];
-  tree callee, arglist, a;
+  tree callee, a;
   int arg_mask, i, type;
   bitmap visited;
   bool ignore;
+  call_expr_arg_iterator iter;
+  int nargs;
 
   ignore = TREE_CODE (stmt) != GIMPLE_MODIFY_STMT;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  callee = get_callee_fndecl (fn);
-  arglist = TREE_OPERAND (fn, 1);
-  result = fold_builtin (callee, arglist, ignore);
+  result = fold_call_expr (fn, ignore);
   if (result)
     {
       if (ignore)
@@ -2224,12 +2235,14 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Ignore MD builtins.  */
+  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  if (!arglist)
+  nargs = call_expr_nargs (fn);
+  if (nargs == 0)
     return NULL_TREE;
 
   /* Limit the work only for builtins we know how to simplify.  */
@@ -2272,15 +2285,17 @@ ccp_fold_builtin (tree stmt, tree fn)
   visited = BITMAP_ALLOC (NULL);
 
   memset (val, 0, sizeof (val));
-  for (i = 0, a = arglist;
-       arg_mask;
-       i++, arg_mask >>= 1, a = TREE_CHAIN (a))
-    if (arg_mask & 1)
-      {
-	bitmap_clear (visited);
-	if (!get_maxval_strlen (TREE_VALUE (a), &val[i], visited, type))
-	  val[i] = NULL_TREE;
-      }
+  init_call_expr_arg_iterator (fn, &iter);
+  for (i = 0; arg_mask; i++, arg_mask >>= 1)
+    {
+      a = next_call_expr_arg (&iter);
+      if (arg_mask & 1)
+	{
+	  bitmap_clear (visited);
+	  if (!get_maxval_strlen (a, &val[i], visited, type))
+	    val[i] = NULL_TREE;
+	}
+    }
 
   BITMAP_FREE (visited);
 
@@ -2302,23 +2317,32 @@ ccp_fold_builtin (tree stmt, tree fn)
       break;
 
     case BUILT_IN_STRCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strcpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 2)
+	result = fold_builtin_strcpy (callee,
+				      CALL_EXPR_ARG (fn, 0),
+				      CALL_EXPR_ARG (fn, 1),
+				      val[1]);
       break;
 
     case BUILT_IN_STRNCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strncpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 3)
+	result = fold_builtin_strncpy (callee,
+				       CALL_EXPR_ARG (fn, 0),
+				       CALL_EXPR_ARG (fn, 1),
+				       CALL_EXPR_ARG (fn, 2),
+				       val[1]);
       break;
 
     case BUILT_IN_FPUTS:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG (fn, 0),
+				   CALL_EXPR_ARG (fn, 1),
 				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG (fn, 0),
+				   CALL_EXPR_ARG (fn, 1),
 				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 1,
 				   val[0]);
       break;
@@ -2328,26 +2352,39 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_memory_chk (callee, arglist, val[2], ignore,
+	result = fold_builtin_memory_chk (callee,
+					  CALL_EXPR_ARG (fn, 0),
+					  CALL_EXPR_ARG (fn, 1),
+					  CALL_EXPR_ARG (fn, 2),
+					  CALL_EXPR_ARG (fn, 3),
+					  val[2], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRCPY_CHK:
     case BUILT_IN_STPCPY_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_stxcpy_chk (callee, arglist, val[1], ignore,
+	result = fold_builtin_stxcpy_chk (callee,
+					  CALL_EXPR_ARG (fn, 0),
+					  CALL_EXPR_ARG (fn, 1),
+					  CALL_EXPR_ARG (fn, 2),
+					  val[1], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRNCPY_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_strncpy_chk (arglist, val[2]);
+	result = fold_builtin_strncpy_chk (CALL_EXPR_ARG (fn, 0),
+					   CALL_EXPR_ARG (fn, 1),
+					   CALL_EXPR_ARG (fn, 2),
+					   CALL_EXPR_ARG (fn, 3),
+					   val[2]);
       break;
 
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_snprintf_chk (arglist, val[1],
+	result = fold_builtin_snprintf_chk (fn, val[1],
 					    DECL_FUNCTION_CODE (callee));
       break;
 
@@ -2373,18 +2410,17 @@ fold_stmt (tree *stmt_p)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  stmt = *stmt_p;
+
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
-
-  stmt = *stmt_p;
 
   /* If we replaced constants and the statement makes pointer dereferences,
      then we may need to fold instances of *&VAR into VAR, etc.  */
   if (walk_tree (stmt_p, fold_stmt_r, &fold_stmt_r_data, NULL))
     {
-      *stmt_p
-	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
-				    NULL);
+      *stmt_p = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       return true;
     }
 
@@ -2412,8 +2448,8 @@ fold_stmt (tree *stmt_p)
 	     copying EH region info to the new node.  Easier to just do it
 	     here where we can just smash the call operand. Also
 	     CALL_EXPR_RETURN_SLOT_OPT needs to be handled correctly and
-	     copied, fold_ternary does not have not information. */
-	  callee = TREE_OPERAND (rhs, 0);
+	     copied, fold_call_expr does not have not information. */
+	  callee = CALL_EXPR_FN (rhs);
 	  if (TREE_CODE (callee) == OBJ_TYPE_REF
 	      && lang_hooks.fold_obj_type_ref
 	      && TREE_CODE (OBJ_TYPE_REF_OBJECT (callee)) == ADDR_EXPR
@@ -2431,7 +2467,7 @@ fold_stmt (tree *stmt_p)
 	      t = lang_hooks.fold_obj_type_ref (callee, t);
 	      if (t)
 		{
-		  TREE_OPERAND (rhs, 0) = t;
+		  CALL_EXPR_FN (rhs) = t;
 		  changed = true;
 		}
 	    }
@@ -2472,6 +2508,7 @@ fold_stmt_inplace (tree stmt)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
 

@@ -1604,10 +1604,6 @@ extern unsigned int cleanup_barriers (void);
 /* In jump.c */
 extern bool squeeze_notes (rtx *, rtx *);
 extern rtx delete_related_insns (rtx);
-extern void delete_jump (rtx);
-extern rtx get_label_before (rtx);
-extern rtx get_label_after (rtx);
-extern rtx follow_jumps (rtx);
 
 /* In recog.c  */
 extern rtx *find_constant_term_loc (rtx *);
@@ -1713,6 +1709,7 @@ extern int find_reg_fusage (rtx, enum rtx_code, rtx);
 extern int find_regno_fusage (rtx, enum rtx_code, unsigned int);
 extern int pure_call_p (rtx);
 extern void remove_note (rtx, rtx);
+extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (rtx);
 extern int volatile_refs_p (rtx);
 extern int volatile_insn_p (rtx);

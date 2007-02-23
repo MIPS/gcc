@@ -414,7 +414,10 @@ symbolic_range_p (value_range_t *vr)
 static bool
 vrp_expr_computes_nonnegative (tree expr)
 {
-  return tree_expr_nonnegative_p (expr);
+  bool ovf;
+
+  /* FIXME: May need to record overflow information here.  */
+  return tree_expr_nonnegative_warnv_p (expr, &ovf);
 }
 
 /* Like tree_expr_nonzero_p, but this function uses value ranges
@@ -423,7 +426,10 @@ vrp_expr_computes_nonnegative (tree expr)
 static bool
 vrp_expr_computes_nonzero (tree expr)
 {
-  if (tree_expr_nonzero_p (expr))
+  bool ovf;
+
+  /* FIXME: May need to record overflow information here.  */
+  if (tree_expr_nonzero_warnv_p (expr, &ovf))
     return true;
 
   /* If we have an expression of the form &X->a, then the expression
@@ -1697,7 +1703,10 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
      determining if it evaluates to NULL [0, 0] or non-NULL (~[0, 0]).  */
   if (POINTER_TYPE_P (TREE_TYPE (expr)) || POINTER_TYPE_P (TREE_TYPE (op0)))
     {
-      if (range_is_nonnull (&vr0) || tree_expr_nonzero_p (expr))
+      bool ovf;
+
+      /* FIXME: May need to record overflow information here.  */
+      if (range_is_nonnull (&vr0) || tree_expr_nonzero_warnv_p (expr, &ovf))
 	set_value_range_to_nonnull (vr, TREE_TYPE (expr));
       else if (range_is_null (&vr0))
 	set_value_range_to_null (vr, TREE_TYPE (expr));
@@ -3738,9 +3747,9 @@ stmt_interesting_for_vrp (tree stmt)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	      || POINTER_TYPE_P (TREE_TYPE (lhs)))
 	  && ((TREE_CODE (rhs) == CALL_EXPR
-	       && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-	       && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-	       && DECL_IS_BUILTIN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	       && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
+	       && DECL_P (TREE_OPERAND (CALL_EXPR_FN (rhs), 0))
+	       && DECL_IS_BUILTIN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
 	      || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)))
 	return true;
     }
@@ -4233,9 +4242,9 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 	 for deriving ranges, with the obvious exception of calls to
 	 builtin functions.  */
       if ((TREE_CODE (rhs) == CALL_EXPR
-	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-	   && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-	   && DECL_IS_BUILTIN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	   && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
+	   && DECL_P (TREE_OPERAND (CALL_EXPR_FN (rhs), 0))
+	   && DECL_IS_BUILTIN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
 	  || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
 	return vrp_visit_assignment (stmt, output_p);
     }

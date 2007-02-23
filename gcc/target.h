@@ -115,7 +115,7 @@ struct gcc_target
     /* Output code that will globalize a label.  */
     void (* globalize_label) (FILE *, const char *);
 
-    /* Output code that will globalise a declaration.  */
+    /* Output code that will globalize a declaration.  */
     void (* globalize_decl_name) (FILE *, tree);
 
     /* Output code that will emit a label for unwind info, if this
@@ -396,6 +396,10 @@ struct gcc_target
     /* Returns a code for builtin that realizes vectorized version of
        function, or NULL_TREE if not available.  */
     tree (* builtin_vectorized_function) (unsigned, tree, tree);
+
+    /* Returns a code for builtin that realizes vectorized version of
+       conversion, or NULL_TREE if not available.  */
+    tree (* builtin_conversion) (unsigned, tree);
 
     /* Target builtin that implements vector widening multiplication.
        builtin_mul_widen_eve computes the element-by-element products 

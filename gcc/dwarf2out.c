@@ -4153,7 +4153,6 @@ static void output_ranges (void);
 static void output_line_info (void);
 static void output_file_names (void);
 static dw_die_ref base_type_die (tree);
-static tree root_type (tree);
 static int is_base_type (tree);
 static bool is_subrange_type (tree);
 static dw_die_ref subrange_type_die (tree, dw_die_ref);
@@ -5040,9 +5039,15 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   slot = htab_find_slot_with_hash (debug_str_hash, str,
 				   htab_hash_string (str), INSERT);
   if (*slot == NULL)
-    *slot = ggc_alloc_cleared (sizeof (struct indirect_string_node));
-  node = (struct indirect_string_node *) *slot;
-  node->str = ggc_strdup (str);
+    {
+      node = (struct indirect_string_node *)
+	       ggc_alloc_cleared (sizeof (struct indirect_string_node));
+      node->str = ggc_strdup (str);
+      *slot = node;
+    }
+  else
+    node = (struct indirect_string_node *) *slot;
+
   node->refcount++;
 
   attr.dw_attr = attr_kind;
@@ -8303,35 +8308,6 @@ base_type_die (tree type)
   return base_type_result;
 }
 
-/* Given a pointer to an arbitrary ..._TYPE tree node, return a pointer to
-   the Dwarf "root" type for the given input type.  The Dwarf "root" type of
-   a given type is generally the same as the given type, except that if the
-   given type is a pointer or reference type, then the root type of the given
-   type is the root type of the "basis" type for the pointer or reference
-   type.  (This definition of the "root" type is recursive.) Also, the root
-   type of a `const' qualified type or a `volatile' qualified type is the
-   root type of the given type without the qualifiers.  */
-
-static tree
-root_type (tree type)
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return error_mark_node;
-
-  switch (TREE_CODE (type))
-    {
-    case ERROR_MARK:
-      return error_mark_node;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      return type_main_variant (root_type (TREE_TYPE (type)));
-
-    default:
-      return type_main_variant (type);
-    }
-}
-
 /* Given a pointer to an arbitrary ..._TYPE tree node, return nonzero if the
    given input type is a Dwarf "fundamental" type.  Otherwise return null.  */
 
@@ -8841,6 +8817,32 @@ is_based_loc (rtx rtl)
 	       && GET_CODE (XEXP (rtl, 1)) == CONST_INT)));
 }
 
+/* Return a descriptor that describes the concatenation of N locations
+   used to form the address of a memory location.  */
+
+static dw_loc_descr_ref
+concatn_mem_loc_descriptor (rtx concatn, enum machine_mode mode)
+{
+  unsigned int i;
+  dw_loc_descr_ref cc_loc_result = NULL;
+  unsigned int n = XVECLEN (concatn, 0);
+
+  for (i = 0; i < n; ++i)
+    {
+      dw_loc_descr_ref ref;
+      rtx x = XVECEXP (concatn, 0, i);
+
+      ref = mem_loc_descriptor (x, mode);
+      if (ref == NULL)
+	return NULL;
+
+      add_loc_descr (&cc_loc_result, ref);
+      add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x)));
+    }
+
+  return cc_loc_result;
+}
+
 /* The following routine converts the RTL for a variable or parameter
    (resident in memory) into an equivalent Dwarf representation of a
    mechanism for getting the address of that same variable onto the top of a
@@ -9034,6 +9036,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode)
 
     case CONST_INT:
       mem_loc_result = int_loc_descriptor (INTVAL (rtl));
+      break;
+
+    case CONCATN:
+      mem_loc_result = concatn_mem_loc_descriptor (rtl, mode);
       break;
 
     default:
@@ -9656,6 +9662,24 @@ simple_decl_align_in_bits (tree decl)
   return (TREE_CODE (decl) != ERROR_MARK) ? DECL_ALIGN (decl) : BITS_PER_WORD;
 }
 
+/* Return the result of rounding T up to ALIGN.  */
+
+static inline HOST_WIDE_INT
+round_up_to_align (HOST_WIDE_INT t, unsigned int align)
+{
+  /* We must be careful if T is negative because HOST_WIDE_INT can be
+     either "above" or "below" unsigned int as per the C promotion
+     rules, depending on the host, thus making the signedness of the
+     direct multiplication and division unpredictable.  */
+  unsigned HOST_WIDE_INT u = (unsigned HOST_WIDE_INT) t;
+
+  u += align - 1;
+  u /= align;
+  u *= align;
+
+  return (HOST_WIDE_INT) u;
+}
+
 /* Given a pointer to a FIELD_DECL, compute and return the byte offset of the
    lowest addressed byte of the "containing object" for the given FIELD_DECL,
    or return 0 if we are unable to determine what that offset is, either
@@ -9755,9 +9779,8 @@ field_byte_offset (tree decl)
   object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
   /* Round up to type_align by default.  This works best for bitfields.  */
-  object_offset_in_bits += type_align_in_bits - 1;
-  object_offset_in_bits /= type_align_in_bits;
-  object_offset_in_bits *= type_align_in_bits;
+  object_offset_in_bits
+    = round_up_to_align (object_offset_in_bits, type_align_in_bits);
 
   if (object_offset_in_bits > bitpos_int)
     {
@@ -9765,9 +9788,8 @@ field_byte_offset (tree decl)
       object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
       /* Round up to decl_align instead.  */
-      object_offset_in_bits += decl_align_in_bits - 1;
-      object_offset_in_bits /= decl_align_in_bits;
-      object_offset_in_bits *= decl_align_in_bits;
+      object_offset_in_bits
+	= round_up_to_align (object_offset_in_bits, decl_align_in_bits);
     }
 
   return object_offset_in_bits / BITS_PER_UNIT;
@@ -11235,10 +11257,17 @@ type_tag (tree type)
 	 involved.  */
       else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	       && ! DECL_IGNORED_P (TYPE_NAME (type)))
-	t = DECL_NAME (TYPE_NAME (type));
+	{
+	  /* We want to be extra verbose.  Don't call dwarf_name if
+	     DECL_NAME isn't set.  The default hook for decl_printable_name
+	     doesn't like that, and in this context it's correct to return
+	     0, instead of "<anonymous>" or the like.  */
+	  if (DECL_NAME (TYPE_NAME (type)))
+	    name = lang_hooks.dwarf_name (TYPE_NAME (type), 2);
+	}
 
       /* Now get the name as a string, or invent one.  */
-      if (t != 0)
+      if (!name && t != 0)
 	name = IDENTIFIER_POINTER (t);
     }
 
@@ -14389,7 +14418,9 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context && TREE_CODE (context) == FUNCTION_DECL);
+	      gcc_assert (context
+			  && (TREE_CODE (context) == FUNCTION_DECL
+			      || TREE_CODE (context) == NAMESPACE_DECL));
 
 	      origin = lookup_decl_die (context);
 	      if (origin)

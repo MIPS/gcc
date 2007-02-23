@@ -1218,6 +1218,10 @@ use_blocks_for_decl_p (tree decl)
   if (DECL_INITIAL (decl) == decl)
     return false;
 
+  /* If this decl is an alias, then we don't want to emit a definition.  */
+  if (lookup_attribute ("alias", DECL_ATTRIBUTES (decl)))
+    return false;
+
   return true;
 }
 
@@ -6098,7 +6102,7 @@ default_asm_output_anchor (rtx symbol)
 {
   char buffer[100];
 
-  sprintf (buffer, ". + " HOST_WIDE_INT_PRINT_DEC,
+  sprintf (buffer, "*. + " HOST_WIDE_INT_PRINT_DEC,
 	   SYMBOL_REF_BLOCK_OFFSET (symbol));
   ASM_OUTPUT_DEF (asm_out_file, XSTR (symbol, 0), buffer);
 }

@@ -1,5 +1,5 @@
-#   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-#   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+#   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+#   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -85,14 +85,25 @@ progname=$0
 # if PWD already has a value, it is probably wrong.
 if test -n "$PWD" ; then PWD=`${PWDCMD-pwd}`; fi
 
-# Export original configure arguments for use by sub-configures.  These
-# will be expanded by make, so quote '$'.
-tmp="$progname $@"
-sed -e 's,\$,$$,g' <<EOF_SED > conftestsed.out
-$tmp
-EOF_SED
-TOPLEVEL_CONFIGURE_ARGUMENTS=`cat conftestsed.out`
-rm -f conftestsed.out
+# Export original configure arguments for use by sub-configures.
+# Quote arguments with shell meta charatcers.
+TOPLEVEL_CONFIGURE_ARGUMENTS=
+set -- "$progname" "$@"
+for ac_arg
+do
+  case "$ac_arg" in
+  *" "*|*"	"*|*[\[\]\~\#\$\^\&\*\(\)\{\}\\\|\;\<\>\?]*)
+    ac_arg=`echo "$ac_arg" | sed "s/'/'\\\\\\\\''/g"`
+    # if the argument is of the form -foo=baz, quote the baz part only
+    ac_arg=`echo "'$ac_arg'" | sed "s/^'\([[-a-zA-Z0-9]]*=\)/\\1'/"` ;;
+  *) ;;
+  esac
+  # Add the quoted argument to the list.
+  TOPLEVEL_CONFIGURE_ARGUMENTS="$TOPLEVEL_CONFIGURE_ARGUMENTS $ac_arg"
+done
+# Remove the initial space we just introduced and, as these will be
+# expanded by make, quote '$'.
+TOPLEVEL_CONFIGURE_ARGUMENTS=`echo "x$TOPLEVEL_CONFIGURE_ARGUMENTS" | sed -e 's/^x *//' -e 's,\\$,$$,g'`
 AC_SUBST(TOPLEVEL_CONFIGURE_ARGUMENTS)
 
 moveifchange=${srcdir}/move-if-change
@@ -158,8 +169,8 @@ libgcj="target-libffi \
 # these libraries are built for the target environment, and are built after
 # the host libraries and the host tools (which may be a cross compiler)
 #
-target_libraries="target-libiberty \
-		target-libgcc \
+target_libraries="target-libgcc \
+		target-libiberty \
 		target-libgloss \
 		target-newlib \
 		target-libstdc++-v3 \
@@ -1030,49 +1041,31 @@ if test -z "${CC}" && test "${build}" = "${host}" ; then
 fi
 
 if test "${build}" != "${host}" ; then
-  # If we are doing a Canadian Cross, in which the host and build systems
-  # are not the same, we set reasonable default values for the tools.
-
-  CC=${CC-${host_noncanonical}-gcc}
-  CFLAGS=${CFLAGS-"-g -O2"}
-  CXX=${CXX-${host_noncanonical}-c++}
-  CXXFLAGS=${CXXFLAGS-"-g -O2"}
   CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
-
 else
-  # Set reasonable default values for some tools even if not Canadian.
-  # Of course, these are different reasonable default values, originally
-  # specified directly in the Makefile.
-  # We don't export, so that autoconf can do its job.
-  # Note that all these settings are above the fragment inclusion point
-  # in Makefile.in, so can still be overridden by fragments.
-  # This is all going to change when we autoconfiscate...
-
   CC_FOR_BUILD="\$(CC)"
-  AC_PROG_CC
+fi
 
-  # We must set the default linker to the linker used by gcc for the correct
-  # operation of libtool.  If LD is not defined and we are using gcc, try to
-  # set the LD default to the ld used by gcc.
-  if test -z "$LD"; then
-    if test "$GCC" = yes; then
-      case $build in
-      *-*-mingw*)
-	gcc_prog_ld=`$CC -print-prog-name=ld 2>&1 | tr -d '\015'` ;;
-      *)
-	gcc_prog_ld=`$CC -print-prog-name=ld 2>&1` ;;
-      esac
-      case $gcc_prog_ld in
-      # Accept absolute paths.
-      [[\\/]* | [A-Za-z]:[\\/]*)]
-        LD="$gcc_prog_ld" ;;
-      esac
-    fi
+AC_PROG_CC
+AC_PROG_CXX
+
+# We must set the default linker to the linker used by gcc for the correct
+# operation of libtool.  If LD is not defined and we are using gcc, try to
+# set the LD default to the ld used by gcc.
+if test -z "$LD"; then
+  if test "$GCC" = yes; then
+    case $build in
+    *-*-mingw*)
+      gcc_prog_ld=`$CC -print-prog-name=ld 2>&1 | tr -d '\015'` ;;
+    *)
+      gcc_prog_ld=`$CC -print-prog-name=ld 2>&1` ;;
+    esac
+    case $gcc_prog_ld in
+    # Accept absolute paths.
+    [[\\/]* | [A-Za-z]:[\\/]*)]
+      LD="$gcc_prog_ld" ;;
+    esac
   fi
-
-  CXX=${CXX-"c++"}
-  CFLAGS=${CFLAGS-"-g"}
-  CXXFLAGS=${CXXFLAGS-"-g -O2"}
 fi
 
 ACX_PROG_GNAT
@@ -1415,7 +1408,7 @@ Supported languages are: ${potential_languages}])
   fi
 
   AC_SUBST(stage1_languages)
-  ac_configure_args=`echo " $ac_configure_args" | sed -e 's/ --enable-languages=[[^ ]]*//' -e 's/$/ --enable-languages='"$enable_languages"/ `
+  ac_configure_args=`echo " $ac_configure_args" | sed -e "s/ '--enable-languages=[[^ ]]*'//g" -e "s/$/ '--enable-languages="$enable_languages"'/" `
 fi
 
 # Handle --disable-<component> generically.
@@ -1578,6 +1571,9 @@ case "$host" in
     enable_gdbtk=no ;;
 esac
 
+# To find our prefix, in gcc_cv_tool_prefix.
+ACX_TOOL_DIRS
+
 copy_dirs=
 
 AC_ARG_WITH([build-sysroot], 
@@ -1597,10 +1593,7 @@ if test x"${with_headers}" != x && test x"${with_headers}" != xno ; then
     exit 1
   fi
   if test x"${with_headers}" != xyes ; then
-    case "${exec_prefixoption}" in
-    "") x=${prefix} ;;
-    *) x=${exec_prefix} ;;
-    esac
+    x=${gcc_cv_tool_prefix}
     copy_dirs="${copy_dirs} ${with_headers} $x/${target_noncanonical}/sys-include"
   fi
 fi
@@ -1616,10 +1609,7 @@ if test x"${with_libs}" != x && test x"${with_libs}" != xno ; then
   if test x"${with_libs}" != xyes ; then
     # Copy the libraries in reverse order, so that files in the first named
     # library override files in subsequent libraries.
-    case "${exec_prefixoption}" in
-    "") x=${prefix} ;;
-    *) x=${exec_prefix} ;;
-    esac
+    x=${gcc_cv_tool_prefix}
     for l in ${with_libs}; do
       copy_dirs="$l $x/${target_noncanonical}/lib ${copy_dirs}"
     done
