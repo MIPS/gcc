@@ -2513,25 +2513,6 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
       }
       return x;
 
-    case PRE_MODIFY:
-    case POST_MODIFY:
-      {
-	rtx new0 = eliminate_regs_1 (XEXP (x, 0), mem_mode, insn, false);
-	rtx new1 = XEXP (x, 1)
-		   ? eliminate_regs_1 (XEXP (x, 1), mem_mode, insn, false) : 0;
-
-	/* For the elimination to be successful, the register must be
-	   eliminated in both places.  This has the effect of not
-	   allowing the register to be eliminated since we have marked
-	   the reg in XEXP (x, 0) to be not eliminatible and the
-	   recursive case for REG honors that.  We could perhaps do
-	   better than this, by allowing the elimination if the offset
-	   on the eliminating register was 0.  */
-	if (new0 != XEXP (x, 0) && new1 != XEXP (x, 1))
-	  return gen_rtx_fmt_ee (code, GET_MODE (x), new0, new1);
-      }
-      return x;
-
     case EXPR_LIST:
       /* If we have something in XEXP (x, 0), the usual case, eliminate it.  */
       if (XEXP (x, 0))
@@ -2759,43 +2740,17 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	elimination_effects (reg_equiv_constant[regno], mem_mode);
       return;
 
-    case POST_MODIFY:
-    case PRE_MODIFY:
-
-      /* There are two types of post/pre modify: either the second
-         operand is a const or is a reg.  If the second operand is a
-         const, we must poison the operation so the elimination must
-         not happen.
-
-	 Lets say we had (PRE_MODIFY r1, (ADD r1, 8)) and we wish to
-	 substitute in r2 + 12.  The code will currently produce
-	 (PRE_MODIFY r2, (ADD r2, 20)) which is actually wrong because
-	 you have changed the stride of the increment each time this
-	 mem reference is executed.
-
-	 This could be fixed by telling reload that in order to
-	 eliminate a premodify it has to add a bunch of add and move
-	 insns but this does not seem like the best approach.  */
-
-      if (CONSTANT_P (XEXP (XEXP (x, 1), 1)))
-	{
-	  gcc_assert (GET_CODE (XEXP (x, 1)) == PLUS
-		      && XEXP (x, 0) == XEXP (XEXP (x, 1), 0));
-	  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	    if (ep->to_rtx == XEXP (x, 0))
-	      ep->can_eliminate = 0;
-	}
-      break;
-
     case PRE_INC:
     case POST_INC:
     case PRE_DEC:
     case POST_DEC:
+    case POST_MODIFY:
+    case PRE_MODIFY:
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->to_rtx == XEXP (x, 0))
 	  {
 	    int size = GET_MODE_SIZE (mem_mode);
-	    
+
 	    /* If more bytes than MEM_MODE are pushed, account for them.  */
 #ifdef PUSH_ROUNDING
 	    if (ep->to_rtx == stack_pointer_rtx)
@@ -2805,8 +2760,17 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	      ep->offset += size;
 	    else if (code == PRE_INC || code == POST_INC)
 	      ep->offset -= size;
+	    else if ((code == PRE_MODIFY || code == POST_MODIFY)
+		     && GET_CODE (XEXP (x, 1)) == PLUS
+		     && XEXP (x, 0) == XEXP (XEXP (x, 1), 0)
+		     && CONSTANT_P (XEXP (XEXP (x, 1), 1)))
+	      ep->offset -= INTVAL (XEXP (XEXP (x, 1), 1));
 	  }
-      
+
+      /* These two aren't unary operators.  */
+      if (code == POST_MODIFY || code == PRE_MODIFY)
+	break;
+
       /* Fall through to generic unary operation case.  */
     case STRICT_LOW_PART:
     case NEG:          case NOT:

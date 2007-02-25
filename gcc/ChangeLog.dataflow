@@ -1,3 +1,12 @@
+2007-02-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Revert:
+	2006-07-01  Daniel Berlin  <dberlin@dberlin.org>
+		    David Edelsohn  <edelsohn@gnu.org>
+		    Kenneth Zadeck <zadeck@naturalbridge.com>
+	reload1.c (eliminate_regs_1, elimination_effects): Added cases for
+	PRE/POST_MODIFY.
+
 2007-02-22  Seongbae Park <seongbae.park@gmail.com>
 
 	* global.c (reg_becomes_live): Mark registers not live
