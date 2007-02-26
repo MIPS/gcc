@@ -1,5 +1,6 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -718,7 +719,7 @@ adjust_field_tree_exp (type_p t, options_p opt ATTRIBUTE_UNUSED)
 
   flds = create_field (NULL, t, "");
   flds->opt = create_option (nodot, "length",
-			     "TREE_CODE_LENGTH (TREE_CODE ((tree) &%0))");
+			     "TREE_OPERAND_LENGTH ((tree) &%0)");
   flds->opt = create_option (flds->opt, "default", "");
 
   return new_structure ("tree_exp_subunion", 1, &lexer_line, flds, nodot);
@@ -1107,7 +1108,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "except.h", "output.h", NULL
+      "cfglayout.h", "except.h", "output.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1382,6 +1383,7 @@ struct write_types_data
   const char *marker_routine;
   const char *reorder_note_routine;
   const char *comment;
+  int skip_hooks;		/* skip hook generation if non zero */
 };
 
 static void output_escaped_param (struct walk_type_data *d,
@@ -1549,6 +1551,8 @@ walk_type (type_p t, struct walk_type_data *d)
       use_params_p = 1;
     else if (strcmp (oo->name, "desc") == 0)
       desc = oo->info;
+    else if (strcmp (oo->name, "mark_hook") == 0)
+      ;
     else if (strcmp (oo->name, "nested_ptr") == 0)
       nested_ptr_d = (const struct nested_ptr_data *) oo->info;
     else if (strcmp (oo->name, "dot") == 0)
@@ -1742,16 +1746,27 @@ walk_type (type_p t, struct walk_type_data *d)
 	if (t->u.a.p->kind == TYPE_SCALAR)
 	  break;
 
+	/* When walking an array, compute the length and store it in a
+	   local variable before walking the array elements, instead of
+	   recomputing the length expression each time through the loop.
+	   This is necessary to handle tcc_vl_exp objects like CALL_EXPR,
+	   where the length is stored in the first array element,
+	   because otherwise that operand can get overwritten on the
+	   first iteration.  */
 	oprintf (d->of, "%*s{\n", d->indent, "");
 	d->indent += 2;
 	oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	oprintf (d->of, "%*sfor (i%d = 0; i%d != (size_t)(", d->indent, "",
-		 loopcounter, loopcounter);
+	oprintf (d->of, "%*ssize_t l%d = (size_t)(",
+		 d->indent, "", loopcounter);
 	if (length)
 	  output_escaped_param (d, length, "length");
 	else
 	  oprintf (d->of, "%s", t->u.a.len);
-	oprintf (d->of, "); i%d++) {\n", loopcounter);
+	oprintf (d->of, ");\n");
+	
+	oprintf (d->of, "%*sfor (i%d = 0; i%d != l%d; i%d++) {\n",
+		 d->indent, "",
+		 loopcounter, loopcounter, loopcounter, loopcounter);
 	d->indent += 2;
 	d->val = newval = xasprintf ("%s[i%d]", oldval, loopcounter);
 	d->used_length = 1;
@@ -2039,6 +2054,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   int i;
   const char *chain_next = NULL;
   const char *chain_prev = NULL;
+  const char *mark_hook_name = NULL;
   options_p opt;
   struct walk_type_data d;
 
@@ -2056,6 +2072,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       chain_next = opt->info;
     else if (strcmp (opt->name, "chain_prev") == 0)
       chain_prev = opt->info;
+    else if (strcmp (opt->name, "mark_hook") == 0)
+      mark_hook_name = opt->info;
 
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
@@ -2111,10 +2129,17 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
+      if (mark_hook_name && !wtd->skip_hooks)
+	{
+	  oprintf (d.of, "    {\n");
+	  oprintf (d.of, "      %s (xlimit);\n   ", mark_hook_name);
+	}
       oprintf (d.of, "   xlimit = (");
       d.prev_val[2] = "*xlimit";
       output_escaped_param (&d, chain_next, "chain_next");
       oprintf (d.of, ");\n");
+      if (mark_hook_name && !wtd->skip_hooks)
+	oprintf (d.of, "    }\n");
       if (chain_prev != NULL)
 	{
 	  oprintf (d.of, "  if (x != xlimit)\n");
@@ -2142,7 +2167,10 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       oprintf (d.of, "  while (x != xlimit)\n");
     }
   oprintf (d.of, "    {\n");
-
+  if (mark_hook_name && chain_next == NULL && !wtd->skip_hooks)
+    {
+      oprintf (d.of, "      %s (x);\n", mark_hook_name);
+    }
   d.prev_val[2] = "*x";
   d.indent = 6;
   walk_type (s, &d);
@@ -2258,14 +2286,16 @@ write_types (type_p structures, type_p param_structs,
 static const struct write_types_data ggc_wtd =
 {
   "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
-  "GC marker procedures.  "
+  "GC marker procedures.  ",
+  FALSE
 };
 
 static const struct write_types_data pch_wtd =
 {
   "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
   "gt_pch_note_reorder",
-  "PCH type-walking procedures.  "
+  "PCH type-walking procedures.  ",
+  TRUE
 };
 
 /* Write out the local pointer-walking routines.  */
@@ -3028,7 +3058,7 @@ write_roots (pair_p variables)
 
 extern int main (int argc, char **argv);
 int
-main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
+main (int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
 {
   unsigned i;
   static struct fileloc pos = { __FILE__, __LINE__ };

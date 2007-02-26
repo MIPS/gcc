@@ -16,4 +16,7 @@
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{.c|.cc|.C|.cpp|.c++|.CPP|.m|.mm: \
-    %{g*:%{!gstabs*:%{!gnone: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+    %{g*:%{!gstabs*:%{!g0: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+
+/* The linker can generate branch islands.  */
+#define DARWIN_LINKER_GENERATES_ISLANDS 1

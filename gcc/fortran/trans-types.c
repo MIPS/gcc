@@ -1321,27 +1321,13 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->attr.flavor == FL_PROCEDURE && !sym->attr.function)
     return void_type_node;
 
-  if (sym->backend_decl)
-    {
-      if (sym->attr.function)
-	return TREE_TYPE (TREE_TYPE (sym->backend_decl));
-      else
-	return TREE_TYPE (sym->backend_decl);
-    }
+  /* In the case of a function the fake result variable may have a
+     type different from the function type, so don't return early in
+     that case.  */
+  if (sym->backend_decl && !sym->attr.function)
+    return TREE_TYPE (sym->backend_decl);
 
   type = gfc_typenode_for_spec (&sym->ts);
-  if (gfc_option.flag_f2c
-      && sym->attr.function
-      && sym->ts.type == BT_REAL
-      && sym->ts.kind == gfc_default_real_kind
-      && !sym->attr.always_explicit)
-    {
-      /* Special case: f2c calling conventions require that (scalar) 
-	 default REAL functions return the C type double instead.  */
-      sym->ts.kind = gfc_default_double_kind;
-      type = gfc_typenode_for_spec (&sym->ts);
-      sym->ts.kind = gfc_default_real_kind;
-    }
 
   if (sym->attr.dummy && !sym->attr.function && !sym->attr.value)
     byref = 1;
@@ -1782,7 +1768,8 @@ gfc_get_function_type (gfc_symbol * sym)
   while (nstr--)
     typelist = gfc_chainon_list (typelist, gfc_charlen_type_node);
 
-  typelist = gfc_chainon_list (typelist, void_type_node);
+  if (typelist)
+    typelist = gfc_chainon_list (typelist, void_type_node);
 
   if (alternate_return)
     type = integer_type_node;
@@ -1790,6 +1777,20 @@ gfc_get_function_type (gfc_symbol * sym)
     type = void_type_node;
   else if (sym->attr.mixed_entry_master)
     type = gfc_get_mixed_entry_union (sym->ns);
+  else if (gfc_option.flag_f2c
+	   && sym->ts.type == BT_REAL
+	   && sym->ts.kind == gfc_default_real_kind
+	   && !sym->attr.always_explicit)
+    {
+      /* Special case: f2c calling conventions require that (scalar) 
+	 default REAL functions return the C type double instead.  f2c
+	 compatibility is only an issue with functions that don't
+	 require an explicit interface, as only these could be
+	 implemented in Fortran 77.  */
+      sym->ts.kind = gfc_default_double_kind;
+      type = gfc_typenode_for_spec (&sym->ts);
+      sym->ts.kind = gfc_default_real_kind;
+    }
   else
     type = gfc_sym_type (sym);
 

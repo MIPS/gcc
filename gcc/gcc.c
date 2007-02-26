@@ -1,7 +1,7 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -179,9 +179,9 @@ static int verbose_flag;
    shell scripts to capture the driver-generated command line.  */
 static int verbose_only_flag;
 
-/* Flag indicating to print target specific command line options.  */
+/* Flag indicating how to print command line options of sub-processes.  */
 
-static int target_help_flag;
+static int print_subprocess_help;
 
 /* Flag indicating whether we should report subprocess execution times
    (if this is supported by the system - see pexecute.c).  */
@@ -350,6 +350,7 @@ static void init_gcc_specs (struct obstack *, const char *, const char *,
 static const char *convert_filename (const char *, int, int);
 #endif
 
+static const char *getenv_spec_function (int, const char **);
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
@@ -776,7 +777,8 @@ static const char *cpp_unique_options =
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
- %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{remap} %{g3|ggdb3|gstabs3|gcoff3|gxcoff3|gvms3:-dD}\
+ %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
  %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
@@ -804,6 +806,7 @@ static const char *cc1_options =
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
+ %{--help=*:--help=%(VALUE)}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
@@ -1491,7 +1494,7 @@ static const char *const standard_exec_prefix_2 = "/usr/lib/gcc/";
 static const char *md_exec_prefix = MD_EXEC_PREFIX;
 static const char *md_startfile_prefix = MD_STARTFILE_PREFIX;
 static const char *md_startfile_prefix_1 = MD_STARTFILE_PREFIX_1;
-static const char *const standard_startfile_prefix_1 
+static const char *const standard_startfile_prefix_1
   = STANDARD_STARTFILE_PREFIX_1;
 static const char *const standard_startfile_prefix_2
   = STANDARD_STARTFILE_PREFIX_2;
@@ -1599,6 +1602,7 @@ static struct spec_list *specs = (struct spec_list *) 0;
 
 static const struct spec_function static_spec_functions[] =
 {
+  { "getenv",                   getenv_spec_function },
   { "if-exists",		if_exists_spec_function },
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
@@ -3173,6 +3177,8 @@ display_help (void)
   fputs (_("  -pass-exit-codes         Exit with highest error code from a phase\n"), stdout);
   fputs (_("  --help                   Display this information\n"), stdout);
   fputs (_("  --target-help            Display target specific command line options\n"), stdout);
+  fputs (_("  --help={target|optimizers|warnings|undocumented|params}[,{[^]joined|[^]separate}]\n"), stdout);
+  fputs (_("                           Display specific types of command line options\n"), stdout);
   if (! verbose_flag)
     fputs (_("  (Use '-v --help' to display command line options of sub-processes)\n"), stdout);
   fputs (_("  -dumpspecs               Display all of the built in spec strings\n"), stdout);
@@ -3588,10 +3594,19 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_assembler_option ("--help", 6);
 	  add_linker_option ("--help", 6);
 	}
+      else if (strncmp (argv[i], "-fhelp=", 7) == 0)
+	{
+	  /* translate_options () has turned --help into -fhelp.  */
+	  print_subprocess_help = 2;
+
+	  /* We will be passing a dummy file on to the sub-processes.  */
+	  n_infiles++;
+	  n_switches++;
+	}
       else if (strcmp (argv[i], "-ftarget-help") == 0)
 	{
 	  /* translate_options() has turned --target-help into -ftarget-help.  */
-	  target_help_flag = 1;
+	  print_subprocess_help = 1;
 
 	  /* We will be passing a dummy file on to the sub-processes.  */
 	  n_infiles++;
@@ -4073,10 +4088,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-print-multi-os-directory"))
 	;
-      else if (! strcmp (argv[i], "-ftarget-help"))
-	;
-      else if (! strcmp (argv[i], "-fhelp"))
-	;
       else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
 	{
 	  target_system_root = argv[i] + strlen ("--sysroot=");
@@ -4242,34 +4253,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
     error ("warning: '-x %s' after last input file has no effect", spec_lang);
 
   /* Ensure we only invoke each subprocess once.  */
-  if (target_help_flag || print_help_list)
+  if (print_subprocess_help || print_help_list)
     {
       n_infiles = 1;
 
-      /* Create a dummy input file, so that we can pass --target-help on to
-	 the various sub-processes.  */
+      /* Create a dummy input file, so that we can pass
+	 the help option on to the various sub-processes.  */
       infiles[0].language = "c";
       infiles[0].name   = "help-dummy";
-
-      if (target_help_flag)
-	{
-	  switches[n_switches].part1     = "--target-help";
-	  switches[n_switches].args      = 0;
-	  switches[n_switches].live_cond = SWITCH_OK;
-	  switches[n_switches].validated = 0;
-
-	  n_switches++;
-	}
-
-      if (print_help_list)
-	{
-	  switches[n_switches].part1     = "--help";
-	  switches[n_switches].args      = 0;
-	  switches[n_switches].live_cond = SWITCH_OK;
-	  switches[n_switches].validated = 0;
-
-	  n_switches++;
-	}
     }
 
   switches[n_switches].part1 = 0;
@@ -6420,16 +6411,6 @@ main (int argc, char **argv)
       return (0);
     }
 
-  if (target_help_flag)
-   {
-      /* Print if any target specific options.  */
-
-      /* We do not exit here. Instead we have created a fake input file
-         called 'target-dummy' which needs to be compiled, and we pass this
-         on to the various sub-processes, along with the --target-help
-         switch.  */
-    }
-
   if (print_help_list)
     {
       display_help ();
@@ -7666,6 +7647,27 @@ print_multilib_info (void)
     }
 }
 
+/* getenv built-in spec function.
+
+   Returns the value of the environment variable given by its first
+   argument, concatenated with the second argument.  If the
+   environment variable is not defined, a fatal error is issued.  */
+
+static const char *
+getenv_spec_function (int argc, const char **argv)
+{
+  char *value;
+
+  if (argc != 2)
+    return NULL;
+
+  value = getenv (argv[0]);
+  if (!value)
+    fatal ("environment variable \"%s\" not defined", argv[0]);
+
+  return concat (value, argv[1], NULL);
+}
+
 /* if-exists built-in spec function.
 
    Checks to see if the file specified by the absolute pathname in

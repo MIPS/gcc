@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -112,12 +112,6 @@ add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
   slot = htab_find_slot (get_eh_throw_stmt_table (ifun), n, INSERT);
   gcc_assert (!*slot);
   *slot = n;
-  /* ??? For the benefit of calls.c, converting all this to rtl,
-     we need to record the call expression, not just the outer
-     modify statement.  */
-  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT
-      && (t = get_call_expr_in (t)))
-    add_stmt_to_eh_region_fn (ifun, t, num);
 }
 
 void
@@ -141,12 +135,6 @@ remove_stmt_from_eh_region_fn (struct function *ifun, tree t)
   if (slot)
     {
       htab_clear_slot (get_eh_throw_stmt_table (ifun), slot);
-      /* ??? For the benefit of calls.c, converting all this to rtl,
-	 we need to record the call expression, not just the outer
-	 modify statement.  */
-      if (TREE_CODE (t) == GIMPLE_MODIFY_STMT
-	  && (t = get_call_expr_in (t)))
-	remove_stmt_from_eh_region_fn (ifun, t);
       return true;
     }
   else
@@ -1320,7 +1308,7 @@ decide_copy_try_finally (int ndests, tree finally)
     return false;
 
   /* Finally estimate N times, plus N gotos.  */
-  f_estimate = estimate_num_insns (finally);
+  f_estimate = estimate_num_insns (finally, &eni_size_weights);
   f_estimate = (f_estimate + 1) * ndests;
 
   /* Switch statement (cost 10), N variable assignments, N gotos.  */
@@ -1865,7 +1853,7 @@ tree_could_trap_p (tree expr)
 	  honor_nans = flag_trapping_math && !flag_finite_math_only;
 	  honor_snans = flag_signaling_nans != 0;
 	}
-      else if (INTEGRAL_TYPE_P (t) && TYPE_TRAP_SIGNED (t))
+      else if (INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t))
 	honor_trapv = true;
     }
 
@@ -1883,6 +1871,7 @@ tree_could_trap_p (tree expr)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
     case WITH_SIZE_EXPR:
       expr = TREE_OPERAND (expr, 0);
       code = TREE_CODE (expr);
@@ -2074,25 +2063,3 @@ maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt)
 
   return false;
 }
-
-#ifdef ENABLE_CHECKING
-static int
-verify_eh_throw_stmt_node (void **slot, void *data ATTRIBUTE_UNUSED)
-{
-  struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
-
-  gcc_assert (node->stmt->base.ann == NULL);
-  return 1;
-}
-
-void
-verify_eh_throw_table_statements (void)
-{
-  if (!get_eh_throw_stmt_table (cfun))
-    return;
-  htab_traverse (get_eh_throw_stmt_table (cfun),
-		 verify_eh_throw_stmt_node,
-		 NULL);
-}
-
-#endif

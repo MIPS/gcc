@@ -38,6 +38,7 @@ typedef struct edge_def *edge;
 struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 #endif
+struct static_var_ann_d;
 
 /* Gimple dataflow datastructure. All publicly available fields shall have
    gimple_ accessor defined in tree-flow-inline.h, all publicly modifiable
@@ -92,6 +93,10 @@ struct gimple_df GTY(()) {
   unsigned int in_ssa_p : 1;
 
   struct ssa_operands ssa_operands;
+
+  /* Hashtable of variables annotations.  Used for static variables only;
+     local variables have direct pointer in the tree node.  */
+  htab_t GTY((param_is (struct static_var_ann_d))) var_anns;
 };
 
 /* Accessors for internal use only.  Generic code should use abstraction
@@ -223,9 +228,6 @@ struct var_ann_d GTY(())
   /* Used when building base variable structures in a var_map.  */
   unsigned base_var_processed : 1;
 
-  /* Nonzero if this variable is in the alias set of another variable.  */
-  unsigned is_aliased : 1;
-
   /* Nonzero if this variable was used after SSA optimizations were
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
@@ -246,6 +248,9 @@ struct var_ann_d GTY(())
   /* True for HEAP and PARM_NOALIAS artificial variables.  */
   unsigned is_heapvar : 1;
 
+  /* True if the variable is call clobbered.  */
+  unsigned int call_clobbered : 1;
+
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
 
@@ -257,11 +262,6 @@ struct var_ann_d GTY(())
      FIXME, do we really need this here?  How much slower would it be
      to convert to hash table?  */
   tree symbol_mem_tag;
-
-  /* Variables that may alias this variable.  This may only be set on
-     memory tags (NAME_MEMORY_TAG or TYPE_MEMORY_TAG).  FIXME, move to
-     struct tree_memory_tag.  */
-  VEC(tree, gc) *may_aliases;
 
   /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
@@ -281,6 +281,14 @@ struct var_ann_d GTY(())
   /* Mask of values saying the reasons why this variable has escaped
      the function.  */
   unsigned int escape_mask;
+};
+
+/* Container for variable annotation used by hashtable for annotations for
+   static variables.  */
+struct static_var_ann_d GTY(())
+{
+  struct var_ann_d ann;
+  unsigned int uid;
 };
 
 struct function_ann_d GTY(())
@@ -356,10 +364,6 @@ struct stmt_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
-  /* Nonzero if the statement references memory (at least one of its
-     expressions contains a non-register operand).  */
-  unsigned references_memory : 1;
-
   /* Basic block that contains this statement.  */
   basic_block bb;
 
@@ -373,6 +377,10 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
+
+  /* Nonzero if the statement references memory (at least one of its
+     expressions contains a non-register operand).  */
+  unsigned references_memory : 1;
 
   /* Nonzero if the statement has been modified (meaning that the operands
      need to be scanned again).  */
@@ -415,7 +423,7 @@ extern void set_bb_for_stmt (tree, basic_block);
 static inline bool noreturn_call_p (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
-static inline VEC(tree, gc) *may_aliases (tree);
+static inline bitmap may_aliases (tree);
 static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
@@ -624,7 +632,6 @@ extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
-extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -663,7 +670,7 @@ extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 
 /* In tree-cfgcleanup.c  */
 extern bool cleanup_tree_cfg (void);
-extern void cleanup_tree_cfg_loop (void);
+extern bool cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -683,6 +690,7 @@ extern void dump_subvars_for (FILE *, tree);
 extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
+extern void remove_referenced_var (tree);
 extern void mark_symbols_for_renaming (tree);
 extern void find_new_referenced_vars (tree *);
 
@@ -882,8 +890,8 @@ basic_block ip_end_pos (struct loop *);
 basic_block ip_normal_pos (struct loop *);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
-					 edge, edge *,
-					 unsigned int *, int);
+					 edge, VEC (edge, heap) **,
+					 int);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
@@ -893,6 +901,10 @@ bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 			struct tree_niter_desc *niter);
 void tree_unroll_loop (struct loop *, unsigned,
 		       edge, struct tree_niter_desc *);
+typedef void (*transform_callback)(struct loop *, void *);
+void tree_transform_and_unroll_loop (struct loop *, unsigned,
+				     edge, struct tree_niter_desc *,
+				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
 
 /* In tree-ssa-threadedge.c */
@@ -1038,6 +1050,7 @@ void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);
+unsigned int execute_fixup_cfg (void);
 
 #include "tree-flow-inline.h"
 

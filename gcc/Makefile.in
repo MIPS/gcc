@@ -2,7 +2,7 @@
 # Run 'configure' to generate Makefile from Makefile.in
 
 # Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-# 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+# 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -24,13 +24,16 @@
 
 # The targets for external use include:
 # all, doc, proto, install, install-cross, install-cross-rest,
-# uninstall, TAGS, mostlyclean, clean, distclean, maintainer-clean,
-# stage1, stage2, stage3, stage4.
+# uninstall, TAGS, mostlyclean, clean, distclean, maintainer-clean.
 
 # This is the default target.
 # Set by autoconf to "all.internal" for a native build, or
 # "all.cross" to build a cross compiler.
 all: @ALL@
+
+# Provide quickstrap as a target that people can type into the gcc directory,
+# and that fails if you're not into it.
+quickstrap: all
 
 # Depend on this to specify a phony target portably.
 force:
@@ -136,27 +139,14 @@ SUBDIRS =@subdirs@ build
 CONFIG_LANGUAGES = @all_selected_languages@
 LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) $(CONFIG_LANGUAGES)
 
-# Selection of languages to be made during stage1 build.
-BOOT_LANGUAGES = c @all_boot_languages@
-
 # Various ways of specifying flags for compilations:
 # CFLAGS is for the user to override to, e.g., do a cross build with -O2.
-# For recursive  bootstrap builds CFLAGS is used to pass in STAGE1_CFLAGS
-# or BOOT_CFLAGS
-# STAGE1_CFLAGS is set by configure on some targets or passed from toplevel
-# and sets the CFLAGS passed to stage1 of a bootstrap compilation.
-# STAGE1_CHECKING enables checking for the stage1 compiler
-# BOOT_CFLAGS is the value of CFLAGS to pass to the stage2, stage3 and stage4
-# bootstrap compilations.
 # XCFLAGS is used for most compilations but not when using the GCC just built.
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
 CFLAGS = @CFLAGS@
 LDFLAGS = @LDFLAGS@
-STAGE1_CFLAGS = -g @stage1_cflags@
-STAGE1_CHECKING = -DENABLE_CHECKING -DENABLE_ASSERT_CHECKING
-BOOT_CFLAGS = -g -O2
 
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage
@@ -164,7 +154,7 @@ BOOT_CFLAGS = -g -O2
 COVERAGE_FLAGS = @coverage_flags@
 coverageexts = .{gcda,gcno}
 
-# The warning flags are separate from BOOT_CFLAGS because people tend to
+# The warning flags are separate from CFLAGS because people tend to
 # override optimization flags and we'd like them to still have warnings
 # turned on.  These flags are also used to pass other stage dependent
 # flags from configure.  The user is free to explicitly turn these flags
@@ -172,18 +162,12 @@ coverageexts = .{gcda,gcno}
 # LOOSE_WARN are the warning flags to use when compiling something
 # which is only compiled with gcc, such as libgcc and the frontends
 # other than C.
-# STRICT_WARN and STRICT2_WARN are the additional warning flags to
+# STRICT_WARN are the additional warning flags to
 # apply to the back end and the C front end, which may be compiled
-# with other compilers.  This is partially controlled by configure in
-# stage1, as not all versions of gcc understand -Wno-long-long or
-# -Wno-variadic-macros.
+# with other compilers.
 # CXX_COMPAT_WARN are C++ source compatibility warnings.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
-STRICT_WARN = @strict1_warn@
-WERROR_FLAGS = @WERROR@
-STRICT2_WARN = -pedantic -Wno-long-long -Wno-variadic-macros \
-  -Wno-overlength-strings -Wold-style-definition -Wmissing-format-attribute \
-  $(WERROR_FLAGS)
+STRICT_WARN = @strict_warn@
 CXX_COMPAT_WARN = @cxx_compat_warn@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
@@ -279,7 +263,6 @@ STAMP = echo timestamp >
 
 # Make sure the $(MAKE) variable is defined.
 @SET_MAKE@
-REMAKEFLAGS=LANGUAGES="$(LANGUAGES)" BOOT_CFLAGS="$(BOOT_CFLAGS)"
 
 # Locate mkinstalldirs.
 mkinstalldirs=$(SHELL) $(srcdir)/../mkinstalldirs
@@ -319,8 +302,7 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
 # to programs compiled with GCC.
-USER_H = $(srcdir)/ginclude/decfloat.h \
-	 $(srcdir)/ginclude/float.h \
+USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/iso646.h \
 	 $(srcdir)/ginclude/stdarg.h \
 	 $(srcdir)/ginclude/stdbool.h \
@@ -330,9 +312,9 @@ USER_H = $(srcdir)/ginclude/decfloat.h \
 
 UNWIND_H = $(srcdir)/unwind-generic.h
 
-# The GCC to use for compiling libgcc.a and crt*.o.
+# The GCC to use for compiling crt*.o.
 # Usually the one we just built.
-# Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
+# Don't use this as a dependency--use $(GCC_PASSES).
 GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) ./xgcc -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include -L$(objdir)/../ld
 
 # This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
@@ -404,7 +386,9 @@ CROSS_SYSTEM_HEADER_DIR = @CROSS_SYSTEM_HEADER_DIR@
 # Purge it of unneccessary internal relative paths
 # to directories that might not exist yet.
 # The sed idiom for this is to repeat the search-and-replace until it doesn't match, using :a ... ta.
-SYSTEM_HEADER_DIR = `echo @SYSTEM_HEADER_DIR@ | sed -e :a -e "s,[^/]*/\.\.\/,," -e ta`
+# Use single quotes here to avoid nested double- and backquotes, this
+# macro is also used in a double-quoted context.
+SYSTEM_HEADER_DIR = `echo @SYSTEM_HEADER_DIR@ | sed -e :a -e 's,[^/]*/\.\.\/,,' -e ta`
 
 # Control whether to run fixproto and fixincludes.
 STMP_FIXPROTO = @STMP_FIXPROTO@
@@ -537,11 +521,6 @@ GGC=@GGC@.o
 # If a supplementary library is being used for the GC.
 GGC_LIB=
 
-# libgcc.a may be built directly or via stmp-multilib,
-# and installed likewise.  Overridden by t-fragment.
-LIBGCC = libgcc.a
-INSTALL_LIBGCC = install-libgcc
-
 # "true" if the target C library headers are unavailable; "false"
 # otherwise.
 inhibit_libc = @inhibit_libc@
@@ -655,10 +634,6 @@ COMPILERS = cc1$(exeext) @all_compilers@
 # to compile anything (without linking).
 GCC_PASSES=xgcc$(exeext) cc1$(exeext) specs $(EXTRA_PASSES)
 
-# List of things which should already be built whenever we try to use xgcc
-# to link anything.
-GCC_PARTS=$(GCC_PASSES) $(LIBGCC) $(EXTRA_PROGRAMS) $(COLLECT2) $(EXTRA_PARTS)
-
 # Directory to link to, when using the target `maketest'.
 DIR = ../gcc
 
@@ -701,7 +676,7 @@ CRT0STUFF_T_CFLAGS =
 # "t" or nothing, for building multilibbed versions of, say, crtbegin.o.
 T =
 
-# Should T contain a `=', libgcc.mk will make T_TARGET, setting
+# Should T contain a `=', libgcc/Makefile will make T_TARGET, setting
 # $(T_TARGET) to the name of the actual target filename.
 T_TARGET =
 T_TARGET : $(T_TARGET)
@@ -776,7 +751,7 @@ RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h $(VARRAY_H)
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
-CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
+CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H) vecprim.h
 IPA_UTILS_H = ipa-utils.h $(TREE_H) $(CGRAPH_H) 
 IPA_REFERENCE_H = ipa-reference.h bitmap.h $(TREE_H)  
 IPA_TYPE_ESCAPE_H = ipa-type-escape.h $(TREE_H)  
@@ -883,12 +858,9 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 
 LANG_MAKEFRAGS = @all_lang_makefrags@
 LANG_MAKEFILES = @all_lang_makefiles@
-LANG_STAGESTUFF = @all_stagestuff@
 
 # Flags to pass to recursive makes.
-# CC is set by configure.  Hosts without symlinks need special handling
-# because we need CC="stage1/xgcc -Bstage1/" to work in the language
-# subdirectories.
+# CC is set by configure.
 # ??? The choices here will need some experimenting with.
 
 export AR_FOR_TARGET
@@ -910,7 +882,7 @@ export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
 
-ORDINARY_FLAGS_TO_PASS = \
+FLAGS_TO_PASS = \
 	"BISON=$(BISON)" \
 	"BISONFLAGS=$(BISONFLAGS)" \
 	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
@@ -936,17 +908,6 @@ ORDINARY_FLAGS_TO_PASS = \
 	"libexecsubdir=$(libsubdir)" \
 	"datadir=$(datadir)" \
 	"localedir=$(localedir)"
-FLAGS_TO_PASS = $(ORDINARY_FLAGS_TO_PASS) "CC=@cc_set_by_configure@" \
-	"STAGE_PREFIX=@stage_prefix_set_by_configure@"
-PREPEND_DOTDOT_TO_RELATIVE_PATHS = sed \
-	-e 's|^ *[^ /][^ /]*/|%&|' \
-	-e 's| -B| -B%|g' \
-	-e 's|% *[^- /]|%&|g' \
-	-e 's|%% *|../|g' \
-	-e 's|%||g'
-SUBDIR_FLAGS_TO_PASS = $(ORDINARY_FLAGS_TO_PASS) \
-	"CC=`echo @quoted_cc_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`" \
-	"STAGE_PREFIX=`echo @quoted_stage_prefix_set_by_configure@ | $(PREPEND_DOTDOT_TO_RELATIVE_PATHS)`"
 #
 # Lists of files for various purposes.
 
@@ -973,83 +934,265 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
 C_OBJS = c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
+# We put the insn-*.o files first so that a parallel make will build
+# them sooner, because they are large and otherwise tend to be the
+# last objects to finish building.
 OBJS-common = \
- double-int.o tree-chrec.o tree-scalar-evolution.o tree-data-ref.o	   \
- tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
- gimplify.o tree-pretty-print.o tree-into-ssa.o tree-ssa-ter.o		   \
- tree-outof-ssa.o tree-ssa-ccp.o tree-vn.o tree-ssa-uncprop.o		   \
- tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o	   \
- tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
- tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
- tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
- omp-low.o tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o	   \
- tree-vect-generic.o tree-ssa-loop.o tree-ssa-loop-niter.o		   \
- tree-ssa-loop-manip.o tree-ssa-threadupdate.o tree-ssa-threadedge.o	   \
- tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
- tree-vect-patterns.o tree-ssa-loop-prefetch.o tree-ssa-coalesce.o	   \
- tree-ssa-loop-ivcanon.o tree-ssa-propagate.o tree-ssa-address.o	   \
- tree-ssa-math-opts.o tree-affine.o					   \
- tree-ssa-loop-ivopts.o tree-if-conv.o tree-ssa-loop-unswitch.o		   \
- alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
- cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
- cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
- dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
- debug.o df-core.o df-problems.o df-scan.o dfp.o diagnostic.o dojump.o     \
- dominance.o loop-doloop.o	   					   \
- dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
- expmed.o expr.o final.o flow.o fold-const.o function.o fwprop.o gcse.o	   \
- genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
- haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
- insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
- integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
- mode-switching.o modulo-sched.o optabs.o options.o opts.o opts-common.o \
- params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o insn-automata.o pointer-set.o 			   	   \
- print-rtl.o print-tree.o profile.o value-prof.o var-tracking.o		   \
- real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
- reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
- sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
- see.o simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o		   \
- struct-equiv.o targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
- et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
- tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o    			   \
- lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
- tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
- tree-ssa-structalias.o tree-object-size.o 				   \
- rtl-factoring.o
+	insn-attrtab.o \
+	insn-automata.o \
+	insn-emit.o \
+	insn-extract.o \
+	insn-modes.o \
+	insn-opinit.o \
+	insn-output.o \
+	insn-peep.o \
+	insn-preds.o \
+	insn-recog.o \
+	$(GGC) \
+	alias.o \
+	alloc-pool.o \
+	bb-reorder.o \
+	bitmap.o \
+	bt-load.o \
+	builtins.o \
+	caller-save.o \
+	calls.o \
+	cfg.o \
+	cfganal.o \
+	cfgbuild.o \
+	cfgcleanup.o \
+	cfgexpand.o \
+	cfghooks.o \
+	cfglayout.o \
+	cfgloop.o \
+	cfgloopanal.o \
+	cfgloopmanip.o \
+	cfgrtl.o \
+	combine.o \
+	convert.o \
+	coverage.o \
+	cse.o \
+	cselib.o \
+	dbxout.o \
+	ddg.o \
+	debug.o \
+	df-core.o \
+	df-problems.o \
+	df-scan.o \
+	dfp.o \
+	diagnostic.o \
+	dojump.o \
+	dominance.o \
+	domwalk.o \
+	double-int.o \
+	dwarf2asm.o \
+	dwarf2out.o \
+	emit-rtl.o \
+	et-forest.o \
+	except.o \
+	explow.o \
+	expmed.o \
+	expr.o \
+	final.o \
+	flow.o \
+	fold-const.o \
+	function.o \
+	fwprop.o \
+	gcse.o \
+	genrtl.o \
+	ggc-common.o \
+	gimple-low.o \
+	gimplify.o \
+	global.o \
+	graph.o \
+	gtype-desc.o \
+	haifa-sched.o \
+	hooks.o \
+	ifcvt.o \
+	integrate.o \
+	intl.o \
+	jump.o \
+	lambda-code.o \
+	lambda-mat.o \
+	lambda-trans.o \
+	langhooks.o \
+	lcm.o \
+	lists.o \
+	local-alloc.o \
+	loop-doloop.o \
+	loop-init.o \
+	loop-invariant.o \
+	loop-iv.o \
+	loop-unroll.o \
+	loop-unswitch.o \
+	lower-subreg.o \
+	mode-switching.o \
+	modulo-sched.o \
+	omp-low.o \
+	optabs.o \
+	options.o \
+	opts-common.o \
+	opts.o \
+	params.o \
+	passes.o \
+	pointer-set.o \
+	postreload-gcse.o \
+	postreload.o \
+	predict.o \
+	pretty-print.o \
+	print-rtl.o \
+	print-tree.o \
+	profile.o \
+	real.o \
+	recog.o \
+	reg-stack.o \
+	regclass.o \
+	regmove.o \
+	regrename.o \
+	reload.o \
+	reload1.o \
+	reorg.o \
+	resource.o \
+	rtl-error.o \
+	rtl-factoring.o \
+	rtl.o \
+	rtlanal.o \
+	rtlhooks.o \
+	sbitmap.o \
+	sched-deps.o \
+	sched-ebb.o \
+	sched-rgn.o \
+	sched-vis.o \
+	sdbout.o \
+	see.o \
+	simplify-rtx.o \
+	sreal.o \
+	stmt.o \
+	stor-layout.o \
+	stringpool.o \
+	struct-equiv.o \
+	targhooks.o \
+	timevar.o \
+	toplev.o \
+	tracer.o \
+	tree-affine.o \
+	tree-cfg.o \
+	tree-cfgcleanup.o \
+	tree-chrec.o \
+	tree-complex.o \
+	tree-data-ref.o \
+	tree-dfa.o \
+	tree-dump.o \
+	tree-eh.o \
+	tree-gimple.o \
+	tree-if-conv.o \
+	tree-into-ssa.o \
+	tree-iterator.o \
+	tree-loop-linear.o \
+	tree-nested.o \
+	tree-nrv.o \
+	tree-object-size.o \
+	tree-optimize.o \
+	tree-outof-ssa.o \
+	tree-phinodes.o \
+	tree-pretty-print.o \
+	tree-profile.o \
+	tree-scalar-evolution.o \
+	tree-sra.o \
+	tree-ssa-address.o \
+	tree-ssa-alias.o \
+	tree-ssa-ccp.o \
+	tree-ssa-coalesce.o \
+	tree-ssa-copy.o \
+	tree-ssa-copyrename.o \
+	tree-ssa-dce.o \
+	tree-ssa-dom.o \
+	tree-ssa-dse.o \
+	tree-ssa-forwprop.o \
+	tree-ssa-live.o \
+	tree-ssa-loop-ch.o \
+	tree-ssa-loop-im.o \
+	tree-ssa-loop-ivcanon.o \
+	tree-ssa-loop-ivopts.o \
+	tree-ssa-loop-manip.o \
+	tree-ssa-loop-niter.o \
+	tree-ssa-loop-prefetch.o \
+	tree-ssa-loop-unswitch.o \
+	tree-ssa-loop.o \
+	tree-ssa-math-opts.o \
+	tree-ssa-operands.o \
+	tree-ssa-phiopt.o \
+	tree-ssa-pre.o \
+	tree-ssa-propagate.o \
+	tree-ssa-reassoc.o \
+	tree-ssa-sink.o \
+	tree-ssa-structalias.o \
+	tree-ssa-ter.o \
+	tree-ssa-threadedge.o \
+	tree-ssa-threadupdate.o \
+	tree-ssa-uncprop.o \
+	tree-ssa.o \
+	tree-ssanames.o \
+	tree-stdarg.o \
+	tree-tailcall.o \
+	tree-vect-analyze.o \
+	tree-vect-generic.o \
+	tree-vect-patterns.o \
+	tree-vect-transform.o \
+	tree-vectorizer.o \
+	tree-vn.o \
+	tree-vrp.o \
+	tree.o \
+	value-prof.o \
+	var-tracking.o \
+	varasm.o \
+	varray.o \
+	vec.o \
+	version.o \
+	vmsdbgout.o \
+	web.o \
+	xcoffout.o
 
-
+# Target object files.
 OBJS-md = $(out_object_file)
-OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
-  cgraph.o cgraphunit.o tree-nomudflap.o ipa.o ipa-inline.o                \
-  ipa-utils.o ipa-reference.o ipa-pure-const.o ipa-type-escape.o           \
-  ipa-prop.o ipa-cp.o varpool.o
 
-OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
+# Language independent object files which are not used by all languages.
+OBJS-archive = \
+	$(EXTRA_OBJS) \
+	$(host_hook_obj) \
+	cgraph.o \
+	cgraphbuild.o \
+	cgraphunit.o \
+	ipa-cp.o \
+	ipa-inline.o \
+	ipa-prop.o \
+	ipa-pure-const.o \
+	ipa-reference.o \
+	ipa-type-escape.o \
+	ipa-utils.o \
+	ipa.o \
+	tree-inline.o \
+	tree-nomudflap.o \
+	varpool.o
+
+OBJS = $(OBJS-common) $(OBJS-md) $(OBJS-archive)
 
 OBJS-onestep = libbackend.o $(OBJS-archive)
 
 BACKEND = main.o @TREEBROWSER@ libbackend.a $(CPPLIB) $(LIBDECNUMBER)
 
-# Files to be copied after each stage in building.
-STAGECOPYSTUFF = insn-flags.h insn-config.h insn-codes.h \
+MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-preds.c insn-constants.h \
  tm-preds.h tm-constrs.h \
  tree-check.h min-insn-modes.c insn-modes.c insn-modes.h \
- genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h
-
-# Files to be moved away after each stage in building.
-STAGEMOVESTUFF = *$(objext) s-* \
+ genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) cc1*-dummy$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  $(SPECS) collect2$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
- *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a libgcc.mk \
- $(LANG_STAGESTUFF)
+ *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a libgcc.mk
 
 # Defined in libgcc2.c, included only in the static library.
 LIB2FUNCS_ST = _eprintf __gcc_bcmp
@@ -1058,7 +1201,9 @@ LIB2FUNCS_ST = _eprintf __gcc_bcmp
 LIBGCOV = _gcov _gcov_merge_add _gcov_merge_single _gcov_merge_delta \
     _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
     _gcov_execv _gcov_execvp _gcov_execve \
-    _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler
+    _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
+    _gcov_indirect_call_profiler _gcov_average_profiler _gcov_ior_profiler \
+    _gcov_merge_ior
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
@@ -1111,7 +1256,6 @@ LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 # install-common, install-info, install-man,
 # uninstall,
 # mostlyclean, clean, distclean, maintainer-clean,
-# stage1, stage2, stage3, stage4
 #
 # Each language is linked in with a series of hooks.  The name of each
 # hooked is "lang.${target_name}" (eg: lang.info).  Configure computes
@@ -1230,9 +1374,6 @@ $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(srcdir)/aclocal.m4 \
 gccbug:	$(srcdir)/gccbug.in
 	CONFIG_FILES=gccbug CONFIG_HEADERS= ./config.status
 
-mklibgcc: $(srcdir)/mklibgcc.in
-	CONFIG_FILES=mklibgcc CONFIG_HEADERS= ./config.status
-
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
 # delete it.  A stamp file is needed as autoheader won't update the file if
@@ -1274,12 +1415,12 @@ config.status: $(srcdir)/configure $(srcdir)/config.gcc
 all.internal: start.encap rest.encap doc
 # This is what to compile if making a cross-compiler.
 all.cross: native gcc-cross$(exeext) cpp$(exeext) specs \
-	$(LIBGCC) $(EXTRA_PARTS) lang.all.cross doc @GENINSRC@ srcextra
+	libgcc-support lang.all.cross doc @GENINSRC@ srcextra
 # This is what must be made before installing GCC and converting libraries.
 start.encap: native xgcc$(exeext) cpp$(exeext) specs \
-	xlimits.h lang.start.encap @GENINSRC@ srcextra
+	libgcc-support xlimits.h lang.start.encap @GENINSRC@ srcextra
 # These can't be made until after GCC can run.
-rest.encap: $(STMP_FIXPROTO) $(LIBGCC) $(EXTRA_PARTS) lang.rest.encap
+rest.encap: $(STMP_FIXPROTO) lang.rest.encap
 # This is what is made with the host's compiler
 # whether making a cross compiler or not.
 native: config.status auto-host.h build-@POSUB@ $(LANGUAGES) \
@@ -1293,7 +1434,7 @@ c: cc1$(exeext)
 
 # On the target machine, finish building a cross compiler.
 # This does the things that can't be done on the host machine.
-rest.cross: $(LIBGCC) specs
+rest.cross: specs
 
 # Recompile all the language-independent object files.
 # This is used only if the user explicitly asks for it.
@@ -1415,75 +1556,66 @@ xlimits.h: glimits.h limitx.h limity.h
 LIB2ADD = $(LIB2FUNCS_EXTRA)
 LIB2ADD_ST = $(LIB2FUNCS_STATIC_EXTRA)
 
-libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) specs \
+# All source files for libgcc are either in the source directory (in
+# which case they will start with $(srcdir)), or generated into the build
+# directory (in which case they will be relative paths).
+srcdirify = $(patsubst $(srcdir)%,$$(gcc_srcdir)%,$(filter $(srcdir)%,$(1))) \
+            $(patsubst %,$$(gcc_objdir)/%,$(filter-out $(srcdir)%,$(1)))
+
+# The distinction between these two variables is no longer relevant,
+# so we combine them.  Sort removes duplicates.
+GCC_EXTRA_PARTS := $(sort $(EXTRA_MULTILIB_PARTS) $(EXTRA_PARTS))
+
+libgcc-support: libgcc.mvars stmp-int-hdrs $(STMP_FIXPROTO) $(TCONFIG_H) \
+	$(MACHMODE_H) $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
+	$(LIB2ADD_ST) $(LIB2ADDEH) $(srcdir)/emutls.c gcov-iov.h $(SFP_MACHINE)
+
+libgcc.mvars: config.status Makefile $(LIB2ADD) $(LIB2ADD_ST) specs \
 		xgcc$(exeext) stamp-as stamp-collect-ld stamp-nm
-	objext='$(objext)' \
-	LIB1ASMFUNCS='$(LIB1ASMFUNCS)' \
-	LIB2FUNCS_ST='$(LIB2FUNCS_ST)' \
-	LIB2FUNCS_EXCLUDE='$(LIB2FUNCS_EXCLUDE)' \
-	LIBGCOV='$(LIBGCOV)' \
-	LIB2ADD='$(LIB2ADD)' \
-	LIB2ADD_ST='$(LIB2ADD_ST)' \
-	LIB2ADDEH='$(LIB2ADDEH)' \
-	LIB2ADDEHSTATIC='$(LIB2ADDEHSTATIC)' \
-	LIB2ADDEHSHARED='$(LIB2ADDEHSHARED)' \
-	LIB2ADDEHDEP='$(LIB2ADDEHDEP)' \
-	LIB2_SIDITI_CONV_FUNCS='$(LIB2_SIDITI_CONV_FUNCS)' \
-	LIBUNWIND='$(LIBUNWIND)' \
-	LIBUNWINDDEP='$(LIBUNWINDDEP)' \
-	SHLIBUNWIND_LINK='$(SHLIBUNWIND_LINK)' \
-	SHLIBUNWIND_INSTALL='$(SHLIBUNWIND_INSTALL)' \
-	FPBIT='$(FPBIT)' \
-	FPBIT_FUNCS='$(FPBIT_FUNCS)' \
-	LIB2_DIVMOD_FUNCS='$(LIB2_DIVMOD_FUNCS)' \
-	DPBIT='$(DPBIT)' \
-	DPBIT_FUNCS='$(DPBIT_FUNCS)' \
-	TPBIT='$(TPBIT)' \
-	TPBIT_FUNCS='$(TPBIT_FUNCS)' \
-	DFP_ENABLE='$(DFP_ENABLE)' \
-	DFP_CFLAGS='$(DFP_CFLAGS)' \
-	D32PBIT='$(D32PBIT)' \
-	D32PBIT_FUNCS='$(D32PBIT_FUNCS)' \
-	D64PBIT='$(D64PBIT)' \
-	D64PBIT_FUNCS='$(D64PBIT_FUNCS)' \
-	D128PBIT='$(D128PBIT)' \
-	D128PBIT_FUNCS='$(D128PBIT_FUNCS)' \
-	MULTILIBS=`$(GCC_FOR_TARGET) --print-multi-lib` \
-	EXTRA_MULTILIB_PARTS='$(EXTRA_MULTILIB_PARTS)' \
-	SHLIB_LINK='$(SHLIB_LINK)' \
-	SHLIB_INSTALL='$(SHLIB_INSTALL)' \
-	SHLIB_EXT='$(SHLIB_EXT)' \
-	SHLIB_MULTILIB='$(SHLIB_MULTILIB)' \
-	SHLIB_MKMAP='$(SHLIB_MKMAP)' \
-	SHLIB_MKMAP_OPTS='$(SHLIB_MKMAP_OPTS)' \
-	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
-	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
-	MULTILIB_OSDIRNAMES='$(MULTILIB_OSDIRNAMES)' \
-	ASM_HIDDEN_OP='$(ASM_HIDDEN_OP)' \
-	GCC_FOR_TARGET='$(GCC_FOR_TARGET)' \
-	mkinstalldirs='$(mkinstalldirs)' \
-	  $(SHELL) mklibgcc > tmp-libgcc.mk
-	mv tmp-libgcc.mk libgcc.mk
+	: > tmp-libgcc.mvars
+	echo LIB1ASMFUNCS = '$(LIB1ASMFUNCS)' >> tmp-libgcc.mvars
+	echo LIB1ASMSRC = '$(LIB1ASMSRC)' >> tmp-libgcc.mvars
+	echo LIB2FUNCS_ST = '$(LIB2FUNCS_ST)' >> tmp-libgcc.mvars
+	echo LIB2FUNCS_EXCLUDE = '$(LIB2FUNCS_EXCLUDE)' >> tmp-libgcc.mvars
+	echo LIBGCOV = '$(LIBGCOV)' >> tmp-libgcc.mvars
+	echo LIB2ADD = '$(call srcdirify,$(LIB2ADD))' >> tmp-libgcc.mvars
+	echo LIB2ADD_ST = '$(call srcdirify,$(LIB2ADD_ST))' >> tmp-libgcc.mvars
+	echo LIB2ADDEH = '$(call srcdirify,$(LIB2ADDEH) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
+	echo LIB2ADDEHSTATIC = '$(call srcdirify,$(LIB2ADDEHSTATIC) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
+	echo LIB2ADDEHSHARED = '$(call srcdirify,$(LIB2ADDEHSHARED) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
+	echo LIB2_SIDITI_CONV_FUNCS = '$(LIB2_SIDITI_CONV_FUNCS)' >> tmp-libgcc.mvars
+	echo LIBUNWIND = '$(call srcdirify,$(LIBUNWIND))' >> tmp-libgcc.mvars
+	echo SHLIBUNWIND_LINK = '$(SHLIBUNWIND_LINK)' >> tmp-libgcc.mvars
+	echo SHLIBUNWIND_INSTALL = '$(SHLIBUNWIND_INSTALL)' >> tmp-libgcc.mvars
+	echo FPBIT = '$(FPBIT)' >> tmp-libgcc.mvars
+	echo FPBIT_FUNCS = '$(FPBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo LIB2_DIVMOD_FUNCS = '$(LIB2_DIVMOD_FUNCS)' >> tmp-libgcc.mvars
+	echo DPBIT = '$(DPBIT)' >> tmp-libgcc.mvars
+	echo DPBIT_FUNCS = '$(DPBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo TPBIT = '$(TPBIT)' >> tmp-libgcc.mvars
+	echo TPBIT_FUNCS = '$(TPBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo DFP_ENABLE = '$(DFP_ENABLE)' >> tmp-libgcc.mvars
+	echo DFP_CFLAGS='$(DFP_CFLAGS)' >> tmp-libgcc.mvars
+	echo D32PBIT='$(D32PBIT)' >> tmp-libgcc.mvars
+	echo D32PBIT_FUNCS='$(D32PBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo D64PBIT='$(D64PBIT)' >> tmp-libgcc.mvars
+	echo D64PBIT_FUNCS='$(D64PBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo D128PBIT='$(D128PBIT)' >> tmp-libgcc.mvars
+	echo D128PBIT_FUNCS='$(D128PBIT_FUNCS)' >> tmp-libgcc.mvars
+	echo GCC_EXTRA_PARTS = '$(GCC_EXTRA_PARTS)' >> tmp-libgcc.mvars
+	echo SHLIB_LINK = '$(subst $(GCC_FOR_TARGET),$$(GCC_FOR_TARGET),$(SHLIB_LINK))' >> tmp-libgcc.mvars
+	echo SHLIB_INSTALL = '$(SHLIB_INSTALL)' >> tmp-libgcc.mvars
+	echo SHLIB_EXT = '$(SHLIB_EXT)' >> tmp-libgcc.mvars
+	echo SHLIB_MKMAP = '$(call srcdirify,$(SHLIB_MKMAP))' >> tmp-libgcc.mvars
+	echo SHLIB_MKMAP_OPTS = '$(SHLIB_MKMAP_OPTS)' >> tmp-libgcc.mvars
+	echo SHLIB_MAPFILES = '$(call srcdirify,$(SHLIB_MAPFILES))' >> tmp-libgcc.mvars
+	echo SHLIB_NM_FLAGS = '$(SHLIB_NM_FLAGS)' >> tmp-libgcc.mvars
+	echo LIBGCC2_CFLAGS = '$(LIBGCC2_CFLAGS)' >> tmp-libgcc.mvars
+	echo CRTSTUFF_CFLAGS = '$(CRTSTUFF_CFLAGS)' >> tmp-libgcc.mvars
+	echo CRTSTUFF_T_CFLAGS = '$(CRTSTUFF_T_CFLAGS)' >> tmp-libgcc.mvars
+	echo CRTSTUFF_T_CFLAGS_S = '$(CRTSTUFF_T_CFLAGS_S)' >> tmp-libgcc.mvars
 
-# All the things that might cause us to want to recompile bits of libgcc.
-LIBGCC_DEPS = $(GCC_PASSES) stmp-int-hdrs $(STMP_FIXPROTO) \
-	libgcc.mk $(srcdir)/libgcc2.c $(srcdir)/libgcov.c $(TCONFIG_H) \
-	$(MACHMODE_H) longlong.h gbl-ctors.h config.status $(srcdir)/libgcc2.h \
-	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
-	config/dfp-bit.h config/dfp-bit.c \
-	$(LIB2ADD_ST) $(LIB2ADDEH) $(LIB2ADDEHDEP) $(EXTRA_PARTS) \
-	$(srcdir)/config/$(LIB1ASMSRC) \
-	$(srcdir)/gcov-io.h $(srcdir)/gcov-io.c gcov-iov.h $(SFP_MACHINE)
-
-libgcov.a: libgcc.a; @true
-
-libgcc.a: $(LIBGCC_DEPS)
-	$(MAKE) \
-	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  CONFIG_H="$(TCONFIG_H)" TM_H="$(TM_H)" \
-	  INCLUDES="$(INCLUDES)" \
-	  MAKEOVERRIDES= \
-	  -f libgcc.mk all
+	mv tmp-libgcc.mvars libgcc.mvars
 
 # Use the genmultilib shell script to generate the information the gcc
 # driver program needs to select the library directory based on the
@@ -1508,15 +1640,6 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	fi
 	$(SHELL) $(srcdir)/../move-if-change tmp-mlib.h multilib.h
 	$(STAMP) s-mlib
-
-# Build multiple copies of libgcc.a, one for each target switch.
-stmp-multilib: $(LIBGCC_DEPS)
-	$(MAKE) \
-	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  CONFIG_H="$(CONFIG_H)" \
-	  MAKEOVERRIDES= \
-	  -f libgcc.mk all
-	$(STAMP) stmp-multilib
 
 # Compile two additional files that are linked with every program
 # linked using GCC on systems using COFF or ELF, for the sake of C++
@@ -1929,16 +2052,16 @@ tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
 tree-vrp.o : tree-vrp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) $(DIAGNOSTIC_H) $(GGC_H) \
    $(BASIC_BLOCK_H) tree-ssa-propagate.h $(FLAGS_H) $(TREE_DUMP_H) \
-   $(CFGLOOP_H) $(SCEV_H) tree-chrec.h $(TIMEVAR_H)
+   $(CFGLOOP_H) $(SCEV_H) tree-chrec.h $(TIMEVAR_H) toplev.h
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h \
-   $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) toplev.h \
+   $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h toplev.h \
    tree-ssa-propagate.h
 tree-cfgcleanup.o : tree-cfgcleanup.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
-   $(DIAGNOSTIC_H) errors.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
+   $(DIAGNOSTIC_H) toplev.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h \
    $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) toplev.h \
    tree-ssa-propagate.h
@@ -1957,7 +2080,7 @@ tree-ssa-sink.o : tree-ssa-sink.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-nested.o: tree-nested.c $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
    $(RTL_H) $(TM_P_H) $(FUNCTION_H) $(TREE_DUMP_H) $(TREE_INLINE_H) \
    tree-iterator.h $(TREE_GIMPLE_H) $(CGRAPH_H) $(EXPR_H) langhooks.h \
-   $(GGC_H) gt-tree-nested.h coretypes.h $(TREE_FLOW_H)
+   $(GGC_H) gt-tree-nested.h coretypes.h $(TREE_FLOW_H) pointer-set.h
 tree-if-conv.o: tree-if-conv.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FLAGS_H) $(TIMEVAR_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
    $(CFGLOOP_H) $(RTL_H) $(C_COMMON_H) tree-chrec.h $(TREE_DATA_REF_H) \
@@ -1987,7 +2110,8 @@ tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-ssa-loop-unswitch.o : tree-ssa-loop-unswitch.c $(TREE_FLOW_H) \
    $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    domwalk.h $(PARAMS_H) output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) \
-   coretypes.h $(TREE_DUMP_H) tree-pass.h $(BASIC_BLOCK_H) hard-reg-set.h
+   coretypes.h $(TREE_DUMP_H) tree-pass.h $(BASIC_BLOCK_H) hard-reg-set.h \
+    $(TREE_INLINE_H)
 tree-ssa-address.o : tree-ssa-address.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -2012,13 +2136,13 @@ tree-ssa-loop-prefetch.o: tree-ssa-loop-prefetch.c $(TREE_FLOW_H) $(CONFIG_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
-   tree-chrec.h toplev.h langhooks.h
+   tree-chrec.h toplev.h langhooks.h $(TREE_INLINE_H)
 tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(EXPR_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
-   tree-chrec.h $(VARRAY_H) tree-affine.h
+   tree-chrec.h $(VARRAY_H) tree-affine.h pointer-set.h
 tree-affine.o : tree-affine.c tree-affine.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H)
@@ -2026,7 +2150,7 @@ tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(CFGLAYOUT_H) $(SCEV_H) $(BASIC_BLOCK_H) hard-reg-set.h \
-   $(PARAMS_H)
+   $(PARAMS_H) $(TREE_INLINE_H)
 tree-ssa-loop-im.o : tree-ssa-loop-im.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) domwalk.h \
    $(PARAMS_H) output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -2045,7 +2169,7 @@ tree-ssa-reassoc.o : tree-ssa-reassoc.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) errors.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) tree-iterator.h\
    $(BASIC_BLOCK_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) vec.h \
-   alloc-pool.h
+   alloc-pool.h pointer-set.h
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h $(DIAGNOSTIC_H) \
    $(FLAGS_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) toplev.h \
@@ -2134,7 +2258,7 @@ tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    value-prof.h
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FLAGS_H) $(REAL_H) toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) \
-   $(GGC_H) $(TM_P_H) langhooks.h $(MD5_H)
+   $(GGC_H) $(TM_P_H) langhooks.h $(MD5_H) intl.h
 diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) version.h $(TM_P_H) $(FLAGS_H) input.h toplev.h intl.h \
    $(DIAGNOSTIC_H) langhooks.h $(LANGHOOKS_DEF_H) diagnostic.def opts.h
@@ -2170,7 +2294,8 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(REAL_H) $(CFGLOOP_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) tree-pass.h $(TREE_DUMP_H) \
-   $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H)
+   $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H) \
+   gt-passes.h $(PREDICT_H)
 
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h
 
@@ -2293,12 +2418,15 @@ simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h toplev.h $(FLAGS_H) $(GGC_H) $(TARGET_H) $(CGRAPH_H) \
    gt-cgraph.h output.h intl.h $(BASIC_BLOCK_H) debug.h $(HASHTAB_H) \
-   $(TREE_INLINE_H) $(VARRAY_H) $(TREE_DUMP_H)
+   $(TREE_INLINE_H) $(VARRAY_H) $(TREE_DUMP_H) $(TREE_FLOW_H)
 cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) toplev.h $(FLAGS_H) $(GGC_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
    $(TREE_FLOW_H) tree-pass.h $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
    $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h 
+cgraphbuild.o : cgraphbuild.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) langhooks.h $(CGRAPH_H) intl.h pointer-set.h $(TREE_GIMPLE_H) \
+   $(TREE_FLOW_H) tree-pass.h 
 varpool.o : varpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) toplev.h $(FLAGS_H) $(GGC_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
@@ -2310,12 +2438,12 @@ ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) ipa-prop.h \
    $(TREE_FLOW_H) $(TM_H) tree-pass.h $(FLAGS_H) $(TREE_H)
 ipa-cp.o : ipa-cp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
-   langhooks.h $(TARGET_H) $(CGRAPH_H) ipa-prop.h  \
+   langhooks.h $(TARGET_H) $(CGRAPH_H) ipa-prop.h tree-inline.h tree-dump.h \
    $(TREE_FLOW_H) $(TM_H) tree-pass.h $(FLAGS_H) $(TREE_H) $(DIAGNOSTIC_H)
 ipa-inline.o : ipa-inline.c gt-ipa-inline.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) $(FLAGS_H) $(CGRAPH_H) intl.h \
    $(DIAGNOSTIC_H) $(FIBHEAP_H) $(PARAMS_H) $(TIMEVAR_H) tree-pass.h \
-   $(COVERAGE_H) $(HASHTAB_H) 
+   $(COVERAGE_H) $(HASHTAB_H) $(RTL_H)
 ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(C_COMMON_H) $(TREE_GIMPLE_H) \
@@ -2381,7 +2509,7 @@ tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \
-   tree-ssa-propagate.h $(FLAGS_H) $(TARGET_H)
+   tree-ssa-propagate.h $(FLAGS_H) $(TARGET_H) toplev.h
 tree-sra.o : tree-sra.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
     $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(TREE_INLINE_H) \
     $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_GIMPLE_H) \
@@ -2411,8 +2539,6 @@ var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(FLAGS_H) \
    $(BASIC_BLOCK_H) output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H) \
    $(REGS_H) $(EXPR_H) $(TIMEVAR_H) tree-pass.h
-conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H) \
-   $(HASHTAB_H) $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) $(FUNCTION_H) \
    toplev.h $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h cfghooks.h \
@@ -2420,7 +2546,7 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 tree-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
    $(FUNCTION_H) toplev.h $(COVERAGE_H) $(TREE_H) value-prof.h $(TREE_DUMP_H) \
-   tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H) $(GGC_H) gt-tree-profile.h
+   tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H) $(GGC_H) gt-tree-profile.h $(CGRAPH_H)
 value-prof.o : value-prof.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h value-prof.h $(EXPR_H) output.h $(FLAGS_H) \
    $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H) $(GGC_H) $(DIAGNOSTIC_H) \
@@ -2461,7 +2587,7 @@ cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(REGS_H) $(EMIT_RTL_H) $(CFGLAYOUT_H) tree-pass.h $(CFGLOOP_H) $(EXPR_H)
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(FLAGS_H) $(FUNCTION_H) \
-   $(OBSTACK_H) toplev.h $(TREE_FLOW_H) $(TREE_H)
+   $(OBSTACK_H) toplev.h $(TREE_FLOW_H) $(TREE_H) pointer-set.h output.h
 cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(EXPR_H) coretypes.h $(TM_H) \
    $(OBSTACK_H) output.h
@@ -2515,7 +2641,7 @@ global.o : global.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TIMEVAR_H) vecprim.h
 varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
    $(HASHTAB_H) $(BCONFIG_H) $(VARRAY_H) toplev.h
-vec.o : vec.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) coretypes.h vec.h $(GGC_H) \
+vec.o : vec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h vec.h $(GGC_H) \
    toplev.h
 reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) output.h $(EXPR_H) $(OPTABS_H) reload.h $(RECOG_H) \
@@ -2593,7 +2719,7 @@ final.o : final.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(INSN_ATTR_H) $(FUNCTION_H) output.h hard-reg-set.h \
    except.h debug.h xcoffout.h toplev.h reload.h dwarf2out.h tree-pass.h \
    $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) $(EXPR_H) $(CFGLAYOUT_H) dbxout.h \
-   $(TIMEVAR_H) $(CGRAPH_H) $(COVERAGE_H) $(REAL_H)
+   $(TIMEVAR_H) $(CGRAPH_H) $(COVERAGE_H) $(REAL_H) vecprim.h
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FUNCTION_H) $(BASIC_BLOCK_H) $(REGS_H) $(RECOG_H) $(EXPR_H) \
    $(FLAGS_H) insn-config.h $(INSN_ATTR_H) toplev.h output.h reload.h \
@@ -2649,6 +2775,10 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
+lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(MACHMODE_H) $(TM_H) $(RTL_H) $(TM_P_H) $(TIMEVAR_H) $(FLAGS_H) \
+   insn-config.h $(BASIC_BLOCK_H) $(RECOG_H) $(OBSTACK_H) bitmap.h \
+   $(EXPR_H) $(REGS_H) tree-pass.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \
@@ -2870,7 +3000,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/function.c $(srcdir)/except.h \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/regclass.c \
-  $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c \
+  $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c $(srcdir)/cfglayout.h \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
@@ -2885,7 +3015,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/c-pragma.h $(srcdir)/omp-low.c $(srcdir)/varpool.c \
-  $(srcdir)/targhooks.c $(out_file) \
+  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c\
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2916,7 +3046,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-propagate.h gt-varpool.h \
-gt-tree-ssa-structalias.h gt-ipa-inline.h \
+gt-tree-ssa-structalias.h gt-ipa-inline.h gt-passes.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
@@ -2971,7 +3101,7 @@ build/read-rtl.o: read-rtl.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h	\
   $(GTM_H) $(RTL_BASE_H) $(OBSTACK_H) $(HASHTAB_H) gensupport.h
 build/rtl.o: rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)	\
   $(RTL_H) $(REAL_H) $(GGC_H) errors.h
-build/vec.o : vec.c $(BCONFIG_H) $(SYSTEM_H) $(TREE_H) coretypes.h vec.h \
+build/vec.o : vec.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h vec.h \
    $(GGC_H) toplev.h
 build/gencondmd.o : build/gencondmd.c $(BCONFIG_H) $(SYSTEM_H)		\
   coretypes.h $(GTM_H) insn-constants.h $(RTL_H) $(TM_P_H)		\
@@ -3540,18 +3670,6 @@ fsf-funding.pod: funding.texi
 	-$(TEXI2POD) $< > $@
 
 #
-# clean-target removes all files made by compilation.
-# This can be added to over time.
-
-clean-target: clean-target-libgcc
-
-clean-target-libgcc:
-	test ! -d libgcc || \
-	(cd libgcc && find . -type d -print) | \
-	while read d; do rm -f $$d/libgcc.a || : ; done
-	test ! -d libgcc || rm -r libgcc
-	test ! -f stmp-dirs || rm stmp-dirs
-
 # Deletion of files made during compilation.
 # There are four levels of this:
 #   `mostlyclean', `clean', `distclean' and `maintainer-clean'.
@@ -3566,9 +3684,8 @@ clean-target-libgcc:
 # (less duplicated code).
 
 mostlyclean: lang.mostlyclean
-	-rm -f $(STAGECOPYSTUFF) $(STAGEMOVESTUFF)
+	-rm -f $(MOSTLYCLEANFILES)
 	-rm -f *$(coverageexts)
-	-rm -rf libgcc
 # Delete build programs
 	-rm -f build/*
 	-rm -f mddeps.mk
@@ -3612,7 +3729,6 @@ clean: mostlyclean lang.clean
 	-rm -f config.h tconfig.h bconfig.h tm_p.h tm.h
 	-rm -f options.c options.h optionlist
 	-rm -f cs-*
-	-rm -rf libgcc
 	-rm -f doc/*.dvi
 	-rm -f doc/*.pdf
 # Delete the include directory.
@@ -3624,11 +3740,6 @@ clean: mostlyclean lang.clean
 	else if [ "x$(MULTILIB_OPTIONS)" != x ] ; then \
 	  rm -rf `echo $(MULTILIB_OPTIONS) | sed -e 's/\// /g'`; \
 	fi ; fi
-	-rm -fr stage1 stage2 stage3 stage4 stageprofile stagefeedback
-# Delete stamps of bootstrap stages
-	-rm -f stage?_*
-	-rm -f clean?_*
-	-rm -f stage_last
 
 # Delete all files that users would normally create
 # while building and installing GCC.
@@ -3639,7 +3750,6 @@ distclean: clean lang.distclean
 	-rm -f Make-lang Make-hooks Make-host Make-target
 	-rm -f Makefile *.oaux
 	-rm -f gthr-default.h
-	-rm -f */stage1 */stage2 */stage3 */stage4 */include */stageprofile */stagefeedback
 	-rm -f TAGS */TAGS
 	-rm -f *.asm
 	-rm -f site.exp site.bak testsuite/site.exp testsuite/site.bak
@@ -3648,7 +3758,7 @@ distclean: clean lang.distclean
 	-cd testsuite && rm -f *.out *.gcov *$(coverageexts)
 	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f cxxmain.c
-	-rm -f mklibgcc gccbug .gdbinit configargs.h
+	-rm -f gccbug .gdbinit configargs.h
 	-rm -f gcov.pod
 # Delete po/*.gmo only if we are not building in the source directory.
 	-if [ ! -f po/exgettext ]; then rm -f po/*.gmo; fi
@@ -3670,7 +3780,7 @@ maintainer-clean:
 # Copy the compiler files into directories where they will be run.
 # Install the driver last so that the window when things are
 # broken is small.
-install: install-common $(INSTALL_HEADERS) $(INSTALL_LIBGCC) \
+install: install-common $(INSTALL_HEADERS) \
     install-cpp install-man install-info install-@POSUB@ \
     install-driver
 
@@ -3696,7 +3806,7 @@ installdirs:
 	$(mkinstalldirs) $(DESTDIR)$(man7dir)
 
 # Install the compiler executables built during cross compilation.
-install-common: native $(EXTRA_PARTS) lang.install-common installdirs
+install-common: native lang.install-common installdirs
 	for file in $(COMPILERS); do \
 	  if [ -f $$file ] ; then \
 	    rm -f $(DESTDIR)$(libexecsubdir)/$$file; \
@@ -3708,13 +3818,6 @@ install-common: native $(EXTRA_PARTS) lang.install-common installdirs
 	  if [ x"$$file" != x.. ]; then \
 	    rm -f $(DESTDIR)$(libexecsubdir)/$$file; \
 	    $(INSTALL_PROGRAM) $$file $(DESTDIR)$(libexecsubdir)/$$file; \
-	  else true; fi; \
-	done
-	for file in $(EXTRA_PARTS) ..; do \
-	  if [ x"$$file" != x.. ]; then \
-	    rm -f $(DESTDIR)$(libsubdir)/$$file; \
-	    $(INSTALL_DATA) $$file $(DESTDIR)$(libsubdir)/$$file; \
-	    chmod a-x $(DESTDIR)$(libsubdir)/$$file; \
 	  else true; fi; \
 	done
 # We no longer install the specs file because its presence makes the
@@ -3834,24 +3937,6 @@ $(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext): doc/gcov.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
-
-# Install the library.
-install-libgcc: libgcc.mk libgcc.a libgcov.a installdirs
-	$(MAKE) \
-	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  CONFIG_H="$(TCONFIG_H)" \
-	  MAKEOVERRIDES= \
-	  mkinstalldirs='$(mkinstalldirs)' \
-	  -f libgcc.mk install
-
-# Install multiple versions of libgcc.a, libgcov.a.
-install-multilib: stmp-multilib installdirs
-	$(MAKE) \
-	  CFLAGS="$(CFLAGS) $(WARN_CFLAGS)" \
-	  CONFIG_H="$(CONFIG_H)" \
-	  MAKEOVERRIDES= \
-	  mkinstalldirs='$(mkinstalldirs)' \
-	  -f libgcc.mk install
 
 # Install all the header files built in the include subdirectory.
 install-headers: $(INSTALL_HEADERS_DIR)
@@ -4082,6 +4167,7 @@ $(lang_checks): check-% : site.exp
 	if [ -f $${rootme}/../expect/expect ] ; then  \
 	   TCL_LIBRARY=`cd .. ; cd $${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	    export TCL_LIBRARY ; fi ; \
+	GCC_EXEC_PREFIX="$(libdir)/gcc/" ; export GCC_EXEC_PREFIX ; \
 	$(RUNTEST) --tool $* $(RUNTESTFLAGS))
 
 check-consistency: testsuite/site.exp
@@ -4092,6 +4178,7 @@ check-consistency: testsuite/site.exp
 	if [ -f $${rootme}/../expect/expect ] ; then  \
 	   TCL_LIBRARY=`cd .. ; cd $${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	   export TCL_LIBRARY ; fi ; \
+	GCC_EXEC_PREFIX="$(libdir)/gcc/" ; export GCC_EXEC_PREFIX ; \
 	$(RUNTEST) --tool consistency $(RUNTESTFLAGS)
 
 # QMTest targets
@@ -4168,547 +4255,6 @@ TAGS: lang.tags
 	done;						\
 	etags -o TAGS.sub *.y *.h *.c; \
 	etags --include TAGS.sub $$incs)
-
-# ------------------------------------------------------
-# Bootstrap-related targets (not used during 'make all')
-# ------------------------------------------------------
-
-# A list of files to be destroyed during "lean" builds.
-VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) *.c *.h gen*`
-
-# Flags to pass to stage2 and later recursive makes.  Note that the
-# WARN_CFLAGS setting can't be to the expansion of GCC_WARN_CFLAGS in
-# the context of the stage_x rule.
-
-POSTSTAGE1_FLAGS_TO_PASS = \
-	ADAFLAGS="$(BOOT_ADAFLAGS)" \
-	CFLAGS="$(BOOT_CFLAGS)" \
-	LDFLAGS="$(BOOT_LDFLAGS)" \
-	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
-	STRICT_WARN="$(STRICT2_WARN)" \
-	libdir=$(libdir) \
-	LANGUAGES="$(LANGUAGES)" \
-	MAKEINFO="$(MAKEINFO)" \
-	MAKEINFOFLAGS="$(MAKEINFOFLAGS)" \
-	MAKEOVERRIDES= \
-	OUTPUT_OPTION="-o \$$@"
-
-STAGE2_FLAGS_TO_PASS = \
-	CFLAGS="$(BOOT_CFLAGS)" \
-	WERROR="$(WERROR_FLAGS)" \
-
-STAGEPROFILE_FLAGS_TO_PASS = \
-	CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"
-
-# Files never linked into the final executable produces warnings about missing
-# profile.
-STAGEFEEDBACK_FLAGS_TO_PASS = \
-	CFLAGS="$(BOOT_CFLAGS) -fprofile-use -freorder-blocks-and-partition"
-
-# Only build the C compiler for stage1, because that is the only one that
-# we can guarantee will build with the native compiler, and also it is the
-# only thing useful for building stage2. STAGE1_CFLAGS (via CFLAGS),
-# MAKEINFO and MAKEINFOFLAGS are explicitly passed here to make them
-# overrideable (for a bootstrap build stage1 also builds gcc.info).
-# The stage1 compiler is always built with checking enabled.
-stage1_build:
-	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" \
-		CFLAGS="$(STAGE1_CFLAGS) $(STAGE1_CHECKING)" \
-		MAKEINFO="$(MAKEINFO)" MAKEINFOFLAGS="$(MAKEINFOFLAGS)" \
-		COVERAGE_FLAGS= OBJS-onestep="$(OBJS)"
-	$(STAMP) stage1_build
-	echo stage1_build > stage_last
-
-stage1_copy: stage1_build
-	$(MAKE) stage1
-	$(STAMP) stage1_copy
-	echo stage2_build > stage_last
-
-stage2_build: stage1_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
-		 STAGE_PREFIX=stage1/ \
-		 $(POSTSTAGE1_FLAGS_TO_PASS) \
-		 $(STAGE2_FLAGS_TO_PASS)
-	$(STAMP) stage2_build
-	echo stage2_build > stage_last
-
-stage2_copy: stage2_build
-	$(MAKE) stage2
-	$(STAMP) stage2_copy
-	echo stage3_build > stage_last
-
-stageprofile_build: stage1_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
-		 STAGE_PREFIX=stage1/ \
-		 $(POSTSTAGE1_FLAGS_TO_PASS) \
-		 $(STAGEPROFILE_FLAGS_TO_PASS)
-	$(STAMP) stageprofile_build
-	echo stageprofile_build > stage_last
-
-stageprofile_copy: stageprofile_build
-	$(MAKE) stageprofile
-	$(STAMP) stageprofile_copy
-	echo stagefeedback_build > stage_last
-
-stage3_build: stage2_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" \
-		 STAGE_PREFIX=stage2/ \
-		 $(POSTSTAGE1_FLAGS_TO_PASS) \
-		 $(STAGE2_FLAGS_TO_PASS)
-	$(STAMP) stage3_build
-	echo stage3_build > stage_last
-
-stagefeedback_build: stageprofile_copy stage1_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
-		 STAGE_PREFIX=stage1/ \
-		 $(POSTSTAGE1_FLAGS_TO_PASS) \
-		 $(STAGEFEEDBACK_FLAGS_TO_PASS)
-	$(STAMP) stagefeedback_build
-	echo stagefeedback_build > stage_last
-
-stagefeedback_copy: stagefeedback_build
-	$(MAKE) stagefeedback
-	$(STAMP) stagefeedback_copy
-	echo stagefeedback2_build > stage_last
-
-# For bootstrap4:
-stage3_copy: stage3_build
-	$(MAKE) stage3
-	$(STAMP) stage3_copy
-	echo stage4_build > stage_last
-
-stage4_build: stage3_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage3/xgcc$(exeext) -Bstage3/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage3/xgcc$(exeext) -Bstage3/ -B$(build_tooldir)/bin/" \
-		 STAGE_PREFIX=stage3/ \
-		 $(POSTSTAGE1_FLAGS_TO_PASS) \
-		 $(STAGE2_FLAGS_TO_PASS)
-	$(STAMP) stage4_build
-	echo stage4_build > stage_last
-
-# Additional steps for *-lean targets:
-clean_s1: stage1_copy
-	-(cd stage1 && rm -f $(VOL_FILES))
-	$(STAMP) clean_s1
-
-clean_s2: stage2_copy
-	-rm -rf stage1
-	$(STAMP) clean_s2
-
-# The various entry points for bootstrapping.
-
-bootstrap: stage3_build
-	@echo
-	@echo Bootstrap complete - make \"quickstrap\" to redo last build,
-	@echo \"restage1\" through \"restage3\" to rebuild specific stages,
-	@echo \"restrap\" to redo the bootstrap from stage1, or
-	@echo \"cleanstrap\" to redo the bootstrap from scratch.
-
-bootstrap-lean : clean_s1 clean_s2 stage3_build
-	@echo
-	@echo Bootstrap complete - make \"quickstrap\" to redo last build,
-	@echo or \"cleanstrap\" to redo the bootstrap from scratch.
-
-bootstrap2: bootstrap
-
-bootstrap2-lean : bootstrap-lean
-
-bootstrap3 bootstrap3-lean: bootstrap
-
-bootstrap4 bootstrap4-lean: stage4_build
-
-unstage1 unstage2 unstage3 unstage4 unstageprofile unstagefeedback:
-	-set -vx; stage=`echo $@ | sed -e 's/un//'`; \
-	rm -f $$stage/as$(exeext); \
-	rm -f $$stage/nm$(exeext); \
-	rm -f $$stage/collect-ld$(exeext); \
-	if test -d $$stage; then \
-	  mv $$stage/specs $(SPECS) 2>/dev/null || :; \
-	  mv $$stage/* . 2>/dev/null; \
-	  for i in `cd $$stage; echo *` ; do \
-	    if test -d $$stage/$$i; then \
-	      mv $$stage/$$i/* $$i/. 2>/dev/null; \
-	    else \
-	      mv $$stage/$$i .; \
-	    fi; \
-	  done \
-	fi ; \
-	rm -f $${stage}_build $${stage}_copy ;\
-	echo $${stage}_build > stage_last
-
-restage1: unstage1
-	$(MAKE) $(REMAKEFLAGS) stage1_build
-
-restage2: unstage2
-	$(MAKE) $(REMAKEFLAGS) stage2_build
-
-restage3: unstage3
-	$(MAKE) $(REMAKEFLAGS) stage3_build
-
-restage4: unstage4
-	$(MAKE) $(REMAKEFLAGS) stage4_build
-
-restageprofile: unstageprofile
-	$(MAKE) $(REMAKEFLAGS) stageprofile_build
-
-restagefeedback: unstagefeedback
-	$(MAKE) $(REMAKEFLAGS) stagefeedback_build
-
-# Bubble up a bugfix through all the stages.  Primarily useful for fixing
-# bugs that cause the compiler to crash while building stage 2.
-bubblestrap:
-	if test -f stage_last; then \
-	  LAST=`sed -e 's/_build//' < stage_last`; \
-	  if test "$$LAST" != "stage1"; then \
-	    $(MAKE) $(REMAKEFLAGS) $$LAST; \
-	    $(STAMP) $${LAST}_copy; \
-	  fi; \
-	fi
-	if test -f stage1_copy; then $(MAKE) unstage1; fi
-	$(MAKE) $(REMAKEFLAGS) stage1_copy
-	if test -f stage2_copy; then $(MAKE) unstage2; fi
-	$(MAKE) $(REMAKEFLAGS) stage2_copy
-	if test -f stage3_copy; then $(MAKE) unstage3; fi
-	$(MAKE) $(REMAKEFLAGS) stage3_build
-	if test -f stage4_copy; then \
-	  $(MAKE) $(REMAKEFLAGS) stage3_copy; $(MAKE) unstage4; \
-	  $(MAKE) $(REMAKEFLAGS) stage4_build || exit 1; \
-	fi
-
-BOOTSTRAPPING := $(shell if test -f ../stage_last; then echo yes; else echo no; fi)
-ifeq ($(BOOTSTRAPPING),yes)
-# Provide quickstrap as a target that people can type into the gcc directory,
-# and that fails if you're not into it.
-quickstrap: all
-else
-quickstrap:
-	if test -f stage_last ; then \
-	  LAST=`cat stage_last`; rm $$LAST; $(MAKE) $(REMAKEFLAGS) $$LAST; \
-	else \
-	  $(MAKE) $(REMAKEFLAGS) stage1_build; \
-	fi
-endif
-
-cleanstrap:
-	-$(MAKE) clean
-	$(MAKE) $(REMAKEFLAGS) bootstrap
-
-unstrap:
-	-rm -rf stage[234]*
-	$(MAKE) unstage1
-	-rm -f stage_last
-
-# Differs from cleanstrap in that it starts from the earlier stage1 build,
-# not from scratch.
-restrap:
-	$(MAKE) unstrap
-	$(MAKE) $(REMAKEFLAGS) bootstrap
-
-# These targets compare the object files in the current directory with
-# those in a stage directory.  We need to skip the first N bytes of
-# each object file.  The "slow" mechanism assumes nothing special
-# about cmp and uses the tail command to skip.  ./ avoids a bug in
-# some versions of tail.  The "gnu" targets use gnu cmp (diffutils
-# v2.4 or later), to avoid running tail and the overhead of twice
-# copying each object file.  Likewise, the "fast" targets use the skip
-# parameter of cmp available on some systems to accomplish the same
-# thing.  An exit status of 1 is precisely the result we're looking
-# for (other values mean other problems).
-slowcompare slowcompare3 slowcompare4 slowcompare-lean slowcompare3-lean slowcompare4-lean \
-fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcompare4-lean \
- gnucompare  gnucompare3  gnucompare4  gnucompare-lean  gnucompare3-lean  gnucompare4-lean: force
-	-rm -f .bad_compare
-	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
-	for dir in . $(SUBDIRS) libgcc; do \
-	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
-	    for file in $$dir/*$(objext); do \
-	      case "$@" in \
-		slowcompare* ) \
-		  if tail -c +1 </dev/null >/dev/null 2>&1; then \
-		    skip16='-c +17'; \
-		  else \
-		    skip16='+17c'; \
-		  fi; \
-		  tail $$skip16 ./$$file > tmp-foo1; \
-		  tail $$skip16 stage$$stage/$$file > tmp-foo2; \
-		  cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1; \
-		  cmpret=$$?; \
-		  ;; \
-		fastcompare* ) \
-		  cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
-		  cmpret=$$?; \
-		  ;; \
-		gnucompare* ) \
-		  cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
-		  cmpret=$$?; \
-		  ;; \
-	      esac ; \
-	      if test $$cmpret -eq 1; then \
-		case $$file in \
-		  ./cc*-checksum$(objext) | libgcc/* ) \
-		    echo warning: $$file differs;; \
-		  *) \
-		    echo $$file differs >> .bad_compare;; \
-		esac ; \
-	      fi; \
-	    done; \
-	  else true; fi; \
-	done
-	-rm -f tmp-foo*
-	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
-	if [ -f .bad_compare ]; then \
-	  echo "Bootstrap comparison failure!"; \
-	  cat .bad_compare; \
-	  exit 1; \
-	else \
-	  case "$@" in \
-	    *-lean ) rm -rf stage$$stage ;; \
-	    *) ;; \
-	  esac; true; \
-	fi
-
-# Forwarding wrappers to the most appropriate version.
-compare: @make_compare_target@
-compare3: @make_compare_target@3
-compare4: @make_compare_target@4
-compare-lean: @make_compare_target@-lean
-compare3-lean: @make_compare_target@3-lean
-compare4-lean: @make_compare_target@4-lean
-
-# Copy the object files from a particular stage into a subdirectory.
-stage1-start:
-	-if [ -d stage1 ] ; then true ; else mkdir stage1 ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stage1
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stage1/$$dir ] ; then true ; else mkdir stage1/$$dir ; fi ; \
-	 done
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
-	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
-# If SPECS is overridden, make sure it is `installed' as specs.
-	-mv $(SPECS) stage1/specs
-	-mv $(STAGEMOVESTUFF) stage1
-	-mv build/* stage1/build
-	-cp -p $(STAGECOPYSTUFF) stage1
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-cp libgcc.a stage1
-	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
-	-cp libgcov.a stage1
-	-$(RANLIB_FOR_TARGET) stage1/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage1; \
-	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stage1
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stage1
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stage1/$${f} . ; \
-	else true; \
-	fi; done
-stage1: force stage1-start lang.stage1
-	-for dir in . $(SUBDIRS) ; \
-	do \
-	  rm -f $$dir/*$(coverageexts) ; \
-	done
-
-stage2-start:
-	-if [ -d stage2 ] ; then true ; else mkdir stage2 ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stage2
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stage2/$$dir ] ; then true ; else mkdir stage2/$$dir ; fi ; \
-	 done
-	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
-	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
-# If SPECS is overridden, make sure it is `installed' as specs.
-	-mv $(SPECS) stage2/specs
-	-mv $(STAGEMOVESTUFF) stage2
-	-mv build/* stage2/build
-	-cp -p $(STAGECOPYSTUFF) stage2
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-cp libgcc.a stage2
-	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
-	-cp libgcov.a stage2
-	-$(RANLIB_FOR_TARGET) stage2/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage2; \
-	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stage2
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stage2
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stage2/$${f} . ; \
-	else true; \
-	fi; done
-stage2: force stage2-start lang.stage2
-
-stage3-start:
-	-if [ -d stage3 ] ; then true ; else mkdir stage3 ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stage3
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stage3/$$dir ] ; then true ; else mkdir stage3/$$dir ; fi ; \
-	 done
-	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
-	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
-# If SPECS is overridden, make sure it is `installed' as specs.
-	-mv $(SPECS) stage3/specs
-	-mv $(STAGEMOVESTUFF) stage3
-	-mv build/* stage3/build
-	-cp -p $(STAGECOPYSTUFF) stage3
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-cp libgcc.a stage3
-	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
-	-cp libgcov.a stage3
-	-$(RANLIB_FOR_TARGET) stage3/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage3; \
-	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stage3
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stage3
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stage3/$${f} . ; \
-	else true; \
-	fi; done
-stage3: force stage3-start lang.stage3
-
-stage4-start:
-	-if [ -d stage4 ] ; then true ; else mkdir stage4 ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stage4
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stage4/$$dir ] ; then true ; else mkdir stage4/$$dir ; fi ; \
-	 done
-	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
-	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
-# If SPECS is overridden, make sure it is `installed' as specs.
-	-mv $(SPECS) stage4/specs
-	-mv $(STAGEMOVESTUFF) stage4
-	-mv build/* stage4/build
-	-cp -p $(STAGECOPYSTUFF) stage4
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-cp libgcc.a stage4
-	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
-	-cp libgcov.a stage4
-	-$(RANLIB_FOR_TARGET) stage4/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stage4; \
-	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stage4
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stage4
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stage4/$${f} . ; \
-	else true; \
-	fi; done
-stage4: force stage4-start lang.stage4
-
-stageprofile-start:
-	-if [ -d stageprofile ] ; then true ; else mkdir stageprofile ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stageprofile
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stageprofile/$$dir ] ; then true ; else mkdir stageprofile/$$dir ; fi ; \
-	 done
-	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
-	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
-	-mv $(STAGEMOVESTUFF) stageprofile
-	-mv build/* stageprofile/build
-	-cp -p $(STAGECOPYSTUFF) stageprofile
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stageprofile && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-cp libgcc.a stageprofile
-	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
-	-cp libgcov.a stageprofile
-	-$(RANLIB_FOR_TARGET) stageprofile/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stageprofile; \
-	   $(RANLIB_FOR_TARGET) stageprofile/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stageprofile
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stageprofile
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stageprofile/$${f} . ; \
-	else true; \
-	fi; done
-stageprofile: force stageprofile-start lang.stageprofile
-
-stagefeedback-start:
-	-if [ -d stagefeedback ] ; then true ; else mkdir stagefeedback ; fi
-	$(MAKE) -f libgcc.mk libgcc-stage-start stage=stagefeedback
-	-subdirs="$(SUBDIRS)"; for dir in $$subdirs; \
-	 do \
-	   if [ -d stagefeedback/$$dir ] ; then true ; else mkdir stagefeedback/$$dir ; fi ; \
-	 done
-	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
-	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
-	-rm -f *.da
-	-mv $(STAGEMOVESTUFF) stagefeedback
-	-mv build/* stagefeedback/build
-	-cp -p $(STAGECOPYSTUFF) stagefeedback
-# Copy as/ld if they exist to stage dir, so that running xgcc from the stage
-# dir will work properly.
-	-if [ -f as$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../as$(exeext) .) ; else true ; fi
-	-if [ -f ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../ld$(exeext) .) ; else true ; fi
-	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-for dir in fixinc po testsuite $(SUBDIRS); \
-	 do \
-	   rm -f $$dir/*.da ; \
-	 done
-	-cp libgcc.a stagefeedback
-	-$(RANLIB_FOR_TARGET) stagefeedback/libgcc.a
-	-cp libgcov.a stagefeedback
-	-$(RANLIB_FOR_TARGET) stagefeedback/libgcov.a
-	-if [ -f libgcc_eh.a ] ; then cp libgcc_eh.a stagefeedback; \
-	   $(RANLIB_FOR_TARGET) stagefeedback/libgcc_eh.a; \
-	fi
-	-cp libgcc_s*$(SHLIB_EXT) stagefeedback
-	-cp libunwind.a libunwind*$(SHLIB_EXT) stagefeedback
-	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
-	  cp stagefeedback/$${f} . ; \
-	else true; \
-	fi; done
-stagefeedback: force stagefeedback-start lang.stagefeedback
-
-# Copy just the executable files from a particular stage into a subdirectory,
-# and delete the object files.  Use this if you're just verifying a version
-# that is pretty sure to work, and you are short of disk space.
-risky-stage1: stage1
-	-$(MAKE) clean
-
-risky-stage2: stage2
-	-$(MAKE) clean
-
-risky-stage3: stage3
-	-$(MAKE) clean
-
-risky-stage4: stage4
-	-$(MAKE) clean
-
-#In GNU Make, ignore whether `stage*' exists.
-.PHONY: stage1 stage2 stage3 stage4 clean maintainer-clean TAGS bootstrap
-.PHONY: risky-stage1 risky-stage2 risky-stage3 risky-stage4
-.PHONY: stagefeedback stageprofile
 
 # -----------------------------------------------------
 # Rules for generating translated message descriptions.

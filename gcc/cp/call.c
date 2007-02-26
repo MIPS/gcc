@@ -1,6 +1,7 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -335,7 +336,7 @@ build_call (tree function, tree parms)
 				     TREE_VALUE (tmp), t);
 	}
 
-  function = build3 (CALL_EXPR, result_type, function, parms, NULL_TREE);
+  function = build_call_list (result_type, function, parms);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
   TREE_NOTHROW (function) = nothrow;
 
@@ -432,7 +433,7 @@ null_ptr_cst_p (tree t)
   if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t))
     {
       STRIP_NOPS (t);
-      if (!TREE_CONSTANT_OVERFLOW (t))
+      if (!TREE_OVERFLOW (t))
 	return true;
     }
   return false;
@@ -842,7 +843,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	conv->rank = cr_promotion;
     }
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
-	   && vector_types_convertible_p (from, to))
+	   && vector_types_convertible_p (from, to, false))
     return build_conv (ck_std, to, conv);
   else if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE)
 	   && IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
@@ -3280,8 +3281,16 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	result_type = void_type_node;
       else
 	{
-	  error ("%qE has type %<void%> and is not a throw-expression",
-		    VOID_TYPE_P (arg2_type) ? arg2 : arg3);
+	  if (VOID_TYPE_P (arg2_type))
+            error ("second operand to the conditional operator "
+                   "is of type %<void%>, "
+                   "but the third operand is neither a throw-expression "
+                   "nor of type %<void%>");
+	  else
+	    error ("third operand to the conditional operator "
+                   "is of type %<void%>, "
+		   "but the second operand is neither a throw-expression "
+                   "nor of type %<void%>");
 	  return error_mark_node;
 	}
 
@@ -4249,7 +4258,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       tree t = non_reference (totype);
 
       /* Issue warnings about peculiar, but valid, uses of NULL.  */
-      if (ARITHMETIC_TYPE_P (t) && expr == null_node)
+      if (expr == null_node && TREE_CODE (t) != BOOLEAN_TYPE && ARITHMETIC_TYPE_P (t))
 	{
 	  if (fn)
 	    warning (OPT_Wconversion, "passing NULL to non-pointer argument %P of %qD",
@@ -4731,7 +4740,7 @@ build_over_call (struct z_candidate *cand, int flags)
       tree expr;
       tree return_type;
       return_type = TREE_TYPE (TREE_TYPE (fn));
-      expr = build3 (CALL_EXPR, return_type, fn, args, NULL_TREE);
+      expr = build_call_list (return_type, fn, args);
       if (TREE_THIS_VOLATILE (fn) && cfun)
 	current_function_returns_abnormally = 1;
       if (!VOID_TYPE_P (return_type))
@@ -5113,7 +5122,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
   lookup_fn = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
 		      java_iface_lookup_fn);
-  return build3 (CALL_EXPR, ptr_type_node, lookup_fn, lookup_args, NULL_TREE);
+  return build_call_list (ptr_type_node, lookup_fn, lookup_args);
 }
 
 /* Returns the value to use for the in-charge parameter when making a
@@ -5519,15 +5528,29 @@ build_new_method_call (tree instance, tree fns, tree args,
 		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
 			       instance_ptr, call);
+	      else if (call != error_mark_node
+		       && DECL_DESTRUCTOR_P (cand->fn)
+		       && !VOID_TYPE_P (TREE_TYPE (call)))
+		/* An explicit call of the form "x->~X()" has type
+		   "void".  However, on platforms where destructors
+		   return "this" (i.e., those where
+		   targetm.cxx.cdtor_returns_this is true), such calls
+		   will appear to have a return value of pointer type
+		   to the low-level call machinery.  We do not want to
+		   change the low-level machinery, since we want to be
+		   able to optimize "delete f()" on such platforms as
+		   "operator delete(~X(f()))" (rather than generating
+		   "t = f(), ~X(t), operator delete (t)").  */
+		call = build_nop (void_type_node, call);
 	    }
 	}
     }
 
   if (processing_template_decl && call != error_mark_node)
-    call = (build_min_non_dep
-	    (CALL_EXPR, call,
+    call = (build_min_non_dep_call_list
+	    (call,
 	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns, NULL_TREE),
-	     orig_args, NULL_TREE));
+	     orig_args));
 
  /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);

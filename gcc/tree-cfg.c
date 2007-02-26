@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -44,9 +44,9 @@ Boston, MA 02110-1301, USA.  */
 #include "except.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
-#include "hashtab.h"
 #include "tree-ssa-propagate.h"
 #include "value-prof.h"
+#include "pointer-set.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -69,19 +69,7 @@ static const int initial_cfg_capacity = 20;
    more persistent.  The key is getting notification of changes to
    the CFG (particularly edge removal, creation and redirection).  */
 
-struct edge_to_cases_elt
-{
-  /* The edge itself.  Necessary for hashing and equality tests.  */
-  edge e;
-
-  /* The case labels associated with this edge.  We link these up via
-     their TREE_CHAIN field, then we wipe out the TREE_CHAIN fields
-     when we destroy the hash table.  This prevents problems when copying
-     SWITCH_EXPRs.  */
-  tree case_labels;
-};
-
-static htab_t edge_to_cases;
+static struct pointer_map_t *edge_to_cases;
 
 /* CFG statistics.  */
 struct cfg_stats_d
@@ -133,15 +121,13 @@ init_empty_tree_cfg (void)
   n_basic_blocks = NUM_FIXED_BLOCKS;
   last_basic_block = NUM_FIXED_BLOCKS;
   basic_block_info = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow (basic_block, gc, basic_block_info, initial_cfg_capacity);
-  memset (VEC_address (basic_block, basic_block_info), 0,
-	  sizeof (basic_block) * initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc, basic_block_info,
+			 initial_cfg_capacity);
 
   /* Build a mapping of labels to their associated blocks.  */
   label_to_block_map = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow (basic_block, gc, label_to_block_map, initial_cfg_capacity);
-  memset (VEC_address (basic_block, label_to_block_map),
-	  0, sizeof (basic_block) * initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
+			 initial_cfg_capacity);
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
@@ -183,14 +169,7 @@ build_tree_cfg (tree *tp)
 
   /* Adjust the size of the array.  */
   if (VEC_length (basic_block, basic_block_info) < (size_t) n_basic_blocks)
-    {
-      size_t old_size = VEC_length (basic_block, basic_block_info);
-      basic_block *p;
-      VEC_safe_grow (basic_block, gc, basic_block_info, n_basic_blocks);
-      p = VEC_address (basic_block, basic_block_info);
-      memset (&p[old_size], 0,
-	      sizeof (basic_block) * (n_basic_blocks - old_size));
-    }
+    VEC_safe_grow_cleared (basic_block, gc, basic_block_info, n_basic_blocks);
 
   /* To speed up statement iterator walks, we first purge dead labels.  */
   cleanup_dead_labels ();
@@ -245,7 +224,7 @@ struct tree_opt_pass pass_build_cfg =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts,			/* todo_flags_finish */
+  TODO_verify_stmts | TODO_cleanup_cfg,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -315,8 +294,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build2_gimple (GIMPLE_MODIFY_STMT,
-			              var, GOTO_DESTINATION (last));
+	  assignment = build_gimple_modify_stmt (var,
+						 GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -397,12 +376,8 @@ create_bb (void *h, void *e, basic_block after)
   /* Grow the basic block array if needed.  */
   if ((size_t) last_basic_block == VEC_length (basic_block, basic_block_info))
     {
-      size_t old_size = VEC_length (basic_block, basic_block_info);
       size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
-      basic_block *p;
-      VEC_safe_grow (basic_block, gc, basic_block_info, new_size);
-      p = VEC_address (basic_block, basic_block_info);
-      memset (&p[old_size], 0, sizeof (basic_block) * (new_size - old_size));
+      VEC_safe_grow_cleared (basic_block, gc, basic_block_info, new_size);
     }
 
   /* Add the newly created block to the array.  */
@@ -433,10 +408,18 @@ fold_cond_expr_cond (void)
       if (stmt
 	  && TREE_CODE (stmt) == COND_EXPR)
 	{
-	  tree cond = fold (COND_EXPR_COND (stmt));
-	  if (integer_zerop (cond))
+	  tree cond;
+	  bool zerop, onep;
+
+	  fold_defer_overflow_warnings ();
+	  cond = fold (COND_EXPR_COND (stmt));
+	  zerop = integer_zerop (cond);
+	  onep = integer_onep (cond);
+	  fold_undefer_overflow_warnings (zerop || onep, stmt,
+					  WARN_STRICT_OVERFLOW_CONDITIONAL);
+	  if (zerop)
 	    COND_EXPR_COND (stmt) = boolean_false_node;
-	  else if (integer_onep (cond))
+	  else if (onep)
 	    COND_EXPR_COND (stmt) = boolean_true_node;
 	}
     }
@@ -591,9 +574,6 @@ make_edges (void)
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();
-
-  /* Clean up the graph and warn for unreachable code.  */
-  cleanup_tree_cfg ();
 }
 
 
@@ -634,28 +614,6 @@ make_cond_expr_edges (basic_block bb)
     }
 }
 
-/* Hashing routine for EDGE_TO_CASES.  */
-
-static hashval_t
-edge_to_cases_hash (const void *p)
-{
-  edge e = ((struct edge_to_cases_elt *)p)->e;
-
-  /* Hash on the edge itself (which is a pointer).  */
-  return htab_hash_pointer (e);
-}
-
-/* Equality routine for EDGE_TO_CASES, edges are unique, so testing
-   for equality is just a pointer comparison.  */
-
-static int
-edge_to_cases_eq (const void *p1, const void *p2)
-{
-  edge e1 = ((struct edge_to_cases_elt *)p1)->e;
-  edge e2 = ((struct edge_to_cases_elt *)p2)->e;
-
-  return e1 == e2;
-}
 
 /* Called for each element in the hash table (P) as we delete the
    edge to cases hash table.
@@ -664,18 +622,20 @@ edge_to_cases_eq (const void *p1, const void *p2)
    SWITCH_EXPRs and structure sharing rules, then free the hash table
    element.  */
 
-static void
-edge_to_cases_cleanup (void *p)
+static bool
+edge_to_cases_cleanup (void *key ATTRIBUTE_UNUSED, void **value,
+		       void *data ATTRIBUTE_UNUSED)
 {
-  struct edge_to_cases_elt *elt = (struct edge_to_cases_elt *) p;
   tree t, next;
 
-  for (t = elt->case_labels; t; t = next)
+  for (t = (tree) *value; t; t = next)
     {
       next = TREE_CHAIN (t);
       TREE_CHAIN (t) = NULL;
     }
-  free (p);
+
+  *value = NULL;
+  return false;
 }
 
 /* Start recording information mapping edges to case labels.  */
@@ -684,11 +644,7 @@ void
 start_recording_case_labels (void)
 {
   gcc_assert (edge_to_cases == NULL);
-
-  edge_to_cases = htab_create (37,
-			       edge_to_cases_hash,
-			       edge_to_cases_eq,
-			       edge_to_cases_cleanup);
+  edge_to_cases = pointer_map_create ();
 }
 
 /* Return nonzero if we are recording information for case labels.  */
@@ -704,44 +660,9 @@ recording_case_labels_p (void)
 void
 end_recording_case_labels (void)
 {
-  htab_delete (edge_to_cases);
+  pointer_map_traverse (edge_to_cases, edge_to_cases_cleanup, NULL);
+  pointer_map_destroy (edge_to_cases);
   edge_to_cases = NULL;
-}
-
-/* Record that CASE_LABEL (a CASE_LABEL_EXPR) references edge E.  */
-
-static void
-record_switch_edge (edge e, tree case_label)
-{
-  struct edge_to_cases_elt *elt;
-  void **slot;
-
-  /* Build a hash table element so we can see if E is already
-     in the table.  */
-  elt = XNEW (struct edge_to_cases_elt);
-  elt->e = e;
-  elt->case_labels = case_label;
-
-  slot = htab_find_slot (edge_to_cases, elt, INSERT);
-
-  if (*slot == NULL)
-    {
-      /* E was not in the hash table.  Install E into the hash table.  */
-      *slot = (void *)elt;
-    }
-  else
-    {
-      /* E was already in the hash table.  Free ELT as we do not need it
-	 anymore.  */
-      free (elt);
-
-      /* Get the entry stored in the hash table.  */
-      elt = (struct edge_to_cases_elt *) *slot;
-
-      /* Add it to the chain of CASE_LABEL_EXPRs referencing E.  */
-      TREE_CHAIN (case_label) = elt->case_labels;
-      elt->case_labels = case_label;
-    }
 }
 
 /* If we are inside a {start,end}_recording_cases block, then return
@@ -752,7 +673,6 @@ record_switch_edge (edge e, tree case_label)
 static tree
 get_cases_for_edge (edge e, tree t)
 {
-  struct edge_to_cases_elt elt, *elt_p;
   void **slot;
   size_t i, n;
   tree vec;
@@ -762,16 +682,9 @@ get_cases_for_edge (edge e, tree t)
   if (!recording_case_labels_p ())
     return NULL;
 
-restart:
-  elt.e = e;
-  elt.case_labels = NULL;
-  slot = htab_find_slot (edge_to_cases, &elt, NO_INSERT);
-
+  slot = pointer_map_contains (edge_to_cases, e);
   if (slot)
-    {
-      elt_p = (struct edge_to_cases_elt *)*slot;
-      return elt_p->case_labels;
-    }
+    return (tree) *slot;
 
   /* If we did not find E in the hash table, then this must be the first
      time we have been queried for information about E & T.  Add all the
@@ -781,11 +694,19 @@ restart:
   n = TREE_VEC_LENGTH (vec);
   for (i = 0; i < n; i++)
     {
-      tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+      tree elt = TREE_VEC_ELT (vec, i);
+      tree lab = CASE_LABEL (elt);
       basic_block label_bb = label_to_block (lab);
-      record_switch_edge (find_edge (e->src, label_bb), TREE_VEC_ELT (vec, i));
+      edge this_edge = find_edge (e->src, label_bb);
+
+      /* Add it to the chain of CASE_LABEL_EXPRs referencing E, or create
+	 a new chain.  */
+      slot = pointer_map_insert (edge_to_cases, this_edge);
+      TREE_CHAIN (elt) = (tree) *slot;
+      *slot = elt;
     }
-  goto restart;
+
+  return (tree) *pointer_map_contains (edge_to_cases, e);
 }
 
 /* Create the edges for a SWITCH_EXPR starting at block BB.
@@ -1287,7 +1208,7 @@ replace_uses_by (tree name, tree val)
 	}
     }
 
-  gcc_assert (zero_imm_uses_p (name));
+  gcc_assert (has_zero_uses (name));
 
   /* Also update the trees stored in loop structures.  */
   if (current_loops)
@@ -1339,14 +1260,16 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     with ordering of phi nodes.  This is because A is the single
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
-	  copy = build2_gimple (GIMPLE_MODIFY_STMT, def, use);
+	  copy = build_gimple_modify_stmt (def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
+          remove_phi_node (phi, NULL, false);
 	}
       else
-	replace_uses_by (def, use);
-
-      remove_phi_node (phi, NULL, false);
+        {
+          replace_uses_by (def, use);
+          remove_phi_node (phi, NULL, true);
+        }
     }
 
   /* Ensure that B follows A.  */
@@ -2153,7 +2076,7 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
   gcc_assert (TREE_CODE (val) == INTEGER_CST);
-  return (zero_p (val) ? false_edge : true_edge);
+  return (integer_zerop (val) ? false_edge : true_edge);
 }
 
 /* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
@@ -2662,6 +2585,17 @@ disband_implicit_edges (void)
 void
 delete_tree_cfg_annotations (void)
 {
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  /* Remove annotations from every tree in the function.  */
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	ggc_free (stmt->base.ann);
+	stmt->base.ann = NULL;
+      }
   label_to_block_map = NULL;
 }
 
@@ -2683,16 +2617,6 @@ last_stmt (basic_block bb)
 {
   block_stmt_iterator b = bsi_last (bb);
   return !bsi_end_p (b) ? bsi_stmt (b) : NULL_TREE;
-}
-
-
-/* Return a pointer to the last statement in block BB.  */
-
-tree *
-last_stmt_ptr (basic_block bb)
-{
-  block_stmt_iterator last = bsi_last (bb);
-  return !bsi_end_p (last) ? bsi_stmt_ptr (last) : NULL;
 }
 
 
@@ -2761,14 +2685,10 @@ set_bb_for_stmt (tree t, basic_block bb)
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
 	      if (old_len <= (unsigned) uid)
 		{
-		  basic_block *addr;
 		  unsigned new_len = 3 * uid / 2;
 
-		  VEC_safe_grow (basic_block, gc, label_to_block_map,
-				 new_len);
-		  addr = VEC_address (basic_block, label_to_block_map);
-		  memset (&addr[old_len],
-			  0, sizeof (basic_block) * (new_len - old_len));
+		  VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
+					 new_len);
 		}
 	    }
 	  else
@@ -2813,6 +2733,8 @@ bsi_for_stmt (tree stmt)
 static inline void
 update_modified_stmts (tree t)
 {
+  if (!ssa_operands_active ())
+    return;
   if (TREE_CODE (t) == STATEMENT_LIST)
     {
       tree_stmt_iterator i;
@@ -2926,6 +2848,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
   int eh_region;
   tree orig_stmt = bsi_stmt (*bsi);
 
+  if (stmt == orig_stmt)
+    return;
   SET_EXPR_LOCUS (stmt, EXPR_LOCUS (orig_stmt));
   set_bb_for_stmt (stmt, bsi->bb);
 
@@ -2938,11 +2862,11 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
 	{
 	  remove_stmt_from_eh_region (orig_stmt);
 	  add_stmt_to_eh_region (stmt, eh_region);
-	  gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
-          gimple_remove_stmt_histograms (cfun, orig_stmt);
 	}
     }
 
+  gimple_duplicate_stmt_histograms (cfun, stmt, cfun, orig_stmt);
+  gimple_remove_stmt_histograms (cfun, orig_stmt);
   delink_stmt_imm_use (orig_stmt);
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
@@ -3564,8 +3488,7 @@ tree_node_can_be_shared (tree t)
 static tree
 verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 {
-  htab_t htab = (htab_t) data;
-  void **slot;
+  struct pointer_set_t *visited = (struct pointer_set_t *) data;
 
   if (tree_node_can_be_shared (*tp))
     {
@@ -3573,10 +3496,8 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
       return NULL;
     }
 
-  slot = htab_find_slot (htab, *tp, INSERT);
-  if (*slot)
-    return (tree) *slot;
-  *slot = *tp;
+  if (pointer_set_insert (visited, *tp))
+    return *tp;
 
   return NULL;
 }
@@ -3611,6 +3532,22 @@ verify_gimple_tuples (tree t)
   return walk_tree (&t, verify_gimple_tuples_1, NULL, NULL) != NULL;
 }
 
+static bool eh_error_found;
+static int
+verify_eh_throw_stmt_node (void **slot, void *data)
+{
+  struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
+  struct pointer_set_t *visited = (struct pointer_set_t *) data;
+
+  if (!pointer_set_contains (visited, node->stmt))
+    {
+      error ("Dead STMT in EH table");
+      debug_generic_stmt (node->stmt);
+      eh_error_found = true;
+    }
+  return 0;
+}
+
 /* Verify the GIMPLE statement chain.  */
 
 void
@@ -3619,11 +3556,12 @@ verify_stmts (void)
   basic_block bb;
   block_stmt_iterator bsi;
   bool err = false;
-  htab_t htab;
+  struct pointer_set_t *visited, *visited_stmts;
   tree addr;
 
   timevar_push (TV_TREE_STMT_VERIFY);
-  htab = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+  visited = pointer_set_create ();
+  visited_stmts = pointer_set_create ();
 
   FOR_EACH_BB (bb)
     {
@@ -3634,6 +3572,7 @@ verify_stmts (void)
 	{
 	  int phi_num_args = PHI_NUM_ARGS (phi);
 
+	  pointer_set_insert (visited_stmts, phi);
 	  if (bb_for_stmt (phi) != bb)
 	    {
 	      error ("bb_for_stmt (phi) is set to a wrong basic block");
@@ -3664,7 +3603,7 @@ verify_stmts (void)
 		  err |= true;
 		}
 
-	      addr = walk_tree (&t, verify_node_sharing, htab, NULL);
+	      addr = walk_tree (&t, verify_node_sharing, visited, NULL);
 	      if (addr)
 		{
 		  error ("incorrect sharing of tree nodes");
@@ -3679,6 +3618,7 @@ verify_stmts (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
+	  pointer_set_insert (visited_stmts, stmt);
 	  err |= verify_gimple_tuples (stmt);
 
 	  if (bb_for_stmt (stmt) != bb)
@@ -3689,7 +3629,7 @@ verify_stmts (void)
 
 	  bsi_next (&bsi);
 	  err |= verify_stmt (stmt, bsi_end_p (bsi));
-	  addr = walk_tree (&stmt, verify_node_sharing, htab, NULL);
+	  addr = walk_tree (&stmt, verify_node_sharing, visited, NULL);
 	  if (addr)
 	    {
 	      error ("incorrect sharing of tree nodes");
@@ -3699,11 +3639,17 @@ verify_stmts (void)
 	    }
 	}
     }
+  eh_error_found = false;
+  if (get_eh_throw_stmt_table (cfun))
+    htab_traverse (get_eh_throw_stmt_table (cfun),
+		   verify_eh_throw_stmt_node,
+		   visited_stmts);
 
-  if (err)
+  if (err | eh_error_found)
     internal_error ("verify_stmts failed");
 
-  htab_delete (htab);
+  pointer_set_destroy (visited);
+  pointer_set_destroy (visited_stmts);
   verify_histograms ();
   timevar_pop (TV_TREE_STMT_VERIFY);
 }
@@ -4238,6 +4184,17 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
   return e;
 }
 
+/* Returns true if it is possible to remove edge E by redirecting
+   it to the destination of the other edge from E->src.  */
+
+static bool
+tree_can_remove_branch_p (edge e)
+{
+  if (e->flags & EDGE_ABNORMAL)
+    return false;
+
+  return true;
+}
 
 /* Simple wrapper, as we can always redirect fallthru edges.  */
 
@@ -4676,7 +4633,7 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	  if (p->new_label_map)
 	    {
 	      struct tree_map in, *out;
-	      in.from = t;
+	      in.base.from = t;
 	      out = htab_find_with_hash (p->new_label_map, &in, DECL_UID (t));
 	      if (out)
 		*tp = t = out->to;
@@ -4729,7 +4686,6 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   block_stmt_iterator si;
   struct move_stmt_d d;
   unsigned old_len, new_len;
-  basic_block *addr;
 
   /* Link BB to the new linked list.  */
   move_block_after (bb, after);
@@ -4756,9 +4712,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   if ((unsigned) cfg->x_last_basic_block >= old_len)
     {
       new_len = cfg->x_last_basic_block + (cfg->x_last_basic_block + 3) / 4;
-      VEC_safe_grow (basic_block, gc, cfg->x_basic_block_info, new_len);
-      addr = VEC_address (basic_block, cfg->x_basic_block_info);
-      memset (&addr[old_len], 0, sizeof (basic_block) * (new_len - old_len));
+      VEC_safe_grow_cleared (basic_block, gc, cfg->x_basic_block_info,
+			     new_len);
     }
 
   VEC_replace (basic_block, cfg->x_basic_block_info,
@@ -4794,11 +4749,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  if (old_len <= (unsigned) uid)
 	    {
 	      new_len = 3 * uid / 2;
-	      VEC_safe_grow (basic_block, gc, cfg->x_label_to_block_map,
-			     new_len);
-	      addr = VEC_address (basic_block, cfg->x_label_to_block_map);
-	      memset (&addr[old_len], 0,
-		      sizeof (basic_block) * (new_len - old_len));
+	      VEC_safe_grow_cleared (basic_block, gc,
+				     cfg->x_label_to_block_map, new_len);
 	    }
 
 	  VEC_replace (basic_block, cfg->x_label_to_block_map, uid, bb);
@@ -4870,7 +4822,7 @@ new_label_mapper (tree decl, void *data)
 
   m = xmalloc (sizeof (struct tree_map));
   m->hash = DECL_UID (decl);
-  m->from = decl;
+  m->base.from = decl;
   m->to = create_artificial_label ();
   LABEL_DECL_UID (m->to) = LABEL_DECL_UID (decl);
 
@@ -5073,6 +5025,7 @@ void
 dump_function_to_file (tree fn, FILE *file, int flags)
 {
   tree arg, vars, var;
+  struct function *dsf;
   bool ignore_topmost_bind = false, any_var = false;
   basic_block bb;
   tree chain;
@@ -5090,8 +5043,10 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     }
   fprintf (file, ")\n");
 
-  if (flags & TDF_DETAILS)
-    dump_eh_tree (file, DECL_STRUCT_FUNCTION (fn));
+  dsf = DECL_STRUCT_FUNCTION (fn);
+  if (dsf && (flags & TDF_DETAILS))
+    dump_eh_tree (file, dsf);
+
   if (flags & TDF_RAW)
     {
       dump_node (fn, TDF_SLIM | flags, file);
@@ -5638,6 +5593,7 @@ struct cfg_hooks tree_cfg_hooks = {
   create_bb,			/* create_basic_block  */
   tree_redirect_edge_and_branch,/* redirect_edge_and_branch  */
   tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
+  tree_can_remove_branch_p,	/* can_remove_branch_p  */
   remove_bb,			/* delete_basic_block  */
   tree_split_block,		/* split_block  */
   tree_move_block_after,	/* move_block_after  */
@@ -5720,7 +5676,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, t, exp);
+  new_stmt = build_gimple_modify_stmt (t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

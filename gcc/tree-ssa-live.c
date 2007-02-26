@@ -449,15 +449,12 @@ remove_unused_locals (void)
 {
   basic_block bb;
   tree t, *cell;
+  referenced_var_iterator rvi;
+  var_ann_t ann;
 
   /* Assume all locals are unused.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
-    {
-      tree var = TREE_VALUE (t);
-      if (TREE_CODE (var) != FUNCTION_DECL
-	  && var_ann (var))
-	var_ann (var)->used = false;
-    }
+  FOR_EACH_REFERENCED_VAR (t, rvi)
+    var_ann (t)->used = false;
 
   /* Walk the CFG marking all referenced symbols.  */
   FOR_EACH_BB (bb)
@@ -493,7 +490,6 @@ remove_unused_locals (void)
   for (cell = &cfun->unexpanded_var_list; *cell; )
     {
       tree var = TREE_VALUE (*cell);
-      var_ann_t ann;
 
       if (TREE_CODE (var) != FUNCTION_DECL
 	  && (!(ann = var_ann (var))
@@ -505,6 +501,21 @@ remove_unused_locals (void)
 
       cell = &TREE_CHAIN (*cell);
     }
+
+  /* Remove unused variables from REFERENCED_VARs.  As a special
+     exception keep the variables that are believed to be aliased.
+     Those can't be easily removed from the alias sets and operand
+     caches.  They will be removed shortly after the next may_alias
+     pass is performed.  */
+  FOR_EACH_REFERENCED_VAR (t, rvi)
+    if (!is_global_var (t)
+	&& !MTAG_P (t)
+	&& TREE_CODE (t) != PARM_DECL
+	&& TREE_CODE (t) != RESULT_DECL
+	&& !(ann = var_ann (t))->used
+	&& !ann->symbol_mem_tag
+	&& !TREE_ADDRESSABLE (t))
+      remove_referenced_var (t);
 }
 
 
@@ -560,7 +571,7 @@ delete_tree_live_info (tree_live_info_p live)
 
 /* Visit basic block BB and propogate any required live on entry bits from 
    LIVE into the predecessors.  VISITED is the bitmap of visited blocks.  
-   TMP is a temporary work bitmap which is passed in to avoid reallocting
+   TMP is a temporary work bitmap which is passed in to avoid reallocating
    it each time.  */
 
 static void 
@@ -602,7 +613,7 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited,
 
 
 /* Using LIVE, fill in all the live-on-entry blocks between the defs and uses 
-   of all the vairables.  */
+   of all the variables.  */
 
 static void
 live_worklist (tree_live_info_p live)
@@ -631,7 +642,7 @@ live_worklist (tree_live_info_p live)
 }
 
 
-/* Calulate the initial live on entry vector for SSA_NAME using immediate_use
+/* Calculate the initial live on entry vector for SSA_NAME using immediate_use
    links.  Set the live on entry fields in LIVE.  Def's are marked temporarily
    in the liveout vector.  */
 

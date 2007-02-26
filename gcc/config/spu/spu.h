@@ -24,6 +24,11 @@
 #define OVERRIDE_OPTIONS spu_override_options()
 #define C_COMMON_OVERRIDE_OPTIONS spu_c_common_override_options()
 
+#define OPTIMIZATION_OPTIONS(level,size) \
+	  spu_optimization_options(level,size)
+
+#define INIT_EXPANDERS spu_init_expanders()
+
 extern int target_flags;
 extern const char *spu_fixed_range_string;
 
@@ -96,7 +101,10 @@ extern const char *spu_fixed_range_string;
 
 #define MAX_FIXED_MODE_SIZE 128
 
-#define STACK_SAVEAREA_MODE(save_level) SImode
+#define STACK_SAVEAREA_MODE(save_level) \
+  (save_level == SAVE_FUNCTION ? VOIDmode \
+    : save_level == SAVE_NONLOCAL ? SImode \
+      : Pmode)
 
 #define STACK_SIZE_MODE SImode
 
@@ -149,7 +157,7 @@ extern const char *spu_fixed_range_string;
 /* Register Basics */
 
 /* 128-130 are special registers that never appear in assembly code. */
-#define FIRST_PSEUDO_REGISTER 132
+#define FIRST_PSEUDO_REGISTER 131
 
 #define FIXED_REGISTERS {			    \
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -160,7 +168,7 @@ extern const char *spu_fixed_range_string;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CALL_USED_REGISTERS {			    \
@@ -172,7 +180,7 @@ extern const char *spu_fixed_range_string;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CONDITIONAL_REGISTER_USAGE \
@@ -265,6 +273,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
 
+#define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
+
 
 /* Stack Checking */
 
@@ -293,9 +303,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 /* Used to keep track of instructions that have clobbered the hint
  * buffer.  Users can also specify it in inline asm. */
 #define HBR_REGNUM 130
-
-/* Used to keep track of enabling and disabling interrupts. */
-#define INTR_REGNUM 131
 
 #define MAX_REGISTER_ARGS    72
 #define FIRST_ARG_REGNUM     3
@@ -507,7 +514,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
  "$80", "$81", "$82", "$83", "$84", "$85", "$86", "$87", "$88", "$89", "$90", "$91", "$92", "$93", "$94", "$95", \
  "$96", "$97", "$98", "$99", "$100", "$101", "$102", "$103", "$104", "$105", "$106", "$107", "$108", "$109", "$110", "$111", \
  "$112", "$113", "$114", "$115", "$116", "$117", "$118", "$119", "$120", "$121", "$122", "$123", "$124", "$125", "$126", "$127", \
- "$vfp", "$vap", "hbr", "intr" \
+ "$vfp", "$vap", "hbr" \
 }
 
 #define PRINT_OPERAND(FILE, X, CODE)  print_operand(FILE, X, CODE)
@@ -551,6 +558,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define NO_IMPLICIT_EXTERN_C 1
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 
 /* These are set by the cmp patterns and used while expanding

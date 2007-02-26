@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -389,12 +389,12 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
      enclosing block, but we have no way of testing that right now.
 
      ??? We used to essentially set the TREE_ADDRESSABLE flag on the variable
-     here, but it can now be removed by the Tree aliasing machinery if the
-     address of the variable is never taken.  All we can do is to make the
-     variable volatile, which might incur the generation of temporaries just
-     to access the memory in some circumstances.  This can be avoided for
-     variables of non-constant size because they are automatically allocated
-     to memory.  There might be no way of allocating a proper temporary for
+     here, but it can now be removed by the Tree aliasing machinery if the
+     address of the variable is never taken.  All we can do is to make the
+     variable volatile, which might incur the generation of temporaries just
+     to access the memory in some circumstances.  This can be avoided for
+     variables of non-constant size because they are automatically allocated
+     to memory.  There might be no way of allocating a proper temporary for
      them in any case.  We only do this for SJLJ though.  */
   if (TREE_VALUE (gnu_except_ptr_stack)
       && TREE_CODE (gnu_result) == VAR_DECL
@@ -1992,9 +1992,9 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
       gnu_actual_list = tree_cons (NULL_TREE, gnu_actual, gnu_actual_list);
     }
 
-  gnu_subprog_call = build3 (CALL_EXPR, TREE_TYPE (gnu_subprog_type),
-			     gnu_subprog_addr, nreverse (gnu_actual_list),
-			     NULL_TREE);
+  gnu_subprog_call = build_call_list (TREE_TYPE (gnu_subprog_type),
+				      gnu_subprog_addr,
+				      nreverse (gnu_actual_list));
 
   /* If we return by passing a target, we emit the call and return the target
      as our result.  */
@@ -2714,7 +2714,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	   of the subtype, but that causes problems with subtypes whose usage
 	   will raise Constraint_Error and with biased representation, so
 	   we don't.  */
-	gcc_assert (!TREE_CONSTANT_OVERFLOW (gnu_result));
+	gcc_assert (!TREE_OVERFLOW (gnu_result));
       }
       break;
 
@@ -2729,10 +2729,8 @@ gnat_to_gnu (Node_Id gnat_node)
 	gnu_result = DECL_INITIAL (get_gnu_tree (Entity (gnat_node)));
       else
 	gnu_result
-	  = force_fit_type
-	    (build_int_cst
-	      (gnu_result_type, UI_To_CC (Char_Literal_Value (gnat_node))),
-	     false, false, false);
+	  = build_int_cst_type
+	      (gnu_result_type, UI_To_CC (Char_Literal_Value (gnat_node)));
       break;
 
     case N_Real_Literal:
@@ -2743,7 +2741,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	  gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	  gnu_result = UI_To_gnu (Corresponding_Integer_Value (gnat_node),
 				  gnu_result_type);
-	  gcc_assert (!TREE_CONSTANT_OVERFLOW (gnu_result));
+	  gcc_assert (!TREE_OVERFLOW (gnu_result));
 	}
 
       /* We should never see a Vax_Float type literal, since the front end
@@ -3442,11 +3440,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	    tree gnu_old_lhs = gnu_lhs;
 	    gnu_lhs = convert (gnu_type, gnu_lhs);
 	    if (TREE_CODE (gnu_lhs) == INTEGER_CST && ignore_lhs_overflow)
-	      {
-		TREE_OVERFLOW (gnu_lhs) = TREE_OVERFLOW (gnu_old_lhs);
-		TREE_CONSTANT_OVERFLOW (gnu_lhs)
-		  = TREE_CONSTANT_OVERFLOW (gnu_old_lhs);
-	      }
+	      TREE_OVERFLOW (gnu_lhs) = TREE_OVERFLOW (gnu_old_lhs);
 	    gnu_rhs = convert (gnu_type, gnu_rhs);
 	  }
 
@@ -4345,7 +4339,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
   /* If the result is a constant that overflows, raise constraint error.  */
   else if (TREE_CODE (gnu_result) == INTEGER_CST
-      && TREE_CONSTANT_OVERFLOW (gnu_result))
+      && TREE_OVERFLOW (gnu_result))
     {
       post_error ("Constraint_Error will be raised at run-time?", gnat_node);
 
@@ -6138,6 +6132,7 @@ gnat_stabilize_reference_1 (tree e, bool force)
     case tcc_statement:
     case tcc_expression:
     case tcc_reference:
+    case tcc_vl_exp:
       /* If this is a COMPONENT_REF of a fat pointer, save the entire
 	 fat pointer.  This may be more efficient, but will also allow
 	 us to more easily find the match for the PLACEHOLDER_EXPR.  */

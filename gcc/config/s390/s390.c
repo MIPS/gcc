@@ -4228,7 +4228,7 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx target, rtx mem, rtx cmp, rtx ne
 }
 
 /* Expand an atomic operation CODE of mode MODE.  MEM is the memory location
-   and VAL the value to play with.  If AFTER is true then store the the value
+   and VAL the value to play with.  If AFTER is true then store the value
    MEM holds after the operation, if AFTER is false then store the value MEM
    holds before the operation.  If TARGET is zero then discard that value, else
    store it to TARGET.  */
@@ -8210,13 +8210,14 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   unsigned int const *code_for_builtin =
     TARGET_64BIT ? code_for_builtin_64 : code_for_builtin_31;
 
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  tree arglist = TREE_OPERAND (exp, 1);
   enum insn_code icode;
   rtx op[MAX_ARGS], pat;
   int arity;
   bool nonvoid;
+  tree arg;
+  call_expr_arg_iterator iter;
 
   if (fcode >= S390_BUILTIN_max)
     internal_error ("bad builtin fcode");
@@ -8226,13 +8227,11 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   nonvoid = TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node;
 
-  for (arglist = TREE_OPERAND (exp, 1), arity = 0;
-       arglist;
-       arglist = TREE_CHAIN (arglist), arity++)
+  arity = 0;
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
       const struct insn_operand_data *insn_op;
 
-      tree arg = TREE_VALUE (arglist);
       if (arg == error_mark_node)
 	return NULL_RTX;
       if (arity > MAX_ARGS)
@@ -8244,6 +8243,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       if (!(*insn_op->predicate) (op[arity], insn_op->mode))
 	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
+      arity++;
     }
 
   if (nonvoid)
@@ -8703,28 +8703,26 @@ s390_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Checks whether the given ARGUMENT_LIST would use a caller
+/* Checks whether the given CALL_EXPR would use a caller
    saved register.  This is used to decide whether sibling call
    optimization could be performed on the respective function
    call.  */
 
 static bool
-s390_call_saved_register_used (tree argument_list)
+s390_call_saved_register_used (tree call_expr)
 {
   CUMULATIVE_ARGS cum;
   tree parameter;
   enum machine_mode mode;
   tree type;
   rtx parm_rtx;
-  int reg;
+  int reg, i;
 
   INIT_CUMULATIVE_ARGS (cum, NULL, NULL, 0, 0);
 
-  while (argument_list)
+  for (i = 0; i < call_expr_nargs (call_expr); i++)
     {
-      parameter = TREE_VALUE (argument_list);
-      argument_list = TREE_CHAIN (argument_list);
-
+      parameter = CALL_EXPR_ARG (call_expr, i);
       gcc_assert (parameter);
 
       /* For an undeclared variable passed as parameter we will get
@@ -8780,11 +8778,7 @@ s390_function_ok_for_sibcall (tree decl, tree exp)
   /* Register 6 on s390 is available as an argument register but unfortunately
      "caller saved". This makes functions needing this register for arguments
      not suitable for sibcalls.  */
-  if (TREE_OPERAND (exp, 1)
-      && s390_call_saved_register_used (TREE_OPERAND (exp, 1)))
-      return false;
-
-  return true;
+  return !s390_call_saved_register_used (exp);
 }
 
 /* Return the fixed registers used for condition codes.  */

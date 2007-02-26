@@ -98,9 +98,9 @@ extern int dot_symbols;
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (target_flags & MASK_PROTOTYPE)			\
+	  if (TARGET_PROTOTYPE)					\
 	    {							\
-	      target_flags &= ~MASK_PROTOTYPE;			\
+	      TARGET_PROTOTYPE = 0;				\
 	      error (INVALID_64BIT, "prototype");		\
 	    }							\
 	  if ((target_flags & MASK_POWERPC64) == 0)		\
@@ -284,6 +284,10 @@ extern int dot_symbols;
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
+
+/* Whether we have sincos that follows the GNU extension.  */
+#undef  TARGET_HAS_SINCOS
+#define TARGET_HAS_SINCOS (OPTION_GLIBC)
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\

@@ -124,16 +124,33 @@ var_ann_t
 create_var_ann (tree t)
 {
   var_ann_t ann;
+  struct static_var_ann_d *sann = NULL;
 
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (!t->base.ann || t->base.ann->common.type == VAR_ANN);
 
-  ann = GGC_CNEW (struct var_ann_d);
+  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+    {
+      sann = GGC_CNEW (struct static_var_ann_d);
+      ann = &sann->ann;
+    }
+  else
+    ann = GGC_CNEW (struct var_ann_d);
 
   ann->common.type = VAR_ANN;
 
-  t->base.ann = (tree_ann_t) ann;
+  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+    {
+       void **slot;
+       sann->uid = DECL_UID (t);
+       slot = htab_find_slot_with_hash (gimple_var_anns (cfun),
+				        t, DECL_UID (t), INSERT);
+       gcc_assert (!*slot);
+       *slot = sann;
+    }
+  else
+    t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -320,9 +337,6 @@ dump_variable (FILE *file, tree var)
       print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
     }
 
-  if (ann && ann->is_aliased)
-    fprintf (file, ", is aliased");
-
   if (TREE_ADDRESSABLE (var))
     fprintf (file, ", is addressable");
   
@@ -366,7 +380,7 @@ dump_variable (FILE *file, tree var)
       print_generic_expr (file, gimple_default_def (cfun, var), dump_flags);
     }
 
-  if (may_aliases (var))
+  if (MTAG_P (var) && may_aliases (var))
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
@@ -679,7 +693,7 @@ set_default_def (tree var, tree def)
       htab_remove_elt (DEFAULT_DEFS (cfun), *loc);
       return;
     }
-  gcc_assert (TREE_CODE (def) == SSA_NAME);
+  gcc_assert (!def || TREE_CODE (def) == SSA_NAME);
   loc = htab_find_slot_with_hash (DEFAULT_DEFS (cfun), &in,
                                   DECL_UID (var), INSERT);
 
@@ -724,17 +738,38 @@ add_referenced_var (tree var)
 
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
-	 variables.  */
+	 variables.  
+	 Even non-constant intializers need to be walked, because
+	 IPA passes might prove that their are invariant later on.  */
       if (DECL_INITIAL (var)
 	  /* Initializers of external variables are not useful to the
 	     optimizers.  */
-          && !DECL_EXTERNAL (var)
-	  /* It's not necessary to walk the initial value of non-constant
-	     variables because it cannot be propagated by the
-	     optimizers.  */
-	  && (TREE_CONSTANT (var) || TREE_READONLY (var)))
+          && !DECL_EXTERNAL (var))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
     }
+}
+
+/* Remove VAR from the list.  */
+
+void
+remove_referenced_var (tree var)
+{
+  var_ann_t v_ann;
+  struct int_tree_map in;
+  void **loc;
+  unsigned int uid = DECL_UID (var);
+
+  clear_call_clobbered (var);
+  v_ann = get_var_ann (var);
+  ggc_free (v_ann);
+  var->base.ann = NULL;
+  gcc_assert (DECL_P (var));
+  in.uid = uid;
+  in.to = var;
+  loc = htab_find_slot_with_hash (gimple_referenced_vars (cfun), &in, uid,
+				  NO_INSERT);
+  ggc_free (*loc);
+  htab_clear_slot (gimple_referenced_vars (cfun), loc);
 }
 
 

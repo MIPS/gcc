@@ -480,7 +480,7 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
-    dummy:1, result:1, assign:1, threadprivate:1;
+    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     protected:1,		/* Symbol has been marked as protected.  */
@@ -494,7 +494,7 @@ typedef struct
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
-  unsigned unmaskable:1, masked:1, contained:1;
+  unsigned unmaskable:1, masked:1, contained:1, mod_proc:1;
 
   /* This is set if the subroutine doesn't return.  Currently, this
      is only possible for intrinsic subroutines.  */
@@ -542,6 +542,9 @@ typedef struct
   /* The symbol is a derived type with allocatable components, possibly nested.
    */
   unsigned alloc_comp:1;
+
+  /* The namespace where the VOLATILE attribute has been set.  */
+  struct gfc_namespace *volatile_ns;
 }
 symbol_attribute;
 
@@ -1637,6 +1640,7 @@ typedef struct
   int warn_surprising;
   int warn_tabs;
   int warn_underflow;
+  int warn_character_truncation;
   int max_errors;
 
   int flag_all_intrinsics;
@@ -1655,6 +1659,8 @@ typedef struct
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
+  int flag_allow_leading_underscore;
+  int flag_dump_core;
   int flag_external_blas;
   int blas_matmul_limit;
   int flag_cray_pointer;
@@ -1712,6 +1718,10 @@ void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
 void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
 void gfc_assign_data_value_range (gfc_expr *, gfc_expr *, mpz_t, mpz_t);
 void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
+
+/* decl.c */
+bool gfc_in_match_data (void);
+void gfc_set_in_match_data (bool);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);
@@ -1962,9 +1972,6 @@ gfc_intrinsic_sym *gfc_find_function (const char *);
 
 match gfc_intrinsic_func_interface (gfc_expr *, int);
 match gfc_intrinsic_sub_interface (gfc_code *, int);
-
-/* simplify.c */
-void gfc_simplify_init_1 (void);
 
 /* match.c -- FIXME */
 void gfc_free_iterator (gfc_iterator *, int);

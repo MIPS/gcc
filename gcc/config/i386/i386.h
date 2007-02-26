@@ -1,6 +1,7 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -176,6 +177,7 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
 #define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
 #define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
+#define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -183,8 +185,8 @@ extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_himode_fiop, x86_use_simode_fiop;
-extern const int x86_use_mov0, x86_use_cltd, x86_read_modify_write;
-extern const int x86_read_modify, x86_split_long_moves;
+extern const int x86_use_mov0, x86_use_cltd, x86_use_xchgb;
+extern const int x86_read_modify_write, x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop, x86_fast_prefix;
 extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
 extern const int x86_promote_hi_regs, x86_integer_DFmode_moves;
@@ -194,16 +196,17 @@ extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
 extern const int x86_sse_partial_reg_dependency, x86_sse_split_regs;
+extern const int x86_sse_unaligned_move_optimal;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
 extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
-extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
+extern const int x86_cmpxchg, x86_cmpxchg8b, x86_xadd;
 extern const int x86_use_incdec;
 extern const int x86_pad_returns;
 extern const int x86_bswap;
 extern const int x86_partial_flag_reg_stall;
-extern int x86_prefetch_sse;
+extern int x86_prefetch_sse, x86_cmpxchg16b;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & TUNEMASK)
@@ -225,6 +228,7 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
 #define TARGET_USE_CLTD (x86_use_cltd & TUNEMASK)
+#define TARGET_USE_XCHGB (x86_use_xchgb & TUNEMASK)
 #define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & TUNEMASK)
 #define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & TUNEMASK)
 #define TARGET_READ_MODIFY (x86_read_modify & TUNEMASK)
@@ -243,6 +247,8 @@ extern int x86_prefetch_sse;
 #define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & TUNEMASK)
+#define TARGET_SSE_UNALIGNED_MOVE_OPTIMAL \
+				      (x86_sse_unaligned_move_optimal & TUNEMASK)
 #define TARGET_SSE_SPLIT_REGS (x86_sse_split_regs & TUNEMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & TUNEMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & TUNEMASK)
@@ -272,7 +278,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_CMPXCHG (x86_cmpxchg & (1 << ix86_arch))
 #define TARGET_CMPXCHG8B (x86_cmpxchg8b & (1 << ix86_arch))
-#define TARGET_CMPXCHG16B (x86_cmpxchg16b & (1 << ix86_arch))
+#define TARGET_CMPXCHG16B (x86_cmpxchg16b)
 #define TARGET_XADD (x86_xadd & (1 << ix86_arch))
 #define TARGET_BSWAP (x86_bswap & (1 << ix86_arch))
 
@@ -435,6 +441,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	}							\
       else if (TARGET_K8)					\
 	builtin_define ("__tune_k8__");				\
+      else if (TARGET_AMDFAM10)					\
+	builtin_define ("__tune_amdfam10__");			\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
       else if (TARGET_NOCONA)					\
@@ -456,6 +464,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE3__");				\
       if (TARGET_SSSE3)						\
 	builtin_define ("__SSSE3__");				\
+      if (TARGET_SSE4A)					\
+ 	builtin_define ("__SSE4A__");		                \
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -511,6 +521,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define ("__k8");				\
 	  builtin_define ("__k8__");				\
 	}							\
+      else if (ix86_arch == PROCESSOR_AMDFAM10)			\
+	{							\
+	  builtin_define ("__amdfam10");			\
+	  builtin_define ("__amdfam10__");			\
+	}							\
       else if (ix86_arch == PROCESSOR_PENTIUM4)			\
 	{							\
 	  builtin_define ("__pentium4");			\
@@ -549,13 +564,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_CPU_DEFAULT_nocona 17
 #define TARGET_CPU_DEFAULT_core2 18
 #define TARGET_CPU_DEFAULT_generic 19
+#define TARGET_CPU_DEFAULT_amdfam10 20
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
                                   "pentium4", "geode", "k6", "k6-2", "k6-3", \
 				  "athlon", "athlon-4", "k8", \
 				  "pentium-m", "prescott", "nocona", \
-				  "core2", "generic"}
+				  "core2", "generic", "amdfam10"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -642,6 +658,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    main, though it does nothing for the alignment of main itself.  */
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
   (ix86_preferred_stack_boundary > STACK_BOUNDARY && !TARGET_64BIT)
+
+/* Target OS keeps a vector-aligned (128-bit, 16-byte) stack.  This is
+   mandatory for the 64-bit ABI, and may or may not be true for other
+   operating systems.  */
+#define TARGET_KEEPS_VECTOR_ALIGNED_STACK TARGET_64BIT
 
 /* Minimum allocation boundary for the code of a function.  */
 #define FUNCTION_BOUNDARY 8
@@ -853,6 +874,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CONDITIONAL_REGISTER_USAGE					\
 do {									\
     int i;								\
+    unsigned int j;							\
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)				\
       {									\
 	if (fixed_regs[i] > 1)						\
@@ -861,10 +883,11 @@ do {									\
 	  call_used_regs[i] = (call_used_regs[i]			\
 			       == (TARGET_64BIT ? 3 : 2));		\
       }									\
-    if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
+    j = PIC_OFFSET_TABLE_REGNUM;					\
+    if (j != INVALID_REGNUM)			\
       {									\
-	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
-	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+	fixed_regs[j] = 1;			\
+	call_used_regs[j] = 1;			\
       }									\
     if (! TARGET_MMX)							\
       {									\
@@ -1240,9 +1263,6 @@ enum reg_class
 
 #define ANY_QI_REG_P(X) (TARGET_64BIT ? GENERAL_REG_P(X) : QI_REG_P (X))
 
-#define NON_QI_REG_P(X) \
-  (REG_P (X) && IN_RANGE (REGNO (X), 4, FIRST_PSEUDO_REGISTER - 1))
-
 #define REX_INT_REGNO_P(N) \
   IN_RANGE ((N), FIRST_REX_INT_REG, LAST_REX_INT_REG)
 #define REX_INT_REG_P(X) (REG_P (X) && REX_INT_REGNO_P (REGNO (X)))
@@ -1270,8 +1290,6 @@ enum reg_class
 #define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
 
 #define STACK_REG_P(XOP) (REG_P (XOP) && STACK_REGNO_P (REGNO (XOP)))
-#define NON_STACK_REG_P(XOP) \
-  (REG_P (XOP) && ! STACK_REGNO_P (REGNO (XOP)))
 #define STACK_REGNO_P(N) IN_RANGE ((N), FIRST_STACK_REG, LAST_STACK_REG)
 
 #define STACK_TOP_P(XOP) (REG_P (XOP) && REGNO (XOP) == FIRST_STACK_REG)
@@ -1630,11 +1648,6 @@ typedef struct ix86_args {
    || (REGNO) == FRAME_POINTER_REGNUM 					\
    || GENERAL_REGNO_P ((unsigned) reg_renumber[(REGNO)]))
 
-#define REGNO_OK_FOR_SIREG_P(REGNO) \
-  ((REGNO) == 4 || reg_renumber[(REGNO)] == 4)
-#define REGNO_OK_FOR_DIREG_P(REGNO) \
-  ((REGNO) == 5 || reg_renumber[(REGNO)] == 5)
-
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
    We have two alternate definitions for each of them.
@@ -1748,8 +1761,6 @@ do {									\
   if (memory_address_p ((MODE), (X)))					\
     goto WIN;								\
 } while (0)
-
-#define REWRITE_ADDRESS(X) rewrite_address (X)
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
@@ -1944,7 +1955,7 @@ do {							\
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
-/* In order to refer to the first 8 regs as 32 bit regs, prefix an "e".
+/* In order to refer to the first 8 regs as 32-bit regs, prefix an "e".
    For non floating point regs, the following are the HImode names.
 
    For float regs, the stack top is sometimes referred to as "%st(0)"
@@ -2095,13 +2106,6 @@ do {						\
   if (! output_addr_const_extra (FILE, (X)))	\
     goto FAIL;					\
 } while (0);
-
-/* a letter which is not needed by the normal asm syntax, which
-   we can use for operand syntax in the extended asm */
-
-#define ASM_OPERAND_LETTER '#'
-#define RET return ""
-#define AT_SP(MODE) (gen_rtx_MEM ((MODE), stack_pointer_rtx))
 
 /* Which processor to schedule for. The cpu attribute defines a list that
    mirrors this list, so changes to i386.md must be made at the same time.  */
@@ -2121,6 +2125,7 @@ enum processor_type
   PROCESSOR_CORE2,
   PROCESSOR_GENERIC32,
   PROCESSOR_GENERIC64,
+  PROCESSOR_AMDFAM10,
   PROCESSOR_max
 };
 

@@ -1,6 +1,7 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -850,7 +851,6 @@ extern const char * const reg_note_name[];
 #define NOTE_BLOCK(INSN)	XCTREE (INSN, 4, NOTE)
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
-#define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
@@ -1041,6 +1041,7 @@ extern unsigned int subreg_regno_offset	(unsigned int, enum machine_mode,
 extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
 					   unsigned int, enum machine_mode);
 extern unsigned int subreg_regno (rtx);
+extern unsigned int subreg_nregs (rtx);
 extern unsigned HOST_WIDE_INT nonzero_bits (rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (rtx, enum machine_mode);
 extern bool constant_pool_constant_p (rtx);
@@ -1434,9 +1435,6 @@ extern int currently_expanding_to_rtl;
 /* In expmed.c */
 extern int ceil_log2 (unsigned HOST_WIDE_INT);
 
-/* In builtins.c */
-extern rtx expand_builtin_expect_jump (tree, rtx, rtx);
-
 /* In explow.c */
 extern void set_stack_check_libfunc (rtx);
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, enum machine_mode);
@@ -1474,6 +1472,7 @@ extern int rtx_equal_p (rtx, rtx);
 extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
+extern rtx gen_reg_rtx_offset (rtx, enum machine_mode, int);
 extern rtx gen_label_rtx (void);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 
@@ -1599,10 +1598,6 @@ extern unsigned int cleanup_barriers (void);
 /* In jump.c */
 extern bool squeeze_notes (rtx *, rtx *);
 extern rtx delete_related_insns (rtx);
-extern void delete_jump (rtx);
-extern rtx get_label_before (rtx);
-extern rtx get_label_after (rtx);
-extern rtx follow_jumps (rtx);
 
 /* In recog.c  */
 extern rtx *find_constant_term_loc (rtx *);
@@ -1707,6 +1702,7 @@ extern int find_reg_fusage (rtx, enum rtx_code, rtx);
 extern int find_regno_fusage (rtx, enum rtx_code, unsigned int);
 extern int pure_call_p (rtx);
 extern void remove_note (rtx, rtx);
+extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (rtx);
 extern int volatile_refs_p (rtx);
 extern int volatile_insn_p (rtx);
@@ -1752,12 +1748,8 @@ void free_EXPR_LIST_node		(rtx);
 void free_INSN_LIST_node		(rtx);
 rtx alloc_INSN_LIST			(rtx, rtx);
 rtx alloc_EXPR_LIST			(int, rtx, rtx);
-void free_DEPS_LIST_list (rtx *);
-rtx alloc_DEPS_LIST (rtx, rtx, int);
-void remove_free_DEPS_LIST_elem (rtx, rtx *);
 void remove_free_INSN_LIST_elem (rtx, rtx *);
 rtx remove_list_elem (rtx, rtx *);
-rtx copy_DEPS_LIST_list (rtx);
 
 /* regclass.c */
 
@@ -2031,7 +2023,6 @@ extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
 extern void delete_for_peephole (rtx, rtx);
 extern int condjump_in_parallel_p (rtx);
-extern unsigned int purge_line_number_notes (void);
 
 /* In emit-rtl.c.  */
 extern int max_reg_num (void);
@@ -2065,7 +2056,6 @@ extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
 extern rtx emit (rtx);
-extern void renumber_insns (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
 extern void emit_insn_at_entry (rtx);
@@ -2166,6 +2156,7 @@ extern void init_reg_sets (void);
 extern void regclass_init (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
+extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 extern void init_subregs_of_mode (void);
 extern void record_subregs_of_mode (rtx);

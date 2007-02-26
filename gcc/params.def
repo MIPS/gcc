@@ -146,6 +146,12 @@ DEFPARAM (PARAM_MAX_VARIABLE_EXPANSIONS,
 	  "If -fvariable-expansion-in-unroller is used, the maximum number of times that an individual variable will be expanded during loop unrolling",
           1, 0, 0)
      
+/* Limit loop autovectorization to loops with large enough iteration count.  */
+DEFPARAM (PARAM_MIN_VECT_LOOP_BOUND,
+	  "min-vect-loop-bound",
+	  "If -ftree-vectorize is used, the minimal loop bound of a loop to be considered for vectorization",
+	  0, 0, 0)
+
 /* The maximum number of instructions to consider when looking for an
    instruction to fill a delay slot.  If more than this arbitrary
    number of instructions is searched, the time savings from filling
@@ -193,7 +199,7 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "how much can given compilation unit grow because of the inlining (in percent)",
-	 50, 0, 0)
+	 30, 0, 0)
 DEFPARAM(PARAM_INLINE_CALL_COST,
 	 "inline-call-cost",
 	 "expense of call operation relative to ordinary arithmetic operations",
@@ -626,6 +632,19 @@ DEFPARAM (PARAM_L1_CACHE_LINE_SIZE,
 	  "The size of L1 cache line",
 	  32, 0, 0)
 
+#ifdef ENABLE_CHECKING
+# define GCC_CANONICAL_TYPES_DEFAULT 1
+#else
+# define GCC_CANONICAL_TYPES_DEFAULT 0
+#endif
+
+/* Whether we should verify that the canonical types in the system are
+   consistent with the "structural" typing. */
+
+DEFPARAM (PARAM_VERIFY_CANONICAL_TYPES,
+	  "verify-canonical-types",
+	  "Whether to verify canonical types",
+	  GCC_CANONICAL_TYPES_DEFAULT, 0, 1)
 /*
 Local variables:
 mode:c

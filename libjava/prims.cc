@@ -32,6 +32,9 @@ details.  */
 #include <java/lang/ThreadGroup.h>
 #endif
 
+#include <jvmti.h>
+#include "jvmti-int.h"
+
 #ifndef DISABLE_GETENV_PROPERTIES
 #include <ctype.h>
 #include <java-props.h>
@@ -66,8 +69,6 @@ details.  */
 #include <execution.h>
 #include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
-#include <gnu/classpath/jdwp/event/VmDeathEvent.h>
-#include <gnu/classpath/jdwp/event/VmInitEvent.h>
 #include <gnu/java/lang/MainThread.h>
 
 #ifdef USE_LTDL
@@ -87,7 +88,7 @@ static java::lang::OutOfMemoryError *no_memory;
 // Number of bytes in largest array object we create.  This could be
 // increased to the largest size_t value, so long as the appropriate
 // functions are changed to take a size_t argument instead of jint.
-#define MAX_OBJECT_SIZE ((1<<31) - 1)
+#define MAX_OBJECT_SIZE (((size_t)1<<31) - 1)
 
 // Properties set at compile time.
 const char **_Jv_Compiler_Properties = NULL;
@@ -104,7 +105,8 @@ int _Jv_argc;
 
 // Debugging options
 static bool remoteDebug = false;
-static char *jdwpOptions = "";
+static char defaultJdwpOptions[] = "";
+static char *jdwpOptions = defaultJdwpOptions;
 
 // Argument support.
 int
@@ -456,6 +458,7 @@ _Jv_Abort (const char *, const char *, int, const char *message)
 #else
   fprintf (stderr, "libgcj failure: %s\n", message);
 #endif
+  fflush (stderr);
   abort ();
 }
 
@@ -1122,6 +1125,18 @@ namespace gcj
 
   // Thread stack size specified by the -Xss runtime argument.
   size_t stack_size = 0;
+
+  // Start time of the VM
+  jlong startTime = 0;
+
+  // Arguments passed to the VM
+  JArray<jstring>* vmArgs;
+
+  // Currently loaded classes
+  jint loadedClasses = 0;
+
+  // Unloaded classes
+  jlong unloadedClasses = 0;
 }
 
 // We accept all non-standard options accepted by Sun's java command,
@@ -1422,6 +1437,9 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   if (runtimeInitialized)
     return -1;
 
+  runtimeInitialized = true;
+  startTime = _Jv_platform_gettimeofday();
+
   jint result = parse_init_args (vm_args);
   if (result < 0)
     return -1;
@@ -1522,6 +1540,18 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 	  fprintf (stderr, "libgcj: couldn't create virtual machine\n");
 	  exit (1);
 	}
+      
+      if (vm_args == NULL)
+	gcj::vmArgs = JvConvertArgv(0, NULL);
+      else
+	{
+	  const char* vmArgs[vm_args->nOptions];
+	  const char** vmPtr = vmArgs;
+	  struct _Jv_VMOption* optionPtr = vm_args->options;
+	  for (int i = 0; i < vm_args->nOptions; ++i)
+	    *vmPtr++ = (*optionPtr++).optionString;
+	  gcj::vmArgs = JvConvertArgv(vm_args->nOptions, vmArgs);
+	}
 
       // Get the Runtime here.  We want to initialize it before searching
       // for `main'; that way it will be set up if `main' is a JNI method.
@@ -1555,10 +1585,9 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 	  jdwp->join ();
 	}
 
-      // Send VmInit
-      gnu::classpath::jdwp::event::VmInitEvent *event;
-      event = new gnu::classpath::jdwp::event::VmInitEvent (main_thread);
-      gnu::classpath::jdwp::Jdwp::notify (event);
+      // Send VMInit
+      if (JVMTI_REQUESTED_EVENT (VMInit))
+	_Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_INIT, main_thread);
     }
   catch (java::lang::Throwable *t)
     {
@@ -1573,12 +1602,12 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 
   _Jv_ThreadRun (main_thread);
 
-  // Notify debugger of VM's death
-  if (gnu::classpath::jdwp::Jdwp::isDebugging)
+  // Send VMDeath
+  if (JVMTI_REQUESTED_EVENT (VMDeath))
     {
-      using namespace gnu::classpath::jdwp;
-      event::VmDeathEvent *event = new event::VmDeathEvent ();
-      Jdwp::notify (event);
+      java::lang::Thread *thread = java::lang::Thread::currentThread ();
+      JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
+      _Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_DEATH, thread, jni_env);
     }
 
   // If we got here then something went wrong, as MainThread is not
@@ -1597,6 +1626,12 @@ void
 JvRunMain (jclass klass, int argc, const char **argv)
 {
   _Jv_RunMain (klass, NULL, argc, argv, false);
+}
+
+void
+JvRunMainName (const char *name, int argc, const char **argv)
+{
+  _Jv_RunMain (NULL, name, argc, argv, false);
 }
 
 

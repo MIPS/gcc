@@ -123,6 +123,20 @@ test -n "$target_alias" && ncn_target_tool_prefix=$target_alias-
 
 AC_DEFUN([NCN_STRICT_CHECK_TOOLS],
 [AC_REQUIRE([_NCN_TOOL_PREFIXES]) []dnl
+AC_ARG_VAR([$1], [$1 for the host])
+
+if test -n "[$]$1"; then
+  ac_cv_prog_$1=[$]$1
+elif test -n "$ac_cv_prog_$1"; then
+  $1=$ac_cv_prog_$1
+fi
+
+if test -n "$ac_cv_prog_$1"; then
+  for ncn_progname in $2; do
+    AC_CHECK_PROG([$1], [${ncn_progname}], [${ncn_progname}], , [$4])
+  done
+fi
+
 for ncn_progname in $2; do
   if test -n "$ncn_tool_prefix"; then
     AC_CHECK_PROG([$1], [${ncn_tool_prefix}${ncn_progname}], 
@@ -150,7 +164,21 @@ fi
 
 AC_DEFUN([NCN_STRICT_CHECK_TARGET_TOOLS],
 [AC_REQUIRE([_NCN_TOOL_PREFIXES]) []dnl
-if test -n "$with_build_time_tools"; then
+AC_ARG_VAR([$1], patsubst([$1], [_FOR_TARGET$], [])[ for the target])
+
+if test -n "[$]$1"; then
+  ac_cv_prog_$1=[$]$1
+elif test -n "$ac_cv_prog_$1"; then
+  $1=$ac_cv_prog_$1
+fi
+
+if test -n "$ac_cv_prog_$1"; then
+  for ncn_progname in $2; do
+    AC_CHECK_PROG([$1], [${ncn_progname}], [${ncn_progname}], , [$4])
+  done
+fi
+
+if test -z "$ac_cv_prog_$1" && test -n "$with_build_time_tools"; then
   for ncn_progname in $2; do
     AC_MSG_CHECKING([for ${ncn_progname} in $with_build_time_tools])
     if test -x $with_build_time_tools/${ncn_progname}; then
@@ -300,7 +328,7 @@ if test -z "$ac_cv_path_$1" ; then
     ac_cv_path_$1=[$]$1
   fi
 fi
-if test -z "$ac_cv_path_$1" ; then
+if test -z "$ac_cv_path_$1" && test -n "$gcc_cv_tool_dirs"; then
   AC_PATH_PROG([$1], [$2], [], [$gcc_cv_tool_dirs])
 fi
 if test -z "$ac_cv_path_$1" ; then
@@ -330,11 +358,12 @@ ac_c_preproc_warn_flag=yes])# AC_PROG_CPP_WERROR
 # understands Ada.  We use the user's CC setting, already found.
 #
 # Sets the shell variable have_gnat to yes or no as appropriate, and
-# substitutes GNATBIND.
+# substitutes GNATBIND and GNATMAKE.
 AC_DEFUN([ACX_PROG_GNAT],
 [AC_REQUIRE([AC_CHECK_TOOL_PREFIX])
 AC_REQUIRE([AC_PROG_CC])
 AC_CHECK_TOOL(GNATBIND, gnatbind, no)
+AC_CHECK_TOOL(GNATMAKE, gnatmake, no)
 AC_CACHE_CHECK([whether compiler driver understands Ada],
 		 acx_cv_cc_gcc_supports_ada,
 [cat >conftest.adb <<EOF
@@ -355,7 +384,7 @@ if test x"$errors" = x && test -f conftest.$ac_objext; then
 fi
 rm -f conftest.*])
 
-if test x$GNATBIND != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
+if test x$GNATBIND != xno && test x$GNATMAKE != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -488,4 +517,36 @@ else
     # We need a cross tool
     AC_MSG_RESULT(pre-installed)
   fi
-fi])
+fi
+AC_SUBST($2)])
+
+
+dnl Locate a program and check that its version is acceptable.
+dnl ACX_PROG_CHECK_VER(var, name, version-switch,
+dnl                    version-extract-regexp, version-glob)
+AC_DEFUN([ACX_CHECK_PROG_VER],[
+  AC_CHECK_PROG([$1], [$2], [$2])
+  if test -n "[$]$1"; then
+    # Found it, now check the version.
+    AC_CACHE_CHECK([for modern $2],
+                   [gcc_cv_prog_$2_modern],
+                   [ac_prog_version=`eval [$]$1 $3 2>&1 |
+                                     sed -n 's/^.*patsubst([[$4]],/,\/).*$/\1/p'`
+
+                    [case $ac_prog_version in
+                      '')  gcc_cv_prog_$2_modern=no;;
+                      $5)  gcc_cv_prog_$2_modern=yes;;
+                      *)   gcc_cv_prog_$2_modern=no;;
+                    esac]
+
+                    if test $gcc_cv_prog_$2_modern = no; then
+                      $1="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing $2"
+                    fi
+                   ])
+  else
+    gcc_cv_prog_$2_modern=no
+  fi
+  if test $gcc_cv_prog_$2_modern = no; then
+    $1="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing $2"
+  fi
+])

@@ -136,7 +136,7 @@
    (UNSPEC_MOVE_FDPIC 8)
    (UNSPEC_FUNCDESC_GOT17M4 9)
    (UNSPEC_LSETUP_END 10)
-   ;; Distinguish a 32 bit version of an insn from a 16 bit version.
+   ;; Distinguish a 32-bit version of an insn from a 16-bit version.
    (UNSPEC_32BIT 11)])
 
 (define_constants
@@ -190,7 +190,7 @@
 (define_cpu_unit "slot2" "bfin")
 
 ;; Three units used to enforce parallel issue restrictions:
-;; only one of the 16 bit slots can use a P register in an address,
+;; only one of the 16-bit slots can use a P register in an address,
 ;; and only one them can be a store.
 (define_cpu_unit "store" "bfin")
 (define_cpu_unit "pregs" "bfin")
@@ -1639,7 +1639,16 @@
 	      (unspec [(const_int 0)] UNSPEC_LSETUP_END)
 	      (clobber (match_scratch:SI 5 ""))])]
   ""
-  {bfin_hardware_loop ();})
+{
+  /* Due to limitations in the hardware (an initial loop count of 0
+     does not loop 2^32 times) we must avoid to generate a hardware
+     loops when we cannot rule out this case.  */
+
+  if (!flag_unsafe_loop_optimizations
+      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) >= 0xFFFFFFFF)
+    FAIL;
+  bfin_hardware_loop ();
+})
 
 (define_insn "loop_end"
   [(set (pc)
@@ -2675,7 +2684,7 @@
   ""
   "")
 
-;; Unusual arithmetic operations on 16 bit registers.
+;; Unusual arithmetic operations on 16-bit registers.
 
 (define_insn "ssaddhi3"
   [(set (match_operand:HI 0 "register_operand" "=d")
@@ -2883,7 +2892,7 @@
 ;; an unspec with a const_int operand that determines which flag to use in the
 ;; instruction.
 ;; There are variants for single and parallel multiplications.
-;; There are variants which just use 16 bit lowparts as inputs, and variants
+;; There are variants which just use 16-bit lowparts as inputs, and variants
 ;; which allow the user to choose just which halves to use as input values.
 ;; There are variants which set D registers, variants which set accumulators,
 ;; variants which set both, some of them optionally using the accumulators as

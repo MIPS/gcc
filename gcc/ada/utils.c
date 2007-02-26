@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -2335,12 +2335,18 @@ max_size (tree exp, bool max_p)
     case tcc_constant:
       return exp;
 
-    case tcc_exceptional:
-      if (code == TREE_LIST)
-	return tree_cons (TREE_PURPOSE (exp),
-			  max_size (TREE_VALUE (exp), max_p),
-			  TREE_CHAIN (exp)
-			  ? max_size (TREE_CHAIN (exp), max_p) : NULL_TREE);
+    case tcc_vl_exp:
+      if (code == CALL_EXPR)
+	{
+	  tree *argarray;
+	  int i, n = call_expr_nargs (exp);
+	  gcc_assert (n > 0);
+
+	  argarray = (tree *) alloca (n * sizeof (tree));
+	  for (i = 0; i < n; i++)
+	    argarray[i] = max_size (CALL_EXPR_ARG (exp, i), max_p);
+	  return build_call_array (type, CALL_EXPR_FN (exp), n, argarray);
+	}
       break;
 
     case tcc_reference:
@@ -2428,9 +2434,6 @@ max_size (tree exp, bool max_p)
 	    return fold (build2 (max_p ? MAX_EXPR : MIN_EXPR, type,
 				 max_size (TREE_OPERAND (exp, 1), max_p),
 				 max_size (TREE_OPERAND (exp, 2), max_p)));
-	  else if (code == CALL_EXPR && TREE_OPERAND (exp, 1))
-	    return build3 (CALL_EXPR, type, TREE_OPERAND (exp, 0),
-			   max_size (TREE_OPERAND (exp, 1), max_p), NULL);
 	}
 
       /* Other tree classes cannot happen.  */
@@ -3680,7 +3683,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
      when it is false, we can rely on the fact that such conversions are
      erroneous anyway.  */
   if (TREE_CODE (expr) == INTEGER_CST)
-    TREE_OVERFLOW (expr) = TREE_CONSTANT_OVERFLOW (expr) = 0;
+    TREE_OVERFLOW (expr) = 0;
 
   /* If the sizes of the types differ and this is an VIEW_CONVERT_EXPR,
      show no longer constant.  */
@@ -3745,8 +3748,7 @@ build_global_cdtor (int method_type, tree *vec, int len)
     {
       tree fntype = TREE_TYPE (vec[i]);
       tree fnaddr = build1 (ADDR_EXPR, build_pointer_type (fntype), vec[i]);
-      tree fncall = build3 (CALL_EXPR, TREE_TYPE (fntype), fnaddr, NULL_TREE,
-			    NULL_TREE);
+      tree fncall = build_call_nary (TREE_TYPE (fntype), fnaddr, 0);
       append_to_statement_list (fncall, &body);
     }
 

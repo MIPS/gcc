@@ -21,6 +21,20 @@ LIBGOMP_ENABLE(linux-futex, default, ,
   permit yes|no|default)
 AC_MSG_RESULT($enable_linux_futex)
 
+# We would like our source tree to be readonly. However when releases or
+# pre-releases are generated, the flex/bison generated files as well as the
+# various formats of manuals need to be included along with the rest of the
+# sources.  Therefore we have --enable-generated-files-in-srcdir to do 
+# just that.
+AC_MSG_CHECKING([for --enable-generated-files-in-srcdir])
+LIBGOMP_ENABLE(generated-files-in-srcdir, no, ,
+   [put copies of generated files in source dir intended for creating source 
+    tarballs for users without texinfo bison or flex.],
+   permit yes|no)
+AC_MSG_RESULT($enable_generated_files_in_srcdir)
+AM_CONDITIONAL(GENINSRC, test "$enable_generated_files_in_srcdir" = yes)
+
+
 # -------
 # -------
 
@@ -50,7 +64,6 @@ target_alias=${target_alias-$host_alias}
 #              we can do about that; they come from AC_INIT).
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
-#  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is required.
 #  -Wno-override: ... and this one, since we do want this in testsuite.
@@ -117,6 +130,14 @@ AC_PATH_PROG(PERL, perl, perl-not-found-in-path-error)
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+ACX_CHECK_PROG_VER([MAKEINFO], [makeinfo], [--version],
+                   [GNU texinfo.* \([0-9][0-9.]*\)],
+                   [4.[4-9]*])
+AM_CONDITIONAL(BUILD_INFO, test $gcc_cv_prog_makeinfo_modern = "yes")
+
+
 # Configure libtool
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
@@ -145,20 +166,13 @@ GCC_HEADER_STDINT(gstdint.h)
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 # In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
-
-# Darwin doesn't need the -pthread option since threads are in libSystem
+CFLAGS="$CFLAGS -pthread"
 AC_LINK_IFELSE(
  [AC_LANG_PROGRAM(
   [#include <pthread.h>
    void *g(void *d) { return NULL; }],
   [pthread_t t; pthread_create(&t,NULL,g,NULL);])],
- [case $host in
-   *-darwin*)
-     ;;
-   default)
-     XPCFLAGS=" -Wc,-pthread"
-     ;;
-     esac],
+ [XPCFLAGS=" -Wc,-pthread"],
  [CFLAGS="$save_CFLAGS" LIBS="-lpthread $LIBS"
   AC_LINK_IFELSE(
    [AC_LANG_PROGRAM(

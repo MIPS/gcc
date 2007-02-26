@@ -375,22 +375,23 @@ static void
 verify_flow_insensitive_alias_info (void)
 {
   tree var;
-  bitmap visited = BITMAP_ALLOC (NULL);
   referenced_var_iterator rvi;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      size_t j;
-      var_ann_t ann;
-      VEC(tree,gc) *may_aliases;
+      unsigned int j;
+      bitmap aliases;
       tree alias;
+      bitmap_iterator bi;
 
-      ann = var_ann (var);
-      may_aliases = ann->may_aliases;
+      if (!MTAG_P (var) || !MTAG_ALIASES (var))
+	continue;
+      
+      aliases = MTAG_ALIASES (var);
 
-      for (j = 0; VEC_iterate (tree, may_aliases, j, alias); j++)
+      EXECUTE_IF_SET_IN_BITMAP (aliases, 0, j, bi)
 	{
-	  bitmap_set_bit (visited, DECL_UID (alias));
+	  alias = referenced_var (j);
 
 	  if (TREE_CODE (alias) != MEMORY_PARTITION_TAG
 	      && !may_be_aliased (alias))
@@ -402,23 +403,6 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      var_ann_t ann;
-      ann = var_ann (var);
-
-      if (!MTAG_P (var)
-	  && ann->is_aliased
-	  && memory_partition (var) == NULL_TREE
-	  && !bitmap_bit_p (visited, DECL_UID (var)))
-	{
-	  error ("addressable variable that is aliased but is not in any "
-	         "alias set");
-	  goto err;
-	}
-    }
-
-  BITMAP_FREE (visited);
   return;
 
 err:
@@ -508,11 +492,11 @@ verify_call_clobbering (void)
   tree var;
   referenced_var_iterator rvi;
 
-  /* At all times, the result of the DECL_CALL_CLOBBERED flag should
+  /* At all times, the result of the call_clobbered flag should
      match the result of the call_clobbered_vars bitmap.  Verify both
      that everything in call_clobbered_vars is marked
-     DECL_CALL_CLOBBERED, and that everything marked
-     DECL_CALL_CLOBBERED is in call_clobbered_vars.  */
+     call_clobbered, and that everything marked
+     call_clobbered is in call_clobbered_vars.  */
   EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       var = referenced_var (i);
@@ -520,10 +504,10 @@ verify_call_clobbering (void)
       if (memory_partition (var))
 	var = memory_partition (var);
 
-      if (!MTAG_P (var) && !DECL_CALL_CLOBBERED (var))
+      if (!MTAG_P (var) && !var_ann (var)->call_clobbered)
 	{
 	  error ("variable in call_clobbered_vars but not marked "
-	         "DECL_CALL_CLOBBERED");
+	         "call_clobbered");
 	  debug_variable (var);
 	  goto err;
 	}
@@ -538,10 +522,10 @@ verify_call_clobbering (void)
 	var = memory_partition (var);
 
       if (!MTAG_P (var)
-	  && DECL_CALL_CLOBBERED (var)
+	  && var_ann (var)->call_clobbered
 	  && !bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)))
 	{
-	  error ("variable marked DECL_CALL_CLOBBERED but not in "
+	  error ("variable marked call_clobbered but not in "
 	         "call_clobbered_vars bitmap.");
 	  debug_variable (var);
 	  goto err;
@@ -745,6 +729,24 @@ int_tree_map_hash (const void *item)
   return ((const struct int_tree_map *)item)->uid;
 }
 
+/* Return true if the uid in both int tree maps are equal.  */
+
+static int
+var_ann_eq (const void *va, const void *vb)
+{
+  const struct static_var_ann_d *a = (const struct static_var_ann_d *) va;
+  tree b = (tree) vb;
+  return (a->uid == DECL_UID (b));
+}
+
+/* Hash a UID in a int_tree_map.  */
+
+static unsigned int
+var_ann_hash (const void *item)
+{
+  return ((const struct static_var_ann_d *)item)->uid;
+}
+
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -756,9 +758,10 @@ init_tree_ssa (void)
 				     		      int_tree_map_eq, NULL);
   cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
 				                   int_tree_map_eq, NULL);
+  cfun->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
+					       var_ann_eq, NULL);
   cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
-  init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
 }
@@ -805,7 +808,8 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      ggc_free (var->base.ann);
+      if (var->base.ann)
+        ggc_free (var->base.ann);
       var->base.ann = NULL;
     }
   htab_delete (gimple_referenced_vars (cfun));
@@ -813,17 +817,26 @@ delete_tree_ssa (void)
 
   fini_ssanames ();
   fini_phinodes ();
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
 
   cfun->gimple_df->global_var = NULL_TREE;
   
   htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs = NULL;
+  htab_delete (cfun->gimple_df->var_anns);
+  cfun->gimple_df->var_anns = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
+  if (gimple_aliases_computed_p (cfun))
+    {
+      delete_alias_heapvars ();
+      gcc_assert (!need_ssa_update_p ());
+    }
   cfun->gimple_df->aliases_computed_p = false;
 
-  delete_alias_heapvars ();
-  gcc_assert (!need_ssa_update_p ());
+  cfun->gimple_df = NULL;
 }
 
 
@@ -922,10 +935,12 @@ tree_ssa_useless_type_conversion (tree expr)
   if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
       || TREE_CODE (expr) == VIEW_CONVERT_EXPR
       || TREE_CODE (expr) == NON_LVALUE_EXPR)
-    return tree_ssa_useless_type_conversion_1 (TREE_TYPE (expr),
-					       TREE_TYPE (TREE_OPERAND (expr,
-									0)));
-
+    /* FIXME: Use of GENERIC_TREE_TYPE here is a temporary measure to work
+       around known bugs with GIMPLE_MODIFY_STMTs appearing in places
+       they shouldn't.  See PR 30391.  */
+    return tree_ssa_useless_type_conversion_1
+      (TREE_TYPE (expr),
+       GENERIC_TREE_TYPE (TREE_OPERAND (expr, 0)));
 
   return false;
 }

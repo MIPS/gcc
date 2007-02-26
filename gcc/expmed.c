@@ -1,7 +1,7 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2981,10 +2981,9 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
   int opno;
   enum machine_mode nmode;
 
-  /* Avoid referencing memory over and over.
-     For speed, but also for correctness when mem is volatile.  */
-  if (MEM_P (op0))
-    op0 = force_reg (mode, op0);
+  /* Avoid referencing memory over and over and invalid sharing
+     on SUBREGs.  */
+  op0 = force_reg (mode, op0);
 
   /* ACCUM starts out either as OP0 or as a zero, depending on
      the first operation.  */
@@ -3095,7 +3094,8 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
       insn = get_last_insn ();
       set_unique_reg_note (insn, REG_EQUAL,
-			   gen_rtx_MULT (nmode, tem, GEN_INT (val_so_far)));
+			   gen_rtx_MULT (nmode, tem,
+					 GEN_INT (val_so_far)));
     }
 
   if (variant == negate_variant)
@@ -4174,7 +4174,14 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		int lgup, post_shift;
 		rtx mlr;
 		HOST_WIDE_INT d = INTVAL (op1);
-		unsigned HOST_WIDE_INT abs_d = d >= 0 ? d : -d;
+		unsigned HOST_WIDE_INT abs_d;
+
+		/* Since d might be INT_MIN, we have to cast to
+		   unsigned HOST_WIDE_INT before negating to avoid
+		   undefined signed overflow.  */
+		abs_d = (d >= 0
+			 ? (unsigned HOST_WIDE_INT) d
+			 : - (unsigned HOST_WIDE_INT) d);
 
 		/* n rem d = n rem -d */
 		if (rem_flag && d < 0)

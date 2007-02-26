@@ -84,6 +84,11 @@ extern int flag_pa_unix;
 #define TARGET_HPUX_10_10 0
 #endif
 
+/* HP-UX 11.* features (11.00, 11.11, 11.23, etc.)  */
+#ifndef TARGET_HPUX_11
+#define TARGET_HPUX_11 0
+#endif
+
 /* HP-UX 11i multibyte and UNIX 98 extensions.  */
 #ifndef TARGET_HPUX_11_11
 #define TARGET_HPUX_11_11 0
@@ -482,10 +487,10 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
 
-   `I' is used for the 11 bit constants.
-   `J' is used for the 14 bit constants.
+   `I' is used for the 11-bit constants.
+   `J' is used for the 14-bit constants.
    `K' is used for values that can be moved with a zdepi insn.
-   `L' is used for the 5 bit constants.
+   `L' is used for the 5-bit constants.
    `M' is used for 0.
    `N' is used for values with the least significant 11 bits equal to zero
 	                  and when sign extended from 32 to 64 bits the
@@ -1316,7 +1321,7 @@ extern int may_call_alloca;
    function's constant-pool, because such addresses can actually be
    output as REG+SMALLINT. 
 
-   Note we only allow 5 bit immediates for access to a constant address;
+   Note we only allow 5-bit immediates for access to a constant address;
    doing so avoids losing for loading/storing a FP register at an address
    which will not fit in 5 bits.  */
 
@@ -1742,9 +1747,14 @@ do { 									\
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); 	\
-       fputc ('\n', FILE); } while (0)
+#define ASM_OUTPUT_LABEL(FILE,NAME) \
+  do {							\
+    assemble_name ((FILE), (NAME));			\
+    if (TARGET_GAS)					\
+      fputs (":\n", (FILE));				\
+    else						\
+      fputc ('\n', (FILE));				\
+  } while (0)
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
@@ -1776,6 +1786,17 @@ do { 									\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
+
+/* Output the definition of a compiler-generated label named NAME.  */
+
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,NAME) \
+  do {							\
+    assemble_name_raw ((FILE), (NAME));			\
+    if (TARGET_GAS)					\
+      fputs (":\n", (FILE));				\
+    else						\
+      fputc ('\n', (FILE));				\
+  } while (0)
 
 #define TARGET_ASM_GLOBALIZE_LABEL pa_globalize_label
 

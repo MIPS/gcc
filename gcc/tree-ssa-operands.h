@@ -1,5 +1,5 @@
 /* SSA operand management for trees.
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,7 +58,7 @@ typedef struct vuse_element_d
 
 typedef struct vuse_vec_d
 {
-  int num_vuse;
+  unsigned int num_vuse;
   vuse_element_t uses[1];
 } vuse_vec_t;
 typedef struct vuse_vec_d *vuse_vec_p;
@@ -70,23 +70,23 @@ typedef struct vuse_vec_d *vuse_vec_p;
 
 #ifdef ENABLE_CHECKING
 #define VUSE_VECT_ELEMENT(V,X)						\
-    (gcc_assert ((X) >= 0 && (X) < VUSE_VECT_NUM_ELEM (V)),		\
+    (gcc_assert (((unsigned int) (X)) < VUSE_VECT_NUM_ELEM (V)),	\
      VUSE_VECT_ELEMENT_NC (V,X))
 
 #define VUSE_ELEMENT_PTR(V,X)						\
-    (gcc_assert ((X) >= 0 && (X) < VUSE_VECT_NUM_ELEM (V)),		\
+    (gcc_assert (((unsigned int) (X)) < VUSE_VECT_NUM_ELEM (V)),	\
      VUSE_ELEMENT_PTR_NC (V, X))
 
 #define SET_VUSE_VECT_ELEMENT(V,X,N)					\
-    (gcc_assert ((X) >= 0 && (X) < VUSE_VECT_NUM_ELEM (V)),		\
+    (gcc_assert (((unsigned int) (X)) < VUSE_VECT_NUM_ELEM (V)),	\
      VUSE_VECT_ELEMENT_NC (V,X) = (N))
 
 #define SET_VUSE_ELEMENT_VAR(V,X,N)					\
-    (gcc_assert ((X) >= 0 && (X) < VUSE_VECT_NUM_ELEM (V)),		\
+    (gcc_assert (((unsigned int) (X)) < VUSE_VECT_NUM_ELEM (V)),	\
      VUSE_VECT_ELEMENT_NC ((V),(X)).use_var = (N))
 
 #define SET_VUSE_ELEMENT_PTR(V,X,N)					\
-    (gcc_assert ((X) >= 0 && (X) < VUSE_VECT_NUM_ELEM (V)),		\
+    (gcc_assert (((unsigned int) (X)) < VUSE_VECT_NUM_ELEM (V)),	\
      VUSE_ELEMENT_PTR_NC (V, X) = (N))
 #else
 #define VUSE_VECT_ELEMENT(V,X) VUSE_VECT_ELEMENT_NC(V,X)
@@ -98,43 +98,40 @@ typedef struct vuse_vec_d *vuse_vec_p;
 
 #define VUSE_ELEMENT_VAR(V,X)	(VUSE_VECT_ELEMENT ((V),(X)).use_var)
 
-/* This represents the VDEFS for a stmt.  */
-struct vdef_optype_d
+/* This represents the virtual ops of a stmt.  */
+struct voptype_d
 {
-  struct vdef_optype_d *next;
+  struct voptype_d *next;
   tree def_var;
   vuse_vec_t usev;
 };
-typedef struct vdef_optype_d *vdef_optype_p;
+typedef struct voptype_d *voptype_p;
 
-/* This represents the VUSEs for a stmt.  */
-struct vuse_optype_d
-{
-  struct vuse_optype_d *next;
-  vuse_vec_t usev;
-};
-typedef struct vuse_optype_d *vuse_optype_p;
-                                                                              
-
-#define SSA_OPERAND_MEMORY_SIZE		(511 * sizeof (struct vuse_optype_d))
-                                                                              
+/* This structure represents a variable sized buffer which is allocated by the
+   operand memory manager.  Operands are suballocated out of this block.  The
+   MEM array varies in size.  */
+   
 struct ssa_operand_memory_d GTY((chain_next("%h.next")))
 {
   struct ssa_operand_memory_d *next;
-  char mem[SSA_OPERAND_MEMORY_SIZE];
+  char mem[1];
 };
+
+/* Number of different size free buckets for virtual operands.  */
+#define NUM_VOP_FREE_BUCKETS		29
 
 /* Per-function operand caches.  */
 struct ssa_operands GTY(()) {
    struct ssa_operand_memory_d *operand_memory;
    unsigned operand_memory_index;
+   /* Current size of the operand memory buffer.  */
+   unsigned int ssa_operand_mem_size;
 
    bool ops_active;
 
    struct def_optype_d * GTY ((skip (""))) free_defs;
    struct use_optype_d * GTY ((skip (""))) free_uses;
-   struct vuse_optype_d * GTY ((skip (""))) free_vuses;
-   struct vdef_optype_d * GTY ((skip (""))) free_vdefs;
+   struct voptype_d * GTY ((skip (""))) vop_free_buckets[NUM_VOP_FREE_BUCKETS];
    VEC(tree,heap) * GTY ((skip (""))) mpt_table;
 };
 
@@ -146,8 +143,8 @@ struct stmt_operands_d
   struct use_optype_d * use_ops;
                                                                               
   /* Virtual operands (VDEF, VUSE).  */
-  struct vdef_optype_d * vdef_ops;
-  struct vuse_optype_d * vuse_ops;
+  struct voptype_d * vdef_ops;
+  struct voptype_d * vuse_ops;
 
   /* Sets of memory symbols loaded and stored.  */
   bitmap stores;
@@ -206,8 +203,8 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
 
-extern struct vdef_optype_d *realloc_vdef (struct vdef_optype_d *, int);
-extern struct vuse_optype_d *realloc_vuse (struct vuse_optype_d *, int);
+extern struct voptype_d *realloc_vdef (struct voptype_d *, unsigned int);
+extern struct voptype_d *realloc_vuse (struct voptype_d *, unsigned int);
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
@@ -249,16 +246,16 @@ typedef struct ssa_operand_iterator_d
 {
   def_optype_p defs;
   use_optype_p uses;
-  vuse_optype_p vuses;
-  vdef_optype_p vdefs;
-  vdef_optype_p mayuses;
+  voptype_p vuses;
+  voptype_p vdefs;
+  voptype_p mayuses;
   enum ssa_op_iter_type iter_type;
   int phi_i;
   int num_phi;
   tree phi_stmt;
   bool done;
-  int vuse_index;
-  int mayuse_index;
+  unsigned int vuse_index;
+  unsigned int mayuse_index;
 } ssa_op_iter;
 
 /* These flags are used to determine which operands are returned during 

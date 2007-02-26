@@ -920,26 +920,21 @@ look_for_casts (tree lhs __attribute__((unused)), tree t)
       tree castfromvar = TREE_OPERAND (t, 0);
       check_cast (TREE_TYPE (t), castfromvar);
     }
-  else if (TREE_CODE (t) == COMPONENT_REF
-	   || TREE_CODE (t) == INDIRECT_REF
-	   || TREE_CODE (t) == BIT_FIELD_REF)
-    {
-      tree base = get_base_address (t);
-      while (t != base)
-	{
-	  t = TREE_OPERAND (t, 0);
-	  if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
-	    {
-	      /* This may be some part of a component ref.
-		 IE it may be a.b.VIEW_CONVERT_EXPR<weird_type>(c).d, AFAIK.
-		 castfromref will give you a.b.c, not a. */
-	      tree castfromref = TREE_OPERAND (t, 0);
-	      check_cast (TREE_TYPE (t), castfromref);
-	    }
-	  else if (TREE_CODE (t) == COMPONENT_REF)
-	    get_canon_type (TREE_TYPE (TREE_OPERAND (t, 1)), false, false);
-	}
-    } 
+  else
+    while (handled_component_p (t))
+      {
+	t = TREE_OPERAND (t, 0);
+	if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
+	  {
+	    /* This may be some part of a component ref.
+	       IE it may be a.b.VIEW_CONVERT_EXPR<weird_type>(c).d, AFAIK.
+	       castfromref will give you a.b.c, not a. */
+	    tree castfromref = TREE_OPERAND (t, 0);
+	    check_cast (TREE_TYPE (t), castfromref);
+	  }
+	else if (TREE_CODE (t) == COMPONENT_REF)
+	  get_canon_type (TREE_TYPE (TREE_OPERAND (t, 1)), false, false);
+      }
 } 
 
 /* Check to see if T is a read or address of operation on a static var
@@ -1016,20 +1011,14 @@ static bool
 check_call (tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
-  tree operand_list = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
-  tree argument;
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
+  call_expr_arg_iterator iter;
 
-  for (operand = operand_list;
-       operand != NULL_TREE;
-       operand = TREE_CHAIN (operand))
-    {
-      tree argument = TREE_VALUE (operand);
-      check_rhs_var (argument);
-    }
+  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
+    check_rhs_var (operand);
   
   if (callee_t)
     {
@@ -1042,17 +1031,16 @@ check_call (tree call_expr)
 	 parameters.  */
       if (TYPE_ARG_TYPES (TREE_TYPE (callee_t)))
 	{
-	  operand = operand_list;
-	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t)),
+		 operand = first_call_expr_arg (call_expr, &iter);
 	       arg_type && TREE_VALUE (arg_type) != void_type_node;
-	       arg_type = TREE_CHAIN (arg_type))
+	       arg_type = TREE_CHAIN (arg_type),
+		 operand = next_call_expr_arg (&iter))
 	    {
 	      if (operand)
 		{
-		  argument = TREE_VALUE (operand);
 		  last_arg_type = TREE_VALUE(arg_type);
-		  check_cast (last_arg_type, argument);
-		  operand = TREE_CHAIN (operand);
+		  check_cast (last_arg_type, operand);
 		}
 	      else 
 		/* The code reaches here for some unfortunate
@@ -1066,17 +1054,16 @@ check_call (tree call_expr)
 	  /* FIXME - According to Geoff Keating, we should never
 	     have to do this; the front ends should always process
 	     the arg list from the TYPE_ARG_LIST. */
-	  operand = operand_list;
-	  for (arg_type = DECL_ARGUMENTS (callee_t); 
+	  for (arg_type = DECL_ARGUMENTS (callee_t),
+		 operand = first_call_expr_arg (call_expr, &iter);
 	       arg_type;
-	       arg_type = TREE_CHAIN (arg_type))
+	       arg_type = TREE_CHAIN (arg_type),
+		 operand = next_call_expr_arg (&iter))
 	    {
 	      if (operand)
 		{
-		  argument = TREE_VALUE (operand);
 		  last_arg_type = TREE_TYPE(arg_type);
-		  check_cast (last_arg_type, argument);
-		  operand = TREE_CHAIN (operand);
+		  check_cast (last_arg_type, operand);
 		} 
 	      else 
 		/* The code reaches here for some unfortunate
@@ -1091,11 +1078,10 @@ check_call (tree call_expr)
       arg_type = last_arg_type;
       for (;
 	   operand != NULL_TREE;
-	   operand = TREE_CHAIN (operand))
+	   operand = next_call_expr_arg (&iter))
 	{
-	  argument = TREE_VALUE (operand);
 	  if (arg_type)
-	    check_cast (arg_type, argument);
+	    check_cast (arg_type, operand);
 	  else 
 	    {
 	      /* The code reaches here for some unfortunate
@@ -1103,7 +1089,7 @@ check_call (tree call_expr)
 		 argument types.  Most of these functions have
 		 been marked as having their parameters not
 		 escape, but for the rest, the type is doomed.  */
-	      tree type = get_canon_type (TREE_TYPE (argument), false, false);
+	      tree type = get_canon_type (TREE_TYPE (operand), false, false);
 	      mark_interesting_type (type, FULL_ESCAPE);
 	    }
 	}
@@ -1119,12 +1105,9 @@ check_call (tree call_expr)
     {
       /* If this is a direct call to an external function, mark all of
 	 the parameter and return types.  */
-      for (operand = operand_list;
-	   operand != NULL_TREE;
-	   operand = TREE_CHAIN (operand))
+      FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
 	{
-	  tree type = 
-	    get_canon_type (TREE_TYPE (TREE_VALUE (operand)), false, false);
+	  tree type = get_canon_type (TREE_TYPE (operand), false, false);
 	  mark_interesting_type (type, EXPOSED_PARAMETER);
     }
 	  
@@ -1262,12 +1245,23 @@ scan_for_refs (tree *tp, int *walk_subtrees, void *data)
 		look_for_casts (lhs, TREE_OPERAND (rhs, 0));
 		check_rhs_var (rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs))
+	      {
+	      case CALL_EXPR:
 		/* If this is a call to malloc, squirrel away the
 		   result so we do mark the resulting cast as being
 		   bad.  */
 		if (check_call (rhs))
-		  bitmap_set_bit (results_of_malloc, DECL_UID (lhs));
+		  {
+		    if (TREE_CODE (lhs) == SSA_NAME)
+		      lhs = SSA_NAME_VAR (lhs);
+		    bitmap_set_bit (results_of_malloc, DECL_UID (lhs));
+		  }
 		break;
 	      default:
 		break;
@@ -1682,7 +1676,7 @@ type_escape_execute (void)
   ipa_init ();
 
   /* Process all of the variables first.  */
-  for (vnode = varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+  FOR_EACH_STATIC_VARIABLE (vnode)
     analyze_variable (vnode);
 
   /* Process all of the functions. next

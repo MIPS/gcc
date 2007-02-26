@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -192,6 +192,24 @@ struct _Jv_TypeAssertion
   _Jv_Utf8Const *op2;
 };
 
+typedef enum
+{
+  JV_CLASS_ATTR,
+  JV_METHOD_ATTR,
+  JV_FIELD_ATTR,
+  JV_DONE_ATTR
+} jv_attr_type;
+
+typedef enum
+{
+  JV_INNER_CLASSES_KIND,
+  JV_ENCLOSING_METHOD_KIND,
+  JV_SIGNATURE_KIND,
+  JV_ANNOTATIONS_KIND,
+  JV_PARAMETER_ANNOTATIONS_KIND,
+  JV_ANNOTATION_DEFAULT_KIND
+} jv_attr_kind;
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -238,6 +256,8 @@ _Jv_Utf8Const *_Jv_GetClassNameUtf8 (jclass);
 class _Jv_MethodBase;
 _Jv_MethodBase *_Jv_FindInterpreterMethod (jclass, jmethodID);
 #endif
+
+jbyte _Jv_GetClassState (jclass);
 
 // Friend classes and functions to implement the ClassLoader
 class java::lang::ClassLoader;
@@ -341,6 +361,15 @@ private:
   java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
   java::lang::reflect::Method *_getDeclaredMethod (jstring, JArray<jclass> *);
 
+  jstring getReflectionSignature (jint /*jv_attr_type*/ type,
+				  jint obj_index);
+  jstring getReflectionSignature (::java::lang::reflect::Method *);
+  jstring getReflectionSignature (::java::lang::reflect::Constructor *);
+  jstring getReflectionSignature (::java::lang::reflect::Field *);
+
+  jstring getClassSignature();
+  jobject getMethodDefaultValue (::java::lang::reflect::Method *);
+
 public:
   JArray<java::lang::reflect::Field *> *getFields (void);
 
@@ -403,10 +432,34 @@ public:
 
   JArray<java::lang::reflect::TypeVariable *> *getTypeParameters (void);
 
+  jint getEnclosingMethodData(void);
   java::lang::Class *getEnclosingClass (void);
   java::lang::reflect::Constructor *getEnclosingConstructor (void);
   java::lang::reflect::Method *getEnclosingMethod (void);
-  jboolean isEnum (void);
+  jobjectArray getDeclaredAnnotations(jint, jint, jint);
+  jobjectArray getDeclaredAnnotations(::java::lang::reflect::Method *,
+				      jboolean);
+  jobjectArray getDeclaredAnnotations(::java::lang::reflect::Constructor *,
+				      jboolean);
+  jobjectArray getDeclaredAnnotations(::java::lang::reflect::Field *);
+  JArray< ::java::lang::annotation::Annotation *> *getDeclaredAnnotationsInternal();
+
+  jboolean isEnum (void)
+  {
+    return (accflags & 0x4000) != 0;
+  }
+  jboolean isSynthetic (void)
+  {
+    return (accflags & 0x1000) != 0;
+  }
+  jboolean isAnnotation (void)
+  {
+    return (accflags & 0x2000) != 0;
+  }
+
+  jboolean isAnonymousClass();
+  jboolean isLocalClass();
+  jboolean isMemberClass();
 
   // FIXME: this probably shouldn't be public.
   jint size (void)
@@ -428,6 +481,20 @@ public:
   // types. See prims.cc.
   Class ();
 
+  // Given the BC ABI version, return the size of an Class initializer.
+  static jlong initializerSize (jlong ABI)
+  {
+    unsigned long version = ABI & 0xfffff;
+    int abi_rev = version % 100;
+    
+    // The reflection_data field was added by abi_rev 1.
+    if (abi_rev == 0)
+      return ((char*)(&::java::lang::Class::class$.reflection_data)
+	      - (char*)&::java::lang::Class::class$);
+    
+    return sizeof (::java::lang::Class);
+  }
+
   static java::lang::Class class$;
 
 private:   
@@ -443,6 +510,9 @@ private:
     state = nstate;
     notifyAll ();
   }
+
+  jint findInnerClassAttribute();
+  jint findDeclaredClasses(JArray<jclass> *, jboolean, jint);
 
   // Friend functions implemented in natClass.cc.
   friend _Jv_Method *::_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
@@ -484,6 +554,7 @@ private:
   friend _Jv_MethodBase *(::_Jv_FindInterpreterMethod) (jclass klass,
 							jmethodID desired_method);
 #endif
+  friend jbyte (::_Jv_GetClassState) (jclass klass);
 
   // Friends classes and functions to implement the ClassLoader
   friend class java::lang::ClassLoader;
@@ -561,6 +632,11 @@ private:
   friend void *::_Jv_ResolvePoolEntry (jclass this_class, jint index);
 
   friend void ::_Jv_CopyClassesToSystemLoader (gnu::gcj::runtime::SystemClassLoader *);
+
+  friend class java::lang::reflect::Field;
+  friend class java::lang::reflect::Method;
+  friend class java::lang::reflect::Constructor;
+  friend class java::lang::reflect::VMProxy;
 
   // Chain for class pool.  This also doubles as the ABI version
   // number.  It is only used for this purpose at class registration
@@ -644,6 +720,8 @@ private:
   void *aux_info;
   // Execution engine.
   _Jv_ExecutionEngine *engine;
+  // Reflection data.
+  unsigned char *reflection_data;
 };
 
 // Inline functions that are friends of java::lang::Class

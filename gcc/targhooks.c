@@ -323,7 +323,17 @@ default_invalid_within_doloop (rtx insn)
 
 tree
 default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
-				     tree type ATTRIBUTE_UNUSED)
+				     tree type_out ATTRIBUTE_UNUSED,
+				     tree type_in ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Vectorized conversion.  */
+
+tree
+default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+				       tree type ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
 }
@@ -422,7 +432,7 @@ default_external_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 }
 
 tree
@@ -455,7 +465,7 @@ default_hidden_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 #endif
 }
 

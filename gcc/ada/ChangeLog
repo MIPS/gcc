@@ -1,3 +1,76 @@
+2007-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (annotate_value): Adjust for refactoring of tree_map
+	hierarchy.
+
+2007-02-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (annotate_value): Adjust for refactoring of tree_map
+	hierarchy.
+
+2007-02-21  Ed Schonberg  <schonberg@adacore.com>
+
+	PR ada/18819
+	* sem_ch3.adb (Create_Constrained_Components): for a subtype of an
+	untagged derived type, add hidden components to keep discriminant
+	layout consistent, when a given discriminant of the derived type
+	constraints several discriminants of the parent type.
+
+2007-02-16  Eric Botcazou  <ebotcazou@adacore.com>
+            Sandra Loosemore  <sandra@codesourcery.com>
+
+	* trans.c (call_to_gnu):  Use build_call_list instead of build3 to
+	build the call expression.
+	(gnat_stabilize_reference_1): Handle tcc_vl_exp.
+	* utils.c (max_size) <tcc_exceptional>: Delete.
+	<tcc_vl_exp>: New case.
+	<tcc_expression>: Delete CALL_EXPR subcase.
+	(build_global_cdtor): Use build_call_nary instead of build3.
+	* utils2.c (build_call_1_expr): Likewise.
+	(build_call_2_expr): Likewise.
+	(build_call_0_expr): Likewise.
+	(build_call_alloc_dealloc): Likewise.
+
+2007-02-07  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* raise-gcc.c (get_region_description_for, get_call_site_action_for,
+	get_action_description_for): Replace _Unwind_Word with _uleb128_t 
+	and _Unwind_SWord with _sleb128_t.
+
+2007-02-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Make-lang.in (ada/decl.o): Add gt-ada-decl.h dependency.
+	* decl.c: Include gt-ada-decl.h.
+	(annotate_value_cache): New.
+	(annotate_value): Use it instead of TREE_COMPLEXITY.
+
+2007-02-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* misc.c, utils2.c: Fix comment typos.
+
+2007-01-24  Roger Sayle  <roger@eyesopen.com>
+
+	* decl.c (gnat_to_gnu_entity): Use TREE_OVERFLOW instead of
+	TREE_CONSTANT_OVERFLOW.
+	(allocatable_size_p, annotate_value): Likewise.
+	* trans.c (gnat_to_gnu): Likewise.
+	* utils.c (unchecked_convert): Likewise.
+	* utils2.c (build_simple_component_ref): Likewise.
+
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/30541
+	* Make-lang.in: Replace invocations of gnatmake with $(GNATMAKE).
+	(gnatboot2): Pass staged GNATMAKE instead of STAGE_PREFIX.
+	(gnatboot3): Likewise.
+	(GNATBIND): Do not define.
+	* Makefile.in (GNATBIND): Do not define.
+
+2007-01-08  Richard Guenther  <rguenther@suse.de>
+
+	* cuintp.c (build_cst_from_int): Use built_int_cst_type.
+	* trans.c (gnat_to_gnu): Likewise.
+
 2006-12-07  Geoffrey Keating  <geoffk@apple.com>
 
 	* Makefile.in: Replace CROSS_COMPILE with CROSS_DIRECTORY_STRUCTURE.
@@ -31,9 +104,9 @@
 
 2006-11-05  Arnaud Charlet  <charlet@adacore.com>
 
+	PR ada/29707
 	* s-osinte-linux-alpha.ads, s-osinte-linux-hppa.ads
 	(To_Target_Priority): New function.
-	Fix PR ada/29707
 
 2006-10-31  Robert Dewar  <dewar@adacore.com>
 
@@ -2580,6 +2653,7 @@
 	* fe.h: Remove redundant declarations.
 
 2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
 	* utils.c (builtin_function): Rename to gnat_builtin_function.
 	Move common code to add_builtin_function.
 	* misc.c (LANG_HOOKS_BUILTIN_FUNCTION): Define as
@@ -2731,7 +2805,7 @@
 
 2006-02-20 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
 
-	* Make-lang.in (Ada): Remove
+	* Make-lang.in (Ada): Remove.
 	(.PHONY): Remove Ada
 
 2006-02-17  Ed Schonberg  <schonberg@adacore.com>
@@ -2746,7 +2820,6 @@
 2006-02-17  Eric Botcazou  <botcazou@adacore.com>
 
 	PR ada/26315
-
 	* utils2.c (find_common_type): If both input types are BLKmode and
 	have the same constant size, keep using the first one.
 
@@ -3136,9 +3209,8 @@
 	with small changes.
 
 	PR ada/26096
-	(gnat_to_gnu_entity) <E_Variable>: Do not initialize the
-	aligning variable with the expression being built, only its inner
-	field.
+	(gnat_to_gnu_entity) <E_Variable>: Do not initialize the aligning
+	variable with the expression being built, only its inner field.
 
 	* trans.c (Handled_Sequence_Of_Statements_to_gnu): Remove call to
 	emit_sequence_entry_statements.
@@ -3178,9 +3250,8 @@
 	unions.
 
 	PR ada/18659
-	(update_pointer_to): Update variants of pointer types to
-	unconstrained arrays by attaching the list of fields of the main
-	variant.
+	(update_pointer_to): Update variants of pointer types to unconstrained
+	arrays by attaching the list of fields of the main variant.
 
 2006-02-13  Arnaud Charlet  <charlet@adacore.com>
 	    Robert Dewar  <dewar@adacore.com>
@@ -3410,8 +3481,7 @@
 	0, since the lower bound of the actual string may be greater than one.
 
 	PR ada/20753
-
-	(Put): Fix condition to raise Layout_Error when invalid
+	* a-tifiio.adb (Put): Fix condition to raise Layout_Error when invalid
 	layout is requested.
 
 2006-02-13  Vincent Celier  <celier@adacore.com>
@@ -3804,7 +3874,6 @@
 	convertible anonymous access types.
 
 	PR ada/25885
-
 	(Set_Literal_String_Subtype): If the lower bound is not static, wrap
 	the literal in an unchecked conversion, because GCC 4.x needs a static
 	value for a string bound.

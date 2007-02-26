@@ -1,5 +1,8 @@
 /* include/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Name of default AWT toolkit */
+#undef AWT_TOOLKIT
+
 /* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
    systems. This function is required for `alloca.c' support on those systems.
    */
@@ -181,6 +184,12 @@
 /* Define to 1 if you have the `lstat' function. */
 #undef HAVE_LSTAT
 
+/* Define to 1 if you have the <magic.h> header file. */
+#undef HAVE_MAGIC_H
+
+/* Define if magic.h declares magic_t */
+#undef HAVE_MAGIC_T
+
 /* Define to 1 if you have the `memcpy' function. */
 #undef HAVE_MEMCPY
 
@@ -222,6 +231,9 @@
 
 /* Define if you have /proc/self/exe */
 #undef HAVE_PROC_SELF_EXE
+
+/* Define if you have /proc/self/maps */
+#undef HAVE_PROC_SELF_MAPS
 
 /* Define if using POSIX threads that have the mutexattr functions. */
 #undef HAVE_PTHREAD_MUTEXATTR_INIT
@@ -366,6 +378,9 @@
 /* Define to 1 if you have the file `AC_File'. */
 #undef HAVE__PROC_SELF_EXE
 
+/* Define to 1 if you have the file `AC_File'. */
+#undef HAVE__PROC_SELF_MAPS
+
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
 
@@ -389,6 +404,9 @@
 
 /* Define if we want to use debug calls into the garbage collector. */
 #undef LIBGCJ_GC_DEBUG
+
+/* Installation prefix */
+#undef LIBGCJ_PREFIX
 
 /* Define if using POSIX threads on Linux. */
 #undef LINUX_THREADS

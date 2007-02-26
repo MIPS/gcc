@@ -52,15 +52,6 @@
   return ANY_QI_REG_P (op);
 })
 
-;; Return true if op is a NON_Q_REGS class register.
-(define_predicate "non_q_regs_operand"
-  (match_operand 0 "register_operand")
-{
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  return NON_QI_REG_P (op);
-})
-
 ;; Match an SI or HImode register for a zero_extract.
 (define_special_predicate "ext_register_operand"
   (match_operand 0 "register_operand")
@@ -146,7 +137,7 @@
 
 	  if (ix86_cmodel == CM_LARGE)
 	    return 0;
-	  if (GET_CODE (op2) != CONST_INT)
+	  if (!CONST_INT_P (op2))
 	    return 0;
 	  offset = trunc_int_for_mode (INTVAL (op2), DImode);
 	  switch (GET_CODE (op1))
@@ -266,7 +257,7 @@
 	      if ((ix86_cmodel == CM_SMALL
 		   || (ix86_cmodel == CM_MEDIUM
 		       && !SYMBOL_REF_FAR_ADDR_P (op1)))
-		  && GET_CODE (op2) == CONST_INT
+		  && CONST_INT_P (op2)
 		  && trunc_int_for_mode (INTVAL (op2), DImode) > -0x10000
 		  && trunc_int_for_mode (INTVAL (op2), SImode) == INTVAL (op2))
 		return 1;
@@ -280,7 +271,7 @@
 	      /* These conditions are similar to SYMBOL_REF ones, just the
 		 constraints for code models differ.  */
 	      if ((ix86_cmodel == CM_SMALL || ix86_cmodel == CM_MEDIUM)
-		  && GET_CODE (op2) == CONST_INT
+		  && CONST_INT_P (op2)
 		  && trunc_int_for_mode (INTVAL (op2), DImode) > -0x10000
 		  && trunc_int_for_mode (INTVAL (op2), SImode) == INTVAL (op2))
 		return 1;
@@ -340,7 +331,7 @@
   if (TARGET_64BIT && GET_CODE (op) == CONST)
     {
       op = XEXP (op, 0);
-      if (GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+      if (GET_CODE (op) == PLUS && CONST_INT_P (XEXP (op, 1)))
 	op = XEXP (op, 0);
       if (GET_CODE (op) == UNSPEC
 	  && (XINT (op, 1) == UNSPEC_GOTOFF
@@ -380,7 +371,7 @@
 		  || XINT (op, 1) == UNSPEC_GOTPCREL)))
 	return 1;
       if (GET_CODE (op) != PLUS
-	  || GET_CODE (XEXP (op, 1)) != CONST_INT)
+	  || !CONST_INT_P (XEXP (op, 1)))
 	return 0;
 
       op = XEXP (op, 0);
@@ -423,7 +414,7 @@
       if (GET_CODE (op) == UNSPEC)
 	return 1;
       if (GET_CODE (op) != PLUS
-	  || GET_CODE (XEXP (op, 1)) != CONST_INT)
+	  || !CONST_INT_P (XEXP (op, 1)))
 	return 0;
       op = XEXP (op, 0);
       if (GET_CODE (op) == UNSPEC)
@@ -438,7 +429,7 @@
 {
   if (GET_CODE (op) == CONST
       && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
+      && CONST_INT_P (XEXP (XEXP (op, 0), 1)))
     op = XEXP (XEXP (op, 0), 0);
 
   if (GET_CODE (op) == LABEL_REF)
@@ -784,7 +775,7 @@
     }
   if (parts.disp)
     {
-      if (GET_CODE (parts.disp) != CONST_INT
+      if (!CONST_INT_P (parts.disp)
 	  || (INTVAL (parts.disp) & 3) != 0)
 	return 0;
     }
@@ -911,7 +902,7 @@
   enum machine_mode inmode = GET_MODE (XEXP (op, 0));
   enum rtx_code code = GET_CODE (op);
 
-  if (GET_CODE (XEXP (op, 0)) != REG
+  if (!REG_P (XEXP (op, 0))
       || REGNO (XEXP (op, 0)) != FLAGS_REG
       || XEXP (op, 1) != const0_rtx)
     return 0;

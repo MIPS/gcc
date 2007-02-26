@@ -333,11 +333,6 @@ int flag_dump_rtl_in_asm = 0;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* If one, renumber instruction UIDs to reduce the number of
-   unused UIDs if there are a lot of instructions.  If greater than
-   one, unconditionally renumber instruction UIDs.  */
-int flag_renumber_insns = 1;
-
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_VALUE it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
@@ -901,9 +896,8 @@ warn_deprecated_use (tree node)
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
       warning (OPT_Wdeprecated_declarations,
-	       "%qs is deprecated (declared at %s:%d)",
-	       IDENTIFIER_POINTER (DECL_NAME (node)),
-	       xloc.file, xloc.line);
+	       "%qD is deprecated (declared at %s:%d)",
+	       node, xloc.file, xloc.line);
     }
   else if (TYPE_P (node))
     {
@@ -1054,11 +1048,14 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  /* Likewise for emulated thread-local storage.  */
+  if (!targetm.have_tls)
+    emutls_finish ();
+
   output_shared_constant_pool ();
   output_object_blocks ();
 
   /* Write out any pending weak symbol declarations.  */
-
   weak_finish ();
 
   /* Do dbx symbols.  */
@@ -1249,7 +1246,7 @@ print_single_switch (print_switch_fn_type print_fn,
 {
   /* The ultrix fprintf returns 0 on success, so compute the result
      we want here since we need it for the following test.  The +1
-     is for the seperator character that will probably be emitted.  */
+     is for the separator character that will probably be emitted.  */
   int len = strlen (text) + 1;
 
   if (pos != 0
@@ -1950,6 +1947,7 @@ backend_init (void)
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
+  init_inline_once ();
   init_reload ();
   init_varasm_once ();
 
@@ -1992,6 +1990,11 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+
+  /* Although the actions of init_set_costs are language-independent,
+     it uses optabs, so we cannot call it from backend_init.  */
+  init_set_costs ();
+
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the
@@ -2010,6 +2013,19 @@ lang_dependent_init (const char *name)
   timevar_pop (TV_SYMOUT);
 
   return 1;
+}
+
+void
+dump_memory_report (bool final)
+{
+  ggc_print_statistics ();
+  stringpool_statistics ();
+  dump_tree_statistics ();
+  dump_rtx_statistics ();
+  dump_varray_statistics ();
+  dump_alloc_pool_statistics ();
+  dump_bitmap_statistics ();
+  dump_ggc_loc_statistics (final);
 }
 
 /* Clean up: close opened files, etc.  */
@@ -2040,16 +2056,7 @@ finalize (void)
   finish_optimization_passes ();
 
   if (mem_report)
-    {
-      ggc_print_statistics ();
-      stringpool_statistics ();
-      dump_tree_statistics ();
-      dump_rtx_statistics ();
-      dump_varray_statistics ();
-      dump_alloc_pool_statistics ();
-      dump_bitmap_statistics ();
-      dump_ggc_loc_statistics ();
-    }
+    dump_memory_report (true);
 
   /* Free up memory for the benefit of leak detectors.  */
   free_reg_info ();

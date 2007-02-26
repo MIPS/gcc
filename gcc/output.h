@@ -158,6 +158,9 @@ extern void merge_weak (tree, tree);
 /* Emit any pending weak declarations.  */
 extern void weak_finish (void);
 
+/* Emit any pending emutls declarations and initializations.  */
+extern void emutls_finish (void);
+
 /* Decode an `asm' spec for a declaration as a register name.
    Return the register number, or -1 if nothing specified,
    or -2 if the ASMSPEC is not `cc' or `memory' and is not recognized,
@@ -204,7 +207,7 @@ extern void assemble_variable (tree, int, int, int);
    DONT_OUTPUT_DATA is from assemble_variable.  */
 extern void align_variable (tree decl, bool dont_output_data);
 
-/* Queue for outputing something to declare an external symbol to the
+/* Queue for outputting something to declare an external symbol to the
    assembler.  (Most assemblers don't need this, so we normally output
    nothing.)  Do nothing if DECL is not external.  */
 extern void assemble_external (tree);
@@ -612,6 +615,7 @@ extern bool default_use_anchors_for_symbol_p (rtx);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
+extern void default_globalize_decl_name (FILE *, tree);
 extern void default_emit_unwind_label (FILE *, tree, int, int);
 extern void default_emit_except_table_label (FILE *);
 extern void default_internal_label (FILE *, const char *, unsigned long);

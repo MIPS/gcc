@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
-   Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -407,7 +407,9 @@ save_call_clobbered_regs (void)
 		  regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS, save_mode);
 	    }
 
-	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
+	  if (code == CALL_INSN
+	      && ! SIBLING_CALL_P (insn)
+	      && ! find_reg_note (insn, REG_NORETURN, NULL))
 	    {
 	      unsigned regno;
 	      HARD_REG_SET hard_regs_to_save;
@@ -450,11 +452,6 @@ save_call_clobbered_regs (void)
 		 during the call, but the subreg that is set isn't.  */
 	      CLEAR_HARD_REG_SET (this_insn_sets);
 	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
-	      /* Sibcalls are considered to set the return value,
-		 compare flow.c:propagate_one_insn.  */
-	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
-		mark_set_regs (current_function_return_rtx, NULL_RTX,
-			       &this_insn_sets);
 
 	      /* Compute which hard regs must be saved before this call.  */
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
@@ -508,14 +505,16 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
       if (!REG_P (inner) || REGNO (inner) >= FIRST_PSEUDO_REGISTER)
 	return;
       regno = subreg_regno (reg);
+      endregno = regno + subreg_nregs (reg);
     }
   else if (REG_P (reg)
 	   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
-    regno = REGNO (reg);
+    {
+      regno = REGNO (reg);
+      endregno = regno + hard_regno_nregs[regno][mode];
+    }
   else
     return;
-
-  endregno = regno + hard_regno_nregs[regno][mode];
 
   for (i = regno; i < endregno; i++)
     SET_HARD_REG_BIT (*this_insn_sets, i);
@@ -535,20 +534,25 @@ add_stored_regs (rtx reg, rtx setter, void *data)
   if (GET_CODE (setter) == CLOBBER)
     return;
 
-  if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg)))
+  if (GET_CODE (reg) == SUBREG
+      && REG_P (SUBREG_REG (reg))
+      && REGNO (SUBREG_REG (reg)) < FIRST_PSEUDO_REGISTER)
     {
       offset = subreg_regno_offset (REGNO (SUBREG_REG (reg)),
 				    GET_MODE (SUBREG_REG (reg)),
 				    SUBREG_BYTE (reg),
 				    GET_MODE (reg));
-      reg = SUBREG_REG (reg);
+      regno = REGNO (SUBREG_REG (reg)) + offset;
+      endregno = regno + subreg_nregs (reg);
     }
+  else
+    {
+      if (!REG_P (reg) || REGNO (reg) >= FIRST_PSEUDO_REGISTER)
+	return;
 
-  if (!REG_P (reg) || REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-    return;
-
-  regno = REGNO (reg) + offset;
-  endregno = regno + hard_regno_nregs[regno][mode];
+      regno = REGNO (reg) + offset;
+      endregno = regno + hard_regno_nregs[regno][mode];
+    }
 
   for (i = regno; i < endregno; i++)
     SET_REGNO_REG_SET ((regset) data, i);

@@ -1,7 +1,7 @@
 ## Process this with automake to create Makefile.in
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
-ACLOCAL_AMFLAGS = -I ..
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 SUBDIRS = include testsuite
 
@@ -166,3 +166,10 @@ AM_CCASFLAGS = $(AM_CPPFLAGS)
 .PHONY: install-html
 install-html:
 
+# Multilib support.  Automake should provide these on its own.
+all-recursive: all-multi
+install-recursive: install-multi
+mostlyclean-recursive: mostlyclean-multi
+clean-recursive: clean-multi
+distclean-recursive: distclean-multi
+maintainer-clean-recursive: maintainer-clean-multi

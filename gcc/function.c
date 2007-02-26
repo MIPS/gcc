@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -544,15 +544,7 @@ static struct temp_slot **
 temp_slots_at_level (int level)
 {
   if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
-    {
-      size_t old_length = VEC_length (temp_slot_p, used_temp_slots);
-      temp_slot_p *p;
-
-      VEC_safe_grow (temp_slot_p, gc, used_temp_slots, level + 1);
-      p = VEC_address (temp_slot_p, used_temp_slots);
-      memset (&p[old_length], 0,
-	      sizeof (temp_slot_p) * (level + 1 - old_length));
-    }
+    VEC_safe_grow_cleared (temp_slot_p, gc, used_temp_slots, level + 1);
 
   return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
 }
@@ -771,7 +763,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   if (type != 0)
     {
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
-      MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
+      MEM_SET_IN_STRUCT_P (slot, (AGGREGATE_TYPE_P (type)
+				  || TREE_CODE (type) == COMPLEX_TYPE));
     }
   MEM_NOTRAP_P (slot) = 1;
 
@@ -2808,20 +2801,14 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 		continue;
 
 	      if (SET_DEST (set) == regno_reg_rtx [regnoi])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stacki,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stacki);
 	      else if (SET_DEST (set) == regno_reg_rtx [regnor])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stackr,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stackr);
 	    }
 	}
       else if ((set = single_set (linsn)) != 0
 	       && SET_DEST (set) == parmreg)
-	REG_NOTES (linsn)
-	  = gen_rtx_EXPR_LIST (REG_EQUIV,
-			       data->stack_parm, REG_NOTES (linsn));
+	set_unique_reg_note (linsn, REG_EQUIV, data->stack_parm);
     }
 
   /* For pointer data type, suggest pointer register.  */
@@ -3216,22 +3203,21 @@ gimplify_parameters (void)
 		}
 	      else
 		{
-		  tree ptr_type, addr, args;
+		  tree ptr_type, addr;
 
 		  ptr_type = build_pointer_type (type);
 		  addr = create_tmp_var (ptr_type, get_name (parm));
 		  DECL_IGNORED_P (addr) = 0;
 		  local = build_fold_indirect_ref (addr);
 
-		  args = tree_cons (NULL, DECL_SIZE_UNIT (parm), NULL);
 		  t = built_in_decls[BUILT_IN_ALLOCA];
-		  t = build_function_call_expr (t, args);
+		  t = build_call_expr (t, 1, DECL_SIZE_UNIT (parm));
 		  t = fold_convert (ptr_type, t);
-		  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
+		  t = build_gimple_modify_stmt (addr, t);
 		  gimplify_and_add (t, &stmts);
 		}
 
-	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, local, parm);
+	      t = build_gimple_modify_stmt (local, parm);
 	      gimplify_and_add (t, &stmts);
 
 	      SET_DECL_VALUE_EXPR (parm, local);
@@ -3536,9 +3522,8 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
-		 " or %<vfork%>",
-		 decl);
+	warning (OPT_Wclobbered, "variable %q+D might be clobbered by" 
+                 " %<longjmp%> or %<vfork%>", decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
@@ -3557,7 +3542,8 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
+      warning (OPT_Wclobbered, 
+               "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
 }
 
@@ -3781,6 +3767,14 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
+
+/* Return value of funcdef and increase it.  */
+int
+get_next_funcdef_no (void) 
+{
+  return funcdef_no++;
+}
+
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  */
 
@@ -3795,7 +3789,7 @@ allocate_struct_function (tree fndecl)
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
-  current_function_funcdef_no = funcdef_no++;
+  current_function_funcdef_no = get_next_funcdef_no ();
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 

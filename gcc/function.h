@@ -373,6 +373,10 @@ struct function GTY(())
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
+  /* Properties used by the pass manager.  */
+  unsigned int curr_properties;
+  unsigned int last_verified;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -595,4 +599,5 @@ extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 
 extern void used_types_insert (tree);
 
+extern int get_next_funcdef_no (void);
 #endif  /* GCC_FUNCTION_H */

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -50,6 +50,7 @@
 #include "fe.h"
 #include "sinfo.h"
 #include "einfo.h"
+#include "hashtab.h"
 #include "ada-tree.h"
 #include "gigi.h"
 
@@ -79,6 +80,10 @@ static struct incomplete
 
 static int defer_debug_level = 0;
 static tree defer_debug_incomplete_list;
+
+/* A hash table used as to cache the result of annotate_value.  */
+static GTY ((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
+  htab_t annotate_value_cache;
 
 static void copy_alias_set (tree, tree);
 static tree substitution_list (Entity_Id, Entity_Id, tree, bool);
@@ -1044,7 +1049,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  }
 
 		if (TREE_CODE (TYPE_SIZE_UNIT (gnu_alloc_type)) == INTEGER_CST
-		    && TREE_CONSTANT_OVERFLOW (TYPE_SIZE_UNIT (gnu_alloc_type))
+		    && TREE_OVERFLOW (TYPE_SIZE_UNIT (gnu_alloc_type))
 		    && !Is_Imported (gnat_entity))
 		  post_error ("Storage_Error will be raised at run-time?",
 			      gnat_entity);
@@ -1907,9 +1912,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		      (fold (build2 (MINUS_EXPR, gnu_index_subtype,
 				     TYPE_MAX_VALUE (gnu_index_subtype),
 				     TYPE_MIN_VALUE (gnu_index_subtype))))))
-		TREE_OVERFLOW (gnu_min) = TREE_OVERFLOW (gnu_max)
-		  = TREE_CONSTANT_OVERFLOW (gnu_min)
-		  = TREE_CONSTANT_OVERFLOW (gnu_max) = 0;
+		TREE_OVERFLOW (gnu_min) = TREE_OVERFLOW (gnu_max) = 0;
 
 	      /* Similarly, if the range is null, use bounds of 1..0 for
 		 the sizetype bounds.  */
@@ -1939,8 +1942,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		 code below to malfunction if we don't handle it specially.  */
 	      if (TREE_CODE (gnu_base_min) == INTEGER_CST
 		  && TREE_CODE (gnu_base_max) == INTEGER_CST
-		  && !TREE_CONSTANT_OVERFLOW (gnu_base_min)
-		  && !TREE_CONSTANT_OVERFLOW (gnu_base_max)
+		  && !TREE_OVERFLOW (gnu_base_min)
+		  && !TREE_OVERFLOW (gnu_base_max)
 		  && tree_int_cst_lt (gnu_base_max, gnu_base_min))
 		gnu_high = size_zero_node, gnu_min = size_one_node;
 
@@ -1986,10 +1989,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		gnu_base_max = gnu_max;
 
 	      if ((TREE_CODE (gnu_base_min) == INTEGER_CST
-		   && TREE_CONSTANT_OVERFLOW (gnu_base_min))
+		   && TREE_OVERFLOW (gnu_base_min))
 		  || operand_equal_p (gnu_base_min, gnu_base_base_min, 0)
 		  || (TREE_CODE (gnu_base_max) == INTEGER_CST
-		      && TREE_CONSTANT_OVERFLOW (gnu_base_max))
+		      && TREE_OVERFLOW (gnu_base_max))
 		  || operand_equal_p (gnu_base_max, gnu_base_base_max, 0))
 		max_overflow = true;
 
@@ -2004,7 +2007,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			      size_zero_node);
 
 	      if (TREE_CODE (gnu_this_max) == INTEGER_CST
-		  && TREE_CONSTANT_OVERFLOW (gnu_this_max))
+		  && TREE_OVERFLOW (gnu_this_max))
 		max_overflow = true;
 
 	      gnu_max_size
@@ -4590,7 +4593,7 @@ allocatable_size_p (tree gnu_size, bool static_p)
      Storage_Error.  */
   if (!static_p)
     return !(TREE_CODE (gnu_size) == INTEGER_CST
-	     && TREE_CONSTANT_OVERFLOW (gnu_size));
+	     && TREE_OVERFLOW (gnu_size));
 
   /* Otherwise, we need to deal with both variable sizes and constant
      sizes that won't fit in a host int.  We use int instead of HOST_WIDE_INT
@@ -5878,10 +5881,22 @@ annotate_value (tree gnu_size)
   Node_Ref_Or_Val ops[3], ret;
   int i;
   int size;
+  struct tree_int_map **h = NULL;
 
   /* See if we've already saved the value for this node.  */
-  if (EXPR_P (gnu_size) && TREE_COMPLEXITY (gnu_size))
-    return (Node_Ref_Or_Val) TREE_COMPLEXITY (gnu_size);
+  if (EXPR_P (gnu_size))
+    {
+      struct tree_int_map in;
+      if (!annotate_value_cache)
+        annotate_value_cache = htab_create_ggc (512, tree_int_map_hash,
+					        tree_int_map_eq, 0);
+      in.base.from = gnu_size;
+      h = (struct tree_int_map **)
+	    htab_find_slot (annotate_value_cache, &in, INSERT);
+
+      if (*h)
+	return (Node_Ref_Or_Val) (*h)->to;
+    }
 
   /* If we do not return inside this switch, TCODE will be set to the
      code to use for a Create_Node operand and LEN (set above) will be
@@ -5906,7 +5921,7 @@ annotate_value (tree gnu_size)
 	  bool adjust = false;
 	  tree temp;
 
-	  if (TREE_CONSTANT_OVERFLOW (negative_size))
+	  if (TREE_OVERFLOW (negative_size))
 	    {
 	      negative_size
 		= size_binop (MINUS_EXPR, bitsize_zero_node,
@@ -5996,7 +6011,15 @@ annotate_value (tree gnu_size)
     }
 
   ret = Create_Node (tcode, ops[0], ops[1], ops[2]);
-  TREE_COMPLEXITY (gnu_size) = ret;
+
+  /* Save the result in the cache.  */
+  if (h)
+    {
+      *h = ggc_alloc (sizeof (struct tree_int_map));
+      (*h)->base.from = gnu_size;
+      (*h)->to = ret;
+    }
+
   return ret;
 }
 
@@ -6849,3 +6872,5 @@ concat_id_with_name (tree gnu_id, const char *suffix)
   strcpy (Name_Buffer + len, suffix);
   return get_identifier (Name_Buffer);
 }
+
+#include "gt-ada-decl.h"

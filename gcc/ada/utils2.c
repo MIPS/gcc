@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1394,13 +1394,10 @@ build_return_expr (tree result_decl, tree ret_val)
 tree
 build_call_1_expr (tree fundecl, tree arg)
 {
-  tree call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fundecl)),
-		      build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
-		      chainon (NULL_TREE, build_tree_list (NULL_TREE, arg)),
-		      NULL_TREE);
-
+  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (fundecl)),
+			       build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
+			       1, arg);
   TREE_SIDE_EFFECTS (call) = 1;
-
   return call;
 }
 
@@ -1410,15 +1407,10 @@ build_call_1_expr (tree fundecl, tree arg)
 tree
 build_call_2_expr (tree fundecl, tree arg1, tree arg2)
 {
-  tree call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fundecl)),
-		      build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
-		      chainon (chainon (NULL_TREE,
-					build_tree_list (NULL_TREE, arg1)),
-			       build_tree_list (NULL_TREE, arg2)),
-		     NULL_TREE);
-
+  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (fundecl)),
+			       build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
+			       2, arg1, arg2);
   TREE_SIDE_EFFECTS (call) = 1;
-
   return call;
 }
 
@@ -1427,13 +1419,11 @@ build_call_2_expr (tree fundecl, tree arg1, tree arg2)
 tree
 build_call_0_expr (tree fundecl)
 {
-  tree call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fundecl)),
-		      build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
-		      NULL_TREE, NULL_TREE);
-
-  /* We rely on build3 to compute TREE_SIDE_EFFECTS.  This makes it possible
-     to propagate the DECL_IS_PURE flag on parameterless functions.  */
-
+  /* We rely on build_call_nary to compute TREE_SIDE_EFFECTS.  This makes
+     it possible to propagate DECL_IS_PURE on parameterless functions.  */
+  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (fundecl)),
+			       build_unary_op (ADDR_EXPR, NULL_TREE, fundecl),
+			       0);
   return call;
 }
 
@@ -1526,7 +1516,7 @@ gnat_build_constructor (tree type, tree list)
 
       /* Propagate an NULL_EXPR from the size of the type.  We won't ever
 	 be executing the code we generate here in that case, but handle it
-	 specially to avoid the cmpiler blowing up.  */
+	 specially to avoid the compiler blowing up.  */
       if (TREE_CODE (type) == RECORD_TYPE
 	  && (0 != (result
 		    = contains_null_expr (DECL_SIZE (TREE_PURPOSE (elmt))))))
@@ -1649,7 +1639,7 @@ build_simple_component_ref (tree record_variable, tree component,
      Note that we don't need to warn since this will be done on trying
      to declare the object.  */
   if (TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST
-      && TREE_CONSTANT_OVERFLOW (DECL_FIELD_OFFSET (field)))
+      && TREE_OVERFLOW (DECL_FIELD_OFFSET (field)))
     return NULL_TREE;
 
   /* It would be nice to call "fold" here, but that can lose a type
@@ -1721,30 +1711,22 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
 	  tree gnu_proc_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_proc);
 	  tree gnu_pool = gnat_to_gnu (gnat_pool);
 	  tree gnu_pool_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_pool);
-	  tree gnu_args = NULL_TREE;
 	  tree gnu_call;
+
+	  gnu_size = convert (gnu_size_type, gnu_size);
+	  gnu_align = convert (gnu_size_type, gnu_align);
 
 	  /* The first arg is always the address of the storage pool; next
 	     comes the address of the object, for a deallocator, then the
 	     size and alignment.  */
-	  gnu_args
-	    = chainon (gnu_args, build_tree_list (NULL_TREE, gnu_pool_addr));
-
 	  if (gnu_obj)
-	    gnu_args
-	      = chainon (gnu_args, build_tree_list (NULL_TREE, gnu_obj));
-
-	  gnu_args
-	    = chainon (gnu_args,
-		       build_tree_list (NULL_TREE,
-					convert (gnu_size_type, gnu_size)));
-	  gnu_args
-	    = chainon (gnu_args,
-		       build_tree_list (NULL_TREE,
-					convert (gnu_size_type, gnu_align)));
-
-	  gnu_call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (gnu_proc)),
-			     gnu_proc_addr, gnu_args, NULL_TREE);
+	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+					gnu_proc_addr, 4, gnu_pool_addr,
+					gnu_obj, gnu_size, gnu_align);
+	  else
+	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+					gnu_proc_addr, 3, gnu_pool_addr,
+					gnu_size, gnu_align);
 	  TREE_SIDE_EFFECTS (gnu_call) = 1;
 	  return gnu_call;
 	}
@@ -1758,22 +1740,18 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
 	  tree gnu_size_type = gnat_to_gnu_type (gnat_size_type);
 	  tree gnu_proc = gnat_to_gnu (gnat_proc);
 	  tree gnu_proc_addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_proc);
-	  tree gnu_args = NULL_TREE;
 	  tree gnu_call;
+
+	  gnu_size = convert (gnu_size_type, gnu_size);
 
 	  /* The first arg is the address of the object, for a
 	     deallocator, then the size */
 	  if (gnu_obj)
-	    gnu_args
-	      = chainon (gnu_args, build_tree_list (NULL_TREE, gnu_obj));
-
-	  gnu_args
-	    = chainon (gnu_args,
-		       build_tree_list (NULL_TREE,
-					convert (gnu_size_type, gnu_size)));
-
-	  gnu_call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (gnu_proc)),
-			     gnu_proc_addr, gnu_args, NULL_TREE);
+	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+					gnu_proc_addr, 2, gnu_obj, gnu_size);
+	  else
+	    gnu_call = build_call_nary (TREE_TYPE (TREE_TYPE (gnu_proc)),
+					gnu_proc_addr, 1, gnu_size);
 	  TREE_SIDE_EFFECTS (gnu_call) = 1;
 	  return gnu_call;
 	}

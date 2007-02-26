@@ -576,7 +576,7 @@ add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
     return;
 
   /* Choose whether to use a sequence using a temporary register, or
-     a sequence with multiple adds.  We can add a signed 7 bit value
+     a sequence with multiple adds.  We can add a signed 7-bit value
      in one instruction.  */
   if (value > 120 || value < -120)
     {
@@ -1080,7 +1080,7 @@ bfin_delegitimize_address (rtx orig_x)
 
 /* This predicate is used to compute the length of a load/store insn.
    OP is a MEM rtx, we return nonzero if its addressing mode requires a
-   32 bit instruction.  */
+   32-bit instruction.  */
 
 int
 effective_address_32bit_p (rtx op, enum machine_mode mode) 
@@ -1102,7 +1102,7 @@ effective_address_32bit_p (rtx op, enum machine_mode mode)
 
   offset = INTVAL (XEXP (op, 1));
 
-  /* All byte loads use a 16 bit offset.  */
+  /* All byte loads use a 16-bit offset.  */
   if (GET_MODE_SIZE (mode) == 1)
     return 1;
 
@@ -1537,7 +1537,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
    For args passed entirely in registers or entirely in memory, zero.
 
    Refer VDSP C Compiler manual, our ABI.
-   First 3 words are in registers. So, if a an argument is larger
+   First 3 words are in registers. So, if an argument is larger
    than the registers available, it will span the register and
    stack.   */
 
@@ -1889,7 +1889,7 @@ hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (mode == PDImode || mode == V2PDImode)
     return regno == REG_A0 || regno == REG_A1;
 
-  /* Allow all normal 32 bit regs, except REG_M3, in case regclass ever comes
+  /* Allow all normal 32-bit regs, except REG_M3, in case regclass ever comes
      up with a bad register class (such as ALL_REGS) for DImode.  */
   if (mode == DImode)
     return regno < REG_M3;
@@ -2243,7 +2243,7 @@ bfin_gen_compare (rtx cmp, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 /* Return nonzero iff C has exactly one bit set if it is interpreted
-   as a 32 bit constant.  */
+   as a 32-bit constant.  */
 
 int
 log2constp (unsigned HOST_WIDE_INT c)
@@ -3977,7 +3977,7 @@ bfin_reorg (void)
       schedule_insns ();
       timevar_pop (TV_SCHED2);
 
-      /* Examine the schedule and insert nops as necessary for 64 bit parallel
+      /* Examine the schedule and insert nops as necessary for 64-bit parallel
 	 instructions.  */
       bfin_gen_bundles ();
     }
@@ -4617,12 +4617,12 @@ safe_vector_operand (rtx x, enum machine_mode mode)
    if this is a normal binary op, or one of the MACFLAG_xxx constants.  */
 
 static rtx
-bfin_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target,
+bfin_expand_binop_builtin (enum insn_code icode, tree exp, rtx target,
 			   int macflag)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
   rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
   enum machine_mode op0mode = GET_MODE (op0);
@@ -4675,11 +4675,11 @@ bfin_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target,
 /* Subroutine of bfin_expand_builtin to take care of unop insns.  */
 
 static rtx
-bfin_expand_unop_builtin (enum insn_code icode, tree arglist,
+bfin_expand_unop_builtin (enum insn_code icode, tree exp,
 			  rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
   rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
   enum machine_mode op0mode = GET_MODE (op0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
@@ -4725,8 +4725,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   size_t i;
   enum insn_code icode;
   const struct builtin_description *d;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arg0, arg1, arg2;
   rtx op0, op1, op2, accvec, pat, tmp1, tmp2;
@@ -4743,7 +4742,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
     case BFIN_BUILTIN_DIFFHL_2X16:
     case BFIN_BUILTIN_DIFFLH_2X16:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
       icode = (fcode == BFIN_BUILTIN_DIFFHL_2X16
 	       ? CODE_FOR_subhilov2hi3 : CODE_FOR_sublohiv2hi3);
@@ -4768,8 +4767,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       return target;
 
     case BFIN_BUILTIN_CPLX_MUL_16:
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
       op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
       accvec = gen_reg_rtx (V2PDImode);
@@ -4795,9 +4794,9 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
     case BFIN_BUILTIN_CPLX_MAC_16:
     case BFIN_BUILTIN_CPLX_MSU_16:
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
       op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
       op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
       op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
@@ -4838,12 +4837,12 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
   for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
-      return bfin_expand_binop_builtin (d->icode, arglist, target,
+      return bfin_expand_binop_builtin (d->icode, exp, target,
 					d->macflag);
 
   for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
-      return bfin_expand_unop_builtin (d->icode, arglist, target);
+      return bfin_expand_unop_builtin (d->icode, exp, target);
 
   gcc_unreachable ();
 }

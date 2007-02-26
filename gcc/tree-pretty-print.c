@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
@@ -74,7 +74,7 @@ do_niy (pretty_printer *buffer, tree node)
 
   if (EXPR_P (node))
     {
-      len = TREE_CODE_LENGTH (TREE_CODE (node));
+      len = TREE_OPERAND_LENGTH (node);
       for (i = 0; i < len; ++i)
 	{
 	  newline_and_indent (buffer, 2);
@@ -748,23 +748,20 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       else if (! host_integerp (node, 0))
 	{
 	  tree val = node;
+	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (val);
+	  HOST_WIDE_INT high = TREE_INT_CST_HIGH (val);
 
 	  if (tree_int_cst_sgn (val) < 0)
 	    {
 	      pp_character (buffer, '-');
-	      val = build_int_cst_wide (NULL_TREE,
-					-TREE_INT_CST_LOW (val),
-					~TREE_INT_CST_HIGH (val)
-					+ !TREE_INT_CST_LOW (val));
+	      high = ~high + !low;
+	      low = -low;
 	    }
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
-	  {
-	    sprintf (pp_buffer (buffer)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     TREE_INT_CST_HIGH (val),
-		     TREE_INT_CST_LOW (val));
-	    pp_string (buffer, pp_buffer (buffer)->digit_buffer);
-	  }
+	  sprintf (pp_buffer (buffer)->digit_buffer,
+		   HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
 	}
       else
 	pp_wide_integer (buffer, TREE_INT_CST_LOW (node));
@@ -1093,9 +1090,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		  || TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR))
 	    {
 	      pp_space (buffer);
-	      dump_generic_node (buffer, COND_EXPR_THEN (node), 0, flags, true);
-	      pp_string (buffer, " else ");
-	      dump_generic_node (buffer, COND_EXPR_ELSE (node), 0, flags, true);
+	      dump_generic_node (buffer, COND_EXPR_THEN (node),
+				 0, flags, true);
+	      if (!IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
+		{
+		  pp_string (buffer, " else ");
+		  dump_generic_node (buffer, COND_EXPR_ELSE (node),
+				     0, flags, true);
+		}
 	    }
 	  else if (!(flags & TDF_SLIM))
 	    {
@@ -1112,7 +1114,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		}
 
 	      /* Output COND_EXPR_ELSE.  */
-	      if (COND_EXPR_ELSE (node))
+	      if (COND_EXPR_ELSE (node)
+		  && !IS_EMPTY_STMT (COND_EXPR_ELSE (node)))
 		{
 		  newline_and_indent (buffer, spc);
 		  pp_string (buffer, "else");
@@ -1170,12 +1173,22 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       /* Print parameters.  */
       pp_space (buffer);
       pp_character (buffer, '(');
-      op1 = TREE_OPERAND (node, 1);
-      if (op1)
-	dump_generic_node (buffer, op1, spc, flags, false);
+      {
+	tree arg;
+	call_expr_arg_iterator iter;
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
+	  {
+	    dump_generic_node (buffer, arg, spc, flags, false);
+	    if (more_call_expr_args_p (&iter))
+	      {
+		pp_character (buffer, ',');
+		pp_space (buffer);
+	      }
+	  }
+      }
       pp_character (buffer, ')');
 
-      op1 = TREE_OPERAND (node, 2);
+      op1 = CALL_EXPR_STATIC_CHAIN (node);
       if (op1)
 	{
 	  pp_string (buffer, " [static-chain: ");
@@ -1257,7 +1270,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
-	if (op_prio (op0) < op_prio (node))
+	if (op_prio (op0) <= op_prio (node))
 	  {
 	    pp_character (buffer, '(');
 	    dump_generic_node (buffer, op0, spc, flags, false);
@@ -1272,7 +1285,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
-	if (op_prio (op1) < op_prio (node))
+	if (op_prio (op1) <= op_prio (node))
 	  {
 	    pp_character (buffer, '(');
 	    dump_generic_node (buffer, op1, spc, flags, false);
@@ -2530,7 +2543,7 @@ print_call_name (pretty_printer *buffer, tree node)
 
   gcc_assert (TREE_CODE (node) == CALL_EXPR);
 
-  op0 = TREE_OPERAND (node, 0);
+  op0 = CALL_EXPR_FN (node);
 
   if (TREE_CODE (op0) == NON_LVALUE_EXPR)
     op0 = TREE_OPERAND (op0, 0);
@@ -2697,8 +2710,8 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  struct vdef_optype_d *vdefs;
-  struct vuse_optype_d *vuses;
+  struct voptype_d *vdefs;
+  struct voptype_d *vuses;
   int i, n;
 
   if (!ssa_operands_active () || !stmt_references_memory_p (stmt))

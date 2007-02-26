@@ -68,7 +68,7 @@ cxx_warn_unused_global_decl (tree decl)
   return true;
 }
 
-/* Langhook for expr_size: Tell the backend that the value of an expression
+/* Langhook for expr_size: Tell the back end that the value of an expression
    of non-POD class type does not include any tail padding; a derived class
    might have allocated something there.  */
 
@@ -79,7 +79,7 @@ cp_expr_size (tree exp)
 
   if (CLASS_TYPE_P (type))
     {
-      /* The backend should not be interested in the size of an expression
+      /* The back end should not be interested in the size of an expression
 	 of a type with both of these set; all copies of such types must go
 	 through a constructor or assignment op.  */
       if (!TYPE_HAS_COMPLEX_INIT_REF (type)
@@ -228,7 +228,7 @@ tree
 decl_shadowed_for_var_lookup (tree from)
 {
   struct tree_map *h, in;
-  in.from = from;
+  in.base.from = from;
 
   h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in,
 					       htab_hash_pointer (from));
@@ -247,7 +247,7 @@ decl_shadowed_for_var_insert (tree from, tree to)
 
   h = GGC_NEW (struct tree_map);
   h->hash = htab_hash_pointer (from);
-  h->from = from;
+  h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, h->hash, INSERT);
   *(struct tree_map **) loc = h;

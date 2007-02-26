@@ -91,6 +91,15 @@ gimple_nonlocal_all (struct function *fun)
   gcc_assert (fun && fun->gimple_df);
   return fun->gimple_df->nonlocal_all;
 }
+
+/* Hashtable of variables annotations.  Used for static variables only;
+   local variables have direct pointer in the tree node.  */
+static inline htab_t
+gimple_var_anns (struct function *fun)
+{
+  return fun->gimple_df->var_anns;
+}
+
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -194,6 +203,16 @@ var_ann (tree t)
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
+  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+    {
+      struct static_var_ann_d *sann
+        = ((struct static_var_ann_d *)
+	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
+      if (!sann)
+	return NULL;
+      gcc_assert (sann->ann.common.type = VAR_ANN);
+      return &sann->ann;
+    }
   gcc_assert (!t->base.ann
 	      || t->base.ann->common.type == VAR_ANN);
 
@@ -284,13 +303,12 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
-/* Return the may_aliases varray for variable VAR, or NULL if it has
+/* Return the may_aliases bitmap for variable VAR, or NULL if it has
    no may aliases.  */
-static inline VEC(tree, gc) *
+static inline bitmap
 may_aliases (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->may_aliases : NULL;
+  return MTAG_ALIASES (var);
 }
 
 /* Return the line number for EXPR, or return -1 if we have no line
@@ -542,17 +560,6 @@ has_single_use (tree var)
 }
 
 
-/* If VAR has only a single immediate use, return true.  */
-static inline bool
-single_imm_use_p (tree var)
-{
-  ssa_use_operand_t *ptr;
-
-  ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  return (ptr != ptr->next && ptr == ptr->next->next);
-}
-
-
 /* If VAR has only a single immediate use, return true, and set USE_P and STMT
    to the use pointer and stmt of occurrence.  */
 static inline bool
@@ -585,14 +592,6 @@ num_imm_uses (tree var)
      num++;
 
   return num;
-}
-
-/* Return true if VAR has no immediate uses.  */
-static inline bool
-zero_imm_uses_p (tree var)
-{
-  ssa_use_operand_t *ptr = &(SSA_NAME_IMM_USE_NODE (var));
-  return (ptr == ptr->next);
 }
 
 /* Return the tree pointer to by USE.  */ 
@@ -900,7 +899,7 @@ static inline bool
 is_call_clobbered (tree var)
 {
   if (!MTAG_P (var))
-    return DECL_CALL_CLOBBERED (var);
+    return var_ann (var)->call_clobbered;
   else
     return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
 }
@@ -911,7 +910,7 @@ mark_call_clobbered (tree var, unsigned int escape_type)
 {
   var_ann (var)->escape_mask |= escape_type;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = true;
+    var_ann (var)->call_clobbered = true;
   bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -924,7 +923,7 @@ clear_call_clobbered (tree var)
   if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
     MTAG_GLOBAL (var) = 0;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = false;
+    var_ann (var)->call_clobbered = false;
   bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -933,6 +932,9 @@ clear_call_clobbered (tree var)
 static inline tree_ann_common_t
 tree_common_ann (tree t)
 {
+  /* Watch out static variables with unshared annotations.  */
+  if (DECL_P (t) && TREE_CODE (t) == VAR_DECL)
+    return &var_ann (t)->common;
   return &t->base.ann->common;
 }
 

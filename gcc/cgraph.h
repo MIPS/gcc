@@ -180,6 +180,10 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
      into clone before compiling so the function in original form can be
      inlined later.  This pointer points to the clone.  */
   tree inline_decl;
+
+  /* unique id for profiling. pid is not suitable because of different
+     number of cfg nodes with -fprofile-generate and -fprofile-use */
+  int pid;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller")))
@@ -197,9 +201,16 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
   const char *inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
+  /* Expected frequency of executions within the function. 
+     When set to CGRAPH_FREQ_BASE, the edge is expected to be called once
+     per function call.  The range is 0 to CGRAPH_FREQ_MAX.  */
+  int frequency;
   /* Depth of loop nest, 1 means no loop nest.  */
   int loop_nest;
 };
+
+#define CGRAPH_FREQ_BASE 1000
+#define CGRAPH_FREQ_MAX 100000
 
 typedef struct cgraph_edge *cgraph_edge_p;
 
@@ -253,10 +264,25 @@ struct cgraph_asm_node GTY(())
 extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
+extern GTY(()) int cgraph_max_pid;
 extern bool cgraph_global_info_ready;
+enum cgraph_state
+{
+  /* Callgraph is being constructed.  It is safe to add new functions.  */
+  CGRAPH_STATE_CONSTRUCTION,
+  /* Callgraph is built and IPA passes are being run.  */
+  CGRAPH_STATE_IPA,
+  /* Callgraph is built and all functions are transformed to SSA form.  */
+  CGRAPH_STATE_IPA_SSA,
+  /* Functions are now ordered and being passed to RTL expanders.  */
+  CGRAPH_STATE_EXPANSION,
+  /* All cgraph expansion is done.  */
+  CGRAPH_STATE_FINISHED
+};
+extern enum cgraph_state cgraph_state;
 extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
-extern GTY(()) struct cgraph_node *cgraph_expand_queue;
+extern GTY(()) struct cgraph_node *cgraph_new_nodes;
 
 extern GTY(()) struct cgraph_asm_node *cgraph_asm_nodes;
 extern GTY(()) int cgraph_order;
@@ -267,10 +293,11 @@ void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
+void cgraph_release_function_body (struct cgraph_node *);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
-					tree, gcov_type, int);
+					tree, gcov_type, int, int);
 struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
@@ -281,8 +308,8 @@ struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
 struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
 					struct cgraph_node *,
-					tree, gcov_type, int, bool);
-struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type,
+					tree, gcov_type, int, int, bool);
+struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type, int,
 					int, bool);
 
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
@@ -295,7 +322,7 @@ void cgraph_unnest_node (struct cgraph_node *);
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 bool cgraph_is_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
-void cgraph_add_new_function (tree);
+void cgraph_add_new_function (tree, bool);
 
 /* In cgraphunit.c  */
 void cgraph_finalize_function (tree, bool);
@@ -316,6 +343,7 @@ struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
+bool cgraph_process_new_functions (void);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);
@@ -342,8 +370,43 @@ bool varpool_analyze_pending_decls (void);
 void varpool_output_debug_info (void);
 void varpool_remove_unreferenced_decls (void);
 
+/* Walk all reachable static variables.  */
+#define FOR_EACH_STATIC_VARIABLE(node) \
+   for ((node) = varpool_nodes_queue; (node); (node) = (node)->next_needed)
+
+/* Return first reachable static variable with initializer.  */
+static inline struct varpool_node *
+varpool_first_static_initializer (void)
+{
+  struct varpool_node *node;
+  for (node = varpool_nodes_queue; node; node = node->next_needed)
+    {
+      gcc_assert (TREE_CODE (node->decl) == VAR_DECL);
+      if (DECL_INITIAL (node->decl))
+	return node;
+    }
+  return NULL;
+}
+
+/* Return next reachable static variable with initializer after NODE.  */
+static inline struct varpool_node *
+varpool_next_static_initializer (struct varpool_node *node)
+{
+  for (node = node->next_needed; node; node = node->next_needed)
+    {
+      gcc_assert (TREE_CODE (node->decl) == VAR_DECL);
+      if (DECL_INITIAL (node->decl))
+	return node;
+    }
+  return NULL;
+}
+
+/* Walk all static variables with initializer set.  */
+#define FOR_EACH_STATIC_INITIALIZER(node) \
+   for ((node) = varpool_first_static_initializer (); (node); \
+        (node) = varpool_next_static_initializer (node))
+
 /* In ipa-inline.c  */
-bool cgraph_decide_inlining_incrementally (struct cgraph_node *, bool);
 void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool, bool);
 void cgraph_mark_inline_edge (struct cgraph_edge *, bool);
 bool cgraph_default_inline_p (struct cgraph_node *, const char **);

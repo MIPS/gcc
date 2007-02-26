@@ -324,7 +324,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  /* Dismiss transformation that we do not want to carry on.  */
 	  if (!valid_ops
 	      || new_op0 == op0
-	      || GET_MODE (new_op0) != GET_MODE (op0))
+	      || !(GET_MODE (new_op0) == GET_MODE (op0)
+		   || GET_MODE (new_op0) == VOIDmode))
 	    return true;
 
 	  canonicalize_address (new_op0);
@@ -691,9 +692,10 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
 
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (new),
-						REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new));
 
+	  /* ??? Is this still necessary if we add the note through
+	     set_unique_reg_note?  */
           if (!CONSTANT_P (new))
 	    update_df (insn, loc, DF_INSN_USES (df, def_insn),
 		       type, DF_REF_IN_NOTE);
@@ -846,6 +848,8 @@ forward_propagate_into (struct df_ref *use)
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return;
+  if (DF_REF_FLAGS (use) & DF_REF_ARTIFICIAL)
+    return;
 
   /* Only consider uses that have a single definition.  */
   defs = DF_REF_CHAIN (use);
@@ -854,6 +858,8 @@ forward_propagate_into (struct df_ref *use)
 
   def = defs->ref;
   if (DF_REF_FLAGS (def) & DF_REF_READ_WRITE)
+    return;
+  if (DF_REF_FLAGS (def) & DF_REF_ARTIFICIAL)
     return;
 
   /* Do not propagate loop invariant definitions inside the loop if
@@ -899,7 +905,7 @@ fwprop_init (void)
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
-  df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
+  df = df_init (DF_HARD_REGS | DF_SUBREGS | DF_EQUIV_NOTES);
   df_chain_add_problem (df, DF_UD_CHAIN);
   df_analyze (df);
   df_dump (df, dump_file);

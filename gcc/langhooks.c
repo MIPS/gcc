@@ -1,5 +1,6 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -183,13 +184,6 @@ lhd_set_decl_assembler_name (tree decl)
       ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
     }
-}
-
-/* By default we always allow bit-field based optimizations.  */
-bool
-lhd_can_use_bit_fields_p (void)
-{
-  return true;
 }
 
 /* Type promotion for variable arguments.  */
@@ -577,7 +571,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+  return build_gimple_modify_stmt (dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP
