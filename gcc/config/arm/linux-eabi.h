@@ -64,11 +64,6 @@
    do not use -lfloat.  */
 #undef LIBGCC_SPEC
 
-/* Use the AAPCS type for wchar_t, or the previous Linux default for
-   non-AAPCS.  */
-#undef WCHAR_TYPE
-#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long int")
-
 /* Clear the instruction cache from `beg' to `end'.  This makes an
    inline system call to SYS_cacheflush.  It is modified to work with
    both the original and EABI-only syscall interfaces.  */

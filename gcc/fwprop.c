@@ -712,10 +712,11 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
 
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (new),
-						REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new));
 	  df_notes_rescan (insn);
 
+	  /* ??? Is this still necessary if we add the note through
+	     set_unique_reg_note?  */
           if (!CONSTANT_P (new))
 	    {
 	      update_df (insn, loc, DF_INSN_USES (def_insn),
@@ -917,8 +918,6 @@ forward_propagate_into (struct df_ref *use)
 static void
 fwprop_init (void)
 {
-  basic_block bb;
-
   num_changes = 0;
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -933,8 +932,6 @@ fwprop_init (void)
      put the dataflow solver to work.  */
   df_set_flags (DF_EQ_NOTES);
   df_chain_add_problem (DF_UD_CHAIN);
-  FOR_EACH_BB (bb)
-    df_recompute_luids (bb);
   df_analyze ();
   df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
   df_set_flags (DF_DEFER_INSN_RESCAN);

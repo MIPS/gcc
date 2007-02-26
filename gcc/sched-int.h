@@ -113,8 +113,7 @@ typedef struct _dep_link *dep_link_t;
 
 void debug_dep_links (dep_link_t);
 
-/* A list of dep_links.  Lists of this type are now used instead of rtx
-   LOG_LINKS and alike lists.  */
+/* A list of dep_links.  */
 struct _deps_list
 {
   dep_link_t first;
@@ -816,7 +815,6 @@ extern void init_deps_global (void);
 extern void finish_deps_global (void);
 extern void add_forw_dep (dep_link_t);
 extern void compute_forward_dependences (rtx, rtx);
-extern rtx find_insn_list (rtx, rtx);
 extern void init_dependency_caches (int);
 extern void free_dependency_caches (void);
 extern void extend_dependency_caches (int, bool);

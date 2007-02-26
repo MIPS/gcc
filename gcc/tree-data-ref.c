@@ -172,6 +172,7 @@ ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
   tree tag_a = NULL_TREE, tag_b = NULL_TREE;
   struct ptr_info_def *pi_a = DR_PTR_INFO (dra);  
   struct ptr_info_def *pi_b = DR_PTR_INFO (drb);  
+  bitmap bal1, bal2;
 
   if (pi_a && pi_a->name_mem_tag && pi_b && pi_b->name_mem_tag)
     {
@@ -192,7 +193,19 @@ ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
       if (!tag_b)
 	return false;
     }
-  *aliased = (tag_a == tag_b);
+  bal1 = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (bal1, DECL_UID (tag_a));
+  if (MTAG_P (tag_a) && MTAG_ALIASES (tag_a))
+    bitmap_ior_into (bal1, MTAG_ALIASES (tag_a));
+
+  bal2 = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (bal2, DECL_UID (tag_b));
+  if (MTAG_P (tag_b) && MTAG_ALIASES (tag_b))
+    bitmap_ior_into (bal2, MTAG_ALIASES (tag_b));
+  *aliased = bitmap_intersect_p (bal1, bal2);
+
+  BITMAP_FREE (bal1);
+  BITMAP_FREE (bal2);
   return true;
 }
 
@@ -490,6 +503,7 @@ base_addr_differ_p (struct data_reference *dra,
   tree addr_a = DR_BASE_ADDRESS (dra);
   tree addr_b = DR_BASE_ADDRESS (drb);
   tree type_a, type_b;
+  tree decl_a, decl_b;
   bool aliased;
 
   if (!addr_a || !addr_b)
@@ -547,14 +561,25 @@ base_addr_differ_p (struct data_reference *dra,
     }
   
   /* An instruction writing through a restricted pointer is "independent" of any 
-     instruction reading or writing through a different pointer, in the same 
-     block/scope.  */
-  else if ((TYPE_RESTRICT (type_a) && !DR_IS_READ (dra))
-      || (TYPE_RESTRICT (type_b) && !DR_IS_READ (drb)))
+     instruction reading or writing through a different restricted pointer, 
+     in the same block/scope.  */
+  else if (TYPE_RESTRICT (type_a)
+	   &&  TYPE_RESTRICT (type_b) 
+	   && (!DR_IS_READ (drb) || !DR_IS_READ (dra))
+	   && TREE_CODE (DR_BASE_ADDRESS (dra)) == SSA_NAME
+	   && (decl_a = SSA_NAME_VAR (DR_BASE_ADDRESS (dra)))
+	   && TREE_CODE (decl_a) == PARM_DECL
+	   && TREE_CODE (DECL_CONTEXT (decl_a)) == FUNCTION_DECL
+	   && TREE_CODE (DR_BASE_ADDRESS (drb)) == SSA_NAME
+	   && (decl_b = SSA_NAME_VAR (DR_BASE_ADDRESS (drb)))
+	   && TREE_CODE (decl_b) == PARM_DECL
+	   && TREE_CODE (DECL_CONTEXT (decl_b)) == FUNCTION_DECL
+	   && DECL_CONTEXT (decl_a) == DECL_CONTEXT (decl_b)) 
     {
       *differ_p = true;
       return true;
     }
+
   return false;
 }
 
@@ -4237,7 +4262,8 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 {
   bool clobbers_memory = false;
   data_ref_loc *ref;
-  tree *op0, *op1, args, call;
+  tree *op0, *op1, arg, call;
+  call_expr_arg_iterator iter;
 
   *references = NULL;
 
@@ -4278,9 +4304,9 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 
   if (call)
     {
-      for (args = TREE_OPERAND (call, 1); args; args = TREE_CHAIN (args))
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
 	{
-	  op0 = &TREE_VALUE (args);
+	  op0 = &arg;
 	  if (DECL_P (*op0)
 	      || REFERENCE_CLASS_P (*op0))
 	    {

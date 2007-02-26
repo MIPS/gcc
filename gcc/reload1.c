@@ -2513,25 +2513,6 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
       }
       return x;
 
-    case PRE_MODIFY:
-    case POST_MODIFY:
-      {
-	rtx new0 = eliminate_regs_1 (XEXP (x, 0), mem_mode, insn, false);
-	rtx new1 = XEXP (x, 1)
-		   ? eliminate_regs_1 (XEXP (x, 1), mem_mode, insn, false) : 0;
-
-	/* For the elimination to be successful, the register must be
-	   eliminated in both places.  This has the effect of not
-	   allowing the register to be eliminated since we have marked
-	   the reg in XEXP (x, 0) to be not eliminatible and the
-	   recursive case for REG honors that.  We could perhaps do
-	   better than this, by allowing the elimination if the offset
-	   on the eliminating register was 0.  */
-	if (new0 != XEXP (x, 0) && new1 != XEXP (x, 1))
-	  return gen_rtx_fmt_ee (code, GET_MODE (x), new0, new1);
-      }
-      return x;
-
     case EXPR_LIST:
       /* If we have something in XEXP (x, 0), the usual case, eliminate it.  */
       if (XEXP (x, 0))
@@ -2570,6 +2551,30 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
     case POST_INC:
     case PRE_DEC:
     case POST_DEC:
+      /* We do not support elimination of a register that is modified.
+	 elimination_effects has already make sure that this does not
+	 happen.  */
+      return x;
+
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      /* We do not support elimination of a register that is modified.
+	 elimination_effects has already make sure that this does not
+	 happen.  The only remaining case we need to consider here is
+	 that the increment value may be an eliminable register.  */
+      if (GET_CODE (XEXP (x, 1)) == PLUS
+	  && XEXP (XEXP (x, 1), 0) == XEXP (x, 0))
+	{
+	  rtx new = eliminate_regs_1 (XEXP (XEXP (x, 1), 1), mem_mode,
+				      insn, true);
+
+	  if (new != XEXP (XEXP (x, 1), 1))
+	    return gen_rtx_fmt_ee (code, GET_MODE (x), XEXP (x, 0),
+				   gen_rtx_PLUS (GET_MODE (x),
+						 XEXP (x, 0), new));
+	}
+      return x;
+
     case STRICT_LOW_PART:
     case NEG:          case NOT:
     case SIGN_EXTEND:  case ZERO_EXTEND:
@@ -2759,43 +2764,25 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	elimination_effects (reg_equiv_constant[regno], mem_mode);
       return;
 
-    case POST_MODIFY:
-    case PRE_MODIFY:
-
-      /* There are two types of post/pre modify: either the second
-         operand is a const or is a reg.  If the second operand is a
-         const, we must poison the operation so the elimination must
-         not happen.
-
-	 Lets say we had (PRE_MODIFY r1, (ADD r1, 8)) and we wish to
-	 substitute in r2 + 12.  The code will currently produce
-	 (PRE_MODIFY r2, (ADD r2, 20)) which is actually wrong because
-	 you have changed the stride of the increment each time this
-	 mem reference is executed.
-
-	 This could be fixed by telling reload that in order to
-	 eliminate a premodify it has to add a bunch of add and move
-	 insns but this does not seem like the best approach.  */
-
-      if (CONSTANT_P (XEXP (XEXP (x, 1), 1)))
-	{
-	  gcc_assert (GET_CODE (XEXP (x, 1)) == PLUS
-		      && XEXP (x, 0) == XEXP (XEXP (x, 1), 0));
-	  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	    if (ep->to_rtx == XEXP (x, 0))
-	      ep->can_eliminate = 0;
-	}
-      break;
-
     case PRE_INC:
     case POST_INC:
     case PRE_DEC:
     case POST_DEC:
+    case POST_MODIFY:
+    case PRE_MODIFY:
+      /* If we modify the source of an elimination rule, disable it.  */
+      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+	if (ep->from_rtx == XEXP (x, 0))
+	  ep->can_eliminate = 0;
+
+      /* If we modify the target of an elimination rule by adding a constant,
+	 update its offset.  If we modify the target in any other way, we'll
+	 have to disable the rule as well.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->to_rtx == XEXP (x, 0))
 	  {
 	    int size = GET_MODE_SIZE (mem_mode);
-	    
+
 	    /* If more bytes than MEM_MODE are pushed, account for them.  */
 #ifdef PUSH_ROUNDING
 	    if (ep->to_rtx == stack_pointer_rtx)
@@ -2805,8 +2792,21 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	      ep->offset += size;
 	    else if (code == PRE_INC || code == POST_INC)
 	      ep->offset -= size;
+	    else if (code == PRE_MODIFY || code == POST_MODIFY)
+	      {
+		if (GET_CODE (XEXP (x, 1)) == PLUS
+		    && XEXP (x, 0) == XEXP (XEXP (x, 1), 0)
+		    && CONST_INT_P (XEXP (XEXP (x, 1), 1)))
+		  ep->offset -= INTVAL (XEXP (XEXP (x, 1), 1));
+		else
+		  ep->can_eliminate = 0;
+	      }
 	  }
-      
+
+      /* These two aren't unary operators.  */
+      if (code == POST_MODIFY || code == PRE_MODIFY)
+	break;
+
       /* Fall through to generic unary operation case.  */
     case STRICT_LOW_PART:
     case NEG:          case NOT:
@@ -3144,35 +3144,15 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	    if (GET_CODE (XEXP (plus_cst_src, 0)) == SUBREG)
 	      to_rtx = gen_lowpart (GET_MODE (XEXP (plus_cst_src, 0)),
 				    to_rtx);
-	    if (offset == 0)
-	      {
-		int num_clobbers;
-		/* We assume here that if we need a PARALLEL with
-		   CLOBBERs for this assignment, we can do with the
-		   MATCH_SCRATCHes that add_clobbers allocates.
-		   There's not much we can do if that doesn't work.  */
-		PATTERN (insn) = gen_rtx_SET (VOIDmode,
-					      SET_DEST (old_set),
-					      to_rtx);
-		num_clobbers = 0;
-		INSN_CODE (insn) = recog (PATTERN (insn), insn, &num_clobbers);
-		if (num_clobbers)
-		  {
-		    rtvec vec = rtvec_alloc (num_clobbers + 1);
-
-		    vec->elem[0] = PATTERN (insn);
-		    PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode, vec);
-		    add_clobbers (PATTERN (insn), INSN_CODE (insn));
-		  }
-		gcc_assert (INSN_CODE (insn) >= 0);
-	      }
 	    /* If we have a nonzero offset, and the source is already
 	       a simple REG, the following transformation would
 	       increase the cost of the insn by replacing a simple REG
 	       with (plus (reg sp) CST).  So try only when we already
 	       had a PLUS before.  */
-	    else if (plus_src)
+	    if (offset == 0 || plus_src)
 	      {
+		rtx new_src = plus_constant (to_rtx, offset);
+
 		new_body = old_body;
 		if (! replace)
 		  {
@@ -3183,8 +3163,20 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		PATTERN (insn) = new_body;
 		old_set = single_set (insn);
 
-		XEXP (SET_SRC (old_set), 0) = to_rtx;
-		XEXP (SET_SRC (old_set), 1) = GEN_INT (offset);
+		/* First see if this insn remains valid when we make the
+		   change.  If not, try to replace the whole pattern with
+		   a simple set (this may help if the original insn was a
+		   PARALLEL that was only recognized as single_set due to 
+		   REG_UNUSED notes).  If this isn't valid either, keep
+		   the INSN_CODE the same and let reload fix it up.  */
+		if (!validate_change (insn, &SET_SRC (old_set), new_src, 0))
+		  {
+		    rtx new_pat = gen_rtx_SET (VOIDmode,
+					       SET_DEST (old_set), new_src);
+
+		    if (!validate_change (insn, &PATTERN (insn), new_pat, 0))
+		      SET_SRC (old_set) = new_src;
+		  }
 	      }
 	    else
 	      break;
@@ -7871,8 +7863,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       if (insn)
 	{
 	  /* Add a REG_EQUIV note so that find_equiv_reg can find it.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 
@@ -7881,7 +7872,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out, op1, opnum, type);
       insn = emit_insn (gen_add2_insn (out, op0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUIV, in);
     }
 
 #ifdef SECONDARY_MEMORY_NEEDED
@@ -7941,8 +7932,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       insn = emit_insn_if_valid_for_reload (insn);
       if (insn)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 

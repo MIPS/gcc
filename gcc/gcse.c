@@ -2671,6 +2671,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     {
+      set_unique_reg_note (insn, REG_EQUAL,
+  			   simplify_replace_rtx (XEXP (note, 0), from, to));
       XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
       df_notes_rescan (insn);
     }

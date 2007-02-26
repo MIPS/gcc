@@ -272,7 +272,6 @@ iv_analysis_loop_init (struct loop *loop)
     {
       bb = body[i];
       bitmap_set_bit (blocks, bb->index);
-      df_recompute_luids (bb);
     }
   /* Get rid of the ud chains before processing the rescans.  Then add
      the problem back.  */

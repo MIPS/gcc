@@ -885,7 +885,7 @@ static void record_address_regs (enum machine_mode, rtx, int, enum rtx_code,
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
-static void reg_scan_mark_refs (rtx, rtx, int, unsigned int);
+static void reg_scan_mark_refs (rtx, rtx, unsigned int);
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
 
@@ -2362,7 +2362,6 @@ clear_reg_info_regno (unsigned int regno)
    and again just before loop.
 
    It finds the first and last use of each pseudo-register
-   and records them in the vectors regno_first_uid, regno_last_uid
    and counts the number of sets in the vector reg_n_sets.
 
    REPEAT is nonzero the second time this is called.  */
@@ -2398,10 +2397,10 @@ reg_scan (rtx f, unsigned int nregs)
 	if (GET_CODE (pat) == PARALLEL
 	    && XVECLEN (pat, 0) > max_parallel)
 	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, 0, 0);
+	reg_scan_mark_refs (pat, insn, 0);
 
 	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, 0);
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, 0);
       }
 
   max_parallel += max_set_parallel;
@@ -2428,10 +2427,10 @@ reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
 	if (GET_CODE (pat) == PARALLEL
 	    && XVECLEN (pat, 0) > max_parallel)
 	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, 0, old_max_regno);
+	reg_scan_mark_refs (pat, insn, old_max_regno);
 
 	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, old_max_regno);
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, old_max_regno);
       }
 }
 
@@ -2441,7 +2440,7 @@ reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
    greater than or equal to MIN_REGNO.  */
 
 static void
-reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
+reg_scan_mark_refs (rtx x, rtx insn, unsigned int min_regno)
 {
   enum rtx_code code;
   rtx dest;
@@ -2470,10 +2469,6 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 
 	if (regno >= min_regno)
 	  {
-	    if (!note_flag)
-	      REGNO_LAST_UID (regno) = INSN_UID (insn);
-	    if (REGNO_FIRST_UID (regno) == 0)
-	      REGNO_FIRST_UID (regno) = INSN_UID (insn);
 	    /* If we are called by reg_scan_update() (indicated by min_regno
 	       being set), we also need to update the reference count.  */
 	    if (min_regno)
@@ -2484,14 +2479,14 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 
     case EXPR_LIST:
       if (XEXP (x, 0))
-	reg_scan_mark_refs (XEXP (x, 0), insn, note_flag, min_regno);
+	reg_scan_mark_refs (XEXP (x, 0), insn, min_regno);
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
+	reg_scan_mark_refs (XEXP (x, 1), insn, min_regno);
       break;
 
     case INSN_LIST:
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
+	reg_scan_mark_refs (XEXP (x, 1), insn, min_regno);
       break;
 
     case CLOBBER:
@@ -2504,7 +2499,7 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 	    REG_N_REFS (REGNO (reg))++;
 	  }
 	else if (MEM_P (reg))
-	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag, min_regno);
+	  reg_scan_mark_refs (XEXP (reg, 0), insn, min_regno);
       }
       break;
 
@@ -2603,12 +2598,12 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  {
 	    if (fmt[i] == 'e')
-	      reg_scan_mark_refs (XEXP (x, i), insn, note_flag, min_regno);
+	      reg_scan_mark_refs (XEXP (x, i), insn, min_regno);
 	    else if (fmt[i] == 'E' && XVEC (x, i) != 0)
 	      {
 		int j;
 		for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, note_flag, min_regno);
+		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, min_regno);
 	      }
 	  }
       }

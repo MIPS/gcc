@@ -418,6 +418,7 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 
       new = xmalloc (sizeof (*new));
       memcpy (new, pass, sizeof (*new));
+      new->next = NULL;
 
       /* Indicate to register_dump_files that this pass has duplicates,
          and so it should rename the dump file.  The first instance will
@@ -518,7 +519,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
-	  NEXT_PASS (pass_sra);
+	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_dce);
@@ -1000,6 +1001,17 @@ execute_todo (unsigned int flags)
     df_finish_pass ();
 }
 
+/* Verify invariants that should hold between passes.  This is a place
+   to put simple sanity checks.  */
+
+static void
+verify_interpass_invariants (void)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (!fold_deferring_overflow_warnings_p ());
+#endif
+}
+
 /* Clear the last verified flag.  */
 
 static void
@@ -1112,6 +1124,7 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after | pass->todo_flags_finish);
+  verify_interpass_invariants ();
 
   if (!current_function_decl)
     cgraph_process_new_functions ();

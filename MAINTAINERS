@@ -78,7 +78,7 @@ rs6000 vector extns	Aldy Hernandez		aldyh@redhat.com
 s390 port		Hartmut Penner		hpenner@de.ibm.com
 s390 port		Ulrich Weigand		uweigand@de.ibm.com
 sh port			Alexandre Oliva		aoliva@redhat.com
-sh libraries/configury	Kaz Kojima		kkojima@gcc.gnu.org
+sh port			Kaz Kojima		kkojima@gcc.gnu.org
 sparc port		Richard Henderson	rth@redhat.com
 sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
@@ -123,7 +123,7 @@ fortran 95		Paul Brook		paul@codesourcery.com
 fortran 95		Thomas Koenig		Thomas.Koenig@online.de
 fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
 fortran 95		Jerry DeLisle		jvdelisle@gcc.gnu.org
-fortran 95		François-Xavier Coudert	coudert@clipper.ens.fr
+fortran 95		François-Xavier Coudert	fxcoudert@gcc.gnu.org
 fortran 95              Bud Davis               jmdavis@link.com
 fortran 95		Steve Kargl		sgk@troutmask.apl.washington.edu
 fortran 95              Erik Edelmann           erik.edelmann@iki.fi

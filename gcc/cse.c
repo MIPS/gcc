@@ -348,27 +348,6 @@ static unsigned int cse_reg_info_timestamp;
 
 static HARD_REG_SET hard_regs_in_table;
 
-/* CUID of insn that starts the basic block currently being cse-processed.  */
-
-static int cse_basic_block_start;
-
-/* CUID of insn that ends the basic block currently being cse-processed.  */
-
-static int cse_basic_block_end;
-
-/* Vector mapping INSN_UIDs to cuids.
-   The cuids are like uids but increase monotonically always.
-   We use them to see whether a reg is used outside a given basic block.  */
-
-static int *uid_cuid;
-
-/* Highest UID in UID_CUID.  */
-static int max_uid;
-
-/* Get the cuid of an insn.  */
-
-#define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
-
 /* Nonzero if cse has altered conditional jump insns
    in such a way that jump optimization should be redone.  */
 
@@ -539,10 +518,6 @@ static int constant_pool_entries_regcost;
 
 struct cse_basic_block_data
 {
-  /* Lowest CUID value of insns in block.  */
-  int low_cuid;
-  /* Highest CUID value of insns in block.  */
-  int high_cuid;
   /* Total number of SETs in block.  */
   int nsets;
   /* Size of current branch path, if any.  */
@@ -554,6 +529,13 @@ struct cse_basic_block_data
       basic_block bb;
     } *path;
 };
+
+/* A simple bitmap to track which regs have sets in more than one
+   basic block.  */
+static sbitmap reg_used_in_multiple_bb;
+
+/* An array used to initialize REG_SET_IN_MULTIPLE_BB.  */
+static basic_block *last_bb_reg_used_in;
 
 /* A simple bitmap to track which basic blocks have been visited
    already as part of an already processed extended basic block.  */
@@ -958,11 +940,9 @@ make_regs_eqv (unsigned int new, unsigned int old)
       && ((new < FIRST_PSEUDO_REGISTER && FIXED_REGNO_P (new))
 	  || (new >= FIRST_PSEUDO_REGISTER
 	      && (firstr < FIRST_PSEUDO_REGISTER
-		  || ((uid_cuid[REGNO_LAST_UID (new)] > cse_basic_block_end
-		       || (uid_cuid[REGNO_FIRST_UID (new)]
-			   < cse_basic_block_start))
-		      && (uid_cuid[REGNO_LAST_UID (new)]
-			  > uid_cuid[REGNO_LAST_UID (firstr)]))))))
+		  || (TEST_BIT (reg_used_in_multiple_bb, new)
+		      && last_bb_reg_used_in[new]->index
+			 > last_bb_reg_used_in[firstr]->index)))))
     {
       reg_eqv_table[firstr].prev = new;
       reg_eqv_table[new].next = firstr;
@@ -5948,14 +5928,12 @@ have_eh_succ_edges (basic_block bb)
 
 
 /* Scan to the end of the path described by DATA.  Return an estimate of
-   the total number of SETs, and the lowest and highest insn CUID, of all
-   insns in the path.  */
+   the total number of SETs of all insns in the path.  */
 
 static void
 cse_prescan_path (struct cse_basic_block_data *data)
 {
   int nsets = 0;
-  int low_cuid = -1, high_cuid = -1; /* FIXME low_cuid not computed correctly */
   int path_size = data->path_size;
   int path_entry;
 
@@ -5978,21 +5956,9 @@ cse_prescan_path (struct cse_basic_block_data *data)
 	    nsets += XVECLEN (PATTERN (insn), 0);
 	  else
 	    nsets += 1;
-
-	  /* Ignore insns made by CSE in a previous traversal of this
-	     basic block.  They cannot affect the boundaries of the
-	     basic block.
-	     FIXME: When we only visit each basic block at most once,
-		    this can go away.  */
-	  if (INSN_UID (insn) <= max_uid && INSN_CUID (insn) > high_cuid)
-	    high_cuid = INSN_CUID (insn);
-	  if (INSN_UID (insn) <= max_uid && INSN_CUID (insn) < low_cuid)
-	    low_cuid = INSN_CUID (insn);
 	}
     }
 
-  data->low_cuid = low_cuid;
-  data->high_cuid = high_cuid;
   data->nsets = nsets;
 }
 
@@ -6173,6 +6139,31 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 
   free (qty_table);
 }
+
+/* Set a bit in REG_USED_IN_MULTIPLE_BB if X points to a REG rtx, and
+   DATA (a basic block) is not the basic block stored in REG_USED_IN_BB
+   for this REG.  Anyway, update REG_USED_IN_BB.  */
+static int
+mark_reg_use_bb (rtx *x, void *data)
+{
+  basic_block bb = data;
+  rtx p = *x;
+  int regno;
+
+  if (!p)
+    return -1;
+  if (!REG_P (*x))
+    return 0;
+
+  regno = REGNO (*x);
+  if (last_bb_reg_used_in[regno] != bb)
+    {
+      if (last_bb_reg_used_in[regno])
+	SET_BIT (reg_used_in_multiple_bb, regno);
+      last_bb_reg_used_in[regno] = bb;
+    }
+  return -1;
+}
 
 /* Perform cse on the instructions of a function.
    F is the first instruction.
@@ -6214,17 +6205,16 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (cse_visited_basic_blocks);
 
-  /* Compute the mapping from uids to cuids.
-     CUIDs are numbers assigned to insns, like uids, except that
-     that cuids increase monotonically through the code.  */
-  max_uid = get_max_uid ();
-  uid_cuid = XCNEWVEC (int, max_uid + 1);
-  i = 0;
+  reg_used_in_multiple_bb = sbitmap_alloc (nregs);
+  last_bb_reg_used_in = XCNEWVEC (basic_block, nregs);
+  sbitmap_zero (reg_used_in_multiple_bb);
+
   FOR_EACH_BB (bb)
     {
       rtx insn;
       FOR_BB_INSNS (bb, insn)
-	INSN_CUID (insn) = ++i;
+	if (INSN_P (insn))
+	  for_each_rtx (&PATTERN (insn), mark_reg_use_bb, bb);
     }
 
   /* Loop over basic blocks in reverse completion order (RPO),
@@ -6256,8 +6246,6 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 	     needed for this path.  For this, we take the number of sets
 	     and multiply that by MAX_RECOG_OPERANDS.  */
 	  max_qty = ebb_data.nsets * MAX_RECOG_OPERANDS;
-	  cse_basic_block_start = ebb_data.low_cuid;
-	  cse_basic_block_end = ebb_data.high_cuid;
 
 	  /* Dump the path we're about to process.  */
 	  if (dump_file)
@@ -6269,10 +6257,11 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 
   /* Clean up.  */
   end_alias_analysis ();
-  free (uid_cuid);
+  free (last_bb_reg_used_in);
   free (reg_eqv_table);
   free (ebb_data.path);
   sbitmap_free (cse_visited_basic_blocks);
+  sbitmap_free (reg_used_in_multiple_bb);
   free (rc_order);
   rtl_hooks = general_rtl_hooks;
   if (df)

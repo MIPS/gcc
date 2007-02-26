@@ -492,21 +492,6 @@ deps_may_trap_p (rtx mem)
   return rtx_addr_can_trap_p (addr);
 }
 
-/* Return the INSN_LIST containing INSN in LIST, or NULL
-   if LIST does not contain INSN.  */
-
-rtx
-find_insn_list (rtx insn, rtx list)
-{
-  while (list)
-    {
-      if (XEXP (list, 0) == insn)
-	return list;
-      list = XEXP (list, 1);
-    }
-  return 0;
-}
-
 /* Find the condition under which INSN is executed.  */
 
 static rtx
@@ -1837,9 +1822,6 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 
       if (INSN_P (insn))
 	{
-	  /* Clear out the stale LOG_LINKS from flow.  */
-	  free_INSN_LIST_list (&LOG_LINKS (insn));
-
 	  /* These two lists will be freed in schedule_insn ().  */
 	  INSN_BACK_DEPS (insn) = create_deps_list (false);
 	  INSN_RESOLVED_BACK_DEPS (insn) = create_deps_list (false);

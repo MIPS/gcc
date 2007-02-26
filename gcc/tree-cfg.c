@@ -294,8 +294,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build2_gimple (GIMPLE_MODIFY_STMT,
-			              var, GOTO_DESTINATION (last));
+	  assignment = build_gimple_modify_stmt (var,
+						 GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -408,10 +408,18 @@ fold_cond_expr_cond (void)
       if (stmt
 	  && TREE_CODE (stmt) == COND_EXPR)
 	{
-	  tree cond = fold (COND_EXPR_COND (stmt));
-	  if (integer_zerop (cond))
+	  tree cond;
+	  bool zerop, onep;
+
+	  fold_defer_overflow_warnings ();
+	  cond = fold (COND_EXPR_COND (stmt));
+	  zerop = integer_zerop (cond);
+	  onep = integer_onep (cond);
+	  fold_undefer_overflow_warnings (zerop || onep, stmt,
+					  WARN_STRICT_OVERFLOW_CONDITIONAL);
+	  if (zerop)
 	    COND_EXPR_COND (stmt) = boolean_false_node;
-	  else if (integer_onep (cond))
+	  else if (onep)
 	    COND_EXPR_COND (stmt) = boolean_true_node;
 	}
     }
@@ -1200,7 +1208,7 @@ replace_uses_by (tree name, tree val)
 	}
     }
 
-  gcc_assert (zero_imm_uses_p (name));
+  gcc_assert (has_zero_uses (name));
 
   /* Also update the trees stored in loop structures.  */
   if (current_loops)
@@ -1252,7 +1260,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     with ordering of phi nodes.  This is because A is the single
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
-	  copy = build2_gimple (GIMPLE_MODIFY_STMT, def, use);
+	  copy = build_gimple_modify_stmt (def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
           remove_phi_node (phi, NULL, false);
@@ -4990,6 +4998,7 @@ void
 dump_function_to_file (tree fn, FILE *file, int flags)
 {
   tree arg, vars, var;
+  struct function *dsf;
   bool ignore_topmost_bind = false, any_var = false;
   basic_block bb;
   tree chain;
@@ -5007,8 +5016,10 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     }
   fprintf (file, ")\n");
 
-  if (flags & TDF_DETAILS)
-    dump_eh_tree (file, DECL_STRUCT_FUNCTION (fn));
+  dsf = DECL_STRUCT_FUNCTION (fn);
+  if (dsf && (flags & TDF_DETAILS))
+    dump_eh_tree (file, dsf);
+
   if (flags & TDF_RAW)
     {
       dump_node (fn, TDF_SLIM | flags, file);
@@ -5638,7 +5649,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, t, exp);
+  new_stmt = build_gimple_modify_stmt (t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

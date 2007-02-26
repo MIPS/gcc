@@ -1334,6 +1334,7 @@ case ${host} in
     AC_CACHE_CHECK([whether mcontext_t fields have underscores],
       gcc_cv_mcontext_underscores,
       AC_COMPILE_IFELSE([
+#include <sys/cdefs.h>
 #include <sys/signal.h>
 #include <ucontext.h>
 int main() { mcontext_t m; if (m->ss.srr0) return 0; return 0; }
@@ -2924,6 +2925,36 @@ LCF0:
 .LCF0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-.LCF0@ha';;
     esac
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	cmpb 3,4,5';;
+      *) conftest_s='	.machine power6
+	.text
+	cmpb 3,4,5';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([compare bytes support],
+      gcc_cv_as_powerpc_cmpb, [9,99,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_CMPB, 1,
+	  [Define if your assembler supports cmpb.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	dadd 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	dadd 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([decimal float support],
+      gcc_cv_as_powerpc_dfp, [9,99,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_DFP, 1,
+	  [Define if your assembler supports DFP instructions.])])
 
     gcc_GAS_CHECK_FEATURE([rel16 relocs],
       gcc_cv_as_powerpc_rel16, [2,17,0], -a32,

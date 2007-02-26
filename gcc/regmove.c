@@ -890,18 +890,9 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest, int old_max_uid)
       dest_regno = REGNO (dest);
       REG_N_SETS (dest_regno) ++;
       REG_LIVE_LENGTH (dest_regno)++;
-      if (REGNO_FIRST_UID (dest_regno) == insn_uid)
-	REGNO_FIRST_UID (dest_regno) = move_uid;
-
       src_regno = REGNO (src);
       if (! find_reg_note (move_insn, REG_DEAD, src))
 	REG_LIVE_LENGTH (src_regno)++;
-
-      if (REGNO_FIRST_UID (src_regno) == insn_uid)
-	REGNO_FIRST_UID (src_regno) = move_uid;
-
-      if (REGNO_LAST_UID (src_regno) == insn_uid)
-	REGNO_LAST_UID (src_regno) = move_uid;
     }
 }
 
@@ -2616,7 +2607,7 @@ struct tree_opt_pass pass_stack_adjustments =
   0,                                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
+  0,					/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |

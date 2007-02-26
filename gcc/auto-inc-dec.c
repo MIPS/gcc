@@ -1379,8 +1379,6 @@ merge_in_block (int max_reg, basic_block bb)
   if (dump_file)
     fprintf (dump_file, "\n\nstarting bb %d\n", bb->index);
 
-  df_recompute_luids (bb);
-
   FOR_BB_INSNS_REVERSE_SAFE (bb, insn, curr)
     {
       unsigned int uid = INSN_UID (insn);
@@ -1496,6 +1494,7 @@ merge_in_block (int max_reg, basic_block bb)
       memset (reg_next_use, 0, max_reg * sizeof(rtx));
       memset (reg_next_inc_use, 0, max_reg * sizeof(rtx));
       memset (reg_next_def, 0, max_reg * sizeof(rtx));
+      df_recompute_luids (bb);
       merge_in_block (max_reg, bb);
     }
 }
