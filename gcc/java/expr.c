@@ -1,6 +1,6 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -74,10 +74,6 @@ static void expand_cond (enum tree_code, tree, int);
 static void expand_java_goto (int);
 static tree expand_java_switch (tree, int);
 static void expand_java_add_case (tree, int, int);
-#if 0
-static void expand_java_call (int, int);
-static void expand_java_ret (tree); 
-#endif
 static tree pop_arguments (tree); 
 static void expand_invoke (int, int, int); 
 static void expand_java_field_op (int, int, int); 
@@ -87,6 +83,7 @@ static tree build_java_throw_out_of_bounds_exception (tree);
 static tree build_java_check_indexed_type (tree, tree); 
 static unsigned char peek_opcode_at_pc (struct JCF *, int, int);
 static void promote_arguments (void);
+static void cache_cpool_data_ref (void);
 
 static GTY(()) tree operand_type[59];
 
@@ -301,6 +298,13 @@ push_value (tree value)
       TREE_CHAIN (node) = quick_stack;
       quick_stack = node;
     }
+  /* If the value has a side effect, then we need to evaluate it
+     whether or not the result is used.  If the value ends up on the
+     quick stack and is then popped, this won't happen -- so we flush
+     the quick stack.  It is safest to simply always flush, though,
+     since TREE_SIDE_EFFECTS doesn't capture COMPONENT_REF, and for
+     the latter we may need to strip conversions.  */
+  flush_quick_stack ();
 }
 
 /* Pop a type from the type stack.
@@ -878,6 +882,7 @@ build_java_arrayaccess (tree array, tree type, tree index)
   tree data_field;
   tree ref;
   tree array_type = TREE_TYPE (TREE_TYPE (array));
+  tree size_exp = fold_convert (sizetype, size_in_bytes (type));
 
   if (!is_array_type_p (TREE_TYPE (array)))
     {
@@ -912,16 +917,34 @@ build_java_arrayaccess (tree array, tree type, tree index)
      to have the bounds check evaluated first. */
   if (throw != NULL_TREE)
     index = build2 (COMPOUND_EXPR, int_type_node, throw, index);
- 
+
   data_field = lookup_field (&array_type, get_identifier ("data"));
 
   ref = build3 (COMPONENT_REF, TREE_TYPE (data_field),    
 		build_java_indirect_ref (array_type, array, 
 					 flag_check_references),
 		data_field, NULL_TREE);
-  
-  node = build4 (ARRAY_REF, type, ref, index, NULL_TREE, NULL_TREE);
-  return node;
+
+  /* Take the address of the data field and convert it to a pointer to
+     the element type.  */
+  node = build1 (NOP_EXPR, build_pointer_type (type), build_address_of (ref));
+
+  /* Multiply the index by the size of an element to obtain a byte
+     offset.  Convert the result to a pointer to the element type.  */
+  index = fold_convert (TREE_TYPE (node),
+			build2 (MULT_EXPR, sizetype, 
+				fold_convert (sizetype, index), 
+				size_exp));
+
+  /* Sum the byte offset and the address of the data field.  */
+  node = fold_build2 (PLUS_EXPR, TREE_TYPE (node), node, index);
+
+  /* Finally, return
+
+    *((&array->data) + index*size_exp)
+
+  */
+  return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (node)), node);
 }
 
 /* Generate code to throw an ArrayStoreException if OBJECT is not assignable
@@ -1033,13 +1056,9 @@ build_newarray (int atype_value, tree length)
 			     host_integerp (length, 0) == INTEGER_CST
 			     ? tree_low_cst (length, 0) : -1);
 
-  /* If compiling to native, pass a reference to the primitive type class 
-     and save the runtime some work. However, the bytecode generator
-     expects to find the type_code int here. */
-  if (flag_emit_class_files)
-    type_arg = build_int_cst (NULL_TREE, atype_value);
-  else
-    type_arg = build_class_ref (prim_type);
+  /* Pass a reference to the primitive type class and save the runtime
+     some work.  */
+  type_arg = build_class_ref (prim_type);
 
   return build3 (CALL_EXPR, promote_type (type),
 		 build_address_of (soft_newarray_node),
@@ -1120,7 +1139,7 @@ expand_java_arraystore (tree rhs_type_node)
 				 && TYPE_PRECISION (rhs_type_node) <= 32) ? 
 				 int_type_node : rhs_type_node);
   tree index = pop_value (int_type_node);
-  tree array_type, array;
+  tree array_type, array, temp, access;
 
   /* If we're processing an `aaload' we might as well just pick
      `Object'.  */
@@ -1142,14 +1161,31 @@ expand_java_arraystore (tree rhs_type_node)
   index = save_expr (index);
   array = save_expr (array);
 
+  /* We want to perform the bounds check (done by
+     build_java_arrayaccess) before the type check (done by
+     build_java_arraystore_check).  So, we call build_java_arrayaccess
+     -- which returns an ARRAY_REF lvalue -- and we then generate code
+     to stash the address of that lvalue in a temp.  Then we call
+     build_java_arraystore_check, and finally we generate a
+     MODIFY_EXPR to set the array element.  */
+
+  access = build_java_arrayaccess (array, rhs_type_node, index);
+  temp = build_decl (VAR_DECL, NULL_TREE, 
+		     build_pointer_type (TREE_TYPE (access)));
+  java_add_local_var (temp);
+  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (temp),
+			 temp, 
+			 build_fold_addr_expr (access)));
+
   if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
     {
       tree check = build_java_arraystore_check (array, rhs_node);
       java_add_stmt (check);
     }
   
-  array = build_java_arrayaccess (array, rhs_type_node, index);
-  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (array), array, rhs_node));  
+  java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (access), 
+			 build1 (INDIRECT_REF, TREE_TYPE (access), temp),
+			 rhs_node));  
 }
 
 /* Expand the evaluation of ARRAY[INDEX]. build_java_check_indexed_type makes 
@@ -1451,7 +1487,6 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   constant_value = build_int_cst (NULL_TREE, ival);
   res = fold_build2 (PLUS_EXPR, int_type_node, local_var, constant_value);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
-  update_aliases (local_var, local_var_index, pc);
 }
 
 
@@ -2042,13 +2077,32 @@ typedef struct
   tree (*rewrite_arglist) (tree arglist);
 } rewrite_rule;
 
+/* Add __builtin_return_address(0) to the end of an arglist.  */
+
+
+static tree 
+rewrite_arglist_getcaller (tree arglist)
+{
+  tree retaddr 
+    = (build_function_call_expr 
+       (built_in_decls[BUILT_IN_RETURN_ADDRESS],
+	build_tree_list (NULL_TREE, integer_zero_node)));
+  
+  DECL_INLINE (current_function_decl) = 0;
+
+  return chainon (arglist, 
+		  tree_cons (NULL_TREE, retaddr, 
+			     NULL_TREE));
+}
+
 /* Add this.class to the end of an arglist.  */
 
 static tree 
 rewrite_arglist_getclass (tree arglist)
 {
   return chainon (arglist, 
-		  tree_cons (NULL_TREE, build_class_ref (output_class), NULL_TREE));
+		  tree_cons (NULL_TREE, build_class_ref (output_class),
+			     NULL_TREE));
 }
 
 static rewrite_rule rules[] =
@@ -2058,6 +2112,14 @@ static rewrite_rule rules[] =
    {"java.lang.Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;",
     "(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Class;",
     ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getclass},
+   {"gnu.classpath.VMStackWalker", "getCallingClass", "()Ljava/lang/Class;",
+    "(Lgnu/gcj/RawData;)Ljava/lang/Class;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getcaller},
+   {"gnu.classpath.VMStackWalker", "getCallingClassLoader", 
+    "()Ljava/lang/ClassLoader;",
+    "(Lgnu/gcj/RawData;)Ljava/lang/ClassLoader;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getcaller},
+
    {NULL, NULL, NULL, NULL, 0, NULL}};
 
 /* Scan the rules list for replacements for *METHOD_P and replace the
@@ -2737,10 +2799,44 @@ build_jni_stub (tree method)
 		 build1 (RETURN_EXPR, res_type, res_var));
   TREE_SIDE_EFFECTS (body) = 1;
   
+  /* Prepend class initialization for static methods reachable from
+     other classes.  */
+  if (METHOD_STATIC (method)
+      && (! METHOD_PRIVATE (method)
+          || INNER_CLASS_P (DECL_CONTEXT (method))))
+    {
+      tree init = build3 (CALL_EXPR, void_type_node,
+			  build_address_of (soft_initclass_node),
+			  build_tree_list (NULL_TREE, 
+					   klass),
+			  NULL_TREE);
+      body = build2 (COMPOUND_EXPR, void_type_node, init, body);
+      TREE_SIDE_EFFECTS (body) = 1;
+    }
+
   bind = build3 (BIND_EXPR, void_type_node, BLOCK_VARS (block), 
 		 body, block);
   return bind;
 }
+
+
+/* Given lvalue EXP, return a volatile expression that references the
+   same object.  */
+
+tree
+java_modify_addr_for_volatile (tree exp)
+{
+  tree exp_type = TREE_TYPE (exp);
+  tree v_type 
+    = build_qualified_type (exp_type,
+			    TYPE_QUALS (exp_type) | TYPE_QUAL_VOLATILE);
+  tree addr = build_fold_addr_expr (exp);
+  v_type = build_pointer_type (v_type);
+  addr = fold_convert (v_type, addr);
+  exp = build_fold_indirect_ref (addr);
+  return exp;
+}
+
 
 /* Expand an operation to extract from or store into a field.
    IS_STATIC is 1 iff the field is static.
@@ -2765,6 +2861,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   int is_error = 0;
   tree original_self_type = self_type;
   tree field_decl;
+  tree modify_expr;
   
   if (! CLASS_LOADED_P (self_type))
     load_class (self_type, 1);  
@@ -2785,6 +2882,13 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 				  field_type, flags); 
 	  DECL_ARTIFICIAL (field_decl) = 1;
 	  DECL_IGNORED_P (field_decl) = 1;
+#if 0
+	  /* FIXME: We should be pessimistic about volatility.  We
+	     don't know one way or another, but this is safe.
+	     However, doing this has bad effects on code quality.  We
+	     need to look at better ways to do this.  */
+	  TREE_THIS_VOLATILE (field_decl) = 1;
+#endif
 	}
       else
 	{      
@@ -2811,7 +2915,13 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   field_ref = build_field_ref (field_ref, self_type, field_name);
   if (is_static
       && ! flag_indirect_dispatch)
-    field_ref = build_class_init (self_type, field_ref);
+    {
+      tree context = DECL_CONTEXT (field_ref);
+      if (context != self_type && CLASS_INTERFACE (TYPE_NAME (context)))
+	field_ref = build_class_init (context, field_ref);
+      else
+	field_ref = build_class_init (self_type, field_ref);
+    }
   if (is_putting)
     {
       flush_quick_stack ();
@@ -2820,27 +2930,49 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  if (DECL_CONTEXT (field_decl) != current_class)
             error ("assignment to final field %q+D not in field's class",
                    field_decl);
-	  else if (FIELD_STATIC (field_decl))
-	    {
-	      if (!DECL_CLINIT_P (current_function_decl))
-		warning (0, "assignment to final static field %q+D not in "
-                         "class initializer",
-                         field_decl);
-	    }
-	  else
-	    {
-	      tree cfndecl_name = DECL_NAME (current_function_decl);
-	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
-		  && !ID_FINIT_P (cfndecl_name))
-                warning (0, "assignment to final field %q+D not in constructor",
-			 field_decl);
-	    }
-	}
-      java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
-			     field_ref, new_value));
+	  /* We used to check for assignments to final fields not
+	     occurring in the class initializer or in a constructor
+	     here.  However, this constraint doesn't seem to be
+	     enforced by the JVM.  */
+	}      
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr = build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
+			    field_ref, new_value);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+      	  
+      java_add_stmt (modify_expr);
     }
   else
-    push_value (field_ref);
+    {
+      tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (field_ref));
+      java_add_local_var (temp);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr 
+	= build2 (MODIFY_EXPR, TREE_TYPE (field_ref), temp, field_ref);
+      java_add_stmt (modify_expr);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+
+      push_value (temp);
+    }      
+  TREE_THIS_VOLATILE (field_ref) = TREE_THIS_VOLATILE (field_decl);
 }
 
 void
@@ -3035,6 +3167,8 @@ expand_byte_code (JCF *jcf, tree method)
     return;
 
   promote_arguments ();
+  cache_this_class_ref (method);
+  cache_cpool_data_ref ();
 
   /* Translate bytecodes.  */
   linenumber_pointer = linenumber_table;
@@ -3107,7 +3241,9 @@ expand_byte_code (JCF *jcf, tree method)
       PC = process_jvm_instruction (PC, byte_ops, length);
       maybe_poplevels (PC);
     } /* for */
-  
+
+  uncache_this_class_ref (method);
+
   if (dead_code_index != -1)
     {
       /* We've just reached the end of a region of dead code.  */
@@ -3353,7 +3489,6 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     decl = find_local_variable (index, type, oldpc);		\
     set_local_type (index, type);				\
     java_add_stmt (build2 (MODIFY_EXPR, type, decl, value));	\
-    update_aliases (decl, index, PC);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3586,7 +3721,6 @@ force_evaluation_order (tree node)
   if (flag_syntax_only)
     return node;
   if (TREE_CODE (node) == CALL_EXPR
-      || TREE_CODE (node) == NEW_CLASS_EXPR
       || (TREE_CODE (node) == COMPOUND_EXPR
 	  && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
 	  && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
@@ -3643,87 +3777,6 @@ force_evaluation_order (tree node)
   return node;
 }
 
-/* EXPR_WITH_FILE_LOCATION are used to keep track of the exact
-   location where an expression or an identifier were encountered. It
-   is necessary for languages where the frontend parser will handle
-   recursively more than one file (Java is one of them).  */
-
-tree
-build_expr_wfl (tree node,
-#ifdef USE_MAPPED_LOCATION
-		source_location location
-#else
-		const char *file, int line, int col
-#endif
-)
-{
-  tree wfl;
-
-#ifdef USE_MAPPED_LOCATION
-  wfl = make_node (EXPR_WITH_FILE_LOCATION);
-  SET_EXPR_LOCATION (wfl, location);
-#else
-  static const char *last_file = 0;
-  static tree last_filenode = NULL_TREE;
-
-  wfl = make_node (EXPR_WITH_FILE_LOCATION);
-
-  EXPR_WFL_SET_LINECOL (wfl, line, col);
-  if (file != last_file)
-    {
-      last_file = file;
-      last_filenode = file ? get_identifier (file) : NULL_TREE;
-    }
-  EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
-#endif
-  EXPR_WFL_NODE (wfl) = node;
-  if (node)
-    {
-      if (!TYPE_P (node))
-	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
-      TREE_TYPE (wfl) = TREE_TYPE (node);
-    }
-
-  return wfl;
-}
-
-#ifdef USE_MAPPED_LOCATION
-tree
-expr_add_location (tree node, source_location location, bool statement)
-{
-  tree wfl;
-#if 0
-  /* FIXME. This optimization causes failures in code that expects an
-     EXPR_WITH_FILE_LOCATION.  E.g. in resolve_qualified_expression_name. */
-  if (node && ! (statement && flag_emit_class_files))
-    {
-      source_location node_loc = EXPR_LOCATION (node);
-      if (node_loc == location || location == UNKNOWN_LOCATION)
-	return node;
-      if (node_loc == UNKNOWN_LOCATION
-	  && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
-	{
-	  SET_EXPR_LOCATION (node, location);
-	  return node;
-	}
-    }
-#endif
-  wfl = make_node (EXPR_WITH_FILE_LOCATION);
-  SET_EXPR_LOCATION (wfl, location);
-  EXPR_WFL_NODE (wfl) = node;
-  if (statement && debug_info_level != DINFO_LEVEL_NONE)
-    EXPR_WFL_EMIT_LINE_NOTE (wfl) = 1;
-  if (node)
-    {
-      if (!TYPE_P (node))
-	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
-      TREE_TYPE (wfl) = TREE_TYPE (node);
-    }
-
-  return wfl;
-}
-#endif
-
 /* Build a node to represent empty statements and blocks. */
 
 tree
@@ -3755,6 +3808,29 @@ promote_arguments (void)
 	}
       if (TYPE_IS_WIDE (arg_type))
 	i++;
+    }
+}
+
+/* Create a local variable that points to the constant pool.  */
+
+static void
+cache_cpool_data_ref (void)
+{
+  if (optimize)
+    {
+      tree cpool;
+      tree d = build_constant_data_ref (flag_indirect_classes);
+      tree cpool_ptr = build_decl (VAR_DECL, NULL_TREE, 
+				   build_pointer_type (TREE_TYPE (d)));
+      java_add_local_var (cpool_ptr);
+      TREE_INVARIANT (cpool_ptr) = 1;
+      TREE_CONSTANT (cpool_ptr) = 1;
+
+      java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (cpool_ptr), 
+			     cpool_ptr, build_address_of (d)));
+      cpool = build1 (INDIRECT_REF, TREE_TYPE (d), cpool_ptr);
+      TREE_THIS_NOTRAP (cpool) = 1;
+      TYPE_CPOOL_DATA_REF (output_class) = cpool;
     }
 }
 

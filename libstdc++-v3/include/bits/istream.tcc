@@ -1,6 +1,7 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -86,30 +87,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__istream_type& (*__pf)(__istream_type&))
-    { return __pf(*this); }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__ios_type& (*__pf)(__ios_type&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(ios_base& (*__pf)(ios_base&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     template<typename _ValueT>
       basic_istream<_CharT, _Traits>&
       basic_istream<_CharT, _Traits>::
@@ -145,7 +122,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (numeric_limits<short>::min() <= __l
 	      && __l <= numeric_limits<short>::max())
-	    __n = __l;
+	    __n = short(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -165,7 +142,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (numeric_limits<int>::min() <= __l
 	      && __l <= numeric_limits<int>::max())
-	    __n = __l;
+	    __n = int(__l);
 	  else
 	    this->setstate(ios_base::failbit);
 	}
@@ -1011,12 +988,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	__in.setstate(__err);
       return __in;
     }
-
-  template<class _CharT, class _Traits, class _Alloc>
-    inline basic_istream<_CharT,_Traits>&
-    getline(basic_istream<_CharT, _Traits>& __in,
-	    basic_string<_CharT,_Traits,_Alloc>& __str)
-    { return getline(__in, __str, __in.widen('\n')); }
 
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.

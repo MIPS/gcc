@@ -35,8 +35,6 @@ Boston, MA 02110-1301, USA.  */
 
 #include <gthr.h>
 
-#define DEFAULT_TEMPDIR "/tmp"
-
 /* Basic types used in data transfers.  */
 
 typedef enum
@@ -45,10 +43,6 @@ typedef enum
 }
 bt;
 
-
-typedef enum
-{ SUCCESS = 1, FAILURE }
-try;
 
 struct st_parameter_dt;
 
@@ -112,7 +106,7 @@ array_loop_spec;
      or
       &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]]...&END
 
-   The object can be a fully qualified, compound name for an instrinsic
+   The object can be a fully qualified, compound name for an intrinsic
    type, derived types or derived type components.  So, a substring
    a(:)%b(4)%ch(2:4)(1:7) has to be treated correctly in namelist
    read. Hence full information about the structure of the object has
@@ -160,7 +154,7 @@ namelist_info;
 /* Options for the OPEN statement.  */
 
 typedef enum
-{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND,
+{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND, ACCESS_STREAM,
   ACCESS_UNSPECIFIED
 }
 unit_access;
@@ -209,52 +203,12 @@ typedef enum
 {READING, WRITING}
 unit_mode;
 
-typedef enum
-{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
-unit_convert;
-
 #define CHARACTER1(name) \
 	      char * name; \
 	      gfc_charlen_type name ## _len
 #define CHARACTER2(name) \
 	      gfc_charlen_type name ## _len; \
 	      char * name
-
-#define IOPARM_LIBRETURN_MASK		(3 << 0)
-#define IOPARM_LIBRETURN_OK		(0 << 0)
-#define IOPARM_LIBRETURN_ERROR		(1 << 0)
-#define IOPARM_LIBRETURN_END		(2 << 0)
-#define IOPARM_LIBRETURN_EOR		(3 << 0)
-#define IOPARM_ERR			(1 << 2)
-#define IOPARM_END			(1 << 3)
-#define IOPARM_EOR			(1 << 4)
-#define IOPARM_HAS_IOSTAT		(1 << 5)
-#define IOPARM_HAS_IOMSG		(1 << 6)
-
-#define IOPARM_COMMON_MASK		((1 << 7) - 1)
-
-typedef struct st_parameter_common
-{
-  GFC_INTEGER_4 flags;
-  GFC_INTEGER_4 unit;
-  const char *filename;
-  GFC_INTEGER_4 line;
-  CHARACTER2 (iomsg);
-  GFC_INTEGER_4 *iostat;
-}
-st_parameter_common;
-
-#define IOPARM_OPEN_HAS_RECL_IN		(1 << 7)
-#define IOPARM_OPEN_HAS_FILE		(1 << 8)
-#define IOPARM_OPEN_HAS_STATUS		(1 << 9)
-#define IOPARM_OPEN_HAS_ACCESS		(1 << 10)
-#define IOPARM_OPEN_HAS_FORM		(1 << 11)
-#define IOPARM_OPEN_HAS_BLANK		(1 << 12)
-#define IOPARM_OPEN_HAS_POSITION	(1 << 13)
-#define IOPARM_OPEN_HAS_ACTION		(1 << 14)
-#define IOPARM_OPEN_HAS_DELIM		(1 << 15)
-#define IOPARM_OPEN_HAS_PAD		(1 << 16)
-#define IOPARM_OPEN_HAS_CONVERT		(1 << 17)
 
 typedef struct
 {
@@ -294,29 +248,31 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_NAMED	(1 << 10)
 #define IOPARM_INQUIRE_HAS_NEXTREC	(1 << 11)
 #define IOPARM_INQUIRE_HAS_RECL_OUT	(1 << 12)
-#define IOPARM_INQUIRE_HAS_FILE		(1 << 13)
-#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 14)
-#define IOPARM_INQUIRE_HAS_FORM		(1 << 15)
-#define IOPARM_INQUIRE_HAS_BLANK	(1 << 16)
-#define IOPARM_INQUIRE_HAS_POSITION	(1 << 17)
-#define IOPARM_INQUIRE_HAS_ACTION	(1 << 18)
-#define IOPARM_INQUIRE_HAS_DELIM	(1 << 19)
-#define IOPARM_INQUIRE_HAS_PAD		(1 << 20)
-#define IOPARM_INQUIRE_HAS_NAME		(1 << 21)
-#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 22)
-#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 23)
-#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 24)
-#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 25)
-#define IOPARM_INQUIRE_HAS_READ		(1 << 26)
-#define IOPARM_INQUIRE_HAS_WRITE	(1 << 27)
-#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 28)
-#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 29)
+#define IOPARM_INQUIRE_HAS_STRM_POS_OUT (1 << 13)
+#define IOPARM_INQUIRE_HAS_FILE		(1 << 14)
+#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 15)
+#define IOPARM_INQUIRE_HAS_FORM		(1 << 16)
+#define IOPARM_INQUIRE_HAS_BLANK	(1 << 17)
+#define IOPARM_INQUIRE_HAS_POSITION	(1 << 18)
+#define IOPARM_INQUIRE_HAS_ACTION	(1 << 19)
+#define IOPARM_INQUIRE_HAS_DELIM	(1 << 20)
+#define IOPARM_INQUIRE_HAS_PAD		(1 << 21)
+#define IOPARM_INQUIRE_HAS_NAME		(1 << 22)
+#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 23)
+#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 24)
+#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 25)
+#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 26)
+#define IOPARM_INQUIRE_HAS_READ		(1 << 27)
+#define IOPARM_INQUIRE_HAS_WRITE	(1 << 28)
+#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 29)
+#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 30)
 
 typedef struct
 {
   st_parameter_common common;
   GFC_INTEGER_4 *exist, *opened, *number, *named;
   GFC_INTEGER_4 *nextrec, *recl_out;
+  GFC_IO_INT *strm_pos_out;
   CHARACTER1 (file);
   CHARACTER2 (access);
   CHARACTER1 (form);
@@ -355,8 +311,8 @@ struct format_data;
 typedef struct st_parameter_dt
 {
   st_parameter_common common;
-  GFC_INTEGER_4 rec;
-  GFC_INTEGER_4 *size, *iolength;
+  GFC_IO_INT rec;
+  GFC_IO_INT *size, *iolength;
   gfc_array_char *internal_unit_desc;
   CHARACTER1 (format);
   CHARACTER2 (advance);
@@ -417,7 +373,10 @@ typedef struct st_parameter_dt
 	  /* An internal unit specific flag used to identify that the associated
 	     unit is internal.  */
 	  unsigned unit_is_internal : 1;
-	  /* 17 unused bits.  */
+	  /* An internal unit specific flag to signify an EOF condition for list
+	     directed read.  */
+	  unsigned at_eof : 1;
+	  /* 16 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -469,15 +428,9 @@ typedef struct
   unit_status status;
   unit_pad pad;
   unit_convert convert;
+  int has_recl;
 }
 unit_flags;
-
-
-/* The default value of record length for preconnected units is defined
-   here. This value can be overriden by an environment variable.
-   Default value is 1 Gb.  */
-
-#define DEFAULT_RECL 1073741824
 
 
 typedef struct gfc_unit
@@ -497,11 +450,19 @@ typedef struct gfc_unit
   unit_mode mode;
   unit_flags flags;
 
-  /* recl           -- Record length of the file.
-     last_record    -- Last record number read or written
-     maxrec         -- Maximum record number in a direct access file
-     bytes_left     -- Bytes left in current record.  */
-  gfc_offset recl, last_record, maxrec, bytes_left;
+  /* recl                 -- Record length of the file.
+     last_record          -- Last record number read or written
+     maxrec               -- Maximum record number in a direct access file
+     bytes_left           -- Bytes left in current record.
+     strm_pos             -- Current position in file for STREAM I/O.
+     recl_subrecord       -- Maximum length for subrecord.
+     bytes_left_subrecord -- Bytes left in current subrecord.  */
+  gfc_offset recl, last_record, maxrec, bytes_left, strm_pos,
+    recl_subrecord, bytes_left_subrecord;
+
+  /* Set to 1 if we have read a subrecord.  */
+
+  int continued;
 
   __gthread_mutex_t lock;
   /* Number of threads waiting to acquire this unit's lock.
@@ -682,9 +643,6 @@ internal_proto(stream_ttyname);
 extern gfc_offset stream_offset (stream *s);
 internal_proto(stream_offset);
 
-extern int unit_to_fd (int);
-internal_proto(unit_to_fd);
-
 extern int unpack_filename (char *, const char *, int);
 internal_proto(unpack_filename);
 
@@ -715,6 +673,9 @@ internal_proto(is_internal_unit);
 
 extern int is_array_io (st_parameter_dt *);
 internal_proto(is_array_io);
+
+extern int is_stream_io (st_parameter_dt *);
+internal_proto(is_stream_io);
 
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
@@ -867,13 +828,6 @@ extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
 				  size_t);
 internal_proto(list_formatted_write);
 
-/* error.c */
-extern try notify_std (int, const char *);
-internal_proto(notify_std);
-
-extern notification notification_std(int);
-internal_proto(notification_std);
-
 /* size_from_kind.c */
 extern size_t size_from_real_kind (int);
 internal_proto(size_from_real_kind);
@@ -919,7 +873,3 @@ dec_waiting_unlocked (gfc_unit *u)
 
 #endif
 
-/* ../runtime/environ.c  This is here because we return unit_convert.  */
-
-unit_convert get_unformatted_convert (int);
-internal_proto(get_unformatted_convert);

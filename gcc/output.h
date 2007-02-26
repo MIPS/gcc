@@ -155,6 +155,9 @@ extern void merge_weak (tree, tree);
 /* Emit any pending weak declarations.  */
 extern void weak_finish (void);
 
+/* Emit any pending emutls declarations and initializations.  */
+extern void emutls_finish (void);
+
 /* Decode an `asm' spec for a declaration as a register name.
    Return the register number, or -1 if nothing specified,
    or -2 if the ASMSPEC is not `cc' or `memory' and is not recognized,
@@ -197,9 +200,13 @@ extern void assemble_end_function (tree, const char *);
    initial value (that will be done by the caller).  */
 extern void assemble_variable (tree, int, int, int);
 
-/* Output something to declare an external symbol to the assembler.
-   (Most assemblers don't need this, so we normally output nothing.)
-   Do nothing if DECL is not external.  */
+/* Compute the alignment of variable specified by DECL.
+   DONT_OUTPUT_DATA is from assemble_variable.  */
+extern void align_variable (tree decl, bool dont_output_data);
+
+/* Queue for outputting something to declare an external symbol to the
+   assembler.  (Most assemblers don't need this, so we normally output
+   nothing.)  Do nothing if DECL is not external.  */
 extern void assemble_external (tree);
 
 /* Assemble code to leave SIZE bytes of zeros.  */
@@ -272,6 +279,13 @@ extern rtx peephole (rtx);
 extern void output_shared_constant_pool (void);
 
 extern void output_object_blocks (void);
+
+/* Whether a constructor CTOR is a valid static constant initializer if all
+   its elements are.  This used to be internal to initializer_constant_valid_p
+   and has been exposed to let other functions like categorize_ctor_elements
+   evaluate the property while walking a constructor for other purposes.  */
+
+extern bool constructor_static_from_elts_p (tree);
 
 /* Return nonzero if VALUE is a valid constant-valued expression
    for use in initializing a static variable; one that can be an
@@ -598,12 +612,17 @@ extern bool default_use_anchors_for_symbol_p (rtx);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
+extern void default_globalize_decl_name (FILE *, tree);
 extern void default_emit_unwind_label (FILE *, tree, int, int);
 extern void default_emit_except_table_label (FILE *);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);
 extern bool default_valid_pointer_mode (enum machine_mode);
+
+extern void default_elf_asm_output_external (FILE *file, tree,
+					     const char *);
+extern int maybe_assemble_visibility (tree);
 
 extern int default_address_cost (rtx);
 

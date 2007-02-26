@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "flags.h"
 #include "output.h"
+#include "df.h"
 
 /* Determine if the stack pointer is constant over the life of the function.
    Only useful before prologues have been emitted.  */
@@ -59,22 +60,26 @@ notice_stack_pointer_modification (void)
   /* Assume that the stack pointer is unchanging if alloca hasn't
      been used.  */
   current_function_sp_is_unchanging = !current_function_calls_alloca;
-  if (! current_function_sp_is_unchanging)
-    return;
+  if (current_function_sp_is_unchanging)
+    FOR_EACH_BB (bb)
+      FOR_BB_INSNS (bb, insn)
+        {
+	  if (INSN_P (insn))
+	    {
+	      /* Check if insn modifies the stack pointer.  */
+	      note_stores (PATTERN (insn),
+			   notice_stack_pointer_modification_1,
+			   NULL);
+	      if (! current_function_sp_is_unchanging)
+		return;
+	    }
+	}
 
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-      {
-	if (INSN_P (insn))
-	  {
-	    /* Check if insn modifies the stack pointer.  */
-	    note_stores (PATTERN (insn),
-			 notice_stack_pointer_modification_1,
-			 NULL);
-	    if (! current_function_sp_is_unchanging)
-	      return;
-	  }
-      }
+  /* The value coming into this pass was 0, and the exit block uses
+     are based on this.  If the value is now 1, we need to redo the
+     exit block uses.  */
+  if (current_function_sp_is_unchanging)
+    df_update_exit_block_uses ();
 }
 
   /* Some targets can emit simpler epilogues if they know that sp was
@@ -90,7 +95,7 @@ rest_of_handle_stack_ptr_mod (void)
 
 struct tree_opt_pass pass_stack_ptr_mod =
 {
-  "stack-ptr-mod",                      /* name */
+  NULL,		                        /* name */
   NULL,                                 /* gate */
   rest_of_handle_stack_ptr_mod,         /* execute */
   NULL,                                 /* sub */

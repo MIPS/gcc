@@ -1,5 +1,5 @@
 /* ObjectHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,7 +39,7 @@ exception statement from your version. */
 package org.omg.CORBA;
 
 import gnu.CORBA.Minor;
-import gnu.CORBA.typecodes.PrimitiveTypeCode;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
@@ -51,8 +51,6 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class ObjectHelper
 {
-  static TypeCode typeCode;
-
   /**
    * Extract the array of object from the given {@link Any}.
    */
@@ -100,9 +98,7 @@ public abstract class ObjectHelper
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode = ORB.init().get_primitive_tc(TCKind.tk_objref);
-    return typeCode;
+    return OrbRestricted.Singleton.get_primitive_tc(TCKind.tk_objref);
   }
 
   /**

@@ -1732,10 +1732,6 @@ write_builtin_type (tree type)
       break;
 
     case INTEGER_TYPE:
-      /* If this is size_t, get the underlying int type.  */
-      if (TYPE_IS_SIZETYPE (type))
-	type = TYPE_DOMAIN (type);
-
       /* TYPE may still be wchar_t, since that isn't in
 	 integer_type_nodes.  */
       if (type == wchar_type_node)
@@ -2020,6 +2016,12 @@ write_expression (tree expr)
 	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
     {
       expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+    }
+
+  if (code == BASELINK)
+    {
+      expr = BASELINK_FUNCTIONS (expr);
       code = TREE_CODE (expr);
     }
 
@@ -2815,6 +2817,9 @@ mangle_conv_op_name_for_type (const tree type)
 {
   void **slot;
   tree identifier;
+
+  if (type == error_mark_node)
+    return error_mark_node;
 
   if (conv_type_names == NULL)
     conv_type_names = htab_create_ggc (31, &hash_type, &compare_type, NULL);

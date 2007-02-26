@@ -57,7 +57,6 @@ public abstract class View implements SwingConstants
   public static final int X_AXIS = 0;
   public static final int Y_AXIS = 1;
     
-  private float width, height;
   private Element elt;
   private View parent;
 
@@ -93,7 +92,14 @@ public abstract class View implements SwingConstants
       {
         int numChildren = getViewCount();
         for (int i = 0; i < numChildren; i++)
-          getView(i).setParent(null);
+          {
+            View child = getView(i);
+            // It is important that we only reset the parent on views that
+            // actually belong to us. In FlowView the child may already be
+            // reparented.
+            if (child.getParent() == this)
+              child.setParent(null);
+          }
       }
 
     this.parent = parent;
@@ -263,7 +269,7 @@ public abstract class View implements SwingConstants
 
   public void removeAll()
   {
-    replace(0, getViewCount(), new View[0]); 
+    replace(0, getViewCount(), null);
   }
 
   public void remove(int index)
@@ -307,15 +313,16 @@ public abstract class View implements SwingConstants
   {
     int index = getViewIndex(x, y, allocation);
 
-    if (index < -1)
-      return null;
-
-    Shape childAllocation = getChildAllocation(index, allocation);
-
-    if (childAllocation.getBounds().contains(x, y))
-      return getView(index).getToolTipText(x, y, childAllocation);
-
-    return null;
+    String text = null;
+    if (index >= 0)
+      {
+        allocation = getChildAllocation(index, allocation);
+        Rectangle r = allocation instanceof Rectangle ? (Rectangle) allocation
+                                                      : allocation.getBounds();
+        if (r.contains(x, y))
+          text = getView(index).getToolTipText(x, y, allocation);
+      }
+    return text;
   }
 
   /**
@@ -328,13 +335,17 @@ public abstract class View implements SwingConstants
 
   public void preferenceChanged(View child, boolean width, boolean height)
   {
-    if (parent != null)
-      parent.preferenceChanged(this, width, height);
+    View p = getParent();
+    if (p != null)
+      p.preferenceChanged(this, width, height);
   }
 
   public int getBreakWeight(int axis, float pos, float len)
   {
-    return BadBreakWeight;
+    int weight = BadBreakWeight;
+    if (len > getPreferredSpan(axis))
+      weight = GoodBreakWeight;
+    return weight;
   }
 
   public View breakView(int axis, int offset, float pos, float len)
@@ -370,12 +381,18 @@ public abstract class View implements SwingConstants
    */
   public void insertUpdate(DocumentEvent ev, Shape shape, ViewFactory vf)
   {
-    Element el = getElement();
-    DocumentEvent.ElementChange ec = ev.getChange(el);
-    if (ec != null)
-      updateChildren(ec, ev, vf);
-    forwardUpdate(ec, ev, shape, vf);
-    updateLayout(ec, ev, shape);
+    if (getViewCount() > 0)
+      {
+        Element el = getElement();
+        DocumentEvent.ElementChange ec = ev.getChange(el);
+        if (ec != null)
+          {
+            if (! updateChildren(ec, ev, vf))
+              ec = null;
+          }
+        forwardUpdate(ec, ev, shape, vf);
+        updateLayout(ec, ev, shape);
+      }
   }
 
   /**
@@ -401,7 +418,10 @@ public abstract class View implements SwingConstants
     Element el = getElement();
     DocumentEvent.ElementChange ec = ev.getChange(el);
     if (ec != null)
-        updateChildren(ec, ev, vf);
+      {
+        if (! updateChildren(ec, ev, vf))
+          ec = null;
+      }
     forwardUpdate(ec, ev, shape, vf);
     updateLayout(ec, ev, shape);
   }
@@ -426,12 +446,18 @@ public abstract class View implements SwingConstants
    */
   public void changedUpdate(DocumentEvent ev, Shape shape, ViewFactory vf)
   {
-    Element el = getElement();
-    DocumentEvent.ElementChange ec = ev.getChange(el);
-    if (ec != null)
-      updateChildren(ec, ev, vf);
-    forwardUpdate(ec, ev, shape, vf);
-    updateLayout(ec, ev, shape);
+    if (getViewCount() > 0)
+      {
+        Element el = getElement();
+        DocumentEvent.ElementChange ec = ev.getChange(el);
+        if (ec != null)
+          {
+            if (! updateChildren(ec, ev, vf))
+              ec = null;
+          }
+        forwardUpdate(ec, ev, shape, vf);
+        updateLayout(ec, ev, shape);
+      }
   }
 
   /**
@@ -462,10 +488,15 @@ public abstract class View implements SwingConstants
     Element[] removed = ec.getChildrenRemoved();
     int index = ec.getIndex();
 
-    View[] newChildren = new View[added.length];
-    for (int i = 0; i < added.length; ++i)
-      newChildren[i] = vf.create(added[i]);
-    replace(index, removed.length, newChildren);
+    View[] newChildren = null;
+    if (added != null)
+      {
+        newChildren = new View[added.length];
+        for (int i = 0; i < added.length; ++i)
+          newChildren[i] = vf.create(added[i]);
+      }
+    int numRemoved = removed != null ? removed.length : 0;
+    replace(index, numRemoved, newChildren);
 
     return true;
   }
@@ -493,27 +524,66 @@ public abstract class View implements SwingConstants
     int count = getViewCount();
     if (count > 0)
       {
+        // Determine start index.
         int startOffset = ev.getOffset();
-        int endOffset = startOffset + ev.getLength();
         int startIndex = getViewIndex(startOffset, Position.Bias.Backward);
-        int endIndex = getViewIndex(endOffset, Position.Bias.Forward);
-        int index = -1;
-        int addLength = -1;
-        if (ec != null)
+
+        // For REMOVE events we have to forward the event to the last element,
+        // for the case that an Element has been removed that represente
+        // the offset.
+        if (startIndex == -1 && ev.getType() == DocumentEvent.EventType.REMOVE
+            && startOffset >= getEndOffset())
           {
-            index = ec.getIndex();
-            addLength = ec.getChildrenAdded().length;
+            startIndex = getViewCount() - 1;
           }
 
-        if (startIndex >= 0 && endIndex >= 0)
+        // When startIndex is on a view boundary, forward event to the
+        // previous view too.
+        if (startIndex >= 0)
           {
-            for (int i = startIndex; i <= endIndex; i++)
+            View v = getView(startIndex);
+            if (v != null)
               {
-                // Skip newly added child views.
-                if (index >= 0 && i >= index && i < (index+addLength))
-                  continue;
+                if (v.getStartOffset() == startOffset && startOffset > 0)
+                  startIndex = Math.max(0, startIndex - 1);
+              }
+          }
+        startIndex = Math.max(0, startIndex);
+
+        // Determine end index.
+        int endIndex = startIndex;
+        if (ev.getType() != DocumentEvent.EventType.REMOVE)
+          {
+            endIndex = getViewIndex(startOffset + ev.getLength(),
+                                    Position.Bias.Forward);
+            if (endIndex < 0)
+              endIndex = getViewCount() - 1;
+          }
+
+        // Determine hole that comes from added elements (we don't forward
+        // the event to newly added views.
+        int startAdded = endIndex + 1;
+        int endAdded = startAdded;
+        Element[] added = (ec != null) ? ec.getChildrenAdded() : null;
+        if (added != null && added.length > 0)
+          {
+            startAdded = ec.getIndex();
+            endAdded = startAdded + added.length - 1;
+          }
+
+        // Forward event to all views between startIndex and endIndex,
+        // and leave out all views in the hole.
+        for (int i = startIndex; i <= endIndex; i++)
+          {
+            // Skip newly added child views.
+            if (! (i >= startAdded && i <= endAdded))
+              {
                 View child = getView(i);
-                forwardUpdateToView(child, ev, shape, vf);
+                if (child != null)
+                  {
+                    Shape childAlloc = getChildAllocation(i, shape);
+                    forwardUpdateToView(child, ev, childAlloc, vf);
+                  }
               }
           }
       }
@@ -556,10 +626,12 @@ public abstract class View implements SwingConstants
                               DocumentEvent ev, Shape shape)
   {
     if (ec != null && shape != null)
-      preferenceChanged(null, true, true);
-    Container c = getContainer();
-    if (c != null)
-      c.repaint();
+      {
+        preferenceChanged(null, true, true);
+        Container c = getContainer();
+        if (c != null)
+          c.repaint();
+      }
   }
 
   /**
@@ -611,9 +683,46 @@ public abstract class View implements SwingConstants
     if (b2 != Position.Bias.Forward && b2 != Position.Bias.Backward)
       throw new IllegalArgumentException
 	("b2 must be either Position.Bias.Forward or Position.Bias.Backward");
-    Rectangle s1 = (Rectangle) modelToView(p1, a, b1);
-    Rectangle s2 = (Rectangle) modelToView(p2, a, b2);
-    return SwingUtilities.computeUnion(s1.x, s1.y, s1.width, s1.height, s2);
+
+    Shape s1 = modelToView(p1, a, b1);
+    // Special case for p2 == end index.
+    Shape s2;
+    if (p2 != getEndOffset())
+      {
+        s2 = modelToView(p2, a, b2);
+      }
+    else
+      {
+        try
+          {
+            s2 = modelToView(p2, a, b2);
+          }
+        catch (BadLocationException ex)
+          {
+            // Assume the end rectangle to be at the right edge of the
+            // view.
+            Rectangle aRect = a instanceof Rectangle ? (Rectangle) a
+                                                     : a.getBounds();
+            s2 = new Rectangle(aRect.x + aRect.width - 1, aRect.y, 1,
+                               aRect.height);
+          }
+      }
+
+    // Need to modify the rectangle, so we create a copy in all cases.
+    Rectangle r1 = s1.getBounds();
+    Rectangle r2 = s2 instanceof Rectangle ? (Rectangle) s2
+                                           : s2.getBounds();
+
+    // For multiline view, let the resulting rectangle span the whole view.
+    if (r1.y != r2.y)
+      {
+        Rectangle aRect = a instanceof Rectangle ? (Rectangle) a
+                                                 : a.getBounds();
+        r1.x = aRect.x;
+        r1.width = aRect.width;
+      }
+
+    return SwingUtilities.computeUnion(r2.x, r2.y, r2.width, r2.height, r1);
   }
 
   /**
@@ -671,7 +780,9 @@ public abstract class View implements SwingConstants
    */
   public int viewToModel(float x, float y, Shape a)
   {
-    return viewToModel(x, y, a, new Position.Bias[0]);
+    Position.Bias[] biasRet = new Position.Bias[1];
+    biasRet[0] = Position.Bias.Forward;
+    return viewToModel(x, y, a, biasRet);
   }
 
   /**

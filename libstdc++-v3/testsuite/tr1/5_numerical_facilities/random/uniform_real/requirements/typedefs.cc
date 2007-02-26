@@ -20,7 +20,7 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-// 5.1.7.6 Class template uniform_int [tr.rand.dist.runif]
+// 5.1.7.6 Class template uniform_real [tr.rand.dist.runif]
 // 5.1.1 [7] Table 17
 
 #include <tr1/random>

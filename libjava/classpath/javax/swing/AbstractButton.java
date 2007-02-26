@@ -37,8 +37,6 @@ exception statement from your version. */
 
 package javax.swing;
 
-import gnu.classpath.NotImplementedException;
-
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Image;
@@ -74,7 +72,10 @@ import javax.swing.plaf.ButtonUI;
 import javax.swing.plaf.basic.BasicHTML;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
+import javax.swing.text.Element;
 import javax.swing.text.Position;
+import javax.swing.text.StyledDocument;
 import javax.swing.text.View;
 
 
@@ -187,8 +188,31 @@ public abstract class AbstractButton extends JComponent
      */
     public void stateChanged(ChangeEvent ev)
     {
-      AbstractButton.this.fireStateChanged();
+      getEventHandler().stateChanged(ev);
+    }
+  }
+
+  /**
+   * The combined event handler for ActionEvent, ChangeEvent and
+   * ItemEvent. This combines ButtonChangeListener, ActionListener
+   */
+  private class EventHandler
+    implements ActionListener, ChangeListener, ItemListener
+  {
+    public void actionPerformed(ActionEvent ev)
+    {
+      fireActionPerformed(ev);
+    }
+
+    public void stateChanged(ChangeEvent ev)
+    {
+      fireStateChanged();
       repaint();
+    }
+
+    public void itemStateChanged(ItemEvent ev)
+    {
+      fireItemStateChanged(ev);
     }
   }
 
@@ -199,7 +223,7 @@ public abstract class AbstractButton extends JComponent
   Icon pressed_icon;
 
   /** The icon displayed when the button is disabled. */
-  Icon disabeldIcon;
+  Icon disabledIcon;
 
   /** The icon displayed when the button is selected. */
   Icon selectedIcon;
@@ -264,14 +288,27 @@ public abstract class AbstractButton extends JComponent
    */
   int mnemonicIndex;
 
-  /** Listener the button uses to receive ActionEvents from its model.  */
+  /**
+   * Listener the button uses to receive ActionEvents from its model.
+   */
   protected ActionListener actionListener;
 
-  /** Listener the button uses to receive ItemEvents from its model.  */
+  /**
+   * Listener the button uses to receive ItemEvents from its model.
+   */
   protected ItemListener itemListener;
 
-  /** Listener the button uses to receive ChangeEvents from its model.  */  
+  /**
+   * Listener the button uses to receive ChangeEvents from its model.
+   */  
   protected ChangeListener changeListener;
+
+  /**
+   * The event handler for ActionEvent, ItemEvent and ChangeEvent.
+   * This replaces the above three handlers and combines them
+   * into one for efficiency.
+   */
+  private EventHandler eventHandler;
 
   /**
    * The time in milliseconds in which clicks get coalesced into a single
@@ -768,22 +805,127 @@ public abstract class AbstractButton extends JComponent
       return -1;
     }
 
-    public String getAtIndex(int value0, int value1)
-      throws NotImplementedException
+    /**
+     * Returns the character, word or sentence at the specified index. The
+     * <code>part</code> parameter determines what is returned, the character,
+     * word or sentence after the index.
+     *
+     * @param part one of {@link AccessibleText#CHARACTER},
+     *             {@link AccessibleText#WORD} or
+     *             {@link AccessibleText#SENTENCE}, specifying what is returned
+     * @param index the index
+     *
+     * @return the character, word or sentence after <code>index</code>
+     */
+    public String getAtIndex(int part, int index)
     {
-      return null; // TODO
+      String result = "";
+      int startIndex = -1;
+      int endIndex = -1;
+      switch(part)
+        {
+        case AccessibleText.CHARACTER:
+          result = String.valueOf(text.charAt(index));
+          break;
+        case AccessibleText.WORD:
+          startIndex = text.lastIndexOf(' ', index);
+          endIndex = text.indexOf(' ', startIndex + 1);
+          if (endIndex == -1)
+            endIndex = startIndex + 1;
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        case AccessibleText.SENTENCE:
+        default:
+          startIndex = text.lastIndexOf('.', index);
+          endIndex = text.indexOf('.', startIndex + 1);
+          if (endIndex == -1)
+            endIndex = startIndex + 1;
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        }
+      return result;
     }
 
-    public String getAfterIndex(int value0, int value1)
-      throws NotImplementedException
+    /**
+     * Returns the character, word or sentence after the specified index. The
+     * <code>part</code> parameter determines what is returned, the character,
+     * word or sentence after the index.
+     *
+     * @param part one of {@link AccessibleText#CHARACTER},
+     *             {@link AccessibleText#WORD} or
+     *             {@link AccessibleText#SENTENCE}, specifying what is returned
+     * @param index the index
+     *
+     * @return the character, word or sentence after <code>index</code>
+     */
+    public String getAfterIndex(int part, int index)
     {
-      return null; // TODO
+      String result = "";
+      int startIndex = -1;
+      int endIndex = -1;
+      switch(part)
+        {
+        case AccessibleText.CHARACTER:
+          result = String.valueOf(text.charAt(index + 1));
+          break;
+        case AccessibleText.WORD:
+          startIndex = text.indexOf(' ', index);
+          endIndex = text.indexOf(' ', startIndex + 1);
+          if (endIndex == -1)
+            endIndex = startIndex + 1;
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        case AccessibleText.SENTENCE:
+        default:
+          startIndex = text.indexOf('.', index);
+          endIndex = text.indexOf('.', startIndex + 1);
+          if (endIndex == -1)
+            endIndex = startIndex + 1;
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        }
+      return result;
     }
 
-    public String getBeforeIndex(int value0, int value1)
-      throws NotImplementedException
+    /**
+     * Returns the character, word or sentence before the specified index. The
+     * <code>part</code> parameter determines what is returned, the character,
+     * word or sentence before the index.
+     *
+     * @param part one of {@link AccessibleText#CHARACTER},
+     *             {@link AccessibleText#WORD} or
+     *             {@link AccessibleText#SENTENCE}, specifying what is returned
+     * @param index the index
+     *
+     * @return the character, word or sentence before <code>index</code>
+     */
+    public String getBeforeIndex(int part, int index)
     {
-      return null; // TODO
+      String result = "";
+      int startIndex = -1;
+      int endIndex = -1;
+      switch(part)
+        {
+        case AccessibleText.CHARACTER:
+          result = String.valueOf(text.charAt(index - 1));
+          break;
+        case AccessibleText.WORD:
+          endIndex = text.lastIndexOf(' ', index);
+          if (endIndex == -1)
+            endIndex = 0;
+          startIndex = text.lastIndexOf(' ', endIndex - 1);
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        case AccessibleText.SENTENCE:
+        default:
+          endIndex = text.lastIndexOf('.', index);
+          if (endIndex == -1)
+            endIndex = 0;
+          startIndex = text.lastIndexOf('.', endIndex - 1);
+          result = text.substring(startIndex + 1, endIndex);
+          break;
+        }
+      return result;
     }
 
     /**
@@ -801,7 +943,14 @@ public abstract class AbstractButton extends JComponent
       View view = (View) getClientProperty(BasicHTML.propertyKey); 
       if (view != null)
         {
-          
+          Document doc = view.getDocument();
+          if (doc instanceof StyledDocument)
+            {
+              StyledDocument sDoc = (StyledDocument) doc;
+              Element charEl = sDoc.getCharacterElement(i);
+              if (charEl != null)
+                atts = charEl.getAttributes();
+            }
         }
       return atts;
     }
@@ -855,10 +1004,6 @@ public abstract class AbstractButton extends JComponent
    */
   public AbstractButton()
   {
-    actionListener = createActionListener();
-    changeListener = createChangeListener();
-    itemListener = createItemListener();
-
     horizontalAlignment = CENTER;
     horizontalTextPosition = TRAILING;
     verticalAlignment = CENTER;
@@ -872,7 +1017,10 @@ public abstract class AbstractButton extends JComponent
     setDisplayedMnemonicIndex(-1);
     setOpaque(true);
     text = "";
-    updateUI();
+    // testing on JRE1.5 shows that the iconTextGap default value is 
+    // hard-coded here and the 'Button.iconTextGap' setting in the 
+    // UI defaults is ignored, at least by the MetalLookAndFeel
+    iconTextGap = 4;
   }
 
   /**
@@ -900,15 +1048,21 @@ public abstract class AbstractButton extends JComponent
     if (model != null)
       {
         model.removeActionListener(actionListener);
+        actionListener = null;
         model.removeChangeListener(changeListener);
+        changeListener = null;
         model.removeItemListener(itemListener);
+        itemListener = null;
       }
     ButtonModel old = model;
     model = newModel;
     if (model != null)
       {
+        actionListener = createActionListener();
         model.addActionListener(actionListener);
+        changeListener = createChangeListener();
         model.addChangeListener(changeListener);
+        itemListener = createItemListener();
         model.addItemListener(itemListener);
       }
     firePropertyChange(MODEL_CHANGED_PROPERTY, old, model);
@@ -923,10 +1077,12 @@ public abstract class AbstractButton extends JComponent
     // constructor).
     // This way the behavior of the JDK is matched.
     if(text != null)
-        this.text = text;
+      setText(text);
 
     if (icon != null)
       default_icon = icon;
+    
+    updateUI();
  }
  
   /**
@@ -1297,9 +1453,11 @@ public abstract class AbstractButton extends JComponent
    * alignment is a numeric constant from {@link SwingConstants}. It must
    * be one of: <code>RIGHT</code>, <code>LEFT</code>, <code>CENTER</code>,
    * <code>LEADING</code> or <code>TRAILING</code>.  The default is
-   * <code>RIGHT</code>.
+   * <code>CENTER</code>.
    * 
    * @return The current horizontal alignment
+   * 
+   * @see #setHorizontalAlignment(int)
    */
   public int getHorizontalAlignment()
   {
@@ -1311,17 +1469,21 @@ public abstract class AbstractButton extends JComponent
    * alignment is a numeric constant from {@link SwingConstants}. It must
    * be one of: <code>RIGHT</code>, <code>LEFT</code>, <code>CENTER</code>,
    * <code>LEADING</code> or <code>TRAILING</code>.  The default is
-   * <code>RIGHT</code>.
+   * <code>CENTER</code>.
    *
    * @param a The new horizontal alignment
    * @throws IllegalArgumentException If alignment is not one of the legal
    * constants.
+   * 
+   * @see #getHorizontalAlignment()
    */
   public void setHorizontalAlignment(int a)
   {
     if (horizontalAlignment == a)
       return;
-
+    if (a != LEFT && a != CENTER && a != RIGHT && a != LEADING 
+        && a != TRAILING)
+      throw new IllegalArgumentException("Invalid alignment.");
     int old = horizontalAlignment;
     horizontalAlignment = a;
     firePropertyChange(HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY, old, a);
@@ -1358,6 +1520,9 @@ public abstract class AbstractButton extends JComponent
   {
     if (horizontalTextPosition == t)
       return;
+    if (t != LEFT && t != CENTER && t != RIGHT && t != LEADING 
+        && t != TRAILING)
+      throw new IllegalArgumentException("Invalid alignment.");
 
     int old = horizontalTextPosition;
     horizontalTextPosition = t;
@@ -1373,6 +1538,8 @@ public abstract class AbstractButton extends JComponent
    * <code>BOTTOM</code>. The default is <code>CENTER</code>.
    *
    * @return The current vertical alignment
+   * 
+   * @see #setVerticalAlignment(int)
    */
   public int getVerticalAlignment()
   {
@@ -1388,12 +1555,16 @@ public abstract class AbstractButton extends JComponent
    * @param a The new vertical alignment
    * @throws IllegalArgumentException If alignment is not one of the legal
    * constants.
+   * 
+   * @see #getVerticalAlignment()
    */
   public void setVerticalAlignment(int a)
   {
     if (verticalAlignment == a)
       return;
-    
+    if (a != TOP && a != CENTER && a != BOTTOM)
+      throw new IllegalArgumentException("Invalid alignment.");
+
     int old = verticalAlignment;
     verticalAlignment = a;
     firePropertyChange(VERTICAL_ALIGNMENT_CHANGED_PROPERTY, old, a);
@@ -1430,6 +1601,8 @@ public abstract class AbstractButton extends JComponent
   {
     if (verticalTextPosition == t)
       return;
+    if (t != TOP && t != CENTER && t != BOTTOM)
+      throw new IllegalArgumentException("Invalid alignment.");
     
     int old = verticalTextPosition;
     verticalTextPosition = t;
@@ -1708,14 +1881,14 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getDisabledIcon()
   {
-    if (disabeldIcon == null && default_icon instanceof ImageIcon)
+    if (disabledIcon == null && default_icon instanceof ImageIcon)
       {
         Image iconImage = ((ImageIcon) default_icon).getImage();
         Image grayImage = GrayFilter.createDisabledImage(iconImage);
-        disabeldIcon = new ImageIcon(grayImage);
+        disabledIcon = new ImageIcon(grayImage);
       }
       
-    return disabeldIcon;
+    return disabledIcon;
   }
 
   /**
@@ -1729,7 +1902,11 @@ public abstract class AbstractButton extends JComponent
    */
   public void setDisabledIcon(Icon d)
   {
-    disabeldIcon = d;
+    if (disabledIcon == d)
+      return;
+    Icon old = disabledIcon;
+    disabledIcon = d;
+    firePropertyChange(DISABLED_ICON_CHANGED_PROPERTY, old, d);
     revalidate();
     repaint();
   }
@@ -1902,13 +2079,7 @@ public abstract class AbstractButton extends JComponent
    */
   protected  ActionListener createActionListener()
   {
-    return new ActionListener()
-      {
-        public void actionPerformed(ActionEvent e)
-        {
-          AbstractButton.this.fireActionPerformed(e);
-        }
-      };
+    return getEventHandler();
   }
 
   /**
@@ -1974,7 +2145,7 @@ public abstract class AbstractButton extends JComponent
    */
   protected ChangeListener createChangeListener()
   {
-    return new ButtonChangeListener();
+    return getEventHandler();
   }
 
   /**
@@ -2000,13 +2171,7 @@ public abstract class AbstractButton extends JComponent
    */
   protected  ItemListener createItemListener()
   {
-    return new ItemListener()
-      {
-        public void itemStateChanged(ItemEvent e)
-        {
-          AbstractButton.this.fireItemStateChanged(e);
-        }
-      };
+    return getEventHandler();
   }
 
   /**
@@ -2092,7 +2257,8 @@ public abstract class AbstractButton extends JComponent
   }
 
   /**
-   * Set the button's rollover icon. The look and feel class should
+   * Set the button's rollover icon and sets the <code>rolloverEnabled</code>
+   * property to <code>true</code>. The look and feel class should
    * paint this icon when the "rolloverEnabled" property of the button is
    * <code>true</code> and the mouse rolls over the button.
    *
@@ -2106,6 +2272,7 @@ public abstract class AbstractButton extends JComponent
     Icon old = rolloverIcon;
     rolloverIcon = r;
     firePropertyChange(ROLLOVER_ICON_CHANGED_PROPERTY, old, rolloverIcon);
+    setRolloverEnabled(true);
     revalidate();
     repaint();
   }
@@ -2124,12 +2291,13 @@ public abstract class AbstractButton extends JComponent
   }
 
   /**
-   * Set the button's rollover selected icon. The look and feel class
-   * should paint this icon when the "rolloverEnabled" property of the button
-   * is <code>true</code>, the "selected" property of the button's model is
-   * <code>true</code>, and the mouse rolls over the button.
+   * Set the button's rollover selected icon and sets the 
+   * <code>rolloverEnabled</code> property to <code>true</code>. The look and 
+   * feel class should paint this icon when the "rolloverEnabled" property of 
+   * the button is <code>true</code>, the "selected" property of the button's 
+   * model is <code>true</code>, and the mouse rolls over the button.
    *
-   * @param r The new rollover selected icon
+   * @param r The new rollover selected icon.
    */
   public void setRolloverSelectedIcon(Icon r)
   {
@@ -2139,6 +2307,7 @@ public abstract class AbstractButton extends JComponent
     Icon old = rolloverSelectedIcon;
     rolloverSelectedIcon = r;
     firePropertyChange(ROLLOVER_SELECTED_ICON_CHANGED_PROPERTY, old, r);
+    setRolloverEnabled(true);
     revalidate();
     repaint();
   }
@@ -2464,5 +2633,18 @@ public abstract class AbstractButton extends JComponent
       {
         super.setUIProperty(propertyName, value);
       }
+  }
+
+  /**
+   * Returns the combined event handler. The instance is created if
+   * necessary.
+   *
+   * @return the combined event handler
+   */
+  EventHandler getEventHandler()
+  {
+    if (eventHandler == null)
+      eventHandler = new EventHandler();
+    return eventHandler;
   }
 }

@@ -284,6 +284,23 @@ static int find_inc_amount (rtx, rtx);
 static int refers_to_mem_for_reload_p (rtx);
 static int refers_to_regno_for_reload_p (unsigned int, unsigned int,
 					 rtx, rtx *);
+
+/* Add NEW to reg_equiv_alt_mem_list[REGNO] if it's not present in the
+   list yet.  */
+
+static void
+push_reg_equiv_alt_mem (int regno, rtx mem)
+{
+  rtx it;
+
+  for (it = reg_equiv_alt_mem_list [regno]; it; it = XEXP (it, 1))
+    if (rtx_equal_p (XEXP (it, 0), mem))
+      return;
+
+  reg_equiv_alt_mem_list [regno]
+    = alloc_EXPR_LIST (REG_EQUIV, mem,
+		       reg_equiv_alt_mem_list [regno]);
+}
 
 /* Determine if any secondary reloads are needed for loading (if IN_P is
    nonzero) or storing (if IN_P is zero) X to or from a reload register of
@@ -1255,7 +1272,19 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	{
 	  error_for_asm (this_insn, "impossible register constraint "
 			 "in %<asm%>");
-	  class = ALL_REGS;
+	  /* Avoid further trouble with this insn.  */
+	  PATTERN (this_insn) = gen_rtx_USE (VOIDmode, const0_rtx);
+	  /* We used to continue here setting class to ALL_REGS, but it triggers
+	     sanity check on i386 for:
+	     void foo(long double d)
+	     {
+	       asm("" :: "a" (d));
+	     }
+	     Returning zero here ought to be safe as we take care in
+	     find_reloads to not process the reloads when instruction was
+	     replaced by USE.  */
+	    
+	  return 0;
 	}
     }
 
@@ -1499,7 +1528,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	    /* Check that we don't use a hardreg for an uninitialized
 	       pseudo.  See also find_dummy_reload().  */
 	    && (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
-		|| ! bitmap_bit_p (DF_RA_LIVE_OUT (ra_df, ENTRY_BLOCK_PTR),
+		|| ! bitmap_bit_p (DF_RA_LIVE_OUT (ENTRY_BLOCK_PTR),
 				   ORIGINAL_REGNO (XEXP (note, 0))))
 	    && ! refers_to_regno_for_reload_p (regno,
 					       (regno
@@ -1689,7 +1718,7 @@ combine_reloads (void)
     return;
 
   /* If there is a reload for part of the address of this operand, we would
-     need to chnage it to RELOAD_FOR_OTHER_ADDRESS.  But that would extend
+     need to change it to RELOAD_FOR_OTHER_ADDRESS.  But that would extend
      its life to the point where doing this combine would not lower the
      number of spill registers needed.  */
   for (i = 0; i < n_reloads; i++)
@@ -1977,7 +2006,7 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 	   as they would clobber the other live pseudo using the same.
 	   See also PR20973.  */
       && (ORIGINAL_REGNO (in) < FIRST_PSEUDO_REGISTER
-          || ! bitmap_bit_p (DF_RA_LIVE_OUT (ra_df, ENTRY_BLOCK_PTR),
+          || ! bitmap_bit_p (DF_RA_LIVE_OUT (ENTRY_BLOCK_PTR),
 			     ORIGINAL_REGNO (in))))
     {
       unsigned int regno = REGNO (in) + in_offset;
@@ -2386,7 +2415,7 @@ decompose (rtx x)
 	return decompose (SUBREG_REG (x));
       else
 	/* A hard reg.  */
-	val.end = val.start + hard_regno_nregs[val.start][GET_MODE (x)];
+	val.end = val.start + subreg_nregs (x);
       break;
 
     case SCRATCH:
@@ -4134,6 +4163,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
       }
 #endif
 
+  /* If we detected error and replaced asm instruction by USE, forget about the
+     reloads.  */
+  if (GET_CODE (PATTERN (insn)) == USE
+      && GET_CODE (XEXP (PATTERN (insn), 0)) == CONST_INT)
+    n_reloads = 0;
+
   /* Perhaps an output reload can be combined with another
      to reduce needs by one.  */
   if (!goal_earlyclobber)
@@ -4536,6 +4571,8 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	      x = mem;
 	      i = find_reloads_address (GET_MODE (x), &x, XEXP (x, 0), &XEXP (x, 0),
 					opnum, type, ind_levels, insn);
+	      if (x != mem)
+		push_reg_equiv_alt_mem (regno, x);
 	      if (address_reloaded)
 		*address_reloaded = i;
 	    }
@@ -4744,9 +4781,13 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	      tem = make_memloc (ad, regno);
 	      if (! strict_memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
 		{
+		  rtx orig = tem;
+
 		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					&XEXP (tem, 0), opnum,
 					ADDR_TYPE (type), ind_levels, insn);
+		  if (tem != orig)
+		    push_reg_equiv_alt_mem (regno, tem);
 		}
 	      /* We can avoid a reload if the register's equivalent memory
 		 expression is valid as an indirect memory address.
@@ -5501,12 +5542,18 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	/* Require index register (or constant).  Let's just handle the
 	   register case in the meantime... If the target allows
 	   auto-modify by a constant then we could try replacing a pseudo
-	   register with its equivalent constant where applicable.  */
+	   register with its equivalent constant where applicable.
+
+	   If we later decide to reload the whole PRE_MODIFY or
+	   POST_MODIFY, inc_for_reload might clobber the reload register
+	   before reading the index.  The index register might therefore
+	   need to live longer than a TYPE reload normally would, so be
+	   conservative and class it as RELOAD_OTHER.  */
 	if (REG_P (XEXP (op1, 1)))
 	  if (!REGNO_OK_FOR_INDEX_P (REGNO (XEXP (op1, 1))))
 	    find_reloads_address_1 (mode, XEXP (op1, 1), 1, code, SCRATCH,
-				    &XEXP (op1, 1), opnum, type, ind_levels,
-				    insn);
+				    &XEXP (op1, 1), opnum, RELOAD_OTHER,
+				    ind_levels, insn);
 
 	gcc_assert (REG_P (XEXP (op1, 0)));
 
@@ -5528,6 +5575,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    if (reg_equiv_address[regno]
 		|| ! rtx_equal_p (tem, reg_equiv_mem[regno]))
 	      {
+		rtx orig = tem;
+
 		/* First reload the memory location's address.
 		    We can't use ADDR_TYPE (type) here, because we need to
 		    write back the value after reading it, hence we actually
@@ -5536,6 +5585,9 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 				      &XEXP (tem, 0), opnum,
 				      RELOAD_OTHER,
 				      ind_levels, insn);
+
+		if (tem != orig)
+		  push_reg_equiv_alt_mem (regno, tem);
 
 		/* Then reload the memory location into a base
 		   register.  */
@@ -5592,6 +5644,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      if (reg_equiv_address[regno]
 		  || ! rtx_equal_p (tem, reg_equiv_mem[regno]))
 		{
+		  rtx orig = tem;
+
 		  /* First reload the memory location's address.
 		     We can't use ADDR_TYPE (type) here, because we need to
 		     write back the value after reading it, hence we actually
@@ -5599,6 +5653,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					&XEXP (tem, 0), opnum, type,
 					ind_levels, insn);
+		  if (tem != orig)
+		    push_reg_equiv_alt_mem (regno, tem);
 		  /* Put this inside a new increment-expression.  */
 		  x = gen_rtx_fmt_e (GET_CODE (x), GET_MODE (x), tem);
 		  /* Proceed to reload that, as if it contained a register.  */
@@ -5789,6 +5845,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		find_reloads_address (GET_MODE (x), &x, XEXP (x, 0),
 				      &XEXP (x, 0), opnum, ADDR_TYPE (type),
 				      ind_levels, insn);
+		if (x != tem)
+		  push_reg_equiv_alt_mem (regno, x);
 	      }
 	  }
 
@@ -5976,6 +6034,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      unsigned outer_size = GET_MODE_SIZE (GET_MODE (x));
 	      unsigned inner_size = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
 	      int offset;
+	      rtx orig = tem;
 
 	      /* For big-endian paradoxical subregs, SUBREG_BYTE does not
 		 hold the correct (negative) byte offset.  */
@@ -6011,6 +6070,9 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 				    &XEXP (tem, 0), opnum, type,
 				    ind_levels, insn);
+	      /* ??? Do we need to handle nonzero offsets somehow?  */
+	      if (!offset && tem != orig)
+		push_reg_equiv_alt_mem (regno, tem);
 
 	      /* If this is not a toplevel operand, find_reloads doesn't see
 		 this substitution.  We have to emit a USE of the pseudo so
@@ -6320,7 +6382,7 @@ refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
-			     ? hard_regno_nregs[inner_regno][GET_MODE (x)] : 1);
+			     ? subreg_nregs (x) : 1);
 
 	  return endregno > inner_regno && regno < inner_endregno;
 	}
@@ -6418,6 +6480,10 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 				      GET_MODE (SUBREG_REG (x)),
 				      SUBREG_BYTE (x),
 				      GET_MODE (x));
+      endregno = regno + (regno < FIRST_PSEUDO_REGISTER
+			  ? subreg_nregs (x) : 1);
+
+      return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }
   else if (REG_P (x))
     {
@@ -6433,6 +6499,10 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	  gcc_assert (reg_equiv_constant[regno]);
 	  return 0;
 	}
+
+      endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
+
+      return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }
   else if (MEM_P (x))
     return refers_to_mem_for_reload_p (in);
@@ -6459,10 +6529,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
     }
 
-  endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
-
-  return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
+  gcc_unreachable ();
 }
 
 /* Return nonzero if anything in X contains a MEM.  Look also for pseudo

@@ -403,7 +403,12 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       break;
 
     case TEMPLATE_TYPE_PARM:
-      p_msg ("invalid use of template type parameter");
+      p_msg ("invalid use of template type parameter %qT", type);
+      break;
+
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      p_msg ("invalid use of template template parameter %qT",
+            TYPE_NAME (type));
       break;
 
     case TYPENAME_TYPE:
@@ -728,6 +733,15 @@ digest_init (tree type, tree init)
 
 	  return error_mark_node;
 	}
+
+      if (TREE_CODE (type) == ARRAY_TYPE
+	  && TREE_CODE (init) != CONSTRUCTOR)
+	{
+	  error ("array must be initialized with a brace-enclosed"
+		 " initializer");
+	  return error_mark_node;
+	}
+
       return convert_for_initialization (NULL_TREE, type, init,
 					 LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING,
 					 "initialization", NULL_TREE, 0);
@@ -786,8 +800,8 @@ process_init_constructor_array (tree type, tree init)
     /* Vectors are like simple fixed-size arrays.  */
     len = TYPE_VECTOR_SUBPARTS (type);
 
-  /* There cannot be more initializers than needed (or reshape_init would
-     detect this before we do.  */
+  /* There cannot be more initializers than needed as otherwise
+     reshape_init would have already rejected the initializer.  */
   if (!unbounded)
     gcc_assert (VEC_length (constructor_elt, v) <= len);
 
@@ -797,7 +811,10 @@ process_init_constructor_array (tree type, tree init)
 	{
 	  gcc_assert (TREE_CODE (ce->index) == INTEGER_CST);
 	  if (compare_tree_int (ce->index, i) != 0)
-	    sorry ("non-trivial designated initializers not supported");
+	    {
+	      ce->value = error_mark_node;
+	      sorry ("non-trivial designated initializers not supported");
+	    }
 	}
       else
 	ce->index = size_int (i);
@@ -821,7 +838,7 @@ process_init_constructor_array (tree type, tree init)
 	if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (type)))
 	  {
 	    /* If this type needs constructors run for default-initialization,
-	      we can't rely on the backend to do it for us, so build up
+	      we can't rely on the back end to do it for us, so build up
 	      TARGET_EXPRs.  If the type in question is a class, just build
 	      one up; if it's an array, recurse.  */
 	    if (IS_AGGR_TYPE (TREE_TYPE (type)))
@@ -895,7 +912,10 @@ process_init_constructor_record (tree type, tree init)
 			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
 	      if (ce->index != field
 		  && ce->index != DECL_NAME (field))
-		sorry ("non-trivial designated initializers not supported");
+		{
+		  ce->value = error_mark_node;
+		  sorry ("non-trivial designated initializers not supported");
+		}
 	    }
 
 	  gcc_assert (ce->value);
@@ -905,7 +925,7 @@ process_init_constructor_record (tree type, tree init)
       else if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (field)))
 	{
 	  /* If this type needs constructors run for
-	     default-initialization, we can't rely on the backend to do it
+	     default-initialization, we can't rely on the back end to do it
 	     for us, so build up TARGET_EXPRs.  If the type in question is
 	     a class, just build one up; if it's an array, recurse.  */
 	  if (IS_AGGR_TYPE (TREE_TYPE (field)))
@@ -1200,7 +1220,7 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  if (datum == error_mark_node || component == error_mark_node)
+  if (error_operand_p (datum) || error_operand_p (component))
     return error_mark_node;
 
   ptrmem_type = TREE_TYPE (component);
@@ -1299,12 +1319,11 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* This must build a C cast.  */
       if (parms == NULL_TREE)
-	parms = integer_zero_node;
-      else
-	parms = build_x_compound_expr_from_list (parms, "functional cast");
+	return cp_convert (type, integer_zero_node);
 
+      /* This must build a C cast.  */
+      parms = build_x_compound_expr_from_list (parms, "functional cast");
       return build_c_cast (type, parms);
     }
 
@@ -1323,9 +1342,9 @@ build_functional_cast (tree exp, tree parms)
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
     return build_c_cast (type, TREE_VALUE (parms));
 
-  /* We need to zero-initialize POD types.  Let's do that for everything
-     that doesn't need a constructor.  */
-  if (parms == NULL_TREE && !TYPE_NEEDS_CONSTRUCTING (type)
+  /* We need to zero-initialize POD types.  */
+  if (parms == NULL_TREE 
+      && !CLASSTYPE_NON_POD_P (type)
       && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
     {
       exp = build_constructor (type, NULL);

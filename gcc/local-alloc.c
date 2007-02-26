@@ -82,6 +82,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "dbgcnt.h"
+
 
 /* Next quantity number available for allocation.  */
 
@@ -905,7 +907,7 @@ update_equiv_regs (void)
 	     REG_EQUAL note on the insn.  Since this note would be redundant,
 	     there's no point creating it earlier than here.  */
 	  if (! note && ! rtx_varies_p (src, 0))
-	    note = set_unique_reg_note (insn, REG_EQUAL, src);
+	    note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
 
 	  /* Don't bother considering a REG_EQUAL note containing an EXPR_LIST
 	     since it represents a function call */
@@ -951,9 +953,12 @@ update_equiv_regs (void)
 	  if (note == 0 && REG_BASIC_BLOCK (regno) >= 0
 	      && MEM_P (SET_SRC (set))
 	      && validate_equiv_mem (insn, dest, SET_SRC (set)))
-	    REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV, SET_SRC (set),
-							 REG_NOTES (insn));
-
+	    {
+	      REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV,
+							   copy_rtx (SET_SRC (set)),
+							   REG_NOTES (insn));
+	      df_notes_rescan (insn);
+	    }
 	  if (note)
 	    {
 	      int regno = REGNO (dest);
@@ -1059,12 +1064,13 @@ update_equiv_regs (void)
 	      && ! memref_used_between_p (dest, init_insn, insn))
 	    {
 	      REG_NOTES (init_insn)
-		= gen_rtx_EXPR_LIST (REG_EQUIV, dest,
+		= gen_rtx_EXPR_LIST (REG_EQUIV, copy_rtx (dest),
 				     REG_NOTES (init_insn));
 	      /* This insn makes the equivalence, not the one initializing
 		 the register.  */
 	      reg_equiv_init[regno]
 		= gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX);
+	      df_notes_rescan (init_insn);
 	    }
 	}
     }
@@ -1271,7 +1277,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_IN (ra_df, BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_LR_TOP (BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -1645,7 +1651,7 @@ block_alloc (int b)
 		 This optimization is only appropriate when we will run
 		 a scheduling pass after reload and we are not optimizing
 		 for code size.  */
-	      if (flag_schedule_insns_after_reload
+	      if (flag_schedule_insns_after_reload && dbg_cnt (local_alloc_for_sched)
 		  && !optimize_size
 		  && !SMALL_REGISTER_CLASSES)
 		{
@@ -1665,7 +1671,7 @@ block_alloc (int b)
 
 #ifdef INSN_SCHEDULING
 	  /* Similarly, avoid false dependencies.  */
-	  if (flag_schedule_insns_after_reload
+	  if (flag_schedule_insns_after_reload && dbg_cnt (local_alloc_for_sched)
 	      && !optimize_size
 	      && !SMALL_REGISTER_CLASSES
 	      && qty[q].alternate_class != NO_REGS)
@@ -2488,18 +2494,19 @@ rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
 
-  /* Create a new version of df that has the special version of UR.  */
-  ra_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (ra_df, 0);
-  df_urec_add_problem (ra_df, 0);
-  df_ri_add_problem (ra_df, DF_RI_LIFE | DF_RI_SETJMP);
-  df_analyze (ra_df);
+  df_ri_add_problem (DF_RI_LIFE + DF_RI_SETJMP);
+  /* There is just too much going on in the register allocators to
+     keep things up to date.  At the end we have to rescan anyway
+     because things change when the reload_completed flag is set.  
+     So we just turn off scanning and we will rescan by hand.  */
+  df_set_flags (DF_DEFER_INSN_RESCAN);
+  df_analyze ();
 
   /* If we are not optimizing, then this is the only place before
      register allocation where dataflow is done.  And that is needed
      to generate these warnings.  */
-  if (extra_warnings)
-    generate_setjmp_warnings (ra_df);
+  if (warn_clobbered)
+    generate_setjmp_warnings ();
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and
@@ -2529,8 +2536,6 @@ rest_of_handle_local_alloc (void)
 
       rebuild_jump_labels (get_insns ());
       purge_all_dead_edges ();
-      delete_unreachable_blocks ();
-
       timevar_pop (TV_JUMP);
     }
 

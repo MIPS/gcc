@@ -39,32 +39,84 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import gnu.classpath.Configuration;
 import gnu.java.awt.EmbeddedWindow;
+import gnu.java.awt.dnd.GtkMouseDragGestureRecognizer;
+import gnu.java.awt.dnd.peer.gtk.GtkDragSourceContextPeer;
 import gnu.java.awt.peer.ClasspathFontPeer;
-import gnu.java.awt.peer.ClasspathTextLayoutPeer;
 import gnu.java.awt.peer.EmbeddedWindowPeer;
 
-import java.awt.*;
+import java.awt.AWTException;
+import java.awt.Button;
+import java.awt.Canvas;
+import java.awt.Checkbox;
+import java.awt.CheckboxMenuItem;
+import java.awt.Choice;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.EventQueue;
+import java.awt.FileDialog;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Frame;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
+import java.awt.Image;
+import java.awt.Label;
+import java.awt.List;
+import java.awt.Menu;
+import java.awt.MenuBar;
+import java.awt.MenuItem;
+import java.awt.Panel;
+import java.awt.Point;
+import java.awt.PopupMenu;
+import java.awt.PrintJob;
+import java.awt.Rectangle;
+import java.awt.ScrollPane;
+import java.awt.Scrollbar;
+import java.awt.TextArea;
+import java.awt.TextField;
+import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
 import java.awt.dnd.DragGestureEvent;
+import java.awt.dnd.DragGestureListener;
+import java.awt.dnd.DragGestureRecognizer;
+import java.awt.dnd.DragSource;
+import java.awt.dnd.InvalidDnDOperationException;
 import java.awt.dnd.peer.DragSourceContextPeer;
-import java.awt.font.FontRenderContext;
 import java.awt.im.InputMethodHighlight;
-import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.DirectColorModel;
-import java.awt.image.ImageConsumer;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
-import java.awt.peer.*;
+import java.awt.peer.ButtonPeer;
+import java.awt.peer.CanvasPeer;
+import java.awt.peer.CheckboxMenuItemPeer;
+import java.awt.peer.CheckboxPeer;
+import java.awt.peer.ChoicePeer;
+import java.awt.peer.DialogPeer;
+import java.awt.peer.FileDialogPeer;
+import java.awt.peer.FontPeer;
+import java.awt.peer.FramePeer;
+import java.awt.peer.LabelPeer;
+import java.awt.peer.ListPeer;
+import java.awt.peer.MenuBarPeer;
+import java.awt.peer.MenuItemPeer;
+import java.awt.peer.MouseInfoPeer;
+import java.awt.peer.MenuPeer;
+import java.awt.peer.PanelPeer;
+import java.awt.peer.PopupMenuPeer;
+import java.awt.peer.RobotPeer;
+import java.awt.peer.ScrollPanePeer;
+import java.awt.peer.ScrollbarPeer;
+import java.awt.peer.TextAreaPeer;
+import java.awt.peer.TextFieldPeer;
+import java.awt.peer.WindowPeer;
 import java.io.InputStream;
 import java.net.URL;
-import java.text.AttributedString;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -80,37 +132,30 @@ import javax.imageio.spi.IIORegistry;
 
 public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 {
-  Hashtable containers = new Hashtable();
-  static EventQueue q;
-  static Thread mainThread;
+  private static EventQueue q;
 
   static native void gtkInit(int portableNativeSync);
+
+  static native void gtkMain();
+
+  static native void gtkQuit();
 
   static
   {
     System.loadLibrary("gtkpeer");
-
+      
     int portableNativeSync;     
     String portNatSyncProp = 
       System.getProperty("gnu.classpath.awt.gtk.portable.native.sync");
-    
+      
     if (portNatSyncProp == null)
       portableNativeSync = -1;  // unset
     else if (Boolean.valueOf(portNatSyncProp).booleanValue())
       portableNativeSync = 1;   // true
     else
       portableNativeSync = 0;   // false
-
+      
     gtkInit(portableNativeSync);
-
-    mainThread = new Thread ("GTK main thread")
-      {
-        public void run ()
-        {
-          gtkMain ();
-        }
-      };
-    mainThread.start ();
   }
 
   public GtkToolkit ()
@@ -118,6 +163,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
   }
 
   public native void beep();
+
   private native void getScreenSizeDimensions(int[] xy);
   
   public int checkImage (Image image, int width, int height, 
@@ -129,6 +175,9 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
     if (image instanceof GtkImage)
 	return ((GtkImage) image).checkImage (observer);
+
+    if (image instanceof AsyncImage)
+      return ((AsyncImage) image).checkImage(observer);
 
     if (observer != null)
       observer.imageUpdate (image, status,
@@ -143,7 +192,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    * Helper to return either a Image -- the argument -- or a
    * GtkImage with the errorLoading flag set if the argument is null.
    */
-  private Image imageOrError(Image b)
+  static Image imageOrError(Image b)
   {
     if (b == null) 
       return GtkImage.getErrorImage();
@@ -170,16 +219,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   public Image createImage (URL url)
   {
-    Image image;
-    try
-      {
-	image = CairoSurface.getBufferedImage( new GtkImage( url ) );
-      }
-    catch (IllegalArgumentException iae)
-      {
-	image = null;
-      }
-    return imageOrError(image);
+    return new AsyncImage(url);
   }
 
   public Image createImage (ImageProducer producer) 
@@ -250,7 +290,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 			   "SansSerif" });
   }
 
-  private class LRUCache extends LinkedHashMap
+  static class LRUCache extends LinkedHashMap
   {    
     int max_entries;
     public LRUCache(int max)
@@ -265,23 +305,11 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
   }
 
   private LRUCache fontCache = new LRUCache(50);
-  private LRUCache metricsCache = new LRUCache(50);
   private LRUCache imageCache = new LRUCache(50);
 
   public FontMetrics getFontMetrics (Font font) 
   {
-    synchronized (metricsCache)
-      {
-        if (metricsCache.containsKey(font))
-          return (FontMetrics) metricsCache.get(font);
-      }
-
-    FontMetrics m = new GdkFontMetrics (font);
-    synchronized (metricsCache)
-      {
-        metricsCache.put(font, m);
-      }
-    return m;
+    return ((GdkFontPeer) font.getPeer()).getFontMetrics(font);
   }
 
   public Image getImage (String filename) 
@@ -310,6 +338,11 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   public PrintJob getPrintJob (Frame frame, String jobtitle, Properties props) 
   {
+    SecurityManager sm;
+    sm = System.getSecurityManager();
+    if (sm != null)
+      sm.checkPrintJobAccess();
+
     return null;
   }
 
@@ -352,6 +385,13 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
       return ((((GtkImage)image).checkImage (observer) & 
 	       ImageObserver.ALLBITS) != 0);
 
+    if (image instanceof AsyncImage)
+      {
+        AsyncImage aImg = (AsyncImage) image;
+        aImg.addObserver(observer);
+        return aImg.realImage != null;
+      }
+
     /* Assume anything else is too */
     return true;
   }
@@ -381,106 +421,131 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   protected ButtonPeer createButton (Button b)
   {
+    checkHeadless();
     return new GtkButtonPeer (b);
   }
 
   protected CanvasPeer createCanvas (Canvas c) 
   {
+    checkHeadless();
     return new GtkCanvasPeer (c);
   }
 
   protected CheckboxPeer createCheckbox (Checkbox cb) 
   {
+    checkHeadless();
     return new GtkCheckboxPeer (cb);
   }
 
   protected CheckboxMenuItemPeer createCheckboxMenuItem (CheckboxMenuItem cmi)
   {
+    checkHeadless();
     return new GtkCheckboxMenuItemPeer (cmi);
   }
 
   protected ChoicePeer createChoice (Choice c) 
   {
+    checkHeadless();
     return new GtkChoicePeer (c);
   }
 
   protected DialogPeer createDialog (Dialog d)
   {
+    checkHeadless();
+    GtkMainThread.createWindow();
     return new GtkDialogPeer (d);
   }
 
   protected FileDialogPeer createFileDialog (FileDialog fd)
   {
+    checkHeadless();
     return new GtkFileDialogPeer (fd);
   }
 
   protected FramePeer createFrame (Frame f)
   {
+    checkHeadless();
+    GtkMainThread.createWindow();
     return new GtkFramePeer (f);
   }
 
   protected LabelPeer createLabel (Label label) 
   {
+    checkHeadless();
     return new GtkLabelPeer (label);
   }
 
   protected ListPeer createList (List list)
   {
+    checkHeadless();
     return new GtkListPeer (list);
   }
 
   protected MenuPeer createMenu (Menu m) 
   {
+    checkHeadless();
     return new GtkMenuPeer (m);
   }
 
   protected MenuBarPeer createMenuBar (MenuBar mb) 
   {
+    checkHeadless();
     return new GtkMenuBarPeer (mb);
   }
 
   protected MenuItemPeer createMenuItem (MenuItem mi) 
   {
+    checkHeadless();
     return new GtkMenuItemPeer (mi);
   }
 
   protected PanelPeer createPanel (Panel p) 
   {
+    checkHeadless();
     return new GtkPanelPeer (p);
   }
 
   protected PopupMenuPeer createPopupMenu (PopupMenu target) 
   {
+    checkHeadless();
     return new GtkPopupMenuPeer (target);
   }
 
   protected ScrollPanePeer createScrollPane (ScrollPane sp) 
   {
+    checkHeadless();
     return new GtkScrollPanePeer (sp);
   }
 
   protected ScrollbarPeer createScrollbar (Scrollbar sb) 
   {
+    checkHeadless();
     return new GtkScrollbarPeer (sb);
   }
 
   protected TextAreaPeer createTextArea (TextArea ta) 
   {
+    checkHeadless();
     return new GtkTextAreaPeer (ta);
   }
 
   protected TextFieldPeer createTextField (TextField tf) 
   {
+    checkHeadless();
     return new GtkTextFieldPeer (tf);
   }
 
   protected WindowPeer createWindow (Window w)
   {
+    checkHeadless();
+    GtkMainThread.createWindow();
     return new GtkWindowPeer (w);
   }
 
   public EmbeddedWindowPeer createEmbeddedWindow (EmbeddedWindow w)
   {
+    checkHeadless();
+    GtkMainThread.createWindow();
     return new GtkEmbeddedWindowPeer (w);
   }
 
@@ -528,12 +593,6 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
       }
   }
 
-  public ClasspathTextLayoutPeer getClasspathTextLayoutPeer (AttributedString str, 
-                                                             FontRenderContext frc)
-  {
-    return new GdkTextLayout(str, frc);
-  }
-
   protected EventQueue getSystemEventQueueImpl() 
   {
     synchronized (GtkToolkit.class)
@@ -555,7 +614,29 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
 
   public DragSourceContextPeer createDragSourceContextPeer(DragGestureEvent e)
   {
-    throw new Error("not implemented");
+    if (GraphicsEnvironment.isHeadless())
+      throw new InvalidDnDOperationException();
+    return new GtkDragSourceContextPeer(e);
+  }
+  
+  public DragGestureRecognizer createDragGestureRecognizer(Class recognizer,
+                                                           DragSource ds,
+                                                           Component comp,
+                                                           int actions,
+                                                           DragGestureListener l)
+  {
+    if (recognizer.getName().equals("java.awt.dnd.MouseDragGestureRecognizer")
+        && ! GraphicsEnvironment.isHeadless())
+      {
+        GtkMouseDragGestureRecognizer gestureRecognizer
+          = new GtkMouseDragGestureRecognizer(ds, comp, actions, l);
+        gestureRecognizer.registerListeners();
+        return gestureRecognizer;
+      }
+    else
+      {
+        return null;
+      }
   }
 
   public Map mapInputMethodHighlight(InputMethodHighlight highlight)
@@ -592,5 +673,25 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
     GdkPixbufDecoder.registerSpis(reg);
   }
 
-  public static native void gtkMain();
+  protected MouseInfoPeer getMouseInfoPeer()
+  {
+    return new GtkMouseInfoPeer();
+  }
+
+  public boolean isFrameStateSupported(int state)
+  {
+    // GTK supports ICONFIED, NORMAL and MAXIMIZE_BOTH, but
+    // not (yet?) MAXIMIZE_VERT and MAXIMIZE_HORIZ.
+    return state == Frame.NORMAL || state == Frame.ICONIFIED
+           || state == Frame.MAXIMIZED_BOTH;
+  }
+
+  private void checkHeadless()
+  {
+    if (GraphicsEnvironment.isHeadless())
+      throw new HeadlessException();
+  }
+
+  public native int getMouseNumberOfButtons();
+
 } // class GtkToolkit

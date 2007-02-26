@@ -44,7 +44,6 @@ exception statement from your version. */
 #include <X11/Xatom.h>
 #include <gdk/gdkkeysyms.h>
 
-#define AWT_WINDOW_OPENED 200
 #define AWT_WINDOW_CLOSING 201
 #define AWT_WINDOW_CLOSED 202
 #define AWT_WINDOW_ICONIFIED 203
@@ -54,6 +53,10 @@ exception statement from your version. */
 #define AWT_WINDOW_GAINED_FOCUS 207
 #define AWT_WINDOW_LOST_FOCUS 208
 #define AWT_WINDOW_STATE_CHANGED 209
+
+#define AWT_FRAME_NORMAL 0
+#define AWT_FRAME_ICONIFIED 1
+#define AWT_FRAME_MAXIMIZED_BOTH 6
 
 /* Virtual Keys */
 /* This list should be kept in the same order as the VK_ field
@@ -246,7 +249,11 @@ exception statement from your version. */
 #define VK_COMPOSE 65312
 #define VK_ALT_GRAPH 65406
 #define VK_UNDEFINED 0
+#define VK_BEGIN 65368
+#define VK_CONTEXT_MENU 525
+#define VK_WINDOWS 524
 
+ 
 #define AWT_KEY_CHAR_UNDEFINED 0
 
 #define AWT_FRAME_STATE_NORMAL 0
@@ -721,14 +728,28 @@ keysym_to_awt_keycode (GdkEventKey *event)
       return VK_CUT;
       return VK_COPY;
       return VK_PASTE;
+      */
+    case GDK_Undo:
       return VK_UNDO;
+    case GDK_Redo:
       return VK_AGAIN;
+      /*
       return VK_FIND;
       return VK_PROPS;
       return VK_STOP;
       return VK_COMPOSE;
-      return VK_ALT_GRAPH;
       */
+    case GDK_ISO_Level3_Shift:
+      return VK_ALT_GRAPH;
+      /*
+	case VK_BEGIN:
+      */
+    case GDK_Menu:
+      return VK_CONTEXT_MENU;
+    case GDK_Super_L:
+    case GDK_Super_R:
+      return VK_WINDOWS;
+
     default:
       return VK_UNDEFINED;
     }
@@ -1028,7 +1049,6 @@ static gboolean window_delete_cb (GtkWidget *widget, GdkEvent *event,
 			      jobject peer);
 static void window_destroy_cb (GtkWidget *widget, GdkEvent *event,
 			       jobject peer);
-static void window_show_cb (GtkWidget *widget, jobject peer);
 static void window_focus_state_change_cb (GtkWidget *widget,
                                           GParamSpec *pspec,
                                           jobject peer);
@@ -1227,6 +1247,38 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetModal
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetAlwaysOnTop
+  (JNIEnv *env, jobject obj, jboolean alwaysOnTop)
+{
+  void *ptr;
+
+  gdk_threads_enter ();
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gtk_window_set_keep_above (GTK_WINDOW (ptr), alwaysOnTop);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT jboolean JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowHasFocus
+(JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  jboolean retval;
+
+  gdk_threads_enter ();
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  retval = gtk_window_has_toplevel_focus (GTK_WINDOW (ptr));
+
+  gdk_threads_leave ();
+  return retval;
+}
+
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_setVisibleNative
   (JNIEnv *env, jobject obj, jboolean visible)
 {
@@ -1271,9 +1323,6 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
 
   g_signal_connect (G_OBJECT (ptr), "destroy-event",
 		    G_CALLBACK (window_destroy_cb), *gref);
-
-  g_signal_connect (G_OBJECT (ptr), "show",
-		    G_CALLBACK (window_show_cb), *gref);
 
   g_signal_connect (G_OBJECT (ptr), "notify::has-toplevel-focus",
   		    G_CALLBACK (window_focus_state_change_cb), *gref);
@@ -1611,16 +1660,6 @@ window_destroy_cb (GtkWidget *widget __attribute__((unused)),
 }
 
 static void
-window_show_cb (GtkWidget *widget __attribute__((unused)),
-		jobject peer)
-{
-  (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
-			      postWindowEventID,
-			      (jint) AWT_WINDOW_OPENED,
-			      (jobject) NULL, (jint) 0);
-}
-
-static void
 window_focus_state_change_cb (GtkWidget *widget,
 			      GParamSpec *pspec __attribute__((unused)),
 			      jobject peer)
@@ -1668,41 +1707,24 @@ window_window_state_cb (GtkWidget *widget __attribute__((unused)),
 			GdkEvent *event,
 			jobject peer)
 {
-  jint new_state;
-
-  /* Handle WINDOW_ICONIFIED and WINDOW_DEICONIFIED events. */
-  if (event->window_state.changed_mask & GDK_WINDOW_STATE_ICONIFIED)
-    {
-      /* We've either been iconified or deiconified. */
-      if (event->window_state.new_window_state & GDK_WINDOW_STATE_ICONIFIED)
-	{
-	  /* We've been iconified. */
-	  (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
-				      postWindowEventID,
-				      (jint) AWT_WINDOW_ICONIFIED,
-				      (jobject) NULL, (jint) 0);
-	}
-      else
-	{
-	  /* We've been deiconified. */
-	  (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
-				      postWindowEventID,
-				      (jint) AWT_WINDOW_DEICONIFIED,
-				      (jobject) NULL, (jint) 0);
-	}
-    }
-
-  /* Post a WINDOW_STATE_CHANGED event, passing the new frame state to
-     GtkWindowPeer. */
-  new_state = AWT_FRAME_STATE_NORMAL;
-
-  if (event->window_state.new_window_state & GDK_WINDOW_STATE_ICONIFIED)
-    new_state |= AWT_FRAME_STATE_ICONIFIED;
+  jint new_java_state = 0;
+  /* Put together the new state and let the java side figure out what
+   * to post */
+  GdkWindowState new_state = event->window_state.new_window_state;
+  /* The window can be either iconfified, maximized, iconified + maximized
+   * or normal. */
+  if ((new_state & GDK_WINDOW_STATE_ICONIFIED) != 0)
+    new_java_state |= AWT_FRAME_ICONIFIED;
+  if ((new_state & GDK_WINDOW_STATE_MAXIMIZED) != 0)
+    new_java_state |= AWT_FRAME_MAXIMIZED_BOTH;
+  if ((new_state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_ICONIFIED))
+      == 0)
+    new_java_state = AWT_FRAME_NORMAL;
 
   (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_STATE_CHANGED,
-			      (jobject) NULL, new_state);
+			      (jobject) NULL, new_java_state);
 
   return TRUE;
 }
@@ -2115,14 +2137,27 @@ cp_gtk_awt_keycode_to_keysym (jint keyCode, jint keyLocation)
     case VK_CUT:
     case VK_COPY:
     case VK_PASTE:
+      */
     case VK_UNDO:
+      return GDK_Undo;
     case VK_AGAIN:
+      return GDK_Redo;
+      /*
     case VK_FIND:
     case VK_PROPS:
     case VK_STOP:
     case VK_COMPOSE:
-    case VK_ALT_GRAPH:
       */
+    case VK_ALT_GRAPH:
+      return GDK_ISO_Level3_Shift;
+      /*
+	case VK_BEGIN:
+      */
+    case VK_CONTEXT_MENU:
+      return GDK_Menu;
+    case VK_WINDOWS:
+      return GDK_Super_R;
+
     default:
       return GDK_VoidSymbol;
     }

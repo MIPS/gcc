@@ -38,26 +38,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
 
-/* The loop tree currently optimized.  */
-
-struct loops *current_loops = NULL;
-
 /* Initializes the loop structures.  */
 
-static struct loops *
+static void
 tree_loop_optimizer_init (void)
 {
-  struct loops *loops;
- 
-  loops = loop_optimizer_init (LOOPS_NORMAL
-			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
-
-  if (!loops)
-    return NULL;
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (!current_loops)
+    return;
 
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
-
-  return loops;
 }
 
 /* The loop superpass.  */
@@ -90,11 +81,11 @@ struct tree_opt_pass pass_tree_loop =
 static unsigned int
 tree_ssa_loop_init (void)
 {
-  current_loops = tree_loop_optimizer_init ();
+  tree_loop_optimizer_init ();
   if (!current_loops)
     return 0;
 
-  scev_initialize (current_loops);
+  scev_initialize ();
   return 0;
 }
   
@@ -123,7 +114,7 @@ tree_ssa_loop_im (void)
   if (!current_loops)
     return 0;
 
-  tree_ssa_lim (current_loops);
+  tree_ssa_lim ();
   return 0;
 }
 
@@ -158,8 +149,7 @@ tree_ssa_loop_unswitch (void)
   if (!current_loops)
     return 0;
 
-  tree_ssa_unswitch_loops (current_loops);
-  return 0;
+  return tree_ssa_unswitch_loops ();
 }
 
 static bool
@@ -190,8 +180,7 @@ struct tree_opt_pass pass_tree_unswitch =
 static unsigned int
 tree_vectorize (void)
 {
-  vectorize_loops (current_loops);
-  return 0;
+  return vectorize_loops ();
 }
 
 static bool
@@ -225,7 +214,7 @@ tree_linear_transform (void)
   if (!current_loops)
     return 0;
 
-  linear_transform_loops (current_loops);
+  linear_transform_loops ();
   return 0;
 }
 
@@ -260,8 +249,7 @@ tree_ssa_loop_ivcanon (void)
   if (!current_loops)
     return 0;
 
-  canonicalize_induction_variables (current_loops);
-  return 0;
+  return canonicalize_induction_variables ();
 }
 
 static bool
@@ -292,7 +280,7 @@ struct tree_opt_pass pass_iv_canon =
 static bool
 gate_scev_const_prop (void)
 {
-  return true;
+  return flag_tree_scev_cprop;
 }
 
 struct tree_opt_pass pass_scev_cprop =
@@ -322,8 +310,7 @@ tree_ssa_empty_loop (void)
   if (!current_loops)
     return 0;
 
-  remove_empty_loops (current_loops);
-  return 0;
+  return remove_empty_loops ();
 }
 
 struct tree_opt_pass pass_empty_loop =
@@ -351,7 +338,7 @@ tree_ssa_loop_bounds (void)
   if (!current_loops)
     return 0;
 
-  estimate_numbers_of_iterations (current_loops);
+  estimate_numbers_of_iterations ();
   scev_reset ();
   return 0;
 }
@@ -381,11 +368,9 @@ tree_complete_unroll (void)
   if (!current_loops)
     return 0;
 
-  tree_unroll_loops_completely (current_loops,
-				flag_unroll_loops
-				|| flag_peel_loops
-				|| optimize >= 3);
-  return 0;
+  return tree_unroll_loops_completely (flag_unroll_loops
+				       || flag_peel_loops
+				       || optimize >= 3);
 }
 
 static bool
@@ -419,8 +404,7 @@ tree_ssa_loop_prefetch (void)
   if (!current_loops)
     return 0;
 
-  tree_ssa_prefetch_arrays (current_loops);
-  return 0;
+  return tree_ssa_prefetch_arrays ();
 }
 
 static bool
@@ -431,7 +415,7 @@ gate_tree_ssa_loop_prefetch (void)
 
 struct tree_opt_pass pass_loop_prefetch =
 {
-  "prefetch",				/* name */
+  "aprefetch",				/* name */
   gate_tree_ssa_loop_prefetch,		/* gate */
   tree_ssa_loop_prefetch,	       	/* execute */
   NULL,					/* sub */
@@ -454,7 +438,7 @@ tree_ssa_loop_ivopts (void)
   if (!current_loops)
     return 0;
 
-  tree_ssa_iv_optimize (current_loops);
+  tree_ssa_iv_optimize ();
   return 0;
 }
 
@@ -491,10 +475,9 @@ tree_ssa_loop_done (void)
   if (!current_loops)
     return 0;
 
-  free_numbers_of_iterations_estimates (current_loops);
+  free_numbers_of_iterations_estimates ();
   scev_finalize ();
-  loop_optimizer_finalize (current_loops);
-  current_loops = NULL;
+  loop_optimizer_finalize ();
   return 0;
 }
   

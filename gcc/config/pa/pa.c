@@ -512,6 +512,12 @@ pa_init_builtins (void)
   implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED]
     = implicit_built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
 #endif
+#if TARGET_HPUX_11
+  if (built_in_decls [BUILT_IN_FINITE])
+    set_user_assembler_name (built_in_decls [BUILT_IN_FINITE], "_Isfinite");
+  if (built_in_decls [BUILT_IN_FINITEF])
+    set_user_assembler_name (built_in_decls [BUILT_IN_FINITEF], "_Isfinitef");
+#endif
 }
 
 /* Function to init struct machine_function.
@@ -662,7 +668,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       insn = emit_move_insn (reg, pic_ref);
 
       /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, orig);
 
       return reg;
     }
@@ -1893,6 +1899,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	     because PLUS uses an 11-bit immediate and the insn sequence
 	     generated is not as efficient as the one using HIGH/LO_SUM.  */
 	  if (GET_CODE (operand1) == CONST_INT
+	      && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD
 	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	      && !insert)
 	    {
@@ -1977,8 +1984,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 		}
 	    }
 
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUAL, op1, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUAL, op1);
 
 	  return 1;
 	}
@@ -2337,12 +2343,11 @@ output_move_double (rtx *operands)
       else if (GET_CODE (addr) == PLUS
 	       && GET_CODE (XEXP (addr, 0)) == MULT)
 	{
+	  rtx xoperands[4];
 	  rtx high_reg = gen_rtx_SUBREG (SImode, operands[0], 0);
 
 	  if (!reg_overlap_mentioned_p (high_reg, addr))
 	    {
-	      rtx xoperands[3];
-
 	      xoperands[0] = high_reg;
 	      xoperands[1] = XEXP (addr, 1);
 	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
@@ -2353,8 +2358,6 @@ output_move_double (rtx *operands)
 	    }
 	  else
 	    {
-	      rtx xoperands[3];
-
 	      xoperands[0] = high_reg;
 	      xoperands[1] = XEXP (addr, 1);
 	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
@@ -3448,13 +3451,13 @@ compute_frame_size (HOST_WIDE_INT size, int *fregs_live)
 
   /* Account for space used by the callee general register saves.  */
   for (i = 18, j = frame_pointer_needed ? 4 : 3; i >= j; i--)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       size += UNITS_PER_WORD;
 
   /* Account for space used by the callee floating point register saves.  */
   for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
-    if (regs_ever_live[i]
-	|| (!TARGET_64BIT && regs_ever_live[i + 1]))
+    if (df_regs_ever_live_p (i)
+	|| (!TARGET_64BIT && df_regs_ever_live_p (i + 1)))
       {
 	freg_saved = 1;
 
@@ -3519,7 +3522,7 @@ pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
      to output the assembler directives which denote the start
      of a function.  */
   fprintf (file, "\t.CALLINFO FRAME=" HOST_WIDE_INT_PRINT_DEC, actual_fsize);
-  if (regs_ever_live[2])
+  if (df_regs_ever_live_p (2))
     fputs (",CALLS,SAVE_RP", file);
   else
     fputs (",NO_CALLS", file);
@@ -3583,7 +3586,7 @@ hppa_expand_prologue (void)
   /* Save RP first.  The calling conventions manual states RP will
      always be stored into the caller's frame at sp - 20 or sp - 16
      depending on which ABI is in use.  */
-  if (regs_ever_live[2] || current_function_calls_eh_return)
+  if (df_regs_ever_live_p (2) || current_function_calls_eh_return)
     store_reg (2, TARGET_64BIT ? -16 : -20, STACK_POINTER_REGNUM);
 
   /* Allocate the local frame and set up the frame pointer if needed.  */
@@ -3694,7 +3697,7 @@ hppa_expand_prologue (void)
 	}
 
       for (i = 18; i >= 4; i--)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    store_reg (i, offset, FRAME_POINTER_REGNUM);
 	    offset += UNITS_PER_WORD;
@@ -3734,7 +3737,7 @@ hppa_expand_prologue (void)
 	}
 
       for (i = 18; i >= 3; i--)
-      	if (regs_ever_live[i] && ! call_used_regs[i])
+      	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    /* If merge_sp_adjust_with_store is nonzero, then we can
 	       optimize the first GR save.  */
@@ -3797,8 +3800,8 @@ hppa_expand_prologue (void)
       /* Now actually save the FP registers.  */
       for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
 	{
-	  if (regs_ever_live[i]
-	      || (! TARGET_64BIT && regs_ever_live[i + 1]))
+	  if (df_regs_ever_live_p (i)
+	      || (! TARGET_64BIT && df_regs_ever_live_p (i + 1)))
 	    {
 	      rtx addr, insn, reg;
 	      addr = gen_rtx_MEM (DFmode, gen_rtx_POST_INC (DFmode, tmpreg));
@@ -3986,7 +3989,7 @@ hppa_expand_epilogue (void)
   /* Try to restore RP early to avoid load/use interlocks when
      RP gets used in the return (bv) instruction.  This appears to still
      be necessary even when we schedule the prologue and epilogue.  */
-  if (regs_ever_live [2] || current_function_calls_eh_return)
+  if (df_regs_ever_live_p (2) || current_function_calls_eh_return)
     {
       ret_off = TARGET_64BIT ? -16 : -20;
       if (frame_pointer_needed)
@@ -4028,7 +4031,7 @@ hppa_expand_epilogue (void)
 	}
 
       for (i = 18; i >= 4; i--)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    load_reg (i, offset, FRAME_POINTER_REGNUM);
 	    offset += UNITS_PER_WORD;
@@ -4065,7 +4068,7 @@ hppa_expand_epilogue (void)
 
       for (i = 18; i >= 3; i--)
 	{
-	  if (regs_ever_live[i] && ! call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	    {
 	      /* Only for the first load.
 	         merge_sp_adjust_with_load holds the register load
@@ -4095,8 +4098,8 @@ hppa_expand_epilogue (void)
 
       /* Actually do the restores now.  */
       for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
-	if (regs_ever_live[i]
-	    || (! TARGET_64BIT && regs_ever_live[i + 1]))
+	if (df_regs_ever_live_p (i)
+	    || (! TARGET_64BIT && df_regs_ever_live_p (i + 1)))
 	  {
 	    rtx src = gen_rtx_MEM (DFmode, gen_rtx_POST_INC (DFmode, tmpreg));
 	    rtx dest = gen_rtx_REG (DFmode, i);
@@ -4158,9 +4161,6 @@ hppa_pic_save_rtx (void)
 #define NO_DEFERRED_PROFILE_COUNTERS 0
 #endif
 
-/* Define heap vector type for funcdef numbers.  */
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* Vector of funcdef numbers.  */
 static VEC(int,heap) *funcdef_nos;
@@ -4337,8 +4337,10 @@ return_addr_rtx (int count, rtx frameaddr)
 		 GEN_INT (0x00011820), NE, NULL_RTX, SImode, 1);
   emit_jump_insn (gen_bne (label));
 
+  /* 0xe0400002 must be specified as -532676606 so that it won't be
+     rejected as an invalid immediate operand on 64-bit hosts.  */
   emit_cmp_insn (gen_rtx_MEM (SImode, plus_constant (ins, 12)),
-		 GEN_INT (0xe0400002), NE, NULL_RTX, SImode, 1);
+		 GEN_INT (-532676606), NE, NULL_RTX, SImode, 1);
 
   /* If there is no export stub then just use the value saved from
      the return pointer register.  */
@@ -4372,7 +4374,7 @@ hppa_can_use_return_insn_p (void)
 {
   return (reload_completed
 	  && (compute_frame_size (get_frame_size (), 0) ? 0 : 1)
-	  && ! regs_ever_live[2]
+	  && ! df_regs_ever_live_p (2)
 	  && ! frame_pointer_needed);
 }
 
@@ -6216,7 +6218,7 @@ output_lbranch (rtx dest, rtx insn, int xdelay)
      for other purposes.  */
   if (TARGET_64BIT)
     {
-      if (actual_fsize == 0 && !regs_ever_live[2])
+      if (actual_fsize == 0 && !df_regs_ever_live_p (2))
 	/* Use the return pointer slot in the frame marker.  */
 	output_asm_insn ("std %%r1,-16(%%r30)", xoperands);
       else
@@ -6226,7 +6228,7 @@ output_lbranch (rtx dest, rtx insn, int xdelay)
     }
   else
     {
-      if (actual_fsize == 0 && !regs_ever_live[2])
+      if (actual_fsize == 0 && !df_regs_ever_live_p (2))
 	/* Use the return pointer slot in the frame marker.  */
 	output_asm_insn ("stw %%r1,-20(%%r30)", xoperands);
       else
@@ -6270,14 +6272,14 @@ output_lbranch (rtx dest, rtx insn, int xdelay)
   /* Now restore the value of %r1 in the delay slot.  */
   if (TARGET_64BIT)
     {
-      if (actual_fsize == 0 && !regs_ever_live[2])
+      if (actual_fsize == 0 && !df_regs_ever_live_p (2))
 	return "ldd -16(%%r30),%%r1";
       else
 	return "ldd -40(%%r30),%%r1";
     }
   else
     {
-      if (actual_fsize == 0 && !regs_ever_live[2])
+      if (actual_fsize == 0 && !df_regs_ever_live_p (2))
 	return "ldw -20(%%r30),%%r1";
       else
 	return "ldw -12(%%r30),%%r1";

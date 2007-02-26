@@ -60,12 +60,12 @@ enum processor_type mn10300_processor = PROCESSOR_DEFAULT;
 /* The size of the callee register save area.  Right now we save everything
    on entry since it costs us nothing in code size.  It does cost us from a
    speed standpoint, so we want to optimize this sooner or later.  */
-#define REG_SAVE_BYTES (4 * regs_ever_live[2] \
-			+ 4 * regs_ever_live[3] \
-		        + 4 * regs_ever_live[6] \
-			+ 4 * regs_ever_live[7] \
-			+ 16 * (regs_ever_live[14] || regs_ever_live[15] \
-				|| regs_ever_live[16] || regs_ever_live[17]))
+#define REG_SAVE_BYTES (4 * df_regs_ever_live_p (2)	\
+			+ 4 * df_regs_ever_live_p (3)	\
+		        + 4 * df_regs_ever_live_p (6)	\
+			+ 4 * df_regs_ever_live_p (7)			\
+			+ 16 * (df_regs_ever_live_p (14) || df_regs_ever_live_p (15) \
+				|| df_regs_ever_live_p (16) || df_regs_ever_live_p (17)))
 
 
 static bool mn10300_handle_option (size_t, const char *, int);
@@ -537,7 +537,7 @@ fp_regs_to_save (void)
     return 0;
 
   for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-    if (regs_ever_live[i] && ! call_used_regs[i])
+    if (df_regs_ever_live_p (i) && ! call_used_regs[i])
       ++n;
 
   return n;
@@ -546,7 +546,7 @@ fp_regs_to_save (void)
 /* Print a set of registers in the format required by "movm" and "ret".
    Register K is saved if bit K of MASK is set.  The data and address
    registers can be stored individually, but the extended registers cannot.
-   We assume that the mask alread takes that into account.  For instance,
+   We assume that the mask already takes that into account.  For instance,
    bits 14 to 17 must have the same value.  */
 
 void
@@ -590,14 +590,14 @@ can_use_return_insn (void)
 
   return (reload_completed
 	  && size == 0
-	  && !regs_ever_live[2]
-	  && !regs_ever_live[3]
-	  && !regs_ever_live[6]
-	  && !regs_ever_live[7]
-	  && !regs_ever_live[14]
-	  && !regs_ever_live[15]
-	  && !regs_ever_live[16]
-	  && !regs_ever_live[17]
+	  && !df_regs_ever_live_p (2)
+	  && !df_regs_ever_live_p (3)
+	  && !df_regs_ever_live_p (6)
+	  && !df_regs_ever_live_p (7)
+	  && !df_regs_ever_live_p (14)
+	  && !df_regs_ever_live_p (15)
+	  && !df_regs_ever_live_p (16)
+	  && !df_regs_ever_live_p (17)
 	  && fp_regs_to_save () == 0
 	  && !frame_pointer_needed);
 }
@@ -614,7 +614,7 @@ mn10300_get_live_callee_saved_regs (void)
 
   mask = 0;
   for (i = 0; i <= LAST_EXTENDED_REGNUM; i++)
-    if (regs_ever_live[i] && ! call_used_regs[i])
+    if (df_regs_ever_live_p (i) && ! call_used_regs[i])
       mask |= (1 << i);
   if ((mask & 0x3c000) != 0)
     mask |= 0x3c000;
@@ -907,7 +907,7 @@ expand_prologue (void)
       
       /* Now actually save the FP registers.  */
       for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    rtx addr;
 
@@ -944,7 +944,7 @@ expand_prologue (void)
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
 			   GEN_INT (-size)));
-  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+  if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
     {
       rtx insn = get_last_insn ();
       rtx last = emit_insn (gen_GOTaddr2picreg ());
@@ -1127,7 +1127,7 @@ expand_epilogue (void)
 	reg = gen_rtx_POST_INC (SImode, reg);
 
       for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; ++i)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  {
 	    rtx addr;
 	    
@@ -1189,10 +1189,10 @@ expand_epilogue (void)
     }
 
   /* Adjust the stack and restore callee-saved registers, if any.  */
-  if (size || regs_ever_live[2] || regs_ever_live[3]
-      || regs_ever_live[6] || regs_ever_live[7]
-      || regs_ever_live[14] || regs_ever_live[15]
-      || regs_ever_live[16] || regs_ever_live[17]
+  if (size || df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+      || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+      || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+      || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
       || frame_pointer_needed)
     emit_jump_insn (gen_return_internal_regs
 		    (GEN_INT (size + REG_SAVE_BYTES)));
@@ -1400,10 +1400,10 @@ initial_offset (int from, int to)
      is the size of the callee register save area.  */
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     {
-      if (regs_ever_live[2] || regs_ever_live[3]
-	  || regs_ever_live[6] || regs_ever_live[7]
-	  || regs_ever_live[14] || regs_ever_live[15]
-	  || regs_ever_live[16] || regs_ever_live[17]
+      if (df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+	  || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+	  || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+	  || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
 	  || fp_regs_to_save ()
 	  || frame_pointer_needed)
 	return REG_SAVE_BYTES
@@ -1417,10 +1417,10 @@ initial_offset (int from, int to)
      area, and the fixed stack space needed for function calls (if any).  */
   if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     {
-      if (regs_ever_live[2] || regs_ever_live[3]
-	  || regs_ever_live[6] || regs_ever_live[7]
-	  || regs_ever_live[14] || regs_ever_live[15]
-	  || regs_ever_live[16] || regs_ever_live[17]
+      if (df_regs_ever_live_p (2) || df_regs_ever_live_p (3)
+	  || df_regs_ever_live_p (6) || df_regs_ever_live_p (7)
+	  || df_regs_ever_live_p (14) || df_regs_ever_live_p (15)
+	  || df_regs_ever_live_p (16) || df_regs_ever_live_p (17)
 	  || fp_regs_to_save ()
 	  || frame_pointer_needed)
 	return (get_frame_size () + REG_SAVE_BYTES

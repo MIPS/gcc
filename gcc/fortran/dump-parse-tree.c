@@ -1,5 +1,6 @@
 /* Parse tree dumper
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -37,15 +38,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Keep track of indentation for symbol tree dumps.  */
 static int show_level = 0;
 
-
-/* Forward declaration because this one needs all, and all need
-   this one.  */
-static void gfc_show_expr (gfc_expr *);
-
 /* Do indentation for a specific level.  */
 
 static inline void
-code_indent (int level, gfc_st_label * label)
+code_indent (int level, gfc_st_label *label)
 {
   int i;
 
@@ -72,10 +68,9 @@ show_indent (void)
 
 /* Show type-specific information.  */
 
-static void
-gfc_show_typespec (gfc_typespec * ts)
+void
+gfc_show_typespec (gfc_typespec *ts)
 {
-
   gfc_status ("(%s ", gfc_basic_typename (ts->type));
 
   switch (ts->type)
@@ -99,10 +94,9 @@ gfc_show_typespec (gfc_typespec * ts)
 
 /* Show an actual argument list.  */
 
-static void
-gfc_show_actual_arglist (gfc_actual_arglist * a)
+void
+gfc_show_actual_arglist (gfc_actual_arglist *a)
 {
-
   gfc_status ("(");
 
   for (; a; a = a->next)
@@ -126,8 +120,8 @@ gfc_show_actual_arglist (gfc_actual_arglist * a)
 
 /* Show a gfc_array_spec array specification structure.  */
 
-static void
-gfc_show_array_spec (gfc_array_spec * as)
+void
+gfc_show_array_spec (gfc_array_spec *as)
 {
   const char *c;
   int i;
@@ -149,8 +143,8 @@ gfc_show_array_spec (gfc_array_spec * as)
 	case AS_ASSUMED_SIZE:  c = "AS_ASSUMED_SIZE";  break;
 	case AS_ASSUMED_SHAPE: c = "AS_ASSUMED_SHAPE"; break;
 	default:
-	  gfc_internal_error
-		("gfc_show_array_spec(): Unhandled array shape type.");
+	  gfc_internal_error ("gfc_show_array_spec(): Unhandled array shape "
+			      "type.");
       }
       gfc_status (" %s ", c);
 
@@ -169,7 +163,7 @@ gfc_show_array_spec (gfc_array_spec * as)
 
 /* Show a gfc_array_ref array reference structure.  */
 
-static void
+void
 gfc_show_array_ref (gfc_array_ref * ar)
 {
   int i;
@@ -237,10 +231,9 @@ gfc_show_array_ref (gfc_array_ref * ar)
 
 /* Show a list of gfc_ref structures.  */
 
-static void
-gfc_show_ref (gfc_ref * p)
+void
+gfc_show_ref (gfc_ref *p)
 {
-
   for (; p; p = p->next)
     switch (p->type)
       {
@@ -268,10 +261,9 @@ gfc_show_ref (gfc_ref * p)
 
 /* Display a constructor.  Works recursively for array constructors.  */
 
-static void
-gfc_show_constructor (gfc_constructor * c)
+void
+gfc_show_constructor (gfc_constructor *c)
 {
-
   for (; c; c = c->next)
     {
       if (c->iterator == NULL)
@@ -301,8 +293,8 @@ gfc_show_constructor (gfc_constructor * c)
 
 /* Show an expression.  */
 
-static void
-gfc_show_expr (gfc_expr * p)
+void
+gfc_show_expr (gfc_expr *p)
 {
   const char *c;
   int i;
@@ -534,8 +526,8 @@ gfc_show_expr (gfc_expr * p)
 /* Show symbol attributes.  The flavor and intent are followed by
    whatever single bit attributes are present.  */
 
-static void
-gfc_show_attr (symbol_attribute * attr)
+void
+gfc_show_attr (symbol_attribute *attr)
 {
 
   gfc_status ("(%s %s %s %s", gfc_code2string (flavors, attr->flavor),
@@ -555,8 +547,14 @@ gfc_show_attr (symbol_attribute * attr)
     gfc_status (" OPTIONAL");
   if (attr->pointer)
     gfc_status (" POINTER");
+  if (attr->protected)
+    gfc_status (" PROTECTED");
   if (attr->save)
     gfc_status (" SAVE");
+  if (attr->value)
+    gfc_status (" VALUE");
+  if (attr->volatile_)
+    gfc_status (" VOLATILE");
   if (attr->threadprivate)
     gfc_status (" THREADPRIVATE");
   if (attr->target)
@@ -599,8 +597,8 @@ gfc_show_attr (symbol_attribute * attr)
 
 /* Show components of a derived type.  */
 
-static void
-gfc_show_components (gfc_symbol * sym)
+void
+gfc_show_components (gfc_symbol *sym)
 {
   gfc_component *c;
 
@@ -626,8 +624,8 @@ gfc_show_components (gfc_symbol * sym)
    specific interfaces associated with a generic symbol is done within
    that symbol.  */
 
-static void
-gfc_show_symbol (gfc_symbol * sym)
+void
+gfc_show_symbol (gfc_symbol *sym)
 {
   gfc_formal_arglist *formal;
   gfc_interface *intr;
@@ -682,12 +680,12 @@ gfc_show_symbol (gfc_symbol * sym)
       gfc_status ("Formal arglist:");
 
       for (formal = sym->formal; formal; formal = formal->next)
-        {
-          if (formal->sym != NULL)
-            gfc_status (" %s", formal->sym->name);
-          else
-            gfc_status (" [Alt Return]");
-        }
+	{
+	  if (formal->sym != NULL)
+	    gfc_status (" %s", formal->sym->name);
+	  else
+	    gfc_status (" [Alt Return]");
+	}
     }
 
   if (sym->formal_ns)
@@ -705,7 +703,7 @@ gfc_show_symbol (gfc_symbol * sym)
    and the name of the associated subroutine, really.  */
 
 static void
-show_uop (gfc_user_op * uop)
+show_uop (gfc_user_op *uop)
 {
   gfc_interface *intr;
 
@@ -720,9 +718,8 @@ show_uop (gfc_user_op * uop)
 /* Workhorse function for traversing the user operator symtree.  */
 
 static void
-traverse_uop (gfc_symtree * st, void (*func) (gfc_user_op *))
+traverse_uop (gfc_symtree *st, void (*func) (gfc_user_op *))
 {
-
   if (st == NULL)
     return;
 
@@ -736,9 +733,8 @@ traverse_uop (gfc_symtree * st, void (*func) (gfc_user_op *))
 /* Traverse the tree of user operator nodes.  */
 
 void
-gfc_traverse_user_op (gfc_namespace * ns, void (*func) (gfc_user_op *))
+gfc_traverse_user_op (gfc_namespace *ns, void (*func) (gfc_user_op *))
 {
-
   traverse_uop (ns->uop_root, func);
 }
 
@@ -746,7 +742,7 @@ gfc_traverse_user_op (gfc_namespace * ns, void (*func) (gfc_user_op *))
 /* Function to display a common block.  */
 
 static void
-show_common (gfc_symtree * st)
+show_common (gfc_symtree *st)
 {
   gfc_symbol *s;
 
@@ -768,9 +764,8 @@ show_common (gfc_symtree * st)
 /* Worker function to display the symbol tree.  */
 
 static void
-show_symtree (gfc_symtree * st)
+show_symtree (gfc_symtree *st)
 {
-
   show_indent ();
   gfc_status ("symtree: %s  Ambig %d", st->name, st->ambiguous);
 
@@ -785,20 +780,19 @@ show_symtree (gfc_symtree * st)
 
 
 
-static void gfc_show_code_node (int level, gfc_code * c);
+static void gfc_show_code_node (int, gfc_code *);
 
 /* Show a list of code structures.  Mutually recursive with
    gfc_show_code_node().  */
 
-static void
-gfc_show_code (int level, gfc_code * c)
+void
+gfc_show_code (int level, gfc_code *c)
 {
-
   for (; c; c = c->next)
     gfc_show_code_node (level, c);
 }
 
-static void
+void
 gfc_show_namelist (gfc_namelist *n)
 {
   for (; n->next; n = n->next)
@@ -810,7 +804,7 @@ gfc_show_namelist (gfc_namelist *n)
    if necessary.  */
 
 static void
-gfc_show_omp_node (int level, gfc_code * c)
+gfc_show_omp_node (int level, gfc_code *c)
 {
   gfc_omp_clauses *omp_clauses = NULL;
   const char *name = NULL;
@@ -995,10 +989,11 @@ gfc_show_omp_node (int level, gfc_code * c)
     gfc_status (" (%s)", c->ext.omp_name);
 }
 
+
 /* Show a single code node and everything underneath it if necessary.  */
 
 static void
-gfc_show_code_node (int level, gfc_code * c)
+gfc_show_code_node (int level, gfc_code *c)
 {
   gfc_forall_iterator *fa;
   gfc_open *open;
@@ -1026,6 +1021,7 @@ gfc_show_code_node (int level, gfc_code * c)
       gfc_status ("ENTRY %s", c->ext.entry->sym->name);
       break;
 
+    case EXEC_INIT_ASSIGN:
     case EXEC_ASSIGN:
       gfc_status ("ASSIGN ");
       gfc_show_expr (c->expr);
@@ -1049,24 +1045,24 @@ gfc_show_code_node (int level, gfc_code * c)
     case EXEC_GOTO:
       gfc_status ("GOTO ");
       if (c->label)
-        gfc_status ("%d", c->label->value);
+	gfc_status ("%d", c->label->value);
       else
-        {
-          gfc_show_expr (c->expr);
-          d = c->block;
-          if (d != NULL)
-            {
-              gfc_status (", (");
-              for (; d; d = d ->block)
-                {
-                  code_indent (level, d->label);
-                  if (d->block != NULL)
-                    gfc_status_char (',');
-                  else
-                    gfc_status_char (')');
-                }
-            }
-        }
+	{
+	  gfc_show_expr (c->expr);
+	  d = c->block;
+	  if (d != NULL)
+	    {
+	      gfc_status (", (");
+	      for (; d; d = d ->block)
+		{
+		  code_indent (level, d->label);
+		  if (d->block != NULL)
+		    gfc_status_char (',');
+		  else
+		    gfc_status_char (')');
+		}
+	    }
+	}
       break;
 
     case EXEC_CALL:
@@ -1090,9 +1086,9 @@ gfc_show_code_node (int level, gfc_code * c)
       gfc_status ("PAUSE ");
 
       if (c->expr != NULL)
-        gfc_show_expr (c->expr);
+	gfc_show_expr (c->expr);
       else
-        gfc_status ("%d", c->ext.stop_code);
+	gfc_status ("%d", c->ext.stop_code);
 
       break;
 
@@ -1100,9 +1096,9 @@ gfc_show_code_node (int level, gfc_code * c)
       gfc_status ("STOP ");
 
       if (c->expr != NULL)
-        gfc_show_expr (c->expr);
+	gfc_show_expr (c->expr);
       else
-        gfc_status ("%d", c->ext.stop_code);
+	gfc_status ("%d", c->ext.stop_code);
 
       break;
 
@@ -1689,7 +1685,7 @@ gfc_show_code_node (int level, gfc_code * c)
 
 /* Show an equivalence chain.  */
 
-static void
+void
 gfc_show_equiv (gfc_equiv *eq)
 {
   show_indent ();
@@ -1707,7 +1703,7 @@ gfc_show_equiv (gfc_equiv *eq)
 /* Show a freakin' whole namespace.  */
 
 void
-gfc_show_namespace (gfc_namespace * ns)
+gfc_show_namespace (gfc_namespace *ns)
 {
   gfc_interface *intr;
   gfc_namespace *save;

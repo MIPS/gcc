@@ -1,4 +1,4 @@
-# Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
+# Copyright (c) 1999, 2000, 2001, 2002, 2003, 2006 by Red Hat, Inc. All rights reserved.
 # Copyright 2004 Nathanael Nerode
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
@@ -155,6 +155,17 @@ case "$THREADS" in
      *-*-hpux10*)
 	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
 	;;
+      *-*-kfreebsd*-gnu)
+       AC_DEFINE(GC_FREEBSD_THREADS)
+       INCLUDES="$INCLUDES -pthread"
+       THREADDLLIBS=-pthread
+       AC_DEFINE(_REENTRANT)
+         if test "${enable_parallel_mark}" = yes; then
+         AC_DEFINE(PARALLEL_MARK)
+       fi
+       AC_DEFINE(THREAD_LOCAL_ALLOC)
+       AC_DEFINE(USE_COMPILER_TLS, 1,[use tls for boehm])
+               ;;
      *-*-freebsd*)
 	AC_MSG_WARN("FreeBSD does not yet fully support threads with Boehm GC.")
 	AC_DEFINE(GC_FREEBSD_THREADS,1,[support FreeBSD threads])
@@ -237,31 +248,46 @@ AM_CONDITIONAL(POWERPC_DARWIN,test x$powerpc_darwin = xtrue)
 case "$host" in
   powerpc*-*-darwin*)
     AC_CHECK_MEMBER(ppc_thread_state_t.r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE_R0,,[ppc_thread_state_t has field r0]),,
+      AC_DEFINE(HAS_PPC_THREAD_STATE_R0,1,
+	[ppc_thread_state_t has field r0]),,
       [#include <mach/thread_status.h>])
     AC_CHECK_MEMBER(ppc_thread_state_t.__r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE___R0,,dnl
-        [ppc_thread_state_t has field __r0]),,
+      AC_DEFINE(HAS_PPC_THREAD_STATE___R0,1,dnl
+	[ppc_thread_state_t has field __r0]),,
       [#include <mach/thread_status.h>])
     AC_CHECK_MEMBER(ppc_thread_state64_t.r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE64_R0,,dnl
-        [ppc_thread_state64_t has field r0]),,
+      AC_DEFINE(HAS_PPC_THREAD_STATE64_R0,1,dnl
+	[ppc_thread_state64_t has field r0]),,
       [#include <mach/thread_status.h>])
     AC_CHECK_MEMBER(ppc_thread_state64_t.__r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE64___R0,,dnl
-        [ppc_thread_state64_t has field __r0]),,
+      AC_DEFINE(HAS_PPC_THREAD_STATE64___R0,1,dnl
+	[ppc_thread_state64_t has field __r0]),,
       [#include <mach/thread_status.h>])
     ;;
   i?86*-*-darwin*)
-    AC_CHECK_MEMBER(i386_thread_state_t.eax,
-      AC_DEFINE(HAS_I386_THREAD_STATE_EAX,,dnl
-        [i386_thread_state_t has field eax]),,
-      [#include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(i386_thread_state_t.__eax,
-      AC_DEFINE(HAS_I386_THREAD_STATE___EAX,,dnl
-        [i386_thread_state_t has field __eax]),,
-      [#include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(x86_thread_state32_t.eax,
+      AC_DEFINE(HAS_X86_THREAD_STATE32_EAX,1,dnl
+	[x86_thread_state32_t has field eax]),,
+      [#include <sys/cdefs.h>
+      #include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(x86_thread_state32_t.__eax,
+      AC_DEFINE(HAS_X86_THREAD_STATE32___EAX,1,dnl
+	[x86_thread_state32_t has field __eax]),,
+      [#include <sys/cdefs.h>
+      #include <mach/thread_status.h>])
     ;;
+  x86_64-*-darwin*)
+    AC_CHECK_MEMBER(x86_thread_state64_t.rax,
+      AC_DEFINE(HAS_X86_THREAD_STATE64_RAX,1,dnl
+	[x86_thread_state64_t has field rax]),,
+      [#include <sys/cdefs.h>
+      #include <mach/thread_status.h>])
+    AC_CHECK_MEMBER(x86_thread_state64_t.__rax,
+      AC_DEFINE(HAS_X86_THREAD_STATE64___RAX,1,dnl
+	[x86_thread_state64_t has field __rax]),,
+      [#include <sys/cdefs.h>
+      #include <mach/thread_status.h>])
+     ;;
   *) ;;
 esac
 
@@ -328,6 +354,13 @@ case "$host" in
      AC_MSG_RESULT(yes)
      ;;
 esac
+
+# Checks for pthreads functions
+#
+oldLIBS="$LIBS"
+LIBS="$LIBS $THREADLIBS"
+AC_CHECK_FUNCS([pthread_getattr_np])
+LIBS="$oldLIBS"
 
 # Configuration of machine-dependent code
 #
@@ -455,14 +488,6 @@ AC_DEFINE(JAVA_FINALIZATION,1,[make it somewhat safer to finalize objects out of
 AC_DEFINE(GC_GCJ_SUPPORT,1,[include support for gcj])
 AC_DEFINE(ATOMIC_UNCOLLECTABLE,1,[include code for GC_malloc_atomic_uncollectable])
 
-dnl This is something of a hack.  When cross-compiling we turn off
-dnl some functionality. These is only correct when targetting an
-dnl embedded system.  FIXME.
-if test -n "${with_cross_host}"; then
-   AC_DEFINE(NO_SIGSET,1,[use empty GC_disable_signals and GC_enable_signals])
-   AC_DEFINE(NO_DEBUGGING,1,[removes GC_dump])
-fi
-
 AC_ARG_ENABLE(gc-debug,
 [  --enable-gc-debug	include full support for pointer backtracing etc.],
 [ if test "$enable_gc_debug" = "yes"; then
@@ -487,25 +512,6 @@ AC_ARG_ENABLE(gc-debug,
 if test "${gc_use_mmap}" = "yes"; then
   AC_DEFINE(USE_MMAP, 1, [use MMAP instead of sbrk to get new memory])
 fi
-
-symver=
-case "$target" in
-  *-*-linux* )
-    cat > conftest.c <<EOF
-#include <pthread.h>
-void *tf (void *arg) { (void) arg; return NULL; }
-int main (void) { pthread_t th; pthread_create (&th, NULL, tf, NULL); return 0; }
-EOF
-    if $CC $CFLAGS -pthread -o conftest conftest.c > /dev/null 2>&1; then
-      symver=`readelf -s conftest 2> /dev/null | sed -n '/UND pthread_create@/{s/^.*@//;s/ .*$//;p;q}'`
-    fi
-    rm -f conftest conftest.c
-    ;;
-esac
-if test -n "$symver"; then
-  AC_DEFINE_UNQUOTED(GC_PTHREAD_SYM_VERSION, "$symver", [symbol version of pthread_create])
-fi
-
 
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then

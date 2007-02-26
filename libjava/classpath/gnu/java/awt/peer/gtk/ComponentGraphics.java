@@ -38,23 +38,31 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import gnu.classpath.Pointer;
+
+import java.awt.AlphaComposite;
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
-import java.awt.Point;
-import java.awt.font.FontRenderContext;
+import java.awt.Toolkit;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
-import java.awt.image.ImagingOpException;
+import java.awt.image.ImageProducer;
+import java.awt.image.Raster;
 import java.awt.image.RenderedImage;
+import java.awt.image.WritableRaster;
+import java.util.Hashtable;
 
 /**
  * ComponentGraphics - context for drawing directly to a component,
@@ -64,8 +72,14 @@ import java.awt.image.RenderedImage;
  */
 public class ComponentGraphics extends CairoGraphics2D
 {
+  private static final boolean hasXRenderExtension = hasXRender();
+
   private GtkComponentPeer component;
   protected long cairo_t;
+  private BufferedImage buffer, componentBuffer;
+
+  private static ThreadLocal hasLock = new ThreadLocal();
+  private static Integer ONE = Integer.valueOf(1);
 
   ComponentGraphics()
   {
@@ -98,14 +112,40 @@ public class ComponentGraphics extends CairoGraphics2D
    */
   private native long initState(GtkComponentPeer component);
 
+  private void lock()
+  {
+    Integer i = (Integer) hasLock.get();
+    if (i == null)
+      {
+	start_gdk_drawing();
+	hasLock.set(ONE);
+      }
+    else
+      hasLock.set(Integer.valueOf(i.intValue() + 1));
+  }
+
+  private void unlock()
+  {
+    Integer i = (Integer) hasLock.get();
+    if (i == null)
+      throw new IllegalStateException();
+    if (i == ONE)
+      {
+	hasLock.set(null);
+	end_gdk_drawing();
+      }
+    else
+      hasLock.set(Integer.valueOf(i.intValue() - 1));
+  }
+
   /**
    * Destroys the component surface and calls dispose on the cairo
    * graphics2d to destroy any super class resources.
    */
   public void dispose()
   {
-    disposeSurface(nativePointer);
     super.dispose();
+    disposeSurface(nativePointer);
   }
 
   /**
@@ -133,13 +173,27 @@ public class ComponentGraphics extends CairoGraphics2D
    */
   public static native boolean hasXRender();
 
+  /**
+   * This is a utility method (used by GtkComponentPeer) for grabbing the
+   * image of a component.
+   */
+  private static native Pointer nativeGrab(GtkComponentPeer component);
 
   private native void copyAreaNative(GtkComponentPeer component, int x, int y, 
 				     int width, int height, int dx, int dy);
 
   private native void drawVolatile(GtkComponentPeer component,
-				   Image vimg, int x, int y, 
-				   int width, int height);
+				   long vimg, int x, int y, 
+				   int width, int height, int cx, int cy,
+                                   int cw, int ch);
+
+  /**
+   * Not really related (moveme?). Utility method used by GtkComponent.
+   */
+  public static GtkImage grab( GtkComponentPeer component )
+  {
+    return new GtkImage( nativeGrab( component ) );
+  }
 
   /**
    * Returns a Graphics2D object for a component, either an instance of this 
@@ -147,7 +201,7 @@ public class ComponentGraphics extends CairoGraphics2D
    */
   public static Graphics2D getComponentGraphics(GtkComponentPeer component)
   {
-    if( hasXRender() )
+    if( hasXRenderExtension )
       return new ComponentGraphics(component);
 
     Rectangle r = component.awtComponent.getBounds();
@@ -180,64 +234,359 @@ public class ComponentGraphics extends CairoGraphics2D
    */
   public void draw(Shape s)
   {
-    start_gdk_drawing();
-    super.draw(s);
-    end_gdk_drawing();
+    lock();
+    try
+      {
+        if (comp == null || comp instanceof AlphaComposite)
+          super.draw(s);
+        
+        else
+          {
+            createBuffer();
+            
+            Graphics2D g2d = (Graphics2D)buffer.getGraphics();
+            g2d.setStroke(this.getStroke());
+            g2d.setColor(this.getColor());
+            g2d.draw(s);
+            
+            drawComposite(s.getBounds2D(), null);
+          }
+      }
+    finally
+      {
+	unlock();
+      }
   }
 
   public void fill(Shape s)
   {
-    start_gdk_drawing();
-    super.fill(s);
-    end_gdk_drawing();
+    lock();
+    try
+      {
+        if (comp == null || comp instanceof AlphaComposite)
+          super.fill(s);
+        
+        else
+          {
+            createBuffer();
+            
+            Graphics2D g2d = (Graphics2D)buffer.getGraphics();
+            g2d.setPaint(this.getPaint());
+            g2d.setColor(this.getColor());
+            g2d.fill(s);
+            
+            drawComposite(s.getBounds2D(), null);
+          }
+      }
+    finally
+      {
+	unlock();
+      }
   }
 
   public void drawRenderedImage(RenderedImage image, AffineTransform xform)
   {
-    start_gdk_drawing();
-    super.drawRenderedImage(image, xform);
-    end_gdk_drawing();
+    lock();
+    try
+      {
+        if (comp == null || comp instanceof AlphaComposite)
+          super.drawRenderedImage(image, xform);
+        
+        else
+          {
+            createBuffer();
+
+            Graphics2D g2d = (Graphics2D)buffer.getGraphics();
+            g2d.setRenderingHints(this.getRenderingHints());
+            g2d.drawRenderedImage(image, xform);
+            
+            drawComposite(buffer.getRaster().getBounds(), null);
+          }
+      }
+    finally
+      {
+	unlock();
+      }
   }
 
   protected boolean drawImage(Image img, AffineTransform xform,
 			      Color bgcolor, ImageObserver obs)
   {
-    start_gdk_drawing();
-    boolean rv = super.drawImage(img, xform, bgcolor, obs);
-    end_gdk_drawing();
+    boolean rv;
+    lock();
+    try
+      {
+        if (comp == null || comp instanceof AlphaComposite)
+          rv = super.drawImage(img, xform, bgcolor, obs);
+        
+        else
+          {
+            // Get buffered image of source
+            if( !(img instanceof BufferedImage) )
+              {
+                ImageProducer source = img.getSource();
+                if (source == null)
+                  return false;
+                img = Toolkit.getDefaultToolkit().createImage(source);
+              }
+            BufferedImage bImg = (BufferedImage) img;
+            
+            // Find translated bounds
+            Point2D origin = new Point2D.Double(bImg.getMinX(), bImg.getMinY());
+            Point2D pt = new Point2D.Double(bImg.getWidth() + bImg.getMinX(),
+                                            bImg.getHeight() + bImg.getMinY());
+            if (xform != null)
+              {
+                origin = xform.transform(origin, origin);
+                pt = xform.transform(pt, pt);
+              }
+            
+            // Create buffer and draw image
+            createBuffer();
+            
+            Graphics2D g2d = (Graphics2D)buffer.getGraphics();
+            g2d.setRenderingHints(this.getRenderingHints());
+            g2d.drawImage(img, xform, obs);
+
+            // Perform compositing
+            rv = drawComposite(new Rectangle2D.Double(origin.getX(),
+                                                        origin.getY(),
+                                                        pt.getX(), pt.getY()),
+                                 obs);
+          }
+      }
+    finally
+      {
+	unlock();
+      }
     return rv;
   }
 
   public void drawGlyphVector(GlyphVector gv, float x, float y)
   {
-    start_gdk_drawing();
-    super.drawGlyphVector(gv, x, y);
-    end_gdk_drawing();
+    lock();
+    try
+      {
+        if (comp == null || comp instanceof AlphaComposite)
+          super.drawGlyphVector(gv, x, y);
+        
+        else
+          {
+            createBuffer();
+
+            Graphics2D g2d = (Graphics2D)buffer.getGraphics();
+            g2d.setPaint(this.getPaint());
+            g2d.setStroke(this.getStroke());
+            g2d.drawGlyphVector(gv, x, y);
+            
+            Rectangle2D bounds = gv.getLogicalBounds();
+            bounds = new Rectangle2D.Double(x + bounds.getX(), y + bounds.getY(),
+                                            bounds.getWidth(), bounds.getHeight());
+            drawComposite(bounds, null);
+          }
+      }
+    finally
+      {
+	unlock();
+      }
   }
   
   public boolean drawImage(Image img, int x, int y, ImageObserver observer)
   {
-    if( img instanceof GtkVolatileImage )
+    // If it is a GtkVolatileImage with an "easy" transform then
+    // draw directly. Always pass a BufferedImage to super to avoid
+    // deadlock (see Note in CairoGraphics.drawImage()).
+    if (img instanceof GtkVolatileImage)
       {
-	drawVolatile( component, img, x, y - 20,
-		      ((GtkVolatileImage)img).width, 
-		      ((GtkVolatileImage)img).height );
-	return true;
-      }      
-    return super.drawImage( img, x, y, observer );
+        GtkVolatileImage vimg = (GtkVolatileImage) img;
+        int type = transform.getType();
+        if ((type == AffineTransform.TYPE_IDENTITY
+             || type == AffineTransform.TYPE_TRANSLATION)
+             && (clip == null || clip instanceof Rectangle2D))
+          {
+            Rectangle2D r = (Rectangle2D) clip;
+            if (r == null)
+              r = getRealBounds();
+            x += transform.getTranslateX();
+            y += transform.getTranslateY();
+            drawVolatile(component, vimg.nativePointer,
+                         x, y, vimg.width, vimg.height,
+                         (int) (r.getX() + transform.getTranslateX()),
+                         (int) (r.getY() + transform.getTranslateY()),
+                         (int) r.getWidth(),
+                         (int) r.getHeight());
+            return true;
+          }
+	else
+	  return super.drawImage(vimg.getSnapshot(), x, y, observer);
+      }
+
+    BufferedImage bimg;
+    if (img instanceof BufferedImage)
+      bimg = (BufferedImage) img;
+    else
+      {
+	ImageProducer source = img.getSource();
+        if (source == null)
+          return false;
+        bimg = (BufferedImage) Toolkit.getDefaultToolkit().createImage(source);
+      }
+    return super.drawImage(bimg, x, y, observer);
   }
   
   public boolean drawImage(Image img, int x, int y, int width, int height,
                            ImageObserver observer)
   {
-    if( img instanceof GtkVolatileImage )
+    // If it is a GtkVolatileImage with an "easy" transform then
+    // draw directly. Always pass a BufferedImage to super to avoid
+    // deadlock (see Note in CairoGraphics.drawImage()).
+    if (img instanceof GtkVolatileImage
+        && (clip == null || clip instanceof Rectangle2D))
       {
-	drawVolatile( component, img, x, y - 20, 
-		      width, height );
-	return true;
-      }      
-    return super.drawImage( img, x, y, width, height, observer );
+        GtkVolatileImage vimg = (GtkVolatileImage) img;
+        int type = transform.getType();
+        if ((type == AffineTransform.TYPE_IDENTITY
+             || type == AffineTransform.TYPE_TRANSLATION)
+             && (clip == null || clip instanceof Rectangle2D))
+          {
+            Rectangle2D r = (Rectangle2D) clip;
+            if (r == null)
+              r = getRealBounds();
+            x += transform.getTranslateX();
+            y += transform.getTranslateY();
+            drawVolatile(component, vimg.nativePointer,
+                         x, y, width, height,
+                         (int) (r.getX() + transform.getTranslateX()),
+                         (int) (r.getY() + transform.getTranslateY()),
+                         (int) r.getWidth(),
+                         (int) r.getHeight());
+            return true;
+          }
+	else
+	  return super.drawImage(vimg.getSnapshot(), x, y,
+				 width, height, observer);
+      }
+
+    BufferedImage bimg;
+    img = AsyncImage.realImage(img, observer);
+    if (img instanceof BufferedImage)
+      bimg = (BufferedImage) img;
+    else
+      {
+	ImageProducer source = img.getSource();
+        if (source == null)
+          return false;
+        bimg = (BufferedImage) Toolkit.getDefaultToolkit().createImage(source);
+      }
+    return super.drawImage(bimg, x, y, width, height, observer);
   }
 
+  public void setClip(Shape s)
+  {
+    lock();
+    try
+      {
+	super.setClip(s);
+      }
+    finally
+      {
+	unlock();
+      }
+  }
+
+  
+  private boolean drawComposite(Rectangle2D bounds, ImageObserver observer)
+  {
+    // Clip source to visible areas that need updating
+    Rectangle2D clip = this.getClipBounds();
+    Rectangle2D.intersect(bounds, clip, bounds);
+    clip = new Rectangle(buffer.getMinX(), buffer.getMinY(),
+                         buffer.getWidth(), buffer.getHeight());
+    Rectangle2D.intersect(bounds, clip, bounds);
+    
+    BufferedImage buffer2 = buffer;
+    if (!bounds.equals(buffer2.getRaster().getBounds()))
+      buffer2 = buffer2.getSubimage((int)bounds.getX(), (int)bounds.getY(),
+                                    (int)bounds.getWidth(),
+                                    (int)bounds.getHeight());
+    
+    // Get destination clip to bounds
+    double[] points = new double[] {bounds.getX(), bounds.getY(),
+                                    bounds.getMaxX(), bounds.getMaxY()};
+    transform.transform(points, 0, points, 0, 2);
+    
+    Rectangle2D deviceBounds = new Rectangle2D.Double(points[0], points[1],
+                                                       points[2] - points[0],
+                                                       points[3] - points[1]);
+    
+    Rectangle2D.intersect(deviceBounds, this.getClipInDevSpace(), deviceBounds);
+    
+    // Get current image on the component
+    unlock();
+    GtkImage img = grab(component);
+    Graphics gr = componentBuffer.createGraphics();
+    gr.drawImage(img, 0, 0, null);
+    gr.dispose();
+    lock();
+    
+    BufferedImage cBuffer = componentBuffer;
+    if (!deviceBounds.equals(cBuffer.getRaster().getBounds()))
+      cBuffer = cBuffer.getSubimage((int)deviceBounds.getX(),
+                                    (int)deviceBounds.getY(),
+                                    (int)deviceBounds.getWidth(),
+                                    (int)deviceBounds.getHeight());
+    
+    // Perform actual composite operation
+    compCtx.compose(buffer2.getRaster(), cBuffer.getRaster(),
+                    cBuffer.getRaster());
+    
+    // This MUST call directly into the "action" method in CairoGraphics2D,
+    // not one of the wrappers, to ensure that the composite isn't processed
+    // more than once!
+    boolean rv = super.drawImage(cBuffer,
+                                 AffineTransform.getTranslateInstance(bounds.getX(),
+                                                                      bounds.getY()),
+                                 null, null);
+    return rv;
+  }
+  
+  private void createBuffer()
+  {
+    if (buffer == null)
+      {
+        WritableRaster rst;
+        rst = Raster.createWritableRaster(GtkVolatileImage.createGdkSampleModel(component.awtComponent.getWidth(),
+                                                                                component.awtComponent.getHeight()),
+                                          new Point(0,0));
+        
+        buffer = new BufferedImage(GtkVolatileImage.gdkColorModel, rst,
+                                   GtkVolatileImage.gdkColorModel.isAlphaPremultiplied(),
+                                   new Hashtable());
+      }
+    else
+      {
+        Graphics2D g2d = ((Graphics2D)buffer.getGraphics());
+        
+        g2d.setBackground(new Color(0,0,0,0));
+        g2d.clearRect(0, 0, buffer.getWidth(), buffer.getHeight());
+      }
+    
+    if (componentBuffer == null)
+      {
+        WritableRaster rst;
+        rst = Raster.createWritableRaster(GtkVolatileImage.createGdkSampleModel(component.awtComponent.getWidth(),
+                                                                                component.awtComponent.getHeight()),
+                                          new Point(0,0));
+        
+        componentBuffer = new BufferedImage(GtkVolatileImage.gdkColorModel, rst,
+                                   GtkVolatileImage.gdkColorModel.isAlphaPremultiplied(),
+                                   new Hashtable());
+      }
+  }
+  
+  protected ColorModel getNativeCM()
+  {
+    return GtkVolatileImage.gdkColorModel;
+  }
 }
 

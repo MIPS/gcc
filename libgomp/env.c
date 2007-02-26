@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -30,6 +30,7 @@
 
 #include "libgomp.h"
 #include "libgomp_f.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -48,22 +49,25 @@ static void
 parse_schedule (void)
 {
   char *env, *end;
+  unsigned long value;
 
   env = getenv ("OMP_SCHEDULE");
   if (env == NULL)
     return;
 
-  if (strncmp (env, "static", 6) == 0)
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (strncasecmp (env, "static", 6) == 0)
     {
       gomp_run_sched_var = GFS_STATIC;
       env += 6;
     }
-  else if (strncmp (env, "dynamic", 7) == 0)
+  else if (strncasecmp (env, "dynamic", 7) == 0)
     {
       gomp_run_sched_var = GFS_DYNAMIC;
       env += 7;
     }
-  else if (strncmp (env, "guided", 6) == 0)
+  else if (strncasecmp (env, "guided", 6) == 0)
     {
       gomp_run_sched_var = GFS_GUIDED;
       env += 6;
@@ -71,22 +75,28 @@ parse_schedule (void)
   else
     goto unknown;
 
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
     return;
-  if (*env != ' ' && *env != ',')
+  if (*env++ != ',')
     goto unknown;
-  while (*env == ' ')
-    env++;
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
-    return;
-  if (*env != ',')
-    goto unknown;
-  if (*++env == '\0')
     goto invalid;
 
-  gomp_run_sched_chunk = strtoul (env, &end, 10);
+  errno = 0;
+  value = strtoul (env, &end, 10);
+  if (errno)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
   if (*end != '\0')
     goto invalid;
+
+  gomp_run_sched_chunk = value;
   return;
 
  unknown:
@@ -96,7 +106,6 @@ parse_schedule (void)
  invalid:
   gomp_error ("Invalid value for chunk size in "
 	      "environment variable OMP_SCHEDULE");
-  gomp_run_sched_chunk = 1;
   return;
 }
 
@@ -113,10 +122,18 @@ parse_unsigned_long (const char *name, unsigned long *pvalue)
   if (env == NULL)
     return false;
 
+  while (isspace ((unsigned char) *env))
+    ++env;
   if (*env == '\0')
     goto invalid;
 
+  errno = 0;
   value = strtoul (env, &end, 10);
+  if (errno || (long) value <= 0)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
   if (*end != '\0')
     goto invalid;
 
@@ -140,11 +157,23 @@ parse_boolean (const char *name, bool *value)
   if (env == NULL)
     return;
 
-  if (strcmp (env, "true") == 0)
-    *value = true;
-  else if (strcmp (env, "false") == 0)
-    *value = false;
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (strncasecmp (env, "true", 4) == 0)
+    {
+      *value = true;
+      env += 4;
+    }
+  else if (strncasecmp (env, "false", 5) == 0)
+    {
+      *value = false;
+      env += 5;
+    }
   else
+    env = "X";
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (*env != '\0')
     gomp_error ("Invalid value for environment variable %s", name);
 }
 
@@ -166,21 +195,27 @@ initialize_env (void)
   pthread_attr_init (&gomp_thread_attr);
   pthread_attr_setdetachstate (&gomp_thread_attr, PTHREAD_CREATE_DETACHED);
 
-  if (parse_unsigned_long ("OMP_STACKSIZE", &stacksize))
+  if (parse_unsigned_long ("GOMP_STACKSIZE", &stacksize))
     {
+      int err;
+
       stacksize *= 1024;
-      if (stacksize < PTHREAD_STACK_MIN)
-	gomp_error ("Stack size less than minimum of %luk",
-		    PTHREAD_STACK_MIN / 1024ul
-		    + (PTHREAD_STACK_MIN % 1024 != 0));
-      else
+      err = pthread_attr_setstacksize (&gomp_thread_attr, stacksize);
+
+#ifdef PTHREAD_STACK_MIN
+      if (err == EINVAL)
 	{
-	  int err = pthread_attr_setstacksize (&gomp_thread_attr, stacksize);
-	  if (err == EINVAL)
+	  if (stacksize < PTHREAD_STACK_MIN)
+	    gomp_error ("Stack size less than minimum of %luk",
+			PTHREAD_STACK_MIN / 1024ul
+			+ (PTHREAD_STACK_MIN % 1024 != 0));
+	  else
 	    gomp_error ("Stack size larger than system limit");
-	  else if (err != 0)
-	    gomp_error ("Stack size change failed: %s", strerror (err));
 	}
+      else
+#endif
+      if (err != 0)
+	gomp_error ("Stack size change failed: %s", strerror (err));
     }
 }
 
@@ -190,7 +225,7 @@ initialize_env (void)
 void
 omp_set_num_threads (int n)
 {
-  gomp_nthreads_var = n;
+  gomp_nthreads_var = (n > 0 ? n : 1);
 }
 
 void

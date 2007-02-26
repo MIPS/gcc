@@ -1,7 +1,7 @@
 ## Process this with automake to create Makefile.in
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
-ACLOCAL_AMFLAGS = -I ..
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 SUBDIRS = include testsuite
 
@@ -24,7 +24,7 @@ EXTRA_DIST = LICENSE ChangeLog.v1 \
 	src/sh64/ffi.c src/sh64/sysv.S src/sh64/ffitarget.h \
 	src/sparc/v8.S src/sparc/v9.S src/sparc/ffitarget.h \
 	src/sparc/ffi.c \
-	src/x86/ffi.c src/x86/sysv.S src/x86/win32.S \
+	src/x86/ffi.c src/x86/sysv.S src/x86/win32.S src/x86/darwin.S \
 	src/x86/ffi64.c src/x86/unix64.S src/x86/ffitarget.h \
 	src/pa/ffi.c src/pa/linux.S src/pa/hpux32.S \
 	src/frv/eabi.S src/frv/ffitarget.h
@@ -93,6 +93,9 @@ nodist_libffi_la_SOURCES += src/x86/ffi.c src/x86/sysv.S
 endif
 if X86_WIN32
 nodist_libffi_la_SOURCES += src/x86/ffi.c src/x86/win32.S
+endif
+if X86_DARWIN
+nodist_libffi_la_SOURCES += src/x86/ffi.c src/x86/darwin.S src/x86/ffi64.c src/x86/darwin64.S
 endif
 if SPARC
 nodist_libffi_la_SOURCES += src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S
@@ -163,3 +166,10 @@ AM_CCASFLAGS = $(AM_CPPFLAGS)
 .PHONY: install-html
 install-html:
 
+# Multilib support.  Automake should provide these on its own.
+all-recursive: all-multi
+install-recursive: install-multi
+mostlyclean-recursive: mostlyclean-multi
+clean-recursive: clean-multi
+distclean-recursive: distclean-multi
+maintainer-clean-recursive: maintainer-clean-multi

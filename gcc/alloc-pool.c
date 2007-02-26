@@ -1,5 +1,5 @@
 /* Functions to support a pool of allocatable objects.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@cgsoftware.com>
 
@@ -207,6 +207,17 @@ free_alloc_pool (alloc_pool pool)
   free (pool);
 }
 
+/* Frees the alloc_pool, if it is empty and zero *POOL in this case.  */
+void
+free_alloc_pool_if_empty (alloc_pool *pool)
+{
+  if ((*pool)->elts_free == (*pool)->elts_allocated)
+    {
+      free_alloc_pool (*pool);
+      *pool = NULL;
+    }
+}
+
 /* Allocates one element from the pool specified.  */
 void *
 pool_alloc (alloc_pool pool)
@@ -281,10 +292,10 @@ pool_free (alloc_pool pool, void *ptr)
   gcc_assert (ptr);
 
 #ifdef ENABLE_CHECKING
-  memset (ptr, 0xaf, pool->elt_size - offsetof (allocation_object, u.data));
-
   /* Check whether the PTR was allocated from POOL.  */
   gcc_assert (pool->id == ALLOCATION_OBJECT_PTR_FROM_USER_PTR (ptr)->id);
+
+  memset (ptr, 0xaf, pool->elt_size - offsetof (allocation_object, u.data));
 
   /* Mark the element to be free.  */
   ALLOCATION_OBJECT_PTR_FROM_USER_PTR (ptr)->id = 0;
@@ -328,7 +339,8 @@ print_statistics (void **slot, void *b)
 #endif
 
 /* Output per-alloc_pool memory usage statistics.  */
-void dump_alloc_pool_statistics (void)
+void
+dump_alloc_pool_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   struct output_info info;

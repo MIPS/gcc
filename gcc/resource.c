@@ -100,11 +100,17 @@ update_live_status (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
     return;
 
   if (GET_CODE (dest) == SUBREG)
-    first_regno = subreg_regno (dest);
-  else
-    first_regno = REGNO (dest);
+    {
+      first_regno = subreg_regno (dest);
+      last_regno = first_regno + subreg_nregs (dest);
 
-  last_regno = first_regno + hard_regno_nregs[first_regno][GET_MODE (dest)];
+    }
+  else
+    {
+      first_regno = REGNO (dest);
+      last_regno
+	= first_regno + hard_regno_nregs[first_regno][GET_MODE (dest)];
+    }
 
   if (GET_CODE (x) == CLOBBER)
     for (i = first_regno; i < last_regno; i++)
@@ -230,8 +236,7 @@ mark_referenced_resources (rtx x, struct resources *res,
       else
 	{
 	  unsigned int regno = subreg_regno (x);
-	  unsigned int last_regno
-	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
+	  unsigned int last_regno = regno + subreg_nregs (x);
 
 	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	  for (r = regno; r < last_regno; r++)
@@ -764,8 +769,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  else
 	    {
 	      unsigned int regno = subreg_regno (x);
-	      unsigned int last_regno
-		= regno + hard_regno_nregs[regno][GET_MODE (x)];
+	      unsigned int last_regno = regno + subreg_nregs (x);
 
 	      gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	      for (r = regno; r < last_regno; r++)
@@ -884,7 +888,7 @@ return_insn_p (rtx insn)
    init_resource_info () was invoked before we are called.  */
 
 void
-mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *res)
+mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 {
   int b = -1;
   unsigned int i;
@@ -966,7 +970,7 @@ mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *r
      TARGET.  Otherwise, we must assume everything is live.  */
   if (b != -1)
     {
-      regset regs_live = DF_LIVE_IN (df, BASIC_BLOCK (b));
+      regset regs_live = DF_LIVE_IN (BASIC_BLOCK (b));
       unsigned int j;
       unsigned int regno;
       rtx start_insn, stop_insn;
@@ -1129,7 +1133,7 @@ mark_target_live_regs (struct df *df, rtx insns, rtx target, struct resources *r
       struct resources new_resources;
       rtx stop_insn = next_active_insn (jump_insn);
 
-      mark_target_live_regs (df, insns, next_active_insn (jump_target),
+      mark_target_live_regs (insns, next_active_insn (jump_target),
 			     &new_resources);
       CLEAR_RESOURCE (&set);
       CLEAR_RESOURCE (&needed);

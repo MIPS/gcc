@@ -1701,6 +1701,10 @@ do {									\
 #define DYNAMIC_CHAIN_ADDRESS(frame)	\
   plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
+/* Given an rtx for the frame pointer,
+   return an rtx for the address of the frame.  */
+#define FRAME_ADDR_RTX(frame) plus_constant (frame, SPARC_STACK_BIAS)
+
 /* The return address isn't on the stack, it is in a register, so we can't
    access it from the current frame pointer.  We can access it from the
    previous frame pointer though by reading a value from the register window
@@ -2171,19 +2175,6 @@ do {                                                                    \
 	 : (sparc_cpu == PROCESSOR_NIAGARA \
 	    ? 4 \
 	 : 3)))
-
-#define PREFETCH_BLOCK \
-	((sparc_cpu == PROCESSOR_ULTRASPARC \
-          || sparc_cpu == PROCESSOR_ULTRASPARC3 \
-	  || sparc_cpu == PROCESSOR_NIAGARA) \
-         ? 64 : 32)
-
-#define SIMULTANEOUS_PREFETCHES \
-	((sparc_cpu == PROCESSOR_ULTRASPARC \
-	  || sparc_cpu == PROCESSOR_NIAGARA) \
-         ? 2 \
-         : (sparc_cpu == PROCESSOR_ULTRASPARC3 \
-            ? 8 : 3))
 
 /* Control the assembler format that we output.  */
 

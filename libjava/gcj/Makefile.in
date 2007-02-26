@@ -48,14 +48,18 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
+	$(top_srcdir)/../config/ld-symbolic.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
+	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
-	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../libtool.m4 \
-	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 \
+	$(top_srcdir)/../config/unwind_ipinfo.m4 \
+	$(top_srcdir)/../libtool.m4 $(top_srcdir)/mingwld.m4 \
+	$(top_srcdir)/pkg.m4 $(top_srcdir)/shlibpath.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/include/config.h libgcj-config.h
@@ -80,6 +84,8 @@ ALLOCA = @ALLOCA@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
+ANONVERSCRIPT_FALSE = @ANONVERSCRIPT_FALSE@
+ANONVERSCRIPT_TRUE = @ANONVERSCRIPT_TRUE@
 AR = @AR@
 AS = @AS@
 AUTOCONF = @AUTOCONF@
@@ -87,10 +93,8 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
-BASH_JAR_FALSE = @BASH_JAR_FALSE@
-BASH_JAR_TRUE = @BASH_JAR_TRUE@
-CAIRO_CFLAGS = @CAIRO_CFLAGS@
-CAIRO_LIBS = @CAIRO_LIBS@
+BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
+BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -110,7 +114,11 @@ DIVIDESPEC = @DIVIDESPEC@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
+ECJ_BUILD_JAR = @ECJ_BUILD_JAR@
+ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
+ENABLE_SHARED_FALSE = @ENABLE_SHARED_FALSE@
+ENABLE_SHARED_TRUE = @ENABLE_SHARED_TRUE@
 EXCEPTIONSPEC = @EXCEPTIONSPEC@
 EXEEXT = @EXEEXT@
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
@@ -121,19 +129,20 @@ GCJDEPMODE = @GCJDEPMODE@
 GCJFLAGS = @GCJFLAGS@
 GCJH = @GCJH@
 GCJVERSION = @GCJVERSION@
+GCJ_FOR_ECJX = @GCJ_FOR_ECJX@
 GCLIBS = @GCLIBS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
-GTK_CAIRO_FALSE = @GTK_CAIRO_FALSE@
-GTK_CAIRO_TRUE = @GTK_CAIRO_TRUE@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_ECJ_JAR_FALSE = @INSTALL_ECJ_JAR_FALSE@
+INSTALL_ECJ_JAR_TRUE = @INSTALL_ECJ_JAR_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -142,6 +151,8 @@ JAR = @JAR@
 JAVA_HOME = @JAVA_HOME@
 JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
 JAVA_HOME_SET_TRUE = @JAVA_HOME_SET_TRUE@
+JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
+JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
 JC1GCSPEC = @JC1GCSPEC@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
@@ -157,6 +168,8 @@ LIBGCJ_CFLAGS = @LIBGCJ_CFLAGS@
 LIBGCJ_CXXFLAGS = @LIBGCJ_CXXFLAGS@
 LIBGCJ_JAVAFLAGS = @LIBGCJ_JAVAFLAGS@
 LIBGCJ_LD_SYMBOLIC = @LIBGCJ_LD_SYMBOLIC@
+LIBGCJ_LD_SYMBOLIC_FUNCTIONS = @LIBGCJ_LD_SYMBOLIC_FUNCTIONS@
+LIBGCJ_SPEC = @LIBGCJ_SPEC@
 LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
 LIBOBJS = @LIBOBJS@
@@ -180,12 +193,10 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
-PANGOFT2_CFLAGS = @PANGOFT2_CFLAGS@
-PANGOFT2_LIBS = @PANGOFT2_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
-PLATFORM_INNER_NAT_HDRS = @PLATFORM_INNER_NAT_HDRS@
+PLATFORM = @PLATFORM@
 RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -201,8 +212,11 @@ THREADINCS = @THREADINCS@
 THREADLDFLAGS = @THREADLDFLAGS@
 THREADLIBS = @THREADLIBS@
 THREADSPEC = @THREADSPEC@
+THREADSTARTFILESPEC = @THREADSTARTFILESPEC@
 TOOLKIT = @TOOLKIT@
 UNZIP = @UNZIP@
+USE_LIBGCJ_BC_FALSE = @USE_LIBGCJ_BC_FALSE@
+USE_LIBGCJ_BC_TRUE = @USE_LIBGCJ_BC_TRUE@
 USING_BOEHMGC_FALSE = @USING_BOEHMGC_FALSE@
 USING_BOEHMGC_TRUE = @USING_BOEHMGC_TRUE@
 USING_DARWIN_CRT_FALSE = @USING_DARWIN_CRT_FALSE@
@@ -224,6 +238,8 @@ USING_WIN32_THREADS_TRUE = @USING_WIN32_THREADS_TRUE@
 VERSION = @VERSION@
 XLIB_AWT_FALSE = @XLIB_AWT_FALSE@
 XLIB_AWT_TRUE = @XLIB_AWT_TRUE@
+X_AWT_FALSE = @X_AWT_FALSE@
+X_AWT_TRUE = @X_AWT_TRUE@
 X_CFLAGS = @X_CFLAGS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
@@ -256,6 +272,7 @@ bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
+build_libsubdir = @build_libsubdir@
 build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
@@ -268,6 +285,7 @@ here = @here@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
+host_exeext = @host_exeext@
 host_os = @host_os@
 host_subdir = @host_subdir@
 host_vendor = @host_vendor@
@@ -276,12 +294,12 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
-libgcj_basedir = @libgcj_basedir@
 libstdcxx_incdir = @libstdcxx_incdir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 mkinstalldirs = @mkinstalldirs@
+multi_basedir = @multi_basedir@
 oldincludedir = @oldincludedir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@

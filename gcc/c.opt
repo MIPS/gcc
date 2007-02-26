@@ -132,6 +132,9 @@ Wc++-compat
 C Var(warn_cxx_compat)
 Warn about C constructs that are not in the common subset of C and C++
 
+Wc++0x-compat
+C++ ObjC++ Var(warn_cxx0x_compat)
+Warn about C++ constructs whose meaning differs between ISO C++ 1998 and ISO C++ 200x
 
 Wcast-qual
 C ObjC C++ ObjC++ Var(warn_cast_qual)
@@ -140,6 +143,10 @@ Warn about casts which discard qualifiers
 Wchar-subscripts
 C ObjC C++ ObjC++ Var(warn_char_subscripts)
 Warn about subscripts whose type is \"char\"
+
+Wclobbered
+C ObjC C++ ObjC++ Var(warn_clobbered) Init(-1)
+Warn about variables that might be changed by \"longjmp\" or \"vfork\"
 
 Wcomment
 C ObjC C++ ObjC++
@@ -151,7 +158,7 @@ Synonym for -Wcomment
 
 Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
-Warn about possibly confusing type conversions
+Warn for implicit type conversions that may change a value
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -172,6 +179,10 @@ Warn about compile-time integer division by zero
 Weffc++
 C++ ObjC++ Var(warn_ecpp)
 Warn about violations of Effective C++ style rules
+
+Wempty-body
+C ObjC C++ ObjC++ Var(warn_empty_body) Init(-1)
+Warn about an empty body in an if or else statement
 
 Wendif-labels
 C ObjC C++ ObjC++
@@ -260,7 +271,7 @@ C ObjC C++ ObjC++ Var(warn_missing_braces)
 Warn about possibly missing braces around initializers
 
 Wmissing-declarations
-C ObjC Var(warn_missing_declarations)
+C ObjC C++ ObjC++ Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
 Wmissing-field-initializers
@@ -274,6 +285,10 @@ Warn about functions which might be candidates for format attributes
 Wmissing-include-dirs
 C ObjC C++ ObjC++
 Warn about user-specified include directories that do not exist
+
+Wmissing-parameter-type
+C ObjC Var(warn_missing_parameter_type) Init(-1)
+Warn about function parameters declared without a type specifier in K&R-style functions
 
 Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)
@@ -307,6 +322,10 @@ Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
 Warn if a C-style cast is used in a program
 
+Wold-style-declaration
+C ObjC Var(warn_old_style_declaration) Init(-1)
+Warn for obsolescent usage in a declaration
+
 Wold-style-definition
 C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
@@ -318,6 +337,10 @@ Warn if a string is longer than the maximum portable length specified by the sta
 Woverloaded-virtual
 C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
+
+Woverride-init
+C ObjC Var(warn_override_init) Init(-1)
+Warn about overriding initializers without side effects
 
 Wparentheses
 C ObjC C++ ObjC++ Var(warn_parentheses)
@@ -394,6 +417,10 @@ Do not suppress warnings from system headers
 Wtraditional
 C ObjC Var(warn_traditional)
 Warn about features not present in traditional C
+
+Wtraditional-conversion
+C ObjC Var(warn_traditional_conversion)
+Warn of prototypes causing type conversions different from what would happen in the absence of prototype
 
 Wtrigraphs
 C ObjC C++ ObjC++
@@ -507,15 +534,6 @@ C ObjC C++ ObjC++ Joined RejectNegative
 fexternal-templates
 C++ ObjC++
 
-ffixed-form
-C ObjC
-
-ffixed-line-length-none
-C ObjC
-
-ffixed-line-length-
-C ObjC Joined
-
 ffor-scope
 C++ ObjC++
 Scope of for-init-statement variables is local to the loop
@@ -567,6 +585,10 @@ Inject friend functions into enclosing namespace
 
 flabels-ok
 C++ ObjC++
+
+flax-vector-conversions
+C ObjC C++ ObjC++
+Allow implicit conversions between vectors with differing numbers of subparts and/or differing element types.
 
 fms-extensions
 C ObjC C++ ObjC++
@@ -838,6 +860,13 @@ std=c++98
 C++ ObjC++
 Conform to the ISO 1998 C++ standard
 
+std=c++0x
+C++ ObjC++
+Conform to the ISO 1998 C++ standard, with extensions that are likely to
+become a part of the upcoming ISO C++ standard, dubbed C++0x. Note that the
+extensions enabled by this mode are experimental and may be removed in
+future releases of GCC.
+
 std=c89
 C ObjC
 Conform to the ISO 1990 C standard
@@ -853,6 +882,13 @@ Deprecated in favor of -std=c99
 std=gnu++98
 C++ ObjC++
 Conform to the ISO 1998 C++ standard with GNU extensions
+
+std=gnu++0x
+C++ ObjC++
+Conform to the ISO 1998 C++ standard, with GNU extensions and
+extensions that are likely to become a part of the upcoming ISO C++
+standard, dubbed C++0x. Note that the extensions enabled by this mode
+are experimental and may be removed in future releases of GCC.
 
 std=gnu89
 C ObjC

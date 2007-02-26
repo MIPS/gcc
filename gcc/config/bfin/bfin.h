@@ -39,8 +39,8 @@ extern int target_flags;
 #define TARGET_CPU_CPP_BUILTINS()               \
   do                                            \
     {                                           \
-      builtin_define ("bfin");                  \
-      builtin_define ("BFIN");                  \
+      builtin_define_std ("bfin");              \
+      builtin_define_std ("BFIN");              \
       builtin_define ("__ADSPBLACKFIN__");	\
       if (TARGET_FDPIC)				\
 	builtin_define ("__BFIN_FDPIC__");	\
@@ -51,6 +51,7 @@ extern int target_flags;
 #endif
 
 #define DRIVER_SELF_SPECS SUBTARGET_DRIVER_SELF_SPECS	"\
+ %{mleaf-id-shared-library:%{!mid-shared-library:-mid-shared-library}} \
  %{mfdpic:%{!fpic:%{!fpie:%{!fPIC:%{!fPIE:\
    	    %{!fno-pic:%{!fno-pie:%{!fno-PIC:%{!fno-PIE:-fpie}}}}}}}}} \
 "
@@ -548,13 +549,13 @@ enum reg_class
    (LETTER) == 'A' ? EVEN_AREGS : 	\
    (LETTER) == 'B' ? ODD_AREGS : 	\
    (LETTER) == 'b' ? IREGS :            \
-   (LETTER) == 'B' ? BREGS :            \
+   (LETTER) == 'v' ? BREGS :            \
    (LETTER) == 'f' ? MREGS : 		\
    (LETTER) == 'c' ? CIRCREGS :         \
    (LETTER) == 'C' ? CCREGS : 		\
    (LETTER) == 't' ? LT_REGS : 		\
    (LETTER) == 'k' ? LC_REGS : 		\
-   (LETTER) == 'l' ? LB_REGS : 		\
+   (LETTER) == 'u' ? LB_REGS : 		\
    (LETTER) == 'x' ? MOST_REGS :	\
    (LETTER) == 'y' ? PROLOGUE_REGS :	\
    (LETTER) == 'w' ? NON_A_CC_REGS :	\
@@ -729,7 +730,7 @@ typedef struct {
    See force_const_mem().
    If -mno-pool, all constants are legitimate.
  */
-#define LEGITIMATE_CONSTANT_P(x) 1
+#define LEGITIMATE_CONSTANT_P(X) bfin_legitimate_constant_p (X)
 
 /*   A number, the maximum number of registers that can appear in a
      valid memory address.  Note that it is up to you to specify a
@@ -826,13 +827,7 @@ do {					       \
 
      You may assume that ADDR is a valid address for the machine.
 */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)  \
-do {                                              \
- if (GET_CODE (ADDR) == POST_INC                  \
-     || GET_CODE (ADDR) == POST_DEC               \
-     || GET_CODE (ADDR) == PRE_DEC)               \
-   goto LABEL;					  \
-} while (0)
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define NOTICE_UPDATE_CC(EXPR, INSN) 0
 
@@ -1063,6 +1058,9 @@ do {                                              \
      : (STR)[1] == 'n'					\
      ? ((STR)[2] == '7' ? CONST_7NBIT_IMM_P (VALUE)	\
 	: 0)						\
+     : (STR)[1] == 'N'					\
+     ? ((STR)[2] == '7' ? CONST_7BIT_IMM_P (-(VALUE))	\
+	: 0)						\
      : 0)
 
 #define CONST_OK_FOR_M(VALUE, STR)			\
@@ -1207,11 +1205,13 @@ do { 						\
 
 #define ASM_COMMENT_START "//"
 
-#define FUNCTION_PROFILER(FILE, LABELNO) \
-  do {\
-    fprintf (FILE, "\tP1.l =LP$%d; P1.h =LP$%d; call mcount;\n", \
-       LABELNO, LABELNO);\
+#define FUNCTION_PROFILER(FILE, LABELNO)	\
+  do {						\
+    fprintf (FILE, "\tCALL __mcount;\n");	\
   } while(0)
+
+#undef NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS 1
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO) fprintf (FILE, "[SP--] = %s;\n", reg_names[REGNO])
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  fprintf (FILE, "%s = [SP++];\n", reg_names[REGNO])
@@ -1226,5 +1226,9 @@ extern struct rtx_def *bfin_cc_rtx, *bfin_rets_rtx;
 #define DBX_REGISTER_NUMBER(REGNO)  (REGNO) 
 
 #define SIZE_ASM_OP     "\t.size\t"
+
+extern int splitting_for_sched;
+
+#define PRINT_OPERAND_PUNCT_VALID_P(CHAR) ((CHAR) == '!')
 
 #endif /*  _BFIN_CONFIG */

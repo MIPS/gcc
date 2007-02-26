@@ -1,5 +1,5 @@
 /* CPU mode switching
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -268,6 +268,25 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			return_copy_pat = PATTERN (return_copy);
 			if (GET_CODE (return_copy_pat) != CLOBBER)
 			  break;
+			else if (!optimize)
+			  {
+			    /* This might be (clobber (reg [<result>]))
+			       when not optimizing.  Then check if
+			       the previous insn is the clobber for
+			       the return register.  */
+			    copy_reg = SET_DEST (return_copy_pat);
+			    if (GET_CODE (copy_reg) == REG
+				&& !HARD_REGISTER_NUM_P (REGNO (copy_reg)))
+			      {
+				if (INSN_P (PREV_INSN (return_copy)))
+				  {
+				    return_copy = PREV_INSN (return_copy);
+				    return_copy_pat = PATTERN (return_copy);
+				    if (GET_CODE (return_copy_pat) != CLOBBER)
+				      break;
+				  }
+			      }
+			  }
 		      }
 		    copy_reg = SET_DEST (return_copy_pat);
 		    if (GET_CODE (copy_reg) == REG)
@@ -398,7 +417,6 @@ optimize_mode_switching (void)
   int max_num_modes = 0;
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
-  struct df *df;
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
@@ -421,17 +439,15 @@ optimize_mode_switching (void)
   if (! n_entities)
     return 0;
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  df_analyze (df);
-
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that
      there NORMAL_MODE is supplied.  */
   post_entry = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
   pre_exit = create_pre_exit (n_entities, entity_map, num_modes);
 #endif
+
+  df_ri_add_problem (0);
+  df_analyze ();
 
   /* Create the bitmap vectors.  */
 
@@ -456,7 +472,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (df, bb));
+	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -466,7 +482,11 @@ optimize_mode_switching (void)
 	      if (e->flags & EDGE_COMPLEX)
 		break;
 	    if (e)
-	      RESET_BIT (transp[bb->index], j);
+	      {
+		ptr = new_seginfo (no_mode, BB_HEAD (bb), bb->index, live_now);
+		add_seginfo (info + bb->index, ptr);
+		RESET_BIT (transp[bb->index], j);
+	      }
 	  }
 
 	  for (insn = BB_HEAD (bb);
@@ -597,7 +617,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (df, src_bb));
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
@@ -608,38 +628,11 @@ optimize_mode_switching (void)
 	      if (mode_set == NULL_RTX)
 		continue;
 
-	      /* If this is an abnormal edge, we'll insert at the end
-		 of the previous block.  */
-	      if (eg->flags & EDGE_ABNORMAL)
-		{
-		  emited = true;
-		  if (JUMP_P (BB_END (src_bb)))
-		    emit_insn_before (mode_set, BB_END (src_bb));
-		  else
-		    {
-		      /* It doesn't make sense to switch to normal
-		         mode after a CALL_INSN.  The cases in which a
-		         CALL_INSN may have an abnormal edge are
-		         sibcalls and EH edges.  In the case of
-		         sibcalls, the dest basic-block is the
-		         EXIT_BLOCK, that runs in normal mode; it is
-		         assumed that a sibcall insn requires normal
-		         mode itself, so no mode switch would be
-		         required after the call (it wouldn't make
-		         sense, anyway).  In the case of EH edges, EH
-		         entry points also start in normal mode, so a
-		         similar reasoning applies.  */
-		      gcc_assert (NONJUMP_INSN_P (BB_END (src_bb)));
-		      emit_insn_after (mode_set, BB_END (src_bb));
-		    }
-		  bb_info[j][src_bb->index].computing = mode;
-		  RESET_BIT (transp[src_bb->index], j);
-		}
-	      else
-		{
-		  need_commit = 1;
-		  insert_insn_on_edge (mode_set, eg);
-		}
+	      /* We should not get an abnormal edge here.  */
+	      gcc_assert (! (eg->flags & EDGE_ABNORMAL));
+
+	      need_commit = 1;
+	      insert_insn_on_edge (mode_set, eg);
 	    }
 
 	  FOR_EACH_BB_REVERSE (bb)

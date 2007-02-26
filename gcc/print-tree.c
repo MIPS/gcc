@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -57,6 +57,16 @@ debug_tree (tree node)
   putc ('\n', stderr);
 }
 
+/* Print PREFIX and ADDR to FILE.  */
+void
+dump_addr (FILE *file, const char *prefix, void *addr)
+{
+  if (flag_dump_noaddr || flag_dump_unnumbered)
+    fprintf (file, "%s#", prefix);
+  else
+    fprintf (file, "%s%p", prefix, addr);
+}
+
 /* Print a node in brief fashion, with just the code, address and name.  */
 
 void
@@ -73,8 +83,8 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s %p",
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   if (class == tcc_declaration)
     {
@@ -105,7 +115,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
   /* We might as well always print the value of an integer or real.  */
   if (TREE_CODE (node) == INTEGER_CST)
     {
-      if (TREE_CONSTANT_OVERFLOW (node))
+      if (TREE_OVERFLOW (node))
 	fprintf (file, " overflow");
 
       fprintf (file, " ");
@@ -128,7 +138,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 
       d = TREE_REAL_CST (node);
       if (REAL_VALUE_ISINF (d))
-	fprintf (file, " Inf");
+	fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
       else if (REAL_VALUE_ISNAN (d))
 	fprintf (file, " Nan");
       else
@@ -218,8 +228,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s %p",
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   /* Print the name, if any.  */
   if (class == tcc_declaration)
@@ -253,7 +263,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (indent <= 4)
 	print_node_brief (file, "type", TREE_TYPE (node), indent + 4);
     }
-  else
+  else if (!GIMPLE_TUPLE_P (node))
     {
       print_node (file, "type", TREE_TYPE (node), indent + 4);
       if (TREE_TYPE (node))
@@ -505,8 +515,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
 	  indent_to (file, indent + 4);
-	  fprintf (file, "saved-insns %p",
-		   (void *) DECL_STRUCT_FUNCTION (node));
+	  dump_addr (file, "saved-insns ", DECL_STRUCT_FUNCTION (node));
 	}
 
       if ((TREE_CODE (node) == VAR_DECL || TREE_CODE (node) == PARM_DECL)
@@ -595,6 +604,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
 	       TYPE_ALIAS_SET (node));
 
+      if (TYPE_STRUCTURAL_EQUALITY_P (node))
+	fprintf (file, " structural equality");
+      else
+	dump_addr (file, " canonical type ", TYPE_CANONICAL (node));
+      
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 
       if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE)
@@ -670,12 +684,24 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
+    case tcc_gimple_stmt:
+      len = TREE_CODE_LENGTH (TREE_CODE (node));
+
+      for (i = 0; i < len; i++)
+	{
+	  char temp[10];
+
+	  sprintf (temp, "arg %d", i);
+	  print_node (file, temp, GIMPLE_STMT_OPERAND (node, i), indent + 4);
+	}
+      break;
+
     case tcc_constant:
     case tcc_exceptional:
       switch (TREE_CODE (node))
 	{
 	case INTEGER_CST:
-	  if (TREE_CONSTANT_OVERFLOW (node))
+	  if (TREE_OVERFLOW (node))
 	    fprintf (file, " overflow");
 
 	  fprintf (file, " ");
@@ -700,7 +726,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    d = TREE_REAL_CST (node);
 	    if (REAL_VALUE_ISINF (d))
-	      fprintf (file, " Inf");
+	      fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
 	    else if (REAL_VALUE_ISNAN (d))
 	      fprintf (file, " Nan");
 	    else
@@ -778,15 +804,16 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
     	case STATEMENT_LIST:
-	  fprintf (file, " head %p tail %p stmts",
-		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  dump_addr (file, " head ", node->stmt_list.head);
+	  dump_addr (file, " tail ", node->stmt_list.tail);
+	  fprintf (file, " stmts");
 	  {
 	    tree_stmt_iterator i;
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
 	      {
 		/* Not printing the addresses of the (not-a-tree)
 		   'struct tree_stmt_list_node's.  */
-		fprintf (file, " %p", (void *)tsi_stmt (i));
+		dump_addr (file, " ", tsi_stmt (i));
 	      }
 	    fprintf (file, "\n");
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
@@ -826,11 +853,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    {
 	      indent_to (file, indent + 3);
 	      if (SSA_NAME_PTR_INFO (node))
-		fprintf (file, " ptr-info %p",
-			 (void *) SSA_NAME_PTR_INFO (node));
+		dump_addr (file, " ptr-info ", SSA_NAME_PTR_INFO (node));
 	      if (SSA_NAME_VALUE (node))
-		fprintf (file, " value %p",
-			 (void *) SSA_NAME_VALUE (node));
+		dump_addr (file, " value ", SSA_NAME_VALUE (node));
 	    }
 	  break;
 

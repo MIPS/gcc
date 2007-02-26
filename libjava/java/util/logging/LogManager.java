@@ -1,6 +1,6 @@
 /* LogManager.java -- a class for maintaining Loggers and managing
    configuration properties
-   Copyright (C) 2002, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +39,8 @@ exception statement from your version. */
 
 package java.util.logging;
 
+import gnu.classpath.SystemProperties;
+
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.ByteArrayInputStream;
@@ -50,11 +52,10 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.StringTokenizer;
-
-import gnu.classpath.SystemProperties;
 
 /**
  * The <code>LogManager</code> maintains a hierarchical namespace
@@ -108,15 +109,27 @@ import gnu.classpath.SystemProperties;
 public class LogManager
 {
   /**
+   * The object name for the logging management bean.
+   * @since 1.5
+   */
+  public static final String LOGGING_MXBEAN_NAME
+    = "java.util.logging:type=Logging";
+
+  /**
    * The singleton LogManager instance.
    */
   private static LogManager logManager;
 
   /**
+   * The singleton logging bean.
+   */
+  private static LoggingMXBean loggingBean;
+
+  /**
    * The registered named loggers; maps the name of a Logger to
    * a WeakReference to it.
    */
-  private Map loggers;
+  private Map<String, WeakReference<Logger>> loggers;
 
   /**
    * The properties for the logging framework which have been
@@ -256,7 +269,7 @@ public class LogManager
      */
     name = logger.getName();
 
-    ref = (WeakReference) loggers.get(name);
+    ref = loggers.get(name);
     if (ref != null)
       {
 	if (ref.get() != null)
@@ -273,7 +286,7 @@ public class LogManager
       checkAccess();
 
     Logger parent = findAncestor(logger);
-    loggers.put(name, new WeakReference(logger));
+    loggers.put(name, new WeakReference<Logger>(logger));
     if (parent != logger.getParent())
       logger.setParent(parent);
 
@@ -305,24 +318,21 @@ public class LogManager
      * When adding "foo.bar", the logger "foo.bar.baz" should change
      * its parent to "foo.bar".
      */
-    if (parent != Logger.root)
+    for (Iterator iter = loggers.keySet().iterator(); iter.hasNext();)
       {
-	for (Iterator iter = loggers.keySet().iterator(); iter.hasNext();)
-	  {
-	    Logger possChild = (Logger) ((WeakReference) loggers.get(iter.next()))
-              .get();
-	    if ((possChild == null) || (possChild == logger)
-	        || (possChild.getParent() != parent))
-	      continue;
-
-	    if (! possChild.getName().startsWith(name))
-	      continue;
-
-	    if (possChild.getName().charAt(name.length()) != '.')
-	      continue;
-
-	    possChild.setParent(logger);
-	  }
+	Logger possChild = (Logger) ((WeakReference) loggers.get(iter.next()))
+	  .get();
+	if ((possChild == null) || (possChild == logger)
+	    || (possChild.getParent() != parent))
+	  continue;
+	
+	if (! possChild.getName().startsWith(name))
+	  continue;
+	
+	if (possChild.getName().charAt(name.length()) != '.')
+	  continue;
+	
+	possChild.setParent(logger);
       }
 
     return true;
@@ -352,15 +362,13 @@ public class LogManager
     int bestNameLength = 0;
 
     Logger cand;
-    String candName;
     int candNameLength;
 
     if (child == Logger.root)
       return null;
 
-    for (Iterator iter = loggers.keySet().iterator(); iter.hasNext();)
+    for (String candName : loggers.keySet())
       {
-	candName = (String) iter.next();
 	candNameLength = candName.length();
 
 	if (candNameLength > bestNameLength
@@ -368,7 +376,7 @@ public class LogManager
 	    && childName.startsWith(candName)
 	    && childName.charAt(candNameLength) == '.')
 	  {
-	    cand = (Logger) ((WeakReference) loggers.get(candName)).get();
+	    cand = loggers.get(candName).get();
 	    if ((cand == null) || (cand == child))
 	      continue;
 
@@ -393,14 +401,14 @@ public class LogManager
    */
   public synchronized Logger getLogger(String name)
   {
-    WeakReference ref;
+    WeakReference<Logger> ref;
 
     /* Throw a NullPointerException if name is null. */
     name.getClass();
 
-    ref = (WeakReference) loggers.get(name);
+    ref = loggers.get(name);
     if (ref != null)
-      return (Logger) ref.get();
+      return ref.get();
     else
       return null;
   }
@@ -413,7 +421,7 @@ public class LogManager
    * @return an Enumeration with the names of the currently
    *    registered Loggers.
    */
-  public synchronized Enumeration getLoggerNames()
+  public synchronized Enumeration<String> getLoggerNames()
   {
     return Collections.enumeration(loggers.keySet());
   }
@@ -436,16 +444,16 @@ public class LogManager
 
     properties = new Properties();
 
-    Iterator iter = loggers.values().iterator();
+    Iterator<WeakReference<Logger>> iter = loggers.values().iterator();
     while (iter.hasNext())
       {
-	WeakReference ref;
+	WeakReference<Logger> ref;
 	Logger logger;
 
-	ref = (WeakReference) iter.next();
+	ref = iter.next();
 	if (ref != null)
 	  {
-	    logger = (Logger) ref.get();
+	    logger = ref.get();
 
 	    if (logger == null)
 	      iter.remove();
@@ -700,7 +708,11 @@ public class LogManager
   {
     try
       {
-	return Level.parse(getLogManager().getProperty(propertyName));
+        String value = getLogManager().getProperty(propertyName);
+	if (value != null)
+	  return Level.parse(getLogManager().getProperty(propertyName));
+        else
+	   return defaultValue;
       }
     catch (Exception ex)
       {
@@ -836,11 +848,11 @@ public class LogManager
       }
     catch (ClassNotFoundException e)
       {
-        warn(property, className, "class not found");
+        warn(property, className, "class not found", e);
       }
     catch (IllegalAccessException e)
       {
-        warn(property, className, "illegal access");
+        warn(property, className, "illegal access", e);
       }
     catch (InstantiationException e)
       {
@@ -848,7 +860,7 @@ public class LogManager
       }
     catch (java.lang.LinkageError e)
       {
-        warn(property, className, "linkage error");
+        warn(property, className, "linkage error", e);
       }
 
     return null;
@@ -909,4 +921,63 @@ public class LogManager
       }
   }
 
+  /**
+   * Return the logging bean.  There is a single logging bean per
+   * VM instance.
+   * @since 1.5
+   */
+  public static synchronized LoggingMXBean getLoggingMXBean()
+  {
+    if (loggingBean == null)
+      {
+        loggingBean = new LoggingMXBean()
+        {
+          public String getLoggerLevel(String logger)
+          {
+            LogManager mgr = getLogManager();
+            Logger l = mgr.getLogger(logger);
+            if (l == null)
+              return null;
+            Level lev = l.getLevel();
+            if (lev == null)
+              return "";
+            return lev.getName();
+          }
+
+          public List getLoggerNames()
+          {
+            LogManager mgr = getLogManager();
+            // This is inefficient, but perhaps better for maintenance.
+            return Collections.list(mgr.getLoggerNames());
+          }
+
+          public String getParentLoggerName(String logger)
+          {
+            LogManager mgr = getLogManager();
+            Logger l = mgr.getLogger(logger);
+            if (l == null)
+              return null;
+            l = l.getParent();
+            if (l == null)
+              return "";
+            return l.getName();
+          }
+
+          public void setLoggerLevel(String logger, String level)
+          {
+            LogManager mgr = getLogManager();
+            Logger l = mgr.getLogger(logger);
+            if (l == null)
+              throw new IllegalArgumentException("no logger named " + logger);
+            Level newLevel;
+            if (level == null)
+              newLevel = null;
+            else
+              newLevel = Level.parse(level);
+            l.setLevel(newLevel);
+          }
+        };
+      }
+    return loggingBean;
+  }
 }

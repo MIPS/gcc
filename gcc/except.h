@@ -68,7 +68,7 @@ extern void convert_from_eh_region_ranges (void);
 extern unsigned int convert_to_eh_region_ranges (void);
 extern void find_exception_handler_labels (void);
 extern bool current_function_has_exception_handlers (void);
-extern void output_function_exception_table (void);
+extern void output_function_exception_table (const char *);
 
 extern void expand_builtin_unwind_init (void);
 extern rtx expand_builtin_eh_return_data_regno (tree);
@@ -176,7 +176,3 @@ struct throw_stmt_node GTY(())
 
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
-
-#ifdef ENABLE_CHECKING
-extern void verify_eh_throw_table_statements (void);
-#endif

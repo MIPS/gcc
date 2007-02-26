@@ -32,6 +32,9 @@ details.  */
 #include <java/lang/ThreadGroup.h>
 #endif
 
+#include <jvmti.h>
+#include "jvmti-int.h"
+
 #ifndef DISABLE_GETENV_PROPERTIES
 #include <ctype.h>
 #include <java-props.h>
@@ -56,7 +59,6 @@ details.  */
 #include <java/lang/NullPointerException.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/System.h>
-#include <java/lang/VMThrowable.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
@@ -65,6 +67,8 @@ details.  */
 #include <gnu/gcj/runtime/ExtensionClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
 #include <execution.h>
+#include <gnu/classpath/jdwp/Jdwp.h>
+#include <gnu/classpath/jdwp/VMVirtualMachine.h>
 #include <gnu/java/lang/MainThread.h>
 
 #ifdef USE_LTDL
@@ -84,7 +88,7 @@ static java::lang::OutOfMemoryError *no_memory;
 // Number of bytes in largest array object we create.  This could be
 // increased to the largest size_t value, so long as the appropriate
 // functions are changed to take a size_t argument instead of jint.
-#define MAX_OBJECT_SIZE ((1<<31) - 1)
+#define MAX_OBJECT_SIZE (((size_t)1<<31) - 1)
 
 // Properties set at compile time.
 const char **_Jv_Compiler_Properties = NULL;
@@ -98,6 +102,11 @@ property_pair *_Jv_Environment_Properties;
 // Stash the argv pointer to benefit native libraries that need it.
 const char **_Jv_argv;
 int _Jv_argc;
+
+// Debugging options
+static bool remoteDebug = false;
+static char defaultJdwpOptions[] = "";
+static char *jdwpOptions = defaultJdwpOptions;
 
 // Argument support.
 int
@@ -449,6 +458,7 @@ _Jv_Abort (const char *, const char *, int, const char *message)
 #else
   fprintf (stderr, "libgcj failure: %s\n", message);
 #endif
+  fflush (stderr);
   abort ();
 }
 
@@ -1115,6 +1125,18 @@ namespace gcj
 
   // Thread stack size specified by the -Xss runtime argument.
   size_t stack_size = 0;
+
+  // Start time of the VM
+  jlong startTime = 0;
+
+  // Arguments passed to the VM
+  JArray<jstring>* vmArgs;
+
+  // Currently loaded classes
+  jint loadedClasses = 0;
+
+  // Unloaded classes
+  jlong unloadedClasses = 0;
 }
 
 // We accept all non-standard options accepted by Sun's java command,
@@ -1139,7 +1161,18 @@ parse_x_arg (char* option_string)
     }
   else if (! strcmp (option_string, "debug"))
     {
-      // FIXME: add JDWP/JVMDI support
+      remoteDebug = true;
+    }
+  else if (! strncmp (option_string, "runjdwp:", 8))
+    {
+      if (strlen (option_string) > 8)
+	  jdwpOptions = &option_string[8];
+      else
+	{
+	  fprintf (stderr,
+		   "libgcj: argument required for JDWP options");
+	  return -1;
+	}
     }
   else if (! strncmp (option_string, "bootclasspath:", 14))
     {
@@ -1405,6 +1438,7 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
     return -1;
 
   runtimeInitialized = true;
+  startTime = _Jv_platform_gettimeofday();
 
   jint result = parse_init_args (vm_args);
   if (result < 0)
@@ -1447,10 +1481,6 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   _Jv_InitPrimClass (&_Jv_doubleClass,  "double",  'D', 8);
   _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0);
 
-  // Turn stack trace generation off while creating exception objects.
-  _Jv_InitClass (&java::lang::VMThrowable::class$);
-  java::lang::VMThrowable::trace_enabled = 0;
-  
   // We have to initialize this fairly early, to avoid circular class
   // initialization.  In particular we want to start the
   // initialization of ClassLoader before we start the initialization
@@ -1465,8 +1495,6 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
 
   no_memory = new java::lang::OutOfMemoryError;
 
-  java::lang::VMThrowable::trace_enabled = 1;
-
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif
@@ -1474,6 +1502,7 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   _Jv_platform_initialize ();
 
   _Jv_JNI_Init ();
+  _Jv_JVMTI_Init ();
 
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
@@ -1488,6 +1517,8 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   catch (java::lang::VirtualMachineError *ignore)
     {
     }
+
+  runtimeInitialized = true;
 
   return 0;
 }
@@ -1509,6 +1540,18 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 	  fprintf (stderr, "libgcj: couldn't create virtual machine\n");
 	  exit (1);
 	}
+      
+      if (vm_args == NULL)
+	gcj::vmArgs = JvConvertArgv(0, NULL);
+      else
+	{
+	  const char* vmArgs[vm_args->nOptions];
+	  const char** vmPtr = vmArgs;
+	  struct _Jv_VMOption* optionPtr = vm_args->options;
+	  for (int i = 0; i < vm_args->nOptions; ++i)
+	    *vmPtr++ = (*optionPtr++).optionString;
+	  gcj::vmArgs = JvConvertArgv(vm_args->nOptions, vmArgs);
+	}
 
       // Get the Runtime here.  We want to initialize it before searching
       // for `main'; that way it will be set up if `main' is a JNI method.
@@ -1526,6 +1569,25 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
       else
 	main_thread = new MainThread (JvNewStringUTF (name),
 				      arg_vec, is_jar);
+      _Jv_AttachCurrentThread (main_thread);
+
+      // Start JDWP
+      if (remoteDebug)
+	{
+	  using namespace gnu::classpath::jdwp;
+	  VMVirtualMachine::initialize ();
+	  Jdwp *jdwp = new Jdwp ();
+	  jdwp->setDaemon (true);
+	  jdwp->configure (JvNewStringLatin1 (jdwpOptions));
+	  jdwp->start ();
+
+	  // Wait for JDWP to initialize and start
+	  jdwp->join ();
+	}
+
+      // Send VMInit
+      if (JVMTI_REQUESTED_EVENT (VMInit))
+	_Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_INIT, main_thread);
     }
   catch (java::lang::Throwable *t)
     {
@@ -1538,8 +1600,15 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
       ::exit (1);
     }
 
-  _Jv_AttachCurrentThread (main_thread);
   _Jv_ThreadRun (main_thread);
+
+  // Send VMDeath
+  if (JVMTI_REQUESTED_EVENT (VMDeath))
+    {
+      java::lang::Thread *thread = java::lang::Thread::currentThread ();
+      JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
+      _Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_DEATH, thread, jni_env);
+    }
 
   // If we got here then something went wrong, as MainThread is not
   // supposed to terminate.
@@ -1557,6 +1626,12 @@ void
 JvRunMain (jclass klass, int argc, const char **argv)
 {
   _Jv_RunMain (klass, NULL, argc, argv, false);
+}
+
+void
+JvRunMainName (const char *name, int argc, const char **argv)
+{
+  _Jv_RunMain (NULL, name, argc, argv, false);
 }
 
 
@@ -1748,11 +1823,14 @@ _Jv_PrependVersionedLibdir (char* libpath)
         {
           // LD_LIBRARY_PATH is not prefixed with
           // GCJ_VERSIONED_LIBDIR.
-          jsize total = (sizeof (GCJ_VERSIONED_LIBDIR) - 1)
-            + (sizeof (PATH_SEPARATOR) - 1) + strlen (libpath) + 1;
+	  char path_sep[2];
+	  path_sep[0] = (char) _Jv_platform_path_separator;
+	  path_sep[1] = '\0';
+          jsize total = ((sizeof (GCJ_VERSIONED_LIBDIR) - 1)
+			 + 1 /* path separator */ + strlen (libpath) + 1);
           retval = (char*) _Jv_Malloc (total);
           strcpy (retval, GCJ_VERSIONED_LIBDIR);
-          strcat (retval, PATH_SEPARATOR);
+          strcat (retval, path_sep);
           strcat (retval, libpath);
         }
     }

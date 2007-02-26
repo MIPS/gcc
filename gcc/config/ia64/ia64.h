@@ -1048,10 +1048,12 @@ enum reg_class
    in it.  */
 #define ARG_POINTER_REGNUM R_GR(0)
 
+extern void ia64_init_expanders (void);
 /* Due to the way varargs and argument spilling happens, the argument
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\
   do {							\
+    ia64_init_expanders ();                             \
     if (cfun && cfun->emit->regno_pointer_align)	\
       REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = 64;	\
   } while (0)
@@ -1406,9 +1408,7 @@ do {									\
    on the machine mode of the memory reference it is used for or if the address
    is valid for some modes but not others.  */
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)			\
-  if (GET_CODE (ADDR) == POST_DEC || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL;
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 
 /* A C expression that is nonzero if X is a legitimate constant for an
    immediate operand on the target machine.  */
@@ -1978,19 +1978,6 @@ do {									\
 /* Define this macro to handle System V style pragmas: #pragma pack and
    #pragma weak.  Note, #pragma weak will only be supported if SUPPORT_WEAK is
    defined.  */
-
-/* If this architecture supports prefetch, define this to be the number of
-   prefetch commands that can be executed in parallel.
-
-   ??? This number is bogus and needs to be replaced before the value is
-   actually used in optimizations.  */
-
-#define SIMULTANEOUS_PREFETCHES 6
-
-/* If this architecture supports prefetch, define this to be the size of
-   the cache line that is prefetched.  */
-
-#define PREFETCH_BLOCK 32
 
 #define HANDLE_SYSV_PRAGMA 1
 

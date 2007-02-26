@@ -84,7 +84,7 @@
 #   define NEED_FIND_LIMIT
 # endif
 
-#if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__))
+#if defined(FREEBSD) && (defined(I386) || defined(X86_64) || defined(powerpc) || defined(__powerpc__))
 #  include <machine/trap.h>
 #  if !defined(PCR)
 #    define NEED_FIND_LIMIT
@@ -1181,12 +1181,15 @@ void GC_register_data_segments()
   	/* This used to be set for gcc, to avoid dealing with		*/
   	/* the structured exception handling issues.  But we now have	*/
   	/* assembly code to do that right.				*/
+  GC_bool GC_wnt = FALSE;
+        /* This is a Windows NT derivative, i.e. NT, W2K, XP or later.  */
   
   void GC_init_win32()
   {
     /* if we're running under win32s, assume that no DLLs will be loaded */
     DWORD v = GetVersion();
-    GC_no_win32_dlls |= ((v & 0x80000000) && (v & 0xff) <= 3);
+    GC_wnt = !(v & 0x80000000);
+    GC_no_win32_dlls |= ((!GC_wnt) && (v & 0xff) <= 3);
   }
 
   /* Return the smallest address a such that VirtualQuery		*/
@@ -1389,7 +1392,7 @@ int * etext_addr;
 }
 # endif
 
-# if defined(FREEBSD) && (defined(I386) || defined(powerpc) || defined(__powerpc__)) && !defined(PCR)
+# if defined(FREEBSD) && (defined(I386) || defined(X86_64) || defined(powerpc) || defined(__powerpc__)) && !defined(PCR)
 /* Its unclear whether this should be identical to the above, or 	*/
 /* whether it should apply to non-X86 architectures.			*/
 /* For now we don't assume that there is always an empty page after	*/
@@ -3368,7 +3371,7 @@ GC_bool is_ptrfree;
       1. Apple's mach/xnu documentation
       2. Timothy J. Wood's "Mach Exception Handlers 101" post to the
          omnigroup's macosx-dev list. 
-         www.omnigroup.com/mailman/archive/macosx-dev/2000-June/002030.html
+         www.omnigroup.com/mailman/archive/macosx-dev/2000-June/014178.html
       3. macosx-nat.c from Apple's GDB source code.
 */
    
@@ -3680,7 +3683,7 @@ void GC_dirty_init() {
         mask,
         GC_ports.exception,
         EXCEPTION_DEFAULT,
-        MACHINE_THREAD_STATE
+        GC_MACH_THREAD_STATE
     );
     if(r != KERN_SUCCESS) ABORT("task_set_exception_ports failed");
 
@@ -3799,6 +3802,16 @@ catch_exception_raise(
         mach_msg_type_number_t exc_state_count = PPC_EXCEPTION_STATE64_COUNT;
         ppc_exception_state64_t exc_state;
 #     endif
+#   elif defined(I386) || defined(X86_64)
+#     if CPP_WORDSZ == 32
+	thread_state_flavor_t flavor = x86_EXCEPTION_STATE32;
+	mach_msg_type_number_t exc_state_count = x86_EXCEPTION_STATE32_COUNT;
+	x86_exception_state32_t exc_state;
+#     else
+	thread_state_flavor_t flavor = x86_EXCEPTION_STATE64;
+	mach_msg_type_number_t exc_state_count = x86_EXCEPTION_STATE64_COUNT;
+	x86_exception_state64_t exc_state;
+#     endif
 #   else
 #	error FIXME for non-ppc darwin
 #   endif
@@ -3830,7 +3843,13 @@ catch_exception_raise(
     }
     
     /* This is the address that caused the fault */
-    addr = (char*) exc_state.dar;
+#if defined(POWERPC)
+    addr = (char*) exc_state. THREAD_FLD(dar);
+#elif defined (I386) || defined (X86_64)
+    addr = (char*) exc_state. THREAD_FLD(faultvaddr);
+#else
+#   error FIXME for non POWERPC/I386
+#endif
         
     if((HDR(addr)) == 0) {
         /* Ugh... just like the SIGBUS problem above, it seems we get a bogus 

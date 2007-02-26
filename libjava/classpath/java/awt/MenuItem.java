@@ -63,9 +63,15 @@ public class MenuItem extends MenuComponent
 /*
  * Static Variables
  */
+  
 
-// Serialization Constant
-private static final long serialVersionUID = -21757335363267194L;
+  /**
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_menuitem_number;
+
+  // Serialization Constant
+  private static final long serialVersionUID = - 21757335363267194L;
 
 /*************************************************************************/
 
@@ -517,11 +523,11 @@ removeActionListener(ActionListener l)
  * ClassClassException is thrown.
  * @since 1.3 
  */
-  public EventListener[] getListeners(Class listenerType)
+  public <T extends EventListener> T[] getListeners(Class<T> listenerType)
   {
     if (listenerType == ActionListener.class)
-      return getActionListeners();
-    return (EventListener[]) Array.newInstance(listenerType, 0);
+      return (T[]) getActionListeners();
+    return (T[]) Array.newInstance(listenerType, 0);
   }
 
 /*************************************************************************/
@@ -597,6 +603,21 @@ public AccessibleContext getAccessibleContext()
   if (accessibleContext == null)
     accessibleContext = new AccessibleAWTMenuItem();
   return accessibleContext;
+}
+
+/**
+ * Generate a unique name for this <code>MenuItem</code>.
+ *
+ * @return A unique name for this <code>MenuItem</code>.
+ */
+String generateName()
+{
+  return "menuitem" + getUniqueLong();
+}
+
+private static synchronized long getUniqueLong()
+{
+  return next_menuitem_number++;
 }
 
 } // class MenuItem 

@@ -27,7 +27,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sbitmap.h"
 /* For basic_block.  */
 #include "basic-block.h"
-/* For struct df.  */
 #include "df.h"
  
 typedef struct ddg_node *ddg_node_ptr;
@@ -166,8 +165,7 @@ struct ddg_all_sccs
 };
 
 
-struct df;
-ddg_ptr create_ddg (basic_block, struct df *, int closing_branch_deps);
+ddg_ptr create_ddg (basic_block, int closing_branch_deps);
 void free_ddg (ddg_ptr);
 
 void print_ddg (FILE *, ddg_ptr);

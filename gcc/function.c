@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -116,10 +116,6 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Instance of df used by thread_prologue_and_epilogue and all of it's
-   target hooks.  */
-struct df * prologue_epilogue_df;
-
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
 static GTY(()) int funcdef_no;
 
@@ -201,7 +197,6 @@ static struct temp_slot *find_temp_slot_from_address (rtx);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
 static void reorder_blocks_1 (rtx, tree, VEC(tree,heap) **);
-static void reorder_fix_fragments (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -210,7 +205,7 @@ extern tree debug_find_var_in_block_tree (tree, tree);
 static void record_insns (rtx, VEC(int,heap) **) ATTRIBUTE_UNUSED;
 static int contains (rtx, VEC(int,heap) **);
 #ifdef HAVE_return
-static void emit_return_into_block (basic_block, rtx);
+static void emit_return_into_block (basic_block);
 #endif
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed (rtx);
@@ -338,8 +333,6 @@ free_after_compilation (struct function *f)
   f->x_stack_check_probe_note = NULL;
   f->x_arg_pointer_save_area = NULL;
   f->x_parm_birth_insn = NULL;
-  f->original_arg_vector = NULL;
-  f->original_decl_initial = NULL;
   f->epilogue_delay_list = NULL;
 }
 
@@ -553,15 +546,7 @@ static struct temp_slot **
 temp_slots_at_level (int level)
 {
   if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
-    {
-      size_t old_length = VEC_length (temp_slot_p, used_temp_slots);
-      temp_slot_p *p;
-
-      VEC_safe_grow (temp_slot_p, gc, used_temp_slots, level + 1);
-      p = VEC_address (temp_slot_p, used_temp_slots);
-      memset (&p[old_length], 0,
-	      sizeof (temp_slot_p) * (level + 1 - old_length));
-    }
+    VEC_safe_grow_cleared (temp_slot_p, gc, used_temp_slots, level + 1);
 
   return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
 }
@@ -829,7 +814,6 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
   if (mode == BLKmode || memory_required)
     {
       HOST_WIDE_INT size = int_size_in_bytes (type);
-      tree size_tree;
       rtx tmp;
 
       /* Zero sized arrays are GNU C extension.  Set size to 1 to avoid
@@ -838,20 +822,10 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
 	size = 1;
 
       /* Unfortunately, we don't yet know how to allocate variable-sized
-	 temporaries.  However, sometimes we have a fixed upper limit on
-	 the size (which is stored in TYPE_ARRAY_MAX_SIZE) and can use that
-	 instead.  This is the case for Chill variable-sized strings.  */
-      if (size == -1 && TREE_CODE (type) == ARRAY_TYPE
-	  && TYPE_ARRAY_MAX_SIZE (type) != NULL_TREE
-	  && host_integerp (TYPE_ARRAY_MAX_SIZE (type), 1))
-	size = tree_low_cst (TYPE_ARRAY_MAX_SIZE (type), 1);
-
-      /* If we still haven't been able to get a size, see if the language
-	 can compute a maximum size.  */
-      if (size == -1
-	  && (size_tree = lang_hooks.types.max_size (type)) != 0
-	  && host_integerp (size_tree, 1))
-	size = tree_low_cst (size_tree, 1);
+	 temporaries.  However, sometimes we can find a fixed upper limit on
+	 the size, so try that instead.  */
+      else if (size == -1)
+	size = max_int_size_in_bytes (type);
 
       /* The size of the temporary may be too large to fit into an integer.  */
       /* ??? Not sure this should happen except for user silliness, so limit
@@ -1549,7 +1523,14 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	 Validate the new value vs the insn predicate.  Note that
 	 asm insns will have insn_code -1 here.  */
       if (!safe_insn_predicate (insn_code, i, x))
-	x = force_reg (insn_data[insn_code].operand[i].mode, x);
+	{
+	  start_sequence ();
+	  x = force_reg (insn_data[insn_code].operand[i].mode, x);
+	  seq = get_insns ();
+	  end_sequence ();
+	  if (seq)
+	    emit_insn_before (seq, insn);
+	}
 
       *recog_data.operand_loc[i] = recog_data.operand[i] = x;
       any_change = true;
@@ -1560,7 +1541,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
       /* Propagate operand changes into the duplicates.  */
       for (i = 0; i < recog_data.n_dups; ++i)
 	*recog_data.dup_loc[i]
-	  = recog_data.operand[(unsigned)recog_data.dup_num[i]];
+	  = copy_rtx (recog_data.operand[(unsigned)recog_data.dup_num[i]]);
 
       /* Force re-recognition of the instruction for validation.  */
       INSN_CODE (insn) = -1;
@@ -1622,7 +1603,7 @@ static tree
 instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
-  if (! EXPR_P (t))
+  if (! EXPR_P (t) && ! GIMPLE_STMT_P (t))
     {
       *walk_subtrees = 0;
       if (DECL_P (t) && DECL_RTL_SET_P (t))
@@ -1768,15 +1749,21 @@ aggregate_value_p (tree exp, tree fntype)
 
   tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
 
+  /* DECL node associated with FNTYPE when relevant, which we might need to
+     check for by-invisible-reference returns, typically for CALL_EXPR input
+     EXPressions.  */
+  tree fndecl = NULL_TREE;
+  
   if (fntype)
     switch (TREE_CODE (fntype))
       {
       case CALL_EXPR:
-	fntype = get_callee_fndecl (fntype);
-	fntype = fntype ? TREE_TYPE (fntype) : 0;
+	fndecl = get_callee_fndecl (fntype);
+	fntype = fndecl ? TREE_TYPE (fndecl) : 0;
 	break;
       case FUNCTION_DECL:
-	fntype = TREE_TYPE (fntype);
+	fndecl = fntype;
+	fntype = TREE_TYPE (fndecl);
 	break;
       case FUNCTION_TYPE:
       case METHOD_TYPE:
@@ -1791,11 +1778,23 @@ aggregate_value_p (tree exp, tree fntype)
 
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
+
   /* If the front end has decided that this needs to be passed by
      reference, do so.  */
   if ((TREE_CODE (exp) == PARM_DECL || TREE_CODE (exp) == RESULT_DECL)
       && DECL_BY_REFERENCE (exp))
     return 1;
+
+  /* If the EXPression is a CALL_EXPR, honor DECL_BY_REFERENCE set on the
+     called function RESULT_DECL, meaning the function returns in memory by
+     invisible reference.  This check lets front-ends not set TREE_ADDRESSABLE
+     on the function type, which used to be the way to request such a return
+     mechanism but might now be causing troubles at gimplification time if
+     temporaries with the function type need to be created.  */
+  if (TREE_CODE (exp) == CALL_EXPR && fndecl && DECL_RESULT (fndecl)
+      && DECL_BY_REFERENCE (DECL_RESULT (fndecl)))
+    return 1;
+      
   if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
@@ -3222,11 +3221,11 @@ gimplify_parameters (void)
 		  t = built_in_decls[BUILT_IN_ALLOCA];
 		  t = build_function_call_expr (t, args);
 		  t = fold_convert (ptr_type, t);
-		  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+		  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
 		  gimplify_and_add (t, &stmts);
 		}
 
-	      t = build2 (MODIFY_EXPR, void_type_node, local, parm);
+	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, local, parm);
 	      gimplify_and_add (t, &stmts);
 
 	      SET_DECL_VALUE_EXPR (parm, local);
@@ -3521,13 +3520,13 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
    be clobbered by `longjmp'.  */
 
 static bool
-regno_clobbered_at_setjmp (struct df *df, bitmap setjmp_crosses, int regno)
+regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
 {
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (df_get_live_out (df, ENTRY_BLOCK_PTR), regno))
+	   || REGNO_REG_SET_P (DF_LIVE_OUT (ENTRY_BLOCK_PTR), regno))
 	  && REGNO_REG_SET_P (setjmp_crosses, regno));
 }
 
@@ -3538,7 +3537,7 @@ regno_clobbered_at_setjmp (struct df *df, bitmap setjmp_crosses, int regno)
    regs.  */
 
 static void
-setjmp_vars_warning (struct df *df, bitmap setjmp_crosses, tree block)
+setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 {
   tree decl, sub;
 
@@ -3547,41 +3546,41 @@ setjmp_vars_warning (struct df *df, bitmap setjmp_crosses, tree block)
       if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
-	  && regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
-	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
-		 " or %<vfork%>",
-		 decl);
+	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
+	warning (OPT_Wclobbered, "variable %q+D might be clobbered by" 
+                 " %<longjmp%> or %<vfork%>", decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    setjmp_vars_warning (df, setjmp_crosses, sub);
+    setjmp_vars_warning (setjmp_crosses, sub);
 }
 
 /* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
 static void
-setjmp_args_warning (struct df *df, bitmap setjmp_crosses)
+setjmp_args_warning (bitmap setjmp_crosses)
 {
   tree decl;
   for (decl = DECL_ARGUMENTS (current_function_decl);
        decl; decl = TREE_CHAIN (decl))
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
-	&& regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
-      warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
+	&& regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
+      warning (OPT_Wclobbered, 
+               "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
 }
 
 /* Generate warning messages for variables live across setjmp.  */
 
 void 
-generate_setjmp_warnings (struct df *df)
+generate_setjmp_warnings (void)
 {
-  bitmap setjmp_crosses = df_ri_get_setjmp_crosses (df);
+  bitmap setjmp_crosses = df_ri_get_setjmp_crosses ();
 
-  setjmp_vars_warning (df, setjmp_crosses, DECL_INITIAL (current_function_decl));
-  setjmp_args_warning (df, setjmp_crosses);
+  setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
+  setjmp_args_warning (setjmp_crosses);
 }
 
 
@@ -3613,9 +3612,6 @@ reorder_blocks (void)
   reorder_blocks_1 (get_insns (), block, &block_stack);
   BLOCK_SUBBLOCKS (block) = blocks_nreverse (BLOCK_SUBBLOCKS (block));
 
-  /* Remove deleted blocks from the block fragment chains.  */
-  reorder_fix_fragments (block);
-
   VEC_free (tree, heap, block_stack);
 }
 
@@ -3644,17 +3640,18 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG)
 	    {
 	      tree block = NOTE_BLOCK (insn);
+	      tree origin;
+
+	      origin = (BLOCK_FRAGMENT_ORIGIN (block)
+			? BLOCK_FRAGMENT_ORIGIN (block)
+			: block);
 
 	      /* If we have seen this block before, that means it now
 		 spans multiple address regions.  Create a new fragment.  */
 	      if (TREE_ASM_WRITTEN (block))
 		{
 		  tree new_block = copy_node (block);
-		  tree origin;
 
-		  origin = (BLOCK_FRAGMENT_ORIGIN (block)
-			    ? BLOCK_FRAGMENT_ORIGIN (block)
-			    : block);
 		  BLOCK_FRAGMENT_ORIGIN (new_block) = origin;
 		  BLOCK_FRAGMENT_CHAIN (new_block)
 		    = BLOCK_FRAGMENT_CHAIN (origin);
@@ -3671,10 +3668,13 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		 will cause infinite recursion.  */
 	      if (block != current_block)
 		{
+		  if (block != origin)
+		    gcc_assert (BLOCK_SUPERCONTEXT (origin) == current_block);
+
 		  BLOCK_SUPERCONTEXT (block) = current_block;
 		  BLOCK_CHAIN (block) = BLOCK_SUBBLOCKS (current_block);
 		  BLOCK_SUBBLOCKS (current_block) = block;
-		  current_block = block;
+		  current_block = origin;
 		}
 	      VEC_safe_push (tree, heap, *p_block_stack, block);
 	    }
@@ -3686,61 +3686,6 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 	      current_block = BLOCK_SUPERCONTEXT (current_block);
 	    }
 	}
-    }
-}
-
-/* Rationalize BLOCK_FRAGMENT_ORIGIN.  If an origin block no longer
-   appears in the block tree, select one of the fragments to become
-   the new origin block.  */
-
-static void
-reorder_fix_fragments (tree block)
-{
-  while (block)
-    {
-      tree dup_origin = BLOCK_FRAGMENT_ORIGIN (block);
-      tree new_origin = NULL_TREE;
-
-      if (dup_origin)
-	{
-	  if (! TREE_ASM_WRITTEN (dup_origin))
-	    {
-	      new_origin = BLOCK_FRAGMENT_CHAIN (dup_origin);
-
-	      /* Find the first of the remaining fragments.  There must
-		 be at least one -- the current block.  */
-	      while (! TREE_ASM_WRITTEN (new_origin))
-		new_origin = BLOCK_FRAGMENT_CHAIN (new_origin);
-	      BLOCK_FRAGMENT_ORIGIN (new_origin) = NULL_TREE;
-	    }
-	}
-      else if (! dup_origin)
-	new_origin = block;
-
-      /* Re-root the rest of the fragments to the new origin.  In the
-	 case that DUP_ORIGIN was null, that means BLOCK was the origin
-	 of a chain of fragments and we want to remove those fragments
-	 that didn't make it to the output.  */
-      if (new_origin)
-	{
-	  tree *pp = &BLOCK_FRAGMENT_CHAIN (new_origin);
-	  tree chain = *pp;
-
-	  while (chain)
-	    {
-	      if (TREE_ASM_WRITTEN (chain))
-		{
-		  BLOCK_FRAGMENT_ORIGIN (chain) = new_origin;
-		  *pp = chain;
-		  pp = &BLOCK_FRAGMENT_CHAIN (chain);
-		}
-	      chain = BLOCK_FRAGMENT_CHAIN (chain);
-	    }
-	  *pp = NULL_TREE;
-	}
-
-      reorder_fix_fragments (BLOCK_SUBBLOCKS (block));
-      block = BLOCK_CHAIN (block);
     }
 }
 
@@ -3858,6 +3803,14 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
+
+/* Return value of funcdef and increase it.  */
+int
+get_next_funcdef_no (void) 
+{
+  return funcdef_no++;
+}
+
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  */
 
@@ -3872,7 +3825,7 @@ allocate_struct_function (tree fndecl)
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
-  current_function_funcdef_no = funcdef_no++;
+  current_function_funcdef_no = get_next_funcdef_no ();
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
@@ -4419,19 +4372,6 @@ expand_function_end (void)
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
 
-  /* Mark the end of the function body.
-     If control reaches this insn, the function can drop through
-     without returning a value.  */
-  emit_note (NOTE_INSN_FUNCTION_END);
-
-  /* Must mark the last line number note in the function, so that the test
-     coverage code can avoid counting the last line twice.  This just tells
-     the code to ignore the immediately following line note, since there
-     already exists a copy of this note somewhere above.  This line number
-     note is still needed for debugging though, so we can't delete it.  */
-  if (flag_test_coverage)
-    emit_note (NOTE_INSN_REPEATED_LINE_NUMBER);
-
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
   force_next_line_note ();
@@ -4459,13 +4399,11 @@ expand_function_end (void)
     }
   else
     {
-      /* @@@ This is a kludge.  We want to ensure that instructions that
-	 may trap are not moved into the epilogue by scheduling, because
-	 we don't always emit unwind information for the epilogue.
-	 However, not all machine descriptions define a blockage insn, so
-	 emit an ASM_INPUT to act as one.  */
+      /* We want to ensure that instructions that may trap are not
+	 moved into the epilogue by scheduling, because we don't
+	 always emit unwind information for the epilogue.  */
       if (flag_non_call_exceptions)
-	emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+	emit_insn (gen_blockage ());
     }
 
   /* If this is an implementation of throw, do what's necessary to
@@ -4737,11 +4675,9 @@ sibcall_epilogue_contains (rtx insn)
    block_for_insn appropriately.  */
 
 static void
-emit_return_into_block (basic_block bb, rtx line_note)
+emit_return_into_block (basic_block bb)
 {
   emit_jump_insn_after (gen_return (), BB_END (bb));
-  if (line_note)
-    emit_note_copy_after (line_note, PREV_INSN (BB_END (bb)));
 }
 #endif /* HAVE_return */
 
@@ -4915,7 +4851,7 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		    (DF_LR_IN (prologue_epilogue_df, EXIT_BLOCK_PTR), regno)
+		    (DF_LR_IN (EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5143,7 +5079,6 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  prologue_epilogue_df = df_init (DF_HARD_REGS);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and
@@ -5154,8 +5089,7 @@ thread_prologue_and_epilogue_insns (void)
      designed for modular testing.  All of the test cases that fail
      because of running dce here fail in the g++ library, not in the
      test case.  */
-  df_lr_add_problem (prologue_epilogue_df, 0);
-  df_analyze (prologue_epilogue_df);
+  df_analyze ();
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -5163,6 +5097,11 @@ thread_prologue_and_epilogue_insns (void)
       start_sequence ();
       seq = gen_prologue ();
       emit_insn (seq);
+
+      /* Insert an explicit USE for the frame pointer 
+         if the profiling is on and the frame pointer is required.  */
+      if (current_function_profile && frame_pointer_needed)
+        emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
 
       /* Retain a map of the prologue insns.  */
       record_insns (seq, &prologue);
@@ -5221,18 +5160,6 @@ thread_prologue_and_epilogue_insns (void)
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
 	  edge_iterator ei2;
-	  rtx epilogue_line_note = NULL_RTX;
-
-	  /* Locate the line number associated with the closing brace,
-	     if we can find one.  */
-	  for (seq = get_last_insn ();
-	       seq && ! active_insn_p (seq);
-	       seq = PREV_INSN (seq))
-	    if (NOTE_P (seq) && NOTE_LINE_NUMBER (seq) > 0)
-	      {
-		epilogue_line_note = seq;
-		break;
-	      }
 
 	  for (ei2 = ei_start (last->preds); (e = ei_safe_edge (ei2)); )
 	    {
@@ -5256,7 +5183,7 @@ thread_prologue_and_epilogue_insns (void)
 		 with a simple return instruction.  */
 	      if (simplejump_p (jump))
 		{
-		  emit_return_into_block (bb, epilogue_line_note);
+		  emit_return_into_block (bb);
 		  delete_insn (jump);
 		}
 
@@ -5293,7 +5220,7 @@ thread_prologue_and_epilogue_insns (void)
 	     this is still reachable will be determined later.  */
 
 	  emit_barrier_after (BB_END (last));
-	  emit_return_into_block (last, epilogue_line_note);
+	  emit_return_into_block (last);
 	  epilogue_end = BB_END (last);
 	  single_succ_edge (last)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
@@ -5395,61 +5322,6 @@ epilogue_done:
     }
 #endif
 
-#ifdef HAVE_prologue
-  /* This is probably all useless now that we use locators.  */
-  if (prologue_end)
-    {
-      rtx insn, prev;
-
-      /* GDB handles `break f' by setting a breakpoint on the first
-	 line note after the prologue.  Which means (1) that if
-	 there are line number notes before where we inserted the
-	 prologue we should move them, and (2) we should generate a
-	 note before the end of the first basic block, if there isn't
-	 one already there.
-
-	 ??? This behavior is completely broken when dealing with
-	 multiple entry functions.  We simply place the note always
-	 into first basic block and let alternate entry points
-	 to be missed.
-       */
-
-      for (insn = prologue_end; insn; insn = prev)
-	{
-	  prev = PREV_INSN (insn);
-	  if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-	    {
-	      /* Note that we cannot reorder the first insn in the
-		 chain, since rest_of_compilation relies on that
-		 remaining constant.  */
-	      if (prev == NULL)
-		break;
-	      reorder_insns (insn, insn, prologue_end);
-	    }
-	}
-
-      /* Find the last line number note in the first block.  */
-      for (insn = BB_END (ENTRY_BLOCK_PTR->next_bb);
-	   insn != prologue_end && insn;
-	   insn = PREV_INSN (insn))
-	if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-	  break;
-
-      /* If we didn't find one, make a copy of the first line number
-	 we run across.  */
-      if (! insn)
-	{
-	  for (insn = next_active_insn (prologue_end);
-	       insn;
-	       insn = PREV_INSN (insn))
-	    if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-	      {
-		emit_note_copy_after (insn, prologue_end);
-		break;
-	      }
-	}
-    }
-#endif
 #ifdef HAVE_epilogue
   if (epilogue_end)
     {
@@ -5457,20 +5329,23 @@ epilogue_done:
 
       /* Similarly, move any line notes that appear after the epilogue.
          There is no need, however, to be quite so anal about the existence
-	 of such a note.  Also move the NOTE_INSN_FUNCTION_END and (possibly)
+	 of such a note.  Also possibly move
 	 NOTE_INSN_FUNCTION_BEG notes, as those can be relevant for debug
 	 info generation.  */
       for (insn = epilogue_end; insn; insn = next)
 	{
 	  next = NEXT_INSN (insn);
 	  if (NOTE_P (insn) 
-	      && (NOTE_LINE_NUMBER (insn) > 0
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END))
+	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG))
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }
 #endif
+
+  /* Threading the prologue and epilogue changes the artificial refs
+     in the entry and exit blocks.  */
+  epilogue_completed = 1;
+  df_update_entry_exit_and_calls ();
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
@@ -5596,7 +5471,8 @@ record_block_change (tree block)
 }
 
 /* Finishes record of boundaries.  */
-void finalize_block_changes (void)
+void
+finalize_block_changes (void)
 {
   record_block_change (DECL_INITIAL (current_function_decl));
 }
@@ -5625,6 +5501,13 @@ const char *
 current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
+}
+
+/* Returns the raw (mangled) name of the current function.  */
+const char *
+current_function_assembler_name (void)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (cfun->decl));
 }
 
 
@@ -5694,7 +5577,6 @@ rest_of_handle_thread_prologue_and_epilogue (void)
      scheduling to operate in the epilogue.  */
 
   thread_prologue_and_epilogue_insns ();
-  epilogue_completed = 1;
   return 0;
 }
 

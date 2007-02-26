@@ -75,6 +75,10 @@ final class VMClassLoader
   /** packages loaded by the bootstrap class loader */
   static final HashMap definedPackages = new HashMap();
 
+  /** jars from property java.boot.class.path */
+  static final HashMap bootjars = new HashMap();
+  
+
   /**
    * Converts the array string of native package names to
    * Packages. The packages are then put into the
@@ -168,10 +172,6 @@ final class VMClassLoader
       return (URL)e.nextElement();
     return null;
   }
-
-  /** jars from property java.boot.class.path */
-  static final HashMap bootjars = new HashMap();
-  
   /**
    * Helper to get a list of resources from the bootstrap class loader.
    *
@@ -415,8 +415,9 @@ final class VMClassLoader
       {
         byte[] modifiedData = new byte[len];
         System.arraycopy(data, offset, modifiedData, 0, len);
+        String jvmName = name.replace('.', '/');
         modifiedData =
-          ((InstrumentationImpl)instrumenter).callTransformers(loader, name,
+          ((InstrumentationImpl)instrumenter).callTransformers(loader, jvmName,
             null, pd, modifiedData);
         
         return defineClass(loader, name, modifiedData, 0, modifiedData.length,

@@ -1,7 +1,7 @@
 // -*- c++ -*-
 // posix-threads.h - Defines for using POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2001, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2003, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -19,6 +19,7 @@ details.  */
 
 #include <pthread.h>
 #include <sched.h>
+#include <sysdep/locks.h>
 
 //
 // Typedefs.
@@ -46,7 +47,6 @@ typedef struct _Jv_Thread_t
 } _Jv_Thread_t;
 
 typedef void _Jv_ThreadStartFunc (java::lang::Thread *);
-
 
 // Condition Variables used to implement wait/notify/sleep/interrupt.
 typedef struct
@@ -80,6 +80,15 @@ inline int
 _Jv_MutexCheckMonitor (_Jv_Mutex_t *mu)
 {
   return (mu->owner != pthread_self());
+}
+
+// Type identifying a POSIX thread.
+typedef pthread_t _Jv_ThreadDesc_t;
+
+inline _Jv_ThreadDesc_t
+_Jv_GetPlatformThreadID(_Jv_Thread_t *t)
+{
+  return t->thread;
 }
 
 //
@@ -123,31 +132,7 @@ _Jv_MutexInit (_Jv_Mutex_t *mu)
   mu->owner = 0;
 }
 
-inline int
-_Jv_MutexLock (_Jv_Mutex_t *mu)
-{
-  pthread_t self = pthread_self ();
-  if (mu->owner == self)
-    {
-      mu->count++;
-    }
-  else
-    {
-#     ifdef LOCK_DEBUG
-	int result = pthread_mutex_lock (&mu->mutex);
-	if (0 != result)
-	  {
-	    fprintf(stderr, "Pthread_mutex_lock returned %d\n", result);
-	    for (;;) {}
-	  }
-#     else
-        pthread_mutex_lock (&mu->mutex);
-#     endif
-      mu->count = 1;
-      mu->owner = self;
-    }
-  return 0;
-}
+extern int _Jv_MutexLock (_Jv_Mutex_t *);
 
 inline int
 _Jv_MutexUnlock (_Jv_Mutex_t *mu)
@@ -365,5 +350,34 @@ void _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data,
 void _Jv_ThreadWait (void);
 
 void _Jv_ThreadInterrupt (_Jv_Thread_t *data);
+
+// park() / unpark() support
+
+struct ParkHelper
+{
+  volatile obj_addr_t permit;
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  
+  void init ();
+  void deactivate ();
+  void destroy ();
+  void park (jboolean isAbsolute, jlong time);
+  void unpark ();
+};
+
+inline void
+ParkHelper::init ()
+{
+  pthread_mutex_init (&mutex, NULL);
+  pthread_cond_init (&cond, NULL);
+}
+
+inline void
+ParkHelper::destroy ()
+{
+  pthread_mutex_destroy (&mutex);
+  pthread_cond_destroy (&cond);
+}
 
 #endif /* __JV_POSIX_THREADS__ */

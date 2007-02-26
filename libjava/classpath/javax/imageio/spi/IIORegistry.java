@@ -39,12 +39,16 @@ exception statement from your version. */
 package javax.imageio.spi;
 
 import gnu.classpath.ServiceFactory;
-import gnu.java.awt.ClasspathToolkit;
 
 import java.awt.Toolkit;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+
+import gnu.javax.imageio.bmp.BMPImageReaderSpi;
+import gnu.javax.imageio.bmp.BMPImageWriterSpi;
+import gnu.javax.imageio.gif.GIFImageReaderSpi;
+import gnu.javax.imageio.png.PNGImageReaderSpi;
 
 public final class IIORegistry extends ServiceRegistry
 {
@@ -81,10 +85,12 @@ public final class IIORegistry extends ServiceRegistry
     super(defaultCategories.iterator());
 
     // XXX: Register built-in Spis here.
+    registerServiceProvider(new PNGImageReaderSpi()); // Register PNG decoder.
+    registerServiceProvider(new GIFImageReaderSpi()); // Register GIF decoder.
+    registerServiceProvider(new BMPImageReaderSpi());
+    registerServiceProvider(new BMPImageWriterSpi());
 
     Toolkit toolkit = Toolkit.getDefaultToolkit();
-    if (toolkit instanceof ClasspathToolkit)
-      ((ClasspathToolkit)toolkit).registerImageIOSpis(this);
     
     registerApplicationClasspathSpis();
   }

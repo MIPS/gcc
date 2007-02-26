@@ -168,7 +168,7 @@ DEFTREECODE (TEMPLATE_TEMPLATE_PARM, "template_template_parm", tcc_type, 0)
    BOUND_TEMPLATE_TEMPLATE_PARM.  */
 
 /* Index into a template parameter list.  This parameter must be a type.
-   The type.value field will be a TEMPLATE_PARM_INDEX.  */
+   The type.values field will be a TEMPLATE_PARM_INDEX.  */
 DEFTREECODE (TEMPLATE_TYPE_PARM, "template_type_parm", tcc_type, 0)
 
 /* A type designated by `typename T::t'.  TYPE_CONTEXT is `T',
@@ -341,6 +341,14 @@ DEFTREECODE (STMT_EXPR, "stmt_expr", tcc_expression, 1)
 /* Unary plus. Operand 0 is the expression to which the unary plus
    is applied.  */
 DEFTREECODE (UNARY_PLUS_EXPR, "unary_plus_expr", tcc_unary, 1)
+
+/** C++0x extensions. */
+
+/* A static assertion.  This is a C++0x extension.
+   STATIC_ASSERT_CONDITION contains the condition that is being
+   checked.  STATIC_ASSERT_MESSAGE contains the message (a string
+   literal) to be displayed if the condition fails to hold.  */
+DEFTREECODE (STATIC_ASSERT, "static_assert", tcc_exceptional, 0)
 
 /*
 Local variables:

@@ -48,7 +48,7 @@ included in the section entitled ``GNU Free Documentation License''.
      funds for GNU development.
 @end copying
 @ifnottex
-@dircategory Programming
+@dircategory Software development
 @direntry
 * gccint: (gccint).            Internals of the GNU Compiler Collection.
 @end direntry
@@ -111,6 +111,7 @@ Additional tutorial information is linked to from
 * RTL::             The intermediate representation that most passes work on.
 * Control Flow::    Maintaining and manipulating the control flow graph.
 * Tree SSA::        Analysis and optimization of the tree representation.
+* Loop Analysis and Representation:: Analysis and representation of loops
 * Machine Desc::    How to write machine description instruction patterns.
 * Target Macros::   How to write the machine description C macros and functions.
 * Host Config::     Writing the @file{xm-@var{machine}.h} file.
@@ -141,6 +142,7 @@ Additional tutorial information is linked to from
 @include passes.texi
 @include c-tree.texi
 @include tree-ssa.texi
+@include loop.texi
 @include rtl.texi
 @include cfg.texi
 @include md.texi

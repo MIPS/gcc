@@ -40,7 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
-
+#include "dbgcnt.h"
 
 enum form
   {
@@ -449,43 +449,36 @@ dump_mem_insn (FILE *file)
 static rtx * reg_next_use = NULL;
 static rtx * reg_next_inc_use = NULL;
 static rtx * reg_next_def = NULL;
-static struct df *df = NULL;
-static struct dataflow *scan_dflow = NULL;
 
 
-/* Move notes that match PATTERN to TO_INSN from FROM_INSN.  If
-   PATTERN is NULL, move all notes.  */
+/* Move dead note that match PATTERN to TO_INSN from FROM_INSN.  We do
+   not really care about moving any other notes from the inc or add
+   insn.  Moving the REG_EQUAL and REG_EQUIV is clearly wrong and it
+   does not appear that there are any other kinds of relavant notes.  */
 
 static void 
-move_notes (rtx to_insn, rtx from_insn, rtx pattern)
+move_dead_notes (rtx to_insn, rtx from_insn, rtx pattern)
 {
   rtx note; 
   rtx next_note;
   rtx prev_note = NULL;
 
-  if (pattern)
-    for (note = REG_NOTES (from_insn); note; note = next_note)
-      {
-	next_note = XEXP (note, 1);
-	
-	if (pattern == XEXP (note, 0))
-	  {
-	    XEXP (note, 1) = REG_NOTES (to_insn);
-	    REG_NOTES (to_insn) = note;
-	    if (prev_note)
-	      XEXP (prev_note, 1) = next_note;
-	    else
-	      REG_NOTES (from_insn) = next_note;
-	  }
-	else prev_note = note;
-      }
-  else
-    for (note = REG_NOTES (from_insn); note; note = next_note)
-      {
-	next_note = XEXP (note, 1);
-	XEXP (note, 1) = REG_NOTES (to_insn);
-	REG_NOTES (to_insn) = note;
-      }
+  for (note = REG_NOTES (from_insn); note; note = next_note)
+    {
+      next_note = XEXP (note, 1);
+      
+      if ((REG_NOTE_KIND(note) == REG_DEAD)
+	  && pattern == XEXP (note, 0))
+	{
+	  XEXP (note, 1) = REG_NOTES (to_insn);
+	  REG_NOTES (to_insn) = note;
+	  if (prev_note)
+	    XEXP (prev_note, 1) = next_note;
+	  else
+	    REG_NOTES (from_insn) = next_note;
+	}
+      else prev_note = note;
+    }
 }
 
 
@@ -566,15 +559,16 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
   switch (inc_insn.form)
     {
     case FORM_PRE_ADD:
-      move_notes (mem_insn.insn, inc_insn.insn, NULL);
       mov_insn = insert_move_insn_before (mem_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
+      move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       regno = REGNO (inc_insn.reg_res);
       reg_next_def [regno] = mov_insn;
       reg_next_use [regno] = NULL;
       regno = REGNO (inc_insn.reg0);
       reg_next_use [regno] = mov_insn;
+      df_recompute_luids (bb);
       break;
 
     case FORM_POST_INC:
@@ -584,7 +578,6 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 
       /* Fallthru.  */
     case FORM_PRE_INC:
-      move_notes (mem_insn.insn, inc_insn.insn, NULL);
       regno = REGNO (inc_insn.reg_res);
       reg_next_def [regno] = mem_insn.insn;
       reg_next_use [regno] = NULL;
@@ -594,9 +587,7 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     case FORM_POST_ADD:
       mov_insn = insert_move_insn_before (mem_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
-      move_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
-      move_notes (mem_insn.insn, inc_insn.insn, inc_insn.reg1);
-      move_notes (mem_insn.insn, inc_insn.insn, inc_insn.reg_res);
+      move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
       /* Do not move anything to the mov insn because the instruction
 	 pointer for the main iteration has not yet hit that.  It is
@@ -607,8 +598,10 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 
       regno = REGNO (inc_insn.reg0);
       reg_next_use [regno] = mem_insn.insn;
-      if (reg_next_use [regno] == reg_next_inc_use[regno])
+      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
+      df_recompute_luids (bb);
       break;
 
     case FORM_last:
@@ -619,34 +612,30 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     {
       regno = REGNO (inc_insn.reg1);
       reg_next_use [regno] = mem_insn.insn;
+      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+	  || (reg_next_inc_use[regno] == inc_insn.insn))
+	reg_next_inc_use[regno] = NULL;
     }
 
   /* Recompute the df info for the insns that have changed. */
-  df_insn_refs_delete (scan_dflow, inc_insn.insn);
-  df_insn_create_insn_record (scan_dflow, inc_insn.insn);
+  delete_insn (inc_insn.insn);
 
-  SET_INSN_DELETED (inc_insn.insn);
-  df_insn_refs_delete (scan_dflow, mem_insn.insn);
-  df_insn_create_insn_record (scan_dflow, mem_insn.insn);
-  df_insn_refs_record (scan_dflow, bb, mem_insn.insn); 
-  if (mov_insn)
+  if (dump_file && mov_insn)
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "inserting mov ");
-	  dump_insn_slim (dump_file, mov_insn);
-	}
-      df_insn_create_insn_record (scan_dflow, mov_insn);
-      df_insn_refs_record (scan_dflow, bb, mov_insn); 
+      fprintf (dump_file, "inserting mov ");
+      dump_insn_slim (dump_file, mov_insn);
     }
-  df_recompute_luids (df, bb);
 
   /* Record that this insn has an implicit side effect.  */
   REG_NOTES (mem_insn.insn) 
     = alloc_EXPR_LIST (REG_INC, inc_reg, REG_NOTES (mem_insn.insn));
 
   if (dump_file)
-    fprintf (dump_file, "****success\n");
+    {
+      fprintf (dump_file, "****success ");
+      dump_insn_slim (dump_file, mem_insn.insn);
+    }
+
   return true;
 }
 
@@ -708,6 +697,9 @@ try_merge (void)
   /* Now get the form that we are generating.  */
   gen_form = decision_table 
     [inc_insn.reg1_state][mem_insn.reg1_state][inc_insn.form];
+
+  if (dbg_cnt (auto_inc_dec) == false)
+    return false;
 
   switch (gen_form)
     {
@@ -1020,6 +1012,7 @@ find_inc (bool first_try)
   rtx insn;
   basic_block bb = BASIC_BLOCK (BLOCK_NUM (mem_insn.insn));
   rtx other_insn;
+  struct df_ref **def_rec;
 
   /* Make sure this reg appears only once in this insn.  */
   if (count_occurrences (PATTERN (mem_insn.insn), mem_insn.reg0, 1) != 1)
@@ -1061,18 +1054,67 @@ find_inc (bool first_try)
 	return false;
     }
 
+  /* Need to assure that none of the operands of the inc instruction are 
+     assigned to by the mem insn.  */
+  for (def_rec = DF_INSN_DEFS (mem_insn.insn); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      unsigned int regno = DF_REF_REGNO (def);
+      if ((regno == REGNO (inc_insn.reg0)) 
+	  || (regno == REGNO (inc_insn.reg_res)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "inc conflicts with store failure.\n");
+	  return false;
+	}
+      if (!inc_insn.reg1_is_const && (regno == REGNO (inc_insn.reg1)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "inc conflicts with store failure.\n");
+	  return false;
+	}
+    }
+
   if (dump_file)
     dump_inc_insn (dump_file);
 
-  /* For the post_add to work, the result_reg of the inc must not be
-     used in the mem insn since this will become the new index
-     register.  */
-  if (inc_insn.form == FORM_POST_ADD
-      && count_occurrences (PATTERN (mem_insn.insn), inc_insn.reg_res, 1) != 0)
+  if (inc_insn.form == FORM_POST_ADD)
     {
-      if (dump_file)
-	fprintf (dump_file, "base reg replacement failure.\n");
-      return false;
+      /* Make sure that there is no insn that assigns to inc_insn.res
+	 between the mem_insn and the inc_insn.  */
+      rtx other_insn = get_next_ref (REGNO (inc_insn.reg_res), 
+				     BASIC_BLOCK (BLOCK_NUM (mem_insn.insn)), 
+				     reg_next_def);
+      if (other_insn != inc_insn.insn)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, 
+		     "result of add is assigned to between mem and inc insns.\n");
+	  return false;
+	}
+
+      other_insn = get_next_ref (REGNO (inc_insn.reg_res), 
+				 BASIC_BLOCK (BLOCK_NUM (mem_insn.insn)), 
+				 reg_next_use);
+      if (other_insn 
+	  && (other_insn != inc_insn.insn)
+	  && (DF_INSN_LUID (inc_insn.insn) > DF_INSN_LUID (other_insn)))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, 
+		     "result of add is used between mem and inc insns.\n");
+	  return false;
+	}
+
+      /* For the post_add to work, the result_reg of the inc must not be
+	 used in the mem insn since this will become the new index
+	 register.  */
+      if (count_occurrences (PATTERN (mem_insn.insn), inc_insn.reg_res, 1) != 0)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "base reg replacement failure.\n");
+	  return false;
+	}
     }
 
   if (mem_insn.reg1_is_const)
@@ -1083,7 +1125,7 @@ find_inc (bool first_try)
 	    {
 	      /* The mem looks like *r0 and the rhs of the add has two
 		 registers.  */
-	      int luid = DF_INSN_LUID (df, inc_insn.insn);
+	      int luid = DF_INSN_LUID (inc_insn.insn);
 	      if (inc_insn.form == FORM_POST_ADD)
 		{
 		  /* The trick is that we are not going to increment r0, 
@@ -1101,16 +1143,16 @@ find_inc (bool first_try)
 		     inc result is after the inc.  */
 		  other_insn 
 		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
-		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		  if (other_insn && luid > DF_INSN_LUID (other_insn))
 		    return false;
-		  
+
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
 		    reverse_inc (); 
 		}
-	      
+
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	    }
 	}
@@ -1128,7 +1170,7 @@ find_inc (bool first_try)
 	 the add is of the form a + c where c does not match b and
 	 then we just abandon this.  */
       
-      int luid = DF_INSN_LUID (df, inc_insn.insn);
+      int luid = DF_INSN_LUID (inc_insn.insn);
       rtx other_insn;
       
       /* Make sure this reg appears only once in this insn.  */
@@ -1164,7 +1206,7 @@ find_inc (bool first_try)
 		 before the add insn.  */
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	      /* All ok for the next step.  */
 	    }
@@ -1192,7 +1234,7 @@ find_inc (bool first_try)
 	      
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg0), bb, reg_next_def);
-	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	      if (other_insn && luid > DF_INSN_LUID (other_insn))
 		return false;
 	    }
 
@@ -1200,7 +1242,7 @@ find_inc (bool first_try)
 	     add insn since this will be the reg incremented.  */
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg_res), bb, reg_next_use);
-	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	  if (other_insn && luid > DF_INSN_LUID (other_insn))
 	    return false;
 	}
       else /* FORM_POST_INC.  There is less to check here because we
@@ -1228,7 +1270,7 @@ find_inc (bool first_try)
 	   the inc.  */
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+	  if (other_insn && luid > DF_INSN_LUID (other_insn))
 	    return false;
 	}
     }
@@ -1332,9 +1374,12 @@ merge_in_block (int max_reg, basic_block bb)
 {
   rtx insn;
   rtx curr;
-  struct df_ref *def;
-  struct df_ref *use;
   int success_in_block = 0;
+
+  if (dump_file)
+    fprintf (dump_file, "\n\nstarting bb %d\n", bb->index);
+
+  df_recompute_luids (bb);
 
   FOR_BB_INSNS_REVERSE_SAFE (bb, insn, curr)
     {
@@ -1374,17 +1419,17 @@ merge_in_block (int max_reg, basic_block bb)
 			 inc_insn to the mem_insn.insn is both def and use
 			 clear of c because the inc insn is going to move
 			 into the mem_insn.insn.  */
-		      int luid = DF_INSN_LUID (df, mem_insn.insn);
+		      int luid = DF_INSN_LUID (mem_insn.insn);
 		      rtx other_insn 
 			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
 		      
-		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		      if (other_insn && luid > DF_INSN_LUID (other_insn))
 			ok = false;
 		      
 		      other_insn 
 			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 		      
-		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+		      if (other_insn && luid > DF_INSN_LUID (other_insn))
 			ok = false;
 		    }
 		  
@@ -1412,21 +1457,33 @@ merge_in_block (int max_reg, basic_block bb)
 	    success_in_block++;
 	}
       
-      /* Need to update next use.  */
-      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+      /* If the inc insn was merged with a mem, the inc insn is gone
+	 and there is noting to update.  */
+      if (DF_INSN_UID_GET(uid))
 	{
-	  reg_next_use[DF_REF_REGNO (def)] = NULL;
-	  reg_next_inc_use[DF_REF_REGNO (def)] = NULL;
-	  reg_next_def[DF_REF_REGNO (def)] = insn;
+	  struct df_ref **def_rec;
+	  struct df_ref **use_rec;
+	  /* Need to update next use.  */
+	  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      reg_next_use[DF_REF_REGNO (def)] = NULL;
+	      reg_next_inc_use[DF_REF_REGNO (def)] = NULL;
+	      reg_next_def[DF_REF_REGNO (def)] = insn;
+	    }
+	  
+	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+	    {
+	      struct df_ref *use = *use_rec;
+	      reg_next_use[DF_REF_REGNO (use)] = insn;
+	      if (insn_is_add_or_inc)
+		reg_next_inc_use[DF_REF_REGNO (use)] = insn;
+	      else
+		reg_next_inc_use[DF_REF_REGNO (use)] = NULL;
+	    }  
 	}
-      
-      for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
-	{
-	  reg_next_use[DF_REF_REGNO (use)] = insn;
-	  reg_next_use[DF_REF_REGNO (use)] = insn;
-	  if (insn_is_add_or_inc)
-	    reg_next_inc_use[DF_REF_REGNO (use)] = insn;
-	}  
+      else if (dump_file)
+	fprintf (dump_file, "skipping update of deleted insn %d\n", uid);
     }
 
   /* If we were successful, try again.  There may have been several
@@ -1457,11 +1514,8 @@ rest_of_handle_auto_inc_dec (void)
 
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  scan_dflow = df->problems_by_index[DF_SCAN];
-  df_analyze (df);
+  df_ri_add_problem (0);
+  df_analyze ();
 
   reg_next_use = XCNEWVEC (rtx, max_reg);
   reg_next_inc_use = XCNEWVEC (rtx, max_reg);

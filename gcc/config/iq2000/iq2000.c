@@ -2119,7 +2119,7 @@ iq2000_can_use_return_insn (void)
   if (! reload_completed)
     return 0;
 
-  if (regs_ever_live[31] || profile_flag)
+  if (df_regs_ever_live_p (31) || profile_flag)
     return 0;
 
   if (cfun->machine->initialized)
@@ -2436,8 +2436,8 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
 }
 
 #define def_builtin(NAME, TYPE, CODE)					\
-  lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-			       NULL, NULL_TREE)
+  add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		       NULL, NULL_TREE)
 
 static void
 iq2000_init_builtins (void)

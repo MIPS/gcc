@@ -1,3 +1,24 @@
+2007-01-29  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: No longer build snapshots for 4.0.x.
+
+2007-01-21  Tobias Burnus  <burnus@net-b.de>
+
+	* update_web_docs_svn: Build also libgomp documentation.
+
+2007-01-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Spread snapshots more evenly throughout the week, and
+	in "ascending" order.  Build all at the same time of the day.
+
+2006-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* crontab: Add 4.2 branch.  Set trunk to 4.3.
+
+2006-09-17  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (LC_ALL): Default to C.
+
 2006-03-11  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* crontab: Don't build snapshot for 3.4.x anymore.

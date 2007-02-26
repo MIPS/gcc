@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -166,8 +166,14 @@ dump_template_argument_list (tree args, int flags)
 static void
 dump_template_parameter (tree parm, int flags)
 {
-  tree p = TREE_VALUE (parm);
-  tree a = TREE_PURPOSE (parm);
+  tree p;
+  tree a;
+
+  if (parm == error_mark_node)
+   return;
+
+  p = TREE_VALUE (parm);
+  a = TREE_PURPOSE (parm);
 
   if (TREE_CODE (p) == TYPE_DECL)
     {
@@ -623,16 +629,16 @@ dump_type_suffix (tree t, int flags)
       pp_cxx_left_bracket (cxx_pp);
       if (TYPE_DOMAIN (t))
 	{
-	  if (host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0))
-	    pp_wide_integer
-	      (cxx_pp, tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0) + 1);
-	  else if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (t))) == MINUS_EXPR)
-	    dump_expr (TREE_OPERAND (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0),
+	  tree dtype = TYPE_DOMAIN (t);
+	  tree max = TYPE_MAX_VALUE (dtype);
+	  if (host_integerp (max, 0))
+	    pp_wide_integer (cxx_pp, tree_low_cst (max, 0) + 1);
+	  else if (TREE_CODE (max) == MINUS_EXPR)
+	    dump_expr (TREE_OPERAND (max, 0),
 		       flags & ~TFF_EXPR_IN_PARENS);
 	  else
-	    dump_expr (fold (cp_build_binary_op
-			     (PLUS_EXPR, TYPE_MAX_VALUE (TYPE_DOMAIN (t)),
-			      integer_one_node)),
+	    dump_expr (fold_build2 (PLUS_EXPR, dtype, max,
+				    build_int_cst (dtype, 1)),
 		       flags & ~TFF_EXPR_IN_PARENS);
 	}
       pp_cxx_right_bracket (cxx_pp);
@@ -878,6 +884,10 @@ dump_decl (tree t, int flags)
       dump_type (USING_DECL_SCOPE (t), flags);
       pp_cxx_colon_colon (cxx_pp);
       dump_decl (DECL_NAME (t), flags);
+      break;
+
+    case STATIC_ASSERT:
+      pp_cxx_declaration (cxx_pp, t);
       break;
 
     case BASELINK:
@@ -1236,7 +1246,15 @@ dump_template_parms (tree info, int primary, int flags)
 
       for (ix = 0; ix != len; ix++)
 	{
-	  tree parm = TREE_VALUE (TREE_VEC_ELT (parms, ix));
+	  tree parm;
+
+          if (TREE_VEC_ELT (parms, ix) == error_mark_node)
+            {
+              pp_identifier (cxx_pp, "<template parameter error>");
+              continue;
+            }
+
+          parm = TREE_VALUE (TREE_VEC_ELT (parms, ix));
 
 	  if (ix)
 	    pp_separate_with_comma (cxx_pp);
@@ -2319,7 +2337,22 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     {
     case 'A': result = args_to_string (next_tree, verbose);	break;
     case 'C': result = code_to_string (next_tcode);		break;
-    case 'D': result = decl_to_string (next_tree, verbose);	break;
+    case 'D':
+      {
+	tree temp = next_tree;
+	if (DECL_P (temp)
+	    && DECL_DEBUG_EXPR_IS_FROM (temp) && DECL_DEBUG_EXPR (temp))
+	  {
+	    temp = DECL_DEBUG_EXPR (temp);
+	    if (!DECL_P (temp))
+	      {
+		result = expr_to_string (temp);
+		break;
+	      }
+	  }
+	result = decl_to_string (temp, verbose);
+      }
+      break;
     case 'E': result = expr_to_string (next_tree);		break;
     case 'F': result = fndecl_to_string (next_tree, verbose);	break;
     case 'L': result = language_to_string (next_lang);		break;

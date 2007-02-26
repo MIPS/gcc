@@ -1168,7 +1168,7 @@ frv_stack_info (void)
 	default:
 	  for (regno = first; regno <= last; regno++)
 	    {
-	      if ((regs_ever_live[regno] && !call_used_regs[regno])
+	      if ((df_regs_ever_live_p (regno) && !call_used_regs[regno])
 		  || (current_function_calls_eh_return
 		      && (regno >= FIRST_EH_REGNUM && regno <= LAST_EH_REGNUM))
 		  || (!TARGET_FDPIC && flag_pic
@@ -1186,7 +1186,7 @@ frv_stack_info (void)
 	  break;
 
 	case STACK_REGS_LR:
-	  if (regs_ever_live[LR_REGNO]
+	  if (df_regs_ever_live_p (LR_REGNO)
               || profile_flag
 	      /* This is set for __builtin_return_address, etc.  */
 	      || cfun->machine->frame_needed
@@ -1499,7 +1499,7 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       rtx insn;
 
       /* Just to check that the above comment is true.  */
-      gcc_assert (!regs_ever_live[GPR_FIRST + 3]);
+      gcc_assert (!df_regs_ever_live_p (GPR_FIRST + 3));
 
       /* Generate the instruction that saves the link register.  */
       fprintf (file, "\tmovsg lr,gr3\n");
@@ -1519,7 +1519,7 @@ frv_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	      {
 		rtx address = XEXP (XVECEXP (pattern, 0, 1), 0);
 		if (GET_CODE (address) == REG && REGNO (address) == LR_REGNO)
-		  REGNO (address) = GPR_FIRST + 3;
+		  SET_REGNO (address, GPR_FIRST + 3);
 	      }
 	  }
     }
@@ -2204,7 +2204,7 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
       debug_rtx (nextarg);
     }
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
 	      make_tree (ptr_type_node, nextarg));
   TREE_SIDE_EFFECTS (t) = 1;
 
@@ -7642,7 +7642,7 @@ frv_reorder_packet (void)
   for (from = 0; from < to - 1; from++)
     {
       remove_insn (insns[from]);
-      add_insn_before (insns[from], insns[to - 1]);
+      add_insn_before (insns[from], insns[to - 1], NULL);
       SET_PACKING_FLAG (insns[from]);
     }
 }
@@ -8149,7 +8149,7 @@ frv_reorg (void)
 }
 
 #define def_builtin(name, type, code) \
-  lang_hooks.builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL)
+  add_builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL)
 
 struct builtin_description
 {
@@ -8633,7 +8633,7 @@ frv_int_to_acc (enum insn_code icode, int opnum, rtx opval)
   reg = gen_rtx_REG (insn_data[icode].operand[opnum].mode,
 		     ACC_FIRST + INTVAL (opval));
   if (! (*insn_data[icode].operand[opnum].predicate) (reg, VOIDmode))
-    REGNO (reg) = ACCG_FIRST + INTVAL (opval);
+    SET_REGNO (reg, ACCG_FIRST + INTVAL (opval));
 
   if (! (*insn_data[icode].operand[opnum].predicate) (reg, VOIDmode))
     {

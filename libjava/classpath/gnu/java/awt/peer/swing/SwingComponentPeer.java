@@ -42,14 +42,13 @@ import java.awt.AWTException;
 import java.awt.BufferCapabilities;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -64,6 +63,10 @@ import java.awt.image.ImageProducer;
 import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
+import java.awt.peer.LightweightPeer;
+
+import javax.swing.JComponent;
+import javax.swing.RepaintManager;
 
 /**
  * The base class for Swing based component peers. This provides the basic
@@ -99,10 +102,19 @@ public class SwingComponentPeer
   protected SwingComponent swingComponent;
 
   /**
+   * The font that is set for this peer.
+   */
+  protected Font peerFont;
+
+  /**
+   * The current repaint area.
+   */
+  protected Rectangle paintArea;
+
+ /**
    * Creates a SwingComponentPeer instance. Subclasses are expected to call
-   * this constructor and thereafter call
-   * {@link #init(Component, SwingComponent)} in order to setup the AWT and
-   * Swing components properly.
+   * this constructor and thereafter call {@link #init(Component, JComponent)}
+   * in order to setup the AWT and Swing components properly.
    */
   protected SwingComponentPeer()
   {
@@ -120,6 +132,38 @@ public class SwingComponentPeer
   {
     awtComponent = awtComp;
     swingComponent = swingComp;
+    if (swingComponent != null)
+      {
+        JComponent c = swingComponent.getJComponent();
+        if (c != null)
+          {
+            c.addNotify();
+            RepaintManager.currentManager(c).setDoubleBufferingEnabled(false);
+            System.setProperty("gnu.awt.swing.doublebuffering", "true");
+          }
+      }
+
+    // Register this heavyweight component with the nearest heavyweight
+    // container, so we get peerPaint() triggered by that container.
+    if (! (this instanceof LightweightPeer))
+      {
+        Component comp = awtComponent;
+        Container parent = comp.getParent();
+        while (parent != null &&
+               ! (parent.getPeer() instanceof SwingContainerPeer))
+          {
+            comp = parent;
+            parent = comp.getParent();
+          }
+
+        // At this point we have the ancestor with a SwingContainerPeer
+        // (or null peer).
+        if (parent != null && parent.getPeer() instanceof SwingContainerPeer)
+          {
+            SwingContainerPeer p = (SwingContainerPeer) parent.getPeer();
+            p.addHeavyweightDescendent(awtComponent);
+          }
+      }
   }
 
   /**
@@ -167,12 +211,9 @@ public class SwingComponentPeer
    */
   public Image createImage(int width, int height)
   {
-    GraphicsEnvironment graphicsEnv =
-      GraphicsEnvironment.getLocalGraphicsEnvironment();
-    GraphicsDevice dev = graphicsEnv.getDefaultScreenDevice();
-    GraphicsConfiguration conf = dev.getDefaultConfiguration();
-    Image image = conf.createCompatibleImage(width, height);
-    return image;
+    Component parent = awtComponent.getParent();
+    ComponentPeer parentPeer = parent.getPeer();
+    return parentPeer.createImage(width, height);
   }
 
   /**
@@ -190,6 +231,28 @@ public class SwingComponentPeer
    */
   public void dispose()
   {
+    // Unregister this heavyweight component from the nearest heavyweight
+    // container.
+    if (! (this instanceof LightweightPeer))
+      {
+        Component comp = awtComponent;
+        Container parent = comp.getParent();
+        while (parent != null &&
+               ! (parent.getPeer() instanceof SwingContainerPeer))
+          {
+            comp = parent;
+            parent = comp.getParent();
+          }
+
+        // At this point we have the ancestor with a SwingContainerPeer
+        // (or null peer).
+        if (parent != null && parent.getPeer() instanceof SwingContainerPeer)
+          {
+            SwingContainerPeer p = (SwingContainerPeer) parent.getPeer();
+            p.removeHeavyweightDescendent(awtComponent);
+          }
+      }
+
     awtComponent = null;
     swingComponent = null;
   }
@@ -249,8 +312,7 @@ public class SwingComponentPeer
   public Graphics getGraphics()
   {
     Component parent = awtComponent.getParent();
-    ComponentPeer parentPeer = parent.getPeer();
-    Graphics g = parentPeer.getGraphics();
+    Graphics g = parent.getGraphics();
     g.translate(awtComponent.getX(), awtComponent.getY());
     g.setClip(0, 0, awtComponent.getWidth(), awtComponent.getHeight());
     return g;
@@ -336,21 +398,29 @@ public class SwingComponentPeer
     {
       case PaintEvent.UPDATE:
       case PaintEvent.PAINT:
-        Graphics g = getGraphics();
-        Rectangle clip = ((PaintEvent)e).getUpdateRect();
-        g.clipRect(clip.x, clip.y, clip.width, clip.height);
-        //if (this instanceof LightweightPeer)
-        //  {
-            if (e.getID() == PaintEvent.UPDATE)
-              awtComponent.update(g);
-            else
-              awtComponent.paint(g);
-        //  }
-        // We paint the 'heavyweights' at last, so that they appear on top of
-        // everything else.
-        peerPaint(g);
-
-        g.dispose();
+        // Need to synchronize to avoid threading problems on the
+        // paint event list.
+        // We must synchronize on the tree lock first to avoid deadlock,
+        // because Container.paint() will grab it anyway.
+        synchronized (this)
+          {
+            assert paintArea != null;
+            if (awtComponent.isShowing())
+              {
+                Graphics g = awtComponent.getGraphics();
+                try
+                  {
+                    Rectangle clip = paintArea;
+                    g.clipRect(clip.x, clip.y, clip.width, clip.height);
+                    peerPaint(g, e.getID() == PaintEvent.UPDATE);
+                  }
+                finally
+                  {
+                    g.dispose();
+                    paintArea = null;
+                  }
+              }
+          }
         break;
       case MouseEvent.MOUSE_PRESSED:
       case MouseEvent.MOUSE_RELEASED:
@@ -384,6 +454,11 @@ public class SwingComponentPeer
   {
     if (swingComponent != null)
       swingComponent.getJComponent().setVisible(false);
+
+    Component parent = awtComponent.getParent();
+    if (parent != null)
+      parent.repaint(awtComponent.getX(), awtComponent.getY(),
+                     awtComponent.getWidth(), awtComponent.getHeight());
   }
 
   /**
@@ -448,9 +523,15 @@ public class SwingComponentPeer
     return retVal;
   }
 
+  /**
+   * Paints the component. This is triggered by
+   * {@link Component#paintAll(Graphics)}.
+   *
+   * @param graphics the graphics to paint with
+   */
   public void paint(Graphics graphics)
   {
-    // FIXME: I don't know what this method is supposed to do.
+    peerPaint(graphics, false);
   }
 
   /**
@@ -470,17 +551,15 @@ public class SwingComponentPeer
   public boolean prepareImage(Image img, int width, int height, ImageObserver ob)
   {
     Component parent = awtComponent.getParent();
-    boolean res;
     if(parent != null)
-      {
-        ComponentPeer parentPeer = parent.getPeer();
-        res = parentPeer.prepareImage(img, width, height, ob);
-      }
+    {
+      ComponentPeer parentPeer = parent.getPeer();
+      return parentPeer.prepareImage(img, width, height, ob);
+    }
     else
-      {
-        res = Toolkit.getDefaultToolkit().prepareImage(img, width, height, ob);
-      }
-    return res;
+    {
+      return Toolkit.getDefaultToolkit().prepareImage(img, width, height, ob);
+    }
   }
 
   public void print(Graphics graphics)
@@ -633,6 +712,7 @@ public class SwingComponentPeer
    */
   public void setFont(Font font)
   {
+    peerFont = font;
     if (swingComponent != null)
       swingComponent.getJComponent().setFont(font);
   }
@@ -662,8 +742,10 @@ public class SwingComponentPeer
    */
   public void setVisible(boolean visible)
   {
-    if (swingComponent != null)
-      swingComponent.getJComponent().setVisible(visible);
+    if (visible)
+      show();
+    else
+      hide();
   }
 
   /**
@@ -738,7 +820,14 @@ public class SwingComponentPeer
    */
   public void coalescePaintEvent(PaintEvent e)
   {
-    // Nothing to do here yet.
+    synchronized (this)
+      {
+        Rectangle newRect = e.getUpdateRect();
+        if (paintArea == null)
+          paintArea = newRect;
+        else
+          Rectangle.union(paintArea, newRect, paintArea);
+      }
   }
 
   /**
@@ -782,8 +871,13 @@ public class SwingComponentPeer
   public VolatileImage createVolatileImage(int width, int height)
   {
     Component parent = awtComponent.getParent();
-    ComponentPeer parentPeer = parent.getPeer();
-    return parentPeer.createVolatileImage(width, height);
+    VolatileImage im = null;
+    if (parent != null)
+      {
+        ComponentPeer parentPeer = parent.getPeer();
+        im = parentPeer.createVolatileImage(width, height);
+      }
+    return im;
   }
 
   /**
@@ -939,9 +1033,33 @@ public class SwingComponentPeer
    * paint() on the Swing component.
    *
    * @param g the graphics context to use for painting
+   * @param update wether we need to call update or paint on the AWT component
    */
-  protected void peerPaint(Graphics g)
+  protected void peerPaint(Graphics g, boolean update)
   {
+    peerPaintComponent(g);
+
+    Graphics userGraphics = g.create();
+    try{
+    if (update)
+      awtComponent.update(userGraphics);
+    else
+      awtComponent.paint(userGraphics);
+    } finally {
+        userGraphics.dispose();
+    }
+    
+  }
+
+  /**
+   * Paints the actual 'heavyweight' swing component, if there is one
+   * associated to this peer.
+   * 
+   * @param g the graphics to paint the component with
+   */
+  protected void peerPaintComponent(Graphics g)
+  {
+    // Paint the actual Swing component if this peer has one.
     if (swingComponent != null)
       swingComponent.getJComponent().paint(g);
   }

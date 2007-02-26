@@ -1,14 +1,14 @@
-/* { dg-do compile } */
 /* { dg-options "-std=gnu99" } */
 
-/* N1150 4: Characteristics of decimal floating types <decfloat.h>.
+/* N1150 4: Characteristics of decimal floating types <float.h>.
    C99 5.2.4.2.2a[3]: New.
 
    Verify constants about range of decimal float and three components of
-   decimal float defined in decfloat.h.  */
+   decimal float defined in float.h.  */
 
-/* Make sure we are exporting the right values to decfloat.h. */
-#include <decfloat.h>
+/* Make sure we are exporting the right values to float.h. */
+#define __STDC_WANT_DEC_FP__ 1
+#include <float.h>
 
 extern void abort (void);
 
@@ -35,7 +35,7 @@ int main ()
   if (DEC128_EPSILON != 1E-33DL) abort();
   
   if (DEC32_MIN != 1E-95DF) abort();
-  if (DEC32_MIN != 1E-383DD) abort();
+  if (DEC64_MIN != 1E-383DD) abort();
   if (DEC128_MIN != 1E-6143DL) abort();
 
   if (DEC32_DEN != 0.000001E-95DF) abort();

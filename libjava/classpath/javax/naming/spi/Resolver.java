@@ -1,5 +1,5 @@
 /* Resolver.java --
-   Copyright (C) 2001, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,18 +38,26 @@ exception statement from your version. */
 
 package javax.naming.spi;
 
+import javax.naming.Context;
 import javax.naming.Name;
 import javax.naming.NamingException;
+import javax.naming.NotContextException;
  
 /**
++  * <p>Represents the object, capable for the at least partial name resolution.
++  * The object is not necessay capable for the complete name resolution and
++  * need not implement the {@link Context}.</p>
++  * <p>
++  * Both passed parameters and returned results are owned by the caller.</p>
++  * 
  * @author Warren Levy (warrenl@redhat.com)
- * @date June 1, 2001
  */
-
 public interface Resolver
 {
-  ResolveResult resolveToClass(Name name, Class contextType)
+  ResolveResult resolveToClass(Name name, 
+                               Class<? extends Context> contextType)
     throws NamingException;
-  ResolveResult resolveToClass(String name, Class contextType)
+  ResolveResult resolveToClass(String name,
+                               Class<? extends Context> contextType)
     throws NamingException;
 }

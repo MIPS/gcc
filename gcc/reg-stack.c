@@ -188,8 +188,6 @@ static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
-static struct df *df = NULL;
-
 int regstack_completed = 0;
 
 /* This is the basic stack record.  TOP is an index into REG[] such
@@ -318,16 +316,10 @@ stack_regs_mentioned (rtx insn)
   max = VEC_length (char, stack_regs_mentioned_data);
   if (uid >= max)
     {
-      char *p;
-      unsigned int old_max = max;
-
       /* Allocate some extra size to avoid too many reallocs, but
 	 do not grow too quickly.  */
       max = uid + uid / 20 + 1;
-      VEC_safe_grow (char, heap, stack_regs_mentioned_data, max);
-      p = VEC_address (char, stack_regs_mentioned_data);
-      memset (&p[old_max], 0,
-	      sizeof (char) * (max - old_max));
+      VEC_safe_grow_cleared (char, heap, stack_regs_mentioned_data, max);
     }
 
   test = VEC_index (char, stack_regs_mentioned_data, uid);
@@ -441,6 +433,11 @@ get_true_reg (rtx *pat)
       case FLOAT_EXTEND:
 	pat = & XEXP (*pat, 0);
 	break;
+
+      case UNSPEC:
+	if (XINT (*pat, 1) == UNSPEC_TRUNC_NOOP)
+	  pat = & XVECEXP (*pat, 0, 0);
+	return pat;
 
       case FLOAT_TRUNCATE:
 	if (!flag_unsafe_math_optimizations)
@@ -1063,6 +1060,8 @@ move_for_stack_reg (rtx insn, stack regstack, rtx pat)
     }
   else
     {
+      rtx pat = PATTERN (insn);
+
       gcc_assert (STACK_REG_P (dest));
 
       /* Load from MEM, or possibly integer REG or constant, into the
@@ -1070,8 +1069,16 @@ move_for_stack_reg (rtx insn, stack regstack, rtx pat)
 	 stack. The stack mapping is changed to reflect that DEST is
 	 now at top of stack.  */
 
-      /* The destination ought to be dead.  */
-      gcc_assert (get_hard_regnum (regstack, dest) < FIRST_STACK_REG);
+      /* The destination ought to be dead.  However, there is a
+	 special case with i387 UNSPEC_TAN, where destination is live
+	 (an argument to fptan) but inherent load of 1.0 is modelled
+	 as a load from a constant.  */
+      if (! (GET_CODE (pat) == PARALLEL
+	     && XVECLEN (pat, 0) == 2
+	     && GET_CODE (XVECEXP (pat, 0, 1)) == SET
+	     && GET_CODE (SET_SRC (XVECEXP (pat, 0, 1))) == UNSPEC
+	     && XINT (SET_SRC (XVECEXP (pat, 0, 1)), 1) == UNSPEC_TAN))
+	gcc_assert (get_hard_regnum (regstack, dest) < FIRST_STACK_REG);
 
       gcc_assert (regstack->top < REG_STACK_SIZE);
 
@@ -1629,6 +1636,27 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
 
+	      case UNSPEC_FXAM:
+
+		/* This insn only operate on the top of the stack.  */
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
+		emit_swap_insn (insn, regstack, *src1);
+
+		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+
+		replace_reg (src1, FIRST_STACK_REG);
+
+		if (src1_note)
+		  {
+		    remove_regno_note (insn, REG_DEAD,
+				       REGNO (XEXP (src1_note, 0)));
+		    emit_pop_insn (insn, regstack, XEXP (src1_note, 0),
+				   EMIT_AFTER);
+		  }
+
+		break;
+
 	      case UNSPEC_SIN:
 	      case UNSPEC_COS:
 	      case UNSPEC_FRNDINT:
@@ -1639,19 +1667,54 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	      case UNSPEC_FRNDINT_TRUNC:
 	      case UNSPEC_FRNDINT_MASK_PM:
 
-		/* These insns only operate on the top of the stack.  */
+		/* Above insns operate on the top of the stack.  */
+
+	      case UNSPEC_SINCOS_COS:
+	      case UNSPEC_XTRACT_FRACT:
+
+		/* Above insns operate on the top two stack slots,
+		   first part of one input, double output insn.  */
 
 		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
 
 		emit_swap_insn (insn, regstack, *src1);
 
-		/* Input should never die, it is
-		   replaced with output.  */
+		/* Input should never die, it is replaced with output.  */
 		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
 		gcc_assert (!src1_note);
 
 		if (STACK_REG_P (*dest))
 		  replace_reg (dest, FIRST_STACK_REG);
+
+		replace_reg (src1, FIRST_STACK_REG);
+		break;
+
+	      case UNSPEC_SINCOS_SIN:
+	      case UNSPEC_XTRACT_EXP:
+
+		/* These insns operate on the top two stack slots,
+		   second part of one input, double output insn.  */
+
+		regstack->top++;
+		/* FALLTHRU */
+
+	      case UNSPEC_TAN:
+
+		/* For UNSPEC_TAN, regstack->top is already increased
+		   by inherent load of constant 1.0.  */
+
+		/* Output value is generated in the second stack slot.
+		   Move current value from second slot to the top.  */
+		regstack->reg[regstack->top]
+		  = regstack->reg[regstack->top - 1];
+
+		gcc_assert (STACK_REG_P (*dest));
+
+		regstack->reg[regstack->top - 1] = REGNO (*dest);
+		SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		replace_reg (dest, FIRST_STACK_REG + 1);
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
 
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
@@ -1711,11 +1774,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Empty stack slot
 		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
@@ -1742,68 +1806,15 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Fill empty slot from
 		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top - 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top - 1] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG + 1);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
-		break;
-
-	      case UNSPEC_SINCOS_COS:
-	      case UNSPEC_TAN_ONE:
-	      case UNSPEC_XTRACT_FRACT:
-		/* These insns operate on the top two stack slots,
-		   first part of one input, double output insn.  */
-
-		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
-
-		emit_swap_insn (insn, regstack, *src1);
-
-		/* Input should never die, it is
-		   replaced with output.  */
-		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
-		gcc_assert (!src1_note);
-
-		/* Push the result back onto stack. Empty stack slot
-		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top + 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
-
-		replace_reg (src1, FIRST_STACK_REG);
-		break;
-
-	      case UNSPEC_SINCOS_SIN:
-	      case UNSPEC_TAN_TAN:
-	      case UNSPEC_XTRACT_EXP:
-		/* These insns operate on the top two stack slots,
-		   second part of one input, double output insn.  */
-
-		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
-
-		emit_swap_insn (insn, regstack, *src1);
-
-		/* Input should never die, it is
-		   replaced with output.  */
-		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
-		gcc_assert (!src1_note);
-
-		/* Push the result back onto stack. Fill empty slot from
-		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
-
-		  regstack->top++;
-		}
-
-		replace_reg (src1, FIRST_STACK_REG);
 		break;
 
 	      case UNSPEC_SAHF:
@@ -2290,6 +2301,16 @@ subst_stack_regs (rtx insn, stack regstack)
 
   if (NOTE_P (insn) || INSN_DELETED_P (insn))
     return control_flow_insn_deleted;
+
+  /* If this a noreturn call, we can't insert pop insns after it.
+     Instead, reset the stack state to empty.  */
+  if (CALL_P (insn)
+      && find_reg_note (insn, REG_NORETURN, NULL))
+    {
+      regstack->top = -1;
+      CLEAR_HARD_REG_SET (regstack->reg_set);
+      return control_flow_insn_deleted;
+    }
 
   /* If there is a REG_UNUSED note on a stack register on this insn,
      the indicated reg must be popped.  The REG_UNUSED note is removed,
@@ -3088,15 +3109,13 @@ reg_to_stack (void)
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       break;
   if (i > LAST_STACK_REG)
     return false;
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  df_analyze (df);
+  df_ri_add_problem (0);
+  df_analyze ();
 
   mark_dfs_back_edges ();
 
@@ -3120,9 +3139,9 @@ reg_to_stack (void)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_LR_OUT (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_OUT (bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_LR_IN (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_IN (bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

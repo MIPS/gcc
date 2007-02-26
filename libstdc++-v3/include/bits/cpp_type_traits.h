@@ -28,12 +28,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Written by Gabriel Dos Reis <dosreis@cmla.ens-cachan.fr>
-
 /** @file cpp_type_traits.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+// Written by Gabriel Dos Reis <dosreis@cmla.ens-cachan.fr>
 
 #ifndef _CPP_TYPE_TRAITS_H
 #define _CPP_TYPE_TRAITS_H 1
@@ -70,19 +70,6 @@
 // removed.
 //
 
-// NB: g++ can not compile these if declared within the class
-// __is_pod itself.
-namespace __gnu_internal
-{
-  typedef char __one;
-  typedef char __two[2];
-
-  template<typename _Tp>
-  __one __test_type(int _Tp::*);
-  template<typename _Tp>
-  __two& __test_type(...);
-} // namespace __gnu_internal
-
 // Forward declaration hack, should really include this from somewhere.
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -91,10 +78,24 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 _GLIBCXX_END_NAMESPACE
 
-struct __true_type { };
-struct __false_type { };
-
 _GLIBCXX_BEGIN_NAMESPACE(std)
+
+namespace __detail
+{
+  // NB: g++ can not compile these if declared within the class
+  // __is_pod itself.
+  typedef char __one;
+  typedef char __two[2];
+
+  template<typename _Tp>
+  __one __test_type(int _Tp::*);
+  template<typename _Tp>
+  __two& __test_type(...);
+} // namespace __detail
+
+
+  struct __true_type { };
+  struct __false_type { };
 
   template<bool>
     struct __truth_type
@@ -126,18 +127,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       enum { __value = 1 };
       typedef __true_type __type;
-    };
-
-  // Define a nested type if some predicate holds.
-  template<typename, bool>
-    struct __enable_if
-    { 
-    };
-
-  template<typename _Tp>
-    struct __enable_if<_Tp, true>
-    {
-      typedef _Tp __type;
     };
 
   // Holds if the template-argument is a void type.
@@ -352,16 +341,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     : public __traitor<__is_arithmetic<_Tp>, __is_pointer<_Tp> >
     { };
 
-  //
-  // For the immediate use, the following is a good approximation
-  //
+  // For the immediate use, the following is a good approximation.
   template<typename _Tp>
     struct __is_pod
     {
       enum
 	{
-	  __value = (sizeof(__gnu_internal::__test_type<_Tp>(0))
-		     != sizeof(__gnu_internal::__one))
+	  __value = (sizeof(__detail::__test_type<_Tp>(0))
+		     != sizeof(__detail::__one))
 	};
     };
 

@@ -6,10 +6,20 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.92-pre],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.94-pre],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
+
+dnl GCJ LOCAL
+AC_ARG_ENABLE(java-maintainer-mode,
+	AS_HELP_STRING([--enable-java-maintainer-mode],
+	[allow rebuilding of .class and .h files]))
+AM_CONDITIONAL(JAVA_MAINTAINER_MODE, test "$enable_java_maintainer_mode" = yes)
+dnl END GCJ LOCAL
+
+# Find the rest of the source tree framework.
+AM_ENABLE_MULTILIB(, ../..)
 
 dnl -----------------------------------------------------------
 dnl Fold all IA-32 CPU architectures into "x86"
@@ -40,6 +50,9 @@ AC_PREREQ(2.59)
 AM_INIT_AUTOMAKE([1.9.0 gnu std-options tar-ustar])
 AC_CONFIG_HEADERS([include/config.h])
 AC_PREFIX_DEFAULT(/usr/local/classpath)
+
+dnl GCC LOCAL
+GCC_NO_EXECUTABLES
 
 dnl -----------------------------------------------------------
 dnl Enable collections.jar (disabled by default)
@@ -82,6 +95,40 @@ AC_ARG_ENABLE([core-jni],
               [COMPILE_CORE_JNI=yes])
 AM_CONDITIONAL(CREATE_CORE_JNI_LIBRARIES, test "x${COMPILE_CORE_JNI}" = xyes)
 
+dnl -----------------------------------------------------------
+dnl Default Preference Backend
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([default-preferences-peer],
+              [AS_HELP_STRING([--enable-default-preferences-peer@<:@=peer type or class name@:>@],
+                              [specify one of: "gconf" [default] for a GConf based backend, "file" for a file based one, "memory" for a transient one, or a fully qualified class name implementing java.util.prefs.PreferencesFactory])],
+              [case "${enableval}" in 
+                file) DEFAULT_PREFS_PEER=gnu.java.util.prefs.FileBasedFactory  ;;
+                gconf|yes|true) DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory  ;;
+                memory) DEFAULT_PREFS_PEER=gnu.java.util.prefs.MemoryBasedFactory  ;;
+                no|false) AC_MSG_ERROR(bad value '${enableval}' for --enable-default-preferences-peer) ;;
+                *) DEFAULT_PREFS_PEER=${enableval} ;;
+              esac],
+              [DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory])
+dnl AC_SUBST(DEFAULT_PREFS_PEER)
+
+dnl -----------------------------------------------------------
+dnl GConf native peer (enabled by default)
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([gconf-peer],
+              [AS_HELP_STRING(--disable-gconf-peer,compile GConf native peers (disabled by --disable-jni) [default=yes])],
+              [case "${enableval}" in
+                yes) COMPILE_GCONF_PEER=yes ;;
+                no) COMPILE_GCONF_PEER=no ;;
+                *) COMPILE_GCONF_PEER=yes ;;
+              esac],
+              [COMPILE_GCONF_PEER=yes])
+AM_CONDITIONAL(CREATE_GCONF_PEER_LIBRARIES, test "x${COMPILE_GCONF_PEER}" = xyes)
+
+dnl -----------------------------------------------------------
+dnl GTK native peer error checking
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([gconf-peers],,AC_MSG_ERROR([No --enable-gconf-peers (or --disable-gconf-peers) option; you want --enable-gconf-peer]))
+
 dnl ------------------------------------------------------------
 dnl Whether to compile with -Werror or not (disabled by default)
 dnl ------------------------------------------------------------
@@ -90,9 +137,9 @@ AC_ARG_ENABLE([Werror],
               [case "${enableval}" in
                 yes) ENABLE_WERROR=yes ;;
                 no) ENABLE_WERROR=no ;;
-                *) ENABLE_WERROR=no ;;
+                *) ENABLE_WERROR=default ;;
               esac],
-              [ENABLE_WERROR=no])
+              [ENABLE_WERROR=default])
 
 dnl -----------------------------------------------------------
 dnl Default AWT toolkit
@@ -144,7 +191,9 @@ AC_ARG_ENABLE([dssi],
                 no) COMPILE_DSSI=no ;;
                 *) COMPILE_DSSI=yes ;;
               esac],
-              [AC_CHECK_HEADERS([dssi.h],COMPILE_DSSI=yes,COMPILE_DSSI=no)])
+              [COMPILE_DSSI=no
+	       AC_CHECK_HEADERS([dssi.h], [
+	         AC_CHECK_HEADERS([jack/jack.h],COMPILE_DSSI=yes)])])
 AM_CONDITIONAL(CREATE_DSSI_LIBRARIES, test "x${COMPILE_DSSI}" = xyes)
 
 dnl -----------------------------------------------------------
@@ -192,15 +241,24 @@ AC_ARG_ENABLE([plugin],
 AM_CONDITIONAL(CREATE_PLUGIN, test "x${COMPILE_PLUGIN}" = xyes)
 
 dnl -----------------------------------------------------------
+dnl GCJ LOCAL: Calculates and substitutes toolexeclibdir.  $libdir is
+dnl defined to the same value for all multilibs.  We define toolexeclibdir
+dnl so that we can refer to the multilib installation directories from
+dnl classpath's build files.
+dnl -----------------------------------------------------------
+CLASSPATH_TOOLEXECLIBDIR
+
+dnl -----------------------------------------------------------
 dnl Sets the native libraries installation dir
 dnl -----------------------------------------------------------
+dnl GCJ LOCAL: default to ${toolexeclibdir}/gcj-${gcc_version}
 AC_ARG_WITH([native-libdir],
 	    [AS_HELP_STRING(--with-native-libdir,sets the installation directory for native libraries [default='${libdir}/${PACKAGE}'])],
 	    [
 	     nativeexeclibdir=${withval}
 	    ],
 	    [
-	     nativeexeclibdir='${libdir}/${PACKAGE}'
+	     nativeexeclibdir='${toolexeclibdir}/gcj-'`cat ${srcdir}/../../gcc/BASE-VER`
 	    ])
 
 AC_SUBST(nativeexeclibdir)
@@ -253,7 +311,11 @@ dnl -----------------------------------------------------------
 AC_ARG_ENABLE([tool-wrappers],
               [AS_HELP_STRING(--enable-tool-wrappers,create tool wrapper binaries [default=no])],
               [case x"${enableval}" in
-                xyes) COMPILE_WRAPPERS=yes ;;
+                xyes)
+                  COMPILE_WRAPPERS=yes;
+                  AC_CHECK_HEADERS([ltdl.h],, [AC_MSG_ERROR(cannot find ltdl.h)])
+                  AC_CHECK_LIB(ltdl, lt_dlopen,, [AC_MSG_ERROR(cannot find libltdl)])
+                  ;;
                 xno) COMPILE_WRAPPERS=no ;;
 		x) COMPILE_WRAPPERS=yes ;;
                 *) COMPILE_WRAPPERS=yes ;;
@@ -267,13 +329,25 @@ AC_PROG_INSTALL
 dnl -----------------------------------------------------------
 dnl Checks for programs.
 dnl -----------------------------------------------------------
-AC_PROG_CXX
+
 dnl Initialize libtool
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 dnl AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
+
+# Handle -Werror default case.
+if test "$ENABLE_WERROR" = default; then
+  case "$host_os" in
+    *linux*)
+      if test "$GCC" = yes; then
+        ENABLE_WERROR=yes
+      fi
+      ;;
+  esac
+fi
 
 if test "x${COMPILE_COLLECTIONS}" = xyes; then
   AC_PATH_PROG(PERL, [perl])
@@ -284,6 +358,8 @@ if test "x${COMPILE_COLLECTIONS}" = xyes; then
 fi
 
 if test "x${COMPILE_JNI}" = xyes; then
+  GCC_ATTRIBUTE_UNUSED
+
   AC_HEADER_STDC
 
   dnl Checking sizeof void * is needed for fdlibm to work properly on ppc64, 
@@ -305,7 +381,9 @@ if test "x${COMPILE_JNI}" = xyes; then
 		    crt_externs.h \
                     fcntl.h \
 		    sys/mman.h \
-		    magic.h])
+		    magic.h \
+                    sys/event.h sys/epoll.h \
+		    ifaddrs.h])
 
   AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
   AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
@@ -314,19 +392,28 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   AC_CHECK_FUNCS([ftruncate fsync select \
 		  gethostname socket strerror fork pipe execve open close \
-		  lseek fstat read write htonl memset htons connect \
+		  lseek fstat read readv write writev htonl memset htons connect \
 		  getsockname getpeername bind listen accept \
 		  recvfrom send sendto setsockopt getsockopt time mktime \
-		  localtime_r \
+		  gethostbyname_r localtime_r \
 		  strerror_r \
                   fcntl \
 		  mmap munmap mincore msync madvise getpagesize sysconf \
 		  lstat readlink \
-		  ])
+ 		  inet_aton inet_addr inet_pton \
+		  getifaddrs kqueue kevent epoll_create \
+                  readdir_r ])
 
   LIBMAGIC=
   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
   AC_SUBST(LIBMAGIC)
+
+  AC_MSG_CHECKING([whether struct sockaddr_in6 is in netinet/in.h])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <netinet/in.h>]], [[struct sockaddr_in6 addr6;]])],
+                    [AC_DEFINE(HAVE_INET6, 1,
+                     [Define if inet6 structures are defined in netinet/in.h.])
+                     AC_MSG_RESULT(yes)],
+                    [AC_MSG_RESULT(no)])
 
   AC_HEADER_TIME
   AC_STRUCT_TM
@@ -362,17 +449,17 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl When using gcc we want warnings, lots of warnings :-)
   if test "x${GCC}" = xyes; then
-    dnl We want ISO C90 pedantic ansi, but with longlong (jlong) support
+    dnl We want ISO C90 ansi, but with longlong (jlong) support
     dnl and modern POSIX and BSD C library functions/prototypes.
 
     dnl Warning flags for (almost) everybody.
     dnl Should probably be configurable
-    WARNING_CFLAGS='-pedantic -W -Wall -Wmissing-declarations -Wwrite-strings -Wmissing-prototypes -Wno-long-long'
+    WARNING_CFLAGS='-W -Wall -Wmissing-declarations -Wwrite-strings -Wmissing-prototypes -Wno-long-long'
     AC_SUBST(WARNING_CFLAGS)
 
     dnl Strict warning flags which not every module uses.
     dnl Should probably be configurable.
-    STRICT_WARNING_CFLAGS=-Wstrict-prototypes
+    STRICT_WARNING_CFLAGS='-Wstrict-prototypes -pedantic'
     AC_SUBST(STRICT_WARNING_CFLAGS)
 
     dnl Whether or not to add -Werror, also not used by all modueles.
@@ -432,13 +519,31 @@ if test "x${COMPILE_JNI}" = xyes; then
     AC_SUBST(XTEST_LIBS)
   fi
 
+  dnl gconf-peer
+  if  test "x${COMPILE_GCONF_PEER}" = xyes; then
+    PKG_CHECK_MODULES(GCONF, gconf-2.0 >= 2.11.2)
+    AC_SUBST(GCONF_CFLAGS)
+    AC_SUBST(GCONF_LIBS)
+    dnl we also need gdk for locking
+    PKG_CHECK_MODULES(GDK, gdk-2.0 >= 2.8)
+    AC_SUBST(GDK_CFLAGS)
+    AC_SUBST(GDK_LIBS)
+    dnl check if the config value was given form the command line,
+    dnl if not, overwrite the default if we have the gconf backend
+    dnl compiled in
+    USE_GCONF_PREFS_PEER=$enable_default_preferences_peer
+    if test "$USE_GCONF_PREFS_PEER" = ""; then
+   	DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory
+    fi
+  fi
+
   dnl Check for AWT related Qt4
   if test "x${COMPILE_QT_PEER}" = xyes; then
     PKG_CHECK_MODULES(QT, QtCore QtGui >= 4.1.0, HAVE_QT4="yes", HAVE_QT4="no")
     if test "x$HAVE_QT4" = "xyes"; then
       dnl Check needed because in some cases the QtGui includedir
       dnl doesn't contain the subsystem dir.
-      QT_INCLUDE_DIR=$($PKG_CONFIG --variable=includedir QtGui)
+      QT_INCLUDE_DIR=`$PKG_CONFIG --variable=includedir QtGui`
       EXTRA_QT_INCLUDE_DIR="$QT_INCLUDE_DIR/Qt"
       AC_CHECK_FILE([$QT_INCLUDE_DIR/QWidget],
       AC_MSG_NOTICE([No extra QT_INCLUDE_DIR needed]),
@@ -446,6 +551,7 @@ if test "x${COMPILE_JNI}" = xyes; then
 	QT_CFLAGS="$QT_CFLAGS -I$EXTRA_QT_INCLUDE_DIR",
 	AC_MSG_WARN([QWidget not found])))
 	AC_CHECK_PROG(MOC, [moc], [moc])
+	AC_CHECK_PROG(MOC, [moc-qt4], [moc-qt4])
     fi
     if test "x$HAVE_QT4" = "xno"; then
       AC_MSG_NOTICE([Looking for QT_CFLAGS and QT_LIBS without pkg-config])
@@ -480,6 +586,28 @@ if test "x${COMPILE_JNI}" = xyes; then
     AC_SUBST(QT_CFLAGS)
     AC_SUBST(QT_LIBS)
   fi
+  dnl **********************************************************************
+  dnl Check for MSG_NOSIGNAL
+  dnl **********************************************************************
+  AC_MSG_CHECKING(for MSG_NOSIGNAL)
+  AC_TRY_COMPILE([#include <sys/socket.h>],
+   [ int f = MSG_NOSIGNAL; ],
+   [ AC_MSG_RESULT(yes)
+     AC_DEFINE(HAVE_MSG_NOSIGNAL, 1,
+     	       [Define this symbol if you have MSG_NOSIGNAL]) ],
+   [ AC_MSG_RESULT(no)]
+  )
+ dnl **********************************************************************
+ dnl Check for SO_NOSIGPIPE (Darwin equivalent for MSG_NOSIGNAL)
+ dnl **********************************************************************
+ AC_MSG_CHECKING(for SO_NOSIGPIPE )
+ AC_TRY_COMPILE([#include <sys/socket.h>],
+  [ int f = SO_NOSIGPIPE; ],
+  [ AC_MSG_RESULT(yes)
+    AC_DEFINE(HAVE_SO_NOSIGPIPE, 1,
+    	      [Define this symbol if you have SO_NOSIGPIPE]) ],
+  [ AC_MSG_RESULT(no)]
+ )
 
   dnl Check for plugin support headers and libraries.
   if test "x${COMPILE_PLUGIN}" = xyes; then
@@ -489,6 +617,12 @@ if test "x${COMPILE_JNI}" = xyes; then
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
       PKG_CHECK_MODULES(MOZILLA, xulrunner-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    fi
+    if test "x${MOZILLA_FOUND}" = xno; then
+      PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+    fi
+    if test "x${MOZILLA_FOUND}" = xno; then
+      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     PKG_CHECK_MODULES(GLIB, glib-2.0)
 
@@ -507,7 +641,7 @@ dnl -----------------------------------------------------------
 dnl Add the include files for the native abstraction layer.
 dnl Used by AM_CPPFLAGS in the different modules.
 dnl -----------------------------------------------------------
-CLASSPATH_INCLUDES="-I\$(top_srcdir)/include -I\$(top_srcdir)/native/jni/classpath -I\$(top_srcdir)/native/target/Linux -I\$(top_srcdir)/native/target/generic"
+CLASSPATH_INCLUDES="-I\$(top_srcdir)/include -I\$(top_srcdir)/native/jni/classpath -I\$(top_srcdir)/native/jni/native-lib"
 AC_SUBST(CLASSPATH_INCLUDES)
 
 dnl -----------------------------------------------------------
@@ -671,6 +805,30 @@ esac;
 AM_CONDITIONAL(USE_PREBUILT_GLIBJ_ZIP, test x$use_glibj_zip = xtrue)
 AC_SUBST(PATH_TO_GLIBJ_ZIP)
 
+dnl -----------------------------------------------------------
+dnl Build with Escher based X peers.
+dnl -----------------------------------------------------------
+AC_ARG_WITH([escher],
+	 AS_HELP_STRING([--with-escher=ABS.PATH],
+	                [specify path to escher dir or JAR for X peers]))
+case "$with_escher" in
+"")
+        use_escher=false
+        ;;
+"no")
+        use_escher=false
+        ;;
+"yes")
+        AC_MSG_ERROR([Please supply an absolute path to Escher library])
+        ;;
+*)
+        use_escher=true
+        PATH_TO_ESCHER=$with_escher
+        ;;
+esac
+
+AM_CONDITIONAL(USE_ESCHER, test x$use_escher = xtrue)
+AC_SUBST(PATH_TO_ESCHER)
 
 dnl -----------------------------------------------------------
 dnl Check if local socket support should be included.
@@ -695,6 +853,10 @@ then
 fi
 AM_CONDITIONAL(ENABLE_LOCAL_SOCKETS, test "x$ENABLE_LOCAL_SOCKETS" = "xyes")
 
+dnl -----------------------------------------------------------
+dnl Add the default preference peer
+dnl -----------------------------------------------------------
+AC_SUBST(DEFAULT_PREFS_PEER)
 
 dnl -----------------------------------------------------------
 dnl output files
@@ -706,7 +868,9 @@ external/Makefile
 external/sax/Makefile
 external/w3c_dom/Makefile
 external/relaxngDatatype/Makefile
+external/jsr166/Makefile
 gnu/classpath/Configuration.java
+gnu/java/security/Configuration.java
 include/Makefile
 native/Makefile
 native/fdlibm/Makefile
@@ -719,15 +883,15 @@ native/jni/java-net/Makefile
 native/jni/java-nio/Makefile
 native/jni/java-util/Makefile
 native/jni/gtk-peer/Makefile
+native/jni/gconf-peer/Makefile
 native/jni/qt-peer/Makefile
 native/jni/xmlj/Makefile
 native/jni/midi-alsa/Makefile
 native/jni/midi-dssi/Makefile
+native/jni/native-lib/Makefile
 native/plugin/Makefile
-native/target/Makefile
-native/target/Linux/Makefile
-native/target/generic/Makefile
 resource/Makefile
+resource/META-INF/services/java.util.prefs.PreferencesFactory
 scripts/Makefile
 scripts/classpath.spec
 lib/Makefile
@@ -735,18 +899,43 @@ lib/gen-classlist.sh
 lib/copy-vmresources.sh
 tools/Makefile
 examples/Makefile
-examples/Makefile.jawt])
+examples/Makefile.jawt
+examples/Makefile.java2d])
 
 if test "x${COMPILE_WRAPPERS}" = xno
 then
-AC_CONFIG_FILES([tools/appletviewer
-tools/jarsigner
-tools/keytool])
-AC_CONFIG_COMMANDS([appletviewer],[chmod 755 tools/appletviewer])
-AC_CONFIG_COMMANDS([jarsigner],[chmod 755 tools/jarsigner])
-AC_CONFIG_COMMANDS([keytool],[chmod 755 tools/keytool])
+AC_CONFIG_FILES([tools/gappletviewer
+tools/gjarsigner
+tools/gkeytool
+tools/gjar
+tools/gnative2ascii
+tools/gserialver
+tools/grmiregistry
+tools/gtnameserv
+tools/gorbd
+tools/grmid
+tools/grmic
+tools/gjavah])
+AC_CONFIG_COMMANDS([gappletviewer],[chmod 755 tools/gappletviewer])
+AC_CONFIG_COMMANDS([gjarsigner],[chmod 755 tools/gjarsigner])
+AC_CONFIG_COMMANDS([gkeytool],[chmod 755 tools/gkeytool])
+AC_CONFIG_COMMANDS([gjar],[chmod 755 tools/gjar])
+AC_CONFIG_COMMANDS([gnative2ascii],[chmod 755 tools/gnative2ascii])
+AC_CONFIG_COMMANDS([gserialver],[chmod 755 tools/gserialver])
+AC_CONFIG_COMMANDS([grmiregistry],[chmod 755 tools/grmiregistry])
+AC_CONFIG_COMMANDS([gtnameserv],[chmod 755 tools/gtnameserv])
+AC_CONFIG_COMMANDS([gorbd],[chmod 755 tools/gorbd])
+AC_CONFIG_COMMANDS([grmid],[chmod 755 tools/grmid])
+AC_CONFIG_COMMANDS([grmic],[chmod 755 tools/grmic])
+AC_CONFIG_COMMANDS([gjavah], [chmod 755 tools/gjavah])
 fi
 
 AC_CONFIG_COMMANDS([gen-classlist],[chmod 755 lib/gen-classlist.sh])
 AC_CONFIG_COMMANDS([copy-vmresources],[chmod 755 lib/copy-vmresources.sh])
 AC_OUTPUT
+
+# Create standard.omit based on decisions we just made.
+cat ${srcdir}/lib/standard.omit.in > lib/standard.omit
+if test x$use_escher != xtrue; then
+   echo gnu/java/awt/peer/x/.*java$ >> lib/standard.omit
+fi

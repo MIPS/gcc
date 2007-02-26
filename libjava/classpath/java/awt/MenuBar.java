@@ -60,9 +60,14 @@ public class MenuBar extends MenuComponent
   implements MenuContainer, Serializable, Accessible
 {
 
-//Serialization Constant
+  // Serialization Constant
   private static final long serialVersionUID = -4930327919388951260L;
 
+  /**
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_menubar_number;
+  
   /**
    * @serial The menu used for providing help information
    */
@@ -267,7 +272,7 @@ public class MenuBar extends MenuComponent
    *
    * @return a list of all shortcuts for the menus in this menu bar
    */
-  public synchronized Enumeration shortcuts()
+  public synchronized Enumeration<MenuShortcut> shortcuts()
   {
     Vector shortcuts = new Vector();
     Enumeration e = menus.elements();
@@ -330,6 +335,21 @@ public class MenuBar extends MenuComponent
     if (accessibleContext == null)
       accessibleContext = new AccessibleAWTMenuBar();
     return accessibleContext;
+  }
+  
+  /**
+   * Generate a unique name for this <code>MenuBar</code>.
+   *
+   * @return A unique name for this <code>MenuBar</code>.
+   */
+  String generateName()
+  {
+    return "menubar" + getUniqueLong();
+  }
+
+  private static synchronized long getUniqueLong()
+  {
+    return next_menubar_number++;
   }
 
   /**

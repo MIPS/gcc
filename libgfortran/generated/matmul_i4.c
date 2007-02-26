@@ -36,6 +36,16 @@ Boston, MA 02110-1301, USA.  */
 
 #if defined (HAVE_GFC_INTEGER_4)
 
+/* Prototype for the BLAS ?gemm subroutine, a pointer to which can be
+   passed to us by the front-end, in which case we'll call it for large
+   matrices.  */
+
+typedef void (*blas_call)(const char *, const char *, const int *, const int *,
+                          const int *, const GFC_INTEGER_4 *, const GFC_INTEGER_4 *,
+                          const int *, const GFC_INTEGER_4 *, const int *,
+                          const GFC_INTEGER_4 *, GFC_INTEGER_4 *, const int *,
+                          int, int);
+
 /* The order of loops is different in the case of plain matrix
    multiplication C=MATMUL(A,B), and in the frequent special case where
    the argument A is the temporary result of a TRANSPOSE intrinsic:
@@ -56,18 +66,24 @@ Boston, MA 02110-1301, USA.  */
        DO I=1,M
          S = 0
          DO K=1,COUNT
-           S = S+A(I,K)+B(K,J)
+           S = S+A(I,K)*B(K,J)
          C(I,J) = S
    ENDIF
 */
 
+/* If try_blas is set to a nonzero value, then the matmul function will
+   see if there is a way to perform the matrix multiplication by a call
+   to the BLAS gemm function.  */
+
 extern void matmul_i4 (gfc_array_i4 * const restrict retarray, 
-	gfc_array_i4 * const restrict a, gfc_array_i4 * const restrict b);
+	gfc_array_i4 * const restrict a, gfc_array_i4 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm);
 export_proto(matmul_i4);
 
 void
 matmul_i4 (gfc_array_i4 * const restrict retarray, 
-	gfc_array_i4 * const restrict a, gfc_array_i4 * const restrict b)
+	gfc_array_i4 * const restrict a, gfc_array_i4 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm)
 {
   const GFC_INTEGER_4 * restrict abase;
   const GFC_INTEGER_4 * restrict bbase;
@@ -177,6 +193,31 @@ matmul_i4 (gfc_array_i4 * const restrict retarray,
   bbase = b->data;
   dest = retarray->data;
 
+
+  /* Now that everything is set up, we're performing the multiplication
+     itself.  */
+
+#define POW3(x) (((float) (x)) * ((float) (x)) * ((float) (x)))
+
+  if (try_blas && rxstride == 1 && (axstride == 1 || aystride == 1)
+      && (bxstride == 1 || bystride == 1)
+      && (((float) xcount) * ((float) ycount) * ((float) count)
+          > POW3(blas_limit)))
+  {
+    const int m = xcount, n = ycount, k = count, ldc = rystride;
+    const GFC_INTEGER_4 one = 1, zero = 0;
+    const int lda = (axstride == 1) ? aystride : axstride,
+              ldb = (bxstride == 1) ? bystride : bxstride;
+
+    if (lda > 0 && ldb > 0 && ldc > 0 && m > 1 && n > 1 && k > 1)
+      {
+        assert (gemm != NULL);
+        gemm (axstride == 1 ? "N" : "T", bxstride == 1 ? "N" : "T", &m, &n, &k,
+              &one, abase, &lda, bbase, &ldb, &zero, dest, &ldc, 1, 1);
+        return;
+      }
+  }
+
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
       const GFC_INTEGER_4 * restrict bbase_y;
@@ -210,22 +251,39 @@ matmul_i4 (gfc_array_i4 * const restrict retarray,
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
     {
-      const GFC_INTEGER_4 *restrict abase_x;
-      const GFC_INTEGER_4 *restrict bbase_y;
-      GFC_INTEGER_4 *restrict dest_y;
-      GFC_INTEGER_4 s;
-
-      for (y = 0; y < ycount; y++)
+      if (GFC_DESCRIPTOR_RANK (a) != 1)
 	{
-	  bbase_y = &bbase[y*bystride];
-	  dest_y = &dest[y*rystride];
-	  for (x = 0; x < xcount; x++)
+	  const GFC_INTEGER_4 *restrict abase_x;
+	  const GFC_INTEGER_4 *restrict bbase_y;
+	  GFC_INTEGER_4 *restrict dest_y;
+	  GFC_INTEGER_4 s;
+
+	  for (y = 0; y < ycount; y++)
 	    {
-	      abase_x = &abase[x*axstride];
+	      bbase_y = &bbase[y*bystride];
+	      dest_y = &dest[y*rystride];
+	      for (x = 0; x < xcount; x++)
+		{
+		  abase_x = &abase[x*axstride];
+		  s = (GFC_INTEGER_4) 0;
+		  for (n = 0; n < count; n++)
+		    s += abase_x[n] * bbase_y[n];
+		  dest_y[x] = s;
+		}
+	    }
+	}
+      else
+	{
+	  const GFC_INTEGER_4 *restrict bbase_y;
+	  GFC_INTEGER_4 s;
+
+	  for (y = 0; y < ycount; y++)
+	    {
+	      bbase_y = &bbase[y*bystride];
 	      s = (GFC_INTEGER_4) 0;
 	      for (n = 0; n < count; n++)
-		s += abase_x[n] * bbase_y[n];
-	      dest_y[x] = s;
+		s += abase[n*axstride] * bbase_y[n];
+	      dest[y*rystride] = s;
 	    }
 	}
     }
@@ -240,6 +298,20 @@ matmul_i4 (gfc_array_i4 * const restrict retarray,
 	  for (x = 0; x < xcount; x++)
 	    /* dest[x,y] += a[x,n] * b[n,y] */
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
+    }
+  else if (GFC_DESCRIPTOR_RANK (a) == 1)
+    {
+      const GFC_INTEGER_4 *restrict bbase_y;
+      GFC_INTEGER_4 s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  s = (GFC_INTEGER_4) 0;
+	  for (n = 0; n < count; n++)
+	    s += abase[n*axstride] * bbase_y[n*bxstride];
+	  dest[y*rxstride] = s;
+	}
     }
   else
     {

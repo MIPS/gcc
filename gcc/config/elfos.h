@@ -40,12 +40,15 @@ Boston, MA 02110-1301, USA.  */
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 
-/* Biggest alignment supported by the object file format of this
-   machine.  Use this macro to limit the alignment which can be
-   specified using the `__attribute__ ((aligned (N)))' construct.  If
-   not defined, the default value is `BIGGEST_ALIGNMENT'.  */
+/* The biggest alignment supported by ELF in bits. 32-bit ELF 
+   supports section alignment up to (0x80000000 * 8), while 
+   64-bit ELF supports (0x8000000000000000 * 8). If this macro 
+   is not defined, the default is the largest alignment supported 
+   by 32-bit ELF and representable on a 32-bit host. Use this
+   macro to limit the alignment which can be specified using
+   the `__attribute__ ((aligned (N)))' construct.  */
 #ifndef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT (32768 * 8)
+#define MAX_OFILE_ALIGNMENT (((unsigned int) 1 << 28) * 8)
 #endif
 
 /* Use periods rather than dollar signs in special g++ assembler names.  */
@@ -429,14 +432,15 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_OUTPUT_ASCII(FILE, STR, LENGTH)				\
   do									\
     {									\
-      register const unsigned char *_ascii_bytes =			\
+      const unsigned char *_ascii_bytes =				\
 	(const unsigned char *) (STR);					\
-      register const unsigned char *limit = _ascii_bytes + (LENGTH);	\
-      register unsigned bytes_in_chunk = 0;				\
+      const unsigned char *limit = _ascii_bytes + (LENGTH);		\
+      const unsigned char *last_null = NULL;				\
+      unsigned bytes_in_chunk = 0;					\
 									\
       for (; _ascii_bytes < limit; _ascii_bytes++)			\
         {								\
-	  register const unsigned char *p;				\
+	  const unsigned char *p;					\
 									\
 	  if (bytes_in_chunk >= 60)					\
 	    {								\
@@ -444,8 +448,14 @@ Boston, MA 02110-1301, USA.  */
 	      bytes_in_chunk = 0;					\
 	    }								\
 									\
-	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
-	    continue;							\
+	  if (_ascii_bytes > last_null)					\
+	    {								\
+	      for (p = _ascii_bytes; p < limit && *p != '\0'; p++)	\
+		continue;						\
+	      last_null = p;						\
+	    }								\
+	  else								\
+	    p = last_null;						\
 									\
 	  if (p < limit && (p - _ascii_bytes) <= (long)STRING_LIMIT)	\
 	    {								\
@@ -489,3 +499,18 @@ Boston, MA 02110-1301, USA.  */
         fprintf ((FILE), "\"\n");					\
     }									\
   while (0)
+
+/* Allow the use of the -frecord-gcc-switches switch via the
+   elf_record_gcc_switches function defined in varasm.c.  */
+#undef  TARGET_ASM_RECORD_GCC_SWITCHES
+#define TARGET_ASM_RECORD_GCC_SWITCHES elf_record_gcc_switches
+
+/* A C statement (sans semicolon) to output to the stdio stream STREAM
+   any text necessary for declaring the name of an external symbol
+   named NAME which is referenced in this compilation but not defined.
+   It is needed to properly support non-default visibility.  */
+
+#ifndef ASM_OUTPUT_EXTERNAL
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
+  default_elf_asm_output_external (FILE, DECL, NAME)
+#endif

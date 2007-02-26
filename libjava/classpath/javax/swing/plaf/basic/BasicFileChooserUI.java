@@ -160,6 +160,8 @@ public class BasicFileChooserUI extends FileChooserUI
       else
         {
           File f = new File(filechooser.getCurrentDirectory(), getFileName());
+	  if ( selectedDir != null )
+	    f = selectedDir;
           if (filechooser.isTraversable(f))
             {
               filechooser.setCurrentDirectory(f);
@@ -181,7 +183,7 @@ public class BasicFileChooserUI extends FileChooserUI
   protected class BasicFileView extends FileView
   {
     /** Storage for cached icons. */
-    protected Hashtable iconCache = new Hashtable();
+    protected Hashtable<File, Icon> iconCache = new Hashtable<File, Icon>();
 
     /**
      * Creates a new instance.
@@ -266,7 +268,14 @@ public class BasicFileChooserUI extends FileChooserUI
      */
     public String getName(File f)
     {
-      return f.getName();
+      String name = null;
+      if (f != null)
+        {
+          JFileChooser c = getFileChooser();
+          FileSystemView v = c.getFileSystemView();
+          name = v.getSystemDisplayName(f);
+        }
+      return name;
     }
 
     /**
@@ -409,7 +418,7 @@ public class BasicFileChooserUI extends FileChooserUI
               closeDialog();
             }
         }
-      else
+      else // single click
         {
           String path = p.toString();
           File f = fsv.createFileObject(path);
@@ -435,11 +444,12 @@ public class BasicFileChooserUI extends FileChooserUI
               setDirectory(null);
             }
           lastSelected = path;
-          parentPath = path.substring(0, path.lastIndexOf("/") + 1);
+          parentPath = f.getParent();
+	    
           if (f.isFile())
-            setFileName(path.substring(path.lastIndexOf("/") + 1));
-          else if (filechooser.getFileSelectionMode() == 
-            JFileChooser.DIRECTORIES_ONLY)
+            setFileName(f.getName());
+          else if (filechooser.getFileSelectionMode() != 
+		   JFileChooser.FILES_ONLY)
             setFileName(path);
         }
     }
@@ -538,7 +548,7 @@ public class BasicFileChooserUI extends FileChooserUI
     }
 
     /**
-     * DOCUMENT ME!
+     * Sets the JFileChooser to the selected file on an update
      *
      * @param e DOCUMENT ME!
      */
@@ -550,9 +560,15 @@ public class BasicFileChooserUI extends FileChooserUI
 	return;
       File file = filechooser.getFileSystemView().createFileObject(f.toString());
       if (! filechooser.isTraversable(file))
-	filechooser.setSelectedFile(file);
+	{
+	  selectedDir = null;
+	  filechooser.setSelectedFile(file);
+	}
       else
-	filechooser.setSelectedFile(null);
+	{
+	  selectedDir = file;
+	  filechooser.setSelectedFile(null);
+	}
     }
   }
 
@@ -699,10 +715,10 @@ public class BasicFileChooserUI extends FileChooserUI
   String fileDescText;
 
   /** Is a directory selected? */
-  boolean dirSelected = false;
+  boolean dirSelected;
 
   /** The current directory. */
-  File currDir = null;
+  File currDir;
 
   // FIXME: describe what is contained in the bottom panel
   /** The bottom panel. */
@@ -752,6 +768,13 @@ public class BasicFileChooserUI extends FileChooserUI
    * @see #getUpdateAction()
    */
   private UpdateAction updateAction;
+
+  /**
+   * When in FILES_ONLY, mode a directory cannot be selected, so
+   * we save a reference to any it here. This is used to enter
+   * the directory on "Open" when in that mode.
+   */
+  private File selectedDir;
   
   // -- end private --
 
@@ -804,9 +827,9 @@ public class BasicFileChooserUI extends FileChooserUI
         installComponents(fc);
         installListeners(fc);
         
-        Object path = filechooser.getCurrentDirectory();
+        File path = filechooser.getCurrentDirectory();
         if (path != null)
-          parentPath = path.toString().substring(path.toString().lastIndexOf("/"));
+          parentPath = path.getParent();
       }
   }
 
@@ -874,7 +897,9 @@ public class BasicFileChooserUI extends FileChooserUI
   protected void installListeners(JFileChooser fc)
   {
     propertyChangeListener = createPropertyChangeListener(filechooser);
-    filechooser.addPropertyChangeListener(propertyChangeListener);
+    if (propertyChangeListener != null)
+      filechooser.addPropertyChangeListener(propertyChangeListener);
+    fc.addPropertyChangeListener(getModel());
   }
 
   /**
@@ -884,8 +909,12 @@ public class BasicFileChooserUI extends FileChooserUI
    */
   protected void uninstallListeners(JFileChooser fc)
   {
-    filechooser.removePropertyChangeListener(propertyChangeListener);
-    propertyChangeListener = null;
+    if (propertyChangeListener != null)
+      {
+        filechooser.removePropertyChangeListener(propertyChangeListener);
+        propertyChangeListener = null;
+      }
+    fc.removePropertyChangeListener(getModel());
   }
 
   /**
@@ -1046,12 +1075,8 @@ public class BasicFileChooserUI extends FileChooserUI
    */
   public PropertyChangeListener createPropertyChangeListener(JFileChooser fc)
   {
-    return new PropertyChangeListener()
-    {
-      public void propertyChange(PropertyChangeEvent e)
-      {
-      }
-    };
+    // The RI returns null here, so do we.
+    return null;
   }
 
   /**

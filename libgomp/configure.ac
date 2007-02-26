@@ -16,10 +16,24 @@ LIBGOMP_ENABLE(version-specific-runtime-libs, no, ,
 AC_MSG_RESULT($enable_version_specific_runtime_libs)
 
 AC_MSG_CHECKING([for --enable-linux-futex])
-LIBGOMP_ENABLE(linux-futex, yes,
+LIBGOMP_ENABLE(linux-futex, default, ,
   [Use the Linux futex system call],
-  permit yes|no)
+  permit yes|no|default)
 AC_MSG_RESULT($enable_linux_futex)
+
+# We would like our source tree to be readonly. However when releases or
+# pre-releases are generated, the flex/bison generated files as well as the
+# various formats of manuals need to be included along with the rest of the
+# sources.  Therefore we have --enable-generated-files-in-srcdir to do 
+# just that.
+AC_MSG_CHECKING([for --enable-generated-files-in-srcdir])
+LIBGOMP_ENABLE(generated-files-in-srcdir, no, ,
+   [put copies of generated files in source dir intended for creating source 
+    tarballs for users without texinfo bison or flex.],
+   permit yes|no)
+AC_MSG_RESULT($enable_generated_files_in_srcdir)
+AM_CONDITIONAL(GENINSRC, test "$enable_generated_files_in_srcdir" = yes)
+
 
 # -------
 # -------
@@ -50,7 +64,6 @@ target_alias=${target_alias-$host_alias}
 #              we can do about that; they come from AC_INIT).
 #  foreign:  we don't follow the normal rules for GNU packages (no COPYING
 #            file in the top srcdir, etc, etc), so stop complaining.
-#  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is required.
 #  -Wno-override: ... and this one, since we do want this in testsuite.
@@ -117,6 +130,14 @@ AC_PATH_PROG(PERL, perl, perl-not-found-in-path-error)
 AC_PROG_MAKE_SET
 AC_PROG_INSTALL
 
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+ACX_CHECK_PROG_VER([MAKEINFO], [makeinfo], [--version],
+                   [GNU texinfo.* \([0-9][0-9.]*\)],
+                   [4.[4-9]*])
+AM_CONDITIONAL(BUILD_INFO, test $gcc_cv_prog_makeinfo_modern = "yes")
+
+
 # Configure libtool
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
@@ -171,6 +192,48 @@ case "$host" in
     AC_DEFINE(HAVE_BROKEN_POSIX_SEMAPHORES, 1,
 	Define if the POSIX Semaphores do not work on your system.)
     ;;
+  *-linux*)
+    case "$enable_linux_futex" in
+      default)
+	# If headers don't have gettid/futex syscalls definition, then
+	# default to no, otherwise there will be compile time failures.
+	# Otherwise, default to yes.  If we don't detect we are
+	# compiled/linked against NPTL and not cross-compiling, check
+	# if programs are run by default against NPTL and if not, issue
+	# a warning.
+	enable_linux_futex=no
+	AC_LINK_IFELSE(
+	 [AC_LANG_PROGRAM(
+	  [#include <sys/syscall.h>
+	   int lk;],
+	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],
+	  [AC_LINK_IFELSE(
+	   [AC_LANG_PROGRAM(
+	    [#ifndef _GNU_SOURCE
+	     #define _GNU_SOURCE 1
+	     #endif
+	     #include <pthread.h>
+	     pthread_t th; void *status;],
+	    [pthread_tryjoin_np (th, &status);])],[enable_linux_futex=yes],
+	    [if test x$cross_compiling = xno; then
+	       if getconf GNU_LIBPTHREAD_VERSION 2>/dev/null \
+		  | LC_ALL=C grep -i NPTL > /dev/null 2>/dev/null; then
+		 AC_MSG_WARN([The kernel might not support futex or gettid syscalls.
+If so, please configure with --disable-linux-futex])
+	       fi
+	     fi
+	     enable_linux_futex=yes])])
+	;;
+      yes)
+	AC_LINK_IFELSE(
+	 [AC_LANG_PROGRAM(
+	  [#include <sys/syscall.h>
+	   int lk;],
+	  [syscall (SYS_gettid); syscall (SYS_futex, &lk, 0, 0, 0);])],[],
+	  [AC_MSG_ERROR([SYS_gettid and SYS_futex required for --enable-linux-futex])])
+	;;
+    esac
+    ;;
 esac
 
 # At least for glibc, clock_gettime is in librt.  But don't pull that
@@ -178,7 +241,7 @@ esac
 if test $ac_cv_func_clock_gettime = no; then
   AC_CHECK_LIB(rt, clock_gettime,
     [LIBS="-lrt $LIBS"
-     AC_DEFINE(HAVE_CLOCK_GETTIME,
+     AC_DEFINE(HAVE_CLOCK_GETTIME, 1,
 	       [Define to 1 if you have the `clock_gettime' function.])])
 fi
 

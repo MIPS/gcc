@@ -39,11 +39,9 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.Frame;
-import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.MenuBar;
 import java.awt.Rectangle;
-import java.awt.event.PaintEvent;
 import java.awt.peer.FramePeer;
 import java.awt.peer.MenuBarPeer;
 
@@ -58,6 +56,11 @@ public class GtkFramePeer extends GtkWindowPeer
   native void setMenuBarPeer (MenuBarPeer bar);
   native void removeMenuBarPeer ();
   native void gtkFixedSetVisible (boolean visible);
+
+  private native void maximize();
+  private native void unmaximize();
+  private native void iconify();
+  private native void deiconify();
 
   int getMenuBarHeight ()
   {
@@ -201,12 +204,25 @@ public class GtkFramePeer extends GtkWindowPeer
 
   public int getState ()
   {
-    return 0;
+    return windowState;
   }
 
   public void setState (int state)
   {
-
+    switch (state)
+      {
+        case Frame.NORMAL:
+          if ((windowState & Frame.ICONIFIED) != 0)
+            deiconify();
+          if ((windowState & Frame.MAXIMIZED_BOTH) != 0)
+            unmaximize();
+          break;
+        case Frame.ICONIFIED:
+          iconify();
+          break;
+        case Frame.MAXIMIZED_BOTH:
+          maximize();
+      }
   }
 
   public void setMaximizedBounds (Rectangle r)
@@ -218,11 +234,7 @@ public class GtkFramePeer extends GtkWindowPeer
     // TODO Auto-generated method stub
     
   }
-  public void updateAlwaysOnTop()
-  {
-    // TODO Auto-generated method stub
-    
-  }
+
   public boolean requestWindowFocus()
   {
     // TODO Auto-generated method stub

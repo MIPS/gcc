@@ -1,5 +1,5 @@
 /* NamingContextHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,11 +39,11 @@ exception statement from your version. */
 package org.omg.CosNaming;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.BAD_PARAM;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.Delegate;
 import org.omg.CORBA.portable.InputStream;
@@ -61,11 +61,6 @@ public abstract class NamingContextHelper
    * The naming context repository id.
    */
   private static String _id = "IDL:omg.org/CosNaming/NamingContext:1.0";
-
-  /**
-   * The cached {@link NamingContext} typecode.
-   */
-  private static TypeCode typeCode;
 
   /**
    * Extract the naming context from the given {@link Any}.
@@ -139,15 +134,11 @@ public abstract class NamingContextHelper
    * to verify that the object actually supports the requested type. The
    * {@link BAD_OPERATION} will be thrown if unsupported operations are invoked
    * on the new returned reference, but no failure is expected at the time of
-   * the unchecked_narrow.
+   * the unchecked_narrow. See OMG issue 4158.
    * 
    * @param obj the object to cast.
    * 
    * @return the casted NamingContext.
-   * 
-   * @since 1.5 
-   * 
-   * @see OMG issue 4158.
    */
   public static NamingContext unchecked_narrow(org.omg.CORBA.Object obj)
   {
@@ -176,9 +167,7 @@ public abstract class NamingContextHelper
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode = ORB.init().create_interface_tc(id(), "NamingContext");
-    return typeCode;
+    return OrbRestricted.Singleton.create_interface_tc(id(), "NamingContext");
   }
 
   /**

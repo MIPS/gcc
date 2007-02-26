@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -76,6 +76,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
+#include "df.h"
+#include "vecprim.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -137,7 +139,7 @@ static const char *last_filename;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
-  
+
 extern const int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
@@ -169,22 +171,6 @@ CC_STATUS cc_status;
 
 CC_STATUS cc_prev_status;
 #endif
-
-/* Indexed by hardware reg number, is 1 if that register is ever
-   used in the current function.
-
-   In df-scan.c, this is set up to record the hard regs used
-   explicitly.  Reload adds in the hard regs used for holding pseudo
-   regs.  Final uses it to generate the code in the function prologue
-   and epilogue to save and restore registers as needed.  */
-
-char regs_ever_live[FIRST_PSEUDO_REGISTER];
-
-/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
-   Unlike regs_ever_live, elements of this array corresponding to
-   eliminable regs like the frame pointer are set if an asm sets them.  */
-
-char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
 
 /* Nonzero means current function must be given a frame pointer.
    Initialized in function.c to 0.  Set only in reload1.c as per
@@ -222,7 +208,7 @@ static int asm_insn_count (rtx);
 static void profile_function (FILE *);
 static void profile_after_prologue (FILE *);
 static bool notice_source_line (rtx);
-static rtx walk_alter_subreg (rtx *);
+static rtx walk_alter_subreg (rtx *, bool *);
 static void output_asm_name (void);
 static void output_alternate_entry_point (FILE *, rtx);
 static tree get_mem_expr_from_op (rtx, int *);
@@ -319,7 +305,7 @@ dbr_sequence_length (void)
 
 static int *insn_lengths;
 
-varray_type insn_addresses_;
+VEC(int,heap) *insn_addresses_;
 
 /* Max uid for which the above arrays are valid.  */
 static int insn_lengths_max_uid;
@@ -815,7 +801,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
   /* Free uid_shuid before reallocating it.  */
   free (uid_shuid);
-  
+
   uid_shuid = XNEWVEC (int, max_uid);
 
   if (max_labelno != max_label_num ())
@@ -856,7 +842,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       INSN_SHUID (insn) = i++;
       if (INSN_P (insn))
 	continue;
-      
+
       if (LABEL_P (insn))
 	{
 	  rtx next;
@@ -1593,7 +1579,7 @@ final (rtx first, FILE *file, int optimize)
   CC_STATUS_INIT;
 
   /* Output the insns.  */
-  for (insn = NEXT_INSN (first); insn;)
+  for (insn = first; insn;)
     {
 #ifdef HAVE_ATTR_length
       if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
@@ -1696,9 +1682,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
-	case NOTE_INSN_FUNCTION_END:
-	case NOTE_INSN_REPEATED_LINE_NUMBER:
-	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
@@ -1706,9 +1689,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  (*debug_hooks->switch_text_section) ();
 	  switch_to_section (current_function_section ());
 	  break;
-	  
+
 	case NOTE_INSN_BASIC_BLOCK:
-	  
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
@@ -1952,6 +1934,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	int insn_code_number;
 	const char *template;
 
+#ifdef HAVE_conditional_execution
+	/* Reset this early so it is correct for ASM statements.  */
+	current_insn_predicate = NULL_RTX;
+#endif
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
@@ -2387,8 +2373,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_conditional_execution
 	if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	  current_insn_predicate = COND_EXEC_TEST (PATTERN (insn));
-	else
-	  current_insn_predicate = NULL_RTX;
 #endif
 
 #ifdef HAVE_cc0
@@ -2514,6 +2498,7 @@ void
 cleanup_subreg_operands (rtx insn)
 {
   int i;
+  bool changed = false;
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     {
@@ -2523,22 +2508,30 @@ cleanup_subreg_operands (rtx insn)
 	 matches the else clause.  Instead we test the underlying
 	 expression directly.  */
       if (GET_CODE (*recog_data.operand_loc[i]) == SUBREG)
-	recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i]);
+	{
+	  recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i]);
+	  changed = true;
+	}
       else if (GET_CODE (recog_data.operand[i]) == PLUS
 	       || GET_CODE (recog_data.operand[i]) == MULT
 	       || MEM_P (recog_data.operand[i]))
-	recog_data.operand[i] = walk_alter_subreg (recog_data.operand_loc[i]);
+	recog_data.operand[i] = walk_alter_subreg (recog_data.operand_loc[i], &changed);
     }
 
   for (i = 0; i < recog_data.n_dups; i++)
     {
       if (GET_CODE (*recog_data.dup_loc[i]) == SUBREG)
-	*recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i]);
+	{
+	  *recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i]);
+	  changed = true;
+	}
       else if (GET_CODE (*recog_data.dup_loc[i]) == PLUS
 	       || GET_CODE (*recog_data.dup_loc[i]) == MULT
 	       || MEM_P (*recog_data.dup_loc[i]))
-	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i]);
+	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i], &changed);
     }
+  if (changed)
+    df_insn_rescan (insn);
 }
 
 /* If X is a SUBREG, replace it with a REG or a MEM,
@@ -2592,7 +2585,7 @@ alter_subreg (rtx *xp)
 /* Do alter_subreg on all the SUBREGs contained in X.  */
 
 static rtx
-walk_alter_subreg (rtx *xp)
+walk_alter_subreg (rtx *xp, bool *changed)
 {
   rtx x = *xp;
   switch (GET_CODE (x))
@@ -2600,16 +2593,17 @@ walk_alter_subreg (rtx *xp)
     case PLUS:
     case MULT:
     case AND:
-      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0));
-      XEXP (x, 1) = walk_alter_subreg (&XEXP (x, 1));
+      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0), changed);
+      XEXP (x, 1) = walk_alter_subreg (&XEXP (x, 1), changed);
       break;
 
     case MEM:
     case ZERO_EXTEND:
-      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0));
+      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0), changed);
       break;
 
     case SUBREG:
+      *changed = true;
       return alter_subreg (xp);
 
     default:
@@ -3048,7 +3042,7 @@ output_asm_insn (const char *template, rtx *operands)
 	    int letter = *p++;
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 
 	    if (endptr == p)
@@ -3093,7 +3087,7 @@ output_asm_insn (const char *template, rtx *operands)
 	  {
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
@@ -3179,7 +3173,8 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 void
 output_address (rtx x)
 {
-  walk_alter_subreg (&x);
+  bool changed = false;
+  walk_alter_subreg (&x, &changed);
   PRINT_OPERAND_ADDRESS (asm_out_file, x);
 }
 
@@ -3667,7 +3662,7 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  
+
   gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
@@ -3697,7 +3692,7 @@ only_leaf_regs_used (void)
   const char *const permitted_reg_in_leaf_functions = LEAF_REGISTERS;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if ((regs_ever_live[i] || global_regs[i])
+    if ((df_regs_ever_live_p (i) || global_regs[i])
 	&& ! permitted_reg_in_leaf_functions[i])
       return 0;
 
@@ -3765,8 +3760,8 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	}
       newreg = LEAF_REG_REMAP (newreg);
       gcc_assert (newreg >= 0);
-      regs_ever_live[REGNO (in_rtx)] = 0;
-      regs_ever_live[newreg] = 1;
+      df_set_regs_ever_live (REGNO (in_rtx), false);
+      df_set_regs_ever_live (newreg, true);
       REGNO (in_rtx) = newreg;
       in_rtx->used = 1;
     }
@@ -3843,7 +3838,7 @@ debug_flush_symbol_queue (void)
 
   for (i = 0; i < symbol_queue_index; ++i)
     {
-      /* If we pushed queued symbols then such symbols are must be
+      /* If we pushed queued symbols then such symbols must be
          output no matter what anyone else says.  Specifically,
          we need to make sure dbxout_symbol() thinks the symbol was
          used and also we need to override TYPE_DECL_SUPPRESS_DEBUG
@@ -3918,14 +3913,14 @@ rest_of_handle_final (void)
 #ifdef TARGET_UNWIND_INFO
   /* ??? The IA-64 ".handlerdata" directive must be issued before
      the ".endp" directive that closes the procedure descriptor.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   assemble_end_function (current_function_decl, fnname);
 
 #ifndef TARGET_UNWIND_INFO
   /* Otherwise, it feels unclean to switch sections in the middle.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   user_defined_section_attribute = false;
@@ -3975,7 +3970,7 @@ rest_of_handle_shorten_branches (void)
   shorten_branches (get_insns ());
   return 0;
 }
- 
+
 struct tree_opt_pass pass_shorten_branches =
 {
   "shorten",                            /* name */
@@ -4086,7 +4081,7 @@ rest_of_no_new_pseudos (void)
 
 struct tree_opt_pass pass_no_new_pseudos =
 {
-  "set_no_new_pseudos",                 /* name */
+  NULL,			                /* name */
   NULL,                                 /* gate */
   rest_of_no_new_pseudos,               /* execute */
   NULL,                                 /* sub */

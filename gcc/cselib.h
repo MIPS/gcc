@@ -24,17 +24,14 @@ typedef struct cselib_val_struct GTY(())
 {
   /* The hash value.  */
   unsigned int value;
-  union cselib_val_u
-  {
-    /* A VALUE rtx that points back to this structure.  */
-    rtx GTY ((tag ("1"))) val_rtx;
-    /* Used to keep a list of free cselib_val structures.  */
-    struct cselib_val_struct * GTY ((skip)) next_free;
-  } GTY ((desc ("1"))) u;
+
+  /* A VALUE rtx that points back to this structure.  */
+  rtx val_rtx;
 
   /* All rtl expressions that hold this value at the current time during a
      scan.  */
   struct elt_loc_list *locs;
+
   /* If this value is used as an address, points to a list of values that
      use it as an address in a MEM.  */
   struct elt_list *addr_list;
@@ -61,6 +58,8 @@ struct elt_list GTY(())
   struct elt_list *next;
   cselib_val *elt;
 };
+
+extern void (*cselib_discard_hook) (void);
 
 extern cselib_val *cselib_lookup (rtx, enum machine_mode, int);
 extern void cselib_init (bool record_memory);

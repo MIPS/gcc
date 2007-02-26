@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -51,16 +51,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 typedef struct gfc_directorylist
 {
   char *path;
+  bool use_for_modules;
   struct gfc_directorylist *next;
 }
 gfc_directorylist;
 
 /* List of include file search directories.  */
-static gfc_directorylist *include_dirs;
+static gfc_directorylist *include_dirs, *intrinsic_modules_dirs;
 
 static gfc_file *file_head, *current_file;
 
 static int continue_flag, end_flag, openmp_flag;
+static int continue_count, continue_line;
 static locus openmp_locus;
 
 gfc_source_form gfc_current_form;
@@ -71,6 +73,7 @@ const char *gfc_source_file;
 static FILE *gfc_src_file;
 static char *gfc_src_preprocessor_lines[2];
 
+extern int pedantic;
 
 /* Main scanner initialization.  */
 
@@ -80,6 +83,9 @@ gfc_scanner_init_1 (void)
   file_head = NULL;
   line_head = NULL;
   line_tail = NULL;
+
+  continue_count = 0;
+  continue_line = 0;
 
   end_flag = 0;
 }
@@ -107,28 +113,26 @@ gfc_scanner_done_1 (void)
       gfc_free(file_head);
       file_head = f;    
     }
-
 }
 
 
 /* Adds path to the list pointed to by list.  */
 
-void
-gfc_add_include_path (const char *path)
+static void
+add_path_to_list (gfc_directorylist **list, const char *path,
+		  bool use_for_modules)
 {
   gfc_directorylist *dir;
   const char *p;
 
   p = path;
-  while (*p == ' ' || *p == '\t')  /* someone might do 'gfortran "-I include"' */
+  while (*p == ' ' || *p == '\t')  /* someone might do "-I include" */
     if (*p++ == '\0')
       return;
 
-  dir = include_dirs;
+  dir = *list;
   if (!dir)
-    {
-      dir = include_dirs = gfc_getmem (sizeof (gfc_directorylist));
-    }
+    dir = *list = gfc_getmem (sizeof (gfc_directorylist));
   else
     {
       while (dir->next)
@@ -139,9 +143,24 @@ gfc_add_include_path (const char *path)
     }
 
   dir->next = NULL;
+  dir->use_for_modules = use_for_modules;
   dir->path = gfc_getmem (strlen (p) + 2);
   strcpy (dir->path, p);
   strcat (dir->path, "/");	/* make '/' last character */
+}
+
+
+void
+gfc_add_include_path (const char *path, bool use_for_modules)
+{
+  add_path_to_list (&include_dirs, path, use_for_modules);
+}
+
+
+void
+gfc_add_intrinsic_modules_path (const char *path)
+{
+  add_path_to_list (&intrinsic_modules_dirs, path, true);
 }
 
 
@@ -152,7 +171,6 @@ gfc_release_include_path (void)
 {
   gfc_directorylist *p;
 
-  gfc_free (gfc_option.module_dir);
   while (include_dirs != NULL)
     {
       p = include_dirs;
@@ -160,28 +178,31 @@ gfc_release_include_path (void)
       gfc_free (p->path);
       gfc_free (p);
     }
+
+  while (intrinsic_modules_dirs != NULL)
+    {
+      p = intrinsic_modules_dirs;
+      intrinsic_modules_dirs = intrinsic_modules_dirs->next;
+      gfc_free (p->path);
+      gfc_free (p);
+    }
+
+  gfc_free (gfc_option.module_dir);
 }
 
-/* Opens file for reading, searching through the include directories
-   given if necessary.  If the include_cwd argument is true, we try
-   to open the file in the current directory first.  */
 
-FILE *
-gfc_open_included_file (const char *name, const bool include_cwd)
+static FILE *
+open_included_file (const char *name, gfc_directorylist *list, bool module)
 {
   char *fullname;
   gfc_directorylist *p;
   FILE *f;
 
-  if (include_cwd)
+  for (p = list; p; p = p->next)
     {
-      f = gfc_open_file (name);
-      if (f != NULL)
-	return f;
-    }
+      if (module && !p->use_for_modules)
+	continue;
 
-  for (p = include_dirs; p; p = p->next)
-    {
       fullname = (char *) alloca(strlen (p->path) + strlen (name) + 1);
       strcpy (fullname, p->path);
       strcat (fullname, name);
@@ -194,12 +215,44 @@ gfc_open_included_file (const char *name, const bool include_cwd)
   return NULL;
 }
 
+
+/* Opens file for reading, searching through the include directories
+   given if necessary.  If the include_cwd argument is true, we try
+   to open the file in the current directory first.  */
+
+FILE *
+gfc_open_included_file (const char *name, bool include_cwd, bool module)
+{
+  FILE *f;
+
+  if (IS_ABSOLUTE_PATH (name))
+    return gfc_open_file (name);
+
+  if (include_cwd)
+    {
+      f = gfc_open_file (name);
+      if (f != NULL)
+	return f;
+    }
+
+  return open_included_file (name, include_dirs, module);
+}
+
+FILE *
+gfc_open_intrinsic_module (const char *name)
+{
+  if (IS_ABSOLUTE_PATH (name))
+    return gfc_open_file (name);
+
+  return open_included_file (name, intrinsic_modules_dirs, true);
+}
+
+
 /* Test to see if we're at the end of the main source file.  */
 
 int
 gfc_at_end (void)
 {
-
   return end_flag;
 }
 
@@ -209,7 +262,6 @@ gfc_at_end (void)
 int
 gfc_at_eof (void)
 {
-
   if (gfc_at_end ())
     return 1;
 
@@ -240,7 +292,6 @@ gfc_at_bol (void)
 int
 gfc_at_eol (void)
 {
-
   if (gfc_at_eof ())
     return 1;
 
@@ -264,7 +315,7 @@ gfc_advance_line (void)
 
   gfc_current_locus.lb = gfc_current_locus.lb->next;
 
-  if (gfc_current_locus.lb != NULL)         
+  if (gfc_current_locus.lb != NULL)	 
     gfc_current_locus.nextc = gfc_current_locus.lb->line;
   else 
     {
@@ -291,7 +342,7 @@ next_char (void)
   if (gfc_current_locus.nextc == NULL)
     return '\n';
 
-  c = *gfc_current_locus.nextc++;
+  c = (unsigned char) *gfc_current_locus.nextc++;
   if (c == '\0')
     {
       gfc_current_locus.nextc--; /* Remain on this line.  */
@@ -300,6 +351,7 @@ next_char (void)
 
   return c;
 }
+
 
 /* Skip a comment.  When we come here the parse pointer is positioned
    immediately after the comment character.  If we ever implement
@@ -322,9 +374,11 @@ skip_comment_line (void)
 
 
 /* Comment lines are null lines, lines containing only blanks or lines
-   on which the first nonblank line is a '!'.  */
+   on which the first nonblank line is a '!'.
+   Return true if !$ openmp conditional compilation sentinel was
+   seen.  */
 
-static void
+static bool
 skip_free_comments (void)
 {
   locus start;
@@ -374,7 +428,7 @@ skip_free_comments (void)
 			      openmp_flag = 1;
 			      openmp_locus = old_loc;
 			      gfc_current_locus = start;
-			      return;
+			      return false;
 			    }
 			}
 		      gfc_current_locus = old_loc;
@@ -385,7 +439,8 @@ skip_free_comments (void)
 		    {
 		      gfc_current_locus = old_loc;
 		      next_char ();
-		      return;
+		      openmp_flag = 0;
+		      return true;
 		    }
 		}
 	      gfc_current_locus = old_loc;
@@ -400,6 +455,7 @@ skip_free_comments (void)
   if (openmp_flag && at_bol)
     openmp_flag = 0;
   gfc_current_locus = start;
+  return false;
 }
 
 
@@ -585,10 +641,15 @@ gfc_next_char_literal (int in_string)
 restart:
   c = next_char ();
   if (gfc_at_end ())
-    return c;
+    {
+      continue_count = 0;
+      return c;
+    }
 
   if (gfc_current_form == FORM_FREE)
     {
+      bool openmp_cond_flag;
+
       if (!in_string && c == '!')
 	{
 	  if (openmp_flag
@@ -644,9 +705,22 @@ restart:
       else
 	gfc_advance_line ();
 
-      /* We've got a continuation line and need to find where it continues.
-	 First eat any comment lines.  */
-      gfc_skip_comments ();
+      /* We've got a continuation line.  If we are on the very next line after
+	 the last continuation, increment the continuation line count and
+	 check whether the limit has been exceeded.  */
+      if (gfc_current_locus.lb->linenum == continue_line + 1)
+	{
+	  if (++continue_count == gfc_option.max_continue_free)
+	    {
+	      if (gfc_notification_std (GFC_STD_GNU) || pedantic)
+		gfc_warning ("Limit of %d continuations exceeded in "
+			     "statement at %C", gfc_option.max_continue_free);
+	    }
+	}
+      continue_line = gfc_current_locus.lb->linenum;
+
+      /* Now find where it continues. First eat any comment lines.  */
+      openmp_cond_flag = skip_free_comments ();
 
       if (prev_openmp_flag != openmp_flag)
 	{
@@ -681,10 +755,23 @@ restart:
 
       if (c != '&')
 	{
-	  if (in_string && gfc_option.warn_ampersand)
-	    gfc_warning ("Missing '&' in continued character constant at %C");
-
-	  gfc_current_locus.nextc--;
+	  if (in_string)
+	    {
+	      if (gfc_option.warn_ampersand)
+		gfc_warning_now ("Missing '&' in continued character "
+				 "constant at %C");
+	      gfc_current_locus.nextc--;
+	    }
+	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
+	     continuation line only optionally.  */
+	  else if (openmp_flag || openmp_cond_flag)
+	    gfc_current_locus.nextc--;
+	  else
+	    {
+	      c = ' ';
+	      gfc_current_locus = old_loc;
+	      goto done;
+	    }
 	}
     }
   else
@@ -711,7 +798,7 @@ restart:
       old_loc = gfc_current_locus;
 
       gfc_advance_line ();
-      gfc_skip_comments ();
+      skip_fixed_comments ();
 
       /* See if this line is a continuation line.  */
       if (openmp_flag != prev_openmp_flag)
@@ -738,6 +825,23 @@ restart:
       c = next_char ();
       if (c == '0' || c == ' ' || c == '\n')
 	goto not_continuation;
+
+      /* We've got a continuation line.  If we are on the very next line after
+	 the last continuation, increment the continuation line count and
+	 check whether the limit has been exceeded.  */
+      if (gfc_current_locus.lb->linenum == continue_line + 1)
+	{
+	  if (++continue_count == gfc_option.max_continue_fixed)
+	    {
+	      if (gfc_notification_std (GFC_STD_GNU) || pedantic)
+		gfc_warning ("Limit of %d continuations exceeded in "
+			     "statement at %C",
+			     gfc_option.max_continue_fixed);
+	    }
+	}
+
+      if (continue_line < gfc_current_locus.lb->linenum)
+	continue_line = gfc_current_locus.lb->linenum;
     }
 
   /* Ready to read first character of continuation line, which might
@@ -749,6 +853,8 @@ not_continuation:
   gfc_current_locus = old_loc;
 
 done:
+  if (c == '\n')
+    continue_count = 0;
   continue_flag = 0;
   return c;
 }
@@ -882,43 +988,40 @@ gfc_gobble_whitespace (void)
    In fixed mode, we expand a tab that occurs within the statement
    label region to expand to spaces that leave the next character in
    the source region.
-   load_line returns whether the line was truncated.  */
+   load_line returns whether the line was truncated.
+
+   NOTE: The error machinery isn't available at this point, so we can't
+	 easily report line and column numbers consistent with other 
+	 parts of gfortran.  */
 
 static int
-load_line (FILE * input, char **pbuf, int *pbuflen)
+load_line (FILE *input, char **pbuf, int *pbuflen)
 {
   static int linenum = 0, current_line = 1;
   int c, maxlen, i, preprocessor_flag, buflen = *pbuflen;
   int trunc_flag = 0, seen_comment = 0;
+  int seen_printable = 0, seen_ampersand = 0;
   char *buffer;
 
-  /* Determine the maximum allowed line length.
-     The default for free-form is GFC_MAX_LINE, for fixed-form or for
-     unknown form it is 72. Refer to the documentation in gfc_option_t.  */
+  /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
-    {
-      if (gfc_option.free_line_length == -1)
-	maxlen = GFC_MAX_LINE;
-      else
-	maxlen = gfc_option.free_line_length;
-    }
+    maxlen = gfc_option.free_line_length;
   else if (gfc_current_form == FORM_FIXED)
-    {
-      if (gfc_option.fixed_line_length == -1)
-	maxlen = 72;
-      else
-	maxlen = gfc_option.fixed_line_length;
-    }
+    maxlen = gfc_option.fixed_line_length;
   else
     maxlen = 72;
 
   if (*pbuf == NULL)
     {
-      /* Allocate the line buffer, storing its length into buflen.  */
+      /* Allocate the line buffer, storing its length into buflen.
+	 Note that if maxlen==0, indicating that arbitrary-length lines
+	 are allowed, the buffer will be reallocated if this length is
+	 insufficient; since 132 characters is the length of a standard
+	 free-form line, we use that as a starting guess.  */
       if (maxlen > 0)
 	buflen = maxlen;
       else
-	buflen = GFC_MAX_LINE;
+	buflen = 132;
 
       *pbuf = gfc_getmem (buflen + 1);
     }
@@ -941,18 +1044,43 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
       if (c == EOF)
 	break;
       if (c == '\n')
-	break;
+	{
+	  /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
+	  if (gfc_current_form == FORM_FREE 
+		&& !seen_printable && seen_ampersand)
+	    {
+	      if (pedantic)
+		gfc_error_now ("'&' not allowed by itself in line %d",
+			       current_line);
+	      else
+		gfc_warning_now ("'&' not allowed by itself in line %d",
+				 current_line);
+	    }
+	  break;
+	}
 
       if (c == '\r')
 	continue;		/* Gobble characters.  */
       if (c == '\0')
 	continue;
 
-      if (c == '\032')
+      /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
+      if (c == '&')
+	seen_ampersand = 1;
+
+      if ((c != ' ' && c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+	seen_printable = 1;
+      
+      if (gfc_current_form == FORM_FREE 
+	    && c == '!' && !seen_printable && seen_ampersand)
 	{
-	  /* Ctrl-Z ends the file.  */
-	  while (fgetc (input) != EOF);
-	  break;
+	  if (pedantic)
+	    gfc_error_now ("'&' not allowed by itself with comment in "
+			   "line %d", current_line);
+	  else
+	    gfc_warning_now ("'&' not allowed by itself with comment in "
+			     "line %d", current_line);
+	  seen_printable = 1;
 	}
 
       /* Is this a fixed-form comment?  */
@@ -962,15 +1090,12 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 
       if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
 	{
-	  /* The error machinery isn't available at this point, so we can't
-	     easily report line and column numbers consistent with other 
-	     parts of gfortran.  */
 	  if (!gfc_option.warn_tabs && seen_comment == 0
 	      && current_line != linenum)
 	    {
 	      linenum = current_line;
-	      gfc_warning_now (
-		"Nonconforming tab character in column 1 of line %d", linenum);
+	      gfc_warning_now ("Nonconforming tab character in column 1 "
+			       "of line %d", linenum);
 	    }
 
 	  while (i <= 6)
@@ -993,7 +1118,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 		overlong line.  */
 	      buflen = buflen * 2;
 	      *pbuf = xrealloc (*pbuf, buflen + 1);
-	      buffer = (*pbuf)+i;
+	      buffer = (*pbuf) + i;
 	    }
 	}
       else if (i >= maxlen)
@@ -1100,10 +1225,10 @@ preprocessor_line (char *c)
   /* Make filename end at quote.  */
   unescape = 0;
   escaped = false;
-  while (*c && ! (! escaped && *c == '"'))
+  while (*c && ! (!escaped && *c == '"'))
     {
       if (escaped)
-        escaped = false;
+	escaped = false;
       else if (*c == '\\')
 	{
 	  escaped = true;
@@ -1212,8 +1337,26 @@ static bool
 include_line (char *line)
 {
   char quote, *c, *begin, *stop;
-  
+
   c = line;
+
+  if (gfc_option.flag_openmp)
+    {
+      if (gfc_current_form == FORM_FREE)
+	{
+	  while (*c == ' ' || *c == '\t')
+	    c++;
+	  if (*c == '!' && c[1] == '$' && (c[2] == ' ' || c[2] == '\t'))
+	    c += 3;
+	}
+      else
+	{
+	  if ((*c == '!' || *c == 'c' || *c == 'C' || *c == '*')
+	      && c[1] == '$' && (c[2] == ' ' || c[2] == '\t'))
+	    c += 3;
+	}
+    }
+
   while (*c == ' ' || *c == '\t')
     c++;
 
@@ -1255,6 +1398,7 @@ include_line (char *line)
   return true;
 }
 
+
 /* Load a file into memory by calling load_line until the file ends.  */
 
 static try
@@ -1290,7 +1434,7 @@ load_file (const char *filename, bool initial)
     }
   else
     {
-      input = gfc_open_included_file (filename, false);
+      input = gfc_open_included_file (filename, false, false);
       if (input == NULL)
 	{
 	  gfc_error_now ("Can't open included file '%s'", filename);
@@ -1430,7 +1574,7 @@ unescape_filename (const char *ptr)
       ++p;
     }
 
-  if (! *p || p[1])
+  if (!*p || p[1])
     return NULL;
 
   /* Undo effects of cpp_quote_string.  */

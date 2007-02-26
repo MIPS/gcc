@@ -347,25 +347,46 @@ get_coverage_counts (unsigned counter, unsigned expected,
     {
       warning (0, "no coverage for function %qs found", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
-      return 0;
+      return NULL;
     }
 
   checksum = compute_checksum ();
-  if (entry->checksum != checksum)
+  if (entry->checksum != checksum
+      || entry->summary.num != expected)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs",
-	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
-	     ctr_names[counter]);
-      error ("checksum is %x instead of %x", entry->checksum, checksum);
-      return 0;
-    }
-  else if (entry->summary.num != expected)
-    {
-      error ("coverage mismatch for function %qs while reading counter %qs",
-	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
-	     ctr_names[counter]);
-      error ("number of counters is %d instead of %d", entry->summary.num, expected);
-      return 0;
+      static int warned = 0;
+      const char *id = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME
+			 (current_function_decl));
+
+      if (warn_coverage_mismatch)
+	warning (OPT_Wcoverage_mismatch, "coverage mismatch for function "
+		 "%qs while reading counter %qs", id, ctr_names[counter]);
+      else
+	error ("coverage mismatch for function %qs while reading counter %qs",
+	       id, ctr_names[counter]);
+
+      if (!inhibit_warnings)
+	{
+	  if (entry->checksum != checksum)
+	    inform ("checksum is %x instead of %x", entry->checksum, checksum);
+	  else
+	    inform ("number of counters is %d instead of %d",
+		    entry->summary.num, expected);
+	}
+
+      if (warn_coverage_mismatch
+	  && !inhibit_warnings
+	  && !warned++)
+	{
+	  inform ("coverage mismatch ignored due to -Wcoverage-mismatch");
+	  inform (flag_guess_branch_prob
+		  ? "execution counts estimated"
+		  : "execution counts assumed to be zero");
+	  if (!flag_guess_branch_prob)
+	    inform ("this can result in poorly optimized code");
+	}
+
+      return NULL;
     }
 
   if (summary)
@@ -388,15 +409,13 @@ coverage_counter_alloc (unsigned counter, unsigned num)
 
   if (!tree_ctr_tables[counter])
     {
-      /* Generate and save a copy of this so it can be shared.  */
-      /* We don't know the size yet; make it big enough that nobody
-	 will make any clever transformation on it.  */
+      /* Generate and save a copy of this so it can be shared.  Leave
+	 the index type unspecified for now; it will be set after all
+	 functions have been compiled.  */
       char buf[20];
       tree gcov_type_node = get_gcov_type ();
-      tree domain_tree
-        = build_index_type (build_int_cst (NULL_TREE, 1000)); /* replaced later */
       tree gcov_type_array_type
-        = build_array_type (gcov_type_node, domain_tree);
+        = build_array_type (gcov_type_node, NULL_TREE);
       tree_ctr_tables[counter]
         = build_decl (VAR_DECL, NULL_TREE, gcov_type_array_type);
       TREE_STATIC (tree_ctr_tables[counter]) = 1;
@@ -416,18 +435,13 @@ tree
 tree_coverage_counter_ref (unsigned counter, unsigned no)
 {
   tree gcov_type_node = get_gcov_type ();
-  tree domain_type = TYPE_DOMAIN (TREE_TYPE (tree_ctr_tables[counter]));
 
   gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
   return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
-		 fold_convert (domain_type,
-			       build_int_cst (NULL_TREE, no)),
-		 TYPE_MIN_VALUE (domain_type),
-		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (gcov_type_node),
-			     size_int (TYPE_ALIGN_UNIT (gcov_type_node))));
+		 build_int_cst (NULL_TREE, no), NULL, NULL);
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current
@@ -440,7 +454,7 @@ coverage_checksum_string (unsigned chksum, const char *string)
   char *dup = NULL;
 
   /* Look for everything that looks if it were produced by
-     get_file_function_name_long and zero out the second part
+     get_file_function_name and zero out the second part
      that may result from flag_random_seed.  This is not critical
      as the checksums are used only for sanity checking.  */
   for (i = 0; string[i]; i++)

@@ -1,5 +1,5 @@
 /* StringNameHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,12 +38,12 @@ exception statement from your version. */
 
 package org.omg.CosNaming.NamingContextExtPackage;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
-import org.omg.CORBA.portable.Streamable;
 
 /**
  * Helper operations for the string name.
@@ -59,11 +59,6 @@ public abstract class StringNameHelper
    */
   private static String _id =
     "IDL:omg.org/CosNaming/NamingContextExt/StringName:1.0";
-
-  /**
-   * The cached type code (string alias).
-   */
-  private static TypeCode typeCode;
 
   /**
    * Just extracts string from this {@link Any}.
@@ -100,13 +95,11 @@ public abstract class StringNameHelper
   /**
    * Return the "StringName", alias of String, typecode.
    */
-  public static synchronized TypeCode type()
+  public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        typeCode = ORB.init().create_string_tc(0);
-        typeCode = ORB.init().create_alias_tc(id(), "StringName", typeCode);
-      }
+    TypeCode typeCode;
+    typeCode = OrbRestricted.Singleton.create_string_tc(0);
+    typeCode = OrbRestricted.Singleton.create_alias_tc(id(), "StringName", typeCode);
     return typeCode;
   }
 

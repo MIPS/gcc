@@ -382,9 +382,9 @@ create_regs_rtx (void)
 }
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-    - 8 bit values are stored anywhere (except the SP register).
-    - 16 bit values can be stored in any register whose mode is 16
-    - 32 bit values can be stored in D, X registers or in a soft register
+    - 8-bit values are stored anywhere (except the SP register).
+    - 16-bit values can be stored in any register whose mode is 16
+    - 32-bit values can be stored in D, X registers or in a soft register
       (except the last one because we need 2 soft registers)
     - Values whose size is > 32 bit are not stored in real hard
       registers.  They may be stored in soft registers if there are
@@ -1336,7 +1336,7 @@ m68hc11_initial_elimination_offset (int from, int to)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno < SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  size += 2;
 	}
@@ -1550,7 +1550,7 @@ m68hc11_total_frame_size (void)
     size += HARD_REG_SIZE;
 
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       size += HARD_REG_SIZE;
 
   return size;
@@ -1662,7 +1662,7 @@ expand_prologue (void)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (stack_push_word,
 				  gen_rtx_REG (HImode, regno), scratch);
@@ -1700,7 +1700,7 @@ expand_epilogue (void)
   /* Pop any 2 byte pseudo hard registers that we saved.  */
   for (regno = SOFT_REG_LAST; regno >= SOFT_REG_FIRST; regno--)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (gen_rtx_REG (HImode, regno),
 				  stack_pop_word, scratch);

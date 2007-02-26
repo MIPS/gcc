@@ -37,7 +37,10 @@ set save-dg-do-what-default ${dg-do-what-default}
 # code.  Set additional target-dependent vector flags, which can be
 # overridden by using dg-options in individual tests.
 if [istarget "powerpc*-*-*"] {
-    # If there are powerpc targets to skip, do it here.
+    # Skip targets not supporting -maltivec.
+    if ![is-effective-target powerpc_altivec_ok] {
+	return
+    }
 
     lappend DEFAULT_VECTCFLAGS "-maltivec"
     if [check_vmx_hw_available] {
@@ -49,6 +52,8 @@ if [istarget "powerpc*-*-*"] {
 	}
 	set dg-do-what-default compile
     }
+} elseif { [istarget  "spu-*-*"] } {
+   set dg-do-what-default run
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
     set dg-do-what-default run
@@ -97,6 +102,12 @@ lappend DEFAULT_VECTCFLAGS "-ffast-math"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
+# -fno-math-errno tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-math-errno"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-math-errno-vect*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
 # -fwrapv tests
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-fwrapv"
@@ -119,6 +130,36 @@ dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/dump-tree-dceloop-*.\[cS\]]]
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-fno-tree-dce"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-dce-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fsection-anchors tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fsection-anchors"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/section-anchors-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-section-anchors tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-section-anchors"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-section-anchors-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -funswitch-loops tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-funswitch-loops"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/unswitch-loops-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-trapping-math tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-trapping-math"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-trapping-math-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-tree-scev-cprop
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-tree-scev-cprop"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-scev-cprop-*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # With -Os

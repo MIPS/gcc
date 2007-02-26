@@ -295,7 +295,7 @@ emit_initial_value_sets (void)
   seq = get_insns ();
   end_sequence ();
 
-  emit_insn_after (seq, entry_of_function ());
+  emit_insn_at_entry (seq);
   return 0;
 }
 
@@ -348,14 +348,14 @@ allocate_initial_values (rtx *reg_equiv_memory_loc)
 		  reg_renumber[regno] = new_regno;
 		  /* Poke the regno right into regno_reg_rtx so that even
 		     fixed regs are accepted.  */
-		  REGNO (ivs->entries[i].pseudo) = new_regno;
+		  SET_REGNO (ivs->entries[i].pseudo, new_regno);
 		  /* Update global register liveness information.  */
 		  FOR_EACH_BB (bb)
 		    {
-		      if (REGNO_REG_SET_P(DF_LIVE_IN (ra_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_IN (ra_df, bb), new_regno);
-		      if (REGNO_REG_SET_P(DF_LIVE_OUT (ra_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_OUT (ra_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_IN (bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_IN (bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_OUT (bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_OUT (bb), new_regno);
 		    }
 		}
 	    }

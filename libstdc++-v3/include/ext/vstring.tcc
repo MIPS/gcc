@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -84,7 +84,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       __versa_string<_CharT, _Traits, _Alloc, _Base>&
       __versa_string<_CharT, _Traits, _Alloc, _Base>::
       _M_replace_dispatch(iterator __i1, iterator __i2, _InputIterator __k1,
-			  _InputIterator __k2, __false_type)
+			  _InputIterator __k2, std::__false_type)
       {
 	const __versa_string __s(__k1, __k2);
 	const size_type __n1 = __i2 - __i1;
@@ -271,17 +271,21 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_requires_string_len(__s, __n);
-      size_type __ret = npos;
       const size_type __size = this->size();
-      if (__pos + __n <= __size)
+      const _CharT* __data = this->_M_data();
+
+      if (__n == 0)
+	return __pos <= __size ? __pos : npos;
+
+      if (__n <= __size)
 	{
-	  const _CharT* __data = this->_M_data();
-	  const _CharT* __p = std::search(__data + __pos, __data + __size,
-					  __s, __s + __n, traits_type::eq);
-	  if (__p != __data + __size || __n == 0)
-	    __ret = __p - __data;
+	  for (; __pos + __n <= __size; ++__pos)
+	    if (traits_type::eq(__data[__pos], __s[0])
+		&& traits_type::compare(__data + __pos + 1,
+					__s + 1, __n - 1) == 0)
+	      return __pos;
 	}
-      return __ret;
+      return npos;
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc,
@@ -463,7 +467,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       int __r = traits_type::compare(this->_M_data() + __pos,
 				     __str.data(), __len);
       if (!__r)
-	__r = __n - __osize;
+	__r = _S_compare(__n, __osize);
       return __r;
     }
 
@@ -482,7 +486,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       int __r = traits_type::compare(this->_M_data() + __pos1,
 				     __str.data() + __pos2, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 
@@ -498,7 +502,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__size, __osize);
       int __r = traits_type::compare(this->_M_data(), __s, __len);
       if (!__r)
-	__r = __size - __osize;
+	__r = _S_compare(__size, __osize);
       return __r;
     }
 
@@ -515,7 +519,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__n1, __osize);
       int __r = traits_type::compare(this->_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __osize;
+	__r = _S_compare(__n1, __osize);
       return __r;
     }
 
@@ -532,7 +536,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       const size_type __len = std::min(__n1, __n2);
       int __r = traits_type::compare(this->_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 

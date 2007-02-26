@@ -43,7 +43,7 @@
 @end ifset
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c IMPORTANT: whenever you modify this file, run `install.texi2html' to
@@ -92,7 +92,7 @@ Free Documentation License}''.
 @ifinfo
 @insertcopying
 @end ifinfo
-@dircategory Programming
+@dircategory Software development
 @direntry
 * gccinstall: (gccinstall).    Installing the GNU Compiler Collection.
 @end direntry
@@ -290,20 +290,25 @@ Necessary (only on some platforms) to untar the source code.  Many
 systems' @command{tar} programs will also work, only try GNU
 @command{tar} if you have problems.
 
-@item GNU Multiple Precision Library (GMP) version 4.0 (or later)
+@item GNU Multiple Precision Library (GMP) version 4.1 (or later)
 
-Necessary to build the Fortran frontend.  If you don't have it
-installed in your library search path, you will have to configure with
-the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
+Necessary to build GCC.  If you do not have it installed in your
+library search path, you will have to configure with the
+@option{--with-gmp} configure option.  See also
+@option{--with-gmp-lib} and @option{--with-gmp-include}.
 
-@item MPFR Library
+@item MPFR Library version 2.2.1 (or later)
 
-Necessary to build the Fortran frontend.  It can be downloaded from
-@uref{http://www.mpfr.org/}.  It is also included in the current GMP
-release (4.1.3) when configured with @option{--enable-mpfr}.
+Necessary to build GCC.  It can be downloaded from
+@uref{http://www.mpfr.org/}.  The version of MPFR that is bundled with
+GMP 4.1.x contains numerous bugs.  Although GCC may appear to function
+with the buggy versions of MPFR, there are a few bugs that will not be
+fixed when using this version.  It is strongly recommended to upgrade
+to the recommended version of MPFR.
 
-The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
-be used if your MPFR Library is not installed in your library search path.
+The @option{--with-mpfr} configure option should be used if your MPFR
+Library is not installed in your default library search path.  See
+also @option{--with-mpfr-lib} and @option{--with-mpfr-include}.
 
 @item @command{jar}, or InfoZIP (@command{zip} and @command{unzip})
 
@@ -322,7 +327,7 @@ to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.59 (exactly), but the toplevel
 still requires autoconf 2.13 (exactly).
 
-@item automake versions 1.9.3
+@item automake version 1.9.6
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
@@ -333,7 +338,7 @@ file.  Specifically this applies to the @file{gcc}, @file{intl},
 as any of their subdirectories.
 
 For directories that use automake, GCC requires the latest release in
-the 1.9.x series, which is currently 1.9.3.  When regenerating a directory
+the 1.9.x series, which is currently 1.9.6.  When regenerating a directory
 to a newer version, please update all the directories using an older 1.9.x
 to the latest released version.
 
@@ -387,14 +392,19 @@ releases.
 Necessary for running @command{makeinfo} when modifying @file{*.texi}
 files to test your changes.
 
+Necessary for running @command{make dvi} or @command{make pdf} to
+create printable documentation in DVI or PDF format.  Texinfo version
+4.8 or later is required for @command{make pdf}.
+
 Necessary to build GCC documentation during development because the
 generated output files are not included in the SVN repository.  They are
 included in releases.
 
 @item @TeX{} (any working version)
 
-Necessary for running @command{texi2dvi}, used when running
-@command{make dvi} to create DVI files.
+Necessary for running @command{texi2dvi} and @command{texi2pdf}, which 
+are used when running @command{make dvi} or @command{make pdf} to create
+DVI or PDF files, respectively.
 
 @item SVN (any version)
 @itemx SSH (any version)
@@ -420,6 +430,17 @@ Useful when submitting patches for the GCC source code.
 
 Necessary when applying patches, created with @command{diff}, to one's
 own sources.
+
+@item ecj1
+@itemx gjavah
+
+If you wish to modify @file{.java} files in libjava, you will need to
+configure with @option{--enable-java-maintainer-mode}, and you will need
+to have executables named @command{ecj1} and @command{gjavah} in your path.
+The @command{ecj1} executable should run the Eclipse Java compiler via
+the GCC-specific entry point.  You can download a suitable jar from
+@uref{ftp://sourceware.org/pub/java/}, or by running the script
+@command{contrib/download_ecj}.
 
 @end table
 
@@ -452,11 +473,11 @@ components.
 Please refer to the @uref{http://gcc.gnu.org/releases.html,,releases web page}
 for information on how to obtain GCC@.
 
-The full distribution includes the C, C++, Objective-C, Fortran 77, Fortran
-(in case of GCC 4.0 and later), Java, and Ada (in case of GCC 3.1 and later)
-compilers.  The full distribution also includes runtime libraries for C++,
-Objective-C, Fortran 77, Fortran, and Java.  In GCC 3.0 and later versions,
-GNU compiler testsuites are also included in the full distribution.
+The full distribution includes the C, C++, Objective-C, Fortran, Java,
+and Ada (in the case of GCC 3.1 and later) compilers.  The full
+distribution also includes runtime libraries for C++, Objective-C,
+Fortran, and Java.  In GCC 3.0 and later versions, the GNU compiler
+testsuites are also included in the full distribution.
 
 If you choose to download specific components, you must download the core
 GCC distribution plus any language specific distributions you wish to
@@ -888,7 +909,7 @@ tools can not generate or interpret stabs.
 @item --disable-multilib
 Specify that multiple target
 libraries to support different target variants, calling
-conventions, etc should not be built.  The default is to build a
+conventions, etc.@: should not be built.  The default is to build a
 predefined set of them.
 
 Some targets provide finer-grained control over which multilibs are built
@@ -984,8 +1005,8 @@ This is an alias for @option{--enable-tls=no}.
 @item --with-cpu=@var{cpu}
 Specify which cpu variant the compiler should generate code for by default.
 @var{cpu} will be used as the default value of the @option{-mcpu=} switch.
-This option is only supported on some targets, including ARM, i386, PowerPC,
-and SPARC@.
+This option is only supported on some targets, including ARM, i386, M68k,
+PowerPC, and SPARC@.
 
 @item --with-schedule=@var{cpu}
 @itemx --with-arch=@var{cpu}
@@ -1091,14 +1112,6 @@ particularly useful if you intend to use several versions of GCC in
 parallel.  This is currently supported by @samp{libgfortran},
 @samp{libjava}, @samp{libmudflap}, @samp{libstdc++}, and @samp{libobjc}.
 
-@item --with-java-home=@var{dirname}
-This @samp{libjava} option overrides the default value of the
-@samp{java.home} system property.  It is also used to set
-@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
-default @samp{java.home} is set to @file{@var{prefix}} and
-@samp{sun.boot.class.path} to
-@file{@var{datadir}/java/libgcj-@var{version}.jar}.
-
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
 their runtime libraries should be built.  For a list of valid values for
@@ -1144,7 +1157,7 @@ powerpc-linux for powerpc64-linux, only generates 32-bit code.  This
 option enables the 32-bit target to be a bi-arch compiler, which is
 useful when you want a bi-arch compiler that defaults to 32-bit, and
 you are building a bi-arch or multi-arch binutils in a combined tree.
-Currently, this option only affects powerpc-linux.
+Currently, this option only affects powerpc-linux and x86-linux.
 
 @item --enable-secureplt
 This option enables @option{-msecure-plt} by default for powerpc-linux.
@@ -1285,6 +1298,26 @@ When neither of these configure options are used, the default will be
 128-bit @code{long double} when built against GNU C Library 2.4 and later,
 64-bit @code{long double} otherwise.
 
+@item --with-gmp=@var{pathname}
+@itemx --with-gmp-include=@var{pathname}
+@itemx --with-gmp-lib=@var{pathname}
+@itemx --with-mpfr=@var{pathname}
+@itemx --with-mpfr-include=@var{pathname}
+@itemx --with-mpfr-lib=@var{pathname}
+If you do not have GMP (the GNU Multiple Precision library) and the
+MPFR Libraries installed in a standard location and you want to build
+GCC, you can explicitly specify the directory where they are installed
+(@samp{--with-gmp=@var{gmpinstalldir}},
+@samp{--with-mpfr=@var{mpfrinstalldir}}).  The
+@option{--with-gmp=@var{gmpinstalldir}} option is shorthand for
+@option{--with-gmp-lib=@var{gmpinstalldir}/lib} and
+@option{--with-gmp-include=@var{gmpinstalldir}/include}.  Likewise the
+@option{--with-mpfr=@var{mpfrinstalldir}} option is shorthand for
+@option{--with-mpfr-lib=@var{mpfrinstalldir}/lib} and
+@option{--with-mpfr-include=@var{mpfrinstalldir}/include}.  If these
+shorthand assumptions are not correct, you can use the explicit
+include and lib options directly.
+
 @end table
 
 @subheading Cross-Compiler-Specific Options
@@ -1366,25 +1399,6 @@ When you use this option, you should ensure that @var{dir} includes
 tools.
 @end table
 
-@subheading Fortran-Specific Options
-
-The following options apply to the build of the Fortran front end.
-
-@table @code
-
-@item --with-gmp=@var{pathname}
-@itemx --with-mpfr=@var{pathname}
-@itemx --with-gmp-dir=@var{pathname}
-@itemx --with-mpfr-dir=@var{pathname}
-If you don't have GMP (the GNU Multiple Precision library) and the MPFR
-Libraries installed in a standard location and you want to build the Fortran
-front-end, you can explicitly specify the directory where they are installed
-(@samp{--with-gmp=gmpinstalldir}, @samp{--with-mpfr=mpfrinstalldir}) or where
-you built them without installing (@samp{--with-gmp-dir=gmpbuilddir},
-@samp{--with-mpfr-dir=gmpbuilddir}).
-
-@end table
-
 @subheading Java-Specific Options
 
 The following option applies to the build of the Java front end.
@@ -1409,6 +1423,40 @@ The following options apply to building @samp{libgcj}.
 @subsubheading General Options
 
 @table @code
+@item --enable-java-maintainer-mode
+By default the @samp{libjava} build will not attempt to compile the
+@file{.java} source files to @file{.class}.  Instead, it will use the
+@file{.class} files from the source tree.  If you use this option you
+must have executables named @command{ecj1} and @command{gjavah} in your path
+for use by the build.  You must use this option if you intend to
+modify any @file{.java} files in @file{libjava}.
+
+@item --with-java-home=@var{dirname}
+This @samp{libjava} option overrides the default value of the
+@samp{java.home} system property.  It is also used to set
+@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
+default @samp{java.home} is set to @file{@var{prefix}} and
+@samp{sun.boot.class.path} to
+@file{@var{datadir}/java/libgcj-@var{version}.jar}.
+
+@item --with-ecj-jar=@var{filename}
+This option can be used to specify the location of an external jar
+file containing the Eclipse Java compiler.  A specially modified
+version of this compiler is used by @command{gcj} to parse
+@file{.java} source files.  If this option is given, the
+@samp{libjava} build will create and install an @file{ecj1} executable
+which uses this jar file at runtime.
+
+If this option is not given, but an @file{ecj.jar} file is found in
+the topmost source tree at configure time, then the @samp{libgcj}
+build will create and install @file{ecj1}, and will also install the
+discovered @file{ecj.jar} into a suitable place in the install tree.
+
+If @file{ecj1} is not installed, then the user will have to supply one
+on his path in order for @command{gcj} to properly parse @file{.java}
+source files.  A suitable jar is available from
+@uref{ftp://sourceware.org/pub/java/}.
+
 @item --disable-getenv-properties
 Don't set system properties from @env{GCJ_PROPERTIES}.
 
@@ -1453,9 +1501,9 @@ file to compile into a @file{.class} file.
 Search for libiconv in @file{DIR/include} and @file{DIR/lib}.
 
 @item --enable-sjlj-exceptions
-Force use of @code{builtin_setjmp} for exceptions.  @samp{configure}
-ordinarily picks the correct value based on the platform.  Only use
-this option if you are sure you need a different setting.
+Force use of the @code{setjmp}/@code{longjmp}-based scheme for exceptions.
+@samp{configure} ordinarily picks the correct value based on the platform.
+Only use this option if you are sure you need a different setting.
 
 @item --with-system-zlib
 Use installed @samp{zlib} rather than that included with GCC@.
@@ -1898,12 +1946,12 @@ You can pass multiple options to the testsuite using the
 work outside the makefiles.  For example,
 
 @smallexample
-    make check-g++ RUNTESTFLAGS="--target_board=unix/-O3/-fno-strength-reduce"
+    make check-g++ RUNTESTFLAGS="--target_board=unix/-O3/-fmerge-constants"
 @end smallexample
 
 will run the standard @command{g++} testsuites (``unix'' is the target name
 for a standard native testsuite situation), passing
-@samp{-O3 -fno-strength-reduce} to the compiler on every test, i.e.,
+@samp{-O3 -fmerge-constants} to the compiler on every test, i.e.,
 slashes separate options.
 
 You can run the testsuites multiple times using combinations of options
@@ -1966,17 +2014,12 @@ The Java runtime tests can be executed via @samp{make check}
 in the @file{@var{target}/libjava/testsuite} directory in
 the build tree.
 
-The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
+The @uref{http://sourceware.org/mauve/,,Mauve Project} provides
 a suite of tests for the Java Class Libraries.  This suite can be run
 as part of libgcj testing by placing the Mauve tree within the libjava
 testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
 specifying the location of that tree when invoking @samp{make}, as in
 @samp{make MAUVEDIR=~/mauve check}.
-
-@uref{http://sources.redhat.com/mauve/jacks.html,,Jacks}
-is a free testsuite that tests Java compiler front ends.  This suite
-can be run as part of libgcj testing by placing the Jacks tree within
-the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 
 @section How to interpret test results
 
@@ -2051,7 +2094,10 @@ cd @var{objdir}; make install
 @end smallexample
 
 We strongly recommend to install into a target directory where there is
-no previous version of GCC present.
+no previous version of GCC present.  Also, the GNAT runtime should not
+be stripped, as this would break certain features of the debugger that
+depend on this debugging information (catching Ada exceptions for
+instance).
 
 That step completes the installation of GCC; user level binaries can
 be found in @file{@var{prefix}/bin} where @var{prefix} is the value
@@ -2163,7 +2209,10 @@ If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
 dvi}.  You will need to have @command{texi2dvi} (version at least 4.4)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
-printing with programs such as @command{dvips}.  You can also
+printing with programs such as @command{dvips}.  Alternately, by using
+@samp{make pdf} in place of @samp{make dvi}, you can create documentation
+in the form of @file{.pdf} files; this requires @command{texi2pdf}, which
+is included with Texinfo version 4.8 and later.  You can also
 @uref{http://www.gnu.org/order/order.html,,buy printed manuals from the
 Free Software Foundation}, though such manuals may not be for the most
 recent version of GCC@.
@@ -2248,7 +2297,7 @@ SGI---@uref{http://freeware.sgi.com/,,SGI Freeware}.
 Microsoft Windows:
 @itemize
 @item
-The @uref{http://sources.redhat.com/cygwin/,,Cygwin} project;
+The @uref{http://sourceware.org/cygwin/,,Cygwin} project;
 @item
 The @uref{http://www.mingw.org/,,MinGW} project.
 @end itemize
@@ -2269,7 +2318,7 @@ number of platforms.
 
 @item
 The @uref{http://gcc.gnu.org/wiki/GFortranBinaries,,GFortran Wiki} has
-links to gfortran binaries for several platforms.
+links to GNU Fortran binaries for several platforms.
 @end itemize
 
 In addition to those specific offerings, you can get a binary
@@ -2376,7 +2425,11 @@ information are.
 @item
 @uref{#m6812-elf,,m6812-elf}
 @item
+@uref{#m68k-x-x,,m68k-*-*}
+@item
 @uref{#m68k-hp-hpux,,m68k-hp-hpux}
+@item
+@uref{#m68k-uclinux,,m68k-uclinux}
 @item
 @uref{#mips-x-x,,mips-*-*}
 @item
@@ -3053,7 +3106,7 @@ This port still is undergoing significant development.
 @end html
 @heading @anchor{x-x-linux-gnu}*-*-linux-gnu
 
-Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
+Versions of libstdc++-v3 starting with 3.2.1 require bug fixes present
 in glibc 2.2.5 and later.  More information is available in the
 libstdc++-v3 documentation.
 
@@ -3225,6 +3278,11 @@ and then proceed as described in @uref{build.html,,the build
 instructions}, where we strongly recommend specifying an absolute path
 to invoke @var{srcdir}/configure.
 
+Because GCC on AIX is built as a 32-bit executable by default,
+(although it can generate 64-bit programs) the GMP and MPFR libraries
+required by gfortran must be 32-bit libraries.  Building GMP and MPFR
+as static archive libraries works better than shared libraries.
+
 Errors involving @code{alloca} when building GCC generally are due
 to an incorrect definition of @code{CC} in the Makefile or mixing files
 compiled with the native C compiler and GCC@.  During the stage1 phase of
@@ -3367,6 +3425,30 @@ applications.  There are no standard Unix configurations.
 @html
 <hr />
 @end html
+@heading @anchor{m68k-x-x}m68k-*-*
+By default, @samp{m68k-*-aout}, @samp{m68k-*-coff*},
+@samp{m68k-*-elf*}, @samp{m68k-*-rtems} and @samp{m68k-*-uclinux}
+build libraries for both M680x0 and ColdFire processors.  If you only
+need the M680x0 libraries, you can omit the ColdFire ones by passing
+@option{--with-arch=m68k} to @command{configure}.  Alternatively, you
+can omit the M680x0 libraries by passing @option{--with-arch=cf} to
+@command{configure}.  These targets default to 5206 code when
+configured with @option{--with-arch=cf} and 68020 code otherwise.
+
+The @samp{m68k-*-linux-gnu}, @samp{m68k-*-netbsd} and
+@samp{m68k-*-openbsd} targets also support the @option{--with-arch}
+option.  They will generate ColdFire CFV4e code when configured with
+@option{--with-arch=cf} and 68020 code otherwise.
+
+You can override the default processors listed above by configuring
+with @option{--with-cpu=@var{target}}.  This @var{target} can either
+be a @option{-mcpu} argument or one of the following values:
+@samp{m68000}, @samp{m68010}, @samp{m68020}, @samp{m68030},
+@samp{m68040}, @samp{m68060}, @samp{m68020-40} and @samp{m68020-60}.
+
+@html
+<hr />
+@end html
 @heading @anchor{m68k-hp-hpux}m68k-hp-hpux
 HP 9000 series 300 or 400 running HP-UX@.  HP-UX version 8.0 has a bug in
 the assembler that prevents compilation of GCC@.  This
@@ -3416,6 +3498,17 @@ to look like:
 @smallexample
 #!/bin/ksh
 @end smallexample
+
+@html
+<hr />
+@end html
+@heading @anchor{m68k-x-uclinux}m68k-*-uclinux
+GCC 4.3 changed the uClinux configuration so that it uses the
+@samp{m68k-linux-gnu} ABI rather than the @samp{m68k-elf} ABI.
+It also added improved support for C++ and flat shared libraries,
+both of which were ABI changes.  However, you can still use the
+original ABI by configuring for @samp{m68k-uclinuxoldabi} or
+@samp{m68k-@var{vendor}-uclinuxoldabi}.
 
 @html
 <hr />
@@ -3565,6 +3658,11 @@ to build despite this, running into an internal error of the native
 its maximum of 262144 bytes.  If you have root access, you can use the
 @command{systune} command to do this.
 
+@code{wchar_t} support in @samp{libstdc++} is not available for old
+IRIX 6.5.x releases, @math{x < 19}.  The problem cannot be autodetected
+and in order to build GCC for such targets you need to configure with
+@option{--disable-wchar_t}.
+
 See @uref{http://freeware.sgi.com/} for more
 information about using GCC on IRIX platforms.
 
@@ -3588,11 +3686,10 @@ binaries are available at
 @uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
-This version of GCC requires at least cctools-590.7.
-
-The version of GCC shipped by Apple typically includes a number of
-extensions not available in a standard GCC release.  These extensions
-are generally for backwards compatibility and best avoided.
+This version of GCC requires at least cctools-590.36.  The
+cctools-590.36 package referenced from
+@uref{http://gcc.gnu.org/ml/gcc/2006-03/msg00507.html} will not work
+on systems older than 10.3.9 (aka darwin7.9.0).
 
 @html
 <hr />
@@ -3727,7 +3824,7 @@ The stock GNU binutils 2.15 release is broken on this platform because of a
 single bug.  It has been fixed on the 2.15 branch in the CVS repository.
 You can obtain a working version by checking out the binutils-2_15-branch
 from the CVS repository or applying the patch
-@uref{http://sources.redhat.com/ml/binutils-cvs/2004-09/msg00036.html} to the
+@uref{http://sourceware.org/ml/binutils-cvs/2004-09/msg00036.html} to the
 release.
 
 We recommend using GNU binutils 2.16 or later in conjunction with GCC 4.x,
@@ -3827,12 +3924,15 @@ ld: warning: relocation error: R_SPARC_UA32: @dots{}
 To work around this problem, compile with @option{-gstabs+} instead of
 plain @option{-g}.
 
-When configuring the GNU Multiple Precision Library (GMP) on a Solaris 7
-or later system, the canonical target triplet must be specified as the
-@command{build} parameter on the configure line:
+When configuring the GNU Multiple Precision Library (GMP) or the MPFR
+library on a Solaris 7 or later system, the canonical target triplet
+must be specified as the @command{build} parameter on the configure
+line.  This triplet can be obtained by invoking ./config.guess in
+the toplevel source directory of GCC (and not that of GMP or MPFR).
+For example on a Solaris 7 system:
 
 @smallexample
-./configure --build=sparc-sun-solaris2.7 --prefix=xxx --enable-mpfr
+   % ./configure --build=sparc-sun-solaris2.7 --prefix=xxx
 @end smallexample
 
 @html
@@ -3912,15 +4012,24 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 @end html
 @heading @anchor{sparc64-x-solaris2}sparc64-*-solaris2*
 
+When configuring the GNU Multiple Precision Library (GMP) or the
+MPFR library, the canonical target triplet must be specified as
+the @command{build} parameter on the configure line.  For example
+on a Solaris 7 system:
+
+@smallexample
+   % ./configure --build=sparc64-sun-solaris2.7 --prefix=xxx
+@end smallexample
+
 The following compiler flags must be specified in the configure
 step in order to bootstrap this target with the Sun compiler:
 
 @smallexample
-   % CC="cc -xildoff -xarch=v9" @var{srcdir}/configure [@var{options}] [@var{target}]
+   % CC="cc -xarch=v9 -xildoff" @var{srcdir}/configure [@var{options}] [@var{target}]
 @end smallexample
 
-@option{-xildoff} turns off the incremental linker, and @option{-xarch=v9}
-specifies the SPARC-V9 architecture to the Sun linker and assembler.
+@option{-xarch=v9} specifies the SPARC-V9 architecture to the Sun toolchain
+and @option{-xildoff} turns off the incremental linker.
 
 @html
 <hr />
@@ -4104,7 +4213,7 @@ modern targets.
 
 For some systems, old versions of GNU binutils may also be useful,
 and are available from @file{pub/binutils/old-releases} on
-@uref{http://sources.redhat.com/mirrors.html,,sources.redhat.com mirror sites}.
+@uref{http://sourceware.org/mirrors.html,,sourceware.org mirror sites}.
 
 Some of the information on specific systems above relates to
 such older systems, but much of the information

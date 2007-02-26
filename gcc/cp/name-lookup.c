@@ -61,6 +61,24 @@ tree global_namespace;
    unit.  */
 static GTY(()) tree anonymous_namespace_name;
 
+/* Initialize anonymous_namespace_name if necessary, and return it.  */
+
+static tree
+get_anonymous_namespace_name(void)
+{
+  if (!anonymous_namespace_name)
+    {
+      /* The anonymous namespace has to have a unique name
+	 if typeinfo objects are being compared by name.  */
+      if (! flag_weak || ! SUPPORTS_ONE_ONLY)
+	anonymous_namespace_name = get_file_function_name ("N");
+      else
+	/* The demangler expects anonymous namespaces to be called
+	   something starting with '_GLOBAL__N_'.  */
+	anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
+    }
+  return anonymous_namespace_name;
+}
 
 /* Compute the chain index of a binding_entry given the HASH value of its
    name and the total COUNT of chains.  COUNT is assumed to be a power
@@ -569,6 +587,9 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 
   timevar_push (TV_NAME_LOOKUP);
 
+  if (x == error_mark_node)
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+
   need_new_binding = 1;
 
   if (DECL_TEMPLATE_PARM_P (x))
@@ -602,9 +623,6 @@ pushdecl_maybe_friend (tree x, bool is_friend)
   if (name)
     {
       int different_binding_level = 0;
-
-      if (TREE_CODE (x) == FUNCTION_DECL || DECL_FUNCTION_TEMPLATE_P (x))
-       check_default_args (x);
 
       if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
 	name = TREE_OPERAND (name, 0);
@@ -670,14 +688,28 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      if (decls_match (x, t))
 		/* The standard only says that the local extern
 		   inherits linkage from the previous decl; in
-		   particular, default args are not shared.  We must
-		   also tell cgraph to treat these decls as the same,
-		   or we may neglect to emit an "unused" static - we
-		   do this by making the DECL_UIDs equal, which should
-		   be viewed as a kludge.  FIXME.  */
+		   particular, default args are not shared.  Add
+		   the decl into a hash table to make sure only
+		   the previous decl in this case is seen by the
+		   middle end.  */
 		{
+		  struct cxx_int_tree_map *h;
+		  void **loc;
+
 		  TREE_PUBLIC (x) = TREE_PUBLIC (t);
-		  DECL_UID (x) = DECL_UID (t);
+
+		  if (cp_function_chain->extern_decl_map == NULL)
+		    cp_function_chain->extern_decl_map
+		      = htab_create_ggc (20, cxx_int_tree_map_hash,
+					 cxx_int_tree_map_eq, NULL);
+
+		  h = GGC_NEW (struct cxx_int_tree_map);
+		  h->uid = DECL_UID (x);
+		  h->to = t;
+		  loc = htab_find_slot_with_hash
+			  (cp_function_chain->extern_decl_map, h,
+			   h->uid, INSERT);
+		  *(struct cxx_int_tree_map **) loc = h;
 		}
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
@@ -734,9 +766,12 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	    }
 	}
 
+      if (TREE_CODE (x) == FUNCTION_DECL || DECL_FUNCTION_TEMPLATE_P (x))
+	check_default_args (x);
+
       check_template_shadow (x);
 
-      /* If this is a function conjured up by the backend, massage it
+      /* If this is a function conjured up by the back end, massage it
 	 so it looks friendly.  */
       if (DECL_NON_THUNK_FUNCTION_P (x) && ! DECL_LANG_SPECIFIC (x))
 	{
@@ -1254,11 +1289,11 @@ begin_scope (scope_kind kind, tree entity)
   if (!ENABLE_SCOPE_CHECKING && free_binding_level)
     {
       scope = free_binding_level;
+      memset (scope, 0, sizeof (cxx_scope));
       free_binding_level = scope->level_chain;
     }
   else
-    scope = GGC_NEW (cxx_scope);
-  memset (scope, 0, sizeof (cxx_scope));
+    scope = GGC_CNEW (cxx_scope);
 
   scope->this_entity = entity;
   scope->more_cleanups_ok = true;
@@ -2595,6 +2630,9 @@ push_class_level_binding (tree name, tree x)
   if (!class_binding_level)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
+  if (name == error_mark_node)
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
+
   /* Check for invalid member names.  */
   gcc_assert (TYPE_BEING_DEFINED (current_class_type));
   /* We could have been passed a tree list if this is an ambiguous
@@ -2749,6 +2787,9 @@ do_class_using_decl (tree scope, tree name)
   tree base_binfo;
   int i;
 
+  if (name == error_mark_node)
+    return NULL_TREE;
+
   if (!scope || !TYPE_P (scope))
     {
       error ("using-declaration for non-member at class scope");
@@ -2801,18 +2842,19 @@ do_class_using_decl (tree scope, tree name)
      class type.  However, if all of the base classes are
      non-dependent, then we can avoid delaying the check until
      instantiation.  */
-  if (!scope_dependent_p && !bases_dependent_p)
+  if (!scope_dependent_p)
     {
       base_kind b_kind;
-      tree binfo;
       binfo = lookup_base (current_class_type, scope, ba_any, &b_kind);
       if (b_kind < bk_proper_base)
 	{
-	  error_not_base_type (scope, current_class_type);
-	  return NULL_TREE;
+	  if (!bases_dependent_p)
+	    {
+	      error_not_base_type (scope, current_class_type);
+	      return NULL_TREE;
+	    }
 	}
-
-      if (!name_dependent_p)
+      else if (!name_dependent_p)
 	{
 	  decl = lookup_member (binfo, name, 0, false);
 	  if (!decl)
@@ -2987,11 +3029,7 @@ push_namespace_with_attribs (tree name, tree attributes)
 
   if (anon)
     {
-      /* The name of anonymous namespace is unique for the translation
-	 unit.  */
-      if (!anonymous_namespace_name)
-	anonymous_namespace_name = get_file_function_name ('N');
-      name = anonymous_namespace_name;
+      name = get_anonymous_namespace_name();
       d = IDENTIFIER_NAMESPACE_VALUE (name);
       if (d)
 	/* Reopening anonymous namespace.  */
@@ -3019,7 +3057,12 @@ push_namespace_with_attribs (tree name, tree attributes)
       /* Make a new namespace, binding the name to it.  */
       d = build_lang_decl (NAMESPACE_DECL, name, void_type_node);
       DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
-      TREE_PUBLIC (d) = 1;
+      /* The name of this namespace is not visible to other translation
+	 units if it is an anonymous namespace or member thereof.  */
+      if (anon || decl_anon_ns_mem_p (current_namespace))
+	TREE_PUBLIC (d) = 0;
+      else
+	TREE_PUBLIC (d) = 1;
       pushdecl (d);
       if (anon)
 	{
@@ -3066,15 +3109,6 @@ push_namespace_with_attribs (tree name, tree attributes)
       push_visibility (TREE_STRING_POINTER (x));
       goto found;
     }
-#if 0
-  if (anon)
-    {
-      /* Anonymous namespaces default to hidden visibility.  This might
-	 change once we implement export.  */
-      current_binding_level->has_visibility = 1;
-      push_visibility ("hidden");
-    }
-#endif
  found:
 #endif
 
@@ -3662,10 +3696,8 @@ unqualified_namespace_lookup (tree name, int flags)
 
       if (b)
 	{
-	  if (b->value && hidden_name_p (b->value))
-	    /* Ignore anticipated built-in functions and friends.  */
-	    ;
-	  else
+	  if (b->value
+	      && ((flags & LOOKUP_HIDDEN) || !hidden_name_p (b->value)))
 	    binding.value = b->value;
 	  binding.type = b->type;
 	}
@@ -3713,6 +3745,7 @@ tree
 lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
 {
   int flags = 0;
+  tree t = NULL_TREE;
 
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     {
@@ -3722,17 +3755,14 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
       if (qualified_lookup_using_namespace (name, scope, &binding, flags))
-	return select_decl (&binding, flags);
+	t = select_decl (&binding, flags);
     }
   else if (is_aggr_type (scope, complain))
-    {
-      tree t;
-      t = lookup_member (scope, name, 2, is_type_p);
-      if (t)
-	return t;
-    }
+    t = lookup_member (scope, name, 2, is_type_p);
 
-  return error_mark_node;
+  if (!t)
+    return error_mark_node;
+  return t;
 }
 
 /* Subroutine of unqualified_namespace_lookup:
@@ -3970,18 +4000,18 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
 	  continue;
 
 	/* If this is the kind of thing we're looking for, we're done.  */
-	if (qualify_lookup (iter->value, flags)
-	    && !hidden_name_p (iter->value))
+	if (qualify_lookup (iter->value, flags))
 	  binding = iter->value;
 	else if ((flags & LOOKUP_PREFER_TYPES)
-		 && qualify_lookup (iter->type, flags)
-		 && !hidden_name_p (iter->type))
+		 && qualify_lookup (iter->type, flags))
 	  binding = iter->type;
 	else
 	  binding = NULL_TREE;
 
 	if (binding)
 	  {
+	    /* Only namespace-scope bindings can be hidden.  */
+	    gcc_assert (!hidden_name_p (binding));
 	    val = binding;
 	    break;
 	  }
@@ -4653,7 +4683,19 @@ lookup_arg_dependent (tree name, tree fns, tree args)
   k.namespaces = NULL_TREE;
 
   arg_assoc_args (&k, args);
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, k.functions);
+
+  fns = k.functions;
+  
+  if (fns
+      && TREE_CODE (fns) != VAR_DECL
+      && !is_overloaded_fn (fns))
+    {
+      error ("argument dependent lookup finds %q+D", fns);
+      error ("  in call to %qD", name);
+      fns = error_mark_node;
+    }
+    
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fns);
 }
 
 /* Add namespace to using_directives. Return NULL_TREE if nothing was
@@ -4860,7 +4902,11 @@ pushtag (tree name, tree type, tag_scope scope)
 	    pushdecl_class_level (decl);
 	}
       else if (b->kind != sk_template_parms)
-	decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	{
+	  decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	  if (decl == error_mark_node)
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
+	}
 
       TYPE_CONTEXT (type) = DECL_CONTEXT (decl);
 
@@ -4891,6 +4937,10 @@ pushtag (tree name, tree type, tag_scope scope)
   decl = TYPE_NAME (type);
   gcc_assert (TREE_CODE (decl) == TYPE_DECL);
   TYPE_STUB_DECL (type) = decl;
+
+  /* Set type visibility now if this is a forward declaration.  */
+  TREE_PUBLIC (decl) = 1;
+  determine_visibility (decl);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, type);
 }

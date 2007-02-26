@@ -1,5 +1,5 @@
 /* InvalidAddressHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,9 @@ exception statement from your version. */
 
 package org.omg.CosNaming.NamingContextExtPackage;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.StructMember;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
@@ -57,11 +58,6 @@ public abstract class InvalidAddressHelper
    */
   private static String _id =
     "IDL:omg.org/CosNaming/NamingContextExt/InvalidAddress:1.0";
-
-  /**
-   * The cached type code value.
-   */
-  private static TypeCode typeCode;
 
   /**
    * Extract the exception from the given {@link Any}.
@@ -102,16 +98,10 @@ public abstract class InvalidAddressHelper
   /**
    * Create the type code for this exception.
    */
-  public static synchronized TypeCode type()
+  public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        typeCode =
-          ORB.init().create_struct_tc(InvalidAddressHelper.id(),
-                                      "InvalidAddress", new StructMember[ 0 ]
-                                     );
-      }
-    return typeCode;
+    return OrbRestricted.Singleton.create_struct_tc(InvalidAddressHelper.id(),
+                                       "InvalidAddress", new StructMember[0]);
   }
 
   public static void write(OutputStream ostream, InvalidAddress value)

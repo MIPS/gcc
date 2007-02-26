@@ -219,7 +219,7 @@ add_segments (segment_info *list, segment_info *v)
 /* Construct mangled common block name from symbol name.  */
 
 static tree
-gfc_sym_mangled_common_id (const char  *name)
+gfc_sym_mangled_common_id (const char *name)
 {
   int has_underscore;
   char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
@@ -388,7 +388,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 
       gfc_set_decl_location (decl, &com->where);
 
-      if (com->threadprivate && targetm.have_tls)
+      if (com->threadprivate)
 	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 
       /* Place the back end declaration for this common block in
@@ -962,6 +962,13 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
       current_offset += s->length;
     }
 
+  if (common_segment == NULL)
+    {
+      gfc_error ("COMMON '%s' at %L does not exist",
+		 common->name, &common->where);
+      return;
+    }
+
   if (common_segment->offset != 0)
     {
       gfc_warning ("COMMON '%s' at %L requires %d bytes of padding at start",
@@ -1047,13 +1054,18 @@ gfc_trans_common (gfc_namespace *ns)
   if (ns->blank_common.head != NULL)
     {
       c = gfc_get_common_head ();
+
       /* We've lost the real location, so use the location of the
 	 enclosing procedure.  */
-      c->where = ns->proc_name->declared_at;
+      if (ns->proc_name != NULL)
+	c->where = ns->proc_name->declared_at;
+      else
+	c->where = ns->blank_common.head->common_head->where;
+
       strcpy (c->name, BLANK_COMMON_NAME);
       translate_common (c, ns->blank_common.head);
     }
- 
+
   /* Translate all named common blocks.  */
   gfc_traverse_symtree (ns->common_root, named_common);
 

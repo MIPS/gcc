@@ -30,6 +30,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef _DFPBIT_H
 #define _DFPBIT_H
 
+#include <fenv.h>
+#include <decRound.h>
+#include <decExcept.h>
 #include "tconfig.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -114,15 +117,30 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define CONTEXT_INIT DEC_INIT_DECIMAL128
 #endif
 
-/* Define CONTEXT_ROUND to obtain the current decNumber rounding mode.  */
-extern enum rounding	__decGetRound (void);
-#define CONTEXT_ROUND	__decGetRound ()
+#ifndef DFP_INIT_ROUNDMODE
+#define DFP_INIT_ROUNDMODE(A) A = DEC_ROUND_HALF_EVEN
+#endif
 
-extern int __dfp_traps;
-#define CONTEXT_TRAPS	__dfp_traps
-#define CONTEXT_ERRORS(context)	context.status & DEC_Errors
-extern void __dfp_raise (int);
-#define DFP_RAISE(A)	__dfp_raise(A)
+#ifdef DFP_EXCEPTIONS_ENABLED
+/* Return IEEE exception flags based on decNumber status flags.  */
+#define DFP_IEEE_FLAGS(DEC_FLAGS) __extension__			\
+({int _fe_flags = 0;						\
+  if ((dec_flags & DEC_IEEE_854_Division_by_zero) != 0)		\
+    _fe_flags |= FE_DIVBYZERO;					\
+  if ((dec_flags & DEC_IEEE_854_Inexact) != 0)			\
+    _fe_flags |= FE_INEXACT;					\
+  if ((dec_flags & DEC_IEEE_854_Invalid_operation) != 0)	\
+    _fe_flags |= FE_INVALID;					\
+  if ((dec_flags & DEC_IEEE_854_Overflow) != 0)			\
+    _fe_flags |= FE_OVERFLOW;					\
+  if ((dec_flags & DEC_IEEE_854_Underflow) != 0)		\
+    _fe_flags |= FE_UNDERFLOW;					\
+  _fe_flags; })
+#else
+#define DFP_EXCEPTIONS_ENABLED 0
+#define DFP_IEEE_FLAGS(A) 0
+#define DFP_HANDLE_EXCEPTIONS(A) do {} while (0)
+#endif
 
 /* Conversions between different decimal float types use WIDTH_TO to
    determine additional macros to define.  */

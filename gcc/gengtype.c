@@ -1,5 +1,6 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -519,7 +520,6 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    note_flds = create_field (note_flds, tree_tp, "rt_tree");
 	    break;
 
-	  case NOTE_INSN_EXPECTED_VALUE:
 	  case NOTE_INSN_VAR_LOCATION:
 	    note_flds = create_field (note_flds, rtx_tp, "rt_rtx");
 	    break;
@@ -870,8 +870,6 @@ note_yacc_type (options_p o, pair_p fields, pair_p typeinfo,
   do_typedef ("YYSTYPE", new_structure ("yy_union", 1, pos, typeinfo, o), pos);
 }
 
-static void process_gc_options (options_p, enum gc_used_enum,
-				int *, int *, int *, type_p *);
 static void set_gc_used_type (type_p, enum gc_used_enum, type_p *);
 static void set_gc_used (pair_p);
 
@@ -879,7 +877,7 @@ static void set_gc_used (pair_p);
 
 static void
 process_gc_options (options_p opt, enum gc_used_enum level, int *maybe_undef,
-		    int *pass_param, int *length, type_p *nested_ptr)
+		    int *pass_param, int *length, int *skip, type_p *nested_ptr)
 {
   options_p o;
   for (o = opt; o; o = o->next)
@@ -891,6 +889,8 @@ process_gc_options (options_p opt, enum gc_used_enum level, int *maybe_undef,
       *pass_param = 1;
     else if (strcmp (o->name, "length") == 0)
       *length = 1;
+    else if (strcmp (o->name, "skip") == 0)
+      *skip = 1;
     else if (strcmp (o->name, "nested_ptr") == 0)
       *nested_ptr = ((const struct nested_ptr_data *) o->info)->type;
 }
@@ -914,7 +914,7 @@ set_gc_used_type (type_p t, enum gc_used_enum level, type_p param[NUM_PARAM])
 	int dummy;
 	type_p dummy2;
 
-	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy,
+	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy, &dummy,
 			    &dummy2);
 
 	for (f = t->u.s.fields; f; f = f->next)
@@ -922,9 +922,10 @@ set_gc_used_type (type_p t, enum gc_used_enum level, type_p param[NUM_PARAM])
 	    int maybe_undef = 0;
 	    int pass_param = 0;
 	    int length = 0;
+	    int skip = 0;
 	    type_p nested_ptr = NULL;
 	    process_gc_options (f->opt, level, &maybe_undef, &pass_param,
-				&length, &nested_ptr);
+				&length, &skip, &nested_ptr);
 
 	    if (nested_ptr && f->type->kind == TYPE_POINTER)
 	      set_gc_used_type (nested_ptr, GC_POINTED_TO, 
@@ -936,6 +937,8 @@ set_gc_used_type (type_p t, enum gc_used_enum level, type_p param[NUM_PARAM])
 	    else if (pass_param && f->type->kind == TYPE_POINTER && param)
 	      set_gc_used_type (find_param_structure (f->type->u.p, param),
 				GC_POINTED_TO, NULL);
+	    else if (skip)
+	      ; /* target type is not used through this field */
 	    else
 	      set_gc_used_type (f->type, GC_USED, pass_param ? param : NULL);
 	  }
@@ -1105,7 +1108,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "except.h", "output.h", NULL
+      "cfglayout.h", "except.h", "output.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1380,6 +1383,7 @@ struct write_types_data
   const char *marker_routine;
   const char *reorder_note_routine;
   const char *comment;
+  int skip_hooks;		/* skip hook generation if non zero */
 };
 
 static void output_escaped_param (struct walk_type_data *d,
@@ -1547,6 +1551,8 @@ walk_type (type_p t, struct walk_type_data *d)
       use_params_p = 1;
     else if (strcmp (oo->name, "desc") == 0)
       desc = oo->info;
+    else if (strcmp (oo->name, "mark_hook") == 0)
+      ;
     else if (strcmp (oo->name, "nested_ptr") == 0)
       nested_ptr_d = (const struct nested_ptr_data *) oo->info;
     else if (strcmp (oo->name, "dot") == 0)
@@ -2037,6 +2043,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   int i;
   const char *chain_next = NULL;
   const char *chain_prev = NULL;
+  const char *mark_hook_name = NULL;
   options_p opt;
   struct walk_type_data d;
 
@@ -2054,6 +2061,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       chain_next = opt->info;
     else if (strcmp (opt->name, "chain_prev") == 0)
       chain_prev = opt->info;
+    else if (strcmp (opt->name, "mark_hook") == 0)
+      mark_hook_name = opt->info;
 
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
@@ -2109,10 +2118,17 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
+      if (mark_hook_name && !wtd->skip_hooks)
+	{
+	  oprintf (d.of, "    {\n");
+	  oprintf (d.of, "      %s (xlimit);\n   ", mark_hook_name);
+	}
       oprintf (d.of, "   xlimit = (");
       d.prev_val[2] = "*xlimit";
       output_escaped_param (&d, chain_next, "chain_next");
       oprintf (d.of, ");\n");
+      if (mark_hook_name && !wtd->skip_hooks)
+	oprintf (d.of, "    }\n");
       if (chain_prev != NULL)
 	{
 	  oprintf (d.of, "  if (x != xlimit)\n");
@@ -2140,7 +2156,10 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       oprintf (d.of, "  while (x != xlimit)\n");
     }
   oprintf (d.of, "    {\n");
-
+  if (mark_hook_name && chain_next == NULL && !wtd->skip_hooks)
+    {
+      oprintf (d.of, "      %s (x);\n", mark_hook_name);
+    }
   d.prev_val[2] = "*x";
   d.indent = 6;
   walk_type (s, &d);
@@ -2256,14 +2275,16 @@ write_types (type_p structures, type_p param_structs,
 static const struct write_types_data ggc_wtd =
 {
   "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
-  "GC marker procedures.  "
+  "GC marker procedures.  ",
+  FALSE
 };
 
 static const struct write_types_data pch_wtd =
 {
   "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
   "gt_pch_note_reorder",
-  "PCH type-walking procedures.  "
+  "PCH type-walking procedures.  ",
+  TRUE
 };
 
 /* Write out the local pointer-walking routines.  */
@@ -3026,7 +3047,7 @@ write_roots (pair_p variables)
 
 extern int main (int argc, char **argv);
 int
-main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
+main (int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
 {
   unsigned i;
   static struct fileloc pos = { __FILE__, __LINE__ };

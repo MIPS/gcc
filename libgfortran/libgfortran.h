@@ -33,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 
 #include <math.h>
 #include <stddef.h>
+#include <float.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327
@@ -65,6 +66,7 @@ typedef off_t gfc_offset;
 #ifndef __GNUC__
 #define __attribute__(x)
 #endif
+
 
 /* For a library, a standard prefix is a requirement in order to partition
    the namespace.  IPREFIX is for symbols intended to be internal to the
@@ -124,10 +126,10 @@ typedef off_t gfc_offset;
 # define export_proto(x)	sym_rename(x, PREFIX(x))
 # define export_proto_np(x)	extern char swallow_semicolon
 # define iexport_proto(x)	internal_proto(x)
-# define iexport(x)		iexport1(x, __USER_LABEL_PREFIX__, IPREFIX(x))
-# define iexport1(x,p,y)	iexport2(x,p,y)
-# define iexport2(x,p,y) \
-	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#p #y)))
+# define iexport(x)		iexport1(x, IPREFIX(x))
+# define iexport1(x,y)		iexport2(x,y)
+# define iexport2(x,y) \
+	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#y)))
 /* ??? We're not currently building a dll, and it's wrong to add dllexport
    to objects going into a static library archive.  */
 #elif 0 && defined(HAVE_ATTRIBUTE_DLLEXPORT)
@@ -196,6 +198,18 @@ typedef off_t gfc_offset;
 
 #include "kinds.h"
 
+/* Define the type used for the current record number for large file I/O.
+   The size must be consistent with the size defined on the compiler side.  */
+#ifdef HAVE_GFC_INTEGER_8
+typedef GFC_INTEGER_8 GFC_IO_INT;
+#else
+#ifdef HAVE_GFC_INTEGER_4
+typedef GFC_INTEGER_4 GFC_IO_INT;
+#else
+#error "GFC_INTEGER_4 should be available for the library to compile".
+#endif
+#endif
+
 /* The following two definitions must be consistent with the types used
    by the compiler.  */
 /* The type used of array indices, amongst other things.  */
@@ -226,6 +240,24 @@ internal_proto(l8_to_l4_offset);
 #endif
 #ifdef HAVE_GFC_REAL_16
 #define GFC_REAL_16_HUGE LDBL_MAX
+#endif
+
+#define GFC_REAL_4_DIGITS FLT_MANT_DIG
+#define GFC_REAL_8_DIGITS DBL_MANT_DIG
+#ifdef HAVE_GFC_REAL_10
+#define GFC_REAL_10_DIGITS LDBL_MANT_DIG
+#endif
+#ifdef HAVE_GFC_REAL_16
+#define GFC_REAL_16_DIGITS LDBL_MANT_DIG
+#endif
+
+#define GFC_REAL_4_RADIX FLT_RADIX
+#define GFC_REAL_8_RADIX FLT_RADIX
+#ifdef HAVE_GFC_REAL_10
+#define GFC_REAL_10_RADIX FLT_RADIX
+#endif
+#ifdef HAVE_GFC_REAL_16
+#define GFC_REAL_16_RADIX FLT_RADIX
 #endif
 
 #ifndef GFC_MAX_DIMENSIONS
@@ -323,6 +355,7 @@ typedef struct
   int fpu_round, fpu_precision, fpe;
 
   int sighup, sigint;
+  int dump_core;
 }
 options_t;
 
@@ -338,7 +371,9 @@ typedef struct
   int allow_std;
   int pedantic;
   int convert;
+  int dump_core;
   size_t record_marker;
+  int max_subrecord_length;
 }
 compile_options_t;
 
@@ -348,6 +383,7 @@ internal_proto(compile_options);
 extern void init_compile_options (void);
 internal_proto(init_compile_options);
 
+#define GFC_MAX_SUBRECORD_LENGTH 2147483639   /* 2**31 - 9 */
 
 /* Structure for statement options.  */
 
@@ -366,7 +402,7 @@ typedef enum
   ERROR_EOR = -2,
   ERROR_END = -1,
   ERROR_OK = 0,			/* Indicates success, must be zero.  */
-  ERROR_OS,			/* Operating system error, more info in errno.  */
+  ERROR_OS = 5000,		/* Operating system error, more info in errno.  */
   ERROR_OPTION_CONFLICT,
   ERROR_BAD_OPTION,
   ERROR_MISSING_OPTION,
@@ -382,6 +418,8 @@ typedef enum
   ERROR_INTERNAL_UNIT,
   ERROR_ALLOCATION,
   ERROR_DIRECT_EOR,
+  ERROR_SHORT_RECORD,
+  ERROR_CORRUPT_FILE,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -414,6 +452,11 @@ typedef enum
 { SILENT, WARNING, ERROR }
 notification;
 
+/* This is returned by notify_std and several io functions.  */
+typedef enum
+{ SUCCESS = 1, FAILURE }
+try;
+
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
 
@@ -429,13 +472,68 @@ iexport_data_proto(filename);
 #define gfc_alloca(x)  __builtin_alloca(x)
 
 
+/* Various I/O stuff also used in other parts of the library.  */
+
+#define DEFAULT_TEMPDIR "/tmp"
+
+/* The default value of record length for preconnected units is defined
+   here. This value can be overriden by an environment variable.
+   Default value is 1 Gb.  */
+#define DEFAULT_RECL 1073741824
+
+typedef enum
+{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+unit_convert;
+
+#define CHARACTER2(name) \
+              gfc_charlen_type name ## _len; \
+              char * name
+
+typedef struct st_parameter_common
+{
+  GFC_INTEGER_4 flags;
+  GFC_INTEGER_4 unit;
+  const char *filename;
+  GFC_INTEGER_4 line;
+  CHARACTER2 (iomsg);
+  GFC_INTEGER_4 *iostat;
+}
+st_parameter_common;
+
+#undef CHARACTER2
+
+#define IOPARM_LIBRETURN_MASK           (3 << 0)
+#define IOPARM_LIBRETURN_OK             (0 << 0)
+#define IOPARM_LIBRETURN_ERROR          (1 << 0)
+#define IOPARM_LIBRETURN_END            (2 << 0)
+#define IOPARM_LIBRETURN_EOR            (3 << 0)
+#define IOPARM_ERR                      (1 << 2)
+#define IOPARM_END                      (1 << 3)
+#define IOPARM_EOR                      (1 << 4)
+#define IOPARM_HAS_IOSTAT               (1 << 5)
+#define IOPARM_HAS_IOMSG                (1 << 6)
+
+#define IOPARM_COMMON_MASK              ((1 << 7) - 1)
+
+#define IOPARM_OPEN_HAS_RECL_IN         (1 << 7)
+#define IOPARM_OPEN_HAS_FILE            (1 << 8)
+#define IOPARM_OPEN_HAS_STATUS          (1 << 9)
+#define IOPARM_OPEN_HAS_ACCESS          (1 << 10)
+#define IOPARM_OPEN_HAS_FORM            (1 << 11)
+#define IOPARM_OPEN_HAS_BLANK           (1 << 12)
+#define IOPARM_OPEN_HAS_POSITION        (1 << 13)
+#define IOPARM_OPEN_HAS_ACTION          (1 << 14)
+#define IOPARM_OPEN_HAS_DELIM           (1 << 15)
+#define IOPARM_OPEN_HAS_PAD             (1 << 16)
+#define IOPARM_OPEN_HAS_CONVERT         (1 << 17)
+
+
 /* main.c */
 
 extern void stupid_function_name_for_static_linking (void);
 internal_proto(stupid_function_name_for_static_linking);
 
-struct st_parameter_common;
-extern void library_start (struct st_parameter_common *);
+extern void library_start (st_parameter_common *);
 internal_proto(library_start);
 
 #define library_end()
@@ -453,6 +551,9 @@ internal_proto(get_args);
 #define GFC_OTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 3 + 1)
 #define GFC_BTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 8 + 1)
 
+extern void sys_exit (int) __attribute__ ((noreturn));
+internal_proto(sys_exit);
+
 extern const char *gfc_itoa (GFC_INTEGER_LARGEST, char *, size_t);
 internal_proto(gfc_itoa);
 
@@ -462,25 +563,18 @@ internal_proto(xtoa);
 extern void os_error (const char *) __attribute__ ((noreturn));
 internal_proto(os_error);
 
-extern void show_locus (struct st_parameter_common *);
+extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
 extern void runtime_error (const char *) __attribute__ ((noreturn));
 iexport_proto(runtime_error);
 
-extern void internal_error (struct st_parameter_common *, const char *)
+extern void internal_error (st_parameter_common *, const char *)
   __attribute__ ((noreturn));
 internal_proto(internal_error);
 
 extern const char *get_oserror (void);
 internal_proto(get_oserror);
-
-extern void sys_exit (int) __attribute__ ((noreturn));
-internal_proto(sys_exit);
-
-extern int st_printf (const char *, ...)
-  __attribute__ ((format (printf, 1, 2)));
-internal_proto(st_printf);
 
 extern void st_sprintf (char *, const char *, ...)
   __attribute__ ((format (printf, 2, 3)));
@@ -489,8 +583,14 @@ internal_proto(st_sprintf);
 extern const char *translate_error (int);
 internal_proto(translate_error);
 
-extern void generate_error (struct st_parameter_common *, int, const char *);
+extern void generate_error (st_parameter_common *, int, const char *);
 internal_proto(generate_error);
+
+extern try notify_std (st_parameter_common *, int, const char *);
+internal_proto(notify_std);
+
+extern notification notification_std(int);
+internal_proto(notification_std);
 
 /* fpu.c */
 
@@ -522,9 +622,12 @@ internal_proto(init_variables);
 extern void show_variables (void);
 internal_proto(show_variables);
 
+unit_convert get_unformatted_convert (int);
+internal_proto(get_unformatted_convert);
+
 /* string.c */
 
-extern int find_option (struct st_parameter_common *, const char *, int,
+extern int find_option (st_parameter_common *, const char *, int,
 			const st_option *, const char *);
 internal_proto(find_option);
 
@@ -544,6 +647,13 @@ internal_proto(init_units);
 
 extern void close_units (void);
 internal_proto(close_units);
+
+extern int unit_to_fd (int);
+internal_proto(unit_to_fd);
+
+extern int st_printf (const char *, ...)
+  __attribute__ ((format (printf, 1, 2)));
+internal_proto(st_printf);
 
 /* stop.c */
 
@@ -604,6 +714,11 @@ extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
 internal_proto(internal_unpack_c10);
 #endif
 
+#if defined HAVE_GFC_COMPLEX_16
+extern void internal_unpack_c16 (gfc_array_c16 *, const GFC_COMPLEX_16 *);
+internal_proto(internal_unpack_c16);
+#endif
+
 /* string_intrinsics.c */
 
 extern GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
@@ -615,14 +730,6 @@ iexport_proto(compare_string);
 extern void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
 			 gfc_array_i4 * get);
 iexport_proto(random_seed);
-
-/* normalize.c */
-
-extern GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
-internal_proto(normalize_r4_i4);
-
-extern GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
-internal_proto(normalize_r8_i8);
 
 /* size.c */
 

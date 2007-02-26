@@ -1,5 +1,5 @@
 /* ServantActivatorHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,12 +39,12 @@ exception statement from your version. */
 package org.omg.PortableServer;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.BAD_PARAM;
 import org.omg.CORBA.MARSHAL;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
@@ -61,7 +61,7 @@ public abstract class ServantActivatorHelper
    */
   public static TypeCode type()
   {
-    return ORB.init().create_interface_tc(id(), "ServantActivator");
+    return OrbRestricted.Singleton.create_interface_tc(id(), "ServantActivator");
   }
 
   /**
@@ -120,15 +120,13 @@ public abstract class ServantActivatorHelper
    * Narrow the given object to the ServantActivator. For the objects that are
    * always local, this operation does not differ from the ordinary
    * {@link #narrow} (ClassCastException will be thrown if narrowing something
-   * different).
+   * different). See OMG issue 4158.
    * 
    * @param obj the object to cast.
    * 
    * @return the casted ServantActivator.
    * 
    * @since 1.5 
-   * 
-   * @see OMG issue 4158.
    */
   public static ServantActivator unchecked_narrow(org.omg.CORBA.Object obj)
   {

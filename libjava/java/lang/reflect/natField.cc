@@ -29,10 +29,24 @@ details.  */
 #include <java/lang/Boolean.h>
 #include <java/lang/Character.h>
 
+typedef JArray< ::java::lang::annotation::Annotation * > * anno_a_t;
+
 jint
 java::lang::reflect::Field::getModifiersInternal ()
 {
   return _Jv_FromReflectedField (this)->flags;
+}
+
+jstring
+java::lang::reflect::Field::getSignature()
+{
+  return declaringClass->getReflectionSignature (this);
+}
+
+anno_a_t
+java::lang::reflect::Field::getDeclaredAnnotationsInternal()
+{
+  return (anno_a_t) declaringClass->getDeclaredAnnotations(this);
 }
 
 jstring
@@ -72,6 +86,10 @@ getAddr (java::lang::reflect::Field* field, jclass caller, jobject obj,
 
   // Setting a final field is usually not allowed.
   if (checkFinal
+      // As of 1.5, you can set a non-static final field if it is
+      // accessible.
+      && (! field->isAccessible()
+	  || (field->getModifiers() & java::lang::reflect::Modifier::STATIC))
       && (field->getModifiers() & java::lang::reflect::Modifier::FINAL))
     throw new java::lang::IllegalAccessException(JvNewStringUTF 
       ("Field is final"));

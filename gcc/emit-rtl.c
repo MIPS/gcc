@@ -1,6 +1,6 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -57,6 +57,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "debug.h"
 #include "langhooks.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Commonly used modes.  */
 
@@ -105,7 +106,7 @@ REAL_VALUE_TYPE dconstm1;
 REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
 REAL_VALUE_TYPE dconstthird;
-REAL_VALUE_TYPE dconstpi;
+REAL_VALUE_TYPE dconstsqrt2;
 REAL_VALUE_TYPE dconste;
 
 /* All references to the following fixed hard registers go through
@@ -166,7 +167,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define first_label_num (cfun->emit->x_first_label_num)
 
 static rtx make_call_insn_raw (rtx);
-static rtx find_line_note (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
 static void unshare_all_decls (tree);
 static void reset_used_decls (tree);
@@ -813,13 +813,12 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate a register with same attributes as REG, but offsetted by OFFSET.
+/* Update NEW with the same attributes as REG, but offsetted by OFFSET.
    Do the big endian correction if needed.  */
 
-rtx
-gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int offset)
+static void
+update_reg_offset (rtx new, rtx reg, int offset)
 {
-  rtx new = gen_rtx_REG (mode, regno);
   tree decl;
   HOST_WIDE_INT var_size;
 
@@ -861,7 +860,7 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
   if ((BYTES_BIG_ENDIAN || WORDS_BIG_ENDIAN)
       && decl != NULL
       && offset > 0
-      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)
+      && GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (GET_MODE (new))
       && ((var_size = int_size_in_bytes (TREE_TYPE (decl))) > 0
 	  && var_size < GET_MODE_SIZE (GET_MODE (reg))))
     {
@@ -905,6 +904,30 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
 
   REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
 				   REG_OFFSET (reg) + offset);
+}
+
+/* Generate a register with same attributes as REG, but offsetted by
+   OFFSET.  */
+
+rtx
+gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno,
+		    int offset)
+{
+  rtx new = gen_rtx_REG (mode, regno);
+
+  update_reg_offset (new, reg, offset);
+  return new;
+}
+
+/* Generate a new pseudo-register with the same attributes as REG, but
+   offsetted by OFFSET.  */
+
+rtx
+gen_reg_rtx_offset (rtx reg, enum machine_mode mode, int offset)
+{
+  rtx new = gen_reg_rtx (mode);
+
+  update_reg_offset (new, reg, offset);
   return new;
 }
 
@@ -2293,6 +2316,20 @@ verify_rtl_sharing (void)
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
 	reset_used_flags (LOG_LINKS (p));
+	if (GET_CODE (PATTERN (p)) == SEQUENCE)
+	  {
+	    int i;
+	    rtx q, sequence = PATTERN (p);
+
+	    for (i = 0; i < XVECLEN (sequence, 0); i++)
+	      {
+		q = XVECEXP (sequence, 0, i);
+		gcc_assert (INSN_P (q));
+		reset_used_flags (PATTERN (q));
+		reset_used_flags (REG_NOTES (q));
+		reset_used_flags (LOG_LINKS (q));
+	      }
+	  }
       }
 
   for (p = get_insns (); p; p = NEXT_INSN (p))
@@ -2769,33 +2806,6 @@ int
 get_max_uid (void)
 {
   return cur_insn_uid;
-}
-
-/* Renumber instructions so that no instruction UIDs are wasted.  */
-
-void
-renumber_insns (void)
-{
-  rtx insn;
-
-  /* If we're not supposed to renumber instructions, don't.  */
-  if (!flag_renumber_insns)
-    return;
-
-  /* If there aren't that many instructions, then it's not really
-     worth renumbering them.  */
-  if (flag_renumber_insns == 1 && get_max_uid () < 25000)
-    return;
-
-  cur_insn_uid = 1;
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (dump_file)
-	fprintf (dump_file, "Renumbering insn %d to %d\n",
-		 INSN_UID (insn), cur_insn_uid);
-      INSN_UID (insn) = cur_insn_uid++;
-    }
 }
 
 /* Return the next insn.  If it is a SEQUENCE, return the first insn
@@ -3370,10 +3380,9 @@ add_insn (rtx insn)
    SEQUENCE.  */
 
 void
-add_insn_after (rtx insn, rtx after)
+add_insn_after (rtx insn, rtx after, basic_block bb)
 {
   rtx next = NEXT_INSN (after);
-  basic_block bb;
 
   gcc_assert (!optimize || !INSN_DELETED_P (after));
 
@@ -3408,7 +3417,7 @@ add_insn_after (rtx insn, rtx after)
     {
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_insn_rescan (insn);
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEL.  */
       if (BB_END (bb) == after
@@ -3428,15 +3437,15 @@ add_insn_after (rtx insn, rtx after)
 }
 
 /* Add INSN into the doubly-linked list before insn BEFORE.  This and
-   the previous should be the only functions called to insert an insn once
-   delay slots have been filled since only they know how to update a
-   SEQUENCE.  */
+   the previous should be the only functions called to insert an insn
+   once delay slots have been filled since only they know how to
+   update a SEQUENCE.  If BB is NULL, an attempt is made to infer the
+   bb from before.  */
 
 void
-add_insn_before (rtx insn, rtx before)
+add_insn_before (rtx insn, rtx before, basic_block bb)
 {
   rtx prev = PREV_INSN (before);
-  basic_block bb;
 
   gcc_assert (!optimize || !INSN_DELETED_P (before));
 
@@ -3468,13 +3477,16 @@ add_insn_before (rtx insn, rtx before)
       gcc_assert (stack);
     }
 
-  if (!BARRIER_P (before)
-      && !BARRIER_P (insn)
-      && (bb = BLOCK_FOR_INSN (before)))
+  if (!bb 
+      && !BARRIER_P (before)
+      && !BARRIER_P (insn))
+    bb = BLOCK_FOR_INSN (before);
+
+  if (bb)
     {
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_insn_rescan (insn);
       /* Should not happen as first in the BB is always either NOTE or
 	 LABEL.  */
       gcc_assert (BB_HEAD (bb) != insn
@@ -3489,6 +3501,20 @@ add_insn_before (rtx insn, rtx before)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
 }
 
+
+/* Replace insn with an deleted instruction note.  */
+
+void set_insn_deleted (rtx insn)
+{
+  df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
+  PUT_CODE (insn, NOTE);
+#ifndef USE_MAPPED_LOCATION
+  NOTE_SOURCE_FILE (insn) = 0;
+#endif
+  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+}
+
+
 /* Remove an insn from its doubly-linked list.  This function knows how
    to handle sequences.  */
 void
@@ -3497,6 +3523,9 @@ remove_insn (rtx insn)
   rtx next = NEXT_INSN (insn);
   rtx prev = PREV_INSN (insn);
   basic_block bb;
+
+  /* Later in the code, the block will be marked dirty.  */
+  df_insn_delete (NULL, INSN_UID (insn));
 
   if (prev)
     {
@@ -3548,7 +3577,7 @@ remove_insn (rtx insn)
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_set_bb_dirty (bb);
       if (BB_HEAD (bb) == insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole
@@ -3644,14 +3673,14 @@ reorder_insns (rtx from, rtx to, rtx after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
 
       if (!BARRIER_P (from)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (BB_END (bb2) == to)
 	    BB_END (bb2) = prev;
-	  bb2->flags |= BB_DIRTY;
+	  df_set_bb_dirty (bb2);
 	}
 
       if (BB_END (bb) == after)
@@ -3659,24 +3688,11 @@ reorder_insns (rtx from, rtx to, rtx after)
 
       for (x = from; x != NEXT_INSN (to); x = NEXT_INSN (x))
 	if (!BARRIER_P (x))
-	  set_block_for_insn (x, bb);
+	  {
+	    set_block_for_insn (x, bb);
+	    df_insn_change_bb (x);
+	  }
     }
-}
-
-/* Return the line note insn preceding INSN.  */
-
-static rtx
-find_line_note (rtx insn)
-{
-  if (no_line_numbers)
-    return 0;
-
-  for (; insn; insn = PREV_INSN (insn))
-    if (NOTE_P (insn)
-	&& NOTE_LINE_NUMBER (insn) >= 0)
-      break;
-
-  return insn;
 }
 
 
@@ -3708,7 +3724,7 @@ find_line_note (rtx insn)
 /* Make X be output before the instruction BEFORE.  */
 
 rtx
-emit_insn_before_noloc (rtx x, rtx before)
+emit_insn_before_noloc (rtx x, rtx before, basic_block bb)
 {
   rtx last = before;
   rtx insn;
@@ -3730,7 +3746,7 @@ emit_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, bb);
 	  last = insn;
 	  insn = next;
 	}
@@ -3744,7 +3760,7 @@ emit_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, bb);
       break;
     }
 
@@ -3773,7 +3789,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, NULL);
 	  last = insn;
 	  insn = next;
 	}
@@ -3787,7 +3803,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_jump_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, NULL);
       break;
     }
 
@@ -3816,7 +3832,7 @@ emit_call_insn_before_noloc (rtx x, rtx before)
       while (insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  add_insn_before (insn, before);
+	  add_insn_before (insn, before, NULL);
 	  last = insn;
 	  insn = next;
 	}
@@ -3830,7 +3846,7 @@ emit_call_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_call_insn_raw (x);
-      add_insn_before (last, before);
+      add_insn_before (last, before, NULL);
       break;
     }
 
@@ -3847,7 +3863,7 @@ emit_barrier_before (rtx before)
 
   INSN_UID (insn) = cur_insn_uid++;
 
-  add_insn_before (insn, before);
+  add_insn_before (insn, before, NULL);
   return insn;
 }
 
@@ -3861,7 +3877,7 @@ emit_label_before (rtx label, rtx before)
   if (INSN_UID (label) == 0)
     {
       INSN_UID (label) = cur_insn_uid++;
-      add_insn_before (label, before);
+      add_insn_before (label, before, NULL);
     }
 
   return label;
@@ -3880,31 +3896,35 @@ emit_note_before (int subtype, rtx before)
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
 
-  add_insn_before (note, before);
+  add_insn_before (note, before, NULL);
   return note;
 }
 
 /* Helper for emit_insn_after, handles lists of instructions
    efficiently.  */
 
-static rtx emit_insn_after_1 (rtx, rtx);
-
 static rtx
-emit_insn_after_1 (rtx first, rtx after)
+emit_insn_after_1 (rtx first, rtx after, basic_block bb)
 {
   rtx last;
   rtx after_after;
-  basic_block bb;
+  if (!bb && !BARRIER_P (after))
+    bb = BLOCK_FOR_INSN (after);
 
-  if (!BARRIER_P (after)
-      && (bb = BLOCK_FOR_INSN (after)))
+  if (bb)
     {
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
 	if (!BARRIER_P (last))
-	  set_block_for_insn (last, bb);
+	  {
+	    set_block_for_insn (last, bb);
+	    df_insn_rescan (last);
+	  }
       if (!BARRIER_P (last))
-	set_block_for_insn (last, bb);
+	{
+	  set_block_for_insn (last, bb);
+	  df_insn_rescan (last);
+	}
       if (BB_END (bb) == after)
 	BB_END (bb) = last;
     }
@@ -3925,10 +3945,11 @@ emit_insn_after_1 (rtx first, rtx after)
   return last;
 }
 
-/* Make X be output after the insn AFTER.  */
+/* Make X be output after the insn AFTER and set the BB of insn.  If
+   BB is NULL, an attempt is made to infer the BB from AFTER.  */
 
 rtx
-emit_insn_after_noloc (rtx x, rtx after)
+emit_insn_after_noloc (rtx x, rtx after, basic_block bb)
 {
   rtx last = after;
 
@@ -3945,7 +3966,7 @@ emit_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, bb);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -3956,29 +3977,13 @@ emit_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, bb);
       break;
     }
 
   return last;
 }
 
-/* Similar to emit_insn_after, except that line notes are to be inserted so
-   as to act as if this insn were at FROM.  */
-
-void
-emit_insn_after_with_line_notes (rtx x, rtx after, rtx from)
-{
-  rtx from_line = find_line_note (from);
-  rtx after_line = find_line_note (after);
-  rtx insn = emit_insn_after (x, after);
-
-  if (from_line)
-    emit_note_copy_after (from_line, after);
-
-  if (after_line)
-    emit_note_copy_after (after_line, insn);
-}
 
 /* Make an insn of code JUMP_INSN with body X
    and output it after the insn AFTER.  */
@@ -3998,7 +4003,7 @@ emit_jump_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, NULL);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -4009,7 +4014,7 @@ emit_jump_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_jump_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, NULL);
       break;
     }
 
@@ -4034,7 +4039,7 @@ emit_call_insn_after_noloc (rtx x, rtx after)
     case CODE_LABEL:
     case BARRIER:
     case NOTE:
-      last = emit_insn_after_1 (x, after);
+      last = emit_insn_after_1 (x, after, NULL);
       break;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -4045,7 +4050,7 @@ emit_call_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_call_insn_raw (x);
-      add_insn_after (last, after);
+      add_insn_after (last, after, NULL);
       break;
     }
 
@@ -4062,7 +4067,7 @@ emit_barrier_after (rtx after)
 
   INSN_UID (insn) = cur_insn_uid++;
 
-  add_insn_after (insn, after);
+  add_insn_after (insn, after, NULL);
   return insn;
 }
 
@@ -4077,7 +4082,7 @@ emit_label_after (rtx label, rtx after)
   if (INSN_UID (label) == 0)
     {
       INSN_UID (label) = cur_insn_uid++;
-      add_insn_after (label, after);
+      add_insn_after (label, after, NULL);
     }
 
   return label;
@@ -4095,29 +4100,7 @@ emit_note_after (int subtype, rtx after)
 #endif
   NOTE_LINE_NUMBER (note) = subtype;
   BLOCK_FOR_INSN (note) = NULL;
-  add_insn_after (note, after);
-  return note;
-}
-
-/* Emit a copy of note ORIG after the insn AFTER.  */
-
-rtx
-emit_note_copy_after (rtx orig, rtx after)
-{
-  rtx note;
-
-  if (NOTE_LINE_NUMBER (orig) >= 0 && no_line_numbers)
-    {
-      cur_insn_uid++;
-      return 0;
-    }
-
-  note = rtx_alloc (NOTE);
-  INSN_UID (note) = cur_insn_uid++;
-  NOTE_LINE_NUMBER (note) = NOTE_LINE_NUMBER (orig);
-  NOTE_DATA (note) = NOTE_DATA (orig);
-  BLOCK_FOR_INSN (note) = NULL;
-  add_insn_after (note, after);
+  add_insn_after (note, after, NULL);
   return note;
 }
 
@@ -4125,7 +4108,7 @@ emit_note_copy_after (rtx orig, rtx after)
 rtx
 emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
-  rtx last = emit_insn_after_noloc (pattern, after);
+  rtx last = emit_insn_after_noloc (pattern, after, NULL);
 
   if (pattern == NULL_RTX || !loc)
     return last;
@@ -4149,7 +4132,7 @@ emit_insn_after (rtx pattern, rtx after)
   if (INSN_P (after))
     return emit_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
   else
-    return emit_insn_after_noloc (pattern, after);
+    return emit_insn_after_noloc (pattern, after, NULL);
 }
 
 /* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
@@ -4219,7 +4202,7 @@ rtx
 emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
   rtx first = PREV_INSN (before);
-  rtx last = emit_insn_before_noloc (pattern, before);
+  rtx last = emit_insn_before_noloc (pattern, before, NULL);
 
   if (pattern == NULL_RTX || !loc)
     return last;
@@ -4243,7 +4226,7 @@ emit_insn_before (rtx pattern, rtx before)
   if (INSN_P (before))
     return emit_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
   else
-    return emit_insn_before_noloc (pattern, before);
+    return emit_insn_before_noloc (pattern, before, NULL);
 }
 
 /* like emit_insn_before_noloc, but set insn_locator according to scope.  */
@@ -4504,12 +4487,6 @@ emit_note_copy (rtx orig)
 {
   rtx note;
   
-  if (NOTE_LINE_NUMBER (orig) >= 0 && no_line_numbers)
-    {
-      cur_insn_uid++;
-      return NULL_RTX;
-    }
-  
   note = rtx_alloc (NOTE);
   
   INSN_UID (note) = cur_insn_uid++;
@@ -4558,6 +4535,7 @@ rtx
 set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 {
   rtx note = find_reg_note (insn, kind, NULL_RTX);
+  rtx new_note = NULL;
 
   switch (kind)
     {
@@ -4577,19 +4555,37 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
 	 It serves no useful purpose and breaks eliminate_regs.  */
       if (GET_CODE (datum) == ASM_OPERANDS)
 	return NULL_RTX;
+
+      if (note)
+	{
+	  XEXP (note, 0) = datum;
+	  df_notes_rescan (insn);
+	  return note;
+	}
       break;
 
+    default:
+      if (note)
+	{
+	  XEXP (note, 0) = datum;
+	  return note;
+	}
+      break;
+    }
+
+  new_note = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
+  REG_NOTES (insn) = new_note;
+
+  switch (kind)
+    {
+    case REG_EQUAL:
+    case REG_EQUIV:
+      df_notes_rescan (insn);
+      break;
     default:
       break;
     }
 
-  if (note)
-    {
-      XEXP (note, 0) = datum;
-      return note;
-    }
-
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
   return REG_NOTES (insn);
 }
 
@@ -5205,8 +5201,8 @@ init_emit_once (int line_numbers)
 
   /* Initialize mathematical constants for constant folding builtins.
      These constants need to be given to at least 160 bits precision.  */
-  real_from_string (&dconstpi,
-    "3.1415926535897932384626433832795028841971693993751058209749445923078");
+  real_from_string (&dconstsqrt2,
+    "1.4142135623730950488016887242096980785696718753769480731766797379907");
   real_from_string (&dconste,
     "2.7182818284590452353602874713526624977572470936999595749669676277241");
 
@@ -5344,14 +5340,12 @@ emit_copy_of_insn_after (rtx insn, rtx after)
       {
 	if (GET_CODE (link) == EXPR_LIST)
 	  REG_NOTES (new)
-	    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
-					      XEXP (link, 0),
-					      REG_NOTES (new)));
+		= gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
+		  copy_insn_1 (XEXP (link, 0)),  REG_NOTES (new));
 	else
 	  REG_NOTES (new)
-	    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
-					      XEXP (link, 0),
-					      REG_NOTES (new)));
+	       = gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
+		 XEXP (link, 0),  REG_NOTES (new));
       }
 
   /* Fix the libcall sequences.  */

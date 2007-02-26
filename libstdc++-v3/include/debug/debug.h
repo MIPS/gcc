@@ -28,6 +28,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file debug/debug.h
+ *  This file is a GNU debug extension to the Standard C++ Library.
+ */
+
 #ifndef _GLIBCXX_DEBUG_MACRO_SWITCH_H
 #define _GLIBCXX_DEBUG_MACRO_SWITCH_H 1
 
@@ -60,6 +64,7 @@ namespace __gnu_debug
 
 # define _GLIBCXX_DEBUG_ASSERT(_Condition)
 # define _GLIBCXX_DEBUG_PEDASSERT(_Condition)
+# define _GLIBCXX_DEBUG_ONLY(_Statement) ;
 # define __glibcxx_requires_cond(_Cond,_Msg)
 # define __glibcxx_requires_valid_range(_First,_Last)
 # define __glibcxx_requires_sorted(_First,_Last)
@@ -109,6 +114,7 @@ namespace std
 #else
 # define _GLIBCXX_DEBUG_PEDASSERT(_Condition)
 #endif
+# define _GLIBCXX_DEBUG_ONLY(_Statement) _Statement
 
 # define __glibcxx_requires_cond(_Cond,_Msg) _GLIBCXX_DEBUG_VERIFY(_Cond,_Msg)
 # define __glibcxx_requires_valid_range(_First,_Last) \

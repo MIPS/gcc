@@ -67,6 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
@@ -280,7 +281,7 @@ static void compute_block_backward_dependences (int);
 void debug_dependencies (void);
 
 static void init_regions (void);
-static void schedule_region (struct df *, int);
+static void schedule_region (int);
 static rtx concat_INSN_LIST (rtx, rtx);
 static void concat_insn_mem_list (rtx, rtx, rtx *, rtx *);
 static void propagate_deps (int, struct deps *);
@@ -1030,7 +1031,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
   max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
 
   order = xmalloc (last_basic_block * sizeof (*order));
-  post_order_compute (order, false);
+  post_order_compute (order, false, false);
 
   for (i = nblocks - 1; i >= 0; i--)
     {
@@ -1490,6 +1491,8 @@ debug_candidates (int trg)
 
 /* Functions for speculative scheduling.  */
 
+static bitmap_head not_in_df;
+
 /* Return 0 if x is a set of a register alive in the beginning of one
    of the split-blocks of src, otherwise return 1.  */
 
@@ -1541,18 +1544,15 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
+		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
 		     such blocks are always outside current region.  */
-		  gcc_assert (glat_start[b->index]
-			      || CONTAINING_RGN (b->index)
-			      != CONTAINING_RGN (BB_TO_BLOCK (src)));
-		  if (!glat_start[b->index]
-		      || REGNO_REG_SET_P (glat_start[b->index],
-					  regno + j))
-		    {
-		      return 0;
-		    }
+		  gcc_assert (!t || (CONTAINING_RGN (b->index)
+				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+		  if (t || REGNO_REG_SET_P (DF_LIVE_IN (b), regno + j))
+		    return 0;
 		}
 	    }
 	}
@@ -1562,15 +1562,13 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
+	      int t = bitmap_bit_p (&not_in_df, b->index);
 
-	      gcc_assert (glat_start[b->index]
-			  || CONTAINING_RGN (b->index)
-			  != CONTAINING_RGN (BB_TO_BLOCK (src)));
-	      if (!glat_start[b->index]
-		  || REGNO_REG_SET_P (glat_start[b->index], regno))
-		{
-		  return 0;
-		}
+	      gcc_assert (!t || (CONTAINING_RGN (b->index)
+				 != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+	      if (t || REGNO_REG_SET_P (DF_LIVE_IN (b), regno))
+		return 0;
 	    }
 	}
     }
@@ -1626,7 +1624,7 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (glat_start[b->index], regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_IN (b), regno + j);
 		}
 	    }
 	}
@@ -1636,7 +1634,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (glat_start[b->index], regno);
+	      SET_REGNO_REG_SET (DF_LIVE_IN (b), regno);
 	    }
 	}
     }
@@ -1700,12 +1698,12 @@ update_live (rtx insn, int src)
 static void
 set_spec_fed (rtx load_insn)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = INSN_DEPEND (load_insn); link; link = XEXP (link, 1))
-    if (GET_MODE (link) == VOIDmode)
-      FED_BY_SPEC_LOAD (XEXP (link, 0)) = 1;
-}				/* set_spec_fed */
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (load_insn))
+    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
+      FED_BY_SPEC_LOAD (DEP_LINK_CON (link)) = 1;
+}
 
 /* On the path from the insn to load_insn_bb, find a conditional
 branch depending on insn, that guards the speculative load.  */
@@ -1713,17 +1711,18 @@ branch depending on insn, that guards the speculative load.  */
 static int
 find_conditional_protection (rtx insn, int load_insn_bb)
 {
-  rtx link;
+  dep_link_t link;
 
   /* Iterate through DEF-USE forward dependences.  */
-  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
     {
-      rtx next = XEXP (link, 0);
+      rtx next = DEP_LINK_CON (link);
+
       if ((CONTAINING_RGN (BLOCK_NUM (next)) ==
 	   CONTAINING_RGN (BB_TO_BLOCK (load_insn_bb)))
 	  && IS_REACHABLE (INSN_BB (next), load_insn_bb)
 	  && load_insn_bb != INSN_BB (next)
-	  && GET_MODE (link) == VOIDmode
+	  && DEP_LINK_KIND (link) == REG_DEP_TRUE
 	  && (JUMP_P (next)
 	      || find_conditional_protection (next, load_insn_bb)))
 	return 1;
@@ -1742,20 +1741,20 @@ find_conditional_protection (rtx insn, int load_insn_bb)
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
 
-   Locate insn1 by climbing on LOG_LINKS from load_insn.
-   Locate the branch by following INSN_DEPEND from insn1.  */
+   Locate insn1 by climbing on INSN_BACK_DEPS from load_insn.
+   Locate the branch by following INSN_FORW_DEPS from insn1.  */
 
 static int
 is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = LOG_LINKS (load_insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (link, 0);
+      rtx insn1 = DEP_LINK_PRO (link);
 
       /* Must be a DEF-USE dependence upon non-branch.  */
-      if (GET_MODE (link) != VOIDmode
+      if (DEP_LINK_KIND (link) != REG_DEP_TRUE
 	  || JUMP_P (insn1))
 	continue;
 
@@ -1798,28 +1797,27 @@ is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 static int
 is_pfree (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx back_link;
+  dep_link_t back_link;
   candidate *candp = candidate_table + bb_src;
 
   if (candp->split_bbs.nr_members != 1)
     /* Must have exactly one escape block.  */
     return 0;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link; back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link; fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      rtx insn2 = DEP_LINK_CON (fore_link);
+
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  /* Found a DEF-USE dependence (insn1, insn2).  */
 		  if (haifa_classify_insn (insn2) != PFREE_CANDIDATE)
@@ -1852,7 +1850,7 @@ is_prisky (rtx load_insn, int bb_src, int bb_trg)
   if (FED_BY_SPEC_LOAD (load_insn))
     return 1;
 
-  if (LOG_LINKS (load_insn) == NULL)
+  if (deps_list_empty_p (INSN_BACK_DEPS (load_insn)))
     /* Dependence may 'hide' out of the region.  */
     return 1;
 
@@ -1916,7 +1914,7 @@ static int sched_n_insns;
 /* Implementations of the sched_info functions for region scheduling.  */
 static void init_ready_list (void);
 static int can_schedule_ready_p (rtx);
-static void begin_schedule_ready (struct df *, rtx, rtx);
+static void begin_schedule_ready (rtx, rtx);
 static ds_t new_ready (rtx, ds_t);
 static int schedule_more_p (void);
 static const char *rgn_print_insn (rtx, int);
@@ -1930,9 +1928,6 @@ static void extend_regions (void);
 static void add_block1 (basic_block, basic_block);
 static void fix_recovery_cfg (int, int, int);
 static basic_block advance_target_bb (basic_block, rtx);
-#ifdef ENABLE_CHECKING
-static int region_head_or_leaf_p (basic_block, int);
-#endif
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -2031,8 +2026,7 @@ can_schedule_ready_p (rtx insn)
    can_schedule_ready_p () differs from the one passed to
    begin_schedule_ready ().  */
 static void
-begin_schedule_ready (struct df *df ATTRIBUTE_UNUSED, 
-		      rtx insn, rtx last ATTRIBUTE_UNUSED)
+begin_schedule_ready (rtx insn, rtx last ATTRIBUTE_UNUSED)
 {
   /* An interblock motion?  */
   if (INSN_BB (insn) != target_bb)
@@ -2078,7 +2072,7 @@ new_ready (rtx next, ds_t ts)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) 
                    > PARAM_VALUE (PARAM_MAX_SCHED_INSN_CONFLICT_DELAY))
-                  || RECOVERY_BLOCK (next)
+                  || IS_SPECULATION_CHECK_P (next)
 		  || !check_live (next, INSN_BB (next))
 		  || (not_ex_free = !is_exception_free (next, INSN_BB (next),
 							target_bb)))))
@@ -2199,13 +2193,7 @@ static struct sched_info region_sched_info =
   add_block1,
   advance_target_bb,
   fix_recovery_cfg,
-#ifdef ENABLE_CHECKING
-  region_head_or_leaf_p,
-#endif
-  SCHED_RGN | USE_GLAT
-#ifdef ENABLE_CHECKING
-  | DETACH_LIFE_INFO
-#endif
+  SCHED_RGN
 };
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
@@ -2273,7 +2261,9 @@ add_branch_dependences (rtx head, rtx tail)
     {
       if (!NOTE_P (insn))
 	{
-	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
+	  if (last != 0
+	      && (find_link_by_pro_in_deps_list (INSN_BACK_DEPS (last), insn)
+		  == NULL))
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		add_dependence (last, insn, REG_DEP_ANTI);
@@ -2562,7 +2552,7 @@ debug_dependencies (void)
 
       for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
 	{
-	  rtx link;
+	  dep_link_t link;
 
 	  if (! INSN_P (insn))
 	    {
@@ -2573,13 +2563,6 @@ debug_dependencies (void)
 		  n = NOTE_LINE_NUMBER (insn);
 		  if (n < 0)
 		    fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
-		  else
-		    {
-		      expanded_location xloc;
-		      NOTE_EXPANDED_LOCATION (xloc, insn);
-		      fprintf (sched_dump, "line %d, file %s\n",
-			       xloc.line, xloc.file);
-		    }
 		}
 	      else
 		fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
@@ -2594,7 +2577,7 @@ debug_dependencies (void)
 		   INSN_BB (insn),
 		   INSN_DEP_COUNT (insn),
 		   INSN_PRIORITY (insn),
-		   insn_cost (insn, 0, 0));
+		   insn_cost (insn));
 
 	  if (recog_memoized (insn) < 0)
 	    fprintf (sched_dump, "nothing");
@@ -2602,8 +2585,8 @@ debug_dependencies (void)
 	    print_reservation (sched_dump, insn);
 
 	  fprintf (sched_dump, "\t: ");
-	  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-	    fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
+	  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+	    fprintf (sched_dump, "%d ", INSN_UID (DEP_LINK_CON (link)));
 	  fprintf (sched_dump, "\n");
 	}
     }
@@ -2629,7 +2612,7 @@ sched_is_disabled_for_current_region_p (void)
    scheduled after its flow predecessors.  */
 
 static void
-schedule_region (struct df *df, int rgn)
+schedule_region (int rgn)
 {
   basic_block block;
   edge_iterator ei;
@@ -2661,11 +2644,11 @@ schedule_region (struct df *df, int rgn)
       for (bb = 0; bb < current_nr_blocks; bb++)
 	init_deps (bb_deps + bb);
 
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
         compute_block_backward_dependences (bb);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       for (bb = current_nr_blocks - 1; bb >= 0; bb--)
         {
           rtx head, tail;
@@ -2757,7 +2740,6 @@ schedule_region (struct df *df, int rgn)
     {
       basic_block first_bb, last_bb, curr_bb;
       rtx head, tail;
-      int b = BB_TO_BLOCK (bb);
 
       first_bb = EBB_FIRST_BB (bb);
       last_bb = EBB_LAST_BB (bb);
@@ -2773,11 +2755,6 @@ schedule_region (struct df *df, int rgn)
       current_sched_info->prev_head = PREV_INSN (head);
       current_sched_info->next_tail = NEXT_INSN (tail);
 
-      if (write_symbols != NO_DEBUG)
-	{
-	  save_line_notes (b, head, tail);
-	  rm_line_notes (head, tail);
-	}
 
       /* rm_other_notes only removes notes which are _inside_ the
 	 block---that is, it won't remove notes before the first real insn
@@ -2812,9 +2789,16 @@ schedule_region (struct df *df, int rgn)
       current_sched_info->queue_must_finish_empty = current_nr_blocks == 1;
 
       curr_bb = first_bb;
-      schedule_block (df, &curr_bb, rgn_n_insns);
-      gcc_assert (EBB_FIRST_BB (bb) == first_bb);
-      sched_rgn_n_insns += sched_n_insns;
+      if (dbg_cnt (sched_block))
+        {
+          schedule_block (&curr_bb, rgn_n_insns);
+          gcc_assert (EBB_FIRST_BB (bb) == first_bb);
+          sched_rgn_n_insns += sched_n_insns;
+        }
+      else
+        {
+          sched_rgn_n_insns += rgn_n_insns;
+        }
 
       /* Clean up.  */
       if (current_nr_blocks > 1)
@@ -2828,17 +2812,6 @@ schedule_region (struct df *df, int rgn)
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_rgn_n_insns == rgn_n_insns);
 
-  /* Restore line notes.  */
-  if (write_symbols != NO_DEBUG)
-    {
-      for (bb = 0; bb < current_nr_blocks; bb++)
-	{
-	  rtx head, tail;
-
-	  get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-	  restore_line_notes (head, tail);
-	}
-    }
 
   /* Done with this region.  */
 
@@ -2897,7 +2870,6 @@ void
 schedule_insns (void)
 {
   int rgn;
-  struct df *df;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2911,12 +2883,14 @@ schedule_insns (void)
      invoked via sched_init.  */
   current_sched_info = &region_sched_info;
 
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, DF_RI_LIFE);
-  df_analyze (df);
-  sched_init (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_ri_add_problem (DF_RI_LIFE);
+  df_analyze ();
+
+  sched_init ();
+
+  bitmap_initialize (&not_in_df, 0);
+  bitmap_clear (&not_in_df);
 
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
@@ -2929,17 +2903,14 @@ schedule_insns (void)
   
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (df, rgn);
+    if (dbg_cnt (sched_region))
+      schedule_region (rgn);
   
   free(ebb_head);
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes ();
-
-  /* Delete redundant line notes.  */
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
 
   if (sched_verbose)
     {
@@ -2959,6 +2930,8 @@ schedule_insns (void)
   free (rgn_bb_table);
   free (block_to_bb);
   free (containing_rgn);
+
+  bitmap_clear (&not_in_df);
 
   sched_finish ();
 }
@@ -2997,6 +2970,8 @@ add_block1 (basic_block bb, basic_block after)
 {
   extend_regions ();
 
+  bitmap_set_bit (&not_in_df, bb->index);
+
   if (after == 0 || after == EXIT_BLOCK_PTR)
     {
       int i;
@@ -3030,9 +3005,15 @@ add_block1 (basic_block bb, basic_block after)
 	 is _always_ valid for access.  */
 
       i = BLOCK_TO_BB (after->index) + 1;
-      for (pos = ebb_head[i]; rgn_bb_table[pos] != after->index; pos--);
+      pos = ebb_head[i] - 1;
+      /* Now POS is the index of the last block in the region.  */
+
+      /* Find index of basic block AFTER.  */
+      for (; rgn_bb_table[pos] != after->index; pos--);
+
       pos++;
       gcc_assert (pos > ebb_head[i - 1]);
+
       /* i - ebb right after "AFTER".  */
       /* ebb_head[i] - VALID.  */
 
@@ -3109,42 +3090,13 @@ advance_target_bb (basic_block bb, rtx insn)
   return bb->next_bb;
 }
 
-#ifdef ENABLE_CHECKING
-/* Return non zero, if BB is head or leaf (depending of LEAF_P) block in
-   current region.  For more information please refer to
-   sched-int.h: struct sched_info: region_head_or_leaf_p.  */
-static int
-region_head_or_leaf_p (basic_block bb, int leaf_p)
-{
-  if (!leaf_p)    
-    return bb->index == rgn_bb_table[RGN_BLOCKS (CONTAINING_RGN (bb->index))];
-  else
-    {
-      int i;
-      edge e;
-      edge_iterator ei;
-      
-      i = CONTAINING_RGN (bb->index);
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR
-            && CONTAINING_RGN (e->dest->index) == i
-	    /* except self-loop.  */
-	    && e->dest != bb)
-	  return 0;
-      
-      return 1;
-    }
-}
-#endif /* ENABLE_CHECKING  */
-
 #endif
 
 static bool
 gate_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  return flag_schedule_insns;
+  return flag_schedule_insns && dbg_cnt (sched_func);
 #else
   return 0;
 #endif
@@ -3164,7 +3116,8 @@ static bool
 gate_handle_sched2 (void)
 {
 #ifdef INSN_SCHEDULING
-  return optimize > 0 && flag_schedule_insns_after_reload;
+  return optimize > 0 && flag_schedule_insns_after_reload 
+    && dbg_cnt (sched2_func);
 #else
   return 0;
 #endif
@@ -3200,6 +3153,7 @@ struct tree_opt_pass pass_sched =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'S'                                   /* letter */
 };
@@ -3219,6 +3173,7 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'R'                                   /* letter */
 };

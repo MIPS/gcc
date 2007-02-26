@@ -1,5 +1,5 @@
 dnl
-dnl This file contains details for non-natives builds.
+dnl This file contains details for non-native builds.
 dnl
 
 AC_DEFUN([GLIBCXX_CROSSCONFIG],[
@@ -17,12 +17,10 @@ case "${host}" in
     machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
     sys/types.h])
 
-    GLIBCXX_CHECK_COMPILER_FEATURES
     # Don't call GLIBCXX_CHECK_LINKER_FEATURES, Darwin doesn't have a GNU ld
     GLIBCXX_CHECK_MATH_SUPPORT
     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     GLIBCXX_CHECK_STDLIB_SUPPORT
 
     # For showmanyc_helper().
@@ -52,12 +50,10 @@ case "${host}" in
       memory.h stdint.h stdlib.h strings.h string.h unistd.h \
       wchar.h wctype.h machine/endian.h sys/ioctl.h sys/param.h \
       sys/resource.h sys/stat.h sys/time.h sys/types.h sys/uio.h])
-    GLIBCXX_CHECK_COMPILER_FEATURES
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_MATH_SUPPORT
     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     GLIBCXX_CHECK_STDLIB_SUPPORT
     GLIBCXX_CHECK_S_ISREG_OR_S_IFREG
     AC_DEFINE(HAVE_WRITEV)
@@ -72,7 +68,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS) 
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_LC_MESSAGES)
     AC_DEFINE(HAVE_GETPAGESIZE)
     AC_DEFINE(HAVE_SETENV)
@@ -127,7 +122,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS)
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_COPYSIGN)
     AC_DEFINE(HAVE_COPYSIGNF)
     AC_DEFINE(HAVE_FREXPF)
@@ -154,18 +148,11 @@ case "${host}" in
     GLIBCXX_CHECK_MATH_SUPPORT
     GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     GLIBCXX_CHECK_STDLIB_SUPPORT
 
     # For LFS.
     AC_DEFINE(HAVE_INT64_T)
-    case "$target" in
-      *-uclinux*)
-        # Don't enable LFS with uClibc
-        ;;
-      *)
-        AC_DEFINE(_GLIBCXX_USE_LFS)
-    esac
+    GLIBCXX_CHECK_LFS
 
     # For showmanyc_helper().
     AC_CHECK_HEADERS(sys/ioctl.h sys/filio.h)
@@ -180,7 +167,6 @@ case "${host}" in
     AC_CHECK_HEADERS([sys/types.h locale.h float.h])
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     ;;
   *-netbsd*)
     AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
@@ -190,7 +176,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS) 
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_COPYSIGN)
     AC_DEFINE(HAVE_COPYSIGNF)
     AC_DEFINE(HAVE_FINITEF)
@@ -214,7 +199,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS)
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_HYPOT)
     AC_DEFINE(HAVE_ISINF)
     AC_DEFINE(HAVE_ISNAN)
@@ -233,7 +217,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS) 
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_COSF)
     AC_DEFINE(HAVE_COSL)
     AC_DEFINE(HAVE_COSHF)
@@ -256,6 +239,7 @@ case "${host}" in
     #    os_include_dir="os/solaris/solaris2.6"
     #    ;;
       *-solaris2.7 | *-solaris2.8 | *-solaris2.9 | *-solaris2.10)
+         GLIBCXX_CHECK_LINKER_FEATURES
          AC_DEFINE(HAVE_GETPAGESIZE)
          AC_DEFINE(HAVE_SIGSETJMP)
          AC_DEFINE(HAVE_MBSTATE_T)
@@ -265,16 +249,8 @@ case "${host}" in
          AC_DEFINE(HAVE_FINITE)
          AC_DEFINE(HAVE_FPCLASS)
          AC_DEFINE(HAVE_GETPAGESIZE)
-         AC_DEFINE(HAVE_NL_LANGINFO)
-         AC_DEFINE(HAVE_ICONV)
-         AC_DEFINE(HAVE_ICONV_CLOSE)
-         AC_DEFINE(HAVE_ICONV_OPEN)
-         # Look for the pieces required for wchar_t support in order to
-         # get all the right HAVE_* macros defined.
-         GLIBCXX_CHECK_ICONV_SUPPORT
          # All of the dependencies for wide character support are here, so
-         # turn it on.  This requires some syncronization with the
-         # GLIBCXX_CHECK_ICONV_SUPPORT in acinclude.m4
+         # turn it on. 
          AC_DEFINE(_GLIBCXX_USE_WCHAR_T) 
          # Are these tested for even when cross?
          AC_DEFINE(HAVE_FLOAT_H)
@@ -329,7 +305,6 @@ case "${host}" in
     AC_SUBST(SECTION_FLAGS)
     GLIBCXX_CHECK_LINKER_FEATURES
     GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-    GLIBCXX_CHECK_ICONV_SUPPORT
     AC_DEFINE(HAVE_COPYSIGN)
     AC_DEFINE(HAVE_COPYSIGNF)
     AC_DEFINE(HAVE_FINITE)

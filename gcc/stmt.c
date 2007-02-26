@@ -885,9 +885,13 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       val = TREE_VALUE (tail);
       type = TREE_TYPE (val);
+      /* EXPAND_INITIALIZER will not generate code for valid initializer
+	 constants, but will still generate code for other types of operand.
+	 This is the behavior we want for constant constraints.  */
       op = expand_expr (val, NULL_RTX, VOIDmode,
-			(allows_mem && !allows_reg
-			 ? EXPAND_MEMORY : EXPAND_NORMAL));
+			allows_reg ? EXPAND_NORMAL
+			: allows_mem ? EXPAND_MEMORY
+			: EXPAND_INITIALIZER);
 
       /* Never pass a CONCAT to an ASM.  */
       if (GET_CODE (op) == CONCAT)
@@ -1358,6 +1362,9 @@ expand_expr_stmt (tree exp)
   tree type;
 
   value = expand_expr (exp, const0_rtx, VOIDmode, 0);
+  if (GIMPLE_TUPLE_P (exp))
+    type = void_type_node;
+  else
   type = TREE_TYPE (exp);
 
   /* If all we do is reference a volatile value in memory,
@@ -1411,6 +1418,7 @@ warn_if_unused_value (tree exp, location_t locus)
     case PREDECREMENT_EXPR:
     case POSTDECREMENT_EXPR:
     case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
     case TARGET_EXPR:
     case CALL_EXPR:
@@ -1578,10 +1586,10 @@ expand_return (tree retval)
       expand_null_return ();
       return;
     }
-  else if ((TREE_CODE (retval) == MODIFY_EXPR
+  else if ((TREE_CODE (retval) == GIMPLE_MODIFY_STMT
 	    || TREE_CODE (retval) == INIT_EXPR)
-	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
-    retval_rhs = TREE_OPERAND (retval, 1);
+	   && TREE_CODE (GENERIC_TREE_OPERAND (retval, 0)) == RESULT_DECL)
+    retval_rhs = GENERIC_TREE_OPERAND (retval, 1);
   else
     retval_rhs = retval;
 
@@ -1600,7 +1608,7 @@ expand_return (tree retval)
      (and in expand_call).  */
 
   else if (retval_rhs != 0
-	   && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
+	   && TYPE_MODE (GENERIC_TREE_TYPE (retval_rhs)) == BLKmode
 	   && REG_P (result_rtl))
     {
       int i;
@@ -1825,12 +1833,10 @@ expand_nl_goto_receiver (void)
     emit_insn (gen_nonlocal_goto_receiver ());
 #endif
 
-  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
-     insn, but we must not allow the code we just generated to be reordered
-     by scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
-     insn.  */
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+  /* We must not allow the code we just generated to be reordered by
+     scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  */
+  emit_insn (gen_blockage ());
 }
 
 /* Generate RTL for the automatic variable declaration DECL.

@@ -136,7 +136,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
-#include "df.h"
 
 #ifdef DELAY_SLOTS
 
@@ -211,14 +210,14 @@ static int reorg_redirect_jump (rtx, rtx);
 static void update_reg_dead_notes (rtx, rtx);
 static void fix_reg_dead_note (rtx, rtx);
 static void update_reg_unused_notes (rtx, rtx);
-static void fill_simple_delay_slots (struct df *,int);
-static rtx fill_slots_from_thread (struct df *, rtx, rtx, rtx, rtx, 
+static void fill_simple_delay_slots (int);
+static rtx fill_slots_from_thread (rtx, rtx, rtx, rtx,
 				   int, int, int, int,
 				   int *, rtx);
-static void fill_eager_delay_slots (struct df *);
+static void fill_eager_delay_slots (void);
 static void relax_delay_slots (rtx);
 #ifdef HAVE_return
-static void make_return_insns (struct df *, rtx);
+static void make_return_insns (rtx);
 #endif
 
 /* Return TRUE if this insn should stop the search for insn to fill delay
@@ -640,7 +639,7 @@ delete_from_delay_slot (rtx insn)
   prev = PREV_INSN (seq_insn);
   trial = XVECEXP (seq, 0, 0);
   delete_related_insns (seq_insn);
-  add_insn_after (trial, prev);
+  add_insn_after (trial, prev, NULL);
 
   /* If there was a barrier after the old SEQUENCE, remit it.  */
   if (had_barrier)
@@ -1989,7 +1988,7 @@ update_reg_unused_notes (rtx insn, rtx redundant_insn)
    through FINAL_SEQUENCE.  */
 
 static void
-fill_simple_delay_slots (struct df *df, int non_jumps_p)
+fill_simple_delay_slots (int non_jumps_p)
 {
   rtx insn, pat, trial, next_trial;
   int i;
@@ -2363,7 +2362,7 @@ fill_simple_delay_slots (struct df *df, int non_jumps_p)
 	  && simplejump_p (insn)
 	  && slots_filled != slots_to_fill)
 	delay_list
-	  = fill_slots_from_thread (df, insn, const_true_rtx,
+	  = fill_slots_from_thread (insn, const_true_rtx,
 				    next_active_insn (JUMP_LABEL (insn)),
 				    NULL, 1, 1,
 				    own_thread_p (JUMP_LABEL (insn),
@@ -2495,7 +2494,7 @@ fill_simple_delay_slots (struct df *df, int non_jumps_p)
    slot.  We then adjust the jump to point after the insns we have taken.  */
 
 static rtx
-fill_slots_from_thread (struct df *df, rtx insn, rtx condition, rtx thread,
+fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 			rtx opposite_thread, int likely, int thread_if_true,
 			int own_thread, int slots_to_fill,
 			int *pslots_filled, rtx delay_list)
@@ -2523,7 +2522,7 @@ fill_slots_from_thread (struct df *df, rtx insn, rtx condition, rtx thread,
   if (condition == const_true_rtx)
     CLEAR_RESOURCE (&opposite_needed);
   else
-    mark_target_live_regs (df, get_insns (), opposite_thread, &opposite_needed);
+    mark_target_live_regs (get_insns (), opposite_thread, &opposite_needed);
 
   /* If the insn at THREAD can be split, do it here to avoid having to
      update THREAD and NEW_THREAD if it is done in the loop below.  Also
@@ -2819,6 +2818,8 @@ fill_slots_from_thread (struct df *df, rtx insn, rtx condition, rtx thread,
       dest = SET_DEST (pat), src = SET_SRC (pat);
       if ((GET_CODE (src) == PLUS || GET_CODE (src) == MINUS)
 	  && rtx_equal_p (XEXP (src, 0), dest)
+	  && (!FLOAT_MODE_P (GET_MODE (src))
+	      || flag_unsafe_math_optimizations)
 	  && ! reg_overlap_mentioned_p (dest, XEXP (src, 1))
 	  && ! side_effects_p (pat))
 	{
@@ -2914,7 +2915,7 @@ fill_slots_from_thread (struct df *df, rtx insn, rtx condition, rtx thread,
    if safe.  */
 
 static void
-fill_eager_delay_slots (struct df *df)
+fill_eager_delay_slots (void)
 {
   rtx insn;
   int i;
@@ -2985,7 +2986,7 @@ fill_eager_delay_slots (struct df *df)
       if (prediction > 0)
 	{
 	  delay_list
-	    = fill_slots_from_thread (df, insn, condition, insn_at_target,
+	    = fill_slots_from_thread (insn, condition, insn_at_target,
 				      fallthrough_insn, prediction == 2, 1,
 				      own_target,
 				      slots_to_fill, &slots_filled, delay_list);
@@ -3000,7 +3001,7 @@ fill_eager_delay_slots (struct df *df)
 	      insn_at_target = next_active_insn (target_label);
 
 	      delay_list
-		= fill_slots_from_thread (df, insn, condition, fallthrough_insn,
+		= fill_slots_from_thread (insn, condition, fallthrough_insn,
 					  insn_at_target, 0, 0,
 					  own_fallthrough,
 					  slots_to_fill, &slots_filled,
@@ -3011,7 +3012,7 @@ fill_eager_delay_slots (struct df *df)
 	{
 	  if (own_fallthrough)
 	    delay_list
-	      = fill_slots_from_thread (df, insn, condition, fallthrough_insn,
+	      = fill_slots_from_thread (insn, condition, fallthrough_insn,
 					insn_at_target, 0, 0,
 					own_fallthrough,
 					slots_to_fill, &slots_filled,
@@ -3019,7 +3020,7 @@ fill_eager_delay_slots (struct df *df)
 
 	  if (delay_list == 0)
 	    delay_list
-	      = fill_slots_from_thread (df, insn, condition, insn_at_target,
+	      = fill_slots_from_thread (insn, condition, insn_at_target,
 					next_active_insn (insn), 0, 1,
 					own_target,
 					slots_to_fill, &slots_filled,
@@ -3191,7 +3192,7 @@ relax_delay_slots (rtx first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    {
 	      rtx this_insn = XVECEXP (pat, 0, i);
-	      add_insn_after (this_insn, after);
+	      add_insn_after (this_insn, after, NULL);
 	      after = this_insn;
 	    }
 	  delete_scheduled_jump (delay_insn);
@@ -3309,7 +3310,7 @@ relax_delay_slots (rtx first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    {
 	      rtx this_insn = XVECEXP (pat, 0, i);
-	      add_insn_after (this_insn, after);
+	      add_insn_after (this_insn, after, NULL);
 	      after = this_insn;
 	    }
 	  delete_scheduled_jump (delay_insn);
@@ -3329,11 +3330,11 @@ relax_delay_slots (rtx first)
 	  continue;
 	}
 
-      /* See if this jump (with its delay slots) branches around another
-	 jump (without delay slots).  If so, invert this jump and point
-	 it to the target of the second jump.  We cannot do this for
-	 annulled jumps, though.  Again, don't convert a jump to a RETURN
-	 here.  */
+      /* See if this jump (with its delay slots) conditionally branches
+	 around an unconditional jump (without delay slots).  If so, invert
+	 this jump and point it to the target of the second jump.  We cannot
+	 do this for annulled jumps, though.  Again, don't convert a jump to
+	 a RETURN here.  */
       if (! INSN_ANNULLED_BRANCH_P (delay_insn)
 	  && any_condjump_p (delay_insn)
 	  && next && JUMP_P (next)
@@ -3403,7 +3404,7 @@ relax_delay_slots (rtx first)
    RETURN as well.  */
 
 static void
-make_return_insns (struct df *df, rtx first)
+make_return_insns (rtx first)
 {
   rtx insn, jump_insn, pat;
   rtx real_return_label = end_of_function_label;
@@ -3526,8 +3527,8 @@ make_return_insns (struct df *df, rtx first)
   if (--LABEL_NUSES (real_return_label) == 0)
     delete_related_insns (real_return_label);
 
-  fill_simple_delay_slots (df, 1);
-  fill_simple_delay_slots (df, 0);
+  fill_simple_delay_slots (1);
+  fill_simple_delay_slots (0);
 }
 #endif
 
@@ -3538,10 +3539,6 @@ dbr_schedule (rtx first)
 {
   rtx insn, next, epilogue_insn = 0;
   int i;
-  struct df *df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  df_analyze (df);
 
   /* If the current function has no insns other than the prologue and
      epilogue, then do not try to fill any delay slots.  */
@@ -3611,9 +3608,9 @@ dbr_schedule (rtx first)
        reorg_pass_number < MAX_REORG_PASSES;
        reorg_pass_number++)
     {
-      fill_simple_delay_slots (df, 1);
-      fill_simple_delay_slots (df, 0);
-      fill_eager_delay_slots (df);
+      fill_simple_delay_slots (1);
+      fill_simple_delay_slots (0);
+      fill_eager_delay_slots ();
       relax_delay_slots (first);
     }
 
@@ -3636,7 +3633,7 @@ dbr_schedule (rtx first)
 
 #ifdef HAVE_return
   if (HAVE_return && end_of_function_label != 0)
-    make_return_insns (df, first);
+    make_return_insns (first);
 #endif
 
   obstack_free (&unfilled_slots_obstack, unfilled_firstobj);
@@ -3776,7 +3773,7 @@ gate_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
   return flag_delayed_branch;
-#else 
+#else
   return 0;
 #endif
 }
@@ -3789,7 +3786,7 @@ rest_of_handle_delay_slots (void)
   dbr_schedule (get_insns ());
 #endif
   return 0;
-}   
+}
 
 struct tree_opt_pass pass_delay_slots =
 {
@@ -3804,7 +3801,6 @@ struct tree_opt_pass pass_delay_slots =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
@@ -3842,4 +3838,3 @@ struct tree_opt_pass pass_machine_reorg =
   TODO_ggc_collect,                     /* todo_flags_finish */
   'M'                                   /* letter */
 };
-

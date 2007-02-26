@@ -11,7 +11,7 @@ details.  */
 #ifndef __JV_WIN32_H__
 #define __JV_WIN32_H__
 
-// Enable UNICODE Support.?
+// Enable UNICODE support?
 
 #ifdef MINGW_LIBGCJ_UNICODE
 #define UNICODE
@@ -75,6 +75,9 @@ extern jstring _Jv_Win32NewString (LPCTSTR pcsz);
 // Prefix and suffix for shared libraries.
 #define _Jv_platform_solib_prefix ""
 #define _Jv_platform_solib_suffix ".dll"
+
+// Name of the Process implementation.
+#define _Jv_platform_process ::java::lang::Win32Process
 
 // Separator for file name components.
 #define _Jv_platform_file_separator ((jchar) '\\')
@@ -175,8 +178,11 @@ _Jv_platform_usleep (unsigned long usecs)
 }
 #endif /* JV_HASH_SYNCHRONIZATION */
 
-/* Store up to SIZE return address of the current program state in
-   ARRAY and return the exact number of values stored.  */
-extern int backtrace (void **__array, int __size);
+// Forward declaration.  See java-stack.h for definition.
+struct _Jv_AddrInfo;
+
+// Given an address, determine the executable or shared object that defines
+// it and the nearest named symbol.
+extern int _Jv_platform_dladdr (void *addr, _Jv_AddrInfo *info);
 
 #endif /* __JV_WIN32_H__ */

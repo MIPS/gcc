@@ -1,3 +1,148 @@
+2007-02-05  Roman Zippel <zippel@linux-m68k.org>
+
+	* boehm-gc/include/private/gcconfig.h: use LINUX_STACKBOTTOM so
+	it works with Linux 2.6, reactivate MPROTECT_VDB
+	* boehm-gc/pthread_stop_world.c: save all register
+	on signal entry
+
+2007-01-24  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* os_dep.c (defined(MPROTECT_VDB) && defined(DARWIN)): Moved recently
+	added defines to include/private/gc_priv.h
+	(catch_exception_raise): Added THREAD_FLD in exc_state for POWERPC too.
+	* darwin_stop_world.c: Removed the above defines.
+	* include/private/gc_priv.h: Moved definitions from darwin_stop_world.c
+	and os_dep.c to here. Fixed THREAD definition fixes for ppc64.
+
+2007-01-17  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac: Don't define NO_SIGSET and NO_DEBUGGING while
+	cross-compiling.
+	* configure: Regenerated.
+	* include/gc_config.h.in: Regenerated.
+
+2007-01-17  Mike Stump  <mrs@apple.com>
+
+	* os_dep.c: Fix i686-apple-darwin9 builds.
+
+2007-01-16  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* aclocal.m4: Regenerate to use multi.m4.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2007-01-17  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* include/gc_config.h.in: Regenerate.
+
+2007-01-16  Petr Salinger  <Petr.Salinger@seznam.cz>
+
+	* include/private/gcconfig.h: Handle amd64/x86-64 cpu under
+	 GNU/kFreeBSD.
+	* os_dep.c: Likewise.
+
+2007-01-15  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* os_dep.c (defined(MPROTECT_VDB) && defined(DARWIN)): Adjust mail
+	reference.
+	(catch_exception_raise): Fix typo in the I386 exc_state.
+
+2007-01-11  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* configure.ac: Replaced HAS_I386_THREAD_STATE_* with
+	HAS_X86_THREAD_STATE32_* and HAS_X86_THREAD_STATE64_* respectively.
+	* configure: Regenerated.
+	* include/private/gcconfig.h (DARWIN): Added X86_64 define for Darwin.
+	Added base definitions for the X86_64 Darwin port.
+	* include/private/gc_priv.h: Added definitions for Darwin MACH thread
+	operations. Moved existing THREAD_STATE info from darwin_stop_world.c.
+	* darwin_stop_world.c: Removed THREAD_STATE info. Added
+	HAS_X86_THREAD_STATE64___RAX. And replaced HAS_I386_THREAD_STATE___EAX
+	with HAS_X86_THREAD_STATE32___EAX.
+	(GC_push_all_stacks): Use GC_MACH_THREAD_STATE_COUNT. Add code for
+	X86_64 Darwin.
+	* dyn_load.c (GC_dyld_name_for_hdr): Use GC_MACH_HEADER.
+	(GC_dyld_image_add): Use GC_MACH_HEADER and GC_MACH_SECTION.
+	Distinguish between getsectbynamefromheader_64 and
+	getsectbynamefromheader.
+	(GC_dyld_image_remove): Likewise.
+	* os_dep.c (GC_dirty_init): Use GC_MACH_THREAD_STATE.
+	(catch_exception_raise): Introduce exception information for I386 and
+	X86_64 Darwin. Add X86_64 for exc_state.faultvaddr.
+
+2006-12-08  Mike Stump  <mrs@apple.com>
+
+	* configure.ac: Fix x86 darwin builds.
+	* darwin_stop_world.c: Likewise.
+	* include/private/gcconfig.h: Likewise.
+	* connfigure: Regenerate.
+	
+2006-09-26  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/29180
+	* darwin_stop_world.c: Make stack_start unsigned long.
+
+2006-09-21  Sandro Tolaini  <tolaini@libero.it>
+
+	* os_dep.c: Port to Darwin/i386
+	* darwin_stop_world.c: Likewise
+	* include/private/gcconfig.h: Likewise
+	
+2006-06-07  Petr Salinger  <Petr.Salinger@seznam.cz>
+
+	* configure.ac: add support for GNU/kFreeBSD, accepted by upstream
+	for gc 6.8.
+	* dyn_load.c: Likewise.
+	* include/gc.h: Likewise.
+	* private/gcconfig.h: Likewise.
+	* configure: Regenerate.
+	* include/gc_config.h.in: Regenerate.
+
+2006-09-14  Tom Tromey  <tromey@redhat.com>
+
+	PR boehm-gc/29068.
+	* misc.c (GC_init_inner): Don't use GC_get_thread_stack_base on
+	Solaris.
+
+2006-08-21  Bryce McKinlay  <mckinlay@redhat.com>
+	
+	PR libgcj/13212:
+	* configure.ac: Check for pthread_getattr_np(). Remove
+	GC_PTHREAD_SYM_VERSION detection.
+	* include/gc.h (GC_register_my_thread, GC_unregister_my_thread,
+	GC_get_thread_stack_base): New declarations.
+	* pthread_support.c (GC_register_my_thread, GC_unregister_my_thread,
+	GC_get_thread_stack_base): New functions.
+	(GC_delete_thread): Don't try to free the first_thread.
+	* misc.c (GC_init_inner): Use GC_get_thread_stack_base() if possible.
+	(pthread_create_, constr): Removed.
+	(pthread_create): Don't rename.
+	* include/gc_ext_config.h.in: Rebuilt.
+	* include/gc_pthread_redirects.h (pthread_create): Define 
+	unconditionally.
+	* include/gc_config.h.in: Rebuilt.
+	* configure: Rebuilt.
+
+2006-06-21  Keith Seitz  <keiths@redhat.com>
+
+	* pthread_stop_world.c (GC_suspend_handler): Redirect to suspension
+	routine if signal is received and thread is flagged SUSPENDED.
+	(suspend_self): New function.
+	(GC_suspend_thread): New function.
+	(GC_resume_thread): New function.
+	* include/gc.h (GC_suspend_thread): Declare.
+	(GC_resumet_thread): Declare.
+	* include/private/pthread_support.h (SUSPENDED): New GC_thread
+	flag.
+
+2006-06-20  Ranjit Mathew  <rmathew@gcc.gnu.org>
+	
+	Backport Windows 9x/ME VirtualQuery() fix from GC 6.7.
+	* os_dep.c (GC_wnt): Define.
+	(GC_init_win32): Set GC_wnt.
+	* dyn_load.c (GC_register_dynamic_libraries): Consider MEM_PRIVATE
+	sections also on Windows 9x/ME.
+
 2006-06-02  Geoffrey Keating  <geoffk@apple.com>
 
 	* configure.ac: Define HAS_PPC_THREAD_STATE_R0,

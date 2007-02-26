@@ -1,6 +1,6 @@
 /* Xtensa/Elf configuration.
    Derived from the configuration for GCC for Intel i386 running Linux.
-   Copyright (C) 2001,2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -80,19 +80,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Do not force "-fpic" for this target.  */
 #define XTENSA_ALWAYS_PIC 0
 
-/* Redefine the standard ELF version of ASM_DECLARE_FUNCTION_SIZE to
-   allow adding the ".end literal_prefix" directive at the end of the
-   function.  */
-#undef ASM_DECLARE_FUNCTION_SIZE
-#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
-  do								\
-    {								\
-      if (!flag_inhibit_size_directive)				\
-	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
-      XTENSA_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL);		\
-    }								\
-  while (0)
-
 /* Search for headers in $tooldir/arch/include and for libraries and
    startfiles in $tooldir/arch/lib.  */
 #define GCC_DRIVER_HOST_INITIALIZATION \
@@ -113,3 +100,4 @@ do \
   } \
 while (0)
 
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1

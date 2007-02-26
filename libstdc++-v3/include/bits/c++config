@@ -1,7 +1,7 @@
 // Predefined symbols and macros -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-// Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,13 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _CXXCONFIG
-#define _CXXCONFIG 1
+/** @file c++config.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
+#ifndef _GLIBCXX_CXX_CONFIG_H
+#define _GLIBCXX_CXX_CONFIG_H 1
 
 // Pick up any OS-specific definitions.
 #include <bits/os_defines.h>
@@ -39,6 +44,15 @@
 
 // The current version of the C++ library in compressed ISO date format.
 #define __GLIBCXX__ 
+
+// Macros for visibility.
+#define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY
+
+#if _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY
+#define _GLIBCXX_VISIBILITY(V) __attribute__ ((__visibility__ (#V)))
+#else
+#define _GLIBCXX_VISIBILITY(V) 
+#endif
 
 // Macros for controlling various namespace association schemes and modes.
 #ifdef _GLIBCXX_DEBUG
@@ -53,15 +67,15 @@
 // _GLIBCXX_BEGIN_NESTED_NAMESPACE
 // _GLIBCXX_END_NESTED_NAMESPACE
 #if _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION
-# define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y) namespace X { namespace Y {
+# define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y)  namespace X { namespace Y _GLIBCXX_VISIBILITY(default) {
 # define _GLIBCXX_END_NESTED_NAMESPACE } }
 # define _GLIBCXX_BEGIN_NAMESPACE(X) _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, _6)
 # define _GLIBCXX_END_NAMESPACE _GLIBCXX_END_NESTED_NAMESPACE
 #else
-# define _GLIBCXX_BEGIN_NAMESPACE(X) namespace X { 
+# define _GLIBCXX_BEGIN_NAMESPACE(X) namespace X _GLIBCXX_VISIBILITY(default) { 
 # define _GLIBCXX_END_NAMESPACE } 
 # if _GLIBCXX_NAMESPACE_ASSOCIATION_DEBUG
-#  define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y) namespace X { namespace Y {
+#  define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y) namespace X { namespace Y _GLIBCXX_VISIBILITY(default) {
 #  define _GLIBCXX_END_NESTED_NAMESPACE  } }
 # else
 #  define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y) _GLIBCXX_BEGIN_NAMESPACE(X)
@@ -183,5 +197,9 @@ _GLIBCXX_END_NAMESPACE
 // src/functexcept.cc.  We use __N because the more traditional _N is used
 // for something else under certain OSes (see BADNAMES).
 #define __N(msgid)     (msgid)
+
+// For example, <windows.h> is known to #define min and max as macros...
+#undef min
+#undef max
 
 // End of prewritten config; the discovered settings follow.

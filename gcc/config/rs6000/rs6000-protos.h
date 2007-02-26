@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -42,6 +42,7 @@ extern bool invalid_e500_subreg (rtx, enum machine_mode);
 extern void validate_condition_mode (enum rtx_code, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern bool legitimate_indirect_address_p (rtx, int);
+extern bool legitimate_indexed_address_p (rtx, int);
 
 extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
@@ -106,6 +107,8 @@ extern bool rs6000_offsettable_memref_p (rtx);
 extern rtx rs6000_return_addr (int, rtx);
 extern void rs6000_output_symbol_ref (FILE*, rtx);
 extern HOST_WIDE_INT rs6000_initial_elimination_offset (int, int);
+extern void rs6000_emit_popcount (rtx, rtx);
+extern void rs6000_emit_parity (rtx, rtx);
 
 extern rtx rs6000_machopic_legitimize_pic_address (rtx, enum machine_mode,
 						   rtx);
@@ -114,6 +117,8 @@ extern rtx rs6000_machopic_legitimize_pic_address (rtx, enum machine_mode,
 #ifdef TREE_CODE
 extern unsigned int rs6000_special_round_type_align (tree, unsigned int,
 						     unsigned int);
+extern unsigned int darwin_rs6000_special_round_type_align (tree, unsigned int,
+							    unsigned int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int, int);
 extern int function_arg_boundary (enum machine_mode, tree);

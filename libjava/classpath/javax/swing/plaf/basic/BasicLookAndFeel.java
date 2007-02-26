@@ -64,6 +64,7 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.KeyStroke;
 import javax.swing.LookAndFeel;
 import javax.swing.MenuSelectionManager;
@@ -79,7 +80,9 @@ import javax.swing.plaf.IconUIResource;
 import javax.swing.plaf.InsetsUIResource;
 
 /**
- * BasicLookAndFeel
+ * A basic implementation of Swing's Look and Feel framework. This can serve
+ * as a base for custom look and feel implementations.
+ *
  * @author Andrew Selkirk
  */
 public abstract class BasicLookAndFeel extends LookAndFeel
@@ -126,8 +129,13 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       Component target = ev.getComponent();
       if (target instanceof Container)
         target = ((Container) target).findComponentAt(ev.getPoint());
-      if (! m.isComponentPartOfCurrentMenu(target))
-        m.clearSelectedPath();
+      if (m.getSelectedPath().length > 0
+          && ! m.isComponentPartOfCurrentMenu(target)
+          && (((JComponent)target).getClientProperty(DONT_CANCEL_POPUP) == null
+          || !((JComponent)target).getClientProperty(DONT_CANCEL_POPUP).equals(Boolean.TRUE)))
+        {
+          m.clearSelectedPath();
+        }
     }
 
   }
@@ -193,10 +201,21 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   static final long serialVersionUID = -6096995660290287879L;
 
   /**
+   * This is a key for a client property that tells the PopupHelper that
+   * it shouldn't close popups when the mouse event target has this
+   * property set. This is used when the component handles popup closing
+   * itself.
+   */
+  static final String DONT_CANCEL_POPUP = "noCancelPopup";
+
+  /**
    * Helps closing menu popups when user clicks outside of the menu area.
    */
   private transient PopupHelper popupHelper;
 
+  /**
+   * Maps the audio actions for this l&f.
+   */
   private ActionMap audioActionMap;
 
   /**
@@ -425,9 +444,15 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   }
 
   /**
-   * loadResourceBundle
-   * @param defaults TODO
+   * Loads the resource bundle in 'resources/basic' and adds the contained
+   * key/value pairs to the <code>defaults</code> table.
+   *
+   * @param defaults the UI defaults to load the resources into
    */
+  // FIXME: This method is not used atm and private and thus could be removed.
+  // However, I consider this method useful for providing localized
+  // descriptions and similar stuff and therefore think that we should use it
+  // instead and provide the resource bundles.
   private void loadResourceBundle(UIDefaults defaults)
   {
     ResourceBundle bundle;
@@ -446,7 +471,9 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   }
 
   /**
-   * initComponentDefaults
+   * Populates the <code>defaults</code> table with UI default values for
+   * colors, fonts, keybindings and much more.
+   *
    * @param defaults  the defaults table (<code>null</code> not permitted).
    */
   protected void initComponentDefaults(UIDefaults defaults)
@@ -509,7 +536,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
           return BasicIconFactory.getMenuItemCheckIcon();
         }
       },
-      "CheckBox.margin",new InsetsUIResource(2, 2, 2, 2),
+      "CheckBox.margin", new InsetsUIResource(2, 2, 2, 2),
       "CheckBox.textIconGap", new Integer(4),
       "CheckBox.textShiftOffset", new Integer(0),
       "CheckBoxMenuItem.acceleratorFont", new FontUIResource("Dialog",
@@ -599,7 +626,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl F4", "close",
         "KP_DOWN", "down",
         "ctrl F10", "maximize",
-        "ctrl alt shift F6","selectPreviousFrame"
+        "ctrl alt shift F6", "selectPreviousFrame"
       }),
       "DesktopIcon.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                           null),
@@ -1004,6 +1031,25 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "PopupMenu.border", new BorderUIResource.BevelBorderUIResource(0),
       "PopupMenu.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "PopupMenu.foreground", new ColorUIResource(darkShadow),
+      "PopupMenu.selectedWindowInputMapBindings",
+      new Object[] {"ESCAPE", "cancel",
+                    "DOWN", "selectNext",
+                    "KP_DOWN", "selectNext",
+                    "UP", "selectPrevious",
+                    "KP_UP", "selectPrevious",
+                    "LEFT", "selectParent",
+                    "KP_LEFT", "selectParent",
+                    "RIGHT", "selectChild",
+                    "KP_RIGHT", "selectChild",
+                    "ENTER", "return",
+                    "SPACE", "return"
+      },
+      "PopupMenu.selectedWindowInputMapBindings.RightToLeft",
+      new Object[] {"LEFT", "selectChild",
+                    "KP_LEFT", "selectChild",
+                    "RIGHT", "selectParent",
+                    "KP_RIGHT", "selectParent",
+      },
       "ProgressBar.background", new ColorUIResource(Color.LIGHT_GRAY),
       "ProgressBar.border",
       new BorderUIResource.LineBorderUIResource(Color.GREEN, 2),
@@ -1016,8 +1062,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "ProgressBar.repaintInterval", new Integer(50),
       "ProgressBar.cycleTime", new Integer(3000),
       "RadioButton.background", new ColorUIResource(light),
-      "RadioButton.border", new BorderUIResource.CompoundBorderUIResource(null,
-                                                                          null),
+      "RadioButton.border", BasicBorders.getRadioButtonBorder(),
       "RadioButton.darkShadow", new ColorUIResource(shadow),
       "RadioButton.focusInputMap", new UIDefaults.LazyInputMap(new Object[] {
         KeyStroke.getKeyStroke("SPACE"),  "pressed",
@@ -1069,14 +1114,14 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "PAGE_DOWN", "positiveBlockIncrement",
         "END",  "maxScroll",
         "HOME",  "minScroll",
-        "LEFT",  "positiveUnitIncrement",
+        "LEFT",  "negativeUnitIncrement",
         "KP_UP", "negativeUnitIncrement",
         "KP_DOWN", "positiveUnitIncrement",
         "UP",  "negativeUnitIncrement",
-        "RIGHT", "negativeUnitIncrement",
-        "KP_LEFT", "positiveUnitIncrement",
+        "RIGHT", "positiveUnitIncrement",
+        "KP_LEFT", "negativeUnitIncrement",
         "DOWN",  "positiveUnitIncrement",
-        "KP_RIGHT", "negativeUnitIncrement"
+        "KP_RIGHT", "positiveUnitIncrement"
       }),
       "ScrollBar.foreground", new ColorUIResource(light),
       "ScrollBar.maximumThumbSize", new DimensionUIResource(4096, 4096),
@@ -1091,7 +1136,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "ScrollPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
         "PAGE_UP", "scrollUp",
         "KP_LEFT", "unitScrollLeft",
-        "ctrl PAGE_DOWN","scrollRight",
+        "ctrl PAGE_DOWN", "scrollRight",
         "PAGE_DOWN", "scrollDown",
         "KP_RIGHT", "unitScrollRight",
         "LEFT",  "unitScrollLeft",
@@ -1137,6 +1182,10 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "Slider.thumbHeight", new Integer(20),
       "Slider.thumbWidth", new Integer(11),
       "Slider.tickHeight", new Integer(12),
+      "Slider.horizontalSize", new Dimension(200, 21),
+      "Slider.verticalSize", new Dimension(21, 200),
+      "Slider.minimumHorizontalSize", new Dimension(36, 21),
+      "Slider.minimumVerticalSize", new Dimension(21, 36),
       "Spinner.background", new ColorUIResource(light),
       "Spinner.foreground", new ColorUIResource(light),
       "Spinner.arrowButtonSize", new DimensionUIResource(16, 5),
@@ -1167,15 +1216,15 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "SplitPaneDivider.border", BasicBorders.getSplitPaneDividerBorder(),
       "SplitPaneDivider.draggingColor", new ColorUIResource(Color.DARK_GRAY),
       "TabbedPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
-        "ctrl PAGE_DOWN","navigatePageDown",
+        "ctrl PAGE_DOWN", "navigatePageDown",
         "ctrl PAGE_UP", "navigatePageUp",
         "ctrl UP", "requestFocus",
         "ctrl KP_UP", "requestFocus"
       }),
-      "TabbedPane.background", new ColorUIResource(light),
+      "TabbedPane.background", new ColorUIResource(192, 192, 192),
       "TabbedPane.contentBorderInsets", new InsetsUIResource(2, 2, 3, 3),
-      "TabbedPane.darkShadow", new ColorUIResource(shadow),
-      "TabbedPane.focus", new ColorUIResource(darkShadow),
+      "TabbedPane.darkShadow", new ColorUIResource(Color.black),
+      "TabbedPane.focus", new ColorUIResource(Color.black),
       "TabbedPane.focusInputMap", new UIDefaults.LazyInputMap(new Object[] {
             KeyStroke.getKeyStroke("ctrl DOWN"), "requestFocusForVisibleComponent",
             KeyStroke.getKeyStroke("KP_UP"), "navigateUp",
@@ -1189,17 +1238,16 @@ public abstract class BasicLookAndFeel extends LookAndFeel
             KeyStroke.getKeyStroke("DOWN"), "navigateDown"
       }),
       "TabbedPane.font", new FontUIResource("Dialog", Font.PLAIN, 12),
-      "TabbedPane.foreground", new ColorUIResource(darkShadow),
-      "TabbedPane.highlight", new ColorUIResource(highLight),
-      "TabbedPane.light", new ColorUIResource(highLight),
+      "TabbedPane.foreground", new ColorUIResource(Color.black),
+      "TabbedPane.highlight", new ColorUIResource(Color.white),
+      "TabbedPane.light", new ColorUIResource(192, 192, 192),
       "TabbedPane.selectedTabPadInsets", new InsetsUIResource(2, 2, 2, 1),
-      "TabbedPane.shadow", new ColorUIResource(shadow),
-      "TabbedPane.tabbedPaneContentBorderInsets", new InsetsUIResource(3, 2, 1, 2),
-      "TabbedPane.tabbedPaneTabPadInsets", new InsetsUIResource(1, 1, 1, 1),
+      "TabbedPane.shadow", new ColorUIResource(128, 128, 128),
       "TabbedPane.tabsOpaque", Boolean.TRUE,
       "TabbedPane.tabAreaInsets", new InsetsUIResource(3, 2, 0, 2),
       "TabbedPane.tabInsets", new InsetsUIResource(0, 4, 1, 4),
       "TabbedPane.tabRunOverlay", new Integer(2),
+      "TabbedPane.tabsOverlapBorder", Boolean.FALSE,
       "TabbedPane.textIconGap", new Integer(4),
       "Table.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
         "ctrl DOWN", "selectNextRowChangeLead",
@@ -1220,13 +1268,13 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "COPY", "copy",
         "ctrl KP_UP", "selectPreviousRowChangeLead",
         "PASTE", "paste",
-        "shift PAGE_DOWN","scrollDownExtendSelection",
+        "shift PAGE_DOWN", "scrollDownExtendSelection",
         "PAGE_DOWN", "scrollDownChangeSelection",
         "END",  "selectLastColumn",
         "shift END", "selectLastColumnExtendSelection",
         "HOME",  "selectFirstColumn",
         "ctrl END", "selectLastRow",
-        "ctrl shift END","selectLastRowExtendSelection",
+        "ctrl shift END", "selectLastRowExtendSelection",
         "LEFT",  "selectPreviousColumn",
         "shift HOME", "selectFirstColumnExtendSelection",
         "UP",  "selectPreviousRow",
@@ -1234,7 +1282,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl HOME", "selectFirstRow",
         "shift LEFT", "selectPreviousColumnExtendSelection",
         "DOWN",  "selectNextRow",
-        "ctrl shift HOME","selectFirstRowExtendSelection",
+        "ctrl shift HOME", "selectFirstRowExtendSelection",
         "shift UP", "selectPreviousRowExtendSelection",
         "F2",  "startEditing",
         "shift RIGHT", "selectNextColumnExtendSelection",
@@ -1583,7 +1631,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       }),
       "Tree.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "Tree.foreground", new ColorUIResource(Color.black),
-      "Tree.hash", new ColorUIResource(new Color(128, 128, 128)),
+      "Tree.hash", new ColorUIResource(new Color(184, 207, 228)),
       "Tree.leftChildIndent", new Integer(7),
       "Tree.rightChildIndent", new Integer(13),
       "Tree.rowHeight", new Integer(16),

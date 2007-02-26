@@ -1,5 +1,5 @@
 /* ColorModel.java --
-   Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -43,7 +43,6 @@ import gnu.java.awt.Buffers;
 import java.awt.Point;
 import java.awt.Transparency;
 import java.awt.color.ColorSpace;
-import java.lang.reflect.Constructor;
 import java.util.Arrays;
 
 /**
@@ -162,32 +161,6 @@ public abstract class ColorModel implements Transparency
     this.isAlphaPremultiplied = isAlphaPremultiplied;
     this.transparency = transparency;
     this.transferType = transferType;
-  }
-
-  // This is a hook for ColorConvertOp to create a colormodel with
-  // a new colorspace
-  ColorModel cloneColorModel(ColorSpace cspace)
-  {
-    Class cls = this.getClass();
-    ColorModel cm;
-    try {
-      // This constructor will exist.
-      Constructor ctor =
-        cls.getConstructor(new Class[]{int.class, int[].class,
-				       ColorSpace.class, boolean.class,
-				       boolean.class, int.class, int.class});
-      cm = (ColorModel)ctor.
-        newInstance(new Object[]{new Integer(pixel_bits),
-				 bits, cspace, Boolean.valueOf(hasAlpha),
-				 Boolean.valueOf(isAlphaPremultiplied),
-				 new Integer(transparency),
-				 new Integer(transferType)});
-    }
-    catch (Exception e)
-    {
-      throw new IllegalArgumentException();
-    }
-    return cm;
   }
   
   public void finalize()
@@ -651,40 +624,40 @@ public abstract class ColorModel implements Transparency
     return cspace;
   }
 
-  // Typically overridden
   public ColorModel coerceData(WritableRaster raster,
-			       boolean isAlphaPremultiplied)
+                               boolean isAlphaPremultiplied)
   {
-    if (this.isAlphaPremultiplied == isAlphaPremultiplied)
-      return this;
+    // This method should always be overridden, but is not abstract.
+    throw new UnsupportedOperationException();
+  }
 
+  protected void coerceDataWorker(WritableRaster raster,
+                                  boolean isAlphaPremultiplied)
+  {
     int w = raster.getWidth();
     int h = raster.getHeight();
     int x = raster.getMinX();
     int y = raster.getMinY();
-    int size = w*h;
+    int size = w * h;
     int numColors = getNumColorComponents();
     int numComponents = getNumComponents();
-    int alphaScale = (1<<getComponentSize(numColors)) - 1;
+    int alphaScale = (1 << getComponentSize(numColors)) - 1;
     double[] pixels = raster.getPixels(x, y, w, h, (double[]) null);
 
-    for (int i=0; i<size; i++)
+    for (int i = 0; i < size; i++)
       {
-	double alpha = pixels[i*numComponents+numColors]*alphaScale;
-	for (int c=0; c<numColors; c++)
-	  {
-	    int offset = i*numComponents+c;
-	    if (isAlphaPremultiplied)
-		pixels[offset] = pixels[offset]/alpha;
-	    else
-	      pixels[offset] = pixels[offset]*alpha;
-	  }
+        double alpha = pixels[i * numComponents + numColors] / alphaScale;
+        for (int c = 0; c < numColors; c++)
+          {
+            int offset = i * numComponents + c;
+            if (isAlphaPremultiplied)
+              pixels[offset] = Math.round(pixels[offset] * alpha);
+            else
+              pixels[offset] = Math.round(pixels[offset] / alpha);
+          }
       }
-    
-    raster.setPixels(0, 0, w, h, pixels);
 
-    // FIXME: what can we return?
-    return null;
+    raster.setPixels(0, 0, w, h, pixels);
   }
     
   /**

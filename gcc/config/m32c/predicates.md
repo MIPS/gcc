@@ -27,7 +27,11 @@
 
 (define_predicate "m32c_any_operand"
   (ior (match_operand 0 "general_operand")
-       (match_operand 1 "memory_operand")))
+       (match_operand 1 "memory_operand"))
+  {
+    return ! m32c_illegal_subreg_p (op);
+  }
+)
 
 ; Likewise for nonimmediate_operand.
 
@@ -140,6 +144,17 @@
 (define_predicate "mras_operand"
   (and (match_operand 0 "nonimmediate_operand" "")
        (not (match_operand 1 "cr_operand" ""))))
+
+; As above, but no push/pop operations
+(define_predicate "mra_nopp_operand"
+  (match_operand 0 "mra_operand" "")
+{
+  if (GET_CODE (op) == MEM
+      && (GET_CODE (XEXP (op, 0)) == PRE_DEC
+	  || (GET_CODE (XEXP (op, 0)) == POST_INC)))
+    return 0;
+  return 1;
+})
 
 ; TRUE for memory, r0..r3, a0..a1, or immediates.
 (define_predicate "mrai_operand"

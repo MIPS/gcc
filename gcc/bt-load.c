@@ -123,12 +123,12 @@ static btr_user new_btr_user (basic_block, int, rtx);
 static void dump_hard_reg_set (HARD_REG_SET);
 static void dump_btrs_live (int);
 static void note_other_use_this_block (unsigned int, btr_user);
-static void compute_defs_uses_and_gen (struct df *, fibheap_t, btr_def *,btr_user *,
+static void compute_defs_uses_and_gen (fibheap_t, btr_def *,btr_user *,
 				       sbitmap *, sbitmap *, HARD_REG_SET *);
 static void compute_kill (sbitmap *, sbitmap *, HARD_REG_SET *);
 static void compute_out (sbitmap *bb_out, sbitmap *, sbitmap *, int);
 static void link_btr_uses (btr_def *, btr_user *, sbitmap *, sbitmap *, int);
-static void build_btr_def_use_webs (struct df *, fibheap_t);
+static void build_btr_def_use_webs (fibheap_t);
 static int block_at_edge_of_live_range_p (int, btr_def);
 static void clear_btr_from_live_range (btr_def def);
 static void add_btr_to_live_range (btr_def, int);
@@ -139,7 +139,7 @@ static void combine_btr_defs (btr_def, HARD_REG_SET *);
 static void btr_def_live_range (btr_def, HARD_REG_SET *);
 static void move_btr_def (basic_block, int, btr_def, bitmap, HARD_REG_SET *);
 static int migrate_btr_def (btr_def, int);
-static void migrate_btr_defs (struct df *df, enum reg_class, int);
+static void migrate_btr_defs (enum reg_class, int);
 static int can_move_up (basic_block, rtx, int);
 static void note_btr_set (rtx, rtx, void *);
 
@@ -447,8 +447,7 @@ note_btr_set (rtx dest, rtx set ATTRIBUTE_UNUSED, void *data)
 }
 
 static void
-compute_defs_uses_and_gen (struct df *df,
-			   fibheap_t all_btr_defs, btr_def *def_array,
+compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 			   btr_user *use_array, sbitmap *btr_defset,
 			   sbitmap *bb_gen, HARD_REG_SET *btrs_written)
 {
@@ -481,7 +480,7 @@ compute_defs_uses_and_gen (struct df *df,
       CLEAR_HARD_REG_SET (info.btrs_written_in_block);
       for (reg = first_btr; reg <= last_btr; reg++)
 	if (TEST_HARD_REG_BIT (all_btrs, reg)
-	    && REGNO_REG_SET_P (DF_LIVE_IN (df, bb), reg))
+	    && REGNO_REG_SET_P (DF_LIVE_IN (bb), reg))
 	  SET_HARD_REG_BIT (info.btrs_live_in_block, reg);
 
       for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
@@ -513,7 +512,7 @@ compute_defs_uses_and_gen (struct df *df,
 		}
 	      /* Check for the blockage emitted by expand_nl_goto_receiver.  */
 	      else if (current_function_has_nonlocal_label
-		       && GET_CODE (PATTERN (insn)) == ASM_INPUT)
+		       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE)
 		{
 		  btr_user user;
 
@@ -582,7 +581,7 @@ compute_defs_uses_and_gen (struct df *df,
       COPY_HARD_REG_SET (btrs_live[i], info.btrs_live_in_block);
       COPY_HARD_REG_SET (btrs_written[i], info.btrs_written_in_block);
 
-      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], DF_LIVE_OUT (df, bb));
+      REG_SET_TO_HARD_REG_SET (btrs_live_at_end[i], DF_LIVE_OUT (bb));
       /* If this block ends in a jump insn, add any uses or even clobbers
 	 of branch target registers that it might have.  */
       for (insn = BB_END (bb); insn != BB_HEAD (bb) && ! INSN_P (insn); )
@@ -779,7 +778,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 }
 
 static void
-build_btr_def_use_webs (struct df *df, fibheap_t all_btr_defs)
+build_btr_def_use_webs (fibheap_t all_btr_defs)
 {
   const int max_uid = get_max_uid ();
   btr_def  *def_array   = XCNEWVEC (btr_def, max_uid);
@@ -793,7 +792,7 @@ build_btr_def_use_webs (struct df *df, fibheap_t all_btr_defs)
 
   sbitmap_vector_zero (btr_defset, (last_btr - first_btr) + 1);
 
-  compute_defs_uses_and_gen (df, all_btr_defs, def_array, use_array, btr_defset,
+  compute_defs_uses_and_gen (all_btr_defs, def_array, use_array, btr_defset,
 			     bb_gen, btrs_written);
 
   bb_kill = sbitmap_vector_alloc (n_basic_blocks, max_uid);
@@ -1209,7 +1208,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   /* Insert target register initialization at head of basic block.  */
   def->insn = emit_insn_after (new_insn, insp);
 
-  regs_ever_live[btr] = 1;
+  df_set_regs_ever_live (btr, true);
 
   if (dump_file)
     fprintf (dump_file, "New pt is insn %d, inserted after insn %d\n",
@@ -1400,7 +1399,7 @@ migrate_btr_def (btr_def def, int min_cost)
 /* Attempt to move instructions that set target registers earlier
    in the flowgraph, away from their corresponding uses.  */
 static void
-migrate_btr_defs (struct df *df, enum reg_class btr_class, int allow_callee_save)
+migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 {
   fibheap_t all_btr_defs = fibheap_new ();
   int reg;
@@ -1424,7 +1423,8 @@ migrate_btr_defs (struct df *df, enum reg_class btr_class, int allow_callee_save
   CLEAR_HARD_REG_SET (all_btrs);
   for (first_btr = -1, reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
     if (TEST_HARD_REG_BIT (reg_class_contents[(int) btr_class], reg)
-	&& (allow_callee_save || call_used_regs[reg] || regs_ever_live[reg]))
+	&& (allow_callee_save || call_used_regs[reg] 
+	    || df_regs_ever_live_p (reg)))
       {
 	SET_HARD_REG_BIT (all_btrs, reg);
 	last_btr = reg;
@@ -1435,7 +1435,7 @@ migrate_btr_defs (struct df *df, enum reg_class btr_class, int allow_callee_save
   btrs_live = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
   btrs_live_at_end = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
 
-  build_btr_def_use_webs (df, all_btr_defs);
+  build_btr_def_use_webs (all_btr_defs);
 
   while (!fibheap_empty (all_btr_defs))
     {
@@ -1467,9 +1467,6 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
   enum reg_class class = targetm.branch_target_register_class ();
   if (class != NO_REGS)
     {
-      struct df * df = df_init (DF_HARD_REGS);
-      df_live_add_problem (df, 0);
-
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)
 	issue_rate = targetm.sched.issue_rate ();
@@ -1485,12 +1482,12 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
 	  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 #endif
 	}
-      df_analyze (df);
+      df_analyze ();
 
 
       /* Dominator info is also needed for migrate_btr_def.  */
       calculate_dominance_info (CDI_DOMINATORS);
-      migrate_btr_defs (df, class,
+      migrate_btr_defs (class,
 		       (targetm.branch_target_register_callee_saved
 			(after_prologue_epilogue_gen)));
 
@@ -1526,7 +1523,6 @@ struct tree_opt_pass pass_branch_target_load_optimize1 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
 };
@@ -1574,7 +1570,6 @@ struct tree_opt_pass pass_branch_target_load_optimize2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
 };

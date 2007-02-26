@@ -33,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "dce.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
@@ -43,7 +44,7 @@ DEF_VEC_ALLOC_I(int,heap);
    ------------------------------------------------------------------------- */
 
 /* The data-flow information needed by this pass.  */
-static struct df *dce_df;
+static bool df_in_progress = false;
 
 /* True if we deleted at least one instruction.  */
 static bool something_changed;
@@ -53,13 +54,12 @@ static bool something_changed;
 static VEC(rtx,heap) *worklist;
 
 static bitmap marked = NULL;
-static bitmap marked_libcalls = NULL;
 
 /* Return true if INSN a normal instruction that can be deleted by the
    DCE pass.  */
 
 static bool
-deletable_insn_p (rtx insn)
+deletable_insn_p (rtx insn, bool fast)
 {
   rtx x;
 
@@ -68,14 +68,29 @@ deletable_insn_p (rtx insn)
     case USE:
     case PREFETCH:
     case TRAP_IF:
+      /* The UNSPEC case was added here because the ia-64 claims that
+	 USEs do not work after reload and generates UNSPECS rather
+	 than USEs.  Since dce/dse is run after reload we need to
+	 avoid deleting these even if they are dead.  If it turns out
+	 that USEs really do work after reload, the ia-64 should be
+	 changed, and the UNSPEC case can be removed.  */
+    case UNSPEC:
       return false;
 
     case CLOBBER:
-      /* A CLOBBER of a dead pseudo register serves no purpose.
-	 That is not necessarily true for hard registers until
-	 after reload.  */
-      x = XEXP (PATTERN (insn), 0);
-      return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
+      if (fast)
+	{
+	  /* A CLOBBER of a dead pseudo register serves no purpose.
+	     That is not necessarily true for hard registers until
+	     after reload.  */
+	  x = XEXP (PATTERN (insn), 0);
+	  return REG_P (x) && (!HARD_REGISTER_P (x) || reload_completed);
+	}
+      else 
+	/* Because of the way that use-def chains are built, it is not
+	   possible to tell if the clobber is dead because it can
+	   never be the target of a use-def chain.  */
+	return false;
 
     default:
       if (!NONJUMP_INSN_P (insn))
@@ -157,92 +172,109 @@ mark_nonreg_stores (rtx body, rtx insn, bool fast)
 }
 
 
-/* Go through the instructions and mark those whose necessity is not
-   dependent on inter-instruction information.  Make sure all other
-   instructions are not marked.  */
-
-static void
-prescan_insns_for_dce (bool fast)
-{
-  basic_block bb;
-  rtx insn;
-  
-  if (dump_file)
-    fprintf (dump_file, "Finding needed instructions:\n");
-  
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
-      {
-	if (deletable_insn_p (insn))
-	  mark_nonreg_stores (PATTERN (insn), insn, fast);
-	else
-	  mark_insn (insn, fast);
-      }
-}
-
-
 /* Initialize global variables for a new DCE pass.  */
 
 static void
 init_dce (bool fast)
 {
-  if (!dce_df)
+  if (!df_in_progress)
     {
-      if (fast)
-	{
-	  dce_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (dce_df, 0);
-	  df_analyze (dce_df);
-	}
-      else
-	{
-	  dce_df = df_init (DF_HARD_REGS);
-	  df_chain_add_problem (dce_df, DF_UD_CHAIN);
-	  df_analyze (dce_df);
-	}
+      if (!fast)
+	df_chain_add_problem (DF_UD_CHAIN);
+      df_analyze ();
     }
 
+  if (dump_file)
+    df_dump (dump_file);
+
   marked = BITMAP_ALLOC (NULL);
-  marked_libcalls = BITMAP_ALLOC (NULL);
 }
 
 
-/* Delete every instruction that hasn't been marked.  Clear the insn from DCE_DF if
-   DF_DELETE is true.  */
+/* Delete all REG_EQUAL notes of the registers INSN writes, to prevent
+   bad dangling REG_EQUAL notes. */
 
 static void
-delete_unmarked_insns (bool df_delete)
+delete_corresponding_reg_eq_notes (rtx insn)
+{
+  struct df_ref **def_rec;
+  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      unsigned int regno = DF_REF_REGNO (def);
+      /* This loop is a little tricky.  We cannot just go down the
+	 chain because it is being modified by the actions in the
+	 loop.  So we just get the head.  We plan to drain the list
+	 anyway.  */
+      while (DF_REG_EQ_USE_CHAIN (regno))
+	{
+	  struct df_ref *eq_use = DF_REG_EQ_USE_CHAIN (regno);
+	  rtx noted_insn = DF_REF_INSN (eq_use);
+	  rtx note = find_reg_note (noted_insn, REG_EQUAL, NULL_RTX);
+	  if (!note)
+	    note = find_reg_note (noted_insn, REG_EQUIV, NULL_RTX);
+
+	  /* This assert is generally triggered when someone deletes a
+	     REG_EQUAL or REG_EQUIV note by hacking the list manually
+	     rather than calling remove_note.  */
+	  gcc_assert (note);
+	  remove_note (noted_insn, note);
+	}
+    }
+}
+
+
+/* Delete every instruction that hasn't been marked.  Clear the insn
+   from DCE_DF if DF_DELETE is true.  */
+
+static void
+delete_unmarked_insns (void)
 {
   basic_block bb;
   rtx insn, next;
-  struct dataflow *dflow = dce_df->problems_by_index[DF_SCAN];
 
   something_changed = false;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, next)
-      if (INSN_P (insn) 
-	&& ((!marked_insn_p (insn)) || noop_move_p (insn)))
+      if (INSN_P (insn))
 	{
+	  if (noop_move_p (insn))
+	    {
+	      /* Note that this code does not handle the case where
+		 the last insn of libcall is deleted.  As it turns out
+		 this case is excluded in the call to noop_move_p.  */
+	      rtx note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+	      if (note && (XEXP (note, 0) != insn))
+		{
+		  rtx new_libcall_insn = next_real_insn (insn);
+		  rtx retval_note = find_reg_note (XEXP (note, 0),
+						   REG_RETVAL, NULL_RTX);
+		  REG_NOTES (new_libcall_insn)
+		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
+					 REG_NOTES (new_libcall_insn));
+		  XEXP (retval_note, 0) = new_libcall_insn;
+		}
+	    }
+	  else if (marked_insn_p (insn))
+	    continue;
+
+	  /* WARNING, this debugging can itself cause problems if the
+	     edge of the counter causes part of a libcall to be
+	     deleted but not all of it.  */
+	  if (!dbg_cnt (new_dce))
+	    continue;
+
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
-	  /* XXX: This may need to be changed to delete_insn_and_edges */
-	  delete_insn (insn);
-	  if (df_delete)
-	    df_insn_refs_delete (dflow, insn);
+
+          /* Before we delete the insn, we have to delete
+             REG_EQUAL of the destination regs of the deleted insn
+             to prevent dangling REG_EQUAL. */
+          delete_corresponding_reg_eq_notes (insn);
+
+	  delete_insn_and_edges (insn);
 	  something_changed = true;
 	}
-}
-
-/* Return true if INSN has libcall id ID.  */
-static bool
-libcall_matches_p (rtx insn, int id)
-{
-  rtx note;
-  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-    return id == INTVAL (XEXP (note, 0));
-  else 
-    return false;
 }
 
 
@@ -258,12 +290,24 @@ mark_libcall (rtx start_insn, bool delete_parm)
   mark_insn (start_insn, delete_parm);
   insn = NEXT_INSN (start_insn);
 
+  /* There are tales, long ago and far away, of the mystical nested
+     libcall.  No one alive has actually seen one, but other parts of
+     the compiler support them so we will here.  */
   for (insn = NEXT_INSN (start_insn); insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
-	  if (libcall_matches_p (insn, id))
-	    mark_insn (insn, delete_parm);
+	  /* Stay in the loop as long as we are in any libcall.  */
+	  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	    {
+	      if (id == INTVAL (XEXP (note, 0)))
+		{
+		  mark_insn (insn, delete_parm);
+		  if (dump_file)
+		    fprintf (dump_file, "matching forward libcall %d[%d]\n",
+			     INSN_UID (insn), id);
+		}
+	    }
 	  else 
 	    break;
 	}
@@ -273,12 +317,55 @@ mark_libcall (rtx start_insn, bool delete_parm)
     {
       if (INSN_P (insn))
 	{
-	  if (libcall_matches_p (insn, id))
-	    mark_insn (insn, delete_parm);
+	  /* Stay in the loop as long as we are in any libcall.  */
+	  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	    {
+	      if (id == INTVAL (XEXP (note, 0)))
+		{
+		  mark_insn (insn, delete_parm);
+		  if (dump_file)
+		    fprintf (dump_file, "matching backward libcall %d[%d]\n",
+			     INSN_UID (insn), id);
+		}
+	    }
 	  else 
 	    break;
 	}
     }
+}
+
+
+/* Go through the instructions and mark those whose necessity is not
+   dependent on inter-instruction information.  Make sure all other
+   instructions are not marked.  */
+
+static void
+prescan_insns_for_dce (void)
+{
+  basic_block bb;
+  rtx insn;
+  
+  if (dump_file)
+    fprintf (dump_file, "Finding needed instructions:\n");
+  
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	if (deletable_insn_p (insn, true))
+	  mark_nonreg_stores (PATTERN (insn), insn, true);
+	else
+	  {
+	    rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+	    if (note)
+	      mark_libcall (insn, true);
+	    else
+	      mark_insn (insn, true);
+	  }
+      }
+
+  if (dump_file)
+    fprintf (dump_file, "Finished finding needed instructions:\n");
 }
 
 
@@ -288,11 +375,7 @@ static void
 end_dce (void)
 {
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
-
-  /* The TODO_df_finish will really get rid of the instance, we need to 
-     clear this here so that we init_dce does the correct thing.  */
-  dce_df = NULL;
+  df_in_progress = false;
 }
 
 
@@ -309,13 +392,13 @@ mark_artificial_uses (void)
 {
   basic_block bb;
   struct df_link *defs;
-  struct df_ref *use;
+  struct df_ref **use_rec;
 
   FOR_ALL_BB (bb)
     {
-      for (use = df_get_artificial_uses (dce_df, bb->index); 
-	   use; use = use->next_ref)
-	for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
+      for (use_rec = df_get_artificial_uses (bb->index); 
+	   *use_rec; use_rec++)
+	for (defs = DF_REF_CHAIN (*use_rec); defs; defs = defs->next)
 	  mark_insn (DF_REF_INSN (defs->ref), false);
     }
 }
@@ -326,14 +409,15 @@ static void
 mark_reg_dependencies (rtx insn)
 {
   struct df_link *defs;
-  struct df_ref *use;
+  struct df_ref **use_rec;
 
   /* If this is part of a libcall, mark the entire libcall.  */
   if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
     mark_libcall (insn, false);
 
-  for (use = DF_INSN_USES (dce_df, insn); use; use = use->next_ref)
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
     {
+      struct df_ref *use = *use_rec;
       if (dump_file)
 	{
 	  fprintf (dump_file, "Processing use of ");
@@ -346,60 +430,6 @@ mark_reg_dependencies (rtx insn)
 }
 
 /* -------------------------------------------------------------------------
-   Regular DCE pass functions
-   ------------------------------------------------------------------------- */
-
-/* Callback for running pass_rtl_dce.  */
-
-static unsigned int
-rest_of_handle_dce (void)
-{
-  init_dce (false);
-  
-  prescan_insns_for_dce (false);
-
-  mark_artificial_uses ();
-  while (VEC_length (rtx, worklist) > 0)
-    mark_reg_dependencies (VEC_pop (rtx, worklist));
-
-  end_dce ();
-  return 0;
-}
-
-static bool
-gate_dce (void)
-{
-  return optimize > 0 && flag_new_dce;
-}
-
-/* Run a DCE pass and return true if any instructions were deleted.  */
-
-bool
-run_dce (void)
-{
-  return gate_dce () && (rest_of_handle_dce (), something_changed);
-}
-
-struct tree_opt_pass pass_rtl_dce =
-{
-  "dce",                                /* name */
-  gate_dce,                             /* gate */
-  rest_of_handle_dce,                   /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_DCE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func |
-  TODO_df_finish |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
-};
-
-/* -------------------------------------------------------------------------
    Fast DCE functions
    ------------------------------------------------------------------------- */
 
@@ -410,11 +440,7 @@ static void
 end_fast_dce (void)
 {
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
-
-  /* The TODO_df_finish will really get rid of the instance, we need to 
-     clear this here so that we init_dce does the correct thing.  */
-  dce_df = NULL;
+  df_in_progress = false;
 }
 
 
@@ -427,11 +453,11 @@ dce_process_block (basic_block bb, bool redo_out)
   bitmap local_live = BITMAP_ALLOC (NULL);
   rtx insn;
   bool block_changed;
-  struct df_ref *def, *use;
+#ifdef ENABLE_CHECKING
+  bool insns_deleted = false;
+#endif
+  struct df_ref **def_rec, **use_rec;
   unsigned int bb_index = bb->index;
-  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
-  rtx libcall_start = NULL;
-  int libcall_id = -1;
 
   if (redo_out)
     {
@@ -440,24 +466,28 @@ dce_process_block (basic_block bb, bool redo_out)
 	 set.  */
       edge e;
       edge_iterator ei;
-      df_confluence_function_n con_fun_n = dflow->problem->con_fun_n;
+      df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
       FOR_EACH_EDGE (e, ei, bb->succs)
-	(*con_fun_n) (dflow, e);
+	(*con_fun_n) (e);
     }
 
-  bitmap_copy (local_live, DF_LR_OUT (dce_df, bb));
+  bitmap_copy (local_live, DF_LR_OUT (bb));
 
   /* Process the artificial defs and uses at the bottom of the block.  */
-  for (def = df_get_artificial_defs (dce_df, bb_index); 
-       def; def = def->next_ref)
-    if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
-      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
+	bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+    }
 
-  for (use = df_get_artificial_uses (dce_df, bb_index); 
-       use; use = use->next_ref)
-    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      struct df_ref *use = *use_rec;
+      if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
+	bitmap_set_bit (local_live, DF_REF_REGNO (use));
+    }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (INSN_P (insn))
@@ -467,32 +497,11 @@ dce_process_block (basic_block bb, bool redo_out)
 	if (!marked_insn_p (insn))
 	  {	
 	    bool needed = false;
-	    rtx note;
-	    if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-	      {
-		int new_id = INTVAL (XEXP (note, 0));
-		if (libcall_start)
-		  {
-		    if (libcall_id != new_id)
-		      {
-			libcall_start = insn;
-			libcall_id = new_id;
-		      }
-		  }
-		else
-		  {
-		    libcall_start = insn;
-		    libcall_id = new_id;
-		  }
-	      }
-	    else 
-	      {
-		libcall_start = NULL;
-		libcall_id = -1;
-	      }
-	    for (def = DF_INSN_GET (dce_df, insn)->defs; 
-		 def; def = def->next_ref)
-	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
+
+
+	    /* The insn is needed if there is someone who uses the output.  */
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
 		{
 		  needed = true;
 		  break;
@@ -500,57 +509,110 @@ dce_process_block (basic_block bb, bool redo_out)
 	    
 	    if (needed)
 	      {
+		rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+
 		/* If we need to mark an insn in the middle of a
 		   libcall, we need to back up to mark the entire
 		   libcall.  Given that libcalls are rare, rescanning
 		   the block should be a reasonable solution to trying
 		   to figure out how to back up.  */
- 		if (libcall_start)
+		if (note)
 		  {
-		    mark_libcall (libcall_start, true);
+		    if (dump_file)
+		      fprintf (dump_file, "needed libcall %d\n", INSN_UID (insn));
+		    mark_libcall (insn, true);
 		    BITMAP_FREE (local_live);
 		    return dce_process_block (bb, false);
 		  }
 		else
 		  mark_insn (insn, true);
 	      }
+#ifdef ENABLE_CHECKING
+	    else
+	      insns_deleted = true;
+#endif
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
-	   any regno in the defs from the live set.  */
-	for (def = DF_INSN_GET (dce_df, insn)->defs; def; def = def->next_ref)
+	   any regno in the defs from the live set.  This code is a
+	   hacked up version of the regular scanning code in
+	   df-problems.c:df_lr_bb_local_compute.  It must stay in sync.
+	*/
+	if (CALL_P (insn))
 	  {
-	    unsigned int regno = DF_REF_REGNO (def);
-	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	      bitmap_clear_bit (local_live, regno);
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      {
+		struct df_ref *def = *def_rec;
+		unsigned int dregno = DF_REF_REGNO (def);
+		
+		if (DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
+		  {
+		    if (dregno >= FIRST_PSEUDO_REGISTER
+			|| !(SIBLING_CALL_P (insn)
+			     && bitmap_bit_p (df->exit_block_uses, dregno)
+			     && !refers_to_regno_p (dregno, dregno+1,
+						    current_function_return_rtx,
+						    (rtx *)0)))
+		      {
+			/* If the def is to only part of the reg, it does
+			   not kill the other defs that reach here.  */
+			if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+			  bitmap_clear_bit (local_live, dregno);
+		      }
+		  }
+		else
+		  /* This is the return value.  */
+		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		    bitmap_clear_bit (local_live, dregno);
+	      }
 	  }
+	else
+	  {
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      {
+		struct df_ref *def = *def_rec;
+		unsigned int dregno = DF_REF_REGNO (def);
+		/* If the def is to only part of the reg, it does
+		   not kill the other defs that reach here.  */
+		if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		  bitmap_clear_bit (local_live, dregno);
+	      }
+	  }
+
 	if (marked_insn_p (insn))
-	  for (use = DF_INSN_GET (dce_df, insn)->uses; 
-	       use; use = use->next_ref)
+	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
 	    {
-	      unsigned int regno = DF_REF_REGNO (use);
+	      unsigned int regno = DF_REF_REGNO (*use_rec);
 	      bitmap_set_bit (local_live, regno);
 	    }
       }
   
-  for (def = df_get_artificial_defs (dce_df, bb_index); def; def = def->next_ref)
-    if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
-      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
-
+  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
+    {
+      struct df_ref *def = *def_rec;
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
+	bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+    }
 #ifdef EH_USES
   /* Process the uses that are live into an exception handler.  */
-  for (use = df_get_artificial_uses (dce_df, bb_index); use; use = use->next_ref)
-    /* Add use to set of uses in this BB.  */
-    if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
-      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+  for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
+    {
+      /* Add use to set of uses in this BB.  */
+      struct df_ref *use = *use_rec;
+      if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
+	bitmap_set_bit (local_live, DF_REF_REGNO (use));
+    }
 #endif
 
-  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (dce_df, bb));
+  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
   if (block_changed)
     {
-      BITMAP_FREE (DF_LR_IN (dce_df, bb));
-      DF_LR_IN (dce_df, bb) = local_live;
+#ifdef ENABLE_CHECKING
+      gcc_assert (insns_deleted);
+#endif
+      BITMAP_FREE (DF_LR_IN (bb));
+      DF_LR_IN (bb) = local_live;
     }
   else
     BITMAP_FREE (local_live);
@@ -559,29 +621,22 @@ dce_process_block (basic_block bb, bool redo_out)
 }
 
 static void
-fast_dce (bool df_delete)
+fast_dce (void)
 {
-  int *postorder = xmalloc (sizeof (int) *last_basic_block);
+  int *postorder = df_get_postorder (DF_BACKWARD);
+  int n_blocks = df_get_n_blocks (DF_BACKWARD);
   int i;
   /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
-  /* The set of blocks that will have to be rescaned because some
-     instructions were deleted.  */
-  bitmap changed = BITMAP_ALLOC (NULL);
   /* The set of blocks that need to have the out vectors reset because
      the in of one of their successors has changed.  */
   bitmap redo_out = BITMAP_ALLOC (NULL);
   bitmap all_blocks = BITMAP_ALLOC (NULL);
   bool global_changed = true;
-  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
-  int n_blocks;
+
   int loop_count = 0;
 
-  prescan_insns_for_dce (true);
-
-  n_blocks = post_order_compute (postorder, true);
-  if (n_blocks != n_basic_blocks)
-    delete_unreachable_blocks ();
+  prescan_insns_for_dce ();
 
   for (i = 0; i < n_blocks; i++)
     bitmap_set_bit (all_blocks, postorder[i]);
@@ -593,7 +648,15 @@ fast_dce (bool df_delete)
 	{
 	  int index = postorder [i];
 	  basic_block bb = BASIC_BLOCK (index);
-	  bool local_changed 
+	  bool local_changed;
+
+	  if (index < NUM_FIXED_BLOCKS)
+	    {
+	      bitmap_set_bit (processed, index);
+	      continue;
+	    }
+
+	  local_changed 
 	    = dce_process_block (bb, bitmap_bit_p (redo_out, index));
 	  bitmap_set_bit (processed, index);
 	  
@@ -601,7 +664,6 @@ fast_dce (bool df_delete)
 	    {
 	      edge e;
 	      edge_iterator ei;
-	      bitmap_set_bit (changed, index);
 	      FOR_EACH_EDGE (e, ei, bb->preds)
 		if (bitmap_bit_p (processed, e->src->index))
 		  /* Be very tricky about when we need to iterate the
@@ -623,11 +685,11 @@ fast_dce (bool df_delete)
 	{
 	  /* Turn off the RUN_DCE flag to prevent recursive calls to
 	     dce.  */
-	  int old_flag = df_clear_flags (dflow, DF_LR_RUN_DCE);
+	  int old_flag = df_clear_flags (DF_LR_RUN_DCE);
 
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
-	  delete_unmarked_insns (df_delete);
+	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
@@ -636,22 +698,18 @@ fast_dce (bool df_delete)
 	     to redo the dataflow equations for the blocks that had a
 	     change at the top of the block.  Then we need to redo the
 	     iteration.  */ 
-	  df_analyze_problem (dflow, all_blocks, all_blocks, 
-			      changed, postorder, n_blocks, false);
+	  df_analyze_problem (df_lr, all_blocks, postorder, n_blocks);
 
 	  if (old_flag & DF_LR_RUN_DCE)
-	    df_set_flags (dflow, DF_LR_RUN_DCE);
-	  bitmap_clear (changed);
-	  prescan_insns_for_dce (true);
+	    df_set_flags (DF_LR_RUN_DCE);
+	  prescan_insns_for_dce ();
 	}
       loop_count++;
     }
 
-  delete_unmarked_insns (df_delete);
+  delete_unmarked_insns ();
 
-  free (postorder);
   BITMAP_FREE (processed);
-  BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);
   BITMAP_FREE (all_blocks);
 }
@@ -663,7 +721,7 @@ static unsigned int
 rest_of_handle_fast_dce (void)
 {
   init_dce (true);
-  fast_dce (false);
+  fast_dce ();
   end_fast_dce ();
   return 0;
 }
@@ -680,14 +738,18 @@ rest_of_handle_fast_dce (void)
 */
 
 void
-run_fast_df_dce (struct df *df)
+run_fast_df_dce (void)
 {
-  dce_df = df;
+  /* If dce is able to delete something, it has to happen immediately.
+     Otherwise there will be problems handling the eq_notes.  */
+  enum df_changeable_flags old_flags = df_clear_flags (DF_DEFER_INSN_RESCAN);
+
+  df_in_progress = true;
   init_dce (true);
-  fast_dce (true);
+  fast_dce ();
   BITMAP_FREE (marked);
-  BITMAP_FREE (marked_libcalls);
-  dce_df = NULL;
+  df_in_progress = false;
+  df_set_flags (old_flags);
 }
 
 
@@ -822,10 +884,17 @@ typedef struct store_offset_info store_offset_info;
 DEF_VEC_O(store_offset_info);
 DEF_VEC_ALLOC_O(store_offset_info,heap);
 
+/* Information about a base address.  Addresses are either function
+   invariants or cselib values, depending on context.  */
+union base_address {
+  rtx invariant;
+  cselib_val *value;
+};
+
 /* A structure for grouping together stores that share the same base address.
    STORES is a list of stores with base address BASE.  */
 struct store_base_info {
-  rtx base;
+  union base_address base;
   VEC(store_offset_info,heap) *stores;
 };
 typedef struct store_base_info store_base_info;
@@ -847,6 +916,10 @@ static store_group_info stores;
 /* The identifiers of stores for which we haven't found a potential use.  */
 static VEC(int,heap) *unmarked_stores;
 
+/* Used while processing a basic block.  LOCAL_INVARIANT_STORES contains
+   stores with invariant addresses; LOCAL_VALUE_STORES contains stores
+   whose base addresses are cselib_vals.  */
+static store_group_info local_invariant_stores, local_value_stores;
 
 /* max_in_luid[B][S] is the luid of the last instruction in basic block B
    that is reached by the incoming value of store S.  It is -1 if store S
@@ -855,31 +928,47 @@ static VEC(int,heap) *unmarked_stores;
 static int **max_in_luid;
 
 /* Hashtable callbacks for maintaining the "bases" field of
-   store_group_info.  */
+   store_group_info, given that the addresses are function invariants.  */
 
 static int
-store_base_eq (const void *p1, const void *p2)
+invariant_store_base_eq (const void *p1, const void *p2)
 {
   const store_base_info *sb1 = (const store_base_info *) p1;
   const store_base_info *sb2 = (const store_base_info *) p2;
-  return (GET_CODE (sb1->base) == VALUE
-	  ? sb1->base == sb2->base
-	  : rtx_equal_p (sb1->base, sb2->base));
+  return rtx_equal_p (sb1->base.invariant, sb2->base.invariant);
 }
 
 static hashval_t
-store_base_hash (const void *p)
-  {
+invariant_store_base_hash (const void *p)
+{
   const store_base_info *sb = (const store_base_info *) p;
   int do_not_record;
-  return (GET_CODE (sb->base) == VALUE
-	  ? htab_hash_pointer (sb->base)
-	  : hash_rtx (sb->base, Pmode, &do_not_record, NULL, false));
+  return hash_rtx (sb->base.invariant, Pmode, &do_not_record, NULL, false);
 }
+
+/* Hashtable callbacks for maintaining the "bases" field of
+   store_group_info, given that the addresses are cselib_vals.  */
+
+static int
+value_store_base_eq (const void *p1, const void *p2)
+{
+  const store_base_info *sb1 = (const store_base_info *) p1;
+  const store_base_info *sb2 = (const store_base_info *) p2;
+  return sb1->base.value == sb2->base.value;
+}
+
+static hashval_t
+value_store_base_hash (const void *p)
+{
+  const store_base_info *sb = (const store_base_info *) p;
+  return sb->base.value->value;
+}
+
+/* Hash table callback for the "bases" field of store_group_info.  */
 
 static void
 store_base_del (void *p)
-  {
+{
   store_base_info *sb = (store_base_info *) p;
   VEC_free (store_offset_info, heap, sb->stores);
   XDELETE (sb);
@@ -896,7 +985,7 @@ static bitmap iterating;
 
 /* Functions used to compute the reaching stores sets.  */
 static void 
-rs_init (struct dataflow * dflow ATTRIBUTE_UNUSED, bitmap all_blocks)
+rs_init (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
@@ -908,7 +997,7 @@ rs_init (struct dataflow * dflow ATTRIBUTE_UNUSED, bitmap all_blocks)
 }
 
 static void
-rs_confluence (struct dataflow * dflow ATTRIBUTE_UNUSED, edge e)
+rs_confluence (edge e)
 {
   bitmap op1 = in_vec[e->dest->index];
   bitmap op2 = out_vec[e->src->index];
@@ -916,7 +1005,7 @@ rs_confluence (struct dataflow * dflow ATTRIBUTE_UNUSED, edge e)
 }
 
 static bool
-rs_transfer_function (struct dataflow * dflow ATTRIBUTE_UNUSED, int bb_index)
+rs_transfer_function (int bb_index)
 {
   bitmap in = in_vec[bb_index];
   bitmap out = out_vec[bb_index];
@@ -926,14 +1015,24 @@ rs_transfer_function (struct dataflow * dflow ATTRIBUTE_UNUSED, int bb_index)
   return bitmap_ior_and_compl (out, gen, in, kill);
 }
  
-/* Initialize store group *GROUP.  */
+/* Initialize store group *GROUP so that it can hold invariant addresses.  */
  
- static void
-   init_store_group (store_group_info *group)
+static void
+init_invariant_store_group (store_group_info *group)
 {
   group->stores = NULL;
-  group->bases = htab_create (11, store_base_hash,
-			      store_base_eq, store_base_del);
+  group->bases = htab_create (11, invariant_store_base_hash,
+			      invariant_store_base_eq, store_base_del);
+}
+
+/* Initialize store group *GROUP so that it can hold cselib_val addresses.  */
+ 
+static void
+init_value_store_group (store_group_info *group)
+{
+  group->stores = NULL;
+  group->bases = htab_create (11, value_store_base_hash,
+			      value_store_base_eq, store_base_del);
 }
 
 /* Forget about all stores in *GROUP.  */
@@ -968,8 +1067,8 @@ init_rs_dflow (void)
   out_vec = XNEWVEC (bitmap, last_basic_block);
   gen_vec = XNEWVEC (bitmap, last_basic_block);
   kill_vec = XNEWVEC (bitmap, last_basic_block);
-  postorder = XNEWVEC (int, last_basic_block);
-  n_blocks = post_order_compute (postorder, true);
+  n_blocks = df_get_n_blocks (DF_FORWARD);
+  postorder = df_get_postorder (DF_FORWARD);
   iterating = BITMAP_ALLOC (NULL);
 
   num_stores = VEC_length (store_info, stores.stores);
@@ -1013,7 +1112,6 @@ end_rs_dflow (void)
   XDELETE (max_in_luid);
 
   BITMAP_FREE (iterating);
-  XDELETE (postorder);
   XDELETE (kill_vec);
   XDELETE (gen_vec);
   XDELETE (out_vec);
@@ -1048,7 +1146,7 @@ end_unmarked_stores (void)
 static void
 init_dse (void)
 {
-  init_store_group (&stores);
+  init_invariant_store_group (&stores);
 }
 
 /* Free the structures used by DSE.  */
@@ -1078,7 +1176,7 @@ dump_stores (FILE *file)
       else
 	{
 	  end = store->insn;
-	  while (DF_INSN_LUID (dce_df, end) != store->max_gen_luid)
+	  while (DF_INSN_LUID (end) != store->max_gen_luid)
 	    end = NEXT_INSN (end);
 	  fprintf (file, " gen range (%d, %d]\n",
 		   INSN_UID (store->insn), INSN_UID (end));
@@ -1116,33 +1214,11 @@ split_address (rtx x, rtx *base_out, HOST_WIDE_INT *offset_out)
   *base_out = x;
 }
 
-/* Try to convert the address of memory reference MEM into a canonical
-   base + offset expression.  Return true on success, storing the two
-   components in *BASE_OUT and *OFFSET_OUT respectively.  *BASE_OUT
-   will be either a nonvarying address or a VALUE rtx.  */
-
-static bool
-get_canonical_address (rtx mem, rtx *base_out, HOST_WIDE_INT *offset_out)
-{
-  cselib_val *val;
-
-  split_address (canon_rtx (XEXP (mem, 0)), base_out, offset_out);
-  if (!rtx_varies_p (*base_out, false))
-    return true;
-
-  val = cselib_lookup (*base_out, Pmode, true);
-  if (val == NULL)
-    return false;
-
-  *base_out = val->u.val_rtx;
-  return true;
-}
-
 /* Add a store_offset_info structure to GROUP, given that the next
    store to be added to it will span bytes [BASE + BEGIN, BASE + END).  */
 
 static void
-add_store_offset (store_group_info *group, rtx base,
+add_store_offset (store_group_info *group, union base_address *base,
 		  HOST_WIDE_INT begin, HOST_WIDE_INT end)
 {
   store_base_info *sb, tmp_sb;
@@ -1151,13 +1227,13 @@ add_store_offset (store_group_info *group, rtx base,
 
   /* Find the store_base_info structure for BASE, creating a new one
      if necessary.  */
-  tmp_sb.base = base;
+  tmp_sb.base = *base;
   slot = htab_find_slot (group->bases, &tmp_sb, INSERT);
   sb = (store_base_info *) *slot;
   if (sb == NULL)
     {
       *slot = sb = XNEW (store_base_info);
-      sb->base = base;
+      sb->base = *base;
       sb->stores = NULL;
     }
 
@@ -1169,13 +1245,16 @@ add_store_offset (store_group_info *group, rtx base,
 }
 
 /* BODY is an instruction pattern that belongs to INSN.  Return true
-   if it is a candidate store, adding it to GROUP if so.  */
+   if it is a candidate store, adding it to the appropriate local
+   store group if so.  */
 
 static bool
-record_store (store_group_info *group, rtx body, rtx insn)
+record_store (rtx body, rtx insn)
 {
+  store_group_info *group;
   store_info *store;
-  rtx base, mem;
+  rtx mem;
+  union base_address base;
   HOST_WIDE_INT offset;
 
   /* Check whether INSN sets a single value.  */
@@ -1190,11 +1269,18 @@ record_store (store_group_info *group, rtx body, rtx insn)
     return false;
 
   /* Split the address into canonical BASE + OFFSET terms.  */
-  if (!get_canonical_address (mem, &base, &offset))
-    return false;
+  group = &local_invariant_stores;
+  split_address (canon_rtx (XEXP (mem, 0)), &base.invariant, &offset);
+  if (rtx_varies_p (base.invariant, false))
+    {
+      group = &local_value_stores;
+      base.value = cselib_lookup (base.invariant, Pmode, true);
+      if (base.value == NULL)
+	return false;
+    }
 
-  /* Add a store_offset_info structure for the sture.  */
-  add_store_offset (group, base, offset,
+  /* Add a store_offset_info structure for the store.  */
+  add_store_offset (group, &base, offset,
 		    offset + GET_MODE_SIZE (GET_MODE (mem)));
 
   /* Record the store itself.  */
@@ -1202,16 +1288,17 @@ record_store (store_group_info *group, rtx body, rtx insn)
   store->mem = mem;
   store->insn = insn;
   store->bb = BLOCK_NUM (insn);
-  store->luid = DF_INSN_LUID (dce_df, insn);
+  store->luid = DF_INSN_LUID (insn);
   store->max_gen_luid = INT_MAX;
   return true;
 }
 
-/* Add all candidate stores in INSN to GROUP.  Mark INSN if some part
-   of it is not a candidate store and assigns to a non-register target.  */
+/* Apply record_store to all candidate stores in INSN.  Mark INSN
+   if some part of it is not a candidate store and assigns to a
+   non-register target.  */
 
 static void
-record_stores (store_group_info *group, rtx insn)
+record_stores (rtx insn)
 {
   rtx body;
   int i;
@@ -1220,11 +1307,11 @@ record_stores (store_group_info *group, rtx insn)
   if (GET_CODE (body) == PARALLEL)
     for (i = 0; i < XVECLEN (body, 0); i++)
       {
-	if (!record_store (group, XVECEXP (body, 0, i), insn))
+	if (!record_store (XVECEXP (body, 0, i), insn))
 	  mark_nonreg_stores (XVECEXP (body, 0, i), insn, false);
       }
   else
-    if (!record_store (group, body, insn))
+    if (!record_store (body, insn))
       mark_nonreg_stores (body, insn, false);
 }
 
@@ -1245,14 +1332,17 @@ store_offset_compare (const void *p1, const void *p2)
     return offset2->store - offset1->store;
 }
 
-/* A htab_traverse callback in which *SLOT is a store_base_info structure
-   that belongs to store group DATA.  Work out the max_gen_luid of the
-   stores, all of which are known to be in the same block.  Decide whether
-   we can safely compute the reaching information for each store.
-   Add it to STORES if we can, otherwise mark it as needed.  */
+/* *SLOT is a store_base_info structure that belongs to store group DATA.
+   INVARIANT_P is true if all base addresses are function invariants; it is
+   false if all addresses are cselib_vals.
 
-static int
-store_base_local (void **slot, void *data)
+   Work out the max_gen_luid of the stores, all of which are known to be
+   in the same block.  Decide whether we can safely compute the reaching
+   information for each store.  Add it to STORES if we can, otherwise
+   mark it as needed.  Return true.  */
+
+static inline int
+store_base_local (void **slot, void *data, bool invariant_p)
 {
   store_base_info *sb = (store_base_info *) *slot;
   store_group_info *group = (store_group_info *) data;
@@ -1284,12 +1374,12 @@ store_base_local (void **slot, void *data)
 	    storei->max_gen_luid = storej->luid;
 	}
 
-      if (GET_CODE (sb->base) != VALUE)
+      if (invariant_p)
 	{
 	  /* An invariant address.  We can track STOREJ globally if reaches
 	     the end of the block.  We will also want to know whether STOREJ
 	     kills stores in other basic blocks.  */
-	  add_store_offset (&stores, sb->base, so[j].begin, so[j].end);
+	  add_store_offset (&stores, &sb->base, so[j].begin, so[j].end);
 	  VEC_safe_push (store_info, heap, stores.stores, storej);
 	}
       else
@@ -1303,6 +1393,49 @@ store_base_local (void **slot, void *data)
 	}
     }
   return true;
+}
+
+/* Like store_base_local, but for invariant base addresses only.  */
+
+static int
+invariant_store_base_local (void **slot, void *data)
+{
+  return store_base_local (slot, data, true);
+}
+
+/* Like store_base_local, but for cselib_val base addresses only.  */
+
+static int
+value_store_base_local (void **slot, void *data)
+{
+  return store_base_local (slot, data, false);
+}
+
+/* Like value_store_base_local, but only handle values that have
+   no elt_list_locs left.  Remove all such entries from the hash table.  */
+
+static int
+value_store_base_useless (void **slot, void *data)
+{
+  store_base_info *sb = (store_base_info *) *slot;
+  store_group_info *group = (store_group_info *) data;
+
+  if (sb->base.value->locs == NULL)
+    {
+      value_store_base_local (slot, data);
+      htab_clear_slot (group->bases, slot);
+    }
+  return true;
+}
+
+/* Process and remove all entries in local_value_stores that cselib
+   considers useless.  The associated cselib_vals are about to be freed.  */
+
+static void
+remove_useless_values (void)
+{
+  htab_traverse (local_value_stores.bases,
+		 value_store_base_useless, &local_value_stores);
 }
 
 /* A htab_traverse callback in which *SLOT is a store_base_info structure
@@ -1383,9 +1516,9 @@ static void
 calculate_reaching_stores (void)
 {
   htab_traverse (stores.bases, store_base_global, NULL);
-  df_simple_iterative_dataflow (DF_FORWARD, rs_init, NULL, 
-				rs_confluence, rs_transfer_function, 
-				iterating, postorder, n_blocks);
+  df_simple_dataflow (DF_FORWARD, rs_init, NULL, 
+		      rs_confluence, rs_transfer_function, 
+	   	      iterating, postorder, n_blocks);
   finish_max_in_luid ();
   if (dump_file)
     dump_stores (dump_file);
@@ -1420,7 +1553,7 @@ store_base_prune_needed (void **slot, void *data)
   store_offset_info *so;
   unsigned int i;
 
-  if (sb->base == frame_pointer_rtx && !frame_stores_escape_p ())
+  if (sb->base.invariant == frame_pointer_rtx && !frame_stores_escape_p ())
     for (i = 0; VEC_iterate (store_offset_info, sb->stores, i, so); i++)
       bitmap_clear_bit (needed, so->store);
 
@@ -1533,7 +1666,7 @@ mark_dependent_stores (rtx insn)
 
   /* Look at the local stores that haven't been marked yet.  */
   bb = BLOCK_NUM (insn);
-  luid = DF_INSN_LUID (dce_df, insn);
+  luid = DF_INSN_LUID (insn);
   bb_max_in_luid = max_in_luid[bb];
   s = VEC_address (store_info, stores.stores);
   for (i = 0; VEC_iterate (int, unmarked_stores, i, id); i++)
@@ -1561,34 +1694,47 @@ mark_dependent_stores (rtx insn)
 static void
 prescan_insns_for_dse (void)
 {
-  store_group_info group;
   basic_block bb;
   rtx insn;
 
   if (dump_file)
     fprintf (dump_file, "Finding stores and needed instructions:\n");
 
-  /* If we haven't added a store to this group yet, initialize it now.  */
   cselib_init (false);
-  init_store_group (&group);
+  init_invariant_store_group (&local_invariant_stores);
+  init_value_store_group (&local_value_stores);
   FOR_EACH_BB (bb)
     {
+      df_recompute_luids (bb);
       cselib_clear_table ();
+      cselib_discard_hook = remove_useless_values;
       FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
 	    {
-	      if (!deletable_insn_p (insn))
-		mark_insn (insn, false);
+	      if (!deletable_insn_p (insn, false))
+		{
+		  rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+		  if (note)
+		    mark_libcall (insn, false);
+		  else
+		    mark_insn (insn, false);
+		}
 	      else
-		record_stores (&group, insn);
+		record_stores (insn);
 	    }
 	  cselib_process_insn (insn);
 	}
-      htab_traverse (group.bases, store_base_local, &group);
-      empty_store_group (&group);
+      cselib_discard_hook = NULL;
+      htab_traverse (local_invariant_stores.bases,
+		     invariant_store_base_local, &local_invariant_stores);
+      htab_traverse (local_value_stores.bases,
+		     value_store_base_local, &local_value_stores);
+      empty_store_group (&local_invariant_stores);
+      empty_store_group (&local_value_stores);
     }
-  end_store_group (&group);
+  end_store_group (&local_invariant_stores);
+  end_store_group (&local_value_stores);
   cselib_finish ();
 }
 
@@ -1599,6 +1745,7 @@ rest_of_handle_dse (void)
 {
   rtx insn;
 
+  df_in_progress = false;
   init_dce (false);
   init_alias_analysis ();
   init_dse ();
@@ -1618,7 +1765,10 @@ rest_of_handle_dse (void)
       mark_reg_dependencies (insn);
       mark_dependent_stores (insn);
     }
-  delete_unmarked_insns (false);
+  /* Before any insns are deleted, we must remove the chains since
+     they are not bidirectional.  */
+  df_remove_problem (df_chain);
+  delete_unmarked_insns ();
   if (stores.stores)
     {
       end_unmarked_stores ();
@@ -1637,15 +1787,53 @@ gate_dse (void)
   return optimize > 0 && flag_new_dce;
 }
 
-struct tree_opt_pass pass_rtl_dse =
+struct tree_opt_pass pass_rtl_dse1 =
 {
-  "dse",                                /* name */
+  "dse1",                               /* name */
   gate_dse,                             /* gate */
   rest_of_handle_dse,                   /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_DSE,                               /* tv_id */
+  TV_DSE1,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+struct tree_opt_pass pass_rtl_dse2 =
+{
+  "dse2",                               /* name */
+  gate_dse,                             /* gate */
+  rest_of_handle_dse,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DSE2,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+struct tree_opt_pass pass_rtl_dse3 =
+{
+  "dse3",                               /* name */
+  gate_dse,                             /* gate */
+  rest_of_handle_dse,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DSE3,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

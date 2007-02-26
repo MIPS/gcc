@@ -1,5 +1,5 @@
 /* PolicyTypeHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,10 +38,11 @@ exception statement from your version. */
 
 package org.omg.CORBA;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.ORB;
-import org.omg.CORBA.StructMember;
 import org.omg.CORBA.TCKind;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
@@ -65,7 +66,7 @@ public abstract class PolicyTypeHelper
    */
   public static TypeCode type()
   {
-    ORB orb = ORB.init();
+    ORB orb = OrbRestricted.Singleton;
     return orb.create_alias_tc(id(), "PolicyType",
                                orb.get_primitive_tc(TCKind.tk_ulong)
                               );

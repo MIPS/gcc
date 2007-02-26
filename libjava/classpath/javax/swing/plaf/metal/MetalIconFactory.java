@@ -1,5 +1,5 @@
 /* MetalIconFactory.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -78,7 +78,8 @@ public class MetalIconFactory implements Serializable
   /**
    * An icon displayed for {@link JCheckBoxMenuItem} components.
    */
-  private static class CheckBoxMenuItemIcon implements Icon, Serializable 
+  private static class CheckBoxMenuItemIcon 
+    implements Icon, UIResource, Serializable 
   {
     /**
      * Creates a new icon instance.
@@ -153,7 +154,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getFileChooserDetailViewIcon()
    */
-  private static class FileChooserDetailViewIcon implements Icon, Serializable
+  private static class FileChooserDetailViewIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
@@ -233,7 +235,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getFileChooserHomeFolderIcon()
    */
-  private static class FileChooserHomeFolderIcon implements Icon, Serializable
+  private static class FileChooserHomeFolderIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
@@ -322,7 +325,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getFileChooserListViewIcon()
    */
-  private static class FileChooserListViewIcon implements Icon, Serializable 
+  private static class FileChooserListViewIcon 
+    implements Icon, UIResource, Serializable 
   {
     /**
      * Creates a new icon.
@@ -418,7 +422,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getFileChooserNewFolderIcon()
    */
-  private static class FileChooserNewFolderIcon  implements Icon, Serializable
+  private static class FileChooserNewFolderIcon 
+    implements Icon, UIResource, Serializable
   {
     /** 
      * Creates a new icon.
@@ -490,8 +495,7 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getFileChooserNewFolderIcon()
    */
-  private static class FileChooserUpFolderIcon extends FileChooserNewFolderIcon
-    implements Icon, Serializable 
+  private static class FileChooserUpFolderIcon extends FileChooserNewFolderIcon 
   {
     /**
      * Creates a new icon.
@@ -564,8 +568,8 @@ public class MetalIconFactory implements Serializable
      */
     public void paintIcon(Component c, Graphics g, int x, int y) 
     {
-      // TODO: pick up appropriate UI colors
-      g.setColor(Color.black);
+      y = y + getShift();
+      g.setColor(MetalLookAndFeel.getBlack());
       g.drawLine(x, y, x + 9, y);            
       g.drawLine(x, y + 1, x, y + 15);            
       g.drawLine(x, y + 15, x + 12, y + 15);            
@@ -575,7 +579,7 @@ public class MetalIconFactory implements Serializable
       g.drawLine(x + 7, y + 2, x + 11, y + 6);
       g.drawLine(x + 8, y + 1, x + 9, y + 1);
 
-      g.setColor(new Color(204, 204, 255));
+      g.setColor(MetalLookAndFeel.getPrimaryControl());
       g.drawLine(x + 1, y + 1, x + 7, y + 1);            
       g.drawLine(x + 1, y + 1, x + 1, y + 14);            
       g.drawLine(x + 1, y + 14, x + 11, y + 14);            
@@ -596,7 +600,9 @@ public class MetalIconFactory implements Serializable
     }
         
     /**
-     * Returns the shift (???).
+     * Returns the vertical shift, in pixels, applied when painting the icon.  
+     * The default value is zero, but subclasses may override this (for 
+     * example, see {@link TreeLeafIcon}).
      * 
      * @return The shift.
      */
@@ -644,21 +650,21 @@ public class MetalIconFactory implements Serializable
      */
     public void paintIcon(Component c, Graphics g, int x, int y) 
     {
-      // TODO: pick up appropriate UI colors
-      g.setColor(Color.black);
-      g.drawLine(x, y + 3, x, y + 12);
-      g.drawLine(x, y + 12, x + 15, y + 12);
-      g.drawLine(x + 15, y + 12, x + 15, y + 2);
-      g.drawLine(x + 14, y + 3, x + 9, y + 3);
-      g.drawLine(x + 8, y + 2, x + 1, y + 2);
-      g.setColor(new Color(204, 204, 255));
-      g.fillRect(x + 2, y + 4, 7, 8);
-      g.fillRect(x + 9, y + 5, 6, 7);
-      g.setColor(new Color(102, 102, 153));
-      g.drawLine(x + 9, y + 2, x + 14, y + 2);
-      g.setColor(new Color(50, 50, 120));
-      g.drawLine(x + 9, y + 1, x + 15, y + 1);
-      g.drawLine(x + 10, y, x + 15, y);
+      y = y + getShift();
+      g.setColor(MetalLookAndFeel.getBlack());
+      g.drawLine(x, y + 6, x, y + 15);
+      g.drawLine(x, y + 15, x + 15, y + 15);
+      g.drawLine(x + 15, y + 15, x + 15, y + 5);
+      g.drawLine(x + 14, y + 6, x + 9, y + 6);
+      g.drawLine(x + 8, y + 5, x + 1, y + 5);
+      g.setColor(MetalLookAndFeel.getPrimaryControl());
+      g.fillRect(x + 2, y + 7, 7, 8);
+      g.fillRect(x + 9, y + 8, 6, 7);
+      g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
+      g.drawLine(x + 9, y + 5, x + 14, y + 5);
+      g.setColor(MetalLookAndFeel.getPrimaryControlDarkShadow());
+      g.drawLine(x + 9, y + 4, x + 15, y + 4);
+      g.drawLine(x + 10, y + 3, x + 15, y + 3);
     }
     
     /**
@@ -674,7 +680,9 @@ public class MetalIconFactory implements Serializable
     }
     
     /**
-     * Returns the shift (???).
+     * Returns the vertical shift, in pixels, applied when painting the icon.  
+     * The default value is zero, but subclasses may override this (for 
+     * example, see {@link TreeFolderIcon}).
      * 
      * @return The shift.
      */
@@ -883,7 +891,8 @@ public class MetalIconFactory implements Serializable
   /**
    * An icon displayed for {@link JRadioButtonMenuItem} components.
    */
-  private static class RadioButtonMenuItemIcon implements Icon, Serializable 
+  private static class RadioButtonMenuItemIcon 
+    implements Icon, UIResource, Serializable 
   {
     /**
      * Creates a new icon instance.
@@ -960,14 +969,15 @@ public class MetalIconFactory implements Serializable
    * The icon used to display the thumb control on a horizontally oriented
    * {@link JSlider} component.
    */
-  private static class HorizontalSliderThumbIcon  implements Icon, Serializable
+  private static class HorizontalSliderThumbIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
      * This mask is used to paint the gradient in the shape of the thumb.
      */
     int[][] gradientMask = new int[][] { {0, 12}, {0, 12}, {0, 12}, {0, 12},
-                                         {0, 12}, {0, 12}, {0, 12}, {1, 12},
+                                         {0, 12}, {0, 12}, {0, 12}, {1, 11},
                                          {2, 10}, {3, 9}, {4, 8}, {5, 7},
                                          {6, 6}};
 
@@ -1029,20 +1039,22 @@ public class MetalIconFactory implements Serializable
       g.drawLine(x + 6, y + 14, x, y + 8);
       g.drawLine(x, y + 7, x, y + 1);
       
-      // Fill the icon.
-      if (MetalLookAndFeel.getCurrentTheme() instanceof OceanTheme
-          && enabled)
-        {
-          String gradient;
-          if (focus)
-            gradient = "Slider.focusGradient";
-          else
-            gradient = "Slider.gradient";
-          MetalUtils.paintGradient(g, x + 1, y + 2, 12, 13,
-                                   SwingConstants.VERTICAL, gradient,
-                                   gradientMask);
-        }
-      else
+// The following is commented out until the masking for the gradient painting 
+// is working correctly
+//      // Fill the icon.
+//      if (MetalLookAndFeel.getCurrentTheme() instanceof OceanTheme
+//          && enabled)
+//        {
+//          String gradient;
+//          if (focus)
+//            gradient = "Slider.focusGradient";
+//          else
+//            gradient = "Slider.gradient";
+//          MetalUtils.paintGradient(g, x + 1, y + 2, 12, 13,
+//                                   SwingConstants.VERTICAL, gradient,
+//                                   gradientMask);
+//        }
+//      else
         {
           if (focus)
             g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
@@ -1102,7 +1114,8 @@ public class MetalIconFactory implements Serializable
    * An icon used for the 'close' button in the title frame of a 
    * {@link JInternalFrame}.
    */
-  private static class InternalFrameCloseIcon implements Icon, Serializable
+  private static class InternalFrameCloseIcon 
+    implements Icon, UIResource, Serializable
   {
     /** The icon size in pixels. */
     private int size;
@@ -1219,7 +1232,7 @@ public class MetalIconFactory implements Serializable
    * The icon displayed at the top-left corner of a {@link JInternalFrame}.
    */
   private static class InternalFrameDefaultMenuIcon
-    implements Icon, Serializable 
+    implements Icon, UIResource, Serializable 
   {
        
     /**
@@ -1260,23 +1273,23 @@ public class MetalIconFactory implements Serializable
      */
     public void paintIcon(Component c, Graphics g, int x, int y) 
     {
-      g.setColor(new Color(102, 102, 153));
+      g.setColor(MetalLookAndFeel.getPrimaryControlDarkShadow());
       g.fillRect(x + 1, y, 14, 2);
       g.fillRect(x, y + 1, 2, 14);
       g.fillRect(x + 1, y + 14, 14, 2);
       g.fillRect(x + 14, y + 1, 2, 14);
       g.drawLine(x + 2, y + 5, x + 14, y + 5);
       
-      g.setColor(new Color(204, 204, 255));
+      g.setColor(MetalLookAndFeel.getPrimaryControl());
       g.fillRect(x + 2, y + 2, 12, 3);
       
-      g.setColor(new Color(102, 102, 153));
+      g.setColor(MetalLookAndFeel.getPrimaryControlDarkShadow());
       g.drawLine(x + 3, y + 3, x + 3, y + 3);
       g.drawLine(x + 6, y + 3, x + 6, y + 3);
       g.drawLine(x + 9, y + 3, x + 9, y + 3);
       g.drawLine(x + 12, y + 3, x + 12, y + 3);
 
-      g.setColor(Color.white);
+      g.setColor(MetalLookAndFeel.getWhite());
       g.fillRect(x + 2, y + 6, 12, 8);
       g.drawLine(x + 2, y + 2, x + 2, y + 2);
       g.drawLine(x + 5, y + 2, x + 5, y + 2);
@@ -1291,7 +1304,7 @@ public class MetalIconFactory implements Serializable
    * provide a 'restore' option.
    */
   private static class InternalFrameAltMaximizeIcon
-    implements Icon, Serializable 
+    implements Icon, UIResource, Serializable 
   {
     /** The icon size in pixels. */
     private int size;
@@ -1401,7 +1414,8 @@ public class MetalIconFactory implements Serializable
    * An icon used for the 'maximize' button in the title frame of a 
    * {@link JInternalFrame}.
    */
-  private static class InternalFrameMaximizeIcon implements Icon, Serializable
+  private static class InternalFrameMaximizeIcon 
+    implements Icon, UIResource, Serializable
   {
     
     /**
@@ -1513,7 +1527,8 @@ public class MetalIconFactory implements Serializable
   /**
    * An icon used in the title frame of a {@link JInternalFrame}.
    */
-  private static class InternalFrameMinimizeIcon implements Icon, Serializable
+  private static class InternalFrameMinimizeIcon 
+    implements Icon, UIResource, Serializable
   {
   
     /**
@@ -1617,13 +1632,14 @@ public class MetalIconFactory implements Serializable
    * The icon used to display the thumb control on a horizontally oriented
    * {@link JSlider} component.
    */
-  private static class VerticalSliderThumbIcon implements Icon, Serializable
+  private static class VerticalSliderThumbIcon 
+    implements Icon, UIResource, Serializable
   {
     /**
      * This mask is used to paint the gradient in the shape of the thumb.
      */
     int[][] gradientMask = new int[][] { {0, 12}, {0, 12}, {0, 12}, {0, 12},
-                                         {0, 12}, {0, 12}, {0, 12}, {1, 12},
+                                         {0, 12}, {0, 12}, {0, 12}, {1, 11},
                                          {2, 10}, {3, 9}, {4, 8}, {5, 7},
                                          {6, 6}};
 
@@ -1686,20 +1702,22 @@ public class MetalIconFactory implements Serializable
       g.drawLine(x + 8, y + 14, x + 1, y + 14);
       g.drawLine(x, y + 13, x, y + 1);
       
-      // Fill the icon.
-      if (MetalLookAndFeel.getCurrentTheme() instanceof OceanTheme
-          && enabled)
-        {
-          String gradient;
-          if (focus)
-            gradient = "Slider.focusGradient";
-          else
-            gradient = "Slider.gradient";
-          MetalUtils.paintGradient(g, x + 2, y + 1, 13, 12,
-                                   SwingConstants.HORIZONTAL, gradient,
-                                   gradientMask);
-        }
-      else
+//    The following is commented out until the masking for the gradient painting 
+//    is working correctly
+//      // Fill the icon.
+//      if (MetalLookAndFeel.getCurrentTheme() instanceof OceanTheme
+//          && enabled)
+//        {
+//          String gradient;
+//          if (focus)
+//            gradient = "Slider.focusGradient";
+//          else
+//            gradient = "Slider.gradient";
+//          MetalUtils.paintGradient(g, x + 2, y + 1, 13, 12,
+//                                   SwingConstants.HORIZONTAL, gradient,
+//                                   gradientMask);
+//        }
+//      else
         {
           if (focus)
             g.setColor(MetalLookAndFeel.getPrimaryControlShadow());
@@ -1801,78 +1819,36 @@ public class MetalIconFactory implements Serializable
     /**
      * Paints the icon at the location (x, y).
      * 
-     * @param c  the component.
-     * @param g  the graphics device.
-     * @param x  the x coordinate.
-     * @param y  the y coordinate.
+     * @param c the component.
+     * @param g the graphics device.
+     * @param x the x coordinate.
+     * @param y the y coordinate.
      */
-    public void paintIcon(Component c, Graphics g, int x, int y) 
+    public void paintIcon(Component c, Graphics g, int x, int y)
     {
-      x = x + 5;
-      y = y + 5;
-      if (collapsed) 
-      {
-        // TODO: pick up appropriate UI colors
-        g.setColor(Color.black);
-        g.drawLine(x + 2, y, x + 5, y);
-        g.drawLine(x + 6, y + 1, x + 7, y + 2);
-        g.fillRect(x + 7, y + 3, 5, 2);
-        g.drawLine(x + 7, y + 5, x + 6, y + 6);
-        g.drawLine(x + 1, y + 1, x + 1, y + 1);
-        g.drawLine(x, y + 2, x, y + 5);
-        g.drawLine(x + 1, y + 6, x + 1, y + 6);
-        g.drawLine(x + 2, y + 7, x + 5, y + 7);
-        g.fillRect(x + 3, y + 3, 2, 2);
+      // TODO: pick up appropriate UI colors
+      Color dark = new Color(99, 130, 191);
+      Color light = new Color(163, 184, 204);
+      Color white = Color.white;
 
-        g.setColor(new Color(204, 204, 255));
-        g.drawLine(x + 3, y + 2, x + 4, y + 2);
-        g.drawLine(x + 2, y + 3, x + 2, y + 4);
-        g.drawLine(x + 3, y + 5, x + 3, y + 5);
-        g.drawLine(x + 5, y + 3, x + 5, y + 3);
-        
-        g.setColor(new Color(153, 153, 204));
-        g.drawLine(x + 2, y + 2, x + 2, y + 2);
-        g.drawLine(x + 2, y + 5, x + 2, y + 5);
-        g.drawLine(x + 2, y + 6, x + 5, y + 6);
-        g.drawLine(x + 5, y + 2, x + 5, y + 2);
-        g.drawLine(x + 6, y + 2, x + 6, y + 5);
-        
-        g.setColor(new Color(102, 102, 153));
-        g.drawLine(x + 2, y + 1, x + 5, y + 1);
-        g.drawLine(x + 1, y + 2, x + 1, y + 5);
-      }
+      x += 8;
+      y += 6;
+
+      final int w = 6;
+      final int wHalf = (w >> 2);
+      g.setColor(light);
+      g.drawOval(x, y, w, w);
+      g.setColor(dark);
+      g.fillOval(x + 1, y + 1, w - 1, w - 1);
+      
+      if (collapsed)
+        g.fillRect(x + w, y + wHalf + 1, w, 2);
       else
-      {
-        // TODO: pick up appropriate UI colors
-        g.setColor(Color.black);
-        g.drawLine(x + 2, y, x + 5, y);
-        g.drawLine(x + 6, y + 1, x + 7, y + 2);
-        g.drawLine(x + 7, y + 2, x + 7, y + 5);
-        g.fillRect(x + 3, y + 7, 2, 5);
-        g.drawLine(x + 7, y + 5, x + 6, y + 6);
-        g.drawLine(x + 1, y + 1, x + 1, y + 1);
-        g.drawLine(x, y + 2, x, y + 5);
-        g.drawLine(x + 1, y + 6, x + 1, y + 6);
-        g.drawLine(x + 2, y + 7, x + 5, y + 7);
-        g.fillRect(x + 3, y + 3, 2, 2);
+        g.fillRect(x + wHalf + 1, y + w, 2, w);
+      
+      g.setColor(white);
+      g.fillRect(x + wHalf + 1, y + wHalf + 1, 2, 2);
 
-        g.setColor(new Color(204, 204, 255));
-        g.drawLine(x + 3, y + 2, x + 4, y + 2);
-        g.drawLine(x + 2, y + 3, x + 2, y + 4);
-        g.drawLine(x + 3, y + 5, x + 3, y + 5);
-        g.drawLine(x + 5, y + 3, x + 5, y + 3);
-        
-        g.setColor(new Color(153, 153, 204));
-        g.drawLine(x + 2, y + 2, x + 2, y + 2);
-        g.drawLine(x + 2, y + 5, x + 2, y + 5);
-        g.drawLine(x + 2, y + 6, x + 5, y + 6);
-        g.drawLine(x + 5, y + 2, x + 5, y + 2);
-        g.drawLine(x + 6, y + 2, x + 6, y + 5);
-        
-        g.setColor(new Color(102, 102, 153));
-        g.drawLine(x + 2, y + 1, x + 5, y + 1);
-        g.drawLine(x + 1, y + 2, x + 1, y + 5);
-      }
     } 
     
     /**
@@ -1914,7 +1890,8 @@ public class MetalIconFactory implements Serializable
     }
     
     /**
-     * Returns the shift (???).
+     * Returns the vertical shift, in pixels, applied when painting the icon.  
+     * This overridden method returns <code>-1</code>.
      * 
      * @return The shift.
      */
@@ -1949,7 +1926,8 @@ public class MetalIconFactory implements Serializable
     }
     
     /**
-     * Returns the shift (???).
+     * Returns the vertical shift, in pixels, applied when painting the icon.  
+     * This overridden method returns <code>2</code>.
      * 
      * @return The shift.
      */
@@ -1964,7 +1942,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getTreeHardDriveIcon()
    */
-  private static class TreeHardDriveIcon implements Icon, Serializable
+  private static class TreeHardDriveIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
@@ -2074,7 +2053,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getTreeFloppyDriveIcon()
    */
-  private static class TreeFloppyDriveIcon implements Icon, Serializable
+  private static class TreeFloppyDriveIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
@@ -2150,7 +2130,8 @@ public class MetalIconFactory implements Serializable
    * 
    * @see MetalIconFactory#getTreeComputerIcon()
    */
-  private static class TreeComputerIcon implements Icon, Serializable
+  private static class TreeComputerIcon 
+    implements Icon, UIResource, Serializable
   {
 
     /**
@@ -2254,6 +2235,12 @@ public class MetalIconFactory implements Serializable
   
   /** The icon instance returned by {@link #getTreeHardDriveIcon()}. */
   private static Icon treeHardDriveIcon;
+  
+  /** The icon instance returned by {@link #getHorizontalSliderThumbIcon()}. */
+  private static Icon horizontalSliderThumbIcon;
+
+  /** The icon instance returned by {@link #getVerticalSliderThumbIcon()}. */
+  private static Icon verticalSliderThumbIcon;
   
   /**
    * Creates a new instance.  All the methods are static, so creating an 
@@ -2383,7 +2370,9 @@ public class MetalIconFactory implements Serializable
    */
   public static Icon getHorizontalSliderThumbIcon() 
   {
-    return new HorizontalSliderThumbIcon();
+    if (horizontalSliderThumbIcon == null)
+      horizontalSliderThumbIcon = new HorizontalSliderThumbIcon();
+    return horizontalSliderThumbIcon;
   }
     
   /**
@@ -2462,7 +2451,9 @@ public class MetalIconFactory implements Serializable
    */
   public static Icon getVerticalSliderThumbIcon() 
   {
-    return new VerticalSliderThumbIcon();
+    if (verticalSliderThumbIcon == null)
+      verticalSliderThumbIcon = new VerticalSliderThumbIcon();
+    return verticalSliderThumbIcon;
   }
     
   /**

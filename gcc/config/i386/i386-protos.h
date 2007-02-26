@@ -43,14 +43,15 @@ extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
 extern rtx standard_80387_constant_rtx (int);
 extern int standard_sse_constant_p (rtx);
+extern const char *standard_sse_constant_opcode (rtx, rtx);
 extern int symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);
 extern bool x86_extended_QIreg_mentioned_p (rtx);
 extern bool x86_extended_reg_mentioned_p (rtx);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
-extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
-extern int ix86_expand_clrmem (rtx, rtx, rtx);
+extern int ix86_expand_movmem (rtx, rtx, rtx, rtx, rtx, rtx);
+extern int ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern int ix86_expand_strlen (rtx, rtx, rtx, rtx);
 
 extern bool legitimate_constant_p (rtx);
@@ -88,6 +89,11 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern void ix86_expand_convert_uns_si_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_didf_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_sidf_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_sisf_sse (rtx, rtx);
+extern void ix86_expand_convert_sign_didf_sse (rtx, rtx);
 extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
 					    rtx[]);
@@ -104,6 +110,7 @@ extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
 extern bool ix86_expand_fp_vcond (rtx[]);
 extern bool ix86_expand_int_vcond (rtx[]);
+extern void ix86_expand_sse_unpack (rtx[], bool, bool);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
@@ -156,6 +163,16 @@ extern void ix86_emit_i387_log1p (rtx, rtx);
 
 extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
+extern void ix86_expand_lround (rtx, rtx);
+extern void ix86_expand_lfloorceil (rtx, rtx, bool);
+extern void ix86_expand_rint (rtx, rtx);
+extern void ix86_expand_floorceil (rtx, rtx, bool);
+extern void ix86_expand_floorceildf_32 (rtx, rtx, bool);
+extern void ix86_expand_round (rtx, rtx);
+extern void ix86_expand_rounddf_32 (rtx, rtx);
+extern void ix86_expand_trunc (rtx, rtx);
+extern void ix86_expand_truncdf_32 (rtx, rtx);
+
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
@@ -173,7 +190,7 @@ extern int ix86_data_alignment (tree, int);
 extern int ix86_local_alignment (tree, int);
 extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
-extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *); 
+extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 
 extern unsigned int i386_pe_section_type_flags (tree, const char *, int);
 extern void i386_pe_asm_named_section (const char *, unsigned int, tree);

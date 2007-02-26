@@ -84,6 +84,11 @@ extern int flag_pa_unix;
 #define TARGET_HPUX_10_10 0
 #endif
 
+/* HP-UX 11.* features (11.00, 11.11, 11.23, etc.)  */
+#ifndef TARGET_HPUX_11
+#define TARGET_HPUX_11 0
+#endif
+
 /* HP-UX 11i multibyte and UNIX 98 extensions.  */
 #ifndef TARGET_HPUX_11_11
 #define TARGET_HPUX_11_11 0
@@ -367,7 +372,7 @@ typedef struct machine_function GTY(())
    is already live or already being saved (due to eh).  */
 
 #define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
-  ((NEW_REG) != 2 || regs_ever_live[2] || current_function_calls_eh_return)
+  ((NEW_REG) != 2 || df_regs_ever_live_p (2) || current_function_calls_eh_return)
 
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.
@@ -1119,13 +1124,18 @@ extern int may_call_alloca;
 #define LEGITIMATE_CONSTANT_P(X)				\
   ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT			\
     || (X) == CONST0_RTX (GET_MODE (X)))			\
-   && (NEW_HP_ASSEMBLER || TARGET_GAS || GET_CODE (X) != LABEL_REF)	\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE)		\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_INT		\
-	&& !(HOST_BITS_PER_WIDE_INT <= 32			\
-	     || (reload_in_progress || reload_completed)	\
-	     || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))	\
-	     || cint_ok_for_move (INTVAL (X))))			\
+   && (NEW_HP_ASSEMBLER						\
+       || TARGET_GAS						\
+       || GET_CODE (X) != LABEL_REF)				\
+   && (!TARGET_64BIT						\
+       || GET_CODE (X) != CONST_DOUBLE)				\
+   && (!TARGET_64BIT						\
+       || HOST_BITS_PER_WIDE_INT <= 32				\
+       || GET_CODE (X) != CONST_INT				\
+       || reload_in_progress					\
+       || reload_completed					\
+       || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))		\
+       || cint_ok_for_move (INTVAL (X)))			\
    && !function_label_operand (X, VOIDmode))
 
 /* Target flags set on a symbol_ref.  */
@@ -1560,12 +1570,7 @@ do { 									\
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)	\
-  if (GET_CODE (ADDR) == PRE_DEC	\
-      || GET_CODE (ADDR) == POST_DEC	\
-      || GET_CODE (ADDR) == PRE_INC	\
-      || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 #define TARGET_ASM_SELECT_SECTION  pa_select_section
 
@@ -1742,9 +1747,14 @@ do { 									\
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); 	\
-       fputc ('\n', FILE); } while (0)
+#define ASM_OUTPUT_LABEL(FILE,NAME) \
+  do {							\
+    assemble_name ((FILE), (NAME));			\
+    if (TARGET_GAS)					\
+      fputs (":\n", (FILE));				\
+    else						\
+      fputc ('\n', (FILE));				\
+  } while (0)
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
@@ -1776,6 +1786,17 @@ do { 									\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
+
+/* Output the definition of a compiler-generated label named NAME.  */
+
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,NAME) \
+  do {							\
+    assemble_name_raw ((FILE), (NAME));			\
+    if (TARGET_GAS)					\
+      fputs (":\n", (FILE));				\
+    else						\
+      fputc ('\n', (FILE));				\
+  } while (0)
 
 #define TARGET_ASM_GLOBALIZE_LABEL pa_globalize_label
 

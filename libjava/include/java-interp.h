@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -45,6 +45,12 @@ int  _Jv_count_arguments (_Jv_Utf8Const *signature,
 			  jboolean staticp = true);
 void _Jv_VerifyMethod (_Jv_InterpMethod *method);
 void _Jv_CompileMethod (_Jv_InterpMethod* method);
+int _Jv_init_cif (_Jv_Utf8Const* signature,
+		  int arg_count,
+		  jboolean staticp,
+		  ffi_cif *cif,
+		  ffi_type **arg_types,
+		  ffi_type **rtype_p);
 
 /* the interpreter is written in C++, primarily because it makes it easy for
  * the entire thing to be "friend" with class Class. */
@@ -133,6 +139,14 @@ struct  _Jv_LineTableEntry
 
 class _Jv_InterpMethod : public _Jv_MethodBase
 {
+  // Breakpoint instruction
+  static pc_t breakpoint_insn;
+#ifdef DIRECT_THREADED
+  static insn_slot bp_insn_slot;
+#else
+  static unsigned char bp_insn_opcode;
+#endif
+
   _Jv_ushort       max_stack;
   _Jv_ushort       max_locals;
   int              code_length;
@@ -144,7 +158,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   int line_table_len;  
   _Jv_LineTableEntry *line_table;
 
-  void *prepared;
+  pc_t prepared;
   int number_insn_slots;
 
   unsigned char* bytecode () 
@@ -176,21 +190,27 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
   static void run_class (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
+  
+  static void run_normal_debug (ffi_cif*, void*, ffi_raw*, void*);
+  static void run_synch_object_debug (ffi_cif*, void*, ffi_raw*, void*);
+  static void run_class_debug (ffi_cif*, void*, ffi_raw*, void*);
+  static void run_synch_class_debug (ffi_cif*, void*, ffi_raw*, void*);
 
-  static void run (void*, ffi_raw *, _Jv_InterpMethod *);
+  static void run (void *, ffi_raw *, _Jv_InterpMethod *);
+  static void run_debug (void *, ffi_raw *, _Jv_InterpMethod *);
+  
 
+  
   // Returns source file line number for given PC value, or -1 if line
   // number info is unavailable.
   int get_source_line(pc_t mpc);
 
-#ifdef DIRECT_THREADED
+   public:
+
   // Convenience function for indexing bytecode PC/insn slots in
   // line tables for JDWP
   jlong insn_index (pc_t pc);
-#endif
-
- public:
-
+   
   /* Get the line table for this method.
    * start  is the lowest index in the method
    * end    is the  highest index in the method
@@ -199,6 +219,22 @@ class _Jv_InterpMethod : public _Jv_MethodBase
    */
   void get_line_table (jlong& start, jlong& end, jintArray& line_numbers,
 		       jlongArray& code_indices);
+  
+  int get_max_locals ()
+  {
+    return static_cast<int> (max_locals);
+  }
+
+  /* Installs a break instruction at the given code index. Returns
+     the pc_t of the breakpoint or NULL if index is invalid. */
+  pc_t install_break (jlong index);
+
+  // Gets the instruction at the given index
+  pc_t get_insn (jlong index);
+
+  /* Writes the given instruction at the given code index. Returns
+     the insn or NULL if index is invalid. */
+  pc_t set_insn (jlong index, pc_t insn);
 
 #ifdef DIRECT_THREADED
   friend void _Jv_CompileMethod (_Jv_InterpMethod*);
@@ -284,26 +320,105 @@ public:
   }
 };
 
-// The interpreted call stack, represented by a linked list of frames.
-struct _Jv_InterpFrame
+enum _Jv_FrameType
 {
-  _Jv_InterpMethod *self;
-  java::lang::Thread *thread;
-  _Jv_InterpFrame *next;
-  pc_t pc;
+  frame_native,
+  frame_interpreter,
+  frame_proxy
+};
 
-  _Jv_InterpFrame (_Jv_InterpMethod *s, java::lang::Thread *thr)
+//  The composite call stack as represented by a linked list of frames
+class _Jv_Frame
+{
+public:
+  java::lang::Thread *thread;
+
+  union
+  {
+    _Jv_MethodBase *self;
+    void *meth;
+    _Jv_Method *proxyMethod;
+  };
+  
+  //The full list of frames, JNI and interpreted
+  _Jv_Frame *next;
+  _Jv_FrameType frame_type;
+  
+  _Jv_Frame (_Jv_MethodBase *s, java::lang::Thread *thr, _Jv_FrameType type)
   {
     self = s;
+    frame_type = type;
+    next = (_Jv_Frame *) thr->frame;
+    thr->frame = (gnu::gcj::RawData *) this;
     thread = thr;
-    next = (_Jv_InterpFrame *) thr->interp_frame;
+  }
+
+  ~_Jv_Frame ()
+  {
+    thread->frame = (gnu::gcj::RawData *) next;
+  }
+
+  int depth ()
+  {
+    int depth = 0;
+    struct _Jv_Frame *f;
+    for (f = this; f != NULL; f = f->next)
+      ++depth;
+
+    return depth;
+  }
+};
+
+// An interpreted frame in the call stack
+class _Jv_InterpFrame : public _Jv_Frame
+{
+public:
+  
+  // Keep the purely interpreted list around so as not to break backtraces
+  _Jv_InterpFrame *next_interp;
+  
+  union
+  {
+    pc_t pc;
+    jclass proxyClass;
+  };
+
+  //Debug info for local variables.
+  _Jv_word *locals;
+  char *locals_type;
+
+  // Object pointer for this frame ("this")
+  jobject obj_ptr;
+
+  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL)
+  : _Jv_Frame (reinterpret_cast<_Jv_MethodBase *> (meth), thr,
+	             frame_interpreter)
+  {
+    next_interp = (_Jv_InterpFrame *) thr->interp_frame;
+    proxyClass = proxyCls;
     thr->interp_frame = (gnu::gcj::RawData *) this;
-    pc = NULL;
+    obj_ptr = NULL;
   }
 
   ~_Jv_InterpFrame ()
   {
-    thread->interp_frame = (gnu::gcj::RawData *) next;
+    thread->interp_frame = (gnu::gcj::RawData *) next_interp;
+  }
+
+  jobject get_this_ptr ()
+  {
+    return obj_ptr;
+  } 
+};
+
+// A native frame in the call stack really just a placeholder
+class _Jv_NativeFrame : public _Jv_Frame
+{
+public:
+
+  _Jv_NativeFrame (_Jv_JNIMethod *s, java::lang::Thread *thr)
+  : _Jv_Frame (s, thr, frame_native)
+  {
   }
 };
 

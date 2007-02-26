@@ -1,3 +1,20 @@
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* treetree.c (builtin_function): Remove.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "treelang.pdf" target support.
+
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* treelang.texi (@dircategory): Use "Software development"
+	instead of "Programming", following the Free Software Directory.
+
 2006-06-06  Mike Stump  <mrs@apple.com>
 
 	* Make-lang.in: Rename to gcc_htmldir to build_htmldir to avoid

@@ -276,26 +276,24 @@ public class FlowLayout implements LayoutManager, Serializable
   }
 
   /**
-   * Sets the horizontal gap between components to the specified value.
-   *
+   * Sets the horizontal gap between lines of components to the specified value.
+   * No Exception is thrown if hgap < 0.
+   * 
    * @param hgap The new horizontal gap between components.
    */
   public void setHgap (int hgap)
   {
-    if (hgap < 0)
-      throw new IllegalArgumentException ("horizontal gap must be nonnegative");
     this.hgap = hgap;
   }
 
   /**
    * Sets the vertical gap between lines of components to the specified value.
+   * No Exception is thrown if vgap < 0.
    *
    * @param vgap The new vertical gap.
    */
   public void setVgap (int vgap)
   {
-    if (vgap < 0)
-      throw new IllegalArgumentException ("vertical gap must be nonnegative");
     this.vgap = vgap;
   }
 
@@ -339,7 +337,10 @@ public class FlowLayout implements LayoutManager, Serializable
 
 	Insets ins = parent.getInsets ();
 
-	w += (num + 1) * hgap + ins.left + ins.right;
+        if (num == 0)
+          w += 2 * hgap + ins.left + ins.right;
+        else
+          w += (num + 1) * hgap + ins.left + ins.right;
 	h += 2 * vgap + ins.top + ins.bottom;
 
 	return new Dimension (w, h);

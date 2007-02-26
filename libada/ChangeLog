@@ -1,3 +1,20 @@
+2007-01-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/30541
+	* Makefile.in (STAGE_PREFIX): Do not define.
+	(FLAGS_TO_PASS): Do not pass STAGE_PREFIX.
+
+2006-11-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/29802
+	* configure.ac: Call GCC_TOPLEV_SUBDIRS.
+	* configure: Regenerate.
+	* Makefile.in: Replace host_subdir.
+
+2006-10-16  Brooks Moses  <bmoses@stanford.edu>
+
+	* Makefile.in: Add dummy "pdf" target.
+
 2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Makefile.in: Add install-html target.

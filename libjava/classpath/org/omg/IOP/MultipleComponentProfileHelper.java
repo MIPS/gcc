@@ -1,5 +1,5 @@
 /* MultipleComponentProfileHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,11 +39,11 @@ exception statement from your version. */
 package org.omg.IOP;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.Any;
 import org.omg.CORBA.TypeCode;
-import org.omg.CORBA.TCKind;
 import org.omg.CORBA.BAD_OPERATION;
 
 import org.omg.CORBA.portable.OutputStream;
@@ -51,30 +51,21 @@ import org.omg.CORBA.portable.InputStream;
 
  /**
  * A helper operations for the array of {@link TaggedComponent}
- * ({@link MultipleComponentProfile}).
+ * (MultipleComponentProfile).
  *
  * @author Audrius Meskauskas, Lithuania (AudriusA@Bioinformatics.org)
  */
 public abstract class MultipleComponentProfileHelper
 {
-  /**
-   * The cached typecode value, computed only once.
-   */
-  private static TypeCode typeCode;
-
   public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        ORB orb = ORB.init();
-        typeCode = orb.create_sequence_tc(0, TaggedComponentHelper.type());
-      }
-    return typeCode;
+    ORB orb = OrbRestricted.Singleton;
+    return orb.create_sequence_tc(0, TaggedComponentHelper.type());
   }
   /**
-   * Insert the MultipleComponentProfile into the given Any.
-   * This method uses the MultipleComponentProfileHolder.
-   *
+   * Insert the MultipleComponentProfile into the given Any. This method uses
+   * the MultipleComponentProfileHolder.
+   * 
    * @param any the Any to insert into.
    * @param those the TaggedComponent[] to insert.
    */

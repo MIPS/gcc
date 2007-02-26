@@ -53,22 +53,20 @@ import java.util.Map;
 /**
  * An abstract class defining a device independent two-dimensional vector 
  * graphics API.  Concrete subclasses implement this API for output of 
- * vector graphics to: (*)
+ * vector graphics to:
  * <p>
  * <ul>
  * <li>a {@link javax.swing.JComponent} - in the 
  *     {@link javax.swing.JComponent#paint(Graphics)} method, the incoming 
  *     {@link Graphics} should always be an instance of 
- *     <code>Graphics2D</code> (*);</li> 
+ *     <code>Graphics2D</code>;</li> 
  * <li>a {@link BufferedImage} - see 
- *     {@link BufferedImage#createGraphics()} (*);</li>
+ *     {@link BufferedImage#createGraphics()};</li>
  * <li>a {@link java.awt.print.PrinterJob} - in the 
  *     {@link Printable#print(Graphics, PageFormat, int)} method, the incoming
- *     {@link Graphics} should always be an instance of <code>Graphics2D</code>
- *     (*).</li>
+ *     {@link Graphics} should always be an instance of 
+ *     <code>Graphics2D</code>.</li>
  * </ul>
- * <p>
- * (*) Support for this API is not fully implemented in GNU Classpath yet.
  * <p>
  * Third party libraries provide support for output to other formats via this 
  * API, including encapsulated postscript (EPS), portable document format (PDF),
@@ -185,7 +183,7 @@ public abstract class Graphics2D extends Graphics
    * @see #getComposite()
    */
   public abstract void setComposite(Composite comp);
-
+    
   /**
    * Sets the paint to be used for subsequent drawing operations.
    * 
@@ -229,14 +227,14 @@ public abstract class Graphics2D extends Graphics
    * 
    * @see #addRenderingHints(Map)
    */
-  public abstract void setRenderingHints(Map hints);
+  public abstract void setRenderingHints(Map<?,?> hints);
 
   /**
    * Adds/updates the rendering hint.
    * 
    * @param hints  the hints to add or update.
    */
-  public abstract void addRenderingHints(Map hints);
+  public abstract void addRenderingHints(Map<?,?> hints);
 
   /**
    * Returns the current rendering hints.

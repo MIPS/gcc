@@ -1,5 +1,5 @@
 /* ToolTipManager.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -163,16 +163,21 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   private static ToolTipManager shared;
 
   /** The current component the tooltip is being displayed for. */
-  private static Component currentComponent;
+  private JComponent currentComponent;
 
   /** The current tooltip. */
-  private static JToolTip currentTip;
+  private JToolTip currentTip;
+
+  /**
+   * The tooltip text.
+   */
+  private String toolTipText;
 
   /** The last known position of the mouse cursor. */
-  private static Point currentPoint;
-  
+  private Point currentPoint;
+
   /**  */
-  private static Popup popup;
+  private Popup popup;
 
   /**
    * Creates a new ToolTipManager and sets up the timers.
@@ -267,10 +272,12 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   }
 
   /**
-   * This method sets the initial delay before the ToolTip is shown when the
+   * Sets the initial delay before the ToolTip is shown when the
    * mouse enters a Component.
    *
    * @param delay The initial delay before the ToolTip is shown.
+   * 
+   * @throws IllegalArgumentException if <code>delay</code> is less than zero.
    */
   public void setInitialDelay(int delay)
   {
@@ -289,9 +296,11 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   }
 
   /**
-   * This method sets the time the ToolTip will be shown before being hidden.
+   * Sets the time the ToolTip will be shown before being hidden.
    *
-   * @param delay The time the ToolTip will be shown before being hidden.
+   * @param delay  the delay (in milliseconds) before tool tips are hidden.
+   * 
+   * @throws IllegalArgumentException if <code>delay</code> is less than zero.
    */
   public void setDismissDelay(int delay)
   {
@@ -310,10 +319,12 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   }
 
   /**
-   * This method sets the amount of delay where if the mouse re-enters a
+   * Sets the amount of delay where if the mouse re-enters a
    * Component, the tooltip will be shown immediately.
    *
-   * @param delay The reshow delay.
+   * @param delay The reshow delay (in milliseconds).
+   * 
+   * @throws IllegalArgumentException if <code>delay</code> is less than zero.
    */
   public void setReshowDelay(int delay)
   {
@@ -358,8 +369,8 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
       return;
     currentPoint = event.getPoint();
 
-    currentComponent = (Component) event.getSource();
-
+    currentComponent = (JComponent) event.getSource();
+    toolTipText = currentComponent.getToolTipText(event);
     if (exitTimer.isRunning())
       {
         exitTimer.stop();
@@ -437,8 +448,52 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   public void mouseMoved(MouseEvent event)
   {
     currentPoint = event.getPoint();
-    if (enterTimer.isRunning())
-      enterTimer.restart(); 
+    if (currentTip != null && currentTip.isShowing())
+      checkTipUpdate(event);
+    else
+      {
+        if (enterTimer.isRunning())
+          enterTimer.restart();
+      }
+  }
+
+  /**
+   * Checks if the tooltip's text or location changes when the mouse is moved
+   * over the component.
+   */
+  private void checkTipUpdate(MouseEvent ev)
+  {
+    JComponent comp = (JComponent) ev.getSource();
+    String newText = comp.getToolTipText(ev);
+    String oldText = toolTipText;
+    if (newText != null)
+      {
+        if (((newText != null && newText.equals(oldText)) || newText == null))
+          {
+            // No change at all. Restart timers.
+            if (popup == null)
+              enterTimer.restart();
+            else
+              insideTimer.restart();
+          }
+        else
+          {
+            // Update the tooltip.
+            toolTipText = newText;
+            hideTip();
+            showTip();
+            exitTimer.stop();
+          }
+      }
+    else
+      {
+        // Hide tooltip.
+        currentTip = null;
+        currentPoint = null;
+        hideTip();
+        enterTimer.stop();
+        exitTimer.stop();
+      }
   }
 
   /**
@@ -455,9 +510,9 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
         return;
       }
 
-    if (currentTip == null || currentTip.getComponent() != currentComponent
-        && currentComponent instanceof JComponent)
-      currentTip = ((JComponent) currentComponent).createToolTip();
+    if (currentTip == null || currentTip.getComponent() != currentComponent)
+      currentTip = currentComponent.createToolTip();
+    currentTip.setTipText(toolTipText);
 
     Point p = currentPoint;
     Point cP = currentComponent.getLocationOnScreen();
@@ -525,8 +580,8 @@ public class ToolTipManager extends MouseAdapter implements MouseMotionListener
   private Component getContentPaneDeepestComponent(MouseEvent e)
   {
     Component source = (Component) e.getSource();
-    Container parent = (Container) SwingUtilities.getAncestorOfClass(JRootPane.class,
-                                                                     currentComponent);
+    Container parent = SwingUtilities.getAncestorOfClass(JRootPane.class,
+                                                         currentComponent);
     if (parent == null)
       return null;
     parent = ((JRootPane) parent).getContentPane();

@@ -40,12 +40,21 @@ package javax.swing.text.html;
 
 import gnu.classpath.NotImplementedException;
 
-import gnu.javax.swing.text.html.CharacterAttributeTranslator;
 import java.io.IOException;
+import java.io.StringReader;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Stack;
 import java.util.Vector;
+
+import javax.swing.ButtonGroup;
+import javax.swing.DefaultButtonModel;
+import javax.swing.JEditorPane;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.UndoableEditEvent;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -54,14 +63,21 @@ import javax.swing.text.Element;
 import javax.swing.text.ElementIterator;
 import javax.swing.text.GapContent;
 import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.PlainDocument;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.html.HTML.Tag;
 
 /**
- * TODO: Add more comments here 
+ * Represents the HTML document that is constructed by defining the text and
+ * other components (images, buttons, etc) in HTML language. This class can
+ * becomes the default document for {@link JEditorPane} after setting its
+ * content type to "text/html". HTML document also serves as an intermediate
+ * data structure when it is needed to parse HTML and then obtain the content of
+ * the certain types of tags. This class also has methods for modifying the HTML
+ * content.
  * 
- * @author Audrius Meskauskas, Lithuania (AudriusA@Bioinformatics.org)
+ * @author Audrius Meskauskas (AudriusA@Bioinformatics.org)
  * @author Anthony Balkissoon (abalkiss@redhat.com)
  * @author Lillian Angel (langel@redhat.com)
  */
@@ -75,16 +91,24 @@ public class HTMLDocument extends DefaultStyledDocument
   boolean preservesUnknownTags = true;
   int tokenThreshold = Integer.MAX_VALUE;
   HTMLEditorKit.Parser parser;
-  StyleSheet styleSheet;
-  AbstractDocument.Content content;
-  
+
+  /**
+   * Indicates whether this document is inside a frame or not.
+   */
+  private boolean frameDocument;
+
+  /**
+   * Package private to avoid accessor methods.
+   */
+  String baseTarget;
+
   /**
    * Constructs an HTML document using the default buffer size and a default
    * StyleSheet.
    */
   public HTMLDocument()
   {
-    this(null);
+    this(new GapContent(BUFFER_SIZE_DEFAULT), new StyleSheet());
   }
   
   /**
@@ -107,14 +131,7 @@ public class HTMLDocument extends DefaultStyledDocument
    */
   public HTMLDocument(AbstractDocument.Content c, StyleSheet styles)
   {
-    this.content = c;
-    if (styles == null)
-      {
-        styles = new StyleSheet();
-        styles.importStyleSheet(getClass().getResource(HTMLEditorKit.
-                                                       DEFAULT_CSS));
-      }
-    this.styleSheet = styles;
+    super(c, styles);
   }
   
   /**
@@ -125,7 +142,7 @@ public class HTMLDocument extends DefaultStyledDocument
    */
   public StyleSheet getStyleSheet()
   {
-    return styleSheet;
+    return (StyleSheet) getAttributeContext();
   }
   
   /**
@@ -179,8 +196,6 @@ public class HTMLDocument extends DefaultStyledDocument
   protected Element createLeafElement(Element parent, AttributeSet a, int p0,
                                       int p1)
   {
-    RunElement el = new RunElement(parent, a, p0, p1);
-    el.addAttribute(StyleConstants.NameAttribute, HTML.Tag.CONTENT);
     return new RunElement(parent, a, p0, p1);
   }
 
@@ -257,7 +272,7 @@ public class HTMLDocument extends DefaultStyledDocument
   public void setBase(URL u)
   {
     baseURL = u;
-    styleSheet.setBase(u);
+    getStyleSheet().setBase(u);
   }
   
   /**
@@ -362,11 +377,119 @@ public class HTMLDocument extends DefaultStyledDocument
   }
 
   public void processHTMLFrameHyperlinkEvent(HTMLFrameHyperlinkEvent event)
-  throws NotImplementedException
   {
-    // TODO: Implement this properly.
+    String target = event.getTarget();
+    Element el = event.getSourceElement();
+    URL url = event.getURL();
+    if (target.equals("_self"))
+      {
+        updateFrame(el, url);
+      }
+    else if (target.equals("_parent"))
+      {
+        updateFrameSet(el.getParentElement(), url);
+      }
+    else
+      {
+        Element targetFrame = findFrame(target);
+        if (targetFrame != null)
+          updateFrame(targetFrame, url);
+      }
   }
-  
+
+  /**
+   * Finds the named frame inside this document.
+   *
+   * @param target the name to look for
+   *
+   * @return the frame if there is a matching frame, <code>null</code>
+   *         otherwise
+   */
+  private Element findFrame(String target)
+  {
+    ElementIterator i = new ElementIterator(this);
+    Element next = null;
+    while ((next = i.next()) != null)
+      {
+        AttributeSet atts = next.getAttributes();
+        if (atts.getAttribute(StyleConstants.NameAttribute) == HTML.Tag.FRAME)
+          {
+            String name = (String) atts.getAttribute(HTML.Attribute.NAME);
+            if (name != null && name.equals(target))
+              break;
+          }
+      }
+    return next;
+  }
+
+  /**
+   * Updates the frame that is represented by the specified element to
+   * refer to the specified URL.
+   *
+   * @param el the element
+   * @param url the new url
+   */
+  private void updateFrame(Element el, URL url)
+  {
+    try
+      {
+        writeLock();
+        DefaultDocumentEvent ev =
+          new DefaultDocumentEvent(el.getStartOffset(), 1,
+                                   DocumentEvent.EventType.CHANGE);
+        AttributeSet elAtts = el.getAttributes();
+        AttributeSet copy = elAtts.copyAttributes();
+        MutableAttributeSet matts = (MutableAttributeSet) elAtts;
+        ev.addEdit(new AttributeUndoableEdit(el, copy, false));
+        matts.removeAttribute(HTML.Attribute.SRC);
+        matts.addAttribute(HTML.Attribute.SRC, url.toString());
+        ev.end();
+        fireChangedUpdate(ev);
+        fireUndoableEditUpdate(new UndoableEditEvent(this, ev));
+      }
+    finally
+      {
+        writeUnlock();
+      }
+  }
+
+  /**
+   * Updates the frameset that is represented by the specified element
+   * to create a frame that refers to the specified URL.
+   *
+   * @param el the element
+   * @param url the url
+   */
+  private void updateFrameSet(Element el, URL url)
+  {
+    int start = el.getStartOffset();
+    int end = el.getEndOffset();
+    
+    StringBuilder html = new StringBuilder();
+    html.append("<frame");
+    if (url != null)
+      {
+        html.append(" src=\"");
+        html.append(url.toString());
+        html.append("\"");
+      }
+    html.append('>');
+    if (getParser() == null)
+      setParser(new HTMLEditorKit().getParser());
+    try
+      {
+        setOuterHTML(el, html.toString());
+      }
+    catch (BadLocationException ex)
+      {
+        ex.printStackTrace();
+      }
+    catch (IOException ex)
+      {
+        ex.printStackTrace();
+      }
+  }
+
   /**
    * Gets an iterator for the given HTML.Tag.
    * @param t the requested HTML.Tag
@@ -449,6 +572,8 @@ public class HTMLDocument extends DefaultStyledDocument
       String name = null;
       if (tag != null)
         name = tag.toString();
+      if (name == null)
+        name = super.getName();
       return name;
     }
   }
@@ -485,6 +610,8 @@ public class HTMLDocument extends DefaultStyledDocument
       String name = null;
       if (tag != null)
         name = tag.toString();
+      if (name == null)
+        name = super.getName();
       return name;
     }
     
@@ -506,20 +633,33 @@ public class HTMLDocument extends DefaultStyledDocument
    * @author Anthony Balkissoon abalkiss at redhat dot com
    */
   public class HTMLReader extends HTMLEditorKit.ParserCallback
-  {    
-    /** Holds the current character attribute set **/
-    protected MutableAttributeSet charAttr = new SimpleAttributeSet();
-    
-    protected Vector parseBuffer = new Vector();
-    
-    /** A stack for character attribute sets **/
-    Stack charAttrStack = new Stack();
+  {
+    /**
+     * The maximum token threshold. We don't grow it larger than this.
+     */
+    private static final int MAX_THRESHOLD = 10000;
 
     /**
-     * The parse stack. This stack holds HTML.Tag objects that reflect the
-     * current position in the parsing process.
+     * The threshold growth factor.
      */
-    private Stack parseStack = new Stack();
+    private static final int GROW_THRESHOLD = 5;
+
+    /**
+     * Holds the current character attribute set *
+     */
+    protected MutableAttributeSet charAttr = new SimpleAttributeSet();
+    
+    protected Vector<ElementSpec> parseBuffer = new Vector<ElementSpec>();   
+
+    /**
+     * The parse stack. It holds the current element tree path.
+     */
+    private Stack<HTML.Tag> parseStack = new Stack<HTML.Tag>();
+
+    /** 
+     * A stack for character attribute sets *
+     */
+    Stack charAttrStack = new Stack();
    
     /** A mapping between HTML.Tag objects and the actions that handle them **/
     HashMap tagToAction;
@@ -527,20 +667,96 @@ public class HTMLDocument extends DefaultStyledDocument
     /** Tells us whether we've received the '</html>' tag yet **/
     boolean endHTMLEncountered = false;
     
-    /** Variables related to the constructor with explicit insertTag **/
-    int popDepth, pushDepth, offset;
+    /** 
+     * Related to the constructor with explicit insertTag 
+     */
+    int popDepth;
+    
+    /**
+     * Related to the constructor with explicit insertTag
+     */    
+    int pushDepth;
+    
+    /** 
+     * Related to the constructor with explicit insertTag
+     */    
+    int offset;
+    
+    /**
+     * The tag (inclusve), after that the insertion should start.
+     */
     HTML.Tag insertTag;
-    boolean insertTagEncountered = false;
+    
+    /**
+     * This variable becomes true after the insert tag has been encountered.
+     */
+    boolean insertTagEncountered;
+
     
     /** A temporary variable that helps with the printing out of debug information **/
     boolean debug = false;
-    
-    void print (String line)
-    {
-      if (debug)
-        System.out.println (line);
-    }
-    
+
+    /**
+     * This is true when we are inside a pre tag.
+     */
+    boolean inPreTag = false;
+
+    /**
+     * This is true when we are inside a style tag. This will add text
+     * content inside this style tag beeing parsed as CSS.
+     *
+     * This is package private to avoid accessor methods.
+     */
+    boolean inStyleTag = false;
+
+    /**
+     * This is true when we are inside a &lt;textarea&gt; tag. Any text
+     * content will then be added to the text area.
+     *
+     * This is package private to avoid accessor methods.
+     */
+    boolean inTextArea = false;
+
+    /**
+     * This contains all stylesheets that are somehow read, either
+     * via embedded style tags, or via linked stylesheets. The
+     * elements will be String objects containing a stylesheet each.
+     */
+    ArrayList styles;
+
+    /**
+     * The document model for a textarea.
+     *
+     * This is package private to avoid accessor methods.
+     */
+    ResetablePlainDocument textAreaDocument;
+
+    /**
+     * The current model of a select tag. Can be a ComboBoxModel or a
+     * ListModel depending on the type of the select box.
+     */
+    Object selectModel;
+
+    /**
+     * The current option beeing read.
+     */
+    Option option;
+
+    /**
+     * The current number of options in the current select model.
+     */
+    int numOptions;
+
+    /**
+     * The current button groups mappings.
+     */
+    HashMap buttonGroups;
+
+    /**
+     * The token threshold. This gets increased while loading.
+     */
+    private int threshold;
+
     public class TagAction
     {
       /**
@@ -596,13 +812,12 @@ public class HTMLDocument extends DefaultStyledDocument
         // Put the old attribute set on the stack.
         pushCharacterStyle();
 
-	// Translate tag.. return if succesful.
-	if(CharacterAttributeTranslator.translateTag(charAttr, t, a))
-	  return;
+        // Initialize with link pseudo class.
+        if (t == HTML.Tag.A)
+          a.addAttribute(HTML.Attribute.PSEUDO_CLASS, "link");
 
         // Just add the attributes in <code>a</code>.
- 	if (a != null)
- 	  charAttr.addAttribute(t, a.copyAttributes());          
+        charAttr.addAttribute(t, a.copyAttributes());
       }
 
       /**
@@ -614,7 +829,11 @@ public class HTMLDocument extends DefaultStyledDocument
         popCharacterStyle();
       } 
     }
-    
+
+    /**
+     * Processes elements that make up forms: &lt;input&gt;, &lt;textarea&gt;,
+     * &lt;select&gt; and &lt;option&gt;.
+     */
     public class FormAction extends SpecialAction
     {
       /**
@@ -622,10 +841,73 @@ public class HTMLDocument extends DefaultStyledDocument
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("FormAction.start not implemented");
+        if (t == HTML.Tag.INPUT)
+          {
+            String type = (String) a.getAttribute(HTML.Attribute.TYPE);
+            if (type == null)
+              {
+                type = "text"; // Default to 'text' when nothing was specified.
+                a.addAttribute(HTML.Attribute.TYPE, type);
+              }
+            setModel(type, a);
+          }
+        else if (t == HTML.Tag.TEXTAREA)
+          {
+            inTextArea = true;
+            textAreaDocument = new ResetablePlainDocument();
+            a.addAttribute(StyleConstants.ModelAttribute, textAreaDocument);
+          }
+        else if (t == HTML.Tag.SELECT)
+          {
+            int size = HTML.getIntegerAttributeValue(a, HTML.Attribute.SIZE,
+                                                     1);
+            boolean multi = a.getAttribute(HTML.Attribute.MULTIPLE) != null;
+            if (size > 1 || multi)
+              {
+                SelectListModel m = new SelectListModel();
+                if (multi)
+                  m.getSelectionModel().setSelectionMode(ListSelectionModel
+                                                 .MULTIPLE_INTERVAL_SELECTION);
+                selectModel = m;
+              }
+            else
+              {
+                selectModel = new SelectComboBoxModel();
+              }
+            a.addAttribute(StyleConstants.ModelAttribute, selectModel);
+          }
+        if (t == HTML.Tag.OPTION)
+          {
+            option = new Option(a);
+            if (selectModel instanceof SelectListModel)
+              {
+                SelectListModel m = (SelectListModel) selectModel;
+                m.addElement(option);
+                if (option.isSelected())
+                  {
+                    m.getSelectionModel().addSelectionInterval(numOptions,
+                                                               numOptions);
+                    m.addInitialSelection(numOptions);
+                  }
+              }
+            else if (selectModel instanceof SelectComboBoxModel)
+              {
+                SelectComboBoxModel m = (SelectComboBoxModel) selectModel;
+                m.addElement(option);
+                if (option.isSelected())
+                  {
+                    m.setSelectedItem(option);
+                    m.setInitialSelection(option);
+                  }
+              }
+            numOptions++;
+          }
+        else
+          {
+            // Build the element.
+            super.start(t, a);
+          }
       }
       
       /**
@@ -633,53 +915,117 @@ public class HTMLDocument extends DefaultStyledDocument
        * with this Action.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("FormAction.end not implemented");
-      } 
+        if (t == HTML.Tag.OPTION)
+          {
+            option = null;
+          }
+        else
+          {
+            if (t == HTML.Tag.TEXTAREA)
+              {
+                inTextArea = false;
+              }
+            else if (t == HTML.Tag.SELECT)
+              {
+                selectModel = null;
+                numOptions = 0;
+              }
+            // Finish the element.
+            super.end(t);
+          }
+      }
+
+      private void setModel(String type, MutableAttributeSet attrs)
+      {
+        if (type.equals("submit") || type.equals("reset")
+            || type.equals("image"))
+          {
+            // Create button.
+            attrs.addAttribute(StyleConstants.ModelAttribute,
+                               new DefaultButtonModel());
+          }
+        else if (type.equals("text") || type.equals("password"))
+          {
+            String text = (String) attrs.getAttribute(HTML.Attribute.VALUE);
+            ResetablePlainDocument doc = new ResetablePlainDocument();
+            if (text != null)
+              {
+                doc.setInitialText(text);
+                try
+                  {
+                    doc.insertString(0, text, null);
+                  }
+                catch (BadLocationException ex)
+                  {
+                    // Shouldn't happen.
+                    assert false;
+                  }
+              }
+            attrs.addAttribute(StyleConstants.ModelAttribute, doc);
+          }
+        else if (type.equals("file"))
+          {
+            attrs.addAttribute(StyleConstants.ModelAttribute,
+                               new PlainDocument());
+          }
+        else if (type.equals("checkbox") || type.equals("radio"))
+          {
+            ResetableToggleButtonModel model =
+              new ResetableToggleButtonModel();
+            if (attrs.getAttribute(HTML.Attribute.SELECTED) != null)
+              {
+                model.setSelected(true);
+                model.setInitial(true);
+              }
+            if (type.equals("radio"))
+              {
+                String name = (String) attrs.getAttribute(HTML.Attribute.NAME);
+                if (name != null)
+                  {
+                    if (buttonGroups == null)
+                      buttonGroups = new HashMap();
+                    ButtonGroup group = (ButtonGroup) buttonGroups.get(name);
+                    if (group == null)
+                      {
+                        group = new ButtonGroup();
+                        buttonGroups.put(name, group);
+                      }
+                    model.setGroup(group);
+                  }
+              }
+            attrs.addAttribute(StyleConstants.ModelAttribute, model);
+          }
+      }
     }
-    
-    public class HiddenAction extends TagAction
+
+    /**
+     * Called for form tags.
+     */
+    class FormTagAction
+      extends BlockAction
     {
       /**
-       * This method is called when a start tag is seen for one of the types
-       * of tags associated with this Action.
-       */
-      public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("HiddenAction.start not implemented");
-      }
-      
-      /**
-       * Called when an end tag is seen for one of the types of tags associated
-       * with this Action.
+       * Clears the button group mapping.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("HiddenAction.end not implemented");
+        super.end(t);
+        buttonGroups = null;
       } 
     }
-    
-    public class IsindexAction extends TagAction
-    {
-      /**
-       * This method is called when a start tag is seen for one of the types
-       * of tags associated with this Action.
-       */
-      public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("IsindexAction.start not implemented");
-      }
-    }
-    
-    public class ParagraphAction extends BlockAction
+
+    /**
+     * This action indicates that the content between starting and closing HTML
+     * elements (like script - /script) should not be visible. The content is
+     * still inserted and can be accessed when iterating the HTML document. The
+     * parser will only fire
+     * {@link javax.swing.text.html.HTMLEditorKit.ParserCallback#handleText} for
+     * the hidden tags, regardless from that html tags the hidden section may
+     * contain.
+     */
+    public class HiddenAction
+        extends TagAction
     {
       /**
        * This method is called when a start tag is seen for one of the types
@@ -699,18 +1045,32 @@ public class HTMLDocument extends DefaultStyledDocument
         blockClose(t);
       } 
     }
-    
-    public class PreAction extends BlockAction
+
+    /**
+     * Handles &lt;isindex&gt; tags.
+     */
+    public class IsindexAction extends TagAction
     {
       /**
        * This method is called when a start tag is seen for one of the types
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("PreAction.start not implemented");
+        blockOpen(HTML.Tag.IMPLIED, new SimpleAttributeSet());
+        addSpecialElement(t, a);
+        blockClose(HTML.Tag.IMPLIED);
+      }
+    }
+    
+    public class ParagraphAction extends BlockAction
+    {
+      /**
+       * This method is called when a start tag is seen for one of the types
+       * of tags associated with this Action.
+       */
+      public void start(HTML.Tag t, MutableAttributeSet a)
+      {
         super.start(t, a);
       }
       
@@ -719,19 +1079,51 @@ public class HTMLDocument extends DefaultStyledDocument
        * with this Action.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("PreAction.end not implemented");
         super.end(t);
       } 
     }
-    
-    public class SpecialAction extends TagAction
+
+    /**
+     * This action is performed when a &lt;pre&gt; tag is parsed.
+     */
+    public class PreAction extends BlockAction
     {
       /**
        * This method is called when a start tag is seen for one of the types
        * of tags associated with this Action.
+       */
+      public void start(HTML.Tag t, MutableAttributeSet a)
+      {
+        inPreTag = true;
+        blockOpen(t, a);
+        a.addAttribute(CSS.Attribute.WHITE_SPACE, "pre");
+        blockOpen(HTML.Tag.IMPLIED, a);
+      }
+      
+      /**
+       * Called when an end tag is seen for one of the types of tags associated
+       * with this Action.
+       */
+      public void end(HTML.Tag t)
+      {
+        blockClose(HTML.Tag.IMPLIED);
+        inPreTag = false;
+        blockClose(t);
+      } 
+    }
+    
+    /**
+     * Inserts the elements that are represented by ths single tag with 
+     * attributes (only). The closing tag, even if present, mut follow
+     * immediately after the starting tag without providing any additional
+     * information. Hence the {@link TagAction#end} method need not be
+     * overridden and still does nothing.
+     */
+    public class SpecialAction extends TagAction
+    {
+      /**
+       * The functionality is delegated to {@link HTMLReader#addSpecialElement}
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
       {
@@ -749,7 +1141,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("AreaAction.start not implemented");
       }
       
       /**
@@ -760,10 +1151,44 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("AreaAction.end not implemented");
       } 
     }
-    
+
+    /**
+     * Converts HTML tags to CSS attributes.
+     */
+    class ConvertAction
+      extends TagAction
+    {
+
+      public void start(HTML.Tag tag, MutableAttributeSet atts)
+      {
+        pushCharacterStyle();
+        charAttr.addAttribute(tag, atts.copyAttributes());
+        StyleSheet styleSheet = getStyleSheet();
+        // TODO: Add other tags here.
+        if (tag == HTML.Tag.FONT)
+          {
+            String color = (String) atts.getAttribute(HTML.Attribute.COLOR);
+            if (color != null)
+              styleSheet.addCSSAttribute(charAttr, CSS.Attribute.COLOR, color);
+            String face = (String) atts.getAttribute(HTML.Attribute.FACE);
+            if (face != null)
+              styleSheet.addCSSAttribute(charAttr, CSS.Attribute.FONT_FAMILY,
+                                         face);
+            String size = (String) atts.getAttribute(HTML.Attribute.SIZE);
+            if (size != null)
+              styleSheet.addCSSAttribute(charAttr, CSS.Attribute.FONT_SIZE,
+                                         size);
+          }
+      }
+
+      public void end(HTML.Tag tag)
+      {
+        popCharacterStyle();
+      }
+    }
+
     class BaseAction extends TagAction
     {
       /**
@@ -771,22 +1196,9 @@ public class HTMLDocument extends DefaultStyledDocument
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("BaseAction.start not implemented");
+        baseTarget = (String) a.getAttribute(HTML.Attribute.TARGET);
       }
-      
-      /**
-       * Called when an end tag is seen for one of the types of tags associated
-       * with this Action.
-       */
-      public void end(HTML.Tag t)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("BaseAction.end not implemented");
-      } 
     }
     
     class HeadAction extends BlockAction
@@ -799,7 +1211,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("HeadAction.start not implemented: "+t);
         super.start(t, a);
       }
       
@@ -808,37 +1219,87 @@ public class HTMLDocument extends DefaultStyledDocument
        * with this Action.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("HeadAction.end not implemented: "+t);
+        // We read in all the stylesheets that are embedded or referenced
+        // inside the header.
+        if (styles != null)
+          {
+            int numStyles = styles.size();
+            for (int i = 0; i < numStyles; i++)
+              {
+                String style = (String) styles.get(i);
+                getStyleSheet().addRule(style);
+              }
+          }
         super.end(t);
-      } 
+      }
     }
     
-    class LinkAction extends TagAction
+    class LinkAction extends HiddenAction
     {
       /**
        * This method is called when a start tag is seen for one of the types
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("LinkAction.start not implemented");
+        super.start(t, a);
+        String type = (String) a.getAttribute(HTML.Attribute.TYPE);
+        if (type == null)
+          type = "text/css";
+        if (type.equals("text/css"))
+          {
+            String rel = (String) a.getAttribute(HTML.Attribute.REL);
+            String media = (String) a.getAttribute(HTML.Attribute.MEDIA);
+            String title = (String) a.getAttribute(HTML.Attribute.TITLE);
+            if (media == null)
+              media = "all";
+            else
+              media = media.toLowerCase();
+            if (rel != null)
+              {
+                rel = rel.toLowerCase();
+                if ((media.indexOf("all") != -1
+                     || media.indexOf("screen") != -1)
+                    && (rel.equals("stylesheet")))
+                  {
+                    String href = (String) a.getAttribute(HTML.Attribute.HREF);
+                    URL url = null;
+                    try
+                      {
+                        url = new URL(baseURL, href);
+                      }
+                    catch (MalformedURLException ex)
+                      {
+                        try
+                          {
+                            url = new URL(href);
+                          }
+                        catch (MalformedURLException ex2)
+                          {
+                            url = null;
+                          }
+                      }
+                    if (url != null)
+                      {
+                        try
+                          {
+                            getStyleSheet().importStyleSheet(url);
+                          }
+                        catch (Exception ex)
+                          {
+                            // Don't let exceptions and runtime exceptions
+                            // in CSS parsing disprupt the HTML parsing
+                            // process. But inform the user/developer
+                            // on the console about it.
+                            ex.printStackTrace();
+                          }
+                      }
+                  }                  
+              }
+          }
       }
       
-      /**
-       * Called when an end tag is seen for one of the types of tags associated
-       * with this Action.
-       */
-      public void end(HTML.Tag t)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("LinkAction.end not implemented");
-      } 
     }
     
     class MapAction extends TagAction
@@ -851,7 +1312,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("MapAction.start not implemented");
       }
       
       /**
@@ -862,7 +1322,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("MapAction.end not implemented");
       } 
     }
     
@@ -876,7 +1335,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("MetaAction.start not implemented");
       }
       
       /**
@@ -887,10 +1345,9 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("MetaAction.end not implemented");
       } 
     }
-    
+
     class StyleAction extends TagAction
     {
       /**
@@ -898,10 +1355,8 @@ public class HTMLDocument extends DefaultStyledDocument
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("StyleAction.start not implemented");
+        inStyleTag = true;
       }
       
       /**
@@ -909,10 +1364,8 @@ public class HTMLDocument extends DefaultStyledDocument
        * with this Action.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("StyleAction.end not implemented");
+        inStyleTag = false;
       } 
     }
     
@@ -926,7 +1379,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("TitleAction.start not implemented");
       }
       
       /**
@@ -937,7 +1389,6 @@ public class HTMLDocument extends DefaultStyledDocument
         throws NotImplementedException
       {
         // FIXME: Implement.
-        print ("TitleAction.end not implemented");
       } 
     }    
     
@@ -949,13 +1400,11 @@ public class HTMLDocument extends DefaultStyledDocument
     public HTMLReader(int offset, int popDepth, int pushDepth,
                       HTML.Tag insertTag)
     {
-      print ("HTMLReader created with pop: "+popDepth
-                          + " push: "+pushDepth + " offset: "+offset
-                          + " tag: "+insertTag);
       this.insertTag = insertTag;
       this.offset = offset;
       this.popDepth = popDepth;
       this.pushDepth = pushDepth;
+      threshold = getTokenThreshold();
       initTags();
     }
     
@@ -979,7 +1428,7 @@ public class HTMLDocument extends DefaultStyledDocument
       StyleAction styleAction = new StyleAction();
       TitleAction titleAction = new TitleAction();
       
-      
+      ConvertAction convertAction = new ConvertAction();
       tagToAction.put(HTML.Tag.A, characterAction);
       tagToAction.put(HTML.Tag.ADDRESS, characterAction);
       tagToAction.put(HTML.Tag.APPLET, hiddenAction);
@@ -1002,8 +1451,8 @@ public class HTMLDocument extends DefaultStyledDocument
       tagToAction.put(HTML.Tag.DL, blockAction);
       tagToAction.put(HTML.Tag.DT, paragraphAction);
       tagToAction.put(HTML.Tag.EM, characterAction);
-      tagToAction.put(HTML.Tag.FONT, characterAction);
-      tagToAction.put(HTML.Tag.FORM, blockAction);
+      tagToAction.put(HTML.Tag.FONT, convertAction);
+      tagToAction.put(HTML.Tag.FORM, new FormTagAction());
       tagToAction.put(HTML.Tag.FRAME, specialAction);
       tagToAction.put(HTML.Tag.FRAMESET, blockAction);
       tagToAction.put(HTML.Tag.H1, paragraphAction);
@@ -1093,18 +1542,28 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     public void flush() throws BadLocationException
     {
-      DefaultStyledDocument.ElementSpec[] elements;
-      elements = new DefaultStyledDocument.ElementSpec[parseBuffer.size()];
-      parseBuffer.copyInto(elements);
-      parseBuffer.removeAllElements();
-      if (offset == 0)
-        create(elements);
-      else
-        insert(offset, elements);
-
-      offset += HTMLDocument.this.getLength() - offset;
+      flushImpl();
     }
-    
+
+    /**
+     * Flushes the buffer and handle partial inserts.
+     *
+     */
+    private void flushImpl()
+      throws BadLocationException
+    {
+      int oldLen = getLength();
+      int size = parseBuffer.size();
+      ElementSpec[] elems = new ElementSpec[size];
+      parseBuffer.copyInto(elems);
+      if (oldLen == 0)
+        create(elems);
+      else
+        insert(offset, elems);
+      parseBuffer.removeAllElements();
+      offset += getLength() - oldLen;
+    }
+
     /**
      * This method is called by the parser to indicate a block of 
      * text was encountered.  Should insert the text appropriately.
@@ -1114,13 +1573,42 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     public void handleText(char[] data, int pos)
     {
-      if (data != null && data.length > 0)
-        addContent(data, 0, data.length);
+      if (shouldInsert() && data != null && data.length > 0)
+        {
+          if (inTextArea)
+            textAreaContent(data);
+          else if (inPreTag)
+            preContent(data);
+          else if (option != null)
+            option.setLabel(new String(data));
+          else if (inStyleTag)
+            {
+              if (styles == null)
+                styles = new ArrayList();
+              styles.add(new String(data));
+            }
+          else
+            addContent(data, 0, data.length);
+            
+        }
     }
     
     /**
-     * This method is called by the parser and should route the call to 
-     * the proper handler for the tag.
+     * Checks if the HTML tag should be inserted. The tags before insert tag (if
+     * specified) are not inserted. Also, the tags after the end of the html are
+     * not inserted.
+     * 
+     * @return true if the tag should be inserted, false otherwise.
+     */
+    private boolean shouldInsert()
+    {
+      return ! endHTMLEncountered
+             && (insertTagEncountered || insertTag == null);
+    }
+    
+    /**
+     * This method is called by the parser and should route the call to the
+     * proper handler for the tag.
      * 
      * @param t the HTML.Tag
      * @param a the attribute set
@@ -1128,13 +1616,15 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos)
     {
-      // Don't call the Action if we've already seen </html>.
-      if (endHTMLEncountered)
-        return;
-        
-      TagAction action = (TagAction) tagToAction.get(t);
-      if (action != null)
-        action.start(t, a);      
+      if (t == insertTag)
+        insertTagEncountered = true;
+
+      if (shouldInsert())
+        {
+          TagAction action = (TagAction) tagToAction.get(t);
+          if (action != null)
+            action.start(t, a);
+        }
     }
     
     /**
@@ -1145,42 +1635,40 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     public void handleComment(char[] data, int pos)
     {
-      // Don't call the Action if we've already seen </html>.
-      if (endHTMLEncountered)
-        return;
-      
-      TagAction action = (TagAction) tagToAction.get(HTML.Tag.COMMENT);
-      if (action != null)
+      if (shouldInsert())
         {
-          action.start(HTML.Tag.COMMENT, new SimpleAttributeSet());
-          action.end (HTML.Tag.COMMENT);
+          TagAction action = (TagAction) tagToAction.get(HTML.Tag.COMMENT);
+          if (action != null)
+            {
+              action.start(HTML.Tag.COMMENT, new SimpleAttributeSet());
+              action.end(HTML.Tag.COMMENT);
+            }
         }
     }
     
     /**
-     * This method is called by the parser and should route the call to 
-     * the proper handler for the tag.
+     * This method is called by the parser and should route the call to the
+     * proper handler for the tag.
      * 
      * @param t the HTML.Tag
      * @param pos the position at which the tag was encountered
      */
     public void handleEndTag(HTML.Tag t, int pos)
     {
-      // Don't call the Action if we've already seen </html>.
-      if (endHTMLEncountered)
-        return;
-      
-      // If this is the </html> tag we need to stop calling the Actions
-      if (t == HTML.Tag.HTML)
-        endHTMLEncountered = true;
-      
-      TagAction action = (TagAction) tagToAction.get(t);
-      if (action != null)
-        action.end(t);
+      if (shouldInsert())
+        {
+          // If this is the </html> tag we need to stop calling the Actions
+          if (t == HTML.Tag.HTML)
+            endHTMLEncountered = true;
+
+          TagAction action = (TagAction) tagToAction.get(t);
+          if (action != null)
+            action.end(t);
+        }
     }
     
     /**
-     * This is a callback from the parser that should be routed to the 
+     * This is a callback from the parser that should be routed to the
      * appropriate handler for the tag.
      * 
      * @param t the HTML.Tag that was encountered
@@ -1189,15 +1677,17 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     public void handleSimpleTag(HTML.Tag t, MutableAttributeSet a, int pos)
     {
-      // Don't call the Action if we've already seen </html>.
-      if (endHTMLEncountered)
-        return;
-      
-      TagAction action = (TagAction) tagToAction.get (t);
-      if (action != null)
+      if (t == insertTag)
+        insertTagEncountered = true;
+
+      if (shouldInsert())
         {
-          action.start(t, a);
-          action.end(t);
+          TagAction action = (TagAction) tagToAction.get(t);
+          if (action != null)
+            {
+              action.start(t, a);
+              action.end(t);
+            }
         }
     }
     
@@ -1210,10 +1700,8 @@ public class HTMLDocument extends DefaultStyledDocument
      * @since 1.3
      */
     public void handleEndOfLineString(String eol)
-      throws NotImplementedException
     {
       // FIXME: Implement.
-      print ("HTMLReader.handleEndOfLineString not implemented yet");
     }
     
     /**
@@ -1223,22 +1711,48 @@ public class HTMLDocument extends DefaultStyledDocument
      * @param data the text to add to the textarea
      */
     protected void textAreaContent(char[] data)
-      throws NotImplementedException
     {
-      // FIXME: Implement.
-      print ("HTMLReader.textAreaContent not implemented yet");
+      try
+        {
+          int offset = textAreaDocument.getLength();
+          String text = new String(data);
+          textAreaDocument.setInitialText(text);
+          textAreaDocument.insertString(offset, text, null);
+        }
+      catch (BadLocationException ex)
+        {
+          // Must not happen as we insert at a model location that we
+          // got from the document itself.
+          assert false;
+        }
     }
     
     /**
      * Adds the given text that was encountered in a <PRE> element.
-     * 
+     * This adds synthesized lines to hold the text runs.
+     *
      * @param data the text
      */
     protected void preContent(char[] data)
-      throws NotImplementedException
     {
-      // FIXME: Implement
-      print ("HTMLReader.preContent not implemented yet");
+      int start = 0;
+      for (int i = 0; i < data.length; i++)
+        {
+          if (data[i] == '\n')
+            {
+              addContent(data, start, i - start + 1);
+              blockClose(HTML.Tag.IMPLIED);
+              MutableAttributeSet atts = new SimpleAttributeSet();
+              atts.addAttribute(CSS.Attribute.WHITE_SPACE, "pre");
+              blockOpen(HTML.Tag.IMPLIED, atts);
+              start = i + 1;
+            }
+        }
+      if (start < data.length)
+        {
+          // Add remaining last line.
+          addContent(data, start, data.length - start);
+        }
     }
     
     /**
@@ -1250,27 +1764,48 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     protected void blockOpen(HTML.Tag t, MutableAttributeSet attr)
     {
-      printBuffer();
+      if (inImpliedParagraph())
+        blockClose(HTML.Tag.IMPLIED);
+
+      // Push the new tag on top of the stack.
+      parseStack.push(t);
+
       DefaultStyledDocument.ElementSpec element;
 
-      // If the previous tag is content and the parent is p-implied, then
-      // we must also close the p-implied.
-      if (parseStack.size() > 0 && parseStack.peek() == HTML.Tag.IMPLIED)
-        {
-          element = new DefaultStyledDocument.ElementSpec(null,
-                                    DefaultStyledDocument.ElementSpec.EndTagType);
-          parseBuffer.addElement(element);
-          parseStack.pop();
-        }
-
-      parseStack.push(t);
       AbstractDocument.AttributeContext ctx = getAttributeContext();
       AttributeSet copy = attr.copyAttributes();
       copy = ctx.addAttribute(copy, StyleConstants.NameAttribute, t);
       element = new DefaultStyledDocument.ElementSpec(copy,
                                DefaultStyledDocument.ElementSpec.StartTagType);
       parseBuffer.addElement(element);
-      printBuffer();
+    }
+
+    /**
+     * Returns true when we are currently inside a paragraph, either
+     * a real one or an implied, false otherwise.
+     *
+     * @return
+     */
+    private boolean inParagraph()
+    {
+      boolean inParagraph = false;
+      if (! parseStack.isEmpty())
+        {
+          HTML.Tag top = parseStack.peek();
+          inParagraph = top == HTML.Tag.P || top == HTML.Tag.IMPLIED;
+        }
+      return inParagraph;
+    }
+
+    private boolean inImpliedParagraph()
+    {
+      boolean inParagraph = false;
+      if (! parseStack.isEmpty())
+        {
+          HTML.Tag top = parseStack.peek();
+          inParagraph = top == HTML.Tag.IMPLIED;
+        }
+      return inParagraph;
     }
 
     /**
@@ -1281,42 +1816,29 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     protected void blockClose(HTML.Tag t)
     {
-      printBuffer();
       DefaultStyledDocument.ElementSpec element;
+
+      if (inImpliedParagraph() && t != HTML.Tag.IMPLIED)
+        blockClose(HTML.Tag.IMPLIED);
+
+      // Pull the token from the stack.
+      if (! parseStack.isEmpty()) // Just to be sure.
+        parseStack.pop();
 
       // If the previous tag is a start tag then we insert a synthetic
       // content tag.
       DefaultStyledDocument.ElementSpec prev;
-      prev = (DefaultStyledDocument.ElementSpec)
-	      parseBuffer.get(parseBuffer.size() - 1);
-      if (prev.getType() == DefaultStyledDocument.ElementSpec.StartTagType)
+      prev = parseBuffer.size() > 0 ? (DefaultStyledDocument.ElementSpec)
+                                parseBuffer.get(parseBuffer.size() - 1) : null;
+      if (prev != null &&
+          prev.getType() == DefaultStyledDocument.ElementSpec.StartTagType)
         {
-          AbstractDocument.AttributeContext ctx = getAttributeContext();
-          AttributeSet attributes = ctx.getEmptySet();
-          attributes = ctx.addAttribute(attributes, StyleConstants.NameAttribute,
-                                        HTML.Tag.CONTENT);
-          element = new DefaultStyledDocument.ElementSpec(attributes,
-			  DefaultStyledDocument.ElementSpec.ContentType,
-                                    new char[0], 0, 0);
-          parseBuffer.add(element);
-        }
-      // If the previous tag is content and the parent is p-implied, then
-      // we must also close the p-implied.
-      else if (parseStack.peek() == HTML.Tag.IMPLIED)
-        {
-          element = new DefaultStyledDocument.ElementSpec(null,
-                                 DefaultStyledDocument.ElementSpec.EndTagType);
-          parseBuffer.addElement(element);
-          if (parseStack.size() > 0)
-            parseStack.pop();
+          addContent(new char[]{' '}, 0, 1);
         }
 
       element = new DefaultStyledDocument.ElementSpec(null,
 				DefaultStyledDocument.ElementSpec.EndTagType);
       parseBuffer.addElement(element);
-      printBuffer();
-      if (parseStack.size() > 0)
-        parseStack.pop();
     }
     
     /**
@@ -1345,30 +1867,14 @@ public class HTMLDocument extends DefaultStyledDocument
     protected void addContent(char[] data, int offs, int length,
                               boolean generateImpliedPIfNecessary)
     {
+      if (generateImpliedPIfNecessary && ! inParagraph())
+        {
+          blockOpen(HTML.Tag.IMPLIED, new SimpleAttributeSet());
+        }
+
       AbstractDocument.AttributeContext ctx = getAttributeContext();
       DefaultStyledDocument.ElementSpec element;
       AttributeSet attributes = null;
-
-      // Content must always be embedded inside a paragraph element,
-      // so we create this if the previous element is not one of
-      // <p>, <h1> .. <h6>.
-      boolean createImpliedParagraph = false;
-      HTML.Tag parent = (HTML.Tag) parseStack.peek();
-      if (parent != HTML.Tag.P && parent != HTML.Tag.H1
-          && parent != HTML.Tag.H2
-          && parent != HTML.Tag.H3 && parent != HTML.Tag.H4
-          && parent != HTML.Tag.H5 && parent != HTML.Tag.H6
-          && parent != HTML.Tag.TD)
-        {
-          attributes = ctx.getEmptySet();
-          attributes = ctx.addAttribute(attributes,
-                                        StyleConstants.NameAttribute,
-                                        HTML.Tag.IMPLIED);
-          element = new DefaultStyledDocument.ElementSpec(attributes,
-                       DefaultStyledDocument.ElementSpec.StartTagType);
-          parseBuffer.add(element);
-          parseStack.push(HTML.Tag.IMPLIED);
-        }
 
       // Copy the attribute set, don't use the same object because 
       // it may change
@@ -1382,16 +1888,16 @@ public class HTMLDocument extends DefaultStyledDocument
                                 DefaultStyledDocument.ElementSpec.ContentType,
                                 data, offs, length);
       
-      printBuffer();
       // Add the element to the buffer
       parseBuffer.addElement(element);
-      printBuffer();
 
-      if (parseBuffer.size() > HTMLDocument.this.getTokenThreshold())
+      if (parseBuffer.size() > threshold)
         {
+          if (threshold <= MAX_THRESHOLD)
+            threshold *= GROW_THRESHOLD;
           try
             {
-              flush();
+              flushImpl();
             }
           catch (BadLocationException ble)
             {
@@ -1407,19 +1913,24 @@ public class HTMLDocument extends DefaultStyledDocument
      * @param a the attribute set specifying the special content
      */
     protected void addSpecialElement(HTML.Tag t, MutableAttributeSet a)
-      throws NotImplementedException
     {
-      // FIXME: Implement
-      print ("HTMLReader.addSpecialElement not implemented yet");
+      if (t != HTML.Tag.FRAME && ! inParagraph())
+        {
+          blockOpen(HTML.Tag.IMPLIED, new SimpleAttributeSet());
+        }
+
+      a.addAttribute(StyleConstants.NameAttribute, t);
+      
+      // The two spaces are required because some special elements like HR
+      // must be broken. At least two characters are needed to break into the
+      // two parts.
+      DefaultStyledDocument.ElementSpec spec =
+        new DefaultStyledDocument.ElementSpec(a.copyAttributes(),
+	  DefaultStyledDocument.ElementSpec.ContentType, 
+          new char[] {' '}, 0, 1 );
+      parseBuffer.add(spec);
     }
     
-    void printBuffer()
-    {      
-      print ("\n*********BUFFER**********");
-      for (int i = 0; i < parseBuffer.size(); i ++)
-        print ("  "+parseBuffer.get(i));
-      print ("***************************");
-    }
   }
   
   /**
@@ -1450,7 +1961,57 @@ public class HTMLDocument extends DefaultStyledDocument
                                                 HTML.Tag insertTag)
   {
     return new HTMLReader(pos, popDepth, pushDepth, insertTag);
-  }  
+  }
+  
+  /**
+   * Gets the reader for the parser to use when inserting the HTML fragment into
+   * the document. Checks if the parser is present, sets the parent in the
+   * element stack and removes any actions for BODY (it can be only one body in
+   * a HTMLDocument).
+   * 
+   * @param pos - the starting position
+   * @param popDepth - the number of EndTagTypes to generate before inserting
+   * @param pushDepth - the number of StartTagTypes with a direction of
+   *          JoinNextDirection that should be generated before inserting, but
+   *          after the end tags have been generated.
+   * @param insertTag - the first tag to start inserting into document
+   * @param parent the element that will be the parent in the document. HTML
+   *          parsing includes checks for the parent, so it must be available.
+   * @return - the reader
+   * @throws IllegalStateException if the parsert is not set.
+   */
+  public HTMLEditorKit.ParserCallback getInsertingReader(int pos, int popDepth,
+                                                         int pushDepth,
+                                                         HTML.Tag insertTag,
+                                                         final Element parent)
+      throws IllegalStateException
+  {
+    if (parser == null)
+      throw new IllegalStateException("Parser has not been set");
+
+    HTMLReader reader = new HTMLReader(pos, popDepth, pushDepth, insertTag)
+    {
+      /**
+       * Ignore BODY.
+       */
+      public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos)
+      {
+        if (t != HTML.Tag.BODY)
+          super.handleStartTag(t, a, pos);
+      }
+
+      /**
+       * Ignore BODY.
+       */
+      public void handleEndTag(HTML.Tag t, int pos)
+      {
+        if (t != HTML.Tag.BODY)
+          super.handleEndTag(t, pos);
+      }
+    };
+      
+    return reader;
+  }   
   
   /**
    * Gets the child element that contains the attribute with the value or null.
@@ -1459,8 +2020,8 @@ public class HTMLDocument extends DefaultStyledDocument
    * @param e - the element to begin search at
    * @param attribute - the desired attribute
    * @param value - the desired value
-   * @return the element found with the attribute and value specified or null
-   * if it is not found.
+   * @return the element found with the attribute and value specified or null if
+   *         it is not found.
    */
   public Element getElement(Element e, Object attribute, Object value)
   {
@@ -1485,16 +2046,17 @@ public class HTMLDocument extends DefaultStyledDocument
   }
   
   /**
-   * Returns the element that has the given id Attribute. If it is not found, 
-   * null is returned. This method works on an Attribute, not a character tag.
-   * This is not thread-safe.
+   * Returns the element that has the given id Attribute (for instance, &lt;p id
+   * ='my paragraph &gt;'). If it is not found, null is returned. The HTML tag,
+   * having this attribute, is not checked by this method and can be any. The
+   * method is not thread-safe.
    * 
-   * @param attrId - the Attribute id to look for
+   * @param attrId - the value of the attribute id to look for
    * @return the element that has the given id.
    */
   public Element getElement(String attrId)
   {
-    return getElement(getDefaultRootElement(), HTML.getAttributeKey(attrId),
+    return getElement(getDefaultRootElement(), HTML.Attribute.ID,
                       attrId);
   }
   
@@ -1511,22 +2073,30 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IllegalStateException - if an HTMLEditorKit.Parser has not been set
    */
   public void setInnerHTML(Element elem, String htmlText) 
-    throws BadLocationException, IOException, NotImplementedException
+    throws BadLocationException, IOException
   {
     if (elem.isLeaf())
       throw new IllegalArgumentException("Element is a leaf");
-    if (parser == null)
-      throw new IllegalStateException("Parser has not been set");
-    // FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-    System.out.println("setInnerHTML not implemented");
+    
+    int start = elem.getStartOffset();
+    int end = elem.getEndOffset();
+
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      end, 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
+    
+    // Remove the previous content
+    remove(start, end - start);
   }
   
   /**
-   * Replaces the given element in the parent with the string. When replacing
-   * a leaf, this will attempt to make sure there is a newline present if one is
-   * needed. This may result in an additional element being inserted.
-   * This will be seen as at least two events, n inserts followed by a remove.
-   * The HTMLEditorKit.Parser must be set.
+   * Replaces the given element in the parent with the string. When replacing a
+   * leaf, this will attempt to make sure there is a newline present if one is
+   * needed. This may result in an additional element being inserted. This will
+   * be seen as at least two events, n inserts followed by a remove. The
+   * HTMLEditorKit.Parser must be set.
    * 
    * @param elem - the branch element whose parent will be replaced
    * @param htmlText - the string to be parsed and assigned to elem
@@ -1534,18 +2104,25 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IOException
    * @throws IllegalStateException - if parser is not set
    */
-  public void setOuterHTML(Element elem, String htmlText) 
-    throws BadLocationException, IOException, NotImplementedException
-    {
-      if (parser == null)
-        throw new IllegalStateException("Parser has not been set");
-      // FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-      System.out.println("setOuterHTML not implemented");
-    }
+public void setOuterHTML(Element elem, String htmlText)
+      throws BadLocationException, IOException
+  {
+    // Remove the current element:
+    int start = elem.getStartOffset();
+    int end = elem.getEndOffset();
+
+    remove(start, end-start);
+       
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      start, 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
+  }
   
   /**
-   * Inserts the string before the start of the given element.
-   * The parser must be set.
+   * Inserts the string before the start of the given element. The parser must
+   * be set.
    * 
    * @param elem - the element to be the root for the new text.
    * @param htmlText - the string to be parsed and assigned to elem
@@ -1554,18 +2131,19 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IllegalStateException - if parser has not been set
    */
   public void insertBeforeStart(Element elem, String htmlText)
-      throws BadLocationException, IOException, NotImplementedException
+      throws BadLocationException, IOException
   {
-    if (parser == null)
-      throw new IllegalStateException("Parser has not been set");
-    //  FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-    System.out.println("insertBeforeStart not implemented");
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      elem.getStartOffset(), 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
   }
   
   /**
-   * Inserts the string at the end of the element. If elem's children
-   * are leaves, and the character at elem.getEndOffset() - 1 is a newline, 
-   * then it will be inserted before the newline. The parser must be set.
+   * Inserts the string at the end of the element. If elem's children are
+   * leaves, and the character at elem.getEndOffset() - 1 is a newline, then it
+   * will be inserted before the newline. The parser must be set.
    * 
    * @param elem - the element to be the root for the new text
    * @param htmlText - the text to insert
@@ -1574,12 +2152,14 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IllegalStateException - if parser is not set
    */
   public void insertBeforeEnd(Element elem, String htmlText)
-      throws BadLocationException, IOException, NotImplementedException
+      throws BadLocationException, IOException
   {
-    if (parser == null)
-      throw new IllegalStateException("Parser has not been set");
-    //  FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-    System.out.println("insertBeforeEnd not implemented");
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      elem.getEndOffset(), 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
+
   }
   
   /**
@@ -1593,12 +2173,13 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IllegalStateException - if parser is not set
    */
   public void insertAfterEnd(Element elem, String htmlText)
-      throws BadLocationException, IOException, NotImplementedException
+      throws BadLocationException, IOException
   {
-    if (parser == null)
-      throw new IllegalStateException("Parser has not been set");
-    //  FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-    System.out.println("insertAfterEnd not implemented");
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      elem.getEndOffset(), 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
   }
   
   /**
@@ -1612,11 +2193,106 @@ public class HTMLDocument extends DefaultStyledDocument
    * @throws IllegalStateException - if parser is not set
    */
   public void insertAfterStart(Element elem, String htmlText)
-      throws BadLocationException, IOException, NotImplementedException
+      throws BadLocationException, IOException
   {
-    if (parser == null)
-      throw new IllegalStateException("Parser has not been set");
-    //  FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
-    System.out.println("insertAfterStart not implemented");
+    HTMLEditorKit.ParserCallback reader = getInsertingReader(
+      elem.getStartOffset(), 0, 0, HTML.Tag.BODY, elem);
+
+    // TODO charset
+    getParser().parse(new StringReader(htmlText), reader, true);
   }
+
+  /**
+   * Overridden to tag content with the synthetic HTML.Tag.CONTENT
+   * tag.
+   */
+  protected void insertUpdate(DefaultDocumentEvent evt, AttributeSet att)
+  {
+    if (att == null)
+      {
+        SimpleAttributeSet sas = new SimpleAttributeSet();
+        sas.addAttribute(StyleConstants.NameAttribute, HTML.Tag.CONTENT);
+        att = sas;
+      }
+    super.insertUpdate(evt, att);
+  }
+
+  /**
+   * Returns <code>true</code> when this document is inside a frame,
+   * <code>false</code> otherwise.
+   *
+   * @return <code>true</code> when this document is inside a frame,
+   *         <code>false</code> otherwise
+   */
+  boolean isFrameDocument()
+  {
+    return frameDocument;
+  }
+
+  /**
+   * Set <code>true</code> when this document is inside a frame,
+   * <code>false</code> otherwise.
+   *
+   * @param frameDoc <code>true</code> when this document is inside a frame,
+   *                 <code>false</code> otherwise
+   */
+  void setFrameDocument(boolean frameDoc)
+  {
+    frameDocument = frameDoc;
+  }
+
+  /**
+   * Returns the target that is specified in the base tag, if this is the case.
+   *
+   * @return the target that is specified in the base tag, if this is the case
+   */
+  String getBaseTarget()
+  {
+    return baseTarget;
+  }
+
+  /**
+   * Updates the A tag's pseudo class value in response to a hyperlink
+   * action.
+   *
+   * @param el the corresponding element
+   * @param value the new value
+   */
+  void updateSpecialClass(Element el, HTML.Attribute cl, String value)
+  {
+    try
+    {
+      writeLock();
+      DefaultDocumentEvent ev =
+        new DefaultDocumentEvent(el.getStartOffset(), 1,
+                                 DocumentEvent.EventType.CHANGE);
+      AttributeSet elAtts = el.getAttributes();
+      AttributeSet anchorAtts = (AttributeSet) elAtts.getAttribute(HTML.Tag.A);
+      if (anchorAtts != null)
+        {
+          AttributeSet copy = elAtts.copyAttributes();
+          StyleSheet ss = getStyleSheet();
+          if (value != null)
+            {
+              anchorAtts = ss.addAttribute(anchorAtts, cl, value);
+            }
+          else
+            {
+              anchorAtts = ss.removeAttribute(anchorAtts, cl);
+            }
+          MutableAttributeSet matts = (MutableAttributeSet) elAtts;
+          ev.addEdit(new AttributeUndoableEdit(el, copy, false));
+          matts.removeAttribute(HTML.Tag.A);
+          matts.addAttribute(HTML.Tag.A, anchorAtts);
+          ev.end();
+          fireChangedUpdate(ev);
+          fireUndoableEditUpdate(new UndoableEditEvent(this, ev));
+        }
+    }
+  finally
+    {
+      writeUnlock();
+    }
+  }
+
 }

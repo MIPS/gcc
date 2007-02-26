@@ -37,6 +37,9 @@ exception statement from your version. */
 package java.awt.image;
 
 /**
+ * A <code>SampleModel</code> is used to access pixel data from a 
+ * {@link DataBuffer}.  This is used by the {@link Raster} class.
+ * 
  * @author Rolf W. Rasmussen (rolfwr@ii.uib.no)
  */
 public abstract class SampleModel
@@ -100,16 +103,37 @@ public abstract class SampleModel
     this.numBands = numBands;  
   }
   
+  /**
+   * Returns the width of the pixel data accessible via this 
+   * <code>SampleModel</code>.
+   * 
+   * @return The width.
+   * 
+   * @see #getHeight()
+   */
   public final int getWidth()
   {
     return width;
   }
 
+  /**
+   * Returns the height of the pixel data accessible via this 
+   * <code>SampleModel</code>.
+   * 
+   * @return The height.
+   * 
+   * @see #getWidth()
+   */
   public final int getHeight()
   {
     return height;
   }
 
+  /**
+   * Returns the number of bands for this <code>SampleModel</code>.
+   * 
+   * @return The number of bands.
+   */
   public final int getNumBands()
   {
     return numBands;
@@ -117,6 +141,12 @@ public abstract class SampleModel
     
   public abstract int getNumDataElements();
   
+  /**
+   * Returns the type of the {@link DataBuffer} that this 
+   * <code>SampleModel</code> accesses.
+   * 
+   * @return The data buffer type.
+   */
   public final int getDataType()
   {
     return dataType;
@@ -128,6 +158,22 @@ public abstract class SampleModel
     return dataType;
   }
 
+  /**
+   * Returns an array containing the samples for the pixel at (x, y) in the
+   * specified data buffer.  If <code>iArray</code> is not <code>null</code>,
+   * it will be populated with the sample values and returned as the result of
+   * this function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param iArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public int[] getPixel(int x, int y, int[] iArray, DataBuffer data)
   {
     if (iArray == null) 
@@ -200,9 +246,7 @@ public abstract class SampleModel
   public void setDataElements(int x, int y, int w, int h,
                               Object obj, DataBuffer data)
   {
-    int size = w * h;
     int numDataElements = getNumDataElements();
-    int dataSize = numDataElements * size;
     
     Object pixelData;
     switch (getTransferType())
@@ -211,29 +255,54 @@ public abstract class SampleModel
         pixelData = new byte[numDataElements];
         break;
       case DataBuffer.TYPE_USHORT:
+      case DataBuffer.TYPE_SHORT:
         pixelData = new short[numDataElements];
         break;
       case DataBuffer.TYPE_INT:
         pixelData = new int[numDataElements];
         break;
+      case DataBuffer.TYPE_FLOAT:
+        pixelData = new float[numDataElements];
+        break;
+      case DataBuffer.TYPE_DOUBLE:
+        pixelData = new double[numDataElements];
+        break;
       default:
-        // Seems like the only sensible thing to do.
-        throw new ClassCastException();
+        // The RI silently igores invalid types.
+        pixelData = null;
       }
-    int inOffset = 0;
 
-    for (int yy = y; yy < (y + h); yy++)
+    int inOffset = 0;
+    if (pixelData != null)
       {
-        for (int xx = x; xx < (x + w); xx++)
+        for (int yy=y; yy<(y+h); yy++)
           {
-            System.arraycopy(obj, inOffset, pixelData, 0,
-                             numDataElements);
-            setDataElements(xx, yy, pixelData, data);
-            inOffset += numDataElements;
+            for (int xx=x; xx<(x+w); xx++)
+              {
+                System.arraycopy(obj, inOffset, pixelData, 0, numDataElements);
+                setDataElements(xx, yy, pixelData, data);
+                inOffset += numDataElements;
+              }
           }
       }
   }
 
+  /**
+   * Returns an array containing the samples for the pixel at (x, y) in the
+   * specified data buffer.  If <code>fArray</code> is not <code>null</code>,
+   * it will be populated with the sample values and returned as the result of
+   * this function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param fArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public float[] getPixel(int x, int y, float[] fArray, DataBuffer data)
   {
     if (fArray == null) 
@@ -246,6 +315,22 @@ public abstract class SampleModel
     return fArray;
   }
 
+  /**
+   * Returns an array containing the samples for the pixel at (x, y) in the
+   * specified data buffer.  If <code>dArray</code> is not <code>null</code>,
+   * it will be populated with the sample values and returned as the result of
+   * this function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param dArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public double[] getPixel(int x, int y, double[] dArray, DataBuffer data) {
     if (dArray == null) 
       dArray = new double[numBands];
@@ -256,8 +341,27 @@ public abstract class SampleModel
     return dArray;
   }
 
-  /* FIXME: Should it return a banded or pixel interleaved array of
-     samples? (Assume interleaved.) */
+  /**
+   * Returns an array containing the samples for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on).  If <code>iArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param iArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public int[] getPixels(int x, int y, int w, int h, int[] iArray,
                          DataBuffer data)
   {
@@ -278,8 +382,27 @@ public abstract class SampleModel
     return iArray;
   }
 
-  /* FIXME: Should it return a banded or pixel interleaved array of
-     samples? (Assume interleaved.) */
+  /**
+   * Returns an array containing the samples for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on).  If <code>fArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param fArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public float[] getPixels(int x, int y, int w, int h, float[] fArray,
                            DataBuffer data)
   {
@@ -299,8 +422,27 @@ public abstract class SampleModel
     return fArray;
   }
     
-  /* FIXME: Should it return a banded or pixel interleaved array of
-     samples? (Assume interleaved.) */
+  /**
+   * Returns an array containing the samples for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on).  If <code>dArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param dArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The pixel sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public double[] getPixels(int x, int y, int w, int h, double[] dArray,
                             DataBuffer data)
   {
@@ -321,18 +463,85 @@ public abstract class SampleModel
     return dArray;
   }
 
+  /**
+   * Returns the sample value for the pixel at (x, y) in the specified data 
+   * buffer.
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample value.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public abstract int getSample(int x, int y, int b, DataBuffer data);
 
+  /**
+   * Returns the sample value for the pixel at (x, y) in the specified data 
+   * buffer.
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample value.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   * 
+   * @see #getSample(int, int, int, DataBuffer)
+   */
   public float getSampleFloat(int x, int y, int b, DataBuffer data)
   {
     return getSample(x, y, b, data);
   }
 
+  /**
+   * Returns the sample value for the pixel at (x, y) in the specified data 
+   * buffer.
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample value.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   * 
+   * @see #getSample(int, int, int, DataBuffer)
+   */
   public double getSampleDouble(int x, int y, int b, DataBuffer data)
   {
     return getSampleFloat(x, y, b, data);
   }
 
+  /**
+   * Returns an array containing the samples from one band for the pixels in 
+   * the region specified by (x, y, w, h) in the specified data buffer.  If 
+   * <code>iArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param iArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public int[] getSamples(int x, int y, int w, int h, int b,
                           int[] iArray, DataBuffer data)
   {
@@ -350,6 +559,27 @@ public abstract class SampleModel
     return iArray;
   }
 
+  /**
+   * Returns an array containing the samples from one band for the pixels in 
+   * the region specified by (x, y, w, h) in the specified data buffer.  If 
+   * <code>fArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param fArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public float[] getSamples(int x, int y, int w, int h, int b,
                             float[] fArray, DataBuffer data)
   {
@@ -367,6 +597,27 @@ public abstract class SampleModel
     return fArray;
   }
 
+  /**
+   * Returns an array containing the samples from one band for the pixels in 
+   * the region specified by (x, y, w, h) in the specified data buffer.  If 
+   * <code>dArray</code> is not <code>null</code>, it will be 
+   * populated with the sample values and returned as the result of this 
+   * function (this avoids allocating a new array instance).
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param dArray  an array to populate with the sample values and return as 
+   *     the result (if <code>null</code>, a new array will be allocated).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @return The sample values.
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public double[] getSamples(int x, int y, int w, int h, int b,
                              double[] dArray, DataBuffer data)
   {
@@ -384,24 +635,77 @@ public abstract class SampleModel
     return dArray;
   }
   
+  /**
+   * Sets the samples for the pixel at (x, y) in the specified data buffer to
+   * the specified values. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param iArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>iArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixel(int x, int y, int[] iArray, DataBuffer data)
   {
     for (int b = 0; b < numBands; b++) 
       setSample(x, y, b, iArray[b], data);
   }
 
+  /**
+   * Sets the samples for the pixel at (x, y) in the specified data buffer to
+   * the specified values. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param fArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>fArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixel(int x, int y, float[] fArray, DataBuffer data)
   {
     for (int b = 0; b < numBands; b++) 
       setSample(x, y, b, fArray[b], data);
   }
 
+  /**
+   * Sets the samples for the pixel at (x, y) in the specified data buffer to
+   * the specified values. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param dArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>dArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixel(int x, int y, double[] dArray, DataBuffer data)
   {
     for (int b = 0; b < numBands; b++) 
       setSample(x, y, b, dArray[b], data);
   }
 
+  /**
+   * Sets the sample values for the pixels in the region specified by 
+   * (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on). 
+   *  
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param iArray  the pixel sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>iArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixels(int x, int y, int w, int h, int[] iArray,
                         DataBuffer data)
   {
@@ -418,6 +722,23 @@ public abstract class SampleModel
       }
   }
 
+  /**
+   * Sets the sample values for the pixels in the region specified by 
+   * (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on). 
+   *  
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param fArray  the pixel sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>fArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixels(int x, int y, int w, int h, float[] fArray,
                         DataBuffer data)
   {
@@ -434,6 +755,23 @@ public abstract class SampleModel
       }
   }
 
+  /**
+   * Sets the sample values for the pixels in the region specified by 
+   * (x, y, w, h) in the specified data buffer.  The array is
+   * ordered by pixels (that is, all the samples for the first pixel are 
+   * grouped together, followed by all the samples for the second pixel, and so
+   * on). 
+   *  
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param dArray  the pixel sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>dArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setPixels(int x, int y, int w, int h, double[] dArray,
                         DataBuffer data)
   {
@@ -450,21 +788,76 @@ public abstract class SampleModel
       }
   }
 
+  /**
+   * Sets the sample value for a band for the pixel at (x, y) in the 
+   * specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param s  the sample value.
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public abstract void setSample(int x, int y, int b, int s,
                                  DataBuffer data);
 
+  /**
+   * Sets the sample value for a band for the pixel at (x, y) in the 
+   * specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param s  the sample value.
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public void setSample(int x, int y, int b, float s,
                         DataBuffer data)
   {
     setSample(x, y, b, (int) s, data);
   }
 
+  /**
+   * Sets the sample value for a band for the pixel at (x, y) in the 
+   * specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the pixel.
+   * @param y  the y-coordinate of the pixel.
+   * @param b  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   * @param s  the sample value.
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if <code>data</code> is <code>null</code>.
+   */
   public void setSample(int x, int y, int b, double s,
                         DataBuffer data)
   {
     setSample(x, y, b, (float) s, data);
   }
 
+  /**
+   * Sets the sample values for one band for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param iArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>iArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setSamples(int x, int y, int w, int h, int b,
                          int[] iArray, DataBuffer data)
   {
@@ -475,6 +868,22 @@ public abstract class SampleModel
         setSample(xx, yy, b, iArray[inOffset++], data);
   }
 
+  /**
+   * Sets the sample values for one band for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param fArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>iArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setSamples(int x, int y, int w, int h, int b,
                          float[] fArray, DataBuffer data)
   {
@@ -486,6 +895,22 @@ public abstract class SampleModel
 
   }
 
+  /**
+   * Sets the sample values for one band for the pixels in the region 
+   * specified by (x, y, w, h) in the specified data buffer. 
+   * 
+   * @param x  the x-coordinate of the top-left pixel.
+   * @param y  the y-coordinate of the top-left pixel.
+   * @param w  the width of the region of pixels.
+   * @param h  the height of the region of pixels.
+   * @param b  the band (in the range <code>0</code> to 
+   *     </code>getNumBands() - 1</code>).
+   * @param dArray  the sample values (<code>null</code> not permitted).
+   * @param data  the data buffer (<code>null</code> not permitted).
+   * 
+   * @throws NullPointerException if either <code>iArray</code> or 
+   *     <code>data</code> is <code>null</code>.
+   */
   public void setSamples(int x, int y, int w, int h, int b,
                          double[] dArray, DataBuffer data) {
     int size = w * h;
@@ -495,6 +920,15 @@ public abstract class SampleModel
         setSample(xx, yy, b, dArray[inOffset++], data);
   }
 
+  /**
+   * Creates a new <code>SampleModel</code> that is compatible with this
+   * model and has the specified width and height.
+   * 
+   * @param w  the width (in pixels).
+   * @param h  the height (in pixels).
+   * 
+   * @return The new sample model.
+   */
   public abstract SampleModel createCompatibleSampleModel(int w, int h);
 
   /**
@@ -510,9 +944,31 @@ public abstract class SampleModel
    */
   public abstract SampleModel createSubsetSampleModel(int[] bands);
 
+  /**
+   * Creates a new {@link DataBuffer} of the correct type and size for this 
+   * <code>SampleModel</code>.
+   * 
+   * @return The data buffer.
+   */
   public abstract DataBuffer createDataBuffer();
 
+  /**
+   * Returns an array containing the size (in bits) for each band accessed by
+   * the <code>SampleModel</code>.
+   * 
+   * @return An array.
+   * 
+   * @see #getSampleSize(int)
+   */
   public abstract int[] getSampleSize();
 
+  /**
+   * Returns the size (in bits) of the samples for the specified band.
+   * 
+   * @param band  the band (in the range <code>0</code> to 
+   *     <code>getNumBands() - 1</code>).
+   *     
+   * @return The sample size (in bits).
+   */
   public abstract int getSampleSize(int band);
 }

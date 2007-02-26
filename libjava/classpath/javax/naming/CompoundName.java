@@ -48,6 +48,10 @@ import java.util.Properties;
 import java.util.Vector;
 
 /**
+ * Represents hierarchical names from the single namespace. For instance,
+ * the path /home/audriusa/classpath/file.txt is the compound name, using
+ * the filesystem namespace. 
+ * 
  * @author Tom Tromey (tromey@redhat.com)
  * @date May 16, 2001
  *
@@ -69,7 +73,7 @@ public class CompoundName implements Name, Cloneable, Serializable
     initializeSyntax ();
   }
 
-  protected CompoundName (Enumeration comps, Properties syntax)
+  protected CompoundName (Enumeration<String> comps, Properties syntax)
   {
     elts = new Vector ();
     mySyntax = syntax;
@@ -285,7 +289,7 @@ public class CompoundName implements Name, Cloneable, Serializable
     return (String) elts.get (posn);
   }
 
-  public Enumeration getAll ()
+  public Enumeration<String> getAll ()
   {
     return elts.elements ();
   }

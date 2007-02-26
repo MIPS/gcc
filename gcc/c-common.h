@@ -90,6 +90,9 @@ enum rid
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
+  /* C++0x */
+  RID_STATIC_ASSERT,
+
   /* Objective-C */
   RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
@@ -105,6 +108,8 @@ enum rid
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
+  RID_FIRST_CXX0X = RID_STATIC_ASSERT,
+  RID_LAST_CXX0X = RID_STATIC_ASSERT,
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
   RID_FIRST_PQ = RID_IN,
@@ -389,6 +394,10 @@ extern int flag_short_double;
 
 extern int flag_short_wchar;
 
+/* Nonzero means allow implicit conversions between vectors with
+   differing numbers of subparts and/or differing element types.  */
+extern int flag_lax_vector_conversions;
+
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 extern int flag_ms_extensions;
 
@@ -521,6 +530,11 @@ extern int flag_access_control;
 
 extern int flag_check_new;
 
+/* Nonzero if we want to allow the use of experimental features that
+   are likely to become part of C++0x. */
+
+extern int flag_cpp0x;
+
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
    0: Old rules, set by -fno-for-scope.
@@ -644,6 +658,7 @@ extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
+extern bool decl_with_nonnull_addr_p (tree);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
 extern tree c_sizeof_or_alignof_type (tree, bool, int);
@@ -654,10 +669,11 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
-extern void strict_aliasing_warning(tree, tree, tree);
+extern void strict_aliasing_warning (tree, tree, tree);
 extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
+extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
 
@@ -791,7 +807,7 @@ extern tree finish_label_address_expr (tree);
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
 
-extern int vector_types_convertible_p (tree t1, tree t2);
+extern bool vector_types_convertible_p (tree t1, tree t2, bool emit_lax_note);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
@@ -830,7 +846,7 @@ extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
 
-extern tree fold_offsetof (tree);
+extern tree fold_offsetof (tree, tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
    Used to select diagnostic messages in lvalue_error and
@@ -850,6 +866,10 @@ extern int complete_array_type (tree *, tree, bool);
 extern tree builtin_type_for_size (int, bool);
 
 extern void warn_array_subscript_with_type_char (tree);
+extern void warn_about_parentheses (enum tree_code, enum tree_code,
+				    enum tree_code);
+extern void warn_for_unused_label (tree label);
+
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
@@ -948,7 +968,7 @@ extern tree c_finish_omp_master (tree);
 extern tree c_finish_omp_critical (tree, tree);
 extern tree c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
-extern void c_finish_omp_atomic (enum tree_code, tree, tree);
+extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
 extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);

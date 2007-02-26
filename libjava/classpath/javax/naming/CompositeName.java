@@ -47,18 +47,25 @@ import java.util.NoSuchElementException;
 import java.util.Vector;
 
 /**
+ * Represents names that may span over several namespaces. For instance,
+ * the composite name http://www.gnu.org/software/classpath/index.html spans
+ * over three namespaces (the protocol http, the web server location
+ * (www.gnu.org) and the index.html location on the server).
+ * 
  * @author Tom Tromey (tromey@redhat.com)
  */
 public class CompositeName implements Name, Cloneable, Serializable
 {
   private static final long serialVersionUID = 1667768148915813118L;
+  
+  private transient Vector elts;  
 
   public CompositeName ()
   {
     elts = new Vector ();
   }
 
-  protected CompositeName (Enumeration comps)
+  protected CompositeName (Enumeration<String> comps)
   {
     elts = new Vector ();
     try
@@ -223,7 +230,7 @@ public class CompositeName implements Name, Cloneable, Serializable
     return (String) elts.get (posn);
   }
 
-  public Enumeration getAll ()
+  public Enumeration<String> getAll ()
   {
     return elts.elements ();
   }
@@ -331,6 +338,4 @@ public class CompositeName implements Name, Cloneable, Serializable
     for (int i = 0; i < elts.size(); i++)
       s.writeObject(elts.get(i));
   }
-
-  private transient Vector elts;
 }

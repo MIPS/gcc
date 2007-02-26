@@ -41,6 +41,7 @@
 #include <limits>		// For numeric_limits
 #include <typeinfo>		// For bad_cast.
 #include <bits/streambuf_iterator.h>
+#include <ext/type_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -313,7 +314,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       int __sep_pos = 0;
       while (!__testeof)
 	{
-	  if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
+	  if ((__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
 	      || __c == __lc->_M_decimal_point)
 	    break;
 	  else if (__c == __lit[__num_base::_S_izero])
@@ -503,20 +504,6 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 _GLIBCXX_END_LDBL_NAMESPACE
 
-  template<typename _ValueT>
-    struct __to_unsigned_type
-    { typedef _ValueT __type; };
-
-  template<>
-    struct __to_unsigned_type<long>
-    { typedef unsigned long __type; };
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<>
-    struct __to_unsigned_type<long long>
-    { typedef unsigned long long __type; };
-#endif
-
 _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _InIter>
@@ -527,7 +514,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 		     ios_base::iostate& __err, _ValueT& __v) const
       {
         typedef char_traits<_CharT>			     __traits_type;
-	typedef typename __to_unsigned_type<_ValueT>::__type __unsigned_type;
+	using __gnu_cxx::__add_unsigned;
+	typedef typename __add_unsigned<_ValueT>::__type __unsigned_type;
 	typedef __numpunct_cache<_CharT>                     __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
@@ -568,7 +556,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	int __sep_pos = 0;
 	while (!__testeof)
 	  {
-	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
+	    if ((__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
 		|| __c == __lc->_M_decimal_point)
 	      break;
 	    else if (__c == __lit[__num_base::_S_izero] 
@@ -737,7 +725,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	  long __l = -1;
           __beg = _M_extract_int(__beg, __end, __io, __err, __l);
 	  if (__l == 0 || __l == 1)
-	    __v = __l;
+	    __v = bool(__l);
 	  else
             __err |= ios_base::failbit;
         }
@@ -776,9 +764,9 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 		__testeof = true;
             }
 	  if (__testf && __n == __lc->_M_falsename_size)
-	    __v = 0;
+	    __v = false;
 	  else if (__testt && __n == __lc->_M_truename_size)
-	    __v = 1;
+	    __v = true;
 	  else
 	    __err |= ios_base::failbit;
 
@@ -895,7 +883,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       // Prepare for hex formatted input.
       typedef ios_base::fmtflags        fmtflags;
       const fmtflags __fmt = __io.flags();
-      __io.flags(__fmt & ~ios_base::basefield | ios_base::hex);
+      __io.flags((__fmt & ~ios_base::basefield) | ios_base::hex);
 
       unsigned long __ul;
       __beg = _M_extract_int(__beg, __end, __io, __err, __ul);
@@ -925,60 +913,13 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 _GLIBCXX_END_LDBL_NAMESPACE
 
-  // Forwarding functions to peel signed from unsigned integer types and
-  // either cast or compute the absolute value for the former, depending
-  // on __basefield.
-  template<typename _CharT>
-    inline int
-    __int_to_char(_CharT* __bufend, long __v, const _CharT* __lit,
-		  ios_base::fmtflags __flags)
-    {
-      unsigned long __ul = __v;
-      const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
-      if (__builtin_expect(__basefield != ios_base::oct
-			   && __basefield != ios_base::hex, true))
-	__ul = __v < 0 ? -__v : __ul;
-      return __int_to_char(__bufend, __ul, __lit, __flags, false);
-    }
-
-  template<typename _CharT>
-    inline int
-    __int_to_char(_CharT* __bufend, unsigned long __v, const _CharT* __lit,
-		  ios_base::fmtflags __flags)
-    { return __int_to_char(__bufend, __v, __lit, __flags, false); }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<typename _CharT>
-    inline int
-    __int_to_char(_CharT* __bufend, long long __v, const _CharT* __lit,
-		  ios_base::fmtflags __flags)
-    {
-      unsigned long long __ull = __v;
-      const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
-      if (__builtin_expect(__basefield != ios_base::oct
-			   && __basefield != ios_base::hex, true))
-	__ull = __v < 0 ? -__v : __ull;
-      return __int_to_char(__bufend, __ull, __lit, __flags, false);
-    }
-
-  template<typename _CharT>
-    inline int
-    __int_to_char(_CharT* __bufend, unsigned long long __v, 
-		  const _CharT* __lit, ios_base::fmtflags __flags)
-    { return __int_to_char(__bufend, __v, __lit, __flags, false); }
-#endif
-
-  // N.B. The last argument is currently unused (see libstdc++/20914).
   template<typename _CharT, typename _ValueT>
     int
     __int_to_char(_CharT* __bufend, _ValueT __v, const _CharT* __lit,
-		  ios_base::fmtflags __flags, bool)
+		  ios_base::fmtflags __flags, bool __dec)
     {
-      const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
       _CharT* __buf = __bufend;
-
-      if (__builtin_expect(__basefield != ios_base::oct
-			   && __basefield != ios_base::hex, true))
+      if (__builtin_expect(__dec, true))
 	{
 	  // Decimal.
 	  do
@@ -988,7 +929,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	    }
 	  while (__v != 0);
 	}
-      else if (__basefield == ios_base::oct)
+      else if ((__flags & ios_base::basefield) == ios_base::oct)
 	{
 	  // Octal.
 	  do
@@ -1034,7 +975,9 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       _M_insert_int(_OutIter __s, ios_base& __io, _CharT __fill,
 		    _ValueT __v) const
       {
-	typedef __numpunct_cache<_CharT>	        __cache_type;
+	using __gnu_cxx::__add_unsigned;
+	typedef typename __add_unsigned<_ValueT>::__type __unsigned_type;
+	typedef __numpunct_cache<_CharT>	             __cache_type;
 	__use_cache<__cache_type> __uc;
 	const locale& __loc = __io._M_getloc();
 	const __cache_type* __lc = __uc(__loc);
@@ -1048,7 +991,13 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	// Result is returned right-justified in the buffer.
-	int __len = __int_to_char(__cs + __ilen, __v, __lit, __flags);
+	const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
+	const bool __dec = (__basefield != ios_base::oct
+			    && __basefield != ios_base::hex);
+	const __unsigned_type __u = ((__v > 0 || !__dec)
+				     ? __unsigned_type(__v)
+				     : -__unsigned_type(__v));
+ 	int __len = __int_to_char(__cs + __ilen, __u, __lit, __flags, __dec);
 	__cs += __ilen - __len;
 
 	// Add grouping, if necessary.
@@ -1065,9 +1014,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	  }
 
 	// Complete Stage 1, prepend numeric base or sign.
-	const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
-	if (__builtin_expect(__basefield != ios_base::oct
-			     && __basefield != ios_base::hex, true))
+	if (__builtin_expect(__dec, true))
 	  {
 	    // Decimal.
 	    if (__v > 0)
@@ -1135,7 +1082,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       __len = __newlen;
     }
 
-  // The following code uses snprintf (or sprintf(), when
+  // The following code uses vsnprintf (or vsprintf(), when
   // _GLIBCXX_USE_C99 is not defined) to convert floating point values
   // for insertion into a stream.  An optimization would be to replace
   // them with code that works directly on a wide buffer and then use
@@ -1158,9 +1105,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	const __cache_type* __lc = __uc(__loc);
 
 	// Use default precision if out of range.
-	streamsize __prec = __io.precision();
-	if (__prec < static_cast<streamsize>(0))
-	  __prec = static_cast<streamsize>(6);
+	const streamsize __prec = __io.precision() < 0 ? 6 : __io.precision();
 
 	const int __max_digits = numeric_limits<_ValueT>::digits10;
 
@@ -1168,24 +1113,23 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	int __len;
 	// Long enough for the max format spec.
 	char __fbuf[16];
+	__num_base::_S_format_float(__io, __fbuf, __mod);
 
 #ifdef _GLIBCXX_USE_C99
 	// First try a buffer perhaps big enough (most probably sufficient
 	// for non-ios_base::fixed outputs)
 	int __cs_size = __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-
-	__num_base::_S_format_float(__io, __fbuf, __mod);
-	__len = std::__convert_from_v(__cs, __cs_size, __fbuf, __v,
-				      _S_get_c_locale(), __prec);
+	__len = std::__convert_from_v(_S_get_c_locale(), __cs, __cs_size,
+				      __fbuf, __prec, __v);
 
 	// If the buffer was not large enough, try again with the correct size.
 	if (__len >= __cs_size)
 	  {
 	    __cs_size = __len + 1;
 	    __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-	    __len = std::__convert_from_v(__cs, __cs_size, __fbuf, __v,
-					  _S_get_c_locale(), __prec);
+	    __len = std::__convert_from_v(_S_get_c_locale(), __cs, __cs_size,
+					  __fbuf, __prec, __v);
 	  }
 #else
 	// Consider the possibility of long ios_base::fixed outputs
@@ -1201,10 +1145,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	const int __cs_size = __fixed ? __max_exp + __prec + 4
 	                              : __max_digits * 2 + __prec;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-
-	__num_base::_S_format_float(__io, __fbuf, __mod);
-	__len = std::__convert_from_v(__cs, 0, __fbuf, __v,
-				      _S_get_c_locale(), __prec);
+	__len = std::__convert_from_v(_S_get_c_locale(), __cs, 0, __fbuf, 
+				      __prec, __v);
 #endif
 
 	// [22.2.2.2.2] Stage 2, convert to char_type, using correct
@@ -1216,18 +1158,20 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	__ctype.widen(__cs, __cs + __len, __ws);
 	
 	// Replace decimal point.
-	const _CharT __cdec = __ctype.widen('.');
-	const _CharT __dec = __lc->_M_decimal_point;
-	const _CharT* __p = char_traits<_CharT>::find(__ws, __len, __cdec);
+	_CharT* __wp = 0;
+	const char* __p = char_traits<char>::find(__cs, __len, '.');
 	if (__p)
-	  __ws[__p - __ws] = __dec;
+	  {
+	    __wp = __ws + (__p - __cs);
+	    *__wp = __lc->_M_decimal_point;
+	  }
 	
 	// Add grouping, if necessary.
 	// N.B. Make sure to not group things like 2e20, i.e., no decimal
 	// point, scientific notation.
 	if (__lc->_M_use_grouping
-	    && (__p || __len < 3 || (__cs[1] <= '9' && __cs[2] <= '9'
-				     && __cs[1] >= '0' && __cs[2] >= '0')))
+	    && (__wp || __len < 3 || (__cs[1] <= '9' && __cs[2] <= '9'
+				      && __cs[1] >= '0' && __cs[2] >= '0')))
 	  {
 	    // Grouping can add (almost) as many separators as the
 	    // number of digits, but no more.
@@ -1243,7 +1187,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	      }
 	    
 	    _M_group_float(__lc->_M_grouping, __lc->_M_grouping_size,
-			   __lc->_M_thousands_sep, __p, __ws2 + __off,
+			   __lc->_M_thousands_sep, __wp, __ws2 + __off,
 			   __ws + __off, __len);
 	    __len += __off;
 	    
@@ -1363,7 +1307,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       const ios_base::fmtflags __fmt = ~(ios_base::basefield
 					 | ios_base::uppercase
 					 | ios_base::internal);
-      __io.flags(__flags & __fmt | (ios_base::hex | ios_base::showbase));
+      __io.flags((__flags & __fmt) | (ios_base::hex | ios_base::showbase));
 
       __s = _M_insert_int(__s, __io, __fill,
 			  reinterpret_cast<unsigned long>(__v));
@@ -1435,9 +1379,9 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 					 == money_base::space)))
 		    || (__i == 2 && ((static_cast<part>(__p.field[3])
 				      == money_base::value)
-				     || __mandatory_sign
-				     && (static_cast<part>(__p.field[3])
-					 == money_base::sign))))
+				     || (__mandatory_sign
+					 && (static_cast<part>(__p.field[3])
+					     == money_base::sign)))))
 		  {
 		    const size_type __len = __lc->_M_curr_symbol_size;
 		    size_type __j = 0;
@@ -1595,10 +1539,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	     ios_base::iostate& __err, double& __units) const
     {
       string __str;
-      if (__intl)
-	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
-      else
-	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+                     : _M_extract<false>(__beg, __end, __io, __err, __str);
       std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
       return __beg;
     }
@@ -1611,10 +1553,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	   ios_base::iostate& __err, long double& __units) const
     {
       string __str;
-      if (__intl)
-	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
-      else
-	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+	             : _M_extract<false>(__beg, __end, __io, __err, __str);
       std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
       return __beg;
     }
@@ -1623,7 +1563,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
     _InIter
     money_get<_CharT, _InIter>::
     do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io,
-	   ios_base::iostate& __err, string_type& __units) const
+	   ios_base::iostate& __err, string_type& __digits) const
     {
       typedef typename string::size_type                  size_type;
 
@@ -1631,20 +1571,15 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
 
       string __str;
-      const iter_type __ret = __intl ? _M_extract<true>(__beg, __end, __io,
-							__err, __str)
-	                             : _M_extract<false>(__beg, __end, __io,
-							 __err, __str);
+      __beg = __intl ? _M_extract<true>(__beg, __end, __io, __err, __str)
+	             : _M_extract<false>(__beg, __end, __io, __err, __str);
       const size_type __len = __str.size();
       if (__len)
 	{
-	  _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							       * __len));
-	  __ctype.widen(__str.data(), __str.data() + __len, __ws);
-	  __units.assign(__ws, __len);
+	  __digits.resize(__len);
+	  __ctype.widen(__str.data(), __str.data() + __len, &__digits[0]);
 	}
-
-      return __ret;
+      return __beg;
     }
 
   template<typename _CharT, typename _OutIter>
@@ -1700,22 +1635,20 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 
 	    // Add thousands separators to non-decimal digits, per
 	    // grouping rules.
-	    int __paddec = __len - __lc->_M_frac_digits;
+	    long __paddec = __len - __lc->_M_frac_digits;
 	    if (__paddec > 0)
   	      {
 		if (__lc->_M_frac_digits < 0)
 		  __paddec = __len;
   		if (__lc->_M_grouping_size)
   		  {
-		    _CharT* __ws =
-  		      static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-  							    * 2 * __len));
-  		    _CharT* __ws_end =
-		      std::__add_grouping(__ws, __lc->_M_thousands_sep,
+		    __value.assign(2 * __paddec, char_type());
+ 		    _CharT* __vend = 
+		      std::__add_grouping(&__value[0], __lc->_M_thousands_sep,
 					  __lc->_M_grouping,
 					  __lc->_M_grouping_size,
 					  __beg, __beg + __paddec);
-		    __value.assign(__ws, __ws_end - __ws);
+		    __value.erase(__vend - &__value[0]);
   		  }
   		else
 		  __value.assign(__beg, __paddec);
@@ -1815,9 +1748,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
     money_put<_CharT, _OutIter>::
     __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
 	     double __units) const
-    {
-      return this->do_put(__s, __intl, __io, __fill, (long double) __units);
-    }
+    { return this->do_put(__s, __intl, __io, __fill, (long double) __units); }
 #endif
 
   template<typename _CharT, typename _OutIter>
@@ -1834,27 +1765,25 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 328. Bad sprintf format modifier in money_put<>::do_put()
-      int __len = std::__convert_from_v(__cs, __cs_size, "%.*Lf", __units,
-					_S_get_c_locale(), 0);
+      int __len = std::__convert_from_v(_S_get_c_locale(), __cs, __cs_size,
+					"%.*Lf", 0, __units);
       // If the buffer was not large enough, try again with the correct size.
       if (__len >= __cs_size)
 	{
 	  __cs_size = __len + 1;
 	  __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-	  __len = std::__convert_from_v(__cs, __cs_size, "%.*Lf", __units,
-					_S_get_c_locale(), 0);
+	  __len = std::__convert_from_v(_S_get_c_locale(), __cs, __cs_size,
+					"%.*Lf", 0, __units);
 	}
 #else
       // max_exponent10 + 1 for the integer part, + 2 for sign and '\0'.
       const int __cs_size = numeric_limits<long double>::max_exponent10 + 3;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-      int __len = std::__convert_from_v(__cs, 0, "%.*Lf", __units,
-					_S_get_c_locale(), 0);
+      int __len = std::__convert_from_v(_S_get_c_locale(), __cs, 0, "%.*Lf", 
+					0, __units);
 #endif
-      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							   * __cs_size));
-      __ctype.widen(__cs, __cs + __len, __ws);
-      const string_type __digits(__ws, __len);
+      string_type __digits(__len, char_type());
+      __ctype.widen(__cs, __cs + __len, &__digits[0]);
       return __intl ? _M_insert<true>(__s, __io, __fill, __digits)
 	            : _M_insert<false>(__s, __io, __fill, __digits);
     }
@@ -1891,7 +1820,8 @@ _GLIBCXX_END_LDBL_NAMESPACE
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
       const size_t __len = char_traits<_CharT>::length(__format);
 
-      for (size_t __i = 0; __beg != __end && __i < __len && !__err; ++__i)
+      ios_base::iostate __tmperr = ios_base::goodbit;
+      for (size_t __i = 0; __beg != __end && __i < __len && !__tmperr; ++__i)
 	{
 	  if (__ctype.narrow(__format[__i], 0) == '%')
 	    {
@@ -1909,14 +1839,14 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		  const char_type*  __days1[7];
 		  __tp._M_days_abbreviated(__days1);
 		  __beg = _M_extract_name(__beg, __end, __tm->tm_wday, __days1,
-					  7, __io, __err);
+					  7, __io, __tmperr);
 		  break;
 		case 'A':
 		  // Weekday name [tm_wday].
 		  const char_type*  __days2[7];
 		  __tp._M_days(__days2);
 		  __beg = _M_extract_name(__beg, __end, __tm->tm_wday, __days2,
-					  7, __io, __err);
+					  7, __io, __tmperr);
 		  break;
 		case 'h':
 		case 'b':
@@ -1924,77 +1854,77 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		  const char_type*  __months1[12];
 		  __tp._M_months_abbreviated(__months1);
 		  __beg = _M_extract_name(__beg, __end, __tm->tm_mon, 
-					  __months1, 12, __io, __err);
+					  __months1, 12, __io, __tmperr);
 		  break;
 		case 'B':
 		  // Month name [tm_mon].
 		  const char_type*  __months2[12];
 		  __tp._M_months(__months2);
 		  __beg = _M_extract_name(__beg, __end, __tm->tm_mon, 
-					  __months2, 12, __io, __err);
+					  __months2, 12, __io, __tmperr);
 		  break;
 		case 'c':
 		  // Default time and date representation.
 		  const char_type*  __dt[2];
 		  __tp._M_date_time_formats(__dt);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __dt[0]);
 		  break;
 		case 'd':
 		  // Day [01, 31]. [tm_mday]
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_mday, 1, 31, 2,
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 'e':
 		  // Day [1, 31], with single digits preceded by
 		  // space. [tm_mday]
 		  if (__ctype.is(ctype_base::space, *__beg))
 		    __beg = _M_extract_num(++__beg, __end, __tm->tm_mday, 1, 9,
-					   1, __io, __err);
+					   1, __io, __tmperr);
 		  else
 		    __beg = _M_extract_num(__beg, __end, __tm->tm_mday, 10, 31,
-					   2, __io, __err);
+					   2, __io, __tmperr);
 		  break;
 		case 'D':
 		  // Equivalent to %m/%d/%y.[tm_mon, tm_mday, tm_year]
 		  __cs = "%m/%d/%y";
 		  __ctype.widen(__cs, __cs + 9, __wcs);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __wcs);
 		  break;
 		case 'H':
 		  // Hour [00, 23]. [tm_hour]
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_hour, 0, 23, 2,
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 'I':
 		  // Hour [01, 12]. [tm_hour]
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_hour, 1, 12, 2,
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 'm':
 		  // Month [01, 12]. [tm_mon]
 		  __beg = _M_extract_num(__beg, __end, __mem, 1, 12, 2, 
-					 __io, __err);
-		  if (!__err)
+					 __io, __tmperr);
+		  if (!__tmperr)
 		    __tm->tm_mon = __mem - 1;
 		  break;
 		case 'M':
 		  // Minute [00, 59]. [tm_min]
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_min, 0, 59, 2,
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 'n':
 		  if (__ctype.narrow(*__beg, 0) == '\n')
 		    ++__beg;
 		  else
-		    __err |= ios_base::failbit;
+		    __tmperr |= ios_base::failbit;
 		  break;
 		case 'R':
 		  // Equivalent to (%H:%M).
 		  __cs = "%H:%M";
 		  __ctype.widen(__cs, __cs + 6, __wcs);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __wcs);
 		  break;
 		case 'S':
@@ -2005,46 +1935,46 @@ _GLIBCXX_END_LDBL_NAMESPACE
 #else
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 61, 2,
 #endif
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 't':
 		  if (__ctype.narrow(*__beg, 0) == '\t')
 		    ++__beg;
 		  else
-		    __err |= ios_base::failbit;
+		    __tmperr |= ios_base::failbit;
 		  break;
 		case 'T':
 		  // Equivalent to (%H:%M:%S).
 		  __cs = "%H:%M:%S";
 		  __ctype.widen(__cs, __cs + 9, __wcs);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __wcs);
 		  break;
 		case 'x':
 		  // Locale's date.
 		  const char_type*  __dates[2];
 		  __tp._M_date_formats(__dates);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __dates[0]);
 		  break;
 		case 'X':
 		  // Locale's time.
 		  const char_type*  __times[2];
 		  __tp._M_time_formats(__times);
-		  __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+		  __beg = _M_extract_via_format(__beg, __end, __io, __tmperr, 
 						__tm, __times[0]);
 		  break;
 		case 'y':
 		case 'C': // C99
 		  // Two digit year. [tm_year]
 		  __beg = _M_extract_num(__beg, __end, __tm->tm_year, 0, 99, 2,
-					 __io, __err);
+					 __io, __tmperr);
 		  break;
 		case 'Y':
 		  // Year [1900). [tm_year]
 		  __beg = _M_extract_num(__beg, __end, __mem, 0, 9999, 4,
-					 __io, __err);
-		  if (!__err)
+					 __io, __tmperr);
+		  if (!__tmperr)
 		    __tm->tm_year = __mem - 1900;
 		  break;
 		case 'Z':
@@ -2054,25 +1984,25 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		      int __tmp;
 		      __beg = _M_extract_name(__beg, __end, __tmp,
 				       __timepunct_cache<_CharT>::_S_timezones,
-					      14, __io, __err);
+					      14, __io, __tmperr);
 
 		      // GMT requires special effort.
-		      if (__beg != __end && !__err && __tmp == 0
+		      if (__beg != __end && !__tmperr && __tmp == 0
 			  && (*__beg == __ctype.widen('-')
 			      || *__beg == __ctype.widen('+')))
 			{
 			  __beg = _M_extract_num(__beg, __end, __tmp, 0, 23, 2,
-						 __io, __err);
+						 __io, __tmperr);
 			  __beg = _M_extract_num(__beg, __end, __tmp, 0, 59, 2,
-						 __io, __err);
+						 __io, __tmperr);
 			}
 		    }
 		  else
-		    __err |= ios_base::failbit;
+		    __tmperr |= ios_base::failbit;
 		  break;
 		default:
 		  // Not recognized.
-		  __err |= ios_base::failbit;
+		  __tmperr |= ios_base::failbit;
 		}
 	    }
 	  else
@@ -2081,9 +2011,13 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	      if (__format[__i] == *__beg)
 		++__beg;
 	      else
-		__err |= ios_base::failbit;
+		__tmperr |= ios_base::failbit;
 	    }
 	}
+
+      if (__tmperr)
+	__err |= ios_base::failbit;
+  
       return __beg;
     }
 
@@ -2121,6 +2055,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	__member = __value;
       else
 	__err |= ios_base::failbit;
+
       return __beg;
     }
 
@@ -2196,6 +2131,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	__testvalid = false;
       if (!__testvalid)
 	__err |= ios_base::failbit;
+
       return __beg;
     }
 
@@ -2246,7 +2182,9 @@ _GLIBCXX_END_LDBL_NAMESPACE
       const char_type*  __days[7];
       __tp._M_days_abbreviated(__days);
       int __tmpwday;
-      __beg = _M_extract_name(__beg, __end, __tmpwday, __days, 7, __io, __err);
+      ios_base::iostate __tmperr = ios_base::goodbit;
+      __beg = _M_extract_name(__beg, __end, __tmpwday, __days, 7,
+			      __io, __tmperr);
 
       // Check to see if non-abbreviated name exists, and extract.
       // NB: Assumes both _M_days and _M_days_abbreviated organized in
@@ -2254,7 +2192,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
       // __days array with the same index points to a day, and that
       // day's abbreviated form.
       // NB: Also assumes that an abbreviated name is a subset of the name.
-      if (!__err && __beg != __end)
+      if (!__tmperr && __beg != __end)
 	{
 	  size_t __pos = __traits_type::length(__days[__tmpwday]);
 	  __tp._M_days(__days);
@@ -2267,12 +2205,14 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		     && __name[__pos] == *__beg)
 		++__beg, ++__pos;
 	      if (__len != __pos)
-		__err |= ios_base::failbit;
+		__tmperr |= ios_base::failbit;
 	    }
 	}
-      if (!__err)
+      if (!__tmperr)
 	__tm->tm_wday = __tmpwday;
-      
+      else
+	__err |= ios_base::failbit;
+
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -2291,8 +2231,9 @@ _GLIBCXX_END_LDBL_NAMESPACE
       const char_type*  __months[12];
       __tp._M_months_abbreviated(__months);
       int __tmpmon;
+      ios_base::iostate __tmperr = ios_base::goodbit;
       __beg = _M_extract_name(__beg, __end, __tmpmon, __months, 12, 
-			      __io, __err);
+			      __io, __tmperr);
 
       // Check to see if non-abbreviated name exists, and extract.
       // NB: Assumes both _M_months and _M_months_abbreviated organized in
@@ -2300,7 +2241,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
       // __months array with the same index points to a month, and that
       // month's abbreviated form.
       // NB: Also assumes that an abbreviated name is a subset of the name.
-      if (!__err && __beg != __end)
+      if (!__tmperr && __beg != __end)
 	{
 	  size_t __pos = __traits_type::length(__months[__tmpmon]);
 	  __tp._M_months(__months);
@@ -2313,11 +2254,13 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		     && __name[__pos] == *__beg)
 		++__beg, ++__pos;
 	      if (__len != __pos)
-		__err |= ios_base::failbit;
+		__tmperr |= ios_base::failbit;
 	    }
 	}
-      if (!__err)
+      if (!__tmperr)
 	__tm->tm_mon = __tmpmon;
+      else
+	__err |= ios_base::failbit;
 
       if (__beg == __end)
 	__err |= ios_base::eofbit;
@@ -2347,6 +2290,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	__tm->tm_year = __i == 2 ? __value : __value - 1900;
       else
 	__err |= ios_base::failbit;
+
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -2484,43 +2428,55 @@ _GLIBCXX_END_LDBL_NAMESPACE
     collate<_CharT>::
     do_transform(const _CharT* __lo, const _CharT* __hi) const
     {
+      string_type __ret;
+
       // strxfrm assumes zero-terminated strings so we make a copy
-      string_type __str(__lo, __hi);
+      const string_type __str(__lo, __hi);
 
       const _CharT* __p = __str.c_str();
       const _CharT* __pend = __str.data() + __str.length();
 
       size_t __len = (__hi - __lo) * 2;
 
-      string_type __ret;
+      _CharT* __c = new _CharT[__len];
 
-      // strxfrm stops when it sees a nul character so we break
-      // the string into zero-terminated substrings and pass those
-      // to strxfrm.
-      for (;;)
+      try
 	{
-	  // First try a buffer perhaps big enough.
-	  _CharT* __c =
-	    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __len));
-	  size_t __res = _M_transform(__c, __p, __len);
-	  // If the buffer was not large enough, try again with the
-	  // correct size.
-	  if (__res >= __len)
+	  // strxfrm stops when it sees a nul character so we break
+	  // the string into zero-terminated substrings and pass those
+	  // to strxfrm.
+	  for (;;)
 	    {
-	      __len = __res + 1;
-	      __c = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							  * __len));
-	      __res = _M_transform(__c, __p, __len);
+	      // First try a buffer perhaps big enough.
+	      size_t __res = _M_transform(__c, __p, __len);
+	      // If the buffer was not large enough, try again with the
+	      // correct size.
+	      if (__res >= __len)
+		{
+		  __len = __res + 1;
+		  delete [] __c, __c = 0;
+		  __c = new _CharT[__len];
+		  __res = _M_transform(__c, __p, __len);
+		}
+
+	      __ret.append(__c, __res);
+	      __p += char_traits<_CharT>::length(__p);
+	      if (__p == __pend)
+		break;
+
+	      __p++;
+	      __ret.push_back(_CharT());
 	    }
-
-	  __ret.append(__c, __res);
-	  __p += char_traits<_CharT>::length(__p);
-	  if (__p == __pend)
-	    return __ret;
-
-	  __p++;
-	  __ret.push_back(_CharT());
 	}
+      catch(...)
+	{
+	  delete [] __c;
+	  __throw_exception_again;
+	}
+
+      delete [] __c;
+
+      return __ret;
     }
 
   template<typename _CharT>
@@ -2629,19 +2585,33 @@ _GLIBCXX_END_LDBL_NAMESPACE
 		   const char* __gbeg, size_t __gsize,
 		   const _CharT* __first, const _CharT* __last)
     {
-      if (__last - __first > *__gbeg
-	  && static_cast<signed char>(*__gbeg) > 0)
+      size_t __idx = 0;
+      size_t __ctr = 0;
+
+      while (__last - __first > __gbeg[__idx]
+	     && static_cast<signed char>(__gbeg[__idx]) > 0)
 	{
-	  const bool __bump = __gsize != 1;
-	  __s = std::__add_grouping(__s,  __sep, __gbeg + __bump,
-				    __gsize - __bump, __first,
-				    __last - *__gbeg);
-	  __first = __last - *__gbeg;
-	  *__s++ = __sep;
+	  __last -= __gbeg[__idx];
+	  __idx < __gsize - 1 ? ++__idx : ++__ctr;
 	}
-      do
+
+      while (__first != __last)
 	*__s++ = *__first++;
-      while (__first != __last);
+
+      while (__ctr--)
+	{
+	  *__s++ = __sep;	  
+	  for (char __i = __gbeg[__idx]; __i > 0; --__i)
+	    *__s++ = *__first++;
+	}
+
+      while (__idx--)
+	{
+	  *__s++ = __sep;	  
+	  for (char __i = __gbeg[__idx]; __i > 0; --__i)
+	    *__s++ = *__first++;
+	}
+
       return __s;
     }
 

@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,14 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-
 /** @file localefwd.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 22.1  Locales
+//
 
 #ifndef _LOCALE_FWD_H
 #define _LOCALE_FWD_H 1
@@ -118,7 +118,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // NB: Specialized for char and wchar_t in locale_facets.h.
 
   class codecvt_base;
-  class __enc_traits;
   template<typename _InternT, typename _ExternT, typename _StateT>
     class codecvt;
   template<> class codecvt<char, char, mbstate_t>;

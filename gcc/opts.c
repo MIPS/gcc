@@ -1,5 +1,6 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -39,6 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -444,12 +446,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_if_conversion2 = 1;
       flag_ipa_pure_const = 1;
       flag_ipa_reference = 1;
+      flag_split_wide_types = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
       flag_tree_ter = 1;
-      flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
       flag_tree_fre = 1;
@@ -474,8 +476,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_thread_jumps = 1;
       flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
+      flag_forward_propagate = 1;
       flag_cse_follow_jumps = 1;
-      flag_cse_skip_blocks = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
       flag_ipa_type_escape = 1;
@@ -488,6 +490,7 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;
+      flag_strict_overflow = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
@@ -778,6 +781,10 @@ common_handle_option (size_t scode, const char *arg, int value,
       fix_register (arg, 0, 0);
       break;
 
+    case OPT_fdbg_cnt_:
+      dbg_cnt_process_opt (arg);
+      break;
+
     case OPT_fdiagnostics_show_location_:
       if (!strcmp (arg, "once"))
 	diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
@@ -993,10 +1000,6 @@ common_handle_option (size_t scode, const char *arg, int value,
       flag_pedantic_errors = pedantic = 1;
       break;
 
-    case OPT_fforce_mem:
-      warning (0, "-f[no-]force-mem is nop and option will be removed in 4.2");
-      break;
-
     case OPT_floop_optimize:
     case OPT_frerun_loop_opt:
     case OPT_fstrength_reduce:
@@ -1081,6 +1084,7 @@ set_fast_math_flags (int set)
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
   flag_finite_math_only = set;
+  flag_signed_zeros = !set;
   flag_errno_math = !set;
   if (set)
     {
@@ -1097,6 +1101,7 @@ fast_math_flags_set_p (void)
   return (!flag_trapping_math
 	  && flag_unsafe_math_optimizations
 	  && flag_finite_math_only
+	  && !flag_signed_zeros
 	  && !flag_errno_math);
 }
 

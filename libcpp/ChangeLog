@@ -1,3 +1,122 @@
+2007-01-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30468:
+	* mkdeps.c (apply_vpath): Strip successive '/'s if we stripped
+	'./'.
+
+2007-01-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/29966:
+	* macro.c (lex_expansion_token): Save and restore cpp_reader's
+	cur_token.
+	(_cpp_create_definition): Don't restore cur_token here.
+	* lex.c (_cpp_lex_token): Added assertion.
+
+2007-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+
+2007-01-12  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28227:
+	* directives.c (lex_macro_node): Added 'is_def_or_undef'
+	argument.
+	(do_define): Update.
+	(do_undef): Update.
+	(do_ifdef): Update.
+	(do_ifndef): Update.
+
+2007-01-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-01-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-01-04  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28165:
+	* internal.h (cpp_in_primary_file): New function.
+	* directives.c (do_include_next): Use cpp_in_primary_file.
+	(do_pragma_once): Likewise.
+	(do_pragma_system_header): Likewise.
+
+2006-12-29  Ian Lance Taylor  <iant@google.com>
+
+	* lex.c (_cpp_clean_line): Add uses of __builtin_expect.  Don't
+	look backward at the end of the line unless we saw a backslash.
+
+2006-12-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/29612
+	* directives.c (do_linemarker): Set pfile->buffer->sysp always, not
+	only when new_sysp is non-zero.
+
+2006-12-28  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30001:
+	* charset.c (_cpp_convert_input): Check that to.len is greater
+	than zero.
+
+2006-11-20  Trevor Smigiel <Trevor_Smigiel@playstation.sony.com>
+
+	* configure.ac (need_64bit_hwint): Need 64bit hwint for SPU.
+	* configure: Rebuilt.
+
+2006-11-01	Douglas Gregor <doug.gregor@gmail.com>
+
+	* include/cpplib.h (enum c_lang): Add CLK_GNUCXX0X and CLK_CXX0X
+	for experimental C++0x mode.
+	* init.c (lang_defaults): Add defaults for C++0x modes. C++0x has
+	adopted the preprocessor changes introduced in C99.
+
+2006-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* configure.ac (need_64bit_hwint): Set for i[34567]86-*-linux*
+	depending on --enable-targets=all.
+	* configure: Regenerate.
+
+2006-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/28709
+	* macro.c (paste_tokens): Do error reporting here, use BUF with the
+	spelled LHS token as opposed to spelling it again.
+	(paste_all_tokens): Don't report errors here, just break on failure.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Makefile.in: Added empty "pdf" target.
+
+2006-09-22  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Make need_64_bit_hwint case for x86-darwin
+	match exactly the glob in gcc/config.gcc.
+	* configure: Regenerate.
+
+2006-09-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28768
+	PR preprocessor/14634
+	* lex.c (lex_string): Pedwarn for unterminated literals.
+
+2006-09-08  Eric Christopher  <echristo@apple.com>
+
+	* configure.ac: Add 64-bit HWI support for i?86-darwin.
+
+2006-08-14  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28288
+	PR c++/14556
+	* include/cpplib.h: Remove <?, >?, <?=, and >?= tokens.
+	(CPP_LAST_EQ): Change.
+	(CPP_LAST_PUNCTUATOR): Change.
+	* expr.c (cpp_operator): Remove MIN and MAX.
+	(reduce): Remove CPP_MIN and CPP_MAX.
+	(num_binary_op): Ditto.
+	* lex.c (_cpp_lex_direct): Ditto.
+	(cpp_avoid_paste): Remove ? as legal symbol after > or <.
+
 2006-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR preprocessor/27746
@@ -107,7 +226,7 @@
 
 2005-11-09  Per Bothner  <per@bothner.com>
 	    Uros Bizjak  <uros@kss-loka.si>
-	
+
 	PR c/24101
 	* init.c (read_original_filename): Temporarily set
 	state.in_directive before calling _cpp_lex_direct for
@@ -149,7 +268,7 @@
 	Use in print_dep assignment.
 	* init.c (cpp_read_main_file): Pass additional arg to _cpp_find_file.
 	* internal.h (_cpp_find_file): Add new parm to declaration.
-	
+
 2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* configure.ac: Require 64-bit int for arm*-*-*eabi*.

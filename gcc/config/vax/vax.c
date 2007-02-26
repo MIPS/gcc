@@ -116,7 +116,7 @@ vax_output_function_prologue (FILE * file, HOST_WIDE_INT size)
   int mask = 0;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       mask |= 1 << regno;
 
   fprintf (file, "\t.word 0x%x\n", mask);
@@ -127,7 +127,7 @@ vax_output_function_prologue (FILE * file, HOST_WIDE_INT size)
       int offset = 0;
 
       for (regno = FIRST_PSEUDO_REGISTER-1; regno >= 0; --regno)
-	if (regs_ever_live[regno] && !call_used_regs[regno])
+	if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	  dwarf2out_reg_save (label, regno, offset -= 4);
 
       dwarf2out_reg_save (label, PC_REGNUM, offset -= 4);
@@ -1306,8 +1306,8 @@ vax_mode_dependent_address_p (rtx x)
 {
   rtx xfoo0, xfoo1;
 
-  if (GET_CODE (x) == POST_INC || GET_CODE (x) == PRE_DEC)
-    return 1;
+  /* Auto-increment cases are now dealt with generically in recog.c.  */
+
   if (GET_CODE (x) != PLUS)
     return 0;
 

@@ -161,6 +161,9 @@ make_thunk (tree function, bool this_adjusting,
   DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
+  /* Nor is it a template instantiation.  */
+  DECL_USE_TEMPLATE (thunk) = 0;
+  DECL_TEMPLATE_INFO (thunk) = NULL;
 
   /* Add it to the list of thunks associated with FUNCTION.  */
   TREE_CHAIN (thunk) = DECL_THUNKS (function);
@@ -404,10 +407,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	}
     }
 
-  /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
-     create one.  */
-  DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
-
   /* Set up cloned argument trees for the thunk.  */
   t = NULL_TREE;
   for (a = DECL_ARGUMENTS (function); a; a = TREE_CHAIN (a))
@@ -416,21 +415,28 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       TREE_CHAIN (x) = t;
       DECL_CONTEXT (x) = thunk_fndecl;
       SET_DECL_RTL (x, NULL_RTX);
+      DECL_HAS_VALUE_EXPR_P (x) = 0;
       t = x;
     }
   a = nreverse (t);
   DECL_ARGUMENTS (thunk_fndecl) = a;
-  BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) = a;
 
   if (this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {
       const char *fnname;
+      tree fn_block;
+      
       current_function_decl = thunk_fndecl;
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
       fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
+      /* The back end expects DECL_INITIAL to contain a BLOCK, so we
+	 create one.  */
+      fn_block = make_node (BLOCK);
+      BLOCK_VARS (fn_block) = a;
+      DECL_INITIAL (thunk_fndecl) = fn_block;
       init_function_start (thunk_fndecl);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
@@ -780,7 +786,7 @@ synthesize_method (tree fndecl)
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
-      else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
+      else
 	finish_mem_initializers (NULL_TREE);
     }
 
@@ -943,6 +949,10 @@ locate_copy (tree type, void *client_)
       if (!parms)
 	continue;
       src_type = non_reference (TREE_VALUE (parms));
+
+      if (src_type == error_mark_node)
+        return NULL_TREE;
+
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
       if (!sufficient_parms_p (TREE_CHAIN (parms)))

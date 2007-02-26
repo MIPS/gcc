@@ -2635,6 +2635,7 @@ public class JTable
     setModel(dm == null ? createDefaultDataModel() : dm);
     setAutoCreateColumnsFromModel(autoCreate);
     initializeLocalVars();
+    
     // The following four lines properly set the lead selection indices.
     // After this, the UI will handle the lead selection indices.
     // FIXME: this should probably not be necessary, if the UI is installed
@@ -2642,11 +2643,13 @@ public class JTable
     // own, but certain variables need to be set before the UI can be installed
     // so we must get the correct order for all the method calls in this
     // constructor.
-    selectionModel.setAnchorSelectionIndex(0);    
-    selectionModel.setLeadSelectionIndex(0);
-    columnModel.getSelectionModel().setAnchorSelectionIndex(0);
-    columnModel.getSelectionModel().setLeadSelectionIndex(0);
-    updateUI();
+    // These four lines are not needed.  A Mauve test that shows this is
+    // gnu.testlet.javax.swing.JTable.constructors(linesNotNeeded).
+    // selectionModel.setAnchorSelectionIndex(-1);
+    // selectionModel.setLeadSelectionIndex(-1);
+    // columnModel.getSelectionModel().setAnchorSelectionIndex(-1);
+    // columnModel.getSelectionModel().setLeadSelectionIndex(-1);
+    updateUI(); 
   }
   
   /**
@@ -2675,10 +2678,12 @@ public class JTable
     setRowHeight(16);
     this.rowMargin = 1;
     this.rowSelectionAllowed = true;
+    
     // this.accessibleContext = new AccessibleJTable();
     this.cellEditor = null;
+    
     // COMPAT: Both Sun and IBM have drag enabled
-    this.dragEnabled = true;
+    this.dragEnabled = false;
     this.preferredViewportSize = new Dimension(450,400);
     this.showHorizontalLines = true;
     this.showVerticalLines = true;
@@ -2922,56 +2927,189 @@ public class JTable
   {
     // update the column model from the table model if the structure has
     // changed and the flag autoCreateColumnsFromModel is set
-    if ((event == null || (event.getFirstRow() == TableModelEvent.HEADER_ROW))
-	&& autoCreateColumnsFromModel)
-      {
-        rowHeights = null;
-        if (getAutoCreateColumnsFromModel())
-          createDefaultColumnsFromModel();
-        resizeAndRepaint();
-        return;
-      }
+    if (event == null || (event.getFirstRow() == TableModelEvent.HEADER_ROW))
+      handleCompleteChange(event);
+    else if (event.getType() == TableModelEvent.INSERT)
+      handleInsert(event);
+    else if (event.getType() == TableModelEvent.DELETE)
+      handleDelete(event);
+    else
+      handleUpdate(event);
+  }
 
-    // If the structure changes, we need to revalidate, since that might
-    // affect the size parameters of the JTable. Otherwise we only need
-    // to perform a repaint to update the view.
-    if (event == null || event.getType() == TableModelEvent.INSERT)
+  /**
+   * Handles a request for complete relayout. This is the case when
+   * event.getFirstRow() == TableModelEvent.HEADER_ROW.
+   *
+   * @param ev the table model event
+   */
+  private void handleCompleteChange(TableModelEvent ev)
+  {
+    clearSelection();
+    checkSelection();
+    rowHeights = null;
+    if (getAutoCreateColumnsFromModel())
+      createDefaultColumnsFromModel();
+    else
+      resizeAndRepaint();
+  }
+
+  /**
+   * Handles table model insertions.
+   *
+   * @param ev the table model event
+   */
+  private void handleInsert(TableModelEvent ev)
+  {
+    // Sync selection model with data model.
+    int first = ev.getFirstRow();
+    if (first < 0)
+      first = 0;
+    int last = ev.getLastRow();
+    if (last < 0)
+      last = getRowCount() - 1;
+    selectionModel.insertIndexInterval(first, last - first + 1, true);
+    checkSelection();
+
+    // For variable height rows we must update the SizeSequence thing.
+    if (rowHeights != null)
       {
-        // Sync selection model with data model.
-        if (event != null)
-          {
-            int first = event.getFirstRow();
-            if (first < 0)
-              first = 0;
-            int last = event.getLastRow();
-            if (last < 0)
-              last = getRowCount() - 1;
-            selectionModel.insertIndexInterval(first, last - first + 1, true);
-            if (rowHeights != null)
-              rowHeights.insertEntries(first, last - first + 1, rowHeight);
-          }
-        revalidate();
+        rowHeights.insertEntries(first, last - first + 1, rowHeight);
+        // TODO: We repaint the whole thing when the rows have variable
+        // heights. We might want to handle this better though.
+        repaint();
       }
-    if (event == null || event.getType() == TableModelEvent.DELETE)
+    else
       {
-        // Sync selection model with data model.
-        if (event != null)
-          {
-            int first = event.getFirstRow();
-            if (first < 0)
-              first = 0;
-            int last = event.getLastRow();
-            if (last < 0)
-              last = getRowCount() - 1;
-            selectionModel.removeIndexInterval(first, last);
-            if (rowHeights != null)
-              rowHeights.removeEntries(first, last - first + 1);
-          }
-        if (dataModel.getRowCount() == 0)
-          clearSelection();
-        revalidate();
+        // Repaint the dirty region and revalidate.
+        int rowHeight = getRowHeight();
+        Rectangle dirty = new Rectangle(0, first * rowHeight,
+                                        getColumnModel().getTotalColumnWidth(),
+                                        (getRowCount() - first) * rowHeight);
+        repaint(dirty);
       }
-    repaint();
+    revalidate();
+  }
+
+  /**
+   * Handles table model deletions.
+   *
+   * @param ev the table model event
+   */
+  private void handleDelete(TableModelEvent ev)
+  {
+    // Sync selection model with data model.
+    int first = ev.getFirstRow();
+    if (first < 0)
+      first = 0;
+    int last = ev.getLastRow();
+    if (last < 0)
+      last = getRowCount() - 1;
+
+    selectionModel.removeIndexInterval(first, last);
+
+    checkSelection();
+
+    if (dataModel.getRowCount() == 0)
+      clearSelection();
+
+    // For variable height rows we must update the SizeSequence thing.
+    if (rowHeights != null)
+      {
+        rowHeights.removeEntries(first, last - first + 1);
+        // TODO: We repaint the whole thing when the rows have variable
+        // heights. We might want to handle this better though.
+        repaint();
+      }
+    else
+      {
+        // Repaint the dirty region and revalidate.
+        int rowHeight = getRowHeight();
+        int oldRowCount = getRowCount() + last - first + 1;
+        Rectangle dirty = new Rectangle(0, first * rowHeight,
+                                        getColumnModel().getTotalColumnWidth(),
+                                        (oldRowCount - first) * rowHeight);
+        repaint(dirty);
+      }
+    revalidate();
+  }
+
+  /**
+   * Handles table model updates without structural changes.
+   *
+   * @param ev the table model event
+   */
+  private void handleUpdate(TableModelEvent ev)
+  {
+    if (rowHeights == null)
+      {
+        // Some cells have been changed without changing the structure.
+        // Figure out the dirty rectangle and repaint.
+        int firstRow = ev.getFirstRow();
+        int lastRow = ev.getLastRow();
+        int col = ev.getColumn();
+        Rectangle dirty;
+        if (col == TableModelEvent.ALL_COLUMNS)
+          {
+            // All columns changed. 
+            dirty = new Rectangle(0, firstRow * getRowHeight(),
+                                  getColumnModel().getTotalColumnWidth(), 0);
+          }
+        else
+          {
+            // Only one cell or column of cells changed.
+            // We need to convert to view column first.
+            int column = convertColumnIndexToModel(col);
+            dirty = getCellRect(firstRow, column, false);
+          }
+
+        // Now adjust the height of the dirty region.
+        dirty.height = (lastRow + 1) * getRowHeight();
+        // .. and repaint.
+        repaint(dirty);
+      }
+    else
+      {
+        // TODO: We repaint the whole thing when the rows have variable
+        // heights. We might want to handle this better though.
+        repaint();
+      }
+  }
+
+  /**
+   * Helper method for adjusting the lead and anchor indices when the
+   * table structure changed. This sets the lead and anchor to -1 if there's
+   * no more rows, or set them to 0 when they were at -1 and there are actually
+   * some rows now.
+   */
+  private void checkSelection()
+  {
+    TableModel m = getModel();
+    ListSelectionModel sm = selectionModel;
+    if (m != null)
+      {
+        int lead = sm.getLeadSelectionIndex();
+        int c = m.getRowCount();
+        if (c == 0 && lead != -1)
+          {
+            // No rows in the model, reset lead and anchor to -1.
+            sm.setValueIsAdjusting(true);
+            sm.setAnchorSelectionIndex(-1);
+            sm.setLeadSelectionIndex(-1);
+            sm.setValueIsAdjusting(false);
+          }
+        else if (c != 0 && lead == -1)
+          {
+            // We have rows, but no lead/anchor. Set them to 0. We
+            // do a little trick here so that the actual selection is not
+            // touched.
+            if (sm.isSelectedIndex(0))
+              sm.addSelectionInterval(0, 0);
+            else
+              sm.removeSelectionInterval(0, 0);
+          }
+        // Nothing to do in the other cases.
+      }
   }
 
   /**
@@ -3134,7 +3272,7 @@ public class JTable
             cellRect.x += cMargin / 2;
             cellRect.width -= cMargin;
           }
-      }
+      } 
 
     return cellRect;
   }
@@ -3170,10 +3308,21 @@ public class JTable
   
   public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction)
   {
-    if (orientation == SwingConstants.VERTICAL)
-      return visibleRect.height * direction;
+    int block;
+    if (orientation == SwingConstants.HORIZONTAL)
+      {
+        block = visibleRect.width;
+      }
     else
-      return visibleRect.width * direction;
+      {
+        int rowHeight = getRowHeight();
+        if (rowHeight > 0)
+          block = Math.max(rowHeight, // Little hack for useful rounding.
+                           (visibleRect.height / rowHeight) * rowHeight);
+        else
+          block = visibleRect.height;
+      }
+    return block;
   }
 
   /**
@@ -3212,24 +3361,40 @@ public class JTable
    *          The values greater than one means that more mouse wheel or similar
    *          events were generated, and hence it is better to scroll the longer
    *          distance.
-   * @author Audrius Meskauskas (audriusa@bioinformatics.org)
+   *          
+   * @author Roman Kennke (kennke@aicas.com)
    */
   public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation,
                                         int direction)
   {
-    int h = (rowHeight + rowMargin);
-    int delta = h * direction;
-
-    // Round so that the top would start from the row boundary
-    if (orientation == SwingConstants.VERTICAL)
+    int unit;
+    if (orientation == SwingConstants.HORIZONTAL)
+      unit = 100;
+    else
       {
-        // Completely expose the top row
-        int near = ((visibleRect.y + delta + h / 2) / h) * h;
-        int diff = visibleRect.y + delta - near;
-        delta -= diff;
+        unit = getRowHeight();
+        // The following adjustment doesn't work for variable height rows.
+        // It fully exposes partially visible rows in the scrolling direction.
+        if (rowHeights == null)
+          {
+            if (direction > 0)
+              {
+                // Scroll down.
+                // How much pixles are exposed from the last item?
+                int exposed = (visibleRect.y + visibleRect.height) % unit;
+                if (exposed > 0 && exposed < unit - 1)
+                  unit = unit - exposed - 1;
+              }
+            else
+              {
+                // Scroll up.
+                int exposed = visibleRect.y % unit;
+                if (exposed > 0 && exposed < unit)
+                  unit = exposed;
+              }
+          }
       }
-    return delta;
-    // TODO when scrollng horizontally, scroll into the column boundary.
+    return unit;
   }
 
   /**
@@ -3264,7 +3429,7 @@ public class JTable
    * 
    * @return the editor, suitable for editing this data type
    */
-  public TableCellEditor getDefaultEditor(Class columnClass)
+  public TableCellEditor getDefaultEditor(Class<?> columnClass)
   {
     if (defaultEditorsByColumnClass.containsKey(columnClass))
       return (TableCellEditor) defaultEditorsByColumnClass.get(columnClass);
@@ -3276,7 +3441,7 @@ public class JTable
         return r;
       }
   }
-  
+
   /**
    * Get the cell renderer for rendering the given cell.
    * 
@@ -3286,7 +3451,9 @@ public class JTable
    */
   public TableCellRenderer getCellRenderer(int row, int column)
   {
-    TableCellRenderer renderer = columnModel.getColumn(column).getCellRenderer();
+    TableCellRenderer renderer = null;
+    if (columnModel.getColumnCount() > 0)
+      renderer = columnModel.getColumn(column).getCellRenderer();
     if (renderer == null)
       {
         int mcolumn = convertColumnIndexToModel(column);
@@ -3294,7 +3461,7 @@ public class JTable
       }
     return renderer;
   }
-  
+
   /**
    * Set default renderer for rendering the given data type.
    * 
@@ -3302,11 +3469,11 @@ public class JTable
    *          rendered.
    * @param rend the renderer that will rend this data type
    */
-  public void setDefaultRenderer(Class columnClass, TableCellRenderer rend)
+  public void setDefaultRenderer(Class<?> columnClass, TableCellRenderer rend)
   {
     defaultRenderersByColumnClass.put(columnClass, rend);
   }
-  
+
   /**
    * Get the default renderer for rendering the given data type.
    * 
@@ -3314,7 +3481,7 @@ public class JTable
    * 
    * @return the appropriate defauld renderer for rendering that data type.
    */
-  public TableCellRenderer getDefaultRenderer(Class columnClass)
+  public TableCellRenderer getDefaultRenderer(Class<?> columnClass)
   {
     if (defaultRenderersByColumnClass.containsKey(columnClass))
       return (TableCellRenderer) defaultRenderersByColumnClass.get(columnClass);
@@ -3403,7 +3570,7 @@ public class JTable
 
     return renderer.getTableCellRendererComponent(this,
                                                   dataModel.getValueAt(row, 
-						                       convertColumnIndexToModel(column)),
+                                                                       convertColumnIndexToModel(column)),
                                                   isSel,
                                                   hasFocus,
                                                   row, column);
@@ -3468,6 +3635,8 @@ public class JTable
    * Get the value of the {@link #rowSelectionAllowed} property.
    *
    * @return The current value of the property
+   * 
+   * @see #setRowSelectionAllowed(boolean)
    */
   public boolean getRowSelectionAllowed()
   {
@@ -3621,6 +3790,8 @@ public class JTable
    * Get the value of the <code>columnSelectionAllowed</code> property.
    *
    * @return The current value of the columnSelectionAllowed property
+   * 
+   * @see #setColumnSelectionAllowed(boolean)
    */
   public boolean getColumnSelectionAllowed()
   {
@@ -3874,11 +4045,17 @@ public class JTable
    * Set the value of the {@link #rowSelectionAllowed} property.
    *
    * @param r The new value of the rowSelectionAllowed property
+   * 
+   * @see #getRowSelectionAllowed()
    */ 
   public void setRowSelectionAllowed(boolean r)
   {
-    rowSelectionAllowed = r;
-    repaint();
+    if (rowSelectionAllowed != r) 
+      {
+        rowSelectionAllowed = r;
+        firePropertyChange("rowSelectionAllowed", !r, r);
+        repaint();
+      }
   }
 
   /**
@@ -3988,11 +4165,17 @@ public class JTable
    * Set the value of the <code>columnSelectionAllowed</code> property.
    *
    * @param c The new value of the property
+   * 
+   * @see #getColumnSelectionAllowed()
    */ 
   public void setColumnSelectionAllowed(boolean c)
   {
-    getColumnModel().setColumnSelectionAllowed(c);
-    repaint();
+    if (columnModel.getColumnSelectionAllowed() != c)
+      {
+        columnModel.setColumnSelectionAllowed(c);
+        firePropertyChange("columnSelectionAllowed", !c, c);
+        repaint();
+      }
   }
 
   /**
@@ -4014,6 +4197,7 @@ public class JTable
     if (s != null)
       s.addListSelectionListener(this);
     selectionModel = s;
+    checkSelection();
   }
 
   /**
@@ -4264,7 +4448,7 @@ public class JTable
   {
     TableColumn resizingColumn = null;
     
-    int ncols = getColumnCount();
+    int ncols = columnModel.getColumnCount();
     if (ncols < 1)
       return;
 
@@ -4273,7 +4457,7 @@ public class JTable
 
     if (tableHeader != null)
       resizingColumn = tableHeader.getResizingColumn();
-
+     
     for (int i = 0; i < ncols; ++i)
       {
         TableColumn col = columnModel.getColumn(i);
@@ -4282,7 +4466,7 @@ public class JTable
         if (resizingColumn == col)
           rCol = i;
       }
-
+ 
     int spill = getWidth() - prefSum;
 
     if (resizingColumn != null)
@@ -4348,9 +4532,11 @@ public class JTable
       }
     else
       {
-        TableColumn [] cols = new TableColumn[ncols];
+        TableColumn[] cols = new TableColumn[ncols];
+
         for (int i = 0; i < ncols; ++i)
           cols[i] = columnModel.getColumn(i);
+
         distributeSpill(cols, spill);
       }
     
@@ -4438,7 +4624,7 @@ public class JTable
   {
     setUI((TableUI) UIManager.getUI(this));
   }
-  
+
   /**
    * Get the class (datatype) of the column. The cells are rendered and edited
    * differently, depending from they data type.
@@ -4448,7 +4634,7 @@ public class JTable
    * @return the class, defining data type of that column (String.class for
    * String, Boolean.class for boolean and so on).
    */
-  public Class getColumnClass(int column)
+  public Class<?> getColumnClass(int column)
   {
     return getModel().getColumnClass(convertColumnIndexToModel(column));
   }
@@ -4469,7 +4655,7 @@ public class JTable
     int modelColumn = columnModel.getColumn(column).getModelIndex();
     return dataModel.getColumnName(modelColumn);
   }
-  
+
   /**
    * Get the column, currently being edited
    * 
@@ -4479,7 +4665,7 @@ public class JTable
   {
     return editingColumn;
   }
-  
+
   /**
    * Set the column, currently being edited
    * 
@@ -4499,7 +4685,7 @@ public class JTable
   {
     return editingRow;
   }
-  
+
   /**
    * Set the row currently being edited.
    * 
@@ -4530,7 +4716,7 @@ public class JTable
   {
     return editorComp != null;
   }
-  
+
   /**
    * Set the default editor for the given column class (column data type).
    * By default, String is handled by text field and Boolean is handled by
@@ -4541,7 +4727,7 @@ public class JTable
    * 
    * @see TableModel#getColumnClass(int)
    */
-  public void setDefaultEditor(Class columnClass, TableCellEditor editor)
+  public void setDefaultEditor(Class<?> columnClass, TableCellEditor editor)
   {
     if (editor != null)
       defaultEditorsByColumnClass.put(columnClass, editor);
@@ -4563,7 +4749,7 @@ public class JTable
     if ((index0 < 0 || index0 > (getRowCount()-1)
          || index1 < 0 || index1 > (getRowCount()-1)))
       throw new IllegalArgumentException("Row index out of range.");
-      	
+        
     getSelectionModel().addSelectionInterval(index0, index1);
   }
   

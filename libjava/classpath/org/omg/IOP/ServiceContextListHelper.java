@@ -1,5 +1,5 @@
 /* ServiceContextListHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,35 +39,29 @@ exception statement from your version. */
 package org.omg.IOP;
 
 import gnu.CORBA.Minor;
+import gnu.CORBA.OrbRestricted;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
-import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
 
 /**
 * The helper operations for the
-* CORBA object {@link ServiceContext[]}.
+* CORBA object {@link ServiceContext}[].
 *
 * @author Audrius Meskauskas, Lithuania (AudriusA@Bioinformatics.org)
 */
 public abstract class ServiceContextListHelper
 {
   /**
-   * The cached {@link ServiceContext[]} typecode, computed once.
-   */
-  private static TypeCode typeCode;
-
-  /**
-   * Get the type code of the {@link ServiceContext[]}.
+   * Get the type code of the {@link ServiceContext}[].
    */
   public static TypeCode type()
   {
-    if (typeCode == null)
-      typeCode = ORB.init().create_interface_tc(id(), "ServiceContextList");
-    return typeCode;
+    return OrbRestricted.Singleton.create_interface_tc(id(),
+                                                       "ServiceContextList");
   }
 
   /**

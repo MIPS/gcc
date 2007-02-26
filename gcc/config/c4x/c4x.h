@@ -887,7 +887,7 @@ enum reg_class
  int regno;							\
  int offset = 0;						\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
 		&& IS_FLOAT_CALL_SAVED_REGNO (regno) ? 2 : 1;	\
   (DEPTH) = -(offset + get_frame_size ());			\
@@ -906,7 +906,7 @@ enum reg_class
  int regno;							\
  int offset = 0;						\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
+    if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
 		&& IS_FLOAT_CALL_SAVED_REGNO (regno) ? 2 : 1;	\
   (OFFSET) = -(offset + get_frame_size ());			\
@@ -1156,13 +1156,8 @@ CUMULATIVE_ARGS;
 }
 
 /* No mode-dependent addresses on the C4x are autoincrements.  */
-
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-  if (GET_CODE (ADDR) == PRE_DEC	\
-      || GET_CODE (ADDR) == POST_DEC	\
-      || GET_CODE (ADDR) == PRE_INC	\
-      || GET_CODE (ADDR) == POST_INC	\
-      || GET_CODE (ADDR) == POST_MODIFY	\
+  if (GET_CODE (ADDR) == POST_MODIFY	\
       || GET_CODE (ADDR) == PRE_MODIFY)	\
     goto LABEL
 

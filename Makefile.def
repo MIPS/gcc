@@ -30,8 +30,7 @@ build_modules= { module= byacc; };
 build_modules= { module= flex; };
 build_modules= { module= m4; };
 build_modules= { module= texinfo; };
-build_modules= { module= fixincludes;
-		 extra_configure_args='--target=$(target)'; };
+build_modules= { module= fixincludes; };
 
 host_modules= { module= ash; };
 host_modules= { module= autoconf; };
@@ -54,16 +53,26 @@ host_modules= { module= find; };
 host_modules= { module= fixincludes;
 		missing= info;
 		missing= dvi;
+		missing= pdf;
 		missing= TAGS;
 		missing= install-info;
 		missing= installcheck; };
 host_modules= { module= flex; no_check_cross= true; };
 host_modules= { module= gas; bootstrap=true; };
 host_modules= { module= gcc; bootstrap=true; 
-		target="`if [ -f stage_last ]; then echo quickstrap ; else echo all; fi`";
 		extra_make_flags="$(EXTRA_GCC_FLAGS)"; };
 host_modules= { module= gawk; };
 host_modules= { module= gettext; };
+host_modules= { module= gmp; lib_path=.libs; bootstrap=true;
+		extra_configure_flags='--disable-shared';
+		no_install= true; 
+	        host="none-${host_vendor}-${host_os}";
+		target="none-${host_vendor}-${host_os}"; };
+host_modules= { module= mpfr; lib_path=.libs; bootstrap=true;
+		extra_configure_flags='--disable-shared --with-gmp-build=$$r/$(HOST_SUBDIR)/gmp';
+		no_install= true; 
+	        host="none-${host_vendor}-${host_os}";
+		target="none-${host_vendor}-${host_os}"; };
 host_modules= { module= gnuserv; };
 host_modules= { module= gprof; };
 host_modules= { module= gzip; };
@@ -118,6 +127,7 @@ target_modules = { module= libstdc++-v3; lib_path=.libs; raw_cxx=true; };
 target_modules = { module= libmudflap; lib_path=.libs; };
 target_modules = { module= libssp; lib_path=.libs; };
 target_modules = { module= newlib; };
+target_modules = { module= libgcc; bootstrap=true; no_check=true; };
 target_modules = { module= libgfortran; };
 target_modules = { module= libobjc; };
 target_modules = { module= libtermcap; no_check=true;
@@ -146,6 +156,8 @@ target_modules = { module= libgomp; lib_path=.libs; };
 recursive_targets = { make_target= info; 
                       depend=configure; };
 recursive_targets = { make_target= dvi; 
+                      depend=configure; };
+recursive_targets = { make_target= pdf; 
                       depend=configure; };
 recursive_targets = { make_target= html; 
                       depend=configure; };
@@ -223,7 +235,10 @@ flags_to_pass = { flag= LDFLAGS ; };
 flags_to_pass = { flag= LIBCFLAGS ; };
 flags_to_pass = { flag= LIBCXXFLAGS ; };
 flags_to_pass = { flag= STAGE1_CFLAGS ; };
+flags_to_pass = { flag= STAGE1_CHECKING ; };
 flags_to_pass = { flag= STAGE1_LANGUAGES ; };
+flags_to_pass = { flag= GNATBIND ; };
+flags_to_pass = { flag= GNATMAKE ; };
 
 // Target tools
 flags_to_pass = { flag= AR_FOR_TARGET ; };
@@ -270,7 +285,9 @@ dependencies = { module=configure-gcc; on=all-binutils; };
 dependencies = { module=configure-gcc; on=all-gas; };
 dependencies = { module=configure-gcc; on=all-ld; };
 dependencies = { module=all-gcc; on=all-libiberty; hard=true; };
+dependencies = { module=all-gcc; on=all-gmp; };
 dependencies = { module=all-gcc; on=all-intl; };
+dependencies = { module=all-gcc; on=all-mpfr; };
 dependencies = { module=all-gcc; on=all-build-texinfo; };
 dependencies = { module=all-gcc; on=all-build-bison; };
 dependencies = { module=all-gcc; on=all-build-byacc; };
@@ -292,6 +309,8 @@ dependencies = { module=all-libcpp; on=all-intl; };
 dependencies = { module=all-fixincludes; on=all-libiberty; };
 
 dependencies = { module=all-gnattools; on=all-target-libada; };
+
+dependencies = { module=configure-mpfr; on=all-gmp; };
 
 // Host modules specific to gdb.
 dependencies = { module=configure-gdb; on=configure-intl; };
@@ -353,8 +372,10 @@ dependencies = { module=all-ld; on=all-build-byacc; };
 dependencies = { module=all-ld; on=all-build-flex; };
 dependencies = { module=all-ld; on=all-intl; };
 
+dependencies = { module=configure-opcodes; on=configure-intl; };
 dependencies = { module=all-opcodes; on=all-bfd; };
 dependencies = { module=all-opcodes; on=all-libiberty; };
+dependencies = { module=all-opcodes; on=all-intl; };
 
 // Other host modules in the 'src' repository.
 dependencies = { module=all-dejagnu; on=all-tcl; };
@@ -433,18 +454,17 @@ dependencies = { module=all-tar; on=all-build-texinfo; };
 dependencies = { module=all-uudecode; on=all-build-texinfo; };
 
 // Target modules.  These can also have dependencies on the language
-// environment (e.g. on libstdc++).
-lang_env_dependencies = { module=boehm-gc; };
+// environment (e.g. on libstdc++).  By default target modules depend
+// on libgcc and newlib/libgloss.
 lang_env_dependencies = { module=gperf; cxx=true; };
-lang_env_dependencies = { module=libada; };
-lang_env_dependencies = { module=libgfortran; };
-lang_env_dependencies = { module=libffi; };
 lang_env_dependencies = { module=libjava; cxx=true; };
-lang_env_dependencies = { module=libmudflap; };
-lang_env_dependencies = { module=libobjc; };
-lang_env_dependencies = { module=libssp; };
-lang_env_dependencies = { module=libstdc++-v3; };
-lang_env_dependencies = { module=zlib; };
+lang_env_dependencies = { module=newlib; no_c=true; };
+lang_env_dependencies = { module=libgloss; no_c=true; };
+lang_env_dependencies = { module=libgcc; no_gcc=true; no_c=true; };
+// libiberty does not depend on newlib or libgloss because it must be
+// built newlib on some targets (e.g. Cygwin).  It still needs
+// a dependency on libgcc for native targets to configure.
+lang_env_dependencies = { module=libiberty; no_c=true; };
 
 dependencies = { module=configure-target-boehm-gc; on=configure-target-qthreads; };
 dependencies = { module=configure-target-fastjar; on=configure-target-zlib; };
@@ -464,6 +484,10 @@ dependencies = { module=all-target-libobjc; on=all-target-libiberty; };
 dependencies = { module=all-target-libobjc; on=all-target-boehm-gc; };
 dependencies = { module=all-target-libstdc++-v3; on=all-target-libiberty; };
 
+// Target libraries installed under gcc need to be installed before gcc
+dependencies = { module=install-target-libssp; on=install-gcc; };
+dependencies = { module=install-target-libgomp; on=install-gcc; };
+
 // Target modules in the 'src' repository.
 lang_env_dependencies = { module=examples; };
 lang_env_dependencies = { module=libtermcap; };
@@ -478,7 +502,14 @@ dependencies = { module=all-target-winsup; on=all-target-libtermcap; };
 // Toplevel bootstrap
 bootstrap_stage = {
 	id=1 ;
-	stage_configure_flags='--disable-intermodule \
+
+	// * We force-disable intermodule optimizations, even if
+	//   --enable-intermodule was passed, since the installed compiler
+	//   probably can't handle them.  Luckily, autoconf always respects
+	//   the last argument when conflicting --enable arguments are passed.
+	// * Likewise, we force-disable coverage flags, since the installed
+	//   compiler probably has never heard of them.
+	stage_configure_flags='--disable-intermodule $(STAGE1_CHECKING) \
 	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)"' ;
 	stage_make_flags='CFLAGS="$(STAGE1_CFLAGS)" LIBCFLAGS="$(STAGE1_CFLAGS)"' ; };
 bootstrap_stage = {

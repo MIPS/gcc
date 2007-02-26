@@ -104,8 +104,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    where the first two insns are now dead.  */
 
 
-static struct loops loops;
-static struct df *df;
 static int num_changes;
 
 
@@ -390,7 +388,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 }
 
 /* Replace all occurrences of OLD in X with NEW and try to simplify the
-   resulting expression (in mode MODE).  Return a new expresion if it is
+   resulting expression (in mode MODE).  Return a new expression if it is
    a constant, otherwise X.
 
    Simplifications where occurrences of NEW collapse to a constant are always
@@ -439,16 +437,15 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
-      struct df_ref * def;
+      struct df_ref **def_rec;
       if (!INSN_P (insn))
 	continue;
 
-      def = DF_INSN_DEFS (df, insn);
-      while (def)
+      for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	{
+	  struct df_ref *def = *def_rec;
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
 	    return true;
-	  def = def->next_ref;
 	}
     }
   return false;
@@ -466,33 +463,32 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 static bool
 use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 {
-  basic_block def_bb, target_bb;
+  basic_block def_bb = BLOCK_FOR_INSN (def_insn);
+  basic_block target_bb = BLOCK_FOR_INSN (target_insn);
   int regno;
   struct df_ref * def;
+
+  /* In some obscure situations we can have a def reaching a use
+     that is _before_ the def.  In other words the def does not
+     dominate the use even though the use and def are in the same
+     basic block.  This can happen when a register may be used
+     uninitialized in a loop.  In such cases, we must assume that
+     DEF is not available.  */
+  if (def_bb == target_bb
+      ? DF_INSN_LUID (def_insn) >= DF_INSN_LUID (target_insn)
+      : !dominated_by_p (CDI_DOMINATORS, target_bb, def_bb))
+    return true;
 
   /* Check if the reg in USE has only one definition.  We already
      know that this definition reaches use, or we wouldn't be here.  */
   regno = DF_REF_REGNO (use);
-  def = DF_REG_DEF_GET (df, regno)->reg_chain;
+  def = DF_REG_DEF_CHAIN (regno);
   if (def && (def->next_reg == NULL))
     return false;
 
-  /* Check if we are in the same basic block.  */
-  def_bb = BLOCK_FOR_INSN (def_insn);
-  target_bb = BLOCK_FOR_INSN (target_insn);
+  /* Check locally if we are in the same basic block.  */
   if (def_bb == target_bb)
-    {
-      /* In some obscure situations we can have a def reaching a use
-	 that is _before_ the def.  In other words the def does not
-	 dominate the use even though the use and def are in the same
-	 basic block.  This can happen when a register may be used
-	 uninitialized in a loop.  In such cases, we must assume that
-	 DEF is not available.  */
-      if (DF_INSN_LUID (df, def_insn) >= DF_INSN_LUID (df, target_insn))
-	return true;
-
-      return local_ref_killed_between_p (use, def_insn, target_insn);
-    }
+    return local_ref_killed_between_p (use, def_insn, target_insn);
 
   /* Finally, if DEF_BB is the sole predecessor of TARGET_BB.  */
   if (single_pred_p (target_bb)
@@ -502,14 +498,14 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
-      x = df_bb_regno_last_def_find (df, def_bb, regno);
-      if (x && DF_INSN_LUID (df, x->insn) >= DF_INSN_LUID (df, def_insn))
+      x = df_bb_regno_last_def_find (def_bb, regno);
+      if (x && DF_INSN_LUID (x->insn) >= DF_INSN_LUID (def_insn))
 	return true;
 
       /* See if USE is killed between TARGET_INSN and the first insn in the
 	 basic block containing TARGET_INSN.  */
-      x = df_bb_regno_first_def_find (df, target_bb, regno);
-      if (x && DF_INSN_LUID (df, x->insn) < DF_INSN_LUID (df, target_insn))
+      x = df_bb_regno_first_def_find (target_bb, regno);
+      if (x && DF_INSN_LUID (x->insn) < DF_INSN_LUID (target_insn))
 	return true;
 
       return false;
@@ -536,7 +532,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
-  struct df_ref * use;
+  struct df_ref **use_rec;
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -550,17 +546,35 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
-        if (rtx_equal_p (use->reg, def_reg))
-          return false;
+      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
+	    return false;
+	}
+      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (rtx_equal_p (use->reg, def_reg))
+	    return false;
+	}
     }
   else
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
-	if (use_killed_between (use, def_insn, target_insn))
-	  return false;
+      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (use_killed_between (use, def_insn, target_insn))
+	    return false;
+	}
+      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+	{
+	  struct df_ref *use = *use_rec;
+	  if (use_killed_between (use, def_insn, target_insn))
+	    return false;
+	}
     }
 
   /* We don't do any analysis of memories or aliasing.  Reject any
@@ -614,34 +628,38 @@ find_occurrence (rtx *px, rtx find)
 
 
 /* Inside INSN, the expression rooted at *LOC has been changed, moving some
-   uses from ORIG_USES.  Find those that are present, and create new items
+   uses from USE_VEC.  Find those that are present, and create new items
    in the data flow object of the pass.  Mark any new uses as having the
    given TYPE.  */
 static void
-update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
+update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
 	   int new_flags)
 {
-  struct df_ref *use;
+  bool changed = false;
 
   /* Add a use for the registers that were propagated.  */
-  for (use = orig_uses; use; use = use->next_ref)
+  while (*use_rec)
     {
+      struct df_ref *use = *use_rec;
       struct df_ref *orig_use = use, *new_use;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
+      use_rec++;
 
       if (!new_loc)
 	continue;
 
       /* Add a new insn use.  Use the original type, because it says if the
          use was within a MEM.  */
-      new_use = df_ref_create (df, DF_REF_REG (orig_use), new_loc,
+      new_use = df_ref_create (DF_REF_REG (orig_use), new_loc,
 			       insn, BLOCK_FOR_INSN (insn),
 			       type, DF_REF_FLAGS (orig_use) | new_flags);
 
       /* Set up the use-def chain.  */
-      df_chain_copy (df->problems_by_index[DF_CHAIN], 
-		     new_use, DF_REF_CHAIN (orig_use));
+      df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
+      changed = true;
     }
+  if (changed)
+    df_insn_rescan (insn);
 }
 
 
@@ -673,11 +691,12 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       if (dump_file)
 	fprintf (dump_file, "Changed insn %d\n", INSN_UID (insn));
 
-      /* Unlink the use that we changed.  */
-      df_ref_remove (df, use);
+      df_ref_remove (use);
       if (!CONSTANT_P (new))
-	update_df (insn, loc, DF_INSN_USES (df, def_insn), type, flags);
-
+	{
+	  update_df (insn, loc, DF_INSN_USES (def_insn), type, flags);
+	  update_df (insn, loc, DF_INSN_EQ_USES (def_insn), type, flags);
+	}
       return true;
     }
   else
@@ -695,10 +714,15 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 
 	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (new),
 						REG_NOTES (insn));
+	  df_notes_rescan (insn);
 
           if (!CONSTANT_P (new))
-	    update_df (insn, loc, DF_INSN_USES (df, def_insn),
-		       type, DF_REF_IN_NOTE);
+	    {
+	      update_df (insn, loc, DF_INSN_USES (def_insn),
+			 type, DF_REF_IN_NOTE);
+	      update_df (insn, loc, DF_INSN_EQ_USES (def_insn),
+			 type, DF_REF_IN_NOTE);
+	    }
 	}
 
       return false;
@@ -848,6 +872,8 @@ forward_propagate_into (struct df_ref *use)
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return;
+  if (DF_REF_IS_ARTIFICIAL (use))
+    return;
 
   /* Only consider uses that have a single definition.  */
   defs = DF_REF_CHAIN (use);
@@ -857,10 +883,12 @@ forward_propagate_into (struct df_ref *use)
   def = defs->ref;
   if (DF_REF_FLAGS (def) & DF_REF_READ_WRITE)
     return;
+  if (DF_REF_IS_ARTIFICIAL (def))
+    return;
 
   /* Do not propagate loop invariant definitions inside the loop if
      we are going to unroll.  */
-  if (loops.num > 0
+  if (current_loops
       && DF_REF_BB (def)->loop_father != DF_REF_BB (use)->loop_father)
     return;
 
@@ -889,35 +917,36 @@ forward_propagate_into (struct df_ref *use)
 static void
 fwprop_init (void)
 {
+  basic_block bb;
+
   num_changes = 0;
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* We do not always want to propagate into loops, so we have to find
      loops and be careful about them.  But we have to call flow_loops_find
      before df_analyze, because flow_loops_find may introduce new jump
      insns (sadly) if we are not working in cfglayout mode.  */
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    {
-      calculate_dominance_info (CDI_DOMINATORS);
-      flow_loops_find (&loops);
-    }
+    loop_optimizer_init (0);
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
-  df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
-  df_chain_add_problem (df, DF_UD_CHAIN);
-  df_analyze (df);
+  df_set_flags (DF_EQ_NOTES);
+  df_chain_add_problem (DF_UD_CHAIN);
+  FOR_EACH_BB (bb)
+    df_recompute_luids (bb);
+  df_analyze ();
+  df_maybe_reorganize_use_refs (DF_REF_ORDER_BY_INSN_WITH_NOTES);
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 }
 
 static void
 fwprop_done (void)
 {
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    {
-      flow_loops_free (&loops);
-      free_dominance_info (CDI_DOMINATORS);
-      loops.num = 0;
-    }
+    loop_optimizer_finalize ();
 
+  free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (0);
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
@@ -950,19 +979,17 @@ fwprop (void)
      Do not forward propagate addresses into loops until after unrolling.
      CSE did so because it was able to fix its own mess, but we are not.  */
 
-  df_reorganize_refs (&df->use_info);
-  for (i = 0; i < DF_USES_SIZE (df); i++)
+  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (df, i);
+      struct df_ref *use = DF_USES_GET (i);
       if (use)
-	if (loops.num == 0
+	if (!current_loops 
 	    || DF_REF_TYPE (use) == DF_REF_REG_USE
 	    || DF_REF_BB (use)->loop_father == NULL)
 	  forward_propagate_into (use);
     }
 
   fwprop_done ();
-
   return 0;
 }
 
@@ -999,10 +1026,11 @@ fwprop_addr (void)
 
   /* Go through all the uses.  update_df will create new ones at the
      end, and we'll go through them as well.  */
-  df_reorganize_refs (&df->use_info);
-  for (i = 0; i < DF_USES_SIZE (df); i++)
+  df_set_flags (DF_DEFER_INSN_RESCAN);
+
+  for (i = 0; i < DF_USES_TABLE_SIZE (); i++)
     {
-      struct df_ref *use = DF_USES_GET (df, i);
+      struct df_ref *use = DF_USES_GET (i);
       if (use)
 	if (DF_REF_TYPE (use) != DF_REF_REG_USE
 	    && DF_REF_BB (use)->loop_father != NULL)
@@ -1027,6 +1055,7 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

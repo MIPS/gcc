@@ -3,7 +3,7 @@
    1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
-   64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
+   64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
    Brendan Eich (brendan@microunity.com).
 
 This file is part of GCC.
@@ -189,6 +189,7 @@ extern void mips_va_start (tree, rtx);
 
 extern bool mips_expand_unaligned_load (rtx, rtx, unsigned int, int);
 extern bool mips_expand_unaligned_store (rtx, rtx, unsigned int, int);
+extern bool mips_mem_fits_mode_p (enum machine_mode mode, rtx x);
 extern void override_options (void);
 extern void mips_conditional_register_usage (void);
 extern void mips_order_regs_for_local_alloc (void);
@@ -196,7 +197,7 @@ extern HOST_WIDE_INT mips_debugger_offset (rtx, HOST_WIDE_INT);
 
 extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
-extern int mips_output_external (FILE *, tree, const char *);
+extern void mips_output_external (FILE *, tree, const char *);
 extern void mips_output_filename (FILE *, const char *);
 extern void mips_output_ascii (FILE *, const char *, size_t, const char *);
 extern void mips_output_aligned_bss (FILE *, tree, const char *,
@@ -243,6 +244,7 @@ extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_division (const char *, rtx *);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
 extern bool mips_linked_madd_p (rtx, rtx);
+extern int mips_store_data_bypass_p (rtx, rtx);
 extern rtx mips_prefetch_cookie (rtx, rtx);
 
 extern void irix_asm_output_align (FILE *, unsigned);

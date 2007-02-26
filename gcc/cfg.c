@@ -163,23 +163,28 @@ void
 compact_blocks (void)
 {
   int i;
-  basic_block bb;
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   
-  i = NUM_FIXED_BLOCKS;
-  FOR_EACH_BB (bb)
+  if (df)
+    df_compact_blocks ();
+  else 
     {
-      SET_BASIC_BLOCK (i, bb);
-      bb->index = i;
-      i++;
-    }
-  gcc_assert (i == n_basic_blocks);
-  
-  for (; i < last_basic_block; i++)
-    SET_BASIC_BLOCK (i, NULL);
+      basic_block bb;
+      
+      i = NUM_FIXED_BLOCKS;
+      FOR_EACH_BB (bb)
+	{
+	  SET_BASIC_BLOCK (i, bb);
+	  bb->index = i;
+	  i++;
+	}
+      gcc_assert (i == n_basic_blocks);
 
+      for (; i < last_basic_block; i++)
+	SET_BASIC_BLOCK (i, NULL);
+    }
   last_basic_block = n_basic_blocks;
 }
 
@@ -204,6 +209,7 @@ static inline void
 connect_src (edge e)
 {
   VEC_safe_push (edge, gc, e->src->succs, e);
+  df_mark_solutions_dirty ();
 }
 
 /* Connect E to E->dest.  */
@@ -214,6 +220,7 @@ connect_dest (edge e)
   basic_block dest = e->dest;
   VEC_safe_push (edge, gc, dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
+  df_mark_solutions_dirty ();
 }
 
 /* Disconnect edge E from E->src.  */
@@ -236,6 +243,7 @@ disconnect_src (edge e)
 	ei_next (&ei);
     }
 
+  df_mark_solutions_dirty ();
   gcc_unreachable ();
 }
 
@@ -253,6 +261,7 @@ disconnect_dest (edge e)
      to update dest_idx of the edge that moved into the "hole".  */
   if (dest_idx < EDGE_COUNT (dest->preds))
     EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
+  df_mark_solutions_dirty ();
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -274,7 +283,6 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   connect_dest (e);
 
   execute_on_growing_pred (e);
-
   return e;
 }
 
@@ -537,8 +545,8 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
-	  && df_current_instance)
-	df_dump_top (df_current_instance, bb, file);
+	  && df)
+	df_dump_top (bb, file);
    }
 
   if (footer)
@@ -549,8 +557,8 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 
       if ((flags & TDF_DETAILS)
 	  && (bb->flags & BB_RTL)
-	  && df_current_instance)
-	df_dump_bottom (df_current_instance, bb, file);
+	  && df)
+	df_dump_bottom (bb, file);
    }
 
   putc ('\n', file);
@@ -987,15 +995,28 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
   edge e;
   if (num < 0)
     num = 0;
-  if (num > den)
+
+  /* Scale NUM and DEN to avoid overflows.  Frequencies are in order of
+     10^4, if we make DEN <= 10^3, we can afford to upscale by 100
+     and still safely fit in int during calculations.  */
+  if (den > 1000)
+    {
+      if (num > 1000000)
+	return;
+
+      num = RDIV (1000 * num, den);
+      den = 1000;
+    }
+  if (num > 100 * den)
     return;
-  /* Assume that the users are producing the fraction from frequencies
-     that never grow far enough to risk arithmetic overflow.  */
-  gcc_assert (num < 65536);
+
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;
       bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
+      /* Make sure the frequencies do not grow over BB_FREQ_MAX.  */
+      if (bbs[i]->frequency > BB_FREQ_MAX)
+	bbs[i]->frequency = BB_FREQ_MAX;
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
       FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	e->count = RDIV (e->count * num, den);
@@ -1192,3 +1213,4 @@ get_bb_copy (basic_block bb)
   else
     return NULL;
 }
+

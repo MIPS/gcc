@@ -1,5 +1,5 @@
 /* AddressHelper.java --
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,12 +38,13 @@ exception statement from your version. */
 
 package org.omg.CosNaming.NamingContextExtPackage;
 
+import gnu.CORBA.OrbRestricted;
+
 import org.omg.CORBA.Any;
 import org.omg.CORBA.ORB;
 import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
-import org.omg.CORBA.portable.Streamable;
 
 /**
  * Helper operations for address. Address is directly mapped into
@@ -58,11 +59,6 @@ public abstract class AddressHelper
    */
   private static String _id =
     "IDL:omg.org/CosNaming/NamingContextExt/Address:1.0";
-
-  /**
-   * The cached type code (string alias).
-   */
-  private static TypeCode typeCode = null;
 
   /**
    * Just extracts string from this {@link Any}.
@@ -99,13 +95,12 @@ public abstract class AddressHelper
   /**
    * Return the "Address", alias of String, typecode.
    */
-  public static synchronized TypeCode type()
+  public static TypeCode type()
   {
-    if (typeCode == null)
-      {
-        typeCode = ORB.init().create_string_tc(0);
-        typeCode = ORB.init().create_alias_tc(id(), "Address", typeCode);
-      }
+    ORB orb = OrbRestricted.Singleton;
+    TypeCode typeCode;
+    typeCode = orb.create_string_tc(0);
+    typeCode = orb.create_alias_tc(id(), "Address", typeCode);
     return typeCode;
   }
 

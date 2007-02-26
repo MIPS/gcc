@@ -65,7 +65,7 @@ import javax.net.ssl.SSLSocketFactory;
  * @author Chris Burdess (dog@gnu.org)
  */
 public class HTTPURLConnection
-  extends HttpsURLConnection
+ extends HttpsURLConnection
   implements HandshakeCompletedListener
 {
   /*
@@ -75,7 +75,7 @@ public class HTTPURLConnection
 
   // These are package private for use in anonymous inner classes.
   String proxyHostname;
-  int proxyPort;
+  int proxyPort = -1;
   String agent;
   boolean keepAlive;
 
@@ -99,18 +99,21 @@ public class HTTPURLConnection
   {
     super(url);
     requestHeaders = new Headers();
-    proxyHostname = SystemProperties.getProperty("http.proxyHost");
-    if (proxyHostname != null && proxyHostname.length() > 0)
+    String proxy = SystemProperties.getProperty("http.proxyHost");
+    if (proxy != null && proxy.length() > 0)
       {
         String port = SystemProperties.getProperty("http.proxyPort");
         if (port != null && port.length() > 0)
           {
-            proxyPort = Integer.parseInt(port);
-          }
-        else
-          {
-            proxyHostname = null;
-            proxyPort = -1;
+            try
+              {
+                proxyPort = Integer.parseInt(port);
+                proxyHostname = proxy;
+              }
+            catch (NumberFormatException _)
+              {
+                // Ignore.
+              }
           }
       }
     agent = SystemProperties.getProperty("http.agent");
@@ -149,6 +152,14 @@ public class HTTPURLConnection
     final Credentials creds = (username == null) ? null :
       new Credentials (username, password);
     
+    if ("POST".equals(method))
+      {
+        String contentType = requestHeaders.getValue("Content-Type");
+        if (null == contentType)
+          requestHeaders.addValue("Content-Type",
+                                  "application/x-www-form-urlencoded");
+      }
+
     boolean retry;
     do
       {
@@ -346,11 +357,14 @@ public class HTTPURLConnection
     HTTPConnection connection;
     if (keepAlive)
       {
-        connection = HTTPConnection.Pool.instance.get(host, port, secure);
+        connection = HTTPConnection.Pool.instance.get(host, port, secure,
+                                                      getConnectTimeout(),
+                                                      getReadTimeout());
       }
     else
       {
-        connection = new HTTPConnection(host, port, secure);
+        connection = new HTTPConnection(host, port, secure,
+                                        getConnectTimeout(), getReadTimeout());
       }
     return connection;
   }
@@ -653,5 +667,27 @@ public class HTTPURLConnection
     handshakeEvent = event;
   }
 
+  /**
+   * Set the read timeout, in milliseconds, or zero if the timeout
+   * is to be considered infinite.
+   *
+   * Overloaded.
+   *
+   */
+  public void setReadTimeout(int timeout)
+    throws IllegalArgumentException
+  {
+    super.setReadTimeout(timeout);
+    if (connection == null)
+      return;
+    try 
+      {
+	connection.getSocket().setSoTimeout(timeout);
+      } 
+    catch (IOException se)
+      {
+	// Ignore socket exceptions.
+      }
+  }
 }
 

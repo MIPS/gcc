@@ -974,9 +974,9 @@ enum processor_type
 /* Tell prologue and epilogue if register REGNO should be saved / restored.  */
 
 #define MUST_SAVE_REGISTER(regno) \
- ((regs_ever_live[regno] && !call_used_regs[regno])			\
+  ((df_regs_ever_live_p (regno) && !call_used_regs[regno])		\
   || (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)	\
-  || (regno == (GP_REG_FIRST + 31) && regs_ever_live[GP_REG_FIRST + 31]))
+   || (regno == (GP_REG_FIRST + 31) && df_regs_ever_live_p (GP_REG_FIRST + 31)))
 
 /* ALIGN FRAMES on double word boundaries */
 #ifndef IQ2000_STACK_ALIGN

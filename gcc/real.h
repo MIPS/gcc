@@ -22,6 +22,8 @@
 #ifndef GCC_REAL_H
 #define GCC_REAL_H
 
+#include <gmp.h>
+#include <mpfr.h>
 #include "machmode.h"
 
 /* An expanded form of the represented number.  */
@@ -153,6 +155,7 @@ struct real_format
   bool has_denorm;
   bool has_signed_zero;
   bool qnan_msb_set;
+  bool canonical_nan_lsbs_set;
 };
 
 
@@ -253,8 +256,10 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 /* Target formats defined in real.c.  */
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
+extern const struct real_format coldfire_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
+extern const struct real_format coldfire_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
 extern const struct real_format ieee_extended_intel_96_round_53_format;
@@ -382,7 +387,7 @@ extern REAL_VALUE_TYPE dconstm1;
 extern REAL_VALUE_TYPE dconstm2;
 extern REAL_VALUE_TYPE dconsthalf;
 extern REAL_VALUE_TYPE dconstthird;
-extern REAL_VALUE_TYPE dconstpi;
+extern REAL_VALUE_TYPE dconstsqrt2;
 extern REAL_VALUE_TYPE dconste;
 
 /* Function to return a real value (not a tree node)
@@ -424,5 +429,14 @@ extern void real_round (REAL_VALUE_TYPE *, enum machine_mode,
 
 /* Set the sign of R to the sign of X.  */
 extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
+
+/* Convert between MPFR and REAL_VALUE_TYPE.  The caller is
+   responsible for initializing and clearing the MPFR parameter.  */
+
+extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr);
+extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *);
+
+/* Check whether the real constant value given is an integer.  */
+extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);
 
 #endif /* ! GCC_REAL_H */

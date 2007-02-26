@@ -285,6 +285,62 @@ static struct { int allocno1, allocno2;}
 static rtx *regs_set;
 static int n_regs_set;
 
+
+/* Return true if *LOC contains an asm.  */
+
+static int
+insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
+{
+  if ( !*loc)
+    return 0;
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    return 1;
+  return 0;
+}
+
+
+/* Return true if INSN contains an ASM.  */
+
+static int
+insn_contains_asm (rtx insn)
+{
+  return for_each_rtx (&insn, insn_contains_asm_1, NULL);
+}
+
+
+static void
+compute_regs_asm_clobbered (char *regs_asm_clobbered)
+{
+  basic_block bb;
+
+  memset (regs_asm_clobbered, 0, sizeof (char) * FIRST_PSEUDO_REGISTER);
+  
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      FOR_BB_INSNS_REVERSE (bb, insn)
+	{
+	  struct df_ref **def_rec;
+	  if (insn_contains_asm (insn))
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      {
+		struct df_ref *def = *def_rec;
+		unsigned int dregno = DF_REF_REGNO (def);
+		if (dregno < FIRST_PSEUDO_REGISTER)
+		  {
+		    unsigned int i;
+		    enum machine_mode mode = GET_MODE (DF_REF_REAL_REG (def));
+		    unsigned int end = dregno 
+		      + hard_regno_nregs[dregno][mode] - 1;
+		    for (i = dregno; i <= end; ++i)
+		      regs_asm_clobbered[i] = 1;
+		  }
+	      }
+	}
+    }
+}
+
+
 /* All registers that can be eliminated.  */
 
 static HARD_REG_SET eliminable_regset;
@@ -310,36 +366,54 @@ static void reg_dies (int, enum machine_mode, struct insn_chain *);
 
 
 
-/* Perform allocation of pseudo-registers not allocated by local_alloc.
+/* Look through the list of eliminable registers.  Add registers
+   clobbered by asm statements to LIVE_REGS.  Set ELIM_SET to the set of
+   registers which may be eliminated.  Set NO_GLOBAL_SET to the set of
+   registers which may not be used across blocks.
 
-   Return value is nonzero if reload failed
-   and we must not do any more for this function.  */
+   This will normally be called with LIVE_REGS as the global variable
+   regs_ever_live, ELIM_SET as the file static variable
+   eliminable_regset, and NO_GLOBAL_SET as the file static variable
+   NO_GLOBAL_ALLOC_REGS.  */
 
-static int
-global_alloc (void)
+static void
+compute_regsets (HARD_REG_SET *elim_set, 
+                 HARD_REG_SET *no_global_set)
 {
-  int retval;
+
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
+
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
+  size_t i;
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED);
 
-  size_t i;
-
   max_regno = max_reg_num ();
   compact_blocks ();
 
   max_allocno = 0;
-  df_analyze (ra_df);
+  /* Do not recompute the register info.  Local_alloc has played with
+     this in a way that global expects.  */
+  /* Create a new version of df that has the special version of UR.  */
+  df_urec_add_problem ();
+  df_set_flags (DF_RI_NO_UPDATE);
+  df_analyze ();
+  df_set_flags (DF_NO_INSN_RESCAN);
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
 
-  CLEAR_HARD_REG_SET (no_global_alloc_regs);
+  CLEAR_HARD_REG_SET (*no_global_set);
+  CLEAR_HARD_REG_SET (*elim_set);
 
+  compute_regs_asm_clobbered (regs_asm_clobbered);
   /* Build the regset of all eliminable registers and show we can't use those
      that we already know won't be eliminated.  */
 #ifdef ELIMINABLE_REGS
@@ -351,43 +425,57 @@ global_alloc (void)
 
       if (!regs_asm_clobbered[eliminables[i].from])
 	{
-	  SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+	  SET_HARD_REG_BIT (*elim_set, eliminables[i].from);
 
 	  if (cannot_elim)
-	    SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+	    SET_HARD_REG_BIT (*no_global_set, eliminables[i].from);
 	}
       else if (cannot_elim)
 	error ("%s cannot be used in asm here",
 	       reg_names[eliminables[i].from]);
       else
-	regs_ever_live[eliminables[i].from] = 1;
+	df_set_regs_ever_live (eliminables[i].from, true);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
     {
-      SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (*elim_set, HARD_FRAME_POINTER_REGNUM);
       if (need_fp)
-	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+	SET_HARD_REG_BIT (*no_global_set, HARD_FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here",
 	   reg_names[HARD_FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
 #endif
 
 #else
   if (!regs_asm_clobbered[FRAME_POINTER_REGNUM])
     {
-      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      SET_HARD_REG_BIT (*elim_set, FRAME_POINTER_REGNUM);
       if (need_fp)
-	SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+	SET_HARD_REG_BIT (*no_global_set, FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
     error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live[FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (FRAME_POINTER_REGNUM, true);
 #endif
+}
+
+/* Perform allocation of pseudo-registers not allocated by local_alloc.
+
+   Return value is nonzero if reload failed
+   and we must not do any more for this function.  */
+
+static int
+global_alloc (void)
+{
+  int retval;
+  size_t i;
+
+  compute_regsets (&eliminable_regset, &no_global_alloc_regs);
 
   /* Track which registers have already been used.  Start with registers
      explicitly in the rtl, then registers allocated by local register
@@ -408,14 +496,14 @@ global_alloc (void)
     else
       cheap_regs = call_used_regs;
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      if (regs_ever_live[i] || cheap_regs[i])
+      if (df_regs_ever_live_p (i) || cheap_regs[i])
 	SET_HARD_REG_BIT (regs_used_so_far, i);
   }
 #else
   /* We consider registers that do not have to be saved over calls as if
      they were already used since there is no cost in using them.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i] || call_used_regs[i])
+    if (df_regs_ever_live_p (i) || call_used_regs[i])
       SET_HARD_REG_BIT (regs_used_so_far, i);
 #endif
 
@@ -431,6 +519,7 @@ global_alloc (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     reg_allocno[i] = -1;
 
+  max_allocno = 0;
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     /* Note that reg_live_length[i] < 0 indicates a "constant" reg
        that we are supposed to refrain from putting in a hard reg.
@@ -487,9 +576,22 @@ global_alloc (void)
 
   /* We can't override local-alloc for a reg used not just by local-alloc.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       local_reg_n_refs[i] = 0, local_reg_freq[i] = 0;
 
+  if (dump_file)
+    {
+      for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
+	{
+	  fprintf (dump_file, "%d REG_N_REFS=%d, REG_FREQ=%d, REG_LIVE_LENGTH=%d\n", 
+		   (int)i, REG_N_REFS (i), REG_FREQ (i), REG_LIVE_LENGTH (i));
+	}
+      fprintf (dump_file, "regs_ever_live =");
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (df_regs_ever_live_p (i))
+	  fprintf (dump_file, " %d", (int)i);
+      fprintf (dump_file, "\n");
+    }
   allocno_row_words = (max_allocno + INT_BITS - 1) / INT_BITS;
 
   /* We used to use alloca here, but the size of what it would try to
@@ -667,12 +769,11 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = DF_RA_LIVE_IN (ra_df, b);
 	int ax = 0;
 	reg_set_iterator rsi;
 
-	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
-	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i, rsi)
+	REG_SET_TO_HARD_REG_SET (hard_regs_live, DF_RA_LIVE_TOP (b));
+	EXECUTE_IF_SET_IN_REG_SET (DF_RA_LIVE_TOP (b), FIRST_PSEUDO_REGISTER, i, rsi)
 	  {
 	    int a = reg_allocno[i];
 	    if (a >= 0)
@@ -709,6 +810,21 @@ global_conflicts (void)
 	    In cases #1 and #2 the conflict will be recorded when we
 	    scan the instruction that makes either X or Y become live.  */
 	record_conflicts (block_start_allocnos, ax);
+
+#ifdef EH_RETURN_DATA_REGNO
+	if (bb_has_eh_pred (b))
+	  {
+	    unsigned int i;
+	    
+	    for (i = 0; ; ++i)
+	      {
+		unsigned int regno = EH_RETURN_DATA_REGNO (i);
+		if (regno == INVALID_REGNUM)
+		  break;
+		record_one_conflict (regno);
+	      }
+	  }
+#endif
 
 	/* Pseudos can't go in stack regs at the start of a basic block that
 	   is reached by an abnormal edge. Likewise for call clobbered regs,
@@ -1349,7 +1465,7 @@ retry_global_alloc (int regno, HARD_REG_SET forbidden_regs)
 	 show the hard register, and mark that register live.  */
       if (reg_renumber[regno] >= 0)
 	{
-	  REGNO (regno_reg_rtx[regno]) = reg_renumber[regno];
+	  SET_REGNO (regno_reg_rtx[regno], reg_renumber[regno]);
 	  mark_home_live (regno);
 	}
     }
@@ -1716,7 +1832,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
-      regset r = DF_RA_LIVE_IN (ra_df, bb);
+      regset r = DF_RA_LIVE_IN (bb);
       if (REGNO_REG_SET_P (r, from))
 	{
 	  CLEAR_REGNO_REG_SET (r, from);
@@ -1806,7 +1922,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_IN (ra_df, b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (df_get_live_top (b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -1964,7 +2080,7 @@ dump_global_regs (FILE *file)
 
   fprintf (file, "\n\n;; Hard regs used: ");
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       fprintf (file, " %d", i);
   fprintf (file, "\n\n");
 }
@@ -1982,10 +2098,10 @@ rest_of_handle_global_alloc (void)
     failure = global_alloc ();
   else
     {
+      compute_regsets (&eliminable_regset, &no_global_alloc_regs);
       build_insn_chain (get_insns ());
-      df_analyze (ra_df);
+      df_set_flags (DF_NO_INSN_RESCAN);
       failure = reload (get_insns (), 0);
-      df_finish (ra_df);
     }
 
   if (dump_enabled_p (pass_global_alloc.static_pass_number))
@@ -2003,6 +2119,14 @@ rest_of_handle_global_alloc (void)
      afterwards.  */
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
+
+  /* The world has changed so much that at this point we might as well
+     just rescan everything.  Not that df_rescan_all_insns is not
+     going to help here because it does not touch the artificial uses
+     and defs.  */
+  df_finish_pass ();
+  df_scan_alloc (NULL);
+  df_scan_blocks ();
   return 0;
 }
 

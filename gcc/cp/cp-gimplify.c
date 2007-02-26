@@ -391,18 +391,15 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   tree to = TREE_OPERAND (*expr_p, 0);
   tree sub;
 
-  /* If we are initializing something from a TARGET_EXPR, strip the
-     TARGET_EXPR and initialize it directly.  */
   /* What about code that pulls out the temp and uses it elsewhere?  I
      think that such code never uses the TARGET_EXPR as an initializer.  If
      I'm wrong, we'll abort because the temp won't have any RTL.  In that
      case, I guess we'll need to replace references somehow.  */
   if (TREE_CODE (from) == TARGET_EXPR)
     from = TARGET_EXPR_INITIAL (from);
-  if (TREE_CODE (from) == CLEANUP_POINT_EXPR)
-    from = TREE_OPERAND (from, 0);
 
-  /* Look through any COMPOUND_EXPRs.  */
+  /* Look through any COMPOUND_EXPRs, since build_compound_expr pushes them
+     inside the TARGET_EXPR.  */
   sub = expr_last (from);
 
   /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
@@ -475,7 +472,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case THROW_EXPR:
-      /* FIXME communicate throw type to backend, probably by moving
+      /* FIXME communicate throw type to back end, probably by moving
 	 THROW_EXPR into ../tree.def.  */
       *expr_p = TREE_OPERAND (*expr_p, 0);
       ret = GS_OK;
@@ -486,7 +483,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_OK;
       break;
 
-      /* We used to do this for MODIFY_EXPR as well, but that's unsafe; the
+      /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's unsafe; the
 	 LHS of an assignment might also be involved in the RHS, as in bug
 	 25979.  */
     case INIT_EXPR:
@@ -601,6 +598,24 @@ is_invisiref_parm (tree t)
 	  && DECL_BY_REFERENCE (t));
 }
 
+/* Return true if the uid in both int tree maps are equal.  */
+
+int
+cxx_int_tree_map_eq (const void *va, const void *vb)
+{
+  const struct cxx_int_tree_map *a = (const struct cxx_int_tree_map *) va;
+  const struct cxx_int_tree_map *b = (const struct cxx_int_tree_map *) vb;
+  return (a->uid == b->uid);
+}
+
+/* Hash a UID in a cxx_int_tree_map.  */
+
+unsigned int
+cxx_int_tree_map_hash (const void *item)
+{
+  return ((const struct cxx_int_tree_map *)item)->uid;
+}
+
 /* Perform any pre-gimplification lowering of C++ front end trees to
    GENERIC.  */
 
@@ -618,6 +633,25 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
       return NULL;
+    }
+
+  /* Map block scope extern declarations to visible declarations with the
+     same name and type in outer scopes if any.  */
+  if (cp_function_chain->extern_decl_map
+      && (TREE_CODE (stmt) == FUNCTION_DECL || TREE_CODE (stmt) == VAR_DECL)
+      && DECL_EXTERNAL (stmt))
+    {
+      struct cxx_int_tree_map *h, in;
+      in.uid = DECL_UID (stmt);
+      h = (struct cxx_int_tree_map *)
+	  htab_find_with_hash (cp_function_chain->extern_decl_map,
+			       &in, in.uid);
+      if (h)
+	{
+	  *stmt_p = h->to;
+	  *walk_subtrees = 0;
+	  return NULL;
+	}
     }
 
   /* Other than invisiref parms, don't walk the same tree twice.  */
@@ -638,6 +672,25 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	   && is_invisiref_parm (TREE_OPERAND (stmt, 0)))
     /* Don't dereference an invisiref RESULT_DECL inside a RETURN_EXPR.  */
     *walk_subtrees = 0;
+  else if (TREE_CODE (stmt) == OMP_CLAUSE)
+    switch (OMP_CLAUSE_CODE (stmt))
+      {
+      case OMP_CLAUSE_PRIVATE:
+      case OMP_CLAUSE_SHARED:
+      case OMP_CLAUSE_FIRSTPRIVATE:
+      case OMP_CLAUSE_LASTPRIVATE:
+      case OMP_CLAUSE_COPYIN:
+      case OMP_CLAUSE_COPYPRIVATE:
+	/* Don't dereference an invisiref in OpenMP clauses.  */
+	if (is_invisiref_parm (OMP_CLAUSE_DECL (stmt)))
+	  *walk_subtrees = 0;
+	break;
+      case OMP_CLAUSE_REDUCTION:
+	gcc_assert (!is_invisiref_parm (OMP_CLAUSE_DECL (stmt)));
+	break;
+      default:
+	break;
+      }
   else if (IS_TYPE_OR_DECL_P (stmt))
     *walk_subtrees = 0;
 
@@ -750,13 +803,13 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
 
       p1 = create_tmp_var (TREE_TYPE (start1), NULL);
-      t = build2 (MODIFY_EXPR, void_type_node, p1, start1);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, start1);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  p2 = create_tmp_var (TREE_TYPE (start2), NULL);
-	  t = build2 (MODIFY_EXPR, void_type_node, p2, start2);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, start2);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -778,14 +831,14 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 
       t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
       t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
-      t = build2 (MODIFY_EXPR, void_type_node, p1, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, t);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
 	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
-	  t = build2 (MODIFY_EXPR, void_type_node, p2, t);
+	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, t);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -836,7 +889,7 @@ cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), dst, src);
   if (ret == NULL)
-    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
 
   return ret;
 }
@@ -852,7 +905,7 @@ cxx_omp_clause_assign_op (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 2), dst, src);
   if (ret == NULL)
-    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
 
   return ret;
 }
@@ -877,5 +930,5 @@ cxx_omp_clause_dtor (tree clause, tree decl)
 bool
 cxx_omp_privatize_by_reference (tree decl)
 {
-  return TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl);
+  return is_invisiref_parm (decl);
 }

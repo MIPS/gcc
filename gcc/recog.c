@@ -238,6 +238,28 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
+/* Keep X canonicalized if some changes have made it non-canonical; only
+   modifies the operands of X, not (for example) its code.  Simplifications
+   are not the job of this routine.
+
+   Return true if anything was changed.  */
+bool
+canonicalize_change_group (rtx insn, rtx x)
+{
+  if (COMMUTATIVE_P (x)
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      /* Oops, the caller has made X no longer canonical.
+	 Let's redo the changes in the correct order.  */
+      rtx tem = XEXP (x, 0);
+      validate_change (insn, &XEXP (x, 0), XEXP (x, 1), 1);
+      validate_change (insn, &XEXP (x, 1), tem, 1);
+      return true;
+    }
+  else
+    return false;
+}
+  
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -383,21 +405,21 @@ verify_changes (int num)
   return (i == num_changes);
 }
 
-/* A group of changes has previously been issued with validate_change and
-   verified with verify_changes.  Update the BB_DIRTY flags of the affected
-   blocks, and clear num_changes.  */
+/* A group of changes has previously been issued with validate_change
+   and verified with verify_changes.  Call df_set_bb_dirty of the
+   affected blocks, and clear num_changes.  */
 
 void
 confirm_change_group (void)
 {
   int i;
-  basic_block bb;
 
   for (i = 0; i < num_changes; i++)
-    if (changes[i].object
-	&& INSN_P (changes[i].object)
-	&& (bb = BLOCK_FOR_INSN (changes[i].object)))
-      bb->flags |= BB_DIRTY;
+    {
+      rtx object = changes[i].object;
+      if (object && INSN_P (object))
+	df_insn_rescan (object);
+    }
 
   num_changes = 0;
 }
@@ -1799,8 +1821,17 @@ offsettable_address_p (int strictp, enum machine_mode mode, rtx y)
    because the amount of the increment depends on the mode.  */
 
 int
-mode_dependent_address_p (rtx addr ATTRIBUTE_UNUSED /* Maybe used in GO_IF_MODE_DEPENDENT_ADDRESS.  */)
+mode_dependent_address_p (rtx addr)
 {
+  /* Auto-increment addressing with anything other than post_modify
+     or pre_modify always introduces a mode dependency.  Catch such
+     cases now instead of deferring to the target.  */
+  if (GET_CODE (addr) == PRE_INC
+      || GET_CODE (addr) == POST_INC
+      || GET_CODE (addr) == PRE_DEC
+      || GET_CODE (addr) == POST_DEC)
+    return 1;
+
   GO_IF_MODE_DEPENDENT_ADDRESS (addr, win);
   return 0;
   /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
@@ -2633,7 +2664,7 @@ split_all_insns (void)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-static unsigned int
+unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
@@ -2810,7 +2841,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
       if (! HARD_REGNO_MODE_OK (regno, mode))
 	continue;
       /* And that we don't create an extra save/restore.  */
-      if (! call_used_regs[regno] && ! regs_ever_live[regno])
+      if (! call_used_regs[regno] && ! df_regs_ever_live_p (regno))
 	continue;
       /* And we don't clobber traceback for noreturn functions.  */
       if ((regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM)
@@ -2845,28 +2876,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
   return NULL_RTX;
 }
 
-/* Delete dataflow info and insn from START to FINISH.  */
-
-static void
-delete_insn_chain_and_dflow (struct dataflow *dflow, rtx start, rtx finish)
-{
-  rtx next;
-  rtx orig_start = start;
-
-  while (1)
-    {
-      next = NEXT_INSN (start);
-      if (INSN_P (start))
-	df_insn_refs_delete (dflow, start);
-
-      if (start == finish)
-	break;
-      start = next;
-    }
-
-  delete_insn_chain (orig_start, finish);
-}
-
 /* Perform the peephole2 optimization pass.  */
 
 static void
@@ -2881,13 +2890,9 @@ peephole2_optimize (void)
   basic_block bb;
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
-  struct df * df = df_init (DF_HARD_REGS);
-  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_live_add_problem (df, 0);
-  df_ru_add_problem (df, 0);
-  df_analyze (df);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_analyze ();
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
@@ -2909,7 +2914,7 @@ peephole2_optimize (void)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      df_lr_simulate_artificial_refs_at_end (df, bb, live);
+      df_lr_simulate_artificial_refs_at_end (bb, live);
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
@@ -2929,17 +2934,7 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
-	      df_lr_simulate_one_insn (df, bb, insn, live);
-#if 0
-	      propagate_one_insn (pbi, insn);
-	      if (!bitmap_equal_p (livep, live))
-		{
-		  fprintf (stderr, "****failing with insn %d****\n\n", 
-			   INSN_UID (insn));
-		  print_rtl_with_bb (stderr, get_insns ());
-		  gcc_assert (0);
-		}
-#endif
+	      df_lr_simulate_one_insn (bb, insn, live);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3024,7 +3019,7 @@ peephole2_optimize (void)
 		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
-		  delete_insn_chain_and_dflow (dflow, insn, peep2_insn_data[i].insn);
+		  delete_insn_chain (insn, peep2_insn_data[i].insn);
 
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
@@ -3092,7 +3087,6 @@ peephole2_optimize (void)
 		  x = try;
 		  do
 		    {
-		      df_insn_create_insn_record (dflow, insn);
 		      if (INSN_P (x))
 			{
 			  if (--i < 0)
@@ -3101,20 +3095,13 @@ peephole2_optimize (void)
 			      && peep2_insn_data[i].insn == NULL_RTX)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
-			  df_insn_refs_record (dflow, bb, insn);
-			  df_lr_simulate_one_insn (df, bb, insn, live);
-#if 0
-			  propagate_one_insn (pbi, x);
-			  gcc_assert (bitmap_equal_p (livep, live));
-#endif
+			  df_insn_rescan (x);
+			  df_lr_simulate_one_insn (bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
 		    }
 		  while (x != prev);
-
-		  /* ??? Should verify that LIVE now matches what we
-		     had before the new sequence.  */
 
 		  peep2_current = i;
 #endif
@@ -3149,47 +3136,92 @@ peephole2_optimize (void)
 /* Common predicates for use with define_bypass.  */
 
 /* True if the dependency between OUT_INSN and IN_INSN is on the store
-   data not the address operand(s) of the store.  IN_INSN must be
-   single_set.  OUT_INSN must be either a single_set or a PARALLEL with
-   SETs inside.  */
+   data not the address operand(s) of the store.  IN_INSN and OUT_INSN
+   must be either a single_set or a PARALLEL with SETs inside.  */
 
 int
 store_data_bypass_p (rtx out_insn, rtx in_insn)
 {
   rtx out_set, in_set;
+  rtx out_pat, in_pat;
+  rtx out_exp, in_exp;
+  int i, j;
 
   in_set = single_set (in_insn);
-  gcc_assert (in_set);
-
-  if (!MEM_P (SET_DEST (in_set)))
-    return false;
-
-  out_set = single_set (out_insn);
-  if (out_set)
+  if (in_set)
     {
-      if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_set)))
+      if (!MEM_P (SET_DEST (in_set)))
 	return false;
+
+      out_set = single_set (out_insn);
+      if (out_set)
+        {
+          if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_set)))
+            return false;
+        }
+      else
+        {
+          out_pat = PATTERN (out_insn);
+
+	  if (GET_CODE (out_pat) != PARALLEL)
+	    return false;
+
+          for (i = 0; i < XVECLEN (out_pat, 0); i++)
+          {
+            out_exp = XVECEXP (out_pat, 0, i);
+
+            if (GET_CODE (out_exp) == CLOBBER)
+              continue;
+
+            gcc_assert (GET_CODE (out_exp) == SET);
+
+            if (reg_mentioned_p (SET_DEST (out_exp), SET_DEST (in_set)))
+              return false;
+          }
+      }
     }
   else
     {
-      rtx out_pat;
-      int i;
+      in_pat = PATTERN (in_insn);
+      gcc_assert (GET_CODE (in_pat) == PARALLEL);
 
-      out_pat = PATTERN (out_insn);
-      gcc_assert (GET_CODE (out_pat) == PARALLEL);
-
-      for (i = 0; i < XVECLEN (out_pat, 0); i++)
+      for (i = 0; i < XVECLEN (in_pat, 0); i++)
 	{
-	  rtx exp = XVECEXP (out_pat, 0, i);
+	  in_exp = XVECEXP (in_pat, 0, i);
 
-	  if (GET_CODE (exp) == CLOBBER)
+	  if (GET_CODE (in_exp) == CLOBBER)
 	    continue;
 
-	  gcc_assert (GET_CODE (exp) == SET);
+	  gcc_assert (GET_CODE (in_exp) == SET);
 
-	  if (reg_mentioned_p (SET_DEST (exp), SET_DEST (in_set)))
+	  if (!MEM_P (SET_DEST (in_exp)))
 	    return false;
-	}
+
+          out_set = single_set (out_insn);
+          if (out_set)
+            {
+              if (reg_mentioned_p (SET_DEST (out_set), SET_DEST (in_exp)))
+                return false;
+            }
+          else
+            {
+              out_pat = PATTERN (out_insn);
+              gcc_assert (GET_CODE (out_pat) == PARALLEL);
+
+              for (j = 0; j < XVECLEN (out_pat, 0); j++)
+                {
+                  out_exp = XVECEXP (out_pat, 0, j);
+
+                  if (GET_CODE (out_exp) == CLOBBER)
+                    continue;
+
+                  gcc_assert (GET_CODE (out_exp) == SET);
+
+                  if (reg_mentioned_p (SET_DEST (out_exp), SET_DEST (in_exp)))
+                    return false;
+                }
+            }
+        }
     }
 
   return true;
@@ -3408,6 +3440,7 @@ struct tree_opt_pass pass_split_before_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_verify_flow |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

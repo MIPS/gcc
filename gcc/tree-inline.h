@@ -88,14 +88,48 @@ typedef struct copy_body_data
   /* True if lang_hooks.decls.insert_block should be invoked when
      duplicating BLOCK nodes.  */
   bool transform_lang_insert_block;
+
+  /* Statements that might be possibly folded.  */
+  struct pointer_set_t *statements_to_fold;
 } copy_body_data;
+
+/* Weights of constructions for estimate_num_insns.  */
+
+typedef struct eni_weights_d
+{
+  /* Cost per call.  */
+  unsigned call_cost;
+
+  /* Cost of "expensive" div and mod operations.  */
+  unsigned div_mod_cost;
+
+  /* Cost of switch statement.  */
+  unsigned switch_cost;
+
+  /* Cost for omp construct.  */
+  unsigned omp_cost;
+} eni_weights;
+
+/* Weights that estimate_num_insns uses for heuristics in inlining.  */
+
+extern eni_weights eni_inlining_weights;
+
+/* Weights that estimate_num_insns uses to estimate the size of the
+   produced code.  */
+
+extern eni_weights eni_size_weights;
+
+/* Weights that estimate_num_insns uses to estimate the time necessary
+   to execute the produced code.  */
+
+extern eni_weights eni_time_weights;
 
 /* Function prototypes.  */
 
 extern tree copy_body_r (tree *, int *, void *);
 extern void insert_decl_map (copy_body_data *, tree, tree);
 
-void optimize_inline_calls (tree);
+unsigned int optimize_inline_calls (tree);
 bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
@@ -103,12 +137,14 @@ void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
 void push_cfun (struct function *new_cfun);
 void pop_cfun (void);
-int estimate_num_insns (tree expr);
+int estimate_num_insns (tree expr, eni_weights *);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type, bool);
 
 extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);
+
+extern HOST_WIDE_INT estimated_stack_frame_size (void);
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.

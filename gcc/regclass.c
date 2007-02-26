@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -49,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "target.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Maximum register number used in this function, plus one.  */
 
@@ -836,7 +837,8 @@ struct costs
 /* Structure used to record preferences of given pseudo.  */
 struct reg_pref
 {
-  /* (enum reg_class) prefclass is the preferred class.  */
+  /* (enum reg_class) prefclass is the preferred class.  May be
+     NO_REGS if no class is better than memory.  */
   char prefclass;
 
   /* altclass is a register class that we should use for allocating
@@ -883,7 +885,7 @@ static void record_address_regs (enum machine_mode, rtx, int, enum rtx_code,
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
-static void reg_scan_mark_refs (rtx, rtx, int);
+static void reg_scan_mark_refs (rtx, rtx, int, unsigned int);
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
 
@@ -935,6 +937,8 @@ static unsigned int
 regclass_init (void)
 {
   int i;
+
+  df_compute_regs_ever_live (true);
 
   init_cost.mem_cost = 10000;
   for (i = 0; i < N_REG_CLASSES; i++)
@@ -1213,7 +1217,7 @@ init_reg_autoinc (void)
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (TEST_HARD_REG_BIT (reg_class_contents[i], j))
 	  {
-	    REGNO (r) = j;
+	    SET_REGNO (r, j);
 
 	    for (m = VOIDmode; (int) m < (int) MAX_MACHINE_MODE;
 		 m = (enum machine_mode) ((int) m + 1))
@@ -1358,6 +1362,10 @@ regclass (rtx f, int nregs)
 	      else if (p->cost[class] == best_cost)
 		best = reg_class_subunion[(int) best][class];
 	    }
+
+	  /* If no register class is better than memory, use memory. */
+	  if (p->mem_cost < best_cost)
+	    best = NO_REGS;
 
 	  /* Record the alternate register class; i.e., a class for which
 	     every register in it is better than using memory.  If adding a
@@ -1569,7 +1577,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     to what we would add if this register were not in the
 		     appropriate class.  */
 
-		  if (reg_pref)
+		  if (reg_pref && reg_pref[REGNO (op)].prefclass != NO_REGS)
 		    alt_cost
 		      += (may_move_in_cost[mode]
 			  [(unsigned char) reg_pref[REGNO (op)].prefclass]
@@ -1795,7 +1803,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     to what we would add if this register were not in the
 		     appropriate class.  */
 
-		  if (reg_pref)
+		  if (reg_pref && reg_pref[REGNO (op)].prefclass != NO_REGS)
 		    alt_cost
 		      += (may_move_in_cost[mode]
 			  [(unsigned char) reg_pref[REGNO (op)].prefclass]
@@ -1881,7 +1889,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  int class;
 	  unsigned int nr;
 
-	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0)
+	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0
+	      && reg_pref[regno].prefclass != NO_REGS)
 	    {
 	      enum reg_class pref = reg_pref[regno].prefclass;
 
@@ -2225,9 +2234,8 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
       if (!reg_n_info)
 	{
 	  reg_n_info = VEC_alloc (reg_info_p, heap, regno_allocated);
-	  VEC_safe_grow (reg_info_p, heap, reg_n_info, regno_allocated);
-	  memset (VEC_address (reg_info_p, reg_n_info), 0,
-		  sizeof (reg_info_p) * regno_allocated);
+	  VEC_safe_grow_cleared (reg_info_p, heap, reg_n_info,
+				 regno_allocated);
 	  renumber = xmalloc (size_renumber);
 	  reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
 	}
@@ -2236,11 +2244,8 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	  size_t old_length = VEC_length (reg_info_p, reg_n_info);
 	  if (old_length < regno_allocated)
 	    {
-	      reg_info_p *addr;
-	      VEC_safe_grow (reg_info_p, heap, reg_n_info, regno_allocated);
-	      addr = VEC_address (reg_info_p, reg_n_info);
-	      memset (&addr[old_length], 0,
-		      sizeof (reg_info_p) * (regno_allocated - old_length));
+	      VEC_safe_grow_cleared (reg_info_p, heap, reg_n_info,
+				     regno_allocated);
 	    }
 	  else if (regno_allocated < old_length)
 	    {
@@ -2344,6 +2349,14 @@ free_reg_info (void)
   regno_allocated = 0;
   reg_n_max = 0;
 }
+
+/* Clear the information stored for REGNO.  */
+void
+clear_reg_info_regno (unsigned int regno)
+{
+  if (regno < regno_allocated)
+    memset (VEC_index (reg_info_p, reg_n_info, regno), 0, sizeof (reg_info));
+}
 
 /* This is the `regscan' pass of the compiler, run just before cse
    and again just before loop.
@@ -2385,10 +2398,10 @@ reg_scan (rtx f, unsigned int nregs)
 	if (GET_CODE (pat) == PARALLEL
 	    && XVECLEN (pat, 0) > max_parallel)
 	  max_parallel = XVECLEN (pat, 0);
-	reg_scan_mark_refs (pat, insn, 0);
+	reg_scan_mark_refs (pat, insn, 0, 0);
 
 	if (REG_NOTES (insn))
-	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1);
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, 0);
       }
 
   max_parallel += max_set_parallel;
@@ -2396,11 +2409,39 @@ reg_scan (rtx f, unsigned int nregs)
   timevar_pop (TV_REG_SCAN);
 }
 
+/* Update 'regscan' information by looking at the insns
+   from FIRST to LAST.  Some new REGs have been created,
+   and any REG with number greater than OLD_MAX_REGNO is
+   such a REG.  We only update information for those.  */
+
+void
+reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
+{
+  rtx insn;
+
+  allocate_reg_info (max_reg_num (), FALSE, FALSE);
+
+  for (insn = first; insn != last; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, old_max_regno);
+
+	if (REG_NOTES (insn))
+	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, old_max_regno);
+      }
+}
+
 /* X is the expression to scan.  INSN is the insn it appears in.
-   NOTE_FLAG is nonzero if X is from INSN's notes rather than its body.  */
+   NOTE_FLAG is nonzero if X is from INSN's notes rather than its body.
+   We should only record information for REGs with numbers
+   greater than or equal to MIN_REGNO.  */
 
 static void
-reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
+reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 {
   enum rtx_code code;
   rtx dest;
@@ -2427,35 +2468,43 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
       {
 	unsigned int regno = REGNO (x);
 
-	if (!note_flag)
-	  REGNO_LAST_UID (regno) = INSN_UID (insn);
-	if (REGNO_FIRST_UID (regno) == 0)
-	  REGNO_FIRST_UID (regno) = INSN_UID (insn);
+	if (regno >= min_regno)
+	  {
+	    if (!note_flag)
+	      REGNO_LAST_UID (regno) = INSN_UID (insn);
+	    if (REGNO_FIRST_UID (regno) == 0)
+	      REGNO_FIRST_UID (regno) = INSN_UID (insn);
+	    /* If we are called by reg_scan_update() (indicated by min_regno
+	       being set), we also need to update the reference count.  */
+	    if (min_regno)
+	      REG_N_REFS (regno)++;
+	  }
       }
       break;
 
     case EXPR_LIST:
       if (XEXP (x, 0))
-	reg_scan_mark_refs (XEXP (x, 0), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 0), insn, note_flag, min_regno);
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
       break;
 
     case INSN_LIST:
       if (XEXP (x, 1))
-	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag);
+	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
       break;
 
     case CLOBBER:
       {
 	rtx reg = XEXP (x, 0);
-	if (REG_P (reg))
+	if (REG_P (reg)
+	    && REGNO (reg) >= min_regno)
 	  {
 	    REG_N_SETS (REGNO (reg))++;
 	    REG_N_REFS (REGNO (reg))++;
 	  }
 	else if (MEM_P (reg))
-	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag);
+	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag, min_regno);
       }
       break;
 
@@ -2472,7 +2521,8 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
       if (GET_CODE (dest) == PARALLEL)
 	max_set_parallel = MAX (max_set_parallel, XVECLEN (dest, 0) - 1);
 
-      if (REG_P (dest))
+      if (REG_P (dest)
+	  && REGNO (dest) >= min_regno)
 	{
 	  REG_N_SETS (REGNO (dest))++;
 	  REG_N_REFS (REGNO (dest))++;
@@ -2492,6 +2542,7 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
 
       if (REG_P (SET_DEST (x))
 	  && REGNO (SET_DEST (x)) >= FIRST_PSEUDO_REGISTER
+	  && REGNO (SET_DEST (x)) >= min_regno
 	  /* If the destination pseudo is set more than once, then other
 	     sets might not be to a pointer value (consider access to a
 	     union in two threads of control in the presence of global
@@ -2552,12 +2603,12 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag)
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  {
 	    if (fmt[i] == 'e')
-	      reg_scan_mark_refs (XEXP (x, i), insn, note_flag);
+	      reg_scan_mark_refs (XEXP (x, i), insn, note_flag, min_regno);
 	    else if (fmt[i] == 'E' && XVEC (x, i) != 0)
 	      {
 		int j;
 		for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, note_flag);
+		  reg_scan_mark_refs (XVECEXP (x, i, j), insn, note_flag, min_regno);
 	      }
 	  }
       }

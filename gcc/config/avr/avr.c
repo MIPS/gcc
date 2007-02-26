@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -120,26 +120,31 @@ section *progmem_section;
 /* More than 8K of program memory: use "call" and "jmp".  */
 int avr_mega_p = 0;
 
-/* Enhanced core: use "movw", "mul", ...  */
-int avr_enhanced_p = 0;
+/* Core have 'MUL*' instructions.  */
+int avr_have_mul_p = 0;
 
 /* Assembler only.  */
 int avr_asm_only_p = 0;
 
+/* Core have 'MOVW' and 'LPM Rx,Z' instructions.  */
+int avr_have_movw_lpmx_p = 0;
+
 struct base_arch_s {
   int asm_only;
-  int enhanced;
+  int have_mul;
   int mega;
+  int have_movw_lpmx;
   const char *const macro;
 };
 
 static const struct base_arch_s avr_arch_types[] = {
-  { 1, 0, 0, NULL },  /* unknown device specified */
-  { 1, 0, 0, "__AVR_ARCH__=1" },
-  { 0, 0, 0, "__AVR_ARCH__=2" },
-  { 0, 0, 1, "__AVR_ARCH__=3" },
-  { 0, 1, 0, "__AVR_ARCH__=4" },
-  { 0, 1, 1, "__AVR_ARCH__=5" }
+  { 1, 0, 0, 0,  NULL },  /* unknown device specified */
+  { 1, 0, 0, 0, "__AVR_ARCH__=1" },
+  { 0, 0, 0, 0, "__AVR_ARCH__=2" },
+  { 0, 0, 1, 0, "__AVR_ARCH__=3" },
+  { 0, 1, 0, 1, "__AVR_ARCH__=4" },
+  { 0, 1, 1, 1, "__AVR_ARCH__=5" },
+  { 0, 0, 0, 1, "__AVR_ARCH__=25"}
 };
 
 struct mcu_type_s {
@@ -173,18 +178,19 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
     /* Classic + MOVW, <= 8K.  */
-  { "attiny13",   2, "__AVR_ATtiny13__" },
-  { "attiny2313", 2, "__AVR_ATtiny2313__" },
-  { "attiny24", 2, "__AVR_ATtiny24__" },
-  { "attiny44", 2, "__AVR_ATtiny44__" },
-  { "attiny84", 2, "__AVR_ATtiny84__" },
-  { "attiny25", 2, "__AVR_ATtiny25__" },
-  { "attiny45", 2, "__AVR_ATtiny45__" },
-  { "attiny85", 2, "__AVR_ATtiny85__" },
-  { "attiny261", 2, "__AVR_ATtiny261__" },
-  { "attiny461", 2, "__AVR_ATtiny461__" },
-  { "attiny861", 2, "__AVR_ATtiny861__" },
-  { "at86rf401", 2, "__AVR_AT86RF401__" },
+  { "avr25",      6, NULL },
+  { "attiny13",   6, "__AVR_ATtiny13__" },
+  { "attiny2313", 6, "__AVR_ATtiny2313__" },
+  { "attiny24",   6, "__AVR_ATtiny24__" },
+  { "attiny44",   6, "__AVR_ATtiny44__" },
+  { "attiny84",   6, "__AVR_ATtiny84__" },
+  { "attiny25",   6, "__AVR_ATtiny25__" },
+  { "attiny45",   6, "__AVR_ATtiny45__" },
+  { "attiny85",   6, "__AVR_ATtiny85__" },
+  { "attiny261",  6, "__AVR_ATtiny261__" },
+  { "attiny461",  6, "__AVR_ATtiny461__" },
+  { "attiny861",  6, "__AVR_ATtiny861__" },
+  { "at86rf401",  6, "__AVR_AT86RF401__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -199,6 +205,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega88",   4, "__AVR_ATmega88__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
   { "atmega8535", 4, "__AVR_ATmega8535__" },
+  { "at90pwm1",  4, "__AVR_AT90PWM1__" },
   { "at90pwm2",  4, "__AVR_AT90PWM2__" },
   { "at90pwm3",  4, "__AVR_AT90PWM3__" },
     /* Enhanced, > 8K.  */
@@ -317,8 +324,9 @@ avr_override_options (void)
 
   base = &avr_arch_types[t->arch];
   avr_asm_only_p = base->asm_only;
-  avr_enhanced_p = base->enhanced;
+  avr_have_mul_p = base->have_mul;
   avr_mega_p = base->mega;
+  avr_have_movw_lpmx_p = base->have_movw_lpmx;
   avr_base_arch_macro = base->macro;
   avr_extra_arch_macro = t->macro;
 
@@ -425,7 +433,7 @@ avr_regs_to_save (HARD_REG_SET *set)
 	continue;
 
       if ((int_or_sig_p && !leaf_func_p && call_used_regs[reg])
-	  || (regs_ever_live[reg]
+	  || (df_regs_ever_live_p (reg)
 	      && (int_or_sig_p || !call_used_regs[reg])
 	      && !(frame_pointer_needed
 		   && (reg == REG_Y || reg == (REG_Y+1)))))
@@ -482,7 +490,7 @@ sequent_regs_live (void)
     {
       if (!call_used_regs[reg])
 	{
-	  if (regs_ever_live[reg])
+	  if (df_regs_ever_live_p (reg))
 	    {
 	      ++live_seq;
 	      ++cur_seq;
@@ -494,7 +502,7 @@ sequent_regs_live (void)
 
   if (!frame_pointer_needed)
     {
-      if (regs_ever_live[REG_Y])
+      if (df_regs_ever_live_p (REG_Y))
 	{
 	  ++live_seq;
 	  ++cur_seq;
@@ -502,7 +510,7 @@ sequent_regs_live (void)
       else
 	cur_seq = 0;
 
-      if (regs_ever_live[REG_Y+1])
+      if (df_regs_ever_live_p (REG_Y+1))
 	{
 	  ++live_seq;
 	  ++cur_seq;
@@ -1162,22 +1170,6 @@ print_operand (FILE *file, rtx x, int code)
     print_operand_address (file, x);
 }
 
-/* Recognize operand OP of mode MODE used in call instructions.  */
-
-int
-call_insn_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) == MEM)
-    {
-      rtx inside = XEXP (op, 0);
-      if (register_operand (inside, Pmode))
-        return 1;
-      if (CONSTANT_ADDRESS_P (inside))
-        return 1;
-    }
-  return 0;
-}
-
 /* Update the condition code in the INSN.  */
 
 void
@@ -1656,17 +1648,10 @@ output_movhi (rtx insn, rtx operands[], int *l)
 		      AS2 (in,%B0,__SP_H__));
 	    }
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    {
 	      *l = 1;
 	      return (AS2 (movw,%0,%1));
-	    }
-
-	  if (true_regnum (dest) > true_regnum (src))
-	    {
-	      *l = 2;
-	      return (AS2 (mov,%B0,%B1) CR_TAB
-		      AS2 (mov,%A0,%A1));
 	    }
 	  else
 	    {
@@ -2325,7 +2310,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	{
 	  if (true_regnum (dest) > true_regnum (src))
 	    {
-	      if (AVR_ENHANCED)
+	      if (AVR_HAVE_MOVW)
 		{
 		  *l = 2;
 		  return (AS2 (movw,%C0,%C1) CR_TAB
@@ -2339,7 +2324,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	    }
 	  else
 	    {
-	      if (AVR_ENHANCED)
+	      if (AVR_HAVE_MOVW)
 		{
 		  *l = 2;
 		  return (AS2 (movw,%A0,%A1) CR_TAB
@@ -2366,7 +2351,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	  if (GET_CODE (src) == CONST_INT)
 	    {
 	      const char *const clr_op0 =
-		AVR_ENHANCED ? (AS1 (clr,%A0) CR_TAB
+		AVR_HAVE_MOVW ? (AS1 (clr,%A0) CR_TAB
 				AS1 (clr,%B0) CR_TAB
 				AS2 (movw,%C0,%A0))
 			     : (AS1 (clr,%A0) CR_TAB
@@ -2376,20 +2361,20 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 
 	      if (src == const0_rtx) /* mov r,L */
 		{
-		  *l = AVR_ENHANCED ? 3 : 4;
+		  *l = AVR_HAVE_MOVW ? 3 : 4;
 		  return clr_op0;
 		}
 	      else if (src == const1_rtx)
 		{
 		  if (!real_l)
 		    output_asm_insn (clr_op0, operands);
-		  *l = AVR_ENHANCED ? 4 : 5;
+		  *l = AVR_HAVE_MOVW ? 4 : 5;
 		  return AS1 (inc,%A0);
 		}
 	      else if (src == constm1_rtx)
 		{
 		  /* Immediate constants -1 to any register */
-		  if (AVR_ENHANCED)
+		  if (AVR_HAVE_MOVW)
 		    {
 		      *l = 4;
 		      return (AS1 (clr,%A0)     CR_TAB
@@ -2410,7 +2395,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 
 		  if (bit_nr >= 0)
 		    {
-		      *l = AVR_ENHANCED ? 5 : 6;
+		      *l = AVR_HAVE_MOVW ? 5 : 6;
 		      if (!real_l)
 			{
 			  output_asm_insn (clr_op0, operands);
@@ -3125,11 +3110,8 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (ror,%A0));
 
 	case 8:
-	  if (true_regnum (operands[0]) + 1 == true_regnum (operands[1]))
-	    return *len = 1, AS1 (clr,%A0);
-	  else
-	    return *len = 2, (AS2 (mov,%B0,%A1) CR_TAB
-			      AS1 (clr,%A0));
+	  return *len = 2, (AS2 (mov,%B0,%A1) CR_TAB
+			    AS1 (clr,%A0));
 
 	case 9:
 	  *len = 3;
@@ -3188,7 +3170,7 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
 		      AS1 (lsl,%B0)     CR_TAB
 		      AS2 (andi,%B0,0xe0));
 	    }
-	  if (AVR_ENHANCED && scratch)
+	  if (AVR_HAVE_MUL && scratch)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%3,0x20) CR_TAB
@@ -3209,7 +3191,7 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
 		      AS2 (ldi,%3,0xe0) CR_TAB
 		      AS2 (and,%B0,%3));
 	    }
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MUL)
 	    {
 	      *len = 6;
 	      return ("set"            CR_TAB
@@ -3229,7 +3211,7 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (lsl,%B0));
 
 	case 14:
-	  if (AVR_ENHANCED && ldi_ok)
+	  if (AVR_HAVE_MUL && ldi_ok)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%B0,0x40) CR_TAB
@@ -3238,7 +3220,7 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
 		      AS1 (clr,%A0)      CR_TAB
 		      AS1 (clr,__zero_reg__));
 	    }
-	  if (AVR_ENHANCED && scratch)
+	  if (AVR_HAVE_MUL && scratch)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%3,0x40) CR_TAB
@@ -3301,7 +3283,7 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
 	  if (INTVAL (operands[2]) < 32)
 	    break;
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 3, (AS1 (clr,%D0) CR_TAB
 			      AS1 (clr,%C0) CR_TAB
 			      AS2 (movw,%A0,%C0));
@@ -3321,11 +3303,6 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
 		      AS2 (mov,%C0,%B1)  CR_TAB
 		      AS2 (mov,%B0,%A1)  CR_TAB
 		      AS1 (clr,%A0));
-	    else if (reg0 + 1 == reg1)
-	      {
-		*len = 1;
-		return AS1 (clr,%A0);
-	      }
 	    else
 	      return (AS1 (clr,%A0)      CR_TAB
 		      AS2 (mov,%B0,%A1)  CR_TAB
@@ -3337,46 +3314,26 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
 	  {
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
-	    *len = 4;
-	    if (AVR_ENHANCED && (reg0 + 2 != reg1))
-	      {
-		*len = 3;
-		return (AS2 (movw,%C0,%A1) CR_TAB
-			AS1 (clr,%B0)      CR_TAB
-			AS1 (clr,%A0));
-	      }
-	    if (reg0 + 1 >= reg1)
-	      return (AS2 (mov,%D0,%B1)  CR_TAB
-		      AS2 (mov,%C0,%A1)  CR_TAB
-		      AS1 (clr,%B0)      CR_TAB
-		      AS1 (clr,%A0));
 	    if (reg0 + 2 == reg1)
-	      {
-		*len = 2;
-		return (AS1 (clr,%B0)      CR_TAB
-			AS1 (clr,%A0));
-	      }
+	      return *len = 2, (AS1 (clr,%B0)      CR_TAB
+				AS1 (clr,%A0));
+	    if (AVR_HAVE_MOVW)
+	      return *len = 3, (AS2 (movw,%C0,%A1) CR_TAB
+				AS1 (clr,%B0)      CR_TAB
+				AS1 (clr,%A0));
 	    else
-	      return (AS2 (mov,%C0,%A1)  CR_TAB
-		      AS2 (mov,%D0,%B1)  CR_TAB
-		      AS1 (clr,%B0)      CR_TAB
-		      AS1 (clr,%A0));
+	      return *len = 4, (AS2 (mov,%C0,%A1)  CR_TAB
+				AS2 (mov,%D0,%B1)  CR_TAB
+				AS1 (clr,%B0)      CR_TAB
+				AS1 (clr,%A0));
 	  }
 
 	case 24:
 	  *len = 4;
-	  if (true_regnum (operands[0]) + 3 != true_regnum (operands[1]))
-	    return (AS2 (mov,%D0,%A1)  CR_TAB
-		    AS1 (clr,%C0)      CR_TAB
-		    AS1 (clr,%B0)      CR_TAB
-		    AS1 (clr,%A0));
-	  else
-	    {
-	      *len = 3;
-	      return (AS1 (clr,%C0)      CR_TAB
-		      AS1 (clr,%B0)      CR_TAB
-		      AS1 (clr,%A0));
-	    }
+	  return (AS2 (mov,%D0,%A1)  CR_TAB
+		  AS1 (clr,%C0)      CR_TAB
+		  AS1 (clr,%B0)      CR_TAB
+		  AS1 (clr,%A0));
 
 	case 31:
 	  *len = 6;
@@ -3520,15 +3477,11 @@ ashrhi3_out (rtx insn, rtx operands[], int *len)
 	      return *len = 3, (AS2 (mov,%A0,%B0) CR_TAB
 				AS1 (lsl,%B0)     CR_TAB
 				AS2 (sbc,%B0,%B0));
-	    else if (reg0 == reg1 + 1)
-	      return *len = 3, (AS1 (clr,%B0)    CR_TAB
-				AS2 (sbrc,%A0,7) CR_TAB
-				AS1 (dec,%B0));
-
-	    return *len = 4, (AS2 (mov,%A0,%B1) CR_TAB
-			      AS1 (clr,%B0)     CR_TAB
-			      AS2 (sbrc,%A0,7)  CR_TAB
-			      AS1 (dec,%B0));
+	    else 
+	      return *len = 4, (AS2 (mov,%A0,%B1) CR_TAB
+			        AS1 (clr,%B0)     CR_TAB
+			        AS2 (sbrc,%A0,7)  CR_TAB
+			        AS1 (dec,%B0));
 	  }
 
 	case 9:
@@ -3547,7 +3500,7 @@ ashrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (asr,%A0));
 
 	case 11:
-	  if (AVR_ENHANCED && ldi_ok)
+	  if (AVR_HAVE_MUL && ldi_ok)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%A0,0x20) CR_TAB
@@ -3567,7 +3520,7 @@ ashrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (asr,%A0));
 
 	case 12:
-	  if (AVR_ENHANCED && ldi_ok)
+	  if (AVR_HAVE_MUL && ldi_ok)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%A0,0x10) CR_TAB
@@ -3588,7 +3541,7 @@ ashrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (asr,%A0));
 
 	case 13:
-	  if (AVR_ENHANCED && ldi_ok)
+	  if (AVR_HAVE_MUL && ldi_ok)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%A0,0x08) CR_TAB
@@ -3664,13 +3617,6 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 		      AS1 (clr,%D0)     CR_TAB
 		      AS2 (sbrc,%C0,7)  CR_TAB
 		      AS1 (dec,%D0));
-	    else if (reg0 == reg1 + 1)
-	      {
-		*len = 3;
-		return (AS1 (clr,%D0)     CR_TAB
-			AS2 (sbrc,%C0,7)  CR_TAB
-			AS1 (dec,%D0));
-	      }
 	    else
 	      return (AS1 (clr,%D0)     CR_TAB
 		      AS2 (sbrc,%D1,7)  CR_TAB
@@ -3684,51 +3630,34 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 	  {
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
-	    *len=6;
-	    if (AVR_ENHANCED && (reg0 != reg1 + 2))
-	      {
-		*len = 5;
-		return (AS2 (movw,%A0,%C1) CR_TAB
-			AS1 (clr,%D0)      CR_TAB
-			AS2 (sbrc,%B0,7)   CR_TAB
-			AS1 (com,%D0)      CR_TAB
-			AS2 (mov,%C0,%D0));
-	      }
-	    if (reg0 <= reg1 + 1)
-	      return (AS2 (mov,%A0,%C1) CR_TAB
-		      AS2 (mov,%B0,%D1) CR_TAB
-		      AS1 (clr,%D0)     CR_TAB
-		      AS2 (sbrc,%B0,7)  CR_TAB
-		      AS1 (com,%D0)     CR_TAB
-		      AS2 (mov,%C0,%D0));
-	    else if (reg0 == reg1 + 2)
+	    
+	    if (reg0 == reg1 + 2)
 	      return *len = 4, (AS1 (clr,%D0)     CR_TAB
 				AS2 (sbrc,%B0,7)  CR_TAB
 				AS1 (com,%D0)     CR_TAB
 				AS2 (mov,%C0,%D0));
-	    else
-	      return (AS2 (mov,%B0,%D1) CR_TAB
-		      AS2 (mov,%A0,%C1) CR_TAB
-		      AS1 (clr,%D0)     CR_TAB
-		      AS2 (sbrc,%B0,7)  CR_TAB
-		      AS1 (com,%D0)     CR_TAB
-		      AS2 (mov,%C0,%D0));
+	    if (AVR_HAVE_MOVW)
+	      return *len = 5, (AS2 (movw,%A0,%C1) CR_TAB
+				AS1 (clr,%D0)      CR_TAB
+				AS2 (sbrc,%B0,7)   CR_TAB
+				AS1 (com,%D0)      CR_TAB
+				AS2 (mov,%C0,%D0));
+	    else 
+	      return *len = 6, (AS2 (mov,%B0,%D1) CR_TAB
+				AS2 (mov,%A0,%C1) CR_TAB
+				AS1 (clr,%D0)     CR_TAB
+				AS2 (sbrc,%B0,7)  CR_TAB
+				AS1 (com,%D0)     CR_TAB
+				AS2 (mov,%C0,%D0));
 	  }
 
 	case 24:
-	  if (true_regnum (operands[0]) != true_regnum (operands[1]) + 3)
-	    return *len = 6, (AS2 (mov,%A0,%D1) CR_TAB
-			      AS1 (clr,%D0)     CR_TAB
-			      AS2 (sbrc,%A0,7)  CR_TAB
-			      AS1 (com,%D0)     CR_TAB
-			      AS2 (mov,%B0,%D0) CR_TAB
-			      AS2 (mov,%C0,%D0));
-	  else
-	    return *len = 5, (AS1 (clr,%D0)     CR_TAB
-			      AS2 (sbrc,%A0,7)  CR_TAB
-			      AS1 (com,%D0)     CR_TAB
-			      AS2 (mov,%B0,%D0) CR_TAB
-			      AS2 (mov,%C0,%D0));
+	  return *len = 6, (AS2 (mov,%A0,%D1) CR_TAB
+			    AS1 (clr,%D0)     CR_TAB
+			    AS2 (sbrc,%A0,7)  CR_TAB
+			    AS1 (com,%D0)     CR_TAB
+			    AS2 (mov,%B0,%D0) CR_TAB
+			    AS2 (mov,%C0,%D0));
 
 	default:
 	  if (INTVAL (operands[2]) < 32)
@@ -3737,7 +3666,7 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 	  /* fall through */
 
 	case 31:
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 4, (AS1 (lsl,%D0)     CR_TAB
 			      AS2 (sbc,%A0,%A0) CR_TAB
 			      AS2 (mov,%B0,%A0) CR_TAB
@@ -3958,11 +3887,8 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (neg,%B0));
 
 	case 8:
-	  if (true_regnum (operands[0]) != true_regnum (operands[1]) + 1)
-	    return *len = 2, (AS2 (mov,%A0,%B1) CR_TAB
-			      AS1 (clr,%B0));
-	  else
-	    return *len = 1, AS1 (clr,%B0);
+	  return *len = 2, (AS2 (mov,%A0,%B1) CR_TAB
+			    AS1 (clr,%B0));
 
 	case 9:
 	  *len = 3;
@@ -4021,7 +3947,7 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
 		      AS1 (lsr,%A0)     CR_TAB
 		      AS2 (andi,%A0,0x07));
 	    }
-	  if (AVR_ENHANCED && scratch)
+	  if (AVR_HAVE_MUL && scratch)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%3,0x08) CR_TAB
@@ -4042,7 +3968,7 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
 		      AS2 (ldi,%3,0x07) CR_TAB
 		      AS2 (and,%A0,%3));
 	    }
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MUL)
 	    {
 	      *len = 6;
 	      return ("set"            CR_TAB
@@ -4062,7 +3988,7 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS1 (lsr,%A0));
 
 	case 14:
-	  if (AVR_ENHANCED && ldi_ok)
+	  if (AVR_HAVE_MUL && ldi_ok)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%A0,0x04) CR_TAB
@@ -4071,7 +3997,7 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
 		      AS1 (clr,%B0)      CR_TAB
 		      AS1 (clr,__zero_reg__));
 	    }
-	  if (AVR_ENHANCED && scratch)
+	  if (AVR_HAVE_MUL && scratch)
 	    {
 	      *len = 5;
 	      return (AS2 (ldi,%3,0x04) CR_TAB
@@ -4133,7 +4059,7 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
 	  if (INTVAL (operands[2]) < 32)
 	    break;
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 3, (AS1 (clr,%D0) CR_TAB
 			      AS1 (clr,%C0) CR_TAB
 			      AS2 (movw,%A0,%C0));
@@ -4153,8 +4079,6 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
 		      AS2 (mov,%B0,%C1) CR_TAB
 		      AS2 (mov,%C0,%D1) CR_TAB
 		      AS1 (clr,%D0));
-	    else if (reg0 == reg1 + 1)
-	      return *len = 1, AS1 (clr,%D0);
 	    else
 	      return (AS1 (clr,%D0)     CR_TAB
 		      AS2 (mov,%C0,%D1) CR_TAB
@@ -4166,39 +4090,26 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
 	  {
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
-	    *len = 4;
-	    if (AVR_ENHANCED && (reg0 != reg1 + 2))
-	      {
-		*len = 3;
-		return (AS2 (movw,%A0,%C1) CR_TAB
-			AS1 (clr,%C0)      CR_TAB
-			AS1 (clr,%D0));
-	      }
-	    if (reg0 <= reg1 + 1)
-	      return (AS2 (mov,%A0,%C1) CR_TAB
-		      AS2 (mov,%B0,%D1) CR_TAB
-		      AS1 (clr,%C0)     CR_TAB
-		      AS1 (clr,%D0));
-	    else if (reg0 == reg1 + 2)
+
+	    if (reg0 == reg1 + 2)
 	      return *len = 2, (AS1 (clr,%C0)     CR_TAB
 				AS1 (clr,%D0));
+	    if (AVR_HAVE_MOVW)
+	      return *len = 3, (AS2 (movw,%A0,%C1) CR_TAB
+				AS1 (clr,%C0)      CR_TAB
+				AS1 (clr,%D0));
 	    else
-	      return (AS2 (mov,%B0,%D1) CR_TAB
-		      AS2 (mov,%A0,%C1) CR_TAB
-		      AS1 (clr,%C0)     CR_TAB
-		      AS1 (clr,%D0));
+	      return *len = 4, (AS2 (mov,%B0,%D1) CR_TAB
+				AS2 (mov,%A0,%C1) CR_TAB
+				AS1 (clr,%C0)     CR_TAB
+				AS1 (clr,%D0));
 	  }
 	  
 	case 24:
-	  if (true_regnum (operands[0]) != true_regnum (operands[1]) + 3)
-	    return *len = 4, (AS2 (mov,%A0,%D1) CR_TAB
-			      AS1 (clr,%B0)     CR_TAB
-			      AS1 (clr,%C0)     CR_TAB
-			      AS1 (clr,%D0));
-	  else
-	    return *len = 3, (AS1 (clr,%B0)     CR_TAB
-			      AS1 (clr,%C0)     CR_TAB
-			      AS1 (clr,%D0));
+	  return *len = 4, (AS2 (mov,%A0,%D1) CR_TAB
+			    AS1 (clr,%B0)     CR_TAB
+			    AS1 (clr,%C0)     CR_TAB
+			    AS1 (clr,%D0));
 
 	case 31:
 	  *len = 6;
@@ -4813,7 +4724,7 @@ avr_file_start (void)
 
   default_file_start ();
 
-  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);
+/*  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);*/
   fputs ("__SREG__ = 0x3f\n"
 	 "__SP_H__ = 0x3e\n"
 	 "__SP_L__ = 0x3d\n", asm_out_file);
@@ -4941,7 +4852,7 @@ avr_operand_rtx_cost (rtx x, enum machine_mode mode, enum rtx_code outer)
    case, *TOTAL contains the cost result.  */
 
 static bool
-avr_rtx_costs (rtx x, int code, int outer_code, int *total)
+avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
   HOST_WIDE_INT val;
@@ -5072,7 +4983,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
       switch (mode)
 	{
 	case QImode:
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MUL)
 	    *total = COSTS_N_INSNS (optimize_size ? 3 : 4);
 	  else if (optimize_size)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
@@ -5080,7 +4991,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    return false;
 
 	case HImode:
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MUL)
 	    *total = COSTS_N_INSNS (optimize_size ? 7 : 10);
 	  else if (optimize_size)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
@@ -5301,7 +5212,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 		*total = COSTS_N_INSNS (optimize_size ? 7 : 8);
 		break;
 	      case 31:
-		*total = COSTS_N_INSNS (AVR_ENHANCED ? 4 : 5);
+		*total = COSTS_N_INSNS (AVR_HAVE_MOVW ? 4 : 5);
 		break;
 	      default:
 		*total = COSTS_N_INSNS (optimize_size ? 7 : 113);
@@ -5616,7 +5527,7 @@ avr_ret_register (void)
   return 24;
 }
 
-/* Ceate an RTX representing the place where a
+/* Create an RTX representing the place where a
    library function returns a value of mode MODE.  */
 
 rtx
@@ -5649,28 +5560,6 @@ avr_function_value (tree type, tree func ATTRIBUTE_UNUSED)
   
   return gen_rtx_REG (BLKmode, RET_REGISTER + 2 - offs);
 }
-
-/* Returns nonzero if the number MASK has only one bit set.  */
-
-int
-mask_one_bit_p (HOST_WIDE_INT mask)
-{
-  int i;
-  unsigned HOST_WIDE_INT n=mask;
-  for (i = 0; i < 32; ++i)
-    {
-      if (n & 0x80000000L)
-	{
-	  if (n & 0x7fffffffL)
-	    return 0;
-	  else
-	    return 32-i;
-	}
-      n<<=1;
-    }
-  return 0; 
-}
-
 
 /* Places additional restrictions on the register class to
    use when it is necessary to copy value X into a register
@@ -5743,20 +5632,6 @@ avr_io_address_p (rtx x, int size)
 {
   return (optimize > 0 && GET_CODE (x) == CONST_INT
 	  && INTVAL (x) >= 0x20 && INTVAL (x) <= 0x60 - size);
-}
-
-/* Returns nonzero (bit number + 1) if X, or -X, is a constant power of 2.  */
-
-int
-const_int_pow2_p (rtx x)
-{
-  if (GET_CODE (x) == CONST_INT)
-    {
-      HOST_WIDE_INT d = INTVAL (x);
-      HOST_WIDE_INT abs_d = (d >= 0) ? d : -d;
-      return exact_log2 (abs_d) + 1;
-    }
-  return 0;
 }
 
 const char *
@@ -5887,7 +5762,7 @@ avr_peep2_scratch_safe (rtx scratch)
 
       for (reg = first_reg; reg <= last_reg; reg++)
 	{
-	  if (!regs_ever_live[reg])
+	  if (!df_regs_ever_live_p (reg))
 	    return 0;
 	}
     }

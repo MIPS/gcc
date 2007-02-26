@@ -51,6 +51,22 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "tm.h"
 #include "insn-modes.h"
 
+/* Types used by the record_gcc_switches() target function.  */
+typedef enum
+{
+  SWITCH_TYPE_PASSED,		/* A switch passed on the command line.  */
+  SWITCH_TYPE_ENABLED,		/* An option that is currently enabled.  */
+  SWITCH_TYPE_DESCRIPTIVE,	/* Descriptive text, not a switch or option.  */
+  SWITCH_TYPE_LINE_START,	/* Please emit any necessary text at the start of a line.  */
+  SWITCH_TYPE_LINE_END		/* Please emit a line terminator.  */
+}
+print_switch_type;
+
+typedef int (* print_switch_fn_type) (print_switch_type, const char *);
+
+/* An example implementation for ELF targets.  Defined in varasm.c  */
+extern int elf_record_gcc_switches (print_switch_type type, const char *);
+
 struct stdarg_info;
 struct spec_info_def;
 
@@ -68,6 +84,8 @@ typedef struct secondary_reload_info
   int t_icode; /* Actually an enum insn_code - see above.  */
 } secondary_reload_info;
 
+/* This is defined in sched-int.h .  */
+struct _dep;
 
 struct gcc_target
 {
@@ -96,6 +114,9 @@ struct gcc_target
 
     /* Output code that will globalize a label.  */
     void (* globalize_label) (FILE *, const char *);
+
+    /* Output code that will globalise a declaration.  */
+    void (* globalize_decl_name) (FILE *, tree);
 
     /* Output code that will emit a label for unwind info, if this
        target requires such labels.  Second argument is the decl the
@@ -196,9 +217,17 @@ struct gcc_target
        external.  */
     void (*external_libcall) (rtx);
 
-     /* Output an assembler directive to mark decl live. This instructs
+    /* Output an assembler directive to mark decl live. This instructs
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
+
+    /* Output a record of the command line switches that have been passed.  */
+    print_switch_fn_type record_gcc_switches;
+    /* The name of the section that the example ELF implementation of
+       record_gcc_switches will use to store the information.  Target
+       specific versions of record_gcc_switches may or may not use
+       this information.  */
+    const char * record_gcc_switches_section;
 
     /* Output the definition of a section anchor.  */
     void (*output_anchor) (rtx);
@@ -214,7 +243,7 @@ struct gcc_target
     /* Given the current cost, COST, of an insn, INSN, calculate and
        return a new cost based on its relationship to DEP_INSN through
        the dependence LINK.  The default is to make no adjustment.  */
-    int (* adjust_cost) (rtx insn, rtx link, rtx def_insn, int cost);
+    int (* adjust_cost) (rtx insn, rtx link, rtx dep_insn, int cost);
 
     /* Adjust the priority of an insn as you see fit.  Returns the new
        priority.  */
@@ -297,22 +326,16 @@ struct gcc_target
        cycle.  */
     int (* dfa_new_cycle) (FILE *, int, rtx, int, int, int *);
 
-    /* The following member value is a pointer to a function called
-       by the insn scheduler.  It should return true if there exists a
-       dependence which is considered costly by the target, between
-       the insn passed as the first parameter, and the insn passed as
-       the second parameter.  The third parameter is the INSN_DEPEND
-       link that represents the dependence between the two insns.  The
-       fourth argument is the cost of the dependence as estimated by
+    /* The following member value is a pointer to a function called by the
+       insn scheduler.  It should return true if there exists a dependence
+       which is considered costly by the target, between the insn
+       DEP_PRO (&_DEP), and the insn DEP_CON (&_DEP).  The first parameter is
+       the dep that represents the dependence between the two insns.  The
+       second argument is the cost of the dependence as estimated by
        the scheduler.  The last argument is the distance in cycles
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
-    bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
-
-    /* Given the current cost, COST, of an insn, INSN, calculate and
-       return a new cost based on its relationship to DEP_INSN through the
-       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
-    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost);
+    bool (* is_costly_dependence) (struct _dep *_dep, int, int);
 
     /* The following member value is a pointer to a function called
        by the insn scheduler. This hook is called to notify the backend
@@ -369,6 +392,17 @@ struct gcc_target
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
+
+    /* Returns a code for builtin that realizes vectorized version of
+       function, or NULL_TREE if not available.  */
+    tree (* builtin_vectorized_function) (unsigned, tree, tree);
+
+    /* Target builtin that implements vector widening multiplication.
+       builtin_mul_widen_eve computes the element-by-element products 
+       for the even elements, and builtin_mul_widen_odd computes the
+       element-by-element products for the odd elements.  */
+    tree (* builtin_mul_widen_even) (tree);
+    tree (* builtin_mul_widen_odd) (tree);
   } vectorize;
 
   /* The initial value of target_flags.  */
@@ -773,16 +807,23 @@ struct gcc_target
        class data for classes whose virtual table will be emitted in
        only one translation unit will not be COMDAT.  */
     bool (*class_data_always_comdat) (void);
+    /* Returns true (the default) if the RTTI for the basic types,
+       which is always defined in the C++ runtime, should be COMDAT;
+       false if it should not be COMDAT.  */
+    bool (*library_rtti_comdat) (void);
     /* Returns true if __aeabi_atexit should be used to register static
        destructors.  */
     bool (*use_aeabi_atexit) (void);
+    /* Returns true if target may use atexit in the same manner as
+    __cxa_atexit  to register static destructors.  */
+    bool (*use_atexit_for_cxa_atexit) (void);
     /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
        has just been defined.  Use this hook to make adjustments to the
        class  (eg, tweak visibility or perform any other required
        target modifications).  */
     void (*adjust_class_at_definition) (tree type);
   } cxx;
-  
+
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their
      bits in the bitmap passed in. */  

@@ -69,6 +69,13 @@ details.  */
 #define O_DSYNC O_SYNC
 #endif
 
+// Name of the Process implementation.
+#ifdef ECOS
+#define _Jv_platform_process ::java::lang::EcosProcess
+#else
+#define _Jv_platform_process ::java::lang::PosixProcess
+#endif
+
 // Separator for file name components.
 #define _Jv_platform_file_separator ((jchar) '/')
 // Separator for path components.
@@ -193,5 +200,12 @@ _Jv_pipe (int filedes[2])
 {
   return ::pipe (filedes);
 }
+
+// Forward declaration.  See java-stack.h for definition.
+struct _Jv_AddrInfo;
+
+// Given an address, determine the executable or shared object that defines
+// it and the nearest named symbol.
+extern int _Jv_platform_dladdr (void *addr, _Jv_AddrInfo *info);
 
 #endif /* __JV_POSIX_H__ */

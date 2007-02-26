@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package java.util.prefs;
 
+import gnu.classpath.ServiceFactory;
 import gnu.java.util.prefs.NodeReader;
 
 import java.io.IOException;
@@ -45,6 +46,7 @@ import java.io.OutputStream;
 import java.security.AccessController;
 import java.security.Permission;
 import java.security.PrivilegedAction;
+import java.util.Iterator;
 
 /**
  * Preference node containing key value entries and subnodes.
@@ -205,6 +207,17 @@ public abstract class Preferences {
                             }
                         });
 
+            // Still no factory? Try to see if we have one defined
+            // as a System Preference
+            if (factory == null)
+              {
+                Iterator iter = ServiceFactory.lookupProviders
+                    (PreferencesFactory.class, null);
+            
+                if (iter != null && iter.hasNext())
+                  factory = (PreferencesFactory) iter.next();
+              }
+            
             // Still no factory? Use our default.
             if (factory == null)
 	      {
@@ -238,7 +251,7 @@ public abstract class Preferences {
      * @exception SecurityException when a security manager is installed and
      * the caller does not have <code>RuntimePermission("preferences")</code>.
      */
-    public static Preferences systemNodeForPackage(Class c)
+    public static Preferences systemNodeForPackage(Class<?> c)
             throws SecurityException
     {
         return nodeForPackage(c, systemRoot());
@@ -257,7 +270,7 @@ public abstract class Preferences {
      * @exception SecurityException when a security manager is installed and
      * the caller does not have <code>RuntimePermission("preferences")</code>.
      */
-    public static Preferences userNodeForPackage(Class c)
+    public static Preferences userNodeForPackage(Class<?> c)
             throws SecurityException
     {
         return nodeForPackage(c, userRoot());

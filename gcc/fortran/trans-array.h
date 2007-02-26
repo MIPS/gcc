@@ -43,6 +43,15 @@ tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 tree gfc_trans_g77_array (gfc_symbol *, tree);
 /* Generate code to deallocate an array, if it is allocated.  */
 tree gfc_trans_dealloc_allocated (tree);
+
+tree gfc_duplicate_allocatable(tree dest, tree src, tree type, int rank);
+
+tree gfc_nullify_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_deallocate_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_copy_alloc_comp (gfc_symbol *, tree, tree, int);
+
 /* Add initialization for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */
@@ -109,7 +118,11 @@ tree gfc_conv_array_ubound (tree, int);
 
 /* Build expressions for accessing components of an array descriptor.  */
 tree gfc_conv_descriptor_data_get (tree);
-void gfc_conv_descriptor_data_set (stmtblock_t *, tree, tree);
+void gfc_conv_descriptor_data_set_internal (stmtblock_t *, tree, tree, bool);
+#define gfc_conv_descriptor_data_set(BLOCK, T1, T2)			\
+  gfc_conv_descriptor_data_set_internal ((BLOCK), (T1), (T2), false)
+#define gfc_conv_descriptor_data_set_tuples(BLOCK, T1, T2)		\
+  gfc_conv_descriptor_data_set_internal ((BLOCK), (T1), (T2), true)
 tree gfc_conv_descriptor_data_addr (tree);
 tree gfc_conv_descriptor_offset (tree);
 tree gfc_conv_descriptor_dtype (tree);
@@ -120,3 +133,7 @@ tree gfc_conv_descriptor_ubound (tree, tree);
 /* Add pre-loop scalarization code for intrinsic functions which require
    special handling.  */
 void gfc_add_intrinsic_ss_code (gfc_loopinfo *, gfc_ss *);
+
+/* Functions for constant array constructor processing.  */
+unsigned HOST_WIDE_INT gfc_constant_array_constructor_p (gfc_constructor *);
+tree gfc_build_constant_array_constructor (gfc_expr *, tree);

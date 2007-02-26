@@ -528,8 +528,8 @@ pp_c_direct_abstract_declarator (c_pretty_printer *pp, tree t)
 	  if (host_integerp (maxval, 0))
 	    pp_wide_integer (pp, tree_low_cst (maxval, 0) + 1);
 	  else
-	    pp_expression (pp, fold_build2 (PLUS_EXPR, type, maxval,
-					    build_int_cst (type, 1)));
+	    pp_expression (pp, fold (build2 (PLUS_EXPR, type, maxval,
+					     build_int_cst (type, 1))));
 	}
       pp_c_right_bracket (pp);
       pp_direct_abstract_declarator (pp, TREE_TYPE (t));
@@ -810,17 +810,16 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
     pp_wide_integer (pp, TREE_INT_CST_LOW (i));
   else
     {
+      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (i);
+      HOST_WIDE_INT high = TREE_INT_CST_HIGH (i);
       if (tree_int_cst_sgn (i) < 0)
 	{
 	  pp_character (pp, '-');
-	  i = build_int_cst_wide (NULL_TREE,
-				  -TREE_INT_CST_LOW (i),
-				  ~TREE_INT_CST_HIGH (i)
-				  + !TREE_INT_CST_LOW (i));
+	  high = ~high + !low;
+	  low = -low;
 	}
       sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	       TREE_INT_CST_HIGH (i), TREE_INT_CST_LOW (i));
+	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -1795,13 +1794,15 @@ pp_c_conditional_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_assignment_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == MODIFY_EXPR || TREE_CODE (e) == INIT_EXPR)
+  if (TREE_CODE (e) == MODIFY_EXPR 
+      || TREE_CODE (e) == GIMPLE_MODIFY_STMT
+      || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, TREE_OPERAND (e, 1));
+      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);
@@ -1942,6 +1943,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       pp_assignment_expression (pp, e);
       break;

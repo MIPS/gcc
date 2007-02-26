@@ -1,5 +1,5 @@
 /* DataFlavor.java -- A type of data to transfer via the clipboard.
-   Copyright (C) 1999, 2001, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,7 +44,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.io.OptionalDataException;
 import java.io.Reader;
+import java.io.Serializable;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -73,8 +75,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    * deals with bytes not chars. Use <code>getRederForText()</code>.
    */
   public static final DataFlavor plainTextFlavor = 
-    new DataFlavor(java.io.InputStream.class,
-                   "text/plain; charset=unicode",
+    new DataFlavor("text/plain; charset=unicode; class=java.io.InputStream",
                    "plain unicode text");
 
   /**
@@ -91,8 +92,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    * element of the list being a <code>java.io.File</code>.
    */
   public static final DataFlavor javaFileListFlavor = 
-    new DataFlavor(java.util.List.class,
-                   "application/x-java-file-list; class=java.util.List",
+    new DataFlavor("application/x-java-file-list; class=java.util.List",
                    "Java File List");
 
   /**
@@ -129,10 +129,10 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   
   // The MIME type for this flavor
-  private final String mimeType;
+  private MimeType mimeType;
   
   // The representation class for this flavor
-  private final Class representationClass;
+  private Class<?> representationClass;
   
   // The human readable name of this flavor
   private String humanPresentableName;
@@ -153,8 +153,8 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @exception ClassNotFoundException If the class cannot be loaded.
    */
-  protected static final Class tryToLoadClass(String className,
-                                             ClassLoader classLoader)
+  protected static final Class<?> tryToLoadClass(String className,
+						 ClassLoader classLoader)
     throws ClassNotFoundException
   {
     // Bootstrap
@@ -193,56 +193,6 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
       return Class.forName(className, true, classLoader);
 
     throw new ClassNotFoundException(className);
-  }
-  
-  private static Class getRepresentationClassFromMime(String mimeString,
-                                                      ClassLoader classLoader)
-    {
-      String classname = getParameter("class", mimeString);
-      if (classname != null)
-        {
-          try
-            {
-              return tryToLoadClass(classname, classLoader);
-            }
-          catch(Exception e)
-            {
-	      IllegalArgumentException iae;
-              iae = new IllegalArgumentException("mimeString: "
-						 + mimeString
-			      			 + " classLoader: "
-						 + classLoader);
-	      iae.initCause(e);
-	      throw iae;
-            }
-        }
-      else
-        return java.io.InputStream.class;
-    }
-  
-  /**
-   * Returns the value of the named MIME type parameter, or <code>null</code>
-   * if the parameter does not exist. Given the parameter name and the mime
-   * string.
-   *
-   * @param paramName The name of the parameter.
-   * @param mimeString The mime string from where the name should be found.
-   *
-   * @return The value of the parameter or null.
-   */
-  private static String getParameter(String paramName, String mimeString)
-  {
-    int idx = mimeString.indexOf(paramName + "=");
-    if (idx == -1)
-      return(null);
-  
-    String value = mimeString.substring(idx + paramName.length() + 1);
-  
-    idx = value.indexOf(" ");
-    if (idx == -1)
-      return(value);
-    else
-      return(value.substring(0, idx));
   }
   
   /**
@@ -312,24 +262,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public DataFlavor()
   {
-    mimeType = null;
-    representationClass = null;
-    humanPresentableName = null;
-  }
-
-  /**
-   * Private constructor.
-   */
-  private DataFlavor(Class representationClass,
-                    String mimeType,
-                    String humanPresentableName)
-  {
-    this.representationClass = representationClass;
-    this.mimeType = mimeType;
-    if (humanPresentableName != null)
-      this.humanPresentableName = humanPresentableName;
-    else
-      this.humanPresentableName = mimeType;
+    // Used for deserialization only, nothing to do here. 
   }
 
   /**
@@ -342,13 +275,23 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    * @param representationClass The representation class for this object.
    * @param humanPresentableName The display name of the object.
    */
-  public DataFlavor(Class representationClass, String humanPresentableName)
+  public DataFlavor(Class<?> representationClass, String humanPresentableName)
   {
-    this(representationClass,
-         "application/x-java-serialized-object"
-         + "; class="
-         + representationClass.getName(),
-         humanPresentableName);
+    if (representationClass == null)
+      throw new NullPointerException("representationClass must not be null");
+    try
+      {
+        mimeType = new MimeType(javaSerializedObjectMimeType);
+      }
+    catch (MimeTypeParseException ex)
+      {
+        // Must not happen as we use a constant string.
+        assert false;
+      }
+    if (humanPresentableName == null)
+      humanPresentableName = javaSerializedObjectMimeType;
+    this.humanPresentableName = humanPresentableName;
+    this.representationClass = representationClass;
   }
 
   /**
@@ -373,8 +316,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
                    ClassLoader classLoader)
     throws ClassNotFoundException
   {
-    this(getRepresentationClassFromMime(mimeType, classLoader),
-         mimeType, humanPresentableName);
+    init(mimeType, humanPresentableName, classLoader);
   }
 
   /**
@@ -395,8 +337,17 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public DataFlavor(String mimeType, String humanPresentableName)
   {
-    this(getRepresentationClassFromMime (mimeType, null),
-        mimeType, humanPresentableName);
+    try
+      {
+        init(mimeType, humanPresentableName, getClass().getClassLoader());
+      }
+    catch (ClassNotFoundException ex)
+      {
+        IllegalArgumentException iae =
+          new IllegalArgumentException("Class not found: " + ex.getMessage());
+        iae.initCause(ex);
+        throw iae;
+      }
   }
 
   /**
@@ -415,7 +366,54 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public DataFlavor(String mimeType) throws ClassNotFoundException
   {
-    this(mimeType, null);
+    init(mimeType, null, getClass().getClassLoader());
+  }
+
+  /**
+   * Called by various constructors to initialize this object.
+   *
+   * @param mime the mime string
+   * @param humanPresentableName the human presentable name
+   * @param loader the class loader to use for loading the representation
+   *        class
+   */
+  private void init(String mime, String humanPresentableName,
+                    ClassLoader loader)
+    throws ClassNotFoundException
+  {
+    if (mime == null)
+      throw new NullPointerException("The mime type must not be null");
+    try
+      {
+        mimeType = new MimeType(mime);
+      }
+    catch (MimeTypeParseException ex)
+      {
+        IllegalArgumentException iae =
+          new IllegalArgumentException("Invalid mime type");
+        iae.initCause(ex);
+        throw iae;
+      }
+    String className = mimeType.getParameter("class");
+    if (className == null)
+      {
+        if (mimeType.getBaseType().equals(javaSerializedObjectMimeType))
+          throw new IllegalArgumentException("Serialized object type must have"
+                                        + " a representation class parameter");
+        else
+          representationClass = java.io.InputStream.class;
+      }
+    else
+      representationClass = tryToLoadClass(className, loader);
+    mimeType.addParameter("class", representationClass.getName());
+
+    if (humanPresentableName == null)
+      {
+        humanPresentableName = mimeType.getParameter("humanPresentableName");
+        if (humanPresentableName == null)
+          humanPresentableName = mimeType.getBaseType();
+      }
+    this.humanPresentableName = humanPresentableName;
   }
 
   /**
@@ -425,7 +423,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public String getMimeType()
   {
-    return(mimeType);
+    return(mimeType.toString());
   }
 
   /**
@@ -433,7 +431,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @return The representation class for this flavor.
    */
-  public Class getRepresentationClass()
+  public Class<?> getRepresentationClass()
   {
     return(representationClass);
   }
@@ -455,11 +453,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public String getPrimaryType()
   {
-    int idx = mimeType.indexOf("/");
-    if (idx == -1)
-      return(mimeType);
-  
-    return(mimeType.substring(0, idx));
+    return(mimeType.getPrimaryType());
   }
 
   /**
@@ -469,15 +463,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public String getSubType()
   {
-    int start = mimeType.indexOf("/");
-    if (start == -1)
-      return "";
-  
-    int end = mimeType.indexOf(";", start + 1);
-    if (end == -1)
-      return mimeType.substring(start + 1);
-    else
-      return mimeType.substring(start + 1, end);
+    return mimeType.getSubType();
   }
 
   /**
@@ -493,7 +479,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
     if ("humanPresentableName".equals(paramName))
       return getHumanPresentableName();
   
-    return getParameter(paramName, mimeType);
+    return mimeType.getParameter(paramName);
   }
 
   /**
@@ -519,16 +505,22 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isMimeTypeEqual(String mimeType)
   {
-    String mime = getMimeType();
-    int i = mime.indexOf(";");
-    if (i != -1)
-      mime = mime.substring(0, i);
-  
-    i = mimeType.indexOf(";");
-    if (i != -1)
-      mimeType = mimeType.substring(0, i);
-  
-    return mime.equals(mimeType);
+    if (mimeType == null)
+      throw new NullPointerException("mimeType must not be null");
+    boolean equal = false;
+    try
+      {
+        if (this.mimeType != null)
+          {
+            MimeType other = new MimeType(mimeType);
+            equal = this.mimeType.matches(other);
+          }
+      }
+    catch (MimeTypeParseException ex)
+      {
+        // Return false in this case.
+      }
+    return equal;
   }
 
   /**
@@ -553,7 +545,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isMimeTypeSerializedObject()
   {
-    return mimeType.startsWith(javaSerializedObjectMimeType);
+    return isMimeTypeEqual(javaSerializedObjectMimeType);
   }
 
   /**
@@ -565,7 +557,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isRepresentationClassInputStream()
   {
-    return representationClass.getName().equals("java.io.InputStream");
+    return InputStream.class.isAssignableFrom(representationClass);
   }
 
   /**
@@ -577,17 +569,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isRepresentationClassSerializable()
   {
-    Class[] interfaces = representationClass.getInterfaces();
-  
-    int i = 0;
-    while (i < interfaces.length)
-      {
-        if (interfaces[i].getName().equals("java.io.Serializable"))
-          return true;
-        ++i;
-      }
-  
-    return false;
+    return Serializable.class.isAssignableFrom(representationClass);
   }
 
   /**
@@ -609,8 +591,8 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isFlavorSerializedObjectType()
   {
-    // FIXME: What is the diff between this and isMimeTypeSerializedObject?
-    return(mimeType.startsWith(javaSerializedObjectMimeType));
+    return isRepresentationClassSerializable()
+           && isMimeTypeEqual(javaSerializedObjectMimeType);
   }
 
   /**
@@ -621,7 +603,9 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isFlavorRemoteObjectType()
   {
-    return(mimeType.startsWith(javaRemoteObjectMimeType));
+    return isRepresentationClassRemote()
+           && isRepresentationClassSerializable()
+           && isMimeTypeEqual(javaRemoteObjectMimeType);
   }
 
   /**
@@ -632,8 +616,10 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public boolean isFlavorJavaFileListType()
   {
-    if (mimeType.equals(javaFileListFlavor.mimeType)
-        && representationClass.equals(javaFileListFlavor.representationClass))
+    if (getPrimaryType().equals(javaFileListFlavor.getPrimaryType())
+        && getSubType().equals(javaFileListFlavor.getSubType())
+        && javaFileListFlavor.representationClass
+	   .isAssignableFrom(representationClass))
       return true;
   
     return false ;
@@ -664,7 +650,11 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
   /**
    * This method test the specified <code>DataFlavor</code> for equality
    * against this object.  This will be true if the MIME type and
-   * representation type are the equal.
+   * representation class are the equal. If the primary type is 'text'
+   * then also the value of the charset parameter is compared. In such a
+   * case when the charset parameter isn't given then the charset is
+   * assumed to be equal to the default charset of the platform.  All
+   * other parameters are ignored.
    *
    * @param flavor The <code>DataFlavor</code> to test against.
    *
@@ -675,12 +665,34 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
   {
     if (flavor == null)
       return false;
-  
-    if (! this.mimeType.toLowerCase().equals(flavor.mimeType.toLowerCase()))
+
+    String primary = getPrimaryType();
+    if (! primary.equals(flavor.getPrimaryType()))
       return false;
-  
+
+    String sub = getSubType();
+    if (! sub.equals(flavor.getSubType()))
+      return false;
+
     if (! this.representationClass.equals(flavor.representationClass))
       return false;
+
+    if (primary.equals("text"))
+      if (! isRepresentationClassCharBuffer()
+          && ! isRepresentationClassReader()
+          && representationClass != java.lang.String.class
+	  && ! (representationClass.isArray()
+	        && representationClass.getComponentType() == Character.TYPE))
+	{
+	  String charset = getParameter("charset");
+	  String otherset = flavor.getParameter("charset");
+	  String defaultset = Charset.defaultCharset().name();
+
+	  if (charset == null || charset.equals(defaultset))
+            return (otherset == null || otherset.equals(defaultset));
+
+	  return charset.equals(otherset);
+	}
   
     return true;
   }
@@ -734,7 +746,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    */
   public int hashCode()
   {
-    return mimeType.toLowerCase().hashCode() ^ representationClass.hashCode();
+    return mimeType.toString().hashCode() ^ representationClass.hashCode();
   }
 
   /**
@@ -785,9 +797,18 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @exception IOException If an error occurs.
    */
-  public void writeExternal(ObjectOutput stream) throws IOException
+  public void writeExternal(ObjectOutput stream) 
+    throws IOException
   {
-    // FIXME: Implement me
+    if (mimeType != null)
+      {
+        mimeType.addParameter("humanPresentableName", humanPresentableName);
+        stream.writeObject(mimeType);
+        mimeType.removeParameter("humanPresentableName");
+      }
+    else
+      stream.writeObject(null);
+    stream.writeObject(representationClass);
   }
 
 
@@ -803,7 +824,32 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
   public void readExternal(ObjectInput stream) 
     throws IOException, ClassNotFoundException
   {
-    // FIXME: Implement me
+    mimeType = (MimeType) stream.readObject();
+    String className = null;
+    if (mimeType != null)
+      {
+        humanPresentableName =
+          mimeType.getParameter("humanPresentableName");
+        mimeType.removeParameter("humanPresentableName");
+        className = mimeType.getParameter("class");
+        if (className == null)
+          throw new IOException("No class in mime type");
+      }
+    try
+      {
+        representationClass = (Class) stream.readObject();
+      }
+    catch (OptionalDataException ex)
+      {
+        if (ex.eof && ex.length == 0)
+          {
+            if (className != null)
+              representationClass = tryToLoadClass(className,
+                                                  getClass().getClassLoader());
+          }
+        else
+          throw ex;
+      }
   }
 
   /**
@@ -824,7 +870,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @since 1.3
    */
-  public final Class getDefaultRepresentationClass()
+  public final Class<?> getDefaultRepresentationClass()
   {
     return java.io.InputStream.class;
   }

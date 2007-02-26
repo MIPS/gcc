@@ -1,6 +1,7 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -427,7 +428,7 @@ try_forward_edges (int mode, basic_block b)
       int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
-      bool may_thread = first_pass | (b->flags & BB_DIRTY);
+      bool may_thread = first_pass | df_get_bb_dirty (b);
 
       /* Skip complex edges because we don't know how to update them.
 
@@ -461,7 +462,7 @@ try_forward_edges (int mode, basic_block b)
 	{
 	  basic_block new_target = NULL;
 	  bool new_target_threaded = false;
-	  may_thread |= target->flags & BB_DIRTY;
+	  may_thread |= df_get_bb_dirty (target);
 
 	  if (FORWARDER_BLOCK_P (target)
 	      && !(single_succ_edge (target)->flags & EDGE_CROSSING)
@@ -651,7 +652,7 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
     reorder_insns_nobb (BB_HEAD (a), BB_END (a), PREV_INSN (BB_HEAD (b)));
-  a->flags |= BB_DIRTY;
+  df_set_bb_dirty (a);
 
   if (dump_file)
     fprintf (dump_file, "Moved block %d before %d and merged.\n",
@@ -759,8 +760,6 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 
   if (BB_PARTITION (b) != BB_PARTITION (c))
     return NULL;
-
-
 
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
@@ -1731,7 +1730,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
   /* We may have some registers visible through the block.  */
-  redirect_to->flags |= BB_DIRTY;
+  df_set_bb_dirty (redirect_to);
 
   /* Recompute the frequencies and counts of outgoing edges.  */
   FOR_EACH_EDGE (s, ei, redirect_to->succs)
@@ -1880,8 +1879,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(fallthru->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (fallthru->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, fallthru))
@@ -1930,8 +1929,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(e2->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (e2->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, e2))
@@ -1990,7 +1989,7 @@ try_optimize_cfg (int mode)
 	      bool changed_here = false;
 
 	      /* Delete trivially dead basic blocks.  */
-	      while (EDGE_COUNT (b->preds) == 0)
+	      if (EDGE_COUNT (b->preds) == 0)
 		{
 		  c = b->prev_bb;
 		  if (dump_file)
@@ -2000,7 +1999,9 @@ try_optimize_cfg (int mode)
 		  delete_basic_block (b);
 		  if (!(mode & CLEANUP_CFGLAYOUT))
 		    changed = true;
-		  b = c;
+		  /* Avoid trying to remove ENTRY_BLOCK_PTR.  */
+		  b = (c == ENTRY_BLOCK_PTR ? c->next_bb : c);
+		  continue;
 		}
 
 	      /* Remove code labels no longer used.  */
@@ -2022,7 +2023,7 @@ try_optimize_cfg (int mode)
 		  rtx label = BB_HEAD (b);
 
 		  delete_insn_chain (label, label);
-		  /* In the case label is undeletable, move it after the
+		  /* If the case label is undeletable, move it after the
 		     BASIC_BLOCK note.  */
 		  if (NOTE_LINE_NUMBER (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
 		    {
@@ -2260,6 +2261,12 @@ cleanup_cfg (int mode)
 {
   bool changed = false;
 
+  /* Set the cfglayout mode flag here.  We could update all the callers
+     but that is just inconvenient, especially given that we eventually
+     want to have cfglayout mode as the default.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
+    mode |= CLEANUP_CFGLAYOUT;
+
   timevar_push (TV_CLEANUP_CFG);
   if (delete_unreachable_blocks ())
     {
@@ -2268,7 +2275,7 @@ cleanup_cfg (int mode)
 	 now to introduce more opportunities for try_optimize_cfg.  */
       if (!(mode & (CLEANUP_NO_INSN_DEL))
 	  && !reload_completed)
-	delete_trivially_dead_insns (get_insns(), max_reg_num ());
+	delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
 
   compact_blocks ();
@@ -2280,12 +2287,20 @@ cleanup_cfg (int mode)
 	  && (mode & CLEANUP_EXPENSIVE)
 	  && !reload_completed)
 	{
-	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
+	  if (!delete_trivially_dead_insns (get_insns (), max_reg_num ()))
 	    break;
 	}
       else
 	break;
-      delete_dead_jumptables ();
+
+      /* Don't call delete_dead_jumptables in cfglayout mode, because
+	 that function assumes that jump tables are in the insns stream.
+	 But we also don't _have_ to delete dead jumptables in cfglayout
+	 mode because we shouldn't even be looking at things that are
+	 not in a basic block.  Dead jumptables are cleaned up when
+	 going out of cfglayout mode.  */
+      if (!(mode & CLEANUP_CFGLAYOUT))
+	delete_dead_jumptables ();
     }
 
   timevar_pop (TV_CLEANUP_CFG);
@@ -2325,29 +2340,12 @@ struct tree_opt_pass pass_jump =
 static unsigned int
 rest_of_handle_jump2 (void)
 {
-  /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
-     before jump optimization switches branch directions.  */
-  if (flag_guess_branch_prob)
-    expected_value_to_br_prob ();
-
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  purge_line_number_notes ();
-
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  /* Jump optimization, and the removal of NULL pointer checks, may
-     have reduced the number of instructions substantially.  CSE, and
-     future passes, allocate arrays whose dimensions involve the
-     maximum instruction UID, so if we can reduce the maximum UID
-     we'll save big on memory.  */
-  renumber_insns ();
   return 0;
 }
 

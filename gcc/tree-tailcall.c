@@ -35,6 +35,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-pass.h"
 #include "flags.h"
 #include "langhooks.h"
+#include "dbgcnt.h"
 
 /* The file implements the tail recursion elimination.  It is also used to
    analyze the tail calls in general, passing the results to the rtl level
@@ -143,10 +144,10 @@ suitable_for_tail_opt_p (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-
       if (!is_global_var (var)
 	  && (!MTAG_P (var) || TREE_CODE (var) == STRUCT_FIELD_TAG)
-	  && is_call_clobbered (var))
+	  && (gimple_aliases_computed_p (cfun) ? is_call_clobbered (var)
+	      : TREE_ADDRESSABLE (var)))
 	return false;
     }
 
@@ -272,8 +273,8 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
 		    tree *a, tree *ass_var)
 {
   tree op0, op1, non_ass_var;
-  tree dest = TREE_OPERAND (ass, 0);
-  tree src = TREE_OPERAND (ass, 1);
+  tree dest = GIMPLE_STMT_OPERAND (ass, 0);
+  tree src = GIMPLE_STMT_OPERAND (ass, 1);
   enum tree_code code = TREE_CODE (src);
   tree src_var = src;
 
@@ -395,10 +396,10 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	continue;
 
       /* Check for a call.  */
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
+      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 	{
-	  ass_var = TREE_OPERAND (stmt, 0);
-	  call = TREE_OPERAND (stmt, 1);
+	  ass_var = GIMPLE_STMT_OPERAND (stmt, 0);
+	  call = GIMPLE_STMT_OPERAND (stmt, 1);
 	  if (TREE_CODE (call) == WITH_SIZE_EXPR)
 	    call = TREE_OPERAND (call, 0);
 	}
@@ -454,7 +455,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 		 of copying the value.  This test implies is_gimple_reg_type
 		 from the previous condition, however this one could be
 		 relaxed by being more careful with copying the new value
-		 of the parameter (emitting appropriate MODIFY_EXPR and
+		 of the parameter (emitting appropriate GIMPLE_MODIFY_STMT and
 		 updating the virtual operands).  */
 	      if (!is_gimple_reg (param))
 		break;
@@ -492,7 +493,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (TREE_CODE (stmt) == RETURN_EXPR)
 	break;
 
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
+      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	return;
 
       if (!process_assignment (stmt, stmt, bsi, &m, &a, &ass_var))
@@ -502,9 +503,9 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   /* See if this is a tail call we can handle.  */
   ret_var = TREE_OPERAND (stmt, 0);
   if (ret_var
-      && TREE_CODE (ret_var) == MODIFY_EXPR)
+      && TREE_CODE (ret_var) == GIMPLE_MODIFY_STMT)
     {
-      tree ret_op = TREE_OPERAND (ret_var, 1);
+      tree ret_op = GIMPLE_STMT_OPERAND (ret_var, 1);
       STRIP_NOPS (ret_op);
       if (!tail_recursion
 	  && TREE_CODE (ret_op) != SSA_NAME)
@@ -512,7 +513,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       if (!process_assignment (ret_var, stmt, bsi, &m, &a, &ass_var))
 	return;
-      ret_var = TREE_OPERAND (ret_var, 0);
+      ret_var = GIMPLE_STMT_OPERAND (ret_var, 0);
     }
 
   /* We may proceed if there either is no return value, or the return value
@@ -558,34 +559,34 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	    var = m_acc;
 	  else
 	    {
-	      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+	      stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 			     build2 (MULT_EXPR, ret_type, m_acc, a));
 
 	      tmp = create_tmp_var (ret_type, "acc_tmp");
 	      add_referenced_var (tmp);
 
 	      var = make_ssa_name (tmp, stmt);
-	      TREE_OPERAND (stmt, 0) = var;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = var;
 	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	    }
 	}
       else
 	var = a;
 
-      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+      stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (PLUS_EXPR, ret_type, a_acc, var));
       var = make_ssa_name (SSA_NAME_VAR (a_acc), stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       a_acc_arg = var;
     }
 
   if (m)
     {
-      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+      stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (MULT_EXPR, ret_type, m_acc, m));
       var = make_ssa_name (SSA_NAME_VAR (m_acc), stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       m_acc_arg = var;
     }
@@ -617,6 +618,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 {
   tree ret_stmt = last_stmt (bb), ret_var, var, stmt, tmp;
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
+  tree *ret_op;
   block_stmt_iterator bsi = bsi_last (bb);
 
   gcc_assert (TREE_CODE (ret_stmt) == RETURN_EXPR);
@@ -625,26 +627,24 @@ adjust_return_value (basic_block bb, tree m, tree a)
   if (!ret_var)
     return;
 
-  if (TREE_CODE (ret_var) == MODIFY_EXPR)
+  if (TREE_CODE (ret_var) == GIMPLE_MODIFY_STMT)
     {
-      ret_var->common.ann = (tree_ann_t) stmt_ann (ret_stmt);
-      bsi_replace (&bsi, ret_var, true);
-      SSA_NAME_DEF_STMT (TREE_OPERAND (ret_var, 0)) = ret_var;
-      ret_var = TREE_OPERAND (ret_var, 0);
-      ret_stmt = build1 (RETURN_EXPR, TREE_TYPE (ret_stmt), ret_var);
-      bsi_insert_after (&bsi, ret_stmt, BSI_NEW_STMT);
+      ret_op = &GIMPLE_STMT_OPERAND (ret_var, 1);
+      ret_var = *ret_op;
     }
+  else
+    ret_op = &TREE_OPERAND (ret_stmt, 0);
 
   if (m)
     {
-      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+      stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (MULT_EXPR, ret_type, m_acc, ret_var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
   else
@@ -652,18 +652,18 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (a)
     {
-      stmt = build2 (MODIFY_EXPR, ret_type, NULL_TREE,
+      stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (PLUS_EXPR, ret_type, a_acc, var));
 
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
 
-  TREE_OPERAND (ret_stmt, 0) = var;
+  *ret_op = var;
   update_stmt (ret_stmt);
 }
 
@@ -702,7 +702,7 @@ arg_needs_copy_p (tree param)
     return false;
 		
   /* Parameters that are only defined but never used need not be copied.  */
-  def = default_def (param);
+  def = gimple_default_def (cfun, param);
   if (!def)
     return false;
 
@@ -733,8 +733,8 @@ eliminate_tail_call (struct tailcall *t)
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
-    stmt = TREE_OPERAND (stmt, 1);
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+    stmt = GIMPLE_STMT_OPERAND (stmt, 1);
 
   first = single_succ (ENTRY_BLOCK_PTR);
 
@@ -788,9 +788,9 @@ eliminate_tail_call (struct tailcall *t)
   adjust_accumulator_values (t->call_bsi, t->mult, t->add, e);
 
   call = bsi_stmt (t->call_bsi);
-  if (TREE_CODE (call) == MODIFY_EXPR)
+  if (TREE_CODE (call) == GIMPLE_MODIFY_STMT)
     {
-      rslt = TREE_OPERAND (call, 0);
+      rslt = GIMPLE_STMT_OPERAND (call, 0);
 
       /* Result of the call will no longer be defined.  So adjust the
 	 SSA_NAME_DEF_STMT accordingly.  */
@@ -826,11 +826,9 @@ add_virtual_phis (void)
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      if (!is_gimple_reg (var) && default_def (var) != NULL_TREE)
+      if (!is_gimple_reg (var) && gimple_default_def (cfun, var) != NULL_TREE)
 	mark_sym_for_renaming (var);
     }
-
-  update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 /* Optimizes the tailcall described by T.  If OPT_TAILCALLS is true, also
@@ -865,7 +863,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
 /* Optimizes tail calls in the function, turning the tail recursion
    into iteration.  */
 
-static void
+static unsigned int
 tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
@@ -877,7 +875,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   edge_iterator ei;
 
   if (!suitable_for_tail_opt_p ())
-    return;
+    return 0;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
@@ -911,7 +909,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	       param = TREE_CHAIN (param))
 	    if (arg_needs_copy_p (param))
 	      {
-		tree name = default_def (param);
+		tree name = gimple_default_def (cfun, param);
 		tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 		tree phi;
 
@@ -985,33 +983,31 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
     }
 
   if (changed)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      cleanup_tree_cfg ();
-    }
+    free_dominance_info (CDI_DOMINATORS);
 
   if (phis_constructed)
     add_virtual_phis ();
+  if (changed)
+    return TODO_cleanup_cfg | TODO_update_ssa_only_virtuals;
+  return 0;
 }
 
 static unsigned int
 execute_tail_recursion (void)
 {
-  tree_optimize_tail_calls_1 (false);
-  return 0;
+  return tree_optimize_tail_calls_1 (false);
 }
 
 static bool
 gate_tail_calls (void)
 {
-  return flag_optimize_sibling_calls != 0;
+  return flag_optimize_sibling_calls != 0 && dbg_cnt (tail_call);
 }
 
 static unsigned int
 execute_tail_calls (void)
 {
-  tree_optimize_tail_calls_1 (true);
-  return 0;
+  return tree_optimize_tail_calls_1 (true);
 }
 
 struct tree_opt_pass pass_tail_recursion = 
@@ -1023,7 +1019,7 @@ struct tree_opt_pass pass_tail_recursion =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

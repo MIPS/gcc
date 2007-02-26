@@ -50,7 +50,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 @set cppmanual
 
 @ifinfo
-@dircategory Programming
+@dircategory Software development
 @direntry
 * Cpp: (cpp).		       The GNU C preprocessor.
 @end direntry
@@ -2079,6 +2079,23 @@ respectively.  They exist to make the standard header given numerical limits
 work correctly.  You should not use these macros directly; instead, include
 the appropriate headers.
 
+@item __SIZEOF_INT__
+@itemx __SIZEOF_LONG__
+@itemx __SIZEOF_LONG_LONG__
+@itemx __SIZEOF_SHORT__
+@itemx __SIZEOF_POINTER__
+@itemx __SIZEOF_FLOAT__
+@itemx __SIZEOF_DOUBLE__
+@itemx __SIZEOF_LONG_DOUBLE__
+@itemx __SIZEOF_SIZE_T__
+@itemx __SIZEOF_WCHAR_T__
+@itemx __SIZEOF_WINT_T__
+@itemx __SIZEOF_PTRDIFF_T__
+Defined to the number of bytes of the C standard data types: @code{int},
+@code{long}, @code{long long}, @code{short}, @code{void *}, @code{float},
+@code{double}, @code{long double}, @code{size_t}, @code{wchar_t}, @code{wint_t}
+and @code{ptrdiff_t}.
+
 @item __DEPRECATED
 This macro is defined, with value 1, when compiling a C++ source file
 with warnings about deprecated constructs enabled.  These warnings are
@@ -2093,6 +2110,13 @@ compiling the file, then this macro will not be defined.
 This macro is defined, with value 1, if the compiler uses the old
 mechanism based on @code{setjmp} and @code{longjmp} for exception
 handling.
+
+@item __GXX_EXPERIMENTAL_CXX0X__
+This macro is defined when compiling a C++ source file with the option
+@option{-std=c++0x} or @option{-std=gnu++0x}. It indicates that some
+features likely to be included in C++0x are available. Note that these
+features are experimental, and may change or be removed in future
+versions of GCC.
 
 @item __GXX_WEAK__
 This macro is defined when compiling a C++ source file.  It has the
@@ -3792,7 +3816,7 @@ execution character set.
 
 Currently, CPP requires its input to be ASCII or UTF-8.  The execution
 character set may be controlled by the user, with the
-@option{-ftarget-charset} and @option{-ftarget-wide-charset} options.
+@option{-fexec-charset} and @option{-fwide-exec-charset} options.
 
 @item Identifier characters.
 @anchor{Identifier characters}

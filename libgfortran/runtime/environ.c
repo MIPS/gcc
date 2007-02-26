@@ -34,8 +34,6 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 
 #include "libgfortran.h"
-#include "../io/io.h"
-
 
 /* Environment scanner.  Examine the environment for controlling minor
  * aspects of the program's execution.  Our philosophy here that the
@@ -503,7 +501,7 @@ static variable variable_table[] = {
    stringize (DEFAULT_RECL), 0},
 
   {"GFORTRAN_LIST_SEPARATOR", 0, NULL, init_sep, show_sep,
-   "Separatator to use when writing list output.  May contain any number of "
+   "Separator to use when writing list output.  May contain any number of "
    "spaces\nand at most one comma.  Default is a single space.", 0},
 
   /* Memory related controls */
@@ -538,6 +536,11 @@ static variable variable_table[] = {
    unformatted I/O.  */
   {"GFORTRAN_CONVERT_UNIT", 0, 0, init_unformatted, show_string,
    "Set format for unformatted files", 0},
+
+  /* Behaviour when encoutering a runtime error.  */
+  {"GFORTRAN_ERROR_DUMPCORE", -1, &options.dump_core,
+    init_boolean, show_boolean,
+    "Dump a core file (if possible) on runtime error", -1},
 
   {NULL, 0, NULL, NULL, NULL, NULL, 0}
 };
@@ -855,7 +858,7 @@ mark_range (int unit1, int unit2)
 
 /* Parse the GFORTRAN_CONVERT_UNITS variable.  This is called
    twice, once to count the units and once to actually mark them in
-   the table.  When counting, we don't check for double occurences
+   the table.  When counting, we don't check for double occurrences
    of units.  */
 
 static int

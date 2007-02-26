@@ -38,9 +38,7 @@ exception statement from your version.  */
 
 #define _GNU_SOURCE
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif /* HAVE_CONFIG_H */
 
 #include <gnu_java_net_local_LocalSocketImpl.h>
 
@@ -200,22 +198,15 @@ Java_gnu_java_net_local_LocalSocketImpl_accept (JNIEnv *env, jobject this, jobje
 
 
 jint
-Java_gnu_java_net_local_LocalSocketImpl_available (JNIEnv *env, jobject this)
+Java_gnu_java_net_local_LocalSocketImpl_available
+(JNIEnv *env, jobject this __attribute__((unused)), jint fd)
 {
 #ifdef ENABLE_LOCAL_SOCKETS
-  jfieldID socket_fd;
-  jclass clazz;
   jint avail;
 
   TRACE("begin");
 
-  clazz = (*env)->GetObjectClass (env, this);
-  socket_fd = (*env)->GetFieldID (env, clazz, "socket_fd", "I");
-  if (!socket_fd)
-    {
-      return 0;
-    }
-  avail = (jint) local_available ((int) (*env)->GetIntField (env, this, socket_fd));
+  avail = (jint) local_available (fd);
   if (avail < 0)
     {
       _throw (env, "java/io/IOException", local_error ());
@@ -227,6 +218,7 @@ Java_gnu_java_net_local_LocalSocketImpl_available (JNIEnv *env, jobject this)
   return avail;
 #else
   (void) this;
+  (void) fd;
   _throw (env, "java/lang/Error", "support for local sockets not available");
   return -1;
 #endif /* ENABLE_LOCAL_SOCKETS */
@@ -452,14 +444,13 @@ Java_gnu_java_net_local_LocalSocketImpl_localConnect (JNIEnv *env, jobject this,
 
 
 jint
-Java_gnu_java_net_local_LocalSocketImpl_read (JNIEnv *env, jobject this, jbyteArray buf, jint off, jint len)
+Java_gnu_java_net_local_LocalSocketImpl_read
+(JNIEnv *env, jobject this __attribute__((unused)), jint fd, jbyteArray buf,
+ jint off, jint len)
 {
 #ifdef ENABLE_LOCAL_SOCKETS
-  jfieldID socket_fd;
-  jclass clazz;
   jbyte *buffer;
   jint count;
-  int fd;
 
   TRACE("begin");
 
@@ -468,13 +459,6 @@ Java_gnu_java_net_local_LocalSocketImpl_read (JNIEnv *env, jobject this, jbyteAr
       _throw (env, "java/lang/ArrayIndexOutOfBoundsException", "");
     }
 
-  clazz = (*env)->GetObjectClass (env, this);
-  socket_fd = (*env)->GetFieldID (env, clazz, "socket_fd", "I");
-  if (!socket_fd)
-    {
-      return 0;
-    }
-  fd = (int) (*env)->GetIntField (env, this, socket_fd);
   buffer = (*env)->GetByteArrayElements (env, buf, NULL);
   count = (jint) local_read (fd, (void *) (buffer + off), (int) len);
   if (count < 0)
@@ -488,6 +472,7 @@ Java_gnu_java_net_local_LocalSocketImpl_read (JNIEnv *env, jobject this, jbyteAr
   return count;
 #else
   (void) this;
+  (void) fd;
   (void) buf;
   (void) off;
   (void) len;
@@ -498,13 +483,12 @@ Java_gnu_java_net_local_LocalSocketImpl_read (JNIEnv *env, jobject this, jbyteAr
 
 
 void
-Java_gnu_java_net_local_LocalSocketImpl_write (JNIEnv *env, jobject this, jbyteArray buf, jint off, jint len)
+Java_gnu_java_net_local_LocalSocketImpl_write
+(JNIEnv *env, jobject this __attribute__((unused)), jint fd, jbyteArray buf,
+ jint off, jint len)
 {
 #ifdef ENABLE_LOCAL_SOCKETS
-  jfieldID socket_fd;
-  jclass clazz;
   jbyte *buffer;
-  int fd;
 
   TRACE("begin");
 
@@ -513,13 +497,6 @@ Java_gnu_java_net_local_LocalSocketImpl_write (JNIEnv *env, jobject this, jbyteA
       _throw (env, "java/lang/ArrayIndexOutOfBoundsException", "");
     }
 
-  clazz = (*env)->GetObjectClass (env, this);
-  socket_fd = (*env)->GetFieldID (env, clazz, "socket_fd", "I");
-  if (!socket_fd)
-    {
-      return;
-    }
-  fd = (int) (*env)->GetIntField (env, this, socket_fd);
   buffer = (*env)->GetByteArrayElements (env, buf, NULL);
   if (local_write (fd, (void *) (buffer + off), (int) len) < 0)
     {
@@ -530,6 +507,7 @@ Java_gnu_java_net_local_LocalSocketImpl_write (JNIEnv *env, jobject this, jbyteA
   TRACE("end");
 #else
   (void) this;
+  (void) fd;
   (void) buf;
   (void) off;
   (void) len;

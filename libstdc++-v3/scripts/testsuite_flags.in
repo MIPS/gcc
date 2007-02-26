@@ -30,7 +30,7 @@ query=$1
 
 case ${query} in
     --install-includes)
-      INCLUDES="-I${SRC_DIR}/testsuite"
+      INCLUDES="-I${SRC_DIR}/testsuite/util"
       echo ${INCLUDES}
       ;;
     --build-includes)
@@ -50,7 +50,7 @@ case ${query} in
     --cxxflags)
       CXXFLAGS_save="-g -O2 -D_GLIBCXX_ASSERT"
       CXXFLAGS_config='@SECTION_FLAGS@ -fmessage-length=0 
- 		      @EXTRA_CXX_FLAGS@ '
+ 		      @CXXFLAGS@ @EXTRA_CXX_FLAGS@ '
       echo ${CXXFLAGS_save} ${CXXFLAGS_config}
       ;;
     --cxxpchflags)
@@ -58,7 +58,7 @@ case ${query} in
       echo ${PCHFLAGS}
       ;;
     --cxxldflags)
-      SECTIONLDFLAGS="@SECTION_LDFLAGS@"
+      SECTIONLDFLAGS="@SECTION_LDFLAGS@ @LIBICONV@"
       echo ${SECTIONLDFLAGS}
       ;;
     *)

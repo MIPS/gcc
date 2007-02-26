@@ -41,7 +41,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
-rtx cfg_layout_function_footer, cfg_layout_function_header;
+rtx cfg_layout_function_footer;
+rtx cfg_layout_function_header;
 
 static rtx skip_insns_after_block (basic_block);
 static void record_effective_endpoints (void);
@@ -278,6 +279,7 @@ insn_locators_initialize (void)
 	      NOTE_EXPANDED_LOCATION (xloc, insn);
 	      line_number = xloc.line;
 	      file_name = xloc.file;
+	      delete_insn (insn);
 	    }
 	}
       else
@@ -807,18 +809,19 @@ fixup_reorder_chain (void)
 
   prev_bb = ENTRY_BLOCK_PTR;
   bb = ENTRY_BLOCK_PTR->next_bb;
-  index = NUM_FIXED_BLOCKS;
 
-  for (; bb; prev_bb = bb, bb = bb->aux, index ++)
+  for (; bb; prev_bb = bb, bb = bb->aux)
     {
-      bb->index = index;
-      SET_BASIC_BLOCK (index, bb);
-
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
     }
   prev_bb->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = prev_bb;
+
+  /* Now that the prev and next ptrs are in place, let compact_blocks
+     deal with the array and the indexes.  It knows how to keep the
+     dataflow up to date.  */
+  compact_blocks ();
 
   /* Annoying special case - jump around dead jumptables left in the code.  */
   FOR_EACH_BB (bb)
@@ -829,7 +832,7 @@ fixup_reorder_chain (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
-
+      
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }
@@ -987,7 +990,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	    case NOTE_INSN_DELETED_LABEL:
 	      /* No problem to strip these.  */
 	    case NOTE_INSN_EPILOGUE_BEG:
-	    case NOTE_INSN_FUNCTION_END:
 	      /* Debug code expect these notes to exist just once.
 		 Keep them in the master copy.
 		 ??? It probably makes more sense to duplicate them for each
@@ -997,7 +999,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	    case NOTE_INSN_BASIC_BLOCK:
 	      break;
 
-	    case NOTE_INSN_REPEATED_LINE_NUMBER:
 	    case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	      emit_note_copy (insn);
 	      break;
@@ -1220,9 +1221,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i] = duplicate_block (bb, NULL, after);
       after = new_bb;
       bb->flags |= BB_DUPLICATED;
-      /* Add to loop.  */
-      add_bb_to_loop (new_bb, bb->loop_father->copy);
-      /* Possibly set header.  */
+      /* Possibly set loop header.  */
       if (bb->loop_father->header == bb && bb->loop_father != base)
 	new_bb->loop_father->header = new_bb;
       /* Or latch.  */

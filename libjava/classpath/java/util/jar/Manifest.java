@@ -1,4 +1,4 @@
-/* Manifest.java -- Reads, writes and manipulaties jar manifest files
+/* Manifest.java -- Reads, writes and manipulates jar manifest files
    Copyright (C) 2000, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -38,7 +38,7 @@ exception statement from your version. */
 package java.util.jar;
 
 import gnu.java.util.jar.JarUtils;
-
+ 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -60,7 +60,7 @@ public class Manifest implements Cloneable
   private final Attributes mainAttr;
 
   /** A map of atrributes for all entries described in this Manifest. */
-  private final Map entries;
+  private final Map<String, Attributes> entries;
 
   // Constructors
 
@@ -70,7 +70,7 @@ public class Manifest implements Cloneable
   public Manifest()
   {
     mainAttr = new Attributes();
-    entries = new Hashtable();
+    entries = new Hashtable<String, Attributes>();
   }
 
   /**
@@ -104,7 +104,7 @@ public class Manifest implements Cloneable
   public Manifest(Manifest man)
   {
     mainAttr = new Attributes(man.getMainAttributes());
-    entries = new Hashtable(man.getEntries());
+    entries = new Hashtable<String, Attributes>(man.getEntries());
   }
 
   // Methods
@@ -122,7 +122,7 @@ public class Manifest implements Cloneable
    * in this manifest. Adding, changing or removing from this entries map
    * changes the entries of this manifest.
    */
-  public Map getEntries()
+  public Map<String, Attributes> getEntries()
   {
     return entries;
   }
@@ -152,7 +152,7 @@ public class Manifest implements Cloneable
   }
 
   /**
-   * Read and merge a <code>Mainfest</code> from the designated input stream.
+   * Read and merge a <code>Manifest</code> from the designated input stream.
    * 
    * @param in the input stream to read from.
    * @throws IOException if an I/O related exception occurs during the process.

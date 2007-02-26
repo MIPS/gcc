@@ -38,7 +38,8 @@ exception statement from your version. */
 
 package java.lang;
 
-import java.util.Iterator;
+// We only need Iterator, but we import * to support lib/mkcollections.pl
+import java.util.*;
 
 /**
  * This interface is used to indicate that a given class can be
@@ -48,12 +49,12 @@ import java.util.Iterator;
  * @author Tom Tromey <tromey@redhat.com>
  * @since 1.5
  */
-public interface Iterable
+public interface Iterable<E>
 {
   /**
    * Returns an iterator for the collection.
    *
    * @return an iterator.
    */
-  Iterator iterator ();
+  Iterator<E> iterator ();
 }

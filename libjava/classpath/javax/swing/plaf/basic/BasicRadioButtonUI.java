@@ -42,6 +42,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Insets;
 import java.awt.Rectangle;
 
 import javax.swing.AbstractButton;
@@ -51,6 +52,7 @@ import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
+import javax.swing.text.View;
 
 /**
  * The BasicLookAndFeel UI implementation for
@@ -70,7 +72,8 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
    *
    * @return a new instance of <code>BasicRadioButtonUI</code>
    */
-  public static ComponentUI createUI(final JComponent c)  {
+  public static ComponentUI createUI(final JComponent c)  
+  {
     return new BasicRadioButtonUI();
   }
 
@@ -79,7 +82,7 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
    */
   public BasicRadioButtonUI()
   {
-    icon = getDefaultIcon();
+    // nothing to do
   }
 
   /**
@@ -91,14 +94,7 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
   protected void installDefaults(AbstractButton b)
   {
     super.installDefaults(b);
-    if (b.getIcon() == null)
-      b.setIcon(icon);
-    if (b.getSelectedIcon() == null)
-      b.setSelectedIcon(icon);
-    if (b.getDisabledIcon() == null)
-      b.setDisabledIcon(icon);
-    if (b.getDisabledSelectedIcon() == null)
-      b.setDisabledSelectedIcon(icon);
+    icon = UIManager.getIcon(getPropertyPrefix() + "icon");
   }
 
   /**
@@ -122,7 +118,7 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
    */
   public Icon getDefaultIcon()
   {
-    return UIManager.getIcon(getPropertyPrefix() + "icon");
+    return icon;
   }
 
   /**
@@ -134,41 +130,138 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
   public void paint(Graphics g, JComponent c)
   {
     AbstractButton b = (AbstractButton) c;
-
-    Rectangle tr = new Rectangle();
-    Rectangle ir = new Rectangle();
-    Rectangle vr = new Rectangle();
+    Dimension size = c.getSize();
+    Insets i = b.getInsets();
+    textR.x = 0;
+    textR.y = 0;
+    textR.width = 0;
+    textR.height = 0;
+    iconR.x = 0;
+    iconR.y = 0;
+    iconR.width = 0;
+    iconR.height = 0;
+    viewR.x = i.left;
+    viewR.y = i.right;
+    viewR.width = size.width - i.left - i.right;
+    viewR.height = size.height - i.top - i.bottom;
 
     Font f = c.getFont();
 
     g.setFont(f);
 
     ButtonModel m = b.getModel();
-    Icon currentIcon = null;
-    if (m.isSelected() && m.isEnabled())
-      currentIcon = b.getSelectedIcon();
-    else if (! m.isSelected() && m.isEnabled())
-      currentIcon = b.getIcon();
-    else if (m.isSelected() && ! m.isEnabled())
-      currentIcon = b.getDisabledSelectedIcon();
-    else // (!m.isSelected() && ! m.isEnabled())
-      currentIcon = b.getDisabledIcon();
 
-    SwingUtilities.calculateInnerArea(b, vr);
-    String text = SwingUtilities.layoutCompoundLabel
-      (c, g.getFontMetrics(f), b.getText(), currentIcon,
+    // This is the icon that we use for layout.
+    Icon icon = b.getIcon();
+    if (icon == null)
+      icon = getDefaultIcon();
+
+    // Do the layout.
+    String text = SwingUtilities.layoutCompoundLabel(c, g.getFontMetrics(f), 
+       b.getText(), icon,
        b.getVerticalAlignment(), b.getHorizontalAlignment(),
        b.getVerticalTextPosition(), b.getHorizontalTextPosition(),
-       vr, ir, tr, b.getIconTextGap() + defaultTextShiftOffset);
-    
-    if (currentIcon != null)
+       viewR, iconR, textR, b.getIconTextGap());
+
+    // Figure out the correct icon.
+    icon = b.getIcon();
+    if (icon == null)
+      icon = getDefaultIcon();
+    else
       {
-        currentIcon.paintIcon(c, g, ir.x, ir.y);
+        if (! m.isEnabled())
+          {
+            if (m.isSelected())
+              icon = b.getDisabledSelectedIcon();
+            else
+              icon = b.getDisabledIcon();
+          }
+        else if (m.isArmed() && m.isPressed())
+          {
+            icon = b.getPressedIcon();
+            if (icon == null)
+              icon = b.getSelectedIcon();
+          }
+        else if (m.isSelected())
+          {
+            if (b.isRolloverEnabled() && m.isRollover())
+              {
+                icon = b.getRolloverSelectedIcon();
+                if (icon == null)
+                  icon = b.getSelectedIcon();
+              }
+            else
+              icon = b.getSelectedIcon();
+          }
+        else if (b.isRolloverEnabled() && m.isRollover())
+          icon = b.getRolloverIcon();
+        if (icon == null)
+          icon = b.getIcon();
       }
+    // .. and paint it.
+    icon.paintIcon(c, g, iconR.x, iconR.y);
+
+    // Paint text and focus indicator.
     if (text != null)
-      paintText(g, b, tr, text);
-    if (b.hasFocus() && b.isFocusPainted() && m.isEnabled())
-      paintFocus(g, tr, c.getSize());
+      {
+        // Maybe render HTML in the radio button.
+        View v = (View) c.getClientProperty(BasicHTML.propertyKey);
+        if (v != null)
+          v.paint(g, textR);
+        else
+          paintText(g, b, textR, text);
+
+        // Paint focus indicator if necessary.
+        if (b.hasFocus() && b.isFocusPainted()
+            && textR.width > 0 && textR.height > 0)
+          paintFocus(g, textR, size);
+      }
+  }
+  
+  public Dimension getPreferredSize(JComponent c)
+  {
+    // This is basically the same code as in
+    // BasicGraphicsUtils.getPreferredButtonSize() but takes the default icon
+    // property into account. JRadioButton and subclasses always have an icon:
+    // the check box. If the user explicitly changes it with setIcon() that
+    // one will be used for layout calculations and painting instead.
+    // The other icon properties are ignored.
+    AbstractButton b = (AbstractButton) c;
+    
+    Insets insets = b.getInsets();
+
+    String text = b.getText();
+    Icon i = b.getIcon();
+    if (i == null)
+      i = getDefaultIcon(); 
+    
+    textR.x = 0;
+    textR.y = 0;
+    textR.width = 0;
+    textR.height = 0;
+    iconR.x = 0;
+    iconR.y = 0;
+    iconR.width = 0;
+    iconR.height = 0;
+    viewR.x = 0;
+    viewR.y = 0;
+    viewR.width = Short.MAX_VALUE;
+    viewR.height = Short.MAX_VALUE;
+
+    SwingUtilities.layoutCompoundLabel(b, // for the component orientation
+                                       b.getFontMetrics(b.getFont()),
+                                       text, i, b.getVerticalAlignment(), 
+                                       b.getHorizontalAlignment(),
+                                       b.getVerticalTextPosition(),
+                                       b.getHorizontalTextPosition(),
+                                       viewR, iconR, textR,
+                                       text == null ? 0 : b.getIconTextGap());
+
+    Rectangle r = SwingUtilities.computeUnion(textR.x, textR.y, textR.width,
+                                              textR.height, iconR);
+
+    return new Dimension(insets.left + r.width + insets.right,
+                         insets.top + r.height + insets.bottom);
   }
 
   /**

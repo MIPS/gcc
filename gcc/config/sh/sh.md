@@ -135,7 +135,6 @@
   (UNSPEC_FSINA		16)
   (UNSPEC_NSB		17)
   (UNSPEC_ALLOCO	18)
-  (UNSPEC_EH_RETURN	19)
   (UNSPEC_TLSGD		20)
   (UNSPEC_TLSLDM	21)
   (UNSPEC_TLSIE		22)
@@ -148,10 +147,12 @@
   (UNSPEC_DIV_INV_M2	32)
   (UNSPEC_DIV_INV_M3	33)
   (UNSPEC_DIV_INV20	34)
+  (UNSPEC_DIV_INV_TABLE	37)
   (UNSPEC_ASHIFTRT	35)
   (UNSPEC_THUNK		36)
   (UNSPEC_SP_SET	40)
   (UNSPEC_SP_TEST	41)
+  (UNSPEC_MOVUA		42)
 
   ;; These are used with unspec_volatile.
   (UNSPECV_BLOCKAGE	0)
@@ -161,6 +162,7 @@
   (UNSPECV_CONST8	6)
   (UNSPECV_WINDOW_END	10)
   (UNSPECV_CONST_END	11)
+  (UNSPECV_EH_RETURN	12)
 ])
 
 ;; -------------------------------------------------------------------------
@@ -202,7 +204,9 @@
 ;; load_si	Likewise, SImode variant for general register.
 ;; fload	Likewise, but load to fp register.
 ;; store	to memory
+;; fstore	floating point register to memory
 ;; move		general purpose register to register
+;; movi8	8 bit immediate to general purpose register
 ;; mt_group	other sh4 mt instructions
 ;; fmove	register to register, floating point
 ;; smpy		word precision integer multiply
@@ -219,11 +223,15 @@
 ;; sfunc	special function call with known used registers
 ;; call		function call
 ;; fp		floating point
+;; fpscr_toggle	toggle a bit in the fpscr
 ;; fdiv		floating point divide (or square root)
 ;; gp_fpul	move from general purpose register to fpul
 ;; fpul_gp	move from fpul to general purpose register
 ;; mac_gp	move from mac[lh] to general purpose register
-;; dfp_arith, dfp_cmp,dfp_conv
+;; gp_mac	move from general purpose register to mac[lh]
+;; mac_mem	move from mac[lh] to memory
+;; mem_mac	move from memory to mac[lh]
+;; dfp_arith,dfp_mul, fp_cmp,dfp_cmp,dfp_conv
 ;; ftrc_s	fix_truncsfsi2_i4
 ;; dfdiv	double precision floating point divide (or square root)
 ;; cwb		ic_invalidate_line_i
@@ -261,7 +269,7 @@
 ;; nil		no-op move, will be deleted.
 
 (define_attr "type"
- "mt_group,cbranch,jump,jump_ind,arith,arith3,arith3b,dyn_shift,load,load_si,fload,store,move,fmove,smpy,dmpy,return,pload,prset,pstore,prget,pcload,pcload_si,pcfload,rte,sfunc,call,fp,fdiv,ftrc_s,dfp_arith,dfp_cmp,dfp_conv,dfdiv,gp_fpul,fpul_gp,mac_gp,mem_fpscr,gp_fpscr,cwb,movua,fsrra,fsca,tls_load,arith_media,cbranch_media,cmp_media,dfdiv_media,dfmul_media,dfparith_media,dfpconv_media,dmpy_media,fcmp_media,fdiv_media,fload_media,fmove_media,fparith_media,fpconv_media,fstore_media,gettr_media,invalidate_line_media,jump_media,load_media,pt_media,ptabs_media,store_media,mcmp_media,mac_media,d2mpy_media,atrans_media,ustore_media,nil,other"
+ "mt_group,cbranch,jump,jump_ind,arith,arith3,arith3b,dyn_shift,load,load_si,fload,store,fstore,move,movi8,fmove,smpy,dmpy,return,pload,prset,pstore,prget,pcload,pcload_si,pcfload,rte,sfunc,call,fp,fpscr_toggle,fdiv,ftrc_s,dfp_arith,dfp_mul,fp_cmp,dfp_cmp,dfp_conv,dfdiv,gp_fpul,fpul_gp,mac_gp,gp_mac,mac_mem,mem_mac,mem_fpscr,gp_fpscr,cwb,movua,fsrra,fsca,tls_load,arith_media,cbranch_media,cmp_media,dfdiv_media,dfmul_media,dfparith_media,dfpconv_media,dmpy_media,fcmp_media,fdiv_media,fload_media,fmove_media,fparith_media,fpconv_media,fstore_media,gettr_media,invalidate_line_media,jump_media,load_media,pt_media,ptabs_media,store_media,mcmp_media,mac_media,d2mpy_media,atrans_media,ustore_media,nil,other"
   (const_string "other"))
 
 ;; We define a new attribute namely "insn_class".We use
@@ -277,12 +285,12 @@
 (define_attr "insn_class"
   "mt_group,ex_group,ls_group,br_group,fe_group,co_group,none"
   (cond [(eq_attr "type" "move,mt_group") (const_string "mt_group")
-         (eq_attr "type" "arith,dyn_shift") (const_string "ex_group")
-	 (eq_attr "type" "fmove,load,pcload,load_si,pcload_si,fload,pcfload,store,gp_fpul,fpul_gp") (const_string "ls_group")
+         (eq_attr "type" "movi8,arith,dyn_shift") (const_string "ex_group")
+	 (eq_attr "type" "fmove,load,pcload,load_si,pcload_si,fload,pcfload,store,fstore,gp_fpul,fpul_gp") (const_string "ls_group")
 	 (eq_attr "type" "cbranch,jump") (const_string "br_group")
-	 (eq_attr "type" "fp,fdiv,ftrc_s,dfp_arith,dfp_conv,dfdiv")
+	 (eq_attr "type" "fp,fp_cmp,fdiv,ftrc_s,dfp_arith,dfp_mul,dfp_conv,dfdiv")
 	   (const_string "fe_group")
-	 (eq_attr "type" "jump_ind,smpy,dmpy,mac_gp,return,pload,prset,pstore,prget,rte,sfunc,call,dfp_cmp,mem_fpscr,gp_fpscr,cwb") (const_string "co_group")]
+	 (eq_attr "type" "jump_ind,smpy,dmpy,mac_gp,return,pload,prset,pstore,prget,rte,sfunc,call,dfp_cmp,mem_fpscr,gp_fpscr,cwb,gp_mac,mac_mem,mem_mac") (const_string "co_group")]
 	(const_string "none")))
 ;; nil are zero instructions, and arith3 / arith3b are multiple instructions,
 ;; so these do not belong in an insn group, although they are modeled
@@ -492,14 +500,14 @@
 ;; SH4 Double-precision computation with double-precision result -
 ;; the two halves are ready at different times.
 (define_attr "dfp_comp" "yes,no"
-  (cond [(eq_attr "type" "dfp_arith,dfp_conv,dfdiv") (const_string "yes")]
+  (cond [(eq_attr "type" "dfp_arith,dfp_mul,dfp_conv,dfdiv") (const_string "yes")]
 	(const_string "no")))
 
 ;; Insns for which the latency of a preceding fp insn is decreased by one.
 (define_attr "late_fp_use" "yes,no" (const_string "no"))
 ;; And feeding insns for which this relevant.
 (define_attr "any_fp_comp" "yes,no"
-  (cond [(eq_attr "type" "fp,fdiv,ftrc_s,dfp_arith,dfp_conv,dfdiv")
+  (cond [(eq_attr "type" "fp,fdiv,ftrc_s,dfp_arith,dfp_mul,dfp_conv,dfdiv")
 	 (const_string "yes")]
 	(const_string "no")))
 
@@ -607,15 +615,37 @@
    [(set_attr "type" "mt_group")])
 
 ;; -------------------------------------------------------------------------
+;; SImode compare and branch
+;; -------------------------------------------------------------------------
+
+(define_expand "cbranchsi4"
+  [(set (pc)
+	(if_then_else (match_operator 0 "comparison_operator"
+			[(match_operand:SI 1 "arith_operand" "")
+			 (match_operand:SI 2 "arith_operand" "")])
+		      (label_ref (match_operand 3 "" ""))
+		      (pc)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_CBRANCHDI4"
+  "expand_cbranchsi4 (operands, CODE_FOR_nothing, -1); DONE;")
+
+;; -------------------------------------------------------------------------
 ;; SImode unsigned integer comparisons
 ;; -------------------------------------------------------------------------
 
-(define_insn "cmpgeusi_t"
+(define_insn_and_split "cmpgeusi_t"
   [(set (reg:SI T_REG)
 	(geu:SI (match_operand:SI 0 "arith_reg_operand" "r")
-		(match_operand:SI 1 "arith_reg_operand" "r")))]
+		(match_operand:SI 1 "arith_reg_or_0_operand" "rN")))]
   "TARGET_SH1"
   "cmp/hs	%1,%0"
+  "&& operands[0] == CONST0_RTX (SImode)"
+  [(pc)]
+  "
+{
+  emit_insn (gen_sett ());
+  DONE;
+}"
    [(set_attr "type" "mt_group")])
 
 (define_insn "cmpgtusi_t"
@@ -645,12 +675,64 @@
 }")
 
 ;; -------------------------------------------------------------------------
-;; DImode signed integer comparisons
+;; DImode compare and branch
 ;; -------------------------------------------------------------------------
 
-;; ??? Could get better scheduling by splitting the initial test from the
-;; rest of the insn after reload.  However, the gain would hardly justify
-;; the sh.md size increase necessary to do that.
+
+;; arith3 patterns don't work well with the sh4-300 branch prediction mechanism.
+;; Therefore, we aim to have a set of three branches that go straight to the
+;; destination, i.e. only one of them is taken at any one time.
+;; This mechanism should also be slightly better for the sh4-200.
+
+(define_expand "cbranchdi4"
+  [(set (pc)
+	(if_then_else (match_operator 0 "comparison_operator"
+			[(match_operand:DI 1 "arith_operand" "")
+			 (match_operand:DI 2 "arith_operand" "")])
+		      (label_ref (match_operand 3 "" ""))
+		      (pc)))
+   (clobber (match_dup 4))
+   (clobber (reg:SI T_REG))]
+  "TARGET_CBRANCHDI4"
+  "
+{
+  enum rtx_code comparison;
+
+  if (TARGET_EXPAND_CBRANCHDI4)
+    {
+      if (expand_cbranchdi4 (operands, CODE_FOR_nothing))
+	DONE;
+    }
+  comparison = prepare_cbranch_operands (operands, DImode, CODE_FOR_nothing);
+  if (comparison != GET_CODE (operands[0]))
+    operands[0]
+      = gen_rtx_fmt_ee (VOIDmode, comparison, operands[1], operands[2]);
+   operands[4] = gen_rtx_SCRATCH (SImode);
+}")
+
+(define_insn_and_split "cbranchdi4_i"
+  [(set (pc)
+	(if_then_else (match_operator 0 "comparison_operator"
+			[(match_operand:DI 1 "arith_operand" "r,r")
+			 (match_operand:DI 2 "arith_operand" "rN,i")])
+		      (label_ref (match_operand 3 "" ""))
+		      (pc)))
+   (clobber (match_scratch:SI 4 "=X,&r"))
+   (clobber (reg:SI T_REG))]
+  "TARGET_CBRANCHDI4"
+  "#"
+  "&& reload_completed"
+  [(pc)]
+  "
+{
+  if (!expand_cbranchdi4 (operands, GET_CODE (operands[0])))
+    FAIL;
+  DONE;
+}")
+
+;; -------------------------------------------------------------------------
+;; DImode signed integer comparisons
+;; -------------------------------------------------------------------------
 
 (define_insn ""
   [(set (reg:SI T_REG)
@@ -749,54 +831,6 @@
    (set_attr "type" "arith3")])
 
 (define_insn "cmpeqsi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(eq:DI (match_operand:SI 1 "logical_operand" "%r")
-	       (match_operand:SI 2 "cmp_operand" "Nr")))]
-  "TARGET_SHMEDIA"
-  "cmpeq	%1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpeqdi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(eq:DI (match_operand:DI 1 "register_operand" "%r")
-	       (match_operand:DI 2 "cmp_operand" "Nr")))]
-  "TARGET_SHMEDIA"
-  "cmpeq	%1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpgtsi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gt:DI (match_operand:SI 1 "cmp_operand" "Nr")
-	       (match_operand:SI 2 "cmp_operand" "rN")))]
-  "TARGET_SHMEDIA"
-  "cmpgt	%N1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpgtdi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gt:DI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
-	       (match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
-  "TARGET_SHMEDIA"
-  "cmpgt	%N1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpgtusi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gtu:DI (match_operand:SI 1 "cmp_operand" "Nr")
-		(match_operand:SI 2 "cmp_operand" "rN")))]
-  "TARGET_SHMEDIA"
-  "cmpgtu	%N1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpgtudi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gtu:DI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
-		(match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
-  "TARGET_SHMEDIA"
-  "cmpgtu	%N1, %N2, %0"
-  [(set_attr "type" "cmp_media")])
-
-(define_insn "cmpsieqsi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (match_operand:SI 1 "logical_operand" "%r")
 	       (match_operand:SI 2 "cmp_operand" "Nr")))]
@@ -804,7 +838,7 @@
   "cmpeq	%1, %N2, %0"
   [(set_attr "type" "cmp_media")])
 
-(define_insn "cmpsieqdi_media"
+(define_insn "cmpeqdi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (match_operand:DI 1 "register_operand" "%r")
 	       (match_operand:DI 2 "cmp_operand" "Nr")))]
@@ -812,7 +846,7 @@
   "cmpeq	%1, %N2, %0"
   [(set_attr "type" "cmp_media")])
 
-(define_insn "cmpsigtsi_media"
+(define_insn "cmpgtsi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(gt:SI (match_operand:SI 1 "cmp_operand" "Nr")
 	       (match_operand:SI 2 "cmp_operand" "rN")))]
@@ -820,7 +854,7 @@
   "cmpgt	%N1, %N2, %0"
   [(set_attr "type" "cmp_media")])
 
-(define_insn "cmpsigtdi_media"
+(define_insn "cmpgtdi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(gt:SI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
 	       (match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
@@ -828,7 +862,7 @@
   "cmpgt	%N1, %N2, %0"
   [(set_attr "type" "cmp_media")])
 
-(define_insn "cmpsigtusi_media"
+(define_insn "cmpgtusi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(gtu:SI (match_operand:SI 1 "cmp_operand" "Nr")
 		(match_operand:SI 2 "cmp_operand" "rN")))]
@@ -836,7 +870,7 @@
   "cmpgtu	%N1, %N2, %0"
   [(set_attr "type" "cmp_media")])
 
-(define_insn "cmpsigtudi_media"
+(define_insn "cmpgtudi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(gtu:SI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
 		(match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
@@ -845,13 +879,6 @@
   [(set_attr "type" "cmp_media")])
 
 ; These two patterns are for combine.
-(define_insn "*cmpne0si_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(ne:DI (match_operand:SI 1 "arith_reg_operand" "r") (const_int 0)))]
-  "TARGET_SHMEDIA"
-  "cmpgtu	%1,r63,%0"
-  [(set_attr "type" "cmp_media")])
-
 (define_insn "*cmpne0sisi_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(ne:SI (match_operand:SI 1 "arith_reg_operand" "r") (const_int 0)))]
@@ -1176,7 +1203,7 @@
 {
   emit_insn (gen_movsicc_false (operands[0], operands[1], operands[2],
 				operands[3]));
-  emit_insn (gen_cmpsigtusi_media (operands[5], operands[4], operands[0]));
+  emit_insn (gen_cmpgtusi_media (operands[5], operands[4], operands[0]));
   emit_insn (gen_movsicc_false (operands[0], operands[5], operands[4],
 				operands[0]));
   DONE;
@@ -1829,6 +1856,21 @@
   /* Emit the move of the address to a pseudo outside of the libcall.  */
   if (TARGET_DIVIDE_CALL_TABLE)
     {
+      /* libgcc2:__udivmoddi4 is not supposed to use an actual division, since
+	 that causes problems when the divide code is supposed to come from a
+	 separate library.  Division by zero is undefined, so dividing 1 can be
+	 implemented by comparing with the divisor.  */
+      if (operands[1] == const1_rtx && currently_expanding_to_rtl)
+	{
+	  emit_insn (gen_cmpsi (operands[1], operands[2]));
+	  emit_insn (gen_sgeu (operands[0]));
+	  DONE;
+	}
+      else if (operands[2] == const0_rtx)
+	{
+	  emit_move_insn (operands[0], operands[2]);
+	  DONE;
+	}
       function_symbol (operands[3], \"__udivsi3_i4i\", SFUNC_GOT);
       last = gen_udivsi3_i4_int (operands[0], operands[3]);
     }
@@ -2229,6 +2271,34 @@
   DONE;
 }")
 
+;; operands: scratch, tab_base, tab_ix
+;; These are unspecs because we could generate an indexed addressing mode
+;; even if -m5-32media, where INDEX_REG_CLASS == NO_REGS, and this would
+;; confuse reload.  See PR27117.
+
+(define_insn "divsi_inv_qitable"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI (unspec:QI [(match_operand:DI 1 "register_operand" "r")
+				    (match_operand:DI 2 "register_operand" "r")]
+			 UNSPEC_DIV_INV_TABLE)))]
+  "TARGET_SHMEDIA"
+  "@
+	ldx.ub	%1, %2, %0"
+  [(set_attr "type" "load_media")
+   (set_attr "highpart" "user")])
+
+;; operands: scratch, tab_base, tab_ix
+(define_insn "divsi_inv_hitable"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(sign_extend:DI (unspec:HI [(match_operand:DI 1 "register_operand" "r")
+				    (match_operand:DI 2 "register_operand" "r")]
+			 UNSPEC_DIV_INV_TABLE)))]
+  "TARGET_SHMEDIA"
+  "@
+	ldx.w	%1, %2, %0"
+  [(set_attr "type" "load_media")
+   (set_attr "highpart" "user")])
+
 ;; operands: inv0, tab_base, tab_ix, norm32
 ;; scratch equiv in sdivsi3_2: r19, r21
 (define_expand "divsi_inv_m0"
@@ -2261,14 +2331,11 @@ norm32: r25
   rtx scratch0 = operands[4];
   rtx scratch0_si = simplify_gen_subreg (SImode, scratch0, DImode, SIDI_OFF);
   rtx scratch1 = operands[5];
-  rtx mem;
 
-  mem = gen_const_mem (QImode, gen_rtx_PLUS (DImode, tab_base, tab_ix));
-  emit_insn (gen_zero_extendqidi2 (scratch0, mem));
+  emit_insn (gen_divsi_inv_qitable (scratch0, tab_base, tab_ix));
   emit_insn (gen_ashldi3_media (scratch1, tab_ix, GEN_INT (1)));
   emit_insn (gen_mulsidi3_media (scratch0, norm32, scratch0_si));
-  mem = gen_const_mem (HImode, gen_rtx_PLUS (DImode, tab_base, scratch1));
-  emit_insn (gen_extendhidi2 (scratch1, mem));
+  emit_insn (gen_divsi_inv_hitable (scratch1, tab_base, scratch1));
   emit_insn (gen_ashrdi3_media (scratch0, scratch0, GEN_INT (24)));
   emit_insn (gen_subdisi3_media (inv0, scratch1, scratch0));
   DONE;
@@ -2682,9 +2749,9 @@ label:
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -2712,9 +2779,9 @@ label:
      See also smulsi3_highpart.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_expr.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -2991,9 +3058,9 @@ label:
      See also {,u}mulhisi.
      ??? Alternatively, we could put this at the calling site of expand_binop,
      i.e. expand_mult_highpart.  */
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL, copy_rtx (SET_SRC (single_set (first))),
-			 REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL,
+		       copy_rtx (SET_SRC (single_set (first))));
+
   DONE;
 }")
 
@@ -3685,7 +3752,7 @@ label:
   "
 {
   emit_insn (gen_ashlsi_c (operands[0], operands[1]));
-  emit_insn (gen_mov_neg_si_t (operands[0]));
+  emit_insn (gen_mov_neg_si_t (copy_rtx (operands[0])));
   DONE;
 }")
 
@@ -4704,7 +4771,7 @@ label:
 
 ; N.B. This should agree with LOAD_EXTEND_OP and movqi.
 ; Because we use zero extension, we can't provide signed QImode compares
-; using a simple compare or conditional banch insn.
+; using a simple compare or conditional branch insn.
 (define_insn "truncdiqi2"
   [(set (match_operand:QI 0 "general_movdst_operand" "=r,m")
 	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
@@ -4749,7 +4816,7 @@ label:
   [(set (mem:SF (pre_dec:SI (reg:SI SP_REG))) (reg:SF FPUL_REG))]
   "TARGET_SH2E && ! TARGET_SH5"
   "sts.l	fpul,@-r15"
-  [(set_attr "type" "store")
+  [(set_attr "type" "fstore")
    (set_attr "late_fp_use" "yes")
    (set_attr "hit_stack" "yes")])
 
@@ -4831,9 +4898,9 @@ label:
 ;; (made from (set (subreg:SI (reg:QI ###) 0) ) into T.
 (define_insn "movsi_i"
   [(set (match_operand:SI 0 "general_movdst_operand"
-	    "=r,r,t,r,r,r,r,m,<,<,x,l,x,l,r")
+	    "=r,r,r,t,r,r,r,r,m,<,<,x,l,x,l,r")
 	(match_operand:SI 1 "general_movsrc_operand"
-	 "Q,rI08,r,mr,x,l,t,r,x,l,r,r,>,>,i"))]
+	 "Q,r,I08,r,mr,x,l,t,r,x,l,r,r,>,>,i"))]
   "TARGET_SH1
    && ! TARGET_SH2E
    && ! TARGET_SH2A
@@ -4841,6 +4908,7 @@ label:
        || register_operand (operands[1], SImode))"
   "@
 	mov.l	%1,%0
+	mov	%1,%0
 	mov	%1,%0
 	cmp/pl	%1
 	mov.l	%1,%0
@@ -4855,8 +4923,8 @@ label:
 	lds.l	%1,%0
 	lds.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload_si,move,mt_group,load_si,mac_gp,prget,move,store,store,pstore,move,prset,load,pload,pcload_si")
-   (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*")])
+  [(set_attr "type" "pcload_si,move,movi8,mt_group,load_si,mac_gp,prget,arith,mac_mem,store,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
+   (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*")])
 
 ;; t/r must come after r/r, lest reload will try to reload stuff like
 ;; (subreg:SI (reg:SF FR14_REG) 0) into T (compiling stdlib/strtod.c -m3e -O2)
@@ -4866,14 +4934,15 @@ label:
 ;; TARGET_FMOVD is in effect, and mode switching is done before reload.
 (define_insn "movsi_ie"
   [(set (match_operand:SI 0 "general_movdst_operand"
-	    "=r,r,r,t,r,r,r,r,m,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
+	    "=r,r,r,r,t,r,r,r,r,m,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
 	(match_operand:SI 1 "general_movsrc_operand"
-	 "Q,rI08,I20,r,mr,x,l,t,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
+	 "Q,r,I08,I20,r,mr,x,l,t,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
   "(TARGET_SH2E || TARGET_SH2A)
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
   "@
 	mov.l	%1,%0
+	mov	%1,%0
 	mov	%1,%0
 	movi20	%1,%0
 	cmp/pl	%1
@@ -4897,18 +4966,19 @@ label:
 	flds	%1,fpul
 	fmov	%1,%0
 	! move optimized away"
-  [(set_attr "type" "pcload_si,move,move,*,load_si,mac_gp,prget,move,store,store,pstore,move,prset,load,pload,load,store,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
-   (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
-   (set_attr "length" "*,*,4,*,4,*,*,*,4,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
+  [(set_attr "type" "pcload_si,move,movi8,move,*,load_si,mac_gp,prget,arith,store,mac_mem,pstore,gp_mac,prset,mem_mac,pload,load,fstore,pcload_si,gp_fpul,fpul_gp,fmove,fmove,fmove,nil")
+   (set_attr "late_fp_use" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes,*,*,yes,*,*,*,*")
+   (set_attr "length" "*,*,*,4,*,4,*,*,*,4,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
 
 (define_insn "movsi_i_lowpart"
-  [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,m,r"))
-	(match_operand:SI 1 "general_movsrc_operand" "Q,rI08,mr,x,l,t,r,i"))]
+  [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,r,m,r"))
+	(match_operand:SI 1 "general_movsrc_operand" "Q,r,I08,mr,x,l,t,r,i"))]
    "TARGET_SH1
     && (register_operand (operands[0], SImode)
         || register_operand (operands[1], SImode))"
   "@
 	mov.l	%1,%0
+	mov	%1,%0
 	mov	%1,%0
 	mov.l	%1,%0
 	sts	%1,%0
@@ -4916,7 +4986,7 @@ label:
 	movt	%0
 	mov.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload,move,load,move,prget,move,store,pcload")])
+  [(set_attr "type" "pcload,move,arith,load,mac_gp,prget,arith,store,pcload")])
 
 (define_insn_and_split "load_ra"
   [(set (match_operand:SI 0 "general_movdst_operand" "")
@@ -5043,8 +5113,7 @@ label:
 {
   rtx insn = emit_insn (gen_movsi_const (operands[0], operands[1]));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, operands[1],
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (operands[1]));
 
   DONE;
 }")
@@ -5083,7 +5152,7 @@ label:
       emit_insn (gen_ic_invalidate_line_compact (operands[0], operands[1]));
       DONE;
     }
-  else if (TARGET_SH4A_ARCH)
+  else if (TARGET_SH4A_ARCH || TARGET_SH4_300)
     {
       emit_insn (gen_ic_invalidate_line_sh4a (operands[0]));
       DONE;
@@ -5111,7 +5180,7 @@ label:
 (define_insn "ic_invalidate_line_sh4a"
   [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
 		    UNSPEC_ICACHE)]
-  "TARGET_SH4A_ARCH"
+  "TARGET_SH4A_ARCH || TARGET_SH4_300"
   "ocbwb\\t@%0\;synco\;icbi\\t@%0"
   [(set_attr "length" "16")
    (set_attr "type" "cwb")])
@@ -5168,19 +5237,20 @@ label:
    (set_attr "needs_delay_slot" "yes")])
 
 (define_insn "movqi_i"
-  [(set (match_operand:QI 0 "general_movdst_operand" "=r,r,m,r,r,l")
-	(match_operand:QI 1 "general_movsrc_operand"  "ri,m,r,t,l,r"))]
+  [(set (match_operand:QI 0 "general_movdst_operand" "=r,r,r,m,r,r,l")
+	(match_operand:QI 1 "general_movsrc_operand"  "r,i,m,r,t,l,r"))]
   "TARGET_SH1
    && (arith_reg_operand (operands[0], QImode)
        || arith_reg_operand (operands[1], QImode))"
   "@
+	mov	%1,%0
 	mov	%1,%0
 	mov.b	%1,%0
 	mov.b	%1,%0
 	movt	%0
 	sts	%1,%0
 	lds	%1,%0"
- [(set_attr "type" "move,load,store,move,move,move")])
+ [(set_attr "type" "move,movi8,load,store,arith,prget,prset")])
 
 (define_insn "*movqi_media"
   [(set (match_operand:QI 0 "general_movdst_operand" "=r,r,r,m")
@@ -5426,8 +5496,7 @@ label:
   else
     insn = emit_insn (gen_movdi_const_32bit (operands[0], operands[1]));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, operands[1],
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (operands[1]));
 
   DONE;
 }")
@@ -5782,7 +5851,7 @@ label:
       (if_then_else
        (ne (symbol_ref "TARGET_SHCOMPACT") (const_int 0))
        (const_int 10) (const_int 8))])
-   (set_attr "type" "fmove,move,pcfload,fload,store,pcload,load,store,load,fload")
+   (set_attr "type" "fmove,move,pcfload,fload,fstore,pcload,load,store,load,fload")
    (set_attr "late_fp_use" "*,*,*,*,yes,*,*,*,*,*")
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
 					   (const_string "double")
@@ -6499,7 +6568,7 @@ label:
 	sts.l	%1,%0
 	lds.l	%1,%0
 	! move optimized away"
-  [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,store,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,store,load,nil")
+  [(set_attr "type" "fmove,move,fmove,fmove,pcfload,fload,fstore,pcload,load,store,fmove,fmove,load,*,fpul_gp,gp_fpul,fstore,load,nil")
    (set_attr "late_fp_use" "*,*,*,*,*,*,yes,*,*,*,*,*,*,*,yes,*,yes,*,*")
    (set_attr "length" "*,*,*,*,4,4,4,*,*,*,2,2,2,4,2,2,2,2,0")
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
@@ -7159,7 +7228,7 @@ label:
 }")
 
 (define_expand "bunordered"
-  [(set (match_dup 1) (unordered:DI (match_dup 2) (match_dup 3)))
+  [(set (match_dup 1) (unordered:SI (match_dup 2) (match_dup 3)))
    (set (pc)
 	(if_then_else (ne (match_dup 1) (const_int 0))
 		      (match_operand 0 "" "")
@@ -7168,7 +7237,7 @@ label:
   "
 {
   operands[0] = gen_rtx_LABEL_REF (Pmode, operands[0]);
-  operands[1] = gen_reg_rtx (DImode);
+  operands[1] = gen_reg_rtx (SImode);
   operands[2] = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
   operands[3] = force_reg (GET_MODE (sh_compare_op1), sh_compare_op1);
 }")
@@ -7319,7 +7388,7 @@ label:
     emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
   else
     emit_insn (gen_symPLT_label2reg (operands[2], operands[0], lab));
-  emit_call_insn (gen_calli_pcrel (operands[2], operands[1], lab));
+  emit_call_insn (gen_calli_pcrel (operands[2], operands[1], copy_rtx (lab)));
   DONE;
 }"
   [(set_attr "type" "call")
@@ -7423,7 +7492,7 @@ label:
   else
     emit_insn (gen_symPLT_label2reg (operands[3], operands[1], lab));
   emit_call_insn (gen_call_valuei_pcrel (operands[0], operands[3],
-					 operands[2], lab));
+					 operands[2], copy_rtx (lab)));
   DONE;
 }"
   [(set_attr "type" "call")
@@ -7804,7 +7873,7 @@ label:
 
   emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
   call_insn = emit_call_insn (gen_sibcalli_pcrel (operands[2], operands[1],
-						  lab));
+						  copy_rtx (lab)));
   SIBLING_CALL_P (call_insn) = 1;
   DONE;
 }"
@@ -7942,15 +8011,197 @@ label:
   DONE;
 }")
 
-(define_expand "sibcall_value"
-  [(set (match_operand 0 "" "")
-	(call (match_operand 1 "" "")
+(define_insn "sibcall_valuei"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "k"))
 	      (match_operand 2 "" "")))
-   (match_operand 3 "" "")]
+   (use (reg:PSI FPSCR_REG))
+   (return)]
+  "TARGET_SH1"
+  "jmp	@%1%#"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_valuei_pcrel"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "arith_reg_operand" "k"))
+	      (match_operand 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (use (reg:PSI FPSCR_REG))
+   (return)]
+  "TARGET_SH2"
+  "braf	%1\\n%O3:%#"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn_and_split "sibcall_value_pcrel"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand" ""))
+	      (match_operand 2 "" "")))
+   (use (reg:PSI FPSCR_REG))
+   (clobber (match_scratch:SI 3 "=k"))
+   (return)]
+  "TARGET_SH2"
+  "#"
+  "reload_completed"
+  [(const_int 0)]
+  "
+{
+  rtx lab = PATTERN (gen_call_site ());
+  rtx call_insn;
+
+  emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
+  call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
+							operands[3],
+							operands[2],
+							copy_rtx (lab)));
+  SIBLING_CALL_P (call_insn) = 1;
+  DONE;
+}"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_value_compact"
+  [(set (match_operand 0 "" "=rf,rf")
+	(call (mem:SI (match_operand:SI 1 "register_operand" "k,k"))
+	      (match_operand 2 "" "")))
+   (return)
+   (use (match_operand:SI 3 "register_operand" "z,x"))
+   (use (reg:SI R1_REG))
+   (use (reg:PSI FPSCR_REG))
+   ;; We want to make sure the `x' above will only match MACH_REG
+   ;; because sibcall_epilogue may clobber MACL_REG.
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SHCOMPACT"
+  "@
+	jmp	@%1%#
+	jmp	@%1\\n	sts	%3, r0"
+  [(set_attr "needs_delay_slot" "yes,no")
+   (set_attr "length" "2,4")
+   (set (attr "fp_mode") (const_string "single"))
+   (set_attr "type" "jump_ind")])
+
+(define_insn "sibcall_value_media"
+  [(set (match_operand 0 "" "=rf")
+	(call (mem:DI (match_operand 1 "target_reg_operand" "k"))
+	      (match_operand 2 "" "")))
+   (use (reg:SI PR_MEDIA_REG))
+   (return)]
+  "TARGET_SHMEDIA"
+  "blink	%1, r63"
+  [(set_attr "type" "jump_media")])
+
+(define_expand "sibcall_value"
+  [(parallel
+    [(set (match_operand 0 "arith_reg_operand" "")
+	  (call (mem:SI (match_operand 1 "arith_reg_operand" ""))
+	  	(match_operand 2 "" "")))
+     (match_operand 3 "" "")
+     (use (reg:PSI FPSCR_REG))
+     (return)])]
   ""
   "
 {
-  emit_call_insn (gen_sibcall (operands[1], operands[2], operands[3]));
+  if (TARGET_SHMEDIA)
+    {
+      operands[1] = shmedia_prepare_call_address (operands[1], 1);
+      emit_call_insn (gen_sibcall_value_media (operands[0], operands[1],
+					       operands[2]));
+      DONE;
+    }
+  else if (TARGET_SHCOMPACT && operands[3]
+	   && (INTVAL (operands[3]) & ~ CALL_COOKIE_RET_TRAMP (1)))
+    {
+      rtx cookie_rtx = operands[3];
+      long cookie = INTVAL (cookie_rtx);
+      rtx func = XEXP (operands[1], 0);
+      rtx mach, r1;
+
+      if (flag_pic)
+	{
+	  if (GET_CODE (func) == SYMBOL_REF && ! SYMBOL_REF_LOCAL_P (func))
+	    {
+	      rtx reg = gen_reg_rtx (Pmode);
+
+	      emit_insn (gen_symGOT2reg (reg, func));
+	      func = reg;
+	    }
+	  else
+	    func = legitimize_pic_address (func, Pmode, 0);
+	}
+
+      /* FIXME: if we could tell whether all argument registers are
+	 already taken, we could decide whether to force the use of
+	 MACH_REG or to stick to R0_REG.  Unfortunately, there's no
+	 simple way to tell.  We could use the CALL_COOKIE, but we
+	 can't currently tell a register used for regular argument
+	 passing from one that is unused.  If we leave it up to reload
+	 to decide which register to use, it seems to always choose
+	 R0_REG, which leaves no available registers in SIBCALL_REGS
+	 to hold the address of the trampoline.  */
+      mach = gen_rtx_REG (SImode, MACH_REG);
+      r1 = gen_rtx_REG (SImode, R1_REG);
+
+      /* Since such a call function may use all call-clobbered
+	 registers, we force a mode switch earlier, so that we don't
+	 run out of registers when adjusting fpscr for the call.  */
+      emit_insn (gen_force_mode_for_call ());
+
+      operands[1]
+	= function_symbol (NULL, \"__GCC_shcompact_call_trampoline\",
+			   SFUNC_GOT);
+      operands[1] = force_reg (SImode, operands[1]);
+
+      /* We don't need a return trampoline, since the callee will
+	 return directly to the upper caller.  */
+      if (cookie & CALL_COOKIE_RET_TRAMP (1))
+	{
+	  cookie &= ~ CALL_COOKIE_RET_TRAMP (1);
+	  cookie_rtx = GEN_INT (cookie);
+	}
+
+      emit_move_insn (mach, func);
+      emit_move_insn (r1, cookie_rtx);
+
+      emit_call_insn (gen_sibcall_value_compact (operands[0], operands[1],
+						 operands[2], mach));
+      DONE;
+    }
+  else if (TARGET_SHCOMPACT && flag_pic
+	   && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+	   && ! SYMBOL_REF_LOCAL_P (XEXP (operands[1], 0)))
+    {
+      rtx reg = gen_reg_rtx (Pmode);
+
+      emit_insn (gen_symGOT2reg (reg, XEXP (operands[1], 0)));
+      XEXP (operands[1], 0) = reg;
+    }
+  if (flag_pic && TARGET_SH2
+      && GET_CODE (operands[1]) == MEM
+      && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+      /* The PLT needs the PIC register, but the epilogue would have
+	 to restore it, so we can only use PC-relative PIC calls for
+	 static functions.  */
+      && SYMBOL_REF_LOCAL_P (XEXP (operands[1], 0)))
+    {
+      emit_call_insn (gen_sibcall_value_pcrel (operands[0],
+					       XEXP (operands[1], 0),
+					       operands[2]));
+      DONE;
+    }
+  else
+    operands[1] = force_reg (SImode, XEXP (operands[1], 0));
+
+  emit_call_insn (gen_sibcall_valuei (operands[0], operands[1], operands[2]));
   DONE;
 }")
 
@@ -8242,18 +8493,17 @@ label:
       if (Pmode == SImode)
 	{
 	  emit_insn (gen_movsi_const (pic, operands[1]));
-	  emit_insn (gen_ptrel_si (tr, pic, lab));
+	  emit_insn (gen_ptrel_si (tr, pic, copy_rtx (lab)));
 	}
       else
 	{
 	  emit_insn (gen_movdi_const (pic, operands[1]));
-	  emit_insn (gen_ptrel_di (tr, pic, lab));
+	  emit_insn (gen_ptrel_di (tr, pic, copy_rtx (lab)));
 	}
 
       insn = emit_move_insn (operands[0], tr);
 
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, equiv,
-					    REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, equiv);
 
       DONE;
     }
@@ -8362,9 +8612,8 @@ label:
   /* ??? Should we have a special alias set for the GOT?  */
   insn = emit_move_insn (operands[0], mem);
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, XVECEXP (XEXP (operands[1],
-								  0), 0, 0),
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL,
+		       XVECEXP (XEXP (operands[1], 0), 0, 0));
 
   DONE;
 }")
@@ -8423,8 +8672,7 @@ label:
 			 gen_rtx_PLUS (Pmode, t,
 				       gen_rtx_REG (Pmode, PIC_REG)));
 
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, operands[1],
-					REG_NOTES (insn));
+  set_unique_reg_note (insn, REG_EQUAL, operands[1]);
 
   DONE;
 }")
@@ -9024,19 +9272,22 @@ mov.l\\t1f,r0\\n\\
 ;; until we know where it will be put in the stack frame.
 
 (define_insn "eh_set_ra_si"
-  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch:SI 1 "=&r"))]
   "! TARGET_SHMEDIA64"
   "#")
 
 (define_insn "eh_set_ra_di"
-  [(unspec [(match_operand:DI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch:DI 1 "=&r"))]
   "TARGET_SHMEDIA64"
   "#")
 
 (define_split
-  [(unspec [(match_operand 0 "register_operand" "")] UNSPEC_EH_RETURN)
+  [(unspec_volatile [(match_operand 0 "register_operand" "")]
+      UNSPECV_EH_RETURN)
    (clobber (match_scratch 1 ""))]
   "reload_completed"
   [(const_int 0)]
@@ -9071,6 +9322,8 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
+      rtx reg;
+
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9085,26 +9338,26 @@ mov.l\\t1f,r0\\n\\
 	  switch (GET_MODE (sh_compare_op0))
 	    {
 	    case SImode:
-	      emit_insn (gen_cmpsieqsi_media (operands[0],
+	      emit_insn (gen_cmpeqsi_media (operands[0],
 					      sh_compare_op0, sh_compare_op1));
 	      break;
 
 	    case DImode:
-	      emit_insn (gen_cmpsieqdi_media (operands[0],
+	      emit_insn (gen_cmpeqdi_media (operands[0],
 					      sh_compare_op0, sh_compare_op1));
 	      break;
 
 	    case SFmode:
 	      if (! TARGET_SHMEDIA_FPU)
 		FAIL;
-	      emit_insn (gen_cmpsieqsf_media (operands[0],
+	      emit_insn (gen_cmpeqsf_media (operands[0],
 					      sh_compare_op0, sh_compare_op1));
 	      break;
 
 	    case DFmode:
 	      if (! TARGET_SHMEDIA_FPU)
 		FAIL;
-	      emit_insn (gen_cmpsieqdf_media (operands[0],
+	      emit_insn (gen_cmpeqdf_media (operands[0],
 					      sh_compare_op0, sh_compare_op1));
 	      break;
 
@@ -9114,38 +9367,44 @@ mov.l\\t1f,r0\\n\\
 	  DONE;
 	}
 
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
 
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
-	  emit_insn (gen_cmpeqsi_media (operands[0],
+	  emit_insn (gen_cmpeqsi_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case DImode:
-	  emit_insn (gen_cmpeqdi_media (operands[0],
+	  emit_insn (gen_cmpeqdi_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case SFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpeqsf_media (operands[0],
+	  emit_insn (gen_cmpeqsf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case DFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpeqdf_media (operands[0],
+	  emit_insn (gen_cmpeqdf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	default:
 	  FAIL;
 	}
+
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
   if (sh_expand_t_scc (EQ, operands[0]))
@@ -9163,8 +9422,8 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      rtx reg;
+
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9172,35 +9431,44 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
+
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
-	  emit_insn (gen_cmpgtsi_media (operands[0],
+	  emit_insn (gen_cmpgtsi_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	case DImode:
-	  emit_insn (gen_cmpgtdi_media (operands[0],
+	  emit_insn (gen_cmpgtdi_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	case SFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgtsf_media (operands[0],
+	  emit_insn (gen_cmpgtsf_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	case DFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgtdf_media (operands[0],
+	  emit_insn (gen_cmpgtdf_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	default:
 	  FAIL;
 	}
+
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
   if (! currently_expanding_to_rtl)
@@ -9217,8 +9485,8 @@ mov.l\\t1f,r0\\n\\
 
   if (TARGET_SHMEDIA)
     {
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      rtx reg;
+
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9226,45 +9494,54 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
+
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
 	  {
-	    tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
-	    emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+	    emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
 	    break;
 	  }
 
 	case DImode:
 	  {
-	    tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
-	    emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+	    emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
 	    break;
 	  }
 
 	case SFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgesf_media (operands[0],
+	  emit_insn (gen_cmpgesf_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	case DFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgedf_media (operands[0],
+	  emit_insn (gen_cmpgedf_media (reg,
 					sh_compare_op1, sh_compare_op0));
 	  break;
 
 	default:
 	  FAIL;
 	}
+
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
 
@@ -9282,8 +9559,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      rtx reg;
+
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9294,32 +9575,36 @@ mov.l\\t1f,r0\\n\\
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
-	  emit_insn (gen_cmpgtsi_media (operands[0],
+	  emit_insn (gen_cmpgtsi_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case DImode:
-	  emit_insn (gen_cmpgtdi_media (operands[0],
+	  emit_insn (gen_cmpgtdi_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case SFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgtsf_media (operands[0],
+	  emit_insn (gen_cmpgtsf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case DFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgtdf_media (operands[0],
+	  emit_insn (gen_cmpgtdf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	default:
 	  FAIL;
 	}
+
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
   if (! currently_expanding_to_rtl)
@@ -9335,12 +9620,15 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
+      rtx reg;
       enum machine_mode mode = GET_MODE (sh_compare_op0);
 
       if ((mode) == VOIDmode)
 	mode = GET_MODE (sh_compare_op1);
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
@@ -9349,41 +9637,45 @@ mov.l\\t1f,r0\\n\\
 	{
 	case SImode:
 	  {
-	    rtx tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
-	    emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+	    emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
 	    break;
 	  }
 
 	case DImode:
 	  {
-	    rtx tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
-	    emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+	    emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
 	    break;
 	  }
 
 	case SFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgesf_media (operands[0],
+	  emit_insn (gen_cmpgesf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	case DFmode:
 	  if (! TARGET_SHMEDIA_FPU)
 	    FAIL;
-	  emit_insn (gen_cmpgedf_media (operands[0],
+	  emit_insn (gen_cmpgedf_media (reg,
 					sh_compare_op0, sh_compare_op1));
 	  break;
 
 	default:
 	  FAIL;
 	}
+
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
 
@@ -9415,8 +9707,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      rtx reg;
+
+      reg = operands[0];
+      if (GET_MODE (operands[0]) == DImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9424,8 +9720,11 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      emit_insn (gen_cmpgtudi_media (operands[0],
+      emit_insn (gen_cmpgtudi_media (reg,
 				     sh_compare_op0, sh_compare_op1));
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
   if (! currently_expanding_to_rtl)
@@ -9441,8 +9740,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      rtx reg;
+
+      reg = operands[0];
+      if (GET_MODE (operands[0]) == DImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9450,8 +9753,11 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      emit_insn (gen_cmpgtudi_media (operands[0],
+      emit_insn (gen_cmpgtudi_media (reg,
 				     sh_compare_op1, sh_compare_op0));
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
+
       DONE;
     }
   if (! currently_expanding_to_rtl)
@@ -9467,10 +9773,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      rtx tmp;
+      rtx tmp, reg;
 
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9478,10 +9786,12 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op0, sh_compare_op1));
-      emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+      emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
 
       DONE;
     }
@@ -9498,10 +9808,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      rtx tmp;
+      rtx tmp, reg;
 
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9509,10 +9821,12 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op1, sh_compare_op0));
-      emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+      emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
 
       DONE;
     }
@@ -9543,11 +9857,12 @@ mov.l\\t1f,r0\\n\\
 {
   if (TARGET_SHMEDIA)
     {
-      rtx tmp;
+      rtx tmp, reg;
 
-      if (GET_MODE (operands[0]) != DImode)
-	operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
-
+      reg = operands[0];
+      if (GET_MODE (operands[0]) != SImode)
+	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
+			     : gen_reg_rtx (SImode);
       if (! TARGET_SHMEDIA_FPU
 	  && GET_MODE (sh_compare_op0) != DImode
 	  && GET_MODE (sh_compare_op0) != SImode)
@@ -9560,10 +9875,12 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (DImode);
+      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_seq (tmp));
-      emit_insn (gen_cmpeqdi_media (operands[0], tmp, const0_rtx));
+      emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
+      if (GET_MODE (operands[0]) == DImode)
+	emit_insn (gen_extendsidi2 (operands[0], reg));
 
       DONE;
     }
@@ -9577,8 +9894,8 @@ mov.l\\t1f,r0\\n\\
 }")
 
 (define_expand "sunordered"
-  [(set (match_operand:DI 0 "arith_reg_operand" "")
-	(unordered:DI (match_dup 1) (match_dup 2)))]
+  [(set (match_operand:SI 0 "arith_reg_operand" "")
+	(unordered:SI (match_dup 1) (match_dup 2)))]
   "TARGET_SHMEDIA_FPU"
   "
 {
@@ -9876,7 +10193,7 @@ mov.l\\t1f,r0\\n\\
 	sts	fpscr,%0
 	sts.l	fpscr,%0"
   [(set_attr "length" "0,2,2,4,2,2,2,2,2")
-   (set_attr "type" "nil,mem_fpscr,load,mem_fpscr,gp_fpscr,move,store,mac_gp,store")])
+   (set_attr "type" "nil,mem_fpscr,load,mem_fpscr,gp_fpscr,move,store,mac_gp,fstore")])
 
 (define_peephole2
   [(set (reg:PSI FPSCR_REG)
@@ -9927,7 +10244,7 @@ mov.l\\t1f,r0\\n\\
 	(xor:PSI (reg:PSI FPSCR_REG) (const_int 1048576)))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)"
   "fschg"
-  [(set_attr "type" "fp") (set_attr "fp_set" "unknown")])
+  [(set_attr "type" "fpscr_toggle") (set_attr "fp_set" "unknown")])
 
 ;; There's no way we can use it today, since optimize mode switching
 ;; doesn't enable us to know from which mode we're switching to the
@@ -9939,7 +10256,7 @@ mov.l\\t1f,r0\\n\\
 	(xor:PSI (reg:PSI FPSCR_REG) (const_int 524288)))]
   "TARGET_SH4A_FP && ! TARGET_FPU_SINGLE"
   "fpchg"
-  [(set_attr "type" "fp")])
+  [(set_attr "type" "fpscr_toggle")])
 
 (define_expand "addsf3"
   [(set (match_operand:SF 0 "arith_reg_operand" "")
@@ -10071,25 +10388,12 @@ mov.l\\t1f,r0\\n\\
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])
 
-;; Unfortunately, the combiner is unable to cope with the USE of the FPSCR
-;; register in feeding fp instructions.  Thus, we cannot generate fmac for
-;; mixed-precision SH4 targets.  To allow it to be still generated for the
-;; SH3E, we use a separate insn for SH3E mulsf3.
-
 (define_expand "mulsf3"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
 	(mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "")
 		 (match_operand:SF 2 "fp_arith_reg_operand" "")))]
   "TARGET_SH2E || TARGET_SHMEDIA_FPU"
-  "
-{
-  if (TARGET_SH4 || TARGET_SH2A_SINGLE)
-    expand_sf_binop (&gen_mulsf3_i4, operands);
-  else if (TARGET_SH2E)
-    emit_insn (gen_mulsf3_ie (operands[0], operands[1], operands[2]));
-  if (! TARGET_SHMEDIA)
-    DONE;
-}")
+  "")
 
 (define_insn "*mulsf3_media"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -10098,6 +10402,27 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA_FPU"
   "fmul.s	%1, %2, %0"
   [(set_attr "type" "fparith_media")])
+
+;; Unfortunately, the combiner is unable to cope with the USE of the FPSCR
+;; register in feeding fp instructions.  Thus, in order to generate fmac,
+;; we start out with a mulsf pattern that does not depend on fpscr.
+;; This is split after combine to introduce the dependency, in order to
+;; get mode switching and scheduling right.
+(define_insn_and_split "mulsf3_ie"
+  [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
+	(mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%0")
+		 (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
+  "TARGET_SH2E"
+  "fmul	%2,%0"
+  "TARGET_SH4 || TARGET_SH2A_SINGLE"
+  [(const_int 0)]
+  "
+{
+  emit_insn (gen_mulsf3_i4 (operands[0], operands[1], operands[2],
+	     get_fpscr_rtx ()));
+  DONE;
+}"
+  [(set_attr "type" "fp")])
 
 (define_insn "mulsf3_i4"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -10109,20 +10434,12 @@ mov.l\\t1f,r0\\n\\
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])
 
-(define_insn "mulsf3_ie"
-  [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
-	(mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%0")
-		 (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
-  "TARGET_SH2E && ! (TARGET_SH4 || TARGET_SH2A_SINGLE)"
-  "fmul	%2,%0"
-  [(set_attr "type" "fp")])
-
 (define_insn "mac_media"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(plus:SF (mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%f")
 			  (match_operand:SF 2 "fp_arith_reg_operand" "f"))
 		 (match_operand:SF 3 "fp_arith_reg_operand" "0")))]
-  "TARGET_SHMEDIA_FPU"
+  "TARGET_SHMEDIA_FPU && TARGET_FMAC"
   "fmac.s %1, %2, %0"
   [(set_attr "type" "fparith_media")])
 
@@ -10132,7 +10449,7 @@ mov.l\\t1f,r0\\n\\
 			  (match_operand:SF 2 "fp_arith_reg_operand" "f"))
 		 (match_operand:SF 3 "arith_reg_operand" "0")))
    (use (match_operand:PSI 4 "fpscr_operand" "c"))]
-  "TARGET_SH2E && ! TARGET_SH4"
+  "TARGET_SH2E && TARGET_FMAC"
   "fmac	fr0,%2,%0"
   [(set_attr "type" "fp")
    (set_attr "fp_mode" "single")])
@@ -10283,7 +10600,7 @@ mov.l\\t1f,r0\\n\\
 	       (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SH2E && ! (TARGET_SH4 || TARGET_SH2A_SINGLE)"
   "fcmp/gt	%1,%0"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "fp_cmp")
    (set_attr "fp_mode" "single")])
 
 (define_insn "cmpeqsf_t"
@@ -10292,7 +10609,7 @@ mov.l\\t1f,r0\\n\\
 	       (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SH2E && ! (TARGET_SH4 || TARGET_SH2A_SINGLE)"
   "fcmp/eq	%1,%0"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "fp_cmp")
    (set_attr "fp_mode" "single")])
 
 (define_insn "ieee_ccmpeqsf_t"
@@ -10312,7 +10629,7 @@ mov.l\\t1f,r0\\n\\
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
   "(TARGET_SH4 || TARGET_SH2A_SINGLE)"
   "fcmp/gt	%1,%0"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "fp_cmp")
    (set_attr "fp_mode" "single")])
 
 (define_insn "cmpeqsf_t_i4"
@@ -10322,7 +10639,7 @@ mov.l\\t1f,r0\\n\\
    (use (match_operand:PSI 2 "fpscr_operand" "c"))]
   "(TARGET_SH4 || TARGET_SH2A_SINGLE)"
   "fcmp/eq	%1,%0"
-  [(set_attr "type" "fp")
+  [(set_attr "type" "fp_cmp")
    (set_attr "fp_mode" "single")])
 
 (define_insn "*ieee_ccmpeqsf_t_4"
@@ -10337,14 +10654,6 @@ mov.l\\t1f,r0\\n\\
    (set_attr "fp_mode" "single")])
 
 (define_insn "cmpeqsf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(eq:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
-	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
-  "TARGET_SHMEDIA_FPU"
-  "fcmpeq.s	%1, %2, %0"
-  [(set_attr "type" "fcmp_media")])
-
-(define_insn "cmpsieqsf_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
@@ -10353,24 +10662,24 @@ mov.l\\t1f,r0\\n\\
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgtsf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gt:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(gt:SI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpgt.s	%1, %2, %0"
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgesf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(ge:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(ge:SI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpge.s	%1, %2, %0"
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpunsf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unordered:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unordered:SI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 		      (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpun.s	%1, %2, %0"
@@ -10679,7 +10988,7 @@ mov.l\\t1f,r0\\n\\
    (use (match_operand:PSI 3 "fpscr_operand" "c"))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)"
   "fmul	%2,%0"
-  [(set_attr "type" "dfp_arith")
+  [(set_attr "type" "dfp_mul")
    (set_attr "fp_mode" "double")])
 
 (define_expand "divdf3"
@@ -10843,14 +11152,6 @@ mov.l\\t1f,r0\\n\\
    (set_attr "fp_mode" "double")])
 
 (define_insn "cmpeqdf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(eq:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
-	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
-  "TARGET_SHMEDIA_FPU"
-  "fcmpeq.d	%1,%2,%0"
-  [(set_attr "type" "fcmp_media")])
-
-(define_insn "cmpsieqdf_media"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
@@ -10859,24 +11160,24 @@ mov.l\\t1f,r0\\n\\
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgtdf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(gt:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(gt:SI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpgt.d	%1,%2,%0"
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgedf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(ge:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(ge:SI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpge.d	%1,%2,%0"
   [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpundf_media"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unordered:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unordered:SI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 		      (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
   "fcmpun.d	%1,%2,%0"
@@ -11106,8 +11407,8 @@ mov.l\\t1f,r0\\n\\
 
 (define_insn "movua"
   [(set (match_operand:SI 0 "register_operand" "=z")
-	(sign_extract:SI (match_operand:SI 1 "unaligned_load_operand" "Sua>")
-			 (const_int 32) (const_int 0)))]
+	(unspec:SI [(match_operand:BLK 1 "unaligned_load_operand" "Sua>")]
+		   UNSPEC_MOVUA))]
   "TARGET_SH4A_ARCH"
   "movua.l	%1,%0"
   [(set_attr "type" "movua")])
@@ -11140,8 +11441,9 @@ mov.l\\t1f,r0\\n\\
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
       && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
     {
-      emit_insn (gen_movua (operands[0],
-			    adjust_address (operands[1], SImode, 0)));
+      rtx src = adjust_address (operands[1], BLKmode, 0);
+      set_mem_size (src, GEN_INT (4));
+      emit_insn (gen_movua (operands[0], src));
       DONE;
     }
 
@@ -11160,8 +11462,9 @@ mov.l\\t1f,r0\\n\\
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
       && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
     {
-      emit_insn (gen_movua (operands[0],
-			    adjust_address (operands[1], SImode, 0)));
+      rtx src = adjust_address (operands[1], BLKmode, 0);
+      set_mem_size (src, GEN_INT (4));
+      emit_insn (gen_movua (operands[0], src));
       DONE;
     }
 
@@ -13080,9 +13383,8 @@ mov.l\\t1f,r0\\n\\
   emit_insn (gen_adddi3 (scratch, scratch, GEN_INT (-64)));
   emit_insn (gen_movdicc_false (scratch, operands[1], const0_rtx, scratch));
   last = emit_insn (gen_subdi3 (operands[0], const0_rtx, scratch));
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL,
-			 gen_rtx_FFS (DImode, operands[0]), REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL, gen_rtx_FFS (DImode, operands[0]));
+
   DONE;
 }")
 
@@ -13105,9 +13407,8 @@ mov.l\\t1f,r0\\n\\
   emit_insn (gen_nsbsi (scratch, discratch));
   last = emit_insn (gen_subsi3 (operands[0],
 				force_reg (SImode, GEN_INT (63)), scratch));
-  REG_NOTES (last)
-    = gen_rtx_EXPR_LIST (REG_EQUAL,
-			 gen_rtx_FFS (SImode, operands[0]), REG_NOTES (last));
+  set_unique_reg_note (last, REG_EQUAL, gen_rtx_FFS (SImode, operands[0]));
+
   DONE;
 }")
 

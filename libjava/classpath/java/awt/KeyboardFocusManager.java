@@ -1,5 +1,5 @@
 /* KeyboardFocusManager.java -- manage component focusing via the keyboard
-   Copyright (C) 2002, 2004  Free Software Foundation
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -304,10 +304,7 @@ public abstract class KeyboardFocusManager
    */
   public Component getFocusOwner ()
   {
-    Component owner = (Component) getObject (currentFocusOwners);
-    if (owner == null)
-      owner = (Component) getObject (currentPermanentFocusOwners);
-    return owner;
+    return (Component) getObject (currentFocusOwners);
   }
 
   /**
@@ -323,10 +320,7 @@ public abstract class KeyboardFocusManager
    */
   protected Component getGlobalFocusOwner ()
   {
-    // Check if there is a temporary focus owner.
-    Component focusOwner = (Component) getGlobalObject (currentFocusOwners);
-
-    return (focusOwner == null) ? getGlobalPermanentFocusOwner () : focusOwner;
+    return (Component) getGlobalObject(currentFocusOwners, true);
   }
 
   /**
@@ -409,7 +403,7 @@ public abstract class KeyboardFocusManager
    */
   protected Component getGlobalPermanentFocusOwner ()
   {
-    return (Component) getGlobalObject (currentPermanentFocusOwners);
+    return (Component) getGlobalObject (currentPermanentFocusOwners, true);
   }
 
   /**
@@ -455,7 +449,7 @@ public abstract class KeyboardFocusManager
    */
   protected Window getGlobalFocusedWindow ()
   {
-    return (Window) getGlobalObject (currentFocusedWindows);
+    return (Window) getGlobalObject (currentFocusedWindows, true);
   }
 
   /**
@@ -497,7 +491,7 @@ public abstract class KeyboardFocusManager
    */
   protected Window getGlobalActiveWindow()
   {
-    return (Window) getGlobalObject (currentActiveWindows);
+    return (Window) getGlobalObject (currentActiveWindows, true);
   }
 
   /**
@@ -561,7 +555,9 @@ public abstract class KeyboardFocusManager
    * @see #UP_CYCLE_TRAVERSAL_KEYS
    * @see #DOWN_CYCLE_TRAVERSAL_KEYS
    */
-  public void setDefaultFocusTraversalKeys (int id, Set keystrokes)
+  public void setDefaultFocusTraversalKeys (int id,
+					    Set<? extends AWTKeyStroke>
+					    keystrokes)
   {
     if (id != KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS &&
         id != KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS &&
@@ -633,7 +629,7 @@ public abstract class KeyboardFocusManager
    * @see #UP_CYCLE_TRAVERSAL_KEYS
    * @see #DOWN_CYCLE_TRAVERSAL_KEYS
    */
-  public Set getDefaultFocusTraversalKeys (int id)
+  public Set<AWTKeyStroke> getDefaultFocusTraversalKeys (int id)
   {
     if (id < FORWARD_TRAVERSAL_KEYS || id > DOWN_CYCLE_TRAVERSAL_KEYS)
       throw new IllegalArgumentException ();
@@ -663,7 +659,7 @@ public abstract class KeyboardFocusManager
    */
   protected Container getGlobalCurrentFocusCycleRoot ()
   {
-    return (Container) getGlobalObject (currentFocusCycleRoots);
+    return (Container) getGlobalObject (currentFocusCycleRoots, true);
   }
 
   /**
@@ -995,9 +991,9 @@ public abstract class KeyboardFocusManager
    * @return A list of explicitly registered key event dispatchers.
    * @see KeyboardFocusManager#addKeyEventDispatcher(java.awt.KeyEventDispatcher)
    */
-  protected List getKeyEventDispatchers ()
+  protected List<KeyEventDispatcher> getKeyEventDispatchers ()
   {
-    return (List) keyEventDispatchers.clone ();
+    return (List<KeyEventDispatcher>) keyEventDispatchers.clone ();
   }
 
   /**
@@ -1052,9 +1048,9 @@ public abstract class KeyboardFocusManager
    * @return A list of explicitly registered key event post processors.
    * @see KeyboardFocusManager#addKeyEventPostProcessor(java.awt.KeyEventPostProcessor)
    */
-  protected List getKeyEventPostProcessors ()
+  protected List<KeyEventPostProcessor> getKeyEventPostProcessors ()
   {
-    return (List) keyEventPostProcessors.clone ();
+    return (List<KeyEventPostProcessor>) keyEventPostProcessors.clone ();
   }
 
   /**
@@ -1105,11 +1101,9 @@ public abstract class KeyboardFocusManager
    */
   public final void redispatchEvent (Component target, AWTEvent e)
   {
-    synchronized (e)
-      {
-        e.setSource (target);
-        target.dispatchEvent (e);
-      }
+    e.isFocusManagerEvent = true;
+    target.dispatchEvent (e);
+    e.isFocusManagerEvent = false;
   }
 
   /**
@@ -1355,17 +1349,19 @@ public abstract class KeyboardFocusManager
    * @see #getGlobalActiveWindow()
    * @see #getGlobalCurrentFocusCycleRoot()
    */
-  private Object getGlobalObject (Map globalMap)
+  private Object getGlobalObject (Map globalMap, boolean checkThread)
   {
-    ThreadGroup currentGroup = Thread.currentThread ().getThreadGroup ();
-    KeyboardFocusManager managerForCallingThread
-      = (KeyboardFocusManager) currentKeyboardFocusManagers.get (currentGroup);
+    if (checkThread)
+      {
+        ThreadGroup currentGroup = Thread.currentThread ().getThreadGroup ();
+        KeyboardFocusManager managerForCallingThread =
+         (KeyboardFocusManager) currentKeyboardFocusManagers.get(currentGroup);
 
-    if (this != managerForCallingThread)
-      throw new SecurityException ("Attempted to retrieve an object from a "
-                                   + "keyboard focus manager that isn't "
-                                   + "associated with the current thread group.");
-
+        if (this != managerForCallingThread)
+          throw new SecurityException ("Attempted to retrieve an object from a "
+                                       + "keyboard focus manager that isn't "
+                                + "associated with the current thread group.");
+      }
     synchronized (globalMap)
       {
         Collection globalObjects = globalMap.values ();
@@ -1406,7 +1402,7 @@ public abstract class KeyboardFocusManager
     synchronized (globalMap)
       {
         // Save old object.
-        Object oldObject = getGlobalObject (globalMap);
+        Object oldObject = getGlobalObject(globalMap, false);
 
         // Nullify old object.
         Collection threadGroups = globalMap.keySet ();
@@ -1435,5 +1431,49 @@ public abstract class KeyboardFocusManager
           {
           }
       }
+  }
+
+  
+  /**
+   * Maps focus requests from heavyweight to lightweight components.
+   */
+  private static HashMap focusRequests = new HashMap();
+
+  /**
+   * Retargets focus events that come from the peer (which only know about
+   * heavyweight components) to go to the correct lightweight component
+   * if appropriate.
+   *
+   * @param ev the event to check
+   *
+   * @return the retargetted event
+   */
+  static AWTEvent retargetFocusEvent(AWTEvent ev)
+  {
+    if (ev instanceof FocusEvent)
+      {
+        FocusEvent fe = (FocusEvent) ev;
+        Component target = fe.getComponent();
+        if (focusRequests.containsKey(target))
+          {
+            Component lightweight = (Component) focusRequests.get(target);
+            ev = new FocusEvent(lightweight, fe.id, fe.isTemporary());
+            focusRequests.remove(target);
+          }
+      }
+    return ev;
+  }
+
+  /**
+   * Adds a lightweight focus request for a heavyweight component.
+   *
+   * @param heavyweight the heavyweight from which we will receive a focus
+   *        event soon
+   * @param lightweight the lightweight that ultimately receives the request
+   */
+  static void addLightweightFocusRequest(Component heavyweight,
+                                         Component lightweight)
+  {
+    focusRequests.put(heavyweight, lightweight);
   }
 }

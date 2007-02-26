@@ -37,6 +37,8 @@ Boston, MA 02110-1301, USA.  */
     {						\
       builtin_define ("__mn10300__");		\
       builtin_define ("__MN10300__");		\
+      builtin_assert ("cpu=mn10300");		\
+      builtin_assert ("machine=mn10300");	\
     }						\
   while (0)
 
@@ -88,7 +90,7 @@ extern enum processor_type mn10300_processor;
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY		32
 
-/* The stack goes in 32 bit lumps.  */
+/* The stack goes in 32-bit lumps.  */
 #define STACK_BOUNDARY 		32
 
 /* Allocation boundary (in *bits*) for the code of a function.
@@ -777,9 +779,7 @@ while (0)
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)        \
-  if (GET_CODE (ADDR) == POST_INC) \
-    goto LABEL
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */

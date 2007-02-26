@@ -319,6 +319,16 @@ default_invalid_within_doloop (rtx insn)
   return NULL;
 }
 
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type_out ATTRIBUTE_UNUSED,
+				     tree type_in ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,

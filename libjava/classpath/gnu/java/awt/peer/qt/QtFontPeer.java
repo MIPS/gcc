@@ -1,5 +1,5 @@
 /* QtFontPeer.java --
-   Copyright (C)  2005  Free Software Foundation, Inc.
+   Copyright (C)  2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -46,7 +46,6 @@ import java.awt.font.LineMetrics;
 import java.text.CharacterIterator;
 import java.util.Locale;
 import java.util.Map;
-import java.awt.peer.FontPeer;
 
 import gnu.java.awt.peer.ClasspathFontPeer;
 
@@ -195,15 +194,4 @@ public class QtFontPeer extends ClasspathFontPeer
     throw new UnsupportedOperationException();
   }
 
-  public Rectangle2D getStringBounds (Font font, 
-				      CharacterIterator ci, 
-				      int begin, int limit, 
-				      FontRenderContext frc)
-  {
-    int index = begin;
-    String s = "" + ci.setIndex( index );
-    while( index++ <= limit )
-      s = s + ci.next();
-    return metrics.getStringBounds(s);
-  }
 }

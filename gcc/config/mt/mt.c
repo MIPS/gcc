@@ -701,7 +701,7 @@ mt_legitimate_address_p (enum machine_mode mode, rtx xinsn, int strict)
 }
 
 /* Return truth value of whether OP can be used as an operands where a
-   register or 16 bit unsigned integer is needed.  */
+   register or 16-bit unsigned integer is needed.  */
 
 int
 uns_arith_operand (rtx op, enum machine_mode mode)
@@ -713,7 +713,7 @@ uns_arith_operand (rtx op, enum machine_mode mode)
 }
 
 /* Return truth value of whether OP can be used as an operands where a
-   16 bit integer is needed.  */
+   16-bit integer is needed.  */
 
 int
 arith_operand (rtx op, enum machine_mode mode)
@@ -884,10 +884,10 @@ mt_compute_frame_size (int size)
         }
     }
 
-  current_frame_info.save_fp = (regs_ever_live [GPR_FP]
+  current_frame_info.save_fp = (df_regs_ever_live_p (GPR_FP)
 				|| frame_pointer_needed
 				|| interrupt_handler);
-  current_frame_info.save_lr = (regs_ever_live [GPR_LINK]
+  current_frame_info.save_lr = (df_regs_ever_live_p (GPR_LINK)
 				|| profile_flag
 				|| interrupt_handler);
  

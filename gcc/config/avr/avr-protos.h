@@ -1,6 +1,6 @@
 /* Prototypes for exported functions defined in avr.c
    
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -36,7 +36,6 @@ extern void asm_globalize_label (FILE *file, const char *name);
 extern void order_regs_for_local_alloc (void);
 extern int initial_elimination_offset (int from, int to);
 extern int avr_simple_epilogue (void);
-extern int mask_one_bit_p (HOST_WIDE_INT mask);
 extern void gas_output_limited_string (FILE *file, const char *str);
 extern void gas_output_ascii (FILE *file, const char *str, size_t length);
 
@@ -113,7 +112,6 @@ extern int test_hard_reg_class (enum reg_class class, rtx x);
 extern int jump_over_one_insn_p (rtx insn, rtx dest);
 
 extern int avr_hard_regno_mode_ok (int regno, enum machine_mode mode);
-extern int call_insn_operand (rtx op, enum machine_mode mode);
 extern void final_prescan_insn (rtx insn, rtx *operand, int num_operands);
 extern int avr_simplify_comparison_p (enum machine_mode mode,
 				      RTX_CODE operator, rtx x);
@@ -122,7 +120,6 @@ extern int compare_eq_p (rtx insn);
 extern void out_shift_with_cnt (const char *template, rtx insn,
 				rtx operands[], int *len, int t_len);
 extern int avr_io_address_p (rtx x, int size);
-extern int const_int_pow2_p (rtx x);
 extern int avr_peep2_scratch_safe (rtx reg_rtx);
 #endif /* RTX_CODE */
 

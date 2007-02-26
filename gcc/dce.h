@@ -23,8 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 struct df;
 
-extern bool run_dce (void);
 extern bool run_fast_dce (void);
-extern void run_fast_df_dce (struct df *);
+extern void run_fast_df_dce (void);
 
 #endif /* GCC_DCE_H */

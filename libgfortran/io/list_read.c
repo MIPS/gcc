@@ -163,37 +163,50 @@ next_char (st_parameter_dt *dtp)
 	dtp->u.p.line_buffer_enabled = 0;
     }    
 
-  /* Handle the end-of-record condition for internal array unit */
-  if (is_array_io(dtp) && dtp->u.p.current_unit->bytes_left == 0)
+  /* Handle the end-of-record and end-of-file conditions for
+     internal array unit.  */
+  if (is_array_io(dtp))
     {
-      c = '\n';
-      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
-
-      /* Check for "end-of-file" condition */      
-      if (record == 0)
+      if (dtp->u.p.at_eof)
 	longjmp (*dtp->u.p.eof_jump, 1);
 
-      record *= dtp->u.p.current_unit->recl;
-      
-      if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
-	longjmp (*dtp->u.p.eof_jump, 1);
+      /* Check for "end-of-record" condition.  */
+      if (dtp->u.p.current_unit->bytes_left == 0)
+	{
+	  c = '\n';
+	  record = next_array_record (dtp, dtp->u.p.current_unit->ls);
 
-      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
-      goto done;
+	  /* Check for "end-of-file" condition.  */      
+	  if (record == 0)
+	    {
+	      dtp->u.p.at_eof = 1;
+	      goto done;
+	    }
+
+	  record *= dtp->u.p.current_unit->recl;
+	  if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	    longjmp (*dtp->u.p.eof_jump, 1);
+
+	  dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+	  goto done;
+	}
     }
 
-  /* Get the next character and handle end-of-record conditions */
+  /* Get the next character and handle end-of-record conditions.  */
 
   length = 1;
 
   p = salloc_r (dtp->u.p.current_unit->s, &length);
+  
+  if (is_stream_io (dtp))
+    dtp->u.p.current_unit->strm_pos++;
 
   if (is_internal_unit(dtp))
     {
       if (is_array_io(dtp))
 	{
 	  /* End of record is handled in the next pass through, above.  The
-	     check for NULL here is cautionary. */
+	     check for NULL here is cautionary.  */
 	  if (p == NULL)
 	    {
 	      generate_error (&dtp->common, ERROR_INTERNAL_UNIT, NULL);
@@ -294,10 +307,7 @@ eat_separator (st_parameter_dt *dtp)
       if (n == '\n')
 	dtp->u.p.at_eol = 1;
       else
-        {
-	  unget_char (dtp, n);
-	  unget_char (dtp, c);
-        } 
+	unget_char (dtp, n);
       break;
 
     case '\n':
@@ -352,7 +362,8 @@ finish_separator (st_parameter_dt *dtp)
 
     case '/':
       dtp->u.p.input_complete = 1;
-      if (!dtp->u.p.namelist_mode) next_record (dtp, 0);
+      if (!dtp->u.p.namelist_mode)
+	return;
       break;
 
     case '\n':
@@ -1482,15 +1493,16 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
 
       c = eat_spaces (dtp);
       if (is_separator (c))
-	{			/* Found a null value.  */
+	{
+	  /* Found a null value.  */
 	  eat_separator (dtp);
 	  dtp->u.p.repeat_count = 0;
 
-	  /* eat_separator sets this flag if the separator was a comma */
+	  /* eat_separator sets this flag if the separator was a comma.  */
 	  if (dtp->u.p.comma_flag)
 	    goto cleanup;
 
-	  /* eat_separator sets this flag if the separator was a \n or \r */
+	  /* eat_separator sets this flag if the separator was a \n or \r.  */
 	  if (dtp->u.p.at_eol)
 	    finish_separator (dtp);
 	  else
@@ -1515,7 +1527,7 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
       else
         {
 	  eat_spaces (dtp);
-          /* trailing spaces prior to end of line */
+          /* Trailing spaces prior to end of line.  */
 	  if (dtp->u.p.at_eol)
 	    finish_separator (dtp);
         }
@@ -2031,7 +2043,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   index_type dlen;
   index_type m;
   index_type obj_name_len;
-  void * pdata ;
+  void * pdata;
 
   /* This object not touched in name parsing.  */
 
@@ -2214,12 +2226,12 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	 and set the flag to zero to prevent further warnings.  */
       if (dtp->u.p.expanded_read == 2)
 	{
-	  notify_std (GFC_STD_GNU, "Non-standard expanded namelist read.");
+	  notify_std (&dtp->common, GFC_STD_GNU, "Non-standard expanded namelist read.");
 	  dtp->u.p.expanded_read = 0;
 	}
 
       /* If the expanded read warning flag is set, increment it,
-	 indicating that a single read has occured.  */
+	 indicating that a single read has occurred.  */
       if (dtp->u.p.expanded_read >= 1)
 	dtp->u.p.expanded_read++;
 
@@ -2298,7 +2310,7 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
       c = next_char (dtp);
       if (c != '?')
 	{
-	  st_sprintf (nml_err_msg, "namelist read: missplaced = sign");
+	  st_sprintf (nml_err_msg, "namelist read: misplaced = sign");
 	  goto nml_err_ret;
 	}
       nml_query (dtp, '=');
