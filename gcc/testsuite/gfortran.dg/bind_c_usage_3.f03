@@ -9,7 +9,7 @@ module test
   type, bind(c) :: my_type ! { dg-error "BIND.C. derived type" }
      integer(c_int), allocatable :: ptr(:) ! { dg-error "cannot have the ALLOCATABLE attribute" }
   end type my_type
-  
+
   type foo ! { dg-error "must have the BIND attribute" }
     integer(c_int) :: p 
   end type foo 

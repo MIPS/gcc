@@ -242,8 +242,8 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
   sym->ts = *ts;
   sym->attr.implicit_type = 1;
 
-  if(sym->attr.is_bind_c == 1)
-  {
+  if (sym->attr.is_bind_c == 1)
+    {
       /* BIND(C) variables should not be implicitly declared.  */
       gfc_warning_now ("Implicitly declared BIND(C) variable '%s' at %L may "
                        "not be C interoperable", sym->name, &sym->declared_at);
@@ -266,7 +266,8 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
                            &(sym->ns->proc_name->declared_at));
           sym->ts.f90_type = sym->ts.type;
         }
-  }
+    }
+  
   return SUCCESS;
 }
 
@@ -1256,15 +1257,22 @@ gfc_add_access (symbol_attribute * attr, gfc_access access,
 /* Set the is_bind_c field for the given symbol_attribute.  */
 
 try
-gfc_add_is_bind_c (symbol_attribute *attr, locus *where)
+gfc_add_is_bind_c (symbol_attribute *attr, locus *where,
+                   int is_proc_lang_bind_spec)
 {
-  attr->is_bind_c = 1;
+  if (is_proc_lang_bind_spec == 0 && attr->flavor == FL_PROCEDURE)
+      gfc_error_now ("BIND(C) attribute at %L can only be used for "
+                     "variables or common blocks", where);
+  else if (attr->is_bind_c)
+        gfc_error_now ("Duplicate BIND attribute specified at %L", where);
+  else
+      attr->is_bind_c = 1;
   
   if (where == NULL)
     where = &gfc_current_locus;
    
   if (gfc_notify_std (GFC_STD_F2003,
-		      "New in Fortran 2003: BIND(C) at %L", where)
+                      "New in Fortran 2003: BIND(C) at %L", where)
       == FAILURE)
     return FAILURE;
 
@@ -1368,7 +1376,8 @@ gfc_missing_attr (symbol_attribute * attr ATTRIBUTE_UNUSED,
 try
 gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
 {
-
+  int is_proc_lang_bind_spec;
+  
   if (src->allocatable && gfc_add_allocatable (dest, where) == FAILURE)
     goto fail;
 
@@ -1447,14 +1456,16 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
   if (src->intrinsic)
     dest->intrinsic = 1;
 
-  if(src->is_bind_c && gfc_add_is_bind_c(dest, where) != SUCCESS)
-     return FAILURE;
-  if(src->is_c_interop)
-     dest->is_c_interop = 1;
-  if(src->is_iso_c)
-     dest->is_iso_c = 1;
-  if(src->in_proc_decl)
-     dest->in_proc_decl = 1;
+  is_proc_lang_bind_spec = (src->flavor == FL_PROCEDURE ? 1 : 0);
+  if (src->is_bind_c && gfc_add_is_bind_c (dest, where, is_proc_lang_bind_spec)
+      != SUCCESS)
+    return FAILURE;
+  if (src->is_c_interop)
+    dest->is_c_interop = 1;
+  if (src->is_iso_c)
+    dest->is_iso_c = 1;
+  if (src->in_proc_decl)
+    dest->in_proc_decl = 1;
   
   return SUCCESS;
 
@@ -1964,7 +1975,7 @@ gfc_new_symtree (gfc_symtree ** root, const char *name)
 
   st = gfc_getmem (sizeof (gfc_symtree));
   st->name = gfc_get_string (name);
-
+  
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
 }
@@ -2961,8 +2972,8 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
     {
       derived_sym->ts.is_c_interop = 0;
       gfc_error_now ("Derived type '%s' declared at %L must have the BIND "
-		     "attribute to be C interoperable", derived_sym->name,
-		     &(derived_sym->declared_at));
+                     "attribute to be C interoperable", derived_sym->name,
+                     &(derived_sym->declared_at));
       retval = FAILURE;
     }
   
@@ -2987,7 +2998,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 	 they're c_ptr or c_funptr. J3/04-007, Section 15.2.3, C1502.  */
       if (curr_comp->ts.type == BT_DERIVED &&
 	  curr_comp->ts.derived->ts.is_iso_c != 1)
-	{
+        {
           /* This should be allowed; the draft says a derived-type can not
              have type parameters if it is has the BIND attribute.  Type
              parameters seem to be for making parameterized derived types.
@@ -3014,18 +3025,18 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 	      if (derived_sym->attr.is_bind_c == 1)
 		/* If the derived type is bind(c), all fields must be interop.	*/
 		gfc_warning ("Component '%s' in derived type '%s' at %L "
-				 "may not be C interoperable, even though "
-				 "derived type '%s' is BIND(C)",
-				 curr_comp->name, derived_sym->name,
-				 &(curr_comp->loc), derived_sym->name);
+                             "may not be C interoperable, even though "
+                             "derived type '%s' is BIND(C)",
+                             curr_comp->name, derived_sym->name,
+                             &(curr_comp->loc), derived_sym->name);
 	      else
 		/* If derived type is param to bind(c) routine, or to one
 		   of the iso_c_binding procs, it must be interoperable, so
 		   all fields must interop too.	 */
 		gfc_warning ("Component '%s' in derived type '%s' at %L "
-				 "may not be C interoperable",
-				 curr_comp->name, derived_sym->name,
-				 &(curr_comp->loc));
+                             "may not be C interoperable",
+                             curr_comp->name, derived_sym->name,
+                             &(curr_comp->loc));
 	    }
 	  
 	  /* The components can not be pointers (fortran sense).  
@@ -3033,9 +3044,9 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 	  if (curr_comp->pointer != 0)
 	    {
 	      gfc_error ("Component '%s' at %L cannot have the "
-			     "POINTER attribute because it is a member "
+                         "POINTER attribute because it is a member "
                          "of the BIND(C) derived type '%s' at %L",
-			     curr_comp->name, &(curr_comp->loc),
+                         curr_comp->name, &(curr_comp->loc),
                          derived_sym->name, &(derived_sym->declared_at));
 	      retval = FAILURE;
 	    }
@@ -3069,8 +3080,8 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
   if (derived_sym->attr.sequence != 0)
     {
       gfc_error ("Derived type '%s' at %L cannot have the SEQUENCE "
-		     "attribute because it is BIND(C)", derived_sym->name,
-		     &(derived_sym->declared_at));
+                 "attribute because it is BIND(C)", derived_sym->name,
+                 &(derived_sym->declared_at));
       retval = FAILURE;
     }
 
@@ -3153,7 +3164,7 @@ gen_special_c_interop_ptrs (const char *kinds[],
                  regular version of the thing should have been put in the
                  current ns.  */
               gfc_error_now ("'%s' at %C requires '%s' to be defined",
-		       tmp_sym->name, kinds[i]);
+                             tmp_sym->name, kinds[i]);
               if (strcmp (kinds[i], "c_ptr") == 0)
                 {
                   generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
@@ -3275,7 +3286,7 @@ gen_cptr_param (gfc_formal_arglist **head,
       gfc_error_now ("Type 'C_PTR' required for ISO_C_BINDING function at %C");
       generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
                                    (char *)"c_ptr");
-  gfc_get_ha_symbol (c_ptr_type, &(c_ptr_sym));
+      gfc_get_ha_symbol (c_ptr_type, &(c_ptr_sym));
     }
 
   param_sym->ts.derived = c_ptr_sym;

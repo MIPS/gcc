@@ -171,7 +171,8 @@ try set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents);
 try set_verify_bind_c_com_block (gfc_common_head *com_block,
                                  int num_idents);
 try get_bind_c_idents (void);
-match gfc_match_attr_spec_stmt (gfc_typespec *ts);
+match gfc_match_bind_c_stmt (void);
+match gfc_match_proc_decl_stmt (void);
 match gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result);
 match gfc_match_bind_c (gfc_symbol *sym);
 match gfc_get_type_attr_spec (symbol_attribute *attr);

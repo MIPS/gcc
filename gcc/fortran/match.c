@@ -495,8 +495,8 @@ gfc_match_name_C (char *buffer)
   
   if (!ISALPHA (c) && c != '_')
     {
-      gfc_current_locus = old_loc;
-      return MATCH_NO;
+      gfc_error ("Invalid C name in NAME= specifier at %C");
+      return MATCH_ERROR;
     }
 
   /* continue to read valid variable name characters */
@@ -524,19 +524,27 @@ gfc_match_name_C (char *buffer)
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
-   
+
+  /* See if we stopped because of whitespace. */
+  if (c == ' ')
+    {
+      gfc_gobble_whitespace ();
+      c = gfc_peek_char ();
+      if (c != '"' && c != '\'')
+        {
+          gfc_error ("Embedded space in NAME= specifier at %C");
+          return MATCH_ERROR;
+        }
+    }
+  
   /* If we stopped because we had an invalid character for a C name, report
      that to the user by returning MATCH_NO.  */
-  if (!ISALNUM(buffer[i-1]) && buffer[i-1] != '_' &&
-      buffer[i-1] != '"' && buffer[i-1] != '\'')
+  if (c != '"' && c != '\'')
     {
       gfc_error ("Invalid C name in NAME= specifier at %C");
-      return MATCH_NO;
+      return MATCH_ERROR;
     }
 
-  /* Drop any trailing blanks */
-  gfc_gobble_whitespace ();
-   
   return MATCH_YES;
 }
 

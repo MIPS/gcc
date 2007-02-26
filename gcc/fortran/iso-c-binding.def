@@ -58,7 +58,7 @@ NAMED_INTCST (ISOCBINDING_INTMAX_T, "c_intmax_t", \
 NAMED_INTCST (ISOCBINDING_INTPTR_T, "c_intptr_t", \
               get_int_kind_from_node (ptr_type_node))
 NAMED_INTCST (ISOCBINDING_SIZE_T, "c_size_t", \
-              get_int_kind_from_node (size_type_node))
+              gfc_index_integer_kind)
 NAMED_INTCST (ISOCBINDING_SIGNED_CHAR, "c_signed_char", \
               get_int_kind_from_node (signed_char_type_node))
 

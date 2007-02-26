@@ -5590,6 +5590,62 @@ resolve_values (gfc_symbol * sym)
 }
 
 
+/* Verify that any binding labels used in a given namespace do not collide 
+   with the names or binding labels of any global symbols.  */
+
+static void
+gfc_verify_binding_labels (gfc_symbol *sym)
+{
+  if (sym != NULL && sym->attr.is_bind_c && sym->attr.is_iso_c == 0 &&
+      sym->attr.flavor != FL_DERIVED && sym->attr.use_assoc == 0)
+    {
+      gfc_gsymbol *bind_c_sym;
+      
+      bind_c_sym = gfc_find_gsymbol (gfc_gsym_root, sym->binding_label);
+      if (bind_c_sym != NULL)
+        {
+          if (sym->attr.if_source == IFSRC_DECL &&
+              (bind_c_sym->type != GSYM_SUBROUTINE &&
+               bind_c_sym->type != GSYM_FUNCTION))
+            /* Make sure global procedures don't collide with anything. */
+            gfc_error ("Binding label '%s' at %L collides with the global "
+                       "entity '%s' at %L", sym->binding_label,
+                       &(sym->declared_at), bind_c_sym->name,
+                       &(bind_c_sym->where));
+          else if (sym->attr.contained == 0 &&
+                   (sym->attr.if_source == IFSRC_IFBODY &&
+                    sym->attr.flavor == FL_PROCEDURE) &&
+                   strcmp (bind_c_sym->sym_name, sym->name) != 0)
+            /* Make sure procedures in interface bodies don't collide.  */
+            gfc_error ("Binding label '%s' in interface body at %L collides "
+                       "with the global entity '%s' at %L", sym->binding_label,
+                       &(sym->declared_at), bind_c_sym->name,
+                       &(bind_c_sym->where));
+          else if (sym->attr.contained == 0 &&
+                   (sym->attr.if_source == IFSRC_UNKNOWN))
+            gfc_error ("Binding label '%s' at %L collides with global entity "
+                       "'%s' at %L", sym->binding_label, &(sym->declared_at),
+                       bind_c_sym->name, &(bind_c_sym->where));
+        }
+      else
+        {
+          bind_c_sym = gfc_get_gsymbol (sym->binding_label);
+          bind_c_sym->where = sym->declared_at;
+          bind_c_sym->sym_name = sym->name;
+
+          if (sym->attr.contained == 0)
+            {
+              if (sym->attr.subroutine)
+                bind_c_sym->type = GSYM_SUBROUTINE;
+              else if (sym->attr.function)
+                bind_c_sym->type = GSYM_FUNCTION;
+            }
+        }
+    }
+  return;
+}
+
+
 /* Resolve an index expression.  */
 
 static try
@@ -7593,6 +7649,10 @@ resolve_types (gfc_namespace * ns)
 
   iter_stack = NULL;
   gfc_traverse_ns (ns, gfc_formalize_init_value);
+
+  if (ns->parent == NULL &&
+      (ns->proc_name != NULL && ns->proc_name->from_intmod == INTMOD_NONE))
+    gfc_traverse_ns (ns, gfc_verify_binding_labels);
 
   for (eq = ns->equiv; eq; eq = eq->next)
     resolve_equivalence (eq);

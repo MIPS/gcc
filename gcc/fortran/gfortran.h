@@ -1124,6 +1124,7 @@ typedef struct gfc_gsymbol
   BBT_HEADER(gfc_gsymbol);
 
   const char *name;
+  const char *sym_name;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
@@ -1980,7 +1981,8 @@ try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
-try gfc_add_is_bind_c(symbol_attribute *attr, locus *where);
+try gfc_add_is_bind_c(symbol_attribute *attr, locus *where,
+                      int is_proc_lang_bind_spec);
 try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
 try gfc_add_entry (symbol_attribute *, const char *, locus *);
