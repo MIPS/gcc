@@ -318,6 +318,7 @@ public final class System
    * <dt>gnu.java.io.encoding_scheme_alias.latin?</dt>       <dd>8859_?</dd>
    * <dt>gnu.java.io.encoding_scheme_alias.UTF-8</dt>        <dd>UTF8</dd>
    * <dt>gnu.java.io.encoding_scheme_alias.utf-8</dt>        <dd>UTF8</dd>
+   * <dt>gnu.java.util.zoneinfo.dir</dt>	<dd>Root of zoneinfo tree</dd>
    * </dl>
    *
    * @return the system properties, will never be null
