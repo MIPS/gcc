@@ -1981,7 +1981,7 @@ try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 try gfc_add_volatile (symbol_attribute *, const char *, locus *);
 
 try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
-try gfc_add_is_bind_c(symbol_attribute *attr, locus *where,
+try gfc_add_is_bind_c(symbol_attribute *, const char *,locus *,
                       int is_proc_lang_bind_spec);
 try gfc_add_value (symbol_attribute *, const char *, locus *);
 try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);

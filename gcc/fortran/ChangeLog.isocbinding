@@ -5,6 +5,14 @@ commit to the branch, so that we don't get lost.
 
 2007-02-27  Tobias Burnus  <burnus@net-b.de>
 
+	* fortran/symbol.c (gfc_add_is_bind_c): Add symbol name as argument.
+	(gfc_copy_attr): Update gfc_add_is_bind_c call.
+	* fortran/decl.c (match_attr_spec,set_verify_bind_c_sym,
+	gfc_match_suffix,gfc_match_subroutine,gfc_get_type_attr_spec): Ditto.
+	* fortran/gfortran.h: Update gfc_add_is_bind_c prototype.
+
+2007-02-27  Tobias Burnus  <burnus@net-b.de>
+
 	* fortran/symbol.c (check_conflict): Allow bind(c) for procedural
 	  dummy arguments.
 

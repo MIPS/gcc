@@ -2683,7 +2683,7 @@ match_attr_spec (void)
 	  break;
 
         case DECL_IS_BIND_C:
-           t = gfc_add_is_bind_c(&current_attr, &seen_at[d], 0);
+           t = gfc_add_is_bind_c(&current_attr, NULL, &seen_at[d], 0);
            break;
            
 	case DECL_VALUE:
@@ -2931,7 +2931,7 @@ set_verify_bind_c_sym (gfc_symbol *tmp_sym, int num_idents)
   /* TODO: Do we need to make sure the vars aren't marked private?  */
 
   /* Set the is_bind_c bit in symbol_attribute. */
-  gfc_add_is_bind_c (&(tmp_sym->attr), &gfc_current_locus, 0);   
+  gfc_add_is_bind_c (&(tmp_sym->attr), tmp_sym->name, &gfc_current_locus, 0);
 
   if (set_binding_label (tmp_sym->binding_label, tmp_sym->name, 
 			 num_idents) != SUCCESS)
@@ -3698,7 +3698,7 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
     }
 
   if (is_bind_c == MATCH_YES)
-    if (gfc_add_is_bind_c (&(sym->attr), &gfc_current_locus, 1)
+    if (gfc_add_is_bind_c (&(sym->attr), sym->name, &gfc_current_locus, 1)
         == FAILURE)
       return MATCH_ERROR;
   
@@ -4133,7 +4133,8 @@ gfc_match_subroutine (void)
           gfc_error ("Missing required parentheses before BIND(C) at %C");
           return MATCH_ERROR;
         }
-      if (gfc_add_is_bind_c (&(sym->attr), &(sym->declared_at), 1) == FAILURE)
+      if (gfc_add_is_bind_c (&(sym->attr), sym->name, &(sym->declared_at), 1)
+	  == FAILURE)
         return MATCH_ERROR;
     }
   
@@ -5479,7 +5480,7 @@ gfc_get_type_attr_spec (symbol_attribute *attr)
 	 sure that all fields are interoperable.  This will
 	 need to be a semantic check on the finished derived type.
 	 sect. 15.2.3 (lines 9-12) of f03 draft	 */
-      if (gfc_add_is_bind_c (attr, &gfc_current_locus, 0) != SUCCESS)
+      if (gfc_add_is_bind_c (attr, NULL, &gfc_current_locus, 0) != SUCCESS)
 	return MATCH_ERROR;
 
       /* TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */

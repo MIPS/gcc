@@ -1259,7 +1259,7 @@ gfc_add_access (symbol_attribute * attr, gfc_access access,
 /* Set the is_bind_c field for the given symbol_attribute.  */
 
 try
-gfc_add_is_bind_c (symbol_attribute *attr, locus *where,
+gfc_add_is_bind_c (symbol_attribute *attr, const char *name, locus *where,
                    int is_proc_lang_bind_spec)
 {
   if (is_proc_lang_bind_spec == 0 && attr->flavor == FL_PROCEDURE)
@@ -1278,7 +1278,7 @@ gfc_add_is_bind_c (symbol_attribute *attr, locus *where,
       == FAILURE)
     return FAILURE;
 
-  return check_conflict (attr, NULL, where);
+  return check_conflict (attr, name, where);
 }
 
 
@@ -1459,9 +1459,11 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     dest->intrinsic = 1;
 
   is_proc_lang_bind_spec = (src->flavor == FL_PROCEDURE ? 1 : 0);
-  if (src->is_bind_c && gfc_add_is_bind_c (dest, where, is_proc_lang_bind_spec)
-      != SUCCESS)
+  if (src->is_bind_c
+      && gfc_add_is_bind_c (dest, NULL, where, is_proc_lang_bind_spec)
+        != SUCCESS)
     return FAILURE;
+
   if (src->is_c_interop)
     dest->is_c_interop = 1;
   if (src->is_iso_c)
