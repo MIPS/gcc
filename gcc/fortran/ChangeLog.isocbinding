@@ -3,6 +3,11 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-02-27  Tobias Burnus  <burnus@net-b.de>
+
+	* fortran/symbol.c (check_conflict): Allow bind(c) for procedural
+	  dummy arguments.
+
 2007-02-26  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* gcc/testsuite/gfortran.dg/test_bind_c_parens.f03: New test case

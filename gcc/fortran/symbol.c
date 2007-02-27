@@ -403,7 +403,9 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 
   conf (function, subroutine);
 
-  conf (is_bind_c, dummy);
+  if (!function && !subroutine)
+    conf (is_bind_c, dummy);
+
   conf (is_bind_c, cray_pointer);
   conf (is_bind_c, cray_pointee);
   conf (is_bind_c, allocatable);
