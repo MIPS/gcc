@@ -363,16 +363,16 @@ gimplify_expr_stmt (tree *stmt_p)
      In this case we will not want to emit the gimplified statement.
      However, we may still want to emit a warning, so we do that before
      gimplification.  */
-  if (stmt && (extra_warnings || warn_unused_value))
+  if (stmt && warn_unused_value)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
 	  if (!IS_EMPTY_STMT (stmt)
 	      && !VOID_TYPE_P (TREE_TYPE (stmt))
 	      && !TREE_NO_WARNING (stmt))
-	    warning (OPT_Wextra, "statement with no effect");
+	    warning (OPT_Wunused_value, "statement with no effect");
 	}
-      else if (warn_unused_value)
+      else
 	warn_if_unused_value (stmt, input_location);
     }
 
@@ -672,6 +672,25 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	   && is_invisiref_parm (TREE_OPERAND (stmt, 0)))
     /* Don't dereference an invisiref RESULT_DECL inside a RETURN_EXPR.  */
     *walk_subtrees = 0;
+  else if (TREE_CODE (stmt) == OMP_CLAUSE)
+    switch (OMP_CLAUSE_CODE (stmt))
+      {
+      case OMP_CLAUSE_PRIVATE:
+      case OMP_CLAUSE_SHARED:
+      case OMP_CLAUSE_FIRSTPRIVATE:
+      case OMP_CLAUSE_LASTPRIVATE:
+      case OMP_CLAUSE_COPYIN:
+      case OMP_CLAUSE_COPYPRIVATE:
+	/* Don't dereference an invisiref in OpenMP clauses.  */
+	if (is_invisiref_parm (OMP_CLAUSE_DECL (stmt)))
+	  *walk_subtrees = 0;
+	break;
+      case OMP_CLAUSE_REDUCTION:
+	gcc_assert (!is_invisiref_parm (OMP_CLAUSE_DECL (stmt)));
+	break;
+      default:
+	break;
+      }
   else if (IS_TYPE_OR_DECL_P (stmt))
     *walk_subtrees = 0;
 
@@ -911,5 +930,5 @@ cxx_omp_clause_dtor (tree clause, tree decl)
 bool
 cxx_omp_privatize_by_reference (tree decl)
 {
-  return TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl);
+  return is_invisiref_parm (decl);
 }

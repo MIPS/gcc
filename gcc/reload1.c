@@ -1,7 +1,7 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3100,6 +3100,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	  {
 	    rtx to_rtx = ep->to_rtx;
 	    offset += ep->offset;
+	    offset = trunc_int_for_mode (offset, GET_MODE (reg));
 
 	    if (GET_CODE (XEXP (plus_cst_src, 0)) == SUBREG)
 	      to_rtx = gen_lowpart (GET_MODE (XEXP (plus_cst_src, 0)),
@@ -7831,8 +7832,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       if (insn)
 	{
 	  /* Add a REG_EQUIV note so that find_equiv_reg can find it.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 
@@ -7841,7 +7841,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out, op1, opnum, type);
       insn = emit_insn (gen_add2_insn (out, op0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUIV, in);
     }
 
 #ifdef SECONDARY_MEMORY_NEEDED
@@ -7901,8 +7901,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       insn = emit_insn_if_valid_for_reload (insn);
       if (insn)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 

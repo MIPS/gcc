@@ -160,8 +160,9 @@ in the following sections.
 @table @emph
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
-@gccoptlist{-c  -S  -E  -o @var{file}  -combine -pipe  -pass-exit-codes  @gol
--x @var{language}  -v  -###  --help  --target-help  --version @@@var{file}}
+@gccoptlist{-c  -S  -E  -o @var{file}  -combine  -pipe  -pass-exit-codes  @gol
+-x @var{language}  -v  -###  --help@r{[}=@var{class}@r{]}  --target-help  @gol 
+--version @@@var{file}}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -247,6 +248,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=2 @gol
+-Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wstring-literal-comparison @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
@@ -1078,14 +1080,122 @@ Print (on the standard output) a description of the command line options
 understood by @command{gcc}.  If the @option{-v} option is also specified
 then @option{--help} will also be passed on to the various processes
 invoked by @command{gcc}, so that they can display the command line options
-they accept.  If the @option{-Wextra} option is also specified then command
-line options which have no documentation associated with them will also
-be displayed.
+they accept.  If the @option{-Wextra} option has also been specified
+(prior to the @option{--help} option), then command line options which
+have no documentation associated with them will also be displayed.
 
 @item --target-help
 @opindex target-help
-Print (on the standard output) a description of target specific command
+Print (on the standard output) a description of target-specific command
 line options for each tool.
+
+@item --help=@var{class}@r{[},@var{qualifier}@r{]}
+Print (on the standard output) a description of the command line
+options understood by the compiler that fit into a specific class.
+The class can be one of @var{optimizers}, @var{warnings}, @var{target}
+or @var{params}:
+
+@table @gcctabopt
+@item @var{optimizers}
+This will display all of the optimization options supported by the
+compiler.
+
+@item @var{warnings}
+This will display all of the options controlling warning messages
+produced by the compiler.
+
+@item @var{target}
+This will display target-specific options.  Unlike the
+@option{--target-help} option however, target-specific options of the
+linker and assembler will not be displayed.  This is because those
+tools do not currently support the extended @option{--help=} syntax.
+
+@item @var{params}
+This will display the values recognized by the @option{--param}
+option.
+@end table
+
+It is possible to further refine the output of the @option{--help=}
+option by adding a comma separated list of qualifiers after the
+class.  These can be any from the following list:
+
+@table @gcctabopt
+@item undocumented
+Display only those options which are undocumented.
+
+@item joined
+Display options which take an argument that appears after an equal
+sign in the same continuous piece of text, such as:
+@samp{--help=target}.
+
+@item separate
+Display options which take an argument that appears as a separate word
+following the original option, such as: @samp{-o output-file}.
+@end table
+
+Thus for example to display all the undocumented target-specific
+switches supported by the compiler the following can be used:
+
+@smallexample
+--help=target,undocumented
+@end smallexample
+
+The sense of a qualifier can be inverted by prefixing it with the
+@var{^} character, so for example to display all binary warning
+options (i.e. ones that are either on or off and that do not take an
+argument), which have a description the following can be used:
+
+@smallexample
+--help=warnings,^joined,^undocumented
+@end smallexample
+
+A class can also be used as a qualifier, although this usually
+restricts the output by so much that there is nothing to display.  One
+case where it does work however is when one of the classes is
+@var{target}.  So for example to display all the target-specific
+optimization options the following can be used:
+
+@smallexample
+--help=target,optimizers
+@end smallexample
+
+The @option{--help=} option can be repeated on the command line.  Each
+successive use will display its requested class of options, skipping
+those that have already been displayed.
+
+If the @option{-Q} option appears on the command line before the
+@option{--help=} option, then the descriptive text displayed by
+@option{--help=} is changed.  Instead of describing the displayed
+options, an indication is given as to whether the option is enabled,
+disabled or set to a specific value (assuming that the compiler
+knows this at the point where the @option{--help=} option is used).
+
+Here is a truncated example from the ARM port of @command{gcc}:
+
+@smallexample
+  % gcc -Q -mabi=2 --help=target -c
+  The following options are target specific:
+  -mabi=                                2
+  -mabort-on-noreturn                   [disabled]
+  -mapcs                                [disabled]
+@end smallexample
+
+The output is sensitive to the effects of previous command line
+options, so for example it is possible to find out which optimizations
+are enabled at @option{-O2} by using:
+
+@smallexample
+-O2 --help=optimizers
+@end smallexample
+
+Alternatively you can discover which binary optimizations are enabled
+by @option{-O3} by using:
+
+@smallexample
+gcc -c -Q -O3 --help=optimizers > /tmp/O3-opts
+gcc -c -Q -O2 --help=optimizers > /tmp/O2-opts
+diff /tmp/O2-opts /tmp/O3-opts | grep enabled
+@end smallexample
 
 @item --version
 @opindex version
@@ -2730,10 +2840,14 @@ To suppress this warning use the @samp{unused} attribute
 
 @item -Wunused-value
 @opindex Wunused-value
-Warn whenever a statement computes a result that is explicitly not used.
-This warning is enabled by @option{-Wall}.
+Warn whenever a statement computes a result that is explicitly not
+used. To suppress this warning cast the unused expression to
+@samp{void}. This includes an expression-statement or the left-hand
+side of a comma expression that contains no side effects. For example,
+an expression such as @samp{x[i,j]} will cause a warning, while
+@samp{x[(void)i,j]} will not.
 
-To suppress this warning cast the expression to @samp{void}.
+This warning is enabled by @option{-Wall}.
 
 @item -Wunused
 @opindex Wunused
@@ -2750,7 +2864,7 @@ if a variable may be clobbered by a @code{setjmp} call.
 
 These warnings are possible only in optimizing compilation,
 because they require data flow information that is computed only
-when optimizing.  If you do not specify @option{-O}, you will not get 
+when optimizing.  If you do not specify @option{-O}, you will not get
 these warnings. Instead, GCC will issue a warning about @option{-Wuninitialized}
 requiring @option{-O}.
 
@@ -2859,6 +2973,56 @@ compiler is using for optimization.  This warning catches more cases than
 @option{-Wstrict-aliasing}, but it will also give a warning for some ambiguous
 cases that are safe.
 
+@item -Wstrict-overflow
+@item -Wstrict-overflow=@var{n}
+@opindex -Wstrict-overflow
+This option is only active when @option{-fstrict-overflow} is active.
+It warns about cases where the compiler optimizes based on the
+assumption that signed overflow does not occur.  Note that it does not
+warn about all cases where the code might overflow: it only warns
+about cases where the compiler implements some optimization.  Thus
+this warning depends on the optimization level.
+
+An optimization which assumes that signed overflow does not occur is
+perfectly safe if the values of the variables involved are such that
+overflow never does, in fact, occur.  Therefore this warning can
+easily give a false positive: a warning about code which is not
+actually a problem.  To help focus on important issues, several
+warning levels are defined.
+
+@table @option
+@item -Wstrict-overflow=1
+Warn about cases which are both questionable and easy to avoid.  For
+example: @code{x + 1 > x}; with @option{-fstrict-overflow}, the
+compiler will simplify this to @code{1}.  @option{-Wstrict-overflow}
+(with no level) is the same as @option{-Wstrict-overflow=1}.  This
+level of @option{-Wstrict-overflow} is enabled by @option{-Wall};
+higher levels are not, and must be explicitly requested.
+
+@item -Wstrict-overflow=2
+Also warn about other cases where a comparison is simplified to a
+constant.  For example: @code{abs (x) >= 0}.  This can only be
+simplified when @option{-fstrict-overflow} is in effect, because
+@code{abs (INT_MIN)} overflows to @code{INT_MIN}, which is less than
+zero.
+
+@item -Wstrict-overflow=3
+Also warn about other cases where a comparison is simplified.  For
+example: @code{x + 1 > 1} will be simplified to @code{x > 0}.
+
+@item -Wstrict-overflow=4
+Also warn about other simplifications not covered by the above cases.
+For example: @code{(x * 10) / 5} will be simplified to @code{x * 2}.
+
+@item -Wstrict-overflow=5
+Also warn about cases where the compiler reduces the magnitude of a
+constant involved in a comparison.  For example: @code{x + 2 > y} will
+be simplified to @code{x + 1 >= y}.  This is reported only at the
+highest warning level because this simplification applies to many
+comparisons, so this warning level will give a very large number of
+false positives.
+@end table
+
 @item -Warray-bounds
 @opindex Wno-array-bounds
 @opindex Warray-bounds
@@ -2909,13 +3073,6 @@ foo (a)
 @end smallexample
 
 @item
-An expression-statement or the left-hand side of a comma expression
-contains no side effects.
-To suppress the warning, cast the unused expression to void.
-For example, an expression such as @samp{x[i,j]} will cause a warning,
-but @samp{x[(void)i,j]} will not.
-
-@item
 An unsigned value is compared against zero with @samp{<} or @samp{>=}.
 
 @item @r{(C only)}
@@ -2960,10 +3117,6 @@ A pointer is compared against integer zero with @samp{<}, @samp{<=},
 @item
 A variable might be changed by @samp{longjmp} or @samp{vfork}.
 This warning can be independently controlled by @option{-Wclobbered}.
-
-@item
-Any of several floating-point events that often indicate errors, such as
-overflow, underflow, loss of precision, etc.
 
 @item @r{(C++ only)}
 An enumerator and a non-enumerator both appear in a conditional expression.
@@ -6159,7 +6312,7 @@ before applying @option{--param inline-unit-growth}.  The default is 10000
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 60 which limits unit growth to 1.6 times the original
+The default value is 30 which limits unit growth to 1.3 times the original
 size.
 
 @item large-stack-frame

@@ -1,7 +1,8 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007
+     Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -74,6 +75,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      (4) Scan the function making replacements.
 */
 
+
+/* True if this is the "early" pass, before inlining.  */
+static bool early_sra;
 
 /* The set of todo flags to return from tree_sra.  */
 static unsigned int todoflags;
@@ -341,6 +345,17 @@ decl_can_be_decomposed_p (tree var)
 	}
       return false;
     }
+
+  /* HACK: if we decompose a va_list_type_node before inlining, then we'll
+     confuse tree-stdarg.c, and we won't be able to figure out which and
+     how many arguments are accessed.  This really should be improved in
+     tree-stdarg.c, as the decomposition is truely a win.  This could also
+     be fixed if the stdarg pass ran early, but this can't be done until
+     we've aliasing information early too.  See PR 30791.  */
+  if (early_sra
+      && TYPE_MAIN_VARIANT (TREE_TYPE (var))
+	 == TYPE_MAIN_VARIANT (va_list_type_node))
+    return false;
 
   return true;
 }
@@ -1341,7 +1356,23 @@ instantiate_missing_elements (struct sra_elt *elt)
 	tree f;
 	for (f = TYPE_FIELDS (type); f ; f = TREE_CHAIN (f))
 	  if (TREE_CODE (f) == FIELD_DECL)
-	    instantiate_missing_elements_1 (elt, f, TREE_TYPE (f));
+	    {
+	      tree field_type = TREE_TYPE (f);
+
+	      /* canonicalize_component_ref() unwidens some bit-field
+		 types (not marked as DECL_BIT_FIELD in C++), so we
+		 must do the same, lest we may introduce type
+		 mismatches.  */
+	      if (INTEGRAL_TYPE_P (field_type)
+		  && DECL_MODE (f) != TYPE_MODE (field_type))
+		field_type = TREE_TYPE (get_unwidened (build3 (COMPONENT_REF,
+							       field_type,
+							       elt->element,
+							       f, NULL_TREE),
+						       NULL_TREE));
+
+	      instantiate_missing_elements_1 (elt, f, field_type);
+	    }
 	break;
       }
 
@@ -1692,6 +1723,14 @@ generate_element_ref (struct sra_elt *elt)
     return elt->element;
 }
 
+static tree
+sra_build_assignment (tree dst, tree src)
+{
+  gcc_assert (TYPE_CANONICAL (TYPE_MAIN_VARIANT (TREE_TYPE (dst)))
+	      == TYPE_CANONICAL (TYPE_MAIN_VARIANT (TREE_TYPE (src))));
+  return build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+}
+
 /* Generate a set of assignment statements in *LIST_P to copy all
    instantiated elements under ELT to or from the equivalent structure
    rooted at EXPR.  COPY_OUT controls the direction of the copy, with
@@ -1715,16 +1754,16 @@ generate_copy_inout (struct sra_elt *elt, bool copy_out, tree expr,
       i = c->replacement;
 
       t = build2 (COMPLEX_EXPR, elt->type, r, i);
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, expr, t);
+      t = sra_build_assignment (expr, t);
       SSA_NAME_DEF_STMT (expr) = t;
       append_to_statement_list (t, list_p);
     }
   else if (elt->replacement)
     {
       if (copy_out)
-	t = build2 (GIMPLE_MODIFY_STMT, void_type_node, elt->replacement, expr);
+	t = sra_build_assignment (elt->replacement, expr);
       else
-	t = build2 (GIMPLE_MODIFY_STMT, void_type_node, expr, elt->replacement);
+	t = sra_build_assignment (expr, elt->replacement);
       append_to_statement_list (t, list_p);
     }
   else
@@ -1759,8 +1798,7 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
 
       gcc_assert (src->replacement);
 
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst->replacement,
-		  src->replacement);
+      t = sra_build_assignment (dst->replacement, src->replacement);
       append_to_statement_list (t, list_p);
     }
 }
@@ -1791,7 +1829,7 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
       gcc_assert (elt->is_scalar);
       t = fold_convert (elt->type, integer_zero_node);
 
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, elt->replacement, t);
+      t = sra_build_assignment (elt->replacement, t);
       append_to_statement_list (t, list_p);
     }
 }
@@ -1803,7 +1841,7 @@ static void
 generate_one_element_init (tree var, tree init, tree *list_p)
 {
   /* The replacement can be almost arbitrarily complex.  Gimplify.  */
-  tree stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, var, init);
+  tree stmt = sra_build_assignment (var, init);
   gimplify_and_add (stmt, list_p);
 }
 
@@ -2365,11 +2403,43 @@ tree_sra (void)
   return todoflags;
 }
 
+static unsigned int
+tree_sra_early (void)
+{
+  unsigned int ret;
+
+  early_sra = true;
+  ret = tree_sra ();
+  early_sra = false;
+
+  return ret;
+}
+
 static bool
 gate_sra (void)
 {
   return flag_tree_sra != 0;
 }
+
+struct tree_opt_pass pass_sra_early =
+{
+  "esra",				/* name */
+  gate_sra,				/* gate */
+  tree_sra_early,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_SRA,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,				        /* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func
+  | TODO_update_ssa
+  | TODO_ggc_collect
+  | TODO_verify_ssa,			/* todo_flags_finish */
+  0					/* letter */
+};
 
 struct tree_opt_pass pass_sra =
 {

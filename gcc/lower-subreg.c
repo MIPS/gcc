@@ -80,7 +80,8 @@ simple_move_operand (rtx x)
 
   if (GET_CODE (x) == LABEL_REF
       || GET_CODE (x) == SYMBOL_REF
-      || GET_CODE (x) == HIGH)
+      || GET_CODE (x) == HIGH
+      || GET_CODE (x) == CONST)
     return false;
 
   if (MEM_P (x)
@@ -133,6 +134,11 @@ simple_move (rtx insn)
   if (!SCALAR_INT_MODE_P (mode)
       && (mode_for_size (GET_MODE_SIZE (mode) * BITS_PER_UNIT, MODE_INT, 0)
 	  == BLKmode))
+    return NULL_RTX;
+
+  /* Reject PARTIAL_INT modes.  They are used for processor specific
+     purposes and it's probably best not to tamper with them.  */
+  if (GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
     return NULL_RTX;
 
   return set;
@@ -495,7 +501,7 @@ resolve_subreg_use (rtx *px, void *data)
 	 that the note must be removed.  */
       if (!x)
 	{
-	  gcc_assert(!insn);
+	  gcc_assert (!insn);
 	  return 1;
 	}
 
@@ -705,6 +711,23 @@ resolve_simple_move (rtx set, rtx insn)
       return insn;
     }
 
+  /* It's possible for the code to use a subreg of a decomposed
+     register while forming an address.  We need to handle that before
+     passing the address to emit_move_insn.  We pass NULL_RTX as the
+     insn parameter to resolve_subreg_use because we can not validate
+     the insn yet.  */
+  if (MEM_P (src) || MEM_P (dest))
+    {
+      int acg;
+
+      if (MEM_P (src))
+	for_each_rtx (&XEXP (src, 0), resolve_subreg_use, NULL_RTX);
+      if (MEM_P (dest))
+	for_each_rtx (&XEXP (dest, 0), resolve_subreg_use, NULL_RTX);
+      acg = apply_change_group ();
+      gcc_assert (acg);
+    }
+
   /* If SRC is a register which we can't decompose, or has side
      effects, we need to move via a temporary register.  */
 
@@ -832,6 +855,7 @@ resolve_clobber (rtx pat, rtx insn)
   rtx reg;
   enum machine_mode orig_mode;
   unsigned int words, i;
+  int ret;
 
   reg = XEXP (pat, 0);
   if (!resolve_reg_p (reg) && !resolve_subreg_p (reg))
@@ -841,7 +865,12 @@ resolve_clobber (rtx pat, rtx insn)
   words = GET_MODE_SIZE (orig_mode);
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-  XEXP (pat, 0) = simplify_gen_subreg_concatn (word_mode, reg, orig_mode, 0);
+  ret = validate_change (NULL_RTX, &XEXP (pat, 0),
+			 simplify_gen_subreg_concatn (word_mode, reg,
+						      orig_mode, 0),
+			 0);
+  gcc_assert (ret != 0);
+
   for (i = words - 1; i > 0; --i)
     {
       rtx x;

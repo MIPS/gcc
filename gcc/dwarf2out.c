@@ -4153,7 +4153,6 @@ static void output_ranges (void);
 static void output_line_info (void);
 static void output_file_names (void);
 static dw_die_ref base_type_die (tree);
-static tree root_type (tree);
 static int is_base_type (tree);
 static bool is_subrange_type (tree);
 static dw_die_ref subrange_type_die (tree, dw_die_ref);
@@ -8310,35 +8309,6 @@ base_type_die (tree type)
   return base_type_result;
 }
 
-/* Given a pointer to an arbitrary ..._TYPE tree node, return a pointer to
-   the Dwarf "root" type for the given input type.  The Dwarf "root" type of
-   a given type is generally the same as the given type, except that if the
-   given type is a pointer or reference type, then the root type of the given
-   type is the root type of the "basis" type for the pointer or reference
-   type.  (This definition of the "root" type is recursive.) Also, the root
-   type of a `const' qualified type or a `volatile' qualified type is the
-   root type of the given type without the qualifiers.  */
-
-static tree
-root_type (tree type)
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return error_mark_node;
-
-  switch (TREE_CODE (type))
-    {
-    case ERROR_MARK:
-      return error_mark_node;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      return type_main_variant (root_type (TREE_TYPE (type)));
-
-    default:
-      return type_main_variant (type);
-    }
-}
-
 /* Given a pointer to an arbitrary ..._TYPE tree node, return nonzero if the
    given input type is a Dwarf "fundamental" type.  Otherwise return null.  */
 
@@ -8527,9 +8497,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	  gen_type_die (qualified_type, context_die);
 	  return lookup_type_die (qualified_type);
 	}
-      else if (DECL_ORIGINAL_TYPE (name)
-	       && (is_const_type < TYPE_READONLY (dtype)
-		   || is_volatile_type < TYPE_VOLATILE (dtype)))
+      else if (is_const_type < TYPE_READONLY (dtype)
+	       || is_volatile_type < TYPE_VOLATILE (dtype)
+	       || (is_const_type <= TYPE_READONLY (dtype)
+		   && is_volatile_type <= TYPE_VOLATILE (dtype)
+		   && DECL_ORIGINAL_TYPE (name) != type))
 	/* cv-unqualified version of named type.  Just use the unnamed
 	   type to which it refers.  */
 	return modified_type_die (DECL_ORIGINAL_TYPE (name),
@@ -9232,7 +9204,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  rtx rtl;
 
 	  /* If this is not defined, we have no way to emit the data.  */
-	  if (!targetm.asm_out.output_dwarf_dtprel)
+	  if (!targetm.have_tls || !targetm.asm_out.output_dwarf_dtprel)
 	    return 0;
 
 	  /* The way DW_OP_GNU_push_tls_address is specified, we can only
@@ -9662,6 +9634,24 @@ simple_decl_align_in_bits (tree decl)
   return (TREE_CODE (decl) != ERROR_MARK) ? DECL_ALIGN (decl) : BITS_PER_WORD;
 }
 
+/* Return the result of rounding T up to ALIGN.  */
+
+static inline HOST_WIDE_INT
+round_up_to_align (HOST_WIDE_INT t, unsigned int align)
+{
+  /* We must be careful if T is negative because HOST_WIDE_INT can be
+     either "above" or "below" unsigned int as per the C promotion
+     rules, depending on the host, thus making the signedness of the
+     direct multiplication and division unpredictable.  */
+  unsigned HOST_WIDE_INT u = (unsigned HOST_WIDE_INT) t;
+
+  u += align - 1;
+  u /= align;
+  u *= align;
+
+  return (HOST_WIDE_INT) u;
+}
+
 /* Given a pointer to a FIELD_DECL, compute and return the byte offset of the
    lowest addressed byte of the "containing object" for the given FIELD_DECL,
    or return 0 if we are unable to determine what that offset is, either
@@ -9761,9 +9751,8 @@ field_byte_offset (tree decl)
   object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
   /* Round up to type_align by default.  This works best for bitfields.  */
-  object_offset_in_bits += type_align_in_bits - 1;
-  object_offset_in_bits /= type_align_in_bits;
-  object_offset_in_bits *= type_align_in_bits;
+  object_offset_in_bits
+    = round_up_to_align (object_offset_in_bits, type_align_in_bits);
 
   if (object_offset_in_bits > bitpos_int)
     {
@@ -9771,9 +9760,8 @@ field_byte_offset (tree decl)
       object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
       /* Round up to decl_align instead.  */
-      object_offset_in_bits += decl_align_in_bits - 1;
-      object_offset_in_bits /= decl_align_in_bits;
-      object_offset_in_bits *= decl_align_in_bits;
+      object_offset_in_bits
+	= round_up_to_align (object_offset_in_bits, decl_align_in_bits);
     }
 
   return object_offset_in_bits / BITS_PER_UNIT;
@@ -14396,7 +14384,9 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context && TREE_CODE (context) == FUNCTION_DECL);
+	      gcc_assert (context
+			  && (TREE_CODE (context) == FUNCTION_DECL
+			      || TREE_CODE (context) == NAMESPACE_DECL));
 
 	      origin = lookup_decl_die (context);
 	      if (origin)

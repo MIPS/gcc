@@ -155,6 +155,18 @@ ReentrantReadWriteLock *_envListLock = NULL;
     }						\
   while (0)
 
+#define CHECK_FOR_NATIVE_METHOD(AjmethodID)	\
+  do					\
+    {					\
+      jboolean is_native;		\
+      jvmtiError jerr = env->IsMethodNative (AjmethodID, &is_native);	\
+      if (jerr != JVMTI_ERROR_NONE)					\
+        return jerr;							\
+      if (is_native)							\
+        return JVMTI_ERROR_NATIVE_METHOD;			        \
+    }									\
+  while (0)
+
 static jvmtiError JNICALL
 _Jv_JVMTI_SuspendThread (MAYBE_UNUSED jvmtiEnv *env, jthread thread)
 {
@@ -244,7 +256,7 @@ _Jv_JVMTI_GetAllThreads(MAYBE_UNUSED jvmtiEnv *env, jint *thread_cnt,
 
 static jvmtiError JNICALL
 _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
-                         jint* frame_count)
+                         jint *frame_count)
 {
   REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
   
@@ -253,20 +265,11 @@ _Jv_JVMTI_GetFrameCount (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   using namespace java::lang;
   
   THREAD_DEFAULT_TO_CURRENT (thread);
-  
-  Thread *thr = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (thr);
-  THREAD_CHECK_IS_ALIVE (thr);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
    
-  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
-  (*frame_count) = 0;
-  
-  while (frame != NULL)
-    {
-      (*frame_count)++;
-      frame = frame->next;
-    }
-  
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
+  (*frame_count) = frame->depth ();
   return JVMTI_ERROR_NONE;
 }
 
@@ -730,6 +733,31 @@ _Jv_JVMTI_IsMethodSynthetic (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
 }
 
 static jvmtiError JNICALL
+_Jv_JVMTI_GetMaxLocals (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
+                        jint *max_locals)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_START | JVMTI_PHASE_LIVE);
+  NULL_CHECK (max_locals);
+  
+  CHECK_FOR_NATIVE_METHOD (method);
+  
+  jclass klass;
+  jvmtiError jerr = env->GetMethodDeclaringClass (method, &klass);
+  if (jerr != JVMTI_ERROR_NONE)
+    return jerr;
+
+  _Jv_InterpMethod *imeth = reinterpret_cast<_Jv_InterpMethod *> 
+                              (_Jv_FindInterpreterMethod (klass, method));
+    
+  if (imeth == NULL)
+    return JVMTI_ERROR_INVALID_METHODID;
+  
+  *max_locals = imeth->get_max_locals ();
+  
+  return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
 _Jv_JVMTI_GetMethodDeclaringClass (MAYBE_UNUSED jvmtiEnv *env,
 				   jmethodID method,
 				   jclass *declaring_class_ptr)
@@ -796,10 +824,8 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   using namespace java::lang;
   
   THREAD_DEFAULT_TO_CURRENT (thread);
-  
-  Thread *thr = reinterpret_cast<Thread *> (thread);
-  THREAD_CHECK_VALID (thr);
-  THREAD_CHECK_IS_ALIVE (thr);
+  THREAD_CHECK_VALID (thread);
+  THREAD_CHECK_IS_ALIVE (thread);
     
   jvmtiError jerr = env->GetFrameCount (thread, frame_count);
   if (jerr != JVMTI_ERROR_NONE)
@@ -813,7 +839,7 @@ _Jv_JVMTI_GetStackTrace (MAYBE_UNUSED jvmtiEnv *env, jthread thread,
   ILLEGAL_ARGUMENT (start_depth >= (*frame_count));
   ILLEGAL_ARGUMENT (start_depth < (-(*frame_count)));
   
-  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thr->frame);
+  _Jv_Frame *frame = reinterpret_cast<_Jv_Frame *> (thread->frame);
 
   // If start_depth is negative use this to determine at what depth to start
   // the trace by adding it to the length of the call stack.  This allows the
@@ -1656,7 +1682,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   _Jv_JVMTI_GetMethodDeclaringClass,  // GetMethodDeclaringClass
   _Jv_JVMTI_GetMethodModifiers,	// GetMethodModifers
   RESERVED,			// reserved67
-  UNIMPLEMENTED,		// GetMaxLocals
+  _Jv_JVMTI_GetMaxLocals,		// GetMaxLocals
   UNIMPLEMENTED,		// GetArgumentsSize
   _Jv_JVMTI_GetLineNumberTable,	// GetLineNumberTable
   UNIMPLEMENTED,		// GetMethodLocation

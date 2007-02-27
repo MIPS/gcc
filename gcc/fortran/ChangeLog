@@ -1,3 +1,92 @@
+2007-02-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30779
+	* scanner.c (gfc_next_char_literal): Add check for end of file after
+	call to advance_line.
+
+2007-02-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30799
+	* primary.c (match_logical_constant): Return MATCH_ERROR on invalid
+	kind.
+
+2007-02-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* misc.c (gfc_typename): Fix potential buffer overflow.
+
+2007-02-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30554
+	* module.c (read_module): Set pointer_info to referenced if the
+	symbol has no namespace.
+
+2007-02-12  Nick Clifton  <nickc@redhat.com>
+
+	* lang.opt:  Add Warning attribute to warning options.
+
+2007-02-11  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (HOSTNM): Fix typographical error in syntax.
+	(SLEEP): Added section and documentation.
+
+2007-02-11  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/30478
+	* decl.c (add_init_expr_to_sym): Remove ENUM specific code.
+	(variable_decl): Likewise.  Rewrap comment.
+	(match_attr_spec): Remove ENUM specific code.
+	(gfc_match_enum): Fix typo in error message.
+	(enumerator_decl): New function.
+	(gfc_match_enumerator_def): Use enumerator_decl instead of
+	variable_decl.  Adapt code accordingly.
+
+2007-02-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30554
+	* module.c (find_symtree_for_symbol): New function to return
+	a symtree that is not a "unique symtree" given a symbol.
+	(read_module): Do not automatically set pointer_info to
+	referenced because this inhibits the generation of a unique
+	symtree.  Recycle the existing symtree if possible by calling
+	find_symtree_for_symbol.
+
+	PR fortran/30319
+	* decl.c (add_init_expr_to_sym): Make new charlen for an array
+	constructor initializer.
+
+2007-02-10  Richard Henderson  <rth@redhat.com>, Jakub Jelinek  <jakub@redhat.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Add __emutls_get_address
+	and __emutls_register_common.
+	* openmp.c (gfc_match_omp_threadprivate): Don't error if !have_tls.
+	* trans-common.c (build_common_decl): Don't check have_tls.
+	* trans-decl.c (gfc_finish_var_decl): Likewise.
+	* types.def (BT_WORD, BT_FN_PTR_PTR): New.
+	(BT_FN_VOID_PTR_WORD_WORD_PTR): New.
+
+2007-02-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30512
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc,
+	  gfc_conv_intrinsic_minmaxval): Use HUGE-1 for most negative integer.
+
+2007-02-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30720
+	* trans-array.c (gfc_trans_create_temp_array): Remove use of the
+	function argument. Always generate code for negative extent.
+	Simplify said code.
+	* trans-array.h (gfc_trans_create_temp_array): Change prototype.
+	* trans-expr.c (gfc_conv_function_call): Remove use of last argument
+	of gfc_trans_create_temp_array.
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer): Likewise.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): Likewise.
+
+2007-02-08  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_trans_forall_1): Optimize the cases where the
+	mask expression is a compile-time constant (".true." or ".false.").
+
 2007-02-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/30611

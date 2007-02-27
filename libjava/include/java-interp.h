@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -219,6 +219,11 @@ class _Jv_InterpMethod : public _Jv_MethodBase
    */
   void get_line_table (jlong& start, jlong& end, jintArray& line_numbers,
 		       jlongArray& code_indices);
+  
+  int get_max_locals ()
+  {
+    return static_cast<int> (max_locals);
+  }
 
   /* Installs a break instruction at the given code index. Returns
      the pc_t of the breakpoint or NULL if index is invalid. */
@@ -352,6 +357,16 @@ public:
   {
     thread->frame = (gnu::gcj::RawData *) next;
   }
+
+  int depth ()
+  {
+    int depth = 0;
+    struct _Jv_Frame *f;
+    for (f = this; f != NULL; f = f->next)
+      ++depth;
+
+    return depth;
+  }
 };
 
 // An interpreted frame in the call stack
@@ -372,6 +387,9 @@ public:
   _Jv_word *locals;
   char *locals_type;
 
+  // Object pointer for this frame ("this")
+  jobject obj_ptr;
+
   _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL)
   : _Jv_Frame (reinterpret_cast<_Jv_MethodBase *> (meth), thr,
 	             frame_interpreter)
@@ -379,12 +397,18 @@ public:
     next_interp = (_Jv_InterpFrame *) thr->interp_frame;
     proxyClass = proxyCls;
     thr->interp_frame = (gnu::gcj::RawData *) this;
+    obj_ptr = NULL;
   }
 
   ~_Jv_InterpFrame ()
   {
     thread->interp_frame = (gnu::gcj::RawData *) next_interp;
   }
+
+  jobject get_this_ptr ()
+  {
+    return obj_ptr;
+  } 
 };
 
 // A native frame in the call stack really just a placeholder

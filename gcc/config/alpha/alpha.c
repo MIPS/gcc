@@ -55,6 +55,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-stdarg.h"
+#include "tm-constrs.h"
+
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
@@ -586,96 +588,6 @@ resolve_reload_operand (rtx op)
 	}
     }
   return op;
-}
-
-/* Implements CONST_OK_FOR_LETTER_P.  Return true if the value matches
-   the range defined for C in [I-P].  */
-
-bool
-alpha_const_ok_for_letter_p (HOST_WIDE_INT value, int c)
-{
-  switch (c)
-    {
-    case 'I':
-      /* An unsigned 8 bit constant.  */
-      return (unsigned HOST_WIDE_INT) value < 0x100;
-    case 'J':
-      /* The constant zero.  */
-      return value == 0;
-    case 'K':
-      /* A signed 16 bit constant.  */
-      return (unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000;
-    case 'L':
-      /* A shifted signed 16 bit constant appropriate for LDAH.  */
-      return ((value & 0xffff) == 0
-              && ((value) >> 31 == -1 || value >> 31 == 0));
-    case 'M':
-      /* A constant that can be AND'ed with using a ZAP insn.  */
-      return zap_mask (value);
-    case 'N':
-      /* A complemented unsigned 8 bit constant.  */
-      return (unsigned HOST_WIDE_INT) (~ value) < 0x100;
-    case 'O':
-      /* A negated unsigned 8 bit constant.  */
-      return (unsigned HOST_WIDE_INT) (- value) < 0x100;
-    case 'P':
-      /* The constant 1, 2 or 3.  */
-      return value == 1 || value == 2 || value == 3;
-
-    default:
-      return false;
-    }
-}
-
-/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
-   matches for C in [GH].  */
-
-bool
-alpha_const_double_ok_for_letter_p (rtx value, int c)
-{
-  switch (c)
-    {
-    case 'G':
-      /* The floating point zero constant.  */
-      return (GET_MODE_CLASS (GET_MODE (value)) == MODE_FLOAT
-	      && value == CONST0_RTX (GET_MODE (value)));
-
-    case 'H':
-      /* A valid operand of a ZAP insn.  */
-      return (GET_MODE (value) == VOIDmode
-	      && zap_mask (CONST_DOUBLE_LOW (value))
-	      && zap_mask (CONST_DOUBLE_HIGH (value)));
-
-    default:
-      return false;
-    }
-}
-
-/* Implements CONST_DOUBLE_OK_FOR_LETTER_P.  Return true if VALUE
-   matches for C.  */
-
-bool
-alpha_extra_constraint (rtx value, int c)
-{
-  switch (c)
-    {
-    case 'Q':
-      return normal_memory_operand (value, VOIDmode);
-    case 'R':
-      return direct_call_operand (value, Pmode);
-    case 'S':
-      return (GET_CODE (value) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (value) < 64);
-    case 'T':
-      return GET_CODE (value) == HIGH;
-    case 'U':
-      return TARGET_ABI_UNICOSMK && symbolic_operand (value, VOIDmode);
-    case 'W':
-      return (GET_CODE (value) == CONST_VECTOR
-	      && value == CONST0_RTX (GET_MODE (value)));
-    default:
-      return false;
-    }
 }
 
 /* The scalar modes supported differs from the default check-what-c-supports
@@ -2580,15 +2492,12 @@ alpha_emit_conditional_branch (enum rtx_code code)
 		   && !(symbolic_operand (op0, VOIDmode)
 			|| (GET_CODE (op0) == REG && REG_POINTER (op0))))
 	    {
-	      HOST_WIDE_INT v = INTVAL (op1), n = -v;
+	      rtx n_op1 = GEN_INT (-INTVAL (op1));
 
-	      if (! CONST_OK_FOR_LETTER_P (v, 'I')
-		  && (CONST_OK_FOR_LETTER_P (n, 'K')
-		      || CONST_OK_FOR_LETTER_P (n, 'L')))
-		{
-		  cmp_code = PLUS, branch_code = code;
-		  op1 = GEN_INT (n);
-		}
+	      if (! satisfies_constraint_I (op1)
+		  && (satisfies_constraint_K (n_op1)
+		      || satisfies_constraint_L (n_op1)))
+		cmp_code = PLUS, branch_code = code, op1 = n_op1;
 	    }
 	}
 
@@ -4518,6 +4427,8 @@ emit_insxl (enum machine_mode mode, rtx op1, rtx op2)
       else
 	fn = gen_inswl_le;
     }
+  /* The insbl and inswl patterns require a register operand.  */
+  op1 = force_reg (mode, op1);
   emit_insn (fn (ret, op1, op2));
 
   return ret;
@@ -5949,11 +5860,15 @@ va_list_skip_additions (tree lhs)
 	      ? ap.__offset + cst - 48 : ap.__offset + cst) + cst2).
    If the former, indicate that GPR registers are needed,
    if the latter, indicate that FPR registers are needed.
+
+   Also look for LHS = (*ptr).field, where ptr is one of the forms
+   listed above.
+
    On alpha, cfun->va_list_gpr_size is used as size of the needed
-   regs and cfun->va_list_fpr_size is a bitmask, bit 0 set if
-   GPR registers are needed and bit 1 set if FPR registers are needed.
-   Return true if va_list references should not be scanned for the current
-   statement.  */
+   regs and cfun->va_list_fpr_size is a bitmask, bit 0 set if GPR
+   registers are needed and bit 1 set if FPR registers are needed.
+   Return true if va_list references should not be scanned for the
+   current statement.  */
 
 static bool
 alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
@@ -5961,6 +5876,8 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
   tree base, offset, arg1, arg2;
   int offset_arg = 1;
 
+  while (handled_component_p (rhs))
+    rhs = TREE_OPERAND (rhs, 0);
   if (TREE_CODE (rhs) != INDIRECT_REF
       || TREE_CODE (TREE_OPERAND (rhs, 0)) != SSA_NAME)
     return false;

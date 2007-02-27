@@ -83,6 +83,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "predict.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -389,6 +390,7 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 
       new = xmalloc (sizeof (*new));
       memcpy (new, pass, sizeof (*new));
+      new->next = NULL;
 
       /* Indicate to register_dump_files that this pass has duplicates,
          and so it should rename the dump file.  The first instance will
@@ -488,11 +490,12 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
-	  NEXT_PASS (pass_sra);
+	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_tail_recursion);
+          NEXT_PASS (pass_profile);
 	  NEXT_PASS (pass_release_ssa_names);
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
@@ -507,8 +510,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_pta);
   *p = NULL;
 
-  /* These passes are run after IPA passes on every function that is being output
-     to the assemlber file.  */
+  /* These passes are run after IPA passes on every function that is being
+     output to the assembler file.  */
   p = &all_passes;
   NEXT_PASS (pass_apply_inline);
   NEXT_PASS (pass_all_optimizations);
@@ -540,7 +543,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_may_alias);
       NEXT_PASS (pass_tail_recursion);
-      NEXT_PASS (pass_profile);
       NEXT_PASS (pass_ch);
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
@@ -886,6 +888,24 @@ execute_function_todo (void *data)
       fflush (dump_file);
     }
 
+  if (flags & TODO_rebuild_frequencies)
+    {
+      if (profile_status == PROFILE_GUESSED)
+	{
+	  loop_optimizer_init (0);
+	  add_noreturn_fake_exit_edges ();
+	  mark_irreducible_loops ();
+	  connect_infinite_loops_to_exit ();
+	  estimate_bb_frequencies ();
+	  remove_fake_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
+      else if (profile_status == PROFILE_READ)
+	counts_to_freqs ();
+      else
+	gcc_unreachable ();
+    }
+
 #if defined ENABLE_CHECKING
   if (flags & TODO_verify_ssa)
     verify_ssa (true);
@@ -931,6 +951,17 @@ execute_todo (unsigned int flags)
     {
       ggc_collect ();
     }
+}
+
+/* Verify invariants that should hold between passes.  This is a place
+   to put simple sanity checks.  */
+
+static void
+verify_interpass_invariants (void)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (!fold_deferring_overflow_warnings_p ());
+#endif
 }
 
 /* Clear the last verified flag.  */
@@ -1044,6 +1075,7 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after | pass->todo_flags_finish);
+  verify_interpass_invariants ();
 
   if (!current_function_decl)
     cgraph_process_new_functions ();

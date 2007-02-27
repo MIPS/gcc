@@ -384,7 +384,7 @@ proc check_effective_target_pcc_bitfield_type_matters { } {
     }]
 }
 
-# Return 1 if thread local storage (TLS) is supported, 0 otherwise.
+# Return 1 if *native* thread local storage (TLS) is supported, 0 otherwise.
 #
 # This won't change for different subtargets so cache the result.
 
@@ -406,11 +406,19 @@ proc check_effective_target_tls {} {
 	close $f
 
 	# Test for thread-local data supported by the platform.
-	set comp_output \
-	    [${tool}_target_compile $src $asm assembly ""]
+	set comp_output [${tool}_target_compile $src $asm assembly ""]
 	file delete $src
 	if { [string match "*not supported*" $comp_output] } {
 	    set et_tls_saved 0
+	} else {
+	    set fd [open $asm r]
+	    set text [read $fd]
+	    close $fd
+	    if { [string match "*emutls*" $text]} {
+		set et_tls_saved 0
+	    } else {
+		set et_tls_saved 1
+	    }
 	}
 	remove-build-file $asm
     }
@@ -2053,6 +2061,45 @@ proc check_effective_target_sync_char_short { } {
     return $et_sync_char_short_saved
 }
 
+# Return 1 if the target uses a ColdFire FPU.
+
+proc check_effective_target_coldfire_fpu { } {
+    return [check_no_compiler_messages coldfire_fpu assembly {
+	#ifndef __mcffpu__
+	#error FOO
+	#endif
+    }]
+}
+
+# Return true if this is a uClibc target.
+
+proc check_effective_target_uclibc {} {
+    return [check_no_compiler_messages uclibc object {
+	#include <features.h>
+	#if !defined (__UCLIBC__)
+	#error FOO
+	#endif
+    }]
+}
+
+# Return 1 if
+#   (a) an error of a few ULP is expected in string to floating-point
+#       conversion functions; and
+#   (b) overflow is not always detected correctly by those functions.
+
+proc check_effective_target_lax_strtofp {} {
+    # By default, assume that all uClibc targets suffer from this.
+    return [check_effective_target_uclibc]
+}
+
+# Return 1 if this is a target for which wcsftime is a dummy
+# function that always returns 0.
+
+proc check_effective_target_dummy_wcsftime {} {
+    # By default, assume that all uClibc targets suffer from this.
+    return [check_effective_target_uclibc]
+}
+
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.
 # This can be used with any check_* proc that takes no argument and
 # returns only 1 or 0.  It could be used with check_* procs that take
@@ -2119,4 +2166,23 @@ proc check_effective_target_stdint_types { } {
 	int8_t a; int16_t b; int32_t c; int64_t d;
 	uint8_t e; uint16_t f; uint32_t g; uint64_t h;
     }]
+}
+
+# Return 1 if programs are intended to be run on a simulator
+# (i.e. slowly) rather than hardware (i.e. fast).
+
+proc check_effective_target_simulator { } {
+
+    # All "src/sim" simulators set this one.
+    if [board_info target exists is_simulator] {
+	return [board_info target is_simulator]
+    }
+
+    # The "sid" simulators don't set that one, but at least they set
+    # this one.
+    if [board_info target exists slow_simulator] {
+	return [board_info target slow_simulator]
+    }
+
+    return 0
 }

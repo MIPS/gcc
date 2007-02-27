@@ -716,6 +716,7 @@ static int rs6000_use_sched_lookahead_guard (rtx);
 static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
+static tree rs6000_builtin_conversion (enum tree_code, tree);
 
 static void def_builtin (int, const char *, tree, int);
 static void rs6000_init_builtins (void);
@@ -981,6 +982,8 @@ static const char alt_reg_names[][8] =
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
 #undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
+#undef TARGET_VECTORIZE_BUILTIN_CONVERSION
+#define TARGET_VECTORIZE_BUILTIN_CONVERSION rs6000_builtin_conversion
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1675,6 +1678,30 @@ rs6000_builtin_mask_for_load (void)
     return altivec_builtin_mask_for_load;
   else
     return 0;
+}
+
+/* Implement targetm.vectorize.builtin_conversion.  */
+static tree
+rs6000_builtin_conversion (enum tree_code code, tree type)
+{
+  if (!TARGET_ALTIVEC)
+    return NULL_TREE;
+  
+  switch (code)
+    {
+    case FLOAT_EXPR:
+      switch (TYPE_MODE (type))
+	{
+	case V4SImode:
+	  return TYPE_UNSIGNED (type) ? 
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFUX] :
+	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFSX];
+	default:
+	  return NULL_TREE;
+	}
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Implement targetm.vectorize.builtin_mul_widen_even.  */
@@ -8151,6 +8178,21 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       return target;
     }
+  
+  if (fcode == ALTIVEC_BUILTIN_VCFUX
+      || fcode == ALTIVEC_BUILTIN_VCFSX)
+    {
+      if (!TREE_CHAIN (arglist)) 
+	{
+	  tree t, arg0;
+	  t = NULL_TREE;
+	  t = tree_cons (NULL_TREE, integer_zero_node, t);
+	  arg0 = TREE_VALUE (arglist);
+	  t = tree_cons (NULL_TREE, arg0, t);
+	  arglist = t;
+	  TREE_OPERAND (exp, 1) = t;
+	}
+    }   
 
   if (TARGET_ALTIVEC)
     {
@@ -20237,6 +20279,102 @@ rs6000_emit_swdivdf (rtx res, rtx n, rtx d)
   emit_insn (gen_rtx_SET (VOIDmode, res,
 			  gen_rtx_PLUS (DFmode,
 					gen_rtx_MULT (DFmode, v0, y3), u0)));
+}
+
+
+/* Emit popcount intrinsic on TARGET_POPCNTB targets.  DST is the
+   target, and SRC is the argument operand.  */
+
+void
+rs6000_emit_popcount (rtx dst, rtx src)
+{
+  enum machine_mode mode = GET_MODE (dst);
+  rtx tmp1, tmp2;
+
+  tmp1 = gen_reg_rtx (mode);
+
+  if (mode == SImode)
+    {
+      emit_insn (gen_popcntbsi2 (tmp1, src));
+      tmp2 = expand_mult (SImode, tmp1, GEN_INT (0x01010101),
+			   NULL_RTX, 0);
+      tmp2 = force_reg (SImode, tmp2);
+      emit_insn (gen_lshrsi3 (dst, tmp2, GEN_INT (24)));
+    }
+  else
+    {
+      emit_insn (gen_popcntbdi2 (tmp1, src));
+      tmp2 = expand_mult (DImode, tmp1,
+			  GEN_INT ((HOST_WIDE_INT)
+				   0x01010101 << 32 | 0x01010101),
+			  NULL_RTX, 0);
+      tmp2 = force_reg (DImode, tmp2);
+      emit_insn (gen_lshrdi3 (dst, tmp2, GEN_INT (56)));
+    }
+}
+
+
+/* Emit parity intrinsic on TARGET_POPCNTB targets.  DST is the
+   target, and SRC is the argument operand.  */
+
+void
+rs6000_emit_parity (rtx dst, rtx src)
+{
+  enum machine_mode mode = GET_MODE (dst);
+  rtx tmp;
+
+  tmp = gen_reg_rtx (mode);
+  if (mode == SImode)
+    {
+      /* Is mult+shift >= shift+xor+shift+xor?  */
+      if (rs6000_cost->mulsi_const >= COSTS_N_INSNS (3))
+	{
+	  rtx tmp1, tmp2, tmp3, tmp4;
+
+	  tmp1 = gen_reg_rtx (SImode);
+	  emit_insn (gen_popcntbsi2 (tmp1, src));
+
+	  tmp2 = gen_reg_rtx (SImode);
+	  emit_insn (gen_lshrsi3 (tmp2, tmp1, GEN_INT (16)));
+	  tmp3 = gen_reg_rtx (SImode);
+	  emit_insn (gen_xorsi3 (tmp3, tmp1, tmp2));
+
+	  tmp4 = gen_reg_rtx (SImode);
+	  emit_insn (gen_lshrsi3 (tmp4, tmp3, GEN_INT (8)));
+	  emit_insn (gen_xorsi3 (tmp, tmp3, tmp4));
+	}
+      else
+	rs6000_emit_popcount (tmp, src);
+      emit_insn (gen_andsi3 (dst, tmp, const1_rtx));
+    }
+  else
+    {
+      /* Is mult+shift >= shift+xor+shift+xor+shift+xor?  */
+      if (rs6000_cost->muldi >= COSTS_N_INSNS (5))
+	{
+	  rtx tmp1, tmp2, tmp3, tmp4, tmp5, tmp6;
+
+	  tmp1 = gen_reg_rtx (DImode);
+	  emit_insn (gen_popcntbdi2 (tmp1, src));
+
+	  tmp2 = gen_reg_rtx (DImode);
+	  emit_insn (gen_lshrdi3 (tmp2, tmp1, GEN_INT (32)));
+	  tmp3 = gen_reg_rtx (DImode);
+	  emit_insn (gen_xordi3 (tmp3, tmp1, tmp2));
+
+	  tmp4 = gen_reg_rtx (DImode);
+	  emit_insn (gen_lshrdi3 (tmp4, tmp3, GEN_INT (16)));
+	  tmp5 = gen_reg_rtx (DImode);
+	  emit_insn (gen_xordi3 (tmp5, tmp3, tmp4));
+
+	  tmp6 = gen_reg_rtx (DImode);
+	  emit_insn (gen_lshrdi3 (tmp6, tmp5, GEN_INT (8)));
+	  emit_insn (gen_xordi3 (tmp, tmp5, tmp6));
+	}
+      else
+        rs6000_emit_popcount (tmp, src);
+      emit_insn (gen_anddi3 (dst, tmp, const1_rtx));
+    }
 }
 
 /* Return an RTX representing where to find the function value of a
