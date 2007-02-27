@@ -650,6 +650,10 @@ predict_loops (void)
       for (j = 0; VEC_iterate (edge, exits, j, ex); j++)
 	{
 	  tree niter = NULL;
+	  HOST_WIDE_INT nitercst;
+	  int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
+	  int probability;
+	  enum br_predictor predictor;
 
 	  if (number_of_iterations_exit (loop, ex, &niter_desc, false))
 	    niter = niter_desc.niter;
@@ -658,20 +662,31 @@ predict_loops (void)
 
 	  if (TREE_CODE (niter) == INTEGER_CST)
 	    {
-	      int probability;
-	      int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
 	      if (host_integerp (niter, 1)
 		  && compare_tree_int (niter, max-1) == -1)
-		{
-		  HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		  probability = ((REG_BR_PROB_BASE + nitercst / 2)
-				 / nitercst);
-		}
+		nitercst = tree_low_cst (niter, 1) + 1;
 	      else
-		probability = ((REG_BR_PROB_BASE + max / 2) / max);
-
-	      predict_edge (ex, PRED_LOOP_ITERATIONS, probability);
+		nitercst = max;
+	      predictor = PRED_LOOP_ITERATIONS;
 	    }
+	  /* If we have just one exit and we can derive some information about
+	     the number of iterations of the loop from the statements inside
+	     the loop, use it to predict this exit.  */
+	  else if (n_exits == 1)
+	    {
+	      nitercst = estimated_loop_iterations_int (loop, false);
+	      if (nitercst < 0)
+		continue;
+	      if (nitercst > max)
+		nitercst = max;
+
+	      predictor = PRED_LOOP_ITERATIONS_GUESSED;
+	    }
+	  else
+	    continue;
+
+	  probability = ((REG_BR_PROB_BASE + nitercst / 2) / nitercst);
+	  predict_edge (ex, predictor, probability);
 	}
       VEC_free (edge, heap, exits);
 
@@ -706,7 +721,11 @@ predict_loops (void)
 
 	  /* Loop exit heuristics - predict an edge exiting the loop if the
 	     conditional has no loop header successors as not taken.  */
-	  if (!header_found)
+	  if (!header_found
+	      /* If we already used more reliable loop exit predictors, do not
+		 bother with PRED_LOOP_EXIT.  */
+	      && !predicted_by_p (bb, PRED_LOOP_ITERATIONS_GUESSED)
+	      && !predicted_by_p (bb, PRED_LOOP_ITERATIONS))
 	    {
 	      /* For loop with many exits we don't want to predict all exits
 	         with the pretty large probability, because if all exits are
@@ -913,16 +932,14 @@ expr_expected_value (tree expr, bitmap visited)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_EXPECT)
 	{
-	  tree arglist = TREE_OPERAND (expr, 1);
 	  tree val;
 
-	  if (arglist == NULL_TREE
-	      || TREE_CHAIN (arglist) == NULL_TREE)
-	    return NULL; 
-	  val = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	  if (call_expr_nargs (expr) != 2)
+	    return NULL;
+	  val = CALL_EXPR_ARG (expr, 0);
 	  if (TREE_CONSTANT (val))
 	    return val;
-	  return TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	  return CALL_EXPR_ARG (expr, 1);
 	}
     }
   if (BINARY_CLASS_P (expr) || COMPARISON_CLASS_P (expr))
@@ -965,17 +982,17 @@ strip_builtin_expect (void)
 	{
 	  tree stmt = bsi_stmt (bi);
 	  tree fndecl;
-	  tree arglist;
+	  tree call;
 
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CALL_EXPR
-	      && (fndecl = get_callee_fndecl (GIMPLE_STMT_OPERAND (stmt, 1)))
+	      && (call = GIMPLE_STMT_OPERAND (stmt, 1))
+	      && TREE_CODE (call) == CALL_EXPR
+	      && (fndecl = get_callee_fndecl (call))
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
-	      && (arglist = TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 1))
-	      && TREE_CHAIN (arglist))
+	      && call_expr_nargs (call) == 2)
 	    {
-	      GIMPLE_STMT_OPERAND (stmt, 1) = TREE_VALUE (arglist);
+	      GIMPLE_STMT_OPERAND (stmt, 1) = CALL_EXPR_ARG (call, 0);
 	      update_stmt (stmt);
 	    }
 	}
@@ -1135,7 +1152,7 @@ return_prediction (tree val, enum prediction *prediction)
 	  && (!integer_zerop (val) && !integer_onep (val)))
 	{
 	  *prediction = TAKEN;
-	  return PRED_NEGATIVE_RETURN;
+	  return PRED_CONST_RETURN;
 	}
     }
   return PRED_NO_PREDICTION;
@@ -1260,6 +1277,7 @@ tree_estimate_probability (void)
   tree_bb_level_predictions ();
 
   mark_irreducible_loops ();
+  record_loop_exits ();
   if (current_loops)
     predict_loops ();
 

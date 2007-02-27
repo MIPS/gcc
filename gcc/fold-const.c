@@ -1196,7 +1196,7 @@ negate_expr_p (tree t)
     case CALL_EXPR:
       /* Negate -f(x) as f(-x).  */
       if (negate_mathfn_p (builtin_mathfn_code (t)))
-	return negate_expr_p (TREE_VALUE (TREE_OPERAND (t, 1)));
+	return negate_expr_p (CALL_EXPR_ARG (t, 0));
       break;
 
     case RSHIFT_EXPR:
@@ -1387,14 +1387,13 @@ fold_negate_expr (tree t)
     case CALL_EXPR:
       /* Negate -f(x) as f(-x).  */
       if (negate_mathfn_p (builtin_mathfn_code (t))
-	  && negate_expr_p (TREE_VALUE (TREE_OPERAND (t, 1))))
+	  && negate_expr_p (CALL_EXPR_ARG (t, 0)))
 	{
-	  tree fndecl, arg, arglist;
+	  tree fndecl, arg;
 
 	  fndecl = get_callee_fndecl (t);
-	  arg = negate_expr (TREE_VALUE (TREE_OPERAND (t, 1)));
-	  arglist = build_tree_list (NULL_TREE, arg);
-	  return build_function_call_expr (fndecl, arglist);
+	  arg = negate_expr (CALL_EXPR_ARG (t, 0));
+	  return build_call_expr (fndecl, 1, arg);
 	}
       break;
 
@@ -3153,10 +3152,18 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
 				      TREE_OPERAND (arg1, 0), flags));
 
+	default:
+	  return 0;
+	}
+
+    case tcc_vl_exp:
+      switch (TREE_CODE (arg0))
+	{
 	case CALL_EXPR:
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
-	  if (!OP_SAME (0))
+	  if (! operand_equal_p (CALL_EXPR_FN (arg0), CALL_EXPR_FN (arg1),
+				 flags))
 	    return 0;
 
 	  {
@@ -3169,25 +3176,22 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 	      return 0;
 	  }
 
-	  /* Now see if all the arguments are the same.  operand_equal_p
-	     does not handle TREE_LIST, so we walk the operands here
-	     feeding them to operand_equal_p.  */
-	  arg0 = TREE_OPERAND (arg0, 1);
-	  arg1 = TREE_OPERAND (arg1, 1);
-	  while (arg0 && arg1)
-	    {
-	      if (! operand_equal_p (TREE_VALUE (arg0), TREE_VALUE (arg1),
-				     flags))
+	  /* Now see if all the arguments are the same.  */
+	  {
+	    call_expr_arg_iterator iter0, iter1;
+	    tree a0, a1;
+	    for (a0 = first_call_expr_arg (arg0, &iter0),
+		   a1 = first_call_expr_arg (arg1, &iter1);
+		 a0 && a1;
+		 a0 = next_call_expr_arg (&iter0),
+		   a1 = next_call_expr_arg (&iter1))
+	      if (! operand_equal_p (a0, a1, flags))
 		return 0;
 
-	      arg0 = TREE_CHAIN (arg0);
-	      arg1 = TREE_CHAIN (arg1);
-	    }
-
-	  /* If we get here and both argument lists are exhausted
-	     then the CALL_EXPRs are equal.  */
-	  return ! (arg0 || arg1);
-
+	    /* If we get here and both argument lists are exhausted
+	       then the CALL_EXPRs are equal.  */
+	    return ! (a0 || a1);
+	  }
 	default:
 	  return 0;
 	}
@@ -4259,7 +4263,7 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh,
 
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
 	{
-	  if (TREE_CODE_LENGTH (code) > 0)
+	  if (TREE_OPERAND_LENGTH (exp) > 0)
 	    arg0 = TREE_OPERAND (exp, 0);
 	  if (TREE_CODE_CLASS (code) == tcc_comparison
 	      || TREE_CODE_CLASS (code) == tcc_unary
@@ -4268,7 +4272,7 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh,
 	  if (TREE_CODE_CLASS (code) == tcc_binary
 	      || TREE_CODE_CLASS (code) == tcc_comparison
 	      || (TREE_CODE_CLASS (code) == tcc_expression
-		  && TREE_CODE_LENGTH (code) > 1))
+		  && TREE_OPERAND_LENGTH (exp) > 1))
 	    arg1 = TREE_OPERAND (exp, 1);
 	}
 
@@ -5901,6 +5905,7 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
       if ((COMPARISON_CLASS_P (op0)
 	   || UNARY_CLASS_P (op0)
 	   || BINARY_CLASS_P (op0)
+	   || VL_EXP_CLASS_P (op0)
 	   || EXPRESSION_CLASS_P (op0))
 	  /* ... and is unsigned, and its type is smaller than ctype,
 	     then we cannot pass through as widening.  */
@@ -6375,7 +6380,7 @@ fold_mathfn_compare (enum built_in_function fcode, enum tree_code code,
 
   if (BUILTIN_SQRT_P (fcode))
     {
-      tree arg = TREE_VALUE (TREE_OPERAND (arg0, 1));
+      tree arg = CALL_EXPR_ARG (arg0, 0);
       enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg0));
 
       c = TREE_REAL_CST (arg1);
@@ -6892,11 +6897,6 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
       && (TREE_SIDE_EFFECTS (arg0) || TREE_SIDE_EFFECTS (arg1)))
     return 0;
 
-  if (DECL_P (arg1))
-    return 0;
-  if (DECL_P (arg0))
-    return 1;
-
   /* It is preferable to swap two SSA_NAME to ensure a canonical form
      for commutative and comparison operators.  Ensuring a canonical
      form allows the optimizers to find additional redundancies without
@@ -6904,6 +6904,18 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   if (TREE_CODE (arg0) == SSA_NAME
       && TREE_CODE (arg1) == SSA_NAME
       && SSA_NAME_VERSION (arg0) > SSA_NAME_VERSION (arg1))
+    return 1;
+
+  /* Put SSA_NAMEs last.  */
+  if (TREE_CODE (arg1) == SSA_NAME)
+    return 0;
+  if (TREE_CODE (arg0) == SSA_NAME)
+    return 1;
+
+  /* Put variables last.  */
+  if (DECL_P (arg1))
+    return 0;
+  if (DECL_P (arg0))
     return 1;
 
   return 0;
@@ -8198,8 +8210,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      CASE_FLT_FN (BUILT_IN_CEXPI):
 	        fn = mathfn_built_in (type, BUILT_IN_COS);
 		if (fn)
-	          return build_function_call_expr (fn,
-						   TREE_OPERAND (arg0, 1));
+	          return build_call_expr (fn, 1, CALL_EXPR_ARG (arg0, 0));
 		break;
 
 	      default:
@@ -8241,8 +8252,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      CASE_FLT_FN (BUILT_IN_CEXPI):
 	        fn = mathfn_built_in (type, BUILT_IN_SIN);
 		if (fn)
-		  return build_function_call_expr (fn,
-						   TREE_OPERAND (arg0, 1));
+	          return build_call_expr (fn, 1, CALL_EXPR_ARG (arg0, 0));
 		break;
 
 	      default:
@@ -9076,6 +9086,29 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	    }
 	}
     }
+
+  /* If this is a comparison of complex values and both sides
+     are COMPLEX_CST, do the comparison by parts to fold the
+     comparison.  */
+  if ((code == EQ_EXPR || code == NE_EXPR)
+      && TREE_CODE (TREE_TYPE (arg0)) == COMPLEX_TYPE
+      && TREE_CODE (arg0) == COMPLEX_CST
+      && TREE_CODE (arg1) == COMPLEX_CST)
+    {
+      tree real0, imag0, real1, imag1;
+      enum tree_code outercode;
+
+      real0 = TREE_REALPART (arg0);
+      imag0 = TREE_IMAGPART (arg0);
+      real1 = TREE_REALPART (arg1);
+      imag1 = TREE_IMAGPART (arg1);
+      outercode = code == EQ_EXPR ? TRUTH_ANDIF_EXPR : TRUTH_ORIF_EXPR;
+
+      return fold_build2 (outercode, type,
+			  fold_build2 (code, type, real0, real1),
+			  fold_build2 (code, type, imag0, imag1));
+    }
+
 
   /* Fold a comparison of the address of COMPONENT_REFs with the same
      type and component to a comparison of the address of the base
@@ -10037,9 +10070,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      /* Optimizations of root(...)*root(...).  */
 	      if (fcode0 == fcode1 && BUILTIN_ROOT_P (fcode0))
 		{
-		  tree rootfn, arg, arglist;
-		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+		  tree rootfn, arg;
+		  tree arg00 = CALL_EXPR_ARG (arg0, 0);
+		  tree arg10 = CALL_EXPR_ARG (arg1, 0);
 
 		  /* Optimize sqrt(x)*sqrt(x) as x.  */
 		  if (BUILTIN_SQRT_P (fcode0)
@@ -10048,21 +10081,19 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		    return arg00;
 
 	          /* Optimize root(x)*root(y) as root(x*y).  */
-		  rootfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		  rootfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		  arg = fold_build2 (MULT_EXPR, type, arg00, arg10);
-		  arglist = build_tree_list (NULL_TREE, arg);
-		  return build_function_call_expr (rootfn, arglist);
+		  return build_call_expr (rootfn, 1, arg);
 		}
 
 	      /* Optimize expN(x)*expN(y) as expN(x+y).  */
 	      if (fcode0 == fcode1 && BUILTIN_EXPONENT_P (fcode0))
 		{
-		  tree expfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		  tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		  tree arg = fold_build2 (PLUS_EXPR, type,
-					  TREE_VALUE (TREE_OPERAND (arg0, 1)),
-					  TREE_VALUE (TREE_OPERAND (arg1, 1)));
-		  tree arglist = build_tree_list (NULL_TREE, arg);
-		  return build_function_call_expr (expfn, arglist);
+					  CALL_EXPR_ARG (arg0, 0),
+					  CALL_EXPR_ARG (arg1, 0));
+		  return build_call_expr (expfn, 1, arg);
 		}
 
 	      /* Optimizations of pow(...)*pow(...).  */
@@ -10070,33 +10101,25 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  || (fcode0 == BUILT_IN_POWF && fcode1 == BUILT_IN_POWF)
 		  || (fcode0 == BUILT_IN_POWL && fcode1 == BUILT_IN_POWL))
 		{
-		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-		  tree arg01 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg0,
-								     1)));
-		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
-		  tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1,
-								     1)));
+		  tree arg00 = CALL_EXPR_ARG (arg0, 0);
+		  tree arg01 = CALL_EXPR_ARG (arg0, 1);
+		  tree arg10 = CALL_EXPR_ARG (arg1, 0);
+		  tree arg11 = CALL_EXPR_ARG (arg1, 1);
 
 		  /* Optimize pow(x,y)*pow(z,y) as pow(x*z,y).  */
 		  if (operand_equal_p (arg01, arg11, 0))
 		    {
-		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		      tree arg = fold_build2 (MULT_EXPR, type, arg00, arg10);
-		      tree arglist = tree_cons (NULL_TREE, arg,
-						build_tree_list (NULL_TREE,
-								 arg01));
-		      return build_function_call_expr (powfn, arglist);
+		      return build_call_expr (powfn, 2, arg, arg01);
 		    }
 
 		  /* Optimize pow(x,y)*pow(x,z) as pow(x,y+z).  */
 		  if (operand_equal_p (arg00, arg10, 0))
 		    {
-		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		      tree arg = fold_build2 (PLUS_EXPR, type, arg01, arg11);
-		      tree arglist = tree_cons (NULL_TREE, arg00,
-						build_tree_list (NULL_TREE,
-								 arg));
-		      return build_function_call_expr (powfn, arglist);
+		      return build_call_expr (powfn, 2, arg00, arg);
 		    }
 		}
 
@@ -10107,14 +10130,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		   || (fcode0 == BUILT_IN_COS && fcode1 == BUILT_IN_TAN)
 		   || (fcode0 == BUILT_IN_COSF && fcode1 == BUILT_IN_TANF)
 		   || (fcode0 == BUILT_IN_COSL && fcode1 == BUILT_IN_TANL))
-		  && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
-				      TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
+		  && operand_equal_p (CALL_EXPR_ARG (arg0, 0),
+				      CALL_EXPR_ARG (arg1, 0), 0))
 		{
 		  tree sinfn = mathfn_built_in (type, BUILT_IN_SIN);
 
 		  if (sinfn != NULL_TREE)
-		    return build_function_call_expr (sinfn,
-						     TREE_OPERAND (arg0, 1));
+		    return build_call_expr (sinfn, 1, CALL_EXPR_ARG (arg0, 0));
 		}
 
 	      /* Optimize x*pow(x,c) as pow(x,c+1).  */
@@ -10122,23 +10144,20 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  || fcode1 == BUILT_IN_POWF
 		  || fcode1 == BUILT_IN_POWL)
 		{
-		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
-		  tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1,
-								     1)));
+		  tree arg10 = CALL_EXPR_ARG (arg1, 0);
+		  tree arg11 = CALL_EXPR_ARG (arg1, 1);
 		  if (TREE_CODE (arg11) == REAL_CST
 		      && !TREE_OVERFLOW (arg11)
 		      && operand_equal_p (arg0, arg10, 0))
 		    {
-		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
+		      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg1), 0);
 		      REAL_VALUE_TYPE c;
-		      tree arg, arglist;
+		      tree arg;
 
 		      c = TREE_REAL_CST (arg11);
 		      real_arithmetic (&c, PLUS_EXPR, &c, &dconst1);
 		      arg = build_real (type, c);
-		      arglist = build_tree_list (NULL_TREE, arg);
-		      arglist = tree_cons (NULL_TREE, arg0, arglist);
-		      return build_function_call_expr (powfn, arglist);
+		      return build_call_expr (powfn, 2, arg0, arg);
 		    }
 		}
 
@@ -10147,23 +10166,20 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  || fcode0 == BUILT_IN_POWF
 		  || fcode0 == BUILT_IN_POWL)
 		{
-		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-		  tree arg01 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg0,
-								     1)));
+		  tree arg00 = CALL_EXPR_ARG (arg0, 0);
+		  tree arg01 = CALL_EXPR_ARG (arg0, 1);
 		  if (TREE_CODE (arg01) == REAL_CST
 		      && !TREE_OVERFLOW (arg01)
 		      && operand_equal_p (arg1, arg00, 0))
 		    {
-		      tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		      REAL_VALUE_TYPE c;
-		      tree arg, arglist;
+		      tree arg;
 
 		      c = TREE_REAL_CST (arg01);
 		      real_arithmetic (&c, PLUS_EXPR, &c, &dconst1);
 		      arg = build_real (type, c);
-		      arglist = build_tree_list (NULL_TREE, arg);
-		      arglist = tree_cons (NULL_TREE, arg1, arglist);
-		      return build_function_call_expr (powfn, arglist);
+		      return build_call_expr (powfn, 2, arg1, arg);
 		    }
 		}
 
@@ -10176,9 +10192,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  if (powfn)
 		    {
 		      tree arg = build_real (type, dconst2);
-		      tree arglist = build_tree_list (NULL_TREE, arg);
-		      arglist = tree_cons (NULL_TREE, arg0, arglist);
-		      return build_function_call_expr (powfn, arglist);
+		      return build_call_expr (powfn, 2, arg0, arg);
 		    }
 		}
 	    }
@@ -10710,29 +10724,27 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  if (((fcode0 == BUILT_IN_SIN && fcode1 == BUILT_IN_COS)
 	       || (fcode0 == BUILT_IN_SINF && fcode1 == BUILT_IN_COSF)
 	       || (fcode0 == BUILT_IN_SINL && fcode1 == BUILT_IN_COSL))
-	      && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
-				  TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
+	      && operand_equal_p (CALL_EXPR_ARG (arg0, 0),
+				  CALL_EXPR_ARG (arg1, 0), 0))
 	    {
 	      tree tanfn = mathfn_built_in (type, BUILT_IN_TAN);
 
 	      if (tanfn != NULL_TREE)
-		return build_function_call_expr (tanfn,
-						 TREE_OPERAND (arg0, 1));
+		return build_call_expr (tanfn, 1, CALL_EXPR_ARG (arg0, 0));
 	    }
 
 	  /* Optimize cos(x)/sin(x) as 1.0/tan(x).  */
 	  if (((fcode0 == BUILT_IN_COS && fcode1 == BUILT_IN_SIN)
 	       || (fcode0 == BUILT_IN_COSF && fcode1 == BUILT_IN_SINF)
 	       || (fcode0 == BUILT_IN_COSL && fcode1 == BUILT_IN_SINL))
-	      && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
-				  TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
+	      && operand_equal_p (CALL_EXPR_ARG (arg0, 0),
+				  CALL_EXPR_ARG (arg1, 0), 0))
 	    {
 	      tree tanfn = mathfn_built_in (type, BUILT_IN_TAN);
 
 	      if (tanfn != NULL_TREE)
 		{
-		  tree tmp = TREE_OPERAND (arg0, 1);
-		  tmp = build_function_call_expr (tanfn, tmp);
+		  tree tmp = build_call_expr (tanfn, 1, CALL_EXPR_ARG (arg0, 0));
 		  return fold_build2 (RDIV_EXPR, type,
 				      build_real (type, dconst1), tmp);
 		}
@@ -10744,8 +10756,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
  	       || (fcode0 == BUILT_IN_SINF && fcode1 == BUILT_IN_TANF)
  	       || (fcode0 == BUILT_IN_SINL && fcode1 == BUILT_IN_TANL)))
 	    {
-	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-	      tree arg01 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+	      tree arg00 = CALL_EXPR_ARG (arg0, 0);
+	      tree arg01 = CALL_EXPR_ARG (arg1, 0);
 
 	      if (! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg00)))
 		  && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg00)))
@@ -10754,8 +10766,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  tree cosfn = mathfn_built_in (type, BUILT_IN_COS);
 
 		  if (cosfn != NULL_TREE)
-		    return build_function_call_expr (cosfn,
-						     TREE_OPERAND (arg0, 1));
+		    return build_call_expr (cosfn, 1, arg00);
 		}
 	    }
 
@@ -10765,8 +10776,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
  	       || (fcode0 == BUILT_IN_TANF && fcode1 == BUILT_IN_SINF)
  	       || (fcode0 == BUILT_IN_TANL && fcode1 == BUILT_IN_SINL)))
 	    {
-	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-	      tree arg01 = TREE_VALUE (TREE_OPERAND (arg1, 1));
+	      tree arg00 = CALL_EXPR_ARG (arg0, 0);
+	      tree arg01 = CALL_EXPR_ARG (arg1, 0);
 
 	      if (! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg00)))
 		  && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg00)))
@@ -10776,8 +10787,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
 		  if (cosfn != NULL_TREE)
 		    {
-		      tree tmp = TREE_OPERAND (arg0, 1);
-		      tmp = build_function_call_expr (cosfn, tmp);
+		      tree tmp = build_call_expr (cosfn, 1, arg00);
 		      return fold_build2 (RDIV_EXPR, type,
 					  build_real (type, dconst1),
 					  tmp);
@@ -10790,33 +10800,29 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      || fcode0 == BUILT_IN_POWF
 	      || fcode0 == BUILT_IN_POWL)
 	    {
-	      tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
-	      tree arg01 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg0, 1)));
+	      tree arg00 = CALL_EXPR_ARG (arg0, 0);
+	      tree arg01 = CALL_EXPR_ARG (arg0, 1);
 	      if (TREE_CODE (arg01) == REAL_CST
 		  && !TREE_OVERFLOW (arg01)
 		  && operand_equal_p (arg1, arg00, 0))
 		{
-		  tree powfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+		  tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg0), 0);
 		  REAL_VALUE_TYPE c;
-		  tree arg, arglist;
+		  tree arg;
 
 		  c = TREE_REAL_CST (arg01);
 		  real_arithmetic (&c, MINUS_EXPR, &c, &dconst1);
 		  arg = build_real (type, c);
-		  arglist = build_tree_list (NULL_TREE, arg);
-		  arglist = tree_cons (NULL_TREE, arg1, arglist);
-		  return build_function_call_expr (powfn, arglist);
+		  return build_call_expr (powfn, 2, arg1, arg);
 		}
 	    }
 
 	  /* Optimize x/expN(y) into x*expN(-y).  */
 	  if (BUILTIN_EXPONENT_P (fcode1))
 	    {
-	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
-	      tree arg = negate_expr (TREE_VALUE (TREE_OPERAND (arg1, 1)));
-	      tree arglist = build_tree_list (NULL_TREE,
-					      fold_convert (type, arg));
-	      arg1 = build_function_call_expr (expfn, arglist);
+	      tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg1), 0);
+	      tree arg = negate_expr (CALL_EXPR_ARG (arg1, 0));
+	      arg1 = build_call_expr (expfn, 1, fold_convert (type, arg));
 	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
 	    }
 
@@ -10825,13 +10831,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      || fcode1 == BUILT_IN_POWF
 	      || fcode1 == BUILT_IN_POWL)
 	    {
-	      tree powfn = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
-	      tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
-	      tree arg11 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg1, 1)));
+	      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg1), 0);
+	      tree arg10 = CALL_EXPR_ARG (arg1, 0);
+	      tree arg11 = CALL_EXPR_ARG (arg1, 1);
 	      tree neg11 = fold_convert (type, negate_expr (arg11));
-	      tree arglist = tree_cons (NULL_TREE, arg10,
-					build_tree_list (NULL_TREE, neg11));
-	      arg1 = build_function_call_expr (powfn, arglist);
+	      arg1 = build_call_expr (powfn, 2, arg10, neg11);
 	      return fold_build2 (MULT_EXPR, type, arg0, arg1);
 	    }
 	}
@@ -11429,6 +11433,24 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 					 fold_convert (TREE_TYPE (arg0), arg1),
 					 TREE_OPERAND (arg0, 1)));
 
+      /* Transform comparisons of the form X +- C CMP X.  */
+      if ((TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
+	  && operand_equal_p (TREE_OPERAND (arg0, 0), arg1, 0)
+	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+	  && (INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+	      || POINTER_TYPE_P (TREE_TYPE (arg0))))
+	{
+	  tree cst = TREE_OPERAND (arg0, 1);
+
+	  if (code == EQ_EXPR
+	      && !integer_zerop (cst))
+	    return omit_two_operands (type, boolean_false_node,
+				      TREE_OPERAND (arg0, 0), arg1);
+	  else
+	    return omit_two_operands (type, boolean_true_node,
+				      TREE_OPERAND (arg0, 0), arg1);
+	}
+
       /* If we have X - Y == 0, we can convert that to X == Y and similarly
 	 for !=.  Don't do this for ordered comparisons due to overflow.  */
       if (TREE_CODE (arg0) == MINUS_EXPR
@@ -11616,16 +11638,14 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && integer_zerop (arg1))
 	{
 	  tree fndecl = get_callee_fndecl (arg0);
-	  tree arglist;
 
 	  if (fndecl
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STRLEN
-	      && (arglist = TREE_OPERAND (arg0, 1))
-	      && TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) == POINTER_TYPE
-	      && ! TREE_CHAIN (arglist))
+	      && call_expr_nargs (arg0) == 1
+	      && TREE_CODE (TREE_TYPE (CALL_EXPR_ARG (arg0, 0))) == POINTER_TYPE)
 	    {
-	      tree iref = build_fold_indirect_ref (TREE_VALUE (arglist));
+	      tree iref = build_fold_indirect_ref (CALL_EXPR_ARG (arg0, 0));
 	      return fold_build2 (code, type, iref,
 				  build_int_cst (TREE_TYPE (iref), 0));
 	    }
@@ -12606,12 +12626,9 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
       return NULL_TREE;
 
     case CALL_EXPR:
-      /* Check for a built-in function.  */
-      if (TREE_CODE (op0) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (op0, 0)) == FUNCTION_DECL
-	  && DECL_BUILT_IN (TREE_OPERAND (op0, 0)))
-	return fold_builtin (TREE_OPERAND (op0, 0), op1, false);
-      return NULL_TREE;
+      /* CALL_EXPRs used to be ternary exprs.  Catch any mistaken uses
+	 of fold_ternary on them.  */
+      gcc_unreachable ();
 
     case BIT_FIELD_REF:
       if (TREE_CODE (arg0) == VECTOR_CST
@@ -12668,6 +12685,18 @@ fold (tree expr)
   /* Return right away if a constant.  */
   if (kind == tcc_constant)
     return t;
+
+  /* CALL_EXPR-like objects with variable numbers of operands are
+     treated specially.  */
+  if (kind == tcc_vl_exp)
+    {
+      if (code == CALL_EXPR)
+	{
+	  tem = fold_call_expr (expr, false);
+	  return tem ? tem : expr;
+	}
+      return expr;
+    }
 
   if (IS_EXPR_CODE_CLASS (kind)
       || IS_GIMPLE_STMT_CODE_CLASS (kind))
@@ -12862,7 +12891,8 @@ recursive_label:
     case tcc_unary:
     case tcc_binary:
     case tcc_statement:
-      len = TREE_CODE_LENGTH (code);
+    case tcc_vl_exp:
+      len = TREE_OPERAND_LENGTH (expr);
       for (i = 0; i < len; ++i)
 	fold_checksum_tree (TREE_OPERAND (expr, i), ctx, ht);
       break;
@@ -13041,7 +13071,8 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
   md5_finish_ctx (&ctx, checksum_before_op2);
   htab_empty (ht);
 #endif
-  
+
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
   tem = fold_ternary (code, type, op0, op1, op2);
   if (!tem)
     tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
@@ -13070,6 +13101,57 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
 
   if (memcmp (checksum_before_op2, checksum_after_op2, 16))
     fold_check_failed (op2, tem);
+#endif
+  return tem;
+}
+
+/* Fold a CALL_EXPR expression of type TYPE with operands FN and ARGLIST
+   and a null static chain.
+   Return a folded expression if successful.  Otherwise, return a CALL_EXPR
+   of type TYPE from the given operands as constructed by build_call_list.  */
+
+tree
+fold_build_call_list (tree type, tree fn, tree arglist)
+{
+  tree tem;
+#ifdef ENABLE_FOLD_CHECKING
+  unsigned char checksum_before_fn[16],
+                checksum_before_arglist[16],
+		checksum_after_fn[16],
+		checksum_after_arglist[16];
+  struct md5_ctx ctx;
+  htab_t ht;
+
+  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (fn, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_fn);
+  htab_empty (ht);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (arglist, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_arglist);
+  htab_empty (ht);
+#endif
+
+  tem = fold_builtin_call_list (type, fn, arglist);
+      
+#ifdef ENABLE_FOLD_CHECKING
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (fn, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_fn);
+  htab_empty (ht);
+
+  if (memcmp (checksum_before_fn, checksum_after_fn, 16))
+    fold_check_failed (fn, tem);
+  
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (arglist, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_arglist);
+  htab_delete (ht);
+
+  if (memcmp (checksum_before_arglist, checksum_after_arglist, 16))
+    fold_check_failed (arglist, tem);
 #endif
   return tem;
 }
@@ -13129,6 +13211,18 @@ fold_build3_initializer (enum tree_code code, tree type, tree op0, tree op1,
   START_FOLD_INIT;
 
   result = fold_build3 (code, type, op0, op1, op2);
+
+  END_FOLD_INIT;
+  return result;
+}
+
+tree
+fold_build_call_list_initializer (tree type, tree fn, tree arglist)
+{
+  tree result;
+  START_FOLD_INIT;
+
+  result = fold_build_call_list (type, fn, arglist);
 
   END_FOLD_INIT;
   return result;
@@ -13453,7 +13547,6 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
     case CALL_EXPR:
       {
 	tree fndecl = get_callee_fndecl (t);
-	tree arglist = TREE_OPERAND (t, 1);
 	if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
@@ -13481,7 +13574,7 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 	      /* sqrt(-0.0) is -0.0.  */
 	      if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (t))))
 		return true;
-	      return tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						    strict_overflow_p);
 
 	    CASE_FLT_FN (BUILT_IN_ASINH):
@@ -13507,57 +13600,58 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 	    CASE_FLT_FN (BUILT_IN_NEARBYINT):
 	    CASE_FLT_FN (BUILT_IN_RINT):
 	    CASE_FLT_FN (BUILT_IN_ROUND):
+	    CASE_FLT_FN (BUILT_IN_SCALB):
+	    CASE_FLT_FN (BUILT_IN_SCALBLN):
+	    CASE_FLT_FN (BUILT_IN_SCALBN):
 	    CASE_FLT_FN (BUILT_IN_SIGNBIT):
+	    CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
 	    CASE_FLT_FN (BUILT_IN_SINH):
 	    CASE_FLT_FN (BUILT_IN_TANH):
 	    CASE_FLT_FN (BUILT_IN_TRUNC):
 	      /* True if the 1st argument is nonnegative.  */
-	      return tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						    strict_overflow_p);
 
 	    CASE_FLT_FN (BUILT_IN_FMAX):
 	      /* True if the 1st OR 2nd arguments are nonnegative.  */
-	      return (tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return (tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						     strict_overflow_p)
-		      || (tree_expr_nonnegative_warnv_p
-			  (TREE_VALUE (TREE_CHAIN (arglist)),
-			   strict_overflow_p)));
+		      || (tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 1),
+							 strict_overflow_p)));
 
 	    CASE_FLT_FN (BUILT_IN_FMIN):
 	      /* True if the 1st AND 2nd arguments are nonnegative.  */
-	      return (tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return (tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						     strict_overflow_p)
-		      && (tree_expr_nonnegative_warnv_p
-			  (TREE_VALUE (TREE_CHAIN (arglist)),
-			   strict_overflow_p)));
+		      && (tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 1),
+							 strict_overflow_p)));
 
 	    CASE_FLT_FN (BUILT_IN_COPYSIGN):
 	      /* True if the 2nd argument is nonnegative.  */
-	      return (tree_expr_nonnegative_warnv_p
-		      (TREE_VALUE (TREE_CHAIN (arglist)),
-		       strict_overflow_p));
+	      return tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 1),
+						    strict_overflow_p);
 
 	    CASE_FLT_FN (BUILT_IN_POWI):
 	      /* True if the 1st argument is nonnegative or the second
 		 argument is an even integer.  */
-	      if (TREE_CODE (TREE_VALUE (TREE_CHAIN (arglist))) == INTEGER_CST)
+	      if (TREE_CODE (CALL_EXPR_ARG (t, 1)) == INTEGER_CST)
 		{
-		  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+		  tree arg1 = CALL_EXPR_ARG (t, 1);
 		  if ((TREE_INT_CST_LOW (arg1) & 1) == 0)
 		    return true;
 		}
-	      return tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						    strict_overflow_p);
 
 	    CASE_FLT_FN (BUILT_IN_POW):
 	      /* True if the 1st argument is nonnegative or the second
 		 argument is an even integer valued real.  */
-	      if (TREE_CODE (TREE_VALUE (TREE_CHAIN (arglist))) == REAL_CST)
+	      if (TREE_CODE (CALL_EXPR_ARG (t, 1)) == REAL_CST)
 		{
 		  REAL_VALUE_TYPE c;
 		  HOST_WIDE_INT n;
 
-		  c = TREE_REAL_CST (TREE_VALUE (TREE_CHAIN (arglist)));
+		  c = TREE_REAL_CST (CALL_EXPR_ARG (t, 1));
 		  n = real_to_integer (&c);
 		  if ((n & 1) == 0)
 		    {
@@ -13568,7 +13662,7 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 			return true;
 		    }
 		}
-	      return tree_expr_nonnegative_warnv_p (TREE_VALUE (arglist),
+	      return tree_expr_nonnegative_warnv_p (CALL_EXPR_ARG (t, 0),
 						    strict_overflow_p);
 
 	    default:
@@ -14591,19 +14685,17 @@ fold_strip_sign_ops (tree exp)
 	{
 	CASE_FLT_FN (BUILT_IN_COPYSIGN):
 	  /* Strip copysign function call, return the 1st argument. */
-	  arg0 = TREE_VALUE (TREE_OPERAND (exp, 1));
-	  arg1 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (exp, 1)));
+	  arg0 = CALL_EXPR_ARG (exp, 0);
+	  arg1 = CALL_EXPR_ARG (exp, 1);
 	  return omit_one_operand (TREE_TYPE (exp), arg0, arg1);
 
 	default:
 	  /* Strip sign ops from the argument of "odd" math functions.  */
 	  if (negate_mathfn_p (fcode))
             {
-	      arg0 = fold_strip_sign_ops (TREE_VALUE (TREE_OPERAND (exp, 1)));
+	      arg0 = fold_strip_sign_ops (CALL_EXPR_ARG (exp, 0));
 	      if (arg0)
-		return build_function_call_expr (get_callee_fndecl (exp),
-						 build_tree_list (NULL_TREE,
-								  arg0));
+		return build_call_expr (get_callee_fndecl (exp), 1, arg0);
 	    }
 	  break;
 	}

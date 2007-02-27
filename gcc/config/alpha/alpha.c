@@ -3343,7 +3343,7 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
 
       /* We must use tgt here for the target.  Alpha-vms port fails if we use
 	 addr for the target, because addr is marked as a pointer and combine
-	 knows that pointers are always sign-extended 32 bit values.  */
+	 knows that pointers are always sign-extended 32-bit values.  */
       addr = expand_binop (DImode, ior_optab, extl, exth, tgt, 1, OPTAB_WIDEN);
       addr = expand_binop (DImode, ashr_optab, addr, GEN_INT (48),
 			   addr, 1, OPTAB_WIDEN);
@@ -4434,7 +4434,7 @@ emit_insxl (enum machine_mode mode, rtx op1, rtx op2)
   return ret;
 }
 
-/* Expand an an atomic fetch-and-operate pattern.  CODE is the binary operation
+/* Expand an atomic fetch-and-operate pattern.  CODE is the binary operation
    to perform.  MEM is the memory on which to operate.  VAL is the second 
    operand of the binary operator.  BEFORE and AFTER are optional locations to
    return the value of MEM either before of after the operation.  SCRATCH is
@@ -6500,9 +6500,10 @@ alpha_expand_builtin (tree exp, rtx target,
 {
 #define MAX_ARGS 2
 
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg;
+  call_expr_arg_iterator iter;
   enum insn_code icode;
   rtx op[MAX_ARGS], pat;
   int arity;
@@ -6516,13 +6517,11 @@ alpha_expand_builtin (tree exp, rtx target,
 
   nonvoid = TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node;
 
-  for (arglist = TREE_OPERAND (exp, 1), arity = 0;
-       arglist;
-       arglist = TREE_CHAIN (arglist), arity++)
+  arity = 0;
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
       const struct insn_operand_data *insn_op;
 
-      tree arg = TREE_VALUE (arglist);
       if (arg == error_mark_node)
 	return NULL_RTX;
       if (arity > MAX_ARGS)
@@ -6534,6 +6533,7 @@ alpha_expand_builtin (tree exp, rtx target,
 
       if (!(*insn_op->predicate) (op[arity], insn_op->mode))
 	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
+      arity++;
     }
 
   if (nonvoid)
@@ -6580,7 +6580,7 @@ alpha_expand_builtin (tree exp, rtx target,
 #endif
 
 /* Fold the builtin for the CMPBGE instruction.  This is a vector comparison
-   with an 8 bit output vector.  OPINT contains the integer operands; bit N
+   with an 8-bit output vector.  OPINT contains the integer operands; bit N
    of OP_CONST is set if OPINT[N] is valid.  */
 
 static tree

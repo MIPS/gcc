@@ -517,6 +517,16 @@ proc check_effective_target_mpaired_single { } {
     } "-mpaired-single"]
 }
 
+# Return 1 if the target does not use a status wrapper.
+
+proc check_effective_target_unwrapped { } {
+    if { [target_info needs_status_wrapper] != "" \
+	     && [target_info needs_status_wrapper] != "0" } {
+	return 0
+    }
+    return 1
+}
+
 # Return true if iconv is supported on the target. In particular IBM1047.
 
 proc check_iconv_available { test_what } {
@@ -2082,6 +2092,14 @@ proc check_effective_target_uclibc {} {
     }]
 }
 
+# Return true if this is a Newlib target.
+
+proc check_effective_target_newlib {} {
+    return [check_no_compiler_messages newlib object {
+	#include <newlib.h>
+    }]
+}
+
 # Return 1 if
 #   (a) an error of a few ULP is expected in string to floating-point
 #       conversion functions; and
@@ -2098,6 +2116,23 @@ proc check_effective_target_lax_strtofp {} {
 proc check_effective_target_dummy_wcsftime {} {
     # By default, assume that all uClibc targets suffer from this.
     return [check_effective_target_uclibc]
+}
+
+# Return 1 if constructors with initialization priority arguments are
+# supposed on this target.
+
+proc check_effective_target_init_priority {} {
+    # On Solaris2, initialization priorities are only supported with
+    # GNU ld, but the compiler accepts them even when using Sun ld.
+    # For more information, see PR 6482.
+    if { [istarget *-solaris2*] } {
+	return 1
+    }
+
+    return [check_no_compiler_messages init_priority assembly "
+	void f() __attribute__((constructor (1000)));
+	void f() \{\}
+    "]
 }
 
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.

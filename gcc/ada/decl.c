@@ -5890,7 +5890,7 @@ annotate_value (tree gnu_size)
       if (!annotate_value_cache)
         annotate_value_cache = htab_create_ggc (512, tree_int_map_hash,
 					        tree_int_map_eq, 0);
-      in.from = gnu_size;
+      in.base.from = gnu_size;
       h = (struct tree_int_map **)
 	    htab_find_slot (annotate_value_cache, &in, INSERT);
 
@@ -6016,7 +6016,7 @@ annotate_value (tree gnu_size)
   if (h)
     {
       *h = ggc_alloc (sizeof (struct tree_int_map));
-      (*h)->from = gnu_size;
+      (*h)->base.from = gnu_size;
       (*h)->to = ret;
     }
 

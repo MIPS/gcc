@@ -655,7 +655,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
   if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return expr;
 
-  n = TREE_CODE_LENGTH (TREE_CODE (expr));
+  n = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < n; i++)
     {
       e = TREE_OPERAND (expr, i);
@@ -691,7 +691,7 @@ expand_simple_operations (tree expr)
   code = TREE_CODE (expr);
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
-      n = TREE_CODE_LENGTH (code);
+      n = TREE_OPERAND_LENGTH (expr);
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);
@@ -1060,7 +1060,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     return false;
 
   /* We don't want to see undefined signed overflow warnings while
-     computing the nmber of iterations.  */
+     computing the number of iterations.  */
   fold_defer_overflow_warnings ();
 
   iv0.base = expand_simple_operations (iv0.base);
@@ -1752,6 +1752,8 @@ static void
 compute_estimated_nb_iterations (struct loop *loop)
 {
   struct nb_iter_bound *bound;
+  double_int bnd_val, delta;
+  edge exit;
  
   gcc_assert (loop->estimate_state == EST_NOT_AVAILABLE);
 
@@ -1760,15 +1762,77 @@ compute_estimated_nb_iterations (struct loop *loop)
       if (!bound->realistic)
 	continue;
 
+      bnd_val = bound->bound;
+      /* If bound->stmt is an exit, then every statement in the loop is
+	 executed at most BND_VAL + 1 times.  If it is not an exit, then
+	 some of the statements before it could be executed BND_VAL + 2
+	 times, if an exit of LOOP is before stmt.  */
+      exit = single_exit (loop);
+
+      if (bound->is_exit
+	  || (exit != NULL
+	      && dominated_by_p (CDI_DOMINATORS,
+				 exit->src, bb_for_stmt (bound->stmt))))
+	delta = double_int_one;
+      else
+	delta = double_int_two;
+      bnd_val = double_int_add (bnd_val, delta);
+
+      /* If an overflow occured, ignore the result.  */
+      if (double_int_ucmp (bnd_val, delta) < 0)
+	continue;
+
       /* Update only when there is no previous estimation, or when the current
 	 estimation is smaller.  */
       if (loop->estimate_state == EST_NOT_AVAILABLE
-	  || double_int_ucmp (bound->bound, loop->estimated_nb_iterations) < 0)
+	  || double_int_ucmp (bnd_val, loop->estimated_nb_iterations) < 0)
 	{
 	  loop->estimate_state = EST_AVAILABLE;
-	  loop->estimated_nb_iterations = bound->bound;
+	  loop->estimated_nb_iterations = bnd_val;
 	}
     }
+}
+
+/* Returns true if REF is a reference to an array at the end of a dynamically
+   allocated structure.  If this is the case, the array may be allocated larger
+   than its upper bound implies.  */
+
+static bool
+array_at_struct_end_p (tree ref)
+{
+  tree base = get_base_address (ref);
+  tree parent, field;
+
+  /* Unless the reference is through a pointer, the size of the array matches
+     its declaration.  */
+  if (!base || !INDIRECT_REF_P (base))
+    return false;
+  
+  for (;handled_component_p (ref); ref = parent)
+    {
+      parent = TREE_OPERAND (ref, 0);
+
+      if (TREE_CODE (ref) == COMPONENT_REF)
+	{
+	  /* All fields of a union are at its end.  */
+	  if (TREE_CODE (TREE_TYPE (parent)) == UNION_TYPE)
+	    continue;
+
+	  /* Unless the field is at the end of the struct, we are done.  */
+	  field = TREE_OPERAND (ref, 1);
+	  if (TREE_CHAIN (field))
+	    return false;
+	}
+
+      /* The other options are ARRAY_REF, ARRAY_RANGE_REF, VIEW_CONVERT_EXPR.
+	 In all these cases, we might be accessing the last element, and
+	 although in practice this will probably never happen, it is legal for
+	 the indices of this last element to exceed the bounds of the array.
+	 Therefore, continue checking.  */
+    }
+
+  gcc_assert (INDIRECT_REF_P (ref));
+  return true;
 }
 
 /* Determine information about number of iterations a LOOP from the index
@@ -1789,7 +1853,8 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
   bool sign;
   struct loop *loop = data->loop;
 
-  if (TREE_CODE (base) != ARRAY_REF)
+  if (TREE_CODE (base) != ARRAY_REF
+      || array_at_struct_end_p (base))
     return true;
 
   ev = instantiate_parameters (loop, analyze_scalar_evolution (loop, *idx));
@@ -1882,11 +1947,12 @@ infer_loop_bounds_from_array (struct loop *loop, tree stmt)
   call = get_call_expr_in (stmt);
   if (call)
     {
-      tree args;
+      tree arg;
+      call_expr_arg_iterator iter;
 
-      for (args = TREE_OPERAND (call, 1); args; args = TREE_CHAIN (args))
-	if (REFERENCE_CLASS_P (TREE_VALUE (args)))
-	  infer_loop_bounds_from_ref (loop, stmt, TREE_VALUE (args));
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
+	if (REFERENCE_CLASS_P (arg))
+	  infer_loop_bounds_from_ref (loop, stmt, arg);
     }
 }
 
@@ -1973,7 +2039,7 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 
 /* Records estimates on numbers of iterations of LOOP.  */
 
-static void
+void
 estimate_numbers_of_iterations_loop (struct loop *loop)
 {
   VEC (edge, heap) *exits;

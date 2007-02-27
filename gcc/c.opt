@@ -116,6 +116,10 @@ Wabi
 C++ ObjC++ Var(warn_abi) Warning
 Warn about things that will change when compiling with an ABI-compliant compiler
 
+Waddress
+C ObjC C++ ObjC++ Var(warn_address) Warning
+Warn about suspicious uses of memory addresses
+
 Wall
 C ObjC C++ ObjC++ Warning
 Enable most warning messages
@@ -133,7 +137,7 @@ C Var(warn_cxx_compat) Warning
 Warn about C constructs that are not in the common subset of C and C++
 
 Wc++0x-compat
-C++ ObjC++ Var(warn_cxx0x_compat)
+C++ ObjC++ Var(warn_cxx0x_compat) Warning
 Warn about C++ constructs whose meaning differs between ISO C++ 1998 and ISO C++ 200x
 
 Wcast-qual
@@ -194,7 +198,7 @@ C ObjC C++ ObjC++
 
 Werror-implicit-function-declaration
 C ObjC RejectNegative Warning
-Make implicit function declarations an error
+This switch is deprecated; use -Werror=implicit-function-declaration instead
 
 Wfloat-equal
 C ObjC C++ ObjC++ Var(warn_float_equal) Warning
@@ -235,7 +239,7 @@ Wimplicit
 C ObjC C++ ObjC++ Warning
 
 Wimplicit-function-declaration
-C ObjC Var(mesg_implicit_function_declaration) Init(-1) Warning
+C ObjC Var(warn_implicit_function_declaration) Init(-1) Warning
 Warn about implicit function declarations
 
 Wimplicit-int

@@ -26,8 +26,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    like a traditional Unix, with more external files.  Most of our specs
    must be aware of the difference.  */
 
-/* The directory containing the VxWorks target headers.  */
-#define VXWORKS_TARGET_DIR  "/home/tornado/base6/target"
+/* We look for the VxWorks header files using the environment
+   variables that are set in VxWorks to indicate the location of the
+   system header files.  We use -idirafter so that the GCC's own
+   header-file directories (containing <stddef.h>, etc.) come before
+   the VxWorks system header directories.  */
 
 /* Since we provide a default -isystem, expand -isystem on the command
    line early.  */
@@ -35,9 +38,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define VXWORKS_ADDITIONAL_CPP_SPEC " 					\
  %{!nostdinc:%{isystem*}}						\
  %{mrtp: -D__RTP__=1							\
-	 %{!nostdinc:-isystem " VXWORKS_TARGET_DIR "/usr/h}}		\
+	 %{!nostdinc:-idirafter %:getenv(WIND_USR /h)}}			\
  %{!mrtp:-D_WRS_KERNEL=1						\
-	 %{!nostdinc:-isystem " VXWORKS_TARGET_DIR "/h}}"
+ 	 %{!nostdinc:-idirafter %:getenv(WIND_BASE /target/h)}}"
 
 /* The references to __init and __fini will be satisfied by
    libc_internal.a.  */
@@ -87,11 +90,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
   targetm.have_ctors_dtors = TARGET_VXWORKS_RTP; \
 } while (0)
 
-/* The VxWorks runtime uses a clever trick to get the sentinel entry
-   (-1) inserted at the beginning of the .ctors segment.  This trick
-   will not work if we ever generate any entries in plain .ctors
-   sections; we must always use .ctors.PRIORITY.  */
-#define ALWAYS_NUMBER_CTORS_SECTIONS 1
+/* VxWorks requires special handling of constructors and destructors.
+   All VxWorks configurations must use these functions.  */
+#define TARGET_ASM_CONSTRUCTOR vxworks_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR vxworks_asm_out_destructor
+extern void vxworks_asm_out_constructor (rtx symbol, int priority);
+extern void vxworks_asm_out_destructor (rtx symbol, int priority);
 
 /* The name of the symbol for the table of GOTs in a particular
    RTP.  */

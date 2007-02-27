@@ -106,8 +106,6 @@ static void add_pending_template (tree);
 static int push_tinst_level (tree);
 static void pop_tinst_level (void);
 static void reopen_tinst_level (tree);
-static tree classtype_mangled_name (tree);
-static char* mangle_class_name_for_template (const char *, tree, tree);
 static tree tsubst_initializer_list (tree, tree);
 static tree get_class_bindings (tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
@@ -3349,14 +3347,7 @@ push_template_decl_real (tree decl, bool is_friend)
   info = tree_cons (tmpl, args, NULL_TREE);
 
   if (DECL_IMPLICIT_TYPEDEF_P (decl))
-    {
-      SET_TYPE_TEMPLATE_INFO (TREE_TYPE (tmpl), info);
-      if ((!ctx || TREE_CODE (ctx) != FUNCTION_DECL)
-	  && TREE_CODE (TREE_TYPE (decl)) != ENUMERAL_TYPE
-	  /* Don't change the name if we've already set it up.  */
-	  && !IDENTIFIER_TEMPLATE (DECL_NAME (decl)))
-	DECL_NAME (decl) = classtype_mangled_name (TREE_TYPE (decl));
-    }
+    SET_TYPE_TEMPLATE_INFO (TREE_TYPE (tmpl), info);
   else if (DECL_LANG_SPECIFIC (decl))
     DECL_TEMPLATE_INFO (decl) = info;
 
@@ -4301,124 +4292,6 @@ comp_template_args (tree oldargs, tree newargs)
   return 1;
 }
 
-/* Given class template name and parameter list, produce a user-friendly name
-   for the instantiation.  */
-
-static char *
-mangle_class_name_for_template (const char* name, tree parms, tree arglist)
-{
-  static struct obstack scratch_obstack;
-  static char *scratch_firstobj;
-  int i, nparms;
-
-  if (!scratch_firstobj)
-    gcc_obstack_init (&scratch_obstack);
-  else
-    obstack_free (&scratch_obstack, scratch_firstobj);
-  scratch_firstobj = (char *) obstack_alloc (&scratch_obstack, 1);
-
-#define ccat(C)	obstack_1grow (&scratch_obstack, (C));
-#define cat(S)	obstack_grow (&scratch_obstack, (S), strlen (S))
-
-  cat (name);
-  ccat ('<');
-  nparms = TREE_VEC_LENGTH (parms);
-  arglist = INNERMOST_TEMPLATE_ARGS (arglist);
-  gcc_assert (nparms == TREE_VEC_LENGTH (arglist));
-  for (i = 0; i < nparms; i++)
-    {
-      tree parm;
-      tree arg;
-
-      parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
-      arg = TREE_VEC_ELT (arglist, i);
-
-      if (parm == error_mark_node)
-	continue;
-
-      if (i)
-	ccat (',');
-
-      if (TREE_CODE (parm) == TYPE_DECL)
-	{
-	  cat (type_as_string (arg, TFF_CHASE_TYPEDEF));
-	  continue;
-	}
-      else if (TREE_CODE (parm) == TEMPLATE_DECL)
-	{
-	  if (TREE_CODE (arg) == TEMPLATE_DECL)
-	    {
-	      /* Already substituted with real template.  Just output
-		 the template name here */
-	      tree context = DECL_CONTEXT (arg);
-	      if (context)
-		{
-		  /* The template may be defined in a namespace, or
-		     may be a member template.  */
-		  gcc_assert (TREE_CODE (context) == NAMESPACE_DECL
-			      || CLASS_TYPE_P (context));
-		  cat (decl_as_string (DECL_CONTEXT (arg),
-				      TFF_PLAIN_IDENTIFIER));
-		  cat ("::");
-		}
-	      cat (IDENTIFIER_POINTER (DECL_NAME (arg)));
-	    }
-	  else
-	    /* Output the parameter declaration.  */
-	    cat (type_as_string (arg, TFF_CHASE_TYPEDEF));
-	  continue;
-	}
-      else
-	gcc_assert (TREE_CODE (parm) == PARM_DECL);
-
-      /* No need to check arglist against parmlist here; we did that
-	 in coerce_template_parms, called from lookup_template_class.  */
-      cat (expr_as_string (arg, TFF_PLAIN_IDENTIFIER));
-    }
-  {
-    char *bufp = obstack_next_free (&scratch_obstack);
-    int offset = 0;
-    while (bufp[offset - 1] == ' ')
-      offset--;
-    obstack_blank_fast (&scratch_obstack, offset);
-
-    /* B<C<char> >, not B<C<char>> */
-    if (bufp[offset - 1] == '>')
-      ccat (' ');
-  }
-  ccat ('>');
-  ccat ('\0');
-  return (char *) obstack_base (&scratch_obstack);
-}
-
-static tree
-classtype_mangled_name (tree t)
-{
-  if (CLASSTYPE_TEMPLATE_INFO (t)
-      /* Specializations have already had their names set up in
-	 lookup_template_class.  */
-      && !CLASSTYPE_TEMPLATE_SPECIALIZATION (t))
-    {
-      tree tmpl = most_general_template (CLASSTYPE_TI_TEMPLATE (t));
-
-      /* For non-primary templates, the template parameters are
-	 implicit from their surrounding context.  */
-      if (PRIMARY_TEMPLATE_P (tmpl))
-	{
-	  tree name = DECL_NAME (tmpl);
-	  char *mangled_name = mangle_class_name_for_template
-	    (IDENTIFIER_POINTER (name),
-	     DECL_INNERMOST_TEMPLATE_PARMS (tmpl),
-	     CLASSTYPE_TI_ARGS (t));
-	  tree id = get_identifier (mangled_name);
-	  IDENTIFIER_TEMPLATE (id) = name;
-	  return id;
-	}
-    }
-
-  return TYPE_IDENTIFIER (t);
-}
-
 static void
 add_pending_template (tree d)
 {
@@ -4965,10 +4838,6 @@ lookup_template_class (tree d1,
 	   the instantiation and exit above.  */
 	tsubst_enum (template_type, t, arglist);
 
-      /* Reset the name of the type, now that CLASSTYPE_TEMPLATE_INFO
-	 is set up.  */
-      if (TREE_CODE (t) != ENUMERAL_TYPE)
-	DECL_NAME (type_decl) = classtype_mangled_name (t);
       if (is_partial_instantiation)
 	/* If the type makes use of template parameters, the
 	   code that generates debugging information will crash.  */
@@ -8350,12 +8219,15 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 NULL_TREE, NULL_TREE);
 
     case CALL_EXPR:
-      return build_nt (code,
-		       tsubst_copy (TREE_OPERAND (t, 0), args,
-				    complain, in_decl),
-		       tsubst_copy (TREE_OPERAND (t, 1), args, complain,
-				    in_decl),
-		       NULL_TREE);
+      {
+	int n = VL_EXP_OPERAND_LENGTH (t);
+	tree result = build_vl_exp (CALL_EXPR, n);
+	int i;
+	for (i = 0; i < n; i++)
+	  TREE_OPERAND (t, i) = tsubst_copy (TREE_OPERAND (t, i), args,
+					     complain, in_decl);
+	return result;
+      }
 
     case COND_EXPR:
     case MODOP_EXPR:
@@ -9271,7 +9143,7 @@ tsubst_copy_and_build (tree t,
 	bool qualified_p;
 	bool koenig_p;
 
-	function = TREE_OPERAND (t, 0);
+	function = CALL_EXPR_FN (t);
 	/* When we parsed the expression,  we determined whether or
 	   not Koenig lookup should be performed.  */
 	koenig_p = KOENIG_LOOKUP_P (t);
@@ -9304,7 +9176,8 @@ tsubst_copy_and_build (tree t,
 	      qualified_p = true;
 	  }
 
-	call_args = RECUR (TREE_OPERAND (t, 1));
+	/* FIXME:  Rewrite this so as not to construct an arglist.  */
+	call_args = RECUR (CALL_EXPR_ARGS (t));
 
 	/* We do not perform argument-dependent lookup if normal
 	   lookup finds a non-function, in accordance with the
@@ -13064,9 +12937,10 @@ value_dependent_expression_p (tree expression)
 		      (TREE_OPERAND (expression, 1))));
 
 	case tcc_expression:
+	case tcc_vl_exp:
 	  {
 	    int i;
-	    for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expression)); ++i)
+	    for (i = 0; i < TREE_OPERAND_LENGTH (expression); ++i)
 	      /* In some cases, some of the operands may be missing.
 		 (For example, in the case of PREDECREMENT_EXPR, the
 		 amount to increment by may be missing.)  That doesn't
