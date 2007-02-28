@@ -5199,6 +5199,11 @@ ia64_override_options (void)
 
   init_machine_status = ia64_init_machine_status;
 
+  if (align_functions <= 0)
+    align_functions = 64;
+  if (align_loops <= 0)
+    align_loops = 32;
+
   flag_sel_sched_renaming = mflag_sel_sched_renaming;
   flag_sel_sched_substitution = mflag_sel_sched_substitution;
 }
