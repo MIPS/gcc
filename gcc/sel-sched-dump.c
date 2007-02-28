@@ -861,7 +861,7 @@ bool insn_is_set_p (rtx insn)
 }
 
 int
-hard_regno_rename_ok (int i, int j ATTRIBUTE_UNUSED)
+hard_regno_rename_ok (int i ATTRIBUTE_UNUSED, int j ATTRIBUTE_UNUSED)
 {
   return HARD_REGNO_RENAME_OK (i, j);
 }

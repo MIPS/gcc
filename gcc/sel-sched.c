@@ -360,7 +360,7 @@ replace_in_vinsn_using_bitmask (vinsn_t where, rtx what, rtx by_what,
   arg.bitmask = bitmask;
 
   for_each_rtx (VINSN_SEPARABLE (where) ? 
-		  &VINSN_RHS (where) : &VINSN_PATTERN (where), 
+                &VINSN_RHS (where) : &VINSN_PATTERN (where), 
 		&replace_in_vinsn_using_bitmask_1, (void *) &arg);
 
   /* Make sure all occurences has been replaced.  */
@@ -1598,15 +1598,13 @@ compute_av_set (insn_t insn, ilist_t p, int ws, int flags)
   /* Then, compute av1 above insn.  */
   if (!INSN_NOP_P (insn))
     {
-      rhs_t rhs;
-
       moveup_set_rhs (&av1, insn);
 
-      rhs = av_set_lookup_insn (av1, insn);
-      if (rhs)
-	RHS_SPEC (rhs) = 0;
-      else
-	av_set_add_insn (&av1, insn);
+      /* Add this insn to its av set.  If a similar insn is already in 
+         av set, we need to change its RHS properly.  By now, just 
+         remove it first.  */
+      av_set_remove_rhs_with_insn (&av1, insn);
+      av_set_add_insn (&av1, insn);
     }
 
   line_start ();
@@ -2172,12 +2170,29 @@ fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
       if (/* This will also initialize INSN_CODE for max_issue ().  */
 	  recog_memoized (insn) < 0)
         {
+
+          /* Do not pipeline these insns when they were already scheduled;
+             as we emit them unconditionally, it leads to an infinite loop.  */
+          if (VINSN_SCHED_TIMES (RHS_VINSN (rhs)) > 0)
+            {
+              gcc_assert (pipelining_p);
+              continue;
+            }
+
           VEC_block_remove (rhs_t, vec_av_set, 0, 
                             VEC_length (rhs_t, vec_av_set));
           return rhs;
         }
 
       VEC_safe_push (rhs_t, heap, vec_av_set, rhs);
+    }
+
+  /* Bail out early when the ready list contained only USEs/CLOBBERs that are
+     already scheduled.  */
+  if (VEC_length (rhs_t, vec_av_set) == 0)
+    {
+      ready.n_ready = 0;
+      return NULL;
     }
 
   /* Sort the vector.  */
@@ -2233,7 +2248,7 @@ fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
   print ("\nreally_ready: %d stalled: %d \n", n, stalled);
   if (!n)
     {
-      if (enable_moveup_set_path_p)
+      if (!enable_moveup_set_path_p)
         /* It seems possible that when no insns are ready, this could be
            due to liveness restrictions.  However, we should always be able
            to schedule the next instruction.  So when the list is empty, then
@@ -2299,7 +2314,6 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
   rhs_t res = NULL;
   insn_t best = NULL_RTX;
   int best_reg;
-  state_t s = alloca (dfa_state_size);
   rhs_t r;
   _list_iterator i3;
 
@@ -2343,8 +2357,6 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
 	}
     }
 
-  memcpy (s, FENCE_STATE (fence), dfa_state_size);
-
   /* We have one boundary per fence.  */
   gcc_assert (BLIST_NEXT (bnds) == NULL);
 
@@ -2363,27 +2375,55 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
       int i, can_issue, privileged_n;
       int index;
 
-      if (targetm.sched.reorder
-          && !SCHED_GROUP_P (ready_element (&ready, 0))
-	  && ready.n_ready > 1)
-	{
-	  /* !!! Don't give reorder the most prioritized insn as it can break
-	     pipelining.  */
-          if (pipelining_p)
-            --ready.n_ready;
-
-	  can_issue_more
-	    = targetm.sched.reorder (sched_dump, sched_verbose,
-				     ready_lastpos (&ready),
-				     &ready.n_ready, FENCE_CYCLE (fence));
-          if (pipelining_p)
+      /* Call the reorder hook at the beginning of the cycle, and call
+         the reorder2 hook in the middle of the cycle.  */
+      if (FENCE_ISSUED_INSNS (fence) == 0)
+        {
+          if (targetm.sched.reorder
+              && !SCHED_GROUP_P (ready_element (&ready, 0))
+              && ready.n_ready > 1)
+            {
+              /* Don't give reorder the most prioritized insn as it can break
+                 pipelining.  */
+              if (pipelining_p)
+                --ready.n_ready;
+              
+              can_issue_more
+                = targetm.sched.reorder (sched_dump, sched_verbose,
+                                         ready_lastpos (&ready),
+                                         &ready.n_ready, FENCE_CYCLE (fence));
+              if (pipelining_p)
+                ++ready.n_ready;
+            }
+          else
+            /* Initialize can_issue_more for variable_issue.  */
+            can_issue_more = issue_rate;
+        }
+      else if (targetm.sched.reorder2
+               && (ready.n_ready == 0
+                   || !SCHED_GROUP_P (ready_element (&ready, 0))))
+        {
+          if (pipelining_p && ready.n_ready > 1)
+           --ready.n_ready;
+          can_issue_more =
+            targetm.sched.reorder2 (sched_dump, sched_verbose,
+                                    ready.n_ready
+                                    ? ready_lastpos (&ready) : NULL,
+                                    &ready.n_ready, FENCE_CYCLE (fence));
+          if (pipelining_p && ready.n_ready > 1)
             ++ready.n_ready;
-	}
+        }
+      
+      if (can_issue_more == 0)
+        {
+          *best_rhs_vliw = NULL;
+          *best_reg_found = -1;
+          return;
+        }
+
 
       min_spec_insn = ready_element (&ready, 0);
-
       min_spec_vinsn = INSN_VI (min_spec_insn);
-
       min_spec_rhs = av_set_lookup_insn (*av_vliw_ptr, min_spec_insn);
       gcc_assert (min_spec_rhs != NULL
 		  && RHS_VINSN (min_spec_rhs) == min_spec_vinsn);
@@ -2479,9 +2519,6 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
 	    }
         }
 
-      if (memcmp (s, FENCE_STATE (fence), dfa_state_size))
-        gcc_unreachable ();
-
       if (can_issue)
         {
           best = ready_element (&ready, index);
@@ -2503,6 +2540,19 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
     {
       gcc_assert (INSN_P (best));
       sel_dfa_new_cycle (best, fence);
+
+      if (targetm.sched.variable_issue)
+       {
+         memcpy (curr_state, FENCE_STATE (fence), dfa_state_size);
+         can_issue_more = targetm.sched.variable_issue (sched_dump,
+                                                        sched_verbose,
+                                                        best,
+                                                        can_issue_more);
+         memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
+       }
+      else if (GET_CODE (PATTERN (best)) != USE
+              && GET_CODE (PATTERN (best)) != CLOBBER)
+       can_issue_more--;
     }
 
   *best_rhs_vliw = res;
@@ -2686,6 +2736,11 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
           line_start ();
           print ("no best rhs found!");
           line_finish ();
+
+          /* Reorder* hooks told us nothing more to schedule; indicate that
+             a stall is needed.  */
+          if (can_issue_more == 0)
+            need_stall = 1;
 
 	  av_set_clear (&av_vliw);
           break;
@@ -2912,18 +2967,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		advance_one_cycle (fence);
             }
 
-          if (targetm.sched.variable_issue)
-            {
-              memcpy (curr_state, FENCE_STATE (fence), dfa_state_size);
-              can_issue_more = targetm.sched.variable_issue (sched_dump,
-                                                             sched_verbose,
-							     insn,
-                                                             can_issue_more);
-              memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
-            }
-          else
-            can_issue_more--;
-
 	  /* Set instruction scheduling info.  This will be used in bundling,
 	     pipelining, tick computations etc.  */
 
@@ -2978,6 +3021,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
       /* Indicate that we've scheduled something on this fence.  */
       FENCE_SCHEDULED_SOMETHING (fence) = true;
+
+      /* When can_issue_more is 0, variable_issue tells us that we should
+        advance a cycle.  */
+      if (can_issue_more == 0)
+       {
+         need_stall = 1;
+         break;
+       }
 
       /* We currently support information about candidate blocks only for
 	 one 'target_bb' block.  Hence we can't schedule after jump insn,
@@ -3452,6 +3503,17 @@ sel_region_init (int rgn)
   if (sched_rgn_local_preinit (rgn))
     return true;
 
+  /* We don't need the semantics of moveup_set_path, because filtering of 
+     dependencies inside a sched group is handled by tick_check_p and 
+     the target.  */
+  enable_moveup_set_path_p = 0;
+
+  /* We need to treat insns as RHSes only when renaming is enabled.  */
+  enable_schedule_as_rhs_p = (flag_sel_sched_renaming != 0);
+
+  bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
+  pipelining_p = bookkeeping_p && (flag_sel_sched_pipelining != 0);
+
   bbs = sbitmap_alloc (last_basic_block);
   sbitmap_zero (bbs);
   for (i = 0; i < current_nr_blocks; i++)
@@ -3502,20 +3564,6 @@ sel_region_init (int rgn)
 
   /* Reset register allocation ticks array.  */
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
-
-  /* We don't need the semantics of moveup_set_path, because filtering of 
-     dependencies inside a sched group is handled by tick_check_p and 
-     the target.  */
-  enable_moveup_set_path_p = 0;
-
-  /* We need to treat insns as RHSes only when renaming is enabled.  */
-  enable_schedule_as_rhs_p = (flag_sel_sched_renaming != 0);
-
-  /* (En/Dis)able bookkeeping.  */
-  bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
-
-  /* (En/Dis)able pipelining.  */
-  pipelining_p = bookkeeping_p && (flag_sel_sched_pipelining != 0);
 
   if (pipelining_p)
     pipelining_p = add_region_head ();

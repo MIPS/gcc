@@ -1,3 +1,23 @@
+2007-02-28  Andrey Belevantsev  <abel@ispras.ru>
+
+        * sel-sched.c (replace_in_vinsn_using_bitmask): Fix spacing.
+        (compute_av_set): Instead of merging two rhs'es, remove one
+        first, then add second.
+        (fill_ready_list): Do not pipeline USEs and CLOBBERs that were
+        already scheduled; bail out early when ready list doesn't contain
+        other insns.  Fix thinko with '!'.
+        (find_best_rhs_and_reg_that_fits): Kill 's' variable.  Call
+        the reorder2 hook too, not only reorder.  Bail out early when
+        can_issue_more is 0.  Move the call to variable_issue from ...
+        (fill_insns): ... here.  When can_issue_more is 0, set need_stall
+        to 1 and bail out.
+        (sel_region_init): Initialize scheduling flags earlier.
+        * sel-sched-ir.c (av_set_remove_rhs_with_insn): New function.
+        * sel-sched-ir.h: Declare it.
+        * sel-sched-dump.c (hard_regno_rename_ok): Mark the second
+        parameter as unused too.
+        * config/rs6000/rs6000.c: Include sched-deps.h.
+
 2007-02-28  Dmitry Melnik  <dm@ispras.ru>
 
         * sel-sched.c (substitute_rhs): Kill outdated and commented assert.

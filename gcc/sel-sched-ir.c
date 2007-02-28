@@ -1160,6 +1160,25 @@ av_set_lookup_other_equiv_rhs (av_set_t set, rhs_t sought_rhs)
   return NULL;
 }
 
+
+/* Search for rhs corresponding to INSN in SET and remove it if found,
+   returning TRUE.  Return FALSE otherwise.  */
+bool
+av_set_remove_rhs_with_insn (av_set_t *set, insn_t insn)
+{
+  rhs_t r;
+  av_set_iterator i;
+
+  FOR_EACH_RHS_1 (r, i, set)
+    if (rhs_equals_insn_p (r, insn))
+      {
+       av_set_iter_remove (&i);
+       return true;
+      }
+
+  return false;
+}
+
 bool
 av_set_is_in_p (av_set_t set, rhs_t rhs)
 {

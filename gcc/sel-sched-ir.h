@@ -817,6 +817,7 @@ extern void rhs_clear (rhs_t);
 extern void av_set_iter_remove (av_set_iterator *);
 extern rhs_t av_set_lookup_rhs (av_set_t, rhs_t);
 extern rhs_t av_set_lookup_other_equiv_rhs (av_set_t, rhs_t);
+extern bool av_set_remove_rhs_with_insn (av_set_t *, insn_t);
 extern bool av_set_is_in_p (av_set_t, rhs_t);
 extern rhs_t av_set_add_vinsn (av_set_t *, vinsn_t, int, int);
 extern av_set_t av_set_copy (av_set_t, int);

@@ -53,6 +53,7 @@
 #include "reload.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "sched-deps.h"
 #include "tree-gimple.h"
 #include "intl.h"
 #include "params.h"
