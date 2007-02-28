@@ -239,7 +239,7 @@ resolve_formal_arglist (gfc_symbol * proc)
                 {
                   gfc_error
                     ("Character-valued argument '%s' of statement function at "
-                     "%L must has constant length",
+                     "%L must have constant length",
                      sym->name, &sym->declared_at);
                   continue;
                 }
@@ -1328,7 +1328,7 @@ generic:
 
   /* Last ditch attempt.  See if the reference is to an intrinsic
      that possesses a matching interface.  14.1.2.4  */
-  if (!gfc_intrinsic_name (sym->name, 0))
+  if (sym && !gfc_intrinsic_name (sym->name, 0))
     {
       gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
@@ -3121,7 +3121,7 @@ resolve_variable (gfc_expr * e)
   else
     {
       /* Must be a simple variable reference.  */
-      if (gfc_set_default_type (sym, 1, NULL) == FAILURE)
+      if (gfc_set_default_type (sym, 1, sym->ns) == FAILURE)
 	return FAILURE;
       e->ts = sym->ts;
     }
@@ -4559,6 +4559,10 @@ resolve_where (gfc_code *code, gfc_expr *mask)
                           "inconsistent shape", &cnext->expr->where);
               break;
 
+	    case EXEC_ASSIGN_CALL:
+	      resolve_call (cnext);
+	      break;
+
             /* WHERE or WHERE construct is part of a where-body-construct */
             case EXEC_WHERE:
               resolve_where (cnext, e);
@@ -4795,6 +4799,10 @@ gfc_resolve_forall_body (gfc_code *code, int nvar, gfc_expr **var_expr)
         case EXEC_POINTER_ASSIGN:
           gfc_resolve_assign_in_forall (c, nvar, var_expr);
           break;
+
+	case EXEC_ASSIGN_CALL:
+	  resolve_call (c);
+	  break;
 
         /* Because the gfc_resolve_blocks() will handle the nested FORALL,
            there is no need to handle it here.  */
@@ -6198,11 +6206,9 @@ resolve_symbol (gfc_symbol * sym)
     case FL_PARAMETER:
       if (resolve_fl_parameter (sym) == FAILURE)
 	return;
-
       break;
 
     default:
-
       break;
     }
 
@@ -6924,7 +6930,7 @@ resolve_equivalence (gfc_equiv *eq)
 	{
 	  if (value_name != NULL)
 	    {
-	      gfc_error ("Initialized objects '%s' and '%s'  cannot both "
+	      gfc_error ("Initialized objects '%s' and '%s' cannot both "
 			 "be in the EQUIVALENCE statement at %L",
 			 value_name, sym->name, &e->where);
 	      continue;

@@ -1,3 +1,242 @@
+2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi: Standardize title page, remove version number
+	from copyright page.
+
+2007-02-24  Roger Sayle  <roger@eyesopen.com>
+	    Paul Thomas <pault@gcc.gnu.org>
+
+        PR fortran/30400
+        * match.c (match_forall_iterator): Use gfc_match_expr instead
+	of gfc_match_variable to match the iterator variable.  Return
+	MATCH_NO if not a variable.  Remove the reset of the symbol's
+	flavor in cleanup.
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30681
+	* options.c (set_default_std_flags): New function to consolidate
+	setting the flags. Relax warning level for obsolescent.
+	(gfc_init_options): Use new function.
+	(gfc_handle_option): Use new function.
+	* match.c (match_arithmetic_if): Change to obsolescent from deleted.
+	(gfc_match_if): Same.
+
+2007-02-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30793
+	* trans-decl.c (gfc_generate_function_code): Do not initialize
+	  pointers to derived components.
+
+2007-02-22  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Old-style kind specifications): Document
+	special handling of old-style kind specifiers for COMPLEX.
+	* decl.c (gfc_match_old_kind_spec): Documented kind/bytesize
+	assumptions in comment.
+
+2007-02-21  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* parse.c (next_free): Gooble spaces after OpenMP sentinel.
+
+2007-02-18  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30235
+	* interface.c (compare_actual_formal): check for
+	alternate returns when iterating over non-present
+	arguments.
+
+2007-02-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30554
+	* module.c (find_symtree_for_symbol): New function to return
+	a symtree that is not a "unique symtree" given a symbol.
+	(read_module): Do not automatically set pointer_info to
+	referenced, if the symbol has a namespace, because this
+	inhibits the generation of a unique symtree.  Recycle the
+	symtree if possible by calling find_symtree_for_symbol. If a
+	symbol is excluded by an ONLY clause, check to see if there is
+	a symtree already loaded. If so, attach the symtree to the
+	pointer_info.
+
+	PR fortran/30319
+	* decl.c (add_init_expr_to_sym): Make new charlen for an array
+	constructor initializer.
+
+2007-02-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30779
+	* scanner.c (gfc_next_char_literal): Add check for end of file after
+	call to advance_line.
+
+2007-02-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30512
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc,
+	  gfc_conv_intrinsic_minmaxval): Use HUGE-1 for most negative integer.
+
+2007-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30720
+	* trans-array.c (gfc_trans_create_temp_array): Remove use of the
+	function argument. Always generate code for negative extent.
+	Simplify said code.
+	* trans-array.h (gfc_trans_create_temp_array): Change prototype.
+	* trans-expr.c (gfc_conv_function_call): Remove use of last argument
+	of gfc_trans_create_temp_array.
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer): Likewise.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): Likewise.
+
+2007-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30611
+	* trans-intrinsic.c (gfc_conv_intrinsic_repeat): Evaluate
+	arguments only once. Generate check that NCOPIES argument is not
+	negative.
+
+2007-02-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30389
+	* gfortran.h:  Remove gfc_simplify_init_1.
+	* arith.h:  Remove third argument from gfc_compare_string.
+	* arith.c(gfc_compare_expression):  Remove third argument
+	from call to gfc_compare_string.
+	(gfc_compare_string):  Remove third argument xcoll_table.
+	Remove use of xcoll_table.
+	* misc.c(gfc_init_1):  Remove call to gfc_simplify_init_1.
+	* simplify.c(ascii_table):  Remove.
+	(xascii_table): Likewise.
+	(gfc_simplify_achar):  ICE if extract_int fails.  Remove use of
+	ascii_table.  Warn if -Wsurprising and value < 0 or > 127.
+	(gfc_simplify_char):  ICE if extract_int fails. Error if
+	value < 0 or value > 255.
+	(gfc_simplify_iachar):  Remove use of xascii_table.
+	Char values outside of 0..255 are an ICE.
+	(gfc_simplify_lge):  Remove use of xascii_table.
+	(gfc_simplify_lgt):  Likewise.
+	(gfc_simplify_lle):  Likewise.
+	(gfc_simplify_llt):  Likewise.
+	(invert_table):  Remove.
+	(gfc_simplify_init_1):  Remove.
+
+2007-02-16  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 30381
+	PR 30420
+	* simplify.c (convert_mpz_to_unsigned): New function.
+	(convert_mpz_to_signed): New function, largely based on
+	twos_complement().
+	(twos_complement): Removed.
+	(gfc_simplify_ibclr): Add conversions to and from an
+	unsigned representation before bit-twiddling.
+	(gfc_simplify_ibset): Same.
+	(gfc_simplify_ishftc): Add checks for overly large
+	constant arguments, only check the third argument if
+	it's present, carry over high bits into	the result as
+	appropriate, and perform the final conversion back to
+	a signed representation using the correct sign bit.
+	(gfc_simplify_not): Removed unnecessary masking.
+
+2007-02-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30799
+	* primary.c (match_logical_constant): Return MATCH_ERROR on invalid
+	kind.
+
+2007-02-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	2007-02-11  Daniel Franke  <franke.daniel@gmail.com>
+	* intrinsic.texi (HOSTNM): Fix typographical error in syntax.
+	(SLEEP): Added section and documentation.
+
+2007-02-12  Paul Thomas  <pault@gcc.gnu.org>
+	PR fortran/30284
+	PR fortran/30626
+	* trans-expr.c (gfc_conv_aliased_arg): Remove static attribute
+	from function and make sure that substring lengths are
+	translated.
+	(is_aliased_array): Remove static attribute.
+	* trans.c : Add prototypes for gfc_conv_aliased_arg and
+	is_aliased_array.
+	* trans-io.c (set_internal_unit): Add the post block to the
+	arguments of the function.  Use is_aliased_array to check if
+	temporary is needed; if so call gfc_conv_aliased_arg.
+	(build_dt): Pass the post block to set_internal_unit and
+	add to the block after all io activiy is done.
+
+	PR fortran/30407
+	* trans-expr.c (gfc_conv_operator_assign): New function.
+	* trans.h : Add prototype for gfc_conv_operator_assign.
+	* trans-stmt.c (gfc_trans_where_assign): Add a gfc_symbol for
+	a potential operator assignment subroutine.  If it is non-NULL
+	call gfc_conv_operator_assign instead of the first assignment.
+	( gfc_trans_where_2): In the case of an operator assignment,
+	extract the argument expressions from the code for the
+	subroutine call and pass the symbol to gfc_trans_where_assign.
+	resolve.c (resolve_where, gfc_resolve_where_code_in_forall,
+	gfc_resolve_forall_body): Resolve the subroutine call for
+	operator assignments.
+
+	PR fortran/30514
+	* array.c (match_array_element_spec): If the length of an array is
+	negative, adjust the upper limit to make it zero length.
+
+2007-02-12  Tobias Schl√ºter  <tobi@gcc.gnu.org>
+
+	PR fortran/30478
+	* decl.c: Update copyright years.
+	(create_enum_history, gfc_free_enum_history): Formatting
+	fixes.
+	(add_init_expr_to_sym): Remove ENUM-specific code-path.
+	(variable_decl): Likewise.  Formatting fix.
+	(match_attr_spec): Remove ENUM-specific codepath.
+	(gfc_match_enum): Fix typo in error message.
+	(enumerator_decl): New.
+	(gfc_match_enumerator_def): Strip down to code necessary for
+	ENUMs, use enumerator_decl.
+
+2007-02-10  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/24783
+	* resolve.c (resolve_variable): Get the implicit type from the
+	symbols namespace rather than the default namespace. Fix whitespace.
+	(resolve_formal_arglist, resolve_equivalence): Fix typo.
+
+2007-02-05  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30605
+	* fortran/invoke.texi: Update documentation.
+	* fortran/options.c (gfc_post_options): Deal with tabs with -std=f2003
+	and -pedantic.
+
+2007-02-05  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from trunk
+	PR fortran/30432
+	* trans-types.c (gfc_get_function_type):  Do not add void_type_node
+	to empty arg list.
+	* trans-decl.c (create_function_arglist): Change assert.
+
+2007-02-02  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30683
+	* resolve.c (resolve_generic_f): Check for non-NULL sym.
+
+2007-01-31  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from trunk
+	PR fortran/30452
+	* scanner.c(next_char):  Cast next character to unsigned
+	to avoid confusion with error return codes.
+
+2007-01-30  Tobias Burnus  <burnus@net-b.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/30276
+	* scanner.c (gfc_open_included_file): Support absolute pathnames.
+
 2007-01-30  Tobias Burnus  <burnus@net-b.de>
 
 	Backport from mainline.
@@ -373,7 +612,7 @@
 	(check_interface1): Change final argument from int to bool
 	in the function and all references.
 
-2006-12-29  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-12-29  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/25392
 	* trans-stmt.c (gfc_trans_return): Fix comment formatting.
@@ -1372,7 +1611,7 @@
 	* iresolve.c (resolve_spread): Build shape for result if the
 	source shape is available and dim and ncopies are constants.
 
-2006-09-18  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-09-18  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/28817
 	PR fortran/21918
@@ -1894,7 +2133,7 @@
 
 	* intrinsic.texi: Document new intrinsics.
 
-2006-07-01  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-07-01  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/19259
 	* parse.c (next_free): Error out on line starting with semicolon.
@@ -2501,7 +2740,7 @@
 	* parse.c (next_statement): Add check to avoid an ICE when
 	gfc_current_locus.lb is not set.
 
-2006-05-07  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-05-07  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/27457
 	* match.c (match_case_eos): Error out on garbage following
@@ -2522,7 +2761,7 @@
 	-fall-intrinsics is used.
 	(gfc_handle_option): Permit -Wno-nonstd-intrinsics.
 
-2006-05-04  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-05-04  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* simplify.c (ascii_table): Fix wrong entry.
 
@@ -3130,7 +3369,7 @@
 
 	* module.c (read_module): Remove redundant code lines.
 
-2006-02-20 Rafael Å¡vila de EspÅÌndola <rafael.espindola@gmail.com>
+2006-02-20 Rafael ¬Å¡vila de Esp¬ÅÌndola <rafael.espindola@gmail.com>
 	* Make-lang.in (FORTRAN): Remove
 	(.PHONY): Remove F95 and f95. Add fortran
 
@@ -3229,7 +3468,7 @@
 	PR fortran/26054
 	* options.c: Do not warn for Fortran 2003 features by default.
 
-2006-02-15  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-02-15  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* check.c: Update copyright years.
 	
@@ -3252,7 +3491,7 @@
 	to check dim argument.
 	(check_reduction):  Likewise.
 
-2006-02-14  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-02-14  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/26277
 	* io.c (match_ltag): Mark label as referenced.
@@ -3703,14 +3942,14 @@
 	are set.
 
 
-2006-02-10  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-02-10  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/14771
 	* arith.c (eval_intrinsic): Accept INTRINSIC_PARENTHESES.
 	* expr.c (check_intrinsic_op): Likewise.
 	* module.c (mio_expr): Likewise.
 
-2006-02-09  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-02-09  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* dump-parse-tree.c: Update copyright years.
 	* matchexp.c: Likewise.
@@ -4092,7 +4331,7 @@
 	is_aliased_array and convert it to a temporary and back again
 	using gfc_conv_aliased_arg.
 
-2006-01-19  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-01-19  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* gfortranspec.c: Update copyright years.
 	* trans.c: Likewise.
@@ -4103,7 +4342,7 @@
 	* trans-stmt.h: Likewise.
 	* trans-types.c: Likewise.
 
-2006-01-18  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-01-18  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/18540
 	PR fortran/18937
@@ -4148,7 +4387,7 @@
 	argument checking. Replace strcmp's with comparisons with generic
 	codes.
 
-2006-01-16  Rafael Å¡vila de EspÅÌndola  <rafael.espindola@gmail.com>
+2006-01-16  Rafael ¬Å¡vila de Esp¬ÅÌndola  <rafael.espindola@gmail.com>
 
 	* gfortranspec.c (lang_specific_spec_functions): Remove.
 
@@ -4185,7 +4424,7 @@
 	* trans.c (gfc_add_expr_to_block): Do not fold tcc_statement
 	nodes.
 
-2006-01-11  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-01-11  Tobias Schl¬Å¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* parse.c (next_fixed): Remove superfluous string concatenation.
 

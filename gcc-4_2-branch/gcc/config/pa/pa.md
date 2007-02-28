@@ -4098,8 +4098,18 @@
   ""
   "
 {
-  if (GET_CODE (operands[1]) == CONST_DOUBLE && TARGET_64BIT)
-    operands[1] = force_const_mem (DFmode, operands[1]);
+  if (TARGET_64BIT
+      && GET_CODE (operands[1]) == CONST_DOUBLE
+      && operands[1] != CONST0_RTX (DFmode))
+    {
+      /* We rely on reload to legitimize the insn generated after
+	 we force the CONST_DOUBLE to memory.  This doesn't happen
+	 if OPERANDS[0] is a hard register.  */
+      if (REG_P (operands[0]) && HARD_REGISTER_P (operands[0]))
+	FAIL;
+
+      operands[1] = force_const_mem (DFmode, operands[1]);
+    }
 
   if (emit_move_sequence (operands, DFmode, 0))
     DONE;
@@ -4333,7 +4343,7 @@
   [(set (match_operand:DF 0 "move_dest_operand"
 			  "=!*r,*r,*r,*r,*r,Q,f,f,T")
 	(match_operand:DF 1 "move_src_operand"
-			  "!*r,J,N,K,RQ,*rM,fM,RT,f"))]
+			  "!*r,J,N,K,RQ,*rG,fG,RT,f"))]
   "(register_operand (operands[0], DFmode)
     || reg_or_0_operand (operands[1], DFmode))
    && !TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -4358,8 +4368,17 @@
   ""
   "
 {
-  if (GET_CODE (operands[1]) == CONST_DOUBLE && TARGET_64BIT)
-    operands[1] = force_const_mem (DImode, operands[1]);
+  /* Except for zero, we don't support loading a CONST_INT directly
+     to a hard floating-point register since a scratch register is
+     needed for the operation.  While the operation could be handled
+     before no_new_pseudos is true, the simplest solution is to fail.  */
+  if (TARGET_64BIT
+      && GET_CODE (operands[1]) == CONST_INT
+      && operands[1] != CONST0_RTX (DImode)
+      && REG_P (operands[0])
+      && HARD_REGISTER_P (operands[0])
+      && REGNO (operands[0]) >= 32)
+    FAIL;
 
   if (emit_move_sequence (operands, DImode, 0))
     DONE;
@@ -5591,10 +5610,10 @@
 						GEN_INT (32)));
   emit_move_insn (op2shifted, gen_rtx_LSHIFTRT (DImode, operands[2],
 						GEN_INT (32)));
-  op1r = gen_rtx_SUBREG (SImode, operands[1], 4);
-  op2r = gen_rtx_SUBREG (SImode, operands[2], 4);
-  op1l = gen_rtx_SUBREG (SImode, op1shifted, 4);
-  op2l = gen_rtx_SUBREG (SImode, op2shifted, 4);
+  op1r = force_reg (SImode, gen_rtx_SUBREG (SImode, operands[1], 4));
+  op2r = force_reg (SImode, gen_rtx_SUBREG (SImode, operands[2], 4));
+  op1l = force_reg (SImode, gen_rtx_SUBREG (SImode, op1shifted, 4));
+  op2l = force_reg (SImode, gen_rtx_SUBREG (SImode, op2shifted, 4));
 
   /* Emit multiplies for the cross products.  */
   emit_insn (gen_umulsidi3 (cross_product1, op2r, op1l));
@@ -9906,7 +9925,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI [(const_int 0)] UNSPEC_TP))]
   ""
-  "{mfctl|mfctl,w} %%cr27,%0"
+  "mfctl %%cr27,%0"
   [(set_attr "type" "multi")
    (set_attr "length" "4")])
 

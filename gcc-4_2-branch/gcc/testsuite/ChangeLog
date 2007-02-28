@@ -1,3 +1,275 @@
+2007-02-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.target/powerpc/stabs-attrib-vect-darwin.c: Allow
+	for more builtin types.
+
+	* g++.dg/ext/visibility/class1.C: Port to Darwin.
+	* g++.dg/ext/visibility/noPLT.C: Likewise.
+
+2007-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30918
+	* gfortran.dg/namelist_26.f90: New test.
+
+2007-02-24  Roger Sayle  <roger@eyesopen.com>
+
+        PR fortran/30400
+        * gfortran.dg/forall_10.f90: New test case.
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30681
+	* gfortran.dg/pr17229.f: Change "Obsolete" to "Obsolescent".
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30910	
+	* gfortran.dg/fmt_zero_precision.f90: Update test.
+
+2007-02-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30793
+	* gfortran.dg/func_derived_4.f90: New test.
+
+2007-02-22  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29475
+	* g++.dg/template/access19.C: New test.
+	* g++.old-deja/g++.other/access11.C: Adjusted the line where the error is
+	reported.
+
+2007-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/wrapper.exp (${tool}_maybe_build_wrapper): Allow the caller
+	to set options for compiling testglue.
+	* lib/g++.exp (g++_init): Compile testglue with -fexceptions.
+	* lib/obj-c++.exp (obj-c++_init): Likewise.
+
+2007-02-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/derived_aggregate.adb: New test.
+
+2007-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/omp_parse1.f90: New test.
+	* gfortran.dg/gomp/omp_parse2.f: New test.
+
+	Backported from mainline
+	2006-12-20  Andrew Pinski  <pinskia@gmail.com>
+	PR middle-end/30143
+	* gcc.dg/gomp/complex-1.c: New testcase.
+
+2007-02-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/self_aggregate_with_call.adb: New test.
+
+2007-02-18  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30235
+	* gfortran.dg/altreturn_2.f90: new test.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/tail_call_p.ads, tail_call_p.adb, tail_call.adb: New test.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lib/gnat.exp (gnat_target_compile): Pass -f to the driver.
+
+2007-02-18 Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-106-alias.c: New test.
+
+2007-02-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30554
+	* gfortran.dg/used_dummy_types_6.f90: New test.
+	* gfortran.dg/used_dummy_types_7.f90: New test..
+
+	PR fortran/30617
+	* gfortran.dg/intrinsic_actual_2.f90: Make this legal fortran
+	by getting rid of recursive I/O and providing functions with
+	results.
+
+	PR fortran/30319
+	* gfortran.dg/char_array_constructor_2.f90
+
+2007-02-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30779
+	* gfortran.dg/error_recovery_3.f90: New test.
+
+2007-02-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30512
+	* gfortran.dg/maxlocval_1.f90: New test.
+
+2007-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30720
+	* gfortran.dg/array_function_1.f90: New test.
+
+2007-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30611
+	* gcc/testsuite/gfortran.dg/repeat_1.f90: New test.
+
+2007-02-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30389
+	* gfortran.dg/achar_2.f90:  New test.
+	* gfortran.dg/achar_3.f90:  New test.
+
+2007-02-16  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/chkbits.f90: Added IBCLR tests; test calls
+	for different integer kinds.
+	* gfortran.dg/ishft.f90: Renamed to ishft_1.f90...
+	* gfortran.dg/ishft_1.f90: ...Renamed from ishft.f90.
+	* gfortran.dg/ishft_2.f90: New test.
+	* gfortran.dg/ishft_3.f90: New test.
+
+2007-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/tree-ssa/sra-1.C: New.
+
+2007-02-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/tree-ssa/nothrow-1.C: Skip test if -fpic/-fPIC is used.
+
+2007-02-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30799
+	* gfortran.dg/logical_2.f90: New test.
+
+2007-02-13  Richard Henderson  <rth@redhat.com>
+
+        * gcc.c-torture/execute/ieee/pr29302-1.c: Moved from...
+        * gcc.c-torture/execute/pr29302-1.c: ... here.
+
+2007-02-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30284
+	* gfortran.dg/arrayio_11.f90: New test.
+
+	PR fortran/30626
+	* gfortran.dg/arrayio_12.f90: New test.
+
+	PR fortran/30407
+	* gfortran.dg/where_operator_assign_1.f90: New test.
+	* gfortran.dg/where_operator_assign_2.f90: New test.
+	* gfortran.dg/where_operator_assign_3.f90: New test.
+
+	PR fortran/30514
+	* gfortran.dg/zero_sized_2.f90: New test.
+
+2007-02-10  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/30478
+	* gfortran.dg/enum_4.f90: Update expected error message.
+
+2007-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26988
+	* g++.dg/template/spec34.C: New test
+
+2007-02-10  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	Backport from trunk:
+	PR fortran/24783
+	* gfortran.dg/implicit_10.f90: New test.
+
+2007-02-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29487
+	* g++.dg/eh/weak1-C: New test.
+	* g++.dg/eh/weak1-a.cc: Likewise.
+	* g++.dg/eh/comdat1.C: Likewise.
+
+2007-02-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	* lib/target-supports.exp (check_effective_target_simulator): New. 
+
+2007-02-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/30189
+	* gcc.dg/pr30189.c: New test.
+
+2007-02-05      Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
+
+        * gcc.dg/i386-cpuid.h: Test whether SSE4A is supported
+        for running tests.
+        * gcc.target/i386/sse4a-extract.c: New test.
+        * gcc.target/i386/sse4a-insert.c: New test.
+        * gcc.target/i386/sse4a-montsd.c: New test.
+        * gcc.target/i386/sse4a-montss.c: New test.
+
+2007-02-05  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/vectorize3.c: New testcase.
+
+2007-02-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/30665
+	* gcc.dg/torture/pr30665-1.c, gcc.dg/torture/pr30665-2.c: New tests.
+
+2007-02-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/30611
+	* gfortran.dg/repeat_1.f90: New test.
+
+2007-02-04  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30605
+	* gfortran.dg/spread_shape_1.f90: Remove tabs.
+	* gfortran.dg/derived_init_2.f90: Ditto.
+	* gfortran.dg/elemental_subroutine_3.f90: Ditto.
+	* gfortran.dg/array_initializer_1.f90: Ditto.
+	* gfortran.dg/do_2.f90: Ditto.
+	* gfortran.dg/proc_assign_1.f90: Ditto.
+
+2007-02-05  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR target/29682
+	* gcc-target/ia64/pr29682.c: New test.
+
+2007-02-04  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27657
+	* g++.dg/debug/pr27657.C: New testcase.
+
+2007-02-03  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/30683
+	* gfortran.dg/interface_10.f90: New test.
+
+2007-02-02  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/28266
+	* g++.dg/parse/defarg12.C: New test.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30536
+	* g++.dg/tls/diag-5.C: New test.
+
+	PR middle-end/30473
+	* gcc.dg/pr30473.c: New test.
+	* gcc.c-torture/execute/20070201-1.c: New test.
+
+2007-01-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/eh/simd-4.C (main): Also catch SIGSEGV.
+
+2007-01-30  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from trunk
+	PR libfortran/30525
+	* gfortran.dg/char_comparison_1.f:  New test.
+
 2007-01-30  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/30313

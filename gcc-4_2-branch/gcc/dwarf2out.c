@@ -8453,9 +8453,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	  gen_type_die (qualified_type, context_die);
 	  return lookup_type_die (qualified_type);
 	}
-      else if (DECL_ORIGINAL_TYPE (name)
-	       && (is_const_type < TYPE_READONLY (dtype)
-		   || is_volatile_type < TYPE_VOLATILE (dtype)))
+      else if (is_const_type < TYPE_READONLY (dtype)
+	       || is_volatile_type < TYPE_VOLATILE (dtype)
+	       || (is_const_type <= TYPE_READONLY (dtype)
+		   && is_volatile_type <= TYPE_VOLATILE (dtype)
+		   && DECL_ORIGINAL_TYPE (name) != type))
 	/* cv-unqualified version of named type.  Just use the unnamed
 	   type to which it refers.  */
 	return modified_type_die (DECL_ORIGINAL_TYPE (name),
@@ -10001,8 +10003,14 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   if (DECL_P (*tp) && ! TREE_PUBLIC (*tp) && ! TREE_USED (*tp)
       && ! TREE_ASM_WRITTEN (*tp))
     return *tp;
-  else
-    return NULL_TREE;
+  else if (DECL_P (*tp) && TREE_CODE (*tp) != FUNCTION_DECL)
+    {
+      struct cgraph_varpool_node *node = cgraph_varpool_node (*tp);
+      if (!node->needed)
+	return *tp;
+    }
+
+  return NULL_TREE;
 }
 
 /* Generate an RTL constant from a decl initializer INIT with decl type TYPE,

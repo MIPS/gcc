@@ -2638,6 +2638,21 @@ gimplify_init_ctor_preeval_1 (tree *tp, int *walk_subtrees, void *xdata)
       && alias_sets_conflict_p (data->lhs_alias_set, get_alias_set (t)))
     return t;
 
+  /* If the constructor component is a call, determine if it can hide a
+     potential overlap with the lhs through an INDIRECT_REF like above.  */
+  if (TREE_CODE (t) == CALL_EXPR)
+    {
+      tree type, fntype = TREE_TYPE (TREE_TYPE (TREE_OPERAND (t, 0)));
+
+      for (type = TYPE_ARG_TYPES (fntype); type; type = TREE_CHAIN (type))
+	if (POINTER_TYPE_P (TREE_VALUE (type))
+	    && (!data->lhs_base_decl || TREE_ADDRESSABLE (data->lhs_base_decl))
+	    && alias_sets_conflict_p (data->lhs_alias_set,
+				      get_alias_set
+				        (TREE_TYPE (TREE_VALUE (type)))))
+	  return t;
+    }
+
   if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
   return NULL;
@@ -4235,7 +4250,11 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       fb_none);
 	}
       if (ret == GS_ERROR)
-	return GS_ERROR;
+	{
+	  /* PR c++/28266 Make sure this is expanded only once. */
+	  TARGET_EXPR_INITIAL (targ) = NULL_TREE;
+	  return GS_ERROR;
+	}
       append_to_statement_list (init, pre_p);
 
       /* If needed, push the cleanup for the temp.  */
@@ -4678,11 +4697,6 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	      remove = true;
 	      break;
 	    }
-	  /* Handle NRV results passed by reference.  */
-	  if (TREE_CODE (decl) == INDIRECT_REF
-	      && TREE_CODE (TREE_OPERAND (decl, 0)) == RESULT_DECL
-	      && DECL_BY_REFERENCE (TREE_OPERAND (decl, 0)))
-	    OMP_CLAUSE_DECL (c) = decl = TREE_OPERAND (decl, 0);
 	  omp_add_variable (ctx, decl, flags);
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
@@ -4710,11 +4724,6 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	      remove = true;
 	      break;
 	    }
-	  /* Handle NRV results passed by reference.  */
-	  if (TREE_CODE (decl) == INDIRECT_REF
-	      && TREE_CODE (TREE_OPERAND (decl, 0)) == RESULT_DECL
-	      && DECL_BY_REFERENCE (TREE_OPERAND (decl, 0)))
-	    OMP_CLAUSE_DECL (c) = decl = TREE_OPERAND (decl, 0);
 	do_notice:
 	  if (outer_ctx)
 	    omp_notice_variable (outer_ctx, decl, true);

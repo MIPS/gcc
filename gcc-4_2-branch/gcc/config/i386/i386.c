@@ -2660,15 +2660,29 @@ ix86_function_arg_regno_p (int regno)
 {
   int i;
   if (!TARGET_64BIT)
-    return (regno < REGPARM_MAX
-	    || (TARGET_MMX && MMX_REGNO_P (regno)
-		&& (regno < FIRST_MMX_REG + MMX_REGPARM_MAX))
-	    || (TARGET_SSE && SSE_REGNO_P (regno)
-		&& (regno < FIRST_SSE_REG + SSE_REGPARM_MAX)));
+    {
+      if (TARGET_MACHO)
+        return (regno < REGPARM_MAX
+                || (TARGET_SSE && SSE_REGNO_P (regno) && !fixed_regs[regno]));
+      else
+        return (regno < REGPARM_MAX
+	        || (TARGET_MMX && MMX_REGNO_P (regno)
+	  	    && (regno < FIRST_MMX_REG + MMX_REGPARM_MAX))
+	        || (TARGET_SSE && SSE_REGNO_P (regno)
+		    && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX)));
+    }
 
-  if (TARGET_SSE && SSE_REGNO_P (regno)
-      && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX))
-    return true;
+  if (TARGET_MACHO)
+    {
+      if (SSE_REGNO_P (regno) && TARGET_SSE)
+        return true;
+    }
+  else
+    {
+      if (TARGET_SSE && SSE_REGNO_P (regno)
+          && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX))
+        return true;
+    }
   /* RAX is used as hidden argument to va_arg functions.  */
   if (!regno)
     return true;
@@ -3813,16 +3827,31 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
 bool
 ix86_function_value_regno_p (int regno)
 {
-  if (regno == 0
-      || (regno == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387)
-      || (regno == FIRST_SSE_REG && TARGET_SSE))
-    return true;
+  if (TARGET_MACHO)
+    {
+      if (!TARGET_64BIT)
+        {
+          return ((regno) == 0
+                  || ((regno) == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387)
+                  || ((regno) == FIRST_SSE_REG && TARGET_SSE));
+        }
+      return ((regno) == 0 || (regno) == FIRST_FLOAT_REG
+              || ((regno) == FIRST_SSE_REG && TARGET_SSE)
+              || ((regno) == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387));
+      }
+  else
+    {
+      if (regno == 0
+          || (regno == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387)
+          || (regno == FIRST_SSE_REG && TARGET_SSE))
+        return true;
 
-  if (!TARGET_64BIT
-      && (regno == FIRST_MMX_REG && TARGET_MMX))
-	return true;
+      if (!TARGET_64BIT
+          && (regno == FIRST_MMX_REG && TARGET_MMX))
+	    return true;
 
-  return false;
+      return false;
+    }
 }
 
 /* Define how to find the value returned by a function.
@@ -7137,7 +7166,23 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      output_addr_const (file, x);
+      if (! TARGET_MACHO || TARGET_64BIT)
+	output_addr_const (file, x);
+      else
+	{
+	  const char *name = XSTR (x, 0);
+
+	  /* Mark the decl as referenced so that cgraph will output the function.  */
+	  if (SYMBOL_REF_DECL (x))
+	    mark_decl_referenced (SYMBOL_REF_DECL (x));
+
+#if TARGET_MACHO
+	  if (MACHOPIC_INDIRECT
+	      && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
+	    name = machopic_indirection_name (x, /*stub_p=*/true);
+#endif
+	  assemble_name (file, name);
+	}
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;

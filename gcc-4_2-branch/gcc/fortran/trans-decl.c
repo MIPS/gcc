@@ -1500,7 +1500,8 @@ create_function_arglist (gfc_symbol * sym)
   /* Add the hidden string length parameters.  */
   arglist = chainon (arglist, hidden_arglist);
 
-  gcc_assert (TREE_VALUE (hidden_typelist) == void_type_node);
+  gcc_assert (hidden_typelist == NULL_TREE
+              || TREE_VALUE (hidden_typelist) == void_type_node);
   DECL_ARGUMENTS (fndecl) = arglist;
 }
 
@@ -3198,7 +3199,8 @@ gfc_generate_function_code (gfc_namespace * ns)
 
       if (result != NULL_TREE && sym->attr.function
 	    && sym->ts.type == BT_DERIVED
-	    && sym->ts.derived->attr.alloc_comp)
+	    && sym->ts.derived->attr.alloc_comp
+	    && !sym->attr.pointer)
 	{
 	  rank = sym->as ? sym->as->rank : 0;
 	  tmp2 = gfc_nullify_alloc_comp (sym->ts.derived, result, rank);

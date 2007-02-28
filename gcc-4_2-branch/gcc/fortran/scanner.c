@@ -178,6 +178,9 @@ gfc_open_included_file (const char *name, const bool include_cwd)
   gfc_directorylist *p;
   FILE *f;
 
+  if (IS_ABSOLUTE_PATH (name))
+    return gfc_open_file (name);
+
   if (include_cwd)
     {
       f = gfc_open_file (name);
@@ -296,7 +299,7 @@ next_char (void)
   if (gfc_current_locus.nextc == NULL)
     return '\n';
 
-  c = *gfc_current_locus.nextc++;
+  c = (unsigned char) *gfc_current_locus.nextc++;
   if (c == '\0')
     {
       gfc_current_locus.nextc--; /* Remain on this line.  */
@@ -657,6 +660,9 @@ restart:
 	skip_comment_line ();
       else
 	gfc_advance_line ();
+      
+      if (gfc_at_eof())
+	goto not_continuation;
 
       /* We've got a continuation line.  If we are on the very next line after
 	 the last continuation, increment the continuation line count and

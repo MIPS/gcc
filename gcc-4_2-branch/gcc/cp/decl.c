@@ -2865,7 +2865,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
     }
   
   if (complain & tf_error)
-    perform_or_defer_access_check (TYPE_BINFO (context), t);
+    perform_or_defer_access_check (TYPE_BINFO (context), t, t);
 
   if (want_template)
     return lookup_template_class (t, TREE_OPERAND (fullname, 1),
@@ -2928,7 +2928,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 	}
 
       if (complain & tf_error)
-	perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
+	perform_or_defer_access_check (TYPE_BINFO (context), tmpl, tmpl);
 
       return tmpl;
     }
@@ -7459,19 +7459,19 @@ grokdeclarator (const cp_declarator *declarator,
 
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
+  if (thread_p
+      && ((storage_class
+	   && storage_class != sc_extern
+	   && storage_class != sc_static)
+	  || declspecs->specs[(int)ds_typedef]))
+    {
+      error ("multiple storage classes in declaration of %qs", name);
+      thread_p = false;
+    }
   if (declspecs->conflicting_specifiers_p)
     {
       error ("conflicting specifiers in declaration of %qs", name);
       storage_class = sc_none;
-    }
-  else if (thread_p
-	   && ((storage_class
-		&& storage_class != sc_extern
-		&& storage_class != sc_static)
-	       || declspecs->specs[(int)ds_typedef]))
-    {
-      error ("multiple storage classes in declaration of %qs", name);
-      thread_p = false;
     }
   else if (decl_context != NORMAL
 	   && ((storage_class != sc_none
@@ -11172,7 +11172,7 @@ finish_function (int flags)
   if (!processing_template_decl
       && !cp_function_chain->can_throw
       && !flag_non_call_exceptions
-      && targetm.binds_local_p (fndecl))
+      && !DECL_REPLACEABLE_P (fndecl))
     TREE_NOTHROW (fndecl) = 1;
 
   /* This must come after expand_function_end because cleanups might
