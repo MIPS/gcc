@@ -2476,6 +2476,12 @@ fold_convert (tree type, tree arg)
 	  if (tem != NULL_TREE)
 	    return tem;
 	}
+      else if (TREE_CODE (arg) == FIXED_CST)
+	{
+	  tem = fold_convert_const (FIXED_CONVERT_EXPR, type, arg);
+	  if (tem != NULL_TREE)
+	    return tem;
+	}
 
       switch (TREE_CODE (orig))
 	{
@@ -2487,6 +2493,9 @@ fold_convert (tree type, tree arg)
 	case REAL_TYPE:
 	  return fold_build1 (NOP_EXPR, type, arg);
 
+	case FIXED_POINT_TYPE:
+	  return fold_build1 (FIXED_CONVERT_EXPR, type, arg);
+
 	case COMPLEX_TYPE:
 	  tem = fold_build1 (REALPART_EXPR, TREE_TYPE (orig), arg);
 	  return fold_convert (type, tem);
@@ -2496,13 +2505,33 @@ fold_convert (tree type, tree arg)
 	}
 
     case FIXED_POINT_TYPE:
-      if (TREE_CODE (orig) == FIXED_CST)
+      if (TREE_CODE (arg) == FIXED_CST || TREE_CODE (arg) == INTEGER_CST
+	  || TREE_CODE (arg) == REAL_CST)
 	{
-	  tem = fold_convert_const (CONVERT_EXPR, type, arg);
+	  if (TYPE_MODE (type) == TYPE_MODE (orig))
+	    tem = fold_convert_const (NOP_EXPR, type, arg);
+	  else
+	    tem = fold_convert_const (FIXED_CONVERT_EXPR, type, arg);
 	  if (tem != NULL_TREE)
 	    return tem;
 	}
-      gcc_unreachable ();
+
+      switch (TREE_CODE (orig))
+	{
+	case FIXED_POINT_TYPE:
+	case INTEGER_TYPE:
+	case ENUMERAL_TYPE:
+	case BOOLEAN_TYPE:
+	case REAL_TYPE:
+	  return fold_build1 (FIXED_CONVERT_EXPR, type, arg);
+
+	case COMPLEX_TYPE:
+	  tem = fold_build1 (REALPART_EXPR, TREE_TYPE (orig), arg);
+	  return fold_convert (type, tem);
+
+	default:
+	  gcc_unreachable ();
+	}
 
     case COMPLEX_TYPE:
       switch (TREE_CODE (orig))
@@ -2511,6 +2540,7 @@ fold_convert (tree type, tree arg)
 	case BOOLEAN_TYPE: case ENUMERAL_TYPE:
 	case POINTER_TYPE: case REFERENCE_TYPE:
 	case REAL_TYPE:
+	case FIXED_POINT_TYPE:
 	  return build2 (COMPLEX_EXPR, type,
 			 fold_convert (TREE_TYPE (type), arg),
 			 fold_convert (TREE_TYPE (type), integer_zero_node));
