@@ -1,3 +1,21 @@
+2007-02-28  Dmitry Melnik  <dm@ispras.ru>
+
+        * sel-sched.c (substitute_rhs): Kill outdated and commented assert.
+        (remove_if_has_source): Put under #if 0.
+        (un_substitute): Put the call to remove_if_has_source under #if 0.
+        Add comment.
+        (reg_alloc_tick): Rename to reg_rename_tick.
+        (choose_best_reg): Don't modify it when original register is chosen.
+        Don't set regs_ever_live.
+        (moveup_set_rhs): Use av_set_lookup_other_equiv_rhs.
+        (find_best_rhs_and_rtxhat_fits): Rename killing search&replace
+        glitch.
+        (fill_insns): Update reg_rename_tick here instead of choose_best_reg.
+        (sel_region_finish): Change dumping flags.  Put extra parentheses.
+        * sel-sched-ir.c (av_set_lookup_other_equiv_rhs): New function.
+        * sel-sched-ir.h: Declare it.
+        * config/ia64/ia64.opt (mflag_sel_sched_substitution): Define to 1.
+
 2007-02-28  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
         * config/ia64/ia64.c (ia64_override_options): Initialize

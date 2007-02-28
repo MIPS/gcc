@@ -149,7 +149,7 @@ Common Report Var(mflag_sel_sched_renaming) Init(1)
 Do register renaming in selective scheduling
 
 msel-sched-substitution
-Common Report Var(mflag_sel_sched_substitution) Init(0)
+Common Report Var(mflag_sel_sched_substitution) Init(1)
 Perform substitution in selective scheduling
 
 ; This comment is to ensure we retain the blank line above.

@@ -1143,6 +1143,23 @@ av_set_lookup_rhs (av_set_t set, rhs_t sought_rhs)
   return NULL;
 }
 
+/* Search for an rhs in SET, such that it's equivalent to SOUGHT_RHS in the
+   sense of rhs_equal_p function, but not SOUGHT_RHS itself.
+   Function is used to check whether 
+   Returns NULL if no such rhs is in SET was found.  */
+rhs_t
+av_set_lookup_other_equiv_rhs (av_set_t set, rhs_t sought_rhs)
+{
+  rhs_t r;
+  av_set_iterator i;
+
+  FOR_EACH_RHS (r, i, set)
+    if (rhs_equal_p (r, sought_rhs) && r != sought_rhs)
+      return r;
+
+  return NULL;
+}
+
 bool
 av_set_is_in_p (av_set_t set, rhs_t rhs)
 {

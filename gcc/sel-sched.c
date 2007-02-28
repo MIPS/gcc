@@ -284,10 +284,6 @@ substitute_rhs (rhs_t rhs, insn_t insn)
       rtx *where_replace = INSN_RHS (new_insn) ? 
 	&SET_SRC (PATTERN (new_insn)) : &PATTERN (new_insn);
 
-      /* ??? Somehow we've ended up substituting only in separable insns.  */
-      /*      gcc_assert (VINSN_HAS_RHS (*vi) && INSN_RHS (new_insn)
-              && VINSN_SEPARABLE (*vi));*/
-
       new_insn_valid = validate_replace_rtx_part (INSN_LHS (insn),
 						  expr_copy (INSN_RHS (insn)),
 						  where_replace, new_insn);
@@ -428,6 +424,9 @@ rtx_search (rtx what, rtx where)
   return (count_occurrences_equiv (what, where, 1) > 0);
 }
 
+/* FIXME: see comment in the un_substitute function regarding filtering
+   input av_set.  */
+#if 0
 /* Remove all RHSes which use X from av_set DATA.  Auxiliary function for 
    un_substitute.  */
 static void
@@ -461,10 +460,9 @@ remove_if_has_source (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 	av_set_iter_remove (arg->iter);
     }
 }
+#endif
 
-/* Unsubstitution removes those elements of AV whose sources (and
-   destinations for !RHS_SCHEDULE_AS_RHS rhses) are set by INSN; and then, 
-   if INSN is a copy x:=y and if there is an rhs r in AV that uses y, 
+/* if INSN is a copy x:=y and if there is an rhs r in AV that uses y, 
    it adds all variants of r to AV derived by replacing one or more
    occurrences of y by x.  */
 static void
@@ -476,6 +474,13 @@ un_substitute (av_set_t *av_ptr, rtx insn)
   rtx pat, src_reg, dst_reg;
 
   pat = PATTERN (insn);
+
+
+  /* FIXME: Enable *AV_PTR filtering, so un_substitute will remove those
+     elements of AV whose sources (and destinations for !RHS_SCHEDULE_AS_RHS 
+     rhses) are set by INSN.  This filtering used for optimization, and it's
+     presence doesn't affect the correctness.  */
+#if 0
   /* First remove all elements of SETP whose sources are set by INSN, but
      it's insn isn't conditionally mutexed by the predicates.  */
   FOR_EACH_RHS_1 (rhs, av_iter, av_ptr)
@@ -493,6 +498,7 @@ un_substitute (av_set_t *av_ptr, rtx insn)
 	  || !sched_insns_conditions_mutex_p (insn, RHS_INSN (rhs)))
 	note_stores (pat, remove_if_has_source, (void *) &arg);
     }
+#endif
 
   /* Catch X := Y insns, where X and Y are regs.  Otherwise return.  */
   if (!insn_eligible_for_subst_p (insn))
@@ -968,9 +974,9 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
   IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, hard_regs_ok);
 }
 
-/* reg_alloc_tick[REG1] > reg_alloc_tick[REG2] if REG1 was chosen as the best 
-   register more recently than REG2.  */
-static int reg_alloc_tick[FIRST_PSEUDO_REGISTER];
+/* reg_rename_tick[REG1] > reg_rename_tick[REG2] if REG1 was chosen as the
+   best register more recently than REG2.  */
+static int reg_rename_tick[FIRST_PSEUDO_REGISTER];
 
 /* Choose the register among free, that is suitable for storing 
    the rhs value.
@@ -1003,7 +1009,6 @@ static int reg_alloc_tick[FIRST_PSEUDO_REGISTER];
 static int
 choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
 {
-  int this_tick = 0;
   int best_new_reg;
   int cur_reg;
   def_list_iterator i;
@@ -1028,22 +1033,12 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
   /* If original register is available, return it.  */
   FOR_EACH_DEF (def, i, original_insns)
     {
-      rtx dest = SET_DEST (PATTERN (def->orig_insn));
-      int original_reg;
+      rtx orig_dest = SET_DEST (PATTERN (def->orig_insn));
 
-      if (REG_P (dest))
-  	original_reg = REGNO (dest);
-      else
-	{
-	  gcc_unreachable ();
-	  continue;
-	}
-      
-      if (!TEST_HARD_REG_BIT (unavailable, original_reg))
-	{
-	  reg_alloc_tick[original_reg]++;
-	  return original_reg;
-	}
+      gcc_assert (REG_P (orig_dest));
+
+      if (!TEST_HARD_REG_BIT (unavailable, REGNO (orig_dest)))
+	return REGNO (orig_dest);
     }
 
   best_new_reg = -1;
@@ -1053,16 +1048,8 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
     if (!TEST_HARD_REG_BIT (unavailable, cur_reg)) {
       if (best_new_reg < 0
-	  ||reg_alloc_tick[cur_reg] < reg_alloc_tick[best_new_reg])
+	  ||reg_rename_tick[cur_reg] < reg_rename_tick[best_new_reg])
 	best_new_reg = cur_reg;
-    }
-
-  if (best_new_reg >= 0)
-    {
-      reg_alloc_tick[best_new_reg] = ++this_tick;
-    
-      /* FIXME: should we mark a best_new_reg here?  */
-      regs_ever_live[best_new_reg] = 1;
     }
 
   return best_new_reg;
@@ -1365,7 +1352,7 @@ moveup_set_rhs (av_set_t *avp, insn_t insn)
 
 	  /* If the resulting insn after substitution is already in av_set,
 	     remove it.  */
-	  if (av_set_lookup_rhs (*avp, rhs))
+	  if (av_set_lookup_other_equiv_rhs (*avp, rhs))
 	    {
 	      av_set_iter_remove (&i);
 	      print (" and removed, because av_set already had" \
@@ -2305,7 +2292,7 @@ sel_dfa_new_cycle (insn_t insn, fence_t fence)
    register for it (BEST_REG_FOUND).  BNDS and FENCE are current boundaries
    and scheduling fence respectively.  */ 
 static void
-find_best_rhs_and_rtxhat_fits (av_set_t *av_vliw_ptr, blist_t bnds, 
+find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds, 
 				 fence_t fence, rhs_t *best_rhs_vliw,
 				 int *best_reg_found)
 {
@@ -2691,7 +2678,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
       /* Choose the best expression and, if needed, destination register
 	 for it.  */
-      find_best_rhs_and_rtxhat_fits (&av_vliw, bnds, fence,
+      find_best_rhs_and_reg_that_fits (&av_vliw, bnds, fence,
 				       &rhs_vliw, &best_reg);
 
       if (!rhs_vliw)
@@ -2799,8 +2786,16 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 do it once more, because that were done only in local av_vliw
 		 set (we can't do actual replacement there because at the
 		 moment we don't know yet which rhs is the best one.  */
-	      if (best_reg > -1 && best_reg != rhs_dest_regno (c_rhs))
-		replace_dest_with_reg_in_rhs (c_rhs, best_reg);
+	      if (best_reg > -1)
+		{
+		  static int reg_rename_this_tick = 0;
+
+		  if (best_reg != rhs_dest_regno (c_rhs))
+		    replace_dest_with_reg_in_rhs (c_rhs, best_reg);
+
+		  reg_rename_tick[best_reg] = ++reg_rename_this_tick;
+		  regs_ever_live[best_reg] = 1;
+		}
 
 	      insn = RHS_INSN (c_rhs);
 
@@ -3506,7 +3501,7 @@ sel_region_init (int rgn)
   first_emitted_uid = sel_max_uid;
 
   /* Reset register allocation ticks array.  */
-  memset (reg_alloc_tick, 0, sizeof reg_alloc_tick);
+  memset (reg_rename_tick, 0, sizeof reg_rename_tick);
 
   /* We don't need the semantics of moveup_set_path, because filtering of 
      dependencies inside a sched group is handled by tick_check_p and 
@@ -3772,15 +3767,14 @@ sel_region_finish (void)
                 }
 
               clock = INSN_FINAL_SCHED_CYCLE (insn);
-              cost = last_clock == -1 ? 1 : clock - last_clock;
+              cost = (last_clock == -1) ? 1 : clock - last_clock;
   
 	      gcc_assert (cost >= 0);
 
 	      line_start ();
 	      print ("cost: %d\t", cost);
-	      dump_insn_1 (insn, DUMP_INSN_UID | DUMP_INSN_BBN 
-			   | DUMP_INSN_SEQNO | DUMP_INSN_PATTERN
-			   | DUMP_INSN_CYCLE);
+	      dump_insn_1 (insn, (DUMP_INSN_UID | DUMP_INSN_BBN
+				  | DUMP_INSN_PATTERN | DUMP_INSN_CYCLE));
 	      line_finish ();
 
               if (issue_rate > 1
