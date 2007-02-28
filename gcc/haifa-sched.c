@@ -2589,6 +2589,39 @@ schedule_block (basic_block *target_bb)
 	  }
     }
 
+  /* Debugging.  */
+  if (sched_verbose)
+    {
+      if (sched_verbose >= 6)
+	{
+	  rtx insn = NEXT_INSN (prev_head);
+	  rtx next_tail = NEXT_INSN (last_scheduled_insn);
+	  int last_clock = -1;
+	  int clock = 0;
+
+	  while (insn != next_tail)
+	    {
+	      char buf[2048];
+	      int cost;
+
+	      clock = INSN_TICK (insn);
+	      cost = clock - last_clock;
+
+	      print_insn (buf, insn, 0);
+	      fprintf (sched_dump, "    cost: %d\t(pat:%s;bb:%d;cycle:%d;)\n",
+		       cost, buf, BLOCK_NUM (insn), clock);
+
+	      last_clock = clock;
+
+	      insn = NEXT_INSN (insn);
+	    }
+
+	  gcc_assert (last_clock == clock_var);
+	}
+
+      fprintf (sched_dump, ";;   total time = %d\n", clock_var);
+    }
+
   if (!current_sched_info->queue_must_finish_empty
       || added_recovery_block_p)
     {
@@ -2604,20 +2637,15 @@ schedule_block (basic_block *target_bb)
   if (targetm.sched.md_finish)
     targetm.sched.md_finish (sched_dump, sched_verbose);
 
+  if (sched_verbose)
+    fprintf (sched_dump, ";;   new head = %d\n;;   new tail = %d\n\n",
+	     INSN_UID (head), INSN_UID (tail));
+
   /* Update head/tail boundaries.  */
   head = NEXT_INSN (prev_head);
   tail = last_scheduled_insn;
 
   head = restore_other_notes (head, NULL);
-
-  /* Debugging.  */
-  if (sched_verbose)
-    {
-      fprintf (sched_dump, ";;   total time = %d\n;;   new head = %d\n",
-	       clock_var, INSN_UID (head));
-      fprintf (sched_dump, ";;   new tail = %d\n\n",
-	       INSN_UID (tail));
-    }
 
   current_sched_info->head = head;
   current_sched_info->tail = tail;

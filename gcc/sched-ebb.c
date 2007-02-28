@@ -584,8 +584,6 @@ schedule_ebb (rtx head, rtx tail)
   
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_n_insns == n_insns);
-  head = current_sched_info->head;
-  tail = current_sched_info->tail;
 
   if (EDGE_COUNT (last_bb->preds) == 0)
     /* LAST_BB is unreachable.  */

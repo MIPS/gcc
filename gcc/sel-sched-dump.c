@@ -240,7 +240,7 @@ dump_insn_1 (insn_t i, int flags)
 	{
 	  char buf[2048];
 
-	  print_insn (buf, i, 1);
+	  print_insn (buf, i, 0);
 	  print ("pat:%s;", buf);
 	}
       else if (flags & DUMP_INSN_UID)
