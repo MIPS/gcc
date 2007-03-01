@@ -37,8 +37,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    TA_MODE, UTA_MODE.
    Then, all operators for this machine mode will be created.  */
 
-#include <stdio.h>
-
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
@@ -83,7 +81,7 @@ FIXED_SSADD (FIXED_C_TYPE a, FIXED_C_TYPE b)
         {
           z = 1;
           z = z << I_F_BITS;
-          if (x > 0)
+          if (x >= 0)
             z--;
         }
     }
@@ -155,7 +153,7 @@ FIXED_SSSUB (FIXED_C_TYPE a, FIXED_C_TYPE b)
         {
           z = 1;
           z = z << I_F_BITS;
-          if (x > 0)
+          if (x >= 0)
             z--;
         }
     }
@@ -564,7 +562,7 @@ FIXED_SSNEG (FIXED_C_TYPE a)
         {
           z = 1;
           z = z << I_F_BITS;
-          if (x > 0)
+          if (x >= 0)
             z--;
         }
     }
