@@ -1,3 +1,8 @@
+2007-02-28  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/unary.c: New test for unary operators.
+	* gcc.dg/fixed-ponit/binary.c: New test for binary operators.
+
 2007-02-26  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.target/powerpc/stabs-attrib-vect-darwin.c: Allow
