@@ -17,7 +17,7 @@ contains
     real(c_int), value :: my_f90_real 
   end subroutine test_1
 
-  subroutine test_2(my_type) bind(c) ! { dg-warning "may not be C interoperable" }
+  subroutine test_2(my_type) bind(c) ! { dg-error "is not C interoperable" }
     use, intrinsic :: iso_c_binding
     type(my_f90_type) :: my_type 
   end subroutine test_2

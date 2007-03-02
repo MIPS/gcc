@@ -14,7 +14,7 @@ type, bind(c) :: my_c_type_1 ! { dg-error "BIND.C. derived type" }
 end type my_c_type_1
 
 contains
-  subroutine sub0(my_type, expected_value) bind(c) ! { dg-warning "may not be C interoperable" }
+  subroutine sub0(my_type, expected_value) bind(c) ! { dg-error "is not C interoperable" }
     type(my_c_type_1) :: my_type
     integer(c_int), value :: expected_value
 
@@ -23,3 +23,5 @@ contains
     end if
   end subroutine sub0
 end module bind_c_dts_3
+
+! { dg-final { cleanup-modules "bind_c_dts_3" } }

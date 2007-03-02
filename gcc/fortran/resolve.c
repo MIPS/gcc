@@ -621,20 +621,21 @@ resolve_contained_functions (gfc_namespace * ns)
 	resolve_contained_fntype (el->sym, child);
 
       /* The verification of BIND(C) routines is done here, and the params
-         are verified in resolve_symbol.  */
+	 are verified in resolve_symbol.  */
       if (child->proc_name != NULL && child->proc_name->attr.is_bind_c)
-        {
-          try proc = SUCCESS;
-          if (child->proc_name->attr.function)
-            proc = verify_bind_c_sym (child->proc_name,
-                                      &(child->proc_name->ts), 0, NULL);
+	{
+	  try proc = SUCCESS;
+	  proc = verify_bind_c_sym (child->proc_name, &(child->proc_name->ts),
+				    0, NULL);
 
-          if (proc == FAILURE)
-            /* Clear the is_bind_c flag so we don't try and test the params
-               or the procedure type again if it failed the first time.  This
+	  if (proc == FAILURE)
+	    /* Clear the is_bind_c flag so we don't try and test the params
+	       or the procedure type again if it failed the first time.  This
                should prevent multiple error messages from being printed.  */
-            child->proc_name->attr.is_bind_c = 0;
-        }
+	    child->proc_name->attr.is_bind_c = 0;
+	  else
+	    child->proc_name->attr.is_c_interop = 1;
+	}
     }
 }
 
@@ -5590,57 +5591,84 @@ resolve_values (gfc_symbol * sym)
 }
 
 
+/* Verify any BIND(C) derived types in the namespace so we can report errors
+   for them once, rather than for each variable declared of that type.  */
+
+static void
+resolve_bind_c_derived_types (gfc_symbol *derived_sym)
+{
+  if (derived_sym != NULL && derived_sym->attr.flavor == FL_DERIVED
+      && derived_sym->attr.is_bind_c == 1)
+    verify_bind_c_derived_type (derived_sym);
+  
+  return;
+}
+
+
 /* Verify that any binding labels used in a given namespace do not collide 
    with the names or binding labels of any global symbols.  */
 
 static void
 gfc_verify_binding_labels (gfc_symbol *sym)
 {
-  if (sym != NULL && sym->attr.is_bind_c && sym->attr.is_iso_c == 0 &&
-      sym->attr.flavor != FL_DERIVED && sym->attr.use_assoc == 0)
+  if (sym != NULL && sym->attr.is_bind_c && sym->attr.is_iso_c == 0
+      && sym->attr.flavor != FL_DERIVED)
     {
       gfc_gsymbol *bind_c_sym;
       
       bind_c_sym = gfc_find_gsymbol (gfc_gsym_root, sym->binding_label);
       if (bind_c_sym != NULL)
-        {
-          if (sym->attr.if_source == IFSRC_DECL &&
-              (bind_c_sym->type != GSYM_SUBROUTINE &&
-               bind_c_sym->type != GSYM_FUNCTION))
-            /* Make sure global procedures don't collide with anything. */
-            gfc_error ("Binding label '%s' at %L collides with the global "
-                       "entity '%s' at %L", sym->binding_label,
-                       &(sym->declared_at), bind_c_sym->name,
-                       &(bind_c_sym->where));
-          else if (sym->attr.contained == 0 &&
-                   (sym->attr.if_source == IFSRC_IFBODY &&
-                    sym->attr.flavor == FL_PROCEDURE) &&
-                   strcmp (bind_c_sym->sym_name, sym->name) != 0)
-            /* Make sure procedures in interface bodies don't collide.  */
-            gfc_error ("Binding label '%s' in interface body at %L collides "
-                       "with the global entity '%s' at %L", sym->binding_label,
-                       &(sym->declared_at), bind_c_sym->name,
-                       &(bind_c_sym->where));
+	{
+	  if (sym->attr.if_source == IFSRC_DECL
+	      && bind_c_sym->type != GSYM_SUBROUTINE
+	      && bind_c_sym->type != GSYM_FUNCTION
+	      && (sym->attr.use_assoc == 0
+		  || (sym->attr.use_assoc == 1
+		      && (strcmp (bind_c_sym->mod_name, sym->module) != 0))))
+	    /* Make sure global procedures don't collide with anything. */
+	    gfc_error ("Binding label '%s' at %L collides with the global "
+		       "entity '%s' at %L", sym->binding_label,
+		       &(sym->declared_at), bind_c_sym->name,
+		       &(bind_c_sym->where));
+	  else if (sym->attr.contained == 0
+		   && (sym->attr.if_source == IFSRC_IFBODY
+		   && sym->attr.flavor == FL_PROCEDURE)
+		   && strcmp (bind_c_sym->sym_name, sym->name) != 0)
+	    /* Make sure procedures in interface bodies don't collide.  */
+	    gfc_error ("Binding label '%s' in interface body at %L collides "
+		       "with the global entity '%s' at %L", sym->binding_label,
+		       &(sym->declared_at), bind_c_sym->name,
+		       &(bind_c_sym->where));
           else if (sym->attr.contained == 0 &&
                    (sym->attr.if_source == IFSRC_UNKNOWN))
-            gfc_error ("Binding label '%s' at %L collides with global entity "
-                       "'%s' at %L", sym->binding_label, &(sym->declared_at),
-                       bind_c_sym->name, &(bind_c_sym->where));
-        }
+	    if ((sym->attr.use_assoc
+		 && (strcmp (bind_c_sym->mod_name, sym->module) != 0))
+		|| sym->attr.use_assoc == 0)
+	      gfc_error ("Binding label '%s' at %L collides with global "
+			 "entity '%s' at %L", sym->binding_label,
+			 &(sym->declared_at), bind_c_sym->name,
+			 &(bind_c_sym->where));
+	}
       else
-        {
-          bind_c_sym = gfc_get_gsymbol (sym->binding_label);
-          bind_c_sym->where = sym->declared_at;
-          bind_c_sym->sym_name = sym->name;
+	{
+	  bind_c_sym = gfc_get_gsymbol (sym->binding_label);
+	  bind_c_sym->where = sym->declared_at;
+	  bind_c_sym->sym_name = sym->name;
 
-          if (sym->attr.contained == 0)
-            {
-              if (sym->attr.subroutine)
-                bind_c_sym->type = GSYM_SUBROUTINE;
-              else if (sym->attr.function)
-                bind_c_sym->type = GSYM_FUNCTION;
-            }
-        }
+	  if (sym->attr.use_assoc == 1)
+	    bind_c_sym->mod_name = sym->module;
+	  else
+	    if (sym->ns->proc_name != NULL)
+	      bind_c_sym->mod_name = sym->ns->proc_name->name;
+
+	  if (sym->attr.contained == 0)
+	    {
+	      if (sym->attr.subroutine)
+		bind_c_sym->type = GSYM_SUBROUTINE;
+	      else if (sym->attr.function)
+		bind_c_sym->type = GSYM_FUNCTION;
+	    }
+	}
     }
   return;
 }
@@ -6503,9 +6531,16 @@ resolve_symbol (gfc_symbol * sym)
 	{
 	  /* If type() declaration, we need to verify that the components
 	     of the given type are all C interoperable, etc.  */
-	  if (sym->ts.type == BT_DERIVED)
+	  if (sym->ts.type == BT_DERIVED &&
+              sym->ts.derived->attr.is_c_interop != 1)
             {
-              t = verify_bind_c_derived_type (sym->ts.derived);
+              /* Make sure the user marked the derived type as BIND(C).  If
+                 not, call the verify routine.  This could print an error
+                 for the derived type more than once if multiple variables
+                 of that type are declared.  */
+              if (sym->ts.derived->attr.is_bind_c != 1)
+                verify_bind_c_derived_type (sym->ts.derived);
+              t = FAILURE;
             }
 	  
 	  /* Verify the variable itself as C interoperable if it
@@ -7617,6 +7652,8 @@ resolve_types (gfc_namespace * ns)
   resolve_entries (ns);
 
   resolve_contained_functions (ns);
+
+  gfc_traverse_ns (ns, resolve_bind_c_derived_types);
 
   gfc_traverse_ns (ns, resolve_symbol);
 

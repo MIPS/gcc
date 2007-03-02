@@ -751,86 +751,100 @@ verify_c_interop_param (gfc_symbol *sym)
   if (sym->attr.implicit_type)
     return SUCCESS;
   
+  /* For subroutines or functions that are passed to a BIND(C) procedure,
+     they're interoperable if they're BIND(C) and their params are all
+     interoperable.  */
+  if (sym->attr.flavor == FL_PROCEDURE)
+    {
+      if (sym->attr.is_bind_c == 0)
+	return FAILURE;
+      else
+	return verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
+				  sym->common_block);
+    }
+  
+  
   /* See if we've stored a reference to a procedure that owns sym.  */
   if (sym->ns != NULL && sym->ns->proc_name != NULL)
     {
       if (sym->ns->proc_name->attr.is_bind_c == 1)
 	{
-          is_c_interop =
-            (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
-             == SUCCESS ? 1 : 0);
+	  is_c_interop =
+	    (verify_c_interop (&(sym->ts), sym->name, &(sym->declared_at))
+	     == SUCCESS ? 1 : 0);
 
-          if (is_c_interop != 1)
+	  if (is_c_interop != 1)
 	    {
 	      /* Make personalized messages to give better feedback.  */
 	      if (sym->ts.type == BT_DERIVED)
-		gfc_warning ("Type '%s' at %L "
-                             "is a parameter to the BIND(C) procedure "
-                             "'%s' but may not be C interoperable "
-                             "because derived type '%s' is not C "
-                             "interoperable",
-                             sym->name, &(sym->declared_at),
-                             sym->ns->proc_name->name, 
-                             sym->ts.derived->name);
+		gfc_error ("Type '%s' at %L is a parameter to the BIND(C) "
+			   " procedure '%s' but is not C interoperable "
+			   "because derived type '%s' is not C interoperable",
+			   sym->name, &(sym->declared_at),
+			   sym->ns->proc_name->name, 
+			   sym->ts.derived->name);
 	      else
-		gfc_warning ("Variable '%s' at %L "
-                             "is a parameter to the BIND(C) procedure "
-                             "'%s' but may not be C interoperable",
-                             sym->name, &(sym->declared_at),
-                             sym->ns->proc_name->name);
+		gfc_warning ("Variable '%s' at %L is a parameter to the "
+			     "BIND(C) procedure '%s' but may not be C "
+			     "interoperable",
+			     sym->name, &(sym->declared_at),
+			     sym->ns->proc_name->name);
 	    }
-	 
+ 
 	  /* We have to make sure that any param to a bind(c) routine does
 	     not have the allocatable, pointer, or optional attributes,
 	     according to J3/04-007, section 5.1.  */
 	  if (sym->attr.allocatable == 1)
 	    {
 	      gfc_error ("Variable '%s' at %L cannot have the "
-                         "ALLOCATABLE attribute because procedure '%s'"
-                         " is BIND(C)", sym->name, &(sym->declared_at),
-                         sym->ns->proc_name->name);
-              retval = FAILURE;
+			 "ALLOCATABLE attribute because procedure '%s'"
+			 " is BIND(C)", sym->name, &(sym->declared_at),
+			 sym->ns->proc_name->name);
+	      retval = FAILURE;
 	    }
+
 	  if (sym->attr.pointer == 1)
 	    {
 	      gfc_error ("Variable '%s' at %L cannot have the "
-                         "POINTER attribute because procedure '%s'"
-                         " is BIND(C)", sym->name, &(sym->declared_at),
-                         sym->ns->proc_name->name);
-              retval = FAILURE;
+			 "POINTER attribute because procedure '%s'"
+			 " is BIND(C)", sym->name, &(sym->declared_at),
+			 sym->ns->proc_name->name);
+	      retval = FAILURE;
 	    }
+
 	  if (sym->attr.optional == 1)
 	    {
 	      gfc_error ("Variable '%s' at %L cannot have the "
-                         "OPTIONAL attribute because procedure '%s'"
-                         " is BIND(C)", sym->name, &(sym->declared_at),
-                         sym->ns->proc_name->name);
-              retval = FAILURE;
+			 "OPTIONAL attribute because procedure '%s'"
+			 " is BIND(C)", sym->name, &(sym->declared_at),
+			 sym->ns->proc_name->name);
+	      retval = FAILURE;
 	    }
 
           /* Make sure that if it has the dimension attribute, that it is
-             either assumed size or explicit shape.  */
-          if (sym->as != NULL)
-            {
-              if (sym->as->type == AS_ASSUMED_SHAPE)
-                {
-                  gfc_error ("Assumed-shape array '%s' at %L cannot be an "
-                             "argument to the procedure '%s' at %L because "
-                             "the procedure is BIND(C)", sym->name,
-                             &(sym->declared_at), sym->ns->proc_name->name,
-                             &(sym->ns->proc_name->declared_at));
-                  retval = FAILURE;
-                }
-              if (sym->as->type == AS_DEFERRED)
-                {
-                  gfc_error ("Deferred-shape array '%s' at %L cannot be an "
-                             "argument to the procedure '%s' at %L because "
-                             "the procedure is BIND(C)", sym->name,
-                             &(sym->declared_at), sym->ns->proc_name->name,
-                             &(sym->ns->proc_name->declared_at));
-                  retval = FAILURE;
-                }
-            }
+	     either assumed size or explicit shape.  */
+	  if (sym->as != NULL)
+	    {
+	      if (sym->as->type == AS_ASSUMED_SHAPE)
+		{
+		  gfc_error ("Assumed-shape array '%s' at %L cannot be an "
+			     "argument to the procedure '%s' at %L because "
+			     "the procedure is BIND(C)", sym->name,
+			     &(sym->declared_at), sym->ns->proc_name->name,
+			     &(sym->ns->proc_name->declared_at));
+		  retval = FAILURE;
+		}
+
+	      if (sym->as->type == AS_DEFERRED)
+		{
+		  gfc_error ("Deferred-shape array '%s' at %L cannot be an "
+			     "argument to the procedure '%s' at %L because "
+			     "the procedure is BIND(C)", sym->name,
+			     &(sym->declared_at), sym->ns->proc_name->name,
+ 			     &(sym->ns->proc_name->declared_at));
+		  retval = FAILURE;
+		}
+	  }
 	}
     }
 
@@ -2904,6 +2918,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
 			 tmp_sym->name, &(tmp_sym->declared_at));
 	      retval = FAILURE;
 	    }
+
 	  if (tmp_sym->attr.allocatable == 1)
 	    {
 	      gfc_error ("Variable '%s' at %L cannot have both the "
@@ -2911,8 +2926,34 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
 			 tmp_sym->name, &(tmp_sym->declared_at));
 	      retval = FAILURE;
 	    }
+
+	  /* If it is a BIND(C) function, make sure the return value is a
+	     scalar value.  The previous tests in this function made sure
+	     the type is interoperable.  */
+	  if (tmp_sym->attr.function == 1 && tmp_sym->as != NULL)
+	    gfc_error ("Return type of BIND(C) function '%s' at %L cannot "
+		       "be an array", tmp_sym->name, &(tmp_sym->declared_at));
+
+	  /* BIND(C) functions can not return a character string.  */
+	  if (tmp_sym->attr.function == 1 && tmp_sym->ts.type == BT_CHARACTER)
+	    if (tmp_sym->ts.cl == NULL || tmp_sym->ts.cl->length == NULL
+		|| tmp_sym->ts.cl->length->expr_type != EXPR_CONSTANT
+		|| mpz_cmp_si (tmp_sym->ts.cl->length->value.integer, 1) != 0)
+	      gfc_error ("Return type of BIND(C) function '%s' at %L cannot "
+			 "be a character string", tmp_sym->name,
+			 &(tmp_sym->declared_at));
 	}
     }
+
+  /* See if the symbol has been marked as private.  If it has, make sure
+     there is no binding label and warn the user if there is one.  */
+  if (tmp_sym->attr.access == ACCESS_PRIVATE
+      && tmp_sym->binding_label[0] != '\0')
+      /* Use gfc_warning_now because we won't say that the symbol fails
+	 just because of this.	*/
+      gfc_warning_now ("Symbol '%s' at %L is marked PRIVATE but has been "
+		       "given the binding label '%s'", tmp_sym->name,
+		       &(tmp_sym->declared_at), tmp_sym->binding_label);
 
   return retval;
 }
@@ -4168,6 +4209,7 @@ gfc_match_bind_c (gfc_symbol *sym)
   char binding_label[GFC_MAX_SYMBOL_LEN + 1];
   match double_quote;
   match single_quote;
+  int has_name_equals = 0;
 
   /* Init the first char to nil so we can catch if we don't have
      the label (name attr) or the symbol name yet.  */
@@ -4189,6 +4231,8 @@ gfc_match_bind_c (gfc_symbol *sym)
           /* should give an error message here */
           return MATCH_ERROR;
         }
+
+      has_name_equals = 1;
 
       /* get the opening quote */
       double_quote = MATCH_YES;
@@ -4227,18 +4271,6 @@ gfc_match_bind_c (gfc_symbol *sym)
               return MATCH_ERROR;
             }
 	}
-
-      /* If we have a name="" and the procedure is not a dummy or a pointer,
-         it should be an error.  J3/04-007, 15.4.1  */
-      if (binding_label[0] == '\0')
-        {
-          /* TODO: How do you detect a dummy procedure?  Procedure pointers
-             are not implemented yet, but when they are, this error can be
-             ignored for them.  */
-          gfc_error ("NAME= specifier in BIND(C) statement at %C has "
-                     "zero length");
-          return MATCH_ERROR;
-        }
    }
 
   /* get the required right paren */
@@ -4266,7 +4298,13 @@ gfc_match_bind_c (gfc_symbol *sym)
     {
       /* No binding label, but if symbol isn't null, we
 	 can set the label for it here.	 */
-      if (sym != NULL && sym->name != NULL)
+      /* TODO: If the name= was given and no binding label (name=""), we simply
+	 will let fortran mangle the symbol name as it usually would.
+	 However, this could still let C call it if the user looked up the
+	 symbol in the object file.  Should the name set during mangling in
+	 trans-decl.c be marked with characters that are invalid for C to
+	 prevent this?  */
+      if (sym != NULL && sym->name != NULL && has_name_equals == 0)
 	strncpy (sym->binding_label, sym->name, strlen (sym->name) + 1);
     }
 	      

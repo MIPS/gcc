@@ -65,4 +65,13 @@ module binding_label_tests
   subroutine c_sub_5() BIND(c, name = "C_Sub_5        ")
     print *, 'hello from c_sub_5'
   end subroutine c_sub_5
+
+  ! nothing between the quotes except spaces, so name="".
+  ! the name will get set to the regularly mangled version of the name.  
+  ! perhaps it should be marked with some characters that are invalid for 
+  ! C names so C can not call it?
+  subroutine sub4() BIND(c, name = "        ") 
+  end subroutine sub4 
 end module binding_label_tests
+
+! { dg-final { cleanup-modules "binding_label_tests" } }

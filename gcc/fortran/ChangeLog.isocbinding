@@ -3,48 +3,112 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-03-03  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* decl.c: Updated verify_c_interop_param to include
+	procedures.  Report an error for BIND(C) derived types that are
+	found conclusively to not be C interoperable (warnings still allow
+	derived types to be C interoperable).  Added checks to
+	verify_bind_c_sym to make sure functions do not return arrays or
+	strings and if the BIND(C) symbol is PRIVATE, a warning is
+	reported if a binding label was given.  Updated gfc_match_bind_c
+	to allow for NAME="".
+	* gfortran.h: Added mod_name field to gfc_gsymbol to
+	allow gfc_verify_binding_labels to correctly catch binding label
+	collisions that are in separate modules in separate files if
+	something uses both modules.
+	* resolve.c: Updated verify_bind_c_sym in
+	resolve_contained_functions to be called for both functions and
+	subroutines.  Added resolve_bind_c_derived_types so the components
+	of derived types can be tested once, rather than for each time it
+	is encountered in a variable declaration.  Updated
+	gfc_verify_binding_labels to ensure binding labels do not collide
+	even if they're in separate modules (in separate files) and then
+	used together in one namespace.  Set the module name for the
+	gfc_gsymbol for the BIND(C) symbol to enable this checking.
+	Changed the way BIND(C) derived types are verified during
+	resolution to not call verify_bind_c_derived_type unless the user
+	needs it to be BIND(C) (C interoperable) but did not mark it as
+	such.
+	* trans-decl.c: Added check to
+	gfc_sym_mangled_identifier to see if a binding label was provided
+	for a BIND(C) symbol.
+	* parse.c: Removed call to verify_bind_c_derived_type
+	that was in parse_derived.  This is now done during resolution in
+	resolve_bind_c_derived_types.
+
+	* gfortran.dg/binding_label_tests_10_main.f03: New
+	test case to make sure the compiler catches binding label
+	collisions across separate files when they're use associated into
+	one namespace.
+	* gfortran.dg/bind_c_usage_7.f03: New test case to
+	make sure gfortran reports an error for BIND(C) procedures that
+	try to return an array or character string.
+	* gfortran.dg/binding_label_tests_11_main.f03: Same
+	type of test case as binding_label_tests_10, but for contained
+	procedures.
+	* gfortran.dg/interop_params.f03: The warning for
+	my_type is now an error (missing BIND(C) in derived type
+	definition).
+	* gfortran.dg/binding_label_tests_10.f03: New test
+	case that goes with binding_labels_10_main.f03.
+	* gfortran.dg/binding_label_tests_11.f03: New test
+	case that goes with binding_labels_11_main.f03.
+	* gfortran.dg/binding_label_tests_2.f03: Updated
+	test case to remove the error for a NAME="" specifier.
+	* gfortran.dg/binding_label_tests.f03: Updated test
+	case to include a NAME="" specifier, since this is valid.
+	* gfortran.dg/bind_c_dts_3.f03: Updated my_c_type_1
+	to an error from a warning.
+	* gfortran.dg/bind_c_dts_4.f03: Test case to make
+	sure the warnings for derived types are only printed once.
+	* gfortran.dg/binding_label_tests_9.f03: New test
+	case that ensures gfortran reports a warning if a private variable
+	that is BIND(C) is given a binding label.
+
 2007-02-27  Tobias Burnus  <burnus@net-b.de>
 
-	* fortran/symbol.c (gfc_add_is_bind_c): Add symbol name as argument.
+	* symbol.c (gfc_add_is_bind_c): Add symbol name as argument.
 	(gfc_copy_attr): Update gfc_add_is_bind_c call.
 	* fortran/decl.c (match_attr_spec,set_verify_bind_c_sym,
 	gfc_match_suffix,gfc_match_subroutine,gfc_get_type_attr_spec): Ditto.
-	* fortran/gfortran.h: Update gfc_add_is_bind_c prototype.
+	* gfortran.h: Update gfc_add_is_bind_c prototype.
 
 2007-02-27  Tobias Burnus  <burnus@net-b.de>
 
-	* fortran/symbol.c (check_conflict): Allow bind(c) for procedural
+	* symbol.c (check_conflict): Allow bind(c) for procedural
 	  dummy arguments.
 
 2007-02-26  Christopher D. Rickett  <crickett@lanl.gov>
 
-	* gcc/testsuite/gfortran.dg/test_bind_c_parens.f03: New test case
+	* gfortran.dg/test_bind_c_parens.f03: New test case
 	to make sure gfortran requires the parens for a subroutine that is
 	marked BIND(C).
-	* gcc/testsuite/gfortran.dg/bind_c_usage_5.f03: New test case to
+	* gfortran.dg/bind_c_usage_5.f03: New test case to
 	verify that gfortran catches duplicate BIND(C) attributes.
-	* gcc/testsuite/gfortran.dg/bind_c_usage_6.f03: New test case for
+	* gfortran.dg/bind_c_usage_6.f03: New test case for
 	BIND(C) attribute only being applied to variables or common blocks.
-	* gcc/testsuite/gfortran.dg/c_size_t_driver.c: Main program for
+	* gfortran.dg/c_size_t_driver.c: Main program for
 	c_size_t_test.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_2.f03: Updated
+	* gfortran.dg/binding_label_tests_2.f03: Updated
 	expected error messages.
-	* gcc/testsuite/gfortran.dg/c_size_t_test.f03: New test case to
+	* gfortran.dg/c_size_t_test.f03: New test case to
 	verify that c_size_t equals sizeof(size_t).
-	* gcc/testsuite/gfortran.dg/binding_label_tests_3.f03: New test
+	* gfortran.dg/binding_label_tests_3.f03: New test
 	case for verifying that binding labels don't collide with other
 	binding labels or global symbol names.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_4.f03: Ditto.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_5.f03: Ditto.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_6.f03: Ditto.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_7.f03: Ditto.
-	* gcc/testsuite/gfortran.dg/binding_label_tests_8.f03: Ditto.
-	* gcc/testsuite/gfortran.dg/bind_c_usage_3.f03: Whitespace.
-	* gcc/fortran/symbol.c: Added check to gfc_add_is_bind_c to make
+	* gfortran.dg/binding_label_tests_4.f03: Ditto.
+	* gfortran.dg/binding_label_tests_5.f03: Ditto.
+	* gfortran.dg/binding_label_tests_6.f03: Ditto.
+	* gfortran.dg/binding_label_tests_7.f03: Ditto.
+	* gfortran.dg/binding_label_tests_8.f03: Ditto.
+	* gfortran.dg/bind_c_usage_3.f03: Whitespace.
+
+	* symbol.c: Added check to gfc_add_is_bind_c to make
 	sure the symbol isn't already marked as BIND(C).  Added flag to
 	gfc_add_is_bind_c to say if the BIND(C) is coming from a procedure
 	declaration.  Fixed whitespace.
-	* gcc/fortran/decl.c: Removed call to gfc_add_is_bind_c from
+	* decl.c: Removed call to gfc_add_is_bind_c from
 	gfc_match_bind_c; the call is now in the routines that call
 	gfc_match_bind_c. Added another check for preventing multiple
 	identifiers for a BIND(C) that has a NAME= specifier (there was
@@ -53,20 +117,20 @@ commit to the branch, so that we don't get lost.
 	gfc_match_proc_decl_stmt.  The two new functions are now called
 	from parse.c.  Added error checking for BIND(C).  Improved error
 	messages for gfc_match_bind_c.  Fixed whitespace.
-	* gcc/fortran/gfortran.h: Updated prototype for
+	* gfortran.h: Updated prototype for
 	gfc_add_is_bind_c.  Added a sym_name field to gfc_gsymbol for use
 	with global symbols created for binding labels.
-	* gcc/fortran/iso-c-binding.def: Set c_size_t equal to
+	* iso-c-binding.def: Set c_size_t equal to
 	gfc_index_integer_kind because size_type_node is not set in time
 	for gfc_init_kinds.
-	* gcc/fortran/resolve.c: Added gfc_verify_binding_labels to
+	* resolve.c: Added gfc_verify_binding_labels to
 	report errors if binding labels collide with another binding label
 	or global symbol name.
-	* gcc/fortran/match.c: Improved gfc_match_name_C for better error
+	* match.c: Improved gfc_match_name_C for better error
 	reporting.
-	* gcc/fortran/match.h: Removed gfc_match_attr_spec_stmt.  Added
+	* match.h: Removed gfc_match_attr_spec_stmt.  Added
 	gfc_match_bind_c_stmt and gfc_match_proc_decl_stmt.
-	* gcc/fortran/parse.c: Added calls to gfc_match_bind_c_stmt and
+	* parse.c: Added calls to gfc_match_bind_c_stmt and
 	gfc_match_proc_decl_stmt in decode_statement.
 
 2007-02-21  Christopher D. Rickett  <crickett@lanl.gov>

@@ -1622,24 +1622,6 @@ parse_derived (void)
    * interoperable with C if the type is declared to be bind(c)
    */
   derived_sym = gfc_current_block();
-  /* see if the derived type was declared with bind(c) */
-  if(derived_sym != NULL && derived_sym->attr.is_bind_c != 0)
-  {
-     /* need to verify all of the components of the derived type
-      * as being C interoperable (not bind(c) though, because that
-      * wouldn't make sense as they're fields of a derived type).
-      * --Rickett, 10.24.05
-      *
-      * also need to verify that the derived type attributes don't
-      * collide with the bind(c).  --Rickett, 10.24.05
-      */
-     /* any errors in the verification will be printed in the function,
-      * so don't print anything here and just continue on.
-      */
-     verify_bind_c_derived_type(derived_sym);
-     /* this will be 1 if the derived type passed verification above */
-     derived_sym->attr.is_c_interop = derived_sym->ts.is_c_interop;
-  }
 
   /* Look for allocatable components.  */
   sym = gfc_current_block ();

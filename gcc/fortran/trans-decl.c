@@ -298,7 +298,8 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 
   /* Prevent the mangling of identifiers that have an assigned
      binding label (mainly those that are bind(c)).  */
-  if (sym->attr.is_bind_c == 1)
+  if (sym->attr.is_bind_c == 1
+      && sym->binding_label[0] != '\0')
     return get_identifier(sym->binding_label);
   
   if (sym->module == NULL)

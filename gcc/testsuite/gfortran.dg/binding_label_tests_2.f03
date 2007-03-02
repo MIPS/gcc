@@ -19,12 +19,6 @@ contains
   subroutine sub3() bind(c, name="abc d") ! { dg-error "Embedded space" }
   end subroutine sub3 ! { dg-error "Expecting END MODULE" }
 
-  ! nothing between the quotes except spaces, so name="".
-  ! this should be an error if the procedure is not a dummy or procedure
-  ! pointer
-  subroutine sub4() BIND(c, name = "        ") ! { dg-error "zero length" }
-  end subroutine sub4 ! { dg-error "Expecting END MODULE" }
-
   subroutine sub5() BIND(C, name=" myvar 2 ") ! { dg-error "Embedded space" }
   end subroutine sub5 ! { dg-error "Expecting END MODULE" }
 
@@ -37,3 +31,5 @@ contains
   subroutine sub8() bind(c, name) ! { dg-error "Syntax error" }
   end subroutine sub8 ! { dg-error "Expecting END MODULE" }
 end module binding_label_tests_2 
+
+! { dg-final { cleanup-modules "binding_label_tests_2" } }

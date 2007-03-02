@@ -1125,6 +1125,7 @@ typedef struct gfc_gsymbol
 
   const char *name;
   const char *sym_name;
+  const char *mod_name;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
