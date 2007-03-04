@@ -540,7 +540,8 @@ df_check_and_grow_ref_info (struct df_ref_info *ref_info,
 {
   if (ref_info->refs_size < ref_info->total_size + bitmap_addend)
     {
-      int new_size = ref_info->total_size + ref_info->total_size / 4;
+      int new_size = ref_info->total_size + bitmap_addend;
+      new_size += ref_info->total_size / 4;
       df_grow_ref_info (ref_info, new_size);
     }
 }
