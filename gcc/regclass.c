@@ -1176,6 +1176,8 @@ scan_one_insn (rtx insn, int pass)
 	    REG_FREQ (REGNO (recog_data.operand[0])) += frequency;
 	  }
 
+      df_insn_rescan (insn);
+
       return PREV_INSN (newinsn);
     }
 
