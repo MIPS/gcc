@@ -47,6 +47,10 @@ static char curr_binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
 /* Need to know how many identifiers are on the current data declaration
    line in case we're given the BIND(C) attribute with a NAME= specifier.  */
 static int num_idents_on_line;
+/* Need to know if a NAME= specifier was found during gfc_match_bind_c so we
+   can supply a name if the curr_binding_label is nil and NAME= was not.  */
+static int has_name_equals = 0;
+
 
 
 /* Initializer of the previous enumerator.  */
@@ -757,12 +761,17 @@ verify_c_interop_param (gfc_symbol *sym)
   if (sym->attr.flavor == FL_PROCEDURE)
     {
       if (sym->attr.is_bind_c == 0)
-	return FAILURE;
+        return FAILURE;
       else
-	return verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
-				  sym->common_block);
+        {
+          if (sym->attr.is_c_interop == 1)
+            /* We've already checked this procedure; don't check it again.  */
+            return SUCCESS;
+          else
+            return verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
+                                      sym->common_block);
+        }
     }
-  
   
   /* See if we've stored a reference to a procedure that owns sym.  */
   if (sym->ns != NULL && sym->ns->proc_name != NULL)
@@ -2764,12 +2773,10 @@ set_binding_label (char *dest_label, const char *sym_name, int num_idents)
     }
   else
     {
-      /* no binding label given */
-      if (sym_name != NULL)
+      /* No binding label given, and the NAME= specifier did not exist,
+         which means there was no NAME="".  */
+      if (sym_name != NULL && has_name_equals == 0)
         strncpy (dest_label, sym_name, strlen (sym_name) + 1);
-      else
-        gfc_internal_error ("set_binding_label(): Name is "
-                            "unexpectedly NULL!");
     }
    
   return SUCCESS;
@@ -3191,9 +3198,18 @@ match_proc_decl (void)
       return MATCH_ERROR;
     }
 
+  /* If the interface is BIND(C), we could inherit that attribute without
+     specifying it in the procedure declaration.  This could prevent the
+     gfc_match_bind_c from being called, so we need to clear the
+     has_name_equals flag ourselves.  */
+  /* TODO: what happens if the interface we're using in the procedure
+     declaration has a NAME= specifier that is not NAME=""?  */
+  if (int_symtree->n.sym->attr.is_bind_c)
+    has_name_equals = 0;
+
   /* Try and match attributes.	We will match any attr here, and
      report conflicts as we find them.
-     TODO: make sure all conflicts are caught.	*/
+     TODO: make sure all conflicts are caught.  */
   /* This will say we're declaring the sym from a proc decl stmt, so
      we can catch conflicts.  */
   match_attr_spec ();
@@ -3201,12 +3217,12 @@ match_proc_decl (void)
   
   gfc_match (" :: ");
   
-  /* get the proc decl list */
+  /* Get the proc decl list.  */
   do
     {
       /* Initialize to NULL. Will reuse the pointer for all proc(s).  */
       new_proc_sym = NULL;
-      /* initialized to 0 */
+      /* Initialized to 0.  */
       num_idents++;
       
       if (gfc_match_name (proc_name) != MATCH_YES)
@@ -3234,7 +3250,7 @@ match_proc_decl (void)
       /* or necessary current_ts info with ts from interface proc */
       new_proc_sym->ts.is_c_interop |= current_ts.is_c_interop;
       new_proc_sym->ts.f90_type |= current_ts.f90_type;
-	 
+
       /* All procedure decls refer to external procedures (this may
 	 not be right to do if it's a proc pointer..).	*/
       new_proc_sym->attr.external = 1;
@@ -4211,6 +4227,10 @@ gfc_match_bind_c (gfc_symbol *sym)
   match single_quote;
   int has_name_equals = 0;
 
+  /* Initialize the flag that specifies whether we encountered a NAME= 
+     specifier or not.  */
+  has_name_equals = 0;
+
   /* Init the first char to nil so we can catch if we don't have
      the label (name attr) or the symbol name yet.  */
   binding_label[0] = '\0';
@@ -4299,11 +4319,11 @@ gfc_match_bind_c (gfc_symbol *sym)
       /* No binding label, but if symbol isn't null, we
 	 can set the label for it here.	 */
       /* TODO: If the name= was given and no binding label (name=""), we simply
-	 will let fortran mangle the symbol name as it usually would.
-	 However, this could still let C call it if the user looked up the
-	 symbol in the object file.  Should the name set during mangling in
-	 trans-decl.c be marked with characters that are invalid for C to
-	 prevent this?  */
+         will let fortran mangle the symbol name as it usually would.
+         However, this could still let C call it if the user looked up the
+         symbol in the object file.  Should the name set during mangling in
+         trans-decl.c be marked with characters that are invalid for C to
+         prevent this?  */
       if (sym != NULL && sym->name != NULL && has_name_equals == 0)
 	strncpy (sym->binding_label, sym->name, strlen (sym->name) + 1);
     }

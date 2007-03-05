@@ -124,6 +124,25 @@ gfc_validate_c_kind (gfc_typespec *ts)
 }
 
 
+try
+gfc_check_any_c_kind (gfc_typespec *ts)
+{
+  int i;
+  
+  for (i = ISOCBINDING_INVALID; i < ISOCBINDING_NUMBER; i++)
+    {
+      /* Check for any C interoperable kind for the given type/kind in ts.
+         This can be used after verify_c_interop to make sure that the
+         Fortran kind being used exists in at least some form for C.  */
+      if (c_interop_kinds_table[i].f90_type == ts->type &&
+          c_interop_kinds_table[i].value == ts->kind)
+        return SUCCESS;
+    }
+
+  return FAILURE;
+}
+
+
 static int
 get_real_kind_from_node (tree type)
 {
@@ -1842,7 +1861,7 @@ gfc_return_by_reference (gfc_symbol * sym)
       && sym->ts.type == BT_COMPLEX
       && !sym->attr.intrinsic && !sym->attr.always_explicit)
     return 1;
-  
+
   return 0;
 }
 

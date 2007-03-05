@@ -261,4 +261,27 @@ c_ptr_t ISO_C_BINDING_PREFIX(c_loc)(void *f90_obj)
    
    /* the "C" address should be the address of the object in Fortran */
    return my_c_ptr;
-}/* end ISO_C_BINDING_PREFIX(c_loc)() */
+}
+
+
+/*  Return the C address of the given Fortran procedure.  This
+    routine is expected to return a derived type of type C_FUNPTR,
+    which represents the C address of the given Fortran object.  */
+
+c_funptr_t
+ISO_C_BINDING_PREFIX (c_funloc) (void *f90_obj)
+{
+   c_funptr_t my_c_funptr;
+   
+   if (f90_obj == NULL)
+     {
+       runtime_error ("C_LOC: Attempt to get C address for Fortran object "
+                      "that has not been allocated or associated");
+       abort ();
+     }
+
+   my_c_funptr.c_address = f90_obj;
+   
+   /* The "C" address should be the address of the object in Fortran.  */
+   return my_c_funptr;
+}

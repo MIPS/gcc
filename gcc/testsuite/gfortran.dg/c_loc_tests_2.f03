@@ -44,19 +44,13 @@ contains
   end subroutine test0
 
   subroutine test1() bind(c)
-    integer, pointer, dimension(:) :: int_array_ptr
     integer, target, dimension(100) :: int_array_tar
     type(c_ptr) :: my_c_ptr_1 = c_null_ptr
     type(c_ptr) :: my_c_ptr_2 = c_null_ptr
     
-    int_array_ptr => int_array_tar
     int_array_tar = 100
     my_c_ptr_1 = c_loc(int_array_tar)
-    my_c_ptr_2 = c_loc(int_array_ptr)
     if(test_array_address(my_c_ptr_1, 100) .ne. 1) then
-       call abort()
-    end if
-    if(test_array_address(my_c_ptr_2, 100) .ne. 1) then
        call abort()
     end if
   end subroutine test1
@@ -91,3 +85,4 @@ program driver
   call test1()
   call test2()
 end program driver
+! { dg-final { cleanup-modules "c_loc_tests_2" } }

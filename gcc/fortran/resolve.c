@@ -619,23 +619,6 @@ resolve_contained_functions (gfc_namespace * ns)
       resolve_contained_fntype (child->proc_name, child);
       for (el = child->entries; el; el = el->next)
 	resolve_contained_fntype (el->sym, child);
-
-      /* The verification of BIND(C) routines is done here, and the params
-	 are verified in resolve_symbol.  */
-      if (child->proc_name != NULL && child->proc_name->attr.is_bind_c)
-	{
-	  try proc = SUCCESS;
-	  proc = verify_bind_c_sym (child->proc_name, &(child->proc_name->ts),
-				    0, NULL);
-
-	  if (proc == FAILURE)
-	    /* Clear the is_bind_c flag so we don't try and test the params
-	       or the procedure type again if it failed the first time.  This
-               should prevent multiple error messages from being printed.  */
-	    child->proc_name->attr.is_bind_c = 0;
-	  else
-	    child->proc_name->attr.is_c_interop = 1;
-	}
     }
 }
 
@@ -1540,24 +1523,80 @@ pure_function (gfc_expr * e, const char **name)
 }
 
 
+static try
+is_scalar_expr_ptr (gfc_expr *expr)
+{
+  try retval = SUCCESS;
+  gfc_ref *ref;
+  int start;
+  int end;
+
+  /* See if we have a gfc_ref, which means we have a substring, array
+     reference, or a component.  */
+  if (expr->ref != NULL)
+    {
+      ref = expr->ref;
+      while (ref->next != NULL)
+        ref = ref->next;
+
+      switch (ref->type)
+        {
+        case REF_SUBSTRING:
+          if (ref->u.ss.length != NULL 
+              && ref->u.ss.length->length != NULL
+              && ref->u.ss.start
+              && ref->u.ss.start->expr_type == EXPR_CONSTANT 
+              && ref->u.ss.end
+              && ref->u.ss.end->expr_type == EXPR_CONSTANT)
+            {
+              start = (int) mpz_get_si (ref->u.ss.start->value.integer);
+              end = (int) mpz_get_si (ref->u.ss.end->value.integer);
+              if (end - start + 1 != 1)
+                retval = FAILURE;
+            }
+          else
+            retval = FAILURE;
+          break;
+        case REF_ARRAY:
+          if (ref->u.ar.type != AR_ELEMENT)
+            retval = FAILURE;
+          break;
+        default:
+          retval = SUCCESS;
+          break;
+        }
+    }
+  else if (expr->ts.type == BT_CHARACTER && expr->rank == 0)
+    {
+      /* Character string.  Make sure it's of length 1.  */
+      if (expr->ts.cl == NULL
+          || expr->ts.cl->length == NULL
+          || mpz_cmp_si (expr->ts.cl->length->value.integer, 1) != 0)
+        retval = FAILURE;
+    }
+  else if (expr->rank != 0)
+    retval = FAILURE;
+
+  return retval;
+}
+
+
 /* Match one of the iso_c_binding functions (c_associated or c_loc)
    and, in the case of c_associated, set the binding label based on
    the arguments.  */
 
-static gfc_symbol *
-gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
+static try
+gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args,
+                          gfc_symbol **new_sym)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-  gfc_symbol *new_sym = NULL;
   int optional_arg = 0;
-   
-  /* if we weren't given args, we're in trouble.  this should not be
-   * reached because parameter verification should have happened already.
-   */
-  if (args == NULL)
-    gfc_internal_error ("gfc_iso_c_func_interface(): Missing args!\n");
+  try retval = SUCCESS;
+  gfc_symbol *args_sym;
 
+  args_sym = args->expr->symtree->n.sym;
+   
   if (sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)
     {
       /* If the user gave two args then they are providing something for
@@ -1581,17 +1620,137 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
 
       /* Get a new symbol for the version of c_associated that
 	 will get called.  */
-      new_sym = get_iso_c_sym (sym, name, binding_label, optional_arg);
+      *new_sym = get_iso_c_sym (sym, name, binding_label, optional_arg);
     }
-  else if (sym->intmod_sym_id == ISOCBINDING_LOC)
+  else if (sym->intmod_sym_id == ISOCBINDING_LOC
+	   || sym->intmod_sym_id == ISOCBINDING_FUNLOC)
     {
       sprintf (name, "%s", sym->name);
       sprintf (binding_label, "%s", sym->binding_label);
+
+      /* Error check the call.  */
       if (args->next != NULL)
-	gfc_error_now ("More actual than formal arguments in '%s' "
-		       "call at %C", name);
-      /* for c_loc, the new symbol is the same as the old one */
-      new_sym = sym;
+        {
+          gfc_error_now ("More actual than formal arguments in '%s' "
+                         "call at %L", name, &(args->expr->where));
+          retval = FAILURE;
+        }
+      else if (sym->intmod_sym_id == ISOCBINDING_LOC)
+        {
+          /* Make sure we have either the target or pointer attribute.  */
+          if (!(args->expr->symtree->n.sym->attr.target)
+	      && !(args->expr->symtree->n.sym->attr.pointer))
+            {
+              gfc_error_now ("Parameter '%s' to '%s' at %L must be either "
+                             "a TARGET or an associated pointer",
+                             args->expr->symtree->n.sym->name,
+                             sym->name, &(args->expr->where));
+              retval = FAILURE;
+            }
+
+          /* See if we have interoperable type and type param.  */
+          if (verify_c_interop (&(args->expr->symtree->n.sym->ts),
+                                args->expr->symtree->n.sym->name,
+                                &(args->expr->where)) == SUCCESS
+              || gfc_check_any_c_kind (&(args_sym->ts)) == SUCCESS)
+            {
+              if (args_sym->attr.target == 1)
+                {
+                  /* Case 1a, section 15.1.2.5, J3/04-007: variable that
+                     has the target attribute and is interoperable.  */
+                  /* Case 1b, section 15.1.2.5, J3/04-007: allocated
+                     allocatable variable that has the TARGET attribute and
+                     is not an array of zero size.  */
+                  if (args_sym->attr.allocatable == 1)
+                    {
+                      if (args_sym->attr.dimension != 0 
+                          && (args_sym->as && args_sym->as->rank == 0))
+                        {
+                          gfc_error_now ("Allocatable variable '%s' used as a "
+                                         "parameter to '%s' at %L must not be "
+                                         "an array of zero size",
+                                         args_sym->name, sym->name,
+                                         &(args->expr->where));
+                          retval = FAILURE;
+                        }
+                    }
+                  else
+                    {
+                      /* Make sure it's not a character string.  Arrays of
+                         any type should be ok if the variable is of a C
+                         interoperable type.  */
+                      if (args_sym->ts.type == BT_CHARACTER 
+                          && is_scalar_expr_ptr (args->expr) != SUCCESS)
+                        {
+                          gfc_error_now ("CHARACTER argument '%s' to '%s' at "
+                                         "%L must have a length of 1",
+                                         args_sym->name, sym->name,
+                                         &(args->expr->where));
+                          retval = FAILURE;
+                        }
+                    }
+                }
+              else if (args_sym->attr.pointer == 1
+                       && is_scalar_expr_ptr (args->expr) != SUCCESS)
+                {
+                  /* Case 1c, section 15.1.2.5, J3/04-007: an associated
+                     scalar pointer.  */
+                  gfc_error_now ("Argument '%s' to '%s' at %L must be an "
+                                 "associated scalar POINTER", args_sym->name,
+                                 sym->name, &(args->expr->where));
+                  retval = FAILURE;
+                }
+            }
+          else
+            {
+              /* The parameter is not required to be C interoperable.  If it
+                 is not C interoperable, it must be a nonpolymorphic scalar
+                 with no length type parameters.  It still must have either
+                 the pointer or target attribute, and it can be
+                 allocatable (but must be allocated when c_loc is called).  */
+              if (args_sym->attr.dimension != 0
+                  && is_scalar_expr_ptr (args->expr) != SUCCESS)
+                {
+                  gfc_error_now ("Parameter '%s' to '%s' at %L must be a "
+                                 "scalar", args_sym->name, sym->name,
+                                 &(args->expr->where));
+                  retval = FAILURE;
+                }
+              else if (args_sym->ts.type == BT_CHARACTER 
+                       && args_sym->ts.cl != NULL)
+                {
+                  gfc_error_now ("CHARACTER parameter '%s' to '%s' at %L "
+                                 "cannot have a length type parameter",
+                                 args_sym->name, sym->name,
+                                 &(args->expr->where));
+                  retval = FAILURE;
+                }
+            }
+        }
+      else if (sym->intmod_sym_id == ISOCBINDING_FUNLOC)
+        {
+          if (args->expr->symtree->n.sym->attr.flavor != FL_PROCEDURE)
+            {
+              /* TODO: Update this error message to allow for procedure
+                 pointers once they are implemented.  */
+              gfc_error_now ("Parameter '%s' to '%s' at %L must be a "
+                             "procedure",
+                             args->expr->symtree->n.sym->name, sym->name,
+                             &(args->expr->where));
+              retval = FAILURE;
+            }
+          else if (args->expr->symtree->n.sym->attr.is_c_interop != 1)
+            {
+              gfc_error_now ("Parameter '%s' to '%s' at %L must be C "
+                             "interoperable",
+                             args->expr->symtree->n.sym->name, sym->name,
+                             &(args->expr->where));
+              retval = FAILURE;
+            }
+        }
+      
+      /* for c_loc/c_funloc, the new symbol is the same as the old one */
+      *new_sym = sym;
     }
   else
     {
@@ -1599,9 +1758,7 @@ gfc_iso_c_func_interface (gfc_symbol *sym, gfc_actual_arglist *args)
 			  "iso_c_binding function: '%s'!\n", sym->name);
     }
 
-  /* Return the new_sym, which is either a resolved c_associated or
-     the same sym for c_loc we were given.  */
-  return new_sym;
+  return retval;
 }
 
 
@@ -1631,16 +1788,6 @@ resolve_function (gfc_expr * expr)
       return FAILURE;
     }
 
-  /* Need to setup the call to the correct c_associated, depending on
-     the number of cptrs to user gives to compare.  */
-  if (sym && sym->attr.is_iso_c == 1)
-    {
-      sym = gfc_iso_c_func_interface (sym, expr->value.function.actual);
-      /* Get the symtree for the new symbol (resolved func).
-         the old one will be freed later, when it's no longer used.  */
-      gfc_find_sym_tree (sym->name, sym->ns, 1, &(expr->symtree));
-    }
-  
   /* If the procedure is not internal, a statement function or a module
      procedure,it must be external and should be checked for usage.  */
   if (sym && !sym->attr.dummy && !sym->attr.contained
@@ -1658,6 +1805,19 @@ resolve_function (gfc_expr * expr)
   if (resolve_actual_arglist (expr->value.function.actual, p) == FAILURE)
       return FAILURE;
 
+  /* Need to setup the call to the correct c_associated, depending on
+     the number of cptrs to user gives to compare.  */
+  if (sym && sym->attr.is_iso_c == 1)
+    {
+      if (gfc_iso_c_func_interface (sym, expr->value.function.actual, &sym)
+          == FAILURE)
+        return FAILURE;
+      
+      /* Get the symtree for the new symbol (resolved func).
+         the old one will be freed later, when it's no longer used.  */
+      gfc_find_sym_tree (sym->name, sym->ns, 1, &(expr->symtree));
+    }
+  
   /* Resume assumed_size checking. */
   need_full_assumed_size--;
 
@@ -5578,7 +5738,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
    the variable.  */
 
 static void
-resolve_values (gfc_symbol * sym)
+resolve_values (gfc_symbol *sym)
 {
 
   if (sym->value == NULL)
@@ -5588,6 +5748,104 @@ resolve_values (gfc_symbol * sym)
     return;
 
   gfc_check_assign_symbol (sym, sym->value);
+}
+
+
+/* Verify the binding labels for common blocks that are BIND(C).  The label
+   for a BIND(C) common block must be identical in all scoping units in which
+   the common block is declared.  Further, the binding label can not collide
+   with any other global entity in the program.  */
+
+static void
+resolve_bind_c_comms (gfc_symtree *comm_block_tree)
+{
+  if (comm_block_tree->n.common->is_bind_c == 1)
+    {
+      gfc_gsymbol *binding_label_gsym;
+      gfc_gsymbol *comm_name_gsym;
+
+      /* See if a global symbol exists by the common block's name.  It may
+         be NULL if the common block is use-associated.  */
+      comm_name_gsym = gfc_find_gsymbol (gfc_gsym_root,
+                                         comm_block_tree->n.common->name);
+      if (comm_name_gsym != NULL && comm_name_gsym->type != GSYM_COMMON)
+        gfc_error ("Binding label '%s' for common block '%s' at %L collides "
+                   "with the global entity '%s' at %L",
+                   comm_block_tree->n.common->binding_label,
+                   comm_block_tree->n.common->name,
+                   &(comm_block_tree->n.common->where),
+                   comm_name_gsym->name, &(comm_name_gsym->where));
+      else if (comm_name_gsym != NULL
+	       && strcmp (comm_name_gsym->name,
+			  comm_block_tree->n.common->name) == 0)
+        {
+          /* TODO: Need to make sure the fields of gfc_gsymbol are initialized
+             as expected.  */
+          if (comm_name_gsym->binding_label == NULL)
+            /* No binding label for common block stored yet; save this one.  */
+            comm_name_gsym->binding_label =
+              comm_block_tree->n.common->binding_label;
+          else
+            if (strcmp (comm_name_gsym->binding_label,
+                        comm_block_tree->n.common->binding_label) != 0)
+              {
+                /* Common block names match but binding labels do not.  */
+                gfc_error ("Binding label '%s' for common block '%s' at %L "
+                           "does not match the binding label '%s' for common "
+                           "block '%s' at %L",
+                           comm_block_tree->n.common->binding_label,
+                           comm_block_tree->n.common->name,
+                           &(comm_block_tree->n.common->where),
+                           comm_name_gsym->binding_label,
+                           comm_name_gsym->name,
+                           &(comm_name_gsym->where));
+                return;
+              }
+        }
+
+      /* There is no binding label (NAME="") so we have nothing further to
+         check and nothing to add as a global symbol for the label.  */
+      if (comm_block_tree->n.common->binding_label[0] == '\0' )
+        return;
+      
+      binding_label_gsym =
+        gfc_find_gsymbol (gfc_gsym_root,
+                          comm_block_tree->n.common->binding_label);
+      if (binding_label_gsym == NULL)
+        {
+          /* Need to make a global symbol for the binding label to prevent
+             it from colliding with another.  */
+          binding_label_gsym =
+            gfc_get_gsymbol (comm_block_tree->n.common->binding_label);
+          binding_label_gsym->sym_name = comm_block_tree->n.common->name;
+          binding_label_gsym->type = GSYM_COMMON;
+        }
+      else
+        {
+          /* If comm_name_gsym is NULL, the name common block is use
+             associated and the name could be colliding.  */
+          if (binding_label_gsym->type != GSYM_COMMON)
+            gfc_error ("Binding label '%s' for common block '%s' at %L "
+                       "collides with the global entity '%s' at %L",
+                       comm_block_tree->n.common->binding_label,
+                       comm_block_tree->n.common->name,
+                       &(comm_block_tree->n.common->where),
+                       binding_label_gsym->name,
+                       &(binding_label_gsym->where));
+          else if (comm_name_gsym != NULL
+		   && (strcmp (binding_label_gsym->name,
+			       comm_name_gsym->binding_label) != 0)
+		   && (strcmp (binding_label_gsym->sym_name,
+			       comm_name_gsym->name) != 0))
+            gfc_error ("Binding label '%s' for common block '%s' at %L "
+                       "collides with global entity '%s' at %L",
+                       binding_label_gsym->name, binding_label_gsym->sym_name,
+                       &(comm_block_tree->n.common->where),
+                       comm_name_gsym->name, &(comm_name_gsym->where));
+        }
+    }
+  
+  return;
 }
 
 
@@ -5611,64 +5869,82 @@ resolve_bind_c_derived_types (gfc_symbol *derived_sym)
 static void
 gfc_verify_binding_labels (gfc_symbol *sym)
 {
-  if (sym != NULL && sym->attr.is_bind_c && sym->attr.is_iso_c == 0
-      && sym->attr.flavor != FL_DERIVED)
+  int has_error = 0;
+  
+  if (sym != NULL && sym->attr.is_bind_c && sym->attr.is_iso_c == 0 
+      && sym->attr.flavor != FL_DERIVED && sym->binding_label[0] != '\0')
     {
       gfc_gsymbol *bind_c_sym;
-      
+
       bind_c_sym = gfc_find_gsymbol (gfc_gsym_root, sym->binding_label);
-      if (bind_c_sym != NULL)
-	{
-	  if (sym->attr.if_source == IFSRC_DECL
-	      && bind_c_sym->type != GSYM_SUBROUTINE
-	      && bind_c_sym->type != GSYM_FUNCTION
-	      && (sym->attr.use_assoc == 0
-		  || (sym->attr.use_assoc == 1
-		      && (strcmp (bind_c_sym->mod_name, sym->module) != 0))))
-	    /* Make sure global procedures don't collide with anything. */
-	    gfc_error ("Binding label '%s' at %L collides with the global "
-		       "entity '%s' at %L", sym->binding_label,
-		       &(sym->declared_at), bind_c_sym->name,
-		       &(bind_c_sym->where));
-	  else if (sym->attr.contained == 0
-		   && (sym->attr.if_source == IFSRC_IFBODY
-		   && sym->attr.flavor == FL_PROCEDURE)
-		   && strcmp (bind_c_sym->sym_name, sym->name) != 0)
-	    /* Make sure procedures in interface bodies don't collide.  */
-	    gfc_error ("Binding label '%s' in interface body at %L collides "
-		       "with the global entity '%s' at %L", sym->binding_label,
-		       &(sym->declared_at), bind_c_sym->name,
-		       &(bind_c_sym->where));
-          else if (sym->attr.contained == 0 &&
-                   (sym->attr.if_source == IFSRC_UNKNOWN))
-	    if ((sym->attr.use_assoc
-		 && (strcmp (bind_c_sym->mod_name, sym->module) != 0))
-		|| sym->attr.use_assoc == 0)
-	      gfc_error ("Binding label '%s' at %L collides with global "
-			 "entity '%s' at %L", sym->binding_label,
-			 &(sym->declared_at), bind_c_sym->name,
-			 &(bind_c_sym->where));
-	}
-      else
+      if (bind_c_sym != NULL
+	  && strcmp (bind_c_sym->name, sym->binding_label) == 0)
+        {
+          if (sym->attr.if_source == IFSRC_DECL 
+              && (bind_c_sym->type != GSYM_SUBROUTINE 
+                  && bind_c_sym->type != GSYM_FUNCTION) 
+              && ((sym->attr.contained == 1 
+                   && strcmp (bind_c_sym->sym_name, sym->name) != 0) 
+                  || (sym->attr.use_assoc == 1 
+                      && (strcmp (bind_c_sym->mod_name, sym->module) != 0))))
+            {
+              /* Make sure global procedures don't collide with anything. */
+              gfc_error ("Binding label '%s' at %L collides with the global "
+                         "entity '%s' at %L", sym->binding_label,
+                         &(sym->declared_at), bind_c_sym->name,
+                         &(bind_c_sym->where));
+              has_error = 1;
+            }
+          else if (sym->attr.contained == 0 
+                   && (sym->attr.if_source == IFSRC_IFBODY 
+                       && sym->attr.flavor == FL_PROCEDURE) 
+                   && strcmp (bind_c_sym->sym_name, sym->name) != 0)
+            {
+              /* Make sure procedures in interface bodies don't collide.  */
+              gfc_error ("Binding label '%s' in interface body at %L collides "
+                         "with the global entity '%s' at %L",
+                         sym->binding_label,
+                         &(sym->declared_at), bind_c_sym->name,
+                         &(bind_c_sym->where));
+              has_error = 1;
+            }
+          else if (sym->attr.contained == 0 
+                   && (sym->attr.if_source == IFSRC_UNKNOWN))
+            if ((sym->attr.use_assoc 
+                 && (strcmp (bind_c_sym->mod_name, sym->module) != 0)) 
+                || sym->attr.use_assoc == 0)
+              {
+                gfc_error ("Binding label '%s' at %L collides with global "
+                           "entity '%s' at %L", sym->binding_label,
+                           &(sym->declared_at), bind_c_sym->name,
+                           &(bind_c_sym->where));
+                has_error = 1;
+              }
+
+          if (has_error != 0)
+            /* Clear the binding label to prevent checking multiple times.  */
+            sym->binding_label[0] = '\0';
+        }
+      else if (bind_c_sym == NULL)
 	{
 	  bind_c_sym = gfc_get_gsymbol (sym->binding_label);
 	  bind_c_sym->where = sym->declared_at;
 	  bind_c_sym->sym_name = sym->name;
 
-	  if (sym->attr.use_assoc == 1)
-	    bind_c_sym->mod_name = sym->module;
-	  else
-	    if (sym->ns->proc_name != NULL)
-	      bind_c_sym->mod_name = sym->ns->proc_name->name;
+          if (sym->attr.use_assoc == 1)
+            bind_c_sym->mod_name = sym->module;
+          else
+            if (sym->ns->proc_name != NULL)
+              bind_c_sym->mod_name = sym->ns->proc_name->name;
 
-	  if (sym->attr.contained == 0)
-	    {
-	      if (sym->attr.subroutine)
-		bind_c_sym->type = GSYM_SUBROUTINE;
-	      else if (sym->attr.function)
-		bind_c_sym->type = GSYM_FUNCTION;
-	    }
-	}
+          if (sym->attr.contained == 0)
+            {
+              if (sym->attr.subroutine)
+                bind_c_sym->type = GSYM_SUBROUTINE;
+              else if (sym->attr.function)
+                bind_c_sym->type = GSYM_FUNCTION;
+            }
+        }
     }
   return;
 }
@@ -6149,6 +6425,41 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 			"'%s' at %L is obsolescent in fortran 95",
 			sym->name, &sym->declared_at);
     }
+
+  if (sym->attr.is_bind_c && sym->attr.is_c_interop != 1)
+    {
+      gfc_formal_arglist *curr_arg;
+
+      if (verify_bind_c_sym (sym, &(sym->ts), sym->attr.in_common,
+                             sym->common_block) == FAILURE)
+        {
+          /* Clear these to prevent looking at them again if there was an
+             error.  */
+          sym->attr.is_bind_c = 0;
+          sym->attr.is_c_interop = 0;
+          sym->ts.is_c_interop = 0;
+        }
+      else
+        {
+          /* So far, no errors have been found.  */
+          sym->attr.is_c_interop = 1;
+          sym->ts.is_c_interop = 1;
+        }
+      
+      curr_arg = sym->formal;
+      while (curr_arg != NULL)
+        {
+          /* Skip implicitly typed dummy args here.  */
+          if (curr_arg->sym->attr.implicit_type == 0
+	      && verify_c_interop_param (curr_arg->sym) == FAILURE)
+            {
+              sym->attr.is_c_interop = 0;
+              sym->ts.is_c_interop = 0;
+            }
+          curr_arg = curr_arg->next;
+        }
+    }
+  
   return SUCCESS;
 }
 
@@ -6557,19 +6868,6 @@ resolve_symbol (gfc_symbol * sym)
              once if something failed.  */
           sym->attr.is_bind_c = 0;
           return;
-        }
-    }
-
-  /* If we're working on a dummy and the containing procedure is BIND(C),
-     we need to verify the params.  */
-  if (sym->attr.dummy == 1 && sym->attr.implicit_type == 0)
-    {
-      /* See if the containing procedure is BIND(C) */
-      if (sym->ns->proc_name->attr.is_bind_c == 1)
-        {
-          /* Verify the params */
-          if (verify_c_interop_param (sym) == FAILURE)
-            return;
         }
     }
 
@@ -7687,9 +7985,10 @@ resolve_types (gfc_namespace * ns)
   iter_stack = NULL;
   gfc_traverse_ns (ns, gfc_formalize_init_value);
 
-  if (ns->parent == NULL &&
-      (ns->proc_name != NULL && ns->proc_name->from_intmod == INTMOD_NONE))
-    gfc_traverse_ns (ns, gfc_verify_binding_labels);
+  gfc_traverse_ns (ns, gfc_verify_binding_labels);
+
+  if (ns->common_root != NULL)
+    gfc_traverse_symtree (ns->common_root, resolve_bind_c_comms);
 
   for (eq = ns->equiv; eq; eq = eq->next)
     resolve_equivalence (eq);

@@ -38,6 +38,7 @@ void ISO_C_BINDING_PREFIX(c_f_pointer_d0)(c_ptr_t c_ptr_in,
                                           const array_t *shape);
 
 c_ptr_t ISO_C_BINDING_PREFIX(c_loc)(void *f90_obj);
+c_funptr_t ISO_C_BINDING_PREFIX(c_funloc) (void *f90_obj);
 
 
 #endif

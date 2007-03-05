@@ -3662,7 +3662,7 @@ write_common (gfc_symtree *st)
   /* write out whether the common block is bind(c) or not */
   mio_integer(&(p->is_bind_c));
   /* write out the binding label, or the com name if no label given */
-  if (p->is_bind_c && p->binding_label[0] != '\0')
+  if (p->is_bind_c)
     {
       label = p->binding_label;
       mio_pool_string (&label);
@@ -3750,8 +3750,7 @@ write_symbol (int n, gfc_symbol * sym)
   mio_pool_string (&sym->name);
 
   mio_pool_string (&sym->module);
-  if ((sym->attr.is_bind_c || sym->attr.is_iso_c)
-      && sym->binding_label[0] != '\0')
+  if (sym->attr.is_bind_c || sym->attr.is_iso_c)
     {
       label = sym->binding_label;
       mio_pool_string (&label);
@@ -4023,6 +4022,55 @@ gfc_dump_module (const char *name, int dump_flag)
 }
 
 
+static void
+sort_iso_c_rename_list (void)
+{
+  gfc_use_rename *tmp_list = NULL;
+  gfc_use_rename *curr;
+  gfc_use_rename *kinds_used[ISOCBINDING_NUMBER] = {NULL};
+  int c_kind;
+  int i;
+
+  for (curr = gfc_rename_list; curr; curr = curr->next)
+    {
+      c_kind  = get_c_kind (curr->use_name, c_interop_kinds_table);
+      if (c_kind == ISOCBINDING_INVALID || c_kind == ISOCBINDING_LAST)
+        {
+          gfc_error ("Symbol '%s' referenced at %L does not exist in "
+                     "intrinsic module ISO_C_BINDING.", curr->use_name,
+                     &curr->where);
+        }
+      else
+        /* Put it in the list.  */
+        kinds_used[c_kind] = curr;
+    }
+
+  /* Make a new (sorted) rename list.  */
+  i = 0;
+  while (i < ISOCBINDING_NUMBER && kinds_used[i] == NULL)
+    i++;
+
+  if (i < ISOCBINDING_NUMBER)
+    {
+      tmp_list = kinds_used[i];
+
+      i++;
+      curr = tmp_list;
+      for (; i < ISOCBINDING_NUMBER; i++)
+        if (kinds_used[i] != NULL)
+          {
+            curr->next = kinds_used[i];
+            curr = curr->next;
+            curr->next = NULL;
+          }
+    }
+
+  gfc_rename_list = tmp_list;
+  
+  return;
+}
+
+
 /* Import the instrinsic ISO_C_BINDING module, generating symbols in the
    current namespace for all named constants, pointer types,
    and procedures in the module unless the only clause was used
@@ -4060,20 +4108,26 @@ import_iso_c_binding_module (void)
   /* Generate the symbols for the named constants representing
      the kinds for intrinsic data types.  */
   if (only_flag)
-    for (u = gfc_rename_list; u; u = u->next)
-      {
-	i = get_c_kind (u->use_name, c_interop_kinds_table);
+    {
+      /* Sort the rename list because there are dependencies between types
+         and procedures (e.g., c_loc needs c_ptr).  */
+      sort_iso_c_rename_list ();
+      
+      for (u = gfc_rename_list; u; u = u->next)
+        {
+          i = get_c_kind (u->use_name, c_interop_kinds_table);
 
-	if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
-	  {
-	    gfc_error ("Symbol '%s' referenced at %L does not exist in "
-		       "intrinsic module ISO_C_BINDING.", u->use_name,
-		       &u->where);
-	    continue;
-	  }
+          if (i == ISOCBINDING_INVALID || i == ISOCBINDING_LAST)
+	    {
+              gfc_error ("Symbol '%s' referenced at %L does not exist in "
+                         "intrinsic module ISO_C_BINDING.", u->use_name,
+                         &u->where);
+              continue;
+            }
 	  
-	generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
-      }
+          generate_isocbinding_symbol (iso_c_module_name, i, u->local_name);
+        }
+    }
   else
     {
       for (i = 0; i < ISOCBINDING_NUMBER; i++)

@@ -223,24 +223,24 @@ add_segments (segment_info *list, segment_info *v)
   return list;
 }
 
+
 /* Construct mangled common block name from symbol name.  */
 
-/* we need the bind(c) flag to tell us how/if we should mangle the
- * symbol name.  there are few calls to this function, so few places
- * that this would need to be added.  at the moment, there is only
- * one call, in build_common_decl().  we can't attempt to look up the
- * common block because we may be building it for the first time and
- * therefore, it won't be in the common_root.  we also need the binding
- * label, if it's bind(c).  therefore, send in the pointer to the
- * common block, so whatever info we have so far can be used.  all of
- * the necessary info should be available in the gfc_common_head by now,
- * so it should be accurate to test the isBindC flag and use the binding
- * label given if it is bind(c).  --Rickett, 03.14.06
- *
- * we may NOT know yet if it's bind(c) or not, but we can try at least.
- * will have to figure out what to do later if it's labeled bind(c)
- * after this is called..  --Rickett, 04.11.06
- */
+/* We need the bind(c) flag to tell us how/if we should mangle the symbol
+   name.  There are few calls to this function, so few places that this
+   would need to be added.  At the moment, there is only one call, in
+   build_common_decl().  We can't attempt to look up the common block
+   because we may be building it for the first time and therefore, it won't
+   be in the common_root.  We also need the binding label, if it's bind(c).
+   Therefore, send in the pointer to the common block, so whatever info we
+   have so far can be used.  All of the necessary info should be available
+   in the gfc_common_head by now, so it should be accurate to test the
+   isBindC flag and use the binding label given if it is bind(c).
+
+   We may NOT know yet if it's bind(c) or not, but we can try at least.
+   Will have to figure out what to do later if it's labeled bind(c)
+   after this is called.  */
+
 static tree
 gfc_sym_mangled_common_id (gfc_common_head *com)
 {
@@ -248,23 +248,12 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
   char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
   char name[GFC_MAX_SYMBOL_LEN + 1];
 
-  /* get the name out of the common block pointer */
-  strcpy(name, com->name);
+  /* Get the name out of the common block pointer.  */
+  strcpy (name, com->name);
 
-  /* if we're suppose to do a bind(c) */
-  if(com->is_bind_c == 1)
-  {
-     if(com->binding_label[0] != '\0')
-        return get_identifier(com->binding_label);
-     else
-        /* for some reason the binding label hasn't been set.  this
-         * shouldn't happen if the common block was declared with
-         * bind(c), because either the label was given or set to the
-         * name in all lowercase, but check just in case.  this test
-         * is most likely safe to remove.  --Rickett, 03.14.06
-         */
-        return get_identifier(com->name);
-  }
+  /* If we're suppose to do a bind(c).  */
+  if (com->is_bind_c == 1 && com->binding_label[0] != '\0')
+    return get_identifier (com->binding_label);
 
   if (strcmp (name, BLANK_COMMON_NAME) == 0)
     return get_identifier (name);

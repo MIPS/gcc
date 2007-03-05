@@ -3,6 +3,76 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-03-05  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* gfortran.dg/c_funloc_tests_2.f03: New test case.
+	* gfortran.dg/c_funloc_tests.f03: Ditto.
+	* gfortran.dg/c_loc_tests_2.f03: Updated test case.
+	* gfortran.dg/c_assoc_2.f03: New test case.
+	* gfortran.dg/c_loc_tests_3.f03: Ditto.
+	* gfortran.dg/c_loc_tests_4.f03: Ditto.
+	* gfortran.dg/c_loc_tests_5.f03: Ditto.
+	* gfortran.dg/test_common_binding_labels.f03: Ditto.
+	* gfortran.dg/binding_label_tests_13_main.f03: Ditto.  Used with
+	binding_label_tests_13.
+	* gfortran.dg/binding_label_tests_12.f03: New test case.
+	* gfortran.dg/bind_c_coms.f90: Updated test case.
+	* gfortran.dg/binding_label_tests_13.f03: New test case.
+	* gfortran.dg/test_common_binding_labels_2.f03: Ditto.
+	* gfortran.dg/test_common_binding_labels_3.f03: Ditto.
+	* gfortran.dg/test_common_binding_labels_2_main.f03: Ditto.  Used
+	with test_common_binding_labels_2.
+	* gfortran.dg/bind_c_procs.f03: New test case.
+	* gfortran.dg/c_loc_test.f90: Updated test case.
+	* gfortran.dg/test_common_binding_labels_3_main.f03: New test
+	case. Used with test_common_binding_labels_3.
+	* gfortran.dg/bind_c_coms_driver.c: Updated.
+
+	* symbol.c (gen_special_c_interop_ptrs): Renamed to
+	gen_special_c_interop_ptr and changed arguments.
+	(generate_iso_c_binding_symbol): Added ISOCBINDING_NULL_PTR,
+	ISOCBINDING_NULL_FUNPTR, and ISOCBINDING_FUNLOC.
+	* decl.c (verify_c_interop_param): Added check for procedures.
+	(set_binding_label): Allow for NAME="".
+	(gfc_match_bind_c): Ditto.
+	(match_proc_decl): Updated for NAME="".
+	* trans-common.c (gfc_sym_mangled_common_id): Allow for NAME="".
+	* gfortran.h: Added binding label field to gfc_gsymbol.
+	(gfc_check_any_c_kind): Added prototype.
+	* iso-c-binding.def: Added ISOCBINDING_NULL_PTR,
+	ISOCBINDING_NULL_FUNPTR, and ISOCBINDING_FUNLOC.
+	* module.c (write_common): Allow for NAME="".
+	(write_symbol): Ditto.
+	(sort_iso_c_rename_list): New function to sort iso_c_binding
+	rename list to meet dependencies between symbols.
+	(import_iso_c_binding_module): Call sort_iso_c_rename_list.
+	* trans-types.c (gfc_check_any_c_kind): New function that returns
+	SUCCESS if any C kind is interoperable with given Fortran type.
+	* resolve.c (resolve_contained_functions): Removed verification of
+	BIND(C) procedures.
+	(is_scalar_expr_ptr): Determine if parameter to C_LOC is scalar expr.
+	(gfc_iso_c_func_interface): Changed return type to
+	SUCCESS/FAILURE.  Added code for ISOCBINDING_FUNLOC.  Added error
+	checking for ISOCBINDING_LOC.
+	(resolve_function): Moved call to gfc_iso_c_func_interface until
+	after resolving the argument(s).
+	(resolve_bind_c_comms): Verify binding labels for BIND(C) common
+	blocks.
+	(gfc_verify_binding_labels): Updated error checks.
+	(resolve_fl_procedure): Added verification for BIND(C) procedures.
+	(resolve_symbol): Removed C interoperability checking for dummy
+	arguments to a BIND(C) procedure (now done in
+	resolve_fl_procedure).
+	(resolve_types): Added calls to traverse namespace and verify
+	binding labels for BIND(C) global symbols and common blocks.
+	* primary.c (gfc_match_rvalue): Removed most of the error checking
+	for ISOCBINDING_LOC, ISOCBINDING_FUNLOC, and
+	ISOCBINDING_ASSOCIATED (now done in gfc_iso_c_func_interface).
+	* iso_c_generated_procs.c (c_f_pointer_i1, c_f_pointer_i2,
+	c_f_pointer_i16): Added prototypes and function definitions.
+	* iso_c_binding.c (c_funloc): Added function definition.
+	* iso_c_binding.h (c_funloc): Added prototype.
+
 2007-03-03  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* decl.c: Updated verify_c_interop_param to include

@@ -2167,29 +2167,20 @@ gfc_match_rvalue (gfc_expr ** result)
 	  break;
 	}
 
-      if (sym->attr.is_iso_c == 1 &&
-          strcmp (sym->name, "c_loc") == 0)
+      /* Check here for the existence of at least one argument for the
+         iso_c_binding functions C_LOC, C_FUNLOC, and C_ASSOCIATED.  The
+         argument(s) given will be checked in gfc_iso_c_func_interface,
+         during resolution of the function call.  */
+      if (sym->attr.is_iso_c == 1
+	  && (sym->from_intmod == INTMOD_ISO_C_BINDING
+	      && (sym->intmod_sym_id == ISOCBINDING_LOC
+		  || sym->intmod_sym_id == ISOCBINDING_FUNLOC
+		  || sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)))
         {
           /* make sure we were given a param */
           if (actual_arglist == NULL)
             {
-              gfc_error ("Missing argument to 'C_LOC' at %C");
-              m = MATCH_ERROR;
-              break;
-            }
-          else if (actual_arglist->next != NULL)
-            {
-              gfc_error ("More actual than formal args to procedure "
-                         "'C_LOC' at %C");
-              m = MATCH_ERROR;
-              break;
-            }
-          else if (!(actual_arglist->expr->symtree->n.sym->attr.target) &&
-                  !(actual_arglist->expr->symtree->n.sym->attr.pointer))
-            {
-              gfc_error ("Parameter '%s' to 'C_LOC' at %C must be either "
-                         "a TARGET or an associated pointer",
-                         actual_arglist->expr->symtree->n.sym->name);
+              gfc_error ("Missing argument to '%s' at %C", sym->name);
               m = MATCH_ERROR;
               break;
             }

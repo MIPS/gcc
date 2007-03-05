@@ -18,6 +18,7 @@ contains
     end interface
     x = 100
     my_c_ptr = c_loc(x)
-    call test_address(my_c_ptr, x)
+    call test_address(my_c_ptr, 100)
   end subroutine test0
 end module c_loc_test
+! { dg-final { cleanup-modules "c_loc_test.mod" } }

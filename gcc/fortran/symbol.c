@@ -3102,117 +3102,75 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 /* Generate symbols for the named constants c_null_ptr and c_null_funptr.  */
 
 static void
-gen_special_c_interop_ptrs (const char *kinds[],
-                            const char *module_name)
+gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
+                           const char *module_name)
 {
-  int i;
   gfc_symtree *tmp_symtree;
   gfc_symbol *tmp_sym;
 
-  /* there should be only two possible ptr kinds; c_ptr and c_funptr */
-  i = 0;
-  while (kinds[i] != NULL)
-    {
-      /* Here, we know that we can only be given valid iso_c_binding
-	 constant names, because error checking already done, 
-	 so if we don't have one, it must be the other.	 */
-      if (strcmp(kinds[i], "c_ptr") == 0)
-	/* look for symtree for c_null_ptr */
-	tmp_symtree =
-	  gfc_find_symtree (gfc_current_ns->sym_root, "c_null_ptr");
-      else
-	/* look for symtree for c_null_funptr */
-	tmp_symtree =
-	  gfc_find_symtree (gfc_current_ns->sym_root, "c_null_funptr");
-      if (tmp_symtree == NULL)
-	{
-	  /* Use the function gfc_get_sym_tree to force it to create
-	     the symbol in the current namespace.  */
-	  if (strcmp(kinds[i], "c_ptr") == 0)
-	    gfc_get_sym_tree ("c_null_ptr", gfc_current_ns,
-			      &tmp_symtree);
-	  else
-	    gfc_get_sym_tree ("c_null_funptr", gfc_current_ns,
-			      &tmp_symtree);
+  tmp_symtree = gfc_find_symtree (gfc_current_ns->sym_root, ptr_name);
 	 
-	  if (tmp_symtree != NULL)
-	    tmp_sym = tmp_symtree->n.sym;
-	  else
-	    {
-	      tmp_sym = NULL;
-	      gfc_internal_error ("gen_special_c_interop_ptrs(): Unable to "
-				  "create symbol for %s", kinds[i]);
-	    }
-
-	  /* Set up the symbol's important fields.  */
-	  /* Save attr required so we can initialize the ptr to NULL.  */
-	  tmp_sym->attr.save = 1;
-	  tmp_sym->ts.is_c_interop = 1;
-	  tmp_sym->attr.is_c_interop = 1;
-	  tmp_sym->ts.is_iso_c = 1;
-	  tmp_sym->ts.type = BT_DERIVED;
-          
-	  /* The c_ptr and c_funptr derived types will provide the
-	     definition for c_null_ptr and c_null_funptr, respectively.	 */
-          if (strcmp (kinds[i], "c_ptr") == 0)
-            tmp_sym->ts.derived =
-              get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
-          else
-            tmp_sym->ts.derived =
-              get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
-	  if (tmp_sym->ts.derived == NULL)
-            {
-              /* This can occur if the user forgot to declare c_ptr or
-                 c_funptr and they're trying to use one of the procedures
-                 that has arg(s) of the missing type.  In this case, a
-                 regular version of the thing should have been put in the
-                 current ns.  */
-              gfc_error_now ("'%s' at %C requires '%s' to be defined",
-                             tmp_sym->name, kinds[i]);
-              if (strcmp (kinds[i], "c_ptr") == 0)
-                {
-                  generate_isocbinding_symbol (module_name, ISOCBINDING_PTR,
-                                               (char *)"c_ptr");
-                  gfc_get_ha_symbol ("c_ptr", &(tmp_sym->ts.derived));
-                }
-              else
-                {
-                  generate_isocbinding_symbol (module_name, ISOCBINDING_FUNPTR,
-                                               (char *)"c_funptr");
-                  gfc_get_ha_symbol ("c_funptr", &(tmp_sym->ts.derived));
-                }
-            }
-	    
-	  /* module name is some mangled version of iso_c_binding */
-	  tmp_sym->module = gfc_get_string (module_name);
-
-	  /* Say it's from the iso_c_binding module. */
-	  tmp_sym->attr.is_iso_c = 1;
-	  
-	  tmp_sym->attr.use_assoc = 1;
-	  tmp_sym->attr.is_bind_c = 1;
-	  /* set the binding_label */
-	  sprintf (tmp_sym->binding_label, "%s_%s", module_name,
-		   tmp_sym->name);
-
-	  /* Set the c_address field of c_null_ptr and c_null_funptr to
-	     the value of NULL.	 */
-	  tmp_sym->value = gfc_get_expr ();
-	  tmp_sym->value->expr_type = EXPR_STRUCTURE;
-	  tmp_sym->value->ts.type = BT_DERIVED;
-	  tmp_sym->value->ts.derived = tmp_sym->ts.derived;
-	  tmp_sym->value->value.constructor = gfc_get_constructor ();
-	  /* This line will initialize the c_null_ptr/c_null_funptr
-	     c_address field to NULL.  */
-	  tmp_sym->value->value.constructor->expr = gfc_int_expr (0);
-	  /* Must declare c_null_ptr and c_null_funptr as having the
-	     PARAMETER attribute so they can be used in init expressions.  */
-	  tmp_sym->attr.flavor = FL_PARAMETER;
-	}
-
-      /* while loop counter */
-      i++;
+  if (tmp_symtree != NULL)
+    tmp_sym = tmp_symtree->n.sym;
+  else
+    {
+      tmp_sym = NULL;
+      gfc_internal_error ("gen_special_c_interop_ptr(): Unable to "
+                          "create symbol for %s", ptr_name);
     }
+
+  /* Set up the symbol's important fields.  */
+  /* Save attr required so we can initialize the ptr to NULL.  */
+  tmp_sym->attr.save = 1;
+  tmp_sym->ts.is_c_interop = 1;
+  tmp_sym->attr.is_c_interop = 1;
+  tmp_sym->ts.is_iso_c = 1;
+  tmp_sym->ts.type = BT_DERIVED;
+          
+  /* The c_ptr and c_funptr derived types will provide the
+     definition for c_null_ptr and c_null_funptr, respectively.  */
+  if (ptr_id == ISOCBINDING_NULL_PTR)
+    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+  else
+    tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
+
+  if (tmp_sym->ts.derived == NULL)
+    {
+      /* This can occur if the user forgot to declare c_ptr or
+         c_funptr and they're trying to use one of the procedures
+         that has arg(s) of the missing type.  In this case, a
+         regular version of the thing should have been put in the
+         current ns.  */
+      gfc_error_now ("'%s' at %C requires '%s' to be defined",
+                     tmp_sym->name, ptr_name);
+      gfc_free_symbol (tmp_sym);
+      return;
+    }
+	    
+  /* module name is some mangled version of iso_c_binding.  */
+  tmp_sym->module = gfc_get_string (module_name);
+  
+  /* Say it's from the iso_c_binding module.  */
+  tmp_sym->attr.is_iso_c = 1;
+  
+  tmp_sym->attr.use_assoc = 1;
+  tmp_sym->attr.is_bind_c = 1;
+  /* Set the binding_label.  */
+  sprintf (tmp_sym->binding_label, "%s_%s", module_name, tmp_sym->name);
+  
+  /* Set the c_address field of c_null_ptr and c_null_funptr to
+     the value of NULL.	 */
+  tmp_sym->value = gfc_get_expr ();
+  tmp_sym->value->expr_type = EXPR_STRUCTURE;
+  tmp_sym->value->ts.type = BT_DERIVED;
+  tmp_sym->value->ts.derived = tmp_sym->ts.derived;
+  tmp_sym->value->value.constructor = gfc_get_constructor ();
+  /* This line will initialize the c_null_ptr/c_null_funptr
+     c_address field to NULL.  */
+  tmp_sym->value->value.constructor->expr = gfc_int_expr (0);
+  /* Must declare c_null_ptr and c_null_funptr as having the
+     PARAMETER attribute so they can be used in init expressions.  */
+  tmp_sym->attr.flavor = FL_PARAMETER;
    
   return;
 }
@@ -3666,26 +3624,17 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 
         /* Make it use associated (iso_c_binding module).  */
         tmp_sym->attr.use_assoc = 1;
-
-	/* Need to decide whether to generate the symbols for c_null_ptr
-           or c_null_funptr (i.e., whether c_ptr and c_funptr are defined).  */
-	if (s == ISOCBINDING_PTR)
-	  {
-	    /* c_ptr was created so create c_null_ptr */
-	    const char *ptr_kinds[2] = {"c_ptr", NULL};
-	    gen_special_c_interop_ptrs (ptr_kinds, mod_name);
-	  }
-	else
-	  {
-	    /* c_funptr was created so create c_null_funptr */
-	    const char *ptr_kinds[2] = {"c_funptr", NULL};
-	    gen_special_c_interop_ptrs (ptr_kinds, mod_name);
-	  }
 	break;
+
+      case ISOCBINDING_NULL_PTR:
+      case ISOCBINDING_NULL_FUNPTR:
+        gen_special_c_interop_ptr (s, name, mod_name);
+        break;
 
       case ISOCBINDING_F_POINTER:
       case ISOCBINDING_ASSOCIATED:
       case ISOCBINDING_LOC:
+      case ISOCBINDING_FUNLOC:
       case ISOCBINDING_F_PROCPOINTER:
 
 	tmp_sym->attr.proc = PROC_MODULE;
@@ -3716,13 +3665,27 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
                   what we expect on the stack for the address we want the
                   C address of.  */
 		tmp_sym->ts.type = BT_DERIVED;
-                tmp_sym->ts.derived =
-                  get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
-		if (tmp_sym->ts.derived == NULL)
-		  gfc_error_now ("Type C_PTR is not defined but is needed "
-				 "as return type of function C_LOC at %C");
+                if (s == ISOCBINDING_LOC)
+                  tmp_sym->ts.derived =
+                    get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
+                else
+                  tmp_sym->ts.derived =
+                    get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
 
-		/* the function result is itself (no result clause) */
+                if (tmp_sym->ts.derived == NULL)
+                  {
+                    gfc_error_now ("Type '%s' is not defined but is needed "
+                                   "as return type of function '%s' at %C",
+                                   (s == ISOCBINDING_LOC ?
+                                    "C_PTR" : "C_FUNPTR"),
+                                   c_interop_kinds_table[s].name);
+                    /* Remove the procedure symbol since it's invalid without
+                       the necessary type.  */
+                    gfc_free_symbol (tmp_sym);
+                    return;
+                  }
+
+		/* The function result is itself (no result clause).  */
 		tmp_sym->result = tmp_sym;
 		tmp_sym->attr.external = 1;
 		tmp_sym->attr.use_assoc = 0;
@@ -3741,12 +3704,12 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 #endif
 	
        /* Try using this builder routine, with the new and old symbols
-          both being the generic iso_c proc sym being created.
-          This will create the formal args (and the new namespace for them). */
+          both being the generic iso_c proc sym being created.  This
+          will create the formal args (and the new namespace for them).  */
        /* Don't build an arg list for c_loc because we're going to treat c_loc
-          as an external procedure. */
-	if (s != ISOCBINDING_LOC)
-          /* the 1 says to add any optional args, if applicable */
+          as an external procedure.  */
+	if (s != ISOCBINDING_LOC && s != ISOCBINDING_FUNLOC)
+          /* The 1 says to add any optional args, if applicable.  */
 	  build_formal_args (tmp_sym, tmp_sym, 1);
 
 #if 0

@@ -982,8 +982,8 @@ typedef struct gfc_common_head
   char use_assoc, saved, threadprivate;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
-   char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
-   int is_bind_c;
+  char binding_label[GFC_MAX_BINDING_LABEL_LEN + 1];
+  int is_bind_c;
 }
 gfc_common_head;
 
@@ -1126,6 +1126,7 @@ typedef struct gfc_gsymbol
   const char *name;
   const char *sym_name;
   const char *mod_name;
+  const char *binding_label;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
@@ -1922,6 +1923,7 @@ arith gfc_check_integer_range (mpz_t p, int kind);
 
 /* trans-types.c */
 try gfc_validate_c_kind(gfc_typespec *ts);
+try gfc_check_any_c_kind (gfc_typespec *ts);
 int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
