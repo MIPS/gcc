@@ -1,3 +1,395 @@
+2007-03-05  Joseph Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/30675
+	* testsuite/lib/libstdc++.exp (v3-build_support): Use [transform
+	"ar"] and [transform "ranlib"].
+
+2007-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/
+	char/31031.cc: Include the right header.
+
+2007-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_CHEADERS): Add c_global.
+	* configure.host (c_model): Set default to c_global.
+	* configure: Regenerate.
+	* include/Makefile.am (c_compatibility_headers_extra): Make
+	conditional on GLIBCXX_C_HEADERS_COMPATIBILITY.
+	(c_base_headers_extra): Make conditional on GLIBCXX_C_HEADERS_EXTRA.
+	(c_compatibility_headers): Make conditional on c/c_std/c_global.
+	* include/Makefile.in: Regenerate.
+	* docs/html/configopts.html: Add c_global information to
+	--enable-cheaders. Eventually, "c_std" should mean "C" includes
+	that are in namespace std, with optional C++ "C" compatibility
+	includes to inject into global scope. And "c_global" should mean
+	"C" includes that are in the global namespace, with C++ includes
+	injecting into namespace std and no C++ "C" compatibility
+	includes.
+ 
+2007-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config: Add _GLIBCXX_NAMEPACE_C.
+	Add _GLIBCXX_NAMESPACE_ASSOCIATION_CXX200x.
+	Add _GLIBCXX_TR1 as namespace macro.
+	Add namespace associations for std::__cxx200x conditionally.
+
+	* include/c_compatibility/assert.h: Correct doxygen markup,
+	conditionalize the global injections on _GLIBCXX_NAMESPACE_C.
+	* include/c_compatibility/ctype.h: Same.
+	* include/c_compatibility/errno.h: Same.
+	* include/c_compatibility/float.h: Same.
+	* include/c_compatibility/iso646.h: Same.
+	* include/c_compatibility/limits.h: Same.
+	* include/c_compatibility/locale.h: Same.
+	* include/c_compatibility/math.h: Same.
+	* include/c_compatibility/setjmp.h: Same.
+	* include/c_compatibility/signal.h: Same.
+	* include/c_compatibility/stdarg.h: Same.
+	* include/c_compatibility/stddef.h: Same.
+	* include/c_compatibility/stdio.h: Same.
+	* include/c_compatibility/stdlib.h: Same.
+	* include/c_compatibility/string.h: Same.
+	* include/c_compatibility/time.h: Same.
+	* include/c_compatibility/wchar.h: Same.
+	* include/c_compatibility/wctype.h: Same.
+
+	* include/c_compatibility/complex.h: Add.
+	* include/c_compatibility/fenv.h: Same.
+	* include/c_compatibility/inttypes.h: Same.
+	* include/c_compatibility/stdbool.h: Same.
+	* include/c_compatibility/stdint.h: Same.
+	* include/c_compatibility/tgmath.h: Same.
+
+	* include/c_global/cassert: Add, use include_next, use C++0x features
+	if -std=c++0x.
+	* include/c_global/cctype: Same.
+	* include/c_global/cerrno: Same.
+	* include/c_global/cfloat: Same.
+	* include/c_global/ciso646: Same.
+	* include/c_global/climits: Same.
+	* include/c_global/clocale: Same.
+	* include/c_global/cmath: Same.
+	* include/c_global/cmath.tcc: Same.
+	* include/c_global/csetjmp: Same.
+	* include/c_global/csignal: Same.
+	* include/c_global/cstdarg: Same.
+	* include/c_global/cstddef: Same.
+	* include/c_global/cstdio: Same.
+	* include/c_global/cstdlib: Same.
+	* include/c_global/cstring: Same.
+	* include/c_global/ctime: Same.
+	* include/c_global/cwchar: Same.
+	* include/c_global/cwctype: Same.
+
+	* include/c_global/ccomplex: Add.
+	* include/c_global/cfenv: Add.
+	* include/c_global/cinttypes: Add. 
+	* include/c_global/cstdbool: Add.
+	* include/c_global/cstdint: Add.
+	* include/c_global/ctgmath: Add.
+
+	* include/std/algorithm: Use C++0x features if -std=c++0x.	
+	* include/std/bitset: Same.
+	* include/std/complex: Same.
+	* include/std/deque: Same.
+	* include/std/fstream: Same.
+	* include/std/functional: Same.
+	* include/std/iomanip: Same.
+	* include/std/ios: Same.
+	* include/std/iosfwd: Same.
+	* include/std/iostream: Same.
+	* include/std/istream: Same.
+	* include/std/iterator: Same.
+	* include/std/limits: Same.
+	* include/std/list: Same.
+	* include/std/locale: Same.
+	* include/std/map: Same.
+	* include/std/memory: Same.
+	* include/std/numeric: Same.
+	* include/std/ostream: Same.
+	* include/std/queue: Same.
+	* include/std/set: Same.
+	* include/std/sstream: Same.
+	* include/std/stack: Same.
+	* include/std/stdexcept: Same.
+	* include/std/streambuf: Same.
+	* include/std/string: Same.
+	* include/std/utility: Same.
+	* include/std/valarray: Same.
+	* include/std/vector: Same.
+
+	* include/std/array: Add.
+	* include/std/random: Add.
+	* include/std/regex: Add.
+	* include/std/tuple: Add.
+	* include/std/type_traits: Add.
+	* include/std/unordered_map: Add.
+	* include/std/unordered_set: Add.
+	* include/std/c++0x_warning.h: Add.
+	
+	* include/tr1/array: Switch namespaces based on _GLIBCXX_TR1.
+	* include/tr1/boost_shared_ptr.h: Same.
+	* include/tr1/cctype: Same.
+	* include/tr1/cfenv: Same.
+	* include/tr1/cinttypes: Same.
+	* include/tr1/cmath: Same.
+	* include/tr1/common.h: Same.
+	* include/tr1/complex: Same.
+	* include/tr1/cstdint: Same.
+	* include/tr1/cstdio: Same.
+	* include/tr1/cstdlib: Same.
+	* include/tr1/cwchar: Same.
+	* include/tr1/cwctype: Same.
+	* include/tr1/functional: Same.
+	* include/tr1/functional_hash.h: Same.
+	* include/tr1/functional_iterate.h: Same.
+	* include/tr1/hashtable: Same.
+	* include/tr1/hashtable_policy.h: Same.
+	* include/tr1/math.h: Same.
+	* include/tr1/memory: Same.
+	* include/tr1/random: Same.
+	* include/tr1/random.tcc: Same.
+	* include/tr1/ref_fwd.h: Same.
+	* include/tr1/repeat.h: Same.
+	* include/tr1/stdlib.h: Same.
+	* include/tr1/tuple: Same.
+	* include/tr1/tuple_iterate.h: Same.
+	* include/tr1/type_traits: Same.
+	* include/tr1/type_traits_fwd.h: Same.
+	* include/tr1/unordered_map: Same.
+	* include/tr1/unordered_set: Same.
+	* include/tr1/utility: Same.
+
+	* include/tr1/ccomplex: Add.
+	* include/tr1/complex.h: Add.
+	* include/tr1/regex: Add.
+
+	* include/Makefile.am: Add C++0x headers, "C" compatibility headers.
+	* include/Makefile.in: Regenerate.
+
+	* testsuite/tr1/headers.cc: Add in regex/complex.
+
+	* testsuite/17_intro/headers/c++200x/all.cc: New.
+	* testsuite/17_intro/headers/c++200x/all_multiple_inclusion.cc: Same.
+	* testsuite/17_intro/using_namespace_std_tr1_neg.cc: Same.
+	* testsuite/18_support/headers/cstdbool/std_c++0x_neg.cc: Same.
+	* testsuite/18_support/headers/cstdint/std_c++0x_neg.cc: Same.
+	* testsuite/18_support/headers/cstdint/types_std_c++0x.cc: Same.
+	* testsuite/20_util/enable_shared_from_this/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/headers/functional/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/functional/
+	using_namespace_std_placeholders.cc: Same.
+	* testsuite/20_util/headers/memory/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/type_traits/std_c++0x_neg.cc: Same.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x.cc: Same.
+	* testsuite/20_util/shared_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/weak_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/array/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/hash/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/headers/array/std_c++0x_neg.cc: Same.
+	* testsuite/23_containers/headers/tuple/std_c++0x_neg.cc: Same.
+	* testsuite/23_containers/headers/tuple/types_std_c++0x.cc: Same.
+	* testsuite/23_containers/headers/unordered_map/std_c++0x_neg.cc: Same.
+	* testsuite/23_containers/headers/unordered_set/std_c++0x_neg.cc: Same.
+	* testsuite/23_containers/tuple/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_map/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_multimap/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_multiset/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_set/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/26_numerics/headers/ccomplex/std_c++0x_neg.cc: Same.
+	* testsuite/26_numerics/headers/cfenv/std_c++0x_neg.cc: Same.
+	* testsuite/26_numerics/headers/cfenv/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cstdlib/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/ctgmath/std_c++0x_neg.cc: Same.
+	* testsuite/26_numerics/headers/random/std_c++0x_neg.cc: Same.
+	* testsuite/26_numerics/headers/random/types_std_c++0x.cc: Same.
+	* testsuite/27_io/headers/cinttypes/std_c++0x_neg.cc: Same.
+	* testsuite/27_io/headers/cinttypes/types_std_c++0x.cc: Same.
+	* testsuite/28_regex/headers/regex/std_c++0x_neg.cc: Same.
+
+	* testsuite/tr1/8_c_compatibility/cfenv/types.cc: Rename ...
+	* testsuite/tr1/8_c_compatibility/cinttypes/types.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cmath/types.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cstdint/types.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cstdlib/types.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cfenv/types_std_tr1.cc: ...to this.
+	* testsuite/tr1/8_c_compatibility/cinttypes/types_std_tr1.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cmath/types_std_tr1.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cstdint/types_std_tr1.cc: Same.
+	* testsuite/tr1/8_c_compatibility/cstdlib/types_std_tr1.cc: Same.
+
+2007-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31031
+	* include/bits/istream.tcc: Inhibit implicit instantiation of
+	the _M_insert helpers.
+	* include/bits/ostream.tcc: Likewise for _M_extract.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/
+	31031.cc: New.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/
+	31031.cc: Likewise.
+
+2007-03-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/debug/functions.h: Use cstddef.
+	
+	* testsuite/tr1/3_function_objects/headers/functional/
+	using_namespace_std_tr1_placeholders.cc: Fix include.
+	
+2007-03-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* crossconfig.m4 (djgpp): Correct builtin defines to HAVE___,
+	instead of HAVE____.
+	* configure: Regenerate.
+
+2007-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (partial)
+	* include/bits/stl_algobase.h: Do not include <iosfwd>,
+	<bits/functexcept.h> is enough; adjust __copy_aux declarations;
+	remove declaration of copy overload for istreambuf_iterator /
+	ostreambuf_iterator.
+	* src/debug.cc: Include <cstdio>.
+	* include/ext/rope: Include <iosfwd>.
+	* include/bits/char_traits.h: Include <cstdio> and <cwchar>.
+	* include/bits/stl_algo.h: Remove declaration of find overload
+	for istreambuf_iterator.
+	* include/std/queue: Clean up includes.
+	* include/std/stack: Likewise.
+	* include/std/memory: Likewise.
+	* include/std/algorithm: Likewise.
+	* include/std/vector: Likewise.
+	* include/std/deque: Likewise.
+	* include/std/list: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+	* testsuite/ext/type_traits/remove_unsigned_integer_neg.cc: Adjust
+	dg-error markers.
+	* testsuite/ext/type_traits/add_unsigned_floating_neg.cc: Likewise.
+	* testsuite/ext/type_traits/remove_unsigned_floating_neg.cc: Likewise.
+	* testsuite/ext/type_traits/add_unsigned_integer_neg.cc: Likewise.
+	* testsuite/23_containers/set/operators/1_neg.cc: Likewise.
+	* testsuite/23_containers/map/operators/1_neg.cc: Likewise.
+	* testsuite/20_util/auto_ptr/assign_neg.cc: Likewise.
+
+	* include/ext/type_traits.h: Fix type of __max_digits10; clean up
+	includes.
+
+	* testsuite/util/testsuite_hooks.h: Do not include <cstddef>.
+	* testsuite/util/testsuite_hooks.cc: Do it here.
+
+2007-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/objects/wchar_t/9661-1.cc: Include <cstdlib>.
+	* testsuite/27_io/objects/wchar_t/7.cc: Likewise.
+	* testsuite/27_io/objects/char/9661-1.cc: Likewise.
+	* testsuite/27_io/objects/char/7.cc: Likewise.
+	* testsuite/27_io/basic_istream/ignore/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/ignore/char/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/getline/wchar_t/5.cc: Likewise.
+	* testsuite/27_io/basic_istream/getline/char/5.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/
+	11.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_character/wchar_t/
+	4.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_character/char/
+	4.cc: Likewise.
+	* testsuite/27_io/basic_ostream/seekp/wchar_t/
+	2346-fstream.cc: Likewise.
+	* testsuite/27_io/basic_ostream/seekp/char/
+	2346-fstream.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekoff/char/26777.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/13582-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/14975-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/char/13171-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/char/13582-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/close/char/4879.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/close/char/9964.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/showmanyc/char/9533-1.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	wchar_t/10.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	wchar_t/11.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	char/10.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	char/11.cc: Likewise.
+	* testsuite/ext/pb_ds/example/trie_dna.cc: Likewise.
+	* testsuite/ext/new_allocator/deallocate_global.cc: Likewise.
+	* testsuite/ext/new_allocator/deallocate_local.cc: Likewise.
+	* testsuite/performance/27_io/filebuf_sgetn_unbuf.cc: Likewise.
+	* testsuite/performance/27_io/ifstream_getline.cc: Likewise.
+	* testsuite/22_locale/locale/cons/4.cc: Likewise.
+	* testsuite/22_locale/locale/cons/5.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	mutex_weaktoshared.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	default_weaktoshared.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread1.cc: Likewise.
+	* testsuite/23_containers/deque/cons/assign/1.cc: Likewise.
+
+2007-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/thread/pthread1.cc: Include <pthread.h>.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+2007-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (partial)
+	* include/tr1/random (class random_device): Rework to use simple
+	<cstdio> input, do not include <fstream>.
+	* include/tr1/random.tcc (all inserters and extractors): Refer
+	to ios_base as base class of basic_istream or basic_ostream.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.am: Add dummy install-pdf target.
+	* Makefile.in: Regenerate
+
+2007-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31005
+	* include/bits/localefwd.h: Include <cctype>.
+
+2007-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (partial)
+	* include/std/bitset: Do not include <ios>, <iosfwd> is enough.
+	(operator>>(std::basic_istream<>&, bitset<>&)): Tweak, refer to
+	ios_base as a base of basic_istream.
+	* include/std/iomanip: Do not include <ios>, <iosfwd> + 
+	<bits/ios_base.h> is enough.
+	* include/std/iosfwd: Do not include <cctype> here...
+	* include/bits/locale_facets.h: ... do it here, when needed.
+	* include/bits/ostream.tcc: Clean up, do not include <locale> here...
+	* include/std/ostream: ... here instead.
+	* include/bits/istream.tcc: Likewise for <locale> and <ostream>...
+	* include/std/istream: ... here.
+	* include/bits/sstream.tcc: Do not include <sstream>.
+
+2007-02-27  Richard Guenther  <rguenther@suse.de>
+
+	* acinclude.m4: Adjust regular expression for ld version extraction.
+	* configure: Regenerate.
+
 2007-02-26  DJ Delorie  <dj@redhat.com>
 
 	* crossconfig.m4 (djgpp): Pre-detect djgpp-specific results, to
@@ -71,17 +463,18 @@
 
 	* testsuite/27_io/basic_ios/cons/char/3.cc: Fixed type mismatches in
 	explicit instantiations.
-	* testsuite/27_io/basic_istream/extractors_other/pod/3983-3.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_other/pod/
+	3983-3.cc: Likewise.
 	* testsuite/27_io/basic_istream/extractors_arithmetic/pod/3983-1.cc:
 	Likewise.
 	* testsuite/27_io/basic_istream/extractors_character/pod/3983-2.cc:
 	Likewise.
 	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Likewise.
 	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Likewise.
-	* testsuite/21_strings/basic_string/inserters_extractors/pod/10081-in.cc:
-	Likewise.
-	* testsuite/21_strings/basic_string/inserters_extractors/pod/10081-out.cc:
-	Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	pod/10081-in.cc: Likewise.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-out.cc: Likewise.
 	* testsuite/21_strings/basic_string/capacity/1.cc: Likewise.
 
 2007-02-22  Paolo Carlini  <pcarlini@suse.de>

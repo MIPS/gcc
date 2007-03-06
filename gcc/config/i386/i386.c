@@ -984,23 +984,25 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_486 (1<<PROCESSOR_I486)
 #define m_PENT (1<<PROCESSOR_PENTIUM)
 #define m_PPRO (1<<PROCESSOR_PENTIUMPRO)
-#define m_GEODE  (1<<PROCESSOR_GEODE)
-#define m_K6_GEODE  (m_K6 | m_GEODE)
-#define m_K6  (1<<PROCESSOR_K6)
-#define m_ATHLON  (1<<PROCESSOR_ATHLON)
 #define m_PENT4  (1<<PROCESSOR_PENTIUM4)
-#define m_K8  (1<<PROCESSOR_K8)
-#define m_ATHLON_K8  (m_K8 | m_ATHLON)
-#define m_AMDFAM10  (1<<PROCESSOR_AMDFAM10)
 #define m_NOCONA  (1<<PROCESSOR_NOCONA)
 #define m_CORE2  (1<<PROCESSOR_CORE2)
+
+#define m_GEODE  (1<<PROCESSOR_GEODE)
+#define m_K6  (1<<PROCESSOR_K6)
+#define m_K6_GEODE  (m_K6 | m_GEODE)
+#define m_K8  (1<<PROCESSOR_K8)
+#define m_ATHLON  (1<<PROCESSOR_ATHLON)
+#define m_ATHLON_K8  (m_K8 | m_ATHLON)
+#define m_AMDFAM10  (1<<PROCESSOR_AMDFAM10)
+#define m_ATHLON_K8_AMDFAM10  (m_K8 | m_ATHLON | m_AMDFAM10)
+
 #define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
 #define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
-#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
-#define m_ATHLON_K8_AMDFAM10  (m_K8 | m_ATHLON | m_AMDFAM10)
 
 /* Generic instruction choice should be common subset of supported CPUs
    (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
+#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
 /* Leave is not affecting Nocona SPEC2000 results negatively, so enabling for
    Generic64 seems like good code size tradeoff.  We can't enable it for 32bit
@@ -1395,8 +1397,11 @@ enum fpmath_unit ix86_fpmath;
 
 /* Which cpu are we scheduling for.  */
 enum processor_type ix86_tune;
+int ix86_tune_mask;
+
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
+int ix86_arch_mask;
 
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
@@ -2150,6 +2155,9 @@ override_options (void)
   if (i == pta_size)
     error ("bad value (%s) for -mtune= switch", ix86_tune_string);
 
+  ix86_arch_mask = 1 << ix86_arch;
+  ix86_tune_mask = 1 << ix86_tune;
+
   if (optimize_size)
     ix86_cost = &size_cost;
   else
@@ -2276,7 +2284,7 @@ override_options (void)
 
   /* If the architecture always has an FPU, turn off NO_FANCY_MATH_387,
      since the insns won't need emulation.  */
-  if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
+  if (x86_arch_always_fancy_math_387 & ix86_arch_mask)
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
   /* Likewise, if the target doesn't have a 387, or we've specified
@@ -2397,7 +2405,7 @@ override_options (void)
   if (!TARGET_80387)
     target_flags &= ~MASK_FLOAT_RETURNS;
 
-  if ((x86_accumulate_outgoing_args & TUNEMASK)
+  if ((x86_accumulate_outgoing_args & ix86_tune_mask)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
@@ -4851,13 +4859,13 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 		  src_offset = REGNO (reg) * 8;
 		}
 	      src_addr = fold_convert (addr_type, src_addr);
-	      src_addr = fold (build2 (PLUS_EXPR, addr_type, src_addr,
-				       size_int (src_offset)));
+	      src_addr = fold_build2 (PLUS_EXPR, addr_type, src_addr,
+				      size_int (src_offset));
 	      src = build_va_arg_indirect_ref (src_addr);
 
 	      dest_addr = fold_convert (addr_type, addr);
-	      dest_addr = fold (build2 (PLUS_EXPR, addr_type, dest_addr,
-					size_int (INTVAL (XEXP (slot, 1)))));
+	      dest_addr = fold_build2 (PLUS_EXPR, addr_type, dest_addr,
+				       size_int (INTVAL (XEXP (slot, 1))));
 	      dest = build_va_arg_indirect_ref (dest_addr);
 
 	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, src);
@@ -4991,7 +4999,7 @@ standard_80387_constant_p (rtx x)
   /* For XFmode constants, try to find a special 80387 instruction when
      optimizing for size or on those CPUs that benefit from them.  */
   if (GET_MODE (x) == XFmode
-      && (optimize_size || x86_ext_80387_constants & TUNEMASK))
+      && (optimize_size || x86_ext_80387_constants & ix86_tune_mask))
     {
       int i;
 
@@ -18783,15 +18791,17 @@ ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
 
   /* If MODE2 is only appropriate for an SSE register, then tie with
      any other mode acceptable to SSE registers.  */
-  if (GET_MODE_SIZE (mode2) >= 8
+  if (GET_MODE_SIZE (mode2) == 16
       && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode2))
-    return ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode1);
+    return (GET_MODE_SIZE (mode1) == 16
+	    && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode1));
 
-  /* If MODE2 is appropriate for an MMX (or SSE) register, then tie
+  /* If MODE2 is appropriate for an MMX register, then tie
      with any other mode acceptable to MMX registers.  */
   if (GET_MODE_SIZE (mode2) == 8
       && ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode2))
-    return ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode1);
+    return (GET_MODE_SIZE (mode1) == 8
+	    && ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode1));
 
   return false;
 }

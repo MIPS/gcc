@@ -1007,6 +1007,24 @@
 
 ;; DImode arithmetic operations
 
+(define_insn "add_with_carry"
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+        (plus:SI (match_operand:SI 1 "register_operand" "%0,0")
+                 (match_operand:SI 2 "nonmemory_operand" "Ks7,d")))
+   (set (match_operand:SI 3 "register_operand" "=d,d")
+	(truncate:SI
+	 (lshiftrt:DI (plus:DI (zero_extend:DI (match_dup 1))
+			       (zero_extend:DI (match_dup 2)))
+		      (const_int 32))))
+   (clobber (reg:CC 34))]
+  ""
+  "@
+   %0 += %2; cc = ac0; %3 = cc;
+   %0 = %0 + %2; cc = ac0; %3 = cc;"
+  [(set_attr "type" "alu0")
+   (set_attr "length" "6")
+   (set_attr "seq_insns" "multi")])
+
 (define_insn "adddi3"
   [(set (match_operand:DI 0 "register_operand" "=&d,&d,&d")
         (plus:DI (match_operand:DI 1 "register_operand" "%0,0,0")
@@ -1418,6 +1436,46 @@
   "%0 *= %2;"
   [(set_attr "type" "mult")])
 
+(define_expand "umulsi3_highpart"
+  [(set (match_operand:SI 0 "register_operand" "")
+       (truncate:SI
+        (lshiftrt:DI
+         (mult:DI (zero_extend:DI
+                   (match_operand:SI 1 "nonimmediate_operand" ""))
+                  (zero_extend:DI
+                   (match_operand:SI 2 "register_operand" "")))
+         (const_int 32))))]
+  ""
+{
+  rtx umulsi3_highpart_libfunc
+    = init_one_libfunc ("__umulsi3_highpart");
+
+  emit_library_call_value (umulsi3_highpart_libfunc,
+			   operands[0], LCT_NORMAL, SImode,
+			   2, operands[1], SImode, operands[2], SImode);
+  DONE;
+})
+
+(define_expand "smulsi3_highpart"
+  [(set (match_operand:SI 0 "register_operand" "")
+       (truncate:SI
+        (lshiftrt:DI
+         (mult:DI (sign_extend:DI
+                   (match_operand:SI 1 "nonimmediate_operand" ""))
+                  (sign_extend:DI
+                   (match_operand:SI 2 "register_operand" "")))
+         (const_int 32))))]
+  ""
+{
+  rtx smulsi3_highpart_libfunc
+    = init_one_libfunc ("__smulsi3_highpart");
+
+  emit_library_call_value (smulsi3_highpart_libfunc,
+			   operands[0], LCT_NORMAL, SImode,
+			   2, operands[1], SImode, operands[2], SImode);
+  DONE;
+})
+
 (define_expand "ashlsi3"
   [(set (match_operand:SI 0 "register_operand" "")
         (ashift:SI (match_operand:SI 1 "register_operand" "")
@@ -1458,6 +1516,37 @@
    %0 >>>= %2;
    %0 = %1 >>> %2%!"
   [(set_attr "type" "shft,dsp32")])
+
+(define_insn "rotl16"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(rotate:SI (match_operand:SI 1 "register_operand" "d")
+		   (const_int 16)))]
+  ""
+  "%0 = PACK (%h1, %d1)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_expand "rotlsi3"
+  [(set (match_operand:SI 0 "register_operand" "")
+	(rotate:SI (match_operand:SI 1 "register_operand" "")
+		   (match_operand:SI 2 "immediate_operand" "")))]
+  ""
+{
+  if (INTVAL (operands[2]) != 16)
+    FAIL;
+})
+
+(define_expand "rotrsi3"
+  [(set (match_operand:SI 0 "register_operand" "")
+	(rotatert:SI (match_operand:SI 1 "register_operand" "")
+		     (match_operand:SI 2 "immediate_operand" "")))]
+  ""
+{
+  if (INTVAL (operands[2]) != 16)
+    FAIL;
+  emit_insn (gen_rotl16 (operands[0], operands[1]));
+  DONE;
+})
+
 
 (define_insn "ror_one"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -1640,10 +1729,12 @@
 	      (clobber (match_scratch:SI 5 ""))])]
   ""
 {
+  /* The loop optimizer doesn't check the predicates... */
+  if (GET_MODE (operands[0]) != SImode)
+    FAIL;
   /* Due to limitations in the hardware (an initial loop count of 0
      does not loop 2^32 times) we must avoid to generate a hardware
      loops when we cannot rule out this case.  */
-
   if (!flag_unsafe_loop_optimizations
       && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) >= 0xFFFFFFFF)
     FAIL;
@@ -3247,53 +3338,490 @@
 }
   [(set_attr "type" "dsp32")])
 
-(define_insn "mulhisi_ll"
+(define_code_macro s_or_u [sign_extend zero_extend])
+(define_code_attr su_optab [(sign_extend "mul")
+			    (zero_extend "umul")])
+(define_code_attr su_modifier [(sign_extend "IS")
+			       (zero_extend "FU")])
+
+(define_insn "<su_optab>hisi_ll"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (sign_extend:SI
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
+				 (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %h2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_lh"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
+				 (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_hl"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d")
+				 (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
+				 (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %d1 * %h2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_hh"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
+				 (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
+				 (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+;; Additional variants for signed * unsigned multiply.
+
+(define_insn "usmulhisi_ull"
+  [(set (match_operand:SI 0 "register_operand" "=W")
+	(mult:SI (zero_extend:SI
 		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
 				 (parallel [(const_int 0)])))
 		 (sign_extend:SI
 		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
 				 (parallel [(const_int 0)])))))]
   ""
-  "%0 = %h1 * %h2 (IS)%!"
+  "%0 = %h2 * %h1 (IS,M)%!"
   [(set_attr "type" "dsp32")])
 
-(define_insn "mulhisi_lh"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (sign_extend:SI
-		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
+(define_insn "usmulhisi_ulh"
+  [(set (match_operand:SI 0 "register_operand" "=W")
+	(mult:SI (zero_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d")
 				 (parallel [(const_int 0)])))
 		 (sign_extend:SI
 		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
 				 (parallel [(const_int 1)])))))]
   ""
-  "%0 = %h1 * %d2 (IS)%!"
+  "%0 = %d2 * %h1 (IS,M)%!"
   [(set_attr "type" "dsp32")])
 
-(define_insn "mulhisi_hl"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (sign_extend:SI
-		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
+(define_insn "usmulhisi_uhl"
+  [(set (match_operand:SI 0 "register_operand" "=W")
+	(mult:SI (zero_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d")
 				 (parallel [(const_int 1)])))
 		 (sign_extend:SI
 		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
 				 (parallel [(const_int 0)])))))]
   ""
-  "%0 = %d1 * %h2 (IS)%!"
+  "%0 = %h2 * %d1 (IS,M)%!"
   [(set_attr "type" "dsp32")])
 
-(define_insn "mulhisi_hh"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (sign_extend:SI
+(define_insn "usmulhisi_uhh"
+  [(set (match_operand:SI 0 "register_operand" "=W")
+	(mult:SI (zero_extend:SI
 		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "%d")
 				 (parallel [(const_int 1)])))
 		 (sign_extend:SI
 		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
 				 (parallel [(const_int 1)])))))]
   ""
-  "%0 = %d1 * %d2 (IS)%!"
+  "%0 = %d2 * %d1 (IS,M)%!"
   [(set_attr "type" "dsp32")])
+
+;; Parallel versions of these operations.  First, normal signed or unsigned
+;; multiplies.
+
+(define_insn "<su_optab>hisi_ll_lh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %h1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_ll_hl"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %d1 * %h2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_ll_hh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %d1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_lh_hl"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %d1 * %h2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_lh_hh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %d1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "<su_optab>hisi_hl_hh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (s_or_u:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (s_or_u:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %h2, %3 = %d1 * %d2 (<su_modifier>)%!"
+  [(set_attr "type" "dsp32")])
+
+;; Special signed * unsigned variants.
+
+(define_insn "usmulhisi_ll_lul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %h1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_ll_luh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %h1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_ll_hul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %d1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_ll_huh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %h2, %3 = %d1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_lh_lul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %h1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_lh_luh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %h1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_lh_hul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %d1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_lh_huh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %h1 * %d2, %3 = %d1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hl_lul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %d1 * %h2, %3 = %h1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hl_luh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %h2, %3 = %h1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hl_hul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %d1 * %h2, %3 = %d1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hl_huh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 0)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %h2, %3 = %d1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hh_lul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %d1 * %d2, %3 = %h1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hh_luh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 0)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %d2, %3 = %h1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hh_hul"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 0)])))))]
+  ""
+  "%0 = %d1 * %d2, %3 = %d1 * %h2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "usmulhisi_hh_huh"
+  [(set (match_operand:SI 0 "register_operand" "=q0,q2,q4,q6")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 1 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))
+		 (sign_extend:SI
+		  (vec_select:HI (match_operand:V2HI 2 "register_operand" "d,d,d,d")
+				 (parallel [(const_int 1)])))))
+   (set (match_operand:SI 3 "register_operand" "=q1,q3,q5,q7")
+	(mult:SI (sign_extend:SI
+		  (vec_select:HI (match_dup 1) (parallel [(const_int 1)])))
+		 (zero_extend:SI
+		  (vec_select:HI (match_dup 2) (parallel [(const_int 1)])))))]
+  ""
+  "%0 = %d1 * %d2, %3 = %d1 * %d2 (IS,M)%!"
+  [(set_attr "type" "dsp32")])
+
+;; Vector neg/abs.
 
 (define_insn "ssnegv2hi2"
   [(set (match_operand:V2HI 0 "register_operand" "=d")
@@ -3320,7 +3848,7 @@
 	 (ss_ashift:V2HI (match_dup 1) (match_dup 2))))]
   ""
   "@
-   %0 = ASHIFT %1 BY %2 (V, S)%!
+   %0 = ASHIFT %1 BY %h2 (V, S)%!
    %0 = %1 << %2 (V,S)%!
    %0 = %1 >>> %N2 (V,S)%!"
   [(set_attr "type" "dsp32")])
@@ -3334,7 +3862,7 @@
 	 (ss_ashift:HI (match_dup 1) (match_dup 2))))]
   ""
   "@
-   %0 = ASHIFT %1 BY %2 (V, S)%!
+   %0 = ASHIFT %1 BY %h2 (V, S)%!
    %0 = %1 << %2 (V,S)%!
    %0 = %1 >>> %N2 (V,S)%!"
   [(set_attr "type" "dsp32")])
@@ -3348,7 +3876,7 @@
 	 (ashift:V2HI (match_dup 1) (match_dup 2))))]
   ""
   "@
-   %0 = LSHIFT %1 BY %2 (V)%!
+   %0 = LSHIFT %1 BY %h2 (V)%!
    %0 = %1 << %2 (V)%!
    %0 = %1 >> %N2 (V)%!"
   [(set_attr "type" "dsp32")])
@@ -3362,7 +3890,7 @@
 	 (ashift:HI (match_dup 1) (match_dup 2))))]
   ""
   "@
-   %0 = LSHIFT %1 BY %2 (V)%!
+   %0 = LSHIFT %1 BY %h2 (V)%!
    %0 = %1 << %2 (V)%!
    %0 = %1 >> %N2 (V)%!"
   [(set_attr "type" "dsp32")])

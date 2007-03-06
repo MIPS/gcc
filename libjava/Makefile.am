@@ -406,6 +406,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
 	java/nio/channels/Pipe$$SinkChannel.h \
 	java/nio/channels/Pipe$$SourceChannel.h \
+	java/lang/VMProcess$ImmediateEOFInputStream.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
 	java/lang/reflect/Proxy$$ProxyType.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
@@ -665,7 +666,7 @@ gij_SOURCES =
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(libdir)/gcj-$(gcc_version) -rpath $(toolexeclibdir) \
+gij_LDFLAGS = -rpath $(dbexecdir) -rpath $(toolexeclibdir) \
 	-shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
@@ -883,6 +884,7 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
+java/lang/natVMProcess.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -1092,9 +1094,10 @@ CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
 
-# No install-html support yet.
-.PHONY: install-html
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
 install-html:
+install-pdf:
 
 # Multilib support variables.
 MULTISRCTOP =

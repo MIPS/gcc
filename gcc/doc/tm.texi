@@ -773,6 +773,19 @@ argument.  Otherwise @var{value} is 1 if the positive form of the
 option was used and 0 if the ``no-'' form was.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_HANDLE_C_OPTION (size_t @var{code}, const char *@var{arg}, int @var{value})
+This target hook is called whenever the user specifies one of the
+target-specific C language family options described by the @file{.opt}
+definition files(@pxref{Options}).  It has the opportunity to do some
+option-specific processing and should return true if the option is
+valid.  The default definition does nothing but return false.
+
+In general, you should use @code{TARGET_HANDLE_OPTION} to handle
+options.  However, if processing an option requires routines that are
+only available in the C (and related language) front ends, then you
+should use @code{TARGET_HANDLE_C_OPTION} instead.
+@end deftypefn
+
 @defmac TARGET_VERSION
 This macro is a C statement to print on @code{stderr} a string
 describing the particular machine description choice.  Every machine
@@ -8218,6 +8231,15 @@ register and its mode are represented in Dwarf in non-contiguous
 locations, or if the register should be represented in more than one
 register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
 If not defined, the default is to return @code{NULL_RTX}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_INIT_DWARF_REG_SIZES_EXTRA (tree @var{address})
+If some registers are represented in Dwarf-2 unwind information in
+multiple pieces, define this hook to fill in information about the
+sizes of those pieces in the table used by the unwinder at runtime.
+It will be called by @code{expand_builtin_init_dwarf_reg_sizes} after
+filling in a single size corresponding to each hard register;
+@var{address} is the address of the table.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_ASM_TTYPE (rtx @var{sym})

@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libtool_VERSION multi_basedir build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar glibcxx_builddir glibcxx_srcdir toplevel_srcdir CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LN_S AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CPP CPPFLAGS EGREP LIBTOOL CXXCPP enable_shared enable_static GLIBCXX_HOSTED_TRUE GLIBCXX_HOSTED_FALSE GLIBCXX_BUILD_PCH_TRUE GLIBCXX_BUILD_PCH_FALSE glibcxx_PCHFLAGS CSTDIO_H BASIC_FILE_H BASIC_FILE_CC check_msgfmt glibcxx_MOFILES glibcxx_POFILES glibcxx_localedir USE_NLS CLOCALE_H CMESSAGES_H CCODECVT_CC CCOLLATE_CC CCTYPE_CC CMESSAGES_CC CMONEY_CC CNUMERIC_CC CTIME_H CTIME_CC CLOCALE_CC CLOCALE_INTERNAL_H ALLOCATOR_H ALLOCATOR_NAME C_INCLUDE_DIR GLIBCXX_C_HEADERS_C_TRUE GLIBCXX_C_HEADERS_C_FALSE GLIBCXX_C_HEADERS_C_STD_TRUE GLIBCXX_C_HEADERS_C_STD_FALSE GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE DEBUG_FLAGS GLIBCXX_BUILD_DEBUG_TRUE GLIBCXX_BUILD_DEBUG_FALSE EXTRA_CXX_FLAGS glibcxx_thread_h WERROR SECTION_FLAGS SECTION_LDFLAGS OPT_LDFLAGS LIBMATHOBJS LIBICONV LTLIBICONV SYMVER_FILE port_specific_symbol_files ENABLE_SYMVERS_TRUE ENABLE_SYMVERS_FALSE ENABLE_SYMVERS_GNU_TRUE ENABLE_SYMVERS_GNU_FALSE ENABLE_SYMVERS_GNU_NAMESPACE_TRUE ENABLE_SYMVERS_GNU_NAMESPACE_FALSE ENABLE_SYMVERS_DARWIN_TRUE ENABLE_SYMVERS_DARWIN_FALSE ENABLE_VISIBILITY_TRUE ENABLE_VISIBILITY_FALSE GLIBCXX_LDBL_COMPAT_TRUE GLIBCXX_LDBL_COMPAT_FALSE baseline_dir ATOMICITY_SRCDIR ATOMIC_WORD_SRCDIR CPU_DEFINES_SRCDIR ABI_TWEAKS_SRCDIR OS_INC_SRCDIR glibcxx_prefixdir gxx_include_dir glibcxx_toolexecdir glibcxx_toolexeclibdir GLIBCXX_INCLUDES TOPLEVEL_INCLUDES OPTIMIZE_CXXFLAGS WARN_FLAGS LIBSUPCXX_PICFLAGS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS libtool_VERSION multi_basedir build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar glibcxx_builddir glibcxx_srcdir toplevel_srcdir CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LN_S AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CPP CPPFLAGS EGREP LIBTOOL CXXCPP enable_shared enable_static GLIBCXX_HOSTED_TRUE GLIBCXX_HOSTED_FALSE GLIBCXX_BUILD_PCH_TRUE GLIBCXX_BUILD_PCH_FALSE glibcxx_PCHFLAGS CSTDIO_H BASIC_FILE_H BASIC_FILE_CC check_msgfmt glibcxx_MOFILES glibcxx_POFILES glibcxx_localedir USE_NLS CLOCALE_H CMESSAGES_H CCODECVT_CC CCOLLATE_CC CCTYPE_CC CMESSAGES_CC CMONEY_CC CNUMERIC_CC CTIME_H CTIME_CC CLOCALE_CC CLOCALE_INTERNAL_H ALLOCATOR_H ALLOCATOR_NAME C_INCLUDE_DIR GLIBCXX_C_HEADERS_C_TRUE GLIBCXX_C_HEADERS_C_FALSE GLIBCXX_C_HEADERS_C_STD_TRUE GLIBCXX_C_HEADERS_C_STD_FALSE GLIBCXX_C_HEADERS_C_GLOBAL_TRUE GLIBCXX_C_HEADERS_C_GLOBAL_FALSE GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE GLIBCXX_C_HEADERS_EXTRA_TRUE GLIBCXX_C_HEADERS_EXTRA_FALSE DEBUG_FLAGS GLIBCXX_BUILD_DEBUG_TRUE GLIBCXX_BUILD_DEBUG_FALSE EXTRA_CXX_FLAGS glibcxx_thread_h WERROR SECTION_FLAGS SECTION_LDFLAGS OPT_LDFLAGS LIBMATHOBJS LIBICONV LTLIBICONV SYMVER_FILE port_specific_symbol_files ENABLE_SYMVERS_TRUE ENABLE_SYMVERS_FALSE ENABLE_SYMVERS_GNU_TRUE ENABLE_SYMVERS_GNU_FALSE ENABLE_SYMVERS_GNU_NAMESPACE_TRUE ENABLE_SYMVERS_GNU_NAMESPACE_FALSE ENABLE_SYMVERS_DARWIN_TRUE ENABLE_SYMVERS_DARWIN_FALSE ENABLE_VISIBILITY_TRUE ENABLE_VISIBILITY_FALSE GLIBCXX_LDBL_COMPAT_TRUE GLIBCXX_LDBL_COMPAT_FALSE baseline_dir ATOMICITY_SRCDIR ATOMIC_WORD_SRCDIR CPU_DEFINES_SRCDIR ABI_TWEAKS_SRCDIR OS_INC_SRCDIR glibcxx_prefixdir gxx_include_dir glibcxx_toolexecdir glibcxx_toolexeclibdir GLIBCXX_INCLUDES TOPLEVEL_INCLUDES OPTIMIZE_CXXFLAGS WARN_FLAGS LIBSUPCXX_PICFLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -6432,7 +6432,7 @@ if test "${enable_cheaders+set}" = set; then
   enableval="$enable_cheaders"
 
       case "$enableval" in
-       c|c_std) ;;
+       c|c_std|c_global) ;;
        *) { { echo "$as_me:$LINENO: error: Unknown argument to enable/disable cheaders" >&5
 echo "$as_me: error: Unknown argument to enable/disable cheaders" >&2;}
    { (exit 1); exit 1; }; } ;;
@@ -6446,6 +6446,17 @@ fi;
 echo "$as_me: \"C\" header strategy set to $enable_cheaders" >&6;}
 
   C_INCLUDE_DIR='${glibcxx_srcdir}/include/'$enable_cheaders
+
+  # Allow overrides to configure.host here.
+  if test $enable_cheaders = c_global; then
+     c_compatibility=yes
+  fi
+
+  if test $enable_cheaders = c_global || test $enable_cheaders = c_std; then
+     c_extra=yes
+  fi
+
+
 
 
 
@@ -8018,7 +8029,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
   # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 8021 "configure"
+#line 8032 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -8381,7 +8392,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -54185,7 +54196,7 @@ fi
 
 done
 
-    # math
+    # GLIBCXX_CHECK_MATH_SUPPORT
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_LIBM 1
 _ACEOF
@@ -54214,62 +54225,65 @@ _ACEOF
 #define HAVE_HYPOT 1
 _ACEOF
 
+    # GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_ABS 1
+#define HAVE___BUILTIN_ABS 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_FABSF 1
+#define HAVE___BUILTIN_FABSF 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_FABS 1
+#define HAVE___BUILTIN_FABS 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_FABSL 1
+#define HAVE___BUILTIN_FABSL 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_LABS 1
+#define HAVE___BUILTIN_LABS 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SQRTF 1
+#define HAVE___BUILTIN_SQRTF 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SQRT 1
+#define HAVE___BUILTIN_SQRT 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SQRTL 1
+#define HAVE___BUILTIN_SQRTL 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SINF 1
+#define HAVE___BUILTIN_SINF 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SIN 1
+#define HAVE___BUILTIN_SIN 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_SINL 1
+#define HAVE___BUILTIN_SINL 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_COSF 1
+#define HAVE___BUILTIN_COSF 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_COS 1
+#define HAVE___BUILTIN_COS 1
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE____BUILTIN_COSL 1
+#define HAVE___BUILTIN_COSL 1
 _ACEOF
 
+    # GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
+    # GLIBCXX_CHECK_STDLIB_SUPPORT
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_COPYSIGN 1
 _ACEOF
@@ -54278,6 +54292,7 @@ _ACEOF
 #define HAVE_COPYSIGNF 1
 _ACEOF
 
+    # GLIBCXX_CHECK_S_ISREG_OR_S_IFREG
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_S_ISREG 1
 _ACEOF
@@ -54494,7 +54509,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -55512,7 +55527,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -56498,7 +56513,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -77883,7 +77898,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -78730,7 +78745,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -79626,7 +79641,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -80914,7 +80929,7 @@ echo "${ECHO_T}$glibcxx_cv_WRITEV" >&6
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -81652,7 +81667,7 @@ _ACEOF
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -82155,7 +82170,7 @@ done
 echo $ECHO_N "checking for ld version... $ECHO_C" >&6
 
     ldver=`$LD --version 2>/dev/null | head -1 | \
-           sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+           sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
 
     glibcxx_gnu_ld_version=`echo $ldver | \
            $AWK -F. '{ if (NF<3) $3=0; print ($1*100+$2)*100+$3 }'`
@@ -84600,12 +84615,34 @@ fi
 
 
 
+if test $enable_cheaders = c_global; then
+  GLIBCXX_C_HEADERS_C_GLOBAL_TRUE=
+  GLIBCXX_C_HEADERS_C_GLOBAL_FALSE='#'
+else
+  GLIBCXX_C_HEADERS_C_GLOBAL_TRUE='#'
+  GLIBCXX_C_HEADERS_C_GLOBAL_FALSE=
+fi
+
+
+
+
 if test $c_compatibility = yes; then
   GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE=
   GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE='#'
 else
   GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE='#'
   GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE=
+fi
+
+
+
+
+if test $c_extra = yes; then
+  GLIBCXX_C_HEADERS_EXTRA_TRUE=
+  GLIBCXX_C_HEADERS_EXTRA_FALSE='#'
+else
+  GLIBCXX_C_HEADERS_EXTRA_TRUE='#'
+  GLIBCXX_C_HEADERS_EXTRA_FALSE=
 fi
 
 
@@ -85021,10 +85058,24 @@ echo "$as_me: error: conditional \"GLIBCXX_C_HEADERS_C_STD\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${GLIBCXX_C_HEADERS_C_GLOBAL_TRUE}" && test -z "${GLIBCXX_C_HEADERS_C_GLOBAL_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"GLIBCXX_C_HEADERS_C_GLOBAL\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"GLIBCXX_C_HEADERS_C_GLOBAL\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE}" && test -z "${GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"GLIBCXX_C_HEADERS_COMPATIBILITY\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"GLIBCXX_C_HEADERS_COMPATIBILITY\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${GLIBCXX_C_HEADERS_EXTRA_TRUE}" && test -z "${GLIBCXX_C_HEADERS_EXTRA_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"GLIBCXX_C_HEADERS_EXTRA\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"GLIBCXX_C_HEADERS_EXTRA\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -85728,8 +85779,12 @@ s,@GLIBCXX_C_HEADERS_C_TRUE@,$GLIBCXX_C_HEADERS_C_TRUE,;t t
 s,@GLIBCXX_C_HEADERS_C_FALSE@,$GLIBCXX_C_HEADERS_C_FALSE,;t t
 s,@GLIBCXX_C_HEADERS_C_STD_TRUE@,$GLIBCXX_C_HEADERS_C_STD_TRUE,;t t
 s,@GLIBCXX_C_HEADERS_C_STD_FALSE@,$GLIBCXX_C_HEADERS_C_STD_FALSE,;t t
+s,@GLIBCXX_C_HEADERS_C_GLOBAL_TRUE@,$GLIBCXX_C_HEADERS_C_GLOBAL_TRUE,;t t
+s,@GLIBCXX_C_HEADERS_C_GLOBAL_FALSE@,$GLIBCXX_C_HEADERS_C_GLOBAL_FALSE,;t t
 s,@GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE@,$GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE,;t t
 s,@GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE@,$GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE,;t t
+s,@GLIBCXX_C_HEADERS_EXTRA_TRUE@,$GLIBCXX_C_HEADERS_EXTRA_TRUE,;t t
+s,@GLIBCXX_C_HEADERS_EXTRA_FALSE@,$GLIBCXX_C_HEADERS_EXTRA_FALSE,;t t
 s,@DEBUG_FLAGS@,$DEBUG_FLAGS,;t t
 s,@GLIBCXX_BUILD_DEBUG_TRUE@,$GLIBCXX_BUILD_DEBUG_TRUE,;t t
 s,@GLIBCXX_BUILD_DEBUG_FALSE@,$GLIBCXX_BUILD_DEBUG_FALSE,;t t

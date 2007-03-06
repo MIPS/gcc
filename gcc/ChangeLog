@@ -1,3 +1,527 @@
+2007-03-05  Mike Stump  <mrs@apple.com>
+
+	* c-common.c (targetcm): Add.   
+	* c-opts.c (c_common_handle_option): Handle language specific
+	target options.
+	* opts.c (handle_option): Verify language for target options, if
+	any are given.
+	* opth-gen.awk: Add CL_LANG_ALL.
+	* target-def.h (TARGET_HANDLE_C_OPTION): Add.
+	(TARGETCM_INITIALIZER): Add.
+	* target.h (struct gcc_targetcm): Add.
+	(targetcm): Add.
+	* targhooks.c (default_handle_c_option): Add.
+	* targhooks.h (default_handle_c_option): Add.
+	* doc/tm.texi (TARGET_HANDLE_C_OPTION): Add.
+
+	* config/darwin.opt (iframework): Add.
+	* config/darwin.h (TARGET_HAS_TARGETCM): Add.
+	* config/darwin-c.c (handle_c_option): Add.
+	(TARGET_HANDLE_C_OPTION): Add.
+	(targetcm): Add.
+	* doc/invoke.texi (Darwin Options): Add -iframework.
+
+2007-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* convert.c (convert_to_integer): Fix nearbyint/rint -> *lrint
+	conversion.
+
+2007-03-05  Ian Lance Taylor  <iant@google.com>
+
+	* c.opt (fgnu89-inline): New option.
+	* c-opts.c (c_common_post_options): Set default value for
+	flag_gnu89_inline.
+	* c-decl.c (WANT_C99_INLINE_SEMANTICS): Remove.
+	(pop_scope): Check flag_gnu89_inline rather than flag_isoc99 for
+	inline functions.
+	(diagnose_mismatched_decls, merge_decls, start_decl): Likewise.
+	(grokdeclarator, start_function): Likewise.
+	* c-cppbuiltin.c (c_cpp_builtins): Define either
+	__GNUC_GNU_INLINE__ or __GNUC_STDC_INLINE__.
+	* doc/invoke.texi (Option Summary): Mention -fgnu89-inline.
+	(C Dialect Options): Document -fgnu89-inline.
+	* doc/extend.texi (Function Attributes): Explain what the
+	gnu_inline attribute does.
+	* doc/cpp.texi (Common Predefined Macros): Document
+	__GNUC_GNU_INLINE__ and __GNUC_STDC_INLINE__.
+
+2007-03-05  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31034
+	* tree-vrp.c (extract_range_from_assert): Don't try to handle a
+	half-range if the other side is an overflow infinity.
+
+2007-03-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config.gcc (bfin*-uclinux*): Use t-bfin-uclinux.
+	(bfin*-linux-uclibc*): New configuration.
+	* config/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Undefined before
+	defining.
+	* config/bfin/linux.h: New file.
+	* config/bfin/libgcc-bfin.ver: New file.
+	* config/bfin/t-bfin-uclinux: New file.
+	* config/bfin/t-bfin-linux: New file.
+	* config/bfin/uclinux.h (LINUX_TARGET_OS_CPP_BUILTINS): New macro.
+	(TARGET_OS_CPP_BUILTINS): New macro.
+
+2007-03-05  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary): Remove duplicate folding
+	of comparison of non-null ADDR_EXPR against null.
+
+2007-03-05  Richard Guenther  <rguenther@suse.de>
+	Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/26420
+	* tree-vectorizer.c (vectorize_loops): Bail out early if there
+	are no loops in the function.  Only print the number of
+	vectorized loops if it is greater than zero or we are supposed
+	to print information about unvectorized loops.
+
+2007-03-05  Revital Eres  <eres@il.ibm.com>
+
+      * gcc.dg/var-expand1.c: New test.
+      * loop-unroll.c (analyze_insn_to_expand_var): Add dump info
+      when an accumulator is expanded.
+
+2007-03-04  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR other/30465
+	* c-common.c (convert_and_check): Don't give warnings for
+	conversion if 'expr' already overflowed.
+	
+2007-03-04  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/30744
+	* fold-const.c (fold_comparison): Enforce type consistency when
+	transforming ~X op ~Y to Y op X, and ~X op C to X op' ~C.
+
+2007-03-04  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-address.c (create_mem_ref): Do not put an expression
+	containing a cast to the base of TARGET_MEM_REF.
+
+2007-03-04  Martin Michlmayr  <tbm@cyrius.com>
+
+	* tree.c (tree_contains_struct_check_failed): Remove spurious
+	whitespace from error message.
+
+2007-03-04 Andrew Pinski <andrew_pinski@playstation.sony.com>
+
+	PR target/30406
+	* config/rs6000/rs6000.c (rs6000_function_value): Look at bit size
+	instead of precision.
+
+2007-03-04  Roman Zippel <zippel@linux-m68k.org>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* emit-rtl.c (find_auto_inc): New.
+	(try_split): recreate REG_INC notes,
+	Use regular for loops rather than whiles.
+
+2007-03-03  Andreas Schwab  <schwab@suse.de>
+
+	* configure.ac (HAVE_AS_REL16): Move test back to correct place.
+	* configure: Regenerate.
+
+2007-03-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.def (ATTR_MATHFN_FPROUNDING): Rely on
+	flag_rounding_math, not flag_unsafe_math_optimizations.
+
+	* c-pretty-print.c (pp_c_direct_abstract_declarator): Use
+	fold_build2.
+	* config/alpha/alpha.c (alpha_fold_builtin_zapnot,
+	alpha_fold_vector_minmax): Likewise.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Likewise.
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Likewise.
+
+2007-03-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-sra.c (sra_walk_fns) <ldst>: Document new restriction.
+	(sra_walk_modify_expr) <rhs_elt>: Treat the reference as a use
+	if the lhs has side-effects.
+	<lhs_elt>: Treat the reference as a use if the rhs has side-effects.
+
+2007-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (TUNEMASK): Remove define.
+	(ARCHMASK): Remove define.
+	(TARGET_*): Use ix86_tune_mask variable instead of TUNEMASK.
+	 Use ix86_arch_mask variable instead of ARCHMASK.
+	* config/i386/i386.c (override_options): Ditto.
+	(standard_80387_constant_p): Ditto.
+
+2007-03-02  Ian Lance Taylor  <iant@google.com>
+
+	Used signed infinities in VRP.
+	* tree-vrp.c (uses_overflow_infinity): New static function.
+	(supports_overflow_infinity): New static function.
+	(make_overflow_infinity): New static function.
+	(negative_overflow_infinity): New static function.
+	(positive_overflow_infinity): New static function.
+	(is_negative_overflow_infinity): New static function.
+	(is_positive_overflow_infinity): New static function.
+	(is_overflow_infinity): New static function.
+	(overflow_infinity_range_p): New static function.
+	(compare_values_warnv): New function split out of compare_values.
+	(compare_value): Call it.
+	(set_value_range_to_nonnegative): Add overflow_infinity
+	parameter.  Change caller.
+	(vrp_expr_computes_nonnegative): Add strict_overflow_p parameter.
+	Change callers.
+	(vrp_expr_computes_nonzero): Likewise.
+	(compare_ranges, compare_range_with_value): Likewise.
+	(compare_name_with_value, compare_names): Likewise.
+	(vrp_evaluate_conditional): Likewise.
+	(set_value_range): Handle infinity
+	(vrp_operand_equal_p, operand_less_p): Likewise.
+	(extract_range_from_assert): Likewise.
+	(vrp_int_const_binop): Likewise.
+	(extract_range_from_binary_expr): Likewise.
+	(extract_range_from_unary_expr): Likewise.
+	(extract_range_from_comparison): Likewise.
+	(extract_range_from_expr): Likewise.
+	(dump_value_range): Likewise.
+	(vrp_visit_cond_stmt, vrp_visit_phi_node): Likewise.
+	(test_for_singularity): Likewise.
+	(vrp_int_const_binop): Remove inline qualifier.
+	(adjust_range_with_scev): Add comment.
+	* tree-flow.h (vrp_evaluate_conditional): Update declaration.
+
+2007-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-structalias.c (could_have_pointers): Tidy.
+	(get_constraint_for): Likewise.
+	(do_structure_copy): Likewise.
+	(find_func_aliases): Fix references to MODIFY_EXPR.
+	(intra_create_variable_infos): Tidy.
+	* tree-ssa-operands.c (add_virtual_operand): Add argument
+	IS_CALL_SITE.
+	When adding members of alias sets, if IS_CALL_SITE is true and
+	the symbol is not call-clobbered, skip it.
+	Adjust all callers.
+
+2007-03-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/alpha/alpha.c (alpha_gp_save_rtx): Insert the insns at the
+	entry by means of emit_insn_at_entry.
+
+2007-03-02  Richard Henderson  <rth@redhat.com>
+
+	* expr.h (promoted_input_arg): Remove decl.
+	* function.c (promoted_input_arg): Merge into ...
+	* combine.c (setup_incoming_promotions): ... only caller.
+	Rearrange to avoid double loop.
+
+2007-03-02  Ben Elliston  <bje@au.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
+	    Janis Johnson  <janis187@us.ibm.com>
+
+	* config/rs6000/dfp.md: New file.
+	* config/rs6000/rs6000.md: Include dfp.md.
+	(add<mode>3_internal1): Disable for DECIMAL_FLOAT_MODE_P operands.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Handle DDmode
+	and TDmode decimal float modes in FP registers.
+	(num_insns_constant): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address): Likewise.
+	(rs6000_emit_move): Likewise.
+	(function_arg_boundary): Likewise.
+	(function_arg_advance): Likewise.
+	(rs6000_darwin64_record_arg_recurse): Likewise.
+	(function_arg): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_split_multireg_move): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+
+2007-03-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/t-vxworks (LIMITS_H_TEST): Define to true for VxWorks.
+
+2007-03-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/t-vxworks (LIBGCC2_INCLUDES): Pass -nostdinc.
+	Use $MULTIDIR to choose between the kernel and RTP headers,
+	and use $WIND_BASE and $WIND_USR to locate them.
+
+2007-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (override_options): Put initialization of
+	ix86_tune_mask and ix86_arch_mask to the correct place.
+
+2007-03-02  Uros Bizjak  <ubizjak@gmail.com>
+	    Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/31019
+	* config/i386/i386.h (TUNEMASK): Redefine to use ix86_tune_mask.
+	(ARCHMASK): Define.
+	(TARGET_CMOVE): Use ARCHMASK.
+	(TARGET_CMPXCHG): Ditto.
+	(TARGET_CMPXCHG8B): Ditto.
+	(TARGET_XADD): Ditto.
+	(TARGET_BSWAP): Ditto.
+	* config/i386/i386.c (ix86_tune_mask): New global variable.
+	(ix86_arch_mask): Ditto.
+	(override_options): Initialize ix86_tune_mask and
+	ix86_arch_mask. Use ARCHMASK to clear MASK_NO_FANCY_MATH_387 in
+	target_flags.
+
+2007-03-02  Ben Elliston  <bje@au.ibm.com>
+
+	PR 30992
+	* config/dfp-bit.c (DFP_TO_INT): Initialise qval with "1.".
+
+2007-03-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* target.h (init_dwarf_reg_sizes_extra): New target hook.
+	* target-def.h (TARGET_INIT_DWARF_REG_SIZES_EXTRA): New default.
+	* doc/tm.texi (TARGET_INIT_DWARF_REG_SIZES_EXTRA): Document.
+	* dwarf2out.c (expand_builtin_init_dwarf_reg_sizes): Call this
+	hook.
+	* config/rs6000/rs6000.c (TARGET_INIT_DWARF_REG_SIZES_EXTRA,
+	rs6000_init_dwarf_reg_sizes_extra): New.
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Support
+	SPE register high parts.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add install-pdf target as
+	copied from automake v1.10 rules.
+	* configure.ac: Add install-pdf to target list.
+	* configure: Regenerate.
+
+2007-03-01  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_legitimate_index_p): Limit iWMMXt addressing
+	modes to LDRD for DImode.
+	(output_move_double): Fixup out of range ldrd/strd.
+	(vfp_secondary_reload_class): Rename...
+	(coproc_secondary_reload_class): ... to this.  Add wb argument.
+	* config/arm/arm.h (SECONDARY_OUTPUT_RELOAD_CLASS): Use
+	coproc_secondary_reload_class for CLASS_IWMMXT.
+	(SECONDARY_INPUT_RELOAD_CLASS): Ditto.
+	* arm-protos.h (coproc_secondary_reload_class): Update prototype.
+
+2007-03-01  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-prefetch.c (determine_unroll_factor):  Bound the unroll
+	factor by the estimated number of iterations.
+	(loop_prefetch_arrays): Do not prefetch in loops that iterate less than
+	prefetch latency.
+
+	* config/i386/driver-i386.c (describe_cache, detect_caches_amd,
+	decode_caches_intel, detect_caches_intel): New functions.
+	(host_detect_local_cpu): Use detect_caches_amd and
+	detect_caches_intel.
+
+2007-03-01  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (emit_move_complex_push): Export.
+	(emit_move_complex_parts): Split out from ...
+	(emit_move_complex): ... here.
+	* expr.h (emit_move_complex_push, emit_move_complex_parts): Declare.
+	* config/i386/i386.md (movcdi): New.
+
+2007-03-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_modes_tieable_p): Fix typo, use also
+	size of mode1 to check for tieable modes in MMX case.
+
+2007-03-01  Richard Sandiford  <richard@codesourcery.com>
+
+	* Makefile.in (rtlanal.o): Depend on tree.h.
+	* rtl.h (offset_within_section_p, split_const): Declare.
+	* rtlanal.c: Include tree.h.
+	(offset_within_block_p): New function, taken from
+	mips_offset_within_object_p.
+	(split_const): New function, taken from mips_split_const.
+	* config/m68k/m68k-protos.h (m68k_illegitimate_symbolic_constant_p):
+	Declare.
+	* config/m68k/m68k.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P): Define.
+	(CONSTANT_ADDRESS_P): Only accept legitimate constants.
+	(LEGITIMATE_CONSTANT_P): Check m68k_illegitimate_symbolic_constant_p.
+	* config/m68k/m68k.c (TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	(m68k_illegitimate_symbolic_constant_p): New function.
+	* config/m68k/m68k.md (movsi): Remove misleading predicates.
+	If M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P and the source is a
+	symbolic constant that might be outside the symbol's section,
+	move the symbol first and then add the offset.
+	* config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Override.
+	* config/mips/mips.c (mips_split_const): Delete.
+	(mips_offset_within_object_p): Delete.
+	(mips_symbolic_constant_p): Use offset_within_section_p and
+	split_const instead of mips_offset_within_object_p and
+	mips_split_const.
+	(mips_cannot_force_const_mem, mips_const_insns, mips_unspec_address)
+	(mips_legitimize_const_move, print_operand_reloc)
+	(mips_dangerous_for_la25_p): Use split_const instead of
+	mips_split_const.
+
+2007-02-28  Eric Christopher  <echristo@apple.com>
+
+	* Makefile.in (install-include-dir): Don't rm -rf include.
+
+2007-02-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30364
+	* fold-const.c (fold_binary): Do not associate expressions
+	with more than one variable for integer types that do not wrap.
+
+2007-02-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* builtins.c (fold_builtin_call_list, fold_builtin_call_valist):
+	Delete, and replace with...
+	(fold_builtin_call_array): This.  Update callers to use it.
+	* fold-const.c (fold_build_call_list): Delete, and replace with...
+	(fold_build_call_array): This.
+	(fold_build_call_list_initializer): Delete, and replace with...
+	(fold_build_call_array_initializer): This.
+	* tree.h: Update declarations to reflect above changes.
+
+	* c-typeck.c (build_function_call): Store converted arguments
+	in a stack-allocated array instead of building a list.
+	(convert_arguments): Store arguments in the array passed in as an
+	argument, and return the actual number of arguments.
+	* c-format.c: (check_function_format): Pass arguments in an
+	array instead of a list.
+	* c-common.c (check_function_nonnull): Likewise.
+	(check_function_sentinel): Likewise.
+	(check_function_arguments): Likewise.
+	* c-common.h: Update declarations to reflect above changes.
+
+2007-02-28  Jan Hubicka  <jh@suse.cz>
+
+	* predict.def (PRED_TREE_EARLY_RETURN, PRED_CONST_RETURN,
+	PRED_NEGATIVE_RETURN): Update outcomes.
+
+2007-02-28  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* calls.c (emit_library_call_value_1): Handle partial registers
+	correctly when building up CALL_INSN_FUNCTION_USAGE.
+
+2007-02-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/predicates.md (move_src_operand): Allow zero for mode.
+	* pa/pa.md: Fix constraints for zero CONST_DOUBLE in 64-bit DFmode
+	move pattern.
+
+2007-02-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/30970
+	* config/i386/sse.md (*mov<mode>_internal, *movv4sf_internal,
+	*movv2df_internal): Enable pattern only for valid operand
+	combinations.
+	* config/i386/i386.c (ix86_modes_tieable_p): For SSE registers,
+	tie only 128bit modes. For MMX registers, tie only 64bit modes.
+
+2007-02-27  Mike Stump  <mrs@apple.com>
+
+	* config/darwin-crt3.c: Avoid compilation when compiling for a
+	kext multilib.
+
+2007-02-27  Joseph Myers  <joseph@codesourcery.com>
+
+	* Makefile.in (PREPROCESSOR_DEFINES, test-protoize-simple): Define
+	FIXED_INCLUDE_DIR.
+	(stmp-int-hdrs, stmp-fixinc, install-headers): Use include-fixed
+	for fixed headers and limits.h.
+	(install-include-dir, install-headers-tar, install-headers-cpio,
+	install-headers-cp, real-install-headers-tar,
+	real-install-headers-cpio, real-install-headers-cp): Handle
+	include-fixed as well as include.
+	(install-mkheaders): Don't install files that go only in include
+	not include-fixed.
+	* cppdefault.c (cpp_include_defaults): Separate FIXED_INCLUDE_DIR
+	from GCC_INCLUDE_DIR.
+	* gcc.c (process_command): Remove special -BstageN/ handling.
+	(do_spec_1): Add include-fixed directories.
+
+2007-02-27  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/t-bfin-elf (LIB1ASMFUNCS): Add _umulsi3_highpart and
+	_smulsi3_highpart.
+	* config/bfin/lib1funcs.asm (___umulsi3_highpart, ___smulsi3_highpart):
+	New functions.
+	* config/bfin/bfin.md (smulsi3_highpart, umulsi3_highpart): New
+	patterns.
+
+2007-02-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-common.c (get_priority): Add check for
+	SUPPORTS_INIT_PRIORITY.
+
+2007-02-27  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (doloop_end): FAIL if counter reg isn't SImode.
+
+	* config/bfin/bfin.c: Include "cfglayout.h".
+	(MAX_LSETUP_DISTANCE): New macro.
+	(struct loop_info): New members incoming, incoming_src and
+	incoming_dest.  Delete member predecessor.
+	(length_for_loop): New function.
+	(bfin_optimize_loop): Handle more different loop structures.
+	(bfin_discover_loop): Rework detection of predecessor blocks by
+	examining incoming edges.
+	(bfin_discover_loops, bfin_free_loops): New functions, broken out of
+	bfin_reorg_loops.
+	(bfin_reorder_loops): New function.
+	(bfin_reorg_loops): Use these three new functions.
+
+	* config/bfin/bfin.h (enum reg_class, REG_CLASS_NAMES,
+	REG_CLASS_CONTENTS): Add D0REGS through D7REGS.
+	(CONSTRAINT_LEN): Add entry for 'q'.
+	(REG_CLASS_FROM_CONSTRAINT): Renamed from REG_CLASS_FROM_LETTER.
+	Add 'q' constraints.
+	(REGNO_REG_CLASS): For R0 through R7, return corresponding regclass.
+	(CLASS_LIKELY_SPILLED_P): True for R0, R1 and R2.
+
+	* config/bfin/bfin.md (add_with_carry): New pattern.
+	(s_or_u, su_optab, su_modifier): New code macros/attrs.
+	(<su_optab>hisi_ll, <su_optab>hisi_lh, <su_optab>hisi_hl,
+	<su_optab>hisi_hh): Renamed from mulhisi_xx patterns; macroized to
+	support unsigned multiplies too.  Removed incorrect commutativity from
+	operand 1 constraint where appropriate.
+	(usmulhisi_ull, usmulhisi_ulh, usmulhisi_uhl, usmulhisi_uhh): New
+	patterns.
+	(<su_optab>hisi_ll_lh, <su_optab>hisi_ll_hl, <su_optab>hisi_ll_hh,
+	<su_optab>hisi_lh_hl, <su_optab>hisi_lh_hh, <su_optab>hisi_hl_hh):
+	New patterns.
+	(usmulhisi_ll_lul, usmulhisi_ll_luh, usmulhisi_ll_hul,
+	usmulhisi_ll_huh, usmulhisi_lh_lul, usmulhisi_lh_luh, usmulhisi_lh_hul,
+	usmulhisi_lh_huh, usmulhisi_hl_lul, usmulhisi_hl_luh, usmulhisi_hl_hul,
+	usmulhisi_hl_huh, usmulhisi_hh_lul, usmulhisi_hh_luh, usmulhisi_hh_hul,
+	usmulhisi_hh_huh): New patterns.
+
+	* config/bfin/bfin.md (ssashiftv2hi3, ssashifthi3, lshiftv2hi3,
+	lshifthi3): Fix output template to use half reg for operand 2.
+
+	* config/bfin/bfin.c (bfin_output_mi_thunk): Use R3 as scratch reg
+	instead of R2.
+
+	* config/bfin/bfin.md (rotl16, rotlsi3, rotrsi3): New patterns.
+
+2007-02-27  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in (TEXI_GCCINSTALL_FILES): Add gcc-common.texi.
+
+2007-02-27  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (last_basic_block_p): Remove.
+	(tree_estimate_probability): Update return heuristic for commonized
+	return blocks.
+
+2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in (TEXI_GCCINSTALL_FILES): Add gcc-vers.texi dependency.
+
 2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* doc/include/gcc-common.texi (versionsubtitle): New macro.
@@ -40,7 +564,7 @@
 
 	* loop-iv.c (simplify_using_initial_values): Fix oversight in previous
 	change; avoid a memory leak when returning early.
-	
+
 2007-02-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* c-decl.c (static_ctors): Move to c-common.c.
@@ -339,7 +863,7 @@
 2007-02-22  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/30843
-	* tree-vect-transform.c (vect_transform_loop): Remove strided scalar 
+	* tree-vect-transform.c (vect_transform_loop): Remove strided scalar
 	stores only after all the group is vectorized.
 
 2007-02-22  Dorit Nuzman  <dorit@il.ibm.com>

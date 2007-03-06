@@ -53,14 +53,13 @@ static tree rationalize_conditional_expr (enum tree_code, tree);
 static int comp_ptr_ttypes_real (tree, tree, int);
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (tree, tree, bool);
-static tree common_base_type (tree, tree);
 static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, bool, bool);
 static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
-static tree convert_arguments (tree, tree, tree, int);
+static int convert_arguments (int, tree *, tree, tree, tree, int);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)
@@ -1195,59 +1194,6 @@ comp_cv_qual_signature (tree type1, tree type2)
     return -1;
   else
     return 0;
-}
-
-/* If two types share a common base type, return that basetype.
-   If there is not a unique most-derived base type, this function
-   returns ERROR_MARK_NODE.  */
-
-static tree
-common_base_type (tree tt1, tree tt2)
-{
-  tree best = NULL_TREE;
-  int i;
-
-  /* If one is a baseclass of another, that's good enough.  */
-  if (UNIQUELY_DERIVED_FROM_P (tt1, tt2))
-    return tt1;
-  if (UNIQUELY_DERIVED_FROM_P (tt2, tt1))
-    return tt2;
-
-  /* Otherwise, try to find a unique baseclass of TT1
-     that is shared by TT2, and follow that down.  */
-  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt1))-1; i >= 0; i--)
-    {
-      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt1), i));
-      tree trial = common_base_type (basetype, tt2);
-
-      if (trial)
-	{
-	  if (trial == error_mark_node)
-	    return trial;
-	  if (best == NULL_TREE)
-	    best = trial;
-	  else if (best != trial)
-	    return error_mark_node;
-	}
-    }
-
-  /* Same for TT2.  */
-  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt2))-1; i >= 0; i--)
-    {
-      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt2), i));
-      tree trial = common_base_type (tt1, basetype);
-
-      if (trial)
-	{
-	  if (trial == error_mark_node)
-	    return trial;
-	  if (best == NULL_TREE)
-	    best = trial;
-	  else if (best != trial)
-	    return error_mark_node;
-	}
-    }
-  return best;
 }
 
 /* Subroutines of `comptypes'.  */
@@ -2670,10 +2616,12 @@ tree
 build_function_call (tree function, tree params)
 {
   tree fntype, fndecl;
-  tree coerced_params;
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
+  int nargs, parm_types_len;
+  tree *argarray;
+  tree parm_types;
 
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
@@ -2739,22 +2687,29 @@ build_function_call (tree function, tree params)
 
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
+  parm_types = TYPE_ARG_TYPES (fntype);
+
+  /* Allocate storage for converted arguments.  */
+  parm_types_len = list_length (parm_types);
+  nargs = list_length (params);
+  if (parm_types_len > nargs)
+    nargs = parm_types_len;
+  argarray = (tree *) alloca (nargs * sizeof (tree));
 
   /* Convert the parameters to the types declared in the
      function prototype, or apply default promotions.  */
-
-  coerced_params = convert_arguments (TYPE_ARG_TYPES (fntype),
-				      params, fndecl, LOOKUP_NORMAL);
-  if (coerced_params == error_mark_node)
+  nargs = convert_arguments (nargs, argarray, parm_types,
+			     params, fndecl, LOOKUP_NORMAL);
+  if (nargs < 0)
     return error_mark_node;
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
 
-  check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params,
-			    TYPE_ARG_TYPES (fntype));
+  check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
+			    parm_types);
 
-  return build_cxx_call (function, coerced_params);
+  return build_cxx_call (function, nargs, argarray);
 }
 
 /* Convert the actual parameter expressions in the list VALUES
@@ -2762,23 +2717,26 @@ build_function_call (tree function, tree params)
    If parmdecls is exhausted, or when an element has NULL as its type,
    perform the default conversions.
 
+   Store the converted arguments in ARGARRAY.  NARGS is the size of this array.
+
    NAME is an IDENTIFIER_NODE or 0.  It is used only for error messages.
 
    This is also where warnings about wrong number of args are generated.
 
-   Return a list of expressions for the parameters as converted.
+   Returns the actual number of arguments processed (which might be less
+   than NARGS), or -1 on error.
 
-   Both VALUES and the returned value are chains of TREE_LIST nodes
-   with the elements of the list in the TREE_VALUE slots of those nodes.
+   VALUES is a chain of TREE_LIST nodes with the elements of the list
+   in the TREE_VALUE slots of those nodes.
 
    In C++, unspecified trailing parameters can be filled in with their
    default arguments, if such were specified.  Do so here.  */
 
-static tree
-convert_arguments (tree typelist, tree values, tree fndecl, int flags)
+static int
+convert_arguments (int nargs, tree *argarray,
+		   tree typelist, tree values, tree fndecl, int flags)
 {
   tree typetail, valtail;
-  tree result = NULL_TREE;
   const char *called_thing = 0;
   int i = 0;
 
@@ -2807,7 +2765,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
       tree val = TREE_VALUE (valtail);
 
       if (val == error_mark_node || type == error_mark_node)
-	return error_mark_node;
+	return -1;
 
       if (type == void_type_node)
 	{
@@ -2818,11 +2776,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	    }
 	  else
 	    error ("too many arguments to function");
-	  /* In case anybody wants to know if this argument
-	     list is valid.  */
-	  if (result)
-	    TREE_TYPE (tree_last (result)) = error_mark_node;
-	  break;
+	  return i;
 	}
 
       /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
@@ -2841,7 +2795,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	}
 
       if (val == error_mark_node)
-	return error_mark_node;
+	return -1;
 
       if (type != 0)
 	{
@@ -2866,9 +2820,9 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	    }
 
 	  if (parmval == error_mark_node)
-	    return error_mark_node;
+	    return -1;
 
-	  result = tree_cons (NULL_TREE, parmval, result);
+	  argarray[i] = parmval;
 	}
       else
 	{
@@ -2881,7 +2835,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	  else
 	    val = convert_arg_to_ellipsis (val);
 
-	  result = tree_cons (NULL_TREE, val, result);
+	  argarray[i] = val;
 	}
 
       if (typetail)
@@ -2902,9 +2856,9 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 				       fndecl, i);
 
 	      if (parmval == error_mark_node)
-		return error_mark_node;
+		return -1;
 
-	      result = tree_cons (0, parmval, result);
+	      argarray[i] = parmval;
 	      typetail = TREE_CHAIN (typetail);
 	      /* ends with `...'.  */
 	      if (typetail == NULL_TREE)
@@ -2920,11 +2874,12 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	    }
 	  else
 	    error ("too few arguments to function");
-	  return error_mark_node;
+	  return -1;
 	}
     }
 
-  return nreverse (result);
+  gcc_assert (i <= nargs);
+  return i;
 }
 
 /* Build a binary-operation expression, after performing default
@@ -4250,8 +4205,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  || TREE_READONLY (arg))
 	readonly_error (arg, ((code == PREINCREMENT_EXPR
 			       || code == POSTINCREMENT_EXPR)
-			      ? "increment" : "decrement"),
-			0);
+			      ? "increment" : "decrement"));
 
       {
 	tree inc;
@@ -5825,7 +5779,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	     effectively const.  */
 	  || (CLASS_TYPE_P (lhstype)
 	      && C_TYPE_FIELDS_READONLY (lhstype))))
-    readonly_error (lhs, "assignment", 0);
+    readonly_error (lhs, "assignment");
 
   /* If storing into a structure or union member, it has probably been
      given type `int'.  Compute the type that would go with the actual

@@ -1,3 +1,81 @@
+2007-03-05  Volker Reichelt  <reichelt@netcologne.de>
+
+	* typeck2.c (readonly_error): Always emit a hard error.
+	Remove last argument.
+	* cp-tree.h (readonly_error): Adjust prototype.
+	* semantics.c (finish_asm_stmt): Adjust call to readonly_error.
+	* typeck.c (build_unary_op): Likewise.
+	(build_modify_expr): Likewise.
+
+2007-03-04  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30895
+	* tree.c (cp_tree_equal): Properly handle COMPLEX_CST trees.
+
+2007-03-03  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/15787
+	* parser.c (struct cp_parser): New IN_IF_STMT.
+	(cp_parser_statement_seq_opt): Handle an unexpected 'else',
+	returning if parsing the body of an 'if' statement or issuing an
+	error and continuing.
+	(cp_parser_selection_statement): Set IN_IF_STMT bit when parsing
+	body of 'if'.
+	(cp_parser_jump_statement): Mask new IN_IF_STMT bit.
+	
+2007-03-02  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/28253
+	* class.c (update_vtable_entry_for_fn): Properly handle invalid overriders
+	for thunks.
+
+2007-03-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++spec.c (lang_specific_driver): Add -lstdc++ when compiling
+	Objective-C++.  Don't exit early if -shared-libgcc needs to be
+	added.
+
+2007-03-02  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* typeck.c (common_base_type): Delete unused function.
+	
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Make-lang.in: Add dummy lang.install-pdf target.
+
+2007-03-01  Simon Baldwin <simonb@google.com>
+
+	PR c++/23689
+	* decl.c (check_tag_decl): Added new warning for typedef ignored
+	when it precedes an otherwise valid non-typedef declaration.
+
+2007-02-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* typeck.c (build_function_call): Store converted arguments
+	in a stack-allocated array instead of building a list.
+	(convert_arguments): Store arguments in the array passed in as an
+	argument, and return the actual number of arguments.
+	* call.c (build_call): Delete, and replace with...
+	(build_call_n, build_call_a): New.
+	(build_op_delete_call): Rewrite to avoid constructing argument lists.
+	(build_over_call): Store converted arguments in a stack-allocated
+	array instead of building a list.
+	(build_cxx_call): Pass arguments in an array instead of as a list.
+	(build_java_interface_fn_ref): Rewrite to avoid constructing
+	argument lists.
+	* tree.h: Update declarations to reflect above changes.
+	* method.c (use_thunk): Use a stack-allocated array to hold
+	the arguments instead of a list.
+	* rtti.c (throw_bad_cast): Update call to cxx_call.
+	(throw_bad_typeid): Likewise.
+	(build_dynamic_cast_1): Likewise.
+	* init.c (build_builtin_delete_call): Use build_call_n.
+	* decl.c (expand_static_init): Likewise.
+	* except.c (cp_protect_cleanup_actions): Likewise.
+	* cp-gimplify.c (genericize_eh_spec_block): Likewise.
+	(gimplify_must_not_throw_expr): Likewise.
+	(cxx_omp_apply_fn): Use build_call_a.
+
 2007-02-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* semantics.c (expand_or_defer_fn): Call c_record_cdtor_fn.

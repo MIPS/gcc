@@ -1,3 +1,96 @@
+2007-03-05  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am (gij_LDFLAGS): Use dbexecdir.
+	* Makefile.in: Regnerate.
+
+2007-03-05  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Character.java: Re-merged with Classpath.
+	* java/lang/natString.cc (nativeCompareTo): Renamed from
+	compareTo.
+	* java/lang/StringBuilder.java: Re-merged with Classpath.
+	* java/lang/String.java: Re-merged with Classpath.
+	(nativeCompareTo): Renamed from compareTo.
+	* java/lang/StringBuffer.java: Re-merged with Classpath.
+	* jni.cc (_Jv_JNI_GetAnyMethodID): Split calls to append.
+
+2007-03-05  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (ncode_closure.meth): Delete.
+	(generateProxyClass): Don't pass method to ncode.
+	(run_proxy): Call _Jv_GetReflectedMethod to find the proxy method.
+	* java/lang/reflect/Method.h: Rebuild.
+	* java/lang/reflect/Method.java (internalGetParameterTypes,
+	internalGetExceptionTypes): New methods.
+	* headers.txt (class java/lang/reflect/Method): Declare
+	_Jv_GetReflectedMethod.  Be its friend.
+	* java/lang/natClass.cc (_Jv_GetReflectedMethod): New method.
+	* java/lang/Class.h: Declare it.  Be its friend.
+
+2007-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (emit_package_rule): Don't omit
+	VMProcess.java.
+	* Makefile.am (nat_source_files): Added natVMProcess.cc.
+	(inner_nat_headers): Added ImmediateEOFInputStream.h.
+	* gcj/javaprims.h: Regenerated.
+	* java/lang/System.java (EnvironmentMap): Now package-private.
+	(EnvironmentMap(Map)): New constructor.
+	(EnvironmentMap.put): New method.
+	* java/lang/natWin32Process.cc (startProcess): Update.
+	* java/lang/Win32Process.java (Win32Process): Added 'redirect'
+	argument.
+	(startProcess): Likewise.
+	* java/lang/EcosProcess.java (EcosProcess): Added 'redirect'
+	argument.
+	* java/lang/natPosixProcess.cc (nativeSpawn): Handle redirection.
+	* java/lang/PosixProcess.java (redirect): New field.
+	(PosixProcess): Added 'redirect' argument.
+	* java/lang/natRuntime.cc (execInternal): Added 'redirect'
+	argument to Process creation.
+	* java/lang/natVMProcess.cc: New file.
+	* java/lang/ProcessBuilder.java: Removed.
+	* java/lang/VMProcess.java: New file.
+
+2007-03-03  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (parseAnnotationElement): Correct long
+	annotations to read JV_CONSTANT_Long, not JV_CONSTANT_Double.
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java:
+	Generify in a few places.
+	(equals): Rewrite to use invoke on local proxy.
+	(deepToString): Remove most of it.
+	(toString): Make nonstatic.
+	(arrayClone): Delete.
+	(coerce): New method.
+	(invoke): Rewrite to handle gcj's structures correctly.
+	* java/lang/natClass.cc (getDeclaredAnnotations): Fix test for
+	null loader.
+	* sources.am: Regenerate.
+	* Makefile.am: Likewise.	
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java:
+	Whitespace only changes.
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java: Moved
+	from Classpath to libgcj local.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.am: Add dummy install-pdf target.
+	* Makefile.in: Regenerate
+	* include/Makefile.in: Regenerate
+	* testsuite/Makefile.in: Regenerate
+	* gcj/Makefile.in: Regenerate
+
 2007-02-23  Gary Benson  <gbenson@redhat.com>
 
 	* gnu/gcj/tools/gcj_dbtool/Main.java: Updated copyright year.

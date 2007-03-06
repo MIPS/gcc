@@ -190,6 +190,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #endif
 
 #define TARGET_DWARF_REGISTER_SPAN hook_rtx_rtx_null
+#define TARGET_INIT_DWARF_REG_SIZES_EXTRA hook_void_tree
 
 #ifndef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START default_file_start
@@ -693,6 +694,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_ADDRESS_COST,				\
   TARGET_ALLOCATE_INITIAL_VALUE,		\
   TARGET_DWARF_REGISTER_SPAN,                   \
+  TARGET_INIT_DWARF_REG_SIZES_EXTRA,		\
   TARGET_FIXED_CONDITION_CODE_REGS,		\
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
@@ -732,6 +734,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_RELAXED_ORDERING,			\
   TARGET_ARM_EABI_UNWINDER			\
 }
+
+#define TARGET_HANDLE_C_OPTION default_handle_c_option
+#define TARGETCM_INITIALIZER { TARGET_HANDLE_C_OPTION }
 
 #include "hooks.h"
 #include "targhooks.h"

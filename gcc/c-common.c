@@ -48,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "opts.h"
 #include "real.h"
 #include "cgraph.h"
+#include "target-def.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -554,7 +555,7 @@ static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 
-static void check_function_nonnull (tree, tree);
+static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
 static bool nonnull_check_p (tree, unsigned HOST_WIDE_INT);
 static bool get_nonnull_operand (tree, unsigned HOST_WIDE_INT *);
@@ -1254,9 +1255,8 @@ convert_and_check (tree type, tree expr)
   
   result = convert (type, expr);
 
-  if (skip_evaluation)
+  if (skip_evaluation || TREE_OVERFLOW_P (expr))
     return result;
-
 
   if (TREE_CODE (expr) == INTEGER_CST
       && (TREE_CODE (type) == INTEGER_TYPE
@@ -1278,21 +1278,19 @@ convert_and_check (tree type, tree expr)
           else if (warn_conversion)
             conversion_warning (type, expr);
         }
-      else
-        {
-          if (!int_fits_type_p (expr, c_common_unsigned_type (type)))
-            warning (OPT_Woverflow,
-                     "overflow in implicit constant conversion");
-          /* No warning for converting 0x80000000 to int.  */
-          else if (pedantic
-                   && (TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE
-                       || TYPE_PRECISION (TREE_TYPE (expr))
-                       != TYPE_PRECISION (type)))
-            warning (OPT_Woverflow,
-                     "overflow in implicit constant conversion");
-          else if (warn_conversion)
-            conversion_warning (type, expr);
-        }
+      else if (!int_fits_type_p (expr, c_common_unsigned_type (type))) 
+	warning (OPT_Woverflow,
+		 "overflow in implicit constant conversion");
+      /* No warning for converting 0x80000000 to int.  */
+      else if (pedantic
+	       && (TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE
+		   || TYPE_PRECISION (TREE_TYPE (expr))
+		   != TYPE_PRECISION (type)))
+	warning (OPT_Woverflow,
+		 "overflow in implicit constant conversion");
+
+      else if (warn_conversion)
+	conversion_warning (type, expr);
     }
   else if ((TREE_CODE (result) == INTEGER_CST
 	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result)) 
@@ -4895,6 +4893,15 @@ get_priority (tree args, bool is_destructor)
   if (!args)
     return DEFAULT_INIT_PRIORITY;
   
+  if (!SUPPORTS_INIT_PRIORITY)
+    {
+      if (is_destructor)
+	error ("destructor priorities are not supported");
+      else
+	error ("constructor priorities are not supported");
+      return DEFAULT_INIT_PRIORITY;
+    }
+
   arg = TREE_VALUE (args);
   if (!host_integerp (arg, /*pos=*/0)
       || !INTEGRAL_TYPE_P (TREE_TYPE (arg)))
@@ -5921,13 +5928,15 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 }
 
 /* Check the argument list of a function call for null in argument slots
-   that are marked as requiring a non-null pointer argument.  */
+   that are marked as requiring a non-null pointer argument.  The NARGS
+   arguments are passed in the array ARGARRAY.
+*/
 
 static void
-check_function_nonnull (tree attrs, tree params)
+check_function_nonnull (tree attrs, int nargs, tree *argarray)
 {
-  tree a, args, param;
-  int param_num;
+  tree a, args;
+  int i;
 
   for (a = attrs; a; a = TREE_CHAIN (a))
     {
@@ -5939,85 +5948,65 @@ check_function_nonnull (tree attrs, tree params)
 	     should check for non-null, do it.  If the attribute has no args,
 	     then every pointer argument is checked (in which case the check
 	     for pointer type is done in check_nonnull_arg).  */
-	  for (param = params, param_num = 1; ;
-	       param_num++, param = TREE_CHAIN (param))
+	  for (i = 0; i < nargs; i++)
 	    {
-	      if (!param)
-		break;
-	      if (!args || nonnull_check_p (args, param_num))
+	      if (!args || nonnull_check_p (args, i + 1))
 		check_function_arguments_recurse (check_nonnull_arg, NULL,
-						  TREE_VALUE (param),
-						  param_num);
+						  argarray[i],
+						  i + 1);
 	    }
 	}
     }
 }
 
 /* Check that the Nth argument of a function call (counting backwards
-   from the end) is a (pointer)0.  */
+   from the end) is a (pointer)0.  The NARGS arguments are passed in the
+   array ARGARRAY.  */
 
 static void
-check_function_sentinel (tree attrs, tree params, tree typelist)
+check_function_sentinel (tree attrs, int nargs, tree *argarray, tree typelist)
 {
   tree attr = lookup_attribute ("sentinel", attrs);
 
   if (attr)
     {
+      int len = 0;
+      int pos = 0;
+      tree sentinel;
+
       /* Skip over the named arguments.  */
-      while (typelist && params)
-      {
-	typelist = TREE_CHAIN (typelist);
-	params = TREE_CHAIN (params);
-      }
-
-      if (typelist || !params)
-	warning (OPT_Wformat,
-		 "not enough variable arguments to fit a sentinel");
-      else
+      while (typelist && len < nargs)
 	{
-	  tree sentinel, end;
-	  unsigned pos = 0;
-
-	  if (TREE_VALUE (attr))
-	    {
-	      tree p = TREE_VALUE (TREE_VALUE (attr));
-	      pos = TREE_INT_CST_LOW (p);
-	    }
-
-	  sentinel = end = params;
-
-	  /* Advance `end' ahead of `sentinel' by `pos' positions.  */
-	  while (pos > 0 && TREE_CHAIN (end))
-	    {
-	      pos--;
-	      end = TREE_CHAIN (end);
-	    }
-	  if (pos > 0)
-	    {
-	      warning (OPT_Wformat,
-		       "not enough variable arguments to fit a sentinel");
-	      return;
-	    }
-
-	  /* Now advance both until we find the last parameter.  */
-	  while (TREE_CHAIN (end))
-	    {
-	      end = TREE_CHAIN (end);
-	      sentinel = TREE_CHAIN (sentinel);
-	    }
-
-	  /* Validate the sentinel.  */
-	  if ((!POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (sentinel)))
-	       || !integer_zerop (TREE_VALUE (sentinel)))
-	      /* Although __null (in C++) is only an integer we allow it
-		 nevertheless, as we are guaranteed that it's exactly
-		 as wide as a pointer, and we don't want to force
-		 users to cast the NULL they have written there.
-		 We warn with -Wstrict-null-sentinel, though.  */
-	      && (warn_strict_null_sentinel
-		  || null_node != TREE_VALUE (sentinel)))
-	    warning (OPT_Wformat, "missing sentinel in function call");
+	  typelist = TREE_CHAIN (typelist);
+	  len++;
 	}
+
+      if (TREE_VALUE (attr))
+	{
+	  tree p = TREE_VALUE (TREE_VALUE (attr));
+	  pos = TREE_INT_CST_LOW (p);
+	}
+
+      /* The sentinel must be one of the varargs, i.e.
+	 in position >= the number of fixed arguments.  */
+      if ((nargs - 1 - pos) < len)
+	{
+	  warning (OPT_Wformat,
+		   "not enough variable arguments to fit a sentinel");
+	  return;
+	}
+
+      /* Validate the sentinel.  */
+      sentinel = argarray[nargs - 1 - pos];
+      if ((!POINTER_TYPE_P (TREE_TYPE (sentinel))
+	   || !integer_zerop (sentinel))
+	  /* Although __null (in C++) is only an integer we allow it
+	     nevertheless, as we are guaranteed that it's exactly
+	     as wide as a pointer, and we don't want to force
+	     users to cast the NULL they have written there.
+	     We warn with -Wstrict-null-sentinel, though.  */
+	  && (warn_strict_null_sentinel || null_node != sentinel))
+	warning (OPT_Wformat, "missing sentinel in function call");
     }
 }
 
@@ -6207,23 +6196,26 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
   return NULL_TREE;
 }
 
-/* Check for valid arguments being passed to a function.  */
+/* Check for valid arguments being passed to a function.
+   ATTRS is a list of attributes.  There are NARGS arguments in the array
+   ARGARRAY.  TYPELIST is the list of argument types for the function.
+ */
 void
-check_function_arguments (tree attrs, tree params, tree typelist)
+check_function_arguments (tree attrs, int nargs, tree *argarray, tree typelist)
 {
   /* Check for null being passed in a pointer argument that must be
      non-null.  We also need to do this if format checking is enabled.  */
 
   if (warn_nonnull)
-    check_function_nonnull (attrs, params);
+    check_function_nonnull (attrs, nargs, argarray);
 
   /* Check for errors in format strings.  */
 
   if (warn_format || warn_missing_format_attribute)
-      check_function_format (attrs, params);
+    check_function_format (attrs, nargs, argarray);
 
   if (warn_format)
-    check_function_sentinel (attrs, params, typelist);
+    check_function_sentinel (attrs, nargs, argarray, typelist);
 }
 
 /* Generic argument checking recursion routine.  PARAM is the argument to
@@ -7154,5 +7146,9 @@ c_build_cdtor_fns (void)
       gcc_assert (!static_dtors);
     }
 }
+
+#ifndef TARGET_HAS_TARGETCM
+struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
+#endif
 
 #include "gt-c-common.h"

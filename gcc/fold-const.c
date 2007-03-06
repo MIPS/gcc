@@ -9179,16 +9179,23 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
   /* Fold ~X op ~Y as Y op X.  */
   if (TREE_CODE (arg0) == BIT_NOT_EXPR
       && TREE_CODE (arg1) == BIT_NOT_EXPR)
-    return fold_build2 (code, type,
-			TREE_OPERAND (arg1, 0),
-			TREE_OPERAND (arg0, 0));
+    {
+      tree cmp_type = TREE_TYPE (TREE_OPERAND (arg0, 0));
+      return fold_build2 (code, type,
+			  fold_convert (cmp_type, TREE_OPERAND (arg1, 0)),
+			  TREE_OPERAND (arg0, 0));
+    }
 
   /* Fold ~X op C as X op' ~C, where op' is the swapped comparison.  */
   if (TREE_CODE (arg0) == BIT_NOT_EXPR
       && TREE_CODE (arg1) == INTEGER_CST)
-    return fold_build2 (swap_tree_comparison (code), type,
-			TREE_OPERAND (arg0, 0),
-			fold_build1 (BIT_NOT_EXPR, TREE_TYPE (arg1), arg1));
+    {
+      tree cmp_type = TREE_TYPE (TREE_OPERAND (arg0, 0));
+      return fold_build2 (swap_tree_comparison (code), type,
+			  TREE_OPERAND (arg0, 0),
+			  fold_build1 (BIT_NOT_EXPR, cmp_type,
+				       fold_convert (cmp_type, arg1)));
+    }
 
   return NULL_TREE;
 }
@@ -9684,6 +9691,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  tree var0, con0, lit0, minus_lit0;
 	  tree var1, con1, lit1, minus_lit1;
+	  bool ok = true;
 
 	  /* Split both trees into variables, constants, and literals.  Then
 	     associate each group together, the constants with literals,
@@ -9694,12 +9702,32 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  var1 = split_tree (arg1, code, &con1, &lit1, &minus_lit1,
 			     code == MINUS_EXPR);
 
+	  /* With undefined overflow we can only associate constants
+	     with one variable.  */
+	  if ((POINTER_TYPE_P (type)
+	       || (INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_WRAPS (type)))
+	      && var0 && var1)
+	    {
+	      tree tmp0 = var0;
+	      tree tmp1 = var1;
+
+	      if (TREE_CODE (tmp0) == NEGATE_EXPR)
+	        tmp0 = TREE_OPERAND (tmp0, 0);
+	      if (TREE_CODE (tmp1) == NEGATE_EXPR)
+	        tmp1 = TREE_OPERAND (tmp1, 0);
+	      /* The only case we can still associate with two variables
+		 is if they are the same, modulo negation.  */
+	      if (!operand_equal_p (tmp0, tmp1, 0))
+	        ok = false;
+	    }
+
 	  /* Only do something if we found more than two objects.  Otherwise,
 	     nothing has changed and we risk infinite recursion.  */
-	  if (2 < ((var0 != 0) + (var1 != 0)
-		   + (con0 != 0) + (con1 != 0)
-		   + (lit0 != 0) + (lit1 != 0)
-		   + (minus_lit0 != 0) + (minus_lit1 != 0)))
+	  if (ok
+	      && (2 < ((var0 != 0) + (var1 != 0)
+		       + (con0 != 0) + (con1 != 0)
+		       + (lit0 != 0) + (lit1 != 0)
+		       + (minus_lit0 != 0) + (minus_lit1 != 0))))
 	    {
 	      /* Recombine MINUS_EXPR operands by using PLUS_EXPR.  */
 	      if (code == MINUS_EXPR)
@@ -11390,14 +11418,6 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE && integer_zerop (arg1)
           && code == EQ_EXPR)
         return fold_build1 (TRUTH_NOT_EXPR, type, arg0);
-
-      /* If this is an equality comparison of the address of a non-weak
-	 object against zero, then we know the result.  */
-      if (TREE_CODE (arg0) == ADDR_EXPR
-	  && VAR_OR_FUNCTION_DECL_P (TREE_OPERAND (arg0, 0))
-	  && ! DECL_WEAK (TREE_OPERAND (arg0, 0))
-	  && integer_zerop (arg1))
-	return constant_boolean_node (code != EQ_EXPR, type);
 
       /* If this is an equality comparison of the address of two non-weak,
 	 unaliased symbols neither of which are extern (since we do not
@@ -13135,13 +13155,13 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
   return tem;
 }
 
-/* Fold a CALL_EXPR expression of type TYPE with operands FN and ARGLIST
-   and a null static chain.
+/* Fold a CALL_EXPR expression of type TYPE with operands FN and NARGS
+   arguments in ARGARRAY, and a null static chain.
    Return a folded expression if successful.  Otherwise, return a CALL_EXPR
-   of type TYPE from the given operands as constructed by build_call_list.  */
+   of type TYPE from the given operands as constructed by build_call_array.  */
 
 tree
-fold_build_call_list (tree type, tree fn, tree arglist)
+fold_build_call_array (tree type, tree fn, int nargs, tree *argarray)
 {
   tree tem;
 #ifdef ENABLE_FOLD_CHECKING
@@ -13151,6 +13171,7 @@ fold_build_call_list (tree type, tree fn, tree arglist)
 		checksum_after_arglist[16];
   struct md5_ctx ctx;
   htab_t ht;
+  int i;
 
   ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
   md5_init_ctx (&ctx);
@@ -13159,12 +13180,13 @@ fold_build_call_list (tree type, tree fn, tree arglist)
   htab_empty (ht);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (arglist, &ctx, ht);
+  for (i = 0; i < nargs; i++)
+    fold_checksum_tree (argarray[i], &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_arglist);
   htab_empty (ht);
 #endif
 
-  tem = fold_builtin_call_list (type, fn, arglist);
+  tem = fold_builtin_call_array (type, fn, nargs, argarray);
       
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
@@ -13176,12 +13198,13 @@ fold_build_call_list (tree type, tree fn, tree arglist)
     fold_check_failed (fn, tem);
   
   md5_init_ctx (&ctx);
-  fold_checksum_tree (arglist, &ctx, ht);
+  for (i = 0; i < nargs; i++)
+    fold_checksum_tree (argarray[i], &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_arglist);
   htab_delete (ht);
 
   if (memcmp (checksum_before_arglist, checksum_after_arglist, 16))
-    fold_check_failed (arglist, tem);
+    fold_check_failed (NULL_TREE, tem);
 #endif
   return tem;
 }
@@ -13247,12 +13270,13 @@ fold_build3_initializer (enum tree_code code, tree type, tree op0, tree op1,
 }
 
 tree
-fold_build_call_list_initializer (tree type, tree fn, tree arglist)
+fold_build_call_array_initializer (tree type, tree fn,
+				   int nargs, tree *argarray)
 {
   tree result;
   START_FOLD_INIT;
 
-  result = fold_build_call_list (type, fn, arglist);
+  result = fold_build_call_array (type, fn, nargs, argarray);
 
   END_FOLD_INIT;
   return result;
