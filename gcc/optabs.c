@@ -5025,6 +5025,7 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
   convert_optab tab;
   enum rtx_code this_code;
   enum insn_code code;
+  rtx insns, value;
 
   if (uintp)
     {
@@ -5043,7 +5044,15 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
       return;
     }
 
-  error ("fix me");
+  start_sequence ();
+  value = emit_library_call_value (tab->handlers[to_mode][from_mode].libfunc,
+				   NULL_RTX, LCT_CONST, to_mode,
+				   1, from, from_mode);
+  insns = get_insns ();
+  end_sequence ();
+  
+  emit_libcall_block (insns, to, value,
+		      gen_rtx_fmt_e (tab->code, to_mode, from));
 }
 
 /* Generate code to convert FROM to fixed point and store in TO.  FROM
@@ -5439,6 +5448,7 @@ void
 init_optabs (void)
 {
   unsigned int i;
+  enum mode_class m1, m2;
 
   /* Start by initializing all tables to contain CODE_FOR_nothing.  */
 
@@ -5784,6 +5794,50 @@ init_optabs (void)
   init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, false);
   init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, MODE_FLOAT);
+
+  /* Conversions for fixed-point modes and other modes.  */
+  for (m1 = MODE_FRACT; m1 <= MODE_UACCUM; m1++)
+    {
+      for (m2 = MODE_FRACT; m2 <= MODE_UACCUM; m2++)
+	{
+	  if (m1 == m2)
+	    {
+	      init_intraclass_conv_libfuncs (fixed_all_optab, "fixed_all", m1,
+					     true);
+	      init_intraclass_conv_libfuncs (fixed_all_optab, "fixed_all", m1,
+					     false);
+	      init_intraclass_conv_libfuncs (sat_fixed_all_optab,
+					     "sat_fixed_all", m1, true);
+	      init_intraclass_conv_libfuncs (sat_fixed_all_optab,
+					     "sat_fixed_all", m1, false);
+	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+					     m1, MODE_INT);
+	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+					     MODE_INT, m1);
+	      init_interclass_conv_libfuncs (fixed_uint_optab, "fixed_uint",
+					     m1, MODE_INT);
+	      init_interclass_conv_libfuncs (fixed_uint_optab, "fixed_uint",
+					     MODE_INT, m1);
+	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+					     m1, MODE_FLOAT);
+	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+					     MODE_FLOAT, m1);
+	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
+					     "sat_fixed_all", MODE_INT, m1);
+	      init_interclass_conv_libfuncs (sat_fixed_uint_optab,
+					     "sat_fixed_uint", MODE_INT, m1);
+	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
+					     "sat_fixed_all", MODE_FLOAT, m1);
+	    }
+	  else
+	    {
+	      init_interclass_conv_libfuncs (fixed_all_optab, "fixed_all",
+					     m1, m2);
+	      init_interclass_conv_libfuncs (sat_fixed_all_optab,
+					     "sat_fixed_all", m1, m2);
+	    }
+	}
+    }
 
   /* Explicitly initialize the bswap libfuncs since we need them to be
      valid for things other than word_mode.  */

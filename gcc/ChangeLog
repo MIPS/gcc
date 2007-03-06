@@ -1,3 +1,10 @@
+2007-03-05  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.c (expand_fixed_convert): Generate library calls if there are
+	no instructions for conversions.
+	(init_optabs): Initialize all conversion functions for fixed-point
+	modes and other modes.
+
 2007-02-28  Chao-ying Fu  <fu@mips.com>
 
 	* config/fixed-bit.c (stdio.h): Remove include.
