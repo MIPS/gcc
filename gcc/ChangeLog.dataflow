@@ -1,3 +1,21 @@
+2007-03-06  Paolo Bonzini  <bonzini@gnu.org>
+
+        * cse.c (validate_canon_reg): Don't do anything if *XLOC is NULL.
+        Assert it is only called with insn != 0 and it never resets
+        something non-NULL to NULL.  Always use validate_change.
+        (cse_insn): Always call canon_reg with an INSN except when it
+        is used on a REG.  When processing notes, first canonicalize,
+        then fold, and call df_notes_rescan.
+        (cse_process_notes): Rename to cse_process_notes_1, add CHANGED
+        parameter.
+        (cse_process_notes_1): Wrapper around cse_process_notes to set
+        the CHANGED parameter.
+        (cse_extended_basic_block): Adjust call to cse_process_notes
+        and use result to call df_notes_rescan.
+        (cse_main): Set deferred insn rescanning flag, don't rescan on exit.
+        (pass_cse2): Add TODO_df_finish.
+        * gcse.c (pass_gcse): Likewise.
+
 2007-03-04  Roman Zippel <zippel@linux-m68k.org>
 
 	* regclass.c (scan_one_insn): Call df_insn_rescan after breaking
