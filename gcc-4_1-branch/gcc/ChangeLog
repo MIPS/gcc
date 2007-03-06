@@ -1,3 +1,9 @@
+2007-03-06  Andrew Haley  <aph@redhat.com>
+
+	Backported from mainline
+        * function.c (expand_function_end): Move blockage to just after we
+        emit the label for the naked return from the function.
+
 2007-02-21 Ira Rosen  <irar@il.ibm.com>
 
 	* Makefile.in (tree-ssa-alias.o): Depend on pointer-set.h.
