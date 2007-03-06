@@ -1,3 +1,10 @@
+2007-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (bin_PROGRAMS): Added gcjh.
+	(gcjh_SOURCES, gcjh_LDFLAGS, gcjh_LINK, gcjh_LDADD,
+	gcjh_DEPENDENCIES): New variables.
+
 2007-03-05  Mark Wielaard  <mark@klomp.org>
 
 	* java/lang/Character.java: Re-merged with Classpath.
