@@ -12950,10 +12950,8 @@ rest_of_handle_combine (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
+      cleanup_cfg (0);
       timevar_pop (TV_JUMP);
-
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE);
     }
 
   return 0;

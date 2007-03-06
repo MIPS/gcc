@@ -6639,14 +6639,12 @@ gate_handle_jump_bypass (void)
 static unsigned int
 rest_of_handle_jump_bypass (void)
 {
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num ());
-
+  delete_unreachable_blocks ();
   if (bypass_jumps ())
     {
-      rebuild_jump_labels (get_insns ());
-      cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      rebuild_jump_labels (get_insns ());
+      cleanup_cfg (0);
     }
   return 0;
 }
@@ -6683,8 +6681,8 @@ rest_of_handle_gcse (void)
   int save_csb, save_cfj;
   int tem2 = 0, tem;
   tem = gcse_main (get_insns ());
-  rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  rebuild_jump_labels (get_insns ());
   save_csb = flag_cse_skip_blocks;
   save_cfj = flag_cse_follow_jumps;
   flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
@@ -6708,8 +6706,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
 

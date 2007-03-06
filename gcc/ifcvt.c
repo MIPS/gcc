@@ -4030,7 +4030,7 @@ rest_of_handle_if_conversion (void)
       if_convert ();
     }
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (0);
   reg_scan (get_insns (), max_reg_num ());
   return 0;
 }

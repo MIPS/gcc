@@ -2292,16 +2292,16 @@ cleanup_cfg (int mode)
 	}
       else
 	break;
-
-      /* Don't call delete_dead_jumptables in cfglayout mode, because
-	 that function assumes that jump tables are in the insns stream.
-	 But we also don't _have_ to delete dead jumptables in cfglayout
-	 mode because we shouldn't even be looking at things that are
-	 not in a basic block.  Dead jumptables are cleaned up when
-	 going out of cfglayout mode.  */
-      if (!(mode & CLEANUP_CFGLAYOUT))
-	delete_dead_jumptables ();
     }
+
+  /* Don't call delete_dead_jumptables in cfglayout mode, because
+     that function assumes that jump tables are in the insns stream.
+     But we also don't _have_ to delete dead jumptables in cfglayout
+     mode because we shouldn't even be looking at things that are
+     not in a basic block.  Dead jumptables are cleaned up when
+     going out of cfglayout mode.  */
+  if (!(mode & CLEANUP_CFGLAYOUT))
+    delete_dead_jumptables ();
 
   timevar_pop (TV_CLEANUP_CFG);
 

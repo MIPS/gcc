@@ -374,10 +374,11 @@ tracer (unsigned int flags)
   layout_superblocks ();
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-  cfg_layout_finalize ();
 
   /* Merge basic blocks in duplicated traces.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (0);
+
+  cfg_layout_finalize ();
 }
 
 static bool

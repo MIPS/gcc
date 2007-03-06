@@ -1,3 +1,31 @@
+2007-03-06  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* fwprop.c (try_fwprop_subst): Remove redundant df_notes_rescan.
+	* see.c (rest_of_handle_see): Run a fast dce.  Don't run cleanup_cfg.
+	* tracer.c (tracer): Clean up the cfg when still in cfglayout mode.
+	* postreload-gcse.c (rest_of_handle_gcse2): Don't run
+	delete_trivially_dead_insns, this pass cleans up after itself already.
+	* df-scan.c (df_insn_rescan): Fix typo.
+	* cse.c (rest_of_handle_cse): Don't use CLEANUP_EXPENSIVE.
+	(rest_of_handle_cse2): Likewise.  Don't call delete_dead_jumptables.
+	* web.c (rest_of_handle_web): Don't run delete_trivially_dead_insns.
+	Also don't clean up the CFG, this pass does not transform the CFG.
+	* loop-init.c (rtl_loop_done): Don't run delete_trivially_dead_insns.
+	Don't use CLEANUP_EXPENSIVE.
+	* ifcvt.c (rest_of_handle_if_conversion): Don't use CLEANUP_EXPENSIVE.
+	* gcse.c (rest_of_handle_jump_bypass): Only remove unreachable basic
+	blocks before the pass.  No need for a reg_scan.  Rebuild jump labels
+	after delete_trivially_dead_insns.  Don't use CLEANUP_EXPENSIVE.
+	(rest_of_handle_gcse): Rebuild jump labels after
+	delete_trivially_dead_insns.  Don't call delete_dead_jumptables.
+	Don't use CLEANUP_EXPENSIVE.
+	* cfgcleanup.c (cleanup_cfg): Move delete_dead_jumptables call out of
+	the loop.
+	* combine.c (rest_of_handle_combine): Account cleanup_cfg to TV_JUMP.
+	Don't use CLEANUP_EXPENSIVE.  Don't run delete_trivially_dead_insns.
+	* bb-reorder.c (rest_of_handle_reorder_blocks): Don't use
+	CLEANUP_EXPENSIVE.  Resurrect CLEANUP_CROSSJUMP here.
+
 2007-03-06  Paolo Bonzini  <bonzini@gnu.org>
 
         * cse.c (validate_canon_reg): Don't do anything if *XLOC is NULL.

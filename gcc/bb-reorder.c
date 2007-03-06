@@ -2199,7 +2199,7 @@ rest_of_handle_reorder_blocks (void)
 {
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     {

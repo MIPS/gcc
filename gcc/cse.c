@@ -7023,7 +7023,7 @@ rest_of_handle_cse (void)
     rebuild_jump_labels (get_insns ());
 
   if (tem || optimize > 1)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
+    cleanup_cfg (0);
 
   return 0;
 }
@@ -7077,8 +7077,7 @@ rest_of_handle_cse2 (void)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
   reg_scan (get_insns (), max_reg_num ());

@@ -216,8 +216,7 @@ rtl_loop_done (void)
       bb->aux = bb->next_bb;
   cfg_layout_finalize ();
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  cleanup_cfg (0);
   reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);

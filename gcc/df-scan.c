@@ -1134,7 +1134,7 @@ df_insn_rescan (rtx insn)
 	  insn_info->mw_hardregs = df_null_mw_rec;
 	}
       if (dump_file)
-	fprintf (dump_file, "defering resscan insn with uid = %d.\n", uid);
+	fprintf (dump_file, "defering rescan insn with uid = %d.\n", uid);
     
       bitmap_clear_bit (df->insns_to_delete, uid);
       bitmap_clear_bit (df->insns_to_notes_rescan, uid);

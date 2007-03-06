@@ -374,8 +374,6 @@ static unsigned int
 rest_of_handle_web (void)
 {
   web_main ();
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
   return 0;
 }
