@@ -1,3 +1,13 @@
+2007-03-05  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am(man_MANS): Add $(TOOLS_MANFILES).
+	* doc/Makefile.in: Regenerate.
+
+2007-03-06  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am(gkeytool.pod): Don't use sed -i.
+	* doc/Makefile.in: Regenerate.
+
 2007-03-07  Gary Benson  <gbenson@redhat.com>
 
 	* resource/META-INF/services/org.w3c.dom.DOMImplementationSourceList:

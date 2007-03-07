@@ -240,6 +240,8 @@ while(<$inf>) {
 	and $_ = "\n=head2 $1\n";
     /^\@subsection\s+(.+)$/
 	and $_ = "\n=head3 $1\n";
+    /^\@subsubsection\s+(.+)$/
+	and $_ = "\n=head4 $1\n";
 
     # Block command handlers:
     /^\@itemize(?:\s+(\@[a-z]+|\*|-))?/ and do {
@@ -369,6 +371,9 @@ sub postprocess
     s/\@refill//g;
     s/\@gol//g;
     s/\@\*\s*\n?//g;
+
+    # Anchors are thrown away
+    s/\@anchor\{(?:[^\}]*)\}//g;
 
     # @uref can take one, two, or three arguments, with different
     # semantics each time.  @url and @email are just like @uref with
