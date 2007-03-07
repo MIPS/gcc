@@ -1,3 +1,8 @@
+2007-03-07  Gary Benson  <gbenson@redhat.com>
+
+	* resource/META-INF/services/org.w3c.dom.DOMImplementationSourceList:
+	New file.
+
 2007-03-06  Tom Tromey  <tromey@redhat.com>
 
 	* tools/gnu/classpath/tools/javah/Main.java (getName): New
