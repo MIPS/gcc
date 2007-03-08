@@ -283,19 +283,21 @@ __ieee_to_host_128 (decimal128 in, _Decimal128 *out)
 }
 #endif /* L_conv_td */
 
-#if defined(L_addsub_sd) || defined(L_addsub_dd) || defined(L_addsub_td)
+#if defined(L_add_sd) || defined(L_add_dd) || defined(L_add_td)
 DFP_C_TYPE
 DFP_ADD (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberAdd, arg_a, arg_b);
 }
+#endif /* L_add */
 
+#if defined(L_sub_sd) || defined(L_sub_dd) || defined(L_sub_td)
 DFP_C_TYPE
 DFP_SUB (DFP_C_TYPE arg_a, DFP_C_TYPE arg_b)
 {
   return dfp_binary_op (decNumberSubtract, arg_a, arg_b);
 }
-#endif /* L_addsub */
+#endif /* L_sub */
 
 #if defined(L_mul_sd) || defined(L_mul_dd) || defined(L_mul_td)
 DFP_C_TYPE

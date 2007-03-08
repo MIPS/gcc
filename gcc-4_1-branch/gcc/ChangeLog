@@ -1,3 +1,11 @@
+2007-03-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* Makefile.in (D32PBIT_FUNCS, D64PBIT_FUNCS, D128PBIT_FUNCS):
+	Replace _addsub_* with _add_*, _sub_*.
+	* config/dfp-bit.h: Replace L_addsub_* with L_add_*, L_sub_*;
+	process DFP_ADD and DFP_SUB separately.
+	* config/dfp-bit.c: Ditto.
+
 2007-02-22  Janis Johnson  <janis187@us.ibm.com>
 
 	* version.c (bug_report_url): Use release-generic page.

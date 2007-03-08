@@ -462,8 +462,11 @@ extern DFP_C_TYPE DFP_MULTIPLY (DFP_C_TYPE, DFP_C_TYPE);
 extern DFP_C_TYPE DFP_DIVIDE (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
-#if defined (L_addsub_sd) || defined (L_addsub_dd) || defined (L_addsub_td)
+#if defined (L_add_sd) || defined (L_add_dd) || defined (L_add_td)
 extern DFP_C_TYPE DFP_ADD (DFP_C_TYPE, DFP_C_TYPE);
+#endif
+
+#if defined (L_sub_sd) || defined (L_sub_dd) || defined (L_sub_td)
 extern DFP_C_TYPE DFP_SUB (DFP_C_TYPE, DFP_C_TYPE);
 #endif
 
