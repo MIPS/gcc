@@ -3,6 +3,13 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+
+2007-03-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* libgfortran/intrincsics/iso_c_binding.h: Add copyright notice.
+	* libgfortran/intrincsics/iso_c_binding.c: Add copyright notice.
+	* libgfortran/intrincsics/iso_c_generated.c: Add copyright notice.
+
 2007-03-05  Christopher D. Rickett  <crickett@lanl.gov>
 
 	* gfortran.dg/c_funloc_tests_2.f03: New test case.
