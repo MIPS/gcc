@@ -1,3 +1,9 @@
+2007-03-08  Janis Johnson  <janis187@us.ibm.com>
+
+	* configure.ac: Move rel16 check to match order in mainline; fix
+	dadd instruction.
+	* configure: Regenerate.
+
 2007-03-07  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/dfp-bit.h: Don't include <fenv.h>, "tconfig.h"; include
