@@ -2508,10 +2508,7 @@ fold_convert (tree type, tree arg)
       if (TREE_CODE (arg) == FIXED_CST || TREE_CODE (arg) == INTEGER_CST
 	  || TREE_CODE (arg) == REAL_CST)
 	{
-	  if (TYPE_MODE (type) == TYPE_MODE (orig))
-	    tem = fold_convert_const (NOP_EXPR, type, arg);
-	  else
-	    tem = fold_convert_const (FIXED_CONVERT_EXPR, type, arg);
+	  tem = fold_convert_const (FIXED_CONVERT_EXPR, type, arg);
 	  if (tem != NULL_TREE)
 	    return tem;
 	}

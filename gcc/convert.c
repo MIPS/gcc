@@ -838,16 +838,6 @@ convert_to_fixed (tree type, tree expr)
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case FIXED_POINT_TYPE:
-      {
-	enum tree_code code;
-	tree intype = TREE_TYPE (expr);
-	if (TYPE_MODE (type) == TYPE_MODE (intype))
-	  code = NOP_EXPR;
-	else
-	  code = FIXED_CONVERT_EXPR;
-	return build1 (code, type, expr);
-      }
-
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:

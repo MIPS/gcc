@@ -5027,6 +5027,12 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
   enum insn_code code;
   rtx insns, value;
 
+  if (to_mode == from_mode)
+    {
+      emit_move_insn (to, from);
+      return;
+    }
+
   if (uintp)
     {
       tab = satp ? sat_fixed_uint_optab : fixed_uint_optab;

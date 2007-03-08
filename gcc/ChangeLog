@@ -1,3 +1,12 @@
+2007-03-08  Chao-ying Fu  <fu@mips.com>
+
+	* optabs.c (expand_fixed_convert): Emit a move instruction for the
+	same machine mode.
+	* fold-const.c (fold_convert): Avoid using NOP_EXPR when converting
+	to FIXED_POINT_TYPE.
+	* convert.c (convert_to_fixed): Avoid using NOP_EXPR when converting
+	to FIXED_POINT_TYPE.
+
 2007-03-07  Chao-ying Fu  <fu@mips.com>
 
 	* expr.c (count_type_elements): Handle the case of FIXED_POINT_TYPE.
