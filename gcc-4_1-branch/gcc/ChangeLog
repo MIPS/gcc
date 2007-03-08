@@ -1,5 +1,8 @@
 2007-03-07  Janis Johnson  <janis187@us.ibm.com>
 
+	* config/dfp-bit.h: Don't include <fenv.h>, "tconfig.h"; include
+	"coretypes.h" and "tm.h" only if IN_LIBGCC2 is defined.
+
 	* Makefile.in (D32PBIT_FUNCS, D64PBIT_FUNCS, D128PBIT_FUNCS):
 	Replace _addsub_* with _add_*, _sub_*.
 	* config/dfp-bit.h: Replace L_addsub_* with L_add_*, L_sub_*;

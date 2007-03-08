@@ -30,12 +30,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef _DFPBIT_H
 #define _DFPBIT_H
 
-#include <fenv.h>
 #include <decRound.h>
 #include <decExcept.h>
-#include "tconfig.h"
+
+#ifdef IN_LIBGCC2
 #include "coretypes.h"
 #include "tm.h"
+#endif
 
 #ifndef LIBGCC2_WORDS_BIG_ENDIAN
 #define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
