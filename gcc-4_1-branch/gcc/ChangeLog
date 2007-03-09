@@ -1,5 +1,10 @@
 2007-03-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* doc/extend.texi (Other Builtins): Add decimal float variants
+	of signbit.
+	* builtins.def: Ditto.
+	* builtins.c (expand_builtin): Ditto.
+
 	* configure.ac: Move rel16 check to match order in mainline; fix
 	dadd instruction.
 	* configure: Regenerate.
