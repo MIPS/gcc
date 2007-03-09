@@ -234,7 +234,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
   rtx x = (rtx) x_arg;
   enum machine_mode mode = GET_MODE (x);
 
-  gcc_assert (GET_CODE (x) != CONST_INT
+  gcc_assert (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
 	      && (mode != VOIDmode || GET_CODE (x) != CONST_DOUBLE));
   
   if (mode != GET_MODE (v->val_rtx))
@@ -243,6 +243,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
   /* Unwrap X if necessary.  */
   if (GET_CODE (x) == CONST
       && (GET_CODE (XEXP (x, 0)) == CONST_INT
+	  || GET_CODE (XEXP (x, 0)) == CONST_FIXED
 	  || GET_CODE (XEXP (x, 0)) == CONST_DOUBLE))
     x = XEXP (x, 0);
 
@@ -548,7 +549,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 static rtx
 wrap_constant (enum machine_mode mode, rtx x)
 {
-  if (GET_CODE (x) != CONST_INT
+  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
       && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
     return x;
   gcc_assert (mode != VOIDmode);
@@ -611,6 +612,11 @@ cselib_hash_rtx (rtx x, int create)
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
       return hash ? hash : (unsigned int) CONST_DOUBLE;
+
+    case CONST_FIXED:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      hash += fixed_hash (CONST_FIXED_VALUE (x));
+      return hash ? hash : (unsigned int) CONST_FIXED;
 
     case CONST_VECTOR:
       {
@@ -864,6 +870,7 @@ cselib_subst_to_values (rtx x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CONST_INT:
+    case CONST_FIXED:
       return x;
 
     case POST_INC:

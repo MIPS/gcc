@@ -1,3 +1,10 @@
+2007-03-09  Chao-ying Fu  <fu@mips.com>
+
+	* cselib.c (entry_and_rtx_equal_p): Check CONST_FIXED.
+	(wrap_constant): Check CONST_FIXED.
+	(cselib_hash_rtx): Support CONST_FIXED.
+	(cselib_subst_to_values): Support CONST_FIXED.
+
 2007-03-08  Chao-ying Fu  <fu@mips.com>
 
 	* optabs.c (expand_fixed_convert): Emit a move instruction for the
