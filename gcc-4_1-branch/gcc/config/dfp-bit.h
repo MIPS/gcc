@@ -50,9 +50,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
 #endif
 
-#ifndef LIBGCC2_HAS_XF_MODE
-#define LIBGCC2_HAS_XF_MODE \
-  (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
+#ifndef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE \
+  (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #endif
 
 /* Depending on WIDTH, define a number of macros:
@@ -240,8 +240,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #elif defined (L_sd_to_df) || defined (L_dd_to_df ) || defined (L_td_to_df) \
  ||   defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td)
 #define BFP_KIND 2
-#elif defined (L_sd_to_xf) || defined (L_dd_to_xf ) || defined (L_td_to_xf) \
- ||   defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)
+#elif defined (L_sd_to_tf) || defined (L_dd_to_tf ) || defined (L_td_to_tf) \
+ ||   defined (L_tf_to_sd) || defined (L_tf_to_dd) || defined (L_tf_to_td)
 #define BFP_KIND 3
 #endif
 
@@ -266,9 +266,9 @@ extern float strtof (const char *, char **);
 #define STR_TO_BFP strtod
 
 #elif BFP_KIND == 3
-#if LIBGCC2_HAS_XF_MODE
-/* These aren't used if XF mode is not supported.  */
-#define BFP_TYPE XFtype
+#if LIBGCC2_HAS_TF_MODE
+/* These aren't used if TF mode is not supported.  */
+#define BFP_TYPE TFtype
 #define BFP_FMT "%e"
 #define BFP_VIA_TYPE double
 #define STR_TO_BFP strtod
@@ -405,8 +405,8 @@ extern float strtof (const char *, char **);
 #define BFP_TO_DFP	__truncdfsd
 #define DFP_TO_BFP	__extendsddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__truncxfsd
-#define DFP_TO_BFP	__extendsdxf
+#define BFP_TO_DFP	__trunctfsd
+#define DFP_TO_BFP	__extendsdtf
 #endif /* BFP_KIND */
 
 #elif WIDTH == 64
@@ -417,8 +417,8 @@ extern float strtof (const char *, char **);
 #define BFP_TO_DFP	__extenddfdd
 #define DFP_TO_BFP	__truncdddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__truncxfdd
-#define DFP_TO_BFP	__extendddxf
+#define BFP_TO_DFP	__trunctfdd
+#define DFP_TO_BFP	__extendddtf
 #endif /* BFP_KIND */
 
 #elif WIDTH == 128
@@ -429,8 +429,8 @@ extern float strtof (const char *, char **);
 #define BFP_TO_DFP	__extenddftd
 #define DFP_TO_BFP	__trunctddf
 #elif BFP_KIND == 3
-#define BFP_TO_DFP	__extendxftd
-#define DFP_TO_BFP	__trunctdxf
+#define BFP_TO_DFP	__extendtftd
+#define DFP_TO_BFP	__trunctdtf
 #endif /* BFP_KIND */
 
 #endif /* WIDTH */
@@ -439,9 +439,9 @@ extern float strtof (const char *, char **);
 
 typedef float SFtype __attribute__ ((mode (SF)));
 typedef float DFtype __attribute__ ((mode (DF)));
-#if LIBGCC2_HAS_XF_MODE
-typedef float XFtype __attribute__ ((mode (XF)));
-#endif /* LIBGCC2_HAS_XF_MODE */
+#if LIBGCC2_HAS_TF_MODE
+typedef float TFtype __attribute__ ((mode (TF)));
+#endif /* LIBGCC2_HAS_TF_MODE */
 
 typedef int SItype __attribute__ ((mode (SI)));
 typedef int DItype __attribute__ ((mode (DI)));
@@ -520,15 +520,15 @@ extern DFP_C_TYPE INT_TO_DFP (INT_TYPE);
 
 #if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
  || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df) \
- || ((defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)) \
-     && LIBGCC2_HAS_XF_MODE)
+ || ((defined (L_sd_to_tf) || defined (L_dd_to_tf) || defined (L_td_to_tf)) \
+     && LIBGCC2_HAS_TF_MODE)
 extern BFP_TYPE DFP_TO_BFP (DFP_C_TYPE);
 #endif
 
 #if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
  || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td) \
- || ((defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)) \
-     && LIBGCC2_HAS_XF_MODE)
+ || ((defined (L_tf_to_sd) || defined (L_tf_to_dd) || defined (L_tf_to_td)) \
+     && LIBGCC2_HAS_TF_MODE)
 extern DFP_C_TYPE BFP_TO_DFP (BFP_TYPE);
 #endif
 

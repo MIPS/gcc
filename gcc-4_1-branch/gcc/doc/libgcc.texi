@@ -489,35 +489,41 @@ sign bit, so they can produce negative zero and negative NaN@.
 @deftypefn {Runtime Function} _Decimal64 __extendsddd2 (_Decimal32 @var{a})
 @deftypefnx {Runtime Function} _Decimal128 __extendsdtd2 (_Decimal32 @var{a})
 @deftypefnx {Runtime Function} _Decimal128 __extendddtd2 (_Decimal64 @var{a})
-@c DFP/binary FP conversions
-@deftypefnx {Runtime Function} _Decimal32 __extendsfsd (float @var{a})
-@deftypefnx {Runtime Function} double __extendsddf (_Decimal32 @var{a})
-@deftypefnx {Runtime Function} {long double} __extendsdxf (_Decimal32 @var{a})
-@deftypefnx {Runtime Function} _Decimal64 __extendsfdd (float @var{a})
-@deftypefnx {Runtime Function} _Decimal64 __extenddfdd (double @var{a})
-@deftypefnx {Runtime Function} {long double} __extendddxf (_Decimal64 @var{a})
-@deftypefnx {Runtime Function} _Decimal128 __extendsftd (float @var{a})
-@deftypefnx {Runtime Function} _Decimal128 __extenddftd (double @var{a})
-@deftypefnx {Runtime Function} _Decimal128 __extendxftd ({long double} @var{a})
-These functions extend @var{a} to the wider mode of their return type.
-@end deftypefn
-
-@c DFP/DFP conversions
-@deftypefn {Runtime Function} _Decimal32 __truncddsd2 (_Decimal64 @var{a})
+@deftypefnx {Runtime Function} _Decimal32 __truncddsd2 (_Decimal64 @var{a})
 @deftypefnx {Runtime Function} _Decimal32 __trunctdsd2 (_Decimal128 @var{a})
 @deftypefnx {Runtime Function} _Decimal64 __trunctddd2 (_Decimal128 @var{a})
-@c DFP/binary FP conversions
-@deftypefnx {Runtime Function} float __truncsdsf (_Decimal32 @var{a})
+These functions convert the value @var{a} from one decimal floating type
+to another.
+@end deftypefn
+
+@deftypefn {Runtime Function} _Decimal64 __extendsfdd (float @var{a})
+@deftypefnx {Runtime Function} _Decimal128 __extendsftd (float @var{a})
+@deftypefnx {Runtime Function} _Decimal128 __extenddftd (double @var{a})
 @deftypefnx {Runtime Function} _Decimal32 __truncdfsd (double @var{a})
-@deftypefnx {Runtime Function} _Decimal32 __truncxfsd ({long double} @var{a})
+@deftypefnx {Runtime Function} _Decimal32 __trunctfsd ({long double} @var{a})
+@deftypefnx {Runtime Function} _Decimal64 __trunctfdd ({long double} @var{a})
+These functions convert the value of @var{a} from a binary floating type
+to a decimal floating type of a different size.
+@end deftypefn
+
+@deftypefn {Runtime Function} double __extendsddf (_Decimal32 @var{a})
+@deftypefnx {Runtime Function} {long double} __extendsdtf (_Decimal32 @var{a})
+@deftypefnx {Runtime Function} {long double} __extendddtf (_Decimal64 @var{a})
 @deftypefnx {Runtime Function} float __truncddsf (_Decimal64 @var{a})
-@deftypefnx {Runtime Function} double __truncdddf (_Decimal64 @var{a})
-@deftypefnx {Runtime Function} _Decimal64 __truncxfdd ({long double} @var{a})
 @deftypefnx {Runtime Function} float __trunctdsf (_Decimal128 @var{a})
 @deftypefnx {Runtime Function} double __trunctddf (_Decimal128 @var{a})
-@deftypefnx {Runtime Function} {long double} __trunctdxf (_Decimal128 @var{a})
-These functions truncate @var{a} to the narrower mode of their return
-type.
+These functions convert the value of @var{a} from a decimal floating type
+to a binary floating type of a different size.
+@end deftypefn
+
+@deftypefn {Runtime Function} _Decimal32 __extendsfsd (float @var{a})
+@deftypefnx {Runtime Function} _Decimal64 __extenddfdd (double @var{a})
+@deftypefnx {Runtime Function} _Decimal128 __extendtftd ({long double} @var{a})
+@deftypefnx {Runtime Function} float __truncsdsf (_Decimal32 @var{a})
+@deftypefnx {Runtime Function} double __truncdddf (_Decimal64 @var{a})
+@deftypefnx {Runtime Function} {long double} __trunctdtf (_Decimal128 @var{a})
+These functions convert the value of @var{a} between decimal and
+binary floating types of the same size.
 @end deftypefn
 
 @deftypefn {Runtime Function} int __fixsdsi (_Decimal32 @var{a})

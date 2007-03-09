@@ -1,5 +1,12 @@
 2007-03-08  Janis Johnson  <janis187@us.ibm.com>
 
+	* Makefile.in: Fix names of DFP conversion functions.
+	* config/dfp-bit.h (LIBGCC2_HAS_TF_MODE): Replaces XF mode variant.
+	Fix symbols and names for conversion functions.
+	* config/dfp-bit.c: Fix symbols for conversion functions.
+	* doc/libgcc.texi: Fix names of DFP conversion functions;
+	fix formatting.
+
 	* doc/extend.texi (Other Builtins): Add decimal float variants
 	of signbit.
 	* builtins.def: Ditto.

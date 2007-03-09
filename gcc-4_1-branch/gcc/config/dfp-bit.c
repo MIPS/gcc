@@ -505,8 +505,8 @@ INT_TO_DFP (INT_TYPE i)
 
 #if defined (L_sd_to_sf) || defined (L_dd_to_sf) || defined (L_td_to_sf) \
  || defined (L_sd_to_df) || defined (L_dd_to_df) || defined (L_td_to_df) \
- || ((defined (L_sd_to_xf) || defined (L_dd_to_xf) || defined (L_td_to_xf)) \
-     && LIBGCC2_HAS_XF_MODE)
+ || ((defined (L_sd_to_tf) || defined (L_dd_to_tf) || defined (L_td_to_tf)) \
+     && LIBGCC2_HAS_TF_MODE)
 BFP_TYPE
 DFP_TO_BFP (DFP_C_TYPE f)
 {
@@ -523,8 +523,8 @@ DFP_TO_BFP (DFP_C_TYPE f)
                                                                                 
 #if defined (L_sf_to_sd) || defined (L_sf_to_dd) || defined (L_sf_to_td) \
  || defined (L_df_to_sd) || defined (L_df_to_dd) || defined (L_df_to_td) \
- || ((defined (L_xf_to_sd) || defined (L_xf_to_dd) || defined (L_xf_to_td)) \
-     && LIBGCC2_HAS_XF_MODE)
+ || ((defined (L_tf_to_sd) || defined (L_tf_to_dd) || defined (L_tf_to_td)) \
+     && LIBGCC2_HAS_TF_MODE)
 DFP_C_TYPE
 BFP_TO_DFP (BFP_TYPE x)
 {
@@ -538,7 +538,7 @@ BFP_TO_DFP (BFP_TYPE x)
 
   /* Use a C library function to write the floating point value to a string.  */
 #ifdef BFP_VIA_TYPE
-  /* FIXME: Is there a better way to output an XFmode variable in C?  */
+  /* FIXME: Is there a better way to output a TFmode variable in C?  */
   sprintf (buf, BFP_FMT, (BFP_VIA_TYPE) x);
 #else
   sprintf (buf, BFP_FMT, x);
