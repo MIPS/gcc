@@ -1,3 +1,7 @@
+2007-03-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c: Include df.h.
+
 2007-03-06  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* fwprop.c (try_fwprop_subst): Remove redundant df_notes_rescan.

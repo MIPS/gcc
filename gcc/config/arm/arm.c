@@ -52,6 +52,7 @@
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "df.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
