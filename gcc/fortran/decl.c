@@ -761,7 +761,13 @@ verify_c_interop_param (gfc_symbol *sym)
   if (sym->attr.flavor == FL_PROCEDURE)
     {
       if (sym->attr.is_bind_c == 0)
-        return FAILURE;
+        {
+          gfc_error_now ("Procedure '%s' at %L must have the BIND(C) "
+                         "attribute to be C interoperable", sym->name,
+                         &(sym->declared_at));
+                         
+          return FAILURE;
+        }
       else
         {
           if (sym->attr.is_c_interop == 1)

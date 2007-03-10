@@ -1558,7 +1558,33 @@ is_scalar_expr_ptr (gfc_expr *expr)
             retval = FAILURE;
           break;
         case REF_ARRAY:
-          if (ref->u.ar.type != AR_ELEMENT)
+          if (ref->u.ar.type == AR_ELEMENT)
+            retval = SUCCESS;
+          else if (ref->u.ar.type == AR_FULL)
+            {
+              /* The user can give a full array if the array is of size 1.  */
+              if (ref->u.ar.as != NULL
+                  && ref->u.ar.as->rank == 1
+                  && ref->u.ar.as->type == AS_EXPLICIT
+                  && ref->u.ar.as->lower[0] != NULL
+                  && ref->u.ar.as->lower[0]->expr_type == EXPR_CONSTANT
+                  && ref->u.ar.as->upper[0] != NULL
+                  && ref->u.ar.as->upper[0]->expr_type == EXPR_CONSTANT)
+                {
+                  /* We have constant lower and upper bounds.  If the
+                     difference between is 1, it can be considered a
+                     scalar.  */
+                  start = (int) mpz_get_si
+                                (ref->u.ar.as->lower[0]->value.integer);
+                  end = (int) mpz_get_si
+                              (ref->u.ar.as->upper[0]->value.integer);
+                  if (end - start + 1 != 1)
+                    retval = FAILURE;
+                }
+              else
+                retval = FAILURE;
+            }
+          else
             retval = FAILURE;
           break;
         default:
@@ -5877,8 +5903,8 @@ gfc_verify_binding_labels (gfc_symbol *sym)
       gfc_gsymbol *bind_c_sym;
 
       bind_c_sym = gfc_find_gsymbol (gfc_gsym_root, sym->binding_label);
-      if (bind_c_sym != NULL
-	  && strcmp (bind_c_sym->name, sym->binding_label) == 0)
+      if (bind_c_sym != NULL 
+          && strcmp (bind_c_sym->name, sym->binding_label) == 0)
         {
           if (sym->attr.if_source == IFSRC_DECL 
               && (bind_c_sym->type != GSYM_SUBROUTINE 
@@ -5898,7 +5924,8 @@ gfc_verify_binding_labels (gfc_symbol *sym)
           else if (sym->attr.contained == 0 
                    && (sym->attr.if_source == IFSRC_IFBODY 
                        && sym->attr.flavor == FL_PROCEDURE) 
-                   && strcmp (bind_c_sym->sym_name, sym->name) != 0)
+                   && (bind_c_sym->sym_name != NULL 
+                       && strcmp (bind_c_sym->sym_name, sym->name) != 0))
             {
               /* Make sure procedures in interface bodies don't collide.  */
               gfc_error ("Binding label '%s' in interface body at %L collides "
@@ -6453,8 +6480,12 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
           if (curr_arg->sym->attr.implicit_type == 0
 	      && verify_c_interop_param (curr_arg->sym) == FAILURE)
             {
+              /* If something is found to fail, mark the symbol for the
+                 procedure as not being BIND(C) to try and prevent multiple
+                 errors being reported.  */
               sym->attr.is_c_interop = 0;
               sym->ts.is_c_interop = 0;
+              sym->attr.is_bind_c = 0;
             }
           curr_arg = curr_arg->next;
         }

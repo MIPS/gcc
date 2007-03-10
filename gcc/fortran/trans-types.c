@@ -80,10 +80,6 @@ gfc_real_info gfc_real_kinds[MAX_REAL_KINDS + 1];
 static GTY(()) tree gfc_real_types[MAX_REAL_KINDS + 1];
 static GTY(()) tree gfc_complex_types[MAX_REAL_KINDS + 1];
 
-#define NUM_C_DERIVED_TYPES 2 /* c_ptr and c_funptr */
-#define C_PTR_TYPE_INDEX 0    /* index of c_ptr type tree */
-#define C_FUNPTR_TYPE_INDEX 1 /* index of c_funptr type tree */
-static tree gfc_iso_c_derived_types[NUM_C_DERIVED_TYPES];
 
 /* The integer kind to use for array indices.  This will be set to the
    proper value based on target information from the backend.  */
@@ -837,7 +833,13 @@ gfc_typenode_for_spec (gfc_typespec * spec)
       gcc_unreachable ();
 
     case BT_INTEGER:
-      basetype = gfc_get_int_type (spec->kind);
+      /* We use INTEGER(c_intptr_t) for C_PTR and C_FUNPTR once the symbol
+         has been resolved.  This is done so we can convert C_PTR and
+         C_FUNPTR to simple variables that get translated to (void *).  */
+      if (spec->f90_type == BT_VOID)
+        basetype = ptr_type_node;
+      else
+        basetype = gfc_get_int_type (spec->kind);
       break;
 
     case BT_REAL:
@@ -858,11 +860,21 @@ gfc_typenode_for_spec (gfc_typespec * spec)
 
     case BT_DERIVED:
       basetype = gfc_get_derived_type (spec->derived);
+
+      /* If we're dealing with either C_PTR or C_FUNPTR, we modified the
+         type and kind to fit a (void *) and the basetype returned was a
+         ptr_type_node.  We need to pass up this new information to the
+         symbol that was declared of type C_PTR or C_FUNPTR.  */
+      if (spec->derived->attr.is_iso_c)
+        {
+          spec->type = spec->derived->ts.type;
+          spec->kind = spec->derived->ts.kind;
+          spec->f90_type = spec->derived->ts.f90_type;
+        }
       break;
     case BT_VOID:
-       /* this is for the second arg to c_f_pointer and c_f_procpointer
-        * of the iso_c_binding module, to accept any ptr type.
-        */
+       /* This is for the second arg to c_f_pointer and c_f_procpointer
+          of the iso_c_binding module, to accept any ptr type.  */
        basetype = ptr_type_node;
        break;
     default:
@@ -1575,42 +1587,6 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
 }
 
 
-/* Check whether the given derived type is from the iso_c_binding
-   intrinsic module.  Returns 1 if is from the iso_c_binding module; 0
-   if not.  */
-
-static int
-check_iso_c_derived (gfc_symbol *derived)
-{
-  /* this should only be 1 for c_ptr and c_funptr; 0 otherwise */
-  return derived->attr.is_iso_c;
-}
-
-
-/* Get the stored iso_c_binding derived type for either c_ptr or
-   c_funptr.  A reference is stored to the first of these created for
-   a given namespace because when the expressions they are used in are
-   being generated, the types are checked to see if they are the same.
-   The checks are limited to if they point to the same object.  Even
-   if the fields are all identical in type, the derived types could
-   not be used in expressions for each other, such as assigning one to
-   the other.  Therefore, to allow this to work, they will share an
-   underlying derived type definition, so the definitions for these
-   are stored to be used for all variables declared of type c_ptr or
-   c_funptr.  Returns the tree that was created for the given ISO C
-   derived type.  */
-
-static tree
-get_iso_c_derived (gfc_symbol *derived)
-{
-  if (derived->from_intmod == INTMOD_ISO_C_BINDING &&
-      derived->intmod_sym_id == ISOCBINDING_PTR)
-    return gfc_iso_c_derived_types[C_PTR_TYPE_INDEX];
-  else
-    return gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX];
-}
-
-
 /* Copy the backend_decl and component backend_decls if
    the two derived type symbols are "equal", as described
    in 4.4.2 and resolved by gfc_compare_derived_types.  */
@@ -1660,18 +1636,22 @@ gfc_get_derived_type (gfc_symbol * derived)
 {
   tree typenode = NULL, field = NULL, field_type = NULL, fieldlist = NULL;
   gfc_component *c;
-  tree iso_c_tree = NULL;
   gfc_dt_list *dt;
   gfc_namespace * ns;
 
   gcc_assert (derived && derived->attr.flavor == FL_DERIVED);
 
-  /* see if it's one of the iso_c_binding derived types */
-  if(check_iso_c_derived(derived) == 1)
+  /* See if it's one of the iso_c_binding derived types.  */
+  if (derived->attr.is_iso_c == 1)
     {
-      iso_c_tree = get_iso_c_derived (derived);
-      if (iso_c_tree != NULL && derived->backend_decl == NULL)
-        derived->backend_decl = iso_c_tree;
+      derived->backend_decl = ptr_type_node;
+      derived->ts.kind = gfc_index_integer_kind;
+      derived->ts.type = BT_INTEGER;
+      /* Set the f90_type to BT_VOID as a way to recognize something of type
+         BT_INTEGER that needs to fit a void * for the purpose of the
+         iso_c_binding derived types.  */
+      derived->ts.f90_type = BT_VOID;
+      return derived->backend_decl;
     }
   
   /* derived->backend_decl != 0 means we saw it before, but its
@@ -1680,18 +1660,7 @@ gfc_get_derived_type (gfc_symbol * derived)
     {
       /* Its components' backend_decl have been built.  */
       if (TYPE_FIELDS (derived->backend_decl))
-          if (iso_c_tree != NULL)
-            {
-              if (!(derived->components->backend_decl))
-                /* If we're working on building this for an iso c
-                   type in a different ns than when we started, this
-                   may not have been set yet.  */
-                derived->components->backend_decl =
-                  iso_c_tree->type.values;
-              return iso_c_tree;
-            }
-          else
-            return derived->backend_decl;
+        return derived->backend_decl;
       else
         typenode = derived->backend_decl;
     }
@@ -1732,29 +1701,10 @@ gfc_get_derived_type (gfc_symbol * derived)
 	}
 
       /* We see this derived type first time, so build the type node.  */
-      if(iso_c_tree != NULL)
-        {
-          derived->backend_decl = iso_c_tree;
-        }
-      else
-        {
-          typenode = make_node (RECORD_TYPE);
-          TYPE_NAME (typenode) = get_identifier (derived->name);
-          TYPE_PACKED (typenode) = gfc_option.flag_pack_derived;
-          derived->backend_decl = typenode;
-
-          /* there should be a cleaner way to do this..
-           * --Rickett, 06.12.06
-           */
-          if ((derived->from_intmod == INTMOD_ISO_C_BINDING &&
-               derived->intmod_sym_id == ISOCBINDING_PTR) &&
-              gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] == NULL)
-            gfc_iso_c_derived_types[C_PTR_TYPE_INDEX] = typenode;
-          else if ((derived->from_intmod == INTMOD_ISO_C_BINDING &&
-                    derived->intmod_sym_id == ISOCBINDING_FUNPTR) &&
-                   gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] == NULL)
-            gfc_iso_c_derived_types[C_FUNPTR_TYPE_INDEX] = typenode;
-        }
+      typenode = make_node (RECORD_TYPE);
+      TYPE_NAME (typenode) = get_identifier (derived->name);
+      TYPE_PACKED (typenode) = gfc_option.flag_pack_derived;
+      derived->backend_decl = typenode;
     }
 
   /* Go through the derived type components, building them as
@@ -1769,6 +1719,16 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       if (!c->pointer || c->ts.derived->backend_decl == NULL)
 	c->ts.derived->backend_decl = gfc_get_derived_type (c->ts.derived);
+
+      if (c->ts.derived && c->ts.derived->attr.is_iso_c)
+        {
+          /* Need to copy the modified ts from the derived type.  The
+             typespec was modified because C_PTR/C_FUNPTR are translated
+             into (void *) from derived types.  */
+          c->ts.type = c->ts.derived->ts.type;
+          c->ts.kind = c->ts.derived->ts.kind;
+          c->ts.f90_type = c->ts.derived->ts.f90_type;
+        }
     }
 
   if (TYPE_FIELDS (derived->backend_decl))

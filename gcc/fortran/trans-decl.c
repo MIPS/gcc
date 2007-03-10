@@ -2796,6 +2796,12 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->attr.entry)
     return;
 
+  /* Make sure we convert the types of the derived types from iso_c_binding
+     into (void *).  */
+  if (sym->attr.flavor != FL_PROCEDURE && sym->attr.is_iso_c
+      && sym->ts.type == BT_DERIVED)
+    sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
+
   /* Only output variables and array valued parameters.  */
   if (sym->attr.flavor != FL_VARIABLE
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
@@ -3074,6 +3080,12 @@ generate_local_decl (gfc_symbol * sym)
       if (sym->attr.value == 1 && sym->backend_decl != NULL)
 	set_tree_decl_type_code (sym);
     }
+
+  /* Make sure we convert the types of the derived types from iso_c_binding
+     into (void *).  */
+  if (sym->attr.flavor != FL_PROCEDURE && sym->attr.is_iso_c
+      && sym->ts.type == BT_DERIVED)
+    sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
 }
 
 static void

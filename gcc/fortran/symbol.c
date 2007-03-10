@@ -3101,7 +3101,7 @@ verify_bind_c_derived_type (gfc_symbol *derived_sym)
 
 /* Generate symbols for the named constants c_null_ptr and c_null_funptr.  */
 
-static void
+static try
 gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
                            const char *module_name)
 {
@@ -3126,14 +3126,13 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   tmp_sym->attr.is_c_interop = 1;
   tmp_sym->ts.is_iso_c = 1;
   tmp_sym->ts.type = BT_DERIVED;
-          
+
   /* The c_ptr and c_funptr derived types will provide the
      definition for c_null_ptr and c_null_funptr, respectively.  */
   if (ptr_id == ISOCBINDING_NULL_PTR)
     tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_PTR, 1);
   else
     tmp_sym->ts.derived = get_iso_c_binding_dt (ISOCBINDING_FUNPTR, 1);
-
   if (tmp_sym->ts.derived == NULL)
     {
       /* This can occur if the user forgot to declare c_ptr or
@@ -3141,13 +3140,16 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
          that has arg(s) of the missing type.  In this case, a
          regular version of the thing should have been put in the
          current ns.  */
-      gfc_error_now ("'%s' at %C requires '%s' to be defined",
-                     tmp_sym->name, ptr_name);
-      gfc_free_symbol (tmp_sym);
-      return;
+      generate_isocbinding_symbol (module_name, ptr_id == ISOCBINDING_NULL_PTR 
+                                   ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR,
+                                   (char *)(ptr_id == ISOCBINDING_NULL_PTR 
+                                   ? "c_ptr" : "c_funptr"));
+      tmp_sym->ts.derived =
+        get_iso_c_binding_dt (ptr_id == ISOCBINDING_NULL_PTR
+                              ? ISOCBINDING_PTR : ISOCBINDING_FUNPTR, 1);
     }
-	    
-  /* module name is some mangled version of iso_c_binding.  */
+
+  /* Module name is some mangled version of iso_c_binding.  */
   tmp_sym->module = gfc_get_string (module_name);
   
   /* Say it's from the iso_c_binding module.  */
@@ -3171,8 +3173,8 @@ gen_special_c_interop_ptr (int ptr_id, const char *ptr_name,
   /* Must declare c_null_ptr and c_null_funptr as having the
      PARAMETER attribute so they can be used in init expressions.  */
   tmp_sym->attr.flavor = FL_PARAMETER;
-   
-  return;
+
+  return SUCCESS;
 }
 
 
@@ -3578,10 +3580,12 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 	tmp_sym->attr.is_iso_c = 1;
 	tmp_sym->ts.is_iso_c = 1;
 	tmp_sym->ts.type = BT_DERIVED;
-        /* A derived type must have the bind attribute to be
-           interoperable (J3/04-007, Section 15.2.3), even though
-           the binding label is not used.  */
-        tmp_sym->attr.is_bind_c = 1;
+	/* A derived type must have the bind attribute to be
+	   interoperable (J3/04-007, Section 15.2.3), even though
+	   the binding label is not used.  */
+	tmp_sym->attr.is_bind_c = 1;
+
+	tmp_sym->attr.referenced = 1;
 
 	tmp_sym->ts.derived = tmp_sym;
 
@@ -3674,15 +3678,17 @@ generate_isocbinding_symbol (const char * mod_name, iso_c_binding_symbol s,
 
                 if (tmp_sym->ts.derived == NULL)
                   {
-                    gfc_error_now ("Type '%s' is not defined but is needed "
-                                   "as return type of function '%s' at %C",
-                                   (s == ISOCBINDING_LOC ?
-                                    "C_PTR" : "C_FUNPTR"),
-                                   c_interop_kinds_table[s].name);
-                    /* Remove the procedure symbol since it's invalid without
-                       the necessary type.  */
-                    gfc_free_symbol (tmp_sym);
-                    return;
+                    /* Create the necessary derived type so we can continue
+                       processing the file.  */
+                    generate_isocbinding_symbol
+                      (mod_name, s == ISOCBINDING_FUNLOC
+                       ? ISOCBINDING_FUNPTR : ISOCBINDING_FUNPTR,
+                       (char *)(s == ISOCBINDING_FUNLOC 
+                                ? "c_funptr" : "c_ptr"));
+                    tmp_sym->ts.derived =
+                      get_iso_c_binding_dt (s == ISOCBINDING_FUNLOC
+                                            ? ISOCBINDING_FUNPTR
+                                            : ISOCBINDING_PTR, 1);
                   }
 
 		/* The function result is itself (no result clause).  */

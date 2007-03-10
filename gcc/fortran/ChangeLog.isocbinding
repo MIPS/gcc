@@ -3,6 +3,69 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-03-10  Christopher D. Rickett  <crickett@lanl.gov>
+
+	* trans-expr.c (gfc_conv_initializer): Convert expressions that
+	use C_NULL_PTR or C_NULL_FUNPTR to constant expressions for NULL.
+	(gfc_conv_expr): Convert typespecs for iso_c_binding derived types
+	to INTEGER(kind=gfc_index_integer_kind) (size of void *).
+	* symbol.c (gen_special_c_interop_ptr): Create C_PTR or C_FUNPTR
+	if not listed by user in only clause and are needed.
+	(generate_isocbinding_symbol): Create C_PTR or C_FUNPTR if not
+	listed by user in only clause and are needed.
+	* decl.c (verify_c_interop_param): Report error for procedures
+	that are not BIND(C) but need to be a C interoperable parameter.
+	* trans-const.c (gfc_conv_constant): Convert expressions for
+	C_NULL_PTR and C_NULL_FUNPTR to constant expressions for NULL.
+	* trans-types.c (gfc_typenode_for_spec): Convert typespecs for
+	iso_c_binding derived types.
+	(gfc_get_derived_type): Set the backend_decl of the iso_c_binding
+	derived types to ptr_type_nodes (void *), of type
+	INTEGER(kind=gfc_index_integer_kind), and f90_type of BT_VOID.
+	Removed code that was used when the tree for the iso_c_binding
+	derived types represented derived types instead of ptr_type_node.
+	* resolve.c (is_scalar_expr_ptr): Allow for arrays of size 1.
+	(gfc_verify_binding_labels): Fixed ICE caused by NULL pointer.
+	(resolve_fl_procedure): Clear the is_bind_c attribute if the
+	symbol has an error (prevents duplicate messages).
+	* trans-decl.c (gfc_create_module_variable): Make sure the
+	typespecs for iso_c_binding derived types are converted for
+	ptr_type_node.
+	(generate_local_decl): Ditto.
+	* trans-io.c (transfer_expr): Convert expressions for
+	iso_c_binding derived types.
+	* intrinsics/iso_c_generated_procs.c (c_f_pointer_i1): Made C pointer
+	parameter of type (void *).  Fixed whitespace and coding style.
+	(c_f_pointer_i2): Ditto.
+	(c_f_pointer_i4): Ditto.
+	(c_f_pointer_i8): Ditto.
+	(c_f_pointer_i16): Ditto.
+	(c_f_pointer_r4): Ditto.
+	(c_f_pointer_r8): Ditto.
+	(c_f_pointer_r10): Ditto.
+	(c_f_pointer_r16): Ditto.
+	* intrinsics/iso_c_binding.c (c_f_pointer): Made C pointer parameter of type
+	(void *).  Fixed whitespace and coding style.
+	(c_f_pointer_u0): Ditto.
+	(c_f_pointer_d0): Ditto.
+	(c_f_procpointer): Ditto.
+	(c_associated_1): Ditto.  Converted return type to void *.
+	(c_associated_2): Ditto.
+	(c_loc): Ditto.
+	(c_funloc): Ditto.
+	* intrinsics/iso_c_binding.h: Updated prototypes.
+	* gfortran.dg/c_funloc_tests_3.f03: New test case.
+	* gfortran.dg/c_ptr_tests_7.f03: Ditto.
+	* gfortran.dg/c_ptr_tests_8.f03: Ditto.
+	* gfortran.dg/c_ptr_tests_9.f03: Ditto.
+	* gfortran.dg/c_loc_tests_7.f03: Ditto.
+	* gfortran.dg/c_funloc_tests_3_funcs.c: C functions for new test
+	case c_funloc_tests_3.
+	* gfortran.dg/binding_label_tests_14.f03: New test case.
+	* gfortran.dg/c_ptr_tests_10.f03: Ditto.
+	* gfortran.dg/c_ptr_tests_8_funcs.c: C functions for new test case
+	c_ptr_tests_8.
+	* gfortran.dg/c_ptr_tests_7_driver.c: C Driver for c_ptr_tests_7.
 
 2007-03-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
@@ -75,10 +138,10 @@ commit to the branch, so that we don't get lost.
 	* primary.c (gfc_match_rvalue): Removed most of the error checking
 	for ISOCBINDING_LOC, ISOCBINDING_FUNLOC, and
 	ISOCBINDING_ASSOCIATED (now done in gfc_iso_c_func_interface).
-	* iso_c_generated_procs.c (c_f_pointer_i1, c_f_pointer_i2,
+	* intrinsics/iso_c_generated_procs.c (c_f_pointer_i1, c_f_pointer_i2,
 	c_f_pointer_i16): Added prototypes and function definitions.
-	* iso_c_binding.c (c_funloc): Added function definition.
-	* iso_c_binding.h (c_funloc): Added prototype.
+	* intrinsics/iso_c_binding.c (c_funloc): Added function definition.
+	* intrinsics/iso_c_binding.h (c_funloc): Added prototype.
 
 2007-03-03  Christopher D. Rickett  <crickett@lanl.gov>
 
