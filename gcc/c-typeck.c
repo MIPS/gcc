@@ -2601,7 +2601,10 @@ parser_build_unary_op (enum tree_code code, struct c_expr arg)
 
   result.original_code = ERROR_MARK;
   result.value = build_unary_op (code, arg.value, 0);
-  overflow_warning (result.value);
+  
+  if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
+    overflow_warning (result.value);
+
   return result;
 }
 
@@ -2645,7 +2648,10 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
     warning (OPT_Wstring_literal_comparison,
 	     "comparison with string literal");
 
-  overflow_warning (result.value);
+  if (TREE_OVERFLOW_P (result.value) 
+      && !TREE_OVERFLOW_P (arg1.value) 
+      && !TREE_OVERFLOW_P (arg2.value))
+    overflow_warning (result.value);
 
   return result;
 }
@@ -3827,10 +3833,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     }
 
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
-    {
-      overflow_warning (rhs);
-      return rhs;
-    }
+    return rhs;
 
   if (coder == VOID_TYPE)
     {
@@ -3870,7 +3873,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
     }
   /* Some types can interconvert without explicit casts.  */
   else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
-	   && vector_types_convertible_p (type, TREE_TYPE (rhs)))
+	   && vector_types_convertible_p (type, TREE_TYPE (rhs), true))
     return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE
@@ -4292,7 +4295,8 @@ store_init_value (tree decl, tree init)
 
   /* ANSI wants warnings about out-of-range constant initializers.  */
   STRIP_TYPE_NOPS (value);
-  if (TREE_STATIC (decl)) constant_expression_warning (value);
+  if (TREE_STATIC (decl)) 
+    constant_expression_warning (value);
 
   /* Check if we need to set array size from compound literal size.  */
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -4600,7 +4604,7 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
      below and handle as a constructor.  */
   if (code == VECTOR_TYPE
       && TREE_CODE (TREE_TYPE (inside_init)) == VECTOR_TYPE
-      && vector_types_convertible_p (TREE_TYPE (inside_init), type)
+      && vector_types_convertible_p (TREE_TYPE (inside_init), type, true)
       && TREE_CONSTANT (inside_init))
     {
       if (TREE_CODE (inside_init) == VECTOR_CST
