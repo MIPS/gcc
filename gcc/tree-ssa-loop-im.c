@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -342,10 +342,11 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
   if (class != tcc_unary
       && class != tcc_binary
       && class != tcc_expression
+      && class != tcc_vl_exp
       && class != tcc_comparison)
     return NULL;
 
-  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
+  nops = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < nops; i++)
     {
       aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
@@ -817,10 +818,11 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
   if (class != tcc_unary
       && class != tcc_binary
       && class != tcc_expression
+      && class != tcc_vl_exp
       && class != tcc_comparison)
     return;
 
-  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
+  nops = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < nops; i++)
     force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
 }
@@ -1051,7 +1053,7 @@ schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
       LIM_DATA (aref->stmt)->sm_done = true;
 
   /* Emit the load & stores.  */
-  load = build2_gimple (GIMPLE_MODIFY_STMT, tmp_var, ref);
+  load = build_gimple_modify_stmt (tmp_var, ref);
   get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
@@ -1062,7 +1064,7 @@ schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
 
   for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
     {
-      store = build2_gimple (GIMPLE_MODIFY_STMT, unshare_expr (ref), tmp_var);
+      store = build_gimple_modify_stmt (unshare_expr (ref), tmp_var);
       bsi_insert_on_edge (ex, store);
     }
 }

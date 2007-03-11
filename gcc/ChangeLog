@@ -1,3 +1,1138 @@
+2007-02-21  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb2_final_prescan_insn): Don't incrememnt
+	condexec_count when skipping USE and CLOBBER.
+
+2007-02-21  Nick Clifton  <nickc@redhat.com>
+
+	* common.opt (Warray-bounds): Add Warning attribute.
+	(Wstrict-overflow, Wstrict-overflow=, Wcoverage-mismatch):
+	Likewise.
+	(fsized-zeroes): Add Optimization attribute.
+	(fsplit-wide-types, ftree-scev-cprop): Likewise.
+	* c.opt (Wc++0x-compat): Add Warning attribute.
+
+2007-02-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/30761
+	* reload1.c (eliminate_regs_in_insn): In the single_set special
+	case, attempt to re-recognize the insn before falling back to
+	having reload fix it up.
+
+2007-02-20  Eric Christopher  <echristo@gmail.com>
+
+	* config/frv/frv.c (frv_read_argument): Take a tree and int argument.
+	Rewrite accordingly.
+	(frv_read_iacc_argument): Ditto.
+	(frv_expand_set_builtin): Take a call instead of arglist, update for
+	above changes.
+	(frv_expand_unop_builtin): Ditto.
+	(frv_expand_binop_builtin): Ditto.
+	(frv_expand_cut_builtin): Ditto.
+	(frv_expand_binopimm_builtin): Ditto.
+	(frv_expand_voidbinop_builtin): Ditto.
+	(frv_expand_int_void2arg): Ditto.
+	(frv_expand_prefetches): Ditto.
+	(frv_expand_voidtriop_builtin): Ditto.
+	(frv_expand_voidaccop_builtin): Ditto.
+	(frv_expand_load_builtin): Ditto.
+	(frv_expand_store_builtin): Ditto.
+	(frv_expand_mdpackh_builtin): Ditto.
+	(frv_expand_mclracc_builtin): Ditto.
+	(frv_expand_mrdacc_builtin): Ditto.
+	(frv_expand_mwtacc_builtin): Ditto.
+	(frv_expand_builtin): Remove usage of CALL_EXPR_ARGS, update
+	calls for above.
+
+2007-02-20  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -mcmpb and -mdfp.
+	* configure.ac (HAVE_GAS_CMPB): Check for assembler support of the
+	cmpb instruction.
+	(HAVE_GAS_DFP): Check for assembler support of decimal floating
+	point instructions.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/rs6000/rs6000.opt (mcmpb, mdfp): New.
+	* config/rs6000/rs6000.c (rs6000_override_options): Add CMPB and DFP
+	masks to power6 and power6x and to POWERPC_MASKS.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR6.
+	* config/rs6000/rs6000.h: Check assembler support for CMPB and DFP.
+	* config/rs6000/sysv4.opt (mprototype): Use variable, not mask.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS):
+	Access PROTOTYPE as variable, not mask.
+
+2007-02-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* rtl.h (remove_reg_equal_equiv_notes): New prototype.
+	* rtlanal.c (remove_reg_equal_equiv_notes): New function.
+	* combine.c (adjust_for_new_dest): Use it.
+	* postreload.c (reload_combine): Likewise.
+
+2007-02-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* rtlanal.c (find_reg_equal_equiv_note): Do not find REG_EQ*
+	notes on an insn with multiple sets, even if single_set returns
+	non-NULL for that insn.
+
+2007-02-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (tree_expr_nonnegative_warnv_p): Handle scalb,
+	scalbn and scalbln.
+
+2007-02-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (LINK_SPEC): Default -mmacosx-version-min only
+	if user didn't pass it.
+	* config/i386/darwin.h (CC1_SPEC): Likewise.
+	* config/rs6000/darwin.h (CC1_SPEC): Likewise.
+	(DARWIN_MINVERSION_SPEC): Don't depend on user's setting of
+	-mmacosx-version-min.
+
+2007-02-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* optabs.h (enum optab_index): Add new OTI_scalb.
+	(scalb_optab): Define corresponding macro.
+	* optabs.c (init_optabs): Initialize scalb_optab.
+	* genopinit.c (optabs): Implement scalb_optab using scalb?f3
+	patterns.
+	* builtins.c (expand_builtin_mathfn_2, expand_builtin): Handle
+	BUILT_IN_SCALB{,F,L}, BUILT_IN_SCALBN{,F,L} and BUILT_IN_SCALBLN{,F,L}.
+	(expand_builtin): Expand BUILT_IN_SCALB{,F,L}, BUILT_IN_SCALBN{,F,L}
+	and BUILT_IN_SCALBLN{,F,L} using expand_builtin_mathfn_2 if
+	flag_unsafe_math_optimizations is set.
+
+	* config/i386/i386.md (scalbxf3, scalb<mode>3): New expanders
+	to implement scalbf, scalb and scalbl built-ins as inline x87
+	intrinsics.
+
+2007-02-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+            DJ Delorie <dj@redhat.com>
+
+	PR other/30824
+	* diagnostic.c (diagnostic_count_diagnostic): Move -Werror logic to...
+	(diagnostic_report_diagnostic): ... here, and turn them into real
+	errors. If warnings are inhibited, no need to do anything.
+
+2007-02-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (expm1xf2): Reorder insn sequence for
+	better code generation.
+
+2007-02-20  Ben Elliston  <bje@au.ibm.com>
+
+	* config/m68hc11/m68hc11.h (OVERRIDE_OPTIONS): Remove extra ;.
+
+2007-02-20  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/alpha/alpha.c, config/alpha/alpha.md,
+	config/alpha/lib1funcs.asm, config/alpha/vms-crt0-64.c,
+	config/alpha/vms-psxcrt0-64.c, config/arc/arc.c,
+	config/arc/arc.h, config/arm/arm.c, config/arm/arm.md,
+	config/arm/lib1funcs.asm: Follow spelling conventions.
+
+	* config/c4x/c4x.md, config/cris/cris.c, config/crx/crx.c,
+	config/fr30/fr30.md, config/i386/i386.h,
+	config/iq2000/iq2000.h, config/iq2000/predicates.md,
+	config/pa/milli64.S, config/pa/pa.c, config/pa/pa.h,
+	config/pa/pa.md, config/pa/pa32-regs.h, config/pa/pa64-regs.h,
+	config/pdp11/pdp11.c, config/pdp11/pdp11.h,
+	config/rs6000/altivec.md, config/rs6000/rs6000.c,
+	config/s390/s390-modes.def, config/sparc/netbsd-elf.h,
+	config/sparc/sparc.c, config/sparc/sparc.h,
+	config/sparc/sparc.md, config/spu/constraints.md,
+	config/spu/spu.c, config/stormy16/stormy16.md: Follow spelling
+	conventions.
+
+2007-02-20  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/29943
+	* varasm.c (use_blocks_for_decl_p): Return false for decls with
+	alias attribute.
+
+2007-02-19  Kazu Hirata  <kazu@codesourcery.com>
+
+	* doc/invoke.texi (-ftree-lrs): Remove.
+
+2007-02-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-pre.c (create_value_expr_from): Initialize POOL to
+	NULL.
+
+2007-02-19  Lee Millward  <lee.millward@codesourcery.com>
+
+	* config/ia64/ia64.c (ia64_expand_builtin): Use the
+	new CALL_EXPR_FN macro for retrieving the function
+	declaration of the input expression.
+
+2007-02-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* c.opt (Waddress): New.
+	* common.opt (Walways-true): Delete.
+	(Wstring-literal-comparison): Delete.
+	* doc/invoke.texi (Warning Options): Delete -Walways-true and
+	-Wstring-literal-comparison. Add -Waddress.
+	(Waddress): New.
+	(Walways-true): Delete.
+	(Wstring-literal-comparison): Delete.
+	* doc/extend.texi (#pragma GCC diagnostic): Use -Wformat
+	consistently instead of -Walways-true in example.
+	* c-opts.c (c_common_handle_option): -Waddress is enabled by -Wall.
+	* c-typeck.c (parser_build_binary_op): Replace
+	-Wstring-literal-comparison and -Walways-true with -Waddress.
+	* c-common.c (c_common_truthvalue_conversion): Replace -Walways-true
+	with -Waddress.
+
+2007-02-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-cfg.c (dump_function_to_file): Be prepared for functions
+	without DECL_STRUCT_FUNCTION initialized.
+
+2007-02-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_ctor_preeval_1): Detect potential overlap
+	due to calls to functions taking pointers as parameters.
+
+2007-02-19  Richard Henderson  <rth@redhat.com>
+
+	PR debug/29558
+	* var-tracking.c (track_expr_p): Disallow AGGREGATE_TYPE_P
+	in memory.
+
+2007-02-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_call_saved_register_used,
+	s390_function_ok_for_sibcall): Adjust the way CALL_EXPR arguments are
+	accessed to the new scheme.
+
+2007-02-19  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/cris/cris.c (cris_movem_load_rest_p, cris_store_multiple_op_p)
+	(cris_print_index, cris_print_operand, cris_print_operand_address)
+	(cris_reload_address_legitimized, cris_rtx_costs, cris_address_cost)
+	(cris_side_effect_mode_ok, cris_valid_pic_const, cris_split_movdx)
+	(cris_expand_pic_call_address): Use xxx_P predicate macros instead of
+	GET_CODE () == xxx.
+	* config/cris/cris.h (SECONDARY_RELOAD_CLASS, EXTRA_CONSTRAINT_Q,
+	EXTRA_CONSTRAINT_T, BDAP_INDEX_P, BIAP_INDEX_P, SIMPLE_ADDRESS_P,
+	GO_IF_LEGITIMATE_ADDRESS): Ditto.
+	* config/cris/cris.md (define_insns: *btst, movdi, *mov_side<mode>)
+	(*mov_sidesisf, *mov_side<mode>_mem, *mov_sidesisf_mem)
+	(*clear_side<mode>, movsi, *movsi_internal, *ext_sideqihi)
+	(*ext_side<mode>si, *op_side<mode>, *op_swap_side<mode>, addsi3)
+	(*extopqihi_side, *extop<mode>si_side, *extopqihi_swap_side)
+	(*extop<mode>si_swap_side, addi_mul, *addi,andsi3, andhi3, ashl<mode>3)
+	(uminsi3, call, call_value): Ditto.
+	(define_split: indir_to_reg_split, unnamed): Ditto.
+
+2007-02-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/30975
+	* tree-vect-trasnform.c (vect_get_vec_def_for_stmt_copy): Remove
+	wrong assert.
+
+2007-02-18  Eric Christopher  <echristo@gmail.com>
+
+	* mips.c (mips_prepare_builtin_arg): Add argnum parameter.
+	Remove use of arglist.
+	(mips_expand_builtin): Remove use of arglist, pass in expr.
+	(mips_expand_builtin_direct): Rewrite handling for arglist removal.
+	(mips_expand_builtin_movtf): Ditto.
+	(mips_expand_builtin_compare): Ditto.
+
+2007-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-sra.c (sra_build_assignment): Replace assertion
+	checking with a comment explaining why it can't be done.
+
+2007-02-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/30833
+	* tree-dump.c (dequeue_and_dump): Add tcc_vl_exp case missed
+	during CALL_EXPR representation conversion.
+	* tree-ssa-propagate.c (set_rhs): Likewise.
+
+2007-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-sra.c (sra_build_assignment): Disable assertion checking
+	for now.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* function.c (gimplify_parameters): Call build_gimple_modify_stmt
+	instead of calling build2 with a GIMPLE_MODIFY_STMT.
+	* gimple-low.c (lower_function_body, lower_builtin_setjmp):
+	Likewise.
+	* gimplify.c (build_stack_save_restore, gimplify_return_expr,
+	gimplify_decl_expr,  gimplify_self_mod_expr, gimplify_cond_expr,
+	gimplify_init_ctor_eval_range, gimple_push_cleanup,
+	gimplify_omp_for, gimplify_omp_atomic_pipeline,
+	gimplify_omp_atomic_mutex, gimplify_expr, gimplify_one_sizepos,
+	force_gimple_operand): Likewise.
+	* ipa-cp.c (constant_val_insert): Likewise.
+	* lambda-code.c (lbv_to_gcc_expression, lle_to_gcc_expression,
+	lambda_loopnest_to_gcc_loopnest, replace_uses_equiv_to_x_with_y,
+	perfect_nestify): Likewise.
+	* langhooks.c (lhd_omp_assignment): Likewise.
+	* omp-low.c (lower_rec_input_clauses, lower_reduction_clauses,
+	lower_copyprivate_clauses, lower_send_clauses,
+	lower_send_shared_vars, expand_parallel_call,
+	expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk, expand_omp_sections,
+	lower_omp_single_copy, lower_omp_for_lastprivate,
+	lower_omp_parallel, init_tmp_var, save_tmp_var): Likewise.
+	* value-prof.c (tree_divmod_fixed_value, tree_mod_pow2,
+	tree_mod_subtract, tree_ic, tree_stringop_fixed_value):
+	Likewise.
+
+2007-02-19  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/sh/divtab.c, config/sh/sh.c, config/sh/sh.h,
+	config/sh/sh.md: Follow spelling conventions.
+
+	* config/frv/frv.c, config/frv/frv.h, config/frv/frv.md,
+	config/frv/predicates.md: Follow spelling conventions.
+
+	* config/m68k/linux-unwind.h: Fix a comment typo.
+	* target.h: Follow spelling conventions.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/28173
+	* simplify-rtx.c (simplify_binary_operation_1) <IOR>:  Optimize
+	(X & C1) | C2 as C2 when (C1 & C2) == C1 and X has no side-effects.
+	Optimize (X & C1) | C2 as X | C2 when (C1 | C2) == ~0.
+	Canonicalize (X & C1) | C2 as (X & (C1 & ~C2)) | C2.
+	<AND>: Canonicalize (X | C1) & C2 as (X & C2) | (C1 & C2).
+
+2007-02-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_load_exponent): New.
+	(fold_builtin_2): Use it.
+
+2007-02-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR rtl-optimization/30773
+	* local-alloc.c (update_equiv_regs): Do not set reg_equiv_init
+	if we fail to attach a REG_EQUIV note.
+
+2007-02-18  David Edelsohn  <edelsohn@gnu.org>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* config/rs6000/rs6000.md (bswapsi2): New define_insn and splitter.
+
+2007-02-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* calls.c (initialize_argument_information): Pass original EXP
+	and STRUCT_VALUE_ADDR_VALUE instead of a list of arguments.  Move
+	code to split complex arguments here, as part of initializing the
+	ARGS array.
+	(expand_call): Remove code that builds a list of arguments and
+	inserts implicit arguments into it.  Instead, just count how many
+	implicit arguments there will be so we can determine the size of
+	the ARGS array, and let initialize_argument_information do the work.
+	(split_complex_values): Delete unused function.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-eh.c (tree_could_trap_p): Handle VIEW_CONVERT_EXPR.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* calls.c (mem_overlaps_already_clobbered_arg_p): Return true
+	for arg pointer based indexed addressing.
+
+2007-02-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/ia64/ia64.h, config/ia64/ia64.md,
+	config/ia64/predicates.md, config/ia64/sysv4.h: Follow
+	spelling conventions.
+
+2007-02-18  Roman Zippel <zippel@linux-m68k.org>
+
+	* config/m68k/m68k.c (split_di): New.
+	* config/m68k/m68k-protos.h: Declare split_di.
+	* config/m68k/m68k.md (extendsidi2*,ashldi3*,ashrdi3*,lshrdi3*):
+	  Improve predicate handling and split constant shifts.
+
+2007-02-18  Roman Zippel <zippel@linux-m68k.org>
+
+	* config/m68k/m68k.md (extv,extzv,insv): disable dynamic
+	parameter for register bitfield operations, general predicates
+	cleanup
+
+2007-02-18  Roman Zippel <zippel@linux-m68k.org>
+
+	* config/m68k/linux.h (MD_UNWIND_SUPPORT): Define.
+	* config/m68k/linux-unwind.h: New file.
+
+2007-02-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cfgloop.c, config/alpha/alpha.c, config/bfin/bfin.c,
+	config/i386/athlon.md, config/ia64/ia64.md,
+	config/rs6000/rs6000.c, config/s390/s390.c, config/spu/spu.md,
+	df-problems.c, df.h, fold-const.c, ipa-cp.c, ipa-inline.c,
+	ipa-prop.h, see.c, struct-equiv.c, tree-inline.c,
+	tree-ssa-loop-niter.c, tree-vect-analyze.c,
+	tree-vect-transform.c: Fix comment typos.
+
+2007-02-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* sched-deps.c (find_insn_list): Remove.
+	* sched-int.h: Remove the prototype for find_insn_list.
+
+2007-02-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (LINK_SPEC): Always pass -macosx_version_min
+	to linker.
+	(DARWIN_EXTRA_SPECS): Add %(darwin_minversion).
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Just call
+	darwin_rs6000_override_options.
+	(C_COMMON_OVERRIDE_OPTIONS): Expect
+	darwin_macosx_version_min to be non-NULL always.
+	(TARGET_C99_FUNCTIONS): Likewise.
+	(CC1_SPEC): Always pass -mmacosx-version-min to cc1*.
+	(DARWIN_MINVERSION_SPEC): New.
+	* config/rs6000/rs6000.c (darwin_rs6000_override_options): New.
+	* config/i386/darwin.h (CC1_SPEC): Always pass -mmacosx-version-min
+	to cc1*.
+	(DARWIN_MINVERSION_SPEC): New.
+	* config/darwin.opt (mmacosx-version-min): Initialize to non-NULL
+	value.
+	* config/darwin-c.c (darwin_cpp_builtins): Expect
+	darwin_macosx_version_min to be non-NULL always.
+
+	* config/rs6000/rs6000.c: Clean up trailing whitespace.
+
+2007-02-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (x86_use_xchgb): New.
+	(TARGET_USE_XCHGB): New macro.
+	* config/i386/i386.c (x86_use_xchgb): Set for PENT4.
+	* config/i386/i386.md (*rotlhi3_1 splitter, *rotrhi3_1 splitter):
+	Split after reload into bswaphi for shifts of 8.
+	(bswaphi_lowpart): Generate rolw insn for HImode byte swaps.
+	(*bswaphi_lowpart_1): Generate xchgb for Q registers for TARGET_XCHGB
+	or when optimizing for size.
+
+2007-02-16  Richard Guenther  <rguenther@suse.de>
+	    Christian Bruel  <christian.bruel@st.com>
+
+	* fold-const.c (tree_swap_operands_p): Treat SSA_NAMEs like
+	DECLs but prefer SSA_NAMEs over DECLs.
+
+2007-02-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow-inline.h (single_imm_use_p): Remove.
+	(zero_imm_uses_p): Likewise.
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Use has_single_use
+	instead of single_imm_use_p.
+	* tree-cfg.c (replace_uses_by): Use has_zero_use instead of
+	zero_imm_uses_p.
+
+2007-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/27843
+	* Makefile.in (SYSTEM_HEADER_DIR): Use single quotes to avoid
+	nested double- and backquotes.
+
+2007-02-15  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/30391
+	* tree.c (expr_align): Handle MODIFY_EXPR.  GIMPLE_MODIFY_STMT
+	should be unreachable.
+	(build2_stat): Allow construction of MODIFY_EXPR at any time.
+	For the time being redirect GIMPLE_MODIFY_STMT to the new
+	(renamed) build_gimple_modify_stmt_stat.
+	(build2_gimple_stat): Rename to...
+	(build_gimple_modify_stmt_stat): Now longer take a CODE argument.
+	Always build a GIMPLE_MODIFY_STMT node.
+	* tree.h (build2_gimple, build2_gimple_stat): Delete.
+	(build_gimple_modify_stmt, build_gimple_modify_stmt_stat): New
+	declarations.
+
+	* tree-cfg.c (factor_computed_gotos, tree_merge_blocks,
+	gimplify_val): Use build_gimple_modify_stmt instead of build2_gimple.
+	* tree-complex.c (set_component_ssa_name, expand_complex_move,
+	expand_complex_div_wide): Likewise.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Likewise.
+	* tree-ssa-loop-im.c (schedule_sm): Likewise.
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Likewise.
+	* tree-ssa-loop-manip.c (create_iv): Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement, minmax_replacement,
+	abs_replacement): Likewise.
+	* tree-ssa-pre.c (create_expression_by_pieces, poolify_modify_stmt,
+	realify_fake_stores): Likewise.
+
+	* builtins.c (std_expand_builtin_va_start): Build a MODIFY_EXPR
+	node rather than a GIMPLE_MODIFY_STMT node.
+	(std_gimpify_va_arg_expr, expand_builtin_va_copy,
+	fold_builtin_memset, fold_builtin_memory_op, do_mpfr_sincos):
+	Likewise.
+	(integer_valued_real_p): Handle MODIFY_EXPR, not GIMPLE_MODIFY_STMT.
+	* expr.c (expand_expr_real_1): Handle both MODIFY_EXPR and
+	GIMPLE_MODIFY_STMT.
+
+2007-02-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30433
+	* fold-const.c (fold_comparison): Add back the
+	folding of constant complex comparisions.
+
+2007-02-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30729
+	* stmt.c (warn_if_unused_value): VA_ARG_EXPR has side
+	effects unknown to this function, return early.
+
+2007-02-15  Ian Lance Taylor  <iant@google.com>
+
+	* lower-subreg.c (move_eh_region_note): New static function.
+	(resolve_simple_move): Call it.
+	(decompose_multiword_subregs): Track blocks for which we resolve a
+	simple move which is also a control flow insn.  Pass them to
+	find_many_sub_basic_blocks.
+	(pass_lower_subreg): Add TODO_verify_flow.
+	(pass_lower_subreg2): Likewise.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* tree.h (enum tree_code_class): Add tcc_vl_exp.
+	(VL_EXP_CLASS_P): New.
+	(TREE_OPERAND_CHECK): Use TREE_OPERAND_LENGTH instead of
+	TREE_CODE_LENGTH.
+	(TREE_OPERAND_CHECK_CODE): Likewise.
+	(GIMPLE_STMT_OPERAND_CHECK): Likewise.
+	(TREE_RTL_OPERAND_CHECK): Likewise.
+	(tree_operand_check_failed): Make second parameter the whole tree
+	instead of its code.  Fixed callers.
+	(VL_EXP_CHECK): New.
+	(TREE_OPERAND_LENGTH): New.
+	(VL_EXP_OPERAND_LENGTH): New.
+	(CALL_EXPR_FN): New.
+	(CALL_EXPR_STATIC_CHAIN): New.
+	(CALL_EXPR_ARGS): New.
+	(CALL_EXPR_ARG): New.
+	(call_expr_nargs): New.
+	(CALL_EXPR_ARGP): New.
+	(build_nt_call_list): Declare.
+	(build_vl_exp_stat): Declare.
+	(build_vl_exp): New.
+	(build_call_list): Declare.
+	(build_call_nary): Declare.
+	(build_call_valist): Declare.
+	(build_call_array): Declare.
+	(call_expr_arg): Declare.
+	(call_expr_argp): Declare.
+	(call_expr_arglist): Declare.
+	(fold_build_call_list): Declare.
+	(fold_build_call_list_initializer): Declare.
+	(fold_call_expr): Declare to replace fold_builtin.
+	(fold_builtin_fputs): Update to agree with modified definition.
+	(fold_builtin_strcpy): Likewise.
+	(fold_builtin_strncpy): Likewise.
+	(fold_builtin_memory_chk): Likewise.
+	(fold_builtin_stxcpy_chk): Likewise.
+	(fold_builtin_strncpy_chk): Likewise.
+	(fold_builtin_next_arg): Likewise.
+	(fold_build_call_expr): Declare.
+	(fold_builtin_call_list): Declare.
+	(fold_builtin_call_valist): Declare.
+	(build_call_expr): Declare.
+	(validate_arglist): Update to agree with modified definition.
+	(tree_operand_length): New.
+	(call_expr_arg_iterator): New.
+	(init_call_expr_arg_iterator): New.
+	(next_call_expr_arg): New.
+	(first_call_expr_arg): New.
+	(more_call_expr_args_p): New.
+	(FOR_EACH_CALL_EXPR_ARG): New.
+
+	* tree.c (tree_code_class_string): Add entries for tcc_vl_exp
+	and tcc_gimple_stmt.
+	(tree_code_size): Update documentation.  Use sizeof (tree) rather
+	than sizeof (char *).
+	(tree_size): Likewise.  Add case for tcc_vl_exp.
+	(tree_node_structure): Add case for tcc_vl_exp.
+	(contains_placeholder_p): Likewise.
+	(substitute_in_expr): Likewise.
+	(substitute_placeholder_in_expr): Likewise.
+	(stabilize_reference_1): Likewise.
+	(build3_stat): Remove logic for CALL_EXPRs.  Replace with assertion
+	to diagnose breakage of this interface for constructing CALL_EXPRs.
+	(build_nt): Add similar assertion here.
+	(build_nt_call_list): New.
+	(simple_cst_equal) <CALL_EXPR>: Rewrite to use new accessors.
+	(iterative_hash_expr): Use TREE_OPERAND_LENGTH instead of
+	TREE_CODE_LENGTH.
+	(get_callee_fndecl): Use new CALL_EXPR accessors.
+	(tree_operand_check_failed): Change parameters to pass entire node
+	instead of its code, so that we can call TREE_OPERAND_LENGTH on it.
+	(process_call_operands): New.
+	(build_vl_exp_stat): New.
+	(build_call_list): New.
+	(build_call_nary): New.
+	(build_call_valist): New.
+	(build_call_array): New.
+	(walk_tree): Use TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	(call_expr_arglist): New.
+
+	* tree.def (CALL_EXPR): Change representation of CALL_EXPRs to use
+	tcc_vl_exp instead of a fixed-size tcc_expression.
+
+	* doc/c-tree.texi (CALL_EXPR): Document new representation and
+	accessors for CALL_EXPRs.
+	(AGGR_INIT_EXPR): Likewise.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* builtins.c (c_strlen): Return NULL_TREE instead of 0.
+	(expand_builtin_nonlocal_goto): Change parameter to be entire
+	CALL_EXPR instead of an arglist.  Use new CALL_EXPR accessors.
+	(expand_builtin_prefetch): Likewise.
+	(expand_builtin_classify_type): Likewise.
+	(mathfn_built_in): Return NULL_TREE instead of 0.
+	(expand_errno_check): Use new CALL_EXPR accessors.
+	(expand_builtin_mathfn): Use new CALL_EXPR accessors and constructors.
+	Return NULL_RTX instead of 0.
+	(expand_builtin_mathfn_2): Likewise.
+	(expand_builtin_mathfn_3): Likewise.
+	(expand_builtin_interclass_mathfn): Likewise.
+	(expand_builtin_sincos): Likewise.
+	(expand_builtin_cexpi): Likewise.
+	(expand_builtin_int_roundingfn): Likewise.
+	(expand_builtin_int_roundingfn_2): Likewise.
+	(expand_builtin_pow): Likewise.
+	(expand_builtin_powi): Likewise.
+	(expand_builtin_strlen): Pass entire CALL_EXPR as parameter instead
+	of arglist, fixing callers appropriately.  Use new CALL_EXPR
+	accessors and constructors.  Return NULL_RTX instead of 0.
+	(expand_builtin_strstr): Likewise.
+	(expand_builtin_strchr): Likewise.
+	(expand_builtin_strrchr): Likewise.
+	(expand_builtin_strpbrk): Likewise.
+	(expand_builtin_memcpy): Likewise.
+	(expand_builtin_mempcpy): Likewise.
+	(expand_builtin_mempcpy_args): New.
+	(expand_builtin_memmove): Similarly to expand_builtin_mempcpy.
+	(expand_builtin_memmove_args): New.
+	(expand_builtin_bcopy): Similarly to expand_builtin_mempcpy.
+	(expand_movstr): Likewise.
+	(expand_builtin_strcpy): Likewise.
+	(expand_builtin_strcpy_args): New.
+	(expand_builtin_stpcpy): Similarly to expand_builtin_strcpy.
+	(expand_builtin_strncpy): Likewise.
+	(expand_builtin_memset): Likewise.
+	(expand_builtin_memset_args): New.
+	(expand_builtin_bzero): Similarly to expand_builtin_memset.
+	(expand_builtin_memcmp): Likewise.
+	(expand_builtin_strcmp): Likewise.
+	(expand_builtin_strncmp): Likewise.
+	(expand_builtin_strcat): Likewise.
+	(expand_builtin_strncat): Likewise.
+	(expand_builtin_strspn): Likewise.
+	(expand_builtin_strcspn): Likewise.
+	(expand_builtin_args_info): Likewise.
+	(expand_builtin_va_start): Likewise.
+	(gimplify_va_arg_expr): Likewise.
+	(expand_builtin_va_end): Likewise.
+	(expand_builtin_va_copy): Likewise.
+	(expand_builtin_frame_address): Likewise.
+	(expand_builtin_alloca): Likewise.
+	(expand_builtin_bswap): Likewise.
+	(expand_builtin_unop): Likewise.
+	(expand_builtin_fputs): Likewise.
+	(expand_builtin_expect): Likewise.
+	(expand_builtin_fabs): Likewise.
+	(expand_builtin_copysign): Likewise.
+	(expand_builtin_printf): Likewise.
+	(expand_builtin_fprintf): Likewise.
+	(expand_builtin_sprintf): Likewise.
+	(expand_builtin_init_trampoline): Likewise.
+	(expand_builtin_signbit): Likewise.
+	(expand_builtin_fork_or_exec): Likewise.
+	(expand_builtin_sync_operation): Likewise.
+	(expand_builtin_compare_and_swap): Likewise.
+	(expand_builtin_lock_test_and_set): Likewise.
+	(expand_builtin_lock_release): Likewise.
+	(expand_builtin): Likewise.
+	(builtin_mathfn_code): Likewise.
+
+	(fold_builtin_constant_p): Pass call arguments individually instead
+	of as an arglist, fixing callers appropriately.  Use new CALL_EXPR
+	accessors and constructors.  Return NULL_TREE instead of 0.
+	(fold_builtin_expect): Likewise.
+	(fold_builtin_classify_type): Likewise.
+	(fold_builtin_strlen): Likewise.
+	(fold_builtin_nan): Likewise.
+	(integer_valued_real_p): Likewise.
+	(fold_trunc_transparent_mathfn): Likewise.
+	(fold_fixed_mathfn): Likewise.
+	(fold_builtin_cabs): Likewise.
+	(fold_builtin_sqrt): Likewise.
+	(fold_builtin_cbrt): Likewise.
+	(fold_builtin_cos): Likewise.
+	(fold_builtin_cosh): Likewise.
+	(fold_builtin_tan): Likewise.
+	(fold_builtin_sincos): Likewise.
+	(fold_builtin_cexp): Likewise.
+	(fold_builtin_trunc): Likewise.
+	(fold_builtin_floor): Likewise.
+	(fold_builtin_ceil): Likewise.
+	(fold_builtin_round): Likewise.
+	(fold_builtin_int_roundingfn): Likewise.
+	(fold_builtin_bitop): Likewise.
+	(fold_builtin_bswap): Likewise.
+	(fold_builtin_logarithm): Likewise.
+	(fold_builtin_hypot): Likewise.
+	(fold_builtin_pow): Likewise.
+	(fold_builtin_powi): Likewise.
+	(fold_builtin_exponent): Likewise.
+	(fold_builtin_memset): Likewise.
+	(fold_builtin_bzero): Likewise.
+	(fold_builtin_memory_op): Likewise.
+	(fold_builtin_bcopy): Deleted; call site changed to invoke
+	fold_builtin_memory_op directly.
+	(fold_builtin_strcpy): Similarly as for fold_builtin_memory_op.
+	(fold_builtin_strncpy): Likewise.
+	(fold_builtin_memcmp): Likewise.
+	(fold_builtin_strcmp): Likewise.
+	(fold_builtin_strncmp): Likewise.
+	(fold_builtin_signbit): Likewise.
+	(fold_builtin_copysign): Likewise.
+	(fold_builtin_isascii): Likewise.
+	(fold_builtin_toascii): Likewise.
+	(fold_builtin_isdigit): Likewise.
+	(fold_builtin_fabs): Likewise.
+	(fold_builtin_abs): Likewise.
+	(fold_builtin_fmin_fmax): Likewise.
+	(fold_builtin_carg): Likewise.
+	(fold_builtin_classify): Likewise.
+	(fold_builtin_unordered_cmp): Likewise.
+
+	(fold_builtin_0, fold_builtin_2, fold_builtin_3, fold_builtin_4):
+	New functions split out from fold_builtin_1.
+	(fold_builtin_n): New.
+	(fold_builtin_varargs): New.
+	(fold_builtin): Deleted.  Most callers changed to use fold_call_expr
+	instead.
+	(fold_call_expr): New.
+	(build_function_call_expr): Rewrite to use new helper function.
+	(fold_builtin_call_list): New.
+	(build_call_expr): New.
+	(fold_builtin_call_valist): New.
+	(rewrite_call_expr): New.
+	(validate_arg): New.
+	(validate_arglist): Change parameter to be entire CALL_EXPR instead
+	of an arglist.  Change return type to bool.  Use new CALL_EXPR
+	accessors.
+
+	(fold_builtin_strstr):  Pass call arguments individually instead
+	of as an arglist, fixing callers appropriately.  Use new CALL_EXPR
+	accessors and constructors.  Return NULL_TREE instead of 0.
+	(fold_builtin_strchr): Likewise.
+	(fold_builtin_strrchr): Likewise.
+	(fold_builtin_strpbrk): Likewise.
+	(fold_builtin_strcat): Likewise.
+	(fold_builtin_strncat): Likewise.
+	(fold_builtin_strspn): Likewise.
+	(fold_builtin_strcspn): Likewise.
+	(fold_builtin_fputs): Likewise.
+	(fold_builtin_next_arg): Likewise.
+	(fold_builtin_sprintf): Likewise.
+
+	(expand_builtin_object_size): Use new CALL_EXPR accessors.  Use
+	NULL_RTX instead of 0.
+	(expand_builtin_memory_chk): Likewise.
+	(maybe_emit_chk_warning): Likewise.
+	(maybe_emit_sprintf_chk_warning): Likewise.
+
+	(fold_builtin_object_size): Pass call arguments individually instead
+	of as an arglist, fixing callers appropriately.  Use new CALL_EXPR
+	accessors and constructors.  Return NULL_TREE instead of 0.
+	(fold_builtin_memory_chk): Likewise.
+	(fold_builtin_stxcpy_chk): Likewise.
+	(fold_builtin_strncpy_chk): Likewise.
+	(fold_builtin_strcat_chk): Likewise.
+	(fold_builtin_strcat_chk): Likewise.
+	(fold_builtin_strncat_chk): Likewise.
+	(fold_builtin_sprintf_chk): Likewise.
+	(fold_builtin_snprintf_chk): Likewise.
+	(fold_builtin_printf): Likewise.
+	(fold_builtin_vprintf): Likewise.
+
+	* fold-const.c (negate_expr_p): Use new CALL_EXPR accessors and
+	constructors.
+	(operand_equal_p): Add separate tcc_vl_exp/CALL_EXPR case.
+	(make_range): Use TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	(extract_muldiv_1): Add VL_EXP_CLASS_P case.
+	(fold_mathfn_compare): Use new CALL_EXPR accessors and constructors.
+	(fold_unary): Likewise.
+	(fold_binary): Likewise.
+	(fold_ternary): Remove CALL_EXPR case, since they are no longer
+	ternary expressions.
+	(fold): Add logic for tcc_vl_exp.
+	(fold_checksum_tree):  Make it know about tcc_vl_exp.  Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	(fold_build3_stat): Add assertion to flag broken interface for
+	constructing CALL_EXPRs.
+	(fold_build_call_list): New.
+	(fold_build_call_list_initializer): New.
+	(tree_expr_nonnegative_p): Use new CALL_EXPR accessors and
+	constructors.
+	(fold_strip_sign_ops): Likewise.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* tree-dump.c (dequeue_and_dump) <CALL_EXPR>: Use new CALL_EXPR
+	accessors and dump arguments explicitly.
+
+	* tree-pretty-print.c (do_niy): Use TREE_OPERAND_LENGTH instead of
+	TREE_CODE_LENGTH.
+	(dump_generic_node): Use new CALL_EXPR accessors and walk arguments
+	explicitly.
+	(print_call_name): Use new CALL_EXPR accessors.
+
+	* print-tree.c (print_node): Add case tcc_vl_exp.  Print
+	CALL_EXPR arguments explicitly instead of as a list.  Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+
+	* tree-vrp.c (stmt_interesting_for_vrp): Use new CALL_EXPR accessors.
+	(vrp_visit_stmt): Likewise.
+
+	* tree-ssa-loop-im.c (outermost_invariant_loop_expr):  Make it
+	know about tcc_vl_exp.  Use TREE_OPERAND_LENGTH instead of
+	TREE_CODE_LENGTH.
+	(force_move_till_expr): Likewise.
+
+	* targhooks.c (default_external_stack_protect_fail): Use
+	build_call_expr instead of build_function_call_expr.
+	(default_hidden_stack_protect_fail): Likewise.
+
+	* tree-complex.c (expand_complex_libcall): Use build_call_expr to
+	build the call.
+
+	* cgraphbuild.c (build_cgraph_edges): Use new CALL_EXPR accessors
+	and walk arguments explicitly.
+
+	* tree-ssa-loop-niter.c (simplify_replace_tree): Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	(expand_simple_operations): Likewise.
+	(infer_loop_bounds_from_array): Use new CALL_EXPR accessors.
+
+	* gengtype.c (adjust_field_tree_exp): Use TREE_OPERAND_LENGTH instead
+	of TREE_CODE_LENGTH.
+	(walk_type): Tweak walking of arrays not to blow up on CALL_EXPRs.
+
+	* optabs.c (expand_widen_pattern-expr): Use TREE_OPERAND_LENGTH
+	instead of TREE_CODE_LENGTH.
+
+	* value_prof.c (tree_ic): Use new CALL_EXPR accessors.
+	(tree_ic_transform): Likewise.
+	(interesting_stringop_to_profile_p): Pass entire CALL_EXPR as
+	parameter instead of arglist.  Fix callers.
+	(tree_stringop_fixed_value): Use new CALL_EXPR accessors.
+	(tree_stringops_transform): Likewise.
+	(tree_indirect_call_to_profile): Likewise.
+	(tree_stringops_values_to_profile): Likewise.
+
+	* tree-tailcall.c (find_tail_calls): Use new CALL_EXPR iterator.
+	(eliminate_tail_call): Likewise.
+
+	* ipa-cp.c (ipcp_update_callgraph): Use new CALL_EXPR accessors.
+
+	* tree-scalar-evolution.c (chrec_contains_symbols_defined_in_loop):
+	Use TREE_OPERAND_LENGTH and generalize to handle any number of
+	operands.
+	(instantiate_parameters_1): Can't handle tcc_vl_exp here.
+
+	* omp-low.c (build_omp_barrier): Use build_call_expr.
+	(lower_rec_input_clauses): Likewise.
+	(lower_reduction_clauses): Likewise.
+	(expand_parallel_call): Likewise.
+	(maybe_catch_exception): Likewise.
+	(expand_omp_for_generic): Likewise.
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_sections): Likewise.
+	(lower_omp_single_simple): Likewise.
+	(lower_omp_single_copy): Likewise.
+	(lower_omp_master): Likewise.
+	(lower_omp_ordered): Likewise.
+	(lower_omp_critical): Likewise.
+
+	* ipa-reference.c (check-call): Use new CALL_EXPR iterator.
+	(scan_for_static_refs): Create tcc_vl_exp case for CALL_EXPR.
+
+	* tree-gimple.c (is_gimple_call_addr): Fix doc.
+	(recalculate_side_effects): Use TREE_OPERAND_LENGTH instead of
+	TREE_CODE_LENGTH.  Add tcc_vl_exp case.
+
+	* tree-chrec.c (chrec_contains_symbols): Use TREE_OPERAND_LENGTH
+	and generalize to handle any number of operands.
+	(chrec_contains_undetermined): Likewise.
+	(tree_contains_chrecs): Likewise.
+	(evolution_function_is_invariant_rec_p): Use TREE_OPERAND_LENGTH.
+
+	* cgraphunit.c (update_call_expr): Use new CALL_EXPR accessors.
+
+	* tree-ssa-ccp.c (ccp_fold): Use new CALL_EXPR accessors.  Use
+	fold_call_expr instead of fold_builtin.
+	(ccp_fold_builtin): Likewise.  Update calls into builtins.c to
+	match declarations there.
+	(fold_stmt): Use new CALL_EXPR constructor and accessors.  Doc
+	updates.
+
+	* tree-ssa-loop-ivopts.c (expr_invariant_in_loop_p): Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+
+	* ipa-pure-const.c (check_call): Use new CALL_EXPR accessors.
+	(scan_function): Add case tcc_vl_exp for CALL_EXPR.
+
+	* tree-stdarg.c (execute_optimize_stdarg): Use new CALL_EXPR
+	accessors.
+
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Use build_call_expr.
+	(execute_cse_sincos): Use new CALL_EXPR accessors.
+
+	* tree-ssa-alias.c (find_used_portions): Use new CALL_EXPR iterator.
+
+	* gimple-low.c (lower_function_body): Use build_call_expr.
+	(lower_builtin_setjmp): Likewise.
+
+	* expr.c (emit_block_move_via_libcall): Use build_call_expr.
+	(set_storage_via_libcall): Likewise.
+	(safe_from_p): Add tcc_vl_exp case.  Use TREE_OPERAND_LENGTH
+	instead of TREE_CODE_LENGTH.
+	(expand_expr_real_1): Use new CALL_EXPR accessors.
+
+	* tree-browser.c (store_child_info): Use TREE_OPERAND_LENGTH and
+	generalize to handle any number of operands.
+	(TB_parent_eq): Likewise.
+
+	* predict.c (expr_expected_value): Use new CALL_EXPR accessors.
+	(strip_builtin_expect): Likewise.
+
+	* function.c (gimplify_parameters): Use build_call_expr.
+
+	* tree-vectorizer.c (vect_is_simple_reduction): Use TREE_OPERAND_LENGTH
+	instead of TREE_CODE_LENGTH.
+
+	* ipa-type-escape.c (check_call): Use new CALL_EXPR iterators.
+	(scan_for_refs): Add case tcc_vl_exp for CALL_EXPR.
+
+	* tree-data-ref.c (get_references_in_stmt): Use new CALL_EXPR
+	iterators.
+
+	* gimplify.c (build_stack_save_restore): Use build_call_expr.
+	(gimplify_decl_expr): Likewise.
+	(gimplify_call_expr): Use fold_call_expr instead of fold_builtin.
+	Use new CALL_EXPR iterators.
+	(gimplify_modify_expr_to_memcpy): Use build_call_expr.
+	(gimplify_modify_expr_to_memset): Likewise.
+	(gimplify_variable_sized_compare): Likewise.
+	(gimplify_omp_atomic_fetch_op): Likewise.
+	(gimplify_omp_atomic_pipeline): Likewise.
+	(gimplify_omp_atomic_mutex): Likewise.
+	(gimplify_function_tree): Likewise.
+
+	* calls.c (alloca_call_p): Use new CALL_EXPR accessors.
+	(call_expr_flags): Likewise.
+	(expand_call): Likewise.
+
+	* except.c (expand_builtin_eh_return_data_regno): Pass entire
+	CALL_EXPR as parameter instead of arglist.  Use new CALL_EXPR
+	accessors.
+
+	* coverage.c (create_coverage): Use build_call_expr.
+
+	* tree-ssa-pre.c (expression_node_pool, list_node_pool): Delete.
+	(temp_call_expr_obstack): New.
+	(pool_copy_list): Delete.
+	(temp_copy_call_expr): New.
+	(phi_translate): Add case tcc_vl_exp for CALL_EXPR.  Use new
+	CALL_EXPR accessors.  Get rid of special goo for copying argument
+	lists and use temp_copy_call_expr instead.
+	(valid_in_sets): Add case tcc_vl_exp for CALL_EXPR.  Use new
+	CALL_EXPR accessors.
+	(create_expression_by_pieces): Likewise.  Use build_call_array
+	to construct the result instead of fold_build3.
+	(create_value_expr_from): Add tcc_vl_exp.  Delete special goo for
+	dealing with argument lists.
+	(init_pre): Remove references to expression_node_pool and
+	list_node_pool.  Init temp_call_expr_obstack instead.
+	(fini_pre): Remove references to expression_node_pool and
+	list_node_pool.
+
+	* tree-sra.c (sra_walk_call_expr): Use new CALL_EXPR accessors
+	and walk arguments explicitly instead of as a list.
+
+	* tree-mudflap.c (mf_build_check_statement_for): Use build_call_expr.
+	(mx_register_decls): Likewise.
+	(mudflap_register_call): Likewise.
+	(mudflap_finish_file): Likewise.
+
+	* ipa-prop.c (ipa_callsite_compute_count): Use new CALL_EXPR accessors.
+	(ipa_callsite_compute_param): Likewise.
+
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Use new CALL_EXPR
+	accessors and constructor.
+
+	* tree-nested.c (convert_nl_goto_reference): Use new CALL_EXPR
+	accessors and constructor.
+	(convert_tramp_reference): Likewise.
+	(convert_call_expr): Likewise.
+	(finalize_nesting_tree_1): Likewise.
+
+	* tree-ssa.c (tree_ssa_useless_type_conversion): Use new CALL_EXPR
+	accessors.
+
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Use build_call_expr.
+
+	* tree-inline.c (initialize_inlined_parameters): Pass entire
+	CALL_EXPR as parameter instead of arglist.  Use new CALL_EXPR
+	accessors.
+	(estimate_num_insns_1): Use new CALL_EXPR accessors.
+	(expand_call_inline): Tidy up call to initialize_inlined_parameters.
+
+	* tree-vect-transform.c (vect_create_epilog_for_reduction):  Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	(vectorizable_reduction): Likewise.
+	(vectorizable_call): Use new CALL_EXPR iterators.
+	(vectorizable_conversion): Use build_call_expr.
+	(vectorizable_operation): Use TREE_OPERAND_LENGTH.
+	(vect_gen_widened_results_half): Use build_call_expr.
+	(vect_setup_realignment): Likewise.
+	(vectorizable_live_operation): Use TREE_OPERAND_LENGTH.
+
+	* tree-object-size.c (alloc_object_size): Use new CALL_EXPR accessors.
+	(pass_through_call): Likewise.
+	(compute_object_sizes): Likewise.  Use fold_call_expr instead of
+	fold_builtin.
+
+	* tree-profile.c (tree_gen_interval_profiler): Use build_call_expr.
+	(tree_gen_pow2_profiler): Likewise.
+	(tree_gen_one_value_profiler): Likewise.
+	(tree_gen_ic_func_profiler): Likewise.
+	(tree_gen_average_profiler): Likewise.
+	(tree_gen_ior_profiler): Likewise.
+
+	* tree-ssa-structalias.c (get_constraint_for): Add case tcc_vl_exp.
+	(find_func_aliases): Use new CALL_EXPR accessors.  Add case
+	tcc_vl_exp.  Use TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+
+	* tree-ssa-reassoc.c (get_rank): Use TREE_OPERAND_LENGTH instead
+	of TREE_CODE_LENGTH.
+
+	* stmt.c (warn_if_unused_value): Use TREE_OPERAND_LENGTH instead
+	of TREE_CODE_LENGTH.
+
+	* convert.c (convert_to_real): Use new CALL_EXPR accessors and
+	constructor.
+	(convert_to_integer): Likewise.
+
+	* tree-ssa-operands.c (get_call_expr_operands): Use new CALL_EXPR
+	accessors.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* config/alpha/alpha.c (alpha_expand_builtin): Use new CALL_EXPR
+	accessors.
+	* config/frv/frv.c (frv_expand_builtin): Likewise.
+	* config/s390/s390.c (s390_expand_builtin): Likewise.
+
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Use build_call_expr.
+	(sparc_expand_builtin): Use new CALL_EXPR accessors.
+
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Likewise.
+	(ix86_expand_binop_builtin): Pass entire CALL_EXPR as parameter
+	instead of arglist.  Use new CALL_EXPR accessors on it.  Fix callers.
+	(ix86_expand_store_builtin): Likewise.
+	(ix86_expand_unop_builtin): Likewise.
+	(ix86_expand_unop1_builtin): Likewise.
+	(ix86_expand_sse_compare): Likewise.
+	(ix86_expand_sse_comi): Likewise.
+	(ix86_expand_vec_init_builtin): Likewise.
+	(ix86_expand_vec_ext_builtin): Likewise.
+	(ix86_expand_vec_set_builtin): Likewise.
+	(ix86_expand_builtin): Use new CALL_EXPR accessors.
+
+	* config/sh/sh.c (sh_expand_builtin): Use new CALL_EXPR accessors.
+	* config/c4x/c4x.c (c4x_expand_builtin): Likewise.
+
+	* config/iq2000/iq2000.c (expand_one_builtin): Pass entire CALL_EXPR
+	instead of arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(iq2000_expand_builtin): Use new CALL_EXPR accessors.
+
+	* config/rs6000/rs6000-c.c (altivec_build_resolved_builtin): Use
+	build_call_expr.
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Likewise.
+	(rs6000_expand_unop_builtin): Pass entire CALL_EXPR instead of
+	arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(altivec_expand_abs_builtin): Likewise.
+	(rs6000_expand_binop_builtin): Likewise.
+	(altivec_expand_predicate_builtin): Likewise.
+	(altivec_expand_lv_builtin): Likewise.
+	(spe_expand_stv_builtin): Likewise.
+	(altivec_expand_stv_builtin): Likewise.
+	(rs6000_expand_ternop_builtin): Likewise.
+	(altivec_expand_ld_builtin): Use new CALL_EXPR accessors.
+	(altivec_expand_st_builtin): Likewise.
+	(altivec_expand_dst_builtin): Likewise.
+	(altivec_expand_vec_init_builtin): Pass entire CALL_EXPR instead of
+	arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(altivec_expand_vec_set_builtin): Likewise.
+	(altivec_expand_vec_ext_builtin): Likewise.
+	(altivec_expand_builtin): Use new CALL_EXPR accessors.
+	(spe_expand_builtin): Likewise.
+	(spe_expand_predicate_builtin): Pass entire CALL_EXPR instead of
+	arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(spe_expand_evsel_builtin): Likewise.
+	(rs6000_expand_builtin): Use new CALL_EXPR accessors.  VCFUX and
+	FCFSX cases must construct whole new CALL_EXPR, not just arglist.
+
+	* config/arm/arm.c (arm_expand_binop_builtin): Pass entire CALL_EXPR
+	instead of arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(arm_expand_unop_builtin): Likewise.
+	(arm_expand_builtin): Use new CALL_EXPR accessors.
+
+	* config/mips/mips.c (mips_expand_builtin):  Use new CALL_EXPR
+	accessors.
+
+	* config/bfin/bfin.c (bfin_expand_binop_builtin): Pass entire CALL_EXPR
+	instead of arglist.  Use new CALL_EXPR accessors.  Fix callers.
+	(bfin_expand_unop_builtin): Likewise.
+	(bfin_expand_builtin): Use new CALL_EXPR accessors.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* c-semantics.c (build_stmt): Add internal diagnostic check.
+
+	* c-pretty-print.c (pp_c_postfix_expression): Use new CALL_EXPR
+	accessors.  Print arguments explicitly instead of as a list.
+
+	* c-typeck.c (build_function_call): Use new CALL_EXPR constructors.
+
+	* c-omp.c (c_finish_omp_barrier): Use build_call_expr.
+	(c_finish_omp_flish): Likewise.
+
+	* c-common.c (verify_tree): Use new CALL_EXPR accessors.  Traverse
+	arguments explicitly instead of as a list.  Use TREE_OPERAND_LENGTH
+	instead of TREE_CODE_LENGTH.
+	(check_function_arguments_recurse): Use new CALL_EXPR accessors.
+	(c_warn_unused_result): Likewise.
+
 2007-02-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR c/26494
@@ -54,7 +1189,7 @@
 2007-02-15  Paolo Bonzini  <bonzini@gnu.org>
 
 	* caller-save.c (save_call_clobbered_regs): Do not process sibcalls.
-	
+
 2007-02-15  Nick Clifton  <nickc@redhat.com>
 
 	* varasm.c (default_asm_output_anchor): Prepend * to . symbol in
@@ -295,7 +1430,7 @@
 2007-02-12  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* alias.c (find_symbolic_term): Delete unused function.
-	
+
 2007-02-12  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (paritydi2, paritysi2): New expanders.
@@ -401,7 +1536,7 @@
 	(c_finish_stmt_expr): Don't check extra_warnings.
 	(emit_side_effect_warnings): The caller is responsible to check
 	warn_unused_value.
-	
+
 2007-02-11  Roger Sayle  <roger@eyesopen.com>
 	    Matt Thomas  <matt@3am-software.com>
 
@@ -416,11 +1551,11 @@
 2007-02-11  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* doc/invoke.texi (Wextra): Delete outdated paragraph.
-	
+
 2007-02-11  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* dwarf2out.c (root_type): Delete unused function.
-	
+
 2007-02-11  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* genattrtab.c (contained_in_p): Delete unused function.
@@ -565,7 +1700,7 @@
 	(struct state): Delete unused longest_path_length.
 	(UNDEFINED_LONGEST_PATH_LENGTH): Delete unused macro.
 	(get_free_state): Delete unused.
-	
+
 2007-02-09  Jan Hubicka  <jh@suse.cz>
 
 	* params.def (PARAM_INLINE_UNIT_GROWTH): Set to 30.
@@ -842,7 +1977,7 @@
 	(extendsfdf2_mixed, extendsfdf2_sse, truncdfsf_fast_mixed,
 	truncdfsf_fast_sse, truncdfsf_mixed, fix_truncdfdi_sse,
 	fix_truncdfsi_sse, floatsidf2_mixed, floatsidf2_sse,
-	floatdidf2_mixed, floatdidf2_sse, absnegdf2_mixed, 
+	floatdidf2_mixed, floatdidf2_sse, absnegdf2_mixed,
 	absnegdf2_sse, sse_setccdf, fop_df_comm_mixed, fop_df_comm_sse,
 	fop_df_1_mixed, fop_df_1_sse): Change Y constraints to x.
 	* config/i386/mmx.md (mov<MMXMODEI>_internal_rex64,
@@ -935,7 +2070,7 @@
 	(create_nesting_tree): Create outside GGC space.  Create bitmap on
 	the new obstack.  Create field_map and var_map as pointer_maps.
 	(free_nesting_tree): Adjust for changes to create_nesting_tree.
-	(root): Delete.	
+	(root): Delete.
 	(lower_nested_functions): Move root here, no need to NULL it.
 	Initialize and release the obstack.
 
@@ -959,15 +2094,15 @@
 	(vect_is_simple_reduction): Support reduction with induction as
 	one of the operands.
 	(vect_is_simple_iv_evolution): Fix formatting.
-	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix 
+	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix
 	formatting.  Don't mark induction phis for vectorization.
 	(vect_analyze_scalar_cycles): Analyze all inductions, then reductions.
 	* tree-vect-transform.c (get_initial_def_for_induction): New function.
 	(vect_get_vec_def_for_operand): Support induction.
 	(vect_get_vec_def_for_stmt_copy): Fix formatting and add check for
 	induction case.
-	(vectorizable_reduction): Support reduction with induction as one of 
-	the operands. 
+	(vectorizable_reduction): Support reduction with induction as one of
+	the operands.
 	(vectorizable_type_demotion): Use def-type of stmt argument rather
 	than dummy def-type.
 
@@ -980,7 +2115,7 @@
 
 2007-02-06  Ira Rosen  <irar@il.ibm.com>
 
-	* tree-vect-patterns.c (vect_recog_widen_mult_pattern): Check that 
+	* tree-vect-patterns.c (vect_recog_widen_mult_pattern): Check that
 	vectype is not NULL.
 	(vect_pattern_recog_1): Likewise.
 
@@ -1029,7 +2164,7 @@
 	sqrtsf2_i387, sqrtdf2_mixed, sqrtdf2_sse, sqrtdf2_i387,
 	sqrtextendsfdf2_i387, sqrtxf2, sqrtextendsfxf2_i387,
 	sqrtextenddfxf2_i387): Added amdfam10_decode.
-	
+
 	* config/i386/athlon.md (athlon_idirect_amdfam10,
 	athlon_ivector_amdfam10, athlon_idirect_load_amdfam10,
 	athlon_ivector_load_amdfam10, athlon_idirect_both_amdfam10,
@@ -1078,7 +2213,7 @@
 	cvtsi2sd_load_amdfam10, cvtsi2ss_load_amdfam10,
 	cvtsi2sd_amdfam10, cvtsi2ss_amdfam10, cvtsd2ss_load_amdfam10,
 	cvtsd2ss_amdfam10, cvtpd2ps_load_amdfam10, cvtpd2ps_amdfam10,
-	cvtsX2si_load_amdfam10, cvtsX2si_amdfam10): New 
+	cvtsX2si_load_amdfam10, cvtsX2si_amdfam10): New
 	define_insn_reservation.
 
 	* config/i386/sse.md (cvtsi2ss, cvtsi2ssq, cvtss2si,
@@ -1099,8 +2234,8 @@
 
 	* config/i386/i386.h (TARGET_SSE_UNALIGNED_MOVE_OPTIMAL): New macro.
 	(x86_sse_unaligned_move_optimal): New variable.
-	
-	* config/i386/i386.c (x86_sse_unaligned_move_optimal): Enable for  
+
+	* config/i386/i386.c (x86_sse_unaligned_move_optimal): Enable for
 	m_AMDFAM10.
 	(ix86_expand_vector_move_misalign): Add code to generate movupd/movups
 	for unaligned vector SSE double/single precision loads for AMDFAM10.
@@ -1111,39 +2246,39 @@
 	(TARGET_CPU_CPP_BUILTINS): Add code for amdfam10.
 	Define TARGET_CPU_DEFAULT_amdfam10.
 	(TARGET_CPU_DEFAULT_NAMES): Add amdfam10.
-	(processor_type): Add PROCESSOR_AMDFAM10.	
-	
+	(processor_type): Add PROCESSOR_AMDFAM10.
+
 	* config/i386/i386.md: Add amdfam10 as a new cpu attribute to match
 	processor_type in config/i386/i386.h.
 	Enable imul peepholes for TARGET_AMDFAM10.
-	
+
 	* config.gcc: Add support for --with-cpu option for amdfam10.
-	
+
 	* config/i386/i386.c (amdfam10_cost): New variable.
 	(m_AMDFAM10): New macro.
 	(m_ATHLON_K8_AMDFAM10): New macro.
 	(x86_use_leave, x86_push_memory, x86_movx, x86_unroll_strlen,
 	x86_cmove, x86_3dnow_a, x86_deep_branch, x86_use_simode_fiop,
 	x86_promote_QImode, x86_integer_DFmode_moves,
-	x86_partial_reg_dependency, x86_memory_mismatch_stall, 
+	x86_partial_reg_dependency, x86_memory_mismatch_stall,
 	x86_accumulate_outgoing_args, x86_arch_always_fancy_math_387,
 	x86_sse_partial_reg_dependency, x86_sse_typeless_stores,
 	x86_use_ffreep, x86_use_incdec, x86_four_jump_limit,
 	x86_schedule, x86_use_bt, x86_cmpxchg16b, x86_pad_returns):
 	Enable/disable for amdfam10.
 	(override_options): Add amdfam10_cost to processor_target_table.
-	Set up PROCESSOR_AMDFAM10 for amdfam10 entry in 
+	Set up PROCESSOR_AMDFAM10 for amdfam10 entry in
 	processor_alias_table.
 	(ix86_issue_rate): Add PROCESSOR_AMDFAM10.
 	(ix86_adjust_cost): Add code for amdfam10.
 
 2007-02-05  Harsha Jagasia  <harsha.jagasia@amd.com>
-	
+
 	* config/i386/i386.opt: Add new Advanced Bit Manipulation (-mabm)
-	instruction set feature flag. Add new (-mpopcnt) flag for popcnt 
+	instruction set feature flag. Add new (-mpopcnt) flag for popcnt
 	instruction. Add new SSE4A (-msse4a) instruction set feature flag.
 	* config/i386/i386.h: Add builtin definition for SSE4A.
-	* config/i386/i386.md: Add support for ABM instructions 
+	* config/i386/i386.md: Add support for ABM instructions
 	(popcnt and lzcnt).
 	* config/i386/sse.md: Add support for SSE4A instructions
 	(movntss, movntsd, extrq, insertq).
@@ -1298,7 +2433,7 @@
 	* ipa-inline.c (try_inline): Improve debug output; work on already
 	inline edges too.
 	(cgraph_decide_inlining_incrementally): Indent; improve debug output;
-	call try_inline for already inlined edges too when flattening; 
+	call try_inline for already inlined edges too when flattening;
 	inline also functions that make callee growth but overall unit size
 	reduce.
 
@@ -1321,9 +2456,9 @@
 
 2007-02-03  Douglas Gregor  <doug.gregor@gmail.com>
 
-       * c-opts.c (c_common_post_options): If C++0x mode is enabled, don't
-       warn about C++0x compatibility.
-	
+	* c-opts.c (c_common_post_options): If C++0x mode is enabled, don't
+	warn about C++0x compatibility.
+
 2007-02-04  Kazu Hirata  <kazu@codesourcery.com>
 
 	* config/h8300/h8300.c, config/h8300/h8300.h,
@@ -1452,7 +2587,7 @@
 
 	Revert for x86 darwin:
 	2005-06-19  Uros Bizjak  <uros@kss-loka.si>
-	
+
 	* config/i386/i386.c (ix86_function_arg_regno_p): Put back the
 	code before the following patch under TARGET_MACHO.
 	(ix86_function_value_regno_p): Likewise.
@@ -1489,7 +2624,7 @@
 2007-02-02  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 
 	* sched-int.h (ds_to_dk, dk_to_ds): Declare functions.
-	
+
 	(struct _dep): New type.
 	(dep_t): New typedef.
 	(DEP_PRO, DEP_CON, DEP_KIND): New access macros.
@@ -1531,30 +2666,30 @@
 	(RESOLVED_DEPS): Rename to INSN_RESOLVED_BACK_DEPS.
 
 	(INSN_COST): Move to haifa-sched.c.  Use insn_cost () instead.
-	
+
 	(DEP_STATUS): Rename to DEP_LINK_STATUS.  Fix typo in the comment.
 
 	(add_forw_dep, delete_back_forw_dep, insn_cost): Update declaration and
 	all callers.
 	(dep_cost): Declare.
-	
+
 	* sched-deps.c (CHECK): New macro to (en/dis)able sanity checks.
 	(ds_to_dk, dk_to_ds): New functions.
-	
+
 	(init_dep_1): New static function.
 	(init_dep): New function.
 	(copy_dep): New static function.
-	
+
 	(dep_link_consistent_p, attach_dep_link, add_to_deps_list): New static
 	functions.
 	(detach_dep_link): New static function.
 	(move_dep_link): New function.
-	
+
 	(dep_links_consistent_p, dump_dep_links): New static functions.
 	(debug_dep_links): New debugging function.
-	
+
 	(deps_obstack, dl_obstack, dn_obstack): New static variables.
-	
+
 	(alloc_deps_list, init_deps_list): New static functions.
 	(create_deps_list): New function.
 	(clear_deps_list): New static function.
@@ -1571,10 +2706,10 @@
 	(sched_analyze): Ditto.  Initialize dependencies lists.
 	(add_forw_dep, compute_forward_dependences): Update to use new
 	scheduler dependencies lists.
-	
+
 	(init_dependency_caches): Init deps_obstack.
 	(free_dependency_caches): Free deps_obstack.
-	
+
 	(adjust_add_sorted_back_dep, adjust_back_add_forw_dep): Update to use
 	new scheduler dependencies lists.
 	(delete_forw_dep, add_or_update_back_forw_dep): Ditto.
@@ -1585,22 +2720,22 @@
 	(is_conditionally_protected, is_prisky, add_branch_dependences): Ditto.
 	(debug_dependencies): Ditto.
 	(schedule_region): Update comments.
-	
+
 	* sched-ebb.c (earliest_block_with_similiar_load): Update to use new
 	scheduler dependencies lists.
 	(schedule_ebb): Update comments.
-	
+
 	* rtl.def (DEPS_LIST): Remove.
-	
+
 	* lists.c (unused_deps_list): Remove.
 	(free_list): Update assertions.
-	
+
 	(alloc_DEPS_LIST, free_DEPS_LIST_list, free_DEPS_LIST_node): Remove.
 	(remove_free_DEPS_LIST_elem, copy_DEPS_LIST_list): Ditto.
 
 	* rtl.h (free_DEPS_LIST_list, alloc_DEPS_LIST): Remove declarations.
 	(remove_free_DEPS_LIST_elem, copy_DEPS_LIST_list): Ditto.
-	
+
 	* haifa-sched.c (comments): Update.
 	(insn_cost1): Remove.  Inline the code into insn_cost ().
 	(insn_cost): Update to use new scheduler dependencies lists.  Move
@@ -1616,24 +2751,24 @@
 	from resolve_dep () - see PR28071.
 	(ok_for_early_queue_removal): Update to use new scheduler dependencies
 	lists.  Update call to targetm.sched.is_costly_dependence hook.
-	
+
 	(fix_inter_tick, try_ready, fix_tick_ready): Update to use new
 	scheduler dependencies lists.
-	
+
 	(resolve_dep): Remove.  Move the logic to schedule_insn ().
 	(init_h_i_d): Initialize dependencies lists.
-	
+
 	(process_insn_depend_be_in_spec): Rename to
 	process_insn_forw_deps_be_in_spec.  Update to use new scheduler
 	dependencies lists.
 	(add_to_speculative_block, create_check_block_twin, fix_recovery_deps):
 	Update to use new scheduler dependencies lists.
 	(clear_priorities, calc_priorities, add_jump_dependencies): Ditto.
-	
+
 	* ddg.c (create_ddg_dependence, create_ddg_dep_no_link): Update to use
 	new scheduler dependencies lists.
 	(build_intra_loop_deps): Ditto.
-	
+
 	* target.h (struct _dep): Declare to use in
 	gcc_target.sched.is_costly_dependence.
 	(struct gcc_target.sched.adjust_cost): Fix typo.
@@ -1651,9 +2786,9 @@
 
 	* doc/rtl.texi (LOG_LINKS): Remove part about instruction scheduler.
 	(REG_DEP_TRUE): Document.
-	
+
 	* config/ia64/ia64.c (ia64_adjust_cost_2): Rename to ia64_adjust_cost.
-	Change signature to correspond to the targetm.sched.adjust_cost hook.  
+	Change signature to correspond to the targetm.sched.adjust_cost hook.
 	Update use in TARGET_SCHED_ADJUST_COST_2.
 	(TARGET_SCHED_ADJUST_COST_2): Rename to TARGET_SCHED_ADJUST_COST.
 	(ia64_dependencies_evaluation_hook, ia64_dfa_new_cycle): Update to use
@@ -1662,7 +2797,7 @@
 
 	* config/mips/mips.c (vr4130_swap_insns_p): Update to use new scheduler
 	dependencies lists.
-	
+
 	* config/rs6000/rs6000.c (rs6000_is_costly_dependence): Change
 	signature to correspond to the targetm.sched.is_costly_dependence hook.
 	(is_costly_group): Update to use new scheduler dependencies lists.

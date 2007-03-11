@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -1272,7 +1272,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return false;
 
-  len = TREE_CODE_LENGTH (TREE_CODE (expr));
+  len = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < len; i++)
     if (!expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
       return false;
@@ -4946,7 +4946,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
     {
       if (stmts)
 	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
-      ass = build2_gimple (GIMPLE_MODIFY_STMT, tgt, op);
+      ass = build_gimple_modify_stmt (tgt, op);
       bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
       remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;

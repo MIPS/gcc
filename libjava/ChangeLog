@@ -1,3 +1,153 @@
+2007-02-21  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetArgumentsSize): New function.
+	* testsuite/libjava.jvmti/interp/getargssize.java: New test.
+	* testsuite/libjava.jvmti/interp/getargssize.h: Ditto.
+	* testsuite/libjava.jvmti/interp/getargssize.jar: Ditto.
+	* testsuite/libjava.jvmti/interp/getargssize.out: Ditto.
+	* testsuite/libjava.jvmti/interp/natgetargssize.cc: Ditto.
+
+2007-02-21  Gary Benson  <gbenson@redhat.com>
+
+	* java/util/GregorianCalendar.java: Removed.
+	* sources.am, Makefile.in: Rebuilt.
+
+2007-02-20  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(jdwpClassPrepareCB): Move class status stuff to ...
+	(getClassStatus): ... here.
+
+2007-02-20  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/awt/xlib/XEventLoop.h: Regenerated.
+	* gnu/java/awt/peer/gtk/GThreadMutex.h: Likewise.
+	* gnu/java/rmi/server/ConnectionRunnerPool$ConnectionRunner.h:
+	Likewise.
+	* gnu/java/rmi/server/UnicastConnectionManager.h: Likewise.
+	* java/lang/SecurityManager.h: Likewise.
+	* java/lang/Thread.h: Likewise.
+	* java/security/VMSecureRandom$Spinner.h: Likewise.
+	* java/util/concurrent/atomic/AtomicBoolean.h: Likewise.
+	* java/util/concurrent/atomic/AtomicInteger.h: Likewise.
+	* java/util/concurrent/atomic/AtomicLong.h: Likewise.
+	* java/util/concurrent/atomic/AtomicReference.h: Likewise.
+	* java/util/concurrent/ConcurrentHashMap$HashEntry.h: Likewise.
+	* java/util/concurrent/ConcurrentHashMap$Segment.h: Likewise.
+	* java/util/concurrent/ConcurrentLinkedQueue.h: Likewise.
+	* java/util/concurrent/ConcurrentLinkedQueue$Node.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap$Index.h: Likewise.
+	* java/util/concurrent/ConcurrentSkipListMap$Node.h: Likewise.
+	* java/util/concurrent/Exchanger.h: Likewise.
+	* java/util/concurrent/Exchanger$Node.h: Likewise.
+	* java/util/concurrent/FutureTask$Sync.h: Likewise.
+	* java/util/concurrent/LinkedBlockingQueue$Node.h: Likewise.
+	* java/util/concurrent/locks/AbstractQueuedLongSynchronizer.h:
+	Likewise.
+	* java/util/concurrent/locks/AbstractQueuedLongSynchronizer$Node.h: 
+	Likewise.
+	* java/util/concurrent/locks/AbstractQueuedSynchronizer.h: Likewise.
+	* java/util/concurrent/locks/AbstractQueuedSynchronizer$Node.h:
+	Likewise.
+	* java/util/concurrent/ScheduledThreadPoolExecutor.h: Likewise.
+	* java/util/concurrent/SynchronousQueue.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferQueue.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferQueue$QNode.h:
+	Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferStack.h: Likewise.
+	* java/util/concurrent/SynchronousQueue$TransferStack$SNode.h:
+	Likewise.
+	* java/util/concurrent/ThreadPoolExecutor.h: Likewise.
+	* java/util/concurrent/ThreadPoolExecutor$Worker.h: Likewise.
+	* java/util/logging/ErrorManager.h: Likewise.
+	* javax/swing/plaf/basic/BasicSpinnerUI$2.h: Likewise.
+	* javax/swing/plaf/basic/BasicSpinnerUI$4.h: Likewise.
+
+2007-02-16  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(get_line_table): New function.
+	(handle_single_step): New function.
+	(jdwpSingleStepCB): New function.
+	(jdwpVMInitCB): Define a JVMTI single step
+	callback, but don't enable it until needed.
+
+2007-02-16  David Daney  <ddaney@avtrex.com>
+
+	* java/lang/Thread.java (Thread(ThreadGroup, Runnable, String)): Pass
+	new parameter constructor.
+	(Thread(ThreadGroup, Runnable, String, long)): Same.
+	(Thread(String, boolean)): New constructor.
+	(Thread(Thread, ThreadGroup, Runnable, String): Add parameter
+	noInheritableThreadLocal, don't call
+	InheritableThreadLocal.newChildThread if set.
+	* java/lang/PosixProcess.java(ProcessManager()): Set
+	noInheritableThreadLocal in super.
+	* java/lang/natThread.cc (_Jv_AttachCurrentThread): Pass new
+	parameter to Thread constructor.
+	(_Jv_AttachCurrentThreadAsDaemon): Same.
+	* java/lang/Thread.h: Regenerate.
+	* classpath/lib/java/lang/Thread.class: Same.
+	* classpath/lib/java/lang/PosixProcess$EOFInputStream.class: Same.
+	* classpath/lib/java/lang/PosixProcess.class: Same.
+	* classpath/lib/java/lang/Thread$State.class: Same.
+	* classpath/lib/java/lang/PosixProcess$ProcessManager.class: Same.
+
+2007-02-16  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret.cc: Add extra DEBUG_LOCALS_INSN calls for multi-slot
+	variables to maintain type info.
+	* interpret-run.cc: Add local variable info to frame in the debug
+	interpreter.
+	* jvmti.cc (getLocalFrame): New method.
+	(_Jv_JVMTI_GetLocalObject): New method.
+	(_Jv_JVMTI_GetLocallInt): New method.
+	(_Jv_JVMTI_GetLocalFloat): New method.
+	(_Jv_JVMTI_GetLocalLong): New method.
+	(_Jv_JVMTI_GetLocalDouble): New method.
+	(_Jv_JVMTI_SetLocalObject): New method.
+	(_Jv_JVMTI_SetLocalInt): New method.
+	(_Jv_JVMTI_SetLocalFloat): New method.
+	(_Jv_JVMTI_SetLocalLong): New method.
+	(_Jv_JVMTI_SetLocalDouble): New method.
+
+2007-02-16  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java
+	(bytesToString): Don't lose zeros from within the digest.
+
+2007-02-15  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am (nat_source_files): Remove
+	java/lang/management/natVMManagementFactory.cc.
+	* java/lang/Thread.java (getStackTrace): Use reflection to call
+	the ManagementFactory.
+	* java/lang/management/VMManagementFactory.java: Remove native
+	methods.
+	* java/lang/management/natVMManagementFactory.cc: Deleted.
+	* sources.am: Regnerate.
+	* scripts/makemake.tcl: Add new "bcheaders" type.
+	Move java/lang/management and gnu/classpath/management to "bc".
+	Move gnu/java/lang/management to "bcheaders".
+	
+2007-02-15  Kyle Galloway  <kgallowa@redhat.com>
+	
+	* interpret.cc (_Jv_InterpMethod::check_handler): New method.
+	* interpret-run.cc: Change the catch section to report exception
+	events and to use the new check_handler method.
+	* include/java-interp.h (_Jv_InterpMethod): Add check_handler.
+	* gnu/gcj/jvmti/ExceptionEvent.java: New file.
+	* gnu/gcj/jvmti/ExceptionEvent.h: New file.
+	* gnu/gcj/jvmti/natExceptionEvent.cc: New file.
+	* libjava/classpath/lib/gnu/gcj/jvmti/ExceptionEvent.class: New
+	file.
+	* sources.am: Added ExceptionEvent.java.
+	* Makefile.am: Added natExceptionEvent.cc
+	* Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+
 2007-02-15  Johannes Schmidt  <jschmidt@avtrex.com>
 	David Daney  <ddaney@avtrex.com>
 

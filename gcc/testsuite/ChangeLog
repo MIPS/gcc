@@ -1,3 +1,167 @@
+2007-02-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/derived_aggregate.adb: New test.
+
+2007-02-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ldexp-1.c: Use -fno-finite-math-only on
+	sh* targets.  Call the correct CKSGN macro.
+
+2007-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/omp_parse1.f90: New test.
+	* gfortran.dg/gomp/omp_parse2.f: New test.
+
+2007-02-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/30869
+	* gfortran.dg/do_pointer_1.f90:  New test.
+
+2007-02-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-nonneg-1.c: Add checks for scalb, scalbn
+	and scalbln.
+
+2007-02-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-minversion-1.c: New.
+	* gcc.dg/darwin-minversion-2.c: New.
+
+2007-02-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-34.c: Add scalb/scalbn/scalbln cases.
+
+2007-02-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+            DJ Delorie <dj@redhat.com>
+
+	PR other/30824
+	* gcc.dg/Wfatal.c: New.
+	* gcc.dg/Wfatal-2.c: New.
+	* gcc.dg/Werror-1.c: Adjust expectations.
+	* gcc.dg/Werror-5.c: Likewise.
+	* gcc.dg/Werror-7.c: Likewise.
+	* gcc.dg/Werror-10.c: Likewise.
+	* gcc.dg/Werror-11.c: Likewise.
+
+2007-02-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30522
+	* gfortran.dg/volatile10.f90: New test.
+
+2007-02-19  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30533
+	* gfortran.dg/intrinsic_intkinds_1.f90:  New test.
+
+2007-02-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* gcc.dg/20031012-1.c: Replace -Walways-true with -Waddress.
+	* gcc.dg/Walways-true-1.c: Likewise.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/Werror-1.c: Likewise.
+	* gcc.dg/Werror-3.c: Likewise.
+	* gcc.dg/Werror-4.c: Likewise.
+	* gcc.dg/Werror-5.c: Likewise.
+	* gcc.dg/Werror-6.c: Likewise.
+	* gcc.dg/Werror-7.c: Likewise.
+	* gcc.dg/Werror-8.c: Likewise.
+	* gcc.dg/Werror-10.c: Likewise.
+	* gcc.dg/Werror-11.c: Likewise.
+	* gcc.dg/Werror-12.c: Likewise.
+	* g++.old-deja/g++.mike/warn8.C: Likewise.
+	* g++.dg/warn/Walways-true-1.C: Likewise.
+	* g++.dg/warn/Walways-true-2.C: Likewise.
+	* g++.dg/warn/noeffect8.C: Warn only with -Waddress.
+	* g++.dg/warn/Wstring-literal-comparison-1.C: Replace
+	-Wstring-literal-comparison with -Waddress.
+	* gcc.dg/Wstring-literal-comparison-4.c: Replace
+	-Wno-string-literal-comparison with -Wno-address.
+	
+2007-02-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/self_aggregate_with_call.adb: New test.
+
+2007-02-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/30975
+	* gcc.dg/vect/vect-iv-8.c: Fix to include an induction. Xfail.
+	* gcc.dg/vect/vect-iv-8a.c: New (same as above, but signed).
+	* gcc.dg/vect/pr30795.c: New.
+
+2007-02-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/30681
+	* gfortran.dg/pr17229.f: Change "Obsolete" to "Obsolescent".
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/28173
+	* gcc.target/i386/andor-1.c: New test case.
+
+2007-02-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ldexp-1.c: New.
+	* gcc.dg/torture/builtin-math-2.c: Add ldexp/scalbn/scalbln cases.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/array_constructor_15.f90: New test case.
+
+2007-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.dg/forall_10.f90: New test case.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/tail_call_p.ads, tail_call_p.adb, tail_call.adb: New test.
+
+2007-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/test_prio_p.adb: Compile with -gnatws.
+	* lib/gnat.exp (gnat_target_compile): Pass -f to the driver.
+
+2007-02-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/builtin-bswap-1.c: Remove -march=nocona.
+	* gcc.target/i386/builtin-bswap-3.c: Ditto.
+	* gcc.target/i386/xchg-1.c: New test.
+	* gcc.target/i386/xchg-2.c: New test. 
+
+2007-02-16  Richard Guenther  <rguenther@suse.de>
+	    Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.dg/strict-overflow-5.c: New testcase.
+
+2007-02-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30793
+	* gfortran.dg/func_derived_4.f90: New test.
+
+2007-02-15  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/30391
+	* gfortran.dg/pr30391-1.f90: New test case.
+
+2007-02-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30433
+	* gcc.c-torture/compile/pr30433.c: New testcase to check
+	that complex constants comparisions are foldded.
+
+2007-02-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/30158
+	* g++.dg/ext/stmtexpr10.C: New testcase.
+
+2007-02-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30729
+	* gcc.dg/Wunused-value-2.c: New testcase.
+
+2007-02-15  Ian Lance Taylor  <iant@google.com>
+
+	* g++.dg/eh/subreg-1.C: New test.
+
 2007-02-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR c/26494
@@ -1068,9 +1232,9 @@
 
 2007-01-06  Lee Millward  <lee.millward@codesourcery.com>
 
-       PR c++/19439
-       * g++.dg/template/duplicate1.C: New test
-       * g++.dg/template/memfriend6.C: Adjust error markers.
+	PR c++/19439
+	* g++.dg/template/duplicate1.C: New test
+	* g++.dg/template/memfriend6.C: Adjust error markers.
 	
 2007-01-05  Andrew Pinski  <Andrew_Pinski@playstation.sony.com>
 

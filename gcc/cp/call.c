@@ -336,7 +336,7 @@ build_call (tree function, tree parms)
 				     TREE_VALUE (tmp), t);
 	}
 
-  function = build3 (CALL_EXPR, result_type, function, parms, NULL_TREE);
+  function = build_call_list (result_type, function, parms);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
   TREE_NOTHROW (function) = nothrow;
 
@@ -4740,7 +4740,7 @@ build_over_call (struct z_candidate *cand, int flags)
       tree expr;
       tree return_type;
       return_type = TREE_TYPE (TREE_TYPE (fn));
-      expr = build3 (CALL_EXPR, return_type, fn, args, NULL_TREE);
+      expr = build_call_list (return_type, fn, args);
       if (TREE_THIS_VOLATILE (fn) && cfun)
 	current_function_returns_abnormally = 1;
       if (!VOID_TYPE_P (return_type))
@@ -5122,7 +5122,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
   lookup_fn = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
 		      java_iface_lookup_fn);
-  return build3 (CALL_EXPR, ptr_type_node, lookup_fn, lookup_args, NULL_TREE);
+  return build_call_list (ptr_type_node, lookup_fn, lookup_args);
 }
 
 /* Returns the value to use for the in-charge parameter when making a
@@ -5528,15 +5528,29 @@ build_new_method_call (tree instance, tree fns, tree args,
 		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
 			       instance_ptr, call);
+	      else if (call != error_mark_node
+		       && DECL_DESTRUCTOR_P (cand->fn)
+		       && !VOID_TYPE_P (TREE_TYPE (call)))
+		/* An explicit call of the form "x->~X()" has type
+		   "void".  However, on platforms where destructors
+		   return "this" (i.e., those where
+		   targetm.cxx.cdtor_returns_this is true), such calls
+		   will appear to have a return value of pointer type
+		   to the low-level call machinery.  We do not want to
+		   change the low-level machinery, since we want to be
+		   able to optimize "delete f()" on such platforms as
+		   "operator delete(~X(f()))" (rather than generating
+		   "t = f(), ~X(t), operator delete (t)").  */
+		call = build_nop (void_type_node, call);
 	    }
 	}
     }
 
   if (processing_template_decl && call != error_mark_node)
-    call = (build_min_non_dep
-	    (CALL_EXPR, call,
+    call = (build_min_non_dep_call_list
+	    (call,
 	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns, NULL_TREE),
-	     orig_args, NULL_TREE));
+	     orig_args));
 
  /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);

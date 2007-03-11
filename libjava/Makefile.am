@@ -840,6 +840,7 @@ gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/jvmti/natBreakpoint.cc \
+gnu/gcj/jvmti/natExceptionEvent.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natSystemClassLoader.cc \
@@ -866,7 +867,6 @@ gnu/java/nio/channels/natFileChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
-java/lang/management/natVMManagementFactory.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \

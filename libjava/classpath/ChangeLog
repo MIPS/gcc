@@ -1,3 +1,30 @@
+2007-02-20  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am: Add rules to build and install man pages
+	from texinfo docs.
+	* doc/hacking.texinfo doc/tools.texinfo, doc/vmintegration.texinfo:
+	Rename, prefix files with "cp-".
+	* doc/cp-tools.texinfo: Add markup for man page generation,
+	add documentation for command line options for gjar, gjavah,
+	gnative2ascii, gorbd, grmid, grmiregistry, gserialver, gtnameserv.
+	doc/texi2pod.pl: New, taken from the GCC sources.
+
+2006-10-14  Edwin Steiner  <edwin.steiner@gmx.net>
+
+	PR classpath/28652:
+	* javax/management/MBeanInfo.java (MBeanInfo): 
+	Use clone to duplicate the arrays in order to
+	preserve the array type.
+
+2007-02-16  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/lang/management/MemoryMXBeanImpl.java,
+	javax/management/MBeanServerDelegate.java: Use
+	gnu.javax.management.ListenerData rather than
+	gnu.classpath.ListenerData.
+	* gnu/javax/management/ListenerData.java: Move here from
+	gnu/classpath/ListenerData.java.
+
 2007-02-14  Jakub Jelinek  <jakub@redhat.com>
 	Andrew Haley  <aph@redhat.com>
 
