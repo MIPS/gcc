@@ -1,3 +1,160 @@
+2007-02-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/28943
+	* call.c (build_conditional_expr): Improve error message.
+	
+2007-02-13  Dirk Mueller  <dmueller@suse.de>
+
+	* friend.c (do_friend): Annotate warning about friend
+	declarations in templates with OPT_Wnon_template_friend.
+	Convert informal message from warning() to inform().
+
+2007-02-12  Simon Martin  <simartin@users.sourceforge.net>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14622
+	* pt.c (do_decl_instantiation): Detect type mismatches in explicit
+	instantiations for variables.
+
+2007-02-12  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR middle-end/7651
+	* cp-gimplify.c (gimplify_expr_stmt): Don't check extra_warnings.
+	Check warn_unused_value just once.
+
+2007-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26988
+	* pt.c (determine_specialization): Use skip_artificial_parms_for.
+	(fn_type_unificiation): Likewise.
+	(get_bindings): Likewise.
+
+o2007-02-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/29487
+	* decl.c (finish_function): Use DECL_REPLACEABLE.
+	* tree.c (cp_cannot_inline_tree_fn): Likewise.
+
+2007-02-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_parser_primary_expression): Reformat overly long lines.
+
+2007-02-10  Richard Henderson  <rth@redhat.com>, Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (grokvardecl): Don't error if !have_tls.
+	(grokdeclarator): Likewise.
+	* parser.c (cp_parser_omp_threadprivate): Likewise.
+
+2007-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30703
+	* cp-gimplify.c (cp_genericize_r): Don't dereference invisiref
+	parameters and result decls in omp clauses.
+	(cxx_omp_privatize_by_reference): Pass also invisiref PARM_DECLs
+	by reference.
+
+2007-02-05  Dirk Mueller  <dmueller@suse.de>
+
+	PR bootstrap/30510
+	* parser.c (cp_parser_class_specifier): Always initialize bases.
+
+2007-02-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* cp-tree.h (OMP_ATOMIC_CODE): Delete.
+	(OMP_ATOMIC_DEPENDENT_P): Rewrite.
+	* pt.c (tsubst_expr): Adjust for new format of dependent OMP_ATOMIC
+	expressions.
+	* semantics.c (finish_omp_atomic): Store a whole expression node
+	in operand 1, and integer_zero_node in operand 0, for dependent
+	OMP_ATOMIC.  Rewrite to make flow easier to understand.
+
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Use OPT_Wreturn_type instead of 0.
+
+2007-02-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, cp-tree.h, decl.c, decl2.c, g++spec.c, init.c,
+	parser.c, pt.c, tree.c, typeck.c: Follow spelling conventions.
+
+2007-02-03  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * parser.c (cp_lexer_get_preprocessor_token): Attach the C++0x
+       keyword warning to -Wc++0x-compat.
+	
+2007-02-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (grokdeclarator): Update documentation.
+
+2007-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30536
+	* decl.c (grokdeclarator): If __thread is used together with
+	a storage class other than extern and static, clear thread_p
+	after issuing diagnostics and fall through to checking the
+	storage class.
+
+2007-01-30  Roger Sayle  <roger@eyesopen.com>
+
+	* error.c (dump_type_suffix): Avoid use of cp_build_binary_op when
+	calculating the size of an array (to avoid recursive errors).
+
+2007-01-30  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24745
+	* typeck.c (build_binary_op): Fix logic for warning. Move warning
+	to -Wpointer-arith.
+	* call.c (convert_like_real): Don't warn when converting to
+	boolean type.
+	
+2007-01-29  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* decl.c (pop_label): Replace warning with call to
+	warn_for_unused_label.
+
+2007-01-28  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/28988
+	* semantics.c (finish_pseudo_destructor_expr): Check the
+	destrutor name by calling check_dtor_name.
+
+2007-01-24  Douglas Gregor  <dgregor@osl.iu.edu>
+
+	* lex.c (D_CPP0X): Rename.
+	(D_CXX0X): To this.
+	(reswords): D_CPP0X -> D_CXX0X.
+	(init_reswords): Ditto.
+	* parser.c (cp_lexer_get_preprocessor_token): Warn about the use
+	of C++0x keywords as identifiers.
+
+2007-01-23  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/27492
+	* decl.c (duplicate_decls): Don't reset DECL_INVALID_OVERRIDER_P for
+	function decls.
+
+2007-01-23  Ian Lance Taylor  <iant@google.com>
+
+	* typeck.c (convert_for_assignment): Only warn about a = b = c
+	when converting to bool.
+
+2007-01-23  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (null_ptr_cst_p): Replace use of TREE_CONSTANT_OVERFLOW with
+	TREE_OVERFLOW.
+	* typeck.c (ignore_overflows): Remove the remaining uses of
+	TREE_CONSTANT_OVERFLOW.
+
+2007-01-20  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (start_objects, start_static_storage_duration_function):
+	Do not make the functions uninlinable.
+
+2007-01-17  Ian Lance Taylor  <iant@google.com>
+
+	* class.c (add_method): Call VEC_reserve_exact rather than passing
+	a negative size to VEC_reserve.
+
 2007-01-11  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR c++/29573

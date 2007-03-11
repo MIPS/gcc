@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -443,6 +443,17 @@ stripattributes (const char *s)
   return stripped;
 }
 
+/* MEM is a memory reference for the register size table, each element of
+   which has mode MODE.  Initialize column C as a return address column.  */
+
+static void
+init_return_column_size (enum machine_mode mode, rtx mem, unsigned int c)
+{
+  HOST_WIDE_INT offset = c * GET_MODE_SIZE (mode);
+  HOST_WIDE_INT size = GET_MODE_SIZE (Pmode);
+  emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
+}
+
 /* Generate code to initialize the register size table.  */
 
 void
@@ -481,21 +492,12 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 	}
     }
 
-#ifdef DWARF_ALT_FRAME_RETURN_COLUMN
-  gcc_assert (wrote_return_column);
-  i = DWARF_ALT_FRAME_RETURN_COLUMN;
-  wrote_return_column = false;
-#else
-  i = DWARF_FRAME_RETURN_COLUMN;
-#endif
+  if (!wrote_return_column)
+    init_return_column_size (mode, mem, DWARF_FRAME_RETURN_COLUMN);
 
-  if (! wrote_return_column)
-    {
-      enum machine_mode save_mode = Pmode;
-      HOST_WIDE_INT offset = i * GET_MODE_SIZE (mode);
-      HOST_WIDE_INT size = GET_MODE_SIZE (save_mode);
-      emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
-    }
+#ifdef DWARF_ALT_FRAME_RETURN_COLUMN
+  init_return_column_size (mode, mem, DWARF_ALT_FRAME_RETURN_COLUMN);
+#endif
 }
 
 /* Convert a DWARF call frame info. operation to its string name */
@@ -1522,13 +1524,31 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
     {
       int par_index;
       int limit = XVECLEN (expr, 0);
+      rtx elem;
+
+      /* PARALLELs have strict read-modify-write semantics, so we
+	 ought to evaluate every rvalue before changing any lvalue.
+	 It's cumbersome to do that in general, but there's an
+	 easy approximation that is enough for all current users:
+	 handle register saves before register assignments.  */
+      if (GET_CODE (expr) == PARALLEL)
+	for (par_index = 0; par_index < limit; par_index++)
+	  {
+	    elem = XVECEXP (expr, 0, par_index);
+	    if (GET_CODE (elem) == SET
+		&& MEM_P (SET_DEST (elem))
+		&& (RTX_FRAME_RELATED_P (elem) || par_index == 0))
+	      dwarf2out_frame_debug_expr (elem, label);
+	  }
 
       for (par_index = 0; par_index < limit; par_index++)
-	if (GET_CODE (XVECEXP (expr, 0, par_index)) == SET
-	    && (RTX_FRAME_RELATED_P (XVECEXP (expr, 0, par_index))
-		|| par_index == 0))
-	  dwarf2out_frame_debug_expr (XVECEXP (expr, 0, par_index), label);
-
+	{
+	  elem = XVECEXP (expr, 0, par_index);
+	  if (GET_CODE (elem) == SET
+	      && (!MEM_P (SET_DEST (elem)) || GET_CODE (expr) == SEQUENCE)
+	      && (RTX_FRAME_RELATED_P (elem) || par_index == 0))
+	    dwarf2out_frame_debug_expr (elem, label);
+	}
       return;
     }
 
@@ -4133,7 +4153,6 @@ static void output_ranges (void);
 static void output_line_info (void);
 static void output_file_names (void);
 static dw_die_ref base_type_die (tree);
-static tree root_type (tree);
 static int is_base_type (tree);
 static bool is_subrange_type (tree);
 static dw_die_ref subrange_type_die (tree, dw_die_ref);
@@ -8283,35 +8302,6 @@ base_type_die (tree type)
   return base_type_result;
 }
 
-/* Given a pointer to an arbitrary ..._TYPE tree node, return a pointer to
-   the Dwarf "root" type for the given input type.  The Dwarf "root" type of
-   a given type is generally the same as the given type, except that if the
-   given type is a pointer or reference type, then the root type of the given
-   type is the root type of the "basis" type for the pointer or reference
-   type.  (This definition of the "root" type is recursive.) Also, the root
-   type of a `const' qualified type or a `volatile' qualified type is the
-   root type of the given type without the qualifiers.  */
-
-static tree
-root_type (tree type)
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return error_mark_node;
-
-  switch (TREE_CODE (type))
-    {
-    case ERROR_MARK:
-      return error_mark_node;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      return type_main_variant (root_type (TREE_TYPE (type)));
-
-    default:
-      return type_main_variant (type);
-    }
-}
-
 /* Given a pointer to an arbitrary ..._TYPE tree node, return nonzero if the
    given input type is a Dwarf "fundamental" type.  Otherwise return null.  */
 
@@ -8499,9 +8489,11 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	  gen_type_die (qualified_type, context_die);
 	  return lookup_type_die (qualified_type);
 	}
-      else if (DECL_ORIGINAL_TYPE (name)
-	       && (is_const_type < TYPE_READONLY (dtype)
-		   || is_volatile_type < TYPE_VOLATILE (dtype)))
+      else if (is_const_type < TYPE_READONLY (dtype)
+	       || is_volatile_type < TYPE_VOLATILE (dtype)
+	       || (is_const_type <= TYPE_READONLY (dtype)
+		   && is_volatile_type <= TYPE_VOLATILE (dtype)
+		   && DECL_ORIGINAL_TYPE (name) != type))
 	/* cv-unqualified version of named type.  Just use the unnamed
 	   type to which it refers.  */
 	return modified_type_die (DECL_ORIGINAL_TYPE (name),
@@ -9043,6 +9035,32 @@ concat_loc_descriptor (rtx x0, rtx x1)
   return cc_loc_result;
 }
 
+/* Return a descriptor that describes the concatenation of N
+   locations.  */
+
+static dw_loc_descr_ref
+concatn_loc_descriptor (rtx concatn)
+{
+  unsigned int i;
+  dw_loc_descr_ref cc_loc_result = NULL;
+  unsigned int n = XVECLEN (concatn, 0);
+
+  for (i = 0; i < n; ++i)
+    {
+      dw_loc_descr_ref ref;
+      rtx x = XVECEXP (concatn, 0, i);
+
+      ref = loc_descriptor (x);
+      if (ref == NULL)
+	return NULL;
+
+      add_loc_descr (&cc_loc_result, ref);
+      add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x)));
+    }
+
+  return cc_loc_result;
+}
+
 /* Output a proper Dwarf location descriptor for a variable or parameter
    which is either allocated in a register or in a memory location.  For a
    register, we just generate an OP_REG and the register number.  For a
@@ -9078,6 +9096,10 @@ loc_descriptor (rtx rtl)
 
     case CONCAT:
       loc_result = concat_loc_descriptor (XEXP (rtl, 0), XEXP (rtl, 1));
+      break;
+
+    case CONCATN:
+      loc_result = concatn_loc_descriptor (rtl);
       break;
 
     case VAR_LOCATION:
@@ -9174,7 +9196,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	  rtx rtl;
 
 	  /* If this is not defined, we have no way to emit the data.  */
-	  if (!targetm.asm_out.output_dwarf_dtprel)
+	  if (!targetm.have_tls || !targetm.asm_out.output_dwarf_dtprel)
 	    return 0;
 
 	  /* The way DW_OP_GNU_push_tls_address is specified, we can only
@@ -9604,6 +9626,24 @@ simple_decl_align_in_bits (tree decl)
   return (TREE_CODE (decl) != ERROR_MARK) ? DECL_ALIGN (decl) : BITS_PER_WORD;
 }
 
+/* Return the result of rounding T up to ALIGN.  */
+
+static inline HOST_WIDE_INT
+round_up_to_align (HOST_WIDE_INT t, unsigned int align)
+{
+  /* We must be careful if T is negative because HOST_WIDE_INT can be
+     either "above" or "below" unsigned int as per the C promotion
+     rules, depending on the host, thus making the signedness of the
+     direct multiplication and division unpredictable.  */
+  unsigned HOST_WIDE_INT u = (unsigned HOST_WIDE_INT) t;
+
+  u += align - 1;
+  u /= align;
+  u *= align;
+
+  return (HOST_WIDE_INT) u;
+}
+
 /* Given a pointer to a FIELD_DECL, compute and return the byte offset of the
    lowest addressed byte of the "containing object" for the given FIELD_DECL,
    or return 0 if we are unable to determine what that offset is, either
@@ -9703,9 +9743,8 @@ field_byte_offset (tree decl)
   object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
   /* Round up to type_align by default.  This works best for bitfields.  */
-  object_offset_in_bits += type_align_in_bits - 1;
-  object_offset_in_bits /= type_align_in_bits;
-  object_offset_in_bits *= type_align_in_bits;
+  object_offset_in_bits
+    = round_up_to_align (object_offset_in_bits, type_align_in_bits);
 
   if (object_offset_in_bits > bitpos_int)
     {
@@ -9713,9 +9752,8 @@ field_byte_offset (tree decl)
       object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
       /* Round up to decl_align instead.  */
-      object_offset_in_bits += decl_align_in_bits - 1;
-      object_offset_in_bits /= decl_align_in_bits;
-      object_offset_in_bits *= decl_align_in_bits;
+      object_offset_in_bits
+	= round_up_to_align (object_offset_in_bits, decl_align_in_bits);
     }
 
   return object_offset_in_bits / BITS_PER_UNIT;
@@ -10045,8 +10083,14 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   if (DECL_P (*tp) && ! TREE_PUBLIC (*tp) && ! TREE_USED (*tp)
       && ! TREE_ASM_WRITTEN (*tp))
     return *tp;
-  else
-    return NULL_TREE;
+  else if (DECL_P (*tp) && TREE_CODE (*tp) != FUNCTION_DECL)
+    {
+      struct varpool_node *node = varpool_node (*tp);
+      if (!node->needed)
+	return *tp;
+    }
+
+  return NULL_TREE;
 }
 
 /* Generate an RTL constant from a decl initializer INIT with decl type TYPE,
@@ -14331,7 +14375,9 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context && TREE_CODE (context) == FUNCTION_DECL);
+	      gcc_assert (context
+			  && (TREE_CODE (context) == FUNCTION_DECL
+			      || TREE_CODE (context) == NAMESPACE_DECL));
 
 	      origin = lookup_decl_die (context);
 	      if (origin)

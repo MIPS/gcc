@@ -1,3 +1,31 @@
+2007-01-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30468:
+	* mkdeps.c (apply_vpath): Strip successive '/'s if we stripped
+	'./'.
+
+2007-01-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/29966:
+	* macro.c (lex_expansion_token): Save and restore cpp_reader's
+	cur_token.
+	(_cpp_create_definition): Don't restore cur_token here.
+	* lex.c (_cpp_lex_token): Added assertion.
+
+2007-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+
+2007-01-12  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/28227:
+	* directives.c (lex_macro_node): Added 'is_def_or_undef'
+	argument.
+	(do_define): Update.
+	(do_undef): Update.
+	(do_ifdef): Update.
+	(do_ifndef): Update.
+
 2007-01-11  Paolo Bonzini  <bonzini@gnu.org>
 
 	* configure: Regenerate.

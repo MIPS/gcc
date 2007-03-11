@@ -918,7 +918,7 @@ constant_expression_warning (tree value)
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
        || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
-      && TREE_CONSTANT_OVERFLOW (value)
+      && TREE_OVERFLOW (value)
       && warn_overflow
       && pedantic)
     pedwarn ("overflow in constant expression");
@@ -1257,11 +1257,8 @@ convert_and_check (tree type, tree expr)
       /* Do not diagnose overflow in a constant expression merely
          because a conversion overflowed.  */
       if (TREE_OVERFLOW (result))
-        {
-          TREE_CONSTANT_OVERFLOW (result) = TREE_CONSTANT_OVERFLOW (expr);
-          TREE_OVERFLOW (result) = TREE_OVERFLOW (expr);
-        }
-      
+        TREE_OVERFLOW (result) = TREE_OVERFLOW (expr);
+
       if (TYPE_UNSIGNED (type))
         {
           /* This detects cases like converting -129 or 256 to
@@ -2323,8 +2320,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	  primop1 = force_fit_type_double (*restype_ptr,
 					   TREE_INT_CST_LOW (primop1),
 					   TREE_INT_CST_HIGH (primop1), 0,
-					   TREE_OVERFLOW (primop1),
-					   TREE_CONSTANT_OVERFLOW (primop1));
+					   TREE_OVERFLOW (primop1));
 	}
       if (type != *restype_ptr)
 	{
@@ -2547,7 +2543,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 tree
 pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 {
-  tree size_exp;
+  tree size_exp, ret;
 
   /* The result is a pointer of the same type that is being added.  */
 
@@ -2573,6 +2569,12 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
     }
   else
     size_exp = size_in_bytes (TREE_TYPE (result_type));
+
+  /* We are manipulating pointer values, so we don't need to warn
+     about relying on undefined signed overflow.  We disable the
+     warning here because we use integer types so fold won't know that
+     they are really pointers.  */
+  fold_defer_overflow_warnings ();
 
   /* If what we are about to multiply by the size of the elements
      contains a constant term, apply distributive law
@@ -2622,7 +2624,11 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
-  return fold_build2 (resultcode, result_type, ptrop, intop);
+  ret = fold_build2 (resultcode, result_type, ptrop, intop);
+
+  fold_undefer_and_ignore_overflow_warnings ();
+
+  return ret;
 }
 
 /* Return whether EXPR is a declaration whose address can never be
@@ -2685,10 +2691,8 @@ c_common_truthvalue_conversion (tree expr)
       return expr;
 
     case INTEGER_CST:
-      /* Avoid integer_zerop to ignore TREE_CONSTANT_OVERFLOW.  */
-      return (TREE_INT_CST_LOW (expr) != 0 || TREE_INT_CST_HIGH (expr) != 0)
-	     ? truthvalue_true_node
-	     : truthvalue_false_node;
+      return integer_zerop (expr) ? truthvalue_false_node
+				  : truthvalue_true_node;
 
     case REAL_CST:
       return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
@@ -6756,13 +6760,37 @@ warn_about_parentheses (enum tree_code code, enum tree_code code_left,
 		 "suggest parentheses around comparison in operand of &");
     }
 
-  /* Similarly, check for cases like 1<=i<=10 that are probably errors.  */
-  if (TREE_CODE_CLASS (code) == tcc_comparison
-      && (TREE_CODE_CLASS (code_left) == tcc_comparison
-	  || TREE_CODE_CLASS (code_right) == tcc_comparison))
-    warning (OPT_Wparentheses, "comparisons like X<=Y<=Z do not "
-	     "have their mathematical meaning");
+  if (code == EQ_EXPR || code == NE_EXPR)
+    {
+      if (TREE_CODE_CLASS (code_left) == tcc_comparison
+          || TREE_CODE_CLASS (code_right) == tcc_comparison)
+	warning (OPT_Wparentheses,
+		 "suggest parentheses around comparison in operand of %s",
+                 code == EQ_EXPR ? "==" : "!=");
+    }
+  else if (TREE_CODE_CLASS (code) == tcc_comparison)
+    {
+      if ((TREE_CODE_CLASS (code_left) == tcc_comparison
+	   && code_left != NE_EXPR && code_left != EQ_EXPR)
+	  || (TREE_CODE_CLASS (code_right) == tcc_comparison
+	      && code_right != NE_EXPR && code_right != EQ_EXPR))
+	warning (OPT_Wparentheses, "comparisons like X<=Y<=Z do not "
+		 "have their mathematical meaning");
+    }
 }
 
+/* If LABEL (a LABEL_DECL) has not been used, issue a warning.  */
+
+void
+warn_for_unused_label (tree label)
+{
+  if (!TREE_USED (label))
+    {
+      if (DECL_INITIAL (label))
+	warning (OPT_Wunused_label, "label %q+D defined but not used", label);
+      else
+        warning (OPT_Wunused_label, "label %q+D declared but not defined", label);
+    }
+}
 
 #include "gt-c-common.h"

@@ -40,28 +40,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 void
 loop_optimizer_init (unsigned flags)
 {
-  edge e;
-  edge_iterator ei;
-  static bool first_time = true;
   struct loops *loops;
-
-  if (first_time)
-    {
-      first_time = false;
-      init_set_costs ();
-    }
 
   gcc_assert (!current_loops);
   loops = XCNEW (struct loops);
-
-  /* Avoid annoying special cases of edges going to exit
-     block.  */
-
-  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
-    if ((e->flags & EDGE_FALLTHRU) && !single_succ_p (e->src))
-      split_edge (e);
-    else
-      ei_next (&ei);
 
   /* Find the loops.  */
 
@@ -76,6 +58,19 @@ loop_optimizer_init (unsigned flags)
       return;
     }
 
+  if (flags & LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
+    {
+      /* If the loops may have multiple latches, we cannot canonicalize
+	 them further (and most of the loop manipulation functions will
+	 not work).  However, we avoid modifying cfg, which some
+	 passes may want.  */
+      gcc_assert ((flags & ~(LOOPS_MAY_HAVE_MULTIPLE_LATCHES
+			     | LOOPS_HAVE_RECORDED_EXITS)) == 0);
+      current_loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
+    }
+  else
+    disambiguate_loops_with_multiple_latches ();
+
   /* Create pre-headers.  */
   if (flags & LOOPS_HAVE_PREHEADERS)
     create_preheaders (CP_SIMPLE_PREHEADERS);
@@ -88,8 +83,8 @@ loop_optimizer_init (unsigned flags)
   if (flags & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
     mark_irreducible_loops ();
 
-  if (flags & LOOPS_HAVE_MARKED_SINGLE_EXITS)
-    mark_single_exit_loops ();
+  if (flags & LOOPS_HAVE_RECORDED_EXITS)
+    record_loop_exits ();
 
   /* Dump loops.  */
   flow_loops_dump (dump_file, NULL, 1);
@@ -118,6 +113,8 @@ loop_optimizer_finalize (void)
     }
 
   /* Clean up.  */
+  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+    release_recorded_exits ();
   flow_loops_free (current_loops);
   free (current_loops);
   current_loops = NULL;

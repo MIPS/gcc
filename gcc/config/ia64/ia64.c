@@ -211,7 +211,7 @@ static void ia64_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void ia64_output_function_end_prologue (FILE *);
 
 static int ia64_issue_rate (void);
-static int ia64_adjust_cost_2 (rtx, int, rtx, int);
+static int ia64_adjust_cost (rtx, rtx, rtx, int);
 static void ia64_sched_init (FILE *, int, int);
 static void ia64_sched_init_global (FILE *, int, int);
 static void ia64_sched_finish_global (FILE *, int);
@@ -242,6 +242,7 @@ static void bundling (FILE *, int, rtx, rtx);
 static void ia64_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				  HOST_WIDE_INT, tree);
 static void ia64_file_start (void);
+static void ia64_globalize_decl_name (FILE *, tree);
 
 static section *ia64_select_rtx_section (enum machine_mode, rtx,
 					 unsigned HOST_WIDE_INT);
@@ -265,6 +266,7 @@ static void ia64_vms_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
+static tree ia64_handle_version_id_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
@@ -282,6 +284,8 @@ static const struct attribute_spec ia64_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "syscall_linkage", 0, 0, false, true,  true,  NULL },
   { "model",	       1, 1, true, false, false, ia64_handle_model_attribute },
+  { "version_id",      1, 1, true, false, false,
+    ia64_handle_version_id_attribute },
   { NULL,	       0, 0, false, false, false, NULL }
 };
 
@@ -322,8 +326,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
 
-#undef TARGET_SCHED_ADJUST_COST_2
-#define TARGET_SCHED_ADJUST_COST_2 ia64_adjust_cost_2
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE ia64_issue_rate
 #undef TARGET_SCHED_VARIABLE_ISSUE
@@ -390,6 +394,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START ia64_file_start
+
+#undef TARGET_ASM_GLOBALIZE_DECL_NAME
+#define TARGET_ASM_GLOBALIZE_DECL_NAME ia64_globalize_decl_name
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS ia64_rtx_costs
@@ -2224,6 +2231,24 @@ emit_safe_across_calls (void)
     }
   if (out_state)
     fputc ('\n', asm_out_file);
+}
+
+/* Globalize a declaration.  */
+
+static void
+ia64_globalize_decl_name (FILE * stream, tree decl)
+{
+  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  tree version_attr = lookup_attribute ("version_id", DECL_ATTRIBUTES (decl));
+  if (version_attr)
+    {
+      tree v = TREE_VALUE (TREE_VALUE (version_attr));
+      const char *p = TREE_STRING_POINTER (v);
+      fprintf (stream, "\t.alias %s#, \"%s{%s}\"\n", name, name, p);
+    }
+  targetm.asm_out.globalize_label (stream, name);
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    ASM_OUTPUT_TYPE_DIRECTIVE (stream, name, "function");
 }
 
 /* Helper function for ia64_compute_frame_size: find an appropriate general
@@ -4523,6 +4548,18 @@ ia64_print_operand (FILE * file, rtx x, int code)
 	case ORDERED:
 	  str = "ord";
 	  break;
+	case UNLT:
+	  str = "nge";
+	  break;
+	case UNLE:
+	  str = "ngt";
+	  break;
+	case UNGT:
+	  str = "nle";
+	  break;
+	case UNGE:
+	  str = "nlt";
+	  break;
 	default:
 	  str = GET_RTX_NAME (GET_CODE (x));
 	  break;
@@ -6240,18 +6277,16 @@ ia64_single_set (rtx insn)
   return ret;
 }
 
-/* Adjust the cost of a scheduling dependency.
-   Return the new cost of a dependency of type DEP_TYPE or INSN on DEP_INSN.
-   COST is the current cost.  */
+/* Adjust the cost of a scheduling dependency.  Return the new cost of
+   a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-ia64_adjust_cost_2 (rtx insn, int dep_type1, rtx dep_insn, int cost)
+ia64_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
-  enum reg_note dep_type = (enum reg_note) dep_type1;
   enum attr_itanium_class dep_class;
   enum attr_itanium_class insn_class;
 
-  if (dep_type != REG_DEP_OUTPUT)
+  if (REG_NOTE_KIND (link) != REG_DEP_OUTPUT)
     return cost;
 
   insn_class = ia64_safe_itanium_class (insn);
@@ -6280,7 +6315,7 @@ ia64_emit_insn_before (rtx insn, rtx before)
 static void
 ia64_dependencies_evaluation_hook (rtx head, rtx tail)
 {
-  rtx insn, link, next, next_tail;
+  rtx insn, next, next_tail;
 
   /* Before reload, which_alternative is not set, which means that
      ia64_safe_itanium_class will produce wrong results for (at least)
@@ -6296,13 +6331,16 @@ ia64_dependencies_evaluation_hook (rtx head, rtx tail)
     if (INSN_P (insn)
 	&& ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
       {
-	for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
+	dep_link_t link;
+
+	FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
 	  {
 	    enum attr_itanium_class c;
 
-	    if (REG_NOTE_KIND (link) != REG_DEP_TRUE)
+	    if (DEP_LINK_KIND (link) != REG_DEP_TRUE)
 	      continue;
-	    next = XEXP (link, 0);
+
+	    next = DEP_LINK_CON (link);
 	    c = ia64_safe_itanium_class (next);
 	    if ((c == ITANIUM_CLASS_ST
 		 || c == ITANIUM_CLASS_STF)
@@ -6591,14 +6629,14 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 
       if (c != ITANIUM_CLASS_MMMUL && c != ITANIUM_CLASS_MMSHF)
 	{
-	  rtx link;
+	  dep_link_t link;
 	  int d = -1;
 
-	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) == 0)
+	  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (insn))
+	    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
 	      {
 		enum attr_itanium_class dep_class;
-		rtx dep_insn = XEXP (link, 0);
+		rtx dep_insn = DEP_LINK_PRO (link);
 
 		dep_class = ia64_safe_itanium_class (dep_insn);
 		if ((dep_class == ITANIUM_CLASS_MMMUL
@@ -6760,13 +6798,19 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
   if (GET_CODE (pat) == COND_EXEC)
     pat = COND_EXEC_CODE (pat);
 
+  /* This should be a SET ...  */
   if (GET_CODE (pat) != SET)
     return -1;
+
   reg = SET_DEST (pat);
-  if (!REG_P (reg))
+  /* ... to the general/fp register ...  */
+  if (!REG_P (reg) || !(GR_REGNO_P (REGNO (reg)) || FP_REGNO_P (REGNO (reg))))
     return -1;
 
-  mem = SET_SRC (pat);  
+  /* ... from the mem ...  */
+  mem = SET_SRC (pat);
+
+  /* ... that can, possibly, be a zero_extend ...  */
   if (GET_CODE (mem) == ZERO_EXTEND)
     {
       mem = XEXP (mem, 0);
@@ -6775,6 +6819,7 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
   else
     extend_p = false;
 
+  /* ... or a speculative load.  */
   if (GET_CODE (mem) == UNSPEC)
     {
       int code;
@@ -6791,8 +6836,12 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
       mem = XVECEXP (mem, 0, 0);
       gcc_assert (MEM_P (mem));
     }
+
+  /* Source should be a mem ...  */
   if (!MEM_P (mem))
     return -1;
+
+  /* ... addressed by a register.  */
   mem_reg = XEXP (mem, 0);
   if (!REG_P (mem_reg))
     return -1;
@@ -6809,6 +6858,7 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
 
   extract_insn_cached (insn);
   gcc_assert (reg == recog_data.operand[0] && mem == recog_data.operand[1]);
+
   *new_pat = ia64_gen_spec_insn (insn, ts, mode_no, gen_p != 0, extend_p);
 
   return gen_p;
@@ -7116,13 +7166,13 @@ ia64_gen_check (rtx insn, rtx label, bool mutate_p)
        As long as patterns are unique for each instruction, this can be
        accomplished by matching ORIG_PAT fields.  */
     {
-      rtx link;
+      dep_link_t link;
       int check_no = 0;
       rtx orig_pat = ORIG_PAT (insn);
 
-      for (link = RESOLVED_DEPS (insn); link; link = XEXP (link, 1))
+      FOR_EACH_DEP_LINK (link, INSN_RESOLVED_BACK_DEPS (insn))
 	{
-	  rtx x = XEXP (link, 0);
+	  rtx x = DEP_LINK_PRO (link);
 
 	  if (ORIG_PAT (x) == orig_pat)
 	    check_no = spec_check_no[INSN_UID (x)];
@@ -9121,6 +9171,19 @@ ia64_init_builtins (void)
 	       IA64_BUILTIN_FLUSHRS);
 
 #undef def_builtin
+
+  if (TARGET_HPUX)
+    {
+      if (built_in_decls [BUILT_IN_FINITE])
+	set_user_assembler_name (built_in_decls [BUILT_IN_FINITE],
+	  "_Isfinite");
+      if (built_in_decls [BUILT_IN_FINITEF])
+	set_user_assembler_name (built_in_decls [BUILT_IN_FINITEF],
+	  "_Isfinitef");
+      if (built_in_decls [BUILT_IN_FINITEL])
+	set_user_assembler_name (built_in_decls [BUILT_IN_FINITEL],
+	  "_Isfinitef128");
+    }
 }
 
 rtx
@@ -9189,10 +9252,7 @@ ia64_asm_output_external (FILE *file, tree decl, const char *name)
 	 need something for external functions.  */
       if ((TARGET_HPUX_LD || !TARGET_GNU_AS)
 	  && TREE_CODE (decl) == FUNCTION_DECL)
-	{
-	  ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
-	  (*targetm.asm_out.globalize_label) (file, name);
-	}
+	  (*targetm.asm_out.globalize_decl_name) (file, decl);
       else if (need_visibility && !TARGET_GNU_AS)
 	(*targetm.asm_out.globalize_label) (file, name);
     }
@@ -9776,6 +9836,29 @@ ia64_optimization_options (int level ATTRIBUTE_UNUSED,
   set_param_value ("simultaneous-prefetches", 6);
   set_param_value ("l1-cache-line-size", 32);
 
+}
+
+/* HP-UX version_id attribute.
+   For object foo, if the version_id is set to 1234 put out an alias
+   of '.alias foo "foo{1234}"  We can't use "foo{1234}" in anything
+   other than an alias statement because it is an illegal symbol name.  */
+
+static tree
+ia64_handle_version_id_attribute (tree *node ATTRIBUTE_UNUSED,
+                                 tree name ATTRIBUTE_UNUSED,
+                                 tree args,
+                                 int flags ATTRIBUTE_UNUSED,
+                                 bool *no_add_attrs)
+{
+  tree arg = TREE_VALUE (args);
+
+  if (TREE_CODE (arg) != STRING_CST)
+    {
+      error("version attribute is not a string");
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  return NULL_TREE;
 }
 
 #include "gt-ia64.h"

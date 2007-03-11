@@ -64,7 +64,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Set this to 1 if you want the standard ISO C99 semantics of 'inline'
    when you specify -std=c99 or -std=gnu99, and to 0 if you want
-   behaviour compatible with the nonstandard semantics implemented by
+   behavior compatible with the nonstandard semantics implemented by
    GCC 2.95 through 4.2.  */
 #define WANT_C99_INLINE_SEMANTICS 1
 
@@ -761,13 +761,9 @@ pop_scope (void)
 	      error ("label %q+D used but not defined", p);
 	      DECL_INITIAL (p) = error_mark_node;
 	    }
-	  else if (!TREE_USED (p) && warn_unused_label)
-	    {
-	      if (DECL_INITIAL (p))
-		warning (0, "label %q+D defined but not used", p);
-	      else
-		warning (0, "label %q+D declared but not defined", p);
-	    }
+	  else 
+	    warn_for_unused_label (p);
+
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
@@ -2380,18 +2376,16 @@ pushdecl_top_level (tree x)
 static void
 implicit_decl_warning (tree id, tree olddecl)
 {
-  void (*diag) (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
-  switch (mesg_implicit_function_declaration)
+  if (warn_implicit_function_declaration)
     {
-    case 0: return;
-    case 1: diag = warning0; break;
-    case 2: diag = error;   break;
-    default: gcc_unreachable ();
+      if (flag_isoc99)
+	pedwarn (G_("implicit declaration of function %qE"), id);
+      else 
+	warning (OPT_Wimplicit_function_declaration, 
+		 G_("implicit declaration of function %qE"), id);
+      if (olddecl)
+	locate_old_decl (olddecl, inform);
     }
-
-  diag (G_("implicit declaration of function %qE"), id);
-  if (olddecl)
-    locate_old_decl (olddecl, diag);
 }
 
 /* Generate an implicit declaration for identifier FUNCTIONID as a
@@ -4931,14 +4925,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	if (threadp)
-	  {
-	    if (targetm.have_tls)
-	      DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
-	    else
-	      /* A mere warning is sure to result in improper semantics
-		 at runtime.  Don't bother to allow this to compile.  */
-	      error ("thread-local storage not supported for this target");
-	  }
+	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
       }
 
     if (storage_class == csc_extern

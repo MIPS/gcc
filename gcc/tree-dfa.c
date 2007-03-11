@@ -337,9 +337,6 @@ dump_variable (FILE *file, tree var)
       print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
     }
 
-  if (ann && ann->is_aliased)
-    fprintf (file, ", is aliased");
-
   if (TREE_ADDRESSABLE (var))
     fprintf (file, ", is addressable");
   
@@ -383,7 +380,7 @@ dump_variable (FILE *file, tree var)
       print_generic_expr (file, gimple_default_def (cfun, var), dump_flags);
     }
 
-  if (may_aliases (var))
+  if (MTAG_P (var) && may_aliases (var))
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
@@ -750,6 +747,29 @@ add_referenced_var (tree var)
           && !DECL_EXTERNAL (var))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
     }
+}
+
+/* Remove VAR from the list.  */
+
+void
+remove_referenced_var (tree var)
+{
+  var_ann_t v_ann;
+  struct int_tree_map in;
+  void **loc;
+  unsigned int uid = DECL_UID (var);
+
+  clear_call_clobbered (var);
+  v_ann = get_var_ann (var);
+  ggc_free (v_ann);
+  var->base.ann = NULL;
+  gcc_assert (DECL_P (var));
+  in.uid = uid;
+  in.to = var;
+  loc = htab_find_slot_with_hash (gimple_referenced_vars (cfun), &in, uid,
+				  NO_INSERT);
+  ggc_free (*loc);
+  htab_clear_slot (gimple_referenced_vars (cfun), loc);
 }
 
 

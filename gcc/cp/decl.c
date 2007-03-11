@@ -365,8 +365,8 @@ pop_label (tree label, tree old_value)
 	  /* Avoid crashing later.  */
 	  define_label (location, DECL_NAME (label));
 	}
-      else if (!TREE_USED (label))
-	warning (OPT_Wunused_label, "label %q+D defined but not used", label);
+      else 
+	warn_for_unused_label (label);
     }
 
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
@@ -713,7 +713,7 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* There may be OVERLOADs (wrapped in TREE_LISTs) on the BLOCK_VARs
      list if a `using' declaration put them there.  The debugging
-     back-ends won't understand OVERLOAD, so we remove them here.
+     back ends won't understand OVERLOAD, so we remove them here.
      Because the BLOCK_VARS are (temporarily) shared with
      CURRENT_BINDING_LEVEL->NAMES we must do this fixup after we have
      popped all the bindings.  */
@@ -1576,6 +1576,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
+      DECL_INVALID_OVERRIDER_P (newdecl) |= DECL_INVALID_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -3043,7 +3044,7 @@ record_builtin_java_type (const char* name, int size)
   return type;
 }
 
-/* Push a type into the namespace so that the back-ends ignore it.  */
+/* Push a type into the namespace so that the back ends ignore it.  */
 
 static void
 record_unknown_type (tree type, const char* name)
@@ -3954,7 +3955,7 @@ start_decl (const cp_declarator *declarator,
   if (tem == error_mark_node)
     return error_mark_node;
 
-  /* Tell the back-end to use or not use .common as appropriate.  If we say
+  /* Tell the back end to use or not use .common as appropriate.  If we say
      -fconserve-space, we want this to save .data space, at the expense of
      wrong semantics.  If we say -fno-conserve-space, we want this to
      produce errors about redefs; to do this we force variables into the
@@ -5581,7 +5582,7 @@ register_dtor_fn (tree decl)
 
   /* Now, recompute the cleanup.  It may contain SAVE_EXPRs that refer
      to the original function, rather than the anonymous one.  That
-     will make the back-end think that nested functions are in use,
+     will make the back end think that nested functions are in use,
      which causes confusion.  */
 
   push_deferring_access_checks (dk_no_check);
@@ -6362,14 +6363,7 @@ grokvardecl (tree type,
     }
 
   if (declspecs->specs[(int)ds_thread])
-    {
-      if (targetm.have_tls)
-	DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
-      else
-	/* A mere warning is sure to result in improper semantics
-	   at runtime.  Don't bother to allow this to compile.  */
-	error ("thread-local storage not supported for this target");
-    }
+    DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 
   if (TREE_PUBLIC (decl))
     {
@@ -6439,7 +6433,7 @@ build_ptrmemfunc_type (tree type)
   t = make_aggr_type (RECORD_TYPE);
   xref_basetypes (t, NULL_TREE);
 
-  /* Let the front-end know this is a pointer to member function...  */
+  /* Let the front end know this is a pointer to member function...  */
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
@@ -6453,7 +6447,7 @@ build_ptrmemfunc_type (tree type)
 
   finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
 
-  /* Zap out the name so that the back-end will give us the debugging
+  /* Zap out the name so that the back end will give us the debugging
      information for this anonymous RECORD_TYPE.  */
   TYPE_NAME (t) = NULL_TREE;
 
@@ -6872,8 +6866,8 @@ check_var_type (tree identifier, tree type)
    the name and type of the object declared and construct a DECL node
    for it.
 
-   DECLSPECS is a chain of tree_list nodes whose value fields
-    are the storage classes and type specifiers.
+   DECLSPECS points to the representation of declaration-specifier
+   sequence that precedes declarator.
 
    DECL_CONTEXT says which syntactic context this declaration is in:
      NORMAL for most contexts.  Make a VAR_DECL or FUNCTION_DECL or TYPE_DECL.
@@ -7253,8 +7247,9 @@ grokdeclarator (const cp_declarator *declarator,
 	/* Allow it, sigh.  */;
       else if (pedantic || ! is_main)
 	pedwarn ("ISO C++ forbids declaration of %qs with no type", name);
-      else if (warn_return_type)
-	warning (0, "ISO C++ forbids declaration of %qs with no type", name);
+      else
+	warning (OPT_Wreturn_type,
+                 "ISO C++ forbids declaration of %qs with no type", name);
 
       type = integer_type_node;
     }
@@ -7469,19 +7464,19 @@ grokdeclarator (const cp_declarator *declarator,
 
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
+  if (thread_p
+      && ((storage_class
+	   && storage_class != sc_extern
+	   && storage_class != sc_static)
+	  || declspecs->specs[(int)ds_typedef]))
+    {
+      error ("multiple storage classes in declaration of %qs", name);
+      thread_p = false;
+    }
   if (declspecs->conflicting_specifiers_p)
     {
       error ("conflicting specifiers in declaration of %qs", name);
       storage_class = sc_none;
-    }
-  else if (thread_p
-	   && ((storage_class
-		&& storage_class != sc_extern
-		&& storage_class != sc_static)
-	       || declspecs->specs[(int)ds_typedef]))
-    {
-      error ("multiple storage classes in declaration of %qs", name);
-      thread_p = false;
     }
   else if (decl_context != NORMAL
 	   && ((storage_class != sc_none
@@ -8537,15 +8532,7 @@ grokdeclarator (const cp_declarator *declarator,
 		DECL_EXTERNAL (decl) = 1;
 
 		if (thread_p)
-		  {
-		    if (targetm.have_tls)
-		      DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
-		    else
-		      /* A mere warning is sure to result in improper
-			 semantics at runtime.  Don't bother to allow this to
-			 compile.  */
-		      error ("thread-local storage not supported for this target");
-		  }
+		  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
 	      }
 	    else
 	      {
@@ -10765,7 +10752,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
       /* If this function is in an interface implemented in this file,
-	 make sure that the backend knows to emit this function
+	 make sure that the back end knows to emit this function
 	 here.  */
       if (!DECL_EXTERNAL (decl1))
 	mark_needed (decl1);
@@ -11238,7 +11225,7 @@ finish_function (int flags)
   if (!processing_template_decl
       && !cp_function_chain->can_throw
       && !flag_non_call_exceptions
-      && targetm.binds_local_p (fndecl))
+      && !DECL_REPLACEABLE_P (fndecl))
     TREE_NOTHROW (fndecl) = 1;
 
   /* This must come after expand_function_end because cleanups might

@@ -302,8 +302,7 @@ INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
 # to programs compiled with GCC.
-USER_H = $(srcdir)/ginclude/decfloat.h \
-	 $(srcdir)/ginclude/float.h \
+USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/iso646.h \
 	 $(srcdir)/ginclude/stdarg.h \
 	 $(srcdir)/ginclude/stdbool.h \
@@ -750,7 +749,7 @@ RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h $(VARRAY_H)
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
-CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
+CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H) vecprim.h
 IPA_UTILS_H = ipa-utils.h $(TREE_H) $(CGRAPH_H) 
 IPA_REFERENCE_H = ipa-reference.h bitmap.h $(TREE_H)  
 IPA_TYPE_ESCAPE_H = ipa-type-escape.h $(TREE_H)  
@@ -933,61 +932,248 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
 C_OBJS = c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
+# We put the insn-*.o files first so that a parallel make will build
+# them sooner, because they are large and otherwise tend to be the
+# last objects to finish building.
 OBJS-common = \
- double-int.o tree-chrec.o tree-scalar-evolution.o tree-data-ref.o	   \
- tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
- gimplify.o tree-pretty-print.o tree-into-ssa.o tree-ssa-ter.o		   \
- tree-outof-ssa.o tree-ssa-ccp.o tree-vn.o tree-ssa-uncprop.o		   \
- tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o	   \
- tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
- tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
- tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
- omp-low.o tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o	   \
- tree-vect-generic.o tree-ssa-loop.o tree-ssa-loop-niter.o		   \
- tree-ssa-loop-manip.o tree-ssa-threadupdate.o tree-ssa-threadedge.o	   \
- tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
- tree-vect-patterns.o tree-ssa-loop-prefetch.o tree-ssa-coalesce.o	   \
- tree-ssa-loop-ivcanon.o tree-ssa-propagate.o tree-ssa-address.o	   \
- tree-ssa-math-opts.o tree-affine.o					   \
- tree-ssa-loop-ivopts.o tree-if-conv.o tree-ssa-loop-unswitch.o		   \
- alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
- cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
- cfgrtl.o combine.o convert.o coverage.o cse.o cselib.o 		   \
- dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
- debug.o df-core.o df-problems.o df-scan.o dfp.o diagnostic.o dojump.o     \
- dominance.o loop-doloop.o	   					   \
- dwarf2asm.o dwarf2out.o emit-rtl.o except.o explow.o loop-iv.o		   \
- expmed.o expr.o final.o flow.o fold-const.o function.o fwprop.o gcse.o	   \
- genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
- haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
- insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
- integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
- mode-switching.o modulo-sched.o optabs.o options.o opts.o opts-common.o \
- params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o insn-automata.o pointer-set.o 			   	   \
- print-rtl.o print-tree.o profile.o value-prof.o var-tracking.o		   \
- real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
- reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
- sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
- see.o simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o		   \
- struct-equiv.o targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
- et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
- tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o    			   \
- lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
- tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
- tree-ssa-structalias.o tree-object-size.o 				   \
- rtl-factoring.o
+	insn-attrtab.o \
+	insn-automata.o \
+	insn-emit.o \
+	insn-extract.o \
+	insn-modes.o \
+	insn-opinit.o \
+	insn-output.o \
+	insn-peep.o \
+	insn-preds.o \
+	insn-recog.o \
+	$(GGC) \
+	alias.o \
+	alloc-pool.o \
+	bb-reorder.o \
+	bitmap.o \
+	bt-load.o \
+	builtins.o \
+	caller-save.o \
+	calls.o \
+	cfg.o \
+	cfganal.o \
+	cfgbuild.o \
+	cfgcleanup.o \
+	cfgexpand.o \
+	cfghooks.o \
+	cfglayout.o \
+	cfgloop.o \
+	cfgloopanal.o \
+	cfgloopmanip.o \
+	cfgrtl.o \
+	combine.o \
+	convert.o \
+	coverage.o \
+	cse.o \
+	cselib.o \
+	dbxout.o \
+	ddg.o \
+	debug.o \
+	df-core.o \
+	df-problems.o \
+	df-scan.o \
+	dfp.o \
+	diagnostic.o \
+	dojump.o \
+	dominance.o \
+	domwalk.o \
+	double-int.o \
+	dwarf2asm.o \
+	dwarf2out.o \
+	emit-rtl.o \
+	et-forest.o \
+	except.o \
+	explow.o \
+	expmed.o \
+	expr.o \
+	final.o \
+	flow.o \
+	fold-const.o \
+	function.o \
+	fwprop.o \
+	gcse.o \
+	genrtl.o \
+	ggc-common.o \
+	gimple-low.o \
+	gimplify.o \
+	global.o \
+	graph.o \
+	gtype-desc.o \
+	haifa-sched.o \
+	hooks.o \
+	ifcvt.o \
+	integrate.o \
+	intl.o \
+	jump.o \
+	lambda-code.o \
+	lambda-mat.o \
+	lambda-trans.o \
+	langhooks.o \
+	lcm.o \
+	lists.o \
+	local-alloc.o \
+	loop-doloop.o \
+	loop-init.o \
+	loop-invariant.o \
+	loop-iv.o \
+	loop-unroll.o \
+	loop-unswitch.o \
+	lower-subreg.o \
+	mode-switching.o \
+	modulo-sched.o \
+	omp-low.o \
+	optabs.o \
+	options.o \
+	opts-common.o \
+	opts.o \
+	params.o \
+	passes.o \
+	pointer-set.o \
+	postreload-gcse.o \
+	postreload.o \
+	predict.o \
+	pretty-print.o \
+	print-rtl.o \
+	print-tree.o \
+	profile.o \
+	real.o \
+	recog.o \
+	reg-stack.o \
+	regclass.o \
+	regmove.o \
+	regrename.o \
+	reload.o \
+	reload1.o \
+	reorg.o \
+	resource.o \
+	rtl-error.o \
+	rtl-factoring.o \
+	rtl.o \
+	rtlanal.o \
+	rtlhooks.o \
+	sbitmap.o \
+	sched-deps.o \
+	sched-ebb.o \
+	sched-rgn.o \
+	sched-vis.o \
+	sdbout.o \
+	see.o \
+	simplify-rtx.o \
+	sreal.o \
+	stmt.o \
+	stor-layout.o \
+	stringpool.o \
+	struct-equiv.o \
+	targhooks.o \
+	timevar.o \
+	toplev.o \
+	tracer.o \
+	tree-affine.o \
+	tree-cfg.o \
+	tree-cfgcleanup.o \
+	tree-chrec.o \
+	tree-complex.o \
+	tree-data-ref.o \
+	tree-dfa.o \
+	tree-dump.o \
+	tree-eh.o \
+	tree-gimple.o \
+	tree-if-conv.o \
+	tree-into-ssa.o \
+	tree-iterator.o \
+	tree-loop-linear.o \
+	tree-nested.o \
+	tree-nrv.o \
+	tree-object-size.o \
+	tree-optimize.o \
+	tree-outof-ssa.o \
+	tree-phinodes.o \
+	tree-pretty-print.o \
+	tree-profile.o \
+	tree-scalar-evolution.o \
+	tree-sra.o \
+	tree-ssa-address.o \
+	tree-ssa-alias.o \
+	tree-ssa-ccp.o \
+	tree-ssa-coalesce.o \
+	tree-ssa-copy.o \
+	tree-ssa-copyrename.o \
+	tree-ssa-dce.o \
+	tree-ssa-dom.o \
+	tree-ssa-dse.o \
+	tree-ssa-forwprop.o \
+	tree-ssa-live.o \
+	tree-ssa-loop-ch.o \
+	tree-ssa-loop-im.o \
+	tree-ssa-loop-ivcanon.o \
+	tree-ssa-loop-ivopts.o \
+	tree-ssa-loop-manip.o \
+	tree-ssa-loop-niter.o \
+	tree-ssa-loop-prefetch.o \
+	tree-ssa-loop-unswitch.o \
+	tree-ssa-loop.o \
+	tree-ssa-math-opts.o \
+	tree-ssa-operands.o \
+	tree-ssa-phiopt.o \
+	tree-ssa-pre.o \
+	tree-ssa-propagate.o \
+	tree-ssa-reassoc.o \
+	tree-ssa-sink.o \
+	tree-ssa-structalias.o \
+	tree-ssa-ter.o \
+	tree-ssa-threadedge.o \
+	tree-ssa-threadupdate.o \
+	tree-ssa-uncprop.o \
+	tree-ssa.o \
+	tree-ssanames.o \
+	tree-stdarg.o \
+	tree-tailcall.o \
+	tree-vect-analyze.o \
+	tree-vect-generic.o \
+	tree-vect-patterns.o \
+	tree-vect-transform.o \
+	tree-vectorizer.o \
+	tree-vn.o \
+	tree-vrp.o \
+	tree.o \
+	value-prof.o \
+	var-tracking.o \
+	varasm.o \
+	varray.o \
+	vec.o \
+	version.o \
+	vmsdbgout.o \
+	web.o \
+	xcoffout.o
 
-
+# Target object files.
 OBJS-md = $(out_object_file)
-OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
-  cgraph.o cgraphunit.o cgraphbuild.o tree-nomudflap.o ipa.o ipa-inline.o  \
-  ipa-utils.o ipa-reference.o ipa-pure-const.o ipa-type-escape.o           \
-  ipa-prop.o ipa-cp.o varpool.o
 
-OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
+# Language independent object files which are not used by all languages.
+OBJS-archive = \
+	$(EXTRA_OBJS) \
+	$(host_hook_obj) \
+	cgraph.o \
+	cgraphbuild.o \
+	cgraphunit.o \
+	ipa-cp.o \
+	ipa-inline.o \
+	ipa-prop.o \
+	ipa-pure-const.o \
+	ipa-reference.o \
+	ipa-type-escape.o \
+	ipa-utils.o \
+	ipa.o \
+	tree-inline.o \
+	tree-nomudflap.o \
+	varpool.o
+
+OBJS = $(OBJS-common) $(OBJS-md) $(OBJS-archive)
 
 OBJS-onestep = libbackend.o $(OBJS-archive)
 
@@ -1013,7 +1199,9 @@ LIB2FUNCS_ST = _eprintf __gcc_bcmp
 LIBGCOV = _gcov _gcov_merge_add _gcov_merge_single _gcov_merge_delta \
     _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
     _gcov_execv _gcov_execvp _gcov_execve \
-    _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler
+    _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
+    _gcov_indirect_call_profiler _gcov_average_profiler _gcov_ior_profiler \
+    _gcov_merge_ior
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
@@ -1378,7 +1566,7 @@ GCC_EXTRA_PARTS := $(sort $(EXTRA_MULTILIB_PARTS) $(EXTRA_PARTS))
 
 libgcc-support: libgcc.mvars stmp-int-hdrs $(STMP_FIXPROTO) $(TCONFIG_H) \
 	$(MACHMODE_H) $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
-	$(LIB2ADD_ST) $(LIB2ADDEH) gcov-iov.h $(SFP_MACHINE)
+	$(LIB2ADD_ST) $(LIB2ADDEH) $(srcdir)/emutls.c gcov-iov.h $(SFP_MACHINE)
 
 libgcc.mvars: config.status Makefile $(LIB2ADD) $(LIB2ADD_ST) specs \
 		xgcc$(exeext) stamp-as stamp-collect-ld stamp-nm
@@ -1390,9 +1578,9 @@ libgcc.mvars: config.status Makefile $(LIB2ADD) $(LIB2ADD_ST) specs \
 	echo LIBGCOV = '$(LIBGCOV)' >> tmp-libgcc.mvars
 	echo LIB2ADD = '$(call srcdirify,$(LIB2ADD))' >> tmp-libgcc.mvars
 	echo LIB2ADD_ST = '$(call srcdirify,$(LIB2ADD_ST))' >> tmp-libgcc.mvars
-	echo LIB2ADDEH = '$(call srcdirify,$(LIB2ADDEH))' >> tmp-libgcc.mvars
-	echo LIB2ADDEHSTATIC = '$(call srcdirify,$(LIB2ADDEHSTATIC))' >> tmp-libgcc.mvars
-	echo LIB2ADDEHSHARED = '$(call srcdirify,$(LIB2ADDEHSHARED))' >> tmp-libgcc.mvars
+	echo LIB2ADDEH = '$(call srcdirify,$(LIB2ADDEH) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
+	echo LIB2ADDEHSTATIC = '$(call srcdirify,$(LIB2ADDEHSTATIC) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
+	echo LIB2ADDEHSHARED = '$(call srcdirify,$(LIB2ADDEHSHARED) $(srcdir)/emutls.c)' >> tmp-libgcc.mvars
 	echo LIB2_SIDITI_CONV_FUNCS = '$(LIB2_SIDITI_CONV_FUNCS)' >> tmp-libgcc.mvars
 	echo LIBUNWIND = '$(call srcdirify,$(LIBUNWIND))' >> tmp-libgcc.mvars
 	echo SHLIBUNWIND_LINK = '$(SHLIBUNWIND_LINK)' >> tmp-libgcc.mvars
@@ -1862,16 +2050,16 @@ tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
 tree-vrp.o : tree-vrp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) $(DIAGNOSTIC_H) $(GGC_H) \
    $(BASIC_BLOCK_H) tree-ssa-propagate.h $(FLAGS_H) $(TREE_DUMP_H) \
-   $(CFGLOOP_H) $(SCEV_H) tree-chrec.h $(TIMEVAR_H)
+   $(CFGLOOP_H) $(SCEV_H) tree-chrec.h $(TIMEVAR_H) toplev.h
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h \
-   $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) toplev.h \
+   $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h toplev.h \
    tree-ssa-propagate.h
 tree-cfgcleanup.o : tree-cfgcleanup.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
-   $(DIAGNOSTIC_H) errors.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
+   $(DIAGNOSTIC_H) toplev.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) tree-pass.h \
    $(CFGLAYOUT_H) $(BASIC_BLOCK_H) hard-reg-set.h $(HASHTAB_H) toplev.h \
    tree-ssa-propagate.h
@@ -1890,7 +2078,7 @@ tree-ssa-sink.o : tree-ssa-sink.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-nested.o: tree-nested.c $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
    $(RTL_H) $(TM_P_H) $(FUNCTION_H) $(TREE_DUMP_H) $(TREE_INLINE_H) \
    tree-iterator.h $(TREE_GIMPLE_H) $(CGRAPH_H) $(EXPR_H) langhooks.h \
-   $(GGC_H) gt-tree-nested.h coretypes.h $(TREE_FLOW_H)
+   $(GGC_H) gt-tree-nested.h coretypes.h $(TREE_FLOW_H) pointer-set.h
 tree-if-conv.o: tree-if-conv.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FLAGS_H) $(TIMEVAR_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
    $(CFGLOOP_H) $(RTL_H) $(C_COMMON_H) tree-chrec.h $(TREE_DATA_REF_H) \
@@ -1920,7 +2108,8 @@ tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-ssa-loop-unswitch.o : tree-ssa-loop-unswitch.c $(TREE_FLOW_H) \
    $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    domwalk.h $(PARAMS_H) output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) \
-   coretypes.h $(TREE_DUMP_H) tree-pass.h $(BASIC_BLOCK_H) hard-reg-set.h
+   coretypes.h $(TREE_DUMP_H) tree-pass.h $(BASIC_BLOCK_H) hard-reg-set.h \
+    $(TREE_INLINE_H)
 tree-ssa-address.o : tree-ssa-address.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1945,13 +2134,13 @@ tree-ssa-loop-prefetch.o: tree-ssa-loop-prefetch.c $(TREE_FLOW_H) $(CONFIG_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
-   tree-chrec.h toplev.h langhooks.h
+   tree-chrec.h toplev.h langhooks.h $(TREE_INLINE_H)
 tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) $(EXPR_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
    $(CFGLOOP_H) $(PARAMS_H) langhooks.h $(BASIC_BLOCK_H) hard-reg-set.h \
-   tree-chrec.h $(VARRAY_H) tree-affine.h
+   tree-chrec.h $(VARRAY_H) tree-affine.h pointer-set.h
 tree-affine.o : tree-affine.c tree-affine.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) \
    output.h $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H)
@@ -1959,7 +2148,7 @@ tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(CFGLAYOUT_H) $(SCEV_H) $(BASIC_BLOCK_H) hard-reg-set.h \
-   $(PARAMS_H)
+   $(PARAMS_H) $(TREE_INLINE_H)
 tree-ssa-loop-im.o : tree-ssa-loop-im.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) domwalk.h \
    $(PARAMS_H) output.h $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -1978,7 +2167,7 @@ tree-ssa-reassoc.o : tree-ssa-reassoc.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) errors.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) tree-iterator.h\
    $(BASIC_BLOCK_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) vec.h \
-   alloc-pool.h
+   alloc-pool.h pointer-set.h
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h $(DIAGNOSTIC_H) \
    $(FLAGS_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) toplev.h \
@@ -2067,7 +2256,7 @@ tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    value-prof.h
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FLAGS_H) $(REAL_H) toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) \
-   $(GGC_H) $(TM_P_H) langhooks.h $(MD5_H)
+   $(GGC_H) $(TM_P_H) langhooks.h $(MD5_H) intl.h
 diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) version.h $(TM_P_H) $(FLAGS_H) input.h toplev.h intl.h \
    $(DIAGNOSTIC_H) langhooks.h $(LANGHOOKS_DEF_H) diagnostic.def opts.h
@@ -2103,7 +2292,8 @@ passes.o : passes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h $(CFGLAYOUT_H) $(REAL_H) $(CFGLOOP_H) \
    hosthooks.h $(CGRAPH_H) $(COVERAGE_H) tree-pass.h $(TREE_DUMP_H) \
-   $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H)
+   $(GGC_H) $(INTEGRATE_H) $(CPPLIB_H) opts.h $(TREE_FLOW_H) $(TREE_INLINE_H) \
+   gt-passes.h $(PREDICT_H)
 
 main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h
 
@@ -2246,12 +2436,12 @@ ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) ipa-prop.h \
    $(TREE_FLOW_H) $(TM_H) tree-pass.h $(FLAGS_H) $(TREE_H)
 ipa-cp.o : ipa-cp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
-   langhooks.h $(TARGET_H) $(CGRAPH_H) ipa-prop.h  \
+   langhooks.h $(TARGET_H) $(CGRAPH_H) ipa-prop.h tree-inline.h tree-dump.h \
    $(TREE_FLOW_H) $(TM_H) tree-pass.h $(FLAGS_H) $(TREE_H) $(DIAGNOSTIC_H)
 ipa-inline.o : ipa-inline.c gt-ipa-inline.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) $(FLAGS_H) $(CGRAPH_H) intl.h \
    $(DIAGNOSTIC_H) $(FIBHEAP_H) $(PARAMS_H) $(TIMEVAR_H) tree-pass.h \
-   $(COVERAGE_H) $(HASHTAB_H) 
+   $(COVERAGE_H) $(HASHTAB_H) $(RTL_H)
 ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(C_COMMON_H) $(TREE_GIMPLE_H) \
@@ -2317,7 +2507,7 @@ tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \
-   tree-ssa-propagate.h $(FLAGS_H) $(TARGET_H)
+   tree-ssa-propagate.h $(FLAGS_H) $(TARGET_H) toplev.h
 tree-sra.o : tree-sra.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
     $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(TREE_INLINE_H) \
     $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_GIMPLE_H) \
@@ -2354,7 +2544,7 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 tree-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
    $(FUNCTION_H) toplev.h $(COVERAGE_H) $(TREE_H) value-prof.h $(TREE_DUMP_H) \
-   tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H) $(GGC_H) gt-tree-profile.h
+   tree-pass.h $(TREE_FLOW_H) $(TIMEVAR_H) $(GGC_H) gt-tree-profile.h $(CGRAPH_H)
 value-prof.o : value-prof.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h value-prof.h $(EXPR_H) output.h $(FLAGS_H) \
    $(RECOG_H) insn-config.h $(OPTABS_H) $(REGS_H) $(GGC_H) $(DIAGNOSTIC_H) \
@@ -2395,7 +2585,7 @@ cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(REGS_H) $(EMIT_RTL_H) $(CFGLAYOUT_H) tree-pass.h $(CFGLOOP_H) $(EXPR_H)
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) coretypes.h $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(FLAGS_H) $(FUNCTION_H) \
-   $(OBSTACK_H) toplev.h $(TREE_FLOW_H) $(TREE_H)
+   $(OBSTACK_H) toplev.h $(TREE_FLOW_H) $(TREE_H) pointer-set.h output.h
 cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(EXPR_H) coretypes.h $(TM_H) \
    $(OBSTACK_H) output.h
@@ -2583,6 +2773,10 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
+lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(MACHMODE_H) $(TM_H) $(RTL_H) $(TM_P_H) $(TIMEVAR_H) $(FLAGS_H) \
+   insn-config.h $(BASIC_BLOCK_H) $(RECOG_H) $(OBSTACK_H) bitmap.h \
+   $(EXPR_H) $(REGS_H) tree-pass.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \
@@ -2804,7 +2998,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/function.c $(srcdir)/except.h \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/regclass.c \
-  $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c \
+  $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c $(srcdir)/cfglayout.h \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
@@ -2819,7 +3013,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/c-pragma.h $(srcdir)/omp-low.c $(srcdir)/varpool.c \
-  $(srcdir)/targhooks.c $(out_file) \
+  $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c\
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2850,7 +3044,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-propagate.h gt-varpool.h \
-gt-tree-ssa-structalias.h gt-ipa-inline.h \
+gt-tree-ssa-structalias.h gt-ipa-inline.h gt-passes.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp

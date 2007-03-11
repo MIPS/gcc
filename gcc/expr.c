@@ -126,7 +126,7 @@ static unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
 static void move_by_pieces_1 (rtx (*) (rtx, ...), enum machine_mode,
 			      struct move_by_pieces *);
 static bool block_move_libcall_safe_for_call_parm (void);
-static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned);
+static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT);
 static tree emit_block_move_libcall_fn (int);
 static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static rtx clear_by_pieces_1 (void *, HOST_WIDE_INT, enum machine_mode);
@@ -1147,7 +1147,8 @@ move_by_pieces_1 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
    0 otherwise.  */
 
 rtx
-emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
+emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
+		       unsigned int expected_align, HOST_WIDE_INT expected_size)
 {
   bool may_use_call;
   rtx retval = 0;
@@ -1202,7 +1203,8 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
 
   if (GET_CODE (size) == CONST_INT && MOVE_BY_PIECES_P (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align, 0);
-  else if (emit_block_move_via_movmem (x, y, size, align))
+  else if (emit_block_move_via_movmem (x, y, size, align,
+				       expected_align, expected_size))
     ;
   else if (may_use_call)
     retval = emit_block_move_via_libcall (x, y, size,
@@ -1214,6 +1216,12 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
     OK_DEFER_POP;
 
   return retval;
+}
+
+rtx
+emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
+{
+  return emit_block_move_hints (x, y, size, method, 0, -1);
 }
 
 /* A subroutine of emit_block_move.  Returns true if calling the
@@ -1266,11 +1274,15 @@ block_move_libcall_safe_for_call_parm (void)
    return true if successful.  */
 
 static bool
-emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align)
+emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
+			    unsigned int expected_align, HOST_WIDE_INT expected_size)
 {
   rtx opalign = GEN_INT (align / BITS_PER_UNIT);
   int save_volatile_ok = volatile_ok;
   enum machine_mode mode;
+
+  if (expected_align < align)
+    expected_align = align;
 
   /* Since this is a move insn, we don't care about volatility.  */
   volatile_ok = 1;
@@ -1315,7 +1327,12 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align)
 	     that it doesn't fail the expansion because it thinks
 	     emitting the libcall would be more efficient.  */
 
-	  pat = GEN_FCN ((int) code) (x, y, op2, opalign);
+	  if (insn_data[(int) code].n_operands == 4)
+	    pat = GEN_FCN ((int) code) (x, y, op2, opalign);
+	  else
+	    pat = GEN_FCN ((int) code) (x, y, op2, opalign,
+					GEN_INT (expected_align),
+					GEN_INT (expected_size));
 	  if (pat)
 	    {
 	      emit_insn (pat);
@@ -2495,7 +2512,8 @@ store_by_pieces_2 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
    its length in bytes.  */
 
 rtx
-clear_storage (rtx object, rtx size, enum block_op_methods method)
+clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
+		     unsigned int expected_align, HOST_WIDE_INT expected_size)
 {
   enum machine_mode mode = GET_MODE (object);
   unsigned int align;
@@ -2535,7 +2553,8 @@ clear_storage (rtx object, rtx size, enum block_op_methods method)
   if (GET_CODE (size) == CONST_INT
       && CLEAR_BY_PIECES_P (INTVAL (size), align))
     clear_by_pieces (object, INTVAL (size), align);
-  else if (set_storage_via_setmem (object, size, const0_rtx, align))
+  else if (set_storage_via_setmem (object, size, const0_rtx, align,
+				   expected_align, expected_size))
     ;
   else
     return set_storage_via_libcall (object, size, const0_rtx,
@@ -2543,6 +2562,13 @@ clear_storage (rtx object, rtx size, enum block_op_methods method)
 
   return NULL;
 }
+
+rtx
+clear_storage (rtx object, rtx size, enum block_op_methods method)
+{
+  return clear_storage_hints (object, size, method, 0, -1);
+}
+
 
 /* A subroutine of clear_storage.  Expand a call to memset.
    Return the return value of memset, 0 otherwise.  */
@@ -2645,7 +2671,8 @@ clear_storage_libcall_fn (int for_call)
 /* Expand a setmem pattern; return true if successful.  */
 
 bool
-set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
+set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
+			unsigned int expected_align, HOST_WIDE_INT expected_size)
 {
   /* Try the most limited insn first, because there's no point
      including more than one in the machine description unless
@@ -2653,6 +2680,9 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
 
   rtx opalign = GEN_INT (align / BITS_PER_UNIT);
   enum machine_mode mode;
+
+  if (expected_align < align)
+    expected_align = align;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -2694,7 +2724,12 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align)
 		opchar = copy_to_mode_reg (char_mode, opchar);
 	    }
 
-	  pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign);
+	  if (insn_data[(int) code].n_operands == 4)
+	    pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign);
+	  else
+	    pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign,
+					GEN_INT (expected_align),
+					GEN_INT (expected_size));
 	  if (pat)
 	    {
 	      emit_insn (pat);
@@ -3608,7 +3643,8 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 
   xinner = x;
 
-  if (mode == BLKmode)
+  if (mode == BLKmode
+      || (STRICT_ALIGNMENT && align < GET_MODE_ALIGNMENT (mode)))
     {
       /* Copy a block into the stack, entirely or partially.  */
 
@@ -3619,6 +3655,20 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 
       offset = partial % (PARM_BOUNDARY / BITS_PER_UNIT);
       used = partial - offset;
+
+      if (mode != BLKmode)
+	{
+	  /* A value is to be stored in an insufficiently aligned
+	     stack slot; copy via a suitably aligned slot if
+	     necessary.  */
+	  size = GEN_INT (GET_MODE_SIZE (mode));
+	  if (!MEM_P (xinner))
+	    {
+	      temp = assign_temp (type, 0, 1, 1);
+	      emit_move_insn (temp, xinner);
+	      xinner = temp;
+	    }
+	}
 
       gcc_assert (size);
 
@@ -6371,6 +6421,19 @@ highest_pow2_factor_for_target (tree target, tree exp)
   return MAX (factor, target_align);
 }
 
+/* Return &VAR expression for emulated thread local VAR.  */
+
+static tree
+emutls_var_address (tree var)
+{
+  tree emuvar = emutls_decl (var);
+  tree fn = built_in_decls [BUILT_IN_EMUTLS_GET_ADDRESS];
+  tree arg = build_fold_addr_expr_with_type (emuvar, ptr_type_node);
+  tree arglist = build_tree_list (NULL_TREE, arg);
+  tree call = build_function_call_expr (fn, arglist);
+  return fold_convert (build_pointer_type (TREE_TYPE (var)), call);
+}
+
 /* Expands variable VAR.  */
 
 void
@@ -6498,6 +6561,18 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       bitpos = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (exp)));
       inner = TREE_OPERAND (exp, 0);
       break;
+
+    case VAR_DECL:
+      /* TLS emulation hook - replace __thread VAR's &VAR with
+	 __emutls_get_address (&_emutls.VAR).  */
+      if (! targetm.have_tls
+	  && TREE_CODE (exp) == VAR_DECL
+	  && DECL_THREAD_LOCAL_P (exp))
+	{
+	  exp = emutls_var_address (exp);
+	  return expand_expr (exp, target, tmode, modifier);
+	}
+      /* Fall through.  */
 
     default:
       /* If the object is a DECL, then expand it for its rtl.  Don't bypass
@@ -6873,6 +6948,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  && COMPLETE_OR_UNBOUND_ARRAY_TYPE_P (TREE_TYPE (exp))
 	  && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
 	layout_decl (exp, 0);
+
+      /* TLS emulation hook - replace __thread vars with
+	 *__emutls_get_address (&_emutls.var).  */
+      if (! targetm.have_tls
+	  && TREE_CODE (exp) == VAR_DECL
+	  && DECL_THREAD_LOCAL_P (exp))
+	{
+	  exp = build_fold_indirect_ref (emutls_var_address (exp));
+	  return expand_expr_real_1 (exp, target, tmode, modifier, NULL);
+	}
 
       /* ... fall through ...  */
 
@@ -7626,9 +7711,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	       necessarily be constant.  */
 	    if (mode == BLKmode)
 	      {
-		rtx new
-		  = assign_stack_temp_for_type
-		    (ext_mode, GET_MODE_BITSIZE (ext_mode), 0, type);
+		HOST_WIDE_INT size = GET_MODE_BITSIZE (ext_mode);
+		rtx new;
+
+		/* If the reference doesn't use the alias set of its type,
+		   we cannot create the temporary using that type.  */
+		if (component_uses_parent_alias_set (exp))
+		  {
+		    new = assign_stack_local (ext_mode, size, 0);
+		    set_mem_alias_set (new, get_alias_set (exp));
+		  }
+		else
+		  new = assign_stack_temp_for_type (ext_mode, size, 0, type);
 
 		emit_move_insn (new, op0);
 		op0 = copy_rtx (new);
@@ -8953,7 +9047,7 @@ string_constant (tree arg, tree *ptr_offset)
 	      && TREE_CODE (array) != VAR_DECL)
 	    return 0;
 
-	  /* Check if the array has a non-zero lower bound.  */
+	  /* Check if the array has a nonzero lower bound.  */
 	  lower_bound = array_ref_low_bound (TREE_OPERAND (arg, 0));
 	  if (!integer_zerop (lower_bound))
 	    {

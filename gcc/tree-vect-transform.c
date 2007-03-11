@@ -35,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfgloop.h"
 #include "expr.h"
 #include "optabs.h"
+#include "params.h"
 #include "recog.h"
 #include "tree-data-ref.h"
 #include "tree-chrec.h"
@@ -461,7 +462,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
   new_name = get_name (scalar_dest);
   if (!new_name)
     new_name = "var_";
-  vec_dest = vect_get_new_vect_var (type, vect_simple_var, new_name);
+  vec_dest = vect_get_new_vect_var (type, kind, new_name);
   add_referenced_var (vec_dest);
 
   return vec_dest;
@@ -506,6 +507,189 @@ vect_init_vector (tree stmt, tree vector_var, tree vector_type)
 
   vec_oprnd = GIMPLE_STMT_OPERAND (init_stmt, 0);
   return vec_oprnd;
+}
+
+
+/* Function get_initial_def_for_induction
+
+   Input:
+   STMT - a stmt that performs an induction operation in the loop.
+   IV_PHI - the initial value of the induction variable
+
+   Output:
+   Return a vector variable, initialized with the first VF values of
+   the induction variable. E.g., for an iv with IV_PHI='X' and
+   evolution S, for a vector of 4 units, we want to return: 
+   [X, X + S, X + 2*S, X + 3*S].  */
+
+static tree
+get_initial_def_for_induction (tree stmt, tree iv_phi)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  tree scalar_type = TREE_TYPE (iv_phi);
+  tree vectype = get_vectype_for_scalar_type (scalar_type);
+  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+  edge pe = loop_preheader_edge (loop);
+  basic_block new_bb;
+  block_stmt_iterator bsi;
+  tree vec, vec_init, vec_step, t;
+  tree access_fn;
+  tree new_var;
+  tree new_name;
+  tree init_stmt;
+  tree induction_phi, induc_def, new_stmt, vec_def, vec_dest;
+  tree init_expr, step_expr;
+  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  int i;
+  bool ok;
+  int ncopies = vf / nunits;
+  tree expr;
+  stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
+
+  gcc_assert (phi_info);
+
+  if (STMT_VINFO_VEC_STMT (phi_info))
+    {
+      induction_phi = STMT_VINFO_VEC_STMT (phi_info);
+      gcc_assert (TREE_CODE (induction_phi) == PHI_NODE);
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+	{
+	  fprintf (vect_dump, "induction already vectorized:");
+	  print_generic_expr (vect_dump, iv_phi, TDF_SLIM);
+	  fprintf (vect_dump, "\n");
+	  print_generic_expr (vect_dump, induction_phi, TDF_SLIM);
+	}
+
+      return PHI_RESULT (induction_phi);
+    }
+
+  gcc_assert (ncopies >= 1);
+ 
+  access_fn = analyze_scalar_evolution (loop, PHI_RESULT (iv_phi));
+  gcc_assert (access_fn);
+  ok = vect_is_simple_iv_evolution (loop->num, access_fn, &init_expr, &step_expr);
+  gcc_assert (ok);
+
+  /* Create the vector that holds the initial_value of the induction.  */
+  new_name = init_expr;
+  t = NULL_TREE;
+  t = tree_cons (NULL_TREE, init_expr, t);
+  for (i = 1; i < nunits; i++)
+    {
+      /* Create: new_name = new_name + step_expr  */
+      new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
+      add_referenced_var (new_var);
+      init_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, new_var,
+                          fold_build2 (PLUS_EXPR, scalar_type, new_name, step_expr));
+      new_name = make_ssa_name (new_var, init_stmt);
+      GIMPLE_STMT_OPERAND (init_stmt, 0) = new_name;
+
+      new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
+      gcc_assert (!new_bb);
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "created new init_stmt: ");
+          print_generic_expr (vect_dump, init_stmt, TDF_SLIM);
+        }
+      t = tree_cons (NULL_TREE, new_name, t);
+    }
+  vec = build_constructor_from_list (vectype, nreverse (t));
+  vec_init = vect_init_vector (stmt, vec, vectype);
+
+
+  /* Create the vector that holds the step of the induction.  */
+  expr = build_int_cst (scalar_type, vf);
+  new_name = fold_build2 (MULT_EXPR, scalar_type, expr, step_expr);
+  t = NULL_TREE;
+  for (i = 0; i < nunits; i++)
+    t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
+  vec = build_constructor_from_list (vectype, t);
+  vec_step = vect_init_vector (stmt, vec, vectype);
+
+
+  /* Create the following def-use cycle:
+     loop prolog:
+         vec_init = [X, X+S, X+2*S, X+3*S]
+	 vec_step = [VF*S, VF*S, VF*S, VF*S]
+     loop:
+         vec_iv = PHI <vec_init, vec_loop>
+         ...
+         STMT
+         ...
+         vec_loop = vec_iv + vec_step;  */
+
+  /* Create the induction-phi that defines the induction-operand.  */
+  vec_dest = vect_get_new_vect_var (vectype, vect_simple_var, "vec_iv_");
+  add_referenced_var (vec_dest);
+  induction_phi = create_phi_node (vec_dest, loop->header);
+  set_stmt_info (get_stmt_ann (induction_phi),
+                 new_stmt_vec_info (induction_phi, loop_vinfo));
+  induc_def = PHI_RESULT (induction_phi);
+
+  /* Create the iv update inside the loop  */
+  new_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, NULL_TREE,
+                     build2 (PLUS_EXPR, vectype, induc_def, vec_step));
+  vec_def = make_ssa_name (vec_dest, new_stmt);
+  GIMPLE_STMT_OPERAND (new_stmt, 0) = vec_def;
+  bsi = bsi_for_stmt (stmt);
+  vect_finish_stmt_generation (stmt, new_stmt, &bsi);
+
+  /* Set the arguments of the phi node:  */
+  add_phi_arg (induction_phi, vec_init, loop_preheader_edge (loop));
+  add_phi_arg (induction_phi, vec_def, loop_latch_edge (loop));
+
+
+  /* In case the vectorization factor (VF) is bigger than the number
+     of elements that we can fit in a vectype (nunits), we have to generate
+     more than one vector stmt - i.e - we need to "unroll" the
+     vector stmt by a factor VF/nunits.  For more details see documentation
+     in vectorizable_operation.  */
+  
+  if (ncopies > 1)
+    {
+      stmt_vec_info prev_stmt_vinfo;
+
+      /* Create the vector that holds the step of the induction.  */
+      expr = build_int_cst (scalar_type, nunits);
+      new_name = fold_build2 (MULT_EXPR, scalar_type, expr, step_expr);
+      t = NULL_TREE;
+      for (i = 0; i < nunits; i++)
+	t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
+      vec = build_constructor_from_list (vectype, t);
+      vec_step = vect_init_vector (stmt, vec, vectype);
+
+      vec_def = induc_def;
+      prev_stmt_vinfo = vinfo_for_stmt (induction_phi);
+      for (i = 1; i < ncopies; i++)
+	{
+	  /* vec_i = vec_prev + vec_{step*nunits}  */
+			 
+	  new_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, NULL_TREE,
+			build2 (PLUS_EXPR, vectype, vec_def, vec_step));
+	  vec_def = make_ssa_name (vec_dest, new_stmt);
+	  GIMPLE_STMT_OPERAND (new_stmt, 0) = vec_def;
+	  bsi = bsi_for_stmt (stmt);
+	  vect_finish_stmt_generation (stmt, new_stmt, &bsi);
+
+	  STMT_VINFO_RELATED_STMT (prev_stmt_vinfo) = new_stmt;
+	  prev_stmt_vinfo = vinfo_for_stmt (new_stmt); 
+	}
+    }
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "transform induction: created def-use cycle:");
+      print_generic_expr (vect_dump, induction_phi, TDF_SLIM);
+      fprintf (vect_dump, "\n");
+      print_generic_expr (vect_dump, SSA_NAME_DEF_STMT (vec_def), TDF_SLIM);
+    }
+
+  STMT_VINFO_VEC_STMT (phi_info) = induction_phi;
+  return induc_def;
 }
 
 
@@ -633,9 +817,10 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
     /* Case 5: operand is defined by loop-header phi - induction.  */
     case vect_induction_def:
       {
-        if (vect_print_dump_info (REPORT_DETAILS))
-          fprintf (vect_dump, "induction - unsupported.");
-        internal_error ("no support for induction"); /* FORNOW */
+	gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
+
+	/* Get the def before the loop  */
+	return get_initial_def_for_induction (stmt, def_stmt);
       }
 
     default:
@@ -664,7 +849,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
    vector stmt (each computing a vector of 'nunits' results, and together
    computing 'VF' results in each iteration).  This function is called when 
    vectorizing such a stmt (e.g. vectorizing S2 in the illustration below, in
-   which VF=16 and nuniti=4, so the number of copies required is 4):
+   which VF=16 and nunits=4, so the number of copies required is 4):
 
    scalar stmt:         vectorized into:        STMT_VINFO_RELATED_STMT
  
@@ -706,14 +891,14 @@ vect_get_vec_def_for_stmt_copy (enum vect_def_type dt, tree vec_oprnd)
   tree vec_stmt_for_operand;
   stmt_vec_info def_stmt_info;
 
-  if (dt == vect_invariant_def || dt == vect_constant_def)
-    {
-      /* Do nothing; can reuse same def.  */ ;
-      return vec_oprnd;
-    }
+  /* Do nothing; can reuse same def.  */
+  if (dt == vect_invariant_def || dt == vect_constant_def )
+    return vec_oprnd;
 
   vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd);
   def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+  if (dt == vect_induction_def)
+    gcc_assert (TREE_CODE (vec_stmt_for_operand) == PHI_NODE);  
   gcc_assert (def_stmt_info);
   vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
   gcc_assert (vec_stmt_for_operand);
@@ -1385,8 +1570,11 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       op = TREE_OPERAND (operation, i);
       is_simple_use = vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt);
       gcc_assert (is_simple_use);
-      gcc_assert (dt == vect_loop_def || dt == vect_invariant_def ||
-                  dt == vect_constant_def);
+      if (dt != vect_loop_def
+	  && dt != vect_invariant_def
+	  && dt != vect_constant_def
+	  && dt != vect_induction_def)
+	return false;
     }
 
   op = TREE_OPERAND (operation, i);
@@ -1578,47 +1766,28 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 }
 
 /* Checks if CALL can be vectorized in type VECTYPE.  Returns
-   true if the target has a vectorized version of the function,
-   or false if the function cannot be vectorized.  */
+   a function declaration if the target has a vectorized version
+   of the function, or NULL_TREE if the function cannot be vectorized.  */
 
-bool
-vectorizable_function (tree call, tree vectype)
+tree
+vectorizable_function (tree call, tree vectype_out, tree vectype_in)
 {
   tree fndecl = get_callee_fndecl (call);
+  enum built_in_function code;
 
   /* We only handle functions that do not read or clobber memory -- i.e.
      const or novops ones.  */
   if (!(call_expr_flags (call) & (ECF_CONST | ECF_NOVOPS)))
-    return false;
+    return NULL_TREE;
 
   if (!fndecl
       || TREE_CODE (fndecl) != FUNCTION_DECL
       || !DECL_BUILT_IN (fndecl))
-    return false;
+    return NULL_TREE;
 
-  if (targetm.vectorize.builtin_vectorized_function (DECL_FUNCTION_CODE (fndecl), vectype))
-    return true;
-
-  return false;
-}
-
-/* Returns an expression that performs a call to vectorized version
-   of FNDECL in type VECTYPE, with the arguments given by ARGS.
-   If extra statements need to be generated, they are inserted
-   before BSI.  */
-
-static tree
-build_vectorized_function_call (tree fndecl,
-				tree vectype, tree args)
-{
-  tree vfndecl;
-  enum built_in_function code = DECL_FUNCTION_CODE (fndecl);
-
-  /* The target specific builtin should be available.  */
-  vfndecl = targetm.vectorize.builtin_vectorized_function (code, vectype);
-  gcc_assert (vfndecl != NULL_TREE);
-
-  return build_function_call_expr (vfndecl, args);
+  code = DECL_FUNCTION_CODE (fndecl);
+  return targetm.vectorize.builtin_vectorized_function (code, vectype_out,
+						        vectype_in);
 }
 
 /* Function vectorizable_call.
@@ -1634,13 +1803,13 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vec_dest;
   tree scalar_dest;
   tree operation;
-  tree op, args, type;
-  tree vec_oprnd, vargs, *pvargs_end;
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree args, type;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt), prev_stmt_info;
+  tree vectype_out, vectype_in;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  tree fndecl, rhs, new_temp, def, def_stmt;
-  enum vect_def_type dt;
+  tree fndecl, rhs, new_temp, def, def_stmt, rhs_type, lhs_type;
+  enum vect_def_type dt[2];
+  int ncopies, j, nargs;
 
   /* Is STMT a vectorizable call?   */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
@@ -1652,31 +1821,68 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   operation = GIMPLE_STMT_OPERAND (stmt, 1);
   if (TREE_CODE (operation) != CALL_EXPR)
     return false;
-   
-  /* For now, we only vectorize functions if a target specific builtin
-     is available.  TODO -- in some cases, it might be profitable to
-     insert the calls for pieces of the vector, in order to be able
-     to vectorize other operations in the loop.  */
-  if (!vectorizable_function (operation, vectype))
+
+  /* Process function arguments.  */
+  rhs_type = NULL_TREE;
+  for (args = TREE_OPERAND (operation, 1), nargs = 0;
+       args; args = TREE_CHAIN (args), ++nargs)
     {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "function is not vectorizable.");
+      tree op = TREE_VALUE (args);
 
-      return false;
-    }
-  gcc_assert (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
+      /* Bail out if the function has more than two arguments, we
+	 do not have interesting builtin functions to vectorize with
+	 more than two arguments.  */
+      if (nargs >= 2)
+	return false;
 
-  for (args = TREE_OPERAND (operation, 1); args; args = TREE_CHAIN (args))
-    {
-      op = TREE_VALUE (args);
+      /* We can only handle calls with arguments of the same type.  */
+      if (rhs_type
+	  && rhs_type != TREE_TYPE (op))
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "argument types differ.");
+	  return false;
+	}
+      rhs_type = TREE_TYPE (op);
 
-      if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
+      if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt[nargs]))
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    fprintf (vect_dump, "use not simple.");
 	  return false;
 	}
     }
+
+  /* No arguments is also not good.  */
+  if (nargs == 0)
+    return false;
+
+  vectype_in = get_vectype_for_scalar_type (rhs_type);
+
+  lhs_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
+  vectype_out = get_vectype_for_scalar_type (lhs_type);
+
+  /* Only handle the case of vectors with the same number of elements.
+     FIXME: We need a way to handle for example the SSE2 cvtpd2dq
+	    instruction which converts V2DFmode to V4SImode but only
+	    using the lower half of the V4SImode result.  */
+  if (TYPE_VECTOR_SUBPARTS (vectype_in) != TYPE_VECTOR_SUBPARTS (vectype_out))
+    return false;
+
+  /* For now, we only vectorize functions if a target specific builtin
+     is available.  TODO -- in some cases, it might be profitable to
+     insert the calls for pieces of the vector, in order to be able
+     to vectorize other operations in the loop.  */
+  fndecl = vectorizable_function (operation, vectype_out, vectype_in);
+  if (fndecl == NULL_TREE)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "function is not vectorizable.");
+
+      return false;
+    }
+
+  gcc_assert (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -1689,29 +1895,50 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "transform operation.");
 
+  ncopies = (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	     / TYPE_VECTOR_SUBPARTS (vectype_out));
+  gcc_assert (ncopies >= 1);
+
   /* Handle def.  */
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
-  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+  vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
 
-  /* Handle uses.  */
-  vargs = NULL_TREE;
-  pvargs_end = &vargs;
-  for (args = TREE_OPERAND (operation, 1); args; args = TREE_CHAIN (args))
+  prev_stmt_info = NULL;
+  for (j = 0; j < ncopies; ++j)
     {
-      op = TREE_VALUE (args);
-      vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
-	  
-      *pvargs_end = tree_cons (NULL_TREE, vec_oprnd, NULL_TREE);
-      pvargs_end = &TREE_CHAIN (*pvargs_end);
+      tree new_stmt, vargs;
+      tree vec_oprnd[2];
+      int n;
+
+      /* Build argument list for the vectorized call.  */
+      vargs = NULL_TREE;
+      for (args = TREE_OPERAND (operation, 1), n = 0;
+	   args; args = TREE_CHAIN (args), ++n)
+	{
+	  tree op = TREE_VALUE (args);
+
+	  if (j == 0)
+	    vec_oprnd[n] = vect_get_vec_def_for_operand (op, stmt, NULL);
+	  else
+	    vec_oprnd[n] = vect_get_vec_def_for_stmt_copy (dt[n], vec_oprnd[n]);
+
+	  vargs = tree_cons (NULL_TREE, vec_oprnd[n], vargs);
+	}
+      vargs = nreverse (vargs);
+
+      rhs = build_function_call_expr (fndecl, vargs);
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, NULL_TREE, vec_dest, rhs);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
+
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+
+      if (j == 0)
+	STMT_VINFO_VEC_STMT (stmt_info) = *vec_stmt = new_stmt;
+      else
+	STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
     }
-
-  fndecl = get_callee_fndecl (operation);
-  rhs = build_vectorized_function_call (fndecl, vectype, vargs);
-  *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, rhs);
-  new_temp = make_ssa_name (vec_dest, *vec_stmt);
-  GIMPLE_STMT_OPERAND (*vec_stmt, 0) = new_temp;
-
-  vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
   /* The call in STMT might prevent it from being removed in dce.  We however
      cannot remove it here, due to the way the ssa name it defines is mapped
@@ -1720,6 +1947,157 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   type = TREE_TYPE (scalar_dest);
   GIMPLE_STMT_OPERAND (stmt, 1) = fold_convert (type, integer_zero_node);
 
+  return true;
+}
+
+
+/* Function vectorizable_conversion.
+
+Check if STMT performs a conversion operation, that can be vectorized. 
+If VEC_STMT is also passed, vectorize the STMT: create a vectorized 
+stmt to replace it, put it in VEC_STMT, and insert it at BSI.
+Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
+
+bool
+vectorizable_conversion (tree stmt, block_stmt_iterator * bsi,
+				   tree * vec_stmt)
+{
+  tree vec_dest;
+  tree scalar_dest;
+  tree operation;
+  tree op0;
+  tree vec_oprnd0 = NULL_TREE;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  enum tree_code code;
+  tree new_temp;
+  tree def, def_stmt;
+  enum vect_def_type dt0;
+  tree new_stmt;
+  int nunits_in;
+  int nunits_out;
+  int ncopies, j;
+  tree vectype_out, vectype_in;
+  tree rhs_type, lhs_type;
+  tree builtin_decl, params;
+  stmt_vec_info prev_stmt_info;
+
+  /* Is STMT a vectorizable conversion?   */
+
+  if (!STMT_VINFO_RELEVANT_P (stmt_info))
+    return false;
+
+  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_info) == vect_loop_def);
+
+  if (STMT_VINFO_LIVE_P (stmt_info))
+    {
+      /* FORNOW: not yet supported.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "value used after loop.");
+      return false;
+    }
+
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+    return false;
+
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
+    return false;
+
+  operation = GIMPLE_STMT_OPERAND (stmt, 1);
+  code = TREE_CODE (operation);
+  if (code != FIX_TRUNC_EXPR && code != FLOAT_EXPR)
+    return false;
+
+  /* Check types of lhs and rhs */
+  op0 = TREE_OPERAND (operation, 0);
+  rhs_type = TREE_TYPE (op0);
+  vectype_in = get_vectype_for_scalar_type (rhs_type);
+  nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
+
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
+  lhs_type = TREE_TYPE (scalar_dest);
+  vectype_out = get_vectype_for_scalar_type (lhs_type);
+  gcc_assert (STMT_VINFO_VECTYPE (stmt_info) == vectype_out);
+  nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
+
+  /* FORNOW: need to extend to support short<->float conversions as well.  */
+  if (nunits_out != nunits_in)
+    return false;
+
+  /* Bail out if the types are both integral or non-integral */
+  if ((INTEGRAL_TYPE_P (rhs_type) && INTEGRAL_TYPE_P (lhs_type))
+      || (!INTEGRAL_TYPE_P (rhs_type) && !INTEGRAL_TYPE_P (lhs_type)))
+    return false;
+
+  /* Sanity check: make sure that at least one copy of the vectorized stmt
+     needs to be generated.  */
+  ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
+  gcc_assert (ncopies >= 1);
+
+  if (!vect_is_simple_use (op0, loop_vinfo, &def_stmt, &def, &dt0))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "use not simple.");
+      return false;
+    }
+
+  /* Supportable by target?  */
+  if (!targetm.vectorize.builtin_conversion (code, vectype_in))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "op not supported by target.");
+      return false;
+    }
+
+  if (!vec_stmt)		/* transformation not required.  */
+    {
+      STMT_VINFO_TYPE (stmt_info) = type_conversion_vec_info_type;
+      return true;
+    }
+
+    /** Transform.  **/
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "transform conversion.");
+
+  /* Handle def.  */
+  vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
+
+  prev_stmt_info = NULL;
+  for (j = 0; j < ncopies; j++)
+    {
+      tree sym;
+      ssa_op_iter iter;
+
+      if (j == 0)
+	vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
+      else
+	vec_oprnd0 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd0);
+      params = build_tree_list (NULL_TREE, vec_oprnd0);
+
+      builtin_decl =
+	targetm.vectorize.builtin_conversion (code, vectype_in);
+      new_stmt = build_function_call_expr (builtin_decl, params);
+
+      /* Arguments are ready. create the new vector stmt.  */
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, vec_dest,
+			 new_stmt);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      GIMPLE_STMT_OPERAND (new_stmt, 0) = new_temp;
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
+      FOR_EACH_SSA_TREE_OPERAND (sym, new_stmt, iter, SSA_OP_ALL_VIRTUALS)
+        {
+          if (TREE_CODE (sym) == SSA_NAME)
+            sym = SSA_NAME_VAR (sym);
+          mark_sym_for_renaming (sym);
+        }
+
+      if (j == 0)
+	STMT_VINFO_VEC_STMT (stmt_info) = *vec_stmt = new_stmt;
+      else
+	STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
+    }
   return true;
 }
 
@@ -2170,6 +2548,10 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
                                                                                 
   ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_out;
   gcc_assert (ncopies >= 1);
+
+  if (! INTEGRAL_TYPE_P (scalar_type)
+      || !INTEGRAL_TYPE_P (TREE_TYPE (op0)))
+    return false;
                                                                                 
   /* Check the operands of the operation.  */
   if (!vect_is_simple_use (op0, loop_vinfo, &def_stmt, &def, &dt0))
@@ -2216,9 +2598,8 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
       /* Handle uses.  */
       if (j == 0)
 	{
-	  enum vect_def_type dt = vect_unknown_def_type; /* Dummy */
 	  vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
-	  vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt, vec_oprnd0);
+	  vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd0);
 	}
       else
 	{
@@ -2374,6 +2755,10 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
   if (nunits_out != nunits_in / 2) /* FORNOW */
+    return false;
+
+  if (! INTEGRAL_TYPE_P (TREE_TYPE (scalar_dest))
+      || !INTEGRAL_TYPE_P (TREE_TYPE (op0))) 
     return false;
 
   /* Check the operands of the operation.  */
@@ -2771,7 +3156,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
         S3:  &base + 1 = x1
         S4:  &base + 3 = x3
 
-     We create vectorized storess starting from base address (the access of the
+     We create vectorized stores starting from base address (the access of the
      first stmt in the chain (S2 in the above example), when the last store stmt
      of the chain (S4) is reached:
 
@@ -2810,8 +3195,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	     as an input to vect_permute_store_chain(), and OPRNDS as an input
 	     to vect_get_vec_def_for_stmt_copy() for the next copy.
 	     If the store is not strided, GROUP_SIZE is 1, and DR_CHAIN and
-	     OPRNDS are of size 1.
-	  */
+	     OPRNDS are of size 1.  */
 	  next_stmt = first_stmt;	  
 	  for (i = 0; i < group_size; i++)
 	    {
@@ -2819,8 +3203,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		 is the exact number of stmts in the chain. Therefore, NEXT_STMT
 		 can't be NULL_TREE.  In case that there is no interleaving, 
 		 GROUP_SIZE is 1, and only one iteration of the loop will be 
-		 executed.
-	      */
+		 executed.  */
 	      gcc_assert (next_stmt);
 	      op = GIMPLE_STMT_OPERAND (next_stmt, 1);
 	      vec_oprnd = vect_get_vec_def_for_operand (op, next_stmt, NULL);
@@ -2840,8 +3223,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	     and OPRNDS as an input to vect_get_vec_def_for_stmt_copy() for the 
 	     next copy.
 	     If the store is not strided, GROUP_SIZE is 1, and DR_CHAIN and
-	     OPRNDS are of size 1.
-	  */
+	     OPRNDS are of size 1.  */
 	  for (i = 0; i < group_size; i++)
 	    {
 	      vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, 
@@ -2906,7 +3288,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	    }
 
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
-	  	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+	  next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
 	  if (!next_stmt)
 	    break;
 	  /* Bump the vector pointer.  */
@@ -3867,6 +4249,11 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *strided_store)
 	gcc_assert (done);
 	break;
 
+      case type_conversion_vec_info_type:
+	done = vectorizable_conversion (stmt, bsi, &vec_stmt);
+	gcc_assert (done);
+	break;
+
       case op_vec_info_type:
 	done = vectorizable_operation (stmt, bsi, &vec_stmt);
 	gcc_assert (done);
@@ -4276,6 +4663,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio)
   edge update_e;
   basic_block preheader;
   int loop_num;
+  unsigned int th;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_do_peeling_for_loop_bound ===");
@@ -4291,8 +4679,11 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio)
 				   &ratio_mult_vf_name, ratio);
 
   loop_num  = loop->num; 
+  /* Threshold for vectorized loop.  */
+  th = (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND)) * 
+			LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   new_loop = slpeel_tree_peel_loop_to_edge (loop, single_exit (loop),
-					    ratio_mult_vf_name, ni_name, false);
+					    ratio_mult_vf_name, ni_name, false, th);
   gcc_assert (new_loop);
   gcc_assert (loop_num == loop->num);
 #ifdef ENABLE_CHECKING
@@ -4517,7 +4908,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo)
   /* Peel the prolog loop and iterate it niters_of_prolog_loop.  */
   new_loop = 
 	slpeel_tree_peel_loop_to_edge (loop, loop_preheader_edge (loop), 
-				       niters_of_prolog_loop, ni_name, true); 
+				       niters_of_prolog_loop, ni_name, true, 0); 
   gcc_assert (new_loop);
 #ifdef ENABLE_CHECKING
   slpeel_verify_cfg_after_peeling (new_loop, loop);

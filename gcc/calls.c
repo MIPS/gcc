@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2566,6 +2566,19 @@ expand_call (tree exp, rtx target, int ignore)
 	  else
 	    valreg = hard_function_value (TREE_TYPE (exp), fndecl, fntype,
 					  (pass == 0));
+
+	  /* If VALREG is a PARALLEL whose first member has a zero
+	     offset, use that.  This is for targets such as m68k that
+	     return the same value in multiple places.  */
+	  if (GET_CODE (valreg) == PARALLEL)
+	    {
+	      rtx elem = XVECEXP (valreg, 0, 0);
+	      rtx where = XEXP (elem, 0);
+	      rtx offset = XEXP (elem, 1);
+	      if (offset == const0_rtx
+		  && GET_MODE (where) == GET_MODE (valreg))
+		valreg = where;
+	    }
 	}
 
       /* Precompute all register parameters.  It isn't safe to compute anything
@@ -3117,24 +3130,19 @@ fixup_tail_calls (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
+      rtx note;
+
       /* There are never REG_EQUIV notes for the incoming arguments
 	 after the NOTE_INSN_FUNCTION_BEG note, so stop if we see it.  */
       if (NOTE_P (insn)
 	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
 	break;
 
-      while (1)
-	{
-	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
-	  if (note)
-	    {
-	      /* Remove the note and keep looking at the notes for
-		 this insn.  */
-	      remove_note (insn, note);
-	      continue;
-	    }
-	  break;
-	}
+      note = find_reg_note (insn, REG_EQUIV, 0);
+      if (note)
+	remove_note (insn, note);
+      note = find_reg_note (insn, REG_EQUIV, 0);
+      gcc_assert (!note);
     }
 }
 
@@ -3908,10 +3916,25 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    value = gen_reg_rtx (outmode);
 	  emit_group_store (value, valreg, NULL_TREE, GET_MODE_SIZE (outmode));
 	}
-      else if (value != 0)
-	emit_move_insn (value, valreg);
       else
-	value = valreg;
+	{
+	  /* Convert to the proper mode if PROMOTE_MODE has been active.  */
+	  if (GET_MODE (valreg) != outmode)
+	    {
+	      int unsignedp = TYPE_UNSIGNED (tfom);
+
+	      gcc_assert (targetm.calls.promote_function_return (tfom));
+	      gcc_assert (promote_mode (tfom, outmode, &unsignedp, 0)
+			  == GET_MODE (valreg));
+
+	      valreg = convert_modes (outmode, GET_MODE (valreg), valreg, 0);
+	    }
+
+	  if (value != 0)
+	    emit_move_insn (value, valreg);
+	  else
+	    value = valreg;
+	}
     }
 
   if (ACCUMULATE_OUTGOING_ARGS)
@@ -4178,6 +4201,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   else if (arg->mode != BLKmode)
     {
       int size;
+      unsigned int parm_align;
 
       /* Argument is a scalar, not entirely passed in registers.
 	 (If part is passed in registers, arg->partial says how much
@@ -4205,10 +4229,22 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		 / (PARM_BOUNDARY / BITS_PER_UNIT))
 		* (PARM_BOUNDARY / BITS_PER_UNIT));
 
+      /* Compute the alignment of the pushed argument.  */
+      parm_align = arg->locate.boundary;
+      if (FUNCTION_ARG_PADDING (arg->mode, TREE_TYPE (pval)) == downward)
+	{
+	  int pad = used - size;
+	  if (pad)
+	    {
+	      unsigned int pad_align = (pad & -pad) * BITS_PER_UNIT;
+	      parm_align = MIN (parm_align, pad_align);
+	    }
+	}
+
       /* This isn't already where we want it on the stack, so put it there.
 	 This can either be done with push or copy insns.  */
       emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
-		      PARM_BOUNDARY, partial, reg, used - size, argblock,
+		      parm_align, partial, reg, used - size, argblock,
 		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
 		      ARGS_SIZE_RTX (arg->locate.alignment_pad));
 

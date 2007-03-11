@@ -29,15 +29,17 @@ class gnu::classpath::jdwp::VMFrame : public ::java::lang::Object
 {
 
 public:
-  VMFrame();
+  VMFrame(::java::lang::Thread *, jlong, ::gnu::classpath::jdwp::util::Location *);
   virtual ::gnu::classpath::jdwp::util::Location * getLocation();
   virtual ::java::lang::Object * getValue(jint);
   virtual void setValue(jint, ::java::lang::Object *);
+  virtual ::java::lang::Thread * getThread();
   virtual ::java::lang::Object * getObject();
   virtual jlong getId();
   static const jint SIZE = 8;
 private:
-  ::java::lang::Object * __attribute__((aligned(__alignof__( ::java::lang::Object)))) obj;
+  ::java::lang::Thread * __attribute__((aligned(__alignof__( ::java::lang::Object)))) thread;
+  ::java::lang::Object * obj;
   ::gnu::classpath::jdwp::util::Location * loc;
   jlong id;
 public:

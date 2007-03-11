@@ -1,6 +1,7 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -432,7 +433,7 @@ null_ptr_cst_p (tree t)
   if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t))
     {
       STRIP_NOPS (t);
-      if (!TREE_CONSTANT_OVERFLOW (t))
+      if (!TREE_OVERFLOW (t))
 	return true;
     }
   return false;
@@ -3280,8 +3281,16 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	result_type = void_type_node;
       else
 	{
-	  error ("%qE has type %<void%> and is not a throw-expression",
-		    VOID_TYPE_P (arg2_type) ? arg2 : arg3);
+	  if (VOID_TYPE_P (arg2_type))
+            error ("second operand to the conditional operator "
+                   "is of type %<void%>, "
+                   "but the third operand is neither a throw-expression "
+                   "nor of type %<void%>");
+	  else
+	    error ("third operand to the conditional operator "
+                   "is of type %<void%>, "
+		   "but the second operand is neither a throw-expression "
+                   "nor of type %<void%>");
 	  return error_mark_node;
 	}
 
@@ -4249,7 +4258,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       tree t = non_reference (totype);
 
       /* Issue warnings about peculiar, but valid, uses of NULL.  */
-      if (ARITHMETIC_TYPE_P (t) && expr == null_node)
+      if (expr == null_node && TREE_CODE (t) != BOOLEAN_TYPE && ARITHMETIC_TYPE_P (t))
 	{
 	  if (fn)
 	    warning (OPT_Wconversion, "passing NULL to non-pointer argument %P of %qD",

@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -763,7 +763,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   if (type != 0)
     {
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
-      MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
+      MEM_SET_IN_STRUCT_P (slot, (AGGREGATE_TYPE_P (type)
+				  || TREE_CODE (type) == COMPLEX_TYPE));
     }
   MEM_NOTRAP_P (slot) = 1;
 
@@ -2800,20 +2801,14 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 		continue;
 
 	      if (SET_DEST (set) == regno_reg_rtx [regnoi])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stacki,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stacki);
 	      else if (SET_DEST (set) == regno_reg_rtx [regnor])
-		REG_NOTES (sinsn)
-		  = gen_rtx_EXPR_LIST (REG_EQUIV, stackr,
-				       REG_NOTES (sinsn));
+		set_unique_reg_note (sinsn, REG_EQUIV, stackr);
 	    }
 	}
       else if ((set = single_set (linsn)) != 0
 	       && SET_DEST (set) == parmreg)
-	REG_NOTES (linsn)
-	  = gen_rtx_EXPR_LIST (REG_EQUIV,
-			       data->stack_parm, REG_NOTES (linsn));
+	set_unique_reg_note (linsn, REG_EQUIV, data->stack_parm);
     }
 
   /* For pointer data type, suggest pointer register.  */
@@ -3776,7 +3771,7 @@ debug_find_var_in_block_tree (tree var, tree block)
 
 /* Return value of funcdef and increase it.  */
 int
-get_next_funcdef_no(void) 
+get_next_funcdef_no (void) 
 {
   return funcdef_no++;
 }

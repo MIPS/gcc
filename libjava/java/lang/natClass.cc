@@ -1,6 +1,6 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -50,6 +50,7 @@ details.  */
 #include <java/lang/NullPointerException.h>
 #include <java/lang/RuntimePermission.h>
 #include <java/lang/System.h>
+#include <java/lang/SecurityException.h>
 #include <java/lang/SecurityManager.h>
 #include <java/lang/StringBuffer.h>
 #include <java/lang/VMClassLoader.h>
@@ -690,6 +691,10 @@ java::lang::Class::initializeClass (void)
 	  {
 	    _Jv_Linker::wait_for_state(this, JV_STATE_LINKED);
 	  }
+	catch (java::lang::SecurityException *x)
+	  {
+	    throw x;
+	  }
 	catch (java::lang::Throwable *x)
 	  {
 	    // Turn into a NoClassDefFoundError.
@@ -727,6 +732,10 @@ java::lang::Class::initializeClass (void)
 	{
 	  _Jv_InitClass (superclass);
 	}
+      catch (java::lang::SecurityException *x)
+	{
+	  throw x;
+	}
       catch (java::lang::Throwable *except)
 	{
 	  // Caught an exception.
@@ -744,6 +753,10 @@ java::lang::Class::initializeClass (void)
 					     void_signature);
       if (meth)
 	((void (*) (void)) meth->ncode) ();
+    }
+  catch (java::lang::SecurityException *x)
+    {
+      throw x;
     }
   catch (java::lang::Throwable *except)
     {
@@ -2002,5 +2015,11 @@ _Jv_GetMethodDeclaringClass (jmethodID method)
   _Jv_StackTrace::UpdateNCodeMap ();
   jobject obj = reinterpret_cast<jobject> (method->ncode);
   return reinterpret_cast<jclass> (_Jv_StackTrace::ncodeMap->get (obj));
+}
+
+jbyte
+_Jv_GetClassState (jclass klass)
+{
+  return klass->state;
 }
 

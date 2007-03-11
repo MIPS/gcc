@@ -1,3 +1,69 @@
+2007-02-15  David Daney  <ddaney@avtrex.com>
+
+	* tools/Makefile.am (TOOLS_ZIP): Add classes from vm-tools-packages.
+	* tools/Makefile.in: Regenerated.
+
+2007-02-15  Gary Benson  <gbenson@redhat.com>
+
+	* javax/management/AttributeList.java: Updated.
+	* javax/management/MBeanServerDelegate.java: Likewise.
+	* javax/management/MBeanServerFactory.java: Likewise.
+	* javax/management/StandardMBean.java: Likewise.
+
+2007-02-15  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/javax/management/Server.java
+	(registerMBean): Always register objects that implement the
+	MBeanRegistration interface, and check the name returned by
+	preRegister before using it.
+
+2007-02-15  Gary Benson  <gbenson@redhat.com>
+
+	* javax/management/ObjectName.java:
+	(getKeyPropertyList()): Remove cast and call
+	to UnmodifiableMap.
+
+2007-02-14  Gary Benson  <gbenson@redhat.com>
+
+	* javax/management/ObjectName.java
+	(toString): Return this item's canonical name.
+
+2007-02-12  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/Collections.java (UnmodifiableMap.toArray): Imported
+	changes from Classpath.
+
+2007-02-09  Gary Benson  <gbenson@redhat.com>
+
+	* javax/management/ObjectName.java
+	(quote): Initialize StringBuilder correctly.
+
+2007-02-08  Gary Benson  <gbenson@redhat.com>
+
+	* javax/management/MBeanServerFactory.java
+	(servers): Initialize.
+	(createMBeanServer): Don't initialize servers.
+
+2007-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* tools/Makefile.in: Rebuilt.
+	* tools/Makefile.am (noinst_SCRIPTS): Renamed from bin_SCRIPTS.
+	(noinst_DATA): Renamed from TOOLS_DATA.
+
+2007-01-20  Matthias Klose  <doko@debian.org>
+
+	* native/jni/gtk-peer/Makefile.am, native/jawt/Makefile.am: Install
+	into nativeexeclibdir instead of gcjversionedlibdir.
+	* native/jni/gtk-peer/Makefile.in, native/jawt/Makefile.in: Regenerate.
+
+2007-01-16  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* configure.ac: Use multi.m4 from aclocal rather than
+	custom code.  Use multi_basedir instead libgcj_basedir.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
 2007-01-10  Matthias Klose  <doko@debian.org>
 
 	Readd missing chunks from r116332:

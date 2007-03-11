@@ -31,13 +31,6 @@ extern "Java"
       }
     }
   }
-  namespace java
-  {
-    namespace nio
-    {
-        class ByteBuffer;
-    }
-  }
 }
 
 class gnu::classpath::jdwp::VMVirtualMachine : public ::java::lang::Object
@@ -57,7 +50,7 @@ public:
   static JArray< ::gnu::classpath::jdwp::VMMethod * > * getAllClassMethods(::java::lang::Class *);
   static ::gnu::classpath::jdwp::VMMethod * getClassMethod(::java::lang::Class *, jlong);
   static ::java::util::ArrayList * getFrames(::java::lang::Thread *, jint, jint);
-  static ::gnu::classpath::jdwp::VMFrame * getFrame(::java::lang::Thread *, ::java::nio::ByteBuffer *);
+  static ::gnu::classpath::jdwp::VMFrame * getFrame(::java::lang::Thread *, jlong);
   static jint getFrameCount(::java::lang::Thread *);
   static jint getThreadStatus(::java::lang::Thread *);
   static ::java::util::ArrayList * getLoadRequests(::java::lang::ClassLoader *);
@@ -68,6 +61,8 @@ public:
   static void clearEvents(jbyte);
 private:
   static ::java::util::Hashtable * _jdwp_suspend_counts;
+public: // actually package-private
+  static ::java::util::Hashtable * _stepping_threads;
 public:
   static ::java::lang::Class class$;
 };

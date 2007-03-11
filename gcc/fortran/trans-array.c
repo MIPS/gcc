@@ -1,6 +1,6 @@
 /* Array translation routines
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -583,7 +583,7 @@ tree
 gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 			     gfc_loopinfo * loop, gfc_ss_info * info,
 			     tree eltype, bool dynamic, bool dealloc,
-			     bool callee_alloc, bool function)
+			     bool callee_alloc)
 {
   tree type;
   tree desc;
@@ -592,11 +592,6 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
   tree nelem;
   tree cond;
   tree or_expr;
-  tree thencase;
-  tree elsecase;
-  tree var;
-  stmtblock_t thenblock;
-  stmtblock_t elseblock;
   int n;
   int dim;
 
@@ -678,19 +673,16 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
       tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 			 loop->to[n], gfc_index_one_node);
 
-      if (function)
-	{
-	  /* Check whether the size for this dimension is negative.  */
-	  cond = fold_build2 (LE_EXPR, boolean_type_node, tmp,
+      /* Check whether the size for this dimension is negative.  */
+      cond = fold_build2 (LE_EXPR, boolean_type_node, tmp,
 			  gfc_index_zero_node);
+      cond = gfc_evaluate_now (cond, pre);
 
-	  cond = gfc_evaluate_now (cond, pre);
+      if (n == 0)
+	or_expr = cond;
+      else
+	or_expr = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, or_expr, cond);
 
-	  if (n == 0)
-	    or_expr = cond;
-	  else
-	    or_expr = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, or_expr, cond);
-	}
       size = fold_build2 (MULT_EXPR, gfc_array_index_type, size, tmp);
       size = gfc_evaluate_now (size, pre);
     }
@@ -699,33 +691,10 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 
   if (size && !callee_alloc)
     {
-      if (function)
-	{
-	  /* If we know at compile-time whether any dimension size is
-	     negative, we can avoid a conditional and pass the true size
-	     to gfc_trans_allocate_array_storage, which can then decide
-	     whether to allocate this on the heap or on the stack.  */
-	  if (integer_zerop (or_expr))
-	    ;
-	  else if (integer_onep (or_expr))
-	    size = gfc_index_zero_node;
-	  else
-	    {
-	      var = gfc_create_var (TREE_TYPE (size), "size");
-	      gfc_start_block (&thenblock);
-	      gfc_add_modify_expr (&thenblock, var, gfc_index_zero_node);
-	      thencase = gfc_finish_block (&thenblock);
-
-	      gfc_start_block (&elseblock);
-	      gfc_add_modify_expr (&elseblock, var, size);
-	      elsecase = gfc_finish_block (&elseblock);
-	  
-	      tmp = gfc_evaluate_now (or_expr, pre);
-	      tmp = build3_v (COND_EXPR, tmp, thencase, elsecase);
-	      gfc_add_expr_to_block (pre, tmp);
-	      size = var;
-	    }
-	}
+      /* If or_expr is true, then the extent in at least one
+	 dimension is zero and the size is set to zero.  */
+      size = fold_build3 (COND_EXPR, gfc_array_index_type,
+			  or_expr, gfc_index_zero_node, size);
 
       nelem = size;
       size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
@@ -1467,8 +1436,8 @@ get_array_ctor_strlen (gfc_constructor * c, tree * len)
    elements, and if so returns the number of those elements, otherwise
    return zero.  Note, an empty or NULL array constructor returns zero.  */
 
-static unsigned HOST_WIDE_INT
-constant_array_constructor_p (gfc_constructor * c)
+unsigned HOST_WIDE_INT
+gfc_constant_array_constructor_p (gfc_constructor * c)
 {
   unsigned HOST_WIDE_INT nelem = 0;
 
@@ -1489,7 +1458,7 @@ constant_array_constructor_p (gfc_constructor * c)
    and the tree type of it's elements, TYPE, return a static constant
    variable that is compile-time initialized.  */
 
-static tree
+tree
 gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
 {
   tree tmptype, list, init, tmp;
@@ -1516,7 +1485,7 @@ gfc_build_constant_array_constructor (gfc_expr * expr, tree type)
       nelem++;
     }
 
-  /* Next detemine the tree type for the array.  We use the gfortran
+  /* Next determine the tree type for the array.  We use the gfortran
      front-end's gfc_get_nodesc_array_type in order to create a suitable
      GFC_ARRAY_TYPE_P that may be used by the scalarizer.  */
 
@@ -1633,7 +1602,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
       && INTEGER_CST_P (loop->from[0])
       && INTEGER_CST_P (loop->to[0]))
     {
-      unsigned HOST_WIDE_INT nelem = constant_array_constructor_p (c);
+      unsigned HOST_WIDE_INT nelem = gfc_constant_array_constructor_p (c);
       if (nelem > 0)
 	{
 	  tree diff = fold_build2 (MINUS_EXPR, gfc_array_index_type,
@@ -1647,7 +1616,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
     }
 
   gfc_trans_create_temp_array (&loop->pre, &loop->post, loop, &ss->data.info,
-			       type, dynamic, true, false, false);
+			       type, dynamic, true, false);
 
   desc = ss->data.info.descriptor;
   offset = gfc_index_zero_node;
@@ -3241,7 +3210,7 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
       loop->temp_ss->data.info.dimen = n;
       gfc_trans_create_temp_array (&loop->pre, &loop->post, loop,
 				   &loop->temp_ss->data.info, tmp, false, true,
-				   false, false);
+				   false);
     }
 
   for (n = 0; n < loop->temp_dim; n++)
@@ -4306,7 +4275,6 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
   gcc_assert (ss != gfc_ss_terminator);
 
-  /* TODO: Pass constant array constructors without a temporary.  */
   /* Special case things we know we can pass easily.  */
   switch (expr->expr_type)
     {
@@ -4399,6 +4367,24 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  /* Transformational function.  */
 	  info = &secss->data.info;
 	  need_tmp = 0;
+	}
+      break;
+
+    case EXPR_ARRAY:
+      /* Constant array constructors don't need a temporary.  */
+      if (ss->type == GFC_SS_CONSTRUCTOR
+	  && expr->ts.type != BT_CHARACTER
+	  && gfc_constant_array_constructor_p (expr->value.constructor))
+	{
+	  need_tmp = 0;
+	  info = &ss->data.info;
+	  secss = ss;
+	}
+      else
+	{
+	  need_tmp = 1;
+	  secss = NULL;
+	  info = NULL;
 	}
       break;
 
@@ -4553,7 +4539,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	 limits will be the limits of the section.
 	 A function may decide to repack the array to speed up access, but
 	 we're not bothered about that here.  */
-      int dim;
+      int dim, ndim;
       tree parm;
       tree parmtype;
       tree stride;
@@ -4603,12 +4589,14 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       else
 	base = NULL_TREE;
 
-      for (n = 0; n < info->ref->u.ar.dimen; n++)
+      ndim = info->ref ? info->ref->u.ar.dimen : info->dimen;
+      for (n = 0; n < ndim; n++)
 	{
 	  stride = gfc_conv_array_stride (desc, n);
 
 	  /* Work out the offset.  */
-	  if (info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
+	  if (info->ref
+	      && info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
 	    {
 	      gcc_assert (info->subscript[n]
 		      && info->subscript[n]->type == GFC_SS_SCALAR);
@@ -4630,14 +4618,16 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  tmp = fold_build2 (MULT_EXPR, TREE_TYPE (tmp), tmp, stride);
 	  offset = fold_build2 (PLUS_EXPR, TREE_TYPE (tmp), offset, tmp);
 
-	  if (info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
+	  if (info->ref
+	      && info->ref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
 	    {
 	      /* For elemental dimensions, we only need the offset.  */
 	      continue;
 	    }
 
 	  /* Vector subscripts need copying and are handled elsewhere.  */
-	  gcc_assert (info->ref->u.ar.dimen_type[n] == DIMEN_RANGE);
+	  if (info->ref)
+	    gcc_assert (info->ref->u.ar.dimen_type[n] == DIMEN_RANGE);
 
 	  /* Set the new lower bound.  */
 	  from = loop.from[dim];
@@ -4646,7 +4636,9 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  /* If we have an array section or are assigning to a pointer,
 	     make sure that the lower bound is 1.  References to the full
 	     array should otherwise keep the original bounds.  */
-	  if ((info->ref->u.ar.type != AR_FULL || se->direct_byref)
+	  if ((!info->ref
+	       || info->ref->u.ar.type != AR_FULL
+	       || se->direct_byref)
 	      && !integer_onep (from))
 	    {
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
@@ -5265,7 +5257,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
     forall (i=..., j=...)
       x(i,j) = foo%a(j)%b(i)
     end forall
-   This adds a fair amout of complexity because you need to deal with more
+   This adds a fair amount of complexity because you need to deal with more
    than one ref.  Maybe handle in a similar manner to vector subscripts.
    Maybe not worth the effort.  */
 

@@ -203,6 +203,12 @@ gfc_get_default_type (gfc_symbol * sym, gfc_namespace * ns)
   char letter;
 
   letter = sym->name[0];
+
+  if (gfc_option.flag_allow_leading_underscore && letter == '_')
+    gfc_internal_error ("Option -fallow_leading_underscore is for use only by "
+			"gfortran developers, and should not be used for "
+			"implicitly typed variables");
+
   if (letter < 'a' || letter > 'z')
     gfc_internal_error ("gfc_get_default_type(): Bad symbol");
 
@@ -916,10 +922,14 @@ try
 gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, name, where))
-    return FAILURE;
+  /* No check_used needed as 11.2.1 of the F2003 standard allows
+     that the local identifier made accessible by a use statement can be
+     given a VOLATILE attribute.  */
 
-  if (attr->volatile_)
+  /* TODO: The following allows multiple VOLATILE statements for
+     use-associated variables and it prevents setting VOLATILE for a host-
+     associated variable which is already marked as VOLATILE in the host.  */
+  if (attr->volatile_ && !attr->use_assoc)
     {
 	if (gfc_notify_std (GFC_STD_LEGACY, 
 			    "Duplicate VOLATILE attribute specified at %L",

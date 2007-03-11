@@ -3654,6 +3654,19 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
       *to_p = make_ssa_name (*to_p, *expr_p);
     }
 
+  /* Try to alleviate the effects of the gimplification creating artificial
+     temporaries (see for example is_gimple_reg_rhs) on the debug info.  */
+  if (!gimplify_ctxp->into_ssa
+      && DECL_P (*from_p) && DECL_IGNORED_P (*from_p)
+      && DECL_P (*to_p) && !DECL_IGNORED_P (*to_p))
+    {
+      if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
+	DECL_NAME (*from_p)
+	  = create_tmp_var_name (IDENTIFIER_POINTER (DECL_NAME (*to_p)));
+      DECL_DEBUG_EXPR_IS_FROM (*from_p) = 1;
+      SET_DECL_DEBUG_EXPR (*from_p, *to_p);
+    }
+
   if (want_value)
     {
       tree_to_gimple_tuple (expr_p);
@@ -4300,7 +4313,11 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			       fb_none);
 	}
       if (ret == GS_ERROR)
-	return GS_ERROR;
+	{
+	  /* PR c++/28266 Make sure this is expanded only once. */
+	  TARGET_EXPR_INITIAL (targ) = NULL_TREE;
+	  return GS_ERROR;
+	}
       append_to_statement_list (init, pre_p);
 
       /* If needed, push the cleanup for the temp.  */
@@ -4505,8 +4522,11 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
       /* We're going to make use of the TYPE_SIZE_UNIT at least in the 
 	 alloca statement we generate for the variable, so make sure it
 	 is available.  This isn't automatically needed for the SHARED
-	 case, since we won't be allocating local storage then.  */
-      else
+	 case, since we won't be allocating local storage then.
+	 For local variables TYPE_SIZE_UNIT might not be gimplified yet,
+	 in this case omp_notice_variable will be called later
+	 on when it is gimplified.  */
+      else if (! (flags & GOVD_LOCAL))
 	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
     }
   else if (lang_hooks.decls.omp_privatize_by_reference (decl))
@@ -4664,6 +4684,31 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
     return !is_global_var (decl);
 }
 
+/* Return true if DECL is private within a parallel region
+   that binds to the current construct's context or in parallel
+   region's REDUCTION clause.  */
+
+static bool
+omp_check_private (struct gimplify_omp_ctx *ctx, tree decl)
+{
+  splay_tree_node n;
+
+  do
+    {
+      ctx = ctx->outer_context;
+      if (ctx == NULL)
+	return !(is_global_var (decl)
+		 /* References might be private, but might be shared too.  */
+		 || lang_hooks.decls.omp_privatize_by_reference (decl));
+
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+      if (n != NULL)
+	return (n->value & GOVD_SHARED) == 0;
+    }
+  while (!ctx->is_parallel);
+  return false;
+}
+
 /* Scan the OpenMP clauses in *LIST_P, installing mappings into a new
    and previous omp contexts.  */
 
@@ -4682,6 +4727,7 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
       enum gimplify_status gs;
       bool remove = false;
       bool notice_outer = true;
+      const char *check_non_private = NULL;
       unsigned int flags;
       tree decl;
 
@@ -4696,12 +4742,15 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	  goto do_add;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  flags = GOVD_FIRSTPRIVATE | GOVD_EXPLICIT;
+	  check_non_private = "firstprivate";
 	  goto do_add;
 	case OMP_CLAUSE_LASTPRIVATE:
 	  flags = GOVD_LASTPRIVATE | GOVD_SEEN | GOVD_EXPLICIT;
+	  check_non_private = "lastprivate";
 	  goto do_add;
 	case OMP_CLAUSE_REDUCTION:
 	  flags = GOVD_REDUCTION | GOVD_SEEN | GOVD_EXPLICIT;
+	  check_non_private = "reduction";
 	  goto do_add;
 
 	do_add:
@@ -4711,11 +4760,6 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	      remove = true;
 	      break;
 	    }
-	  /* Handle NRV results passed by reference.  */
-	  if (TREE_CODE (decl) == INDIRECT_REF
-	      && TREE_CODE (TREE_OPERAND (decl, 0)) == RESULT_DECL
-	      && DECL_BY_REFERENCE (TREE_OPERAND (decl, 0)))
-	    OMP_CLAUSE_DECL (c) = decl = TREE_OPERAND (decl, 0);
 	  omp_add_variable (ctx, decl, flags);
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
@@ -4743,14 +4787,17 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	      remove = true;
 	      break;
 	    }
-	  /* Handle NRV results passed by reference.  */
-	  if (TREE_CODE (decl) == INDIRECT_REF
-	      && TREE_CODE (TREE_OPERAND (decl, 0)) == RESULT_DECL
-	      && DECL_BY_REFERENCE (TREE_OPERAND (decl, 0)))
-	    OMP_CLAUSE_DECL (c) = decl = TREE_OPERAND (decl, 0);
 	do_notice:
 	  if (outer_ctx)
 	    omp_notice_variable (outer_ctx, decl, true);
+	  if (check_non_private
+	      && !in_parallel
+	      && omp_check_private (ctx, decl))
+	    {
+	      error ("%s variable %qs is private in outer context",
+		     check_non_private, IDENTIFIER_POINTER (DECL_NAME (decl)));
+	      remove = true;
+	    }
 	  break;
 
 	case OMP_CLAUSE_IF:

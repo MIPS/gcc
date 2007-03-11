@@ -1,5 +1,5 @@
 /* ObjectName.java -- Represent the name of a bean, or a pattern for a name.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -565,16 +565,15 @@ public class ObjectName
   /**
    * Returns the properties in a {@link java.util.Hashtable}.  The table
    * contains each of the properties as keys mapped to their value.  The
-   * returned table may be unmodifiable.  If the case that the table is
-   * modifiable, changes made to it will not be reflected in the object
-   * name.
+   * returned table is not unmodifiable, but changes made to it will not
+   * be reflected in the object name.
    *
    * @return a {@link java.util.Hashtable}, containing each of the object
    *         name's properties.
    */
   public Hashtable getKeyPropertyList()
   {
-    return (Hashtable) Collections.unmodifiableMap(new Hashtable(properties));
+    return new Hashtable(properties);
   }
 
   /**
@@ -674,7 +673,8 @@ public class ObjectName
    */
   public static String quote(String string)
   {
-    StringBuilder builder = new StringBuilder('"');
+    StringBuilder builder = new StringBuilder();
+    builder.append('"');
     for (int a = 0; a < string.length(); ++a)
       {
 	char s = string.charAt(a);
@@ -715,19 +715,18 @@ public class ObjectName
 
   /**
    * Returns a textual representation of the object name.
-   * The format is unspecified, but it should be expected that
-   * two equivalent object names will return the same string
-   * from this method.
+   *
+   * <p>The format is unspecified beyond that equivalent object
+   * names will return the same string from this method, but note
+   * that Tomcat depends on the string returned by this method
+   * being a valid textual representation of the object name and
+   * will fail to start if it is not.
    *
    * @return a textual representation of the object name.
    */
   public String toString()
   {
-    return getClass().toString() +
-      "[domain = " + domain +
-      ",properties = " + properties +
-      ",propertyPattern = " + propertyPattern +
-      "]";
+    return getCanonicalName();
   }
 
   /**

@@ -1,5 +1,5 @@
 /* JniIncludePrinter.java - Generate a JNI header file
- Copyright (C) 2006 Free Software Foundation, Inc.
+ Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
  This file is part of GNU Classpath.
 
@@ -109,10 +109,10 @@ public class JniIncludePrinter
 
   public void printClass(ClassWrapper klass) throws IOException
   {
-    if (! klass.hasNativeMethod())
-      return;
     String xname = JniHelper.mangle(klass.name);
-    JniPrintStream out = (JniPrintStream) getPrintStream(klass.name + ".h", klass);
+    JniPrintStream out 
+      = (JniPrintStream) getPrintStream(klass.name.replace('/', '_') + ".h", 
+					klass);
     if (out == null)
       return;
     out.println();

@@ -1836,7 +1836,7 @@ build_class_member_access_expr (tree object, tree member,
 
   /* Transform `(a, b).x' into `(*(a, &b)).x', `(a ? b : c).x' into
      `(*(a ?  &b : &c)).x', and so on.  A COND_EXPR is only an lvalue
-     in the frontend; only _DECLs and _REFs are lvalues in the backend.  */
+     in the front end; only _DECLs and _REFs are lvalues in the back end.  */
   {
     tree temp = unary_complex_lvalue (ADDR_EXPR, object);
     if (temp)
@@ -3828,30 +3828,28 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
     }
 
-  /* If CONVERTED is zero, both args will be converted to type RESULT_TYPE.
-     Then the expression will be built.
-     It will be given type FINAL_TYPE if that is nonzero;
-     otherwise, it will be given type RESULT_TYPE.  */
-
   /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if (/* It's reasonable to use pointer values as operands of &&
+  if ((orig_op0 == null_node || orig_op1 == null_node)
+      /* It's reasonable to use pointer values as operands of &&
 	 and ||, so NULL is no exception.  */
-      !(code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR)
-      && (/* If OP0 is NULL and OP1 is not a pointer, or vice versa.  */
-	  (orig_op0 == null_node
-	   && TREE_CODE (TREE_TYPE (op1)) != POINTER_TYPE)
-	  /* Or vice versa.  */
-	  || (orig_op1 == null_node
-	      && TREE_CODE (TREE_TYPE (op0)) != POINTER_TYPE)
-	  /* Or, both are NULL and the operation was not a comparison.  */
-	  || (orig_op0 == null_node && orig_op1 == null_node
-	      && code != EQ_EXPR && code != NE_EXPR)))
+      && code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR 
+      && ( /* Both are NULL (or 0) and the operation was not a comparison.  */
+	  (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1) 
+	   && code != EQ_EXPR && code != NE_EXPR) 
+	  /* Or if one of OP0 or OP1 is neither a pointer nor NULL.  */
+	  || (!null_ptr_cst_p (orig_op0) && TREE_CODE (TREE_TYPE (op0)) != POINTER_TYPE)
+	  || (!null_ptr_cst_p (orig_op1) && TREE_CODE (TREE_TYPE (op1)) != POINTER_TYPE)))
     /* Some sort of arithmetic operation involving NULL was
        performed.  Note that pointer-difference and pointer-addition
        have already been handled above, and so we don't end up here in
        that case.  */
-    warning (0, "NULL used in arithmetic");
+    warning (OPT_Wpointer_arith, "NULL used in arithmetic");
+  
 
+  /* If CONVERTED is zero, both args will be converted to type RESULT_TYPE.
+     Then the expression will be built.
+     It will be given type FINAL_TYPE if that is nonzero;
+     otherwise, it will be given type RESULT_TYPE.  */
   if (! converted)
     {
       if (TREE_TYPE (op0) != result_type)
@@ -4898,8 +4896,8 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 }
 
 /* If EXPR is an INTEGER_CST and ORIG is an arithmetic constant, return
-   a version of EXPR that has TREE_OVERFLOW and/or TREE_CONSTANT_OVERFLOW
-   set iff they are set in ORIG.  Otherwise, return EXPR unchanged.  */
+   a version of EXPR that has TREE_OVERFLOW set if it is set in ORIG.
+   Otherwise, return EXPR unchanged.  */
 
 static tree
 ignore_overflows (tree expr, tree orig)
@@ -4907,11 +4905,9 @@ ignore_overflows (tree expr, tree orig)
   if (TREE_CODE (expr) == INTEGER_CST
       && CONSTANT_CLASS_P (orig)
       && TREE_CODE (orig) != STRING_CST
-      && (TREE_OVERFLOW (expr) != TREE_OVERFLOW (orig)
-	  || TREE_CONSTANT_OVERFLOW (expr)
-	     != TREE_CONSTANT_OVERFLOW (orig)))
+      && TREE_OVERFLOW (expr) != TREE_OVERFLOW (orig))
     {
-      if (!TREE_OVERFLOW (orig) && !TREE_CONSTANT_OVERFLOW (orig))
+      if (!TREE_OVERFLOW (orig))
 	/* Ensure constant sharing.  */
 	expr = build_int_cst_wide (TREE_TYPE (expr),
 				   TREE_INT_CST_LOW (expr),
@@ -4921,8 +4917,6 @@ ignore_overflows (tree expr, tree orig)
 	  /* Avoid clobbering a shared constant.  */
 	  expr = copy_node (expr);
 	  TREE_OVERFLOW (expr) = TREE_OVERFLOW (orig);
-	  TREE_CONSTANT_OVERFLOW (expr)
-	    = TREE_CONSTANT_OVERFLOW (orig);
 	}
     }
   return expr;
@@ -5343,7 +5337,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 		 "target type",
 		 intype, type);
 
-      /* We need to strip nops here, because the frontend likes to
+      /* We need to strip nops here, because the front end likes to
 	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
       STRIP_NOPS (sexpr);
       strict_aliasing_warning (intype, type, sexpr);
@@ -6384,11 +6378,13 @@ convert_for_assignment (tree type, tree rhs,
 		 errtype);
     }
 
-  /* If -Wparentheses, warn about a = b = c when a has type bool.  */
+  /* If -Wparentheses, warn about a = b = c when a has type bool and b
+     does not.  */
   if (warn_parentheses
       && type == boolean_type_node
       && TREE_CODE (rhs) == MODIFY_EXPR
-      && !TREE_NO_WARNING (rhs))
+      && !TREE_NO_WARNING (rhs)
+      && TREE_TYPE (rhs) != boolean_type_node)
     {
       warning (OPT_Wparentheses,
 	       "suggest parentheses around assignment used as truth value");

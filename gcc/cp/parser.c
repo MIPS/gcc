@@ -443,6 +443,21 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
 	}
       else
 	{
+          if (warn_cxx0x_compat
+              && C_RID_CODE (token->u.value) >= RID_FIRST_CXX0X
+              && C_RID_CODE (token->u.value) <= RID_LAST_CXX0X)
+            {
+              /* Warn about the C++0x keyword (but still treat it as
+                 an identifier).  */
+              warning (OPT_Wc__0x_compat, 
+                       "identifier %<%s%> will become a keyword in C++0x",
+                       IDENTIFIER_POINTER (token->u.value));
+
+              /* Clear out the C_RID_CODE so we don't warn about this
+                 particular identifier-turned-keyword again.  */
+              C_RID_CODE (token->u.value) = RID_MAX;
+            }
+
 	  token->ambiguous_p = false;
 	  token->keyword = RID_MAX;
 	}
@@ -3257,9 +3272,11 @@ cp_parser_primary_expression (cp_parser *parser,
 
       /* Anything else is an error.  */
     default:
-      /* ...unless we have an Objective-C++ message or string literal, that is.  */
+      /* ...unless we have an Objective-C++ message or string literal,
+         that is.  */
       if (c_dialect_objc ()
-	  && (token->type == CPP_OPEN_SQUARE || token->type == CPP_OBJC_STRING))
+	  && (token->type == CPP_OPEN_SQUARE
+              || token->type == CPP_OBJC_STRING))
 	return cp_parser_objc_expression (parser);
 
       cp_parser_error (parser, "expected primary-expression");
@@ -13383,6 +13400,10 @@ cp_parser_class_specifier (cp_parser* parser)
      class-key attributes nested-name-specifier [opt] template-id
        base-clause [opt]
 
+   Upon return BASES is initialized to the list of base classes (or
+   NULL, if there are none) in the same form returned by
+   cp_parser_base_clause.
+
    Returns the TYPE of the indicated class.  Sets
    *NESTED_NAME_SPECIFIER_P to TRUE iff one of the productions
    involving a nested-name-specifier was used, and FALSE otherwise.
@@ -13416,6 +13437,8 @@ cp_parser_class_head (cp_parser* parser,
   /* Assume no template parameter lists will be used in defining the
      type.  */
   num_templates = 0;
+
+  *bases = NULL_TREE;
 
   /* Look for the class-key.  */
   class_key = cp_parser_class_key (parser);
@@ -13707,7 +13730,6 @@ cp_parser_class_head (cp_parser* parser,
        struct A::C : B {};
 
      is valid.  */
-  *bases = NULL_TREE;
 
   /* Get the list of base-classes, if there is one.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
@@ -14594,7 +14616,7 @@ cp_parser_function_try_block (cp_parser* parser)
   /* Look for the `try' keyword.  */
   if (!cp_parser_require_keyword (parser, RID_TRY, "`try'"))
     return false;
-  /* Let the rest of the front-end know where we are.  */
+  /* Let the rest of the front end know where we are.  */
   try_block = begin_function_try_block (&compound_stmt);
   /* Parse the function-body.  */
   ctor_initializer_p
@@ -17403,7 +17425,7 @@ cp_parser_objc_identifier_list (cp_parser* parser)
    objc-alias-declaration:
      @compatibility_alias identifier identifier ;
 
-   This function registers the alias mapping with the Objective-C front-end.
+   This function registers the alias mapping with the Objective-C front end.
    It returns nothing.  */
 
 static void
@@ -17424,7 +17446,7 @@ cp_parser_objc_alias_declaration (cp_parser* parser)
      @class objc-identifier-list ;
 
    The function registers the forward declarations with the Objective-C
-   front-end.  It returns nothing.  */
+   front end.  It returns nothing.  */
 
 static void
 cp_parser_objc_class_declaration (cp_parser* parser)
@@ -19291,9 +19313,6 @@ cp_parser_omp_threadprivate (cp_parser *parser, cp_token *pragma_tok)
 
   vars = cp_parser_omp_var_list (parser, 0, NULL);
   cp_parser_require_pragma_eol (parser, pragma_tok);
-
-  if (!targetm.have_tls)
-    sorry ("threadprivate variables not supported in this target");
 
   finish_omp_threadprivate (vars);
 }

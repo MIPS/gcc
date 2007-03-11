@@ -28,15 +28,15 @@ in
 # -------------------------------
 VPATH=@srcdir@
 
-build_alias=@build_alias@
+build_alias=@build_noncanonical@
 build_vendor=@build_vendor@
 build_os=@build_os@
 build=@build@
-host_alias=@host_alias@
+host_alias=@host_noncanonical@
 host_vendor=@host_vendor@
 host_os=@host_os@
 host=@host@
-target_alias=@target_alias@
+target_alias=@target_noncanonical@
 target_vendor=@target_vendor@
 target_os=@target_os@
 target=@target@
@@ -299,8 +299,11 @@ RANLIB = @RANLIB@
 STRIP = @STRIP@
 WINDRES = @WINDRES@
 
+GNATBIND = @GNATBIND@
+GNATMAKE = @GNATMAKE@
+
 CFLAGS = @CFLAGS@
-LDFLAGS = 
+LDFLAGS = @LDFLAGS@
 LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
@@ -451,7 +454,7 @@ X11_FLAGS_TO_PASS = \
 
 POSTSTAGE1_FLAGS_TO_PASS = \
 	CC="$${CC}" CC_FOR_BUILD="$${CC_FOR_BUILD}" \
-	STAGE_PREFIX="$$r/$(HOST_SUBDIR)/prev-gcc/" \
+	GNATBIND="$$r/$(HOST_SUBDIR)/prev-gcc/gnatbind" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
@@ -1585,7 +1588,7 @@ config.status: configure
 
 # Rebuilding configure.
 AUTOCONF = autoconf
-$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in $(srcdir)/config/acx.m4
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(srcdir)/config/acx.m4
 	cd $(srcdir) && $(AUTOCONF)
 
 # ------------------------------

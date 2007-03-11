@@ -1,3 +1,351 @@
+2007-02-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR middle-end/30768
+	* testsuite/ext/pb_ds/regression/list_update_data_map_rand.cc:
+	Xfail ICE for cris-*-*.
+
+2007-02-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * configure.ac: Move AM_ICONV to native-only, add HAVE_ICONV for
+        newlib.
+        * configure: Regenerate.
+	
+2007-02-13  Dirk Mueller  <dmueller@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get): Avoid
+	warning about ambiguous else.
+
+2007-02-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21172
+	* include/bits/stl_heap.h (__adjust_heap(_RandomAccessIterator,
+	_Distance, _Distance, _Tp), __adjust_heap(_RandomAccessIterator,
+	_Distance, _Distance, _Tp, _Compare)): Avoid potential integer
+	overflow.
+
+	* include/bits/stl_heap.h (__is_heap(_RandomAccessIterator,
+	_RandomAccessIterator), __is_heap(_RandomAccessIterator,
+	_RandomAccessIterator, _StrictWeakOrdering): Mark inline.
+	(make_heap(_RandomAccessIterator, _RandomAccessIterator,
+	_Compare)): Do not mark inline.
+
+	* include/bits/stl_heap.h (push_heap(_RandomAccessIterator,
+	_RandomAccessIterator), sort_heap(_RandomAccessIterator,
+	_RandomAccessIterator)): Uncomment __glibcxx_requires_heap.
+
+2007-02-09  Richard Sandiford  <richard@codesourcery.com>
+
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: XFAIL if
+	dummy_wcsftime.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/2.cc: XFAIL if lax_strtofp.
+	* testsuite/22_locale/num_get/get/char/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/09.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/09.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/6.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/6.cc:
+	Likewise.
+	* testsuite/26_numerics/cmath/c99_classification_macros_c++.cc: XFAIL
+	for uClibc.
+	* testsuite/26_numerics/cmath/c99_classification_macros_c.cc: Likewise.
+
+2007-02-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* scripts/testsuite_flags.in: Add back @LIBICONV@ to SECTIONLDFLAGS.
+
+2007-02-08  Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/17012
+	* include/bits/list.tcc (list<>::remove): Take care of
+	&*__first == &__value.
+	* docs/html/ext/howto.html: Add an entry for DR 526.
+
+2007-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/28468
+	* configure: Regenerate.
+
+2007-02-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR testsuite/28870
+	* testsuite/27_io/basic_stringbuf/overflow/char/1.cc: Use only
+	10000 iterations for simulator targets.
+	* testsuite/ext/pb_ds/regression/tree_data_map_rand.cc: Use only 5
+	iterations for simulator targets.
+	* testsuite/ext/pb_ds/regression/tree_no_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/trie_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/trie_no_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/hash_no_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/hash_data_map_rand.cc: Ditto.
+	* testsuite/ext/pb_ds/regression/priority_queue_rand.cc: Ditto.
+	* testsuite/23_containers/set/modifiers/16728.cc: Use only 10
+	iterations for simulator targets.
+
+2007-02-06  Benjamin Kosnik  <bkoz@redhat.com>
+            Marco Trudel  <mtrudel@gmx.ch>
+
+	* include/precompiled/extc++.h: Guard include files that assume
+	iconv support is present from precompilation via
+	_GLIBCXX_HAVE_ICONV.
+
+2007-02-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_deque.h (operator<): Qualify call.
+
+2007-02-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config: Consistent macro guards for config includes.
+	* config/locale/gnu/c_locale.h: Same.
+	* config/locale/generic/c_locale.h: Same.
+	* config/allocator/mt_allocator_base.h: Same.
+	* config/allocator/malloc_allocator_base.h: Same.
+	* config/allocator/new_allocator_base.h: Same.
+	* config/allocator/pool_allocator_base.h: Same.
+	* config/allocator/bitmap_allocator_base.h: Same.
+	* config/os/vxworks/os_defines.h: Same.
+	* config/cpu/sh/atomicity.h: Same.
+	* config/io/c_io_stdio.h: Same.
+	* config/io/basic_file_stdio.h: Same.
+
+2007-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14493
+	* libsupc++/typeinfo (bad_cast::what, bad_typeid::what): Declare.
+	* libsupc++/tinfo.cc: Define.	
+	* libsupc++/exception (bad_exception::what): Declare.
+	* libsupc++/eh_exception.cc: Define.
+	(exception::what): Adjust, don't use typeid.
+	* libsupc++/new (bad_alloc::what): Declare.
+	* libsupc++/new_handler.cc: Define.
+	* config/abi/pre/gnu.ver: Export the new methods @3.4.9; adjust
+	existing 3.4.10 exports to 3.4.9.
+	* configure.ac: Adjust to 6.0.9.
+	* configure: Regenerate.
+	* testsuite/util/testsuite_abi.cc: Update.
+	* testsuite/18_support/14493.cc: New.
+
+2007-02-01  Ben Elliston  <bje@au.ibm.com>
+
+	* libsupc++/eh_alloc.cc (__cxa_free_exception): Don't refer to the
+	emergency_buffer using `&array[0][0]' notation, use `array'.
+
+2007-01-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/30571
+	* include/ext/pb_ds/detail/type_utils.hpp: Use C++0x
+	static_assert if available, if not, centralize PB_DS_STATIC_ASSERT
+	definition here.
+	* include/ext/pb_ds/detail/resize_policy/
+	cc_hash_max_collision_check_resize_trigger_imp.hpp: Remove
+	PB_DS_STATIC_ASSERT definition.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Same.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_standard_resize_policy_imp.hpp: Same.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/cc_ht_map_.hpp: Same.
+	* include/ext/pb_ds/detail/pat_trie_/pat_trie_.hpp: Same.
+	* include/ext/pb_ds/detail/pat_trie_/internal_node.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/gp_ht_map_.hpp: Same.
+	* include/ext/pb_ds/detail/ov_tree_map_/node_iterators.hpp: Same.
+	* include/ext/pb_ds/trie_policy.hpp: Same.
+	* testsuite/util/performance/assoc/timing/
+	tree_order_statistics_test.hpp: Same.
+	* testsuite/ext/pb_ds/example/hash_resize_neg.cc: Adjust line numbers.
+	* testsuite/17_intro/headers_c++_c++0x_compat.cc: New.
+	
+	* include/precompiled/extc++.h: Update to current list of ext files.
+
+2007-01-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_uninitialized.h (uninitialized_copy(const char*,
+	const char*, char*), uninitialized_copy(const wchar_t*, const wchar_t*,
+	wchar_t*)): Remove, just forward to std::copy.
+
+2007-01-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/enc_filebuf.h: Resurrect, update.
+	* include/ext/codecvt_specializations.h: Remove
+        _GLIBCXX_USE_ICONV, _GLIBCXX_USE_ENCODING_STATE.
+	* include/bits/localefwd.h: Remove declaration for __enc_traits.
+	* docs/html/22_locale/codecvt.html: Change __enc_traits to
+	encoding_state.
+	* scripts/testsuite_flags.in: Remove ICONV.
+
+	* configure.ac: Remove GLIBCXX_CHECK_ICONV_SUPPORT.
+	* acinclude.m4 (GLIBCXX_CHECK_ICONV_SUPPORT): Remove.
+	* crossconfig.m4: Remove use of GLIBCXX_CHECK_ICONV_SUPPORT.
+	* config.h.in: Remove HAVE_ICONV_CLOSE, HAVE_ICONV_OPEN,
+	HAVE_NL_LANGINFO, _GLIBCXX_USE_ICONV.
+	* include/Makefile.am: Uglify ICONV_CONST.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+	* testsuite/ext/enc_filebuf/wchar_t/13189.cc: Use
+	dg-require-iconv, fix up for encoding_state changes.
+	* testsuite/ext/enc_filebuf/char/13189.cc: Same.
+	* testsuite/ext/enc_filebuf/char/13598.cc: Same.
+	* testsuite/22_locale/codecvt/unicode: Move...
+	* testsuite/22_locale/codecvt/unicode/char.cc: Move...
+	* testsuite/22_locale/codecvt/unicode/1.cc: Move...
+	* testsuite/22_locale/codecvt/unicode/wchar_t.cc: Move...
+	* testsuite/ext/codecvt: New.
+	* testsuite/ext/codecvt/char-1.cc: ...here. Also, use dg-require-iconv.
+	* testsuite/ext/codecvt/char-2.cc: ...here. Same.
+	* testsuite/ext/codecvt/1.cc: ...here. Same.
+	* testsuite/ext/codecvt/wchar_t.cc: ...here. Same.
+	* testsuite/22_locale/locale/cons/unicode: Delete directory.
+	* testsuite/22_locale/locale/cons/unicode/1.cc: Move...
+	* testsuite/22_locale/locale/cons/unicode.cc: ...here.
+
+2007-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(iter_type,
+	iter_type, ios_base&, ios_base::iostate&, bool&),
+	num_put<>::_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT)):
+	-Wconversion and -Woverflow fixes.
+	* include/bits/istream.tcc (operator>>(int&), operator>>(short&)):
+	Likewise.
+	* include/std/valarray (valarray<>::shift, cshift): Likewise.
+
+2007-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30586
+	* config/cpu/ia64/atomic_word.h: Just include <bits/cxxabi_tweaks.h>.
+	* testsuite/abi/30586.cc: New.
+
+2007-01-25  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/streambuf_iterator.h (istreambuf_iterator<>::equal):
+	Simplify.
+
+2007-01-24   Steve LoBasso <slobasso@yahoo.com>
+	     Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc (deque<>::erase(iterator, iterator)):
+	Fix condition.
+	* testsuite/23_containers/deque/modifiers/erase/3.cc: New.
+
+2007-01-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* libsupc++/eh_personality.cc  (PERSONALITY_FUNCTION): Replace
+	_Unwind_Word with _uleb128_t in the SJLJ context.
+
+2007-01-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29722 continued
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Add
+	libsupc++ library directory.
+	* testsuite/abi/cxx_runtime_only_linkage.cc: Remove hard-coded
+	path specification.
+	
+2007-01-24  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* libsupc++/eh_personality.cc (parse_lsda_header, check_exception_spec,
+	get_ttype_entry, empty_exception_spec, PERSONALITY_FUNCTION): Replaced
+	_Unwind_Word with _uleb128_t and _Unwind_SWord with _sleb128_t.
+
+2007-01-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__fill_aux(unsigned char*,
+	unsigned char*, const unsigned char&), __fill_aux(signed char*,
+	signed char*, const signed char&), __fill_aux(char*, char*,
+	const char&), __fill_aux(wchar_t*, wchar_t*, const wchar_t&)):
+	Take the character by value.
+	(__fill_n_aux): Likewise.
+
+2007-01-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30449 (fill, fill_n)
+	* include/bits/stl_algobase.h (__fill_aux(wchar_t*, wchar_t*,
+	const wchar_t&), __fill_n_aux(wchar_t*, _Size, const wchar_t&)): New.
+	(fill(signed char*, signed char*, const signed char&),
+	fill(unsigned char*, unsigned char*, const unsigned char&),
+	fill(char*, char*, char&), fill_n(signed char*, _Size,
+	const signed char&), fill_n(unsigned char*, _Size,
+	const unsigned char&), fill_n(char*, _Size, char&)): Rename to
+	__*_aux.
+	(__fill_normal, __fill_n_normal): New, call the latter.
+	(fill, fill_n): Adjust, call the latter.	
+	* testsuite/25_algorithms/fill/4.cc: New.
+	* testsuite/25_algorithms/fill/5.cc: New.
+
+2007-01-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (basic_string<>::_S_compare): Add.
+	(compare(const basic_string&)): Use it.
+	* include/bits/basic_string.tcc (compare(size_type, size_type,
+	const basic_string&), compare(size_type, size_type,
+	const basic_string&, size_type, size_type), compare(const _CharT*),
+	compare(size_type, size_type, const _CharT*), compare(size_type,
+	size_type, const _CharT*, size_type)): Likewise.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare): Add.
+	* include/ext/vstring.h (compare(const __versa_string&)): Use it.
+	* include/ext/vstring.tcc (compare(size_type, size_type,
+	const __versa_string&), compare(size_type, size_type,
+	const __versa_string&, size_type, size_type), compare(const _CharT*),
+	compare(size_type, size_type, const _CharT*), compare(size_type,
+	size_type, const _CharT*, size_type)): Likewise.
+
+2007-01-15  Ian Lance Taylor  <iant@google.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/type_traits.h: Fix __glibcxx_max macro.
+	* include/std/limits: Likewise.
+
+2007-01-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/valarray (valarray<>::cshift): Fix typo.
+
+2007-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (fill_n(char*, _Size,
+	const signed char&)): Fix signature.
+	* testsuite/25_algorithms/fill/3.cc: New.
+
+2007-01-13  John David Anglin  <dave.anglin@nrc-cnrc.gc>
+
+	* config/cpu/hppa/atomicity.h (__exchange_and_add): Don't use ordered
+	store.
+	(__atomic_add): Likewise.
+
+2007-01-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14991
+	* docs/html/17_intro/porting-howto.html ([3]): Mention stdio_filebuf.
+	* docs/html/17_intro/porting-howto.xml: Remove.
+
+	* docs/html/17_intro/porting-howto.html: Remove spurious end tags
+	pointed out by validator.w3.org.
+
+2007-01-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30416 (continued)
+	* include/std/valarray (valarray<>::shift, valarray<>::cshift):
+	Allways return the same variable, thus facilitating NRVO.
+
+2007-01-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/30416
+	* include/std/valarray (valarray<>::shift, valarray<>::cshift):
+	Do not segfault when |n| > size.
+	* testsuite/26_numerics/valarray/30416.cc: New.
+
 2007-01-06  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/30365

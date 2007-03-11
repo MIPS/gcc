@@ -79,7 +79,6 @@ static bool last_basic_block_p (basic_block);
 static void compute_function_frequency (void);
 static void choose_function_section (void);
 static bool can_predict_insn_p (rtx);
-static void estimate_bb_frequencies (void);
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -1638,6 +1637,7 @@ counts_to_freqs (void)
   count_max = MAX (true_count_max, 1);
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     bb->frequency = (bb->count * BB_FREQ_MAX + count_max / 2) / count_max;
+
   return true_count_max;
 }
 
@@ -1684,7 +1684,7 @@ expensive_function_p (int threshold)
 
 /* Estimate basic blocks frequency by given branch probabilities.  */
 
-static void
+void
 estimate_bb_frequencies (void)
 {
   basic_block bb;

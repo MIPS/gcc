@@ -430,8 +430,8 @@ build_simple_base_path (tree expr, tree binfo)
 
       /* Transform `(a, b).x' into `(*(a, &b)).x', `(a ? b : c).x'
 	 into `(*(a ?  &b : &c)).x', and so on.  A COND_EXPR is only
-	 an lvalue in the frontend; only _DECLs and _REFs are lvalues
-	 in the backend.  */
+	 an lvalue in the front end; only _DECLs and _REFs are lvalues
+	 in the back end.  */
       temp = unary_complex_lvalue (ADDR_EXPR, expr);
       if (temp)
 	expr = build_indirect_ref (temp, NULL);
@@ -1071,9 +1071,15 @@ add_method (tree type, tree method, tree using_decl)
 
   if (insert_p)
     {
+      bool reallocated;
+
       /* We only expect to add few methods in the COMPLETE_P case, so
 	 just make room for one more method in that case.  */
-      if (VEC_reserve (tree, gc, method_vec, complete_p ? -1 : 1))
+      if (complete_p)
+	reallocated = VEC_reserve_exact (tree, gc, method_vec, 1);
+      else
+	reallocated = VEC_reserve (tree, gc, method_vec, 1);
+      if (reallocated)
 	CLASSTYPE_METHOD_VEC (type) = method_vec;
       if (slot == VEC_length (tree, method_vec))
 	VEC_quick_push (tree, method_vec, overload);
@@ -1719,7 +1725,7 @@ finish_struct_methods (tree t)
 }
 
 /* Make BINFO's vtable have N entries, including RTTI entries,
-   vbase and vcall offsets, etc.  Set its type and call the backend
+   vbase and vcall offsets, etc.  Set its type and call the back end
    to lay it out.  */
 
 static void
@@ -4580,7 +4586,7 @@ layout_class_type (tree t, tree *virtuals_p)
       tree padding;
 
       /* We still pass things that aren't non-static data members to
-	 the back-end, in case it wants to do something with them.  */
+	 the back end, in case it wants to do something with them.  */
       if (TREE_CODE (field) != FIELD_DECL)
 	{
 	  place_field (rli, field);
@@ -4888,7 +4894,7 @@ layout_class_type (tree t, tree *virtuals_p)
     place_field (rli,
 		 build_decl (FIELD_DECL, NULL_TREE, char_type_node));
 
-  /* Let the back-end lay out the type.  */
+  /* Let the back end lay out the type.  */
   finish_record_layout (rli, /*free_p=*/true);
 
   /* Warn about bases that can't be talked about due to ambiguity.  */

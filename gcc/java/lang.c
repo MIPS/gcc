@@ -353,11 +353,6 @@ FILE *finput;
 static bool
 java_init (void)
 {
-#if 0
-  extern int flag_minimal_debug;
-  flag_minimal_debug = 0;
-#endif
-
   /* FIXME: Indirect dispatch isn't yet compatible with static class
      init optimization.  */
   if (flag_indirect_dispatch)
@@ -880,13 +875,6 @@ dump_compound_expr (dump_info_p di, tree t)
 	case COMPOUND_EXPR:
 	  dump_compound_expr (di, TREE_OPERAND (t, i));
 	  break;
-
-	case EXPR_WITH_FILE_LOCATION:
-	    {
-	      tree wfl_node = EXPR_WFL_NODE (TREE_OPERAND (t, i));
-	      dump_child ("expr", wfl_node);
-	      break;
-	    }
 
 	default:
 	  dump_child ("expr", TREE_OPERAND (t, i));

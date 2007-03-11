@@ -73,7 +73,7 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
 	gappletviewer gjarsigner gkeytool gjar gjavah gnative2ascii \
-	gorbd grmid gserialver gtnameserv
+	gorbd grmid gserialver gtnameserv gc-analyze
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -95,15 +95,15 @@ endif
 ## Compilers and compilation flags.
 ##
 
-if BASH_JAR
-bin_SCRIPTS += scripts/jar
-endif
-
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
 extra_ldflags_libjava = @extra_ldflags_libjava@
+
+if ANONVERSCRIPT
+extra_ldflags_libjava += -Wl,--version-script=$(srcdir)/libgcj.ver
+endif
 
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -189,6 +189,9 @@ libgcj_la_SOURCES = prims.cc jni.cc jvmti.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files)
 
+## We need to compile at least the interpreter this way.
+interpret.lo:  AM_CXXFLAGS += -fwrapv
+
 if USING_BOEHMGC
 libgcj_la_SOURCES += boehm.cc
 endif
@@ -230,7 +233,8 @@ xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 ## The mysterious backslash in the grep pattern is consumed by make.
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	$(LIBLTDL) $(SYS_ZLIBS) \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+	$(LIBGCJ_LD_SYMBOLIC_FUNCTIONS)
 libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
 	java/lang/Object.lo \
@@ -239,13 +243,16 @@ libgcj_la_LIBADD = \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
-	$(LIBMAGIC) $(LIBFFI) $(ZLIBS) $(GCLIBS)
+	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/lang/Object.lo \
 	java/lang/Class.lo \
 	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
+if ANONVERSCRIPT
+libgcj_la_DEPENDENCIES += $(srcdir)/libgcj.ver
+endif
 libgcj_la_LINK = $(LIBLINK)
 
 ## A hack to make sure the various gcj-related macros, like
@@ -256,7 +263,8 @@ EXTRA_libgcj_la_SOURCES = java/lang/Object.java
 libgcj_tools_la_SOURCES = classpath/tools/tools.zip
 libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes  -fsource-filename=$(here)/classpath/tools/all-classes.lst
 libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
- -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+ -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+ $(LIBGCJ_LD_SYMBOLIC_FUNCTIONS)
 libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
 libgcj_tools_la_LINK = $(LIBLINK)
 
@@ -299,7 +307,8 @@ lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 ##
 ## This lets us have one soname in BC objects and another in C++ ABI objects.
 libgcj_bc_la_SOURCES = libgcj_bc.c
-libgcj_bc_la_LDFLAGS = -rpath $(toolexeclibdir) -no-static -version-info 1:0:0
+libgcj_bc_la_LDFLAGS = -rpath $(toolexeclibdir) -no-static -version-info 1:0:0 \
+	$(LIBGCJ_LD_SYMBOLIC_FUNCTIONS)
 libgcj_bc_la_LIBADD = libgcj.la
 libgcj_bc_la_DEPENDENCIES = libgcj.la
 libgcj_bc_la_LINK = $(LIBLINK)
@@ -330,8 +339,9 @@ $(propertyo_files): %.lo: classpath/resource/%
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 ## Note that this now omits the property files.
 ## It doesn't matter since we don't use the jar at runtime.
-	here=`pwd`; cd $(srcdir)/classpath/lib; $(JAR) -cfM \
-	    $$here/libgcj-$(gcc_version).jar gnu java javax org sun
+	here=`pwd`; cd $(srcdir)/classpath/lib; \
+	find gnu java javax org sun -name .svn -prune -o -name '*.class' -print | \
+	$(JAR) -cfM@ $$here/libgcj-$(gcc_version).jar
 
 libgcj-tools-$(gcc_version).jar: classpath/tools/tools.zip
 	cp $< $@
@@ -391,19 +401,6 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
-
-MYGCJH = gjavah
-
-$(generic_header_files): gcjh.stamp
-
-gcjh.stamp: classpath/lib/compile-classes
-if JAVA_MAINTAINER_MODE
-	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
-	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
-endif
-	echo > gcjh.stamp
-
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
@@ -415,6 +412,20 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
 	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
+
+generic_header_files = $(ordinary_header_files) $(inner_nat_headers) \
+	$(xlib_nat_headers)
+
+MYGCJH = gjavah
+
+$(generic_header_files): gcjh.stamp
+
+gcjh.stamp: classpath/lib/compile-classes
+if JAVA_MAINTAINER_MODE
+	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
+	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
+endif
+	echo > gcjh.stamp
 
 nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
@@ -443,12 +454,9 @@ if USE_LIBGCJ_BC
 	rm $(DESTDIR)$(toolexeclibdir)/libgcj_bc.la;
 endif
 if BUILD_ECJ1
-if NATIVE
-	mv $(DESTDIR)$(libexecsubdir)/ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
-else !NATIVE
-## Undo the prepending of the target prefix
-	mv $(DESTDIR)$(libexecsubdir)/$(target_noncanonical)-ecjx$(EXEEXT) $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
-endif !NATIVE
+## Undo any prepending of the target prefix and transform
+## to the actual host's executable suffix.
+	mv $(DESTDIR)$(libexecsubdir)/`echo ecjx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` $(DESTDIR)$(libexecsubdir)/ecj1$(host_exeext)
 endif BUILD_ECJ1
 
 ## Install the headers.  It is fairly ugly that we have to do this by
@@ -639,6 +647,20 @@ gcj_dbtool_LDADD = gnu/gcj/tools/gcj_dbtool.lo -L$(here)/.libs libgcj.la
 ## linking this program.
 gcj_dbtool_DEPENDENCIES = gnu/gcj/tools/gcj_dbtool.lo libgcj.la libgcj.spec
 
+gc_analyze_SOURCES =
+
+## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
+## need this because we are explicitly using libtool to link using the
+## `.la' file.
+gc_analyze_LDFLAGS = --main=gnu.gcj.tools.gc_analyze.MemoryAnalyze \
+        -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gc_analyze_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gc_analyze_LDADD = -L$(here)/.libs libgcj-tools.la libgcj.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gc_analyze_DEPENDENCIES = libgcj-tools.la libgcj.la libgcj.spec
+
 gij_SOURCES = 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
@@ -670,11 +692,14 @@ if ENABLE_SHARED
 ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) -Djava.class.path=$(ECJ_JAR)
 else !ENABLE_SHARED
 ## Use ecj.jar at compile time.
-ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR)
+ecjx_LDFLAGS = $(ECJX_BASE_FLAGS) $(ECJ_BUILD_JAR) -fbootclasspath=$(BOOTCLASSPATH)
 endif !ENABLE_SHARED
 
 ecjx_LDADD = -L$(here)/.libs libgcj.la
 ecjx_DEPENDENCIES = libgcj.la libgcj.spec
+if USE_LIBGCJ_BC
+ecjx_DEPENDENCIES += libgcj_bc.la
+endif
 
 else !NATIVE
 
@@ -820,6 +845,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
+gnu/gcj/util/natGCInfo.cc \
 gnu/java/lang/natMainThread.cc \
 gnu/java/lang/management/natVMClassLoadingMXBeanImpl.cc \
 gnu/java/lang/management/natVMCompilationMXBeanImpl.cc \
@@ -832,21 +858,21 @@ gnu/java/lang/management/natVMThreadMXBeanImpl.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \
-gnu/java/nio/natPipeImpl.cc \
-gnu/java/nio/natSelectorImpl.cc \
+gnu/java/nio/natVMPipe.cc \
+gnu/java/nio/natVMSelector.cc \
 gnu/java/nio/natNIOServerSocket.cc \
 gnu/java/nio/natVMChannel.cc \
 gnu/java/nio/channels/natFileChannelImpl.cc \
 java/io/natFile.cc \
-java/io/natObjectInputStream.cc \
+java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
 java/lang/management/natVMManagementFactory.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \
 java/lang/natConcreteProcess.cc \
-java/lang/natDouble.cc \
-java/lang/natFloat.cc \
+java/lang/natVMDouble.cc \
+java/lang/natVMFloat.cc \
 java/lang/natMath.cc \
 java/lang/natObject.cc \
 java/lang/natRuntime.cc	\
@@ -868,7 +894,7 @@ java/net/natVMInetAddress.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natVMURLConnection.cc \
 java/nio/channels/natVMChannels.cc \
-java/nio/natDirectByteBufferImpl.cc \
+java/nio/natVMDirectByteBufferImpl.cc \
 java/security/natVMAccessController.cc \
 java/security/natVMAccessControlState.cc \
 java/text/natCollator.cc \

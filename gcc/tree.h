@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1237,9 +1237,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->base.unsigned_flag)
 
-#define TYPE_TRAP_SIGNED(NODE) \
-  (flag_trapv && ! TYPE_UNSIGNED (NODE))
-
 /* Nonzero in a VAR_DECL means assembler code has been written.
    Nonzero in a FUNCTION_DECL means that the function has been compiled.
    This is interesting in an inline function, since it might not need
@@ -1501,7 +1498,6 @@ struct tree_constructor GTY(())
 
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
-#define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
 /* In gimple statements.  */
 #define GIMPLE_STMT_OPERAND(NODE, I) GIMPLE_STMT_OPERAND_CHECK (NODE, I)
@@ -1727,7 +1723,6 @@ struct tree_exp GTY(())
 {
   struct tree_common common;
   source_locus locus;
-  int complexity;
   tree block;
   tree GTY ((special ("tree_exp"),
 	     desc ("TREE_CODE ((tree) &%0)")))
@@ -2442,10 +2437,14 @@ struct tree_decl_minimal GTY(())
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
+
+  bitmap GTY ((skip)) aliases;
+
   unsigned int is_global:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+#define MTAG_ALIASES(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.aliases)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -2541,7 +2540,8 @@ struct tree_memory_partition_tag GTY(())
   (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
 /* Nonzero for a given ..._DECL node means that the name of this node should
-   be ignored for symbolic debug purposes.  */
+   be ignored for symbolic debug purposes.  Moreover, for a FUNCTION_DECL,
+   the body of the function should also be ignored.  */
 #define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -2901,6 +2901,26 @@ extern void decl_restrict_base_insert (tree, tree);
    that there will never be any harm, other than bloat, in putting out
    something which is DECL_COMDAT.  */
 #define DECL_COMDAT(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
+
+/* A replaceable function is one which may be replaced at link-time
+   with an entirely different definition, provided that the
+   replacement has the same type.  For example, functions declared
+   with __attribute__((weak)) on most systems are replaceable.  
+
+   COMDAT functions are not replaceable, since all definitions of the
+   function must be equivalent.  It is important that COMDAT functions
+   not be treated as replaceable so that use of C++ template
+   instantiations is not penalized.  
+
+   For example, DECL_REPLACEABLE is used to determine whether or not a
+   function (including a template instantiation) which is not
+   explicitly declared "inline" can be inlined.  If the function is
+   DECL_REPLACEABLE then it is not safe to do the inlining, since the
+   implementation chosen at link-time may be different.  However, a
+   function that is not DECL_REPLACEABLE can be inlined, since all
+   versions of the function will be functionally identical.  */
+#define DECL_REPLACEABLE_P(NODE) \
+  (!DECL_COMDAT (NODE) && !targetm.binds_local_p (NODE))
 
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
@@ -3715,6 +3735,7 @@ extern int tree_int_cst_msb (tree);
 extern int tree_int_cst_sgn (tree);
 extern int tree_int_cst_sign_bit (tree);
 extern bool tree_expr_nonnegative_p (tree);
+extern bool tree_expr_nonnegative_warnv_p (tree, bool *);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
 
@@ -4313,9 +4334,13 @@ extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
 extern tree fold_indirect_ref_1 (tree, tree);
+extern void fold_defer_overflow_warnings (void);
+extern void fold_undefer_overflow_warnings (bool, tree, int);
+extern void fold_undefer_and_ignore_overflow_warnings (void);
+extern bool fold_deferring_overflow_warnings_p (void);
 
 extern tree force_fit_type_double (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-				   int, bool, bool);
+				   int, bool);
 
 extern int fit_double_type (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 			    unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, tree);
@@ -4385,6 +4410,7 @@ extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
 extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 extern bool tree_expr_nonzero_p (tree);
+extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 /* In builtins.c */
 extern tree fold_builtin (tree, tree, bool);
@@ -4454,7 +4480,6 @@ extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
-extern tree tree_fold_gcd (tree, tree);
 extern tree build_addr (tree, tree);
 
 extern bool fields_compatible_p (tree, tree);
@@ -4601,6 +4626,7 @@ extern void set_user_assembler_name (tree, const char *);
 extern void process_pending_assemble_externals (void);
 extern void finish_aliases_1 (void);
 extern void finish_aliases_2 (void);
+extern tree emutls_decl (tree);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);
@@ -4718,6 +4744,7 @@ extern tree get_base_address (tree t);
 /* In tree-vectorizer.c.  */
 extern void vect_set_verbosity_level (const char *);
 
+/* In tree.c.  */
 struct tree_map GTY(())
 {
   unsigned int hash;
@@ -4728,6 +4755,16 @@ struct tree_map GTY(())
 extern unsigned int tree_map_hash (const void *);
 extern int tree_map_marked_p (const void *);
 extern int tree_map_eq (const void *, const void *);
+
+struct tree_int_map GTY(())
+{
+  tree from;
+  unsigned int to;
+};
+
+extern unsigned int tree_int_map_hash (const void *);
+extern int tree_int_map_eq (const void *, const void *);
+extern int tree_int_map_marked_p (const void *);
 
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
@@ -4744,5 +4781,9 @@ extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
 /* In expr.c.  */
 extern unsigned HOST_WIDE_INT highest_pow2_factor (tree);
+
+/* In tree-inline.c.  */
+
+void init_inline_once (void);
 
 #endif  /* GCC_TREE_H  */

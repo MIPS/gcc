@@ -27,7 +27,7 @@ This file is licensed under the GPL.  */
       -fpreprocessed %{!nostdinc:-fintrinsic-modules-path finclude%s} %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
 {".f90", "@f95", 0, 0, 0},
 {".f95", "@f95", 0, 0, 0},
-{".f03", "@f95", 0, 0, 0},  
+{".f03", "@f95", 0, 0, 0},
 {"@f95", "%{!E:f951 %i %(cc1_options) %{J*} %{I*}\
          %{!nostdinc:-fintrinsic-modules-path finclude%s} %{!fsyntax-only:%(invoke_as)}}", 0, 0, 0},
 {".f",   "@f77", 0, 0, 0},

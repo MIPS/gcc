@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -207,6 +207,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "target.h"
+#include "toplev.h"
 
 
 /* Possible lattice values.  */
@@ -665,15 +666,18 @@ ccp_initialize (void)
 
 
 /* Do final substitution of propagated values, cleanup the flowgraph and
-   free allocated storage.  */
+   free allocated storage.  
 
-static void
+   Return TRUE when something was optimized.  */
+
+static bool
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  substitute_and_fold (const_val, false);
+  bool something_changed = substitute_and_fold (const_val, false);
 
   free (const_val);
+  return something_changed;;
 }
 
 
@@ -1129,8 +1133,11 @@ evaluate_stmt (tree stmt)
   prop_value_t val;
   tree simplified = NULL_TREE;
   ccp_lattice_t likelyvalue = likely_value (stmt);
+  bool is_constant;
 
   val.mem_ref = NULL_TREE;
+
+  fold_defer_overflow_warnings ();
 
   /* If the statement is likely to have a CONSTANT result, then try
      to fold the statement to determine the constant value.  */
@@ -1148,7 +1155,11 @@ evaluate_stmt (tree stmt)
   else if (!simplified)
     simplified = fold_const_aggregate_ref (get_rhs (stmt));
 
-  if (simplified && is_gimple_min_invariant (simplified))
+  is_constant = simplified && is_gimple_min_invariant (simplified);
+
+  fold_undefer_overflow_warnings (is_constant, stmt, 0);
+
+  if (is_constant)
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
@@ -1397,21 +1408,24 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
 /* Main entry point for SSA Conditional Constant Propagation.  */
 
-static void
+static unsigned int
 execute_ssa_ccp (bool store_ccp)
 {
   do_store_ccp = store_ccp;
   ccp_initialize ();
   ssa_propagate (ccp_visit_stmt, ccp_visit_phi_node);
-  ccp_finalize ();
+  if (ccp_finalize ())
+    return (TODO_cleanup_cfg | TODO_update_ssa | TODO_update_smt_usage
+	    | TODO_remove_unused_locals);
+  else
+    return 0;
 }
 
 
 static unsigned int
 do_ssa_ccp (void)
 {
-  execute_ssa_ccp (false);
-  return 0;
+  return execute_ssa_ccp (false);
 }
 
 
@@ -1435,13 +1449,8 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg
-    | TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1450,8 +1459,7 @@ static unsigned int
 do_ssa_store_ccp (void)
 {
   /* If STORE-CCP is not enabled, we just run regular CCP.  */
-  execute_ssa_ccp (flag_tree_store_ccp != 0);
-  return 0;
+  return execute_ssa_ccp (flag_tree_store_ccp != 0);
 }
 
 static bool
@@ -1477,13 +1485,8 @@ struct tree_opt_pass pass_store_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_cleanup_cfg
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1971,8 +1974,9 @@ maybe_fold_stmt_addition (tree expr)
 
 struct fold_stmt_r_data
 {
-    bool *changed_p;
-    bool *inside_addr_expr_p;
+  tree stmt;
+  bool *changed_p;
+  bool *inside_addr_expr_p;
 };
 
 /* Subroutine of fold_stmt called via walk_tree.  We perform several
@@ -2068,10 +2072,16 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);
-          tree tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
-				  TREE_OPERAND (op0, 0),
-				  TREE_OPERAND (op0, 1));
-	  if (tem && set_rhs (expr_p, tem))
+          tree tem;
+	  bool set;
+
+	  fold_defer_overflow_warnings ();
+	  tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
+			     TREE_OPERAND (op0, 0),
+			     TREE_OPERAND (op0, 1));
+	  set = tem && set_rhs (expr_p, tem);
+	  fold_undefer_overflow_warnings (set, fold_stmt_r_data->stmt, 0);
+	  if (set)
 	    {
 	      t = *expr_p;
 	      break;
@@ -2378,10 +2388,11 @@ fold_stmt (tree *stmt_p)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  stmt = *stmt_p;
+
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
-
-  stmt = *stmt_p;
 
   /* If we replaced constants and the statement makes pointer dereferences,
      then we may need to fold instances of *&VAR into VAR, etc.  */
@@ -2477,6 +2488,7 @@ fold_stmt_inplace (tree stmt)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
 
@@ -2635,9 +2647,7 @@ execute_fold_all_builtins (void)
     }
 
   /* Delete unreachable blocks.  */
-  if (cfg_changed)
-    cleanup_tree_cfg ();
-  return 0;
+  return cfg_changed ? TODO_cleanup_cfg : 0;
 }
 
 

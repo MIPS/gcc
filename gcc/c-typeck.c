@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -117,7 +117,7 @@ null_pointer_constant_p (tree expr)
      yet available everywhere required.  */
   tree type = TREE_TYPE (expr);
   return (TREE_CODE (expr) == INTEGER_CST
-	  && !TREE_CONSTANT_OVERFLOW (expr)
+	  && !TREE_OVERFLOW (expr)
 	  && integer_zerop (expr)
 	  && (INTEGRAL_TYPE_P (type)
 	      || (TREE_CODE (type) == POINTER_TYPE
@@ -3270,6 +3270,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 
 	  if (unsigned_op1 ^ unsigned_op2)
 	    {
+	      bool ovf;
+
 	      /* Do not warn if the result type is signed, since the
 		 signed type will only be chosen if it can represent
 		 all the values of the unsigned type.  */
@@ -3278,8 +3280,10 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2
+			&& tree_expr_nonnegative_warnv_p (op1, &ovf))
+		       || (unsigned_op1
+			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
 		/* OK */;
 	      else
 		warning (0, "signed and unsigned type in conditional expression");
@@ -3588,15 +3592,16 @@ build_c_cast (tree type, tree expr)
       /* Ignore any integer overflow caused by the cast.  */
       if (TREE_CODE (value) == INTEGER_CST)
 	{
-	  if (CONSTANT_CLASS_P (ovalue)
-	      && (TREE_OVERFLOW (ovalue) || TREE_CONSTANT_OVERFLOW (ovalue)))
+	  if (CONSTANT_CLASS_P (ovalue) && TREE_OVERFLOW (ovalue))
 	    {
-	      /* Avoid clobbering a shared constant.  */
-	      value = copy_node (value);
-	      TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
-	      TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
+	      if (!TREE_OVERFLOW (value))
+		{
+		  /* Avoid clobbering a shared constant.  */
+		  value = copy_node (value);
+		  TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
+		}
 	    }
-	  else if (TREE_OVERFLOW (value) || TREE_CONSTANT_OVERFLOW (value))
+	  else if (TREE_OVERFLOW (value))
 	    /* Reset VALUE's overflow flags, ensuring constant sharing.  */
 	    value = build_int_cst_wide (TREE_TYPE (value),
 					TREE_INT_CST_LOW (value),
@@ -6934,8 +6939,10 @@ c_finish_return (tree retval)
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
     {
       current_function_returns_null = 1;
-      if (pedantic || TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
+      if (TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
 	pedwarn ("%<return%> with a value, in function returning void");
+      else if (pedantic)
+	pedwarn ("ISO C forbids %<return%> with expression, in function returning void");
     }
   else
     {
@@ -7352,10 +7359,10 @@ emit_side_effect_warnings (tree expr)
   else if (!TREE_SIDE_EFFECTS (expr))
     {
       if (!VOID_TYPE_P (TREE_TYPE (expr)) && !TREE_NO_WARNING (expr))
-	warning (0, "%Hstatement with no effect",
+	warning (OPT_Wunused_value, "%Hstatement with no effect",
 		 EXPR_HAS_LOCATION (expr) ? EXPR_LOCUS (expr) : &input_location);
     }
-  else if (warn_unused_value)
+  else
     warn_if_unused_value (expr, input_location);
 }
 
@@ -7380,7 +7387,7 @@ c_process_expr_stmt (tree expr)
      Warnings for statement expressions will be emitted later, once we figure
      out which is the result.  */
   if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
-      && (extra_warnings || warn_unused_value))
+      && warn_unused_value)
     emit_side_effect_warnings (expr);
 
   /* If the expression is not of a type to which we cannot assign a line
@@ -7496,7 +7503,7 @@ c_finish_stmt_expr (tree body)
 
       /* If we're supposed to generate side effects warnings, process
 	 all of the statements except the last.  */
-      if (extra_warnings || warn_unused_value)
+      if (warn_unused_value)
 	{
 	  for (i = tsi_start (last); !tsi_one_before_end_p (i); tsi_next (&i))
 	    emit_side_effect_warnings (tsi_stmt (i));
@@ -8300,6 +8307,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      else
 		{
 		  tree sop, uop;
+		  bool ovf;
 
 		  if (op0_signed)
 		    sop = xop0, uop = xop1;
@@ -8311,7 +8319,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (tree_expr_nonnegative_p (sop))
+		  if (tree_expr_nonnegative_warnv_p (sop, &ovf))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it

@@ -1,7 +1,7 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
-   Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3100,6 +3100,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	  {
 	    rtx to_rtx = ep->to_rtx;
 	    offset += ep->offset;
+	    offset = trunc_int_for_mode (offset, GET_MODE (reg));
 
 	    if (GET_CODE (XEXP (plus_cst_src, 0)) == SUBREG)
 	      to_rtx = gen_lowpart (GET_MODE (XEXP (plus_cst_src, 0)),
@@ -5653,7 +5654,16 @@ choose_reload_regs (struct insn_chain *chain)
 		regno = subreg_regno (rld[r].in);
 #endif
 
-	      if (regno >= 0 && reg_last_reload_reg[regno] != 0)
+	      if (regno >= 0
+		  && reg_last_reload_reg[regno] != 0
+#ifdef CANNOT_CHANGE_MODE_CLASS
+		  /* Verify that the register it's in can be used in
+		     mode MODE.  */
+		  && !REG_CANNOT_CHANGE_MODE_P (REGNO (reg_last_reload_reg[regno]),
+						GET_MODE (reg_last_reload_reg[regno]),
+						mode)
+#endif
+		  )
 		{
 		  enum reg_class class = rld[r].class, last_class;
 		  rtx last_reg = reg_last_reload_reg[regno];
@@ -5673,13 +5683,6 @@ choose_reload_regs (struct insn_chain *chain)
 
 		  if ((GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
-#ifdef CANNOT_CHANGE_MODE_CLASS
-		      /* Verify that the register in "i" can be obtained
-			 from LAST_REG.  */
-		      && !REG_CANNOT_CHANGE_MODE_P (REGNO (last_reg),
-						    GET_MODE (last_reg),
-						    mode)
-#endif
 		      && reg_reloaded_contents[i] == regno
 		      && TEST_HARD_REG_BIT (reg_reloaded_valid, i)
 		      && HARD_REGNO_MODE_OK (i, rld[r].mode)
@@ -7561,6 +7564,23 @@ emit_reload_insns (struct insn_chain *chain)
 	  rtx out = ((rld[r].out && REG_P (rld[r].out))
 		     ? rld[r].out : rld[r].out_reg);
 	  int nregno = REGNO (out);
+
+	  /* REG_RTX is now set or clobbered by the main instruction.
+	     As the comment above explains, forget_old_reloads_1 only
+	     sees the original instruction, and there is no guarantee
+	     that the original instruction also clobbered REG_RTX.
+	     For example, if find_reloads sees that the input side of
+	     a matched operand pair dies in this instruction, it may
+	     use the input register as the reload register.
+
+	     Calling forget_old_reloads_1 is a waste of effort if
+	     REG_RTX is also the output register.
+
+	     If we know that REG_RTX holds the value of a pseudo
+	     register, the code after the call will record that fact.  */
+	  if (rld[r].reg_rtx && rld[r].reg_rtx != out)
+	    forget_old_reloads_1 (rld[r].reg_rtx, NULL_RTX, NULL);
+
 	  if (nregno >= FIRST_PSEUDO_REGISTER)
 	    {
 	      rtx src_reg, store_insn = NULL_RTX;
@@ -7812,8 +7832,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       if (insn)
 	{
 	  /* Add a REG_EQUIV note so that find_equiv_reg can find it.  */
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 
@@ -7822,7 +7841,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out, op1, opnum, type);
       insn = emit_insn (gen_add2_insn (out, op0));
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUIV, in);
     }
 
 #ifdef SECONDARY_MEMORY_NEEDED
@@ -7882,8 +7901,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       insn = emit_insn_if_valid_for_reload (insn);
       if (insn)
 	{
-	  REG_NOTES (insn)
-	    = gen_rtx_EXPR_LIST (REG_EQUIV, in, REG_NOTES (insn));
+	  set_unique_reg_note (insn, REG_EQUIV, in);
 	  return insn;
 	}
 
