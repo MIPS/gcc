@@ -1,3 +1,14 @@
+2007-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30918
+	* io/listread.c (namelist_read): Eat comment line.
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30910
+	* io/write.c (output_float): Add condition of format F only for
+	special case rounding with zero precision.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.

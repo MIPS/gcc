@@ -1,3 +1,53 @@
+2007-03-12  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/29925
+	* gcc.dg/vect/fast-math-vect-pr29925.c: New test.
+
+2007-03-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR rtl-optimization/30643
+	* gcc.dg/pr30643.c: New.
+
+2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+
+	PR c++/30852
+	* g++.dg/ext/offsetof1.C: Add cases with volatile.
+
+2007-03-05  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30895
+	* g++.dg/parse/template23.C: New test.
+
+2007-03-01  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	Backport from trunk
+	PR fortran/29441
+	* gfortran.dg/initialization_4.f90: New test.
+
+2007-02-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20070227-1.c: New test.
+
+2007-02-27  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/25392
+	* gfortran.dg/f2c_8.f90: New test.
+
+2007-02-25  Roger Sayle  <roger@eyesopen.com>
+
+        PR fortran/30400
+        * gfortran.dg/forall_10.f90: New test case.
+
+2007-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30918
+	* gfortran.dg/namelist_26.f90: New test.
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30910	
+	* gfortran.dg/fmt_zero_precision.f90: New test.
+
 2007-02-21  Mark Mitchell  <mark@codesourcery.com>
 
 	* lib/wrapper.exp (${tool}_maybe_build_wrapper): Allow the caller
