@@ -511,6 +511,8 @@ static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
+static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
+static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
@@ -648,6 +650,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_warn_unused_result_attribute },
   { "sentinel",               0, 1, false, true, true,
 			      handle_sentinel_attribute },
+  { "cold",                   0, 0, true,  false, false,
+			      handle_cold_attribute },
+  { "hot",                    0, 0, true,  false, false,
+			      handle_hot_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -975,6 +981,42 @@ overflow_warning (tree value)
       break;
     }
 }
+
+
+/* Warn about use of a logical || / && operator being used in a
+   context where it is likely that the bitwise equivalent was intended
+   by the programmer. CODE is the TREE_CODE of the operator, ARG1
+   and ARG2 the arguments.  */
+
+void
+warn_logical_operator (enum tree_code code, tree arg1, tree
+    arg2)
+{
+  switch (code)
+    {
+      case TRUTH_ANDIF_EXPR:
+      case TRUTH_ORIF_EXPR:
+      case TRUTH_OR_EXPR:
+      case TRUTH_AND_EXPR:
+	if (!TREE_NO_WARNING (arg1)
+	    && INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+	    && !CONSTANT_CLASS_P (arg1)
+	    && TREE_CODE (arg2) == INTEGER_CST
+	    && !integer_zerop (arg2))
+	  {
+	    warning (OPT_Wlogical_op,
+		     "logical %<%s%> with non-zero constant "
+		     "will always evaluate as true",
+		     ((code == TRUTH_ANDIF_EXPR)
+		      || (code == TRUTH_AND_EXPR)) ? "&&" : "||");
+	    TREE_NO_WARNING (arg1) = true;
+	  }
+	break;
+      default:
+	break;
+    }
+}
+
 
 /* Print a warning about casts that might indicate violation
    of strict aliasing rules if -Wstrict-aliasing is used and
@@ -4630,6 +4672,59 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+/* Handle a "hot" and attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("cold", DECL_ATTRIBUTES (*node)) != NULL)
+	{
+	  warning (OPT_Wattributes, "%qE attribute conflicts with attribute %s",
+		   name, "cold");
+	  *no_add_attrs = true;
+	}
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+/* Handle a "cold" and attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+		       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("hot", DECL_ATTRIBUTES (*node)) != NULL)
+	{
+	  warning (OPT_Wattributes, "%qE attribute conflicts with attribute %s",
+		   name, "hot");
+	  *no_add_attrs = true;
+	}
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "noinline" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -6603,6 +6698,12 @@ fold_offsetof_1 (tree expr, tree stop_ref)
       t = convert (sizetype, t);
       off = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (TREE_TYPE (expr)), t);
       break;
+
+    case COMPOUND_EXPR:
+      /* Handle static members of volatile structs.  */
+      t = TREE_OPERAND (expr, 1);
+      gcc_assert (TREE_CODE (t) == VAR_DECL);
+      return fold_offsetof_1 (t, stop_ref);
 
     default:
       gcc_unreachable ();

@@ -1,3 +1,118 @@
+2007-03-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (swap_ranges): Move...
+	* include/bits/stl_algobase.h: ... here.
+	* include/tr1/array: Trim includes, stl_algobase.h is enough.
+
+2007-03-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (final)
+	* include/std/iosfwd: Do not include <bits/c++io.h>.
+	* config/io/basic_file_stdio.h: Do it here.
+	* include/ext/stdio_sync_filebuf.h: Likewise.
+	* include/ext/rope: Include <bits/gthr.h> unconditionally.
+	* include/std/fstream: Do not include <bits/gthr.h>.
+	
+	* include/std/ios: Do not include <cstdio>.
+	* include/bits/ios_base.h: Do it here.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust dg-error
+	line numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2007-03-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (partial)
+	* include/std/memory: Move C++03 implementation...
+	* include/bits/stl_memory.h: ... here, new.
+	* include/Makefile.am: Add.
+	* include/bits/stl_tempbuf.h: Include the latter instead.
+	* include/tr1/hashtable: Include allocator.h instead of
+	the whole <memory>.
+	* include/tr1/hashtable_policy.h: Include stl_function.h
+	instead of <functional>.
+	* include/Makefile.in: Regenerate.
+	* testsuite/20_util/auto_ptr/assign_neg.cc: Adjust dg-error
+	line numbers.
+
+2007-03-09  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/Makefile.in: Regenerate.
+	* include/tr1/mu_iterate.h: Remove.
+	* include/tr1/tuple (_Tuple_impl): New.
+	(tuple): Make variadic, re-implement as shell over _Tuple_impl.
+	(0-element tuple): Basis case.
+	(2-element tuple): Handle pair methods.
+	(__get_helper): Remove.
+	(tuple_element): Reimplement with variadic templates.
+	(tuple_size): Ditto.
+	(get): Ditto.
+	(operator==): Use variadic templates in the signature.
+	(operator<): Ditto.
+	(operator!=): Ditto.
+	(operator>): Ditto.
+	(operator<=): Ditto.
+	(operator>=): Ditto.
+	(__stripped_tuple_type): Remove; we've inlined its behavior.
+	(make_tuple): Reimplement with variadic templates.
+	(tie): Ditto.
+	* include/tr1/tuple_iterate.h: Remove.
+	* include/tr1/bind_repeat.h: Remove.
+	* include/tr1/ref_wrap_iterate.h: Remove.
+	* include/tr1/bind_iterate.h: Remove.
+	* include/tr1/functional (_Weak_result_type): Add variadic
+	partial specializations.
+	(result_of): Ditto.
+	(__invoke): Reimplement using variadic templates.
+	(reference_wrapper): Reimplement operator() with variadic
+	templates.
+	(_Maybe_unary_or_binary_function): New.
+	(_Mem_fn): Implement for member function pointers using variadic
+	templates.
+	(placeholders): Define 30 placeholders.
+	(_Index_tuple): New.
+	(_Build_index_tuple): New.
+	(_No_tuple_element): New.
+	(_Safe_tuple_element_impl): New.
+	(_Safe_tuple_element): New.
+	(_Mu): Reimplement with variadic templates, use
+	_Safe_tuple_element instead of tuple_element.
+	(_Bind): Reimplement with variadic templates and tuples.
+	(_Bind_result): Ditto.
+	(bind): Reimplement with variadic templates.
+	(_Function_handler): Ditto.
+	(function): Ditto.
+	* include/tr1/functional_iterate.h: Remove.
+	* include/tr1/repeat.h: Remove.
+	* include/Makefile.am: Don't install removed headers.
+	
+2007-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28080 (partial)
+	* include/bits/stl_algobase.h: Do not include <cstdlib>.
+	* src/localename.cc: Do it here.
+	* src/ctype.cc: Likewise.
+	* include/ext/pb_ds/detail/map_debug_base.hpp: Likewise.
+	* include/ext/pb_ds/exception.hpp: Likewise.
+	* include/ext/pb_ds/list_update_policy.hpp: Likewise.
+	* include/bits/stl_algo.h: Likewise.
+	* include/tr1/random: Likewise.
+	* testsuite/util/testsuite_hooks.cc: Likewise.
+	* testsuite/util/testsuite_abi_check.cc: Likewise.
+	* testsuite/util/testsuite_abi.cc: Likewise.
+	* testsuite/util/performance/assoc/timing/
+	tree_order_statistics_test.hpp: Likewise.
+	* config/locale/darwin/ctype_members.cc: Likewise.
+	* config/locale/gnu/c++locale_internal.h: Likewise.
+	* config/locale/generic/ctype_members.cc: Likewise.
+	* config/locale/generic/time_members.cc: Likewise.
+
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Qualify abort.
+	* testsuite/util/performance/assoc/timing/
+	multimap_find_test.hpp: Likewise.
+	* include/std/valarray: Do include <cstdlib>.
+	* include/tr1/hashtable: Likewise.
+
 2007-03-05  Joseph Myers  <joseph@codesourcery.com>
 
 	PR libstdc++/30675

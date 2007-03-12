@@ -1,3 +1,112 @@
+2007-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (scan_directory): Allow service files to be
+	omitted.
+	Omit all XML-related service files.
+
+2007-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac: Clear vm-tools-packages.
+
+2007-03-07  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/Win32Process.java: Added nested class EOFInputStream.
+	* java/lang/natWin32Process.cc (ChildProcessPipe): Added DUMMY
+	enum and implementation.
+	(startProcess): Use redirect flag.
+	* classpath/lib/java/lang/Win32Process.class: Regenerated.
+	* classpath/lib/java/lang/Win32Process$EOFInputStream.class: New.
+	* gcj/javaprims.h: Regenerated.
+	* java/lang/Win32Process$EOFInputStream.h: New.
+
+2007-03-07  Andrew Haley  <aph@redhat.com>
+
+	* libgcj_bc.c (JvRunMainName): Declare.
+
+2007-03-07  Gary Benson  <gbenson@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+
+2007-03-07  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gcj/javaprims.h: Regenerated.
+
+2007-03-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* include/jvm.h (_Jv_ClosureListFinalizer): New.
+	(_Jv_Linker::create_error_method): Adjust.
+	* boehm.cc (_Jv_ClosureListFinalizer): New.
+	* nogc.cc (_Jv_ClosureListFinalizer): New.
+	* java/lang/Class.h (class _Jv_ClosureList): New.
+	(class java::lang::Class): Declare it as friend.
+	* java/lang/natClass.cc (_Jv_ClosureList::releaseClosures): New.
+	(_Jv_ClosureList::registerClousure): New.
+	* include/execution.h (_Jv_ExecutionEngine): Add get_closure_list.
+	(_Jv_CompiledEngine::do_get_closure_list): New.
+	(_Jv_CompiledEngine::_Jv_CompiledEngine): Use it.
+	(_Jv_IndirectCompiledClass): Add closures.
+	(_Jv_IndirectCompiledEngine::get_aux_info): New.
+	(_Jv_IndirectCompiledEngine::do_allocate_field_initializers): Use
+	it.
+	(_Jv_IndirectCompiledEngine::do_get_closure_list): New.
+	(_Jv_IndirectCompiledEngine::_Jv_IndirectCompiledEngine): Use it.
+	(_Jv_InterpreterEngine::do_get_closure_list): Declare.
+	(_Jv_InterpreterEngine::_Jv_InterpreterEngine): Use it.
+	* interpret.cc (FFI_PREP_RAW_CLOSURE): Use _loc variants.
+	(node_closure): Add closure list.
+	(_Jv_InterpMethod::ncode): Add jclass argument.  Use
+	ffi_closure_alloc and the separate code pointer.  Register the
+	closure for finalization.
+	(_Jv_JNIMethod::ncode): Likewise.
+	(_Jv_InterpreterEngine::do_create_ncode): Pass klass to ncode.
+	(_Jv_InterpreterEngine::do_get_closure_list): New.
+	* include/java-interp.h (_Jv_InterpMethod::ncode): Adjust.
+	(_Jv_InterpClass): Add closures field.
+	(_Jv_JNIMethod::ncode): Adjust.
+	* defineclass.cc (_Jv_ClassReader::handleCodeAttribute): Adjust.
+	(_Jv_ClassReader::handleMethodsEnd): Likewise.
+	* link.cc (struct method_closure): Add closure list.
+	(_Jv_Linker::create_error_method): Add jclass argument.  Use
+	ffi_closure_alloc and the separate code pointer.  Register the
+	closure for finalization.
+	(_Jv_Linker::link_symbol_table): Remove outdated comment about
+	sharing of otable and atable.  Adjust.
+	* java/lang/reflect/natVMProxy.cc (ncode_closure): Add closure
+	list.
+	(ncode): Add jclass argument.  Use ffi_closure_alloc and the
+	separate code pointer.  Register the closure for finalization.
+	(java::lang::reflect::VMProxy::generateProxyClass): Adjust.
+	* testsuite/libjava.jar/TestClosureGC.java: New.
+	* testsuite/libjava.jar/TestClosureGC.out: New.
+	* testsuite/libjava.jar/TestClosureGC.xfail: New.
+	* testsuite/libjava.jar/TestClosureGC.jar: New.
+
+2007-03-06  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/exception/AbsentInformationException.java: New file.
+	* classpath/lib/gnu/classpath/jdwp/exception/AbsentInformationException.class: Ditto.
+	* gnu/classpath/jdwp/exception/AbsentInformationException.h: Ditto.
+	* gnu/classpath/jdwp/natVMMethod.cc: Add CHECK_INTERP_CLASS macro.
+	(VMMethod::getLineTable): Use new macro.
+	(VMMethod::getVariableTable): Implement.
+	* sources.am: Regenerated.
+	* Makefile.in: Ditto.
+
+2007-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (bin_PROGRAMS): Added gcjh.
+	(gcjh_SOURCES, gcjh_LDFLAGS, gcjh_LINK, gcjh_LDADD,
+	gcjh_DEPENDENCIES): New variables.
+
+2007-03-06  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc(_Jv_JVMTI_GetLocalVariableTable): Fix _Jv_Malloc parameters.
+	* testsuite/libjava.jvmti/interp/natgetlocalvartable.cc
+	(do_getlocalvartable_tests): Add Deallocate calls to free strings.
+
 2007-03-05  Matthias Klose  <doko@debian.org>
 
 	* Makefile.am (gij_LDFLAGS): Use dbexecdir.

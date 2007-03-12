@@ -71,7 +71,15 @@ const struct default_include cpp_include_defaults[]
 #endif
 #ifdef FIXED_INCLUDE_DIR
     /* This is the dir for fixincludes.  */
-    { FIXED_INCLUDE_DIR, "GCC", 0, 0, 0, 0 },
+    { FIXED_INCLUDE_DIR, "GCC", 0, 0, 0,
+      /* A multilib suffix needs adding if different multilibs use
+	 different headers.  */
+#ifdef SYSROOT_HEADERS_SUFFIX_SPEC
+      1
+#else
+      0
+#endif
+    },
 #endif
 #ifdef CROSS_INCLUDE_DIR
     /* One place the target system's headers might be.  */
@@ -104,6 +112,7 @@ const size_t cpp_GCC_INCLUDE_DIR_len = 0;
 /* The configured prefix.  */
 const char cpp_PREFIX[] = PREFIX;
 const size_t cpp_PREFIX_len = sizeof PREFIX - 1;
+const char cpp_EXEC_PREFIX[] = STANDARD_EXEC_PREFIX;
 
 /* This value is set by cpp_relocated at runtime */
 const char *gcc_exec_prefix;

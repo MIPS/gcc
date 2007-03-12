@@ -1241,6 +1241,8 @@ instantiate_element (struct sra_elt *elt)
       
       DECL_IGNORED_P (var) = 0;
       TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
+      if (elt->element && TREE_NO_WARNING (elt->element))
+	TREE_NO_WARNING (var) = 1;
     }
   else
     {
@@ -1610,9 +1612,6 @@ decide_instantiations (void)
     }
   bitmap_clear (&done_head);
   
-  if (!bitmap_empty_p (sra_candidates))
-    todoflags |= TODO_update_smt_usage;
-
   mark_set_for_renaming (sra_candidates);
 
   if (dump_file)
@@ -1698,7 +1697,6 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
       }
 
     case ARRAY_TYPE:
-      todoflags |= TODO_update_smt_usage;
       if (TREE_CODE (elt->element) == RANGE_EXPR)
 	return build4 (ARRAY_RANGE_REF, elt->type, base,
 		       TREE_OPERAND (elt->element, 0), NULL, NULL);
@@ -1740,7 +1738,7 @@ sra_build_assignment (tree dst, tree src)
      anyway, there's little point in making tests and/or adding
      conversions to ensure the types of src and dst are the same.
      So we just assume type differences at this point are ok.  */
-  return build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+  return build_gimple_modify_stmt (dst, src);
 }
 
 /* Generate a set of assignment statements in *LIST_P to copy all

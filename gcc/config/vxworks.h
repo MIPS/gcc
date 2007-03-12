@@ -82,13 +82,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define	VXWORKS_STARTFILE_SPEC "%{mrtp:%{!shared:crt0.o%s}}"
 #define VXWORKS_ENDFILE_SPEC ""
 
-/* We can use .ctors/.dtors sections only in RTP mode.
-   Unfortunately this must be an integer constant expression;
-   fix up in override_options.  */
+/* Do VxWorks-specific parts of OVERRIDE_OPTIONS.  */
 #undef VXWORKS_OVERRIDE_OPTIONS
-#define VXWORKS_OVERRIDE_OPTIONS do { \
-  targetm.have_ctors_dtors = TARGET_VXWORKS_RTP; \
-} while (0)
+#define VXWORKS_OVERRIDE_OPTIONS vxworks_override_options ()
+extern void vxworks_override_options (void);
 
 /* VxWorks requires special handling of constructors and destructors.
    All VxWorks configurations must use these functions.  */
@@ -97,11 +94,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 extern void vxworks_asm_out_constructor (rtx symbol, int priority);
 extern void vxworks_asm_out_destructor (rtx symbol, int priority);
 
-/* The name of the symbol for the table of GOTs in a particular
-   RTP.  */
+/* Override the vxworks-dummy.h definitions.  TARGET_VXWORKS_RTP
+   is defined by vxworks.opt.  */
+#undef VXWORKS_GOTT_BASE
 #define VXWORKS_GOTT_BASE "__GOTT_BASE__"
-/* The name of the symbol for the index into the table of GOTs for the
-   GOT associated with the current shared library.  */
+#undef VXWORKS_GOTT_INDEX
 #define VXWORKS_GOTT_INDEX "__GOTT_INDEX__"
 
 #define VXWORKS_KIND VXWORKS_KIND_NORMAL

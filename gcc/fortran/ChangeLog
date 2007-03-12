@@ -1,3 +1,80 @@
+2007-03-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30883
+	* parse.c (parse_interface): Use the default types from the
+	formal namespace if a function or its result do not have a type
+	after parsing the specification statements.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: (ICHAR) Improve internal I/O note.
+	(ACHAR): Reference it.
+	(CHAR): Reference it.
+	(IACHAR): Reference it.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: (LINK) Document function form.
+	(RENAME): Likewise.
+	(SYMLNK): Likewise.
+	(SYSTEM): Likewise.
+	(UNLINK): Likewise.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: minor typo fixes, removed prologue.
+	(FSEEK): moved to correct place in alphabetical order.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/30947
+	* check.c (gfc_check_alarm_sub): Added check for default integer 
+	kind of status argument.
+	* iresolve.c (gfc_resolve_alarm_sub): Removed conversion of 
+	status argument.
+	* intrinsic.texi (ALARM): Extended documentation.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (GERROR, ISATTY, TTYNAM): New.
+	(ABORT, FLUSH, FNUM, IRAND, MALLOC, SIGNAL, SRAND): Fixed typo.
+	* intrinsic.c (add_subroutines): Adjusted dummy argument names 
+	of GERROR and TTYNAM.
+
+2007-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	* module.c (gfc_match_use): Support renaming of operators
+	in USE statements.
+	* gfortran.texi (Fortran 2003 Status): Document support of
+	renaming of operators.
+
+2007-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30973
+	* module.c (read_module): Always import module name as symbol.
+	(gfc_match_use): Disallow module name in the only clause of
+	a use statement.
+
+2007-03-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31011
+	* expr.c (find_array_section): Correct arithmetic for section
+	size.
+
+2007-03-07  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* iresolve.c (gfc_resolve_ishftc): Correct s_kind value.
+
+2007-03-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR documentation/30950
+	* intrinsic.texi (AND, CPU_TIME): Fix dummy argument names.
+	(FREE): Fix call syntax.
+
+2007-03-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Limit column widths to a total of .85.
+
 2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* gfortran.texi (GFortran and G77): Rewrite completely.

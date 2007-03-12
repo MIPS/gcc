@@ -1,3 +1,39 @@
+2007-03-09  Gary Benson  <gbenson@redhat.com>
+	    Chris Burdess  <dog@gnu.org>
+
+	PR classpath/30831
+	* gnu/xml/dom/ls/SAXEventSink.java: Only set extended document
+	properties when reader is available.
+
+2007-03-08  Gary Benson  <gbenson@redhat.com>
+
+	PR classpath/30983:
+	* gnu/xml/dom/ls/DomLSParser.java (getInputSource):
+	Do not use the entity resolver to resolve the top-level document.
+
+2007-03-07  Gary Benson  <gbenson@redhat.com>
+
+	PR classpath/30906:
+	* resource/META-INF/services/org.w3c.dom.DOMImplementationSourceList:
+	New file.
+
+2007-03-06  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am(gkeytool.pod): Don't use sed -i.
+	* doc/Makefile.in: Regenerate.
+
+2007-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* tools/gnu/classpath/tools/javah/Main.java (getName): New
+	method.
+	(getParser): Now protected.  Use getName.  Add '-v' alias for
+	--verbose.
+	(postParse): New method.
+	(run): Now protected.  Use postParse.
+	* tools/gnu/classpath/tools/javah/GcjhMain.java: New file.
+	* tools/Makefile.in: Rebuilt.
+	* tools/Makefile.am: Remove vm-tools.lst before creating it.
+
 2007-03-05  Matthias Klose  <doko@ubuntu.com>
 
 	* doc/Makefile.am(man_MANS): Add $(TOOLS_MANFILES).

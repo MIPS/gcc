@@ -33,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "timevar.h"
 #include "diagnostic.h"
 #include "toplev.h"
+#include "intl.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-propagate.h"
@@ -46,6 +47,7 @@ static sbitmap found_in_subgraph;
 static int compare_values (tree val1, tree val2);
 static int compare_values_warnv (tree val1, tree val2, bool *);
 static void vrp_meet (value_range_t *, value_range_t *);
+static tree vrp_evaluate_conditional_warnv (tree, bool, bool *);
 
 /* Location information for ASSERT_EXPRs.  Each instance of this
    structure describes an ASSERT_EXPR for an SSA name.  Since a single
@@ -543,6 +545,32 @@ overflow_infinity_range_p (value_range_t *vr)
 	      || is_overflow_infinity (vr->max)));
 }
 
+/* Return false if we can not make a valid comparison based on VR;
+   this will be the case if it uses an overflow infinity and overflow
+   is not undefined (i.e., -fno-strict-overflow is in effect).
+   Otherwise return true, and set *STRICT_OVERFLOW_P to true if VR
+   uses an overflow infinity.  */
+
+static bool
+usable_range_p (value_range_t *vr, bool *strict_overflow_p)
+{
+  gcc_assert (vr->type == VR_RANGE);
+  if (is_overflow_infinity (vr->min))
+    {
+      *strict_overflow_p = true;
+      if (!TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (vr->min)))
+	return false;
+    }
+  if (is_overflow_infinity (vr->max))
+    {
+      *strict_overflow_p = true;
+      if (!TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (vr->max)))
+	return false;
+    }
+  return true;
+}
+
+
 /* Like tree_expr_nonnegative_warnv_p, but this function uses value
    ranges obtained so far.  */
 
@@ -783,9 +811,8 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
 	 infinities.  */
       if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
 	{
-	  if (!TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (val1)))
-	    return -2;
-
+	  if (strict_overflow_p != NULL)
+	    *strict_overflow_p = true;
 	  if (is_negative_overflow_infinity (val1))
 	    return is_negative_overflow_infinity (val2) ? 0 : -1;
 	  else if (is_negative_overflow_infinity (val2))
@@ -831,8 +858,8 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
     }
 }
 
-/* Compare values like compare_values_warnv, but treat comparisons
-   which rely on undefined overflow as incomparable.  */
+/* Compare values like compare_values_warnv, but treat comparisons of
+   nonconstants which rely on undefined overflow as incomparable.  */
 
 static int
 compare_values (tree val1, tree val2)
@@ -842,7 +869,8 @@ compare_values (tree val1, tree val2)
 
   sop = false;
   ret = compare_values_warnv (val1, val2, &sop);
-  if (sop)
+  if (sop
+      && (!is_gimple_min_invariant (val1) || !is_gimple_min_invariant (val2)))
     ret = -2;
   return ret;
 }
@@ -1491,13 +1519,24 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
 	  && !supports_overflow_infinity (TREE_TYPE (res)))
 	return NULL_TREE;
 
-      /* We have to punt on subtracting infinities of the same sign,
-	 since we can't tell what the sign of the result should
-	 be.  */
-      if (code == MINUS_EXPR
-	  && sgn1 == sgn2
+      /* We have to punt on adding infinities of different signs,
+	 since we can't tell what the sign of the result should be.
+	 Likewise for subtracting infinities of the same sign.  */
+      if (((code == PLUS_EXPR && sgn1 != sgn2)
+	   || (code == MINUS_EXPR && sgn1 == sgn2))
 	  && is_overflow_infinity (val1)
 	  && is_overflow_infinity (val2))
+	return NULL_TREE;
+
+      /* Don't try to handle division or shifting of infinities.  */
+      if ((code == TRUNC_DIV_EXPR
+	   || code == FLOOR_DIV_EXPR
+	   || code == CEIL_DIV_EXPR
+	   || code == EXACT_DIV_EXPR
+	   || code == ROUND_DIV_EXPR
+	   || code == RSHIFT_EXPR)
+	  && (is_overflow_infinity (val1)
+	      || is_overflow_infinity (val2)))
 	return NULL_TREE;
 
       /* Notice that we only need to handle the restricted set of
@@ -1513,8 +1552,12 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
       if ((code == MULT_EXPR && sgn1 == sgn2)
           /* For addition, the operands must be of the same sign
 	     to yield an overflow.  Its sign is therefore that
-	     of one of the operands, for example the first.  */
-	  || (code == PLUS_EXPR && sgn1 > 0)
+	     of one of the operands, for example the first.  For
+	     infinite operands X + -INF is negative, not positive.  */
+	  || (code == PLUS_EXPR
+	      && (sgn1 >= 0
+		  ? !is_negative_overflow_infinity (val2)
+		  : is_positive_overflow_infinity (val2)))
 	  /* For subtraction, non-infinite operands must be of
 	     different signs to yield an overflow.  Its sign is
 	     therefore that of the first operand or the opposite of
@@ -1526,6 +1569,12 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
 	      && (sgn1 >= 0
 		  ? !is_positive_overflow_infinity (val2)
 		  : is_negative_overflow_infinity (val2)))
+	  /* We only get in here with positive shift count, so the
+	     overflow direction is the same as the sign of val1.
+	     Actually rshift does not overflow at all, but we only
+	     handle the case of shifting overflowed -INF and +INF.  */
+	  || (code == RSHIFT_EXPR
+	      && sgn1 >= 0)
 	  /* For division, the only case is -INF / -1 = +INF.  */
 	  || code == TRUNC_DIV_EXPR
 	  || code == FLOOR_DIV_EXPR
@@ -1568,6 +1617,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       && code != CEIL_DIV_EXPR
       && code != EXACT_DIV_EXPR
       && code != ROUND_DIV_EXPR
+      && code != RSHIFT_EXPR
       && code != MIN_EXPR
       && code != MAX_EXPR
       && code != BIT_AND_EXPR
@@ -1735,7 +1785,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	   || code == FLOOR_DIV_EXPR
 	   || code == CEIL_DIV_EXPR
 	   || code == EXACT_DIV_EXPR
-	   || code == ROUND_DIV_EXPR)
+	   || code == ROUND_DIV_EXPR
+	   || code == RSHIFT_EXPR)
     {
       tree val[4];
       size_t i;
@@ -1757,6 +1808,17 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	  return;
 	}
 
+      /* If we have a RSHIFT_EXPR with a possibly negative shift
+	 count or an anti-range shift count drop to VR_VARYING.
+	 We currently cannot handle the overflow cases correctly.  */
+      if (code == RSHIFT_EXPR
+	  && (vr1.type == VR_ANTI_RANGE
+	      || !vrp_expr_computes_nonnegative (op1, &sop)))
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+
       /* Multiplications and divisions are a bit tricky to handle,
 	 depending on the mix of signs we have in the two ranges, we
 	 need to operate on different values to get the minimum and
@@ -1771,7 +1833,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	 the new range.  */
 
       /* Divisions by zero result in a VARYING value.  */
-      if (code != MULT_EXPR
+      if ((code != MULT_EXPR
+	   && code != RSHIFT_EXPR)
 	  && (vr0.type == VR_ANTI_RANGE || range_includes_zero_p (&vr1)))
 	{
 	  set_value_range_to_varying (vr);
@@ -2359,7 +2422,7 @@ static void
 extract_range_from_comparison (value_range_t *vr, tree expr)
 {
   bool sop = false;
-  tree val = vrp_evaluate_conditional (expr, false, &sop);
+  tree val = vrp_evaluate_conditional_warnv (expr, false, &sop);
 
   /* A disadvantage of using a special infinity as an overflow
      representation is that we lose the ability to record overflow
@@ -2604,6 +2667,10 @@ compare_ranges (enum tree_code comp, value_range_t *vr0, value_range_t *vr1,
       return NULL_TREE;
     }
 
+  if (!usable_range_p (vr0, strict_overflow_p)
+      || !usable_range_p (vr1, strict_overflow_p))
+    return NULL_TREE;
+
   /* Simplify processing.  If COMP is GT_EXPR or GE_EXPR, switch the
      operands around and change the comparison code.  */
   if (comp == GT_EXPR || comp == GE_EXPR)
@@ -2736,6 +2803,9 @@ compare_range_with_value (enum tree_code comp, value_range_t *vr, tree val,
 
       return NULL_TREE;
     }
+
+  if (!usable_range_p (vr, strict_overflow_p))
+    return NULL_TREE;
 
   if (comp == EQ_EXPR)
     {
@@ -2958,22 +3028,20 @@ build_assert_expr_for (tree cond, tree v)
   if (COMPARISON_CLASS_P (cond))
     {
       tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
-      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n, a);
+      assertion = build_gimple_modify_stmt (n, a);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
       /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
-      assertion = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (v), n,
-			  boolean_false_node);
+      assertion = build_gimple_modify_stmt (n, boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
       /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
-      assertion = build2 (GIMPLE_MODIFY_STMT,
-	  		  TREE_TYPE (v), n, boolean_true_node);
+      assertion = build_gimple_modify_stmt (n, boolean_true_node);
     }
   else
     gcc_unreachable ();
@@ -4531,8 +4599,9 @@ compare_names (enum tree_code comp, tree n1, tree n2,
    Set *STRICT_OVERFLOW_P to indicate whether we relied on an overflow
    infinity to produce the result.  */
 
-tree
-vrp_evaluate_conditional (tree cond, bool use_equiv_p, bool *strict_overflow_p)
+static tree
+vrp_evaluate_conditional_warnv (tree cond, bool use_equiv_p,
+				bool *strict_overflow_p)
 {
   gcc_assert (TREE_CODE (cond) == SSA_NAME
               || TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison);
@@ -4607,6 +4676,55 @@ vrp_evaluate_conditional (tree cond, bool use_equiv_p, bool *strict_overflow_p)
 
   /* Anything else cannot be computed statically.  */
   return NULL_TREE;
+}
+
+/* Given COND within STMT, try to simplify it based on value range
+   information.  Return NULL if the conditional can not be evaluated.
+   The ranges of all the names equivalent with the operands in COND
+   will be used when trying to compute the value.  If the result is
+   based on undefined signed overflow, issue a warning if
+   appropriate.  */
+
+tree
+vrp_evaluate_conditional (tree cond, tree stmt)
+{
+  bool sop;
+  tree ret;
+
+  sop = false;
+  ret = vrp_evaluate_conditional_warnv (cond, true, &sop);
+
+  if (ret && sop)
+    {
+      enum warn_strict_overflow_code wc;
+      const char* warnmsg;
+
+      if (is_gimple_min_invariant (ret))
+	{
+	  wc = WARN_STRICT_OVERFLOW_CONDITIONAL;
+	  warnmsg = G_("assuming signed overflow does not occur when "
+		       "simplifying conditional to constant");
+	}
+      else
+	{
+	  wc = WARN_STRICT_OVERFLOW_COMPARISON;
+	  warnmsg = G_("assuming signed overflow does not occur when "
+		       "simplifying conditional");
+	}
+
+      if (issue_strict_overflow_warning (wc))
+	{
+	  location_t locus;
+
+	  if (!EXPR_HAS_LOCATION (stmt))
+	    locus = input_location;
+	  else
+	    locus = EXPR_LOCATION (stmt);
+	  warning (OPT_Wstrict_overflow, "%H%s", &locus, warnmsg);
+	}
+    }
+
+  return ret;
 }
 
 
@@ -4693,7 +4811,7 @@ vrp_visit_cond_stmt (tree stmt, edge *taken_edge_p)
      MICO, TRAMP3D and SPEC2000) showed that doing this results in
      4 more predicates folded in SPEC.  */
   sop = false;
-  val = vrp_evaluate_conditional (cond, false, &sop);
+  val = vrp_evaluate_conditional_warnv (cond, false, &sop);
   if (val)
     {
       if (!sop)
@@ -5071,6 +5189,23 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
       bool sop = false;
 
       val = compare_range_with_value (GT_EXPR, vr, integer_zero_node, &sop);
+
+      if (val
+	  && sop
+	  && integer_onep (val)
+	  && issue_strict_overflow_warning (WARN_STRICT_OVERFLOW_MISC))
+	{
+	  location_t locus;
+
+	  if (!EXPR_HAS_LOCATION (stmt))
+	    locus = input_location;
+	  else
+	    locus = EXPR_LOCATION (stmt);
+	  warning (OPT_Wstrict_overflow,
+		   ("%Hassuming signed overflow does not occur when "
+		    "simplifying / or %% to >> or &"),
+		   &locus);
+	}
     }
 
   if (val && integer_onep (val))
@@ -5137,6 +5272,20 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
 	  && (integer_onep (val) || integer_zerop (val)))
 	{
 	  tree t;
+
+	  if (sop && issue_strict_overflow_warning (WARN_STRICT_OVERFLOW_MISC))
+	    {
+	      location_t locus;
+
+	      if (!EXPR_HAS_LOCATION (stmt))
+		locus = input_location;
+	      else
+		locus = EXPR_LOCATION (stmt);
+	      warning (OPT_Wstrict_overflow,
+		       ("%Hassuming signed overflow does not occur when "
+			"simplifying abs (X) to X or -X"),
+		       &locus);
+	    }
 
 	  if (integer_onep (val))
 	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
@@ -5330,21 +5479,21 @@ simplify_stmt_using_ranges (tree stmt)
    restored.  */
 static VEC(tree,heap) *stack;
 
-/* A trivial wrapper so that we can present the generic jump
-   threading code with a simple API for simplifying statements.  */
-static tree
-simplify_stmt_for_jump_threading (tree stmt)
-{
-  bool sop;
+/* A trivial wrapper so that we can present the generic jump threading
+   code with a simple API for simplifying statements.  STMT is the
+   statement we want to simplify, WITHIN_STMT provides the location
+   for any overflow warnings.  */
 
+static tree
+simplify_stmt_for_jump_threading (tree stmt, tree within_stmt)
+{
   /* We only use VRP information to simplify conditionals.  This is
      overly conservative, but it's unclear if doing more would be
      worth the compile time cost.  */
   if (TREE_CODE (stmt) != COND_EXPR)
     return NULL;
 
-  sop = false;
-  return vrp_evaluate_conditional (COND_EXPR_COND (stmt), true, &sop);
+  return vrp_evaluate_conditional (COND_EXPR_COND (stmt), within_stmt);
 }
 
 /* Blocks which have more than one predecessor and more than
@@ -5642,7 +5791,6 @@ struct tree_opt_pass pass_vrp =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_dump_func
-    | TODO_update_ssa
-    | TODO_update_smt_usage,			/* todo_flags_finish */
+    | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
 };

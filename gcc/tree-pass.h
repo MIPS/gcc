@@ -215,10 +215,6 @@ struct dump_file_info
    for the passes that are handed to register_dump_files.  */
 #define TODO_set_props			(1 << 15)
 
-/* Set by passes that may make SMT's that were previously never used
-   in statements, used.  */
-#define TODO_update_smt_usage           (1 << 16)
-
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\
@@ -298,6 +294,7 @@ extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_check_data_deps;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;

@@ -153,6 +153,7 @@ extern "Java"
       class Character;
       class Character$Subset;
       class Character$UnicodeBlock;
+      class Character$UnicodeBlock$NameType;
       class Class;
       class ClassCastException;
       class ClassCircularityError;
@@ -254,6 +255,7 @@ extern "Java"
       class VirtualMachineError;
       class Void;
       class Win32Process;
+      class Win32Process$EOFInputStream;
       namespace annotation
       {
         class Annotation;
