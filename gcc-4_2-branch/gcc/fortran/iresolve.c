@@ -1244,19 +1244,6 @@ gfc_resolve_maxloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
   else
     name = "maxloc";
 
-  /* If the rank of the function is nonzero, we are going to call
-     a library function.  Coerce the argument to one of the
-     existing library functions for this case.  */
-
-  if (f->rank != 0 && array->ts.type == BT_INTEGER
-      && array->ts.kind < gfc_default_integer_kind)
-    {
-      gfc_typespec ts;
-      ts.type = BT_INTEGER;
-      ts.kind = gfc_default_integer_kind;
-      gfc_convert_type_warn (array, &ts, 2, 0);
-    }
-
   f->value.function.name =
     gfc_get_string (PREFIX("%s%d_%d_%c%d"), name, dim != NULL, f->ts.kind,
                     gfc_type_letter (array->ts.type), array->ts.kind);
@@ -1410,19 +1397,6 @@ gfc_resolve_minloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
     }
   else
     name = "minloc";
-
-  /* If the rank of the function is nonzero, we are going to call
-     a library function.  Coerce the argument to one of the
-     existing library functions for this case.  */
-
-  if (f->rank != 0 && array->ts.type == BT_INTEGER
-      && array->ts.kind < gfc_default_integer_kind)
-    {
-      gfc_typespec ts;
-      ts.type = BT_INTEGER;
-      ts.kind = gfc_default_integer_kind;
-      gfc_convert_type_warn (array, &ts, 2, 0);
-    }
 
   f->value.function.name =
     gfc_get_string (PREFIX("%s%d_%d_%c%d"), name, dim != NULL, f->ts.kind,
@@ -2440,8 +2414,6 @@ gfc_resolve_alarm_sub (gfc_code * c)
 
   if (seconds->ts.kind != gfc_c_int_kind)
     gfc_convert_type (seconds, &ts, 2);
-  if (status != NULL && status->ts.kind != gfc_c_int_kind)
-    gfc_convert_type (status, &ts, 2);
 
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }

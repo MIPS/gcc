@@ -1,3 +1,169 @@
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	Backport from trunk:
+	* intrinsic.texi: minor typo fixes, removed prologue.
+	(FSEEK): moved to correct place in alphabetical order.
+	(LINK) Document function form.
+	(RENAME): Likewise.
+	(SYMLNK): Likewise.
+	(SYSTEM): Likewise.
+	(UNLINK): Likewise.
+	(ICHAR) Improve internal I/O note.
+	(ACHAR): Reference it.
+	(CHAR): Reference it.
+	(IACHAR): Reference it.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	PR fortran/30947
+	* check.c (gfc_check_alarm_sub): Added check for default integer
+	kind of status argument.
+	* iresolve.c (gfc_resolve_alarm_sub): Removed conversion of 
+	status argument.
+	* intrinsic.texi (ALARM): Extended documentation.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	* intrinsic.texi (GERROR, ISATTY, TTYNAM): New.
+	(ABORT, FLUSH, FNUM, IRAND, MALLOC, SIGNAL, SRAND): Fixed typo.
+	* intrinsic.c (add_subroutines): Adjusted dummy argument names
+	of GERROR and TTYNAM.
+
+2007-03-08  Paul Thomas  <pault@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30873
+	* decl.c (gfc_match_entry): Remove erroneous entry result check.
+
+2007-03-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	Backport from trunk:
+	PR documentation/30950
+	* intrinsic.texi (AND, CPU_TIME): Fix dummy argument names.
+	(FREE): Fix call syntax.
+
+2007-03-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* invoke.texi: Corrected -Wtabs documentation.
+
+2007-03-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Backported typo fixes from trunk.
+	* invoke.texi: Likewise.
+
+2007-03-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Limit column widths to a total of .85.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (GFortran and G77): Rewrite completely.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* match.c (gfc_match_name): Expanded comment.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Old-style kind specifications): Document
+	special handling of old-style kind specifiers for COMPLEX.
+	* decl.c (gfc_match_old_kind_spec): Document kind/bytesize
+	assumptions for COMPLEX in comment.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 31050
+	* gfortranspec.c (lang_specific_driver): Update program
+	name and copyright date.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30437
+	Backport from trunk:
+	2007-01-25  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	* lang.opt (Wall): Remove RejectNegative.
+	* options.c (gfc_handle_option): Wall can be disabled.
+	(set_Wall): Add a parameter for disabling Wall.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Add -fmax-errors= option.
+	* gfortran.h (gfc_option_t): Add max_errors element.
+	* options.c (gfc_init_options): Set max_errors default value
+	to 25.
+	(gfc_handle_options): Check -fmax_errors value, assign to
+	gfc_option.max_errors.
+	* error.c (gfc_increment_error_count): New function, which
+	also checks whether the error count exceeds max_errors.
+	(gfc_notify_std): Use it.
+	(gfc_error): Use it.
+	(gfc_error_now): Use it.
+	(gfc_error_check): Use it.
+	(gfc_warning): Reorder to match trunk.
+	* invoke.texi: Added documentation for -fmax-errors option.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* check.c (gfc_check_kill_sub): Add checks for non-scalar
+	arguments.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt (-fmodule-private): Remove option.
+	* gfortran.h (gfc_option_t): Remove module_access_private flag.
+	* options.c (gfc_init_options): Remove initialization for it.
+	(gfc_process_option): Remove handling for -fmodule-private.
+	* module.c (gfc_check_access): Add comments, remove check for
+	gfc_option.flag_module_access_private.
+
+2007-03-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30968
+	* primary.c (next_string_char): Correct reading a character
+	after the delimiter.
+	(match_string_constant): Print warning message only once.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* simplify.c (gfc_simplify_ibclr): Fix POS comparison.
+	(gfc_simplify_ibset): Same.
+
+2007-03-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* check.c (same_type_check): Typo fix in comment.
+
+2007-03-01  Tobias Schlueter  <tobi@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/29441
+	* intrinsic.c (gfc_intrinsic_func_interface): Always check if
+	intrinsic is allowed in initialization expression.
+
+2007-03-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/30660
+	* resolve.c (pure_function, resolve_function): Initialize name to
+	null to clear up build warnings.
+	(has_default_initializer): New function.
+	(resolve_fl_variable): Call has_default_initializer to determine if
+	the derived type has a default initializer to its ultimate
+	components.
+
+2007-02-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from trunk
+	PR fortran/30869
+	PR libfortran/30533
+	PR libfortran/30765
+	* match.c(gfc_match_iterator):  Remove conflict between
+	loop variable and pointer.
+	* fortran/iresolve.c(gfc_resolve_maxloc):  Remove coercion of
+	argument to default integer.
+	(gfc_resolve_minloc):  Likewise.
+
 2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* gfortran.texi: Standardize title page, remove version number
@@ -6,8 +172,8 @@
 2007-02-24  Roger Sayle  <roger@eyesopen.com>
 	    Paul Thomas <pault@gcc.gnu.org>
 
-        PR fortran/30400
-        * match.c (match_forall_iterator): Use gfc_match_expr instead
+	PR fortran/30400
+	* match.c (match_forall_iterator): Use gfc_match_expr instead
 	of gfc_match_variable to match the iterator variable.  Return
 	MATCH_NO if not a variable.  Remove the reset of the symbol's
 	flavor in cleanup.

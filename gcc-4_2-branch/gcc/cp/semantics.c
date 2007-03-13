@@ -2890,7 +2890,7 @@ finish_typeof (tree expr)
       return type;
     }
 
-  type = TREE_TYPE (expr);
+  type = unlowered_expr_type (expr);
 
   if (!type || type == unknown_type_node)
     {
@@ -2917,7 +2917,8 @@ finish_offsetof (tree expr)
       || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
       || TREE_CODE (TREE_TYPE (expr)) == UNKNOWN_TYPE)
     {
-      if (TREE_CODE (expr) == COMPONENT_REF)
+      if (TREE_CODE (expr) == COMPONENT_REF
+	  || TREE_CODE (expr) == COMPOUND_EXPR)
 	expr = TREE_OPERAND (expr, 1);
       error ("cannot apply %<offsetof%> to member function %qD", expr);
       return error_mark_node;

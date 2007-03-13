@@ -34,7 +34,7 @@ Fortran Joined
 -J<directory>	Put MODULE files in 'directory'
 
 Wall
-Fortran RejectNegative
+Fortran
 ; Documented in C
 
 Waliasing
@@ -165,6 +165,10 @@ ffree-line-length-
 Fortran RejectNegative Joined UInteger
 -ffree-line-length-<n>		Use n as character line width in free mode
 
+fmax-errors=
+Fortran RejectNegative Joined UInteger
+-fmax-errors=<n>	Maximum number of errors to report
+
 fmax-identifier-length=
 Fortran RejectNegative Joined UInteger
 -fmax-identifier-length=<n>	Maximum identifier length
@@ -176,10 +180,6 @@ Fortran RejectNegative Joined UInteger
 fmax-stack-var-size=
 Fortran RejectNegative Joined UInteger
 -fmax-stack-var-size=<n>	Size in bytes of the largest array that will be put on the stack
-
-fmodule-private
-Fortran
-Set default accessibility of module entities to PRIVATE
 
 fno-backend
 Fortran RejectNegative

@@ -1638,6 +1638,7 @@ typedef struct
   int warn_tabs;
   int warn_underflow;
   int warn_character_truncation;
+  int max_errors;
 
   int flag_all_intrinsics;
   int flag_default_double;
@@ -1648,7 +1649,6 @@ typedef struct
   int flag_second_underscore;
   int flag_implicit_none;
   int flag_max_stack_var_size;
-  int flag_module_access_private;
   int flag_no_backend;
   int flag_range_check;
   int flag_pack_derived;

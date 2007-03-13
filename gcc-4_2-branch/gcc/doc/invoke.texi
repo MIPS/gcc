@@ -164,7 +164,8 @@ in the following sections.
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
-@gccoptlist{-ansi  -std=@var{standard}  -aux-info @var{filename} @gol
+@gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
+-aux-info @var{filename} @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding -fopenmp -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
@@ -221,11 +222,11 @@ Objective-C and Objective-C++ Dialects}.
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -pedantic  -pedantic-errors @gol
--w  -Wextra  -Wall  -Waggregate-return -Walways-true -Wno-attributes -Warray-bounds @gol
+-w  -Wextra  -Wall  -Waddress  -Waggregate-return -Walways-true -Wno-attributes -Warray-bounds @gol
 -Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  -Wno-endif-labels @gol
--Werror  -Werror-* -Werror-implicit-function-declaration @gol
+-Werror  -Werror=* -Werror-implicit-function-declaration @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
 -Wformat-security  -Wformat-y2k @gol
@@ -244,7 +245,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
 -Wsign-compare  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=2 @gol
--Wstring-literal-comparison @gol
+-Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum @gol
 -Wsystem-headers  -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wno-pragmas -Wunreachable-code @gol
@@ -336,7 +337,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
 -fstack-protector  -fstack-protector-all @gol
--fstrict-aliasing  -ftracer  -fthread-jumps @gol
+-fstrict-aliasing  -fstrict-overflow  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
 -fvariable-expansion-in-unroller @gol
@@ -1212,6 +1213,28 @@ the @code{inline} keyword in ISO C99) are not disabled.
 
 @xref{Standards,,Language Standards Supported by GCC}, for details of
 these standard versions.
+
+@item -fgnu89-inline
+@opindex fgnu89-inline
+The option @option{-fgnu89-inline} tells GCC to use the traditional
+GNU semantics for @code{inline} functions when in C99 mode.
+@xref{Inline,,An Inline Function is As Fast As a Macro}.  Using this
+option is roughly equivalent to adding the @code{gnu_inline} function
+attribute to all inline functions (@pxref{Function Attributes}).
+
+This option is accepted by GCC versions 4.1.3 and up.  In GCC versions
+prior to 4.3, C99 inline semantics are not supported, and thus this
+option is effectively assumed to be present regardless of whether or not
+it is specified; the only effect of specifying it explicitly is to
+disable warnings about using inline functions in C99 mode.  Likewise,
+the option @option{-fno-gnu89-inline} is not supported in versions of
+GCC before 4.3.  It will be supported only in C99 or gnu99 mode, not in
+C89 or gnu89 mode.
+
+The preprocesor macros @code{__GNUC_GNU_INLINE__} and
+@code{__GNUC_STDC_INLINE__} may be used to check which semantics are
+in effect for @code{inline} functions.  @xref{Common Predefined
+Macros,,,cpp,The C Preprocessor}.
 
 @item -aux-info @var{filename}
 @opindex aux-info
@@ -2816,6 +2839,56 @@ This option is only active when @option{-ftree-vrp} is active
 (default for -O2 and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
+@item -Wstrict-overflow
+@item -Wstrict-overflow=@var{n}
+@opindex -Wstrict-overflow
+This option is only active when @option{-fstrict-overflow} is active.
+It warns about cases where the compiler optimizes based on the
+assumption that signed overflow does not occur.  Note that it does not
+warn about all cases where the code might overflow: it only warns
+about cases where the compiler implements some optimization.  Thus
+this warning depends on the optimization level.
+
+An optimization which assumes that signed overflow does not occur is
+perfectly safe if the values of the variables involved are such that
+overflow never does, in fact, occur.  Therefore this warning can
+easily give a false positive: a warning about code which is not
+actually a problem.  To help focus on important issues, several
+warning levels are defined.
+
+@table @option
+@item -Wstrict-overflow=1
+Warn about cases which are both questionable and easy to avoid.  For
+example: @code{x + 1 > x}; with @option{-fstrict-overflow}, the
+compiler will simplify this to @code{1}.  This level of
+@option{-Wstrict-overflow} is enabled by @option{-Wall}; higher levels
+are not, and must be explicitly requested.
+
+@item -Wstrict-overflow=2
+Also warn about other cases where a comparison is simplified to a
+constant.  For example: @code{abs (x) >= 0}.  This can only be
+simplified when @option{-fstrict-overflow} is in effect, because
+@code{abs (INT_MIN)} overflows to @code{INT_MIN}, which is less than
+zero.  @option{-Wstrict-overflow} (with no level) is the same as
+@option{-Wstrict-overflow=2}.
+
+@item -Wstrict-overflow=3
+Also warn about other cases where a comparison is simplified.  For
+example: @code{x + 1 > 1} will be simplified to @code{x > 0}.
+
+@item -Wstrict-overflow=4
+Also warn about other simplifications not covered by the above cases.
+For example: @code{(x * 10) / 5} will be simplified to @code{x * 2}.
+
+@item -Wstrict-overflow=5
+Also warn about cases where the compiler reduces the magnitude of a
+constant involved in a comparison.  For example: @code{x + 2 > y} will
+be simplified to @code{x + 1 >= y}.  This is reported only at the
+highest warning level because this simplification applies to many
+comparisons, so this warning level will give a very large number of
+false positives.
+@end table
+
 @item -Wall
 @opindex Wall
 All of the above @samp{-W} options combined.  This enables all the
@@ -2909,10 +2982,6 @@ A pointer is compared against integer zero with @samp{<}, @samp{<=},
 
 @item
 A variable might be changed by @samp{longjmp} or @samp{vfork}.
-
-@item
-Any of several floating-point events that often indicate errors, such as
-overflow, underflow, loss of precision, etc.
 
 @item @r{(C++ only)}
 An enumerator and a non-enumerator both appear in a conditional expression.
@@ -3156,17 +3225,26 @@ an incorrect result when the signed value is converted to unsigned.
 This warning is also enabled by @option{-Wextra}; to get the other warnings
 of @option{-Wextra} without this warning, use @samp{-Wextra -Wno-sign-compare}.
 
+@item -Waddress
+@opindex Waddress
+@opindex Wno-address
+Warn about suspicious uses of memory addresses. These include using
+the address of a function in a conditional expression, such as
+@code{void func(void); if (func)}, and comparisons against the memory
+address of a string literal, such as @code{if (x == "abc")}.  Such
+uses typically indicate a programmer error: the address of a function
+always evaluates to true, so their use in a conditional usually
+indicate that the programmer forgot the parentheses in a function
+call; and comparisons against string literals result in unspecified
+behavior and are not portable in C, so they usually indicate that the
+programmer intended to use @code{strcmp}.  This warning is enabled by
+@option{-Wall}.
+
 @item -Waggregate-return
 @opindex Waggregate-return
 Warn if any functions that return structures or unions are defined or
 called.  (In languages where you can return an array, this also elicits
 a warning.)
-
-@item -Walways-true
-@opindex Walways-true
-Warn about comparisons which are always true such as testing if
-unsigned values are greater than or equal to zero.  This warning is
-enabled by @option{-Wall}.
 
 @item -Wno-attributes
 @opindex Wno-attributes
@@ -3497,15 +3575,6 @@ imply anything.
 @opindex Wstack-protector
 This option is only active when @option{-fstack-protector} is active.  It
 warns about functions that will not be protected against stack smashing.
-
-@item -Wstring-literal-comparison
-@opindex Wstring-literal-comparison
-Warn about suspicious comparisons to string literal constants.  In C,
-direct comparisons against the memory address of a string literal, such
-as @code{if (x == "abc")}, typically indicate a programmer error, and
-even when intentional, result in unspecified behavior and are not portable.
-Usually these warnings alert that the programmer intended to use
-@code{strcmp}.  This warning is enabled by @option{-Wall}.
 
 @item -Woverlength-strings
 @opindex Woverlength-strings
@@ -4535,7 +4604,7 @@ also turns on the following optimization flags:
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
 -fregmove @gol
--fstrict-aliasing @gol
+-fstrict-aliasing -fstrict-overflow @gol
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
 -falign-functions  -falign-jumps @gol
@@ -4545,6 +4614,10 @@ also turns on the following optimization flags:
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
+
+@option{-O2} doesn't turn on @option{-ftree-vrp} for the Ada compiler.
+This option must be explicitly specified on the command line to be
+enabled for the Ada compiler.
 
 @item -O3
 @opindex O3
@@ -5367,6 +5440,32 @@ allowed to alias.  For an example, see the C front-end function
 @code{c_get_alias_set}.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fstrict-overflow
+@opindex fstrict-overflow
+Allow the compiler to assume strict signed overflow rules, depending
+on the language being compiled.  For C (and C++) this means that
+overflow when doing arithmetic with signed numbers is undefined, which
+means that the compiler may assume that it will not happen.  This
+permits various optimizations.  For example, the compiler will assume
+that an expression like @code{i + 10 > i} will always be true for
+signed @code{i}.  This assumption is only valid if signed overflow is
+undefined, as the expression is false if @code{i + 10} overflows when
+using twos complement arithmetic.  When this option is in effect any
+attempt to determine whether an operation on signed numbers will
+overflow must be written carefully to not actually involve overflow.
+
+See also the @option{-fwrapv} option.  Using @option{-fwrapv} means
+that signed overflow is fully defined: it wraps.  When
+@option{-fwrapv} is used, there is no difference between
+@option{-fstrict-overflow} and @option{-fno-strict-overflow}.  With
+@option{-fwrapv} certain types of overflow are permitted.  For
+example, if the compiler gets an overflow when doing arithmetic on
+constants, the overflowed value can still be used with
+@option{-fwrapv}, but not otherwise.
+
+The @option{-fstrict-overflow} option is enabled at levels
+@option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -falign-functions
 @itemx -falign-functions=@var{n}

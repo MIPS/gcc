@@ -2692,13 +2692,13 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
     {
       if ((code1 == STRING_CST && !integer_zerop (arg2.value))
 	  || (code2 == STRING_CST && !integer_zerop (arg1.value)))
-	warning (OPT_Wstring_literal_comparison,
-		 "comparison with string literal");
+	warning (OPT_Waddress, 
+                 "comparison with string literal results in unspecified behaviour");
     }
   else if (TREE_CODE_CLASS (code) == tcc_comparison
 	   && (code1 == STRING_CST || code2 == STRING_CST))
-    warning (OPT_Wstring_literal_comparison,
-	     "comparison with string literal");
+    warning (OPT_Waddress, 
+             "comparison with string literal results in unspecified behaviour");
 
   overflow_warning (result.value);
 
@@ -3319,6 +3319,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 
 	  if (unsigned_op1 ^ unsigned_op2)
 	    {
+	      bool ovf;
+
 	      /* Do not warn if the result type is signed, since the
 		 signed type will only be chosen if it can represent
 		 all the values of the unsigned type.  */
@@ -3327,8 +3329,10 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2
+			&& tree_expr_nonnegative_warnv_p (op1, &ovf))
+		       || (unsigned_op1
+			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
 		/* OK */;
 	      else
 		warning (0, "signed and unsigned type in conditional expression");
@@ -8072,7 +8076,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && (TREE_CODE (TREE_OPERAND (op0, 0)) == PARM_DECL
 		  || TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
 		  || !DECL_WEAK (TREE_OPERAND (op0, 0))))
-	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+	    warning (OPT_Waddress, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op0, 0));
 	  result_type = type0;
 	}
@@ -8083,7 +8087,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && (TREE_CODE (TREE_OPERAND (op1, 0)) == PARM_DECL
 		  || TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL
 		  || !DECL_WEAK (TREE_OPERAND (op1, 0))))
-	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
+	    warning (OPT_Waddress, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op1, 0));
 	  result_type = type1;
 	}
@@ -8357,6 +8361,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      else
 		{
 		  tree sop, uop;
+		  bool ovf;
 
 		  if (op0_signed)
 		    sop = xop0, uop = xop1;
@@ -8368,7 +8373,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (tree_expr_nonnegative_p (sop))
+		  if (tree_expr_nonnegative_warnv_p (sop, &ovf))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it

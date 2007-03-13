@@ -1,3 +1,59 @@
+2007-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31038
+	* parser.c (cp_parser_postfix_expression): Disallow compound
+	literals in constant expressions.
+
+2007-03-11  Ian Lance Taylor  <iant@google.com>
+
+	Backported -fstrict-overflow/-Wstrict-overflow from mainline:
+	2007-01-17  Ian Lance Taylor  <iant@google.com>
+
+	* class.c (add_method): Call VEC_reserve_exact rather than passing
+	a negative size to VEC_reserve.
+
+2007-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31038
+	* parser.c (cp_parser_postfix_expression): Disallow compound
+	literals in constant expressions.
+
+	PR c++/30328
+	* semantics.c (finish_typeof): Use unlowered_expr_type.
+	
+2007-03-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30274
+	* cp-tree.h (unlowered_expr_type): New function.
+	* typeck.c (is_bitfield_expr_with_lowered_type): Handle
+	COMPOUND_EXPR, MODIFY_EXPR, and SAVE_EXPR.
+	(unlowered_expr_type): New function.
+	(build_unary_op): Disallow predecrements of bool bitfields.
+	* call.c (build_conditional_expr): Use unlowered_expr_type.
+	* pt.c (type_unification_real): Likewise.
+
+2007-03-08  Andrew Pinski  <pinskia@gmail.com> 
+
+	PR C++/30168
+	* optimize.c (update_cloned_parm): Copy DECL_COMPLEX_GIMPLE_REG_P also.
+
+2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+
+	PR c++/30852
+	* semantics.c (finish_offsetof): Handle COMPOUND_EXPR.
+
+2007-03-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* typeck.c (build_binary_op): Replace -Wstring-literal-comparison
+	and -Walways-true with -Waddress.
+	* cvt.c (convert_to_void): Replace unconditional warning with
+	-Waddress.
+	
+2007-03-05  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30895
+	* tree.c (cp_tree_equal): Properly handle COMPLEX_CST trees.
+
 2007-02-22  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR c++/29475

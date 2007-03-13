@@ -1,3 +1,272 @@
+2007-03-12  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/inline-7.c: Add -fgnu89-inline.
+	* gcc.dg/inline-13.c: New test.
+	* gcc.dg/inline-17.c: New test.
+	* gcc.dg/inline-18.c: New test.
+	* gcc.dg/inline-19.c: New test.
+	* gcc.dg/inline-21.c: New test.
+
+2007-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31038
+	* g++.dg/template/complit2.C: New test.
+
+2007-03-11  Ian Lance Taylor  <iant@google.com>
+
+	Backported -fstrict-overflow/-Wstrict-overflow from mainline:
+	2007-03-08  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/no-strict-overflow-5.c: New test.
+	* gcc.dg/no-strict-overflow-6.c: New test.
+
+	2007-02-13  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/Wstrict-overflow-1.c: New test.
+	* gcc.dg/Wstrict-overflow-2.c: New test.
+	* gcc.dg/Wstrict-overflow-3.c: New test.
+	* gcc.dg/Wstrict-overflow-4.c: New test.
+	* gcc.dg/Wstrict-overflow-6.c: New test.
+	* gcc.dg/Wstrict-overflow-7.c: New test.
+	* gcc.dg/Wstrict-overflow-8.c: New test.
+	* gcc.dg/Wstrict-overflow-9.c: New test.
+	* gcc.dg/Wstrict-overflow-10.c: New test.
+
+	2007-01-27  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/strict-overflow-1.c: New test.
+	* gcc.dg/no-strict-overflow-1.c: New test.
+	* gcc.dg/strict-overflow-2.c: New test.
+	* gcc.dg/no-strict-overflow-2.c: New test.
+	* gcc.dg/no-strict-overflow-3.c: New test.
+	* gcc.dg/strict-overflow-4.c: New test.
+	* gcc.dg/no-strict-overflow-4.c: New test.
+	* gcc.dg/fold-mod-1.c: Add -fstrict-overflow option.
+	* gcc.dg/pr15784-1.c: Likewise.
+	* gcc.dg/pr20922-1.c: Likewise.
+	* gcc.dg/pr20922-3.c: Likewise.
+	* gcc.dg/pr20922-4.c: Likewise.
+	* gcc.dg/pr20922-6.c: Likewise.
+	* gcc.dg/compare-4.c: Likewise.
+	* gcc.dg/torture/pr26898-1.c: Likewise.
+	* gcc.dg/tree-ssa/divide-1.c: Likewise.
+	* gcc.dg/tree-ssa/divide-2.c: Likewise.
+	* gcc.dg/tree-ssa/divide-3.c: Likewise.
+	* gcc.dg/tree-ssa/divide-4.c: Likewise.
+	* gcc.dg/tree-ssa/pr14490-1.c: Likewise.
+	* gcc.dg/tree-ssa/pr14490-3.c: Likewise.
+	* gcc.dg/tree-ssa/pr21082.c: Likewise.
+	* gcc.dg/tree-ssa/pr26899.c: Likewise.
+	* g++.dg/tree-ssa/pr21082.C: Likewise.
+
+2007-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31038
+	* g++.dg/template/complit2.C: New test.
+
+	PR c++/30328
+	* g++.dg/ext/bitfield1.C: New test.
+
+2007-03-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.c-torture/compile/pr30433.c: New testcase to check
+	that complex constant comparisions are folded.
+
+2007-03-11  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/29925
+	* gcc.dg/vect/fast-math-vect-pr29925.c: New test.
+
+2007-03-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30274
+	* g++.dg/expr/bitfield3.C: New test.
+	* g++.dg/expr/bitfield4.C: Likewise.
+	* g++.dg/expr/bitfield5.C: Likewise.
+	* g++.dg/expr/bitfield6.C: Likewise.
+
+2007-03-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30924
+	* g++.dg/template/array18.C: New test.
+
+2007-03-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31099
+	* gfortran.dg/unformatted_recl.f90: New test.
+
+2007-03-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR rtl-optimization/30643
+	* gcc.dg/pr30643.c: New.
+
+2007-03-09  Andrew Pinski  <andrew_pinski@playstation.sony.com> 
+
+	PR tree-opt/30045
+	* gcc.dg/pr30045.c: New test.
+
+2007-03-09  Andrew Pinski  <andrew_pinski@playstation.sony.com> 
+
+	PR middle-end/30729
+	* gcc.dg/Wunused-value-2.c: New testcase.
+
+2007-03-09  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/30168
+	* g++.dg/opt/complex6.C: New test.
+
+2007-03-09  Mark Shinwell  <shinwell@codesourcery.com>
+	    Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc.dg/pr16194.c: Skip test entirely if we don't know the name of
+	a hard register for the target concerned.
+
+2007-03-08  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31072
+	* gcc.c-torture/execute/pr31072.c: New test.
+
+2007-03-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-55.c: Test *lceil* and *lfloor*.
+	* gcc.dg/torture/builtin-attr-1.c: Likewise.
+	* gcc.dg/torture/builtin-convert-1.c: Likewise.  Also test *lrint* and *lround*.
+	* gcc.dg/torture/builtin-convert-2.c: Test ceil->lceil and floor->lfloor.
+	* gcc.dg/torture/builtin-convert-3.c: Test *lceil* and *lfloor*.
+	* gcc.dg/torture/builtin-integral-1.c: Likewise.
+	* gcc.dg/torture/builtin-nonneg-1.c: Likewise.
+	* gcc.dg/torture/builtin-rounding-1.c: Likewise.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	Backport from trunk.
+	* gfortran.dg/gomp/reduction1.f90: Add -fmax-errors=100 to 
+	dg-options.
+
+2007-03-08  Paul Thomas  <pault@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30873
+	* gfortran.dg/entry_9.f90: New test.
+
+2007-03-08  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/30981
+	Backport from trunk.
+	* gfortran.dg/integer_exponentiation_1.f90:  New test.
+
+2007-03-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR target/30406
+	* gfortran.dg/logical_3.f90: New test.
+
+2007-03-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/31001
+	* gfortran.dg/zero_sized_3.f90: New test.
+
+2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+
+	PR c++/30852
+	* g++.dg/ext/offsetof1.C: Add cases with volatile.
+
+2007-03-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* gcc.dg/20031012-1.c: Replace -Walways-true with -Waddress.
+	* gcc.dg/warn-addr-cmp.c: Likewise.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/Werror-1.c: Likewise.
+	* gcc.dg/Werror-3.c: Likewise.
+	* gcc.dg/Werror-4.c: Likewise.
+	* gcc.dg/Werror-5.c: Likewise.
+	* gcc.dg/Werror-6.c: Likewise.
+	* gcc.dg/Werror-7.c: Likewise.
+	* gcc.dg/Werror-8.c: Likewise.
+	* gcc.dg/Werror-9.c: Likewise.
+	* gcc.dg/Werror-10.c: Likewise.
+	* gcc.dg/Werror-11.c: Likewise.
+	* gcc.dg/Werror-12.c: Likewise.
+	* g++.old-deja/g++.mike/warn8.C: Likewise.
+	* g++.dg/warn/noeffect8.C: Warn only with -Waddress.
+	* gcc.dg/Wstring-literal-comparison-1.C: Replace
+	-Wstring-literal-comparison with -Waddress.
+	* gcc.dg/Wstring-literal-comparison-4.c: Likewise.
+	* g++.dg/warn/Wstring-literal-comparison-1.C: Likewise.
+	* g++.dg/warn/Wstring-literal-comparison-4.c: Likewise.
+	
+2007-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/30744
+	* gcc.dg/pr30744-1.c: New test case.
+
+2007-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-4.c: New test.
+
+2007-03-05  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/30895
+	* g++.dg/parse/template23.C: New test.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30437
+	Backport from trunk:
+	2007-01-25  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	* gcc.dg/Wall.c: New.
+	* gcc.dg/Wno-all.c: New.
+	* gfortran.dg/Wall.f90: New.
+	* gfortran.dg/Wno-all.f90: New.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/io_constraints_3.f90: Add -fmax-errors=50 option.
+
+2007-03-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-02-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30364
+	* gcc.dg/torture/pr30364-1.c: New testcase.
+	* gcc.dg/torture/pr30364-2.c: Likewise.
+	* gcc.dg/torture/pr30364-3.c: Likewise.
+
+2007-03-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30968
+	* gfortran.dg/continuation_7.f90: New test.
+
+2007-03-02  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29902
+	* g++.dg/tree-ssa/pr29902.C: New test.
+
+2007-03-01  Tobias Schlueter  <tobi@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/29441
+	* gfortran.dg/initialization_4.f90: New test.
+
+2007-03-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/30660
+	* gfortran.dg/alloc_comp_basics_4.f90: New test.
+
+	PR fortran/29820
+	* gfortran.dg/actual_array_interface_1.f90: Copy source to empty
+	file.
+
+2007-02-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from trunk
+	PR fortran/30869
+	PR libfortran/30533
+	PR libfortran/30765
+	* gfortran.dg/intrinsic_intkinds_1.f90:  New test.
+	* gfortran.dg/do_pointer_1.f90:  New test.
+
 2007-02-26  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.target/powerpc/stabs-attrib-vect-darwin.c: Allow
@@ -13,8 +282,8 @@
 
 2007-02-24  Roger Sayle  <roger@eyesopen.com>
 
-        PR fortran/30400
-        * gfortran.dg/forall_10.f90: New test case.
+	PR fortran/30400
+	* gfortran.dg/forall_10.f90: New test case.
 
 2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
@@ -197,12 +466,12 @@
 
 2007-02-05      Dwarakanath Rajagopal <dwarak.rajagopal@amd.com>
 
-        * gcc.dg/i386-cpuid.h: Test whether SSE4A is supported
-        for running tests.
-        * gcc.target/i386/sse4a-extract.c: New test.
-        * gcc.target/i386/sse4a-insert.c: New test.
-        * gcc.target/i386/sse4a-montsd.c: New test.
-        * gcc.target/i386/sse4a-montss.c: New test.
+	* gcc.dg/i386-cpuid.h: Test whether SSE4A is supported
+	for running tests.
+	* gcc.target/i386/sse4a-extract.c: New test.
+	* gcc.target/i386/sse4a-insert.c: New test.
+	* gcc.target/i386/sse4a-montsd.c: New test.
+	* gcc.target/i386/sse4a-montss.c: New test.
 
 2007-02-05  Richard Guenther  <rguenther@suse.de>
 

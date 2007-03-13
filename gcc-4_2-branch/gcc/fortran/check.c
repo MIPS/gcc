@@ -199,7 +199,7 @@ scalar_check (gfc_expr * e, int n)
 }
 
 
-/* Make sure two expression have the same type.  */
+/* Make sure two expressions have the same type.  */
 
 static try
 same_type_check (gfc_expr * e, int n, gfc_expr * f, int m)
@@ -1327,7 +1327,13 @@ gfc_check_kill_sub (gfc_expr * pid, gfc_expr * sig, gfc_expr * status)
   if (type_check (pid, 0, BT_INTEGER) == FAILURE)
     return FAILURE;
 
+  if (scalar_check (pid, 0) == FAILURE)
+    return FAILURE;
+
   if (type_check (sig, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (sig, 1) == FAILURE)
     return FAILURE;
 
   if (status == NULL)
@@ -2986,6 +2992,9 @@ gfc_check_alarm_sub (gfc_expr * seconds, gfc_expr * handler, gfc_expr * status)
     return FAILURE;
 
   if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check (status, 2, gfc_default_integer_kind) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

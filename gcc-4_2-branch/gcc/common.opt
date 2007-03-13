@@ -57,10 +57,6 @@ Waggregate-return
 Common Var(warn_aggregate_return)
 Warn about returning structures, unions or arrays
 
-Walways-true
-Common Var(warn_always_true)
-Warn about comparisons that always evaluate to true
-
 Warray-bounds
 Common Var(warn_array_bounds)
 Warn if an array is accessed out of bounds
@@ -141,9 +137,13 @@ Wstrict-aliasing=
 Common Joined UInteger
 Warn about code which might break strict aliasing rules
 
-Wstring-literal-comparison
-Common Var(warn_string_literal_comparison)
-Warn about comparisons to constant string literals
+Wstrict-overflow
+Common
+Warn about optimizations that assume that signed overflow is undefined
+
+Wstrict-overflow=
+Common Joined UInteger
+Warn about optimizations that assume that signed overflow is undefined
 
 Wswitch
 Common Var(warn_switch)
@@ -877,6 +877,10 @@ Does nothing.  Preserved for backward compatibility.
 fstrict-aliasing
 Common Report Var(flag_strict_aliasing)
 Assume strict aliasing rules apply
+
+fstrict-overflow
+Common Report Var(flag_strict_overflow)
+Treat signed overflow as undefined
 
 fsyntax-only
 Common Report Var(flag_syntax_only)

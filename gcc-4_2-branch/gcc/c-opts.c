@@ -1,5 +1,6 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -393,8 +394,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	warn_sign_compare = value;
       warn_switch = value;
       warn_strict_aliasing = value;
-      warn_string_literal_comparison = value;
-      warn_always_true = value;
+      warn_strict_overflow = value;
+      warn_address = value;
       warn_array_bounds = value;
 
       /* Only warn about unknown pragmas that are not in system
@@ -1005,6 +1006,12 @@ c_common_post_options (const char **pfilename)
     flag_no_inline = 1;
   if (flag_inline_functions)
     flag_inline_trees = 2;
+
+  /* We recognize -fgnu89-inline in preparation for 4.3 where the
+     option will be meaningful.  Here we just reject
+     -fno-gnu89-inline, since we don't support it.  */
+  if (!flag_gnu89_inline)
+    error ("-fno-gnu89-inline is not supported");
 
   /* If we are given more than one input file, we must use
      unit-at-a-time mode.  */

@@ -382,7 +382,9 @@ gfc_match_strings (mstring * a)
 
 
 /* See if the current input looks like a name of some sort.  Modifies
-   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.  */
+   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.
+   Note that options.c restricts max_identifier_length to not more
+   than GFC_MAX_SYMBOL_LEN.  */
 
 match
 gfc_match_name (char *buffer)
@@ -533,12 +535,6 @@ gfc_match_iterator (gfc_iterator * iter, int init_flag)
     {
       gfc_error ("Loop variable '%s' at %C cannot be INTENT(IN)",
 		 var->symtree->n.sym->name);
-      goto cleanup;
-    }
-
-  if (var->symtree->n.sym->attr.pointer)
-    {
-      gfc_error ("Loop variable at %C cannot have the POINTER attribute");
       goto cleanup;
     }
 

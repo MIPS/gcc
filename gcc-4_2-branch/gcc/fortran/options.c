@@ -77,6 +77,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_surprising = 0;
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
+  gfc_option.max_errors = 25;
 
   gfc_option.flag_all_intrinsics = 0;
   gfc_option.flag_default_double = 0;
@@ -88,7 +89,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
-  gfc_option.flag_module_access_private = 0;
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
@@ -308,27 +308,27 @@ gfc_post_options (const char **pfilename)
 /* Set the options for -Wall.  */
 
 static void
-set_Wall (void)
+set_Wall (int setting)
 {
+  gfc_option.warn_aliasing = setting;
+  gfc_option.warn_ampersand = setting;
+  gfc_option.warn_line_truncation = setting;
+  gfc_option.warn_nonstd_intrinsics = setting;
+  gfc_option.warn_surprising = setting;
+  gfc_option.warn_tabs = !setting;
+  gfc_option.warn_underflow = setting;
+  gfc_option.warn_character_truncation = setting;
 
-  gfc_option.warn_aliasing = 1;
-  gfc_option.warn_ampersand = 1;
-  gfc_option.warn_line_truncation = 1;
-  gfc_option.warn_nonstd_intrinsics = 1;
-  gfc_option.warn_surprising = 1;
-  gfc_option.warn_tabs = 0;
-  gfc_option.warn_underflow = 1;
-  gfc_option.warn_character_truncation = 1;
-
-  set_Wunused (1);
-  warn_return_type = 1;
-  warn_switch = 1;
+  set_Wunused (setting);
+  warn_return_type = setting;
+  warn_switch = setting;
 
   /* We save the value of warn_uninitialized, since if they put
      -Wuninitialized on the command line, we need to generate a
      warning about not using it without also specifying -O.  */
-
-  if (warn_uninitialized != 1)
+  if (setting == 0)
+    warn_uninitialized = 0;
+  else if (warn_uninitialized != 1)
     warn_uninitialized = 2;
 }
 
@@ -410,7 +410,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wall:
-      set_Wall ();
+      set_Wall (value);
       break;
 
     case OPT_Waliasing:
@@ -527,12 +527,12 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_implicit_none = value;
       break;
 
-    case OPT_fmax_stack_var_size_:
-      gfc_option.flag_max_stack_var_size = value;
+    case OPT_fmax_errors_:
+      gfc_option.max_errors = value;
       break;
 
-    case OPT_fmodule_private:
-      gfc_option.flag_module_access_private = value;
+    case OPT_fmax_stack_var_size_:
+      gfc_option.flag_max_stack_var_size = value;
       break;
 
     case OPT_fno_backend:

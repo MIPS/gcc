@@ -116,6 +116,10 @@ Wabi
 C++ ObjC++ Var(warn_abi)
 Warn about things that will change when compiling with an ABI-compliant compiler
 
+Waddress
+C ObjC C++ ObjC++ Var(warn_address)
+Warn about suspicious uses of memory addresses
+
 Wall
 C ObjC C++ ObjC++
 Enable most warning messages
@@ -511,15 +515,6 @@ C ObjC C++ ObjC++ Joined RejectNegative
 fexternal-templates
 C++ ObjC++
 
-ffixed-form
-C ObjC
-
-ffixed-line-length-none
-C ObjC
-
-ffixed-line-length-
-C ObjC Joined
-
 ffor-scope
 C++ ObjC++
 Scope of for-init-statement variables is local to the loop
@@ -535,6 +530,10 @@ Recognize GNU-defined keywords
 fgnu-runtime
 ObjC ObjC++
 Generate code for GNU runtime environment
+
+fgnu89-inline
+C Var(flag_gnu89_inline) Init(-1)
+Use traditional GNU semantics for inline functions
 
 fguiding-decls
 C++ ObjC++

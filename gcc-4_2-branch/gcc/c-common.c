@@ -505,6 +505,8 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_gnu_inline_attribute (tree *, tree, tree, int,
+					 bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
@@ -573,6 +575,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "gnu_inline",             0, 0, true,  false, false,
+			      handle_gnu_inline_attribute },
   { "flatten",                0, 0, true,  false, false,
 			      handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
@@ -2357,7 +2361,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 tree
 pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 {
-  tree size_exp;
+  tree size_exp, ret;
 
   /* The result is a pointer of the same type that is being added.  */
 
@@ -2383,6 +2387,12 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
     }
   else
     size_exp = size_in_bytes (TREE_TYPE (result_type));
+
+  /* We are manipulating pointer values, so we don't need to warn
+     about relying on undefined signed overflow.  We disable the
+     warning here because we use integer types so fold won't know that
+     they are really pointers.  */
+  fold_defer_overflow_warnings ();
 
   /* If what we are about to multiply by the size of the elements
      contains a constant term, apply distributive law
@@ -2432,7 +2442,11 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
-  return fold_build2 (resultcode, result_type, ptrop, intop);
+  ret = fold_build2 (resultcode, result_type, ptrop, intop);
+
+  fold_undefer_and_ignore_overflow_warnings ();
+
+  return ret;
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
@@ -2505,9 +2519,10 @@ c_common_truthvalue_conversion (tree expr)
 		|| TREE_CODE (inner) == LABEL_DECL
 		|| !DECL_WEAK (inner)))
 	  {
-	    /* Common Ada/Pascal programmer's mistake.  We always warn
+            /* Common Ada/Pascal programmer's mistake.  We always warn
 	       about this since it is so bad.  */
-	    warning (OPT_Walways_true, "the address of %qD will always evaluate as %<true%>",
+	    warning (OPT_Waddress,
+		     "the address of %qD will always evaluate as %<true%>",
 		     inner);
 	    return truthvalue_true_node;
 	  }
@@ -4199,6 +4214,29 @@ handle_always_inline_attribute (tree *node, tree name,
 				bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "gnu_inline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_gnu_inline_attribute (tree *node, tree name,
+			     tree ARG_UNUSED (args),
+			     int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (*node))
     {
       /* Do nothing else, just set the attribute.  We'll get at
 	 it later with lookup_attribute.  */
@@ -6052,6 +6090,12 @@ fold_offsetof_1 (tree expr, tree stop_ref)
       t = convert (sizetype, t);
       off = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (TREE_TYPE (expr)), t);
       break;
+
+    case COMPOUND_EXPR:
+      /* Handle static members of volatile structs.  */
+      t = TREE_OPERAND (expr, 1);
+      gcc_assert (TREE_CODE (t) == VAR_DECL);
+      return fold_offsetof_1 (t, stop_ref);
 
     default:
       gcc_unreachable ();

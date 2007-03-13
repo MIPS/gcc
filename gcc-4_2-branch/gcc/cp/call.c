@@ -3227,12 +3227,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
      array-to-pointer (_conv.array_), and function-to-pointer
      (_conv.func_) standard conversions are performed on the second
      and third operands.  */
-  arg2_type = is_bitfield_expr_with_lowered_type (arg2);
-  if (!arg2_type)
-    arg2_type = TREE_TYPE (arg2);
-  arg3_type = is_bitfield_expr_with_lowered_type (arg3);
-  if (!arg3_type)
-    arg3_type = TREE_TYPE (arg3);
+  arg2_type = unlowered_expr_type (arg2);
+  arg3_type = unlowered_expr_type (arg3);
   if (VOID_TYPE_P (arg2_type) || VOID_TYPE_P (arg3_type))
     {
       /* Do the conversions.  We don't these for `void' type arguments
@@ -4615,10 +4611,14 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum)
     }
   else
     {
-      /* This could get clobbered by the following call.  */
-      if (TREE_HAS_CONSTRUCTOR (arg))
+      /* We must make a copy of ARG, in case subsequent processing
+	 alters any part of it.  For example, during gimplification a
+	 cast of the form (T) &X::f (where "f" is a member function)
+	 will lead to replacing the PTRMEM_CST for &X::f with a
+	 VAR_DECL.  We can avoid the copy for constants, since they
+	 are never modified in place.  */
+      if (!CONSTANT_CLASS_P (arg))
 	arg = copy_node (arg);
-
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
       arg = convert_for_arg_passing (type, arg);

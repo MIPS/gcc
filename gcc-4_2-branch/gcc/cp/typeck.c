@@ -1419,23 +1419,52 @@ invalid_nonstatic_memfn_p (tree expr)
 tree
 is_bitfield_expr_with_lowered_type (tree exp)
 {
-  tree field;
-
-  if (TREE_CODE (exp) == COND_EXPR)
+  switch (TREE_CODE (exp))
     {
+    case COND_EXPR:
       if (!is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 1)))
 	return NULL_TREE;
       return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 2));
+
+    case COMPOUND_EXPR:
+      return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 1));
+
+    case MODIFY_EXPR:
+    case SAVE_EXPR:
+      return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 0));
+
+    case COMPONENT_REF:
+      {
+	tree field;
+	
+	field = TREE_OPERAND (exp, 1);
+	if (TREE_CODE (field) != FIELD_DECL || !DECL_C_BIT_FIELD (field))
+	  return NULL_TREE;
+	if (same_type_ignoring_top_level_qualifiers_p
+	    (TREE_TYPE (exp), DECL_BIT_FIELD_TYPE (field)))
+	  return NULL_TREE;
+	return DECL_BIT_FIELD_TYPE (field);
+      }
+
+    default:
+      return NULL_TREE;
     }
-  if (TREE_CODE (exp) != COMPONENT_REF)
-    return NULL_TREE;
-  field = TREE_OPERAND (exp, 1);
-  if (TREE_CODE (field) != FIELD_DECL || !DECL_C_BIT_FIELD (field))
-    return NULL_TREE;
-  if (same_type_ignoring_top_level_qualifiers_p
-      (TREE_TYPE (exp), DECL_BIT_FIELD_TYPE (field)))
-    return NULL_TREE;
-  return DECL_BIT_FIELD_TYPE (field);
+}
+
+/* Like is_bitfield_with_lowered_type, except that if EXP is not a
+   bitfield with a lowered type, the type of EXP is returned, rather
+   than NULL_TREE.  */
+
+tree
+unlowered_expr_type (tree exp)
+{
+  tree type;
+
+  type = is_bitfield_expr_with_lowered_type (exp);
+  if (!type)
+    type = TREE_TYPE (exp);
+
+  return type;
 }
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
@@ -3248,8 +3277,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		 "comparing floating point with == or != is unsafe");
       if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
 	  || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0)))
-	warning (OPT_Wstring_literal_comparison,
-		 "comparison with string literal");
+	warning (OPT_Waddress, 
+                 "comparison with string literal results in unspecified behaviour");
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
@@ -3357,8 +3386,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case GT_EXPR:
       if (TREE_CODE (orig_op0) == STRING_CST
 	  || TREE_CODE (orig_op1) == STRING_CST)
-	warning (OPT_Wstring_literal_comparison,
-		 "comparison with string literal");
+	warning (OPT_Waddress, 
+                 "comparison with string literal results in unspecified behaviour");
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
@@ -4115,7 +4144,10 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
       {
 	tree inc;
+	tree declared_type;
 	tree result_type = TREE_TYPE (arg);
+
+	declared_type = unlowered_expr_type (arg);
 
 	arg = get_unwidened (arg, 0);
 	argtype = TREE_TYPE (arg);
@@ -4195,7 +4227,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return error_mark_node;
 
 	/* Forbid using -- on `bool'.  */
-	if (TREE_TYPE (arg) == boolean_type_node)
+	if (same_type_p (declared_type, boolean_type_node))
 	  {
 	    if (code == POSTDECREMENT_EXPR || code == PREDECREMENT_EXPR)
 	      {

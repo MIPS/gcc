@@ -2389,7 +2389,7 @@ add_subroutines (void)
 	     dt, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_1s ("gerror", 0, BT_UNKNOWN, 0, GFC_STD_GNU,
-              gfc_check_gerror, NULL, gfc_resolve_gerror, c, BT_CHARACTER,
+              gfc_check_gerror, NULL, gfc_resolve_gerror, res, BT_CHARACTER,
 	      dc, REQUIRED);
 
   add_sym_2s ("getcwd", 0, BT_UNKNOWN, 0, GFC_STD_GNU,
@@ -2556,7 +2556,7 @@ add_subroutines (void)
 
   add_sym_2s ("ttynam", 0, BT_UNKNOWN, 0, GFC_STD_GNU,
               gfc_check_ttynam_sub, NULL, gfc_resolve_ttynam_sub,
-	      ut, BT_INTEGER, di, REQUIRED, c, BT_CHARACTER, dc, REQUIRED);
+	      ut, BT_INTEGER, di, REQUIRED, name, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_2s ("umask", 0, BT_UNKNOWN, 0, GFC_STD_GNU,
           gfc_check_umask_sub, NULL, gfc_resolve_umask_sub,
@@ -3404,8 +3404,7 @@ got_specific:
   /* TODO: We should probably only allow elemental functions here.  */
   flag |= (expr->ts.type != BT_INTEGER && expr->ts.type != BT_CHARACTER);
 
-  if (pedantic && gfc_init_expr
-      && flag && gfc_init_expr_extensions (specific))
+  if (gfc_init_expr && flag && gfc_init_expr_extensions (specific))
     {
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Evaluation of "
 	    "nonstandard initialization expression at %L", &expr->where)

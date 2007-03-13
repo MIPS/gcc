@@ -1,5 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -85,7 +85,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	}
       else
 	{
-	  if (!tree_expr_nonnegative_p (step)
+	  bool ovf;
+
+	  if (!tree_expr_nonnegative_warnv_p (step, &ovf)
 	      && may_negate_without_overflow_p (step))
 	    {
 	      incr_op = MINUS_EXPR;
@@ -651,7 +653,16 @@ can_unroll_loop_p (struct loop *loop, unsigned factor,
     return false;
 
   if (!number_of_iterations_exit (loop, exit, niter, false)
-      || niter->cmp == ERROR_MARK)
+      || niter->cmp == ERROR_MARK
+      /* Scalar evolutions analysis might have copy propagated
+	 the abnormal ssa names into these expressions, hence
+	 emiting the computations based on them during loop
+	 unrolling might create overlapping life ranges for
+	 them, and failures in out-of-ssa.  */
+      || contains_abnormal_ssa_name_p (niter->may_be_zero)
+      || contains_abnormal_ssa_name_p (niter->control.base)
+      || contains_abnormal_ssa_name_p (niter->control.step)
+      || contains_abnormal_ssa_name_p (niter->bound))
     return false;
 
   /* And of course, we must be able to duplicate the loop.  */
