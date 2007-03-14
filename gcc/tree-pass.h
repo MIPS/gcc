@@ -370,6 +370,7 @@ extern struct tree_opt_pass pass_cse2;
 extern struct tree_opt_pass pass_df_initialize;
 extern struct tree_opt_pass pass_regclass_init;
 extern struct tree_opt_pass pass_subregs_of_mode_init;
+extern struct tree_opt_pass pass_subregs_of_mode_finish;
 extern struct tree_opt_pass pass_inc_dec;
 extern struct tree_opt_pass pass_no_new_pseudos;
 extern struct tree_opt_pass pass_stack_ptr_mod;

@@ -1,3 +1,18 @@
+2007-03-13  Seongbae Park <seongbae.park@gmail.com>
+
+	* tree-pass.h (pass_subregs_of_mode_finish): New pass declaration.
+	* regclass.c (record_subregs_of_mode): Made static, and
+	moved before init_subregs_of_mode to compile.
+	(cannot_change_mode_set_regs, invalid_mode_change_p): Added assertion.
+	(finish_subregs_of_mode): New function.
+	(pass_subregs_of_mode_finish): New pass.
+	* rtl.h (record_subregs_of_mode): Removed.
+	* combine.c (gen_lowpart_for_combine): Removed calls to 
+	record_subregs_of_mode.
+	* passes.c (init_optimization_passes): Moved pass_subregs_of_mode_init
+	just before local_alloc. New pass pass_subregs_of_mode_finish
+	after global_alloc.
+
 2007-03-09  Richard Earnshaw  <rearnsha@arm.com>
 
 	* arm.c: Include df.h.

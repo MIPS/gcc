@@ -9808,11 +9808,6 @@ gen_lowpart_for_combine (enum machine_mode omode, rtx x)
 
   result = gen_lowpart_common (omode, x);
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
-  if (result != 0 && GET_CODE (result) == SUBREG)
-    record_subregs_of_mode (result);
-#endif
-
   if (result)
     return result;
 

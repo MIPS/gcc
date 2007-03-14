@@ -2677,6 +2677,38 @@ som_eq (const void *x, const void *y)
 }
 
 
+static void
+record_subregs_of_mode (rtx subreg)
+{
+  struct subregs_of_mode_node dummy, *node;
+  enum machine_mode mode;
+  unsigned int regno;
+  void **slot;
+
+  if (!REG_P (SUBREG_REG (subreg)))
+    return;
+
+  regno = REGNO (SUBREG_REG (subreg));
+  mode = GET_MODE (subreg);
+
+  if (regno < FIRST_PSEUDO_REGISTER)
+    return;
+
+  dummy.block = regno & -8;
+  slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
+				   dummy.block, INSERT);
+  node = *slot;
+  if (node == NULL)
+    {
+      node = XCNEW (struct subregs_of_mode_node);
+      node->block = regno & -8;
+      *slot = node;
+    }
+
+  node->modes[mode] |= 1 << (regno & 7);
+}
+
+
 /* Call record_subregs_of_mode for all the subregs in X.  */
 
 static void 
@@ -2722,36 +2754,6 @@ init_subregs_of_mode (void)
   return 0;
 }
 
-void
-record_subregs_of_mode (rtx subreg)
-{
-  struct subregs_of_mode_node dummy, *node;
-  enum machine_mode mode;
-  unsigned int regno;
-  void **slot;
-
-  if (!REG_P (SUBREG_REG (subreg)))
-    return;
-
-  regno = REGNO (SUBREG_REG (subreg));
-  mode = GET_MODE (subreg);
-
-  if (regno < FIRST_PSEUDO_REGISTER)
-    return;
-
-  dummy.block = regno & -8;
-  slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
-				   dummy.block, INSERT);
-  node = *slot;
-  if (node == NULL)
-    {
-      node = XCNEW (struct subregs_of_mode_node);
-      node->block = regno & -8;
-      *slot = node;
-    }
-
-  node->modes[mode] |= 1 << (regno & 7);
-}
 
 /* Set bits in *USED which correspond to registers which can't change
    their mode from FROM to any mode in which REGNO was encountered.  */
@@ -2765,6 +2767,7 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
   unsigned char mask;
   unsigned int i;
 
+  gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
   node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
@@ -2790,6 +2793,7 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
   enum machine_mode to;
   unsigned char mask;
 
+  gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
   node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
@@ -2803,9 +2807,22 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
 
   return false;
 }
+
+static unsigned int
+finish_subregs_of_mode (void)
+{
+  htab_delete (subregs_of_mode);
+  subregs_of_mode = 0;
+  return 0;
+}
 #else
 static unsigned int
 init_subregs_of_mode (void)
+{
+  return 0;
+}
+static unsigned int
+finish_subregs_of_mode (void)
 {
   return 0;
 }
@@ -2827,6 +2844,23 @@ struct tree_opt_pass pass_subregs_of_mode_init =
   "subregs_of_mode_init",               /* name */
   gate_subregs_of_mode_init,            /* gate */
   init_subregs_of_mode,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+struct tree_opt_pass pass_subregs_of_mode_finish =
+{
+  "subregs_of_mode_finish",               /* name */
+  gate_subregs_of_mode_init,            /* gate */
+  finish_subregs_of_mode,               /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
