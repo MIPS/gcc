@@ -1065,6 +1065,7 @@ AM_MAKEFLAGS = \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
+	"mandir=$(mandir)" \
 	"prefix=$(prefix)" \
 	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
