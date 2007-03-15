@@ -70,3 +70,6 @@ void aff_combination_convert (aff_tree *, tree);
 void tree_to_aff_combination (tree, tree, aff_tree *);
 tree aff_combination_to_tree (aff_tree *);
 void unshare_aff_combination (aff_tree *);
+void aff_combination_expand (aff_tree *, htab_t *);
+void tree_to_aff_combination_expand (tree, tree, aff_tree *, htab_t *);
+void get_inner_reference_aff (tree, aff_tree *, double_int *);

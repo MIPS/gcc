@@ -30,6 +30,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "tree-affine.h"
+#include "tree-gimple.h"
+#include "hashtab.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 
@@ -493,3 +495,159 @@ aff_combination_mult (aff_tree *c1, aff_tree *c2, aff_tree *r)
     aff_combination_add_product (c1, double_int_one, c2->rest, r);
   aff_combination_add_product (c1, c2->offset, NULL, r);
 }
+
+/* Element of the cache that maps ssa name NAME to its expanded form
+   as an affine expression EXPANSION.  */
+
+struct name_expansion
+{
+  aff_tree expansion;
+  tree name;
+
+  /* True if the expansion for the name is just being generated.  */
+  unsigned in_progress : 1;
+};
+
+/* Hash function for struct name_expansion.  */
+
+static hashval_t
+name_expansion_hash (const void *e)
+{
+  return SSA_NAME_VERSION (((struct name_expansion *) e)->name);
+}
+
+/* Equality function for struct name_expansion.  The second argument is an
+   SSA name.  */
+
+static int
+name_expansion_eq (const void *e, const void *n)
+{
+  return ((struct name_expansion *) e)->name == n;
+}
+
+/* Expands SSA names in COMB recursively.  CACHE is used to cache the
+   results.  */
+
+void
+aff_combination_expand (aff_tree *comb, htab_t *cache)
+{
+  unsigned i;
+  aff_tree to_add, current, curre;
+  tree e, def, rhs;
+  double_int scale;
+  void **slot;
+  struct name_expansion *exp;
+
+  aff_combination_zero (&to_add, comb->type);
+  for (i = 0; i < comb->n; i++)
+    {
+      e = comb->elts[i].val;
+      if (TREE_CODE (e) != SSA_NAME)
+	continue;
+      def = SSA_NAME_DEF_STMT (e);
+      if (TREE_CODE (def) != GIMPLE_MODIFY_STMT
+	  || GIMPLE_STMT_OPERAND (def, 0) != e)
+	continue;
+
+      rhs = GIMPLE_STMT_OPERAND (def, 1);
+      if (TREE_CODE (rhs) != SSA_NAME
+	  && !EXPR_P (rhs)
+	  && !is_gimple_min_invariant (rhs))
+	continue;
+
+      /* We do not know whether the reference retains its value at the
+	 place where the expansion is used.  */
+      if (REFERENCE_CLASS_P (rhs))
+	continue;
+
+      /* Also, we do not want to return call_exprs.  */
+      if (get_call_expr_in (def) != NULL)
+	continue;
+
+      if (!*cache)
+	*cache = htab_create (10, name_expansion_hash, name_expansion_eq,
+			      free);
+      slot = htab_find_slot_with_hash (*cache, e, SSA_NAME_VERSION (e), INSERT);
+      exp = *slot;
+
+      if (exp)
+	{
+	  /* Since we follow the definitions in the SSA form, we should not
+	     enter a cycle unless we pass through a phi node.  */
+	  gcc_assert (!exp->in_progress);
+	  current = exp->expansion;
+	}
+      else
+	{
+	  exp = XNEW (struct name_expansion);
+	  exp->name = e;
+	  exp->in_progress = 1;
+	  *slot = exp;
+	  tree_to_aff_combination_expand (rhs, comb->type, &current, cache);
+	  exp->expansion = current;
+	  exp->in_progress = 0;
+	}
+
+      /* Accumulate the new terms to TO_ADD, so that we do not modify
+	 COMB while traversing it; include the term -coef * E, to remove
+         it from COMB.  */
+      scale = comb->elts[i].coef;
+      aff_combination_zero (&curre, comb->type);
+      aff_combination_add_elt (&curre, e, double_int_neg (scale));
+      aff_combination_scale (&current, scale);
+      aff_combination_add (&to_add, &current);
+      aff_combination_add (&to_add, &curre);
+    }
+  aff_combination_add (comb, &to_add);
+}
+
+/* Similar to tree_to_aff_combination, but follows SSA name definitions
+   and expands them recursively.  CACHE is used to cache the expansions
+   of the ssa names, to avoid exponential time complexity for cases
+   like
+ 
+   a1 = a0 + a0;
+   a2 = a1 + a1;
+   a3 = a2 + a2;
+   ...  */
+
+void
+tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
+				htab_t *cache)
+{
+  tree_to_aff_combination (expr, type, comb);
+  aff_combination_expand (comb, cache);
+}
+
+/* Returns address of the reference REF in ADDR.  The size of the accessed
+   location is stored to SIZE.  */
+
+void
+get_inner_reference_aff (tree ref, aff_tree *addr, double_int *size)
+{
+  HOST_WIDE_INT bitsize, bitpos;
+  tree toff;
+  enum machine_mode mode;
+  int uns, vol;
+  aff_tree tmp;
+  tree base = get_inner_reference (ref, &bitsize, &bitpos, &toff, &mode,
+				   &uns, &vol, false);
+  tree base_addr = build_fold_addr_expr (base);
+
+  /* ADDR = &BASE + TOFF + BITPOS / BITS_PER_UNIT.  */
+
+  tree_to_aff_combination (base_addr, sizetype, addr);
+
+  if (toff)
+    {
+      tree_to_aff_combination (toff, sizetype, &tmp);
+      aff_combination_add (addr, &tmp);
+    }
+
+  aff_combination_const (&tmp, sizetype,
+			 shwi_to_double_int (bitpos / BITS_PER_UNIT));
+  aff_combination_add (addr, &tmp);
+
+  *size = shwi_to_double_int ((bitsize + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+}
+

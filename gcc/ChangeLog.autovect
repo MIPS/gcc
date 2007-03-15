@@ -1,3 +1,27 @@
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+ 
+        * tree-ssa-loop-im.c: Include tree-affine.h.
+	(struct mem_ref): Remove next field.  Add is_movable field.
+	(determine_lsm_ref, hoist_memory_references): Use is_movable instead of
+	the set of clobbered vops.
+	(gather_mem_refs, gather_mem_refs_stmt): Record memory references to
+	vector instead of linked list.  Record also non-movable references.
+	(find_more_ref_vops): Removed.
+	(free_mem_refs): Work with a vector instead of a list.
+	(vtoe_hash, vtoe_eq, vtoe_free, record_vop_access, get_vop_accesses,
+	cannot_overlap_p, mem_refs_may_alias_p,
+	disable_sm_for_conflicting_refs): New functions.
+	(determine_lsm_loop): Use disable_sm_for_conflicting_refs instead of
+	find_more_ref_vops.
+	* tree-affine.c: Include tree-gimple.h and hashtab.h.
+	(name_expansion_hash, name_expansion_eq, aff_combination_expand,
+	tree_to_aff_combination_expand, get_inner_reference_aff): New
+	functions.
+	* tree-affine.h (aff_combination_expand,
+	tree_to_aff_combination_expand, get_inner_reference_aff): Declare.
+	* Makefile.in (tree-affine.o): Add $(TREE_GIMPLE_H dependency.
+	(tree-ssa-loop-im.o): Add tree-affine.h dependency.
+
 2007-02-18  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.h (enum vect_permutation_type): Define.
