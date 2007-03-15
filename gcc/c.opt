@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -450,6 +450,10 @@ Wvariadic-macros
 C ObjC C++ ObjC++ Warning
 Do not warn about using variadic macros when -pedantic
 
+Wvla
+C ObjC C++ ObjC++ Var(warn_vla) Init(-1) Warning
+Warn if a variable length array is used
+
 Wwrite-strings
 C ObjC C++ ObjC++ Var(warn_write_strings) Warning
 In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
@@ -553,6 +557,10 @@ Recognize GNU-defined keywords
 fgnu-runtime
 ObjC ObjC++
 Generate code for GNU runtime environment
+
+fgnu89-inline
+C Var(flag_gnu89_inline) Init(-1)
+Use traditional GNU semantics for inline functions
 
 fguiding-decls
 C++ ObjC++

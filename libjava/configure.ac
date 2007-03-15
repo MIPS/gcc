@@ -296,6 +296,7 @@ if test "$use_x_awt" != yes; then
 fi
 
 # Tools that need to be compiled against classpath's tools classes
+: > vm-tools-packages
 for package in gnu/gcj/tools/gc_analyze ; do
     echo $package >> standard.omit
     echo $package >> vm-tools-packages
@@ -1284,6 +1285,7 @@ if test ! -f gnu/classpath/Configuration.java; then
       -e "s,@default_toolkit@,$TOOLKIT," \
       -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
       -e "s,@GTK_CAIRO_ENABLED@,false," \
+      -e "s,@ECJ_JAR@,," \
 	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,

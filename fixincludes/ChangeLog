@@ -1,3 +1,19 @@
+2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add dummy "install-info" target.
+
+2007-03-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* mkheaders.in: Fix headers for each multilib required.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add dummy install-pdf target.
+
+2007-02-27  Joseph Myers  <joseph@codesourcery.com>
+
+	* mkheaders.in (incdir): Use include-fixed not include.
+
 2007-02-15  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* Makefile.in: Added "pdf" target to .PHONY.

@@ -34,14 +34,14 @@
 #ifndef _TR1_HASHTABLE_POLICY_H
 #define _TR1_HASHTABLE_POLICY_H 1
 
-#include <functional> // _Identity, _Select1st
 #include <algorithm> // lower_bound
+#include <bits/stl_function.h> // equal_to, _Identity, _Select1st
 #include <tr1/utility>
 #include <ext/type_traits.h>
 
 namespace std
 { 
-_GLIBCXX_BEGIN_NAMESPACE(tr1)
+_GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 namespace __detail
 {
   // Helper function: return distance(first, last) for forward

@@ -13,7 +13,7 @@ EXTRA_DIST = README.jaxp $(man_MANS)
 
 docs: cp-hacking.ps cp-vmintegration.ps cp-tools.ps
 
-#man_MANS = $(TOOLS_MANFILES)
+man_MANS = $(TOOLS_MANFILES)
 TOOLS_MANFILES = \
 	gappletviewer.1 \
 	gjar.1 \
@@ -67,10 +67,10 @@ gjavah.pod: $(srcdir)/cp-tools.texinfo
 
 # hack around the cross references and the enumeration
 gkeytool.pod: $(srcdir)/cp-tools.texinfo
-	-$(TEXI2POD) -D gkeytool < $< > $@
-	sed -i -e 's/^For more details.*/See I<Common Options> for more details./' \
+	-$(TEXI2POD) -D gkeytool < $< \
+	  | sed -e 's/^For more details.*/See I<Common Options> for more details./' \
 	    -e 's/1\.<\([^>]*\)>/- \1/' \
-		$@
+		> $@
 
 gnative2ascii.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gnative2ascii < $< > $@

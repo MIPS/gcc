@@ -656,13 +656,11 @@ static rtx rs6000_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 static bool rs6000_return_in_memory (tree, tree);
 static void rs6000_file_start (void);
 #if TARGET_ELF
-static unsigned int rs6000_elf_section_type_flags (tree, const char *, int);
+static int rs6000_elf_reloc_rw_mask (void);
 static void rs6000_elf_asm_out_constructor (rtx, int);
 static void rs6000_elf_asm_out_destructor (rtx, int);
 static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_asm_init_sections (void);
-static section *rs6000_elf_select_section (tree, int, unsigned HOST_WIDE_INT);
-static void rs6000_elf_unique_section (tree, int);
 static section *rs6000_elf_select_rtx_section (enum machine_mode, rtx,
 					       unsigned HOST_WIDE_INT);
 static void rs6000_elf_encode_section_info (tree, rtx, int)
@@ -673,6 +671,7 @@ static bool rs6000_use_blocks_for_constant_p (enum machine_mode, rtx);
 static void rs6000_xcoff_asm_output_anchor (rtx);
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
 static void rs6000_xcoff_asm_init_sections (void);
+static int rs6000_xcoff_reloc_rw_mask (void);
 static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
 static section *rs6000_xcoff_select_section (tree, int,
 					     unsigned HOST_WIDE_INT);
@@ -765,6 +764,7 @@ static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
 static bool rs6000_is_opaque_type (tree);
 static rtx rs6000_dwarf_register_span (rtx);
+static void rs6000_init_dwarf_reg_sizes_extra (tree);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
 static void rs6000_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static rtx rs6000_tls_get_addr (void);
@@ -1028,6 +1028,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
 
+#undef TARGET_INIT_DWARF_REG_SIZES_EXTRA
+#define TARGET_INIT_DWARF_REG_SIZES_EXTRA rs6000_init_dwarf_reg_sizes_extra
+
 /* On rs6000, function arguments are promoted, as are function return
    values.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -1127,11 +1130,11 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return INT_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
 
   /* The float registers can only hold floating modes and DImode.
-     This also excludes decimal float modes.  */
+     This excludes the 32-bit decimal float mode for now.  */
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
-       && !DECIMAL_FLOAT_MODE_P (mode)
+       && mode != SDmode
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);
@@ -2310,7 +2313,10 @@ num_insns_constant (rtx op, enum machine_mode mode)
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	    REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+	    if (DECIMAL_FLOAT_MODE_P (mode))
+	      REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+	    else
+	      REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
 	    high = l[WORDS_BIG_ENDIAN == 0];
 	    low  = l[WORDS_BIG_ENDIAN != 0];
 	  }
@@ -3050,6 +3056,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
+    case DDmode:
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
@@ -3062,7 +3069,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
-      if (mode == DFmode || !TARGET_POWERPC64)
+      if (mode == DFmode || mode == DDmode || !TARGET_POWERPC64)
 	extra = 4;
       else if (offset & 3)
 	return false;
@@ -3074,7 +3081,8 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
 
     case TImode:
-      if (mode == TFmode || !TARGET_POWERPC64)
+    case TDmode:
+      if (mode == TFmode || mode == TDmode || !TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
@@ -3229,8 +3237,9 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_MODE_NUNITS (mode) == 1
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
-	       || (((mode != DImode && mode != DFmode) || TARGET_E500_DOUBLE)
-		   && mode != TFmode))
+	       || (((mode != DImode && mode != DFmode && mode != DDmode)
+		    || TARGET_E500_DOUBLE)
+		   && mode != TFmode && mode != TDmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -3251,6 +3260,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     }
   else if (SPE_VECTOR_MODE (mode)
 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
+				      || mode == DDmode || mode == TDmode
 				      || mode == DImode)))
     {
       if (mode == DImode)
@@ -3696,10 +3706,11 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && DEFAULT_ABI == ABI_V4
       && !flag_pic
 #endif
-      /* Don't do this for TFmode, since the result isn't offsettable.
+      /* Don't do this for TFmode or TDmode, since the result isn't offsettable.
 	 The same goes for DImode without 64-bit gprs and DFmode
 	 without fprs.  */
       && mode != TFmode
+      && mode != TDmode
       && (mode != DImode || TARGET_POWERPC64)
       && (mode != DFmode || TARGET_POWERPC64
 	  || (TARGET_FPRS && TARGET_HARD_FLOAT)))
@@ -3769,8 +3780,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
    word aligned.
 
    For modes spanning multiple registers (DFmode in 32-bit GPRs,
-   32-bit DImode, TImode, TFmode), indexed addressing cannot be used because
-   adjacent memory cells are accessed by adding word-sized offsets
+   32-bit DImode, TImode, TFmode, TDmode), indexed addressing cannot be used
+   because adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 int
 rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
@@ -3791,6 +3802,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && !ALTIVEC_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
       && mode != TFmode
+      && mode != TDmode
       /* Restrict addressing for DI because of our SUBREG hackery.  */
       && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
 				  || mode == DImode))
@@ -3813,6 +3825,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     return 1;
   if (mode != TImode
       && mode != TFmode
+      && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
 	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
@@ -4169,7 +4182,7 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 }
 
 /* Helper for the following.  Get rid of [r+r] memory refs
-   in cases where it won't work (TImode, TFmode).  */
+   in cases where it won't work (TImode, TFmode, TDmode).  */
 
 static void
 rs6000_eliminate_indexed_memrefs (rtx operands[2])
@@ -4333,10 +4346,12 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TFmode:
+    case TDmode:
       rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
     case DFmode:
+    case DDmode:
     case SFmode:
       if (CONSTANT_P (operands[1])
 	  && ! easy_fp_constant (operands[1], mode))
@@ -4548,7 +4563,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
   (SCALAR_FLOAT_MODE_P (MODE)			\
-   && !DECIMAL_FLOAT_MODE_P (MODE)		\
+   && (MODE) != SDmode				\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -4790,7 +4805,7 @@ function_arg_boundary (enum machine_mode mode, tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
-	      && mode == TFmode)))
+	      && (mode == TFmode || mode == TDmode))))
     return 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
@@ -5028,14 +5043,20 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
+	      || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
-	  if (cum->fregno + (mode == TFmode ? 1 : 0) <= FP_ARG_V4_MAX_REG)
+	  /* _Decimal128 must use an even/odd register pair.  */
+	  if (mode == TDmode && cum->fregno % 2)
+	    cum->fregno++;
+
+	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	      <= FP_ARG_V4_MAX_REG)
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || mode == TFmode)
+	      if (mode == DFmode || mode == TFmode || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
 	    }
@@ -5087,7 +5108,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words = align_words + n_words;
 
       if (SCALAR_FLOAT_MODE_P (mode)
-	  && !DECIMAL_FLOAT_MODE_P (mode)
+	  && mode != SDmode
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 
@@ -5306,7 +5327,7 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, tree type,
 	      = gen_rtx_EXPR_LIST (VOIDmode,
 				   gen_rtx_REG (mode, cum->fregno++),
 				   GEN_INT (bitpos / BITS_PER_UNIT));
-	    if (mode == TFmode)
+	    if (mode == TFmode || mode == TDmode)
 	      cum->fregno++;
 	  }
 	else if (cum->named && USE_ALTIVEC_FOR_ARG_P (cum, mode, ftype, 1))
@@ -5567,8 +5588,10 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (TARGET_SPE_ABI && TARGET_SPE
 	   && (SPE_VECTOR_MODE (mode)
 	       || (TARGET_E500_DOUBLE && (mode == DFmode
+					  || mode == DDmode
 					  || mode == DCmode
 					  || mode == TFmode
+					  || mode == TDmode
 					  || mode == TCmode))))
     return rs6000_spe_function_arg (cum, mode, type);
 
@@ -5576,9 +5599,15 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
-	      || (mode == TFmode && !TARGET_IEEEQUAD)))
+	      || (mode == TFmode && !TARGET_IEEEQUAD)
+	      || mode == DDmode || mode == TDmode))
 	{
-	  if (cum->fregno + (mode == TFmode ? 1 : 0) <= FP_ARG_V4_MAX_REG)
+	  /* _Decimal128 must use an even/odd register pair.  */
+	  if (mode == TDmode && cum->fregno % 2)
+	    cum->fregno++;
+
+	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
 	  else
 	    return NULL_RTX;
@@ -5621,10 +5650,11 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      /* Currently, we only ever need one reg here because complex
 		 doubles are split.  */
-	      gcc_assert (cum->fregno == FP_ARG_MAX_REG && fmode == TFmode);
+	      gcc_assert (cum->fregno == FP_ARG_MAX_REG
+			  && (fmode == TFmode || fmode == TDmode));
 
-	      /* Long double split over regs and memory.  */
-	      fmode = DFmode;
+	      /* Long double or _Decimal128 split over regs and memory.  */
+	      fmode = DECIMAL_FLOAT_MODE_P (fmode) ? DDmode : DFmode;
 	    }
 
 	  /* Do we also need to pass this arg in the parameter save
@@ -6179,6 +6209,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   tree lab_false, lab_over, addr;
   int align;
   tree ptrtype = build_pointer_type (type);
+  int regalign = 0;
 
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
@@ -6235,7 +6266,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if (TARGET_HARD_FLOAT && TARGET_FPRS
       && (TYPE_MODE (type) == SFmode
 	  || TYPE_MODE (type) == DFmode
-	  || TYPE_MODE (type) == TFmode))
+	  || TYPE_MODE (type) == TFmode
+	  || TYPE_MODE (type) == DDmode
+	  || TYPE_MODE (type) == TDmode))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
@@ -6276,9 +6309,18 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = reg;
       if (n_reg == 2 && reg == gpr)
 	{
+	  regalign = 1;
 	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
 		     size_int (n_reg - 1));
 	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
+	}
+      /* _Decimal128 is passed in even/odd fpr pairs; the stored
+	 reg number is 0 for f1, so we want to make it odd.  */
+      else if (reg == fpr && TYPE_MODE (type) == TDmode)
+	{
+	  regalign = 1;
+	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), reg, size_int (1));
+	  u = build2 (MODIFY_EXPR, void_type_node, reg, t);
 	}
 
       t = fold_convert (TREE_TYPE (reg), size_int (8 - n_reg + 1));
@@ -6305,10 +6347,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build1 (LABEL_EXPR, void_type_node, lab_false);
       append_to_statement_list (t, pre_p);
 
-      if ((n_reg == 2 && reg != gpr) || n_reg > 2)
+      if ((n_reg == 2 && !regalign) || n_reg > 2)
 	{
 	  /* Ensure that we don't find any more args in regs.
-	     Alignment has taken care of the n_reg == 2 gpr case.  */
+	     Alignment has taken care of for special cases.  */
 	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
@@ -12919,7 +12961,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
   mode = GET_MODE (dst);
   nregs = hard_regno_nregs[reg][mode];
   if (FP_REGNO_P (reg))
-    reg_mode = DFmode;
+    reg_mode = DECIMAL_FLOAT_MODE_P (mode) ? DDmode : DFmode;
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
   else if (TARGET_E500_DOUBLE && mode == TFmode)
@@ -15853,7 +15895,9 @@ rs6000_output_function_epilogue (FILE *file,
 			  break;
 
 			case DFmode:
+			case DDmode:
 			case TFmode:
+			case TDmode:
 			  bits = 0x3;
 			  break;
 
@@ -18883,37 +18927,6 @@ rs6000_elf_select_rtx_section (enum machine_mode mode, rtx x,
   else
     return default_elf_select_rtx_section (mode, x, align);
 }
-
-/* Implement TARGET_ASM_SELECT_SECTION for ELF targets.  */
-
-static section *
-rs6000_elf_select_section (tree decl, int reloc,
-			   unsigned HOST_WIDE_INT align)
-{
-  /* Pretend that we're always building for a shared library when
-     ABI_AIX, because otherwise we end up with dynamic relocations
-     in read-only sections.  This happens for function pointers,
-     references to vtables in typeinfo, and probably other cases.  */
-  return default_elf_select_section_1 (decl, reloc, align,
-				       flag_pic || DEFAULT_ABI == ABI_AIX);
-}
-
-/* A C statement to build up a unique section name, expressed as a
-   STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
-   RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  If you do not define this macro, GCC will use
-   the symbol name prefixed by `.' as the section name.  Note - this
-   macro can now be called for uninitialized data items as well as
-   initialized data and functions.  */
-
-static void
-rs6000_elf_unique_section (tree decl, int reloc)
-{
-  /* As above, pretend that we're always building for a shared library
-     when ABI_AIX, to avoid dynamic relocations in read-only sections.  */
-  default_unique_section_1 (decl, reloc,
-			    flag_pic || DEFAULT_ABI == ABI_AIX);
-}
 
 /* For a SYMBOL_REF, set generic flags and then perform some
    target-specific processing.
@@ -19392,11 +19405,15 @@ rs6000_darwin_file_start (void)
 #endif /* TARGET_MACHO */
 
 #if TARGET_ELF
-static unsigned int
-rs6000_elf_section_type_flags (tree decl, const char *name, int reloc)
+static int
+rs6000_elf_reloc_rw_mask (void)
 {
-  return default_section_type_flags_1 (decl, name, reloc,
-				       flag_pic || DEFAULT_ABI == ABI_AIX);
+  if (flag_pic)
+    return 3;
+  else if (DEFAULT_ABI == ABI_AIX)
+    return 2;
+  else
+    return 0;
 }
 
 /* Record an element in the table of global constructors.  SYMBOL is
@@ -19634,6 +19651,12 @@ rs6000_xcoff_asm_init_sections (void)
   exception_section = data_section;
 }
 
+static int
+rs6000_xcoff_reloc_rw_mask (void)
+{
+  return 3;
+}
+
 static void
 rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 				tree decl ATTRIBUTE_UNUSED)
@@ -19657,7 +19680,7 @@ static section *
 rs6000_xcoff_select_section (tree decl, int reloc,
 			     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if (decl_readonly_section_1 (decl, reloc, 1))
+  if (decl_readonly_section (decl, reloc))
     {
       if (TREE_PUBLIC (decl))
 	return read_only_data_section;
@@ -19729,7 +19752,7 @@ static unsigned int
 rs6000_xcoff_section_type_flags (tree decl, const char *name, int reloc)
 {
   unsigned int align;
-  unsigned int flags = default_section_type_flags_1 (decl, name, reloc, 1);
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
 
   /* Align to at least UNIT size.  */
   if (flags & SECTION_CODE)
@@ -20192,7 +20215,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    return mode == TFmode ? 4 : 2;
+    return (mode == TFmode || mode == TDmode) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else
@@ -20517,15 +20540,34 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 				      GEN_INT (12))));
     }
 
-  if ((INTEGRAL_TYPE_P (valtype)
-       && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+  mode = TYPE_MODE (valtype);
+  if ((INTEGRAL_TYPE_P (valtype) && GET_MODE_BITSIZE (mode) < BITS_PER_WORD)
       || POINTER_TYPE_P (valtype))
     mode = TARGET_32BIT ? SImode : DImode;
-  else
-    mode = TYPE_MODE (valtype);
 
   if (DECIMAL_FLOAT_MODE_P (mode))
-    regno = GP_ARG_RETURN;
+    {
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  switch (mode)
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case SDmode:
+	      regno = GP_ARG_RETURN;
+	      break;
+	    case DDmode:
+	      regno = FP_ARG_RETURN;
+	      break;
+	    case TDmode:
+	      /* Use f2:f3 specified by the ABI.  */
+	      regno = FP_ARG_RETURN + 1;
+	      break;
+	    }
+	}
+      else
+	regno = GP_ARG_RETURN;
+    }
   else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -20567,7 +20609,28 @@ rs6000_libcall_value (enum machine_mode mode)
     }
 
   if (DECIMAL_FLOAT_MODE_P (mode))
-    regno = GP_ARG_RETURN;
+    {
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  switch (mode)
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case SDmode:
+	      regno = GP_ARG_RETURN;
+	      break;
+	    case DDmode:
+	      regno = FP_ARG_RETURN;
+	      break;
+	    case TDmode:
+	      /* Use f2:f3 specified by the ABI.  */
+	      regno = FP_ARG_RETURN + 1;
+	      break;
+	    }
+	}
+      else
+	regno = GP_ARG_RETURN;
+    }
   else if (SCALAR_FLOAT_MODE_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
@@ -20655,6 +20718,30 @@ rs6000_dwarf_register_span (rtx reg)
 		      : gen_rtvec (2,
 				   gen_rtx_REG (SImode, regno),
 				   gen_rtx_REG (SImode, regno + 1200)));
+}
+
+/* Fill in sizes for SPE register high parts in table used by unwinder.  */
+
+static void
+rs6000_init_dwarf_reg_sizes_extra (tree address)
+{
+  if (TARGET_SPE)
+    {
+      int i;
+      enum machine_mode mode = TYPE_MODE (char_type_node);
+      rtx addr = expand_expr (address, NULL_RTX, VOIDmode, 0);
+      rtx mem = gen_rtx_MEM (BLKmode, addr);
+      rtx value = gen_int_mode (4, mode);
+
+      for (i = 1201; i < 1232; i++)
+	{
+	  int column = DWARF_REG_TO_UNWIND_COLUMN (i);
+	  HOST_WIDE_INT offset
+	    = DWARF_FRAME_REGNUM (column) * GET_MODE_SIZE (mode);
+
+	  emit_move_insn (adjust_address (mem, mode, offset), value);
+	}
+    }
 }
 
 /* Map internal gcc register numbers to DWARF2 register numbers.  */

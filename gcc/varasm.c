@@ -343,7 +343,7 @@ emutls_decl (tree decl)
      of the decl's pointer.  In emutls_finish we iterate through the
      hash table, and we want this traversal to be predictable.  */
   in.hash = htab_hash_string (IDENTIFIER_POINTER (name));
-  in.from = decl;
+  in.base.from = decl;
   loc = htab_find_slot_with_hash (emutls_htab, &in, in.hash, INSERT);
   h = *loc;
   if (h != NULL)
@@ -355,7 +355,7 @@ emutls_decl (tree decl)
 
       h = ggc_alloc (sizeof (struct tree_map));
       h->hash = in.hash;
-      h->from = decl;
+      h->base.from = decl;
       h->to = to;
       *(struct tree_map **) loc = h;
 
@@ -394,9 +394,9 @@ emutls_common_1 (void **loc, void *xstmts)
   tree args, x, *pstmts = (tree *) xstmts;
   tree word_type_node;
 
-  if (! DECL_COMMON (h->from)
-      || (DECL_INITIAL (h->from)
-	  && DECL_INITIAL (h->from) != error_mark_node))
+  if (! DECL_COMMON (h->base.from)
+      || (DECL_INITIAL (h->base.from)
+	  && DECL_INITIAL (h->base.from) != error_mark_node))
     return 1;
 
   word_type_node = lang_hooks.types.type_for_mode (word_mode, 1);
@@ -407,9 +407,9 @@ emutls_common_1 (void **loc, void *xstmts)
      output.  */
   x = null_pointer_node;
   args = tree_cons (NULL, x, NULL);
-  x = build_int_cst (word_type_node, DECL_ALIGN_UNIT (h->from));
+  x = build_int_cst (word_type_node, DECL_ALIGN_UNIT (h->base.from));
   args = tree_cons (NULL, x, args);
-  x = fold_convert (word_type_node, DECL_SIZE_UNIT (h->from));
+  x = fold_convert (word_type_node, DECL_SIZE_UNIT (h->base.from));
   args = tree_cons (NULL, x, args);
   x = build_fold_addr_expr (h->to);
   args = tree_cons (NULL, x, args);
@@ -1403,17 +1403,6 @@ make_decl_rtl (tree decl)
   if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
     mudflap_enqueue_decl (decl);
 }
-
-/* Make the rtl for variable VAR be volatile.
-   Use this only for static variables.  */
-
-void
-make_var_volatile (tree var)
-{
-  gcc_assert (MEM_P (DECL_RTL (var)));
-
-  MEM_VOLATILE_P (DECL_RTL (var)) = 1;
-}
 
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */
@@ -1448,26 +1437,44 @@ default_stabs_asm_out_destructor (rtx symbol ATTRIBUTE_UNUSED,
 #endif
 }
 
-void
-default_named_section_asm_out_destructor (rtx symbol, int priority)
+/* Write the address of the entity given by SYMBOL to SEC.  */
+void 
+assemble_addr_to_section (rtx symbol, section *sec)
 {
-  const char *section = ".dtors";
+  switch_to_section (sec);
+  assemble_align (POINTER_SIZE);
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+}
+
+/* Return the numbered .ctors.N (if CONSTRUCTOR_P) or .dtors.N (if
+   not) section for PRIORITY.  */
+section *
+get_cdtor_priority_section (int priority, bool constructor_p)
+{
   char buf[16];
 
   /* ??? This only works reliably with the GNU linker.  */
-  if (priority != DEFAULT_INIT_PRIORITY)
-    {
-      sprintf (buf, ".dtors.%.5u",
-	       /* Invert the numbering so the linker puts us in the proper
-		  order; constructors are run from right to left, and the
-		  linker sorts in increasing order.  */
-	       MAX_INIT_PRIORITY - priority);
-      section = buf;
-    }
+  sprintf (buf, "%s.%.5u",
+	   constructor_p ? ".ctors" : ".dtors",
+	   /* Invert the numbering so the linker puts us in the proper
+	      order; constructors are run from right to left, and the
+	      linker sorts in increasing order.  */
+	   MAX_INIT_PRIORITY - priority);
+  return get_section (buf, SECTION_WRITE, NULL);
+}
 
-  switch_to_section (get_section (section, SECTION_WRITE, NULL));
-  assemble_align (POINTER_SIZE);
-  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+void
+default_named_section_asm_out_destructor (rtx symbol, int priority)
+{
+  section *sec;
+
+  if (priority != DEFAULT_INIT_PRIORITY)
+    sec = get_cdtor_priority_section (priority, 
+				      /*constructor_p=*/false);
+  else
+    sec = get_section (".dtors", SECTION_WRITE, NULL);
+
+  assemble_addr_to_section (symbol, sec);
 }
 
 #ifdef DTORS_SECTION_ASM_OP
@@ -1475,9 +1482,7 @@ void
 default_dtor_section_asm_out_destructor (rtx symbol,
 					 int priority ATTRIBUTE_UNUSED)
 {
-  switch_to_section (dtors_section);
-  assemble_align (POINTER_SIZE);
-  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+  assemble_addr_to_section (symbol, dtors_section);
 }
 #endif
 
@@ -1501,23 +1506,15 @@ default_stabs_asm_out_constructor (rtx symbol ATTRIBUTE_UNUSED,
 void
 default_named_section_asm_out_constructor (rtx symbol, int priority)
 {
-  const char *section = ".ctors";
-  char buf[16];
+  section *sec;
 
-  /* ??? This only works reliably with the GNU linker.  */
   if (priority != DEFAULT_INIT_PRIORITY)
-    {
-      sprintf (buf, ".ctors.%.5u",
-	       /* Invert the numbering so the linker puts us in the proper
-		  order; constructors are run from right to left, and the
-		  linker sorts in increasing order.  */
-	       MAX_INIT_PRIORITY - priority);
-      section = buf;
-    }
+    sec = get_cdtor_priority_section (priority, 
+				      /*constructor_p=*/true);
+  else
+    sec = get_section (".ctors", SECTION_WRITE, NULL);
 
-  switch_to_section (get_section (section, SECTION_WRITE, NULL));
-  assemble_align (POINTER_SIZE);
-  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+  assemble_addr_to_section (symbol, sec);
 }
 
 #ifdef CTORS_SECTION_ASM_OP
@@ -1525,9 +1522,7 @@ void
 default_ctor_section_asm_out_constructor (rtx symbol,
 					  int priority ATTRIBUTE_UNUSED)
 {
-  switch_to_section (ctors_section);
-  assemble_align (POINTER_SIZE);
-  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+  assemble_addr_to_section (symbol, ctors_section);
 }
 #endif
 
@@ -5542,18 +5537,11 @@ decl_default_tls_model (tree decl)
 unsigned int
 default_section_type_flags (tree decl, const char *name, int reloc)
 {
-  return default_section_type_flags_1 (decl, name, reloc, flag_pic);
-}
-
-unsigned int
-default_section_type_flags_1 (tree decl, const char *name, int reloc,
-			      int shlib)
-{
   unsigned int flags;
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
+  else if (decl && decl_readonly_section (decl, reloc))
     flags = 0;
   else if (current_function_decl
 	   && cfun
@@ -5753,7 +5741,7 @@ default_select_section (tree decl, int reloc,
 }
 
 enum section_category
-categorize_decl_for_section (tree decl, int reloc, int shlib)
+categorize_decl_for_section (tree decl, int reloc)
 {
   enum section_category ret;
 
@@ -5774,17 +5762,17 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
 	       || TREE_SIDE_EFFECTS (decl)
 	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
 	{
-	  if (shlib && (reloc & 2))
-	    ret = SECCAT_DATA_REL;
-	  else if (shlib && reloc)
-	    ret = SECCAT_DATA_REL_LOCAL;
+	  /* Here the reloc_rw_mask is not testing whether the section should
+	     be read-only or not, but whether the dynamic link will have to
+	     do something.  If so, we wish to segregate the data in order to
+	     minimize cache misses inside the dynamic linker.  */
+	  if (reloc & targetm.asm_out.reloc_rw_mask ())
+	    ret = reloc == 1 ? SECCAT_DATA_REL_LOCAL : SECCAT_DATA_REL;
 	  else
 	    ret = SECCAT_DATA;
 	}
-      else if (shlib && (reloc & 2))
-	ret = SECCAT_DATA_REL_RO;
-      else if (shlib && reloc)
-	ret = SECCAT_DATA_REL_RO_LOCAL;
+      else if (reloc & targetm.asm_out.reloc_rw_mask ())
+	ret = reloc == 1 ? SECCAT_DATA_REL_RO_LOCAL : SECCAT_DATA_REL_RO;
       else if (reloc || flag_merge_constants < 2)
 	/* C and C++ don't allow different variables to share the same
 	   location.  -fmerge-all-constants allows even that (at the
@@ -5797,7 +5785,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     }
   else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
-      if ((shlib && reloc)
+      if ((reloc & targetm.asm_out.reloc_rw_mask ())
 	  || TREE_SIDE_EFFECTS (decl)
 	  || ! TREE_CONSTANT (decl))
 	ret = SECCAT_DATA;
@@ -5837,13 +5825,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
 bool
 decl_readonly_section (tree decl, int reloc)
 {
-  return decl_readonly_section_1 (decl, reloc, flag_pic);
-}
-
-bool
-decl_readonly_section_1 (tree decl, int reloc, int shlib)
-{
-  switch (categorize_decl_for_section (decl, reloc, shlib))
+  switch (categorize_decl_for_section (decl, reloc))
     {
     case SECCAT_RODATA:
     case SECCAT_RODATA_MERGE_STR:
@@ -5864,15 +5846,8 @@ section *
 default_elf_select_section (tree decl, int reloc,
 			    unsigned HOST_WIDE_INT align)
 {
-  return default_elf_select_section_1 (decl, reloc, align, flag_pic);
-}
-
-section *
-default_elf_select_section_1 (tree decl, int reloc,
-			      unsigned HOST_WIDE_INT align, int shlib)
-{
   const char *sname;
-  switch (categorize_decl_for_section (decl, reloc, shlib))
+  switch (categorize_decl_for_section (decl, reloc))
     {
     case SECCAT_TEXT:
       /* We're not supposed to be called on FUNCTION_DECLs.  */
@@ -5934,19 +5909,13 @@ default_elf_select_section_1 (tree decl, int reloc,
 void
 default_unique_section (tree decl, int reloc)
 {
-  default_unique_section_1 (decl, reloc, flag_pic);
-}
-
-void
-default_unique_section_1 (tree decl, int reloc, int shlib)
-{
   /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
   bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;
 
-  switch (categorize_decl_for_section (decl, reloc, shlib))
+  switch (categorize_decl_for_section (decl, reloc))
     {
     case SECCAT_TEXT:
       prefix = one_only ? ".gnu.linkonce.t." : ".text.";
@@ -6007,45 +5976,76 @@ default_unique_section_1 (tree decl, int reloc, int shlib)
   DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
 }
 
+/* Like compute_reloc_for_constant, except for an RTX.  The return value
+   is a mask for which bit 1 indicates a global relocation, and bit 0
+   indicates a local relocation.  */
+
+static int
+compute_reloc_for_rtx_1 (rtx *xp, void *data)
+{
+  int *preloc = data;
+  rtx x = *xp;
+
+  switch (GET_CODE (x))
+    {
+    case SYMBOL_REF:
+      *preloc |= SYMBOL_REF_LOCAL_P (x) ? 1 : 2;
+      break;
+    case LABEL_REF:
+      *preloc |= 1;
+      break;
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+static int
+compute_reloc_for_rtx (rtx x)
+{
+  int reloc;
+
+  switch (GET_CODE (x))
+    {
+    case CONST:
+    case SYMBOL_REF:
+    case LABEL_REF:
+      reloc = 0;
+      for_each_rtx (&x, compute_reloc_for_rtx_1, &reloc);
+      return reloc;
+
+    default:
+      return 0;
+    }
+}
+
 section *
 default_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 			    rtx x,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  if (flag_pic)
-    switch (GET_CODE (x))
-      {
-      case CONST:
-      case SYMBOL_REF:
-      case LABEL_REF:
-	return data_section;
-
-      default:
-	break;
-      }
-
-  return readonly_data_section;
+  if (compute_reloc_for_rtx (x) & targetm.asm_out.reloc_rw_mask ())
+    return data_section;
+  else
+    return readonly_data_section;
 }
 
 section *
 default_elf_select_rtx_section (enum machine_mode mode, rtx x,
 				unsigned HOST_WIDE_INT align)
 {
+  int reloc = compute_reloc_for_rtx (x);
+
   /* ??? Handle small data here somehow.  */
 
-  if (flag_pic)
-    switch (GET_CODE (x))
-      {
-      case CONST:
-      case SYMBOL_REF:
-	return get_named_section (NULL, ".data.rel.ro", 3);
-
-      case LABEL_REF:
+  if (reloc & targetm.asm_out.reloc_rw_mask ())
+    {
+      if (reloc == 1)
 	return get_named_section (NULL, ".data.rel.ro.local", 1);
-
-      default:
-	break;
-      }
+      else
+	return get_named_section (NULL, ".data.rel.ro", 3);
+    }
 
   return mergeable_constant_section (mode, align, 0);
 }

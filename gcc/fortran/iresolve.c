@@ -988,7 +988,7 @@ gfc_resolve_ishftc (gfc_expr *f, gfc_expr *i, gfc_expr *shift, gfc_expr *size)
 {
   int s_kind;
 
-  s_kind = (size == NULL) ? gfc_default_integer_kind : shift->ts.kind;
+  s_kind = (size == NULL) ? gfc_default_integer_kind : size->ts.kind;
 
   f->ts = i->ts;
   f->value.function.name
@@ -2386,8 +2386,6 @@ gfc_resolve_alarm_sub (gfc_code *c)
 
   if (seconds->ts.kind != gfc_c_int_kind)
     gfc_convert_type (seconds, &ts, 2);
-  if (status != NULL && status->ts.kind != gfc_c_int_kind)
-    gfc_convert_type (status, &ts, 2);
 
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }

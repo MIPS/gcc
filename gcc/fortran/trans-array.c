@@ -3862,7 +3862,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   else
     gcc_unreachable ();
   tmp = build_call_expr (fndecl, 1, size);
-  tmp = fold (convert (TREE_TYPE (decl), tmp));
+  tmp = fold_convert (TREE_TYPE (decl), tmp);
   gfc_add_modify_expr (&block, decl, tmp);
 
   /* Set offset of the array.  */
@@ -4918,8 +4918,7 @@ gfc_duplicate_allocatable(tree dest, tree src, tree type, int rank)
     tmp = build_call_expr (gfor_fndecl_internal_malloc64, 1, size);
   else
     gcc_unreachable ();
-  tmp = fold (convert (TREE_TYPE (gfc_conv_descriptor_data_get (src)),
-	      tmp));
+  tmp = fold_convert (TREE_TYPE (gfc_conv_descriptor_data_get (src)), tmp);
   gfc_conv_descriptor_data_set (&block, dest, tmp);
 
   /* We know the temporary and the value will be the same length,
@@ -4990,7 +4989,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
 	  null_cond = gfc_conv_descriptor_data_get (decl);
 	  null_cond = build2 (NE_EXPR, boolean_type_node, null_cond,
-			      build_int_cst (TREE_TYPE (tmp), 0));
+			      build_int_cst (TREE_TYPE (null_cond), 0));
 	}
       else
 	{

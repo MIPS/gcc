@@ -1,3 +1,12 @@
+2007-03-07  Andreas Schwab  <schwab@suse.de>
+
+	* acx.m4 (GCC_TARGET_TOOL): Expand backquotes outside
+	AC_MSG_RESULT.
+
+2007-02-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* mt-spu (all-ld): Depend on all-binutils.
+
 2007-02-18  Alexandre Oliva  <aoliva@redhat.com>
 
 	* acx.m4 (NCN_STRICT_CHECK_TOOLS): Mark environment variable as
@@ -5,6 +14,10 @@
 	verbosely.
 	(NCN_STRICT_CHECK_TARGET_TOOLS): Likewise.  Don't override
 	environment variable with build-time tools.
+
+2006-12-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* mt-spu: New file.
 
 2007-02-09  Daniel Jacobowitz  <dan@codesourcery.com>
 

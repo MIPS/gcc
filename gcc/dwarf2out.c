@@ -498,6 +498,8 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
   init_return_column_size (mode, mem, DWARF_ALT_FRAME_RETURN_COLUMN);
 #endif
+
+  targetm.init_dwarf_reg_sizes_extra (address);
 }
 
 /* Convert a DWARF call frame info. operation to its string name */
@@ -5039,9 +5041,15 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   slot = htab_find_slot_with_hash (debug_str_hash, str,
 				   htab_hash_string (str), INSERT);
   if (*slot == NULL)
-    *slot = ggc_alloc_cleared (sizeof (struct indirect_string_node));
-  node = (struct indirect_string_node *) *slot;
-  node->str = ggc_strdup (str);
+    {
+      node = (struct indirect_string_node *)
+	       ggc_alloc_cleared (sizeof (struct indirect_string_node));
+      node->str = ggc_strdup (str);
+      *slot = node;
+    }
+  else
+    node = (struct indirect_string_node *) *slot;
+
   node->refcount++;
 
   attr.dw_attr = attr_kind;
@@ -8811,6 +8819,32 @@ is_based_loc (rtx rtl)
 	       && GET_CODE (XEXP (rtl, 1)) == CONST_INT)));
 }
 
+/* Return a descriptor that describes the concatenation of N locations
+   used to form the address of a memory location.  */
+
+static dw_loc_descr_ref
+concatn_mem_loc_descriptor (rtx concatn, enum machine_mode mode)
+{
+  unsigned int i;
+  dw_loc_descr_ref cc_loc_result = NULL;
+  unsigned int n = XVECLEN (concatn, 0);
+
+  for (i = 0; i < n; ++i)
+    {
+      dw_loc_descr_ref ref;
+      rtx x = XVECEXP (concatn, 0, i);
+
+      ref = mem_loc_descriptor (x, mode);
+      if (ref == NULL)
+	return NULL;
+
+      add_loc_descr (&cc_loc_result, ref);
+      add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x)));
+    }
+
+  return cc_loc_result;
+}
+
 /* The following routine converts the RTL for a variable or parameter
    (resident in memory) into an equivalent Dwarf representation of a
    mechanism for getting the address of that same variable onto the top of a
@@ -9004,6 +9038,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode)
 
     case CONST_INT:
       mem_loc_result = int_loc_descriptor (INTVAL (rtl));
+      break;
+
+    case CONCATN:
+      mem_loc_result = concatn_mem_loc_descriptor (rtl, mode);
       break;
 
     default:
@@ -11221,10 +11259,17 @@ type_tag (tree type)
 	 involved.  */
       else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	       && ! DECL_IGNORED_P (TYPE_NAME (type)))
-	t = DECL_NAME (TYPE_NAME (type));
+	{
+	  /* We want to be extra verbose.  Don't call dwarf_name if
+	     DECL_NAME isn't set.  The default hook for decl_printable_name
+	     doesn't like that, and in this context it's correct to return
+	     0, instead of "<anonymous>" or the like.  */
+	  if (DECL_NAME (TYPE_NAME (type)))
+	    name = lang_hooks.dwarf_name (TYPE_NAME (type), 2);
+	}
 
       /* Now get the name as a string, or invent one.  */
-      if (t != 0)
+      if (!name && t != 0)
 	name = IDENTIFIER_POINTER (t);
     }
 
@@ -12188,6 +12233,36 @@ add_call_src_coords_attributes (tree stmt, dw_die_ref die)
   add_AT_unsigned (die, DW_AT_call_line, s.line);
 }
 
+
+/* If STMT's abstract origin is a function declaration and STMT's
+   first subblock's abstract origin is the function's outermost block,
+   then we're looking at the main entry point.  */
+static bool
+is_inlined_entry_point (tree stmt)
+{
+  tree decl, block;
+
+  if (!stmt || TREE_CODE (stmt) != BLOCK)
+    return false;
+
+  decl = block_ultimate_origin (stmt);
+
+  if (!decl || TREE_CODE (decl) != FUNCTION_DECL)
+    return false;
+
+  block = BLOCK_SUBBLOCKS (stmt);
+
+  if (block)
+    {
+      if (TREE_CODE (block) != BLOCK)
+	return false;
+
+      block = block_ultimate_origin (block);
+    }
+
+  return block == DECL_INITIAL (decl);
+}
+
 /* A helper function for gen_lexical_block_die and gen_inlined_subroutine_die.
    Add low_pc and high_pc attributes to the DIE for a block STMT.  */
 
@@ -12199,6 +12274,13 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
   if (BLOCK_FRAGMENT_CHAIN (stmt))
     {
       tree chain;
+
+      if (is_inlined_entry_point (stmt))
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
+				       BLOCK_NUMBER (stmt));
+	  add_AT_lbl_id (die, DW_AT_entry_pc, label);
+	}
 
       add_AT_range_list (die, DW_AT_ranges, add_ranges (stmt));
 

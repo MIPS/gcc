@@ -1,5 +1,6 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -873,7 +874,20 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	      gcc_assert (lookup_stmt_eh_region_fn (id->src_cfun, orig_stmt)
 			  != 0);
 
-	      if (tree_could_throw_p (stmt))
+	      if (tree_could_throw_p (stmt)
+		  /* When we are cloning for inlining, we are supposed to
+		     construct a clone that calls precisely the same functions
+		     as original.  However IPA optimizers might've proved
+		     earlier some function calls as non-trapping that might
+		     render some basic blocks dead that might become
+		     unreachable.
+
+		     We can't update SSA with unreachable blocks in CFG and thus
+		     we prevent the scenario by preserving even the "dead" eh
+		     edges until the point they are later removed by
+		     fixup_cfg pass.  */
+		  || (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
+		      && lookup_stmt_eh_region_fn (id->src_cfun, orig_stmt) > 0))
 		{
 		  int region = lookup_stmt_eh_region_fn (id->src_cfun, orig_stmt);
 		  /* Add an entry for the copied tree in the EH hashtable.
@@ -1386,13 +1400,13 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       if (def && gimple_in_ssa_p (cfun) && is_gimple_reg (p))
 	{
 	  def = remap_ssa_name (def, id);
-          init_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (var), def, rhs);
+          init_stmt = build_gimple_modify_stmt (def, rhs);
 	  SSA_NAME_DEF_STMT (def) = init_stmt;
 	  SSA_NAME_IS_DEFAULT_DEF (def) = 0;
 	  set_default_def (var, NULL);
 	}
       else
-        init_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (var), var, rhs);
+        init_stmt = build_gimple_modify_stmt (var, rhs);
 
       /* If we did not create a gimple value and we did not create a gimple
 	 cast of a gimple value, then we will need to gimplify INIT_STMTS

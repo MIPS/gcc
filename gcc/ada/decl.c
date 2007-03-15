@@ -1332,8 +1332,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  {
 	    TYPE_MODULAR_P (gnu_type) = 1;
 	    SET_TYPE_MODULUS (gnu_type, gnu_modulus);
-	    gnu_high = fold (build2 (MINUS_EXPR, gnu_type, gnu_modulus,
-				     convert (gnu_type, integer_one_node)));
+	    gnu_high = fold_build2 (MINUS_EXPR, gnu_type, gnu_modulus,
+				    convert (gnu_type, integer_one_node));
 	  }
 
 	/* If we have to set TYPE_PRECISION different from its natural value,
@@ -1909,10 +1909,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  && TREE_CODE (gnu_max) == INTEGER_CST
 		  && TREE_OVERFLOW (gnu_min) && TREE_OVERFLOW (gnu_max)
 		  && (!TREE_OVERFLOW
-		      (fold (build2 (MINUS_EXPR, gnu_index_subtype,
-				     TYPE_MAX_VALUE (gnu_index_subtype),
-				     TYPE_MIN_VALUE (gnu_index_subtype))))))
-		TREE_OVERFLOW (gnu_min) = TREE_OVERFLOW (gnu_max) = 0;
+		      (fold_build2 (MINUS_EXPR, gnu_index_subtype,
+				    TYPE_MAX_VALUE (gnu_index_subtype),
+				    TYPE_MIN_VALUE (gnu_index_subtype)))))
+		{
+		  TREE_OVERFLOW (gnu_min) = 0;
+		  TREE_OVERFLOW (gnu_max) = 0;
+		}
 
 	      /* Similarly, if the range is null, use bounds of 1..0 for
 		 the sizetype bounds.  */
@@ -5890,7 +5893,7 @@ annotate_value (tree gnu_size)
       if (!annotate_value_cache)
         annotate_value_cache = htab_create_ggc (512, tree_int_map_hash,
 					        tree_int_map_eq, 0);
-      in.from = gnu_size;
+      in.base.from = gnu_size;
       h = (struct tree_int_map **)
 	    htab_find_slot (annotate_value_cache, &in, INSERT);
 
@@ -6016,7 +6019,7 @@ annotate_value (tree gnu_size)
   if (h)
     {
       *h = ggc_alloc (sizeof (struct tree_int_map));
-      (*h)->from = gnu_size;
+      (*h)->base.from = gnu_size;
       (*h)->to = ret;
     }
 

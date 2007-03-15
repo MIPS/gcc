@@ -1,3 +1,380 @@
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (AM_MAKEFLAGS): Pass through mandir.
+	* Makefile.in: Rebuilt.
+
+2007-03-13  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpClass): Declare
+	friend function _Jv_GetInterpClassSourceFile.
+	* java/lang/Class.h (Class): Likewise.
+	* java/lang/natClass.cc (_Jv_GetInterpClassSourceFile):
+	New function.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(getSourceFile): Implement.
+
+2007-03-13  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (AM_CXXFLAGS): Define ECJ_JAR_FILE.
+	* classpath/configure.ac: Add --with-ecj-jar configure option.
+	* classpath/gnu/classpath/Configuration.java.in (ECJ_JAR): New
+	field.
+	* classpath/INSTALL: Document --with-ecj-jar configure option and
+	ecj jar requirement for com.sun.tools.javac support.
+	* classpath/tools/Makefile.am: Build decendents of com and sun
+	directories.
+	* configure.ac: Substitute ECJ_JAR in stub Configuration.java.
+	* gnu/classpath/Configuration.java,
+	gnu/classpath/natConfiguration.cc (ecj): New method.
+	(ECJ_JAR): New field.
+	* scripts/makemake.tcl (scan_packages): Add com directory.
+	* sources.am (property_files): Add
+	classpath/resource/sun/rmi/rmic/messages.properties and
+	classpath/resource/com/sun/tools/javac/messages.properties.
+	* classpath/resource/com, classpath/resource/com/sun,
+	classpath/resource/com/sun/tools,
+	classpath/resource/com/sun/tools/javac, classpath/resource/sun,
+	classpath/resource/sun/rmi, classpath/resource/sun/rmi/rmic,
+	classpath/tools/classes/com, classpath/tools/classes/com/sun,
+	classpath/tools/classes/com/sun/javadoc,
+	classpath/tools/classes/com/sun/tools,
+	classpath/tools/classes/com/sun/tools/doclets,
+	classpath/tools/classes/sun, classpath/tools/classes/sun/rmi,
+	classpath/tools/classes/sun/rmi/rmic, classpath/tools/com,
+	classpath/tools/com/sun, classpath/tools/com/sun/javadoc,
+	classpath/tools/com/sun/tools,
+	classpath/tools/com/sun/tools/doclets,
+	classpath/tools/com/sun/tools/javac, classpath/tools/sun,
+	classpath/tools/sun/rmi, classpath/tools/sun/rmi/rmic: New
+	directories.
+	* classpath/resource/com/sun/tools/javac/messages.properties,
+	classpath/resource/sun/rmi/rmic/messages.properties,
+	classpath/tools/classes/com/sun/javadoc/ClassDoc.class,
+	classpath/tools/classes/com/sun/javadoc/ConstructorDoc.class,
+	classpath/tools/classes/com/sun/javadoc/Doc.class,
+	classpath/tools/classes/com/sun/javadoc/DocErrorReporter.class,
+	classpath/tools/classes/com/sun/javadoc/Doclet.class,
+	classpath/tools/classes/com/sun/javadoc/ExecutableMemberDoc.class,
+	classpath/tools/classes/com/sun/javadoc/FieldDoc.class,
+	classpath/tools/classes/com/sun/javadoc/MemberDoc.class,
+	classpath/tools/classes/com/sun/javadoc/MethodDoc.class,
+	classpath/tools/classes/com/sun/javadoc/PackageDoc.class,
+	classpath/tools/classes/com/sun/javadoc/ParamTag.class,
+	classpath/tools/classes/com/sun/javadoc/Parameter.class,
+	classpath/tools/classes/com/sun/javadoc/ProgramElementDoc.class,
+	classpath/tools/classes/com/sun/javadoc/RootDoc.class,
+	classpath/tools/classes/com/sun/javadoc/SeeTag.class,
+	classpath/tools/classes/com/sun/javadoc/SerialFieldTag.class,
+	classpath/tools/classes/com/sun/javadoc/SourcePosition.class,
+	classpath/tools/classes/com/sun/javadoc/Tag.class,
+	classpath/tools/classes/com/sun/javadoc/ThrowsTag.class,
+	classpath/tools/classes/com/sun/javadoc/Type.class,
+	classpath/tools/classes/com/sun/javadoc/TypeVariable.class,
+	classpath/tools/classes/com/sun/tools/doclets/Taglet.class,
+	classpath/tools/classes/sun/rmi/rmic/Main.class,
+	classpath/tools/classes/sun/rmi/rmic/Messages.class,
+	classpath/tools/com/sun/javadoc/ClassDoc.java,
+	classpath/tools/com/sun/javadoc/ConstructorDoc.java,
+	classpath/tools/com/sun/javadoc/Doc.java,
+	classpath/tools/com/sun/javadoc/DocErrorReporter.java,
+	classpath/tools/com/sun/javadoc/Doclet.java,
+	classpath/tools/com/sun/javadoc/ExecutableMemberDoc.java,
+	classpath/tools/com/sun/javadoc/FieldDoc.java,
+	classpath/tools/com/sun/javadoc/MemberDoc.java,
+	classpath/tools/com/sun/javadoc/MethodDoc.java,
+	classpath/tools/com/sun/javadoc/PackageDoc.java,
+	classpath/tools/com/sun/javadoc/ParamTag.java,
+	classpath/tools/com/sun/javadoc/Parameter.java,
+	classpath/tools/com/sun/javadoc/ProgramElementDoc.java,
+	classpath/tools/com/sun/javadoc/RootDoc.java,
+	classpath/tools/com/sun/javadoc/SeeTag.java,
+	classpath/tools/com/sun/javadoc/SerialFieldTag.java,
+	classpath/tools/com/sun/javadoc/SourcePosition.java,
+	classpath/tools/com/sun/javadoc/Tag.java,
+	classpath/tools/com/sun/javadoc/ThrowsTag.java,
+	classpath/tools/com/sun/javadoc/Type.java,
+	classpath/tools/com/sun/javadoc/TypeVariable.java,
+	classpath/tools/com/sun/tools/doclets/Taglet.java,
+	classpath/tools/com/sun/tools/javac/Main.java,
+	classpath/tools/com/sun/tools/javac/Messages.java,
+	classpath/tools/sun/rmi/rmic/Main.java,
+	classpath/tools/sun/rmi/rmic/Messages.java: New files.
+	* Makefile.in, classpath/Makefile.in, classpath/configure,
+	classpath/doc/Makefile.in, classpath/doc/api/Makefile.in,
+	classpath/examples/Makefile.in, classpath/external/Makefile.in,
+	classpath/external/jsr166/Makefile.in,
+	classpath/external/relaxngDatatype/Makefile.in,
+	classpath/external/sax/Makefile.in,
+	classpath/external/w3c_dom/Makefile.in,
+	classpath/include/Makefile.in, classpath/include/config.h.in,
+	classpath/lib/Makefile.in,
+	classpath/lib/gnu/classpath/Configuration.class,
+	classpath/native/Makefile.in, classpath/native/fdlibm/Makefile.in,
+	classpath/native/jawt/Makefile.in,
+	classpath/native/jni/Makefile.in,
+	classpath/native/jni/classpath/Makefile.in,
+	classpath/native/jni/gconf-peer/Makefile.in,
+	classpath/native/jni/gtk-peer/Makefile.in,
+	classpath/native/jni/java-io/Makefile.in,
+	classpath/native/jni/java-lang/Makefile.in,
+	classpath/native/jni/java-net/Makefile.in,
+	classpath/native/jni/java-nio/Makefile.in,
+	classpath/native/jni/java-util/Makefile.in,
+	classpath/native/jni/midi-alsa/Makefile.in,
+	classpath/native/jni/midi-dssi/Makefile.in,
+	classpath/native/jni/native-lib/Makefile.in,
+	classpath/native/jni/qt-peer/Makefile.in,
+	classpath/native/jni/xmlj/Makefile.in,
+	classpath/native/plugin/Makefile.in,
+	classpath/resource/Makefile.in, classpath/scripts/Makefile.in,
+	classpath/tools/Makefile.in, configure,
+	gnu/classpath/Configuration.h: Regenerate.
+
+2007-03-12  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetArgumentsSize): Make wide type arrays count
+	as a sigle slot.
+
+2007-03-12  Marco Trudel  <mtrudel@gmx.ch>
+
+	* java/lang/natString.cc (getBytes (jstring enc)):
+	Fixed the loop for multiple cycles, Code cleanup
+
+2007-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (scan_directory): Allow service files to be
+	omitted.
+	Omit all XML-related service files.
+
+2007-03-07  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac: Clear vm-tools-packages.
+
+2007-03-07  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/Win32Process.java: Added nested class EOFInputStream.
+	* java/lang/natWin32Process.cc (ChildProcessPipe): Added DUMMY
+	enum and implementation.
+	(startProcess): Use redirect flag.
+	* classpath/lib/java/lang/Win32Process.class: Regenerated.
+	* classpath/lib/java/lang/Win32Process$EOFInputStream.class: New.
+	* gcj/javaprims.h: Regenerated.
+	* java/lang/Win32Process$EOFInputStream.h: New.
+
+2007-03-07  Andrew Haley  <aph@redhat.com>
+
+	* libgcj_bc.c (JvRunMainName): Declare.
+
+2007-03-07  Gary Benson  <gbenson@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+
+2007-03-07  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gcj/javaprims.h: Regenerated.
+
+2007-03-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* include/jvm.h (_Jv_ClosureListFinalizer): New.
+	(_Jv_Linker::create_error_method): Adjust.
+	* boehm.cc (_Jv_ClosureListFinalizer): New.
+	* nogc.cc (_Jv_ClosureListFinalizer): New.
+	* java/lang/Class.h (class _Jv_ClosureList): New.
+	(class java::lang::Class): Declare it as friend.
+	* java/lang/natClass.cc (_Jv_ClosureList::releaseClosures): New.
+	(_Jv_ClosureList::registerClousure): New.
+	* include/execution.h (_Jv_ExecutionEngine): Add get_closure_list.
+	(_Jv_CompiledEngine::do_get_closure_list): New.
+	(_Jv_CompiledEngine::_Jv_CompiledEngine): Use it.
+	(_Jv_IndirectCompiledClass): Add closures.
+	(_Jv_IndirectCompiledEngine::get_aux_info): New.
+	(_Jv_IndirectCompiledEngine::do_allocate_field_initializers): Use
+	it.
+	(_Jv_IndirectCompiledEngine::do_get_closure_list): New.
+	(_Jv_IndirectCompiledEngine::_Jv_IndirectCompiledEngine): Use it.
+	(_Jv_InterpreterEngine::do_get_closure_list): Declare.
+	(_Jv_InterpreterEngine::_Jv_InterpreterEngine): Use it.
+	* interpret.cc (FFI_PREP_RAW_CLOSURE): Use _loc variants.
+	(node_closure): Add closure list.
+	(_Jv_InterpMethod::ncode): Add jclass argument.  Use
+	ffi_closure_alloc and the separate code pointer.  Register the
+	closure for finalization.
+	(_Jv_JNIMethod::ncode): Likewise.
+	(_Jv_InterpreterEngine::do_create_ncode): Pass klass to ncode.
+	(_Jv_InterpreterEngine::do_get_closure_list): New.
+	* include/java-interp.h (_Jv_InterpMethod::ncode): Adjust.
+	(_Jv_InterpClass): Add closures field.
+	(_Jv_JNIMethod::ncode): Adjust.
+	* defineclass.cc (_Jv_ClassReader::handleCodeAttribute): Adjust.
+	(_Jv_ClassReader::handleMethodsEnd): Likewise.
+	* link.cc (struct method_closure): Add closure list.
+	(_Jv_Linker::create_error_method): Add jclass argument.  Use
+	ffi_closure_alloc and the separate code pointer.  Register the
+	closure for finalization.
+	(_Jv_Linker::link_symbol_table): Remove outdated comment about
+	sharing of otable and atable.  Adjust.
+	* java/lang/reflect/natVMProxy.cc (ncode_closure): Add closure
+	list.
+	(ncode): Add jclass argument.  Use ffi_closure_alloc and the
+	separate code pointer.  Register the closure for finalization.
+	(java::lang::reflect::VMProxy::generateProxyClass): Adjust.
+	* testsuite/libjava.jar/TestClosureGC.java: New.
+	* testsuite/libjava.jar/TestClosureGC.out: New.
+	* testsuite/libjava.jar/TestClosureGC.xfail: New.
+	* testsuite/libjava.jar/TestClosureGC.jar: New.
+
+2007-03-06  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/exception/AbsentInformationException.java: New file.
+	* classpath/lib/gnu/classpath/jdwp/exception/AbsentInformationException.class: Ditto.
+	* gnu/classpath/jdwp/exception/AbsentInformationException.h: Ditto.
+	* gnu/classpath/jdwp/natVMMethod.cc: Add CHECK_INTERP_CLASS macro.
+	(VMMethod::getLineTable): Use new macro.
+	(VMMethod::getVariableTable): Implement.
+	* sources.am: Regenerated.
+	* Makefile.in: Ditto.
+
+2007-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (bin_PROGRAMS): Added gcjh.
+	(gcjh_SOURCES, gcjh_LDFLAGS, gcjh_LINK, gcjh_LDADD,
+	gcjh_DEPENDENCIES): New variables.
+
+2007-03-06  Kyle Galloway  <kgallowa@redhat.com>
+
+	* jvmti.cc(_Jv_JVMTI_GetLocalVariableTable): Fix _Jv_Malloc parameters.
+	* testsuite/libjava.jvmti/interp/natgetlocalvartable.cc
+	(do_getlocalvartable_tests): Add Deallocate calls to free strings.
+
+2007-03-05  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am (gij_LDFLAGS): Use dbexecdir.
+	* Makefile.in: Regnerate.
+
+2007-03-05  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Character.java: Re-merged with Classpath.
+	* java/lang/natString.cc (nativeCompareTo): Renamed from
+	compareTo.
+	* java/lang/StringBuilder.java: Re-merged with Classpath.
+	* java/lang/String.java: Re-merged with Classpath.
+	(nativeCompareTo): Renamed from compareTo.
+	* java/lang/StringBuffer.java: Re-merged with Classpath.
+	* jni.cc (_Jv_JNI_GetAnyMethodID): Split calls to append.
+
+2007-03-05  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (ncode_closure.meth): Delete.
+	(generateProxyClass): Don't pass method to ncode.
+	(run_proxy): Call _Jv_GetReflectedMethod to find the proxy method.
+	* java/lang/reflect/Method.h: Rebuild.
+	* java/lang/reflect/Method.java (internalGetParameterTypes,
+	internalGetExceptionTypes): New methods.
+	* headers.txt (class java/lang/reflect/Method): Declare
+	_Jv_GetReflectedMethod.  Be its friend.
+	* java/lang/natClass.cc (_Jv_GetReflectedMethod): New method.
+	* java/lang/Class.h: Declare it.  Be its friend.
+
+2007-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl (emit_package_rule): Don't omit
+	VMProcess.java.
+	* Makefile.am (nat_source_files): Added natVMProcess.cc.
+	(inner_nat_headers): Added ImmediateEOFInputStream.h.
+	* gcj/javaprims.h: Regenerated.
+	* java/lang/System.java (EnvironmentMap): Now package-private.
+	(EnvironmentMap(Map)): New constructor.
+	(EnvironmentMap.put): New method.
+	* java/lang/natWin32Process.cc (startProcess): Update.
+	* java/lang/Win32Process.java (Win32Process): Added 'redirect'
+	argument.
+	(startProcess): Likewise.
+	* java/lang/EcosProcess.java (EcosProcess): Added 'redirect'
+	argument.
+	* java/lang/natPosixProcess.cc (nativeSpawn): Handle redirection.
+	* java/lang/PosixProcess.java (redirect): New field.
+	(PosixProcess): Added 'redirect' argument.
+	* java/lang/natRuntime.cc (execInternal): Added 'redirect'
+	argument to Process creation.
+	* java/lang/natVMProcess.cc: New file.
+	* java/lang/ProcessBuilder.java: Removed.
+	* java/lang/VMProcess.java: New file.
+
+2007-03-03  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (parseAnnotationElement): Correct long
+	annotations to read JV_CONSTANT_Long, not JV_CONSTANT_Double.
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java:
+	Generify in a few places.
+	(equals): Rewrite to use invoke on local proxy.
+	(deepToString): Remove most of it.
+	(toString): Make nonstatic.
+	(arrayClone): Delete.
+	(coerce): New method.
+	(invoke): Rewrite to handle gcj's structures correctly.
+	* java/lang/natClass.cc (getDeclaredAnnotations): Fix test for
+	null loader.
+	* sources.am: Regenerate.
+	* Makefile.am: Likewise.	
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java:
+	Whitespace only changes.
+
+2007-03-02  Andrew Haley  <aph@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java: Moved
+	from Classpath to libgcj local.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.am: Add dummy install-pdf target.
+	* Makefile.in: Regenerate
+	* include/Makefile.in: Regenerate
+	* testsuite/Makefile.in: Regenerate
+	* gcj/Makefile.in: Regenerate
+
+2007-02-23  Gary Benson  <gbenson@redhat.com>
+
+	* gnu/gcj/tools/gcj_dbtool/Main.java: Updated copyright year.
+
+2007-02-23  Gary Benson  <gbenson@redhat.com>
+
+	* java/lang/VMCompiler.java
+	(compileClass): Don't lose zeros from within the digest.
+
+2007-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/17002
+	PR classpath/28550
+	* java/util/VMTimeZone.java (getDefaultTimeZoneId): To read
+	/etc/localtime, use ZoneInfo.readTZFile instead of
+	VMTimeZone.readtzFile.  Get better timezone name for /etc/localtime,
+	either if it is a symlink or through /etc/sysconfig/clock.
+	(readSysconfigClockFile): New static method.
+	(readtzFile): Removed.
+	* java/lang/System.java: Add gnu.java.util.zoneinfo.dir to comments.
+	* posix.cc (_Jv_platform_initProperties): Set
+	gnu.java.util.zoneinfo.dir.
+	* sources.am (gnu_java_util_source_files): Add
+	classpath/gnu/java/util/ZoneInfo.java.
+	* Makefile.in: Regenerated.
+	* java/util/VMTimeZone.h: Regenerated.
+	* java/util/TimeZone.h: Regenerated.
+	* gnu/java/util/ZoneInfo.h: Generated.
+
+2007-02-22  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/win32-threads.h: Added #undef OUT.
+
 2007-02-21  Kyle Galloway  <kgallowa@redhat.com>
 
 	* jvmti.cc (_Jv_JVMTI_GetArgumentsSize): New function.
