@@ -882,6 +882,7 @@ extern struct df_link *df_chain_create (struct df_ref *, struct df_ref *);
 extern void df_chain_unlink (struct df_ref *);
 extern void df_chain_copy (struct df_ref *, struct df_link *);
 extern bitmap df_get_live_in (basic_block);
+extern bitmap df_get_live_out (basic_block);
 extern bitmap df_get_live_top (basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);

@@ -59,6 +59,22 @@ static bitmap seen_in_insn = NULL;
 /*----------------------------------------------------------------------------
    Public functions access functions for the dataflow problems.
 ----------------------------------------------------------------------------*/
+/* Get the live at out set for BB no matter what problem happens to be
+   defined.  This function is used by the register allocators who
+   choose different dataflow problems depending on the optimization
+   level.  */
+
+bitmap
+df_get_live_out (basic_block bb)
+{
+  gcc_assert (df_lr);
+
+  if (df_urec)
+    return DF_RA_LIVE_OUT (bb);
+  else 
+    return DF_LR_OUT (bb);
+}
+
 /* Get the live at in set for BB no matter what problem happens to be
    defined.  This function is used by the register allocators who
    choose different dataflow problems depending on the optimization
@@ -4303,7 +4319,7 @@ df_ri_bb_compute (unsigned int bb_index,
   struct df_ref **use_rec;
   int luid = 0;
 
-  bitmap_copy (live, DF_LIVE_OUT (bb));
+  bitmap_copy (live, df_get_live_out (bb));
   bitmap_clear (artificial_uses);
 
 #ifdef REG_DEAD_DEBUGGING
