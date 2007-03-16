@@ -2599,13 +2599,6 @@ struct tree_memory_partition_tag GTY(())
    a C99 "extern inline" function.  */
 #define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_2)
 
-/* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
-   initializations.  */
-#define DEFAULT_INIT_PRIORITY 65535
-#define MAX_INIT_PRIORITY 65535
-#define MAX_RESERVED_INIT_PRIORITY 100
-
-
 /* Nonzero in a ..._DECL means this variable is ref'd from a nested function.
    For VAR_DECL nodes, PARM_DECL nodes, and FUNCTION_DECL nodes.
 
@@ -3065,20 +3058,46 @@ extern void decl_debug_expr_insert (tree, tree);
 #define SET_DECL_DEBUG_EXPR(NODE, VAL) \
   (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), VAL))
 
+/* An initializationp priority.  */
+typedef unsigned short priority_type;
 
-extern unsigned short decl_init_priority_lookup (tree);
-extern void decl_init_priority_insert (tree, unsigned short);
+extern priority_type decl_init_priority_lookup (tree);
+extern priority_type decl_fini_priority_lookup (tree);
+extern void decl_init_priority_insert (tree, priority_type);
+extern void decl_fini_priority_insert (tree, priority_type);
 
-/* In a non-local VAR_DECL with static storage duration, this is the
-   initialization priority.  If this value is zero, the NODE will be
-   initialized at the DEFAULT_INIT_PRIORITY.  Only used by C++ FE*/
-
+/* In a non-local VAR_DECL with static storage duration, true if the
+   variable has an initialization priority.  If false, the variable
+   will be initialized at the DEFAULT_INIT_PRIORITY.  */
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
+
+/* For a VAR_DECL or FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set,
+   the initialization priority of NODE.  */
 #define DECL_INIT_PRIORITY(NODE) \
-  (decl_init_priority_lookup (VAR_DECL_CHECK (NODE)))
+  (decl_init_priority_lookup (NODE))
+/* Set the initialization priority for NODE to VAL.  */
 #define SET_DECL_INIT_PRIORITY(NODE, VAL) \
-  (decl_init_priority_insert (VAR_DECL_CHECK (NODE), VAL))
+  (decl_init_priority_insert (NODE, VAL))
+
+/* For a FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set, the
+   finalization priority of NODE.  */
+#define DECL_FINI_PRIORITY(NODE) \
+  (decl_fini_priority_lookup (NODE))
+/* Set the finalization priority for NODE to VAL.  */
+#define SET_DECL_FINI_PRIORITY(NODE, VAL) \
+  (decl_fini_priority_insert (NODE, VAL))
+
+/* The initialization priority for entities for which no explicit
+   initialization priority has been specified.  */
+#define DEFAULT_INIT_PRIORITY 65535
+
+/* The maximum allowed initialization priority.  */
+#define MAX_INIT_PRIORITY 65535
+
+/* The largest priority value reserved for use by system runtime
+   libraries.  */
+#define MAX_RESERVED_INIT_PRIORITY 100
 
 /* In a VAR_DECL, the model to use if the data should be allocated from
    thread-local storage.  */
@@ -4378,8 +4397,8 @@ extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DE
 extern tree fold_build1_initializer (enum tree_code, tree, tree);
 extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
-extern tree fold_build_call_list (tree, tree, tree);
-extern tree fold_build_call_list_initializer (tree, tree, tree);
+extern tree fold_build_call_array (tree, tree, int, tree *);
+extern tree fold_build_call_array_initializer (tree, tree, int, tree *);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
@@ -4435,7 +4454,7 @@ enum operand_equal_flag
 };
 
 extern int operand_equal_p (tree, tree, unsigned int);
-
+extern int multiple_of_p (tree, tree, tree);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
@@ -4462,6 +4481,7 @@ extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 extern bool tree_expr_nonzero_p (tree);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
+extern int multiple_of_p (tree, tree, tree);
 
 /* In builtins.c */
 extern tree fold_call_expr (tree, bool);
@@ -4478,8 +4498,7 @@ extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree fold_build_call_expr (tree, tree, tree, tree);
-extern tree fold_builtin_call_list (tree, tree, tree);
-extern tree fold_builtin_call_valist (tree, tree, int, va_list);
+extern tree fold_builtin_call_array (tree, tree, int, tree *);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
@@ -4799,26 +4818,53 @@ extern tree get_base_address (tree t);
 extern void vect_set_verbosity_level (const char *);
 
 /* In tree.c.  */
+
+struct tree_map_base GTY(())
+{
+  tree from;
+};
+
+extern int tree_map_base_eq (const void *, const void *);
+extern unsigned int tree_map_base_hash (const void *);
+extern int tree_map_base_marked_p (const void *);
+
+/* Map from a tree to another tree.  */
+
 struct tree_map GTY(())
 {
+  struct tree_map_base base;
   unsigned int hash;
-  tree from;
   tree to;
 };
 
+#define tree_map_eq tree_map_base_eq
 extern unsigned int tree_map_hash (const void *);
-extern int tree_map_marked_p (const void *);
-extern int tree_map_eq (const void *, const void *);
+#define tree_map_marked_p tree_map_base_marked_p
+
+/* Map from a tree to an int.  */
 
 struct tree_int_map GTY(())
 {
-  tree from;
+  struct tree_map_base base;
   unsigned int to;
 };
 
-extern unsigned int tree_int_map_hash (const void *);
-extern int tree_int_map_eq (const void *, const void *);
-extern int tree_int_map_marked_p (const void *);
+#define tree_int_map_eq tree_map_base_eq
+#define tree_int_map_hash tree_map_base_hash
+#define tree_int_map_marked_p tree_map_base_marked_p
+
+/* Map from a tree to initialization/finalization priorities.  */
+
+struct tree_priority_map GTY(())
+{
+  struct tree_map_base base;
+  priority_type init;
+  priority_type fini;
+};
+
+#define tree_priority_map_eq tree_map_base_eq
+#define tree_priority_map_hash tree_map_base_hash
+#define tree_priority_map_marked_p tree_map_base_marked_p
 
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);

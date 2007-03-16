@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1341,7 +1341,7 @@ asm_insn_count (rtx body)
   if (GET_CODE (body) == ASM_INPUT)
     template = XSTR (body, 0);
   else
-    template = decode_asm_operands (body, NULL, NULL, NULL, NULL);
+    template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
 
   for (; *template; template++)
     if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
@@ -2052,12 +2052,27 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (string[0])
 	      {
+		location_t loc;
+
 		if (! app_on)
 		  {
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+#ifdef USE_MAPPED_LOCATION
+		loc = ASM_INPUT_SOURCE_LOCATION (body);
+#else
+		loc.file = ASM_INPUT_SOURCE_FILE (body);
+		loc.line = ASM_INPUT_SOURCE_LINE (body);
+#endif
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 		fprintf (asm_out_file, "\t%s\n", string);
+#if HAVE_AS_LINE_ZERO
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 	    break;
 	  }
@@ -2068,12 +2083,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    unsigned int noperands = asm_noperands (body);
 	    rtx *ops = alloca (noperands * sizeof (rtx));
 	    const char *string;
+	    location_t loc;
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
 
 	    /* Get out the operand values.  */
-	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
+	    string = decode_asm_operands (body, ops, NULL, NULL, NULL, &loc);
 	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
@@ -2090,7 +2106,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 	        output_asm_insn (string, ops);
+#if HAVE_AS_LINE_ZERO
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 
 	    this_is_asm_operands = 0;

@@ -922,11 +922,24 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 			 &e->where);
 	    }
 
+	  /* Check if a generic interface has a specific procedure
+	    with the same name before emitting an error.  */
 	  if (sym->attr.generic)
 	    {
-	      gfc_error ("GENERIC non-INTRINSIC procedure '%s' is not "
-			 "allowed as an actual argument at %L", sym->name,
-			 &e->where);
+	      gfc_interface *p;
+	      for (p = sym->generic; p; p = p->next)
+		if (strcmp (sym->name, p->sym->name) == 0)
+		  {
+		    e->symtree = gfc_find_symtree
+					   (p->sym->ns->sym_root, sym->name);
+		    sym = p->sym;
+		    break;
+		  }
+
+	      if (p == NULL || e->symtree == NULL)
+		gfc_error ("GENERIC non-INTRINSIC procedure '%s' is not "
+				"allowed as an actual argument at %L", sym->name,
+				&e->where);
 	    }
 
 	  /* If the symbol is the function that names the current (or
@@ -1016,22 +1029,14 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 		 since same file external procedures are not resolvable
 		 in gfortran, it is a good deal easier to leave them to
 		 intrinsic.c.  */
-	      if (ptype != PROC_UNKNOWN && ptype != PROC_EXTERNAL)
+	      if (ptype != PROC_UNKNOWN
+		  && ptype != PROC_DUMMY
+		  && ptype != PROC_EXTERNAL)
 		{
 		  gfc_error ("By-value argument at %L is not allowed "
 			     "in this context", &e->where);
 		  return FAILURE;
 		}
-
-	      if (((e->ts.type == BT_REAL || e->ts.type == BT_COMPLEX)
-		   && e->ts.kind > gfc_default_real_kind)
-		  || (e->ts.kind > gfc_default_integer_kind))
-		{
-		  gfc_error ("Kind of by-value argument at %L is larger "
-			     "than default kind", &e->where);
-		  return FAILURE;
-		}
-
 	    }
 
 	  /* Statement functions have already been excluded above.  */
@@ -5529,6 +5534,21 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 }
 
 
+static gfc_component *
+has_default_initializer (gfc_symbol *der)
+{
+  gfc_component *c;
+  for (c = der->components; c; c = c->next)
+    if ((c->ts.type != BT_DERIVED && c->initializer)
+        || (c->ts.type == BT_DERIVED
+              && !c->pointer
+              && has_default_initializer (c->ts.derived)))
+      break;
+
+  return c;
+}
+
+
 /* Resolve symbols with flavor variable.  */
 
 static try
@@ -5656,7 +5676,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
   /* Check to see if a derived type is blocked from being host associated
      by the presence of another class I symbol in the same namespace.
      14.6.1.3 of the standard and the discussion on comp.lang.fortran.  */
-  if (sym->ts.type == BT_DERIVED && sym->ns != sym->ts.derived->ns)
+  if (sym->ts.type == BT_DERIVED && sym->ns != sym->ts.derived->ns
+	&& sym->ns->proc_name->attr.if_source != IFSRC_IFBODY)
     {
       gfc_symbol *s;
       gfc_find_symbol (sym->ts.derived->name, sym->ns, 0, &s);
@@ -5676,9 +5697,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
      components.  */
   c = NULL;
   if (sym->ts.type == BT_DERIVED && !(sym->value || flag))
-    for (c = sym->ts.derived->components; c; c = c->next)
-      if (c->initializer)
-      break;
+    c = has_default_initializer (sym->ts.derived);
 
   /* 4th constraint in section 11.3:  "If an object of a type for which
      component-initialization is specified (R429) appears in the

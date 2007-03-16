@@ -613,16 +613,16 @@ if test "x${COMPILE_JNI}" = xyes; then
   if test "x${COMPILE_PLUGIN}" = xyes; then
     PKG_CHECK_MODULES(MOZILLA, mozilla-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, firefox-plugin firefox-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, xulrunner-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, xulrunner-plugin xulrunner-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, mozilla-firefox-plugin mozilla-firefox-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     if test "x${MOZILLA_FOUND}" = xno; then
-      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
+      PKG_CHECK_MODULES(MOZILLA, seamonkey-plugin seamonkey-xpcom, [MOZILLA_FOUND=yes], [MOZILLA_FOUND=no])
     fi
     PKG_CHECK_MODULES(GLIB, glib-2.0)
 
@@ -708,6 +708,28 @@ AC_ARG_ENABLE([load-library],
               [INIT_LOAD_LIBRARY="true"])
 AC_SUBST(INIT_LOAD_LIBRARY)
 
+
+dnl -----------------------------------------------------------
+dnl Specify the jar file containing the Eclipse Java Compiler.  If
+dnl this option is not specified then the com.sun.tools.javac
+dnl implementation will not be included in tools.zip.
+dnl -----------------------------------------------------------
+dnl GCJ LOCAL: default to $multi_basedir/ecj.jar
+dnl In the default case where $multi_basedir/ecj.jar is found
+dnl $(jardir)/ecj.jar will not expand properly in GNU Classpath's
+dnl gnu/classpath/Configuration.java.  That is OK though since libjava's
+dnl gnu/classpath/Configuration.java overrides GNU Classpath's and
+dnl ECJ_JAR_FILE will be properly expanded in libjava's
+dnl gnu/classpath/natConfiguration.cc.
+AC_ARG_WITH([ecj-jar],
+  	    [AS_HELP_STRING([--with-ecj-jar=ABS.PATH],
+  	    [specify jar file containing the Eclipse Java Compiler])],
+  	    [ECJ_JAR=$withval],
+	    [if test -f $multi_basedir/ecj.jar; then
+	       ECJ_JAR='$(jardir)/ecj.jar'
+	     fi])
+AC_SUBST(ECJ_JAR)
+AM_CONDITIONAL(FOUND_ECJ_JAR, test "$ECJ_JAR" != "")
 
 dnl -----------------------------------------------------------
 dnl Should the VM explicitly run class initialization subfunctions for

@@ -70,6 +70,16 @@ enum reg_class regno_reg_class[] =
 #endif
 
 
+/* The minimum number of integer registers that we want to save with the
+   movem instruction.  Using two movel instructions instead of a single
+   moveml is about 15% faster for the 68020 and 68030 at no expense in
+   code size.  */
+#define MIN_MOVEM_REGS 3
+
+/* The minimum number of floating point registers that we want to save
+   with the fmovem instruction.  */
+#define MIN_FMOVEM_REGS 1
+
 /* Structure describing stack frame layout.  */
 struct m68k_frame
 {
@@ -85,12 +95,10 @@ struct m68k_frame
   /* Data and address register.  */
   int reg_no;
   unsigned int reg_mask;
-  unsigned int reg_rev_mask;
 
   /* FPU registers.  */
   int fpu_no;
   unsigned int fpu_mask;
-  unsigned int fpu_rev_mask;
 
   /* Offsets relative to ARG_POINTER.  */
   HOST_WIDE_INT frame_pointer_offset;
@@ -103,23 +111,42 @@ struct m68k_frame
 /* Current frame information calculated by m68k_compute_frame_layout().  */
 static struct m68k_frame current_frame;
 
+/* Structure describing an m68k address.
+
+   If CODE is UNKNOWN, the address is BASE + INDEX * SCALE + OFFSET,
+   with null fields evaluating to 0.  Here:
+
+   - BASE satisfies m68k_legitimate_base_reg_p
+   - INDEX satisfies m68k_legitimate_index_reg_p
+   - OFFSET satisfies m68k_legitimate_constant_address_p
+
+   INDEX is either HImode or SImode.  The other fields are SImode.
+
+   If CODE is PRE_DEC, the address is -(BASE).  If CODE is POST_INC,
+   the address is (BASE)+.  */
+struct m68k_address {
+  enum rtx_code code;
+  rtx base;
+  rtx index;
+  rtx offset;
+  int scale;
+};
+
 static bool m68k_handle_option (size_t, const char *, int);
 static rtx find_addr_reg (rtx);
 static const char *singlemove_string (rtx *);
-static void m68k_output_function_prologue (FILE *, HOST_WIDE_INT);
-static void m68k_output_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef M68K_TARGET_COFF
 static void m68k_coff_asm_named_section (const char *, unsigned int, tree);
 #endif /* M68K_TARGET_COFF */
 static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
 static rtx m68k_struct_value_rtx (tree, int);
-static bool m68k_interrupt_function_p (tree func);
 static tree m68k_handle_fndecl_attribute (tree *node, tree name,
 					  tree args, int flags,
 					  bool *no_add_attrs);
 static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
+static bool m68k_ok_for_sibcall_p (tree, tree);
 static bool m68k_rtx_costs (rtx, int, int, int *);
 
 
@@ -161,15 +188,10 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_UNALIGNED_SI_OP
 #define TARGET_ASM_UNALIGNED_SI_OP TARGET_ASM_ALIGNED_SI_OP
 
-#undef TARGET_ASM_FUNCTION_PROLOGUE
-#define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
-#undef TARGET_ASM_FUNCTION_EPILOGUE
-#define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
-
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
@@ -190,6 +212,12 @@ int m68k_last_compare_had_fp_operands;
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX m68k_struct_value_rtx
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM m68k_illegitimate_symbolic_constant_p
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL m68k_ok_for_sibcall_p
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
@@ -607,8 +635,8 @@ m68k_cpp_cpu_family (const char *prefix)
 
 /* Return nonzero if FUNC is an interrupt function as specified by the
    "interrupt_handler" attribute.  */
-static bool
-m68k_interrupt_function_p(tree func)
+bool
+m68k_interrupt_function_p (tree func)
 {
   tree a;
 
@@ -641,7 +669,7 @@ static void
 m68k_compute_frame_layout (void)
 {
   int regno, saved;
-  unsigned int mask, rmask;
+  unsigned int mask;
   bool interrupt_handler = m68k_interrupt_function_p (current_function_decl);
 
   /* Only compute the frame once per function.
@@ -652,28 +680,25 @@ m68k_compute_frame_layout (void)
 
   current_frame.size = (get_frame_size () + 3) & -4;
 
-  mask = rmask = saved = 0;
+  mask = saved = 0;
   for (regno = 0; regno < 16; regno++)
     if (m68k_save_reg (regno, interrupt_handler))
       {
-	mask |= 1 << regno;
-	rmask |= 1 << (15 - regno);
+	mask |= 1 << (regno - D0_REG);
 	saved++;
       }
   current_frame.offset = saved * 4;
   current_frame.reg_no = saved;
   current_frame.reg_mask = mask;
-  current_frame.reg_rev_mask = rmask;
 
   current_frame.foffset = 0;
-  mask = rmask = saved = 0;
+  mask = saved = 0;
   if (TARGET_HARD_FLOAT)
     {
       for (regno = 16; regno < 24; regno++)
 	if (m68k_save_reg (regno, interrupt_handler))
 	  {
-	    mask |= 1 << (regno - 16);
-	    rmask |= 1 << (23 - regno);
+	    mask |= 1 << (regno - FP0_REG);
 	    saved++;
 	  }
       current_frame.foffset = saved * TARGET_FP_REG_SIZE;
@@ -681,7 +706,6 @@ m68k_compute_frame_layout (void)
     }
   current_frame.fpu_no = saved;
   current_frame.fpu_mask = mask;
-  current_frame.fpu_rev_mask = rmask;
 
   /* Remember what function this frame refers to.  */
   current_frame.funcdef_no = current_function_funcdef_no;
@@ -721,11 +745,20 @@ m68k_initial_elimination_offset (int from, int to)
 static bool
 m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
-  if (flag_pic && regno == PIC_OFFSET_TABLE_REGNUM)
+  if (flag_pic && regno == PIC_REG)
     {
+      /* A function that receives a nonlocal goto must save all call-saved
+	 registers.  */
+      if (current_function_has_nonlocal_label)
+	return true;
       if (current_function_uses_pic_offset_table)
 	return true;
-      if (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)
+      /* Reload may introduce constant pool references into a function
+	 that thitherto didn't need a PIC register.  Note that the test
+	 above will not catch that case because we will only set
+	 current_function_uses_pic_offset_table when emitting
+	 the address reloads.  */
+      if (current_function_uses_const_pool)
 	return true;
     }
 
@@ -769,154 +802,158 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
   return !call_used_regs[regno];
 }
 
-/* This function generates the assembly code for function entry.
-   STREAM is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.  */
+/* Emit RTL for a MOVEM or FMOVEM instruction.  BASE + OFFSET represents
+   the lowest memory address.  COUNT is the number of registers to be
+   moved, with register REGNO + I being moved if bit I of MASK is set.
+   STORE_P specifies the direction of the move and ADJUST_STACK_P says
+   whether or not this is pre-decrement (if STORE_P) or post-increment
+   (if !STORE_P) operation.  */
+
+static rtx
+m68k_emit_movem (rtx base, HOST_WIDE_INT offset,
+		 unsigned int count, unsigned int regno,
+		 unsigned int mask, bool store_p, bool adjust_stack_p)
+{
+  int i;
+  rtx body, addr, src, operands[2];
+  enum machine_mode mode;
+
+  body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (adjust_stack_p + count));
+  mode = reg_raw_mode[regno];
+  i = 0;
+
+  if (adjust_stack_p)
+    {
+      src = plus_constant (base, (count
+				  * GET_MODE_SIZE (mode)
+				  * (HOST_WIDE_INT) (store_p ? -1 : 1)));
+      XVECEXP (body, 0, i++) = gen_rtx_SET (VOIDmode, base, src);
+    }
+
+  for (; mask != 0; mask >>= 1, regno++)
+    if (mask & 1)
+      {
+	addr = plus_constant (base, offset);
+	operands[!store_p] = gen_frame_mem (mode, addr);
+	operands[store_p] = gen_rtx_REG (mode, regno);
+	XVECEXP (body, 0, i++)
+	  = gen_rtx_SET (VOIDmode, operands[0], operands[1]);
+	offset += GET_MODE_SIZE (mode);
+      }
+  gcc_assert (i == XVECLEN (body, 0));
+
+  return emit_insn (body);
+}
+
+/* Make INSN a frame-related instruction.  */
 
 static void
-m68k_output_function_prologue (FILE *stream,
-			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+m68k_set_frame_related (rtx insn)
+{
+  rtx body;
+  int i;
+
+  RTX_FRAME_RELATED_P (insn) = 1;
+  body = PATTERN (insn);
+  if (GET_CODE (body) == PARALLEL)
+    for (i = 0; i < XVECLEN (body, 0); i++)
+      RTX_FRAME_RELATED_P (XVECEXP (body, 0, i)) = 1;
+}
+
+/* Emit RTL for the "prologue" define_expand.  */
+
+void
+m68k_expand_prologue (void)
 {
   HOST_WIDE_INT fsize_with_regs;
-  HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
+  rtx limit, src, dest, insn;
 
-  m68k_compute_frame_layout();
+  m68k_compute_frame_layout ();
 
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
   if (current_function_limit_stack
       && GET_CODE (stack_limit_rtx) == SYMBOL_REF)
-    asm_fprintf (stream, "\tcmp" ASM_DOT "l %I%s+%wd,%Rsp\n\ttrapcs\n",
-		 XSTR (stack_limit_rtx, 0), current_frame.size + 4);
+    {
+      limit = plus_constant (stack_limit_rtx, current_frame.size + 4);
+      if (!LEGITIMATE_CONSTANT_P (limit))
+	{
+	  emit_move_insn (gen_rtx_REG (Pmode, D0_REG), limit);
+	  limit = gen_rtx_REG (Pmode, D0_REG);
+	}
+      emit_insn (gen_cmpsi (stack_pointer_rtx, limit));
+      emit_insn (gen_conditional_trap (gen_rtx_LTU (VOIDmode,
+						    cc0_rtx, const0_rtx),
+				       const1_rtx));
+    }
 
-  /* On ColdFire add register save into initial stack frame setup, if possible.  */
   fsize_with_regs = current_frame.size;
   if (TARGET_COLDFIRE)
     {
-      if (current_frame.reg_no > 2)
-	fsize_with_regs += current_frame.reg_no * 4;
-      if (current_frame.fpu_no)
-	fsize_with_regs += current_frame.fpu_no * 8;
+      /* ColdFire's move multiple instructions do not allow pre-decrement
+	 addressing.  Add the size of movem saves to the initial stack
+	 allocation instead.  */
+      if (current_frame.reg_no >= MIN_MOVEM_REGS)
+	fsize_with_regs += current_frame.reg_no * GET_MODE_SIZE (SImode);
+      if (current_frame.fpu_no >= MIN_FMOVEM_REGS)
+	fsize_with_regs += current_frame.fpu_no * GET_MODE_SIZE (DFmode);
     }
 
   if (frame_pointer_needed)
     {
-      if (current_frame.size == 0 && TUNE_68040)
-	/* on the 68040, pea + move is faster than link.w 0 */
-	fprintf (stream, (MOTOROLA
-			  ? "\tpea (%s)\n\tmove.l %s,%s\n"
-			  : "\tpea %s@\n\tmovel %s,%s\n"),
-		 M68K_REGNAME (FRAME_POINTER_REGNUM),
-		 M68K_REGNAME (STACK_POINTER_REGNUM),
-		 M68K_REGNAME (FRAME_POINTER_REGNUM));
-      else if (fsize_with_regs < 0x8000)
-	asm_fprintf (stream, "\tlink" ASM_DOTW " %s,%I%wd\n",
-		     M68K_REGNAME (FRAME_POINTER_REGNUM), -fsize_with_regs);
-      else if (TARGET_68020)
-	asm_fprintf (stream, "\tlink" ASM_DOTL " %s,%I%wd\n",
-		     M68K_REGNAME (FRAME_POINTER_REGNUM), -fsize_with_regs);
-      else
-	/* Adding negative number is faster on the 68040.  */
-	asm_fprintf (stream,
-		     "\tlink" ASM_DOTW " %s,%I0\n"
-		     "\tadd" ASM_DOT "l %I%wd,%Rsp\n",
-		     M68K_REGNAME (FRAME_POINTER_REGNUM), -fsize_with_regs);
-    }
-  else if (fsize_with_regs) /* !frame_pointer_needed */
-    {
-      if (fsize_with_regs < 0x8000)
+      if (fsize_with_regs == 0 && TUNE_68040)
 	{
-	  if (fsize_with_regs <= 8)
-	    {
-	      if (!TARGET_COLDFIRE)
-		asm_fprintf (stream, "\tsubq" ASM_DOT "w %I%wd,%Rsp\n",
-		             fsize_with_regs);
-	      else
-		asm_fprintf (stream, "\tsubq" ASM_DOT "l %I%wd,%Rsp\n",
-		             fsize_with_regs);
-	    }
-	  else if (fsize_with_regs <= 16 && TUNE_CPU32)
-	    /* On the CPU32 it is faster to use two subqw instructions to
-	       subtract a small integer (8 < N <= 16) to a register.  */
-	    asm_fprintf (stream,
-			 "\tsubq" ASM_DOT "w %I8,%Rsp\n"
-			 "\tsubq" ASM_DOT "w %I%wd,%Rsp\n",
-			 fsize_with_regs - 8);
-	  else if (TUNE_68040)
-	    /* Adding negative number is faster on the 68040.  */
-	    asm_fprintf (stream, "\tadd" ASM_DOT "w %I%wd,%Rsp\n",
-			 -fsize_with_regs);
-	  else
-	    asm_fprintf (stream, (MOTOROLA
-				  ? "\tlea (%wd,%Rsp),%Rsp\n"
-				  : "\tlea %Rsp@(%wd),%Rsp\n"),
-			 -fsize_with_regs);
+	  /* On the 68040, two separate moves are faster than link.w 0.  */
+	  dest = gen_frame_mem (Pmode,
+				gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx));
+	  m68k_set_frame_related (emit_move_insn (dest, frame_pointer_rtx));
+	  m68k_set_frame_related (emit_move_insn (frame_pointer_rtx,
+						  stack_pointer_rtx));
 	}
-      else /* fsize_with_regs >= 0x8000 */
-	asm_fprintf (stream, "\tadd" ASM_DOT "l %I%wd,%Rsp\n",
-		     -fsize_with_regs);
-    } /* !frame_pointer_needed */
-
-  if (dwarf2out_do_frame ())
-    {
-      if (frame_pointer_needed)
-	{
-	  char *l;
-	  l = (char *) dwarf2out_cfi_label ();
-	  cfa_offset += 4;
-	  dwarf2out_reg_save (l, FRAME_POINTER_REGNUM, -cfa_offset);
-	  dwarf2out_def_cfa (l, FRAME_POINTER_REGNUM, cfa_offset);
-	  cfa_offset += current_frame.size;
-        }
+      else if (fsize_with_regs < 0x8000 || TARGET_68020)
+	m68k_set_frame_related
+	  (emit_insn (gen_link (frame_pointer_rtx,
+				GEN_INT (-4 - fsize_with_regs))));
       else
-        {
-	  cfa_offset += current_frame.size;
-	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
-        }
+ 	{
+	  m68k_set_frame_related
+	    (emit_insn (gen_link (frame_pointer_rtx, GEN_INT (-4))));
+	  m68k_set_frame_related
+	    (emit_insn (gen_addsi3 (stack_pointer_rtx,
+				    stack_pointer_rtx,
+				    GEN_INT (-fsize_with_regs))));
+	}
     }
+  else if (fsize_with_regs != 0)
+    m68k_set_frame_related
+      (emit_insn (gen_addsi3 (stack_pointer_rtx,
+			      stack_pointer_rtx,
+			      GEN_INT (-fsize_with_regs))));
 
   if (current_frame.fpu_mask)
     {
+      gcc_assert (current_frame.fpu_no >= MIN_FMOVEM_REGS);
       if (TARGET_68881)
-	{
-	  asm_fprintf (stream, (MOTOROLA
-				? "\tfmovm %I0x%x,-(%Rsp)\n"
-				: "\tfmovem %I0x%x,%Rsp@-\n"),
-		       current_frame.fpu_mask);
-	}
+	m68k_set_frame_related
+	  (m68k_emit_movem (stack_pointer_rtx,
+			    current_frame.fpu_no * -GET_MODE_SIZE (XFmode),
+			    current_frame.fpu_no, FP0_REG,
+			    current_frame.fpu_mask, true, true));
       else
 	{
 	  int offset;
 
-	  /* stack already has registers in it.  Find the offset from
-	     the bottom of stack to where the FP registers go */
-	  if (current_frame.reg_no <= 2)
+	  /* If we're using moveml to save the integer registers,
+	     the stack pointer will point to the bottom of the moveml
+	     save area.  Find the stack offset of the first FP register.  */
+	  if (current_frame.reg_no < MIN_MOVEM_REGS)
 	    offset = 0;
 	  else
-	    offset = current_frame.reg_no * 4;
-	  if (offset)
-	    asm_fprintf (stream,
-			 "\tfmovem %I0x%x,%d(%Rsp)\n",
-			 current_frame.fpu_rev_mask,
-			 offset);
-	  else
-	    asm_fprintf (stream,
-			 "\tfmovem %I0x%x,(%Rsp)\n",
-			 current_frame.fpu_rev_mask);
-	}
-
-      if (dwarf2out_do_frame ())
-	{
-	  char *l = (char *) dwarf2out_cfi_label ();
-	  int n_regs, regno;
-
-	  cfa_offset += current_frame.fpu_no * TARGET_FP_REG_SIZE;
-	  if (! frame_pointer_needed)
-	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-	  for (regno = 16, n_regs = 0; regno < 24; regno++)
-	    if (current_frame.fpu_mask & (1 << (regno - 16)))
-	      dwarf2out_reg_save (l, regno, -cfa_offset
-				  + n_regs++ * TARGET_FP_REG_SIZE);
+	    offset = current_frame.reg_no * GET_MODE_SIZE (SImode);
+	  m68k_set_frame_related
+	    (m68k_emit_movem (stack_pointer_rtx, offset,
+			      current_frame.fpu_no, FP0_REG,
+			      current_frame.fpu_mask, true, false));
 	}
     }
 
@@ -925,96 +962,55 @@ m68k_output_function_prologue (FILE *stream,
   if (current_function_limit_stack)
     {
       if (REG_P (stack_limit_rtx))
-	asm_fprintf (stream, "\tcmp" ASM_DOT "l %s,%Rsp\n\ttrapcs\n",
-		     M68K_REGNAME (REGNO (stack_limit_rtx)));
+	{
+	  emit_insn (gen_cmpsi (stack_pointer_rtx, stack_limit_rtx));
+	  emit_insn (gen_conditional_trap (gen_rtx_LTU (VOIDmode,
+							cc0_rtx, const0_rtx),
+					   const1_rtx));
+	}
       else if (GET_CODE (stack_limit_rtx) != SYMBOL_REF)
 	warning (0, "stack limit expression is not supported");
     }
 
-  if (current_frame.reg_no <= 2)
+  if (current_frame.reg_no < MIN_MOVEM_REGS)
     {
-      /* Store each separately in the same order moveml uses.
-         Using two movel instructions instead of a single moveml
-         is about 15% faster for the 68020 and 68030 at no expense
-         in code size.  */
-
+      /* Store each register separately in the same order moveml does.  */
       int i;
 
-      for (i = 0; i < 16; i++)
-        if (current_frame.reg_rev_mask & (1 << i))
+      for (i = 16; i-- > 0; )
+	if (current_frame.reg_mask & (1 << i))
 	  {
-	    asm_fprintf (stream, (MOTOROLA
-				  ? "\t%Omove.l %s,-(%Rsp)\n"
-				  : "\tmovel %s,%Rsp@-\n"),
-			 M68K_REGNAME (15 - i));
-	    if (dwarf2out_do_frame ())
-	      {
-		char *l = (char *) dwarf2out_cfi_label ();
-
-		cfa_offset += 4;
-		if (! frame_pointer_needed)
-		  dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-		dwarf2out_reg_save (l, 15 - i, -cfa_offset);
-	      }
+	    src = gen_rtx_REG (SImode, D0_REG + i);
+	    dest = gen_frame_mem (SImode,
+				  gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx));
+	    m68k_set_frame_related (emit_insn (gen_movsi (dest, src)));
 	  }
     }
-  else if (current_frame.reg_rev_mask)
+  else
     {
       if (TARGET_COLDFIRE)
-	/* The ColdFire does not support the predecrement form of the
-	   MOVEM instruction, so we must adjust the stack pointer and
-	   then use the plain address register indirect mode.
-	   The required register save space was combined earlier with
-	   the fsize_with_regs amount.  */
-
-	asm_fprintf (stream, (MOTOROLA
-			      ? "\tmovm.l %I0x%x,(%Rsp)\n"
-			      : "\tmoveml %I0x%x,%Rsp@\n"),
-		     current_frame.reg_mask);
+	/* The required register save space has already been allocated.
+	   The first register should be stored at (%sp).  */
+	m68k_set_frame_related
+	  (m68k_emit_movem (stack_pointer_rtx, 0,
+			    current_frame.reg_no, D0_REG,
+			    current_frame.reg_mask, true, false));
       else
-	asm_fprintf (stream, (MOTOROLA
-			      ? "\tmovm.l %I0x%x,-(%Rsp)\n"
-			      : "\tmoveml %I0x%x,%Rsp@-\n"),
-		     current_frame.reg_rev_mask);
-      if (dwarf2out_do_frame ())
-	{
-	  char *l = (char *) dwarf2out_cfi_label ();
-	  int n_regs, regno;
-
-	  cfa_offset += current_frame.reg_no * 4;
-	  if (! frame_pointer_needed)
-	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
-	  for (regno = 0, n_regs = 0; regno < 16; regno++)
-	    if (current_frame.reg_mask & (1 << regno))
-	      dwarf2out_reg_save (l, regno, -cfa_offset + n_regs++ * 4);
-	}
+	m68k_set_frame_related
+	  (m68k_emit_movem (stack_pointer_rtx,
+			    current_frame.reg_no * -GET_MODE_SIZE (SImode),
+			    current_frame.reg_no, D0_REG,
+			    current_frame.reg_mask, true, true));
     }
-  if (!TARGET_SEP_DATA && flag_pic
-      && (current_function_uses_pic_offset_table
-	  || (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)))
+
+  if (flag_pic
+      && !TARGET_SEP_DATA
+      && current_function_uses_pic_offset_table)
     {
-      if (TARGET_ID_SHARED_LIBRARY)
-	{
-	  asm_fprintf (stream, "\tmovel %s@(%s), %s\n",
-		       M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM),
-		       m68k_library_id_string,
-		       M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM));
-	}
-      else
-	{
-	  if (MOTOROLA)
-	    asm_fprintf (stream,
-			 "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
-			 M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM));
-	  else
-	    {
-	      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
-			   M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM));
-	      asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
-			   M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM),
-			   M68K_REGNAME (PIC_OFFSET_TABLE_REGNUM));
-	    }
-	}
+      insn = emit_insn (gen_load_got (pic_offset_table_rtx));
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+					    const0_rtx,
+					    REG_NOTES (insn));
     }
 }
 
@@ -1031,301 +1027,175 @@ m68k_use_return_insn (void)
   return current_frame.offset == 0;
 }
 
-/* This function generates the assembly code for function exit,
-   on machines that need it.
+/* Emit RTL for the "epilogue" or "sibcall_epilogue" define_expand;
+   SIBCALL_P says which.
 
    The function epilogue should not depend on the current stack pointer!
    It should use the frame pointer only, if there is a frame pointer.
    This is mandatory because of alloca; we also take advantage of it to
    omit stack adjustments before returning.  */
 
-static void
-m68k_output_function_epilogue (FILE *stream,
-			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+void
+m68k_expand_epilogue (bool sibcall_p)
 {
   HOST_WIDE_INT fsize, fsize_with_regs;
-  bool big = false;
-  bool restore_from_sp = false;
-  rtx insn = get_last_insn ();
+  bool big, restore_from_sp;
 
   m68k_compute_frame_layout ();
 
-  /* If the last insn was a BARRIER, we don't have to write any code.  */
-  if (GET_CODE (insn) == NOTE)
-    insn = prev_nonnote_insn (insn);
-  if (insn && GET_CODE (insn) == BARRIER)
-    return;
-
   fsize = current_frame.size;
+  big = false;
+  restore_from_sp = false;
 
-  /* FIXME: leaf_function_p below is too strong.
+  /* FIXME : current_function_is_leaf below is too strong.
      What we really need to know there is if there could be pending
      stack adjustment needed at that point.  */
-  restore_from_sp
-    = (! frame_pointer_needed
-       || (! current_function_calls_alloca && leaf_function_p ()));
+  restore_from_sp = (!frame_pointer_needed
+		     || (!current_function_calls_alloca
+			 && current_function_is_leaf));
 
   /* fsize_with_regs is the size we need to adjust the sp when
      popping the frame.  */
   fsize_with_regs = fsize;
-
-  /* Because the ColdFire doesn't support moveml with
-     complex address modes, we must adjust the stack manually
-     after restoring registers. When the frame pointer isn't used,
-     we can merge movem adjustment into frame unlinking
-     made immediately after it.  */
   if (TARGET_COLDFIRE && restore_from_sp)
     {
-      if (current_frame.reg_no > 2)
-	fsize_with_regs += current_frame.reg_no * 4;
-      if (current_frame.fpu_no)
-	fsize_with_regs += current_frame.fpu_no * 8;
+      /* ColdFire's move multiple instructions do not allow post-increment
+	 addressing.  Add the size of movem loads to the final deallocation
+	 instead.  */
+      if (current_frame.reg_no >= MIN_MOVEM_REGS)
+	fsize_with_regs += current_frame.reg_no * GET_MODE_SIZE (SImode);
+      if (current_frame.fpu_no >= MIN_FMOVEM_REGS)
+	fsize_with_regs += current_frame.fpu_no * GET_MODE_SIZE (DFmode);
     }
 
   if (current_frame.offset + fsize >= 0x8000
-      && ! restore_from_sp
+      && !restore_from_sp
       && (current_frame.reg_mask || current_frame.fpu_mask))
     {
-      /* Because the ColdFire doesn't support moveml with
-         complex address modes we make an extra correction here.  */
-      if (TARGET_COLDFIRE)
-        fsize += current_frame.offset;
-
-      asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
-      fsize = 0, big = true;
+      if (TARGET_COLDFIRE
+	  && (current_frame.reg_no >= MIN_MOVEM_REGS
+	      || current_frame.fpu_no >= MIN_FMOVEM_REGS))
+	{
+	  /* ColdFire's move multiple instructions do not support the
+	     (d8,Ax,Xi) addressing mode, so we're as well using a normal
+	     stack-based restore.  */
+	  emit_move_insn (gen_rtx_REG (Pmode, A1_REG),
+			  GEN_INT (-(current_frame.offset + fsize)));
+	  emit_insn (gen_addsi3 (stack_pointer_rtx,
+				 gen_rtx_REG (Pmode, A1_REG),
+				 frame_pointer_rtx));
+	  restore_from_sp = true;
+	}
+      else
+	{
+	  emit_move_insn (gen_rtx_REG (Pmode, A1_REG), GEN_INT (-fsize));
+	  fsize = 0;
+	  big = true;
+	}
     }
-  if (current_frame.reg_no <= 2)
+
+  if (current_frame.reg_no < MIN_MOVEM_REGS)
     {
-      /* Restore each separately in the same order moveml does.
-         Using two movel instructions instead of a single moveml
-         is about 15% faster for the 68020 and 68030 at no expense
-         in code size.  */
-
+      /* Restore each register separately in the same order moveml does.  */
       int i;
-      HOST_WIDE_INT offset = current_frame.offset + fsize;
+      HOST_WIDE_INT offset;
 
+      offset = current_frame.offset + fsize;
       for (i = 0; i < 16; i++)
         if (current_frame.reg_mask & (1 << i))
           {
-            if (big)
+	    rtx addr;
+
+	    if (big)
 	      {
-		if (MOTOROLA)
-		  asm_fprintf (stream, "\t%Omove.l -%wd(%s,%Ra1.l),%s\n",
-			       offset,
-			       M68K_REGNAME (FRAME_POINTER_REGNUM),
-			       M68K_REGNAME (i));
-		else
-		  asm_fprintf (stream, "\tmovel %s@(-%wd,%Ra1:l),%s\n",
-			       M68K_REGNAME (FRAME_POINTER_REGNUM),
-			       offset,
-			       M68K_REGNAME (i));
+		/* Generate the address -OFFSET(%fp,%a1.l).  */
+		addr = gen_rtx_REG (Pmode, A1_REG);
+		addr = gen_rtx_PLUS (Pmode, addr, frame_pointer_rtx);
+		addr = plus_constant (addr, -offset);
 	      }
-            else if (restore_from_sp)
-	      asm_fprintf (stream, (MOTOROLA
-				    ? "\t%Omove.l (%Rsp)+,%s\n"
-				    : "\tmovel %Rsp@+,%s\n"),
-			   M68K_REGNAME (i));
-            else
-	      {
-	        if (MOTOROLA)
-		  asm_fprintf (stream, "\t%Omove.l -%wd(%s),%s\n",
-			       offset,
-			       M68K_REGNAME (FRAME_POINTER_REGNUM),
-			       M68K_REGNAME (i));
-		else
-		  asm_fprintf (stream, "\tmovel %s@(-%wd),%s\n",
-			       M68K_REGNAME (FRAME_POINTER_REGNUM),
-			       offset,
-			       M68K_REGNAME (i));
-	      }
-            offset -= 4;
-          }
+	    else if (restore_from_sp)
+	      addr = gen_rtx_POST_INC (Pmode, stack_pointer_rtx);
+	    else
+	      addr = plus_constant (frame_pointer_rtx, -offset);
+	    emit_move_insn (gen_rtx_REG (SImode, D0_REG + i),
+			    gen_frame_mem (SImode, addr));
+	    offset -= GET_MODE_SIZE (SImode);
+	  }
     }
   else if (current_frame.reg_mask)
     {
-      /* The ColdFire requires special handling due to its limited moveml
-	 insn.  */
-      if (TARGET_COLDFIRE)
-        {
-          if (big)
-            {
-              asm_fprintf (stream, "\tadd" ASM_DOT "l %s,%Ra1\n",
-			   M68K_REGNAME (FRAME_POINTER_REGNUM));
-              asm_fprintf (stream, (MOTOROLA
-				    ? "\tmovm.l (%Ra1),%I0x%x\n"
-				    : "\tmoveml %Ra1@,%I0x%x\n"),
-			   current_frame.reg_mask);
-	     }
-	   else if (restore_from_sp)
-	     asm_fprintf (stream, (MOTOROLA
-				   ? "\tmovm.l (%Rsp),%I0x%x\n"
-				   : "\tmoveml %Rsp@,%I0x%x\n"),
-			  current_frame.reg_mask);
-          else
-            {
-	      if (MOTOROLA)
-		asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
-			     current_frame.offset + fsize,
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.reg_mask);
-	      else
-		asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.offset + fsize,
-			     current_frame.reg_mask);
-	    }
-        }
-      else /* !TARGET_COLDFIRE */
-	{
-	  if (big)
-	    {
-	      if (MOTOROLA)
-		asm_fprintf (stream, "\tmovm.l -%wd(%s,%Ra1.l),%I0x%x\n",
-			     current_frame.offset + fsize,
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.reg_mask);
-	      else
-		asm_fprintf (stream, "\tmoveml %s@(-%wd,%Ra1:l),%I0x%x\n",
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.offset + fsize,
-			     current_frame.reg_mask);
-	    }
-	  else if (restore_from_sp)
-	    {
-	      asm_fprintf (stream, (MOTOROLA
-				    ? "\tmovm.l (%Rsp)+,%I0x%x\n"
-				    : "\tmoveml %Rsp@+,%I0x%x\n"),
-			   current_frame.reg_mask);
-	    }
-	  else
-	    {
-	      if (MOTOROLA)
-		asm_fprintf (stream, "\tmovm.l -%wd(%s),%I0x%x\n",
-			     current_frame.offset + fsize,
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.reg_mask);
-	      else
-		asm_fprintf (stream, "\tmoveml %s@(-%wd),%I0x%x\n",
-			     M68K_REGNAME (FRAME_POINTER_REGNUM),
-			     current_frame.offset + fsize,
-			     current_frame.reg_mask);
-	    }
-	}
+      if (big)
+	m68k_emit_movem (gen_rtx_PLUS (Pmode,
+				       gen_rtx_REG (Pmode, A1_REG),
+				       frame_pointer_rtx),
+			 -(current_frame.offset + fsize),
+			 current_frame.reg_no, D0_REG,
+			 current_frame.reg_mask, false, false);
+      else if (restore_from_sp)
+	m68k_emit_movem (stack_pointer_rtx, 0,
+			 current_frame.reg_no, D0_REG,
+			 current_frame.reg_mask, false,
+			 !TARGET_COLDFIRE);
+      else
+	m68k_emit_movem (frame_pointer_rtx,
+			 -(current_frame.offset + fsize),
+			 current_frame.reg_no, D0_REG,
+			 current_frame.reg_mask, false, false);
     }
-  if (current_frame.fpu_rev_mask)
+
+  if (current_frame.fpu_no > 0)
     {
       if (big)
-	{
-	  if (TARGET_COLDFIRE)
-	    {
-	      if (current_frame.reg_no)
-		asm_fprintf (stream, MOTOROLA ?
-			     "\tfmovem.d %d(%Ra1),%I0x%x\n" :
-			     "\tfmovmd (%d,%Ra1),%I0x%x\n",
-			     current_frame.reg_no * 4,
-			     current_frame.fpu_rev_mask);
-	      else
-		asm_fprintf (stream, MOTOROLA ?
-			     "\tfmovem.d (%Ra1),%I0x%x\n" :
-			     "\tfmovmd (%Ra1),%I0x%x\n",
-			     current_frame.fpu_rev_mask);
-	    }
-	  else if (MOTOROLA)
-	    asm_fprintf (stream, "\tfmovm -%wd(%s,%Ra1.l),%I0x%x\n",
-		         current_frame.foffset + fsize,
-		         M68K_REGNAME (FRAME_POINTER_REGNUM),
-		         current_frame.fpu_rev_mask);
-	  else
-	    asm_fprintf (stream, "\tfmovem %s@(-%wd,%Ra1:l),%I0x%x\n",
-			 M68K_REGNAME (FRAME_POINTER_REGNUM),
-			 current_frame.foffset + fsize,
-			 current_frame.fpu_rev_mask);
-	}
+	m68k_emit_movem (gen_rtx_PLUS (Pmode,
+				       gen_rtx_REG (Pmode, A1_REG),
+				       frame_pointer_rtx),
+			 -(current_frame.foffset + fsize),
+			 current_frame.fpu_no, FP0_REG,
+			 current_frame.fpu_mask, false, false);
       else if (restore_from_sp)
 	{
 	  if (TARGET_COLDFIRE)
 	    {
 	      int offset;
 
-	      /* Stack already has registers in it.  Find the offset from
-		 the bottom of stack to where the FP registers go.  */
-	      if (current_frame.reg_no <= 2)
+	      /* If we used moveml to restore the integer registers, the
+		 stack pointer will still point to the bottom of the moveml
+		 save area.  Find the stack offset of the first FP
+		 register.  */
+	      if (current_frame.reg_no < MIN_MOVEM_REGS)
 		offset = 0;
 	      else
-		offset = current_frame.reg_no * 4;
-	      if (offset)
-		asm_fprintf (stream,
-			     "\tfmovem %Rsp@(%d), %I0x%x\n",
-			     offset, current_frame.fpu_rev_mask);
-	      else
-		asm_fprintf (stream,
-			     "\tfmovem %Rsp@, %I0x%x\n",
-			     current_frame.fpu_rev_mask);
+		offset = current_frame.reg_no * GET_MODE_SIZE (SImode);
+	      m68k_emit_movem (stack_pointer_rtx, offset,
+			       current_frame.fpu_no, FP0_REG,
+			       current_frame.fpu_mask, false, false);
 	    }
 	  else
-	    asm_fprintf (stream, MOTOROLA ?
-			 "\tfmovm (%Rsp)+,%I0x%x\n" :
-			 "\tfmovem %Rsp@+,%I0x%x\n",
-			 current_frame.fpu_rev_mask);
+	    m68k_emit_movem (stack_pointer_rtx, 0,
+			     current_frame.fpu_no, FP0_REG,
+			     current_frame.fpu_mask, false, true);
 	}
       else
-	{
-	  if (MOTOROLA && !TARGET_COLDFIRE)
-	    asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
-			 current_frame.foffset + fsize,
-			 M68K_REGNAME (FRAME_POINTER_REGNUM),
-			 current_frame.fpu_rev_mask);
-	  else
-	    asm_fprintf (stream, "\tfmovem %s@(-%wd),%I0x%x\n",
-			 M68K_REGNAME (FRAME_POINTER_REGNUM),
-			 current_frame.foffset + fsize,
-			 current_frame.fpu_rev_mask);
-	}
+	m68k_emit_movem (frame_pointer_rtx,
+			 -(current_frame.foffset + fsize),
+			 current_frame.fpu_no, FP0_REG,
+			 current_frame.fpu_mask, false, false);
     }
+
   if (frame_pointer_needed)
-    fprintf (stream, "\tunlk %s\n", M68K_REGNAME (FRAME_POINTER_REGNUM));
+    emit_insn (gen_unlink (frame_pointer_rtx));
   else if (fsize_with_regs)
-    {
-      if (fsize_with_regs <= 8)
-	{
-	  if (!TARGET_COLDFIRE)
-	    asm_fprintf (stream, "\taddq" ASM_DOT "w %I%wd,%Rsp\n",
-			 fsize_with_regs);
-	  else
-	    asm_fprintf (stream, "\taddq" ASM_DOT "l %I%wd,%Rsp\n",
-			 fsize_with_regs);
-	}
-      else if (fsize_with_regs <= 16 && TUNE_CPU32)
-	{
-	  /* On the CPU32 it is faster to use two addqw instructions to
-	     add a small integer (8 < N <= 16) to a register.  */
-	  asm_fprintf (stream,
-		       "\taddq" ASM_DOT "w %I8,%Rsp\n"
-		       "\taddq" ASM_DOT "w %I%wd,%Rsp\n",
-		       fsize_with_regs - 8);
-	}
-      else if (fsize_with_regs < 0x8000)
-	{
-	  if (TUNE_68040)
-	    asm_fprintf (stream, "\tadd" ASM_DOT "w %I%wd,%Rsp\n",
-			 fsize_with_regs);
-	  else
-	    asm_fprintf (stream, (MOTOROLA
-				  ? "\tlea (%wd,%Rsp),%Rsp\n"
-				  : "\tlea %Rsp@(%wd),%Rsp\n"),
-			 fsize_with_regs);
-	}
-      else
-	asm_fprintf (stream, "\tadd" ASM_DOT "l %I%wd,%Rsp\n", fsize_with_regs);
-    }
+    emit_insn (gen_addsi3 (stack_pointer_rtx,
+			   stack_pointer_rtx,
+			   GEN_INT (fsize_with_regs)));
+
   if (current_function_calls_eh_return)
-    asm_fprintf (stream, "\tadd" ASM_DOT "l %Ra0,%Rsp\n");
-  if (m68k_interrupt_function_p (current_function_decl))
-    fprintf (stream, "\trte\n");
-  else if (current_function_pops_args)
-    asm_fprintf (stream, "\trtd %I%d\n", current_function_pops_args);
-  else
-    fprintf (stream, "\trts\n");
+    emit_insn (gen_addsi3 (stack_pointer_rtx,
+			   stack_pointer_rtx,
+			   EH_RETURN_STACKADJ_RTX));
+
+  if (!sibcall_p)
+    emit_insn (gen_rtx_RETURN (VOIDmode));
 }
 
 /* Return true if X is a valid comparison operator for the dbcc 
@@ -1362,6 +1232,16 @@ flags_in_68881 (void)
   return cc_status.flags & CC_IN_68881;
 }
 
+/* Implement TARGET_FUNCTION_OK_FOR_SIBCALL_P.  We cannot use sibcalls
+   for nested functions because we use the static chain register for
+   indirect calls.  */
+
+static bool
+m68k_ok_for_sibcall_p (tree decl ATTRIBUTE_UNUSED, tree exp)
+{
+  return TREE_OPERAND (exp, 2) == NULL;
+}
+
 /* Convert X to a legitimate function call memory reference and return the
    result.  */
 
@@ -1372,6 +1252,19 @@ m68k_legitimize_call_address (rtx x)
   if (call_operand (XEXP (x, 0), VOIDmode))
     return x;
   return replace_equiv_address (x, force_reg (Pmode, XEXP (x, 0)));
+}
+
+/* Likewise for sibling calls.  */
+
+rtx
+m68k_legitimize_sibcall_address (rtx x)
+{
+  gcc_assert (MEM_P (x));
+  if (sibcall_operand (XEXP (x, 0), VOIDmode))
+    return x;
+
+  emit_move_insn (gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM), XEXP (x, 0));
+  return replace_equiv_address (x, gen_rtx_REG (Pmode, STATIC_CHAIN_REGNUM));
 }
 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
@@ -1663,6 +1556,338 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
   return "btst %0,%1";
 }
 
+/* Return true if X is a legitimate base register.  STRICT_P says
+   whether we need strict checking.  */
+
+bool
+m68k_legitimate_base_reg_p (rtx x, bool strict_p)
+{
+  /* Allow SUBREG everywhere we allow REG.  This results in better code.  */
+  if (!strict_p && GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
+
+  return (REG_P (x)
+	  && (strict_p
+	      ? REGNO_OK_FOR_BASE_P (REGNO (x))
+	      : !DATA_REGNO_P (REGNO (x)) && !FP_REGNO_P (REGNO (x))));
+}
+
+/* Return true if X is a legitimate index register.  STRICT_P says
+   whether we need strict checking.  */
+
+bool
+m68k_legitimate_index_reg_p (rtx x, bool strict_p)
+{
+  if (!strict_p && GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
+
+  return (REG_P (x)
+	  && (strict_p
+	      ? REGNO_OK_FOR_INDEX_P (REGNO (x))
+	      : !FP_REGNO_P (REGNO (x))));
+}
+
+/* Return true if X is a legitimate index expression for a (d8,An,Xn) or
+   (bd,An,Xn) addressing mode.  Fill in the INDEX and SCALE fields of
+   ADDRESS if so.  STRICT_P says whether we need strict checking.  */
+
+static bool
+m68k_decompose_index (rtx x, bool strict_p, struct m68k_address *address)
+{
+  int scale;
+
+  /* Check for a scale factor.  */
+  scale = 1;
+  if ((TARGET_68020 || TARGET_COLDFIRE)
+      && GET_CODE (x) == MULT
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && (INTVAL (XEXP (x, 1)) == 2
+	  || INTVAL (XEXP (x, 1)) == 4
+	  || (INTVAL (XEXP (x, 1)) == 8
+	      && (TARGET_COLDFIRE_FPU || !TARGET_COLDFIRE))))
+    {
+      scale = INTVAL (XEXP (x, 1));
+      x = XEXP (x, 0);
+    }
+
+  /* Check for a word extension.  */
+  if (!TARGET_COLDFIRE
+      && GET_CODE (x) == SIGN_EXTEND
+      && GET_MODE (XEXP (x, 0)) == HImode)
+    x = XEXP (x, 0);
+
+  if (m68k_legitimate_index_reg_p (x, strict_p))
+    {
+      address->scale = scale;
+      address->index = x;
+      return true;
+    }
+
+  return false;
+}
+
+/* Return true if X is an illegitimate symbolic constant.  */
+
+bool
+m68k_illegitimate_symbolic_constant_p (rtx x)
+{
+  rtx base, offset;
+
+  if (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P)
+    {
+      split_const (x, &base, &offset);
+      if (GET_CODE (base) == SYMBOL_REF
+	  && !offset_within_block_p (base, INTVAL (offset)))
+	return true;
+    }
+  return false;
+}
+
+/* Return true if X is a legitimate constant address that can reach
+   bytes in the range [X, X + REACH).  STRICT_P says whether we need
+   strict checking.  */
+
+static bool
+m68k_legitimate_constant_address_p (rtx x, unsigned int reach, bool strict_p)
+{
+  rtx base, offset;
+
+  if (!CONSTANT_ADDRESS_P (x))
+    return false;
+
+  if (flag_pic
+      && !(strict_p && TARGET_PCREL)
+      && symbolic_operand (x, VOIDmode))
+    return false;
+
+  if (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P && reach > 1)
+    {
+      split_const (x, &base, &offset);
+      if (GET_CODE (base) == SYMBOL_REF
+	  && !offset_within_block_p (base, INTVAL (offset) + reach - 1))
+	return false;
+    }
+
+  return true;
+}
+
+/* Return true if X is a LABEL_REF for a jump table.  Assume that unplaced
+   labels will become jump tables.  */
+
+static bool
+m68k_jump_table_ref_p (rtx x)
+{
+  if (GET_CODE (x) != LABEL_REF)
+    return false;
+
+  x = XEXP (x, 0);
+  if (!NEXT_INSN (x) && !PREV_INSN (x))
+    return true;
+
+  x = next_nonnote_insn (x);
+  return x && JUMP_TABLE_DATA_P (x);
+}
+
+/* Return true if X is a legitimate address for values of mode MODE.
+   STRICT_P says whether strict checking is needed.  If the address
+   is valid, describe its components in *ADDRESS.  */
+
+static bool
+m68k_decompose_address (enum machine_mode mode, rtx x,
+			bool strict_p, struct m68k_address *address)
+{
+  unsigned int reach;
+
+  memset (address, 0, sizeof (*address));
+
+  if (mode == BLKmode)
+    reach = 1;
+  else
+    reach = GET_MODE_SIZE (mode);
+
+  /* Check for (An) (mode 2).  */
+  if (m68k_legitimate_base_reg_p (x, strict_p))
+    {
+      address->base = x;
+      return true;
+    }
+
+  /* Check for -(An) and (An)+ (modes 3 and 4).  */
+  if ((GET_CODE (x) == PRE_DEC || GET_CODE (x) == POST_INC)
+      && m68k_legitimate_base_reg_p (XEXP (x, 0), strict_p))
+    {
+      address->code = GET_CODE (x);
+      address->base = XEXP (x, 0);
+      return true;
+    }
+
+  /* Check for (d16,An) (mode 5).  */
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && IN_RANGE (INTVAL (XEXP (x, 1)), -0x8000, 0x8000 - reach)
+      && m68k_legitimate_base_reg_p (XEXP (x, 0), strict_p))
+    {
+      address->base = XEXP (x, 0);
+      address->offset = XEXP (x, 1);
+      return true;
+    }
+
+  /* Check for GOT loads.  These are (bd,An,Xn) addresses if
+     TARGET_68020 && flag_pic == 2, otherwise they are (d16,An)
+     addresses.  */
+  if (flag_pic
+      && GET_CODE (x) == PLUS
+      && XEXP (x, 0) == pic_offset_table_rtx
+      && (GET_CODE (XEXP (x, 1)) == SYMBOL_REF
+	  || GET_CODE (XEXP (x, 1)) == LABEL_REF))
+    {
+      address->base = XEXP (x, 0);
+      address->offset = XEXP (x, 1);
+      return true;
+    }
+
+  /* The ColdFire FPU only accepts addressing modes 2-5.  */
+  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (mode) == MODE_FLOAT)
+    return false;
+
+  /* Check for (xxx).w and (xxx).l.  Also, in the TARGET_PCREL case,
+     check for (d16,PC) or (bd,PC,Xn) with a suppressed index register.
+     All these modes are variations of mode 7.  */
+  if (m68k_legitimate_constant_address_p (x, reach, strict_p))
+    {
+      address->offset = x;
+      return true;
+    }
+
+  /* Check for (d8,PC,Xn), a mode 7 form.  This case is needed for
+     tablejumps.
+
+     ??? do_tablejump creates these addresses before placing the target
+     label, so we have to assume that unplaced labels are jump table
+     references.  It seems unlikely that we would ever generate indexed
+     accesses to unplaced labels in other cases.  */
+  if (GET_CODE (x) == PLUS
+      && m68k_jump_table_ref_p (XEXP (x, 1))
+      && m68k_decompose_index (XEXP (x, 0), strict_p, address))
+    {
+      address->offset = XEXP (x, 1);
+      return true;
+    }
+
+  /* Everything hereafter deals with (d8,An,Xn.SIZE*SCALE) or
+     (bd,An,Xn.SIZE*SCALE) addresses.  */
+
+  if (TARGET_68020)
+    {
+      /* Check for a nonzero base displacement.  */
+      if (GET_CODE (x) == PLUS
+	  && m68k_legitimate_constant_address_p (XEXP (x, 1), reach, strict_p))
+	{
+	  address->offset = XEXP (x, 1);
+	  x = XEXP (x, 0);
+	}
+
+      /* Check for a suppressed index register.  */
+      if (m68k_legitimate_base_reg_p (x, strict_p))
+	{
+	  address->base = x;
+	  return true;
+	}
+
+      /* Check for a suppressed base register.  Do not allow this case
+	 for non-symbolic offsets as it effectively gives gcc freedom
+	 to treat data registers as base registers, which can generate
+	 worse code.  */
+      if (address->offset
+	  && symbolic_operand (address->offset, VOIDmode)
+	  && m68k_decompose_index (x, strict_p, address))
+	return true;
+    }
+  else
+    {
+      /* Check for a nonzero base displacement.  */
+      if (GET_CODE (x) == PLUS
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && IN_RANGE (INTVAL (XEXP (x, 1)), -0x80, 0x80 - reach))
+	{
+	  address->offset = XEXP (x, 1);
+	  x = XEXP (x, 0);
+	}
+    }
+
+  /* We now expect the sum of a base and an index.  */
+  if (GET_CODE (x) == PLUS)
+    {
+      if (m68k_legitimate_base_reg_p (XEXP (x, 0), strict_p)
+	  && m68k_decompose_index (XEXP (x, 1), strict_p, address))
+	{
+	  address->base = XEXP (x, 0);
+	  return true;
+	}
+
+      if (m68k_legitimate_base_reg_p (XEXP (x, 1), strict_p)
+	  && m68k_decompose_index (XEXP (x, 0), strict_p, address))
+	{
+	  address->base = XEXP (x, 1);
+	  return true;
+	}
+    }
+  return false;
+}
+
+/* Return true if X is a legitimate address for values of mode MODE.
+   STRICT_P says whether strict checking is needed.  */
+
+bool
+m68k_legitimate_address_p (enum machine_mode mode, rtx x, bool strict_p)
+{
+  struct m68k_address address;
+
+  return m68k_decompose_address (mode, x, strict_p, &address);
+}
+
+/* Return true if X is a memory, describing its address in ADDRESS if so.
+   Apply strict checking if called during or after reload.  */
+
+static bool
+m68k_legitimate_mem_p (rtx x, struct m68k_address *address)
+{
+  return (MEM_P (x)
+	  && m68k_decompose_address (GET_MODE (x), XEXP (x, 0),
+				     reload_in_progress || reload_completed,
+				     address));
+}
+
+/* Return true if X matches the 'Q' constraint.  It must be a memory
+   with a base address and no constant offset or index.  */
+
+bool
+m68k_matches_q_p (rtx x)
+{
+  struct m68k_address address;
+
+  return (m68k_legitimate_mem_p (x, &address)
+	  && address.code == UNKNOWN
+	  && address.base
+	  && !address.offset
+	  && !address.index);
+}
+
+/* Return true if X matches the 'U' constraint.  It must be a base address
+   with a constant offset and no index.  */
+
+bool
+m68k_matches_u_p (rtx x)
+{
+  struct m68k_address address;
+
+  return (m68k_legitimate_mem_p (x, &address)
+	  && address.code == UNKNOWN
+	  && address.base
+	  && address.offset
+	  && !address.index);
+}
+
 /* Legitimize PIC addresses.  If the address is already
    position-independent, we return ORIG.  Newly generated
    position-independent addresses go to REG.  If we need more
@@ -2754,6 +2979,204 @@ split_di (rtx operands[], int num, rtx lo_half[], rtx hi_half[])
     }
 }
 
+/* Split X into a base and a constant offset, storing them in *BASE
+   and *OFFSET respectively.  */
+
+static void
+m68k_split_offset (rtx x, rtx *base, HOST_WIDE_INT *offset)
+{
+  *offset = 0;
+  if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      *offset += INTVAL (XEXP (x, 1));
+      x = XEXP (x, 0);
+    }
+  *base = x;
+}
+
+/* Return true if PATTERN is a PARALLEL suitable for a movem or fmovem
+   instruction.  STORE_P says whether the move is a load or store.
+
+   If the instruction uses post-increment or pre-decrement addressing,
+   AUTOMOD_BASE is the base register and AUTOMOD_OFFSET is the total
+   adjustment.  This adjustment will be made by the first element of
+   PARALLEL, with the loads or stores starting at element 1.  If the
+   instruction does not use post-increment or pre-decrement addressing,
+   AUTOMOD_BASE is null, AUTOMOD_OFFSET is 0, and the loads or stores
+   start at element 0.  */
+
+bool
+m68k_movem_pattern_p (rtx pattern, rtx automod_base,
+		      HOST_WIDE_INT automod_offset, bool store_p)
+{
+  rtx base, mem_base, set, mem, reg, last_reg;
+  HOST_WIDE_INT offset, mem_offset;
+  int i, first, len;
+  enum reg_class rclass;
+
+  len = XVECLEN (pattern, 0);
+  first = (automod_base != NULL);
+
+  if (automod_base)
+    {
+      /* Stores must be pre-decrement and loads must be post-increment.  */
+      if (store_p != (automod_offset < 0))
+	return false;
+
+      /* Work out the base and offset for lowest memory location.  */
+      base = automod_base;
+      offset = (automod_offset < 0 ? automod_offset : 0);
+    }
+  else
+    {
+      /* Allow any valid base and offset in the first access.  */
+      base = NULL;
+      offset = 0;
+    }
+
+  last_reg = NULL;
+  rclass = NO_REGS;
+  for (i = first; i < len; i++)
+    {
+      /* We need a plain SET.  */
+      set = XVECEXP (pattern, 0, i);
+      if (GET_CODE (set) != SET)
+	return false;
+
+      /* Check that we have a memory location...  */
+      mem = XEXP (set, !store_p);
+      if (!MEM_P (mem) || !memory_operand (mem, VOIDmode))
+	return false;
+
+      /* ...with the right address.  */
+      if (base == NULL)
+	{
+	  m68k_split_offset (XEXP (mem, 0), &base, &offset);
+	  /* The ColdFire instruction only allows (An) and (d16,An) modes.
+	     There are no mode restrictions for 680x0 besides the
+	     automodification rules enforced above.  */
+	  if (TARGET_COLDFIRE
+	      && !m68k_legitimate_base_reg_p (base, reload_completed))
+	    return false;
+	}
+      else
+	{
+	  m68k_split_offset (XEXP (mem, 0), &mem_base, &mem_offset);
+	  if (!rtx_equal_p (base, mem_base) || offset != mem_offset)
+	    return false;
+	}
+
+      /* Check that we have a register of the required mode and class.  */
+      reg = XEXP (set, store_p);
+      if (!REG_P (reg)
+	  || !HARD_REGISTER_P (reg)
+	  || GET_MODE (reg) != reg_raw_mode[REGNO (reg)])
+	return false;
+
+      if (last_reg)
+	{
+	  /* The register must belong to RCLASS and have a higher number
+	     than the register in the previous SET.  */
+	  if (!TEST_HARD_REG_BIT (reg_class_contents[rclass], REGNO (reg))
+	      || REGNO (last_reg) >= REGNO (reg))
+	    return false;
+	}
+      else
+	{
+	  /* Work out which register class we need.  */
+	  if (INT_REGNO_P (REGNO (reg)))
+	    rclass = GENERAL_REGS;
+	  else if (FP_REGNO_P (REGNO (reg)))
+	    rclass = FP_REGS;
+	  else
+	    return false;
+	}
+
+      last_reg = reg;
+      offset += GET_MODE_SIZE (GET_MODE (reg));
+    }
+
+  /* If we have an automodification, check whether the final offset is OK.  */
+  if (automod_base && offset != (automod_offset < 0 ? 0 : automod_offset))
+    return false;
+
+  /* Reject unprofitable cases.  */
+  if (len < first + (rclass == FP_REGS ? MIN_FMOVEM_REGS : MIN_MOVEM_REGS))
+    return false;
+
+  return true;
+}
+
+/* Return the assembly code template for a movem or fmovem instruction
+   whose pattern is given by PATTERN.  Store the template's operands
+   in OPERANDS.
+
+   If the instruction uses post-increment or pre-decrement addressing,
+   AUTOMOD_OFFSET is the total adjustment, otherwise it is 0.  STORE_P
+   is true if this is a store instruction.  */
+
+const char *
+m68k_output_movem (rtx *operands, rtx pattern,
+		   HOST_WIDE_INT automod_offset, bool store_p)
+{
+  unsigned int mask;
+  int i, first;
+
+  gcc_assert (GET_CODE (pattern) == PARALLEL);
+  mask = 0;
+  first = (automod_offset != 0);
+  for (i = first; i < XVECLEN (pattern, 0); i++)
+    {
+      /* When using movem with pre-decrement addressing, register X + D0_REG
+	 is controlled by bit 15 - X.  For all other addressing modes,
+	 register X + D0_REG is controlled by bit X.  Confusingly, the
+	 register mask for fmovem is in the opposite order to that for
+	 movem.  */
+      unsigned int regno;
+
+      gcc_assert (MEM_P (XEXP (XVECEXP (pattern, 0, i), !store_p)));
+      gcc_assert (REG_P (XEXP (XVECEXP (pattern, 0, i), store_p)));
+      regno = REGNO (XEXP (XVECEXP (pattern, 0, i), store_p));
+      if (automod_offset < 0)
+	{
+	  if (FP_REGNO_P (regno))
+	    mask |= 1 << (regno - FP0_REG);
+	  else
+	    mask |= 1 << (15 - (regno - D0_REG));
+	}
+      else
+	{
+	  if (FP_REGNO_P (regno))
+	    mask |= 1 << (7 - (regno - FP0_REG));
+	  else
+	    mask |= 1 << (regno - D0_REG);
+	}
+    }
+  CC_STATUS_INIT;
+
+  if (automod_offset == 0)
+    operands[0] = XEXP (XEXP (XVECEXP (pattern, 0, first), !store_p), 0);
+  else if (automod_offset < 0)
+    operands[0] = gen_rtx_PRE_DEC (Pmode, SET_DEST (XVECEXP (pattern, 0, 0)));
+  else
+    operands[0] = gen_rtx_POST_INC (Pmode, SET_DEST (XVECEXP (pattern, 0, 0)));
+  operands[1] = GEN_INT (mask);
+  if (FP_REGNO_P (REGNO (XEXP (XVECEXP (pattern, 0, first), store_p))))
+    {
+      if (store_p)
+	return MOTOROLA ? "fmovm %1,%a0" : "fmovem %1,%a0";
+      else
+	return MOTOROLA ? "fmovm %a0,%1" : "fmovem %a0,%1";
+    }
+  else
+    {
+      if (store_p)
+	return MOTOROLA ? "movm.l %1,%a0" : "moveml %1,%a0";
+      else
+	return MOTOROLA ? "movm.l %a0,%1" : "moveml %a0,%1";
+    }
+}
+
 /* Return a REG that occurs in ADDR with coefficient 1.
    ADDR can be effectively incremented by incrementing REG.  */
 
@@ -3125,6 +3548,7 @@ floating_exact_log2 (rtx x)
    '$' for the letter `s' in an op code, but only on the 68040.
    '&' for the letter `d' in an op code, but only on the 68040.
    '/' for register prefix needed by longlong.h.
+   '?' for m68k_library_id_string
 
    'b' for byte insn (no effect, on the Sun; this is for the ISI).
    'd' to force memory addressing to be absolute, not relative.
@@ -3164,6 +3588,8 @@ print_operand (FILE *file, rtx op, int letter)
     }
   else if (letter == '/')
     asm_fprintf (file, "%R");
+  else if (letter == '?')
+    asm_fprintf (file, m68k_library_id_string);
   else if (letter == 'p')
     {
       output_addr_const (file, op);
@@ -3251,253 +3677,44 @@ print_operand (FILE *file, rtx op, int letter)
    offset is output in word mode (e.g. movel a5@(_foo:w), a0).  When generating
    -fPIC code the offset is output in long mode (e.g. movel a5@(_foo:l), a0) */
 
-#if MOTOROLA
-#  define ASM_OUTPUT_CASE_FETCH(file, labelno, regname) \
-  asm_fprintf (file, "%LL%d-%LLI%d.b(%Rpc,%s.", labelno, labelno, regname)
-#else /* !MOTOROLA */
-# define ASM_OUTPUT_CASE_FETCH(file, labelno, regname) \
-  asm_fprintf (file, "%Rpc@(%LL%d-%LLI%d-2:b,%s:", labelno, labelno, regname)
-#endif /* !MOTOROLA */
-
 void
 print_operand_address (FILE *file, rtx addr)
 {
-  register rtx reg1, reg2, breg, ireg;
-  rtx offset;
+  struct m68k_address address;
 
-  switch (GET_CODE (addr))
+  if (!m68k_decompose_address (QImode, addr, true, &address))
+    gcc_unreachable ();
+
+  if (address.code == PRE_DEC)
+    fprintf (file, MOTOROLA ? "-(%s)" : "%s@-",
+	     M68K_REGNAME (REGNO (address.base)));
+  else if (address.code == POST_INC)
+    fprintf (file, MOTOROLA ? "(%s)+" : "%s@+",
+	     M68K_REGNAME (REGNO (address.base)));
+  else if (!address.base && !address.index)
     {
-    case REG:
-      fprintf (file, MOTOROLA ? "(%s)" : "%s@", M68K_REGNAME (REGNO (addr)));
-      break;
-    case PRE_DEC:
-      fprintf (file, MOTOROLA ? "-(%s)" : "%s@-",
-	       M68K_REGNAME (REGNO (XEXP (addr, 0))));
-      break;
-    case POST_INC:
-      fprintf (file, MOTOROLA ? "(%s)+" : "%s@+",
-	       M68K_REGNAME (REGNO (XEXP (addr, 0))));
-      break;
-    case PLUS:
-      reg1 = reg2 = ireg = breg = offset = 0;
-      if (CONSTANT_ADDRESS_P (XEXP (addr, 0)))
+      /* A constant address.  */
+      gcc_assert (address.offset == addr);
+      if (GET_CODE (addr) == CONST_INT)
 	{
-	  offset = XEXP (addr, 0);
-	  addr = XEXP (addr, 1);
-	}
-      else if (CONSTANT_ADDRESS_P (XEXP (addr, 1)))
-	{
-	  offset = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-      if (GET_CODE (addr) != PLUS)
-	{
-	  ;
-	}
-      else if (GET_CODE (XEXP (addr, 0)) == SIGN_EXTEND)
-	{
-	  reg1 = XEXP (addr, 0);
-	  addr = XEXP (addr, 1);
-	}
-      else if (GET_CODE (XEXP (addr, 1)) == SIGN_EXTEND)
-	{
-	  reg1 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-      else if (GET_CODE (XEXP (addr, 0)) == MULT)
-	{
-	  reg1 = XEXP (addr, 0);
-	  addr = XEXP (addr, 1);
-	}
-      else if (GET_CODE (XEXP (addr, 1)) == MULT)
-	{
-	  reg1 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-      else if (GET_CODE (XEXP (addr, 0)) == REG)
-	{
-	  reg1 = XEXP (addr, 0);
-	  addr = XEXP (addr, 1);
-	}
-      else if (GET_CODE (XEXP (addr, 1)) == REG)
-	{
-	  reg1 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-      if (GET_CODE (addr) == REG || GET_CODE (addr) == MULT
-	  || GET_CODE (addr) == SIGN_EXTEND)
-	{
-	  if (reg1 == 0)
-	    reg1 = addr;
+	  /* (xxx).w or (xxx).l.  */
+	  if (IN_RANGE (INTVAL (addr), -0x8000, 0x7fff))
+	    fprintf (file, MOTOROLA ? "%d.w" : "%d:w", (int) INTVAL (addr));
 	  else
-	    reg2 = addr;
-	  addr = 0;
-	}
-#if 0	/* for OLD_INDEXING */
-      else if (GET_CODE (addr) == PLUS)
-	{
-	  if (GET_CODE (XEXP (addr, 0)) == REG)
-	    {
-	      reg2 = XEXP (addr, 0);
-	      addr = XEXP (addr, 1);
-	    }
-	  else if (GET_CODE (XEXP (addr, 1)) == REG)
-	    {
-	      reg2 = XEXP (addr, 1);
-	      addr = XEXP (addr, 0);
-	    }
-	}
-#endif
-      if (offset != 0)
-	{
-	  gcc_assert (!addr);
-	  addr = offset;
-	}
-      if ((reg1 && (GET_CODE (reg1) == SIGN_EXTEND
-		    || GET_CODE (reg1) == MULT))
-	  || (reg2 != 0 && REGNO_OK_FOR_BASE_P (REGNO (reg2))))
-	{
-	  breg = reg2;
-	  ireg = reg1;
-	}
-      else if (reg1 != 0 && REGNO_OK_FOR_BASE_P (REGNO (reg1)))
-	{
-	  breg = reg1;
-	  ireg = reg2;
-	}
-      if (ireg != 0 && breg == 0 && GET_CODE (addr) == LABEL_REF
-	  && ! (flag_pic && ireg == pic_offset_table_rtx))
-	{
-	  int scale = 1;
-	  if (GET_CODE (ireg) == MULT)
-	    {
-	      scale = INTVAL (XEXP (ireg, 1));
-	      ireg = XEXP (ireg, 0);
-	    }
-	  if (GET_CODE (ireg) == SIGN_EXTEND)
-	    {
-	      ASM_OUTPUT_CASE_FETCH (file,
-				     CODE_LABEL_NUMBER (XEXP (addr, 0)),
-				     M68K_REGNAME (REGNO (XEXP (ireg, 0))));
-	      fprintf (file, "w");
-	    }
-	  else
-	    {
-	      ASM_OUTPUT_CASE_FETCH (file,
-				     CODE_LABEL_NUMBER (XEXP (addr, 0)),
-				     M68K_REGNAME (REGNO (ireg)));
-	      fprintf (file, "l");
-	    }
-	  if (scale != 1)
-	    fprintf (file, MOTOROLA ? "*%d" : ":%d", scale);
-	  putc (')', file);
-	  break;
-	}
-      if (breg != 0 && ireg == 0 && GET_CODE (addr) == LABEL_REF
-	  && ! (flag_pic && breg == pic_offset_table_rtx))
-	{
-	  ASM_OUTPUT_CASE_FETCH (file,
-				 CODE_LABEL_NUMBER (XEXP (addr, 0)),
-				 M68K_REGNAME (REGNO (breg)));
-	  fprintf (file, "l)");
-	  break;
-	}
-      if (ireg != 0 || breg != 0)
-	{
-	  int scale = 1;
-	    
-	  gcc_assert (breg);
-	  gcc_assert (flag_pic || !addr || GET_CODE (addr) != LABEL_REF);
-	    
-	  if (MOTOROLA)
-	    {
-	      if (addr != 0)
-		{
-		  output_addr_const (file, addr);
-		  if (flag_pic && (breg == pic_offset_table_rtx))
-		    {
-		      fprintf (file, "@GOT");
-		      if (flag_pic == 1)
-			fprintf (file, ".w");
-		    }
-		}
-	      fprintf (file, "(%s", M68K_REGNAME (REGNO (breg)));
-	      if (ireg != 0)
-		putc (',', file);
-	    }
-	  else /* !MOTOROLA */
-	    {
-	      fprintf (file, "%s@(", M68K_REGNAME (REGNO (breg)));
-	      if (addr != 0)
-		{
-		  output_addr_const (file, addr);
-		  if (breg == pic_offset_table_rtx)
-		    switch (flag_pic)
-		      {
-		      case 1:
-			fprintf (file, ":w");
-			break;
-		      case 2:
-			fprintf (file, ":l");
-			break;
-		      default:
-			break;
-		      }
-		  if (ireg != 0)
-		    putc (',', file);
-		}
-	    } /* !MOTOROLA */
-	  if (ireg != 0 && GET_CODE (ireg) == MULT)
-	    {
-	      scale = INTVAL (XEXP (ireg, 1));
-	      ireg = XEXP (ireg, 0);
-	    }
-	  if (ireg != 0 && GET_CODE (ireg) == SIGN_EXTEND)
-	    fprintf (file, MOTOROLA ? "%s.w" : "%s:w",
-		     M68K_REGNAME (REGNO (XEXP (ireg, 0))));
-	  else if (ireg != 0)
-	    fprintf (file, MOTOROLA ? "%s.l" : "%s:l",
-		     M68K_REGNAME (REGNO (ireg)));
-	  if (scale != 1)
-	    fprintf (file, MOTOROLA ? "*%d" : ":%d", scale);
-	  putc (')', file);
-	  break;
-	}
-      else if (reg1 != 0 && GET_CODE (addr) == LABEL_REF
-	       && ! (flag_pic && reg1 == pic_offset_table_rtx))
-	{
-	  ASM_OUTPUT_CASE_FETCH (file,
-				 CODE_LABEL_NUMBER (XEXP (addr, 0)),
-				 M68K_REGNAME (REGNO (reg1)));
-	  fprintf (file, "l)");
-	  break;
-	}
-      /* FALL-THROUGH (is this really what we want?)  */
-    default:
-      if (GET_CODE (addr) == CONST_INT
-	  && INTVAL (addr) < 0x8000
-	  && INTVAL (addr) >= -0x8000)
-	{
-	  fprintf (file, MOTOROLA ? "%d.w" : "%d:w", (int) INTVAL (addr));
-	}
-      else if (GET_CODE (addr) == CONST_INT)
-	{
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
+	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
 	}
       else if (TARGET_PCREL)
 	{
+	  /* (d16,PC) or (bd,PC,Xn) (with suppressed index register).  */
 	  fputc ('(', file);
 	  output_addr_const (file, addr);
-	  if (flag_pic == 1)
-	    asm_fprintf (file, ":w,%Rpc)");
-	  else
-	    asm_fprintf (file, ":l,%Rpc)");
+	  asm_fprintf (file, flag_pic == 1 ? ":w,%Rpc)" : ":l,%Rpc)");
 	}
       else
 	{
-	  /* Special case for SYMBOL_REF if the symbol name ends in
-	     `.<letter>', this can be mistaken as a size suffix.  Put
-	     the name in parentheses.  */
+	  /* (xxx).l.  We need a special case for SYMBOL_REF if the symbol
+	     name ends in `.<letter>', as the last 2 characters can be
+	     mistaken as a size suffix.  Put the name in parentheses.  */
 	  if (GET_CODE (addr) == SYMBOL_REF
 	      && strlen (XSTR (addr, 0)) > 2
 	      && XSTR (addr, 0)[strlen (XSTR (addr, 0)) - 2] == '.')
@@ -3509,7 +3726,93 @@ print_operand_address (FILE *file, rtx addr)
 	  else
 	    output_addr_const (file, addr);
 	}
-      break;
+    }
+  else
+    {
+      int labelno;
+
+      /* If ADDR is a (d8,pc,Xn) address, this is the number of the
+	 label being acceesed, otherwise it is -1.  */
+      labelno = (address.offset
+		 && !address.base
+		 && GET_CODE (address.offset) == LABEL_REF
+		 ? CODE_LABEL_NUMBER (XEXP (address.offset, 0))
+		 : -1);
+      if (MOTOROLA)
+	{
+	  /* Print the "offset(base" component.  */
+	  if (labelno >= 0)
+	    asm_fprintf (file, "%LL%d-%LLI%d.b(%Rpc,", labelno, labelno);
+	  else
+	    {
+	      if (address.offset)
+		{
+		  output_addr_const (file, address.offset);
+		  if (flag_pic && address.base == pic_offset_table_rtx)
+		    {
+		      fprintf (file, "@GOT");
+		      if (flag_pic == 1 && TARGET_68020)
+			fprintf (file, ".w");
+		    }
+		}
+	      putc ('(', file);
+	      if (address.base)
+		fputs (M68K_REGNAME (REGNO (address.base)), file);
+	    }
+	  /* Print the ",index" component, if any.  */
+	  if (address.index)
+	    {
+	      if (address.base)
+		putc (',', file);
+	      fprintf (file, "%s.%c",
+		       M68K_REGNAME (REGNO (address.index)),
+		       GET_MODE (address.index) == HImode ? 'w' : 'l');
+	      if (address.scale != 1)
+		fprintf (file, "*%d", address.scale);
+	    }
+	  putc (')', file);
+	}
+      else /* !MOTOROLA */
+	{
+	  if (!address.offset && !address.index)
+	    fprintf (file, "%s@", M68K_REGNAME (REGNO (address.base)));
+	  else
+	    {
+	      /* Print the "base@(offset" component.  */
+	      if (labelno >= 0)
+		asm_fprintf (file, "%Rpc@(%LL%d-%LLI%d-2:b", labelno, labelno);
+	      else
+		{
+		  if (address.base)
+		    fputs (M68K_REGNAME (REGNO (address.base)), file);
+		  fprintf (file, "@(");
+		  if (address.offset)
+		    {
+		      output_addr_const (file, address.offset);
+		      if (address.base == pic_offset_table_rtx && TARGET_68020)
+			switch (flag_pic)
+			  {
+			  case 1:
+			    fprintf (file, ":w"); break;
+			  case 2:
+			    fprintf (file, ":l"); break;
+			  default:
+			    break;
+			  }
+		    }
+		}
+	      /* Print the ",index" component, if any.  */
+	      if (address.index)
+		{
+		  fprintf (file, ",%s:%c",
+			   M68K_REGNAME (REGNO (address.index)),
+			   GET_MODE (address.index) == HImode ? 'w' : 'l');
+		  if (address.scale != 1)
+		    fprintf (file, ":%d", address.scale);
+		}
+	      putc (')', file);
+	    }
+	}
     }
 }
 
@@ -3747,6 +4050,17 @@ output_call (rtx x)
     return "jsr %a0";
 }
 
+/* Likewise sibling calls.  */
+
+const char *
+output_sibcall (rtx x)
+{
+  if (symbolic_operand (x, VOIDmode))
+    return m68k_symbolic_jump;
+  else
+    return "jmp %a0";
+}
+
 #ifdef M68K_TARGET_COFF
 
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
@@ -3769,59 +4083,93 @@ m68k_coff_asm_named_section (const char *name, unsigned int flags,
 
 static void
 m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
-		      HOST_WIDE_INT delta,
-		      HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
+		      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		      tree function)
 {
-  rtx xops[1];
-  const char *fmt;
+  rtx this_slot, offset, addr, mem, insn;
 
-  if (delta > 0 && delta <= 8)
-    asm_fprintf (file, (MOTOROLA
-			? "\taddq.l %I%d,4(%Rsp)\n"
-			: "\taddql %I%d,%Rsp@(4)\n"),
-		 (int) delta);
-  else if (delta < 0 && delta >= -8)
-    asm_fprintf (file, (MOTOROLA
-			? "\tsubq.l %I%d,4(%Rsp)\n"
-			: "\tsubql %I%d,%Rsp@(4)\n"),
-		 (int) -delta);
-  else if (TARGET_COLDFIRE)
+  /* Pretend to be a post-reload pass while generating rtl.  */
+  no_new_pseudos = 1;
+  reload_completed = 1;
+  reset_block_changes ();
+  allocate_reg_info (FIRST_PSEUDO_REGISTER, true, true);
+
+  /* The "this" pointer is stored at 4(%sp).  */
+  this_slot = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, 4));
+
+  /* Add DELTA to THIS.  */
+  if (delta != 0)
     {
-      /* ColdFire can't add/sub a constant to memory unless it is in
-	 the range of addq/subq.  So load the value into %d0 and
-	 then add it to 4(%sp). */
-      if (delta >= -128 && delta <= 127)
-	asm_fprintf (file, (MOTOROLA
-			    ? "\tmoveq.l %I%wd,%Rd0\n"
-			    : "\tmoveql %I%wd,%Rd0\n"),
-		     delta);
-      else
-	asm_fprintf (file, (MOTOROLA
-			    ? "\tmove.l %I%wd,%Rd0\n"
-			    : "\tmovel %I%wd,%Rd0\n"),
-		     delta);
-      asm_fprintf (file, (MOTOROLA
-			  ? "\tadd.l %Rd0,4(%Rsp)\n"
-			  : "\taddl %Rd0,%Rsp@(4)\n"));
+      /* Make the offset a legitimate operand for memory addition.  */
+      offset = GEN_INT (delta);
+      if ((delta < -8 || delta > 8)
+	  && (TARGET_COLDFIRE || USE_MOVQ (delta)))
+	{
+	  emit_move_insn (gen_rtx_REG (Pmode, D0_REG), offset);
+	  offset = gen_rtx_REG (Pmode, D0_REG);
+	}
+      emit_insn (gen_add3_insn (copy_rtx (this_slot),
+				copy_rtx (this_slot), offset));
     }
-  else
-    asm_fprintf (file, (MOTOROLA
-			? "\tadd.l %I%wd,4(%Rsp)\n"
-			: "\taddl %I%wd,%Rsp@(4)\n"),
-		 delta);
 
-  xops[0] = DECL_RTL (function);
+  /* If needed, add *(*THIS + VCALL_OFFSET) to THIS.  */
+  if (vcall_offset != 0)
+    {
+      /* Set the static chain register to *THIS.  */
+      emit_move_insn (static_chain_rtx, this_slot);
+      emit_move_insn (static_chain_rtx, gen_rtx_MEM (Pmode, static_chain_rtx));
 
-  gcc_assert (MEM_P (xops[0])
-	      && symbolic_operand (XEXP (xops[0], 0), VOIDmode));
-  xops[0] = XEXP (xops[0], 0);
+      /* Set ADDR to a legitimate address for *THIS + VCALL_OFFSET.  */
+      addr = plus_constant (static_chain_rtx, vcall_offset);
+      if (!m68k_legitimate_address_p (Pmode, addr, true))
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, static_chain_rtx, addr));
+	  addr = static_chain_rtx;
+	}
 
-  fmt = m68k_symbolic_jump;
-  if (m68k_symbolic_jump == NULL)
-    fmt = "move.l %%a1@GOT(%%a5), %%a1\n\tjmp (%%a1)";
+      /* Load the offset into %d0 and add it to THIS.  */
+      emit_move_insn (gen_rtx_REG (Pmode, D0_REG),
+		      gen_rtx_MEM (Pmode, addr));
+      emit_insn (gen_add3_insn (copy_rtx (this_slot),
+				copy_rtx (this_slot),
+				gen_rtx_REG (Pmode, D0_REG)));
+    }
 
-  output_asm_insn (fmt, xops);
+  /* Jump to the target function.  Use a sibcall if direct jumps are
+     allowed, otherwise load the address into a register first.  */
+  mem = DECL_RTL (function);
+  if (!sibcall_operand (XEXP (mem, 0), VOIDmode))
+    {
+      gcc_assert (flag_pic);
+
+      if (!TARGET_SEP_DATA)
+	{
+	  /* Use the static chain register as a temporary (call-clobbered)
+	     GOT pointer for this function.  We can use the static chain
+	     register because it isn't live on entry to the thunk.  */
+	  REGNO (pic_offset_table_rtx) = STATIC_CHAIN_REGNUM;
+	  emit_insn (gen_load_got (pic_offset_table_rtx));
+	}
+      legitimize_pic_address (XEXP (mem, 0), Pmode, static_chain_rtx);
+      mem = replace_equiv_address (mem, static_chain_rtx);
+    }
+  insn = emit_call_insn (gen_sibcall (mem, const0_rtx));
+  SIBLING_CALL_P (insn) = 1;
+
+  /* Run just enough of rest_of_compilation.  */
+  insn = get_insns ();
+  split_all_insns_noflow ();
+  final_start_function (insn, file, 1);
+  final (insn, file, 1);
+  final_end_function ();
+
+  /* Clean up the vars set above.  */
+  reload_completed = 0;
+  no_new_pseudos = 0;
+
+  /* Restore the original PIC register.  */
+  if (flag_pic)
+    REGNO (pic_offset_table_rtx) = PIC_REG;
 }
 
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */
@@ -3850,9 +4198,10 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
   return 1;
 }
 
-/* Value is true if hard register REGNO can hold a value of machine-mode MODE.
-   On the 68000, the cpu registers can hold any mode except bytes in address
-   registers, but the 68881 registers can hold only SFmode or DFmode.  */
+/* Value is true if hard register REGNO can hold a value of machine-mode
+   MODE.  On the 68000, we let the cpu registers can hold any mode, but
+   restrict the 68881 registers to floating-point modes.  */
+
 bool
 m68k_regno_mode_ok (int regno, enum machine_mode mode)
 {
@@ -3864,10 +4213,6 @@ m68k_regno_mode_ok (int regno, enum machine_mode mode)
     }
   else if (ADDRESS_REGNO_P (regno))
     {
-      /* Address Registers, can't hold bytes, can hold aggregate if
-	 fits in.  */
-      if (GET_MODE_SIZE (mode) == 1)
-	return false;
       if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
 	return true;
     }
@@ -3881,6 +4226,66 @@ m68k_regno_mode_ok (int regno, enum machine_mode mode)
 	return true;
     }
   return false;
+}
+
+/* Implement SECONDARY_RELOAD_CLASS.  */
+
+enum reg_class
+m68k_secondary_reload_class (enum reg_class rclass,
+			     enum machine_mode mode, rtx x)
+{
+  int regno;
+
+  regno = true_regnum (x);
+
+  /* If one operand of a movqi is an address register, the other
+     operand must be a general register or constant.  Other types
+     of operand must be reloaded through a data register.  */
+  if (GET_MODE_SIZE (mode) == 1
+      && reg_classes_intersect_p (rclass, ADDR_REGS)
+      && !(INT_REGNO_P (regno) || CONSTANT_P (x)))
+    return DATA_REGS;
+
+  /* PC-relative addresses must be loaded into an address register first.  */
+  if (TARGET_PCREL
+      && !reg_class_subset_p (rclass, ADDR_REGS)
+      && symbolic_operand (x, VOIDmode))
+    return ADDR_REGS;
+
+  return NO_REGS;
+}
+
+/* Implement PREFERRED_RELOAD_CLASS.  */
+
+enum reg_class
+m68k_preferred_reload_class (rtx x, enum reg_class rclass)
+{
+  enum reg_class secondary_class;
+
+  /* If RCLASS might need a secondary reload, try restricting it to
+     a class that doesn't.  */
+  secondary_class = m68k_secondary_reload_class (rclass, GET_MODE (x), x);
+  if (secondary_class != NO_REGS
+      && reg_class_subset_p (secondary_class, rclass))
+    return secondary_class;
+
+  /* Prefer to use moveq for in-range constants.  */
+  if (GET_CODE (x) == CONST_INT
+      && reg_class_subset_p (DATA_REGS, rclass)
+      && IN_RANGE (INTVAL (x), -0x80, 0x7f))
+    return DATA_REGS;
+
+  /* ??? Do we really need this now?  */
+  if (GET_CODE (x) == CONST_DOUBLE
+      && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+    {
+      if (TARGET_HARD_FLOAT && reg_class_subset_p (FP_REGS, rclass))
+	return FP_REGS;
+
+      return NO_REGS;
+    }
+
+  return rclass;
 }
 
 /* Return floating point values in a 68881 register.  This makes 68881 code

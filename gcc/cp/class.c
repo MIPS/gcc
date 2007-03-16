@@ -2097,7 +2097,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 				   fixed_offset, virtual_offset);
     }
   else
-    gcc_assert (!DECL_THUNK_P (fn));
+    gcc_assert (DECL_INVALID_OVERRIDER_P (overrider_target) ||
+		!DECL_THUNK_P (fn));
 
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
@@ -2420,8 +2421,8 @@ warn_hidden (tree t)
       while (base_fndecls)
 	{
 	  /* Here we know it is a hider, and no overrider exists.  */
-	  warning (0, "%q+D was hidden", TREE_VALUE (base_fndecls));
-	  warning (0, "  by %q+D", fns);
+	  warning (OPT_Woverloaded_virtual, "%q+D was hidden", TREE_VALUE (base_fndecls));
+	  warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
 	  base_fndecls = TREE_CHAIN (base_fndecls);
 	}
     }
@@ -6299,9 +6300,9 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      error ("declaration of %q#D", decl);
-      error ("changes meaning of %qD from %q+#D",
-	     DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
+      pedwarn ("declaration of %q#D", decl);
+      pedwarn ("changes meaning of %qD from %q+#D",
+	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }
 

@@ -286,6 +286,14 @@ proc check_gc_sections_available { } {
 	    return 0
 	}
 
+	# VxWorks kernel modules are relocatable objects linked with -r,
+	# while RTP executables are linked with -q (--emit-relocs).
+	# Both of these options are incompatible with --gc-sections.
+	if { [istarget *-*-vxworks*] } {
+	    set gc_sections_available_saved 0
+	    return 0
+	}
+
 	# Check if the ld used by gcc supports --gc-sections.
 	set gcc_spec [${tool}_target_compile "-dumpspecs" "" "none" ""]
 	regsub ".*\n\*linker:\[ \t\]*\n(\[^ \t\n\]*).*" "$gcc_spec" {\1} linker
@@ -340,6 +348,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget arm*-*-eabi*]
 	     || [istarget arm*-*-elf]
 	     || [istarget arm*-*-symbianelf*]
+	     || [istarget bfin-*-*]
 	     || [istarget powerpc-*-eabi*]
 	     || [istarget strongarm*-*-elf]
 	     || [istarget xscale*-*-elf]
@@ -349,6 +358,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget m68k-*-elf]
 	     || [istarget mips*-*-elf]
 	     || [istarget xtensa-*-elf]
+	     || [istarget *-*-vxworks*]
 	     || [istarget *-*-windiss] } {
 	    set profiling_available_saved 0
 	} else {
@@ -515,6 +525,16 @@ proc check_effective_target_mpaired_single { } {
     return [check_no_compiler_messages mpaired_single object {
 	void foo (void) { }
     } "-mpaired-single"]
+}
+
+# Return 1 if the target does not use a status wrapper.
+
+proc check_effective_target_unwrapped { } {
+    if { [target_info needs_status_wrapper] != "" \
+	     && [target_info needs_status_wrapper] != "0" } {
+	return 0
+    }
+    return 1
 }
 
 # Return true if iconv is supported on the target. In particular IBM1047.
@@ -2053,6 +2073,26 @@ proc check_effective_target_uclibc {} {
     }]
 }
 
+# Return true if this is a uclibc target and if the uclibc feature
+# described by __$feature__ is not present.
+
+proc check_missing_uclibc_feature {feature} {
+    return [check_no_compiler_messages $feature object "
+	#include <features.h>
+	#if !defined (__UCLIBC) || defined (__${feature}__)
+	#error FOO
+	#endif
+    "]
+}
+
+# Return true if this is a Newlib target.
+
+proc check_effective_target_newlib {} {
+    return [check_no_compiler_messages newlib object {
+	#include <newlib.h>
+    }]
+}
+
 # Return 1 if
 #   (a) an error of a few ULP is expected in string to floating-point
 #       conversion functions; and
@@ -2069,6 +2109,16 @@ proc check_effective_target_lax_strtofp {} {
 proc check_effective_target_dummy_wcsftime {} {
     # By default, assume that all uClibc targets suffer from this.
     return [check_effective_target_uclibc]
+}
+
+# Return 1 if constructors with initialization priority arguments are
+# supposed on this target.
+
+proc check_effective_target_init_priority {} {
+    return [check_no_compiler_messages init_priority assembly "
+	void f() __attribute__((constructor (1000)));
+	void f() \{\}
+    "]
 }
 
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.
@@ -2156,4 +2206,25 @@ proc check_effective_target_simulator { } {
     }
 
     return 0
+}
+
+# Return 1 if the target is a VxWorks RTP.
+
+proc check_effective_target_vxworks_kernel { } {
+    return [check_no_compiler_messages vxworks_kernel assembly {
+	#if !defined __vxworks || defined __RTP__
+	#error NO
+	#endif
+    }]
+}
+
+# Return 1 if the target is expected to provide wide character support.
+
+proc check_effective_target_wchar { } {
+    if {[check_missing_uclibc_feature UCLIBC_HAS_WCHAR]} {
+	return 0
+    }
+    return [check_no_compiler_messages wchar assembly {
+	#include <wchar.h>
+    }]
 }

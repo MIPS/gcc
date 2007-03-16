@@ -670,6 +670,28 @@ java::lang::Class::finalize (void)
   engine->unregister(this);
 }
 
+void
+_Jv_ClosureList::releaseClosures (_Jv_ClosureList **closures)
+{
+  if (!closures)
+    return;
+
+  while (_Jv_ClosureList *current = *closures)
+    {
+      *closures = current->next;
+      ffi_closure_free (current->ptr);
+    }
+}
+
+void
+_Jv_ClosureList::registerClosure (jclass klass, void *ptr)
+{
+  _Jv_ClosureList **closures = klass->engine->get_closure_list (klass);
+  this->ptr = ptr;
+  this->next = *closures;
+  *closures = this;
+}
+
 // This implements the initialization process for a class.  From Spec
 // section 12.4.2.
 void
@@ -1150,7 +1172,7 @@ parseAnnotationElement(jclass klass, _Jv_Constants *pool,
     case 'J':
       {
 	int cindex = read_u2 (bytes, last);
-	check_constant (pool, cindex, JV_CONSTANT_Double);
+	check_constant (pool, cindex, JV_CONSTANT_Long);
 	_Jv_word2 word;
 	memcpy (&word, &pool->data[cindex], 2 * sizeof (_Jv_word));
 	result = Long::valueOf (word.l);
@@ -1331,9 +1353,8 @@ java::lang::Class::getDeclaredAnnotations(jint /* jv_attr_type */ member_type,
   if (bytes == NULL)
     return 0;
 
-  ClassLoader *trueLoader = loader;
-  if (trueLoader == NULL)
-    trueLoader = (ClassLoader *)VMClassLoader::bootLoader;
+  if (loader == NULL)
+    loader = (ClassLoader *)VMClassLoader::bootLoader;
 
   result = (loader->getDeclaredAnnotations
 	    (this, member_type, member_index, kind_req));
@@ -1628,6 +1649,26 @@ _Jv_LookupDeclaredMethod (jclass klass, _Jv_Utf8Const *name,
 	}
     }
 
+  return NULL;
+}
+
+java::lang::reflect::Method *
+_Jv_GetReflectedMethod (jclass klass, _Jv_Utf8Const *name,
+		       _Jv_Utf8Const *signature)
+{
+  for (; klass; klass = klass->getSuperclass())
+    {
+      _Jv_Method *meth = _Jv_GetMethodLocal (klass, name, signature);
+      if (meth)
+	{
+	  using namespace java::lang::reflect;
+	  Method *rmethod = new Method ();
+	  rmethod->offset = (char*) meth - (char*) klass->methods;
+	  rmethod->declaringClass = klass;
+	  return rmethod;
+	}
+    }
+  
   return NULL;
 }
 
@@ -2023,3 +2064,15 @@ _Jv_GetClassState (jclass klass)
   return klass->state;
 }
 
+jstring
+_Jv_GetInterpClassSourceFile (jclass klass)
+{
+  if (_Jv_IsInterpretedClass (klass))
+    {
+      _Jv_InterpClass *iclass =
+	reinterpret_cast<_Jv_InterpClass *> (klass->aux_info);
+      return iclass->source_file_name;
+    }
+
+  return NULL;
+}

@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -3143,17 +3143,6 @@ cxx_init_decl_processing (void)
 
   current_lang_name = NULL_TREE;
 
-  /* Adjust various flags based on command-line settings.  */
-  if (!flag_permissive)
-    flag_pedantic_errors = 1;
-  if (!flag_no_inline)
-    {
-      flag_inline_trees = 1;
-      flag_no_inline = 1;
-    }
-  if (flag_inline_functions)
-    flag_inline_trees = 2;
-
   /* Force minimum function alignment if using the least significant
      bit of function pointers to store the virtual bit.  */
   if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
@@ -3694,6 +3683,8 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
 	       || declspecs->specs[(int)ds_thread])
 	error ("qualifiers can only be specified for objects "
 	       "and functions");
+      else if (saw_typedef)
+	warning (0, "%<typedef%> was ignored in this declaration");
     }
 
   return declared_type;
@@ -5641,7 +5632,7 @@ expand_static_init (tree decl, tree init)
       /* Emit code to perform this initialization but once.  */
       tree if_stmt = NULL_TREE, inner_if_stmt = NULL_TREE;
       tree then_clause = NULL_TREE, inner_then_clause = NULL_TREE;
-      tree guard, guard_addr, guard_addr_list;
+      tree guard, guard_addr;
       tree acquire_fn, release_fn, abort_fn;
       tree flag, begin;
 
@@ -5693,7 +5684,6 @@ expand_static_init (tree decl, tree init)
       if (flag_threadsafe_statics)
 	{
 	  guard_addr = build_address (guard);
-	  guard_addr_list = build_tree_list (NULL_TREE, guard_addr);
 
 	  acquire_fn = get_identifier ("__cxa_guard_acquire");
 	  release_fn = get_identifier ("__cxa_guard_release");
@@ -5715,7 +5705,7 @@ expand_static_init (tree decl, tree init)
 	    }
 
 	  inner_if_stmt = begin_if_stmt ();
-	  finish_if_stmt_cond (build_call (acquire_fn, guard_addr_list),
+	  finish_if_stmt_cond (build_call_n (acquire_fn, 1, guard_addr),
 			       inner_if_stmt);
 
 	  inner_then_clause = begin_compound_stmt (BCS_NO_SCOPE);
@@ -5725,7 +5715,7 @@ expand_static_init (tree decl, tree init)
 	  TARGET_EXPR_CLEANUP (begin)
 	    = build3 (COND_EXPR, void_type_node, flag,
 		      void_zero_node,
-		      build_call (abort_fn, guard_addr_list));
+		      build_call_n (abort_fn, 1, guard_addr));
 	  CLEANUP_EH_ONLY (begin) = 1;
 
 	  /* Do the initialization itself.  */
@@ -5733,7 +5723,7 @@ expand_static_init (tree decl, tree init)
 	  init = add_stmt_to_compound
 	    (init, build2 (MODIFY_EXPR, void_type_node, flag, boolean_true_node));
 	  init = add_stmt_to_compound
-	    (init, build_call (release_fn, guard_addr_list));
+	    (init, build_call_n (release_fn, 1, guard_addr));
 	}
       else
 	init = add_stmt_to_compound (init, set_guard (guard));
@@ -6631,12 +6621,21 @@ compute_array_index_type (tree name, tree size)
 	error ("size of array is not an integral constant-expression");
       size = integer_one_node;
     }
-  else if (pedantic)
+  else if (pedantic && warn_vla != 0)
     {
       if (name)
-	pedwarn ("ISO C++ forbids variable-size array %qD", name);
+	pedwarn ("ISO C++ forbids variable length array %qD", name);
       else
-	pedwarn ("ISO C++ forbids variable-size array");
+	pedwarn ("ISO C++ forbids variable length array");
+    }
+  else if (warn_vla > 0)
+    {
+      if (name)
+	warning (OPT_Wvla, 
+                 "variable length array %qD is used", name);
+      else
+	warning (OPT_Wvla, 
+                 "variable length array is used");
     }
 
   if (processing_template_decl && !TREE_CONSTANT (size))
@@ -6966,6 +6965,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
+  bool parameter_pack_p = declarator? declarator->parameter_pack_p : false;
   bool set_no_warning = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
@@ -7937,6 +7937,16 @@ grokdeclarator (const cp_declarator *declarator,
 	attrlist = &returned_attrs;
     }
 
+  /* Handle parameter packs. */
+  if (parameter_pack_p)
+    {
+      if (decl_context == PARM)
+        /* Turn the type into a pack expansion.*/
+        type = make_pack_expansion (type);
+      else
+        error ("non-parameter %qs cannot be a parameter pack", name);
+    }
+
   /* Did array size calculations overflow?  */
 
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -8538,6 +8548,9 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 		decl = build_decl (FIELD_DECL, unqualified_id, type);
 		DECL_NONADDRESSABLE_P (decl) = bitfield;
+		if (bitfield && !unqualified_id)
+		  TREE_NO_WARNING (decl) = 1;
+
 		if (storage_class == sc_mutable)
 		  {
 		    DECL_MUTABLE_P (decl) = 1;
@@ -8935,6 +8948,11 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 	  else if (init && !processing_template_decl)
 	    init = check_default_argument (decl, init);
 	}
+
+      if (TREE_CODE (decl) == PARM_DECL
+          && FUNCTION_PARAMETER_PACK_P (decl)
+          && parm->next)
+        error ("parameter packs must be at the end of the parameter list");
 
       TREE_CHAIN (decl) = decls;
       decls = decl;
@@ -9937,6 +9955,8 @@ xref_basetypes (tree ref, tree base_list)
       if (access == access_default_node)
 	access = default_access;
 
+      if (PACK_EXPANSION_P (basetype))
+        basetype = PACK_EXPANSION_PATTERN (basetype);
       if (TREE_CODE (basetype) == TYPE_DECL)
 	basetype = TREE_TYPE (basetype);
       if (TREE_CODE (basetype) != RECORD_TYPE
@@ -9982,6 +10002,11 @@ xref_basetypes (tree ref, tree base_list)
 	    error ("duplicate base type %qT invalid", basetype);
 	  return false;
 	}
+
+      if (PACK_EXPANSION_P (TREE_VALUE (base_list)))
+        /* Regenerate the pack expansion for the bases. */
+        basetype = make_pack_expansion (basetype);
+
       TYPE_MARKED_P (basetype) = 1;
 
       base_binfo = copy_binfo (base_binfo, basetype, ref,
@@ -11691,6 +11716,7 @@ cp_tree_node_structure (union lang_tree_node * t)
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:		return TS_CP_BASELINK;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
+    case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
     default:			return TS_CP_GENERIC;
     }
 }

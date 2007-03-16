@@ -326,6 +326,7 @@ gnu/classpath/jdwp/event/filters.list: $(gnu_classpath_jdwp_event_filters_source
 
 
 gnu_classpath_jdwp_exception_source_files = \
+classpath/gnu/classpath/jdwp/exception/AbsentInformationException.java \
 classpath/gnu/classpath/jdwp/exception/InvalidClassException.java \
 classpath/gnu/classpath/jdwp/exception/InvalidClassLoaderException.java \
 classpath/gnu/classpath/jdwp/exception/InvalidCountException.java \
@@ -4721,7 +4722,7 @@ classpath/java/lang/Override.java \
 classpath/java/lang/Package.java \
 java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
-java/lang/ProcessBuilder.java \
+classpath/java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
 classpath/java/lang/Runnable.java \
 java/lang/Runtime.java \
@@ -4753,6 +4754,7 @@ java/lang/VMClassLoader.java \
 java/lang/VMCompiler.java \
 java/lang/VMDouble.java \
 java/lang/VMFloat.java \
+java/lang/VMProcess.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
@@ -4763,7 +4765,7 @@ java_lang_header_files = $(filter-out java/lang/Object.h java/lang/Class.h,$(pat
 
 java/lang.list: $(java_lang_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	echo $(srcdir)/classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | grep -v '[^/]Process' > java/lang.list
+	echo $(srcdir)/classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | egrep -v '(Ecos|Posix|Win32)Process' > java/lang.list
 
 -include java/lang.deps
 
@@ -8373,7 +8375,7 @@ sun/reflect.list: $(sun_reflect_source_files)
 
 
 sun_reflect_annotation_source_files = \
-classpath/sun/reflect/annotation/AnnotationInvocationHandler.java \
+sun/reflect/annotation/AnnotationInvocationHandler.java \
 classpath/sun/reflect/annotation/AnnotationParser.java \
 classpath/sun/reflect/annotation/AnnotationType.java \
 classpath/sun/reflect/annotation/EnumConstantNotPresentExceptionProxy.java \
@@ -8973,13 +8975,10 @@ property_files = \
   classpath/resource/java/util/iso4217.properties \
   classpath/resource/javax/imageio/plugins/jpeg/MessagesBundle.properties \
   classpath/resource/org/ietf/jgss/MessagesBundle.properties \
+  classpath/resource/sun/rmi/rmic/messages.properties \
+  classpath/resource/com/sun/tools/javac/messages.properties \
   classpath/resource/META-INF/services/java.util.prefs.PreferencesFactory.in \
   classpath/resource/META-INF/services/javax.sound.midi.spi.MidiDeviceProvider \
   classpath/resource/META-INF/services/javax.sound.midi.spi.MidiFileReader \
   classpath/resource/META-INF/services/javax.sound.midi.spi.MidiFileWriter \
-  classpath/resource/META-INF/services/javax.sound.sampled.spi.AudioFileReader \
-  classpath/resource/META-INF/services/javax.xml.parsers.DocumentBuilderFactory \
-  classpath/resource/META-INF/services/javax.xml.parsers.SAXParserFactory \
-  classpath/resource/META-INF/services/javax.xml.parsers.TransformerFactory \
-  classpath/resource/META-INF/services/org.relaxng.datatype.DatatypeLibraryFactory \
-  classpath/resource/META-INF/services/org.xml.sax.driver
+  classpath/resource/META-INF/services/javax.sound.sampled.spi.AudioFileReader

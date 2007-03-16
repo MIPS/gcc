@@ -7,6 +7,8 @@
 @c %**end of header
 @c @end ifnothtml
 
+@include gcc-common.texi
+
 @c Specify title for specific html page
 @ifset indexhtml
 @settitle Installing GCC
@@ -99,9 +101,8 @@ Free Documentation License}''.
 
 @c Part 3 Titlepage and Copyright
 @titlepage
-@sp 10
-@comment The title is printed in a large font.
-@center @titlefont{Installing GCC}
+@title Installing GCC
+@versionsubtitle
 
 @c The following two commands start the copyright page.
 @page
@@ -109,7 +110,7 @@ Free Documentation License}''.
 @insertcopying
 @end titlepage
 
-@c Part 4 Top node and Master Menu
+@c Part 4 Top node, Master Menu, and/or Table of Contents
 @ifinfo
 @node    Top, , , (dir)
 @comment node-name, next,          Previous, up
@@ -128,6 +129,10 @@ Free Documentation License}''.
 * Concept Index::   This index has two entries.
 @end menu
 @end ifinfo
+
+@iftex
+@contents
+@end iftex
 
 @c Part 5 The Body of the Document
 @c ***Installing GCC**********************************************************
@@ -1130,6 +1135,21 @@ Ada, Objective-C++, and treelang are not default languages; the rest are.
 Re-defining @code{LANGUAGES} when calling @samp{make} @strong{does not}
 work anymore, as those language sub-directories might not have been
 configured!
+
+@item --enable-stage1-languages=@var{lang1},@var{lang2},@dots{}
+Specify that a particular subset of compilers and their runtime
+libraries should be built with the system C compiler during stage 1 of
+the bootstrap process, rather than only in later stages with the
+bootstrapped C compiler.  The list of valid values is the same as for
+@option{--enable-languages}, and the option @code{all} will select all
+of the languages enabled by @option{--enable-languages}.  This option is
+primarily useful for GCC development; for instance, when a development
+version of the compiler cannot bootstrap due to compiler bugs, or when
+one is debugging front ends other than the C front end.  When this
+option is used, one can then build the target libraries for the
+specified languages with the stage-1 compiler by using @command{make
+stage1-bubble all-target}, or run the testsuite on the stage-1 compiler
+for the specified languages using @command{make stage1-start check-gcc}.
 
 @item --disable-libada
 Specify that the run-time libraries and tools used by GNAT should not
@@ -3546,10 +3566,13 @@ currently do not work, because the auxiliary programs
 anything but a MIPS.  It does work to cross compile for a MIPS
 if you use the GNU assembler and linker.
 
-The linker from GNU binutils versions prior to 2.17 has a bug which
-causes the runtime linker stubs in @file{libgcj.so} to be incorrectly
-generated.  If you want to use libgcj, either use binutils 2.17 or
-later to build it or export @samp{LD_BIND_NOW=1} in your runtime environment.
+The assembler from GNU binutils 2.17 and earlier has a bug in the way
+it sorts relocations for REL targets (o32, o64, EABI).  This can cause
+bad code to be generated for simple C++ programs.  Also the linker
+from GNU binutils versions prior to 2.17 has a bug which causes the
+runtime linker stubs in very large programs, like @file{libgcj.so}, to
+be incorrectly generated.  Binutils CVS snapshots and releases made
+after Nov. 9, 2006 are thought to be free from both of these problems.
 
 @html
 <hr />

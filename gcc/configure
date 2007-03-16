@@ -7128,7 +7128,7 @@ if test "${with_sysroot+set}" = set; then
  esac
 
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
- CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR)'
+ CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 
  if test "x$exec_prefix" = xNONE; then
   if test "x$prefix" = xNONE; then
@@ -13027,6 +13027,11 @@ tm_file_list="options.h"
 tm_include_list="options.h"
 for f in $tm_file; do
   case $f in
+    ./* )
+       f=`echo $f | sed 's/^..//'`
+       tm_file_list="${tm_file_list} $f"
+       tm_include_list="${tm_include_list} $f"
+       ;;
     defaults.h )
        tm_file_list="${tm_file_list} \$(srcdir)/$f"
        tm_include_list="${tm_include_list} $f"
@@ -13116,7 +13121,7 @@ ALL=all.internal
 SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
 
 if test "x$with_build_sysroot" != x; then
-  build_system_header_dir=$with_build_sysroot'$(NATIVE_SYSTEM_HEADER_DIR)'
+  build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 else
   # This value is used, even on a native system, because
   # CROSS_SYSTEM_HEADER_DIR is just
@@ -15232,6 +15237,39 @@ _ACEOF
 
 fi
 
+    echo "$as_me:$LINENO: checking assembler for sahf mnemonic" >&5
+echo $ECHO_N "checking assembler for sahf mnemonic... $ECHO_C" >&6
+if test "${gcc_cv_as_ix86_sahf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_ix86_sahf=no
+  if test x$gcc_cv_as != x; then
+    echo 'sahf' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_ix86_sahf=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_ix86_sahf" >&5
+echo "${ECHO_T}$gcc_cv_as_ix86_sahf" >&6
+if test $gcc_cv_as_ix86_sahf = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_IX86_SAHF 1
+_ACEOF
+
+fi
+
     echo "$as_me:$LINENO: checking assembler for different section symbol subtraction" >&5
 echo $ECHO_N "checking assembler for different section symbol subtraction... $ECHO_C" >&6
 if test "${gcc_cv_as_ix86_diff_sect_delta+set}" = set; then
@@ -15589,6 +15627,43 @@ LCF0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-.LCF0@ha';;
     esac
 
+    echo "$as_me:$LINENO: checking assembler for rel16 relocs" >&5
+echo $ECHO_N "checking assembler for rel16 relocs... $ECHO_C" >&6
+if test "${gcc_cv_as_powerpc_rel16+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_powerpc_rel16=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 17 \) \* 1000 + 0`
+  then gcc_cv_as_powerpc_rel16=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo "$conftest_s" > conftest.s
+    if { ac_try='$gcc_cv_as -a32 -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_powerpc_rel16=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_powerpc_rel16" >&5
+echo "${ECHO_T}$gcc_cv_as_powerpc_rel16" >&6
+if test $gcc_cv_as_powerpc_rel16 = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_REL16 1
+_ACEOF
+
+fi
+
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[PR]
@@ -15677,43 +15752,6 @@ if test $gcc_cv_as_powerpc_dfp = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_AS_DFP 1
-_ACEOF
-
-fi
-
-    echo "$as_me:$LINENO: checking assembler for rel16 relocs" >&5
-echo $ECHO_N "checking assembler for rel16 relocs... $ECHO_C" >&6
-if test "${gcc_cv_as_powerpc_rel16+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  gcc_cv_as_powerpc_rel16=no
-    if test $in_tree_gas = yes; then
-    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 17 \) \* 1000 + 0`
-  then gcc_cv_as_powerpc_rel16=yes
-fi
-  elif test x$gcc_cv_as != x; then
-    echo "$conftest_s" > conftest.s
-    if { ac_try='$gcc_cv_as -a32 -o conftest.o conftest.s >&5'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }
-    then
-	gcc_cv_as_powerpc_rel16=yes
-    else
-      echo "configure: failed program was" >&5
-      cat conftest.s >&5
-    fi
-    rm -f conftest.o conftest.s
-  fi
-fi
-echo "$as_me:$LINENO: result: $gcc_cv_as_powerpc_rel16" >&5
-echo "${ECHO_T}$gcc_cv_as_powerpc_rel16" >&6
-if test $gcc_cv_as_powerpc_rel16 = yes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_AS_REL16 1
 _ACEOF
 
 fi
@@ -15998,6 +16036,46 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+fi
+
+echo "$as_me:$LINENO: checking assembler for tolerance to line number 0" >&5
+echo $ECHO_N "checking assembler for tolerance to line number 0... $ECHO_C" >&6
+if test "${gcc_cv_as_line_zero+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_line_zero=no
+  if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2,16,91 \* 1000 \) + gcc_cv_as_line_zero=yes \) \* 1000 + `
+  then :
+fi
+  elif test "x$gcc_cv_as" != x; then
+    { echo '# 1 "test.s" 1'; echo '# 0 "" 2'; } > conftest.s
+    if { ac_try='$gcc_cv_as -o conftest.o conftest.s >&5 2>conftest.out'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+       test "x`cat conftest.out`" = x
+    then
+      gcc_cv_as_line_zero=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+      echo "configure: error output was" >&5
+      cat conftest.out >&5
+    fi
+    rm -f conftest.o conftest.s conftest.out
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_line_zero" >&5
+echo "${ECHO_T}$gcc_cv_as_line_zero" >&6
+if test "x$gcc_cv_as_line_zero" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_LINE_ZERO 1
+_ACEOF
+
 fi
 
 echo "$as_me:$LINENO: checking linker read-only and read-write section mixing" >&5
@@ -16304,6 +16382,8 @@ else
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -16458,6 +16538,8 @@ else
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -16674,8 +16756,8 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi pdf html \
-	uninstall info man srcextra srcman srcinfo \
+	install-common install-man install-info install-pdf dvi pdf \
+	html uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean"
 
 for t in $target_list

@@ -1,3 +1,266 @@
+2007-03-16  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_generate_function_code): Use all arguments of
+	  set_std.
+
+2007-03-15  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h (gfc_option_t): Add flag_backtrace field.
+	* lang.opt: Add -fbacktrace option.
+	* invoke.texi: Document the new option.
+	* trans-decl.c (gfc_build_builtin_function_decls): Add new
+	option to the call to set_std.
+	* options.c (gfc_init_options, gfc_handle_option): Handle the
+	new option.
+
+2007-03-15  Tobias Burnus  <burnus@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30922
+	* decl.c (gfc_match_import): If the parent of the current name-
+	space is null, try looking for an imported symbol in the parent
+	of the proc_name interface.
+	* resolve.c (resolve_fl_variable): Do not check for blocking of
+	host association by a same symbol, if the symbol is in an
+	interface body.
+
+2007-03-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30879
+	* decl.c (match_data_constant): Before going on to try to match
+	a name, try to match a structure component.
+
+
+	PR fortran/30870
+	* resolve.c (resolve_actual_arglist): Do not reject a generic
+	actual argument if it has a same name specific interface.
+
+	PR fortran/31163
+	* trans-array.c (parse_interface): Do not nullify allocatable
+	components if the symbol has the saved attribute.
+
+2007-03-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* trans-array.c (gfc_trans_auto_array_allocation): Replace
+	fold(convert()) by fold_convert().
+	(gfc_duplicate_allocatable): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_dot_product): Use
+	build_int_cst instead of converting an integer_zero_node
+	to the final type.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* module.c (mio_typespec): Don't look at ts->cl if not BT_CHARACTER.
+
+2007-03-13  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30933
+	PR fortran/30948
+	PR fortran/30953
+	* intrinsics.texi (CHDIR): Fix argument names, note
+	that STATUS must be a default integer.
+	(CTIME): Fix argument names, note that RESULT must
+	be a default integer.
+	(EXIT): Note that STATUS must be a default integer.
+
+2007-03-13  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/28068
+	* intrinsic.texi: General whitespace cleanup, remove
+	comment about missing intrinsics.
+	(menu): Add lines for new entries listed below.
+	(ACOSH): Mention specific function DACOSH, correct
+	description phrasing.
+	(ASINH): Mention specific function DASINH, correct
+	description phrasing.
+	(ATANH): Mention specific function DATANH, correct
+	description phrasing.
+	(COS): Add index entry for CCOS.
+	(CPU_TIME): Correct "REAL" to "REAL(*)".
+	(EXP): Add index entry for CEXP.
+	(INT): Correct argument name to "A".
+	(INT2): New entry.
+	(INT8): New entry.
+	(LONG): New entry.
+	(MAX): Add index entries for specific variants.
+	(MCLOCK): New entry.
+	(MCLOCK8): New entry.
+	(SECNDS): Adjust to a more standard form.
+	(SECOND): New entry.
+	(TIME): Add cross-reference to MCLOCK.
+	(TIME8): Add cross-reference to MCLOCK8.
+
+2007-03-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30883
+	* parse.c (parse_interface): Use the default types from the
+	formal namespace if a function or its result do not have a type
+	after parsing the specification statements.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: (ICHAR) Improve internal I/O note.
+	(ACHAR): Reference it.
+	(CHAR): Reference it.
+	(IACHAR): Reference it.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: (LINK) Document function form.
+	(RENAME): Likewise.
+	(SYMLNK): Likewise.
+	(SYSTEM): Likewise.
+	(UNLINK): Likewise.
+
+2007-03-08  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: minor typo fixes, removed prologue.
+	(FSEEK): moved to correct place in alphabetical order.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/30947
+	* check.c (gfc_check_alarm_sub): Added check for default integer 
+	kind of status argument.
+	* iresolve.c (gfc_resolve_alarm_sub): Removed conversion of 
+	status argument.
+	* intrinsic.texi (ALARM): Extended documentation.
+
+2007-03-08  Daniel Franke  <franke.daniel@gmail.com>
+
+	* intrinsic.texi (GERROR, ISATTY, TTYNAM): New.
+	(ABORT, FLUSH, FNUM, IRAND, MALLOC, SIGNAL, SRAND): Fixed typo.
+	* intrinsic.c (add_subroutines): Adjusted dummy argument names 
+	of GERROR and TTYNAM.
+
+2007-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	* module.c (gfc_match_use): Support renaming of operators
+	in USE statements.
+	* gfortran.texi (Fortran 2003 Status): Document support of
+	renaming of operators.
+
+2007-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30973
+	* module.c (read_module): Always import module name as symbol.
+	(gfc_match_use): Disallow module name in the only clause of
+	a use statement.
+
+2007-03-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31011
+	* expr.c (find_array_section): Correct arithmetic for section
+	size.
+
+2007-03-07  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* iresolve.c (gfc_resolve_ishftc): Correct s_kind value.
+
+2007-03-06  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR documentation/30950
+	* intrinsic.texi (AND, CPU_TIME): Fix dummy argument names.
+	(FREE): Fix call syntax.
+
+2007-03-06  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* intrinsic.texi: Limit column widths to a total of .85.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (GFortran and G77): Rewrite completely.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* match.c (gfc_match_name): Expanded comment.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi (Old-style kind specifications): Document
+	special handling of old-style kind specifiers for COMPLEX.
+	* decl.c (gfc_match_old_kind_spec): Document kind/bytesize
+	assumptions for COMPLEX in comment.
+
+2007-03-05  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 31050
+	* gfortranspec.c (lang_specific_driver): Update program
+	name and copyright date.
+
+2007-03-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30882
+	* check.c (dim_rank_check): The shape of subsections of
+	assumed-size arrays is known.
+
+2007-03-02  Paul Thomas  <pault@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30873
+	* decl.c (gfc_match_entry): Remove erroneous entry result check.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Make-lang.in: Add install-pdf target as copied from
+	automake v1.10 rules.
+
+2007-03-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30865
+	* trans-intrinsic.c (gfc_conv_intrinsic_size): Compare pointers.
+
+2007-02-28  Tobias Burnus  <burnus@net-b.de>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30888
+	PR fortran/30887
+	* resolve.c (resolve_actual_arglist): Allow by-value
+	arguments and non-default-kind for %VAL().
+	* trans-expr.c (conv_arglist_function): Allow
+	non-default-kind for %VAL().
+
+2007-02-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/30968
+	* primary.c (next_string_char): Correct reading a character
+	after the delimiter.
+	(match_string_constant): Print warning message only once.
+
+2007-02-27  Richard Guenther  <rguenther@suse.de>
+
+	* trans-array.c (structure_alloc_comps): Use correct type
+	for null pointer constant.
+
+2007-02-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.texi: Standardize title page, remove version number
+	from copyright page.
+
+2007-02-26  Thomas Koenig  <Thomas.Koenig@online.de>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30865
+	* trans-intrinsic.c (gfc_conv_intrinsic_size):
+	If dim is an optional argument, check for its
+	presence and call size0 or size1, respectively.
+
+2007-02-23  Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/30660
+	* resolve.c (has_default_initializer): New function.
+	(resolve_fl_variable): Call has_default_initializer to determine if
+	the derived type has a default initializer to its ultimate
+	components.
+
+
+2007-02-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* options.c (set_default_std_flags): New function to consolidate
+	setting the flags.
+	(gfc_init_options): Use new function.
+	(gfc_handle_option): Use new function.
+
 2007-02-22  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* gfortran.texi (Old-style kind specifications): Document

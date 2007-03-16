@@ -348,6 +348,60 @@ struct tree_opt_pass pass_insn_locators_initialize =
   0                                     /* letter */
 };
 
+static unsigned int
+into_cfg_layout_mode (void)
+{
+  cfg_layout_initialize (0);
+  return 0;
+}
+
+static unsigned int
+outof_cfg_layout_mode (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->aux = bb->next_bb;
+
+  cfg_layout_finalize ();
+
+  return 0;
+}
+
+struct tree_opt_pass pass_into_cfg_layout_mode =
+{
+  "into_cfglayout",                     /* name */
+  NULL,                                 /* gate */
+  into_cfg_layout_mode,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+struct tree_opt_pass pass_outof_cfg_layout_mode =
+{
+  "outof_cfglayout",                    /* name */
+  NULL,                                 /* gate */
+  outof_cfg_layout_mode,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is
    found in the block tree.  */
@@ -644,7 +698,6 @@ fixup_reorder_chain (void)
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
 #endif
-  delete_dead_jumptables ();
 
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
@@ -1130,6 +1183,9 @@ cfg_layout_finalize (void)
     fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 
+  rebuild_jump_labels (get_insns ());
+  delete_dead_jumptables ();
+
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
 #endif
@@ -1139,8 +1195,6 @@ cfg_layout_finalize (void)
     bb->aux = NULL;
     bb->il.rtl->visited = 0;
   }
-
-  break_superblocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

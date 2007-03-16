@@ -498,6 +498,8 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
   init_return_column_size (mode, mem, DWARF_ALT_FRAME_RETURN_COLUMN);
 #endif
+
+  targetm.init_dwarf_reg_sizes_extra (address);
 }
 
 /* Convert a DWARF call frame info. operation to its string name */
@@ -12231,6 +12233,36 @@ add_call_src_coords_attributes (tree stmt, dw_die_ref die)
   add_AT_unsigned (die, DW_AT_call_line, s.line);
 }
 
+
+/* If STMT's abstract origin is a function declaration and STMT's
+   first subblock's abstract origin is the function's outermost block,
+   then we're looking at the main entry point.  */
+static bool
+is_inlined_entry_point (tree stmt)
+{
+  tree decl, block;
+
+  if (!stmt || TREE_CODE (stmt) != BLOCK)
+    return false;
+
+  decl = block_ultimate_origin (stmt);
+
+  if (!decl || TREE_CODE (decl) != FUNCTION_DECL)
+    return false;
+
+  block = BLOCK_SUBBLOCKS (stmt);
+
+  if (block)
+    {
+      if (TREE_CODE (block) != BLOCK)
+	return false;
+
+      block = block_ultimate_origin (block);
+    }
+
+  return block == DECL_INITIAL (decl);
+}
+
 /* A helper function for gen_lexical_block_die and gen_inlined_subroutine_die.
    Add low_pc and high_pc attributes to the DIE for a block STMT.  */
 
@@ -12242,6 +12274,13 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
   if (BLOCK_FRAGMENT_CHAIN (stmt))
     {
       tree chain;
+
+      if (is_inlined_entry_point (stmt))
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
+				       BLOCK_NUMBER (stmt));
+	  add_AT_lbl_id (die, DW_AT_entry_pc, label);
+	}
 
       add_AT_range_list (die, DW_AT_ranges, add_ranges (stmt));
 
@@ -13121,7 +13160,8 @@ force_decl_die (tree decl)
   return decl_die;
 }
 
-/* Returns the DIE for TYPE.  A DIE is always returned.  */
+/* Returns the DIE for TYPE, that must not be a base type.  A DIE is
+   always returned.  */
 
 static dw_die_ref
 force_type_die (tree type)
@@ -13449,7 +13489,12 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
 
   /* For TYPE_DECL or CONST_DECL, lookup TREE_TYPE.  */
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
-    at_import_die = force_type_die (TREE_TYPE (decl));
+    {
+      if (is_base_type (TREE_TYPE (decl)))
+	at_import_die = base_type_die (TREE_TYPE (decl));
+      else
+	at_import_die = force_type_die (TREE_TYPE (decl));
+    }
   else
     {
       at_import_die = lookup_decl_die (decl);

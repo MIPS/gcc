@@ -985,205 +985,268 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_486 (1<<PROCESSOR_I486)
 #define m_PENT (1<<PROCESSOR_PENTIUM)
 #define m_PPRO (1<<PROCESSOR_PENTIUMPRO)
-#define m_GEODE  (1<<PROCESSOR_GEODE)
-#define m_K6_GEODE  (m_K6 | m_GEODE)
-#define m_K6  (1<<PROCESSOR_K6)
-#define m_ATHLON  (1<<PROCESSOR_ATHLON)
 #define m_PENT4  (1<<PROCESSOR_PENTIUM4)
-#define m_K8  (1<<PROCESSOR_K8)
-#define m_ATHLON_K8  (m_K8 | m_ATHLON)
-#define m_AMDFAM10  (1<<PROCESSOR_AMDFAM10)
 #define m_NOCONA  (1<<PROCESSOR_NOCONA)
 #define m_CORE2  (1<<PROCESSOR_CORE2)
+
+#define m_GEODE  (1<<PROCESSOR_GEODE)
+#define m_K6  (1<<PROCESSOR_K6)
+#define m_K6_GEODE  (m_K6 | m_GEODE)
+#define m_K8  (1<<PROCESSOR_K8)
+#define m_ATHLON  (1<<PROCESSOR_ATHLON)
+#define m_ATHLON_K8  (m_K8 | m_ATHLON)
+#define m_AMDFAM10  (1<<PROCESSOR_AMDFAM10)
+#define m_ATHLON_K8_AMDFAM10  (m_K8 | m_ATHLON | m_AMDFAM10)
+
 #define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
 #define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
-#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
-#define m_ATHLON_K8_AMDFAM10  (m_K8 | m_ATHLON | m_AMDFAM10)
 
 /* Generic instruction choice should be common subset of supported CPUs
    (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
+#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
-/* Leave is not affecting Nocona SPEC2000 results negatively, so enabling for
-   Generic64 seems like good code size tradeoff.  We can't enable it for 32bit
-   generic because it is not working well with PPro base chips.  */
-const int x86_use_leave = m_386 | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_CORE2
-                          | m_GENERIC64;
-const int x86_push_memory = m_386 | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4
-                            | m_NOCONA | m_CORE2 | m_GENERIC;
-const int x86_zero_extend_with_and = m_486 | m_PENT;
-/* Enable to zero extend integer registers to avoid partial dependencies */
-const int x86_movx = m_ATHLON_K8_AMDFAM10 | m_PPRO | m_PENT4 | m_NOCONA
-                     | m_CORE2 | m_GENERIC | m_GEODE /* m_386 | m_K6 */;
-const int x86_double_with_add = ~m_386;
-const int x86_use_bit_test = m_386;
-const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8_AMDFAM10
-                              | m_K6 | m_CORE2 | m_GENERIC;
-const int x86_cmove = m_PPRO | m_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4
-                      | m_NOCONA;
-const int x86_3dnow_a = m_ATHLON_K8_AMDFAM10;
-const int x86_deep_branch = m_PPRO | m_K6_GEODE | m_ATHLON_K8_AMDFAM10
-                            | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC;
-/* Branch hints were put in P4 based on simulation result. But
-   after P4 was made, no performance benefit was observed with
-   branch hints. It also increases the code size. As the result,
-   icc never generates branch hints.  */
-const int x86_branch_hints = 0;
-const int x86_use_sahf = m_PPRO | m_K6_GEODE | m_PENT4 | m_NOCONA | m_GENERIC32;
-                         /*m_GENERIC | m_ATHLON_K8 ? */
-/* We probably ought to watch for partial register stalls on Generic32
-   compilation setting as well.  However in current implementation the
-   partial register stalls are not eliminated very well - they can
-   be introduced via subregs synthesized by combine and can happen
-   in caller/callee saving sequences.
-   Because this option pays back little on PPro based chips and is in conflict
-   with partial reg. dependencies used by Athlon/P4 based chips, it is better
-   to leave it off for generic32 for now.  */
-const int x86_partial_reg_stall = m_PPRO;
-const int x86_partial_flag_reg_stall =  m_CORE2 | m_GENERIC;
-const int x86_use_himode_fiop = m_386 | m_486 | m_K6_GEODE;
-const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8_AMDFAM10 | m_PENT
-                                  | m_CORE2 | m_GENERIC);
-const int x86_use_mov0 = m_K6;
-const int x86_use_cltd = ~(m_PENT | m_K6 | m_CORE2 | m_GENERIC);
-/* Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
-const int x86_use_xchgb = m_PENT4;
-const int x86_read_modify_write = ~m_PENT;
-const int x86_read_modify = ~(m_PENT | m_PPRO);
-const int x86_split_long_moves = m_PPRO;
-const int x86_promote_QImode = m_K6_GEODE | m_PENT | m_386 | m_486
-                               | m_ATHLON_K8_AMDFAM10 | m_CORE2 | m_GENERIC;
-                               /* m_PENT4 ? */
-const int x86_fast_prefix = ~(m_PENT | m_486 | m_386);
-const int x86_single_stringop = m_386 | m_PENT4 | m_NOCONA;
-const int x86_qimode_math = ~(0);
-const int x86_promote_qi_regs = 0;
-/* On PPro this flag is meant to avoid partial register stalls.  Just like
-   the x86_partial_reg_stall this option might be considered for Generic32
-   if our scheme for avoiding partial stalls was more effective.  */
-const int x86_himode_math = ~(m_PPRO);
-const int x86_promote_hi_regs = m_PPRO;
-/* Enable if add/sub rsp is preferred over 1 or 2 push/pop */
-const int x86_sub_esp_4 = m_ATHLON_K8_AMDFAM10 | m_PPRO | m_PENT4 | m_NOCONA
-                          | m_CORE2 | m_GENERIC;
-const int x86_sub_esp_8 = m_ATHLON_K8_AMDFAM10 | m_PPRO | m_386 | m_486
-                          | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC;
-const int x86_add_esp_4 = m_ATHLON_K8_AMDFAM10 | m_K6_GEODE | m_PENT4 | m_NOCONA
-                          | m_CORE2 | m_GENERIC;
-const int x86_add_esp_8 = m_ATHLON_K8_AMDFAM10 | m_PPRO | m_K6_GEODE | m_386
-                          | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC;
-/* Enable if integer moves are preferred for DFmode copies */
-const int x86_integer_DFmode_moves = ~(m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA
-                                       | m_PPRO | m_CORE2 | m_GENERIC | m_GEODE);
-const int x86_partial_reg_dependency = m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA
-                                       | m_CORE2 | m_GENERIC;
-const int x86_memory_mismatch_stall = m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA 
-                                      | m_CORE2 | m_GENERIC;
-/* If ACCUMULATE_OUTGOING_ARGS is enabled, the maximum amount of space required
-   for outgoing arguments will be computed and placed into the variable
-   `current_function_outgoing_args_size'. No space will be pushed onto the stack
-   for each call; instead, the function prologue should increase the stack frame
-   size by this amount. Setting both PUSH_ARGS and ACCUMULATE_OUTGOING_ARGS is
-   not proper. */
-const int x86_accumulate_outgoing_args = m_ATHLON_K8_AMDFAM10 | m_PENT4
-                                         | m_NOCONA | m_PPRO | m_CORE2
-                                         | m_GENERIC;
-const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC;
-const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC;
-const int x86_shift1 = ~m_486;
-const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO
-                                           | m_ATHLON_K8_AMDFAM10 | m_PENT4 
-                                           | m_NOCONA | m_CORE2 | m_GENERIC;
-/* In Generic model we have an conflict here in between PPro/Pentium4 based chips
-   that thread 128bit SSE registers as single units versus K8 based chips that
-   divide SSE registers to two 64bit halves.
-   x86_sse_partial_reg_dependency promote all store destinations to be 128bit
-   to allow register renaming on 128bit SSE units, but usually results in one
-   extra microop on 64bit SSE units.  Experimental results shows that disabling
-   this option on P4 brings over 20% SPECfp regression, while enabling it on
-   K8 brings roughly 2.4% regression that can be partly masked by careful scheduling
-   of moves.  */
-const int x86_sse_partial_reg_dependency = m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
-                                           | m_GENERIC | m_AMDFAM10;
-/* Set for machines where the type and dependencies are resolved on SSE
-   register parts instead of whole registers, so we may maintain just
-   lower part of scalar values in proper format leaving the upper part
-   undefined.  */
-const int x86_sse_split_regs = m_ATHLON_K8;
-/* Code generation for scalar reg-reg moves of single and double precision data:
-     if (x86_sse_partial_reg_dependency == true | x86_sse_split_regs == true)
-       movaps reg, reg
-     else
-       movss reg, reg
-     if (x86_sse_partial_reg_dependency == true)
-       movapd reg, reg
-     else
-       movsd reg, reg
+/* Feature tests against the various tunings.  */
+unsigned int ix86_tune_features[X86_TUNE_LAST] = {
+  /* X86_TUNE_USE_LEAVE: Leave does not affect Nocona SPEC2000 results
+     negatively, so enabling for Generic64 seems like good code size
+     tradeoff.  We can't enable it for 32bit generic because it does not
+     work well with PPro base chips.  */
+  m_386 | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_CORE2 | m_GENERIC64,
 
-   Code generation for scalar loads of double precision data:
-     if (x86_sse_split_regs == true)
-       movlpd mem, reg      (gas syntax)
-     else
-       movsd mem, reg
- 
-   Code generation for unaligned packed loads of single precision data
-   (x86_sse_unaligned_move_optimal overrides x86_sse_partial_reg_dependency):
-     if (x86_sse_unaligned_move_optimal)
-       movups mem, reg
+  /* X86_TUNE_PUSH_MEMORY */
+  m_386 | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4
+  | m_NOCONA | m_CORE2 | m_GENERIC,
 
-     if (x86_sse_partial_reg_dependency == true)
-       {
-         xorps  reg, reg
-         movlps mem, reg
-         movhps mem+8, reg
-       }
-     else
-       {
-         movlps mem, reg
-         movhps mem+8, reg
-       }
+  /* X86_TUNE_ZERO_EXTEND_WITH_AND */
+  m_486 | m_PENT,
 
-   Code generation for unaligned packed loads of double precision data
-   (x86_sse_unaligned_move_optimal overrides x86_sse_split_regs):
-     if (x86_sse_unaligned_move_optimal)
-       movupd mem, reg
+  /* X86_TUNE_USE_BIT_TEST */
+  m_386,
 
-     if (x86_sse_split_regs == true)
-       {
-         movlpd mem, reg
-         movhpd mem+8, reg
-       }
-     else
-       {
-         movsd  mem, reg
-         movhpd mem+8, reg
-       }
- */
-const int x86_sse_unaligned_move_optimal = m_AMDFAM10;
-const int x86_sse_typeless_stores = m_ATHLON_K8_AMDFAM10;
-const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4 | m_NOCONA;
-const int x86_use_ffreep = m_ATHLON_K8_AMDFAM10;
-const int x86_use_incdec = ~(m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC);
+  /* X86_TUNE_UNROLL_STRLEN */
+  m_486 | m_PENT | m_PPRO | m_ATHLON_K8_AMDFAM10 | m_K6 | m_CORE2 | m_GENERIC,
 
-const int x86_inter_unit_moves = ~(m_ATHLON_K8_AMDFAM10 | m_GENERIC);
+  /* X86_TUNE_DEEP_BRANCH_PREDICTION */
+  m_PPRO | m_K6_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4
+  | m_NOCONA | m_CORE2 | m_GENERIC,
 
-const int x86_ext_80387_constants = m_K6_GEODE | m_ATHLON_K8 | m_PENT4
-                                    | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC;
-/* Some CPU cores are not able to predict more than 4 branch instructions in
-   the 16 byte window.  */
-const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8_AMDFAM10 | m_PENT4
-                                | m_NOCONA | m_CORE2 | m_GENERIC;
-const int x86_schedule = m_PPRO | m_ATHLON_K8_AMDFAM10 | m_K6_GEODE | m_PENT
-                         | m_CORE2 | m_GENERIC;
-const int x86_use_bt = m_ATHLON_K8_AMDFAM10;
-/* Compare and exchange was added for 80486.  */
-const int x86_cmpxchg = ~m_386;
-/* Compare and exchange 8 bytes was added for pentium.  */
-const int x86_cmpxchg8b = ~(m_386 | m_486);
-/* Exchange and add was added for 80486.  */
-const int x86_xadd = ~m_386;
-/* Byteswap was added for 80486.  */
-const int x86_bswap = ~m_386;
-const int x86_pad_returns = m_ATHLON_K8_AMDFAM10 | m_CORE2 | m_GENERIC;
+  /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
+     on simulation result. But after P4 was made, no performance benefit
+     was observed with branch hints.  It also increases the code size.
+     As a result, icc never generates branch hints.  */
+  0,
+
+  /* X86_TUNE_DOUBLE_WITH_ADD */
+  ~m_386,
+  
+  /* X86_TUNE_USE_SAHF */
+  m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
+  | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
+     partial dependencies.  */
+  m_ATHLON_K8_AMDFAM10 | m_PPRO | m_PENT4 | m_NOCONA
+  | m_CORE2 | m_GENERIC | m_GEODE /* m_386 | m_K6 */,
+
+  /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
+     register stalls on Generic32 compilation setting as well.  However
+     in current implementation the partial register stalls are not eliminated
+     very well - they can be introduced via subregs synthesized by combine
+     and can happen in caller/callee saving sequences.  Because this option
+     pays back little on PPro based chips and is in conflict with partial reg
+     dependencies used by Athlon/P4 based chips, it is better to leave it off
+     for generic32 for now.  */
+  m_PPRO,
+
+  /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
+  m_CORE2 | m_GENERIC,
+  
+  /* X86_TUNE_USE_HIMODE_FIOP */
+  m_386 | m_486 | m_K6_GEODE,
+
+  /* X86_TUNE_USE_SIMODE_FIOP */
+  ~(m_PPRO | m_ATHLON_K8_AMDFAM10 | m_PENT | m_CORE2 | m_GENERIC),
+
+  /* X86_TUNE_USE_MOV0 */
+  m_K6,
+  
+  /* X86_TUNE_USE_CLTD */
+  ~(m_PENT | m_K6 | m_CORE2 | m_GENERIC),
+
+  /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
+  m_PENT4,
+
+  /* X86_TUNE_SPLIT_LONG_MOVES */
+  m_PPRO,
+
+  /* X86_TUNE_READ_MODIFY_WRITE */
+  ~m_PENT,
+
+  /* X86_TUNE_READ_MODIFY */
+  ~(m_PENT | m_PPRO),
+
+  /* X86_TUNE_PROMOTE_QIMODE */
+  m_K6_GEODE | m_PENT | m_386 | m_486 | m_ATHLON_K8_AMDFAM10 | m_CORE2
+  | m_GENERIC /* | m_PENT4 ? */,
+
+  /* X86_TUNE_FAST_PREFIX */
+  ~(m_PENT | m_486 | m_386),
+
+  /* X86_TUNE_SINGLE_STRINGOP */
+  m_386 | m_PENT4 | m_NOCONA,
+  
+  /* X86_TUNE_QIMODE_MATH */
+  ~0,
+  
+  /* X86_TUNE_HIMODE_MATH: On PPro this flag is meant to avoid partial
+     register stalls.  Just like X86_TUNE_PARTIAL_REG_STALL this option
+     might be considered for Generic32 if our scheme for avoiding partial
+     stalls was more effective.  */
+  ~m_PPRO,
+
+  /* X86_TUNE_PROMOTE_QI_REGS */
+  0,
+
+  /* X86_TUNE_PROMOTE_HI_REGS */
+  m_PPRO,
+
+  /* X86_TUNE_ADD_ESP_4: Enable if add/sub is preferred over 1/2 push/pop.  */
+  m_ATHLON_K8_AMDFAM10 | m_K6_GEODE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_ADD_ESP_8 */
+  m_ATHLON_K8_AMDFAM10 | m_PPRO | m_K6_GEODE | m_386
+  | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SUB_ESP_4 */
+  m_ATHLON_K8_AMDFAM10 | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SUB_ESP_8 */
+  m_ATHLON_K8_AMDFAM10 | m_PPRO | m_386 | m_486
+  | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
+     for DFmode copies */
+  ~(m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
+    | m_GENERIC | m_GEODE),
+
+  /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
+  m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
+     conflict here in between PPro/Pentium4 based chips that thread 128bit
+     SSE registers as single units versus K8 based chips that divide SSE
+     registers to two 64bit halves.  This knob promotes all store destinations
+     to be 128bit to allow register renaming on 128bit SSE units, but usually
+     results in one extra microop on 64bit SSE units.  Experimental results
+     shows that disabling this option on P4 brings over 20% SPECfp regression,
+     while enabling it on K8 brings roughly 2.4% regression that can be partly
+     masked by careful scheduling of moves.  */
+  m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC | m_AMDFAM10,
+
+  /* X86_TUNE_SSE_UNALIGNED_MOVE_OPTIMAL */
+  m_AMDFAM10,
+
+  /* X86_TUNE_SSE_SPLIT_REGS: Set for machines where the type and dependencies
+     are resolved on SSE register parts instead of whole registers, so we may
+     maintain just lower part of scalar values in proper format leaving the
+     upper part undefined.  */
+  m_ATHLON_K8,
+
+  /* X86_TUNE_SSE_TYPELESS_STORES */
+  m_ATHLON_K8_AMDFAM10,
+
+  /* X86_TUNE_SSE_LOAD0_BY_PXOR */
+  m_PPRO | m_PENT4 | m_NOCONA,
+
+  /* X86_TUNE_MEMORY_MISMATCH_STALL */
+  m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_PROLOGUE_USING_MOVE */
+  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_EPILOGUE_USING_MOVE */
+  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SHIFT1 */
+  ~m_486,
+
+  /* X86_TUNE_USE_FFREEP */
+  m_ATHLON_K8_AMDFAM10,
+
+  /* X86_TUNE_INTER_UNIT_MOVES */
+  ~(m_ATHLON_K8_AMDFAM10 | m_GENERIC),
+
+  /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
+     than 4 branch instructions in the 16 byte window.  */
+  m_PPRO | m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SCHEDULE */
+  m_PPRO | m_ATHLON_K8_AMDFAM10 | m_K6_GEODE | m_PENT | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_USE_BT */
+  m_ATHLON_K8_AMDFAM10,
+
+  /* X86_TUNE_USE_INCDEC */
+  ~(m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC),
+
+  /* X86_TUNE_PAD_RETURNS */
+  m_ATHLON_K8_AMDFAM10 | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_EXT_80387_CONSTANTS */
+  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SHORTEN_X87_SSE */
+  ~m_K8,
+
+  /* X86_TUNE_AVOID_VECTOR_DECODE */
+  m_K8 | m_GENERIC64,
+
+  /* X86_TUNE_SLOW_IMUL_IMM32_MEM (imul of 32-bit constant and memory is vector
+     path on AMD machines) */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_SLOW_IMUL_IMM8 (imul of 8-bit constant is vector path on AMD
+     machines)  */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_MOVE_M1_VIA_OR (on pentiums, it is faster to load -1 via OR than
+     a MOV) */
+  m_PENT,
+
+  /* X86_TUNE_NOT_UNPAIRABLE (NOT is not pairable on Pentium, while XOR is, but
+     one byte longer).  */
+  m_PENT,
+
+  /* X86_TUNE_NOT_VECTORMODE (On AMD K6, NOT is vector decoded with memory
+     operand that cannot be represented using a modRM byte.  The XOR
+     replacement is long decoded, so this split helps here as well).  */
+  m_K6,
+};
+
+/* Feature tests against the various architecture variations.  */
+unsigned int ix86_arch_features[X86_ARCH_LAST] = {
+  /* X86_ARCH_CMOVE */
+  m_PPRO | m_GEODE | m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA,
+
+  /* X86_ARCH_CMPXCHG: Compare and exchange was added for 80486.  */
+  ~m_386,
+
+  /* X86_ARCH_CMPXCHG8B: Compare and exchange 8 bytes was added for pentium. */
+  ~(m_386 | m_486),
+
+  /* X86_ARCH_XADD: Exchange and add was added for 80486.  */
+  ~m_386,
+
+  /* X86_ARCH_BSWAP: Byteswap was added for 80486.  */
+  ~m_386,
+};
+
+static const unsigned int x86_accumulate_outgoing_args
+  = m_ATHLON_K8_AMDFAM10 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC;
+
+static const unsigned int x86_arch_always_fancy_math_387
+  = m_PENT | m_PPRO | m_ATHLON_K8_AMDFAM10 | m_PENT4
+    | m_NOCONA | m_CORE2 | m_GENERIC;
 
 static enum stringop_alg stringop_alg = no_stringop;
 
@@ -1396,14 +1459,12 @@ enum fpmath_unit ix86_fpmath;
 
 /* Which cpu are we scheduling for.  */
 enum processor_type ix86_tune;
+
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
-
-/* true if cmpxchg16b is supported.  */
-int x86_cmpxchg16b;
 
 /* ix86_regparm_string as a number */
 static int ix86_regparm;
@@ -1807,6 +1868,7 @@ override_options (void)
 {
   int i;
   int ix86_tune_defaulted = 0;
+  unsigned int ix86_arch_mask, ix86_tune_mask;
 
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
@@ -1847,19 +1909,20 @@ override_options (void)
       const enum processor_type processor;
       const enum pta_flags
 	{
-	  PTA_SSE = 1,
-	  PTA_SSE2 = 2,
-	  PTA_SSE3 = 4,
-	  PTA_MMX = 8,
-	  PTA_PREFETCH_SSE = 16,
-	  PTA_3DNOW = 32,
-	  PTA_3DNOW_A = 64,
-	  PTA_64BIT = 128,
-	  PTA_SSSE3 = 256,
-	  PTA_CX16 = 512,
-	  PTA_POPCNT = 1024,
-	  PTA_ABM = 2048,
- 	  PTA_SSE4A = 4096
+	  PTA_SSE = 1 << 0,
+	  PTA_SSE2 = 1 << 1,
+	  PTA_SSE3 = 1 << 2,
+	  PTA_MMX = 1 << 3,
+	  PTA_PREFETCH_SSE = 1 << 4,
+	  PTA_3DNOW = 1 << 5,
+	  PTA_3DNOW_A = 1 << 6,
+	  PTA_64BIT = 1 << 7,
+	  PTA_SSSE3 = 1 << 8,
+	  PTA_CX16 = 1 << 9,
+	  PTA_POPCNT = 1 << 10,
+	  PTA_ABM = 1 << 11,
+ 	  PTA_SSE4A = 1 << 12,
+	  PTA_NO_SAHF = 1 << 13
 	} flags;
     }
   const processor_alias_table[] =
@@ -1886,7 +1949,8 @@ override_options (void)
       {"prescott", PROCESSOR_NOCONA, PTA_SSE | PTA_SSE2 | PTA_SSE3
 				        | PTA_MMX | PTA_PREFETCH_SSE},
       {"nocona", PROCESSOR_NOCONA, PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_64BIT
-					| PTA_MMX | PTA_PREFETCH_SSE | PTA_CX16},
+					| PTA_MMX | PTA_PREFETCH_SSE
+					| PTA_CX16 | PTA_NO_SAHF},
       {"core2", PROCESSOR_CORE2, PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
                                         | PTA_64BIT | PTA_MMX
 					| PTA_PREFETCH_SSE | PTA_CX16},
@@ -1906,15 +1970,19 @@ override_options (void)
       {"athlon-mp", PROCESSOR_ATHLON, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
 				      | PTA_3DNOW_A | PTA_SSE},
       {"x86-64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
-			       | PTA_SSE | PTA_SSE2 },
+			       | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF},
       {"k8", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"athlon64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+				      | PTA_NO_SAHF},
+      {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					| PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					| PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					 | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					 | PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					  | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					  | PTA_SSE2 | PTA_NO_SAHF},
       {"amdfam10", PROCESSOR_AMDFAM10, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
                                        | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
                                        | PTA_SSE2 | PTA_SSE3 | PTA_POPCNT
@@ -2035,14 +2103,14 @@ override_options (void)
 	ix86_cmodel = flag_pic ? CM_SMALL_PIC : CM_SMALL;
       else if (!strcmp (ix86_cmodel_string, "medium"))
 	ix86_cmodel = flag_pic ? CM_MEDIUM_PIC : CM_MEDIUM;
+      else if (!strcmp (ix86_cmodel_string, "large"))
+	ix86_cmodel = flag_pic ? CM_LARGE_PIC : CM_LARGE;
       else if (flag_pic)
-	sorry ("code model %s not supported in PIC mode", ix86_cmodel_string);
+	error ("code model %s does not support PIC mode", ix86_cmodel_string);
       else if (!strcmp (ix86_cmodel_string, "32"))
 	ix86_cmodel = CM_32;
       else if (!strcmp (ix86_cmodel_string, "kernel") && !flag_pic)
 	ix86_cmodel = CM_KERNEL;
-      else if (!strcmp (ix86_cmodel_string, "large") && !flag_pic)
-	ix86_cmodel = CM_LARGE;
       else
 	error ("bad value (%s) for -mcmodel= switch", ix86_cmodel_string);
     }
@@ -2065,8 +2133,6 @@ override_options (void)
   if ((TARGET_64BIT == 0) != (ix86_cmodel == CM_32))
     error ("code model %qs not supported in the %s bit mode",
 	   ix86_cmodel_string, TARGET_64BIT ? "64" : "32");
-  if (ix86_cmodel == CM_LARGE)
-    sorry ("code model %<large%> not supported yet");
   if ((TARGET_64BIT != 0) != ((target_flags & MASK_64BIT) != 0))
     sorry ("%i-bit mode not compiled in",
 	   (target_flags & MASK_64BIT) ? 64 : 32);
@@ -2111,6 +2177,8 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_SSE4A
 	    && !(target_flags_explicit & MASK_SSE4A))
 	  target_flags |= MASK_SSE4A;
+	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF)))
+	  x86_sahf = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  error ("CPU you selected does not support x86-64 "
 		 "instruction set");
@@ -2119,6 +2187,10 @@ override_options (void)
 
   if (i == pta_size)
     error ("bad value (%s) for -march= switch", ix86_arch_string);
+
+  ix86_arch_mask = 1u << ix86_arch;
+  for (i = 0; i < X86_ARCH_LAST; ++i)
+    ix86_arch_features[i] &= ix86_arch_mask;
 
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
@@ -2150,6 +2222,10 @@ override_options (void)
       }
   if (i == pta_size)
     error ("bad value (%s) for -mtune= switch", ix86_tune_string);
+
+  ix86_tune_mask = 1u << ix86_tune;
+  for (i = 0; i < X86_TUNE_LAST; ++i)
+    ix86_tune_features[i] &= ix86_tune_mask;
 
   if (optimize_size)
     ix86_cost = &size_cost;
@@ -2277,7 +2353,7 @@ override_options (void)
 
   /* If the architecture always has an FPU, turn off NO_FANCY_MATH_387,
      since the insns won't need emulation.  */
-  if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
+  if (x86_arch_always_fancy_math_387 & ix86_arch_mask)
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
   /* Likewise, if the target doesn't have a 387, or we've specified
@@ -2359,7 +2435,6 @@ override_options (void)
     error ("-msseregparm used without SSE enabled");
 
   ix86_fpmath = TARGET_FPMATH_DEFAULT;
-
   if (ix86_fpmath_string != 0)
     {
       if (! strcmp (ix86_fpmath_string, "387"))
@@ -2398,7 +2473,7 @@ override_options (void)
   if (!TARGET_80387)
     target_flags &= ~MASK_FLOAT_RETURNS;
 
-  if ((x86_accumulate_outgoing_args & TUNEMASK)
+  if ((x86_accumulate_outgoing_args & ix86_tune_mask)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
@@ -2417,6 +2492,11 @@ override_options (void)
 		 "or -maccumulate-outgoing-args for correctness");
       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
+
+  /* For sane SSE instruction set generation we need fcomi instruction.
+     It is safe to enable all CMOVE instructions.  */
+  if (TARGET_SSE)
+    TARGET_CMOVE = 1;
 
   /* Figure out what ASM_GENERATE_INTERNAL_LABEL builds as a prefix.  */
   {
@@ -2453,7 +2533,7 @@ x86_64_elf_select_section (tree decl, int reloc,
     {
       const char *sname = NULL;
       unsigned int flags = SECTION_WRITE;
-      switch (categorize_decl_for_section (decl, reloc, flag_pic))
+      switch (categorize_decl_for_section (decl, reloc))
 	{
 	case SECCAT_DATA:
 	  sname = ".ldata";
@@ -2520,7 +2600,7 @@ x86_64_elf_unique_section (tree decl, int reloc)
       /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
       bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
 
-      switch (categorize_decl_for_section (decl, reloc, flag_pic))
+      switch (categorize_decl_for_section (decl, reloc))
 	{
 	case SECCAT_DATA:
 	case SECCAT_DATA_REL:
@@ -4852,13 +4932,13 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 		  src_offset = REGNO (reg) * 8;
 		}
 	      src_addr = fold_convert (addr_type, src_addr);
-	      src_addr = fold (build2 (PLUS_EXPR, addr_type, src_addr,
-				       size_int (src_offset)));
+	      src_addr = fold_build2 (PLUS_EXPR, addr_type, src_addr,
+				      size_int (src_offset));
 	      src = build_va_arg_indirect_ref (src_addr);
 
 	      dest_addr = fold_convert (addr_type, addr);
-	      dest_addr = fold (build2 (PLUS_EXPR, addr_type, dest_addr,
-					size_int (INTVAL (XEXP (slot, 1)))));
+	      dest_addr = fold_build2 (PLUS_EXPR, addr_type, dest_addr,
+				       size_int (INTVAL (XEXP (slot, 1))));
 	      dest = build_va_arg_indirect_ref (dest_addr);
 
 	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, src);
@@ -4992,7 +5072,7 @@ standard_80387_constant_p (rtx x)
   /* For XFmode constants, try to find a special 80387 instruction when
      optimizing for size or on those CPUs that benefit from them.  */
   if (GET_MODE (x) == XFmode
-      && (optimize_size || x86_ext_80387_constants & TUNEMASK))
+      && (optimize_size || TARGET_EXT_80387_CONSTANTS))
     {
       int i;
 
@@ -5320,6 +5400,23 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
   rtx xops[3];
 
   xops[0] = dest;
+
+  if (TARGET_VXWORKS_RTP && flag_pic)
+    {
+      /* Load (*VXWORKS_GOTT_BASE) into the PIC register.  */
+      xops[2] = gen_rtx_MEM (Pmode,
+			     gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_BASE));
+      output_asm_insn ("mov{l}\t{%2, %0|%0, %2}", xops);
+
+      /* Load (*VXWORKS_GOTT_BASE)[VXWORKS_GOTT_INDEX] into the PIC register.
+	 Use %P and a local symbol in order to print VXWORKS_GOTT_INDEX as
+	 an unadorned address.  */
+      xops[2] = gen_rtx_SYMBOL_REF (Pmode, VXWORKS_GOTT_INDEX);
+      SYMBOL_REF_FLAGS (xops[2]) |= SYMBOL_FLAG_LOCAL;
+      output_asm_insn ("mov{l}\t{%P2(%0), %0|%0, DWORD PTR %P2[%0]}", xops);
+      return "";
+    }
+
   xops[1] = gen_rtx_SYMBOL_REF (Pmode, GOT_SYMBOL_NAME);
 
   if (! TARGET_DEEP_BRANCH_PREDICTION || !flag_pic)
@@ -5929,7 +6026,25 @@ ix86_expand_prologue (void)
   if (pic_reg_used)
     {
       if (TARGET_64BIT)
-        insn = emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
+	{
+	  if (ix86_cmodel == CM_LARGE_PIC)
+	    {
+              rtx tmp_reg = gen_rtx_REG (DImode,
+					 FIRST_REX_INT_REG + 3 /* R11 */);
+	      rtx label = gen_label_rtx ();
+	      emit_label (label);
+	      LABEL_PRESERVE_P (label) = 1;
+	      gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
+	      insn = emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx, label));
+              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+	      insn = emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
+              REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+	      insn = emit_insn (gen_adddi3 (pic_offset_table_rtx,
+					    pic_offset_table_rtx, tmp_reg));
+	    }
+	  else
+            insn = emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
+	}
       else
         insn = emit_insn (gen_set_got (pic_offset_table_rtx));
 
@@ -6488,7 +6603,9 @@ legitimate_constant_p (rtx x)
       if (GET_CODE (x) == UNSPEC)
 	switch (XINT (x, 1))
 	  {
+	  case UNSPEC_GOT:
 	  case UNSPEC_GOTOFF:
+	  case UNSPEC_PLTOFF:
 	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
 	  case UNSPEC_NTPOFF:
@@ -6586,7 +6703,9 @@ legitimate_pic_operand_p (rtx x)
       if (GET_CODE (inner) == UNSPEC)
 	switch (XINT (inner, 1))
 	  {
+	  case UNSPEC_GOT:
 	  case UNSPEC_GOTOFF:
+	  case UNSPEC_PLTOFF:
 	    return TARGET_64BIT;
 	  case UNSPEC_TPOFF:
 	    x = XVECEXP (inner, 0, 0);
@@ -6644,7 +6763,8 @@ legitimate_pic_address_disp_p (rtx disp)
 	  /* TLS references should always be enclosed in UNSPEC.  */
 	  if (SYMBOL_REF_TLS_MODEL (op0))
 	    return false;
-	  if (!SYMBOL_REF_FAR_ADDR_P (op0) && SYMBOL_REF_LOCAL_P (op0))
+	  if (!SYMBOL_REF_FAR_ADDR_P (op0) && SYMBOL_REF_LOCAL_P (op0)
+	      && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
 
@@ -6662,7 +6782,8 @@ legitimate_pic_address_disp_p (rtx disp)
          of GOT tables.  We should not need these anyway.  */
       if (GET_CODE (disp) != UNSPEC
 	  || (XINT (disp, 1) != UNSPEC_GOTPCREL
-	      && XINT (disp, 1) != UNSPEC_GOTOFF))
+	      && XINT (disp, 1) != UNSPEC_GOTOFF
+	      && XINT (disp, 1) != UNSPEC_PLTOFF))
 	return 0;
 
       if (GET_CODE (XVECEXP (disp, 0, 0)) != SYMBOL_REF
@@ -6691,7 +6812,11 @@ legitimate_pic_address_disp_p (rtx disp)
     case UNSPEC_GOT:
       if (saw_plus)
 	return false;
-      return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
+      /* We need to check for both symbols and labels because VxWorks loads
+	 text labels with @GOT rather than @GOTOFF.  See gotoff_operand for
+	 details.  */
+      return (GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
+	      || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF);
     case UNSPEC_GOTOFF:
       /* Refuse GOTOFF in 64bit mode since it is always 64bit when used.
 	 While ABI specify also 32bit relocation but we don't produce it in
@@ -6699,7 +6824,7 @@ legitimate_pic_address_disp_p (rtx disp)
       if ((GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
 	   || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
 	  && !TARGET_64BIT)
-        return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
+        return gotoff_operand (XVECEXP (disp, 0, 0), Pmode);
       return false;
     case UNSPEC_GOTTPOFF:
     case UNSPEC_GOTNTPOFF:
@@ -7020,7 +7145,7 @@ legitimize_pic_address (rtx orig, rtx reg)
     new = addr;
   else if (TARGET_64BIT
 	   && ix86_cmodel != CM_SMALL_PIC
-	   && local_symbolic_operand (addr, Pmode))
+	   && gotoff_operand (addr, Pmode))
     {
       rtx tmpreg;
       /* This symbol may be referenced via a displacement from the PIC
@@ -7052,7 +7177,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	}
       else new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmpreg);
     }
-  else if (!TARGET_64BIT && local_symbolic_operand (addr, Pmode))
+  else if (!TARGET_64BIT && gotoff_operand (addr, Pmode))
     {
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
@@ -7077,9 +7202,12 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new = reg;
 	}
     }
-  else if (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (addr) == 0)
+  else if ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (addr) == 0)
+	   /* We can't use @GOTOFF for text labels on VxWorks;
+	      see gotoff_operand.  */
+	   || (TARGET_VXWORKS_RTP && GET_CODE (addr) == LABEL_REF))
     {
-      if (TARGET_64BIT)
+      if (TARGET_64BIT && ix86_cmodel != CM_LARGE_PIC)
 	{
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
 	  new = gen_rtx_CONST (Pmode, new);
@@ -7103,6 +7231,8 @@ legitimize_pic_address (rtx orig, rtx reg)
 	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
 	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
+	  if (TARGET_64BIT)
+	    new = force_reg (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 	  new = gen_const_mem (Pmode, new);
 	  set_mem_alias_set (new, ix86_GOT_alias_set ());
@@ -7145,7 +7275,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
 	  /* Check first to see if this is a constant offset from a @GOTOFF
 	     symbol reference.  */
-	  if (local_symbolic_operand (op0, Pmode)
+	  if (gotoff_operand (op0, Pmode)
 	      && CONST_INT_P (op1))
 	    {
 	      if (!TARGET_64BIT)
@@ -7587,7 +7717,23 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      output_addr_const (file, x);
+      if (! TARGET_MACHO || TARGET_64BIT)
+	output_addr_const (file, x);
+      else
+	{
+	  const char *name = XSTR (x, 0);
+
+	  /* Mark the decl as referenced so that cgraph will output the function.  */
+	  if (SYMBOL_REF_DECL (x))
+	    mark_decl_referenced (SYMBOL_REF_DECL (x));
+
+#if TARGET_MACHO
+	  if (MACHOPIC_INDIRECT
+	      && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
+	    name = machopic_indirection_name (x, /*stub_p=*/true);
+#endif
+	  assemble_name (file, name);
+	}
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
@@ -7664,6 +7810,9 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  break;
 	case UNSPEC_GOTOFF:
 	  fputs ("@GOTOFF", file);
+	  break;
+	case UNSPEC_PLTOFF:
+	  fputs ("@PLTOFF", file);
 	  break;
 	case UNSPEC_GOTPCREL:
 	  fputs ("@GOTPCREL(%rip)", file);
@@ -9279,9 +9428,18 @@ ix86_output_addr_vec_elt (FILE *file, int value)
 void
 ix86_output_addr_diff_elt (FILE *file, int value, int rel)
 {
-  if (TARGET_64BIT)
+  const char *directive = ASM_LONG;
+
+#ifdef ASM_QUAD
+  if (TARGET_64BIT && CASE_VECTOR_MODE == DImode)
+    directive = ASM_QUAD;
+#else
+  gcc_assert (!TARGET_64BIT);
+#endif
+  /* We can't use @GOTOFF for text labels on VxWorks; see gotoff_operand.  */
+  if (TARGET_64BIT || TARGET_VXWORKS_RTP)
     fprintf (file, "%s%s%d-%s%d\n",
-	     ASM_LONG, LPREFIX, value, LPREFIX, rel);
+	     directive, LPREFIX, value, LPREFIX, rel);
   else if (HAVE_AS_GOTOFF_IN_DATA)
     fprintf (file, "%s%s%d@GOTOFF\n", ASM_LONG, LPREFIX, value);
 #if TARGET_MACHO
@@ -9401,8 +9559,13 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	{
 	  if (MEM_P (op0))
 	    op1 = force_reg (Pmode, op1);
-	  else
-	    op1 = legitimize_address (op1, op1, Pmode);
+	  else if (!TARGET_64BIT || !x86_64_movabs_operand (op1, Pmode))
+	    {
+	      rtx reg = no_new_pseudos ? op0 : NULL_RTX;
+	      op1 = legitimize_pic_address (op1, reg);
+	      if (op0 == op1)
+		return;
+	    }
 	}
     }
   else
@@ -9480,6 +9643,55 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
 
 /* Implement the movmisalign patterns for SSE.  Non-SSE modes go
    straight to ix86_expand_vector_move.  */
+/* Code generation for scalar reg-reg moves of single and double precision data:
+     if (x86_sse_partial_reg_dependency == true | x86_sse_split_regs == true)
+       movaps reg, reg
+     else
+       movss reg, reg
+     if (x86_sse_partial_reg_dependency == true)
+       movapd reg, reg
+     else
+       movsd reg, reg
+
+   Code generation for scalar loads of double precision data:
+     if (x86_sse_split_regs == true)
+       movlpd mem, reg      (gas syntax)
+     else
+       movsd mem, reg
+ 
+   Code generation for unaligned packed loads of single precision data
+   (x86_sse_unaligned_move_optimal overrides x86_sse_partial_reg_dependency):
+     if (x86_sse_unaligned_move_optimal)
+       movups mem, reg
+
+     if (x86_sse_partial_reg_dependency == true)
+       {
+         xorps  reg, reg
+         movlps mem, reg
+         movhps mem+8, reg
+       }
+     else
+       {
+         movlps mem, reg
+         movhps mem+8, reg
+       }
+
+   Code generation for unaligned packed loads of double precision data
+   (x86_sse_unaligned_move_optimal overrides x86_sse_split_regs):
+     if (x86_sse_unaligned_move_optimal)
+       movupd mem, reg
+
+     if (x86_sse_split_regs == true)
+       {
+         movlpd mem, reg
+         movhpd mem+8, reg
+       }
+     else
+       {
+         movsd  mem, reg
+         movhpd mem+8, reg
+       }
+ */
 
 void
 ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
@@ -10797,7 +11009,7 @@ ix86_fp_comparison_sahf_cost (enum rtx_code code)
   enum rtx_code bypass_code, first_code, second_code;
   /* Return arbitrarily high cost when instruction is not preferred - this
      avoids gcc from using it.  */
-  if (!TARGET_USE_SAHF && !optimize_size)
+  if (!(TARGET_SAHF && (TARGET_USE_SAHF || optimize_size)))
     return 1024;
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
   return (bypass_code != UNKNOWN || second_code != UNKNOWN) + 3;
@@ -10844,7 +11056,8 @@ ix86_expand_fp_compare (enum rtx_code code, rtx op0, rtx op1, rtx scratch,
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
 
   /* Do fcomi/sahf based test when profitable.  */
-  if ((bypass_code == UNKNOWN || bypass_test)
+  if ((TARGET_CMOVE || TARGET_SAHF)
+      && (bypass_code == UNKNOWN || bypass_test)
       && (second_code == UNKNOWN || second_test)
       && ix86_fp_comparison_arithmetics_cost (code) > cost)
     {
@@ -13303,6 +13516,21 @@ scale_counter (rtx countreg, int scale)
   return sc;
 }
 
+/* Return mode for the memcpy/memset loop counter.  Preffer SImode over DImode
+   for constant loop counts.  */
+
+static enum machine_mode
+counter_mode (rtx count_exp)
+{
+  if (GET_MODE (count_exp) != VOIDmode)
+    return GET_MODE (count_exp);
+  if (GET_CODE (count_exp) != CONST_INT)
+    return Pmode;
+  if (TARGET_64BIT && (INTVAL (count_exp) & ~0xffffffff))
+    return DImode;
+  return SImode;
+}
+
 /* When SRCPTR is non-NULL, output simple loop to move memory
    pointer to SRCPTR to DESTPTR via chunks of MODE unrolled UNROLL times,
    overall size is COUNT specified in bytes.  When SRCPTR is NULL, output the
@@ -13319,17 +13547,13 @@ expand_set_or_movmem_via_loop (rtx destmem, rtx srcmem,
 			       int expected_size)
 {
   rtx out_label, top_label, iter, tmp;
-  enum machine_mode iter_mode;
+  enum machine_mode iter_mode = counter_mode (count);
   rtx piece_size = GEN_INT (GET_MODE_SIZE (mode) * unroll);
   rtx piece_size_mask = GEN_INT (~((GET_MODE_SIZE (mode) * unroll) - 1));
   rtx size;
   rtx x_addr;
   rtx y_addr;
   int i;
-
-  iter_mode = GET_MODE (count);
-  if (iter_mode == VOIDmode)
-    iter_mode = word_mode;
 
   top_label = gen_label_rtx ();
   out_label = gen_label_rtx ();
@@ -13527,7 +13751,7 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
       HOST_WIDE_INT countval = INTVAL (count);
       int offset = 0;
 
-      if ((countval & 0x16) && max_size > 16)
+      if ((countval & 0x10) && max_size > 16)
 	{
 	  if (TARGET_64BIT)
 	    {
@@ -13544,8 +13768,8 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
 	    emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset);
 	  else
 	    {
-	      emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset);
-	      emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset + 4);
+	      emit_strmov (destmem, srcmem, destptr, srcptr, SImode, offset);
+	      emit_strmov (destmem, srcmem, destptr, srcptr, SImode, offset + 4);
 	    }
 	  offset += 8;
 	}
@@ -13662,8 +13886,8 @@ expand_setmem_epilogue_via_loop (rtx destmem, rtx destptr, rtx value,
 				 rtx count, int max_size)
 {
   count =
-    expand_simple_binop (GET_MODE (count), AND, count, GEN_INT (max_size - 1),
-			 count, 1, OPTAB_DIRECT);
+    expand_simple_binop (counter_mode (count), AND, count,
+			 GEN_INT (max_size - 1), count, 1, OPTAB_DIRECT);
   expand_set_or_movmem_via_loop (destmem, NULL, destptr, NULL,
 				 gen_lowpart (QImode, value), count, QImode,
 				 1, max_size / 2);
@@ -13680,7 +13904,7 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx count, int max_
       HOST_WIDE_INT countval = INTVAL (count);
       int offset = 0;
 
-      if ((countval & 0x16) && max_size > 16)
+      if ((countval & 0x10) && max_size > 16)
 	{
 	  if (TARGET_64BIT)
 	    {
@@ -14123,11 +14347,9 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
   gcc_assert (desired_align >= 1 && align >= 1);
 
   /* Ensure that alignment prologue won't copy past end of block.  */
-  if ((size_needed > 1 || (desired_align > 1 && desired_align > align))
-      && !count)
+  if (size_needed > 1 || (desired_align > 1 && desired_align > align))
     {
       epilogue_size_needed = MAX (size_needed - 1, desired_align - align);
-
       /* Epilogue always copies COUNT_EXP & EPILOGUE_SIZE_NEEDED bytes.
 	 Make sure it is power of 2.  */
       epilogue_size_needed = smallest_pow2_greater_than (epilogue_size_needed);
@@ -14135,8 +14357,10 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp,
 			       GEN_INT (epilogue_size_needed),
-			       LTU, 0, GET_MODE (count_exp), 1, label);
-      if (expected_size == -1 || expected_size < epilogue_size_needed)
+			       LTU, 0, counter_mode (count_exp), 1, label);
+      if (GET_CODE (count_exp) == CONST_INT)
+	;
+      else if (expected_size == -1 || expected_size < epilogue_size_needed)
 	predict_jump (REG_BR_PROB_BASE * 60 / 100);
       else
 	predict_jump (REG_BR_PROB_BASE * 20 / 100);
@@ -14236,7 +14460,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       if (size_needed < epilogue_size_needed)
 	{
 	  tmp =
-	    expand_simple_binop (GET_MODE (count_exp), AND, count_exp,
+	    expand_simple_binop (counter_mode (count_exp), AND, count_exp,
 				 GEN_INT (size_needed - 1), count_exp, 1,
 				 OPTAB_DIRECT);
 	  if (tmp != count_exp)
@@ -14392,7 +14616,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
     return 0;
   gcc_assert (alg != no_stringop);
   if (!count)
-    count_exp = copy_to_mode_reg (GET_MODE (count_exp), count_exp);
+    count_exp = copy_to_mode_reg (counter_mode (count_exp), count_exp);
   destreg = copy_to_mode_reg (Pmode, XEXP (dst, 0));
   switch (alg)
     {
@@ -14435,11 +14659,9 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
     promoted_val = promote_duplicated_reg_to_size (val_exp, size_needed,
 						   desired_align, align);
   /* Ensure that alignment prologue won't copy past end of block.  */
-  if ((size_needed > 1 || (desired_align > 1 && desired_align > align))
-      && !count)
+  if (size_needed > 1 || (desired_align > 1 && desired_align > align))
     {
       epilogue_size_needed = MAX (size_needed - 1, desired_align - align);
-
       /* Epilogue always copies COUNT_EXP & EPILOGUE_SIZE_NEEDED bytes.
 	 Make sure it is power of 2.  */
       epilogue_size_needed = smallest_pow2_greater_than (epilogue_size_needed);
@@ -14453,8 +14675,10 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp,
 			       GEN_INT (epilogue_size_needed),
-			       LTU, 0, GET_MODE (count_exp), 1, label);
-      if (expected_size == -1 || expected_size <= epilogue_size_needed)
+			       LTU, 0, counter_mode (count_exp), 1, label);
+      if (GET_CODE (count_exp) == CONST_INT)
+	;
+      else if (expected_size == -1 || expected_size <= epilogue_size_needed)
 	predict_jump (REG_BR_PROB_BASE * 60 / 100);
       else
 	predict_jump (REG_BR_PROB_BASE * 20 / 100);
@@ -14464,7 +14688,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       rtx hot_label = gen_label_rtx ();
       jump_around_label = gen_label_rtx ();
       emit_cmp_and_jump_insns (count_exp, GEN_INT (dynamic_check - 1),
-			       LEU, 0, GET_MODE (count_exp), 1, hot_label);
+			       LEU, 0, counter_mode (count_exp), 1, hot_label);
       predict_jump (REG_BR_PROB_BASE * 90 / 100);
       set_storage_via_libcall (dst, count_exp, val_exp, false);
       emit_jump (jump_around_label);
@@ -14547,7 +14771,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       if (size_needed < desired_align - align)
 	{
 	  tmp =
-	    expand_simple_binop (GET_MODE (count_exp), AND, count_exp,
+	    expand_simple_binop (counter_mode (count_exp), AND, count_exp,
 				 GEN_INT (size_needed - 1), count_exp, 1,
 				 OPTAB_DIRECT);
 	  size_needed = desired_align - align + 1;
@@ -14833,6 +15057,22 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
   emit_label (end_0_label);
 }
 
+/* For given symbol (function) construct code to compute address of it's PLT
+   entry in large x86-64 PIC model.  */
+rtx
+construct_plt_address (rtx symbol)
+{
+  rtx tmp = gen_reg_rtx (Pmode);
+  rtx unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, symbol), UNSPEC_PLTOFF);
+
+  gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
+  gcc_assert (ix86_cmodel == CM_LARGE_PIC);
+
+  emit_move_insn (tmp, gen_rtx_CONST (Pmode, unspec));
+  emit_insn (gen_adddi3 (tmp, tmp, pic_offset_table_rtx));
+  return tmp;
+}
+
 void
 ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  rtx callarg2 ATTRIBUTE_UNUSED,
@@ -14854,7 +15094,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   else
     {
       /* Static functions and indirect calls don't need the pic register.  */
-      if (! TARGET_64BIT && flag_pic
+      if (flag_pic && (!TARGET_64BIT || ix86_cmodel == CM_LARGE_PIC)
 	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
 	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
 	use_reg (&use, pic_offset_table_rtx);
@@ -14867,7 +15107,12 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       use_reg (&use, al);
     }
 
-  if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
+  if (ix86_cmodel == CM_LARGE_PIC
+      && GET_CODE (fnaddr) == MEM
+      && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
+      && !local_symbolic_operand (XEXP (fnaddr, 0), VOIDmode))
+    fnaddr = gen_rtx_MEM (QImode, construct_plt_address (XEXP (fnaddr, 0)));
+  else if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
       fnaddr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
       fnaddr = gen_rtx_MEM (QImode, fnaddr);
@@ -15422,7 +15667,7 @@ ix86_constant_alignment (tree exp, int align)
 int
 ix86_data_alignment (tree type, int align)
 {
-  int max_align = optimize_size ? BITS_PER_WORD : 256;
+  int max_align = optimize_size ? BITS_PER_WORD : MIN (256, MAX_OFILE_ALIGNMENT);
 
   if (AGGREGATE_TYPE_P (type)
       && TYPE_SIZE (type)
@@ -16495,8 +16740,8 @@ static const struct builtin_description bdesc_1arg[] =
   { MASK_SSE2, CODE_FOR_sse2_cvttps2dq, 0, IX86_BUILTIN_CVTTPS2DQ, 0, 0 },
 
   /* SSE3 */
-  { MASK_SSE3, CODE_FOR_sse3_movshdup, 0, IX86_BUILTIN_MOVSHDUP, 0, 0 },
-  { MASK_SSE3, CODE_FOR_sse3_movsldup, 0, IX86_BUILTIN_MOVSLDUP, 0, 0 },
+  { MASK_SSE3, CODE_FOR_sse3_movshdup, "__builtin_ia32_movshdup", IX86_BUILTIN_MOVSHDUP, 0, 0 },
+  { MASK_SSE3, CODE_FOR_sse3_movsldup, "__builtin_ia32_movsldup", IX86_BUILTIN_MOVSLDUP, 0, 0 },
 
   /* SSSE3 */
   { MASK_SSSE3, CODE_FOR_absv16qi2, "__builtin_ia32_pabsb128", IX86_BUILTIN_PABSB128, 0, 0 },
@@ -17146,12 +17391,6 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE3, "__builtin_ia32_mwait",
 	       void_ftype_unsigned_unsigned,
 	       IX86_BUILTIN_MWAIT);
-  def_builtin (MASK_SSE3, "__builtin_ia32_movshdup",
-	       v4sf_ftype_v4sf,
-	       IX86_BUILTIN_MOVSHDUP);
-  def_builtin (MASK_SSE3, "__builtin_ia32_movsldup",
-	       v4sf_ftype_v4sf,
-	       IX86_BUILTIN_MOVSLDUP);
   def_builtin (MASK_SSE3, "__builtin_ia32_lddqu",
 	       v16qi_ftype_pcchar, IX86_BUILTIN_LDDQU);
 
@@ -18767,15 +19006,17 @@ ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
 
   /* If MODE2 is only appropriate for an SSE register, then tie with
      any other mode acceptable to SSE registers.  */
-  if (GET_MODE_SIZE (mode2) >= 8
+  if (GET_MODE_SIZE (mode2) == 16
       && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode2))
-    return ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode1);
+    return (GET_MODE_SIZE (mode1) == 16
+	    && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode1));
 
-  /* If MODE2 is appropriate for an MMX (or SSE) register, then tie
+  /* If MODE2 is appropriate for an MMX register, then tie
      with any other mode acceptable to MMX registers.  */
   if (GET_MODE_SIZE (mode2) == 8
       && ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode2))
-    return ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode1);
+    return (GET_MODE_SIZE (mode1) == 8
+	    && ix86_hard_regno_mode_ok (FIRST_MMX_REG, mode1));
 
   return false;
 }
@@ -20800,7 +21041,7 @@ ix86_emit_fp_unordered_jump (rtx label)
 
   emit_insn (gen_x86_fnstsw_1 (reg));
 
-  if (TARGET_USE_SAHF)
+  if (TARGET_SAHF && (TARGET_USE_SAHF || optimize_size))
     {
       emit_insn (gen_x86_sahf_1 (reg));
 
@@ -20819,7 +21060,9 @@ ix86_emit_fp_unordered_jump (rtx label)
 			      gen_rtx_LABEL_REF (VOIDmode, label),
 			      pc_rtx);
   temp = gen_rtx_SET (VOIDmode, pc_rtx, temp);
+
   emit_jump_insn (temp);
+  predict_jump (REG_BR_PROB_BASE * 10 / 100);
 }
 
 /* Output code to perform a log1p XFmode calculation.  */

@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -754,7 +754,7 @@ AC_ARG_WITH(sysroot,
  esac
    
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
- CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR)'
+ CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 	
  if test "x$exec_prefix" = xNONE; then
   if test "x$prefix" = xNONE; then
@@ -1610,6 +1610,11 @@ tm_file_list="options.h"
 tm_include_list="options.h"
 for f in $tm_file; do
   case $f in
+    ./* )
+       f=`echo $f | sed 's/^..//'`
+       tm_file_list="${tm_file_list} $f"
+       tm_include_list="${tm_include_list} $f"
+       ;;
     defaults.h )
        tm_file_list="${tm_file_list} \$(srcdir)/$f"
        tm_include_list="${tm_include_list} $f"
@@ -1699,7 +1704,7 @@ ALL=all.internal				AC_SUBST(ALL)
 SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'	AC_SUBST(SYSTEM_HEADER_DIR)
 
 if test "x$with_build_sysroot" != x; then
-  build_system_header_dir=$with_build_sysroot'$(NATIVE_SYSTEM_HEADER_DIR)'
+  build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 else
   # This value is used, even on a native system, because 
   # CROSS_SYSTEM_HEADER_DIR is just 
@@ -2803,6 +2808,12 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
         [Define if your assembler supports the ffreep mnemonic.])])
 
+    gcc_GAS_CHECK_FEATURE([sahf mnemonic],
+      gcc_cv_as_ix86_sahf,,,
+      [sahf],,
+      [AC_DEFINE(HAVE_AS_IX86_SAHF, 1,
+        [Define if your assembler supports the sahf mnemonic.])])
+
     gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
       gcc_cv_as_ix86_diff_sect_delta,,,
       [.section .rodata
@@ -2926,6 +2937,12 @@ LCF0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-.LCF0@ha';;
     esac
 
+    gcc_GAS_CHECK_FEATURE([rel16 relocs],
+      gcc_cv_as_powerpc_rel16, [2,17,0], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_REL16, 1,
+	  [Define if your assembler supports R_PPC_REL16 relocs.])])
+
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[[PR]]
@@ -2955,12 +2972,6 @@ LCF0:
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_DFP, 1,
 	  [Define if your assembler supports DFP instructions.])])
-
-    gcc_GAS_CHECK_FEATURE([rel16 relocs],
-      gcc_cv_as_powerpc_rel16, [2,17,0], -a32,
-      [$conftest_s],,
-      [AC_DEFINE(HAVE_AS_REL16, 1,
-	  [Define if your assembler supports R_PPC_REL16 relocs.])])
     ;;
 
   mips*-*-*)
@@ -3062,6 +3073,30 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+fi
+
+AC_CACHE_CHECK([assembler for tolerance to line number 0],
+ [gcc_cv_as_line_zero],
+ [gcc_cv_as_line_zero=no
+  if test $in_tree_gas = yes; then
+    gcc_GAS_VERSION_GTE_IFELSE([2,16,91], [gcc_cv_as_line_zero=yes])
+  elif test "x$gcc_cv_as" != x; then
+    { echo '# 1 "test.s" 1'; echo '# 0 "" 2'; } > conftest.s
+    if AC_TRY_COMMAND([$gcc_cv_as -o conftest.o conftest.s >&AS_MESSAGE_LOG_FD 2>conftest.out]) &&
+       test "x`cat conftest.out`" = x
+    then
+      gcc_cv_as_line_zero=yes
+    else
+      echo "configure: failed program was" >&AS_MESSAGE_LOG_FD
+      cat conftest.s >&AS_MESSAGE_LOG_FD
+      echo "configure: error output was" >&AS_MESSAGE_LOG_FD
+      cat conftest.out >&AS_MESSAGE_LOG_FD
+    fi
+    rm -f conftest.o conftest.s conftest.out
+  fi])
+if test "x$gcc_cv_as_line_zero" = xyes; then
+  AC_DEFINE([HAVE_AS_LINE_ZERO], 1,
+[Define if the assembler won't complain about a line such as # 0 "" 2.])
 fi
 
 AC_MSG_CHECKING(linker read-only and read-write section mixing)
@@ -3319,6 +3354,8 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -3370,6 +3407,8 @@ case "$target" in
       if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
 	if test "x$with_sysroot" = x; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_build_sysroot" != "x"; then
+	  glibc_header_dir="${with_build_sysroot}/usr/include"
 	elif test "x$with_sysroot" = xyes; then
 	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
 	else
@@ -3574,8 +3613,8 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi pdf html \
-	uninstall info man srcextra srcman srcinfo \
+	install-common install-man install-info install-pdf dvi pdf \
+	html uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean"
 
 for t in $target_list

@@ -269,6 +269,15 @@ handle_option (const char **argv, unsigned int lang_mask)
       complain_wrong_lang (argv[0], option, lang_mask);
       goto done;
     }
+  else if ((option->flags & CL_TARGET)
+	   && (option->flags & CL_LANG_ALL)
+	   && !(option->flags & lang_mask))
+    {
+      /* Complain for target flag language mismatches if any languages
+	 are specified.  */
+      complain_wrong_lang (argv[0], option, lang_mask);
+      goto done;
+    }
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
@@ -1086,6 +1095,11 @@ common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_Wstrict_overflow:
+      warn_strict_overflow = (value
+			      ? (int) WARN_STRICT_OVERFLOW_CONDITIONAL
+			      : 0);
+      break;
+
     case OPT_Wstrict_overflow_:
       warn_strict_overflow = value;
       break;
@@ -1259,11 +1273,11 @@ common_handle_option (size_t scode, const char *arg, int value,
       /* The real switch is -fno-random-seed.  */
       if (value)
 	return 0;
-      flag_random_seed = NULL;
+      set_random_seed (NULL);
       break;
 
     case OPT_frandom_seed_:
-      flag_random_seed = arg;
+      set_random_seed (arg);
       break;
 
     case OPT_fsched_verbose_:

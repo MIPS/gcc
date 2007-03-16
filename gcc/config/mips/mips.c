@@ -180,6 +180,14 @@ enum mips_function_type
   MIPS_VOID_FTYPE_V2HI_V2HI,
   MIPS_VOID_FTYPE_V4QI_V4QI,
 
+  /* For MIPS DSP REV 2 ASE.  */
+  MIPS_V4QI_FTYPE_V4QI,
+  MIPS_SI_FTYPE_SI_SI_SI,
+  MIPS_DI_FTYPE_DI_USI_USI,
+  MIPS_DI_FTYPE_SI_SI,
+  MIPS_DI_FTYPE_USI_USI,
+  MIPS_V2HI_FTYPE_SI_SI_SI,
+
   /* The last type.  */
   MIPS_MAX_FTYPE_MAX
 };
@@ -267,8 +275,6 @@ struct mips_integer_op;
 struct mips_sim;
 
 static enum mips_symbol_type mips_classify_symbol (rtx);
-static void mips_split_const (rtx, rtx *, HOST_WIDE_INT *);
-static bool mips_offset_within_object_p (rtx, HOST_WIDE_INT);
 static bool mips_valid_base_register_p (rtx, enum machine_mode, int);
 static bool mips_symbolic_address_p (enum mips_symbol_type, enum machine_mode);
 static bool mips_classify_address (struct mips_address_info *, rtx,
@@ -1292,58 +1298,6 @@ mips_classify_symbol (rtx x)
   return SYMBOL_GENERAL;
 }
 
-
-/* Split X into a base and a constant offset, storing them in *BASE
-   and *OFFSET respectively.  */
-
-static void
-mips_split_const (rtx x, rtx *base, HOST_WIDE_INT *offset)
-{
-  *offset = 0;
-
-  if (GET_CODE (x) == CONST)
-    {
-      x = XEXP (x, 0);
-      if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
-	{
-	  *offset += INTVAL (XEXP (x, 1));
-	  x = XEXP (x, 0);
-	}
-    }
-  *base = x;
-}
-
-
-/* Return true if SYMBOL is a SYMBOL_REF and OFFSET + SYMBOL points
-   to the same object as SYMBOL, or to the same object_block.  */
-
-static bool
-mips_offset_within_object_p (rtx symbol, HOST_WIDE_INT offset)
-{
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return false;
-
-  if (CONSTANT_POOL_ADDRESS_P (symbol)
-      && offset >= 0
-      && offset < (int) GET_MODE_SIZE (get_pool_mode (symbol)))
-    return true;
-
-  if (SYMBOL_REF_DECL (symbol) != 0
-      && offset >= 0
-      && offset < int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (symbol))))
-    return true;
-
-  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol)
-      && SYMBOL_REF_BLOCK (symbol)
-      && SYMBOL_REF_BLOCK_OFFSET (symbol) >= 0
-      && ((unsigned HOST_WIDE_INT) offset + SYMBOL_REF_BLOCK_OFFSET (symbol)
-	  < (unsigned HOST_WIDE_INT) SYMBOL_REF_BLOCK (symbol)->size))
-    return true;
-
-  return false;
-}
-
-
 /* Return true if X is a symbolic constant that can be calculated in
    the same way as a bare symbol.  If it is, store the type of the
    symbol in *SYMBOL_TYPE.  */
@@ -1351,9 +1305,9 @@ mips_offset_within_object_p (rtx symbol, HOST_WIDE_INT offset)
 bool
 mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 {
-  HOST_WIDE_INT offset;
+  rtx offset;
 
-  mips_split_const (x, &x, &offset);
+  split_const (x, &x, &offset);
   if (UNSPEC_ADDRESS_P (x))
     *symbol_type = UNSPEC_ADDRESS_TYPE (x);
   else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
@@ -1365,7 +1319,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
   else
     return false;
 
-  if (offset == 0)
+  if (offset == const0_rtx)
     return true;
 
   /* Check whether a nonzero offset is valid for the underlying
@@ -1381,7 +1335,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 	 sign-extended.  In this case we can't allow an arbitrary offset
 	 in case the 32-bit value X + OFFSET has a different sign from X.  */
       if (Pmode == DImode && !ABI_HAS_64BIT_SYMBOLS)
-	return mips_offset_within_object_p (x, offset);
+	return offset_within_block_p (x, INTVAL (offset));
 
       /* In other cases the relocations can handle any offset.  */
       return true;
@@ -1397,15 +1351,15 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 
     case SYMBOL_SMALL_DATA:
       /* Make sure that the offset refers to something within the
-	 underlying object.  This should guarantee that the final
+	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
-      return mips_offset_within_object_p (x, offset);
+      return offset_within_block_p (x, INTVAL (offset));
 
     case SYMBOL_GOT_LOCAL:
     case SYMBOL_GOTOFF_PAGE:
       /* The linker should provide enough local GOT entries for a
 	 16-bit offset.  Larger offsets may lead to GOT overflow.  */
-      return SMALL_OPERAND (offset);
+      return SMALL_INT (offset);
 
     case SYMBOL_GOT_GLOBAL:
     case SYMBOL_GOTOFF_GLOBAL:
@@ -1595,8 +1549,7 @@ mips_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
 static bool
 mips_cannot_force_const_mem (rtx x)
 {
-  rtx base;
-  HOST_WIDE_INT offset;
+  rtx base, offset;
 
   if (!TARGET_MIPS16)
     {
@@ -1612,8 +1565,8 @@ mips_cannot_force_const_mem (rtx x)
       if (GET_CODE (x) == CONST_INT)
 	return true;
 
-      mips_split_const (x, &base, &offset);
-      if (symbolic_operand (base, VOIDmode) && SMALL_OPERAND (offset))
+      split_const (x, &base, &offset);
+      if (symbolic_operand (base, VOIDmode) && SMALL_INT (offset))
 	return true;
     }
 
@@ -1800,7 +1753,7 @@ mips_const_insns (rtx x)
 {
   struct mips_integer_op codes[MIPS_MAX_INTEGER_OPS];
   enum mips_symbol_type symbol_type;
-  HOST_WIDE_INT offset;
+  rtx offset;
 
   switch (GET_CODE (x))
     {
@@ -1841,16 +1794,16 @@ mips_const_insns (rtx x)
       /* Otherwise try splitting the constant into a base and offset.
 	 16-bit offsets can be added using an extra addiu.  Larger offsets
 	 must be calculated separately and then added to the base.  */
-      mips_split_const (x, &x, &offset);
+      split_const (x, &x, &offset);
       if (offset != 0)
 	{
 	  int n = mips_const_insns (x);
 	  if (n != 0)
 	    {
-	      if (SMALL_OPERAND (offset))
+	      if (SMALL_INT (offset))
 		return n + 1;
 	      else
-		return n + 1 + mips_build_integer (codes, offset);
+		return n + 1 + mips_build_integer (codes, INTVAL (offset));
 	    }
 	}
       return 0;
@@ -1949,13 +1902,14 @@ mips_split_symbol (rtx temp, rtx addr)
 rtx
 mips_unspec_address (rtx address, enum mips_symbol_type symbol_type)
 {
-  rtx base;
-  HOST_WIDE_INT offset;
+  rtx base, offset;
 
-  mips_split_const (address, &base, &offset);
+  split_const (address, &base, &offset);
   base = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, base),
 			 UNSPEC_ADDRESS_FIRST + symbol_type);
-  return plus_constant (gen_rtx_CONST (Pmode, base), offset);
+  if (offset != const0_rtx)
+    base = gen_rtx_PLUS (Pmode, base, offset);
+  return gen_rtx_CONST (Pmode, base);
 }
 
 
@@ -2303,8 +2257,7 @@ mips_move_integer (rtx dest, rtx temp, unsigned HOST_WIDE_INT value)
 static void
 mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
 {
-  rtx base;
-  HOST_WIDE_INT offset;
+  rtx base, offset;
 
   /* Split moves of big integers into smaller pieces.  */
   if (splittable_const_int_operand (src, mode))
@@ -2329,13 +2282,13 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
   /* If we have (const (plus symbol offset)), load the symbol first
      and then add in the offset.  This is usually better than forcing
      the constant into memory, at least in non-mips16 code.  */
-  mips_split_const (src, &base, &offset);
+  split_const (src, &base, &offset);
   if (!TARGET_MIPS16
-      && offset != 0
-      && (!no_new_pseudos || SMALL_OPERAND (offset)))
+      && offset != const0_rtx
+      && (!no_new_pseudos || SMALL_INT (offset)))
     {
       base = mips_force_temporary (dest, base);
-      emit_move_insn (dest, mips_add_offset (0, base, offset));
+      emit_move_insn (dest, mips_add_offset (0, base, INTVAL (offset)));
       return;
     }
 
@@ -4984,6 +4937,10 @@ override_options (void)
   if (TARGET_PAIRED_SINGLE_FLOAT && !ISA_MIPS64)
     error ("-mips3d/-mpaired-single must be used with -mips64");
 
+  /* If TARGET_DSPR2, enable MASK_DSP.  */
+  if (TARGET_DSPR2)
+    target_flags |= MASK_DSP;
+
   if (TARGET_MIPS16 && TARGET_DSP)
     error ("-mips16 and -mdsp cannot be used together");
 
@@ -5709,16 +5666,15 @@ print_operand_reloc (FILE *file, rtx op, const char **relocs)
 {
   enum mips_symbol_type symbol_type;
   const char *p;
-  rtx base;
-  HOST_WIDE_INT offset;
+  rtx base, offset;
 
   if (!mips_symbolic_constant_p (op, &symbol_type) || relocs[symbol_type] == 0)
     fatal_insn ("PRINT_OPERAND, invalid operand for relocation", op);
 
   /* If OP uses an UNSPEC address, we want to print the inner symbol.  */
-  mips_split_const (op, &base, &offset);
+  split_const (op, &base, &offset);
   if (UNSPEC_ADDRESS_P (base))
-    op = plus_constant (UNSPEC_ADDRESS (base), offset);
+    op = plus_constant (UNSPEC_ADDRESS (base), INTVAL (offset));
 
   fputs (relocs[symbol_type], file);
   output_addr_const (file, op);
@@ -7641,12 +7597,12 @@ mips_cannot_change_mode_class (enum machine_mode from,
 bool
 mips_dangerous_for_la25_p (rtx x)
 {
-  HOST_WIDE_INT offset;
+  rtx offset;
 
   if (TARGET_EXPLICIT_RELOCS)
     return false;
 
-  mips_split_const (x, &x, &offset);
+  split_const (x, &x, &offset);
   return global_got_operand (x, VOIDmode);
 }
 
@@ -10153,6 +10109,7 @@ static const struct builtin_description sb1_bdesc[] =
 #define CODE_FOR_mips_addu_qb CODE_FOR_addv4qi3
 #define CODE_FOR_mips_subq_ph CODE_FOR_subv2hi3
 #define CODE_FOR_mips_subu_qb CODE_FOR_subv4qi3
+#define CODE_FOR_mips_mul_ph CODE_FOR_mulv2hi3
 
 /* Define a MIPS_BUILTIN_DIRECT_NO_TARGET function for instruction
    CODE_FOR_mips_<INSN>.  FUNCTION_TYPE and TARGET_FLAGS are
@@ -10212,19 +10169,6 @@ static const struct builtin_description dsp_bdesc[] =
   DIRECT_BUILTIN (mulq_rs_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSP),
   DIRECT_BUILTIN (muleq_s_w_phl, MIPS_SI_FTYPE_V2HI_V2HI, MASK_DSP),
   DIRECT_BUILTIN (muleq_s_w_phr, MIPS_SI_FTYPE_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (dpau_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
-  DIRECT_BUILTIN (dpau_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
-  DIRECT_BUILTIN (dpsu_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
-  DIRECT_BUILTIN (dpsu_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
-  DIRECT_BUILTIN (dpaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (dpsq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (mulsaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (dpaq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSP),
-  DIRECT_BUILTIN (dpsq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSP),
-  DIRECT_BUILTIN (maq_s_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (maq_s_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (maq_sa_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
-  DIRECT_BUILTIN (maq_sa_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
   DIRECT_BUILTIN (bitrev, MIPS_SI_FTYPE_SI, MASK_DSP),
   DIRECT_BUILTIN (insv, MIPS_SI_FTYPE_SI_SI, MASK_DSP),
   DIRECT_BUILTIN (repl_qb, MIPS_V4QI_FTYPE_SI, MASK_DSP),
@@ -10241,6 +10185,65 @@ static const struct builtin_description dsp_bdesc[] =
   DIRECT_BUILTIN (pick_qb, MIPS_V4QI_FTYPE_V4QI_V4QI, MASK_DSP),
   DIRECT_BUILTIN (pick_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSP),
   DIRECT_BUILTIN (packrl_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSP),
+  DIRECT_NO_TARGET_BUILTIN (wrdsp, MIPS_VOID_FTYPE_SI_SI, MASK_DSP),
+  DIRECT_BUILTIN (rddsp, MIPS_SI_FTYPE_SI, MASK_DSP),
+  DIRECT_BUILTIN (lbux, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
+  DIRECT_BUILTIN (lhx, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
+  DIRECT_BUILTIN (lwx, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
+  BPOSGE_BUILTIN (32, MASK_DSP),
+
+  /* The following are for the MIPS DSP ASE REV 2.  */
+  DIRECT_BUILTIN (absq_s_qb, MIPS_V4QI_FTYPE_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (addu_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (addu_s_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (adduh_qb, MIPS_V4QI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (adduh_r_qb, MIPS_V4QI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (append, MIPS_SI_FTYPE_SI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (balign, MIPS_SI_FTYPE_SI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (cmpgdu_eq_qb, MIPS_SI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (cmpgdu_lt_qb, MIPS_SI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (cmpgdu_le_qb, MIPS_SI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (mul_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (mul_s_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (mulq_rs_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (mulq_s_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (mulq_s_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (precr_qb_ph, MIPS_V4QI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (precr_sra_ph_w, MIPS_V2HI_FTYPE_SI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (precr_sra_r_ph_w, MIPS_V2HI_FTYPE_SI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (prepend, MIPS_SI_FTYPE_SI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (shra_qb, MIPS_V4QI_FTYPE_V4QI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (shra_r_qb, MIPS_V4QI_FTYPE_V4QI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (shrl_ph, MIPS_V2HI_FTYPE_V2HI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (subu_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (subu_s_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (subuh_qb, MIPS_V4QI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (subuh_r_qb, MIPS_V4QI_FTYPE_V4QI_V4QI, MASK_DSPR2),
+  DIRECT_BUILTIN (addqh_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (addqh_r_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (addqh_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (addqh_r_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (subqh_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (subqh_r_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (subqh_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (subqh_r_w, MIPS_SI_FTYPE_SI_SI, MASK_DSPR2)
+};
+
+static const struct builtin_description dsp_32only_bdesc[] =
+{
+  DIRECT_BUILTIN (dpau_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
+  DIRECT_BUILTIN (dpau_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
+  DIRECT_BUILTIN (dpsu_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
+  DIRECT_BUILTIN (dpsu_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, MASK_DSP),
+  DIRECT_BUILTIN (dpaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (dpsq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (mulsaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (dpaq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSP),
+  DIRECT_BUILTIN (dpsq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSP),
+  DIRECT_BUILTIN (maq_s_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (maq_s_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (maq_sa_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
+  DIRECT_BUILTIN (maq_sa_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSP),
   DIRECT_BUILTIN (extr_w, MIPS_SI_FTYPE_DI_SI, MASK_DSP),
   DIRECT_BUILTIN (extr_r_w, MIPS_SI_FTYPE_DI_SI, MASK_DSP),
   DIRECT_BUILTIN (extr_rs_w, MIPS_SI_FTYPE_DI_SI, MASK_DSP),
@@ -10249,12 +10252,23 @@ static const struct builtin_description dsp_bdesc[] =
   DIRECT_BUILTIN (extpdp, MIPS_SI_FTYPE_DI_SI, MASK_DSP),
   DIRECT_BUILTIN (shilo, MIPS_DI_FTYPE_DI_SI, MASK_DSP),
   DIRECT_BUILTIN (mthlip, MIPS_DI_FTYPE_DI_SI, MASK_DSP),
-  DIRECT_NO_TARGET_BUILTIN (wrdsp, MIPS_VOID_FTYPE_SI_SI, MASK_DSP),
-  DIRECT_BUILTIN (rddsp, MIPS_SI_FTYPE_SI, MASK_DSP),
-  DIRECT_BUILTIN (lbux, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
-  DIRECT_BUILTIN (lhx, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
-  DIRECT_BUILTIN (lwx, MIPS_SI_FTYPE_PTR_SI, MASK_DSP),
-  BPOSGE_BUILTIN (32, MASK_DSP)
+
+  /* The following are for the MIPS DSP ASE REV 2.  */
+  DIRECT_BUILTIN (dpa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dps_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (madd, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (maddu, MIPS_DI_FTYPE_DI_USI_USI, MASK_DSPR2),
+  DIRECT_BUILTIN (msub, MIPS_DI_FTYPE_DI_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (msubu, MIPS_DI_FTYPE_DI_USI_USI, MASK_DSPR2),
+  DIRECT_BUILTIN (mulsa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (mult, MIPS_DI_FTYPE_SI_SI, MASK_DSPR2),
+  DIRECT_BUILTIN (multu, MIPS_DI_FTYPE_USI_USI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpax_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpsx_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpaqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpaqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpsqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2),
+  DIRECT_BUILTIN (dpsqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, MASK_DSPR2)
 };
 
 /* This helps provide a mapping from builtin function codes to bdesc
@@ -10271,13 +10285,19 @@ struct bdesc_map
   /* The target processor that supports these builtin functions.
      PROCESSOR_MAX means we enable them for all processors.  */
   enum processor_type proc;
+
+  /* If the target has these flags, this builtin function table
+     will not be supported.  */
+  int unsupported_target_flags;
 };
 
 static const struct bdesc_map bdesc_arrays[] =
 {
-  { mips_bdesc, ARRAY_SIZE (mips_bdesc), PROCESSOR_MAX },
-  { sb1_bdesc, ARRAY_SIZE (sb1_bdesc), PROCESSOR_SB1 },
-  { dsp_bdesc, ARRAY_SIZE (dsp_bdesc), PROCESSOR_MAX }
+  { mips_bdesc, ARRAY_SIZE (mips_bdesc), PROCESSOR_MAX, 0 },
+  { sb1_bdesc, ARRAY_SIZE (sb1_bdesc), PROCESSOR_SB1, 0 },
+  { dsp_bdesc, ARRAY_SIZE (dsp_bdesc), PROCESSOR_MAX, 0 },
+  { dsp_32only_bdesc, ARRAY_SIZE (dsp_32only_bdesc), PROCESSOR_MAX,
+    MASK_64BIT }
 };
 
 /* Take the argument ARGNUM of the arglist of EXP and convert it into a form
@@ -10598,6 +10618,41 @@ mips_init_builtins (void)
 
       types[MIPS_SI_FTYPE_VOID]
 	= build_function_type (intSI_type_node, void_list_node);
+
+      if (TARGET_DSPR2)
+	{
+	  types[MIPS_V4QI_FTYPE_V4QI]
+	    = build_function_type_list (V4QI_type_node,
+					V4QI_type_node,
+					NULL_TREE);
+
+	  types[MIPS_SI_FTYPE_SI_SI_SI]
+	    = build_function_type_list (intSI_type_node,
+					intSI_type_node, intSI_type_node,
+					intSI_type_node, NULL_TREE);
+
+	  types[MIPS_DI_FTYPE_DI_USI_USI]
+	    = build_function_type_list (intDI_type_node,
+					intDI_type_node,
+					unsigned_intSI_type_node,
+					unsigned_intSI_type_node, NULL_TREE);
+
+	  types[MIPS_DI_FTYPE_SI_SI]
+	    = build_function_type_list (intDI_type_node,
+					intSI_type_node, intSI_type_node,
+					NULL_TREE);
+
+	  types[MIPS_DI_FTYPE_USI_USI]
+	    = build_function_type_list (intDI_type_node,
+					unsigned_intSI_type_node,
+					unsigned_intSI_type_node, NULL_TREE);
+
+	  types[MIPS_V2HI_FTYPE_SI_SI_SI]
+	    = build_function_type_list (V2HI_type_node,
+					intSI_type_node, intSI_type_node,
+					intSI_type_node, NULL_TREE);
+
+	}
     }
 
   /* Iterate through all of the bdesc arrays, initializing all of the
@@ -10606,7 +10661,8 @@ mips_init_builtins (void)
   offset = 0;
   for (m = bdesc_arrays; m < &bdesc_arrays[ARRAY_SIZE (bdesc_arrays)]; m++)
     {
-      if (m->proc == PROCESSOR_MAX || (m->proc == mips_arch))
+      if ((m->proc == PROCESSOR_MAX || (m->proc == mips_arch))
+	  && (m->unsupported_target_flags & target_flags) == 0)
 	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
 	  if ((d->target_flags & target_flags) == d->target_flags)
 	    add_builtin_function (d->name, types[d->function_type],

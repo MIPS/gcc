@@ -434,11 +434,10 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
   /* Check whether we exceed the total record length.  */
 
-  if (dtp->u.p.current_unit->flags.has_recl)
+  if (dtp->u.p.current_unit->flags.has_recl
+      && (*nbytes > (size_t) dtp->u.p.current_unit->bytes_left))
     {
-      to_read_record =
-	*nbytes > (size_t) dtp->u.p.current_unit->bytes_left ?
-	*nbytes : (size_t) dtp->u.p.current_unit->bytes_left;
+      to_read_record = (size_t) dtp->u.p.current_unit->bytes_left;
       short_record = 1;
     }
   else
@@ -1156,7 +1155,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	/* Format codes that don't transfer data.  */
 	case FMT_X:
 	case FMT_TR:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 
 	  pos = bytes_used + f->u.n + dtp->u.p.skips;
 	  dtp->u.p.skips = f->u.n + dtp->u.p.skips;
@@ -1172,6 +1171,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	      write_x (dtp, dtp->u.p.skips, dtp->u.p.pending_spaces);
 	      dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 	    }
+
 	  if (dtp->u.p.mode == READING)
 	    read_x (dtp, f->u.n);
 
@@ -1179,6 +1179,8 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
 	case FMT_TL:
 	case FMT_T:
+	  consume_data_flag = 0;
+
 	  if (f->format == FMT_TL)
 	    {
 
@@ -1197,8 +1199,10 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	    }
 	  else /* FMT_T */
 	    {
-	      consume_data_flag = 0;
-	      pos = f->u.n - 1;
+	      if (dtp->u.p.mode == READING)
+		pos = f->u.n - 1;
+	      else
+		pos = f->u.n - dtp->u.p.pending_spaces - 1;
 	    }
 
 	  /* Standard 10.6.1.1: excessive left tabbing is reset to the
@@ -2152,6 +2156,7 @@ next_record_r (st_parameter_dt *dtp)
     
     case UNFORMATTED_SEQUENTIAL:
       next_record_r_unf (dtp, 1);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_DIRECT:
@@ -2377,6 +2382,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 
     case UNFORMATTED_SEQUENTIAL:
       next_record_w_unf (dtp, 0);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_STREAM:

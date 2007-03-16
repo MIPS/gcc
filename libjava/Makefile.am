@@ -72,7 +72,7 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 ## For now, only on native systems.  FIXME.
 if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
-	gappletviewer gjarsigner gkeytool gjar gjavah gnative2ascii \
+	gappletviewer gjarsigner gkeytool gjar gcjh gjavah gnative2ascii \
 	gorbd grmid gserialver gtnameserv gc-analyze
 
 ## It is convenient to actually build and install the default database
@@ -139,6 +139,7 @@ AM_CXXFLAGS = \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
 	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
 	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
+	-DECJ_JAR_FILE="\"$(ECJ_JAR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\""
 
@@ -406,6 +407,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
 	java/nio/channels/Pipe$$SinkChannel.h \
 	java/nio/channels/Pipe$$SourceChannel.h \
+	java/lang/VMProcess$ImmediateEOFInputStream.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
 	java/lang/reflect/Proxy$$ProxyType.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
@@ -665,7 +667,7 @@ gij_SOURCES =
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(libdir)/gcj-$(gcc_version) -rpath $(toolexeclibdir) \
+gij_LDFLAGS = -rpath $(dbexecdir) -rpath $(toolexeclibdir) \
 	-shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
@@ -754,6 +756,15 @@ gjavah_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gjavah_LDADD = -L$(here)/.libs libgcj-tools.la
 gjavah_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gcjh_SOURCES =
+gcjh_LDFLAGS = --main=gnu.classpath.tools.javah.GcjhMain \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gcjh_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gcjh_LDADD = -L$(here)/.libs libgcj-tools.la
+gcjh_DEPENDENCIES = libgcj-tools.la
 
 ## This is a dummy definition.
 gnative2ascii_SOURCES =
@@ -883,6 +894,7 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
+java/lang/natVMProcess.cc \
 java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -1073,6 +1085,7 @@ AM_MAKEFLAGS = \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
 	"libdir=$(libdir)" \
+	"mandir=$(mandir)" \
 	"prefix=$(prefix)" \
 	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
@@ -1092,9 +1105,10 @@ CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
 
-# No install-html support yet.
-.PHONY: install-html
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
 install-html:
+install-pdf:
 
 # Multilib support variables.
 MULTISRCTOP =
