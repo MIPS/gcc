@@ -906,14 +906,6 @@ comptypes_internal (tree type1, tree type2)
   if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return 0;
 
-  /* Allow saturating and not-saturating types be compatible.  */
-  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (t1))
-      && ALL_FIXED_POINT_MODE_P (TYPE_MODE (t2))
-      && TYPE_MODE (t1) == TYPE_MODE (t2)
-      && TYPE_UNSIGNED (t1) == TYPE_UNSIGNED (t2)
-      && TYPE_SATURATING (t1) != TYPE_SATURATING (t2))
-    return 1;
-
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
      qualifiers (just above).  */

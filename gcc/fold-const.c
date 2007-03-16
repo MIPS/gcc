@@ -9265,7 +9265,12 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       || (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST))
     {
       if (kind == tcc_binary)
-	tem = const_binop (code, arg0, arg1, 0);
+	{
+	  /* Make sure type and arg0 have the same saturating flag.  */
+	  gcc_assert (TYPE_SATURATING (type)
+		      == TYPE_SATURATING (TREE_TYPE (arg0)));
+	  tem = const_binop (code, arg0, arg1, 0);
+	}
       else if (kind == tcc_comparison)
 	tem = fold_relational_const (code, type, arg0, arg1);
       else

@@ -1,3 +1,10 @@
+2007-03-16  Chao-ying Fu  <fu@mips.com>
+
+	* c-typeck.c (comptypes_internal): We should not allow saturating
+	and non-saturating fixed-point types compatible.
+	* tree-pretty-print.c (dump_generic_node): Support FIXED_CONVERT_EXPR.
+	* fold-const.c (fold_binary): Check if TYPE_SATURATING is consistent.
+
 2007-03-12  Seongbae Park <seongbae.park@gmail.com>
 
 	* c-decl.c (warn_variable_length_array): New function.
