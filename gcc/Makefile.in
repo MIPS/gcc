@@ -1019,8 +1019,8 @@ OBJS-common = \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o 				   \
- rtl-factoring.o ira.o ira-build.o ira-costs.o ira-conflicts.o \
- ira-color.o ira-emit.o lower-subreg.o
+ rtl-factoring.o ira.o ira-build.o ira-call.o ira-costs.o ira-conflicts.o  \
+ ira-color.o ira-emit.o  lower-subreg.o
 
 
 OBJS-md = $(out_object_file)
@@ -2560,6 +2560,10 @@ ira-build.o: ira-build.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) \
    $(PARAMS_H) $(DF_H) $(IRA_INT_H)
+ira-call.o: ira-call.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \
+   $(BASIC_BLOCK_H) $(TM_P_H) \
+   $(IRA_INT_H)
 ira-costs.o: ira-costs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) insn-config.h $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \

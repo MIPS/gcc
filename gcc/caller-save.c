@@ -1137,6 +1137,9 @@ set_hard_reg_saved (HARD_REG_SET set, unsigned char *from_saved_mode,
 void
 save_call_clobbered_regs (void)
 {
+  /* Computed in mark_set_regs, holds all registers set by the current
+     instruction.  */
+  HARD_REG_SET this_insn_sets;
   struct insn_chain *chain, *next;
   enum machine_mode save_mode [FIRST_PSEUDO_REGISTER];
 
@@ -1145,10 +1148,6 @@ save_call_clobbered_regs (void)
       alloc_aux_for_blocks (sizeof (struct bb_info));
       make_global_save_analysis ();
     }
-
-  /* Computed in mark_set_regs, holds all registers set by the current
-     instruction.  */
-  HARD_REG_SET this_insn_sets;
 
   CLEAR_HARD_REG_SET (hard_regs_saved);
   n_regs_saved = 0;

@@ -563,19 +563,27 @@ Use integrated register allocator.
 
 fira-algorithm=
 Common Joined RejectNegative
--fira-algorithm=[regional|CB|priority]	Set the used IRA algorithm
+-fira-algorithm=[regional|CB|mixed|priority] Set the used IRA algorithm
+
+fira-assign-after-call-split
+Common Report Var(flag_ira_assign_after_call_split) Init(1)
+Assign hard regs to pseudos after splitting pseudo live range arround calls.
 
 fira-biased-coloring
 Common Report Var(flag_ira_biased_coloring)
 Use biased coloring for the integrated register allocator.
 
 fira-ipra
-Common Report Var(flag_ira_ipra) Init(1)
+Common Report Var(flag_ira_ipra) Init(0)
 Inter-procedural register allocation for IRA
 
 fira-move-spills
 Common Report Var(flag_ira_move_spills) Init(1)
 Increase gap between the corresponding save and restore insns.
+
+fira-propagate-cost
+Common Report Var(flag_ira_propagate_cost) Init(0)
+Propagate hard reg costs down for regional or mixed ira allocation algorithm.
 
 fira-share-save-slots
 Common Report Var(flag_ira_share_save_slots) Init(1)
@@ -584,6 +592,10 @@ Share slots for saving different hard registers.
 fira-share-spill-slots
 Common Report Var(flag_ira_share_spill_slots) Init(1)
 Share stack slots for spilled pseudo-registers.
+
+fira-split-around-calls
+Common Report Var(flag_ira_split_around_calls) Init(1)
+Split pseudo live range arround calls.
 
 fivopts
 Common Report Var(flag_ivopts) Init(1)

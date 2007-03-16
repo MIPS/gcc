@@ -1,6 +1,7 @@
 /* Integrated Register Allocator intercommunication header file.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -75,6 +76,10 @@ struct ira_loop_tree_node
      edges).  */
   pseudo_t *regno_pseudo_map;
 
+  /* Maximal register pressure inside loop for given class (defined
+     only for cover_class).  */
+  int reg_pressure [N_REG_CLASSES];
+
   /* Pseudos referred in the loop node.  */
   bitmap mentioned_pseudos;
 
@@ -142,8 +147,7 @@ struct pseudo
 {
   /* The pseudo order number starting with 0.  */
   int num;
-  /* If it is negative the pseudo represents a set of pseudos (a
-     cap).  */
+  /* Regno for pseudo or cap.  */
   int regno;
   /* Final rtx representation of the pseudo.  */
   rtx reg;
@@ -157,7 +161,7 @@ struct pseudo
      level.  */
   pseudo_t cap;
   /* It is a link to pseudo (cap) on lower loop level represented by
-     given cap.  */
+     given cap.  Null if it is not a cap.  */
   pseudo_t cap_member;
   /* Vector of conflicting pseudos with NULL end marker.  */
   pseudo_t *conflict_pseudo_vec;
@@ -429,6 +433,10 @@ extern int *reg_equiv_invariant_p;
 /* Regno equivalent constants.  */
 extern rtx *reg_equiv_const;
 
+extern char *original_regno_call_crossed_p;
+extern int ira_max_regno_before;
+extern int ira_max_regno_call_before;
+
 /* ira-build.c */
 
 /* The current loop tree node.  */
@@ -437,7 +445,7 @@ extern struct ira_loop_tree_node *ira_curr_loop_tree_node;
 extern void traverse_loop_tree (struct ira_loop_tree_node *,
 				void (*) (struct ira_loop_tree_node *),
 				void (*) (struct ira_loop_tree_node *));
-extern pseudo_t create_pseudo (int, struct ira_loop_tree_node *);
+extern pseudo_t create_pseudo (int, int, struct ira_loop_tree_node *);
 extern void allocate_pseudo_conflicts (pseudo_t, int);
 extern void print_expanded_pseudo (pseudo_t);
 extern copy_t create_copy (pseudo_t, pseudo_t, int, rtx);
@@ -457,7 +465,13 @@ extern void debug_conflicts (void);
 extern void ira_build_conflicts (void);
 
 /* ira-color.c */
+extern void reassign_conflict_pseudos (int, int);
 extern void ira_color (void);
 
 /* ira-emit.c */
 extern void ira_emit (void);
+
+/* ira-call.c */
+extern void debug_ira_call_data (void);
+extern int split_around_calls (void);
+extern int get_around_calls_regno (int);

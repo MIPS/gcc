@@ -197,6 +197,7 @@ extern int flag_renumber_insns;
 enum ira_algorithm {
   IRA_ALGORITHM_REGIONAL,
   IRA_ALGORITHM_CB,
+  IRA_ALGORITHM_MIXED,
   IRA_ALGORITHM_PRIORITY
 };
 

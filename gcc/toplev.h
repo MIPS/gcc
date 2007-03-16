@@ -133,11 +133,14 @@ extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_ira;
+extern int flag_ira_assign_after_call_split;
 extern int flag_ira_biased_coloring;
 extern int flag_ira_ipra;
 extern int flag_ira_move_spills;
+extern int flag_ira_propagate_cost;
 extern int flag_ira_share_save_slots;
 extern int flag_ira_share_spill_slots;
+extern int flag_ira_split_around_calls;
 
 /* Things to do with target switches.  */
 extern void print_version (FILE *, const char *);

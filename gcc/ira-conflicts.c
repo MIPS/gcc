@@ -1,6 +1,7 @@
 /* IRA conflict builder.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -148,20 +149,41 @@ static struct ira_loop_tree_node *curr_bb_node;
 /* Current map regno -> pseudo.  */
 static pseudo_t *curr_regno_pseudo_map;
 
+/* The current pressure for the current basic block.  */
+static int curr_reg_pressure [N_REG_CLASSES];
+
 /* The function marks pseudo P as currently living.  */
 static void
 set_pseudo_live (pseudo_t p)
 {
+  enum reg_class cover_class;
+
   if (TEST_PSEUDO_LIVE (PSEUDO_NUM (p)))
     return;
   SET_PSEUDO_LIVE (PSEUDO_NUM (p));
   bitmap_set_bit (pseudos_live_bitmap, PSEUDO_NUM (p));
+  cover_class = PSEUDO_COVER_CLASS (p);
+  curr_reg_pressure [cover_class]
+    += reg_class_nregs [cover_class] [PSEUDO_MODE (p)];
+  if (curr_bb_node->reg_pressure [cover_class]
+      < curr_reg_pressure [cover_class])
+    curr_bb_node->reg_pressure [cover_class]
+      = curr_reg_pressure [cover_class];
 }
 
 /* The function marks pseudo P as currently not living.  */
 static void
 clear_pseudo_live (pseudo_t p)
 {
+  enum reg_class cover_class;
+
+  if (bitmap_bit_p (pseudos_live_bitmap, PSEUDO_NUM (p)))
+    {
+      cover_class = PSEUDO_COVER_CLASS (p);
+      curr_reg_pressure [cover_class]
+	-= reg_class_nregs [cover_class] [PSEUDO_MODE (p)];
+      ira_assert (curr_reg_pressure [cover_class] >= 0);
+    }
   CLEAR_PSEUDO_LIVE (PSEUDO_NUM (p));
   bitmap_clear_bit (pseudos_live_bitmap, PSEUDO_NUM (p));
 }
@@ -254,12 +276,22 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
+      enum reg_class cover_class;
 
       while (regno < last)
 	{
 	  record_regno_conflict (regno);
-	  if (! TEST_HARD_REG_BIT (eliminable_regset, regno))
-	    SET_HARD_REG_BIT (hard_regs_live, regno);
+	  if (! TEST_HARD_REG_BIT (eliminable_regset, regno)
+	      && ! TEST_HARD_REG_BIT (hard_regs_live, regno))
+	    {
+	      cover_class = class_translate [REGNO_REG_CLASS (regno)];
+	      curr_reg_pressure [cover_class]++;
+	      SET_HARD_REG_BIT (hard_regs_live, regno);
+	      if (curr_bb_node->reg_pressure [cover_class]
+		  < curr_reg_pressure [cover_class])
+		curr_bb_node->reg_pressure [cover_class]
+		  = curr_reg_pressure [cover_class];
+	    }
 	  regno++;
 	}
     }
@@ -322,10 +354,17 @@ mark_reg_death (rtx reg)
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
+      enum reg_class cover_class;
 
       while (regno < last)
 	{
-	  CLEAR_HARD_REG_BIT (hard_regs_live, regno);
+	  if (TEST_HARD_REG_BIT (hard_regs_live, regno))
+	    {
+	      cover_class = class_translate [REGNO_REG_CLASS (regno)];
+	      curr_reg_pressure [cover_class]--;
+	      ira_assert (curr_reg_pressure [cover_class] >= 0);
+	      CLEAR_HARD_REG_BIT (hard_regs_live, regno);
+	    }
 	  regno++;
 	}
     }
@@ -823,7 +862,7 @@ add_pseudo_copies (rtx insn)
 			else
 			  cost
 			    = register_move_cost [mode] [class] [cover_class];
-			cost *= (freq < 4 ? 1 : freq / 4);
+			cost *= (freq < 8 ? 1 : freq / 8);
 			PSEUDO_HARD_REG_COSTS (p) [index] -= cost;
 			PSEUDO_CONFLICT_HARD_REG_COSTS (p) [index] -= cost;
 		      }
@@ -832,7 +871,7 @@ add_pseudo_copies (rtx insn)
 			cp = add_pseudo_copy
 			     (curr_regno_pseudo_map [REGNO (dup)],
 			      curr_regno_pseudo_map [REGNO (operand)],
-			      (freq < 4 ? 1 : freq / 4), NULL_RTX);
+			      (freq < 8 ? 1 : freq / 8), NULL_RTX);
 			bitmap_set_bit
 			  (ira_curr_loop_tree_node->local_copies, cp->num);
 		      }
@@ -1066,177 +1105,205 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
   int px = 0;
 
   bb = loop_tree_node->bb;
-  if (bb == NULL)
-    return;
-  curr_bb_node = loop_tree_node;
-  curr_regno_pseudo_map = ira_curr_loop_tree_node->regno_pseudo_map;
-  reg_live_in = DF_UPWARD_LIVE_IN (build_df, bb);
-  reg_live_out = DF_UPWARD_LIVE_OUT (build_df, bb);
-  memset (pseudos_live, 0, pseudo_row_words * sizeof (INT_TYPE));
-  REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
-  AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
-  bitmap_clear (pseudos_live_bitmap);
-  EXECUTE_IF_SET_IN_BITMAP (reg_live_in, FIRST_PSEUDO_REGISTER, j, bi)
+  if (bb != NULL)
     {
-      pseudo_t p = curr_regno_pseudo_map [j];
-      
-      ira_assert (p != NULL || REG_N_REFS (j) == 0);
-      if (p == NULL)
-	continue;
-      set_pseudo_live (p);
-      record_regno_conflict (j);
-    }
-
-#ifdef EH_RETURN_DATA_REGNO
-  if (bb_has_eh_pred (bb))
-    {
-      for (j = 0; ; ++j)
+      for (i = 0; i < reg_class_cover_size; i++)
+	curr_reg_pressure [reg_class_cover [i]] = 0;
+      curr_bb_node = loop_tree_node;
+      curr_regno_pseudo_map = ira_curr_loop_tree_node->regno_pseudo_map;
+      reg_live_in = DF_UPWARD_LIVE_IN (build_df, bb);
+      reg_live_out = DF_UPWARD_LIVE_OUT (build_df, bb);
+      memset (pseudos_live, 0, pseudo_row_words * sizeof (INT_TYPE));
+      REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
+      AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (TEST_HARD_REG_BIT (hard_regs_live, i))
+	  {
+	    enum reg_class cover_class;
+	    
+	    cover_class = class_translate [REGNO_REG_CLASS (i)];
+	    curr_reg_pressure [cover_class]++;
+	    if (curr_bb_node->reg_pressure [cover_class]
+		< curr_reg_pressure [cover_class])
+	      curr_bb_node->reg_pressure [cover_class]
+		= curr_reg_pressure [cover_class];
+	  }
+      bitmap_clear (pseudos_live_bitmap);
+      EXECUTE_IF_SET_IN_BITMAP (reg_live_in, FIRST_PSEUDO_REGISTER, j, bi)
 	{
-	  unsigned int regno = EH_RETURN_DATA_REGNO (j);
-
-	  if (regno == INVALID_REGNUM)
-	    break;
-	  record_regno_conflict (regno);
-	}
-    }
-#endif
-
-  /* Pseudos can't go in stack regs at the start of a basic block that
-     is reached by an abnormal edge. Likewise for call clobbered regs,
-     because caller-save, fixup_abnormal_edges and possibly the table
-     driven EH machinery are not quite ready to handle such pseudos
-     live across such edges.  */
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    if (e->flags & EDGE_ABNORMAL)
-      break;
-  
-  if (e != NULL)
-    {
-#ifdef STACK_REGS
-      EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, px,
-        {
-	  PSEUDO_NO_STACK_REG_P (pseudos [px]) = TRUE;
-	});
-      for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
-	record_regno_conflict (px);
-#endif
-      /* No need to record conflicts for call clobbered regs if we
-	 have nonlocal labels around, as we don't ever try to allocate
-	 such regs in this case.  */
-      if (! current_function_has_nonlocal_label)
-	for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	  if (call_used_regs [px])
-	    record_regno_conflict (px);
-    }
-  
-  /* Scan the code of this basic block, noting which pseudos and hard
-     regs are born or die.  When one is born, record a conflict with
-     all others currently live.  */
-  FOR_BB_INSNS (bb, insn)
-    {
-      rtx link;
-      
-      if (! INSN_P (insn))
-	continue;
-      
-      /* Make regs_set an empty set.  */
-      n_regs_set = 0;
-      
-      /* Mark any pseudos clobbered by INSN as live, so they
-	 conflict with the inputs.  */
-      note_stores (PATTERN (insn), mark_reg_clobber, NULL);
-      
-      extract_insn (insn);
-      process_single_reg_class_operands (TRUE);
-      
-      /* Mark any pseudos dead after INSN as dead now.  */
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	if (REG_NOTE_KIND (link) == REG_DEAD)
-	  mark_reg_death (XEXP (link, 0));
-      
-      if (CALL_P (insn))
-	{
-	  HARD_REG_SET clobbered_regs;
+	  pseudo_t p = curr_regno_pseudo_map [j];
 	  
-	  get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
-	  IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
-	  EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, i,
-	    {
-	      int freq;
-	      pseudo_t p = pseudos [i];
-	      
-	      freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
-	      if (freq == 0)
-		freq = 1;
-	      PSEUDO_CALL_FREQ (p) += freq;
-	      PSEUDO_CALLS_CROSSED (p) [PSEUDO_CALLS_CROSSED_NUM (p)++] = insn;
-	      ira_assert (PSEUDO_CALLS_CROSSED_NUM (p)
-			  <= REG_N_CALLS_CROSSED (PSEUDO_REGNO (p)));
-
-	      /* Don't allocate pseudos that cross calls, if this
-		 function receives a nonlocal goto.  */
-	      if (current_function_has_nonlocal_label)
-		SET_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p));
-	    });
+	  ira_assert (p != NULL || REG_N_REFS (j) == 0);
+	  if (p == NULL)
+	    continue;
+	  set_pseudo_live (p);
+	  record_regno_conflict (j);
 	}
       
-      /* Mark any pseudos set in INSN as live, and mark them as
-	 conflicting with all other live pseudos.  Clobbers are
-	 processed again, so they conflict with the pseudos that are
-	 set.  */
-      note_stores (PATTERN (insn), mark_reg_store, NULL);
-      
-#ifdef AUTO_INC_DEC
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	if (REG_NOTE_KIND (link) == REG_INC)
-	  mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
+#ifdef EH_RETURN_DATA_REGNO
+      if (bb_has_eh_pred (bb))
+	{
+	  for (j = 0; ; ++j)
+	    {
+	      unsigned int regno = EH_RETURN_DATA_REGNO (j);
+	      
+	      if (regno == INVALID_REGNUM)
+		break;
+	      record_regno_conflict (regno);
+	    }
+	}
 #endif
       
-      /* If INSN has multiple outputs, then any pseudo that dies here
-	 and is used inside of an output must conflict with the other
-	 outputs.
-	 
-	 It is unsafe to use !single_set here since it will ignore an
-	 unused output.  Just because an output is unused does not
-	 mean the compiler can assume the side effect will not occur.
-	 Consider if PSEUDO appears in the address of an output and we
-	 reload the output.  If we allocate PSEUDO to the same hard
-	 register as an unused output we could set the hard register
-	 before the output reload insn.  */
-      if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
-	for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	  if (REG_NOTE_KIND (link) == REG_DEAD)
-	    {
-	      int i;
-	      int used_in_output = 0;
-	      rtx reg = XEXP (link, 0);
-	      
-	      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-		{
-		  rtx set = XVECEXP (PATTERN (insn), 0, i);
-		  
-		  if (GET_CODE (set) == SET
-		      && ! REG_P (SET_DEST (set))
-		      && ! rtx_equal_p (reg, SET_DEST (set))
-		      && reg_overlap_mentioned_p (reg, SET_DEST (set)))
-		    used_in_output = 1;
-		}
-	      if (used_in_output)
-		mark_reg_conflicts (reg);
-	    }
+      /* Pseudos can't go in stack regs at the start of a basic block
+	 that is reached by an abnormal edge. Likewise for call
+	 clobbered regs, because caller-save, fixup_abnormal_edges and
+	 possibly the table driven EH machinery are not quite ready to
+	 handle such pseudos live across such edges.  */
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  break;
       
-      process_single_reg_class_operands (FALSE);
-      
-      /* Mark any pseudos set in INSN and then never used.  */
-      while (n_regs_set-- > 0)
+      if (e != NULL)
 	{
-	  rtx note = find_regno_note (insn, REG_UNUSED,
-				      REGNO (regs_set [n_regs_set]));
-	  if (note)
-	    mark_reg_death (XEXP (note, 0));
+#ifdef STACK_REGS
+	  EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, px,
+	    {
+	      PSEUDO_NO_STACK_REG_P (pseudos [px]) = TRUE;
+	    });
+	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
+	    record_regno_conflict (px);
+#endif
+	  /* No need to record conflicts for call clobbered regs if we
+	     have nonlocal labels around, as we don't ever try to
+	     allocate such regs in this case.  */
+	  if (! current_function_has_nonlocal_label)
+	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
+	      if (call_used_regs [px])
+		record_regno_conflict (px);
 	}
-      add_pseudo_copies (insn);
+  
+      /* Scan the code of this basic block, noting which pseudos and
+	 hard regs are born or die.  When one is born, record a
+	 conflict with all others currently live.  */
+      FOR_BB_INSNS (bb, insn)
+	{
+	  rtx link;
+	  
+	  if (! INSN_P (insn))
+	    continue;
+	  
+	  /* Make regs_set an empty set.  */
+	  n_regs_set = 0;
+      
+	  /* Mark any pseudos clobbered by INSN as live, so they
+	     conflict with the inputs.  */
+	  note_stores (PATTERN (insn), mark_reg_clobber, NULL);
+	  
+	  extract_insn (insn);
+	  process_single_reg_class_operands (TRUE);
+	  
+	  /* Mark any pseudos dead after INSN as dead now.  */
+	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) == REG_DEAD)
+	      mark_reg_death (XEXP (link, 0));
+	  
+	  if (CALL_P (insn))
+	    {
+	      HARD_REG_SET clobbered_regs;
+	      
+	      get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
+	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
+	      EXECUTE_IF_SET_IN_PSEUDO_SET (pseudos_live, i,
+	        {
+		  int freq;
+		  pseudo_t p = pseudos [i];
+		  
+		  freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
+		  if (freq == 0)
+		    freq = 1;
+		  PSEUDO_CALL_FREQ (p) += freq;
+		  PSEUDO_CALLS_CROSSED (p) [PSEUDO_CALLS_CROSSED_NUM (p)++]
+		    = insn;
+		  ira_assert (PSEUDO_CALLS_CROSSED_NUM (p)
+			      <= REG_N_CALLS_CROSSED (PSEUDO_REGNO (p)));
+		  
+		  /* Don't allocate pseudos that cross calls, if this
+		     function receives a nonlocal goto.  */
+		  if (current_function_has_nonlocal_label)
+		    SET_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p));
+		});
+	    }
+	  
+	  /* Mark any pseudos set in INSN as live, and mark them as
+	     conflicting with all other live pseudos.  Clobbers are
+	     processed again, so they conflict with the pseudos that
+	     are set.  */
+	  note_stores (PATTERN (insn), mark_reg_store, NULL);
+	  
+#ifdef AUTO_INC_DEC
+	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) == REG_INC)
+	      mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
+#endif
+	  
+	  /* If INSN has multiple outputs, then any pseudo that dies
+	     here and is used inside of an output must conflict with
+	     the other outputs.
+	     
+	     It is unsafe to use !single_set here since it will ignore
+	     an unused output.  Just because an output is unused does
+	     not mean the compiler can assume the side effect will not
+	     occur.  Consider if PSEUDO appears in the address of an
+	     output and we reload the output.  If we allocate PSEUDO
+	     to the same hard register as an unused output we could
+	     set the hard register before the output reload insn.  */
+	  if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
+	    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	      if (REG_NOTE_KIND (link) == REG_DEAD)
+		{
+		  int i;
+		  int used_in_output = 0;
+		  rtx reg = XEXP (link, 0);
+		  
+		  for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
+		    {
+		      rtx set = XVECEXP (PATTERN (insn), 0, i);
+		      
+		      if (GET_CODE (set) == SET
+			  && ! REG_P (SET_DEST (set))
+			  && ! rtx_equal_p (reg, SET_DEST (set))
+			  && reg_overlap_mentioned_p (reg, SET_DEST (set)))
+			used_in_output = 1;
+		    }
+		  if (used_in_output)
+		    mark_reg_conflicts (reg);
+		}
+	  
+	  process_single_reg_class_operands (FALSE);
+	  
+	  /* Mark any pseudos set in INSN and then never used.  */
+	  while (n_regs_set-- > 0)
+	    {
+	      rtx note = find_regno_note (insn, REG_UNUSED,
+					  REGNO (regs_set [n_regs_set]));
+	      if (note)
+		mark_reg_death (XEXP (note, 0));
+	    }
+	  add_pseudo_copies (insn);
+	}
     }
+  /* Propagate register pressure: */
+  if (loop_tree_node != ira_loop_tree_root)
+    for (i = 0; i < reg_class_cover_size; i++)
+      {
+	enum reg_class cover_class;
+
+	cover_class = reg_class_cover [i];
+	if (loop_tree_node->reg_pressure [cover_class]
+	    > loop_tree_node->father->reg_pressure [cover_class])
+	  loop_tree_node->father->reg_pressure [cover_class]
+	    = loop_tree_node->reg_pressure [cover_class];
+      }
 }
 
 /* The function builds pseudo conflict table by traversing all basic
@@ -1252,7 +1319,7 @@ build_conflict_bit_table (void)
   pseudos_live_bitmap = ira_allocate_bitmap ();
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
   regs_set = ira_allocate (sizeof (rtx) * max_parallel * 2);
-  traverse_loop_tree (ira_loop_tree_root, process_bb_node_for_conflicts, NULL);
+  traverse_loop_tree (ira_loop_tree_root, NULL, process_bb_node_for_conflicts);
   /* Clean up.  */
   ira_free (regs_set);
   ira_free_bitmap (pseudos_live_bitmap);
@@ -1528,7 +1595,8 @@ ira_build_conflicts (void)
 
   build_conflict_bit_table ();
   mirror_conflicts ();
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL)
+  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
     propagate_info ();
   /* We need finished conflict table for the subsequent call.  */
   remove_conflict_pseudo_copies ();
@@ -1538,8 +1606,14 @@ ira_build_conflicts (void)
       p = pseudos [i];
       if (PSEUDO_CALLS_CROSSED_NUM (p) != 0)
 	{
-	  if (! flag_caller_saves)
-            IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),
+	  if (! flag_caller_saves
+	      || (flag_ira_split_around_calls
+		  && ((ira_max_regno_before > PSEUDO_REGNO (p)
+		       && (reg_equiv_const [PSEUDO_REGNO (p)]
+			   || reg_equiv_invariant_p [PSEUDO_REGNO (p)]))
+		      || (ira_max_regno_before <= PSEUDO_REGNO (p)
+			  && PSEUDO_REGNO (p) < ira_max_regno_call_before))))
+	    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),
 			      call_used_reg_set);
           else
 	    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p),

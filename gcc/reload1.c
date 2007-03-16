@@ -1553,9 +1553,19 @@ calculate_needs_all_insns (int global)
 	    {
 	      rtx set = single_set (insn);
 	      if (set
-		  && SET_SRC (set) == SET_DEST (set)
-		  && REG_P (SET_SRC (set))
-		  && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER)
+		  &&
+		  ((SET_SRC (set) == SET_DEST (set)
+		    && REG_P (SET_SRC (set))
+		    && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER)
+		   || (REG_P (SET_SRC (set)) && REG_P (SET_DEST (set))
+		       && reg_renumber [REGNO (SET_SRC (set))] < 0
+		       && reg_renumber [REGNO (SET_DEST (set))] < 0
+		       && reg_equiv_memory_loc[REGNO (SET_SRC (set))] != NULL
+		       && reg_equiv_memory_loc[REGNO (SET_DEST (set))] != NULL
+		       && rtx_equal_p (reg_equiv_memory_loc
+				       [REGNO (SET_SRC (set))],
+				       reg_equiv_memory_loc
+				       [REGNO (SET_DEST (set))]))))
 		{
 		  delete_insn (insn);
 		  /* Delete it from the reload chain.  */

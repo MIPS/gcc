@@ -1,6 +1,7 @@
 /* Integrated Register Allocator entry point.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -109,7 +110,8 @@ static void setup_reg_class_nregs (void);
 static void setup_prohibited_class_mode_regs (void);
 static void setup_eliminable_regset (void);
 static void find_reg_equiv_invariant_const (void);
-static void setup_reg_renumber (void);
+static void setup_reg_renumber (int, int);
+static int setup_pseudo_assignment_from_reg_renumber (void);
 static void calculate_allocation_cost (void);
 #ifdef ENABLE_IRA_CHECKING
 static void check_allocation (void);
@@ -870,33 +872,71 @@ find_reg_equiv_invariant_const (void)
 
 
 /* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED used by
-   reload from the allocation found by IRA.  */
+   reload from the allocation found by IRA.  If AFTER_EMIT_P, the
+   function is called after emitting the move insns, otherwise if
+   AFTER_CALL_P, the function is called right after splitting pseudos
+   around calls.  */
 static void
-setup_reg_renumber (void)
+setup_reg_renumber (int after_emit_p, int after_call_p)
 {
   int i, hard_regno;
   pseudo_t p;
 
+  caller_save_needed = 0;
   for (i = 0; i < pseudos_num; i++)
     {
       p = pseudos [i];
-      if (PSEUDO_REGNO (p) < 0)
+      if (PSEUDO_CAP_MEMBER (p) != NULL)
 	/* It is a cap. */
 	continue;
+      if (! PSEUDO_ASSIGNED_P (p))
+	PSEUDO_ASSIGNED_P (p) = TRUE;
+      ira_assert (PSEUDO_ASSIGNED_P (p));
       hard_regno = PSEUDO_HARD_REGNO (p);
-      reg_renumber [REGNO (PSEUDO_REG (p))]
+      reg_renumber [after_emit_p 
+		    ? (int) REGNO (PSEUDO_REG (p)) : PSEUDO_REGNO (p)]
 	= (hard_regno < 0 ? -1 : hard_regno);
       if (hard_regno >= 0 && PSEUDO_CALLS_CROSSED_NUM (p) != 0
 	  && ! hard_reg_not_in_set_p (hard_regno, PSEUDO_MODE (p),
 				      call_used_reg_set))
 	{
-	  ira_assert (flag_caller_saves);
+	  ira_assert
+	    ((! after_call_p && flag_caller_saves)
+	     || (flag_caller_saves && ! flag_ira_split_around_calls));
 	  caller_save_needed = 1;
 	}
     }
 }
 
-/* The function calculates cost of the found register allocation.  */
+/* The function sets up pseudo assignment from reg_renumber.  If the
+   cover class of a pseudo does not correspond to the hard register,
+   return TRUE and mark the pseudo as unassigned.  */
+static int
+setup_pseudo_assignment_from_reg_renumber (void)
+{
+  int i, hard_regno;
+  pseudo_t p;
+  int result = FALSE;
+
+  for (i = 0; i < pseudos_num; i++)
+    {
+      p = pseudos [i];
+      hard_regno = PSEUDO_HARD_REGNO (p) = reg_renumber [PSEUDO_REGNO (p)];
+      ira_assert (! PSEUDO_ASSIGNED_P (p));
+      if (hard_regno >= 0
+	  && hard_reg_not_in_set_p (hard_regno, PSEUDO_MODE (p),
+				    reg_class_contents
+				    [PSEUDO_COVER_CLASS (p)]))
+	result = TRUE;
+      else
+	PSEUDO_ASSIGNED_P (p) = TRUE;
+    }
+  return result;
+}
+
+/* The function evaluates overall allocation cost and costs for using
+   registers and memory for pseudos.  */
+
 static void
 calculate_allocation_cost (void)
 {
@@ -907,8 +947,11 @@ calculate_allocation_cost (void)
   for (i = 0; i < pseudos_num; i++)
     {
       p = pseudos [i];
-      hard_regno = PSEUDO_HARD_REGNO (p) = reg_renumber [PSEUDO_REGNO (p)];
-      PSEUDO_ASSIGNED_P (p) = TRUE;
+      hard_regno = PSEUDO_HARD_REGNO (p);
+      ira_assert (hard_regno < 0
+		  || ! hard_reg_not_in_set_p
+		       (hard_regno, PSEUDO_MODE (p),
+			reg_class_contents [PSEUDO_COVER_CLASS (p)])); 
       if (hard_regno < 0)
 	{
 	  cost = PSEUDO_MEMORY_COST (p);
@@ -947,7 +990,8 @@ check_allocation (void)
   for (i = 0; i < pseudos_num; i++)
     {
       p = pseudos [i];
-      if (PSEUDO_REGNO (p) < 0 || (hard_regno = PSEUDO_HARD_REGNO (p)) < 0)
+      if (PSEUDO_CAP_MEMBER (p) != NULL
+	  || (hard_regno = PSEUDO_HARD_REGNO (p)) < 0)
 	continue;
       nregs = hard_regno_nregs [hard_regno] [PSEUDO_MODE (p)];
       pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (p);
@@ -1031,7 +1075,7 @@ print_redundant_copies (void)
   for (i = 0; i < pseudos_num; i++)
     {
       p = pseudos [i];
-      if (PSEUDO_REGNO (p) < 0)
+      if (PSEUDO_CAP_MEMBER (p) != NULL)
 	/* It is a cap. */
 	continue;
       hard_regno = PSEUDO_HARD_REGNO (p);
@@ -1073,12 +1117,22 @@ setup_preferred_alternate_classes (void)
 
 
 
+/* The value of max_regn_num () correspondingly before the allocator
+   and before splitting pseudos around calls.  */
+int ira_max_regno_before;
+int ira_max_regno_call_before;
+
+/* Flags for each regno (existing before the splitting pseudos around
+   calls) about that the corresponding register crossed a call.  */
+char *original_regno_call_crossed_p;
+
 /* This is the main entry of IRA.  */
 void
 ira (FILE *f)
 {
-  int overall_cost_before, loops_p;
+  int i, overall_cost_before, loops_p;
   int rebuild_p;
+  pseudo_t p;
 
   ira_dump_file = f;
 
@@ -1091,6 +1145,7 @@ ira (FILE *f)
 #endif
   bitmap_obstack_initialize (&ira_bitmap_obstack);
 
+  ira_max_regno_call_before = ira_max_regno_before = max_reg_num ();
   reg_equiv_invariant_p = ira_allocate (max_reg_num () * sizeof (int));
   memset (reg_equiv_invariant_p, 0, max_reg_num () * sizeof (int));
   reg_equiv_const = ira_allocate (max_reg_num () * sizeof (rtx));
@@ -1107,7 +1162,8 @@ ira (FILE *f)
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
   move_loops_num = additional_jumps_num = 0;
-  loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL);
+  loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+		       || flag_ira_algorithm == IRA_ALGORITHM_MIXED);
   ira_color ();
 
   ira_emit ();
@@ -1117,7 +1173,7 @@ ira (FILE *f)
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
   
-  setup_reg_renumber ();
+  setup_reg_renumber (TRUE, FALSE);
   no_new_pseudos = 1;
 
   if (loops_p)
@@ -1126,6 +1182,40 @@ ira (FILE *f)
 	 representation to use correct regno pseudo map.  */
       ira_destroy ();
       ira_build (FALSE);
+      if (setup_pseudo_assignment_from_reg_renumber ())
+	{
+	  reassign_conflict_pseudos (max_regno, FALSE);
+	  setup_reg_renumber (FALSE, FALSE);
+	}
+    }
+
+  original_regno_call_crossed_p = ira_allocate (max_regno * sizeof (char));
+
+  for (i = 0; i < pseudos_num; i++)
+    {
+      p = pseudos [i];
+      ira_assert (PSEUDO_CAP_MEMBER (p) == NULL);
+      original_regno_call_crossed_p [PSEUDO_REGNO (p)]
+	= PSEUDO_CALLS_CROSSED_NUM (p) != 0;
+    }
+  ira_max_regno_call_before = max_reg_num ();
+  if (flag_caller_saves && flag_ira_split_around_calls)
+    {
+      no_new_pseudos = 0;
+      if (split_around_calls ())
+	{
+	  ira_destroy ();
+	  max_regno = max_reg_num ();
+	  /* Allocate the reg_renumber array.  */
+	  allocate_reg_info (max_regno, FALSE, TRUE);
+	  ira_build (FALSE);
+	  setup_pseudo_assignment_from_reg_renumber ();
+	  reassign_conflict_pseudos ((flag_ira_assign_after_call_split
+				      ? ira_max_regno_call_before
+				      : max_reg_num ()), TRUE);
+  	  setup_reg_renumber (FALSE, TRUE);
+	}
+      no_new_pseudos = 1;
     }
 
   calculate_allocation_cost ();
@@ -1182,6 +1272,7 @@ ira (FILE *f)
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
 
+  ira_free (original_regno_call_crossed_p);
   ira_free (reg_equiv_invariant_p);
   ira_free (reg_equiv_const);
   

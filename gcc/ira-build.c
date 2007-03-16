@@ -1,6 +1,7 @@
 /* Building pseudos for IRA.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -117,6 +118,8 @@ create_loop_tree_nodes (int loops_p)
   for (i = 0; i < (unsigned int) last_basic_block; i++)
     {
       ira_bb_nodes [i].regno_pseudo_map = NULL;
+      memset (ira_bb_nodes [i].reg_pressure, 0,
+	      sizeof (ira_bb_nodes [i].reg_pressure));
       ira_bb_nodes [i].mentioned_pseudos = NULL;
       ira_bb_nodes [i].modified_regnos = NULL;
       ira_bb_nodes [i].border_pseudos = NULL;
@@ -157,6 +160,8 @@ create_loop_tree_nodes (int loops_p)
 	= ira_allocate (sizeof (pseudo_t) * max_regno);
       memset (ira_loop_nodes [i].regno_pseudo_map, 0,
 	      sizeof (pseudo_t) * max_regno);
+      memset (ira_loop_nodes [i].reg_pressure, 0,
+	      sizeof (ira_loop_nodes [i].reg_pressure));
       ira_loop_nodes [i].mentioned_pseudos = ira_allocate_bitmap ();
       ira_loop_nodes [i].modified_regnos = ira_allocate_bitmap ();
       ira_loop_nodes [i].border_pseudos = ira_allocate_bitmap ();
@@ -291,16 +296,17 @@ initiate_pseudos (void)
 }
 
 /* The function creates and returns pseudo corresponding to REGNO in
-   LOOP_TREE_NODE.  */
+   LOOP_TREE_NODE.  Add the pseudo to the list of pseudos with the
+   same regno if ! CAP_P.  */
 pseudo_t
-create_pseudo (int regno, struct ira_loop_tree_node *loop_tree_node)
+create_pseudo (int regno, int cap_p, struct ira_loop_tree_node *loop_tree_node)
 {
   pseudo_t p;
 
   p = ira_allocate (sizeof (struct pseudo));
   PSEUDO_REGNO (p) = regno;
   PSEUDO_LOOP_TREE_NODE (p) = loop_tree_node;
-  if (regno >= 0)
+  if (! cap_p)
     {
       PSEUDO_NEXT_REGNO_PSEUDO (p) = regno_pseudo_map [regno];
       regno_pseudo_map [regno] = p;
@@ -415,7 +421,7 @@ print_expanded_pseudo (pseudo_t p)
     fprintf (ira_dump_file, ",b%d", bb->index);
   else
     fprintf (ira_dump_file, ",l%d", PSEUDO_LOOP_TREE_NODE (p)->loop->num);
-  if (PSEUDO_REGNO (p) < 0)
+  if (PSEUDO_CAP_MEMBER (p) != NULL)
     {
       fprintf (ira_dump_file, ":");
       print_expanded_pseudo (PSEUDO_CAP_MEMBER (p));
@@ -436,7 +442,7 @@ create_cap_pseudo (pseudo_t p)
   struct ira_loop_tree_node *father;
 
   father = PSEUDO_LOOP_TREE_NODE (p)->father;
-  cap = create_pseudo (-1, father);
+  cap = create_pseudo (PSEUDO_REGNO (p), TRUE, father);
   /* We just need to set a mode giving the same size.  */
   PSEUDO_MODE (cap) = PSEUDO_MODE (p);
   PSEUDO_COVER_CLASS (cap) = PSEUDO_COVER_CLASS (p);
@@ -479,14 +485,9 @@ create_cap_pseudo (pseudo_t p)
   for (conflicts_num = i = 0; (conflict_pseudo = pseudo_vec [i]) != NULL; i++)
     {
       regno = PSEUDO_REGNO (conflict_pseudo);
-      if (regno < 0)
+      conflict_father_pseudo = father->regno_pseudo_map [regno];
+      if (conflict_father_pseudo == NULL)
 	conflict_father_pseudo = PSEUDO_CAP (conflict_pseudo);
-      else
-	{
-	  conflict_father_pseudo = father->regno_pseudo_map [regno];
-	  if (conflict_father_pseudo == NULL)
-	    conflict_father_pseudo = PSEUDO_CAP (conflict_pseudo);
-	}
       if (conflict_father_pseudo != NULL)
 	add_pseudo_conflict (cap, conflict_father_pseudo);
     }
@@ -641,7 +642,7 @@ create_insn_pseudos (rtx x, int output_p)
 	  pseudo_t p;
 
 	  if ((p = ira_curr_loop_tree_node->regno_pseudo_map [regno]) == NULL)
-	    p = create_pseudo (regno, ira_curr_loop_tree_node);
+	    p = create_pseudo (regno, FALSE, ira_curr_loop_tree_node);
 	  
 	  PSEUDO_FREQ (p) += REG_FREQ_FROM_BB (curr_bb);
 	  bitmap_set_bit (ira_curr_loop_tree_node->mentioned_pseudos,
@@ -709,7 +710,7 @@ create_bb_pseudos (struct ira_loop_tree_node *bb_node)
   EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_IN (build_df, bb),
 			     FIRST_PSEUDO_REGISTER, i, bi)
     if (map [i] == NULL)
-      create_pseudo (i, ira_curr_loop_tree_node);
+      create_pseudo (i, FALSE, ira_curr_loop_tree_node);
 }
 
 /* The function creates pseudos corresponding to pseudo-registers
@@ -731,7 +732,7 @@ create_loop_pseudos (edge e)
     if (bitmap_bit_p (live_in_regs, i))
       {
 	if (map [i] == NULL)
-	  create_pseudo (i, ira_curr_loop_tree_node);
+	  create_pseudo (i, FALSE, ira_curr_loop_tree_node);
 	bitmap_set_bit (border_pseudos, PSEUDO_NUM (map [i]));
       }
 }
@@ -773,7 +774,8 @@ create_pseudos (void)
   struct ira_loop_tree_node *father;
 
   traverse_loop_tree (ira_loop_tree_root, create_loop_tree_node_pseudos, NULL);
-  if (flag_ira_algorithm != IRA_ALGORITHM_REGIONAL)
+  if (flag_ira_algorithm != IRA_ALGORITHM_REGIONAL
+      && flag_ira_algorithm != IRA_ALGORITHM_MIXED)
     return;
   /* Propagate frequencies for regional register allocator.  */
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
@@ -793,7 +795,7 @@ static bitmap local_pseudos_bitmap;
 static void
 create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 {
-  unsigned int j;
+  unsigned int i;
   bitmap_iterator bi;
   pseudo_t p, cap, another_p, father_p;
   struct pseudo_copy *cp, *next_cp;
@@ -803,13 +805,16 @@ create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
     return;
   bitmap_and_compl (local_pseudos_bitmap, loop_node->mentioned_pseudos,
 		    loop_node->border_pseudos);
-  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, j, bi)
-    create_cap_pseudo (pseudos [j]);
   father = loop_node->father;
-  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, j, bi)
+  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, i, bi)
+    if (father->regno_pseudo_map [PSEUDO_REGNO (pseudos [i])] == NULL)
+      create_cap_pseudo (pseudos [i]);
+  EXECUTE_IF_SET_IN_BITMAP (local_pseudos_bitmap, 0, i, bi)
     {
-      p = pseudos [j];
+      p = pseudos [i];
       cap = PSEUDO_CAP (p);
+      if (cap == NULL)
+	continue;
       for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
 	{
 	  if (cp->first == p)
@@ -824,8 +829,7 @@ create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 	    }
 	  else
 	    gcc_unreachable ();
-	  if ((father_p = PSEUDO_CAP (another_p)) == NULL)
-	    father_p = father->regno_pseudo_map [PSEUDO_REGNO (another_p)];
+	  father_p = father->regno_pseudo_map [PSEUDO_REGNO (another_p)];
 	  if (father_p != NULL)
 	    /* Upper level pseudo might be not existing because it is
 	       not mentioned or lived on the border.  It is just
@@ -870,7 +874,8 @@ ira_build (int loops_p)
   ira_costs ();
   ira_build_conflicts ();
   tune_pseudo_costs_and_cover_classes ();
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL)
+  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
     {
       local_pseudos_bitmap = ira_allocate_bitmap ();
       traverse_loop_tree (ira_loop_tree_root, NULL,

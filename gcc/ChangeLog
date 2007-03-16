@@ -1,3 +1,110 @@
+2007-03-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* flags.h (ira_algorithm): Add IRA_ALGORITHM_MIXED.
+
+	* opts.c (common_handle_option): Set up IRA_ALGORITHM_MIXED from
+	the option argument.
+	
+	* common.opt (fira-assign-after-call-split, fira-propagate-cost,
+	fira-split-around-calls): New options.
+	(fira-ipra): Switch off by default.
+	
+	* doc/invoke.texi (-fira-algorithm): Add mixed algorithm.
+	(-fno-ira-ipra): Rename to -fira-ipra.
+	(-fno-ira-assign-after-call-split, -fira-propagate-cost,
+	-fno-ira-split-around-calls): Add new options.
+	
+	* ira-conflicts.c (curr_reg_pressure): New variable.
+	(set_pseudo_live, clear_pseudo_live, mark_reg_store,
+	mark_reg_death): Update reg pressure.
+	(add_pseudo_copies): Decrease cost for copy with dead pseudo.
+	(process_bb_node_for_conflicts): Propagate reg pressure.
+	(build_conflict_bit_table): Call process_bb_node_for_conflicts in
+	preorder.
+	(ira_build_conflicts): Add new coloring algorithm.
+	(ira_build_conflicts): Add flag_ira_split_around_calls.
+
+	* ira-emit.c (change_loop): Print allocation on the region
+	borders.  Use pseudo_cap_member instead of regno.
+	(modify_move_list): Add parameter to create pseudo.
+	(ira_emit): Use pseudo_cap_member instead of regno.
+	
+	* ira-build.c (create_loop_tree_nodes): Set up initial reg
+	pressure.
+	(create_pseudo): Add parameter.  Use the parameter value instead
+	of regno.
+	(print_expanded_pseudo): Use pseudo_cap_member instead of regno.
+	(create_cap_pseudo, create_insn_pseudos, create_bb_pseudos,
+	create_loop_pseudos): Add argument to create_pseudo call.
+	(create_pseudos, ira_build): Process IRA_ALGORITHM_MIXED.
+	(create_loop_tree_node_caps):  Create cap pseudo for all pseudos
+	not having father pseudo.
+	
+	* final.c (rest_of_handle_final): Process INCOMING_REGNO.
+
+	* toplev.h (flag_ira_assign_after_call_split,
+	flag_ira_propagate_cost, flag_ira_split_around_calls): New flags.
+
+	* caller-save.c (save_call_clobbered_regs): Move declaration
+	this_insn_sets to the function start.
+	
+	* ira-int.h (ira_loop_tree_node): Add reg_pressure.
+	(pseudo): More comments for regno and cap_member
+	(original_regno_call_crossed_p, ira_max_regno_before,
+	ira_max_regno_call_before): New external variables.
+	(create_pseudo): Add parameter.
+	(reassign_conflict_pseudos, debug_ira_call_data,
+	split_around_calls, get_around_calls_regno): New function
+	prototypes.
+
+	* ira-color.c (assign_hard_reg): Set best_hard_regno and
+	conflict_regs earlier.  Check register availability earlier.
+	Ignore conflict and copy cost for PSEUDO_MAY_BE_SPILLED_P.
+	(calculate_pseudo_spill_cost): Use pseudo_cap instead of regno.
+	Check father pseudo instead of subloop pseudos.
+	(pop_pseudos_from_stack): Set up PSEUDO_ASSIGNED_P for NO_REGS
+	pseudo.
+	(print_loop_title): Print reg pressure.
+	(color_pass): Use PSEUDO_CAP_MEMBER instead of regno.  Add mixed
+	coloring algorithm.
+	(move_spill_restore): Use PSEUDO_CAP_MEMBER instead of regno.  Use
+	subloop pseudos instead of father pseudo for cost calculation.
+	(setup_curr_costs, reassign_conflict_pseudos): New functions.
+	(retry_ira_color): Don't allocate call used registers when
+	flag_caller_saves or flag_ira_split_around_calls.  Call
+	setup_curr_cost.  Print about spilling pseudo split around calls.
+	(reuse_stack_slot): Choose the slot with minimal memory-memory
+	costs.
+
+	* ira.c (setup_reg_renumber): Add 2 parameters.  Use cap_number
+	instead of regno.  Initialize caller_save_needed.  Make assertion
+	stricter.
+	(setup_pseudo_assignment_from_reg_renumber): New function.
+	(calculate_allocation_cost): Add assertion.
+	(print_redundant_copies): Use cap_number instead of regno.
+	(original_regno_call_crossed_p, ira_max_regno_before,
+	ira_max_regno_call_before): New global variables.
+	(ira): Process IRA_ALGORITHM_MIXED.  Set up
+	ira_max_regno_call_before and ira_max_regno_before.  New arguments
+	for setup_reg_renumber.  Reassign if pseudo changed its class.
+	Split pseudos around the call if necessary.  Reassign if a pseudo
+	is split.
+
+	* ira.h: New year for Copyright.
+
+	* ira-costs.c (reg_pref): Rename to pseudo_pref.
+	(reg_pref_buffer): rename to pseudo_pref_buffer.
+	(find_pseudo_class_costs): Initialize best_cost and best_class.
+	Process IRA_ALGORITHM_MIXED.  Find best cover class for regno.
+	(process_bb_node_for_hard_reg_moves): Process IRA_ALGORITHM_MIXED.
+
+	* Makefile.in (ira-call.o): Add new file.
+
+	* reload1.c (calculate_needs_all_insns): Remove unnecessary
+	memory-memory move.
+
+	* ira-call.c: New file.
+	
 2007-02-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* common.opt (fipra): Rename to fira-ipra.  Make it default.

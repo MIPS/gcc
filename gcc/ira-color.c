@@ -1,6 +1,7 @@
 /* IRA allocation based on graph coloring.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -163,6 +164,9 @@ assign_hard_reg (pseudo_t pseudo, int retry_p)
   memcpy (full_costs, costs, sizeof (int) * class_size);
   COPY_HARD_REG_SET (conflicting_regs, PSEUDO_CONFLICT_HARD_REGS (pseudo));
   pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (pseudo);
+  best_hard_regno = -1;
+  IOR_HARD_REG_SET (conflicting_regs, no_alloc_regs);
+  IOR_COMPL_HARD_REG_SET (conflicting_regs, reg_class_contents [cover_class]);
   for (i = 0; (conflict_pseudo = pseudo_vec [i]) != NULL; i++)
     /* Reload can give another class so we need to check all
        pseudos.  */
@@ -174,13 +178,17 @@ assign_hard_reg (pseudo_t pseudo, int retry_p)
 	if (PSEUDO_ASSIGNED_P (conflict_pseudo))
 	  {
 	    if ((hard_regno = PSEUDO_HARD_REGNO (conflict_pseudo)) >= 0)
-	      IOR_HARD_REG_SET
-		(conflicting_regs,
-		 reg_mode_hard_regset
-		 [hard_regno] [PSEUDO_MODE (conflict_pseudo)]);
+	      {
+		IOR_HARD_REG_SET
+		  (conflicting_regs,
+		   reg_mode_hard_regset
+		   [hard_regno] [PSEUDO_MODE (conflict_pseudo)]);
+		GO_IF_HARD_REG_SUBSET (reg_class_contents [cover_class],
+				       conflicting_regs, fail);
+	      }
 	    continue;
 	  }
-	else
+	else if (! PSEUDO_MAY_BE_SPILLED_P (conflict_pseudo))
 	  {
 	    conflict_costs
 	      = PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (conflict_pseudo);
@@ -220,15 +228,11 @@ assign_hard_reg (pseudo_t pseudo, int retry_p)
 	  || PSEUDO_ASSIGNED_P (another_pseudo))
 	continue;
       conflict_costs = PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (another_pseudo);
-      if (conflict_costs != NULL)
+      if (conflict_costs != NULL
+	  && ! PSEUDO_MAY_BE_SPILLED_P (another_pseudo))
 	for (j = class_size - 1; j >= 0; j--)
  	  full_costs [j] += conflict_costs [j];
     }
-  IOR_HARD_REG_SET (conflicting_regs, no_alloc_regs);
-  IOR_COMPL_HARD_REG_SET (conflicting_regs, reg_class_contents [cover_class]);
-  best_hard_regno = -1;
-  GO_IF_HARD_REG_SUBSET (reg_class_contents [cover_class], conflicting_regs,
-			 fail);
   min_cost = min_full_cost = INT_MAX;
   /* We don't care about giving callee saved registers to pseudos no
      living through calls because call used register are allocated
@@ -513,36 +517,33 @@ calculate_pseudo_spill_cost (pseudo_t p)
   int regno, cost;
   enum machine_mode mode;
   enum reg_class class;
-  pseudo_t subloop_pseudo;
-  struct ira_loop_tree_node *subloop_node;
+  pseudo_t father_pseudo;
+  struct ira_loop_tree_node *father_node, *loop_node;
 
   regno = PSEUDO_REGNO (p);
   cost = PSEUDO_MEMORY_COST (p) - PSEUDO_COVER_CLASS_COST (p);
-  if (regno < 0)
+  if (PSEUDO_CAP (p) != NULL)
+    return cost;
+  loop_node = PSEUDO_LOOP_TREE_NODE (p);
+  if ((father_node = loop_node->father) == NULL)
+    return cost;
+  if ((father_pseudo = father_node->regno_pseudo_map [regno]) == NULL)
     return cost;
   mode = PSEUDO_MODE (p);
   class = PSEUDO_COVER_CLASS (p);
-  for (subloop_node = PSEUDO_LOOP_TREE_NODE (p)->inner;
-       subloop_node != NULL;
-       subloop_node = subloop_node->next)
-    if (subloop_node->bb == NULL)
-      {
-	subloop_pseudo = subloop_node->regno_pseudo_map [regno];
-	if (subloop_pseudo == NULL)
-	  continue;
-	if (PSEUDO_HARD_REGNO (subloop_pseudo) < 0)
-	  cost -= (memory_move_cost [mode] [class] [0]
-		   * loop_edge_freq (subloop_node, regno, TRUE)
-		   + memory_move_cost [mode] [class] [1]
-		   * loop_edge_freq (subloop_node, regno, FALSE));
-	else
-	  /* ??? move register to register.  How often do we have
-	     different hard registers.  */
-	  cost += 2 * (memory_move_cost [mode] [class] [1]
-		   * loop_edge_freq (subloop_node, regno, FALSE)
-		   + memory_move_cost [mode] [class] [0]
-		   * loop_edge_freq (subloop_node, regno, TRUE));
-      }
+  if (PSEUDO_HARD_REGNO (father_pseudo) < 0)
+    cost -= (memory_move_cost [mode] [class] [0]
+	     * loop_edge_freq (loop_node, regno, TRUE)
+	     + memory_move_cost [mode] [class] [1]
+	     * loop_edge_freq (loop_node, regno, FALSE));
+  else
+    cost += ((memory_move_cost [mode] [class] [1]
+	      * loop_edge_freq (loop_node, regno, TRUE)
+	      + memory_move_cost [mode] [class] [0]
+	      * loop_edge_freq (loop_node, regno, FALSE))
+	     - (register_move_cost [mode] [class] [class]
+		* (loop_edge_freq (loop_node, regno, FALSE)
+		   + loop_edge_freq (loop_node, regno, TRUE))));
   return cost;
 }
 
@@ -683,6 +684,7 @@ pop_pseudos_from_stack (void)
       if (cover_class == NO_REGS)
 	{
 	  PSEUDO_HARD_REGNO (pseudo) = -1;
+	  PSEUDO_ASSIGNED_P (pseudo) = TRUE;
 	  if (ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "assign memory\n");
 	}
@@ -820,6 +822,17 @@ print_loop_title (struct ira_loop_tree_node *loop_tree_node)
   fprintf (ira_dump_file, "\n    border:");
   EXECUTE_IF_SET_IN_BITMAP (loop_tree_node->border_pseudos, 0, j, bi)
     fprintf (ira_dump_file, " %dr%d", j, PSEUDO_REGNO (pseudos [j]));
+  fprintf (ira_dump_file, "\n    Pressure:");
+  for (j = 0; (int) j < reg_class_cover_size; j++)
+    {
+      enum reg_class cover_class;
+      
+      cover_class = reg_class_cover [j];
+      if (loop_tree_node->reg_pressure [cover_class] == 0)
+	continue;
+      fprintf (ira_dump_file, " %s=%d", reg_class_names [cover_class],
+	       loop_tree_node->reg_pressure [cover_class]);
+    }
   fprintf (ira_dump_file, "\n");
 }
 
@@ -873,11 +886,24 @@ color_pass (struct ira_loop_tree_node *loop_tree_node)
 	    }
 	  regno = PSEUDO_REGNO (p);
 	  /* ??? conflict costs */
-	  if (regno >= 0)
+	  if (PSEUDO_CAP_MEMBER (p) == NULL)
 	    {
 	      subloop_pseudo = subloop_node->regno_pseudo_map [regno];
 	      if (subloop_pseudo == NULL)
 		continue;
+	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
+		   && subloop_node->reg_pressure [class]
+		      <= available_class_regs [class]))
+		{
+		  if (! PSEUDO_ASSIGNED_P (subloop_pseudo))
+		    {
+		      PSEUDO_HARD_REGNO (subloop_pseudo) = hard_regno;
+		      PSEUDO_ASSIGNED_P (subloop_pseudo) = TRUE;
+		      if (hard_regno >= 0)
+			update_copy_costs (subloop_pseudo, TRUE);
+		    }
+		  continue;
+		}
 	      exit_freq = loop_edge_freq (subloop_node, regno, TRUE);
 	      enter_freq = loop_edge_freq (subloop_node, regno, FALSE);
 	      if (reg_equiv_invariant_p [regno]
@@ -915,10 +941,37 @@ color_pass (struct ira_loop_tree_node *loop_tree_node)
 	    }
 	  else
 	    {
-	      exit_freq = loop_edge_freq (subloop_node, -1, TRUE);
-	      enter_freq = loop_edge_freq (subloop_node, -1, FALSE);
-	      cost = (register_move_cost [mode] [class] [class] 
-		      * (exit_freq + enter_freq));
+	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
+		   && subloop_node->reg_pressure [class]
+		      <= available_class_regs [class]))
+		{
+		  subloop_pseudo = PSEUDO_CAP_MEMBER (p);
+		  if (! PSEUDO_ASSIGNED_P (subloop_pseudo))
+		    {
+		      PSEUDO_HARD_REGNO (subloop_pseudo) = hard_regno;
+		      PSEUDO_ASSIGNED_P (subloop_pseudo) = TRUE;
+		      if (hard_regno >= 0)
+			update_copy_costs (subloop_pseudo, TRUE);
+		    }
+		}
+	      else if (flag_ira_propagate_cost && hard_regno >= 0)
+		{
+		  exit_freq = loop_edge_freq (subloop_node, -1, TRUE);
+		  enter_freq = loop_edge_freq (subloop_node, -1, FALSE);
+		  cost = (register_move_cost [mode] [class] [class] 
+			  * (exit_freq + enter_freq));
+		  subloop_pseudo = PSEUDO_CAP_MEMBER (p);
+		  PSEUDO_HARD_REG_COSTS (subloop_pseudo) [index] -= cost;
+		  PSEUDO_CONFLICT_HARD_REG_COSTS (subloop_pseudo) [index]
+		    -= cost;
+		  PSEUDO_MEMORY_COST (subloop_pseudo)
+		    += (memory_move_cost [mode] [class] [0] * enter_freq
+			+ memory_move_cost [mode] [class] [1] * exit_freq);
+		  if (PSEUDO_COVER_CLASS_COST (subloop_pseudo)
+		      > PSEUDO_HARD_REG_COSTS (subloop_pseudo) [index])
+		    PSEUDO_COVER_CLASS_COST (subloop_pseudo)
+		      = PSEUDO_HARD_REG_COSTS (subloop_pseudo) [index];
+		}
 	    }
 	}
 }
@@ -1030,11 +1083,12 @@ do_coloring (void)
 static void
 move_spill_restore (void)
 {
-  int i, cost, changed_p, regno, hard_regno, index;
+  int i, cost, changed_p, regno, hard_regno, hard_regno2, index;
+  int enter_freq, exit_freq;
   enum machine_mode mode;
   enum reg_class class;
-  pseudo_t p, father_pseudo, grandfather_pseudo;
-  struct ira_loop_tree_node *father, *grandfather;
+  pseudo_t p, father_pseudo, subloop_pseudo;
+  struct ira_loop_tree_node *father, *loop_node, *subloop_node;
 
   for (;;)
     {
@@ -1045,51 +1099,197 @@ move_spill_restore (void)
 	{
 	  p = pseudos [i];
 	  regno = PSEUDO_REGNO (p);
-	  if (regno < 0
-	      || PSEUDO_HARD_REGNO (p) >= 0
-	      || (father = PSEUDO_LOOP_TREE_NODE (p)->father) == NULL)
-	  continue;
-	  father_pseudo = father->regno_pseudo_map [regno];
-	  if (father_pseudo == NULL)
-	    continue;
-	  if ((hard_regno = PSEUDO_HARD_REGNO (father_pseudo)) < 0)
+	  loop_node = PSEUDO_LOOP_TREE_NODE (p);
+	  if (PSEUDO_CAP_MEMBER (p) != NULL
+	      || (hard_regno = PSEUDO_HARD_REGNO (p)) < 0
+	      || loop_node->inner == NULL)
 	    continue;
 	  mode = PSEUDO_MODE (p);
-	  class = PSEUDO_COVER_CLASS (father_pseudo);
+	  class = PSEUDO_COVER_CLASS (p);
 	  index = class_hard_reg_index [class] [hard_regno];
 	  ira_assert (index >= 0);
-	  cost = (PSEUDO_ORIGINAL_MEMORY_COST (father_pseudo)
+	  cost = (PSEUDO_ORIGINAL_MEMORY_COST (p)
 		  - PSEUDO_HARD_REG_COSTS (p) [index]);
-	  cost -= (memory_move_cost [mode] [class] [0]
-		   * loop_edge_freq (PSEUDO_LOOP_TREE_NODE (p), regno, FALSE)
-		   + memory_move_cost [mode] [class] [1]
-		   * loop_edge_freq (PSEUDO_LOOP_TREE_NODE (p), regno, TRUE));
-	  if ((grandfather = father->father) != NULL)
+	  for (subloop_node = loop_node->inner;
+	       subloop_node != NULL;
+	       subloop_node = subloop_node->next)
 	    {
-	      grandfather_pseudo = father->regno_pseudo_map [regno];
-	      if (grandfather_pseudo != NULL)
+	      if (subloop_node->bb != NULL)
+		continue;
+	      subloop_pseudo = subloop_node->regno_pseudo_map [regno];
+	      if (subloop_pseudo == NULL)
+		continue;
+	      cost -= (PSEUDO_ORIGINAL_MEMORY_COST (subloop_pseudo)
+		       - PSEUDO_HARD_REG_COSTS (subloop_pseudo) [index]);
+	      exit_freq = loop_edge_freq (subloop_node, regno, TRUE);
+	      enter_freq = loop_edge_freq (subloop_node, regno, FALSE);
+	      if ((hard_regno2 = PSEUDO_HARD_REGNO (subloop_pseudo)) < 0)
+		cost -= (memory_move_cost [mode] [class] [0] * exit_freq
+			 + memory_move_cost [mode] [class] [1] * enter_freq);
+	      else
 		{
-		  if (PSEUDO_HARD_REGNO (grandfather_pseudo) < 0)
-		    cost -= (memory_move_cost [mode] [class] [1]
-			     * loop_edge_freq (father, regno, FALSE)
-			     + memory_move_cost [mode] [class] [0]
-			     * loop_edge_freq (father, regno, TRUE));
-		  else
-		    cost += (memory_move_cost [mode] [class] [0]
-			     * loop_edge_freq (father, regno, FALSE)
-			     + memory_move_cost [mode] [class] [1]
-			     * loop_edge_freq (father, regno, TRUE));
+		  cost += (memory_move_cost [mode] [class] [0] * exit_freq
+			   + memory_move_cost [mode] [class] [1] * enter_freq);
+		  if (hard_regno2 != hard_regno)
+		    cost -= (register_move_cost [mode] [class] [class]
+			     * (exit_freq + enter_freq));
+		}
+	    }
+	  if ((father = loop_node->father) != NULL
+	      && (father_pseudo = father->regno_pseudo_map [regno]) != NULL)
+	    {
+	      exit_freq	= loop_edge_freq (loop_node, regno, TRUE);
+	      enter_freq = loop_edge_freq (loop_node, regno, FALSE);
+	      if ((hard_regno2 = PSEUDO_HARD_REGNO (father_pseudo)) < 0)
+		cost -= (memory_move_cost [mode] [class] [0] * exit_freq
+			 + memory_move_cost [mode] [class] [1] * enter_freq);
+	      else
+		{
+		  cost += (memory_move_cost [mode] [class] [1] * exit_freq
+			   + memory_move_cost [mode] [class] [0] * enter_freq);
+		  if (hard_regno2 != hard_regno)
+		    cost -= (register_move_cost [mode] [class] [class]
+			     * (exit_freq + enter_freq));
 		}
 	    }
 	  if (cost < 0)
 	    {
-	      PSEUDO_HARD_REGNO (father_pseudo) = -1;
+	      PSEUDO_HARD_REGNO (p) = -1;
+	      if (ira_dump_file != NULL)
+		fprintf (ira_dump_file,
+			 "Moving spill/restore for p%dr%d up from loop %d - profit %d\n",
+			 PSEUDO_NUM (p), regno, loop_node->loop->num, -cost);
 	      changed_p = TRUE;
 	    }
 	}
       if (! changed_p)
 	break;
     }
+}
+
+
+
+/* Set up current hard reg costs and current conflict hard reg costs
+   for pseudo P.  */
+static void
+setup_curr_costs (pseudo_t p)
+{
+  int i, hard_regno, cost, hard_regs_num;
+  enum machine_mode mode;
+  enum reg_class cover_class, class;
+  pseudo_t another_p;
+  struct pseudo_copy *cp, *next_cp;
+
+  ira_assert (! PSEUDO_ASSIGNED_P (p));
+  cover_class = PSEUDO_COVER_CLASS (p);
+  if (cover_class == NO_REGS)
+    return;
+  hard_regs_num = class_hard_regs_num [cover_class];
+  if (hard_regs_num == 0)
+    return;
+  mode = PSEUDO_MODE (p);
+  memcpy (PSEUDO_CURR_HARD_REG_COSTS (p),
+	  PSEUDO_HARD_REG_COSTS (p),
+	  sizeof (int) * hard_regs_num);
+  memcpy (PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p),
+	  PSEUDO_CONFLICT_HARD_REG_COSTS (p),
+	  sizeof (int) * hard_regs_num);
+  for (cp = PSEUDO_COPIES (p); cp != NULL; cp = next_cp)
+    {
+      if (cp->first == p)
+	{
+	  next_cp = cp->next_first_pseudo_copy;
+	  another_p = cp->second;
+	}
+      else if (cp->second == p)
+	{
+	  next_cp = cp->next_second_pseudo_copy;
+	  another_p = cp->first;
+	}
+      else
+	gcc_unreachable ();
+      if (cover_class != PSEUDO_COVER_CLASS (another_p)
+	  || ! PSEUDO_ASSIGNED_P (another_p)
+	  || (hard_regno = PSEUDO_HARD_REGNO (another_p)) < 0)
+	continue;
+      class = REGNO_REG_CLASS (hard_regno);
+      i = class_hard_reg_index [cover_class] [hard_regno];
+      ira_assert (i >= 0);
+      cost = (cp->first == p
+	      ? register_move_cost [mode] [class] [cover_class]
+	      : register_move_cost [mode] [cover_class] [class]);
+      PSEUDO_CURR_HARD_REG_COSTS (p) [i] -= cp->freq * cost;
+      PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p) [i] -= cp->freq * cost;
+    }
+}
+
+/* Try to assign hard registers to the unassigned pseudos and pseudos
+   conflicting with them or conflicting with pseudos whose regno >=
+   START_REGNO.  We only try to assign a hard register to pseudos
+   which do not live across calls if NO_CALL_CROSS_P.  */
+void
+reassign_conflict_pseudos (int start_regno, int no_call_cross_p)
+{
+  int i, j, pseudos_to_color_num;
+  pseudo_t p, conflict_p, *pseudo_vec;
+  enum reg_class cover_class;
+  bitmap pseudos_to_color;
+
+  sorted_pseudos = ira_allocate (sizeof (pseudo_t) * pseudos_num);
+  pseudos_to_color = ira_allocate_bitmap ();
+  pseudos_to_color_num = 0;
+  for (i = 0; i < pseudos_num; i++)
+    {
+      p = pseudos [i];
+      if (! PSEUDO_ASSIGNED_P (p)
+	  && ! bitmap_bit_p (pseudos_to_color, PSEUDO_NUM (p)))
+	{
+	  if (PSEUDO_COVER_CLASS (p) != NO_REGS
+	      && (! no_call_cross_p || PSEUDO_CALLS_CROSSED_NUM (p) == 0))
+	    sorted_pseudos [pseudos_to_color_num++] = p;
+	  else
+	    {
+	      PSEUDO_ASSIGNED_P (p) = TRUE;
+	      PSEUDO_HARD_REGNO (p) = -1;
+	    }
+	  bitmap_set_bit (pseudos_to_color, PSEUDO_NUM (p));
+	}
+      if (PSEUDO_REGNO (p) < start_regno)
+	continue;
+      pseudo_vec = PSEUDO_CONFLICT_PSEUDO_VEC (p);
+      for (j = 0; (conflict_p = pseudo_vec [j]) != NULL; j++)
+	{
+	  if ((cover_class = PSEUDO_COVER_CLASS (conflict_p)) == NO_REGS
+	      || (no_call_cross_p
+		  && PSEUDO_CALLS_CROSSED_NUM (conflict_p) != 0)
+	      || bitmap_bit_p (pseudos_to_color, PSEUDO_NUM (conflict_p)))
+	    continue;
+	  bitmap_set_bit (pseudos_to_color, PSEUDO_NUM (conflict_p));
+	  sorted_pseudos [pseudos_to_color_num++] = conflict_p;
+	}
+    }
+  ira_free_bitmap (pseudos_to_color);
+  if (pseudos_to_color_num > 1)
+    qsort (sorted_pseudos, pseudos_to_color_num, sizeof (pseudo_t),
+	   pseudo_priority_compare_func);
+  for (i = 0; i < pseudos_to_color_num; i++)
+    {
+      p = sorted_pseudos [i];
+      PSEUDO_ASSIGNED_P (p) = FALSE;
+      setup_curr_costs (p);
+    }
+  for (i = 0; i < pseudos_to_color_num; i++)
+    {
+      p = sorted_pseudos [i];
+      if (assign_hard_reg (p, TRUE))
+	{
+	  if (ira_dump_file != NULL)
+	    fprintf (ira_dump_file,
+		     "after call opt: assign hard reg %d to reg %d\n",
+		     PSEUDO_HARD_REGNO (p), PSEUDO_REGNO (p));
+	}
+    }
+  ira_free (sorted_pseudos);
 }
 
 
@@ -1139,7 +1339,7 @@ void
 retry_ira_color (int regno, HARD_REG_SET forbidden_regs)
 {
   pseudo_t p;
-  int hard_regno, hard_regs_num;
+  int hard_regno;
   enum reg_class cover_class;
 
   p = regno_pseudo_map [regno];
@@ -1149,17 +1349,12 @@ retry_ira_color (int regno, HARD_REG_SET forbidden_regs)
     fprintf (ira_dump_file, "spill %d(p%d), cost=%d", regno, PSEUDO_NUM (p),
 	     PSEUDO_MEMORY_COST (p) - PSEUDO_COVER_CLASS_COST (p));
   IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p), forbidden_regs);
+  if ((! flag_caller_saves || flag_ira_split_around_calls)
+      && PSEUDO_CALLS_CROSSED (p) != 0)
+    IOR_HARD_REG_SET (PSEUDO_CONFLICT_HARD_REGS (p), call_used_reg_set);
   PSEUDO_ASSIGNED_P (p) = FALSE;
   cover_class = PSEUDO_COVER_CLASS (p);
-  hard_regs_num = class_hard_regs_num [cover_class];
-  if (hard_regs_num != 0)
-    {
-      memcpy (PSEUDO_CURR_HARD_REG_COSTS (p), PSEUDO_HARD_REG_COSTS (p),
-	      sizeof (int) * hard_regs_num);
-      memcpy (PSEUDO_CURR_CONFLICT_HARD_REG_COSTS (p),
-	      PSEUDO_CONFLICT_HARD_REG_COSTS (p),
-	      sizeof (int) * hard_regs_num);
-    }
+  setup_curr_costs (p);
   assign_hard_reg (p, TRUE);
   hard_regno = PSEUDO_HARD_REGNO (p);
   reg_renumber [regno] = hard_regno;
@@ -1174,7 +1369,7 @@ retry_ira_color (int regno, HARD_REG_SET forbidden_regs)
 	  && ! hard_reg_not_in_set_p (hard_regno, PSEUDO_MODE (p),
 				      call_used_reg_set))
 	{
-	  ira_assert (flag_caller_saves);
+	  ira_assert (flag_caller_saves && ! flag_ira_split_around_calls);
 	  caller_save_needed = 1;
 	}
     }
@@ -1188,6 +1383,11 @@ retry_ira_color (int regno, HARD_REG_SET forbidden_regs)
       REGNO (regno_reg_rtx[regno]) = reg_renumber[regno];
       mark_home_live (regno);
     }
+  else if (ira_dump_file != NULL && original_regno_call_crossed_p [regno]
+	   && ! flag_caller_saves && flag_ira_split_around_calls
+	   && get_around_calls_regno (regno) >= 0)
+    fprintf (ira_dump_file, "+++spilling %d\n", regno);
+
   if (ira_dump_file != NULL)
     fprintf (ira_dump_file, "\n");
 }
@@ -1203,9 +1403,13 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 {
   unsigned int i;
   int n;
+  int freq, best_freq = -1;
+  struct spilled_reg_stack_slot *best_slot = NULL;
+  pseudo_t another_pseudo, pseudo = regno_pseudo_map [regno];
+  struct pseudo_copy *cp, *next_cp;
   rtx x;
   bitmap_iterator bi;
-  struct spilled_reg_stack_slot *slot;
+  struct spilled_reg_stack_slot *slot = NULL;
 
   ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
 	      && inherent_size <= total_size);
@@ -1216,34 +1420,61 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
     n = spilled_reg_stack_slots_num - 1;
   else
     n = 0;
-  for (;;)
+  if (x == NULL_RTX)
     {
-      if (flag_omit_frame_pointer)
+      for (;;)
 	{
-	  if (n < 0)
+	  if (flag_omit_frame_pointer)
+	    {
+	      if (n < 0)
+		break;
+	      slot = &spilled_reg_stack_slots [n--];
+	    }
+	  else if (n >= spilled_reg_stack_slots_num)
 	    break;
-	  slot = &spilled_reg_stack_slots [n--];
+	  else
+	    slot = &spilled_reg_stack_slots [n++];
+	  if (slot->width < total_size
+	      || GET_MODE_SIZE (GET_MODE (slot->mem)) < inherent_size)
+	    continue;
+	  
+	  EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
+				    FIRST_PSEUDO_REGISTER, i, bi)
+	    {
+	      if (pseudo_reg_conflict_p (regno, i))
+		goto cont;
+	    }
+	  for (freq = 0, cp = PSEUDO_COPIES (pseudo); cp != NULL; cp = next_cp)
+	    {
+	      if (cp->first == pseudo)
+		{
+		  next_cp = cp->next_first_pseudo_copy;
+		  another_pseudo = cp->second;
+		}
+	      else if (cp->second == pseudo)
+		{
+		  next_cp = cp->next_second_pseudo_copy;
+		  another_pseudo = cp->first;
+		}
+	      else
+		gcc_unreachable ();
+	      if (bitmap_bit_p (&slot->spilled_regs,
+				PSEUDO_REGNO (another_pseudo)))
+		freq += cp->freq;
+	    }
+	  if (freq > best_freq)
+	    {
+	      best_freq = freq;
+	      best_slot = slot;
+	    }
+	cont:
+	  ;
 	}
-      else if (n >= spilled_reg_stack_slots_num)
-	break;
-      else
-	slot = &spilled_reg_stack_slots [n++];
-      if (slot->width < total_size
-	  || GET_MODE_SIZE (GET_MODE (slot->mem)) < inherent_size)
-	continue;
-      
-      EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
-				FIRST_PSEUDO_REGISTER, i, bi)
+      if (best_freq >= 0)
 	{
-	  if (pseudo_reg_conflict_p (regno, i))
-	    goto cont;
+	  SET_REGNO_REG_SET (&best_slot->spilled_regs, regno);
+	  x = best_slot->mem;
 	}
-      
-      SET_REGNO_REG_SET (&slot->spilled_regs, regno);
-      x = slot->mem;
-      break;
-    cont:
-      ;
     }
   if (x)
     {

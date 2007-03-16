@@ -3943,12 +3943,16 @@ rest_of_handle_final (void)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (fixed_regs [i])
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
-	else if (call_used_regs [i]
-		 && (regs_ever_live [i]
-#ifdef STACK_REGS
-		     || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
+#ifdef INCOMING_REGNO
+	else if (INCOMING_REGNO (i) != i && call_used_regs [i])
+	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
 #endif
-		     ))
+	else if (call_used_regs [i] &&
+		 (regs_ever_live [i]
+#ifdef STACK_REGS
+		  || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
+#endif
+		  ))
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
       COPY_HARD_REG_SET (node->function_used_regs, cfun->emit->call_used_regs);
       if (dump_file != NULL)

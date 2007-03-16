@@ -1,6 +1,7 @@
-/* Integrated Register Allocator.  Channging code and generating moves.
-   Contributed by Vladimir Makarov.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+/* Integrated Register Allocator.  Changing code and generating moves.
+   Copyright (C) 2006, 2007
+   Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -381,7 +382,13 @@ change_loop (struct ira_loop_tree_node *node)
 	  original_reg = PSEUDO_REG (pseudo);
 	  if (father_pseudo == NULL
 	      || REGNO (PSEUDO_REG (father_pseudo)) == REGNO (original_reg))
-	    set_pseudo_reg (pseudo, create_new_reg (original_reg));
+	    {
+	      if (ira_dump_file)
+		fprintf (ira_dump_file, "  %i vs father %i:",
+			 PSEUDO_HARD_REGNO (pseudo),
+			 PSEUDO_HARD_REGNO (father_pseudo));
+	      set_pseudo_reg (pseudo, create_new_reg (original_reg));
+	    }
 	}
     }
   /* Rename locals: Local pseudos with same regno in different loops
@@ -394,7 +401,7 @@ change_loop (struct ira_loop_tree_node *node)
     {
       pseudo = pseudos [i];
       regno = PSEUDO_REGNO (pseudo);
-      if (regno < 0)
+      if (PSEUDO_CAP_MEMBER (pseudo) != NULL)
 	continue;
       used_p = bitmap_bit_p (used_regno_bitmap, regno);
       bitmap_set_bit (used_regno_bitmap, regno);
@@ -683,7 +690,7 @@ modify_move_list (struct move *list)
 	      {
 		set_move = hard_regno_last_set [hard_regno + i];
 		new_pseudo
-		  = create_pseudo (PSEUDO_REGNO (set_move->to),
+		  = create_pseudo (PSEUDO_REGNO (set_move->to), FALSE,
 				   PSEUDO_LOOP_TREE_NODE (set_move->to));
 		/* That is a minimum to emit pseudos correctly and for
 		   setting reg_renumber.  */
@@ -831,7 +838,7 @@ ira_emit (void)
   at_bb_end = ira_allocate (sizeof (struct move *) * last_basic_block);
   memset (at_bb_end, 0, sizeof (struct move *) * last_basic_block);
   for (i = 0; i < pseudos_num; i++)
-    if (PSEUDO_REGNO (pseudos [i]) >= 0)
+    if (PSEUDO_CAP_MEMBER (pseudos [i]) == NULL)
       PSEUDO_REG (pseudos [i]) = regno_reg_rtx [PSEUDO_REGNO (pseudos [i])];
   local_pseudo_bitmap = ira_allocate_bitmap ();
   used_regno_bitmap = ira_allocate_bitmap ();
