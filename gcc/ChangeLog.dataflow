@@ -1,6 +1,12 @@
 2007-03-16  Paolo Bonzini  <bonzini@gnu.org>
 
-        PR rtl-optimization/30125
+	* tracer.c (tracer): Work around pr19340.c failure by cleaning up
+	CFG outside cfglayout mode.  Proper fix will be brought in by
+	next mainline merge.
+
+2007-03-16  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR rtl-optimization/31025
 	* df.h (df_get_live_out): New prototype.
 	* df-problems.c (df_get_live_out): New.
 	(df_ri_bb_compute): Use it.
