@@ -1,3 +1,45 @@
+2007-03-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* dwarf2out.c (force_type_die): Adjust comment.
+	(dwarf2out_imported_module_or_decl): Handle base AT_import types.
+
+2007-03-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (attr_length_call): Partially revert change of 2007-03-09.
+	(output_call): Likewise.
+
+2007-03-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-02-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/30364
+	* fold-const.c (fold_binary): Do not associate expressions
+	with more than one variable for integer types that do not wrap.
+
+2007-03-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/31123
+	* pa.md (vdepi_ior): Don't allow zero length deposit.  Likewise for
+	two unamed patterns.
+	
+2007-03-12  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30433
+	* fold-const.c (fold_relational_const): Add back compile-time
+	evaluation of complex constant equality/inequality comparisons.
+
+2007-03-12  Richard Henderson  <rth@redhat.com>
+
+        PR target/26090
+	* config/alpha/alpha.c (alpha_elf_select_section): New.
+	(alpha_elf_unique_section, alpha_elf_section_type_flags): New.
+	(alpha_elf_select_rtx_section): Force flag_pic true.
+	(TARGET_ASM_SELECT_SECTION, TARGET_ASM_UNIQUE_SECTION): New.
+	(TARGET_SECTION_TYPE_FLAGS): New.
+
 2007-03-12  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/29925
