@@ -971,6 +971,8 @@ got_delim:
   e->ref = NULL;
   e->ts.type = BT_CHARACTER;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = start_locus;
 
   e->value.character.string = p = gfc_getmem (length + 1);
@@ -1042,6 +1044,8 @@ match_logical_constant (gfc_expr **result)
   e->value.logical = i;
   e->ts.type = BT_LOGICAL;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = gfc_current_locus;
 
   *result = e;
@@ -1226,6 +1230,8 @@ match_complex_constant (gfc_expr **result)
     }
   target.type = BT_REAL;
   target.kind = kind;
+  target.is_c_interop = 0;
+  target.is_iso_c = 0;
 
   if (real->ts.type != BT_REAL || kind != real->ts.kind)
     gfc_convert_type (real, &target, 2);

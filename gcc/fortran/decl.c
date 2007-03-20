@@ -1386,6 +1386,8 @@ variable_decl (int elem)
 	  sym->ts.kind = current_ts.kind;
 	  sym->ts.cl = cl;
 	  sym->ts.derived = current_ts.derived;
+	  sym->ts.is_c_interop = current_ts.is_c_interop;
+	  sym->ts.is_iso_c = current_ts.is_iso_c;
 	  m = MATCH_YES;
 	
 	  /* Check to see if we have an array specification.  */
