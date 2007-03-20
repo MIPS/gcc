@@ -1,3 +1,10 @@
+2007-03-20  Chao-ying Fu  <fu@mips.com>
+
+	* Makefile.in (ALL_MODE): New define to include all modes.
+	(qq-fixed-objects .. df-fixed-objects): New define for conversions
+	involving fixed-point.  New rules for these objects.
+	(libgcc-objects): Add the above objects.
+
 2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* Makefile.in (install-info): New dummy target.

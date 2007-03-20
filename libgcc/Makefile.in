@@ -516,6 +516,158 @@ fixed-objects = $(patsubst %,%$(objext),$(FIXED_MODE))
 $(fixed-objects): %$(objext): $(gcc_srcdir)/config/fixed-bit.c
 	$(gcc_compile) -D$*_MODE -c $<
 libgcc-objects += $(fixed-objects)
+
+ALL_MODE = QQ UQQ HQ UHQ SQ USQ DQ UDQ TQ UTQ HA UHA SA USA DA UDA TA UTA QI HI SI DI TI UQI UHI USI UDI UTI SF DF
+qq-fixed-objects = $(patsubst %,QQ%$(objext),$(ALL_MODE))
+$(qq-fixed-objects): QQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_QQ -DTO_$* -c $<
+libgcc-objects += $(qq-fixed-objects)
+
+hq-fixed-objects = $(patsubst %,HQ%$(objext),$(ALL_MODE))
+$(hq-fixed-objects): HQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_HQ -DTO_$* -c $<
+libgcc-objects += $(hq-fixed-objects)
+
+sq-fixed-objects = $(patsubst %,SQ%$(objext),$(ALL_MODE))
+$(sq-fixed-objects): SQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_SQ -DTO_$* -c $<
+libgcc-objects += $(sq-fixed-objects)
+
+dq-fixed-objects = $(patsubst %,DQ%$(objext),$(ALL_MODE))
+$(dq-fixed-objects): DQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_DQ -DTO_$* -c $<
+libgcc-objects += $(dq-fixed-objects)
+
+tq-fixed-objects = $(patsubst %,TQ%$(objext),$(ALL_MODE))
+$(tq-fixed-objects): TQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_TQ -DTO_$* -c $<
+libgcc-objects += $(tq-fixed-objects)
+
+uqq-fixed-objects = $(patsubst %,UQQ%$(objext),$(ALL_MODE))
+$(uqq-fixed-objects): UQQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UQQ -DTO_$* -c $<
+libgcc-objects += $(uqq-fixed-objects)
+
+uhq-fixed-objects = $(patsubst %,UHQ%$(objext),$(ALL_MODE))
+$(uhq-fixed-objects): UHQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UHQ -DTO_$* -c $<
+libgcc-objects += $(uhq-fixed-objects)
+
+usq-fixed-objects = $(patsubst %,USQ%$(objext),$(ALL_MODE))
+$(usq-fixed-objects): USQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_USQ -DTO_$* -c $<
+libgcc-objects += $(usq-fixed-objects)
+
+udq-fixed-objects = $(patsubst %,UDQ%$(objext),$(ALL_MODE))
+$(udq-fixed-objects): UDQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UDQ -DTO_$* -c $<
+libgcc-objects += $(udq-fixed-objects)
+
+utq-fixed-objects = $(patsubst %,UTQ%$(objext),$(ALL_MODE))
+$(utq-fixed-objects): UTQ%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UTQ -DTO_$* -c $<
+libgcc-objects += $(utq-fixed-objects)
+
+ha-fixed-objects = $(patsubst %,HA%$(objext),$(ALL_MODE))
+$(ha-fixed-objects): HA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_HA -DTO_$* -c $<
+libgcc-objects += $(ha-fixed-objects)
+
+sa-fixed-objects = $(patsubst %,SA%$(objext),$(ALL_MODE))
+$(sa-fixed-objects): SA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_SA -DTO_$* -c $<
+libgcc-objects += $(sa-fixed-objects)
+
+da-fixed-objects = $(patsubst %,DA%$(objext),$(ALL_MODE))
+$(da-fixed-objects): DA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_DA -DTO_$* -c $<
+libgcc-objects += $(da-fixed-objects)
+
+ta-fixed-objects = $(patsubst %,TA%$(objext),$(ALL_MODE))
+$(ta-fixed-objects): TA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_TA -DTO_$* -c $<
+libgcc-objects += $(ta-fixed-objects)
+
+uha-fixed-objects = $(patsubst %,UHA%$(objext),$(ALL_MODE))
+$(uha-fixed-objects): UHA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UHA -DTO_$* -c $<
+libgcc-objects += $(uha-fixed-objects)
+
+usa-fixed-objects = $(patsubst %,USA%$(objext),$(ALL_MODE))
+$(usa-fixed-objects): USA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_USA -DTO_$* -c $<
+libgcc-objects += $(usa-fixed-objects)
+
+uda-fixed-objects = $(patsubst %,UDA%$(objext),$(ALL_MODE))
+$(uda-fixed-objects): UDA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UDA -DTO_$* -c $<
+libgcc-objects += $(uda-fixed-objects)
+
+uta-fixed-objects = $(patsubst %,UTA%$(objext),$(ALL_MODE))
+$(uta-fixed-objects): UTA%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UTA -DTO_$* -c $<
+libgcc-objects += $(uta-fixed-objects)
+
+qi-fixed-objects = $(patsubst %,QI%$(objext),$(FIXED_MODE))
+$(qi-fixed-objects): QI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_QI -DTO_$* -c $<
+libgcc-objects += $(qi-fixed-objects)
+
+hi-fixed-objects = $(patsubst %,HI%$(objext),$(FIXED_MODE))
+$(hi-fixed-objects): HI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_HI -DTO_$* -c $<
+libgcc-objects += $(hi-fixed-objects)
+
+si-fixed-objects = $(patsubst %,SI%$(objext),$(FIXED_MODE))
+$(si-fixed-objects): SI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_SI -DTO_$* -c $<
+libgcc-objects += $(si-fixed-objects)
+
+di-fixed-objects = $(patsubst %,DI%$(objext),$(FIXED_MODE))
+$(di-fixed-objects): DI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_DI -DTO_$* -c $<
+libgcc-objects += $(di-fixed-objects)
+
+ti-fixed-objects = $(patsubst %,TI%$(objext),$(FIXED_MODE))
+$(ti-fixed-objects): TI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_TI -DTO_$* -c $<
+libgcc-objects += $(ti-fixed-objects)
+
+uqi-fixed-objects = $(patsubst %,UQI%$(objext),$(FIXED_MODE))
+$(uqi-fixed-objects): UQI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UQI -DTO_$* -c $<
+libgcc-objects += $(uqi-fixed-objects)
+
+uhi-fixed-objects = $(patsubst %,UHI%$(objext),$(FIXED_MODE))
+$(uhi-fixed-objects): UHI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UHI -DTO_$* -c $<
+libgcc-objects += $(uhi-fixed-objects)
+
+usi-fixed-objects = $(patsubst %,USI%$(objext),$(FIXED_MODE))
+$(usi-fixed-objects): USI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_USI -DTO_$* -c $<
+libgcc-objects += $(usi-fixed-objects)
+
+udi-fixed-objects = $(patsubst %,UDI%$(objext),$(FIXED_MODE))
+$(udi-fixed-objects): UDI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UDI -DTO_$* -c $<
+libgcc-objects += $(udi-fixed-objects)
+
+uti-fixed-objects = $(patsubst %,UTI%$(objext),$(FIXED_MODE))
+$(uti-fixed-objects): UTI%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_UTI -DTO_$* -c $<
+libgcc-objects += $(uti-fixed-objects)
+
+sf-fixed-objects = $(patsubst %,SF%$(objext),$(FIXED_MODE))
+$(sf-fixed-objects): SF%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_SF -DTO_$* -c $<
+libgcc-objects += $(sf-fixed-objects)
+
+df-fixed-objects = $(patsubst %,DF%$(objext),$(FIXED_MODE))
+$(df-fixed-objects): DF%$(objext): $(gcc_srcdir)/config/fixed-bit.c
+	$(gcc_compile) -DFROM_DF -DTO_$* -c $<
+libgcc-objects += $(df-fixed-objects)
+
 endif
 
 # Build LIB2ADD and LIB2ADD_ST.
