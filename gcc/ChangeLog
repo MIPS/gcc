@@ -1,3 +1,17 @@
+2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR 30635
+	* doc/install.texi: Document --enable-stage1-languages
+
+2007-03-12  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-pass.h (pass_into_cfg_layout_mode,
+	pass_outof_cfg_layout_mode): Declare.
+	* cfglayout.c (into_cfg_layout_mode, outof_cfg_layout_mode,
+	pass_into_cfg_layout_mode, pass_outof_cfg_layout_mode): New.
+	* passes.c (pass_into_cfg_layout_mode): Schedule before jump2.
+	(pass_outof_cfg_layout_mode): Schedule after pass_rtl_ifcvt.
+
 2007-03-20  Chao-ying Fu  <fu@mips.com>
 
 	* config/fixed-bit.c: Update comments for conversion functions.
@@ -28,6 +42,7 @@
 	and handle unnamed array case.
 	(grokdeclarator): Refactored VLA warning case.
 	* c.opt (Wvla): New flag.
+	* doc/invoke.texi (Wvla): New warning.
 
 2007-03-12  Richard Henderson  <rth@redhat.com>
 
