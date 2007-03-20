@@ -1,3 +1,7 @@
+2007-03-20  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/convert.c: New test for conversions.
+
 2007-03-12  Seongbae Park <seongbae.park@gmail.com>
 
  	* gcc.dg/wvla-1.c: New test
