@@ -35,7 +35,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    QQ_MODE, UQQ_MODE, HQ_MODE, UHQ_MODE, SQ_MODE, USQ_MODE, DQ_MODE, UDQ_MODE,
    TQ_MODE, UTQ_MODE, HA_MODE, UHA_MODE, SA_MODE, USA_MODE, DA_MODE, UDA_MODE,
    TA_MODE, UTA_MODE.
-   Then, all operators for this machine mode will be created.  */
+   Then, all operators for this machine mode will be created.
+
+   Or, we need to define FROM_* TO_* for conversions from one mode to another
+   mode.  The mode could be one of the following:
+   Fract: QQ, UQQ, HQ, UHQ, SQ, USQ, DQ, UDQ, TQ, UTQ
+   Accum: HA, UHA, SA, USA, DA, UDA, TA, UTA
+   Signed integer: QI, HI, SI, DI, TI
+   Unsigned integer: UQI, UHI, USI, UDI, UTI
+   Floating-point: SF, DF
+   Ex: If we define FROM_QQ and TO_SI, the conversion from QQ to SI is
+   generated.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -713,4 +723,459 @@ FIXED_CMP (FIXED_C_TYPE a, FIXED_C_TYPE b)
   return 1;
 }
 #endif /* FIXED_CMP */
+
+/* Fixed -> Fixed.  */
+#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+FIXED_ALL (FROM_FIXED_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  FROM_INT_C_TYPE x;
+  TO_INT_C_TYPE z;
+  int shift_amount;
+  memcpy (&x, &a, FROM_FIXED_SIZE);
+#if TO_FBITS > FROM_FBITS  /* Need left shift.  */
+  shift_amount = TO_FBITS - FROM_FBITS;
+  z = (TO_INT_C_TYPE) x;
+  z = z << shift_amount;
+#else /* TO_FBITS <= FROM_FBITS.  Need right Shift.  */
+  shift_amount = FROM_FBITS - TO_FBITS;
+  x = x >> shift_amount;
+  z = (TO_INT_C_TYPE) x;
+#endif /* TO_FBITS > FROM_FBITS  */
+
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* FIXED_ALL && FROM_TYPE == 4 && TO_TYPE == 4  */
+
+/* Fixed -> Fixed with saturation.  */
+#if defined(SAT_FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+SAT_FIXED_ALL (FROM_FIXED_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  TO_INT_C_TYPE z;
+  FROM_INT_C_TYPE x;
+#if FROM_MODE_UNSIGNED == 0
+  BIG_SINT_C_TYPE high, low;
+  BIG_SINT_C_TYPE max_high, max_low;
+  BIG_SINT_C_TYPE min_high, min_low;
+#else
+  BIG_UINT_C_TYPE high, low;
+  BIG_UINT_C_TYPE max_high, max_low;
+  BIG_UINT_C_TYPE min_high, min_low;
+#endif
+#if TO_FBITS > FROM_FBITS
+  BIG_UINT_C_TYPE utemp;
+#endif
+#if TO_MODE_UNSIGNED == 0
+  BIG_SINT_C_TYPE stemp;
+#endif
+#if TO_FBITS != FROM_FBITS
+  int shift_amount;
+#endif
+  memcpy (&x, &a, FROM_FIXED_SIZE);
+
+  /* Step 1. We need to store x to {high, low}.  */
+#if FROM_MODE_UNSIGNED == 0
+  low = (BIG_SINT_C_TYPE) x;
+  if (x < 0)
+    high = -1;
+  else
+    high = 0;
+#else
+  low = (BIG_UINT_C_TYPE) x;
+  high = 0;
+#endif
+
+  /* Step 2. We need to shift {high, low}.  */
+#if TO_FBITS > FROM_FBITS /* Left shift.  */
+  shift_amount = TO_FBITS - FROM_FBITS;
+  utemp = (BIG_UINT_C_TYPE) low;
+  utemp = utemp >> (BIG_WIDTH - shift_amount);
+  high = ((BIG_UINT_C_TYPE)(high << shift_amount)) | utemp;
+  low = low << shift_amount;
+#elif TO_FBITS < FROM_FBITS /* Right shift.  */ 
+  shift_amount = FROM_FBITS - TO_FBITS;
+  low = low >> shift_amount;
+#endif
+
+  /* Step 3. Compare {high, low} with max and  min of TO_FIXED_C_TYPE.  */
+  max_high = 0;
+#if BIG_WIDTH > TO_FIXED_WIDTH || TO_MODE_UNSIGNED == 0 || TO_HAVE_PADDING_BITS
+  max_low = (BIG_UINT_C_TYPE)1 << TO_I_F_BITS;
+  max_low = max_low - 1;
+#else
+  max_low = -1;
+#endif
+
+#if TO_MODE_UNSIGNED == 0
+  min_high = -1;
+  stemp = (BIG_SINT_C_TYPE)1 << (BIG_WIDTH - 1);
+  stemp = stemp >> (BIG_WIDTH - 1 - TO_I_F_BITS);
+  min_low = stemp;
+#else
+  min_high = 0;
+  min_low = 0;
+#endif
+
+#if FROM_MODE_UNSIGNED == 0 && TO_MODE_UNSIGNED == 0
+  /* Signed -> Signed.  */
+  if ((BIG_SINT_C_TYPE) high > (BIG_SINT_C_TYPE) max_high
+      || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) max_high
+	  && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+  else if ((BIG_SINT_C_TYPE) high < (BIG_SINT_C_TYPE) min_high
+	   || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) min_high
+	       && (BIG_UINT_C_TYPE) low < (BIG_UINT_C_TYPE) min_low))
+    low = min_low; /* Minimum.  */
+#elif FROM_MODE_UNSIGNED == 1 && TO_MODE_UNSIGNED == 1
+  /* Unigned -> Unsigned.  */
+  if ((BIG_UINT_C_TYPE) high > (BIG_UINT_C_TYPE) max_high
+      || ((BIG_UINT_C_TYPE) high == (BIG_UINT_C_TYPE) max_high
+	  && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#elif FROM_MODE_UNSIGNED == 0 && TO_MODE_UNSIGNED == 1
+  /* Signed -> Unsigned.  */
+  if (x < 0)
+    low = 0; /* Minimum.  */
+  else if ((BIG_UINT_C_TYPE) high > (BIG_UINT_C_TYPE) max_high
+	   || ((BIG_UINT_C_TYPE) high == (BIG_UINT_C_TYPE) max_high
+	       && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#elif FROM_MODE_UNSIGNED == 1 && TO_MODE_UNSIGNED == 0
+  /* Unsigned -> Signed.  */
+  if ((BIG_SINT_C_TYPE) high < 0)
+    low = max_low; /* Maximum.  */
+  else if ((BIG_SINT_C_TYPE) high > (BIG_SINT_C_TYPE) max_high
+	   || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) max_high
+	       && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#endif
+
+  /* Step 4. Store the result.  */
+  z = (TO_INT_C_TYPE) low;
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 4  */
+
+/* Fixed -> Int.  */
+#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 1
+TO_INT_C_TYPE
+FIXED_ALL (FROM_FIXED_C_TYPE a)
+{
+  FROM_INT_C_TYPE x;
+  TO_INT_C_TYPE z;
+  memcpy (&x, &a, FROM_FIXED_SIZE);
+#if FROM_FIXED_WIDTH == FROM_FBITS
+  x = 0;
+#else
+  x = x >> FROM_FBITS;
+#endif
+  z = (TO_INT_C_TYPE) x;
+  return z;
+}
+#endif /* defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 1  */
+
+/* Fixed -> Unsigned int.  */
+#if defined(FIXED_UINT) && FROM_TYPE == 4 && TO_TYPE == 2
+TO_INT_C_TYPE
+FIXED_UINT (FROM_FIXED_C_TYPE a)
+{
+  FROM_INT_C_TYPE x;
+  TO_INT_C_TYPE z;
+  memcpy (&x, &a, FROM_FIXED_SIZE);
+#if FROM_FIXED_WIDTH == FROM_FBITS
+  x = 0;
+#else
+  x = x >> FROM_FBITS;
+#endif
+  z = (TO_INT_C_TYPE) x;
+  return z;
+}
+#endif /* defined(FIXED_UINT) && FROM_TYPE == 4 && TO_TYPE == 2  */
+
+/* Int -> Fixed.  */
+#if defined(FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+FIXED_ALL (FROM_INT_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  TO_INT_C_TYPE z;
+  z = (TO_INT_C_TYPE) a;
+#if TO_FIXED_WIDTH == TO_FBITS
+  z = 0;
+#else
+  z = z << TO_FBITS;
+#endif
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4  */
+
+/* Signed int -> Fixed with saturation.  */
+#if defined(SAT_FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+SAT_FIXED_ALL (FROM_INT_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  TO_INT_C_TYPE z;
+  FROM_INT_C_TYPE x = a;
+  BIG_SINT_C_TYPE high, low;
+  BIG_SINT_C_TYPE max_high, max_low;
+  BIG_SINT_C_TYPE min_high, min_low;
+#if TO_MODE_UNSIGNED == 0
+  BIG_SINT_C_TYPE stemp;
+#endif
+#if BIG_WIDTH != TO_FBITS
+  BIG_UINT_C_TYPE utemp;
+  int shift_amount;
+#endif
+
+  /* Step 1. We need to store x to {high, low}.  */
+  low = (BIG_SINT_C_TYPE) x;
+  if (x < 0)
+    high = -1;
+  else
+    high = 0;
+
+  /* Step 2. We need to left shift {high, low}.  */
+#if BIG_WIDTH == TO_FBITS
+  high = low;
+  low = 0;
+#else
+  shift_amount = TO_FBITS;
+  utemp = (BIG_UINT_C_TYPE) low;
+  utemp = utemp >> (BIG_WIDTH - shift_amount);
+  high = ((BIG_UINT_C_TYPE)(high << shift_amount)) | utemp;
+  low = low << shift_amount;
+#endif
+
+  /* Step 3. Compare {high, low} with max and  min of TO_FIXED_C_TYPE.  */
+  max_high = 0;
+#if BIG_WIDTH > TO_FIXED_WIDTH || TO_MODE_UNSIGNED == 0 || TO_HAVE_PADDING_BITS
+  max_low = (BIG_UINT_C_TYPE)1 << TO_I_F_BITS;
+  max_low = max_low - 1;
+#else
+  max_low = -1;
+#endif
+
+#if TO_MODE_UNSIGNED == 0
+  min_high = -1;
+  stemp = (BIG_SINT_C_TYPE)1 << (BIG_WIDTH - 1);
+  stemp = stemp >> (BIG_WIDTH - 1 - TO_I_F_BITS);
+  min_low = stemp;
+#else
+  min_high = 0;
+  min_low = 0;
+#endif
+
+#if TO_MODE_UNSIGNED == 0
+  /* Signed -> Signed.  */
+  if ((BIG_SINT_C_TYPE) high > (BIG_SINT_C_TYPE) max_high
+      || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) max_high
+          && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+  else if ((BIG_SINT_C_TYPE) high < (BIG_SINT_C_TYPE) min_high
+           || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) min_high
+               && (BIG_UINT_C_TYPE) low < (BIG_UINT_C_TYPE) min_low))
+    low = min_low; /* Minimum.  */
+#else
+  /* Signed -> Unsigned.  */
+  if (x < 0)
+    low = 0; /* Minimum.  */
+  else if ((BIG_UINT_C_TYPE) high > (BIG_UINT_C_TYPE) max_high
+           || ((BIG_UINT_C_TYPE) high == (BIG_UINT_C_TYPE) max_high
+               && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#endif
+
+  /* Step 4. Store the result.  */
+  z = (TO_INT_C_TYPE) low;
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 1 && TO_TYPE == 4  */
+
+/* Unsigned int -> Fixed.  */
+#if defined(FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+FIXED_UINT (FROM_INT_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  TO_INT_C_TYPE z;
+  z = (TO_INT_C_TYPE) a;
+#if TO_FIXED_WIDTH == TO_FBITS
+  z = 0;
+#else
+  z = z << TO_FBITS;
+#endif
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+
+/* Unsigned int -> Fixed with saturation.  */
+#if defined(SAT_FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+SAT_FIXED_UINT (FROM_INT_C_TYPE a)
+{
+  TO_FIXED_C_TYPE c;
+  TO_INT_C_TYPE z;
+  FROM_INT_C_TYPE x = a;
+  BIG_UINT_C_TYPE high, low;
+  BIG_UINT_C_TYPE max_high, max_low;
+#if BIG_WIDTH != TO_FBITS
+  BIG_UINT_C_TYPE utemp;
+  int shift_amount;
+#endif
+
+  /* Step 1. We need to store x to {high, low}.  */
+  low = (BIG_UINT_C_TYPE) x;
+  high = 0;
+
+  /* Step 2. We need to left shift {high, low}.  */
+#if BIG_WIDTH == TO_FBITS
+  high = low;
+  low = 0;
+#else
+  shift_amount = TO_FBITS;
+  utemp = (BIG_UINT_C_TYPE) low;
+  utemp = utemp >> (BIG_WIDTH - shift_amount);
+  high = ((BIG_UINT_C_TYPE)(high << shift_amount)) | utemp;
+  low = low << shift_amount;
+#endif
+
+  /* Step 3. Compare {high, low} with max and  min of TO_FIXED_C_TYPE.  */
+  max_high = 0;
+#if BIG_WIDTH > TO_FIXED_WIDTH || TO_MODE_UNSIGNED == 0 || TO_HAVE_PADDING_BITS
+  max_low = (BIG_UINT_C_TYPE)1 << TO_I_F_BITS;
+  max_low = max_low - 1;
+#else
+  max_low = -1;
+#endif
+
+#if TO_MODE_UNSIGNED == 1
+  /* Unigned -> Unsigned.  */
+  if ((BIG_UINT_C_TYPE) high > (BIG_UINT_C_TYPE) max_high
+      || ((BIG_UINT_C_TYPE) high == (BIG_UINT_C_TYPE) max_high
+          && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#else
+  /* Unsigned -> Signed.  */
+  if ((BIG_SINT_C_TYPE) high < 0)
+    low = max_low; /* Maximum.  */
+  else if ((BIG_SINT_C_TYPE) high > (BIG_SINT_C_TYPE) max_high
+           || ((BIG_SINT_C_TYPE) high == (BIG_SINT_C_TYPE) max_high
+               && (BIG_UINT_C_TYPE) low > (BIG_UINT_C_TYPE) max_low))
+    low = max_low; /* Maximum.  */
+#endif
+
+  /* Step 4. Store the result.  */
+  z = (TO_INT_C_TYPE) low;
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(SAT_FIXED_UINT) && FROM_TYPE == 2 && TO_TYPE == 4  */
+
+/* Fixed -> Float.  */
+#if defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 3
+TO_FLOAT_C_TYPE
+FIXED_ALL (FROM_FIXED_C_TYPE a)
+{
+  FROM_INT_C_TYPE x;
+  TO_FLOAT_C_TYPE z;
+  memcpy (&x, &a, FROM_FIXED_SIZE);
+  z = (TO_FLOAT_C_TYPE) x;
+  z = z / BASE;
+  return z;
+}
+#endif /* defined(FIXED_ALL) && FROM_TYPE == 4 && TO_TYPE == 3  */
+
+/* Float -> Fixed.  */
+#if defined(FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+FIXED_ALL (FROM_FLOAT_C_TYPE a)
+{
+  FROM_FLOAT_C_TYPE temp;
+  TO_INT_C_TYPE z;
+  TO_FIXED_C_TYPE c;
+
+  temp = a * BASE;
+  z = (TO_INT_C_TYPE) temp;
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4  */
+
+/* Float -> Fixed with saturation.  */
+#if defined(SAT_FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4
+TO_FIXED_C_TYPE
+SAT_FIXED_ALL (FROM_FLOAT_C_TYPE a)
+{
+  FROM_FLOAT_C_TYPE temp;
+  TO_INT_C_TYPE z;
+  TO_FIXED_C_TYPE c;
+
+  if (a >= FIXED_MAX)
+    {
+#if TO_MODE_UNSIGNED == 0 || TO_HAVE_PADDING_BITS
+      z = (TO_INT_C_TYPE)1 << TO_I_F_BITS;
+      z = z - 1;
+#else
+      z = -1;
+#endif
+    }
+  else if (a <= FIXED_MIN)
+    {
+#if TO_MODE_UNSIGNED == 0
+      z = (TO_INT_C_TYPE)1 << TO_I_F_BITS;
+#else
+      z = 0;
+#endif
+    }
+  else
+    {
+      temp = a * BASE;
+      z = (TO_INT_C_TYPE) temp;
+    }
+
+#if TO_HAVE_PADDING_BITS
+  z = z << TO_PADDING_BITS;
+  z = z >> TO_PADDING_BITS;
+#endif
+  memcpy (&c, &z, TO_FIXED_SIZE);
+  return c;
+}
+#endif /* defined(SAT_FIXED_ALL) && FROM_TYPE == 3 && TO_TYPE == 4  */
 

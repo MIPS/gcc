@@ -1,3 +1,19 @@
+2007-03-20  Chao-ying Fu  <fu@mips.com>
+
+	* config/fixed-bit.c: Update comments for conversion functions.
+	(FIXED_ALL, SAT_FIXED_ALL, FIXED_UINT, SAT_FIXED_UINT): New functions
+	for fixed-point to fixed-point, signed integer to/from fixed-point,
+	unsigned integer to/from fixed-point, floating-point to/from
+	fixed-point with or without saturation.
+	* config/fixed-bit.h: Update comments for conversion functions.
+	(LIBGCC2_DOUBLE_TYPE_SIZE, LIBGCC2_LONG_DOUBLE_TYPE_SIZE,
+	LIBGCC2_HAS_SF_MODE, LIBGCC2_HAS_DF_MODE): New defines.
+	(HAVE_QI, HAVE_UQI, HAVE_HI, HAVE_UHI, HAVE_USI, HAVE_UDI, HAVE_UTI):
+	New defines.
+	(SFtype, DFtype): New types.
+	(HAVE_SF, HAVE_DF): New defines.
+	Add all necessary defines for conversion functions.
+
 2007-03-16  Chao-ying Fu  <fu@mips.com>
 
 	* c-typeck.c (comptypes_internal): We should not allow saturating

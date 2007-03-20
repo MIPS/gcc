@@ -30,6 +30,22 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef _FIXED_BIT_H
 #define _FIXED_BIT_H
 
+/* To use this file we need to define one of the following:
+   QQ_MODE, UQQ_MODE, HQ_MODE, UHQ_MODE, SQ_MODE, USQ_MODE, DQ_MODE, UDQ_MODE,
+   TQ_MODE, UTQ_MODE, HA_MODE, UHA_MODE, SA_MODE, USA_MODE, DA_MODE, UDA_MODE,
+   TA_MODE, UTA_MODE.
+   Then, all operators for this machine mode will be created.
+
+   Or, we need to define FROM_* TO_* for conversions from one mode to another
+   mode.  The mode could be one of the following:
+   Fract: QQ, UQQ, HQ, UHQ, SQ, USQ, DQ, UDQ, TQ, UTQ
+   Accum: HA, UHA, SA, USA, DA, UDA, TA, UTA
+   Signed integer: QI, HI, SI, DI, TI
+   Unsigned integer: UQI, UHI, USI, UDI, UTI
+   Floating-point: SF, DF
+   Ex: If we define FROM_QQ and TO_SI, the conversion from QQ to SI is
+   generated.  */
+
 /* Permit the tm.h file to select the endianness to use just for this
    file.  This is used when the endianness is determined when the
    compiler is run.  */
@@ -38,11 +54,23 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
-/* To use this file, we need to define one of the following:
-   QQ_MODE, UQQ_MODE, HQ_MODE, UHQ_MODE, SQ_MODE, USQ_MODE, DQ_MODE, UDQ_MODE,
-   TQ_MODE, UTQ_MODE, HA_MODE, UHA_MODE, SA_MODE, USA_MODE, DA_MODE, UDA_MODE,
-   TA_MODE, UTA_MODE.
-   Then, all operators for this machine mode will be created.  */
+#ifndef LIBGCC2_DOUBLE_TYPE_SIZE
+#define LIBGCC2_DOUBLE_TYPE_SIZE DOUBLE_TYPE_SIZE
+#endif
+#ifndef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
+#endif
+
+#ifndef LIBGCC2_HAS_SF_MODE
+#define LIBGCC2_HAS_SF_MODE (BITS_PER_UNIT == 8)
+#endif
+
+#ifndef LIBGCC2_HAS_DF_MODE
+#define LIBGCC2_HAS_DF_MODE \
+  (BITS_PER_UNIT == 8 \
+   && (LIBGCC2_DOUBLE_TYPE_SIZE == 64 \
+       || LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64))
+#endif
 
 typedef          int QItype     __attribute__ ((mode (QI)));
 typedef unsigned int UQItype    __attribute__ ((mode (QI)));
@@ -60,6 +88,10 @@ typedef unsigned _Fract UHAtype __attribute__ ((mode (UHA)));
 #define HAVE_UHQ	1
 #define HAVE_HA		1
 #define HAVE_UHA	1
+#define HAVE_QI		1
+#define HAVE_UQI	1
+#define HAVE_HI		1
+#define HAVE_UHI	1
 #if MIN_UNITS_PER_WORD > 1
 /* These typedefs are usually forbidden on dsp's with UNITS_PER_WORD 1.  */
 typedef          int SItype     __attribute__ ((mode (SI)));
@@ -73,6 +105,7 @@ typedef unsigned _Fract USAtype __attribute__ ((mode (USA)));
 #define HAVE_SA		1
 #define HAVE_USA	1
 #define HAVE_SI		1
+#define HAVE_USI	1
 #if LONG_LONG_TYPE_SIZE > 32
 /* These typedefs are usually forbidden on archs with UNITS_PER_WORD 2.  */
 typedef          int DItype     __attribute__ ((mode (DI)));
@@ -86,6 +119,7 @@ typedef unsigned _Fract UDAtype __attribute__ ((mode (UDA)));
 #define HAVE_DA		1
 #define HAVE_UDA	1
 #define HAVE_DI		1
+#define HAVE_UDI	1
 #if MIN_UNITS_PER_WORD > 4
 /* These typedefs are usually forbidden on archs with UNITS_PER_WORD 4.  */
 typedef          int TItype     __attribute__ ((mode (TI)));
@@ -99,8 +133,18 @@ typedef unsigned _Fract UTAtype __attribute__ ((mode (UTA)));
 #define HAVE_TA		1
 #define HAVE_UTA	1
 #define HAVE_TI		1
+#define HAVE_UTI	1
 #endif
 #endif
+#endif
+
+#if LIBGCC2_HAS_SF_MODE
+typedef float SFtype __attribute__ ((mode (SF)));
+#define HAVE_SF		1
+#endif
+#if LIBGCC2_HAS_DF_MODE
+typedef float DFtype __attribute__ ((mode (DF)));
+#define HAVE_DF		1
 #endif
 
 typedef int word_type __attribute__ ((mode (__word__)));
@@ -534,5 +578,709 @@ extern FIXED_C_TYPE FIXED_USASHL (FIXED_C_TYPE, word_type);
 
 /* This define is to check if this mode have any padding bits.  */
 #define HAVE_PADDING_BITS	(PADDING_BITS > 0)
+
+/* ------------------------------------------------------------------------ */
+/* The following defines are for conversions.  */
+
+#if defined (FROM_QI) && HAVE_QI == 1
+#define FROM_TYPE		1	/* Signed integer.  */
+#define FROM_INT_C_TYPE		QItype
+#define FROM_SINT_C_TYPE	QItype
+#define FROM_UINT_C_TYPE	UQItype
+#define FROM_MODE_NAME_S	qi
+#define FROM_INT_SIZE		1	/* in bytes.  */
+
+#elif defined (FROM_HI) && HAVE_HI == 1
+#define FROM_TYPE		1	/* Signed integer.  */
+#define FROM_INT_C_TYPE		HItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_NAME_S	hi
+#define FROM_INT_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_SI) && HAVE_SI == 1
+#define FROM_TYPE		1	/* Signed integer.  */
+#define FROM_INT_C_TYPE		SItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_NAME_S	si
+#define FROM_INT_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_DI) && HAVE_DI == 1
+#define FROM_TYPE		1	/* Signed integer.  */
+#define FROM_INT_C_TYPE		DItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_NAME_S	di
+#define FROM_INT_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_TI) && HAVE_TI == 1
+#define FROM_TYPE		1	/* Signed integer.  */
+#define FROM_INT_C_TYPE		TItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_NAME_S	ti
+#define FROM_INT_SIZE		16	/* in bytes.  */
+
+#elif defined (FROM_UQI) && HAVE_UQI == 1
+#define FROM_TYPE		2	/* Unsigned integer.  */
+#define FROM_INT_C_TYPE		QItype
+#define FROM_SINT_C_TYPE	QItype
+#define FROM_UINT_C_TYPE	UQItype
+#define FROM_MODE_NAME_S	qi
+#define FROM_INT_SIZE		1	/* in bytes.  */
+
+#elif defined (FROM_UHI) && HAVE_UHI == 1
+#define FROM_TYPE		2	/* Unsigned integer.  */
+#define FROM_INT_C_TYPE		UHItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_NAME_S	hi
+#define FROM_INT_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_USI) && HAVE_USI == 1
+#define FROM_TYPE		2	/* Unsigned integer.  */
+#define FROM_INT_C_TYPE		USItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_NAME_S	si
+#define FROM_INT_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_UDI) && HAVE_UDI == 1
+#define FROM_TYPE		2	/* Unsigned integer.  */
+#define FROM_INT_C_TYPE		UDItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_NAME_S	di
+#define FROM_INT_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_UTI) && HAVE_UTI == 1
+#define FROM_TYPE		2	/* Unsigned integer.  */
+#define FROM_INT_C_TYPE		UTItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_NAME_S	ti
+#define FROM_INT_SIZE		16	/* in bytes.  */
+
+#elif defined (FROM_SF) && HAVE_SF == 1
+#define FROM_TYPE		3	/* Floating-point.  */
+#define FROM_FLOAT_C_TYPE	SFtype
+#define FROM_MODE_NAME_S	sf
+
+#elif defined (FROM_DF) && HAVE_DF == 1
+#define FROM_TYPE		3	/* Floating-point.  */
+#define FROM_FLOAT_C_TYPE	DFtype
+#define FROM_MODE_NAME_S	df
+
+#elif defined (FROM_QQ) && HAVE_QQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		QQ
+#define FROM_MODE_NAME_S	qq
+#define FROM_INT_C_TYPE		QItype
+#define FROM_SINT_C_TYPE	QItype
+#define FROM_UINT_C_TYPE	UQItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		1	/* in bytes.  */
+
+#elif defined (FROM_HQ) && HAVE_HQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		HQ
+#define FROM_MODE_NAME_S	hq
+#define FROM_INT_C_TYPE		HItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_SQ) && HAVE_SQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		SQ
+#define FROM_MODE_NAME_S	sq
+#define FROM_INT_C_TYPE		SItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_DQ) && HAVE_DQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		DQ
+#define FROM_MODE_NAME_S	dq
+#define FROM_INT_C_TYPE		DItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_TQ) && HAVE_TQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		TQ
+#define FROM_MODE_NAME_S	tq
+#define FROM_INT_C_TYPE		TItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (FROM_UQQ) && HAVE_UQQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UQQ
+#define FROM_MODE_NAME_S	uqq
+#define FROM_INT_C_TYPE		UQItype
+#define FROM_SINT_C_TYPE	QItype
+#define FROM_UINT_C_TYPE	UQItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		1	/* in bytes.  */
+
+#elif defined (FROM_UHQ) && HAVE_UHQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UHQ
+#define FROM_MODE_NAME_S	uhq
+#define FROM_INT_C_TYPE		UHItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_USQ) && HAVE_USQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		USQ
+#define FROM_MODE_NAME_S	usq
+#define FROM_INT_C_TYPE		USItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_UDQ) && HAVE_UDQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UDQ
+#define FROM_MODE_NAME_S	udq
+#define FROM_INT_C_TYPE		UDItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_UTQ) && HAVE_UTQ == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UTQ
+#define FROM_MODE_NAME_S	utq
+#define FROM_INT_C_TYPE		UTItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (FROM_HA) && HAVE_HA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		HA
+#define FROM_MODE_NAME_S	ha
+#define FROM_INT_C_TYPE		HItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_SA) && HAVE_SA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		SA
+#define FROM_MODE_NAME_S	sa
+#define FROM_INT_C_TYPE		SItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_DA) && HAVE_DA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		DA
+#define FROM_MODE_NAME_S	da
+#define FROM_INT_C_TYPE		DItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_TA) && HAVE_TA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		TA
+#define FROM_MODE_NAME_S	ta
+#define FROM_INT_C_TYPE		TItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_UNSIGNED	0
+#define FROM_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (FROM_UHA) && HAVE_UHA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UHA
+#define FROM_MODE_NAME_S	uha
+#define FROM_INT_C_TYPE		UHItype
+#define FROM_SINT_C_TYPE	HItype
+#define FROM_UINT_C_TYPE	UHItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (FROM_USA) && HAVE_USA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		USA
+#define FROM_MODE_NAME_S	usa
+#define FROM_INT_C_TYPE		USItype
+#define FROM_SINT_C_TYPE	SItype
+#define FROM_UINT_C_TYPE	USItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (FROM_UDA) && HAVE_UDA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UDA
+#define FROM_MODE_NAME_S	uda
+#define FROM_INT_C_TYPE		UDItype
+#define FROM_SINT_C_TYPE	DItype
+#define FROM_UINT_C_TYPE	UDItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (FROM_UTA) && HAVE_UTA == 1
+#define FROM_TYPE		4	/* Fixed-point.  */
+#define FROM_MODE_NAME		UTA
+#define FROM_MODE_NAME_S	uta
+#define FROM_INT_C_TYPE		UTItype
+#define FROM_SINT_C_TYPE	TItype
+#define FROM_UINT_C_TYPE	UTItype
+#define FROM_MODE_UNSIGNED	1
+#define FROM_FIXED_SIZE		16	/* in bytes.  */
+
+#endif
+
+#if defined (TO_QI) && HAVE_QI == 1 && !defined (FROM_QI)
+#define TO_TYPE			1	/* Signed integer.  */
+#define TO_INT_C_TYPE		QItype
+#define TO_SINT_C_TYPE		QItype
+#define TO_UINT_C_TYPE		UQItype
+#define TO_MODE_NAME_S		qi
+
+#elif defined (TO_HI) && HAVE_HI == 1 && !defined (FROM_HI)
+#define TO_TYPE			1	/* Signed integer.  */
+#define TO_INT_C_TYPE		HItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_NAME_S		hi
+
+#elif defined (TO_SI) && HAVE_SI == 1 && !defined (FROM_SI)
+#define TO_TYPE			1	/* Signed integer.  */
+#define TO_INT_C_TYPE		SItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_NAME_S		si
+
+#elif defined (TO_DI) && HAVE_DI == 1 && !defined (FROM_DI)
+#define TO_TYPE			1	/* Signed integer.  */
+#define TO_INT_C_TYPE		DItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_NAME_S		di
+
+#elif defined (TO_TI) && HAVE_TI == 1 && !defined (FROM_TI)
+#define TO_TYPE			1	/* Signed integer.  */
+#define TO_INT_C_TYPE		TItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_NAME_S		ti
+
+#elif defined (TO_UQI) && HAVE_UQI == 1 && !defined (FROM_UQI)
+#define TO_TYPE			2	/* Unsigned integer.  */
+#define TO_INT_C_TYPE		UQItype
+#define TO_SINT_C_TYPE		QItype
+#define TO_UINT_C_TYPE		UQItype
+#define TO_MODE_NAME_S		qi
+
+#elif defined (TO_UHI) && HAVE_UHI == 1 && !defined (FROM_UHI)
+#define TO_TYPE			2	/* Unsigned integer.  */
+#define TO_INT_C_TYPE		UHItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_NAME_S		hi
+
+#elif defined (TO_USI) && HAVE_USI == 1 && !defined (FROM_USI)
+#define TO_TYPE			2	/* Unsigned integer.  */
+#define TO_INT_C_TYPE		USItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_NAME_S		si
+
+#elif defined (TO_UDI) && HAVE_UDI == 1 && !defined (FROM_UDI)
+#define TO_TYPE			2	/* Unsigned integer.  */
+#define TO_INT_C_TYPE		UDItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_NAME_S		di
+
+#elif defined (TO_UTI) && HAVE_UTI == 1 && !defined (FROM_UTI)
+#define TO_TYPE			2	/* Unsigned integer.  */
+#define TO_INT_C_TYPE		UTItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_NAME_S		ti
+
+#elif defined (TO_SF) && HAVE_SF == 1 && !defined (FROM_SF)
+#define TO_TYPE			3	/* Floating-point.  */
+#define TO_FLOAT_C_TYPE		SFtype
+#define TO_MODE_NAME_S		sf
+
+#elif defined (TO_DF) && HAVE_DF == 1 && !defined (FROM_DF)
+#define TO_TYPE			3	/* Floating-point.  */
+#define TO_FLOAT_C_TYPE		DFtype
+#define TO_MODE_NAME_S		df
+
+#elif defined (TO_QQ) && HAVE_QQ == 1 && !defined (FROM_QQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		QQ
+#define TO_MODE_NAME_S		qq
+#define TO_INT_C_TYPE		QItype
+#define TO_SINT_C_TYPE		QItype
+#define TO_UINT_C_TYPE		UQItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		1	/* in bytes.  */
+
+#elif defined (TO_HQ) && HAVE_HQ == 1 && !defined (FROM_HQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		HQ
+#define TO_MODE_NAME_S		hq
+#define TO_INT_C_TYPE		HItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (TO_SQ) && HAVE_SQ == 1 && !defined (FROM_SQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		SQ
+#define TO_MODE_NAME_S		sq
+#define TO_INT_C_TYPE		SItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (TO_DQ) && HAVE_DQ == 1 && !defined (FROM_DQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		DQ
+#define TO_MODE_NAME_S		dq
+#define TO_INT_C_TYPE		DItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (TO_TQ) && HAVE_TQ == 1 && !defined (FROM_TQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		TQ
+#define TO_MODE_NAME_S		tq
+#define TO_INT_C_TYPE		TItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (TO_UQQ) && HAVE_UQQ == 1 && !defined (FROM_UQQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UQQ
+#define TO_MODE_NAME_S		uqq
+#define TO_INT_C_TYPE		UQItype
+#define TO_SINT_C_TYPE		QItype
+#define TO_UINT_C_TYPE		UQItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		1	/* in bytes.  */
+
+#elif defined (TO_UHQ) && HAVE_UHQ == 1 && !defined (FROM_UHQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UHQ
+#define TO_MODE_NAME_S		uhq
+#define TO_INT_C_TYPE		UHItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (TO_USQ) && HAVE_USQ == 1 && !defined (FROM_USQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		USQ
+#define TO_MODE_NAME_S		usq
+#define TO_INT_C_TYPE		USItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (TO_UDQ) && HAVE_UDQ == 1 && !defined (FROM_UDQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UDQ
+#define TO_MODE_NAME_S		udq
+#define TO_INT_C_TYPE		UDItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (TO_UTQ) && HAVE_UTQ == 1 && !defined (FROM_UTQ)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UTQ
+#define TO_MODE_NAME_S		utq
+#define TO_INT_C_TYPE		UTItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (TO_HA) && HAVE_HA == 1 && !defined (FROM_HA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		HA
+#define TO_MODE_NAME_S		ha
+#define TO_INT_C_TYPE		HItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (TO_SA) && HAVE_SA == 1 && !defined (FROM_SA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		SA
+#define TO_MODE_NAME_S		sa
+#define TO_INT_C_TYPE		SItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (TO_DA) && HAVE_DA == 1 && !defined (FROM_DA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		DA
+#define TO_MODE_NAME_S		da
+#define TO_INT_C_TYPE		DItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (TO_TA) && HAVE_TA == 1 && !defined (FROM_TA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		TA
+#define TO_MODE_NAME_S		ta
+#define TO_INT_C_TYPE		TItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_UNSIGNED	0
+#define TO_FIXED_SIZE		16	/* in bytes.  */
+
+#elif defined (TO_UHA) && HAVE_UHA == 1 && !defined (FROM_UHA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UHA
+#define TO_MODE_NAME_S		uha
+#define TO_INT_C_TYPE		UHItype
+#define TO_SINT_C_TYPE		HItype
+#define TO_UINT_C_TYPE		UHItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		2	/* in bytes.  */
+
+#elif defined (TO_USA) && HAVE_USA == 1 && !defined (FROM_USA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		USA
+#define TO_MODE_NAME_S		usa
+#define TO_INT_C_TYPE		USItype
+#define TO_SINT_C_TYPE		SItype
+#define TO_UINT_C_TYPE		USItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		4	/* in bytes.  */
+
+#elif defined (TO_UDA) && HAVE_UDA == 1 && !defined (FROM_UDA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UDA
+#define TO_MODE_NAME_S		uda
+#define TO_INT_C_TYPE		UDItype
+#define TO_SINT_C_TYPE		DItype
+#define TO_UINT_C_TYPE		UDItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		8	/* in bytes.  */
+
+#elif defined (TO_UTA) && HAVE_UTA == 1 && !defined (FROM_UTA)
+#define TO_TYPE			4	/* Fixed-point.  */
+#define TO_MODE_NAME		UTA
+#define TO_MODE_NAME_S		uta
+#define TO_INT_C_TYPE		UTItype
+#define TO_SINT_C_TYPE		TItype
+#define TO_UINT_C_TYPE		UTItype
+#define TO_MODE_UNSIGNED	1
+#define TO_FIXED_SIZE		16	/* in bytes.  */
+
+#endif
+
+#if defined (FROM_MODE_NAME_S) && defined (TO_MODE_NAME_S)
+
+#if FROM_TYPE == 1	/* Signed integer.  */
+#define FROM_INT_WIDTH		(FROM_INT_SIZE * BITS_PER_UNIT)
+#endif
+
+#if FROM_TYPE == 2	/* Unsigned integer.  */
+#define FROM_INT_WIDTH		(FROM_INT_SIZE * BITS_PER_UNIT)
+#endif
+
+#if FROM_TYPE == 4	/* Fixed-point.  */
+#define FROM_FIXED_C_TYPE	FIXED_C_TYPE2(FROM_MODE_NAME)
+#define FROM_FBITS		FBITS2(FROM_MODE_NAME)
+#define FROM_FIXED_WIDTH	(FROM_FIXED_SIZE * BITS_PER_UNIT)
+#define FROM_FBITS		FBITS2(FROM_MODE_NAME)
+#define FROM_IBITS		IBITS2(FROM_MODE_NAME)
+#define FROM_I_F_BITS		(FROM_FBITS + FROM_IBITS)
+
+#if FROM_MODE_UNSIGNED == 0 /* Signed types.  */
+#define FROM_PADDING_BITS	(FROM_FIXED_WIDTH - 1 - FROM_I_F_BITS)
+#define FROM_NONPADDING_BITS	(1 + FROM_I_F_BITS)
+#else /* Unsigned types.  */
+#define FROM_PADDING_BITS	(FROM_FIXED_WIDTH - FROM_I_F_BITS)
+#define FROM_NONPADDING_BITS	(FROM_I_F_BITS)
+#endif
+#define FROM_HAVE_PADDING_BITS	(FROM_PADDING_BITS > 0)
+#endif /* FROM_TYPE == 4  */
+
+#if TO_TYPE == 4	/* Fixed-point.  */
+#define TO_FIXED_C_TYPE		FIXED_C_TYPE2(TO_MODE_NAME)
+#define TO_FBITS		FBITS2(TO_MODE_NAME)
+#define TO_FIXED_WIDTH		(TO_FIXED_SIZE * BITS_PER_UNIT)
+#define TO_FBITS		FBITS2(TO_MODE_NAME)
+#define TO_IBITS		IBITS2(TO_MODE_NAME)
+#define TO_I_F_BITS		(TO_FBITS + TO_IBITS)
+
+#if TO_MODE_UNSIGNED == 0 /* Signed types.  */
+#define TO_PADDING_BITS		(TO_FIXED_WIDTH - 1 - TO_I_F_BITS)
+#define TO_NONPADDING_BITS	(1 + TO_I_F_BITS)
+#else /* Unsigned types.  */
+#define TO_PADDING_BITS		(TO_FIXED_WIDTH - TO_I_F_BITS)
+#define TO_NONPADDING_BITS	(TO_I_F_BITS)
+#endif
+#define TO_HAVE_PADDING_BITS	(TO_PADDING_BITS > 0)
+#endif /* TO_TYPE == 4  */
+
+#define FIXED_CONVERT_OP(OP,FROM,TO)	OP ## FROM ## TO
+#define FIXED_CONVERT_OP2(OP,FROM,TO)	OP ## FROM ## TO ## 2
+#define FIXED_ALL_TEMP(N1,N2)		FIXED_CONVERT_OP(__fixed_all,N1,N2)
+#define FIXED_ALL2_TEMP(N1,N2)		FIXED_CONVERT_OP2(__fixed_all,N1,N2)
+#define SAT_FIXED_ALL_TEMP(N1,N2)	FIXED_CONVERT_OP(__sat_fixed_all,N1,N2)
+#define SAT_FIXED_ALL2_TEMP(N1,N2)	FIXED_CONVERT_OP2(__sat_fixed_all,N1,N2)
+#define FIXED_UINT_TEMP(N1,N2)		FIXED_CONVERT_OP(__fixed_uint,N1,N2)
+#define SAT_FIXED_UINT_TEMP(N1,N2)	FIXED_CONVERT_OP(__sat_fixed_uint,N1,N2)
+
+/* Define conversions from fixed-point to fixed-point.  */
+#if FROM_TYPE == 4 && TO_TYPE == 4
+
+#if FROM_FIXED_SIZE > TO_FIXED_SIZE
+#define BIG_SINT_C_TYPE	FROM_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	FROM_UINT_C_TYPE
+#define BIG_WIDTH	FROM_FIXED_WIDTH
+#else
+#define BIG_SINT_C_TYPE	TO_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	TO_UINT_C_TYPE
+#define BIG_WIDTH	TO_FIXED_WIDTH
+#endif
+
+/* Check if FROM* and TO* are in the same machine class.  */
+#if FROM_MODE_UNSIGNED == TO_MODE_UNSIGNED && ((FROM_IBITS == 0 && TO_IBITS == 0) || (FROM_IBITS != 0 && TO_IBITS != 0))
+#define FIXED_ALL	FIXED_ALL2_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#define SAT_FIXED_ALL	SAT_FIXED_ALL2_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#else
+#define FIXED_ALL	FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#define SAT_FIXED_ALL	SAT_FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#endif 
+
+extern TO_FIXED_C_TYPE FIXED_ALL (FROM_FIXED_C_TYPE);
+extern TO_FIXED_C_TYPE SAT_FIXED_ALL (FROM_FIXED_C_TYPE);
+#endif /* FROM_TYPE == 4 && TO_TYPE == 4  */
+
+/* Define conversions from fixed-point to signed integer.  */
+#if FROM_TYPE == 4 && TO_TYPE == 1
+#define FIXED_ALL	FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_INT_C_TYPE FIXED_ALL (FROM_FIXED_C_TYPE);
+#endif /* FROM_TYPE == 4 && TO_TYPE == 1  */
+
+/* Define conversions from fixed-point to unsigned integer.  */
+#if FROM_TYPE == 4 && TO_TYPE == 2
+#define FIXED_UINT	FIXED_UINT_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_INT_C_TYPE FIXED_UINT (FROM_FIXED_C_TYPE);
+#endif /* FROM_TYPE == 4 && TO_TYPE == 2  */
+
+/* Define conversions from fixed-point to floating-point.  */
+#if FROM_TYPE == 4 && TO_TYPE == 3
+#define BASE1(NUM)	0x1.0p ## NUM
+#define BASE2(NUM)	BASE1(NUM)
+#define BASE		BASE2(FROM_FBITS)
+#define FIXED_ALL	FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_FLOAT_C_TYPE FIXED_ALL (FROM_FIXED_C_TYPE);
+#endif /* FROM_TYPE == 4 && TO_TYPE == 3  */
+
+/* Define conversions from signed integer to fixed-point.  */
+#if FROM_TYPE == 1 && TO_TYPE == 4
+
+#if FROM_INT_SIZE > TO_FIXED_SIZE
+#define BIG_SINT_C_TYPE	FROM_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	FROM_UINT_C_TYPE
+#define BIG_WIDTH	FROM_INT_WIDTH
+#else
+#define BIG_SINT_C_TYPE	TO_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	TO_UINT_C_TYPE
+#define BIG_WIDTH	TO_FIXED_WIDTH
+#endif
+
+#define FIXED_ALL	FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#define SAT_FIXED_ALL	SAT_FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_FIXED_C_TYPE FIXED_ALL (FROM_INT_C_TYPE);
+extern TO_FIXED_C_TYPE SAT_FIXED_ALL (FROM_INT_C_TYPE);
+#endif /* FROM_TYPE == 1 && TO_TYPE == 4  */
+
+/* Define conversions from unsigned integer to fixed-point.  */
+#if FROM_TYPE == 2 && TO_TYPE == 4
+
+#if FROM_INT_SIZE > TO_FIXED_SIZE
+#define BIG_SINT_C_TYPE	FROM_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	FROM_UINT_C_TYPE
+#define BIG_WIDTH	FROM_INT_WIDTH
+#else
+#define BIG_SINT_C_TYPE	TO_SINT_C_TYPE
+#define BIG_UINT_C_TYPE	TO_UINT_C_TYPE
+#define BIG_WIDTH	TO_FIXED_WIDTH
+#endif
+
+#define FIXED_UINT	FIXED_UINT_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#define SAT_FIXED_UINT	SAT_FIXED_UINT_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_FIXED_C_TYPE FIXED_UINT (FROM_INT_C_TYPE);
+extern TO_FIXED_C_TYPE SAT_FIXED_UINT (FROM_INT_C_TYPE);
+#endif /* FROM_TYPE == 2 && TO_TYPE == 4  */
+
+/* Define conversions from floating-point to fixed-point.  */
+#if FROM_TYPE == 3 && TO_TYPE == 4
+
+#define BASE1(NUM)	(0x1.0p ## NUM)
+#define BASE2(NUM)	BASE1(NUM)
+#define BASE		BASE2(TO_FBITS)
+
+#define FIXED_MAX1(NUM1,NUM2)	(0x1.0p ## NUM1 - 0x1.0p- ## NUM2)
+#define FIXED_MAX2(NUM1,NUM2)	FIXED_MAX1(NUM1,NUM2)
+#define FIXED_MAX	FIXED_MAX2(TO_IBITS,TO_FBITS)
+
+#define FIXED_MIN1(NUM)	(-0x1.0p ## NUM)
+#define FIXED_MIN2(NUM)	FIXED_MIN1(NUM)
+#if TO_MODE_UNSIGNED == 0
+#define FIXED_MIN	FIXED_MIN2(TO_IBITS)
+#else
+#define FIXED_MIN	0.0
+#endif
+
+#define FIXED_ALL	FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+#define SAT_FIXED_ALL	SAT_FIXED_ALL_TEMP(FROM_MODE_NAME_S,TO_MODE_NAME_S)
+extern TO_FIXED_C_TYPE FIXED_ALL (FROM_FLOAT_C_TYPE);
+extern TO_FIXED_C_TYPE SAT_FIXED_ALL (FROM_FLOAT_C_TYPE);
+#endif /* FROM_TYPE == 3 && TO_TYPE == 4  */
+
+#endif /* defined (FROM_MODE_NAME_S) && defined (TO_MODE_NAME_S)  */
 
 #endif  /* _FIXED_BIT_H */
