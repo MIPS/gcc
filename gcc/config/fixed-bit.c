@@ -876,12 +876,28 @@ FIXED_ALL (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
+  FROM_INT_C_TYPE i = 0;
   memcpy (&x, &a, FROM_FIXED_SIZE);
+
+#if FROM_MODE_UNSIGNED == 0
+  if (x < 0)
+    {
+#if FROM_FIXED_WIDTH == FROM_FBITS
+      if (x != 0)
+	i = 1;
+#else
+      if ((x << (FROM_FIXED_WIDTH - FROM_FBITS)) != 0)
+	i = 1;
+#endif
+    }
+#endif
+
 #if FROM_FIXED_WIDTH == FROM_FBITS
   x = 0;
 #else
   x = x >> FROM_FBITS;
 #endif
+  x = x + i;
   z = (TO_INT_C_TYPE) x;
   return z;
 }
@@ -894,12 +910,28 @@ FIXED_UINT (FROM_FIXED_C_TYPE a)
 {
   FROM_INT_C_TYPE x;
   TO_INT_C_TYPE z;
+  FROM_INT_C_TYPE i = 0;
   memcpy (&x, &a, FROM_FIXED_SIZE);
+
+#if FROM_MODE_UNSIGNED == 0
+  if (x < 0)
+    {
+#if FROM_FIXED_WIDTH == FROM_FBITS
+      if (x != 0)
+	i = 1;
+#else
+      if ((x << (FROM_FIXED_WIDTH - FROM_FBITS)) != 0)
+	i = 1;
+#endif
+    }
+#endif
+
 #if FROM_FIXED_WIDTH == FROM_FBITS
   x = 0;
 #else
   x = x >> FROM_FBITS;
 #endif
+  x = x + i;
   z = (TO_INT_C_TYPE) x;
   return z;
 }

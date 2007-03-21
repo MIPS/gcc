@@ -1,3 +1,9 @@
+2007-03-21  Chao-ying Fu  <fu@mips.com>
+
+	* config/fixed-bit.c (FIXED_ALL, FIXED_UINT): From fixed-point to 
+	integers, we need to check for negative fixed-point numbers to round
+	toward zero.
+
 2007-03-20  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* jump.c (mark_jump_label): Treat SEQUENCE specially.
