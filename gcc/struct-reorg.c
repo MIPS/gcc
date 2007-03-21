@@ -334,54 +334,40 @@ print_new_vars (struct new_var_data *new_vars)
 	var_type = TREE_TYPE (var_type);
       type_name = get_type_name (var_type);
 
-      fprintf (vcg_dump, "Orig var: ");
-      if (DECL_NAME (current->orig_var)
-	  && IDENTIFIER_POINTER (DECL_NAME (current->orig_var)))
-	fprintf (vcg_dump, "%s\n", 
-		 (char *) IDENTIFIER_POINTER (DECL_NAME (current->orig_var)));
-      else
-	fprintf (vcg_dump, " <tmp var.%d> of type %s\n",
-		 DECL_UID (current->orig_var),
-		 type_name); 
+      fprintf (vcg_dump, "\nOrig var: ");
+      print_generic_expr (vcg_dump, current->orig_var, 0);
+      if (type_name)
+	fprintf (vcg_dump, " of type %s\n", type_name);
 
       for (cur_var = current->new_vars; cur_var; cur_var = cur_var->next)
 	{
-	  tree var_decl = cur_var->data;
-	  char *var_name;
+	  tree var = cur_var->data;
+	  tree var_decl = var;
+	  
+	  if (TREE_CODE (var) == SSA_NAME)
+	    var_decl = SSA_NAME_VAR (var);
 
-	  if (DECL_NAME (var_decl)
-	      && IDENTIFIER_POINTER (DECL_NAME (var_decl)))
-	    var_name = (char *) IDENTIFIER_POINTER (DECL_NAME (var_decl));
-	  else
-	    var_name = NULL;
+	  gcc_assert (TREE_CODE (var_decl) == VAR_DECL);
 
 	  var_type = TREE_TYPE (var_decl);
 	  
 	  while (POINTER_TYPE_P (var_type))
 	    var_type = TREE_TYPE (var_type);
 	  
+	  
 	  type_name = get_type_name (var_type);
-	  if (! (DECL_CONTEXT (var_decl))
-	      || TREE_CODE (DECL_CONTEXT (var_decl)) == TRANSLATION_UNIT_DECL)
+	  if (is_global_var (var_decl))
 	    global_context = true;
 	  else
 	    global_context = false;
 	  
-	  if (var_name)
-	    fprintf (vcg_dump, "     %s declared in function %s of type %s\n",
-		     var_name,
-		     (! global_context ?
-		      IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (var_decl))) :
-		      "global"),
-		     type_name ? type_name : "");
-	  else
-	    fprintf (vcg_dump, 
-		    "     <tmp var.%d>  declared in function '%s' of type '%s'\n",
-		     DECL_UID (var_decl),
-		     (! global_context ?
-		      IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (var_decl))) :
-		      "global"),
-		      type_name ? type_name : ""); 
+	  fprintf (vcg_dump, "      ");
+	  print_generic_expr (vcg_dump, var, 0);
+	  fprintf (vcg_dump, " declared in function %s of type %s\n",
+		   (! global_context ?
+		    IDENTIFIER_POINTER (DECL_NAME (DECL_CONTEXT (var_decl))) :
+		    "global"),
+		   type_name ? type_name : "");
 	}
     }
 }
