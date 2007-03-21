@@ -1307,13 +1307,10 @@ init_reg_last (void)
 static void
 setup_incoming_promotions (rtx first)
 {
-  rtx first;
   tree arg;
 
   if (!targetm.calls.promote_function_args (TREE_TYPE (cfun->decl)))
     return;
-
-  first = get_insns ();
 
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
