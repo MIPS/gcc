@@ -2825,6 +2825,12 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
         [Define if your assembler supports the ffreep mnemonic.])])
 
+    gcc_GAS_CHECK_FEATURE([sahf mnemonic],
+      gcc_cv_as_ix86_sahf,,,
+      [sahf],,
+      [AC_DEFINE(HAVE_AS_IX86_SAHF, 1,
+        [Define if your assembler supports the sahf mnemonic.])])
+
     gcc_GAS_CHECK_FEATURE([different section symbol subtraction],
       gcc_cv_as_ix86_diff_sect_delta,,,
       [.section .rodata
@@ -3084,6 +3090,30 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+fi
+
+AC_CACHE_CHECK([assembler for tolerance to line number 0],
+ [gcc_cv_as_line_zero],
+ [gcc_cv_as_line_zero=no
+  if test $in_tree_gas = yes; then
+    gcc_GAS_VERSION_GTE_IFELSE(2, 16, 91, [gcc_cv_as_line_zero=yes])
+  elif test "x$gcc_cv_as" != x; then
+    { echo '# 1 "test.s" 1'; echo '# 0 "" 2'; } > conftest.s
+    if AC_TRY_COMMAND([$gcc_cv_as -o conftest.o conftest.s >&AS_MESSAGE_LOG_FD 2>conftest.out]) &&
+       test "x`cat conftest.out`" = x
+    then
+      gcc_cv_as_line_zero=yes
+    else
+      echo "configure: failed program was" >&AS_MESSAGE_LOG_FD
+      cat conftest.s >&AS_MESSAGE_LOG_FD
+      echo "configure: error output was" >&AS_MESSAGE_LOG_FD
+      cat conftest.out >&AS_MESSAGE_LOG_FD
+    fi
+    rm -f conftest.o conftest.s conftest.out
+  fi])
+if test "x$gcc_cv_as_line_zero" = xyes; then
+  AC_DEFINE([HAVE_AS_LINE_ZERO], 1,
+[Define if the assembler won't complain about a line such as # 0 "" 2.])
 fi
 
 AC_MSG_CHECKING(linker read-only and read-write section mixing)

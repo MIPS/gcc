@@ -1213,7 +1213,7 @@ regular_file (st_parameter_open *opp, unit_flags *flags)
       break;
 
     case STATUS_REPLACE:
-        crflag = O_CREAT | O_TRUNC;
+      crflag = O_CREAT | O_TRUNC;
       break;
 
     default:
@@ -1229,14 +1229,14 @@ regular_file (st_parameter_open *opp, unit_flags *flags)
   mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
   fd = open (path, rwflag | crflag, mode);
   if (flags->action != ACTION_UNSPECIFIED)
-      return fd;
+    return fd;
 
   if (fd >= 0)
     {
       flags->action = ACTION_READWRITE;
       return fd;
     }
-  if (errno != EACCES)
+  if (errno != EACCES && errno != EROFS)
      return fd;
 
   /* retry for read-only access */
@@ -1872,7 +1872,7 @@ file_length (stream * s)
 /* file_position()-- Return the current position of the file */
 
 gfc_offset
-file_position (stream * s)
+file_position (stream *s)
 {
   return ((unix_stream *) s)->logical_offset;
 }
@@ -1882,12 +1882,21 @@ file_position (stream * s)
  * it is not */
 
 int
-is_seekable (stream * s)
+is_seekable (stream *s)
 {
   /* By convention, if file_length == -1, the file is not
      seekable.  */
   return ((unix_stream *) s)->file_length!=-1;
 }
+
+
+/* is_special()-- Return nonzero if the stream is not a regular file.  */
+
+is_special (stream *s)
+{
+  return ((unix_stream *) s)->special_file;
+}
+
 
 try
 flush (stream *s)

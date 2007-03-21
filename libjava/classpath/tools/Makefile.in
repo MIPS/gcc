@@ -220,6 +220,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 ECJ = @ECJ@
+ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
 ENABLE_LOCAL_SOCKETS_FALSE = @ENABLE_LOCAL_SOCKETS_FALSE@
 ENABLE_LOCAL_SOCKETS_TRUE = @ENABLE_LOCAL_SOCKETS_TRUE@
@@ -248,6 +249,8 @@ GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_LIBS = @GCONF_LIBS@
 GDK_CFLAGS = @GDK_CFLAGS@
 GDK_LIBS = @GDK_LIBS@
+GENINSRC_FALSE = @GENINSRC_FALSE@
+GENINSRC_TRUE = @GENINSRC_TRUE@
 GJDOC = @GJDOC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
@@ -472,6 +475,10 @@ EXTRA_DIST = toolwrapper.c gappletviewer.in gjarsigner.in gkeytool.in \
 
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*/*.java \
+	$(srcdir)/com/sun/javadoc/*.java \
+	$(srcdir)/com/sun/tools/doclets/*.java \
+	$(srcdir)/com/sun/tools/javac/*.java \
+	$(srcdir)/sun/rmi/rmic/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/attrs/*.java \
 	$(srcdir)/external/asm/org/objectweb/asm/commons/*.java \
@@ -1078,7 +1085,12 @@ dist-hook:
 # so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	find $(srcdir)/external/asm -name '*.java' -print > asm.lst
-	find $(srcdir)/gnu/classpath/tools -name '*.java' -print > classes.lst
+	find $(srcdir)/gnu/classpath/tools \
+	     $(srcdir)/com/sun/javadoc \
+	     $(srcdir)/com/sun/tools/doclets \
+	     $(srcdir)/com/sun/tools/javac \
+	     $(srcdir)/sun/rmi/rmic \
+	     -name '*.java' -print > classes.lst
 	if [ -f $(top_builddir)/../vm-tools-packages ]; then \
 	    : > vm-tools.lst; \
 	    for pkg in `cat $(top_builddir)/../vm-tools-packages`; do \
@@ -1091,7 +1103,9 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 @JAVA_MAINTAINER_MODE_TRUE@	AC=`echo $(JCOMPILER) | sed -e 's/UTF-8/ISO-8859-1/g'`; \
 @JAVA_MAINTAINER_MODE_TRUE@	  $$AC -g -w -d $(srcdir)/asm @asm.lst
 @JAVA_MAINTAINER_MODE_TRUE@	$(JCOMPILER) -g -w -d $(srcdir)/classes @classes.lst @vm-tools.lst
-@JAVA_MAINTAINER_MODE_TRUE@	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools -name \*.properties -print`; \
+@JAVA_MAINTAINER_MODE_TRUE@	@list=`cd $(top_srcdir)/resource && find gnu/classpath/tools \
+@JAVA_MAINTAINER_MODE_TRUE@	       com/sun/javadoc com/sun/tools/doclets com/sun/tools/javac \
+@JAVA_MAINTAINER_MODE_TRUE@	       sun/rmi/rmic -name \*.properties -print`; \
 @JAVA_MAINTAINER_MODE_TRUE@	for p in $$list; do \
 @JAVA_MAINTAINER_MODE_TRUE@	  dirname=classes/`dirname $$p`; \
 @JAVA_MAINTAINER_MODE_TRUE@	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \

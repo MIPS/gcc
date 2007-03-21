@@ -1,3 +1,98 @@
+2007-03-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cp-tree.def, parser.c, pt.c: Fix comment typos.
+
+2007-03-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* cvt.c (cp_convert_and_check) : Define.
+	* cp-tree.h (cp_convert_and_check): Declare.
+	* call.c (convert_conversion_warnings): Rename to
+	conversion_null_warnings.  The warning for floating-point to
+	integer is handled by convert_and_check in convert_like_real.
+	(convert_like_real): convert_conversion_warnings was renamed as
+	conversion_null_warnings.
+	* typeck.c (build_binary_op): Use cp_convert_and_check to warn for
+	overflow and changes of value during conversion.
+
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/30891
+	* parser.c (cp_parser_statement): If 'namespace' is found, this
+	only can be a namespace alias definition, so parse it now.
+	(cp_parser_namespace_alias_definition): if we find an open brace
+	instead of '=', then this is actually a misplaced namespace
+	definition.
+	
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24924
+	* decl.c (cxx_init_decl_processing): Move command-line options
+	processing to c-opts.c.
+	
+2007-03-15  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* ptree.c (cxx_print_type): Use formatting markup for integers
+	when printing template parameter index/level/orig level.
+	(cxx_print_xnode): Ditto.
+	* cp-tree.h (TEMPLATE_PARM_PARAMETER_PACK): Use TREE_LANG_FLAG_0.
+	(struct template_parm_index_s): Remove the PARAMETER_PACK member.
+	Make INDEX, LEVEL, and ORIG_LEVEL integers instead of
+	HOST_WIDE_INTs.
+	(struct saved_scope): Make X_PROCESSING_TEMPLATE_DECL an int,
+	rather than a HOST_WIDE_INT.
+	Turn X_PROCESSING_EXPLICIT_INSTANTIATION, SKIP_EVALUATION, and
+	NEED_POP_FUNCTION_CONTEXT into bool bitfields; reorder fields for
+	better bit-packing.
+	(struct language_function): Make RETURNS_VALUE, RETURNS_NULL,
+	RETURNS_ABNORMALLY, IN_FUNCTION_TRY_HANDLER, and
+	IN_BASE_INITIALIZER bool bitfields.
+	(struct cp_declarator): Make KIND a 4-bit field. Make
+	PARAMETER_PACK_P a bool bitfield just after KIND.
+	* pt.c (uses_parameter_packs): Destroy the pointer set.
+	(make_pack_expansion): Ditto.
+	(check_for_bare_parameter_packs): Ditto.
+	* name-lookup.c (push_to_top_level): Make need_pop a bool value.
+	
+2007-03-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/31165
+	* call.c  (convert_default_arg): Instead of copying the node,
+	unshare it.
+
+2007-03-15  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/30860
+	* call.c (convert_conversion_warnings): New..
+	(convert_like_real): .. factored out from here.
+	(convert_conversion_warnings): Add warning about
+	false being converted to NULL in argument passing.
+
+2007-03-14  Dirk Mueller  <dmueller@suse.de>
+
+	* cp/semantics.c (c_finish_if_stmt): Call empty_if_body_warning.
+	(finish_do_body): Warn about empty body in do/while statement.
+
+2007-03-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* class.c (warn_hidden): Add OPT_Woverloaded_virtual to warning.
+	
+2007-03-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/21438
+	* typeck.c (build_binary_op): Call warn_for_div_zero instead of
+	warning.
+	
+2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp/repo.c (init_repo): Initialize random_seed saved options.
+	(finish_repo): Adjust.
+
+2007-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR bootstrap/30899
+	* Make-lang.in (doc/g++.1): Use $< to specify the location from
+	which to copy.
+
 2007-03-12  Seongbae Park <seongbae.park@gmail.com>
 
 	* decl.c (compute_array_index_type): New warning flag warn_vla.

@@ -1,3 +1,576 @@
+2007-03-20  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* jump.c (mark_jump_label): Treat SEQUENCE specially.
+
+2007-03-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/vxlib.c (tls_delete_hook): Use TCB for kernel tasks.
+
+2007-03-19  Andrew Haley  <aph@redhat.com>
+
+	PR tree-optimization/31264
+	* tree-vrp.c (register_edge_assert_for_1): Don't look though
+	VIEW_CONVERT_EXPRs.
+
+2007-03-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/30907
+	* fwprop.c (forward_propagate_into): Never propagate inside a loop.
+	(fwprop_init): Always call loop_optimizer_initialize.
+	(fwprop_done): Always call loop_optimizer_finalize.
+	(fwprop): We always have loop info now.
+	(gate_fwprop_addr): Remove.
+	(pass_fwprop_addr): Use gate_fwprop as gate.
+
+	PR rtl-optimization/30841
+	* df-problems.c (df_ru_local_compute, df_rd_local_compute,
+	df_chain_alloc): Call df_reorganize_refs unconditionally.
+	* df-scan.c (df_rescan_blocks, df_reorganize_refs): Change
+	refs_organized to refs_organized_size.
+	(df_ref_create_structure): Use refs_organized_size instead of
+	bitmap_size if refs had been organized, and keep refs_organized_size
+	up-to-date.
+	* df.h (struct df_ref_info): Change refs_organized to
+	refs_organized_size.
+	(DF_DEFS_SIZE, DF_USES_SIZE): Use refs_organized_size instead of
+	bitmap_size.
+
+2007-03-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* except.c (output_function_exception_table): Do not reference the
+	EH personality routine for functions that do not require an
+	exception table.
+
+2007-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30762
+	* c-typeck.c (convert_for_assignment): Call comptypes for
+	RECORD_TYPE or UNION_TYPE.
+
+	PR inline-asm/30505
+	* reload1.c (reload): Do invalid ASM checking after
+	cleanup_subreg_operands.
+
+2007-03-19  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (find_taken_edge): Tighten conditions for
+	optimizing computed gotos.
+
+2007-03-19  Michael Matz  <matz@suse.de>
+
+	* builtins.c (expand_builtin_sync_operation,
+	expand_builtin_compare_and_swap,
+	expand_builtin_lock_test_and_set): Care for extending CONST_INTs
+	correctly.
+
+	* config/i386/sync.md (sync_double_compare_and_swapdi_pic,
+	sync_double_compare_and_swap_ccdi_pic): Use "SD" as constraint
+	for operand 3.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* doc/tm.texi: Add brackets around the return type of
+	TARGET_SECONDARY_RELOAD.
+
+2007-03-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31254
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1):
+	Use handled_component_p () where appropriate.  Continue
+	propagating into the rhs if we propagated into an INDIRECT_REF
+	on the lhs.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md (op_type attribute): RRR instruction type added.
+	(FP, DFP, SD_SF, DD_DF, TD_TF): New mode macros.
+	(xde, xdee): Mode attributes adjusted to support DFP modes.
+	(RRer, f0, op1, Rf, bt, bfp, HALF_TMODE): New mode attributes added.
+	("cmp<mode>", "*cmp<mode>_css_0", "*cmp<mode>_ccs", TF move splitters,
+	DF move splitters, "floatdi<mode>2", "add<mode>3", "*add<mode>3", 
+	"*add<mode>3_cc", "*add<mode>3_cconly", "sub<mode>3", "*sub<mode>3",
+	"*sub<mode>3_cc", "*sub<mode>3_cconly", "mul<mode>3", "*mul<mode>3",
+	"div<mode>3", "*div<mode>3", "*neg<mode>2_nocc", "*abs<mode>2_nocc",
+	"*negabs<mode>2_nocc", "copysign<mode>3"): Adjusted to support DFP 
+	numbers.
+	("*movtf_64", "*movtf_31", "*movdf_64dfp", "*movdf_64", "*movdf_31",
+	"movsf"): Insn definitions removed.
+	("*mov<mode>_64", "*mov<mode>_31", "mov<mode>", "*mov<mode>_64dfp",
+	"*mov<mode>_64", "*mov<mode>_31", "fix_trunc<DFP:mode>di2",
+	"trunctddd2", "truncddsd2", "extendddtd2", "extendsddd2"): Insn
+	definitions added.
+	("fixuns_truncdddi2", "fixuns_trunctddi2", "mov<mode>",
+	"reload_in<mode>", "reload_out<mode>"): Expander added.
+	("movtf", "movdf", "reload_outtf", "reload_outdf", "reload_intf"):
+	Expander removed.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md: Only non-functional changes.  Renamed
+	FPR mode macro to BFP all over the file.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md (UNSPEC_COPYSIGN): New constant.
+	(op_type attribute): RRF instruction type added.
+	(fT0): New mode attribute.
+	("*movdi_64dfp", "*movdf_64dfp", "*neg<mode>2_nocc", "*abs<mode>2_nocc",
+	"*negabs<mode>2_nocc", "copysign<mode>3"): Insn definitions added.
+	* config/s390/s390.h (SECONDARY_MEMORY_NEEDED): Due to a new instruction
+	no secondary memory is needed when moving DFmode values between GPRs
+	and FPRs.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.opt ("mhard-float", "msoft-float"): Bit value
+	inverted and documentation adjusted.
+	("mhard-dfp", "msoft-dfp"): New options.
+	* config/s390/s390.c (s390_handle_arch_option): New architecture
+	switch: z9-ec.
+	(override_options): Sanity checks for the new options added.
+	* config.gcc: New architecture switch: z9-ec.
+	* config/s390/s390.h (processor_flags): PF_DFP added.
+	(TARGET_CPU_DFP, TARGET_DFP): Macro definitions added.
+	(TARGET_DEFAULT): Due to the s390.opt changes hard float is enabled
+	when the bit is NOT set so remove it from the defaults.
+
+2007-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* genemit.c (main): Print include statement for dfp.h.
+	* dfp.h (decimal_real_arithmetic): Hide prototype if tree_code enum
+	is not available.
+
+2007-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/t-elfmulti (EXTRA_MULTILIB_PARTS): Do not define here.
+
+2007-03-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/31022
+	* config/sh/sh.c (sh_adjust_cost): Use the result of single_set
+	instead of PATTERN.
+
+2007-03-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (output_deferred_plabels, output_bb, output_millicode_call,
+	attr_length_call, output_call, output_indirect_call): Cleanup
+	formatting of targetm calls.
+
+2007-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (HANDLE_PRAGMA_PACK_PUSH_POP): Define to 1.
+
+2007-03-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md: Add fpstore_load and store_fpload instruction types.  Provide
+	reservation, bypass and anti-bypass descriptions for these instructions.
+	Update move patterns.
+	* pa.c (hppa_fpstore_bypass_p): Check for both TYPE_FPSTORE_LOAD and
+	TYPE_FPSTORE.
+	
+2007-03-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (get_initial_def_for_induction): Replace
+	GET_MODE_NUNITS with TYPE_VECTOR_SUBPARTS.
+	(get_initial_def_for_reduction): Likewise.
+
+2007-03-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/29922
+	* tree-ssa-pre.c (bb_bitmap_sets): Remove RVUSE_* members.
+	(get_representative): Removed.
+	(value_dies_in_block_x): Update for rvuse removal.
+	(valid_in_sets): Update for renaming of vuses_dies_in_block_x.
+	(compute_antic_aux): Handle when PHI nodes appear in
+	non-single-successors. 
+	(dump_bitmap_of_names): Removed.
+	(compute_antic_safe): Renamed and removed rvuse calculation.
+	Calculate only antic safe.
+	(insert_into_preds_of_block): Remove assert.
+	(execute_pre): Update for renamed functions.
+	(defer_or_phi_translate_block): New function.
+	
+2007-03-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/arm/arm.c, config/arm/thumb2.md, config/m68k/m68k.c,
+	config/spu/spu.c, omega.h, passes.c, predict.c: Fix comment
+	typos.
+	* doc/cpp.texi, doc/extend.texi, doc/invoke.texi: Fix typos.
+	Follow spelling conventions.
+
+	* tree-data-ref.h: Remove the prototype for analyze_array.
+
+2007-03-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31041
+	* tree-vect-transform.c (get_initial_def_for_induction): Call
+	force_gimple_operand.
+	
+2007-03-17  Olga Golovanevsky  <olga@il.ibm.com>
+  
+  	* ipa-type-escape.c (look_for_casts) : Revert code to use
+	handled_component_p due to ada test a-numaux.adb.
+
+2007-03-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* final.c (final_scan_insn): Alter the condition of a
+	conditional trap if we have nonstandard CC.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac: Remove excess quoting from asm line 0 test.
+	* configure: Rebuilt.
+
+2007-03-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (-Wconversion): Document warnings specific to C++.
+	* c-common.c (convert_and_check): Move warning logic to...
+	(warnings_for_convert_and_check): ...here. Define.
+	* c-common.h (warnings_for_convert_and_check): Declare.
+	
+2007-03-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (attr_length_call): Partially revert change of 2007-03-09.
+	(output_call): Likewise.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/vxworks.h (SUPPORTS_INIT_PRIORITY): Define.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/vx-common.h (WINT_TYPE, WINT_TYPE_SIZE): Define.
+
+2007-03-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (override_options): Add PTA_NO_SAHF to k8,
+	opteron, athlon-64 and athlon-fx processor_alias_table entries.
+
+2007-03-16  Sebastian Pop  <sebastian.pop@inria.fr>
+
+	PR tree-optimization/31183
+	* tree-loop-linear.c (gather_interchange_stats, try_interchange_loops): 
+	Use double_int instead of unsigned int for representing access_strides.
+	* testsuite/gcc.dg/tree-ssa/pr31183.c: New.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Restructure
+	to allow recursion of forward_propagate_addr_expr.
+	(forward_propagate_addr_into_variable_array_index): Likewise.
+	(forward_propagate_addr_expr): Likewise.
+	(tree_ssa_forward_propagate_single_use_vars): Likewise.
+	(forward_propagate_addr_expr_1): Recurse on simple copies
+	instead of propagating into them.  Do so for useless conversions
+	as well.
+	(forward_propagate_addr_expr): Clean up unused statements after
+	recursion.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (expand_builtin_cexpi): Use the right argument
+	for the expansion via cexp.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac: Don't require ELF binutils to tolerate # 0 "".
+	* configure: Rebuilt.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* dwarf2out.c (force_type_die): Adjust comment.
+	(dwarf2out_imported_module_or_decl): Handle base AT_import types.
+
+2007-03-15  DJ Delorie  <dj@redhat.com>
+
+	* config/frv/predicates.md (minmax_operator): Don't check operands
+	here.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (record_estimate): Add "upper" argument.
+	Update constant estimates of number of iterations.
+	(record_nonwrapping_iv): Add "upper" argument.  "data_size_bounds_p"
+	argument renamed to "realistic".
+	(compute_estimated_nb_iterations): Removed.
+	(record_niter_bound): New function.
+	(idx_infer_loop_bounds): For possible but unlikely tail arrays,
+	call record_nonwrapping_iv with upper = false.
+	(infer_loop_bounds_from_signedness): Pass upper argument to
+	record_nonwrapping_iv.
+	(estimate_numbers_of_iterations_loop): Do not call
+	compute_estimated_nb_iterations.  Record estimate based on profile
+	information.  Initialize the constant estimates of number of
+	iterations.
+	* tree-data-ref.c (estimated_loop_iterations): Return the recorded
+	estimates.
+	* tree-ssa-loop-prefetch.c (loop_prefetch_arrays): Add dump when
+	number of iterations is too small.
+	* cfgloop.h (struct nb_iter_bound): Remove "realistic" field.
+	(EST_NOT_AVAILABLE): Removed.
+	(struct loop): Replace estimated_nb_iterations by any_upper_bound,
+	nb_iterations_upper_bound, any_estimate and nb_iterations_estimate
+	fields.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (refine_bounds_using_guard, bound_difference):
+	Handle NE_EXPR guards.
+
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24924
+	* c-opts.c (c_common_post_options): Handle C++ post-processing here.
+	Set also -pedantic-errors by default for the  preprocessor unless
+	-fpermissive is given.
+	
+2007-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/29719
+	PR middle-end/31161
+	* builtins.c (expand_builtin_cexpi): As a fallback if we
+	don't have builtins for sincos or cexp create a function
+	declaration for cexp and expand to a call to that.
+	(expand_builtin_int_roundingfn): Always fall
+	back to floor/ceil and its variants even if they may be
+	not available.
+
+2007-03-15  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/31159
+	* cfglayout.c (fixup_reorder_chain): Postpone deleting dead
+	jump tables, move the call to delete_dead_jumptables from here...
+	(cfg_layout_finalize): ...to here.  But rebuild jump labels first.
+	* cfgrtl.c (cfg_layout_can_merge_blocks_p): When not optimizing,
+	don't allow merging of blocks that try_redirect_by_replacing_jump
+	also does not handle when not optimizing.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* config/i386/i386.md (x86_sahf_1): Correctly handle
+	HAVE_AS_IX86_SAHF.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31167
+	* config/i386/i386.md (*addti3_1, *addti3_1 splitter): Use
+	x86_64_general_operand as operand[2] predicate.  Remove "iF"
+	from operand constraints and use "e" constraint instead.
+	(*subti3_1, *subti3_1 splitter): Ditto.
+	(*negti2_1, *negti2_1 splitter): Use nonimmediate_operand as
+	operand[1] predicate.
+
+2007-03-14  Sebastian Pop  <sebastian.pop@inria.fr>
+
+	* tree-loop-linear.c (gather_interchange_stats): For multidimensional
+	arrays, multiply the access strides by the size of the sub-array.
+	* testsuite/gcc.dg/tree-ssa/ltrans-5.c: New.
+
+2007-03-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* configure.ac (HAVE_AS_IX86_SAHF): On x86 targets check whether
+	the configured assembler supports the sahf mnemonic.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* config/i386/i386.md (x86_sahf_1): Depending on HAVE_AS_IX86_SAHF,
+	emit "sahf" or ".byte\t0x9e" as asm template.
+
+2007-03-14  Michael Meissner  <michael.meissner@amd.com>
+
+	PR 31018
+	* config/i386/i386.h (X86_TUNE_SHORTEN_X87_SSE): New tuning
+	option to replace hard coded TARGET_xxx in md file.
+	(X86_TUNE_AVOID_VECTOR_DECODE): Ditto.
+	(X86_TUNE_SLOW_IMUL_IMM32_MEM): Ditto.
+	(X86_TUNE_SLOW_IMUL_IMM8): Ditto.
+	(X86_TUNE_MOVE_M1_VIA_OR): Ditto.
+	(X86_TUNE_NOT_UNPAIRABLE): Ditto.
+	(X86_TUNE_NOT_VECTORMODE): Ditto.
+	(TUNE_SHORTEN_X87_SSE): Use new tuning option.
+	(TUNE_AVOID_VECTOR_DECODE): Ditto.
+	(TUNE_SLOW_IMUL_IMM32_MEM): Ditto.
+	(TUNE_SLOW_IMUL_IMM8): Ditto.
+	(TUNE_MOVE_M1_VIA_OR): Ditto.
+	(TUNE_NOT_UNPAIRABLE): Ditto.
+	(TUNE_NOT_VECTORMODE): Ditto.
+	
+	* config/i386/i386.c (ix86_tune_features): Fill in new tuning
+	options.
+
+	* config/i386/i386.md (fix_trunc?f?1_sse peephole2): Use new
+	tuning options instead of hard coded TARGET_xxx.
+	(fix ssemode peephole2's): Ditto.
+	(imul peephole2's): Ditto.
+	(movsi_or): Ditto.
+	(movdi_or_rex64): Ditto.
+	(move peephole2): Ditto.
+	(not peephole2's): Ditto.
+
+2007-03-14  Dirk Mueller  <dmueller@suse.de>
+
+	* c-common.h (empty_body_warning): Rename to empty_if_body_warning.
+	* c-common.c (empty_if_body_warning): Rephrase diagnostic message.
+	* c-parser.c (c_parser_if_body): Always add an empty statement in case
+	of empty body.
+	* c-parser.c (c_parser_do_statement): Warn about empty body in
+	do/while statement.
+	* c-typeck (c_finish_if_stmt): Call empty_if_body_warning.
+	* doc/invoke.texi (-Wempty-body): Update documentation.
+
+2007-03-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/21438
+	* c-common.h (warn_for_div_by_zero): Declare.
+	* c-common.c (warn_for_div_by_zero): Define.
+	* c-typeck.c (build_binary_op): Call warn_for_div_zero instead of
+	warning.
+
+2007-03-14  Richard Sandiford  <richard@codesourcery.com>
+
+	* Makefile.in (PREPROCESSOR_DEFINES): Add directory terminators
+	to PREFIX and STANDARD_PREFIX.
+
+2007-03-14  Richard Sandiford  <richard@codesourcery.com>
+	    Phil Edwards  <phil@codesourcery.com>
+
+	* gthr-vxworks.h: Add an extern "C" wrapper for C++.
+	(__gthread_once_t): Remove busy field for RTPs.
+	(__GTHREAD_ONCE_INIT): Update accordingly.
+
+2007-03-14  Richard Sandiford  <richard@codesourcery.com>
+
+	* doc/invoke.texi: Document VxWorks options.
+
+2007-03-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/invoke.texi (i386 and x86-64 Options): Clarify -msahf option.
+
+2007-03-13  Seongbae Park <seongbae.park@gmail.com>
+
+	PR tree-optimization/30590
+	* tree-nrv.c (tree_nrv): Check for the partial update of the
+	return value.
+
+2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* flags.h (flag_random_seed): Remove declaration, in favor of...
+	* toplev.h (get_random_seed, set_random_seed): ... these.
+	* tree.c (get_file_function_name): Use the former.
+	* opts.c (common_handle_option): Use the latter.
+	* toplev.c
+
+2007-03-13  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/31127
+	* cse.c (cse_find_path): Do not bail out if a basic block that
+	we already visited now becomes part of a path that starts at a
+	different basic block.  Just disallow this, to make sure we
+	visit each basic block at most once.
+
+2007-03-13  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_maybe_hot_edge_p): Look for hot/cold attributes,
+	when profile esitmate is present, calls with very low frequency are
+	cold.
+
+2007-03-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/30730
+	PR tree-optimization/26900
+	* tree-ssa-loop-niter.c: Include gmp.h.
+	(bounds): New type.
+	(mpz_set_double_int, get_type_bounds, mpz_to_double_int,
+	split_to_var_and_offset, determine_value_range,
+	bound_difference_of_offsetted_base, refine_bounds_using_guard,
+	bound_difference, bounds_add, bounds_negate,
+	number_of_iterations_ne_max, dump_affine_iv): New functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_loop_rolls_lt, assert_loop_rolls_le): Use bounds on the
+	difference of initial and final value of control iv to validate
+	results.
+	(number_of_iterations_cond): Add loop parameter.  Determine bounds
+	on the difference of the extremes of the control iv.  Add dumps.
+	(expand_simple_operations): Handle phi nodes.
+	(simplify_using_initial_conditions): Do not record used conditions.
+	(number_of_iterations_exit): Pass loop to number_of_iterations_cond.
+	Do not set additional_info.
+	(implies_nonnegative_p, implies_ge_p): Removed.
+	(derive_constant_upper_bound): Do not use parameter `additional'.
+	(record_estimate): Parameter `additional' removed.  Parameter
+	`i_bound' added.  Do not call derive_constant_upper_bound.
+	(record_nonwrapping_iv): Use derive_constant_upper_bound to
+	bound the number of iterations estimate.
+	(estimate_numbers_of_iterations_loop): Pass the estimate from
+	the number of iterations analysis to record_estimate.
+	* tree.h (multiple_of_p): Declare.
+	* tree-scalar-evolution.c (expression_expensive_p): Removed.
+	(scev_const_prop): Do not check expression_expensive_p.
+	* fold-const.c (multiple_of_p): Exported.
+	* double-int.c (double_int_mask): Exported.
+	* double-int.h (double_int_mask): Declare.
+	* tree-flow.h (struct tree_niter_desc): Removed additional_info
+	field.  Added max field.
+
+2007-03-13  David Taylor  <taylor@candd.org>
+
+	PR driver/12448:
+	* gcc.c (cpp_unique_options): If -MT or -MQ is seen, don't pass
+	default -MQ.
+
+2007-03-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/31123
+	* pa.md (vdepi_ior): Don't allow zero length deposit.  Likewise for
+	two unamed patterns.
+	
+2007-03-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.opt (mcx16, msahf): New options.
+	* config/i386/i386.c (x86_cmpxchg16b, x86_sahf): Remove.
+	(ix86_tune_features) [X86_TUNE_USE_SAHF]: Enable for m_GENERIC.
+
+	* config/i386/driver-i386.c (bit_LAHF_LM): New define.
+	(host_detect_local_cpu): Detect cx16 and lahf_lm cpuid bits.
+	Output -mcx16 and -msahf options when corresponding bit is set.
+
+	* doc/invoke.texi (i386 and x86-64 Options): Document -mcx16
+	and -msahf options.
+
+2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac: Test for assembler tolerance to # 0 "".
+	* configure, config.in: Rebuilt.
+	* final.c (final_scan_insn): Emit it if HAVE_AS_LINE_ZERO.
+
+2007-03-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/invoke.texi (Spec Files): Update for '%{,' spec.
+
+	* config/rs6000/darwin-fallback.c: Compile file only on powerpc.
+	(handle_syscall): Handle direct system calls.
+	* config/rs6000/darwin.h (HAS_MD_FALLBACK_FRAME_STATE_FOR): Delete.
+
+2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* doc/invoke.texi: Fix cpp.info cross-reference.
+	* doc/passes.texi: Fix gcc.info cross-reference.
+
+2007-03-12  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/30835
+	* lambda-code.c (can_convert_to_perfect_nest): Check whether
+	bb_for_stmt is not NULL before accessing it.
+
+2007-03-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (main): Handle target_sysroot_hdrs_suffix being NULL for
+	some multilibs.
+
 2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	PR 30635
@@ -51,9 +624,9 @@
 
 2007-03-12  Richard Henderson  <rth@redhat.com>
 
-        * config/darwin.c (machopic_reloc_rw_mask): New.
-        * config/darwin-protos.h (machopic_reloc_rw_mask): Declare.
-        * config/darwin.h (TARGET_ASM_RELOC_RW_MASK): New.
+	* config/darwin.c (machopic_reloc_rw_mask): New.
+	* config/darwin-protos.h (machopic_reloc_rw_mask): Declare.
+	* config/darwin.h (TARGET_ASM_RELOC_RW_MASK): New.
 
 2007-03-12  Mark Mitchell  <mark@codesourcery.com>
 

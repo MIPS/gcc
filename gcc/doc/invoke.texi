@@ -543,7 +543,7 @@ Objective-C and Objective-C++ Dialects}.
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
--mpreferred-stack-boundary=@var{num} @gol
+-mpreferred-stack-boundary=@var{num} -mcx16 -msahf @gol
 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4a -m3dnow -mpopcnt -mabm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
@@ -770,6 +770,10 @@ See RS/6000 and PowerPC Options.
 
 @emph{VAX Options}
 @gccoptlist{-mg  -mgnu  -munix}
+
+@emph{VxWorks Options}
+@gccoptlist{-mrtp  -non-static  -Bstatic  -Bdynamic @gol
+-Xbind-lazy  -Xbind-now}
 
 @emph{x86-64 Options}
 See i386 and x86-64 Options.
@@ -1372,10 +1376,10 @@ C99 semantics for @code{inline} when in C99 or gnu99 mode (i.e., it
 specifies the default behavior).  This option was first supported in
 GCC 4.3.  This option is not supported in C89 or gnu89 mode.
 
-The preprocesor macros @code{__GNUC_GNU_INLINE__} and
+The preprocessor macros @code{__GNUC_GNU_INLINE__} and
 @code{__GNUC_STDC_INLINE__} may be used to check which semantics are
 in effect for @code{inline} functions.  @xref{Common Predefined
-Macros,,,cpp.info,The C Preprocessor}.
+Macros,,,cpp,The C Preprocessor}.
 
 @item -aux-info @var{filename}
 @opindex aux-info
@@ -3132,8 +3136,9 @@ functions.  This warning can be independently controlled by
 @option{-Wmissing-parameter-type}.
 
 @item
-An empty body occurs in an @samp{if} or @samp{else} statement. This
-warning can be independently controlled by @option{-Wempty-body}.
+An empty body occurs in an @samp{if}, @samp{else} or
+@samp{do while} statement. This warning can be independently
+controlled by @option{-Wempty-body}.
 
 @item
 A pointer is compared against integer zero with @samp{<}, @samp{<=},
@@ -3391,10 +3396,16 @@ like @code{unsigned ui = -1}; and conversions to smaller types, like
 ((int) x)} and @code{ui = (unsigned) -1}, or if the value is not
 changed by the conversion like in @code{abs (2.0)}.
 
+For C++, also warn for conversions between @code{NULL} and non-pointer
+types; confusing overload resolution for user-defined conversions; and
+conversions that will never use a type conversion operator:
+conversions to @code{void}, the same type, a base class or a reference
+to them.
+
 @item -Wempty-body
 @opindex Wempty-body
-An empty body occurs in an @samp{if} or @samp{else} statement. 
-This warning is also enabled by @option{-Wextra}.
+An empty body occurs in an @samp{if}, @samp{else} or @samp{do while}
+statement.  This warning is also enabled by @option{-Wextra}.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -7587,12 +7598,19 @@ Substitutes @code{X}, if processing a file with suffix @code{S}.
 @item %@{!.@code{S}:@code{X}@}
 Substitutes @code{X}, if @emph{not} processing a file with suffix @code{S}.
 
+@item %@{,@code{S}:@code{X}@}
+Substitutes @code{X}, if processing a file for language @code{S}.
+
+@item %@{!,@code{S}:@code{X}@}
+Substitutes @code{X}, if not processing a file for language @code{S}.
+
 @item %@{@code{S}|@code{P}:@code{X}@}
-Substitutes @code{X} if either @code{-S} or @code{-P} was given to GCC@.
-This may be combined with @samp{!}, @samp{.}, and @code{*} sequences as well,
-although they have a stronger binding than the @samp{|}.  If @code{%*}
-appears in @code{X}, all of the alternatives must be starred, and only
-the first matching alternative is substituted.
+Substitutes @code{X} if either @code{-S} or @code{-P} was given to
+GCC@.  This may be combined with @samp{!}, @samp{.}, @samp{,}, and
+@code{*} sequences as well, although they have a stronger binding than
+the @samp{|}.  If @code{%*} appears in @code{X}, all of the
+alternatives must be starred, and only the first matching alternative
+is substituted.
 
 For example, a spec string like this:
 
@@ -7615,7 +7633,7 @@ jim.d         -bar -boggle
 If @code{S} was given to GCC, substitutes @code{X}; else if @code{T} was
 given to GCC, substitutes @code{Y}; else substitutes @code{D}.  There can
 be as many clauses as you need.  This may be combined with @code{.},
-@code{!}, @code{|}, and @code{*} as needed.
+@code{,}, @code{!}, @code{|}, and @code{*} as needed.
 
 
 @end table
@@ -7754,6 +7772,7 @@ platform.
 * TMS320C3x/C4x Options::
 * V850 Options::
 * VAX Options::
+* VxWorks Options::
 * x86-64 Options::
 * Xstormy16 Options::
 * Xtensa Options::
@@ -10073,6 +10092,23 @@ perform runtime CPU detection must compile separate files for each
 supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
+
+@item -mcx16
+@opindex -mcx16
+This option will enable GCC to use CMPXCHG16B instruction in generated code.
+CMPXCHG16B allows for atomic operations on 128-bit double quadword (or oword)
+data types.  This is useful for high resolution counters that could be updated
+by multiple processors (or cores).  This instruction is generated as part of
+atomic built-in functions: see @ref{Atomic Builtins} for details.
+
+@item -msahf
+@opindex -msahf
+This option will enable GCC to use SAHF instruction in generated 64-bit code.
+Early Intel CPUs with Intel 64 lacked LAHF and SAHF instructions supported
+by AMD64 until introduction of Pentium 4 G1 step in December 2005.  LAHF and
+SAHF are load and store instructions, respectively, for certain status flags.
+In 64-bit mode, SAHF instruction is used to optimize @code{fmod}, @code{drem}
+or @code{remainder} built-in functions: see @ref{Other Builtins} for details.
 
 @item -mpush-args
 @itemx -mno-push-args
@@ -13800,6 +13836,46 @@ will assemble with the GNU assembler.
 @item -mg
 @opindex mg
 Output code for g-format floating point numbers instead of d-format.
+@end table
+
+@node VxWorks Options
+@subsection VxWorks Options
+@cindex VxWorks Options
+
+The options in this section are defined for all VxWorks targets.
+Options specific to the target hardware are listed with the other
+options for that target.
+
+@table @gcctabopt
+@item -mrtp
+@opindex mrtp
+GCC can generate code for both VxWorks kernels and real time processes
+(RTPs).  This option switches from the former to the latter.  It also
+defines the preprocessor macro @code{__RTP__}.
+
+@item -non-static
+@opindex non-static
+Link an RTP executable against shared libraries rather than static
+libraries.  The options @option{-static} and @option{-shared} can
+also be used for RTPs (@pxref{Link Options}); @option{-static}
+is the default.
+
+@item -Bstatic
+@itemx -Bdynamic
+@opindex Bstatic
+@opindex Bdynamic
+These options are passed down to the linker.  They are defined for
+compatibility with Diab.
+
+@item -Xbind-lazy
+@opindex Xbind-lazy
+Enable lazy binding of function calls.  This option is equivalent to
+@option{-Wl,-z,now} and is defined for compatibility with Diab.
+
+@item -Xbind-now
+@opindex Xbind-now
+Disable lazy binding of function calls.  This option is the default and
+is defined for compatibility with Diab.
 @end table
 
 @node x86-64 Options

@@ -1060,26 +1060,23 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
    block.  */
 
 void
-empty_body_warning (tree inner_then, tree inner_else)
+empty_if_body_warning (tree inner_then, tree inner_else)
 {
-  if (warn_empty_body)
-    {
-      if (TREE_CODE (inner_then) == STATEMENT_LIST
-	  && STATEMENT_LIST_TAIL (inner_then))
-	inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
+  if (TREE_CODE (inner_then) == STATEMENT_LIST
+      && STATEMENT_LIST_TAIL (inner_then))
+    inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
 
-      if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
-	  && STATEMENT_LIST_TAIL (inner_else))
-	inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
+  if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
+      && STATEMENT_LIST_TAIL (inner_else))
+    inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
 
-      if (IS_EMPTY_STMT (inner_then) && !inner_else)
-	warning (OPT_Wempty_body, "%Hempty body in an if-statement",
-		 EXPR_LOCUS (inner_then));
+  if (IS_EMPTY_STMT (inner_then) && !inner_else)
+    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
+             "in an %<if%> statement", EXPR_LOCUS (inner_then));
 
-      if (inner_else && IS_EMPTY_STMT (inner_else))
-	warning (OPT_Wempty_body, "%Hempty body in an else-statement",
-		 EXPR_LOCUS (inner_else));
-   }
+  else if (inner_else && IS_EMPTY_STMT (inner_else))
+    warning (OPT_Wempty_body, "%Hsuggest braces around empty body "
+             "in an %<else%> statement", EXPR_LOCUS (inner_else));
 }
 
 /* Warn for unlikely, improbable, or stupid DECL declarations
@@ -1175,7 +1172,7 @@ vector_types_convertible_p (tree t1, tree t2, bool emit_lax_note)
 }
 
 /* Warns if the conversion of EXPR to TYPE may alter a value.
-   This function is called from convert_and_check.  */
+   This is a helper function for warnings_for_convert_and_check.  */
 
 static void
 conversion_warning (tree type, tree expr)
@@ -1283,23 +1280,13 @@ conversion_warning (tree type, tree expr)
     }
 }
 
-/* Convert EXPR to TYPE, warning about conversion problems with constants.
-   Invoke this function on every expression that is converted implicitly,
-   i.e. because of language rules and not because of an explicit cast.  */
+/* Produce warnings after a conversion. RESULT is the result of
+   converting EXPR to TYPE.  This is a helper function for
+   convert_and_check and cp_convert_and_check.  */
 
-tree
-convert_and_check (tree type, tree expr)
+void
+warnings_for_convert_and_check (tree type, tree expr, tree result)
 {
-  tree result;
-
-  if (TREE_TYPE (expr) == type)
-    return expr;
-  
-  result = convert (type, expr);
-
-  if (skip_evaluation || TREE_OVERFLOW_P (expr))
-    return result;
-
   if (TREE_CODE (expr) == INTEGER_CST
       && (TREE_CODE (type) == INTEGER_TYPE
           || TREE_CODE (type) == ENUMERAL_TYPE)
@@ -1340,7 +1327,26 @@ convert_and_check (tree type, tree expr)
              "overflow in implicit constant conversion");
   else if (warn_conversion)
     conversion_warning (type, expr);
+}
+
+
+/* Convert EXPR to TYPE, warning about conversion problems with constants.
+   Invoke this function on every expression that is converted implicitly,
+   i.e. because of language rules and not because of an explicit cast.  */
+
+tree
+convert_and_check (tree type, tree expr)
+{
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
   
+  result = convert (type, expr);
+
+  if (!skip_evaluation && !TREE_OVERFLOW_P (expr))
+    warnings_for_convert_and_check (type, expr, result);
+
   return result;
 }
 
@@ -7251,5 +7257,18 @@ c_build_cdtor_fns (void)
 #ifndef TARGET_HAS_TARGETCM
 struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
 #endif
+
+/* Warn for division by zero according to the value of DIVISOR.  */
+
+void
+warn_for_div_by_zero (tree divisor)
+{
+  /* If DIVISOR is zero, and has integral type, issue a warning about
+     division by zero.  Do not issue a warning if DIVISOR has a
+     floating-point type, since we consider 0.0/0.0 a valid way of
+     generating a NaN.  */
+  if (skip_evaluation == 0 && integer_zerop (divisor))
+    warning (OPT_Wdiv_by_zero, "division by zero");
+}
 
 #include "gt-c-common.h"

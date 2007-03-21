@@ -1,3 +1,132 @@
+2007-03-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31203
+	* trans-expr.c (gfc_trans_init_string_length): Length should
+	never be negative.
+	(gfc_conv_function_call): Likewise.
+
+2007-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30531
+	PR fortran/31086
+	* symbo.c : Add gfc_derived_types.
+	(gfc_free_dt_list): Free derived type list gfc_derived_types.
+	(gfc_free_namespace): Remove call to gfc_free_dt_list.
+	(gfc_symbol_done_2): Call  gfc_free_dt_list.
+	* gfortran.h : Declare gfc_derived_types to be external. Remove
+	derived types field from gfc_namespace.
+	* resolve.c (resolve_fl_derived): Refer to gfc_derived types
+	rather than namespace derived_types.
+	(resolve_fntype): Remove special treatment for module
+	derived type functions.
+	* trans-types.c (gfc_get_derived_type): Remove search for like
+	derived types.  Finish by copying back end declaration to like
+	derived types in the derived type list gfc_derived_types.
+
+	2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31120
+	* trans-expr.c (gfc_conv_powi): Make n argument unsigned hwi.
+	(gfc_conv_cst_int_power): Handle integer exponent with care,
+	since it might be too large for us.
+
+2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31184
+	* invoke.texi: Fix typo.
+
+2007-03-16  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_generate_function_code): Use all arguments of
+	  set_std.
+
+2007-03-15  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.h (gfc_option_t): Add flag_backtrace field.
+	* lang.opt: Add -fbacktrace option.
+	* invoke.texi: Document the new option.
+	* trans-decl.c (gfc_build_builtin_function_decls): Add new
+	option to the call to set_std.
+	* options.c (gfc_init_options, gfc_handle_option): Handle the
+	new option.
+
+2007-03-15  Tobias Burnus  <burnus@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30922
+	* decl.c (gfc_match_import): If the parent of the current name-
+	space is null, try looking for an imported symbol in the parent
+	of the proc_name interface.
+	* resolve.c (resolve_fl_variable): Do not check for blocking of
+	host association by a same symbol, if the symbol is in an
+	interface body.
+
+2007-03-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30879
+	* decl.c (match_data_constant): Before going on to try to match
+	a name, try to match a structure component.
+
+
+	PR fortran/30870
+	* resolve.c (resolve_actual_arglist): Do not reject a generic
+	actual argument if it has a same name specific interface.
+
+	PR fortran/31163
+	* trans-array.c (parse_interface): Do not nullify allocatable
+	components if the symbol has the saved attribute.
+
+2007-03-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* trans-array.c (gfc_trans_auto_array_allocation): Replace
+	fold(convert()) by fold_convert().
+	(gfc_duplicate_allocatable): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_dot_product): Use
+	build_int_cst instead of converting an integer_zero_node
+	to the final type.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* module.c (mio_typespec): Don't look at ts->cl if not BT_CHARACTER.
+
+2007-03-13  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/30933
+	PR fortran/30948
+	PR fortran/30953
+	* intrinsics.texi (CHDIR): Fix argument names, note
+	that STATUS must be a default integer.
+	(CTIME): Fix argument names, note that RESULT must
+	be a default integer.
+	(EXIT): Note that STATUS must be a default integer.
+
+2007-03-13  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/28068
+	* intrinsic.texi: General whitespace cleanup, remove
+	comment about missing intrinsics.
+	(menu): Add lines for new entries listed below.
+	(ACOSH): Mention specific function DACOSH, correct
+	description phrasing.
+	(ASINH): Mention specific function DASINH, correct
+	description phrasing.
+	(ATANH): Mention specific function DATANH, correct
+	description phrasing.
+	(COS): Add index entry for CCOS.
+	(CPU_TIME): Correct "REAL" to "REAL(*)".
+	(EXP): Add index entry for CEXP.
+	(INT): Correct argument name to "A".
+	(INT2): New entry.
+	(INT8): New entry.
+	(LONG): New entry.
+	(MAX): Add index entries for specific variants.
+	(MCLOCK): New entry.
+	(MCLOCK8): New entry.
+	(SECNDS): Adjust to a more standard form.
+	(SECOND): New entry.
+	(TIME): Add cross-reference to MCLOCK.
+	(TIME8): Add cross-reference to MCLOCK8.
+
 2007-03-11  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/30883

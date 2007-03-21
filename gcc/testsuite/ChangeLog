@@ -1,16 +1,242 @@
+2007-03-19  Seongbae Park <seongbae.park@gmail.com>
+
+	PR tree-optimization/30590
+	* g++.dg/opt/pr30590.C: New testcase.
+
+2007-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30762
+	* gcc.dg/pr30762-1.c: New test.
+	* gcc.dg/pr30762-2.c: New test.
+
+	PR inline-asm/30505
+	* gcc.target/i386/pr30505.c: New test.
+
+2007-03-19  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc.target/arm/register-variables.c: New.
+
+2007-03-19  Jeff Law  <law@redhat.com>
+
+	* PR tree-optimization/30984
+	* gcc.c-torture/pr30984.c: New test.
+
+2007-03-19  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31254
+	* gcc.dg/torture/pr31254.c: New testcase.
+
+2007-03-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/torture/pr26565.c: Expect warning on packed field for
+	target default_packed.
+
+2007-03-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31203
+	* gfortran.dg/string_length_1.f90: New test.
+
+2007-03-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/30395
+	* gcc.dg/pr16194.c: Provide define for REG on __hppa__.
+
+2007-03-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31052
+	* gfortran.dg/namelist_27.f90: New test.
+
+2007-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30531
+	* gfortran.dg/used_types_14.f90: New test.
+
+	PR fortran/31086
+	* gfortran.dg/used_types_15.f90: New test.
+
+2007-03-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/no-tree-dom-vect-bug.c: New test.
+	* gcc.dg/vect/vect.exp: Compile tests with -fno-tree-dominator-opts.
+ 
+2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31120
+	* gfortran.dg/integer_exponentiation_2.f90: New test.
+
+2007-03-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31041
+	* gcc.dg/vect/pr31041.c: New test.
+
+2007-03-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* g++.dg/warn/Wconversion-integer.C: New
+	* g++.dg/warn/Wconversion-real.C: New.
+	* g++.dg/warn/Wconversion-real-integer.C: New.
+	* g++.dg/warn/conv2.C: Updated.
+	
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/intmax_t-1.c: Restrict XFAIL to VxWorks kernels;
+	exclude RTPs.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* g++.dg/tree-ssa/pr31146.C: New testcase.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_missing_uclibc_feature): Don't
+	assume that the target has <features.h>.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/20020426-2.c: Add the fpic requirement to the PIC
+	dg-options rather than to the whole test.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* g++.dg/debug/pr29906.C: New
+
+2007-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31099
+	* gfortran.dg/unformatted_recl.f90: Update test.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/prefetch-5.c: New test.
+
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/30891
+	* g++.dg/parse/namespace-definition.C: New.
+	
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24924
+	* g++.dg/cpp/pedantic-errors.C: New.
+	* g++.dg/cpp/permissive.C: New.
+	
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* g++.dg/opt/mmx1.C: Only use the PIC options for fpic targets.
+	* g++.old-deja/g++.other/store-expr1.C: Require fpic.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_missing_uclibc_feature)
+	(check_effective_target_wchar): New procedures.
+	* gcc.dg/wchar_t-1.c: Require target wchar.
+	* gcc.dg/wint_t-1.c: Likewise.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_gc_sections_available): Return
+	false for VxWorks targets.
+
+2007-03-15  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.dg/warn/Wconversion2.C: Fix typo.
+	* gcc.dg/if-empty-1.c: Ditto.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/cpp/assert4.c: Treat VxWorks as a unix target.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/cmpxchg16b-1.c: Compile for lp64 targets only.
+	* gcc.target/i386/pr31167.c: Ditto.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31167
+	* gcc.target/i386/pr31167.c: New test.
+
+2007-03-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30922
+	* gfortran.dg/import5.f90.f90: New test.
+
+
+	PR fortran/30879
+	* gfortran.dg/data_components_1.f90: New test.
+
+
+	PR fortran/30870
+	* gfortran.dg/generic_13.f90: New test.
+
+	PR fortran/31163
+	* gfortran.dg/alloc_comp_basics_5.f90: New test.
+
+2007-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31051
+	* gfortran.dg/fmt_t_4.f90: New
+
+2007-03-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/31165
+	* g++.dg/other/default7.C: New test.
+
+2007-03-15  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.dg/warn/Wconversion2.C: New.
+
+2007-03-14  Eric Christopher  <echristo@apple.com>
+
+	* gcc.dg/ssp-1.c: New.
+	* gcc.dg/ssp-2.c: Ditto.
+
+2007-03-14  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.dg/warn/do-empty.C: New.
+	* gcc.dg/do-empty.c: New.
+	* gcc.dg/if-empty-1.c: Update.
+	* gcc.dg/20001116-1.c: Update.
+	* gcc.dg/pr23165.c: Update.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/module_implicit_conversion.f90: New test.
+
+2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/31127
+	* gcc.dg/pr31127.c: New.
+
+2007-03-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-26.c: New test.
+
+2007-03-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/cmpxchg16b-1.c: New test.
+
 2007-03-20  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-ponit/convert.c: New test for conversions.
 
 2007-03-12  Seongbae Park <seongbae.park@gmail.com>
 
- 	* gcc.dg/wvla-1.c: New test
- 	* gcc.dg/wvla-2.c: New test
- 	* gcc.dg/wvla-3.c: New test
- 	* gcc.dg/wvla-4.c: New test
- 	* gcc.dg/wvla-5.c: New test
- 	* gcc.dg/wvla-6.c: New test
- 	* gcc.dg/wvla-7.c: New test
+	* gcc.dg/c90-vla-1.c: Reflect the change of the error message.
+	* gcc.dg/c99-vla-1.c: Likewise.
+	* g++.dg/ext/vla1.C: Likewise
+
+2007-03-12  Seongbae Park <seongbae.park@gmail.com>
+
+	* gcc.dg/wvla-1.c: New test
+	* gcc.dg/wvla-2.c: New test
+	* gcc.dg/wvla-3.c: New test
+	* gcc.dg/wvla-4.c: New test
+	* gcc.dg/wvla-5.c: New test
+	* gcc.dg/wvla-6.c: New test
+	* gcc.dg/wvla-7.c: New test
 	* g++.dg/warn/Wvla-1.C: New test
 	* g++.dg/warn/Wvla-2.C: New test
 	* g++.dg/warn/Wvla-3.C: New test
@@ -170,7 +396,7 @@
         * g++.dg/cpp0x/variadic65.C : New.
         * g++.dg/cpp0x/variadic66.C : New.
         * g++.dg/cpp0x/variadic67.C : New.
-        * g++.dg/cpp0x/variadic68.C : New.	
+        * g++.dg/cpp0x/variadic68.C : New.
         * g++.dg/cpp0x/variadic69.C : New.
 	* g++.dg/cpp0x/variadic70.C : New.
 	* g++.dg/cpp0x/variadic71.C : New.
@@ -197,7 +423,7 @@
 
 	PR libgfortran/31099
 	* gfortran.dg/unformatted_recl.f90: New test.
-	
+
 2007-03-09  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/fold-eqcmplx-1.c: New test case.
@@ -352,7 +578,7 @@
 	PR other/30465
 	* gcc.dg/multiple-overflow-warn-3.c: New.
 	* g++.dg/warn/multiple-overflow-warn-3.C: New.
-	
+
 2007-03-04  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR c++/30895
@@ -397,7 +623,7 @@
 	PR c++/15787
 	* g++.dg/parse/else.C: New.
 	* g++.dg/parse/else-2.C: New.
-	
+
 2007-03-03  Paul Thomas  <pault@gcc.gnu.org>
 	    Tobias Burnus  <burnus@net-b.de>
 
@@ -437,7 +663,7 @@
 	PR c++/23689
 	* warn/ignored_typedef.C: New.
 	* init/ctor8.C: Added dg-warning to consume ignored typedef
-	warning. 
+	warning.
 	* template/typedef2.C: Ditto.  Moved dg-error onto its own line
 	and added an explicit line number.
 
@@ -478,7 +704,7 @@
 2007-02-27  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/30970
-	* gcc.target/i386/gfortran.dg/pr30970.c: New test. 
+	* gcc.target/i386/gfortran.dg/pr30970.c: New test.
 
 2007-02-27  Mark Mitchell  <mark@codesourcery.com>
 
@@ -559,7 +785,7 @@
 	* gcc.test-framework/dg-outexistsnot-exp-P.c: Replace -W with
 	-Wunused-value.
 	* gcc.test-framework/dg-outexists-exp-F.c: Likewise.
-	
+
 2007-02-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* lib/target-supports.exp (check_effective_target_unwrapped): New.
@@ -583,14 +809,14 @@
 	* gcc.dg/torture/builtin-nonneg-1.c: Test significand.
 	* gcc.dg/torture/builtin-frexp-1.c: Use -fno-finite-math-only on
 	sh* targets.
-	
+
 2007-02-23  Richard Guenther  <rguenther@suse.de>
 
 	* g++.dg/warn/changes-meaning.C: New testcase.
 
 2007-02-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
-	PR libgfortran/30910	
+	PR libgfortran/30910
 	* gfortran.dg/fmt_zero_precision.f90: Update test.
 
 2007-02-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
@@ -611,7 +837,7 @@
 	* gcc.dg/vect/vect-106.c: New test.
 
 2007-02-22  Dorit Nuzman  <dorit@il.ibm.com>
-            Ira Rosen  <irar@il.ibm.com> 
+            Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/30843
 	* gcc.dg/vect/pr30843.c: New test.
@@ -706,7 +932,7 @@
 	-Wstring-literal-comparison with -Waddress.
 	* gcc.dg/Wstring-literal-comparison-4.c: Replace
 	-Wno-string-literal-comparison with -Wno-address.
-	
+
 2007-02-19  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/self_aggregate_with_call.adb: New test.
@@ -755,7 +981,7 @@
 	* gcc.target/i386/builtin-bswap-1.c: Remove -march=nocona.
 	* gcc.target/i386/builtin-bswap-3.c: Ditto.
 	* gcc.target/i386/xchg-1.c: New test.
-	* gcc.target/i386/xchg-2.c: New test. 
+	* gcc.target/i386/xchg-2.c: New test.
 
 2007-02-16  Richard Guenther  <rguenther@suse.de>
 	    Christian Bruel  <christian.bruel@st.com>
@@ -882,7 +1108,7 @@
 	PR c/29521
 	* gcc.dg/c90-return-1.c: Update output.
 	* gcc.dg/c99-return-1.c: Likewise.
-	
+
 2007-02-13  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/30554
@@ -1087,7 +1313,7 @@
 
 2007-02-07  Hans-Peter Nilsson  <hp@axis.com>
 
-	* lib/target-supports.exp (check_effective_target_simulator): New. 
+	* lib/target-supports.exp (check_effective_target_simulator): New.
 
 2007-02-06  Zdenek Dvorak <dvorakz@suse.cz>
 
@@ -1132,7 +1358,7 @@
 	* gcc.dg/vect/vect-reduc-dot-u16b.c: Likewise.
 	* gcc.dg/vect/vect-widen-mult-u16.c: Likewise.
 
-2007-02-06  Ira Rosen  <irar@il.ibm.com> 
+2007-02-06  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/fast-math-vect-pow-2.c: New test.
 
@@ -1257,7 +1483,7 @@
 
 	gcc.dg/Wparentheses-2.c: Update and add new tests.
 
-2007-01-31  Ira Rosen  <irar@il.ibm.com> 
+2007-01-31  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-37.c: Restore the original behaivior - xfail to
 	vectorize.
@@ -1426,7 +1652,7 @@
 	* gcc.dg/Wno-all.c: New.
 	* gfortran.dg/Wall.f90: New.
 	* gfortran.dg/Wno-all.f90: New.
-	
+
 2007-01-24  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.target/powerpc/darwin-ehreturn-1.c: New.
@@ -1498,7 +1724,7 @@
 
 	PR fortran/30532
 	* gfortran.dg/ctrl-z.f90:  New test.
-	
+
 2007-01-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/30481
@@ -1549,9 +1775,9 @@
 	PR libfortran/30525
 	* gfortran.dg/char_comparison_1.f:  New test.
 
-2007-01-21  Ira Rosen  <irar@il.ibm.com> 
+2007-01-21  Ira Rosen  <irar@il.ibm.com>
 
-	* gcc.dg/vect/vect-strided-same-dr.c: New test. 
+	* gcc.dg/vect/vect-strided-same-dr.c: New test.
 
 2007-01-20  Andrew Pinski  <pinskia@gmail.com>
 
@@ -1603,7 +1829,7 @@
 	* g++.dg/warn/deprecated.C: Update warning output.
 	* g++.dg/warn/deprecated-2.C: Likewise.
 	* g++.dg/warn/deprecated-3.C: New.
-	
+
 2007-01-19  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc.c-torture/execute/nestfunc-7.c: New.
@@ -1864,7 +2090,7 @@
 	* g++.dg/warn/Woverflow-2.C: New.
 	* g++.dg/warn/Woverflow-3.C: New.
 	* g++.dg/warn/multiple-overflow-warn-2.C: New.
-	
+
 2007-01-07  Bernhard Fischer  <aldot@gcc.gnu.org>
 
 	PR fortran/27698
@@ -1881,7 +2107,7 @@
 	PR c++/19439
 	* g++.dg/template/duplicate1.C: New test
 	* g++.dg/template/memfriend6.C: Adjust error markers.
-	
+
 2007-01-05  Andrew Pinski  <Andrew_Pinski@playstation.sony.com>
 
 	PR tree-opt/30385
@@ -1894,7 +2120,7 @@
 	* gcc.dg/multiple-overflow-warn-2.c: New.
 	* gcc.dg/overflow-warn-6.c: New.
 	* g++.dg/warn/multiple-overflow-warn-1.C: New.
-	
+
 2007-01-05  Roger Sayle  <roger@eyesopen.com>
 
 	* gfortran.dg/array_memcpy_1.f90: New test case.
@@ -2129,7 +2355,7 @@
 	* gcc.dg/Wmissing-parameter-type.c: New.
 	* gcc.dg/Wmissing-parameter-type-Wextra.c: New.
 	* gcc.dg/Wmissing-parameter-type-no.c: New.
-	
+
 2006-12-22  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/25818

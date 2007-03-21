@@ -1040,7 +1040,7 @@ unsigned int ix86_tune_features[X86_TUNE_LAST] = {
   
   /* X86_TUNE_USE_SAHF */
   m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
-  | m_NOCONA | m_CORE2 | m_GENERIC32,
+  | m_NOCONA | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
      partial dependencies.  */
@@ -1192,7 +1192,34 @@ unsigned int ix86_tune_features[X86_TUNE_LAST] = {
   m_ATHLON_K8_AMDFAM10 | m_CORE2 | m_GENERIC,
 
   /* X86_TUNE_EXT_80387_CONSTANTS */
-  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC
+  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SHORTEN_X87_SSE */
+  ~m_K8,
+
+  /* X86_TUNE_AVOID_VECTOR_DECODE */
+  m_K8 | m_GENERIC64,
+
+  /* X86_TUNE_SLOW_IMUL_IMM32_MEM (imul of 32-bit constant and memory is vector
+     path on AMD machines) */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_SLOW_IMUL_IMM8 (imul of 8-bit constant is vector path on AMD
+     machines)  */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_MOVE_M1_VIA_OR (on pentiums, it is faster to load -1 via OR than
+     a MOV) */
+  m_PENT,
+
+  /* X86_TUNE_NOT_UNPAIRABLE (NOT is not pairable on Pentium, while XOR is, but
+     one byte longer).  */
+  m_PENT,
+
+  /* X86_TUNE_NOT_VECTORMODE (On AMD K6, NOT is vector decoded with memory
+     operand that cannot be represented using a modRM byte.  The XOR
+     replacement is long decoded, so this split helps here as well).  */
+  m_K6,
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -1437,14 +1464,6 @@ enum processor_type ix86_arch;
 
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
-
-/* true if cmpxchg16b is supported.  */
-int x86_cmpxchg16b;
-
-/* true if sahf is supported. Early Intel CPUs with Intel 64
-   lacked LAHF and SAHF instructions supported by AMD64 until
-   introduction of Pentium 4 G1 step in December 2005.  */
-int x86_sahf;
 
 /* ix86_regparm_string as a number */
 static int ix86_regparm;
@@ -1952,13 +1971,17 @@ override_options (void)
       {"x86-64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_64BIT
 			       | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF},
       {"k8", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"athlon64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
-      {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
-				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+				      | PTA_NO_SAHF},
+      {"opteron", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					| PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					| PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon64", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					 | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					 | PTA_SSE2 | PTA_NO_SAHF},
+      {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
+					  | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
+					  | PTA_SSE2 | PTA_NO_SAHF},
       {"amdfam10", PROCESSOR_AMDFAM10, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW
                                        | PTA_64BIT | PTA_3DNOW_A | PTA_SSE
                                        | PTA_SSE2 | PTA_SSE3 | PTA_POPCNT

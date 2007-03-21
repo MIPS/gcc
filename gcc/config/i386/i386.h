@@ -233,6 +233,13 @@ enum ix86_tune_indices {
   X86_TUNE_USE_INCDEC,
   X86_TUNE_PAD_RETURNS,
   X86_TUNE_EXT_80387_CONSTANTS,
+  X86_TUNE_SHORTEN_X87_SSE,
+  X86_TUNE_AVOID_VECTOR_DECODE,
+  X86_TUNE_SLOW_IMUL_IMM32_MEM,
+  X86_TUNE_SLOW_IMUL_IMM8,
+  X86_TUNE_MOVE_M1_VIA_OR,
+  X86_TUNE_NOT_UNPAIRABLE,
+  X86_TUNE_NOT_VECTORMODE,
 
   X86_TUNE_LAST
 };
@@ -302,6 +309,15 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_PAD_RETURNS	ix86_tune_features[X86_TUNE_PAD_RETURNS]
 #define TARGET_EXT_80387_CONSTANTS \
 	ix86_tune_features[X86_TUNE_EXT_80387_CONSTANTS]
+#define TARGET_SHORTEN_X87_SSE	ix86_tune_features[X86_TUNE_SHORTEN_X87_SSE]
+#define TARGET_AVOID_VECTOR_DECODE \
+	ix86_tune_features[X86_TUNE_AVOID_VECTOR_DECODE]
+#define TARGET_SLOW_IMUL_IMM32_MEM \
+	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM32_MEM]
+#define TARGET_SLOW_IMUL_IMM8	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM8]
+#define	TARGET_MOVE_M1_VIA_OR	ix86_tune_features[X86_TUNE_MOVE_M1_VIA_OR]
+#define TARGET_NOT_UNPAIRABLE	ix86_tune_features[X86_TUNE_NOT_UNPAIRABLE]
+#define TARGET_NOT_VECTORMODE	ix86_tune_features[X86_TUNE_NOT_VECTORMODE]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -322,16 +338,13 @@ extern unsigned int ix86_arch_features[X86_ARCH_LAST];
 #define TARGET_XADD		ix86_arch_features[X86_ARCH_XADD]
 #define TARGET_BSWAP		ix86_arch_features[X86_ARCH_BSWAP]
 
+#define TARGET_CMPXCHG16B	x86_cmpxchg16b
+#define TARGET_SAHF		x86_sahf
+
 #define TARGET_FISTTP		(TARGET_SSE3 && TARGET_80387)
 
 extern int x86_prefetch_sse;
 #define TARGET_PREFETCH_SSE	x86_prefetch_sse
-
-extern int x86_cmpxchg16b;
-#define TARGET_CMPXCHG16B	x86_cmpxchg16b
-
-extern int x86_sahf;
-#define TARGET_SAHF		x86_sahf
 
 #define ASSEMBLER_DIALECT	(ix86_asm_dialect)
 

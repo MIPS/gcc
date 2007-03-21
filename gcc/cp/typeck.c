@@ -3169,10 +3169,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  enum tree_code tcode0 = code0, tcode1 = code1;
 
-	  if (TREE_CODE (op1) == INTEGER_CST && integer_zerop (op1))
-	    warning (OPT_Wdiv_by_zero, "division by zero in %<%E / 0%>", op0);
-	  else if (TREE_CODE (op1) == REAL_CST && real_zerop (op1))
-	    warning (OPT_Wdiv_by_zero, "division by zero in %<%E / 0.%>", op0);
+	  warn_for_div_by_zero (op1);
 
 	  if (tcode0 == COMPLEX_TYPE || tcode0 == VECTOR_TYPE)
 	    tcode0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
@@ -3206,10 +3203,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
-      if (code1 == INTEGER_TYPE && integer_zerop (op1))
-	warning (OPT_Wdiv_by_zero, "division by zero in %<%E %% 0%>", op0);
-      else if (code1 == REAL_TYPE && real_zerop (op1))
-	warning (OPT_Wdiv_by_zero, "division by zero in %<%E %% 0.%>", op0);
+      warn_for_div_by_zero (op1);
 
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
@@ -3843,9 +3837,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if (! converted)
     {
       if (TREE_TYPE (op0) != result_type)
-	op0 = cp_convert (result_type, op0);
+	op0 = cp_convert_and_check (result_type, op0);
       if (TREE_TYPE (op1) != result_type)
-	op1 = cp_convert (result_type, op1);
+	op1 = cp_convert_and_check (result_type, op1);
 
       if (op0 == error_mark_node || op1 == error_mark_node)
 	return error_mark_node;

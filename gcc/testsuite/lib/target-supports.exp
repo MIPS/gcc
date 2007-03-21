@@ -286,6 +286,14 @@ proc check_gc_sections_available { } {
 	    return 0
 	}
 
+	# VxWorks kernel modules are relocatable objects linked with -r,
+	# while RTP executables are linked with -q (--emit-relocs).
+	# Both of these options are incompatible with --gc-sections.
+	if { [istarget *-*-vxworks*] } {
+	    set gc_sections_available_saved 0
+	    return 0
+	}
+
 	# Check if the ld used by gcc supports --gc-sections.
 	set gcc_spec [${tool}_target_compile "-dumpspecs" "" "none" ""]
 	regsub ".*\n\*linker:\[ \t\]*\n(\[^ \t\n\]*).*" "$gcc_spec" {\1} linker
@@ -2094,6 +2102,18 @@ proc check_effective_target_uclibc {} {
     }]
 }
 
+# Return true if this is a uclibc target and if the uclibc feature
+# described by __$feature__ is not present.
+
+proc check_missing_uclibc_feature {feature} {
+    return [check_no_compiler_messages $feature object "
+	#include <features.h>
+	#if !defined (__UCLIBC) || defined (__${feature}__)
+	#error FOO
+	#endif
+    "]
+}
+
 # Return true if this is a Newlib target.
 
 proc check_effective_target_newlib {} {
@@ -2224,5 +2244,16 @@ proc check_effective_target_vxworks_kernel { } {
 	#if !defined __vxworks || defined __RTP__
 	#error NO
 	#endif
+    }]
+}
+
+# Return 1 if the target is expected to provide wide character support.
+
+proc check_effective_target_wchar { } {
+    if {[check_missing_uclibc_feature UCLIBC_HAS_WCHAR]} {
+	return 0
+    }
+    return [check_no_compiler_messages wchar assembly {
+	#include <wchar.h>
     }]
 }

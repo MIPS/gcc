@@ -1,3 +1,580 @@
+2007-03-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/tuple (get(_Tuple_impl<>&, get(const _Tuple_impl<>&):
+	Rename as __get_helper.
+	(get(tuple<>&, get(const tuple<>&)): Forward to the latter.
+
+2007-03-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update for new includes, macros.
+	
+2007-03-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/array_type_info.cc: Likewise.
+	* libsupc++/bad_cast.cc: Likewise.
+	* libsupc++/bad_typeid.cc: Likewise.
+	* libsupc++/class_type_info.cc: Likewise.
+	* libsupc++/dyncast.cc: Likewise.
+	* libsupc++/enum_type_info.cc: Likewise.
+	* libsupc++/function_type_info.cc: Likewise.
+	* libsupc++/fundamental_type_info.cc: Likewise.
+	* libsupc++/pbase_type_info.cc: Likewise.
+	* libsupc++/pmem_type_info.cc: Likewise.
+	* libsupc++/pointer_type_info.cc: Likewise.
+	* libsupc++/si_class_type_info.cc: Likewise.
+	* libsupc++/vmi_class_type_info.cc: Likewise.
+	* libsupc++/tinfo.h: Move inline type_info functions here.
+	* libsupc++/tinfo.cc: Separate type_info classes into their own
+	files.
+	* libsupc++/tinfo2.cc: Likewise.
+	* Makefile.am (sources): Mention new files.
+	* Makefile.in: Regenerated.
+
+2007-03-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/headers/cinttypes/types_std_c++0x.cc: Use
+	-std=gnu++0x instead of -std=c++0x for testing.
+	* testsuite/18_support/headers/cstdint/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/random/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cfenv/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cstdlib/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x.cc: Same.
+	* testsuite/17_intro/headers/c++200x/all_multiple_inclusion.cc: Same.
+	* testsuite/17_intro/headers/c++200x/all.cc: Same.
+	* testsuite/17_intro/using_namespace_std_tr1_neg.cc: Same.
+	* testsuite/23_containers/hash/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_map/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/tuple/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_multimap/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_set/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/headers/tuple/types_std_c++0x.cc: Same.
+	* testsuite/23_containers/unordered_multiset/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/array/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/enable_shared_from_this/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/headers/functional/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/functional/
+	using_namespace_std_placeholders.cc: Same.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/memory/types_std_c++0x.cc: Same.
+	* testsuite/20_util/shared_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/weak_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	
+2007-03-16  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/lib/dg-options.exp (dg-require-c-std): New.
+	* testsuite/lib/libstdc++.exp (check_v3_target_c_std): New. Check to
+	see if _GLIBCXX_USE_C99_MATH is active. 
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/check_nan.cc: Use dg-require-c-std.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	17_hyperg/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	13_ellint_2/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	16_hermite/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	12_ellint_1/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	18_laguerre/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	14_ellint_3/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	19_legendre/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	03_beta/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	15_expint/check_nan.cc: Same.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/check_nan.cc: Same.
+
+	* include/tr1/poly_laguerre.tcc (__poly_laguerre): Don't check if
+	unsigned int can be a NaN.
+
+2007-03-16  Edward M. Smith-Rowland  <3dw4rd@verizon.net>
+
+	* docs/html/ext/tr1.html : Marked tr1 math special functions done.
+	* docs/html/faq/index.html : Ditto.
+	* include/Makefile.in : Added new special function header files.
+	* include/Makefile.am : Ditto.	
+	* include/tr1/common.h : Added type promotion routines for three
+	and four args.
+
+	* include/tr1/special_function_util.h: New.
+	* include/tr1/bessel_function.tcc: New.
+	* include/tr1/beta_function.tcc: New.
+	* include/tr1/ell_integral.tcc: New.
+	* include/tr1/exp_integral.tcc: New.
+	* include/tr1/gamma.tcc: New.
+	* include/tr1/hypergeometric.tcc: New.
+	* include/tr1/legendre_function.tcc: New.
+	* include/tr1/modified_bessel_func.tcc: New.
+	* include/tr1/poly_hermite.tcc: New.
+	* include/tr1/poly_laguerre.tcc: New.
+	* include/tr1/riemann_zeta.tcc: New.
+	* include/tr1/cmath : Included tr1 math special functions.
+	* include/tr1/math.h : Ditto.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	testcase.h: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/03_beta/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/03_beta/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/03_beta/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/03_beta/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/12_ellint_1/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/12_ellint_1/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/12_ellint_1/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/12_ellint_1/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/13_ellint_2/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/13_ellint_2/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/13_ellint_2/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/13_ellint_2/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/14_ellint_3/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/14_ellint_3/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/14_ellint_3/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/14_ellint_3/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	check_value_neg.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	check_value_pos.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/16_hermite/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/16_hermite/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/16_hermite/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/17_hyperg/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/17_hyperg/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/17_hyperg/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/17_hyperg/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/18_laguerre/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/18_laguerre/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/18_laguerre/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/18_laguerre/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/19_legendre/
+	compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/19_legendre/
+	check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/19_legendre/
+	check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/19_legendre/
+	compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_value_neg.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_value_pos.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/compile_2.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/compile.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/check_nan.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/check_value.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/ compile_2.cc: New.
+	
+2007-03-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support) <ar>: If it
+	exists, use env(AR_FOR_TARGET).  Log the command.
+	<ranlib>: Similar.
+
+2007-03-14  Nathan Sidwell  <nathan@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>::
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_fileio,
+        check_v3_target_time): New.
+	* testsuite/lib/dg-options.exp (dg-require-fileio,
+        dg-require-time): New.
+	* testsuite/ext/stdio_sync_filebuf/char/12048-1.cc: Use it.
+	* testsuite/ext/stdio_sync_filebuf/char/12048-2.cc: Use it.
+	* testsuite/ext/stdio_sync_filebuf/char/12048-3.cc: Use it.
+	* testsuite/ext/stdio_sync_filebuf/char/12048-4.cc: Use it.
+	* testsuite/ext/stdio_sync_filebuf/char/1.cc: Use it.
+	* testsuite/ext/stdio_filebuf/char/2.cc: Use it.
+	* testsuite/ext/stdio_filebuf/char/10063-1.cc: Use it.
+	* testsuite/ext/stdio_filebuf/char/10063-2.cc: Use it.
+	* testsuite/ext/stdio_filebuf/char/10063-3.cc: Use it.
+	* testsuite/22_locale/time_put/put/char/12439_1.cc: Use it.
+	* testsuite/22_locale/time_put/put/char/12439_3.cc: Use it.
+	* testsuite/27_io/basic_ofstream/open/char/1.cc: Use it.
+	* testsuite/27_io/basic_ofstream/cons/char/2.cc: Use it.
+	* testsuite/27_io/objects/char/12048-2.cc: Use it.
+	* testsuite/27_io/objects/char/12048-4.cc: Use it.
+	* testsuite/27_io/objects/char/12048-1.cc: Use it.
+	* testsuite/27_io/objects/char/12048-3.cc: Use it.
+	* testsuite/27_io/objects/char/10.cc: Use it.
+	* testsuite/27_io/objects/char/12048-5.cc: Use it.
+	* testsuite/27_io/basic_istream/get/char/2.cc: Use it.
+	* testsuite/27_io/basic_istream/ignore/char/2.cc: Use it.
+	* testsuite/27_io/basic_istream/ignore/char/3.cc: Use it.
+	* testsuite/27_io/basic_istream/getline/char/5.cc: Use it.
+	* testsuite/27_io/basic_istream/seekg/char/sstream.cc: Use it.
+	* testsuite/27_io/basic_istream/seekg/char/fstream.cc: Use it.
+	* testsuite/27_io/basic_istream/readsome/char/6746-2.cc: Use it.
+	* testsuite/27_io/basic_istream/extractors_other/char/2.cc: Use it.
+	* testsuite/27_io/basic_istream/tellg/char/sstream.cc: Use it.
+	* testsuite/27_io/basic_istream/tellg/char/1.cc: Use it.
+	* testsuite/27_io/basic_istream/tellg/char/fstream.cc: Use it.
+	* testsuite/27_io/basic_istream/extractors_character/char/4.cc: Use it.
+	* testsuite/27_io/basic_ostream/inserters_other/char/1.cc: Use it.
+	* testsuite/27_io/basic_ostream/tellp/char/1.cc: Use it.
+	* testsuite/27_io/basic_ostream/seekp/char/2346-fstream.cc: Use it.
+	* testsuite/27_io/basic_ifstream/open/char/1.cc: Use it.
+	* testsuite/27_io/basic_ifstream/cons/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputbackc/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputbackc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputbackc/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputbackc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetn/char/3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-4.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/3-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/3-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/3-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/11543.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekoff/char/12790-4.cc: Use it.
+	* testsuite/27_io/basic_filebuf/in_avail/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/in_avail/char/9701-3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/setbuf/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/setbuf/char/2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/setbuf/char/3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/setbuf/char/12875-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/setbuf/char/12875-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sbumpc/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sbumpc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sbumpc/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sbumpc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sbumpc/char/9825.cc: Use it.
+	* testsuite/27_io/basic_filebuf/is_open/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputc/char/1-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputc/char/2-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/open/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/open/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/open/char/2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/open/char/3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/overflow/char/2-unbuf.cc: Use it.
+	* testsuite/27_io/basic_filebuf/overflow/char/2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/overflow/char/9988.cc: Use it.
+	* testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/overflow/char/9169.cc: Use it.
+	* testsuite/27_io/basic_filebuf/snextc/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/snextc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/snextc/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/snextc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetc/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetc/char/1-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetc/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sgetc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/12790-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/12790-3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/12790-4.cc: Use it.
+	* testsuite/27_io/basic_filebuf/close/char/4.cc: Use it.
+	* testsuite/27_io/basic_filebuf/underflow/10096.cc: Use it.
+	* testsuite/27_io/basic_filebuf/underflow/char/2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sungetc/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sungetc/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sungetc/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sungetc/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-3.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-1.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-2.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/12790-4.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/3-in.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/3-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/seekpos/char/3-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputn/char/1-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputn/char/1-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputn/char/2-io.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputn/char/2-out.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sputn/char/9339.cc: Use it.
+	* testsuite/27_io/basic_filebuf/pbackfail/char/9761.cc: Use it.
+	* testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Use it.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	char/10.cc: Use it.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	char/11.cc: Use it.
+	* testsuite/21_strings/basic_string/inserters_extractors/
+	char/5.cc: Use it.
+
+2007-03-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/tuple: Only include <utility> for std::pair, and
+	forward declare reference_wrapper; formatting fixes.
+	* include/tr1/ref_fwd.h: Remove.
+	* include/tr1/tuple_defs.h: Remove, unused.
+	* include/Makefile.am: Update.
+	* include/Makefile.in: Regenerate.
+	* testsuite/tr1/6_containers/tuple/creation_functions/make_tuple.cc:
+	Include <tr1/functional> too.
+
+	* include/tr1/tuple: Define tuple_size<tuple<_Elements...> >::value.
+
+2007-03-12  Stephen M. Webb  <stephen.webb@bregmasoft.com>
+
+	* include/tr1/regex: Add "boilerplate" implementations.
+	* testsuite/tr1/7_regular_expressions/regex_traits/wchar_t/
+	translate_nocase.cc: New.
+	* testsuite/tr1/7_regular_expressions/regex_traits/wchar_t/
+	ctor.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex_traits/char/
+	translate_nocase.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex_traits/char/
+	ctor.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_ecma.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	default.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_grep.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_extended.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_basic.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_awk.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/regex/cons/char/
+	c_string_egrep.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	range.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	string_op.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	string.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	pstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	cstring_op.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/wchar_t/
+	cstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	range.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	string_op.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	string.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	pstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	cstring_op.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/assign/char/
+	cstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	range.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	default.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	string.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	pstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/wchar_t/
+	cstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	range.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	default.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	string.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	pstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/basic_regex/ctors/char/
+	cstring.cc: Likewise.
+	* testsuite/tr1/7_regular_expressions/match_results/ctors/char/
+	default.cc: Likewise.
+
 2007-03-12  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algo.h (swap_ranges): Move...
