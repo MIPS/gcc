@@ -36,6 +36,15 @@ extern void abort (void);
       abort(); \
   }
 
+/* Signed fixed-point to integer.  */
+#define CONV_INT2(TYPE1,POSTFIX1,TYPE2) \
+  { \
+    TYPE1 a = -0.5 ## POSTFIX1; \
+    TYPE2 b = a; \
+    if (b != 0) \
+      abort(); \
+  }
+
 /* Fixed-point to floating-point, and floating-point to fixed-point.  */
 #define CONV_FLOAT(TYPE1,POSTFIX1,TYPE2) \
   { \
@@ -146,7 +155,29 @@ extern void abort (void);
   CONV_ACCUM_INT(TYPE, POSTFIX, unsigned short) \
   CONV_ACCUM_INT(TYPE, POSTFIX, unsigned int) \
   CONV_ACCUM_INT(TYPE, POSTFIX, unsigned long) \
-  CONV_ACCUM_INT(TYPE, POSTFIX, unsigned long long)
+  CONV_ACCUM_INT(TYPE, POSTFIX, unsigned long long) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, signed char) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, short) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, int) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, long) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, long long) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, unsigned char) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, unsigned short) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, unsigned int) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, unsigned long) \
+  CONV_ACCUM_INT(_Sat TYPE, POSTFIX, unsigned long long)
+
+#define NEG_CONV(TYPE,POSTFIX) \
+  CONV_INT2(TYPE, POSTFIX, signed char) \
+  CONV_INT2(TYPE, POSTFIX, short) \
+  CONV_INT2(TYPE, POSTFIX, int) \
+  CONV_INT2(TYPE, POSTFIX, long) \
+  CONV_INT2(TYPE, POSTFIX, long long) \
+  CONV_INT2(TYPE, POSTFIX, unsigned char) \
+  CONV_INT2(TYPE, POSTFIX, unsigned short) \
+  CONV_INT2(TYPE, POSTFIX, unsigned int) \
+  CONV_INT2(TYPE, POSTFIX, unsigned long) \
+  CONV_INT2(TYPE, POSTFIX, unsigned long long)
 
 /* Signed accum to _Sat unsigned/signed fract.  */
 #define SAT_CONV1(TYPE, POSTFIX) \
@@ -325,6 +356,15 @@ int main ()
   ALL_ACCUM_CONV (unsigned _Accum, uk);
   ALL_ACCUM_CONV (unsigned long _Accum, ulk);
   ALL_ACCUM_CONV (unsigned long long _Accum, ullk);
+
+  NEG_CONV (short _Fract, hr);
+  NEG_CONV (_Fract, r);
+  NEG_CONV (long _Fract, lr);
+  NEG_CONV (long long _Fract, llr);
+  NEG_CONV (short _Accum, hk);
+  NEG_CONV (_Accum, k);
+  NEG_CONV (long _Accum, lk);
+  NEG_CONV (long long _Accum, llk);
 
   SAT_CONV1 (short _Accum, hk);
   SAT_CONV1 (_Accum, k);

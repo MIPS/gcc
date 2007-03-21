@@ -1,3 +1,8 @@
+2007-03-21  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/convert.c: Add tests for conversions from
+	negative fixed-point numbers to integers.
+
 2007-03-19  Seongbae Park <seongbae.park@gmail.com>
 
 	PR tree-optimization/30590
