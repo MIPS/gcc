@@ -534,9 +534,12 @@ check_init (tree exp, words before)
 	    }
 	}
       break;
+
+    case OBJ_TYPE_REF:
+      /* Just do nothing here */
+       break;
       
     case MODIFY_EXPR:
-    case OBJ_TYPE_REF:
       tmp = TREE_OPERAND (exp, 0);
       /* We're interested in variable declaration and parameter
          declaration when they're declared with the `final' modifier. */

@@ -3043,7 +3043,7 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   if (code == MODIFY_EXPR && cfun && cfun->gimplified)
     {
       /* We should be talking GIMPLE_MODIFY_STMT by now.  */
-      gcc_unreachable ();
+/*      gcc_unreachable ();*/
     }
 
   /* FIXME tuples: For now let's be lazy; later we must rewrite all
@@ -8163,5 +8163,19 @@ generic_tree_type (tree node)
     return &void_type_node;
   return &TREE_TYPE (node);
 }
+
+void
+t (tree id)
+{
+  print_generic_stmt (stderr, id, 0);
+}
+
+void
+tt (tree id)
+{
+  t (id);
+}
+
+
 
 #include "gt-tree.h"

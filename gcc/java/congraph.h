@@ -56,6 +56,7 @@ enum statement_type
   INDIRECT_FUNCTION_CALL,
   INDIRECT_FUNCTION_CALL_WITH_RETURN,
   REFERENCE_COPY,
+  PHI_NODE_COPY,
   CAST,
   ASSIGNMENT_FROM_FIELD,
   ASSIGNMENT_TO_FIELD,
@@ -93,7 +94,7 @@ enum ea_escape_state
 };
 
 extern bool flow_sensisitive;
-extern bool interprocedural;
+/*extern bool interprocedural;*/
 
 /* Declare types */
 struct _con_graph;
@@ -408,6 +409,7 @@ void update_escape_state (con_node source, con_node target);
 void d (con_node node);
 void l (con_graph cg);
 void t (tree id);
+void tt (tree id);
 
 /* Copy the constructor graph into cg, using call_id to resolve actual
  * nodes correctly */

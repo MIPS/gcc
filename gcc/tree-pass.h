@@ -365,6 +365,7 @@ extern struct tree_opt_pass pass_sms;
 extern struct tree_opt_pass pass_sched;
 extern struct tree_opt_pass pass_local_alloc;
 extern struct tree_opt_pass pass_global_alloc;
+extern struct tree_opt_pass pass_stack_motion;
 extern struct tree_opt_pass pass_postreload;
 extern struct tree_opt_pass pass_clean_state;
 extern struct tree_opt_pass pass_branch_prob;

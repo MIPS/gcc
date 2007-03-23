@@ -1101,12 +1101,6 @@ update_escape_state (con_node source, con_node target)
 }
 
 void
-t (tree id)
-{
-  print_generic_stmt (stderr, id, 0);
-}
-
-void
 d (con_node node)
 {
   if (node == NIL_MARKER)
@@ -1412,6 +1406,7 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(INDIRECT_FUNCTION_CALL);
 	  HANDLE(INDIRECT_FUNCTION_CALL_WITH_RETURN);
 	  HANDLE(REFERENCE_COPY);
+	  HANDLE(PHI_NODE_COPY);
 	  HANDLE(CAST);
 	  HANDLE(ASSIGNMENT_FROM_FIELD);
 	  HANDLE(ASSIGNMENT_TO_FIELD);

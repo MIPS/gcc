@@ -50,6 +50,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 extern void init_gcj_devirt (void);
 extern void init_gcj_stack_allocate (void);
 extern void init_gcj_invariant (void);
+extern void init_gcj_necessary (void);
 
 static bool java_init (void);
 static void java_finish (void);
@@ -463,7 +464,8 @@ put_decl_node (tree node)
 	      if (TREE_CODE (TREE_TYPE (node)) == METHOD_TYPE)
 		args = TREE_CHAIN (args);
 	      put_decl_string ("(", 1);
-	      for ( ; args != end_params_node;  args = TREE_CHAIN (args), i++)
+	      /* TODO a hack here to paper over some bug. Oh well */
+	      for ( ; args && args != end_params_node;  args = TREE_CHAIN (args), i++)
 		{
 		  if (i > 0)
 		    put_decl_string (",", 1);
@@ -597,6 +599,7 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   no_unit_at_a_time_default = 1;
 
   jcf_path_init ();
+  init_gcj_necessary ();
   init_gcj_devirt ();
   init_gcj_invariant ();
   init_gcj_stack_allocate ();
