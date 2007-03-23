@@ -5570,4 +5570,4 @@
 
 (include "mips-dspr2.md")
 
-; (include "mips-fixed.md")
+(include "mips-fixed.md")

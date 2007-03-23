@@ -7802,6 +7802,12 @@ mips_vector_mode_supported_p (enum machine_mode mode)
 
     case V2HImode:
     case V4QImode:
+    case V2HQmode:
+    case V2UHQmode:
+    case V2HAmode:
+    case V2UHAmode:
+    case V4QQmode:
+    case V4UQQmode:
       return TARGET_DSP;
 
     default:

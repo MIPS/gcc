@@ -7042,8 +7042,9 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
 {
   enum tree_code c1 = TREE_CODE (t1), c2 = TREE_CODE (t2);
 
-  gcc_assert ((c1 == INTEGER_TYPE || c1 == REAL_TYPE)
-	      && (c2 == INTEGER_TYPE || c2 == REAL_TYPE));
+  gcc_assert ((c1 == INTEGER_TYPE || c1 == REAL_TYPE || c1 == FIXED_POINT_TYPE)
+	      && (c2 == INTEGER_TYPE || c2 == REAL_TYPE
+		  || c2 == FIXED_POINT_TYPE));
 
   /* Equality works here because c_common_signed_type uses
      TYPE_MAIN_VARIANT.  */
@@ -7263,11 +7264,12 @@ struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
 void
 warn_for_div_by_zero (tree divisor)
 {
-  /* If DIVISOR is zero, and has integral type, issue a warning about
-     division by zero.  Do not issue a warning if DIVISOR has a
+  /* If DIVISOR is zero, and has integral or fixed-point type, issue a warning
+     about division by zero.  Do not issue a warning if DIVISOR has a
      floating-point type, since we consider 0.0/0.0 a valid way of
      generating a NaN.  */
-  if (skip_evaluation == 0 && integer_zerop (divisor))
+  if (skip_evaluation == 0
+      && (integer_zerop (divisor) || fixed_zerop (divisor)))
     warning (OPT_Wdiv_by_zero, "division by zero");
 }
 

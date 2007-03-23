@@ -1,261 +1,118 @@
-; Generate all FAKE instructions for all fixed-point modes
+; This file contains MIPS instructions that support fixed-point operations.
 
-; All fixed-point modes
-(define_mode_macro FIXED [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (HA "") (SA "") (DA "") (TA "") (UHA "") (USA "") (UDA "") (UTA "")])
+; All supported fixed-point modes
+(define_mode_macro FIXED [(QQ "") (HQ "") (SQ "") (DQ "TARGET_64BIT")
+			  (UQQ "") (UHQ "") (USQ "") (UDQ "TARGET_64BIT")
+			  (HA "") (SA "") (DA "TARGET_64BIT")
+			  (UHA "") (USA "") (UDA "TARGET_64BIT")])
 
-; Same as above, but I need this to iterate amon fixed-point modes.
-(define_mode_macro FIXED2 [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (HA "") (SA "") (DA "") (TA "") (UHA "") (USA "") (UDA "") (UTA "")])
+; For signed add/sub with saturation
+(define_mode_macro ADDSUB [(HQ "") (SQ "") (HA "") (SA "") (V2HQ "") (V2HA "")])
+(define_mode_attr addsubfmt [(HQ "ph") (SQ "w") (HA "ph") (SA "w")
+			     (V2HQ "ph") (V2HA "ph")])
 
-; All signed fixed-point modes
-(define_mode_macro S_FIXED [(QQ "") (HQ "") (SQ "") (DQ "") (TQ "") (HA "") (SA "") (DA "") (TA "")])
+; For unsigned add/sub with saturation
+(define_mode_macro UADDSUB [(UQQ "TARGET_DSP") (UHQ "TARGET_DSPR2")
+			    (UHA "TARGET_DSPR2") (V4UQQ "TARGET_DSP")
+			    (V2UHQ "TARGET_DSPR2") (V2UHA "TARGET_DSPR2")])
+(define_mode_attr uaddsubfmt [(UQQ "qb") (UHQ "ph") (UHA "ph")])
 
-; All unsigned fixed-point modes
-(define_mode_macro U_FIXED [(UQQ "") (UHQ "") (USQ "") (UDQ "") (UTQ "") (UHA "") (USA "") (UDA "") (UTA "")])
+; For signed multiplication with saturation
+(define_mode_macro MULQ [(V2HQ "TARGET_DSP") (HQ "TARGET_DSP")
+			 (SQ "TARGET_DSPR2")])
+(define_mode_attr mulqfmt [(V2HQ "ph") (HQ "ph") (SQ "w")])
 
-; All scalar floating-point modes
-(define_mode_macro MYSCALARF [(SF "") (DF "")])
+; In GPR templates, a string like "<dd>subu" will expand to "subu" in the
+; 32-bit version and "dsubu" in the 64-bit version.
+(define_mode_attr dd [(QQ "") (HQ "") (SQ "") (DQ "d")
+		      (UQQ "") (UHQ "") (USQ "") (UDQ "d")
+		      (HA "") (SA "") (DA "d")
+		      (UHA "") (USA "") (UDA "d")])
 
-; All scalar integer modes
-(define_mode_macro MYSCALARI [(QI "") (HI "") (SI "") (DI "")])
+; The integer mode has the same size as the fixed-point mode.
+(define_mode_attr imode [(QQ "QI") (HQ "HI") (SQ "SI") (DQ "DI")
+			 (UQQ "QI") (UHQ "HI") (USQ "SI") (UDQ "DI")
+			 (HA "HI") (SA "SI") (DA "DI")
+			 (UHA "HI") (USA "SI") (UDA "DI")
+			 (V4UQQ "SI") (V2UHQ "SI") (V2UHA "SI")
+			 (V2HQ "SI") (V2HA "SI")])
 
-; All signed and unsigned operators
-(define_code_macro bin_op [plus minus mult])
-(define_code_macro s_bin_op [ss_plus ss_minus ss_mult div ss_div])
-(define_code_macro u_bin_op [us_plus us_minus us_mult udiv us_div])
-(define_code_macro unary_op [neg])
-(define_code_macro s_unary_op [ss_neg])
-(define_code_macro u_unary_op [us_neg])
-(define_code_macro shift_op [ashift])
-(define_code_macro s_shift_op [ashiftrt ss_ashift])
-(define_code_macro u_shift_op [lshiftrt us_ashift])
-(define_code_macro fpcond [ne eq])
-(define_code_macro s_fpcond [ge gt le lt])
-(define_code_macro u_fpcond [geu gtu leu ltu])
-
-; All instruction names
-(define_code_attr myinsn [(plus "add")
-                          (minus "sub")
-                          (mult "mul")
-                          (ss_plus "ssadd")
-                          (ss_minus "sssub")
-                          (ss_mult "ssmul")
-                          (div "div")
-                          (ss_div "ssdiv")
-                          (us_plus "usadd")
-                          (us_minus "ussub")
-                          (us_mult "usmul")
-                          (udiv "udiv")
-                          (us_div "usdiv")
-                          (neg "neg")
-                          (ss_neg "ssneg")
-			  (us_neg "usneg")
-			  (ashift "ashl")
-			  (ashiftrt "ashr")
-			  (ss_ashift "ssashl")
-			  (lshiftrt "lshr")
-			  (us_ashift "usashl")
-			  (ne "ne")
-			  (eq "eq")
-			  (ge "ge")
-			  (gt "gt")
-			  (le "le")
-			  (lt "lt")
-			  (geu "geu")
-			  (gtu "gtu")
-			  (leu "leu")
-			  (ltu "ltu")
-])
-
-(define_insn "<myinsn><mode>3"
+(define_insn "add<mode>3"
   [(set (match_operand:FIXED 0 "register_operand" "=d")
-        (bin_op:FIXED (match_operand:FIXED 1 "register_operand" "d")
-		      (match_operand:FIXED 2 "register_operand" "d")))]
+	(plus:FIXED (match_operand:FIXED 1 "register_operand" "d")
+		    (match_operand:FIXED 2 "register_operand" "d")))]
   ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "arith")])
+  "<dd>addu\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>3"
-  [(set (match_operand:S_FIXED 0 "register_operand" "=d")
-        (s_bin_op:S_FIXED (match_operand:S_FIXED 1 "register_operand" "d")
-			   (match_operand:S_FIXED 2 "register_operand" "d")))]
+(define_insn "usadd<mode>3"
+  [(parallel
+    [(set (match_operand:UADDSUB 0 "register_operand" "=d")
+	  (us_plus:UADDSUB (match_operand:UADDSUB 1 "register_operand" "d")
+			   (match_operand:UADDSUB 2 "register_operand" "d")))
+     (set (reg:CCDSP CCDSP_OU_REGNUM)
+	  (unspec:CCDSP [(match_dup 1) (match_dup 2)] UNSPEC_ADDQ_S))])]
   ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "arith")])
+  "addu_s.<uaddsubfmt>\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>3"
-  [(set (match_operand:U_FIXED 0 "register_operand" "=d")
-        (u_bin_op:U_FIXED (match_operand:U_FIXED 1 "register_operand" "d")
-			   (match_operand:U_FIXED 2 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "arith")])
+(define_insn "ssadd<mode>3"
+  [(parallel
+    [(set (match_operand:ADDSUB 0 "register_operand" "=d")
+	  (ss_plus:ADDSUB (match_operand:ADDSUB 1 "register_operand" "d")
+			  (match_operand:ADDSUB 2 "register_operand" "d")))
+     (set (reg:CCDSP CCDSP_OU_REGNUM)
+	  (unspec:CCDSP [(match_dup 1) (match_dup 2)] UNSPEC_ADDQ_S))])]
+  "TARGET_DSP"
+  "addq_s.<addsubfmt>\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>2"
+(define_insn "sub<mode>3"
   [(set (match_operand:FIXED 0 "register_operand" "=d")
-        (unary_op:FIXED (match_operand:FIXED 1 "register_operand" "d")))]
+        (minus:FIXED (match_operand:FIXED 1 "register_operand" "d")
+		     (match_operand:FIXED 2 "register_operand" "d")))]
   ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
+  "<dd>subu\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>2"
-  [(set (match_operand:S_FIXED 0 "register_operand" "=d")
-        (s_unary_op:S_FIXED (match_operand:S_FIXED 1 "register_operand" "d")))]
+(define_insn "ussub<mode>3"
+  [(parallel
+    [(set (match_operand:UADDSUB 0 "register_operand" "=d")
+	  (us_minus:UADDSUB (match_operand:UADDSUB 1 "register_operand" "d")
+			    (match_operand:UADDSUB 2 "register_operand" "d")))
+     (set (reg:CCDSP CCDSP_OU_REGNUM)
+	  (unspec:CCDSP [(match_dup 1) (match_dup 2)] UNSPEC_SUBQ_S))])]
   ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
+  "subu_s.<uaddsubfmt>\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>2"
-  [(set (match_operand:U_FIXED 0 "register_operand" "=d")
-        (u_unary_op:U_FIXED (match_operand:U_FIXED 1 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
+(define_insn "sssub<mode>3"
+  [(parallel
+    [(set (match_operand:ADDSUB 0 "register_operand" "=d")
+	  (ss_minus:ADDSUB (match_operand:ADDSUB 1 "register_operand" "d")
+			   (match_operand:ADDSUB 2 "register_operand" "d")))
+     (set (reg:CCDSP CCDSP_OU_REGNUM)
+	  (unspec:CCDSP [(match_dup 1) (match_dup 2)] UNSPEC_SUBQ_S))])]
+  "TARGET_DSP"
+  "subq_s.<addsubfmt>\t%0,%1,%2"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "<imode>")])
 
-(define_insn "<myinsn><mode>3"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-        (shift_op:FIXED (match_operand:FIXED 1 "register_operand" "d")
-			(match_operand:SI 2 "register_operand" "d")))]
+(define_insn "ssmul<mode>3"
+  [(parallel
+    [(set (match_operand:MULQ 0 "register_operand" "=d")
+          (ss_mult:MULQ (match_operand:MULQ 1 "register_operand" "d")
+			(match_operand:MULQ 2 "register_operand" "d")))
+     (set (reg:CCDSP CCDSP_OU_REGNUM)
+          (unspec:CCDSP [(match_dup 1) (match_dup 2)] UNSPEC_MULQ_RS_PH))
+     (clobber (match_scratch:DI 3 "=x"))])]
   ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "shift")])
-
-(define_insn "<myinsn><mode>3"
-  [(set (match_operand:S_FIXED 0 "register_operand" "=d")
-        (s_shift_op:S_FIXED (match_operand:S_FIXED 1 "register_operand" "d")
-			    (match_operand:SI 2 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "shift")])
-
-(define_insn "<myinsn><mode>3"
-  [(set (match_operand:U_FIXED 0 "register_operand" "=d")
-        (u_shift_op:U_FIXED (match_operand:U_FIXED 1 "register_operand" "d")
-			    (match_operand:SI 2 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1,%2"
-  [(set_attr "type" "shift")])
-
-(define_expand "cmp<mode>"
-  [(set (cc0)
-        (compare:CC (match_operand:FIXED 0 "register_operand")
-                    (match_operand:FIXED 1 "register_operand")))]
-  ""
-{
-  cmp_operands[0] = operands[0];
-  cmp_operands[1] = operands[1];
-  DONE;
-})
-
-(define_insn "*<myinsn><mode>"
-  [(set (reg:CCDSP CCDSP_CC_REGNUM)
-        (fpcond:CCDSP (match_operand:FIXED 0 "register_operand" "d")
-		      (match_operand:FIXED 1 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "*<myinsn><mode>"
-  [(set (reg:CCDSP CCDSP_CC_REGNUM)
-        (s_fpcond:CCDSP (match_operand:S_FIXED 0 "register_operand" "d")
-		        (match_operand:S_FIXED 1 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "*<myinsn><mode>"
-  [(set (reg:CCDSP CCDSP_CC_REGNUM)
-        (u_fpcond:CCDSP (match_operand:U_FIXED 0 "register_operand" "d")
-		        (match_operand:U_FIXED 1 "register_operand" "d")))]
-  ""
-  "<myinsn>_<mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "*fpbranch"
-  [(set (pc)
-        (if_then_else
-         (ne (reg:CCDSP CCDSP_CC_REGNUM)
-	     (match_operand:SI 0 "immediate_operand" "I"))
-         (label_ref (match_operand 1 "" ""))
-         (pc)))]
-  ""
-  "%*fpbranch\t%1%/"
-  [(set_attr "type" "branch")
-   (set_attr "mode" "none")])
-
-(define_insn "fixed_all<FIXED2:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(fixed_all:FIXED (match_operand:FIXED2 1 "register_operand" "d")))]
-  ""
-  "fixed_all<FIXED2:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_all<MYSCALARI:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(fixed_all:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
-  ""
-  "fixed_all<MYSCALARI:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_all<MYSCALARF:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(fixed_all:FIXED (match_operand:MYSCALARF 1 "register_operand" "f")))]
-  ""
-  "fixed_all<MYSCALARF:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_all<FIXED:mode><MYSCALARI:mode>2"
-  [(set (match_operand:MYSCALARI 0 "register_operand" "=d")
-	(fixed_all:MYSCALARI (match_operand:FIXED 1 "register_operand" "d")))]
-  ""
-  "fixed_all<FIXED:mode><MYSCALARI:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_all<FIXED:mode><MYSCALARF:mode>2"
-  [(set (match_operand:MYSCALARF 0 "register_operand" "=f")
-	(fixed_all:MYSCALARF (match_operand:FIXED 1 "register_operand" "d")))]
-  ""
-  "fixed_all<FIXED:mode><MYSCALARF:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_uint<MYSCALARI:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(fixed_uint:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
-  ""
-  "fixed_uint<MYSCALARI:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "fixed_uint<FIXED:mode><MYSCALARI:mode>2"
-  [(set (match_operand:MYSCALARI 0 "register_operand" "=d")
-	(fixed_uint:MYSCALARI (match_operand:FIXED 1 "register_operand" "d")))]
-  ""
-  "fixed_uint<FIXED:mode><MYSCALARI:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "sat_fixed_all<FIXED2:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(sat_fixed_all:FIXED (match_operand:FIXED2 1 "register_operand" "d")))]
-  ""
-  "sat_fixed_all<FIXED2:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "sat_fixed_all<MYSCALARI:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(sat_fixed_all:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
-  ""
-  "sat_fixed_all<MYSCALARI:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "sat_fixed_all<MYSCALARF:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(sat_fixed_all:FIXED (match_operand:MYSCALARF 1 "register_operand" "f")))]
-  ""
-  "sat_fixed_all<MYSCALARF:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
-
-(define_insn "sat_fixed_uint<MYSCALARI:mode><FIXED:mode>2"
-  [(set (match_operand:FIXED 0 "register_operand" "=d")
-	(sat_fixed_uint:FIXED (match_operand:MYSCALARI 1 "register_operand" "d")))]
-  ""
-  "sat_fixed_uint<MYSCALARI:mode><FIXED:mode>\t%0,%1"
-  [(set_attr "type" "arith")])
+  "mulq_rs.<mulqfmt>\t%0,%1,%2"
+  [(set_attr "type"     "imul3")
+   (set_attr "mode"     "<imode>")])
 

@@ -1644,6 +1644,14 @@ layout_type (tree type)
 	    /* First, look for a supported vector type.  */
 	    if (SCALAR_FLOAT_MODE_P (innermode))
 	      mode = MIN_MODE_VECTOR_FLOAT;
+	    else if (SCALAR_FRACT_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_FRACT;
+	    else if (SCALAR_UFRACT_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_UFRACT;
+	    else if (SCALAR_ACCUM_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_ACCUM;
+	    else if (SCALAR_UACCUM_MODE_P (innermode))
+	      mode = MIN_MODE_VECTOR_UACCUM;
 	    else
 	      mode = MIN_MODE_VECTOR_INT;
 
@@ -1665,6 +1673,7 @@ layout_type (tree type)
 	      TYPE_MODE (type) = mode;
 	  }
 
+	TYPE_SATURATING (type) = TYPE_SATURATING (TREE_TYPE (type));
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
 	TYPE_SIZE_UNIT (type) = int_const_binop (MULT_EXPR,
 					         TYPE_SIZE_UNIT (innertype),

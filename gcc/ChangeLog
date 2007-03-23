@@ -1,3 +1,39 @@
+2007-03-22  Chao-ying Fu  <fu@mips.com>
+
+	* expr.c (expand_expr_real_1): Support MODE_VECTOR_FRACT,
+	MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, and MODE_VECTOR_UACCUM.
+	* stor-layout.c (layout_type): Check scalar FRACT, UFRACT, ACCUM,
+	and UACCUM mode to select their vector mode.
+	Set TYPE_SATURATING to the vector mode.
+	* expmed.c (extract_bit_field): Support MODE_VECTOR_FRACT, 
+	MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, and MODE_VECTOR_UACCUM.
+	* emit-rtl.c (init_emit_once): Initialize the vector version of
+	0 and 1 for FRACT, UFRACT, ACCUM, and UACCUM mode.
+	* simplify-rtx.c (simplify_immed_subreg): For CONST_FIXED, we compose
+	the value from CONST_FIXED_VALUE_LOW when elem_bitsize <=
+	HOST_BITS_PER_WIDE_INT.
+	* c-common.c (same_scalar_type_ignoring_signedness): Support
+	FIXED_POINT_TYPE.
+	(warn_for_div_by_zero): Check fixed-point zero.
+	* tree-vect-generic.c (expand_vector_operation): Support
+	MODE_VECTOR_FRACT, MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, and
+	MODE_VECTOR_UACCUM.
+	(type_for_widest_vector_mode): Check scalar FRACT, UFRACT, ACCUM,
+	and UACCUM mode to select their vector mode.
+	(expand_vector_operations_1): Support MODE_VECTOR_FRACT,
+	MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, and MODE_VECTOR_UACCUM.
+	* config/fixed-bit.c (FIXED_ALL, FIXED_UINT): From fixed-point to 
+	integers, we need to type cast to FROM_INT_C_TYPE when performing
+	comparison agaist 0.
+	* config/mips/mips-fixed.md: Delete fake instructions and put real
+	MIPS instructions.
+	* config/mips/mips.md (mips-fixed.md): Include this file again.
+	* config/mips/mips.c (mips_vector_mode_supported_p): Support
+	V2HQmode, V2UHQmode, V2HAmode, V2UHAmode, V4QQmode, and V4UQQmode
+	when TARGET_DSP.
+	* config/mips/mips-modes.def: Create VECTOR_MODES for FRACT,
+	UFRACT, ACCUM, UACCUM.
+
 2007-03-21  Chao-ying Fu  <fu@mips.com>
 
 	* config/fixed-bit.c (FIXED_ALL, FIXED_UINT): From fixed-point to 

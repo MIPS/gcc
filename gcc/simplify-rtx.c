@@ -4551,15 +4551,22 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	  break;
 
         case CONST_FIXED:
-	  gcc_assert (elem_bitsize > HOST_BITS_PER_WIDE_INT);
-
-	  for (i = 0; i < HOST_BITS_PER_WIDE_INT; i += value_bit)
-	    *vp++ = CONST_FIXED_VALUE_LOW (el) >> i;
-          for (; i < 2 * HOST_BITS_PER_WIDE_INT && i < elem_bitsize;
-               i += value_bit)
-            *vp++ = CONST_FIXED_VALUE_HIGH (el) >> (i - HOST_BITS_PER_WIDE_INT);
-          for (; i < elem_bitsize; i += value_bit)
-            *vp++ = 0;
+	  if (elem_bitsize <= HOST_BITS_PER_WIDE_INT)
+	    {
+	      for (i = 0; i < elem_bitsize; i += value_bit) 
+		*vp++ = CONST_FIXED_VALUE_LOW (el) >> i;
+	    }
+	  else
+	    {
+	      for (i = 0; i < HOST_BITS_PER_WIDE_INT; i += value_bit) 
+		*vp++ = CONST_FIXED_VALUE_LOW (el) >> i;
+              for (; i < 2 * HOST_BITS_PER_WIDE_INT && i < elem_bitsize;
+		   i += value_bit)
+		*vp++ = CONST_FIXED_VALUE_HIGH (el)
+			>> (i - HOST_BITS_PER_WIDE_INT);
+	      for (; i < elem_bitsize; i += value_bit)
+		*vp++ = 0;
+	    }
           break;
 	  
 	default:

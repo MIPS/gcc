@@ -886,7 +886,7 @@ FIXED_ALL (FROM_FIXED_C_TYPE a)
       if (x != 0)
 	i = 1;
 #else
-      if ((x << (FROM_FIXED_WIDTH - FROM_FBITS)) != 0)
+      if (((FROM_INT_C_TYPE)(x << (FROM_FIXED_WIDTH - FROM_FBITS))) != 0)
 	i = 1;
 #endif
     }
@@ -920,7 +920,7 @@ FIXED_UINT (FROM_FIXED_C_TYPE a)
       if (x != 0)
 	i = 1;
 #else
-      if ((x << (FROM_FIXED_WIDTH - FROM_FBITS)) != 0)
+      if (((FROM_INT_C_TYPE)(x << (FROM_FIXED_WIDTH - FROM_FBITS))) != 0)
 	i = 1;
 #endif
     }
