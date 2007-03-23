@@ -43,6 +43,31 @@ extern void abort (void);
     TYPE2 b = a; \
     if (b != 0) \
       abort(); \
+    a = -0.0 ## POSTFIX1; \
+    b = a; \
+    if (b != 0) \
+      abort(); \
+    a = +0.0 ## POSTFIX1; \
+    b = a; \
+    if (b != 0) \
+      abort(); \
+    a = +0.1 ## POSTFIX1; \
+    b = a; \
+    if (b != 0) \
+      abort(); \
+    a = -0.1 ## POSTFIX1; \
+    b = a; \
+    if (b != 0) \
+      abort(); \
+  }
+
+/* Signed fixed-point to signed integer.  */
+#define CONV_INT3(TYPE1,POSTFIX1,TYPE2) \
+  { \
+    TYPE1 a = -0.5 ## POSTFIX1 - 0.5 ## POSTFIX1; \
+    TYPE2 b = a; \
+    if (b != -1) \
+      abort(); \
   }
 
 /* Fixed-point to floating-point, and floating-point to fixed-point.  */
@@ -177,7 +202,12 @@ extern void abort (void);
   CONV_INT2(TYPE, POSTFIX, unsigned short) \
   CONV_INT2(TYPE, POSTFIX, unsigned int) \
   CONV_INT2(TYPE, POSTFIX, unsigned long) \
-  CONV_INT2(TYPE, POSTFIX, unsigned long long)
+  CONV_INT2(TYPE, POSTFIX, unsigned long long) \
+  CONV_INT3(TYPE, POSTFIX, signed char) \
+  CONV_INT3(TYPE, POSTFIX, short) \
+  CONV_INT3(TYPE, POSTFIX, int) \
+  CONV_INT3(TYPE, POSTFIX, long) \
+  CONV_INT3(TYPE, POSTFIX, long long)
 
 /* Signed accum to _Sat unsigned/signed fract.  */
 #define SAT_CONV1(TYPE, POSTFIX) \
