@@ -1,3 +1,13 @@
+2007-03-23  Chao-ying Fu  <fu@mips.com>
+
+	* doc/extend.texi (Fixed-Point): New node.
+	* doc/c-tree.texi (FIXED_CONVERT_EXPR): New expression. 
+	* doc/md.texi (fixed_all, sat_fixed_all, fixed_uint, sat_fixed_uint):
+	New standand pattern names for generation.
+	* doc/rtl.texi (const_fixed): New constant expression type.
+	(fixed_all, sat_fixed_all, fixed_uint, sat_fixed_uint): New RTL
+	conversions.
+
 2007-03-22  Chao-ying Fu  <fu@mips.com>
 
 	* expr.c (expand_expr_real_1): Support MODE_VECTOR_FRACT,

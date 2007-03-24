@@ -4143,6 +4143,39 @@ Zero-extend operand 1 (valid for mode @var{m}) to mode @var{n} and
 store in operand 0 (which has mode @var{n}).  Both modes must be fixed
 point.
 
+@cindex @code{fixed_all@var{mn}2} instruction pattern
+@item @samp{fixed_all@var{m}@var{n}2}
+Convert operand 1 of mode @var{m} to mode @var{n} and store in
+operand 0 (which has mode @var{n}).  Mode @var{m} and mode @var{n}
+could be fixed-point to fixed-point, signed integer to fixed-point,
+fixed-point to signed integer, floating-point to fixed-point,
+or fixed-point to floating-point.
+When overflows or underflows happen, the results are undefined.
+
+@cindex @code{sat_fixed_all@var{mn}2} instruction pattern
+@item @samp{sat_fixed_all@var{m}@var{n}2}
+Convert operand 1 of mode @var{m} to mode @var{n} and store in
+operand 0 (which has mode @var{n}).  Mode @var{m} and mode @var{n}
+could be fixed-point to fixed-point, signed integer to fixed-point,
+or floating-point to fixed-point.
+When overflows or underflows happen, the instruction saturates the
+results to the maximum or the minimum.
+
+@cindex @code{fixed_uint@var{mn}2} instruction pattern
+@item @samp{fixed_uint@var{m}@var{n}2}
+Convert operand 1 of mode @var{m} to mode @var{n} and store in
+operand 0 (which has mode @var{n}).  Mode @var{m} and mode @var{n}
+could be unsigned integer to fixed-point, or
+fixed-point to unsigned integer.
+When overflows or underflows happen, the results are undefined.
+
+@cindex @code{sat_fixed_uint@var{mn}2} instruction pattern
+@item @samp{sat_fixed_uint@var{m}@var{n}2}
+Convert unsigned integer operand 1 of mode @var{m} to fixed-point mode
+@var{n} and store in operand 0 (which has mode @var{n}).
+When overflows or underflows happen, the instruction saturates the
+results to the maximum or the minimum.
+
 @cindex @code{extv} instruction pattern
 @item @samp{extv}
 Extract a bit-field from operand 1 (a register or memory operand), where

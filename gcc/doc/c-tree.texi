@@ -1922,6 +1922,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex NON_LVALUE_EXPR
 @tindex NOP_EXPR
 @tindex CONVERT_EXPR
+@tindex FIXED_CONVERT_EXPR
 @tindex THROW_EXPR
 @tindex LSHIFT_EXPR
 @tindex RSHIFT_EXPR
@@ -2264,6 +2265,13 @@ an inheritance hierarchy.  Any adjustments that need to be made in such
 cases are always indicated explicitly.  Similarly, a user-defined
 conversion is never represented by a @code{CONVERT_EXPR}; instead, the
 function calls are made explicit.
+
+@item FIXED_CONVERT_EXPR
+These nodes are used to represent conversions that involve fixed-point
+values.  For example, from a fixed-point value to another fixed-point value,
+from an integer to a fixed-point value, from a fixed-point value to an
+integer, from a floating-point value to a fixed-point value, or from
+a fixed-point value to a floating-point value.
 
 @item THROW_EXPR
 These nodes represent @code{throw} expressions.  The single operand is
