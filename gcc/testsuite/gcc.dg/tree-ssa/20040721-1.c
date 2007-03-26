@@ -24,5 +24,5 @@ main ()
 }
 
 /* There should be no G on the RHS of an assignment. */
-/* { dg-final { scan-tree-dump-times "= G;" 0 "store_ccp"} } */
-/* { dg-final { cleanup-tree-dump "store_ccp" } } */
+/* { dg-final { scan-tree-dump-times "= G;" 0 "store_ccp1"} } */
+/* { dg-final { cleanup-tree-dump "store_ccp*" } } */

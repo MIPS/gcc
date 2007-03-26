@@ -17,6 +17,6 @@ test (void)
 /* After store_ccp, there should not be any assignments from real or
    imaginary parts anymore.  The constants should be loaded from b and
    propagated into the elements of a.  */
-/* { dg-final { scan-tree-dump-times "= CR" 0 "store_ccp" } } */
-/* { dg-final { scan-tree-dump-times "= CI" 0 "store_ccp" } } */
-/* { dg-final { cleanup-tree-dump "store_ccp" } } */
+/* { dg-final { scan-tree-dump-times "= CR" 0 "store_ccp1" } } */
+/* { dg-final { scan-tree-dump-times "= CI" 0 "store_ccp1" } } */
+/* { dg-final { cleanup-tree-dump "store_ccp*" } } */

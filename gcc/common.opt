@@ -1041,6 +1041,10 @@ funroll-all-loops
 Common Report Var(flag_unroll_all_loops)
 Perform loop unrolling for all loops
 
+ftree-complete-unroll
+Common Report Var(flag_tree_complete_unroll) Init(1)
+Perform complete unrolling for loops
+
 ; Nonzero means that loop optimizer may assume that the induction variables
 ; that control loops do not overflow and that the loops with nontrivial
 ; exit condition are not infinite

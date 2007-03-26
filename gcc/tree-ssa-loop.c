@@ -376,7 +376,7 @@ tree_complete_unroll (void)
 static bool
 gate_tree_complete_unroll (void)
 {
-  return true;
+  return (flag_tree_complete_unroll);
 }
 
 struct tree_opt_pass pass_complete_unroll =

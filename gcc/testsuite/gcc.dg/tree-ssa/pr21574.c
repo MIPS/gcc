@@ -9,5 +9,5 @@ foo (int *p)
 }
 
 /* The store to *p should be propagated to the return statement.  */
-/* { dg-final { scan-tree-dump-times "return 0" 1 "store_ccp" } } */
-/* { dg-final { cleanup-tree-dump "store_ccp" } } */
+/* { dg-final { scan-tree-dump-times "return 0" 1 "store_ccp1" } } */
+/* { dg-final { cleanup-tree-dump "store_ccp*" } } */

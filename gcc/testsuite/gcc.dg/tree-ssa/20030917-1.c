@@ -15,5 +15,5 @@ findbestextension (int blah, int blah2)
 }
 
 /* The argument to "foo" should be a variable, not a constant.  */
-/* { dg-final { scan-tree-dump-times "foo .defval" 1 "store_ccp"} } */
-/* { dg-final { cleanup-tree-dump "store_ccp" } } */
+/* { dg-final { scan-tree-dump-times "foo .defval" 1 "store_ccp1"} } */
+/* { dg-final { cleanup-tree-dump "store_ccp*" } } */

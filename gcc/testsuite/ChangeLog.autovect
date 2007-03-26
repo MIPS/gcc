@@ -1,4 +1,19 @@
+2007-03-26  Revital Eres  <eres@il.ibm.com>
+
+        * testsuite/gcc.dg/vect/vect.exp: Add fno-tree-complete-unroll
+          to the default options of the vect testsuite.
+        * testsuite/gcc.dg/tree-ssa/20030917-1.c: Fix dump file number.
+        * testsuite/gcc.dg/tree-ssa/ssa-ccp-1.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/pr21574.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/20030917-3.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/ssa-ccp-3.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/pr14841.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/20030731-2.c: Likewise.
+        * testsuite/gcc.dg/tree-ssa/20040721-1.c: Likewise.
+        * testsuite/gcc.dg/pr23911.c: Likewise.
+
 2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+            Revital Eres   <eres@il.ibm.com>
 
        * gcc.dg/tree-ssa/loop-24.c: New test.
 

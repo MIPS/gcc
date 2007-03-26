@@ -1,4 +1,15 @@
+2007-03-26  Revital Eres  <eres@il.ibm.com>
+
+        * passes.c (init_optimization_passes): move complete-unrolling
+          pass before the vectorizer and add constant propagation,
+          store-ccp, dse and dce passes after it.
+        * common.opt (-ftree-complete-unroll): Add the new flag.
+        * doc/invoke.texi (-ftree-complete-unroll): Document it.
+        * tree-ssa-loop.c (gate_tree_complete_unroll): Add
+          -ftree-complete-unroll flag to the gate.
+
 2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+            Revital Eres   <eres@il.ibm.com>
  
         * tree-ssa-loop-im.c: Include tree-affine.h.
 	(struct mem_ref): Remove next field.  Add is_movable field.
