@@ -224,6 +224,10 @@ internal_proto(l8_to_l4_offset);
 #define GFOR_POINTER_L8_TO_L4(p8) \
   (l8_to_l4_offset + (GFC_LOGICAL_4 *)(p8))
 
+#define GFC_INTEGER_1_HUGE \
+  (GFC_INTEGER_1)((((GFC_UINTEGER_1)1) << 7) - 1)
+#define GFC_INTEGER_2_HUGE \
+  (GFC_INTEGER_2)((((GFC_UINTEGER_2)1) << 15) - 1)
 #define GFC_INTEGER_4_HUGE \
   (GFC_INTEGER_4)((((GFC_UINTEGER_4)1) << 31) - 1)
 #define GFC_INTEGER_8_HUGE \
@@ -283,6 +287,8 @@ struct {\
 /* Commonly used array descriptor types.  */
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_1) gfc_array_i1;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_2) gfc_array_i2;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
 #ifdef HAVE_GFC_INTEGER_16
@@ -355,7 +361,7 @@ typedef struct
   int fpu_round, fpu_precision, fpe;
 
   int sighup, sigint;
-  int dump_core;
+  int dump_core, backtrace;
 }
 options_t;
 
@@ -372,6 +378,7 @@ typedef struct
   int pedantic;
   int convert;
   int dump_core;
+  int backtrace;
   size_t record_marker;
   int max_subrecord_length;
 }
@@ -543,6 +550,17 @@ export_proto(set_args);
 
 extern void get_args (int *, char ***);
 internal_proto(get_args);
+
+extern void store_exe_path (const char *);
+export_proto(store_exe_path);
+
+extern char * full_exe_path (void);
+internal_proto(full_exe_path);
+
+/* backtrace.c */
+
+extern void show_backtrace (void);
+internal_proto(show_backtrace);
 
 /* error.c */
 

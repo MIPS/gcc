@@ -485,6 +485,7 @@ next_free (void)
 	    gcc_assert (c == "!$omp"[i]);
 
 	  gcc_assert (c == ' ');
+	  gfc_gobble_whitespace ();
 	  return decode_omp_directive ();
 	}
     }
@@ -1780,6 +1781,20 @@ loop:
 decl:
   /* Read data declaration statements.  */
   st = parse_spec (ST_NONE);
+
+  /* Since the interface block does not permit an IMPLICIT statement,
+     the default type for the function or the result must be taken
+     from the formal namespace.  */
+  if (new_state == COMP_FUNCTION)
+    {
+	if (prog_unit->result == prog_unit
+	      && prog_unit->ts.type == BT_UNKNOWN)
+	  gfc_set_default_type (prog_unit, 1, prog_unit->formal_ns);
+	else if (prog_unit->result != prog_unit
+		   && prog_unit->result->ts.type == BT_UNKNOWN)
+	  gfc_set_default_type (prog_unit->result, 1,
+				prog_unit->formal_ns);
+    }
 
   if (st != ST_END_SUBROUTINE && st != ST_END_FUNCTION)
     {

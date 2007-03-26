@@ -50,6 +50,7 @@
 #include "fe.h"
 #include "sinfo.h"
 #include "einfo.h"
+#include "hashtab.h"
 #include "ada-tree.h"
 #include "gigi.h"
 
@@ -79,6 +80,10 @@ static struct incomplete
 
 static int defer_debug_level = 0;
 static tree defer_debug_incomplete_list;
+
+/* A hash table used as to cache the result of annotate_value.  */
+static GTY ((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
+  htab_t annotate_value_cache;
 
 static void copy_alias_set (tree, tree);
 static tree substitution_list (Entity_Id, Entity_Id, tree, bool);
@@ -1327,8 +1332,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  {
 	    TYPE_MODULAR_P (gnu_type) = 1;
 	    SET_TYPE_MODULUS (gnu_type, gnu_modulus);
-	    gnu_high = fold (build2 (MINUS_EXPR, gnu_type, gnu_modulus,
-				     convert (gnu_type, integer_one_node)));
+	    gnu_high = fold_build2 (MINUS_EXPR, gnu_type, gnu_modulus,
+				    convert (gnu_type, integer_one_node));
 	  }
 
 	/* If we have to set TYPE_PRECISION different from its natural value,
@@ -1904,10 +1909,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  && TREE_CODE (gnu_max) == INTEGER_CST
 		  && TREE_OVERFLOW (gnu_min) && TREE_OVERFLOW (gnu_max)
 		  && (!TREE_OVERFLOW
-		      (fold (build2 (MINUS_EXPR, gnu_index_subtype,
-				     TYPE_MAX_VALUE (gnu_index_subtype),
-				     TYPE_MIN_VALUE (gnu_index_subtype))))))
-		TREE_OVERFLOW (gnu_min) = TREE_OVERFLOW (gnu_max) = 0;
+		      (fold_build2 (MINUS_EXPR, gnu_index_subtype,
+				    TYPE_MAX_VALUE (gnu_index_subtype),
+				    TYPE_MIN_VALUE (gnu_index_subtype)))))
+		{
+		  TREE_OVERFLOW (gnu_min) = 0;
+		  TREE_OVERFLOW (gnu_max) = 0;
+		}
 
 	      /* Similarly, if the range is null, use bounds of 1..0 for
 		 the sizetype bounds.  */
@@ -5876,10 +5884,22 @@ annotate_value (tree gnu_size)
   Node_Ref_Or_Val ops[3], ret;
   int i;
   int size;
+  struct tree_int_map **h = NULL;
 
   /* See if we've already saved the value for this node.  */
-  if (EXPR_P (gnu_size) && TREE_COMPLEXITY (gnu_size))
-    return (Node_Ref_Or_Val) TREE_COMPLEXITY (gnu_size);
+  if (EXPR_P (gnu_size))
+    {
+      struct tree_int_map in;
+      if (!annotate_value_cache)
+        annotate_value_cache = htab_create_ggc (512, tree_int_map_hash,
+					        tree_int_map_eq, 0);
+      in.base.from = gnu_size;
+      h = (struct tree_int_map **)
+	    htab_find_slot (annotate_value_cache, &in, INSERT);
+
+      if (*h)
+	return (Node_Ref_Or_Val) (*h)->to;
+    }
 
   /* If we do not return inside this switch, TCODE will be set to the
      code to use for a Create_Node operand and LEN (set above) will be
@@ -5994,7 +6014,15 @@ annotate_value (tree gnu_size)
     }
 
   ret = Create_Node (tcode, ops[0], ops[1], ops[2]);
-  TREE_COMPLEXITY (gnu_size) = ret;
+
+  /* Save the result in the cache.  */
+  if (h)
+    {
+      *h = ggc_alloc (sizeof (struct tree_int_map));
+      (*h)->base.from = gnu_size;
+      (*h)->to = ret;
+    }
+
   return ret;
 }
 
@@ -6847,3 +6875,5 @@ concat_id_with_name (tree gnu_id, const char *suffix)
   strcpy (Name_Buffer + len, suffix);
   return get_identifier (Name_Buffer);
 }
+
+#include "gt-ada-decl.h"

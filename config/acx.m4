@@ -123,6 +123,20 @@ test -n "$target_alias" && ncn_target_tool_prefix=$target_alias-
 
 AC_DEFUN([NCN_STRICT_CHECK_TOOLS],
 [AC_REQUIRE([_NCN_TOOL_PREFIXES]) []dnl
+AC_ARG_VAR([$1], [$1 for the host])
+
+if test -n "[$]$1"; then
+  ac_cv_prog_$1=[$]$1
+elif test -n "$ac_cv_prog_$1"; then
+  $1=$ac_cv_prog_$1
+fi
+
+if test -n "$ac_cv_prog_$1"; then
+  for ncn_progname in $2; do
+    AC_CHECK_PROG([$1], [${ncn_progname}], [${ncn_progname}], , [$4])
+  done
+fi
+
 for ncn_progname in $2; do
   if test -n "$ncn_tool_prefix"; then
     AC_CHECK_PROG([$1], [${ncn_tool_prefix}${ncn_progname}], 
@@ -150,7 +164,21 @@ fi
 
 AC_DEFUN([NCN_STRICT_CHECK_TARGET_TOOLS],
 [AC_REQUIRE([_NCN_TOOL_PREFIXES]) []dnl
-if test -n "$with_build_time_tools"; then
+AC_ARG_VAR([$1], patsubst([$1], [_FOR_TARGET$], [])[ for the target])
+
+if test -n "[$]$1"; then
+  ac_cv_prog_$1=[$]$1
+elif test -n "$ac_cv_prog_$1"; then
+  $1=$ac_cv_prog_$1
+fi
+
+if test -n "$ac_cv_prog_$1"; then
+  for ncn_progname in $2; do
+    AC_CHECK_PROG([$1], [${ncn_progname}], [${ncn_progname}], , [$4])
+  done
+fi
+
+if test -z "$ac_cv_prog_$1" && test -n "$with_build_time_tools"; then
   for ncn_progname in $2; do
     AC_MSG_CHECKING([for ${ncn_progname} in $with_build_time_tools])
     if test -x $with_build_time_tools/${ncn_progname}; then
@@ -300,7 +328,7 @@ if test -z "$ac_cv_path_$1" ; then
     ac_cv_path_$1=[$]$1
   fi
 fi
-if test -z "$ac_cv_path_$1" ; then
+if test -z "$ac_cv_path_$1" && test -n "$gcc_cv_tool_dirs"; then
   AC_PATH_PROG([$1], [$2], [], [$gcc_cv_tool_dirs])
 fi
 if test -z "$ac_cv_path_$1" ; then
@@ -457,7 +485,8 @@ AC_DEFUN([GCC_TARGET_TOOL],
 if test "x${build}" != "x${host}" ; then
   if expr "x[$]$2" : "x/" > /dev/null; then
     # We already found the complete path
-    AC_MSG_RESULT(pre-installed in `dirname [$]$2`)
+    ac_dir=`dirname [$]$2`
+    AC_MSG_RESULT(pre-installed in $ac_dir)
   else
     # Canadian cross, just use what we found
     AC_MSG_RESULT(pre-installed)
@@ -480,7 +509,8 @@ else
     AC_MSG_RESULT(just compiled)
   el])if expr "x[$]$2" : "x/" > /dev/null; then
     # We already found the complete path
-    AC_MSG_RESULT(pre-installed in `dirname [$]$2`)
+    ac_dir=`dirname [$]$2`
+    AC_MSG_RESULT(pre-installed in $ac_dir)
   elif test "x$target" = "x$host"; then
     # We can use an host tool
     $2='$($3)'
@@ -518,4 +548,45 @@ AC_DEFUN([ACX_CHECK_PROG_VER],[
   else
     gcc_cv_prog_$2_modern=no
   fi
+  if test $gcc_cv_prog_$2_modern = no; then
+    $1="${CONFIG_SHELL-/bin/sh} $ac_aux_dir/missing $2"
+  fi
+])
+
+dnl Support the --with-pkgversion configure option.
+dnl ACX_PKGVERSION(default-pkgversion)
+AC_DEFUN([ACX_PKGVERSION],[
+  AC_ARG_WITH(pkgversion,
+    AS_HELP_STRING([--with-pkgversion=PKG],
+                   [Use PKG in the version string in place of "$1"]),
+    [case "$withval" in
+      yes) AC_MSG_ERROR([package version not specified]) ;;
+      no)  PKGVERSION= ;;
+      *)   PKGVERSION="($withval) " ;;
+     esac],
+    PKGVERSION="($1) "
+  )
+  AC_SUBST(PKGVERSION)
+])
+
+dnl Support the --with-bugurl configure option.
+dnl ACX_BUGURL(default-bugurl)
+AC_DEFUN([ACX_BUGURL],[
+  AC_ARG_WITH(bugurl,
+    AS_HELP_STRING([--with-bugurl=URL],
+                   [Direct users to URL to report a bug]),
+    [case "$withval" in
+      yes) AC_MSG_ERROR([bug URL not specified]) ;;
+      no)  REPORT_BUGS_TO="";
+	   REPORT_BUGS_TEXI=""
+	   ;;
+      *)   REPORT_BUGS_TO="<$withval>"
+	   REPORT_BUGS_TEXI="@uref{`echo $withval | sed 's/@/@@/g'`}"
+	   ;;
+     esac],
+     REPORT_BUGS_TO="<$1>"
+     REPORT_BUGS_TEXI="@uref{`echo $1 | sed 's/@/@@/g'`}"
+  )
+  AC_SUBST(REPORT_BUGS_TO)
+  AC_SUBST(REPORT_BUGS_TEXI)
 ])

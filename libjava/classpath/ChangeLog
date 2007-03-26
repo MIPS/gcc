@@ -1,3 +1,172 @@
+2007-03-17  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* resource/com/sun/tools/javac/messages.properties
+	(Main.FailedToRead, Main.MalformedURL, Main.FailedToLoad): Clarify
+	messages for when --with-ecj-jar is not specified.
+	* configure.ac (FOUND_ECJ_JAR): Remove conditional.
+	* tools/Makefile.am: Build com.sun.tools.javac package
+	unconditionally.
+	* configure, doc/api/Makefile.in, doc/Makefile.in,
+	examples/Makefile.in, external/jsr166/Makefile.in,
+	external/Makefile.in, external/relaxngDatatype/Makefile.in,
+	external/sax/Makefile.in, external/w3c_dom/Makefile.in,
+	include/Makefile.in, lib/Makefile.in, Makefile.in,
+	native/fdlibm/Makefile.in, native/jawt/Makefile.in,
+	native/jni/classpath/Makefile.in,
+	native/jni/gconf-peer/Makefile.in,
+	native/jni/gtk-peer/Makefile.in, native/jni/java-io/Makefile.in,
+	native/jni/java-lang/Makefile.in, native/jni/java-net/Makefile.in,
+	native/jni/java-nio/Makefile.in, native/jni/java-util/Makefile.in,
+	native/jni/Makefile.in, native/jni/midi-alsa/Makefile.in,
+	native/jni/midi-dssi/Makefile.in,
+	native/jni/native-lib/Makefile.in, native/jni/qt-peer/Makefile.in,
+	native/jni/xmlj/Makefile.in, native/Makefile.in,
+	native/plugin/Makefile.in, resource/Makefile.in,
+	scripts/Makefile.in, tools/Makefile.in: Regenerate.
+	* tools/classes/com/sun/tools/javac: New directory.
+	* tools/classes/com/sun/tools/javac/Main.class,
+	tools/classes/com/sun/tools/javac/Messages.class: New files.
+
+2007-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* tools/gnu/classpath/tools/javah/Main.java (run): Use class'
+	name in File case.
+
+2007-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* tools/gnu/classpath/tools/javah/JniStubPrinter.java
+	(printClass): Added filename argument.
+	* tools/gnu/classpath/tools/javah/JniIncludePrinter.java
+	(printClass): Added filename argument.
+	* tools/gnu/classpath/tools/javah/CniIncludePrinter.java
+	(printClass): Use user's file name.
+	* tools/gnu/classpath/tools/javah/CniStubPrinter.java
+	(printClass): Use user's file name.
+	* tools/gnu/classpath/tools/javah/Printer.java (printClass): Added
+	filename argument.
+	* tools/gnu/classpath/tools/javah/Main.java (getParser): Fix '-v'
+	argument order.
+	(writeHeaders): Use a HashMap.
+	(run): Put class name into HashMap for writeHeaders.
+
+2007-03-02  Mario Torre  <neugens@limasoftware.net>
+
+	PR classpath/31017:
+	committed for Petteri RÃ¤ty <betelgeuse@gentoo.org>
+	* configure.ac: fix broken build for gcj browser plugin
+
+2007-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* java/util/Date.java (parse): Properly parse 09:01:02 as
+	hours/minutes/seconds, not as hours/minutes/year.
+	* java/util/SimpleTimeZone.java (SimpleTimeZone): Simplify
+	{start,end}TimeMode constructor by calling shorter constructor,
+	set {start,end}TimeMode fields after it returns.
+	(setStartRule): Don't adjust startTime into WALL_TIME.  Set
+	startTimeMode to WALL_TIME.
+	(endStartRule): Similarly.
+	(getOffset): Handle properly millis + dstOffset overflowing into the
+	next day.  Adjust startTime resp. endTime based on startTimeMode
+	resp. endTimeMode.
+	* java/util/TimeZone.java (zoneinfo_dir, availableIDs, aliases0): New
+	static fields.
+	(timezones): Remove synchronized keyword.  Set zoneinfo_dir.
+	If non-null, set up aliases0 and don't put anything into
+	timezones0.
+	(defaultZone): Call getTimeZone instead of timezones().get.
+	(getDefaultTimeZone): Fix parsing of EST5 or EST5EDT6.  Use
+	getTimeZoneInternal instead of timezones().get.
+	(parseTime): Parse correctly hour:minute.
+	(getTimeZoneInternal): New private method.
+	(getTimeZone): Do the custom ID checking first, canonicalize
+	ID for custom IDs as required by documentation.  Call
+	getTimeZoneInternal to handle the rest.
+	(getAvailableIDs(int)): Add locking.  Handle zoneinfo_dir != null.
+	(getAvailableIDs(File,String,ArrayList)): New private method.
+	(getAvailableIDs()): Add locking.  Handle zoneinfo_dir != null.
+	* gnu/java/util/ZoneInfo.java: New file.
+
+2007-02-20  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/Makefile.am: Add rules to build and install man pages
+	from texinfo docs.
+	* doc/hacking.texinfo doc/tools.texinfo, doc/vmintegration.texinfo:
+	Rename, prefix files with "cp-".
+	* doc/cp-tools.texinfo: Add markup for man page generation,
+	add documentation for command line options for gjar, gjavah,
+	gnative2ascii, gorbd, grmid, grmiregistry, gserialver, gtnameserv.
+	doc/texi2pod.pl: New, taken from the GCC sources.
+
+2006-10-14  Edwin Steiner  <edwin.steiner@gmx.net>
+
+	PR classpath/28652:
+	* javax/management/MBeanInfo.java (MBeanInfo): 
+	Use clone to duplicate the arrays in order to
+	preserve the array type.
+
+2007-02-16  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/lang/management/MemoryMXBeanImpl.java,
+	javax/management/MBeanServerDelegate.java: Use
+	gnu.javax.management.ListenerData rather than
+	gnu.classpath.ListenerData.
+	* gnu/javax/management/ListenerData.java: Move here from
+	gnu/classpath/ListenerData.java.
+
+2007-02-14  Jakub Jelinek  <jakub@redhat.com>
+	Andrew Haley  <aph@redhat.com>
+
+	* java/util/TimeZone.java (getDateParams): Negate dayOfWeek.
+
+2007-02-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/30647:
+	* configure: Rebuilt.
+	* configure.ac: Also check for jack/jack.h.
+
+2007-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* java/util/TimeZone.java: Handle default (one hour) daylight
+	savings.
+
+2007-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR 23566
+	* scripts/timezones.pl: Parse each file in 2 passes, in one parse
+	just Rule lines, in the other everything else.  Pass 0 instead of
+	$savings as second argument to parseRule when parsing the start
+	rule.
+	* java/util/TimeZone.java (timezones): Regenerate from tzdata2007a.
+
+2007-02-07  Chris Burdess  <dog@gnu.org>
+
+	Fixes PR 30718.
+	* gnu/xml/dom/ls/SAXEventSink.java: Add public accessor/mutators.
+	* gnu/xml/transform/XSLURIResolver.java: Add support for custom
+	  SAXSources without a backing URL or stream.
+
+	Fixes PR 27710.
+	* gnu/xml/dom/DomDocumentBuilderFactory.java: Fall back to synchronous
+	  LSParser if implementation does not support asynchronous.
+	* gnu/xml/stream/XMLParser.java,
+	  gnu/xml/stream/XIncludeFilter.java: Use custom code instead of
+	  java.net.URL to resolve to an an absolute URI, to avoid nonexistent
+	  protocol handler problems.
+
+2007-02-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/30707:
+	* tools/gnu/classpath/tools/javah/JniIncludePrinter.java
+	(printClass): Always print a header.
+
+2007-02-05  Andrew Haley  <aph@redhat.com>
+
+	PR cp-tools/30706
+	* tools/gnu/classpath/tools/javah/JniIncludePrinter.java:
+	(printClass): Replace '/' in filenames with '_'.
+	* tools/gnu/classpath/tools/javah/JniStubPrinter.java
+	(printClass): Likewise.
+
 2007-02-05  Tom Tromey  <tromey@redhat.com>
 
 	* java/net/Proxy.java (equals): Handle case where address==null.

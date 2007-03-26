@@ -1578,10 +1578,11 @@ attributes are currently defined for functions on all targets:
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
 @code{alias}, @code{warn_unused_result}, @code{nonnull},
-@code{gnu_inline} and @code{externally_visible}.  Several other
-attributes are defined for functions on particular target systems.  Other
-attributes, including @code{section} are supported for variables declarations
-(@pxref{Variable Attributes}) and for types (@pxref{Type Attributes}).
+@code{gnu_inline} and @code{externally_visible}, @code{hot}, @code{cold}.
+Several other attributes are defined for functions on particular target
+systems.  Other attributes, including @code{section} are supported for
+variables declarations (@pxref{Variable Attributes}) and for types (@pxref{Type
+Attributes}).
 
 You may also specify attributes with @samp{__} preceding and following
 each keyword.  This allows you to use them in header files without
@@ -1618,8 +1619,37 @@ if no optimization level was specified.
 
 @item gnu_inline
 @cindex @code{gnu_inline} function attribute
-This attribute on an inline declaration results in the old GNU C89
-inline behavior even in the ISO C99 mode.
+This attribute should be used with a function which is also declared
+with the @code{inline} keyword.  It directs GCC to treat the function
+as if it were defined in gnu89 mode even when compiling in C99 or
+gnu99 mode.
+
+If the function is declared @code{extern}, then this definition of the
+function is used only for inlining.  In no case is the function
+compiled as a standalone function, not even if you take its address
+explicitly.  Such an address becomes an external reference, as if you
+had only declared the function, and had not defined it.  This has
+almost the effect of a macro.  The way to use this is to put a
+function definition in a header file with this attribute, and put
+another copy of the function, without @code{extern}, in a library
+file.  The definition in the header file will cause most calls to the
+function to be inlined.  If any uses of the function remain, they will
+refer to the single copy in the library.  Note that the two
+definitions of the functions need not be precisely the same, although
+if they do not have the same effect your program may behave oddly.
+
+If the function is neither @code{extern} nor @code{static}, then the
+function is compiled as a standalone function, as well as being
+inlined where possible.
+
+This is how GCC traditionally handled functions declared
+@code{inline}.  Since ISO C99 specifies a different semantics for
+@code{inline}, this function attribute is provided as a transition
+measure and as a useful feature in its own right.  This attribute is
+available in GCC 4.1.3 and later.  It is available if either of the
+preprocessor macros @code{__GNUC_GNU_INLINE__} or
+@code{__GNUC_STDC_INLINE__} are defined.  @xref{Inline,,An Inline
+Function is As Fast As a Macro}.
 
 @cindex @code{flatten} function attribute
 @item flatten
@@ -1667,6 +1697,8 @@ specifies that the @samp{const} must be attached to the return value.
 
 @item constructor
 @itemx destructor
+@itemx constructor (@var{priority})
+@itemx destructor (@var{priority})
 @cindex @code{constructor} function attribute
 @cindex @code{destructor} function attribute
 The @code{constructor} attribute causes the function to be called
@@ -1676,6 +1708,16 @@ automatically after @code{main ()} has completed or @code{exit ()} has
 been called.  Functions with these attributes are useful for
 initializing data that will be used implicitly during the execution of
 the program.
+
+You may provide an optional integer priority to control the order in
+which constructor and destructor functions are run.  A constructor
+with a smaller priority number runs before a constructor with a larger
+priority number; the opposite relationship holds for destructors.  So,
+if you have a constructor that allocates a resource and a destructor
+that deallocates the same resource, both functions typically have the
+same priority.  The priorities for constructor and destructor
+functions are the same as those specified for namespace-scope C++
+objects (@pxref{C++ Attributes}).
 
 These attributes are not currently implemented for Objective-C@.
 
@@ -2200,6 +2242,35 @@ two consecutive calls (such as @code{feof} in a multithreading environment).
 
 The attribute @code{pure} is not implemented in GCC versions earlier
 than 2.96.
+
+@item hot
+@cindex @code{hot} function attribute
+The @code{hot} attribute is used to inform the compiler that a function is a
+hot spot of the compiled program.  The function is optimized more aggressively
+and on many target it is placed into special subsection of the text section so
+all hot functions appears close together improving locality.
+
+When profile feedback is available, via @option{-fprofile-use}, hot functions
+are automatically detected and this attribute is ignored.
+
+The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
+
+@item cold
+@cindex @code{cold} function attribute
+The @code{cold} attribute is used to inform the compiler that a function is
+unlikely executed.  The function is optimized for size rather than speed and on
+many targets it is placed into special subsection of the text section so all
+cold functions appears close together improving code locality of non-cold parts
+of program.  The paths leading to call of cold functions within code are marked
+as unlikely by the branch prediction mechanism. It is thus useful to mark
+functions used to handle unlikely conditions, such as @code{perror}, as cold to
+improve optimization of hot functions that do call marked functions in rare
+occasions.
+
+When profile feedback is available, via @option{-fprofile-use}, hot functions
+are automatically detected and this attribute is ignored.
+
+The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
@@ -3834,10 +3905,11 @@ also direct GCC to try to integrate all ``simple enough'' functions
 into their callers with the option @option{-finline-functions}.
 
 GCC implements three different semantics of declaring a function
-inline.  One is available with @option{-std=gnu89} or when @code{gnu_inline}
-attribute is present on all inline declarations, another when
-@option{-std=c99} or @option{-std=gnu99}, and the third is used when
-compiling C++.
+inline.  One is available with @option{-std=gnu89} or
+@option{-fgnu89-inline} or when @code{gnu_inline} attribute is present
+on all inline declarations, another when @option{-std=c99} or
+@option{-std=gnu99} (without @option{-fgnu89-inline}), and the third
+is used when compiling C++.
 
 To declare a function inline, use the @code{inline} keyword in its
 declaration, like this:
@@ -7331,25 +7403,36 @@ v2si __builtin_ia32_pswapdsi (v2si)
 The MIPS DSP Application-Specific Extension (ASE) includes new
 instructions that are designed to improve the performance of DSP and
 media applications.  It provides instructions that operate on packed
-8-bit integer data, Q15 fractional data and Q31 fractional data.
+8-bit/16-bit integer data, Q7, Q15 and Q31 fractional data.
 
 GCC supports MIPS DSP operations using both the generic
 vector extensions (@pxref{Vector Extensions}) and a collection of
 MIPS-specific built-in functions.  Both kinds of support are
 enabled by the @option{-mdsp} command-line option.
 
+Revision 2 of the ASE was introduced in the second half of 2006.
+This revision adds extra instructions to the original ASE, but is
+otherwise backwards-compatible with it.  You can select revision 2
+using the command-line option @option{-mdspr2}; this option implies
+@option{-mdsp}.
+
 At present, GCC only provides support for operations on 32-bit
 vectors.  The vector type associated with 8-bit integer data is
-usually called @code{v4i8} and the vector type associated with Q15 is
-usually called @code{v2q15}.  They can be defined in C as follows:
+usually called @code{v4i8}, the vector type associated with Q7
+is usually called @code{v4q7}, the vector type associated with 16-bit
+integer data is usually called @code{v2i16}, and the vector type
+associated with Q15 is usually called @code{v2q15}.  They can be
+defined in C as follows:
 
 @smallexample
-typedef char v4i8 __attribute__ ((vector_size(4)));
+typedef signed char v4i8 __attribute__ ((vector_size(4)));
+typedef signed char v4q7 __attribute__ ((vector_size(4)));
+typedef short v2i16 __attribute__ ((vector_size(4)));
 typedef short v2q15 __attribute__ ((vector_size(4)));
 @end smallexample
 
-@code{v4i8} and @code{v2q15} values are initialized in the same way as
-aggregates.  For example:
+@code{v4i8}, @code{v4q7}, @code{v2i16} and @code{v2q15} values are
+initialized in the same way as aggregates.  For example:
 
 @smallexample
 v4i8 a = @{1, 2, 3, 4@};
@@ -7368,9 +7451,10 @@ order applies to big-endian targets.  For example, the code above will
 set the lowest byte of @code{a} to @code{1} on little-endian targets
 and @code{4} on big-endian targets.
 
-@emph{Note:} Q15 and Q31 values must be initialized with their integer
+@emph{Note:} Q7, Q15 and Q31 values must be initialized with their integer
 representation.  As shown in this example, the integer representation
-of a Q15 value can be obtained by multiplying the fractional value by
+of a Q7 value can be obtained by multiplying the fractional value by
+@code{0x1.0p7}.  The equivalent for Q15 values is to multiply by
 @code{0x1.0p15}.  The equivalent for Q31 values is to multiply by
 @code{0x1.0p31}.
 
@@ -7386,12 +7470,22 @@ and @code{c} and @code{d} are @code{v2q15} values.
 @item @code{c - d} @tab @code{subq.ph}
 @end multitable
 
+The table below lists the @code{v2i16} operation for which
+hardware support exists for the DSP ASE REV 2.  @code{e} and @code{f} are
+@code{v2i16} values.
+
+@multitable @columnfractions .50 .50
+@item C code @tab MIPS instruction
+@item @code{e * f} @tab @code{mul.ph}
+@end multitable
+
 It is easier to describe the DSP built-in functions if we first define
 the following types:
 
 @smallexample
 typedef int q31;
 typedef int i32;
+typedef unsigned int ui32;
 typedef long long a64;
 @end smallexample
 
@@ -7408,6 +7502,7 @@ numbers and register operands, or accept immediate numbers only.  The
 immediate parameters are listed as follows.
 
 @smallexample
+imm0_3: 0 to 3.
 imm0_7: 0 to 7.
 imm0_15: 0 to 15.
 imm0_31: 0 to 31.
@@ -7526,6 +7621,66 @@ i32 __builtin_mips_lhx (void *, i32)
 i32 __builtin_mips_lwx (void *, i32)
 i32 __builtin_mips_bposge32 (void)
 @end smallexample
+
+The following built-in functions map directly to a particular MIPS DSP REV 2
+instruction.  Please refer to the architecture specification
+for details on what each instruction does.
+
+@smallexample
+v4q7 __builtin_mips_absq_s_qb (v4q7);
+v2i16 __builtin_mips_addu_ph (v2i16, v2i16);
+v2i16 __builtin_mips_addu_s_ph (v2i16, v2i16);
+v4i8 __builtin_mips_adduh_qb (v4i8, v4i8);
+v4i8 __builtin_mips_adduh_r_qb (v4i8, v4i8);
+i32 __builtin_mips_append (i32, i32, imm0_31);
+i32 __builtin_mips_balign (i32, i32, imm0_3);
+i32 __builtin_mips_cmpgdu_eq_qb (v4i8, v4i8);
+i32 __builtin_mips_cmpgdu_lt_qb (v4i8, v4i8);
+i32 __builtin_mips_cmpgdu_le_qb (v4i8, v4i8);
+a64 __builtin_mips_dpa_w_ph (a64, v2i16, v2i16);
+a64 __builtin_mips_dps_w_ph (a64, v2i16, v2i16);
+a64 __builtin_mips_madd (a64, i32, i32);
+a64 __builtin_mips_maddu (a64, ui32, ui32);
+a64 __builtin_mips_msub (a64, i32, i32);
+a64 __builtin_mips_msubu (a64, ui32, ui32);
+v2i16 __builtin_mips_mul_ph (v2i16, v2i16);
+v2i16 __builtin_mips_mul_s_ph (v2i16, v2i16);
+q31 __builtin_mips_mulq_rs_w (q31, q31);
+v2q15 __builtin_mips_mulq_s_ph (v2q15, v2q15);
+q31 __builtin_mips_mulq_s_w (q31, q31);
+a64 __builtin_mips_mulsa_w_ph (a64, v2i16, v2i16);
+a64 __builtin_mips_mult (i32, i32);
+a64 __builtin_mips_multu (ui32, ui32);
+v4i8 __builtin_mips_precr_qb_ph (v2i16, v2i16);
+v2i16 __builtin_mips_precr_sra_ph_w (i32, i32, imm0_31);
+v2i16 __builtin_mips_precr_sra_r_ph_w (i32, i32, imm0_31);
+i32 __builtin_mips_prepend (i32, i32, imm0_31);
+v4i8 __builtin_mips_shra_qb (v4i8, imm0_7);
+v4i8 __builtin_mips_shra_r_qb (v4i8, imm0_7);
+v4i8 __builtin_mips_shra_qb (v4i8, i32);
+v4i8 __builtin_mips_shra_r_qb (v4i8, i32);
+v2i16 __builtin_mips_shrl_ph (v2i16, imm0_15);
+v2i16 __builtin_mips_shrl_ph (v2i16, i32);
+v2i16 __builtin_mips_subu_ph (v2i16, v2i16);
+v2i16 __builtin_mips_subu_s_ph (v2i16, v2i16);
+v4i8 __builtin_mips_subuh_qb (v4i8, v4i8);
+v4i8 __builtin_mips_subuh_r_qb (v4i8, v4i8);
+v2q15 __builtin_mips_addqh_ph (v2q15, v2q15);
+v2q15 __builtin_mips_addqh_r_ph (v2q15, v2q15);
+q31 __builtin_mips_addqh_w (q31, q31);
+q31 __builtin_mips_addqh_r_w (q31, q31);
+v2q15 __builtin_mips_subqh_ph (v2q15, v2q15);
+v2q15 __builtin_mips_subqh_r_ph (v2q15, v2q15);
+q31 __builtin_mips_subqh_w (q31, q31);
+q31 __builtin_mips_subqh_r_w (q31, q31);
+a64 __builtin_mips_dpax_w_ph (a64, v2i16, v2i16);
+a64 __builtin_mips_dpsx_w_ph (a64, v2i16, v2i16);
+a64 __builtin_mips_dpaqx_s_w_ph (a64, v2q15, v2q15);
+a64 __builtin_mips_dpaqx_sa_w_ph (a64, v2q15, v2q15);
+a64 __builtin_mips_dpsqx_s_w_ph (a64, v2q15, v2q15);
+a64 __builtin_mips_dpsqx_sa_w_ph (a64, v2q15, v2q15);
+@end smallexample
+
 
 @node MIPS Paired-Single Support
 @subsection MIPS Paired-Single Support
@@ -10149,8 +10304,8 @@ option.
 
 @example
 #pragma GCC diagnostic warning "-Wformat"
-#pragma GCC diagnostic error "-Walways-true"
-#pragma GCC diagnostic ignored "-Walways-true"
+#pragma GCC diagnostic error "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat"
 @end example
 
 Note that these pragmas override any command line options.  Also,

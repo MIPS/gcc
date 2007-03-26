@@ -99,11 +99,14 @@ mstring;
 #define GFC_STD_LEGACY		(1<<6) /* Backward compatibility.  */
 #define GFC_STD_GNU		(1<<5)    /* GNU Fortran extension.  */
 #define GFC_STD_F2003		(1<<4)    /* New in F2003.  */
-/* Note that no features were obsoleted nor deleted in F2003.  */
+/* Note that no additional features were deleted or made obsolescent
+   in F2003.  */
 #define GFC_STD_F95		(1<<3)    /* New in F95.  */
 #define GFC_STD_F95_DEL		(1<<2)    /* Deleted in F95.  */
-#define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
-#define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
+#define GFC_STD_F95_OBS		(1<<1)    /* Obsolescent in F95.  */
+#define GFC_STD_F77		(1<<0)    /* Included in F77, but not
+					     deleted or obsolescent in
+					     later standards.  */
 
 /* Bitmasks for the various FPE that can be enabled.  */
 #define GFC_FPE_INVALID    (1<<0)
@@ -542,6 +545,9 @@ typedef struct
   /* The symbol is a derived type with allocatable components, possibly nested.
    */
   unsigned alloc_comp:1;
+
+  /* The namespace where the VOLATILE attribute has been set.  */
+  struct gfc_namespace *volatile_ns;
 }
 symbol_attribute;
 
@@ -947,6 +953,8 @@ gfc_dt_list;
 
 #define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
 
+  /* A list of all derived types.  */
+  extern gfc_dt_list *gfc_derived_types;
 
 /* A namespace describes the contents of procedure, module or
    interface block.  */
@@ -1009,9 +1017,6 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
-
-  /* A list of all derived types in this procedure (or NULL).  */
-  gfc_dt_list *derived_types;
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
@@ -1656,6 +1661,7 @@ typedef struct
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
+  int flag_backtrace;
   int flag_allow_leading_underscore;
   int flag_dump_core;
   int flag_external_blas;

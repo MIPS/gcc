@@ -1,3 +1,8 @@
+2007-03-26  Victor Kaplansky <victork@il.ibm.com>
+	
+	Merged revisions 121640-123210 from 
+	svn+ssh://gcc.gnu.org/svn/gcc/trunk
+
 2007-03-26  Revital Eres  <eres@il.ibm.com>
 
         * tree-ssa-dse.c (get_use_of_stmt_lhs): New function

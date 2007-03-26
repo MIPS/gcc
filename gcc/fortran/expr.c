@@ -1063,7 +1063,13 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
       if (ref->u.ar.dimen_type[d] == DIMEN_VECTOR)  /* Vector subscript.  */
 	{
 	  gcc_assert (begin);
-	  gcc_assert (begin->expr_type == EXPR_ARRAY); 
+
+	  if (begin->expr_type != EXPR_ARRAY)
+	    {
+	      t = FAILURE;
+	      goto cleanup;
+	    }
+
 	  gcc_assert (begin->rank == 1);
 	  gcc_assert (begin->shape);
 
@@ -1137,8 +1143,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	    }
 
 	  /* Calculate the number of elements and the shape.  */
-	  mpz_abs (tmp_mpz, stride[d]);
-	  mpz_div (tmp_mpz, stride[d], tmp_mpz);
+	  mpz_set (tmp_mpz, stride[d]);
 	  mpz_add (tmp_mpz, end[d], tmp_mpz);
 	  mpz_sub (tmp_mpz, tmp_mpz, ctr[d]);
 	  mpz_div (tmp_mpz, tmp_mpz, stride[d]);

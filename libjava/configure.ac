@@ -295,6 +295,13 @@ if test "$use_x_awt" != yes; then
    echo gnu/java/awt/peer/x >> standard.omit
 fi
 
+# Tools that need to be compiled against classpath's tools classes
+: > vm-tools-packages
+for package in gnu/gcj/tools/gc_analyze ; do
+    echo $package >> standard.omit
+    echo $package >> vm-tools-packages
+done
+
 if test -z "${with_multisubdir}"; then
    builddotdot=.
 else
@@ -358,7 +365,7 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      GCJH="$built_gcc_dir/gcjh"
+      GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
@@ -999,10 +1006,10 @@ else
 		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate mmap \
+		   fork execvp getrlimit pipe sigaction ftruncate mmap \
 		   getifaddrs])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
-   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
+   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h sys/resource.h)
    # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
    AC_CHECK_LIB(dl, dladdr, [
        AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])], [
@@ -1012,10 +1019,14 @@ else
    if test x"$cross_compiling" = x"no"; then
      AC_CHECK_FILES(/proc/self/exe, [
        AC_DEFINE(HAVE_PROC_SELF_EXE, 1, [Define if you have /proc/self/exe])])
+     AC_CHECK_FILES(/proc/self/maps, [
+       AC_DEFINE(HAVE_PROC_SELF_MAPS, 1,
+         [Define if you have /proc/self/maps])])
    else
      case $host in
      *-linux*)
        AC_DEFINE(HAVE_PROC_SELF_EXE, 1, [Define if you have /proc/self/exe])
+       AC_DEFINE(HAVE_PROC_SELF_MAPS, 1, [Define if you have /proc/self/maps])
        ;;
      esac
    fi
@@ -1274,6 +1285,7 @@ if test ! -f gnu/classpath/Configuration.java; then
       -e "s,@default_toolkit@,$TOOLKIT," \
       -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
       -e "s,@GTK_CAIRO_ENABLED@,false," \
+      -e "s,@ECJ_JAR@,," \
 	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,

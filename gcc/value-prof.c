@@ -1,5 +1,5 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -354,7 +354,7 @@ visit_hist (void **slot, void *data)
       debug_generic_stmt (hist->hvalue.stmt);
       error_found = true;
     }
-  return 0;
+  return 1;
 }
 
 /* Verify sanity of the histograms.  */
@@ -406,7 +406,7 @@ free_hist (void **slot, void *data ATTRIBUTE_UNUSED)
   memset (hist, 0xab, sizeof (*hist));
 #endif
   free (hist);
-  return 0;
+  return 1;
 }
 
 void
@@ -523,9 +523,8 @@ tree_divmod_fixed_value (tree stmt, tree operation,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, tmpv,
-		  fold_convert (optype, value));
-  stmt2 = build2 (GIMPLE_MODIFY_STMT, optype, tmp1, op2);
+  stmt1 = build_gimple_modify_stmt (tmpv, fold_convert (optype, value));
+  stmt2 = build_gimple_modify_stmt (tmp1, op2);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
 	    build1 (GOTO_EXPR, void_type_node, label_decl2),
@@ -537,15 +536,17 @@ tree_divmod_fixed_value (tree stmt, tree operation,
 
   tmp2 = create_tmp_var (optype, "PROF");
   label1 = build1 (LABEL_EXPR, void_type_node, label_decl1);
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, tmp2,
-		  build2 (TREE_CODE (operation), optype, op1, tmpv));
+  stmt1 = build_gimple_modify_stmt (tmp2,
+				    build2 (TREE_CODE (operation), optype,
+					    op1, tmpv));
   bsi_insert_before (&bsi, label1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb2end = stmt1;
 
   label2 = build1 (LABEL_EXPR, void_type_node, label_decl2);
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, tmp2,
-		  build2 (TREE_CODE (operation), optype, op1, op2));
+  stmt1 = build_gimple_modify_stmt (tmp2,
+				    build2 (TREE_CODE (operation), optype,
+					    op1, op2));
   bsi_insert_before (&bsi, label2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb3end = stmt1;
@@ -680,10 +681,11 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
 
   tmp2 = create_tmp_var (optype, "PROF");
   tmp3 = create_tmp_var (optype, "PROF");
-  stmt2 = build2 (GIMPLE_MODIFY_STMT, optype, tmp2, 
-		  build2 (PLUS_EXPR, optype, op2, build_int_cst (optype, -1)));
-  stmt3 = build2 (GIMPLE_MODIFY_STMT, optype, tmp3,
-		  build2 (BIT_AND_EXPR, optype, tmp2, op2));
+  stmt2 = build_gimple_modify_stmt (tmp2, 
+				    build2 (PLUS_EXPR, optype, op2,
+					    build_int_cst (optype, -1)));
+  stmt3 = build_gimple_modify_stmt (tmp3,
+				    build2 (BIT_AND_EXPR, optype, tmp2, op2));
   stmt4 = build3 (COND_EXPR, void_type_node,
 		  build2 (NE_EXPR, boolean_type_node,
 			  tmp3, build_int_cst (optype, 0)),
@@ -696,15 +698,16 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
 
   /* tmp2 == op2-1 inherited from previous block */
   label1 = build1 (LABEL_EXPR, void_type_node, label_decl1);
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, result,
-		  build2 (BIT_AND_EXPR, optype, op1, tmp2));
+  stmt1 = build_gimple_modify_stmt (result,
+				    build2 (BIT_AND_EXPR, optype, op1, tmp2));
   bsi_insert_before (&bsi, label1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb2end = stmt1;
 
   label2 = build1 (LABEL_EXPR, void_type_node, label_decl2);
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, result,
-		  build2 (TREE_CODE (operation), optype, op1, op2));
+  stmt1 = build_gimple_modify_stmt (result,
+				    build2 (TREE_CODE (operation), optype,
+					    op1, op2));
   bsi_insert_before (&bsi, label2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb3end = stmt1;
@@ -838,8 +841,8 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
   bsi = bsi_for_stmt (stmt);
 
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, result, op1);
-  stmt2 = build2 (GIMPLE_MODIFY_STMT, optype, tmp1, op2);
+  stmt1 = build_gimple_modify_stmt (result, op1);
+  stmt2 = build_gimple_modify_stmt (tmp1, op2);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (LT_EXPR, boolean_type_node, result, tmp1),
 	    build1 (GOTO_EXPR, void_type_node, label_decl3),
@@ -853,8 +856,9 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
   if (ncounts)	/* Assumed to be 0 or 1 */
     {
       label1 = build1 (LABEL_EXPR, void_type_node, label_decl1);
-      stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, result,
-		      build2 (MINUS_EXPR, optype, result, tmp1));
+      stmt1 = build_gimple_modify_stmt (result,
+					build2 (MINUS_EXPR, optype,
+						result, tmp1));
       stmt2 = build3 (COND_EXPR, void_type_node,
 		build2 (LT_EXPR, boolean_type_node, result, tmp1),
 		build1 (GOTO_EXPR, void_type_node, label_decl3),
@@ -867,8 +871,9 @@ tree_mod_subtract (tree stmt, tree operation, tree op1, tree op2,
 
   /* Fallback case. */
   label2 = build1 (LABEL_EXPR, void_type_node, label_decl2);
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, result,
-		    build2 (TREE_CODE (operation), optype, result, tmp1));
+  stmt1 = build_gimple_modify_stmt (result,
+				    build2 (TREE_CODE (operation), optype,
+					    result, tmp1));
   bsi_insert_before (&bsi, label2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb3end = stmt1;
@@ -1055,7 +1060,7 @@ tree_ic (tree stmt, tree call, struct cgraph_node* direct_call,
 	 int prob, gcov_type count, gcov_type all)
 {
   tree stmt1, stmt2, stmt3;
-  tree tmp1, tmpv;
+  tree tmp1, tmpv, tmp;
   tree label_decl1 = create_artificial_label ();
   tree label_decl2 = create_artificial_label ();
   tree label1, label2;
@@ -1072,11 +1077,11 @@ tree_ic (tree stmt, tree call, struct cgraph_node* direct_call,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, tmpv, 
-		  unshare_expr (TREE_OPERAND (call, 0)));
-  stmt2 = build2 (GIMPLE_MODIFY_STMT, optype, tmp1, 
-		  fold_convert (optype, build_addr (direct_call->decl, 
-						    current_function_decl)));
+  stmt1 = build_gimple_modify_stmt (tmpv, 
+				    unshare_expr (CALL_EXPR_FN (call)));
+  tmp = fold_convert (optype, build_addr (direct_call->decl, 
+					  current_function_decl));
+  stmt2 = build_gimple_modify_stmt (tmp1, tmp);
   stmt3 = build3 (COND_EXPR, void_type_node,
 		  build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
 		  build1 (GOTO_EXPR, void_type_node, label_decl2),
@@ -1089,8 +1094,8 @@ tree_ic (tree stmt, tree call, struct cgraph_node* direct_call,
   label1 = build1 (LABEL_EXPR, void_type_node, label_decl1);
   stmt1 = unshare_expr (stmt);
   new_call = get_call_expr_in (stmt1);
-  TREE_OPERAND (new_call, 0) = build_addr (direct_call->decl, 
-					   current_function_decl);
+  CALL_EXPR_FN (new_call) = build_addr (direct_call->decl, 
+					current_function_decl);
   bsi_insert_before (&bsi, label1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   bb2end = stmt1;
@@ -1165,7 +1170,7 @@ tree_ic_transform (tree stmt)
   if (!call || TREE_CODE (call) != CALL_EXPR)
     return false;
 
-  callee = TREE_OPERAND (call, 0);
+  callee = CALL_EXPR_FN (call);
 
   if (TREE_CODE (callee) == ADDR_EXPR)
     return false;
@@ -1205,9 +1210,9 @@ tree_ic_transform (tree stmt)
   return true;
 }
 
-/* Return true if the stringop FNDECL with ARGLIST shall be profiled.  */
+/* Return true if the stringop CALL with FNDECL shall be profiled.  */
 static bool
-interesting_stringop_to_profile_p (tree fndecl, tree arglist)
+interesting_stringop_to_profile_p (tree fndecl, tree call)
 {
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
 
@@ -1219,18 +1224,18 @@ interesting_stringop_to_profile_p (tree fndecl, tree arglist)
     {
      case BUILT_IN_MEMCPY:
      case BUILT_IN_MEMPCPY:
-	return validate_arglist (arglist,
-				 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
-				 VOID_TYPE);
+       return validate_arglist (call,
+				POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
+				VOID_TYPE);
      case BUILT_IN_MEMSET:
-	return validate_arglist (arglist,
-				 POINTER_TYPE, INTEGER_TYPE, INTEGER_TYPE,
-				 VOID_TYPE);
+       return validate_arglist (call,
+				POINTER_TYPE, INTEGER_TYPE, INTEGER_TYPE,
+				VOID_TYPE);
      case BUILT_IN_BZERO:
-        return validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE,
-				 VOID_TYPE);
+       return validate_arglist (call, POINTER_TYPE, INTEGER_TYPE,
+				VOID_TYPE);
      default:
-	gcc_unreachable ();
+       gcc_unreachable ();
     }
 }
 
@@ -1256,8 +1261,7 @@ tree_stringop_fixed_value (tree stmt, tree value, int prob, gcov_type count,
   edge e12, e13, e23, e24, e34;
   block_stmt_iterator bsi;
   tree call = get_call_expr_in (stmt);
-  tree arglist = TREE_OPERAND (call, 1);
-  tree blck_size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree blck_size = CALL_EXPR_ARG (call, 2);
   tree optype = TREE_TYPE (blck_size);
   int region;
 
@@ -1280,9 +1284,8 @@ tree_stringop_fixed_value (tree stmt, tree value, int prob, gcov_type count,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (GIMPLE_MODIFY_STMT, optype, tmpv,
-		  fold_convert (optype, value));
-  stmt2 = build2 (GIMPLE_MODIFY_STMT, optype, tmp1, blck_size);
+  stmt1 = build_gimple_modify_stmt (tmpv, fold_convert (optype, value));
+  stmt2 = build_gimple_modify_stmt (tmp1, blck_size);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
 	    build1 (GOTO_EXPR, void_type_node, label_decl2),
@@ -1295,8 +1298,7 @@ tree_stringop_fixed_value (tree stmt, tree value, int prob, gcov_type count,
   label1 = build1 (LABEL_EXPR, void_type_node, label_decl1);
   stmt1 = unshare_expr (stmt);
   call = get_call_expr_in (stmt1);
-  arglist = TREE_OPERAND (call, 1);
-  TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))) = value;
+  CALL_EXPR_ARG (call, 2) = value;
   bsi_insert_before (&bsi, label1, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt1, BSI_SAME_STMT);
   region = lookup_stmt_eh_region (stmt);
@@ -1342,7 +1344,6 @@ tree_stringops_transform (block_stmt_iterator *bsi)
   tree stmt = bsi_stmt (*bsi);
   tree call = get_call_expr_in (stmt);
   tree fndecl;
-  tree arglist;
   tree blck_size;
   enum built_in_function fcode;
   histogram_value histogram;
@@ -1359,14 +1360,13 @@ tree_stringops_transform (block_stmt_iterator *bsi)
   if (!fndecl)
     return false;
   fcode = DECL_FUNCTION_CODE (fndecl);
-  arglist = TREE_OPERAND (call, 1);
-  if (!interesting_stringop_to_profile_p (fndecl, arglist))
+  if (!interesting_stringop_to_profile_p (fndecl, call))
     return false;
 
   if (fcode == BUILT_IN_BZERO)
-    blck_size = TREE_VALUE (TREE_CHAIN (arglist));
+    blck_size = CALL_EXPR_ARG (call, 1);
   else
-    blck_size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+    blck_size = CALL_EXPR_ARG (call, 2);
   if (TREE_CODE (blck_size) == INTEGER_CST)
     return false;
 
@@ -1386,20 +1386,20 @@ tree_stringops_transform (block_stmt_iterator *bsi)
   if (check_counter (stmt, "value", all, bb_for_stmt (stmt)->count))
     return false;
   prob = (count * REG_BR_PROB_BASE + all / 2) / all;
-  dest = TREE_VALUE (arglist);
+  dest = CALL_EXPR_ARG (call, 0);
   dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
   switch (fcode)
     {
     case BUILT_IN_MEMCPY:
     case BUILT_IN_MEMPCPY:
-      src = TREE_VALUE (TREE_CHAIN (arglist));
+      src = CALL_EXPR_ARG (call, 1);
       src_align = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
       if (!can_move_by_pieces (val, MIN (dest_align, src_align)))
 	return false;
       break;
     case BUILT_IN_MEMSET:
       if (!can_store_by_pieces (val, builtin_memset_read_str,
-				TREE_VALUE (TREE_CHAIN (arglist)),
+				CALL_EXPR_ARG (call, 1),
 				dest_align))
 	return false;
       break;
@@ -1561,7 +1561,7 @@ tree_indirect_call_to_profile (tree stmt, histogram_values *values)
   if (!call || TREE_CODE (call) != CALL_EXPR)
     return;
 
-  callee = TREE_OPERAND (call, 0);
+  callee = CALL_EXPR_FN (call);
   
   if (TREE_CODE (callee) == ADDR_EXPR)
     return;
@@ -1582,7 +1582,6 @@ tree_stringops_values_to_profile (tree stmt, histogram_values *values)
 {
   tree call = get_call_expr_in (stmt);
   tree fndecl;
-  tree arglist;
   tree blck_size;
   tree dest;
   enum built_in_function fcode;
@@ -1593,16 +1592,15 @@ tree_stringops_values_to_profile (tree stmt, histogram_values *values)
   if (!fndecl)
     return;
   fcode = DECL_FUNCTION_CODE (fndecl);
-  arglist = TREE_OPERAND (call, 1);
 
-  if (!interesting_stringop_to_profile_p (fndecl, arglist))
+  if (!interesting_stringop_to_profile_p (fndecl, call))
     return;
 
-  dest = TREE_VALUE (arglist);
+  dest = CALL_EXPR_ARG (call, 0);
   if (fcode == BUILT_IN_BZERO)
-    blck_size = TREE_VALUE (TREE_CHAIN (arglist));
+    blck_size = CALL_EXPR_ARG (call, 1);
   else
-    blck_size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+    blck_size = CALL_EXPR_ARG (call, 2);
 
   if (TREE_CODE (blck_size) != INTEGER_CST)
     {

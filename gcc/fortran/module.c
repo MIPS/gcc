@@ -488,7 +488,7 @@ gfc_match_use (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
   gfc_use_rename *tail = NULL, *new;
-  interface_type type;
+  interface_type type, type2;
   gfc_intrinsic_op operator;
   match m;
 
@@ -588,8 +588,15 @@ gfc_match_use (void)
 	  gfc_error ("Missing generic specification in USE statement at %C");
 	  goto cleanup;
 
+	case INTERFACE_USER_OP:
 	case INTERFACE_GENERIC:
 	  m = gfc_match (" =>");
+
+	  if (type == INTERFACE_USER_OP && m == MATCH_YES
+	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Renaming "
+				  "operators in USE statements at %C")
+	         == FAILURE))
+	    goto cleanup;
 
 	  if (only_flag)
 	    {
@@ -598,8 +605,9 @@ gfc_match_use (void)
 	      else
 		{
 		  strcpy (new->local_name, name);
-
-		  m = gfc_match_name (new->use_name);
+		  m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+		  if (type != type2)
+		    goto syntax;
 		  if (m == MATCH_NO)
 		    goto syntax;
 		  if (m == MATCH_ERROR)
@@ -612,18 +620,27 @@ gfc_match_use (void)
 		goto syntax;
 	      strcpy (new->local_name, name);
 
-	      m = gfc_match_name (new->use_name);
+	      m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+	      if (type != type2)
+		goto syntax;
 	      if (m == MATCH_NO)
 		goto syntax;
 	      if (m == MATCH_ERROR)
 		goto cleanup;
 	    }
 
-	  break;
+	  if (strcmp (new->use_name, module_name) == 0
+	      || strcmp (new->local_name, module_name) == 0)
+	    {
+	      gfc_error ("The name '%s' at %C has already been used as "
+			 "an external module name.", module_name);
+	      goto cleanup;
+	    }
 
-	case INTERFACE_USER_OP:
-	  strcpy (new->use_name, name);
-	  /* Fall through */
+	  if (type == INTERFACE_USER_OP)
+	    new->operator = operator;
+
+	  break;
 
 	case INTERFACE_INTRINSIC_OP:
 	  new->operator = operator;
@@ -1797,7 +1814,14 @@ mio_typespec (gfc_typespec *ts)
   else
     mio_symbol_ref (&ts->derived);
 
-  mio_charlen (&ts->cl);
+  if (ts->type != BT_CHARACTER)
+    {
+      /* ts->cl is only valid for BT_CHARACTER.  */
+      mio_lparen ();
+      mio_rparen ();
+    }
+  else
+    mio_charlen (&ts->cl);
 
   mio_rparen ();
 }
@@ -3304,6 +3328,31 @@ read_cleanup (pointer_info *p)
 }
 
 
+/* Given a root symtree node and a symbol, try to find a symtree that
+   references the symbol that is not a unique name.  */
+
+static gfc_symtree *
+find_symtree_for_symbol (gfc_symtree *st, gfc_symbol *sym)
+{
+  gfc_symtree *s = NULL;
+
+  if (st == NULL)
+    return s;
+
+  s = find_symtree_for_symbol (st->right, sym);
+  if (s != NULL)
+    return s;
+  s = find_symtree_for_symbol (st->left, sym);
+  if (s != NULL)
+    return s;
+
+  if (st->n.sym == sym && !check_unique_name (st->name))
+    return st;
+
+  return s;
+}
+
+
 /* Read a module file.  */
 
 static void
@@ -3314,7 +3363,7 @@ read_module (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_intrinsic_op i;
   int ambiguous, j, nuse, symbol;
-  pointer_info *info;
+  pointer_info *info, *q;
   gfc_use_rename *u;
   gfc_symtree *st;
   gfc_symbol *sym;
@@ -3363,8 +3412,27 @@ read_module (void)
 	continue;
 
       info->u.rsym.state = USED;
-      info->u.rsym.referenced = 1;
       info->u.rsym.sym = sym;
+
+      /* Some symbols do not have a namespace (eg. formal arguments),
+	 so the automatic "unique symtree" mechanism must be suppressed
+	 by marking them as referenced.  */
+      q = get_integer (info->u.rsym.ns);
+      if (q->u.pointer == NULL)
+	{
+	  info->u.rsym.referenced = 1;
+	  continue;
+	}
+
+      /* If possible recycle the symtree that references the symbol.
+	 If a symtree is not found and the module does not import one,
+	 a unique-name symtree is found by read_cleanup.  */
+      st = find_symtree_for_symbol (gfc_current_ns->sym_root, sym);
+      if (st != NULL)
+	{
+	  info->u.rsym.symtree = st;
+	  info->u.rsym.referenced = 1;
+	}
     }
 
   mio_rparen ();
@@ -3393,6 +3461,9 @@ read_module (void)
 	{
 	  /* Get the jth local name for this symbol.  */
 	  p = find_use_name_n (name, &j);
+
+	  if (p == NULL && strcmp (name, module_name) == 0)
+	    p = name;
 
 	  /* Skip symtree nodes not in an ONLY clause, unless there
 	     is an existing symtree loaded from another USE

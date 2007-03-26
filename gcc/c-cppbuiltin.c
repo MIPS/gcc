@@ -1,5 +1,6 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -495,6 +496,11 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Misc.  */
   builtin_define_with_value ("__VERSION__", version_string, 1);
 
+  if (flag_gnu89_inline)
+    cpp_define (pfile, "__GNUC_GNU_INLINE__");
+  else
+    cpp_define (pfile, "__GNUC_STDC_INLINE__");
+
   /* Definitions for LP64 model.  */
   if (TYPE_PRECISION (long_integer_type_node) == 64
       && POINTER_SIZE == 64
@@ -525,6 +531,11 @@ c_cpp_builtins (cpp_reader *pfile)
     {
       builtin_define_with_int_value ("__pic__", flag_pic);
       builtin_define_with_int_value ("__PIC__", flag_pic);
+    }
+  if (flag_pie)
+    {
+      builtin_define_with_int_value ("__pie__", flag_pie);
+      builtin_define_with_int_value ("__PIE__", flag_pie);
     }
 
   if (flag_iso)
@@ -594,6 +605,17 @@ c_cpp_builtins (cpp_reader *pfile)
      new appearance would clobber any existing args.  */
   if (TARGET_DECLSPEC)
     builtin_define ("__declspec(x)=__attribute__((x))");
+
+  /* Tell the user whether decimal floating point is supported,
+     and if it is supported, whether the alternate format (BID)
+     is used over the standard (DPD) format.  */
+
+  if (ENABLE_DECIMAL_FLOAT)
+    {
+      cpp_define (pfile, "__STDC_WANT_DEC_FP__");
+      if (ENABLE_DECIMAL_BID_FORMAT)
+	cpp_define (pfile, "__DECIMAL_BID_FORMAT__");
+    }
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

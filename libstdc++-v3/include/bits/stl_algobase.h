@@ -65,13 +65,12 @@
 #include <bits/c++config.h>
 #include <cstring>
 #include <cwchar>
-#include <climits>
-#include <cstdlib>
 #include <cstddef>
-#include <iosfwd>
+#include <bits/functexcept.h>
 #include <bits/stl_pair.h>
 #include <bits/cpp_type_traits.h>
 #include <ext/type_traits.h>
+#include <limits>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
@@ -166,6 +165,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	__are_same<_ValueType1 &, _ReferenceType1>::__value &&
 	__are_same<_ValueType2 &, _ReferenceType2>::__value>::
 	iter_swap(__a, __b);
+    }
+
+  /**
+   *  @brief Swap the elements of two sequences.
+   *  @param  first1  A forward iterator.
+   *  @param  last1   A forward iterator.
+   *  @param  first2  A forward iterator.
+   *  @return   An iterator equal to @p first2+(last1-first1).
+   *
+   *  Swaps each element in the range @p [first1,last1) with the
+   *  corresponding element in the range @p [first2,(last1-first1)).
+   *  The ranges must not overlap.
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2>
+    _ForwardIterator2
+    swap_ranges(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+		_ForwardIterator2 __first2)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
+				  _ForwardIterator1>)
+      __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
+				  _ForwardIterator2>)
+      __glibcxx_function_requires(_ConvertibleConcept<
+	    typename iterator_traits<_ForwardIterator1>::value_type,
+	    typename iterator_traits<_ForwardIterator2>::value_type>)
+      __glibcxx_function_requires(_ConvertibleConcept<
+	    typename iterator_traits<_ForwardIterator2>::value_type,
+	    typename iterator_traits<_ForwardIterator1>::value_type>)
+      __glibcxx_requires_valid_range(__first1, __last1);
+
+      for (; __first1 != __last1; ++__first1, ++__first2)
+	std::iter_swap(__first1, __first2);
+      return __first2;
     }
 
   /**
@@ -317,20 +350,33 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   // Helpers for streambuf iterators (either istream or ostream).
+  // NB: avoid including <iosfwd>, relatively large.
   template<typename _CharT>
-  typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
-				  ostreambuf_iterator<_CharT> >::__type
-    __copy_aux(_CharT*, _CharT*, ostreambuf_iterator<_CharT>);
+    struct char_traits;
+
+  template<typename _CharT, typename _Traits>
+    class istreambuf_iterator;
+
+  template<typename _CharT, typename _Traits>
+    class ostreambuf_iterator;
 
   template<typename _CharT>
     typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
-				    ostreambuf_iterator<_CharT> >::__type
-    __copy_aux(const _CharT*, const _CharT*, ostreambuf_iterator<_CharT>);
+	     ostreambuf_iterator<_CharT, char_traits<_CharT> > >::__type
+    __copy_aux(_CharT*, _CharT*,
+	       ostreambuf_iterator<_CharT, char_traits<_CharT> >);
 
   template<typename _CharT>
-  typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, _CharT*>::__type
-    __copy_aux(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
-	       _CharT*);
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+	     ostreambuf_iterator<_CharT, char_traits<_CharT> > >::__type
+    __copy_aux(const _CharT*, const _CharT*,
+	       ostreambuf_iterator<_CharT, char_traits<_CharT> >);
+
+  template<typename _CharT>
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value,
+				    _CharT*>::__type
+    __copy_aux(istreambuf_iterator<_CharT, char_traits<_CharT> >,
+	       istreambuf_iterator<_CharT, char_traits<_CharT> >, _CharT*);
 
   template<bool, bool>
     struct __copy_normal
@@ -401,13 +447,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        return std::__copy_normal<__in, __out>::__copy_n(__first, __last,
 							__result);
     }
-
-  // Overload for streambuf iterators.
-  template<typename _CharT>
-    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
-  	       			    ostreambuf_iterator<_CharT> >::__type
-    copy(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
-	 ostreambuf_iterator<_CharT>);
 
   template<bool, typename>
     struct __copy_backward
@@ -979,17 +1018,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __glibcxx_requires_valid_range(__first1, __last1);
     __glibcxx_requires_valid_range(__first2, __last2);
 
-#if CHAR_MAX == SCHAR_MAX
-    return std::lexicographical_compare((const signed char*) __first1,
-					(const signed char*) __last1,
-					(const signed char*) __first2,
-					(const signed char*) __last2);
-#else /* CHAR_MAX == SCHAR_MAX */
-    return std::lexicographical_compare((const unsigned char*) __first1,
-					(const unsigned char*) __last1,
-					(const unsigned char*) __first2,
-					(const unsigned char*) __last2);
-#endif /* CHAR_MAX == SCHAR_MAX */
+    if (std::numeric_limits<char>::is_signed)
+      return std::lexicographical_compare((const signed char*) __first1,
+					  (const signed char*) __last1,
+					  (const signed char*) __first2,
+					  (const signed char*) __last2);
+    else
+      return std::lexicographical_compare((const unsigned char*) __first1,
+					  (const unsigned char*) __last1,
+					  (const unsigned char*) __first2,
+					  (const unsigned char*) __last2);
   }
 
 _GLIBCXX_END_NAMESPACE

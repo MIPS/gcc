@@ -615,11 +615,20 @@ set_rhs (tree *stmt_p, tree expr)
 	    return false;
 	  break;
 
-	case CALL_EXPR:
 	case EXC_PTR_EXPR:
 	case FILTER_EXPR:
 	  break;
 
+	default:
+	  return false;
+	}
+      break;
+
+    case tcc_vl_exp:
+      switch (code)
+	{
+	case CALL_EXPR:
+	  break;
 	default:
 	  return false;
 	}
@@ -1190,7 +1199,7 @@ fold_predicate_in (tree stmt)
   else
     return false;
 
-  val = vrp_evaluate_conditional (*pred_p, true);
+  val = vrp_evaluate_conditional (*pred_p, stmt);
   if (val)
     {
       if (modify_stmt_p)

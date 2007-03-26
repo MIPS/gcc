@@ -1,5 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -86,7 +86,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	}
       else
 	{
-	  if (!tree_expr_nonnegative_p (step)
+	  bool ovf;
+
+	  if (!tree_expr_nonnegative_warnv_p (step, &ovf)
 	      && may_negate_without_overflow_p (step))
 	    {
 	      incr_op = MINUS_EXPR;
@@ -101,8 +103,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   if (stmts)
     bsi_insert_on_edge_immediate (pe, stmts);
 
-  stmt = build2_gimple (GIMPLE_MODIFY_STMT, va,
-		        build2 (incr_op, TREE_TYPE (base), vb, step));
+  stmt = build_gimple_modify_stmt (va,
+				   build2 (incr_op, TREE_TYPE (base),
+					   vb, step));
   SSA_NAME_DEF_STMT (va) = stmt;
   if (after)
     bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);

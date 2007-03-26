@@ -1,3 +1,30 @@
+2007-03-18  Krister Walfridsson  <cato@df.lth.se>
+
+	PR target/30058
+	* inclhack.def (netbsd_c99_inline_1): New.
+	* fixincl.x: Regenerate.
+	* tests/base/signal.h: New.
+
+2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add dummy "install-info" target.
+
+2007-03-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* mkheaders.in: Fix headers for each multilib required.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add dummy install-pdf target.
+
+2007-02-27  Joseph Myers  <joseph@codesourcery.com>
+
+	* mkheaders.in (incdir): Use include-fixed not include.
+
+2007-02-15  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Added "pdf" target to .PHONY.
+
 2007-02-05  Richard Guenther  <rguenther@suse.de>
 
 	* inclhack.def (glibc_c99_inline_4): Adjust selector to cope

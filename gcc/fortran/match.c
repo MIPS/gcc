@@ -380,7 +380,9 @@ gfc_match_strings (mstring *a)
 
 
 /* See if the current input looks like a name of some sort.  Modifies
-   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.  */
+   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.
+   Note that options.c restricts max_identifier_length to not more
+   than GFC_MAX_SYMBOL_LEN.  */
 
 match
 gfc_match_name (char *buffer)
@@ -531,12 +533,6 @@ gfc_match_iterator (gfc_iterator *iter, int init_flag)
     {
       gfc_error ("Loop variable '%s' at %C cannot be INTENT(IN)",
 		 var->symtree->n.sym->name);
-      goto cleanup;
-    }
-
-  if (var->symtree->n.sym->attr.pointer)
-    {
-      gfc_error ("Loop variable at %C cannot have the POINTER attribute");
       goto cleanup;
     }
 
@@ -952,7 +948,7 @@ match_arithmetic_if (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: arithmetic IF statement "
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent: arithmetic IF statement "
 		      "at %C") == FAILURE)
     return MATCH_ERROR;
 
@@ -1025,7 +1021,7 @@ gfc_match_if (gfc_statement *if_type)
 	  return MATCH_ERROR;
 	}
       
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: arithmetic IF "
+      if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent: arithmetic IF "
 			  "statement at %C") == FAILURE)
 	return MATCH_ERROR;
 
@@ -3358,7 +3354,10 @@ gfc_free_forall_iterator (gfc_forall_iterator *iter)
 
 /* Match an iterator as part of a FORALL statement.  The format is:
 
-     <var> = <start>:<end>[:<stride>][, <scalar mask>]  */
+     <var> = <start>:<end>[:<stride>]
+
+   On MATCH_NO, the caller tests for the possibility that there is a
+   scalar mask expression.  */
 
 static match
 match_forall_iterator (gfc_forall_iterator **result)
@@ -3370,11 +3369,12 @@ match_forall_iterator (gfc_forall_iterator **result)
   where = gfc_current_locus;
   iter = gfc_getmem (sizeof (gfc_forall_iterator));
 
-  m = gfc_match_variable (&iter->var, 0);
+  m = gfc_match_expr (&iter->var);
   if (m != MATCH_YES)
     goto cleanup;
 
-  if (gfc_match_char ('=') != MATCH_YES)
+  if (gfc_match_char ('=') != MATCH_YES
+	|| iter->var->expr_type != EXPR_VARIABLE)
     {
       m = MATCH_NO;
       goto cleanup;
@@ -3415,12 +3415,6 @@ syntax:
   m = MATCH_ERROR;
 
 cleanup:
-  /* Make sure that potential internal function references in the
-     mask do not get messed up.  */
-  if (iter->var
-      && iter->var->expr_type == EXPR_VARIABLE
-      && iter->var->symtree->n.sym->refs == 1)
-    iter->var->symtree->n.sym->attr.flavor = FL_UNKNOWN;
 
   gfc_current_locus = where;
   gfc_free_forall_iterator (iter);

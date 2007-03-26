@@ -65,12 +65,6 @@ struct nb_iter_bound
      are executed at most BOUND times.  */
   bool is_exit;
 
-  /* True if the bound is "realistic" -- i.e., most likely the loop really has
-     number of iterations close to the bound.  Exact bounds (if the number of
-     iterations of a loop is a constant) and bounds derived from the size of
-     data accessed in the loop are considered realistic.  */
-  bool realistic;
-
   /* The next bound in the list.  */
   struct nb_iter_bound *next;
 };
@@ -148,12 +142,18 @@ struct loop
     {
       /* Estimate was not computed yet.  */
       EST_NOT_COMPUTED,
-      /* Estimate was computed, but we could derive no useful bound.  */
-      EST_NOT_AVAILABLE,
       /* Estimate is ready.  */
       EST_AVAILABLE
     } estimate_state;
-  double_int estimated_nb_iterations;
+
+  /* An integer guaranteed to bound the number of iterations of the loop
+     from above.  */
+  bool any_upper_bound;
+  double_int nb_iterations_upper_bound;
+
+  /* An integer giving the expected number of iterations of the loop.  */
+  bool any_estimate;
+  double_int nb_iterations_estimate;
 
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
@@ -168,11 +168,13 @@ enum
   LOOPS_HAVE_PREHEADERS = 1,
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
   LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
-  LOOPS_HAVE_RECORDED_EXITS = 8
+  LOOPS_HAVE_RECORDED_EXITS = 8,
+  LOOPS_MAY_HAVE_MULTIPLE_LATCHES = 16
 };
 
 #define LOOPS_NORMAL (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES \
 		      | LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+#define AVOID_CFG_MODIFICATIONS (LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
 
 typedef struct loop *loop_p;
 DEF_VEC_P (loop_p);
@@ -198,6 +200,7 @@ struct loops
 
 /* Loop recognition.  */
 extern int flow_loops_find (struct loops *);
+extern void disambiguate_loops_with_multiple_latches (void);
 extern void flow_loops_free (struct loops *);
 extern void flow_loops_dump (FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
@@ -215,6 +218,7 @@ void rescan_loop_exit (edge, bool, bool);
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
+extern void add_loop (struct loop *, struct loop *);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
@@ -229,6 +233,8 @@ extern void mark_loop_exit_edges (void);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
+extern unsigned get_loop_body_with_size (const struct loop *, basic_block *,
+					 unsigned);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern basic_block *get_loop_body_in_bfs_order (const struct loop *);
 extern VEC (edge, heap) *get_loop_exit_edges (const struct loop *);
@@ -258,6 +264,9 @@ extern void verify_loop_structure (void);
 extern bool just_once_each_iteration_p (const struct loop *, basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
+
+void estimate_numbers_of_iterations_loop (struct loop *);
+HOST_WIDE_INT estimated_loop_iterations_int (struct loop *, bool);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);

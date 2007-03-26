@@ -773,6 +773,19 @@ argument.  Otherwise @var{value} is 1 if the positive form of the
 option was used and 0 if the ``no-'' form was.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_HANDLE_C_OPTION (size_t @var{code}, const char *@var{arg}, int @var{value})
+This target hook is called whenever the user specifies one of the
+target-specific C language family options described by the @file{.opt}
+definition files(@pxref{Options}).  It has the opportunity to do some
+option-specific processing and should return true if the option is
+valid.  The default definition does nothing but return false.
+
+In general, you should use @code{TARGET_HANDLE_OPTION} to handle
+options.  However, if processing an option requires routines that are
+only available in the C (and related language) front ends, then you
+should use @code{TARGET_HANDLE_C_OPTION} instead.
+@end deftypefn
+
 @defmac TARGET_VERSION
 This macro is a C statement to print on @code{stderr} a string
 describing the particular machine description choice.  Every machine
@@ -1068,7 +1081,9 @@ Alignment required for a function entry point, in bits.
 @end defmac
 
 @defmac BIGGEST_ALIGNMENT
-Biggest alignment that any data type can require on this machine, in bits.
+Biggest alignment that any data type can require on this machine, in
+bits.  Note that this is not the biggest alignment that is supported,
+just the biggest alignment that, when violated, may cause a fault.
 @end defmac
 
 @defmac MINIMUM_ATOMIC_ALIGNMENT
@@ -2494,7 +2509,7 @@ Don't define this macro unless the target machine has limitations which
 require the macro to do something nontrivial.
 @end defmac
 
-@deftypefn {Target Hook} enum reg_class TARGET_SECONDARY_RELOAD (bool @var{in_p}, rtx @var{x}, enum reg_class @var{reload_class}, enum machine_mode @var{reload_mode}, secondary_reload_info *@var{sri})
+@deftypefn {Target Hook} {enum reg_class} TARGET_SECONDARY_RELOAD (bool @var{in_p}, rtx @var{x}, enum reg_class @var{reload_class}, enum machine_mode @var{reload_mode}, secondary_reload_info *@var{sri})
 Many machines have some registers that cannot be copied directly to or
 from memory or even from other types of registers.  An example is the
 @samp{MQ} register, which on most machines, can only be copied to or
@@ -3715,8 +3730,8 @@ which.
 @c something, not sure if it looks good.  --mew 10feb93
 
 @defmac OUTGOING_REG_PARM_STACK_SPACE
-Define this if it is the responsibility of the caller to allocate the area
-reserved for arguments passed in registers.
+Define this to a non-zero value if it is the responsibility of the caller
+to allocate the area reserved for arguments passed in registers.
 
 If @code{ACCUMULATE_OUTGOING_ARGS} is defined, this macro controls
 whether the space for these arguments counts in the value of
@@ -5384,6 +5399,21 @@ preserved (e.g. used only by a reduction computation). Otherwise, the
 @code{widen_mult_hi/lo} idioms will be used.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_CONVERSION (enum tree_code @var{code}, tree @var{type})
+This hook should return the DECL of a function that implements conversion of the
+input vector of type @var{type}.
+If @var{type} is an integral type, the result of the conversion is a vector of
+floating-point type of the same size.
+If @var{type} is a floating-point type, the result of the conversion is a vector
+of integral type of the same size.
+@var{code} specifies how the conversion is to be applied
+(truncation, rounding, etc.).
+
+If this hook is defined, the autovectorizer will use the
+@code{TARGET_VECTORIZE_BUILTIN_CONVERSION} target hook when vectorizing
+conversion. Otherwise, it will return @code{NULL_TREE}.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION (enum built_in_function @var{code}, tree @var{vec_type_out}, tree @var{vec_type_in})
 This hook should return the decl of a function that implements the vectorized
 variant of the builtin function with builtin function code @var{code} or
@@ -6365,6 +6395,18 @@ of its own that you need to create.
 GCC calls this hook after processing the command line, but before writing
 any assembly code, and before calling any of the section-returning hooks
 described below.
+@end deftypefn
+
+@deftypefn {Target Hook} TARGET_ASM_RELOC_RW_MASK (void)
+Return a mask describing how relocations should be treated when
+selecting sections.  Bit 1 should be set if global relocations
+should be placed in a read-write section; bit 0 should be set if
+local relocations should be placed in a read-write section.
+
+The default version of this function returns 3 when @option{-fpic}
+is in effect, and 0 otherwise.  The hook is typically redefined
+when the target cannot support (some kinds of) dynamic relocations
+in read-only sections even in executables.
 @end deftypefn
 
 @deftypefn {Target Hook} {section *} TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
@@ -8149,6 +8191,15 @@ register and its mode are represented in Dwarf in non-contiguous
 locations, or if the register should be represented in more than one
 register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
 If not defined, the default is to return @code{NULL_RTX}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_INIT_DWARF_REG_SIZES_EXTRA (tree @var{address})
+If some registers are represented in Dwarf-2 unwind information in
+multiple pieces, define this hook to fill in information about the
+sizes of those pieces in the table used by the unwinder at runtime.
+It will be called by @code{expand_builtin_init_dwarf_reg_sizes} after
+filling in a single size corresponding to each hard register;
+@var{address} is the address of the table.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_ASM_TTYPE (rtx @var{sym})
