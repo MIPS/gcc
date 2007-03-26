@@ -892,6 +892,86 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
   return replaced;
 }
 
+/* Return the defining stmt for the rhs of STMT following the virtual
+   use-def chains if all the VDEFs of this rhs up until the defining stmt
+   initialized by the same constant value as CONST_VAL.  Returns the
+   MODIFY_EXPR stmt which lhs is equal to the rhs of STMT or NULL_TREE
+   if no such stmt can be found.  */
+static tree
+get_def_of_stmt_rhs (tree stmt, tree const_val)
+{
+  tree def, rhs, def_stmt, t;
+  use_operand_p use;
+
+  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
+  gcc_assert (is_gimple_min_invariant (const_val));
+
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+
+  /* The stmt must have a single VUSE.  */
+  use = SINGLE_SSA_USE_OPERAND (stmt, SSA_OP_VUSE);
+  if (use == NULL_USE_OPERAND_P)
+    return NULL_TREE;
+
+  do
+    {
+      /* Look at the DEF for the VUSE and see if it matches this USE
+         and if it's RHS is an SSA_NAME.  */
+      def_stmt = SSA_NAME_DEF_STMT (*use->use);
+      if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT)
+	return NULL_TREE;
+
+      def = GIMPLE_STMT_OPERAND (def_stmt, 0);
+      t = GIMPLE_STMT_OPERAND (def_stmt, 1);
+
+      /* Verify that the VUSE is loaded with the same constant value.  */
+      if (!operand_equal_p (t, const_val, 0)
+	  || (TREE_CODE (TREE_TYPE (def)) != TREE_CODE (TREE_TYPE (rhs))))
+	return NULL_TREE;
+      /* If def_stmt lhs is equal to the rhs of STMT then we found
+         the stmt which defines SSA_NAME of rhs.  */
+      if (operand_equal_p (def, rhs, 0))
+	return def_stmt;
+      use = SINGLE_SSA_USE_OPERAND (def_stmt, SSA_OP_VMAYUSE);
+      if (use == NULL_USE_OPERAND_P)
+	return NULL_TREE;
+    }
+  while (1);
+
+  return NULL_TREE;
+}
+
+static bool
+do_store_ccp (void)
+{
+  return (flag_tree_store_ccp != 0 && flag_tree_ccp != 0);
+}
+
+/* Return true if rhs of STMT has a known VUSE and all
+   it's VDEFs in the virtual use-def chain (up until the insn
+   which created it's SSA_NAME) have the same constant value as
+   recorded in VAL.  */
+bool
+all_vdef_have_same_lattice_const_value (prop_value_t* val, tree stmt)
+{
+  tree def_stmt;
+
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+    return false;
+
+  if (!stmt_makes_single_load (stmt))
+    return false;
+
+  if (!is_gimple_min_invariant (val->value))
+    return false;
+
+  def_stmt = get_def_of_stmt_rhs (stmt, val->value);
+
+  if (def_stmt == NULL_TREE)
+    return false;
+
+  return true;
+}
 
 /* Replace the VUSE references in statement STMT with the values
    stored in PROP_VALUE.  Return true if a reference was replaced.  If
@@ -952,11 +1032,15 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
    2- If the value to be replaced is an SSA name for a virtual
       register, then we simply replace each VUSE operand with its
       value from PROP_VALUE.  This is the same replacement done by
-      replace_uses_in.  */
+      replace_uses_in.  
+
+      AGGRESSIVE_STORE_CPP_P indicates whether store cpp analysis should be
+      extended to analyze memory references based on the virtual use-def chain.
+      */
 
 static bool
 replace_vuses_in (tree stmt, bool *replaced_addresses_p,
-                  prop_value_t *prop_value)
+                  prop_value_t *prop_value, bool aggressive_store_ccp_p)
 {
   bool replaced = false;
   ssa_op_iter iter;
@@ -974,7 +1058,10 @@ replace_vuses_in (tree stmt, bool *replaced_addresses_p,
 	  && val->value
 	  && (is_gimple_reg (val->value)
 	      || is_gimple_min_invariant (val->value))
-	  && simple_cst_equal (rhs, val->mem_ref) == 1)
+	  && ((simple_cst_equal (rhs, val->mem_ref) == 1)
+          || (do_store_ccp ()
+              && aggressive_store_ccp_p
+              && all_vdef_have_same_lattice_const_value (val, stmt))))
 
 	{
 	  /* If we are replacing a constant address, inform our
@@ -1139,10 +1226,22 @@ fold_predicate_in (tree stmt)
    (the information used by vrp_evaluate_conditional is built by the
    VRP pass).  
 
+   AGGRESSIVE_STORE_CPP_P indicates whether store cpp analysis should be 
+   extended to analyze memory references based on the virtual use-def chain.
+
+   For example; in the following example the algorithm would propagate Z
+   into 0. 
+
+   S[5].x = 0; 
+   S[5].y = 0;
+
+   Z = S[5].x;
+
    Return TRUE when something changed.  */
 
 bool
-substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
+substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p,
+                     bool aggressive_store_ccp_p)
 {
   basic_block bb;
   bool something_changed = false;
@@ -1205,7 +1304,8 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		                                prop_value);
 
 	      did_replace |= replace_vuses_in (stmt, &replaced_address,
-		                               prop_value);
+		                               prop_value, 
+                                               aggressive_store_ccp_p);
 	    }
 
 	  /* If we made a replacement, fold and cleanup the statement.  */

@@ -673,7 +673,7 @@ static bool
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  bool something_changed = substitute_and_fold (const_val, false);
+  bool something_changed = substitute_and_fold (const_val, false, true);
 
   free (const_val);
   return something_changed;;
@@ -1202,10 +1202,10 @@ visit_assignment (tree stmt, tree *output_p)
 	 location that created the SSA_NAMEs for the virtual operands,
 	 we can propagate the value on the RHS.  */
       prop_value_t *nval = get_value_loaded_by (stmt, const_val);
-
       if (nval
-	  && nval->mem_ref
-	  && operand_equal_p (nval->mem_ref, rhs, 0))
+          && nval->mem_ref
+          && (operand_equal_p (nval->mem_ref, rhs, 0)
+              || all_vdef_have_same_lattice_const_value (nval, stmt)))
 	val = *nval;
       else
 	val = evaluate_stmt (stmt);

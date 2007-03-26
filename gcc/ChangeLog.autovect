@@ -1,5 +1,29 @@
 2007-03-26  Revital Eres  <eres@il.ibm.com>
 
+        * tree-ssa-propagate.c (all_vdef_have_same_lattice_const_value):
+          New function to get the defining stmt.
+          (get_def_of_stmt_rhs): New helper function
+          which walks on the virtual use-def chain to get the defining
+          stmt.
+          (replace_vuses_in): Call all_vdef_have_same_lattice_const_value
+          to perform the final replacement and add new parameter which
+          indicates whether store cpp analysis should be extended to
+          analyze memory references based on the virtual use-def chain.
+          (do_store_ccp): New function.
+          (substitute_and_fold): Add new parameter.
+        * tree-ssa-propagate.h (all_vdef_have_same_lattice_const_value):
+          Declare.
+          (substitute_and_fold): Change declaration.
+        * tree-vrp.c (vrp_finalize): Call substitute_and_fold with new
+          argument.
+        * tree-ssa-ccp.c (ccp_finalize): Likewise.
+          (visit_assignment): Call all_vdef_have_same_lattice_const_value
+          while performing the propogation.
+       * tree-ssa-copy.c (fini_copy_prop): Call substitute_and_fold with
+         new argument.
+
+2007-03-26  Revital Eres  <eres@il.ibm.com>
+
         * passes.c (init_optimization_passes): move complete-unrolling
           pass before the vectorizer and add constant propagation,
           store-ccp, dse and dce passes after it.

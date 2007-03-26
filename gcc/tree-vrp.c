@@ -4957,7 +4957,7 @@ vrp_finalize (void)
       single_val_range = NULL;
     }
 
-  substitute_and_fold (single_val_range, true);
+  substitute_and_fold (single_val_range, true, false);
 
   if (warn_array_bounds)
       check_all_array_refs ();

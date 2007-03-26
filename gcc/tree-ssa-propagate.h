@@ -120,6 +120,6 @@ bool stmt_makes_single_load (tree);
 bool stmt_makes_single_store (tree);
 prop_value_t *get_value_loaded_by (tree, prop_value_t *);
 bool replace_uses_in (tree, bool *, prop_value_t *);
-bool substitute_and_fold (prop_value_t *, bool);
-
+bool substitute_and_fold (prop_value_t *, bool, bool);
+bool all_vdef_have_same_lattice_const_value (prop_value_t *, tree);
 #endif /* _TREE_SSA_PROPAGATE_H  */

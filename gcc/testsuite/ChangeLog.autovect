@@ -1,5 +1,9 @@
 2007-03-26  Revital Eres  <eres@il.ibm.com>
 
+        * testsuite/gcc.dg/store_ccp_test.c: New test.
+
+2007-03-26  Revital Eres  <eres@il.ibm.com>
+
         * testsuite/gcc.dg/vect/vect.exp: Add fno-tree-complete-unroll
           to the default options of the vect testsuite.
         * testsuite/gcc.dg/tree-ssa/20030917-1.c: Fix dump file number.
