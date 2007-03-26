@@ -1,8 +1,360 @@
+2007-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (IX86_BUILTIN_CMPNEPD, IX86_BUILTIN_CMPNESD):
+	Remove.
+	(IX86_BUILTIN_PSLLW128, IX86_BUILTIN_PSLLD128, IX86_BUILTIN_PSLLQ128,
+	IX86_BUILTIN_PSRAW128, IX86_BUILTIN_PSRAD128, IX86_BUILTIN_PSRLW128,
+	IX86_BUILTIN_PSRLD128, IX86_BUILTIN_PSRLQ128): Remove.
+	(ix86_init_mmx_sse_builtins): Remove v8hi_ftype_v8hi_v2di and
+	v4si_ftype_v4si_v2di.   Remove __builtin_ia32_psllw128,
+	__builtin_ia32_pslld128, __builtin_ia32_psllq128,
+	__builtin_ia32_psrlw128, __builtin_ia32_psrld128,
+	__builtin_ia32_psrlq128, __builtin_ia32_psraw128 and
+	__builtin_ia32_psrad128 builtins.
+
+2007-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* reg-stack.c (replace_reg): Use IN_RANGE macro in gcc_assert().
+	* config/i386/constraints.md
+	(define_constraint "I"): Use IN_RANGE macro.
+	(define_constraint "J"): Ditto.
+	(define_constraint "K"): Ditto.
+	(define_constraint "M"): Ditto.
+	(define_constraint "N"): Ditto.
+	(define_constraint "O"): Ditto.
+	* config/i386/predicates.md
+	(define_predicate "register_no_elim_operand"): Use IN_RANGE macro.
+	(define_predicate "const_0_to_3_operand"): Ditto.
+	(define_predicate "const_0_to_7_operand"): Ditto.
+	(define_predicate "const_0_to_15_operand"): Ditto.
+	(define_predicate "const_0_to_63_operand"): Ditto.
+	(define_predicate "const_0_to_255_operand"): Ditto.
+	(define_predicate "const_1_to_31_operand"): Ditto.
+	(define_predicate "const_2_to_3_operand"): Ditto.
+	(define_predicate "const_4_to_7_operand"): Ditto.
+
+2007-03-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Always clobber LR
+	in SImode for save_world.
+	* config/rs6000/altivec.md (save_world, restore_world): Convert to
+	LR hard reg.
+
+2007-03-25  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/30784
+	* fold-const.c (fold_ternary): Handle CONSTRUCTOR in case
+	BIT_FIELD_REF.
+
+2007-03-25  Revital Eres  <eres@il.ibm.com>
+
+        * tree-if-conv.c (if_convertible_gimple_modify_stmt_p):
+          Fold movement_possibility function into it.
+
+2007-03-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/darwin.md (load_macho_picbase): Ignore operand 0.
+	(load_macho_picbase_{si,di}): Convert to LR hard reg.
+	(call_indirect_nonlocal_darwin64): Same.
+	(call_nonlocal_darwin64): Same.
+	(call_value_indirect_nonlocal_darwin64): Same.
+	(call_value_nonlocal_darwin64): Same.
+	(sibcall_nonlocal_darwin64): Same.
+	(sibcall_value_nonlocal_darwin64): Same.
+	(sibcall_symbolic_64): Same.
+	(sibcall_value_symbolic_64): Same.
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Remove
+	LR pseudo.
+	(rs6000_emit_load_toc_table): Same.
+	* config/rs6000/altivec.md (restore_world): Convert to LR hard reg.
+	* config/rs6000/rs6000.md (mulh_call): Convert to LR hard reg.
+	(mull_call): Same.
+	(divss_call): Same.
+	(divus_call): Same.
+	(quoss_call): Same.
+	(quous_call): Same.
+	(load_toc_v4_pic_si): Same
+	(load_toc_v4_PIC_1): Same.
+	(load_toc_v4_PIC_1b): Same.
+	(call_indirect_aix{32,64}): Same.
+	(call_value_indirect_aix{32,64}): Same.
+	(call): Same.
+	(call_value): Same.
+	(call_local{32,64}): Same.
+	(call_value_local{32,64}): Same.
+	(call_indirect_nonlocal_aix{32,64}): Same.
+	(call_nonlocal_aix{32,64}): Same.
+	(call_value_indirect_nonlocal_aix{32,64}): Same.
+	(call_value_nonlocal_aix{32,64}): Same.
+	(call_indirect_nonlocal_sysv<mode>): Same.
+	(call_nonlocal_sysv<mode>): Same.
+	(call_value_indirect_nonlocal_sysv<mode>): Same.
+	(call_value_nonlocal_sysv<mode>): Same.
+	(sibcall): Same.
+	(sibcall_local{32,64}): Same.
+	(sibcall_value_local{32,64}): Same.
+	(sibcall_nonlocal_aix{32,64}): Same.
+	(sibcall_value_nonlocal_aix{32,64}): Same.
+	(sibcall_nonlocal_sysv<mode>): Same.
+	(sibcall_value): Same.
+	(sibcall_value_nonlocal_sysv<mode>): Same.
+
+2007-03-24  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/lib1funcs.asm (div0): Use ARM_FUNC_START and do_push.
+	* config/arm/linux-eabi.h: Remove legacy syscall hack.
+
+2007-03-24  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/constraints.md: New file.
+	* config/ia64/predicates.md: Replace CONST_OK_FOR_? with
+	satisfies_constraint_?.
+	* config/ia64/ia64.c (ia64_move_ok, ia64_legitimate_constant_p,
+	ia64_reload_gp, spill_restore_mem, ia64_expand_prologue,
+	ia64_expand_epilogue, ia64_split_return_addr_rtx, ia64_rtx_costs,
+	ia64_output_mi_thunk): Likewise.
+	(ia64_const_ok_for_letter_p): Remove.
+	(ia64_const_double_ok_for_letter_p): Remove.
+	(ia64_extra_constraint): Remove.
+	* config/ia64/ia64.h (REG_CLASS_FROM_LETTER): Remove.
+	(CONST_OK_FOR_I, CONST_OK_FOR_J, CONST_OK_FOR_K, CONST_OK_FOR_L,
+	CONST_OK_FOR_M, CONST_OK_FOR_N, CONST_OK_FOR_O, CONST_OK_FOR_P,
+	CONST_OK_FOR_LETTER_P, CONST_DOUBLE_OK_FOR_G,
+	CONST_DOUBLE_OK_FOR_LETTER_P, EXTRA_CONSTRAINT,
+	EXTRA_MEMORY_CONSTRAINT): Remove.
+	* config/ia64/ia64.md: Include constriants.md.  Replace
+	CONST_OK_FOR_? with satisfies_constraint_?.
+
+2007-03-23  Michael Meissner  <michael.meissner@amd.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/dfp-bit.h (DPD_BID_NAME): New macro to give either the
+	DPD or BID name.
+	(name macros): Use DPD_BID_NAME to convert names properly.
+
+	* optabs.c (DECIMAL_PREFIX): Prefix string to use for the current
+	decimal floating point format.
+	(init_floating_libfuncs): Change decimal functions so that they
+	have a "bid_" prefix if the decimal system uses the BID format,
+	and "dpd_" prefix if the decimal system uses the DPD format.
+	(init_interclass_conv_libfuncs): Ditto.
+	(init_intraclass_conv_libfuncs): Ditto.
+
+	* config.in (ENABLE_DECIMAL_BID_FORMAT): New macro to say we are
+	using the BID format.
+
+	* configure.ac (ENABLE_DECIMAL_BID_FORMAT): Set to 1/0 to say
+	whether we are using the BID decimal format.
+	* configure: Regenerate.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __STDC_WANT_DEC_FP__ if
+	the compiler has decimal floating point enabled.  Define
+	__DECIMAL_BID_FORMAT__ if BID decimal floating point is used
+	instead of DPD.
+
+	* config.in (ENABLE_DECIMAL_BID_FORMAT): New macro to say we are
+	using the BID format.
+
+	* configure.ac (ENABLE_DECIMAL_BID_FORMAT): Set to 1/0 to say
+	whether we are using the BID decimal format.
+	* configure: Regenerate.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __STDC_WANT_DEC_FP__ if
+	the compiler has decimal floating point enabled.  Define
+	__DECIMAL_BID_FORMAT__ if BID decimal floating point is used
+	instead of DPD.
+
+	* doc/install.texi (--enable-decimal-float): Document BID and DPD
+	options, and that it is enabled for i386/x86_64 systems.
+
+	* Makefile.in (enable_decimal_float): New.
+	(DECNUMFMT): New.
+	(DECNUMINC): Add  -I$(DECNUMFMT).
+	(DECNUM_H): Mov decimal32.h, decimal64.h and decimal128.h
+	to $(DECNUMFMT) from $(DECNUM).
+
+	* configure.ac: Support * --enable-decimal-float={no,yes,bid,dpd}.
+	Substitute enable_decimal_float.
+	* configure: Regenerated.
+
+	PR other/30529
+	* config/dfp-bit.c (__dec_byte_swap): Use uint32_t instead of
+	unsigned long.
+
+	* configure.ac: Enable decimal float for x86_64-*-linux*.
+	* configure: Regenerated.
+
+	PR other/30530
+	* dfp.c (decimal_real_arithmetic): Use decimal128FlipSign and
+	decimal128ClearSign to flip and clear the sign bit in decimal128.
+	(decimal_real_maxval): Set decimal128SetSign to set the sign
+	bit in decimal128.
+
+2007-03-23  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (fold_binary): Correct warning for X - c >= X.
+
+2007-03-23  Ian Lance Taylor  <iant@google.com>
+
+	* tree-dump.c (dump_files): Correct comment.
+
+2007-03-23  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (operand_less_p): Ignore fold overflow warnings.
+
+2007-03-23  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tracer.c (tracer): Don't take FLAGS argument.  Assert we are
+	in cfglayout mode.  Don't go into and out of cfglayout mode.
+	Link the blocks in the order of the constructed traces.
+	(rest_of_handle_tracer): Adjust call to tracer.
+	* loop-init.c (rtl_loop_init): Assert we are in cfglayout mode.
+	Don't go into cfglayout mode.
+	(rtl_loop_done): Don't go out of cfglayout mode.
+	* cfglayout.c (relink_block_chain): New function, split out from...
+	(fixup_reorder_chain): ...here.  Remove redundant checking.
+	(cfg_layout_finalize): Don't clear the header, footer, and aux
+	fields here, move the code to do so to relink_block_chain.  Likewise
+	for free_original_copy_tables.
+	* rtl.h (tracer): Update prototype.
+	* bb-reorder.c (reorder_basic_blocks): Don't take FLAGS argument.
+	Assert we are in cfglayout mode.  Don't go into and out of cfglayout
+	mode.  Use relink_block_chain to serialize the CFG according to the
+	new basic block order.  Move targetm.cannot_modify_jumps_p check from
+	here...
+	(gate_handle_reorder_blocks): ...to here.
+	(duplicate_computed_gotos): Move targetm.cannot_modify_jumps_p check
+	from here...
+	(gate_duplicate_computed_gotos): ...to here.
+	(rest_of_handle_reorder_blocks): Don't see if anything has changed,
+	something always changes when going into and out of cfglayout mode.
+	Perform an expensive cfg cleanup while going into cfglayout mode.
+	Always update liveness information on HAVE_conditional_execution
+	targets.  Reserialize the basic blocks and go out of cfglayout mode.
+	* reg-stack.c: Include cfglayout.h.
+	(rest_of_handle_stack_regs): Go into and out of cfglayout mode around
+	the call to reorder_basic_blocks.
+	* basic-block.h (reorder_basic_blocks): Update prototype.
+	(relink_block_chain): New prototype.
+	* passes.c (pass_outof_cfg_layout_mode): Move after cse2.
+
+2007-03-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/mips.md (type, hazard, *movdi_32bit,
+	*movdi_gp32_fp64, *movdi_64bit, *movsi_internal, movcc,
+	*movhi_internal, *movqi_internal, *movsf_hardfloat,
+	*movdf_hardfloat_64bit, *movdf_hardfloat_32bit, *movdf_softfloat,
+	movv2sf_hardfloat_64bit, load_df_low, load_df_high, store_df_high,
+	mthc1, mfhc1): Change xfer instruction type to mfc and mtc, as
+	applicable.
+	(movcc): Change first xfer to multi.
+	* config/mips/24k.md, config/mips/4100.md, config/mips/4300.md,
+	config/mips/5000.md, config/mips/5400.md, config/mips/5500.md,
+	config/mips/5k.md, config/mips/7000.md, config/mips/9000.md,
+	config/mips/generic.md: Change reservations using "xfer" to use
+	"mfc,mtc".
+	* config/mips/sb1.md (ir_sb1_mtxfer): Use "mtc" instead of
+	using match_operand.
+	(ir_sb1_mfxfer): Use "mfc" instead of using match_operand.
+	* config/mips/sr71k.md (ir_sr70_xfer_from): Use "mfc" instead of
+	examining mode.
+	(ir_sr70_xfer_to): Use "mtc" instead of examining mode.
+
+2007-03-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c: Remove unnecessary function declarations.
+	Move targetm definition, and all related macros, to the end of
+	the file.  Resort some functions to put definitions before uses.
+	(ix86_attribute_table): Make static.  Move to end of file.
+	(ix86_gimplify_va_arg): Make static.
+
+2007-03-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_function_regparm): Early exit for 64-bit;
+	don't increase local_regparm with force_align_arg_pointer check.
+	(ix86_function_sseregparm): Assert 32-bit.
+	(type_has_variadic_args_p): New.
+	(ix86_return_pops_args): Early exit for 64-bit.  Reindent; use
+	type_has_variadic_args_p.
+	(ix86_function_arg_regno_p): Use == 0 instead of ! test for eax.
+	(init_cumulative_args): Remove TARGET_DEBUG_ARG.  Remove zero_cum;
+	use memset instead.  Do maybe_vaarg check first; skip attribute
+	tests if true; skip attribute tests for 64-bit.
+	(construct_container): Remove TARGET_DEBUG_ARG.
+	(function_arg_advance_32, function_arg_advance_64): Split out ...
+	(function_arg_advance): ... from here.
+	(function_arg_32, function_arg_64): Split out ...
+	(function_arg): ... from here.
+	(ix86_pass_by_reference): Tidy.
+	(ix86_function_value_regno_p): Rearrange w/ switch on regno.
+	(function_value_32): New, from parts of ix86_function_value
+	and ix86_value_regno.
+	(function_value_64): New, from parts of ix86_function_value
+	and ix86_libcall_value.
+	(ix86_function_value_1): New.
+	(ix86_function_value, ix86_libcall_value): Use it.
+	(return_in_memory_32, return_in_memory_64): Split out ...
+	(ix86_return_in_memory): ... from here.
+	(ix86_struct_value_rtx): Skip for 64-bit.
+	(ix86_libcall_value, ix86_value_regno): Remove.
+	(setup_incoming_varargs_64): Split out ...
+	(ix86_setup_incoming_varargs): ... from here.
+	(ix86_va_start): Remove TARGET_DEBUG_ARG.
+	(legitimate_address_p, legitimize_address): Remove TARGET_DEBUG_ADDR.
+	* config/i386/i386-protos.h (ix86_function_value): Remove.
+	* config/i386/i386.opt (TARGET_DEBUG_ADDR, TARGET_DEBUG_ARG): Remove.
+
+2007-03-22  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR other/23572
+	* c-lex.c (interpret_float): On overflow, emit pedantic warning if
+	infinities not supported, otherwise emit warning if -Woverflow. On
+	underflow, emit warning if -Woverflow.
+	* real.c (real_from_string): Return -1 if underflow, +1 if overflow
+	and 0 otherwise.
+	* real.h (real_from_string): Update declaration
+	
+2007-03-22  Kai Tietz  <kai.tietz@onevision.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* defaults.h (OUTGOING_REG_PARM_STACK_SPACE): Provide default.
+	* calls.c (compute_argument_block_size, expand_call,
+	emit_library_call_value_1): Don't ifdef OUTGOING_REG_PARM_STACK_SPACE.
+	* expr.c (block_move_libcall_safe_for_call_parm): Likewise.
+	* function.c (STACK_DYNAMIC_OFFSET): Likewise.
+	* doc/tm.texi (OUTGOING_REG_PARM_STACK_SPACE): Update.
+	* config/alpha/unicosmk.h, config/bfin/bfin.h, config/iq2000/iq2000.h,
+	config/mips/mips.h, config/mn10300/mn10300.h, config/mt/mt.h,
+	config/pa/pa.h, config/rs6000/rs6000.h, config/score/score.h,
+	config/spu/spu.h, config/v850/v850.h (OUTGOING_REG_PARM_STACK_SPACE):
+	Set to 1.
+
+2007-03-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-incpath.c (add_sysroot_to_chain): New.
+	(merge_include_chains): Add sysroot argument.  Call
+	add_sysroot_to_chain if sysrooted.
+	(register_include_chains): Update call to merge_include_chains.
+	* doc/cppopts.texi: Document use of '=' in include directory
+	arguments.
+
+2007-03-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (cmp<mode>): Rename from cmpsf and cmpdf.
+	Macroize expander using SSEMODEF mode macro.  Use SSE_FLOAT_MODE_P.
+	(*cmpfp_<mode>): Rename from *cmpfp_sf and *cmpfp_df. Macroize
+	insn pattern using X87MODEF12 mode macro.
+	
+2007-03-21  Seongbae Park <seongbae.park@gmail.com>
+
+	* regmove.c (regmove_optimize): Use reg_mentioned_p
+	instead of reg_overlap_mentioned_p for DST.
+
 2007-03-21  Mike Stump  <mrs@apple.com>
 
 	* c.opt: Fixup for Objective-C/C++.
 
-2007-02-21  Steve Ellcey  <sje@cup.hp.com>
+2007-03-21  Steve Ellcey  <sje@cup.hp.com>
 
 	* explow.c (convert_memory_address): Fold memory reference when
 	POINTERS_EXTEND_UNSIGNED < 0

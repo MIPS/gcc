@@ -1,3 +1,229 @@
+2007-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/gcc-dg.exp (gcc-dg-debug-runtest): Remove build file trivial.S.
+	* gcc.dg/debug/dwarf2/dwarf2.exp: Ditto.
+
+2007-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/use_[567].f90: Use correct cleanup-modules dg directive.
+
+2007-03-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31199
+	* gfortran.dg/fmt_t_4.f90: New test.
+
+2007-03-25  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/31297
+	* gfortran.dg/backspace_5.f:  Initialize variable(s).
+	* gfortran.dg/backspace_6.f:  Likewise.
+	* gfortran.dg/char_bounds_check_fail_1: Likewise.
+	* gfortran.dg/direct_io_2.f90:  Likewise.
+	* gfortran.dg/write_back.f:  Likewise.
+	* gfortran.dg/write_rewind_2.f:  Likewise.
+	* gfortran.dg/write_rewind_1.f:  Likewise.
+	* gfortran.dg/write_rewind_2.f:  Likewise.
+
+2007-03-25  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/30784
+        * gcc.dg/vect/pr30784.c: New test.
+
+2007-03-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30877
+	* gfortran.dg/operator_1.f90: New test.
+	* gfortran.dg/operator_2.f90: New test.
+
+2007-03-25  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/31196
+	* gfortran.dg/reshape_transpose_1.f90:  New test.
+
+2007-03-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30655
+	* gfortran.dg/bounds_check_6.f90: New test.
+
+2007-03-23  Michael Meissner  <michael.meissner@amd.com>
+
+	* gcc.dg/dfp/convert-dfp.c: Wrap __STDC_WANT_DEC_FP__ with
+	#ifndef/#endif.
+	* gcc.dg/dfp/convert-int-saturate.c: Ditto.
+	* gcc.dg/dfp/decfloat-constants.c: Ditto.
+
+2007-03-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31209
+	* gfortran.dg/pointer_function_actual_1.f90: New test.
+
+	PR fortran/31200
+	* gfortran.dg/pointer_function_actual_2.f90: New test.
+
+	PR fortran/31215
+	* gfortran.dg/result_in_spec_1.f90: New test.
+
+2007-03-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30834
+	* gfortran.dg/integer_exponentiation_3.F90: New	test.
+	* gfortran.dg/integer_exponentiation_4.f90: New test.
+	* gfortran.dg/integer_exponentiation_5.F90: New test.
+
+2007-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30863
+	* g++.dg/template/error24.C: New test.
+	* g++.dg/parse/tmpl-outside1.C: Tweak error markers.
+
+2007-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31273
+	* g++.dg/expr/bitfield7.C: New test.
+
+2007-03-22  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR other/23572
+	* gcc.dg/float-range-4.c: New.
+	* gcc.dg/float-range-1.c: Update. Test for a warning.
+	* gcc.dg/float-range-3.c: New.
+	* gcc.dg/float-range-5.c: New.
+	
+2007-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31262
+	* gfortran.dg/no_range_check_1.f90: New test.
+
+2007-03-22  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.old-deja/g++.brendan/warnings2.C: Don't use -pedantic.
+	* g++.dg/other/static1.C: Remove stray semicolon.
+	* g++.dg/other/init1.C: Likewise.
+	* g++.dg/rtti/dyncast1.C: Likewise.
+	* g++.dg/tree-ssa/pr17153.C: Likewise.
+	* g++.dg/lookup/disamb1.C: Likewise.
+	* g++.dg/lookup/scoped2.C: Likewise.
+	* g++.dg/lookup/friend7.C: Likewise.
+	* g++.dg/parse/parse4.C: Likewise.
+	* g++.dg/parse/parse5.C: Likewise.
+	* g++.dg/expr/pr29066.C: Likewise.
+	* g++.dg/expr/cast4.C: Likewise.
+	* g++.dg/tc1/dr193.C: Likewise.
+	* g++.dg/tc1/dr213.C: Likewise.
+	* g++.dg/abi/dcast1.C: Likewise.
+	* g++.dg/abi/covariant2.C: Likewise.
+	* g++.dg/inherit/covariant11.C: Likewise.
+	* g++.dg/inherit/covariant9.C: Likewise.
+	* g++.dg/inherit/covariant10.C: Likewise.
+	* g++.dg/init/static3.C: Likewise.
+	* g++.dg/init/init-ref3.C: Likewise.
+	* g++.dg/init/ref10.C: Likewise.
+	* g++.dg/template/meminit2.C: Likewise.
+	* g++.dg/template/using9.C: Likewise.
+	* g++.dg/template/friend9.C: Likewise.
+	* g++.dg/template/ref1.C: Likewise.
+	* g++.old-deja/g++.warn/inline.C: Likewise.
+	* g++.old-deja/g++.robertl/eb91.C: Likewise.
+	* g++.old-deja/g++.robertl/eb46.C: Likewise.
+	* g++.old-deja/g++.robertl/eb34.C: Likewise.
+	* g++.old-deja/g++.robertl/eb43.C: Likewise.
+	* g++.old-deja/g++.robertl/eb26.C: Likewise.
+	* g++.old-deja/g++.robertl/eb116.C: Likewise.
+	* g++.old-deja/g++.brendan/copy5.C: Likewise.
+	* g++.old-deja/g++.brendan/overload8.C: Likewise.
+	* g++.old-deja/g++.brendan/overload11.C: Likewise.
+	* g++.old-deja/g++.brendan/copy7.C: Likewise.
+	* g++.old-deja/g++.brendan/crash38.C: Likewise.
+	* g++.old-deja/g++.brendan/template11.C: Likewise.
+	* g++.old-deja/g++.brendan/err-msg3.C: Likewise.
+	* g++.old-deja/g++.brendan/crash50.C: Likewise.
+	* g++.old-deja/g++.brendan/crash16.C: Likewise.
+	* g++.old-deja/g++.jason/pmem2.C: Likewise.
+	* g++.old-deja/g++.jason/parse9.C: Likewise.
+	* g++.old-deja/g++.jason/byval2.C: Likewise.
+	* g++.old-deja/g++.jason/overload8.C: Likewise.
+	* g++.old-deja/g++.jason/pmf8.C: Likewise.
+	* g++.old-deja/g++.jason/template33.C: Likewise.
+	* g++.old-deja/g++.jason/return3.C: Likewise.
+	* g++.old-deja/g++.jason/scoping2.C: Likewise.
+	* g++.old-deja/g++.jason/virtual.C: Likewise.
+	* g++.old-deja/g++.jason/opeq3.C: Likewise.
+	* g++.old-deja/g++.jason/template27.C: Likewise.
+	* g++.old-deja/g++.jason/synth6.C: Likewise.
+	* g++.old-deja/g++.jason/ref8.C: Likewise.
+	* g++.old-deja/g++.jason/offset1.C: Likewise.
+	* g++.old-deja/g++.other/static20.C: Likewise.
+	* g++.old-deja/g++.other/array1.C: Likewise.
+	* g++.old-deja/g++.other/new3.C: Likewise.
+	* g++.old-deja/g++.other/array2.C: Likewise.
+	* g++.old-deja/g++.other/overload9.C: Likewise.
+	* g++.old-deja/g++.other/cast6.C: Likewise.
+	* g++.old-deja/g++.other/ptrmem8.C: Likewise.
+	* g++.old-deja/g++.other/eh4.C: Likewise.
+	* g++.old-deja/g++.other/using7.C: Likewise.
+	* g++.old-deja/g++.other/init18.C: Likewise.
+	* g++.old-deja/g++.other/dyncast1.C: Likewise.
+	* g++.old-deja/g++.other/dyncast2.C: Likewise.
+	* g++.old-deja/g++.other/dtor11.C: Likewise.
+	* g++.old-deja/g++.pt/static11.C: Likewise.
+	* g++.old-deja/g++.pt/crash19.C: Likewise.
+	* g++.old-deja/g++.pt/overload12.C: Likewise.
+	* g++.old-deja/g++.pt/crash46.C: Likewise.
+	* g++.old-deja/g++.pt/mi1.C: Likewise.
+	* g++.old-deja/g++.pt/vaarg3.C: Likewise.
+	* g++.old-deja/g++.pt/nontype5.C: Likewise.
+	* g++.old-deja/g++.pt/local5.C: Likewise.
+	* g++.old-deja/g++.pt/typename2.C: Likewise.
+	* g++.old-deja/g++.pt/explicit80.C: Likewise.
+	* g++.old-deja/g++.pt/auto_ptr.C: Likewise.
+	* g++.old-deja/g++.law/visibility1.C: Likewise.
+	* g++.old-deja/g++.law/visibility2.C: Likewise.
+	* g++.old-deja/g++.law/virtual2.C: Likewise.
+	* g++.old-deja/g++.law/operators19.C: Likewise.
+	* g++.old-deja/g++.law/parsing10.C: Likewise.
+	* g++.old-deja/g++.law/visibility4.C: Likewise.
+	* g++.old-deja/g++.law/operators4.C: Likewise.
+	* g++.old-deja/g++.law/dtors2.C: Likewise.
+	* g++.old-deja/g++.law/missed-error3.C: Likewise.
+	* g++.old-deja/g++.law/visibility10.C: Likewise.
+	* g++.old-deja/g++.law/scope3.C: Likewise.
+	* g++.old-deja/g++.law/casts2.C: Likewise.
+	* g++.old-deja/g++.law/code-gen5.C: Likewise.
+	* g++.old-deja/g++.law/operators33.C: Likewise.
+	* g++.old-deja/g++.law/friend4.C: Likewise.
+	* g++.old-deja/g++.mike/pmf7.C: Likewise.
+	* g++.old-deja/g++.mike/p5611.C: Likewise.
+	* g++.old-deja/g++.mike/net37.C: Likewise.
+	* g++.old-deja/g++.mike/p3570.C: Likewise.
+	* g++.old-deja/g++.mike/p5718.C: Likewise.
+	* g++.old-deja/g++.mike/net21.C: Likewise.
+	* g++.old-deja/g++.mike/p1862.C: Likewise.
+	* g++.old-deja/g++.mike/p4511.C: Likewise.
+	* g++.old-deja/g++.mike/virt3.C: Likewise.
+	* g++.old-deja/g++.mike/p16146.C: Likewise.
+	* g++.old-deja/g++.mike/p1989.C: Likewise.
+	* g++.old-deja/g++.mike/p5571.C: Likewise.
+	* g++.old-deja/g++.gb/scope10.C: Likewise.
+	* g++.old-deja/g++.abi/primary5.C: Likewise.
+	* g++.old-deja/g++.abi/empty2.C: Likewise.
+	* g++.old-deja/g++.abi/arraynew.C: Likewise.
+	* g++.old-deja/g++.eh/vbase4.C: Likewise.
+	* g++.old-deja/g++.eh/ptr1.C: Likewise.
+	* g++.old-deja/g++.eh/cleanup1.C: Likewise.
+	* g++.old-deja/g++.bob/template3.C: Likewise.
+	* g++.old-deja/g++.bob/inherit1.C: Likewise.
+	
+2007-03-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31193
+	* gfortran.dg/transfer_array_intrinsic_3.f90: New test.
+
+2007-03-22  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/20897
+	* gfortran.dg/derived_name_1.f90: New.
+	* gfortran.dg/derived_name_2.f: New.
+
 2007-03-21  Richard Sandiford  <richard@codesourcery.com>
 
 	* lib/target-supports.exp (check_effective_target_nonpic): New

@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
 
@@ -1950,6 +1951,10 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   dtp->u.p.blank_status = dtp->u.p.current_unit->flags.blank;
   dtp->u.p.sign_status = SIGN_S;
+  
+  /* Set the maximum position reached from the previous I/O operation.  This
+     could be greater than zero from a previous non-advancing write.  */
+  dtp->u.p.max_pos = dtp->u.p.current_unit->saved_pos;
 
   pre_position (dtp);
 
@@ -2222,6 +2227,9 @@ next_record_r (st_parameter_dt *dtp)
 
       break;
     }
+
+  if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+    test_endfile (dtp->u.p.current_unit);
 }
 
 
@@ -2457,7 +2465,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
-
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
 	  (for file unit) */
@@ -2599,11 +2606,19 @@ finalize_transfer (st_parameter_dt *dtp)
       return;
     }
 
+  /* For non-advancing I/O, save the current maximum position for use in the
+     next I/O operation if needed.  */
   if (dtp->u.p.advance_status == ADVANCE_NO)
     {
+      int bytes_written = (int) (dtp->u.p.current_unit->recl
+	- dtp->u.p.current_unit->bytes_left);
+      dtp->u.p.current_unit->saved_pos =
+	dtp->u.p.max_pos > 0 ? dtp->u.p.max_pos - bytes_written : 0;
       flush (dtp->u.p.current_unit->s);
       return;
     }
+
+  dtp->u.p.current_unit->saved_pos = 0;
 
   next_record (dtp, 1);
   sfree (dtp->u.p.current_unit->s);
@@ -2681,7 +2696,7 @@ st_read (st_parameter_dt *dtp)
 
   data_transfer_init (dtp, 1);
 
-  /* Handle complications dealing with the endfile record. */
+  /* Handle complications dealing with the endfile record.  */
 
   if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
     switch (dtp->u.p.current_unit->endfile)

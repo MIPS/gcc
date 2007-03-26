@@ -12064,7 +12064,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 		  if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg1)))
 		    fold_overflow_warning (("assuming signed overflow does "
 					    "not occur when assuming that "
-					    "(X - c) >= X is always true"),
+					    "(X - c) >= X is always false"),
 					   WARN_STRICT_OVERFLOW_ALL);
 		  return constant_boolean_node (0, type);
 		}
@@ -12732,7 +12732,8 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
       gcc_unreachable ();
 
     case BIT_FIELD_REF:
-      if (TREE_CODE (arg0) == VECTOR_CST
+      if ((TREE_CODE (arg0) == VECTOR_CST
+	   || (TREE_CODE (arg0) == CONSTRUCTOR && TREE_CONSTANT (arg0)))
 	  && type == TREE_TYPE (TREE_TYPE (arg0))
 	  && host_integerp (arg1, 1)
 	  && host_integerp (op2, 1))
@@ -12746,7 +12747,18 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 	      && (idx = idx / width)
 		 < TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg0)))
 	    {
-	      tree elements = TREE_VECTOR_CST_ELTS (arg0);
+	      tree elements = NULL_TREE;
+
+	      if (TREE_CODE (arg0) == VECTOR_CST)
+		elements = TREE_VECTOR_CST_ELTS (arg0);
+	      else
+		{
+		  unsigned HOST_WIDE_INT idx;
+		  tree value;
+
+		  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg0), idx, value)
+		    elements = tree_cons (NULL_TREE, value, elements);
+		}
 	      while (idx-- > 0 && elements)
 		elements = TREE_CHAIN (elements);
 	      if (elements)

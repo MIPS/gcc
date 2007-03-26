@@ -1,3 +1,63 @@
+2007-03-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_compatibility/complex.h: Without
+	__GXX_EXPERIMENTAL_CXX0X__ include_next complex.h.	
+	* include/c_compatibility/fenv.h: Same.
+	* include/c_compatibility/inttypes.h: Same.
+	* include/c_compatibility/stdbool.h: Same.
+	* include/c_compatibility/stdint.h: Same.
+	* include/c_compatibility/tgmath.h: Same.
+
+	* include/tr1/cinttypes: Use include_next.
+	* include/tr1/cstdint: Same.
+	* include/tr1/cstdbool: Same.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Add check for tgmath.h
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2007-03-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Formatting fixes.
+
+2007-03-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/4402.cc:
+	Likewise use std::numeric_limits<>::max().
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc:
+	Minor tweaks.
+
+2007-03-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc
+	(test02): Use std::numeric_limits<>::max() to get suitable large
+	values.
+
+2007-03-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/21_strings/headers/cstdlib/functions_std.cc: Without
+	C99 support, _GLIBCXX_USE_WCHAR_T not defined, so
+	dg-require-c-std.
+	* testsuite/tr1/6_containers/headers/functional/synopsis.cc: Same.
+	* testsuite/27_io/headers/iostream/synopsis.cc: Same.
+	* testsuite/27_io/headers/streambuf/types_std.cc: Same.
+	* testsuite/27_io/headers/sstream/types_std.cc: Same.
+	* testsuite/27_io/headers/ostream/types_std.cc: Same.
+	* testsuite/27_io/headers/istream/types_std.cc: Same.
+	* testsuite/27_io/headers/iostream/types_std.cc: Same.
+	* testsuite/27_io/headers/fstream/types_std.cc: Same.
+	* testsuite/21_strings/headers/string/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/types_std.cc: Same.
+	
+	* include/Makefile.am (c_compatibility_headers): Add fenv.h.
+	* include/Makefile.in: Regenerate.
+	* configure.host: Update comment.
+
+	* include/tr1/cfenv: Use include_next.
+
 2007-03-19  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1/tuple (get(_Tuple_impl<>&, get(const _Tuple_impl<>&):
