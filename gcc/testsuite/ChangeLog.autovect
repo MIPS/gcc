@@ -1,5 +1,10 @@
 2007-03-26  Revital Eres  <eres@il.ibm.com>
 
+        * testsuite/gcc.dg/store_dse.c: New test.
+        * testsuite/gcc.dg/dse.c: New test.
+
+2007-03-26  Revital Eres  <eres@il.ibm.com>
+
         * testsuite/gcc.dg/store_ccp_test.c: New test.
 
 2007-03-26  Revital Eres  <eres@il.ibm.com>
