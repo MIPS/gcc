@@ -6,7 +6,7 @@
 
    Test various conversions involving decimal floating types. */
 
-#define __STDC_WANT_DEC_FP__ 1
+#define __STDC_WANT_DEC_FP__
 #include <float.h>
 
 extern void abort (void);

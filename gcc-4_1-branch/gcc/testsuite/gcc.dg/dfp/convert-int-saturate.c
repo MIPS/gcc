@@ -4,7 +4,7 @@
    C99 6.3.1.4(1a) New.
    Test integer saturation.  */
 
-#define __STDC_WANT_DEC_FP__ 1
+#define __STDC_WANT_DEC_FP__
 #include <float.h>
 #include <limits.h>
 

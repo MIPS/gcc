@@ -7,7 +7,7 @@
    decimal float defined in float.h.  */
 
 /* Make sure we are exporting the right values to float.h. */
-#define __STDC_WANT_DEC_FP__ 1
+#define __STDC_WANT_DEC_FP__
 #include <float.h>
 
 extern void abort (void);
