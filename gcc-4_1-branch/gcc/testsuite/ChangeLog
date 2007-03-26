@@ -1,5 +1,10 @@
 2007-03-26  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/dfp/operator-cond.c: Call init, fix a comparison.
+	* gcc.dg/dfp/func-vararg-mixed.c: Add DBG to report individual
+	failures.
+	* gcc.dg/dfp/func-vararg-dfp.c: Ditto.
+
 	* gcc.dg/dfp/decfloat-constants.c: Check that __STDC_WANT_DEC_FP__
 	is defined, not that it is 1.
 	* gcc.dg/dfp/convert-dfp.c: Ditto.
