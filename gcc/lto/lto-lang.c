@@ -105,6 +105,12 @@ lto_insert_block (tree block ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
+static void
+lto_set_decl_assembler_name (tree decl ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 static tree
 lto_pushdecl (tree t ATTRIBUTE_UNUSED)
 {
@@ -172,6 +178,8 @@ lto_init (void)
 #define LANG_HOOKS_UNSIGNED_TYPE lto_unsigned_type
 #define LANG_HOOKS_SIGNED_TYPE lto_signed_type
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE lto_signed_or_unsigned_type
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lto_set_decl_assembler_name
 #undef LANG_HOOKS_GLOBAL_BINDINGS_P
 #define LANG_HOOKS_GLOBAL_BINDINGS_P lto_global_bindings_p
 #undef LANG_HOOKS_INSERT_BLOCK

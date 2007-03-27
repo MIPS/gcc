@@ -5122,13 +5122,17 @@ init_one_libfunc (const char *name)
      targetm.encode_section_info.  */
   /* ??? We don't have any type information except for this is
      a function.  Pretend this is "int foo()".  */
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name),
+
+  tree decl_name = get_identifier (name);
+  tree decl = build_decl (FUNCTION_DECL, decl_name,
 			  build_function_type (integer_type_node, NULL_TREE));
+  SET_DECL_ASSEMBLER_NAME (decl, decl_name);
   DECL_ARTIFICIAL (decl) = 1;
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
 
   symbol = XEXP (DECL_RTL (decl), 0);
+  gcc_assert (DECL_ASSEMBLER_NAME (decl));
 
   /* Zap the nonsensical SYMBOL_REF_DECL for this.  What we're left with
      are the flags assigned by targetm.encode_section_info.  */

@@ -1,3 +1,9 @@
+2007-03-14 Robert Kennedy  <jimbob@google.com>
+
+	Eliminate use of lang_hooks.set_decl_assembler_name from LTO
+	* gcc/optabs.c (init_one_libfunc) Don't rely on DECL_RTL to
+	SET_DECL_ASSEMBLER_NAME.
+
 2006-11-10  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc/lto-function-out.c (produce_asm): Uncomment variable and
