@@ -1,3 +1,9 @@
+2007-03-27  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/31303:
+	* external/sax/org/xml/sax/helpers/XMLReaderFactory.java
+	(createXMLReader): Code in Classpath default.
+
 2007-03-26  Tom Tromey  <tromey@redhat.com>
 
 	* doc/cp-tools.texinfo (gcjh Tool): Added more text.
