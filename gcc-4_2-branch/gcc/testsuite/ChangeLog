@@ -1,3 +1,63 @@
+2007-03-26  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31345
+	* gcc.c-torture/compile/pr31345-1.c: New test.
+
+2007-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30863
+	* g++.dg/template/error24.C: New test.
+	* g++.dg/parse/tmpl-outside1.C: Tweak error markers.
+
+	PR c++/31273
+	* g++.dg/expr/bitfield7.C: New test.
+
+2007-03-20  Seongbae Park <seongbae.park@gmail.com>
+
+	PR tree-optimization/30590
+	* g++.dg/opt/pr30590.C: New testcase.
+
+2007-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30762
+	* gcc.dg/pr30762-1.c: New test.
+	* gcc.dg/pr30762-2.c: New test.
+
+	PR inline-asm/30505
+	* gcc.target/i386/pr30505.c: New test.
+
+2007-03-19  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc.target/arm/register-variables.c: New.
+
+2007-03-19  Jeff Law  <law@redhat.com>
+
+	* PR tree-optimization/30984
+	* gcc.c-torture/pr30984.c: New test.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* g++.dg/debug/pr29906.C: New
+
+2007-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31099
+	* gfortran.dg/unformatted_recl.f90: Update test.
+
+2007-03-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/31165
+	* g++.dg/other/default7.C: New test.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/module_implicit_conversion.f90: New test.
+
+2007-03-13  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/vmx/vmx.exp: Add -fgnu89-inline to DEFAULT_VMXCFLAGS.
+
 2007-03-12  Ian Lance Taylor  <iant@google.com>
 
 	* gcc.dg/inline-7.c: Add -fgnu89-inline.

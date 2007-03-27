@@ -1,3 +1,68 @@
+2007-03-26  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31345
+	* tree-vrp.c (extract_range_from_binary_expr): Turn ranges like
+	[+INF, +INF(OVF)] into VARYING.
+
+2007-03-23  Martin Michlmayr  <tbm@cyrius.com>
+
+	* doc/invoke.texi (-fforce-mem): Update documentation to reflect
+	that this option will be removed in 4.3 rather than 4.2.
+	* opts.c (common_handle_option): Likewise.
+
+2007-03-21  Mike Stump  <mrs@apple.com>
+
+	* c.opt: Fixup for Objective-C/C++.
+
+2007-03-21  Richard Henderson  <rth@redhat.com>
+
+	PR target/31245
+	* config/i386/emmintrin.h (__m128i, __m128d): Mark may_alias.
+	* config/i386/mmintrin.h (__m64): Likewise.
+	* config/i386/xmmintrin.h (__m128): Likewise.
+
+2007-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/30762
+	* c-typeck.c (convert_for_assignment): Call comptypes for
+	RECORD_TYPE or UNION_TYPE.
+
+	PR inline-asm/30505
+	* reload1.c (reload): Do invalid ASM checking after
+	cleanup_subreg_operands.
+
+2007-03-19  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (find_taken_edge): Tighten conditions for
+	optimizing computed gotos.
+
+2007-03-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (attr_length_call): Partially revert change of 2007-03-09.
+	(output_call): Likewise.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* dwarf2out.c (force_type_die): Adjust comment.
+	(dwarf2out_imported_module_or_decl): Handle base AT_import types.
+
+2007-03-15  Seongbae Park <seongbae.park@gmail.com>
+
+	PR tree-optimization/30590
+	* tree-nrv.c (tree_nrv): Check for the partial update
+	of the return value.
+
+2007-03-14  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (value_inside_range): Ignore fold warnings.
+
+2007-03-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/31123
+	* pa.md (vdepi_ior): Don't allow zero length deposit.  Likewise for
+	two unamed patterns.
+	
 2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* doc/extend.texi: Edit "gnu_inline" documentation.

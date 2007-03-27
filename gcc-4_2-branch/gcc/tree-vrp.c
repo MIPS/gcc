@@ -843,11 +843,19 @@ value_inside_range (tree val, value_range_t *vr)
 {
   tree cmp1, cmp2;
 
+  fold_defer_overflow_warnings ();
+
   cmp1 = fold_binary_to_constant (GE_EXPR, boolean_type_node, val, vr->min);
   if (!cmp1)
+  {
+    fold_undefer_and_ignore_overflow_warnings ();
     return -2;
+  }
 
   cmp2 = fold_binary_to_constant (LE_EXPR, boolean_type_node, val, vr->max);
+
+  fold_undefer_and_ignore_overflow_warnings ();
+
   if (!cmp2)
     return -2;
 
@@ -1884,10 +1892,18 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       return;
     }
 
+  /* We punt if:
+     1) [-INF, +INF]
+     2) [-INF, +-INF(OVF)]
+     3) [+-INF(OVF), +INF]
+     4) [+-INF(OVF), +-INF(OVF)]
+     We learn nothing when we have INF and INF(OVF) on both sides.
+     Note that we do accept [-INF, -INF] and [+INF, +INF] without
+     overflow.  */
   if ((min == TYPE_MIN_VALUE (TREE_TYPE (min))
-       || is_negative_overflow_infinity (min))
+       || is_overflow_infinity (min))
       && (max == TYPE_MAX_VALUE (TREE_TYPE (max))
-	  || is_positive_overflow_infinity (max)))
+	  || is_overflow_infinity (max)))
     {
       set_value_range_to_varying (vr);
       return;

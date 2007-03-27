@@ -1,3 +1,28 @@
+2007-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/30863
+	* parser.c (cp_parser_parse_and_diagnose_invalid_type_name): Do
+	not consume tokens when failing.
+
+2007-03-22  Jim Wilson  <wilson@specifix.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31273
+	* call.c (standard_conversion): Use type_decays_to.  Keep FCODE
+	consistent with FROM.
+
+2007-03-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/31165
+	* call.c  (convert_default_arg): Instead of copying the node,
+	unshare it.
+
+2007-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR bootstrap/30899
+	* Make-lang.in (doc/g++.1): Use $< to specify the location from
+	which to copy.
+
 2007-03-11  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/31038
