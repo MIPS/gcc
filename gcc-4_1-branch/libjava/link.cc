@@ -1046,15 +1046,17 @@ struct method_closure
   // be the same as the address of the overall structure.  This is due
   // to disabling interior pointers in the GC.
   ffi_closure closure;
+  _Jv_ClosureList list;
   ffi_cif cif;
   ffi_type *arg_types[1];
 };
 
 void *
-_Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
+_Jv_Linker::create_error_method (_Jv_Utf8Const *class_name, jclass klass)
 {
+  void *code;
   method_closure *closure
-    = (method_closure *) _Jv_AllocBytes(sizeof (method_closure));
+    = (method_closure *)ffi_closure_alloc (sizeof (method_closure), &code);
 
   closure->arg_types[0] = &ffi_type_void;
 
@@ -1066,13 +1068,18 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
                        1,
                        &ffi_type_void,
 		       closure->arg_types) == FFI_OK
-      && ffi_prep_closure (&closure->closure,
-                           &closure->cif,
-			   _Jv_ThrowNoClassDefFoundErrorTrampoline,
-			   class_name) == FFI_OK)
-    return &closure->closure;
+      && ffi_prep_closure_loc (&closure->closure,
+			       &closure->cif,
+			       _Jv_ThrowNoClassDefFoundErrorTrampoline,
+			       class_name,
+			       code) == FFI_OK)
+    {
+      closure->list.registerClosure (klass, closure);
+      return code;
+    }
   else
     {
+      ffi_closure_free (closure);
       java::lang::StringBuffer *buffer = new java::lang::StringBuffer();
       buffer->append(JvNewStringLatin1("Error setting up FFI closure"
 				       " for static method of"
@@ -1083,7 +1090,7 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
 }
 #else
 void *
-_Jv_Linker::create_error_method (_Jv_Utf8Const *)
+_Jv_Linker::create_error_method (_Jv_Utf8Const *, jclass)
 {
   // Codepath for platforms which do not support (or want) libffi.
   // You have to accept that it is impossible to provide the name
@@ -1113,8 +1120,6 @@ static bool debug_link = false;
 // The offset (in bytes) for each resolved method or field is placed
 // at the corresponding position in the virtual method offset table
 // (klass->otable). 
-
-// The same otable and atable may be shared by many classes.
 
 // This must be called while holding the class lock.
 
@@ -1266,13 +1271,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
       // NullPointerException
       klass->atable->addresses[index] = NULL;
 
+      bool use_error_method = false;
+
       // If the target class is missing we prepare a function call
       // that throws a NoClassDefFoundError and store the address of
       // that newly prepared method in the atable. The user can run
       // code in classes where the missing class is part of the
       // execution environment as long as it is never referenced.
       if (target_class == NULL)
-        klass->atable->addresses[index] = create_error_method(sym.class_name);
+	use_error_method = true;
       // We're looking for a static field or a static method, and we
       // can tell which is needed by looking at the signature.
       else if (signature->first() == '(' && signature->len() >= 2)
@@ -1320,11 +1327,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 		}
 	    }
 	  else
+	    use_error_method = true;
+
+	  if (use_error_method)
 	    klass->atable->addresses[index]
-              = create_error_method(sym.class_name);
+	      = create_error_method(sym.class_name, klass);
 
 	  continue;
 	}
+
 
       // Try fields only if the target class exists.
       if (target_class != NULL)
