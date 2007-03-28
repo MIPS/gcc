@@ -222,17 +222,6 @@ df_scan_free_internal (void)
 }
 
 
-/* Get basic block info.  */
-
-struct df_scan_bb_info *
-df_scan_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_scan);
-  gcc_assert (index < df_scan->block_info_size);
-  return (struct df_scan_bb_info *) df_scan->block_info[index];
-}
-
-
 /* Set basic block info.  */
 
 static void
@@ -726,24 +715,6 @@ df_ref_create (rtx reg, rtx *loc, rtx insn,
 /*----------------------------------------------------------------------------
    UTILITIES TO CREATE AND DESTROY REFS AND CHAINS.
 ----------------------------------------------------------------------------*/
-
-
-/* Get the artificial defs for a basic block.  */
-
-struct df_ref **
-df_get_artificial_defs (unsigned int bb_index)
-{
-  return df_scan_get_bb_info (bb_index)->artificial_defs;
-}
-
-
-/* Get the artificial uses for a basic block.  */
-
-struct df_ref **
-df_get_artificial_uses (unsigned int bb_index)
-{
-  return df_scan_get_bb_info (bb_index)->artificial_uses;
-}
 
 
 /* Unlink and delete REF at the reg_use, reg_eq_use or reg_def chain.

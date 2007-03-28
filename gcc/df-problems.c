@@ -262,19 +262,6 @@ struct df_ru_problem_data
   bitmap dense_invalidated_by_call;   
 };
 
-/* Get basic block info.  */
-
-struct df_ru_bb_info *
-df_ru_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_ru);
-  if (index < df_ru->block_info_size)
-    return (struct df_ru_bb_info *) df_ru->block_info[index];
-  else
-    return NULL; 
-}
-
-
 /* Set basic block info.  */
 
 static void
@@ -820,19 +807,6 @@ struct df_rd_problem_data
   bitmap dense_invalidated_by_call;   
 };
 
-/* Get basic block info.  */
-
-struct df_rd_bb_info *
-df_rd_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_rd);
-  if (index < df_rd->block_info_size)
-    return (struct df_rd_bb_info *) df_rd->block_info[index];
-  else
-    return NULL;
-}
-
-
 /* Set basic block info.  */
 
 static void
@@ -1349,19 +1323,6 @@ struct df_lr_problem_data
   bitmap *in;
   bitmap *out;
 };
-
-
-/* Get basic block info.  */
-
-struct df_lr_bb_info *
-df_lr_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_lr);
-  if (index < df_lr->block_info_size)
-    return (struct df_lr_bb_info *) df_lr->block_info[index];
-  else
-    return NULL;
-}
 
 
 /* Set basic block info.  */
@@ -2156,19 +2117,6 @@ struct df_ur_problem_data
 };
 
 
-/* Get basic block info.  */
-
-struct df_ur_bb_info *
-df_ur_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_ur);
-  if (index < df_ur->block_info_size)
-    return (struct df_ur_bb_info *) df_ur->block_info[index];
-  else
-    return NULL;
-}
-
-
 /* Set basic block info.  */
 
 static void
@@ -2656,19 +2604,6 @@ df_ur_verify_transfer_functions (void)
    sets from the lr and ur problems. 
  ----------------------------------------------------------------------------*/
 
-/* Get basic block info.  */
-
-struct df_live_bb_info *
-df_live_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_live);
-  if (index < df_live->block_info_size)
-    return (struct df_live_bb_info *) df_live->block_info[index];
-  else
-    return NULL;
-}
-
-
 /* Set basic block info.  */
 
 static void
@@ -2865,19 +2800,6 @@ struct df_urec_problem_data
   bitmap stack_regs;		/* Registers that may be allocated to a STACK_REGS.  */
 #endif
 };
-
-
-/* Get basic block info.  */
-
-struct df_urec_bb_info *
-df_urec_get_bb_info (unsigned int index)
-{
-  gcc_assert (df_urec);
-  if (index < df_urec->block_info_size)
-    return (struct df_urec_bb_info *) df_urec->block_info[index];
-  else
-    return NULL;
-}
 
 
 /* Set basic block info.  */

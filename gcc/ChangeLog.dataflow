@@ -1,3 +1,14 @@
+2007-03-28  Paolo Bonzini  <bonzini@gnu.org>
+
+        * df.h (df_ru_get_bb_info, df_rd_get_bb_info, df_lr_get_bb_info,
+	df_ur_get_bb_info, df_live_get_bb_info, df_urec_get_bb_info):
+	New inlines.
+	* df-scan.c (df_scan_get_bb_info, df_get_artificial_uses,
+	df_get_artificial_defs): Delete.
+	* df-problems.c (df_ru_get_bb_info, df_rd_get_bb_info,
+	df_lr_get_bb_info, df_ur_get_bb_info, df_live_get_bb_info,
+	df_urec_get_bb_info): Delete.
+
 2007-03-20  Seongbae Park <seongbae.park@gmail.com>
 
 	* combine.c (setup_incoming_promotions): Fix a bad merge

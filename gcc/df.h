@@ -888,21 +888,15 @@ extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
 extern void df_ru_add_problem (void);
-extern struct df_ru_bb_info *df_ru_get_bb_info (unsigned int);
 extern void df_rd_add_problem (void);
-extern struct df_rd_bb_info *df_rd_get_bb_info (unsigned int);
-extern struct df_lr_bb_info *df_lr_get_bb_info (unsigned int);
 extern void df_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
 extern void df_lr_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
 extern void df_ur_add_problem (void);
 extern void df_ur_verify_transfer_functions (void);
-extern struct df_ur_bb_info *df_ur_get_bb_info (unsigned int);
 extern void df_live_add_problem (void);
-extern struct df_live_bb_info *df_live_get_bb_info (unsigned int);
 extern void df_urec_add_problem (void);
-extern struct df_urec_bb_info *df_urec_get_bb_info (unsigned int);
 extern void df_chain_add_problem (enum df_chain_flags);
 extern void df_ri_add_problem (enum df_ri_flags);
 extern bitmap df_ri_get_setjmp_crosses (void);
@@ -910,15 +904,12 @@ extern bitmap df_ri_get_setjmp_crosses (void);
 /* Functions defined in df-scan.c.  */
 
 extern void df_scan_alloc (bitmap);
-extern struct df_scan_bb_info *df_scan_get_bb_info (unsigned int);
 extern void df_scan_add_problem (void);
 extern void df_grow_reg_info (void);
 extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
 				     enum df_ref_type, enum df_ref_flags);
-extern struct df_ref **df_get_artificial_defs (unsigned int);
-extern struct df_ref **df_get_artificial_uses (unsigned int);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);
@@ -944,6 +935,91 @@ extern void df_set_regs_ever_live (unsigned int, bool);
 extern void df_compute_regs_ever_live (bool);
 extern bool df_read_modify_subreg_p (rtx);
 extern void df_scan_verify (void);
+
+
+/* Get basic block info.  */
+
+static inline struct df_scan_bb_info *
+df_scan_get_bb_info (unsigned int index)
+{
+  if (index < df_scan->block_info_size)
+    return (struct df_scan_bb_info *) df_scan->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_ru_bb_info *
+df_ru_get_bb_info (unsigned int index)
+{
+  if (index < df_ru->block_info_size)
+    return (struct df_ru_bb_info *) df_ru->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_rd_bb_info *
+df_rd_get_bb_info (unsigned int index)
+{
+  if (index < df_rd->block_info_size)
+    return (struct df_rd_bb_info *) df_rd->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_lr_bb_info *
+df_lr_get_bb_info (unsigned int index)
+{
+  if (index < df_lr->block_info_size)
+    return (struct df_lr_bb_info *) df_lr->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_ur_bb_info *
+df_ur_get_bb_info (unsigned int index)
+{
+  if (index < df_ur->block_info_size)
+    return (struct df_ur_bb_info *) df_ur->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_live_bb_info *
+df_live_get_bb_info (unsigned int index)
+{
+  if (index < df_live->block_info_size)
+    return (struct df_live_bb_info *) df_live->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_urec_bb_info *
+df_urec_get_bb_info (unsigned int index)
+{
+  if (index < df_urec->block_info_size)
+    return (struct df_urec_bb_info *) df_urec->block_info[index];
+  else
+    return NULL;
+}
+
+
+/* Get the artificial defs for a basic block.  */
+
+static inline struct df_ref **
+df_get_artificial_defs (unsigned int bb_index)
+{
+  return df_scan_get_bb_info (bb_index)->artificial_defs;
+}
+
+
+/* Get the artificial uses for a basic block.  */
+
+static inline struct df_ref **
+df_get_artificial_uses (unsigned int bb_index)
+{
+  return df_scan_get_bb_info (bb_index)->artificial_uses;
+}
+
 
 /* web */
 
