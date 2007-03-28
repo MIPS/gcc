@@ -25,6 +25,26 @@ extern void abort (void);
       abort(); \
   }
 
+#define FRACT_INCDEC(TYPE,POSTFIX) \
+  { TYPE a = -0.5 ## POSTFIX; \
+    if (a++ != -0.5 ## POSTFIX) \
+      abort(); \
+    if (a != 0.5 ## POSTFIX) \
+      abort(); \
+    if (a-- != 0.5 ## POSTFIX) \
+      abort(); \
+    if (a != -0.5 ## POSTFIX) \
+      abort(); \
+    if (++a != 0.5 ## POSTFIX) \
+      abort(); \
+    if (a != 0.5 ## POSTFIX) \
+      abort(); \
+    if (--a != -0.5 ## POSTFIX) \
+      abort(); \
+    if (a != -0.5 ## POSTFIX) \
+      abort(); \
+  }
+
 #define FRACT_SAT_INCDEC(TYPE,POSTFIX) \
   { TYPE a = 0.9 ## POSTFIX; \
     if (++a != 1.0 ## POSTFIX) \
@@ -84,22 +104,15 @@ extern void abort (void);
 
 int main ()
 {
-  INCDEC(short _Fract, hr);
-  INCDEC(_Fract, r);
-  INCDEC(long _Fract, lr);
-  INCDEC(long long _Fract, llr);
-  INCDEC(unsigned short _Fract, uhr);
-  INCDEC(unsigned _Fract, ur);
-  INCDEC(unsigned long _Fract, ulr);
-  INCDEC(unsigned long long _Fract, ullr);
-  INCDEC(_Sat short _Fract, hr);
-  INCDEC(_Sat _Fract, r);
-  INCDEC(_Sat long _Fract, lr);
-  INCDEC(_Sat long long _Fract, llr);
-  INCDEC(_Sat unsigned short _Fract, uhr);
-  INCDEC(_Sat unsigned _Fract, ur);
-  INCDEC(_Sat unsigned long _Fract, ulr);
-  INCDEC(_Sat unsigned long long _Fract, ullr);
+  FRACT_INCDEC(short _Fract, hr);
+  FRACT_INCDEC(_Fract, r);
+  FRACT_INCDEC(long _Fract, lr);
+  FRACT_INCDEC(long long _Fract, llr);
+  FRACT_INCDEC(_Sat short _Fract, hr);
+  FRACT_INCDEC(_Sat _Fract, r);
+  FRACT_INCDEC(_Sat long _Fract, lr);
+  FRACT_INCDEC(_Sat long long _Fract, llr);
+
   INCDEC(short _Accum, hk);
   INCDEC(_Accum, k);
   INCDEC(long _Accum, lk);

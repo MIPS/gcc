@@ -1,3 +1,12 @@
+2007-03-28  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/unary.c (FRACT_INCDEC): New to test signed fract
+	types correctly.
+	(main): Remove INCDEC tests for sat/non-sat signed/unsigned fract types.
+	Add FRACT_INCDEC tests.
+	* gcc.dg/fixed-ponit/const-1.c: Integer 1 and floating-point 1.0
+	yield overflow warnings.
+
 2007-03-26  Uros Bizjak  <ubizjak@gmail.com>
 
 	* lib/gcc-dg.exp (gcc-dg-debug-runtest): Remove build file trivial.S.
