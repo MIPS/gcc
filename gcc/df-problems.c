@@ -71,6 +71,8 @@ df_get_live_out (basic_block bb)
 
   if (df_urec)
     return DF_RA_LIVE_OUT (bb);
+  else if (df_live)
+    return DF_LIVE_OUT (bb);
   else 
     return DF_LR_OUT (bb);
 }
@@ -87,6 +89,8 @@ df_get_live_in (basic_block bb)
 
   if (df_urec)
     return DF_RA_LIVE_IN (bb);
+  else if (df_live)
+    return DF_LIVE_IN (bb);
   else 
     return DF_LR_IN (bb);
 }

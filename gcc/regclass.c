@@ -938,7 +938,8 @@ regclass_init (void)
 {
   int i;
 
-  df_compute_regs_ever_live (true);
+  if (df)
+    df_compute_regs_ever_live (true);
 
   init_cost.mem_cost = 10000;
   for (i = 0; i < N_REG_CLASSES; i++)

@@ -1,3 +1,34 @@
+2007-03-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_df_initialize, pass_df_finish): Deleted.
+	(pass_df_initialize_opt, pass_df_initialize_no_opt, 
+	pass_stack_regs_run, pass_df_finish_opt, pass_df_finish_no_opt):
+	Added.
+	* df-core.c (df_finish_pass): Made ur and live problems condition
+	on optimization. 
+	(pass_df_initialize): Renamed to pass_df_initialize_opt.
+	(pass_df_initialize_no_opt): New pass.
+	(gate_opt, gate_no_opt): New functions.
+	(pass_df_finish): Renamed to pass_df_finish_opt.
+	(pass_df_finish_no_opt): New pass.
+	* mode-switching.c (optimize_mode_switching): Changed references
+	of DF_LIVE_IN to df_get_live_in.
+	* global.c (compute_regsets): Only add urec problem when
+	optimizing.
+	* function.c (regno_clobbered_at_setjmp): Changed references
+	of DF_LIVE_OUT to df_get_live_out.
+	* regclass.c (regclass_init): Only call df_compute_regs_ever_live
+	if optimizing.
+	* stack-ptr-mod.c (notice_stack_pointer_modification): Only call
+	df_update_exit_block_uses if optimizing.
+	* df-problems.c (df_get_live_in, df_get_live_out): Return df_live
+	sets if they are there.
+	* reg_stack (rest_of_handle_stack_regs_run):
+	Added new pass that just runs subpasses.  
+	* passes.c (init_optimization_passes): Added passes to turn on df
+	at only some parts of the compilation for -O0.  Moved 
+	pass_split_before_regstack and pass_stack_regs into a subpass of
+	the stack regs pass.
+	
 2007-03-28  Paolo Bonzini  <bonzini@gnu.org>
 
         * df.h (df_ru_get_bb_info, df_rd_get_bb_info, df_lr_get_bb_info,

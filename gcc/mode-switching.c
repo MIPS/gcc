@@ -478,7 +478,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (bb));
+	  REG_SET_TO_HARD_REG_SET (live_now, df_get_live_in (bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -623,7 +623,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (src_bb));
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, df_get_live_out (src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);

@@ -651,7 +651,8 @@ df_finish_pass (void)
   if (!(saved_flags & DF_NO_INSN_RESCAN))
     {
       df_lr_verify_transfer_functions ();
-      df_ur_verify_transfer_functions ();
+      if (df_ur)
+	df_ur_verify_transfer_functions ();
     }
 
 #ifdef DF_DEBUG_CFG
@@ -679,9 +680,12 @@ rest_of_handle_df_initialize (void)
 
   /* These three problems are permanent.  */
   df_lr_add_problem ();
-  df_ur_add_problem ();
-  df_live_add_problem ();
-  
+  if (optimize)
+    {
+      df_ur_add_problem ();
+      df_live_add_problem ();
+    }
+
   df->postorder = XNEWVEC (int, last_basic_block);
   df->postorder_inverted = XNEWVEC (int, last_basic_block);
   df->n_blocks = post_order_compute (df->postorder, true, true);
@@ -702,10 +706,17 @@ rest_of_handle_df_initialize (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize =
+static bool
+gate_opt (void)
+{
+  return optimize > 0;
+}
+
+
+struct tree_opt_pass pass_df_initialize_opt =
 {
   "dfinit",                             /* name */
-  0,                                    /* gate */
+  gate_opt,                             /* gate */
   rest_of_handle_df_initialize,         /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
@@ -715,7 +726,32 @@ struct tree_opt_pass pass_df_initialize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+
+static bool
+gate_no_opt (void)
+{
+  return optimize == 0;
+}
+
+
+struct tree_opt_pass pass_df_initialize_no_opt =
+{
+  "dfinit",                             /* name */
+  gate_no_opt,                          /* gate */
+  rest_of_handle_df_initialize,         /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
   'z'                                   /* letter */
 };
 
@@ -747,10 +783,28 @@ rest_of_handle_df_finish (void)
 }
 
 
-struct tree_opt_pass pass_df_finish =
+struct tree_opt_pass pass_df_finish_opt =
 {
   "dfinish",                            /* name */
-  0,                                    /* gate */
+  gate_opt,                             /* gate */
+  rest_of_handle_df_finish,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+
+struct tree_opt_pass pass_df_finish_no_opt =
+{
+  "dfinish",                            /* name */
+  gate_no_opt,                          /* gate */
   rest_of_handle_df_finish,             /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
@@ -1632,7 +1686,8 @@ df_verify (void)
 {
   df_scan_verify ();
   df_lr_verify_transfer_functions ();
-  df_ur_verify_transfer_functions ();
+  if (df_ur)
+    df_ur_verify_transfer_functions ();
 }
 
 #ifdef DF_DEBUG_CFG

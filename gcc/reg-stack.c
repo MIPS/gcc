@@ -3212,10 +3212,35 @@ gate_handle_stack_regs (void)
 #endif
 }
 
+/* Just run the sub passes which do all of the work.  */
+static unsigned int
+rest_of_handle_stack_regs (void)
+{
+  return 0;
+}
+
+
+struct tree_opt_pass pass_stack_regs =
+{
+  "stack",                              /* name */
+  gate_handle_stack_regs,               /* gate */
+  rest_of_handle_stack_regs,            /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_REG_STACK,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  'k'                                   /* letter */
+};
+
 /* Convert register usage from flat register file usage to a stack
    register file.  */
 static unsigned int
-rest_of_handle_stack_regs (void)
+rest_of_handle_stack_regs_run (void)
 {
 #ifdef STACK_REGS
   reg_to_stack ();
@@ -3224,11 +3249,11 @@ rest_of_handle_stack_regs (void)
   return 0;
 }
 
-struct tree_opt_pass pass_stack_regs =
+struct tree_opt_pass pass_stack_regs_run =
 {
   "stack",                              /* name */
-  gate_handle_stack_regs,               /* gate */
-  rest_of_handle_stack_regs,            /* execute */
+  NULL,                                 /* gate */
+  rest_of_handle_stack_regs_run,        /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

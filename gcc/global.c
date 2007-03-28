@@ -401,8 +401,10 @@ compute_regsets (HARD_REG_SET *elim_set,
   max_allocno = 0;
   /* Do not recompute the register info.  Local_alloc has played with
      this in a way that global expects.  */
-  /* Create a new version of df that has the special version of UR.  */
-  df_urec_add_problem ();
+  /* Create a new version of df that has the special version of UR if
+     we are doing optimization.  */
+  if (optimize)
+    df_urec_add_problem ();
   df_set_flags (DF_RI_NO_UPDATE);
   df_analyze ();
   df_set_flags (DF_NO_INSN_RESCAN);

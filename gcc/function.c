@@ -3486,7 +3486,7 @@ regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (DF_LIVE_OUT (ENTRY_BLOCK_PTR), regno))
+	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
 	  && REGNO_REG_SET_P (setjmp_crosses, regno));
 }
 
