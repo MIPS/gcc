@@ -829,7 +829,8 @@ convert_to_fixed (tree type, tree expr)
       tree fixed_zero_node = build_fixed (type, fconst0[TYPE_MODE (type)]);
       return fixed_zero_node; 
     }
-  else if (expr == integer_one_node)
+  else if (expr == integer_one_node
+	   && ALL_SCALAR_ACCUM_MODE_P (TYPE_MODE (type)))
     {
       tree fixed_one_node = build_fixed (type, fconst1[TYPE_MODE (type)]);
       return fixed_one_node; 

@@ -740,7 +740,8 @@ c_common_type (tree t1, tree t2)
       else
 	{
 	  fbit1 = 0;
-	  ibit1 = TYPE_PRECISION (t1);;
+	  /* Signed integers need to subtract one sign bit.  */
+	  ibit1 = TYPE_PRECISION (t1) - (!TYPE_UNSIGNED (t1));
 	}
 
       if (code2 == FIXED_POINT_TYPE)
@@ -751,7 +752,8 @@ c_common_type (tree t1, tree t2)
       else
 	{
 	  fbit2 = 0;
-	  ibit2 = TYPE_PRECISION (t2);;
+	  /* Signed integers need to subtract one sign bit.  */
+	  ibit2 = TYPE_PRECISION (t2) - (!TYPE_UNSIGNED (t2));
 	}
 
       max_ibit = ibit1 >= ibit2 ?  ibit1 : ibit2;
@@ -3021,6 +3023,24 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	      }
 
 	    inc = c_size_in_bytes (TREE_TYPE (result_type));
+	  }
+	else if (FRACT_MODE_P (TYPE_MODE (result_type)))
+	  {
+	    /* For signed fract types, we invert ++ to -- or
+	       -- to ++, and change inc from 1 to -1, because
+	       it is not possible to represent 1 in signed fract constants.
+	       For unsigned fract types, the result always overflows and
+	       we get an undefined (original) or the maximum value.  */
+	    if (code == PREINCREMENT_EXPR)
+	      code = PREDECREMENT_EXPR;
+	    else if (code == PREDECREMENT_EXPR)
+	      code = PREINCREMENT_EXPR;
+	    else if (code == POSTINCREMENT_EXPR)
+	      code = POSTDECREMENT_EXPR;
+	    else /* code == POSTDECREMENT_EXPR  */
+	      code = POSTINCREMENT_EXPR;
+
+	    inc = integer_minus_one_node;
 	  }
 	else
 	  inc = integer_one_node;

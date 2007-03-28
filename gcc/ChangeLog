@@ -1,3 +1,16 @@
+2007-03-28  Chao-ying Fu  <fu@mips.com>
+
+	* doc/extend.texi (Fixed-Point): Change "integer suffix" to
+	"fixed-suffix".
+	* c-typeck.c (c_common_type): Reduce ibit1 and ibit2 by 1 for signed
+	integer types.
+	(build_unary_op): Process ++ and -- for fract types to invert
+	code and change inc from 1 to -1.
+	* fixed-value.c (fixed_convert_from_real): Floating-point 1.0 should
+	overflow if SATP is false.
+	* convert.c (convert_to_fixed): We can convert integer 1 to accum
+	types, but not to fract types.
+
 2007-03-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (IX86_BUILTIN_CMPNEPD, IX86_BUILTIN_CMPNESD):

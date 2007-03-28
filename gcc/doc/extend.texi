@@ -897,38 +897,38 @@ extension for floating-point constants of type @code{float}.
 @cindex @code{_Fract} data type
 @cindex @code{_Accum} data type
 @cindex @code{_Sat} data type
-@cindex @code{hr} integer suffix
-@cindex @code{r} integer suffix
-@cindex @code{lr} integer suffix
-@cindex @code{llr} integer suffix
-@cindex @code{uhr} integer suffix
-@cindex @code{ur} integer suffix
-@cindex @code{ulr} integer suffix
-@cindex @code{ullr} integer suffix
-@cindex @code{hk} integer suffix
-@cindex @code{k} integer suffix
-@cindex @code{lk} integer suffix
-@cindex @code{llk} integer suffix
-@cindex @code{uhk} integer suffix
-@cindex @code{uk} integer suffix
-@cindex @code{ulk} integer suffix
-@cindex @code{ullk} integer suffix
-@cindex @code{HR} integer suffix
-@cindex @code{R} integer suffix
-@cindex @code{LR} integer suffix
-@cindex @code{LLR} integer suffix
-@cindex @code{UHR} integer suffix
-@cindex @code{UR} integer suffix
-@cindex @code{ULR} integer suffix
-@cindex @code{ULLR} integer suffix
-@cindex @code{HK} integer suffix
-@cindex @code{K} integer suffix
-@cindex @code{LK} integer suffix
-@cindex @code{LLK} integer suffix
-@cindex @code{UHK} integer suffix
-@cindex @code{UK} integer suffix
-@cindex @code{ULK} integer suffix
-@cindex @code{ULLK} integer suffix
+@cindex @code{hr} fixed-suffix
+@cindex @code{r} fixed-suffix
+@cindex @code{lr} fixed-suffix
+@cindex @code{llr} fixed-suffix
+@cindex @code{uhr} fixed-suffix
+@cindex @code{ur} fixed-suffix
+@cindex @code{ulr} fixed-suffix
+@cindex @code{ullr} fixed-suffix
+@cindex @code{hk} fixed-suffix
+@cindex @code{k} fixed-suffix
+@cindex @code{lk} fixed-suffix
+@cindex @code{llk} fixed-suffix
+@cindex @code{uhk} fixed-suffix
+@cindex @code{uk} fixed-suffix
+@cindex @code{ulk} fixed-suffix
+@cindex @code{ullk} fixed-suffix
+@cindex @code{HR} fixed-suffix
+@cindex @code{R} fixed-suffix
+@cindex @code{LR} fixed-suffix
+@cindex @code{LLR} fixed-suffix
+@cindex @code{UHR} fixed-suffix
+@cindex @code{UR} fixed-suffix
+@cindex @code{ULR} fixed-suffix
+@cindex @code{ULLR} fixed-suffix
+@cindex @code{HK} fixed-suffix
+@cindex @code{K} fixed-suffix
+@cindex @code{LK} fixed-suffix
+@cindex @code{LLK} fixed-suffix
+@cindex @code{UHK} fixed-suffix
+@cindex @code{UK} fixed-suffix
+@cindex @code{ULK} fixed-suffix
+@cindex @code{ULLK} fixed-suffix
 
 As an extension, the GNU C compiler supports fixed-point types as
 defined in the N1169 draft of ISO/IEC DTR 18037.  Support for fixed-point
