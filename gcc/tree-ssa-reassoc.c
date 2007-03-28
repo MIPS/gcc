@@ -1476,10 +1476,16 @@ execute_reassoc (void)
   return 0;
 }
 
+static bool
+gate_reassoc (void)
+{
+  return flag_tree_reassoc != 0;
+}
+
 struct tree_opt_pass pass_reassoc =
 {
   "reassoc",				/* name */
-  NULL,				/* gate */
+  gate_reassoc,				/* gate */
   execute_reassoc,				/* execute */
   NULL,					/* sub */
   NULL,					/* next */

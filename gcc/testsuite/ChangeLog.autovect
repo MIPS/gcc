@@ -1,3 +1,8 @@
+2007-03-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Add missing setting.
+	* gcc.dg/vect/vect-1.c: Fix typo.
+
 2007-03-26  Revital Eres  <eres@il.ibm.com>
 
 	* testsuite/gcc.dg/store_dse.c: New test.

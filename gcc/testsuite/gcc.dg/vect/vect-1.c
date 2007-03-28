@@ -38,7 +38,7 @@ foo (int n)
      inner-loop: cross iteration cycle; multi-dimensional arrays).  */
   diff = 0;
   for (i = 0; i < N; i++) {
-    for (i = 0; i < N; i++) {
+    for (j = 0; j < N; j++) {
       diff += (image[i][j] - block[i][j]);
     }
   }

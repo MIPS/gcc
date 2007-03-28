@@ -1,3 +1,70 @@
+2007-03-28  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h (_loop_vec_info): Remove unused field exit_cond.
+	(stmt_vec_info_type): Add enum value loop_exit_ctrl_vec_info_type.
+	* tree-vectorizer.c (new_loop_vec_info): Remove setting of
+	LOOP_VINFO_EXIT_COND.
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Replace use of
+	LOOP_VINFO_EXIT_COND with use of loop_exit_ctrl_vec_info_type.
+	(vect_analyze_loop_form): Likewise.
+
+	* tree-vectorizer.h (stmt_vec_info_type): Add enum value
+	induc_vec_info_type.
+	(vectorizable_induction): New function declaration.
+	* tree-vect-transform.c (get_initial_def_for_induction): No need to
+	check if already vectorized.  Find first place in BB where nre stmts
+	can be inserted.
+	(vectorizable_induction): New function.
+	(vect_transform_stmt): Add case for induc_vec_info_type to call
+	vectorizable_induction.
+	(vect_transform_loop): Consider phis for vectorization.
+	* tree-vect-analyze.c (analyze_operations): Call
+	vectorizable_induction when analyzing phis and when analyzing
+	stmts.
+
+	* tree-vectorizer.c (vect_is_simple_use): Remove redundant check.
+	(destroy_loop_vec_info): Set loop->aux to NULL.
+
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Simplify
+	condition. Add dump print.
+	(vect_analyze_operations): Fix indenetation.  Fix a comment.  Fix a
+	print message.
+	(vect_analyze_scalar_cycles): Fix indentation.
+	(vect_enhance_data_refs_alignment): Fix check in case of peeling.
+	(vect_mark_relevant): Include phis in relevance analysis.
+	(process_use): New function.
+	(vect_mark_stmts_to_be_vectorized): Factor out code to process_use.
+	Check phis in all bbs.
+
+	* tree-vect-patterns.c (widened_name_p): Remove redundant check.
+
+	* tree-vect-analyze.c (vect_analyze_operations): Reorganize calls to
+	vectorizable_* functions.
+	* tree-vect-transform.c (vectorizable_call): Add check for
+	STMT_VINFO_RELEVANT_P, STMT_VINFO_DEF_TYPE and STMT_VINFO_LIVE_P.
+	(vectorizable_store): likewise.
+	(vectorizable_conversion): Add check for STMT_VINFO_DEF_TYPE.
+	Add comments.
+	(vectorizable_operation, vectorizable_type_demotion): Likewise.
+	(vectorizable_type_promotion, vectorizable_load): Likewise.
+	(vectorizable_live_operation, vectorizable_condition): Likewise.
+	(vectorizable_assignment): Add check for STMT_VINFO_DEF_TYPE and
+	STMT_VINFO_LIVE_P.
+	(vect_transform_stmt): Reorganize calls to vectorizable_* functions.
+	(vect_analyze_loop_form): Use the new NITERS_KNOWN_P macro so that
+	this check could be done without creating a loop_vinfo first.  Record
+	loop_vinfo in loop->aux.
+
+	* tree-vect-transform.c (get_initial_def_for_reduction): Clean away
+	the unused code for reduction without adjust-in-epilog to simplify the
+	function.
+
+	* tree-vect-transform.c (vect_transform_loop): Add an assert.
+
+	* tree-ssa-reassoc.c (gate_reassoc): New function.
+	* common.opt (tree-reassoc): New flag.
+	(pass_reassoc): Add gate.
+	
 2007-03-26  Victor Kaplansky <victork@il.ibm.com>
 	
 	Merged revisions 121640-123210 from 
