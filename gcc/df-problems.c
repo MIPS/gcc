@@ -1036,7 +1036,6 @@ df_rd_bb_local_compute (unsigned int bb_index)
 
 static void
 df_rd_local_compute (bitmap all_blocks)
-
 {
   unsigned int bb_index;
   bitmap_iterator bi;
