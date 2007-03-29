@@ -46,6 +46,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "varray.h"
 #include "tree-pass.h"
 #include "ipa-type-escape.h"
+#include "df.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -839,7 +840,7 @@ find_base_value (rtx src)
 	  /* If we're inside init_alias_analysis, use new_reg_base_value
 	     to reduce the number of relaxation iterations.  */
 	  if (new_reg_base_value && new_reg_base_value[regno]
-	      && REG_N_SETS (regno) == 1)
+	      && DF_REG_DEF_COUNT (regno) == 1)
 	    return new_reg_base_value[regno];
 
 	  if (VEC_index (rtx, reg_base_value, regno))
@@ -2432,7 +2433,7 @@ init_alias_analysis (void)
      the optimization level or flag_expensive_optimizations.
 
      We could propagate more information in the first pass by making use
-     of REG_N_SETS to determine immediately that the alias information
+     of DF_REG_DEF_COUNT to determine immediately that the alias information
      for a pseudo is "constant".
 
      A program with an uninitialized variable can cause an infinite loop
@@ -2513,7 +2514,7 @@ init_alias_analysis (void)
 
 		  note = find_reg_equal_equiv_note (insn);
 		  if (note && REG_NOTE_KIND (note) == REG_EQUAL
-		      && REG_N_SETS (regno) != 1)
+		      && DF_REG_DEF_COUNT (regno) != 1)
 		    note = NULL_RTX;
 
 		  if (note != NULL_RTX
@@ -2526,7 +2527,7 @@ init_alias_analysis (void)
 		      set_reg_known_equiv_p (regno,
 			REG_NOTE_KIND (note) == REG_EQUIV);
 		    }
-		  else if (REG_N_SETS (regno) == 1
+		  else if (DF_REG_DEF_COUNT (regno) == 1
 			   && GET_CODE (src) == PLUS
 			   && REG_P (XEXP (src, 0))
 			   && (t = get_reg_known_value (REGNO (XEXP (src, 0))))
@@ -2536,7 +2537,7 @@ init_alias_analysis (void)
 		      set_reg_known_value (regno, t);
 		      set_reg_known_equiv_p (regno, 0);
 		    }
-		  else if (REG_N_SETS (regno) == 1
+		  else if (DF_REG_DEF_COUNT (regno) == 1
 			   && ! rtx_varies_p (src, 1))
 		    {
 		      set_reg_known_value (regno, src);

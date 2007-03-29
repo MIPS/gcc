@@ -2494,6 +2494,12 @@ static unsigned int
 rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
+  int max_regno = max_reg_num ();
+
+  /* Allocate the reg_renumber array.  For non-optimizing compilation,
+     allocate the register info array too, because we have not
+     run neither dataflow nor regscan so far.  */
+  allocate_reg_info (max_regno, !optimize, TRUE);
 
   df_ri_add_problem (DF_RI_LIFE + DF_RI_SETJMP);
   /* There is just too much going on in the register allocators to
@@ -2514,9 +2520,6 @@ rest_of_handle_local_alloc (void)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  /* Allocate the reg_renumber array.  */
-  allocate_reg_info (max_regno, FALSE, TRUE);
-
   /* And the reg_equiv_memory_loc array.  */
   VEC_safe_grow (rtx, gc, reg_equiv_memory_loc_vec, max_regno);
   memset (VEC_address (rtx, reg_equiv_memory_loc_vec), 0,
@@ -2525,7 +2528,7 @@ rest_of_handle_local_alloc (void)
 
   allocate_initial_values (reg_equiv_memory_loc);
 
-  regclass (get_insns (), max_reg_num ());
+  regclass (get_insns (), max_regno);
   rebuild_notes = local_alloc ();
 
   /* Local allocation may have turned an indirect jump into a direct

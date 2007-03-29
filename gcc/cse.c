@@ -6237,12 +6237,10 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   int *rc_order = XNEWVEC (int, last_basic_block);
   int i, n_blocks;
 
-  if (df)
-    {
-      df_analyze ();
-      df_set_flags (DF_DEFER_INSN_RESCAN);
-    }
+  df_analyze ();
+  df_set_flags (DF_DEFER_INSN_RESCAN);
 
+  reg_scan (get_insns (), max_reg_num ());
   init_cse_reg_info (nregs);
 
   ebb_data.path = XNEWVEC (struct branch_path,
@@ -7043,10 +7041,9 @@ static unsigned int
 rest_of_handle_cse (void)
 {
   int tem;
+
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-
-  reg_scan (get_insns (), max_reg_num ());
 
   tem = cse_main (get_insns (), max_reg_num ());
 
@@ -7076,6 +7073,7 @@ struct tree_opt_pass pass_cse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
@@ -7115,7 +7113,6 @@ rest_of_handle_cse2 (void)
       cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
-  reg_scan (get_insns (), max_reg_num ());
   cse_not_expected = 1;
   return 0;
 }

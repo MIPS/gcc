@@ -3821,8 +3821,6 @@ rest_of_handle_see (void)
   no_new_pseudos = no_new_pseudos_bcp;
   
   run_fast_dce ();
-  reg_scan (get_insns (), max_reg_num ());
-
   return 0;
 }
 

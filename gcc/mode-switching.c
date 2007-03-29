@@ -712,7 +712,6 @@ optimize_mode_switching (void)
     return 0;
 #endif
 
-  allocate_reg_info (max_regno, FALSE, FALSE);
   return 1;
 }
 

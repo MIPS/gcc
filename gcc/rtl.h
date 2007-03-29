@@ -1760,12 +1760,6 @@ rtx remove_list_elem (rtx, rtx *);
 
 /* regclass.c */
 
-/* Maximum number of parallel sets and clobbers in any insn in this fn.
-   Always at least 3, since the combiner could put that many together
-   and we want this to remain correct for all the remaining passes.  */
-
-extern int max_parallel;
-
 /* Free up register info memory.  */
 extern void free_reg_info (void);
 
@@ -2169,7 +2163,6 @@ extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
-extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 #ifdef HARD_CONST
 extern void cannot_change_mode_set_regs (HARD_REG_SET *,

@@ -259,9 +259,16 @@ replace_ref (struct df_ref *ref, rtx reg)
   df_insn_rescan (DF_REF_INSN (ref));
 }
 
+
+static bool
+gate_handle_web (void)
+{
+  return (optimize > 0 && flag_web);
+}
+
 /* Main entry point.  */
 
-static void
+static unsigned int
 web_main (void)
 {
   struct web_entry *def_entry;
@@ -362,27 +369,14 @@ web_main (void)
   free (def_entry);
   free (use_entry);
   free (used);
-}
-
-static bool
-gate_handle_web (void)
-{
-  return (optimize > 0 && flag_web);
-}
-
-static unsigned int
-rest_of_handle_web (void)
-{
-  web_main ();
-  reg_scan (get_insns (), max_reg_num ());
   return 0;
 }
-
+
 struct tree_opt_pass pass_web =
 {
   "web",                                /* name */
   gate_handle_web,                      /* gate */
-  rest_of_handle_web,                   /* execute */
+  web_main,		                /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

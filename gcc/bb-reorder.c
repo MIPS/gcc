@@ -1831,10 +1831,7 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
      well.  */
 
   if (!HAS_LONG_UNCOND_BRANCH)
-    {
-      fix_crossing_unconditional_branches ();
-      reg_scan (get_insns (), max_reg_num ());
-    }
+    fix_crossing_unconditional_branches ();
 
   add_reg_crossing_jump_notes ();
 }

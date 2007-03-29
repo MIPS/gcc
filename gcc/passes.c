@@ -690,8 +690,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_into_cfg_layout_mode);
       NEXT_PASS (pass_jump2);
       NEXT_PASS (pass_lower_subreg);
-      NEXT_PASS (pass_cse);
       NEXT_PASS (pass_df_initialize_opt);
+      NEXT_PASS (pass_cse);
       NEXT_PASS (pass_rtl_fwprop);
       NEXT_PASS (pass_gcse);
       NEXT_PASS (pass_jump_bypass);

@@ -167,6 +167,7 @@
 #include "recog.h"
 #include "output.h"
 #include "basic-block.h"
+#include "cfglayout.h"
 #include "varray.h"
 #include "reload.h"
 #include "ggc.h"

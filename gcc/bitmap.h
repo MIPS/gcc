@@ -126,7 +126,7 @@ extern unsigned long bitmap_count_bits (bitmap);
    The operations supported are &, & ~, |, ^.  */
 extern void bitmap_and (bitmap, bitmap, bitmap);
 extern void bitmap_and_into (bitmap, bitmap);
-extern void bitmap_and_compl (bitmap, bitmap, bitmap);
+extern bool bitmap_and_compl (bitmap, bitmap, bitmap);
 extern bool bitmap_and_compl_into (bitmap, bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
 extern void bitmap_compl_and_into (bitmap, bitmap);

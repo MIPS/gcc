@@ -352,7 +352,6 @@ decompose_register (unsigned int regno)
   reg = regno_reg_rtx[regno];
 
   regno_reg_rtx[regno] = NULL_RTX;
-  clear_reg_info_regno (regno);
 
   words = GET_MODE_SIZE (GET_MODE (reg));
   words = (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -1058,7 +1057,6 @@ decompose_multiword_subregs (void)
   if (!bitmap_empty_p (decomposable_context))
     {
       int hold_no_new_pseudos = no_new_pseudos;
-      int max_regno = max_reg_num ();
       sbitmap life_blocks;
       sbitmap sub_blocks;
       unsigned int i;
@@ -1171,10 +1169,7 @@ decompose_multiword_subregs (void)
 		}
 
 	      if (changed)
-		{
-		  SET_BIT (life_blocks, bb->index);
-		  reg_scan_update (insn, next, max_regno);
-		}
+		SET_BIT (life_blocks, bb->index);
 	    }
 	}
 

@@ -675,6 +675,8 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
+  df_analyze ();
+
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
@@ -6692,7 +6694,6 @@ rest_of_handle_gcse (void)
   if (flag_expensive_optimizations)
     {
       timevar_push (TV_CSE);
-      reg_scan (get_insns (), max_reg_num ());
       tem2 = cse_main (get_insns (), max_reg_num ());
       purge_all_dead_edges ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());

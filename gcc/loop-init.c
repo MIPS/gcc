@@ -217,7 +217,6 @@ rtl_loop_done (void)
   cfg_layout_finalize ();
 
   cleanup_cfg (0);
-  reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 

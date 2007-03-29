@@ -1,3 +1,48 @@
+2007-03-29  Paolo Bonzini  <bonzini@gnu.org>
+
+	* bitmap.c (bitmap_elt_copy, bitmap_elt_ior): New.
+	(bitmap_ior, bitmap_ior_into): Use them.
+	(bitmap_and_compl): Use them, return whether DST changed.
+	(bitmap_ior_and_compl): Rewrite.
+	* bitmap.h (bitmap_and_compl): Return a bool.
+
+	* Makefile.in (alias.o): Fix dependencies.
+	* alias.c (find_base_value, init_alias_analysis): Use
+	DF_REG_DEF_COUNT.  Include df.h.
+	* cfg.c (dump_reg_info): Don't fail if reg_info not initialized.
+	* cse.c (cse_main): Assume dataflow initialized.  Call reg_scan.
+	* gcse.c (gcse_main): Call df_analyze, remove call to reg_scan.
+	* local-alloc.c (rest_of_handle_local_alloc): Call allocate_reg_info
+	earlier.
+	* passes.c (init_optimization_passes): Initialize dataflow before CSE.
+
+        * global.c (n_reg_sets): Remove.
+        (reg_sets): Change to a VEC.
+        (mark_reg_store): Push onto reg_sets.
+        (global_conflicts): Assert reg_sets is empty, pop values out of it.
+        Don't allocate it nor free it here.
+        (global_alloc): Allocate reg_sets if necessary.
+
+	* see.c (rest_of_handle_see): Don't call reg_scan.
+	* tracer.c (rest_of_handle_tracer): Likewise.
+	* cfgcleanup.c (rest_of_handle_jump2): Likewise.
+	* bb-reorder.c (fix_edges_for_rarely_executed_code): Likewise.
+	* loop-init.c (rtl_loop_done): Likewise.
+	* ifcvt.c (rest_of_handle_if_conversion): Likewise.
+	* mode-switching.c (optimize_mode_switching): Remove useless
+	allocate_reg_info.
+	* lower-subreg.c (decompose_register): Don't call clear_reg_info_regno.
+	(decompose_multiword_subregs): Don't call reg_scan_update.
+	* web.c (rest_of_handle_web): Delete.
+	(pass_web): Use web_main as pass routine.
+
+	* regclass.c (max_parallel, max_set_parallel): Remove.
+        (reg_scan): Don't set them.
+	(reg_scan_update): Delete.
+	(reg_scan_mark_refs): Remove last parameter.
+
+        * rtl.h (max_parallel): Remove.
+
 2007-03-29  Paolo Bonzini <bonzini@gnu.org>
 
 	* df-core.c (pass_df_finish): Restore.
