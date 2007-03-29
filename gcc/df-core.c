@@ -783,28 +783,10 @@ rest_of_handle_df_finish (void)
 }
 
 
-struct tree_opt_pass pass_df_finish_opt =
+struct tree_opt_pass pass_df_finish =
 {
   "dfinish",                            /* name */
-  gate_opt,                             /* gate */
-  rest_of_handle_df_finish,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
-};
-
-
-struct tree_opt_pass pass_df_finish_no_opt =
-{
-  "dfinish",                            /* name */
-  gate_no_opt,                          /* gate */
+  NULL,					/* gate */
   rest_of_handle_df_finish,             /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */

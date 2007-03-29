@@ -1,4 +1,15 @@
+2007-03-29  Paolo Bonzini <bonzini@gnu.org>
+
+	* df-core.c (pass_df_finish): Restore.
+	(pass_df_finish_opt, pass_df_finish_no_opt): Remove.
+	* tree-pass.h (pass_df_finish): Restore.
+	(pass_df_finish_opt, pass_df_finish_no_opt): Remove.
+	* passes.c (init_optimizations_passes): Remove pass_df_finish_no_opt.
+	Rename pass_df_finish_opt to pass_df_finish.
+	* reg-stack.c: Mostly evert previous commit.
+
 2007-03-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_df_initialize, pass_df_finish): Deleted.
 	(pass_df_initialize_opt, pass_df_initialize_no_opt, 
 	pass_stack_regs_run, pass_df_finish_opt, pass_df_finish_no_opt):
@@ -22,13 +33,13 @@
 	df_update_exit_block_uses if optimizing.
 	* df-problems.c (df_get_live_in, df_get_live_out): Return df_live
 	sets if they are there.
-	* reg_stack (rest_of_handle_stack_regs_run):
+	* reg-stack.c (rest_of_handle_stack_regs_run):
 	Added new pass that just runs subpasses.  
 	* passes.c (init_optimization_passes): Added passes to turn on df
 	at only some parts of the compilation for -O0.  Moved 
 	pass_split_before_regstack and pass_stack_regs into a subpass of
 	the stack regs pass.
-	
+
 2007-03-28  Paolo Bonzini  <bonzini@gnu.org>
 
         * df.h (df_ru_get_bb_info, df_rd_get_bb_info, df_lr_get_bb_info,

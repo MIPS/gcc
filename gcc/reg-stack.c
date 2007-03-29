@@ -3212,19 +3212,11 @@ gate_handle_stack_regs (void)
 #endif
 }
 
-/* Just run the sub passes which do all of the work.  */
-static unsigned int
-rest_of_handle_stack_regs (void)
-{
-  return 0;
-}
-
-
 struct tree_opt_pass pass_stack_regs =
 {
   "stack",                              /* name */
   gate_handle_stack_regs,               /* gate */
-  rest_of_handle_stack_regs,            /* execute */
+  NULL,					/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -3240,7 +3232,7 @@ struct tree_opt_pass pass_stack_regs =
 /* Convert register usage from flat register file usage to a stack
    register file.  */
 static unsigned int
-rest_of_handle_stack_regs_run (void)
+rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
   reg_to_stack ();
@@ -3253,7 +3245,7 @@ struct tree_opt_pass pass_stack_regs_run =
 {
   "stack",                              /* name */
   NULL,                                 /* gate */
-  rest_of_handle_stack_regs_run,        /* execute */
+  rest_of_handle_stack_regs,            /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

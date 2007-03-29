@@ -764,7 +764,6 @@ init_optimization_passes (void)
 	      NEXT_PASS (pass_split_before_regstack);
 	      NEXT_PASS (pass_stack_regs_run);
 	    }
-	  NEXT_PASS (pass_df_finish_no_opt);
 	  NEXT_PASS (pass_compute_alignments);
 	  NEXT_PASS (pass_duplicate_computed_gotos);
 	  NEXT_PASS (pass_variable_tracking);
@@ -772,7 +771,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_machine_reorg);
 	  NEXT_PASS (pass_cleanup_barriers);
 	  NEXT_PASS (pass_delay_slots);
-	  NEXT_PASS (pass_df_finish_opt);
+	  NEXT_PASS (pass_df_finish);
 	  NEXT_PASS (pass_split_for_shorten_branches);
 	  NEXT_PASS (pass_convert_to_eh_region_ranges);
 	  NEXT_PASS (pass_shorten_branches);
