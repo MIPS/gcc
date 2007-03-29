@@ -1,3 +1,14 @@
+2007-03-29  Dmitry Zhurikhin <zhur@ispras.ru>
+
+	* sel-sched.c (generate_bookkeeping_insn): Implement creating of 
+	bookkeeping insn in existing block if possible instead of always 
+	creating a new basic block for bookkeeping insn.
+	(find_best_rhs_and_reg_that_fits): Correct bug with always not 
+	scheduling issue_rate-th instruction on current cycle when 
+	pipelining is on.
+	(fill_insns): Move BND_TO some instructions back if bookkeeping
+	insn was inserted between last scheduled insn and BND_TO.
+
 2007-03-29  Andrey Belevantsev  <abel@ispras.ru>
 
         Allow the selective scheduler to work before reload.

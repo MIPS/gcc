@@ -2516,11 +2516,12 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
                  pipelining.  */
               if (pipelining_p)
                 --ready.n_ready;
-              
+
               can_issue_more
                 = targetm.sched.reorder (sched_dump, sched_verbose,
                                          ready_lastpos (&ready),
                                          &ready.n_ready, FENCE_CYCLE (fence));
+
               if (pipelining_p)
                 ++ready.n_ready;
             }
@@ -2529,19 +2530,30 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
             can_issue_more = issue_rate;
         }
       else if (targetm.sched.reorder2
-               && (ready.n_ready == 0
-                   || !SCHED_GROUP_P (ready_element (&ready, 0))))
+               && !SCHED_GROUP_P (ready_element (&ready, 0)))
         {
-          if (pipelining_p && ready.n_ready > 1)
-           --ready.n_ready;
-          can_issue_more =
-            targetm.sched.reorder2 (sched_dump, sched_verbose,
-                                    ready.n_ready
-                                    ? ready_lastpos (&ready) : NULL,
-                                    &ready.n_ready, FENCE_CYCLE (fence));
-          if (pipelining_p && ready.n_ready > 1)
-            ++ready.n_ready;
+          if (ready.n_ready == 1)
+            can_issue_more = 
+              targetm.sched.reorder2 (sched_dump, sched_verbose,
+                                      ready_lastpos (&ready),
+                                      &ready.n_ready, FENCE_CYCLE (fence));
+          else
+            {
+              if (pipelining_p)
+                --ready.n_ready;
+
+              can_issue_more =
+                targetm.sched.reorder2 (sched_dump, sched_verbose,
+                                        ready.n_ready
+                                        ? ready_lastpos (&ready) : NULL,
+                                        &ready.n_ready, FENCE_CYCLE (fence));
+
+              if (pipelining_p)
+                ++ready.n_ready;
+            }
         }
+      else 
+        can_issue_more = issue_rate;
       
       if (can_issue_more == 0)
         {
@@ -2549,7 +2561,6 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
           *best_reg_found = NULL_RTX;
           return;
         }
-
 
       min_spec_insn = ready_element (&ready, 0);
       min_spec_vinsn = INSN_VI (min_spec_insn);
@@ -2698,20 +2709,23 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
 /* Functions that implement the core of the scheduler.  */
 
 /* Generate a bookkeeping copy of "REG = CUR_RHS" insn at JOIN_POINT on the 
-   path from E1->src to E2->dest (there could be some empty blocks 
-   between them.)  The function splits E2->dest bb on the two and emits 
-   the bookkeeping copy in the upper bb, redirecting all other paths to 
-   the lower bb.  All scheduler data is initialized for the newly 
-   created insn.  Returns the newly created bb, which is the lower bb.  */
+   ingoing path(s) to E2->dest, other than from E1->src (there could be some 
+   empty blocks between E1->src and E2->dest).  If there is only one such path 
+   and bookkeeping copy can be created in the last block, that is on this path,
+   bookkeeping instruction is inserted at the end of this block.  Otherwise, 
+   the function splits E2->dest bb on the two and emits the bookkeeping copy in
+   the upper bb, redirecting all other paths to the lower bb and returns the
+   newly created bb, which is the lower bb. 
+   All scheduler data is initialized for the newly created insn.  */
 static basic_block
 generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
 			   edge e2)
 {
-  basic_block bb = e2->dest;
+  basic_block src, bb = e2->dest;
   basic_block new_bb, res = NULL, empty_bb = e1->dest;
   vinsn_t book_insn = RHS_VINSN (c_rhs);
   insn_t book_insn2;
-  insn_t new_insn;
+  insn_t new_insn, place_to_insert, src_end;
 
   if (reg && RHS_SCHEDULE_AS_RHS (c_rhs) 
       && rhs_dest_regno (c_rhs) != REGNO (reg))
@@ -2726,53 +2740,83 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
      true.  */
   gcc_assert (bb_note (bb) != BB_END (bb));
 
-  can_add_real_insns_p = false;
-  /* Split the head of the BB to insert BOOK_INSN there.  */
-  new_bb = sel_split_block (bb);
-
-  /* Move note_list from the upper bb.  */
-  gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
-  BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
-  BB_NOTE_LIST (bb) = NULL_RTX;
-
-  gcc_assert (e2->dest == bb);
-
-  can_add_real_insns_p = true;
-  insn_init.what = INSN_INIT_WHAT_INSN;
-  insn_init.todo = INSN_INIT_TODO_ALL | INSN_INIT_TODO_LV_SET;
-
-  /* Make a jump skipping bookkeeping copy.  */
-  if (e1->flags & EDGE_FALLTHRU)
-    res = sel_redirect_edge_force (e1, new_bb);
-  else
-    /* We can use sel_redirect_edge_force () in this clause too.  */
+  if (EDGE_COUNT (bb->preds) == 2)
     {
-      edge ee = redirect_edge_and_branch (e1, new_bb);
+      /* SRC is the block, in which we possibly can insert bookkeeping insn
+         without creating new basic block.  It is the other (than E2->SRC)
+         predecessor block of BB.  */
+      src = EDGE_PRED (bb, 0) == e2 ? 
+        EDGE_PRED (bb, 1)->src : EDGE_PRED (bb, 0)->src;
+      /* Instruction, after which we would try to insert bookkeeping insn.  */
+      src_end = BB_END (src);
+      gcc_assert (in_current_region_p (src));
 
-      gcc_assert (ee == e1 && !last_added_block);
+      if (/* Create a floating bb header if SRC_END was scheduled, otherwise 
+             we'll finish with wrong PLACE_TO_INSERT in FILL_INSNS.  */
+          (INSN_P (src_end) && VINSN_SCHED_TIMES (INSN_VI (src_end)) > 0)
+          /* Can't create bookkeeping in SRC because of jump.  */
+          || !single_succ_p (src)
+          || (INSN_P (src_end) && control_flow_insn_p (src_end)))
+        src = NULL;
     }
-  gcc_assert (e1->dest == new_bb);
+  else
+    src = NULL;
+    
+  if (!src)
+    {
+      /* We need to create a new basic block for bookkeeping insn.  */
+
+      can_add_real_insns_p = false;
+
+      /* Split the head of the BB to insert BOOK_INSN there.  */
+      new_bb = sel_split_block (bb);
+  
+      /* Move note_list from the upper bb.  */
+      gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
+      BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
+      BB_NOTE_LIST (bb) = NULL_RTX;
+  
+      gcc_assert (e2->dest == bb);
+  
+      can_add_real_insns_p = true;
+      insn_init.what = INSN_INIT_WHAT_INSN;
+      insn_init.todo = INSN_INIT_TODO_ALL | INSN_INIT_TODO_LV_SET;
+  
+      /* Make a jump skipping bookkeeping copy.  */
+      if (e1->flags & EDGE_FALLTHRU)
+        res = sel_redirect_edge_force (e1, new_bb);
+      else
+        /* We can use sel_redirect_edge_force () in this clause too.  */
+        {
+          edge ee = redirect_edge_and_branch (e1, new_bb);
+  
+          gcc_assert (ee == e1 && !last_added_block);
+        }
+      gcc_assert (e1->dest == new_bb);
+  
+      gcc_assert (bb_empty_p (bb));
+      place_to_insert = BB_END (bb);
+    }
+  else
+    {
+      place_to_insert = src_end;
+    }
 
   /* Remove unreachable empty blocks.  */
   while (EDGE_COUNT (empty_bb->preds) == 0)
     {
-      basic_block next_bb = bb_next_bb (empty_bb);
-
-
+      basic_block next_bb = empty_bb->next_bb;
       sel_remove_empty_bb (empty_bb, false);
-
       empty_bb = next_bb;
     }
 
   insn_init.what = INSN_INIT_WHAT_INSN;
   insn_init.todo = INSN_INIT_TODO_ALL & ~INSN_INIT_TODO_SEQNO;
-  new_insn = emit_insn_after (book_insn2, BB_END (bb));
-  gcc_assert (BB_END (bb) == new_insn
-	      && bb_header_p (new_insn));
+  new_insn = emit_insn_after (book_insn2, place_to_insert);
+  gcc_assert ((!src && BB_END (bb) == new_insn && bb_header_p (new_insn))
+              || BB_END (src) == new_insn);
 
   gcc_assert (AV_SET (new_insn) == NULL && AV_LEVEL (new_insn) == 0);
-  /* Set AV_LEVEL to special value to bypass assert in move_op ().  */
-  AV_LEVEL (new_insn) = -1;
 
   INSN_PRIORITY (new_insn) = RHS_PRIORITY (c_rhs);
   INSN_COST (new_insn) = insn_cost (new_insn, 0, 0);
@@ -2780,9 +2824,15 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
 
   gcc_assert (LV_SET (join_point) != NULL);
 
-  LV_SET (new_insn) = get_regset_from_pool ();
-  ignore_first = true;
-  compute_live (new_insn);
+  if (bb_header_p (new_insn))
+    {
+      LV_SET (new_insn) = get_regset_from_pool ();
+      ignore_first = true;
+      compute_live (new_insn);
+    }
+
+  /* Set AV_LEVEL to special value to bypass assert in move_op ().  */
+  AV_LEVEL (new_insn) = -1;
 
   return res;
 }
@@ -2828,6 +2878,29 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
         {
 	  bnd_t bnd = BLIST_BND (bnds1);
 	  av_set_t av1_copy;
+
+          rtx new_bnd_to = BND_TO (bnd);
+          rtx prev_new_bnd_to = PREV_INSN (new_bnd_to);
+
+          /* Bookkeeping insns could be generated before BND_TO (BND), 
+             so adjust BND_TO (BND).  */
+          while (prev_new_bnd_to 
+                 && INSN_P (prev_new_bnd_to) 
+                 && BLOCK_FOR_INSN (prev_new_bnd_to) 
+                    == BLOCK_FOR_INSN (BND_TO (bnd))
+                 && VINSN_SCHED_TIMES (INSN_VI (prev_new_bnd_to)) == 0)
+            {
+              new_bnd_to = prev_new_bnd_to;
+              prev_new_bnd_to = PREV_INSN (prev_new_bnd_to);
+            }
+	  if (BND_TO (bnd) != new_bnd_to)
+	    {
+	      line_start ();
+	      print ("boundary %d adjusted to %d", 
+	             INSN_UID (BND_TO (bnd)), INSN_UID (new_bnd_to));
+	      line_finish ();
+	    }
+          BND_TO (bnd) = new_bnd_to;
 
 	  av_set_clear (&BND_AV (bnd));
 	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, UNIQUE_RHSES);
