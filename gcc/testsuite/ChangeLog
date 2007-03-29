@@ -1,3 +1,7 @@
+2007-03-29  Chao-ying Fu  <fu@mips.com>
+
+	* gcc.dg/fixed-ponit/noassoc.c: New test.
+
 2007-03-28  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-ponit/unary.c (FRACT_INCDEC): New to test signed fract
