@@ -1,3 +1,11 @@
+2007-03-29  Chao-ying Fu  <fu@mips.com>
+
+	* fold-const.c (split_tree): Support FIXED_CST.
+	(operand_equal_p): Support FIXED_CST.
+	(fold_binary): Make sure the type is not saturating, before
+	associating operations.  Ex: A + B + C, A * B * C,
+	(A1 * C1) +/- (A2 * C2).
+
 2007-03-28  Chao-ying Fu  <fu@mips.com>
 
 	* doc/extend.texi (Fixed-Point): Change "integer suffix" to

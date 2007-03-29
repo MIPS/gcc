@@ -1476,7 +1476,8 @@ split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
   /* Strip any conversions that don't change the machine mode or signedness.  */
   STRIP_SIGN_NOPS (in);
 
-  if (TREE_CODE (in) == INTEGER_CST || TREE_CODE (in) == REAL_CST)
+  if (TREE_CODE (in) == INTEGER_CST || TREE_CODE (in) == REAL_CST
+      || TREE_CODE (in) == FIXED_CST)
     *litp = in;
   else if (TREE_CODE (in) == code
 	   || (! FLOAT_TYPE_P (TREE_TYPE (in))
@@ -1493,9 +1494,11 @@ split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
       int neg_litp_p = 0, neg_conp_p = 0, neg_var_p = 0;
 
       /* First see if either of the operands is a literal, then a constant.  */
-      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
+      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST
+	  || TREE_CODE (op0) == FIXED_CST)
 	*litp = op0, op0 = 0;
-      else if (TREE_CODE (op1) == INTEGER_CST || TREE_CODE (op1) == REAL_CST)
+      else if (TREE_CODE (op1) == INTEGER_CST || TREE_CODE (op1) == REAL_CST
+	       || TREE_CODE (op1) == FIXED_CST)
 	*litp = op1, neg_litp_p = neg1_p, op1 = 0;
 
       if (op0 != 0 && TREE_CONSTANT (op0))
@@ -3018,6 +3021,10 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
       {
       case INTEGER_CST:
 	return tree_int_cst_equal (arg0, arg1);
+
+      case FIXED_CST:
+	return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (arg0),
+				       TREE_FIXED_CST (arg1));
 
       case REAL_CST:
 	if (REAL_VALUES_IDENTICAL (TREE_REAL_CST (arg0),
@@ -9383,9 +9390,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	return fold_build1 (NEGATE_EXPR, type, TREE_OPERAND (arg0, 0));
 
       /* Handle (A1 * C1) + (A2 * C2) with A1, A2 or C1, C2 being the
-	 same or one.  */
+	 same or one.  Make sure type is not saturating.  */
       if ((TREE_CODE (arg0) == MULT_EXPR
 	   || TREE_CODE (arg1) == MULT_EXPR)
+	  && !TYPE_SATURATING (type)
 	  && (!FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations))
         {
 	  tree tem = fold_plusminus_mult_expr (code, type, arg0, arg1);
@@ -9663,9 +9671,11 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       /* In most languages, can't associate operations on floats through
 	 parentheses.  Rather than remember where the parentheses were, we
 	 don't associate floats at all, unless the user has specified
-	 -funsafe-math-optimizations.  */
+	 -funsafe-math-optimizations.
+	 And, we need to make sure type is not saturating.  */
 
-      if (! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations)
+      if ((! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations)
+	  && !TYPE_SATURATING (type))
 	{
 	  tree var0, con0, lit0, minus_lit0;
 	  tree var1, con1, lit1, minus_lit1;
@@ -9946,9 +9956,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	return tem;
 
       /* Handle (A1 * C1) - (A2 * C2) with A1, A2 or C1, C2 being the
-	 same or one.  */
+	 same or one.  Make sure type is not saturating.  */
       if ((TREE_CODE (arg0) == MULT_EXPR
 	   || TREE_CODE (arg1) == MULT_EXPR)
+	  && !TYPE_SATURATING (type)
 	  && (!FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations))
         {
 	  tree tem = fold_plusminus_mult_expr (code, type, arg0, arg1);
