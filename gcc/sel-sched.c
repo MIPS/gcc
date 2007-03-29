@@ -323,7 +323,7 @@ replace_in_vinsn_using_bitmask_1 (rtx *cur_rtx, void *arg)
   struct rtx_search_arg *p = (struct rtx_search_arg *) arg;
 
   /* If matched...  */
-  if (exp_equiv_p (*cur_rtx, p->x, 0, false))
+  if (exp_equiv_p (*cur_rtx, p->x, 0, true))
     {
       /* Check whether we should replace it according to bitmask.  */
       if (p->bitmask & 1)
@@ -392,6 +392,18 @@ count_occurrences_1 (rtx *cur_rtx, void *arg)
 	return 1;
 
       /* Do not traverse subexprs.  */
+      return -1;
+    }
+
+  if (GET_CODE (*cur_rtx) == SUBREG
+      && REG_P (p->x)
+      && REGNO (SUBREG_REG (*cur_rtx)) == REGNO (p->x))
+    {
+      /* ??? Do not support substituting regs inside subregs.  In that case,
+         simplify_subreg will be called by validate_replace_rtx, and 
+         unsubstitution will fail later.  */
+      p->n = 0;
+      p->max_occur = 0;
       return -1;
     }
 
@@ -561,7 +573,7 @@ un_substitute (av_set_t *av_ptr, rtx insn)
 static insn_t
 replace_src_with_reg (vinsn_t vi, rtx new_src_reg)
 {
-  insn_t reg, insn1, insn2;
+  insn_t insn1, insn2;
   insn_t orig_insn = VINSN_INSN (vi);
   int res;
 
@@ -569,14 +581,11 @@ replace_src_with_reg (vinsn_t vi, rtx new_src_reg)
   gcc_assert (!VINSN_UNIQUE_P (vi));
   gcc_assert (VINSN_TYPE (vi) == SET);
 
-  /* Generate new rtx REG.  */
-  reg = gen_rtx_REG (GET_MODE (new_src_reg), REGNO (new_src_reg));
-
   /*  Copy rtx before substitution.  */
   insn1 = copy_insn_out_of_stream (vi);
 
   /* Replace it.  */
-  res = validate_change (insn1, &SET_SRC (PATTERN (insn1)), reg, 0);
+  res = validate_change (insn1, &SET_SRC (PATTERN (insn1)), new_src_reg, 0);
   gcc_assert (res);
 
   /* Copy it once again to generate correct deps and lhs & rhs data.  */
@@ -616,9 +625,8 @@ replace_src_with_reg (vinsn_t vi, rtx new_src_reg)
   reg for rhs.  */
 
 static bool
-replace_src_with_reg_ok_p (insn_t insn, unsigned int new_src_reg)
+replace_src_with_reg_ok_p (insn_t insn, rtx new_src_reg)
 {
-  rtx reg;
   vinsn_t vi = INSN_VI (insn);
   enum machine_mode mode;
   rtx dst_loc;
@@ -628,45 +636,40 @@ replace_src_with_reg_ok_p (insn_t insn, unsigned int new_src_reg)
   gcc_assert (VINSN_TYPE (vi) == SET);
 
   get_dest_and_mode (insn, &dst_loc, &mode);
+  gcc_assert (mode == GET_MODE (new_src_reg));
 
-  if (REG_P (dst_loc) && new_src_reg == REGNO (dst_loc))
+  if (REG_P (dst_loc) && REGNO (new_src_reg) == REGNO (dst_loc))
     return true;
 
-  /* Generate new rtx REG with mode of original LHS.  
-     We use mode of the LHS because in most cases it's the same as for RHS, 
-     but RHS doesn't always have a mode (e.g. CONSTs).  */
-  reg = gen_rtx_REG (GET_MODE (VINSN_LHS (vi)), new_src_reg);
-
   /* See whether SET_SRC can be replaced with this register.  */
-  validate_change (insn, &SET_SRC (PATTERN (insn)), reg, 1);
+  validate_change (insn, &SET_SRC (PATTERN (insn)), new_src_reg, 1);
   res = verify_changes (0);
   cancel_changes (0);
 
   return res;
 }
 
-/* Substitute SET_DEST in the given vinsn VI for the register with number 
-   NEW_REG.  */
+/* Substitute SET_DEST in the given vinsn VI for the register NEW_REG.  
+   If CLONE_P is true, make a copy of it (assuming it's a hard reg.)  */
 static insn_t
-replace_dest_with_reg_in_vinsn (vinsn_t vi, int new_reg)
+replace_dest_with_reg_in_vinsn (vinsn_t vi, rtx new_reg, bool clone_p)
 {
-  insn_t reg, new_insn;
-  insn_t tmp_insn;
+  insn_t new_insn, tmp_insn;
   int res;
 
   /* We should deal here only with non-unique insns.  */
   gcc_assert (!VINSN_UNIQUE_P (vi));
-
   gcc_assert (VINSN_TYPE (vi) == SET);
-
-  /* Generate new rtx REG with mode of original LHS.  */
-  reg = gen_rtx_REG (GET_MODE (VINSN_LHS (vi)), new_reg);
-
+  gcc_assert (GET_MODE (VINSN_LHS (vi)) == GET_MODE (new_reg));
+  
   /*  Copy rtx before substitution.  */
   tmp_insn = copy_insn_out_of_stream (vi);
 
   /* Replace it.  */
-  res = validate_change (tmp_insn, &SET_DEST (PATTERN (tmp_insn)), reg, 0);
+  if (clone_p && HARD_REGISTER_P (new_reg))
+    new_reg = copy_rtx (new_reg);
+  res = validate_change (tmp_insn, &SET_DEST (PATTERN (tmp_insn)), 
+                         new_reg, 0);
   gcc_assert (res);
 
   /* Copy it once again to generate correct deps and lhs & rhs data.  */
@@ -683,39 +686,36 @@ replace_dest_with_reg_in_vinsn (vinsn_t vi, int new_reg)
   return new_insn;
 }
 
-/* Substitute SET_DEST in the given rhs R for the register with number 
-   NEW_REG.  Also generate new vinsn. SET_DEST may be arbitrary rtx, not only 
+/* Substitute SET_DEST in the given rhs R for the register NEW_REG.  
+   Also generate new vinsn.  SET_DEST may be arbitrary rtx, not only 
    register.  */
 static void
-replace_dest_with_reg_in_rhs (rhs_t r, int new_reg)
+replace_dest_with_reg_in_rhs (rhs_t r, rtx new_reg)
 {
   vinsn_t vi = RHS_VINSN (r);
   vinsn_t vi1;
 
-  vi1 = INSN_VI (replace_dest_with_reg_in_vinsn (vi, new_reg));
+  vi1 = INSN_VI (replace_dest_with_reg_in_vinsn (vi, new_reg, false));
   vinsn_detach (vi);
 
   RHS_VINSN (r) = vi1;
 }
 
 /* Returns whether INSN still be valid after replacing it's DEST with
-   register number REG_NUM.  */
+   register NEW_REG.  */
 static bool
-replace_dest_with_reg_ok_p (insn_t insn, int reg_num)
+replace_dest_with_reg_ok_p (insn_t insn, rtx new_reg)
 {
-  insn_t reg;
   vinsn_t vi = INSN_VI (insn);
   bool res;
 
   /* We should deal here only with non-unique insns.  */
   gcc_assert (!VINSN_UNIQUE_P (vi));
   gcc_assert (VINSN_TYPE (vi) == SET);
-
-  /* Generate new rtx REG with mode of original LHS.  */
-  reg = gen_rtx_REG (GET_MODE (VINSN_LHS (vi)), reg_num);
+  gcc_assert (GET_MODE (VINSN_LHS (vi)) == GET_MODE (new_reg));
 
   /* See whether SET_DEST can be replaced with this register.  */
-  validate_change (insn, &SET_DEST (PATTERN (insn)), reg, 1);
+  validate_change (insn, &SET_DEST (PATTERN (insn)), new_reg, 1);
   res = verify_changes (0);
   cancel_changes (0);
 
@@ -723,27 +723,29 @@ replace_dest_with_reg_ok_p (insn_t insn, int reg_num)
 }
 
 /* Returns the REGNO of the R's destination.  */
-static int
+static unsigned
 rhs_dest_regno (rhs_t r)
 {
   rtx dest = VINSN_LHS (RHS_VINSN (r));
 
-  gcc_assert (VINSN_LHS (RHS_VINSN (r)));
-  gcc_assert (REG_P (dest));
-
+  gcc_assert (dest && REG_P (dest));
   return REGNO (dest);
 }
 
 /* Returns whether VI writes one of the REGS.  */
 static bool
-vinsn_writes_one_of_regs_p (vinsn_t vi, HARD_REG_SET regs)
+vinsn_writes_one_of_regs_p (vinsn_t vi, regset used_regs, 
+                            HARD_REG_SET unavailable_hard_regs)
 {
   unsigned regno;
   reg_set_iterator rsi;
 
   EXECUTE_IF_SET_IN_REG_SET (VINSN_REG_SETS (vi), 0, regno, rsi)
     {
-      if (TEST_HARD_REG_BIT (regs, regno))
+      if (REGNO_REG_SET_P (used_regs, regno))
+        return true;
+      if (HARD_REGISTER_NUM_P (regno)
+          && TEST_HARD_REG_BIT (unavailable_hard_regs, regno))
 	return true;
     }
 
@@ -822,12 +824,11 @@ get_reg_class (rtx insn)
 
 static void
 mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs, 
-		regset used_regs)
+                            regset used_regs)
 {
   enum machine_mode mode;
   enum reg_class cl = NO_REGS;
   rtx orig_dest;
-
   int cur_reg;
   HARD_REG_SET hard_regs_ok;
 
@@ -835,6 +836,11 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
   gcc_assert (unavailable_hard_regs);
 
   orig_dest = SET_DEST (PATTERN (def->orig_insn));
+
+  /* If before reload, don't try to work with pseudos.  */
+  if (!reload_completed && REGNO (orig_dest) >= FIRST_PSEUDO_REGISTER)
+    return;
+
   mode = GET_MODE (orig_dest);
   gcc_assert (orig_dest != pc_rtx);
 
@@ -880,6 +886,11 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
      unavailable.  */
   if (def->crosses_call)
     IOR_HARD_REG_SET (*unavailable_hard_regs, call_used_reg_set);
+
+  /* Stop here before reload: we need FRAME_REGS, STACK_REGS, and crosses_call, 
+     but not register classes.  */
+  if (!reload_completed)
+    return;
 
   /* Leave regs as 'available' only from the current 
      register class.  */
@@ -1001,16 +1012,17 @@ static int reg_rename_tick[FIRST_PSEUDO_REGISTER];
    unavailable registers due to this restrictions are already included
    in UNAVAILABLE set.
 
-   if several registers meet the conditions, the register with smallest
+   If several registers meet the conditions, the register with smallest
    tick is returned to achieve more even register allocation.
 
-   If no register satisfies the above conditions, -1 is returned.  */
+   If no register satisfies the above conditions, NULL_RTX is returned.  */
 
-static int
+static rtx
 choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
 {
   int best_new_reg;
   int cur_reg;
+  enum machine_mode mode = VOIDmode;
   def_list_iterator i;
   def_t def;
 
@@ -1037,8 +1049,20 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
 
       gcc_assert (REG_P (orig_dest));
 
+      /* Check that all original operations have the same mode.  
+         This is done for the next loop; if we'd return from this
+         loop, we'd check only part of them, but in this case 
+         it doesn't matter.  */
+      if (mode == VOIDmode)
+        mode = GET_MODE (orig_dest);
+      gcc_assert (mode == GET_MODE (orig_dest));
+
       if (!TEST_HARD_REG_BIT (unavailable, REGNO (orig_dest)))
-	return REGNO (orig_dest);
+        {
+          gcc_assert (mode != VOIDmode);
+          /* Hard registers should not be shared.  */
+	  return gen_rtx_REG (mode, REGNO (orig_dest));
+        }
     }
 
   best_new_reg = -1;
@@ -1052,33 +1076,99 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns)
 	best_new_reg = cur_reg;
     }
 
-  return best_new_reg;
+  if (best_new_reg >= 0)
+    {
+      /* Use the check from the above loop.  */
+      gcc_assert (mode != VOIDmode);
+      return gen_rtx_REG (mode, best_new_reg);
+    }
+
+  return NULL_RTX;
 }
 
-/* Returns best register number for given rhs, or -1, if no register can be
-   chosen.  
+/* Choose the pseudo register for storing rhs value.  As this is supposed 
+   to work before reload, we return either the original register or make
+   the new one.  If we work with hard regs, check also UNAVAILABLE_HARD_REGS.
 
-   This function will return -1 if:
+   TODO: take into account register pressure while doing this.  Up to this 
+   moment, this function would never return NULL for pseudos, but we should 
+   not rely on this.  */
+static rtx
+choose_best_pseudo_reg (regset used_regs, 
+                        HARD_REG_SET unavailable_hard_regs, 
+                        def_list_t original_insns)
+{
+  def_list_iterator i;
+  def_t def;
+  enum machine_mode mode = VOIDmode;
+  bool bad_hard_regs = false;
+  
+  /* We should not use this after reload.  */
+  gcc_assert (!reload_completed);
+  
+  /* If original register is available, return it.  */
+  FOR_EACH_DEF (def, i, original_insns)
+    {
+      rtx dest = SET_DEST (PATTERN (def->orig_insn));
+      int orig_regno;
+      
+      gcc_assert (REG_P (dest));
+      
+      /* Check that all original operations have the same mode.  */
+      if (mode == VOIDmode)
+        mode = GET_MODE (dest);
+      else
+        gcc_assert (mode == GET_MODE (dest));
+      orig_regno = REGNO (dest);
+      
+      if (!REGNO_REG_SET_P (used_regs, orig_regno))
+        {
+          if (orig_regno < FIRST_PSEUDO_REGISTER)
+            {
+              gcc_assert (regs_ever_live [orig_regno]);
+              
+              /* For hard registers, we have to check hardware imposed 
+                 limitations (frame/stack registers, calls crossed).  */
+              if (!TEST_HARD_REG_BIT (unavailable_hard_regs, orig_regno))
+                return gen_rtx_REG (mode, orig_regno);
+              
+              bad_hard_regs = true;
+            }
+          else
+            return dest;
+        }
+     }
+ 
+  /* We had some original hard registers that couldn't be used.  Those were likely
+     special.  Don't try to create a pseudo.  */
+  if (bad_hard_regs)
+    return NULL_RTX;
+  
+  /* We haven't found a register from original operations.  Get a new one.  
+     FIXME: control register pressure somehow.  */
+  gcc_assert (mode != VOIDmode);
+  return gen_reg_rtx (mode);
+}
+
+/* Returns best register for given rhs, or NULL_RTX, if no register can be
+   chosen.  The latter could happen when:
      - RHS_SCHEDULE_AS_RHS is true but we were unable to find suitable
        register;
      - RHS_SCHEDULE_AS_RHS is false but the insn sets/clobbers one of
        the registers that are used on the moving path.  */
-static int
+static rtx
 find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
 {
   av_set_iterator i2;
   rhs_t rhs_orig;
   regset used_regs;
   HARD_REG_SET hard_regs_used, unavailable_hard_regs;
-  int best_reg = -1;
+  rtx best_reg = NULL_RTX;
   blist_t bnds1 = bnds;
   ilist_t original_insns = NULL;
   bool res = 0;
 
-  gcc_assert (reload_completed);
-
   used_regs = get_clear_regset_from_pool ();
-
   CLEAR_HARD_REG_SET (unavailable_hard_regs);
 
   /* Collect unavailable registers from all boundaries into USED_REGS.  */
@@ -1106,8 +1196,7 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
 
       /* Compute used regs and OR it into the USED_REGS.  */
       res = find_used_regs (BND_TO (bnd), orig_ops, used_regs, 
-			  reload_completed ? &unavailable_hard_regs : NULL,
-			  &original_insns);
+                            &unavailable_hard_regs, &original_insns);
 
       av_set_clear (&orig_ops);
 
@@ -1141,20 +1230,26 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
 	  gcc_unreachable ();
       }
 #endif
-    
-      REG_SET_TO_HARD_REG_SET (hard_regs_used, used_regs);
-      /* Join hard registers unavailable due to register class restrictions 
-	 and live range intersection.  */
-      if (reload_completed)
-	IOR_HARD_REG_SET (hard_regs_used, unavailable_hard_regs);
-    
+
       if (RHS_SCHEDULE_AS_RHS (rhs))
 	{
-	  best_reg = choose_best_reg (hard_regs_used, original_insns);
+          /* Turn everything in hard regs after reload.  */
+          if (reload_completed)
+            {
+              REG_SET_TO_HARD_REG_SET (hard_regs_used, used_regs);
+              /* Join hard registers unavailable due to register class 
+                 restrictions and live range intersection.  */
+              IOR_HARD_REG_SET (hard_regs_used, unavailable_hard_regs);
+              best_reg = choose_best_reg (hard_regs_used, original_insns);
+            }
+          else
+            best_reg = choose_best_pseudo_reg (used_regs, 
+                                               unavailable_hard_regs, 
+                                               original_insns);
     
 	  /* Try whether we'll be able to generate the insn 'dest := best_reg'
 	     at the place of the original operation.  */
-	  if (best_reg >= 0)
+	  if (best_reg)
 	    {
 	      ilist_t p = original_insns;
     
@@ -1174,34 +1269,32 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
 		      /* FIXME: may be it will work with other regs?
 			 Not with example above, though - we can't figure
 			 that the only option is to generate subreg.  */
-		      best_reg = -1;
+		      best_reg = NULL_RTX;
 		      break;
 		    }
 		  p = ILIST_NEXT (p);
 		}
 	    }
-    
-	}
+    	}
       else
 	{
 	  /* If !RHS_SCHEDULE_AS_RHS (RHS), just make sure INSN doesn't set
 	     any of the HARD_REGS_USED set.  */
-	  if (vinsn_writes_one_of_regs_p (RHS_VINSN (rhs), hard_regs_used))
-	    {
-	      best_reg = -1;
-	    }
+	  if (vinsn_writes_one_of_regs_p (RHS_VINSN (rhs), used_regs,
+                                          unavailable_hard_regs))
+            best_reg = NULL_RTX;
 	  else
 	    {
-	      /* Any non-negative number.  */
-	      best_reg = 0;
+	      /* Any non-negative number.  
+                 ??? Introduce another parameter instead of this.  */
+	      best_reg = (rtx) 1;
 	    }
 	}
     }
   else
-    best_reg = -1;
+    best_reg = NULL_RTX;
 
   ilist_clear (&original_insns);
-
   return_regset_to_pool (used_regs);
 
   return best_reg;
@@ -1216,26 +1309,30 @@ static enum MOVEUP_RHS_CODE
 moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
+  insn_t insn = VINSN_INSN (vi);
   enum MOVEUP_RHS_CODE rcode;
+
+  /* Don't move trapping insns through jumps.  */
+  if (MAY_TRAP (insn)
+      && control_flow_insn_p (through_insn))
+    return MOVEUP_RHS_NULL;
 
   if (VINSN_UNIQUE_P (vi))
     {
-      insn_t next = VINSN_INSN (vi);
-
       if (/* Don't move branches for now.  */
-	  control_flow_insn_p (next)
+	  control_flow_insn_p (insn)
 	  /* Don't try to clone unique insns.  */
 	  || bookkeeping_can_be_created_if_moved_through_p (through_insn))
 	return MOVEUP_RHS_NULL;
 
-      if (CANT_MOVE (next)
-	  && BLOCK_FOR_INSN (through_insn) != BLOCK_FOR_INSN (next))
+      if (CANT_MOVE (insn)
+	  && BLOCK_FOR_INSN (through_insn) != BLOCK_FOR_INSN (insn))
 	/* Don't move what we can't move.  */
 	return MOVEUP_RHS_NULL;
     }
   else
     {
-      gcc_assert (!control_flow_insn_p (RHS_INSN (insn_to_move_up)));
+      gcc_assert (!control_flow_insn_p (insn));
 
       if (!bookkeeping_p
 	  && bookkeeping_can_be_created_if_moved_through_p (through_insn))
@@ -1299,16 +1396,16 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn)
 	  /* Substitute in vinsn.  */
 	  line_start ();
 	  print ("Substituting in moveup_rhs:\nBefore: ");
-	  sel_print_rtl (VINSN_INSN (RHS_VINSN (insn_to_move_up)));
+	  sel_print_rtl (insn);
 	  print ("Moving through: ");
 	  sel_print_rtl (through_insn);
 	  print ("After: ");
 
-	  gcc_assert (!VINSN_UNIQUE_P (RHS_VINSN (insn_to_move_up)));
+	  gcc_assert (!VINSN_UNIQUE_P (vi));
 	  if (substitute_rhs (insn_to_move_up, through_insn))
 	    {
 	      rcode = MOVEUP_RHS_CHANGED;
-	      sel_print_rtl (VINSN_INSN (RHS_VINSN (insn_to_move_up)));
+	      sel_print_rtl (insn);
 	    }
 	  else
 	    {
@@ -2107,11 +2204,29 @@ sel_rank_for_schedule (const void *x, const void *y)
   rhs_t tmp = *(const rhs_t *) y;
   rhs_t tmp2 = *(const rhs_t *) x;
   insn_t tmp_insn, tmp2_insn;
+  vinsn_t tmp_vinsn, tmp2_vinsn;
   int val;
 
+  tmp_vinsn = RHS_VINSN (tmp);
+  tmp2_vinsn = RHS_VINSN (tmp2);
+  tmp_insn = RHS_INSN (tmp);
+  tmp2_insn = RHS_INSN (tmp2);
+  
+  /* Prefer SCHED_GROUP_P insns to any others.  */
+  if (SCHED_GROUP_P (tmp_insn) != SCHED_GROUP_P (tmp2_insn))
+    {
+      if (VINSN_UNIQUE_P (tmp_vinsn) && VINSN_UNIQUE_P (tmp2_vinsn)) 
+        return SCHED_GROUP_P (tmp2_insn) ? 1 : -1;
+      /* Now uniqueness means SCHED_GROUP_P is set, because schedule groups
+         cannot be cloned.  */
+      if (VINSN_UNIQUE_P (tmp2_vinsn))
+        return 1;
+      return -1;
+    }
+
   /* Prefer not scheduled insn over scheduled one.  */
-  val = (VINSN_SCHED_TIMES (RHS_VINSN (tmp))
-	 - VINSN_SCHED_TIMES (RHS_VINSN (tmp2)));
+  val = (VINSN_SCHED_TIMES (tmp_vinsn)
+	 - VINSN_SCHED_TIMES (tmp2_vinsn));
   if (val)
     return val;
 
@@ -2138,9 +2253,9 @@ sel_rank_for_schedule (const void *x, const void *y)
       && INSN_UID (tmp2_insn) < first_emitted_uid)
     return 1;
 
-  /* Prefer an insn with smalled LUID, as a last resort.  */
-  /* We can't safely use INSN_LUID as it is defined only for those insns
-     that are in the stream.  Use INSN_UID intead.  */
+  /* Prefer an insn with smaller UID, as a last resort.  
+     We can't safely use INSN_LUID as it is defined only for those insns
+     that are in the stream.  */
   return INSN_UID (tmp_insn) - INSN_UID (tmp2_insn);
 }
 
@@ -2170,7 +2285,6 @@ fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
       if (/* This will also initialize INSN_CODE for max_issue ().  */
 	  recog_memoized (insn) < 0)
         {
-
           /* Do not pipeline these insns when they were already scheduled;
              as we emit them unconditionally, it leads to an infinite loop.  */
           if (VINSN_SCHED_TIMES (RHS_VINSN (rhs)) > 0)
@@ -2220,6 +2334,18 @@ fill_ready_list (av_set_t av, bnd_t bnd, fence_t fence)
     {
       vinsn_t vi = RHS_VINSN (rhs);
       insn_t insn = VINSN_INSN (vi);
+
+      /* Don't allow insns from a SCHED_GROUP to be scheduled if their 
+         ancestors havn't been scheduled.  */
+      if (VINSN_UNIQUE_P (vi) && SCHED_GROUP_P (insn) && !bb_header_p (insn))
+        {
+          insn_t prev = PREV_INSN (insn);
+          
+          if (SCHED_GROUP_P (prev) 
+              && INSN_SCHED_CYCLE (prev) <= INSN_SCHED_CYCLE (insn))
+            continue;
+        }
+      
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
           continue;
@@ -2309,11 +2435,11 @@ sel_dfa_new_cycle (insn_t insn, fence_t fence)
 static void
 find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds, 
 				 fence_t fence, rhs_t *best_rhs_vliw,
-				 int *best_reg_found)
+				 rtx *best_reg_found)
 {
   rhs_t res = NULL;
   insn_t best = NULL_RTX;
-  int best_reg;
+  rtx best_reg;
   rhs_t r;
   _list_iterator i3;
 
@@ -2330,17 +2456,20 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
 	     the registers that are used on the moving path.  */
       best_reg = find_best_reg_for_rhs (r, bnds);
 
-      if (best_reg >= 0)
+      /* If we've found suitable register for replacement, and
+         RHS_SCHEDULE_AS_RHS is true, replace the reg and see if the
+         resulting insn is valid.  */
+      
+      if (best_reg)
 	{
-	  gcc_assert (best_reg < FIRST_PSEUDO_REGISTER);
-	  
-	  /* If we've found suitable register for replacement, and
-	     RHS_SCHEDULE_AS_RHS is true, replace the reg and see if the
-	     resulting insn is valid.  */
 	  if (RHS_SCHEDULE_AS_RHS (r))
 	    {
+
+              /* After reload we must choose only hard registers.  */
+              gcc_assert (!reload_completed || HARD_REGISTER_P (best_reg));
+
 	      /* If the register we have chosen is different, replace it.  */
-	      if (rhs_dest_regno (r) != best_reg)
+	      if (rhs_dest_regno (r) != REGNO (best_reg))
 		replace_dest_with_reg_in_rhs (r, best_reg);
     
 	      /* The resulting insn is valid because after BEST_REG was 
@@ -2417,7 +2546,7 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
       if (can_issue_more == 0)
         {
           *best_rhs_vliw = NULL;
-          *best_reg_found = -1;
+          *best_reg_found = NULL_RTX;
           return;
         }
 
@@ -2558,9 +2687,9 @@ find_best_rhs_and_reg_that_fits (av_set_t *av_vliw_ptr, blist_t bnds,
   *best_rhs_vliw = res;
 
   if (res && RHS_SCHEDULE_AS_RHS (res))
-    *best_reg_found = rhs_dest_regno (res);
+    *best_reg_found = RHS_DEST (res);
   else
-    *best_reg_found = -1;
+    *best_reg_found = NULL_RTX;
 
   return;
 }
@@ -2585,8 +2714,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
   insn_t new_insn;
 
   if (reg && RHS_SCHEDULE_AS_RHS (c_rhs) 
-      && rhs_dest_regno (c_rhs) != (int) REGNO (reg))
-    book_insn2 = replace_dest_with_reg_in_vinsn (book_insn, REGNO (reg));
+      && rhs_dest_regno (c_rhs) != REGNO (reg))
+    book_insn2 = replace_dest_with_reg_in_vinsn (book_insn, reg, true);
   else
     book_insn2 = expr_copy (VINSN_PATTERN (book_insn));
 
@@ -2627,7 +2756,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
   /* Remove unreachable empty blocks.  */
   while (EDGE_COUNT (empty_bb->preds) == 0)
     {
-      basic_block next_bb = empty_bb->next_bb;
+      basic_block next_bb = bb_next_bb (empty_bb);
+
 
       sel_remove_empty_bb (empty_bb, false);
 
@@ -2667,7 +2797,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   av_set_t av_vliw = NULL;
   insn_t insn = FENCE_INSN (fence);
   state_t temp_state = alloca (dfa_state_size);
-  int best_reg = -1;
+  rtx best_reg = NULL_RTX;
 
   memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
   blist_add (&bnds, insn, NULL, FENCE_DC (fence));
@@ -2802,7 +2932,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      insn_t place_to_insert;
 	      struct _rhs _c_rhs, *c_rhs = &_c_rhs;
 	      bool b;
-	      rtx rtx_reg;
 
 	      /* Init place_to_insert before calling move_op, as the later
 		 can possibly remove BND_TO (bnd).  */
@@ -2815,11 +2944,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		   basic block, where INSN will be added.  */
 		place_to_insert = PREV_INSN (BND_TO (bnd));
 
-	      /* RHS may be const without mode, use LHS.  */
-	      rtx_reg = (best_reg >= 0) ? 
-		gen_rtx_REG (GET_MODE (VINSN_LHS (RHS_VINSN (rhs_vliw))),
-                             best_reg) : NULL;
-	      gcc_assert (best_reg < 0 || GET_MODE (rtx_reg) != VOIDmode);
+	      gcc_assert (!best_reg || GET_MODE (best_reg) != VOIDmode);
 
 	      sel_dump_cfg ("before-move_op");
 
@@ -2830,7 +2955,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 insert all necessary bookkeeping instructions and update the
 		 data sets.  After that all we have to do is add the operation
 		 at before BND_TO (BND).  */
-	      b = move_op (BND_TO (bnd), rhs_seq, rtx_reg,
+	      b = move_op (BND_TO (bnd), rhs_seq, best_reg,
 			   NULL, NULL, NULL, c_rhs);
 
               /* We should be able to find the expression we've chosen for 
@@ -2841,15 +2966,17 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 do it once more, because that were done only in local av_vliw
 		 set (we can't do actual replacement there because at the
 		 moment we don't know yet which rhs is the best one.  */
-	      if (best_reg > -1)
+	      if (best_reg && REGNO (best_reg) != rhs_dest_regno (c_rhs))
 		{
 		  static int reg_rename_this_tick = 0;
 
-		  if (best_reg != rhs_dest_regno (c_rhs))
-		    replace_dest_with_reg_in_rhs (c_rhs, best_reg);
-
-		  reg_rename_tick[best_reg] = ++reg_rename_this_tick;
-		  regs_ever_live[best_reg] = 1;
+                  replace_dest_with_reg_in_rhs (c_rhs, best_reg);
+		  
+                  if (HARD_REGISTER_P (best_reg))
+                    {
+                      reg_rename_tick[REGNO (best_reg)] = ++reg_rename_this_tick;
+                      regs_ever_live[REGNO (best_reg)] = 1;
+                    }
 		}
 
 	      insn = RHS_INSN (c_rhs);
@@ -2912,7 +3039,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		while (BB_HEAD (bb) == BB_END (bb)
 		       && in_current_region_p (bb))
 		  {
-		    basic_block next_bb = bb->next_bb;
+                    basic_block next_bb = bb_next_bb (bb);
 
 		    sel_remove_empty_bb (bb, true);
 		    bb = next_bb;
@@ -2984,7 +3111,12 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
           FENCE_STARTS_CYCLE_P (fence) = 0;
 	  FENCE_LAST_SCHEDULED_INSN (fence) = insn;
           if (SCHED_GROUP_P (insn))
-            FENCE_SCHED_NEXT (fence) = INSN_SCHED_NEXT (insn);
+            {
+              FENCE_SCHED_NEXT (fence) = INSN_SCHED_NEXT (insn);
+              SCHED_GROUP_P (insn) = 0;
+            }
+          else
+            FENCE_SCHED_NEXT (fence) = NULL_RTX;
 
 	  advance_deps_context (BND_DC (bnd), insn);
 
@@ -3442,7 +3574,7 @@ sel_restore_other_notes (void)
       basic_block first, last;
 
       first = EBB_FIRST_BB (bb);
-      last = EBB_LAST_BB (bb)->next_bb;
+      last = bb_next_bb (EBB_LAST_BB (bb));
 
       do
 	{
@@ -3450,7 +3582,7 @@ sel_restore_other_notes (void)
 	  restore_other_notes (NULL, first);
 	  BB_NOTE_LIST (first) = NULL_RTX;
 
-          first = first->next_bb;
+          first = bb_next_bb (first);
 	}
       while (first != last);
     }
@@ -3665,7 +3797,7 @@ sel_region_finish (void)
               bitmap_set_bit (scheduled_blocks, BLOCK_TO_BB (bb1->index));
               print ("%d; ", bb1->index);
             }
-          while (!bb_ends_ebb_p (bb1) && (bb1 = bb1->next_bb));
+          while (!bb_ends_ebb_p (bb1) && (bb1 = bb_next_bb (bb1)));
 
           line_finish ();
 
@@ -4180,6 +4312,10 @@ sel_global_init (void)
   setup_sched_dump_to_stderr ();
   setup_sched_and_deps_infos ();
 
+  /* We want to create new pseudos occasionally.  */
+  if (!reload_completed)
+    no_new_pseudos = 0;
+
   sched_init ();
   sched_rgn_init (flag_sel_sched_single_block_regions != 0,
                   flag_sel_sched_ebb_regions != 0);
@@ -4217,6 +4353,13 @@ sel_global_finish (void)
 
   sched_rgn_finish ();
   sched_finish ();
+
+  if (!reload_completed)
+    {
+      /* We need to update the life information, because we can add pseudos.
+         However, the actual update was already done in sched_rgn_finish.  */
+      no_new_pseudos = 1;
+    }
 
   free_sel_dump_data ();
 }
@@ -4284,7 +4427,9 @@ static bool
 gate_handle_sel_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  return flag_selective_scheduling && flag_schedule_insns_after_reload;
+  return (reload_completed 
+          ? flag_selective_scheduling2 && flag_schedule_insns_after_reload
+          : flag_selective_scheduling && flag_schedule_insns);
 #else
   return false;
 #endif
@@ -4294,11 +4439,13 @@ gate_handle_sel_sched (void)
 static unsigned int
 handle_sel_sched (void)
 {
-  
   if (reload_completed)
     split_all_insns (1);
 #ifdef INSN_SCHEDULING
-  selective_scheduling_run ();
+  if (flag_selective_scheduling || flag_selective_scheduling2)
+    selective_scheduling_run ();
+  else
+    schedule_insns ();
 #endif
   return 0;
 }

@@ -486,7 +486,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_schedule_insns = 1;
       /* Turn off the sched2 pass in favor to selective scheduling.  */
       flag_schedule_insns_after_reload = 1;
-      flag_selective_scheduling = 1;
+      flag_selective_scheduling2 = 1;
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;

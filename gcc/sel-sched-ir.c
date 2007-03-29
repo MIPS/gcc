@@ -899,6 +899,10 @@ vinsn_separable_p (vinsn_t vi)
   if (!REG_P (VINSN_LHS (vi)) && !MEM_P (VINSN_LHS (vi)))
     return false;
 
+  /* ??? This will filter other tricky things like ZERO_EXTEND.  */
+  if (GET_CODE (VINSN_RHS (vi)) == ZERO_EXTEND)
+    return false;
+  
   /* Do not allow renaming of cheap insns.  See also PR #1.  */
   if (INSN_COST (VINSN_INSN (vi)) >= 0 && INSN_COST (VINSN_INSN (vi)) < 2)
     return false;
@@ -1554,6 +1558,10 @@ sel_finish_insn (void)
 	}
       else
 	{
+          /* Mark possibly trapping insns.  */
+          if (haifa_classify_insn (insn) == TRAP_RISKY)
+            MAY_TRAP (insn) = 1;
+          
 	  if (CANT_MOVE (insn) || prologue_epilogue_contains (insn))
 	    INSN_ASM_P (insn) = true;
 
@@ -2639,7 +2647,7 @@ bb_jump_only_p (basic_block bb)
 bool
 bb_ends_ebb_p (basic_block bb)
 {
-  basic_block next_bb = bb->next_bb;
+  basic_block next_bb = bb_next_bb (bb);
   edge e;
   edge_iterator ei;
   
@@ -2680,7 +2688,7 @@ in_same_ebb_p (insn_t insn, insn_t succ)
       if (bb_ends_ebb_p (ptr))
         return false;
 
-      ptr = ptr->next_bb;
+      ptr = bb_next_bb (ptr);
     }
 
   gcc_unreachable ();
@@ -2871,7 +2879,7 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p)
     }
   else
     {
-      merge_bb = empty_bb->next_bb;
+      merge_bb = bb_next_bb (empty_bb);
 
       gcc_assert (EDGE_COUNT (empty_bb->succs) == 1
 		  && EDGE_SUCC (empty_bb, 0)->dest == merge_bb);
@@ -2929,10 +2937,9 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p)
 
 	  e = EDGE_SUCC (empty_bb, 0);
 
-	  gcc_assert (e->dest == empty_bb->next_bb
-		      && (e->flags & EDGE_FALLTHRU));
+	  gcc_assert (e->flags & EDGE_FALLTHRU);
 
-	  succ = empty_bb->next_bb;
+	  succ = e->dest;
 	}
       else
 	succ = NULL;

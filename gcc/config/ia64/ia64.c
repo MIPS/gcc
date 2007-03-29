@@ -8603,7 +8603,7 @@ ia64_reorg (void)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 
   if (optimize && ia64_flag_schedule_insns2
-      && (!flag_selective_scheduling || flag_schedule_emulate_haifa))
+      && (!flag_selective_scheduling2 || flag_schedule_emulate_haifa))
     {
       timevar_push (TV_SCHED2);
       ia64_final_schedule = 1;
@@ -8677,7 +8677,7 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      if (flag_selective_scheduling)
+      if (flag_selective_scheduling2)
         selective_scheduling_run ();
       else
         schedule_ebbs ();
@@ -8696,7 +8696,7 @@ ia64_reorg (void)
     }
   else
     {
-      if (flag_selective_scheduling && optimize)
+      if (flag_selective_scheduling2 && optimize)
         {
           gcc_assert (!flag_schedule_emulate_haifa);
           selective_scheduling_run ();

@@ -818,6 +818,10 @@ fselective-scheduling
 Common Report Var(flag_selective_scheduling)
 Schedule instructions using selective scheduling algorithm
 
+fselective-scheduling2
+Common Report Var(flag_selective_scheduling2) 
+Run selective scheduling after reload
+
 fsel-sched-bookkeeping
 Common Report Var(flag_sel_sched_bookkeeping) Init(1)
 Schedule instructions that are below join point

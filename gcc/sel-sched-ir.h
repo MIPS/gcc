@@ -103,6 +103,8 @@ typedef struct _rhs *rhs_t;
 #define RHS_INSN(RHS) (VINSN_INSN (RHS_VINSN (RHS)))
 #define RHS_PAT(RHS) (PATTERN (RHS_INSN (RHS)))
 #define RHS_PRIORITY(RHS) ((RHS)->priority)
+#define RHS_DEST(RHS) (VINSN_LHS (RHS_VINSN (RHS))) 
+
 /* FIXME: rename it!!!  */
 #define RHS_SCHEDULE_AS_RHS(RHS) (VINSN_SEPARABLE (RHS_VINSN (RHS)))
 #define RHS_HAS_RHS(RHS) (VINSN_HAS_RHS (RHS_VINSN (RHS)))
@@ -1045,6 +1047,28 @@ _eligible_successor_edge_p (edge e1, int flags, edge *e2p)
 
 #define FOR_EACH_SUCC(SUCC, ITER, INSN) \
 FOR_EACH_SUCC_1 (SUCC, ITER, INSN, SUCCS_NORMAL)
+
+/* Return the next block of BB not running into inconsistencies.  */
+static inline basic_block
+bb_next_bb (basic_block bb)
+{
+  switch (EDGE_COUNT (bb->succs))
+    {
+    case 0:
+      return bb->next_bb;
+
+    case 1: 
+      return single_succ (bb);
+
+    case 2:
+      return FALLTHRU_EDGE (bb)->dest;
+      
+    default:
+      return bb->next_bb;
+    }
+
+  gcc_unreachable ();
+}
 
 #endif /* GCC_SEL_SCHED_IR_H */
 

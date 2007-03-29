@@ -54,6 +54,9 @@ struct deps_insn_data
 
   /* Some insns (e.g. call) are not allowed to move across blocks.  */
   unsigned int cant_move : 1;
+
+  /* Mark insns that may trap so we don't move them through jumps.  */
+  unsigned int may_trap : 1;
 };
 
 extern struct haifa_deps_insn_data *h_d_i_d;
@@ -66,6 +69,7 @@ extern struct deps_insn_data *d_i_d;
 #define INSN_DEP_COUNT(INSN)	(HDID (INSN).dep_count)
 #define HAS_INTERNAL_DEP(INSN)  (HDID (INSN).has_internal_dep)
 #define CANT_MOVE(INSN)		(DID (INSN).cant_move)
+#define MAY_TRAP(INSN)          (DID (INSN).may_trap)
 
 struct sched_deps_info_def
 {

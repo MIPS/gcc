@@ -1,3 +1,70 @@
+2007-03-29  Andrey Belevantsev  <abel@ispras.ru>
+
+        Allow the selective scheduler to work before reload.
+	* common.opt (fselective-scheduling2): New flag. 
+	* sel-sched.c (replace_in_vinsn_using_bitmask_1): Call exp_equiv_p
+	with FOR_GCSE set to true, not false.
+	(count_occurrences_1): Skip subregs of registers we're searching for.
+	(replace_src_with_reg): Do not generate the new register; use 
+	new_src_reg instead.
+	(replace_src_with_reg_ok_p): Change new_src_reg type from int to rtx.
+	Adjust the code accordingly.  Do not generate a new register.
+	Assert that dest's mode equals to new_src_reg's mode. 
+	(replace_dest_with_reg_in_vinsn): Change new_reg type from int 
+	to rtx.  Add clone_p parameter.  Don't generate a new register.
+	Copy rtx only when clone_p set to true.
+	(replace_dest_with_reg_in_rhs): Change new_reg type from int to rtx.
+	(replace_dest_with_reg_ok_p): Change reg_num type from int to rtx;
+	rename it to new_reg.  Adjust the code accordingly.
+	(rhs_dest_regno): Change the return type from int to unsigned.
+	Kill a spurious assert.
+	(vinsn_writes_one_of_regs_p): Split REGS in used_regs and 
+	unavailable_hard_regs.  Check both regsets.
+	(mark_unavailable_hard_regs): Fix formatting.  Return early when 
+	called for a pseudo.  If before reload, stop after processing 
+	frame_regs and stack_regs.
+	(choose_best_reg): Change return type to rtx.  Fix comment.
+	Check that all original operations have the same mode for dest.
+	(choose_best_pseudo_reg): New.
+	(find_best_reg_for_rhs): Change return type to rtx.  Kill assert 
+	for working only after reload.  Always pass unavailable_hard_regs
+	to find_used_regs.  When before reload, don't fill hard_regs_used,
+	call choose_best_pseudo_reg instead of choose_best_reg.
+	(moveup_rhs): Don't move trapping insns through jumps.  Tidy.
+	(sel_rank_for_schedule): Give preference to SCHED_GROUP_P insns.
+	Fix comment.
+	(fill_ready_list): Don't allow insns from a SCHED_GROUP to be 
+	scheduled if their ancestors havn't been scheduled.
+	(find_best_rhs_and_reg_that_fits): Change type of best_reg_found 
+	to rtx*.  Adjust the code accordingly.  Assert that we choose 
+	hard registers after reload.
+	(fill_insns): Change type of best_reg to rtx; adjust the code.
+	Adjust reg_rename_tick and regs_ever_live only when hard register
+	is chosen.  Properly set FENCE_SCHED_NEXT.
+	(generate_bookkeeping_insn): Pass true and reg when calling 
+	replace_dest_with_reg_in_vinsn.
+	(sel_global_init): Set no_new_pseudos to 0 before reload.
+	(sel_global_finish): Set it back to 1.
+	(gate_handle_sel_sched): Adjust for using flag_selective_scheduling2.
+	(handle_sel_sched): Ditto.
+	* opts.c (decode_options): Ditto.
+	* sel-sched-ir.c (vinsn_separable_p): Don't allow ZERO_EXTEND insns 
+	to be separable.
+	(sel_finish_insn): Set MAY_TRAP_P.
+	* sel-sched-ir.h (RHS_DEST): New macro.
+	(bb_next_bb): New function.  Use it instead of bb->next_bb in sel-*.c.
+	* sched-deps.c (extebd_deps_reg_info): New function.  
+	(sched_analyze_reg): Use it.
+	(sched_analyze_insn): Honor sched_emulate_haifa_p when processing 
+	libcalls and postcalls.  
+	* sched-deps.h (struct deps_insn_data): New bitfield may_trap.
+	(MAY_TRAP): New accessor.
+	* sched-rgn.c (gate_handle_sched): Honor flag_selective_scheduling.
+	* passes.c (init_optimization_passes): Schedule pass_sel_sched 
+	also before pass_sched.
+	* config/ia64/ia64.c (ia64_reorg): Adjust for 
+	flag_selective_scheduling2.
+
 2007-02-28  Andrey Belevantsev  <abel@ispras.ru>
 
         * sel-sched.c (replace_in_vinsn_using_bitmask): Fix spacing.

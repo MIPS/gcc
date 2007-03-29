@@ -813,6 +813,29 @@ ds_to_dt (ds_t ds)
    at the most toplevel SET.  */
 static bool can_start_lhs_rhs_p;
 
+/* Extend reg info for the deps context DEPS given that 
+   we have just generated a register numbered REGNO.  */
+static void
+extend_deps_reg_info (struct deps *deps, int regno)
+{
+  int max_regno = regno + 1;
+
+  gcc_assert (!reload_completed);
+      
+  if (max_regno >= max_reg_num ())
+    allocate_reg_info (max_regno, FALSE, FALSE);
+  
+  if (max_regno > deps->max_reg)
+    {
+      deps->reg_last = XRESIZEVEC (struct deps_reg, deps->reg_last, 
+                                   max_regno);
+      memset (&deps->reg_last[deps->max_reg],
+              0, (max_regno - deps->max_reg) 
+              * sizeof (struct deps_reg));
+      deps->max_reg = max_regno;
+    }
+}
+
 /* Analyze a single reference to register (reg:MODE REGNO) in INSN.
    The type of the reference is specified by REF and can be SET,
    CLOBBER, PRE_DEC, POST_DEC, PRE_INC, POST_INC or USE.  */
@@ -821,6 +844,11 @@ static void
 sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 		   enum rtx_code ref, rtx insn)
 {
+  /* We could emit new pseudos in renaming.  Extend the reg structures.  */
+  if (!reload_completed && SEL_SCHED_P
+      && (regno >= max_reg_num () - 1 || regno >= deps->max_reg))
+    extend_deps_reg_info (deps, regno);
+
   /* A hard reg in a wide mode may really be multiple registers.
      If so, mark all of them just like the first.  */
   if (regno < FIRST_PSEUDO_REGISTER)
@@ -1583,7 +1611,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
      current insn as being in a scheduling group and that it can not
      be moved into a different basic block.  */
 
-  if (deps->libcall_block_tail_insn)
+  if (deps->libcall_block_tail_insn
+      && (!SEL_SCHED_P || sched_emulate_haifa_p))
     {
       SCHED_GROUP_P (insn) = 1;
       CANT_MOVE (insn) = 1;
@@ -1634,8 +1663,11 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	  if (deps->in_post_call_group_p == post_call_initial)
 	    deps->in_post_call_group_p = post_call;
 
-	  SCHED_GROUP_P (insn) = 1;
-	  CANT_MOVE (insn) = 1;
+          if (!SEL_SCHED_P || sched_emulate_haifa_p) 
+            {
+              SCHED_GROUP_P (insn) = 1;
+              CANT_MOVE (insn) = 1;
+            }
 	}
       else
 	{
