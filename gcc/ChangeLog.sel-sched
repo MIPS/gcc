@@ -1,5 +1,28 @@
 2007-03-29  Dmitry Zhurikhin <zhur@ispras.ru>
 
+	* sel-sched.c (generate_bookkeeping_insn): Remove unneeded 
+	conditions when checking if bookkeeping insn can be generated in
+	existing block and fix coding.
+        (init_seqno_1): Remove assert.
+        (fill_insns): Remove unneeded moving of boundary. In rare case of
+	generating bookkeeping insn at the block above floating bb header
+	split this (upper) block after place_to_insert generating new 
+	floating bb header that way.
+        (sel_sched_region_1): Implement rescheduling of pipelined code.
+	* sel-sched-ir.c (sel_split_block): Added second parameter meaning
+	instruction, after which basic block should be splitted.
+	* sel-sched-ir.h: Correct declaration.
+	* sel-sched-dump.c (sel_print_insn): Check if INSN_VI is present
+        before referencing VINSN_SCHED_TIMES.
+	* common.opt (flag_sel_sched_reschedule_pipelined): New flag to 
+	reschedule pipelined code without pipelining after scheduling
+	region.
+	* sched-deps.c (sched_analyze_insn): Replace TRUE_BARRIER with
+	MOVE_BARRIER to generate anti instead of true dependencies for
+	JUMP followed with a BARRIER.
+
+2007-03-29  Dmitry Zhurikhin <zhur@ispras.ru>
+
 	* sel-sched.c (generate_bookkeeping_insn): Implement creating of 
 	bookkeeping insn in existing block if possible instead of always 
 	creating a new basic block for bookkeeping insn.

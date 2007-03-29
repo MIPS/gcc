@@ -70,7 +70,7 @@ static bool sel_dump_cfg_p;
 static bool sel_pipelining_verbose_p;
 
 /* Variables that are used to build the cfg dump file name.  */
-static const char * const sel_debug_cfg_root = "/tmp/cfg-dump";
+static const char * const sel_debug_cfg_root = "./";
 static const char * const sel_debug_cfg_root_postfix_default = "";
 static const char *sel_debug_cfg_root_postfix = "";
 static int sel_dump_cfg_fileno = -1;
@@ -482,12 +482,14 @@ sel_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 
   /* '+' before insn means it is a new cycle start and it's not been 
      scheduled yet.  '>' - has been scheduled.  */
-  if (s_i_d && INSN_UID (insn) < sel_max_uid)
+  if (s_i_d && INSN_VI (insn) && INSN_UID (insn) < sel_max_uid)
     if (GET_MODE (insn) == TImode)
-      sprintf (buf, "%s %4d", (INSN_SCHED_CYCLE (insn) > 0) ? "> " : "< ", 
+      sprintf (buf, "%s %4d", 
+               (VINSN_SCHED_TIMES (INSN_VI (insn)) > 0) ? "> " : "< ", 
                INSN_UID (insn));
     else
-      sprintf (buf, "%s %4d", INSN_SCHED_CYCLE (insn) > 0 ? "! " : "  ", 
+      sprintf (buf, "%s %4d", 
+               VINSN_SCHED_TIMES (INSN_VI (insn)) > 0 ? "! " : "  ", 
                INSN_UID (insn));
   else
     if (GET_MODE (insn) == TImode)

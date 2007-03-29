@@ -1403,7 +1403,15 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
       rtx next;
       next = next_nonnote_insn (insn);
       if (next && BARRIER_P (next))
-	reg_pending_barrier = TRUE_BARRIER;
+        /* Next line is a subject to an in-depth study.  First, in initial 
+           commit it was as it is now.  Then, in 2003 it was replaced by
+           "reg_pending_barrier = TRUE_BARRIER;" to prevent some bug on a
+           DSP processor scheduling return and some other instructions at 
+           one cycle.  At the same time that fix adds TRUE dependencies 
+           from instructions to JUMP instruction followed by a BARRIER.
+           (This prevents scheduling of jump and those instructions on one 
+           cycle for ia64 e.g.).  Reverting it to its original form.  */
+	reg_pending_barrier = MOVE_BARRIER;
       else
 	{
 	  rtx pending, pending_mem;

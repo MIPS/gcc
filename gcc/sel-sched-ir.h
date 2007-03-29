@@ -868,7 +868,7 @@ extern bool is_ineligible_successor (insn_t, ilist_t);
 extern void sel_add_or_remove_bb_1 (basic_block, bool);
 extern void sel_add_or_remove_bb (basic_block, bool);
 extern void sel_remove_empty_bb (basic_block, bool);
-extern basic_block sel_split_block (basic_block);
+extern basic_block sel_split_block (basic_block, insn_t);
 extern basic_block sel_redirect_edge_force (edge, basic_block);
 extern basic_block sel_create_basic_block (void *, void *, basic_block);
 extern basic_block sel_create_basic_block_before (basic_block);

@@ -834,6 +834,10 @@ fsel-sched-pipelining-verbose
 Common Report Var(flag_sel_sched_pipelining_verbose) Init(0)
 Be verbose when doing software pipelining
 
+fsel-sched-reschedule-pipelined
+Common Report Var(flag_sel_sched_reschedule_pipelined) Init(1)
+Reschedule pipelined regions without pipelining
+
 fsel-sched-renaming
 Common Report Var(flag_sel_sched_renaming) Init(0)
 Do register renaming in selective scheduling

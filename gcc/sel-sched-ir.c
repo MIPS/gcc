@@ -2964,7 +2964,7 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p)
 /* Splits BB on two basic blocks, adding it to the region and extending 
    per-bb data structures.  Returns the newly created bb.  */
 basic_block
-sel_split_block (basic_block bb)
+sel_split_block (basic_block bb, insn_t after)
 {
   basic_block new_bb;
 
@@ -2972,11 +2972,11 @@ sel_split_block (basic_block bb)
   insn_init.todo = ((INSN_INIT_TODO_ALL & ~INSN_INIT_TODO_SEQNO)
 		    | INSN_INIT_TODO_LV_SET);
 
-  new_bb = split_block_after_labels (bb)->dest;
+  new_bb = split_block (bb, after)->dest;
 
   sel_add_or_remove_bb (new_bb, true);
 
-  gcc_assert (bb_empty_p (bb));
+  /*gcc_assert (bb_empty_p (bb));*/
 
   return new_bb;
 }

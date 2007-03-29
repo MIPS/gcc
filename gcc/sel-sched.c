@@ -2745,18 +2745,14 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
       /* SRC is the block, in which we possibly can insert bookkeeping insn
          without creating new basic block.  It is the other (than E2->SRC)
          predecessor block of BB.  */
-      src = EDGE_PRED (bb, 0) == e2 ? 
-        EDGE_PRED (bb, 1)->src : EDGE_PRED (bb, 0)->src;
+      src = EDGE_PRED (bb, 0) == e2 
+        ? EDGE_PRED (bb, 1)->src : EDGE_PRED (bb, 0)->src;
       /* Instruction, after which we would try to insert bookkeeping insn.  */
       src_end = BB_END (src);
       gcc_assert (in_current_region_p (src));
 
-      if (/* Create a floating bb header if SRC_END was scheduled, otherwise 
-             we'll finish with wrong PLACE_TO_INSERT in FILL_INSNS.  */
-          (INSN_P (src_end) && VINSN_SCHED_TIMES (INSN_VI (src_end)) > 0)
-          /* Can't create bookkeeping in SRC because of jump.  */
-          || !single_succ_p (src)
-          || (INSN_P (src_end) && control_flow_insn_p (src_end)))
+      /* Cannot create bookkeeping after jumps.  */
+      if (INSN_P (src_end) && control_flow_insn_p (src_end))
         src = NULL;
     }
   else
@@ -2769,7 +2765,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, rtx reg, insn_t join_point, edge e1,
       can_add_real_insns_p = false;
 
       /* Split the head of the BB to insert BOOK_INSN there.  */
-      new_bb = sel_split_block (bb);
+      new_bb = sel_split_block (bb, NULL);
   
       /* Move note_list from the upper bb.  */
       gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
@@ -2879,29 +2875,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  bnd_t bnd = BLIST_BND (bnds1);
 	  av_set_t av1_copy;
 
-          rtx new_bnd_to = BND_TO (bnd);
-          rtx prev_new_bnd_to = PREV_INSN (new_bnd_to);
-
-          /* Bookkeeping insns could be generated before BND_TO (BND), 
-             so adjust BND_TO (BND).  */
-          while (prev_new_bnd_to 
-                 && INSN_P (prev_new_bnd_to) 
-                 && BLOCK_FOR_INSN (prev_new_bnd_to) 
-                    == BLOCK_FOR_INSN (BND_TO (bnd))
-                 && VINSN_SCHED_TIMES (INSN_VI (prev_new_bnd_to)) == 0)
-            {
-              new_bnd_to = prev_new_bnd_to;
-              prev_new_bnd_to = PREV_INSN (prev_new_bnd_to);
-            }
-	  if (BND_TO (bnd) != new_bnd_to)
-	    {
-	      line_start ();
-	      print ("boundary %d adjusted to %d", 
-	             INSN_UID (BND_TO (bnd)), INSN_UID (new_bnd_to));
-	      line_finish ();
-	    }
-          BND_TO (bnd) = new_bnd_to;
-
 	  av_set_clear (&BND_AV (bnd));
 	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, UNIQUE_RHSES);
 
@@ -3002,7 +2975,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    }
 	  else
 	    {
-	      insn_t place_to_insert;
+	      insn_t place_to_insert, new_bb_header = NULL;
 	      struct _rhs _c_rhs, *c_rhs = &_c_rhs;
 	      bool b;
 
@@ -3077,8 +3050,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 deleted the only valid LV_SET - how are we supposed to get a
 		 valid LV_SET for the inserted insn out of nowhere?  */
 
-	      gcc_assert (NOTE_INSN_BASIC_BLOCK_P (place_to_insert));
-
 	      {
 		insn_t prev_insn = PREV_INSN (place_to_insert);
 		basic_block bb = BLOCK_FOR_INSN (place_to_insert);
@@ -3086,7 +3057,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 		gcc_assert (!LV_SET_VALID_P (insn));
 
-		if (prev_insn == NULL_RTX
+                if (!NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
+                  {
+                    /* Bookkeeping insn was generated at the end of BB.  
+                       Create new floating bb header for it.  */
+                    bb = sel_split_block (bb, place_to_insert);
+                    new_bb_header = bb_head (bb);
+                  }
+		else if (prev_insn == NULL_RTX
 		    /* Or it is a label, a barrier or something strange
 		       alike.  */
 		    || !INSN_P (prev_insn)
@@ -3094,7 +3072,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		    || !in_current_region_p (prev_bb)
 		    || control_flow_insn_p (prev_insn))
 		  /* Split block to generate a new floating bb header.  */
-		  bb = sel_split_block (bb);
+                  bb = sel_split_block (bb, NULL);
 		else
 		  {
 		    gcc_assert (single_succ (prev_bb) == bb);
@@ -3126,17 +3104,23 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      add_insn_after (RHS_INSN (c_rhs), place_to_insert);
 
 	      if (NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
-		/* Initialize LV_SET of the bb header.  */
+                {
+                  gcc_assert (!new_bb_header);
+                  new_bb_header = insn;
+                }
+
+              /* Initialize LV_SET of the bb header.  */
+              if (new_bb_header)
 		{
 		/* !!! TODO: We should replace all occurencies of
 		   LV_SET_VALID_P () with LV_SET () != NULL.  Overwise it is
 		   not clear what a valid and invalid lv set is.  */
 
-		  if (LV_SET (insn) == NULL)
-		    LV_SET (insn) = get_clear_regset_from_pool ();
+		  if (LV_SET (new_bb_header) == NULL)
+		    LV_SET (new_bb_header) = get_clear_regset_from_pool ();
 
 		  ignore_first = true;
-		  compute_live (insn);
+		  compute_live (new_bb_header);
 		}
 	    }
 
@@ -3629,7 +3613,8 @@ init_seqno (void)
   cur_seqno = max_luid - 1;
 
   init_seqno_1 (EBB_FIRST_BB (0), visited_bbs);
-  gcc_assert (cur_seqno == 0);
+  /* This assert is not right, when rescheduling code.  */
+  /*gcc_assert (cur_seqno == 0);*/
 
   sbitmap_free (visited_bbs);
 
@@ -3884,7 +3869,7 @@ sel_region_finish (void)
           current_sched_info->prev_head = PREV_INSN (head);
           current_sched_info->next_tail = NEXT_INSN (tail);
   
-	  if (pipelining_p)
+	  if (pipelining_p && !flag_sel_sched_reschedule_pipelined)
 	    {
 	      int last_clock = 0;
 	      int haifa_last_clock = -1;
@@ -4025,9 +4010,10 @@ sel_region_finish (void)
 	      gcc_assert (cost >= 0);
 
 	      line_start ();
-	      print ("cost: %d\t", cost);
+	      print ("cost: %d\tcycle: %d\t", 
+                     cost, INSN_FINAL_SCHED_CYCLE (insn));
 	      dump_insn_1 (insn, (DUMP_INSN_UID | DUMP_INSN_BBN
-				  | DUMP_INSN_PATTERN | DUMP_INSN_CYCLE));
+				  | DUMP_INSN_PATTERN));
 	      line_finish ();
 
               if (issue_rate > 1
@@ -4258,7 +4244,8 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 }
 
 /* Schedule a region.  When pipelining, search for possibly never scheduled 
-   bookkeeping code and schedule it.  */
+   bookkeeping code and schedule it.  Reschedule pipelined code without 
+   pipelining after.  */
 static void
 sel_sched_region_1 (void)
 {
@@ -4286,46 +4273,123 @@ sel_sched_region_1 (void)
 
   if (pipelining_p)
     {
-      bool do_p = true;
+      int i;
+      insn_t head;
+      basic_block bb;
+      struct flist_tail_def _new_fences;
+      flist_tail_t new_fences = &_new_fences;
 
       pipelining_p = false;
 
-      while (do_p)
-	{
-	  int i;
+      if (!flag_sel_sched_reschedule_pipelined)
+        {
+          /* Schedule newly created code, that has not been scheduled yet.  */
+          bool do_p = true;
 
-	  do_p = false;
+          while (do_p)
+            {
+              do_p = false;
 
-	  for (i = 0; i < current_nr_blocks; i++)
-	    {
-	      basic_block bb = EBB_FIRST_BB (i);
-	      insn_t head = bb_head (bb);
-
-	      if (head != NULL_RTX && INSN_SCHED_CYCLE (head) <= 0)
-		{
-		  struct flist_tail_def _new_fences;
-		  flist_tail_t new_fences = &_new_fences;
-
-		  flist_tail_init (new_fences);
-
-		  /* Allow start of the scheduling at the code that was
-		     generated during previous stages.  */
-		  data->orig_max_seqno = data->highest_seqno_in_use;
-
-		  /* Mark BB as head of the new ebb.  */
-		  bitmap_set_bit (forced_ebb_heads, bb->index);
-
-		  gcc_assert (fences == NULL);
-
-		  init_fences (bb);
-
-		  sel_sched_region_2 (data);
-
-		  do_p = true;
-		  break;
-		}
-	    }
+              for (i = 0; i < current_nr_blocks; i++)
+                {
+                  bb = EBB_FIRST_BB (i);
+                  head = bb_head (bb);
+  
+                  if (head != NULL_RTX && INSN_SCHED_CYCLE (head) <= 0)
+                    {
+                      gcc_assert (INSN_SCHED_CYCLE (head) == 0);
+                      flist_tail_init (new_fences);
+  
+                      /* Allow start of the scheduling at the code that was
+                         generated during previous stages.  */
+                      data->orig_max_seqno = data->highest_seqno_in_use;
+  
+                      /* Mark BB as head of the new ebb.  */
+                      bitmap_set_bit (forced_ebb_heads, bb->index);
+  
+                      gcc_assert (fences == NULL);
+  
+                      init_fences (bb);
+  
+                      sel_sched_region_2 (data);
+  
+                      do_p = true;
+                      break;
+                    }
+                }
+            }
 	}
+      else
+        {
+          basic_block loop_entry;
+
+          /* Schedule region pre-header first.  */
+          bb = EBB_FIRST_BB (0);
+          head = bb_head (bb);
+  
+          if (head != NULL_RTX)
+            {
+              gcc_assert (INSN_SCHED_CYCLE (head) == 0);
+              flist_tail_init (new_fences);
+
+              /* Allow start of the scheduling at the code that was
+                 generated during previous stages.  */
+              data->orig_max_seqno = data->highest_seqno_in_use;
+
+              /* Mark BB as head of the new ebb.  */
+              bitmap_set_bit (forced_ebb_heads, bb->index);
+
+              gcc_assert (fences == NULL);
+
+              init_fences (bb);
+
+              sel_sched_region_2 (data);
+            }
+
+          /* Reschedule pipelined code without pipelining.  */
+          loop_entry = EBB_FIRST_BB (1);
+
+          while (loop_entry && EDGE_COUNT (loop_entry->preds) == 1)
+            loop_entry = loop_entry->next_bb;
+
+          gcc_assert (loop_entry && EDGE_COUNT (loop_entry->preds) == 2);
+
+          for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
+            {
+              insn_t insn, next_tail;
+
+              bb = EBB_FIRST_BB (i);
+              get_ebb_head_tail (bb, bb, &head, &next_tail);
+
+              if (head == NULL_RTX || !INSN_P (head))
+                continue;
+
+              next_tail = NEXT_INSN (next_tail);
+
+              /* Clear outdated information.  */
+              for (insn = head;
+                   insn != next_tail;
+                   insn = NEXT_INSN (insn))
+                {
+                  gcc_assert (INSN_P (insn));
+                  INSN_SCHED_CYCLE (insn) = 0;
+                  VINSN_SCHED_TIMES (INSN_VI (insn)) = 0;
+                  INSN_FINAL_SCHED_CYCLE (insn) = 0;
+                }
+            }
+
+          data->orig_max_seqno = init_seqno ();
+          flist_tail_init (new_fences);
+
+          /* Mark BB as head of the new ebb.  */
+          bitmap_set_bit (forced_ebb_heads, loop_entry->index);
+
+          gcc_assert (fences == NULL);
+
+          init_fences (loop_entry);
+
+          sel_sched_region_2 (data);
+        }
 
       pipelining_p = true;
     }
