@@ -1,3 +1,38 @@
+2007-03-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/30500
+	* g++.dg/warn/pragma-system_header1.C: New test.
+	* g++.dg/warn/pragma-system_header2.C: New test.
+	* g++.dg/warn/pragma-system_header1.h. New.
+	* g++.dg/warn/pragma-system_header2.h. New.	
+
+2007-03-26  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/31345
+	* gcc.c-torture/compile/pr31345-1.c: New test.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.dg/func_derived_4.f90: Fix module cleanup.
+	* gfortran.dg/gomp/appendix-a/a.22.4.f90: Clean up modules.
+	* gfortran.dg/gomp/appendix-a/a.26.2.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.32.1.f90: Likewise.
+	* gfortran.dg/overload_1.f90: Likewise.
+	* gfortran.dg/impure_assignment_1.f90: Likewise.
+	* gfortran.dg/error_recovery_3.f90: Likewise.
+	* gfortran.dg/alloc_comp_basics_1.f90: Likewise.
+	* gfortran.dg/sequence_types_1.f90: Likewise.
+	* gfortran.dg/internal_references_1.f90: Likewise.
+	* gfortran.dg/present_1.f90: Likewise.
+	* gfortran.dg/volatile10.f90: Likewise.
+	* gfortran.dg/module_equivalence_2.f90: Likewise.
+	* gfortran.dg/use_4.f90: Likewise.
+	* gfortran.dg/elemental_result_1.f90: Likewise.
+	* gfortran.dg/generic_actual_arg.f90: Likewise.
+	* gfortran.dg/private_type_5.f90: Likewise.
+	* gfortran.dg/protected_4.f90: Likewise.
+	* gfortran.dg/interface_3.f90: Likewise.
+
 2007-03-29  Chao-ying Fu  <fu@mips.com>
 
 	* gcc.dg/fixed-ponit/noassoc.c: New test.
