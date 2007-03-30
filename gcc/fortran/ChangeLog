@@ -1,3 +1,29 @@
+2007-03-30  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* symbol.c (gfc_find_gsymbol): Simplify, don't unconditionally
+	descend into all branches.
+
+2007-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* intrinsic.c (conv_name): Let gfc_get_string handle the format.
+	(find_conv): Compare pointers instead of calling strcmp.
+	(find_sym): Likewise, but ensure that the compared pointer is in
+	the global string table.
+
+2007-03-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfc-internals.texi: Fix output filename.  Merge type index into
+	concept index.  Start documentation of gfc_code structure.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfc-internals.texi: New file,
+	* Make-lang.in: Add rules to convert it to dvi, pdf, and info.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+ 
+	* error.c (show_locus): Remove always-false test.
+
 2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* lang.opt: Minor edits to descriptions.

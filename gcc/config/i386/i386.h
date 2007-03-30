@@ -235,6 +235,7 @@ enum ix86_tune_indices {
   X86_TUNE_EXT_80387_CONSTANTS,
   X86_TUNE_SHORTEN_X87_SSE,
   X86_TUNE_AVOID_VECTOR_DECODE,
+  X86_TUNE_PROMOTE_HIMODE_IMUL,
   X86_TUNE_SLOW_IMUL_IMM32_MEM,
   X86_TUNE_SLOW_IMUL_IMM8,
   X86_TUNE_MOVE_M1_VIA_OR,
@@ -312,6 +313,8 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_SHORTEN_X87_SSE	ix86_tune_features[X86_TUNE_SHORTEN_X87_SSE]
 #define TARGET_AVOID_VECTOR_DECODE \
 	ix86_tune_features[X86_TUNE_AVOID_VECTOR_DECODE]
+#define TARGET_TUNE_PROMOTE_HIMODE_IMUL \
+	ix86_tune_features[X86_TUNE_PROMOTE_HIMODE_IMUL]
 #define TARGET_SLOW_IMUL_IMM32_MEM \
 	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM32_MEM]
 #define TARGET_SLOW_IMUL_IMM8	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM8]
@@ -2344,8 +2347,6 @@ enum ix86_stack_slot
   (! IN_RANGE ((SRC), FIRST_STACK_REG, LAST_STACK_REG))
 
 
-#define DLL_IMPORT_EXPORT_PREFIX '#'
-
 #define FASTCALL_PREFIX '@'
 
 struct machine_function GTY(())
@@ -2395,6 +2396,17 @@ struct machine_function GTY(())
 #define SYMBOL_FLAG_FAR_ADDR		(SYMBOL_FLAG_MACH_DEP << 0)
 #define SYMBOL_REF_FAR_ADDR_P(X)	\
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_FAR_ADDR) != 0)
+
+/* Flags to mark dllimport/dllexport.  Used by PE ports, but handy to
+   have defined always, to avoid ifdefing.  */
+#define SYMBOL_FLAG_DLLIMPORT		(SYMBOL_FLAG_MACH_DEP << 1)
+#define SYMBOL_REF_DLLIMPORT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLIMPORT) != 0)
+
+#define SYMBOL_FLAG_DLLEXPORT		(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_REF_DLLEXPORT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLEXPORT) != 0)
+
 /*
 Local variables:
 version-control: t

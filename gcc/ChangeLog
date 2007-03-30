@@ -1,3 +1,269 @@
+2007-03-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* regmove.c: Move all of pass_stack_adjustments from here...
+	* combine-stack-adj.c: ...to this new file.
+	* Makefile.in: Add rules for combine-stack-adj.o.
+
+2007-03-30  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/31383
+	* tree-data-ref.c (affine_function_equal_p): Do not require the vectors
+	to have the same length.
+
+2007-03-30  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/PR30700
+	* dwarf2out.c (reference_to_unused): Ask cgraph for functions 
+	availablility; add more sanity checking; ask varpool only about
+	VAR_DECL.
+
+2007-03-29  Richard Henderson  <rth@redhat.com>
+
+	* unwind-generic.h (_sleb128_t, _uleb128_t): Don't use HAVE_LONG_LONG
+	to decide, but __SIZEOF_LONG_LONG__.
+
+2007-03-29  Richard Henderson  <rth@redhat.com>
+
+	* emutls.c (struct __emutls_array): New.
+	(emutls_destroy): Use it instead of casting element 0 from void*.
+	(__emutls_get_address): Likewise.
+
+2007-03-29  Richard Henderson  <rth@redhat.com>
+
+	* varasm.c (initializer_constant_valid_p): Don't deny
+	DECL_DLLIMPORT_P on functions.
+
+	* config/i386/cygming.h: Remove function declarations.
+	(SUBTARGET_ENCODE_SECTION_INFO): Don't undef first.
+	(ASM_OUTPUT_LABELREF): Remove.
+	(COMMON_ASM_OP): Remove.
+	(ASM_OUTPUT_COMMON): Remove.
+	(ASM_OUTPUT_ALIGNED_DECL_COMMON): New.
+	(ASM_DECLARE_OBJECT_NAME): Use i386_pe_maybe_record_exported_symbol.
+	(ASM_DECLARE_FUNCTION_NAME): Likewise.
+	* config/i386/i386-interix.h (SUBTARGET_ENCODE_SECTION_INFO):
+	Rename from TARGET_ENCODE_SECTION_INFO.
+	* config/i386/netware.h: Likewise.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Turn ifdef
+	of TARGET_DLLIMPORT_DECL_ATTRIBUTES into straight if.
+	(legitimate_constant_p): Reject dllimports.
+	(dllimport_map, get_dllimport_decl): New.
+	(legitimize_dllimport_symbol): New.
+	(legitimize_address, ix86_expand_move): Use it.
+	(TARGET_BINDS_LOCAL_P): Redefine for TARGET_DLLIMPORT_DECL_ATTRIBUTES.
+	* config/i386/i386.h (DLL_IMPORT_EXPORT_PREFIX): Remove.
+	(SYMBOL_FLAG_DLLIMPORT, SYMBOL_REF_DLLIMPORT_P): New.
+	(SYMBOL_FLAG_DLLEXPORT, SYMBOL_REF_DLLEXPORT_P): New.
+	* config/i386/predicates.md (constant_call_address_operand): Only
+	accept symbols; reject dllimport_p symbols.
+	* config/i386/uwin.h (ASM_DECLARE_FUNCTION_NAME): Use
+	i386_pe_maybe_record_exported_symbol.
+	* config/i386/winnt.c (DLL_IMPORT_PREFIX, DLL_EXPORT_PREFIX): Remove.
+	(i386_pe_determine_dllexport_p): Rename from i386_pe_dllexport_p.
+	(i386_pe_determine_dllimport_p): Rename from i386_pe_dllimport_p;
+	trust the setting of DECL_DLLIMPORT_P.
+	(i386_pe_dllexport_name_p, i386_pe_dllimport_name_p): Remove.
+	(i386_pe_mark_dllexport, i386_pe_mark_dllimport): Remove.
+	(gen_stdcall_or_fastcall_suffix): Return NULL if no change required;
+	tidy the argument scanning loop.
+	(i386_pe_encode_section_info): Set SYMBOL_FLAG_DLLIMPORT and
+	SYMBOL_FLAG_DLLEXPORT in SYMBOL_REF_FLAGS.
+	(i386_pe_strip_name_encoding): Remove.
+	(i386_pe_binds_local_p): New.
+	(i386_pe_strip_name_encoding_full): Use default_strip_name_encoding.
+	(i386_pe_output_labelref): Remove.
+	(i386_pe_asm_output_aligned_decl_common): New.
+	(i386_pe_maybe_record_exported_symbol): Rename from
+	i386_pe_record_exported_symbol; check for dllexported symbols.
+
+2007-03-29  Zack Weinberg  <zack@mrtock.ucsd.edu>
+
+	* gengtype.c (oprintf): Mostly revert changes from 2007-03-26;
+	add comment explaining why vsnprintf cannot be used.
+
+2007-03-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR tree-optimization/30666
+	* tree.c (build_complex_type): When creating type names for DWARF2
+	debug info, create TYPE_DECLs for TYPE_NAME instead of
+	IDENTIFIER_NODEs.
+	(build_common_tree_nodes_2): Use build_complex_type when building
+	predefined complex types, to preserve canonical types.
+
+2007-03-29  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* ifcvt.c (struct noce_if_info): Add then_else_reversed field.
+	(noce_get_alt_condition): Look at it to determine whether to
+	reverse the condition or not.
+	(noce_get_condition): Substitute the truth for lies.
+	(noce_find_if_block): Set the then_else_reversed field.
+
+2007-03-29  Lars Poeschel <larsi@wh2.tu-dresden.de>
+
+	* config/fr30/fr30.md (movdi): Do not accept immediates as the
+	destination of this insn.
+	* config/fr30/fr30.c (fr30_move_double): Use emit_move_insn rather
+	than calling gen_rtx_SET directly.  Use r0 to hold the value of
+	'address + 4' rather than a stack based temporary which can be
+	mis-optimized away.
+	
+2007-03-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_secondary_input_reload_class,
+	s390_secondary_output_reload_class): Functions removed.
+	(s390_secondary_reload): New function.
+	(TARGET_SECONDARY_RELOAD): Target macro defined.
+	* config/s390/s390.h (SECONDARY_INPUT_RELOAD_CLASS,
+	SECONDARY_OUTPUT_RELOAD_CLASS): Macro definitions removed.
+	* config/s390/s390.md ("reload_outti", "reload_outdi",
+	"reload_indi", "reload_insi", "reload_out<mode>", "reload_in<mode>",
+	"reload_out<mode>"): Expanders removed.
+	("reload<mode>_plus", "reload<mode>_nonoffmem_in",
+	"reload<mode>_nonoffmem_out"): Expanders added.
+
+2007-03-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* regmove.c (optimize_reg_copy_1): Don't perform DEST->SRC repair action if
+	SRC->DEST replacement failed anyway.
+
+2007-03-28  Mike Stump  <mrs@apple.com>
+
+	* config/darwin9.h (ASM_OUTPUT_ALIGNED_COMMON): Add.
+	* config/darwin.h (MAX_OFILE_ALIGNMENT): Fix.
+	* config/rs6000/darwin.h (ASM_OUTPUT_ALIGNED_COMMON): Removed #undef.
+
+2007-03-28  Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* config.gcc: Accept barcelona as a variant of amdfam10.
+	* config/i386/i386.c (override_options): Likewise.
+	* doc/invoke.texi: Likewise.
+	
+2007-03-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-dfa.c (get_ref_base_and_extent): Do not expect positive
+	offsets for BIT_FIELD_REF and COMPONENT_REF.
+
+2007-03-28  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (is_global_var): Move ...
+	* tree-flow-inline.h (is_global_var): ... here.
+	* tree.h (is_global_var): Remove declaration.
+
+2007-03-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (X86_TUNE_PROMOTE_HIMODE_IMUL): New tuning
+	option.
+	(TARGET_TUNE_PROMOTE_HIMODE_IMUL): New define. Use new tuning option.
+	* config/i386/i386.c (ix86_tune_features): Initialize new
+	tuning option.
+	* config/i386/predicates.md (promotable_binary_operator): Use
+	TARGET_TUNE_PROMOTE_HIMODE_IMUL.
+
+2007-03-28  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	PR target/31380
+	* config/i386/sse.md (uminv16qi3): Use UMIN instead of UMAX.
+
+2007-03-28  Lars Poeschel <larsi@wh2.tu-dresden.de>
+
+	* config/fr30/fr30.md (movsi_internal): Change destination
+	constraint from m to V and add m to the end. 
+
+2007-03-28  Christian Bruel  <christian.bruel@st.com>
+
+	* config/sh/sh.md (movsi_i): Fix type attribute.
+
+2007-03-28  Christian Bruel  <christian.bruel@st.com>
+
+	* config/sh/sh.md (movsi_ie): Fix memory constraints attribute length.
+	(movsf_ie): Likewise.
+
+2007-03-28  Christian Bruel  <christian.bruel@st.com>
+
+	* config.gcc: Add sh4-300 to multilib.
+	* config/sh/t-mlib-sh4-300: New file.
+
+2007-03-28  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("fix_trunc<mode>di2"): New expander.
+	("fix_trunc<DFP:mode>di2_dfp"): New insn definition renamed from
+	fix_trunc<mode>di2.
+	("fixuns_truncdddi2", "fixuns_trunctddi2"): Use 
+	fix_trunc<DFP:mode>di2_dfp instead of fix_trunc<mode>di2.
+	("fix_truncdfsi2", "fix_truncsfsi2", "fixuns_truncdddi2",
+	"fixuns_trunctddi2"): Whitespace fix.
+
+2007-03-28  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (CALL_COOKIE_RET_TRAMP_SHIFT): Move after
+	the definition of struct sh_args.
+	(CALL_COOKIE_RET_TRAMP, CALL_COOKIE_STACKSEQ_SHIFT,
+	CALL_COOKIE_INT_REG_GET): Likewise.
+
+2007-03-28  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* ifcvt.c (cond_exec_find_if_block): Return FALSE if no
+	transformations are applied successfully.
+
+2007-03-27  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* tree.c (tree_contains_struct): Permit 512 tree codes.
+	* tree.h (tree_contains_struct): Ditto.
+	(MAX_TREE_CODES): Ditto.
+	(struct tree_base): Make CODE 16 bits, instead of 8 bits. Add
+	SPARE member to store remaining padding bits.
+
+2007-03-27  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_types): Move at90usb82 device to 'avr4' 
+	architecture.
+
+2007-03-27  Janis Johnson  <janis187@us.ibm.com>
+
+	* configure.ac: Fix assembler test for powerpc*-linux decimal float.
+	* configure: Regenerate.
+
+	* configure: Regenerate using the correct version of autoconf.
+
+2007-03-27  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_hard_regno_mode_ok): Disallow QImode in stack
+	pointer regs.
+	* config/avr/avr.h (REGISTER_NAMES): Rename "__SPL__" and "__SPH__"
+	regs to "__SP_L__" and "__SP_H__".
+
+2007-03-27  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (get_ref_base_and_extent): Replace bit_offset and
+	computations with it with a HOST_WIDE_INT variable.  
+
+2007-03-26  Mike Stump  <mrs@apple.com>
+
+	* config/rs6000/darwin.h (DARWIN_MINVERSION_SPEC): Add
+	objective-c-header, objective-c++-header and objc++-cpp-output
+	support.
+	* config/i386/darwin.h (DARWIN_MINVERSION_SPEC): Likewise.
+
+2007-03-26  Richard Henderson  <rth@redhat.com>
+
+	PR target/31361
+	* config/i386/i386.c (IX86_BUILTIN_PSLLDQ128, IX86_BUILTIN_PSLLW128,
+	IX86_BUILTIN_PSLLD128, IX86_BUILTIN_PSLLQ128, IX86_BUILTIN_PSRAW128,
+	IX86_BUILTIN_PSRAD128, IX86_BUILTIN_PSRLW128, IX86_BUILTIN_PSRLD128,
+	IX86_BUILTIN_PSRLQ128): New.
+	(ix86_init_mmx_sse_builtins): Add them.
+	(ix86_expand_builtin): Expand them.
+	* config/i386/sse.md (ashr<mode>3, lshr<mode>3, ashl<mode>3): Make
+	operand 2 be TImode.
+	* config/i386/emmintrin.h (_mm_slli_epi64, _mm_srai_epi16,
+	_mm_srai_epi32, _mm_srli_epi16, _mm_srli_epi32,
+	_mm_srli_epi64): Mark __B const.
+	(_mm_srli_si128, _mm_srli_si128): Fix disabled inline versions.
+	(_mm_sll_epi16, _mm_sll_epi32, _mm_sll_epi64, _mm_sra_epi16,
+	_mm_sra_epi32, _mm_srl_epi16, _mm_srl_epi32, _mm_srl_epi64): Use 
+	new two-vector shift builtins.
+
 2007-03-26  Ian Lance Taylor  <iant@google.com>
 
 	PR tree-optimization/31345
@@ -205,7 +471,7 @@
 	IX86_BUILTIN_PSRAW128, IX86_BUILTIN_PSRAD128, IX86_BUILTIN_PSRLW128,
 	IX86_BUILTIN_PSRLD128, IX86_BUILTIN_PSRLQ128): Remove.
 	(ix86_init_mmx_sse_builtins): Remove v8hi_ftype_v8hi_v2di and
-	v4si_ftype_v4si_v2di.   Remove __builtin_ia32_psllw128,
+	v4si_ftype_v4si_v2di.  Remove __builtin_ia32_psllw128,
 	__builtin_ia32_pslld128, __builtin_ia32_psllq128,
 	__builtin_ia32_psrlw128, __builtin_ia32_psrld128,
 	__builtin_ia32_psrlq128, __builtin_ia32_psraw128 and

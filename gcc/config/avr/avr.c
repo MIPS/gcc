@@ -208,7 +208,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90pwm1",  4, "__AVR_AT90PWM1__" },
   { "at90pwm2",  4, "__AVR_AT90PWM2__" },
   { "at90pwm3",  4, "__AVR_AT90PWM3__" },
-  { "at90usb82",   5, "__AVR_AT90USB82__" },
+  { "at90usb82",   4, "__AVR_AT90USB82__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
@@ -5610,6 +5610,10 @@ jump_over_one_insn_p (rtx insn, rtx dest)
 int
 avr_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
+  /* Disallow QImode in stack pointer regs.  */
+  if ((regno == REG_SP || regno == (REG_SP + 1)) && mode == QImode)
+    return 0;
+
   /* The only thing that can go into registers r28:r29 is a Pmode.  */
   if (regno == REG_Y && mode == Pmode)
     return 1;
