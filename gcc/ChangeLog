@@ -1,3 +1,176 @@
+2007-03-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/arm/arm.c, config/arm/thumb2.md, config/m68k/m68k.c,
+	config/spu/spu.c, omega.h, passes.c, predict.c: Fix comment
+	typos.
+	* doc/cpp.texi, doc/extend.texi, doc/invoke.texi: Fix typos.
+	Follow spelling conventions.
+
+	* tree-data-ref.h: Remove the prototype for analyze_array.
+
+2007-03-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31041
+	* tree-vect-transform.c (get_initial_def_for_induction): Call
+	force_gimple_operand.
+	
+2007-03-17  Olga Golovanevsky  <olga@il.ibm.com>
+  
+  	* ipa-type-escape.c (look_for_casts) : Revert code to use
+	handled_component_p due to ada test a-numaux.adb.
+
+2007-03-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* final.c (final_scan_insn): Alter the condition of a
+	conditional trap if we have nonstandard CC.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac: Remove excess quoting from asm line 0 test.
+	* configure: Rebuilt.
+
+2007-03-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (-Wconversion): Document warnings specific to C++.
+	* c-common.c (convert_and_check): Move warning logic to...
+	(warnings_for_convert_and_check): ...here. Define.
+	* c-common.h (warnings_for_convert_and_check): Declare.
+	
+2007-03-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (attr_length_call): Partially revert change of 2007-03-09.
+	(output_call): Likewise.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/vxworks.h (SUPPORTS_INIT_PRIORITY): Define.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/vx-common.h (WINT_TYPE, WINT_TYPE_SIZE): Define.
+
+2007-03-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (override_options): Add PTA_NO_SAHF to k8,
+	opteron, athlon-64 and athlon-fx processor_alias_table entries.
+
+2007-03-16  Sebastian Pop  <sebastian.pop@inria.fr>
+
+	PR tree-optimization/31183
+	* tree-loop-linear.c (gather_interchange_stats, try_interchange_loops): 
+	Use double_int instead of unsigned int for representing access_strides.
+	* testsuite/gcc.dg/tree-ssa/pr31183.c: New.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Restructure
+	to allow recursion of forward_propagate_addr_expr.
+	(forward_propagate_addr_into_variable_array_index): Likewise.
+	(forward_propagate_addr_expr): Likewise.
+	(tree_ssa_forward_propagate_single_use_vars): Likewise.
+	(forward_propagate_addr_expr_1): Recurse on simple copies
+	instead of propagating into them.  Do so for useless conversions
+	as well.
+	(forward_propagate_addr_expr): Clean up unused statements after
+	recursion.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (expand_builtin_cexpi): Use the right argument
+	for the expansion via cexp.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac: Don't require ELF binutils to tolerate # 0 "".
+	* configure: Rebuilt.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* dwarf2out.c (force_type_die): Adjust comment.
+	(dwarf2out_imported_module_or_decl): Handle base AT_import types.
+
+2007-03-15  DJ Delorie  <dj@redhat.com>
+
+	* config/frv/predicates.md (minmax_operator): Don't check operands
+	here.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (record_estimate): Add "upper" argument.
+	Update constant estimates of number of iterations.
+	(record_nonwrapping_iv): Add "upper" argument.  "data_size_bounds_p"
+	argument renamed to "realistic".
+	(compute_estimated_nb_iterations): Removed.
+	(record_niter_bound): New function.
+	(idx_infer_loop_bounds): For possible but unlikely tail arrays,
+	call record_nonwrapping_iv with upper = false.
+	(infer_loop_bounds_from_signedness): Pass upper argument to
+	record_nonwrapping_iv.
+	(estimate_numbers_of_iterations_loop): Do not call
+	compute_estimated_nb_iterations.  Record estimate based on profile
+	information.  Initialize the constant estimates of number of
+	iterations.
+	* tree-data-ref.c (estimated_loop_iterations): Return the recorded
+	estimates.
+	* tree-ssa-loop-prefetch.c (loop_prefetch_arrays): Add dump when
+	number of iterations is too small.
+	* cfgloop.h (struct nb_iter_bound): Remove "realistic" field.
+	(EST_NOT_AVAILABLE): Removed.
+	(struct loop): Replace estimated_nb_iterations by any_upper_bound,
+	nb_iterations_upper_bound, any_estimate and nb_iterations_estimate
+	fields.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (refine_bounds_using_guard, bound_difference):
+	Handle NE_EXPR guards.
+
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24924
+	* c-opts.c (c_common_post_options): Handle C++ post-processing here.
+	Set also -pedantic-errors by default for the  preprocessor unless
+	-fpermissive is given.
+	
+2007-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/29719
+	PR middle-end/31161
+	* builtins.c (expand_builtin_cexpi): As a fallback if we
+	don't have builtins for sincos or cexp create a function
+	declaration for cexp and expand to a call to that.
+	(expand_builtin_int_roundingfn): Always fall
+	back to floor/ceil and its variants even if they may be
+	not available.
+
+2007-03-15  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/31159
+	* cfglayout.c (fixup_reorder_chain): Postpone deleting dead
+	jump tables, move the call to delete_dead_jumptables from here...
+	(cfg_layout_finalize): ...to here.  But rebuild jump labels first.
+	* cfgrtl.c (cfg_layout_can_merge_blocks_p): When not optimizing,
+	don't allow merging of blocks that try_redirect_by_replacing_jump
+	also does not handle when not optimizing.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* config/i386/i386.md (x86_sahf_1): Correctly handle
+	HAVE_AS_IX86_SAHF.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31167
+	* config/i386/i386.md (*addti3_1, *addti3_1 splitter): Use
+	x86_64_general_operand as operand[2] predicate.  Remove "iF"
+	from operand constraints and use "e" constraint instead.
+	(*subti3_1, *subti3_1 splitter): Ditto.
+	(*negti2_1, *negti2_1 splitter): Use nonimmediate_operand as
+	operand[1] predicate.
+
 2007-03-14  Sebastian Pop  <sebastian.pop@inria.fr>
 
 	* tree-loop-linear.c (gather_interchange_stats): For multidimensional

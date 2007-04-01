@@ -1,3 +1,127 @@
+2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31120
+	* gfortran.dg/integer_exponentiation_2.f90: New test.
+
+2007-03-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/31041
+	* gcc.dg/vect/pr31041.c: New test.
+
+2007-03-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* g++.dg/warn/Wconversion-integer.C: New
+	* g++.dg/warn/Wconversion-real.C: New.
+	* g++.dg/warn/Wconversion-real-integer.C: New.
+	* g++.dg/warn/conv2.C: Updated.
+	
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/intmax_t-1.c: Restrict XFAIL to VxWorks kernels;
+	exclude RTPs.
+
+2007-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31146
+	* g++.dg/tree-ssa/pr31146.C: New testcase.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_missing_uclibc_feature): Don't
+	assume that the target has <features.h>.
+
+2007-03-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/20020426-2.c: Add the fpic requirement to the PIC
+	dg-options rather than to the whole test.
+
+2007-03-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/29906
+	* g++.dg/debug/pr29906.C: New
+
+2007-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31099
+	* gfortran.dg/unformatted_recl.f90: Update test.
+
+2007-03-15  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/prefetch-5.c: New test.
+
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/30891
+	* g++.dg/parse/namespace-definition.C: New.
+	
+2007-03-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/24924
+	* g++.dg/cpp/pedantic-errors.C: New.
+	* g++.dg/cpp/permissive.C: New.
+	
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* g++.dg/opt/mmx1.C: Only use the PIC options for fpic targets.
+	* g++.old-deja/g++.other/store-expr1.C: Require fpic.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_missing_uclibc_feature)
+	(check_effective_target_wchar): New procedures.
+	* gcc.dg/wchar_t-1.c: Require target wchar.
+	* gcc.dg/wint_t-1.c: Likewise.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_gc_sections_available): Return
+	false for VxWorks targets.
+
+2007-03-15  Dirk Mueller  <dmueller@suse.de>
+
+	* g++.dg/warn/Wconversion2.C: Fix typo.
+	* gcc.dg/if-empty-1.c: Ditto.
+
+2007-03-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/cpp/assert4.c: Treat VxWorks as a unix target.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/cmpxchg16b-1.c: Compile for lp64 targets only.
+	* gcc.target/i386/pr31167.c: Ditto.
+
+2007-03-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31167
+	* gcc.target/i386/pr31167.c: New test.
+
+2007-03-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30922
+	* gfortran.dg/import5.f90.f90: New test.
+
+
+	PR fortran/30879
+	* gfortran.dg/data_components_1.f90: New test.
+
+
+	PR fortran/30870
+	* gfortran.dg/generic_13.f90: New test.
+
+	PR fortran/31163
+	* gfortran.dg/alloc_comp_basics_5.f90: New test.
+
+2007-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31051
+	* gfortran.dg/fmt_t_4.f90: New
+
+2007-03-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/31165
+	* g++.dg/other/default7.C: New test.
+
 2007-03-15  Dirk Mueller  <dmueller@suse.de>
 
 	* g++.dg/warn/Wconversion2.C: New.
@@ -30,7 +154,7 @@
 
 2007-03-13  Uros Bizjak  <ubizjak@gmail.com>
 
-	* testsuite/gcc.target/i386/cmpxchg16b-1.c: New test.
+	* gcc.target/i386/cmpxchg16b-1.c: New test.
 
 2007-03-12  Seongbae Park <seongbae.park@gmail.com>
 

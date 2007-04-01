@@ -62,7 +62,7 @@ contains
     print *, 'c_int_fast64_t is:       ', c_int_fast64_t
 
     if(my_intmax_t /= 1_c_intmax_t) call abort()
-    if(my_intptr_t /= 4_c_intptr_t) call abort()
+    if(my_intptr_t /= 0_c_intptr_t) call abort()
 
     if(my_float       /= 1.0_c_float) call abort()
     if(my_double      /= 2.0_c_double) call abort()

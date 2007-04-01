@@ -1,3 +1,37 @@
+2007-03-16  David Edelsohn  <edelsohn@gnu.org>
+
+	* runtime/main.c: Include "config.h" first.
+
+2007-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31099
+	* io/file_pos.c (st_rewind): Don't set bytes_left to zero.
+
+2007-03-15  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* runtime/backtrace.c: New file.
+	* runtime/environ.c (variable_table): New GFORTRAN_ERROR_BACKTRACE
+	environment variable.
+	* runtime/compile_options.c (set_std): Add new argument.
+	* runtime/main.c (store_exe_path, full_exe_path): New functions.
+	* runtime/error.c (sys_exit): Add call to show_backtrace.
+	* libgfortran.h (options_t): New backtrace field.
+	(store_exe_path, full_exe_path, show_backtrace): New prototypes.
+	* configure.ac: Add checks for execinfo.h, execvp, pipe, dup2,
+	close, fdopen, strcasestr, getrlimit, backtrace, backtrace_symbols
+	and getppid.
+	* Makefile.am: Add runtime/backtrace.c.
+	* fmain.c (main): Add call to store_exe_path.
+	* Makefile.in: Renegerate.
+	* config.h.in: Renegerate.
+	* configure: Regenerate.
+
+2007-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31051
+	* io/transfer.c (formatted_transfer_scalar): Adjust position for pending
+	spaces when in writing mode.  Clean up some formatting.
+
 2007-03-14  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/30690
