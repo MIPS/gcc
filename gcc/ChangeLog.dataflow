@@ -1,3 +1,8 @@
+2007-04-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* config/ia64/ia64.c (emit_predicate_relation_info): Changed
+	DF_LIVE_IN to df_get_live_in.
+
+
 2007-03-29  Paolo Bonzini  <bonzini@gnu.org>
 
 	* bitmap.c (bitmap_elt_copy, bitmap_elt_ior): New.
