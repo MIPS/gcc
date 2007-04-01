@@ -3,6 +3,12 @@ Welcome to the ISO_C_BINDING sandbox!
 Please comment here the changes you make to the code, dated with every
 commit to the branch, so that we don't get lost.
 
+2007-04-01  Tobias Burnus  <burnus@net-b.de>
+
+	* iso-c-binding.def: Add PR reference.
+	* gfortran.dg/c_kind_params.f90: Make test runable.
+	* gfortran.dg/c_kinds.c: Ditto.
+
 2007-03-20  Tobias Burnus  <burnus@net-b.de>
 
 	* decl.c (variable_decl): Initialize typespec's ISO C variables.

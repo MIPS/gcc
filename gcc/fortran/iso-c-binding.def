@@ -76,6 +76,7 @@ NAMED_INTCST (ISOCBINDING_INT_LEAST32_T, "c_int_least32_t", \
 NAMED_INTCST (ISOCBINDING_INT_LEAST64_T, "c_int_least64_t", \
               get_int_kind_from_minimal_width (64))
 
+/* TODO: Implement c_int_fast*_t. Depends on PR 448.  */ 
 NAMED_INTCST (ISOCBINDING_INT_FAST8_T, "c_int_fast8_t", -2)
 NAMED_INTCST (ISOCBINDING_INT_FAST16_T, "c_int_fast16_t", -2)
 NAMED_INTCST (ISOCBINDING_INT_FAST32_T, "c_int_fast32_t", -2)
