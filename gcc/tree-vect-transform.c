@@ -489,6 +489,9 @@ vect_init_vector (tree stmt, tree vector_var, tree vector_type)
   tree new_temp;
   basic_block new_bb;
  
+  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+    loop = loop->inner;
+
   new_var = vect_get_new_vect_var (vector_type, vect_simple_var, "cst_");
   add_referenced_var (new_var); 
  
@@ -514,6 +517,7 @@ vect_init_vector (tree stmt, tree vector_var, tree vector_type)
 /* Function get_initial_def_for_induction
 
    Input:
+   STMT - a stmt that performs an induction operation in the loop.
    IV_PHI - the initial value of the induction variable
 
    Output:
@@ -528,10 +532,10 @@ get_initial_def_for_induction (tree iv_phi)
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (iv_phi);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  struct loop *iv_loop;
   tree scalar_type = TREE_TYPE (iv_phi);
   tree vectype = get_vectype_for_scalar_type (scalar_type);
   int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
-  edge pe = loop_preheader_edge (loop);
   basic_block new_bb;
   block_stmt_iterator bsi;
   tree vec, vec_init, vec_step, t;
@@ -547,7 +551,14 @@ get_initial_def_for_induction (tree iv_phi)
   int ncopies = vf / nunits;
   tree expr;
   stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
+  bool nested_in_vect_loop = false;
+  edge pe;
   tree stmts;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree exit_phi;
+  edge latch_e;
+  tree loop_arg;
   tree stmt = NULL_TREE;
   block_stmt_iterator si;
   basic_block bb = bb_for_stmt (iv_phi);
@@ -563,12 +574,44 @@ get_initial_def_for_induction (tree iv_phi)
         break;
     }
 
-  access_fn = analyze_scalar_evolution (loop, PHI_RESULT (iv_phi));
+  if (INTEGRAL_TYPE_P (scalar_type))
+    step_expr = build_int_cst (scalar_type, 0); 
+  else 
+    step_expr = build_real (scalar_type, dconst0);
+
+  /* Is phi in an inner-loop, while vectorizing an enclosing outer-loop?  */
+  if (loop->inner && (loop->inner == (bb_for_stmt (iv_phi))->loop_father))
+    {
+      nested_in_vect_loop = true;
+      iv_loop = loop->inner;
+    }
+  else
+    iv_loop = loop;
+  gcc_assert (iv_loop == (bb_for_stmt (iv_phi))->loop_father);
+  
+  latch_e = loop_latch_edge (iv_loop);
+  loop_arg = PHI_ARG_DEF_FROM_EDGE (iv_phi, latch_e);
+
+  access_fn = analyze_scalar_evolution (iv_loop, PHI_RESULT (iv_phi));
   gcc_assert (access_fn);
-  ok = vect_is_simple_iv_evolution (loop->num, access_fn, &init_expr, &step_expr);
+  ok = vect_is_simple_iv_evolution (iv_loop->num, access_fn, 
+				    &init_expr, &step_expr);
   gcc_assert (ok);
+  pe = loop_preheader_edge (iv_loop);
 
   /* Create the vector that holds the initial_value of the induction.  */
+  if (nested_in_vect_loop)
+    {
+      /* iv_loop is nested in the loop to be vectorized.  init_expr had already
+	 been created during vectorization of previous stmts; We obtain it from
+	 the STMT_VINFO_VEC_STMT of the defining stmt. */
+      tree iv_def = PHI_ARG_DEF_FROM_EDGE (iv_phi, loop_preheader_edge (iv_loop));
+      vec_init = vect_get_vec_def_for_operand (iv_def, iv_phi, NULL);
+    }
+  else
+    {
+      /* iv_loop is the loop to be vectorized. Create:
+	 vec_init = [X, X+S, X+2*S, X+3*S] (S = step_expr, X = init_expr)  */
   new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
   add_referenced_var (new_var);
 
@@ -580,12 +623,12 @@ get_initial_def_for_induction (tree iv_phi)
     }
 
   t = NULL_TREE;
-  t = tree_cons (NULL_TREE, new_name, t);
+      t = tree_cons (NULL_TREE, init_expr, t);
   for (i = 1; i < nunits; i++)
     {
       tree tmp;
 
-      /* Create: new_name = new_name + step_expr  */
+	  /* Create: new_name_i = new_name + step_expr  */
       tmp = fold_build2 (PLUS_EXPR, scalar_type, new_name, step_expr);
       init_stmt = build_gimple_modify_stmt (new_var, tmp);
       new_name = make_ssa_name (new_var, init_stmt);
@@ -601,24 +644,36 @@ get_initial_def_for_induction (tree iv_phi)
         }
       t = tree_cons (NULL_TREE, new_name, t);
     }
+      /* Create a vector from [new_name_0, new_name_1, ..., new_name_nunits-1]  */
   vec = build_constructor_from_list (vectype, nreverse (t));
-  vec_init = vect_init_vector (stmt, vec, vectype);
+      vec_init = vect_init_vector (iv_phi, vec, vectype);
+    }
 
 
   /* Create the vector that holds the step of the induction.  */
-  expr = build_int_cst (scalar_type, vf);
-  new_name = fold_build2 (MULT_EXPR, scalar_type, expr, step_expr);
+  if (nested_in_vect_loop)
+    /* iv_loop is nested in the loop to be vectorized. Generate:
+       vec_step = [S, S, S, S]  */
+    new_name = step_expr;
+  else
+    {
+      /* iv_loop is the loop to be vectorized. Generate:
+	  vec_step = [VF*S, VF*S, VF*S, VF*S]  */
+      expr = build_int_cst (scalar_type, vf);
+      new_name = fold_build2 (MULT_EXPR, scalar_type, expr, step_expr);
+    }
+
   t = NULL_TREE;
   for (i = 0; i < nunits; i++)
     t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
   vec = build_constructor_from_list (vectype, t);
-  vec_step = vect_init_vector (stmt, vec, vectype);
+  vec_step = vect_init_vector (iv_phi, vec, vectype);
 
 
   /* Create the following def-use cycle:
      loop prolog:
-         vec_init = [X, X+S, X+2*S, X+3*S]
-	 vec_step = [VF*S, VF*S, VF*S, VF*S]
+         vec_init = ...
+	 vec_step = ...
      loop:
          vec_iv = PHI <vec_init, vec_loop>
          ...
@@ -629,7 +684,7 @@ get_initial_def_for_induction (tree iv_phi)
   /* Create the induction-phi that defines the induction-operand.  */
   vec_dest = vect_get_new_vect_var (vectype, vect_simple_var, "vec_iv_");
   add_referenced_var (vec_dest);
-  induction_phi = create_phi_node (vec_dest, loop->header);
+  induction_phi = create_phi_node (vec_dest, iv_loop->header);
   set_stmt_info (get_stmt_ann (induction_phi),
                  new_stmt_vec_info (induction_phi, loop_vinfo));
   induc_def = PHI_RESULT (induction_phi);
@@ -644,11 +699,11 @@ get_initial_def_for_induction (tree iv_phi)
   vect_finish_stmt_generation (stmt, new_stmt, &bsi);
 
   /* Set the arguments of the phi node:  */
-  add_phi_arg (induction_phi, vec_init, loop_preheader_edge (loop));
-  add_phi_arg (induction_phi, vec_def, loop_latch_edge (loop));
+  add_phi_arg (induction_phi, vec_init, pe);
+  add_phi_arg (induction_phi, vec_def, loop_latch_edge (iv_loop));
 
 
-  /* In case the vectorization factor (VF) is bigger than the number
+  /* In case that vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
      more than one vector stmt - i.e - we need to "unroll" the
      vector stmt by a factor VF/nunits.  For more details see documentation
@@ -657,6 +712,8 @@ get_initial_def_for_induction (tree iv_phi)
   if (ncopies > 1)
     {
       stmt_vec_info prev_stmt_vinfo;
+      /* FORNOW. This restriction should be relaxed.  */
+      gcc_assert (!nested_in_vect_loop);
 
       /* Create the vector that holds the step of the induction.  */
       expr = build_int_cst (scalar_type, nunits);
@@ -665,7 +722,7 @@ get_initial_def_for_induction (tree iv_phi)
       for (i = 0; i < nunits; i++)
 	t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
       vec = build_constructor_from_list (vectype, t);
-      vec_step = vect_init_vector (stmt, vec, vectype);
+      vec_step = vect_init_vector (iv_phi, vec, vectype);
 
       vec_def = induc_def;
       prev_stmt_vinfo = vinfo_for_stmt (induction_phi);
@@ -673,7 +730,7 @@ get_initial_def_for_induction (tree iv_phi)
 	{
 	  tree tmp;
 
-	  /* vec_i = vec_prev + vec_{step*nunits}  */
+	  /* vec_i = vec_prev + vec_step  */
 	  tmp = build2 (PLUS_EXPR, vectype, vec_def, vec_step);
 	  new_stmt = build_gimple_modify_stmt (NULL_TREE, tmp);
 	  vec_def = make_ssa_name (vec_dest, new_stmt);
@@ -685,6 +742,37 @@ get_initial_def_for_induction (tree iv_phi)
 	  prev_stmt_vinfo = vinfo_for_stmt (new_stmt); 
 	}
     }
+
+  if (nested_in_vect_loop)
+    {
+      /* Find the loop-closed exit-phi of the induction, and record
+         the final vector of induction results:  */
+      exit_phi = NULL;
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, loop_arg)
+        {
+	  if (!flow_bb_inside_loop_p (iv_loop, bb_for_stmt (USE_STMT (use_p))))
+	    {
+	      exit_phi = USE_STMT (use_p);
+	      break;
+	    }
+        }
+      if (exit_phi) 
+	{
+	  stmt_vec_info stmt_vinfo = vinfo_for_stmt (exit_phi);
+	  /* FORNOW. Currently not supporting the case that an inner-loop induction
+	     is not used in the outer-loop (i.e. only outside the outer-loop).  */
+	  gcc_assert (STMT_VINFO_RELEVANT_P (stmt_vinfo)
+		      && !STMT_VINFO_LIVE_P (stmt_vinfo));
+
+	  STMT_VINFO_VEC_STMT (stmt_vinfo) = new_stmt;
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "vector of inductions after inner-loop:");
+	      print_generic_expr (vect_dump, new_stmt, TDF_SLIM);
+	    }
+	}
+    }
+
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -721,7 +809,6 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree vec_inv;
   tree vec_cst;
   tree t = NULL_TREE;
@@ -806,14 +893,20 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
         def_stmt_info = vinfo_for_stmt (def_stmt);
         vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
         gcc_assert (vec_stmt);
-        vec_oprnd = GIMPLE_STMT_OPERAND (vec_stmt, 0);
+	if (TREE_CODE (vec_stmt) == PHI_NODE)
+	  vec_oprnd = PHI_RESULT (vec_stmt);
+	else
+	  vec_oprnd = GIMPLE_STMT_OPERAND (vec_stmt, 0);
         return vec_oprnd;
       }
 
     /* Case 4: operand is defined by a loop header phi - reduction  */
     case vect_reduction_def:
       {
+	struct loop *loop;
+
         gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
+	loop = (bb_for_stmt (def_stmt))->loop_father; 
 
         /* Get the def before the loop  */
         op = PHI_ARG_DEF_FROM_EDGE (def_stmt, loop_preheader_edge (loop));
@@ -825,8 +918,12 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
       {
 	gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
 
-	/* Get the def before the loop  */
-	return get_initial_def_for_induction (def_stmt);
+        /* Get the def from the vectorized stmt.  */
+        def_stmt_info = vinfo_for_stmt (def_stmt);
+        vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
+        gcc_assert (vec_stmt && (TREE_CODE (vec_stmt) == PHI_NODE));
+        vec_oprnd = PHI_RESULT (vec_stmt);
+        return vec_oprnd;
       }
 
     default:
@@ -1039,7 +1136,12 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
 
-  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
+  gcc_assert (stmt == bsi_stmt (*bsi));
+  
+  if (TREE_CODE (stmt) == LABEL_EXPR)
+    bsi_insert_after (bsi, vec_stmt, BSI_SAME_STMT);
+  else
+    bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
   set_stmt_info (get_stmt_ann (vec_stmt), 
 		 new_stmt_vec_info (vec_stmt, loop_vinfo)); 
 
@@ -1107,6 +1209,8 @@ static tree
 get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
   int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
   enum tree_code code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1));
@@ -1117,8 +1221,14 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
   tree t = NULL_TREE;
   int i;
   tree vector_type;
+  bool nested_in_vect_loop= false; 
 
   gcc_assert (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
+  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+    nested_in_vect_loop = true;
+  else
+    gcc_assert (loop == (bb_for_stmt (stmt))->loop_father);
+
   vecdef = vect_get_vec_def_for_operand (init_val, stmt, NULL);
 
   switch (code)
@@ -1126,7 +1236,10 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
   case WIDEN_SUM_EXPR:
   case DOT_PROD_EXPR:
   case PLUS_EXPR:
-    *adjustment_def = init_val;
+      if (nested_in_vect_loop)
+	*adjustment_def = vecdef;
+      else
+	*adjustment_def = init_val;
     /* Create a vector of zeros for init_def.  */
     if (INTEGRAL_TYPE_P (type))
       def_for_init = build_int_cst (type, 0);
@@ -1215,23 +1328,30 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   tree new_phi;
   block_stmt_iterator exit_bsi;
   tree vec_dest;
-  tree new_temp;
+  tree new_temp = NULL_TREE;
   tree new_name;
-  tree epilog_stmt;
-  tree new_scalar_dest, exit_phi;
+  tree epilog_stmt = NULL_TREE;
+  tree new_scalar_dest, exit_phi, new_dest;
   tree bitsize, bitpos, bytesize; 
   enum tree_code code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1));
-  tree scalar_initial_def;
+  tree adjustment_def;
   tree vec_initial_def;
   tree orig_name;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
-  bool extract_scalar_result;
-  tree reduction_op;
+  bool extract_scalar_result = false;
+  tree reduction_op, expr;
   tree orig_stmt;
   tree use_stmt;
   tree operation = GIMPLE_STMT_OPERAND (stmt, 1);
+  bool nested_in_vect_loop = false;
   int op_type;
+  
+  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+    {
+      loop = loop->inner;
+      nested_in_vect_loop = true;
+    }
   
   op_type = TREE_OPERAND_LENGTH (operation);
   reduction_op = TREE_OPERAND (operation, op_type-1);
@@ -1245,7 +1365,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
      the scalar def before the loop, that defines the initial value
      of the reduction variable.  */
   vec_initial_def = vect_get_vec_def_for_operand (reduction_op, stmt,
-						  &scalar_initial_def);
+						  &adjustment_def);
   add_phi_arg (reduction_phi, vec_initial_def, loop_preheader_edge (loop));
 
   /* 1.2 set the loop-latch arg for the reduction-phi:  */
@@ -1323,6 +1443,15 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   new_scalar_dest = vect_create_destination_var (scalar_dest, NULL);
   bitsize = TYPE_SIZE (scalar_type);
   bytesize = TYPE_SIZE_UNIT (scalar_type);
+
+
+  /* In case this is a reduction in an inner-loop while vectorizing an outer
+     loop - we don't need to extract a single scalar result at the end of the
+     inner-loop.  The final vector of partial results will be used in the
+     vectorized outer-loop, or reduced to a scalar result at the end of the
+     outer-loop.  */
+  if (nested_in_vect_loop)
+    goto vect_finalize_reduction;
 
   /* 2.3 Create the reduction code, using one of the three schemes described
          above.  */
@@ -1470,6 +1599,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
     {
       tree rhs;
 
+      gcc_assert (!nested_in_vect_loop);
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "extract scalar result");
 
@@ -1488,25 +1618,38 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
       bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
     }
 
-  /* 2.4 Adjust the final result by the initial value of the reduction
-	 variable. (When such adjustment is not needed, then
-	 'scalar_initial_def' is zero).
+vect_finalize_reduction:
 
-	 Create: 
-	 s_out4 = scalar_expr <s_out3, scalar_initial_def>  */
+  /* 2.5 Adjust the final result by the initial value of the reduction
+	 variable. (When such adjustment is not needed, then
+	 'adjustment_def' is zero).  For example, if code is PLUS we create:
+         new_temp = loop_exit_def + adjustment_def  */
   
-  if (scalar_initial_def)
+  if (adjustment_def)
     {
-      tree tmp = build2 (code, scalar_type, new_temp, scalar_initial_def);
-      epilog_stmt = build_gimple_modify_stmt (new_scalar_dest, tmp);
-      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
+      if (nested_in_vect_loop)
+	{
+	  gcc_assert (TREE_CODE (TREE_TYPE (adjustment_def)) == VECTOR_TYPE);
+	  expr = build2 (code, vectype, PHI_RESULT (new_phi), adjustment_def);
+	  new_dest = vect_create_destination_var (scalar_dest, vectype);
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (TREE_TYPE (adjustment_def)) != VECTOR_TYPE);
+	  expr = build2 (code, scalar_type, new_temp, adjustment_def);       
+	  new_dest = vect_create_destination_var (scalar_dest, scalar_type);
+	}
+      epilog_stmt = build_gimple_modify_stmt (new_dest, expr);
+      new_temp = make_ssa_name (new_dest, epilog_stmt);
       GIMPLE_STMT_OPERAND (epilog_stmt, 0) = new_temp;
       bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
     }
 
-  /* 2.6 Replace uses of s_out0 with uses of s_out3  */
 
-  /* Find the loop-closed-use at the loop exit of the original scalar result.  
+  /* 2.6  Handle the loop-exit phi  */
+
+  /* Replace uses of s_out0 with uses of s_out3:
+     Find the loop-closed-use at the loop exit of the original scalar result.  
      (The reduction result is expected to have two immediate uses - one at the 
      latch block, and one at the loop exit).  */
   exit_phi = NULL;
@@ -1520,6 +1663,25 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
     }
   /* We expect to have found an exit_phi because of loop-closed-ssa form.  */
   gcc_assert (exit_phi);
+  if (nested_in_vect_loop)
+    {
+      stmt_vec_info stmt_vinfo = vinfo_for_stmt (exit_phi);
+
+      /* FORNOW. Currently not supporting the case that an inner-loop reduction
+	 is not used in the outer-loop (but only outside the outer-loop).  */
+      gcc_assert (STMT_VINFO_RELEVANT_P (stmt_vinfo) 
+		  && !STMT_VINFO_LIVE_P (stmt_vinfo));
+
+      epilog_stmt = adjustment_def ? epilog_stmt :  new_phi;
+      STMT_VINFO_VEC_STMT (stmt_vinfo) = epilog_stmt;
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "vector of partial results after inner-loop:");
+          print_generic_expr (vect_dump, epilog_stmt, TDF_SLIM);
+        }
+      return;
+    }
+
   /* Replace the uses:  */
   orig_name = PHI_RESULT (exit_phi);
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, orig_name)
@@ -1601,15 +1763,26 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree new_stmt = NULL_TREE;
   int j;
 
+  if (loop->inner && (loop->inner == (bb_for_stmt (stmt))->loop_father))
+    {
+      loop = loop->inner;
+      /* FORNOW. This restriction should be relaxed.  */
+      if (ncopies > 1)
+	return false;
+    }
+
   gcc_assert (ncopies >= 1);
 
   /* 1. Is vectorizable reduction?  */
 
   /* Not supportable if the reduction variable is used in the loop.  */
-  if (STMT_VINFO_RELEVANT_P (stmt_info))
+  if (STMT_VINFO_RELEVANT (stmt_info) > vect_used_in_outer)
     return false;
 
-  if (!STMT_VINFO_LIVE_P (stmt_info))
+  /* Reductions that are not used even in an enclosing outer-loop,
+     are expected to be "live" (used out of the loop).  */
+  if (STMT_VINFO_RELEVANT (stmt_info) == vect_unused_in_loop
+      && !STMT_VINFO_LIVE_P (stmt_info))
     return false;
 
   /* Make sure it was already recognized as a reduction computation.  */
@@ -5468,8 +5641,18 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	      fprintf (vect_dump, "------>vectorizing statement: ");
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	    }	
+
 	  stmt_info = vinfo_for_stmt (stmt);
-	  gcc_assert (stmt_info);
+
+	  /* vector stmts created in the outer-loop during vectorization of
+	     stmts in an inner-loop may not have a stmt_info, and do not
+	     need to be vectorized.  */
+	  if (!stmt_info)
+	    {
+	      bsi_next (&si);
+	      continue;
+	    }
+
 	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
 	      && !STMT_VINFO_LIVE_P (stmt_info))
 	    {
@@ -5541,4 +5724,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
     fprintf (vect_dump, "LOOP VECTORIZED.");
+  if (loop->inner && vect_print_dump_info (REPORT_VECTORIZED_LOOPS))
+    fprintf (vect_dump, "OUTER LOOP VECTORIZED.");
 }

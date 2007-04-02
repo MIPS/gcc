@@ -154,6 +154,12 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
 NITERS_KNOWN_P((L)->num_iters)
 
+static inline loop_vec_info
+loop_vec_info_for_loop (struct loop *loop)
+{
+  return (loop_vec_info) loop->aux;
+}
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/
@@ -176,6 +182,8 @@ enum stmt_vec_info_type {
 /* Indicates whether/how a variable is used in the loop.  */
 enum vect_relevant {
   vect_unused_in_loop = 0,
+  vect_used_in_outer_by_reduction,
+  vect_used_in_outer,
 
   /* defs that feed computations that end up (only) in a reduction. These
      defs may be used by non-reduction stmts, but eventually, any 
@@ -344,6 +352,15 @@ is_pattern_stmt_p (stmt_vec_info stmt_info)
   return false;
 }
 
+static inline bool
+is_loop_header_bb_p (basic_block bb)
+{
+  if (bb == (bb->loop_father)->header)
+    return true;
+  gcc_assert (EDGE_COUNT (bb->preds) == 1);
+  return false;
+}
+
 /*-----------------------------------------------------------------*/
 /* Info on data references alignment.                              */
 /*-----------------------------------------------------------------*/
@@ -411,7 +428,7 @@ extern bool supportable_widening_operation (enum tree_code, tree, tree,
   tree *, tree *, enum tree_code *, enum tree_code *);
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
-extern void destroy_loop_vec_info (loop_vec_info);
+extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
 
 

@@ -1362,7 +1362,7 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (TREE_CODE (stmt) == PHI_NODE && is_loop_header_bb_p (bb_for_stmt (stmt)))
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
@@ -1380,6 +1380,20 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
 }
 
 
+/* Function bb_in_loop_p
+
+   Used as predicate for dfs order traversal of the loop bbs.  */
+
+static bool
+bb_in_loop_p (basic_block bb, void *data)
+{
+  struct loop *loop = (struct loop *)data;
+  if (flow_bb_inside_loop_p (loop, bb))
+    return true;
+  return false;
+}
+
+
 /* Function new_loop_vec_info.
 
    Create and initialize a new loop_vec_info struct for LOOP, as well as
@@ -1391,18 +1405,49 @@ new_loop_vec_info (struct loop *loop)
   loop_vec_info res;
   basic_block *bbs;
   block_stmt_iterator si;
-  unsigned int i;
+  unsigned int i, nbbs;
 
   res = (loop_vec_info) xcalloc (1, sizeof (struct _loop_vec_info));
+  LOOP_VINFO_LOOP (res) = loop;
 
   bbs = get_loop_body (loop);
 
-  /* Create stmt_info for all stmts in the loop.  */
+  /* Create/Update stmt_info for all stmts in the loop.  */
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
       tree phi;
 
+      /* BBs in a nested inner-loop will have been already processed (because 
+	 we will have called vect_analyze_loop_form for any nested inner-loop).
+	 Therefore, for stmts in an inner-loop we just want to update the 
+	 STMT_VINFO_LOOP_VINFO field of their stmt_info to point to the new 
+	 loop_info of the outer-loop we are currently considering to vectorize 
+	 (instead of the loop_info of the inner-loop).
+	 For stmts in other BBs we need to create a stmt_info from scratch.  */
+      if (bb->loop_father != loop)
+	{
+	  /* Inner-loop bb.  */
+	  gcc_assert (loop->inner && bb->loop_father == loop->inner);
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	    {
+	      stmt_vec_info stmt_info = vinfo_for_stmt (phi);
+	      loop_vec_info inner_loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+	      gcc_assert (loop->inner == LOOP_VINFO_LOOP (inner_loop_vinfo));
+	      STMT_VINFO_LOOP_VINFO (stmt_info) = res;
+	    }
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	   {
+	      tree stmt = bsi_stmt (si);
+	      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+	      loop_vec_info inner_loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+	      gcc_assert (loop->inner == LOOP_VINFO_LOOP (inner_loop_vinfo));
+	      STMT_VINFO_LOOP_VINFO (stmt_info) = res;
+	   }
+	}
+      else
+	{
+	  /* bb in current nest.  */
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
         {
           stmt_ann_t ann = get_stmt_ann (phi);
@@ -1412,14 +1457,23 @@ new_loop_vec_info (struct loop *loop)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
-	  stmt_ann_t ann;
-
-	  ann = stmt_ann (stmt);
+	      stmt_ann_t ann = stmt_ann (stmt);
 	  set_stmt_info (ann, new_stmt_vec_info (stmt, res));
 	}
     }
+    }
 
-  LOOP_VINFO_LOOP (res) = loop;
+  /* CHECKME: We want to visit all BBs before their successors (except for 
+     latch blocks, for which this assertion wouldn't hold).  In the simple 
+     case of the loop forms we allow, a dfs order of the BBs would the same 
+     as reversed postorder traversal, so we are safe.  */
+
+   free (bbs);
+   bbs = XCNEWVEC (basic_block, loop->num_nodes);
+   nbbs = dfs_enumerate_from (loop->header, 0, bb_in_loop_p, 
+			      bbs, loop->num_nodes, loop);
+   gcc_assert (nbbs == loop->num_nodes);
+
   LOOP_VINFO_BBS (res) = bbs;
   LOOP_VINFO_NITERS (res) = NULL;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
@@ -1441,7 +1495,7 @@ new_loop_vec_info (struct loop *loop)
    stmts in the loop.  */
 
 void
-destroy_loop_vec_info (loop_vec_info loop_vinfo)
+destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
 {
   struct loop *loop;
   basic_block *bbs;
@@ -1456,6 +1510,18 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
 
   bbs = LOOP_VINFO_BBS (loop_vinfo);
   nbbs = loop->num_nodes;
+
+  if (!clean_stmts)
+    {
+      free (LOOP_VINFO_BBS (loop_vinfo));
+      free_data_refs (LOOP_VINFO_DATAREFS (loop_vinfo));
+      free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
+      VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
+
+      free (loop_vinfo);
+      loop->aux = NULL;
+      return;
+    }
 
   for (j = 0; j < nbbs; j++)
     {
@@ -1717,6 +1783,28 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "type of def: %d.",*dt);
+
+  /* FORNOW. We currently don't support multiple data-types in inner-loops
+     during outer-loop vectorization.  This restriction will be relaxed.  */
+  if (*def_stmt
+      && loop->inner 
+      && (loop->inner == (bb_for_stmt (*def_stmt))->loop_father))  
+    {
+      stmt_vec_info stmt_info = vinfo_for_stmt (*def_stmt);
+      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+
+      if (vectype)
+	{
+	  int nunits = TYPE_VECTOR_SUBPARTS (vectype);
+	  int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+	  if (ncopies > 1)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "Multiple-types in inner-loop.");
+	      return false;
+	    }
+	}
+    }
 
   switch (TREE_CODE (*def_stmt))
     {
@@ -2080,13 +2168,16 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
 
 
   /* Check that one def is the reduction def, defined by PHI,
-     the other def is either defined in the loop by a GIMPLE_MODIFY_STMT,
-     or it's an induction (defined by some phi node).  */
+     the other def is either defined in the loop ("vect_loop_def"),
+     or it's an induction (defined by a loop-header phi-node).  */
 
   if (def2 == phi
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def1))
       && (TREE_CODE (def1) == GIMPLE_MODIFY_STMT 
-	  || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def1)) == vect_induction_def))
+	  || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def1)) == vect_induction_def
+	  || (TREE_CODE (def1) == PHI_NODE 
+	      && STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def1)) == vect_loop_def
+	      && !is_loop_header_bb_p (bb_for_stmt (def1)))))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         {
@@ -2098,7 +2189,10 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
   else if (def1 == phi
 	   && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
 	   && (TREE_CODE (def2) == GIMPLE_MODIFY_STMT 
-	       || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def2)) == vect_induction_def))
+	       || STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def2)) == vect_induction_def
+	       || (TREE_CODE (def2) == PHI_NODE
+		   && STMT_VINFO_DEF_TYPE (vinfo_for_stmt (def2)) == vect_loop_def
+		   && !is_loop_header_bb_p (bb_for_stmt (def2)))))
     {
       /* Swap operands (just for simplicity - so that the rest of the code
 	 can assume that the reduction variable is always the last (second)
@@ -2237,7 +2331,7 @@ vectorize_loops (void)
       if (!loop)
 	continue;
       loop_vinfo = loop->aux;
-      destroy_loop_vec_info (loop_vinfo);
+      destroy_loop_vec_info (loop_vinfo, true);
       loop->aux = NULL;
     }
 
