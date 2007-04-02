@@ -23,6 +23,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "congraph.h"
 #include "hashtab.h"
 
+#include "tree.h"
+
+extern FILE* dump_file;
+
 /* -------------------------------------------------------------*
  *			memory and hashtables			*
  * -------------------------------------------------------------*/
@@ -53,32 +57,6 @@ init_con_node_hashtable (void)
 				    htab_con_node_eq, free);
 }
 
-static htab_t statement_type_hashtable;
-
-static hashval_t
-statement_type_hash (const void *p)
-{
-  const stmt_type_container container = (stmt_type_container) p;
-  return htab_hash_pointer (container->stmt);
-}
-
-static int
-htab_statement_type_eq (const void *p1, const void *p2)
-{
-  const stmt_type_container container1 = (stmt_type_container) p1;
-  const stmt_type_container container2 = (stmt_type_container) p2;
-  return (container1->graph == container2->graph
-	  && container1->stmt == container2->stmt);
-}
-
-void
-init_statement_type_hashtable (void)
-{
-  /* 9 was the average for the data I had on hand */
-  statement_type_hashtable = htab_create (20, statement_type_hash, htab_statement_type_eq, free);
-}
-
-
 /* -------------------------------------------------------------*
  *			graph					*
  * -------------------------------------------------------------*/
@@ -92,7 +70,8 @@ static bool
 is_actual_type (con_node node)
 {
   return node->type == CALLER_ACTUAL_NODE 
-    || node->type == CALLEE_ACTUAL_NODE;
+    || node->type == CALLEE_ACTUAL_NODE
+    || node->type == RETURN_NODE;
 }
 
 /* allocates a new, cleared and inited con_graph */
@@ -130,15 +109,15 @@ con_graph_dump (con_graph cg)
   /* this needs to be done first */
   /* step 1 - put them in groups */
   /* do the localgraph */
-  fprintf (out, "(LocalGraph\n"); /* an empty node to avoid a bug */
+  fprintf (out, "( LocalGraph\n"); /* an empty node to avoid a bug */
   for (node = cg->root; node != NULL; node = node->next)
     {
       if (node->escape == EA_NO_ESCAPE)
 	{
-      con_graph_dump_node (node, out);
+	  con_graph_dump_node (node, out);
 	}
     }
-  fprintf (out, ") { fill: yellow; }\n\n");
+  fprintf (out, ") { fill: skyblue; }\n\n");
 
   /* do the nonlocalgraph */
   fprintf (out, "( NonLocalGraph\n");
@@ -188,13 +167,13 @@ con_graph_dump_node (con_node node, FILE * out)
   switch (node->type)
     {
     case CALLEE_ACTUAL_NODE:
-      fprintf (out, "a%d_ee (", node->index);
+      fprintf (out, "callee (");
       print_generic_expr (out, node->id, 0);
       fprintf (out, ")");
       break;
 
     case CALLER_ACTUAL_NODE:
-      fprintf (out, "a%d_er (", node->index);
+      fprintf (out, "caller (");
       print_generic_expr (out, node->id, 0);
       fprintf (out, ")");
       break;
@@ -344,7 +323,7 @@ get_cg_for_function (con_graph cg, tree function)
 /* Create a new object node representing an allocation of type
  * class, named using id */
 con_node
-add_object_node (con_graph cg, tree id, tree class_id)
+add_object_node (con_graph cg, tree id)
 {
   con_node node;
   gcc_assert (cg && id);
@@ -352,11 +331,11 @@ add_object_node (con_graph cg, tree id, tree class_id)
   node = new_con_node ();
   cg->num_objects++;
   node->id = id;
-  node->class_id = class_id;
   node->type = OBJECT_NODE;
   add_node (cg, node);
   return node;
 }
+#if 0
 
 con_node
 add_callee_actual_node (con_graph cg, tree id, int index)
@@ -392,6 +371,7 @@ add_caller_actual_node (con_graph cg, tree id, int index, tree call_id)
   add_node (cg, node);
   return node;
 }
+#endif
 
 /* create a new field node representing a field id */
 con_node
@@ -411,7 +391,7 @@ add_field_node (con_graph cg, tree id)
 /* create this function's return node, used to merge other return
  * values */
 con_node
-add_return_node (con_graph cg, tree id)
+add_result_node (con_graph cg, tree id)
 {
   con_node node;
   gcc_assert (cg);
@@ -452,6 +432,17 @@ add_local_node (con_graph cg, tree id)
   node = new_con_node ();
   node->id = id;
   node->type = LOCAL_NODE;
+  add_node (cg, node);
+  return node;
+}
+
+con_node
+add_callee_parameter (con_graph cg, tree id)
+{
+  con_node node = new_con_node ();
+  node->id = id;
+  node->type = CALLEE_ACTUAL_NODE;
+  node->escape = EA_ARG_ESCAPE;
   add_node (cg, node);
   return node;
 }
@@ -605,12 +596,16 @@ get_edge (con_node source, con_node target)
   return NULL;
 }
 
-con_edge
+void
 add_edge (con_node source, con_node target)
 {
   con_edge edge;
-  gcc_assert (source);
-  gcc_assert (target);
+  fprintf (dump_file, "Adding edge from ");
+  df (source);
+  fprintf (dump_file, " to ");
+  df (target);
+  nl ();
+
   gcc_assert (source != target);
 
   /* check that this edge doesnt already occur */
@@ -656,8 +651,6 @@ add_edge (con_node source, con_node target)
   /* add incoming edge */
   edge->next_in = target->in;
   target->in = edge;
-
-  return edge;
 }
 
 void
@@ -706,6 +699,11 @@ remove_con_edge (con_edge edge)
   con_node node;
   con_edge temp;
   gcc_assert (edge);
+  fprintf (dump_file, "Removing edge from ");
+  df (edge->source);
+  fprintf (dump_file, " to ");
+  df (edge->target);
+  nl ();
 
   /* do the incoming first */
   node = edge->target;
@@ -758,7 +756,32 @@ remove_con_edge (con_edge edge)
 	}
       gcc_assert (found_edge);
     }
+}
 
+/* Bypasses SRC and adds an edge from SRC to DEST, returning true if this
+ * changes the connection graph */
+bool
+add_killing_edge (con_node src, con_node dest)
+{
+  /* if the only edge to/from SRC is the edge to DEST, return false
+   * straight away, and do nothing. */
+  if (src->in == NULL 
+      && src->out 
+      && src->out->next_out == NULL
+      && src->out->target == dest)
+    {
+      return false;
+    }
+
+  if (src->in != NULL)
+    {
+      gcc_assert (src->out != NULL);
+      bypass_node (src);
+    }
+
+  add_edge (src, dest);
+
+  return true;
 }
 
 static con_node END_MARKER;
@@ -848,6 +871,10 @@ get_field_nodes (con_node_vec nodes, tree field_id)
   con_node node;
   int i;
 
+  fprintf (dump_file, "Finding field node ");
+  tf (field_id, false);
+  nl ();
+
   gcc_assert (nodes && field_id);
 
   for (i = 0; VEC_iterate (con_node, nodes, i, node); i++)
@@ -866,6 +893,8 @@ get_field_nodes (con_node_vec nodes, tree field_id)
 	  /* add it to the result list */
 	  if (edge->target->id == field_id)
 	    {
+	      fprintf (dump_file, "found it in ");
+	      df (edge->source);
 	      /* TODO does this leave a possability of a circular list, or
 	       * should we check the entire list */
 	      if (result && result != edge->target)
@@ -880,13 +909,15 @@ get_field_nodes (con_node_vec nodes, tree field_id)
 	    }
 	}
 
-
       /* lazily add the field */
       if (!field_found)
 	{
 	  con_node field;
 	  gcc_assert (get_existing_field_node (node->graph, field_id, node) == NULL);
 	  field = add_field_node (node->graph, field_id);
+	  fprintf (dump_file, "adding lazily to ");
+	  df (node);
+	  nl ();
 
 	  if (node->phantom) field->phantom = true;
 	  add_edge (node, field);
@@ -896,6 +927,7 @@ get_field_nodes (con_node_vec nodes, tree field_id)
 	  result = field;
 	}
     }
+  nl ();
   return result;
 }
 
@@ -923,40 +955,58 @@ get_field_nodes_vec (con_node object, con_node_vec fields)
   return fields;
 }
 
-
-void
+/* Redirects incoming deferred edges of NODE, so that the edge is removed,
+ * and an edge between every incoming edge and every outgoing edge of
+ * NODE. Returns false if all these edges already existed. */
+/* Note that bypassing a node doesnt mark the graph as changed. The node
+ * isnt conceptually changed, as all nodes point to the same thing they
+ * did before. */
+bool
 bypass_node (con_node node)
 {
-  /* TODO look at this again */
-  /* what to do if the node has no output node. It's about to be
-   * overriden, but the nodes pointing to it have to point to
-   * something. Or so it seems. In reality, they were hanging loose,
-   * and they still are. No biggie */
   con_edge in;
   con_edge out;
 
-  gcc_assert (node);
-  gcc_assert (node->type != OBJECT_NODE);
-
-  /* you dont want to bypass nodes at the start or the end */
-  if (node->in == NULL || node->out == NULL)
+  /* Dont bypass static fields */
+  if (TREE_CODE (node->id) == VAR_DECL)
     {
-      return;
+      fprintf (dump_file, "Static field, dont bypass\n");
+      return false;
     }
+
+  fprintf (dump_file, "Bypassing ");
+  df (node);
+  nl ();
+  gcc_assert (node->type != OBJECT_NODE);
+  gcc_assert (node->out != NULL); /* this shouldnt be an end node */
+
+  bool new_edge = false;
 
   for (in = node->in; in != NULL; in = in->next_in)
     {
+      gcc_assert (in->type != POINTS_TO_EDGE);
       if (in->type == DEFERRED_EDGE)
 	{
 	  for (out = node->out; out != NULL; out = out->next_out)
 	    {
-	      gcc_assert (in->type != FIELD_EDGE);
-
-	      add_edge (in->source, out->target);
+	      if (!get_edge (in->source, out->target))
+		{
+		  add_edge (in->source, out->target);
+		  new_edge = true;
+		}
 	    }
 	  remove_con_edge (in);
 	}
+      else
+	gcc_assert (in->type == FIELD_NODE);
     }
+
+  while (node->out)
+    {
+      remove_con_edge (node->out);
+    }
+
+  return new_edge;
 }
 
 /* finds the last node in a chain, and returns a list of them. Objects
@@ -1052,16 +1102,19 @@ assert_all_next_link_free (con_graph cg)
     }
 }
 
+#if 0
+/* Actual caller nodes have an INDEX (their argument in the position list)
+ * and a CALLER_ID */
 con_node
-get_caller_actual_node (con_graph cg, int index, tree stmt)
+get_caller_actual_node (con_graph cg, int index, tree call_id)
 {
+  gcc_assert (caller_id);
+  gcc_assert (index >= 0 && index < 100);
   con_node node;
-  gcc_assert (cg);
-  gcc_assert (stmt);
   for (node = cg->root; node; node = node->next)
     {
       if (node->type == CALLER_ACTUAL_NODE && node->index == index
-	  && node->call_id == stmt)
+	  && node->call_id == call_id)
 	{
 	  return node;
 	}
@@ -1074,8 +1127,8 @@ con_node
 get_callee_actual_node (con_graph cg, int index, tree id)
 {
   con_node node;
-  gcc_assert (cg);
   gcc_assert (id);
+  gcc_assert (index >= 0 && index < 100);
   for (node = cg->root; node; node = node->next)
     {
       if (node->type == CALLEE_ACTUAL_NODE && node->index == index)
@@ -1087,6 +1140,7 @@ get_callee_actual_node (con_graph cg, int index, tree id)
 
   return NULL;
 }
+#endif
 
 
 
@@ -1192,7 +1246,8 @@ l (con_graph cg)
     }
 }
 
-void
+#if 0
+static void
 inline_constructor_graph (con_graph cg,
 			  con_graph constructor_graph, tree call_id)
 {
@@ -1207,7 +1262,7 @@ inline_constructor_graph (con_graph cg,
     {
       if (node->type == OBJECT_NODE)
 	{
-	  con_node result = add_object_node (cg, node->id, node->class_id);
+	  con_node result = add_object_node (cg, node->id);
 	  result->call_id = call_id;
 	  result->phantom = node->phantom;
 	}
@@ -1348,100 +1403,7 @@ get_matching_node_in_caller (con_graph cg,
 
     }
 }
-
-void
-set_statement_type (con_graph cg, tree stmt, enum statement_type type)
-{
-  enum statement_type st = get_statement_type (cg, stmt);
-  void** slot;
-  gcc_assert (cg && stmt && type);
-  if (!st)
-    {
-      stmt_type_container finder = xcalloc (1, sizeof (struct
-						       _stmt_type_container));
-      finder->graph= cg;
-      finder->stmt = stmt;
-      finder->type = type;
-      slot = htab_find_slot (statement_type_hashtable, finder, INSERT);
-      *slot = (void*)(finder) ;
-    }
-}
-
-enum statement_type
-get_statement_type (con_graph cg, tree stmt)
-{
-  struct _stmt_type_container finder;
-  stmt_type_container result;
-  finder.graph = cg;
-  finder.stmt = stmt;
-  result = htab_find (statement_type_hashtable, &finder);
-  if (result)
-    return result->type;
-  else
-    return 0;
-}
-
-
-void 
-print_stmt_type (con_graph cg, FILE* file, tree stmt)
-{
-  enum statement_type data;
-  gcc_assert (cg);
-  gcc_assert (file);
-  gcc_assert (stmt);
-
-  data = get_statement_type (cg, stmt);
-
-  fprintf (file, " (");
-
-  if (data)
-    {
-      gcc_assert (data >= FUNCTION_CALL);
-      switch (data)
-	{
-#define HANDLE(A) case A: fprintf (file, #A); break;
-	  HANDLE(FUNCTION_CALL);
-	  HANDLE(FUNCTION_CALL_WITH_RETURN);
-	  HANDLE(CONSTRUCTOR_STMT);
-	  HANDLE(INDIRECT_FUNCTION_CALL);
-	  HANDLE(INDIRECT_FUNCTION_CALL_WITH_RETURN);
-	  HANDLE(REFERENCE_COPY);
-	  HANDLE(PHI_NODE_COPY);
-	  HANDLE(CAST);
-	  HANDLE(ASSIGNMENT_FROM_FIELD);
-	  HANDLE(ASSIGNMENT_TO_FIELD);
-	  HANDLE(ASSIGNMENT_FROM_VTABLE);
-	  HANDLE(ASSIGNMENT_FROM_EXCEPTION);
-	  HANDLE(ASSIGNMENT_TO_EXCEPTION);
-	  HANDLE(RETURN);
-	  HANDLE(INDIRECT_GOTO);
-	  HANDLE(IGNORED_FUNCTION_POINTER);
-	  HANDLE(IGNORED_RETURNING_VOID);
-	  HANDLE(IGNORED_NOT_A_POINTER);
-	  HANDLE(IGNORED_LABEL_EXPR);
-	  HANDLE(IGNORED_COND_EXPR);
-	  HANDLE(IGNORED_UNKNOWN);
-	  HANDLE(ASSIGNMENT_FROM_ARRAY);
-	  HANDLE(ASSIGNMENT_FROM_DATA_ARRAY);
-	  HANDLE(POINTER_ARITHMETIC);
-	  HANDLE(POINTER_DEREFERENCE);
-	  HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
-	  HANDLE(ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
-	  HANDLE(IGNORED_NULL_POINTER_EXCEPTION);
-	  HANDLE(OBJECT_ALLOCATION);
-	  HANDLE(OBJECT_ARRAY_ALLOCATION);
-	  HANDLE(PRIM_ARRAY_ALLOCATION);
-	  HANDLE(MULTI_ARRAY_ALLOCATION);
-	}
-    }
-  else
-    {
-      fprintf (file, "Unknown");
-    }
-  fprintf (file, ")");
-#undef HANDLE
-}
-
+#endif
 
 void 
 set_escape_state (con_node node, enum ea_escape_state state)
@@ -1631,15 +1593,16 @@ get_ps_and_ts (con_node source)
   source->next_link = NULL;
 }
 
+/* If a phantom node needs to be created, use PHANTOM_ID */
 con_node_vec
-get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree type)
+get_points_to_and_terminals (con_graph cg, con_node source, tree phantom_id)
 {
   con_node phantom;
   con_node terminal; /* used to iterate through the terminal vector */
   int i;
   con_node_vec u;
   con_node_vec terminals;
-  gcc_assert (cg && source && stmt_id);
+  gcc_assert (cg && source && phantom_id);
   gcc_assert (is_reference_node (source));
   gcc_assert (cg == source->graph);
 
@@ -1678,16 +1641,23 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree t
   if (!VEC_empty (con_node, terminals))
     {
       /* TODO there should be a dependecny here */
-      phantom = get_existing_node (cg, stmt_id); /* 1-limited */
+      phantom = get_existing_node (cg, phantom_id); /* 1-limited */
       if (phantom == NULL)
 	{
 	  /* This id will only belong to this node, and no other one,
 	   * because gimple doesnt have statements in the form 
 	   * x.y = new X();
 	   * which would allow a phantom and an object node to be created
-	   * with the same stmt_id; */
-	  phantom = add_object_node (cg, stmt_id, type);
+	   * with the same phantom_id; */
+	  phantom = add_object_node (cg, phantom_id);
+	  tf (phantom_id, false);
+	  fprintf (dump_file, "Adding a new phantom\n");
 	  phantom->phantom = true;
+	}
+      else
+	{
+	  tf (phantom_id, false);
+	  fprintf (dump_file, "Reusing an existing phantom\n");
 	}
       gcc_assert (phantom->phantom);
 
@@ -1745,7 +1715,7 @@ update_nodes (con_node f, con_node f_bar, tree call_id)
   clear_end_markers (points_to_f);
 
   /* fetch out the information in case a node needs to be made */
-  points_to_f_bar = get_points_to_and_terminals (f_bar->graph, f_bar, call_id, NULL);
+  points_to_f_bar = get_points_to_and_terminals (f_bar->graph, f_bar, call_id);
 
   for (i = 0; VEC_iterate (con_node, points_to_f, i, o); i++)
     {

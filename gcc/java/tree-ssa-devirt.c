@@ -45,8 +45,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
  * TO DO: special-case string constants
  */
 
-static FILE* work_file;
-
 /* see comment in first if statement of replace_call */
 struct devirt_type_d
 {
@@ -56,23 +54,26 @@ struct devirt_type_d
 };
 
 //#define Dprintf fprintf
-#define Dprintf nop
+#define Dprintf if (dump_file) fprintf
+//#define Dprint_generic_stmt print_generic_expr
+#define Dprint_generic_stmt if (dump_file) print_generic_stmt
 
 static void nop (FILE* a, ...) { }
+static void nopex (FILE* a, ...) { }
 
-static enum ssa_prop_result 
+enum ssa_prop_result 
 pass_through (enum ssa_prop_result result)
 {
   switch (result)
     {
     case SSA_PROP_NOT_INTERESTING:
-      Dprintf (work_file, "Result: NOT\n"); 
+      Dprintf (dump_file, "Result: NOT\n"); 
       break;
     case SSA_PROP_INTERESTING:
-      Dprintf (work_file, "Result: INT\n");
+      Dprintf (dump_file, "Result: INT\n");
       break;
     case SSA_PROP_VARYING:
-      Dprintf (work_file, "Result: VAR\n");
+      Dprintf (dump_file, "Result: VAR\n");
       break;
     default:
       gcc_unreachable ();
@@ -167,8 +168,8 @@ get_devirt (tree node)
   unsigned ver;
   gcc_assert (TREE_CODE (node) == SSA_NAME);
   ver = SSA_NAME_VERSION (node);
-  Dprintf (work_file, "%s: ", types[ver].lower_bound ? IDENTIFIER_POINTER (DECL_NAME(types[ver].lower_bound)) : "None");
-  print_generic_stmt (work_file, node, 0);
+  Dprintf (dump_file, "%s: ", types[ver].lower_bound ? IDENTIFIER_POINTER (DECL_NAME(types[ver].lower_bound)) : "None");
+  Dprint_generic_stmt (dump_file, node, 0);
   return &types[ver];
 }
 
@@ -178,8 +179,8 @@ static enum ssa_prop_result
 devirt_visit_call (tree call, devirt_type_t *type)
 {
   tree name, klass;
-  Dprintf (work_file, "Checking call: ");
-  print_generic_stmt (work_file, call, 0);
+  Dprintf (dump_file, "Checking call: ");
+  Dprint_generic_stmt (dump_file, call, 0);
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
   name = unwrap (TREE_OPERAND (call, 0));
@@ -206,7 +207,7 @@ devirt_visit_call (tree call, devirt_type_t *type)
 static enum ssa_prop_result
 copy_type (tree lhs, tree rhs)
 {
-  Dprintf (work_file, "Copying type: ");
+  Dprintf (dump_file, "Copying type: ");
   devirt_type_t *v1 = get_devirt (lhs);
   if (TREE_CODE (rhs) == SSA_NAME)
     {
@@ -224,8 +225,8 @@ copy_type (tree lhs, tree rhs)
 static enum ssa_prop_result
 devirt_visit_statement (tree node, edge *taken_edge_p, tree *result_p)
 {
-  Dprintf (work_file, "Checking statement: ");
-  print_generic_stmt (work_file, node, 0);
+  Dprintf (dump_file, "Checking statement: ");
+  Dprint_generic_stmt (dump_file, node, 0);
   if (GIMPLE_STMT_P (node))
     {
       devirt_type_t *virt;
@@ -264,8 +265,8 @@ devirt_visit_phi (tree phi)
   devirt_type_t *self = get_devirt (PHI_RESULT (phi));
   bool interesting_edge_exists = false;
 
-  Dprintf (work_file, "Checking phi: ");
-  print_generic_stmt (work_file, phi, 0);
+  Dprintf (dump_file, "Checking phi: ");
+  Dprint_generic_stmt (dump_file, phi, 0);
 
   if (! POINTER_TYPE_P (TREE_TYPE (phi)))
     return pass_through (SSA_PROP_NOT_INTERESTING);
@@ -277,16 +278,16 @@ devirt_visit_phi (tree phi)
 	{
 	  interesting_edge_exists = true;
 	  tree arg = PHI_ARG_DEF (phi, i);
-	  Dprintf (work_file, "Interesting edge: ");
-	  print_generic_stmt (work_file, arg, 0);
+	  Dprintf (dump_file, "Interesting edge: ");
+	  Dprint_generic_stmt (dump_file, arg, 0);
 	  if (TREE_CODE (arg) == SSA_NAME)
 	    {
 	      devirt_type_t *argtype = get_devirt (arg);
 	      if (! devirt_meet (&result, argtype))
 		return pass_through (SSA_PROP_VARYING);
 
-	      Dprintf (work_file, "Actual interesting edge: ");
-	      print_generic_stmt (work_file, arg, 0);
+	      Dprintf (dump_file, "Actual interesting edge: ");
+	      Dprint_generic_stmt (dump_file, arg, 0);
 	    }
 	}
     }
@@ -337,7 +338,7 @@ replace_call (tree *stmt, tree method, devirt_type_t *vtype)
   if (vtype->upper_bound != NULL_TREE)
     {
       tree found_method, signature;
-      fprintf (stderr, "Devirtualizing call in %s\n",
+      if (dump_file) fprintf (dump_file, "Devirtualizing call in %s\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
       /* Here we know that the object is the result of a 'new'.  So,
 	 we don't have to insert a null check here, and we can turn
@@ -417,15 +418,10 @@ devirt_devirt (void)
 
 }
 
-FILE* before_file;
-FILE* after_file;
-
-static unsigned int
+unsigned int
 devirt (void)
 {
-  dump_function_to_file (current_function_decl, before_file, 
-			 TDF_SLIM | TDF_DETAILS | TDF_BLOCKS | TDF_IPA | TDF_TREE |
-			 TDF_GRAPH);
+  if (dump_file) fprintf (dump_file, "Beginning devirtualization\n");
   devirt_initialize ();
 
   /* In the first phase, propagate type information.  */
@@ -435,9 +431,7 @@ devirt (void)
   devirt_devirt ();
 
   devirt_destroy ();
-  dump_function_to_file (current_function_decl, after_file, 
-			 TDF_SLIM | TDF_DETAILS | TDF_BLOCKS | TDF_IPA | TDF_TREE |
-			 TDF_GRAPH);
+  if (dump_file) fprintf (dump_file, "Finished devirtualization\n");
   return 0;
 }
 
@@ -470,12 +464,12 @@ init_gcj_devirt (void)
   /* FIXME: GCC doesn't have a way to register lang-specific passes.  */
   struct tree_opt_pass **p = &pass_all_optimizations.sub;
   struct tree_opt_pass *next = &pass_merge_phi;
-  before_file = fopen ("before_devirt", "a");
-  after_file = fopen ("after_devirt", "a");
-  work_file = fopen ("work_devirt", "w");
+
+  return; /*call this explicitly from escape pass */
 
   while (*p != next)
     p = &((*p)->next);
   *p = &pass_gcj_devirtualize;
   pass_gcj_devirtualize.next = next;
+  register_dump_files (&pass_gcj_devirtualize, true, 0);
 }

@@ -1016,7 +1016,7 @@ OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
   cgraph.o cgraphunit.o tree-nomudflap.o ipa.o ipa-inline.o                \
   ipa-utils.o ipa-reference.o ipa-pure-const.o ipa-type-escape.o           \
-  ipa-prop.o ipa-cp.o varpool.o congraph.o
+  ipa-prop.o ipa-cp.o varpool.o
 
 OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
 

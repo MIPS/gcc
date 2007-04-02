@@ -48,42 +48,6 @@ enum con_edge_type
   FIELD_EDGE
 };
 
-enum statement_type
-{
-  FUNCTION_CALL = 131,
-  FUNCTION_CALL_WITH_RETURN,
-  CONSTRUCTOR_STMT,
-  INDIRECT_FUNCTION_CALL,
-  INDIRECT_FUNCTION_CALL_WITH_RETURN,
-  REFERENCE_COPY,
-  PHI_NODE_COPY,
-  CAST,
-  ASSIGNMENT_FROM_FIELD,
-  ASSIGNMENT_TO_FIELD,
-  ASSIGNMENT_FROM_VTABLE,
-  ASSIGNMENT_FROM_EXCEPTION,
-  ASSIGNMENT_TO_EXCEPTION,
-  RETURN,
-  IGNORED_RETURNING_VOID,
-  IGNORED_NOT_A_POINTER,
-  IGNORED_LABEL_EXPR,
-  IGNORED_COND_EXPR,
-  IGNORED_UNKNOWN,
-  ASSIGNMENT_FROM_ARRAY,
-  ASSIGNMENT_FROM_DATA_ARRAY,
-  POINTER_ARITHMETIC,
-  POINTER_DEREFERENCE,
-  IGNORED_ASSIGNMENT_TO_NULL,
-  ASSIGNMENT_TO_INDIRECT_ARRAY_REF,
-  IGNORED_NULL_POINTER_EXCEPTION,
-  IGNORED_FUNCTION_POINTER,
-  INDIRECT_GOTO,
-  OBJECT_ALLOCATION,
-  OBJECT_ARRAY_ALLOCATION,
-  PRIM_ARRAY_ALLOCATION,
-  MULTI_ARRAY_ALLOCATION,
-};
-
 /* This should be combined in the future with structure aliasing, but
  * for now it needs a prefix */
 enum ea_escape_state
@@ -92,9 +56,6 @@ enum ea_escape_state
   EA_ARG_ESCAPE,
   EA_GLOBAL_ESCAPE
 };
-
-extern bool flow_sensisitive;
-/*extern bool interprocedural;*/
 
 /* Declare types */
 struct _con_graph;
@@ -106,20 +67,10 @@ typedef struct _con_node *con_node;
 struct _con_edge;
 typedef struct _con_edge *con_edge;
 
-struct _stmt_type_container;
-typedef struct _stmt_type_container *stmt_type_container;
-
 /* set up vectors */
 DEF_VEC_P(con_node);
 DEF_VEC_ALLOC_P(con_node,heap);
 typedef VEC(con_node,heap) *con_node_vec;
-
-struct _stmt_type_container
-{
-  con_graph graph;
-  tree stmt;
-  enum statement_type type;
-};
 
 struct _con_graph
 {
@@ -215,11 +166,6 @@ struct _con_edge
 };
 
 
-
-
-/* print the name of the node for (Graph::Easy) */
-void print_node_name (FILE *out, con_node node);
-
 /* ---------------------------------------------------
  *                      graph
  * --------------------------------------------------- */
@@ -245,7 +191,7 @@ con_graph get_cg_for_function (con_graph cg, tree function);
 
 /* add a new object node, identified by id, of class class, and
  * return the node */
-con_node add_object_node (con_graph cg, tree id, tree class_id);
+con_node add_object_node (con_graph cg, tree id);
 
 
 /* add a new field node representing a field id */
@@ -253,13 +199,8 @@ con_node add_field_node (con_graph cg, tree id);
 
 /* add a new actual node representing a parameter _id_. It represents be
  * the _i_th parameter in the function. */
-con_node add_callee_actual_node (con_graph cg, tree id, int index);
+con_node add_callee_parameter (con_graph cg, tree id);
 
-
-/* add a new actual node representing an argument _id_. It should be the
- * _i_th paramater in the function called by _stmt_ */
-con_node add_caller_actual_node (con_graph cg,
-				 tree id, int index, tree stmt);
 
 /* add a new global node, identified by id, and return the node */
 con_node add_global_node (con_graph cg, tree id);
@@ -268,7 +209,7 @@ con_node add_global_node (con_graph cg, tree id);
 con_node add_local_node (con_graph cg, tree id);
 
 /* add a new return node, identified by id, and return the node */
-con_node add_return_node (con_graph cg, tree id);
+con_node add_result_node (con_graph cg, tree id);
 
 /* add the given node to the connection graph */
 void add_node (con_graph cg, con_node node);
@@ -351,7 +292,7 @@ con_node get_field_nodes (con_node_vec nodes, tree field_id);
  * at the end of the function analysis. It will leave hanging
  * nodes, but its not the end of the world: they were hanging
  * anyway */
-void bypass_node (con_node node);
+bool bypass_node (con_node node);
 
 /* Get the node in the caller correspoding to the _i_th parameter of the function called by statement _call_id_ */
 con_node get_caller_actual_node (con_graph cg,
@@ -376,12 +317,15 @@ con_node get_nodes_reachable_from (con_node source);
 /* create and return a fresh edge */
 con_edge new_con_edge (void);
 
+void tf (tree, bool);
+void nl (void);
+void df (con_node);
+
 /* adds the specified edge to the connection graph, between source
  * and target. Note that the graph is implicit, and is the graph
- * which contains the source and target. If the edge already
- * exists, it's returned
- */
-con_edge add_edge (con_node source, con_node target);
+ * which contains the source and target. */
+void add_edge (con_node source, con_node target);
+bool add_killing_edge (con_node source, con_node target);
 
 /* removes an edge from the graph */
 void remove_con_edge (con_edge edge);
@@ -411,18 +355,8 @@ void l (con_graph cg);
 void t (tree id);
 void tt (tree id);
 
-/* Copy the constructor graph into cg, using call_id to resolve actual
- * nodes correctly */
-void inline_constructor_graph (con_graph cg,
-			       con_graph constructor, tree call_id);
-
 con_node get_matching_node_in_caller (con_graph cg,
 				      con_node node, tree call_id);
-
-
-void set_statement_type (con_graph cg, tree stmt, enum statement_type type);
-enum statement_type get_statement_type (con_graph cg, tree stmt);
-void print_stmt_type (con_graph cg, FILE* file, tree stmt);
 
 /* NEXT_LINK_CLEAR clears a node's next_link field, then replaces it with
  * it's next field */
@@ -440,7 +374,7 @@ con_node last_link (con_node node);
 con_node merge_next_lists (con_node list1, con_node list2);
 
 con_node_vec get_points_to_and_terminals (con_graph cg, con_node source,
-					  tree stmt_id, tree type);
+					  tree stmt_id);
 
 void init_markers (void);
 void init_con_node_hashtable (void);

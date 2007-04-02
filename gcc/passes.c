@@ -367,7 +367,7 @@ register_dump_files_1 (struct tree_opt_pass *pass, bool ipa, int properties)
    properties that are guaranteed to be available at the beginning of
    the pipeline.  */
 
-static void 
+void 
 register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
 {
   pass->properties_required |= properties;
@@ -377,7 +377,7 @@ register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
 /* Add a pass to the pass list. Duplicate the pass if it's already
    in the list.  */
 
-static struct tree_opt_pass **
+struct tree_opt_pass **
 next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 {
   /* A nonzero static_pass_number indicates that the

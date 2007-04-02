@@ -1010,6 +1010,20 @@ dfs_enumerate_from (basic_block bb, int reverse,
 #undef VISITED_P
 }
 
+/* Does a depth first search on the cfg, and returns true of there is a
+ * path from BB1 to BB2. */
+bool
+block_can_reach (basic_block bb1, basic_block bb2)
+{
+  struct depth_first_search_dsS data;
+  flow_dfs_compute_reverse_init (&data);
+  flow_dfs_compute_reverse_add_bb (&data, bb2);
+  flow_dfs_compute_reverse_execute (&data, bb1);
+  bool result = TEST_BIT (data.visited_blocks, bb1->index);
+  flow_dfs_compute_reverse_finish (&data);
+  return result;
+}
+
 
 /* Compute dominance frontiers, ala Harvey, Ferrante, et al.
 
