@@ -1,3 +1,9 @@
+2006-12-11  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/30113
+	* loop-iv.c (implies_p): Require the mode of the operands to be
+	scalar.
+
 2007-04-02  Anatoly Sokolov <aesok@post.ru>
 
 	PR target/31137
