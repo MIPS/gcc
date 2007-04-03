@@ -1,7 +1,21 @@
+2007-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* dce.c (dce_process_block): Copy into DF_LR_IN.
+	* df-problems.c (df_lr_free_bb_info): Support bb_info->in
+	being the same bitmap as bb_info->top.
+	(df_lr_alloc): The adef and ause fields must be either
+	both NULL or both non-NULL.  Initialize bb_info->top
+	to bb_info->in.
+	(df_lr_bb_local_compute): Allocate adef, ause, top together.
+	(df_lr_transfer_function): Simplify according to above
+	assumptions.
+	(df_lr_free): Zero out bb_info->top instead of freeing it
+	if it is the same as bb_info->in.
+
 2007-04-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* config/ia64/ia64.c (emit_predicate_relation_info): Changed
 	DF_LIVE_IN to df_get_live_in.
-
 
 2007-03-29  Paolo Bonzini  <bonzini@gnu.org>
 

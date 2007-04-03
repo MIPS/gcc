@@ -1351,14 +1351,16 @@ df_lr_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
     {
       BITMAP_FREE (bb_info->use);
       BITMAP_FREE (bb_info->def);
+      if (bb_info->in == bb_info->top)
+        bb_info->top = NULL;
+      else
+	{
+          BITMAP_FREE (bb_info->top);
+          BITMAP_FREE (bb_info->ause);
+          BITMAP_FREE (bb_info->adef);
+	}
       BITMAP_FREE (bb_info->in);
       BITMAP_FREE (bb_info->out);
-      BITMAP_FREE (bb_info->top);
-      if (bb_info->ause)
-        BITMAP_FREE (bb_info->ause);
-      if (bb_info->adef)
-        BITMAP_FREE (bb_info->adef);
-
       pool_free (df_lr->block_pool, bb_info);
     }
 }
@@ -1387,9 +1389,10 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 	  bitmap_clear (bb_info->def);
 	  bitmap_clear (bb_info->use);
 	  if (bb_info->adef)
-	    bitmap_clear (bb_info->adef);
-	  if (bb_info->ause)
-	    bitmap_clear (bb_info->ause);
+	    {
+	      bitmap_clear (bb_info->adef);
+	      bitmap_clear (bb_info->ause);
+	    }
 	}
       else
 	{ 
@@ -1399,7 +1402,7 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 	  bb_info->def = BITMAP_ALLOC (NULL);
 	  bb_info->in = BITMAP_ALLOC (NULL);
 	  bb_info->out = BITMAP_ALLOC (NULL);
-          bb_info->top = BITMAP_ALLOC (NULL);
+          bb_info->top = bb_info->in;
           bb_info->adef = NULL;
           bb_info->ause = NULL;
 	}
@@ -1532,9 +1535,13 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  if (bb_info->adef == NULL)
-	    bb_info->adef = BITMAP_ALLOC (NULL);
-	  if (bb_info->ause == NULL)
-	    bb_info->ause = BITMAP_ALLOC (NULL);
+	    {
+	      gcc_assert (bb_info->ause == NULL);
+	      gcc_assert (bb_info->top == bb_info->in);
+	      bb_info->adef = BITMAP_ALLOC (NULL);
+	      bb_info->ause = BITMAP_ALLOC (NULL);
+	      bb_info->top = BITMAP_ALLOC (NULL);
+	    }
 	  bitmap_set_bit (bb_info->adef, dregno);
 	}
     }
@@ -1548,9 +1555,13 @@ df_lr_bb_local_compute (unsigned int bb_index)
       if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
 	{
 	  if (bb_info->adef == NULL)
-	    bb_info->adef = BITMAP_ALLOC (NULL);
-	  if (bb_info->ause == NULL)
-	    bb_info->ause = BITMAP_ALLOC (NULL);
+	    {
+	      gcc_assert (bb_info->ause == NULL);
+	      gcc_assert (bb_info->top == bb_info->in);
+	      bb_info->adef = BITMAP_ALLOC (NULL);
+	      bb_info->ause = BITMAP_ALLOC (NULL);
+	      bb_info->top = BITMAP_ALLOC (NULL);
+	    }
 	  bitmap_set_bit (bb_info->ause, DF_REF_REGNO (use));
 	}
     }
@@ -1673,15 +1684,16 @@ df_lr_transfer_function (int bb_index)
   bitmap top = bb_info->top;
   bitmap ause = bb_info->ause;
   bitmap adef = bb_info->adef;
+  bool changed;
 
-  bitmap_ior_and_compl (top, use, out, def);
-  if (ause && adef)
-    return bitmap_ior_and_compl (in, ause, top, adef);
+  changed = bitmap_ior_and_compl (top, use, out, def);
+  if (in != top)
+    {
+      gcc_assert (ause && adef);
+      changed |= bitmap_ior_and_compl (in, ause, top, adef);
+    }
 
-  if (bitmap_equal_p (in, top))
-    return 0;
-  bitmap_copy (in, top);
-  return 1;
+  return changed;
 }
 
 
@@ -1725,13 +1737,16 @@ df_lr_free (void)
 	    {
 	      BITMAP_FREE (bb_info->use);
 	      BITMAP_FREE (bb_info->def);
+	      if (bb_info->in == bb_info->top)
+	        bb_info->top = NULL;
+	      else
+		{
+	          BITMAP_FREE (bb_info->top);
+                  BITMAP_FREE (bb_info->ause);
+                  BITMAP_FREE (bb_info->adef);
+		}
 	      BITMAP_FREE (bb_info->in);
 	      BITMAP_FREE (bb_info->out);
-	      BITMAP_FREE (bb_info->top);
-              if (bb_info->ause)
-                BITMAP_FREE (bb_info->ause);
-              if (bb_info->adef)
-                BITMAP_FREE (bb_info->adef);
 	    }
 	}
       free_alloc_pool (df_lr->block_pool);

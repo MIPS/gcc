@@ -611,12 +611,10 @@ dce_process_block (basic_block bb, bool redo_out)
 #ifdef ENABLE_CHECKING
       gcc_assert (insns_deleted);
 #endif
-      BITMAP_FREE (DF_LR_IN (bb));
-      DF_LR_IN (bb) = local_live;
+      bitmap_copy (DF_LR_IN (bb), local_live);
     }
-  else
-    BITMAP_FREE (local_live);
 
+  BITMAP_FREE (local_live);
   return block_changed;
 }
 
