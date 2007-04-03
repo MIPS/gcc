@@ -1,3 +1,7 @@
+2007-04-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* df-problems.c (df_chain_alloc): Fix typo.
+
 2007-04-03  Paolo Bonzini  <bonzini@gnu.org>
 
 	* dce.c (dce_process_block): Copy into DF_LR_IN.

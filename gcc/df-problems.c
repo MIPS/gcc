@@ -3558,7 +3558,7 @@ df_chain_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 
 {
   df_chain_remove_problem ();
-  df_chain->block_pool = create_alloc_pool ("df_chain_chain_block pool", 
+  df_chain->block_pool = create_alloc_pool ("df_chain_block pool", 
 					 sizeof (struct df_link), 100);
 }
 
