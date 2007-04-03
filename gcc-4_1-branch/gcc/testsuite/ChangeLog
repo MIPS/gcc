@@ -7,6 +7,7 @@
 
 	PR c++/30847
 	* g++.dg/parse/cond3.C: New test.
+
 2007-03-20  Seongbae Park <seongbae.park@gmail.com>
 
 	PR tree-optimization/30590
