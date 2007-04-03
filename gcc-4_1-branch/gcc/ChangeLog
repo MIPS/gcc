@@ -1,3 +1,9 @@
+2007-04-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/rs6000/rs6000.c (function_arg_advance): Clarify comment and
+	check, add check for 64-bit code.
+	(function-arg): Ditto.
+
 2007-03-26  Janis Johnson  <janis187@us.ibm.com>
 
 	* ginclude/float.h (decimal float support): Check that
