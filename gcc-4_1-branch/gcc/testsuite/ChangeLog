@@ -1,8 +1,12 @@
+2007-03-09  Andrew Pinski  <andrew_pinski@playstation.sony.com> 
+
+	PR tree-opt/30045
+	* gcc.dg/pr30045.c: New test.
+
 2007-04-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/30847
 	* g++.dg/parse/cond3.C: New test.
-
 2007-03-20  Seongbae Park <seongbae.park@gmail.com>
 
 	PR tree-optimization/30590

@@ -1,3 +1,9 @@
+2007-03-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/30045
+	* tree-vrp.c (nonnull_arg_p): Treat the static decl as always
+	non null.
+
 2006-12-11  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR rtl-optimization/30113
