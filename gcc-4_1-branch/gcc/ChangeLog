@@ -1,3 +1,21 @@
+2007-04-02  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/31137
+	* config/avr/avr.c (avr_rtx_costs): Add missing 'break' statements.
+
+2007-04-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Backport from mainline:
+	2007-03-28  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	PR target/31380
+	* config/i386/sse.md (uminv16qi3): Use UMIN instead of UMAX.
+
+2007-03-30  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (avr_override_options): Clear 
+	'flag_delete_null_pointer_checks'.
+
 2007-03-21  Richard Henderson  <rth@redhat.com>
 
 	PR target/31245

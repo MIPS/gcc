@@ -269,6 +269,8 @@ avr_override_options (void)
   const struct mcu_type_s *t;
   const struct base_arch_s *base;
 
+  flag_delete_null_pointer_checks = 0;
+
   for (t = avr_mcu_types; t->name; t++)
     if (strcmp (t->name, avr_mcu_name) == 0)
       break;
@@ -5050,6 +5052,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	case HImode:
 	  if (AVR_ENHANCED)
@@ -5058,6 +5061,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	default:
 	  return false;
