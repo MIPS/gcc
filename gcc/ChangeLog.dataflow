@@ -1,4 +1,6 @@
-2007-04-04  Paolo Bonzini  <bonzini@gnu.org>
+2007-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* df-problems.c (df_chain_create_bb): Plug leak.
 
 	* df-problems.c (df_chain_alloc): Fix typo.
 

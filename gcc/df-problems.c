@@ -3705,6 +3705,8 @@ df_chain_create_bb (unsigned int bb_index)
     df_chain_create_bb_process_use (cpy,
 				    df_get_artificial_uses (bb->index), 
 				    0);
+
+  BITMAP_FREE (cpy);
 }
 
 /* Create def-use chains from reaching use bitmaps for basic blocks
