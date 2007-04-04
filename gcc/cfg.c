@@ -573,6 +573,9 @@ dump_reg_info (FILE *file)
   if (reload_completed)
     return;
 
+  if (VEC_length (reg_info_p, reg_n_info) < max)
+    max = VEC_length (reg_info_p, reg_n_info);
+
   fprintf (file, "%d registers.\n", max);
   for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
     if (VEC_index (reg_info_p, reg_n_info, i) && REG_N_REFS (i))

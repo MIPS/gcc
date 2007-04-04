@@ -33,19 +33,20 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 
 /* Check all of the uses of pseudo variables.  If any use that is MUST
-   uninitialized, add a store of 0 before it.  For subregs, this makes
-   combine happy.  For full word regs, this makes other optimizations,
-   like the register allocator and the reg-stack happy as well as
-   papers over some problems on the arm and other processors where
-   certain isa constraints cannot be handled by gcc.  These are of the
-   form where two operands to an insn my not be the same.  The ra will
-   only make them the same if they do not interfere, and this can only
-   happen if one is not initialized. 
+   uninitialized, add a store of 0 immediately before it.  For
+   subregs, this makes combine happy.  For full word regs, this makes
+   other optimizations, like the register allocator and the reg-stack
+   happy as well as papers over some problems on the arm and other
+   processors where certain isa constraints cannot be handled by gcc.
+   These are of the form where two operands to an insn my not be the
+   same.  The ra will only make them the same if they do not
+   interfere, and this can only happen if one is not initialized.
 
    There is also the unfortunate consequence that this may mask some
    buggy programs where people forget to initialize stack variable.
    Any programmer with half a brain would look at the uninitialized
    variable warnings.  */
+
 
 static void
 initialize_uninitialized_regs (void)
@@ -58,7 +59,6 @@ initialize_uninitialized_regs (void)
 
   FOR_EACH_BB (bb)
     {
-      rtx first_insn = NULL;
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_UR_IN (bb);
@@ -70,10 +70,6 @@ initialize_uninitialized_regs (void)
 	  struct df_ref **use_rec;
 	  if (!INSN_P (insn))
 	    continue;
-
-	  /* find a place to insert the move.  */
-	  if (!first_insn)
-	    first_insn = insn;
 
 	  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	    {
@@ -107,12 +103,12 @@ initialize_uninitialized_regs (void)
 		  emit_move_insn (reg, CONST0_RTX (GET_MODE (reg)));
 		  move_insn = get_insns ();
 		  end_sequence ();
-		  add_insn_before (move_insn, first_insn, bb);
+		  add_insn_before (move_insn, insn, bb);
 		  did_something = true;
 		  if (dump_file)
 		    fprintf (dump_file, 
-			     "adding initialization of reg %d at top of block %d for insn %d.\n", 
-			     regno, bb->index, uid);
+			     "adding initialization in %s of reg %d at in block %d for insn %d.\n", 
+			     current_function_name (), regno, bb->index, uid);
 		}
 	    }
 	}
