@@ -722,7 +722,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_no_new_pseudos);
       NEXT_PASS (pass_combine);
-      NEXT_PASS (pass_rtl_dse2);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
@@ -745,7 +744,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_split_after_reload);
 	  NEXT_PASS (pass_branch_target_load_optimize1);
 	  NEXT_PASS (pass_thread_prologue_and_epilogue);
-	  NEXT_PASS (pass_rtl_dse3);
+	  NEXT_PASS (pass_rtl_dse2);
 	  NEXT_PASS (pass_rtl_seqabstr);
 	  NEXT_PASS (pass_stack_adjustments);
 	  NEXT_PASS (pass_peephole2);

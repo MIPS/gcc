@@ -473,10 +473,6 @@ ffloat-store
 Common Report Var(flag_float_store) Optimization
 Don't allocate floats and doubles in extended-precision registers
 
-fflow-dce
-Common Var(flag_flow_dce) Init(0)
-Use the old flow dead code elimination support
-
 ; Nonzero for -fforce-addr: load memory address into a register before
 ; reference to memory.  This makes better cse but slower compilation.
 fforce-addr
@@ -663,9 +659,13 @@ fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation
 
-fnew-dce
-Common Var(flag_new_dce) Init(1)
-Use the new RTL dead code elimination pass
+fdce
+Common Var(flag_dce) Init(1)
+Use the RTL dead code elimination pass
+
+fdse
+Common Var(flag_dse) Init(1)
+Use the RTL dead store elimination pass
 
 freschedule-modulo-scheduled-loops
 Common Report Var(flag_resched_modulo_sched) Optimization

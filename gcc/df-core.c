@@ -1074,7 +1074,8 @@ df_worklist_dataflow (struct dataflow *dataflow,
       bitmap_set_bit (pending, i);
     }
 
-  dataflow->problem->init_fun (blocks_to_consider);
+  if (dataflow->problem->init_fun)
+    dataflow->problem->init_fun (blocks_to_consider);
 
   while (!bitmap_empty_p (pending))
     {

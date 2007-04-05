@@ -216,6 +216,7 @@ extern sbitmap sbitmap_resize (sbitmap, unsigned int, int);
 extern void sbitmap_copy (sbitmap, sbitmap);
 extern void sbitmap_copy_n (sbitmap, sbitmap, unsigned int);
 extern int sbitmap_equal (sbitmap, sbitmap);
+extern bool sbitmap_empty_p (sbitmap);
 extern void sbitmap_zero (sbitmap);
 extern void sbitmap_ones (sbitmap);
 extern void sbitmap_vector_zero (sbitmap *, unsigned int);

@@ -6237,6 +6237,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   int *rc_order = XNEWVEC (int, last_basic_block);
   int i, n_blocks;
 
+  df_set_flags (DF_LR_RUN_DCE);
   df_analyze ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 

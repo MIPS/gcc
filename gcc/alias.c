@@ -1088,26 +1088,6 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
   reg_seen[regno] = 1;
 }
 
-/* Clear alias info for a register.  This is used if an RTL
-   transformation changes the value of a register.  We don't need to
-   clear reg_base_value, since flow only changes the offset.  */
-
-void
-clear_reg_alias_info (rtx reg)
-{
-  unsigned int regno = REGNO (reg);
-
-  if (regno >= FIRST_PSEUDO_REGISTER)
-    {
-      regno -= FIRST_PSEUDO_REGISTER;
-      if (regno < reg_known_value_size)
-	{
-	  reg_known_value[regno] = reg;
-	  reg_known_equiv_p[regno] = false;
-	}
-    }
-}
-
 /* If a value is known for REGNO, return it.  */
 
 rtx

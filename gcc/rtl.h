@@ -2217,7 +2217,6 @@ extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 
 /* In alias.c */
-extern void clear_reg_alias_info (rtx);
 extern rtx canon_rtx (rtx);
 extern int true_dependence (rtx, enum machine_mode, rtx, int (*)(rtx, int));
 extern rtx get_addr (rtx);

@@ -262,6 +262,19 @@ sbitmap_equal (sbitmap a, sbitmap b)
   return !memcmp (a->elms, b->elms, sizeof (SBITMAP_ELT_TYPE) * a->size);
 }
 
+/* Return true if the bitmap is empty.  */
+
+bool
+sbitmap_empty_p (sbitmap bmap)
+{
+  unsigned int i;
+  for (i=0; i<bmap->size; i++)
+    if (bmap->elms[i])
+      return false;
+
+  return true;
+}
+
 /* Zero all elements in a bitmap.  */
 
 void

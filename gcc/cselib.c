@@ -134,7 +134,7 @@ static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
 
 /* If nonnull, cselib will call this function before freeing useless
    VALUEs.  A VALUE is deemed useless if its "locs" field is null.  */
-void (*cselib_discard_hook) (void);
+void (*cselib_discard_hook) (cselib_val *);
 
 
 /* Allocate a struct elt_list and fill in its two elements with the
@@ -335,6 +335,9 @@ discard_useless_values (void **x, void *info ATTRIBUTE_UNUSED)
 
   if (v->locs == 0)
     {
+      if (cselib_discard_hook)
+	cselib_discard_hook (v);
+
       CSELIB_VAL_PTR (v->val_rtx) = NULL;
       htab_clear_slot (cselib_hash_table, x);
       unchain_one_value (v);
@@ -370,9 +373,6 @@ remove_useless_values (void)
 	p = &(*p)->next_containing_mem;
       }
   *p = &dummy_val;
-
-  if (cselib_discard_hook)
-    cselib_discard_hook ();
 
   htab_traverse (cselib_hash_table, discard_useless_values, 0);
 
@@ -828,6 +828,211 @@ cselib_lookup_mem (rtx x, int create)
 				   mem_elt->value, INSERT);
   *slot = mem_elt;
   return mem_elt;
+}
+
+/* Search thru the possible substitutions in P.  We prefer a non reg
+   substitution because this allows us to expand the tree further.  If
+   we find, just a reg, take the lowest regno.  There may be several
+   non-reg results, we just take the first one because they will all
+   expand to the same place.  */
+
+static rtx 
+expand_loc (struct elt_loc_list * p, bitmap regs_active)
+{
+  rtx reg_result = NULL;
+  unsigned int regno = UINT_MAX;
+
+  while (p)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "substitution: ");
+	  print_inline_rtx (dump_file, p->loc, 0);
+	  fprintf (dump_file, "\n");
+	}
+      
+      /* Avoid infinite recursion trying to expand a reg into a
+	 the same reg.  */
+      if ((REG_P (p->loc)) 
+	  && (REGNO (p->loc) < regno) 
+	  && !bitmap_bit_p (regs_active, REGNO (p->loc)))
+	{
+	  reg_result = p->loc;
+	  regno = REGNO (p->loc);
+	}
+      else if (!REG_P (p->loc))
+	{
+	  rtx result = cselib_expand_value_rtx (p->loc, regs_active);
+	  if (result)
+	    return result;
+	}
+	
+      p = p -> next;
+    }
+  
+  if (regno != UINT_MAX)
+    {
+      rtx result = cselib_expand_value_rtx (reg_result, regs_active);
+      if (result)
+	return result;
+    }
+
+  return reg_result;
+}
+
+
+/* Forward substitute and expand an expression out to it's roots.
+   This is the opposite of common subexpression.  Because local value
+   numbering is such a weak optimization, the expanded expression is
+   pretty much unique (not from a pointer equals point of view but
+   from a tree shape point of view.  
+
+   This function returns NULL if the expansion fails.  The expansion
+   will fail if there is no value number for one of the operands or if
+   one of the operands has been overwritten between the current insn
+   and the beginning of the basic block.  For instance x has no
+   expansion in:
+
+   r1 <- r1 + 3
+   x <- r1 + 8
+
+   REGS_ACTIVE is a scratch bitmap that should be clear when passing in.
+   It is clear on return.  */
+
+rtx
+cselib_expand_value_rtx (rtx orig, bitmap regs_active)
+{
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
+
+  code = GET_CODE (orig);
+
+  switch (code)
+    {
+    case REG:
+      {
+	struct elt_list *l = REG_VALUES (REGNO (orig));
+
+	if (l && l->elt == NULL)
+	  l = l->next;
+	for (; l; l = l->next)
+	  if (GET_MODE (l->elt->val_rtx) == GET_MODE (orig))
+	    {
+	      rtx result;
+	      int regno = REGNO (orig);
+	      
+	      /* The one thing that we are not willing to do (and this
+		 is requirement of dse and if others need this
+		 function we should add a parm to control it) is that
+		 we will not substitute the STACK_POINTER_REGNUM.  So
+		 if we preload it in the bitmap that is used to keep
+		 from substituting infinitely, we will never get an sp
+		 substitution. */ 	      
+	      if (regno == STACK_POINTER_REGNUM)
+		return orig;
+
+	      bitmap_set_bit (regs_active, regno);
+	      result = expand_loc (l->elt->locs, regs_active);
+	      bitmap_clear_bit (regs_active, regno);
+
+	      if (result)
+		return result;
+	      else 
+		return orig;
+	    }
+      }
+      
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+    case SCRATCH:
+      /* SCRATCH must be shared because they represent distinct values.  */
+      return orig;
+    case CLOBBER:
+      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
+	return orig;
+      break;
+
+    case CONST:
+      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
+	 a LABEL_REF, it isn't sharable.  */
+      if (GET_CODE (XEXP (orig, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (orig, 0), 1)) == CONST_INT)
+	return orig;
+      break;
+
+
+    case VALUE:
+      return expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active);
+
+      /* A MEM with a constant address is not sharable.  The problem is that
+	 the constant address may need to be reloaded.  If the mem is shared,
+	 then reloading one copy of this mem will cause all copies to appear
+	 to have been reloaded.  */
+
+    default:
+      break;
+    }
+
+  /* Copy the various flags, fields, and other information.  We assume
+     that all fields need copying, and then clear the fields that should
+     not be copied.  That is the sensible default behavior, and forces
+     us to explicitly document why we are *not* copying a flag.  */
+  copy = shallow_copy_rtx (orig);
+
+  format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
+
+  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
+    switch (*format_ptr++)
+      {
+      case 'e':
+	if (XEXP (orig, i) != NULL)
+	  {
+	    rtx result = cselib_expand_value_rtx (XEXP (orig, i), regs_active);
+	    if (!result)
+	      return NULL;
+	    XEXP (copy, i) = result;
+	  }
+	break;
+
+      case 'E':
+      case 'V':
+	if (XVEC (orig, i) != NULL)
+	  {
+	    XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
+	    for (j = 0; j < XVECLEN (copy, i); j++)
+	      {
+		rtx result = cselib_expand_value_rtx (XVECEXP (orig, i, j), regs_active);
+		if (!result)
+		  return NULL;
+		XVECEXP (copy, i, j) = result;
+	      }
+	  }
+	break;
+
+      case 't':
+      case 'w':
+      case 'i':
+      case 's':
+      case 'S':
+      case 'T':
+      case 'u':
+      case 'B':
+      case '0':
+	/* These are left unchanged.  */
+	break;
+
+      default:
+	gcc_unreachable ();
+      }
+  return copy;
 }
 
 /* Walk rtx X and replace all occurrences of REG and MEM subexpressions
@@ -1512,6 +1717,7 @@ cselib_init (bool record_memory)
 void
 cselib_finish (void)
 {
+  cselib_discard_hook = NULL;
   free_alloc_pool (elt_list_pool);
   free_alloc_pool (elt_loc_list_pool);
   free_alloc_pool (cselib_val_pool);

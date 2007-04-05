@@ -47,6 +47,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "df.h"
 #include "target.h"
+#include "dse.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -2022,6 +2023,8 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
+	  HOST_WIDE_INT alias_set = new_alias_set ();
+
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
@@ -2034,7 +2037,8 @@ alter_reg (int i, int from_reg)
 	    adjust = inherent_size - total_size;
 
 	  /* Nothing can alias this slot except this pseudo.  */
-	  set_mem_alias_set (x, new_alias_set ());
+	  set_mem_alias_set (x, alias_set);
+	  dse_record_singleton_alias_set (alias_set, mode);
 	}
 
       /* Reuse a stack slot if possible.  */
@@ -2044,7 +2048,6 @@ alter_reg (int i, int from_reg)
 		   >= inherent_size)
 	       && MEM_ALIGN (spill_stack_slot[from_reg]) >= min_align)
 	x = spill_stack_slot[from_reg];
-
       /* Allocate a bigger slot.  */
       else
 	{
@@ -2071,9 +2074,18 @@ alter_reg (int i, int from_reg)
 
 	  /* All pseudos mapped to this slot can alias each other.  */
 	  if (spill_stack_slot[from_reg])
-	    set_mem_alias_set (x, MEM_ALIAS_SET (spill_stack_slot[from_reg]));
+	    {
+	      HOST_WIDE_INT alias_set 
+		= MEM_ALIAS_SET (spill_stack_slot[from_reg]);
+	      set_mem_alias_set (x, alias_set);
+	      dse_invalidate_singleton_alias_set (alias_set);
+	    }
 	  else
-	    set_mem_alias_set (x, new_alias_set ());
+	    {
+	      HOST_WIDE_INT alias_set = new_alias_set ();
+	      set_mem_alias_set (x, alias_set);
+	      dse_record_singleton_alias_set (alias_set, mode);
+	    }
 
 	  if (BYTES_BIG_ENDIAN)
 	    {

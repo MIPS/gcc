@@ -1,3 +1,50 @@
+2007-04-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* sbitmap.c (sbitmap_empty_p): New function.
+	* sbitmap.h (sbitmap_empty_p): New function.
+	* dbgcnt.def (dse): New counter and sorted the others.
+	* df-core.c (df_worklist_dataflow): Made init_fun optional.
+	* cse.c (cse_main): Do dce at start of pass.
+	* timevar.def (TV_DSE3): Deleted.
+	* dse.c: New pass.
+	* dse.h: New file for dse pass.
+	* gcse.c (gcse_main): Set up the register info.
+	* alias.c (clear_reg_alias_info): Removed dead function.
+	* rtl.h (clear_reg_alias_info): Removed dead function.
+	* cselib.c (cselib_discard_hook): Added cselib val parameter.
+	(discard_useless_values): Added hook call here.
+	(remove_useless_values): Removed hook call from here.
+	(expand_loc, cselib_expand_value_rtx): New function.
+	(cselib_finish): Clear hook.
+	* cselib.h (cselib_discard_hook): Added cselib val parameter.
+	(expand_loc, cselib_expand_value_rtx): New function.
+	* common.opt (flag_flow_dce, new-dce): Removed flag.
+	(flag_dce, flag_dse): New flags.
+	* Makefile.in (dse.o): New pass.
+	* passes.c (init_iptimization_passes): Removed dse after combine.
+	Renamed dse3 to dse2.
+	* dce.c (delete_unmarked_insns): Renamed new_dce to dce.
+	(end_dce, mark_artificial_uses, mark_reg_dependencies, 
+	invariant_store_base_eq, invariant_store_base_hash, value_store_base_eq,
+	value_store_base_hash, store_base_del, rs_init, rs_confluence,
+	rs_transfer_function, init_invariant_store_group,
+	init_value_store_group, empty_store_group, end_store_group,
+	init_rs_dflow, end_rs_dflow, init_unmarked_stores,
+	end_unmarked_stores, init_dse, end_dse, dump_stores,
+	split_address, add_store_offset, record_store, record_stores,
+	store_offset_compare, store_base_local,
+	invariant_store_base_local, value_store_base_local,
+	value_store_base_useless, remove_useless_values,
+	store_base_global, finish_max_in_luid,
+	calculate_reaching_stores, frame_stores_escape_p,
+	store_base_prune_needed, mark_escaping_stores,
+	insn_might_read_mem_rtx, insn_might_read_mem_use,
+	insn_might_read_mem_p, mark_dependent_stores,
+	prescan_insns_for_dse, rest_of_handle_dse, gate_dse): Deleted functions
+	as part of new dse pass in separate file.  
+	* reload1.c (alter_reg): Added calls to register spill slots
+	with dse.
+
 2007-04-05  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_legitimate_address): Disallow

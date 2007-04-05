@@ -675,6 +675,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
+  df_ri_add_problem (DF_RI_LIFE);
   df_analyze ();
 
   if (dump_file)
