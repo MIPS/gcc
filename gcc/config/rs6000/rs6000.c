@@ -3834,6 +3834,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   if (GET_CODE (x) == PRE_MODIFY
       && mode != TImode
       && mode != TFmode
+      && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
 	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))

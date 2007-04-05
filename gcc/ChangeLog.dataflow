@@ -1,3 +1,8 @@
+2007-04-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_address): Disallow
+	PRE_MODIFY for TDmode.
+
 2007-04-04  Kenneth Zadeck <zadeck@naturalbridge.com>
 	
 	* cfg.c (dump_reg_info): Added check to lower max if new regs
