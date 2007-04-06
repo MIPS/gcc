@@ -178,26 +178,6 @@ df_print_bb_index (basic_block bb, FILE *file)
 }
 
 
-/* Return a bitmap for REGNO from the cache MAPS.  The bitmap is to
-   contain COUNT bits starting at START.  These bitmaps are not to be
-   changed since there is a cache of them.  */
-
-static inline bitmap
-df_ref_bitmap (bitmap *maps, unsigned int regno, int start, int count)
-{
-  bitmap ids = maps[regno];
-  if (!ids)
-    {
-      unsigned int i;
-      unsigned int end = start + count;;
-      ids = BITMAP_ALLOC (NULL);
-      maps[regno] = ids;
-      for (i = start; i < end; i++)
-	bitmap_set_bit (ids, i);
-    }
-  return ids;
-}
-
 
 /* Make sure that the seen_in_insn and seen_in_block sbitmaps are set
    up correctly. */
@@ -239,9 +219,7 @@ df_unset_seen (void)
    2) There are two kill sets, one if the number of uses is less or
    equal to DF_SPARSE_THRESHOLD and another if it is greater.
 
-   <= : There is a bitmap for each register, uses_sites[N], that is
-   built on demand.  This bitvector contains a 1 for each use or reg
-   N.
+   <= : Data is built directly in the kill set.
 
    > : One level of indirection is used to keep from generating long
    strings of 1 bits in the kill sets.  Bitvectors that are indexed
@@ -257,9 +235,6 @@ df_unset_seen (void)
    data structures are not accessible outside of this module.  */
 struct df_ru_problem_data
 {
-
-  bitmap *use_sites;            /* Bitmap of uses for each pseudo.  */
-  unsigned int use_sites_size;  /* Size of use_sites.  */
   /* The set of defs to regs invalidated by call.  */
   bitmap sparse_invalidated_by_call;  
   /* The set of defs to regs invalidated by call for ru.  */  
@@ -304,7 +279,6 @@ df_ru_alloc (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
-  unsigned int reg_size = max_reg_num ();
 
   if (!df_ru->block_pool)
     df_ru->block_pool = create_alloc_pool ("df_ru_block pool", 
@@ -312,28 +286,8 @@ df_ru_alloc (bitmap all_blocks)
 
   if (df_ru->problem_data)
     {
-      unsigned int i;
       struct df_ru_problem_data *problem_data
 	= (struct df_ru_problem_data *) df_ru->problem_data;
-
-      for (i = 0; i < problem_data->use_sites_size; i++)
-	{
-	  bitmap bm = problem_data->use_sites[i];
-	  if (bm)
-	    {
-	      BITMAP_FREE (bm);
-	      problem_data->use_sites[i] = NULL;
-	    }
-	}
-      
-      if (problem_data->use_sites_size < reg_size)
-	{
-	  problem_data->use_sites 
-	    = xrealloc (problem_data->use_sites, reg_size * sizeof (bitmap));
-	  memset (problem_data->use_sites + problem_data->use_sites_size, 0,
-		  (reg_size - problem_data->use_sites_size) * sizeof (bitmap));
-	  problem_data->use_sites_size = reg_size;
-	}
 
       bitmap_clear (problem_data->sparse_invalidated_by_call);
       bitmap_clear (problem_data->dense_invalidated_by_call);
@@ -343,8 +297,6 @@ df_ru_alloc (bitmap all_blocks)
       struct df_ru_problem_data *problem_data = XNEW (struct df_ru_problem_data);
       df_ru->problem_data = problem_data;
 
-      problem_data->use_sites = XCNEWVEC (bitmap, reg_size);
-      problem_data->use_sites_size = reg_size;
       problem_data->sparse_invalidated_by_call = BITMAP_ALLOC (NULL);
       problem_data->dense_invalidated_by_call = BITMAP_ALLOC (NULL);
     }
@@ -409,14 +361,7 @@ df_ru_bb_local_compute_process_def (struct df_ru_bb_info *bb_info,
 		  if (n_uses > DF_SPARSE_THRESHOLD)
 		    bitmap_set_bit (bb_info->sparse_kill, regno);
 		  else
-		    {
-		      struct df_ru_problem_data * problem_data
-			= (struct df_ru_problem_data *)df_ru->problem_data;
-		      bitmap uses 
-			= df_ref_bitmap (problem_data->use_sites, regno, 
-				       begin, n_uses);
-		      bitmap_ior_into (bb_info->kill, uses);
-		    }
+		    bitmap_set_range (bb_info->kill, begin, n_uses);
 		}
 	      bitmap_set_bit (seen_in_insn, regno);
 	    }
@@ -530,12 +475,9 @@ df_ru_local_compute (bitmap all_blocks)
       if (DF_USES_COUNT (regno) > DF_SPARSE_THRESHOLD)
 	bitmap_set_bit (sparse_invalidated, regno);
       else
-	{
-	  bitmap defs = df_ref_bitmap (problem_data->use_sites, regno, 
-				       DF_USES_BEGIN (regno), 
-				       DF_USES_COUNT (regno));
-	  bitmap_ior_into (dense_invalidated, defs);
-	}
+	bitmap_set_range (dense_invalidated,
+			  DF_USES_BEGIN (regno), 
+			  DF_USES_COUNT (regno));
     }
 
   df_unset_seen ();
@@ -661,15 +603,6 @@ df_ru_free (void)
 	}
       
       free_alloc_pool (df_ru->block_pool);
-      
-      for (i = 0; i < problem_data->use_sites_size; i++)
-	{
-	  bitmap bm = problem_data->use_sites[i];
-	  if (bm)
-	    BITMAP_FREE (bm);
-	}
-      
-      free (problem_data->use_sites);
       BITMAP_FREE (problem_data->sparse_invalidated_by_call);
       BITMAP_FREE (problem_data->dense_invalidated_by_call);
       
@@ -798,13 +731,6 @@ df_ru_add_problem (void)
    data structures are not accessible outside of this module.  */
 struct df_rd_problem_data
 {
-  /* If the number of defs for regnum N is less than
-     DF_SPARSE_THRESHOLD, uses_sites[N] contains a mask of the all of
-     the defs of reg N indexed by the id in the ref structure.  If
-     there are more than DF_SPARSE_THRESHOLD defs for regnum N a
-     different mechanism is used to mask the def.  */
-  bitmap *def_sites;            /* Bitmap of defs for each pseudo.  */
-  unsigned int def_sites_size;  /* Size of def_sites.  */
   /* The set of defs to regs invalidated by call.  */
   bitmap sparse_invalidated_by_call;  
   /* The set of defs to regs invalidate by call for rd.  */  
@@ -850,7 +776,6 @@ df_rd_alloc (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
-  unsigned int reg_size = max_reg_num ();
 
   if (!df_rd->block_pool)
     df_rd->block_pool = create_alloc_pool ("df_rd_block pool", 
@@ -858,28 +783,8 @@ df_rd_alloc (bitmap all_blocks)
 
   if (df_rd->problem_data)
     {
-      unsigned int i;
       struct df_rd_problem_data *problem_data
 	= (struct df_rd_problem_data *) df_rd->problem_data;
-
-      for (i = 0; i < problem_data->def_sites_size; i++)
-	{
-	  bitmap bm = problem_data->def_sites[i];
-	  if (bm)
-	    {
-	      BITMAP_FREE (bm);
-	      problem_data->def_sites[i] = NULL;
-	    }
-	}
-      
-      if (problem_data->def_sites_size < reg_size)
-	{
-	  problem_data->def_sites 
-	    = xrealloc (problem_data->def_sites, reg_size *sizeof (bitmap));
-	  memset (problem_data->def_sites + problem_data->def_sites_size, 0,
-		  (reg_size - problem_data->def_sites_size) *sizeof (bitmap));
-	  problem_data->def_sites_size = reg_size;
-	}
 
       bitmap_clear (problem_data->sparse_invalidated_by_call);
       bitmap_clear (problem_data->dense_invalidated_by_call);
@@ -888,9 +793,6 @@ df_rd_alloc (bitmap all_blocks)
     {
       struct df_rd_problem_data *problem_data = XNEW (struct df_rd_problem_data);
       df_rd->problem_data = problem_data;
-
-      problem_data->def_sites = XCNEWVEC (bitmap, reg_size);
-      problem_data->def_sites_size = reg_size;
       problem_data->sparse_invalidated_by_call = BITMAP_ALLOC (NULL);
       problem_data->dense_invalidated_by_call = BITMAP_ALLOC (NULL);
     }
@@ -962,12 +864,8 @@ df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 			}
 		      else
 			{
-			  struct df_rd_problem_data * problem_data
-			    = (struct df_rd_problem_data *)df_rd->problem_data;
-			  bitmap defs = df_ref_bitmap (problem_data->def_sites, 
-						       regno, begin, n_defs);
-			  bitmap_ior_into (bb_info->kill, defs);
-			  bitmap_and_compl_into (bb_info->gen, defs);
+			  bitmap_set_range (bb_info->kill, begin, n_defs);
+			  bitmap_clear_range (bb_info->gen, begin, n_defs);
 			}
 		    }
 		  
@@ -1060,12 +958,9 @@ df_rd_local_compute (bitmap all_blocks)
       if (DF_DEFS_COUNT (regno) > DF_SPARSE_THRESHOLD)
 	bitmap_set_bit (sparse_invalidated, regno);
       else
-	{
-	  bitmap defs = df_ref_bitmap (problem_data->def_sites, regno, 
-				       DF_DEFS_BEGIN (regno), 
-				       DF_DEFS_COUNT (regno));
-	  bitmap_ior_into (dense_invalidated, defs);
-	}
+	bitmap_set_range (dense_invalidated, 
+			  DF_DEFS_BEGIN (regno), 
+			  DF_DEFS_COUNT (regno));
     }
   df_unset_seen ();
 }
@@ -1190,15 +1085,6 @@ df_rd_free (void)
 	}
       
       free_alloc_pool (df_rd->block_pool);
-      
-      for (i = 0; i < problem_data->def_sites_size; i++)
-	{
-	  bitmap bm = problem_data->def_sites[i];
-	  if (bm)
-	    BITMAP_FREE (bm);
-	}
-      
-      free (problem_data->def_sites);
       BITMAP_FREE (problem_data->sparse_invalidated_by_call);
       BITMAP_FREE (problem_data->dense_invalidated_by_call);
       

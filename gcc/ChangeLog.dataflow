@@ -1,3 +1,17 @@
+2007-04-06  Paolo Bonzini  <bonzini@gnu.org>
+
+	* bitmap.c (bitmap_set_range): New.
+	(bitmap_clear_range): Small optimization.
+	* bitmap.h (bitmap_set_range): New.
+	* df-problems.c (df_ref_bitmap): Remove.
+	(struct df_rd_problem_data, df_ru_problem_data): Remove related
+	data structures.
+	(df_ru_alloc, df_rd_alloc): Don't allocate them.
+	(df_ru_free, df_rd_free): Don't free them.
+	(df_ru_bb_local_compute_process_def, df_ru_local_compute,
+	df_rd_bb_local_compute_process_def, df_rd_local_compute):
+	Use bitmap_set_range and bitmap_clear_range instead of df_ref_bitmap.
+
 2007-04-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* sbitmap.c (sbitmap_empty_p): New function.

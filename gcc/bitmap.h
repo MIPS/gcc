@@ -131,6 +131,7 @@ extern bool bitmap_and_compl_into (bitmap, bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
 extern void bitmap_compl_and_into (bitmap, bitmap);
 extern void bitmap_clear_range (bitmap, unsigned int, unsigned int);
+extern void bitmap_set_range (bitmap, unsigned int, unsigned int);
 extern bool bitmap_ior (bitmap, bitmap, bitmap);
 extern bool bitmap_ior_into (bitmap, bitmap);
 extern void bitmap_xor (bitmap, bitmap, bitmap);
