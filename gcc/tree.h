@@ -4009,6 +4009,8 @@ extern tree make_accum_type (int, int, int);
 #define make_or_reuse_sat_unsigned_accum_type(P) \
 		make_or_reuse_accum_type (P, 1, 1)
 
+extern tree get_signed_or_unsigned_type (int unsignedp, tree type);
+
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
    tree.h had been included.  */
