@@ -1,3 +1,42 @@
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31483
+	* trans-expr.c (gfc_conv_function_call): Give a dummy
+	procedure the correct type if it has alternate returns.
+
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31292
+	* decl.c (gfc_match_modproc): Go up to the top of the namespace
+	tree to find the module namespace for gfc_get_symbol.
+
+2007-04-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31304
+	* fortran/gfortran.h (gfc_charlen_int_kind): New prototype.
+	* fortran/trans-types.c (gfc_charlen_int_kind): New variable.
+	(gfc_init_types): Define gfc_charlen_int_kind. 
+	* fortran/trans.h (gfor_fndecl_string_repeat): Remove prototype.
+	* fortran/trans-decl.c (gfor_fndecl_string_repeat): Delete.
+	(gfc_build_intrinsic_function_decls): Don't set
+	gfor_fndecl_string_repeat.
+	* fortran/trans-intrinsic.c (gfc_conv_intrinsic_repeat): Rewrite
+	so that we don't have to call a library function.
+	* fortran/simplify.c (gfc_simplify_repeat): Perform the necessary
+	checks on the NCOPIES argument, and work with arbitrary size
+	arguments.
+
+2007-03-31  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.c (add_functions): Fix name of dummy argument
+	  for new_line and exit intrinsic.
+
+2007-03-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31160
+	* gfortran.texi: Add a section for the %VAL, %REF and %LOC
+	extensions.
+
 2007-03-30  Rafael Avila de Espindola  <espindola@google.com>
 
 	* trans-types.c (gfc_signed_or_unsigned_type): Remove.

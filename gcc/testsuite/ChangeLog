@@ -1,3 +1,93 @@
+2007-04-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31395
+	* gfortran.dg/fmt_colon.f90: New test.
+
+2007-04-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.other/init18.C: Use
+	dg-require-effective-target instead of an explicit xfail.
+
+2007-04-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/signbit-1.c
+	* gcc.dg/dfp/signbit-2.c
+
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31483
+	* gfortran.dg/altreturn_5.f90: New test.
+
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31292
+	* gfortran.dg/contained_module_proc_1.f90: New test.
+
+2007-04-04  Stuart Hastings  <stuart@apple.com>
+
+	PR 31281
+	* testsuite/objc/execute/exceptions/pr31281.m: New.
+
+2007-04-04  Danny Smith  <dannysmith.users.sourceforge.net>
+
+	* g++.dg/ext/dllimport12.C: Update comments.
+
+2007-04-03  Eric Christopher  <echristo@apple.com>
+
+	* g++.dg/tree-ssa/pr29902.C: Require ilp32.
+
+2007-04-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31304
+	* gfortran.dg/repeat_2.f90: New test.
+	* gfortran.dg/repeat_3.f90: New test.
+	* gfortran.dg/repeat_4.f90: New test.
+
+2007-04-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tls/opt-3.c: Use -mregparm=3 only for ilp32 on x86_64 targets.
+
+2007-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30847
+	* g++.dg/parse/cond3.C: New test.
+
+	PR middle-end/30704
+	* gcc.c-torture/execute/ieee/pr30704.c: New test.
+
+2007-04-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31187
+	* g++.dg/ext/visibility/anon3.C: New test.
+
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31052
+	* gfortran.dg/namelist_28.f90: New test.
+
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31366
+	* gfortran.dg/direct_io_6.f90: New test.
+
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31207
+	* gfortran.dg/advance_5.f90: New test.
+	* gfortran.dg/advance_6.f90: New test.
+
+2007-04-01  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* g++.dg/ext/dllimport6.C: Remove extra ';'.
+	* g++.dg/ext/dllimport7.C: Likewise.
+	* g++.dg/ext/selectany1.C: Likewise.
+
+2007-03-31  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/parser/pr31138.C: New.
+	* g++.dg/parser/pr31140.C: New.
+	* g++.dg/parser/pr31141.C: New.
+
 2007-03-30  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/26099

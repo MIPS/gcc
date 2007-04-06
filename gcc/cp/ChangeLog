@@ -1,3 +1,45 @@
+2007-04-04  Danny Smith  <dannysmith.users.sourceforge.net>
+
+	* class.c (check_for_override): Don't remove dllmport attribute
+	of virtual methods.
+
+
+
+2007-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30847
+	* typeck.c (build_modify_expr): For COND_EXPR on LHS, if RHS has void
+	type issue error and return early.
+
+2007-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31187
+	* typeck.c (cp_type_readonly): New fn.
+	* cp-tree.h: Declare it.
+	* decl.c (start_decl): Set implicit DECL_THIS_STATIC here.
+	(cp_finish_decl): Not here.
+
+2007-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* optimize.c (maybe_clone_body): Replace splay-tree usage by
+	pointer-map.
+
+2007-03-31  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/31138
+	PR c++/31140
+	PR c++/31141
+	* parser.c (declarator_can_be_parameter_pack): New.
+	(cp_parser_template_parameter): Only parse the `...' if the
+	declarator can be a parameter pack.
+	(cp_parser_parameter_declaration): Ditto. Also, handle when TYPE
+	is NULL.
+	* pt.c (find_parameter_packs_r): Look into the bounds on integer
+	types (they could be used as array bounds). 
+	(check_for_bare_parameter_packs): Deal with TEMPLATE_PARM_INDEX.
+	(tsubst_pack_expansion): Handle failure to expand parameter
+	packs.
+	
 2007-03-30  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/26099

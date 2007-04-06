@@ -4289,7 +4289,10 @@ emit_insn_before_setloc (rtx pattern, rtx before, int loc)
   if (pattern == NULL_RTX || !loc)
     return last;
 
-  first = NEXT_INSN (first);
+  if (!first)
+    first = get_insns ();
+  else
+    first = NEXT_INSN (first);
   while (1)
     {
       if (active_insn_p (first) && !INSN_LOCATOR (first))

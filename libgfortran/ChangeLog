@@ -1,3 +1,232 @@
+2007-04-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* intrinsics/cpu_time.c: Don't include headers already included
+	by libgfortran.h. Protect inclusion of sys/times.h.
+	* configure.ac: Remove unneeded checks for finit, stdio.h,
+	stddef.h, math.h and sys/params.h.
+	* config/fpu-aix.h: Don't include headers already included by
+	libgfortran.h.
+	* config/fpu-sysv.h: Likewise.
+	* io/write.c: Likewise.
+	* m4/minloc1.m4: Likewise.
+	* m4/maxloc1.m4: Likewise.
+	* m4/fraction.m4: Likewise.
+	* m4/set_exponent.m4: Likewise.
+	* m4/spacing.m4: Likewise.
+	* m4/minval.m4: Likewise.
+	* m4/maxval.m4: Likewise.
+	* m4/exponent.m4: Likewise.
+	* m4/nearest.m4: Likewise.
+	* m4/minloc0.m4: Likewise.
+	* m4/maxloc0.m4: Likewise.
+	* m4/rrspacing.m4: Likewise.
+	* runtime/main.c: Likewise.
+	* runtime/error.c: Likewise.
+	* intrinsics/system_clock.c: Likewise.
+	* intrinsics/etime.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* intrinsics/date_and_time.c: Likewise.
+	* intrinsics/env.c: Likewise.
+	* intrinsics/kill.c: Likewise.
+	* intrinsics/getXid.c: Likewise.
+	* intrinsics/chmod.c: Likewise.
+	* intrinsics/args.c: Likewise.
+	* intrinsics/c99_functions.c: Likewise.
+	* generated/minval_r8.c: Regenerate.
+	* generated/maxloc1_4_r8.c: Regenerate.
+	* generated/minloc1_16_r16.c: Regenerate.
+	* generated/maxval_i2.c: Regenerate.
+	* generated/maxloc1_8_i4.c: Regenerate.
+	* generated/exponent_r16.c: Regenerate.
+	* generated/maxloc0_4_r4.c: Regenerate.
+	* generated/fraction_r16.c: Regenerate.
+	* generated/fraction_r4.c: Regenerate.
+	* generated/minloc0_4_r16.c: Regenerate.
+	* generated/minloc0_4_i1.c: Regenerate.
+	* generated/maxloc0_4_r16.c: Regenerate.
+	* generated/maxloc0_4_i2.c: Regenerate.
+	* generated/minloc1_8_r16.c: Regenerate.
+	* generated/maxloc1_8_r16.c: Regenerate.
+	* generated/set_exponent_r8.c: Regenerate.
+	* generated/maxloc0_8_i8.c: Regenerate.
+	* generated/minloc1_4_r8.c: Regenerate.
+	* generated/maxloc1_16_r16.c: Regenerate.
+	* generated/minloc1_16_i4.c: Regenerate.
+	* generated/maxloc1_16_i4.c: Regenerate.
+	* generated/minloc0_16_i8.c: Regenerate.
+	* generated/maxloc0_16_i8.c: Regenerate.
+	* generated/nearest_r8.c: Regenerate.
+	* generated/spacing_r16.c: Regenerate.
+	* generated/maxval_r16.c: Regenerate.
+	* generated/minloc1_8_i4.c: Regenerate.
+	* generated/minloc0_16_i16.c: Regenerate.
+	* generated/minloc0_4_r4.c: Regenerate.
+	* generated/set_exponent_r10.c: Regenerate.
+	* generated/rrspacing_r10.c: Regenerate.
+	* generated/minloc0_4_i2.c: Regenerate.
+	* generated/maxloc0_8_i1.c: Regenerate.
+	* generated/minloc0_8_i8.c: Regenerate.
+	* generated/spacing_r4.c: Regenerate.
+	* generated/minloc1_16_r10.c: Regenerate.
+	* generated/minloc0_16_i1.c: Regenerate.
+	* generated/maxloc0_16_i1.c: Regenerate.
+	* generated/maxloc1_8_r8.c: Regenerate.
+	* generated/minval_i16.c: Regenerate.
+	* generated/exponent_r10.c: Regenerate.
+	* generated/maxval_i4.c: Regenerate.
+	* generated/minval_i8.c: Regenerate.
+	* generated/maxloc1_4_i8.c: Regenerate.
+	* generated/fraction_r10.c: Regenerate.
+	* generated/maxloc0_16_i16.c: Regenerate.
+	* generated/maxloc0_8_r4.c: Regenerate.
+	* generated/rrspacing_r8.c: Regenerate.
+	* generated/minloc1_4_i16.c: Regenerate.
+	* generated/minloc0_4_r10.c: Regenerate.
+	* generated/maxloc1_4_i16.c: Regenerate.
+	* generated/minloc0_8_i16.c: Regenerate.
+	* generated/maxloc0_4_r10.c: Regenerate.
+	* generated/maxloc0_8_i16.c: Regenerate.
+	* generated/minloc1_8_r10.c: Regenerate.
+	* generated/minloc0_16_r4.c: Regenerate.
+	* generated/maxloc1_8_r10.c: Regenerate.
+	* generated/maxloc0_16_r4.c: Regenerate.
+	* generated/minloc1_16_r8.c: Regenerate.
+	* generated/minloc0_8_i1.c: Regenerate.
+	* generated/maxloc0_4_i4.c: Regenerate.
+	* generated/maxloc1_16_r8.c: Regenerate.
+	* generated/maxloc0_8_i2.c: Regenerate.
+	* generated/nearest_r16.c: Regenerate.
+	* generated/maxloc1_16_r10.c: Regenerate.
+	* generated/minloc0_16_i2.c: Regenerate.
+	* generated/minloc1_8_r8.c: Regenerate.
+	* generated/maxloc0_16_i2.c: Regenerate.
+	* generated/exponent_r4.c: Regenerate.
+	* generated/spacing_r10.c: Regenerate.
+	* generated/maxval_r10.c: Regenerate.
+	* generated/minval_i1.c: Regenerate.
+	* generated/maxloc1_4_i1.c: Regenerate.
+	* generated/minloc1_4_i8.c: Regenerate.
+	* generated/minloc0_8_r4.c: Regenerate.
+	* generated/minloc0_16_r16.c: Regenerate.
+	* generated/minloc0_4_i4.c: Regenerate.
+	* generated/minloc0_8_i2.c: Regenerate.
+	* generated/minval_r4.c: Regenerate.
+	* generated/maxloc1_4_r4.c: Regenerate.
+	* generated/maxval_r8.c: Regenerate.
+	* generated/minval_r16.c: Regenerate.
+	* generated/minloc1_4_i1.c: Regenerate.
+	* generated/minval_i2.c: Regenerate.
+	* generated/maxloc1_4_i2.c: Regenerate.
+	* generated/maxloc1_8_i8.c: Regenerate.
+	* generated/maxloc0_4_r8.c: Regenerate.
+	* generated/maxloc0_16_r16.c: Regenerate.
+	* generated/minloc1_4_r16.c: Regenerate.
+	* generated/fraction_r8.c: Regenerate.
+	* generated/maxloc1_4_r16.c: Regenerate.
+	* generated/set_exponent_r4.c: Regenerate.
+	* generated/minloc0_8_r16.c: Regenerate.
+	* generated/maxloc0_8_r16.c: Regenerate.
+	* generated/nearest_r10.c: Regenerate.
+	* generated/maxloc0_8_i4.c: Regenerate.
+	* generated/minloc1_4_r4.c: Regenerate.
+	* generated/minloc0_16_i4.c: Regenerate.
+	* generated/maxloc0_16_i4.c: Regenerate.
+	* generated/nearest_r4.c: Regenerate.
+	* generated/minloc1_16_i8.c: Regenerate.
+	* generated/maxloc1_16_i8.c: Regenerate.
+	* generated/minloc1_4_i2.c: Regenerate.
+	* generated/maxloc1_8_i1.c: Regenerate.
+	* generated/minloc0_16_r10.c: Regenerate.
+	* generated/minloc1_8_i8.c: Regenerate.
+	* generated/minloc0_4_r8.c: Regenerate.
+	* generated/minloc0_8_i4.c: Regenerate.
+	* generated/minloc1_16_i16.c: Regenerate.
+	* generated/spacing_r8.c: Regenerate.
+	* generated/maxloc1_8_r4.c: Regenerate.
+	* generated/minloc1_16_i1.c: Regenerate.
+	* generated/maxloc1_16_i1.c: Regenerate.
+	* generated/minval_r10.c: Regenerate.
+	* generated/minval_i4.c: Regenerate.
+	* generated/minloc1_8_i1.c: Regenerate.
+	* generated/maxloc1_4_i4.c: Regenerate.
+	* generated/maxloc1_8_i2.c: Regenerate.
+	* generated/maxval_i8.c: Regenerate.
+	* generated/maxloc0_16_r10.c: Regenerate.
+	* generated/rrspacing_r4.c: Regenerate.
+	* generated/minloc0_4_i16.c: Regenerate.
+	* generated/maxloc0_8_r8.c: Regenerate.
+	* generated/maxloc0_4_i16.c: Regenerate.
+	* generated/minloc1_4_r10.c: Regenerate.
+	* generated/minloc1_8_i16.c: Regenerate.
+	* generated/maxloc1_4_r10.c: Regenerate.
+	* generated/minloc0_8_r10.c: Regenerate.
+	* generated/maxloc1_8_i16.c: Regenerate.
+	* generated/maxloc0_8_r10.c: Regenerate.
+	* generated/minloc1_16_r4.c: Regenerate.
+	* generated/maxloc1_16_r4.c: Regenerate.
+	* generated/minloc0_16_r8.c: Regenerate.
+	* generated/maxloc0_16_r8.c: Regenerate.
+	* generated/maxloc0_4_i8.c: Regenerate.
+	* generated/maxloc1_16_i16.c: Regenerate.
+	* generated/minloc1_8_r4.c: Regenerate.
+	* generated/minloc1_16_i2.c: Regenerate.
+	* generated/maxloc1_16_i2.c: Regenerate.
+	* generated/maxval_i16.c: Regenerate.
+	* generated/exponent_r8.c: Regenerate.
+	* generated/minloc1_4_i4.c: Regenerate.
+	* generated/maxval_i1.c: Regenerate.
+	* generated/minloc1_8_i2.c: Regenerate.
+	* generated/minloc0_8_r8.c: Regenerate.
+	* generated/set_exponent_r16.c: Regenerate.
+	* generated/maxloc0_4_i1.c: Regenerate.
+	* generated/rrspacing_r16.c: Regenerate.
+	* generated/minloc0_4_i8.c: Regenerate.
+	* generated/maxval_r4.c: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2007-04-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31395
+	* io/format.c (parse_format_list): Fix parsing.
+
+2007-04-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31304
+	intrinsics/string_intrinsics.c (string_repeat): Remove.
+
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31052
+	* io/open.c (test_endfile): Delete this function.
+	(edit_modes): Delete call to test_endfile.
+	(new_unit): Likewise.
+	* io/io.h: Delete prototype for test_endfile.
+	* io/transfer.c (next_record_r): Remove use of test_endfile.
+	(st_read):  Add test for end file condition and adjust status. 
+
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31366
+	* io/transfer.c (read_block_direct): Do not generate error when reading
+	past EOF on a short record that is less than the RECL= specified.
+	
+2007-04-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/31207
+	* io/unit.c (close_unit_1): If there are bytes previously written from
+	ADVANCE="no", move to the end before closing.
+
+2007-03-31  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/31335
+	* intrinsics/stat.c: Only provide STAT and FSTAT library routines
+	if stat() and fstat() library functions are available. When lstat()
+	is not available, use stat() instead.
+	* configure.ac: Add checks for stat, fstat and lstat.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
 2007-03-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/31052

@@ -1,3 +1,342 @@
+2007-04-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* langhooks-def.h (LANG_HOOKS_INITIALIZER): Remove
+	LANG_HOOKS_SAFE_FROM_P.
+	* expr.c (safe_from_p): Remove langhook call.
+	* langhooks.h (lang_hooks): Remove safe_from_p.
+	(lhd_safe_from_p): Remove prototype.
+	* langhooks.c (lhd_safe_from_p): Remove.
+	
+2007-04-06  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (decide_is_function_needed): Do not keep always_inline
+	functions.
+
+2007-04-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (output_387_reg_move): Handle memory operand[0].
+	* config/i386/i386.md (*movsf_1, *movdf_nointeger,
+	*movdf_integer_rex64, *movdf_integer, *movxf_nointeger,
+	*movxf_integer): Use output_387_reg_move() for x87 reg->mem
+	alternative.
+	(*extendsfdf2_mixed, *extendsfdf2_i387, *extendsfxf2_i387,
+	*extenddfxf2_i387, *truncdfsf_fast_mixed): Ditto.
+
+2007-04-05  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (print_operand) [+]: Remove.
+	(alpha_end_function): Print nop if call at end of function.
+	* config/alpha/alpha.h (PRINT_OPERAND_PUNCT_VALID_P): Remove +.
+	* config/alpha/alpha.md (UNSPEC_LDGP1): New.
+	(call_osf_1_er_noreturn, call_value_osf_1_er_noreturn): New.
+	(call_osf_2_er_nogp, call_value_osf_2_er_nogp): New.
+	(call_osf_2_er, call_value_osf_2_er): Merge the ldgp highpart into
+	the call pattern. Update peepholes to match.
+
+2007-04-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/extend.texi (Other Builtins): Add decimal float variants
+	of signbit.
+	* builtins.def: Ditto.
+	* builtins.c (expand_builtin): Ditto.
+
+2007-04-05  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/31478
+	* config/i386/sse.md (sse2_umulv2siv2di3): Use V4SImode instead
+	of V8HImode when calling ix86_binary_operator_ok.
+	(sse2_pmaddwd): Call ix86_binary_operator_ok.
+	(sdot_prodv8hi): Operands 1 and 2 must be register.
+
+2007-04-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-sra.c (try_instantiate_multiple_fields): Needlessly
+	initialize align to silence bogus warning.
+
+2007-04-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/22156
+	* tree-sra.c (struct sra_elt): Add in_bitfld_block.  Remove
+	all_no_warning.
+	(struct sra_walk_fns): Remove use_all parameter from use.
+	(sra_hash_tree): Handle BIT_FIELD_REFs.
+	(sra_elt_hash): Don't hash bitfld blocks.
+	(sra_elt_eq): Skip them in parent compares as well.  Handle
+	BIT_FIELD_REFs.
+	(sra_walk_expr): Don't maintain or pass down use_all_p.
+	(scan_use): Remove use_all parameter.
+	(scalarize_use): Likewise.  Re-expand assignment to
+	BIT_FIELD_REF of gimple_reg.  De-scalarize before input or
+	output, and re-scalarize after output.  Don't mark anything
+	for no warning.
+	(scalarize_ldst): Adjust.
+	(scalarize_walk_gimple_modify_statement): Likewise.
+	(build_element_name_1): Handle BIT_FIELD_REFs.
+	(instantiate_element): Don't warn for any element whose parent
+	is used as a whole.
+	(instantiate_missing_elements_1): Return the sra_elt.
+	(canon_type_for_field): New.
+	(try_instantiate_multiple_fields): New.
+	(instantiate_missing_elemnts): Use them.
+	(mark_no_warning): Removed.
+	(generate_one_element_ref): Handle BIT_FIELD_REFs.
+	(REPLDUP, sra_build_elt_assignment): New.
+	(generate_copy_inout): Use them.
+	(generate_element_copy): Likewise.  Handle bitfld differences.
+	(generate_element_zero): Don't recurse for blocks.  Use
+	sra_build_elt_assignment.
+	(generate_one_element_int): Take elt instead of var.  Use
+	sra_build_elt_assignment.
+	(generate_element_init_1): Adjust.
+	(scalarize_use, scalarize_copy): Use REPLDUP.
+	(scalarize_ldst): Move assert before dereference.
+	(dump_sra_elt_name): Handle BIT_FIELD_REFs.
+
+2007-04-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* regmove.c: Fix unused variable warnings due to previous commit.
+
+2007-04-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* regmove.c (STACK_GROWS_DOWNWARD): Don't boolean-ize.
+	(regmove_bb_head): Remove.
+	(copy_src_to_dest): Don't update regmove_bb_head and BB_HEAD.
+	(regmove_optimize): Don't do unnecessary CFG fixes for non-existing
+	problems with fixup_match_1.
+	Don't initialize/free regmove_bb_head.
+
+	(reg_is_remote_constant_p): If an insn is in the same basic block
+	but not before INSN, consider it remote, too.
+
+2007-04-05  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/25448
+	* config/avr/avr.c (avr_handle_fndecl_attribute): Use the 
+	DECL_ASSEMBLER_NAME, not the DECL_NAME.
+
+2007-04-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Reformat.
+	(CONDITIONAL_REGISTER_USAGE): Likewise.
+
+2007-04-04  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/lib1funcs.asm: Remove unused file.
+
+2007-04-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR other/31356
+	* opts.c (print_specific_help): Fix --help=<language>
+	header line.
+	(common_handle_option): Support --help=common.
+
+2007-04-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR other/31353
+	* gcc.c (main): Do not run the linker if
+	print_subprocess_help indicates that it shouldn't be
+	run.
+
+2007-04-04  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR doc/31355
+	* doc/invoke.texi (--help=): Document <languages> value, fix
+	formatting in tables of values.
+
+2007-04-04  Danny Smith  <dannysmith.users.sourceforge.net>
+
+	* config/i386/winnt-cxx.c (i386_pe_type_dllimport_p): Don't ignore
+	dllimport attribute of virtual methods.
+
+2007-04-04  Chen Liqin  <liqin@sunnorth.com.cn>
+
+        * config/score/crti.asm: Change _bss_start to __bss_start.
+        * config/score/score.h (CONDITIONAL_REGISTER_USAGE): Added.
+        (OUTGOING_REG_PARM_STACK_SPACE) update.
+        * config/score/score.opt: add options to make backend support
+        score5, score5u, score7 and score7d.
+        * config/score/score.md: Likewise.
+        * config/score/misc.md: Likewise.
+        * config/score/mac.md: Likewise.
+        * doc/invoke.texi: Likewise.
+        * doc/md.texi: update constraints define.
+
+2007-04-03  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (store_expr): If get_signed_or_unsigned_type doesn't yield
+	an appropriate type, use the mode instead.
+
+2007-04-03  Richard Sandiford  <richard@codesourcery.com>
+
+	* config.gcc (mips-wrs-vxworks): Add vx-common.h to tm_file.
+	Set the default --with-arch setting to mips2.
+	* config/mips/t-vxworks (MULTILIB_OPTIONS, MULTILIB_MATCHES)
+	(MULTILIB_EXCEPTIONS): Redefine with new multilibs.
+	(MULTILIB_OSDIRNAMES): Delete.
+	(MULTILIB_DIRNAMES): Define.
+	* config/mips/vxworks.h (LINK_SPEC): Add VXWORKS_LINK_SPEC.
+	(LIB_SPEC, STARTFILE_SPEC, ENDFILE_SPEC): Define.
+	(TARGET_OS_CPP_BUILTINS): Incorporate old SUBTARGET_CPP_SPEC
+	definitions, except for _WRS_R3K_EXC_SUPPORT.  Call
+	VXWORKS_OS_CPP_BUILTINS.
+	(SUBTARGET_CPP_SPEC): Redefine to VXWORKS_ADDITIONAL_CPP_SPEC.
+	(MIPS_DEBUGGING_INFO): Undefine.
+	(FUNCTION_PROFILER): Define to VXWORKS_FUNCTION_PROFILER.
+
+2007-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/30704
+	* fold-const.c (native_encode_real): Encode real.c provided longs
+	as a series of 32-bit native integers.
+	(native_interpret_real): Interpret buffer as a series of 32-bit
+	native integers.
+
+2007-04-03  Richard Guenther  <rguenther@suse.de>
+
+	* genpreds.c (write_insn_constraint_len): Write function
+	optimized for CONSTRAINT_LEN implementation.
+	(write_tm_preds_h): Output insn_constraint_len inline and
+	use it for CONSTRAINT_LEN.
+	(write_insn_preds_c): Don't output insn_constraint_len.
+	* doc/md.texi (define_register_constraint): Document multi-letter
+	constraints shall have the same length if they start with the same
+	letter.
+
+2007-04-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/31175
+	* config/i386/i386.md (isinf<mode>2): Expand only when
+	TARGET_C99_FUNCTIONS is set.
+
+2007-04-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config.gcc (i[34567]86-*-linux*): Add i386/t-crtpc to tm-file.
+	(x86_64-*-linux*): Ditto.
+	* config/i386/i386.opt (mpc): New option.
+	* config/i386/i386.c (overrride_options): Handle
+	ix87_precision_string.
+	* config/i386/crtprec.c: New file.
+	* config/i386/t-crtpc: Ditto.
+	* config/i386/linux.h (ENDFILE_SPEC): Add handling of -mpc32, -mpc64
+	and -mpc80 options.
+	* config/i386/linux64.h (ENDFILE_SPEC): Ditto.
+	* config/i386/t-linux64 (EXTRA_MULTILIB_PARTS): Add
+	crtprec32.o, crtprec64.o and crtprec80.o.
+
+	* doc/invoke.texi (Machine Dependent Options): Add -mpc32, -mpc64
+	and -mpc80 options.
+	(i386 and x86-64 Options): Document -mpc32, -mpc64 and -mpc80 options.
+
+2007-04-02  Eric Christopher  <echristo@apple.com>
+
+	* doc/invoke.texi (i386 and x86-64 Options): Document -m64
+	limitations on darwin.
+
+2007-04-02  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/31137
+	* config/avr/avr.c (avr_rtx_costs): Add missing 'break' statements.
+
+2007-04-02  Dave Korn  <dave.korn@artimi.com>
+
+	* doc/tm.texi (FUNCTION_MODE): Update and extend documentation.
+
+2007-04-02  Dave Korn  <dave.korn@artimi.com>
+
+	* libgcc2.h (exception_descriptor): Don't forward-declare.
+	(__get_eh_table_language, __get_eh_table_version): Delete
+	prototypes of long-dead functions.
+
+2007-04-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ebitmap.h: New file
+	* ebitmap.c: New file
+	* Makefile.in (ebitmap.o): New target.
+
+2007-04-01  Jan Hubicka  <jh@suse.cz>
+
+	* emit-rtl.c (emit_insn_before_setloc): Do not ICE when asked to emit
+	before very first instruction.
+
+2007-04-01  Jan Hubicka  <jh@suse.cz>
+
+	* ggc-page.c (ggc_print_statistics): Fix formatting string to avoid
+	waring on 64bit hosts.
+	* bitmap.h: Fix typo in bitmap_head_def.
+
+2007-04-01  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR rtl-optimization/31391
+	* cfgcleanup.c (try_optimize_cfg): If a removed label is turned
+	into a DELETED_LABEL note, and the label is in an empty basic
+	block, update BB_END as well as BB_HEAD.
+
+2007-04-01  Richard Henderson  <rth@redhat.com>
+
+	PR tree-optimization/31169
+	* tree-vrp.c (extract_range_from_binary_expr) <RSHIFT_EXPR>: Drop
+	to varying if the range is outside [0,  prec-1].
+
+2007-04-01  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/31388
+	* config/mips/mips.md (load_const_gp): New insn.
+	* config/mips/mips.c (mips_split_symbol): Avoid using or creating
+	the MIPS16 GP pseudo register if no_new_pseudos.
+	(mips16_gp_pseudo_reg): Use gen_load_const_gp.
+
+2007-03-31  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/31364
+	* config/rs6000/rs6000.md (call): Convert to LR hard reg for
+	secureplt.
+	(call_value): Likewise.
+
+2007-03-31  Wolfgang Bangerth  <bangerth@dealii.org>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 14737
+	* doc/invoke.texi: (optimization options): Reword description
+	of -ffast-math. Document its primary purpose.
+
+2007-03-31  Richard Guenther  <rguenther@suse.de>
+
+	* omp-low.c (splay-tree.h): Include.
+	(lookup_decl): Replace splay-tree usage by pointer-map.
+	(maybe_lookup_decl): Likewise.
+	(new_omp_context): Likewise.
+	(delete_omp_context): Likewise.
+	* gimplify.c (splay-tree.h): Include.
+	* tree-inline.c (insert_decl_map): Replace splay-tree usage by
+	pointer-map.
+	(remap_ssa_name): Likewise.
+	(remap_decl): Likewise.
+	(remap_type_1): Likewise.
+	(remap_type): Likewise.
+	(copy_body_r): Likewise.
+	(expand_call_inline): Likewise.
+	(clone_body): Likewise.
+	(copy_tree_r): Likewise.
+	(remap_save_expr): Likewise.
+	(unsave_r): Likewise.
+	(unsave_expr_now): Likewise.
+	(tree_function_versioning): Likewise.
+	(build_duplicate_type): Likewise.
+	* tree-inline.h (pointer-set.h): Include instead of splay-tree.h.
+	(struct copy_body_data): Replace splay-tree by pointer-map.
+	* Makefile.in (TREE_INLINE_H): Depend on pointer-map.h,
+	not $(SPLAY_TREE_H).
+	(gimplify.o): Depend on $(SPLAY_TREE_H).
+	(omp-low.p): Likewise.
+
+2007-03-31  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/predicates.md (even_register_operand,
+	odd_register_operand): New predicates.
+	* config/avr/avr.md (movw peephole2): New.
+	(movw_r peephole2): New.
+
 2007-03-30  Rafael Avila de Espindola  <espindola@google.com>
 
 	* tree.h (get_signed_or_unsigned_type): New.
@@ -100,7 +439,7 @@
 
 2007-03-30  Anatoly Sokolov <aesok@post.ru>
 
-	* config/avr/avr.c (avr_override_options): Clear 
+	* config/avr/avr.c (avr_override_options): Clear
 	'flag_delete_null_pointer_checks'.
 
 2007-03-30  Paolo Carlini  <pcarlini@suse.de>
@@ -241,8 +580,8 @@
 
 2007-03-30  Jan Hubicka  <jh@suse.cz>
 
-	PR middle-end/PR30700
-	* dwarf2out.c (reference_to_unused): Ask cgraph for functions 
+	PR middle-end/30700
+	* dwarf2out.c (reference_to_unused): Ask cgraph for functions
 	availablility; add more sanity checking; ask varpool only about
 	VAR_DECL.
 
@@ -336,7 +675,7 @@
 	than calling gen_rtx_SET directly.  Use r0 to hold the value of
 	'address + 4' rather than a stack based temporary which can be
 	mis-optimized away.
-	
+
 2007-03-29  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.c (s390_secondary_input_reload_class,
@@ -367,7 +706,7 @@
 	* config.gcc: Accept barcelona as a variant of amdfam10.
 	* config/i386/i386.c (override_options): Likewise.
 	* doc/invoke.texi: Likewise.
-	
+
 2007-03-28  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree-dfa.c (get_ref_base_and_extent): Do not expect positive
@@ -397,7 +736,7 @@
 2007-03-28  Lars Poeschel <larsi@wh2.tu-dresden.de>
 
 	* config/fr30/fr30.md (movsi_internal): Change destination
-	constraint from m to V and add m to the end. 
+	constraint from m to V and add m to the end.
 
 2007-03-28  Christian Bruel  <christian.bruel@st.com>
 
@@ -418,7 +757,7 @@
 	* config/s390/s390.md ("fix_trunc<mode>di2"): New expander.
 	("fix_trunc<DFP:mode>di2_dfp"): New insn definition renamed from
 	fix_trunc<mode>di2.
-	("fixuns_truncdddi2", "fixuns_trunctddi2"): Use 
+	("fixuns_truncdddi2", "fixuns_trunctddi2"): Use
 	fix_trunc<DFP:mode>di2_dfp instead of fix_trunc<mode>di2.
 	("fix_truncdfsi2", "fix_truncsfsi2", "fixuns_truncdddi2",
 	"fixuns_trunctddi2"): Whitespace fix.
@@ -445,7 +784,7 @@
 
 2007-03-27  Anatoly Sokolov <aesok@post.ru>
 
-	* config/avr/avr.c (avr_mcu_types): Move at90usb82 device to 'avr4' 
+	* config/avr/avr.c (avr_mcu_types): Move at90usb82 device to 'avr4'
 	architecture.
 
 2007-03-27  Janis Johnson  <janis187@us.ibm.com>
@@ -465,7 +804,7 @@
 2007-03-27  Richard Guenther  <rguenther@suse.de>
 
 	* tree-dfa.c (get_ref_base_and_extent): Replace bit_offset and
-	computations with it with a HOST_WIDE_INT variable.  
+	computations with it with a HOST_WIDE_INT variable.
 
 2007-03-26  Mike Stump  <mrs@apple.com>
 
@@ -490,7 +829,7 @@
 	_mm_srli_epi64): Mark __B const.
 	(_mm_srli_si128, _mm_srli_si128): Fix disabled inline versions.
 	(_mm_sll_epi16, _mm_sll_epi32, _mm_sll_epi64, _mm_sra_epi16,
-	_mm_sra_epi32, _mm_srl_epi16, _mm_srl_epi32, _mm_srl_epi64): Use 
+	_mm_sra_epi32, _mm_srl_epi16, _mm_srl_epi32, _mm_srl_epi64): Use
 	new two-vector shift builtins.
 
 2007-03-26  Ian Lance Taylor  <iant@google.com>
