@@ -71,6 +71,9 @@ extern unsigned int fixed_hash (const FIXED_VALUE_TYPE *);
 
 #define FIXED_VALUES_IDENTICAL(x, y)	fixed_identical (&(x), &(y))
 
+/* Determine whether a fixed-point value X is negative.  */
+#define FIXED_VALUE_NEGATIVE(x)          fixed_isneg (&(x))
+
 /* Render F as a decimal floating point constant.  */
 extern void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *, size_t);
 
@@ -81,5 +84,8 @@ extern bool fixed_arithmetic (FIXED_VALUE_TYPE *, int, const FIXED_VALUE_TYPE *,
 /* Compare fixed-point values by tree_code.  */
 extern bool fixed_compare (int, const FIXED_VALUE_TYPE *,
 			   const FIXED_VALUE_TYPE *);
+
+/* Determine whether a fixed-point value X is negative.  */
+extern bool fixed_isneg (const FIXED_VALUE_TYPE *);
 
 #endif /* GCC_FIXED_VALUE_H */

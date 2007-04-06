@@ -984,6 +984,7 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CLOBBER:
     case CALL:
       return;
@@ -1558,6 +1559,7 @@ rtx_renumbered_equal_p (rtx x, rtx y)
     case ADDR_DIFF_VEC:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return 0;
 
     case LABEL_REF:

@@ -6913,6 +6913,11 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   if (TREE_CODE (arg0) == REAL_CST)
     return 1;
 
+  if (TREE_CODE (arg1) == FIXED_CST)
+    return 0;
+  if (TREE_CODE (arg0) == FIXED_CST)
+    return 1;
+
   if (TREE_CODE (arg1) == COMPLEX_CST)
     return 0;
   if (TREE_CODE (arg0) == COMPLEX_CST)
@@ -7295,6 +7300,9 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
     }
   else
     {
+      /* We cannot generate constant 1 for fract.  */
+      if (ALL_FRACT_MODE_P (TYPE_MODE (type)))
+	return NULL_TREE;
       arg00 = arg0;
       arg01 = build_one_cst (type);
     }
@@ -7305,6 +7313,9 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
     }
   else
     {
+      /* We cannot generate constant 1 for fract.  */
+      if (ALL_FRACT_MODE_P (TYPE_MODE (type)))
+	return NULL_TREE;
       arg10 = arg1;
       arg11 = build_one_cst (type);
     }
@@ -13510,6 +13521,9 @@ tree_expr_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 
     case REAL_CST:
       return ! REAL_VALUE_NEGATIVE (TREE_REAL_CST (t));
+
+    case FIXED_CST:
+      return ! FIXED_VALUE_NEGATIVE (TREE_FIXED_CST (t));
 
     case PLUS_EXPR:
       if (FLOAT_TYPE_P (TREE_TYPE (t)))

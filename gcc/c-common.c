@@ -928,6 +928,7 @@ void
 constant_expression_warning (tree value)
 {
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
+       || TREE_CODE (value) == FIXED_CST
        || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
       && TREE_OVERFLOW (value)

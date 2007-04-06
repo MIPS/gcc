@@ -668,6 +668,7 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:

@@ -1777,7 +1777,7 @@ c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 c-pretty-print.o : c-pretty-print.c $(C_PRETTY_PRINT_H) \
 	$(C_TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(REAL_H) \
-	$(DIAGNOSTIC_H) tree-iterator.h
+	$(DIAGNOSTIC_H) tree-iterator.h fixed-value.h
 
 c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)		\
         $(TREE_H) $(C_PRAGMA_H) $(FLAGS_H) toplev.h langhooks.h		\
@@ -1940,7 +1940,7 @@ tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(OBSTACK_H) pointer-set.h fixed-value.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h toplev.h $(SPLAY_TREE_H) $(TREE_DUMP_H) \
-   tree-iterator.h tree-pass.h $(DIAGNOSTIC_H) $(REAL_H)
+   tree-iterator.h tree-pass.h $(DIAGNOSTIC_H) $(REAL_H) fixed-value.h
 tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(RTL_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h insn-config.h \
    $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
@@ -1948,7 +1948,7 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    debug.h $(DIAGNOSTIC_H) $(TREE_FLOW_H) tree-iterator.h tree-mudflap.h \
    ipa-prop.h value-prof.h
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-   $(GGC_H) langhooks.h $(REAL_H) tree-iterator.h
+   $(GGC_H) langhooks.h $(REAL_H) tree-iterator.h fixed-value.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(PARAMS_H) $(FLAGS_H) $(FUNCTION_H) $(EXPR_H) $(RTL_H) \
    $(GGC_H) $(TM_P_H) $(TARGET_H) langhooks.h $(REGS_H) gt-stor-layout.h \

@@ -2686,6 +2686,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case CONSTRUCTOR:
@@ -2756,6 +2757,9 @@ const_hash_1 (const tree exp)
 
     case REAL_CST:
       return real_hash (TREE_REAL_CST_PTR (exp));
+
+    case FIXED_CST:
+      return fixed_hash (TREE_FIXED_CST_PTR (exp));
 
     case STRING_CST:
       p = TREE_STRING_POINTER (exp);
@@ -2873,6 +2877,13 @@ compare_constant (const tree t1, const tree t2)
 	return 0;
 
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+
+    case FIXED_CST:
+      /* Fixed constants are the same only if the same width of type.  */
+      if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
+	return 0;
+
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
 
     case STRING_CST:
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
@@ -2999,6 +3010,7 @@ copy_constant (tree exp)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
       return copy_node (exp);
 

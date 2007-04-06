@@ -4045,6 +4045,7 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case ADDR_VEC:

@@ -467,6 +467,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
   switch (GET_CODE (x))
     {
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return 0;
 
     case LABEL_REF:

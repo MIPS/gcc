@@ -1184,6 +1184,7 @@ want_to_gcse_p (rtx x)
     case SUBREG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CALL:
       return 0;
@@ -1280,6 +1281,7 @@ oprs_unchanged_p (rtx x, rtx insn, int avail_p)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2259,6 +2261,7 @@ oprs_not_set_p (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2527,6 +2530,7 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -5566,6 +5570,7 @@ extract_mentioned_regs_helper (rtx x, rtx accum)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:

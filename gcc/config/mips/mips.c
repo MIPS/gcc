@@ -5048,7 +5048,7 @@ override_options (void)
 			|| (ISA_HAS_8CC && mode == TFmode));
 
           else if (ACC_REG_P (regno))
-	    temp = (INTEGRAL_MODE_P (mode)
+	    temp = ((INTEGRAL_MODE_P (mode) || ALL_FIXED_POINT_MODE_P (mode))
 		    && (size <= UNITS_PER_WORD
 			|| (ACC_HI_REG_P (regno)
 			    && size == 2 * UNITS_PER_WORD)));

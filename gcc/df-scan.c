@@ -1301,6 +1301,7 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:

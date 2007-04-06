@@ -1,3 +1,114 @@
+2007-04-05  Chao-ying Fu  <fu@mips.com>
+
+	* regrename.c (scan_rtx): Handle CONST_FIXED.
+	* tree-ssa-loop-im.c (for_each_index): Handle FIXED_CST.
+	* tree-dump.c (fixed-value.h): New include.
+	(dump_fixed): New function.
+	(dequeue_and_dump): Handle FIXED_POINT_TYPE and FIXED_CST.
+	* tree-complex.c (some_nonzerop): Handle FIXED_CST.
+	* postreload-gcse.c (oprs_unchanged_p): Handle CONST_FIXED.
+	* tree.c (build_one_cst): Support FIXED_POINT_TYPE for accum types.
+	(build_type_attribute_qual_variant): Handle FIXED_POINT_TYPE.
+	(type_hash_eq): Handle FIXED_POINT_TYPE.
+	(initializer_zerop): Handle FIXED_CST.
+	(walk_tree): Handle FIXED_POINT_TYPE.
+	* tree.h (NUMERICAL_TYPE_CHECK): Add FIXED_POINT_TYPE.
+	* reload.c (operands_match_p): Handle CONST_FIXED.
+	(subst_reg_equivs): Handle CONST_FIXED.
+	* tree-scalar-evolution.c (get_scalar_evolution): Handle FIXED_CST.
+	* rtlanal.c (rtx_unstable_p): Handle CONST_FIXED.
+	(rtx_varies_p): Likewise.
+	(count_occurrences): Likewise. 
+	(reg_mentioned_p): Likewise.
+	(modified_between_p): Likewise.
+	(modified_in_p): Likewise.
+	(volatile_insn_p): Likewise.
+	(volatile_refs_p): Likewise.
+	(side_effects_p): Likewise.
+	(inequality_comparisons_p): Likewise.
+	(computed_jump_p_1): Likewise.
+	(commutative_operand_precedence): Likewise.
+	* fold-const.c (tree_swap_operands_p): Handle FIXED_CST.
+	(fold_plusminus_mult_expr): For fract modes, we cannot generate
+	constant 1.
+	(tree_expr_nonnegative_warnv_p): Handle FIXED_CST.
+	* genemit.c (gen_exp): Handle CONST_FIXED.
+	* flow.c (mark_used_regs): Likewise.
+	* df-scan.c (df_uses_record): Likewise.
+	* cse.c (fold_rtx): Likewise.
+	* jump.c (mark_jump_label): Likewise.
+	(rtx_renumbered_equal_p): Likewise.
+	* expr.c (categorize_ctor_elements_1): Handle FIXED_CST.
+	(const_vector_from_tree): Support FIXED_CST.
+	* tree-browser.c (browse_tree): Handle FIXED_POINT_TYPE.
+	* genattrtab.c (attr_copy_rtx): Handle CONST_FIXED.
+	(clear_struct_flag): Likewise.
+	* recog.c (find_single_use_1): Likewise.
+	* c-pretty-print.c (fixed-value.h): New include.
+	(pp_c_type_specifier): Handle FIXED_POINT_TYPE.  Need to pass
+	TYPE_SATURATING to c_common_type_for_mode for fixed-point modes.
+	(pp_c_direct_abstract_declarator): Handle FIXED_POINT_TYPE.
+	(pp_c_direct_declarator): Likewise.
+	(pp_c_declarator): Likewise.
+	(pp_c_fixed_constant): New function.
+	(pp_c_constant): Handle FIXED_CST.
+	(pp_c_primary_expression): Likewise.
+	(pp_c_expression): Likewise.
+	* local-alloc.c (equiv_init_varies_p): Handle CONST_FIXED.
+	(contains_replace_regs): Likewise.
+	(memref_referenced_p): Likewise.
+	* gcse.c (want_to_gcse_p): Likewise.
+	(oprs_unchanged_p): Likewise.
+	(oprs_not_set_p): Likewise.
+	(compute_transp): Likewise.
+	(extract_mentioned_regs_helper): Likewise.
+	* ipa-type-escape.c (type_to_consider): Handle FIXED_POINT_TYPE.
+	* alias.c (rtx_equal_for_memref_p): Handle CONST_FIXED.
+	* gimplify.c (omp_firstprivatize_type_sizes): Handle FIXED_POINT_TYPE.
+	(gimplify_type_sizes): Likewise.
+	* emit-rtl.c (verify_rtx_sharing): Handle CONST_FIXED.
+	(copy_rtx_if_shared_1): Likewise.
+	(reset_used_flags): Likewise.
+	(set_used_flags): Likewise.
+	(copy_insn_1): Likewise.
+	* cselib.c (rtx_equal_for_cselib_p): Likewise.
+	* tree-ssa-pre.c (poolify_tree): Handle FIXED_CST.
+	(is_sra_scalar_type): Handle FIXED_POINT_TYPE.
+	* loop-invariant.c (check_maybe_invariant): Handle CONST_FIXED.
+	(hash_invariant_expr_1): Likewise.
+	(invariant_expr_equal_p): Likewise.
+	* ipa-prop.c (ipa_callsite_compute_param): Support FIXED_CST.
+	* print-tree.c (fixed-value.h): New include.
+	(print_node_brief): Support FIXED_CST.
+	(print_node): Support FIXED_POINT_TYPE and FIXED_CST.
+	* varasm.c (decode_addr_const): Handle FIXED_CST.
+	(const_hash_1): Likewise.
+	(compare_constant): Likewise.
+	(copy_constant): Likewise.
+	* sched-deps.c (sched_analyze_2): Handle CONST_FIXED.
+	* regclass.c (reg_scan_mark_refs): Likewise.
+	* tree-inline.c (remap_type_1): Handle FIXED_POINT_TYPE.
+	(estimate_num_insns_1): Handle FIXED_CST.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Support
+	FIXED_CST.
+	(vect_is_simple_cond): Likewise.
+	(vectorizable_condition): Likewise.
+	* fixed-value.c (fixed_isneg): New function.
+	* fixed-value.h (FIXED_VALUE_NEGATIVE): Define.
+	(fixed_isneg): Declare.
+	* resource.c (mark_referenced_resources): Handle CONST_FIXED.
+	(mark_set_resources): Likewise.
+	* c-common.c (constant_expression_warning): Support FIXED_CST.
+	* Makefile.in (c-pretty-print.o): Add dependence on fixed-value.h.
+	(tree-dump.o): Likewise.
+	(print-tree.o): Likewise.
+	* sched-vis.c (print_value): Handle CONST_FIXED.
+	* config/mips/mips.c (override_options): Allow fixed-point modes in
+	accumulators.
+	* reload1.c (eliminate_regs_1): Handle CONST_FIXED.
+	(elimination_effects): Likewise.
+	(scan_paradoxical_subregs): Likewise.
+
 2007-03-30  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* regmove.c: Move all of pass_stack_adjustments from here...

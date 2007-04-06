@@ -950,7 +950,8 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
   TREE_NOT_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 
 #define NUMERICAL_TYPE_CHECK(T)					\
-  TREE_CHECK4 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE)
+  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE,	\
+	       FIXED_POINT_TYPE)
 
 /* Nonzero if NODE is a GIMPLE statement.  */
 #define GIMPLE_STMT_P(NODE) \

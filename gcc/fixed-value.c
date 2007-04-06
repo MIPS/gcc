@@ -1125,3 +1125,19 @@ real_convert_from_fixed (REAL_VALUE_TYPE *r, enum machine_mode mode,
   real_arithmetic (&real_value, RDIV_EXPR, &fixed_value, &base_value);
   real_convert (r, mode, &real_value);
 }
+
+/* Determine whether a fixed-point value F is negative.  */
+
+bool
+fixed_isneg (const FIXED_VALUE_TYPE *f)
+{
+  if (SIGNED_FIXED_POINT_MODE_P (f->mode))
+    {
+      int i_f_bits = GET_MODE_IBIT (f->mode) + GET_MODE_FBIT (f->mode);
+      int sign_bit = get_fixed_sign_bit (f->data, i_f_bits);
+      if (sign_bit == 1)
+	return true;
+    }
+
+  return false;
+}

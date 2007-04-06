@@ -3068,6 +3068,7 @@ fold_rtx (rtx x, rtx insn)
 	  case SYMBOL_REF:
 	  case LABEL_REF:
 	  case CONST_DOUBLE:
+	  case CONST_FIXED:
 	  case CONST_VECTOR:
 	    const_arg = folded_arg;
 	    break;

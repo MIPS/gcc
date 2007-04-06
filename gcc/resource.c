@@ -223,6 +223,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case SYMBOL_REF:
@@ -646,6 +647,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case USE:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case LABEL_REF:
     case SYMBOL_REF:

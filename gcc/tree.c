@@ -1230,6 +1230,11 @@ build_one_cst (tree type)
     case REAL_TYPE:
       return build_real (type, dconst1);
 
+    case FIXED_POINT_TYPE:
+      /* We can only generate 1 for accum types.  */
+      gcc_assert (ALL_SCALAR_ACCUM_MODE_P (TYPE_MODE (type)));
+      return build_fixed (type, fconst1[TYPE_MODE (type)]);
+
     case VECTOR_TYPE:
       {
 	tree scalar, cst;
@@ -3687,6 +3692,7 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	    (TREE_INT_CST_HIGH (TYPE_MAX_VALUE (ntype)), hashcode);
 	  break;
 	case REAL_TYPE:
+	case FIXED_POINT_TYPE:
 	  {
 	    unsigned int precision = TYPE_PRECISION (ntype);
 	    hashcode = iterative_hash_object (precision, hashcode);
@@ -4526,6 +4532,7 @@ type_hash_eq (const void *va, const void *vb)
 
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case BOOLEAN_TYPE:
       return ((TYPE_MAX_VALUE (a->type) == TYPE_MAX_VALUE (b->type)
 	       || tree_int_cst_equal (TYPE_MAX_VALUE (a->type),
@@ -6230,6 +6237,7 @@ variably_modified_type_p (tree type, tree fn)
 
     case INTEGER_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       /* Scalar types are variably modified if their end points
@@ -7521,6 +7529,9 @@ initializer_zerop (tree init)
       return real_zerop (init)
 	&& ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (init));
 
+    case FIXED_CST:
+      return fixed_zerop (init);
+
     case COMPLEX_CST:
       return integer_zerop (init)
 	|| (real_zerop (init)
@@ -8381,6 +8392,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  else if (TREE_CODE (*type_p) == BOOLEAN_TYPE
 		   || TREE_CODE (*type_p) == ENUMERAL_TYPE
 		   || TREE_CODE (*type_p) == INTEGER_TYPE
+		   || TREE_CODE (*type_p) == FIXED_POINT_TYPE
 		   || TREE_CODE (*type_p) == REAL_TYPE)
 	    {
 	      WALK_SUBTREE (TYPE_MIN_VALUE (*type_p));

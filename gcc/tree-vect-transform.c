@@ -1059,7 +1059,8 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   gcc_assert (nelements == nunits);
 
   vector_type = get_vectype_for_scalar_type (TREE_TYPE (def));
-  if (TREE_CODE (init_val) == INTEGER_CST || TREE_CODE (init_val) == REAL_CST)
+  if (TREE_CODE (init_val) == INTEGER_CST || TREE_CODE (init_val) == REAL_CST
+      || TREE_CODE (init_val) == FIXED_CST)
     vec = build_vector (vector_type, t);
   else
     vec = build_constructor_from_list (vector_type, t);
@@ -4073,7 +4074,8 @@ vect_is_simple_cond (tree cond, loop_vec_info loop_vinfo)
       if (!vect_is_simple_use (lhs, loop_vinfo, &lhs_def_stmt, &def, &dt))
 	return false;
     }
-  else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST)
+  else if (TREE_CODE (lhs) != INTEGER_CST && TREE_CODE (lhs) != REAL_CST
+	   && TREE_CODE (lhs) != FIXED_CST)
     return false;
 
   if (TREE_CODE (rhs) == SSA_NAME)
@@ -4082,7 +4084,8 @@ vect_is_simple_cond (tree cond, loop_vec_info loop_vinfo)
       if (!vect_is_simple_use (rhs, loop_vinfo, &rhs_def_stmt, &def, &dt))
 	return false;
     }
-  else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST)
+  else if (TREE_CODE (rhs) != INTEGER_CST  && TREE_CODE (rhs) != REAL_CST
+	   && TREE_CODE (rhs) != FIXED_CST)
     return false;
 
   return true;
@@ -4161,7 +4164,8 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	return false;
     }
   else if (TREE_CODE (then_clause) != INTEGER_CST 
-	   && TREE_CODE (then_clause) != REAL_CST)
+	   && TREE_CODE (then_clause) != REAL_CST
+	   && TREE_CODE (then_clause) != FIXED_CST)
     return false;
 
   if (TREE_CODE (else_clause) == SSA_NAME)
@@ -4172,7 +4176,8 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	return false;
     }
   else if (TREE_CODE (else_clause) != INTEGER_CST 
-	   && TREE_CODE (else_clause) != REAL_CST)
+	   && TREE_CODE (else_clause) != REAL_CST
+	   && TREE_CODE (else_clause) != FIXED_CST)
     return false;
 
 

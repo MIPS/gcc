@@ -2282,6 +2282,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2498,6 +2499,7 @@ repeat:
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2619,6 +2621,7 @@ repeat:
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -2688,6 +2691,7 @@ set_used_flags (rtx x)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -4888,6 +4892,7 @@ copy_insn_1 (rtx orig)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:

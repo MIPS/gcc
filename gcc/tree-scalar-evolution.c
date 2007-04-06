@@ -602,6 +602,7 @@ get_scalar_evolution (tree scalar)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case INTEGER_CST:
       res = scalar;
       break;

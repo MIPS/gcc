@@ -803,6 +803,7 @@ find_single_use_1 (rtx dest, rtx *loc)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CLOBBER:
       return 0;

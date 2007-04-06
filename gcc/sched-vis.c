@@ -433,6 +433,10 @@ print_value (char *buf, rtx x, int verbose)
 	sprintf (t, "<0x%lx,0x%lx>", (long) CONST_DOUBLE_LOW (x), (long) CONST_DOUBLE_HIGH (x));
       cur = safe_concat (buf, cur, t);
       break;
+    case CONST_FIXED:
+      fixed_to_decimal (t, CONST_FIXED_VALUE (x), sizeof (t));
+      cur = safe_concat (buf, cur, t);
+      break;
     case CONST_STRING:
       cur = safe_concat (buf, cur, "\"");
       cur = safe_concat (buf, cur, XSTR (x, 0));

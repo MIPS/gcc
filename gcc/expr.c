@@ -4635,6 +4635,7 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 
 	case INTEGER_CST:
 	case REAL_CST:
+	case FIXED_CST:
 	  if (!initializer_zerop (value))
 	    nz_elts += mult;
 	  elt_count += mult;
@@ -9672,6 +9673,9 @@ const_vector_from_tree (tree exp)
 
       if (TREE_CODE (elt) == REAL_CST)
 	RTVEC_ELT (v, i) = CONST_DOUBLE_FROM_REAL_VALUE (TREE_REAL_CST (elt),
+							 inner);
+      else if (TREE_CODE (elt) == FIXED_CST)
+	RTVEC_ELT (v, i) = CONST_FIXED_FROM_FIXED_VALUE (TREE_FIXED_CST (elt),
 							 inner);
       else
 	RTVEC_ELT (v, i) = immed_double_const (TREE_INT_CST_LOW (elt),

@@ -644,6 +644,7 @@ attr_copy_rtx (rtx orig)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
@@ -2886,6 +2887,7 @@ clear_struct_flag (rtx x)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
