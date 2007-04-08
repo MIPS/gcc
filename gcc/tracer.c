@@ -376,11 +376,6 @@ tracer (void)
   
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-<<<<<<< .working
-
-  cfg_layout_finalize ();
-=======
->>>>>>> .merge-right.r123653
 
   /* Merge basic blocks in duplicated traces.  */
   cleanup_cfg (0);

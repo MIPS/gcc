@@ -1888,14 +1888,6 @@ reorder_basic_blocks (void)
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
-<<<<<<< .working
-  if (targetm.cannot_modify_jumps_p ())
-    return;
-
-  cfg_layout_initialize (0);
-
-=======
->>>>>>> .merge-right.r123653
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
 
@@ -2201,57 +2193,25 @@ gate_handle_reorder_blocks (void)
 static unsigned int
 rest_of_handle_reorder_blocks (void)
 {
-<<<<<<< .working
-=======
-  unsigned int liveness_flags;
   basic_block bb;
 
->>>>>>> .merge-right.r123653
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-<<<<<<< .working
-  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
-=======
-  liveness_flags = (!HAVE_conditional_execution ? CLEANUP_UPDATE_LIFE : 0);
-  cfg_layout_initialize (CLEANUP_EXPENSIVE | liveness_flags);
->>>>>>> .merge-right.r123653
+  cfg_layout_initialize (CLEANUP_EXPENSIVE);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     {
       timevar_push (TV_TRACER);
-<<<<<<< .working
-      tracer (0);
-=======
       tracer ();
->>>>>>> .merge-right.r123653
       timevar_pop (TV_TRACER);
     }
 
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-<<<<<<< .working
     reorder_basic_blocks ();
-
-=======
-    reorder_basic_blocks ();
->>>>>>> .merge-right.r123653
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-<<<<<<< .working
     cleanup_cfg (CLEANUP_EXPENSIVE);
-=======
-    cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
->>>>>>> .merge-right.r123653
 
-<<<<<<< .working
-=======
-  /* On conditional execution targets we can not update the life cheaply, so
-     we deffer the updating to after both cleanups.  This may lose some cases
-     but should not be terribly bad.  */
-  if (HAVE_conditional_execution)
-    update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES);
-
->>>>>>> .merge-right.r123653
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
       bb->aux = bb->next_bb;

@@ -55,6 +55,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "function.h"
 #include "expr.h"
 #include "basic-block.h"
+#include "df.h"
 #include "except.h"
 #include "toplev.h"
 #include "reload.h"
@@ -454,9 +455,7 @@ gate_handle_stack_adjustments (void)
 static unsigned int
 rest_of_handle_stack_adjustments (void)
 {
-  life_analysis (PROP_POSTRELOAD);
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-               | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
 
   /* This is kind of a heuristic.  We need to run combine_stack_adjustments
      even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -465,7 +464,11 @@ rest_of_handle_stack_adjustments (void)
 #ifndef PUSH_ROUNDING
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
-    combine_stack_adjustments ();
+    {
+      df_ri_add_problem (0);
+      df_analyze ();
+      combine_stack_adjustments ();
+    }
   return 0;
 }
 
@@ -482,6 +485,7 @@ struct tree_opt_pass pass_stack_adjustments =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   0                                     /* letter */

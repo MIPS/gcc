@@ -937,8 +937,7 @@ fwprop_init (void)
 static void
 fwprop_done (void)
 {
-  if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    loop_optimizer_finalize ();
+  loop_optimizer_finalize ();
 
   free_dominance_info (CDI_DOMINATORS);
   cleanup_cfg (0);

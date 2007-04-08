@@ -906,40 +906,6 @@ fixup_reorder_chain (void)
 
   relink_block_chain (/*stay_in_cfglayout_mode=*/false);
 
-<<<<<<< .working
-  if (dump_file)
-    {
-      fprintf (dump_file, "Reordered sequence:\n");
-      for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
-	   bb;
-	   bb = bb->aux, index++)
-	{
-	  fprintf (dump_file, " %i ", index);
-	  if (get_bb_original (bb))
-	    fprintf (dump_file, "duplicate of %i ",
-		     get_bb_original (bb)->index);
-	  else if (forwarder_block_p (bb)
-		   && !LABEL_P (BB_HEAD (bb)))
-	    fprintf (dump_file, "compensation ");
-	  else
-	    fprintf (dump_file, "bb %i ", bb->index);
-	  fprintf (dump_file, " [%i]\n", bb->frequency);
-	}
-    }
-
-  prev_bb = ENTRY_BLOCK_PTR;
-  bb = ENTRY_BLOCK_PTR->next_bb;
-
-  for (; bb; prev_bb = bb, bb = bb->aux)
-    {
-      bb->prev_bb = prev_bb;
-      prev_bb->next_bb = bb;
-    }
-  prev_bb->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = prev_bb;
-
-=======
->>>>>>> .merge-right.r123653
   /* Now that the prev and next ptrs are in place, let compact_blocks
      deal with the array and the indexes.  It knows how to keep the
      dataflow up to date.  */

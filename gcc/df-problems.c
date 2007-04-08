@@ -460,7 +460,6 @@ df_ru_local_compute (bitmap all_blocks)
   bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
 
   df_set_seen ();
-  df_reorganize_refs (&df->use_info);
 
   df_maybe_reorganize_use_refs (df->changeable_flags & DF_EQ_NOTES ? 
 				DF_REF_ORDER_BY_REG_WITH_NOTES : DF_REF_ORDER_BY_REG);
@@ -945,7 +944,6 @@ df_rd_local_compute (bitmap all_blocks)
   bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
 
   df_set_seen ();
-  df_reorganize_refs (&df->def_info);
 
   df_maybe_reorganize_def_refs (DF_REF_ORDER_BY_REG);
 
