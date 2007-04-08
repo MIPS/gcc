@@ -47,7 +47,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    Any programmer with half a brain would look at the uninitialized
    variable warnings.  */
 
-
 static void
 initialize_uninitialized_regs (void)
 {

@@ -1,3 +1,31 @@
+2007-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dse.c (clear_alias_set_lookup): New function.
+	(store_info.is_set): New field.
+	(replace_inc_dec, delete_dead_store_insn): Added more ifdefs so
+	dse could be tested on mainline.
+	(canon_address): Moved lookup of alias_set info to subroutine and
+	added better logging.  Added code to detect if address contains an
+	AND and if so, escape.
+	(record_store, check_mem_read_rtx): White space cleanup. Added
+	code to skip store_info's for clobbers when comparing with
+	previous insn stores.  We also mark store_info's as to whether
+	they are set or clobber based.
+	(scan_insn): Only add insn to active_stores_list if it has exactly
+	one store.
+	(step1): Add code to remove a store to the frame that goes dead at
+	the end of a function if there is a non overlaping block mode read
+	from the stack.  The global algorithm cannot do this because it
+	takes a more conservative view of block mode reads.
+	(dse_confluence_0, dse_confluence_n, dse_transfer_function,
+	step5_spill, pass_rtl_dse2): Add ifdefs so this can be tested on
+	mainline.
+	(step5_nospill): Ignore clobbers and only look at the set to
+	decide if an insn can be deleted.
+	* init_regs.c: Whitespace.
+	* cselib.c (cselib_expand_value_rtx): Fixed comment and changed to
+	use proper macro.
+
 2007-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
 	* bitmap.c (bitmap_set_range): New.

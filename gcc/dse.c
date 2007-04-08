@@ -21,6 +21,8 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
+#undef BASELINE
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -38,7 +40,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "alias.h"
 #include "dse.h"
+
+#ifndef BASELINE
 #include "dbgcnt.h"
+#endif
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).  
@@ -145,6 +150,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    second insn and/or the second insn is a load of part of the value
    stored by the first insn.
 
+   insn 5 in gcc.c-torture/compile/990203-1.c simple case.
+   insn 15 in gcc.c-torture/execute/20001017-2.c simple case.
+   insn 25 in gcc.c-torture/execute/20001026-1.c simple case.
+   insn 44 in gcc.c-torture/execute/20010910-1.c simple case.
+
    2) The cleaning up of spill code is quite profitable.  It currently
    depends on reading tea leaves and chicken entrails left by reload.
    This pass depends on reload creating a singleton alias set for each
@@ -175,10 +185,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      special properties that reload uses.  It may be that all that is
      requirred is to have those passes make the same calls that reload
      does, assuming that the alias sets can be manipulated in the same
-     way.  
-*/
-
-#undef BASELINE
+     way.  */
 
 /* There are limits to the size of constant offsets we model for the
    global problem.  There are certainly test cases, that exceed this
@@ -192,6 +199,10 @@ struct insn_info;
 
 /* This structure holds information about a candidate store.  */
 struct store_info {
+
+  /* False means this is a clobber.  */
+  bool is_set;
+
   /* The id of the mem group of the base address.  If rtx_varies_p is
      true, this is -1.  Otherwise, it is the index into the group
      table.  */
@@ -273,13 +284,16 @@ struct insn_info {
   /* The insn. */
   rtx insn;
 
-  /* Since we only delete insns with a single mem store, this is a
-     pointer to the parsed representation of that store(s).  */
+  /* The list of mem sets or mem clobbers that are contained in this
+     insn.  If the insn is deletable, it contains only one mem set.
+     But it could also contain clobbers.  Insns that contain more than
+     one mem set are not deletable, but each of those mems are here in
+     order to provied info to delete other insns.  */
   store_info_t store_rec;
 
-  /* A pointer to the linked list of mem uses in this insn.  Only the
-     reads from rtx bases are listed here.  The reads to cselib bases
-     are completely processed during the first scan and so are never
+  /* The linked list of mem uses in this insn.  Only the reads from
+     rtx bases are listed here.  The reads to cselib bases are
+     completely processed during the first scan and so are never
      created.  */
   read_info_t read_rec;
 
@@ -498,6 +512,22 @@ clear_alias_mode_hash (const void *p)
 }
 
 
+/* Find the entry associated with ALIAS_SET.  */
+
+static struct clear_alias_mode_holder *
+clear_alias_set_lookup (HOST_WIDE_INT alias_set)
+{
+  struct clear_alias_mode_holder tmp_holder;
+  void **slot;
+  
+  tmp_holder.alias_set = alias_set;
+  slot = htab_find_slot (clear_alias_mode_table, &tmp_holder, NO_INSERT);
+  gcc_assert (*slot);
+  
+  return *slot;
+}
+
+
 /* Hashtable callbacks for maintaining the "bases" field of
    store_group_info, given that the addresses are function invariants.  */
 
@@ -683,10 +713,16 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, data->size);
+#ifdef BASELINE
+	add_insn_before (data->insn, 
+			 gen_rtx_SET (Pmode, r1, 
+				      gen_rtx_PLUS (Pmode, r1, c)));
+#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, 
 				      gen_rtx_PLUS (Pmode, r1, c)),
 			 NULL);
+#endif
 	return -1;
       }
 		 
@@ -695,10 +731,16 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, -data->size);
+#ifdef BASELINE
+	add_insn_before (data->insn, 
+			 gen_rtx_SET (Pmode, r1, 
+				      gen_rtx_PLUS (Pmode, r1, c)));
+#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, 
 				      gen_rtx_PLUS (Pmode, r1, c)),
 			 NULL);
+#endif
 	return -1;
       }
 	
@@ -709,8 +751,13 @@ replace_inc_dec (rtx *r, void *d)
 	   insn that contained it.  */
 	rtx add = XEXP (x, 0);
 	rtx r1 = XEXP (add, 0);
+#ifdef BASELINE
+	add_insn_before (data->insn, 
+			 gen_rtx_SET (Pmode, r1, add));
+#else
 	add_insn_before (data->insn, 
 			 gen_rtx_SET (Pmode, r1, add), NULL);
+#endif
 	return -1;
       }
 
@@ -760,8 +807,10 @@ delete_dead_store_insn (insn_info_t insn_info)
 {
   read_info_t read_info;
 
+#ifndef BASELINE
   if (!dbg_cnt (dse))
     return;
+#endif
 
   check_for_inc_dec (insn_info->insn);
   if (dump_file)
@@ -897,27 +946,24 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
 	fprintf (dump_file, "found alias set %d\n", (int)alias_set);
       if (bitmap_bit_p (clear_alias_sets, alias_set))
 	{
-	  struct clear_alias_mode_holder tmp_holder;
-	  struct clear_alias_mode_holder *entry;
-	  void **slot;
+	  struct clear_alias_mode_holder *entry 
+	    = clear_alias_set_lookup (alias_set);
 
-	  *alias_set_out = alias_set;
-	  *group_id = clear_alias_group->id;
-
-	  tmp_holder.alias_set = alias_set;
-	  slot = htab_find_slot (clear_alias_mode_table, &tmp_holder, NO_INSERT);
-	  gcc_assert (*slot);
-
-	  entry = *slot;
 	  /* If the modes do not match, we cannot process this set.  */
 	  if (entry->mode != GET_MODE (mem))
 	    {
 	      if (dump_file)
-		fprintf (dump_file, "disqualifying alias set %d\n", (int)alias_set);
+		fprintf (dump_file, 
+			 "disqualifying alias set %d, (%s) != (%s)\n", 
+			 (int)alias_set, GET_MODE_NAME (entry->mode), 
+			 GET_MODE_NAME (GET_MODE (mem)));
 	      
 	      bitmap_set_bit (disqualified_clear_alias_sets, alias_set);
 	      return false;
 	    }
+
+	  *alias_set_out = alias_set;
+	  *group_id = clear_alias_group->id;
 	  return true;
 	}
     }
@@ -972,6 +1018,10 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
       *offset = INTVAL (XEXP (address, 1));
       address = XEXP (address, 0);
     }
+
+  /* These are just too hard to deal with.  */
+  if (GET_CODE (address) == AND)
+    return false;
 
   if (rtx_varies_p (address, false))
     {
@@ -1085,8 +1135,8 @@ record_store (rtx body, bb_info_t bb_info)
       store_info = pool_alloc (rtx_store_info_pool);
 
       if (dump_file)
-	fprintf (dump_file, " processing spill store %d\n",
-		 (int)spill_alias_set);
+	fprintf (dump_file, " processing spill store %d(%s)\n",
+		 (int)spill_alias_set, GET_MODE_NAME (GET_MODE (mem)));
     }
   else if (group_id >= 0)
     {
@@ -1102,8 +1152,6 @@ record_store (rtx body, bb_info_t bb_info)
       if (dump_file)
 	fprintf (dump_file, " processing const base store %d[%d..%d)\n",
 		 group_id, (int)offset, (int)(offset+width));
-
-
     }
   else
     {
@@ -1114,7 +1162,6 @@ record_store (rtx body, bb_info_t bb_info)
       if (dump_file)
 	fprintf (dump_file, " processing cselib store [%d..%d)\n",
 		 (int)offset, (int)(offset+width));
-
     }
 
   /* Check to see if this stores causes some other stores to be
@@ -1128,41 +1175,50 @@ record_store (rtx body, bb_info_t bb_info)
       store_info_t s_info = ptr->store_rec;
       bool delete = true;
 
-      /* Loop thru the store_info's for ptr and see if we can make all
-	 of the positions in them dead.  Some positions may already be
-	 dead from prior insns or from prior stores in this insn.  */ 
-      while (s_info)
-	{ 
+      /* Skip the clobbers. We delete the active insn if this insn
+	 shaddows the set.  To have been put on the active list, it
+	 has exactly on set. */
+      while (!s_info->is_set)
+	s_info = s_info->next;
 
-	  if (s_info->alias_set != spill_alias_set)
-	    delete = false;
-	  else if (s_info->alias_set)
+      if (s_info->alias_set != spill_alias_set)
+	delete = false;
+      else if (s_info->alias_set)
+	{
+	  struct clear_alias_mode_holder *entry 
+	    = clear_alias_set_lookup (s_info->alias_set);
+	  /* Generally, spills cannot be processed if and of the
+	     references to the slot have a different mode.  But if
+	     we are in the same block and mode is exactly the same
+	     between this store and one before in the same block,
+	     we can still delete it.  */
+	  if ((GET_MODE (mem) == GET_MODE (s_info->mem))
+	      && (GET_MODE (mem) == entry->mode))
 	    {
-	      delete = !bitmap_bit_p (disqualified_clear_alias_sets, spill_alias_set);
-	      if (dump_file)
-		fprintf (dump_file, "    trying spill store in insn=%d alias_set=%d\n",
-			 INSN_UID (ptr->insn), (int)s_info->alias_set);
+	      delete = true;
+	      sbitmap_zero (s_info->positions_needed);
 	    }
-	  else if ((s_info->group_id == group_id) 
-	      && (s_info->cse_base == base))
-	    {
-	      HOST_WIDE_INT i;
-	      if (dump_file)
-		fprintf (dump_file, "    trying store in insn=%d gid=%d[%d..%d)\n",
-			 INSN_UID (ptr->insn), s_info->group_id, 
-			 (int)s_info->begin, (int)s_info->end);
-	      for (i = offset; i < offset+width; i++)
-		if (i >= s_info->begin && i < s_info->end)
-		  RESET_BIT (s_info->positions_needed, i - s_info->begin);
-	    }
-
-	  /* An insn can be deleted if every position of every one of
-	     its s_infos is zero.  */
-	  if (!sbitmap_empty_p (s_info->positions_needed))
-	    delete = false;
-
-	  s_info = s_info->next;
+	  if (dump_file)
+	    fprintf (dump_file, "    trying spill store in insn=%d alias_set=%d\n",
+		     INSN_UID (ptr->insn), (int)s_info->alias_set);
 	}
+      else if ((s_info->group_id == group_id) 
+	       && (s_info->cse_base == base))
+	{
+	  HOST_WIDE_INT i;
+	  if (dump_file)
+	    fprintf (dump_file, "    trying store in insn=%d gid=%d[%d..%d)\n",
+		     INSN_UID (ptr->insn), s_info->group_id, 
+		     (int)s_info->begin, (int)s_info->end);
+	  for (i = offset; i < offset+width; i++)
+	    if (i >= s_info->begin && i < s_info->end)
+	      RESET_BIT (s_info->positions_needed, i - s_info->begin);
+	}
+      
+      /* An insn can be deleted if every position of every one of
+	 its s_infos is zero.  */
+      if (!sbitmap_empty_p (s_info->positions_needed))
+	delete = false;
 
       if (delete)
 	{
@@ -1193,8 +1249,12 @@ record_store (rtx body, bb_info_t bb_info)
   store_info->group_id = group_id;
   store_info->begin = offset;
   store_info->end = offset + width;
+  store_info->is_set = GET_CODE (body) == SET;
 
-  return 1;
+  /* If this is a clobber, we return 0.  We will only be able to
+     delete this insn if there is only one store USED store, but we
+     can use the clobber to delete other stores earlier.  */
+  return store_info->is_set ? 1 : 0;
 }
 
 
@@ -1272,6 +1332,9 @@ check_mem_read_rtx (rtx *loc, void *data)
   read_info->next = insn_info->read_rec;
   insn_info->read_rec = read_info;
 
+  /* We ignore the clobbers in store_info.  The is mildly agressive,
+     but there really should not be a clobber followed by a read.  */
+
   if (spill_alias_set)
     {
       insn_info_t i_ptr = active_local_stores;
@@ -1283,17 +1346,13 @@ check_mem_read_rtx (rtx *loc, void *data)
 
       while (i_ptr)
 	{
-	  int remove = false;
 	  store_info_t store_info = i_ptr->store_rec;
 
-	  while (store_info && !remove) 
-	    {
-	      if (store_info->alias_set == spill_alias_set)
-		remove = true;
-	      store_info = store_info->next;
-	    }	      
-
-	  if (remove)
+	  /* Skip the clobbers.  */
+	  while (!store_info->is_set)
+	    store_info = store_info->next;
+	  
+	  if (store_info->alias_set == spill_alias_set)
 	    {
 	      if (dump_file)
 		dump_insn_info ("removing from active", i_ptr);
@@ -1316,42 +1375,56 @@ check_mem_read_rtx (rtx *loc, void *data)
       insn_info_t last = NULL;
       
       if (dump_file)
-	fprintf (dump_file, " processing const load %d[%d..%d)\n",
-		 group_id, (int)offset, (int)(offset+width));
+	{
+	  if (width == -1)
+	    fprintf (dump_file, " processing const load %d[BLK]\n",
+		     group_id);
+	  else
+	    fprintf (dump_file, " processing const load %d[%d..%d)\n",
+		     group_id, (int)offset, (int)(offset+width));
+	}
 
       while (i_ptr)
 	{
 	  bool remove = false;
 	  store_info_t store_info = i_ptr->store_rec;
 	  
-	  while (store_info && !remove) 
+	  /* Skip the clobbers.  */
+	  while (!store_info->is_set)
+	    store_info = store_info->next;
+	  
+	  /* There are three cases here.  */
+	  if (store_info->group_id < 0)
+	    /* We have a cselib store followed by a read from a
+	       const base. */
+	    remove 
+	      = canon_true_dependence (store_info->mem, 
+				       GET_MODE (store_info->mem),
+				       store_info->address,
+				       mem, rtx_varies_p);
+	  
+	  else if (group_id == store_info->group_id)
 	    {
-	      /* There are three cases here.  */
-	      if (store_info->group_id < 0)
-		/* We have a cselib store followed by a read from a
-		   const base. */
+	      /* This is a block mode load.  We may get lucky and
+		 canon_true_dependence may save the day.  */
+	      if (width == -1)
 		remove 
 		  = canon_true_dependence (store_info->mem, 
 					   GET_MODE (store_info->mem),
 					   store_info->address,
 					   mem, rtx_varies_p);
-
-	      else if (group_id == store_info->group_id)
-		{
-		  /* The bases are the same, just see if the offsets
-		     overlap.  */
-		  if ((width == -1)
-		      || ((offset < store_info->end) 
-			  && (offset + width > store_info->begin)))
-		    remove = true;
-		}
 	      
-	      /* else 
-		 The else case that is missing here is that the
-		 bases are constant but different.  There is nothing
-		 to do here because there is no overlap.  */
-	      store_info = store_info->next;
-	    }	      
+	      /* The bases are the same, just see if the offsets
+		 overlap.  */
+	      else if ((offset < store_info->end) 
+		       && (offset + width > store_info->begin))
+		remove = true;
+	    }
+	  
+	  /* else 
+	     The else case that is missing here is that the
+	     bases are constant but different.  There is nothing
+	     to do here because there is no overlap.  */
 	  
 	  if (remove)
 	    {
@@ -1373,7 +1446,11 @@ check_mem_read_rtx (rtx *loc, void *data)
       insn_info_t i_ptr = active_local_stores;
       insn_info_t last = NULL;
       if (dump_file)
-	fprintf (dump_file, " processing cselib load\n");
+	{
+	  fprintf (dump_file, " processing cselib load mem:");
+	  print_inline_rtx (dump_file, mem, 0);
+	  fprintf (dump_file, "\n");
+	}
 
       while (i_ptr)
 	{
@@ -1383,34 +1460,16 @@ check_mem_read_rtx (rtx *loc, void *data)
 	  if (dump_file)
 	    fprintf (dump_file, " processing cselib load against insn %d\n",
 		     INSN_UID (i_ptr->insn));
-	  while (store_info && !remove)
-	    {
-	      if (!store_info->alias_set)
-		{
-#if 1
-		  if (dump_file)
-		    {
-		      fprintf (dump_file, "  store_info->mem: ");
-		      print_inline_rtx (dump_file, store_info->mem, 0);
-		      
-		      fprintf (dump_file, "  store_info->address: ");
-		      print_inline_rtx (dump_file, store_info->address, 0);
-		      
-		      fprintf (dump_file, "\n   mem: ");
-		      print_inline_rtx (dump_file, mem, 0);
-		      fprintf (dump_file, "\n");
-		    }
-#endif
-		  
-		  remove 
-		    = canon_true_dependence (store_info->mem, 
-					     GET_MODE (store_info->mem),
-					     store_info->address,
-					     mem, rtx_varies_p);
-		}
-	      
-	      store_info = store_info->next;
-	    }		      
+
+	  /* Skip the clobbers.  */
+	  while (!store_info->is_set)
+	    store_info = store_info->next;
+
+	  if (!store_info->alias_set)
+	    remove = canon_true_dependence (store_info->mem, 
+					    GET_MODE (store_info->mem),
+					    store_info->address,
+					    mem, rtx_varies_p);
 	  
 	  if (remove)
 	    {
@@ -1523,7 +1582,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
      cannot delete, add it into the active_local_stores so that it can
      be locally deleted if found dead.  Otherwise mark it as cannot
      delete.  This simplifies the processing later.  */ 
-  if (mems_found > 0 && !insn_info->cannot_delete)
+  if (mems_found == 1 && !insn_info->cannot_delete)
     {
       insn_info->next_local_store = active_local_stores;
       active_local_stores = insn_info;
@@ -1618,6 +1677,45 @@ step1 (void)
 	      cselib_process_insn (insn);
 	    }
 	  
+	  /* This is something of a hack, because the global algorithm
+	     is supposed to take care of the case where stores go dead
+	     at the end of the function.  However, the global
+	     algorithm must take a more conservative view of block
+	     mode reads than the local alg does.  So to get the case
+	     where you have a store to the frame followed by a non
+	     overlaping block more read, we look at the active local
+	     stores at the end of the function and delete all of the
+	     frame and spill based ones.  */
+	  if (stores_off_frame_dead_at_return
+	      && (EDGE_COUNT (bb->succs) == 0
+		  || (single_succ_p (bb)
+		      && single_succ (bb) == EXIT_BLOCK_PTR
+		      && ! current_function_calls_eh_return)))
+	    {
+	      insn_info_t i_ptr = active_local_stores;
+	      while (i_ptr)
+		{
+		  store_info_t store_info = i_ptr->store_rec;
+
+		  /* Skip the clobbers.  */
+		  while (!store_info->is_set)
+		    store_info = store_info->next;
+		  if (store_info->alias_set)
+		    delete_dead_store_insn (i_ptr);
+		  else 
+		    if (store_info->group_id >= 0)
+		      {
+			group_info_t group 
+			  = VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+			if ((group->rtx_base == frame_pointer_rtx)
+			    || (group->rtx_base == hard_frame_pointer_rtx))
+			  delete_dead_store_insn (i_ptr);
+		      }
+
+		  i_ptr = i_ptr->next_local_store;
+		}
+	    }
+
 	  /* Get rid of all of the cselib based store_infos in this
 	     block and mark the containing insns as not being
 	     deletable.  */
@@ -2248,7 +2346,11 @@ step3 (bool for_spills)
 
 
 static void
+#ifdef BASELINE
+dse_confluence_0 (struct dataflow * d ATTRIBUTE_UNUSED, basic_block bb)
+#else
 dse_confluence_0 (basic_block bb)
+#endif
 {
   bb_info_t bb_info = bb_table[bb->index];
 
@@ -2272,7 +2374,11 @@ dse_confluence_0 (basic_block bb)
    there, that means they are all ones.  */
 
 static void
+#ifdef BASELINE
+dse_confluence_n (struct dataflow * d ATTRIBUTE_UNUSED, edge e)
+#else
 dse_confluence_n (edge e)
+#endif
 {
   bb_info_t src_info = bb_table[e->src->index];
   bb_info_t dest_info = bb_table[e->dest->index];
@@ -2317,7 +2423,11 @@ dse_confluence_n (edge e)
 */
 
 static bool
+#ifdef BASELINE
+dse_transfer_function (struct dataflow * d ATTRIBUTE_UNUSED, int bb_index)
+#else
 dse_transfer_function (int bb_index)
+#endif
 {
   bb_info_t bb_info = bb_table[bb_index];
 
@@ -2481,41 +2591,42 @@ step5_nospill (void)
 	      /* Try to delete the current insn.  */
 	      deleted = true;
 	      
-	      while (store_info)
+	      /* Skip the clobbers.  */
+	      while (!store_info->is_set)
+		store_info = store_info->next;
+
+	      if (store_info->alias_set)
+		deleted = false;
+	      else
 		{
-		  if (store_info->alias_set)
-		    deleted = false;
-		  else
+		  HOST_WIDE_INT i;
+		  group_info_t group_info 
+		    = VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+		  
+		  for (i = store_info->begin; i < store_info->end; i++)
 		    {
-		      HOST_WIDE_INT i;
-		      group_info_t group_info 
-			= VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+		      int index = get_bitmap_index (group_info, i);
 		      
-		      for (i = store_info->begin; i < store_info->end; i++)
+#if 1
+		      if (dump_file)
+			fprintf (dump_file, "i = %d, index = %d\n", (int)i, index); 
+#endif
+		      if (index == 0 || !bitmap_bit_p (v, index))
 			{
-			  int index = get_bitmap_index (group_info, i);
-			  
 #if 1
 			  if (dump_file)
-			    fprintf (dump_file, "i = %d, index = %d\n", (int)i, index); 
+			    fprintf (dump_file, "failing at i = %d\n", (int)i); 
 #endif
-			  if (index == 0 || !bitmap_bit_p (v, index))
-			    {
-#if 1
-			      if (dump_file)
-				fprintf (dump_file, "failing at i = %d\n", (int)i); 
-#endif
-			      deleted = false;
-			      break;
-			    }
+			  deleted = false;
+			  break;
 			}
 		    }
-		  
-		  store_info = store_info->next;
 		}
 	      if (deleted)
 		{
+#ifndef BASELINE
 		  if (dbg_cnt (dse))
+#endif
 		    {
 		      check_for_inc_dec (insn_info->insn);
 		      delete_insn (insn_info->insn);
@@ -2523,7 +2634,6 @@ step5_nospill (void)
 		      globally_deleted++;
 		    }
 		}
-	    
 	    }
 	  /* We do want to process the local info if the insn was
 	     deleted.  For insntance, if the insn did a wild read, we
@@ -2595,7 +2705,9 @@ step5_spill (void)
 		}
 	      if (deleted)
 		{
+#ifndef BASELINE
 		  if (dbg_cnt (dse))
+#endif
 		    {
 		      if (dump_file)
 			fprintf (dump_file, "Spill deleting insn %d\n", 
@@ -2816,7 +2928,11 @@ struct tree_opt_pass pass_rtl_dse2 =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
+#ifdef BASELINE
+  TV_DSE1,                              /* tv_id */
+#else
   TV_DSE2,                              /* tv_id */
+#endif
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

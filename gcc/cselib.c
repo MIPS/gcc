@@ -926,10 +926,14 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
 	      /* The one thing that we are not willing to do (and this
 		 is requirement of dse and if others need this
 		 function we should add a parm to control it) is that
-		 we will not substitute the STACK_POINTER_REGNUM.  So
-		 if we preload it in the bitmap that is used to keep
-		 from substituting infinitely, we will never get an sp
-		 substitution. */ 	      
+		 we will not substitute the STACK_POINTER_REGNUM.  
+
+		 Such an expansion confuses the code that notices that
+		 stores go dead to the frame at the end of the
+		 function and that the frame is not effected by calls
+		 to subroutines.  If you allow the substitution, then
+		 the dse code will think that parameter pushing also
+		 goes dead.  */
 	      if (regno == STACK_POINTER_REGNUM)
 		return orig;
 
@@ -955,7 +959,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
       /* SCRATCH must be shared because they represent distinct values.  */
       return orig;
     case CLOBBER:
-      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
+      if (REG_P (XEXP (orig, 0)) && HARD_REGISTER_NUM_P (REGNO (XEXP (orig, 0))))
 	return orig;
       break;
 
