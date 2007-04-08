@@ -3443,17 +3443,17 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  rtx tempLR, tmp3, mem;
+		  rtx tmp3, mem;
 		  rtx first, last;
 
-		  tempLR = gen_reg_rtx (Pmode);
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
 		  tmp3 = gen_reg_rtx (Pmode);
 		  mem = gen_const_mem (Pmode, tmp1);
 
-		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, gsym));
-		  emit_move_insn (tmp1, tempLR);
+		  first = emit_insn (gen_load_toc_v4_PIC_1b (gsym));
+		  emit_move_insn (tmp1,
+				  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 		  emit_move_insn (tmp2, mem);
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
 		  last = emit_move_insn (got, tmp3);
@@ -14020,7 +14020,7 @@ rs6000_emit_load_toc_table (int fromprolog)
   if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
     {
       char buf[30];
-      rtx lab, tmp1, tmp2, got, tempLR;
+      rtx lab, tmp1, tmp2, got;
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
       lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -14034,13 +14034,11 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  tmp1 = gen_reg_rtx (Pmode);
 	  tmp2 = gen_reg_rtx (Pmode);
 	}
-      tempLR = (fromprolog
-		? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-		: gen_reg_rtx (Pmode));
-      insn = emit_insn (gen_load_toc_v4_PIC_1 (tempLR, lab));
+      insn = emit_insn (gen_load_toc_v4_PIC_1 (lab));
       if (fromprolog)
 	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (tmp1, tempLR);
+      insn = emit_move_insn (tmp1,
+			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
       if (fromprolog)
 	rs6000_maybe_dead (insn);
       insn = emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
@@ -14052,23 +14050,17 @@ rs6000_emit_load_toc_table (int fromprolog)
     }
   else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     {
-      rtx tempLR = (fromprolog
-		    ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-		    : gen_reg_rtx (Pmode));
-
-      insn = emit_insn (gen_load_toc_v4_pic_si (tempLR));
+      insn = emit_insn (gen_load_toc_v4_pic_si ());
       if (fromprolog)
 	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (dest, tempLR);
+      insn = emit_move_insn (dest,
+			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
       if (fromprolog)
 	rs6000_maybe_dead (insn);
     }
   else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
     {
       char buf[30];
-      rtx tempLR = (fromprolog
-		    ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-		    : gen_reg_rtx (Pmode));
       rtx temp0 = (fromprolog
 		   ? gen_rtx_REG (Pmode, 0)
 		   : gen_reg_rtx (Pmode));
@@ -14083,9 +14075,10 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
 	  symL = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1 (tempLR,
-							       symF)));
-	  rs6000_maybe_dead (emit_move_insn (dest, tempLR));
+	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1 (symF)));
+	  rs6000_maybe_dead (emit_move_insn (dest,
+					     gen_rtx_REG (Pmode,
+							  LINK_REGISTER_REGNUM)));
 	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest,
 							       symL,
 							       symF)));
@@ -14095,8 +14088,9 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  rtx tocsym;
 
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
-	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, tocsym));
-	  emit_move_insn (dest, tempLR);
+	  emit_insn (gen_load_toc_v4_PIC_1b (tocsym));
+	  emit_move_insn (dest,
+			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
       insn = emit_insn (gen_addsi3 (dest, temp0, dest));
@@ -14765,7 +14759,7 @@ rs6000_emit_prologue (void)
       p = rtvec_alloc (sz);
       j = 0;
       RTVEC_ELT (p, j++) = gen_rtx_CLOBBER (VOIDmode,
-					    gen_rtx_REG (Pmode,
+					    gen_rtx_REG (SImode,
 							 LINK_REGISTER_REGNUM));
       RTVEC_ELT (p, j++) = gen_rtx_USE (VOIDmode,
 					gen_rtx_SYMBOL_REF (Pmode,

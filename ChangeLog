@@ -1,3 +1,38 @@
+2007-04-04  Christian Bruel  <christian.bruel@st.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+	
+2007-04-02  Dave Korn  <dave.korn@artimi.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2007-03-31  Tobias Burnus  <burnus@net-b.de>
+
+	* MAINTAINERS (fortran 95 front end): Add myself.
+
+2007-03-28  Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+	
+2007-03-24  Ayal Zaks  <zaks@il.ibm.com>
+
+	* MAINTAINERS (Modulo Scheduler): Add myself.
+
+2007-03-23  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* MAINTAINERS (fortran 95 front end): Add myself.
+	(c++ front end): whitespace fix.
+
+2007-03-22  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2007-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* configure.ac (TOPLEVEL_CONFIGURE_ARGUMENTS): Fix m4 quoting
+	of glob.  Quote arguments with single quotes too.
+	* configure: Regenerate.
+
 2007-03-12  Brooks Moses  <brooks.moses@codesourcery.com>
 
 	* Makefile.def (fixincludes): Remove unneeded "missing" lines.

@@ -696,8 +696,7 @@ stack_result (tree decl)
 static void
 replace_reg (rtx *reg, int regno)
 {
-  gcc_assert (regno >= FIRST_STACK_REG);
-  gcc_assert (regno <= LAST_STACK_REG);
+  gcc_assert (IN_RANGE (regno, FIRST_STACK_REG, LAST_STACK_REG));
   gcc_assert (STACK_REG_P (*reg));
 
   gcc_assert (SCALAR_FLOAT_MODE_P (GET_MODE (*reg))
@@ -3236,8 +3235,33 @@ static unsigned int
 rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
+<<<<<<< .working
   reg_to_stack ();
   regstack_completed = 1;
+=======
+  if (reg_to_stack () && optimize)
+    {
+      regstack_completed = 1;
+      if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
+                       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
+          && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
+        {
+	  basic_block bb;
+
+	  cfg_layout_initialize (0);
+
+	  reorder_basic_blocks ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
+
+	  FOR_EACH_BB (bb)
+	    if (bb->next_bb != EXIT_BLOCK_PTR)
+	      bb->aux = bb->next_bb;
+	  cfg_layout_finalize ();
+        }
+    }
+  else 
+    regstack_completed = 1;
+>>>>>>> .merge-right.r123653
 #endif
   return 0;
 }

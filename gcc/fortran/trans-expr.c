@@ -43,7 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "dependency.h"
 
 static tree gfc_trans_structure_assign (tree dest, gfc_expr * expr);
-static void gfc_apply_interface_mapping_to_expr (gfc_interface_mapping *,
+static int gfc_apply_interface_mapping_to_expr (gfc_interface_mapping *,
 						 gfc_expr *);
 
 /* Copy the scalarization loop variables.  */
@@ -227,6 +227,8 @@ gfc_trans_init_string_length (gfc_charlen * cl, stmtblock_t * pblock)
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr_type (&se, cl->length, gfc_charlen_type_node);
+  se.expr = fold_build2 (MAX_EXPR, gfc_charlen_type_node, se.expr,
+			 build_int_cst (gfc_charlen_type_node, 0));
   gfc_add_block_to_block (pblock, &se.pre);
 
   tmp = cl->backend_decl;
@@ -634,7 +636,7 @@ static const unsigned char powi_table[POWI_TABLE_SIZE] =
 /* Recursive function to expand the power operator. The temporary 
    values are put in tmpvar. The function returns tmpvar[1] ** n.  */
 static tree
-gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
+gfc_conv_powi (gfc_se * se, unsigned HOST_WIDE_INT n, tree * tmpvar)
 {
   tree op0;
   tree op1;
@@ -681,15 +683,25 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   tree tmp;
   tree type;
   tree vartmp[POWI_TABLE_SIZE];
-  int n;
+  HOST_WIDE_INT m;
+  unsigned HOST_WIDE_INT n;
   int sgn;
 
+  /* If exponent is too large, we won't expand it anyway, so don't bother
+     with large integer values.  */
+  if (!double_int_fits_in_shwi_p (TREE_INT_CST (rhs)))
+    return 0;
+
+  m = double_int_to_shwi (TREE_INT_CST (rhs));
+  /* There's no ABS for HOST_WIDE_INT, so here we go. It also takes care
+     of the asymmetric range of the integer type.  */
+  n = (unsigned HOST_WIDE_INT) (m < 0 ? -m : m);
+  
   type = TREE_TYPE (lhs);
-  n = abs (TREE_INT_CST_LOW (rhs));
   sgn = tree_int_cst_sgn (rhs);
 
-  if (((FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations) || optimize_size)
-      && (n > 2 || n < -1))
+  if (((FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations)
+       || optimize_size) && (m > 2 || m < -1))
     return 0;
 
   /* rhs == 0  */
@@ -698,6 +710,7 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
       se->expr = gfc_build_const (type, integer_one_node);
       return 1;
     }
+
   /* If rhs < 0 and lhs is an integer, the result is -1, 0 or 1.  */
   if ((sgn == -1) && (TREE_CODE (type) == INTEGER_TYPE))
     {
@@ -1588,15 +1601,16 @@ gfc_apply_interface_mapping_to_ref (gfc_interface_mapping * mapping,
    dummy arguments that MAPPING maps to actual arguments.  Replace each such
    reference with a reference to the associated actual argument.  */
 
-static void
+static int
 gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
 				     gfc_expr * expr)
 {
   gfc_interface_sym_mapping *sym;
   gfc_actual_arglist *actual;
+  int seen_result = 0;
 
   if (!expr)
-    return;
+    return 0;
 
   /* Copying an expression does not copy its length, so do that here.  */
   if (expr->ts.type == BT_CHARACTER && expr->ts.cl)
@@ -1618,6 +1632,8 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
   switch (expr->expr_type)
     {
     case EXPR_VARIABLE:
+      if (expr->symtree->n.sym->attr.result)
+	seen_result = 1;
     case EXPR_CONSTANT:
     case EXPR_NULL:
     case EXPR_SUBSTRING:
@@ -1629,6 +1645,21 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
       break;
 
     case EXPR_FUNCTION:
+      if (expr->value.function.actual->expr->expr_type == EXPR_VARIABLE
+	    && gfc_apply_interface_mapping_to_expr (mapping,
+			expr->value.function.actual->expr)
+	    && expr->value.function.esym == NULL
+	    && expr->value.function.isym != NULL
+	    && expr->value.function.isym->generic_id == GFC_ISYM_LEN)
+	{
+	  gfc_expr *new_expr;
+	  new_expr = gfc_copy_expr (expr->value.function.actual->expr->ts.cl->length);
+	  *expr = *new_expr;
+	  gfc_free (new_expr);
+	  gfc_apply_interface_mapping_to_expr (mapping, expr);
+	  break;
+	}
+
       for (sym = mapping->syms; sym; sym = sym->next)
 	if (sym->old == expr->value.function.esym)
 	  expr->value.function.esym = sym->new->n.sym;
@@ -1642,6 +1673,7 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
       gfc_apply_interface_mapping_to_cons (mapping, expr->value.constructor);
       break;
     }
+  return seen_result;
 }
 
 
@@ -2074,11 +2106,19 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		/* Argument list functions %VAL, %LOC and %REF are signalled
 		   through arg->name.  */
 		conv_arglist_function (&parmse, arg->expr, arg->name);
+	      else if ((e->expr_type == EXPR_FUNCTION)
+			  && e->symtree->n.sym->attr.pointer
+			  && fsym && fsym->attr.target)
+		{
+		  gfc_conv_expr (&parmse, e);
+		  parmse.expr = build_fold_addr_expr (parmse.expr);
+		}
 	      else
 		{
 		  gfc_conv_expr_reference (&parmse, e);
 		  if (fsym && fsym->attr.pointer
-			&& e->expr_type != EXPR_NULL)
+		      && fsym->attr.flavor != FL_PROCEDURE
+		      && e->expr_type != EXPR_NULL)
 		    {
 		      /* Scalar pointer dummy args require an extra level of
 			 indirection. The null pointer already contains
@@ -2245,6 +2285,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
         }
         else
         {
+	  tree tmp;
+
 	  /* Calculate the length of the returned string.  */
 	  gfc_init_se (&parmse, NULL);
 	  if (need_interface_mapping)
@@ -2253,7 +2295,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    gfc_conv_expr (&parmse, sym->ts.cl->length);
 	  gfc_add_block_to_block (&se->pre, &parmse.pre);
 	  gfc_add_block_to_block (&se->post, &parmse.post);
-	  cl.backend_decl = fold_convert (gfc_charlen_type_node, parmse.expr);
+	  
+	  tmp = fold_convert (gfc_charlen_type_node, parmse.expr);
+	  tmp = fold_build2 (MAX_EXPR, gfc_charlen_type_node, tmp,
+			     build_int_cst (gfc_charlen_type_node, 0));
+	  cl.backend_decl = tmp;
 	}
 
       /* Set up a charlen structure for it.  */
@@ -2346,17 +2392,23 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
+
   /* If there are alternate return labels, function type should be
      integer.  Can't modify the type in place though, since it can be shared
-     with other functions.  */
+     with other functions.  For dummy arguments, the typing is done to
+     to this result, even if it has to be repeated for each call.  */
   if (has_alternate_specifier
       && TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) != integer_type_node)
     {
-      gcc_assert (! sym->attr.dummy);
-      TREE_TYPE (sym->backend_decl)
-        = build_function_type (integer_type_node,
-                               TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
-      se->expr = build_fold_addr_expr (sym->backend_decl);
+      if (!sym->attr.dummy)
+	{
+	  TREE_TYPE (sym->backend_decl)
+		= build_function_type (integer_type_node,
+		      TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
+	  se->expr = build_fold_addr_expr (sym->backend_decl);
+	}
+      else
+	TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
     }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));

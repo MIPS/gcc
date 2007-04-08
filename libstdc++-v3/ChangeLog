@@ -1,3 +1,265 @@
+2007-04-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31117
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Do not use errno,
+	just check that the value is finite.
+	* config/locale/generic/c_locale.cc (__convert_to_v): Likewise.
+
+2007-04-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/type_traits.h (__numeric_traits): Move...
+	* include/ext/numeric_traits.h: ... here.
+	* include/Makefile.am: Add.
+	* include/ext/pb_ds/detail/type_utils.hpp: Include 
+	<ext/numeric_traits.h> too.
+	* include/tr1/random: Likewise.
+	* testsuite/ext/type_traits/numeric_traits.cc: Move...
+	* testsuite/ext/numeric_traits/numeric_traits.cc: ... here.
+	* include/Makefile.in: Regenerate.
+
+2007-04-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/valarray_array.h (__valarray_default_construct(_Tp*,
+	_Tp*)): Use __is_scalar instead of __is_pod.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__copy_aux(_II, _II, _OI),
+	__copy_backward_aux(_BI1, _BI1, _BI2)): Use __is_pod.
+	* include/bits/stl_deque.h (deque<>::_M_destroy_data(iterator,
+	iterator, const std::allocator<>&)): Use __has_trivial_constructor.
+	(deque<>::_M_destroy_data_dispatch): Remove.
+	* include/bits/stl_uninitialized.h (uninitialized_copy(_InputIterator,
+	_InputIterator, _ForwardIterator), uninitialized_fill(_ForwardIterator,
+	_ForwardIterator, const _Tp&), uninitialized_fill_n(_ForwardIterator,
+	_Size, const _Tp&)): Use __is_pod.
+	* include/bits/stl_tempbuf.h (_Temporary_buffer::
+	_Temporary_buffer(_ForwardIterator, _ForwardIterator)): Use __is_pod.
+	(_Temporary_buffer::_M_initialize_buffer): Remove.
+	* include/bits/stl_construct.h (_Destroy(_ForwardIterator,
+	_ForwardIterator)): Use __has_trivial_destructor.
+	(__destroy_aux): Remove.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_map.h (map<>::insert(iterator, const value_type&):
+	Uglify parameter.
+
+2007-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31440
+	* include/bits/stl_tree.h (_M_lower_bound(_Link_type, _Link_type,
+	const _Key&), _M_upper_bound(_Link_type, _Link_type, const _Key&)):
+	Add.
+	(_M_equal_range(const _Key&) const): Remove.
+	(lower_bound(const key_type&), lower_bound(const key_type&) const,
+	upper_bound(const key_type&), upper_bound(const key_type&) const,
+	equal_range(const key_type&), equal_range(const key_type&) const):
+	Adjust.
+	(find(const _Key&), find(const _Key&) const): Tweak.
+	* testsuite/23_containers/map/operations/31440.cc: New.
+
+2007-04-02  Matthew Levine  <gcc@severeweblint.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31370
+	* include/bits/stl_bvector.h (vector<bool>::max_size): Fix.
+	(vector<bool>::_M_check_len): Add.
+	* include/bits/vector.tcc (_M_fill_insert(iterator, size_type, bool),
+	_M_insert_range(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag), _M_insert_aux(iterator, bool)): Use it.
+	* testsuite/23_containers/vector/bool/modifiers/insert/31370.cc: New.
+	* testsuite/23_containers/vector/bool/capacity/29134.cc: Adjust.
+
+	* include/bits/stl_vector.h (vector<>::_M_check_len): Add.
+	* include/bits/vector.tcc (_M_insert_aux(iterator, const _Tp&),
+	_M_fill_insert(iterator, size_type, const value_type&),
+	_M_range_insert(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag)): Use it.
+
+2007-04-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31401 (vstring bits)
+	* include/ext/vstring.tcc (find(const _CharT*, size_type,
+	size_type)): Avoid unsigned overflow.
+
+2007-04-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(iter_type,
+	ios_base&, char_type, const void*)): Fix for sizeof(const void*)
+	> sizeof(unsigned long).
+
+2007-04-01  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* include/tr1/poly_laguerre.tcc: Missing s/__alpha/__alpha1, line 278.
+
+2007-04-01  Richard Henderson  <rth@redhat.com>
+
+	* include/tr1/poly_laguerre.tcc: s/__alpha/__alpha1/g.
+	* include/tr1/ell_integral.tcc: Likewise.
+
+2007-03-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (_M_fill_insert(iterator, size_type,
+	bool), _M_insert_range(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag), _M_insert_aux(iterator, bool)): Move
+	out of line...
+	* include/bits/vector.tcc: ... here.
+
+2007-03-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/26099
+	* include/bits/cpp_type_traits.h (struct __is_pod, struct __is_empty):
+	Remove.
+	* include/bits/valarray_array.h: Adjust.
+	* include/bits/allocator.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2007-03-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31401
+	* include/bits/basic_string.tcc (find(const _CharT*, size_type,
+	size_type)): Avoid unsigned overflow.
+	* testsuite/21_strings/basic_string/find/char/4.cc: New.
+	* testsuite/21_strings/basic_string/find/wchar_t/4.cc: Likewise.
+
+2007-03-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/fstream.tcc (basic_filebuf<>::underflow):
+	Don't call codecvt::in at all if _M_ext_next >= _M_ext_end.
+	* testsuite/27_io/basic_filebuf/underflow/char/3.cc: New.
+
+2007-03-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_compatibility/complex.h: Without
+	__GXX_EXPERIMENTAL_CXX0X__ include_next complex.h.	
+	* include/c_compatibility/fenv.h: Same.
+	* include/c_compatibility/inttypes.h: Same.
+	* include/c_compatibility/stdbool.h: Same.
+	* include/c_compatibility/stdint.h: Same.
+	* include/c_compatibility/tgmath.h: Same.
+
+	* include/tr1/cinttypes: Use include_next.
+	* include/tr1/cstdint: Same.
+	* include/tr1/cstdbool: Same.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Add check for tgmath.h
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2007-03-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Formatting fixes.
+
+2007-03-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/4402.cc:
+	Likewise use std::numeric_limits<>::max().
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc:
+	Minor tweaks.
+
+2007-03-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/4402.cc
+	(test02): Use std::numeric_limits<>::max() to get suitable large
+	values.
+
+2007-03-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/21_strings/headers/cstdlib/functions_std.cc: Without
+	C99 support, _GLIBCXX_USE_WCHAR_T not defined, so
+	dg-require-c-std.
+	* testsuite/tr1/6_containers/headers/functional/synopsis.cc: Same.
+	* testsuite/27_io/headers/iostream/synopsis.cc: Same.
+	* testsuite/27_io/headers/streambuf/types_std.cc: Same.
+	* testsuite/27_io/headers/sstream/types_std.cc: Same.
+	* testsuite/27_io/headers/ostream/types_std.cc: Same.
+	* testsuite/27_io/headers/istream/types_std.cc: Same.
+	* testsuite/27_io/headers/iostream/types_std.cc: Same.
+	* testsuite/27_io/headers/fstream/types_std.cc: Same.
+	* testsuite/21_strings/headers/string/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwctype/types_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/functions_std.cc: Same.
+	* testsuite/21_strings/headers/cwchar/types_std.cc: Same.
+	
+	* include/Makefile.am (c_compatibility_headers): Add fenv.h.
+	* include/Makefile.in: Regenerate.
+	* configure.host: Update comment.
+
+	* include/tr1/cfenv: Use include_next.
+
+2007-03-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/tuple (get(_Tuple_impl<>&, get(const _Tuple_impl<>&):
+	Rename as __get_helper.
+	(get(tuple<>&, get(const tuple<>&)): Forward to the latter.
+
+2007-03-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update for new includes, macros.
+	
+2007-03-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/array_type_info.cc: Likewise.
+	* libsupc++/bad_cast.cc: Likewise.
+	* libsupc++/bad_typeid.cc: Likewise.
+	* libsupc++/class_type_info.cc: Likewise.
+	* libsupc++/dyncast.cc: Likewise.
+	* libsupc++/enum_type_info.cc: Likewise.
+	* libsupc++/function_type_info.cc: Likewise.
+	* libsupc++/fundamental_type_info.cc: Likewise.
+	* libsupc++/pbase_type_info.cc: Likewise.
+	* libsupc++/pmem_type_info.cc: Likewise.
+	* libsupc++/pointer_type_info.cc: Likewise.
+	* libsupc++/si_class_type_info.cc: Likewise.
+	* libsupc++/vmi_class_type_info.cc: Likewise.
+	* libsupc++/tinfo.h: Move inline type_info functions here.
+	* libsupc++/tinfo.cc: Separate type_info classes into their own
+	files.
+	* libsupc++/tinfo2.cc: Likewise.
+	* Makefile.am (sources): Mention new files.
+	* Makefile.in: Regenerated.
+
+2007-03-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/headers/cinttypes/types_std_c++0x.cc: Use
+	-std=gnu++0x instead of -std=c++0x for testing.
+	* testsuite/18_support/headers/cstdint/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/random/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cfenv/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cstdlib/types_std_c++0x.cc: Same.
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x.cc: Same.
+	* testsuite/17_intro/headers/c++200x/all_multiple_inclusion.cc: Same.
+	* testsuite/17_intro/headers/c++200x/all.cc: Same.
+	* testsuite/17_intro/using_namespace_std_tr1_neg.cc: Same.
+	* testsuite/23_containers/hash/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_map/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/tuple/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_multimap/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/unordered_set/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/headers/tuple/types_std_c++0x.cc: Same.
+	* testsuite/23_containers/unordered_multiset/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/23_containers/array/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/enable_shared_from_this/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/headers/functional/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/functional/
+	using_namespace_std_placeholders.cc: Same.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x.cc: Same.
+	* testsuite/20_util/headers/memory/types_std_c++0x.cc: Same.
+	* testsuite/20_util/shared_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	* testsuite/20_util/weak_ptr/requirements/
+	explicit_instantiation.cc: Same.
+	
 2007-03-16  Benjamin Kosnik  <bkoz@redhat.com>
 	
 	* testsuite/lib/dg-options.exp (dg-require-c-std): New.

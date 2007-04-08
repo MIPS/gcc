@@ -667,26 +667,57 @@ AC_ARG_ENABLE(__cxa_atexit,
 
 # Enable C extension for decimal float if target supports it.
 AC_ARG_ENABLE(decimal-float,
-[  --enable-decimal-float  enable decimal float extension to C],
+[  --enable-decimal-float={no,yes,bid,dpd}
+			enable decimal float extension to C.  Selecting 'bid'
+			or 'dpd' choses which decimal floating point format
+			to use],
 [
-  if test x$enablevar = xyes ; then
-    case $target in
-    powerpc*-*-linux* | i?86*-*-linux*)
+  case $enable_decimal_float in
+    yes | no | bid | dpd) ;;
+    *) AC_MSG_ERROR(['$enable_decimal_float' is an invalid value for --enable-decimal-float.
+Valid choices are 'yes', 'bid', 'dpd', and 'no'.]) ;;
+  esac
+],
+[
+  case $target in
+    powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux*)
       enable_decimal_float=yes
       ;;
     *)
       AC_MSG_WARN(decimal float is not supported for this target, ignored)
       enable_decimal_float=no
       ;;
-    esac
-  fi
-], [enable_decimal_float=no])
+  esac
+])
 
-AC_SUBST(enable_decimal_float)
-
-dfp=`if test $enable_decimal_float = yes; then echo 1; else echo 0; fi`
+dfp=`if test $enable_decimal_float != no; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_FLOAT, $dfp,
 [Define to 1 to enable decimal float extension to C.])
+
+# x86's use BID format instead of DPD
+case x$enable_decimal_float in
+  xyes)
+    case $target in
+      i?86*-*-linux* | x86_64*-*-linux*)
+	enable_decimal_float=bid
+	;;
+      *)
+	enable_decimal_float=dpd
+	;;
+    esac
+    ;;
+  xno)
+    # ENABLE_DECIMAL_FLOAT is set to 0. But we have to have proper
+    # dependency on libdecnumber.
+    enable_decimal_float=dpd
+    ;;
+esac
+AC_SUBST(enable_decimal_float)
+
+bid=`if test $enable_decimal_float = bid; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
+[Define to 1 to specify that we are using the BID decimal floating
+point format instead of DPD])
 
 # Enable threads
 # Pass with no value to take the default
@@ -2961,10 +2992,10 @@ LCF0:
     case $target in
       *-*-aix*) conftest_s='	.machine "pwr6"
 	.csect .text[[PR]]
-	dadd 1,3';;
+	dadd 1,2,3';;
       *) conftest_s='	.machine power6
 	.text
-	dadd 1,3';;
+	dadd 1,2,3';;
     esac
 
     gcc_GAS_CHECK_FEATURE([decimal float support],
@@ -3079,7 +3110,7 @@ AC_CACHE_CHECK([assembler for tolerance to line number 0],
  [gcc_cv_as_line_zero],
  [gcc_cv_as_line_zero=no
   if test $in_tree_gas = yes; then
-    gcc_GAS_VERSION_GTE_IFELSE([2,16,91], [gcc_cv_as_line_zero=yes])
+    gcc_GAS_VERSION_GTE_IFELSE(2, 16, 91, [gcc_cv_as_line_zero=yes])
   elif test "x$gcc_cv_as" != x; then
     { echo '# 1 "test.s" 1'; echo '# 0 "" 2'; } > conftest.s
     if AC_TRY_COMMAND([$gcc_cv_as -o conftest.o conftest.s >&AS_MESSAGE_LOG_FD 2>conftest.out]) &&
@@ -3501,11 +3532,8 @@ all_outputs='Makefile gccbug libada-mk'
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.
 all_lang_makefiles=
-# Files for gengtype
+# Additional files for gengtype
 all_gtfiles="$target_gtfiles"
-# Files for gengtype with language
-all_gtfiles_files_langs=
-all_gtfiles_files_files=
 
 # These are the languages that are set in --enable-languages,
 # and are available in the GCC tree.
@@ -3582,24 +3610,13 @@ changequote([,])dnl
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
 	all_outputs="$all_outputs $outputs"
-	all_gtfiles="$all_gtfiles $gtfiles"
-	for f in $gtfiles
-	do
-		all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-		all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-	done
+	all_gtfiles="$all_gtfiles [[$subdir]] $gtfiles"
 done
 
 # Pick up gtfiles for c
 gtfiles=
-subdir="c"
 . ${srcdir}/c-config-lang.in
-all_gtfiles="$all_gtfiles $gtfiles"
-for f in $gtfiles
-do
-        all_gtfiles_files_langs="$all_gtfiles_files_langs ${subdir} "
-        all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
-done
+all_gtfiles="$all_gtfiles [[c]] $gtfiles"
 
 check_languages=
 for language in $all_selected_languages
@@ -3731,8 +3748,6 @@ AC_SUBST(subdirs)
 AC_SUBST(srcdir)
 AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
-AC_SUBST(all_gtfiles_files_langs)
-AC_SUBST(all_gtfiles_files_files)
 AC_SUBST(all_lang_makefrags)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)

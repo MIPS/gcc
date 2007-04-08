@@ -168,7 +168,7 @@ static unsigned int attribute_hash_list (tree, hashval_t);
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
-unsigned char tree_contains_struct[256][64];
+unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 
 /* Number of operands for each OpenMP clause.  */
 unsigned const char omp_clause_num_ops[] =
@@ -5826,7 +5826,7 @@ build_complex_type (tree component_type)
 	name = 0;
 
       if (name != 0)
-	TYPE_NAME (t) = get_identifier (name);
+	TYPE_NAME (t) = build_decl (TYPE_DECL, get_identifier (name), t);
     }
 
   return build_qualified_type (t, TYPE_QUALS (component_type));
@@ -7004,21 +7004,10 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_MODE (dfloat128_type_node) = TDmode;
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
-  complex_integer_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_integer_type_node) = integer_type_node;
-  layout_type (complex_integer_type_node);
-
-  complex_float_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_float_type_node) = float_type_node;
-  layout_type (complex_float_type_node);
-
-  complex_double_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_double_type_node) = double_type_node;
-  layout_type (complex_double_type_node);
-
-  complex_long_double_type_node = make_node (COMPLEX_TYPE);
-  TREE_TYPE (complex_long_double_type_node) = long_double_type_node;
-  layout_type (complex_long_double_type_node);
+  complex_integer_type_node = build_complex_type (integer_type_node);
+  complex_float_type_node = build_complex_type (float_type_node);
+  complex_double_type_node = build_complex_type (double_type_node);
+  complex_long_double_type_node = build_complex_type (long_double_type_node);
 
   {
     tree t = targetm.build_builtin_va_list ();
@@ -7600,17 +7589,6 @@ range_in_array_bounds_p (tree ref)
     return false;
 
   return true;
-}
-
-/* Return true if T (assumed to be a DECL) is a global variable.  */
-
-bool
-is_global_var (tree t)
-{
-  if (MTAG_P (t))
-    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
-  else
-    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory

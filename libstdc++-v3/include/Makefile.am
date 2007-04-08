@@ -512,6 +512,7 @@ ext_headers = \
 	${ext_srcdir}/mt_allocator.h \
 	${ext_srcdir}/new_allocator.h \
 	${ext_srcdir}/numeric \
+	${ext_srcdir}/numeric_traits.h \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
@@ -635,6 +636,7 @@ endif
 if GLIBCXX_C_HEADERS_C_GLOBAL
 c_compatibility_headers = \
 	${c_compatibility_srcdir}/complex.h \
+	${c_compatibility_srcdir}/fenv.h \
 	${c_compatibility_srcdir}/tgmath.h 
 endif
 

@@ -489,7 +489,7 @@ init_optimization_passes (void)
 
   /* Interprocedural optimization passes. 
      All these passes are ignored in -fno-unit-at-a-time
-     except for subpases of early_local_pases.  */
+     except for subpasses of early_local_passes.  */
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
@@ -696,7 +696,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_gcse);
       NEXT_PASS (pass_jump_bypass);
       NEXT_PASS (pass_rtl_ifcvt);
-      NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_tracer);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
@@ -716,11 +715,16 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cse2);
       NEXT_PASS (pass_rtl_dse1);
       NEXT_PASS (pass_rtl_fwprop_addr);
+<<<<<<< .working
       NEXT_PASS (pass_regclass_init);
       NEXT_PASS (pass_inc_dec);
       NEXT_PASS (pass_stack_ptr_mod);
       NEXT_PASS (pass_initialize_regs);
       NEXT_PASS (pass_no_new_pseudos);
+=======
+      NEXT_PASS (pass_outof_cfg_layout_mode);
+      NEXT_PASS (pass_life);
+>>>>>>> .merge-right.r123653
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);

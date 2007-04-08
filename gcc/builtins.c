@@ -5551,7 +5551,8 @@ expand_builtin_adjust_trampoline (tree exp)
   return tramp;
 }
 
-/* Expand a call to the built-in signbit, signbitf or signbitl function.
+/* Expand a call to the built-in signbit, signbitf, signbitl, signbitd32,
+   signbitd64, or signbitd128 function.
    Return NULL_RTX if a normal call should be emitted rather than expanding
    the function in-line.  EXP is the expression that is a call to the builtin
    function; if convenient, the result should be placed in TARGET.  */
@@ -5769,13 +5770,18 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 			       rtx target, bool ignore)
 {
   rtx val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
   val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
-  val = convert_to_mode (mode, val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  val = convert_modes (mode, old_mode, val, 1);
 
   if (ignore)
     return expand_sync_operation (mem, val, code);
@@ -5793,18 +5799,27 @@ expand_builtin_compare_and_swap (enum machine_mode mode, tree exp,
 				 bool is_bool, rtx target)
 {
   rtx old_val, new_val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
 
 
   old_val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If OLD_VAL is promoted to a wider mode, convert it back to MODE.  */
-  old_val = convert_to_mode (mode, old_val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (old_val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  old_val = convert_modes (mode, old_mode, old_val, 1);
 
   new_val = expand_expr (CALL_EXPR_ARG (exp, 2), NULL, mode, EXPAND_NORMAL);
-  /* If NEW_VAL is promoted to a wider mode, convert it back to MODE.  */
-  new_val = convert_to_mode (mode, new_val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (new_val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 2)));
+  new_val = convert_modes (mode, old_mode, new_val, 1);
 
   if (is_bool)
     return expand_bool_compare_and_swap (mem, old_val, new_val, target);
@@ -5823,12 +5838,17 @@ expand_builtin_lock_test_and_set (enum machine_mode mode, tree exp,
 				  rtx target)
 {
   rtx val, mem;
+  enum machine_mode old_mode;
 
   /* Expand the operands.  */
   mem = get_builtin_sync_mem (CALL_EXPR_ARG (exp, 0), mode);
   val = expand_expr (CALL_EXPR_ARG (exp, 1), NULL, mode, EXPAND_NORMAL);
-  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
-  val = convert_to_mode (mode, val, 1);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  Take care
+     of CONST_INTs, where we know the old_mode only from the call argument.  */
+  old_mode = GET_MODE (val);
+  if (old_mode == VOIDmode)
+    old_mode = TYPE_MODE (TREE_TYPE (CALL_EXPR_ARG (exp, 1)));
+  val = convert_modes (mode, old_mode, val, 1);
 
   return expand_sync_lock_test_and_set (mem, val, target);
 }
@@ -6469,6 +6489,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_FLT_FN (BUILT_IN_SIGNBIT):
+    case BUILT_IN_SIGNBITD32:
+    case BUILT_IN_SIGNBITD64:
+    case BUILT_IN_SIGNBITD128:
       target = expand_builtin_signbit (exp, target);
       if (target)
 	return target;

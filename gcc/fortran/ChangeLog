@@ -1,3 +1,230 @@
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31257
+	* intrinsic.c (add_functions): Add ref. to gfc_resolve_achar.
+	* intrinsic.h : Add prototype for gfc_resolve_achar.
+	* iresolve.c (gfc_resolve_achar): New function.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30880
+	* resolve.c (resolve_fl_variable): Set flag to 2 for automatic
+	arrays.  Make condition for automatic array error explicit.
+	If a dummy, no error on an INTENT(OUT) derived type.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30872
+	* expr.c (find_array_element): Correct arithmetic for rank > 1.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31222
+	* check.c (numeric_check): If an expresson has not got a type,
+	see if it is a symbol for which a default type applies.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31214
+	* trans-decl.c (gfc_get_symbol_decl): Allow unreferenced use
+	associated symbols.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31293
+	* symbol.c (gfc_check_function_type): New function.
+	* gfortran.h : Add prototype for previous.
+	* parse.c (parse_progunit): Call it after parsing specification
+	statements.
+
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31483
+	* trans-expr.c (gfc_conv_function_call): Give a dummy
+	procedure the correct type if it has alternate returns.
+
+2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31292
+	* decl.c (gfc_match_modproc): Go up to the top of the namespace
+	tree to find the module namespace for gfc_get_symbol.
+
+2007-04-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31304
+	* fortran/gfortran.h (gfc_charlen_int_kind): New prototype.
+	* fortran/trans-types.c (gfc_charlen_int_kind): New variable.
+	(gfc_init_types): Define gfc_charlen_int_kind. 
+	* fortran/trans.h (gfor_fndecl_string_repeat): Remove prototype.
+	* fortran/trans-decl.c (gfor_fndecl_string_repeat): Delete.
+	(gfc_build_intrinsic_function_decls): Don't set
+	gfor_fndecl_string_repeat.
+	* fortran/trans-intrinsic.c (gfc_conv_intrinsic_repeat): Rewrite
+	so that we don't have to call a library function.
+	* fortran/simplify.c (gfc_simplify_repeat): Perform the necessary
+	checks on the NCOPIES argument, and work with arbitrary size
+	arguments.
+
+2007-03-31  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.c (add_functions): Fix name of dummy argument
+	  for new_line and exit intrinsic.
+
+2007-03-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31160
+	* gfortran.texi: Add a section for the %VAL, %REF and %LOC
+	extensions.
+
+2007-03-30  Rafael Avila de Espindola  <espindola@google.com>
+
+	* trans-types.c (gfc_signed_or_unsigned_type): Remove.
+	(gfc_unsigned_type): Use get_signed_or_unsigned_type instead of
+	gfc_signed_or_unsigned_type.
+	(gfc_signed_type): Ditto.
+	* trans-types.h (gfc_signed_or_unsigned_type): Remove.
+	* f95-lang.c (LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): Remove.
+
+2007-03-30  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* symbol.c (gfc_find_gsymbol): Simplify, don't unconditionally
+	descend into all branches.
+
+2007-03-29  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* intrinsic.c (conv_name): Let gfc_get_string handle the format.
+	(find_conv): Compare pointers instead of calling strcmp.
+	(find_sym): Likewise, but ensure that the compared pointer is in
+	the global string table.
+
+2007-03-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfc-internals.texi: Fix output filename.  Merge type index into
+	concept index.  Start documentation of gfc_code structure.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfc-internals.texi: New file,
+	* Make-lang.in: Add rules to convert it to dvi, pdf, and info.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+ 
+	* error.c (show_locus): Remove always-false test.
+
+2007-03-26  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* lang.opt: Minor edits to descriptions.
+
+2007-03-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30877
+	* fortran/interface.c (check_operator_interface): Implement
+	the standard checks on user operators extending intrinsic operators.
+	* fortran/resolve.c (resolve_operator): If the ranks of operators
+	don't match, don't error out but try the user-defined ones first.
+
+2007-03-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30655
+	* expr.c (check_dimension): Fix logic of comparisons.
+
+2007-03-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31215
+	* trans-expr.c (gfc_apply_interface_mapping_to_expr): Return
+	int result that is non-zero if the expression is the function
+	result.  Only the characteristics of the result expression
+	can be used in a procedure interface, so simplify LEN in situ
+	using its character length.
+
+	PR fortran/31209
+	PR fortran/31200
+	* trans-expr.c (gfc_conv_function_call): Do not use
+	gfc_conv_expr_reference for actual pointer function with formal
+	target because a temporary is created that does not transfer
+	the reference correctly.  Do not indirect formal pointer
+	functions since it is the function reference that is needed.
+
+2007-03-24  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* gfortran.h: Edit comments on GFC_STD_*.
+
+2007-03-23  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* invoke.texi: Misc. small typo fixes.
+	(-Wcharacter-truncation): Add.
+	(-Wnonstd-intrinsics): Correct spelling.
+	(-std=): Edit.
+	(-fintrinsic-modules-path): Add.
+
+2007-03-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30834
+	* arith.c (complex_pow): Rewrite to handle large power.
+	(gfc_arith_power): Handle large power in the real and integer
+	cases.
+
+2007-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31262
+	* trans-const.c (gfc_conv_mpz_to_tree): Allow integer constants
+	larger than twice the width of a HOST_WIDE_INT.
+
+2006-03-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31193
+	* trans-intrinsic.c (gfc_size_in_bytes): Remove function.
+	(gfc_conv_intrinsic_array_transfer): Remove calls to previous.
+	Explicitly extract TREE_TYPEs for source and mold.  Use these
+	to calculate length of source and mold, except for characters,
+	where the se string_length is used.  For mold, the TREE_TYPE is
+	recalculated using gfc_get_character_type_len so that the
+	result is correctly cast for character literals and substrings.
+	Do not use gfc_typenode_for_spec for the final cast.
+
+2007-03-22  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/20897
+	* decl.c (gfc_match_derived_decl): Reliably reject
+	'doubleprecision' and 'doublecomplex' as type names.
+
+2007-03-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31203
+	* trans-expr.c (gfc_trans_init_string_length): Length should
+	never be negative.
+	(gfc_conv_function_call): Likewise.
+
+2007-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30531
+	PR fortran/31086
+	* symbo.c : Add gfc_derived_types.
+	(gfc_free_dt_list): Free derived type list gfc_derived_types.
+	(gfc_free_namespace): Remove call to gfc_free_dt_list.
+	(gfc_symbol_done_2): Call  gfc_free_dt_list.
+	* gfortran.h : Declare gfc_derived_types to be external. Remove
+	derived types field from gfc_namespace.
+	* resolve.c (resolve_fl_derived): Refer to gfc_derived types
+	rather than namespace derived_types.
+	(resolve_fntype): Remove special treatment for module
+	derived type functions.
+	* trans-types.c (gfc_get_derived_type): Remove search for like
+	derived types.  Finish by copying back end declaration to like
+	derived types in the derived type list gfc_derived_types.
+
+	2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31120
+	* trans-expr.c (gfc_conv_powi): Make n argument unsigned hwi.
+	(gfc_conv_cst_int_power): Handle integer exponent with care,
+	since it might be too large for us.
+
+2007-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/31184
+	* invoke.texi: Fix typo.
+
 2007-03-16  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-decl.c (gfc_generate_function_code): Use all arguments of

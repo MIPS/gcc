@@ -327,9 +327,6 @@
 /* Define to 1 if you have the <fenv.h> header file. */
 #undef HAVE_FENV_H
 
-/* libm includes finite */
-#undef HAVE_FINITE
-
 /* Define to 1 if you have the <floatingpoint.h> header file. */
 #undef HAVE_FLOATINGPOINT_H
 
@@ -378,6 +375,9 @@
 /* libm includes frexpl */
 #undef HAVE_FREXPL
 
+/* Define to 1 if you have the `fstat' function. */
+#undef HAVE_FSTAT
+
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
 
@@ -401,6 +401,9 @@
 
 /* Define to 1 if you have the `getrusage' function. */
 #undef HAVE_GETRUSAGE
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
 
 /* libc includes getuid */
 #undef HAVE_GETUID
@@ -486,8 +489,8 @@
 /* libm includes logl */
 #undef HAVE_LOGL
 
-/* Define to 1 if you have the <math.h> header file. */
-#undef HAVE_MATH_H
+/* Define to 1 if you have the `lstat' function. */
+#undef HAVE_LSTAT
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -579,14 +582,11 @@
 /* libm includes sqrtl */
 #undef HAVE_SQRTL
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#undef HAVE_STDDEF_H
+/* Define to 1 if you have the `stat' function. */
+#undef HAVE_STAT
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
-
-/* Define to 1 if you have the <stdio.h> header file. */
-#undef HAVE_STDIO_H
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
@@ -623,9 +623,6 @@
 
 /* Define to 1 if the target supports __sync_fetch_and_add */
 #undef HAVE_SYNC_FETCH_AND_ADD
-
-/* Define to 1 if you have the <sys/params.h> header file. */
-#undef HAVE_SYS_PARAMS_H
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H

@@ -491,6 +491,14 @@ proc check_effective_target_fopenmp {} {
     } "-fopenmp"]
 }
 
+# Return 1 if the target supports -fstack-protector
+
+proc check_effective_target_fstack_protector {} {
+    return [check_no_compiler_messages fstack_protector assembly {
+        void foo (void) { }
+    } "-fstack-protector"]
+}
+
 # Return 1 if compilation with -freorder-blocks-and-partition is error-free
 # for trivial code, 0 otherwise.
 
@@ -525,6 +533,16 @@ proc check_effective_target_mpaired_single { } {
     return [check_no_compiler_messages mpaired_single object {
 	void foo (void) { }
     } "-mpaired-single"]
+}
+
+# Return 1 if the current multilib does not generate PIC by default.
+
+proc check_effective_target_nonpic { } {
+    return [check_no_compiler_messages nonpic assembly {
+	#if __PIC__
+	#error FOO
+	#endif
+    }]
 }
 
 # Return 1 if the target does not use a status wrapper.
@@ -639,6 +657,7 @@ proc check_effective_target_fortran_large_real { } {
 
 	if [string match "" $lines] then {
 	    # No error message, compilation succeeded.
+	    remote_file build delete $exe
   	    set et_fortran_large_real_saved 1
 	}
     }
@@ -695,6 +714,7 @@ proc check_effective_target_fortran_large_int { } {
 
 	if [string match "" $lines] then {
 	    # No error message, compilation succeeded.
+	    remote_file build delete $exe
 	    set et_fortran_large_int_saved 1
 	}
     }
@@ -749,6 +769,7 @@ proc check_effective_target_static_libgfortran { } {
 
        if [string match "" $lines] then {
            # No error message, compilation succeeded.
+	   remote_file build delete $exe
            set et_static_libgfortran_saved 1
        }
     }

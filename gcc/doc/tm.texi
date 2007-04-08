@@ -2509,7 +2509,7 @@ Don't define this macro unless the target machine has limitations which
 require the macro to do something nontrivial.
 @end defmac
 
-@deftypefn {Target Hook} enum reg_class TARGET_SECONDARY_RELOAD (bool @var{in_p}, rtx @var{x}, enum reg_class @var{reload_class}, enum machine_mode @var{reload_mode}, secondary_reload_info *@var{sri})
+@deftypefn {Target Hook} {enum reg_class} TARGET_SECONDARY_RELOAD (bool @var{in_p}, rtx @var{x}, enum reg_class @var{reload_class}, enum machine_mode @var{reload_mode}, secondary_reload_info *@var{sri})
 Many machines have some registers that cannot be copied directly to or
 from memory or even from other types of registers.  An example is the
 @samp{MQ} register, which on most machines, can only be copied to or
@@ -3730,8 +3730,8 @@ which.
 @c something, not sure if it looks good.  --mew 10feb93
 
 @defmac OUTGOING_REG_PARM_STACK_SPACE
-Define this if it is the responsibility of the caller to allocate the area
-reserved for arguments passed in registers.
+Define this to a non-zero value if it is the responsibility of the caller
+to allocate the area reserved for arguments passed in registers.
 
 If @code{ACCUMULATE_OUTGOING_ARGS} is defined, this macro controls
 whether the space for these arguments counts in the value of
@@ -9577,8 +9577,11 @@ to @code{Pmode}.
 
 @defmac FUNCTION_MODE
 An alias for the machine mode used for memory references to functions
-being called, in @code{call} RTL expressions.  On most machines this
-should be @code{QImode}.
+being called, in @code{call} RTL expressions.  On most CISC machines,
+where an instruction can begin at any byte address, this should be 
+@code{QImode}.  On most RISC machines, where all instructions have fixed
+size and alignment, this should be a mode with the same size and alignment
+as the machine instruction words - typically @code{SImode} or @code{HImode}.
 @end defmac
 
 @defmac STDC_0_IN_SYSTEM_HEADERS
@@ -9718,6 +9721,18 @@ the machine default), define this macro to the necessary value (in bytes).
 This must be a value that would also be valid to use with
 @samp{#pragma pack()} (that is, a small power of two).
 @end defmac
+
+@findex #pragma
+@findex pragma
+@defmac HANDLE_PRAGMA_PUSH_POP_MACRO
+Define this macro if you want to support the Win32 style pragmas
+@samp{#pragma push_macro(macro-name-as-string)} and @samp{#pragma
+pop_macro(macro-name-as-string)}.  The @samp{#pragma push_macro(
+macro-name-as-string)} pragma saves the named macro and via
+@samp{#pragma pop_macro(macro-name-as-string)} it will return to the
+previous value.
+@end defmac
+
 
 @defmac DOLLARS_IN_IDENTIFIERS
 Define this macro to control use of the character @samp{$} in

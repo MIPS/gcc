@@ -531,7 +531,7 @@ get_initial_def_for_induction (tree stmt, tree iv_phi)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree scalar_type = TREE_TYPE (iv_phi);
   tree vectype = get_vectype_for_scalar_type (scalar_type);
-  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+  int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
   edge pe = loop_preheader_edge (loop);
   basic_block new_bb;
   block_stmt_iterator bsi;
@@ -548,6 +548,7 @@ get_initial_def_for_induction (tree stmt, tree iv_phi)
   int ncopies = vf / nunits;
   tree expr;
   stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
+  tree stmts;
 
   gcc_assert (phi_info);
 
@@ -575,16 +576,23 @@ get_initial_def_for_induction (tree stmt, tree iv_phi)
   gcc_assert (ok);
 
   /* Create the vector that holds the initial_value of the induction.  */
-  new_name = init_expr;
+  new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
+  add_referenced_var (new_var);
+
+  new_name = force_gimple_operand (init_expr, &stmts, false, new_var);
+  if (stmts)
+    {
+      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+      gcc_assert (!new_bb);
+    }
+
   t = NULL_TREE;
-  t = tree_cons (NULL_TREE, init_expr, t);
+  t = tree_cons (NULL_TREE, new_name, t);
   for (i = 1; i < nunits; i++)
     {
       tree tmp;
 
       /* Create: new_name = new_name + step_expr  */
-      new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
-      add_referenced_var (new_var);
       tmp = fold_build2 (PLUS_EXPR, scalar_type, new_name, step_expr);
       init_stmt = build_gimple_modify_stmt (new_var, tmp);
       new_name = make_ssa_name (new_var, init_stmt);
@@ -993,7 +1001,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
-  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+  int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
   int nelements;
   enum tree_code code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1));
   tree type = TREE_TYPE (init_val);

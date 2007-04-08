@@ -1129,14 +1129,14 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			# FIXME: -m64 for i[34567]86-*-* should be allowed just
 			# like -m32 for x86_64-*-*.
 			case X"${with_cpu}" in
-			Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+			Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx)
 				;;
 			X)
 				with_cpu=generic
 				;;
 			*)
 				echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-				echo "generic core2 nocona x86-64 amdfam10 k8 opteron athlon64 athlon-fx" 1>&2
+				echo "generic core2 nocona x86-64 amdfam10 barcelona k8 opteron athlon64 athlon-fx" 1>&2
 				exit 1
 				;;
 			esac
@@ -1147,7 +1147,7 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
 	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} i386/linux.h kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
 	esac
-	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtfm t-dfprules"
+	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtpc i386/t-crtfm t-dfprules"
 	;;
 x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
@@ -1156,7 +1156,7 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	x86_64-*-kfreebsd*-gnu) tm_file="${tm_file} kfreebsd-gnu.h" ;;
 	x86_64-*-knetbsd*-gnu) tm_file="${tm_file} knetbsd-gnu.h" ;;
 	esac
-	tmake_file="${tmake_file} i386/t-linux64 i386/t-crtfm t-dfprules"
+	tmake_file="${tmake_file} i386/t-linux64 i386/t-crtpc i386/t-crtfm t-dfprules"
 	;;
 i[34567]86-*-gnu*)
 	;;
@@ -1258,14 +1258,14 @@ i[34567]86-*-solaris2*)
 		# FIXME: -m64 for i[34567]86-*-* should be allowed just
 		# like -m32 for x86_64-*-*.
 		case X"${with_cpu}" in
-		Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+		Xgeneric|Xcore2|Xnocona|Xx86-64|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx)
 			;;
 		X)
 			with_cpu=generic
 			;;
 		*)
 			echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-			echo "generic core2 nocona x86-64 amdfam10 k8 opteron athlon64 athlon-fx" 1>&2
+			echo "generic core2 nocona x86-64 amdfam10 barcelona k8 opteron athlon64 athlon-fx" 1>&2
 			exit 1
 			;;
 		esac
@@ -1343,7 +1343,7 @@ i[34567]86-*-pe | i[34567]86-*-cygwin*)
 		thread_file='posix'
 	fi
 	;;
-i[34567]86-*-mingw32*)
+i[34567]86-*-mingw32* | x86_64-*-mingw32*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/mingw32.h"
 	xm_file=i386/xm-mingw32.h
 	tmake_file="i386/t-cygming i386/t-mingw32"
@@ -1708,7 +1708,7 @@ mips*-*-rtems*)
 mips-wrs-vxworks)
 	# We want vxworks.h after mips/elf.h, which unfortunately means we
 	# have to redo the tm_file list from scratch.
-	tm_file="elfos.h mips/mips.h svr4.h mips/elf.h vxworks.h mips/vxworks.h"
+	tm_file="elfos.h mips/mips.h svr4.h mips/elf.h vx-common.h vxworks.h mips/vxworks.h"
 	tmake_file="${tmake_file} mips/t-vxworks"
 	;;
 mips-wrs-windiss)	# Instruction-level simulator for VxWorks.
@@ -2157,7 +2157,7 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	  sh5-32media-nofpu | sh5-32media | sh5-compact-nofpu | sh5-compact | \
 	  sh2a-single-only | sh2a-single | sh2a-nofpu | sh2a | \
 	  sh4a-single-only | sh4a-single | sh4a-nofpu | sh4a | sh4al | \
-	  sh4-single-only | sh4-single | sh4-nofpu | sh4 | \
+	  sh4-single-only | sh4-single | sh4-nofpu | sh4 | sh4-300 | \
 	  sh3e | sh3 | sh2e | sh2 | sh1) ;;
 	"")	sh_cpu_default=${sh_cpu_target} ;;
 	*)	echo "with_cpu=$with_cpu not supported"; exit 1 ;;
@@ -2183,7 +2183,7 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	for sh_multilib in ${sh_multilibs}; do
 		case ${sh_multilib} in
 		sh1 | sh2 | sh2e | sh3 | sh3e | \
-		sh4 | sh4-single | sh4-single-only | sh4-nofpu | \
+		sh4 | sh4-single | sh4-single-only | sh4-nofpu | sh4-300 |\
 		sh4a | sh4a-single | sh4a-single-only | sh4a-nofpu | sh4al | \
 		sh2a | sh2a-single | sh2a-single-only | sh2a-nofpu | \
 		sh5-64media | sh5-64media-nofpu | \
@@ -2595,7 +2595,7 @@ if test x$with_cpu = x ; then
       ;;
     i686-*-* | i786-*-*)
       case ${target_noncanonical} in
-        amdfam10-*)
+        amdfam10-*|barcelona-*)
           with_cpu=amdfam10
           ;;
         k8-*|opteron-*|athlon_64-*)
@@ -2641,7 +2641,7 @@ if test x$with_cpu = x ; then
       ;;
     x86_64-*-*)
       case ${target_noncanonical} in
-        amdfam10-*)
+        amdfam10-*|barcelona-*)
           with_cpu=amdfam10
           ;;
         k8-*|opteron-*|athlon_64-*)
@@ -2691,6 +2691,9 @@ if test x$with_cpu = x ; then
 	  with_cpu=m${default_m68k_cpu}
 	  ;;
       esac
+      ;;
+    mips*-*-vxworks)
+      with_arch=mips2
       ;;
     sparc*-*-*)
       with_cpu="`echo ${target} | sed 's/-.*$//'`"
@@ -2923,7 +2926,7 @@ case "${target}" in
 				esac
 				# OK
 				;;
-			"" | amdfam10 | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
+			"" | amdfam10 | barcelona | k8 | opteron | athlon64 | athlon-fx | nocona | core2 | generic)
 				# OK
 				;;
 			*)
@@ -3023,7 +3026,7 @@ case "${target}" in
 		for which in arch tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | g5 | g6 | z900 | z990 | z9-109)
+			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec)
 				# OK
 				;;
 			*)

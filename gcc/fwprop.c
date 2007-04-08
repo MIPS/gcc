@@ -887,10 +887,8 @@ forward_propagate_into (struct df_ref *use)
   if (DF_REF_IS_ARTIFICIAL (def))
     return;
 
-  /* Do not propagate loop invariant definitions inside the loop if
-     we are going to unroll.  */
-  if (current_loops
-      && DF_REF_BB (def)->loop_father != DF_REF_BB (use)->loop_father)
+  /* Do not propagate loop invariant definitions inside the loop.  */
+  if (DF_REF_BB (def)->loop_father != DF_REF_BB (use)->loop_father)
     return;
 
   /* Check if the use is still present in the insn!  */
@@ -925,8 +923,7 @@ fwprop_init (void)
      loops and be careful about them.  But we have to call flow_loops_find
      before df_analyze, because flow_loops_find may introduce new jump
      insns (sadly) if we are not working in cfglayout mode.  */
-  if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
-    loop_optimizer_init (0);
+  loop_optimizer_init (0);
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
@@ -980,8 +977,7 @@ fwprop (void)
     {
       struct df_ref *use = DF_USES_GET (i);
       if (use)
-	if (!current_loops 
-	    || DF_REF_TYPE (use) == DF_REF_REG_USE
+	if (DF_REF_TYPE (use) == DF_REF_REG_USE
 	    || DF_REF_BB (use)->loop_father == NULL)
 	  forward_propagate_into (use);
     }
@@ -1007,13 +1003,6 @@ struct tree_opt_pass pass_rtl_fwprop =
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
-
-static bool
-gate_fwprop_addr (void)
-{
-  return optimize > 0 && flag_forward_propagate && flag_rerun_cse_after_loop
-  	 && (flag_unroll_loops || flag_peel_loops);
-}
 
 static unsigned int
 fwprop_addr (void)
@@ -1042,7 +1031,7 @@ fwprop_addr (void)
 struct tree_opt_pass pass_rtl_fwprop_addr =
 {
   "fwprop2",                            /* name */
-  gate_fwprop_addr,			/* gate */   
+  gate_fwprop,				/* gate */   
   fwprop_addr,				/* execute */       
   NULL,                                 /* sub */
   NULL,                                 /* next */

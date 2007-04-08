@@ -2148,6 +2148,19 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       if (DECL_INITIAL (nt) && DECL_INITIAL (ot))
 	return "redefinition of %q#D";
 
+      /* Core issue #226 (C++0x): 
+           
+           If a friend function template declaration specifies a
+           default template-argument, that declaration shall be a
+           definition and shall be the only declaration of the
+           function template in the translation unit.  */
+      if (flag_cpp0x 
+          && TREE_CODE (ot) == FUNCTION_DECL && DECL_FRIEND_P (ot)
+          && !check_default_tmpl_args (nt, DECL_TEMPLATE_PARMS (newdecl), 
+                                       /*is_primary=*/1, /*is_partial=*/0,
+                                       /*is_friend_decl=*/2))
+        return "redeclaration of friend %q#D may not have default template arguments";
+
       return NULL;
     }
   else if (TREE_CODE (newdecl) == VAR_DECL
@@ -3784,6 +3797,7 @@ start_decl (const cp_declarator *declarator,
   tree decl;
   tree type, tem;
   tree context;
+  bool was_public;
 
   *pushed_scope_p = NULL_TREE;
 
@@ -3938,6 +3952,8 @@ start_decl (const cp_declarator *declarator,
 		 decl);
     }
 
+  was_public = TREE_PUBLIC (decl);
+
   /* Enter this declaration into the symbol table.  */
   tem = maybe_push_decl (decl);
 
@@ -3957,6 +3973,17 @@ start_decl (const cp_declarator *declarator,
       && !DECL_THREAD_LOCAL_P (tem)
       && !have_global_bss_p ())
     DECL_COMMON (tem) = 1;
+
+  if (TREE_CODE (tem) == VAR_DECL
+      && DECL_NAMESPACE_SCOPE_P (tem) && !TREE_PUBLIC (tem) && !was_public
+      && !DECL_THIS_STATIC (tem) && !DECL_ARTIFICIAL (tem))
+    {
+      /* This is a const variable with implicit 'static'.  Set
+	 DECL_THIS_STATIC so we can tell it from variables that are
+	 !TREE_PUBLIC because of the anonymous namespace.  */
+      gcc_assert (cp_type_readonly (TREE_TYPE (tem)));
+      DECL_THIS_STATIC (tem) = 1;
+    }
 
   if (!processing_template_decl && TREE_CODE (tem) == VAR_DECL)
     start_decl_1 (tem, initialized);
@@ -5270,14 +5297,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	{
 	  layout_var_decl (decl);
 	  maybe_commonize_var (decl);
-	  if (DECL_NAMESPACE_SCOPE_P (decl) && !TREE_PUBLIC (decl)
-	      && !DECL_THIS_STATIC (decl) && !DECL_ARTIFICIAL (decl))
-	    {
-	      /* This is a const variable with implicit 'static'.  Set
-		 DECL_THIS_STATIC so we can tell it from variables that are
-		 !TREE_PUBLIC because of the anonymous namespace.  */
-	      DECL_THIS_STATIC (decl) = 1;
-	    }
 	}
 
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
@@ -5968,6 +5987,20 @@ grokfndecl (tree ctype,
   if (TYPE_VOLATILE (type))
     TREE_THIS_VOLATILE (decl) = 1;
 
+  /* Setup decl according to sfk.  */
+  switch (sfk)
+    {
+    case sfk_constructor:
+    case sfk_copy_constructor:
+      DECL_CONSTRUCTOR_P (decl) = 1;
+      break;
+    case sfk_destructor:
+      DECL_DESTRUCTOR_P (decl) = 1;
+      break;
+    default:
+      break;
+    }
+
   if (friendp
       && TREE_CODE (orig_declarator) == TEMPLATE_ID_EXPR)
     {
@@ -6155,12 +6188,7 @@ grokfndecl (tree ctype,
     return decl;
 
   if (ctype != NULL_TREE)
-    {
-      if (sfk == sfk_constructor)
-	DECL_CONSTRUCTOR_P (decl) = 1;
-
-      grokclassfn (ctype, decl, flags);
-    }
+    grokclassfn (ctype, decl, flags);
 
   decl = check_explicit_specialization (orig_declarator, decl,
 					template_count,
@@ -8029,7 +8057,12 @@ grokdeclarator (const cp_declarator *declarator,
 	 member function of S.  We record the cv-qualification in the
 	 function type.  */
       if (memfn_quals && TREE_CODE (type) == FUNCTION_TYPE)
-	type = cp_build_qualified_type (type, memfn_quals);
+        {
+          type = cp_build_qualified_type (type, memfn_quals);
+          
+          /* We have now dealt with these qualifiers.  */
+          memfn_quals = TYPE_UNQUALIFIED;
+        }
 
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
@@ -8090,11 +8123,6 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* FIXME remangle member functions; member functions of a
 	     type with external linkage have external linkage.  */
 	}
-
-	/* Any qualifiers on a function type typedef have already been
-	   dealt with. */
-      if (memfn_quals && !ctype && TREE_CODE (type) == FUNCTION_TYPE)
-	memfn_quals = TYPE_UNQUALIFIED;
 
       if (signed_p
 	  || (typedef_decl && C_TYPEDEF_EXPLICITLY_SIGNED (typedef_decl)))
@@ -11717,6 +11745,7 @@ cp_tree_node_structure (union lang_tree_node * t)
     case BASELINK:		return TS_CP_BASELINK;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
     case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
+    case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
     default:			return TS_CP_GENERIC;
     }
 }

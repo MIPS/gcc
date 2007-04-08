@@ -894,7 +894,8 @@ print_specific_help (unsigned int include_flags,
 	      descrip_extra = lang_names [i];
 	    }
 	  else
-	    description = _("The following options are supported by, amoung others, the language ");
+	    description = _("The following options are supported by the language ");
+	    descrip_extra = lang_names [i];
 	  break;
 	}
     }
@@ -984,7 +985,8 @@ common_handle_option (size_t scode, const char *arg, int value,
 	/* Walk along the argument string, parsing each word in turn.
 	   The format is:
 	   arg = [^]{word}[,{arg}]
-	   word = {optimizers|target|warnings|undocumented|params}  */
+	   word = {optimizers|target|warnings|undocumented|
+		   params|common|<language>}  */
 	while (* a != 0)
 	  {
 	    static struct
@@ -1001,6 +1003,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 	      { "params", CL_PARAMS },
 	      { "joined", CL_JOINED },
 	      { "separate", CL_SEPARATE },
+	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
 	    unsigned int * pflags;

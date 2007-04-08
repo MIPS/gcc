@@ -532,6 +532,11 @@ c_cpp_builtins (cpp_reader *pfile)
       builtin_define_with_int_value ("__pic__", flag_pic);
       builtin_define_with_int_value ("__PIC__", flag_pic);
     }
+  if (flag_pie)
+    {
+      builtin_define_with_int_value ("__pie__", flag_pie);
+      builtin_define_with_int_value ("__PIE__", flag_pie);
+    }
 
   if (flag_iso)
     cpp_define (pfile, "__STRICT_ANSI__");
@@ -600,6 +605,17 @@ c_cpp_builtins (cpp_reader *pfile)
      new appearance would clobber any existing args.  */
   if (TARGET_DECLSPEC)
     builtin_define ("__declspec(x)=__attribute__((x))");
+
+  /* Tell the user whether decimal floating point is supported,
+     and if it is supported, whether the alternate format (BID)
+     is used over the standard (DPD) format.  */
+
+  if (ENABLE_DECIMAL_FLOAT)
+    {
+      cpp_define (pfile, "__STDC_WANT_DEC_FP__");
+      if (ENABLE_DECIMAL_BID_FORMAT)
+	cpp_define (pfile, "__DECIMAL_BID_FORMAT__");
+    }
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

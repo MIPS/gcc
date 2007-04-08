@@ -1,4 +1,4 @@
-! { dg-do "compile" }
+! { dg-do compile }
 ! PR fortran/30973
 ! Using symbols with the name of the module
 
@@ -31,3 +31,4 @@ program test_foo
   use foo, only: i => foo! { dg-error "been used as an external module name" }
   use foo, only: foo => i! { dg-error "been used as an external module name" }
 end program
+! { dg-final { cleanup-modules "foo bar test test2 test3" } }

@@ -647,7 +647,12 @@ operand_less_p (tree val, tree val2)
     {
       tree tcmp;
 
+      fold_defer_overflow_warnings ();
+
       tcmp = fold_binary_to_constant (LT_EXPR, boolean_type_node, val, val2);
+
+      fold_undefer_and_ignore_overflow_warnings ();
+
       if (!tcmp)
 	return -2;
 
@@ -1808,15 +1813,23 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	  return;
 	}
 
-      /* If we have a RSHIFT_EXPR with a possibly negative shift
-	 count or an anti-range shift count drop to VR_VARYING.
-	 We currently cannot handle the overflow cases correctly.  */
-      if (code == RSHIFT_EXPR
-	  && (vr1.type == VR_ANTI_RANGE
-	      || !vrp_expr_computes_nonnegative (op1, &sop)))
+      /* If we have a RSHIFT_EXPR with any shift values outside [0..prec-1],
+	 then drop to VR_VARYING.  Outside of this range we get undefined
+	 behaviour from the shift operation.  We cannot even trust
+	 SHIFT_COUNT_TRUNCATED at this stage, because that applies to rtl
+	 shifts, and the operation at the tree level may be widened.  */
+      if (code == RSHIFT_EXPR)
 	{
-	  set_value_range_to_varying (vr);
-	  return;
+	  if (vr1.type == VR_ANTI_RANGE
+	      || !vrp_expr_computes_nonnegative (op1, &sop)
+	      || (operand_less_p
+		  (build_int_cst (TREE_TYPE (vr1.max),
+				  TYPE_PRECISION (TREE_TYPE (expr)) - 1),
+		   vr1.max) != 0))
+	    {
+	      set_value_range_to_varying (vr);
+	      return;
+	    }
 	}
 
       /* Multiplications and divisions are a bit tricky to handle,
@@ -1833,9 +1846,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	 the new range.  */
 
       /* Divisions by zero result in a VARYING value.  */
-      if ((code != MULT_EXPR
-	   && code != RSHIFT_EXPR)
-	  && (vr0.type == VR_ANTI_RANGE || range_includes_zero_p (&vr1)))
+      else if (code != MULT_EXPR
+	       && (vr0.type == VR_ANTI_RANGE || range_includes_zero_p (&vr1)))
 	{
 	  set_value_range_to_varying (vr);
 	  return;
@@ -1977,10 +1989,18 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       return;
     }
 
+  /* We punt if:
+     1) [-INF, +INF]
+     2) [-INF, +-INF(OVF)]
+     3) [+-INF(OVF), +INF]
+     4) [+-INF(OVF), +-INF(OVF)]
+     We learn nothing when we have INF and INF(OVF) on both sides.
+     Note that we do accept [-INF, -INF] and [+INF, +INF] without
+     overflow.  */
   if ((min == TYPE_MIN_VALUE (TREE_TYPE (min))
-       || is_negative_overflow_infinity (min))
+       || is_overflow_infinity (min))
       && (max == TYPE_MAX_VALUE (TREE_TYPE (max))
-	  || is_positive_overflow_infinity (max)))
+	  || is_overflow_infinity (max)))
     {
       set_value_range_to_varying (vr);
       return;
@@ -3485,7 +3505,6 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
     }
   else if (TREE_CODE (rhs) == NOP_EXPR
 	   || TREE_CODE (rhs) == CONVERT_EXPR
-	   || TREE_CODE (rhs) == VIEW_CONVERT_EXPR
 	   || TREE_CODE (rhs) == NON_LVALUE_EXPR)
     { 
       /* Recurse through the type conversion.  */

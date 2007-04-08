@@ -2262,7 +2262,7 @@ unlikely executed.  The function is optimized for size rather than speed and on
 many targets it is placed into special subsection of the text section so all
 cold functions appears close together improving code locality of non-cold parts
 of program.  The paths leading to call of cold functions within code are marked
-as unlikely by the branch prediction mechanizm. It is thus useful to mark
+as unlikely by the branch prediction mechanism. It is thus useful to mark
 functions used to handle unlikely conditions, such as @code{perror}, as cold to
 improve optimization of hot functions that do call marked functions in rare
 occasions.
@@ -5609,6 +5609,9 @@ should be called and the @var{flag} argument passed to it.
 @findex signbit
 @findex signbitf
 @findex signbitl
+@findex signbitd32
+@findex signbitd64
+@findex signbitd128
 @findex significand
 @findex significandf
 @findex significandl
@@ -5713,6 +5716,7 @@ Outside strict ISO C mode (@option{-ansi}, @option{-std=c89} or
 @code{mempcpy}, @code{pow10f}, @code{pow10l}, @code{pow10},
 @code{printf_unlocked}, @code{rindex}, @code{scalbf}, @code{scalbl},
 @code{scalb}, @code{signbit}, @code{signbitf}, @code{signbitl},
+@code{signbitd32}, @code{signbitd64}, @code{signbitd128},
 @code{significandf}, @code{significandl}, @code{significand},
 @code{sincosf}, @code{sincosl}, @code{sincos}, @code{stpcpy},
 @code{stpncpy}, @code{strcasecmp}, @code{strdup}, @code{strfmon},
@@ -10675,6 +10679,7 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
 * Namespace Association:: Strong using-directives for namespace association.
+* Type Traits::         Compiler support for type traits
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -11231,6 +11236,124 @@ int main()
   f (std::A<int>());
 @}
 @end smallexample
+
+@node Type Traits
+@section Type Traits
+
+The C++ front-end implements syntactic extensions that allow to
+determine at compile time various characteristics of a type (or of a
+pair of types).
+
+@table @code
+@item __has_nothrow_assign (type)
+If @code{__has_trivial_assign (type)} is true then the trait is true, else if
+@code{type} is a cv class or union type with copy assignment operators that
+are known not to throw an exception then the trait is true, else it is false.
+If @code{type} is const qualified, any copy assignment operator must
+be both known not to throw an exception, and const qualified, for the
+trait to be true.  Requires: @code{type} shall be a complete type, an
+array type of unknown bound, or is a @code{void} type.
+
+@item __has_nothrow_copy (type)
+If @code{__has_trivial_copy (type)} is true then the trait is true, else if
+@code{type} is a cv class or union type with copy constructors that
+are known not to throw an exception then the trait is true, else it is false.
+Requires: @code{type} shall be a complete type, an array type of
+unknown bound, or is a @code{void} type.
+
+@item __has_nothrow_constructor (type)
+If @code{__has_trivial_constructor (type)} is true then the trait is
+true, else if @code{type} is a cv class or union type (or array
+thereof) with a default constructor that is known not to throw an
+exception then the trait is true, else it is false.  Requires:
+@code{type} shall be a complete type, an array type of unknown bound,
+or is a @code{void} type.
+
+@item __has_trivial_assign (type)
+If @code{type} is const qualified or is a reference type then the trait is
+false.  Otherwise if @code{__is_pod (type)} is true then the trait is
+true, else if @code{type} is a cv class or union type with a trivial
+copy assignment ([class.copy]) then the trait is true, else it is
+false.  Requires: @code{type} shall be a complete type, an array type
+of unknown bound, or is a @code{void} type.
+
+@item __has_trivial_copy (type)
+If @code{__is_pod (type)} is true or @code{type} is a reference type 
+then the trait is true, else if @code{type} is a cv class or union type
+with a trivial copy constructor ([class.copy]) then the trait
+is true, else it is false.  Requires: @code{type} shall be a complete
+type, an array type of unknown bound, or is a @code{void} type.
+
+@item __has_trivial_constructor (type)
+If @code{__is_pod (type)} is true then the trait is true, else if
+@code{type} is a cv class or union type (or array thereof) with a
+trivial default constructor ([class.ctor]) then the trait is true,
+else it is false.  Requires: @code{type} shall be a complete type, an
+array type of unknown bound, or is a @code{void} type.
+
+@item __has_trivial_destructor (type)
+If @code{__is_pod (type)} is true or @code{type} is a reference type then
+the trait is true, else if @code{type} is a cv class or union type (or
+array thereof) with a trivial destructor ([class.dtor]) then the trait
+is true, else it is false.  Requires: @code{type} shall be a complete
+type, an array type of unknown bound, or is a @code{void} type.
+
+@item __has_virtual_destructor (type)
+If @code{type} is a class type with a virtual destructor
+([class.dtor]) then the trait is true, else it is false.  Requires:
+@code{type}  shall be a complete type, an array type of unknown bound,
+or is a @code{void} type.
+
+@item __is_abstract (type)
+If @code{type} is an abstract class ([class.abstract]) then the trait
+is true, else it is false.  Requires: @code{type} shall be a complete
+type, an array type of unknown bound, or is a @code{void} type.
+
+@item __is_base_of (base_type, derived_type)
+If @code{base_type} is a base class of @code{derived_type}
+([class.derived]) then the trait is true, otherwise it is false.
+Top-level cv qualifications of @code{base_type} and
+@code{derived_type} are ignored.  For the purposes of this trait, a
+class type is considered is own base.  Requires: if @code{__is_class
+(base_type)} and @code{__is_class (derived_type)} are true and
+@code{base_type} and @code{derived_type} are not the same type
+(disregarding cv-qualifiers), @code{derived_type} shall be a complete
+type.  Diagnostic is produced if this requirement is not met.
+
+@item __is_class (type)
+If @code{type} is a cv class type, and not a union type
+([basic.compound]) the the trait is true, else it is false.
+
+@item __is_empty (type)
+If @code{__is_class (type)} is false then the trait is false.
+Otherwise @code{type} is considered empty if and only if: @code{type}
+has no non-static data members, or all non-static data members, if
+any, are bit-fields of lenght 0, and @code{type} has no virtual
+members, and @code{type} has no virtual base classes, and @code{type}
+has no base classes @code{base_type} for which 
+@code{__is_empty (base_type)} is false.  Requires: @code{type} shall
+be a complete type, an array type of unknown bound, or is a
+@code{void} type.
+
+@item __is_enum (type)
+If @code{type} is a cv enumeration type ([basic.compound]) the the trait is 
+true, else it is false.
+
+@item __is_pod (type)
+If @code{type} is a cv POD type ([basic.types]) then the trait is true,
+else it is false.  Requires: @code{type} shall be a complete type, 
+an array type of unknown bound, or is a @code{void} type.
+
+@item __is_polymorphic (type)
+If @code{type} is a polymorphic class ([class.virtual]) then the trait
+is true, else it is false.  Requires: @code{type} shall be a complete
+type, an array type of unknown bound, or is a @code{void} type.
+
+@item __is_union (type)
+If @code{type} is a cv union type ([basic.compound]) the the trait is 
+true, else it is false.
+
+@end table
 
 @node Java Exceptions
 @section Java Exceptions

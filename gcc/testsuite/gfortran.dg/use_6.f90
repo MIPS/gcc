@@ -1,4 +1,4 @@
-! { dg-do "compile" }
+! { dg-do compile }
 ! { dg-options "-std=f95" }
 ! Renaming of operators
 module z
@@ -42,4 +42,4 @@ use y, operator(.my.) => operator(.addfive.) ! { dg-error "Fortran 2003: Renamin
 use z
 end
 
-! { dg-final { cleanup-tree-dump "x y z" } }
+! { dg-final { cleanup-modules "x y z" } }

@@ -1,3 +1,171 @@
+2007-04-04  Tania Bento  <tbento@redhat.com>
+
+	* java/text/DecimalFormatSymbols.java: Added the year 2007 to
+	Copyright information and introduced new variable, currency.
+	(DecimalFormatSymbols(Locale)): Define currency and intlCurrencySymbol
+	to "XXX", currencySymbol to "?" and localCurrency appropriately.
+	(getCurrency): Fixed documentation and return the value of currency.
+	(setCurrency): Fixed documentation and update the value of currency.
+	(setInternationalCurrencySymbol): Fixed documentation and update the
+	value of currency.
+	* java/util/Currency.java: Introduced two new variables, properties
+	and fractionDigits. In the static block, a properties object is
+	created and the currency resource is loaded.
+	(Currency(Locale)): fractionDigits is defined.
+	(Currency(String)): New method.
+	(getDefaultFractionDigits): Return the value of fractionDigits.
+	(getInstance(String)): Check if String is equal to "XXX".
+
+2007-04-04  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/util/VariableTable.java: Change longs
+	to ints for argCnt and slots.
+	(write): Replace writeLong with writeInt for the above. 
+
+2007-04-03  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/ProxyTest.java: New test.
+
+2007-04-02  Tom Tromey  <tromey@redhat.com>
+
+	http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=205157
+	* gnu/java/nio/channels/natFileChannelPosix.cc (mapImpl): Extend
+	file, when writing, if it is too short.
+
+2007-04-02  Tom Tromey  <tromey@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=233406
+	* gnu/java/net/natPlainSocketImplPosix.cc (create): Return if
+	already created.
+	* gnu/java/net/PlainSocketImpl.java (getLocalAddress): Handle case
+	where localport is -1.
+	(create): Now public.
+	* gnu/java/nio/SocketChannelImpl.java (SocketChannelImpl): Call
+	'create' on the socket.
+
+2007-04-02  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/reflect/natVMProxy.cc (run_proxy): Use
+	_Jv_LookupProxyMethod to find the Method.
+	If parameter_types->length == 0, pass a null paramameter list,
+	not a zero-length parameter list.
+	* java/lang/natClass.cc (_Jv_LookupProxyMethod): New function.
+	* java/lang/Class.h (_Jv_LookupProxyMethod): Declare.
+
+2007-04-02  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret-run.cc: Add code to properly set up variable slots
+	when debugging.
+	* gnu/classpath/jdwp/natVMFrame.cc (checkJVMTIError): New function.
+	(getObjectJVMTI): New function.
+	(setObjectJVMTI): New function.
+	(getIntJVMTI): New function.
+	(setIntJVMTI): New function.
+	(getLongJVMTI): New function.
+	(setLongJVMTI): New function.
+	(getFloatJVMTI): New function.
+	(setFloatJVMTI): New function.
+	(getDoubleJVMTI): New function.
+	(setDoubleJVMTI): New function.
+	(getFrameDepth): New function.
+	(getValue): Implement.
+	(setValue): Implement. 
+
+2007-04-02  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/processor/ThreadReferenceCommandSet.java
+	(executeResume): Call VMVirtualMachine.resumeThread.
+
+2007-03-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29869:
+	* java/util/logging/LogManager.java (readConfiguration): Handle
+	comma-separated 'handlers'.  Don't try to add a non-existing
+	handler.
+
+2007-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/mime.types: Removed.
+	* scripts/MakeDefaultMimeTypes.java: Removed.
+	* gnu/gcj/io/MimeTypes.java: Removed.
+	* gnu/gcj/io/MimeTypes.h: Removed.
+	* gnu/gcj/io/DefaultMimeTypes.java: Removed.
+	* gnu/gcj/io/DefaultMimeTypes.h: Removed.
+
+2007-03-27  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMFrame.java: Update from upstream
+	classpath.
+	* gnu/classpath/jdwp/natVMFrame.cc: Likewise.
+	* gnu/classpath/jdwp/VMVirtualMachine.java: Likewise.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc: Likewise.
+	(initialize): Fix compiler type-punning warning.
+	(getAllLoadedClasses): Return empty list instead of NULL.
+	(getLoadRequests): Likewise.
+	* gnu/classpath/jdwp/exception/InvalidTagException.h: New file.
+	* gnu/classpath/jdwp/exception/InvalidSlotException.h: New file.
+	* gnu/classpath/jdwp/exception/TypeMismatchException.h: New file.
+	* gnu/classpath/jdwp/VMVirtualMachine.h: Rebuilt.
+	* gnu/classpath/jdwp/value/CharValue.h: New file.
+	* gnu/classpath/jdwp/value/LongValue.h: New file.
+	* gnu/classpath/jdwp/value/ShortValue.h: New file.
+	* gnu/classpath/jdwp/value/Value.h: New file.
+	* gnu/classpath/jdwp/value/BooleanValue.h: New file.
+	* gnu/classpath/jdwp/value/VoidValue.h: New file.
+	* gnu/classpath/jdwp/value/ByteValue.h: New file.
+	* gnu/classpath/jdwp/value/FloatValue.h: New file.
+	* gnu/classpath/jdwp/value/ObjectValue.h: New file.
+	* gnu/classpath/jdwp/value/StringValue.h: New file.
+	* gnu/classpath/jdwp/value/ValueFactory.h: New file.
+	* gnu/classpath/jdwp/value/IntValue.h: New file.
+	* gnu/classpath/jdwp/value/DoubleValue.h: New file.
+	* gnu/classpath/jdwp/VMFrame.h: Rebuilt.
+	* gnu/classpath/jdwp/id/NullObjectId.h: New file.
+	* gnu/classpath/jdwp/util/MethodResult.h: Rebuilt.
+	* gnu/classpath/jdwp/util/NullObject.h: New file.
+	* gnu/classpath/jdwp/util/MonitorInfo.h: New file.
+	* Makefile.in: Rebuilt.
+	* sources.am: Rebuilt.
+
+2006-03-26  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac: Remove checks for mktime, alloca, ioctl, gmtime_r,
+	fork, execvp, execinfo.h, pthread_mutexattr_settype,
+	pthread_mutexattr_setkind_np and sys/wait.h.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* include/config.h.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+
+2007-03-23  Gary Benson  <gbenson@redhat.com>
+
+	* link.cc (_Jv_Linker::resolve_method_entry):
+	Ensure that the argument types and the return type of the
+	found method match those expected by the calling method.
+
+2007-03-22  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/31228
+	* configure.ac: Add checks for getrlimit and sys/resource.h.
+	* include/posix.h (_Jv_platform_close_on_exec): Remove.
+	* include/config.h.in: Regenerate.
+	* configure: Regenerate.
+	* gnu/java/nio/channels/natFileChannelPosix.cc (open): Remove call to
+	_Jv_platform_close_on_exec;
+	* gnu/java/net/natPlainSocketImplPosix.cc (create): Likewise.
+	(accept): Likewise.
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (create):Likewise.
+	* java/lang/natPosixProcess.cc: Include sys/resource.h.
+	(nativeSpawn): Close all file descriptors.  Don't set FD_CLOEXEC on
+	pipes.
+
+2007-03-20  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/PR31264.java: New test.
+
 2007-03-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (AM_MAKEFLAGS): Pass through mandir.

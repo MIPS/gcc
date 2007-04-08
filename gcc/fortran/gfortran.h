@@ -99,11 +99,14 @@ mstring;
 #define GFC_STD_LEGACY		(1<<6) /* Backward compatibility.  */
 #define GFC_STD_GNU		(1<<5)    /* GNU Fortran extension.  */
 #define GFC_STD_F2003		(1<<4)    /* New in F2003.  */
-/* Note that no features were obsoleted nor deleted in F2003.  */
+/* Note that no additional features were deleted or made obsolescent
+   in F2003.  */
 #define GFC_STD_F95		(1<<3)    /* New in F95.  */
 #define GFC_STD_F95_DEL		(1<<2)    /* Deleted in F95.  */
-#define GFC_STD_F95_OBS		(1<<1)    /* Obsoleted in F95.  */
-#define GFC_STD_F77		(1<<0)    /* Up to and including F77.  */
+#define GFC_STD_F95_OBS		(1<<1)    /* Obsolescent in F95.  */
+#define GFC_STD_F77		(1<<0)    /* Included in F77, but not
+					     deleted or obsolescent in
+					     later standards.  */
 
 /* Bitmasks for the various FPE that can be enabled.  */
 #define GFC_FPE_INVALID    (1<<0)
@@ -480,7 +483,8 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1, value:1, volatile_:1,
-    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1;
+    dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1,
+    implied_index:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     protected:1,		/* Symbol has been marked as protected.  */
@@ -950,6 +954,8 @@ gfc_dt_list;
 
 #define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
 
+  /* A list of all derived types.  */
+  extern gfc_dt_list *gfc_derived_types;
 
 /* A namespace describes the contents of procedure, module or
    interface block.  */
@@ -1012,9 +1018,6 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
-
-  /* A list of all derived types in this procedure (or NULL).  */
-  gfc_dt_list *derived_types;
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
@@ -1842,6 +1845,7 @@ extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
 extern int gfc_c_int_kind;
 extern int gfc_intio_kind;
+extern int gfc_charlen_int_kind;
 extern int gfc_numeric_storage_size;
 extern int gfc_character_storage_size;
 
@@ -1850,6 +1854,7 @@ void gfc_clear_new_implicit (void);
 try gfc_add_new_implicit_range (int, int);
 try gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (void);
+void gfc_check_function_type (gfc_namespace *);
 
 gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
 try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);

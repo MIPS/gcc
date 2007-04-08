@@ -90,6 +90,17 @@ enum rid
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
+  /* C++ extensions */
+  RID_HAS_NOTHROW_ASSIGN,      RID_HAS_NOTHROW_CONSTRUCTOR,
+  RID_HAS_NOTHROW_COPY,        RID_HAS_TRIVIAL_ASSIGN,
+  RID_HAS_TRIVIAL_CONSTRUCTOR, RID_HAS_TRIVIAL_COPY,
+  RID_HAS_TRIVIAL_DESTRUCTOR,  RID_HAS_VIRTUAL_DESTRUCTOR,
+  RID_IS_ABSTRACT,             RID_IS_BASE_OF,
+  RID_IS_CONVERTIBLE_TO,       RID_IS_CLASS,
+  RID_IS_EMPTY,                RID_IS_ENUM,
+  RID_IS_POD,                  RID_IS_POLYMORPHIC,
+  RID_IS_UNION,
+
   /* C++0x */
   RID_STATIC_ASSERT,
 
@@ -671,6 +682,7 @@ struct varray_head_tag;
 extern void constant_expression_warning (tree);
 extern void strict_aliasing_warning (tree, tree, tree);
 extern void empty_if_body_warning (tree, tree);
+extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void warn_logical_operator (enum tree_code, tree, tree);

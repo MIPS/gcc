@@ -484,9 +484,14 @@
 
 ;; Test for a pc-relative call operand
 (define_predicate "constant_call_address_operand"
-  (and (ior (match_code "symbol_ref")
-            (match_operand 0 "local_symbolic_operand"))
-       (match_test "ix86_cmodel != CM_LARGE && ix86_cmodel != CM_LARGE_PIC")))
+  (match_code "symbol_ref")
+{
+  if (ix86_cmodel == CM_LARGE || ix86_cmodel == CM_LARGE_PIC)
+    return false;
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES && SYMBOL_REF_DLLIMPORT_P (op))
+    return false;
+  return true;
+})
 
 ;; True for any non-virtual or eliminable register.  Used in places where
 ;; instantiation of such a register may cause the pattern to not be recognized.
@@ -497,8 +502,8 @@
     op = SUBREG_REG (op);
   return !(op == arg_pointer_rtx
 	   || op == frame_pointer_rtx
-	   || (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	       && REGNO (op) <= LAST_VIRTUAL_REGISTER));
+	   || IN_RANGE (REGNO (op),
+			FIRST_PSEUDO_REGISTER, LAST_VIRTUAL_REGISTER));
 })
 
 ;; Similarly, but include the stack pointer.  This is used to prevent esp
@@ -572,27 +577,27 @@
 ;; Match 0 to 3.
 (define_predicate "const_0_to_3_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 3")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 3)")))
 
 ;; Match 0 to 7.
 (define_predicate "const_0_to_7_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 7")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
 
 ;; Match 0 to 15.
 (define_predicate "const_0_to_15_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 15")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 15)")))
 
 ;; Match 0 to 63.
 (define_predicate "const_0_to_63_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 63")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 63)")))
 
 ;; Match 0 to 255.
 (define_predicate "const_0_to_255_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 255")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
 
 ;; Match (0 to 255) * 8
 (define_predicate "const_0_to_255_mul_8_operand"
@@ -606,17 +611,17 @@
 ;; for shift & compare patterns, as shifting by 0 does not change flags).
 (define_predicate "const_1_to_31_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 1 && INTVAL (op) <= 31")))
+       (match_test "IN_RANGE (INTVAL (op), 1, 31)")))
 
 ;; Match 2 or 3.
 (define_predicate "const_2_to_3_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) == 2 || INTVAL (op) == 3")))
+       (match_test "IN_RANGE (INTVAL (op), 2, 3)")))
 
 ;; Match 4 to 7.
 (define_predicate "const_4_to_7_operand"
   (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 4 && INTVAL (op) <= 7")))
+       (match_test "IN_RANGE (INTVAL (op), 4, 7)")))
 
 ;; Match exactly one bit in 4-bit mask.
 (define_predicate "const_pow2_1_to_8_operand"
@@ -963,12 +968,10 @@
 	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
-;; Modern CPUs have same latency for HImode and SImode multiply,
-;; but 386 and 486 do HImode multiply faster.  */
 (define_predicate "promotable_binary_operator"
   (ior (match_code "plus,and,ior,xor,ashift")
        (and (match_code "mult")
-	    (match_test "ix86_tune > PROCESSOR_I486"))))
+	    (match_test "TARGET_TUNE_PROMOTE_HIMODE_IMUL"))))
 
 ;; To avoid problems when jump re-emits comparisons like testqi_ext_ccno_0,
 ;; re-recognize the operand to avoid a copy_to_mode_reg that will fail.

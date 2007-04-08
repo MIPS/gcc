@@ -478,6 +478,48 @@ struct tree_argument_pack_select GTY (())
   int index;
 };
 
+/* The different kinds of traits that we encounter.  */
+
+typedef enum cp_trait_kind
+{
+  CPTK_HAS_NOTHROW_ASSIGN,
+  CPTK_HAS_NOTHROW_CONSTRUCTOR,
+  CPTK_HAS_NOTHROW_COPY,
+  CPTK_HAS_TRIVIAL_ASSIGN,
+  CPTK_HAS_TRIVIAL_CONSTRUCTOR,
+  CPTK_HAS_TRIVIAL_COPY,
+  CPTK_HAS_TRIVIAL_DESTRUCTOR,
+  CPTK_HAS_VIRTUAL_DESTRUCTOR,
+  CPTK_IS_ABSTRACT,
+  CPTK_IS_BASE_OF,
+  CPTK_IS_CLASS,
+  CPTK_IS_CONVERTIBLE_TO,
+  CPTK_IS_EMPTY,
+  CPTK_IS_ENUM,
+  CPTK_IS_POD,
+  CPTK_IS_POLYMORPHIC,
+  CPTK_IS_UNION
+} cp_trait_kind;
+
+/* The types that we are processing.  */
+#define TRAIT_EXPR_TYPE1(NODE) \
+  (((struct tree_trait_expr *)TRAIT_EXPR_CHECK (NODE))->type1)
+
+#define TRAIT_EXPR_TYPE2(NODE) \
+  (((struct tree_trait_expr *)TRAIT_EXPR_CHECK (NODE))->type2)
+
+/* The specific trait that we are processing.  */
+#define TRAIT_EXPR_KIND(NODE) \
+  (((struct tree_trait_expr *)TRAIT_EXPR_CHECK (NODE))->kind)
+
+struct tree_trait_expr GTY (())
+{
+  struct tree_common common;
+  tree type1;
+  tree type2;  
+  enum cp_trait_kind kind;
+};
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -491,6 +533,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_DEFAULT_ARG,
   TS_CP_STATIC_ASSERT,
   TS_CP_ARGUMENT_PACK_SELECT,
+  TS_CP_TRAIT_EXPR,
   LAST_TS_CP_ENUM
 };
 
@@ -511,6 +554,8 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
     static_assertion;
   struct tree_argument_pack_select GTY ((tag ("TS_CP_ARGUMENT_PACK_SELECT")))
     argument_pack_select;
+  struct tree_trait_expr GTY ((tag ("TS_CP_TRAIT_EXPR")))
+    trait_expression;
 };
 
 
@@ -742,8 +787,12 @@ struct saved_scope GTY(())
 #define current_lang_base scope_chain->lang_base
 #define current_lang_name scope_chain->lang_name
 
-/* Parsing a function declarator leaves a list of parameter names
-   or a chain or parameter decls here.  */
+/* When parsing a template declaration, a TREE_LIST representing the
+   active template parametesr.  Each node in the list represents one
+   level of template parameters.  The innermost level is first in the
+   list.  The depth of each level is stored as an INTEGER_CST in the
+   TREE_PURPOSE of each node.  The parameters for that level are
+   stored in the TREE_VALUE.  */
 
 #define current_template_parms scope_chain->template_parms
 
@@ -932,6 +981,10 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CLASS_TYPE_P(T) \
   (IS_AGGR_TYPE_CODE (TREE_CODE (T)) && TYPE_LANG_FLAG_5 (T))
 
+/* Nonzero if T is a class type but not an union.  */
+#define NON_UNION_CLASS_TYPE_P(T) \
+  (CLASS_TYPE_P (T) && TREE_CODE (T) != UNION_TYPE)
+
 /* Keep these checks in ascending code order.  */
 #define IS_AGGR_TYPE_CODE(T)	\
   ((T) == RECORD_TYPE || (T) == UNION_TYPE)
@@ -1089,6 +1142,7 @@ struct lang_type_class GTY(())
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
   unsigned non_aggregate : 1;
+  unsigned has_complex_dflt : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1097,7 +1151,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 12;
+  unsigned dummy : 11;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -2678,7 +2732,12 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Nonzero if there is a user-defined X::op=(x&) for this class.  */
 #define TYPE_HAS_COMPLEX_ASSIGN_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_complex_assign_ref)
+
+/* Nonzero if there is a user-defined X::X(x&) for this class.  */
 #define TYPE_HAS_COMPLEX_INIT_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_complex_init_ref)
+
+/* Nonzero if there is a user-defined default constructor for this class.  */
+#define TYPE_HAS_COMPLEX_DFLT(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_complex_dflt)
 
 /* Nonzero if TYPE has a trivial destructor.  From [class.dtor]:
 
@@ -2700,6 +2759,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    ARRAY_TYPE is the type of the elements needs a destructor.  */
 #define TYPE_HAS_NONTRIVIAL_DESTRUCTOR(NODE) \
   (TYPE_LANG_FLAG_4 (NODE))
+
+/* Nonzero for class type means that the default constructor is trivial.  */
+#define TYPE_HAS_TRIVIAL_DFLT(NODE) \
+  (TYPE_HAS_DEFAULT_CONSTRUCTOR (NODE) && ! TYPE_HAS_COMPLEX_DFLT (NODE))
 
 /* Nonzero for class type means that copy initialization of this type can use
    a bitwise copy.  */
@@ -4049,6 +4112,7 @@ extern tree convert_from_reference		(tree);
 extern tree force_rvalue			(tree);
 extern tree ocp_convert				(tree, tree, int, int);
 extern tree cp_convert				(tree, tree);
+extern tree cp_convert_and_check                (tree, tree);
 extern tree convert_to_void	(tree, const char */*implicit context*/);
 extern tree convert_force			(tree, tree, int);
 extern tree build_expr_type_conversion		(int, tree, bool);
@@ -4275,6 +4339,9 @@ extern tree lazily_declare_fn			(special_function_kind,
 extern tree skip_artificial_parms_for		(tree, tree);
 extern int num_artificial_parms_for		(tree);
 extern tree make_alias_for			(tree, tree);
+extern tree locate_copy				(tree, void *);
+extern tree locate_ctor				(tree, void *);
+extern tree locate_dtor				(tree, void *);
 
 /* In optimize.c */
 extern bool maybe_clone_body			(tree);
@@ -4295,6 +4362,7 @@ extern tree check_explicit_specialization	(tree, tree, int, int);
 extern tree process_template_parm		(tree, tree, bool, bool);
 extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
+extern bool check_default_tmpl_args             (tree, tree, int, int, int);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
 extern bool redeclare_class_template		(tree, tree);
@@ -4551,6 +4619,7 @@ extern bool cxx_omp_privatize_by_reference	(tree);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);
+extern tree finish_trait_expr			(enum cp_trait_kind, tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4673,6 +4742,7 @@ extern bool comp_ptr_ttypes_const		(tree, tree);
 extern int ptr_reasonably_similar		(tree, tree);
 extern tree build_ptrmemfunc			(tree, tree, int, bool);
 extern int cp_type_quals			(tree);
+extern bool cp_type_readonly			(tree);
 extern bool cp_has_mutable_p			(tree);
 extern bool at_least_as_qualified_p		(tree, tree);
 extern void cp_apply_type_quals_to_decl		(int, tree);

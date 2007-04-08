@@ -20,40 +20,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config/vxworks-dummy.h"
-
-/* Algorithm to expand string function with.  */
-enum stringop_alg
-{
-   no_stringop,
-   libcall,
-   rep_prefix_1_byte,
-   rep_prefix_4_byte,
-   rep_prefix_8_byte,
-   loop_1_byte,
-   loop,
-   unrolled_loop
-};
-#define NAX_STRINGOP_ALGS 4
-/* Specify what algorithm to use for stringops on known size.
-   When size is unknown, the UNKNOWN_SIZE alg is used.  When size is
-   known at compile time or estimated via feedback, the SIZE array
-   is walked in order until MAX is greater then the estimate (or -1
-   means infinity).  Corresponding ALG is used then.  
-   For example initializer:
-    {{256, loop}, {-1, rep_prefix_4_byte}}		
-   will use loop for blocks smaller or equal to 256 bytes, rep prefix will
-   be used otherwise.
-*/
-struct stringop_algs
-{
-  const enum stringop_alg unknown_size;
-  const struct stringop_strategy {
-    const int max;
-    const enum stringop_alg alg;
-  } size [NAX_STRINGOP_ALGS];
-};
-
 /* The purpose of this file is to define the characteristics of the i386,
    independent of assembler syntax or operating system.
 
@@ -68,6 +34,41 @@ struct stringop_algs
    assemblers.  These include RP, IP, LPREFIX, PUT_OP_SIZE, USE_STAR,
    ADDR_BEG, ADDR_END, PRINT_IREG, PRINT_SCALE, PRINT_B_I_S, and many
    that start with ASM_ or end in ASM_OP.  */
+
+#include "config/vxworks-dummy.h"
+
+/* Algorithm to expand string function with.  */
+enum stringop_alg
+{
+   no_stringop,
+   libcall,
+   rep_prefix_1_byte,
+   rep_prefix_4_byte,
+   rep_prefix_8_byte,
+   loop_1_byte,
+   loop,
+   unrolled_loop
+};
+
+#define NAX_STRINGOP_ALGS 4
+
+/* Specify what algorithm to use for stringops on known size.
+   When size is unknown, the UNKNOWN_SIZE alg is used.  When size is
+   known at compile time or estimated via feedback, the SIZE array
+   is walked in order until MAX is greater then the estimate (or -1
+   means infinity).  Corresponding ALG is used then.  
+   For example initializer:
+    {{256, loop}, {-1, rep_prefix_4_byte}}		
+   will use loop for blocks smaller or equal to 256 bytes, rep prefix will
+   be used otherwise.  */
+struct stringop_algs
+{
+  const enum stringop_alg unknown_size;
+  const struct stringop_strategy {
+    const int max;
+    const enum stringop_alg alg;
+  } size [NAX_STRINGOP_ALGS];
+};
 
 /* Define the specific costs for a given cpu */
 
@@ -235,6 +236,7 @@ enum ix86_tune_indices {
   X86_TUNE_EXT_80387_CONSTANTS,
   X86_TUNE_SHORTEN_X87_SSE,
   X86_TUNE_AVOID_VECTOR_DECODE,
+  X86_TUNE_PROMOTE_HIMODE_IMUL,
   X86_TUNE_SLOW_IMUL_IMM32_MEM,
   X86_TUNE_SLOW_IMUL_IMM8,
   X86_TUNE_MOVE_M1_VIA_OR,
@@ -312,6 +314,8 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_SHORTEN_X87_SSE	ix86_tune_features[X86_TUNE_SHORTEN_X87_SSE]
 #define TARGET_AVOID_VECTOR_DECODE \
 	ix86_tune_features[X86_TUNE_AVOID_VECTOR_DECODE]
+#define TARGET_TUNE_PROMOTE_HIMODE_IMUL \
+	ix86_tune_features[X86_TUNE_PROMOTE_HIMODE_IMUL]
 #define TARGET_SLOW_IMUL_IMM32_MEM \
 	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM32_MEM]
 #define TARGET_SLOW_IMUL_IMM8	ix86_tune_features[X86_TUNE_SLOW_IMUL_IMM8]
@@ -369,10 +373,16 @@ extern int x86_prefetch_sse;
    the frame pointer in leaf functions.  */
 #define TARGET_DEFAULT 0
 
+/* Extra bits to force on w/ 64-bit mode.  */
+#define TARGET_SUBTARGET64_DEFAULT 0
+
 /* This is not really a target flag, but is done this way so that
    it's analogous to similar code for Mach-O on PowerPC.  darwin.h
    redefines this to 1.  */
 #define TARGET_MACHO 0
+
+/* Likewise, for the Windows 64-bit ABI.  */
+#define TARGET_64BIT_MS_ABI 0
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -450,7 +460,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
       size_t arch_len = strlen (ix86_arch_string);		\
       size_t tune_len = strlen (ix86_tune_string);		\
       int last_arch_char = ix86_arch_string[arch_len - 1];	\
-      int last_tune_char = ix86_tune_string[tune_len - 1];		\
+      int last_tune_char = ix86_tune_string[tune_len - 1];	\
 								\
       if (TARGET_64BIT)						\
 	{							\
@@ -539,7 +549,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE3__");				\
       if (TARGET_SSSE3)						\
 	builtin_define ("__SSSE3__");				\
-      if (TARGET_SSE4A)					\
+      if (TARGET_SSE4A)						\
  	builtin_define ("__SSE4A__");		                \
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
@@ -959,10 +969,10 @@ do {									\
 			       == (TARGET_64BIT ? 3 : 2));		\
       }									\
     j = PIC_OFFSET_TABLE_REGNUM;					\
-    if (j != INVALID_REGNUM)			\
+    if (j != INVALID_REGNUM)						\
       {									\
-	fixed_regs[j] = 1;			\
-	call_used_regs[j] = 1;			\
+	fixed_regs[j] = 1;						\
+	call_used_regs[j] = 1;						\
       }									\
     if (! TARGET_MMX)							\
       {									\
@@ -994,6 +1004,11 @@ do {									\
 	  reg_names[i] = "";						\
 	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
 	  reg_names[i] = "";						\
+      }									\
+    if (TARGET_64BIT_MS_ABI)						\
+      {									\
+        call_used_regs[4 /*RSI*/] = 0;                                  \
+        call_used_regs[5 /*RDI*/] = 0;                                  \
       }									\
   } while (0)
 
@@ -2344,8 +2359,6 @@ enum ix86_stack_slot
   (! IN_RANGE ((SRC), FIRST_STACK_REG, LAST_STACK_REG))
 
 
-#define DLL_IMPORT_EXPORT_PREFIX '#'
-
 #define FASTCALL_PREFIX '@'
 
 struct machine_function GTY(())
@@ -2395,6 +2408,17 @@ struct machine_function GTY(())
 #define SYMBOL_FLAG_FAR_ADDR		(SYMBOL_FLAG_MACH_DEP << 0)
 #define SYMBOL_REF_FAR_ADDR_P(X)	\
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_FAR_ADDR) != 0)
+
+/* Flags to mark dllimport/dllexport.  Used by PE ports, but handy to
+   have defined always, to avoid ifdefing.  */
+#define SYMBOL_FLAG_DLLIMPORT		(SYMBOL_FLAG_MACH_DEP << 1)
+#define SYMBOL_REF_DLLIMPORT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLIMPORT) != 0)
+
+#define SYMBOL_FLAG_DLLEXPORT		(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_REF_DLLEXPORT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLEXPORT) != 0)
+
 /*
 Local variables:
 version-control: t

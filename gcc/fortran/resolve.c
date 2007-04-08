@@ -2082,6 +2082,7 @@ resolve_operator (gfc_expr *e)
 {
   gfc_expr *op1, *op2;
   char msg[200];
+  bool dual_locus_error;
   try t;
 
   /* Resolve all subnodes-- give them types.  */
@@ -2107,6 +2108,7 @@ resolve_operator (gfc_expr *e)
 
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
+  dual_locus_error = false;
 
   switch (e->value.op.operator)
     {
@@ -2306,12 +2308,14 @@ resolve_operator (gfc_expr *e)
 	    }
 	  else
 	    {
-	      gfc_error ("Inconsistent ranks for operator at %L and %L",
-			 &op1->where, &op2->where);
-	      t = FAILURE;
-
 	      /* Allow higher level expressions to work.  */
 	      e->rank = 0;
+
+	      /* Try user-defined operators, and otherwise throw an error.  */
+	      dual_locus_error = true;
+	      sprintf (msg,
+		       _("Inconsistent ranks for operator at %%L and %%L"));
+	      goto bad_op;
 	    }
 	}
 
@@ -2350,7 +2354,10 @@ bad_op:
   if (gfc_extend_expr (e) == SUCCESS)
     return SUCCESS;
 
-  gfc_error (msg, &e->where);
+  if (dual_locus_error)
+    gfc_error (msg, &op1->where, &op2->where);
+  else
+    gfc_error (msg, &e->where);
 
   return FAILURE;
 }
@@ -2507,48 +2514,53 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
       break;
 
     case AR_SECTION:
-      if (compare_bound_int (ar->stride[i], 0) == CMP_EQ)
-	{
-	  gfc_error ("Illegal stride of zero at %L", &ar->c_where[i]);
-	  return FAILURE;
-	}
-
+      {
 #define AR_START (ar->start[i] ? ar->start[i] : as->lower[i])
 #define AR_END (ar->end[i] ? ar->end[i] : as->upper[i])
 
-      if (compare_bound (AR_START, AR_END) == CMP_EQ
-	  && (compare_bound (AR_START, as->lower[i]) == CMP_LT
-	      || compare_bound (AR_START, as->upper[i]) == CMP_GT))
-	goto bound;
+	comparison comp_start_end = compare_bound (AR_START, AR_END);
 
-      if (((compare_bound_int (ar->stride[i], 0) == CMP_GT
-	    || ar->stride[i] == NULL)
-	   && compare_bound (AR_START, AR_END) != CMP_GT)
-	  || (compare_bound_int (ar->stride[i], 0) == CMP_LT
-	      && compare_bound (AR_START, AR_END) != CMP_LT))
-	{
-	  if (compare_bound (AR_START, as->lower[i]) == CMP_LT)
-	    goto bound;
-	  if (compare_bound (AR_START, as->upper[i]) == CMP_GT)
-	    goto bound;
-	}
+	/* Check for zero stride, which is not allowed.  */
+	if (compare_bound_int (ar->stride[i], 0) == CMP_EQ)
+	  {
+	    gfc_error ("Illegal stride of zero at %L", &ar->c_where[i]);
+	    return FAILURE;
+	  }
 
-      mpz_init (last_value);
-      if (compute_last_value_for_triplet (AR_START, AR_END, ar->stride[i],
-					  last_value))
-	{
-	  if (compare_bound_mpz_t (as->lower[i], last_value) == CMP_GT
-	      || compare_bound_mpz_t (as->upper[i], last_value) == CMP_LT)
-	    {
-	      mpz_clear (last_value);
+	/* if start == len || (stride > 0 && start < len)
+			   || (stride < 0 && start > len),
+	   then the array section contains at least one element.  In this
+	   case, there is an out-of-bounds access if
+	   (start < lower || start > upper).  */
+	if (compare_bound (AR_START, AR_END) == CMP_EQ
+	    || ((compare_bound_int (ar->stride[i], 0) == CMP_GT
+		 || ar->stride[i] == NULL) && comp_start_end == CMP_LT)
+	    || (compare_bound_int (ar->stride[i], 0) == CMP_LT
+	        && comp_start_end == CMP_GT))
+	  {
+	    if (compare_bound (AR_START, as->lower[i]) == CMP_LT
+		|| compare_bound (AR_START, as->upper[i]) == CMP_GT)
 	      goto bound;
-	    }
-	}
-      mpz_clear (last_value);
+	  }
+
+	/* If we can compute the highest index of the array section,
+	   then it also has to be between lower and upper.  */
+	mpz_init (last_value);
+	if (compute_last_value_for_triplet (AR_START, AR_END, ar->stride[i],
+					    last_value))
+	  {
+	    if (compare_bound_mpz_t (as->lower[i], last_value) == CMP_GT
+	        || compare_bound_mpz_t (as->upper[i], last_value) == CMP_LT)
+	      {
+	        mpz_clear (last_value);
+	        goto bound;
+	      }
+	  }
+	mpz_clear (last_value);
 
 #undef AR_START
 #undef AR_END
-
+      }
       break;
 
     default:
@@ -5636,7 +5648,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	      || sym->as->upper[i] == NULL
 	      || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
 	    {
-	      flag = 1;
+	      flag = 2;
 	      break;
 	    }
 	}
@@ -5658,7 +5670,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
       else if (sym->attr.external)
 	gfc_error ("External '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
-      else if (sym->attr.dummy)
+      else if (sym->attr.dummy
+	&& !(sym->ts.type == BT_DERIVED && sym->attr.intent == INTENT_OUT))
 	gfc_error ("Dummy '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
       else if (sym->attr.intrinsic)
@@ -5667,12 +5680,15 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
       else if (sym->attr.result)
 	gfc_error ("Function result '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
-      else
+      else if (flag == 2)
 	gfc_error ("Automatic array '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
+      else
+	goto no_init_error;
       return FAILURE;
     }
 
+no_init_error:
   /* Check to see if a derived type is blocked from being host associated
      by the presence of another class I symbol in the same namespace.
      14.6.1.3 of the standard and the discussion on comp.lang.fortran.  */
@@ -5932,16 +5948,16 @@ resolve_fl_derived (gfc_symbol *sym)
     }
 
   /* Add derived type to the derived type list.  */
-  for (dt_list = sym->ns->derived_types; dt_list; dt_list = dt_list->next)
+  for (dt_list = gfc_derived_types; dt_list; dt_list = dt_list->next)
     if (sym == dt_list->derived)
       break;
 
   if (dt_list == NULL)
     {
       dt_list = gfc_get_dt_list ();
-      dt_list->next = sym->ns->derived_types;
+      dt_list->next = gfc_derived_types;
       dt_list->derived = sym;
-      sym->ns->derived_types = dt_list;
+      gfc_derived_types = dt_list;
     }
 
   return SUCCESS;
@@ -7154,22 +7170,7 @@ resolve_fntype (gfc_namespace *ns)
 		 sym->name, &sym->declared_at, sym->ts.derived->name);
     }
 
-  /* Make sure that the type of a module derived type function is in the
-     module namespace, by copying it from the namespace's derived type
-     list, if necessary.  */
-  if (sym->ts.type == BT_DERIVED
-      && sym->ns->proc_name->attr.flavor == FL_MODULE
-      && sym->ts.derived->ns
-      && sym->ns != sym->ts.derived->ns)
-    {
-      gfc_dt_list *dt = sym->ns->derived_types;
-
-      for (; dt; dt = dt->next)
-	if (gfc_compare_derived_types (sym->ts.derived, dt->derived))
-	  sym->ts.derived = dt->derived;
-    }
-
-  if (ns->entries)
+    if (ns->entries)
     for (el = ns->entries->next; el; el = el->next)
       {
 	if (el->sym->result == el->sym
