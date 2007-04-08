@@ -790,11 +790,8 @@ TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H) omega.h
 VARRAY_H = varray.h $(MACHMODE_H) $(SYSTEM_H) coretypes.h $(TM_H)
 TREE_INLINE_H = tree-inline.h $(VARRAY_H) pointer-set.h
 REAL_H = real.h $(MACHMODE_H)
-<<<<<<< .working
 DBGCNT_H = dbgcnt.h dbgcnt.def
-=======
 EBIMAP_H = ebitmap.h sbitmap.h
->>>>>>> .merge-right.r123653
 
 #
 # Now figure out from those variables how to compile and link.
