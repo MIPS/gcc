@@ -3370,7 +3370,7 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
    logically equivalent to EQUIV, so it gets manipulated as a unit if it
    is possible to do so.  */
 
-static void
+void
 maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
 {
   if (!flag_non_call_exceptions || !may_trap_p (equiv))
@@ -3459,6 +3459,8 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       data.target = target;
@@ -3611,6 +3613,8 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
       if ((note = find_reg_note (insn, REG_LIBCALL, NULL)) != NULL)
 	remove_note (insn, note);
       if ((note = find_reg_note (insn, REG_RETVAL, NULL)) != NULL)
+	remove_note (insn, note);
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL)) != NULL)
 	remove_note (insn, note);
 
       next = NEXT_INSN (insn);

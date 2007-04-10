@@ -1,3 +1,14 @@
+2007-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* optabs.h (maybe_encapsulate_block): Made public.
+	* optabs.c (maybe_encapsulate_block): Ditto.
+	(emit_no_conflict_block, emit_libcall_block): Remove
+	REG_LIBCALL_ID when deleteing REG_RETVAL and REG_LIBCALL
+	notes.
+	* reload1.c (reload): Ditto.
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address):
+	Use maybe_encapsulate_block to add libcall notes.  
+
 2007-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* dse.c (clear_alias_set_lookup): New function.

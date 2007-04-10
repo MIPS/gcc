@@ -604,6 +604,10 @@ extern rtx expand_copysign (rtx, rtx, rtx);
    an input.  */
 extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
 
+/* Excapsulate the block in REG_LIBCALL, and REG_RETVAL reg notes and add 
+   REG_LIBCALL_ID notes to all insns in block.  */
+extern void maybe_encapsulate_block (rtx, rtx, rtx);
+
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.  */
 extern rtx emit_no_conflict_block (rtx, rtx, rtx, rtx, rtx);
