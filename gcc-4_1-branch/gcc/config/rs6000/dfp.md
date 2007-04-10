@@ -476,10 +476,36 @@
 
 ; ld/std require word-aligned displacements -> 'Y' constraint.
 ; List Y->r and r->Y before r->r for reload.
+(define_insn "*movdd_hardfloat64_mfpgpr"
+  [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r,r,f")
+        (match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F,f,r"))]
+  "TARGET_POWERPC64 && TARGET_MFPGPR && TARGET_HARD_FLOAT && TARGET_FPRS
+   && (gpc_reg_operand (operands[0], DDmode)
+       || gpc_reg_operand (operands[1], DDmode))"
+  "@
+   std%U0%X0 %1,%0
+   ld%U1%X1 %0,%1
+   mr %0,%1
+   fmr %0,%1
+   lfd%U1%X1 %0,%1
+   stfd%U0%X0 %1,%0
+   mt%0 %1
+   mf%1 %0
+   {cror 0,0,0|nop}
+   #
+   #
+   #
+   mftgpr %0,%1
+   mffgpr %0,%1"
+  [(set_attr "type" "store,load,*,fp,fpload,fpstore,mtjmpr,mfjmpr,*,*,*,*,mftgpr,mffgpr")
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,8,12,16,4,4")])
+
+; ld/std require word-aligned displacements -> 'Y' constraint.
+; List Y->r and r->Y before r->r for reload.
 (define_insn "*movdd_hardfloat64"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r")
 	(match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F"))]
-  "TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS
+  "TARGET_POWERPC64 && !TARGET_MFPGPR && TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "@

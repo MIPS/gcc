@@ -1,3 +1,8 @@
+2007-04-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/dfp.md (movdd_hardfloat64_mfpgpr): New define_insn.
+	(movdd_hardfloat64): Use TARGET_MFPGPR.
+
 2007-04-09  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* reload1.c (alter_reg): Use DDmode spill slots for SDmode.
