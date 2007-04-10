@@ -420,6 +420,7 @@ void
 df_add_problem (struct df_problem *problem)
 {
   struct dataflow *dflow;
+  int i;
 
   /* First try to add the dependent problem. */
   if (problem->dependent_problem)
@@ -437,8 +438,27 @@ df_add_problem (struct df_problem *problem)
   dflow->problem = problem;
   dflow->computed = false;
   dflow->solutions_dirty = true;
-  df->problems_in_order[df->num_problems_defined++] = dflow;
   df->problems_by_index[dflow->problem->id] = dflow;
+
+  /* Keep the defined problems ordered by index.  This solves the
+     problem that RI will use the information from UREC if UREC has
+     been defined, or from LIVE if LIVE is defined and otherwise LR.
+     However for this to work, the computation of RI must be pushed
+     after which ever of those problems is defined, but we do not
+     require any of those except for LR to have actually been
+     defined.  */ 
+  df->num_problems_defined++;
+  for (i = df->num_problems_defined - 2; i >= 0; i--)
+    {
+      if (problem->id < df->problems_in_order[i]->problem->id)
+	df->problems_in_order[i+1] = df->problems_in_order[i];
+      else
+	{
+	  df->problems_in_order[i+1] = dflow;
+	  return;
+	}
+    }
+  df->problems_in_order[0] = dflow;
 }
 
 

@@ -404,7 +404,6 @@ compute_regsets (HARD_REG_SET *elim_set,
      we are doing optimization.  */
   if (optimize)
     df_urec_add_problem ();
-  df_set_flags (DF_RI_NO_UPDATE);
   df_analyze ();
   df_set_flags (DF_NO_INSN_RESCAN);
 
