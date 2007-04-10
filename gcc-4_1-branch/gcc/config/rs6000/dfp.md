@@ -21,6 +21,230 @@
 ;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
 ;; MA 02110-1301, USA.
 
+;; For decimal floating-point, we normally deal with the floating-point registers
+;; unless -msoft-float is used.  The sole exception is that parameter passing
+;; can produce floating-point values in fixed-point registers.  Unless the
+;; value is a simple constant or already in memory, we deal with this by
+;; allocating memory and copying the value explicitly via that memory location.
+
+(define_expand "movsd"
+  [(set (match_operand:SD 0 "nonimmediate_operand" "")
+	(match_operand:SD 1 "any_operand" ""))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS && !no_new_pseudos"
+  "
+{
+  if (no_new_pseudos)
+    FAIL;
+  else if (MEM_P (operands[0]) && REG_P (operands[1]))
+    {
+      rtx intreg = gen_reg_rtx (SImode);
+      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+      rtx dst = adjust_address (operands[0], SImode, 0);
+      emit_insn (gen_sd2di_internal (stack, operands[1]));
+      emit_move_insn (intreg, adjust_address (stack, SImode, 4));
+      emit_move_insn (dst, intreg);
+      DONE;
+    }
+  else if (REG_P (operands[0]) && MEM_P (operands[1]))
+    {
+      rtx intreg = gen_reg_rtx (SImode);
+      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+      rtx src = adjust_address (operands[1], SImode, 0);
+      emit_move_insn (intreg, src);
+      emit_move_insn (adjust_address (stack, SImode, 4), intreg);
+      emit_insn (gen_di2sd_internal (operands[0], stack));
+      DONE;
+    }
+  else if (MEM_P (operands[0]) && MEM_P (operands[1]))
+    {
+      rtx src = adjust_address (operands[1], SImode, 0);
+      rtx dst = adjust_address (operands[0], SImode, 0);
+      emit_move_insn (dst, src);
+      DONE;
+    }
+  else if (GET_CODE (operands[0]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[0])) == REG)
+    {
+      rtx dst = SUBREG_REG (operands[0]);
+      enum machine_mode mode = GET_MODE (dst);
+
+      if (MEM_P (operands[1]))
+	{
+	  rtx src = adjust_address (operands[1], mode, 0);
+	  emit_move_insn (dst, src);
+	}
+      else if (GET_CODE (operands[1]) == SUBREG
+	       && GET_CODE (SUBREG_REG (operands[1])) == REG
+	       && mode == GET_MODE (SUBREG_REG (operands[1])))
+	{
+	  rtx src = SUBREG_REG (operands[1]);
+	  emit_move_insn (dst, src);
+	}
+      else
+	{
+	  rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+	  emit_insn (gen_sd2di_internal (stack, operands[1]));
+	  emit_move_insn (dst, simplify_gen_subreg (mode, stack, DImode, 4));
+	}
+      DONE;
+    }
+  else if (GET_CODE (operands[1]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[1])) == REG)
+    {
+      rtx src = SUBREG_REG (operands[1]);
+      enum machine_mode mode = GET_MODE (src);
+
+      if (MEM_P (operands[0]))
+	{
+	  rtx dst = adjust_address (operands[0], mode, 0);
+	  emit_move_insn (dst, src);
+	}
+      else
+	{
+	  rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+	  emit_move_insn (simplify_gen_subreg (mode, stack, DImode, 4), src);
+	  emit_insn (gen_di2sd_internal (operands[0], stack));
+	}
+      DONE;
+    }
+  else if (REG_P (operands[0]) && REGNO (operands[0]) <= 31
+	   && REG_P (operands[1]) && REGNO (operands[1]) > 31)
+    {
+      enum machine_mode mode = GET_MODE (operands[0]);
+      rtx subreg = simplify_gen_subreg (SImode, operands[0], mode, 0);
+      rtx stack = assign_stack_temp (DImode, GET_MODE_SIZE (DImode), 0);
+      emit_insn (gen_sd2di_internal (stack, operands[1]));
+      emit_move_insn (subreg, adjust_address (stack, SImode, 4));
+      DONE;
+    }
+  else
+    rs6000_emit_move (operands[0], operands[1], SDmode);
+  DONE;
+}")
+
+; Here, we use (set (reg) (unspec:DI [(fix:SI ...)] UNSPEC_FCTIWZ))
+; rather than (set (subreg:SI (reg)) (fix:SI ...))
+; because the first makes it clear that operand 0 is not live
+; before the instruction.
+
+(define_insn "sd2di_internal"
+  [(set (match_operand:DI 0 "memory_operand" "=o")
+	(unspec:DI [(match_operand:SD 1 "gpc_reg_operand" "f")]
+		   UNSPEC_MOVSD_F2M))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "stfd%U0%X0 %1,%0"
+  [(set_attr "type" "fpstore")])
+
+(define_insn "di2sd_internal"
+  [(set (match_operand:SD 0 "gpc_reg_operand" "=f,r")
+	(unspec:SD [(match_operand:DI 1 "memory_operand" "o,o")]
+		   UNSPEC_MOVSD_M2F))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "lfd%U1%X1 %0,%1"
+  [(set_attr "type" "fpload")])
+
+(define_split
+  [(set (match_operand:SD 0 "gpc_reg_operand" "")
+	(match_operand:SD 1 "const_double_operand" ""))]
+  "reload_completed
+   && ((GET_CODE (operands[0]) == REG && REGNO (operands[0]) <= 31)
+       || (GET_CODE (operands[0]) == SUBREG
+	   && GET_CODE (SUBREG_REG (operands[0])) == REG
+	   && REGNO (SUBREG_REG (operands[0])) <= 31))"
+  [(set (match_dup 2) (match_dup 3))]
+  "
+{
+  long l;
+  REAL_VALUE_TYPE rv;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (rv, operands[1]);
+  REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+
+  if (! TARGET_POWERPC64)
+    operands[2] = operand_subword (operands[0], 0, 0, SDmode);
+  else
+    operands[2] = gen_lowpart (SImode, operands[0]);
+
+  operands[3] = gen_int_mode (l, SImode);
+}")
+
+(define_insn "movsd_hardfloat"
+  [(set (match_operand:SD 0 "nonimmediate_operand" "=!r,!r,m,f,f,m,*c*l,*q,!r,*h,!r,!r")
+	(match_operand:SD 1 "input_operand" "r,m,r,f,m,f,r,r,h,0,G,Fn"))]
+  "(gpc_reg_operand (operands[0], SDmode)
+   || gpc_reg_operand (operands[1], SDmode))
+   && TARGET_HARD_FLOAT && TARGET_FPRS"
+  "@
+   mr %0,%1
+   {l%U1%X1|lwz%U1%X1} %0,%1
+   {st%U0%X0|stw%U0%X0} %1,%0
+   fmr %0,%1
+   lfd%U1%X1 %0,%1
+   stfd%U0%X0 %1,%0
+   mt%0 %1
+   mt%0 %1
+   mf%1 %0
+   {cror 0,0,0|nop}
+   #
+   #"
+  [(set_attr "type" "*,load,store,fp,fpload,fpstore,mtjmpr,*,mfjmpr,*,*,*")
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4,8")])
+
+(define_insn "movsd_softfloat"
+  [(set (match_operand:SD 0 "nonimmediate_operand" "=r,cl,q,r,r,m,r,r,r,r,r,*h")
+	(match_operand:SD 1 "input_operand" "r,r,r,h,m,r,I,L,R,G,Fn,0"))]
+  "(gpc_reg_operand (operands[0], SDmode)
+   || gpc_reg_operand (operands[1], SDmode))
+   && (TARGET_SOFT_FLOAT || !TARGET_FPRS)"
+  "@
+   mr %0,%1
+   mt%0 %1
+   mt%0 %1
+   mf%1 %0
+   {l%U1%X1|lwz%U1%X1} %0,%1
+   {st%U0%X0|stw%U0%X0} %1,%0
+   {lil|li} %0,%1
+   {liu|lis} %0,%v1
+   {cal|la} %0,%a1
+   #
+   #
+   {cror 0,0,0|nop}"
+  [(set_attr "type" "*,mtjmpr,*,mfjmpr,load,store,*,*,*,*,*,*")
+   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,8,4")])
+
+(define_expand "negdd2"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+        (neg:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*negdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+        (neg:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fneg %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_expand "absdd2"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "")
+        (abs:DD (match_operand:DD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*absdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+        (abs:DD (match_operand:DD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fabs %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*nabsdd2_fpr"
+  [(set (match_operand:DD 0 "gpc_reg_operand" "=f")
+        (neg:DD (abs:DD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fnabs %0,%1"
+  [(set_attr "type" "fp")])
+
 (define_expand "movdd"
   [(set (match_operand:DD 0 "nonimmediate_operand" "")
 	(match_operand:DD 1 "any_operand" ""))]
@@ -119,7 +343,7 @@
 (define_insn "*movdd_hardfloat32"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=!r,??r,m,f,f,m,!r,!r,!r")
 	(match_operand:DD 1 "input_operand" "r,m,r,f,m,f,G,H,F"))]
-  "! TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS && ENABLE_DECIMAL_FLOAT
+  "! TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "*
@@ -212,7 +436,7 @@
 (define_insn "*movdd_softfloat32"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=r,r,m,r,r,r")
 	(match_operand:DD 1 "input_operand" "r,m,r,G,H,F"))]
-  "! TARGET_POWERPC64 && TARGET_SOFT_FLOAT && ENABLE_DECIMAL_FLOAT
+  "! TARGET_POWERPC64 && TARGET_SOFT_FLOAT
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "*
@@ -255,7 +479,7 @@
 (define_insn "*movdd_hardfloat64"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=Y,r,!r,f,f,m,*c*l,!r,*h,!r,!r,!r")
 	(match_operand:DD 1 "input_operand" "r,Y,r,f,m,f,r,h,0,G,H,F"))]
-  "TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS && ENABLE_DECIMAL_FLOAT
+  "TARGET_POWERPC64 && TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "@
@@ -277,7 +501,7 @@
 (define_insn "*movdd_softfloat64"
   [(set (match_operand:DD 0 "nonimmediate_operand" "=r,Y,r,cl,r,r,r,r,*h")
 	(match_operand:DD 1 "input_operand" "Y,r,r,r,h,G,H,F,0"))]
-  "TARGET_POWERPC64 && (TARGET_SOFT_FLOAT || !TARGET_FPRS) && ENABLE_DECIMAL_FLOAT
+  "TARGET_POWERPC64 && (TARGET_SOFT_FLOAT || !TARGET_FPRS)
    && (gpc_reg_operand (operands[0], DDmode)
        || gpc_reg_operand (operands[1], DDmode))"
   "@
@@ -293,10 +517,43 @@
   [(set_attr "type" "load,store,*,mtjmpr,mfjmpr,*,*,*,*")
    (set_attr "length" "4,4,4,4,4,8,12,16,4")])
 
+(define_expand "negtd2"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "")
+        (neg:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*negtd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+        (neg:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fneg %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_expand "abstd2"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "")
+        (abs:TD (match_operand:TD 1 "gpc_reg_operand" "")))]
+  "TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)"
+  "")
+
+(define_insn "*abstd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+        (abs:TD (match_operand:TD 1 "gpc_reg_operand" "f")))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fabs %0,%1"
+  [(set_attr "type" "fp")])
+
+(define_insn "*nabstd2_fpr"
+  [(set (match_operand:TD 0 "gpc_reg_operand" "=f")
+        (neg:TD (abs:TD (match_operand:DF 1 "gpc_reg_operand" "f"))))]
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
+  "fnabs %0,%1"
+  [(set_attr "type" "fp")])
+
 (define_expand "movtd"
   [(set (match_operand:TD 0 "general_operand" "")
 	(match_operand:TD 1 "any_operand" ""))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS && ENABLE_DECIMAL_FLOAT"
+  "TARGET_HARD_FLOAT && TARGET_FPRS"
   "{ rs6000_emit_move (operands[0], operands[1], TDmode); DONE; }")
 
 ; It's important to list the o->f and f->o moves before f->f because
@@ -305,7 +562,7 @@
 (define_insn_and_split "*movtd_internal"
   [(set (match_operand:TD 0 "nonimmediate_operand" "=o,f,f,r,Y,r")
 	(match_operand:TD 1 "input_operand"         "f,o,f,YGHF,r,r"))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS && ENABLE_DECIMAL_FLOAT
+  "TARGET_HARD_FLOAT && TARGET_FPRS
    && (gpc_reg_operand (operands[0], TDmode)
        || gpc_reg_operand (operands[1], TDmode))"
   "#"

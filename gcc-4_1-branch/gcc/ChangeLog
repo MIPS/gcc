@@ -1,3 +1,33 @@
+2007-04-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* reload1.c (alter_reg): Use DDmode spill slots for SDmode.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Treat SDmode
+	similar to the other floating point modes.
+	(function_arg_advance): Likewise.
+	(function_arg): Likewise.
+	(num_insns_constant): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_emit_move): Likewise.  Force SDmode copies to go through
+	the integer registers.
+	(rs6000_gimplify_va_arg): Likewise.  Compensate SDmode var args
+	in 32-bit mode.
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Treat SDmode
+	similar to the other floating point modes.
+	(SECONDARY_MEMORY_NEEDED): Treat SDmode and DDmode modes similar
+	to the other floating point modes.
+	(SECONDARY_MEMORY_NEEDED_RTX): Define.
+	* config/rs6000/dfp.md (movsd, negdd2, absdd2, negtd2, abstd2): New
+	define_exands.
+	(sd2di_internal, di2sd_internal, movsd_hardfloat, movsd_softfloat,
+	negdd2_fpr, absdd2_fpr, nabsdd2_fpr, negtd2_fpr, abstd2_fpr,
+	nabstd2_fpr): New define_insns.
+	(movsd splitters): New define_split.
+	(movdd_hardfloat32, movdd_softfloat32, movdd_hardfloat64,
+	movdd_softfloat64, movtd, movtd_internal): Remove ENABLE_DECIMAL_FLOAT.
+	* config/rs6000/rs6000.md (UNSPEC_MOVSD_F2M, UNSPEC_MOVSD_M2F): New.
+
 2007-04-03  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/rs6000/rs6000.c (function_arg_advance): Clarify comment and

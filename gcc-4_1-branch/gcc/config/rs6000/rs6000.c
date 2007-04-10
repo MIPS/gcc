@@ -1076,7 +1076,6 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
-       && mode != SDmode
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);
@@ -2084,13 +2083,16 @@ num_insns_constant (rtx op, enum machine_mode mode)
 	return num_insns_constant_wide (INTVAL (op));
 
       case CONST_DOUBLE:
-	if (mode == SFmode)
+	if (mode == SFmode || mode == SDmode)
 	  {
 	    long l;
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	    if (DECIMAL_FLOAT_MODE_P (mode))
+	      REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+	    else
+	      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 	    return num_insns_constant_wide ((HOST_WIDE_INT) l);
 	  }
 
@@ -3984,6 +3986,21 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       return;
     }
 
+  /* Force SDmode MEM to MEM copies to go through the integer registers
+     since non POWER6 hardware cannot load 32-bit quantities into the
+     FP registers without munging the bits.  */
+  if (mode == SDmode
+      && TARGET_HARD_FLOAT && TARGET_FPRS
+      && GET_CODE (operands[0]) == MEM
+      && GET_CODE (operands[1]) == MEM
+      && ! MEM_VOLATILE_P (operands [0])
+      && ! MEM_VOLATILE_P (operands [1]))
+    {
+      emit_move_insn (adjust_address (operands[0], SImode, 0),
+		      adjust_address (operands[1], SImode, 0));
+      return;
+    }
+
   if (!no_new_pseudos && GET_CODE (operands[0]) == MEM
       && !gpc_reg_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
@@ -4083,6 +4100,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
     case DDmode:
     case DFmode:
+    case SDmode:
     case SFmode:
       if (CONSTANT_P (operands[1])
 	  && ! easy_fp_constant (operands[1], mode))
@@ -4294,7 +4312,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
   (SCALAR_FLOAT_MODE_P (MODE)			\
-   && (MODE) != SDmode				\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -4771,7 +4788,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
-	      || mode == DDmode || mode == TDmode
+	      || mode == SDmode || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
 	  /* TDmode must be passed in an even/odd float register pair.
@@ -4838,7 +4855,6 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words = align_words + n_words;
 
       if (SCALAR_FLOAT_MODE_P (mode)
-	  && mode != SDmode
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
 	  /* TDmode must be passed in an even/odd float register pair.
@@ -5322,7 +5338,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
-	      || mode == DDmode || mode == TDmode
+	      || mode == SDmode || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
 	  /* TDmode must be passed in an even/odd float register pair.
@@ -5997,6 +6013,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       && (TYPE_MODE (type) == SFmode
 	  || TYPE_MODE (type) == DFmode
 	  || TYPE_MODE (type) == TFmode
+	  || TYPE_MODE (type) == SDmode
 	  || TYPE_MODE (type) == DDmode
 	  || TYPE_MODE (type) == TDmode))
     {
@@ -6005,7 +6022,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       n_reg = (size + 7) / 8;
       sav_ofs = 8*4;
       sav_scale = 8;
-      if (TYPE_MODE (type) != SFmode)
+      if (TYPE_MODE (type) != SFmode && TYPE_MODE (type) != SDmode)
 	align = 8;
     }
   else
@@ -6067,6 +6084,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = build1 (CONVERT_EXPR, integer_type_node, u);
       u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
       t = build2 (PLUS_EXPR, ptr_type_node, t, u);
+
+      /* 32-bit _Decimal32 varargs are located in the second word
+	 of the 64-bit FP register.  */
+      if (!TARGET_POWERPC64 && TYPE_MODE (type) == SDmode)
+	t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
 
       t = build2 (MODIFY_EXPR, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
@@ -15535,6 +15557,7 @@ rs6000_output_function_epilogue (FILE *file,
 		      switch (mode)
 			{
 			case SFmode:
+			case SDmode:
 			  bits = 0x2;
 			  break;
 
@@ -19824,29 +19847,9 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else
     mode = TYPE_MODE (valtype);
 
-  if (DECIMAL_FLOAT_MODE_P (mode))
-    {
-      if (TARGET_HARD_FLOAT && TARGET_FPRS)
-	{
-	  switch (mode)
-	    {
-	    default:
-	      gcc_unreachable ();
-	    case SDmode:
-	      regno = GP_ARG_RETURN;
-	      break;
-	    case DDmode:
-	      regno = FP_ARG_RETURN;
-	      break;
-	    case TDmode:
-	      /* Use f2:f3 specified by the ABI.  */
-	      regno = FP_ARG_RETURN + 1;
-	      break;
-	    }
-	}
-      else
-	regno = GP_ARG_RETURN;
-    }
+  if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
+    /* _Decimal128 must use an even/odd register pair.  */
+    regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
   else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -19886,29 +19889,9 @@ rs6000_libcall_value (enum machine_mode mode)
 				      GEN_INT (4))));
     }
 
-  if (DECIMAL_FLOAT_MODE_P (mode))
-    {
-      if (TARGET_HARD_FLOAT && TARGET_FPRS)
-	{
-	  switch (mode)
-	    {
-	    default:
-	      gcc_unreachable ();
-	    case SDmode:
-	      regno = GP_ARG_RETURN;
-	      break;
-	    case DDmode:
-	      regno = FP_ARG_RETURN;
-	      break;
-	    case TDmode:
-	      /* Use f2:f3 specified by the ABI.  */
-	      regno = FP_ARG_RETURN + 1;
-	      break;
-	    }
-	}
-      else
-	regno = GP_ARG_RETURN;
-    }
+  if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
+    /* _Decimal128 must use an even/odd register pair.  */
+    regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
   else if (SCALAR_FLOAT_MODE_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;

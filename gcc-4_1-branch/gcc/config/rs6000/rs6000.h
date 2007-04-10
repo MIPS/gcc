@@ -587,6 +587,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
@@ -1230,12 +1231,22 @@ enum reg_class
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
  ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
                             && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				|| ((MODE != DFmode) \
+				    && (MODE != DDmode) \
+				    && (MODE != DImode)))) \
 			   || ((CLASS2) == FLOAT_REGS			\
                                && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				|| ((MODE != DFmode) \
+				    && (MODE != DDmode) \
+				    && (MODE != DImode)))) \
 			   || (CLASS1) == ALTIVEC_REGS			\
-			   || (CLASS2) == ALTIVEC_REGS))
+			   || (CLASS2) == ALTIVEC_REGS		\
+			   || (MODE) == SDmode))
+
+#define SECONDARY_MEMORY_NEEDED_RTX(MODE)			\
+ assign_stack_local (MODE, ((MODE) == SDmode) ?			\
+			    GET_MODE_SIZE (DDmode) :		\
+			    GET_MODE_SIZE (MODE), 0)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.

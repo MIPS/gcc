@@ -1965,6 +1965,9 @@ alter_reg (int i, int from_reg)
       unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]);
       int adjust = 0;
 
+      if (GET_MODE (regno_reg_rtx[i]) == SDmode)
+	total_size = MAX (total_size, GET_MODE_SIZE (DDmode));
+
       /* Each pseudo reg has an inherent size which comes from its own mode,
 	 and a total size which provides room for paradoxical subregs
 	 which refer to the pseudo reg in wider modes.
