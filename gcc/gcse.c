@@ -1733,8 +1733,11 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 	{
 	  /* An expression is not anticipatable if its operands are
 	     modified before this insn or if this is not the only SET in
-	     this insn.  */
-	  int antic_p = oprs_anticipatable_p (src, insn) && single_set (insn);
+	     this insn.  The latter condition does not have to mean that
+	     SRC itself is not anticipatable, but we just will not be
+	     able to handle code motion of insns with multiple sets.  */
+	  int antic_p = oprs_anticipatable_p (src, insn)
+			&& !multiple_sets (insn);
 	  /* An expression is not available if its operands are
 	     subsequently modified, including this insn.  It's also not
 	     available if this is a branch, because we can't insert
@@ -4918,7 +4921,7 @@ hoist_code (void)
       if (! found)
         {
 	  free (domby);
-	continue;
+	  continue;
 	}
 
       /* Loop over all the hoistable expressions.  */

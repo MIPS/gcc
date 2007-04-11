@@ -906,11 +906,6 @@ fixup_reorder_chain (void)
 
   relink_block_chain (/*stay_in_cfglayout_mode=*/false);
 
-  /* Now that the prev and next ptrs are in place, let compact_blocks
-     deal with the array and the indexes.  It knows how to keep the
-     dataflow up to date.  */
-  compact_blocks ();
-
   /* Annoying special case - jump around dead jumptables left in the code.  */
   FOR_EACH_BB (bb)
     {

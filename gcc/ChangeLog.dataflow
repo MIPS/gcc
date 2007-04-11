@@ -1,3 +1,10 @@
+2007-04-11  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gcse.c (hash_scan_set): Make sure that INSN has only one
+	SET in its PATTERN before making SRC anticipatable.
+	* cfglayout.c (fixup_reorder_chain): Fix merge error, don't
+	call compact_blocks here.
+
 2007-04-09  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-core.c (add_problem): Keep the problem sorted in
