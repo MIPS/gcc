@@ -1,3 +1,15 @@
+2007-04-10  Chao-ying Fu  <fu@mips.com>
+
+	* fold-const.c (make_range): For fixed-point modes, we need to pass the
+	saturating flag as the 2nd parameter.
+	* c-typeck.c (c_common_type): Follow the sign of the fixed-point type,
+	if the other one has an integer type.
+	* tree-vect-generic.c (type_for_widest_vector_mode): Add one parameter
+	for the saturating flag.  Pass it to type_for_mode for fixed-point
+	types.
+	(expand_vector_operations_1): Pass the saturating flag to
+	type_for_widest_vector_mode.
+
 2007-04-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* langhooks-def.h (LANG_HOOKS_INITIALIZER): Remove

@@ -345,9 +345,11 @@ expand_vector_operation (block_stmt_iterator *bsi, tree type, tree compute_type,
 }
 
 /* Return a type for the widest vector mode whose components are of mode
-   INNER_MODE, or NULL_TREE if none is found.  */
+   INNER_MODE, or NULL_TREE if none is found.
+   SATP is true for saturating fixed-point types.  */
+
 static tree
-type_for_widest_vector_mode (enum machine_mode inner_mode, optab op)
+type_for_widest_vector_mode (enum machine_mode inner_mode, optab op, int satp)
 {
   enum machine_mode best_mode = VOIDmode, mode;
   int best_nunits = 0;
@@ -374,7 +376,13 @@ type_for_widest_vector_mode (enum machine_mode inner_mode, optab op)
   if (best_mode == VOIDmode)
     return NULL_TREE;
   else
-    return lang_hooks.types.type_for_mode (best_mode, 1);
+    {
+      /* For fixed-point modes, we need to pass satp as the 2nd parameter.  */
+      if (ALL_FIXED_POINT_MODE_P (best_mode))
+	return lang_hooks.types.type_for_mode (best_mode, satp);
+
+      return lang_hooks.types.type_for_mode (best_mode, 1);
+    }
 }
 
 /* Process one statement.  If we identify a vector operation, expand it.  */
@@ -450,7 +458,8 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   if (TYPE_MODE (type) == BLKmode && op)
     {
       tree vector_compute_type
-        = type_for_widest_vector_mode (TYPE_MODE (TREE_TYPE (type)), op);
+        = type_for_widest_vector_mode (TYPE_MODE (TREE_TYPE (type)), op,
+				       TYPE_SATURATING (TREE_TYPE (type)));
       if (vector_compute_type != NULL_TREE)
         compute_type = vector_compute_type;
     }

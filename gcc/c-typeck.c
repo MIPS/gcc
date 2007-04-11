@@ -698,9 +698,16 @@ c_common_type (tree t1, tree t2)
       if (TYPE_SATURATING (t1) || TYPE_SATURATING (t2))
 	satp = 1;
 
-      /* If both types are unsigned, the result type is unsigned.
+      /* If both fixed-point types are unsigned, the result type is unsigned.
+	 When mixing fixed-point and integer types, follow the sign of the
+	 fixed-point type.
 	 Otherwise, the result type is signed.  */
-      if (TYPE_UNSIGNED (t1) && TYPE_UNSIGNED (t2))
+      if ((TYPE_UNSIGNED (t1) && TYPE_UNSIGNED (t2)
+	   && code1 == FIXED_POINT_TYPE && code2 == FIXED_POINT_TYPE) 
+	  || (code1 == FIXED_POINT_TYPE && code2 != FIXED_POINT_TYPE
+	      && TYPE_UNSIGNED (t1))
+	  || (code1 != FIXED_POINT_TYPE && code2 == FIXED_POINT_TYPE
+	      && TYPE_UNSIGNED (t2)))
 	unsignedp = 1;
 
       /* The result type is signed.  */

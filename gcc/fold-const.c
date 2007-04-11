@@ -4479,8 +4479,16 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh,
 	  if (!TYPE_UNSIGNED (exp_type) && TYPE_UNSIGNED (arg0_type))
 	    {
 	      tree high_positive;
-	      tree equiv_type = lang_hooks.types.type_for_mode
-		(TYPE_MODE (arg0_type), 1);
+	      tree equiv_type;
+	      /* For fixed-point modes, we need to pass satp as the 2nd
+		 parameter.  */
+	      if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (arg0_type)))
+		equiv_type = lang_hooks.types.type_for_mode
+			     (TYPE_MODE (arg0_type),
+			      TYPE_SATURATING (arg0_type));
+	      else
+		equiv_type = lang_hooks.types.type_for_mode
+			     (TYPE_MODE (arg0_type), 1);
 
 	      /* A range without an upper bound is, naturally, unbounded.
 		 Since convert would have cropped a very large value, use
