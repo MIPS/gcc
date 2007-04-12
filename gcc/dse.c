@@ -211,11 +211,11 @@ struct store_info {
   /* This is the cselib value.  */
   cselib_val *cse_base;
 
-  /* This original mem.  */
+  /* This canonized mem.  */
   rtx mem;
 
-  /* This canonized address of mem.  */
-  rtx address;
+  /* The result of get_addr on mem.  */
+  rtx mem_addr;
 
   /* If this is non-zero, it is the alias set of a spill location.  */
   HOST_WIDE_INT alias_set;
@@ -913,10 +913,12 @@ add_wild_read (bb_info_t bb_info)
 /* Take all reasonable action to put the address of MEM into the form 
    that we can do analysis on.  
 
-   The gold standard is to get the address into the form: ADDRESS +
-   OFFSET where ADDRESS is something that rtx_varies_p considers a
+   The gold standard is to get the address into the form: address +
+   OFFSET where address is something that rtx_varies_p considers a
    constant.  When we can get the address in this form, we can do
-   global analysis on it.  
+   global analysis on it.  Note that for constant bases, address is
+   not actually returned, only the group_id.  The address can be
+   obtained from that.
 
    If that fails, we try cselib to get a value we can at least use
    locally.  If that fails we return false.  
@@ -929,7 +931,7 @@ add_wild_read (bb_info_t bb_info)
 static bool
 canon_address (bool for_read, bb_info_t bb_info, rtx mem,
 	       HOST_WIDE_INT *alias_set_out,
-	       rtx *address_out, int *group_id,
+	       int *group_id,
 	       HOST_WIDE_INT *offset, 
 	       cselib_val **base)
 {
@@ -996,7 +998,6 @@ canon_address (bool for_read, bb_info_t bb_info, rtx mem,
 
   /* Split the address into canonical BASE + OFFSET terms.  */
   address = canon_rtx (simplified_address);
-  *address_out = address;
 
   *offset = 0;
 
@@ -1061,7 +1062,6 @@ static int
 record_store (rtx body, bb_info_t bb_info)
 {
   rtx mem;
-  rtx address = NULL;
   HOST_WIDE_INT offset = 0;
   HOST_WIDE_INT width = 0;
   HOST_WIDE_INT spill_alias_set;
@@ -1114,7 +1114,7 @@ record_store (rtx body, bb_info_t bb_info)
       insn_info->cannot_delete = true;
 
   if (!canon_address (false, bb_info, mem, 
-		      &spill_alias_set, &address, &group_id, &offset, &base))
+		      &spill_alias_set, &group_id, &offset, &base))
     return 0;
 
   width = GET_MODE_SIZE (GET_MODE (mem));
@@ -1240,9 +1240,9 @@ record_store (rtx body, bb_info_t bb_info)
   /* Finish filling in the store_info.  */
   store_info->next = insn_info->store_rec;
   insn_info->store_rec = store_info;
-  store_info->mem = mem;
+  store_info->mem = canon_rtx (mem);
   store_info->alias_set = spill_alias_set;
-  store_info->address = address;
+  store_info->mem_addr = get_addr (XEXP (mem, 0));
   store_info->cse_base = base;
   store_info->positions_needed = sbitmap_alloc (width);
   sbitmap_ones (store_info->positions_needed);
@@ -1275,7 +1275,6 @@ static int
 check_mem_read_rtx (rtx *loc, void *data)
 {
   rtx mem = *loc;
-  rtx address;
   bb_info_t bb_info;
   insn_info_t insn_info;
   HOST_WIDE_INT offset = 0;
@@ -1310,7 +1309,7 @@ check_mem_read_rtx (rtx *loc, void *data)
     return 0;
 
   if (!canon_address (true, bb_info, mem, 
-		      &spill_alias_set, &address, &group_id, &offset, &base))
+		      &spill_alias_set, &group_id, &offset, &base))
     {
       if (dump_file)
 	fprintf (dump_file, " adding wild read, canon_address failure.\n");
@@ -1400,7 +1399,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 	    remove 
 	      = canon_true_dependence (store_info->mem, 
 				       GET_MODE (store_info->mem),
-				       store_info->address,
+				       store_info->mem_addr,
 				       mem, rtx_varies_p);
 	  
 	  else if (group_id == store_info->group_id)
@@ -1411,7 +1410,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 		remove 
 		  = canon_true_dependence (store_info->mem, 
 					   GET_MODE (store_info->mem),
-					   store_info->address,
+					   store_info->mem_addr,
 					   mem, rtx_varies_p);
 	      
 	      /* The bases are the same, just see if the offsets
@@ -1468,7 +1467,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 	  if (!store_info->alias_set)
 	    remove = canon_true_dependence (store_info->mem, 
 					    GET_MODE (store_info->mem),
-					    store_info->address,
+					    store_info->mem_addr,
 					    mem, rtx_varies_p);
 	  
 	  if (remove)

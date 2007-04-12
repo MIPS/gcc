@@ -5058,11 +5058,6 @@ cse_insn (rtx insn, rtx libcall_insn)
       else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF
 	       && !LABEL_REF_NONLOCAL_P (src))
 	{
-	  /* Now emit a BARRIER after the unconditional jump.  */
-	  if (NEXT_INSN (insn) == 0
-	      || !BARRIER_P (NEXT_INSN (insn)))
-	    emit_barrier_after (insn);
-
 	  /* We reemit the jump in as many cases as possible just in
 	     case the form of an unconditional jump is significantly
 	     different than a computed jump or conditional jump.
@@ -5088,11 +5083,6 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	      delete_insn_and_edges (insn);
 	      insn = new;
-
-	      /* Now emit a BARRIER after the unconditional jump.  */
-	      if (NEXT_INSN (insn) == 0
-		  || !BARRIER_P (NEXT_INSN (insn)))
-		emit_barrier_after (insn);
 	    }
 	  else
 	    INSN_CODE (insn) = -1;

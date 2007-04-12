@@ -923,18 +923,25 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active)
 	      rtx result;
 	      int regno = REGNO (orig);
 	      
-	      /* The one thing that we are not willing to do (and this
-		 is requirement of dse and if others need this
-		 function we should add a parm to control it) is that
-		 we will not substitute the STACK_POINTER_REGNUM.  
+	      /* The several thing that we are not willing to do (this
+		 is requirement of dse and if others potiential uses
+		 need this function we should add a parm to control
+		 it) is that we will not substitute the
+		 STACK_POINTER_REGNUM, FRAME_POINTER or the
+		 HARD_FRAME_POINTER.
 
-		 Such an expansion confuses the code that notices that
-		 stores go dead to the frame at the end of the
+		 Thses expansions confuses the code that notices that
+		 stores into the frame go dead at the end of the
 		 function and that the frame is not effected by calls
-		 to subroutines.  If you allow the substitution, then
-		 the dse code will think that parameter pushing also
-		 goes dead.  */
-	      if (regno == STACK_POINTER_REGNUM)
+		 to subroutines.  If you allow the
+		 STACK_POINTER_REGNUM substitution, then dse will
+		 think that parameter pushing also goes dead which is
+		 wrong.  If you allow the FRAME_POINTER or the
+		 HARD_FRAME_POINTER then you loose the opportunity to
+		 make the frame assumptions.  */
+	      if (regno == STACK_POINTER_REGNUM
+		  || regno == FRAME_POINTER_REGNUM
+		  || regno == HARD_FRAME_POINTER_REGNUM)
 		return orig;
 
 	      bitmap_set_bit (regs_active, regno);
