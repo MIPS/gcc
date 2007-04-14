@@ -108,7 +108,7 @@ hoist_ref (invariant_type_t *global_data, tree object, tree var,
 }
 
 static void
-inv_walk_block (struct dom_walk_data *walk_data, basic_block bb,
+inv_walk_block (struct dom_walk_data *walk_data, basic_block bb __attribute__((unused)),
 		block_stmt_iterator iter)
 {
   invariant_type_t *global_data = (invariant_type_t *) walk_data->global_data;
@@ -183,7 +183,8 @@ inv_clean_block (struct dom_walk_data *walk_data, basic_block bb)
     }
 }
 
-static unsigned int
+unsigned int gcj_invariants (void);
+unsigned int
 gcj_invariants (void)
 {
   struct dom_walk_data walk_data;
@@ -191,6 +192,8 @@ gcj_invariants (void)
 
   recs = XNEWVEC (invariant_type_t, num_ssa_names);
   memset (recs, 0, num_ssa_names * sizeof (invariant_type_t));
+
+  calculate_dominance_info (CDI_DOMINATORS);
 
   init_walk_dominator_tree (&walk_data);
   walk_data.walk_stmts_backward = false;
@@ -213,6 +216,7 @@ gcj_invariants (void)
 
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
+  free_dominance_info (CDI_DOMINATORS);
 
   free (recs);
   return 0;
@@ -238,6 +242,7 @@ struct tree_opt_pass pass_gcj_invariant =
   0					/* letter */
 };
 
+void init_gcj_invariant (void);
 void
 init_gcj_invariant (void)
 {

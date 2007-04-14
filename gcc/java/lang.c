@@ -599,10 +599,10 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   no_unit_at_a_time_default = 1;
 
   jcf_path_init ();
+  init_gcj_stack_allocate (); /* Do this first so that the others can join just before it */
   init_gcj_necessary ();
   init_gcj_devirt ();
   init_gcj_invariant ();
-  init_gcj_stack_allocate ();
 
   return CL_Java;
 }

@@ -36,10 +36,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
+#include "tree-inline.h"
+#include "ipa-utils.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "target.h"
 #include "java-tree.h"
+
+/* TODO a post-pass to check for cloning violations. Issue a warning, and
+ * replace the call, and the remainder of the try block, with the contents
+ * of the catch block. Alternately, remove the catch block */
+
+void init_gcj_devirt (void);
+void register_dump_files (struct tree_opt_pass*, bool, int);
 
 /*
  * TO DO: special-case string constants
@@ -58,22 +67,22 @@ struct devirt_type_d
 //#define Dprint_generic_stmt print_generic_expr
 #define Dprint_generic_stmt if (dump_file) print_generic_stmt
 
-static void nop (FILE* a, ...) { }
-static void nopex (FILE* a, ...) { }
+//static void nop (FILE* a __attribute__ ((unused)), ...) { }
+//static void nopex (FILE* a __attribute__ ((unused)), ...) { }
 
-enum ssa_prop_result 
+static enum ssa_prop_result 
 pass_through (enum ssa_prop_result result)
 {
   switch (result)
     {
     case SSA_PROP_NOT_INTERESTING:
-      Dprintf (dump_file, "Result: NOT\n"); 
+//      Dprintf (dump_file, "Result: NOT\n"); 
       break;
     case SSA_PROP_INTERESTING:
-      Dprintf (dump_file, "Result: INT\n");
+//      Dprintf (dump_file, "Result: INT\n");
       break;
     case SSA_PROP_VARYING:
-      Dprintf (dump_file, "Result: VAR\n");
+//      Dprintf (dump_file, "Result: VAR\n");
       break;
     default:
       gcc_unreachable ();
@@ -223,7 +232,9 @@ copy_type (tree lhs, tree rhs)
 }
 
 static enum ssa_prop_result
-devirt_visit_statement (tree node, edge *taken_edge_p, tree *result_p)
+devirt_visit_statement (tree node, 
+			edge *taken_edge_p __attribute__((unused)), 
+			tree *result_p __attribute__((unused)))
 {
   Dprintf (dump_file, "Checking statement: ");
   Dprint_generic_stmt (dump_file, node, 0);
@@ -375,6 +386,80 @@ replace_call (tree *stmt, tree method, devirt_type_t *vtype)
 }
 
 static void
+remove_stmt (tree stmt)
+{
+  basic_block bb = bb_for_stmt (stmt);
+  block_stmt_iterator i; 
+
+  fprintf (dump_file, "Removing statement from block %d: ", bb->index);
+  print_generic_stmt (dump_file, stmt, 0);
+
+  for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+    {
+      if (bsi_stmt (i) == stmt)
+	{
+	  bsi_remove (&i, true); /* We're not putting this back anywhere */
+	  return;
+	}
+    }
+  gcc_unreachable ();
+}
+
+/* Find the indirect call related to the lhs of STMT, and replace it with
+ * the rhs. Remove inconvenient statements along the way, in particular
+ * vtable offseting and casts. */
+static void
+propagate_function_value_to_call (tree stmt)
+{
+  gcc_assert (GIMPLE_STMT_P (stmt));
+  tree addr_expr = GIMPLE_STMT_OPERAND (stmt, 1);
+  tree function = TREE_OPERAND (addr_expr, 0);
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
+  tree var = GIMPLE_STMT_OPERAND (stmt, 0);
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+  imm_use_iterator iter;
+  use_operand_p use_p;
+  int count;
+
+  /* First, find the cast to the pointer type */
+  count = 0;
+  tree use_stmt1;
+  FOR_EACH_IMM_USE_FAST (use_p, iter, var)
+    {
+      count++;
+      use_stmt1 = USE_STMT (use_p);
+    }
+  gcc_assert (count == 1);
+  gcc_assert (GIMPLE_STMT_P (use_stmt1));
+  tree nop_expr = GIMPLE_STMT_OPERAND (use_stmt1, 1);
+  gcc_assert (TREE_CODE (nop_expr) == NOP_EXPR);
+  tree casted_var = GIMPLE_STMT_OPERAND (use_stmt1, 0);
+  gcc_assert (TREE_CODE (casted_var) == SSA_NAME);
+  /* Check the type is as expected */
+  gcc_assert (TREE_TYPE (function) == TREE_TYPE (TREE_TYPE (nop_expr)));
+
+  /* Find the indirect function call*/
+  count = 0;
+  tree use_stmt2;
+  FOR_EACH_IMM_USE_FAST (use_p, iter, casted_var)
+    {
+      count++;
+      use_stmt2 = USE_STMT (use_p);
+    }
+  gcc_assert (count == 1);
+  tree current_function_call = get_call_expr_in (use_stmt2);
+  gcc_assert (TREE_CODE (TREE_OPERAND (current_function_call, 0)) == SSA_NAME);
+
+  /* replace with direct function call */
+  TREE_OPERAND (current_function_call, 0) = addr_expr;
+
+  mark_symbols_for_renaming (use_stmt2);
+  /* Now remove stmt and use_stmt1 */
+  remove_stmt (stmt);
+  remove_stmt (use_stmt1);
+}
+
+static void
 devirt_devirt (void)
 {
   basic_block bb;
@@ -382,7 +467,7 @@ devirt_devirt (void)
     {
       block_stmt_iterator i;
       bool redo_eh = false;
-      for (i = bsi_start (bb); !bsi_end_p (i); )
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
 	{
 	  tree method;
 	  devirt_type_t *vtype;
@@ -401,15 +486,14 @@ devirt_devirt (void)
 		  method = OBJ_TYPE_REF_TOKEN (objr);
 		  if (replace_call (&GIMPLE_STMT_OPERAND (stmt, 1), method, vtype))
 		    {
-		      recompute_tree_invariant_for_addr_expr (GIMPLE_STMT_OPERAND (stmt,
-										   1));
-		      mark_symbols_for_renaming (stmt);
+/*		      recompute_tree_invariant_for_addr_expr (GIMPLE_STMT_OPERAND (stmt,
+										   1));*/
+		      propagate_function_value_to_call (stmt);
+/*		      mark_symbols_for_renaming (stmt);*/
 		      redo_eh = true;
 		    }
 		}
 	    }
-
-	  bsi_next (&i);
 	}
 
       if (redo_eh)
@@ -418,15 +502,20 @@ devirt_devirt (void)
 
 }
 
-unsigned int
+static unsigned int
 devirt (void)
 {
   if (dump_file) fprintf (dump_file, "Beginning devirtualization\n");
+
+  /* Avoid printing propagation info */
+  FILE* saved = dump_file;
+  dump_file = NULL;
   devirt_initialize ();
 
   /* In the first phase, propagate type information.  */
   ssa_propagate (devirt_visit_statement, devirt_visit_phi);
 
+  dump_file = saved;
   /* In the second phase, devirtualize method calls.  */
   devirt_devirt ();
 
@@ -435,12 +524,65 @@ devirt (void)
   return 0;
 }
 
+
+static unsigned int
+ipa_devirt (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_node **order;
+  int order_pos;
+  int i;
+
+  if (sorrycount || errorcount)
+    return 0;
+
+  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order_pos = ipa_utils_reduced_inorder (order, true, false);
+
+  for (i = 0; i < order_pos; i++)
+    {
+      node = order[i];
+      if (node->analyzed)
+	{
+	  /* set up the current function */
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	  tree_register_cfg_hooks ();
+	  current_function_decl = node->decl;
+
+	  devirt ();
+
+	  /* Clean up function */
+	  current_function_decl = NULL;
+	  pop_cfun ();
+
+	}
+    }
+
+  /* Cleanup. */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      /* Get rid of the aux information.  */
+      if (node->aux)
+	{
+	  struct ipa_dfs_info *w_info;
+	  w_info = node->aux;
+	  if (w_info->aux)
+	    free (w_info->aux);
+	  free (node->aux);
+	  node->aux = NULL;
+	}
+    }
+  free (order);
+
+  return 0;
+}
+
 struct tree_opt_pass pass_gcj_devirtualize = 
 {
   "devirt",				/* name */
   NULL,					/* gate */
-  devirt,				/* execute */
-  NULL,					/* sub */
+  ipa_devirt,				/* execute */
+  &pass_rebuild_cgraph_edges,		/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
@@ -458,14 +600,14 @@ struct tree_opt_pass pass_gcj_devirtualize =
 
 
 extern struct tree_opt_pass pass_ipa_necessary;
+
 void
 init_gcj_devirt (void)
 {
   /* FIXME: GCC doesn't have a way to register lang-specific passes.  */
-  struct tree_opt_pass **p = &pass_all_optimizations.sub;
-  struct tree_opt_pass *next = &pass_merge_phi;
-
-  return; /*call this explicitly from escape pass */
+  /* I want this done before stack_allocation */
+  struct tree_opt_pass **p = &all_ipa_passes;
+  struct tree_opt_pass *next = &pass_ipa_stack_allocate;
 
   while (*p != next)
     p = &((*p)->next);

@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "vec.h"
+#include "hashtab.h"
 #include "statistics.h"
 
 enum con_node_type
@@ -71,26 +72,40 @@ typedef struct _con_edge *con_edge;
 DEF_VEC_P(con_node);
 DEF_VEC_ALLOC_P(con_node,heap);
 typedef VEC(con_node,heap) *con_node_vec;
+DEF_VEC_P(con_graph);
+DEF_VEC_ALLOC_P(con_graph,heap);
+typedef VEC(con_graph,heap) *con_graph_vec;
 
 struct _con_graph
 {
+  /* In order to iterate across, we keep a linked list of nodes */
   con_node root;
+
+  /* A hashtable of the nodes in the graph, accessed by add_node,
+   * get_existing_node and get_existing_field_node */
+  htab_t nodes;
+
+  /* For con_graph_dump */
   const char *filename;
 
   tree function;
+
+  /* Some congraphs represent functions outside the current compilation
+   * unit. This allows them to be named */
+  tree function_name;
 
   /* for the inter-procedural, we use a return node, and draw an edge
    * between it and each return node */
   con_node return_node;
 
-  /* in order to find the function, you need to cycle through the
-   * other available functions. This is a cyclic list, so if you find
-   * _function_, or null, the function you need isnt available */
-  con_graph next;
-
   /* I use this as a maximum size for MapsTo vectors */
   int num_objects;
 
+  /* The basic block that this graph represents */
+  int index;
+
+  /* The dump_index of the next node */
+  int dump_index;
 };
 
 
@@ -101,23 +116,17 @@ struct _con_node
    * '1-limited naming scheme' */
   tree id;
 
-  /* A link to the object who's field this node is */
-  con_node owner;
+  /* For field nodes, the id of the object to which this belongs */
+  tree owner;
 
   /* type */
   enum con_node_type type;
-
-  /* for object nodes, the class this node is an object of */
-  tree class_id;
 
   /* a phantom node is one which represents the existing value, when
    * no information about that value is provided. Currently this is
    * the object and fields of passed references, other references they
    * access, and the values of caller and callee parameters */
   bool phantom;
-
-  /* Actual nodes are references and searched by index */
-  int index;
 
   /* the linked list of incoming edges */
   con_edge in;
@@ -145,7 +154,6 @@ struct _con_node
   int dump_index;
 
   con_node_vec maps_to_obj;
-
 };
 
 
@@ -171,18 +179,22 @@ struct _con_edge
  * --------------------------------------------------- */
 
 /* allocates a new, cleared and inited con_graph */
-con_graph 
-new_con_graph (const char *filename, tree function, con_graph next);
+con_graph new_con_graph (tree function, int bb_index, int count);
 
 /* print the connection graph to file (in Graph::Easy format) */
-int con_graph_dump (con_graph cg);
-void con_graph_dump_node (con_node node, FILE *out);
-void con_graph_dump_edge (con_edge edge, FILE *out);
-
+void con_graph_dump (con_graph cg);
 
 /* search through the list of connection graphs for the one
  * representing _function_ */
-con_graph get_cg_for_function (con_graph cg, tree function);
+con_graph get_cg_for_function (tree function);
+
+void add_con_graph (con_graph cg);
+void init_graphs (void);
+
+/* Combine the graphs into DEST */
+void merge_into (con_graph dest, con_graph src);
+
+bool graphs_equal (con_graph, con_graph);
 
 /* ---------------------------------------------------
  *			nodes
@@ -207,16 +219,10 @@ con_node add_global_node (con_graph cg, tree id);
 
 /* add a new local node, identified by id, and return the node */
 con_node add_local_node (con_graph cg, tree id);
+con_node add_ref_node (con_graph cg, tree id);
 
 /* add a new return node, identified by id, and return the node */
 con_node add_result_node (con_graph cg, tree id);
-
-/* add the given node to the connection graph */
-void add_node (con_graph cg, con_node node);
-
-
-/* create and return a fresh node */
-con_node new_con_node (void);
 
 
 /* Get the node with the specified id from cg */
@@ -230,17 +236,14 @@ con_node existing_local_node (con_graph cg, tree id);
 con_node get_existing_node_with_call_id (con_graph cg,
 					 tree id, tree call_id);
 
-con_node find_node (con_graph cg, tree id, tree call_id, int index);
-
-
 /* Get the field node with specified id, from cg*/
 con_node get_existing_field_node (con_graph cg,
-				  tree id, con_node owner);
+				  tree id, tree owner);
 
 /* As above, but also with it's call_id set */
 con_node get_existing_field_node_with_call_id (con_graph cg,
 					       tree id,
-					       con_node owner,
+					       tree owner,
 					       tree call_id);
 
 
@@ -294,13 +297,11 @@ con_node get_field_nodes (con_node_vec nodes, tree field_id);
  * anyway */
 bool bypass_node (con_node node);
 
-/* Get the node in the caller correspoding to the _i_th parameter of the function called by statement _call_id_ */
-con_node get_caller_actual_node (con_graph cg,
-				 int index, tree call_id);
-
-/* Get the node representing the _i_th parameter of the function _call_id_*/
-con_node get_callee_actual_node (con_graph cg,
-				 int index, tree call_id);
+/* Removes all incoming edges, and replaces them with an edge to each
+ * from the source of the first edge, to the target of each successor
+ * edge. Repeats this for each node so that the net effect is the removal
+ * of nearly all deferred nodes */
+void bypass_every_node (con_graph cg);
 
 void set_escape_state (con_node node, enum ea_escape_state);
 /* ---------------------------------------------------
@@ -324,14 +325,13 @@ void df (con_node);
 /* adds the specified edge to the connection graph, between source
  * and target. Note that the graph is implicit, and is the graph
  * which contains the source and target. */
-void add_edge (con_node source, con_node target);
+con_edge add_edge (con_node source, con_node target);
 bool add_killing_edge (con_node source, con_node target);
 
 /* removes an edge from the graph */
 void remove_con_edge (con_edge edge);
 void remove_con_node (con_node node);
 
-/* analysis */
 /* This could be called multiple times with the same caller and callee, in
  * which case, the call_id will differentiate between the nodes creates in
  * each instance */
@@ -340,6 +340,7 @@ void update_nodes (con_node f, con_node mapped_field, tree call_id);
 
 /* Get the field node of the passed object, with the specified field_id.
  * Return NULL if not found. */
+/* TODO look at this again */
 con_node get_single_named_field_node (con_node node, tree field_id);
 
 /* Pushes the object's field node into the passed vector, and returns the
@@ -349,6 +350,8 @@ con_node_vec get_field_nodes_vec (con_node object, con_node_vec fields);
 bool in_maps_to_obj (con_node source, con_node target);
 void add_to_maps_to_obj (con_node source, con_node target);
 void update_escape_state (con_node source, con_node target);
+void serialize_con_graph (con_graph);
+con_graph deserialize_con_graph (tree);
 
 void d (con_node node);
 void l (con_graph cg);
