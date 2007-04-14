@@ -1,3 +1,9 @@
+2007-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25874
+	* omp-low.c (expand_omp_parallel): If child_cfun->cfg, free dominators,
+	post dominators and cleanup cfg before returning.
+
 2007-03-13  Alexandre Oliva  <aoliva@redhat.com>
 
 	* flags.h (flag_random_seed): Remove declaration, in favor of...
