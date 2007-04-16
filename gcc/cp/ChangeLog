@@ -1,3 +1,51 @@
+2007-04-16  Seongbae Park <seongbae.park@gmail.com>
+
+	PR c++/29365
+
+	* cp/decl2.c (constrain_class_visibility):
+	Do not warn about the use of anonymous namespace in the main input file.
+
+2007-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (current_template_parms): Fix typo in comment.
+
+2007-04-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cp-tree.h, error.c: Fix comment typos.
+
+2007-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31074
+	* call.c (reference_binding): Add c_cast_p parm.  If true,
+	add quals to TO as needed to make it reference-compatible.
+
+2007-04-11  Jan Hubicka  <jh@suse.cz>
+
+	* cp/class.c (convert_to_base_statically): Fold produced tree; verify
+	that we are not processing template_decl.
+
+2007-04-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31449
+	* class.c (build_base_path): Ensure that the converted pointer has
+	the same cv-qualification as the input.
+
+2007-04-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* tree.c (cp_tree_equal): Deal with TRAIT_EXPR.
+
+2007-04-08  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cp-objcp-common.h (LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS):
+	Do not set it.
+	(LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P): Do not set it.
+	* tree.c (cp_add_pending_fn_decls): Remove.
+	* cp-tree.h (cp_add_pending_fn_decls): Remove prototype.
+
+2007-04-07  Daniel Berlin  <dberlin@dberlin.org>
+
+	Revert change removing staticp.
+
 2007-04-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* cp-objcp-common.c (cxx_staticp): Remove.
@@ -8,8 +56,6 @@
 
 	* class.c (check_for_override): Don't remove dllmport attribute
 	of virtual methods.
-
-
 
 2007-04-03  Jakub Jelinek  <jakub@redhat.com>
 

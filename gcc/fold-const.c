@@ -3142,9 +3142,13 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
-	  /* Operands 2 and 3 may be null.  */
+	  /* Operands 2 and 3 may be null.
+	     Compare the array index by value if it is constant first as we
+	     may have different types but same value here.  */
 	  return (OP_SAME (0)
-		  && OP_SAME (1)
+		  && (tree_int_cst_equal (TREE_OPERAND (arg0, 1),
+					  TREE_OPERAND (arg1, 1))
+		      || OP_SAME (1))
 		  && OP_SAME_WITH_NULL (2)
 		  && OP_SAME_WITH_NULL (3));
 
@@ -8011,6 +8015,13 @@ fold_unary (enum tree_code code, tree type, tree op0)
 		  == TYPE_MAIN_VARIANT (TREE_TYPE (base)))
 	    return fold_convert (type, build_fold_addr_expr (base));
         }
+
+      /* Convert (type *)&A into &A->field_of_type_and_offset_0.  */
+      if (TREE_CODE (op0) == ADDR_EXPR && POINTER_TYPE_P (type)
+	  && (tem = maybe_fold_offset_to_component_ref
+		      (TREE_TYPE (TREE_OPERAND (op0, 0)), TREE_OPERAND (op0, 0),
+		       integer_zero_node, TREE_TYPE (type), false)))
+        return build_fold_addr_expr_with_type (tem, type);
 
       if ((TREE_CODE (op0) == MODIFY_EXPR
 	   || TREE_CODE (op0) == GIMPLE_MODIFY_STMT)

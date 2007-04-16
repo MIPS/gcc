@@ -187,6 +187,9 @@ Boston, MA 02110-1301, USA.  */
       if (TARGET_CF_HWDIV)						\
 	builtin_define ("__mcfhwdiv__");				\
 									\
+      if (TARGET_FIDOA)							\
+	builtin_define ("__mfido__");					\
+									\
       builtin_assert ("cpu=m68k");					\
       builtin_assert ("machine=m68k");					\
     }									\
@@ -220,6 +223,7 @@ Boston, MA 02110-1301, USA.  */
 #define FL_ISA_APLUS (1 << 14)
 #define FL_ISA_B     (1 << 15)
 #define FL_ISA_C     (1 << 16)
+#define FL_FIDOA     (1 << 17)
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 
 #define TARGET_68010		((m68k_cpu_flags & FL_ISA_68010) != 0)
@@ -228,6 +232,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_COLDFIRE		((m68k_cpu_flags & FL_COLDFIRE) != 0)
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
+#define TARGET_FIDOA		((m68k_cpu_flags & FL_FIDOA) != 0)
 
 /* Size (in bytes) of FPU registers.  */
 #define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
@@ -257,13 +262,15 @@ Boston, MA 02110-1301, USA.  */
 
 /* target machine storage layout */
 
-/* "long double" is the same as "double" on ColdFire targets.  */
+/* "long double" is the same as "double" on ColdFire and fido
+   targets.  */
 
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_COLDFIRE ? 64 : 80)
+#define LONG_DOUBLE_TYPE_SIZE			\
+  ((TARGET_COLDFIRE || TARGET_FIDOA) ? 64 : 80)
 
 /* We need to know the size of long double at compile-time in libgcc2.  */
 
-#ifdef __mcoldfire__
+#if defined(__mcoldfire__) || defined(__mfido__)
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #else
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
@@ -284,8 +291,9 @@ Boston, MA 02110-1301, USA.  */
 #define STACK_BOUNDARY 16
 #define FUNCTION_BOUNDARY 16
 #define EMPTY_FIELD_BOUNDARY 16
-/* ColdFire strongly prefers a 32-bit aligned stack.  */
-#define PREFERRED_STACK_BOUNDARY (TARGET_COLDFIRE ? 32 : 16)
+/* ColdFire and fido strongly prefer a 32-bit aligned stack.  */
+#define PREFERRED_STACK_BOUNDARY \
+  ((TARGET_COLDFIRE || TARGET_FIDOA) ? 32 : 16)
 
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16-bit
@@ -419,12 +427,12 @@ Boston, MA 02110-1301, USA.  */
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
-#define STACK_POINTER_REGNUM 15
+#define STACK_POINTER_REGNUM SP_REG
 
 /* Most m68k targets use %a6 as a frame pointer.  The AmigaOS
    ABI uses %a6 for shared library calls, therefore the frame
    pointer is shifted to %a5 on this target.  */
-#define FRAME_POINTER_REGNUM 14
+#define FRAME_POINTER_REGNUM A6_REG
 
 #define FRAME_POINTER_REQUIRED 0
 
@@ -434,12 +442,12 @@ Boston, MA 02110-1301, USA.  */
  */
 #define ARG_POINTER_REGNUM 24
 
-#define STATIC_CHAIN_REGNUM 8
+#define STATIC_CHAIN_REGNUM A0_REG
 #define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a0"
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define M68K_STRUCT_VALUE_REGNUM 9
+#define M68K_STRUCT_VALUE_REGNUM A1_REG
 
 
 
@@ -587,13 +595,13 @@ extern enum reg_class regno_reg_class[];
 
 /* On the m68k the return value defaults to D0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), D0_REG)
 
 /* On the m68k the return value defaults to D0.  */
-#define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, 0)
+#define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, D0_REG)
 
 /* On the m68k, D0 is usually the only register used.  */
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == D0_REG)
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.
@@ -927,7 +935,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    We don't replace %fp for targets that don't map it to %a6
    since it may confuse GAS.  */
 #define M68K_REGNAME(r) ( \
-  ((FRAME_POINTER_REGNUM == 14) \
+  ((FRAME_POINTER_REGNUM == A6_REG) \
     && ((r) == FRAME_POINTER_REGNUM) \
     && frame_pointer_needed) ? \
     M68K_FP_REG_NAME : reg_names[(r)])

@@ -1,3 +1,50 @@
+2007-04-16  Andrew Haley  <aph@redhat.com>
+
+	* gnu/gcj/runtime/BootClassLoader.java (getBootURLLoader): New
+	method.
+	(bootGetResource): Use getBootURLLoader() to load resources.
+	(bootGetResources): Likewise.
+
+	* java/lang/reflect/natMethod.cc (Method::invoke): In invoke also
+	check that the method's declaring class is accessible.
+
+2007-04-10  Keith Seitz  <keiths@redhat.com>
+
+	* sources.am: Regenerate.
+	* Makefile.in: Likewise.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* interpret-run.cc: If debugging, check if args is NULL before
+	getting the "this" pointer.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* classpath/gnu/classpath/jdwp/value/ArrayValue.java: New file.
+	* classpath/lib/gnu/classpath/jdwp/value/ArrayValue.class: New file.
+	* gnu/classpath/jdwp/ArrayValue.h: New file.
+	* gnu/classpath/jdwp/natVMFrame.cc (getValue): Add array case.
+	(setValue): Ditto. 
+
+2007-04-09  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/23758
+	* java/lang/natPosixProcess.cc (nativeSpawn): Move building of
+	environment before the fork.
+	* testsuite/libjava.lang/Process_7.java: New test.
+	* testsuite/libjava.lang/Process_7.out: Its expected results.
+	* testsuite/libjava.lang/Process_7.jar: Generated file.
+
+2007-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* prims.cc (load_jvmti_agent): Add the missing `,'.
+
+2007-04-09  Kyle Galloway  <kgallowa@redhat.com>
+
+	* gij.cc (main): Accept -agentlib and -agentpath options.
+	* prims.cc (parse_init_args): Deal with -agentlib and -agentpath.
+	(load_jvmti_agent): New function.
+
 2007-04-04  Tania Bento  <tbento@redhat.com>
 
 	* java/text/DecimalFormatSymbols.java: Added the year 2007 to

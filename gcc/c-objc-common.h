@@ -56,6 +56,8 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
+#undef LANG_HOOKS_STATICP
+#define LANG_HOOKS_STATICP c_staticp
 #undef LANG_HOOKS_NO_BODY_BLOCKS
 #define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -87,9 +89,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
-#undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
-#define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
-  anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining

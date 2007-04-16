@@ -491,7 +491,7 @@
    (use (match_operand:QI 1 "register_operand" "r"))
    (use (match_operand:QI 2 "const_int_operand" "n"))
    (clobber (match_scratch:HI 3 "=0"))
-   (clobber (match_scratch:QI 4 "=1"))]
+   (clobber (match_scratch:QI 4 "=&1"))]
   ""
   "st %a0+,__zero_reg__
         dec %1
@@ -505,7 +505,7 @@
    (use (match_operand:HI 1 "register_operand" "!w,d"))
    (use (match_operand:HI 2 "const_int_operand" "n,n"))
    (clobber (match_scratch:HI 3 "=0,0"))
-   (clobber (match_scratch:HI 4 "=1,1"))]
+   (clobber (match_scratch:HI 4 "=&1,&1"))]
   ""
   "*{
      if (which_alternative==0)
@@ -2392,7 +2392,7 @@
 	(if_then_else
 	 (match_operator 0 "eqne_operator"
 			 [(zero_extract
-			   (mem:QI (match_operand 1 "higth_io_address_operand" "n"))
+			   (mem:QI (match_operand 1 "high_io_address_operand" "n"))
 			   (const_int 1)
 			   (match_operand 2 "const_int_operand" "n"))
 			  (const_int 0)])
@@ -2413,7 +2413,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "gelt_operator"
-			 [(mem:QI (match_operand 1 "higth_io_address_operand" "n"))
+			 [(mem:QI (match_operand 1 "high_io_address_operand" "n"))
 			  (const_int 0)])
 	 (label_ref (match_operand 2 "" ""))
 	 (pc)))]

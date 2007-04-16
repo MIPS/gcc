@@ -1,3 +1,234 @@
+2007-04-16  Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (check_profiling_available): Return
+	false for m68k-*-uclinux.
+
+2007-04-16  Seongbae Park <seongbae.park@gmail.com>
+
+	PR c++/29365
+	Testcase for c++ anonymous namespace warning
+
+	* g++.dg/warn/anonymous-namespace-1.C: New test
+	* g++.dg/warn/anonymous-namespace-1.h: New test
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR testsuite/31578
+	* gcc.dg/gnu89-init-4.c: Change to a compile only test.
+
+2007-04-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/warnings_are_errors_1.f90: Add -std=f95 to options.
+
+2007-04-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31204
+	* gfortran.dg/array_constructor_16.f90: New test.
+
+2007-04-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.dg/pr19340.c, gcc.dg/tree-ssa/loop-1.c,
+	gcc.dg/weak/typeof-2.c: XFAIL on fido-*-*.
+
+2007-04-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR rtl-optimization/31500
+	* gcc.dg/Warray-bounds.c: Skip on hppa*-*-*.
+	* g++.dg/warn/Warray-bounds.C: Likewise.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31520
+	* gcc.dg/gnu89-init-4.c: New testcase.
+
+2007-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25874
+	* gcc.dg/gomp/pr25874.c: Add dg-options.
+	* g++.dg/gomp/pr25874.C: Add dg-options.
+
+2007-04-14  Bernhard Fischer  <aldot@gcc.gnu.org>
+	
+	PR fortran/21061
+	* gfortran.dg/warnings_are_errors_1.f90: New testcase.
+	* gfortran.dg/warnings_are_errors_1.f: New testcase.
+
+2007-04-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31561
+	* gfortran.dg/vect/vect-4.f90: xfail on vect_no_align targets.
+
+2007-04-14 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/29507
+	PR fortran/31404
+	* gfortran.dg/initialization_6.f90: New test.
+
+2007-04-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.c-torture/compile/pr27528.c: Require nonpic.
+
+	* lib/target-supports.exp (check_gc_sections_available):
+	Return false if ldflags includes -elf2flt.
+
+2007-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31074
+	* conv3.C: New test.
+
+2007-04-13  Mike Stump  <mrs@apple.com>
+
+	* obj-c++.dg/stubify-1.mm: Only run on powerpc.
+	* obj-c++.dg/template-4.mm: Don't run when 64-bit.
+
+2007-04-13  Joseph Myers  <joseph@codesourcery.com>
+
+	PR tree-optimization/29598
+	* gcc.dg/tree-ssa/loadpre1.c: XFAIL.
+
+2007-04-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31559
+	* gfortran.dg/func_assign.f90: New test.
+
+2007-04-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31550
+	* gfortran.dg/used_types_16.f90: New test.
+
+2007-04-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/18937
+	* gfortran.dg/goto_2.f90: New.
+	* gfortran.dg/goto_3.f90: New.
+	* gfortran.dg/pr17708.f90: Rename to ...
+	* gfortran.dg/goto_4.f90: ... this, add comment pointing to PR.
+
+2007-04-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31562
+	* gfortran.dg/f2c_4.c: Use GNU extensions for complex
+	instead of a struct.
+
+2007-04-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31562
+	* gfortran.dg/value_4.c: Use GNU extensions for complex
+	instead of a struct.
+
+2007-04-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/21258
+	* gcc.dg/tree-ssa/vrp34.c: New testcase.
+
+2007-04-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/c_by_val.c: Use GCC extensions instead of including
+	<complex.h>.
+
+2007-04-12  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/31250
+	* gfortran.dg/char_length_2.f90: New.
+	* gfortran.dg/repeat_2.f90: Add dg-warning annotations.
+	* gfortran.dg/repeat_4.f90: Likewise.
+
+	PR fortran/31266
+	* gfortran.dg/char_assign_1.f90: New.
+
+	PR fortran/31471
+	* gfortran.dg/block_name_1.f90: New.
+	* gfortran.dg/block_name_2.f90: New.
+
+2007-04-12  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/31078
+	* g++.dg/other/pr31078.C: New.
+
+2007-04-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31169
+	* gcc.c-torture/execute/pr31169.c: New testcase.
+
+2007-04-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/24689
+	PR tree-optimization/31307
+	* g++.dg/tree-ssa/pr31307.C: New testcase.
+	* gcc.dg/tree-ssa/pr24689.c: Likewise.
+
+2007-04-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31472
+	* gfortran.dg/access_spec_1.f90: New test.
+	* gfortran.dg/access_spec_2.f90: New test.
+	* gfortran.dg/non_module_public.f90: Match new error message.
+
+2007-04-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR testsuite/31538
+	* gfortran.dg/result_in_spec_1.f90: Increase dimension from 2
+	to 4 at line 38 to fix bounds problem.
+
+2007-04-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR testsuite/31240
+	* gfortran.dg/pointer_intent_1.f90: Fix test.
+
+2007-04-10  Eric Christopher  <echristo@apple.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_fstack_protector): Rewrite.
+
+2007-04-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31449
+	* g++.dg/init/const5.C: New test.
+
+2007-04-09  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/foldaddr-3.c: New file.
+
+2007-04-08  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/foldaddr-2.c: New file.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31257
+	* gfortran.dg/achar_4.f90: New test.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30880
+	* gfortran.dg/used_dummy_types_8.f90: New test.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30872
+	* gfortran.dg/parameter_array_element_1.f90: New test.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31222
+	* gfortran.dg/default_numeric_type_1.f90: New test.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31424
+	* gfortran.dg/unreferenced_use_assoc_1.f90: New test.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31293
+	* gfortran.dg/interface_12.f90: New test.
+
+2007-04-07  Bruce Korb  <bkorb@gnu.org>
+
+	* gcc.dg/format/opt-6.c: New test.
+	* gcc.dg/format/nul-1.c: New test.
+	* gcc.dg/format/nul-2.c: New test.
+
 2007-04-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/31395

@@ -24,6 +24,8 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 
+#include "config/vxworks-dummy.h"
+
 /* MIPS external variables defined in mips.c.  */
 
 /* Which processor to schedule for.  Since there is no difference between
@@ -41,6 +43,9 @@ enum processor_type {
   PROCESSOR_24KC,
   PROCESSOR_24KF,
   PROCESSOR_24KX,
+  PROCESSOR_74KC,
+  PROCESSOR_74KF,
+  PROCESSOR_74KX,
   PROCESSOR_M4K,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
@@ -143,13 +148,15 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
+/* True if we are generating position-independent VxWorks RTP code.  */
+#define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
+
 /* True if the call patterns should be split into a jalr followed by
-   an instruction to restore $gp.  This is only ever true for SVR4 PIC,
-   in which $gp is call-clobbered.  It is only safe to split the load
+   an instruction to restore $gp.  It is only safe to split the load
    from the call when every use of $gp is explicit.  */
 
 #define TARGET_SPLIT_CALLS \
-  (TARGET_EXPLICIT_RELOCS && TARGET_ABICALLS && !TARGET_NEWABI)
+  (TARGET_EXPLICIT_RELOCS && TARGET_CALL_CLOBBERED_GP)
 
 /* True if we're generating a form of -mabicalls in which we can use
    operators like %hi and %lo to refer to locally-binding symbols.
@@ -173,12 +180,23 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	using sibling calls in this case anyway; they would usually
 	be longer than normal calls.
 
-      - TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
-	accepts global constants, but "jr $25" is the only allowed
-	sibcall.  */
-
+      - TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
+	accepts global constants, but all sibcalls must be indirect.  */
 #define TARGET_SIBCALLS \
-  (!TARGET_MIPS16 && (!TARGET_ABICALLS || TARGET_EXPLICIT_RELOCS))
+  (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
+
+/* True if we need to use a global offset table to access some symbols.  */
+#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
+
+/* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
+#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI)
+
+/* True if TARGET_USE_GOT and if $gp is a call-saved register.  */
+#define TARGET_CALL_SAVED_GP (TARGET_USE_GOT && !TARGET_CALL_CLOBBERED_GP)
+
+/* True if indirect calls must use register class PIC_FN_ADDR_REG.
+   This is true for both the PIC and non-PIC VxWorks RTP modes.  */
+#define TARGET_USE_PIC_FN_ADDR_REG (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
 
 /* True if .gpword or .gpdword should be used for switch tables.
 
@@ -228,6 +246,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1		\
 				     || mips_tune == PROCESSOR_SB1A)
+#define TUNE_74K                    (mips_tune == PROCESSOR_74KC	\
+				     || mips_tune == PROCESSOR_74KF	\
+				     || mips_tune == PROCESSOR_74KX)
 
 /* True if the pre-reload scheduler should try to create chains of
    multiply-add or multiply-subtract instructions.  For example,
@@ -623,6 +644,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 				  || ISA_MIPS32R2			\
 				  || ISA_MIPS64)			\
 				 && !TARGET_MIPS16)
+
+/* Integer multiply-accumulate instructions should be generated.  */
+#define GENERATE_MADD_MSUB      (ISA_HAS_MADD_MSUB && !TUNE_74K)
 
 /* ISA has floating-point nmadd and nmsub instructions.  */
 #define ISA_HAS_NMADD_NMSUB	((ISA_MIPS4				\
@@ -1757,8 +1781,7 @@ extern const enum reg_class mips_regno_to_class[];
   ((flag_profile_values && ! TARGET_64BIT				\
     ? MAX (REG_PARM_STACK_SPACE(NULL), current_function_outgoing_args_size) \
     : current_function_outgoing_args_size)				\
-   + (TARGET_ABICALLS && !TARGET_NEWABI					\
-      ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
+   + (TARGET_CALL_CLOBBERED_GP ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
 
 #define RETURN_ADDR_RTX mips_return_addr
 
@@ -2312,13 +2335,13 @@ typedef struct mips_args {
    ("j" or "jal"), OPERANDS are its operands, and OPNO is the operand number
    of the target.
 
-   When generating -mabicalls without explicit relocation operators,
+   When generating GOT code without explicit relocation operators,
    all calls should use assembly macros.  Otherwise, all indirect
    calls should use "jr" or "jalr"; we will arrange to restore $gp
    afterwards if necessary.  Finally, we can only generate direct
    calls for -mabicalls by temporarily switching to non-PIC mode.  */
 #define MIPS_CALL(INSN, OPERANDS, OPNO)				\
-  (TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS			\
+  (TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS			\
    ? "%*" INSN "\t%" #OPNO "%/"					\
    : REG_P (OPERANDS[OPNO])					\
    ? "%*" INSN "r\t%" #OPNO "%/"				\
@@ -2581,6 +2604,16 @@ do {									\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     ptr_mode == DImode ? ".gpdword" : ".gpword",		\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
+  else if (TARGET_RTP_PIC)						\
+    {									\
+      /* Make the entry relative to the start of the function.  */	\
+      rtx fnsym = XEXP (DECL_RTL (current_function_decl), 0);		\
+      fprintf (STREAM, "\t%s\t%sL%d-",					\
+	       Pmode == DImode ? ".dword" : ".word",			\
+	       LOCAL_LABEL_PREFIX, VALUE);				\
+      assemble_name (STREAM, XSTR (fnsym, 0));				\
+      fprintf (STREAM, "\n");						\
+    }									\
   else									\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     ptr_mode == DImode ? ".dword" : ".word",			\

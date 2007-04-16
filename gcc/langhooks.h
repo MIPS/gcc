@@ -40,12 +40,8 @@ struct lang_hooks_for_tree_inlining
 			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
@@ -184,9 +180,6 @@ struct lang_hooks_for_decls
      of compilation */
   void (*final_write_globals) (void);
 
-  /* Do necessary preparations before assemble_variable can proceed.  */
-  void (*prepare_assemble_variable) (tree);
-
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
 
@@ -323,6 +316,9 @@ struct lang_hooks
      it; it should not be allocated in a register.  Return true if
      successful.  */
   bool (*mark_addressable) (tree);
+
+  /* Hook called by staticp for language-specific tree codes.  */
+  tree (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */

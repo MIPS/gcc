@@ -154,9 +154,10 @@
    (MACFLAG_IU 5)
    (MACFLAG_W32 6)
    (MACFLAG_M 7)
-   (MACFLAG_S2RND 8)
-   (MACFLAG_ISS2 9)
-   (MACFLAG_IH 10)])
+   (MACFLAG_IS_M 8)
+   (MACFLAG_S2RND 9)
+   (MACFLAG_ISS2 10)
+   (MACFLAG_IH 11)])
 
 (define_attr "type"
   "move,movcc,mvi,mcld,mcst,dsp32,mult,alu0,shft,brcc,br,call,misc,sync,compare,dummy"
@@ -521,12 +522,10 @@
 ;; with a PLUS.  We generally require fewer secondary reloads this way.
 
 (define_insn "*movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=da,x*y,*k,da,da,x,x,x,da,mr")
-	(match_operand:SI 1 "general_operand" "da,x*y,da,*k,xKs7,xKsh,xKuh,ix,mr,da"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=da,x*y,da,x,x,x,da,mr")
+	(match_operand:SI 1 "general_operand" "da,x*y,xKs7,xKsh,xKuh,ix,mr,da"))]
   "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
  "@
-   %0 = %1;
-   %0 = %1;
    %0 = %1;
    %0 = %1;
    %0 = %1 (X);
@@ -535,8 +534,8 @@
    #
    %0 = %1%!
    %0 = %1%!"
-  [(set_attr "type" "move,move,move,move,mvi,mvi,mvi,*,mcld,mcst")
-   (set_attr "length" "2,2,2,2,2,4,4,*,*,*")])
+  [(set_attr "type" "move,move,mvi,mvi,mvi,*,mcld,mcst")
+   (set_attr "length" "2,2,2,4,4,*,*,*")])
 
 (define_insn "*movsi_insn32"
   [(set (match_operand:SI 0 "register_operand" "=d,d")
@@ -1226,6 +1225,19 @@
   "%0 = %1 - %2 (S)%!"
   [(set_attr "type" "dsp32")])
 
+;; Accumulator addition
+
+(define_insn "sum_of_accumulators"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ss_truncate:SI
+	 (ss_plus:PDI (match_operand:PDI 2 "register_operand" "1")
+		      (match_operand:PDI 3 "register_operand" "B"))))
+   (set (match_operand:PDI 1 "register_operand" "=A")
+	 (ss_plus:PDI (match_dup 2) (match_dup 3)))]
+  ""
+  "%0 = (A0 += A1)%!"
+  [(set_attr "type" "dsp32")])
+
 ;; Bit test instructions
 
 (define_insn "*not_bittst"
@@ -1437,42 +1449,102 @@
   [(set_attr "type" "mult")])
 
 (define_expand "umulsi3_highpart"
-  [(set (match_operand:SI 0 "register_operand" "")
-       (truncate:SI
-        (lshiftrt:DI
-         (mult:DI (zero_extend:DI
-                   (match_operand:SI 1 "nonimmediate_operand" ""))
-                  (zero_extend:DI
-                   (match_operand:SI 2 "register_operand" "")))
-         (const_int 32))))]
+  [(parallel
+    [(set (match_operand:SI 0 "register_operand" "")
+	  (truncate:SI
+	   (lshiftrt:DI
+	    (mult:DI (zero_extend:DI
+		      (match_operand:SI 1 "nonimmediate_operand" ""))
+		     (zero_extend:DI
+		      (match_operand:SI 2 "register_operand" "")))
+	    (const_int 32))))
+     (clobber (reg:PDI REG_A0))
+     (clobber (reg:PDI REG_A1))])]
   ""
 {
-  rtx umulsi3_highpart_libfunc
-    = init_one_libfunc ("__umulsi3_highpart");
+  if (!optimize_size)
+    {
+      rtx a1reg = gen_rtx_REG (PDImode, REG_A1);
+      rtx a0reg = gen_rtx_REG (PDImode, REG_A0);
+      emit_insn (gen_flag_macinit1hi (a1reg,
+				      gen_lowpart (HImode, operands[1]),
+				      gen_lowpart (HImode, operands[2]),
+				      GEN_INT (MACFLAG_FU)));
+      emit_insn (gen_lshrpdi3 (a1reg, a1reg, GEN_INT (16)));
+      emit_insn (gen_flag_mul_macv2hi_parts_acconly (a0reg, a1reg,
+						     gen_lowpart (V2HImode, operands[1]),
+						     gen_lowpart (V2HImode, operands[2]),
+						     const1_rtx, const1_rtx,
+						     const1_rtx, const0_rtx, a1reg,
+						     const0_rtx, GEN_INT (MACFLAG_FU),
+						     GEN_INT (MACFLAG_FU)));
+      emit_insn (gen_flag_machi_parts_acconly (a1reg,
+					       gen_lowpart (V2HImode, operands[2]),
+					       gen_lowpart (V2HImode, operands[1]),
+					       const1_rtx, const0_rtx,
+					       a1reg, const0_rtx, GEN_INT (MACFLAG_FU)));
+      emit_insn (gen_lshrpdi3 (a1reg, a1reg, GEN_INT (16)));
+      emit_insn (gen_sum_of_accumulators (operands[0], a0reg, a0reg, a1reg));
+    }
+  else
+    {
+      rtx umulsi3_highpart_libfunc
+	= init_one_libfunc ("__umulsi3_highpart");
 
-  emit_library_call_value (umulsi3_highpart_libfunc,
-			   operands[0], LCT_NORMAL, SImode,
-			   2, operands[1], SImode, operands[2], SImode);
+      emit_library_call_value (umulsi3_highpart_libfunc,
+			       operands[0], LCT_NORMAL, SImode,
+			       2, operands[1], SImode, operands[2], SImode);
+    }
   DONE;
 })
 
 (define_expand "smulsi3_highpart"
-  [(set (match_operand:SI 0 "register_operand" "")
-       (truncate:SI
-        (lshiftrt:DI
-         (mult:DI (sign_extend:DI
-                   (match_operand:SI 1 "nonimmediate_operand" ""))
-                  (sign_extend:DI
-                   (match_operand:SI 2 "register_operand" "")))
-         (const_int 32))))]
+  [(parallel
+    [(set (match_operand:SI 0 "register_operand" "")
+	  (truncate:SI
+	   (lshiftrt:DI
+	    (mult:DI (sign_extend:DI
+		      (match_operand:SI 1 "nonimmediate_operand" ""))
+		     (sign_extend:DI
+		      (match_operand:SI 2 "register_operand" "")))
+	    (const_int 32))))
+     (clobber (reg:PDI REG_A0))
+     (clobber (reg:PDI REG_A1))])]
   ""
 {
-  rtx smulsi3_highpart_libfunc
-    = init_one_libfunc ("__smulsi3_highpart");
+  if (!optimize_size)
+    {
+      rtx a1reg = gen_rtx_REG (PDImode, REG_A1);
+      rtx a0reg = gen_rtx_REG (PDImode, REG_A0);
+      emit_insn (gen_flag_macinit1hi (a1reg,
+				      gen_lowpart (HImode, operands[1]),
+				      gen_lowpart (HImode, operands[2]),
+				      GEN_INT (MACFLAG_FU)));
+      emit_insn (gen_lshrpdi3 (a1reg, a1reg, GEN_INT (16)));
+      emit_insn (gen_flag_mul_macv2hi_parts_acconly (a0reg, a1reg,
+						     gen_lowpart (V2HImode, operands[1]),
+						     gen_lowpart (V2HImode, operands[2]),
+						     const1_rtx, const1_rtx,
+						     const1_rtx, const0_rtx, a1reg,
+						     const0_rtx, GEN_INT (MACFLAG_IS),
+						     GEN_INT (MACFLAG_IS_M)));
+      emit_insn (gen_flag_machi_parts_acconly (a1reg,
+					       gen_lowpart (V2HImode, operands[2]),
+					       gen_lowpart (V2HImode, operands[1]),
+					       const1_rtx, const0_rtx,
+					       a1reg, const0_rtx, GEN_INT (MACFLAG_IS_M)));
+      emit_insn (gen_ashrpdi3 (a1reg, a1reg, GEN_INT (16)));
+      emit_insn (gen_sum_of_accumulators (operands[0], a0reg, a0reg, a1reg));
+    }
+  else
+    {
+      rtx smulsi3_highpart_libfunc
+	= init_one_libfunc ("__smulsi3_highpart");
 
-  emit_library_call_value (smulsi3_highpart_libfunc,
-			   operands[0], LCT_NORMAL, SImode,
-			   2, operands[1], SImode, operands[2], SImode);
+      emit_library_call_value (smulsi3_highpart_libfunc,
+			       operands[0], LCT_NORMAL, SImode,
+			       2, operands[1], SImode, operands[2], SImode);
+    }
   DONE;
 })
 
@@ -1642,6 +1714,22 @@
    %0 = %1 >> %2%!
    %0 = %1 >> %2;"
   [(set_attr "type" "shft,dsp32,shft")])
+
+(define_insn "lshrpdi3"
+  [(set (match_operand:PDI 0 "register_operand" "=e")
+	(lshiftrt:PDI (match_operand:PDI 1 "register_operand" "0")
+		      (match_operand:SI 2 "nonmemory_operand" "Ku5")))]
+  ""
+  "%0 = %1 >> %2%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "ashrpdi3"
+  [(set (match_operand:PDI 0 "register_operand" "=e")
+	(ashiftrt:PDI (match_operand:PDI 1 "register_operand" "0")
+		      (match_operand:SI 2 "nonmemory_operand" "Ku5")))]
+  ""
+  "%0 = %1 >>> %2%!"
+  [(set_attr "type" "dsp32")])
 
 ;; A pattern to reload the equivalent of
 ;;   (set (Dreg) (plus (FP) (large_constant)))
@@ -2644,50 +2732,6 @@
 
 ;; First, all sorts of move variants
 
-(define_insn "movhi_low2high"
-  [(set (match_operand:V2HI 0 "register_operand" "=d")
-	(vec_concat:V2HI
-	 (vec_select:HI (match_operand:V2HI 1 "register_operand" "0")
-			(parallel [(const_int 0)]))
-	 (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
-			(parallel [(const_int 0)]))))]
-  ""
-  "%d0 = %h2 << 0%!"
-  [(set_attr "type" "dsp32")])
-
-(define_insn "movhi_high2high"
-  [(set (match_operand:V2HI 0 "register_operand" "=d")
-	(vec_concat:V2HI
-	 (vec_select:HI (match_operand:V2HI 1 "register_operand" "0")
-			(parallel [(const_int 0)]))
-	 (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
-			(parallel [(const_int 1)]))))]
-  ""
-  "%d0 = %d2 << 0%!"
-  [(set_attr "type" "dsp32")])
-
-(define_insn "movhi_low2low"
-  [(set (match_operand:V2HI 0 "register_operand" "=d")
-	(vec_concat:V2HI
-	 (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
-			(parallel [(const_int 0)]))
-	 (vec_select:HI (match_operand:V2HI 1 "register_operand" "0")
-			(parallel [(const_int 1)]))))]
-  ""
-  "%h0 = %h2 << 0%!"
-  [(set_attr "type" "dsp32")])
-
-(define_insn "movhi_high2low"
-  [(set (match_operand:V2HI 0 "register_operand" "=d")
-	(vec_concat:V2HI
-	 (vec_select:HI (match_operand:V2HI 2 "register_operand" "d")
-			(parallel [(const_int 1)]))
-	 (vec_select:HI (match_operand:V2HI 1 "register_operand" "0")
-			(parallel [(const_int 1)]))))]
-  ""
-  "%h0 = %d2 << 0%!"
-  [(set_attr "type" "dsp32")])
-
 (define_insn "movhiv2hi_low"
   [(set (match_operand:V2HI 0 "register_operand" "=d")
 	(vec_concat:V2HI
@@ -2735,15 +2779,19 @@
 ; Useful on its own, and as a combiner bridge for the multiply and
 ; mac patterns.
 (define_insn "packv2hi"
-  [(set (match_operand:V2HI 0 "register_operand" "=d,d,d,d")
+  [(set (match_operand:V2HI 0 "register_operand" "=d,d,d,d,d,d,d,d")
 	(vec_concat:V2HI (vec_select:HI
-			  (match_operand:V2HI 1 "register_operand" "d,d,d,d")
-			  (parallel [(match_operand 3 "const01_operand" "P0,P1,P0,P1")]))
+			  (match_operand:V2HI 1 "register_operand" "0,0,d,d,d,d,d,d")
+			  (parallel [(match_operand 3 "const01_operand" "P0,P0,P0,P1,P0,P1,P0,P1")]))
 			 (vec_select:HI
-			  (match_operand:V2HI 2 "register_operand" "d,d,d,d")
-			  (parallel [(match_operand 4 "const01_operand" "P0,P0,P1,P1")]))))]
+			  (match_operand:V2HI 2 "register_operand" "d,d,0,0,d,d,d,d")
+			  (parallel [(match_operand 4 "const01_operand" "P0,P1,P1,P1,P0,P0,P1,P1")]))))]
   ""
   "@
+   %d0 = %h2 << 0%!
+   %d0 = %d2 << 0%!
+   %h0 = %h1 << 0%!
+   %h0 = %d1 << 0%!
    %0 = PACK (%h2,%h1)%!
    %0 = PACK (%h2,%d1)%!
    %0 = PACK (%d2,%h1)%!
@@ -3031,52 +3079,83 @@
 }
   [(set_attr "type" "dsp32")])
 
+;; Three alternatives here to cover all possible allocations:
+;; 0. mac flag is usable only for accumulator 1 - use A1 and odd DREG
+;; 1. mac flag is usable for accumulator 0 - use A0 and even DREG
+;; 2. mac flag is usable in any accumulator - use A1 and odd DREG
+;; Other patterns which don't have a DREG destination can collapse cases
+;; 1 and 2 into one.
 (define_insn "flag_machi"
-  [(set (match_operand:HI 0 "register_operand" "=d")
-	(unspec:HI [(match_operand:HI 1 "register_operand" "d")
-		    (match_operand:HI 2 "register_operand" "d")
-		    (match_operand 3 "register_operand" "A")
-		    (match_operand 4 "const01_operand" "P0P1")
-		    (match_operand 5 "const_int_operand" "n")]
+  [(set (match_operand:HI 0 "register_operand" "=W,D,W")
+	(unspec:HI [(match_operand:HI 2 "register_operand" "d,d,d")
+		    (match_operand:HI 3 "register_operand" "d,d,d")
+		    (match_operand 4 "register_operand" "1,1,1")
+		    (match_operand 5 "const01_operand" "P0P1,P0P1,P0P1")
+		    (match_operand 6 "const_int_operand" "PB,PA,PA")]
 		   UNSPEC_MAC_WITH_FLAG))
-   (set (match_operand:PDI 6 "register_operand" "=A")
+   (set (match_operand:PDI 1 "register_operand" "=B,A,B")
 	(unspec:PDI [(match_dup 1) (match_dup 2) (match_dup 3)
 		     (match_dup 4) (match_dup 5)]
 		    UNSPEC_MAC_WITH_FLAG))]
   ""
-  "%h0 = (A0 %b4 %h1 * %h2) %M6%!"
+  "%h0 = (%1 %b5 %h2 * %h3) %M6%!"
   [(set_attr "type" "dsp32")])
 
 (define_insn "flag_machi_acconly"
-  [(set (match_operand:PDI 0 "register_operand" "=e")
-	(unspec:PDI [(match_operand:HI 1 "register_operand" "d")
-		     (match_operand:HI 2 "register_operand" "d")
-		     (match_operand 3 "register_operand" "A")
-		     (match_operand 4 "const01_operand" "P0P1")
-		     (match_operand 5 "const_int_operand" "n")]
+  [(set (match_operand:PDI 0 "register_operand" "=B,e")
+	(unspec:PDI [(match_operand:HI 1 "register_operand" "d,d")
+		     (match_operand:HI 2 "register_operand" "d,d")
+		     (match_operand 3 "register_operand" "0,0")
+		     (match_operand 4 "const01_operand" "P0P1,P0P1")
+		     (match_operand 5 "const_int_operand" "PB,PA")]
 		    UNSPEC_MAC_WITH_FLAG))]
   ""
-  "%0 %b4 %h1 * %h2 %M6%!"
+  "%0 %b4 %h1 * %h2 %M5%!"
+  [(set_attr "type" "dsp32")])
+
+(define_insn "flag_machi_parts_acconly"
+  [(set (match_operand:PDI 0 "register_operand" "=B,e")
+	(unspec:PDI [(vec_select:HI
+		      (match_operand:V2HI 1 "register_operand" "d,d")
+		      (parallel [(match_operand 3 "const01_operand" "P0P1,P0P1")]))
+		     (vec_select:HI
+		      (match_operand:V2HI 2 "register_operand" "d,d")
+		      (parallel [(match_operand 4 "const01_operand" "P0P1,P0P1")]))
+		     (match_operand:PDI 5 "register_operand" "0,0")
+		     (match_operand 6 "const01_operand" "P0P1,P0P1")
+		     (match_operand 7 "const_int_operand" "PB,PA")]
+		    UNSPEC_MAC_WITH_FLAG))]
+  ""
+{
+  const char *templates[] = {
+    "%0 %b6 %h1 * %h2 %M7%!",
+    "%0 %b6 %d1 * %h2 %M7%!",
+    "%0 %b6 %h1 * %d2 %M7%!",
+    "%0 %b6 %d1 * %d2 %M7%!"
+  };
+  int alt = INTVAL (operands[3]) + (INTVAL (operands[4]) << 1);
+  return templates[alt];
+}
   [(set_attr "type" "dsp32")])
 
 (define_insn "flag_macinithi"
-  [(set (match_operand:HI 0 "register_operand" "=d")
-	(unspec:HI [(match_operand:HI 1 "register_operand" "d")
-		    (match_operand:HI 2 "register_operand" "d")
-		    (match_operand 3 "const_int_operand" "n")]
+  [(set (match_operand:HI 0 "register_operand" "=W,D,W")
+	(unspec:HI [(match_operand:HI 1 "register_operand" "d,d,d")
+		    (match_operand:HI 2 "register_operand" "d,d,d")
+		    (match_operand 3 "const_int_operand" "PB,PA,PA")]
 		   UNSPEC_MAC_WITH_FLAG))
-   (set (match_operand:PDI 4 "register_operand" "=A")
+   (set (match_operand:PDI 4 "register_operand" "=B,A,B")
 	(unspec:PDI [(match_dup 1) (match_dup 2) (match_dup 3)]
 		    UNSPEC_MAC_WITH_FLAG))]
   ""
-  "%h0 = (A0 = %h1 * %h2) %M3%!"
+  "%h0 = (%4 = %h1 * %h2) %M3%!"
   [(set_attr "type" "dsp32")])
 
 (define_insn "flag_macinit1hi"
-  [(set (match_operand:PDI 0 "register_operand" "=e")
-	(unspec:PDI [(match_operand:HI 1 "register_operand" "d")
-		     (match_operand:HI 2 "register_operand" "d")
-		     (match_operand 3 "const_int_operand" "n")]
+  [(set (match_operand:PDI 0 "register_operand" "=B,e")
+	(unspec:PDI [(match_operand:HI 1 "register_operand" "d,d")
+		     (match_operand:HI 2 "register_operand" "d,d")
+		     (match_operand 3 "const_int_operand" "PB,PA")]
 		    UNSPEC_MAC_WITH_FLAG))]
   ""
   "%0 = %h1 * %h2 %M3%!"
@@ -3337,6 +3416,63 @@
   return templates[alt];
 }
   [(set_attr "type" "dsp32")])
+
+;; A mixture of multiply and multiply-accumulate for when we only want to
+;; initialize one part.
+(define_insn "flag_mul_macv2hi_parts_acconly"
+  [(set (match_operand:PDI 0 "register_operand" "=B,e,e")
+	(unspec:PDI [(vec_select:HI
+		      (match_operand:V2HI 2 "register_operand" "d,d,d")
+		      (parallel [(match_operand 4 "const01_operand" "P0P1,P0P1,P0P1")]))
+		     (vec_select:HI
+		      (match_operand:V2HI 3 "register_operand" "d,d,d")
+		      (parallel [(match_operand 6 "const01_operand" "P0P1,P0P1,P0P1")]))
+		     (match_operand 10 "const_int_operand" "PB,PA,PA")]
+		    UNSPEC_MUL_WITH_FLAG))
+   (set (match_operand:PDI 1 "register_operand" "=B,e,e")
+	(unspec:PDI [(vec_select:HI
+		      (match_dup 2)
+		      (parallel [(match_operand 5 "const01_operand" "P0P1,P0P1,P0P1")]))
+		     (vec_select:HI
+		      (match_dup 3)
+		      (parallel [(match_operand 7 "const01_operand" "P0P1,P0P1,P0P1")]))
+		     (match_operand:PDI 8 "register_operand" "1,1,1")
+		     (match_operand 9 "const01_operand" "P0P1,P0P1,P0P1")
+		     (match_operand 11 "const_int_operand" "PA,PB,PA")]
+		    UNSPEC_MAC_WITH_FLAG))]
+  "MACFLAGS_MATCH_P (INTVAL (operands[10]), INTVAL (operands[11]))"
+{
+  rtx xops[6];
+  const char *templates[] = {
+    "%0 = %h2 * %h3, %1 %b4 %h2 * %h3 %M5%!",
+    "%0 = %d2 * %h3, %1 %b4 %h2 * %h3 %M5%!",
+    "%0 = %h2 * %h3, %1 %b4 %d2 * %h3 %M5%!",
+    "%0 = %d2 * %h3, %1 %b4 %d2 * %h3 %M5%!",
+    "%0 = %h2 * %d3, %1 %b4 %h2 * %h3 %M5%!",
+    "%0 = %d2 * %d3, %1 %b4 %h2 * %h3 %M5%!",
+    "%0 = %h2 * %d3, %1 %b4 %d2 * %h3 %M5%!",
+    "%0 = %d2 * %d3, %1 %b4 %d2 * %h3 %M5%!",
+    "%0 = %h2 * %h3, %1 %b4 %h2 * %d3 %M5%!",
+    "%0 = %d2 * %h3, %1 %b4 %h2 * %d3 %M5%!",
+    "%0 = %h2 * %h3, %1 %b4 %d2 * %d3 %M5%!",
+    "%0 = %d2 * %h3, %1 %b4 %d2 * %d3 %M5%!",
+    "%0 = %h2 * %d3, %1 %b4 %h2 * %d3 %M5%!",
+    "%0 = %d2 * %d3, %1 %b4 %h2 * %d3 %M5%!",
+    "%0 = %h2 * %d3, %1 %b4 %d2 * %d3 %M5%!",
+    "%0 = %d2 * %d3, %1 %b4 %d2 * %d3 %M5%!" };
+  int alt = (INTVAL (operands[4]) + (INTVAL (operands[5]) << 1)
+	     + (INTVAL (operands[6]) << 2)  + (INTVAL (operands[7]) << 3));
+  xops[0] = operands[0];
+  xops[1] = operands[1];
+  xops[2] = operands[2];
+  xops[3] = operands[3];
+  xops[4] = operands[9];
+  xops[5] = which_alternative == 0 ? operands[10] : operands[11];
+  output_asm_insn (templates[alt], xops);
+  return "";
+}
+  [(set_attr "type" "dsp32")])
+
 
 (define_code_macro s_or_u [sign_extend zero_extend])
 (define_code_attr su_optab [(sign_extend "mul")

@@ -541,7 +541,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
 -mfpmath=@var{unit} @gol
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
--mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
+-mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} -mcx16 -msahf @gol
 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4a -m3dnow -mpopcnt -mabm @gol
@@ -1128,6 +1128,9 @@ option.
 This will display the options supported for @var{language}, where 
 @var{language} is the name of one of the languages supported in this 
 version of GCC.
+
+@item @samp{common}
+This will display the options that are common to all languages.
 @end table
 
 It is possible to further refine the output of the @option{--help=}
@@ -5420,7 +5423,7 @@ enabled by default at @option{-O2} and @option{-O3}.
 Perform Full Redundancy Elimination (FRE) on trees.  The difference
 between FRE and PRE is that FRE only considers expressions
 that are computed on all paths leading to the redundant computation.
-This analysis faster than PRE, though it exposes fewer redundancies.
+This analysis is faster than PRE, though it exposes fewer redundancies.
 This flag is enabled by default at @option{-O} and higher.
 
 @item -ftree-copy-prop
@@ -6588,10 +6591,29 @@ The maximum instructions CSE process before flushing. The default is 1000.
 
 @item max-aliased-vops
 
-Maximum number of virtual operands per statement allowed to represent
-aliases before triggering the alias grouping heuristic.  Alias
-grouping reduces compile times and memory consumption needed for
-aliasing at the expense of precision loss in alias information.
+Maximum number of virtual operands per function allowed to represent
+aliases before triggering the alias partitioning heuristic.  Alias
+partitioning reduces compile times and memory consumption needed for
+aliasing at the expense of precision loss in alias information.  The
+default value for this parameter is 100 for -O1, 500 for -O2 and 1000
+for -O3.
+
+Notice that if a function contains more memory statements than the
+value of this parameter, it is not really possible to achieve this
+reduction.  In this case, the compiler will use the number of memory
+statements as the value for @option{max-aliased-vops}.
+
+@item avg-aliased-vops
+
+Average number of virtual operands per statement allowed to represent
+aliases before triggering the alias partitioning heuristic.  This
+works in conjunction with @option{max-aliased-vops}.  If a function
+contains more than @option{max-aliased-vops} virtual operators, then
+memory symbols will be grouped into memory partitions until either the
+total number of virtual operators is below @option{max-aliased-vops}
+or the average number of virtual operators per memory statement is
+below @option{avg-aliased-vops}.  The default value for this parameter
+is 1 for -O1 and -O2, and 3 for -O3.
 
 @item ggc-min-expand
 
@@ -9967,14 +9989,6 @@ When @option{-mcmodel=medium} is specified, the data greater than
 @var{threshold} are placed in large data section.  This value must be the
 same across all object linked into the binary and defaults to 65535.
 
-@item -msvr3-shlib
-@itemx -mno-svr3-shlib
-@opindex msvr3-shlib
-@opindex mno-svr3-shlib
-Control whether GCC places uninitialized local variables into the
-@code{bss} or @code{data} segments.  @option{-msvr3-shlib} places them
-into @code{bss}.  These options are meaningful only on System V Release 3.
-
 @item -mrtd
 @opindex mrtd
 Use a different function-calling convention, in which functions that
@@ -11177,6 +11191,7 @@ The processor names are:
 @samp{24kc}, @samp{24kf}, @samp{24kx},
 @samp{24kec}, @samp{24kef}, @samp{24kex},
 @samp{34kc}, @samp{34kf}, @samp{34kx},
+@samp{74kc}, @samp{74kf}, @samp{74kx},
 @samp{m4k},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},

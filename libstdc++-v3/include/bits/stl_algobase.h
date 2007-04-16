@@ -70,7 +70,7 @@
 #include <bits/stl_pair.h>
 #include <bits/cpp_type_traits.h>
 #include <ext/type_traits.h>
-#include <limits>
+#include <ext/numeric_traits.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
@@ -848,7 +848,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
-      while (__first1 != __last1 && __binary_pred(*__first1, *__first2))
+      while (__first1 != __last1 && bool(__binary_pred(*__first1, *__first2)))
         {
 	  ++__first1;
 	  ++__first2;
@@ -912,7 +912,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_valid_range(__first1, __last1);
 
       for (; __first1 != __last1; ++__first1, ++__first2)
-	if (!__binary_pred(*__first1, *__first2))
+	if (!bool(__binary_pred(*__first1, *__first2)))
 	  return false;
       return true;
     }
@@ -1018,7 +1018,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __glibcxx_requires_valid_range(__first1, __last1);
     __glibcxx_requires_valid_range(__first2, __last2);
 
-    if (std::numeric_limits<char>::is_signed)
+    if (__gnu_cxx::__numeric_traits<char>::__is_signed)
       return std::lexicographical_compare((const signed char*) __first1,
 					  (const signed char*) __last1,
 					  (const signed char*) __first2,

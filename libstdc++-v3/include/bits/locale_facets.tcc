@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -38,7 +39,7 @@
 
 #pragma GCC system_header
 
-#include <limits>		// For numeric_limits
+#include <ext/numeric_traits.h>
 #include <typeinfo>		// For bad_cast.
 #include <bits/streambuf_iterator.h>
 #include <ext/type_traits.h>
@@ -537,7 +538,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	if (!__testeof)
 	  {
 	    __c = *__beg;
-	    if (numeric_limits<_ValueT>::is_signed)
+	    if (__gnu_cxx::__numeric_traits<_ValueT>::__is_signed)
 	      __negative = __c == __lit[__num_base::_S_iminus];
 	    if ((__negative || __c == __lit[__num_base::_S_iplus])
 		&& !(__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
@@ -606,8 +607,9 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	if (__lc->_M_use_grouping)
 	  __found_grouping.reserve(32);
 	bool __testfail = false;
-	const __unsigned_type __max = __negative ?
-	  -numeric_limits<_ValueT>::min() : numeric_limits<_ValueT>::max();
+	const __unsigned_type __max = __negative
+	  ? -__gnu_cxx::__numeric_traits<_ValueT>::__min
+	  : __gnu_cxx::__numeric_traits<_ValueT>::__max;
 	const __unsigned_type __smax = __max / __base;
 	__unsigned_type __result = 0;
 	int __digit = 0;
@@ -889,7 +891,11 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
       const fmtflags __fmt = __io.flags();
       __io.flags((__fmt & ~ios_base::basefield) | ios_base::hex);
 
-      unsigned long __ul;
+      typedef __gnu_cxx::__conditional_type<(sizeof(void*)
+					     <= sizeof(unsigned long)),
+	unsigned long, unsigned long long>::__type _UIntPtrType;       
+
+      _UIntPtrType __ul;
       __beg = _M_extract_int(__beg, __end, __io, __err, __ul);
 
       // Reset from hex formatted input.
@@ -910,8 +916,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
     {
       // [22.2.2.2.2] Stage 3.
       // If necessary, pad.
-      __pad<_CharT, char_traits<_CharT> >::_S_pad(__io, __fill, __new, __cs,
-						  __w, __len, true);
+      __pad<_CharT, char_traits<_CharT> >::_S_pad(__io, __fill, __new,
+						  __cs, __w, __len);
       __len = static_cast<int>(__w);
     }
 
@@ -1024,7 +1030,7 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	    if (__v > 0)
 	      {
 		if (__flags & ios_base::showpos
-		    && numeric_limits<_ValueT>::is_signed)
+		    && __gnu_cxx::__numeric_traits<_ValueT>::__is_signed)
 		  *--__cs = __lit[__num_base::_S_oplus], ++__len;
 	      }
 	    else if (__v)
@@ -1111,7 +1117,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	// Use default precision if out of range.
 	const streamsize __prec = __io.precision() < 0 ? 6 : __io.precision();
 
-	const int __max_digits = numeric_limits<_ValueT>::digits10;
+	const int __max_digits =
+	  __gnu_cxx::__numeric_traits<_ValueT>::__digits10;
 
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	int __len;
@@ -1138,7 +1145,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 #else
 	// Consider the possibility of long ios_base::fixed outputs
 	const bool __fixed = __io.flags() & ios_base::fixed;
-	const int __max_exp = numeric_limits<_ValueT>::max_exponent10;
+	const int __max_exp =
+	  __gnu_cxx::__numeric_traits<_ValueT>::__max_exponent10;
 
 	// The size of the output string is computed as follows.
 	// ios_base::fixed outputs may need up to __max_exp + 1 chars
@@ -1785,7 +1793,8 @@ _GLIBCXX_BEGIN_LDBL_NAMESPACE
 	}
 #else
       // max_exponent10 + 1 for the integer part, + 2 for sign and '\0'.
-      const int __cs_size = numeric_limits<long double>::max_exponent10 + 3;
+      const int __cs_size =
+	__gnu_cxx::__numeric_traits<long double>::__max_exponent10 + 3;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       int __len = std::__convert_from_v(_S_get_c_locale(), __cs, 0, "%.*Lf", 
 					0, __units);
@@ -2494,8 +2503,10 @@ _GLIBCXX_END_LDBL_NAMESPACE
     {
       unsigned long __val = 0;
       for (; __lo < __hi; ++__lo)
-	__val = *__lo + ((__val << 7) |
-		       (__val >> (numeric_limits<unsigned long>::digits - 7)));
+	__val =
+	  *__lo + ((__val << 7)
+		   | (__val >> (__gnu_cxx::__numeric_traits<unsigned long>::
+				__digits - 7)));
       return static_cast<long>(__val);
     }
 
@@ -2503,10 +2514,6 @@ _GLIBCXX_END_LDBL_NAMESPACE
   // Assumes
   // __newlen > __oldlen
   // __news is allocated for __newlen size
-  // Used by both num_put and ostream inserters: if __num,
-  // internal-adjusted objects are padded according to the rules below
-  // concerning 0[xX] and +-, otherwise, exactly as right-adjusted
-  // ones are.
 
   // NB: Of the two parameters, _CharT can be deduced from the
   // function arguments. The other (_Traits) has to be explicitly specified.
@@ -2515,7 +2522,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
     __pad<_CharT, _Traits>::_S_pad(ios_base& __io, _CharT __fill,
 				   _CharT* __news, const _CharT* __olds,
 				   const streamsize __newlen,
-				   const streamsize __oldlen, const bool __num)
+				   const streamsize __oldlen)
     {
       const size_t __plen = static_cast<size_t>(__newlen - __oldlen);
       const ios_base::fmtflags __adjust = __io.flags() & ios_base::adjustfield;
@@ -2529,7 +2536,7 @@ _GLIBCXX_END_LDBL_NAMESPACE
 	}
 
       size_t __mod = 0;
-      if (__adjust == ios_base::internal && __num)
+      if (__adjust == ios_base::internal)
 	{
 	  // Pad after the sign, if there is one.
 	  // Pad after 0[xX], if there is one.

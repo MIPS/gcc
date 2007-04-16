@@ -1,3 +1,22 @@
+2007-04-16  Matthias Klose  <doko@debian.org>
+
+	* configure.tgt (i[456]86-*-linux*): Only add ia32 specific
+	flags if not building with -m64.
+	* testsuite/lib/libgomp-dg.exp (libgomp_init): Don't add -march
+	flag for i?86-*-* targets, if current target matches -m64.
+
+2007-04-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.am: Add -I .. to ACLOCAL_AMFLAGS.
+	* Makefile.in: Regenerate.
+
+2007-04-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/31369
+	* testsuite/libgomp.c++/c++.exp: Don't use concat when setting
+	ld_library_path.
+	* testsuite/libgomp.fortran/fortran.exp: Likewise.
+
 2007-04-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (gomp_cpu_affinity, gomp_cpu_affinity_len): New extern

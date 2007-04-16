@@ -1,3 +1,253 @@
+2007-04-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* configure.ac: Change how LIBSUPCXX_PICFLAGS is set.
+	* configure: Regenerate.
+
+2007-04-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc: Include <limits>.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31556
+	* include/bits/stl_algobase.h (equal(_InputIterator1, _InputIterator1,
+	_InputIterator2, _BinaryPredicate), mismatch(_InputIterator1,
+	_InputIterator1, _InputIterator2, _BinaryPredicate)): Convert
+	predicate return to bool.
+	* include/bits/stl_algo.h (__find_if(_InputIterator, _InputIterator,
+	_Predicate, input_iterator_tag), search(_ForwardIterator1,
+	_ForwardIterator1, _ForwardIterator2, _ForwardIterator2,
+	_BinaryPredicate), __search_n(_ForwardIterator, _ForwardIterator,
+	_Integer, const _Tp&, _BinaryPredicate, std::forward_iterator_tag),
+	__search_n(_RandomAccessIter, _RandomAccessIter, _Integer, const _Tp&,
+	_BinaryPredicate, std::random_access_iterator_tag),
+	search_n(_ForwardIterator, _ForwardIterator, _Integer, const _Tp&,
+	_BinaryPredicate), remove_copy_if(_InputIterator, _InputIterator,
+	_OutputIterator, _Predicate), __unique_copy(_ForwardIterator,
+	_ForwardIterator, _OutputIterator, _BinaryPredicate,
+	forward_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _OutputIterator,
+	_BinaryPredicate, input_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _OutputIterator,
+	_BinaryPredicate, input_iterator_tag, output_iterator_tag),
+	__unique_copy(_InputIterator, _InputIterator, _ForwardIterator,
+	_BinaryPredicate, input_iterator_tag, forward_iterator_tag),
+	unique(_ForwardIterator, _ForwardIterator, _BinaryPredicate),
+	__partition(_BidirectionalIterator, _BidirectionalIterator, _Predicate,
+	bidirectional_iterator_tag), binary_search(_ForwardIterator,
+	_ForwardIterator, const _Tp&, _Compare),
+	next_permutation(_BidirectionalIterator, _BidirectionalIterator,
+	_Compare), prev_permutation(_BidirectionalIterator,
+	_BidirectionalIterator, _Compare)): Likewise.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/31554
+	* include/bits/stl_algo.h (stable_partition): Convert __buf.size()
+	to _DistanceType.
+
+2007-04-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/numeric_traits.h: Do not include <limits>.
+	(__numeric_traits_integer::__is_signed, __digits): Add.
+	(__numeric_traits_floating::__digits10, __max_exponent10): Add.
+	* src/istream.cc (ignore<char>(streamsize, int_type), operator>>
+	(basic_istream<char>&, char*), ignore<wchar_t>(streamsize,
+	int_type)): Use the latter.
+	* src/compatibility.cc (ignore<char>(streamsize),
+	ignore<wchar_t>(streamsize)): Likewise.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_compare):
+	Likewise.
+	* include/bits/stl_memory.h (__get_temporary_buffer): Likewise.
+	* include/bits/stl_algobase.h (lexicographical_compare(const char*,
+	const char*, const char*, const char*)): Likewise.
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_int(_InIter,
+	_InIter, ios_base&, ios_base::iostate&, _ValueT&),
+	num_put<>::_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT),
+	num_put<>::_M_insert_float(_OutIter, ios_base&, _CharT, char,
+	_ValueT), collate<>::do_hash(const _CharT*, const _CharT*)): Likewise.
+	* include/bits/basic_string.h (basic_string<>::_S_compare): Likewise.
+	* include/bits/istream.tcc (operator>>(short&), operator>>(int&),
+	ignore(streamsize), ignore(streamsize, int_type), operator>>
+	(basic_istream<>&, _CharT*)): Likewise.
+	* include/bits/stl_bvector.h (vector<bool>::max_size): Likewise.
+	* include/tr1/functional_hash.h (struct hash<long double>): Likewise.
+	* include/std/istream: Do not include <limits>.
+	* include/tr1/cmath: Include <limits>.
+	* testsuite/23_containers/vector/bool/capacity/29134.cc: Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/13.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/wchar_t/13.cc:
+	Likewise.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+
+	* include/tr1/hashtable: Do not include the whole <iterator>.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/c_locale.h: Do not include <langinfo.h>
+	and <iconv.h>.
+	* config/locale/gnu/c++locale_internal.h: Include <langinfo.h>.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/istream (class basic_istream<>): Remove unneded friend
+	declarations.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_get/get/wchar_t/1.cc: Initialize v.
+
+2007-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(iter_type,
+	ios_base&, ios_base::iostate&, void*&)): Fix for sizeof(void*)
+	> sizeof(unsigned long).
+
+	* testsuite/22_locale/num_get/get/char/1.cc: Fix void* test.
+	* testsuite/22_locale/num_get/get/wchar_t/1.cc: Likewise.
+
+	* testsuite/22_locale/num_put/put/char/1.cc: Tweak comment.
+	* testsuite/22_locale/num_put/put/wchar_t/1.cc: Likewise.
+
+2007-04-11  Zack Weinberg  <zackw@panix.com>
+
+	* include/std/iosfwd: Do not include <bits/c++locale.h> and
+	<bits/functexcept.h>.
+
+2007-04-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/detail/resize_policy/
+	cc_hash_max_collision_check_resize_trigger_imp.hpp: Qualify
+	namespace std members.	
+	* include/ext/pb_ds/detail/list_update_policy/
+	counter_lu_metadata.hpp: Same.
+	* include/ext/throw_allocator.h: Same.
+	* include/ext/pod_char_traits.h: Same.
+	* include/ext/malloc_allocator.h: Same.
+	* libsupc++/del_op.cc: Same, simplify.
+
+	* include/bits/c++config: Adjust macro name.
+	
+	* include/c_global/cstring: Alphabetize.
+	* include/c_global/cwctype: Same.
+	
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Include <bits/stl_algobase.h> instead of
+	the whole <algorithm>.
+
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (__is_function_helper): New, uses
+	variadic templates.
+	(is_function): Forward to the latter.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_function/is_function.cc: Add test.
+
+2007-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: vstring bits)
+	* include/bits/ostream_insert.h: New.
+	* include/Makefile.am: Add.
+	* include/ext/vstring.h (operator<<(basic_ostream<>&,
+	const __versa_string<>&): Forward to __ostream_insert.
+	* include/bits/basic_string.h (operator<<(basic_ostream<>&,
+	const string<>&)): Likewise.
+	* include/std/ostream (operator<<(basic_ostream<>&, _CharT),
+	operator<<(basic_ostream<char,>&, char), operator<<(basic_ostream<>&,
+	const _CharT*), operator<<(basic_ostream<char,>&, const char*)):
+	Likewise.
+	* include/ext/vstring.tcc (operator<<(basic_ostream<>&,
+	const __versa_string<>&)): Remove.
+	(class basic_ostream): Remove friend declarations.
+	(basic_ostream<>::_M_write(char_type, streamsize),
+	_M_insert(const char_type*, streamsize)): Remove.
+	* include/bits/ostream.tcc (_M_insert(const char_type*, streamsize)):
+	Remove definition.
+	(operator<<(basic_ostream<>&, const char*)): Use __ostream_insert.
+	* config/abi/pre/gnu.ver: Adjust.
+	* src/ostream-inst.cc: Add __ostream_insert instantiations.
+	* include/bits/locale_facets.h (__pad<>::_S_pad): Remove __num
+	parameter.
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad): Adjust.
+	(num_put<>::_M_pad(_CharT, streamsize, ios_base&, _CharT*,
+	const _CharT*, int&)): Likewise.
+	* include/Makefile.in: Rebuild.
+	* testsuite/ext/vstring/inserters_extractors/char/28277.cc: New.
+	* testsuite/ext/vstring/inserters_extractors/wchar_t/28277.cc: New.
+
+	* include/ext/vstring_util.h: Do not include the whole <locale>.
+	* include/ext/vstring.tcc (operator>>(basic_istream<>&,
+	__versa_string<>&, getline(basic_istream<>&, __versa_string<>&,
+	_CharT)): Tweak to refer to ios_base as a base of istream; do not
+	refer to non-standard types of istream.
+	* include/bits/istream.tcc (operator>>(basic_istream<>&, _CharT*),
+	ws(basic_istream<>&)): Do not refer to non-standard types of istream.
+	* include/std/bitset (operator>>(std::basic_istream<>&, bitset<>&)):
+	Avoid using basic_streambuf<>*.
+
+	* include/bits/istream.tcc (operator>>(basic_istream<>&,
+	basic_string<>&), getline(basic_istream<>&, basic_string<>&, _CharT)):
+	Move...
+	* include/bits/basic_string.tcc: ... here; tweak to refer to ios_base
+	as a base of istream; do not refer to non-standard types of istream.
+	* include/std/string: Tweak includes.
+
+	* include/ext/type_traits.h (__is_null_pointer): Add.
+	* include/ext/rc_string_base.h: Use it.
+	* include/ext/sso_string_base.h: Likewise.
+	* include/bits/basic_string.tcc (__is_null_pointer): Remove, use
+	the above.
+	* include/ext/vstring_util.h (__vstring_utility<>::_S_is_null_pointer):
+	Remove.
+
+2007-04-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits_fwd.h (__is_union_or_class): Remove.
+	* include/tr1/type_traits (struct __in_array,
+	struct __is_union_or_class, struct __is_union_or_class_helper,
+	struct __is_empty_helper, struct __is_polymorphic_helper):
+	Remove.
+	(struct is_enum): Use __is_enum.
+	(struct is_union): Use __is_union.
+	(struct is_class): Use __is_class.
+	(struct is_function): Adjust.
+	(struct is_empty): Use __is_empty.
+	(struct is_polymorphic): Use __is_polymorphic.
+	(struct is_abstract): Use __is_abstract.
+	(struct has_virtual_destructor): Use __has_virtual_destructor.
+	(struct __is_base_of_helper): Use __is_base_of.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/typedefs.cc: Remove.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/is_union_or_class.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_class/typedefs.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_class/is_class.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_union/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_union/is_union.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_virtual_destructor/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_virtual_destructor/has_virtual_destructor.cc: Likewise.
+	* testsuite/util/testsuite_tr1.h (class VirtualDestructorClass): Add.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_polymorphic/
+	is_polymorphic.cc: Add test.
+
+2007-04-08  Alexey Beshenov  <bav.272304@gmail.com>
+
+	PR libstdc++/31511
+	* include/c_global/cmath.tcc (__cmath_power): Use _Tp(1).
+	* include/c_std/cmath.tcc (__cmath_power): Likewise.
+
 2007-04-06  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/31117

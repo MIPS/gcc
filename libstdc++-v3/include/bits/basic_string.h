@@ -395,12 +395,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       {
 	const difference_type __d = difference_type(__n1 - __n2);
 
-	if (__d > numeric_limits<int>::max())
-	  return numeric_limits<int>::max();
-	else if (__d < numeric_limits<int>::min())
-	  return numeric_limits<int>::min();
+	if (__d > __gnu_cxx::__numeric_traits<int>::__max)
+	  return __gnu_cxx::__numeric_traits<int>::__max;
+	else if (__d < __gnu_cxx::__numeric_traits<int>::__min)
+	  return __gnu_cxx::__numeric_traits<int>::__min;
 	else
-	  return int(__d);	
+	  return int(__d);
       }
 
       void
@@ -2414,7 +2414,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 586. string inserter not a formatted function
-      return __os._M_insert(__str.data(), __str.size());
+      return __ostream_insert(__os, __str.data(), __str.size());
     }
 
   /**

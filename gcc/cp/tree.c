@@ -1828,6 +1828,12 @@ cp_tree_equal (tree t1, tree t2)
 	return false;
       return cp_tree_equal (OVL_CHAIN (t1), OVL_CHAIN (t2));
 
+    case TRAIT_EXPR:
+      if (TRAIT_EXPR_KIND (t1) != TRAIT_EXPR_KIND (t2))
+	return false;
+      return same_type_p (TRAIT_EXPR_TYPE1 (t1), TRAIT_EXPR_TYPE1 (t2))
+	&& same_type_p (TRAIT_EXPR_TYPE2 (t1), TRAIT_EXPR_TYPE2 (t2));
+
     default:
       break;
     }
@@ -2360,26 +2366,6 @@ cp_cannot_inline_tree_fn (tree* fnp)
     }
 
   return 0;
-}
-
-/* Add any pending functions other than the current function (already
-   handled by the caller), that thus cannot be inlined, to FNS_P, then
-   return the latest function added to the array, PREV_FN.  */
-
-tree
-cp_add_pending_fn_decls (void* fns_p, tree prev_fn)
-{
-  varray_type *fnsp = (varray_type *)fns_p;
-  struct saved_scope *s;
-
-  for (s = scope_chain; s; s = s->prev)
-    if (s->function_decl && s->function_decl != prev_fn)
-      {
-	VARRAY_PUSH_TREE (*fnsp, s->function_decl);
-	prev_fn = s->function_decl;
-      }
-
-  return prev_fn;
 }
 
 /* Determine whether VAR is a declaration of an automatic variable in

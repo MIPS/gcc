@@ -751,6 +751,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "34kc", PROCESSOR_24KC, 33 },  /* 34K with MT/DSP */
   { "34kf", PROCESSOR_24KF, 33 },
   { "34kx", PROCESSOR_24KX, 33 },
+  { "74kc", PROCESSOR_74KC, 33 },
+  { "74kf", PROCESSOR_74KF, 33 },
+  { "74kx", PROCESSOR_74KX, 33 },
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -883,6 +886,41 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        4            /* memory_latency */
     },
     { /* 24KX */
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (5),            /* fp_mult_df */
+      COSTS_N_INSNS (17),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 74KC */
+      SOFT_FP_COSTS,
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 74KF */
+      COSTS_N_INSNS (8),            /* fp_add */
+      COSTS_N_INSNS (8),            /* fp_mult_sf */
+      COSTS_N_INSNS (10),           /* fp_mult_df */
+      COSTS_N_INSNS (34),           /* fp_div_sf */
+      COSTS_N_INSNS (64),           /* fp_div_df */
+      COSTS_N_INSNS (5),            /* int_mult_si */
+      COSTS_N_INSNS (5),            /* int_mult_di */
+      COSTS_N_INSNS (41),           /* int_div_si */
+      COSTS_N_INSNS (41),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* 74KX */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (5),            /* fp_mult_df */
@@ -1216,19 +1254,48 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Return true if SYMBOL_REF X is associated with a global symbol
+   (in the STB_GLOBAL sense).  */
+
+static bool
+mips_global_symbol_p (rtx x)
+{
+  tree decl;
+
+  decl = SYMBOL_REF_DECL (x);
+  if (!decl)
+    return !SYMBOL_REF_LOCAL_P (x);
+
+  /* Weakref symbols are not TREE_PUBLIC, but their targets are global
+     or weak symbols.  Relocations in the object file will be against
+     the target symbol, so it's that symbol's binding that matters here.  */
+  return DECL_P (decl) && (TREE_PUBLIC (decl) || DECL_WEAK (decl));
+}
+
+/* Return true if SYMBOL_REF X binds locally.  */
+
+static bool
+mips_symbol_binds_local_p (rtx x)
+{
+  return (SYMBOL_REF_DECL (x)
+	  ? targetm.binds_local_p (SYMBOL_REF_DECL (x))
+	  : SYMBOL_REF_LOCAL_P (x));
+}
+
 /* Classify symbol X, which must be a SYMBOL_REF or a LABEL_REF.  */
 
 static enum mips_symbol_type
 mips_classify_symbol (rtx x)
 {
-  tree decl;
+  if (TARGET_RTP_PIC)
+    return SYMBOL_GOT_DISP;
 
   if (GET_CODE (x) == LABEL_REF)
     {
       if (TARGET_MIPS16)
 	return SYMBOL_CONSTANT_POOL;
       if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
-	return SYMBOL_GOT_LOCAL;
+	return SYMBOL_GOT_PAGE_OFST;
       return SYMBOL_GENERAL;
     }
 
@@ -1254,49 +1321,34 @@ mips_classify_symbol (rtx x)
 
   if (TARGET_ABICALLS)
     {
-      decl = SYMBOL_REF_DECL (x);
-      if (decl == 0)
-	{
-	  if (!SYMBOL_REF_LOCAL_P (x))
-	    return SYMBOL_GOT_GLOBAL;
-	}
-      else
-	{
-	  /* Don't use GOT accesses for locally-binding symbols if
-	     TARGET_ABSOLUTE_ABICALLS.  Otherwise, there are three
-	     cases to consider:
+      /* Don't use GOT accesses for locally-binding symbols; we can use
+	 %hi and %lo instead.  */
+      if (TARGET_ABSOLUTE_ABICALLS && mips_symbol_binds_local_p (x))
+	return SYMBOL_GENERAL;
 
-		- o32 PIC (either with or without explicit relocs)
-		- n32/n64 PIC without explicit relocs
-		- n32/n64 PIC with explicit relocs
+      /* There are three cases to consider:
 
-	     In the first case, both local and global accesses will use an
-	     R_MIPS_GOT16 relocation.  We must correctly predict which of
-	     the two semantics (local or global) the assembler and linker
-	     will apply.  The choice doesn't depend on the symbol's
-	     visibility, so we deliberately ignore decl_visibility and
-	     binds_local_p here.
+	    - o32 PIC (either with or without explicit relocs)
+	    - n32/n64 PIC without explicit relocs
+	    - n32/n64 PIC with explicit relocs
 
-	     In the second case, the assembler will not use R_MIPS_GOT16
-	     relocations, but it chooses between local and global accesses
-	     in the same way as for o32 PIC.
+	 In the first case, both local and global accesses will use an
+	 R_MIPS_GOT16 relocation.  We must correctly predict which of
+	 the two semantics (local or global) the assembler and linker
+	 will apply.  The choice depends on the symbol's binding rather
+	 than its visibility.
 
-	     In the third case we have more freedom since both forms of
-	     access will work for any kind of symbol.  However, there seems
-	     little point in doing things differently.
+	 In the second case, the assembler will not use R_MIPS_GOT16
+	 relocations, but it chooses between local and global accesses
+	 in the same way as for o32 PIC.
 
-	     Note that weakref symbols are not TREE_PUBLIC, but their
-	     targets are global or weak symbols.  Relocations in the
-	     object file will be against the target symbol, so it's
-	     that symbol's binding that matters here.  */
-	  if (DECL_P (decl)
-	      && (TREE_PUBLIC (decl) || DECL_WEAK (decl))
-	      && !(TARGET_ABSOLUTE_ABICALLS && targetm.binds_local_p (decl)))
-	    return SYMBOL_GOT_GLOBAL;
-	}
+	 In the third case we have more freedom since both forms of
+	 access will work for any kind of symbol.  However, there seems
+	 little point in doing things differently.  */
+      if (mips_global_symbol_p (x))
+	return SYMBOL_GOT_DISP;
 
-      if (!TARGET_ABSOLUTE_ABICALLS)
-	return SYMBOL_GOT_LOCAL;
+      return SYMBOL_GOT_PAGE_OFST;
     }
 
   return SYMBOL_GENERAL;
@@ -1359,14 +1411,17 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 	 PC- or GP-relative offset is within the 16-bit limit.  */
       return offset_within_block_p (x, INTVAL (offset));
 
-    case SYMBOL_GOT_LOCAL:
+    case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOTOFF_PAGE:
-      /* The linker should provide enough local GOT entries for a
-	 16-bit offset.  Larger offsets may lead to GOT overflow.  */
+      /* If the symbol is global, the GOT entry will contain the symbol's
+	 address, and we will apply a 16-bit offset after loading it.
+	 If the symbol is local, the linker should provide enough local
+	 GOT entries for a 16-bit offset, but larger offsets may lead
+	 to GOT overflow.  */
       return SMALL_INT (offset);
 
-    case SYMBOL_GOT_GLOBAL:
-    case SYMBOL_GOTOFF_GLOBAL:
+    case SYMBOL_GOT_DISP:
+    case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
     case SYMBOL_TLSGD:
@@ -1375,6 +1430,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
     case SYMBOL_TPREL:
     case SYMBOL_GOTTPREL:
     case SYMBOL_TLS:
+    case SYMBOL_HALF:
       return false;
     }
   gcc_unreachable ();
@@ -1454,15 +1510,15 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
       /* PC-relative addressing is only available for lw and ld.  */
       return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
-    case SYMBOL_GOT_LOCAL:
+    case SYMBOL_GOT_PAGE_OFST:
       return true;
 
-    case SYMBOL_GOT_GLOBAL:
+    case SYMBOL_GOT_DISP:
       /* The address will have to be loaded from the GOT first.  */
       return false;
 
     case SYMBOL_GOTOFF_PAGE:
-    case SYMBOL_GOTOFF_GLOBAL:
+    case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
     case SYMBOL_TLS:
@@ -1474,6 +1530,7 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
     case SYMBOL_64_HIGH:
     case SYMBOL_64_MID:
     case SYMBOL_64_LOW:
+    case SYMBOL_HALF:
       return true;
     }
   gcc_unreachable ();
@@ -1620,6 +1677,7 @@ mips_symbol_insns (enum mips_symbol_type type)
       return (ABI_HAS_64BIT_SYMBOLS ? 6 : 2);
 
     case SYMBOL_SMALL_DATA:
+    case SYMBOL_HALF:
       return 1;
 
     case SYMBOL_CONSTANT_POOL:
@@ -1627,8 +1685,8 @@ mips_symbol_insns (enum mips_symbol_type type)
 	 extended instruction.  */
       return 2;
 
-    case SYMBOL_GOT_LOCAL:
-    case SYMBOL_GOT_GLOBAL:
+    case SYMBOL_GOT_PAGE_OFST:
+    case SYMBOL_GOT_DISP:
       /* Unless -funit-at-a-time is in effect, we can't be sure whether
 	 the local/global classification is accurate.  See override_options
 	 for details.
@@ -1652,7 +1710,7 @@ mips_symbol_insns (enum mips_symbol_type type)
       return 3;
 
     case SYMBOL_GOTOFF_PAGE:
-    case SYMBOL_GOTOFF_GLOBAL:
+    case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
     case SYMBOL_64_HIGH:
@@ -3359,6 +3417,16 @@ mips_gen_conditional_trap (rtx *operands)
 			      operands[1]));
 }
 
+/* Return true if calls to X can use R_MIPS_CALL* relocations.  */
+
+static bool
+mips_ok_for_lazy_binding_p (rtx x)
+{
+  return (TARGET_USE_GOT
+	  && GET_CODE (x) == SYMBOL_REF
+	  && !mips_symbol_binds_local_p (x));
+}
+
 /* Load function address ADDR into register DEST.  SIBCALL_P is true
    if the address is needed for a sibling call.  */
 
@@ -3367,11 +3435,11 @@ mips_load_call_address (rtx dest, rtx addr, int sibcall_p)
 {
   /* If we're generating PIC, and this call is to a global function,
      try to allow its address to be resolved lazily.  This isn't
-     possible for NewABI sibcalls since the value of $gp on entry
+     possible if TARGET_CALL_SAVED_GP since the value of $gp on entry
      to the stub would be our caller's gp, not ours.  */
   if (TARGET_EXPLICIT_RELOCS
-      && !(sibcall_p && TARGET_NEWABI)
-      && global_got_operand (addr, VOIDmode))
+      && !(sibcall_p && TARGET_CALL_SAVED_GP)
+      && mips_ok_for_lazy_binding_p (addr))
     {
       rtx high, lo_sum_symbol;
 
@@ -3436,7 +3504,7 @@ mips_expand_call (rtx result, rtx addr, rtx args_size, rtx aux, int sibcall_p)
   insn = emit_call_insn (pattern);
 
   /* Lazy-binding stubs require $gp to be valid on entry.  */
-  if (global_got_operand (orig_addr, VOIDmode))
+  if (mips_ok_for_lazy_binding_p (orig_addr))
     use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
 }
 
@@ -4702,6 +4770,10 @@ override_options (void)
   int i, start, regno;
   enum machine_mode mode;
 
+#ifdef SUBTARGET_OVERRIDE_OPTIONS
+  SUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
   mips_section_threshold = g_switch_set ? g_switch_value : MIPS_DEFAULT_GVALUE;
 
   /* The following code determines the architecture and register size.
@@ -4874,6 +4946,9 @@ override_options (void)
       if (mips_section_threshold > 0)
 	warning (0, "%<-G%> is incompatible with %<-mabicalls%>");
     }
+
+  if (TARGET_VXWORKS_RTP && mips_section_threshold > 0)
+    warning (0, "-G and -mrtp are incompatible");
 
   /* mips_split_addresses is a half-way house between explicit
      relocations and the traditional assembler macros.  It can
@@ -5128,26 +5203,26 @@ override_options (void)
 	 then lowered by mips_rewrite_small_data.  */
       mips_lo_relocs[SYMBOL_SMALL_DATA] = "%gp_rel(";
 
-      mips_split_p[SYMBOL_GOT_LOCAL] = true;
+      mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
       if (TARGET_NEWABI)
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
-	  mips_lo_relocs[SYMBOL_GOT_LOCAL] = "%got_ofst(";
+	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
 	}
       else
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got(";
-	  mips_lo_relocs[SYMBOL_GOT_LOCAL] = "%lo(";
+	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%lo(";
 	}
 
       if (TARGET_XGOT)
 	{
 	  /* The HIGH and LO_SUM are matched by special .md patterns.  */
-	  mips_split_p[SYMBOL_GOT_GLOBAL] = true;
+	  mips_split_p[SYMBOL_GOT_DISP] = true;
 
-	  mips_split_p[SYMBOL_GOTOFF_GLOBAL] = true;
-	  mips_hi_relocs[SYMBOL_GOTOFF_GLOBAL] = "%got_hi(";
-	  mips_lo_relocs[SYMBOL_GOTOFF_GLOBAL] = "%got_lo(";
+	  mips_split_p[SYMBOL_GOTOFF_DISP] = true;
+	  mips_hi_relocs[SYMBOL_GOTOFF_DISP] = "%got_hi(";
+	  mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_lo(";
 
 	  mips_split_p[SYMBOL_GOTOFF_CALL] = true;
 	  mips_hi_relocs[SYMBOL_GOTOFF_CALL] = "%call_hi(";
@@ -5156,9 +5231,9 @@ override_options (void)
       else
 	{
 	  if (TARGET_NEWABI)
-	    mips_lo_relocs[SYMBOL_GOTOFF_GLOBAL] = "%got_disp(";
+	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_disp(";
 	  else
-	    mips_lo_relocs[SYMBOL_GOTOFF_GLOBAL] = "%got(";
+	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
 	  mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
 	}
     }
@@ -5180,6 +5255,8 @@ override_options (void)
   mips_split_p[SYMBOL_TPREL] = 1;
   mips_hi_relocs[SYMBOL_TPREL] = "%tprel_hi(";
   mips_lo_relocs[SYMBOL_TPREL] = "%tprel_lo(";
+
+  mips_lo_relocs[SYMBOL_HALF] = "%half(";
 
   /* We don't have a thread pointer access instruction on MIPS16, or
      appropriate TLS relocations.  */
@@ -6157,8 +6234,8 @@ mips_global_pointer (void)
 {
   unsigned int regno;
 
-  /* $gp is always available in non-abicalls code.  */
-  if (!TARGET_ABICALLS)
+  /* $gp is always available unless we're using a GOT.  */
+  if (!TARGET_USE_GOT)
     return GLOBAL_POINTER_REGNUM;
 
   /* We must always provide $gp when it is used implicitly.  */
@@ -6195,7 +6272,7 @@ mips_global_pointer (void)
 
   /* We need a global pointer, but perhaps we can use a call-clobbered
      register instead of $gp.  */
-  if (TARGET_NEWABI && current_function_is_leaf)
+  if (TARGET_CALL_SAVED_GP && current_function_is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
       if (!regs_ever_live[regno]
 	  && call_used_regs[regno]
@@ -6212,10 +6289,10 @@ mips_global_pointer (void)
 static bool
 mips_save_reg_p (unsigned int regno)
 {
-  /* We only need to save $gp for NewABI PIC.  */
+  /* We only need to save $gp if TARGET_CALL_SAVED_GP and only then
+     if we have not chosen a call-clobbered substitute.  */
   if (regno == GLOBAL_POINTER_REGNUM)
-    return (TARGET_ABICALLS && TARGET_NEWABI
-	    && cfun->machine->global_pointer == regno);
+    return TARGET_CALL_SAVED_GP && cfun->machine->global_pointer == regno;
 
   /* Check call-saved registers.  */
   if (regs_ever_live[regno] && !call_used_regs[regno])
@@ -6559,8 +6636,11 @@ mips_output_cplocal (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if (!TARGET_ABICALLS || cfun->machine->global_pointer == 0)
+  if (!TARGET_USE_GOT || cfun->machine->global_pointer == 0)
     return LOADGP_NONE;
+
+  if (TARGET_RTP_PIC)
+    return LOADGP_RTP;
 
   if (TARGET_ABSOLUTE_ABICALLS)
     return LOADGP_ABSOLUTE;
@@ -6578,7 +6658,7 @@ static GTY(()) rtx mips_gnu_local_gp;
 static void
 mips_emit_loadgp (void)
 {
-  rtx addr, offset, incoming_address;
+  rtx addr, offset, incoming_address, base, index;
 
   switch (mips_current_loadgp_style ())
     {
@@ -6588,14 +6668,22 @@ mips_emit_loadgp (void)
 	  mips_gnu_local_gp = gen_rtx_SYMBOL_REF (Pmode, "__gnu_local_gp");
 	  SYMBOL_REF_FLAGS (mips_gnu_local_gp) |= SYMBOL_FLAG_LOCAL;
 	}
-      emit_insn (gen_loadgp_noshared (mips_gnu_local_gp));
+      emit_insn (gen_loadgp_absolute (mips_gnu_local_gp));
       break;
 
     case LOADGP_NEWABI:
       addr = XEXP (DECL_RTL (current_function_decl), 0);
       offset = mips_unspec_address (addr, SYMBOL_GOTOFF_LOADGP);
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
-      emit_insn (gen_loadgp (offset, incoming_address));
+      emit_insn (gen_loadgp_newabi (offset, incoming_address));
+      if (!TARGET_EXPLICIT_RELOCS)
+	emit_insn (gen_loadgp_blockage ());
+      break;
+
+    case LOADGP_RTP:
+      base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_BASE));
+      index = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_INDEX));
+      emit_insn (gen_loadgp_rtp (base, index));
       if (!TARGET_EXPLICIT_RELOCS)
 	emit_insn (gen_loadgp_blockage ());
       break;
@@ -6871,7 +6959,7 @@ mips_expand_prologue (void)
   mips_emit_loadgp ();
 
   /* If generating o32/o64 abicalls, save $gp on the stack.  */
-  if (TARGET_ABICALLS && !TARGET_NEWABI && !current_function_is_leaf)
+  if (TARGET_ABICALLS && TARGET_OLDABI && !current_function_is_leaf)
     emit_insn (gen_cprestore (GEN_INT (current_function_outgoing_args_size)));
 
   /* If we are profiling, make sure no instructions are scheduled before
@@ -7005,10 +7093,10 @@ mips_expand_epilogue (int sibcall_p)
   if (target != stack_pointer_rtx)
     emit_move_insn (stack_pointer_rtx, target);
 
-  /* If we're using addressing macros for n32/n64 abicalls, $gp is
-     implicitly used by all SYMBOL_REFs.  We must emit a blockage
-     insn before restoring it.  */
-  if (TARGET_ABICALLS && TARGET_NEWABI && !TARGET_EXPLICIT_RELOCS)
+  /* If we're using addressing macros, $gp is implicitly used by all
+     SYMBOL_REFs.  We must emit a blockage insn before restoring $gp
+     from the stack.  */
+  if (TARGET_CALL_SAVED_GP && !TARGET_EXPLICIT_RELOCS)
     emit_insn (gen_blockage ());
 
   /* Restore the registers.  */
@@ -7099,12 +7187,12 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 1;
   reset_block_changes ();
 
-  /* Pick a global pointer for -mabicalls.  Use $15 rather than $28
-     for TARGET_NEWABI since the latter is a call-saved register.  */
-  if (TARGET_ABICALLS)
+  /* Pick a global pointer.  Use a call-clobbered register if
+     TARGET_CALL_SAVED_GP, so that we can use a sibcall.  */
+  if (TARGET_USE_GOT)
     cfun->machine->global_pointer
       = REGNO (pic_offset_table_rtx)
-      = TARGET_NEWABI ? 15 : GLOBAL_POINTER_REGNUM;
+      = TARGET_CALL_SAVED_GP ? 15 : GLOBAL_POINTER_REGNUM;
 
   /* Set up the global pointer for n32 or n64 abicalls.  */
   mips_emit_loadgp ();
@@ -7150,24 +7238,27 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Jump to the target function.  Use a sibcall if direct jumps are
      allowed, otherwise load the address into a register first.  */
   fnaddr = XEXP (DECL_RTL (function), 0);
-  if (TARGET_MIPS16 || TARGET_ABICALLS || TARGET_LONG_CALLS)
+  if (TARGET_MIPS16 || TARGET_USE_GOT || TARGET_LONG_CALLS)
     {
       /* This is messy.  gas treats "la $25,foo" as part of a call
 	 sequence and may allow a global "foo" to be lazily bound.
 	 The general move patterns therefore reject this combination.
 
-	 In this context, lazy binding would actually be OK for o32 and o64,
-	 but it's still wrong for n32 and n64; see mips_load_call_address.
-	 We must therefore load the address via a temporary register if
-	 mips_dangerous_for_la25_p.
+	 In this context, lazy binding would actually be OK
+	 for TARGET_CALL_CLOBBERED_GP, but it's still wrong for
+	 TARGET_CALL_SAVED_GP; see mips_load_call_address.
+	 We must therefore load the address via a temporary
+	 register if mips_dangerous_for_la25_p.
 
 	 If we jump to the temporary register rather than $25, the assembler
 	 can use the move insn to fill the jump's delay slot.  */
-      if (TARGET_ABICALLS && !mips_dangerous_for_la25_p (fnaddr))
+      if (TARGET_USE_PIC_FN_ADDR_REG
+	  && !mips_dangerous_for_la25_p (fnaddr))
 	temp1 = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
       mips_load_call_address (temp1, fnaddr, true);
 
-      if (TARGET_ABICALLS && REGNO (temp1) != PIC_FUNCTION_ADDR_REGNUM)
+      if (TARGET_USE_PIC_FN_ADDR_REG
+	  && REGNO (temp1) != PIC_FUNCTION_ADDR_REGNUM)
 	emit_move_insn (gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM), temp1);
       emit_jump_insn (gen_indirect_jump (temp1));
     }
@@ -7299,9 +7390,9 @@ mips_in_small_data_p (tree decl)
   if (TREE_CODE (decl) == STRING_CST || TREE_CODE (decl) == FUNCTION_DECL)
     return false;
 
-  /* We don't yet generate small-data references for -mabicalls.  See related
-     -G handling in override_options.  */
-  if (TARGET_ABICALLS)
+  /* We don't yet generate small-data references for -mabicalls or
+     VxWorks RTP code.  See the related -G handling in override_options.  */
+  if (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
     return false;
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl) != 0)
@@ -7614,13 +7705,10 @@ mips_cannot_change_mode_class (enum machine_mode from,
 bool
 mips_dangerous_for_la25_p (rtx x)
 {
-  rtx offset;
-
-  if (TARGET_EXPLICIT_RELOCS)
-    return false;
-
-  split_const (x, &x, &offset);
-  return global_got_operand (x, VOIDmode);
+  return (!TARGET_EXPLICIT_RELOCS
+	  && TARGET_USE_GOT
+	  && GET_CODE (x) == SYMBOL_REF
+	  && mips_global_symbol_p (x));
 }
 
 /* Implement PREFERRED_RELOAD_CLASS.  */
@@ -9932,6 +10020,9 @@ mips_issue_rate (void)
 {
   switch (mips_tune)
     {
+    case PROCESSOR_74KC:
+    case PROCESSOR_74KF:
+    case PROCESSOR_74KX:
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
@@ -10909,13 +11000,13 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     }
 }
 
-/* Implement TARGET_EXTRA_LIVE_ON_ENTRY.  PIC_FUNCTION_ADDR_REGNUM is live
-   on entry to a function when generating -mshared abicalls code.  */
+/* Implement TARGET_EXTRA_LIVE_ON_ENTRY.  Some code models use the incoming
+   value of PIC_FUNCTION_ADDR_REGNUM to set up the global pointer.  */
 
 static void
 mips_extra_live_on_entry (bitmap regs)
 {
-  if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
+  if (TARGET_USE_GOT && !TARGET_ABSOLUTE_ABICALLS)
     bitmap_set_bit (regs, PIC_FUNCTION_ADDR_REGNUM);
 }
 

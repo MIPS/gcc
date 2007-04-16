@@ -1,3 +1,150 @@
+2007-04-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31204
+	* primary.c (check_for_implicit_index): New function to check
+	that a host associated variable is not an undeclared implied
+	do loop index.
+	(gfc_match_rvalue, match_variable): Use it and reset the
+	implied_index attribute.
+	* gfortran.h : Add the implied_index field to symbol_attribute.
+	* match.c (gfc_match_iterator): Mark the iterator variable
+	with the new attribute.
+	* decl.c (build_sym): Reset the new attribute.
+
+2007-04-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gfc-internals.texi: Fix typos.
+	* simplify.c: Fix a comment typo.
+
+2007-04-14  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* primary.c: Commentary typo fix; Add question about redundant (?)
+	set.
+
+2007-04-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29507
+	PR fortran/31404
+	* expr.c (scalarize_intrinsic_call): New function to
+	scalarize elemental intrinsic functions in initialization
+	expressions.
+	(check_init_expr): Detect elemental intrinsic functions
+	in initalization expressions and call previous.
+
+2007-04-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31559
+	* primary.c (match_variable): External functions
+	are no variables.
+
+2007-04-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31550
+	* trans-types.c (copy_dt_decls_ifequal): Do not get pointer
+	derived type components.
+
+2007-04-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/18937
+	* resolve.c: Include obstack.h and bitmap.h.  New variable
+	labels_obstack.
+	(code_stack): Add tail and reachable_labels fields.
+	(reachable_labels): New function.
+	(resolve_branch): Rework to use new fields in code_stack.
+	(resolve_code): Call reachable_labels.
+	(resolve_codes): Allocate and free labels_obstack.
+
+2007-04-12  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/31250
+	* decl.c (match_char_spec): Move check for negative CHARACTER
+	length ...
+	* resolve.c (resolve_charlen): ... here.
+	(resolve_types): Resolve CHARACTER lengths earlier.
+
+2007-04-12  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/31234
+	* intrinsic.texi (RANDOM_SEED, RANDOM_NUMBER): New.
+
+2007-04-12  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/31266
+	* primary.c (gfc_variable_attr): Don't copy string length if it
+	doesn't make sense.
+	* resolve.c (resolve_code): Clarify error message.
+
+	PR fortran/31471
+	* decl.c (gfc_match_end): Also check for construct name in END
+	FORALL and END WERE statements.
+	* match.c (match_case_eos): Use uppercase for statement name in
+	error message.
+	(match_elsewhere): Construct name may appear iff construct has a
+	name.
+
+	* trans-types.c: Update copyright years.  Reformat long comment
+	explaining array descriptor format.  Remove obsolete mention of
+	TYPE_SET.
+
+	* arith.c (gfc_arith_uplus): Rename to ...
+	(gfc_arith_identity): ... this.
+	(gfc_parentheses): New function.
+	(gfc_uplus): Adapt to renamed function.
+	* arith.h (gfc_parentheses): Add prototype.
+	* expr.c (gfc_copy_expr): Deal with INTRINSIC_PARENTHESES.
+	(simplifiy_intrinsic_op): Treat INTRINSIC_UPLUS separately from
+	INTRINSIC_PARENTHESES.
+
+2007-04-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31472
+	* decl.c (match_attr_spec): Allow PRIVATE/PUBLIC
+	attribute in type definitions.
+	(gfc_match_private): Allow PRIVATE statement only
+	in specification part of modules.
+	(gfc_match_public): Ditto for PUBLIC.
+	(gfc_match_derived_decl): Allow PRIVATE/PUBLIC attribute only in
+	specificification part of modules.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31257
+	* intrinsic.c (add_functions): Add ref. to gfc_resolve_achar.
+	* intrinsic.h : Add prototype for gfc_resolve_achar.
+	* iresolve.c (gfc_resolve_achar): New function.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30880
+	* resolve.c (resolve_fl_variable): Set flag to 2 for automatic
+	arrays.  Make condition for automatic array error explicit.
+	If a dummy, no error on an INTENT(OUT) derived type.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/30872
+	* expr.c (find_array_element): Correct arithmetic for rank > 1.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31222
+	* check.c (numeric_check): If an expresson has not got a type,
+	see if it is a symbol for which a default type applies.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31214
+	* trans-decl.c (gfc_get_symbol_decl): Allow unreferenced use
+	associated symbols.
+
+2007-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31293
+	* symbol.c (gfc_check_function_type): New function.
+	* gfortran.h : Add prototype for previous.
+	* parse.c (parse_progunit): Call it after parsing specification
+	statements.
+
 2007-04-05  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/31483

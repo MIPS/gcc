@@ -787,8 +787,8 @@ struct saved_scope GTY(())
 #define current_lang_base scope_chain->lang_base
 #define current_lang_name scope_chain->lang_name
 
-/* When parsing a template declaration, a TREE_LIST representing the
-   active template parametesr.  Each node in the list represents one
+/* When parsing a template declaration, a TREE_LIST represents the
+   active template parameters.  Each node in the list represents one
    level of template parameters.  The innermost level is first in the
    list.  The depth of each level is stored as an INTEGER_CST in the
    TREE_PURPOSE of each node.  The parameters for that level are
@@ -4686,7 +4686,6 @@ extern linkage_kind decl_linkage		(tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 			      void*, struct pointer_set_t*);
 extern int cp_cannot_inline_tree_fn		(tree*);
-extern tree cp_add_pending_fn_decls		(void*,tree);
 extern int cp_auto_var_in_fn_p			(tree,tree);
 extern tree fold_if_not_in_template		(tree);
 extern tree rvalue				(tree);
@@ -4816,6 +4815,7 @@ extern bool cp_var_mod_type_p			(tree, tree);
 extern void cxx_initialize_diagnostics		(struct diagnostic_context *);
 extern int cxx_types_compatible_p		(tree, tree);
 extern void init_shadowed_var_for_decl		(void);
+extern tree cxx_staticp                         (tree);
 
 /* in cp-gimplify.c */
 extern int cp_gimplify_expr			(tree *, tree *, tree *);

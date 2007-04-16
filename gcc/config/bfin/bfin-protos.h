@@ -23,6 +23,18 @@
 #ifndef GCC_BFIN_PROTOS_H
 #define GCC_BFIN_PROTOS_H
 
+/* CPU type.  */
+typedef enum bfin_cpu
+{
+  BFIN_CPU_BF531,
+  BFIN_CPU_BF532,
+  BFIN_CPU_BF533,
+  BFIN_CPU_BF537
+} bfin_cpu_t;
+
+/* Value of -mcpu= */
+extern bfin_cpu_t bfin_cpu_type;
+
 #define Mmode enum machine_mode
 
 extern rtx function_arg (CUMULATIVE_ARGS *, Mmode, tree, int);
@@ -49,7 +61,7 @@ extern bool expand_move (rtx *, Mmode);
 extern void bfin_expand_call (rtx, rtx, rtx, rtx, int);
 extern bool bfin_longcall_p (rtx, int);
 extern bool bfin_dsp_memref_p (rtx);
-extern bool bfin_expand_strmov (rtx, rtx, rtx, rtx);
+extern bool bfin_expand_movmem (rtx, rtx, rtx, rtx);
 
 extern void conditional_register_usage (void);
 extern int bfin_register_move_cost (enum machine_mode, enum reg_class,

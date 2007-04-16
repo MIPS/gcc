@@ -3032,8 +3032,26 @@ c_build_qualified_type (tree type, int type_quals)
 	}
       if (!t)
 	{
+          tree domain = TYPE_DOMAIN (type);
+
 	  t = build_variant_type_copy (type);
 	  TREE_TYPE (t) = element_type;
+
+          if (TYPE_STRUCTURAL_EQUALITY_P (element_type)
+              || (domain && TYPE_STRUCTURAL_EQUALITY_P (domain)))
+            SET_TYPE_STRUCTURAL_EQUALITY (t);
+          else if (TYPE_CANONICAL (element_type) != element_type
+                   || (domain && TYPE_CANONICAL (domain) != domain))
+            {
+              tree unqualified_canon 
+                = build_array_type (TYPE_CANONICAL (element_type),
+                                    domain? TYPE_CANONICAL (domain) 
+                                          : NULL_TREE);
+              TYPE_CANONICAL (t) 
+                = c_build_qualified_type (unqualified_canon, type_quals);
+            }
+          else
+            TYPE_CANONICAL (t) = t;
 	}
       return t;
     }
@@ -4493,6 +4511,15 @@ c_expand_body (tree fndecl)
 				decl_fini_priority_lookup (fndecl));
 }
 
+/* Hook used by staticp to handle language-specific tree codes.  */
+
+tree
+c_staticp (tree exp)
+{
+  return (TREE_CODE (exp) == COMPOUND_LITERAL_EXPR
+	  && TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (exp))
+	  ? exp : NULL);
+}
 
 
 /* Given a boolean expression ARG, return a tree representing an increment

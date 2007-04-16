@@ -24,6 +24,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
 #include "system.h"
 #include "flags.h"
 #include "gfortran.h"
+#include "obstack.h"
+#include "bitmap.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
 #include "dependency.h"
 
@@ -35,13 +37,17 @@ typedef enum seq_type
 }
 seq_type;
 
-/* Stack to push the current if we descend into a block during
-   resolution.  See resolve_branch() and resolve_code().  */
+/* Stack to keep track of the nesting of blocks as we move through the
+   code.  See resolve_branch() and resolve_code().  */
 
 typedef struct code_stack
 {
-  struct gfc_code *head, *current;
+  struct gfc_code *head, *current, *tail;
   struct code_stack *prev;
+
+  /* This bitmap keeps track of the targets valid for a branch from
+     inside this block.  */
+  bitmap reachable_labels;
 }
 code_stack;
 
@@ -65,6 +71,9 @@ static int specification_expr = 0;
 
 /* The id of the last entry seen.  */
 static int current_entry_id;
+
+/* We use bitmaps to determine if a branch target is valid.  */
+static bitmap_obstack labels_obstack;
 
 int
 gfc_is_formal_arg (void)
@@ -4395,33 +4404,63 @@ resolve_transfer (gfc_code *code)
 
 /*********** Toplevel code resolution subroutines ***********/
 
+/* Find the set of labels that are reachable from this block.  We also
+   record the last statement in each block so that we don't have to do
+   a linear search to find the END DO statements of the blocks.  */
+     
+static void
+reachable_labels (gfc_code *block)
+{
+  gfc_code *c;
+
+  if (!block)
+    return;
+
+  cs_base->reachable_labels = bitmap_obstack_alloc (&labels_obstack);
+
+  /* Collect labels in this block.  */
+  for (c = block; c; c = c->next)
+    {
+      if (c->here)
+	bitmap_set_bit (cs_base->reachable_labels, c->here->value);
+
+      if (!c->next && cs_base->prev)
+	cs_base->prev->tail = c;
+    }
+
+  /* Merge with labels from parent block.  */
+  if (cs_base->prev)
+    {
+      gcc_assert (cs_base->prev->reachable_labels);
+      bitmap_ior_into (cs_base->reachable_labels,
+		       cs_base->prev->reachable_labels);
+    }
+}
+
 /* Given a branch to a label and a namespace, if the branch is conforming.
-   The code node described where the branch is located.  */
+   The code node describes where the branch is located.  */
 
 static void
 resolve_branch (gfc_st_label *label, gfc_code *code)
 {
-  gfc_code *block, *found;
   code_stack *stack;
-  gfc_st_label *lp;
 
   if (label == NULL)
     return;
-  lp = label;
 
   /* Step one: is this a valid branching target?  */
 
-  if (lp->defined == ST_LABEL_UNKNOWN)
+  if (label->defined == ST_LABEL_UNKNOWN)
     {
-      gfc_error ("Label %d referenced at %L is never defined", lp->value,
-		 &lp->where);
+      gfc_error ("Label %d referenced at %L is never defined", label->value,
+		 &label->where);
       return;
     }
 
-  if (lp->defined != ST_LABEL_TARGET)
+  if (label->defined != ST_LABEL_TARGET)
     {
       gfc_error ("Statement at %L is not a valid branch target statement "
-		 "for the branch statement at %L", &lp->where, &code->loc);
+		 "for the branch statement at %L", &label->where, &code->loc);
       return;
     }
 
@@ -4433,52 +4472,50 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
       return;
     }
 
-  /* Step three: Try to find the label in the parse tree. To do this,
-     we traverse the tree block-by-block: first the block that
-     contains this GOTO, then the block that it is nested in, etc.  We
-     can ignore other blocks because branching into another block is
-     not allowed.  */
+  /* Step three:  See if the label is in the same block as the
+     branching statement.  The hard work has been done by setting up
+     the bitmap reachable_labels.  */
 
-  found = NULL;
-
-  for (stack = cs_base; stack; stack = stack->prev)
-    {
-      for (block = stack->head; block; block = block->next)
-	{
-	  if (block->here == label)
-	    {
-	      found = block;
-	      break;
-	    }
-	}
-
-      if (found)
-	break;
-    }
-
-  if (found == NULL)
+  if (!bitmap_bit_p (cs_base->reachable_labels, label->value))
     {
       /* The label is not in an enclosing block, so illegal.  This was
-	 allowed in Fortran 66, so we allow it as extension.  We also 
-	 forego further checks if we run into this.  */
+	 allowed in Fortran 66, so we allow it as extension.  No
+	 further checks are necessary in this case.  */
       gfc_notify_std (GFC_STD_LEGACY, "Label at %L is not in the same block "
-		      "as the GOTO statement at %L", &lp->where, &code->loc);
+		      "as the GOTO statement at %L", &label->where,
+		      &code->loc);
       return;
     }
 
   /* Step four: Make sure that the branching target is legal if
-     the statement is an END {SELECT,DO,IF}.  */
+     the statement is an END {SELECT,IF}.  */
 
-  if (found->op == EXEC_NOP)
+  for (stack = cs_base; stack; stack = stack->prev)
+    if (stack->current->next && stack->current->next->here == label)
+      break;
+
+  if (stack && stack->current->next->op == EXEC_NOP)
     {
-      for (stack = cs_base; stack; stack = stack->prev)
-	if (stack->current->next == found)
-	  break;
-
-      if (stack == NULL)
-	gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps to END "
-			"of construct at %L", &code->loc, &found->loc);
+      gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps to "
+		      "END of construct at %L", &code->loc,
+		      &stack->current->next->loc);
+      return;  /* We know this is not an END DO.  */
     }
+
+  /* Step five: Make sure that we're not jumping to the end of a DO
+     loop from within the loop.  */
+
+  for (stack = cs_base; stack; stack = stack->prev)
+    if ((stack->current->op == EXEC_DO
+	 || stack->current->op == EXEC_DO_WHILE)
+	&& stack->tail->here == label && stack->tail->op == EXEC_NOP)
+      {
+	gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: GOTO at %L jumps "
+			"to END of construct at %L", &code->loc,
+			&stack->tail->loc);
+	return;
+
+      }
 }
 
 
@@ -5004,6 +5041,8 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
   frame.head = code;
   cs_base = &frame;
 
+  reachable_labels (code);
+
   for (; code; code = code->next)
     {
       frame.current = code;
@@ -5135,8 +5174,9 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 		rlen = mpz_get_si (code->expr2->ts.cl->length->value.integer);
 
 	      if (rlen && llen && rlen > llen)
-		gfc_warning_now ("rhs of CHARACTER assignment at %L will be "
-				 "truncated (%d/%d)", &code->loc, rlen, llen);
+		gfc_warning_now ("CHARACTER expression will be truncated "
+				 "in assignment (%d/%d) at %L",
+				 llen, rlen, &code->loc);
 	    }
 
 	  if (gfc_pure (NULL))
@@ -5388,6 +5428,8 @@ resolve_index_expr (gfc_expr *e)
 static try
 resolve_charlen (gfc_charlen *cl)
 {
+  int i;
+
   if (cl->resolved)
     return SUCCESS;
 
@@ -5399,6 +5441,15 @@ resolve_charlen (gfc_charlen *cl)
     {
       specification_expr = 0;
       return FAILURE;
+    }
+
+  /* "If the character length parameter value evaluates to a negative
+     value, the length of character entities declared is zero."  */
+  if (cl->length && !gfc_extract_int (cl->length, &i) && i <= 0)
+    {
+      gfc_warning_now ("CHARACTER variable has zero length at %L",
+		       &cl->length->where);
+      gfc_replace_expr (cl->length, gfc_int_expr (0));
     }
 
   return SUCCESS;
@@ -5648,7 +5699,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	      || sym->as->upper[i] == NULL
 	      || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
 	    {
-	      flag = 1;
+	      flag = 2;
 	      break;
 	    }
 	}
@@ -5670,7 +5721,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
       else if (sym->attr.external)
 	gfc_error ("External '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
-      else if (sym->attr.dummy)
+      else if (sym->attr.dummy
+	&& !(sym->ts.type == BT_DERIVED && sym->attr.intent == INTENT_OUT))
 	gfc_error ("Dummy '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
       else if (sym->attr.intrinsic)
@@ -5679,12 +5731,15 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
       else if (sym->attr.result)
 	gfc_error ("Function result '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
-      else
+      else if (flag == 2)
 	gfc_error ("Automatic array '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
+      else
+	goto no_init_error;
       return FAILURE;
     }
 
+no_init_error:
   /* Check to see if a derived type is blocked from being host associated
      by the presence of another class I symbol in the same namespace.
      14.6.1.3 of the standard and the discussion on comp.lang.fortran.  */
@@ -7265,6 +7320,9 @@ resolve_types (gfc_namespace *ns)
 
   resolve_contained_functions (ns);
 
+  for (cl = ns->cl_list; cl; cl = cl->next)
+    resolve_charlen (cl);
+
   gfc_traverse_ns (ns, resolve_symbol);
 
   resolve_fntype (ns);
@@ -7281,9 +7339,6 @@ resolve_types (gfc_namespace *ns)
 
   forall_flag = 0;
   gfc_check_interfaces (ns);
-
-  for (cl = ns->cl_list; cl; cl = cl->next)
-    resolve_charlen (cl);
 
   gfc_traverse_ns (ns, resolve_values);
 
@@ -7322,7 +7377,10 @@ resolve_codes (gfc_namespace *ns)
   cs_base = NULL;
   /* Set to an out of range value.  */
   current_entry_id = -1;
+
+  bitmap_obstack_initialize (&labels_obstack);
   resolve_code (ns->code, ns);
+  bitmap_obstack_release (&labels_obstack);
 }
 
 
