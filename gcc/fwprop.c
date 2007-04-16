@@ -431,7 +431,7 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
 /* Return true if the register from reference REF is killed
    between FROM to (but not including) TO.  */
 
-static bool 
+static bool
 local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 {
   rtx insn;
@@ -526,7 +526,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
   rtx x = *body;
   return MEM_P (x) && !MEM_READONLY_P (x);
 }
-            
+
 /* Check if all uses in DEF_INSN can be used in TARGET_INSN.  This
    would require full computation of available expressions;
    we check only restricted conditions, see use_killed_between.  */
@@ -818,7 +818,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
           rtx note = find_reg_note (use_insn, REG_EQUAL, NULL_RTX);
 	  rtx old = note ? XEXP (note, 0) : SET_SRC (use_set);
 	  rtx new = simplify_replace_rtx (old, src, x);
-	  if (old != new)	
+	  if (old != new)
             set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new));
 	}
       return false;
@@ -838,7 +838,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 	loc = &XEXP (note, 0);
       else
 	loc = &SET_SRC (use_set);
-	  
+
       /* Do not replace an existing REG_EQUAL note if the insn is not
 	 recognized.  Either we're already replacing in the note, or
 	 we'll separately try plugging the definition in the note and
@@ -852,7 +852,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
     mode = GET_MODE (*loc);
 
   new = propagate_rtx (*loc, mode, reg, src);
-  
+
   if (!new)
     return false;
 
@@ -869,7 +869,7 @@ forward_propagate_into (struct df_ref *use)
   struct df_link *defs;
   struct df_ref *def;
   rtx def_insn, def_set, use_insn;
-  rtx parent;  
+  rtx parent;
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return;
@@ -902,6 +902,8 @@ forward_propagate_into (struct df_ref *use)
     return;
 
   def_insn = DF_REF_INSN (def);
+  if (multiple_sets (def_insn))
+    return;
   def_set = single_set (def_insn);
   if (!def_set)
     return;
@@ -988,8 +990,8 @@ fwprop (void)
 struct tree_opt_pass pass_rtl_fwprop =
 {
   "fwprop1",                            /* name */
-  gate_fwprop,				/* gate */   
-  fwprop,				/* execute */       
+  gate_fwprop,				/* gate */
+  fwprop,				/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1030,8 +1032,8 @@ fwprop_addr (void)
 struct tree_opt_pass pass_rtl_fwprop_addr =
 {
   "fwprop2",                            /* name */
-  gate_fwprop,				/* gate */   
-  fwprop_addr,				/* execute */       
+  gate_fwprop,				/* gate */
+  fwprop_addr,				/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

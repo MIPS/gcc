@@ -1,9 +1,14 @@
-2007-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+2007-04-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* fwprop.c (forward_propagate_into): If multiple sets
+	return.
+
+2007-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_ref_create, df_reg_chain_unlink,
 	df_install_refs): Use df->analyze_subset.
 	(df_reorganize_refs_by_reg_by_reg, df_reorganize_refs_by_reg_by_insn):
-	New functions.  
+	New functions.
 	(df_reorganize_refs_by_reg): Split into
 	df_reorganize_refs_by_reg_by_reg,
 	df_reorganize_refs_by_reg_by_insn.
@@ -14,12 +19,12 @@
     	* df-core.c (df_set_blocks): Set df->analyze_subset.
 	(df_finish_pass): Clear df->analyze->subset.
 	(df_analyze): Use df->analyze_subset.
-	(df_dump_start): Remove total_size from dump.  
+	(df_dump_start): Remove total_size from dump.
 	* df.h (DF_RI_NO_UPDATE, DF_DEFS_TOTAL_SIZE, DF_USES_TOTAL_SIZE):
 	Removed.
 	(df.analyze_subset): New field.  * df-problems.c (df_ri_alloc,
 	df_ri_compute): Removed DF_RI_NO_UPDATE.
-	
+
 
 2007-04-12  Steven Bosscher  <steven@gcc.gnu.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -29,11 +34,11 @@
 	(canon_address): Removed address_out parameter.
 	(record_store): Removed address var and compute mem and
 	mem_address differently.
-	(check_mem_read_rtx): Removed address and changed parameters to 
+	(check_mem_read_rtx): Removed address and changed parameters to
 	canon_true_dependence.
-	* cselib.c (cselib_expand_value_rtx): Do not translate 
+	* cselib.c (cselib_expand_value_rtx): Do not translate
 	FRAME_POINTER_REGNUM and HARD_FRAME_POINTER_REGNUM.
-	
+
 2007-04-11  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* gcse.c (hash_scan_set): Make sure that INSN has only one
@@ -56,7 +61,7 @@
 	notes.
 	* reload1.c (reload): Ditto.
 	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address):
-	Use maybe_encapsulate_block to add libcall notes.  
+	Use maybe_encapsulate_block to add libcall notes.
 
 2007-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -126,7 +131,7 @@
 	* passes.c (init_iptimization_passes): Removed dse after combine.
 	Renamed dse3 to dse2.
 	* dce.c (delete_unmarked_insns): Renamed new_dce to dce.
-	(end_dce, mark_artificial_uses, mark_reg_dependencies, 
+	(end_dce, mark_artificial_uses, mark_reg_dependencies,
 	invariant_store_base_eq, invariant_store_base_hash, value_store_base_eq,
 	value_store_base_hash, store_base_del, rs_init, rs_confluence,
 	rs_transfer_function, init_invariant_store_group,
@@ -143,7 +148,7 @@
 	insn_might_read_mem_rtx, insn_might_read_mem_use,
 	insn_might_read_mem_p, mark_dependent_stores,
 	prescan_insns_for_dse, rest_of_handle_dse, gate_dse): Deleted functions
-	as part of new dse pass in separate file.  
+	as part of new dse pass in separate file.
 	* reload1.c (alter_reg): Added calls to register spill slots
 	with dse.
 
@@ -153,7 +158,7 @@
 	PRE_MODIFY for TDmode.
 
 2007-04-04  Kenneth Zadeck <zadeck@naturalbridge.com>
-	
+
 	* cfg.c (dump_reg_info): Added check to lower max if new regs
 	were added.
 	* init-regs.c (initialize_uninitialized_regs): Changed code to
@@ -242,11 +247,11 @@
 2007-03-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_df_initialize, pass_df_finish): Deleted.
-	(pass_df_initialize_opt, pass_df_initialize_no_opt, 
+	(pass_df_initialize_opt, pass_df_initialize_no_opt,
 	pass_stack_regs_run, pass_df_finish_opt, pass_df_finish_no_opt):
 	Added.
 	* df-core.c (df_finish_pass): Made ur and live problems condition
-	on optimization. 
+	on optimization.
 	(pass_df_initialize): Renamed to pass_df_initialize_opt.
 	(pass_df_initialize_no_opt): New pass.
 	(gate_opt, gate_no_opt): New functions.
@@ -265,9 +270,9 @@
 	* df-problems.c (df_get_live_in, df_get_live_out): Return df_live
 	sets if they are there.
 	* reg-stack.c (rest_of_handle_stack_regs_run):
-	Added new pass that just runs subpasses.  
+	Added new pass that just runs subpasses.
 	* passes.c (init_optimization_passes): Added passes to turn on df
-	at only some parts of the compilation for -O0.  Moved 
+	at only some parts of the compilation for -O0.  Moved
 	pass_split_before_regstack and pass_stack_regs into a subpass of
 	the stack regs pass.
 
@@ -309,7 +314,7 @@
 	(finish_subregs_of_mode): New function.
 	(pass_subregs_of_mode_finish): New pass.
 	* rtl.h (record_subregs_of_mode): Removed.
-	* combine.c (gen_lowpart_for_combine): Removed calls to 
+	* combine.c (gen_lowpart_for_combine): Removed calls to
 	record_subregs_of_mode.
 	* passes.c (init_optimization_passes): Moved pass_subregs_of_mode_init
 	just before local_alloc. New pass pass_subregs_of_mode_finish
@@ -404,7 +409,7 @@
 
 2007-02-22  Paolo Bonzini <bonzini@gnu.org>
 
-	* combine.c (set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine, 
+	* combine.c (set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine,
 	reg_num_sign_bit_copies_for_combine, get_last_value): Look at DF_LR to
 	check if a register is uninitialized.
 
@@ -542,7 +547,7 @@
 	(resolve_clobber): Added df_insn_rescan of clobber.
 	(decompose_multiword_subregs): Added df setup and removed debugging.
 	(pass_lower_subreg2): Added df cleanup.
-	* Makefile.in (lower-subregs.o): Added df.h dependence. 
+	* Makefile.in (lower-subregs.o): Added df.h dependence.
 
 2007-02-03  Kaz Kojima  <kkojima@gcc.gnu.org>
 
@@ -597,14 +602,14 @@
 	* config/i386.c (ix86_expand_prologue): Don't build a blockage
 	insn with an operand.  If the PIC reg is used, use a prologue_use
 	insn to protect it from being removed.
-	* df-scan.c (df_get_entry_block_def_set): Generate ref for 
+	* df-scan.c (df_get_entry_block_def_set): Generate ref for
 	INCOMING_RETURN_ADDR_RTX after reload_completed.
 	* df-core.c (df_ref_debug): Fixed formatting.
 	* init-regs.c: Renamed from subregs_init.c and changed to
 	initialize all fully uninitialized registers.
 	* bt-load.c (compute_defs_uses_and_gen): Changed check for
 	ASM_INPUT to UNSPEC_VOLATILE.
-	* df-problems.c (df_set_unused_notes_for_mw, 
+	* df-problems.c (df_set_unused_notes_for_mw,
 	df_set_dead_notes_for_mw, df_ri_bb_compute): Cleaned up reg_notes
 	debugging info.
 	(df_set_dead_notes_for_mw): Added do_not_gen to test of all notes
@@ -620,8 +625,8 @@
 	parameter to deletable_insn_p.
 	(run_fast_df_dce): Temporarily turn off DF_DEFER_INSN_RESCAN
 	during this subphase.
-	
-	
+
+
 2007-02-01  Seongbae Park <seongbae.park@gmail.com>
 
 	* df-scan.c (df_sort_and_compress_refs):
@@ -688,12 +693,12 @@
 	* df.h (df_ref_flags.DF_REGS_EVER_LIVE): Renamed to
 	DF_HARD_REG_LIVE.
 	(df_ref_order): New Enum.
-	(df_ref_info.{refs_organized_alone, refs_organized_with_eq_uses, 
+	(df_ref_info.{refs_organized_alone, refs_organized_with_eq_uses,
 	add_refs_inline}): Replaced with df_ref_info.ref_order.
 	(DF_REG_EVER_LIVE_P): Removed macro.
-	* df-problems.c (df_ru_local_compute): Added parm to 
+	* df-problems.c (df_ru_local_compute): Added parm to
 	df_maybe_reorganize_use_refs.
-	(df_rd_local_compute): Added parm to 
+	(df_rd_local_compute): Added parm to
 	df_maybe_reorganize_def_refs.
 
 2007-01-12  Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -717,7 +722,7 @@
 	df_compute_regs_ever_live, df_reg_chain_mark,
 	df_reg_chain_verify_unmarked, df_insn_refs_verify, df_bb_verify,
 	df_scan_verify): Changed to use vector rep for refs.
-	(df_get_call_refs) Ditto plus fixed bug where clobber ref was 
+	(df_get_call_refs) Ditto plus fixed bug where clobber ref was
 	generated for same ref as result of call.
 	(df_reg_chain_create, df_ref_unlink, df_ref_chain_find_ref,
 	df_ref_chain_find_ref_by_regno, df_ref_chain_append,
@@ -731,7 +736,7 @@
 	(df_ref_is_equal): Renamed to df_ref_equal_p and changed to use
 	vector rep for refs.
 	(df_mw_is_equal): Renamed to df_mw_equal_p and changed to use
-	vector rep for refs.  
+	vector rep for refs.
 	* df.h (df_ref_flags.(DF_REF_MW_HARDREG_GROUP, DF_REF_REF_MARKER):
 	Removed.
 	(df_ref_flags.(DF_REF_REG_MARKER, DF_REGS_EVER_LIVE)): Renumbered.
@@ -745,13 +750,13 @@
 	(df.ref_order): New field.
 	(DF_REF_REF_MARK, DF_REF_REF_UNMARK, DF_REF_IS_REF_MARKED,
 	DF_REF_NEXT_REF): Removed macro.
-	(DF_REF_ORDER): New macro.  
+	(DF_REF_ORDER): New macro.
 	* df-core.c (df_bb_regno_last_use_find, df_bb_regno_last_use_find,
 	df_bb_regno_first_def_find, df_bb_regno_last_def_find,
 	df_insn_regno_def_p, df_find_def, df_find_use, df_refs_chain_dump,
 	df_mws_dump, df_insn_uid_debug, df_insn_debug): Ditto.
 	* fwprop.c (update_df): Do not call df_insn_rescan unless insn has
-	changed.  
+	changed.
 	(local_ref_killed_between_p, all_uses_available_at,
 	find_occurrence, update_df): Changed to use
 	vector rep for refs.
@@ -821,10 +826,10 @@
 
 2007-01-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* see.c (see_update_defs_relevancy): Type fixed.
-	* df-scan.c (df_reg_chain_unlink, df_ref_verify): Made tolerant of 
+	* df-scan.c (df_reg_chain_unlink, df_ref_verify): Made tolerant of
 	refs table not being there.
 	(df_drop_organized_tables): New function.
-	* df-core.c (df_finish_pass): Drop refs tables after each pass.  
+	* df-core.c (df_finish_pass): Drop refs tables after each pass.
 	* web.c (web_main): Reorganized access to not use ref tables and
 	go in order of insns.
 	* df.h (df_drop_organized_tables): New function.
@@ -849,7 +854,7 @@
 	out_of_date_transfer_functions fields into the problem verifiers.
 	* df-core.c (df_set_blocks): More logging.
 	(df_finish_pass): Moved around when recanning is done.
-	(rest_of_handle_df_initialize): Moved creation of 
+	(rest_of_handle_df_initialize): Moved creation of
 	handles out_of_date_transfer_functions to the problems.
 	(df_set_bb_dirty, df_clear_bb_dirty, df_compact_blocks): Now
 	handles out_of_date_transfer_functions in any problem.
@@ -864,7 +869,7 @@
 	(df_chain_fully_remove_problem, df_chain_free): Frees
 	out_of_date_transfer_functions.
 	(df_chain_create_bb): Sets out_of_date_transfer_functions.
-	
+
 
 2007-01-02  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-scan.c (df_reg_chain_create, df_reg_chain_unlink,
@@ -879,7 +884,7 @@
 	* global.c (global_alloc): Repositioned use of urec problem.
 	(build_insn_chain): Changed use of DF_RA_LIVE_TOP to df_get_live_top.
 	(rest_of_handle_global_alloc): Removed call to df_analyze for no
-	optimize case.  
+	optimize case.
 	* local-alloc.c (update_equiv_regs): Added calls to
 	df_notes_rescan where eq notes are hacked.
 	(block_alloc): Changed DF_RA_LIVE_TOP to DF_LR_TOP.
@@ -894,13 +899,13 @@
 	* df-problems.c (df_get_live_in): Does not look at DF_LIVE.
 	(df_get_live_out): Deleted.
 	(df_get_live_top): Added.
-	* config/sh/sh.c (calc_live_regs): Changed regs_ever_live to 
+	* config/sh/sh.c (calc_live_regs): Changed regs_ever_live to
 	df_regs_ever_live_p.
 	* config/mn10300/mn10300.c (fp_regs_to_save): Ditto.
 	* reload1.c (reload): Corrected the set of bitmaps to modify after
 	reloading.
-	
-	
+
+
 2007-01-01  Eric Christopher  <echristo@apple.com>
 
         * config/darwin.c: Include df.h.
