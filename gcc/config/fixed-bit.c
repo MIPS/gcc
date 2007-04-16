@@ -349,7 +349,7 @@ FIXED_MULHELPER (FIXED_C_TYPE a, FIXED_C_TYPE b, word_type satp)
   s.ll = r.ll;
   r.ll = 0;
 #else
-  s.ll = s.ll >> FBITS;
+  s.ll = ((UINT_C_TYPE)s.ll) >> FBITS;
   temp1.ll = r.ll << (FIXED_WIDTH - FBITS);
   s.ll = s.ll | temp1.ll;
   r.ll = r.ll >> FBITS;

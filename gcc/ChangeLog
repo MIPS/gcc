@@ -1,3 +1,8 @@
+2007-04-16  Chao-ying Fu  <fu@mips.com>
+
+	* config/fixed-bit.c (FIXED_MULHELPER): We need to cast to an
+	unsigned type when shifting right.
+
 2007-04-16  Aldy Hernandez  <aldyh@redhat.com>
 
         * function.h: Remove sequence_stack extern declaration.
