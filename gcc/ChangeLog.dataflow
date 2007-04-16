@@ -1,3 +1,26 @@
+2007-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_ref_create, df_reg_chain_unlink,
+	df_install_refs): Use df->analyze_subset.
+	(df_reorganize_refs_by_reg_by_reg, df_reorganize_refs_by_reg_by_insn):
+	New functions.  
+	(df_reorganize_refs_by_reg): Split into
+	df_reorganize_refs_by_reg_by_reg,
+	df_reorganize_refs_by_reg_by_insn.
+	(df_add_refs_to_table): Do not add hardware_regs if not asked for.
+	(df_reorganize_refs_by_insn): Move call to count_refs.
+	(df_maybe_reorganize_def_refs, df_maybe_reorganize_use_refs):
+	Remove code to modify df->total_size.
+    	* df-core.c (df_set_blocks): Set df->analyze_subset.
+	(df_finish_pass): Clear df->analyze->subset.
+	(df_analyze): Use df->analyze_subset.
+	(df_dump_start): Remove total_size from dump.  
+	* df.h (DF_RI_NO_UPDATE, DF_DEFS_TOTAL_SIZE, DF_USES_TOTAL_SIZE):
+	Removed.
+	(df.analyze_subset): New field.  * df-problems.c (df_ri_alloc,
+	df_ri_compute): Removed DF_RI_NO_UPDATE.
+	
+
 2007-04-12  Steven Bosscher  <steven@gcc.gnu.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 

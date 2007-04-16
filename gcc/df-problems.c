@@ -3818,9 +3818,6 @@ df_ri_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) df_ri->problem_data;
 
-  if (df->changeable_flags & DF_RI_NO_UPDATE)
-    return;
-
   df_grow_reg_info ();
 
   if (!df_ri->problem_data)
@@ -4422,9 +4419,6 @@ df_ri_compute (bitmap all_blocks)
   bitmap setjmp_crosses = NULL;
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) df_ri->problem_data;
-
-  if (df->changeable_flags & DF_RI_NO_UPDATE)
-    return;
 
   if (df_ri_problem_p (DF_RI_LIFE))
     {

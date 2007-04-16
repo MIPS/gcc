@@ -389,18 +389,17 @@ enum df_changeable_flags
   DF_LR_RUN_DCE           =  1, /* Run DCE.  */
   DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
   DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_RI_NO_UPDATE         =  8, /* Do not update the register info when df_analyze is run.  */
-  DF_NO_REGS_EVER_LIVE    = 16, /* Do not compute the regs_ever_live.  */
+  DF_NO_REGS_EVER_LIVE    =  8, /* Do not compute the regs_ever_live.  */
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return immediately.  This is used by passes that know how to update
   the scanning them selves.  */
-  DF_NO_INSN_RESCAN       = 32,
+  DF_NO_INSN_RESCAN       = 16,
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return after marking the insn for later processing.  This allows all
   rescans to be batched.  */
-  DF_DEFER_INSN_RESCAN    = 64
+  DF_DEFER_INSN_RESCAN    = 32
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -457,9 +456,15 @@ struct df
   struct dataflow *problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
   int num_problems_defined;
 
-  /* If not NULL, the subset of blocks of the program to be considered
-     for analysis.  */ 
+  /* If not NULL, this subset of blocks of the program to be
+     considered for analysis.  At certain times, this will contain all
+     the blocks in the function so it cannot be used as an indicator
+     of if we are analyzing a subset.  See analyze_subset.  */ 
   bitmap blocks_to_analyze;
+
+  /* If this is true, then only a subset of the blocks of the program
+     is considered to compute the solutions of dataflow problems.  */
+  bool analyze_subset;
 
   /* True if someone added or deleted something from regs_ever_live so
      that the entry and exit blocks need be reprocessed.  */
@@ -612,13 +617,11 @@ struct df
    ARRAYS ARE A CACHE LOCALITY KILLER.  */
 
 #define DF_DEFS_TABLE_SIZE() (df->def_info.table_size)
-#define DF_DEFS_TOTAL_SIZE() (df->def_info.total_size)
 #define DF_DEFS_GET(ID) (df->def_info.refs[(ID)])
 #define DF_DEFS_SET(ID,VAL) (df->def_info.refs[(ID)]=(VAL))
 #define DF_DEFS_COUNT(ID) (df->def_info.count[(ID)])
 #define DF_DEFS_BEGIN(ID) (df->def_info.begin[(ID)])
 #define DF_USES_TABLE_SIZE() (df->use_info.table_size)
-#define DF_USES_TOTAL_SIZE() (df->use_info.total_size)
 #define DF_USES_GET(ID) (df->use_info.refs[(ID)])
 #define DF_USES_SET(ID,VAL) (df->use_info.refs[(ID)]=(VAL))
 #define DF_USES_COUNT(ID) (df->use_info.count[(ID)])

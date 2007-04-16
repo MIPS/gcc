@@ -561,6 +561,7 @@ df_set_blocks (bitmap blocks)
 	  df->blocks_to_analyze = BITMAP_ALLOC (NULL);
 	}
       bitmap_copy (df->blocks_to_analyze, blocks);
+      df->analyze_subset = true;
     }
   else
     {
@@ -571,6 +572,7 @@ df_set_blocks (bitmap blocks)
 	  BITMAP_FREE (df->blocks_to_analyze);
 	  df->blocks_to_analyze = NULL;
 	}
+      df->analyze_subset = false;
     }
 
   /* Setting the blocks causes the refs to be unorganized since only
@@ -664,6 +666,7 @@ df_finish_pass (void)
       BITMAP_FREE (df->blocks_to_analyze);
       df->blocks_to_analyze = NULL;
       df_mark_solutions_dirty ();
+      df->analyze_subset = false;
     }
 
 #ifdef ENABLE_CHECKING
@@ -1265,8 +1268,8 @@ void
 df_analyze (void)
 {
   bitmap current_all_blocks = BITMAP_ALLOC (NULL);
-  int i;
   bool everything;
+  int i;
   
   if (df->postorder)
     free (df->postorder);
@@ -1295,7 +1298,7 @@ df_analyze (void)
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
-  if (df->blocks_to_analyze)
+  if (df->analyze_subset)
     {
       everything = false;
       bitmap_and_into (df->blocks_to_analyze, current_all_blocks);
@@ -2018,8 +2021,6 @@ df_dump_start (FILE *file)
   if (df->blocks_to_analyze)
     fprintf (file, "def_info->table_size = %d, use_info->table_size = %d\n",
 	     DF_DEFS_TABLE_SIZE (), DF_USES_TABLE_SIZE ());
-  fprintf (file, "def_info->total_size = %d, use_info->total_size = %d\n",
-	   DF_DEFS_TOTAL_SIZE (), DF_USES_TOTAL_SIZE ());
 
   for (i = 0; i < df->num_problems_defined; i++)
     {
