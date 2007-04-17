@@ -90,6 +90,8 @@ struct _con_graph
 
   tree function;
 
+  bool deserialized;
+
   /* Some congraphs represent functions outside the current compilation
    * unit. This allows them to be named */
   tree function_name;
@@ -116,8 +118,13 @@ struct _con_node
    * '1-limited naming scheme' */
   tree id;
 
-  /* For field nodes, the id of the object to which this belongs */
-  tree owner;
+  /* VAR_DECLs, PARM_DECLs and FIELD_DECLs seem to have consistent uids
+   * across comilation units. If this is not zero, it should be used as
+   * id, and ID should be NULL. */
+  int uid;
+
+  /* For field nodes, the object to which this belongs */
+  tree owner; 
 
   /* type */
   enum con_node_type type;
@@ -183,6 +190,7 @@ con_graph new_con_graph (tree function, int bb_index, int count);
 
 /* print the connection graph to file (in Graph::Easy format) */
 void con_graph_dump (con_graph cg);
+void prune_con_graph (con_graph cg);
 
 /* search through the list of connection graphs for the one
  * representing _function_ */
@@ -233,16 +241,17 @@ con_node get_existing_node (con_graph cg, tree id);
 con_node existing_local_node (con_graph cg, tree id);
 
 /* As above, but also with it's call_id set */
-con_node get_existing_node_with_call_id (con_graph cg,
-					 tree id, tree call_id);
+con_node get_existing_node_with_call_id (con_graph cg, tree id, int uid,
+					 tree call_id);
 
-/* Get the field node with specified id, from cg*/
+/* Get the field node with specified id, from cg */
 con_node get_existing_field_node (con_graph cg,
-				  tree id, tree owner);
+				  tree id, int uid, tree owner);
 
 /* As above, but also with it's call_id set */
 con_node get_existing_field_node_with_call_id (con_graph cg,
 					       tree id,
+					       int uid,
 					       tree owner,
 					       tree call_id);
 
@@ -330,7 +339,8 @@ bool add_killing_edge (con_node source, con_node target);
 
 /* removes an edge from the graph */
 void remove_con_edge (con_edge edge);
-void remove_con_node (con_node node);
+void remove_con_node (con_node node, bool check);
+void clean_up_con_graph (con_graph);
 
 /* This could be called multiple times with the same caller and callee, in
  * which case, the call_id will differentiate between the nodes creates in

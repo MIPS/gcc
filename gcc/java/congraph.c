@@ -30,6 +30,7 @@ extern FILE* dump_file;
 
 /* Quick hacks to avoid warnings */
 bool is_global (tree);
+static int get_uid (tree);
 
 /* -------------------------------------------------------------*
  *			memory and hashtables			*
@@ -46,8 +47,10 @@ htab_con_node_eq (const void *p1, const void *p2)
 {
   const con_node n1 = (con_node) p1;
   const con_node n2 = (con_node) p2;
-  return (n1->id == n2->id 
-	  && n1->graph == n2->graph
+  gcc_assert (n1->graph == n2->graph);
+
+  return ((n1->id == n2->id || n1->id == NULL || n2->id == NULL)
+	  && n1->uid == n2->uid 
 	  && n1->call_id == n2->call_id);
 }
 
@@ -110,10 +113,11 @@ get_corresponding_node (con_graph cg, con_node node)
   gcc_assert (node->graph != cg);
   if (node->type == FIELD_NODE)
     result = get_existing_field_node_with_call_id (cg, node->id,
-						 node->owner,
-						 node->call_id);
+						   node->uid, node->owner,
+						   node->call_id);
   else
-    result = get_existing_node_with_call_id (cg, node->id, node->call_id);
+    result = get_existing_node_with_call_id (cg, node->id, node->uid,
+					     node->call_id);
 
   if (result)
     gcc_assert (result->type == node->type);
@@ -465,6 +469,45 @@ init_graphs (void)
   graphs = htab_create (500, htab_con_graph_hash, htab_con_graph_eq, free);
 }
 
+static void
+mark_and_recurse (con_node node, sbitmap bm)
+{
+  if (TEST_BIT (bm, node->dump_index))
+    return; // we've been here before
+
+  SET_BIT (bm, node->dump_index);
+  con_edge edge;
+  for (edge = node->out; edge != NULL; edge = edge->next_out)
+    {
+      mark_and_recurse (edge->target, bm);
+    }
+}
+
+void
+clean_up_con_graph (con_graph cg)
+{
+  sbitmap bm = sbitmap_alloc (10000);
+  sbitmap_zero (bm);
+  con_node node;
+
+  // starting at the parameters, do a mark and sweep. 
+  tree parameters = DECL_ARGUMENTS (cg->function);
+  while (parameters)
+    {
+      node = get_existing_node (cg, parameters);
+      mark_and_recurse (node, bm);
+      parameters = TREE_CHAIN (parameters);
+    }
+
+  for (node = cg->root; node; node = node->next)
+    {
+      if (!TEST_BIT (bm, node->dump_index))
+	remove_con_node (node, false);
+    }
+
+  sbitmap_free (bm);
+}
+
 void
 add_con_graph (con_graph cg)
 {
@@ -490,12 +533,12 @@ get_cg_for_function (tree function)
   finder.function_name = DECL_ASSEMBLER_NAME (function);
   fprintf (dump_file, "Finding congraph: ");
   tf (finder.function_name, true);
-  con_graph cg = htab_find (graphs, &finder);
-  if (cg) return cg;
+//  con_graph cg = htab_find (graphs, &finder);
+  //if (cg) return cg;
 
-  cg = deserialize_con_graph (function);
-  if (cg)
-    add_con_graph (cg);
+  con_graph cg = deserialize_con_graph (function);
+//  if (cg)
+//    add_con_graph (cg);
   return cg;
 }
 
@@ -522,10 +565,14 @@ add_node (con_graph cg, con_node node)
   gcc_assert (cg && node);
   gcc_assert (node->next == NULL);
 
+  /* add uid before we search */
+  if (node->id != NULL && TREE_CODE (node->id) != IDENTIFIER_NODE)
+    node->uid = get_uid (node->id);
+
   /* we search for id, which is duplicated in the case of field nodes */
   if (node->type != FIELD_NODE)
     gcc_assert (get_existing_node_with_call_id
-		(cg, node->id, node->call_id) == NULL);
+		(cg, node->id, node->uid, node->call_id) == NULL);
 
   /* insert the node at the front of the list */
   node->next = cg->root;
@@ -540,6 +587,7 @@ add_node (con_graph cg, con_node node)
   /* put the node into the hashtable */
   finder.graph = node->graph;
   finder.id = node->id;
+  finder.uid = node->uid;
   finder.call_id = node->call_id;
   slot = htab_find_slot (cg->nodes, &finder, INSERT);
   *slot = (void*) node;
@@ -654,7 +702,7 @@ add_local_node (con_graph cg, tree id)
   gcc_assert (id);
 
   /* Check global vars */
-  if (!is_global (id))
+  if (is_global (id))
     return add_global_node (cg, id);
 
   node = new_con_node ();
@@ -677,19 +725,28 @@ add_callee_parameter (con_graph cg, tree id)
 }
 
 static con_node
-find_node (con_graph cg, tree id, tree call_id)
+find_node (con_graph cg, tree id, int uid, tree call_id)
 {
   struct _con_node finder;
   gcc_assert (cg);
-  gcc_assert (id);
-  finder.graph = cg;
+
+  if (cg->root == NULL)
+    return NULL;
+
+  /* In deserialized graphs, uid nodes have NULL ids */
+  if (uid && cg->deserialized)
+    id = NULL;
+
+
   finder.id = id;
+  finder.uid = uid;
+  finder.graph = cg;
   finder.call_id = call_id;
 
   return htab_find (cg->nodes, &finder);
 }
 
-static con_node
+/*static con_node
 get_existing_node_with_identifier (con_graph cg, tree id)
 {
   // this is only here to check for dups. I think that the only ids with
@@ -707,23 +764,29 @@ get_existing_node_with_identifier (con_graph cg, tree id)
     }
   gcc_assert (result != NULL);
   return result;
+}*/
+
+static int
+get_uid (tree id)
+{
+  if (id == NULL) 
+    return 0;
+  if (SSA_VAR_P (id) && TREE_CODE (id) != SSA_NAME)
+    return DECL_UID (id);
+  return 0;
 }
 
 con_node
 get_existing_node (con_graph cg, tree id)
 {
   // congraphs which have been deserialized
-  if (TREE_CODE (cg->root->id) == IDENTIFIER_NODE)
-    return get_existing_node_with_identifier (cg, id);
-    
-
-  return get_existing_node_with_call_id (cg, id, NULL);
+  return get_existing_node_with_call_id (cg, id, get_uid (id), NULL);
 }
 
 con_node
-get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
+get_existing_node_with_call_id (con_graph cg, tree id, int uid, tree call_id)
 {
-  return find_node (cg, id, call_id);
+  return find_node (cg, id, uid, call_id);
 }
 
 con_node
@@ -742,14 +805,14 @@ existing_local_node (con_graph cg, tree id)
 
 
 con_node
-get_existing_field_node (con_graph cg, tree id, tree owner)
+get_existing_field_node (con_graph cg, tree id, int uid, tree owner)
 {
-  return get_existing_field_node_with_call_id (cg, id, owner, NULL);
+  return get_existing_field_node_with_call_id (cg, id, uid, owner, NULL);
 }
 
 con_node
 get_existing_field_node_with_call_id (con_graph graph,
-				      tree id, tree owner,
+				      tree id, int uid, tree owner,
 				      tree call_id)
 {
   con_node node;
@@ -758,8 +821,10 @@ get_existing_field_node_with_call_id (con_graph graph,
   gcc_assert (owner);
   for (node = graph->root; node != NULL; node = node->next)
     {
-      if (node->id == id && node->owner == owner
-	  && node->call_id == call_id)
+      if (node->id == id 
+	  && node->owner == owner
+	  && node->uid == uid 
+	  && node->call_id == call_id )
 	{
 	  /* For other types use get_existing_node */
 	  gcc_assert (node->type == FIELD_NODE);
@@ -808,11 +873,11 @@ con_edge
 add_edge (con_node source, con_node target)
 {
   con_edge edge;
-  fprintf (dump_file, "Adding edge from ");
+/*  fprintf (dump_file, "Adding edge from ");
   df (source);
   fprintf (dump_file, " to ");
   df (target);
-  nl ();
+  nl ();*/
 
   gcc_assert (source != target);
 
@@ -868,19 +933,24 @@ add_edge (con_node source, con_node target)
 }
 
 void
-remove_con_node (con_node node)
+remove_con_node (con_node node, bool check)
 {
   con_graph cg;
   void** slot;
   struct _con_node finder;
-  /* this is only really designed to remove caller nodes */
-  gcc_assert (node);
-  gcc_assert (node->in == NULL);
-  gcc_assert (node->out);
-  gcc_assert (node->out->next_out == NULL);
-  gcc_assert (node->type == CALLER_ACTUAL_NODE);
 
-  remove_con_edge (node->out);
+  if (check)
+    {
+      /* this is only really designed to remove caller nodes */
+      gcc_assert (node);
+      gcc_assert (node->in == NULL);
+      gcc_assert (node->out);
+      gcc_assert (node->out->next_out == NULL);
+      gcc_assert (node->type == CALLER_ACTUAL_NODE);
+    }
+
+  if (check || node->out)
+    remove_con_edge (node->out); 
 
   /* remove it from the hashtable and the list of nodes */
   cg = node->graph;
@@ -890,12 +960,12 @@ remove_con_node (con_node node)
     {
       con_node prev_node = cg->root;
       while (prev_node->next != node)
-	{
-	  prev_node = prev_node->next;
-	}
+	prev_node = prev_node->next;
+
       prev_node->next = node->next;
     }
   finder.id = node->id;
+  finder.uid = node->uid;
   finder.call_id = node->call_id;
   finder.graph = node->graph;
   slot = htab_find_slot (cg->nodes, &finder, NO_INSERT);
@@ -1103,6 +1173,18 @@ get_single_named_field_node (con_node node, tree field_id)
   return NULL;
 }
 
+void
+prune_con_graph (con_graph cg)
+{
+  con_node node;
+  for (node = cg->root; node; node = node->next)
+    {
+      if (node->type == LOCAL_NODE
+	  && TREE_CODE (node->id) == SSA_NAME)
+	remove_con_node (node, true);
+    }
+}
+
 con_node 
 get_field_nodes (con_node_vec nodes, tree field_id)
 {
@@ -1153,7 +1235,7 @@ get_field_nodes (con_node_vec nodes, tree field_id)
       if (!field_found)
 	{
 	  con_node field;
-	  gcc_assert (get_existing_field_node (node->graph, field_id, node->id) == NULL);
+	  gcc_assert (get_existing_field_node (node->graph, field_id, node->uid, node->id) == NULL);
 	  field = add_field_node (node->graph, field_id);
 	  fprintf (dump_file, "adding lazily to ");
 	  df (node);
@@ -1218,7 +1300,8 @@ bypass_node (con_node node)
   df (node);
   nl ();
   gcc_assert (node->type != OBJECT_NODE);
-  gcc_assert (node->out != NULL); /* this shouldnt be an end node */
+  /* its time to admit that we can have end nodes */
+//  gcc_assert (node->out != NULL); /* this shouldnt be an end node */
 
   bool new_edge = false;
 
@@ -1257,10 +1340,6 @@ bypass_every_node (con_graph cg)
     {
       con_edge in;
 
-      fprintf (dump_file, "Semi-Bypassing ");
-      df (node);
-      nl ();
-
       for (in = node->in; in != NULL; in = in->next_in)
 	{
 	  /* only replace deferred and points to edges */
@@ -1274,7 +1353,7 @@ bypass_every_node (con_graph cg)
 	      remove_con_edge (in);
 	    }
 	}
-      /* dont remove oputgoing edges */
+      /* dont remove outgoing edges */
     }
 }
 
@@ -1430,8 +1509,9 @@ serialize_con_graph (con_graph cg)
   fprintf (file, "%d\n", count);
   for (node = cg->root; node != NULL; node = node->next)
     {
-      fprintf (file, "%d::%d::%d::%d::",
-	       node->dump_index, node->type, node->escape, node->phantom);
+      fprintf (file, "%d::%d::%d::%d::%d::",
+	       node->dump_index, node->type, node->escape, node->phantom,
+	       node->uid);
 
       print_generic_expr (file, node->id, 0);
 
@@ -1488,6 +1568,7 @@ deserialize_con_graph (tree function)
 
   char buffer[1000];
   con_graph cg = new_con_graph (function, 1 /*EXIT_BLOCK*/, 0);
+  cg->deserialized = true;
 
   /* Find the number of nodes in the graph */
   buffer[999] = '\0'; /* set last char as NULL */
@@ -1527,10 +1608,17 @@ deserialize_con_graph (tree function)
       gcc_assert (phantom != NULL);
       node->phantom = atoi (phantom);
 
+      /* uid */
+      char* uid = strtok (NULL, "::");
+      gcc_assert (uid != NULL);
+      node->uid = atoi (uid);
+
       /* id (string) */
       char* id = strtok (NULL, "::");
       gcc_assert (id != NULL);
-      node->id = get_identifier (id);
+      node->id = NULL;
+      if (node->uid == 0)
+	node->id = get_identifier (id);
 
       /* owner (string) - this works cause an owner is a tree,
        * representing the identifier name. Since we use get_identifier,
@@ -1589,7 +1677,7 @@ l (con_graph cg)
 {
   gcc_assert (cg);
   con_node node;
-  fprintf (stderr, "\nDI    T  ESC P NL Name                 (Extra)\n");
+  fprintf (stderr, "\nDI    T     UID S ESC P NL Name                 (Extra)\n");
   for (node = cg->root; node != NULL; node = node->next)
     {
       /* guarantees that there is a node printed for each node in
@@ -1610,6 +1698,9 @@ l (con_graph cg)
 	default: gcc_unreachable (); break;
 	}
 
+      fprintf (stderr, "%-4d ", node->uid);
+      fprintf (stderr, "%s   ", 
+	       TREE_CODE (node->id) == IDENTIFIER_NODE ?  "S" : "P");
       /* color the border and assign groups based on the nodes escape-ness
        * */
       switch (node->escape)
@@ -1957,7 +2048,7 @@ update_nodes (con_node f, con_node f_bar, tree call_id)
   con_node_vec points_to_f_bar;
 
   gcc_assert ((f_bar->type == f->type && f->type == FIELD_NODE)
-	      || (is_actual_type (f_bar) && is_actual_type (f)));
+	      || ((f_bar->type == LOCAL_NODE) && is_actual_type (f)));
 
   add_to_maps_to_obj (f, f_bar);
   update_escape_state (f, f_bar);
@@ -1999,7 +2090,7 @@ update_nodes (con_node f, con_node f_bar, tree call_id)
 		  if (g_bar == NULL)
 		    { 
 		      gcc_assert (get_existing_field_node_with_call_id
-				  (o_bar->graph, g->id, o_bar->id, call_id) ==
+				  (o_bar->graph, g->id, g->uid, o_bar->id, call_id) ==
 				  NULL);
 
 		      /* No call_id here, since the field belongs to an

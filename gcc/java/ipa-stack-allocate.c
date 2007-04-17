@@ -122,7 +122,10 @@ tf (tree stmt, bool newline)
 void
 df (con_node node)
 {
-  tf (node->id, false);
+  if (node->id)
+    tf (node->id, false);
+  else 
+    fprintf (dump_file, "DECL.%d", node->uid);
 }
 
 static bool
@@ -216,7 +219,7 @@ update_caller_nodes (con_graph caller, con_graph callee, tree call_id)
 	   * callee */
 
 	  con_node caller_node = get_existing_node (caller, argument);
-	  caller_node->type = CALLER_ACTUAL_NODE;
+//	  caller_node->type = CALLER_ACTUAL_NODE;
 	  con_node callee_node = get_existing_node (callee, parameters);
 	  gcc_assert (caller_node && callee_node);
 
@@ -233,7 +236,7 @@ update_caller_nodes (con_graph caller, con_graph callee, tree call_id)
   if (GIMPLE_STMT_P (call_id))
     {
       con_node caller_node = get_existing_node (caller, LHS (call_id));
-      caller_node->type = CALLER_ACTUAL_NODE;
+//      caller_node->type = CALLER_ACTUAL_NODE;
       gcc_assert (caller_node);
       con_node callee_node = callee->return_node;
       gcc_assert (callee_node);
@@ -324,6 +327,18 @@ is_return_stmt (tree stmt, tree* result_decl, tree* q_name)
     && (*q_name = RHS (stmt));
 }
 
+static bool
+is_global_memory_allocation (tree stmt, tree* p_name)
+{
+  tree call_expr, addr_expr, func_decl;
+  return (GIMPLE_STMT_P (stmt) 
+	&& has_pointer_type (stmt) 
+	&& SSA_VAR_P (*p_name = LHS (stmt)) 
+	&& TREE_CODE (call_expr = RHS (stmt)) == CALL_EXPR
+	&& TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
+	&& TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
+	&& func_decl == alloc_object_node);
+}
 
 static bool
 is_memory_allocation (tree stmt, tree* p_name)
@@ -358,6 +373,16 @@ do_memory_allocation (con_graph cg, tree p_name, tree obj_name)
   else { /* On a second iteration, this can come from a backedge */ }
 
   do_assignment (p, obj_node);
+}
+
+
+/* Has a finalizer */
+static void
+do_global_memory_allocation (con_graph cg, tree p_name, tree obj_name)
+{
+  do_memory_allocation (cg, p_name, obj_name);
+  con_node object = get_existing_node (cg, obj_name);
+  object->escape = EA_GLOBAL_ESCAPE;
 }
 
 #if 0
@@ -683,7 +708,7 @@ is_assignment_from_array (tree stmt, tree *p_name, tree *q_name, tree *f_name)
 	&& has_pointer_type (stmt)
 	&& SSA_VAR_P (*p_name = LHS (stmt))
 	&& TREE_CODE (array_ref = RHS (stmt)) == ARRAY_REF
-	&& is_field_ref (array_ref, q_name, f_name)
+	&& is_field_ref (LHS (array_ref), q_name, f_name)
 	&& SSA_VAR_P (*q_name)
 	&& DECL_NAME (*f_name) == get_identifier ("data");
 }
@@ -918,7 +943,7 @@ stmt_in_virtual_function (con_graph cg, tree stmt)
       return true;
     }
 
-  /* A bog-standard cast - the handling elsewhere is slightly different:
+  /* A bog-standard cast, in which the RHS isnt in the cg:
    * a5 = (TYPE:: *) a4; */
   if (GIMPLE_STMT_P (stmt)
       && has_pointer_type (stmt) 
@@ -1365,6 +1390,7 @@ mark_as_final_graph (con_graph cg)
     if (src == cg)
       return;
 
+  fprintf (dump_file, "Marking %d as final\n", cg->index);
   VEC_safe_push (con_graph, heap, final_graphs, cg);
 }
 
@@ -1539,6 +1565,9 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
   else if (is_memory_allocation (stmt, &p_name))
       do_memory_allocation (cg, p_name, stmt);
 
+  else if (is_global_memory_allocation (stmt, &p_name))
+      do_global_memory_allocation (cg, p_name, stmt);
+
   else if (is_reference_cast (cg, stmt, &p_name, &q_name)
 	   || is_reference_copy (stmt, &p_name, &q_name)
 	   || is_check_cast (stmt, &p_name, &q_name)
@@ -1659,7 +1688,8 @@ process_basic_block (struct dom_walk_data * walk_data __attribute__ ((unused)), 
       nl (); nl ();
     }
 
-  bypass_every_node (cg);
+//  bypass_every_node (cg);
+  assert_all_next_link_free (cg);
 
   bb_graphs [bb->index] = cg;
 #ifdef DUMP_BB_GRAPHS
@@ -1753,6 +1783,8 @@ process_function (tree function)
     }
   assert_all_next_link_free (cg);
 
+/*  prune_con_graph (cg);*/
+
   /* make the allocation use alloca */
   /*
   for (node = cg->root; node; node = node->next)
@@ -1776,6 +1808,7 @@ process_function (tree function)
     */
 
   cg->filename = concat (cg->filename, "_final_", NULL);
+  clean_up_con_graph (cg);
   serialize_con_graph (cg);
   con_graph_dump (cg);
 
@@ -1812,7 +1845,7 @@ execute_ipa_stack_allocate (void)
 	  current_function_decl = node->decl;
 
 	  con_graph cg = process_function (current_function_decl);
-	  add_con_graph (cg);
+//	  add_con_graph (cg);
 
 	  /* Clean up function */
 	  current_function_decl = NULL;
@@ -1869,8 +1902,8 @@ struct tree_opt_pass pass_ipa_stack_allocate = {
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_start */
-  TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
 
