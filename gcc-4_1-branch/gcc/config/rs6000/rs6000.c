@@ -1076,6 +1076,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
+       && (mode != TDmode || (regno % 2) == 0)
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);

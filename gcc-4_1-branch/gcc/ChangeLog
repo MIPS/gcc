@@ -1,3 +1,8 @@
+2007-04-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Force TDmode
+	regnos into even/odd register pairs.
+
 2007-04-10  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/dfp.md (movdd_hardfloat64_mfpgpr): New define_insn.
