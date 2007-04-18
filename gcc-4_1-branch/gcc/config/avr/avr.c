@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -1008,7 +1008,7 @@ ptrreg_to_str (int regno)
     case REG_Y: return "Y";
     case REG_Z: return "Z";
     default:
-      gcc_unreachable ();
+      output_operand_lossage ("address operand requires constraint for X, Y, or Z register");
     }
   return NULL;
 }
@@ -4681,7 +4681,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
     }
   else
     {
-      const char *func_name = IDENTIFIER_POINTER (DECL_NAME (*node));
+      const char *func_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*node));
       const char *attr = IDENTIFIER_POINTER (name);
 
       /* If the function has the 'signal' or 'interrupt' attribute, test to

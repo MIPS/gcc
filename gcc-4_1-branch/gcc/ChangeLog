@@ -1,3 +1,76 @@
+2007-04-18  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (ptrreg_to_str): Replace error() with
+	output_operand_lossage().
+
+2007-04-17  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/30483
+	* config/avr/avr.c (ptrreg_to_str): Replace gcc_unreachable() with
+	error().
+
+2007-04-16  Matthias Klose  <doko@debian.org>
+
+	* gcc/config/alpha/linux.h (CPP_SPEC): Define.
+	* gcc/config/arm/linux-gas.h (SUBTARGET_CPP_SPEC): Extend.
+
+2007-04-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Backport from mainline:
+	2007-04-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/31582
+	* config/i386/i386.c (ix86_expand_vec_set_builtin): Make a
+	copy of source, pass it to ix86_expand_vector_set and return
+	it as target.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/30045
+	* tree-vrp.c (nonnull_arg_p): Treat the static decl as always
+	non null.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/30729
+	* stmt.c (warn_if_unused_value): VA_ARG_EXPR has side
+	effects unknown to this function, return early.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c/31520
+	* c-decl.c (finish_decl): Grab the type of the decl after the call
+	to store_init_value.
+
+2007-04-07  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/30289
+	* config/avr/avr.md (*clrmemqi, *clrmemhi): Mark operand 4 as 
+	earlyclobber.
+
+2007-04-05  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/25448
+	* config/avr/avr.c (avr_handle_fndecl_attribute): Use the 
+	DECL_ASSEMBLER_NAME, not the DECL_NAME.
+
+2007-04-04  Richard Henderson  <rth@redhat.com>
+
+        PR target/31361
+        * config/i386/i386.c (ix86_init_mmx_sse_builtins): Remove
+	v8hi_ftype_v8hi_v2di, v4si_ftype_v4si_v2di.  Use like-types for
+	the variable shift builtins.
+        (ix86_expand_builtin): Properly expand the variable shift builtins.
+        * config/i386/sse.md (ashr<mode>3, lshr<mode>3, ashl<mode>3): Make
+        operand 2 be TImode.
+        * config/i386/emmintrin.h (_mm_slli_epi16, _mm_slli_epi32,
+	_mm_slli_epi64, _mm_srai_epi16, _mm_srai_epi32, _mm_srli_epi16,
+	_mm_srli_epi32, _mm_srli_epi64): Turn into macros.
+        (_mm_srli_si128, _mm_srli_si128): Fix disabled inline versions.
+        (_mm_sll_epi16, _mm_sll_epi32, _mm_sll_epi64, _mm_sra_epi16,
+        _mm_sra_epi32, _mm_srl_epi16, _mm_srl_epi32, _mm_srl_epi64): Use
+        two-vector shift builtins.
+
 2007-04-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/25874

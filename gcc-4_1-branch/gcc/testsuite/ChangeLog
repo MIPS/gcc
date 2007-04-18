@@ -1,3 +1,43 @@
+2007-04-17  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/31517
+	* g++.dg/template/init7.C: New test.
+
+2007-04-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR testsuite/31578
+	* gcc.dg/gnu89-init-4.c: Change to a compile only test.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/30045
+	* gcc.dg/pr30045.c: New test.
+
+2007-04-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/30729
+	* gcc.dg/Wunused-value-2.c: New testcase.
+
+2007-04-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR C++/30168
+	* g++.dg/opt/complex6.C: New test.
+
+2007-04-14  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C/31520
+	* gcc.dg/gnu89-init-4.c: New testcase.
+
+2007-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31074
+	* conv3.C: New test.
+
+2007-04-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31449
+	* g++.dg/init/const5.C: New test.
+
 2007-04-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/25874
