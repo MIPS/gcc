@@ -149,6 +149,7 @@ Boston, MA 02110-1301, USA.  */
 
    This will (of course) be extended as other needs arise.  */
 
+static bool forward_propagate_addr_expr (tree name, tree rhs);
 
 /* Set to true if we delete EH edges during the optimization.  */
 static bool cfg_changed;
@@ -490,15 +491,16 @@ find_equivalent_equality_comparison (tree cond)
   return NULL;
 }
 
-/* STMT is a COND_EXPR
+/* EXPR is a COND_EXPR
+   STMT is the statement containing EXPR.
 
    This routine attempts to find equivalent forms of the condition
    which we may be able to optimize better.  */
 
 static void
-simplify_cond (tree stmt)
+simplify_cond (tree cond_expr, tree stmt)
 {
-  tree cond = COND_EXPR_COND (stmt);
+  tree cond = COND_EXPR_COND (cond_expr);
 
   if (COMPARISON_CLASS_P (cond))
     {
@@ -517,7 +519,7 @@ simplify_cond (tree stmt)
 
 	      if (new_cond)
 		{
-		  COND_EXPR_COND (stmt) = new_cond;
+		  COND_EXPR_COND (cond_expr) = new_cond;
 		  update_stmt (stmt);
 		}
 	    }
@@ -529,7 +531,7 @@ simplify_cond (tree stmt)
    times as possible.  */
 
 static void
-forward_propagate_into_cond (tree cond_expr)
+forward_propagate_into_cond (tree cond_expr, tree stmt)
 {
   gcc_assert (TREE_CODE (cond_expr) == COND_EXPR);
 
@@ -554,13 +556,14 @@ forward_propagate_into_cond (tree cond_expr)
 	}
 
       COND_EXPR_COND (cond_expr) = new_cond;
-      update_stmt (cond_expr);
+      update_stmt (stmt);
 
       if (has_zero_uses (test_var))
 	{
 	  tree def = SSA_NAME_DEF_STMT (test_var);
 	  block_stmt_iterator bsi = bsi_for_stmt (def);
 	  bsi_remove (&bsi, true);
+	  release_defs (def);
 	}
     }
 
@@ -569,7 +572,7 @@ forward_propagate_into_cond (tree cond_expr)
      against a constant where the SSA_NAME is the result of a
      conversion.  Perhaps this should be folded into the rest
      of the COND_EXPR simplification code.  */
-  simplify_cond (cond_expr);
+  simplify_cond (cond_expr, stmt);
 }
 
 /* We've just substituted an ADDR_EXPR into stmt.  Update all the 
@@ -586,10 +589,10 @@ tidy_after_forward_propagate_addr (tree stmt)
   if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ADDR_EXPR)
      recompute_tree_invariant_for_addr_expr (GIMPLE_STMT_OPERAND (stmt, 1));
 
-  mark_new_vars_to_rename (stmt);
+  mark_symbols_for_renaming (stmt);
 }
 
-/* STMT defines LHS which is contains the address of the 0th element
+/* DEF_RHS defines LHS which is contains the address of the 0th element
    in an array.  USE_STMT uses LHS to compute the address of an
    arbitrary element within the array.  The (variable) byte offset
    of the element is contained in OFFSET.
@@ -606,7 +609,7 @@ tidy_after_forward_propagate_addr (tree stmt)
 
 static bool
 forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
-						  tree stmt, tree use_stmt)
+						  tree def_rhs, tree use_stmt)
 {
   tree index;
 
@@ -648,8 +651,7 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
   index = TREE_OPERAND (offset, 0);
 
   /* Replace the pointer addition with array indexing.  */
-  GIMPLE_STMT_OPERAND (use_stmt, 1)
-    = unshare_expr (GIMPLE_STMT_OPERAND (stmt, 1));
+  GIMPLE_STMT_OPERAND (use_stmt, 1) = unshare_expr (def_rhs);
   TREE_OPERAND (TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0), 1)
     = index;
 
@@ -660,29 +662,28 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
   return true;
 }
 
-/* STMT is a statement of the form SSA_NAME = ADDR_EXPR <whatever>.
+/* NAME is a SSA_NAME representing DEF_RHS which is of the form
+   ADDR_EXPR <whatever>.
 
    Try to forward propagate the ADDR_EXPR into the use USE_STMT.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
    node or for recovery of array indexing from pointer arithmetic.
    
-   CHANGED is an optional pointer to a boolean variable set to true if
-   either the LHS or RHS was changed in the USE_STMT.  
-
    Return true if the propagation was successful (the propagation can
    be not totally successful, yet things may have been changed).  */
 
 static bool
-forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
+forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt)
 {
-  tree name = GIMPLE_STMT_OPERAND (stmt, 0);
   tree lhs, rhs, array_ref;
 
   /* Strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS. 
      ADDR_EXPR will not appear on the LHS.  */
   lhs = GIMPLE_STMT_OPERAND (use_stmt, 0);
-  while (TREE_CODE (lhs) == COMPONENT_REF || TREE_CODE (lhs) == ARRAY_REF)
+  while (handled_component_p (lhs))
     lhs = TREE_OPERAND (lhs, 0);
+
+  rhs = GIMPLE_STMT_OPERAND (use_stmt, 1);
 
   /* Now see if the LHS node is an INDIRECT_REF using NAME.  If so, 
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
@@ -690,36 +691,28 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
     {
       /* This should always succeed in creating gimple, so there is
 	 no need to save enough state to undo this propagation.  */
-      TREE_OPERAND (lhs, 0) = unshare_expr (GIMPLE_STMT_OPERAND (stmt, 1));
+      TREE_OPERAND (lhs, 0) = unshare_expr (def_rhs);
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
-      if (changed)
-	*changed = true;
+
+      /* Continue propagating into the RHS.  */
     }
 
-  /* Trivial case.  The use statement could be a trivial copy.  We
-     go ahead and handle that case here since it's trivial and
-     removes the need to run copy-prop before this pass to get
-     the best results.  Also note that by handling this case here
-     we can catch some cascading effects, ie the single use is
-     in a copy, and the copy is used later by a single INDIRECT_REF
-     for example.  */
-  else if (TREE_CODE (lhs) == SSA_NAME
-      	   && GIMPLE_STMT_OPERAND (use_stmt, 1) == name)
-    {
-      GIMPLE_STMT_OPERAND (use_stmt, 1)
-	= unshare_expr (GIMPLE_STMT_OPERAND (stmt, 1));
-      tidy_after_forward_propagate_addr (use_stmt);
-      if (changed)
-	*changed = true;
-      return true;
-    }
+  /* Trivial case.  The use statement could be a trivial copy or a
+     useless conversion.  Recurse to the uses of the lhs as copyprop does
+     not copy through differen variant pointers and FRE does not catch
+     all useless conversions.  */
+  else if ((TREE_CODE (lhs) == SSA_NAME
+      	    && rhs == name)
+	   || ((TREE_CODE (rhs) == NOP_EXPR
+		|| TREE_CODE (rhs) == CONVERT_EXPR)
+	       && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
+						      TREE_TYPE (def_rhs))))
+    return forward_propagate_addr_expr (lhs, def_rhs);
 
   /* Strip away any outer COMPONENT_REF, ARRAY_REF or ADDR_EXPR
      nodes from the RHS.  */
-  rhs = GIMPLE_STMT_OPERAND (use_stmt, 1);
-  while (TREE_CODE (rhs) == COMPONENT_REF
-	 || TREE_CODE (rhs) == ARRAY_REF
+  while (handled_component_p (rhs)
 	 || TREE_CODE (rhs) == ADDR_EXPR)
     rhs = TREE_OPERAND (rhs, 0);
 
@@ -729,11 +722,9 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
     {
       /* This should always succeed in creating gimple, so there is
          no need to save enough state to undo this propagation.  */
-      TREE_OPERAND (rhs, 0) = unshare_expr (GIMPLE_STMT_OPERAND (stmt, 1));
+      TREE_OPERAND (rhs, 0) = unshare_expr (def_rhs);
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
-      if (changed)
-	*changed = true;
       return true;
     }
 
@@ -741,7 +732,7 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
      array indexing.  They only apply when we have the address of
      element zero in an array.  If that is not the case then there
      is nothing to do.  */
-  array_ref = TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0);
+  array_ref = TREE_OPERAND (def_rhs, 0);
   if (TREE_CODE (array_ref) != ARRAY_REF
       || TREE_CODE (TREE_TYPE (TREE_OPERAND (array_ref, 0))) != ARRAY_TYPE
       || !integer_zerop (TREE_OPERAND (array_ref, 1)))
@@ -758,7 +749,7 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
       && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST)
     {
       tree orig = unshare_expr (rhs);
-      TREE_OPERAND (rhs, 0) = unshare_expr (GIMPLE_STMT_OPERAND (stmt, 1));
+      TREE_OPERAND (rhs, 0) = unshare_expr (def_rhs);
 
       /* If folding succeeds, then we have just exposed new variables
 	 in USE_STMT which will need to be renamed.  If folding fails,
@@ -766,8 +757,6 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
       if (fold_stmt_inplace (use_stmt))
 	{
 	  tidy_after_forward_propagate_addr (use_stmt);
-	  if (changed)
-	    *changed = true;
 	  return true;
 	}
       else
@@ -792,9 +781,7 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
       tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
       
       res = forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
-							      stmt, use_stmt);
-      if (res && changed)
-	*changed = true;
+							      def_rhs, use_stmt);
       return res;
     }
 	      
@@ -809,17 +796,13 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
       bool res;
       tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
       res = forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
-							      stmt, use_stmt);
-      if (res && changed)
-	*changed = true;
+							      def_rhs, use_stmt);
       return res;
     }
   return false;
 }
 
 /* STMT is a statement of the form SSA_NAME = ADDR_EXPR <whatever>.
-   SOME is a pointer to a boolean value indicating whether we
-   propagated the address expression anywhere.
 
    Try to forward propagate the ADDR_EXPR into all uses of the SSA_NAME.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
@@ -827,10 +810,9 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
    Returns true, if all uses have been propagated into.  */
 
 static bool
-forward_propagate_addr_expr (tree stmt, bool *some)
+forward_propagate_addr_expr (tree name, tree rhs)
 {
-  int stmt_loop_depth = bb_for_stmt (stmt)->loop_depth;
-  tree name = GIMPLE_STMT_OPERAND (stmt, 0);
+  int stmt_loop_depth = bb_for_stmt (SSA_NAME_DEF_STMT (name))->loop_depth;
   imm_use_iterator iter;
   tree use_stmt;
   bool all = true;
@@ -856,9 +838,24 @@ forward_propagate_addr_expr (tree stmt, bool *some)
 	  continue;
 	}
       
-      result = forward_propagate_addr_expr_1 (stmt, use_stmt, some);
-      *some |= result;
+      push_stmt_changes (&use_stmt);
+
+      result = forward_propagate_addr_expr_1 (name, rhs, use_stmt);
       all &= result;
+
+      pop_stmt_changes (&use_stmt);
+
+      /* Remove intermediate now unused copy and conversion chains.  */
+      if (result
+	  && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME
+	  && (TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == SSA_NAME
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == NOP_EXPR
+	      || TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == CONVERT_EXPR))
+	{
+	  block_stmt_iterator bsi = bsi_for_stmt (use_stmt);
+	  release_defs (use_stmt);
+	  bsi_remove (&bsi, true);
+	}
     }
 
   return all;
@@ -993,13 +990,14 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
 	      if (TREE_CODE (rhs) == ADDR_EXPR)
 		{
-		  bool some = false;
-		  if (forward_propagate_addr_expr (stmt, &some))
-		    bsi_remove (&bsi, true);
+		  if (forward_propagate_addr_expr (lhs, rhs))
+		    {
+		      release_defs (stmt);
+		      todoflags |= TODO_remove_unused_locals;
+		      bsi_remove (&bsi, true);
+		    }
 		  else
 		    bsi_next (&bsi);
-		  if (some)
-		    todoflags |= TODO_update_smt_usage;
 		}
 	      else if ((TREE_CODE (rhs) == BIT_NOT_EXPR
 		        || TREE_CODE (rhs) == NEGATE_EXPR)
@@ -1008,6 +1006,11 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		  simplify_not_neg_expr (stmt);
 		  bsi_next (&bsi);
 		}
+              else if (TREE_CODE (rhs) == COND_EXPR)
+                {
+                  forward_propagate_into_cond (rhs, stmt);
+		  bsi_next (&bsi);
+                }
 	      else
 		bsi_next (&bsi);
 	    }
@@ -1018,7 +1021,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	    }
 	  else if (TREE_CODE (stmt) == COND_EXPR)
 	    {
-	      forward_propagate_into_cond (stmt);
+	      forward_propagate_into_cond (stmt, stmt);
 	      bsi_next (&bsi);
 	    }
 	  else
@@ -1027,7 +1030,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
     }
 
   if (cfg_changed)
-    cleanup_tree_cfg ();
+    todoflags |= TODO_cleanup_cfg;
   return todoflags;
 }
 
@@ -1046,13 +1049,312 @@ struct tree_opt_pass pass_forwprop = {
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_FORWPROP,		/* tv_id */
-  PROP_cfg | PROP_ssa
-    | PROP_alias,		/* properties_required */
+  PROP_cfg | PROP_ssa,		/* properties_required */
   0,				/* properties_provided */
-  PROP_smt_usage,		/* properties_destroyed */
+  0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_func /* todo_flags_finish */
+  TODO_dump_func
   | TODO_ggc_collect
-  | TODO_update_ssa | TODO_verify_ssa,
-  0					/* letter */
+  | TODO_update_ssa
+  | TODO_verify_ssa,		/* todo_flags_finish */
+  0				/* letter */
+};
+
+
+/* Structure to keep track of the value of a dereferenced PHI result
+   and the set of virtual operands used for that dereference.  */
+
+struct phiprop_d
+{
+  tree value;
+  tree vop_stmt;
+};
+
+/* Verify if the value recorded for NAME in PHIVN is still valid at
+   the start of basic block BB.  */
+
+static bool
+phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
+{
+  tree vop_stmt = phivn[SSA_NAME_VERSION (name)].vop_stmt;
+  ssa_op_iter ui;
+  tree vuse;
+
+  /* The def stmts of all virtual uses need to be post-dominated
+     by bb.  */
+  FOR_EACH_SSA_TREE_OPERAND (vuse, vop_stmt, ui, SSA_OP_VUSE)
+    {
+      tree use_stmt;
+      imm_use_iterator ui2;
+      bool ok = true;
+
+      FOR_EACH_IMM_USE_STMT (use_stmt, ui2, vuse)
+	{
+	  /* If BB does not dominate a VDEF, the value is invalid.  */
+	  if (((TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
+	        && !ZERO_SSA_OPERANDS (use_stmt, SSA_OP_VDEF))
+	       || TREE_CODE (use_stmt) == PHI_NODE)
+	      && !dominated_by_p (CDI_DOMINATORS, bb_for_stmt (use_stmt), bb))
+	    {
+	      ok = false;
+	      BREAK_FROM_IMM_USE_STMT (ui2);
+	    }
+	}
+      if (!ok)
+	return false;
+    }
+
+  return true;
+}
+
+/* Insert a new phi node for the dereference of PHI at basic_block
+   BB with the virtual operands from USE_STMT.  */
+
+static tree
+phiprop_insert_phi (basic_block bb, tree phi, tree use_stmt,
+		    struct phiprop_d *phivn, size_t n)
+{
+  tree res, new_phi;
+  edge_iterator ei;
+  edge e;
+
+  /* Build a new PHI node to replace the definition of
+     the indirect reference lhs.  */
+  res = GIMPLE_STMT_OPERAND (use_stmt, 0);
+  SSA_NAME_DEF_STMT (res) = new_phi = create_phi_node (res, bb);
+
+  /* Add PHI arguments for each edge inserting loads of the
+     addressable operands.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      tree old_arg, new_var, tmp;
+
+      old_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
+      while (TREE_CODE (old_arg) == SSA_NAME
+	     && (SSA_NAME_VERSION (old_arg) >= n
+	         || phivn[SSA_NAME_VERSION (old_arg)].value == NULL_TREE))
+	{
+	  tree def_stmt = SSA_NAME_DEF_STMT (old_arg);
+	  old_arg = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	}
+
+      if (TREE_CODE (old_arg) == SSA_NAME)
+	/* Reuse a formely created dereference.  */
+	new_var = phivn[SSA_NAME_VERSION (old_arg)].value;
+      else
+	{
+	  old_arg = TREE_OPERAND (old_arg, 0);
+	  new_var = create_tmp_var (TREE_TYPE (old_arg), NULL);
+	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node,
+			NULL_TREE, unshare_expr (old_arg));
+	  if (TREE_CODE (TREE_TYPE (old_arg)) == COMPLEX_TYPE
+	      || TREE_CODE (TREE_TYPE (old_arg)) == VECTOR_TYPE)
+	    DECL_GIMPLE_REG_P (new_var) = 1;
+	  add_referenced_var (new_var);
+	  new_var = make_ssa_name (new_var, tmp);
+	  GIMPLE_STMT_OPERAND (tmp, 0) = new_var;
+
+	  bsi_insert_on_edge (e, tmp);
+
+	  update_stmt (tmp);
+	  mark_symbols_for_renaming (tmp);
+	}
+
+      add_phi_arg (new_phi, new_var, e);
+    }
+
+  update_stmt (new_phi);
+
+  return res;
+}
+
+/* Propagate between the phi node arguments of PHI in BB and phi result
+   users.  For now this matches
+        # p_2 = PHI <&x, &y>
+      <Lx>:;
+	p_3 = p_2;
+	z_2 = *p_3;
+   and converts it to
+	# z_2 = PHI <x, y>
+      <Lx>:;
+   Returns true if a transformation was done and edge insertions
+   need to be committed.  Global data PHIVN and N is used to track
+   past transformation results.  We need to be especially careful here
+   with aliasing issues as we are moving memory reads.  */
+
+static bool
+propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
+{
+  tree ptr = PHI_RESULT (phi);
+  tree use_stmt, res = NULL_TREE;
+  block_stmt_iterator bsi;
+  imm_use_iterator ui;
+  use_operand_p arg_p, use;
+  ssa_op_iter i;
+  bool phi_inserted;
+
+  if (MTAG_P (SSA_NAME_VAR (ptr))
+      || !POINTER_TYPE_P (TREE_TYPE (ptr))
+      || !is_gimple_reg_type (TREE_TYPE (TREE_TYPE (ptr))))
+    return false;
+
+  /* Check if we can "cheaply" dereference all phi arguments.  */
+  FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_USE)
+    {
+      tree arg = USE_FROM_PTR (arg_p);
+      /* Walk the ssa chain until we reach a ssa name we already
+	 created a value for or we reach a definition of the form
+	 ssa_name_n = &var;  */
+      while (TREE_CODE (arg) == SSA_NAME
+	     && !SSA_NAME_IS_DEFAULT_DEF (arg)
+	     && (SSA_NAME_VERSION (arg) >= n
+	         || phivn[SSA_NAME_VERSION (arg)].value == NULL_TREE))
+	{
+	  tree def_stmt = SSA_NAME_DEF_STMT (arg);
+	  if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT)
+	    return false;
+	  arg = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	}
+      if ((TREE_CODE (arg) != ADDR_EXPR
+	   /* Avoid to have to decay *&a to a[0] later.  */
+	   || !is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (arg, 0))))
+	  && !(TREE_CODE (arg) == SSA_NAME
+	       && phivn[SSA_NAME_VERSION (arg)].value != NULL_TREE
+	       && phivn_valid_p (phivn, arg, bb)))
+	return false;
+    }
+
+  /* Find a dereferencing use.  First follow (single use) ssa
+     copy chains for ptr.  */
+  while (single_imm_use (ptr, &use, &use_stmt)
+	 && TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
+	 && GIMPLE_STMT_OPERAND (use_stmt, 1) == ptr
+	 && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME)
+    ptr = GIMPLE_STMT_OPERAND (use_stmt, 0);
+
+  /* Replace the first dereference of *ptr if there is one and if we
+     can move the loads to the place of the ptr phi node.  */
+  phi_inserted = false;
+  FOR_EACH_IMM_USE_STMT (use_stmt, ui, ptr)
+    {
+      ssa_op_iter ui2;
+      tree vuse;
+
+      /* Check whether this is a load of *ptr.  */
+      if (!(TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
+	    && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME 
+	    && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == INDIRECT_REF
+	    && TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0) == ptr
+	    /* We cannot replace a load that may throw or is volatile.  */
+	    && !tree_can_throw_internal (use_stmt)))
+	continue;
+
+      /* Check if we can move the loads.  The def stmts of all virtual uses
+	 need to be post-dominated by bb.  */
+      FOR_EACH_SSA_TREE_OPERAND (vuse, use_stmt, ui2, SSA_OP_VUSE)
+	{
+	  tree def_stmt = SSA_NAME_DEF_STMT (vuse);
+	  if (!SSA_NAME_IS_DEFAULT_DEF (vuse)
+	      && (bb_for_stmt (def_stmt) == bb
+		  || !dominated_by_p (CDI_DOMINATORS,
+				      bb, bb_for_stmt (def_stmt))))
+	    goto next;
+	}
+
+      /* Found a proper dereference.  Insert a phi node if this
+	 is the first load transformation.  */
+      if (!phi_inserted)
+	{
+	  res = phiprop_insert_phi (bb, phi, use_stmt, phivn, n);
+
+	  /* Remember the value we created for *ptr.  */
+	  phivn[SSA_NAME_VERSION (ptr)].value = res;
+	  phivn[SSA_NAME_VERSION (ptr)].vop_stmt = use_stmt;
+
+	  /* Remove old stmt.  The phi is taken care of by DCE, if we
+	     want to delete it here we also have to delete all intermediate
+	     copies.  */
+	  bsi = bsi_for_stmt (use_stmt);
+	  bsi_remove (&bsi, 0);
+
+	  phi_inserted = true;
+	}
+      else
+	{
+	  /* Further replacements are easy, just make a copy out of the
+	     load.  */
+	  GIMPLE_STMT_OPERAND (use_stmt, 1) = res;
+	  update_stmt (use_stmt);
+	}
+
+next:;
+      /* Continue searching for a proper dereference.  */
+    }
+
+  return phi_inserted;
+}
+
+/* Helper walking the dominator tree starting from BB and processing
+   phi nodes with global data PHIVN and N.  */
+
+static bool
+tree_ssa_phiprop_1 (basic_block bb, struct phiprop_d *phivn, size_t n)
+{
+  bool did_something = false; 
+  basic_block son;
+  tree phi;
+
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+    did_something |= propagate_with_phi (bb, phi, phivn, n);
+
+  for (son = first_dom_son (CDI_DOMINATORS, bb);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    did_something |= tree_ssa_phiprop_1 (son, phivn, n);
+
+  return did_something;
+}
+
+/* Main entry for phiprop pass.  */
+
+static unsigned int
+tree_ssa_phiprop (void)
+{
+  struct phiprop_d *phivn;
+
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  phivn = XCNEWVEC (struct phiprop_d, num_ssa_names);
+
+  if (tree_ssa_phiprop_1 (ENTRY_BLOCK_PTR, phivn, num_ssa_names))
+    bsi_commit_edge_inserts ();
+
+  free (phivn);
+
+  return 0;
+}
+
+static bool
+gate_phiprop (void)
+{
+  return 1;
+}
+
+struct tree_opt_pass pass_phiprop = {
+  "phiprop",			/* name */
+  gate_phiprop,			/* gate */
+  tree_ssa_phiprop,		/* execute */
+  NULL,				/* sub */
+  NULL,				/* next */
+  0,				/* static_pass_number */
+  TV_TREE_FORWPROP,		/* tv_id */
+  PROP_cfg | PROP_ssa,		/* properties_required */
+  0,				/* properties_provided */
+  0,				/* properties_destroyed */
+  0,				/* todo_flags_start */
+  TODO_dump_func
+  | TODO_ggc_collect
+  | TODO_update_ssa
+  | TODO_verify_ssa,		/* todo_flags_finish */
+  0				/* letter */
 };

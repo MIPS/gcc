@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -111,12 +111,6 @@ static void finalize (void);
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
-
-static int print_single_switch (FILE *, int, int, const char *,
-				const char *, const char *,
-				const char *, const char *);
-static void print_switch_values (FILE *, int, int, const char *,
-				 const char *, const char *);
 
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
@@ -245,7 +239,7 @@ int in_system_header = 0;
 int flag_detailed_statistics = 0;
 
 /* A random sequence of characters, unless overridden by user.  */
-const char *flag_random_seed;
+static const char *flag_random_seed;
 
 /* A local time stamp derived from the time of compilation. It will be
    zero if the system cannot provide a time.  It will be -1u, if the
@@ -338,11 +332,6 @@ int flag_dump_rtl_in_asm = 0;
    At present, the rtx may be either a REG or a SYMBOL_REF, although
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
-
-/* If one, renumber instruction UIDs to reduce the number of
-   unused UIDs if there are a lot of instructions.  If greater than
-   one, unconditionally renumber instruction UIDs.  */
-int flag_renumber_insns = 1;
 
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_VALUE it will be set according
@@ -462,23 +451,20 @@ announce_function (tree decl)
     }
 }
 
-/* Set up a default flag_random_seed and local_tick, unless the user
-   already specified one.  */
+/* Initialize local_tick with the time of day, or -1 if
+   flag_random_seed is set.  */
 
 static void
-randomize (void)
+init_local_tick (void)
 {
   if (!flag_random_seed)
     {
-      unsigned HOST_WIDE_INT value;
-      static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
-
       /* Get some more or less random data.  */
 #ifdef HAVE_GETTIMEOFDAY
       {
- 	struct timeval tv;
+	struct timeval tv;
 
- 	gettimeofday (&tv, NULL);
+	gettimeofday (&tv, NULL);
 	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
 #else
@@ -489,15 +475,47 @@ randomize (void)
 	  local_tick = (unsigned) now;
       }
 #endif
-      value = local_tick ^ getpid ();
-
-      sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
-      flag_random_seed = random_seed;
     }
-  else if (!local_tick)
+  else
     local_tick = -1;
 }
 
+/* Set up a default flag_random_seed and local_tick, unless the user
+   already specified one.  Must be called after init_local_tick.  */
+
+static void
+init_random_seed (void)
+{
+  unsigned HOST_WIDE_INT value;
+  static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
+
+  value = local_tick ^ getpid ();
+
+  sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
+  flag_random_seed = random_seed;
+}
+
+/* Obtain the random_seed string.  Unless NOINIT, initialize it if
+   it's not provided in the command line.  */
+
+const char *
+get_random_seed (bool noinit)
+{
+  if (!flag_random_seed && !noinit)
+    init_random_seed ();
+  return flag_random_seed;
+}
+
+/* Modify the random_seed string to VAL.  Return its previous
+   value.  */
+
+const char *
+set_random_seed (const char *val)
+{
+  const char *old = flag_random_seed;
+  flag_random_seed = val;
+  return old;
+}
 
 /* Decode the string P as an integral parameter.
    If the string is indeed an integer return its numeric value else
@@ -757,9 +775,9 @@ wrapup_global_declaration_2 (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     {
-      struct cgraph_varpool_node *node;
+      struct varpool_node *node;
       bool needed = true;
-      node = cgraph_varpool_node (decl);
+      node = varpool_node (decl);
 
       if (node->finalized)
 	needed = false;
@@ -907,9 +925,8 @@ warn_deprecated_use (tree node)
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
       warning (OPT_Wdeprecated_declarations,
-	       "%qs is deprecated (declared at %s:%d)",
-	       IDENTIFIER_POINTER (DECL_NAME (node)),
-	       xloc.file, xloc.line);
+	       "%qD is deprecated (declared at %s:%d)",
+	       node, xloc.file, xloc.line);
     }
   else if (TYPE_P (node))
     {
@@ -1048,7 +1065,7 @@ compile_file (void)
   if (errorcount || sorrycount)
     return;
 
-  cgraph_varpool_assemble_pending_decls ();
+  varpool_assemble_pending_decls ();
   finish_aliases_2 ();
 
   /* This must occur after the loop to output deferred functions.
@@ -1060,11 +1077,14 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  /* Likewise for emulated thread-local storage.  */
+  if (!targetm.have_tls)
+    emutls_finish ();
+
   output_shared_constant_pool ();
   output_object_blocks ();
 
   /* Write out any pending weak symbol declarations.  */
-
   weak_finish ();
 
   /* Do dbx symbols.  */
@@ -1082,9 +1102,7 @@ compile_file (void)
 
   dw2_output_indirect_constants ();
 
-  /* Flush any pending external directives.  cgraph did this for
-     assemble_external calls from the front end, but the RTL
-     expander can also generate them.  */
+  /* Flush any pending external directives.  */
   process_pending_assemble_externals ();
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -1182,91 +1200,160 @@ print_version (FILE *file, const char *indent)
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
-/* Print an option value and return the adjusted position in the line.
-   ??? We don't handle error returns from fprintf (disk full); presumably
-   other code will catch a disk full though.  */
+#ifdef ASM_COMMENT_START
+static int
+print_to_asm_out_file (print_switch_type type, const char * text)
+{
+  bool prepend_sep = true;
+
+  switch (type)
+    {
+    case SWITCH_TYPE_LINE_END:
+      putc ('\n', asm_out_file);
+      return 1;
+
+    case SWITCH_TYPE_LINE_START:
+      fputs (ASM_COMMENT_START, asm_out_file);
+      return strlen (ASM_COMMENT_START);
+
+    case SWITCH_TYPE_DESCRIPTIVE:
+      if (ASM_COMMENT_START[0] == 0)
+	prepend_sep = false;
+      /* Drop through.  */
+    case SWITCH_TYPE_PASSED:
+    case SWITCH_TYPE_ENABLED:
+      if (prepend_sep)
+	fputc (' ', asm_out_file);
+      fprintf (asm_out_file, text);
+      /* No need to return the length here as
+	 print_single_switch has already done it.  */
+      return 0;
+
+    default:
+      return -1;
+    }
+}
+#endif
 
 static int
-print_single_switch (FILE *file, int pos, int max,
-		     const char *indent, const char *sep, const char *term,
-		     const char *type, const char *name)
+print_to_stderr (print_switch_type type, const char * text)
 {
-  /* The ultrix fprintf returns 0 on success, so compute the result we want
-     here since we need it for the following test.  */
-  int len = strlen (sep) + strlen (type) + strlen (name);
+  switch (type)
+    {
+    case SWITCH_TYPE_LINE_END:
+      putc ('\n', stderr);
+      return 1;
 
-  if (pos != 0
-      && pos + len > max)
-    {
-      fprintf (file, "%s", term);
-      pos = 0;
+    case SWITCH_TYPE_LINE_START:
+      return 0;
+      
+    case SWITCH_TYPE_PASSED:
+    case SWITCH_TYPE_ENABLED:
+      fputc (' ', stderr);
+      /* Drop through.  */
+
+    case SWITCH_TYPE_DESCRIPTIVE:
+      fprintf (stderr, text);
+      /* No need to return the length here as
+	 print_single_switch has already done it.  */
+      return 0;
+
+    default:
+      return -1;
     }
-  if (pos == 0)
-    {
-      fprintf (file, "%s", indent);
-      pos = strlen (indent);
-    }
-  fprintf (file, "%s%s%s", sep, type, name);
-  pos += len;
-  return pos;
 }
 
-/* Print active target switches to FILE.
+/* Print an option value and return the adjusted position in the line.
+   ??? print_fn doesn't handle errors, eg disk full; presumably other
+   code will catch a disk full though.  */
+
+static int
+print_single_switch (print_switch_fn_type print_fn,
+		     int pos,
+		     print_switch_type type,
+		     const char * text)
+{
+  /* The ultrix fprintf returns 0 on success, so compute the result
+     we want here since we need it for the following test.  The +1
+     is for the separator character that will probably be emitted.  */
+  int len = strlen (text) + 1;
+
+  if (pos != 0
+      && pos + len > MAX_LINE)
+    {
+      print_fn (SWITCH_TYPE_LINE_END, NULL);
+      pos = 0;
+    }
+
+  if (pos == 0)
+    pos += print_fn (SWITCH_TYPE_LINE_START, NULL);
+
+  print_fn (type, text);
+  return pos + len;
+}
+
+/* Print active target switches using PRINT_FN.
    POS is the current cursor position and MAX is the size of a "line".
    Each line begins with INDENT and ends with TERM.
    Each switch is separated from the next by SEP.  */
 
 static void
-print_switch_values (FILE *file, int pos, int max,
-		     const char *indent, const char *sep, const char *term)
+print_switch_values (print_switch_fn_type print_fn)
 {
+  int pos = 0;
   size_t j;
   const char **p;
 
   /* Fill in the -frandom-seed option, if the user didn't pass it, so
      that it can be printed below.  This helps reproducibility.  */
-  randomize ();
+  if (!flag_random_seed)
+    init_random_seed ();
 
   /* Print the options as passed.  */
-  pos = print_single_switch (file, pos, max, indent, *indent ? " " : "", term,
-			     _("options passed: "), "");
+  pos = print_single_switch (print_fn, pos,
+			     SWITCH_TYPE_DESCRIPTIVE, _("options passed: "));
 
   for (p = &save_argv[1]; *p != NULL; p++)
-    if (**p == '-')
-      {
-	/* Ignore these.  */
-	if (strcmp (*p, "-o") == 0)
-	  {
-	    if (p[1] != NULL)
-	      p++;
-	    continue;
-	  }
-	if (strcmp (*p, "-quiet") == 0)
-	  continue;
-	if (strcmp (*p, "-version") == 0)
-	  continue;
-	if ((*p)[1] == 'd')
-	  continue;
+    {
+      if (**p == '-')
+	{
+	  /* Ignore these.  */
+	  if (strcmp (*p, "-o") == 0
+	      || strcmp (*p, "-dumpbase") == 0
+	      || strcmp (*p, "-auxbase") == 0)
+	    {
+	      if (p[1] != NULL)
+		p++;
+	      continue;
+	    }
 
-	pos = print_single_switch (file, pos, max, indent, sep, term, *p, "");
-      }
+	  if (strcmp (*p, "-quiet") == 0
+	      || strcmp (*p, "-version") == 0)
+	    continue;
+
+	  if ((*p)[1] == 'd')
+	    continue;
+	}
+
+      pos = print_single_switch (print_fn, pos, SWITCH_TYPE_PASSED, *p);
+    }
+
   if (pos > 0)
-    fprintf (file, "%s", term);
+    print_fn (SWITCH_TYPE_LINE_END, NULL);
 
   /* Print the -f and -m options that have been enabled.
      We don't handle language specific options but printing argv
      should suffice.  */
-
-  pos = print_single_switch (file, 0, max, indent, *indent ? " " : "", term,
-			     _("options enabled: "), "");
+  pos = print_single_switch (print_fn, 0,
+			     SWITCH_TYPE_DESCRIPTIVE, _("options enabled: "));
 
   for (j = 0; j < cl_options_count; j++)
     if ((cl_options[j].flags & CL_REPORT)
 	&& option_enabled (j) > 0)
-      pos = print_single_switch (file, pos, max, indent, sep, term,
-				 "", cl_options[j].opt_text);
+      pos = print_single_switch (print_fn, pos,
+				 SWITCH_TYPE_ENABLED, cl_options[j].opt_text);
 
-  fprintf (file, "%s", term);
+  print_fn (SWITCH_TYPE_LINE_END, NULL);
 }
 
 /* Open assembly code output file.  Do this even if -fsyntax-only is
@@ -1284,6 +1371,7 @@ init_asm_output (const char *name)
 	{
 	  int len = strlen (dump_base_name);
 	  char *dumpname = XNEWVEC (char, len + 6);
+
 	  memcpy (dumpname, dump_base_name, len + 1);
 	  strip_off_ending (dumpname, len);
 	  strcat (dumpname, ".s");
@@ -1301,15 +1389,30 @@ init_asm_output (const char *name)
     {
       targetm.asm_out.file_start ();
 
+      if (flag_record_gcc_switches)
+	{
+	  if (targetm.asm_out.record_gcc_switches)
+	    {
+	      /* Let the target know that we are about to start recording.  */
+	      targetm.asm_out.record_gcc_switches (SWITCH_TYPE_DESCRIPTIVE,
+						   NULL);
+	      /* Now record the switches.  */
+	      print_switch_values (targetm.asm_out.record_gcc_switches);
+	      /* Let the target know that the recording is over.  */
+	      targetm.asm_out.record_gcc_switches (SWITCH_TYPE_DESCRIPTIVE,
+						   NULL);
+	    }
+	  else
+	    inform ("-frecord-gcc-switches is not supported by the current target");
+	}
+
 #ifdef ASM_COMMENT_START
       if (flag_verbose_asm)
 	{
-	  /* Print the list of options in effect.  */
+	  /* Print the list of switches in effect
+	     into the assembler file as comments.  */
 	  print_version (asm_out_file, ASM_COMMENT_START);
-	  print_switch_values (asm_out_file, 0, MAX_LINE,
-			       ASM_COMMENT_START, " ", "\n");
-	  /* Add a blank line here so it appears in assembler output but not
-	     screen output.  */
+	  print_switch_values (print_to_asm_out_file);
 	  fprintf (asm_out_file, "\n");
 	}
 #endif
@@ -1677,7 +1780,7 @@ process_options (void)
     {
       print_version (stderr, "");
       if (! quiet_flag)
-	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
+	print_switch_values (print_to_stderr);
     }
 
   if (flag_syntax_only)
@@ -1874,6 +1977,7 @@ backend_init (void)
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
+  init_inline_once ();
   init_reload ();
   init_varasm_once ();
 
@@ -1916,6 +2020,11 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+
+  /* Although the actions of init_set_costs are language-independent,
+     it uses optabs, so we cannot call it from backend_init.  */
+  init_set_costs ();
+
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the
@@ -1934,6 +2043,19 @@ lang_dependent_init (const char *name)
   timevar_pop (TV_SYMOUT);
 
   return 1;
+}
+
+void
+dump_memory_report (bool final)
+{
+  ggc_print_statistics ();
+  stringpool_statistics ();
+  dump_tree_statistics ();
+  dump_rtx_statistics ();
+  dump_varray_statistics ();
+  dump_alloc_pool_statistics ();
+  dump_bitmap_statistics ();
+  dump_ggc_loc_statistics (final);
 }
 
 /* Clean up: close opened files, etc.  */
@@ -1964,15 +2086,7 @@ finalize (void)
   finish_optimization_passes ();
 
   if (mem_report)
-    {
-      ggc_print_statistics ();
-      stringpool_statistics ();
-      dump_tree_statistics ();
-      dump_rtx_statistics ();
-      dump_varray_statistics ();
-      dump_alloc_pool_statistics ();
-      dump_ggc_loc_statistics ();
-    }
+    dump_memory_report (true);
 
   /* Free up memory for the benefit of leak detectors.  */
   free_reg_info ();
@@ -2035,7 +2149,7 @@ toplev_main (unsigned int argc, const char **argv)
      enough to default flags appropriately.  */
   decode_options (argc, argv);
 
-  randomize ();
+  init_local_tick ();
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)

@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
 
@@ -374,7 +375,8 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
       if (to_read_record != have_read_record)
 	{
-	  /* Short read,  e.g. if we hit EOF.  */
+	  /* Short read,  e.g. if we hit EOF.  For stream files,
+	   we have to set the end-of-file condition.  */
 	  generate_error (&dtp->common, ERROR_END, NULL);
 	  return;
 	}
@@ -388,13 +390,6 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	  short_record = 1;
 	  to_read_record = (size_t) dtp->u.p.current_unit->bytes_left;
 	  *nbytes = to_read_record;
-
-	  if (dtp->u.p.current_unit->bytes_left == 0)
-	    {
-	      dtp->u.p.current_unit->endfile = AT_ENDFILE;
-	      generate_error (&dtp->common, ERROR_END, NULL);
-	      return;
-	    }
 	}
 
       else
@@ -411,10 +406,11 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	  return;
 	}
 
-      if (to_read_record != *nbytes)  /* Short read, e.g. if we hit EOF.  */
+      if (to_read_record != *nbytes)  
 	{
+	  /* Short read, e.g. if we hit EOF.  Apparently, we read
+	   more than was written to the last record.  */
 	  *nbytes = to_read_record;
-	  generate_error (&dtp->common, ERROR_END, NULL);
 	  return;
 	}
 
@@ -430,13 +426,18 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
      until the request has been fulfilled or the record has run out
      of continuation subrecords.  */
 
+  if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
+    {
+      generate_error (&dtp->common, ERROR_END, NULL);
+      return;
+    }
+
   /* Check whether we exceed the total record length.  */
 
-  if (dtp->u.p.current_unit->flags.has_recl)
+  if (dtp->u.p.current_unit->flags.has_recl
+      && (*nbytes > (size_t) dtp->u.p.current_unit->bytes_left))
     {
-      to_read_record =
-	*nbytes > (size_t) dtp->u.p.current_unit->bytes_left ?
-	*nbytes : (size_t) dtp->u.p.current_unit->bytes_left;
+      to_read_record = (size_t) dtp->u.p.current_unit->bytes_left;
       short_record = 1;
     }
   else
@@ -453,25 +454,7 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	{
 	  to_read_subrecord = (size_t) dtp->u.p.current_unit->bytes_left_subrecord;
 	  to_read_record -= to_read_subrecord;
-
-	  if (dtp->u.p.current_unit->bytes_left_subrecord == 0)
-	    {
-	      if (dtp->u.p.current_unit->continued)
-		{
-		  /* Skip to the next subrecord */
-		  next_record_r_unf (dtp, 0);
-		  us_read (dtp, 1);
-		  continue;
-		}
-	      else
-		{
-		  dtp->u.p.current_unit->endfile = AT_ENDFILE;
-		  generate_error (&dtp->common, ERROR_END, NULL);
-		  return;
-		}
-	    }
 	}
-
       else
 	{
 	  to_read_subrecord = to_read_record;
@@ -490,11 +473,15 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
       have_read_record += have_read_subrecord;
 
-      if (to_read_subrecord != have_read_subrecord)  /* Short read,
-							e.g. if we hit EOF.  */
+      if (to_read_subrecord != have_read_subrecord)  
+			
 	{
+	  /* Short read, e.g. if we hit EOF.  This means the record
+	     structure has been corrupted, or the trailing record
+	     marker would still be present.  */
+
 	  *nbytes = have_read_record;
-	  generate_error (&dtp->common, ERROR_END, NULL);
+	  generate_error (&dtp->common, ERROR_CORRUPT_FILE, NULL);
 	  return;
 	}
 
@@ -507,6 +494,11 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	    }
 	  else
 	    {
+	      /* Let's make sure the file position is correctly set for the
+		 next read statement.  */
+
+	      next_record_r_unf (dtp, 0);
+	      us_read (dtp, 0);
 	      generate_error (&dtp->common, ERROR_SHORT_RECORD, NULL);
 	      return;
 	    }
@@ -637,7 +629,8 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
 	  return FAILURE;
 	}
 
-      dtp->u.p.current_unit->strm_pos += (gfc_offset) nbytes; 
+      dtp->u.p.current_unit->strm_pos += (gfc_offset) nbytes;
+      dtp->u.p.current_unit->bytes_left -= (gfc_offset) nbytes;
 
       return SUCCESS;
 
@@ -1162,7 +1155,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	/* Format codes that don't transfer data.  */
 	case FMT_X:
 	case FMT_TR:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 
 	  pos = bytes_used + f->u.n + dtp->u.p.skips;
 	  dtp->u.p.skips = f->u.n + dtp->u.p.skips;
@@ -1178,6 +1171,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	      write_x (dtp, dtp->u.p.skips, dtp->u.p.pending_spaces);
 	      dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 	    }
+
 	  if (dtp->u.p.mode == READING)
 	    read_x (dtp, f->u.n);
 
@@ -1185,6 +1179,8 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
 	case FMT_TL:
 	case FMT_T:
+	  consume_data_flag = 0;
+
 	  if (f->format == FMT_TL)
 	    {
 
@@ -1203,8 +1199,10 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	    }
 	  else /* FMT_T */
 	    {
-	      consume_data_flag = 0;
-	      pos = f->u.n - 1;
+	      if (dtp->u.p.mode == READING)
+		pos = f->u.n - 1;
+	      else
+		pos = f->u.n - dtp->u.p.pending_spaces - 1;
 	    }
 
 	  /* Standard 10.6.1.1: excessive left tabbing is reset to the
@@ -1484,7 +1482,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
 
       /* If the extent of even one dimension is zero, then the entire
 	 array section contains zero elements, so we return.  */
-      if (extent[n] == 0)
+      if (extent[n] <= 0)
 	return;
     }
 
@@ -1952,6 +1950,10 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   dtp->u.p.blank_status = dtp->u.p.current_unit->flags.blank;
   dtp->u.p.sign_status = SIGN_S;
+  
+  /* Set the maximum position reached from the previous I/O operation.  This
+     could be greater than zero from a previous non-advancing write.  */
+  dtp->u.p.max_pos = dtp->u.p.current_unit->saved_pos;
 
   pre_position (dtp);
 
@@ -2019,7 +2021,7 @@ init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
   index = 1;
   for (i=0; i<rank; i++)
     {
-      ls[i].idx = 1;
+      ls[i].idx = desc->dim[i].lbound;
       ls[i].start = desc->dim[i].lbound;
       ls[i].end = desc->dim[i].ubound;
       ls[i].step = desc->dim[i].stride;
@@ -2056,8 +2058,9 @@ next_array_record (st_parameter_dt *dtp, array_loop_spec *ls)
           else
             carry = 0;
         }
-      index = index + (ls[i].idx - 1) * ls[i].step;
+      index = index + (ls[i].idx - ls[i].start) * ls[i].step;
     }
+
   return index;
 }
 
@@ -2157,6 +2160,7 @@ next_record_r (st_parameter_dt *dtp)
     
     case UNFORMATTED_SEQUENTIAL:
       next_record_r_unf (dtp, 1);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_DIRECT:
@@ -2222,9 +2226,6 @@ next_record_r (st_parameter_dt *dtp)
 
       break;
     }
-
-  if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
-    test_endfile (dtp->u.p.current_unit);
 }
 
 
@@ -2382,6 +2383,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 
     case UNFORMATTED_SEQUENTIAL:
       next_record_w_unf (dtp, 0);
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
       break;
 
     case FORMATTED_STREAM:
@@ -2459,7 +2461,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
-
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
 	  (for file unit) */
@@ -2545,7 +2546,7 @@ finalize_transfer (st_parameter_dt *dtp)
   GFC_INTEGER_4 cf = dtp->common.flags;
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    *dtp->size = (GFC_INTEGER_4) dtp->u.p.size_used;
+    *dtp->size = (GFC_IO_INT) dtp->u.p.size_used;
 
   if (dtp->u.p.eor_condition)
     {
@@ -2601,11 +2602,19 @@ finalize_transfer (st_parameter_dt *dtp)
       return;
     }
 
+  /* For non-advancing I/O, save the current maximum position for use in the
+     next I/O operation if needed.  */
   if (dtp->u.p.advance_status == ADVANCE_NO)
     {
+      int bytes_written = (int) (dtp->u.p.current_unit->recl
+	- dtp->u.p.current_unit->bytes_left);
+      dtp->u.p.current_unit->saved_pos =
+	dtp->u.p.max_pos > 0 ? dtp->u.p.max_pos - bytes_written : 0;
       flush (dtp->u.p.current_unit->s);
       return;
     }
+
+  dtp->u.p.current_unit->saved_pos = 0;
 
   next_record (dtp, 1);
   sfree (dtp->u.p.current_unit->s);
@@ -2621,7 +2630,7 @@ iolength_transfer (st_parameter_dt *dtp, bt type __attribute__((unused)),
 		   size_t size, size_t nelems)
 {
   if ((dtp->common.flags & IOPARM_DT_HAS_IOLENGTH) != 0)
-    *dtp->iolength += (GFC_INTEGER_4) size * nelems;
+    *dtp->iolength += (GFC_IO_INT) size * nelems;
 }
 
 
@@ -2683,15 +2692,15 @@ st_read (st_parameter_dt *dtp)
 
   data_transfer_init (dtp, 1);
 
-  /* Handle complications dealing with the endfile record.  It is
-     significant that this is the only place where ERROR_END is
-     generated.  Reading an end of file elsewhere is either end of
-     record or an I/O error. */
+  /* Handle complications dealing with the endfile record.  */
 
   if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
     switch (dtp->u.p.current_unit->endfile)
       {
       case NO_ENDFILE:
+	if (file_length (dtp->u.p.current_unit->s)
+	    == file_position (dtp->u.p.current_unit->s))
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
 	break;
 
       case AT_ENDFILE:

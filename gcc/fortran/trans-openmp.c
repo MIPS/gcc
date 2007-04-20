@@ -1,5 +1,5 @@
 /* OpenMP directive translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -875,7 +875,7 @@ static tree
 gfc_trans_omp_barrier (void)
 {
   tree decl = built_in_decls [BUILT_IN_GOMP_BARRIER];
-  return build_function_call_expr (decl, NULL);
+  return build_call_expr (decl, 0);
 }
 
 static tree
@@ -1054,7 +1054,7 @@ static tree
 gfc_trans_omp_flush (void)
 {
   tree decl = built_in_decls [BUILT_IN_SYNCHRONIZE];
-  return build_function_call_expr (decl, NULL);
+  return build_call_expr (decl, 0);
 }
 
 static tree

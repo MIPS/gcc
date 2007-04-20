@@ -1,5 +1,5 @@
 /* Target definitions for x86 running Darwin.
-   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -66,11 +66,15 @@ Boston, MA 02110-1301, USA.  */
 #undef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN (0)
 
+#undef TARGET_KEEPS_VECTOR_ALIGNED_STACK
+#define TARGET_KEEPS_VECTOR_ALIGNED_STACK 1
+
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
 #undef CC1_SPEC
 #define CC1_SPEC "%{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}} \
+  %{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
   %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }}"
 
 #undef ASM_SPEC
@@ -79,8 +83,18 @@ Boston, MA 02110-1301, USA.  */
 #define DARWIN_ARCH_SPEC "%{m64:x86_64;:i386}"
 #define DARWIN_SUBARCH_SPEC DARWIN_ARCH_SPEC
 
+/* Determine a minimum version based on compiler options.  */
+#define DARWIN_MINVERSION_SPEC				\
+ "%{!m64|fgnu-runtime:10.4;				\
+    ,objective-c|,objc-cpp-output:10.5;			\
+    ,objective-c-header:10.5;				\
+    ,objective-c++|,objective-c++-cpp-output:10.5;	\
+    ,objective-c++-header|,objc++-cpp-output:10.5;	\
+    :10.4}"
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS                                   \
+  DARWIN_EXTRA_SPECS                                            \
   { "darwin_arch", DARWIN_ARCH_SPEC },                          \
   { "darwin_crt2", "" },                                        \
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
@@ -188,7 +202,7 @@ extern void darwin_x86_file_end (void);
   } while (0)
 
 /* Darwin on x86_64 uses dwarf-2 by default.  Pre-darwin9 32-bit
-   compiles defaut to stabs+.  darwin9+ defaults to dwarf-2.  */
+   compiles default to stabs+.  darwin9+ defaults to dwarf-2.  */
 #ifndef DARWIN_PREFER_DWARF
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE (TARGET_64BIT ? DWARF2_DEBUG : DBX_DEBUG)

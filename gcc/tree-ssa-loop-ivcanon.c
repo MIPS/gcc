@@ -111,10 +111,10 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   update_stmt (cond);
 }
 
-/* Computes an estimated number of insns in LOOP.  */
+/* Computes an estimated number of insns in LOOP, weighted by WEIGHTS.  */
 
 unsigned
-tree_num_loop_insns (struct loop *loop)
+tree_num_loop_insns (struct loop *loop, eni_weights *weights)
 {
   basic_block *body = get_loop_body (loop);
   block_stmt_iterator bsi;
@@ -122,7 +122,7 @@ tree_num_loop_insns (struct loop *loop)
 
   for (i = 0; i < loop->num_nodes; i++)
     for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-      size += estimate_num_insns (bsi_stmt (bsi));
+      size += estimate_num_insns (bsi_stmt (bsi), weights);
   free (body);
 
   return size;
@@ -182,7 +182,7 @@ try_unroll_loop_completely (struct loop *loop,
       if (ul == UL_SINGLE_ITER)
 	return false;
 
-      ninsns = tree_num_loop_insns (loop);
+      ninsns = tree_num_loop_insns (loop, &eni_size_weights);
 
       if (n_unroll * ninsns
 	  > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS))
@@ -223,8 +223,6 @@ try_unroll_loop_completely (struct loop *loop,
   if (n_unroll)
     {
       sbitmap wont_exit;
-      edge *edges_to_remove = XNEWVEC (edge, n_unroll);
-      unsigned int n_to_remove = 0;
 
       old_cond = COND_EXPR_COND (cond);
       COND_EXPR_COND (cond) = dont_exit;
@@ -237,8 +235,7 @@ try_unroll_loop_completely (struct loop *loop,
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       n_unroll, wont_exit,
-					       exit, edges_to_remove,
-					       &n_to_remove,
+					       exit, NULL,
 					       DLTHE_FLAG_UPDATE_FREQ
 					       | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
@@ -246,11 +243,9 @@ try_unroll_loop_completely (struct loop *loop,
 	  update_stmt (cond);
           free_original_copy_tables ();
 	  free (wont_exit);
-	  free (edges_to_remove);
 	  return false;
 	}
       free (wont_exit);
-      free (edges_to_remove);
       free_original_copy_tables ();
     }
   
@@ -279,18 +274,12 @@ canonicalize_loop_induction_variables (struct loop *loop,
   edge exit = NULL;
   tree niter;
 
-  niter = number_of_iterations_in_loop (loop);
+  niter = number_of_latch_executions (loop);
   if (TREE_CODE (niter) == INTEGER_CST)
     {
       exit = single_exit (loop);
       if (!just_once_each_iteration_p (loop, exit->src))
 	return false;
-
-      /* The result of number_of_iterations_in_loop is by one higher than
-	 we expect (i.e. it returns number of executions of the exit
-	 condition, not of the loop latch edge).  */
-      niter = fold_build2 (MINUS_EXPR, TREE_TYPE (niter), niter,
-			   build_int_cst (TREE_TYPE (niter), 1));
     }
   else
     {
@@ -332,18 +321,15 @@ canonicalize_loop_induction_variables (struct loop *loop,
 unsigned int
 canonicalize_induction_variables (void)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-
-      if (loop)
-	changed |= canonicalize_loop_induction_variables (loop,
-							  true, UL_SINGLE_ITER,
-							  true);
+      changed |= canonicalize_loop_induction_variables (loop,
+							true, UL_SINGLE_ITER,
+							true);
     }
 
   /* Clean up the information about numbers of iterations, since brute force
@@ -362,18 +348,13 @@ canonicalize_induction_variables (void)
 unsigned int
 tree_unroll_loops_completely (bool may_increase_size)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   enum unroll_level ul;
 
-  for (i = 1; i < current_loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = current_loops->parray[i];
-
-      if (!loop)
-	continue;
-
       if (may_increase_size && maybe_hot_bb_p (loop->header))
 	ul = UL_ALL;
       else
@@ -498,6 +479,9 @@ remove_empty_loop (struct loop *loop)
   basic_block *body;
   unsigned n_before, freq_in, freq_h;
   gcov_type exit_count = exit->count;
+
+  if (dump_file)
+    fprintf (dump_file, "Removing empty loop %d\n", loop->num);
 
   non_exit = EDGE_SUCC (exit->src, 0);
   if (non_exit == exit)

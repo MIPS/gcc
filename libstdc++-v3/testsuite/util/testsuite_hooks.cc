@@ -2,7 +2,8 @@
 
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,10 +37,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
+
 #include <list>
 #include <string>
 #include <stdexcept>
+#include <cstddef>
 #include <clocale>
+#include <cstdlib>
 #include <locale>
 #include <cxxabi.h>
 
@@ -89,6 +93,16 @@ namespace __gnu_test
 #endif
 
     // Virtual memory.
+    // On x86_64-linux, the default is -z max-page-size=0x200000
+    // which means up to 2MB of address space are accounted for
+    // PROT_NONE mappings between text and data segments of
+    // each shared library.  There are 4 shared libs involved
+    // in addition to the dynamic linker.  Use at least 16MB address space
+    // limit.
+#if defined(__x86_64__) && defined(__linux__)
+    if (limit < 16777216)
+      limit = 16777216;
+#endif
     // On HP-UX 11.23, a trivial C++ program that sets RLIMIT_AS to
     // anything less than 128MB cannot "malloc" even 1K of memory.
     // Therefore, we skip RLIMIT_AS on HP-UX.
@@ -304,11 +318,11 @@ namespace __gnu_test
   }
 
   // For use in 22_locale/time_get and time_put.
-  tm
+  std::tm
   test_tm(int sec, int min, int hour, int mday, int mon,
 	  int year, int wday, int yday, int isdst)
   {
-    static tm tmp;
+    static std::tm tmp;
     tmp.tm_sec = sec;
     tmp.tm_min = min;
     tmp.tm_hour = hour;

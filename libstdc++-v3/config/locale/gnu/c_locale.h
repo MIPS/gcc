@@ -1,6 +1,6 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,22 +28,25 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file c++locale.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 22.8  Standard locale categories.
 //
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
-#ifndef _C_LOCALE_H
-#define _C_LOCALE_H 1
+#ifndef _GLIBCXX_CXX_LOCALE_H
+#define _GLIBCXX_CXX_LOCALE_H 1
 
 #pragma GCC system_header
 
 #include <cstring>              // get std::strlen
 #include <cstdio>               // get std::vsnprintf or std::vsprintf
 #include <clocale>
-#include <langinfo.h>		// For codecvt
-#include <iconv.h>		// For codecvt using iconv, iconv_t
 #include <libintl.h> 		// For messages
 #include <cstdarg>
 

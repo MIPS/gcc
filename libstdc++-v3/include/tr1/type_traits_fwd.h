@@ -1,6 +1,6 @@
 // TR1 type_traits -*- C++ -*-
 
-// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file type_traits_fwd.h
+/** @file tr1/type_traits_fwd.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
@@ -40,7 +40,7 @@
 // namespace std::tr1
 namespace std
 {
-_GLIBCXX_BEGIN_NAMESPACE(tr1)
+_GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 
   /// @brief  helper classes [4.3].
   template<typename _Tp, _Tp __v>
@@ -104,10 +104,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
   template<typename _Tp>
     struct is_member_pointer;
 
-  // Extension.
-  template<typename _Tp>
-    struct __is_union_or_class;
-   
   /// @brief  type properties [4.5.3].
   template<typename _Tp>
     struct is_const;

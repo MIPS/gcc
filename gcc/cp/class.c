@@ -1,6 +1,7 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -302,7 +303,18 @@ build_base_path (enum tree_code code,
 	 field, because other parts of the compiler know that such
 	 expressions are always non-NULL.  */
       if (!virtual_access && integer_zerop (offset))
-	return build_nop (build_pointer_type (target_type), expr);
+	{
+	  tree class_type;
+	  /* TARGET_TYPE has been extracted from BINFO, and, is
+	     therefore always cv-unqualified.  Extract the
+	     cv-qualifiers from EXPR so that the expression returned
+	     matches the input.  */
+	  class_type = TREE_TYPE (TREE_TYPE (expr));
+	  target_type
+	    = cp_build_qualified_type (target_type,
+				       cp_type_quals (class_type));
+	  return build_nop (build_pointer_type (target_type), expr);
+	}
       null_test = error_mark_node;
     }
 
@@ -429,8 +441,8 @@ build_simple_base_path (tree expr, tree binfo)
 
       /* Transform `(a, b).x' into `(*(a, &b)).x', `(a ? b : c).x'
 	 into `(*(a ?  &b : &c)).x', and so on.  A COND_EXPR is only
-	 an lvalue in the frontend; only _DECLs and _REFs are lvalues
-	 in the backend.  */
+	 an lvalue in the front end; only _DECLs and _REFs are lvalues
+	 in the back end.  */
       temp = unary_complex_lvalue (ADDR_EXPR, expr);
       if (temp)
 	expr = build_indirect_ref (temp, NULL);
@@ -519,12 +531,18 @@ convert_to_base_statically (tree expr, tree base)
       tree pointer_type;
 
       pointer_type = build_pointer_type (expr_type);
+
+      /* We use fold_build2 and fold_convert below to simplify the trees
+	 provided to the optimizers.  It is not safe to call these functions
+	 when processing a template because they do not handle C++-specific
+	 trees.  */
+      gcc_assert (!processing_template_decl);
       expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
       if (!integer_zerop (BINFO_OFFSET (base)))
-	  expr = build2 (PLUS_EXPR, pointer_type, expr,
-			 build_nop (pointer_type, BINFO_OFFSET (base)));
-      expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
-      expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
+        expr = fold_build2 (PLUS_EXPR, pointer_type, expr,
+			    fold_convert (pointer_type, BINFO_OFFSET (base)));
+      expr = fold_convert (build_pointer_type (BINFO_TYPE (base)), expr);
+      expr = build_fold_indirect_ref (expr);
     }
 
   return expr;
@@ -898,6 +916,7 @@ add_method (tree type, tree method, tree using_decl)
   bool complete_p;
   bool insert_p = false;
   tree current_fns;
+  tree fns;
 
   if (method == error_mark_node)
     return false;
@@ -975,92 +994,83 @@ add_method (tree type, tree method, tree using_decl)
     }
   current_fns = insert_p ? NULL_TREE : VEC_index (tree, method_vec, slot);
 
-  if (processing_template_decl)
-    /* TYPE is a template class.  Don't issue any errors now; wait
-       until instantiation time to complain.  */
-    ;
-  else
+  /* Check to see if we've already got this method.  */
+  for (fns = current_fns; fns; fns = OVL_NEXT (fns))
     {
-      tree fns;
+      tree fn = OVL_CURRENT (fns);
+      tree fn_type;
+      tree method_type;
+      tree parms1;
+      tree parms2;
 
-      /* Check to see if we've already got this method.  */
-      for (fns = current_fns; fns; fns = OVL_NEXT (fns))
+      if (TREE_CODE (fn) != TREE_CODE (method))
+	continue;
+
+      /* [over.load] Member function declarations with the
+	 same name and the same parameter types cannot be
+	 overloaded if any of them is a static member
+	 function declaration.
+
+	 [namespace.udecl] When a using-declaration brings names
+	 from a base class into a derived class scope, member
+	 functions in the derived class override and/or hide member
+	 functions with the same name and parameter types in a base
+	 class (rather than conflicting).  */
+      fn_type = TREE_TYPE (fn);
+      method_type = TREE_TYPE (method);
+      parms1 = TYPE_ARG_TYPES (fn_type);
+      parms2 = TYPE_ARG_TYPES (method_type);
+
+      /* Compare the quals on the 'this' parm.  Don't compare
+	 the whole types, as used functions are treated as
+	 coming from the using class in overload resolution.  */
+      if (! DECL_STATIC_FUNCTION_P (fn)
+	  && ! DECL_STATIC_FUNCTION_P (method)
+	  && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
+	      != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
+	continue;
+
+      /* For templates, the return type and template parameters
+	 must be identical.  */
+      if (TREE_CODE (fn) == TEMPLATE_DECL
+	  && (!same_type_p (TREE_TYPE (fn_type),
+			    TREE_TYPE (method_type))
+	      || !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
+				       DECL_TEMPLATE_PARMS (method))))
+	continue;
+
+      if (! DECL_STATIC_FUNCTION_P (fn))
+	parms1 = TREE_CHAIN (parms1);
+      if (! DECL_STATIC_FUNCTION_P (method))
+	parms2 = TREE_CHAIN (parms2);
+
+      if (compparms (parms1, parms2)
+	  && (!DECL_CONV_FN_P (fn)
+	      || same_type_p (TREE_TYPE (fn_type),
+			      TREE_TYPE (method_type))))
 	{
-	  tree fn = OVL_CURRENT (fns);
-	  tree fn_type;
-	  tree method_type;
-	  tree parms1;
-	  tree parms2;
-
-	  if (TREE_CODE (fn) != TREE_CODE (method))
-	    continue;
-
-	  /* [over.load] Member function declarations with the
-	     same name and the same parameter types cannot be
-	     overloaded if any of them is a static member
-	     function declaration.
-
-	     [namespace.udecl] When a using-declaration brings names
-	     from a base class into a derived class scope, member
-	     functions in the derived class override and/or hide member
-	     functions with the same name and parameter types in a base
-	     class (rather than conflicting).  */
-	  fn_type = TREE_TYPE (fn);
-	  method_type = TREE_TYPE (method);
-	  parms1 = TYPE_ARG_TYPES (fn_type);
-	  parms2 = TYPE_ARG_TYPES (method_type);
-
-	  /* Compare the quals on the 'this' parm.  Don't compare
-	     the whole types, as used functions are treated as
-	     coming from the using class in overload resolution.  */
-	  if (! DECL_STATIC_FUNCTION_P (fn)
-	      && ! DECL_STATIC_FUNCTION_P (method)
-	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
-		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
-	    continue;
-
-	  /* For templates, the return type and template parameters
-	     must be identical.  */
-	  if (TREE_CODE (fn) == TEMPLATE_DECL
-	      && (!same_type_p (TREE_TYPE (fn_type),
-				TREE_TYPE (method_type))
-		  || !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
-					   DECL_TEMPLATE_PARMS (method))))
-	    continue;
-
-	  if (! DECL_STATIC_FUNCTION_P (fn))
-	    parms1 = TREE_CHAIN (parms1);
-	  if (! DECL_STATIC_FUNCTION_P (method))
-	    parms2 = TREE_CHAIN (parms2);
-
-	  if (compparms (parms1, parms2)
-	      && (!DECL_CONV_FN_P (fn)
-		  || same_type_p (TREE_TYPE (fn_type),
-				  TREE_TYPE (method_type))))
+	  if (using_decl)
 	    {
-	      if (using_decl)
-		{
-		  if (DECL_CONTEXT (fn) == type)
-		    /* Defer to the local function.  */
-		    return false;
-		  if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
-		    error ("repeated using declaration %q+D", using_decl);
-		  else
-		    error ("using declaration %q+D conflicts with a previous using declaration",
-			   using_decl);
-		}
+	      if (DECL_CONTEXT (fn) == type)
+		/* Defer to the local function.  */
+		return false;
+	      if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
+		error ("repeated using declaration %q+D", using_decl);
 	      else
-		{
-		  error ("%q+#D cannot be overloaded", method);
-		  error ("with %q+#D", fn);
-		}
-
-	      /* We don't call duplicate_decls here to merge the
-		 declarations because that will confuse things if the
-		 methods have inline definitions.  In particular, we
-		 will crash while processing the definitions.  */
-	      return false;
+		error ("using declaration %q+D conflicts with a previous using declaration",
+		       using_decl);
 	    }
+	  else
+	    {
+	      error ("%q+#D cannot be overloaded", method);
+	      error ("with %q+#D", fn);
+	    }
+
+	  /* We don't call duplicate_decls here to merge the
+	     declarations because that will confuse things if the
+	     methods have inline definitions.  In particular, we
+	     will crash while processing the definitions.  */
+	  return false;
 	}
     }
 
@@ -1078,9 +1088,15 @@ add_method (tree type, tree method, tree using_decl)
 
   if (insert_p)
     {
+      bool reallocated;
+
       /* We only expect to add few methods in the COMPLETE_P case, so
 	 just make room for one more method in that case.  */
-      if (VEC_reserve (tree, gc, method_vec, complete_p ? -1 : 1))
+      if (complete_p)
+	reallocated = VEC_reserve_exact (tree, gc, method_vec, 1);
+      else
+	reallocated = VEC_reserve (tree, gc, method_vec, 1);
+      if (reallocated)
 	CLASSTYPE_METHOD_VEC (type) = method_vec;
       if (slot == VEC_length (tree, method_vec))
 	VEC_quick_push (tree, method_vec, overload);
@@ -1271,6 +1287,7 @@ check_bases (tree t,
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
       CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t)
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
+      TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_HAS_COMPLEX_DFLT (basetype);      
     }
 }
 
@@ -1726,7 +1743,7 @@ finish_struct_methods (tree t)
 }
 
 /* Make BINFO's vtable have N entries, including RTTI entries,
-   vbase and vcall offsets, etc.  Set its type and call the backend
+   vbase and vcall offsets, etc.  Set its type and call the back end
    to lay it out.  */
 
 static void
@@ -2098,7 +2115,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 				   fixed_offset, virtual_offset);
     }
   else
-    gcc_assert (!DECL_THUNK_P (fn));
+    gcc_assert (DECL_INVALID_OVERRIDER_P (overrider_target) ||
+		!DECL_THUNK_P (fn));
 
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
@@ -2342,16 +2360,6 @@ check_for_override (tree decl, tree ctype)
       if (!DECL_VINDEX (decl))
 	DECL_VINDEX (decl) = error_mark_node;
       IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)) = 1;
-      if (DECL_DLLIMPORT_P (decl))
-	{
-	  /* When we handled the dllimport attribute we may not have known
-	     that this function is virtual   We can't use dllimport
-	     semantics for a virtual method because we need to initialize
-	     the vtable entry with a constant address.  */
-	  DECL_DLLIMPORT_P (decl) = 0;
-	  DECL_ATTRIBUTES (decl)
-	    = remove_attribute ("dllimport", DECL_ATTRIBUTES (decl));
-	}
     }
 }
 
@@ -2421,8 +2429,8 @@ warn_hidden (tree t)
       while (base_fndecls)
 	{
 	  /* Here we know it is a hider, and no overrider exists.  */
-	  warning (0, "%q+D was hidden", TREE_VALUE (base_fndecls));
-	  warning (0, "  by %q+D", fns);
+	  warning (OPT_Woverloaded_virtual, "%q+D was hidden", TREE_VALUE (base_fndecls));
+	  warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
 	  base_fndecls = TREE_CHAIN (base_fndecls);
 	}
     }
@@ -2753,6 +2761,7 @@ check_field_decl (tree field,
 	    |= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type);
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) |= TYPE_HAS_COMPLEX_ASSIGN_REF (type);
 	  TYPE_HAS_COMPLEX_INIT_REF (t) |= TYPE_HAS_COMPLEX_INIT_REF (type);
+	  TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_HAS_COMPLEX_DFLT (type);
 	}
 
       if (!TYPE_HAS_CONST_INIT_REF (type))
@@ -4113,6 +4122,8 @@ check_bases_and_members (tree t)
 	|| TYPE_HAS_ASSIGN_REF (t));
   TYPE_HAS_COMPLEX_ASSIGN_REF (t)
     |= TYPE_HAS_ASSIGN_REF (t) || TYPE_CONTAINS_VPTR_P (t);
+  TYPE_HAS_COMPLEX_DFLT (t)
+    |= (TYPE_HAS_DEFAULT_CONSTRUCTOR (t) || TYPE_CONTAINS_VPTR_P (t));
 
   /* Synthesize any needed methods.  */
   add_implicitly_declared_members (t,
@@ -4587,7 +4598,7 @@ layout_class_type (tree t, tree *virtuals_p)
       tree padding;
 
       /* We still pass things that aren't non-static data members to
-	 the back-end, in case it wants to do something with them.  */
+	 the back end, in case it wants to do something with them.  */
       if (TREE_CODE (field) != FIELD_DECL)
 	{
 	  place_field (rli, field);
@@ -4895,7 +4906,7 @@ layout_class_type (tree t, tree *virtuals_p)
     place_field (rli,
 		 build_decl (FIELD_DECL, NULL_TREE, char_type_node));
 
-  /* Let the back-end lay out the type.  */
+  /* Let the back end lay out the type.  */
   finish_record_layout (rli, /*free_p=*/true);
 
   /* Warn about bases that can't be talked about due to ambiguity.  */
@@ -6300,9 +6311,9 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      error ("declaration of %q#D", decl);
-      error ("changes meaning of %qD from %q+#D",
-	     DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
+      pedwarn ("declaration of %q#D", decl);
+      pedwarn ("changes meaning of %qD from %q+#D",
+	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }
 

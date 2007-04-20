@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,14 +29,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 27.4  Iostreams base classes
-//
-
 /** @file ios_base.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+//
+// ISO C++ 14882: 27.4  Iostreams base classes
+//
 
 #ifndef _IOS_BASE_H
 #define _IOS_BASE_H 1
@@ -45,6 +46,7 @@
 #include <ext/atomicity.h>
 #include <bits/localefwd.h>
 #include <bits/locale_classes.h>
+#include <cstdio>  // For SEEK_CUR, SEEK_END
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 

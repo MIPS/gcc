@@ -91,6 +91,15 @@ gimple_nonlocal_all (struct function *fun)
   gcc_assert (fun && fun->gimple_df);
   return fun->gimple_df->nonlocal_all;
 }
+
+/* Hashtable of variables annotations.  Used for static variables only;
+   local variables have direct pointer in the tree node.  */
+static inline htab_t
+gimple_var_anns (struct function *fun)
+{
+  return fun->gimple_df->var_anns;
+}
+
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -194,6 +203,16 @@ var_ann (tree t)
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
+  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+    {
+      struct static_var_ann_d *sann
+        = ((struct static_var_ann_d *)
+	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
+      if (!sann)
+	return NULL;
+      gcc_assert (sann->ann.common.type = VAR_ANN);
+      return &sann->ann;
+    }
   gcc_assert (!t->base.ann
 	      || t->base.ann->common.type == VAR_ANN);
 
@@ -284,13 +303,12 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
-/* Return the may_aliases varray for variable VAR, or NULL if it has
+/* Return the may_aliases bitmap for variable VAR, or NULL if it has
    no may aliases.  */
-static inline VEC(tree, gc) *
+static inline bitmap
 may_aliases (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->may_aliases : NULL;
+  return MTAG_ALIASES (var);
 }
 
 /* Return the line number for EXPR, or return -1 if we have no line
@@ -541,6 +559,7 @@ has_single_use (tree var)
   return (ptr != ptr->next && ptr == ptr->next->next);
 }
 
+
 /* If VAR has only a single immediate use, return true, and set USE_P and STMT
    to the use pointer and stmt of occurrence.  */
 static inline bool
@@ -574,7 +593,6 @@ num_imm_uses (tree var)
 
   return num;
 }
-
 
 /* Return the tree pointer to by USE.  */ 
 static inline tree
@@ -674,9 +692,6 @@ set_is_used (tree var)
   ann->used = 1;
 }
 
-
-/*  -----------------------------------------------------------------------  */
-
 /* Return true if T is an executable statement.  */
 static inline bool
 is_exec_stmt (tree t)
@@ -701,6 +716,17 @@ is_label_stmt (tree t)
 	  return false;
       }
   return false;
+}
+
+/* Return true if T (assumed to be a DECL) is a global variable.  */
+
+static inline bool
+is_global_var (tree t)
+{
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* PHI nodes should contain only ssa_names and invariants.  A test
@@ -822,12 +848,44 @@ loop_containing_stmt (tree stmt)
   return bb->loop_father;
 }
 
+
+/* Return the memory partition tag associated with symbol SYM.  */
+
+static inline tree
+memory_partition (tree sym)
+{
+  tree tag;
+
+  /* MPTs belong to their own partition.  */
+  if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
+    return sym;
+
+  gcc_assert (!is_gimple_reg (sym));
+  tag = get_var_ann (sym)->mpt;
+
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == MEMORY_PARTITION_TAG);
+#endif
+
+  return tag;
+}
+
+/* Return true if NAME is a memory factoring SSA name (i.e., an SSA
+   name for a memory partition.  */
+
+static inline bool
+factoring_name_p (tree name)
+{
+  return TREE_CODE (SSA_NAME_VAR (name)) == MEMORY_PARTITION_TAG;
+}
+
 /* Return true if VAR is a clobbered by function calls.  */
 static inline bool
 is_call_clobbered (tree var)
 {
   if (!MTAG_P (var))
-    return DECL_CALL_CLOBBERED (var);
+    return var_ann (var)->call_clobbered;
   else
     return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
 }
@@ -838,7 +896,7 @@ mark_call_clobbered (tree var, unsigned int escape_type)
 {
   var_ann (var)->escape_mask |= escape_type;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = true;
+    var_ann (var)->call_clobbered = true;
   bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -851,18 +909,8 @@ clear_call_clobbered (tree var)
   if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
     MTAG_GLOBAL (var) = 0;
   if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = false;
+    var_ann (var)->call_clobbered = false;
   bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
-}
-
-/* Mark variable VAR as being non-addressable.  */
-static inline void
-mark_non_addressable (tree var)
-{
-  if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
-  TREE_ADDRESSABLE (var) = 0;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -870,6 +918,9 @@ mark_non_addressable (tree var)
 static inline tree_ann_common_t
 tree_common_ann (tree t)
 {
+  /* Watch out static variables with unshared annotations.  */
+  if (DECL_P (t) && TREE_CODE (t) == VAR_DECL)
+    return &var_ann (t)->common;
   return &t->base.ann->common;
 }
 
@@ -910,20 +961,22 @@ op_iter_next_use (ssa_op_iter *ptr)
     }
   if (ptr->vuses)
     {
-      use_p = VUSE_OP_PTR (ptr->vuses);
-      ptr->vuses = ptr->vuses->next;
+      use_p = VUSE_OP_PTR (ptr->vuses, ptr->vuse_index);
+      if (++(ptr->vuse_index) >= VUSE_NUM (ptr->vuses))
+        {
+	  ptr->vuse_index = 0;
+	  ptr->vuses = ptr->vuses->next;
+	}
       return use_p;
     }
   if (ptr->mayuses)
     {
-      use_p = MAYDEF_OP_PTR (ptr->mayuses);
-      ptr->mayuses = ptr->mayuses->next;
-      return use_p;
-    }
-  if (ptr->mustkills)
-    {
-      use_p = MUSTDEF_KILL_PTR (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
+      use_p = VDEF_OP_PTR (ptr->mayuses, ptr->mayuse_index);
+      if (++(ptr->mayuse_index) >= VDEF_NUM (ptr->mayuses))
+        {
+	  ptr->mayuse_index = 0;
+	  ptr->mayuses = ptr->mayuses->next;
+	}
       return use_p;
     }
   if (ptr->phi_i < ptr->num_phi)
@@ -948,16 +1001,10 @@ op_iter_next_def (ssa_op_iter *ptr)
       ptr->defs = ptr->defs->next;
       return def_p;
     }
-  if (ptr->mustdefs)
+  if (ptr->vdefs)
     {
-      def_p = MUSTDEF_RESULT_PTR (ptr->mustdefs);
-      ptr->mustdefs = ptr->mustdefs->next;
-      return def_p;
-    }
-  if (ptr->maydefs)
-    {
-      def_p = MAYDEF_RESULT_PTR (ptr->maydefs);
-      ptr->maydefs = ptr->maydefs->next;
+      def_p = VDEF_RESULT_PTR (ptr->vdefs);
+      ptr->vdefs = ptr->vdefs->next;
       return def_p;
     }
   ptr->done = true;
@@ -980,20 +1027,22 @@ op_iter_next_tree (ssa_op_iter *ptr)
     }
   if (ptr->vuses)
     {
-      val = VUSE_OP (ptr->vuses);
-      ptr->vuses = ptr->vuses->next;
+      val = VUSE_OP (ptr->vuses, ptr->vuse_index);
+      if (++(ptr->vuse_index) >= VUSE_NUM (ptr->vuses))
+        {
+	  ptr->vuse_index = 0;
+	  ptr->vuses = ptr->vuses->next;
+	}
       return val;
     }
   if (ptr->mayuses)
     {
-      val = MAYDEF_OP (ptr->mayuses);
-      ptr->mayuses = ptr->mayuses->next;
-      return val;
-    }
-  if (ptr->mustkills)
-    {
-      val = MUSTDEF_KILL (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
+      val = VDEF_OP (ptr->mayuses, ptr->mayuse_index);
+      if (++(ptr->mayuse_index) >= VDEF_NUM (ptr->mayuses))
+        {
+	  ptr->mayuse_index = 0;
+	  ptr->mayuses = ptr->mayuses->next;
+	}
       return val;
     }
   if (ptr->defs)
@@ -1002,16 +1051,10 @@ op_iter_next_tree (ssa_op_iter *ptr)
       ptr->defs = ptr->defs->next;
       return val;
     }
-  if (ptr->mustdefs)
+  if (ptr->vdefs)
     {
-      val = MUSTDEF_RESULT (ptr->mustdefs);
-      ptr->mustdefs = ptr->mustdefs->next;
-      return val;
-    }
-  if (ptr->maydefs)
-    {
-      val = MAYDEF_RESULT (ptr->maydefs);
-      ptr->maydefs = ptr->maydefs->next;
+      val = VDEF_RESULT (ptr->vdefs);
+      ptr->vdefs = ptr->vdefs->next;
       return val;
     }
 
@@ -1031,15 +1074,15 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
   ptr->defs = NULL;
   ptr->uses = NULL;
   ptr->vuses = NULL;
-  ptr->maydefs = NULL;
+  ptr->vdefs = NULL;
   ptr->mayuses = NULL;
-  ptr->mustdefs = NULL;
-  ptr->mustkills = NULL;
   ptr->iter_type = ssa_op_iter_none;
   ptr->phi_i = 0;
   ptr->num_phi = 0;
   ptr->phi_stmt = NULL_TREE;
   ptr->done = true;
+  ptr->vuse_index = 0;
+  ptr->mayuse_index = 0;
 }
 
 /* Initialize the iterator PTR to the virtual defs in STMT.  */
@@ -1053,15 +1096,15 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
   ptr->defs = (flags & SSA_OP_DEF) ? DEF_OPS (stmt) : NULL;
   ptr->uses = (flags & SSA_OP_USE) ? USE_OPS (stmt) : NULL;
   ptr->vuses = (flags & SSA_OP_VUSE) ? VUSE_OPS (stmt) : NULL;
-  ptr->maydefs = (flags & SSA_OP_VMAYDEF) ? MAYDEF_OPS (stmt) : NULL;
-  ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? MAYDEF_OPS (stmt) : NULL;
-  ptr->mustdefs = (flags & SSA_OP_VMUSTDEF) ? MUSTDEF_OPS (stmt) : NULL;
-  ptr->mustkills = (flags & SSA_OP_VMUSTKILL) ? MUSTDEF_OPS (stmt) : NULL;
+  ptr->vdefs = (flags & SSA_OP_VDEF) ? VDEF_OPS (stmt) : NULL;
+  ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? VDEF_OPS (stmt) : NULL;
   ptr->done = false;
 
   ptr->phi_i = 0;
   ptr->num_phi = 0;
   ptr->phi_stmt = NULL_TREE;
+  ptr->vuse_index = 0;
+  ptr->mayuse_index = 0;
 }
 
 /* Initialize iterator PTR to the use operands in STMT based on FLAGS. Return
@@ -1080,7 +1123,7 @@ op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
 static inline def_operand_p
 op_iter_init_def (ssa_op_iter *ptr, tree stmt, int flags)
 {
-  gcc_assert ((flags & (SSA_OP_ALL_USES | SSA_OP_VIRTUAL_KILLS)) == 0);
+  gcc_assert ((flags & SSA_OP_ALL_USES) == 0);
   op_iter_init (ptr, stmt, flags);
   ptr->iter_type = ssa_op_iter_def;
   return op_iter_next_def (ptr);
@@ -1099,73 +1142,53 @@ op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
 /* Get the next iterator mustdef value for PTR, returning the mustdef values in
    KILL and DEF.  */
 static inline void
-op_iter_next_maymustdef (use_operand_p *use, def_operand_p *def, 
+op_iter_next_vdef (vuse_vec_p *use, def_operand_p *def, 
 			 ssa_op_iter *ptr)
 {
 #ifdef ENABLE_CHECKING
-  gcc_assert (ptr->iter_type == ssa_op_iter_maymustdef);
+  gcc_assert (ptr->iter_type == ssa_op_iter_vdef);
 #endif
   if (ptr->mayuses)
     {
-      *def = MAYDEF_RESULT_PTR (ptr->mayuses);
-      *use = MAYDEF_OP_PTR (ptr->mayuses);
+      *def = VDEF_RESULT_PTR (ptr->mayuses);
+      *use = VDEF_VECT (ptr->mayuses);
       ptr->mayuses = ptr->mayuses->next;
       return;
     }
 
-  if (ptr->mustkills)
-    {
-      *def = MUSTDEF_RESULT_PTR (ptr->mustkills);
-      *use = MUSTDEF_KILL_PTR (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
-      return;
-    }
-
   *def = NULL_DEF_OPERAND_P;
-  *use = NULL_USE_OPERAND_P;
+  *use = NULL;
   ptr->done = true;
   return;
 }
 
 
+static inline void
+op_iter_next_mustdef (use_operand_p *use, def_operand_p *def, 
+			 ssa_op_iter *ptr)
+{
+  vuse_vec_p vp;
+  op_iter_next_vdef (&vp, def, ptr);
+  if (vp != NULL)
+    {
+      gcc_assert (VUSE_VECT_NUM_ELEM (*vp) == 1);
+      *use = VUSE_ELEMENT_PTR (*vp, 0);
+    }
+  else
+    *use = NULL_USE_OPERAND_P;
+}
+
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in USE and DEF.  */
 static inline void
-op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
+op_iter_init_vdef (ssa_op_iter *ptr, tree stmt, vuse_vec_p *use, 
 		     def_operand_p *def)
 {
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
-  ptr->iter_type = ssa_op_iter_maymustdef;
-  op_iter_next_maymustdef (use, def, ptr);
-}
-
-
-/* Initialize iterator PTR to the operands in STMT.  Return the first operands
-   in KILL and DEF.  */
-static inline void
-op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill, 
-		     def_operand_p *def)
-{
-  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-
-  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL);
-  ptr->iter_type = ssa_op_iter_maymustdef;
-  op_iter_next_maymustdef (kill, def, ptr);
-}
-
-/* Initialize iterator PTR to the operands in STMT.  Return the first operands
-   in KILL and DEF.  */
-static inline void
-op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
-			       use_operand_p *kill, def_operand_p *def)
-{
-  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-
-  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL|SSA_OP_VMAYUSE);
-  ptr->iter_type = ssa_op_iter_maymustdef;
-  op_iter_next_maymustdef (kill, def, ptr);
+  ptr->iter_type = ssa_op_iter_vdef;
+  op_iter_next_vdef (use, def, ptr);
 }
 
 
@@ -1258,8 +1281,7 @@ delink_stmt_imm_use (tree stmt)
    use_operand_p use_p;
 
    if (ssa_operands_active ())
-     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-			       (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
        delink_imm_use (use_p);
 }
 
@@ -1647,7 +1669,7 @@ var_can_have_subvars (tree v)
   /* Complex types variables which are not also a gimple register can
     have subvars. */
   if (TREE_CODE (TREE_TYPE (v)) == COMPLEX_TYPE
-      && !DECL_COMPLEX_GIMPLE_REG_P (v))
+      && !DECL_GIMPLE_REG_P (v))
     return true;
 
   return false;
@@ -1700,6 +1722,35 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
 
 }
 
+/* Return the memory tag associated with symbol SYM.  */
+
+static inline tree
+symbol_mem_tag (tree sym)
+{
+  tree tag = get_var_ann (sym)->symbol_mem_tag;
+
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  return tag;
+}
+
+
+/* Set the memory tag associated with symbol SYM.  */
+
+static inline void
+set_symbol_mem_tag (tree sym, tree tag)
+{
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  get_var_ann (sym)->symbol_mem_tag = tag;
+}
+
 /* Get the value handle of EXPR.  This is the only correct way to get
    the value handle for a "thing".  If EXPR does not have a value
    handle associated, it returns NULL_TREE.  
@@ -1733,5 +1784,12 @@ static inline struct ssa_operands *
 gimple_ssa_operands (struct function *fun)
 {
   return &fun->gimple_df->ssa_operands;
+}
+
+/* Map describing reference statistics for function FN.  */
+static inline struct mem_ref_stats_d *
+gimple_mem_ref_stats (struct function *fn)
+{
+  return &fn->gimple_df->mem_ref_stats;
 }
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -40,12 +40,8 @@ struct lang_hooks_for_tree_inlining
 			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
@@ -119,6 +115,10 @@ struct lang_hooks_for_types
      according to UNSIGNEDP.  */
   tree (*signed_or_unsigned_type) (int, tree);
 
+  /* True if the type is an instantiation of a generic type,
+     e.g. C++ template implicit specializations.  */
+  bool (*generic_p) (tree);
+
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
@@ -183,9 +183,6 @@ struct lang_hooks_for_decls
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) (void);
-
-  /* Do necessary preparations before assemble_variable can proceed.  */
-  void (*prepare_assemble_variable) (tree);
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
@@ -315,15 +312,6 @@ struct lang_hooks
      1 if handled, 0 otherwise.  */
   int (*expand_decl) (tree);
 
-  /* Hook called by safe_from_p for language-specific tree codes.  It is
-     up to the language front-end to install a hook if it has any such
-     codes that safe_from_p needs to know about.  Since same_from_p will
-     recursively explore the TREE_OPERANDs of an expression, this hook
-     should not reexamine those pieces.  This routine may recursively
-     call safe_from_p; it should always pass `0' as the TOP_P
-     parameter.  */
-  int (*safe_from_p) (rtx, tree);
-
   /* Function to finish handling an incomplete decl at the end of
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
@@ -346,10 +334,6 @@ struct lang_hooks
      Otherwise, set it to the ERROR_MARK_NODE to ensure that the
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) (tree);
-
-  /* Return nonzero if fold-const is free to use bit-field
-     optimizations, for instance in fold_truthop().  */
-  bool (*can_use_bit_fields_p) (void);
 
   /* Nonzero if operations on types narrower than their mode should
      have their results reduced to the precision of the type.  */
@@ -465,5 +449,6 @@ extern tree add_builtin_function (const char *name, tree type,
 				  int function_code, enum built_in_class cl,
 				  const char *library_name,
 				  tree attrs);
+extern tree lhd_signed_or_unsigned_type (int unsignedp, tree type);
 
 #endif /* GCC_LANG_HOOKS_H */

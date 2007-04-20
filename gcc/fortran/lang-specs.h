@@ -1,6 +1,7 @@
 /* Contribution to the specs for the GNU Compiler Collection
    from GNU Fortran 95 compiler.
-   Copyright (C) 2002, 2003, 2004, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
 
 This file is licensed under the GPL.  */
 
@@ -18,6 +19,7 @@ This file is licensed under the GPL.  */
       -fpreprocessed %{!nostdinc:-fintrinsic-modules-path finclude%s} %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
 {".F90", "@f95-cpp-input", 0, 0, 0},
 {".F95", "@f95-cpp-input", 0, 0, 0},
+{".F03", "@f95-cpp-input", 0, 0, 0},
 {"@f95-cpp-input",
   "cc1 -E -lang-fortran -traditional-cpp -D_LANGUAGE_FORTRAN %(cpp_options) \
       %{E|M|MM:%(cpp_debug_options)}\
@@ -26,6 +28,7 @@ This file is licensed under the GPL.  */
       -fpreprocessed %{!nostdinc:-fintrinsic-modules-path finclude%s} %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
 {".f90", "@f95", 0, 0, 0},
 {".f95", "@f95", 0, 0, 0},
+{".f03", "@f95", 0, 0, 0},
 {"@f95", "%{!E:f951 %i %(cc1_options) %{J*} %{I*}\
          %{!nostdinc:-fintrinsic-modules-path finclude%s} %{!fsyntax-only:%(invoke_as)}}", 0, 0, 0},
 {".f",   "@f77", 0, 0, 0},

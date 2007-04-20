@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "params.h"
 #include "tree-inline.h"
+#include "value-prof.h"
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
@@ -787,7 +788,8 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     add_stack_var (var);
   else
     {
-      expand_one_stack_var (var);
+      if (really_expand)
+        expand_one_stack_var (var);
       return tree_low_cst (DECL_SIZE_UNIT (var), 1);
     }
   return 0;
@@ -1510,6 +1512,16 @@ expand_gimple_basic_block (basic_block bb)
       else
 	{
 	  tree call = get_call_expr_in (stmt);
+	  int region;
+	  /* For the benefit of calls.c, converting all this to rtl,
+	     we need to record the call expression, not just the outer
+	     modify statement.  */
+	  if (call && call != stmt)
+	    {
+	      if ((region = lookup_stmt_eh_region (stmt)) > 0)
+	        add_stmt_to_eh_region (call, region);
+	      gimple_duplicate_stmt_histograms (cfun, call, cfun, stmt);
+	    }
 	  if (call && CALL_EXPR_TAILCALL (call))
 	    {
 	      bool can_fallthru;
@@ -1817,7 +1829,7 @@ tree_expand_cfg (void)
 
   compact_blocks ();
 #ifdef ENABLE_CHECKING
-  verify_flow_info();
+  verify_flow_info ();
 #endif
 
   /* There's no need to defer outputting this function any more; we
@@ -1859,6 +1871,7 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
+  free_histograms ();
   return 0;
 }
 

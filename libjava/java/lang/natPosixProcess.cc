@@ -1,6 +1,7 @@
 // natPosixProcess.cc - Native side of POSIX process code.
 
-/* Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
+  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -17,6 +18,9 @@ details.  */
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
@@ -27,8 +31,8 @@ details.  */
 #include <gcj/cni.h>
 #include <jvm.h>
 
-#include <java/lang/ConcreteProcess$ProcessManager.h>
-#include <java/lang/ConcreteProcess.h>
+#include <java/lang/PosixProcess$ProcessManager.h>
+#include <java/lang/PosixProcess.h>
 #include <java/lang/IllegalThreadStateException.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/InterruptedException.h>
@@ -41,6 +45,7 @@ details.  */
 #include <java/io/FileOutputStream.h>
 #include <java/io/IOException.h>
 #include <java/lang/OutOfMemoryError.h>
+#include <java/lang/PosixProcess$EOFInputStream.h>
 
 using gnu::java::nio::channels::FileChannelImpl;
 
@@ -98,7 +103,7 @@ sigchld_handler (int)
 
 // Get ready to enter the main reaper thread loop.
 void
-java::lang::ConcreteProcess$ProcessManager::init ()
+java::lang::PosixProcess$ProcessManager::init ()
 {
   using namespace java::lang;
   // Remenber our PID so other threads can kill us.
@@ -124,7 +129,7 @@ error:
 }
 
 void
-java::lang::ConcreteProcess$ProcessManager::waitForSignal ()
+java::lang::PosixProcess$ProcessManager::waitForSignal ()
 {
   // Wait for SIGCHLD
   sigset_t mask;
@@ -145,7 +150,7 @@ java::lang::ConcreteProcess$ProcessManager::waitForSignal ()
   return;
 }
 
-jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
+jboolean java::lang::PosixProcess$ProcessManager::reap ()
 {
   using namespace java::lang;
 
@@ -168,7 +173,7 @@ jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
         return true;   // No children to wait for.
 
       // Look up the process in our pid map.
-      ConcreteProcess * process = removeProcessFromMap ((jlong) pid);
+      PosixProcess * process = removeProcessFromMap ((jlong) pid);
 
       // Note that if process==NULL, then we have an unknown child.
       // This is not common, but can happen, and isn't an error.
@@ -176,7 +181,7 @@ jboolean java::lang::ConcreteProcess$ProcessManager::reap ()
 	{
 	  JvSynchronize sync (process);
 	  process->status = WIFEXITED (status) ? WEXITSTATUS (status) : -1;
-	  process->state = ConcreteProcess::STATE_TERMINATED;
+	  process->state = PosixProcess::STATE_TERMINATED;
           process->processTerminationCleanup();
 	  process->notifyAll ();
 	}
@@ -187,7 +192,7 @@ error:
 }
 
 void
-java::lang::ConcreteProcess$ProcessManager::signalReaper ()
+java::lang::PosixProcess$ProcessManager::signalReaper ()
 {
   int c = pthread_kill ((pthread_t) reaperPID, SIGCHLD);
   if (c == 0)
@@ -197,7 +202,7 @@ java::lang::ConcreteProcess$ProcessManager::signalReaper ()
 }
 
 void
-java::lang::ConcreteProcess::nativeDestroy ()
+java::lang::PosixProcess::nativeDestroy ()
 {
   int c = kill ((pid_t) pid, SIGKILL);
   if (c == 0)
@@ -207,7 +212,7 @@ java::lang::ConcreteProcess::nativeDestroy ()
 }
 
 void
-java::lang::ConcreteProcess::nativeSpawn ()
+java::lang::PosixProcess::nativeSpawn ()
 {
   using namespace java::io;
 
@@ -231,7 +236,7 @@ java::lang::ConcreteProcess::nativeSpawn ()
   try
     {
       // Transform arrays to native form.
-    args = (char **) _Jv_Malloc ((progarray->length + 1) * sizeof (char *));
+      args = (char **) _Jv_Malloc ((progarray->length + 1) * sizeof (char *));
 
       // Initialize so we can gracefully recover.
       jstring *elts = elements (progarray);
@@ -244,16 +249,57 @@ java::lang::ConcreteProcess::nativeSpawn ()
 
       if (envp)
 	{
-	  env = (char **) _Jv_Malloc ((envp->length + 1) * sizeof (char *));
+          bool need_path = true;
+          bool need_ld_library_path = true;
+          int i;
+
+          // Preserve PATH and LD_LIBRARY_PATH unless specified
+          // explicitly.  We need three extra slots.  Potentially PATH
+          // and LD_LIBRARY_PATH will be added plus the NULL
+          // termination.
+	  env = (char **) _Jv_Malloc ((envp->length + 3) * sizeof (char *));
 	  elts = elements (envp);
 
 	  // Initialize so we can gracefully recover.
-	  for (int i = 0; i <= envp->length; ++i)
+	  for (i = 0; i < envp->length + 3; ++i)
 	    env[i] = NULL;
 
-	  for (int i = 0; i < envp->length; ++i)
-	    env[i] = new_string (elts[i]);
-	  env[envp->length] = NULL;
+	  for (i = 0; i < envp->length; ++i)
+            {
+              env[i] = new_string (elts[i]);
+              if (!strncmp (env[i], "PATH=", sizeof("PATH=")))
+                need_path = false;
+              if (!strncmp (env[i], "LD_LIBRARY_PATH=",
+                            sizeof("LD_LIBRARY_PATH=")))
+                need_ld_library_path = false;
+            }
+
+          if (need_path)
+            {
+	      char *path_val = getenv ("PATH");
+              if (path_val)
+                {
+                  env[i] = (char *) _Jv_Malloc (strlen (path_val) +
+                                                sizeof("PATH=") + 1);
+                  strcpy (env[i], "PATH=");
+                  strcat (env[i], path_val);
+                  i++;
+                }
+            }
+          if (need_ld_library_path)
+            {
+	      char *path_val = getenv ("LD_LIBRARY_PATH");
+              if (path_val)
+                {
+                  env[i] =
+                    (char *) _Jv_Malloc (strlen (path_val) +
+                                         sizeof("LD_LIBRARY_PATH=") + 1);
+                  strcpy (env[i], "LD_LIBRARY_PATH=");
+                  strcat (env[i], path_val);
+                  i++;
+                }
+            }
+	  env[i] = NULL;
 	}
 
       // We allocate this here because we can't call malloc() after
@@ -262,23 +308,30 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	path = new_string (dir->getPath ());
 
       // Create pipes for I/O.  MSGP is for communicating exec()
-      // status.
-      if (pipe (inp) || pipe (outp) || pipe (errp) || pipe (msgp)
+      // status.  If redirecting stderr to stdout, we don't need to
+      // create the ERRP pipe.
+      if (pipe (inp) || pipe (outp) || pipe (msgp)
 	  || fcntl (msgp[1], F_SETFD, FD_CLOEXEC))
-      throw new IOException (JvNewStringUTF (strerror (errno)));
+	throw new IOException (JvNewStringUTF (strerror (errno)));
+      if (! redirect && pipe (errp))
+	throw new IOException (JvNewStringUTF (strerror (errno)));
 
       // We create the streams before forking.  Otherwise if we had an
       // error while creating the streams we would have run the child
       // with no way to communicate with it.
-    errorStream =
-      new FileInputStream (new
-                           FileChannelImpl (errp[0], FileChannelImpl::READ));
-    inputStream =
-      new FileInputStream (new
-                           FileChannelImpl (inp[0], FileChannelImpl::READ));
-    outputStream =
-      new FileOutputStream (new FileChannelImpl (outp[1],
-                                             FileChannelImpl::WRITE));
+      if (redirect)
+	errorStream = PosixProcess$EOFInputStream::instance;
+      else
+	errorStream =
+	  new FileInputStream (new
+			       FileChannelImpl (errp[0],
+						FileChannelImpl::READ));
+      inputStream =
+	new FileInputStream (new
+			     FileChannelImpl (inp[0], FileChannelImpl::READ));
+      outputStream =
+	new FileOutputStream (new FileChannelImpl (outp[1],
+						   FileChannelImpl::WRITE));
 
       // We don't use vfork() because that would cause the local
       // environment to be set by the child.
@@ -292,45 +345,26 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	{
 	  // Child process, so remap descriptors, chdir and exec.
 	  if (envp)
-	    {
-	      // Preserve PATH and LD_LIBRARY_PATH unless specified
-	      // explicitly.
-	      char *path_val = getenv ("PATH");
-	      char *ld_path_val = getenv ("LD_LIBRARY_PATH");
-	      environ = env;
-	      if (path_val && getenv ("PATH") == NULL)
-		{
-		char *path_env =
-                  (char *) _Jv_Malloc (strlen (path_val) + 5 + 1);
-		  strcpy (path_env, "PATH=");
-		  strcat (path_env, path_val);
-		  putenv (path_env);
-		}
-	      if (ld_path_val && getenv ("LD_LIBRARY_PATH") == NULL)
-		{
-		char *ld_path_env =
-                  (char *) _Jv_Malloc (strlen (ld_path_val) + 16 + 1);
-		  strcpy (ld_path_env, "LD_LIBRARY_PATH=");
-		  strcat (ld_path_env, ld_path_val);
-		  putenv (ld_path_env);
-		}
-	    }
+            environ = env;
 
 	  // We ignore errors from dup2 because they should never occur.
 	  dup2 (outp[0], 0);
 	  dup2 (inp[1], 1);
-	  dup2 (errp[1], 2);
+	  dup2 (redirect ? inp[1] : errp[1], 2);
 
 	  // Use close and not myclose -- we're in the child, and we
 	  // aren't worried about the possible race condition.
 	  close (inp[0]);
 	  close (inp[1]);
-	  close (errp[0]);
-	  close (errp[1]);
+	  if (! redirect)
+	    {
+	      close (errp[0]);
+	      close (errp[1]);
+	    }
 	  close (outp[0]);
 	  close (outp[1]);
 	  close (msgp[0]);
-          
+
 	  // Change directory.
 	  if (path != NULL)
 	    {
@@ -341,7 +375,31 @@ java::lang::ConcreteProcess::nativeSpawn ()
 		  _exit (127);
 		}
 	    }
-
+          // Make sure all file descriptors are closed.  In
+          // multi-threaded programs, there is a race between when a
+          // descriptor is obtained, when we can set FD_CLOEXEC, and
+          // fork().  If the fork occurs before FD_CLOEXEC is set, the
+          // descriptor would leak to the execed process if we did not
+          // manually close it.  So that is what we do.  Since we
+          // close all the descriptors, it is redundant to set
+          // FD_CLOEXEC on them elsewhere.
+          int max_fd;
+#ifdef HAVE_GETRLIMIT
+          rlimit rl;
+          int rv = getrlimit(RLIMIT_NOFILE, &rl);
+          if (rv == 0)
+            max_fd = rl.rlim_max - 1;
+          else
+            max_fd = 1024 - 1;
+#else
+          max_fd = 1024 - 1;
+#endif
+          while(max_fd > 2)
+            {
+              if (max_fd != msgp[1])
+                close (max_fd);
+              max_fd--;
+            }
 	  // Make sure that SIGCHLD is unblocked for the new process.
 	  sigset_t mask;
 	  sigemptyset (&mask);
@@ -362,7 +420,8 @@ java::lang::ConcreteProcess::nativeSpawn ()
 
       myclose (outp[0]);
       myclose (inp[1]);
-      myclose (errp[1]);
+      if (! redirect)
+	myclose (errp[1]);
       myclose (msgp[1]);
 
       char c;
@@ -406,7 +465,7 @@ java::lang::ConcreteProcess::nativeSpawn ()
 	{
 	  if (errorStream != NULL)
 	    errorStream->close ();
-	  else
+	  else if (! redirect)
 	    myclose (errp[0]);
 	}
       catch (java::lang::Throwable *ignore)
@@ -417,19 +476,13 @@ java::lang::ConcreteProcess::nativeSpawn ()
       // the use of myclose.
       myclose (outp[0]);
       myclose (inp[1]);
-      myclose (errp[1]);
+      if (! redirect)
+	myclose (errp[1]);
       myclose (msgp[1]);
 
-    exception = thrown;
+      exception = thrown;
     }
 
   myclose (msgp[0]);
   cleanup (args, env, path);
-
-  if (exception == NULL)
-    {
-      fcntl (outp[1], F_SETFD, FD_CLOEXEC);
-      fcntl (inp[0], F_SETFD, FD_CLOEXEC);
-      fcntl (errp[0], F_SETFD, FD_CLOEXEC);
-    }
 }

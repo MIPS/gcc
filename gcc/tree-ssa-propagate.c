@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -176,6 +176,8 @@ cfg_blocks_empty_p (void)
 static void 
 cfg_blocks_add (basic_block bb)
 {
+  bool head = false;
+
   gcc_assert (bb != ENTRY_BLOCK_PTR && bb != EXIT_BLOCK_PTR);
   gcc_assert (!TEST_BIT (bb_in_list, bb->index));
 
@@ -198,12 +200,26 @@ cfg_blocks_add (basic_block bb)
 	  cfg_blocks_head = 0;
 	  VEC_safe_grow (basic_block, heap, cfg_blocks, 2 * cfg_blocks_tail);
 	}
-      else
+      /* Minor optimization: we prefer to see blocks with more
+	 predecessors later, because there is more of a chance that
+	 the incoming edges will be executable.  */
+      else if (EDGE_COUNT (bb->preds)
+	       >= EDGE_COUNT (VEC_index (basic_block, cfg_blocks,
+					 cfg_blocks_head)->preds))
 	cfg_blocks_tail = ((cfg_blocks_tail + 1)
 			   % VEC_length (basic_block, cfg_blocks));
+      else
+	{
+	  if (cfg_blocks_head == 0)
+	    cfg_blocks_head = VEC_length (basic_block, cfg_blocks);
+	  --cfg_blocks_head;
+	  head = true;
+	}
     }
 
-  VEC_replace (basic_block, cfg_blocks, cfg_blocks_tail, bb);
+  VEC_replace (basic_block, cfg_blocks,
+	       head ? cfg_blocks_head : cfg_blocks_tail,
+	       bb);
   SET_BIT (bb_in_list, bb->index);
 }
 
@@ -615,11 +631,20 @@ set_rhs (tree *stmt_p, tree expr)
 	    return false;
 	  break;
 
-	case CALL_EXPR:
 	case EXC_PTR_EXPR:
 	case FILTER_EXPR:
 	  break;
 
+	default:
+	  return false;
+	}
+      break;
+
+    case tcc_vl_exp:
+      switch (code)
+	{
+	case CALL_EXPR:
+	  break;
 	default:
 	  return false;
 	}
@@ -749,7 +774,7 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
 }
 
 
-/* Return the first V_MAY_DEF or V_MUST_DEF operand for STMT.  */
+/* Return the first VDEF operand for STMT.  */
 
 tree
 first_vdef (tree stmt)
@@ -778,7 +803,7 @@ stmt_makes_single_load (tree stmt)
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF|SSA_OP_VUSE))
+  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF|SSA_OP_VUSE))
     return false;
 
   rhs = GIMPLE_STMT_OPERAND (stmt, 1);
@@ -803,7 +828,7 @@ stmt_makes_single_store (tree stmt)
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF|SSA_OP_VMUSTDEF))
+  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
     return false;
 
   lhs = GIMPLE_STMT_OPERAND (stmt, 0);
@@ -906,7 +931,7 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
       GIMPLE register, then we are making a copy/constant propagation
       from a memory store.  For instance,
 
-      	# a_3 = V_MAY_DEF <a_2>
+      	# a_3 = VDEF <a_2>
 	a.b = x_1;
 	...
  	# VUSE <a_3>
@@ -917,8 +942,8 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
       the VUSE(s) that we are replacing.  Otherwise, we may do the
       wrong replacement:
 
-      	# a_3 = V_MAY_DEF <a_2>
-	# b_5 = V_MAY_DEF <b_4>
+      	# a_3 = VDEF <a_2>
+	# b_5 = VDEF <b_4>
 	*p = 10;
 	...
 	# VUSE <b_5>
@@ -938,10 +963,10 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p,
       stored in different locations:
 
      		if (...)
-		  # a_3 = V_MAY_DEF <a_2>
+		  # a_3 = VDEF <a_2>
 		  a.b = 3;
 		else
-		  # a_4 = V_MAY_DEF <a_2>
+		  # a_4 = VDEF <a_2>
 		  a.c = 3;
 		# a_5 = PHI <a_3, a_4>
 
@@ -1103,7 +1128,7 @@ fold_predicate_in (tree stmt)
   else
     return false;
 
-  val = vrp_evaluate_conditional (*pred_p, true);
+  val = vrp_evaluate_conditional (*pred_p, stmt);
   if (val)
     {
       if (modify_stmt_p)
@@ -1137,15 +1162,18 @@ fold_predicate_in (tree stmt)
    expressions are evaluated with a call to vrp_evaluate_conditional.
    This will only give meaningful results when called from tree-vrp.c
    (the information used by vrp_evaluate_conditional is built by the
-   VRP pass).  */
+   VRP pass).  
 
-void
+   Return TRUE when something changed.  */
+
+bool
 substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 {
   basic_block bb;
+  bool something_changed = false;
 
   if (prop_value == NULL && !use_ranges_p)
-    return;
+    return false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSubstituing values and folding statements\n\n");
@@ -1175,6 +1203,9 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ASSERT_EXPR)
 	    continue;
+
+	  /* Record the state of the statement before replacements.  */
+	  push_stmt_changes (bsi_stmt_ptr (i));
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
@@ -1211,10 +1242,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt (i);
 
-	      /* If we folded a builtin function, we'll likely
-		 need to rename VDEFs.  */
-	      mark_new_vars_to_rename (stmt);
-
               /* If we cleaned up EH information from the statement,
                  remove EH edges.  */
 	      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
@@ -1232,6 +1259,15 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		  print_generic_stmt (dump_file, stmt, TDF_SLIM);
 		  fprintf (dump_file, "\n");
 		}
+
+	      /* Determine what needs to be done to update the SSA form.  */
+	      pop_stmt_changes (bsi_stmt_ptr (i));
+	      something_changed = true;
+	    }
+	  else
+	    {
+	      /* The statement was not modified, discard the change buffer.  */
+	      discard_stmt_changes (bsi_stmt_ptr (i));
 	    }
 
 	  /* Some statements may be simplified using ranges.  For
@@ -1242,7 +1278,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	     statement.  */
 	  if (use_ranges_p)
 	    simplify_stmt_using_ranges (stmt);
-
 	}
     }
 
@@ -1255,6 +1290,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
       fprintf (dump_file, "Predicates folded:    %6ld\n",
 	       prop_stats.num_pred_folded);
     }
+  return something_changed;
 }
 
 #include "gt-tree-ssa-propagate.h"

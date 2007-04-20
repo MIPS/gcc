@@ -22,7 +22,7 @@
 #
 #   os_include_dir         OS-specific directory, defaults to os/generic.
 #
-#   c_model                the "C" header model, defaults to c_std.
+#   c_model                the "C" header model, defaults to c_global.
 #
 #   c_compatibility        if "C" compatibility headers are necessary,
 #                          defaults to no.
@@ -64,7 +64,7 @@
 # Try to guess a default cpu_include_dir based on the name of the CPU.  We
 # cannot do this for os_include_dir; there are too many portable operating
 # systems out there.  :-)
-c_model=c_std
+c_model=c_global
 c_compatibility=no
 atomic_word_dir=cpu/generic
 atomicity_dir="cpu/generic"
@@ -202,6 +202,11 @@ case "${host_os}" in
     # On Darwin, performance is improved if libstdc++ is single-module,
     # and on 8+ compatibility is better if not -flat_namespace.
     OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module"
+    case "${host_cpu}" in
+      i[34567]86 | x86_64)
+        OPTIMIZE_CXXFLAGS="${OPTIMIZE_CXXFLAGS} -fvisibility-inlines-hidden"
+        ;;
+    esac
     os_include_dir="os/bsd/darwin"
     ;;
   *djgpp*)      # leading * picks up "msdosdjgpp"

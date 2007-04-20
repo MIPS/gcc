@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_BITMAP_H
 #define GCC_BITMAP_H
 #include "hashtab.h"
+#include "statistics.h"
 
 /* Fundamental storage type for bitmap.  */
 
@@ -68,15 +69,21 @@ typedef struct bitmap_element_def GTY(())
   BITMAP_WORD bits[BITMAP_ELEMENT_WORDS]; /* Bits that are set.  */
 } bitmap_element;
 
-/* Head of bitmap linked list.  */
+struct bitmap_descriptor;
+/* Head of bitmap linked list.  gengtype ignores ifdefs, but for
+   statistics we need to add a bitmap descriptor pointer.  As it is
+   not collected, we can just GTY((skip)) it.   */
+
 typedef struct bitmap_head_def GTY(()) {
   bitmap_element *first;	/* First element in linked list.  */
   bitmap_element *current;	/* Last element looked at.  */
   unsigned int indx;		/* Index of last element looked at.  */
   bitmap_obstack *obstack;	/* Obstack to allocate elements from.
 				   If NULL, then use ggc_alloc.  */
+#ifdef GATHER_STATISTICS
+  struct bitmap_descriptor GTY((skip)) *desc;
+#endif
 } bitmap_head;
-
 
 /* Global data */
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
@@ -144,20 +151,28 @@ extern void bitmap_print (FILE *, bitmap, const char *, const char *);
 /* Initialize and release a bitmap obstack.  */
 extern void bitmap_obstack_initialize (bitmap_obstack *);
 extern void bitmap_obstack_release (bitmap_obstack *);
+extern void bitmap_register (bitmap MEM_STAT_DECL);
+extern void dump_bitmap_statistics (void);
 
 /* Initialize a bitmap header.  OBSTACK indicates the bitmap obstack
    to allocate from, NULL for GC'd bitmap.  */
 
 static inline void
-bitmap_initialize (bitmap head, bitmap_obstack *obstack)
+bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL)
 {
   head->first = head->current = NULL;
   head->obstack = obstack;
+#ifdef GATHER_STATISTICS
+  bitmap_register (head PASS_MEM_STAT);
+#endif
 }
+#define bitmap_initialize(h,o) bitmap_initialize_stat (h,o MEM_STAT_INFO)
 
 /* Allocate and free bitmaps from obstack, malloc and gc'd memory.  */
-extern bitmap bitmap_obstack_alloc (bitmap_obstack *obstack);
-extern bitmap bitmap_gc_alloc (void);
+extern bitmap bitmap_obstack_alloc_stat (bitmap_obstack *obstack MEM_STAT_DECL);
+#define bitmap_obstack_alloc(t) bitmap_obstack_alloc_stat (t MEM_STAT_INFO)
+extern bitmap bitmap_gc_alloc_stat (ALONE_MEM_STAT_DECL);
+#define bitmap_gc_alloc() bitmap_gc_alloc_stat (ALONE_MEM_STAT_INFO)
 extern void bitmap_obstack_free (bitmap);
 
 /* A few compatibility/functions macros for compatibility with sbitmaps */

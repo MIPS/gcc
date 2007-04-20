@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -346,17 +346,28 @@ static bool
 if_convertible_gimple_modify_stmt_p (struct loop *loop, basic_block bb,
     				     tree m_expr)
 {
+  tree lhs, rhs;
+
+  if (TREE_CODE (m_expr) != GIMPLE_MODIFY_STMT)
+    return false;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "-------------------------\n");
       print_generic_stmt (dump_file, m_expr, TDF_SLIM);
     }
 
-  /* Be conservative and do not handle immovable expressions.  */
-  if (movement_possibility (m_expr) == MOVE_IMPOSSIBLE)
+  lhs = GIMPLE_STMT_OPERAND (m_expr, 0);
+  rhs = GIMPLE_STMT_OPERAND (m_expr, 1);
+
+  /* Some of these constrains might be too conservative.  */
+  if (stmt_ends_bb_p (m_expr) || stmt_ann (m_expr)->has_volatile_ops
+      || (TREE_CODE (lhs) == SSA_NAME
+          && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+      || TREE_SIDE_EFFECTS (rhs))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "stmt is movable. Don't take risk\n");
+        fprintf (dump_file, "stmt not suitable for ifcvt\n");
       return false;
     }
 
@@ -802,8 +813,7 @@ replace_phi_with_cond_gimple_modify_stmt (tree phi, tree cond,
 	        unshare_expr (arg_1));
 
   /* Create new MODIFY expression using RHS.  */
-  new_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (PHI_RESULT (phi)),
-		     unshare_expr (PHI_RESULT (phi)), rhs);
+  new_stmt = build_gimple_modify_stmt (unshare_expr (PHI_RESULT (phi)), rhs);
 
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
@@ -983,7 +993,7 @@ ifc_temp_var (tree type, tree exp)
   add_referenced_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
-  stmt = build2 (GIMPLE_MODIFY_STMT, type, var, exp);
+  stmt = build_gimple_modify_stmt (var, exp);
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */
@@ -1092,19 +1102,14 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
 static unsigned int
 main_tree_if_conversion (void)
 {
-  unsigned i, loop_num;
+  loop_iterator li;
   struct loop *loop;
 
   if (!current_loops)
     return 0;
 
-  loop_num = current_loops->num;
-  for (i = 0; i < loop_num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop =  current_loops->parray[i];
-      if (!loop)
-      continue;
-
       tree_if_conversion (loop, true);
     }
   return 0;

@@ -305,6 +305,9 @@ The elements are indexed from zero.
 @findex TYPENAME_TYPE_FULLNAME
 @findex TYPE_FIELDS
 @findex TYPE_PTROBV_P
+@findex TYPE_CANONICAL
+@findex TYPE_STRUCTURAL_EQUALITY_P
+@findex SET_TYPE_STRUCTURAL_EQUALITY
 
 All types have corresponding tree nodes.  However, you should not assume
 that there is exactly one tree node corresponding to each type.  There
@@ -405,6 +408,52 @@ This predicate holds for a pointer to object type.  Note however that it
 does not hold for the generic pointer to object type @code{void *}.  You
 may use @code{TYPE_PTROBV_P} to test for a pointer to object type as
 well as @code{void *}.
+
+@item TYPE_CANONICAL
+This macro returns the ``canonical'' type for the given type
+node. Canonical types are used to improve performance in the C++ and
+Objective-C++ front ends by allowing efficient comparison between two
+type nodes in @code{same_type_p}: if the @code{TYPE_CANONICAL} values
+of the types are equal, the types are equivalent; otherwise, the types
+are not equivalent. The notion of equivalence for canonical types is
+the same as the notion of type equivalence in the language itself. For
+instance,
+
+When @code{TYPE_CANONICAL} is @code{NULL_TREE}, there is no canonical
+type for the given type node. In this case, comparison between this
+type and any other type requires the compiler to perform a deep,
+``structural'' comparison to see if the two type nodes have the same
+form and properties.
+
+The canonical type for a node is always the most fundamental type in
+the equivalence class of types. For instance, @code{int} is its own
+canonical type. A typedef @code{I} of @code{int} will have @code{int}
+as its canonical type. Similarly, @code{I*}@ and a typedef @code{IP}@
+(defined to @code{I*}) will has @code{int*} as their canonical
+type. When building a new type node, be sure to set
+@code{TYPE_CANONICAL} to the appropriate canonical type. If the new
+type is a compound type (built from other types), and any of those
+other types require structural equality, use
+@code{SET_TYPE_STRUCTURAL_EQUALITY} to ensure that the new type also
+requires structural equality. Finally, if for some reason you cannot
+guarantee that @code{TYPE_CANONICAL} will point to the canonical type,
+use @code{SET_TYPE_STRUCTURAL_EQUALITY} to make sure that the new
+type--and any type constructed based on it--requires structural
+equality. If you suspect that the canonical type system is
+miscomparing types, pass @code{--param verify-canonical-types=1} to
+the compiler or configure with @code{--enable-checking} to force the
+compiler to verify its canonical-type comparisons against the
+structural comparisons; the compiler will then print any warnings if
+the canonical types miscompare.
+
+@item TYPE_STRUCTURAL_EQUALITY_P
+This predicate holds when the node requires structural equality
+checks, e.g., when @code{TYPE_CANONICAL} is @code{NULL_TREE}.
+
+@item SET_TYPE_STRUCTURAL_EQUALITY
+This macro states that the type node it is given requires structural
+equality checks, e.g., it sets @code{TYPE_CANONICAL} to
+@code{NULL_TREE}.
 
 @item same_type_p
 This predicate takes two types as input, and holds if they are the same
@@ -2144,7 +2193,7 @@ pointer or reference type.
 
 @item FIX_TRUNC_EXPR
 These nodes represent conversion of a floating-point value to an
-integer.  The single operand will have a floating-point type, while the
+integer.  The single operand will have a floating-point type, while
 the complete expression will have an integral (or boolean) type.  The
 operand is rounded towards zero.
 
@@ -2223,11 +2272,11 @@ type.
 
 @item TRUTH_ANDIF_EXPR
 @itemx TRUTH_ORIF_EXPR
-These nodes represent logical and and logical or, respectively.  These
-operators are not strict; i.e., the second operand is evaluated only if
-the value of the expression is not determined by evaluation of the first
-operand.  The type of the operands and that of the result are always of
-@code{BOOLEAN_TYPE} or @code{INTEGER_TYPE}.
+These nodes represent logical ``and'' and logical ``or'', respectively.
+These operators are not strict; i.e., the second operand is evaluated
+only if the value of the expression is not determined by evaluation of
+the first operand.  The type of the operands and that of the result are
+always of @code{BOOLEAN_TYPE} or @code{INTEGER_TYPE}.
 
 @item TRUTH_AND_EXPR
 @itemx TRUTH_OR_EXPR
@@ -2425,18 +2474,38 @@ argument does cause side-effects.
 
 @item CALL_EXPR
 These nodes are used to represent calls to functions, including
-non-static member functions.  The first operand is a pointer to the
+non-static member functions.  @code{CALL_EXPR}s are implemented as
+expression nodes with a variable number of operands.  Rather than using
+@code{TREE_OPERAND} to extract them, it is preferable to use the
+specialized accessor macros and functions that operate specifically on
+@code{CALL_EXPR} nodes.
+
+@code{CALL_EXPR_FN} returns a pointer to the
 function to call; it is always an expression whose type is a
-@code{POINTER_TYPE}.  The second argument is a @code{TREE_LIST}.  The
-arguments to the call appear left-to-right in the list.  The
-@code{TREE_VALUE} of each list node contains the expression
-corresponding to that argument.  (The value of @code{TREE_PURPOSE} for
-these nodes is unspecified, and should be ignored.)  For non-static
+@code{POINTER_TYPE}.
+
+The number of arguments to the call is returned by @code{call_expr_nargs},
+while the arguments themselves can be accessed with the @code{CALL_EXPR_ARG} 
+macro.  The arguments are zero-indexed and numbered left-to-right.  
+You can iterate over the arguments using @code{FOR_EACH_CALL_EXPR_ARG}, as in:
+
+@smallexample
+tree call, arg;
+call_expr_arg_iterator iter;
+FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
+  /* arg is bound to successive arguments of call.  */
+  ...;
+@end smallexample
+
+For non-static
 member functions, there will be an operand corresponding to the
 @code{this} pointer.  There will always be expressions corresponding to
 all of the arguments, even if the function is declared with default
 arguments and some arguments are not explicitly provided at the call
 sites.
+
+@code{CALL_EXPR}s also have a @code{CALL_EXPR_STATIC_CHAIN} operand that
+is used to implement nested functions.  This operand is otherwise null.
 
 @item STMT_EXPR
 These nodes are used to represent GCC's statement-expression extension.
@@ -2564,15 +2633,14 @@ cleanups.
 An @code{AGGR_INIT_EXPR} represents the initialization as the return
 value of a function call, or as the result of a constructor.  An
 @code{AGGR_INIT_EXPR} will only appear as a full-expression, or as the
-second operand of a @code{TARGET_EXPR}.  The first operand to the
-@code{AGGR_INIT_EXPR} is the address of a function to call, just as in
-a @code{CALL_EXPR}.  The second operand are the arguments to pass that
-function, as a @code{TREE_LIST}, again in a manner similar to that of
-a @code{CALL_EXPR}.
+second operand of a @code{TARGET_EXPR}.  @code{AGGR_INIT_EXPR}s have
+a representation similar to that of @code{CALL_EXPR}s.  You can use
+the @code{AGGR_INIT_EXPR_FN} and @code{AGGR_INIT_EXPR_ARG} macros to access
+the function to call and the arguments to pass.
 
 If @code{AGGR_INIT_VIA_CTOR_P} holds of the @code{AGGR_INIT_EXPR}, then
-the initialization is via a constructor call.  The address of the third
-operand of the @code{AGGR_INIT_EXPR}, which is always a @code{VAR_DECL},
+the initialization is via a constructor call.  The address of the
+@code{AGGR_INIT_EXPR_SLOT} operand, which is always a @code{VAR_DECL},
 is taken, and this value replaces the first argument in the argument
 list.
 

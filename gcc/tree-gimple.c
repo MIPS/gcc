@@ -93,7 +93,7 @@ is_gimple_reg_rhs (tree t)
      variable is only modified if evaluation of the RHS does not throw.
 
      Don't force a temp of a non-renamable type; the copy could be
-     arbitrarily expensive.  Instead we will generate a V_MAY_DEF for
+     arbitrarily expensive.  Instead we will generate a VDEF for
      the assignment.  */
 
   if (is_gimple_reg_type (TREE_TYPE (t))
@@ -182,6 +182,13 @@ is_gimple_min_invariant (tree t)
     case COMPLEX_CST:
     case VECTOR_CST:
       return true;
+
+    /* Vector constant constructors are gimple invariant.  */
+    case CONSTRUCTOR:
+      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	return TREE_CONSTANT (t);
+      else
+	return false;
 
     default:
       return false;
@@ -316,8 +323,9 @@ is_gimple_reg (tree t)
 
   /* Complex values must have been put into ssa form.  That is, no 
      assignments to the individual components.  */
-  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
-    return DECL_COMPLEX_GIMPLE_REG_P (t);
+  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+    return DECL_GIMPLE_REG_P (t);
 
   return true;
 }
@@ -377,7 +385,7 @@ is_gimple_val (tree t)
   /* FIXME make these decls.  That can happen only when we expose the
      entire landing-pad construct at the tree level.  */
   if (TREE_CODE (t) == EXC_PTR_EXPR || TREE_CODE (t) == FILTER_EXPR)
-    return 1;
+    return true;
 
   return (is_gimple_variable (t) || is_gimple_min_invariant (t));
 }
@@ -412,7 +420,7 @@ is_gimple_cast (tree t)
           || TREE_CODE (t) == FIX_TRUNC_EXPR);
 }
 
-/* Return true if T is a valid op0 of a CALL_EXPR.  */
+/* Return true if T is a valid function operand of a CALL_EXPR.  */
 
 bool
 is_gimple_call_addr (tree t)
@@ -466,7 +474,7 @@ void
 recalculate_side_effects (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-  int len = TREE_CODE_LENGTH (code);
+  int len = TREE_OPERAND_LENGTH (t);
   int i;
 
   switch (TREE_CODE_CLASS (code))
@@ -494,6 +502,7 @@ recalculate_side_effects (tree t)
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
     case tcc_reference:   /* a reference */
+    case tcc_vl_exp:        /* a function call */
       TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
       for (i = 0; i < len; ++i)
 	{

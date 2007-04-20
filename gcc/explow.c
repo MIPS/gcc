@@ -245,7 +245,11 @@ expr_size (tree exp)
   if (TREE_CODE (exp) == WITH_SIZE_EXPR)
     size = TREE_OPERAND (exp, 1);
   else
-    size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (lang_hooks.expr_size (exp), exp);
+    {
+      size = lang_hooks.expr_size (exp);
+      gcc_assert (size);
+      size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (size, exp);
+    }
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
 }
@@ -261,7 +265,10 @@ int_expr_size (tree exp)
   if (TREE_CODE (exp) == WITH_SIZE_EXPR)
     size = TREE_OPERAND (exp, 1);
   else
-    size = lang_hooks.expr_size (exp);
+    {
+      size = lang_hooks.expr_size (exp);
+      gcc_assert (size);
+    }
 
   if (size == 0 || !host_integerp (size, 0))
     return -1;
@@ -375,12 +382,15 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
     case MULT:
       /* For addition we can safely permute the conversion and addition
 	 operation if one operand is a constant and converting the constant
-	 does not change it.  We can always safely permute them if we are
-	 making the address narrower.  */
+	 does not change it or if one operand is a constant and we are
+	 using a ptr_extend instruction  (POINTERS_EXTEND_UNSIGNED < 0).
+	 We can always safely permute them if we are making the address
+	 narrower.  */
       if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
 	  || (GET_CODE (x) == PLUS
 	      && GET_CODE (XEXP (x, 1)) == CONST_INT
-	      && XEXP (x, 1) == convert_memory_address (to_mode, XEXP (x, 1))))
+	      && (XEXP (x, 1) == convert_memory_address (to_mode, XEXP (x, 1))
+                 || POINTERS_EXTEND_UNSIGNED < 0)))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode,
 			       convert_memory_address (to_mode, XEXP (x, 0)),
 			       XEXP (x, 1));

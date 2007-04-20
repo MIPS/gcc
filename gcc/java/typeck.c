@@ -1,5 +1,5 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -131,9 +131,7 @@ convert (tree type, tree expr)
     {
       if (type == char_type_node || type == promoted_char_type_node)
 	return fold_convert (type, expr);
-      if ((really_constant_p (expr)
-	   || (! flag_unsafe_math_optimizations
-	       && ! flag_emit_class_files))
+      if ((really_constant_p (expr) || ! flag_unsafe_math_optimizations)
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
 	return convert_ieee_real_to_integer (type, expr);
@@ -197,31 +195,12 @@ java_type_for_size (unsigned bits, int unsignedp)
   return 0;
 }
 
-/* Return a type the same as TYPE except unsigned or
-   signed according to UNSIGNEDP.  */
-
-tree
-java_signed_or_unsigned_type (int unsignedp, tree type)
-{
-  if (! INTEGRAL_TYPE_P (type))
-    return type;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (int_type_node))
-    return unsignedp ? unsigned_int_type_node : int_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (byte_type_node))
-    return unsignedp ? unsigned_byte_type_node : byte_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (short_type_node))
-    return unsignedp ? unsigned_short_type_node : short_type_node;
-  if (TYPE_PRECISION (type) == TYPE_PRECISION (long_type_node))
-    return unsignedp ? unsigned_long_type_node : long_type_node;
-  return type;
-}
-
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
 java_signed_type (tree type)
 {
-  return java_signed_or_unsigned_type (0, type);
+  return get_signed_or_unsigned_type (0, type);
 }
 
 /* Return an unsigned type the same as TYPE in other respects.  */
@@ -229,7 +208,7 @@ java_signed_type (tree type)
 tree
 java_unsigned_type (tree type)
 {
-  return java_signed_or_unsigned_type (1, type);
+  return get_signed_or_unsigned_type (1, type);
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -356,7 +335,7 @@ tree
 build_java_array_type (tree element_type, HOST_WIDE_INT length)
 {
   tree sig, t, fld, atype, arfld;
-  char buf[23]; /* 20 for the digits of a 64 bit number + "[]" + \0 */
+  char buf[23];
   tree elsig = build_java_signature (element_type);
   tree el_name = element_type;
   buf[0] = '[';

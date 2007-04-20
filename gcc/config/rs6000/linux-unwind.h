@@ -301,6 +301,17 @@ ppc_fallback_frame_state (struct _Unwind_Context *context,
       fs->regs.reg[VRSAVE_REGNO].loc.offset = (long) &vregs->vsave - new_cfa;
     }
 
+  /* If we have SPE register high-parts... we check at compile-time to
+     avoid expanding the code for all other PowerPC.  */
+#ifdef __SPE__
+  for (i = 0; i < 32; i++)
+    {
+      fs->regs.reg[i + FIRST_PSEUDO_REGISTER - 1].how = REG_SAVED_OFFSET;
+      fs->regs.reg[i + FIRST_PSEUDO_REGISTER - 1].loc.offset
+	= (long) &regs->vregs - new_cfa + 4 * i;
+    }
+#endif
+
   return _URC_NO_REASON;
 }
 
@@ -319,7 +330,7 @@ frob_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs ATT
   if (pc[0] == 0x38210000 + SIGNAL_FRAMESIZE
       && (pc[1] == 0x38000077 || pc[1] == 0x380000AC)
       && pc[2] == 0x44000002)
-    context->signal_frame = 1;
+    _Unwind_SetSignalFrame (context, 1);
 #else
   /* li r0, 0x7777; sc  (sigreturn old)  */
   /* li r0, 0x0077; sc  (sigreturn new)  */
@@ -328,7 +339,7 @@ frob_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs ATT
   if ((pc[0] == 0x38007777 || pc[0] == 0x38000077
        || pc[0] == 0x38006666 || pc[0] == 0x380000AC)
       && pc[1] == 0x44000002)
-    context->signal_frame = 1;
+    _Unwind_SetSignalFrame (context, 1);
 #endif
 
 #ifdef __powerpc64__

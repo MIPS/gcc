@@ -1,6 +1,6 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -90,6 +90,8 @@ gfc_namespace *gfc_current_ns;
 gfc_gsymbol *gfc_gsym_root = NULL;
 
 static gfc_symbol *changed_syms = NULL;
+
+gfc_dt_list *gfc_derived_types;
 
 
 /*********** IMPLICIT NONE and IMPLICIT statement handlers ***********/
@@ -202,6 +204,12 @@ gfc_get_default_type (gfc_symbol * sym, gfc_namespace * ns)
   char letter;
 
   letter = sym->name[0];
+
+  if (gfc_option.flag_allow_leading_underscore && letter == '_')
+    gfc_internal_error ("Option -fallow_leading_underscore is for use only by "
+			"gfortran developers, and should not be used for "
+			"implicitly typed variables");
+
   if (letter < 'a' || letter > 'z')
     gfc_internal_error ("gfc_get_default_type(): Bad symbol");
 
@@ -245,6 +253,37 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 }
 
 
+/* This function is called from parse.c(parse_progunit) to check the
+   type of the function is not implicitly typed in the host namespace
+   and to implicitly type the function result, if necessary.  */
+
+void
+gfc_check_function_type (gfc_namespace *ns)
+{
+  gfc_symbol *proc = ns->proc_name;
+
+  if (!proc->attr.contained || proc->result->attr.implicit_type)
+    return;
+
+  if (proc->result->ts.type == BT_UNKNOWN)
+    {
+      if (gfc_set_default_type (proc->result, 0, gfc_current_ns)
+		== SUCCESS)
+	{
+	  if (proc->result != proc)
+	    proc->ts = proc->result->ts;
+	}
+      else
+	{
+	  gfc_error ("unable to implicitly type the function result "
+		     "'%s' at %L", proc->result->name,
+		     &proc->result->declared_at);
+	  proc->result->attr.untyped = 1;
+	}
+    }
+}
+
+
 /******************** Symbol attribute stuff *********************/
 
 /* This is a generic conflict-checker.  We do this to avoid having a
@@ -266,6 +305,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
     *intent_in = "INTENT(IN)", *intrinsic = "INTRINSIC",
+    *intent_out = "INTENT(OUT)", *intent_inout = "INTENT(INOUT)",
     *allocatable = "ALLOCATABLE", *elemental = "ELEMENTAL",
     *private = "PRIVATE", *recursive = "RECURSIVE",
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
@@ -273,7 +313,8 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
     *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
     *use_assoc = "USE ASSOCIATED", *cray_pointer = "CRAY POINTER",
-    *cray_pointee = "CRAY POINTEE", *data = "DATA", *volatile_ = "VOLATILE";
+    *cray_pointee = "CRAY POINTEE", *data = "DATA", *value = "VALUE",
+    *volatile_ = "VOLATILE", *protected = "PROTECTED";
   static const char *threadprivate = "THREADPRIVATE";
 
   const char *a1, *a2;
@@ -286,7 +327,8 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     {
       a1 = pointer;
       a2 = intent;
-      goto conflict;
+      standard = GFC_STD_F2003;
+      goto conflict_std;
     }
 
   /* Check for attributes not allowed in a BLOCK DATA.  */
@@ -402,6 +444,25 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (data, allocatable);
   conf (data, use_assoc);
 
+  conf (protected, intrinsic)
+  conf (protected, external)
+  conf (protected, in_common)
+
+  conf (value, pointer)
+  conf (value, allocatable)
+  conf (value, subroutine)
+  conf (value, function)
+  conf (value, volatile_)
+  conf (value, dimension)
+  conf (value, external)
+
+  if (attr->value && (attr->intent == INTENT_OUT || attr->intent == INTENT_INOUT))
+    {
+      a1 = value;
+      a2 = attr->intent == INTENT_OUT ? intent_out : intent_inout;
+      goto conflict;
+    }
+
   conf (volatile_, intrinsic)
   conf (volatile_, external)
 
@@ -434,6 +495,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (save);
       conf2 (volatile_);
       conf2 (pointer);
+      conf2 (protected);
       conf2 (target);
       conf2 (external);
       conf2 (intrinsic);
@@ -520,10 +582,12 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (subroutine);
       conf2 (entry);
       conf2 (pointer);
+      conf2 (protected);
       conf2 (target);
       conf2 (dummy);
       conf2 (in_common);
       conf2 (save);
+      conf2 (value);
       conf2 (volatile_);
       conf2 (threadprivate);
       break;
@@ -547,14 +611,14 @@ conflict:
 conflict_std:
   if (name == NULL)
     {
-      return gfc_notify_std (standard, "In the selected standard, %s attribute "
-                             "conflicts with %s attribute at %L", a1, a2,
+      return gfc_notify_std (standard, "Fortran 2003: %s attribute "
+                             "with %s attribute at %L", a1, a2,
                              where);
     }
   else
     {
-      return gfc_notify_std (standard, "In the selected standard, %s attribute "
-                             "conflicts with %s attribute in '%s' at %L",
+      return gfc_notify_std (standard, "Fortran 2003: %s attribute "
+			     "with %s attribute in '%s' at %L",
                              a1, a2, name, where);
     }
 }
@@ -763,6 +827,24 @@ gfc_add_cray_pointee (symbol_attribute * attr, locus * where)
   return check_conflict (attr, NULL, where);
 }
 
+try
+gfc_add_protected (symbol_attribute * attr, const char *name, locus * where)
+{
+  if (check_used (attr, name, where))
+    return FAILURE;
+
+  if (attr->protected)
+    {
+	if (gfc_notify_std (GFC_STD_LEGACY, 
+			    "Duplicate PROTECTED attribute specified at %L",
+			    where) 
+	    == FAILURE)
+	  return FAILURE;
+    }
+
+  attr->protected = 1;
+  return check_conflict (attr, name, where);
+}
 
 try
 gfc_add_result (symbol_attribute * attr, const char *name, locus * where)
@@ -805,22 +887,40 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
 }
 
 try
-gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
+gfc_add_value (symbol_attribute * attr, const char *name, locus * where)
 {
 
   if (check_used (attr, name, where))
     return FAILURE;
 
-  if (attr->volatile_)
+  if (attr->value)
     {
 	if (gfc_notify_std (GFC_STD_LEGACY, 
-			    "Duplicate VOLATILE attribute specified at %L",
+			    "Duplicate VALUE attribute specified at %L",
 			    where) 
 	    == FAILURE)
 	  return FAILURE;
     }
 
+  attr->value = 1;
+  return check_conflict (attr, name, where);
+}
+
+try
+gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
+{
+  /* No check_used needed as 11.2.1 of the F2003 standard allows
+     that the local identifier made accessible by a use statement can be
+     given a VOLATILE attribute.  */
+
+  if (attr->volatile_ && attr->volatile_ns == gfc_current_ns)
+    if (gfc_notify_std (GFC_STD_LEGACY, 
+        		"Duplicate VOLATILE attribute specified at %L", where)
+        == FAILURE)
+      return FAILURE;
+
   attr->volatile_ = 1;
+  attr->volatile_ns = gfc_current_ns;
   return check_conflict (attr, name, where);
 }
 
@@ -1255,7 +1355,11 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
   if (src->pointer && gfc_add_pointer (dest, where) == FAILURE)
     goto fail;
+  if (src->protected && gfc_add_protected (dest, NULL, where) == FAILURE)
+    goto fail;
   if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
+    goto fail;
+  if (src->value && gfc_add_value (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->volatile_ && gfc_add_volatile (dest, NULL, where) == FAILURE)
     goto fail;
@@ -1931,7 +2035,8 @@ gfc_free_symbol (gfc_symbol * sym)
 
   gfc_free_namespace (sym->formal_ns);
 
-  gfc_free_interface (sym->generic);
+  if (!sym->attr.generic_copy)
+    gfc_free_interface (sym->generic);
 
   gfc_free_formal_arglist (sym->formal);
 
@@ -1996,7 +2101,9 @@ gfc_find_sym_tree (const char *name, gfc_namespace * ns, int parent_flag,
       if (st != NULL)
 	{
 	  *result = st;
-	  if (st->ambiguous)
+	  /* Ambiguous generic interfaces are permitted, as long
+	     as the specific interfaces are different.  */
+	  if (st->ambiguous && !st->n.sym->attr.generic)
 	    {
 	      ambiguous_symbol (name, st);
 	      return 1;
@@ -2097,8 +2204,10 @@ gfc_get_sym_tree (const char *name, gfc_namespace * ns, gfc_symtree ** result)
     }
   else
     {
-      /* Make sure the existing symbol is OK.  */
-      if (st->ambiguous)
+      /* Make sure the existing symbol is OK.  Ambiguous
+	 generic interfaces are permitted, as long as the
+	 specific interfaces are different.  */
+      if (st->ambiguous && !st->n.sym->attr.generic)
 	{
 	  ambiguous_symbol (name, st);
 	  return 1;
@@ -2452,18 +2561,20 @@ free_sym_tree (gfc_symtree * sym_tree)
 }
 
 
-/* Free a derived type list.  */
+/* Free the derived type list.  */
 
 static void
-gfc_free_dt_list (gfc_dt_list * dt)
+gfc_free_dt_list (void)
 {
-  gfc_dt_list *n;
+  gfc_dt_list *dt, *n;
 
-  for (; dt; dt = n)
+  for (dt = gfc_derived_types; dt; dt = n)
     {
       n = dt->next;
       gfc_free (dt);
     }
+
+  gfc_derived_types = NULL;
 }
 
 
@@ -2529,8 +2640,6 @@ gfc_free_namespace (gfc_namespace * ns)
   gfc_free_equiv (ns->equiv);
   gfc_free_equiv_lists (ns->equiv_lists);
 
-  gfc_free_dt_list (ns->derived_types);
-
   for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     gfc_free_interface (ns->operator[i]);
 
@@ -2563,6 +2672,7 @@ gfc_symbol_done_2 (void)
 
   gfc_free_namespace (gfc_current_ns);
   gfc_current_ns = NULL;
+  gfc_free_dt_list ();
 }
 
 
@@ -2691,20 +2801,19 @@ gfc_symbol_state(void) {
 gfc_gsymbol *
 gfc_find_gsymbol (gfc_gsymbol *symbol, const char *name)
 {
-  gfc_gsymbol *s;
+  int c;
 
   if (symbol == NULL)
     return NULL;
-  if (strcmp (symbol->name, name) == 0)
-    return symbol;
 
-  s = gfc_find_gsymbol (symbol->left, name);
-  if (s != NULL)
-    return s;
+  while (symbol)
+    {
+      c = strcmp (name, symbol->name);
+      if (!c)
+	return symbol;
 
-  s = gfc_find_gsymbol (symbol->right, name);
-  if (s != NULL)
-    return s;
+      symbol = (c < 0) ? symbol->left : symbol->right;
+    }
 
   return NULL;
 }

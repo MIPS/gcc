@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #include "varray.h"
 #include "ggc.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -152,6 +153,7 @@ make_ssa_name (tree var, tree stmt)
   SSA_NAME_DEF_STMT (t) = stmt;
   SSA_NAME_PTR_INFO (t) = NULL;
   SSA_NAME_IN_FREE_LIST (t) = 0;
+  SSA_NAME_IS_DEFAULT_DEF (t) = 0;
   imm = &(SSA_NAME_IMM_USE_NODE (t));
   imm->use = NULL;
   imm->prev = imm;
@@ -178,7 +180,7 @@ release_ssa_name (tree var)
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (var == gimple_default_def (cfun, SSA_NAME_VAR (var)))
+  if (SSA_NAME_IS_DEFAULT_DEF (var))
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
@@ -303,3 +305,58 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
+
+/* Return SSA names that are unused to GGC memory.  This is used to keep
+   footprint of compiler during interprocedural optimization.
+   As a side effect the SSA_NAME_VERSION number reuse is reduced
+   so this function should not be used too often.  */
+static unsigned int
+release_dead_ssa_names (void)
+{
+  tree t, next;
+  int n = 0;
+  referenced_var_iterator rvi;
+
+  /* Current defs point to various dead SSA names that in turn points to dead
+     statements so bunch of dead memory is held from releasing.  */
+  FOR_EACH_REFERENCED_VAR (t, rvi)
+    set_current_def (t, NULL);
+  /* Now release the freelist.  */
+  for (t = FREE_SSANAMES (cfun); t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      /* Dangling pointers might make GGC to still see dead SSA names, so it is
+ 	 important to unlink the list and avoid GGC from seeing all subsequent
+	 SSA names.  In longer run we want to have all dangling pointers here
+	 removed (since they usually go through dead statements that consume
+	 considerable amounts of memory).  */
+      TREE_CHAIN (t) = NULL_TREE;
+      n++;
+    }
+  FREE_SSANAMES (cfun) = NULL;
+
+  /* Cgraph edges has been invalidated and point to dead statement.  We need to
+     remove them now and will rebuild it before next IPA pass.  */
+  cgraph_node_remove_callees (cgraph_node (current_function_decl));
+
+  if (dump_file)
+    fprintf (dump_file, "Released %i names, %.2f%%\n", n, n * 100.0 / num_ssa_names);
+  return 0;
+}
+
+struct tree_opt_pass pass_release_ssa_names =
+{
+  "release_ssa",			/* name */
+  NULL,					/* gate */
+  release_dead_ssa_names,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};

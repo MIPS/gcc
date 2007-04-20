@@ -46,8 +46,6 @@ struct sequence_stack GTY(())
   struct sequence_stack *next;
 };
 
-extern struct sequence_stack *sequence_stack;
-
 /* Stack of single obstacks.  */
 
 struct simple_obstack_stack
@@ -168,12 +166,12 @@ DEF_VEC_ALLOC_P(temp_slot_p,gc);
 
 enum function_frequency {
   /* This function most likely won't be executed at all.
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
   /* The default value.  */
   FUNCTION_FREQUENCY_NORMAL,
   /* Optimize this function hard
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_HOT
 };
 
@@ -194,6 +192,9 @@ struct function GTY(())
 
   /* The loops in this function.  */
   struct loops * GTY((skip)) x_current_loops;
+
+  /* Value histograms attached to particular statements.  */
+  htab_t GTY((skip)) value_histograms;
 
   /* For function.c.  */
 
@@ -370,6 +371,10 @@ struct function GTY(())
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
+  /* Properties used by the pass manager.  */
+  unsigned int curr_properties;
+  unsigned int last_verified;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -532,6 +537,7 @@ extern int trampolines_created;
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 #define current_loops (cfun->x_current_loops)
+#define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
@@ -591,4 +597,5 @@ extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 
 extern void used_types_insert (tree);
 
+extern int get_next_funcdef_no (void);
 #endif  /* GCC_FUNCTION_H */

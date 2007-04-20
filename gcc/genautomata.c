@@ -1,5 +1,5 @@
 /* Pipeline hazard description translator.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
    Written by Vladimir Makarov <vmakarov@redhat.com>
@@ -238,15 +238,11 @@ static arc_t next_out_arc              (arc_t);
    macros.  */
 
 #define NO_MINIMIZATION_OPTION "-no-minimization"
-
 #define TIME_OPTION "-time"
-
+#define STATS_OPTION "-stats"
 #define V_OPTION "-v"
-
 #define W_OPTION "-w"
-
 #define NDFA_OPTION "-ndfa"
-
 #define PROGRESS_OPTION "-progress"
 
 /* The following flags are set up by function `initiate_automaton_gen'.  */
@@ -266,6 +262,9 @@ static int split_argument;
 
 /* Flag of output time statistics (`-time').  */
 static int time_flag;
+
+/* Flag of automata statistics (`-stats').  */
+static int stats_flag;
 
 /* Flag of creation of description file which contains description of
    result automaton and statistics information (`-v').  */
@@ -712,16 +711,7 @@ struct state
   /* The following member is used to evaluate min issue delay of insn
      for a state.  */
   int min_insn_issue_delay;
-  /* The following member is used to evaluate max issue rate of the
-     processor.  The value of the member is maximal length of the path
-     from given state no containing arcs marked by special insn `cycle
-     advancing'.  */
-  int longest_path_length;
 };
-
-/* The following macro is an initial value of member
-   `longest_path_length' of a state.  */
-#define UNDEFINED_LONGEST_PATH_LENGTH -1
 
 /* Automaton arc.  */
 struct arc
@@ -1511,6 +1501,8 @@ gen_automata_option (rtx def)
     no_minimization_flag = 1;
   else if (strcmp (XSTR (def, 0), TIME_OPTION + 1) == 0)
     time_flag = 1;
+  else if (strcmp (XSTR (def, 0), STATS_OPTION + 1) == 0)
+    stats_flag = 1;
   else if (strcmp (XSTR (def, 0), V_OPTION + 1) == 0)
     v_flag = 1;
   else if (strcmp (XSTR (def, 0), W_OPTION + 1) == 0)
@@ -3621,7 +3613,6 @@ get_free_state (int with_reservs, automaton_t automaton)
       result->it_was_placed_in_stack_for_NDFA_forming = 0;
       result->it_was_placed_in_stack_for_DFA_forming = 0;
       result->component_states = NULL;
-      result->longest_path_length = UNDEFINED_LONGEST_PATH_LENGTH;
     }
   else
     {
@@ -3632,7 +3623,6 @@ get_free_state (int with_reservs, automaton_t automaton)
       result->automaton = automaton;
       result->first_out_arc = NULL;
       result->unique_num = curr_unique_state_num;
-      result->longest_path_length = UNDEFINED_LONGEST_PATH_LENGTH;
       curr_unique_state_num++;
     }
   if (with_reservs)
@@ -6678,48 +6668,6 @@ output_range_type (FILE *f, long int min_range_value,
     fprintf (f, "int");
 }
 
-/* The following macro value is used as value of member
-   `longest_path_length' of state when we are processing path and the
-   state on the path.  */
-
-#define ON_THE_PATH -2
-
-/* The following recursive function searches for the length of the
-   longest path starting from STATE which does not contain cycles and
-   `cycle advance' arcs.  */
-
-static int
-longest_path_length (state_t state)
-{
-  arc_t arc;
-  int length, result;
-
-  if (state->longest_path_length != UNDEFINED_LONGEST_PATH_LENGTH)
-    {
-      /* We don't expect the path cycle here.  Our graph may contain
-      	 only cycles with one state on the path not containing `cycle
-      	 advance' arcs -- see comment below.  */
-      gcc_assert (state->longest_path_length != ON_THE_PATH);
-      
-      /* We already visited the state.  */
-      return state->longest_path_length;
-    }
-
-  result = 0;
-  for (arc = first_out_arc (state); arc != NULL; arc = next_out_arc (arc))
-    /* Ignore cycles containing one state and `cycle advance' arcs.  */
-    if (arc->to_state != state
-	&& (arc->insn->insn_reserv_decl
-	    != DECL_INSN_RESERV (advance_cycle_insn_decl)))
-    {
-      length = longest_path_length (arc->to_state);
-      if (length > result)
-	result = length;
-    }
-  state->longest_path_length = result + 1;
-  return result;
-}
-
 /* The function outputs all initialization values of VECT.  */
 static void
 output_vect (vla_hwint_t vect)
@@ -8937,6 +8885,7 @@ initiate_automaton_gen (int argc, char **argv)
   split_argument = 0;  /* default value */
   no_minimization_flag = 0;
   time_flag = 0;
+  stats_flag = 0;
   v_flag = 0;
   w_flag = 0;
   progress_flag = 0;
@@ -8945,6 +8894,8 @@ initiate_automaton_gen (int argc, char **argv)
       no_minimization_flag = 1;
     else if (strcmp (argv [i], TIME_OPTION) == 0)
       time_flag = 1;
+    else if (strcmp (argv [i], STATS_OPTION) == 0)
+      stats_flag = 1;
     else if (strcmp (argv [i], V_OPTION) == 0)
       v_flag = 1;
     else if (strcmp (argv [i], W_OPTION) == 0)
@@ -9206,9 +9157,11 @@ write_automata (void)
 	fprintf (stderr, "done\n");
       output_statistics (output_description_file);
     }
-  output_statistics (stderr);
+  if (stats_flag)
+    output_statistics (stderr);
   ticker_off (&output_time);
-  output_time_statistics (stderr);
+  if (time_flag)
+    output_time_statistics (stderr);
   finish_states ();
   finish_arcs ();
   finish_automata_lists ();
@@ -9228,8 +9181,8 @@ write_automata (void)
     {
       fflush (output_description_file);
       if (ferror (stdout) != 0)
-	fatal ("Error in writing DFA description file %s",
-               output_description_file_name);
+	fatal ("Error in writing DFA description file %s: %s",
+               output_description_file_name, xstrerror (errno));
       fclose (output_description_file);
     }
   finish_automaton_decl_table ();

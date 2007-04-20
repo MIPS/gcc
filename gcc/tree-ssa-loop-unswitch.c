@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "domwalk.h"
 #include "params.h"
 #include "tree-pass.h"
+#include "tree-inline.h"
 
 /* This file implements the loop unswitching, i.e. transformation of loops like
 
@@ -82,23 +83,13 @@ static tree tree_may_unswitch_on (basic_block, struct loop *);
 unsigned int
 tree_ssa_unswitch_loops (void)
 {
-  int i, num;
+  loop_iterator li;
   struct loop *loop;
   bool changed = false;
 
   /* Go through inner loops (only original ones).  */
-  num = current_loops->num;
-
-  for (i = 1; i < num; i++)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
     {
-      /* Removed loop?  */
-      loop = current_loops->parray[i];
-      if (!loop)
-	continue;
-
-      if (loop->inner)
-	continue;
-
       changed |= tree_unswitch_single_loop (loop, 0);
     }
 
@@ -201,7 +192,7 @@ tree_unswitch_single_loop (struct loop *loop, int num)
     }
 
   /* The loop should not be too large, to limit code growth.  */
-  if (tree_num_loop_insns (loop)
+  if (tree_num_loop_insns (loop, &eni_size_weights)
       > (unsigned) PARAM_VALUE (PARAM_MAX_UNSWITCH_INSNS))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -279,13 +270,17 @@ static struct loop *
 tree_unswitch_loop (struct loop *loop,
 		    basic_block unswitch_on, tree cond)
 {
-  basic_block condition_bb;
+  unsigned prob_true;
+  edge edge_true, edge_false;
 
   /* Some sanity checking.  */
   gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
   gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
   gcc_assert (loop->inner == NULL);
 
+  extract_true_false_edges_from_block (unswitch_on, &edge_true, &edge_false);
+  prob_true = edge_true->probability;
   return loop_version (loop, unshare_expr (cond), 
-		       &condition_bb, false);
+		       NULL, prob_true, prob_true,
+		       REG_BR_PROB_BASE - prob_true, false);
 }
