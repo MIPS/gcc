@@ -1,3 +1,7 @@
+2007-04-19  Chao-ying Fu  <fu@mips.com>
+
+	* expr.c (convert_move): Support the move of fixed-point modes.
+
 2007-04-16  Chao-ying Fu  <fu@mips.com>
 
 	* config/fixed-bit.c (FIXED_MULHELPER): We need to cast to an
