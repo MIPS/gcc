@@ -3832,7 +3832,7 @@ fsmbi_const_p (rtx x)
       /* We can always choose TImode for CONST_INT because the high bits
          of an SImode will always be all 1s, i.e., valid for fsmbi. */
       enum immediate_class c = classify_immediate (x, TImode);
-      return c == IC_FSMBI || (!flow2_completed && c == IC_FSMBI2);
+      return c == IC_FSMBI || (!epilogue_completed && c == IC_FSMBI2);
     }
   return 0;
 }
