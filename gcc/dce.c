@@ -53,6 +53,10 @@ static bool something_changed;
    yet been processed.  */
 static VEC(rtx,heap) *worklist;
 
+static bitmap_obstack dce_marked_bitmap_obstack;
+static bitmap_obstack dce_blocks_bitmap_obstack;
+static bitmap_obstack dce_tmp_bitmap_obstack;
+
 static bitmap marked = NULL;
 
 /* Return true if INSN a normal instruction that can be deleted by the
@@ -187,7 +191,10 @@ init_dce (bool fast)
   if (dump_file)
     df_dump (dump_file);
 
-  marked = BITMAP_ALLOC (NULL);
+  bitmap_obstack_initialize (&dce_marked_bitmap_obstack);
+  bitmap_obstack_initialize (&dce_blocks_bitmap_obstack);
+  bitmap_obstack_initialize (&dce_tmp_bitmap_obstack);
+  marked = BITMAP_ALLOC (&dce_marked_bitmap_obstack);
 }
 
 
@@ -377,9 +384,12 @@ prescan_insns_for_dce (void)
 /* Free the data allocated by init_dce.  */
 
 static void
-end_fast_dce (void)
+fini_dce (void)
 {
   BITMAP_FREE (marked);
+  bitmap_obstack_release (&dce_marked_bitmap_obstack);
+  bitmap_obstack_release (&dce_blocks_bitmap_obstack);
+  bitmap_obstack_release (&dce_tmp_bitmap_obstack);
   df_in_progress = false;
 }
 
@@ -390,7 +400,7 @@ end_fast_dce (void)
 static bool
 dce_process_block (basic_block bb, bool redo_out)
 {
-  bitmap local_live = BITMAP_ALLOC (NULL);
+  bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
 #ifdef ENABLE_CHECKING
@@ -565,11 +575,11 @@ fast_dce (void)
   int n_blocks = df_get_n_blocks (DF_BACKWARD);
   int i;
   /* The set of blocks that have been seen on this iteration.  */
-  bitmap processed = BITMAP_ALLOC (NULL);
+  bitmap processed = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
   /* The set of blocks that need to have the out vectors reset because
      the in of one of their successors has changed.  */
-  bitmap redo_out = BITMAP_ALLOC (NULL);
-  bitmap all_blocks = BITMAP_ALLOC (NULL);
+  bitmap redo_out = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
+  bitmap all_blocks = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
   bool global_changed = true;
 
   int loop_count = 0;
@@ -660,7 +670,8 @@ rest_of_handle_fast_dce (void)
 {
   init_dce (true);
   fast_dce ();
-  end_fast_dce ();
+  fini_dce ();
+  df_in_progress = false;
   return 0;
 }
 
@@ -683,10 +694,7 @@ run_fast_df_dce (void)
   enum df_changeable_flags old_flags = df_clear_flags (DF_DEFER_INSN_RESCAN);
 
   df_in_progress = true;
-  init_dce (true);
-  fast_dce ();
-  BITMAP_FREE (marked);
-  df_in_progress = false;
+  rest_of_handle_fast_dce ();
   df_set_flags (old_flags);
 }
 

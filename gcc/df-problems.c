@@ -185,8 +185,8 @@ df_print_bb_index (basic_block bb, FILE *file)
 static void
 df_set_seen (void)
 {
-  seen_in_block = BITMAP_ALLOC (NULL);
-  seen_in_insn = BITMAP_ALLOC (NULL);
+  seen_in_block = BITMAP_ALLOC (&df_bitmap_obstack);
+  seen_in_insn = BITMAP_ALLOC (&df_bitmap_obstack);
 }
 
 
@@ -229,7 +229,7 @@ df_unset_seen (void)
    bits without actually generating a knockout vector.
 
    The kill and sparse_kill and the dense_invalidated_by_call and
-   sparse_invalidated_by call both play this game.  */
+   sparse_invalidated_by_call both play this game.  */
 
 /* Private data used to compute the solution for this problem.  These
    data structures are not accessible outside of this module.  */
@@ -238,7 +238,9 @@ struct df_ru_problem_data
   /* The set of defs to regs invalidated by call.  */
   bitmap sparse_invalidated_by_call;  
   /* The set of defs to regs invalidated by call for ru.  */  
-  bitmap dense_invalidated_by_call;   
+  bitmap dense_invalidated_by_call;
+  /* An obstack for the bitmaps we need for this problem.  */
+  bitmap_obstack ru_bitmaps;
 };
 
 /* Set basic block info.  */
@@ -279,6 +281,7 @@ df_ru_alloc (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
+  struct df_ru_problem_data *problem_data;
 
   if (!df_ru->block_pool)
     df_ru->block_pool = create_alloc_pool ("df_ru_block pool", 
@@ -286,19 +289,20 @@ df_ru_alloc (bitmap all_blocks)
 
   if (df_ru->problem_data)
     {
-      struct df_ru_problem_data *problem_data
-	= (struct df_ru_problem_data *) df_ru->problem_data;
-
+      problem_data = (struct df_ru_problem_data *) df_ru->problem_data;
       bitmap_clear (problem_data->sparse_invalidated_by_call);
       bitmap_clear (problem_data->dense_invalidated_by_call);
     }
   else 
     {
-      struct df_ru_problem_data *problem_data = XNEW (struct df_ru_problem_data);
+      problem_data = XNEW (struct df_ru_problem_data);
       df_ru->problem_data = problem_data;
 
-      problem_data->sparse_invalidated_by_call = BITMAP_ALLOC (NULL);
-      problem_data->dense_invalidated_by_call = BITMAP_ALLOC (NULL);
+      bitmap_obstack_initialize (&problem_data->ru_bitmaps);
+      problem_data->sparse_invalidated_by_call
+	= BITMAP_ALLOC (&problem_data->ru_bitmaps);
+      problem_data->dense_invalidated_by_call
+	= BITMAP_ALLOC (&problem_data->ru_bitmaps);
     }
 
   df_grow_bb_info (df_ru);
@@ -320,11 +324,11 @@ df_ru_alloc (bitmap all_blocks)
 	{ 
 	  bb_info = (struct df_ru_bb_info *) pool_alloc (df_ru->block_pool);
 	  df_ru_set_bb_info (bb_index, bb_info);
-	  bb_info->kill = BITMAP_ALLOC (NULL);
-	  bb_info->sparse_kill = BITMAP_ALLOC (NULL);
-	  bb_info->gen = BITMAP_ALLOC (NULL);
-	  bb_info->in = BITMAP_ALLOC (NULL);
-	  bb_info->out = BITMAP_ALLOC (NULL);
+	  bb_info->kill = BITMAP_ALLOC (&problem_data->ru_bitmaps);
+	  bb_info->sparse_kill = BITMAP_ALLOC (&problem_data->ru_bitmaps);
+	  bb_info->gen = BITMAP_ALLOC (&problem_data->ru_bitmaps);
+	  bb_info->in = BITMAP_ALLOC (&problem_data->ru_bitmaps);
+	  bb_info->out = BITMAP_ALLOC (&problem_data->ru_bitmaps);
 	}
     }
 }
@@ -517,7 +521,7 @@ df_ru_confluence_n (edge e)
       bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap tmp = BITMAP_ALLOC (NULL);
+      bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
 
       bitmap_copy (tmp, op2);
       bitmap_and_compl_into (tmp, dense_invalidated);
@@ -554,8 +558,15 @@ df_ru_transfer_function (int bb_index)
     return  bitmap_ior_and_compl (in, gen, out, kill);
   else 
     {
+      struct df_ru_problem_data *problem_data;
+      bitmap tmp;
       bool changed = false;
-      bitmap tmp = BITMAP_ALLOC (NULL);
+
+      /* Note that TMP is _not_ a temporary bitmap if we end up replacing
+	 IN with TMP.  Therefore, allocate TMP in the RU bitmaps obstack.  */
+      problem_data = (struct df_ru_problem_data *) df_ru->problem_data;
+      tmp = BITMAP_ALLOC (&problem_data->ru_bitmaps);
+
       bitmap_copy (tmp, out);
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
@@ -605,6 +616,7 @@ df_ru_free (void)
       free_alloc_pool (df_ru->block_pool);
       BITMAP_FREE (problem_data->sparse_invalidated_by_call);
       BITMAP_FREE (problem_data->dense_invalidated_by_call);
+      bitmap_obstack_release (&problem_data->ru_bitmaps);
       
       df_ru->block_info_size = 0;
       free (df_ru->block_info);
@@ -734,7 +746,9 @@ struct df_rd_problem_data
   /* The set of defs to regs invalidated by call.  */
   bitmap sparse_invalidated_by_call;  
   /* The set of defs to regs invalidate by call for rd.  */  
-  bitmap dense_invalidated_by_call;   
+  bitmap dense_invalidated_by_call;
+  /* An obstack for the bitmaps we need for this problem.  */
+  bitmap_obstack rd_bitmaps;
 };
 
 /* Set basic block info.  */
@@ -776,6 +790,7 @@ df_rd_alloc (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
+  struct df_rd_problem_data *problem_data;
 
   if (!df_rd->block_pool)
     df_rd->block_pool = create_alloc_pool ("df_rd_block pool", 
@@ -783,18 +798,20 @@ df_rd_alloc (bitmap all_blocks)
 
   if (df_rd->problem_data)
     {
-      struct df_rd_problem_data *problem_data
-	= (struct df_rd_problem_data *) df_rd->problem_data;
-
+      problem_data = (struct df_rd_problem_data *) df_rd->problem_data;
       bitmap_clear (problem_data->sparse_invalidated_by_call);
       bitmap_clear (problem_data->dense_invalidated_by_call);
     }
   else 
     {
-      struct df_rd_problem_data *problem_data = XNEW (struct df_rd_problem_data);
+      problem_data = XNEW (struct df_rd_problem_data);
       df_rd->problem_data = problem_data;
-      problem_data->sparse_invalidated_by_call = BITMAP_ALLOC (NULL);
-      problem_data->dense_invalidated_by_call = BITMAP_ALLOC (NULL);
+
+      bitmap_obstack_initialize (&problem_data->rd_bitmaps);
+      problem_data->sparse_invalidated_by_call
+	= BITMAP_ALLOC (&problem_data->rd_bitmaps);
+      problem_data->dense_invalidated_by_call
+	= BITMAP_ALLOC (&problem_data->rd_bitmaps);
     }
 
   df_grow_bb_info (df_rd);
@@ -816,11 +833,11 @@ df_rd_alloc (bitmap all_blocks)
 	{ 
 	  bb_info = (struct df_rd_bb_info *) pool_alloc (df_rd->block_pool);
 	  df_rd_set_bb_info (bb_index, bb_info);
-	  bb_info->kill = BITMAP_ALLOC (NULL);
-	  bb_info->sparse_kill = BITMAP_ALLOC (NULL);
-	  bb_info->gen = BITMAP_ALLOC (NULL);
-	  bb_info->in = BITMAP_ALLOC (NULL);
-	  bb_info->out = BITMAP_ALLOC (NULL);
+	  bb_info->kill = BITMAP_ALLOC (&problem_data->rd_bitmaps);
+	  bb_info->sparse_kill = BITMAP_ALLOC (&problem_data->rd_bitmaps);
+	  bb_info->gen = BITMAP_ALLOC (&problem_data->rd_bitmaps);
+	  bb_info->in = BITMAP_ALLOC (&problem_data->rd_bitmaps);
+	  bb_info->out = BITMAP_ALLOC (&problem_data->rd_bitmaps);
 	}
     }
 }
@@ -999,7 +1016,7 @@ df_rd_confluence_n (edge e)
       bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap tmp = BITMAP_ALLOC (NULL);
+      bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
 
       bitmap_copy (tmp, op2);
       bitmap_and_compl_into (tmp, dense_invalidated);
@@ -1036,8 +1053,15 @@ df_rd_transfer_function (int bb_index)
     return  bitmap_ior_and_compl (out, gen, in, kill);
   else 
     {
+      struct df_rd_problem_data *problem_data;
       bool changed = false;
-      bitmap tmp = BITMAP_ALLOC (NULL);
+      bitmap tmp;
+
+      /* Note that TMP is _not_ a temporary bitmap if we end up replacing
+	 OUT with TMP.  Therefore, allocate TMP in the RD bitmaps obstack.  */
+      problem_data = (struct df_rd_problem_data *) df_rd->problem_data;
+      tmp = BITMAP_ALLOC (&problem_data->rd_bitmaps);
+
       bitmap_copy (tmp, in);
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
@@ -1087,6 +1111,7 @@ df_rd_free (void)
       free_alloc_pool (df_rd->block_pool);
       BITMAP_FREE (problem_data->sparse_invalidated_by_call);
       BITMAP_FREE (problem_data->dense_invalidated_by_call);
+      bitmap_obstack_release (&problem_data->rd_bitmaps);
       
       df_rd->block_info_size = 0;
       free (df_rd->block_info);
@@ -3832,7 +3857,7 @@ df_ri_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       if (problem_data->setjmp_crosses)
 	bitmap_clear (problem_data->setjmp_crosses);
       else 
-	problem_data->setjmp_crosses = BITMAP_ALLOC (NULL);
+	problem_data->setjmp_crosses = BITMAP_ALLOC (&df_bitmap_obstack);
     }
 
   if (df_ri_problem_p (DF_RI_LIFE))
@@ -4411,9 +4436,9 @@ df_ri_compute (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
-  bitmap live = BITMAP_ALLOC (NULL);
-  bitmap do_not_gen = BITMAP_ALLOC (NULL);
-  bitmap artificial_uses = BITMAP_ALLOC (NULL);
+  bitmap live = BITMAP_ALLOC (&df_bitmap_obstack);
+  bitmap do_not_gen = BITMAP_ALLOC (&df_bitmap_obstack);
+  bitmap artificial_uses = BITMAP_ALLOC (&df_bitmap_obstack);
   bitmap local_live = NULL;
   bitmap local_processed = NULL;
   bitmap setjmp_crosses = NULL;
@@ -4422,12 +4447,12 @@ df_ri_compute (bitmap all_blocks)
 
   if (df_ri_problem_p (DF_RI_LIFE))
     {
-      local_live = BITMAP_ALLOC (NULL);
-      local_processed = BITMAP_ALLOC (NULL);
+      local_live = BITMAP_ALLOC (&df_bitmap_obstack);
+      local_processed = BITMAP_ALLOC (&df_bitmap_obstack);
       if (df_ri_problem_p (DF_RI_SETJMP))
 	setjmp_crosses = problem_data->setjmp_crosses;
       else
-	setjmp_crosses = BITMAP_ALLOC (NULL);
+	setjmp_crosses = BITMAP_ALLOC (&df_bitmap_obstack);
     }
   else if (df_ri_problem_p (DF_RI_SETJMP))
     setjmp_crosses = problem_data->setjmp_crosses;

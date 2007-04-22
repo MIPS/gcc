@@ -166,6 +166,8 @@ struct df_scan_problem_data
   alloc_pool reg_pool;
   alloc_pool mw_reg_pool;
   alloc_pool mw_link_pool;
+  bitmap_obstack reg_bitmaps;
+  bitmap_obstack insn_bitmaps;
 };
 
 typedef struct df_scan_bb_info *df_scan_bb_info_t;
@@ -218,6 +220,8 @@ df_scan_free_internal (void)
   free_alloc_pool (problem_data->reg_pool);
   free_alloc_pool (problem_data->mw_reg_pool);
   free_alloc_pool (problem_data->mw_link_pool);
+  bitmap_obstack_release (&problem_data->reg_bitmaps);
+  bitmap_obstack_release (&problem_data->insn_bitmaps);
   free (df_scan->problem_data);
 }
 
@@ -307,6 +311,9 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
     = create_alloc_pool ("df_scan_mw_link pool", 
 			 sizeof (struct df_link), block_size);
 
+  bitmap_obstack_initialize (&problem_data->reg_bitmaps);
+  bitmap_obstack_initialize (&problem_data->insn_bitmaps);
+
   insn_num += insn_num / 4; 
   df_grow_reg_info ();
 
@@ -326,14 +333,14 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       bb_info->artificial_uses = NULL;
     }
 
-  df->hardware_regs_used = BITMAP_ALLOC (NULL);
-  df->regular_block_artificial_uses = BITMAP_ALLOC (NULL);
-  df->eh_block_artificial_uses = BITMAP_ALLOC (NULL);
-  df->entry_block_defs = BITMAP_ALLOC (NULL);
-  df->exit_block_uses = BITMAP_ALLOC (NULL);
-  df->insns_to_delete = BITMAP_ALLOC (NULL);
-  df->insns_to_rescan = BITMAP_ALLOC (NULL);
-  df->insns_to_notes_rescan = BITMAP_ALLOC (NULL);
+  df->hardware_regs_used = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+  df->regular_block_artificial_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+  df->eh_block_artificial_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+  df->entry_block_defs = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+  df->exit_block_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
+  df->insns_to_delete = BITMAP_ALLOC (&problem_data->insn_bitmaps);
+  df->insns_to_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
+  df->insns_to_notes_rescan = BITMAP_ALLOC (&problem_data->insn_bitmaps);
 }
 
 
@@ -346,7 +353,10 @@ df_scan_free (void)
     df_scan_free_internal ();
 
   if (df->blocks_to_analyze)
-    BITMAP_FREE (df->blocks_to_analyze);
+    {
+      BITMAP_FREE (df->blocks_to_analyze);
+      df->blocks_to_analyze = NULL;
+    }
 
   free (df_scan);
 }
@@ -1160,7 +1170,7 @@ df_insn_rescan_all (void)
   basic_block bb;
   bitmap_iterator bi;
   unsigned int uid;
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   
   if (df->changeable_flags & DF_NO_INSN_RESCAN)
     {
@@ -1212,7 +1222,7 @@ df_process_deferred_rescans (void)
   bool defer_insn_rescan = false;
   bitmap_iterator bi;
   unsigned int uid;
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   
   if (df->changeable_flags & DF_NO_INSN_RESCAN)
     {
@@ -2987,7 +2997,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
   unsigned int ui;
   bool is_sibling_call;
   unsigned int i;
-  bitmap defs_generated = BITMAP_ALLOC (NULL);
+  bitmap defs_generated = BITMAP_ALLOC (&df_bitmap_obstack);
 
   /* Do not generate clobbers for registers that are the result of the
      call.  This causes ordering problems in the chain building code
@@ -3538,7 +3548,7 @@ df_record_entry_block_defs (bitmap entry_block_defs)
 void
 df_update_entry_block_defs (void)
 {
-  bitmap refs = BITMAP_ALLOC (NULL);
+  bitmap refs = BITMAP_ALLOC (&df_bitmap_obstack);
   bool changed = false;
 
   df_get_entry_block_def_set (refs);
@@ -3555,7 +3565,9 @@ df_update_entry_block_defs (void)
     }
   else
     {
-      df->entry_block_defs = BITMAP_ALLOC (NULL);
+      struct df_scan_problem_data *problem_data
+	= (struct df_scan_problem_data *) df_scan->problem_data;
+      df->entry_block_defs = BITMAP_ALLOC (&problem_data->reg_bitmaps);
       changed = true;
     }
 
@@ -3716,7 +3728,7 @@ df_record_exit_block_uses (bitmap exit_block_uses)
 void
 df_update_exit_block_uses (void)
 {
-  bitmap refs = BITMAP_ALLOC (NULL);
+  bitmap refs = BITMAP_ALLOC (&df_bitmap_obstack);
   bool changed = false;
 
   df_get_exit_block_use_set (refs);
@@ -3733,7 +3745,9 @@ df_update_exit_block_uses (void)
     }
   else
     {
-      df->exit_block_uses = BITMAP_ALLOC (NULL);
+      struct df_scan_problem_data *problem_data
+	= (struct df_scan_problem_data *) df_scan->problem_data;
+      df->exit_block_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
       changed = true;
     }
 
@@ -4105,7 +4119,7 @@ df_bb_verify (basic_block bb)
 static bool
 df_entry_block_bitmap_verify (bool abort_if_fail)
 {
-  bitmap entry_block_defs = BITMAP_ALLOC (NULL);
+  bitmap entry_block_defs = BITMAP_ALLOC (&df_bitmap_obstack);
   bool is_eq;
 
   df_get_entry_block_def_set (entry_block_defs);
@@ -4134,7 +4148,7 @@ df_entry_block_bitmap_verify (bool abort_if_fail)
 static bool
 df_exit_block_bitmap_verify (bool abort_if_fail)
 {
-  bitmap exit_block_uses = BITMAP_ALLOC (NULL);
+  bitmap exit_block_uses = BITMAP_ALLOC (&df_bitmap_obstack);
   bool is_eq;
 
   df_get_exit_block_use_set (exit_block_uses);
@@ -4194,8 +4208,8 @@ df_scan_verify (void)
   /* (2) There are various bitmaps whose value may change over the
      course of the compilation.  This step recomputes them to make
      sure that they have not slipped out of date.  */
-  regular_block_artificial_uses = BITMAP_ALLOC (NULL);
-  eh_block_artificial_uses = BITMAP_ALLOC (NULL);
+  regular_block_artificial_uses = BITMAP_ALLOC (&df_bitmap_obstack);
+  eh_block_artificial_uses = BITMAP_ALLOC (&df_bitmap_obstack);
 
   df_get_regular_block_artificial_uses (regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (eh_block_artificial_uses);

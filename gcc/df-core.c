@@ -408,6 +408,13 @@ static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 static void df_set_clean_cfg (void);
 #endif
 
+/* An obstack for bitmap not related to specific dataflow problems.
+   This obstack should e.g. be used for bitmaps with a short life time
+   such as temporary bitmaps.  */
+
+bitmap_obstack df_bitmap_obstack;
+
+
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
@@ -500,7 +507,7 @@ df_set_blocks (bitmap blocks)
       if (df->blocks_to_analyze)
 	{
 	  int p;
-	  bitmap diff = BITMAP_ALLOC (NULL);
+	  bitmap diff = BITMAP_ALLOC (&df_bitmap_obstack);
 	  bitmap_and_compl (diff, df->blocks_to_analyze, blocks);
 	  for (p = df->num_problems_defined - 1; p >= DF_FIRST_OPTIONAL_PROBLEM ;p--)
 	    {
@@ -546,7 +553,8 @@ df_set_blocks (bitmap blocks)
 		      if (!blocks_to_reset)
 			{
 			  basic_block bb;
-			  blocks_to_reset = BITMAP_ALLOC (NULL);
+			  blocks_to_reset =
+			    BITMAP_ALLOC (&df_bitmap_obstack);
 			  FOR_ALL_BB(bb)
 			    {
 			      bitmap_set_bit (blocks_to_reset, bb->index); 
@@ -558,7 +566,7 @@ df_set_blocks (bitmap blocks)
 	      if (blocks_to_reset)
 		BITMAP_FREE (blocks_to_reset);
 	    }
-	  df->blocks_to_analyze = BITMAP_ALLOC (NULL);
+	  df->blocks_to_analyze = BITMAP_ALLOC (&df_bitmap_obstack);
 	}
       bitmap_copy (df->blocks_to_analyze, blocks);
       df->analyze_subset = true;
@@ -694,6 +702,8 @@ rest_of_handle_df_initialize (void)
   df = XCNEW (struct df);
   df->changeable_flags = 0;
 
+  bitmap_obstack_initialize (&df_bitmap_obstack);
+
   /* Set this to a conservative value.  Stack_ptr_mod will compute it
      correctly later.  */
   current_function_sp_is_unchanging = 0;
@@ -802,6 +812,8 @@ rest_of_handle_df_finish (void)
   free (df->hard_regs_live_count);
   free (df);
   df = NULL;
+
+  bitmap_obstack_release (&df_bitmap_obstack);
   return 0;
 }
 
@@ -1065,7 +1077,7 @@ df_worklist_dataflow (struct dataflow *dataflow,
                       int *blocks_in_postorder,
                       int n_blocks)
 {
-  bitmap pending = BITMAP_ALLOC (NULL);
+  bitmap pending = BITMAP_ALLOC (&df_bitmap_obstack);
   sbitmap considered = sbitmap_alloc (last_basic_block);
   bitmap_iterator bi;
   unsigned int *bbindex_to_postorder;
@@ -1267,7 +1279,7 @@ df_analyze_problem (struct dataflow *dflow,
 void
 df_analyze (void)
 {
-  bitmap current_all_blocks = BITMAP_ALLOC (NULL);
+  bitmap current_all_blocks = BITMAP_ALLOC (&df_bitmap_obstack);
   bool everything;
   int i;
   
@@ -1512,7 +1524,7 @@ df_compact_blocks (void)
   basic_block bb;
   void **problem_temps;
   int size = last_basic_block *sizeof (void *);
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
   problem_temps = xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)

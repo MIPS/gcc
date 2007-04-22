@@ -1,3 +1,50 @@
+2007-04-22  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* df.h (df_bitmap_obstack): Declare.
+
+	* df-scan.c (df_scan_problem_data): Add new bitmap obstacks for
+	regsets and insns/notes to be rescanned.
+	(df_scan_free_internal): Free the new bitmap obstacks.
+	(df_scan_alloc): Initialize the new bitmap obstacks, and use them.
+	(df_scan_free): Set df->blocks_to_analyze to NULL after freeing it.
+	(df_insn_rescan_all): Put temporary bitmaps on df_bitmap_obstack.
+	(df_process_deferred_rescans): Likewise.
+	(df_get_call_refs): Likewise.
+	(df_update_entry_block_defs): Likewise.  Put entry_block_defs on
+	the regsets bitmap obstack.
+	(df_record_exit_block_uses): Changed like df_record_exit_block_uses.
+	(df_entry_block_bitmap_verify): Put temporary bitmaps on df_bitmap_obstack.
+	(df_exit_block_bitmap_verify): Likewise.
+	(df_scan_verify): Likewise.
+
+	* df-core.c (df_bitmap_obstack): Declare.
+	(rest_of_handle_df_initialize): Initialize it.
+	(rest_of_handle_df_finish): Release it.
+	(df_set_blocks, df_worklist_dataflow, df_analyze,
+	df_compact_blocks): Use it.
+
+	* df-problems.c (df_set_seen): Use df_bitmap_obstack for seen_in_block
+	and seen_in_insn.
+	(df_ri_compute): Likewise for bitmaps allocated for the RI problem.
+
+	For the RU and RD problems, introduce per-problem bitmap obstacks:
+	(df_r[ud]_problem_data): Add a per-problem bitmap
+	obstack.
+	(df_r[ud]_alloc): Initialize and use them per df problem.
+	(df_r[ud]_confluence_n, df_r[ud]_transfer_function): Use them.
+	(df_r[ud]_free): Release them.
+
+	* dce.c (dce_marked_bitmap_obstack, dce_blocks_bitmap_obstack,
+	dce_tmp_bitmap_obstack): New bitmap obstacks.
+	(init_dce): Initialize them.  Use dce_marked_bitmap_obstack for
+	the bitmap of marked insns.
+	(end_fast_dce): Renamed to...
+	(fini_dce): ...this.  Release the new bitmap obstacks.
+	(dce_process_block): Allocate local_live on dce_tmp_bitmap_obstack.
+	(fast_dce): Allocate basic block bitmaps on dce_blocks_bitmap_obstack.
+	(rest_of_handle_fast_dce): Call fini_dce, and clear df_in_progress.
+	(run_fast_df_dce): Likewise.
+
 2007-04-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	* config/spu/spu.c (fsmbi_const_p): Replace flow2_completed with

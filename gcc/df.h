@@ -668,6 +668,12 @@ struct df
 #define DF_INSN_UID_EQ_USES(INSN) (DF_INSN_UID_GET(INSN)->eq_uses)
 #define DF_INSN_UID_MWS(INSN) (DF_INSN_UID_GET(INSN)->mw_hardregs)
 
+/* An obstack for bitmap not related to specific dataflow problems.
+   This obstack should e.g. be used for bitmaps with a short life time
+   such as temporary bitmaps.  This obstack is declared in df-core.c.  */
+
+extern bitmap_obstack df_bitmap_obstack;
+
 /* This is a bitmap copy of regs_invalidated_by_call so that we can
    easily add it into bitmaps, etc. */ 
 
