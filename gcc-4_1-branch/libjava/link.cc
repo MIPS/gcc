@@ -362,9 +362,12 @@ _Jv_Linker::resolve_method_entry (jclass klass, jclass &found_class,
   // i.e., exactly the same jclass object. JVMS 5.4.3.3
   if (found_class->loader != klass->loader)
     {
+#if 0
       JArray<jclass> *found_args, *klass_args;
       jclass found_return, klass_return;
 
+      // We disable this check due to:
+      // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=236895
       _Jv_GetTypesFromSignature (the_method,
 				 found_class,
 				 &found_args,
@@ -386,6 +389,7 @@ _Jv_Linker::resolve_method_entry (jclass klass, jclass &found_class,
       if (found_return != klass_return)
 	throw new java::lang::LinkageError (JvNewStringLatin1
 	  ("return type mismatch with different loaders"));
+#endif
     }
   
   return the_method;
