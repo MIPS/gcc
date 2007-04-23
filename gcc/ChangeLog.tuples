@@ -1,0 +1,22 @@
+2007-04-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple-ir.c: New file.
+	* gimple-ir.h: New file.
+	* gsstruct.def: New file.
+	* gs.def: New file.
+	* gengtype.c (open_base_files): Add gimple-ir.h.
+	* tree-gimple.h: Include gimple-ir.h.
+	Add sequence to gimplify_expr and gimplify_body prototypes.
+	* gimplify.c: Include gimple-ir.h.
+	(gimplify_and_add): Adjust for gimple IR.
+	(gimplify_return_expr): Same.
+	(gimplify_stmt): Add seq_p argument.
+	(gimplify_expr): Add seq_p sequence and adjust accordingly.
+	(gimplify_body): Same.
+	* coretypes.h: Add gimple_statement_d and gimple definitions.
+	* Makefile.in (GIMPLE_IR_H): New.
+	(TREE_GIMPLE_H): Add gimple-ir.h.
+	(OBJS-common): Add gimple-ir.o.
+	(gimplify.o): Add GIMPLE_IR_H.
+	(gimple-ir.o): New.
+	(build/gencheck.o): Add gs.def.

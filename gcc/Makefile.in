@@ -734,6 +734,7 @@ PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
           input.h statistics.h vec.h treestruct.def $(HASHTAB_H)
+GIMPLE_IR_H = gimple-ir.h gs.def gsstruct.def
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
           hard-reg-set.h cfghooks.h $(OBSTACK_H)
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
@@ -775,7 +776,7 @@ MKDEPS_H = $(srcdir)/../libcpp/include/mkdeps.h
 SYMTAB_H = $(srcdir)/../libcpp/include/symtab.h
 CPP_ID_DATA_H = $(CPPLIB_H) $(srcdir)/../libcpp/include/cpp-id-data.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
-TREE_GIMPLE_H = tree-gimple.h tree-iterator.h
+TREE_GIMPLE_H = tree-gimple.h tree-iterator.h gimple-ir.h
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h \
 		bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h $(TREE_GIMPLE_H) \
 		$(HASHTAB_H) $(CGRAPH_H) $(IPA_REFERENCE_H)
@@ -1004,6 +1005,7 @@ OBJS-common = \
 	gcse.o \
 	genrtl.o \
 	ggc-common.o \
+	gimple-ir.o \
 	gimple-low.o \
 	gimplify.o \
 	global.o \
@@ -2125,7 +2127,7 @@ c-gimplify.o : c-gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(FLAGS_H) langhooks.h toplev.h $(RTL_H) $(TREE_FLOW_H) $(LANGHOOKS_DEF_H) \
    $(TM_H) coretypes.h $(C_PRETTY_PRINT_H) $(CGRAPH_H) $(BASIC_BLOCK_H) \
    hard-reg-set.h $(TREE_DUMP_H) $(TREE_INLINE_H)
-gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GIMPLE_IR_H) \
    $(DIAGNOSTIC_H) $(TREE_GIMPLE_H) $(TREE_INLINE_H) $(VARRAY_H) langhooks.h \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(CGRAPH_H) $(TIMEVAR_H) $(TM_H) \
    coretypes.h except.h $(FLAGS_H) $(RTL_H) $(FUNCTION_H) $(EXPR_H) output.h \
@@ -2189,6 +2191,8 @@ tree-object-size.o: tree-object-size.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
    $(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H) \
    output.h $(TREE_FLOW_H)
+gimple-ir.o : gimple-ir.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
+   $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_IR_H)
 tree-mudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(TREE_GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) langhooks.h tree-mudflap.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(CGRAPH_H) $(GGC_H) \
@@ -3041,7 +3045,7 @@ build/genautomata.o : genautomata.c $(RTL_BASE_H) $(OBSTACK_H)		\
   $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) errors.h vec.h		\
   $(HASHTAB_H) gensupport.h
 build/gencheck.o : gencheck.c gencheck.h tree.def $(BCONFIG_H) $(GTM_H)	\
-	$(SYSTEM_H) coretypes.h $(lang_tree_files)
+	$(SYSTEM_H) coretypes.h $(lang_tree_files) gs.def
 build/genchecksum.o : genchecksum.c $(BCONFIG_H) $(SYSTEM_H) $(MD5_H)
 build/gencodes.o : gencodes.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h

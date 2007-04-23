@@ -24,6 +24,7 @@ Boston, MA 02110-1301, USA.  */
 
 
 #include "tree-iterator.h"
+#include "gimple-ir.h"
 
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
@@ -110,13 +111,13 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
-extern enum gimplify_status gimplify_expr (tree *, tree *, tree *,
+extern enum gimplify_status gimplify_expr (tree *, gs_seq, tree *, tree *,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, tree *);
 extern void gimplify_one_sizepos (tree *, tree *);
 extern void gimplify_stmt (tree *);
 extern void gimplify_to_stmt_list (tree *);
-extern void gimplify_body (tree *, tree, bool);
+extern void gimplify_body (tree *, gs_seq, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (tree);
 extern void gimplify_and_add (tree, tree *);

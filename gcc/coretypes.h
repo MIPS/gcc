@@ -45,6 +45,8 @@ struct rtvec_def;
 typedef struct rtvec_def *rtvec;
 union tree_node;
 typedef union tree_node *tree;
+union gimple_statement_d;
+typedef union gimple_statement_d *gimple;
 union section;
 typedef union section section;
 

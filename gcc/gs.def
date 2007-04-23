@@ -1,0 +1,58 @@
+/* This file contains the definitions in the gimple IR tuples used in GCC.
+
+   Copyright (GS_C) 2007 Free Software Foundation, Inc.
+   Contributed by Aldy Hernandez <aldyh@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (GS_at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
+
+/* The format of this file is
+   DEFGSCODE(GS_symbol, printable name).
+
+   Where symbol is the enumeration name without the ``GS_''.
+   */
+
+DEFGSCODE(GS_BASE, "gs_base")
+DEFGSCODE(GS_WITH_OPS, "gs_with_ops")
+DEFGSCODE(GS_WITH_MEM_OPS, "gs_with_mem_ops")
+DEFGSCODE(GS_OMP, "gs_omp")
+
+DEFGSCODE(GS_BIND, "gs_bind")
+DEFGSCODE(GS_CATCH, "gs_catch")
+DEFGSCODE(GS_EH_FILTER, "gs_eh_filter")
+DEFGSCODE(GS_LABEL, "gs_label")
+DEFGSCODE(GS_PHI, "gs_phi")
+DEFGSCODE(GS_RESX, "gs_resx")
+DEFGSCODE(GS_TRY, "gs_try")
+DEFGSCODE(GS_ASSIGN, "gs_assign")
+DEFGSCODE(GS_COND, "gs_cond")
+DEFGSCODE(GS_GOTO, "gs_goto")
+DEFGSCODE(GS_SWITCH, "gs_switch")
+DEFGSCODE(GS_ASM, "gs_asm")
+DEFGSCODE(GS_CALL, "gs_call")
+DEFGSCODE(GS_NOP, "gs_nop")
+DEFGSCODE(GS_RETURN, "gs_return")
+DEFGSCODE(GS_OMP_CONTINUE, "gs_omp_continue")
+DEFGSCODE(GS_OMP_CRITICAL, "gs_omp_critical")
+DEFGSCODE(GS_OMP_FOR, "gs_omp_for")
+DEFGSCODE(GS_OMP_MASTER, "gs_omp_master")
+DEFGSCODE(GS_OMP_ORDERED, "gs_omp_ordered")
+DEFGSCODE(GS_OMP_PARALLEL, "gs_omp_parallel")
+DEFGSCODE(GS_OMP_RETURN, "gs_omp_return")
+DEFGSCODE(GS_OMP_SECTION, "gs_omp_section")
+DEFGSCODE(GS_OMP_SECTIONS, "gs_omp_sections")
+DEFGSCODE(GS_OMP_SINGLE, "gs_omp_single")
