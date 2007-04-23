@@ -1,3 +1,9 @@
+2007-04-23  Ian Lance Taylor  <iant@google.com>
+
+	* lower-subreg.c (resolve_reg_notes): Discard REG_DEAD and
+	REG_UNUSED notes for split registers.
+	(decompose_multiword_subregs): Remove life_blocks.
+
 2007-04-22  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* df.h (df_bitmap_obstack): Declare.

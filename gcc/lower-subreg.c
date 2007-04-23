@@ -632,6 +632,8 @@ resolve_reg_notes (rtx insn)
       switch (REG_NOTE_KIND (note))
 	{
 	case REG_NO_CONFLICT:
+	case REG_DEAD:
+	case REG_UNUSED:
 	  if (resolve_reg_p (XEXP (note, 0)))
 	    delete = true;
 	  break;
@@ -1057,7 +1059,6 @@ decompose_multiword_subregs (void)
   if (!bitmap_empty_p (decomposable_context))
     {
       int hold_no_new_pseudos = no_new_pseudos;
-      sbitmap life_blocks;
       sbitmap sub_blocks;
       unsigned int i;
       sbitmap_iterator sbi;
@@ -1067,8 +1068,6 @@ decompose_multiword_subregs (void)
       propagate_pseudo_copies ();
 
       no_new_pseudos = 0;
-      life_blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (life_blocks);
       sub_blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (sub_blocks);
 
@@ -1167,9 +1166,6 @@ decompose_multiword_subregs (void)
 		      changed = true;
 		    }
 		}
-
-	      if (changed)
-		SET_BIT (life_blocks, bb->index);
 	    }
 	}
 
@@ -1205,7 +1201,6 @@ decompose_multiword_subregs (void)
 	    }
 	}
 
-      sbitmap_free (life_blocks);
       sbitmap_free (sub_blocks);
     }
 
