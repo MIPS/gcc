@@ -1,3 +1,23 @@
+2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* gcc/testsuite/g++.old-deja/g++.pt/defarg6.C: Only run with
+	-std=gnu++98.
+	* gcc/testsuite/g++.old-deja/g++.pt/ucnid-1.C: Ditto.
+	* gcc/testsuite/g++.dg/cpp0x/variadic61.C: Ditto.
+	* gcc/testsuite/g++.dg/cpp0x/warn_cxx0x.C: Ditto.
+	* gcc/testsuite/g++.dg/cpp0x/variadic62.C: Ditto.
+	* gcc/testsuite/g++.dg/template/meminit1.C: Ditto.
+	* gcc/testsuite/g++.dg/template/operator7.C: Ditto.
+	* gcc/testsuite/g++.dg/template/static15.C: Ditto.
+	* gcc/testsuite/g++.dg/template/invalid1.C: Ditto.
+	* gcc/testsuite/g++.dg/template/shift1.C: Ditto.
+	* gcc/testsuite/g++.dg/template/error10.C: Ditto.
+	* gcc/c-opts.c (c_common_init_options): Default to C++0x mode with
+	GNU extensions.
+	(c_common_handle_option): -ansi selects C++0x mode.
+	(set_std_cxx98): Turn of FLAG_CPP0X.
+	* gcc/c-common.c (flag_cpp0x): Default to 1 (C++0x mode on).
+
 2007-04-24  Pedro Lamarao  <pedro.lamarao@mndfck.org>
 
        * parser.c (cp_parser_mem_initializer_list): make sure the rules

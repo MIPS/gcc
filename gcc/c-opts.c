@@ -217,7 +217,7 @@ c_common_init_options (unsigned int argc, const char **argv)
       diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
     }
 
-  parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
+  parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX0X: CLK_GNUC89,
 				ident_hash, &line_table);
 
   cpp_opts = cpp_get_options (parse_in);
@@ -562,7 +562,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (!c_dialect_cxx ())
 	set_std_c89 (false, true);
       else
-	set_std_cxx98 (true);
+	set_std_cxx0x (true);
       break;
 
     case OPT_d:
@@ -1600,6 +1600,7 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  flag_cpp0x = 0;
 }
 
 /* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */

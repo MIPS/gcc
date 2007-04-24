@@ -409,7 +409,7 @@ int flag_check_new;
 /* Nonzero if we want to allow the use of experimental features that
    are likely to become part of C++0x. */
 
-int flag_cpp0x = 0;
+int flag_cpp0x = 1;
 
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
