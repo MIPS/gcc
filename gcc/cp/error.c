@@ -395,6 +395,14 @@ dump_type (tree t, int flags)
       pp_cxx_identifier (cxx_pp, "...");
       break;
 
+    case DECLTYPE_TYPE:
+      pp_cxx_identifier (cxx_pp, "decltype");
+      pp_cxx_whitespace (cxx_pp);
+      pp_cxx_left_paren (cxx_pp);
+      dump_expr (DECLTYPE_TYPE_EXPR (t), flags & ~TFF_EXPR_IN_PARENS);
+      pp_cxx_right_paren (cxx_pp);
+      break;
+
     default:
       pp_unsupported_tree (cxx_pp, t);
       /* Fall through to error.  */
@@ -590,6 +598,7 @@ dump_type_prefix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -686,6 +695,7 @@ dump_type_suffix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case DECLTYPE_TYPE:
       break;
 
     default:

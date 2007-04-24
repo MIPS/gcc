@@ -1,5 +1,49 @@
 2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
 
+	* gcc/cp/typeck.c (structural_comptypes): Compare DECLTYPE_TYPE nodes.
+	* gcc/cp/cp-tree.def (DECLTYPE_TYPE): New.
+	* gcc/cp/error.c (dump_type): Dump DECLTYPE_TYPE nodes.
+	(dump_type_prefix): Ditto.
+	(dump_type_suffix): Ditto.
+	* gcc/cp/tree.c (DECLTYPE_TYPE): Walk DECLTYPE_TYPE nodes.
+	* gcc/cp/mangle.c (write_type): Handle DECLTYPE_TYPE, but don't mangle
+	the expression.
+	* gcc/cp/cp-tree.h (IS_AGGR_TYPE): DECLTYPE_TYPE nodes can be aggregate
+	types.
+	(DECLTYPE_TYPE_EXPR): New.
+	(DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P): New.
+	(finish_declared_type): Declare.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_type_specifier_seq): Print
+	DECLTYPE_TYPE nodes.
+	(pp_cxx_type_id): Ditto.
+	* gcc/cp/pt.c (for_each_template_parm_r): Walk DECLTYPE_TYPE children.
+	(tsubst): Substitute into a DECLTYPE_TYPE node.
+	(tsubst_copy): Ditto.
+	(unify): Cannot deduce anything from TYPEOF_OF or DECLTYPE_TYPE
+	nodes.
+	(dependent_type_p_r): DECLTYPE_TYPE types are always dependent.
+	* gcc/cp/semantics.c (finish_typeof): TYPEOF_TYPE types need to use
+	structural equality (because we can't hash the expressions).
+	(finish_declared_type): New.
+	* gcc/cp/lex.c (reswords): Add "decltype" keyword.
+	* gcc/cp/parser.c (cp_parser_postfix_expression): Add
+	MEMBER_ACCESS_ONLY_P to restrict postfix expression to member
+	access expressions.
+	(cp_parser_unary_expression): Update call to
+	cp_parser_postfix_expression to reflect new parameter.
+	(cp_parser_declared_type): New.
+	(cp_parser_simple_type_specifier): Parse decltype types.
+       * gcc/c-common.h (enum rid): Add RID_DECLTYPE, update RID_LAST_CXX0X.
+       * gcc/testsuite/g++.dg/cpp0x/decltype1.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype2.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype3.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype4.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype5.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype6.C: New.
+       * gcc/testsuite/g++.dg/cpp0x/decltype7.C: New.
+
+2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
+
 	* gcc/testsuite/g++.old-deja/g++.pt/defarg6.C: Only run with
 	-std=gnu++98.
 	* gcc/testsuite/g++.old-deja/g++.pt/ucnid-1.C: Ditto.

@@ -1650,6 +1650,14 @@ write_type (tree type)
           write_type (PACK_EXPANSION_PATTERN (type));
           break;
 
+        case DECLTYPE_TYPE:
+          write_string ("U10__decltype");
+          if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type))
+            write_string ("I");
+          else
+            write_string ("E");
+          break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -2163,7 +2171,7 @@ write_expression (tree expr)
       switch (code)
 	{
 	case CALL_EXPR:
-	  sorry ("call_expr cannot be mangled due to a defect in the C++ ABI");
+          sorry ("call_expr cannot be mangled due to a defect in the C++ ABI");
 	  break;
 
 	case CAST_EXPR:

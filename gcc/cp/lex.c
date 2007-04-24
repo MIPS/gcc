@@ -244,6 +244,7 @@ static const struct resword reswords[] =
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
   { "continue",		RID_CONTINUE,	0 },
+  { "decltype",         RID_DECLTYPE,   D_CXX0X },
   { "default",		RID_DEFAULT,	0 },
   { "delete",		RID_DELETE,	0 },
   { "do",		RID_DO,		0 },
