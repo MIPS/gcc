@@ -52,6 +52,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "langhooks.h"
 #include "params.h"
+#include "df.h"
 
 /* Processor costs */
 static const

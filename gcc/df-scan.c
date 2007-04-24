@@ -3104,8 +3104,24 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
         case REG_EQUIV:
         case REG_EQUAL:
           df_uses_record (collection_rec,
-			  &XEXP (note, 0), DF_REF_REG_USE,
-			  bb, insn, DF_REF_IN_NOTE);
+                          &XEXP (note, 0), DF_REF_REG_USE,
+                          bb, insn, DF_REF_IN_NOTE);
+          break;
+        case REG_NON_LOCAL_GOTO:
+          /* The frame ptr is used by a non-local goto.  */
+          df_ref_record (collection_rec,
+                         regno_reg_rtx[FRAME_POINTER_REGNUM],
+                         NULL,
+                         bb, insn, 
+                         DF_REF_REG_USE, 0);
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+          df_ref_record (collection_rec,
+                         regno_reg_rtx[HARD_FRAME_POINTER_REGNUM],
+                         NULL,
+                         bb, insn, 
+                         DF_REF_REG_USE, 0);
+#endif
+          break;
         default:
           break;
         }

@@ -3855,7 +3855,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
       gcc_assert (newreg >= 0);
       df_set_regs_ever_live (REGNO (in_rtx), false);
       df_set_regs_ever_live (newreg, true);
-      REGNO (in_rtx) = newreg;
+      SET_REGNO (in_rtx, newreg);
       in_rtx->used = 1;
     }
 

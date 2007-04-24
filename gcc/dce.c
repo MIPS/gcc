@@ -359,16 +359,13 @@ prescan_insns_for_dce (void)
     FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
       {
-	if (deletable_insn_p (insn, true))
+        rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
+        if (note)
+          mark_libcall (insn, true);
+        else if (deletable_insn_p (insn, true))
 	  mark_nonreg_stores (PATTERN (insn), insn, true);
-	else
-	  {
-	    rtx note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX);
-	    if (note)
-	      mark_libcall (insn, true);
-	    else
-	      mark_insn (insn, true);
-	  }
+        else
+	  mark_insn (insn, true);
       }
 
   if (dump_file)

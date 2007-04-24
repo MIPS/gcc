@@ -1,3 +1,11 @@
+2007-04-24  Seongbae Park <seongbae.park@gmail.com>
+
+	* final.c (leaf_renumber_regs_insn): Use SET_REGNO().
+	* df-scan.c (df_insn_refs_collect): Handle non-local gotos.
+	* sparc.c: New include of df.h.
+	* dce.c (prescan_insns_for_dce): Call mark_libcall for all insns 
+	with with REG_LIBCALL_ID.
+
 2007-04-23  Steven Bosscher  <steven@gcc.gnu.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
