@@ -1,3 +1,19 @@
+2007-04-24  Pedro Lamarao  <pedro.lamarao@mndfck.org>
+
+       * parser.c (cp_parser_mem_initializer_list): make sure the rules
+       constructor delegation are followed.
+       * init.c (expand_member_init): return properly if name is a
+       target constructor.
+       (emit_mem_initializers): if initializer is a target constructor,
+       delegate.
+       (perform_target_ctor): new function.
+
+2007-04-24  Pedro Lamarao  <pedro.lamarao@mndfck.org>
+
+       * g++.dg/cpp0x/dc_01.C: new test.
+       * g++.dg/cpp0x/dc_02.C: new test.
+       * g++.dg/cpp0x/dc_03.C: new test.
+
 2007-04-24  Douglas Gregor  <doug.gregor@gmail.com>
 
        * Branched at revision 124107.

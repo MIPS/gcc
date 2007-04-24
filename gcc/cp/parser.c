@@ -8466,6 +8466,7 @@ static void
 cp_parser_mem_initializer_list (cp_parser* parser)
 {
   tree mem_initializer_list = NULL_TREE;
+  tree target_ctor = error_mark_node;
 
   /* Let the semantic analysis code know that we are starting the
      mem-initializer-list.  */
@@ -8499,6 +8500,31 @@ cp_parser_mem_initializer_list (cp_parser* parser)
           if (mem_initializer != error_mark_node)
             mem_initializer = make_pack_expansion (mem_initializer);
         }
+      if (target_ctor != error_mark_node
+	  && mem_initializer != error_mark_node)
+	{
+	  error ("seeing initializer for member %<%D%>; "
+		 "previous target constructor for %T must be sole initializer",
+		 TREE_PURPOSE (mem_initializer),
+		 TREE_PURPOSE (target_ctor));
+	  mem_initializer = error_mark_node;
+	}
+      /* Look for a target constructor. */
+      if (flag_cpp0x
+	  && mem_initializer != error_mark_node
+	  && TYPE_P (TREE_PURPOSE (mem_initializer))
+	  && same_type_p (TREE_PURPOSE (mem_initializer), current_class_type))
+	{
+	  if (mem_initializer_list)
+	    {
+	      error ("target constructor for %T must be sole initializer; "
+		     "saw previous initializer for member %<%D%>",
+		     TREE_PURPOSE (mem_initializer),
+		     TREE_PURPOSE (mem_initializer_list));
+	      mem_initializer = error_mark_node;
+	    }
+	  target_ctor = mem_initializer;
+	}
       /* Add it to the list, unless it was erroneous.  */
       if (mem_initializer != error_mark_node)
 	{

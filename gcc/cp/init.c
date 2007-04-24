@@ -315,6 +315,30 @@ build_default_init (tree type, tree nelts)
   return build_zero_init (type, nelts, /*static_storage_p=*/false);
 }
 
+/* Initialize current class with INIT, a TREE_LIST of
+   arguments for a target constructor. If TREE_LIST is void_type_node,
+   an empty initializer list was given.  */
+
+static void
+perform_target_ctor (tree init)
+{
+  tree decl = current_class_ref;
+  tree type = current_class_type;
+
+  if (init == void_type_node)
+    init = NULL_TREE;
+
+  finish_expr_stmt (build_aggr_init (decl, init, 0));
+
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+    {
+      tree expr = build_delete (type, decl, sfk_complete_destructor,
+			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
+      if (expr != error_mark_node)
+	finish_eh_cleanup (expr);
+    }
+}
+
 /* Initialize MEMBER, a FIELD_DECL, with INIT, a TREE_LIST of
    arguments.  If TREE_LIST is void_type_node, an empty initializer
    list was given; if NULL_TREE no initializer was given.  */
@@ -669,6 +693,16 @@ emit_mem_initializers (tree mem_inits)
   if (!COMPLETE_TYPE_P (current_class_type))
     return;
 
+  if (flag_cpp0x
+      && mem_inits
+      && TYPE_P (TREE_PURPOSE (mem_inits))
+      && same_type_p (TREE_PURPOSE (mem_inits), current_class_type))
+    {
+	gcc_assert (TREE_CHAIN (mem_inits) == NULL_TREE);
+	perform_target_ctor (TREE_VALUE (mem_inits));
+	return;
+    }
+
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -979,11 +1013,18 @@ expand_member_init (tree name)
     }
   else if (TYPE_P (name))
     {
+      if (flag_cpp0x && same_type_p (name, current_class_type))
+	return name;
       basetype = TYPE_MAIN_VARIANT (name);
       name = TYPE_NAME (name);
     }
   else if (TREE_CODE (name) == TYPE_DECL)
-    basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
+    {
+      if (flag_cpp0x
+	  && same_type_p (TREE_TYPE (name), current_class_type))
+	return TREE_TYPE (name);
+      basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
+    }
   else
     basetype = NULL_TREE;
 
